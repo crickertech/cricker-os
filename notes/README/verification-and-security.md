@@ -6,6 +6,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Proving things about `kernel/src`](../kernel-proofs.md): proving kernel code, and the stub boundary. Name provisional.
 - [Proving things about `user/`](../user-proofs.md): proving the EL0 programs, and what it found. Name provisional.
 - [Verus, and whether it reaches the code Kani stops at](../verus.md). Name provisional.
+- [Upstreaming the riscv64 target to Kani](../kani-upstream.md): the branch, and the pull request text. Name provisional.
 - [Did the proofs catch the bugs?](../proof-retrospective.md). Name provisional.
 - [Falsification records](../falsification.md): recording that each proof harness can fail.
 - [Fuzzing the parse surface](../fuzzing.md): coverage-guided fuzzing of the parsers that read outside bytes.
