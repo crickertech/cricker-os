@@ -172,31 +172,115 @@ pub const CHILD_STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
 /// faults that builder does not have (notes/pipes/the-boot.md).
 pub const CHILD_STACK_PAGES: u64 = 4;
 
-/// An ever-advancing scratch window: where we temporarily map each child frame to fill it. Never
-/// unmapped, so a per-call reset would collide with a previous child's mappings (the bug 19d.2c
-/// found and this inherits the fix for). It starts at the bottom of the address-space map's runtime
-/// windows.
+/// **The builder's scratch window**: where a builder maps each frame it fills for a child, and each
+/// frame of somebody else's it reads (the image request of DECISIONS §219 (how the shell names an
+/// installed program to the spawner)), in its own address space.
+/// 64 MiB, 16,384 pages, from the bottom of the map's runtime windows.
 ///
-/// **BUGS: nothing bounds it** (recorded 2026-09-26, milestone 206). It advances one page per page
-/// built and never comes back, so a long-lived builder walks up through the runtime windows. In the
-/// progenitor the kernel's initrd window is at `0x2000_0000`, 256 MiB above the start, and a program
-/// the size of `ripgrep` costs 2.6 MiB a spawn: after about a hundred such spawns the cursor reaches
-/// the archive's window, the kernel refuses the mapping as already mapped, and every later build
-/// fails. Bounding it needs an unmap this loader does not
-/// have; milestone 206's block proposes the follow-up.
-static SCRATCH_NEXT: core::sync::atomic::AtomicU64 =
-    core::sync::atomic::AtomicU64::new(address_space_map::runtime_window(0x1000_0000));
+/// **Why a window rather than a cursor that only climbs** (milestone 604 (provisional), the
+/// builder's scratch cursor is bounded). There is no unmap (DECISIONS §162 (whether a holder can
+/// give up a mapping) is open), so a builder cannot give a scratch page back. But the kernel takes
+/// it back for the builder: a scratch page maps a frame retyped from the child's region, and
+/// destroying that region revokes every mapping of its pages, the builder's included (DECISIONS §13
+/// (frame revocation)). So the page is free again once the child is reaped, and only the builder's
+/// cursor did not know it. Until 2026-09-26 the cursor advanced one page per page built and never
+/// came back; in the progenitor it ran into the kernel's initrd window at `0x2000_0000` after 256
+/// MiB, or into the end of its own page-table budget first (milestone 604's block has the
+/// arithmetic). Now [`map_scratch`] wraps at the window's end and asks the kernel, page by page,
+/// which addresses are free.
+///
+/// **Siting.** In [`address_space_map::RUNTIME_WINDOWS`], starting where the cursor always started,
+/// and ending well under the progenitor's initrd window. `std_runtime_protocol`'s three pages sit
+/// inside it, but only in a `std` program's space, and no `std` program builds children. A window
+/// some other party does map in a builder's space costs a probe, not a failure: [`map_scratch`]
+/// skips any page the kernel says is taken.
+///
+/// **Why this size.** Big enough to hold every page one builder can have built and not yet
+/// reaped, which is what must fit at once; small enough that its page tables are a budget a
+/// builder can state ([`SCRATCH_TABLE_PAGES`]). The progenitor checks both at compile time against
+/// its own numbers (`system_initializer::INIT_OWN_PAGES` and `JOBS_BUDGET_PAGES`).
+///
+/// Name: provisional (milestone 604, 2026-09-26).
+pub const SCRATCH_WINDOW: address_space_map::Band = address_space_map::Band {
+    start: address_space_map::runtime_window(0x1000_0000),
+    end: address_space_map::runtime_window(0x1400_0000),
+};
 
-/// **Take `pages` of the never-reused scratch window for a caller's own mapping**, returning the
-/// first address. The progenitor maps each frame of a DECISIONS §219 (how the shell names an installed program to the spawner) image request here: a frame
-/// the *caller* owns, whose mapping in the progenitor is revoked only when the caller reclaims it,
-/// so a fixed window could collide with one the caller never gave back. Sharing this window with
-/// [`build_child`] keeps one rule for every page the builder maps and cannot unmap (DECISIONS §162 (whether a holder can give up a mapping)
-/// is where an unmap would come from).
+/// [`SCRATCH_WINDOW`] in pages. Name: provisional (milestone 604).
+pub const SCRATCH_WINDOW_PAGES: u64 = SCRATCH_WINDOW.bytes() / PAGE;
+
+/// **The most last-level page tables [`SCRATCH_WINDOW`] can cost a builder**: one per 512 pages,
+/// which is a 4 KiB table of 8-byte entries on all three architectures. A builder pays them out of
+/// the budget it passes as `own_ut`, once, as the cursor first reaches each 2 MiB; after the first
+/// lap every table already exists. The levels above are one or two tables shared with everything
+/// else the builder maps under 1 GiB. Name: provisional (milestone 604).
+pub const SCRATCH_TABLE_PAGES: u64 = SCRATCH_WINDOW_PAGES / 512;
+
+const _: () = assert!(
+    SCRATCH_WINDOW.start.is_multiple_of(512 * PAGE)
+        && SCRATCH_WINDOW.end.is_multiple_of(512 * PAGE)
+);
+
+/// The next page [`map_scratch`] tries. Starts at the window's base and wraps.
+static SCRATCH_NEXT: core::sync::atomic::AtomicU64 =
+    core::sync::atomic::AtomicU64::new(SCRATCH_WINDOW.start);
+
+/// **Map `frame` at the next free page of [`SCRATCH_WINDOW`] in our own address space**, with page
+/// tables from `own_ut`, and return the address. `writable` asks for read/write (the frame needs
+/// `WRITE`), otherwise read-only (`READ`).
 ///
-/// Name: provisional (milestone 198 (a package manager) rung 3a, 2026-09-26).
-pub fn scratch_pages(pages: u64) -> u64 {
-    SCRATCH_NEXT.fetch_add(pages * PAGE, core::sync::atomic::Ordering::Relaxed)
+/// **The kernel's page table is the free list.** `PageFrame::MAP` refuses an address that is
+/// already mapped, and refuses it whole, so a refusal here means "taken" and the next page is
+/// tried. That refusal is `BadPointer`, which the kernel also returns for a misaligned or
+/// kernel-half address; neither can happen here, because every address this tries is a page of
+/// [`SCRATCH_WINDOW`]. Any other refusal (a frame without the right, an `own_ut` out of pages for a
+/// table) is returned at once, and the cursor stays where it was.
+///
+/// The cursor wraps at the window's end, so a page a reaped child's region gave back is used again
+/// on the next lap. Pages that stay mapped for good (the boot servers' in the progenitor, a running
+/// job's) cost one refused probe per lap each. `Err` after a whole lap with nothing free, which
+/// means the builder holds [`SCRATCH_WINDOW_PAGES`] pages of live children at once.
+///
+/// # BUGS
+///
+/// - **One thread per builder**, which is every builder in the tree: the cursor is read, probed and
+///   written back without a lock, so two threads building at once could try the same page. The
+///   kernel would refuse the second, and it would then be skipped, so the failure is a wasted probe
+///   rather than a shared page.
+/// - **`BadPointer` means "taken" only because every address tried is valid.** A distinct
+///   `AlreadyMapped` error would let the probe say what it means; that is an ABI change, not worth
+///   one on its own.
+/// - **The builder still maps every live child's pages**, read/write. Wrapping bounds how much
+///   address space that costs, not what it lets the builder reach; that is DECISIONS §162's question.
+/// - **The progenitor's use of it is computed, not measured**: milestone 604's block has the
+///   arithmetic, and `system_initializer` checks its budgets against the window at compile time.
+///
+/// Name: provisional (milestone 604). It replaces `scratch_pages`, which handed out a contiguous
+/// run that was never reused.
+pub fn map_scratch(frame: u64, writable: bool, own_ut: u64) -> Result<u64, ()> {
+    use core::sync::atomic::Ordering::Relaxed;
+    let mut va = SCRATCH_NEXT.load(Relaxed);
+    for _ in 0..SCRATCH_WINDOW_PAGES {
+        let next = if va + PAGE >= SCRATCH_WINDOW.end {
+            SCRATCH_WINDOW.start
+        } else {
+            va + PAGE
+        };
+        // SAFETY: `invoke` is the syscall; the kernel validates the capability, the rights and the
+        // address, and maps nothing on any refusal.
+        let r = unsafe { invoke(frame, abi::page_frame::MAP, va, u64::from(writable), own_ut) };
+        if r == 0 {
+            SCRATCH_NEXT.store(next, Relaxed);
+            return Ok(va);
+        }
+        if r != abi::Error::BadPointer as i64 {
+            SCRATCH_NEXT.store(va, Relaxed);
+            return Err(());
+        }
+        va = next;
+    }
+    SCRATCH_NEXT.store(va, Relaxed);
+    Err(())
 }
 
 /// **Everything a child is born holding.** The same idea as the kernel's `Spawn`: read one of these
@@ -593,11 +677,7 @@ fn fill_and_map(
     mode: u64,
 ) -> Result<(), ()> {
     let frame = retype_page_frame_from(build_ut)?;
-    let scratch = SCRATCH_NEXT.fetch_add(PAGE, core::sync::atomic::Ordering::Relaxed);
-    // SAFETY: as above: the kernel validates the capability and the method.
-    if unsafe { invoke(frame, abi::page_frame::MAP, scratch, 1, own_ut) } != 0 {
-        return Err(());
-    }
+    let scratch = map_scratch(frame, true, own_ut)?;
     // SAFETY: `scratch` is a page we just mapped read/write in our own address space.
     let dst = unsafe { core::slice::from_raw_parts_mut(scratch as *mut u8, PAGE as usize) };
     dst.fill(0);

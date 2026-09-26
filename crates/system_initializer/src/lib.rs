@@ -608,9 +608,19 @@ const SH_BUDGET_PAGES: u64 = 128;
 /// **What the progenitor keeps for itself after the boot servers are up** (milestone 22, the interactive
 /// increment). It pays for one thing: the page tables reaching the loader's scratch window, which
 /// are the progenitor's own mappings and must never come out of a child's region (tearing that region down
-/// would free the progenitor's tables under a window it never unmaps). One L3 covers 512 scratch pages and a
-/// job maps at most a couple of dozen, so this is thousands of commands' worth.
+/// would free the progenitor's tables under a window it never unmaps). One L3 covers 512 scratch pages.
+///
+/// **Bounded since milestone 604 (provisional).** The loader's cursor used to climb forever, so this
+/// budget was spent one table per 2 MiB of everything ever built, and ran dry after about 200 MiB of
+/// builds past boot (the block has the arithmetic): about seventy-five `ripgrep`-sized spawns, a
+/// little before the cursor would have reached the initrd window. Now the cursor wraps inside
+/// `supervision_protocol::SCRATCH_WINDOW`, whose tables cost at most
+/// `supervision_protocol::SCRATCH_TABLE_PAGES` (32) however long the machine runs. The assertion
+/// below keeps that half of this budget spoken for; the other half pays for `job_undertaker`, which
+/// is built out of this region (its image, twelve stack pages, its tables, its address space and
+/// thread), and the tables under `ACTIVATION_FS_VA` and `IMAGE_STAGING_VA`.
 pub const INIT_OWN_PAGES: u64 = 128;
+const _: () = assert!(INIT_OWN_PAGES >= 2 * supervision_protocol::SCRATCH_TABLE_PAGES);
 
 /// **One job's region**: everything a spawned program is made of, so a single reclaim frees all of
 /// it. The biggest program the prompt can spawn is `date` at seven pages, plus
@@ -686,6 +696,19 @@ const SECOND_DIR_CARETAKER_PAGES: u64 = JOB_REGION_PAGES;
 /// empty. The ratchet above still holds at 630 pages: `script/swish-check` runs more than twenty
 /// jobs, which is well past what the pool could hold without the regions coming back.
 pub const JOBS_BUDGET_PAGES: u64 = JOB_REGION_PAGES * 6 + grant_plan::STD_REGION_PAGES;
+
+/// **Everything the job pool can have built at once fits in the loader's scratch window**, twice
+/// over (milestone 604 (provisional)). Every page the progenitor builds for a job is mapped once in
+/// its own scratch window and stays mapped until the job's region is destroyed, so the window must
+/// hold the whole pool at once, plus an image request's peek pages, beside the boot servers' pages,
+/// which are never given back. Half the window is left for those. They were not measured, and the
+/// sum of every program in the archive is under 2,400 pages of file, so half is generous; a pool
+/// grown past this (milestone 595's `rg` at the prompt will grow it) fails the build here rather
+/// than a spawn at run time.
+const _: () = assert!(
+    JOBS_BUDGET_PAGES + spawnproto::IMAGE_MAX_PAGES
+        <= supervision_protocol::SCRATCH_WINDOW_PAGES / 2
+);
 
 /// Where the progenitor maps the shell's output frame in **its own** address space, to print the one line it
 /// ever prints (the dropped-authority negative control). Well clear of the progenitor's segments, its stack,
@@ -3651,11 +3674,11 @@ fn render_ipv4(addr: u32, out: &mut [u8]) -> usize {
 /// Where the progenitor maps the file service's shared page to read the activation set. Mapped
 /// once, on the first image request, with page tables from its own budget. Clear of every other
 /// window this process maps (`INIT_OUT_VA` and the three peek pages below it, and the loader's
-/// scratch window, which starts at `0x1000_0000` and only grows).
+/// scratch window, `supervision_protocol::SCRATCH_WINDOW`, which starts at `0x1000_0000`).
 const ACTIVATION_FS_VA: u64 = address_space_map::pair_page(0x0f40_0000);
 
 /// **Where the progenitor keeps its own copy of an image**, [`spawnproto::IMAGE_MAX_PAGES`] pages
-/// at most. A fixed window rather than more of the never-reused scratch, because every page mapped
+/// at most. A fixed window rather than more of the loader's scratch window, because every page mapped
 /// here comes from a staging region *this process* destroys once the child is built, and a destroy
 /// revokes the mapping (DECISIONS §13 (frame revocation)), so the next request finds the window empty again. The page
 /// tables behind it come from `own_ut` and are reused.
@@ -3672,7 +3695,7 @@ const IMAGE_STAGING_VA: u64 = address_space_map::pair_page(0x0f80_0000);
 ///
 /// The caller keeps its own mapping of these frames, so hashing them in place would let it change
 /// the bytes between the hash and the build (§219: "the progenitor hashes its own copy"). So each
-/// frame is mapped read-only through the loader's never-reused scratch window, its capability is
+/// frame is mapped read-only through the loader's scratch window, its capability is
 /// deleted **before** the next thing is taken, and a page retyped from the staging region receives
 /// the copy. At most one capability of the caller's is in this table at any moment, and the
 /// staging page's own capability is deleted as soon as it is mapped: an image of any size costs one
@@ -3727,13 +3750,6 @@ fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, jobs_ut: u64, stage: bool
         None
     };
     let mut ok = staging.is_some();
-    // The caller's frames each get a fresh scratch page, never reused: their mappings here are
-    // revoked only when the *caller* reclaims them, which this process does not control.
-    let peek = if ok {
-        supervision_protocol::scratch_pages(pages)
-    } else {
-        0
-    };
     for i in 0..pages {
         let Some(frame) = opt_cap(recv_cap(spawn_ep).1) else {
             ok = false;
@@ -3743,14 +3759,17 @@ fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, jobs_ut: u64, stage: bool
             cap_delete(frame);
             continue;
         };
-        let theirs = peek + i * spawnproto::IMAGE_PAGE;
-        // SAFETY: `invoke` is the syscall; the kernel checks `READ` on the frame and the region.
-        ok = unsafe { invoke(frame, abi::page_frame::MAP, theirs, 0, own_ut) } == 0;
+        // A page of the loader's scratch window, the same rule as every page this process maps
+        // and cannot unmap. The mapping is revoked when the *caller* reclaims its frames (the shell
+        // destroys its staging region once the answer is in), and the window's next lap reuses
+        // the page (milestone 604 (provisional)).
+        let theirs = supervision_protocol::map_scratch(frame, false, own_ut);
         // The mapping outlives the capability, and the slot is what is scarce.
         cap_delete(frame);
-        if !ok {
+        let Ok(theirs) = theirs else {
+            ok = false;
             continue;
-        }
+        };
         let ours = IMAGE_STAGING_VA + i * spawnproto::IMAGE_PAGE;
         ok = match retype_page_frame(st) {
             Ok(page) => {

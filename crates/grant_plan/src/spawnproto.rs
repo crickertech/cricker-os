@@ -177,7 +177,7 @@ const DIR2_BIT: u64 = 1 << 38;
 ///
 /// **The progenitor hashes its own copy**, never the caller's frames, because the caller keeps a
 /// mapping of them and could change the bytes between a hash and a build. It maps each frame
-/// through the loader's never-reused scratch window, copies it into a page of its own, and deletes
+/// through the loader's scratch window (`supervision_protocol::map_scratch`), copies it into a page of its own, and deletes
 /// the capability before taking the next, so a request of any size costs its capability table one
 /// transient slot. A digest found in the activation set is vouched and runs with that entry's
 /// manifest. A miss runs only for a caller that presents the run-unvouched capability

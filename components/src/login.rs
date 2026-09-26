@@ -730,11 +730,12 @@ const CARETAKER_FS_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000)
 /// **Not "one build's worth," corrected.** An earlier version of this comment claimed only one
 /// caretaker is ever mid-construction, so this budget never holds more than one build's worth of
 /// intermediate page tables. That is wrong about `supervision_protocol::fill_and_map`'s own mechanism:
-/// its `SCRATCH_NEXT` counter is a single, process-wide, monotonically increasing VA allocator that
-/// is **never reused or unmapped** between calls, so every segment and blob page of every caretaker
-/// this process has ever built (successfully or not: `mint` calls `build_child` before it knows
-/// whether the caretaker's own descent will be refused) spends a little more of this region's
-/// watermark, permanently, for as long as this process runs.
+/// its scratch cursor is a single, process-wide VA allocator, so every segment and blob page of
+/// every caretaker this process builds (successfully or not: `mint` calls `build_child` before it
+/// knows whether the caretaker's own descent will be refused) moves it on, and each 2 MiB it first
+/// reaches costs this region a page table. Since milestone 604 (provisional) the cursor wraps inside
+/// `supervision_protocol::SCRATCH_WINDOW`, so the most it can ever cost is
+/// `SCRATCH_TABLE_PAGES` (32); before, it grew for as long as this process ran.
 ///
 /// **The real accumulation is one page, measured** (2026-08-26, over a whole aarch64 suite run: the
 /// twenty-six caretakers this file's tests build between them spend `usage() == (1, 128)` of this
