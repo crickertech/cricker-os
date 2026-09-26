@@ -83,3 +83,30 @@ slot, one transient.
 The eight-name bound (`MAX_NAMES`), which stays a stack decision in the shell; `mv *.txt dir/`, which
 a set capability cannot express by design (`notes/glob-grant.md`); and the provisional name
 `SET_BIT`.
+
+## The limits 2b asks for, proposed
+
+calef's ruling asked the building lane to propose the page limit, its memory cost, and a new
+`grant::MAX_NAME`. Proposed here on 2026-09-26 by milestone 47's lane, before 2b is built, so the
+numbers can be ruled on while the badged endpoints of PR #1372 land.
+
+`grant::MAX_NAME`: 252 bytes. That is RedoxFS's own limit (`DIR_ENTRY_MAX_LENGTH` in
+`vendor/redoxfs/src/lib.rs`). Unix's 255 would let a grant name a file the filesystem can never
+hold, and 16 is today's two-register limit, which 2b's page removes.
+
+The page encoding: a two-byte count, then per name one length byte, one byte of flags (the
+directory bit a listing observed), and the name. A name of `n` bytes costs `n + 2`.
+
+The limit: two pages, 8 KiB. That holds about 585 names of twelve bytes, and 32 of the longest.
+Over it the shell refuses, names the limit, and suggests `xargs`, as the ruling says. It never
+truncates.
+
+| Who | What it costs | Why that is affordable |
+|---|---|---|
+| The shell | 8 KiB of its heap while it plans and sends | The heap is capped at 32 KiB and a line holds nothing else that large |
+| The progenitor | Two transient pages copied from the shell's, checked, then mapped into the caretaker | From the job's own region, so the job's reap returns them. One transient capability slot, since the copy maps one frame at a time as `blobs` already does |
+| The set caretaker | Two read-only pages, and no local copy | It reads the progenitor's copy, which nothing else can write |
+
+One page would be simpler and would hold about 290 short names. The case for two is a directory of
+a few hundred files, which is where `rm *.log` stops being rare. Either number is a constant and
+cheap to change until something depends on it.
