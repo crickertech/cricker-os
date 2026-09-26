@@ -2982,6 +2982,10 @@ PINNED = {
     ("RegionTable", "insert_root", "&mut self"),
     ("RegionTable", "split", "&mut self"),
     ("RegionTable", "retype_page", "&mut self"),
+    # A carve, like `retype_page`, which is now `retype_run(name, 1)`: it answers nothing about
+    # reclaimability, and the loom harness searches it through `retype_page` (calef's RETYPE count
+    # ruling, 2026-09-26).
+    ("RegionTable", "retype_run", "&mut self"),
     ("RegionTable", "retype_object_page", "&mut self"),
     ("RegionTable", "unpin", "&mut self"),
     # The protocol itself. `&mut self` is not a detail of the signature, it is the whole argument.
