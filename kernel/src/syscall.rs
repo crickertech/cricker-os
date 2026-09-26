@@ -648,9 +648,21 @@ fn memory_region_split(cap: crate::cap::Cap, region: u64, count: u64) -> Result<
     // at the one mint site outside `derive` the caps proofs otherwise miss (milestone 35). Rights
     // narrow monotonically from the delegable root budget down; the progenitor holds that root with GRANT
     // and hands narrowed budgets on. See DECISIONS §16.
-    let slot = sched::grant(cap.mint_child(crate::cap::Object::MemoryRegion(child)))
-        .map_err(|_| Error::OutOfMemory)?; // capability table full
-    Ok(slot as i64)
+    //
+    // **A full capability table gives the child back rather than orphaning it**, milestone 601 (the
+    // region table prints its peak), a provisional number. This used to be a bare `?`, which
+    // returned `OutOfMemory` with the child still live and no capability anywhere naming it: its region slot was held until reboot, and so was
+    // the parent, because the orphan's count on it could never come down (the same consequence as
+    // `RegionTable::split`'s BUGS entry, by a different road). The child is unpinned, childless and
+    // at the top of the parent's watermark, so `destroy` returns its pages to the parent LIFO and
+    // drops the count, leaving the parent exactly as it was before the call.
+    match sched::grant(cap.mint_child(crate::cap::Object::MemoryRegion(child))) {
+        Ok(slot) => Ok(slot as i64),
+        Err(_) => {
+            crate::memory_region::destroy(child);
+            Err(Error::OutOfMemory) // capability table full
+        }
+    }
 }
 
 /// `MemoryRegion::DESTROY`: reclaim this region and every object retyped from it (object revocation):
@@ -1376,5 +1388,47 @@ mod tests {
         for slot in [parent, child_slot, root, root_child_slot] {
             let _ = sched::delete_current_cap(slot);
         }
+    }
+
+    /// **A `SPLIT` refused for a full capability table leaves the parent as it found it.** The
+    /// child is minted before its capability, so a caller whose table has no free slot used to get
+    /// `OutOfMemory` with an orphaned child still live: a region slot nobody could name, and a
+    /// parent that `reclaim_region` refused for the rest of the boot. The last assertion is the
+    /// one that failed before the fix; the `usage` check pins that the carve was given back too,
+    /// not merely uncounted. Milestone 601 (the region table prints its peak).
+    #[test_case]
+    fn split_refused_for_a_full_capability_table_orphans_no_child() {
+        let mut frame = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
+        let region = crate::memory_region::create(8).expect("a region to split");
+        let parent = sched::grant(crate::cap::memory_region_root_cap(region)).expect("grant");
+
+        // Fill every remaining slot. Bounded by the table's capacity, which `grant` enforces.
+        let mut filler = [0u64; crate::cap::CAPABILITY_TABLE_SLOTS];
+        let mut filled = 0;
+        while let Ok(slot) = sched::grant(crate::cap::memory_region_root_cap(region)) {
+            filler[filled] = slot;
+            filled += 1;
+        }
+
+        let refused = invoke(&mut frame, parent, abi::memory_region::SPLIT, 2, 0, 0);
+        assert_eq!(
+            refused,
+            Err(Error::OutOfMemory),
+            "no slot for the child's capability"
+        );
+        assert!(
+            !crate::memory_region::has_children(region),
+            "the refused split left a child nobody holds a capability to",
+        );
+        assert_eq!(
+            crate::memory_region::usage(region),
+            Some((0, 8)),
+            "the child's pages went back to the parent",
+        );
+
+        for &slot in filler[..filled].iter().chain([&parent]) {
+            let _ = sched::delete_current_cap(slot);
+        }
+        sched::reclaim_region(region).expect("the parent is reclaimable, as if SPLIT never ran");
     }
 }
