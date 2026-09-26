@@ -1,10 +1,19 @@
+---
+status: PROPOSED
+raised: 2026-09-26
+milestone_dependencies: none
+decision_dependencies: none
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
 # Build the firmware-screen terminal in userspace
 
-**Status: PROPOSED 2026-09-26.** Raised by lane `milestone/600-userspace-graphical-stack` (milestone 600
+Raised by lane `milestone/600-userspace-graphical-stack` (milestone 600
 (provisional), the graphical terminal stack is built in userspace), which moved the virtio-gpu stack's
 construction into the progenitor and found the firmware-screen terminal still built by the kernel.
 
-**Gate: NONE.** Ordinary work, unless the handover below turns out to need a new kernel method, in
+Ordinary work, unless the handover below turns out to need a new kernel method, in
 which case that part is calef's.
 
 ## The finding

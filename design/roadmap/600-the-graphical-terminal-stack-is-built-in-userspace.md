@@ -1,6 +1,12 @@
+---
+status: BUILT
+raised: 2026-09-26
+built: 2026-09-26
+promoted_from: build-the-graphical-terminal-stack-in-userspace
+---
 # 600. The graphical terminal stack is built in userspace
 
-**Status: BUILT.** *(Number and title provisional. The lane minted the next free number after 596 to
+*(Number and title provisional. The lane minted the next free number after 596 to
 599, which open pull requests hold, and the integrator confirms it at merge.)* Promoted from the
 proposal `build-the-graphical-terminal-stack-in-userspace`. The lane for milestone 23 (a
 capability-routed component OS with live replacement) filed it on 2026-09-26, on its own branch
@@ -111,8 +117,6 @@ itself is milestone 23's, and one cost of it is below.
   The swap's slot cost is also in this lane's report to milestone 23.
 
 ## Index row
-
-**Built:** 2026-09-26
 
 The progenitor builds `gpu_driver`, `display_terminal` and `keyboard_driver` from device grants
 where the kernel used to build all three, now that a gpu's DMA region is one capability. Proven by

@@ -1,10 +1,19 @@
+---
+status: PROPOSED
+raised: 2026-09-26
+milestone_dependencies: none
+decision_dependencies: none
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
 # The progenitor's stack has no measured headroom
 
-**Status: PROPOSED 2026-09-26.** Raised by lane `milestone/600-userspace-graphical-stack` (milestone
+Raised by lane `milestone/600-userspace-graphical-stack` (milestone
 600 (provisional), the graphical terminal stack is built in userspace), when its first gate on top
 of #1340 overflowed the progenitor's stack.
 
-**Gate: NONE.** A measurement, then a constant or a gate.
+A measurement, then a constant or a gate.
 
 ## The finding
 
