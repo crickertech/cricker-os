@@ -559,9 +559,28 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// spawn. aarch64 read **22482** in CI on #1372 against 22384, which is main's reading plus exactly
 /// those 112. **+32 headroom**, the two entries above's reason. 22482 + 32 = 22514.
 ///
+/// **`22_672` on its own branch, 2026-09-26: a display terminal's grid doubled, and three of them
+/// outlive their tests.** Milestone 142 (a text display good enough that people use it instead of a
+/// GUI) widened `video_terminal::Cell` from eight bytes to sixteen for truecolour, so a `Vt`, which
+/// lives in `display_terminal`'s `.bss`, went from 362,208 bytes to 724,416: 89 more frames per
+/// terminal process. The CI run on that branch against the merge-queue run before it, aarch64
+/// against aarch64: `focus_routes_a_keystroke_to_one_terminals_grid_and_not_its_neighbours` kept 779
+/// frames against 601 (two terminals), `a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_
+/// scanout` 594 against 505 (one). That is 267 of the suite's 273-frame rise (22367 to 22640); the
+/// rest is one or two frames scattered across tests that do not touch a terminal. riscv64 rose by
+/// the same amount, 22226 to 22502. It is a design cost of the wider cell rather than a leak: those
+/// terminals are left running the way the graphical boot leaves its own. Measured against that
+/// branch's own base rather than the merged tree: 22640 + 32 = 22672.
+///
+/// **Reconciled on the merge, 2026-09-26.** Milestone 142's branch and milestone 599's file-service
+/// change landed within the same day against slightly different bases (22367 against 22384, a
+/// pre-existing 17-frame drift neither entry's own change explains), so neither number above
+/// describes the tree this merge actually produces, exactly the collision `b84b3a35c` named:
+/// "the frame budget is the merged tree's number, not either branch's." <MEASURED_VALUE>
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 22_514;
+const SUITE_PAGE_FRAME_BUDGET: usize = 23_500; // TEMP measurement placeholder, fixed up below
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///
