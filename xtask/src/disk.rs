@@ -214,6 +214,47 @@ pub(crate) fn package_source_dir(architecture: &str) -> std::path::PathBuf {
 /// process domain, entropy and the network and lists the slots it holds.
 pub(crate) const INSTALLED_UNVOUCHED: &str = "installed/unvouched";
 
+/// **Bytes nobody vouched for whose manifest note asks for an argument** (milestone 597 (a program
+/// carries its manifest in an ELF note), provisional): `least_authority_demo`, stripped. Unvouched
+/// bytes may hold only what the D2 ruling names, and an argument is a designation the line would
+/// have to make, so `script/swish-check` types it with one and the progenitor must refuse it. Not
+/// named after the program because a name is at most 16 bytes (`filesystem_protocol`'s
+/// `MAX_NAME`), which `least_authority_demo` is not; CI found that on the first run.
+pub(crate) const INSTALLED_ASKS_AN_ARGUMENT: &str = "installed/asks-an-arg";
+
+/// **A program whose manifest note cannot be read** (milestone 597, provisional): the unvouched
+/// witness again, with its note's version word set to one no reader knows. The shell must refuse it
+/// at the prompt, before anything is sent, rather than run it as if it carried no note.
+pub(crate) const INSTALLED_MALFORMED_NOTE: &str = "installed/malformed-note";
+
+/// **`bytes` with its one manifest note's version word replaced by `version`**, for
+/// [`INSTALLED_MALFORMED_NOTE`]. The note is found by its header and owner, which
+/// `manifest_note::Note::of` writes for every manifest; exactly one must be present, or the fixture
+/// would prove nothing.
+fn with_note_version(bytes: &[u8], version: u32) -> Result<Vec<u8>, String> {
+    let mut head = Vec::new();
+    head.extend_from_slice(&((manifest_note::OWNER.len() + 1) as u32).to_le_bytes());
+    head.extend_from_slice(&(manifest_note::DESCRIPTOR_LEN as u32).to_le_bytes());
+    head.extend_from_slice(&manifest_note::MANIFEST.to_le_bytes());
+    head.extend_from_slice(b"nife\0\0\0\0");
+    let at: Vec<usize> = bytes
+        .windows(head.len())
+        .enumerate()
+        .filter(|(_, w)| *w == head.as_slice())
+        .map(|(i, _)| i)
+        .collect();
+    let [at] = at[..] else {
+        return Err(format!(
+            "expected one manifest note to corrupt, found {}",
+            at.len()
+        ));
+    };
+    let mut out = bytes.to_vec();
+    let v = at + head.len();
+    out[v..v + 4].copy_from_slice(&version.to_le_bytes());
+    Ok(out)
+}
+
 /// **Put a package on the RedoxFS image for the target to install** (milestone 198 rung 3a). Copies
 /// the package the archive build just made for `architecture` (`target/packages/<stem>.nifepkg`,
 /// the same bytes whose digest it packed into the image's catalogue) to [`DOWNLOADED_PACKAGE`], a
@@ -282,6 +323,13 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     ));
     let unvouched = crate::inspect::read_stripped(&witness.display().to_string())
         .map_err(|e| format!("could not read {}: {e}", witness.display()))?;
+    let malformed = with_note_version(&unvouched, 9)?;
+    let demo = root.join(format!(
+        "target/{triple}/{}/least_authority_demo",
+        crate::profile_dir()
+    ));
+    let asks_an_argument = crate::inspect::read_stripped(&demo.display().to_string())
+        .map_err(|e| format!("could not read {}: {e}", demo.display()))?;
 
     // `greeting`, the package whose program no image carries: to the disk for x86_64, and to the
     // gate's package source (with the lying `uptime`) for the legs that fetch.
@@ -333,10 +381,12 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     write(tree.join(DOWNLOADED_PACKAGE), &package)?;
     write(tree.join(TAMPERED_PACKAGE), &tampered)?;
     write(tree.join(INSTALLED_UNVOUCHED), &unvouched)?;
+    write(tree.join(INSTALLED_ASKS_AN_ARGUMENT), &asks_an_argument)?;
+    write(tree.join(INSTALLED_MALFORMED_NOTE), &malformed)?;
     write(tree.join(DOWNLOADED_GREETING), &greeting)?;
     eprintln!(
         "seed_installed ({architecture}): {stem} ({} bytes, digest {}) at {DOWNLOADED_PACKAGE}, \
-         a tampered copy, {greeting_stem} at {DOWNLOADED_GREETING}, and an unvouched program; \
+         a tampered copy, {greeting_stem} at {DOWNLOADED_GREETING}, and three unvouched programs; \
          no activation set. The package source at {} serves {greeting_stem} and a lying {stem}",
         package.len(),
         String::from_utf8_lossy(&measured_boot::hex(&package_archive::sha256(&package))),

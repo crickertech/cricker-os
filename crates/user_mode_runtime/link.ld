@@ -25,6 +25,7 @@ PHDRS
     text   PT_LOAD FLAGS(5);   /* R+X  */
     rodata PT_LOAD FLAGS(4);   /* R    */
     data   PT_LOAD FLAGS(6);   /* R+W  */
+    note   PT_NOTE FLAGS(4);   /* R, and inside `rodata`: see .note.nife below */
 }
 
 SECTIONS
@@ -36,9 +37,32 @@ SECTIONS
         *(.text .text.*)
     } :text
 
+    /* The `rodata` segment starts on a page of its own even when .rodata is empty, which a
+     * program that carries a note and has no constants (`least_authority_demo`) is. The linker drops
+     * an empty output section and its ALIGN with it, so without this line .note.nife would follow
+     * .text into the same page and the loader would refuse the program with SegmentsOverlap: the
+     * .bss rule below, one segment earlier. Found by milestone 597 on all three targets. */
+    . = ALIGN(4096);
     .rodata : ALIGN(4096) {
         *(.rodata .rodata.*)
     } :rodata
+
+    /* **The program's manifest, as an ELF note** (milestone 597 (a program carries its manifest in
+     * an ELF note), provisional; DECISIONS §197 (a package is one archive file) option M2, ruled
+     * 2026-09-26). `manifest_note::carry!` puts one note in `.note.nife.manifest`, and this keeps
+     * it twice over: in the `rodata` PT_LOAD, so its bytes are in the file and covered by the
+     * digest the progenitor vouches on, and in a PT_NOTE of its own, which is how the shell and the
+     * progenitor find it (`crates/elf`'s `Elf::note`) without section headers, which `strip` may
+     * delete from a program that still runs.
+     *
+     * KEEP, because nothing references the note and the linker would otherwise collect it. It is
+     * named before the /DISCARD/ below, and the first rule that matches an input section is the one
+     * that places it, so every other `.note*` a toolchain adds is still thrown away. A program that
+     * carries no note gets an empty section here and a PT_NOTE with no notes in it, which reads as
+     * "no manifest". */
+    .note.nife : ALIGN(4) {
+        KEEP(*(.note.nife.*))
+    } :rodata :note
 
     .data : ALIGN(4096) {
         *(.data .data.*)

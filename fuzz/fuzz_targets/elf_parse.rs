@@ -28,6 +28,18 @@ use elf::Elf;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
+    // The shell's streaming note reader runs on bytes nobody has parsed as a program yet, so it is
+    // fuzzed before `parse` gets a chance to refuse them (milestone 597 (a program carries its
+    // manifest in an ELF note), provisional).
+    if let Ok(segs) = elf::NoteSegments::from_head(data) {
+        let mut search = elf::NoteSearch::new(b"nife", 1);
+        for seg in segs {
+            let Ok(r) = seg.range(data.len()) else { break };
+            if search.segment(&data[r], seg.p_align).is_err() {
+                break;
+            }
+        }
+    }
     let Ok(elf) = Elf::parse(data) else {
         return;
     };
@@ -36,6 +48,10 @@ fuzz_target!(|data: &[u8]| {
     // already ran inside `parse`; this is the walk that happens afterwards, when the loader is
     // mapping and is past the point where refusing is easy.
     let _ = elf.entry();
+
+    // The note lookup the progenitor makes for a program's manifest (milestone 597, provisional):
+    // every `PT_NOTE` walked in full, on the same hostile bytes the loader accepted.
+    let _ = elf.note(b"nife", 1);
     for seg in elf.segments() {
         let _ = seg.is_readable();
         let _ = seg.is_writable();

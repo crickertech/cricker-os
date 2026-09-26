@@ -1732,15 +1732,18 @@ static IMAGE_PRIMED: core::sync::atomic::AtomicBool = core::sync::atomic::Atomic
 ///
 /// The shell reads the file through the file service it already holds, into frames split from its
 /// own budget, and sends them on the spawn endpoint under `IMAGE_BIT`. The progenitor hashes its own
-/// copy and looks the digest up in the activation set: a hit runs with the installed manifest. A
-/// miss runs only if this session holds the run-unvouched capability ([`HOLDS_RUN_UNVOUCHED`],
-/// §219's gate D2), which this request then claims and presents as its last message; the child
-/// gets what the line granted and the clock and configuration pages. Otherwise the miss is refused
-/// with its own word ([`swish::UNVOUCHED_SENTENCE`]).
+/// copy and looks the digest up in the activation set: a hit runs with the manifest the bytes
+/// carry. A miss runs only if this session holds the run-unvouched capability
+/// ([`HOLDS_RUN_UNVOUCHED`], §219's gate D2), which this request then claims and presents as its
+/// last message; the child gets what the line granted and the clock and configuration pages.
+/// Otherwise the miss is refused with its own word ([`swish::UNVOUCHED_SENTENCE`]).
 ///
-/// **The line is bound against [`grant_plan::INSTALLED_MANIFEST_OF`]**, `uptime`'s manifest, since
-/// no manifest travels with a package yet (§197 (a package is one archive file)). So an argument, a `--mem` or a file operand is
-/// refused here with nothing sent, exactly as `uptime 3` is.
+/// **The line is bound against the manifest the file carries** (milestone 597 (a program carries
+/// its manifest in an ELF note), provisional), read by [`read_manifest_note`] before anything is
+/// sent, or against `grant_plan::NO_NOTE_MANIFEST` when it carries none. So an argument the note
+/// does not declare is refused here, exactly as `uptime 3` is, and a note that cannot be read or
+/// asks for what an image cannot be given is refused with nothing sent. Whether the note is
+/// honoured is the progenitor's call, on its own copy (`grant_plan::image_manifest`).
 ///
 /// One frame is held at a time: retyped, filled, delegated narrowed to `READ`, deleted. The staging
 /// region is destroyed once the answer is in, which revokes the frames from both address spaces.
@@ -1751,22 +1754,35 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
         Err(Say::Cannot(r)) => return refuse(spec, r),
         Err(said) => return say(said),
     };
-    let stand_in = grant_plan::INSTALLED_MANIFEST_OF;
-    let e = match grant_plan::plan_against(
-        &spec,
-        stand_in,
-        stand_in.manifest(),
-        holdings(nav),
-        expanded,
-    ) {
-        Ok(e) => e,
-        Err(r) => return refuse(spec, r),
-    };
     let Some(dir) = nav.dir else {
         return say(Say::NoDirectory);
     };
     let Some((handle, size)) = open_for_bytes(nav, dir, spec.prog) else {
         return;
+    };
+    let declared = match read_manifest_note(dir, handle, size) {
+        Ok(d) => d,
+        Err(r) => {
+            nav.close(handle);
+            refused();
+            return print(swish::image_refusal_sentence(r));
+        }
+    };
+    let m = declared.unwrap_or(grant_plan::NO_NOTE_MANIFEST);
+    if !grant_plan::image_can_carry(&m) {
+        nav.close(handle);
+        refused();
+        return print(swish::image_refusal_sentence(
+            grant_plan::ImageRefusal::NotCarried,
+        ));
+    }
+    let e = match grant_plan::plan_against(&spec, grant_plan::IMAGE_ROW, m, holdings(nav), expanded)
+    {
+        Ok(e) => e,
+        Err(r) => {
+            nav.close(handle);
+            return refuse(spec, r);
+        }
     };
     let pages = spawnproto::image_pages(size);
     let holds_run_unvouched = HOLDS_RUN_UNVOUCHED.load(core::sync::atomic::Ordering::Relaxed);
@@ -1814,11 +1830,21 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
         send(spawnproto::RUN_UNVOUCHED_SLOT, 0, 0, 0);
     }
 
-    if e.prog.manifest().output.is_byte_stream() {
+    // The output's shape is the manifest's, never `e.prog`'s: an image's row is a stand-in
+    // (`grant_plan::IMAGE_ROW`).
+    if m.output.is_byte_stream() {
         drain_text();
     } else {
         let answer = recv(RESULT).0;
-        outcome(e, answer);
+        // The four progenitor words sit at the top of `u64` (`SPAWN_REFUSED_BY_MANIFEST` is the
+        // lowest); anything below is the program's own answer, which no row renders for an image.
+        if answer >= spawnproto::SPAWN_REFUSED_BY_MANIFEST {
+            outcome(e, answer);
+        } else {
+            print(b"  it answered ");
+            print_num(answer);
+            print(b"\n");
+        }
     }
     if !read_ok {
         print(b"  (this shell could not read the whole file, so those were not its bytes)\n");
@@ -1827,6 +1853,81 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     // revokes every mapping of them, ours and the progenitor's, and returns the pages.
     user_mode_runtime::destroy_region(staging);
     cap_delete(staging);
+}
+
+/// The first page of a file whose manifest note is being read, and the note segment it points at.
+/// Statics rather than locals for [`GENERATION_TABLE`]'s reason: two pages on the stack would take
+/// the frame past the guard page `script/stack-frame-check` holds every frame to.
+static mut NOTE_HEAD: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
+static mut NOTE_SEGMENT: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
+
+/// **The manifest the open file `handle` carries in its own bytes** (milestone 597, provisional),
+/// read the way the progenitor reads its copy: the `PT_NOTE` headers from the file's first page
+/// (`elf::NoteSegments::from_head`), each note segment read whole and searched with the same
+/// `elf::NoteSearch`, the descriptor decoded by `manifest_note::decode`. `Ok(None)` is a file with
+/// no manifest note, and a note that is there and cannot be read is a refusal, as it is at the
+/// progenitor.
+///
+/// **A file whose first page is not an ELF header with its program headers inside it reads as
+/// carrying no note**, because that is not this reader's question to answer: the progenitor's
+/// `Elf::parse` refuses what is not a program, and says so. The one real program that could land
+/// here is one whose header table starts past its first page, which no linker script in this tree
+/// produces; the line is then bound against the no-note default, and if the progenitor finds a
+/// note the request does not fit, it refuses (`spawnproto::SPAWN_REFUSED_BY_MANIFEST`). A note
+/// segment larger than one page is refused for the same fail-closed reason.
+fn read_manifest_note(
+    dir: u64,
+    handle: u64,
+    size: u64,
+) -> Result<Option<grant_plan::Manifest>, grant_plan::ImageRefusal> {
+    use grant_plan::ImageRefusal::Unreadable;
+    // SAFETY: this shell is one thread, and these two statics are used here and nowhere else, so
+    // no other reference to either is live.
+    let head = unsafe { &mut *core::ptr::addr_of_mut!(NOTE_HEAD) };
+    // SAFETY: as above; a distinct static, so the two borrows do not alias.
+    let seg_buf = unsafe { &mut *core::ptr::addr_of_mut!(NOTE_SEGMENT) };
+    let head_len = (size as usize).min(head.len());
+    if read_at(dir, handle, 0, &mut head[..head_len]).is_none() {
+        return Err(Unreadable);
+    }
+    let Ok(segs) = elf::NoteSegments::from_head(&head[..head_len]) else {
+        return Ok(None);
+    };
+    let mut search = elf::NoteSearch::new(manifest_note::OWNER, manifest_note::MANIFEST);
+    let mut found = None;
+    for seg in segs {
+        let r = seg.range(size as usize).map_err(|_| Unreadable)?;
+        let len = r.len();
+        if len > seg_buf.len()
+            || read_at(dir, handle, r.start as u64, &mut seg_buf[..len]).is_none()
+        {
+            return Err(Unreadable);
+        }
+        if let Some(d) = search
+            .segment(&seg_buf[..len], seg.p_align)
+            .map_err(|_| Unreadable)?
+        {
+            found = Some(manifest_note::decode(d).map_err(|_| Unreadable)?);
+        }
+    }
+    Ok(found)
+}
+
+/// Fill `out` from the open file `handle` starting at byte `offset`, through the shared file page.
+/// `None` if the file ends or a read fails before `out` is full.
+fn read_at(dir: u64, handle: u64, offset: u64, out: &mut [u8]) -> Option<()> {
+    let mut done = 0usize;
+    while done < out.len() {
+        let want = (out.len() - done).min(PAGE as usize) as u64;
+        let n = call(dir, fs::req(fs::READ, handle, want), offset + done as u64).0 as i64;
+        if n <= 0 {
+            return None;
+        }
+        let n = (n as usize).min(out.len() - done);
+        get_page_at(0, &mut out[done..done + n]);
+        done += n;
+    }
+    Some(())
 }
 
 fn out_of_budget() {
@@ -2261,6 +2362,13 @@ fn drain_text() {
             print(swish::UNVOUCHED_SENTENCE);
             return;
         }
+        // **Refused by the bytes' own manifest** (milestone 597, provisional), which nothing but an
+        // image request earns either.
+        if w0 == spawnproto::SPAWN_REFUSED_BY_MANIFEST {
+            refused();
+            print(swish::REFUSED_BY_MANIFEST_SENTENCE);
+            return;
+        }
         // **The stream stops here because its writer is dead** (milestone 235), and this is the
         // one place that difference is visible: without the word, this loop would run to
         // `MAX_OUTPUT_CHUNKS` on a rendezvous nobody will ever send on again.
@@ -2431,7 +2539,7 @@ fn outcome(e: Endowment, answer: u64) {
     }
     // **Bytes nobody vouched for** (DECISIONS §219). `Refused`, not `Failed`: nothing was
     // attempted and nothing broke; the progenitor declined, the way this shell declines a grant.
-    if answer == spawnproto::SPAWN_UNVOUCHED {
+    if answer == spawnproto::SPAWN_UNVOUCHED || answer == spawnproto::SPAWN_REFUSED_BY_MANIFEST {
         refused();
     }
     swish::write_outcome(&e, answer, &mut print);
@@ -2482,30 +2590,43 @@ fn image_line(tail: &[u8]) -> Option<RunSpec<'_>> {
     }
 }
 
-/// **`caps <path>`** (DECISIONS §219 D and D2): bind the line as [`run_image`] would, hash the
+/// **`caps <path>`** (DECISIONS §219 D and D2; the manifest note, milestone 597, provisional):
+/// read the file's manifest note and bind the line against it as [`run_image`] would, hash the
 /// file's bytes as the progenitor will, look the digest up in the live generation, and say what
-/// would be granted and on whose word. Nothing is sent to the progenitor.
+/// would be granted, what the note asked for, and on whose word. Nothing is sent to the progenitor.
 fn caps_image(nav: &mut Nav, spec: RunSpec) {
     let expanded = match expansion(nav, &spec) {
         Ok(e) => e,
         Err(Say::Cannot(r)) => return swish::write_refusal(&spec, r, &mut print),
         Err(said) => return swish::write_say(said, &mut print),
     };
-    let stand_in = grant_plan::INSTALLED_MANIFEST_OF;
-    if let Err(r) = grant_plan::plan_against(
-        &spec,
-        stand_in,
-        stand_in.manifest(),
-        holdings(nav),
-        expanded,
-    ) {
-        return swish::write_refusal(&spec, r, &mut print);
-    }
     let Some(dir) = nav.dir else {
         return say(Say::NoDirectory);
     };
     let Some((handle, size)) = open_for_bytes(nav, dir, spec.prog) else {
         return;
+    };
+    let declared = match read_manifest_note(dir, handle, size) {
+        Ok(d) => d,
+        Err(r) => {
+            nav.close(handle);
+            return print(swish::image_refusal_sentence(r));
+        }
+    };
+    let m = declared.unwrap_or(grant_plan::NO_NOTE_MANIFEST);
+    if !grant_plan::image_can_carry(&m) {
+        nav.close(handle);
+        return print(swish::image_refusal_sentence(
+            grant_plan::ImageRefusal::NotCarried,
+        ));
+    }
+    let e = match grant_plan::plan_against(&spec, grant_plan::IMAGE_ROW, m, holdings(nav), expanded)
+    {
+        Ok(e) => e,
+        Err(r) => {
+            nav.close(handle);
+            return swish::write_refusal(&spec, r, &mut print);
+        }
     };
     let mut hash = measured_boot::Sha256::new();
     let mut chunk = [0u8; 256];
@@ -2539,6 +2660,8 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
         &hex,
         vouched_by,
         HOLDS_RUN_UNVOUCHED.load(core::sync::atomic::Ordering::Relaxed),
+        declared,
+        &e,
         &mut print,
     );
 }

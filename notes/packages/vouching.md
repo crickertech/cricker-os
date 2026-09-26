@@ -80,11 +80,9 @@ keeps a little memory for the rest of the suite, which has no margin left.
 
 ## BUGS
 
-- A vouched build holds `uptime`'s manifest (`grant_plan::INSTALLED_MANIFEST_OF`), #1320's
-  stand-in, until the manifest travels in the executable (§197 (a package is one archive file),
-  M2; the ELF note of #1338, in flight). So vouching narrows a build today: it loses the clock and
-  configuration pages an unvouched run gets. The mechanism is the manifest's; the manifest is a
-  stand-in.
+- A vouched build holds the manifest its own ELF note carries, or `uptime`'s if it carries none
+  (milestone 597 (a program carries its manifest in an ELF note)). So vouching can widen a build
+  to whatever its note asks, the network included, and the owner's vouch is the only check.
 - Every activation verb, `vouch` included, is open to whoever holds the spawn endpoint. The boot
   prompt is the only holder, so that is the owner. A session given one would be the owner too;
   before any is, the verbs need a presentation of their own (`grant_plan::spawnproto`'s BUGS).

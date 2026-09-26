@@ -66,9 +66,21 @@
 //!   A holder that sends one early, on purpose, can let another caller's claim through. That is a
 //!   proxy, and no capability system prevents a holder from running something on another's behalf;
 //!   it is recorded so nobody reads the missing `GRANT` as a stronger promise than it is.
-//! - **An installed program's manifest is `uptime`'s** ([`crate::INSTALLED_MANIFEST_OF`]), because
-//!   no manifest travels with a package yet (§197 (a package is one archive file)'s open question). A program that needs a clock,
-//!   the network or a directory is not refused by name; it runs and finds the slot empty.
+//! - **An image's manifest reaches only what the request words and the progenitor's own grants can
+//!   carry** (milestone 597 (a program carries its manifest in an ELF note), provisional). The
+//!   manifest now travels in the bytes, as an ELF note (`crates/manifest_note`, §197 (a package is
+//!   one archive file) option M2), and [`crate::image_manifest`] endows from it. But this wire has
+//!   an argument, a `--mem` count and nothing else a line designates, so a note declaring a file, a
+//!   directory, an input, an option, a supervised job, a second stream, a silent output or the
+//!   `std` runtime is refused ([`crate::image_can_carry`]) rather than run without it. Each is the
+//!   wiring a named program already has, not a new idea.
+//! - **An image's [`crate::Endowment`] names a stand-in row** ([`crate::IMAGE_ROW`]), because an
+//!   endowment names a `Prog` and a file has none. Everything about an image is decided from the
+//!   manifest [`crate::image_manifest`] returns; reading the row instead is the foot gun.
+//! - **The shell and the progenitor read two copies of the note.** The shell reads the file to bind
+//!   the line, then again to send it; the progenitor judges what arrived. A file changed in between
+//!   is judged on what arrived, and a request that no longer fits is refused with
+//!   [`SPAWN_REFUSED_BY_MANIFEST`] ([`crate::image_request_fits`]), never half-honoured.
 //! - **Only a plain line runs an image.** A path in a pipeline or behind a redirection reaches
 //!   the planner as a program name and is refused as "no such program", which is true of the name
 //!   and says nothing about the bytes. Nothing sets the bit alongside `interruptible` or `dir`, and
@@ -597,6 +609,16 @@ pub const JOB_FAULTED: u64 = u64::MAX - 1;
 ///
 /// Two below `u64::MAX`, for [`JOB_FAULTED`]'s reason one below it. Name: provisional.
 pub const SPAWN_UNVOUCHED: u64 = u64::MAX - 2;
+
+/// **The progenitor's refusal of bytes whose own manifest forbids the request** (milestone 597,
+/// provisional). The note is there and malformed, or it declares something an image request cannot
+/// carry yet, or nobody vouched for the bytes and the note asks for what only a command line could
+/// designate ([`crate::ImageRefusal`]), or the request's argument or `--mem` count does not fit
+/// the manifest the child would be endowed with. Nothing is built.
+///
+/// A refusal and not a failure, for [`SPAWN_UNVOUCHED`]'s reason: nothing broke. Three below
+/// `u64::MAX`, for [`JOB_FAULTED`]'s reason. Name: provisional.
+pub const SPAWN_REFUSED_BY_MANIFEST: u64 = u64::MAX - 3;
 
 /// The ack the progenitor sends on the result endpoint when a **supervised** (interruptible) child started
 /// cleanly. An interruptible child reports its own progress and exit through the shared job frame,

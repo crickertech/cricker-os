@@ -92,7 +92,7 @@ use grant_plan::expand::{Expansion, NameSet};
 use grant_plan::line::{self, Line};
 use grant_plan::nav::{self, Cwd, Refused};
 use grant_plan::{
-    ArgSpec, Command, Endowment, Holdings, Prog, Refusal, RunSpec, Streams, spawnproto,
+    ArgSpec, Command, Endowment, Holdings, OutputSpec, Prog, Refusal, RunSpec, Streams, spawnproto,
 };
 
 /// What a builtin has to say. A value rather than a print, because the printing half belongs to the
@@ -917,16 +917,44 @@ pub struct Vouched {
     pub by_owner: bool,
 }
 
+/// **What the prompt says when a file's own manifest refuses the line** (milestone 597
+/// (a program carries its manifest in an ELF note), provisional), one sentence per
+/// [`grant_plan::ImageRefusal`]. The shell prints it at the prompt when it can tell before sending
+/// anything, and for the progenitor's [`spawnproto::SPAWN_REFUSED_BY_MANIFEST`] when it cannot.
+pub fn image_refusal_sentence(r: grant_plan::ImageRefusal) -> &'static [u8] {
+    match r {
+        grant_plan::ImageRefusal::Unreadable => {
+            b"  refused: that file carries a manifest note that cannot be read (malformed, a later version, or two of them)\n"
+        }
+        grant_plan::ImageRefusal::NotCarried => {
+            b"  refused: its manifest asks for a file, a directory, an input, an option, a second stream or the std runtime, which a file run by its path cannot be given yet\n"
+        }
+        grant_plan::ImageRefusal::ExceedsVouch => {
+            b"  refused: nobody vouched for those bytes, and their manifest asks the line for more than unvouched bytes may hold\n"
+        }
+    }
+}
+
+/// What the prompt says for [`spawnproto::SPAWN_REFUSED_BY_MANIFEST`], when the shell did not see
+/// the refusal coming: the file changed after the shell read it, or the progenitor's verdict on
+/// the vouch differs from what the note alone could say.
+pub const REFUSED_BY_MANIFEST_SENTENCE: &[u8] =
+    b"  refused: the progenitor read those bytes' own manifest, and it does not allow this line\n";
+
 /// **`caps <path>`: what running a file's bytes would grant, and on whose word**
-/// (DECISIONS §219 option D and gate D2, milestone 198 rung 3a).
+/// (DECISIONS §219 option D and gate D2, milestone 198 rung 3a; the manifest note, milestone 597,
+/// provisional).
 ///
-/// The shell computes both halves from the bytes it read and the activation set it can read:
-/// `hex` is the file's SHA-256 in lowercase hex, and `vouched_by` is the live generation that
-/// lists that digest and whether that entry is the owner's own vouch (`vouch`, DECISIONS §221
-/// (the boot prompt is the owner's console)), or `None`. `holds` is whether this session holds the run-unvouched
-/// capability. The rows are the endowment the progenitor would build: an installed program's
-/// (`grant_plan::INSTALLED_MANIFEST_OF`) when vouched, and `grant_plan::UNVOUCHED_MANIFEST`'s
-/// three slots when not, or a refusal when the session cannot run unvouched bytes.
+/// The shell computes every input from the bytes it read and the activation set it can read:
+/// `hex` is the file's SHA-256 in lowercase hex, `vouched_by` is the live generation that lists
+/// that digest and whether that entry is the owner's own vouch (DECISIONS §221 (the boot prompt
+/// is the owner's console)), or `None`, `declared` is the manifest the file's note carries (`None` for no note),
+/// and `e` is the line bound against it. `holds` is whether this session holds the run-unvouched
+/// capability. The rows are the endowment the progenitor would build, decided by the same
+/// [`grant_plan::image_manifest`] it calls: a vouched file's own manifest (or
+/// [`grant_plan::NO_NOTE_MANIFEST`]'s when it carries none), and [`grant_plan::UNVOUCHED_MANIFEST`]'s
+/// three slots when not, or a refusal. **What the note asks is printed beside what is granted**,
+/// because for unvouched bytes the two differ and that difference is §219's rule made visible.
 ///
 /// It is a preview, and it says so where it could be wrong: the progenitor hashes its own copy
 /// when the line runs, so a file changed in between is judged on what arrives then.
@@ -934,32 +962,49 @@ pub struct Vouched {
 /// # EXAMPLES
 ///
 /// ```
+/// let grant_plan::Command::Run(spec) = grant_plan::parse(b"./a.out") else { panic!() };
+/// let m = grant_plan::Manifest { network: true, ..grant_plan::NO_NOTE_MANIFEST };
+/// let holds = grant_plan::Holdings::default();
+/// let e = grant_plan::plan_against(&spec, grant_plan::IMAGE_ROW, m, holds, grant_plan::expand::Expansion::none()).unwrap();
 /// let mut said = Vec::new();
-/// swish::write_image_caps(b"./a.out", b"ab12", None, true, &mut |b| said.extend_from_slice(b));
+/// swish::write_image_caps(b"./a.out", b"ab12", None, true, Some(m), &e, &mut |b| said.extend_from_slice(b));
 /// let said = String::from_utf8(said).unwrap();
 /// assert!(said.contains("provenance: unvouched (digest ab12)"));
 /// assert!(said.contains("cap 1  page      clock"));
+/// assert!(said.contains("its manifest note asks for: output bytes, the network"));
 /// ```
 pub fn write_image_caps(
     path: &[u8],
     hex: &[u8],
     vouched_by: Option<Vouched>,
     holds: bool,
+    declared: Option<grant_plan::Manifest>,
+    e: &Endowment,
     out: &mut dyn FnMut(&[u8]),
 ) {
-    let runs = vouched_by.is_some() || holds;
+    let vouched = vouched_by.is_some();
+    let verdict = (vouched || holds).then(|| grant_plan::image_manifest(declared, vouched));
     out(b"  ");
     out(path);
-    if runs {
-        out(b" would grant the new process, and nothing else:\n");
-        out(b"    cap 0  endpoint  result   report its answer back\n");
-    } else {
-        out(b" would not run here:\n");
+    match verdict {
+        Some(Ok(m)) if vouched => {
+            out(b" would grant the new process, and nothing else:\n");
+            write_preview_rows(e, &m, out);
+        }
+        Some(Ok(_)) => {
+            out(b" would grant the new process, and nothing else:\n");
+            out(b"    cap 0  endpoint  result   report its answer back\n");
+            out(b"    cap 1  page      clock    read-only; unvouched bytes may read the time\n");
+            out(b"    cap 2  page      config   read-only; and the configuration page\n");
+        }
+        Some(Err(r)) => {
+            out(b" would not run here:\n");
+            out(b"  ");
+            out(image_refusal_sentence(r));
+        }
+        None => out(b" would not run here:\n"),
     }
-    if vouched_by.is_none() && holds {
-        out(b"    cap 1  page      clock    read-only; unvouched bytes may read the time\n");
-        out(b"    cap 2  page      config   read-only; and the configuration page\n");
-    }
+    write_note_asks(declared, out);
     out(b"    provenance: ");
     match vouched_by {
         Some(v) => {
@@ -981,11 +1026,47 @@ pub fn write_image_caps(
             out(b"    runs on this session's capability to run unvouched bytes (slot ");
             write_num(spawnproto::RUN_UNVOUCHED_SLOT, out);
             out(b")\n");
+            if declared.is_some() {
+                out(b"    and its note grants nothing: bytes nobody vouched for are not asked\n");
+            }
         }
         (None, false) => {
             out(b"    refused if run: this session holds no capability to run unvouched bytes\n");
         }
     }
+}
+
+/// **The one line that says what a file's own manifest asks for**, in words, so it can be read
+/// beside the rows of what will be granted. Every authority a manifest can declare that an image
+/// can carry is named; the ones it cannot carry are refused before this matters.
+fn write_note_asks(declared: Option<grant_plan::Manifest>, out: &mut dyn FnMut(&[u8])) {
+    let Some(m) = declared else {
+        out(b"    it carries no manifest note, so it asks for its output and nothing else\n");
+        return;
+    };
+    out(b"    its manifest note asks for: ");
+    out(match m.output {
+        OutputSpec::Words => b"a word of output".as_slice(),
+        OutputSpec::Silent => b"no output",
+        _ => b"output bytes",
+    });
+    let items: [(bool, &[u8]); 8] = [
+        (m.arg == ArgSpec::Required, b"an argument"),
+        (!matches!(m.mem, grant_plan::MemSpec::Forbidden), b"memory"),
+        (m.clock, b"the clock"),
+        (m.config, b"the configuration page"),
+        (m.entropy, b"entropy"),
+        (m.network, b"the network"),
+        (m.domain, b"the process domain"),
+        (m.interruptible, b"an interrupt"),
+    ];
+    for (asked, what) in items {
+        if asked {
+            out(b", ");
+            out(what);
+        }
+    }
+    out(b"\n");
 }
 
 /// **What `package` says about an edit to the activation set** (milestone 198 (a package manager)
@@ -1048,6 +1129,10 @@ pub fn write_outcome(e: &Endowment, answer: u64, out: &mut dyn FnMut(&[u8])) {
     }
     if answer == spawnproto::SPAWN_UNVOUCHED {
         out(UNVOUCHED_SENTENCE);
+        return;
+    }
+    if answer == spawnproto::SPAWN_REFUSED_BY_MANIFEST {
+        out(REFUSED_BY_MANIFEST_SENTENCE);
         return;
     }
     // **The job ran and the kernel killed it** (milestone 235). A different fact from the line
@@ -1313,11 +1398,18 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
     out(b"  ");
     out(e.prog.name().as_bytes());
     out(b" would grant the new process, and nothing else:\n");
+    write_preview_rows(e, &e.prog.manifest(), out);
+}
+
+/// [`write_preview`]'s rows, for an endowment bound against `m`. Separate because a file run by its
+/// path (milestone 597, provisional) is bound against the manifest its note carries, and its
+/// endowment's row is a stand-in (`grant_plan::IMAGE_ROW`) that must not be read.
+fn write_preview_rows(e: &Endowment, m: &grant_plan::Manifest, out: &mut dyn FnMut(&[u8])) {
     // **A `std` program's slots are fixed by its runtime, not by the order they are listed in**
     // (milestone 595 (provisional), `crates/std_runtime_protocol`). The same grants land somewhere
     // else, and slot 0 is not even the same kind of object, so a preview that printed the native
     // positions for one would be describing a child the progenitor does not build.
-    let std = e.prog.manifest().runtime == grant_plan::Runtime::Std;
+    let std = m.runtime == grant_plan::Runtime::Std;
     let cap = |n: u64, out: &mut dyn FnMut(&[u8])| {
         out(b"    cap ");
         write_num(n, out);
@@ -1393,7 +1485,7 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
     // reader who took the command line for the whole story would be wrong by exactly one capability.
     // The row says *read-only* because that is the entire reason `date` cannot set the time
     // (DECISIONS §43): there is no flag it could pass and no method it could call.
-    if e.prog.manifest().clock {
+    if m.clock {
         cap(
             if std {
                 std_runtime_protocol::CLOCK_SLOT
@@ -1412,7 +1504,7 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
     // ground the roadmap names is unbuilt), so printing a literal here would either duplicate
     // the progenitor's default by coincidence or drift from it silently. See design/roadmap/47-navigation-
     // and-naming.md's environment section for what remains.
-    if e.prog.manifest().config {
+    if m.config {
         cap(
             if std {
                 std_runtime_protocol::CONFIG_SLOT
@@ -1438,7 +1530,7 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
     // ask the service for bytes. It may not receive another client's request (that would be `READ`,
     // which the service holds and nothing else does), and it holds no `GRANT`, so it cannot pass
     // randomness on to anything at all.
-    if e.prog.manifest().entropy {
+    if m.entropy {
         cap(
             if std {
                 std_runtime_protocol::ENTROPY_SLOT
@@ -1463,7 +1555,7 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
     // socket by a number every client of the stack shares, so this capability does not keep one
     // declaring program out of another's sockets; saying less would describe a narrower grant than
     // the one being made.
-    if e.prog.manifest().network {
+    if m.network {
         out(b"    cap 10 endpoint  network  WRITE. it may open outbound sockets through the network\n");
         out(b"                              stack, and nothing else: it cannot reach the card, cannot\n");
         out(b"                              listen, and cannot hand the network to anything it spawns.\n");
@@ -1477,7 +1569,7 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
     // /proc and the answer is "every process on the machine", which no command line chose and no
     // tool can narrow. Here the scope is a capability, so it is a line a person can read before
     // anything is spawned, and a wider grant would be a different line rather than an invisible one.
-    if e.prog.manifest().domain {
+    if m.domain {
         // `ENUMERATE`, and the word is the point of the line rather than decoration: it is the
         // right that lets this program *name* the domain's members and not the one that would let
         // it receive their deaths or collect them. Printing `READ` here would describe a wider
@@ -1575,7 +1667,7 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
     // that reading the command is reading its whole authority, and a preview that under-reports
     // authority is one a reader would trust. Found by someone adding their first program, who hit
     // it because the manifest already knew the answer.
-    if e.prog.manifest().arg == ArgSpec::Required {
+    if m.arg == ArgSpec::Required {
         write_num(e.arg, out);
         out(b"\n");
     } else {
@@ -1586,44 +1678,87 @@ pub fn write_preview(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
 
 #[cfg(test)]
 mod tests {
-    /// **`caps <path>` tells the three cases apart** (§219 D and D2): vouched runs with the
-    /// installed manifest and names its generation; unvouched runs with the two pages only on a
-    /// session that holds the capability; otherwise it says it would be refused and grants nothing.
+    /// **`caps <path>` tells the cases apart** (§219 D and D2, and the manifest note of milestone
+    /// 597): vouched runs with its own manifest and names its generation; unvouched runs with the
+    /// two pages only on a session that holds the capability, and prints what the note asked
+    /// beside what it gets; a note that asks the line for more than unvouched bytes may hold is
+    /// refused; otherwise it says it would be refused and grants nothing.
     #[test]
-    fn caps_of_an_image_names_its_provenance_and_the_gate() {
-        let say = |v: Option<super::Vouched>, holds: bool| {
-            let mut said = Vec::new();
-            super::write_image_caps(b"bin/x", b"00ff", v, holds, &mut |b| {
-                said.extend_from_slice(b);
-            });
-            String::from_utf8(said).unwrap()
-        };
+    fn caps_of_an_image_names_its_provenance_the_gate_and_what_the_note_asks() {
+        use grant_plan::expand::Expansion;
+        use grant_plan::{Command, Holdings, IMAGE_ROW, Manifest, NO_NOTE_MANIFEST};
+        let say =
+            |v: Option<super::Vouched>, holds: bool, declared: Option<Manifest>, line: &[u8]| {
+                let Command::Run(spec) = grant_plan::parse(line) else {
+                    panic!("not an invocation")
+                };
+                let m = declared.unwrap_or(NO_NOTE_MANIFEST);
+                let e = grant_plan::plan_against(
+                    &spec,
+                    IMAGE_ROW,
+                    m,
+                    Holdings::default(),
+                    Expansion::none(),
+                )
+                .unwrap();
+                let mut said = Vec::new();
+                super::write_image_caps(b"bin/x", b"00ff", v, holds, declared, &e, &mut |b| {
+                    said.extend_from_slice(b);
+                });
+                String::from_utf8(said).unwrap()
+            };
         let by = |generation, by_owner| {
             Some(super::Vouched {
                 generation,
                 by_owner,
             })
         };
-        let vouched = say(by(3, false), false);
+        let vouched = say(by(3, false), false, None, b"bin/x");
         assert!(vouched.contains("vouched by activation generation 3 (digest 00ff)"));
-        let owned = say(by(4, true), true);
+        let owned = say(by(4, true), true, None, b"bin/x");
         assert!(owned.contains("vouched by the owner in activation generation 4 (digest 00ff)"));
         assert!(
             !owned.contains("clock"),
             "an owner's vouch runs as installed, not as D2"
         );
         assert!(vouched.contains("cap 0"));
+        assert!(vouched.contains("carries no manifest note"));
         assert!(
             !vouched.contains("clock"),
             "a vouched image is endowed its manifest's, not D2's"
         );
-        let held = say(None, true);
+        let asks_clock = Manifest {
+            clock: true,
+            ..NO_NOTE_MANIFEST
+        };
+        let vouched_clock = say(by(3, false), false, Some(asks_clock), b"bin/x");
+        assert!(
+            vouched_clock.contains("clock    read-only. it can read the time"),
+            "a vouched note's clock is granted: {vouched_clock}"
+        );
+        assert!(vouched_clock.contains("its manifest note asks for: output bytes, the clock"));
+
+        let asks_network = Manifest {
+            network: true,
+            ..NO_NOTE_MANIFEST
+        };
+        let held = say(None, true, Some(asks_network), b"bin/x");
         assert!(held.contains("provenance: unvouched (digest 00ff)"));
         assert!(
             held.contains("cap 1  page      clock") && held.contains("cap 2  page      config")
         );
+        assert!(!held.contains("cap 10"), "an unvouched note grants nothing");
+        assert!(held.contains("asks for: output bytes, the network"));
+        assert!(held.contains("its note grants nothing"));
         assert!(held.contains("slot 22"));
-        let not_held = say(None, false);
+
+        let asks_arg = grant_plan::Prog::LeastAuthorityDemo.manifest();
+        let exceeds = say(None, true, Some(asks_arg), b"bin/x 5");
+        assert!(exceeds.contains("would not run here"));
+        assert!(exceeds.contains("more than unvouched bytes may hold"));
+        assert!(!exceeds.contains("cap 0"));
+
+        let not_held = say(None, false, None, b"bin/x");
         assert!(not_held.contains("would not run here"));
         assert!(
             !not_held.contains("cap 0"),
