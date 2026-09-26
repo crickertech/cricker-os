@@ -172,10 +172,9 @@ a fact only the spawn site knows. `system_tests/src/user/timetable_tests.rs` ass
 and asserts the second never appears, so a spawn site that quietly went back to handing over the
 initrd fails a test rather than passing one it no longer earns.
 
-What this does not do is narrow per *entry*: the residual is the union of the plan's programs, so a
-document admitting three programs leaves each instance's loader able to name the other two's images.
-`components/src/spawner.rs` has the narrower shape (one image, and "build me program X" cannot be asked),
-and reaching it here needs a capability per entry rather than one per timetable. Recorded in `BUGS`.
+It does not narrow per *entry*, and that was refused on 2026-09-26: an image is code, not
+authority, so reaching the union of the plan's programs gives a compromise nothing it lacked. See
+[one-image-per-entry.md](scheduled-execution/one-image-per-entry.md).
 
 ## Registration is the security boundary
 
@@ -321,12 +320,6 @@ first `every 150ms` tick can even become due, so the cross-ISA test does not exe
 document whose `--mem` entry shared the clock with a fast interval would.
 
 ## BUGS
-
-- The narrowing is to the plan, not to one image per entry. The archive the scheduler holds now
-  carries exactly the programs its document will build, and no more; what it does not do is give each
-  entry its own image. So a compromise of the timetable reaches the *union* of the plan's programs
-  rather than one of them. `components/src/spawner.rs` is the narrower shape and needs a capability per
-  entry to reach here, which this tree does not have.
 
 - A `--mem` entry blocks everything else in the document while it runs. See "A backable `--mem`
   grant, and why it runs alone" above: the exclusivity that makes the pairing sound also means the

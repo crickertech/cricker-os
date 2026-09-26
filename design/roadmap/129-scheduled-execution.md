@@ -13,13 +13,13 @@ Minted 2026-08-15 at calef's request. A backup server owes housekeeping on a
 schedule (snapshot thinning, scrub passes, log rotation) even though the Mac initiates the backups
 themselves, and nothing else on the roadmap ran anything on a schedule. The interval scheduler, a
 narrowed archive, a backable `--mem` grant and runtime replacement under §222 (who holds a user's
-schedule) are built. What is left is two proposals awaiting calef and one connection waiting on
-milestone 152 (durable delegation), all recorded below and checked on 2026-09-26.
+schedule) are built. One image per entry was refused on 2026-09-26. What is left is a calendar
+proposal awaiting calef and one connection waiting on milestone 152 (durable delegation), both
+recorded below and checked on 2026-09-26.
 
-Two proposals await calef:
-[one-image-per-entry.md](../../notes/scheduled-execution/one-image-per-entry.md) recommends refusing
-that item, and [calendar-and-wall-clock.md](../../notes/scheduled-execution/calendar-and-wall-clock.md)
-asks for a grammar and a clock-step rule. Connecting the built `REPLACE` handler to a real session
+One proposal awaits calef:
+[calendar-and-wall-clock.md](../../notes/scheduled-execution/calendar-and-wall-clock.md) asks for a
+grammar and a clock-step rule. Connecting the built `REPLACE` handler to a real session
 waits on milestone 152, because the registrar is a user's durable session and that type went with
 `smb_server` on 2026-08-30.
 
@@ -109,7 +109,6 @@ Milestone 106 (a wait that ends on either the interrupt or the deadline) is gate
 - Connecting a real session: the durable session spawns its timetable, writes the store and sends
   `REPLACE`, and at boot `session_reviver` does the same from the stored file. Waits on milestone
   152, whose session type does not exist yet.
-- One image per entry. Proposed for refusal: an image is code, not authority.
 - Calendar and wall-clock entries, proposed together: `daily` and `weekly` in UTC, and a rule for a
   clock that steps.
 
@@ -134,8 +133,9 @@ the shipped document is a demonstration written to show every answer registratio
   registration page, and no file under `components/` or `crates/` defines milestone 152's durable
   session. The same session is what feeds `crates/schedule_store`'s file to a running timetable.
   Checked 2026-09-26.
-- **Outstanding.** One image per entry: proposed for refusal in
-  `notes/scheduled-execution/one-image-per-entry.md`, awaiting calef. Checked 2026-09-26.
+- **Refused.** One image per entry, by calef on 2026-09-26 ("Refuse it?", "Yes"): an image is code,
+  not authority, so a helper per entry would buy nothing. The reason is
+  `notes/scheduled-execution/one-image-per-entry.md`.
 - **Outstanding.** Calendar syntax and wall-clock entries: proposed in
   `notes/scheduled-execution/calendar-and-wall-clock.md`, awaiting calef; `timetable::parse` still
   knows `every` and `at-boot` only. Checked 2026-09-26.
@@ -159,5 +159,5 @@ and the capability shape inverts it: an entry is a grant expression plus a sched
 registration like a command line at the prompt. Built: the interval scheduler with four registration
 answers (2026-08-18), the archive narrowed to the plan (2026-08-18), a backable `--mem` grant
 (2026-08-22), designations reported as unbacked (2026-09-26), and whole-document replacement under
-§222 (2026-09-26). Remaining: connecting a real session (milestone 152), and two proposals for
-calef, refusing one image per entry and adding calendar and wall-clock entries.
+§222 (2026-09-26). One image per entry was refused (2026-09-26). Remaining: connecting a real
+session (milestone 152), and calendar and wall-clock entries, proposed for calef.

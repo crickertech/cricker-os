@@ -1,6 +1,7 @@
 # One image per entry: a proposal to refuse it
 
-**Status: PROPOSED 2026-09-26.** Written by the lane for milestone 129 (scheduled execution) for
+**Status: REFUSED 2026-09-26.** Asked "Refuse it?", calef answered "Yes" the same day, so the item
+is refused for the reason below. Written by the lane for milestone 129 (scheduled execution) for
 calef's decision. The block has carried this item as outstanding since 2026-08-23. This file argues
 that it should be refused rather than built, and a refusal of scoped work is calef's to make.
 

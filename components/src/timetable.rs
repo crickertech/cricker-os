@@ -113,12 +113,12 @@
 //!   worse than it is for a shell: at a prompt the person who typed the command is sitting there and
 //!   can press `^C`, and behind a schedule there is nobody.
 //!
-//! - **The narrowing is to the plan, not to one image per entry.** `components/src/spawner.rs` is handed
-//!   a single image and "build me program X" is not a thing that can be asked of it; this is handed
-//!   an archive and can still name anything in it. The residual is therefore the *union* of the
-//!   plan's programs rather than one program per entry, so a document admitting three programs
-//!   leaves an instance of one able to reach the other two's images. Closing that needs a
-//!   capability per entry rather than one per timetable, which is a shape this tree does not have.
+//! - **The archive holds every image the plan builds, and that is code, not authority.** A
+//!   compromised timetable can load any program in its archive, not only the one an entry names.
+//!   It gains nothing by it: a job holds exactly what `fire` or `fire_with_grant` endows, and
+//!   nothing reads which image is running to decide that, so a second image adds only code to a
+//!   process already running the attacker's. One image per entry was refused on 2026-09-26 for
+//!   this reason (notes/scheduled-execution/one-image-per-entry.md).
 //!
 //! - **`--mem` entries are backed, and run one at a time, alone.** The roadmap's first sketch said
 //!   to split the grant out of the instance's own region "so a single `DESTROY` still reclaims

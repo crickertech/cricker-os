@@ -5,8 +5,8 @@ work that page points at but does not need to carry whole.
 
 - [registration.md](registration.md): the runtime registration protocol, proposed on 2026-09-26
   (UTC) and ruled by calef the same day as §222 (who holds a user's schedule).
-- [one-image-per-entry.md](one-image-per-entry.md): a proposal to refuse one image per entry,
-  because an image is code and not authority. Awaiting calef.
+- [one-image-per-entry.md](one-image-per-entry.md): why one image per entry was refused on
+  2026-09-26 (UTC): an image is code, not authority.
 - [calendar-and-wall-clock.md](calendar-and-wall-clock.md): the grammar and the clock-step rule for
   time-of-day entries. Awaiting calef.
 
