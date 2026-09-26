@@ -180,6 +180,10 @@ pub fn region_bounds(region: u64) -> Option<(u64, u64)> {
 /// `AddressSpace::Drop`, which already runs under the reaper's `IPC_TABLES` (see [`destroy`]'s note). So
 /// the `IPC_TABLES`-taking reap is one call, and the `IPC_TABLES`-free `unpin` + `destroy` are the next.
 pub fn unpin(region: u64) {
+///
+/// **A split refused for a full table still bumps the parent**, and the parent can then never be
+/// reclaimed: `RegionTable::split`'s `# BUGS` entry has the consequence and a reproduction, and
+/// `notes/region-split-on-a-full-table.md` the proposal.
     REGIONS.lock().unpin(region);
 }
 
