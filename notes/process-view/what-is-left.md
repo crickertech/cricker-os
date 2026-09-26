@@ -4,7 +4,8 @@ An appendix to [the process view](../process-view.md), written 2026-09-26 by the
 `milestone/126-procps` for milestone 126 (the `procps` package: who else is running, and who is
 allowed to ask). Every remaining program in the package is blocked on a fork rather than on effort.
 This file holds each fork with the seven questions AGENTS.md asks of one, so that a ruling can be
-made without reading anything else. Section 1 is decided (§224 (no `pwdx`)); the rest is not. The milestone block
+made without reading anything else. Section 1 is decided (§224 (no `pwdx`)), and so is section 3
+(§225 (`free` sees the machine and your share)); the rest is not. The milestone block
 (`design/roadmap/126-who-else-is-running.md`) carries the status; this carries the reasoning.
 
 The stem `what-is-left` is a provisional name, minted with this file. Nothing here adds a kernel
@@ -76,6 +77,13 @@ Recommendation: no `w` until §164 is ruled and a second session can exist. Buil
 now would demonstrate nothing a reader could not see by looking at the terminal.
 
 ## 3. `free`, `vmstat`, `slabtop` and `tload`: machine-wide statistics
+
+Decided 2026-09-26. calef: *"Rule 3."* A third shape that combines the two options below: option 1's
+region method for the caller's share, plus a read-only machine memory page held as a capability,
+granted to every login by default and withholdable by the owner. `free` prints a machine line, and
+a "yours" line when the caller holds a region. The ruling, its reasons and the prior art checked
+against primary sources are in §225 (`free` sees the machine and your share). The fork is kept as it
+was written.
 
 The block's 2026-08-26 fork covered `free` and `vmstat` and missed the other two members of the row.
 Re-checked 2026-09-26: `kernel/src/memory.rs`'s `stats()` and `free_page_frames()` are still read

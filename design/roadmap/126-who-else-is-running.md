@@ -17,11 +17,11 @@ which is packages rather than programs we like. Re-swept and condensed 2026-09-2
 `milestone/126-procps`, which found three claims here stale and one premise false (see "Corrections,
 2026-09-26").
 
-Nothing left in this package is waiting on effort. `w` waits on
-§164 (whether the kernel resolves a tid it already sent), because a tid has no name. The
-machine-wide statistics, `pidwait` and `pmap`'s reach from the prompt each wait on a fork nobody has
-ruled on, written up with the seven questions answered in
-[notes/process-view/what-is-left.md](../../notes/process-view/what-is-left.md).
+`w` waits on §164 (whether the kernel resolves a tid it already
+sent), because a tid has no name. `pidwait` and `pmap`'s reach from the prompt each wait on a fork
+nobody has ruled on, written up with the seven questions answered in
+[notes/process-view/what-is-left.md](../../notes/process-view/what-is-left.md). `free` and `vmstat`
+wait only on effort now: §225 (`free` sees the machine and your share) ruled their shape 2026-09-26.
 
 ## Where the package stands
 
@@ -45,9 +45,9 @@ came to miss it.
 | `kill`, `pkill`, `skill`, `snice` | refused, milestone 455 (the signalling stratum of `procps`) | `design/roadmap/455-the-signalling-stratum.md` |
 | `pwdx` | declined 2026-09-26, §224 (no `pwdx`): only the shell has a working directory | `design/decisions/224-no-pwdx.md` |
 | `w` | waits on §164, and on a second session existing | what-is-left.md, section 2 |
-| `free`, `vmstat` | fork: machine-wide memory statistics | what-is-left.md, section 3 |
-| `slabtop` | no subject: milestone 14 (kernel objects from untyped) removed the kernel's slab | what-is-left.md, section 3 |
-| `tload` | folds into the statistics fork, or into `top` | what-is-left.md, section 3 |
+| `free`, `vmstat` | ruled 2026-09-26, unbuilt: a region method and a withholdable machine memory page, §225 | `design/decisions/225-free-sees-the-machine-and-your-share.md` |
+| `slabtop` | no slab since milestone 14 (kernel objects from untyped); becomes §225's region method asked per object type | what-is-left.md, section 3 |
+| `tload` | not a program: a line in `top`'s summary (§225) | what-is-left.md, section 3 |
 | `pidwait` | fork: a wait mode on `pgrep`, recommended | what-is-left.md, section 4 |
 
 ## Why this package, and why the package rather than the program
@@ -210,9 +210,14 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - **Outstanding.** `w` is unbuilt: a tid has no name (§164, still `PROPOSED`), and
   `components/src/login.rs` runs one session at a time, so a `w` would always print one row. Checked
   2026-09-26.
-- **Outstanding.** `free` and `vmstat` are unbuilt, and `slabtop` and `tload` with them. The
+- **Decision.** How `free` and `vmstat` learn about memory is ruled in
+  `design/decisions/225-free-sees-the-machine-and-your-share.md` (calef, 2026-09-26): a
+  `MemoryRegion` method under `ENUMERATE` for the caller's share, and a machine memory page granted
+  to every login by default and withholdable by the owner.
+- **Outstanding.** `free` and `vmstat` are unbuilt, and `slabtop` (per object type) with them. The
   page-frame statistics in `kernel/src/memory.rs` are still read only by the boot summary and kernel
-  tests, with no path to userspace. Checked 2026-09-26; the fork is in what-is-left.md, section 3.
+  tests. The method's number, the page's layout and its name are the building lane's to propose.
+  Checked 2026-09-26.
 - **Outstanding.** `pidwait` is unbuilt. It holds exactly `pgrep`'s slots, `RECV` needs `READ` that
   a viewer lacks, and polling `SURVEY` is a yield-spin until milestone 106. Recommended as a `pgrep`
   mode once milestones 47 and 106 land. Checked in `kernel/src/syscall.rs` 2026-09-26.
