@@ -55,6 +55,7 @@ const ROLE_DIRECT: u64 = 0;
 const ROLE_QUEUED: u64 = 1;
 const ROLE_HUNG: u64 = 2;
 const ROLE_HANDOFF: u64 = 3;
+const ROLE_UNWARNED: u64 = 4;
 /// The one blob layout any build in this tree writes (`swap_protocol::LAYOUT_1`). The refusing
 /// replacement names it as the layout it could not read, so both sides name one constant.
 const LAYOUT_1: u64 = 1;
@@ -565,9 +566,9 @@ fn a_client_of_the_stable_rendezvous_cannot_become_its_server() {
 /// turns up in the new backend's log, in order.
 #[test_case]
 fn a_producer_never_blocks_on_an_absent_consumer_and_loses_nothing() {
-    if machine_has_no_device_page_for_the_console() {
-        crate::testing::skip!(NO_UART_PAGE);
-    }
+    // No `NO_UART_PAGE` skip since 2026-09-26: this channel routes no device, so the x86 gap the
+    // direct and hung channels skip on never applied to it. The skip was inherited from the file
+    // rather than from anything this system does.
     let (msgs, n) = run_swap(ROLE_QUEUED);
     let msgs = &msgs[..n];
 
@@ -1035,3 +1036,57 @@ fn a_component_keeps_its_state_across_a_swap_and_a_swap_that_cannot_absorb_it_do
     );
 }
 
+/// **A dependent that is never warned costs its callers latency, not work** (the non-cooperative
+/// fallback, notes/non-cooperative-fallback.md).
+///
+/// The queued system, with one change: the dependency graph names `broker` exactly as it does on
+/// the queued channel, and the operator then never sends it `BOP_DOWN`, which is what a supervisor
+/// is reduced to when the dependent it must warn does not answer. The backend is swapped anyway.
+/// `broker` stays in pass-through, its forwarded `CALL` parks on the back endpoint's sender queue
+/// for the down window, and the replacement drains it (the argument of DECISIONS §41 (the endpoint
+/// is the broker, and a device is revoked by taking it back), one hop further out).
+///
+/// So the assertions are the queued channel's, with `WAS_BUFFERED` inverted: every request answered
+/// correctly and in order, nothing refused, nothing lost, and **nothing buffered**, which is the
+/// witness that the warning really was absent rather than merely unobserved.
+#[test_case]
+fn a_dependent_that_is_never_warned_loses_nothing_and_only_waits() {
+    let (msgs, n) = run_swap(ROLE_UNWARNED);
+    let msgs = &msgs[..n];
+
+    a_component_the_operator_cannot_provide_for_was_refused_first(msgs);
+    // The graph's answer is unchanged: the edge is real. What is measured is ignoring it.
+    the_dependency_graph_matches_what_this_channel_ran(msgs, 1, 2);
+
+    let producer = of_kind(msgs, RPT_CLIENT)
+        .next()
+        .expect("the producer never reported a verdict");
+    const PRODUCER_OK: u64 = CL_ALL_REPLIED | CL_SEQ_ECHOED | CL_DIGEST_CORRECT | CL_NONE_REFUSED;
+    assert_eq!(
+        producer[1] & PRODUCER_OK,
+        PRODUCER_OK,
+        "the unwarned producer's run was not clean (verdict {:#x}): skipping the warning cost \
+         more than latency",
+        producer[1],
+    );
+    assert_eq!(
+        producer[1] & CL_WAS_BUFFERED,
+        0,
+        "the broker buffered, so it was warned after all and this run measured nothing",
+    );
+    assert!(
+        of_kind(msgs, RPT_DRAINED).next().is_none(),
+        "the broker drained a backlog it should never have had",
+    );
+
+    let log = of_kind(msgs, RPT_LOG)
+        .next()
+        .expect("the operator never reported its verdict");
+    const LOG_CLEAN: u64 = LOG_NO_GAP | LOG_MONOTONE | LOG_BOTH_VERSIONS;
+    assert_eq!(
+        log[1] & LOG_CLEAN,
+        LOG_CLEAN,
+        "the unwarned channel lost or reordered work (verdict {:#x})",
+        log[1],
+    );
+}

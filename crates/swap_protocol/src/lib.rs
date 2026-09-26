@@ -406,6 +406,13 @@ pub const ROLE_HUNG: u64 = 2;
 ///
 /// Name: provisional (milestone 23's lane, 2026-09-26).
 pub const ROLE_HANDOFF: u64 = 3;
+/// **The queued system with its one dependent never warned** (the non-cooperative fallback,
+/// notes/non-cooperative-fallback.md). The dependency graph still names `broker`; the operator
+/// behaves as if `broker` had not answered the warning and swaps the backend anyway. What that
+/// costs the producer is the measurement.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26).
+pub const ROLE_UNWARNED: u64 = 4;
 
 /// **How the operator starts a stateful instance** (the first `_start` argument, where the other
 /// systems pass a device flag of `0` or `1`). A fresh instance begins at a tally of zero, which is

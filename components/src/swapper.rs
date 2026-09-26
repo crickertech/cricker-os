@@ -24,6 +24,10 @@
 //!   carries a tally across the swap on a handoff page, and the swap is tried twice: against a
 //!   replacement that cannot absorb the state, which must not commit, and then against one that can.
 //!   See notes/state-handoff.md.
+//! - [`ROLE_UNWARNED`](swap_protocol::ROLE_UNWARNED): the queued system **with the dependent never
+//!   warned**, which is what a supervisor is left with when the dependent the graph names will not
+//!   answer. It measures what skipping the warning costs, and the answer is latency, not loss. See
+//!   notes/non-cooperative-fallback.md.
 //!
 //! # The direct swap, step by step, and why the order is this
 //!
@@ -117,7 +121,8 @@ pub extern "C" fn _start(role: u64, initrd_len: u64, _a2: u64) -> ! {
     }
 
     match role {
-        swap_protocol::ROLE_QUEUED => queued(&fs, &w),
+        swap_protocol::ROLE_QUEUED => queued(&fs, &w, true),
+        swap_protocol::ROLE_UNWARNED => queued(&fs, &w, false),
         swap_protocol::ROLE_HUNG => hung(&fs, &w),
         swap_protocol::ROLE_HANDOFF => handoff(&fs, &w),
         _ => direct(&fs, &w),
@@ -627,7 +632,11 @@ fn launch(u: Unstarted, elf: &elf::Elf, args: [u64; 3], stage: u64) {
 // absent consumer.
 // ===============================================================================================
 
-fn queued(fs: &nifefs::Fs, w: &Wiring) -> ! {
+/// `warn` is `false` only on [`ROLE_UNWARNED`](swap_protocol::ROLE_UNWARNED): the graph is still
+/// asked and still names `broker`, and the operator then does not tell it, as if it had not
+/// answered. Everything else is identical, so the difference in the producer's verdict is the price
+/// of the warning and nothing else.
+fn queued(fs: &nifefs::Fs, w: &Wiring, warn: bool) -> ! {
     let v1 = image(fs, "rust_swappable", 2);
     let v2 = image(fs, "c_swappable", 3);
     let client_img = image(fs, "chatty", 4);
@@ -736,7 +745,11 @@ fn queued(fs: &nifefs::Fs, w: &Wiring) -> ! {
     // reason this rung exists. This system's registry has exactly one entry (`broker`, id 2), so
     // the loop below sends `BOP_DOWN` once; a system with a second forwarding dependent would send
     // it to each one the graph named, in the order the graph returned them.
-    for &id in order {
+    //
+    // **A `CALL`, so a dependent that does not answer hangs this operator too**, which is the
+    // defect notes/non-cooperative-fallback.md starts from. `warn == false` is the measurement of
+    // the way out: what the swap costs if the warning is simply never sent.
+    for &id in order.iter().filter(|_| warn) {
         if id == 2 {
             let (r, _) = user_mode_runtime::call(front, swap_protocol::BOP_DOWN, 0);
             if r != 0 {
@@ -773,7 +786,7 @@ fn queued(fs: &nifefs::Fs, w: &Wiring) -> ! {
     // Release the backlog, one dependent at a time, in the reverse of the order they were warned:
     // the graph's own resume order. The broker drains in arrival order before it answers, so this
     // call returning means every buffered item has reached the new backend.
-    for &id in order.iter().rev() {
+    for &id in order.iter().rev().filter(|_| warn) {
         if id == 2 {
             let (r, _drained) = user_mode_runtime::call(front, swap_protocol::BOP_UP, 0);
             if r != 0 {
