@@ -560,6 +560,13 @@ mod verification {
     /// **A send rendezvouses exactly when a receiver was waiting**, and with exactly *that*
     /// receiver, else blocks. So a message is never dropped, a sender never blocks past a ready
     /// receiver, and the rendezvous partner is the queued thread and no other.
+    ///
+    /// Unless the rendezvous carries an interrupt (DECISIONS §101 (notification objects), ruling
+    /// B, 2026-09-26): then the send is refused and changes nothing. Folded into this harness rather
+    /// than given its own, because it is the same decision's other branch. Removing the refusal
+    /// from `send` turns this red at both `!bound` assertions, checked 2026-09-26 by
+    /// milestone 603 (an interrupt's endpoint refuses every send); the replayable record below is
+    /// the older defect, since the convention holds one patch per harness.
     /// Falsification: replayable `crates/inter_process_communication/falsifications/verification.send_rendezvous_iff_a_receiver_waited.patch`
     #[kani::proof]
     fn send_rendezvous_iff_a_receiver_waited() {
@@ -573,6 +580,7 @@ mod verification {
 
         let had_receiver = !e.receivers.is_empty();
         let bound = e.bound_to_interrupt;
+        let before = (e.senders.is_empty(), e.receivers.is_empty(), e.pending);
         // SAFETY: `me` is a third fresh node declared before `e`, so it is valid, on no queue
         // (`seed` was given `s` and `r`, never `me`), and outlives the rendezvous.
         match unsafe { e.send(NonNull::from(&mut me)) } {
@@ -584,34 +592,16 @@ mod verification {
                 );
             }
             Send::Blocked => assert!(!had_receiver && !bound),
-            Send::Refused => assert!(bound),
+            // Refused, and nothing touched: not the waiting driver popped, not the sender parked
+            // where the driver's next receive would find it, not the pending interrupt count.
+            Send::Refused => {
+                assert!(bound);
+                assert_eq!(
+                    (e.senders.is_empty(), e.receivers.is_empty(), e.pending),
+                    before
+                );
+            }
         }
-    }
-
-    /// **A send to a rendezvous that carries an interrupt is refused and changes nothing**
-    /// (DECISIONS §101, calef's ruling B, 2026-09-26). Not the waiting driver taken off the
-    /// receiver queue, not the sender parked on the sender queue, not the pending signal count. The
-    /// first is the forgery itself (a driver handed words it will read as its interrupt); the
-    /// second would deliver the words to the driver's next receive instead; the third is the count
-    /// real interrupts are kept in, and a send has no business near it.
-    ///
-    /// Falsification: replayable `crates/inter_process_communication/falsifications/verification.a_send_to_an_interrupts_rendezvous_is_refused_and_changes_nothing.patch`
-    #[kani::proof]
-    fn a_send_to_an_interrupts_rendezvous_is_refused_and_changes_nothing() {
-        let (mut s, mut r, mut me) = (N::new(), N::new(), N::new());
-        let mut e: Rendezvous<N> = Rendezvous::new();
-        // SAFETY: as in `send_preserves_the_invariant`: three distinct fresh nodes declared before
-        // `e`; `send` gets `me`, which `seed` never touches.
-        unsafe { seed(&mut e, NonNull::from(&mut s), NonNull::from(&mut r)) };
-        e.bind_to_interrupt();
-        let before = (e.senders.is_empty(), e.receivers.is_empty(), e.pending);
-        // SAFETY: as above.
-        let decided = unsafe { e.send(NonNull::from(&mut me)) };
-        assert_eq!(decided, Send::Refused);
-        assert_eq!(
-            (e.senders.is_empty(), e.receivers.is_empty(), e.pending),
-            before
-        );
     }
 
     /// **Taking a waiter back off a queue preserves the one-queue invariant**, for either queue and

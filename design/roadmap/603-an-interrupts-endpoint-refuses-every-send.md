@@ -46,10 +46,11 @@ Provisional names, all calef's to rule on: `Rendezvous::bind_to_interrupt`,
 
 ## Proof
 
-- Kani: `a_send_to_an_interrupts_rendezvous_is_refused_and_changes_nothing`. `seed` now makes the
-  mark symbolic, so all eight harnesses in the crate cover a marked rendezvous. All eight pass.
-  The new harness and `send_rendezvous_iff_a_receiver_waited` carry replayable falsifications, both
-  red when replayed.
+- Kani: `send_rendezvous_iff_a_receiver_waited` now also proves that a marked rendezvous refuses
+  and changes nothing, and `seed` makes the mark symbolic, so all seven harnesses in the crate cover
+  a marked rendezvous. All seven pass. Folded in rather than added, because it is the same
+  decision's other branch. Removing the check turns it red at both `!bound` assertions (run
+  2026-09-26); its replayable record stays the older defect, one patch per harness.
 - Kernel, all three ISAs: `a_send_to_an_interrupts_endpoint_is_refused_and_the_driver_never_sees_it`.
   The test grants itself `Rights::ALL` on a routed endpoint, so the kernel's rule is the only thing
   in the way. Each of the three methods is refused, the driver stays parked in `Irq::WAIT` with no
