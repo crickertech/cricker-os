@@ -4,8 +4,8 @@ An appendix to [the process view](../process-view.md), written 2026-09-26 by the
 `milestone/126-procps` for milestone 126 (the `procps` package: who else is running, and who is
 allowed to ask). Every remaining program in the package is blocked on a fork rather than on effort.
 This file holds each fork with the seven questions AGENTS.md asks of one, so that a ruling can be
-made without reading anything else. Section 1 is decided (§224 (no `pwdx`)), and so is section 3
-(§225 (`free` sees the machine and your share)); the rest is not. The milestone block
+made without reading anything else. Sections 1, 3 and 4 are decided: §224 (no `pwdx`), §225 (`free`
+sees the machine and your share) and §226 (`pidwait` takes tids). The rest is not. The milestone block
 (`design/roadmap/126-who-else-is-running.md`) carries the status; this carries the reasoning.
 
 The stem `what-is-left` is a provisional name, minted with this file. Nothing here adds a kernel
@@ -118,6 +118,12 @@ The two members the block missed each change shape under this fork:
 Blocked on this: `free` and `vmstat` entirely, and whatever `slabtop` and `tload` become.
 
 ## 4. `pidwait`: `pgrep`'s authority, waiting
+
+Decided 2026-09-26, and not as recommended below. calef: *"D."* `pidwait` takes tids and composes
+with `pgrep`, as `pidwait $(pgrep foo)`, on his principle that a program does one and only one
+thing. It holds different authority from `pgrep`, so milestone 281's rule allows two programs. The
+refusals, the prior art and what the building lane owes are in §226 (`pidwait` takes tids). The
+recommendation is kept as it was written.
 
 `pidwait` blocks until every matching process has exited. It asks the same question `pgrep` asks,
 over the same domain, and so holds the same three slots. By milestone 281's rule it is a mode of

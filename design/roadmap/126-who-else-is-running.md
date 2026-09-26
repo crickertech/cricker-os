@@ -18,10 +18,16 @@ which is packages rather than programs we like. Re-swept and condensed 2026-09-2
 2026-09-26").
 
 `w` waits on §164 (whether the kernel resolves a tid it already
-sent), because a tid has no name. `pidwait` and `pmap`'s reach from the prompt each wait on a fork
-nobody has ruled on, written up with the seven questions answered in
+sent), because a tid has no name. `pmap`'s reach from the prompt waits on a fork nobody has ruled
+on, written up with the seven questions answered in
 [notes/process-view/what-is-left.md](../../notes/process-view/what-is-left.md). `free` and `vmstat`
 wait only on effort now: §225 (`free` sees the machine and your share) ruled their shape 2026-09-26.
+`pidwait`'s shape is ruled too, §226 (`pidwait` takes tids), with its wait primitive still owed.
+
+A program does one and only one thing (calef, 2026-09-26: *"One thing I like about unix is that a
+program does one and only one thing."*). It decided `pidwait`, and it is the test for every row this
+package still has open. Where upstream folds two jobs into one binary or one flag, this package
+ships two programs, provided they hold different authority (milestone 281's rule).
 
 ## Where the package stands
 
@@ -48,7 +54,7 @@ came to miss it.
 | `free`, `vmstat` | ruled 2026-09-26, unbuilt: a region method and a withholdable machine memory page, §225 | `design/decisions/225-free-sees-the-machine-and-your-share.md` |
 | `slabtop` | no slab since milestone 14 (kernel objects from untyped); becomes §225's region method asked per object type | what-is-left.md, section 3 |
 | `tload` | not a program: a line in `top`'s summary (§225) | what-is-left.md, section 3 |
-| `pidwait` | fork: a wait mode on `pgrep`, recommended | what-is-left.md, section 4 |
+| `pidwait` | ruled 2026-09-26, unbuilt: takes tids and composes with `pgrep`, §226 | `design/decisions/226-pidwait-takes-tids.md` |
 
 ## Why this package, and why the package rather than the program
 
@@ -218,9 +224,14 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
   page-frame statistics in `kernel/src/memory.rs` are still read only by the boot summary and kernel
   tests. The method's number, the page's layout and its name are the building lane's to propose.
   Checked 2026-09-26.
-- **Outstanding.** `pidwait` is unbuilt. It holds exactly `pgrep`'s slots, `RECV` needs `READ` that
-  a viewer lacks, and polling `SURVEY` is a yield-spin until milestone 106. Recommended as a `pgrep`
-  mode once milestones 47 and 106 land. Checked in `kernel/src/syscall.rs` 2026-09-26.
+- **Decision.** `pidwait` takes tids, not a pattern, and composes as `pidwait $(pgrep foo)`:
+  `design/decisions/226-pidwait-takes-tids.md` (calef, 2026-09-26). `pgrep --wait`, one binary with
+  two names, and a pattern-taking `pidwait` are refused there.
+- **Outstanding.** `pidwait` is unbuilt. Nothing lets it observe a named tid's exit without more
+  authority than the ruling gives it: `RECV` needs `READ` and steals the death message, and polling
+  `SURVEY` needs `ENUMERATE`, which is `pgrep`'s. The shell has pipes and no `$( … )`. Both are in
+  §226's open list for the building lane. Checked in `kernel/src/syscall.rs` and `crates/swish`
+  2026-09-26.
 - **Outstanding.** `pmap` is unreachable from the prompt: `crates/grant_plan` has no program variant
   for it, and `take_user_address_space` still deregisters a space at `CONFIGURE`. Checked
   2026-09-26.
@@ -244,5 +255,5 @@ The sharpest ambient-authority case in the utility set, because what these progr
 enumeration of the process namespace, and `/proc` hands it to anyone. Taken as a whole package for
 consistency with 123's corpus approach. Replacing `/proc` with a held capability stratifies it.
 `ps`, `pgrep`, `pmap`, `uptime` and `top` are built over `rendezvous::SURVEY` and `ENUMERATE`.
-`sysctl`, `pwdx` and the signalling programs are declined, and `watch` was built and cut. `w`, the
-memory statistics and `pidwait` wait on forks written up in notes/process-view/what-is-left.md.
+`sysctl`, `pwdx` and the signalling programs are declined, and `watch` was built and cut. The
+memory statistics (§225) and `pidwait` (§226) are ruled and unbuilt; `w` waits on §164.

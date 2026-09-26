@@ -685,12 +685,14 @@ flag on a table of two columns.
 
 ## What this does not build
 
-`w`, the machine-wide statistics and `pidwait`. `sysctl` is declined (§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the
-signalling stratum is refused (milestone 455 (the signalling stratum of `procps`)). `pmap` is built but unreachable from the prompt. Each
-remaining program waits on a fork rather than on effort, and every fork is written up, with its
-premise checked, in [what is left](process-view/what-is-left.md). One of them corrects this note's
-own earlier reading: `pwdx` prints another process's working directory, not its name, and here only
-the shell has one, which is why it was declined.
+`w`, the machine-wide statistics and `pidwait`. `w` waits on a fork. The other two are ruled and
+wait on effort: §225 (`free` sees the machine and your share) and §226 (`pidwait` takes tids).
+`sysctl` is declined (§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the signalling
+stratum is refused (milestone 455 (the signalling stratum of `procps`)). `pmap` is built but
+unreachable from the prompt. Every fork is written up, with its premise checked, in
+[what is left](process-view/what-is-left.md). One of them corrects this note's own earlier reading:
+`pwdx` prints another process's working directory, not its name, and here only the shell has one,
+which is why it was declined.
 
 See `design/roadmap/126-who-else-is-running.md`, notes/glob.md (the matcher `pgrep` reuses),
 notes/supervision.md (the mechanism this reads),
