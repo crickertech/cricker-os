@@ -1699,6 +1699,19 @@ pub fn start_std_full(
 /// program is one thread of control with at most one `CALL` in flight, so it is never mid-request
 /// on both caretakers at once, whichever it happens to be talking to at a given moment owns the
 /// page exclusively for the length of that call.
+/// The last pair [`start_granted_two_dirs`] built: both grants as asked for, both narrowed
+/// endpoints, and the shared file-channel frame. See the reuse note there.
+#[allow(clippy::type_complexity)]
+static TWO_DIRS: spin::Mutex<
+    Option<(
+        (&'static str, u64),
+        (&'static str, u64),
+        RendezvousId,
+        RendezvousId,
+        u64,
+    )>,
+> = spin::Mutex::new(None);
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub struct TwoDirGrant {
     /// The first grant: the directory (one component under the image root) and the
@@ -1737,14 +1750,30 @@ pub fn start_granted_two_dirs(
     // confined program exists, for [`wait_for_caretaker`]'s reason: a client that already existed
     // could clobber the shared page while a caretaker was still staging its own startup name in
     // it.
-    let (narrow_a, file_shared) =
-        narrow_dir(blk_image, fs_server_image, caretaker_image, a.0, a.1)?;
-    let (narrow_b, file_shared_b) =
-        narrow_dir(blk_image, fs_server_image, caretaker_image, b.0, b.1)?;
-    debug_assert_eq!(
-        file_shared, file_shared_b,
-        "one boot has one FS server, so both caretakers must share its one file channel",
-    );
+    //
+    // **Built once per pair and reused**, since milestone 154 (a process that holds two directory
+    // capabilities) added a second test of the same pair. A caretaker never exits, so every pair
+    // this builds holds its regions for the rest of the boot, and the suite's region table is a
+    // fixed 256 that it already runs close to. The second two-directory test asked for the same
+    // two grants and, built fresh, filled the table: a later, unrelated test failed to load as
+    // `Unmappable(OutOfPageFrames)`. A caretaker serves one request at a time and keeps no state
+    // between clients, so a second client of the same pair is the same grant, not a shared one.
+    let cached = *TWO_DIRS.lock();
+    let (narrow_a, narrow_b, file_shared) = match cached {
+        Some((ca, cb, na, nb, shared)) if ca == a && cb == b => (na, nb, shared),
+        _ => {
+            let (narrow_a, file_shared) =
+                narrow_dir(blk_image, fs_server_image, caretaker_image, a.0, a.1)?;
+            let (narrow_b, file_shared_b) =
+                narrow_dir(blk_image, fs_server_image, caretaker_image, b.0, b.1)?;
+            debug_assert_eq!(
+                file_shared, file_shared_b,
+                "one boot has one FS server, so both caretakers must share its one file channel",
+            );
+            *TWO_DIRS.lock() = Some((a, b, narrow_a, narrow_b, file_shared));
+            (narrow_a, narrow_b, file_shared)
+        }
+    };
 
     let report = crate::sched::create_rendezvous();
     crate::sched::spawn(move || {

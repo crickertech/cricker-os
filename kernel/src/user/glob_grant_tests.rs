@@ -73,7 +73,15 @@ fn shell_expanded() -> Option<u64> {
             // more. That measurement is also what set `nameset::MAX_NAMES`: sixteen names did
             // not fit in the four pages this wiring maps, and `CLIENT_EXTRA_STACK`'s note is
             // right that the answer to that is smaller frames rather than a bigger number.
-            stack_pages: 6,
+            //
+            // **Seven since milestone 154 (a process that holds two directory capabilities)**,
+            // and that is a number rather than a smaller frame, said so: six ran within a few
+            // dozen bytes of the guard, and a `Holdings` that learned where a second tree is
+            // mounted crossed it (a data abort on `sp` inside `nav::path`, under `designate`).
+            // The smaller frame is known: `grant_plan::plan` and the three functions under it
+            // take an ~1 KiB `Holdings` by value, so a debug build keeps a copy in each frame.
+            // Passing it by reference is the fix, and notes/two-trees.md's BUGS records it.
+            stack_pages: 7,
         },
     )?;
     let [tag, verdict, ..] = sched::ipc_recv(report);
