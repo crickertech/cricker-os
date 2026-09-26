@@ -173,9 +173,12 @@ looks the digest up (`activation_set::lookup_digest`). A hit is built from the c
 its note. A miss runs only for a session presenting D2's capability, with its grants and two pages;
 otherwise it gets `SPAWN_UNVOUCHED`. D2 is [packages/running-unvouched.md](packages/running-unvouched.md).
 
-The digest is the member's, not the package's: the spawner is handed the executable, and the
-package's table of contents already carries each member's digest. The recipe's digest over the whole file (§195 (a reviewed recipe vouches for a package))
-is still what installing checks first; the activation table records the member's.
+The digest is the member's, since the spawner is handed the executable and the table of contents
+carries each member's digest. Installing still checks the recipe's digest over the whole file (§195
+(a reviewed recipe vouches for a package)) first.
+
+A bare word runs an installed program, never a vouch (§229 (how a bare name at the prompt reaches
+an installed program), B2; see `swish::bare`).
 
 ## Installing on the target
 

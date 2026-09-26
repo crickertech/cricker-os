@@ -36,7 +36,7 @@ two calls were ruled the same day and are work to build:
 - `PATH` for installed programs: the manifest question that blocked it is answered by §208 and
   §219, and what remains is how a bare name reaches an installed program. Ruled B2 in §229 (how a
   bare name at the prompt reaches an installed program): the activation set, never an owner's
-  vouch.
+  vouch. Built 2026-09-26 (`swish::bare`, notes/packages.md).
 
 The secrets third moved out of this milestone: it is §41 (the endpoint is the broker)'s endpoint, milestone 65 (a secrets service)'s service and
 §165's open question, and no program on nife needs one (Follow-on, below).
@@ -1286,10 +1286,11 @@ estimates for unbuilt work are guesses on a scale calibrated from history, not m
   whether it can run (`design/roadmap/proposals/the-prompt-colours-what-it-can-name.md`), a live
   `^R` search (`design/roadmap/proposals/a-live-history-search-at-the-prompt.md`), and argument
   completion from the manifest (`design/roadmap/proposals/argument-completion-reads-the-manifest.md`).
-- **Outstanding.** `PATH`, now buildable: calef ruled
-  `design/decisions/229-how-a-bare-name-reaches-an-installed-program.md` B2 on 2026-09-26. An
-  installed program still runs only by path, checked 2026-09-26. The lane must meet the two
-  checks on owner-vouch entries that §229 names.
+- **Done.** `PATH`, built 2026-09-26 as §229 B2: a bare word resolves through the live
+  activation set (`activation_set::lookup_name`, which skips owner vouches), a name both the image
+  and a package have is refused naming both, and another package cannot take an installed name
+  (`NameTaken`). An owner's vouch now sits beside a package's entry instead of replacing it.
+  Proven by host tests and by `script/swish-check` (`greeting`, `uptime`, `unvouched`).
 - **Milestone 65.** Environment's secrets third, moved rather than built. A secret here is an
   endpoint (§41), the service that holds one is milestone 65's (BUILT), and where a stored secret comes from is §165 (PROPOSED). §220
   (signed builds) met the one candidate customer, a signing key, on 2026-09-26 and recommended

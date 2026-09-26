@@ -85,6 +85,7 @@
 
 #![no_std]
 
+pub mod bare;
 pub mod complete;
 pub mod sequence;
 
@@ -1266,6 +1267,9 @@ pub fn write_activation(
         (S::NoNetwork, _) => b"  this boot has no network to fetch a package over",
         (S::FetchFailed, _) => b"  the package source did not send a whole package",
         (S::NotExecutable, _) => b"  refused: those bytes are not a program this machine runs",
+        (S::NameTaken, _) => {
+            b"  refused: another installed package already provides a program of that name"
+        }
     };
     out(said);
     if live == 0 {

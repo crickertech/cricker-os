@@ -33,6 +33,11 @@ std_runtime_protocol = { version = "0.1.0", path = "../std_runtime_protocol" }
 # shell's own view of the same page. No dependencies of its own.
 environment_protocol = { version = "0.1.0", path = "../environment_protocol" }
 
+# `lookup_name` and `stem_parts`, so a bare word at the prompt resolves through the live activation
+# set exactly as the progenitor records it (DECISIONS §229 (how a bare name at the prompt reaches an
+# installed program), B2).
+activation_set = { version = "0.1.0", path = "../activation_set" }
+
 # `dir::explain`, the filesystem's half of a refusal. `grant_plan` deliberately keeps this a dev
 # dependency so a command line can be checked without linking the filesystem contract; the shell
 # links it either way, because `Say::Failed` carries an errno that only `filesystem_protocol` can put a sentence

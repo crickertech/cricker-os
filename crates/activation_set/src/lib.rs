@@ -104,6 +104,11 @@ pub enum Error {
     NotInstalled,
     /// The output buffer is too small for the next generation.
     TooSmall,
+    /// **Another package already provides a program of this name** (DECISIONS §229 (how a bare name
+    /// at the prompt reaches an installed program), B2). A bare name has one entry, so installing a
+    /// second package's program under it would silently take the name from the first. The same
+    /// package at another version is an upgrade and is not this.
+    Taken,
 }
 
 /// Every entry in a generation, or [`Error::Malformed`] at the first line that is not one. Blank
@@ -145,6 +150,38 @@ pub fn lookup<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Er
     Ok(found)
 }
 
+/// **The entry a bare name at the prompt runs** (DECISIONS §229 (how a bare name at the prompt
+/// reaches an installed program), B2): the live entry for `program`, never an owner's vouch. A
+/// vouch grants by digest and does not claim a name, so a system program keeps its name and a
+/// local build runs by its path. The whole table is checked first, as in [`lookup`].
+///
+/// Name: provisional, milestone 47 (navigation and naming)'s bare-name lane, 2026-09-26.
+pub fn lookup_name<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Error> {
+    let mut found = None;
+    for entry in entries(table) {
+        let entry = entry?;
+        if entry.program == program && entry.package != OWNER {
+            found = Some(entry);
+        }
+    }
+    Ok(found)
+}
+
+/// **A package stem's three fields**: `name`, `version`, `architecture`. A name may hold a hyphen
+/// and the other two may not, so the stem is split from the right. `None` for [`OWNER`] and for
+/// anything else with fewer than two hyphens.
+///
+/// Name: provisional, milestone 47's bare-name lane, 2026-09-26.
+pub fn stem_parts(stem: &str) -> Option<(&str, &str, &str)> {
+    let (rest, architecture) = stem.rsplit_once('-')?;
+    let (name, version) = rest.rsplit_once('-')?;
+    (!name.is_empty() && !version.is_empty() && !architecture.is_empty()).then_some((
+        name,
+        version,
+        architecture,
+    ))
+}
+
 /// **The entry whose program has these bytes**, if the generation has one: what the progenitor asks
 /// when it is handed an executable rather than a name (DECISIONS §219 option D). The whole table is
 /// checked first, as in [`lookup`], so a malformed line anywhere vouches for nothing.
@@ -164,17 +201,40 @@ pub fn lookup_digest<'a>(table: &'a str, digest: &Digest) -> Result<Option<Entry
     Ok(found)
 }
 
-/// The next generation: `table` with `entry` installed. A program already present is **replaced in
-/// place**, which is an upgrade; one that is not is appended. Returns the length written to `out`.
+/// The next generation: `table` with `entry` installed. Returns the length written to `out`.
+///
+/// Of the entries already present for the same program name (DECISIONS §229 (how a bare name at
+/// the prompt reaches an installed program), B2):
+///
+/// - the same package at any version is **replaced in place**, which is an upgrade;
+/// - another package's is [`Error::Taken`], and nothing is written;
+/// - an owner's vouch and a package's entry **sit side by side**. A vouch is found by digest and
+///   never by name ([`lookup_name`]), so neither displaces the other. A later vouch replaces an
+///   earlier vouch of the same name.
+///
+/// Anything else is appended.
 pub fn with_entry(table: &str, entry: &Entry<'_>, out: &mut [u8]) -> Result<usize, Error> {
     if !good_name(entry.program) || !good_name(entry.package) {
         return Err(Error::BadName);
+    }
+    let vouch = entry.package == OWNER;
+    let name_of = |stem| stem_parts(stem).map(|(name, _, _)| name);
+    // Refuse before writing a byte, so a refused install leaves `out` meaning nothing.
+    for existing in entries(table) {
+        let existing = existing?;
+        if !vouch
+            && existing.program == entry.program
+            && existing.package != OWNER
+            && name_of(existing.package) != name_of(entry.package)
+        {
+            return Err(Error::Taken);
+        }
     }
     let mut writer = Writer { out, at: 0 };
     let mut replaced = false;
     for existing in entries(table) {
         let existing = existing?;
-        if existing.program == entry.program {
+        if existing.program == entry.program && (existing.package == OWNER) == vouch {
             writer.entry(entry)?;
             replaced = true;
         } else {
@@ -195,7 +255,10 @@ pub fn without_entry(table: &str, program: &str, out: &mut [u8]) -> Result<usize
     let mut removed = false;
     for existing in entries(table) {
         let existing = existing?;
-        if existing.program == program {
+        // A package is removed by name; an owner's vouch of the same name is not a package and
+        // stays (§229 (how a bare name at the prompt reaches an installed program), B2). A
+        // rollback is what undoes a vouch.
+        if existing.program == program && existing.package != OWNER {
             removed = true;
         } else {
             writer.entry(&existing)?;
@@ -238,9 +301,10 @@ pub const PACKAGES: &str = "packages";
 /// **What an entry's package column says when the owner vouched for the bytes** (DECISIONS §221
 /// (the boot prompt is the owner's console), ruling 1; §195 (a reviewed recipe vouches for a
 /// package) clause 3). No package stem can be this word, because a stem is
-/// `name-version-architecture` and carries two hyphens. The entry is an ordinary one otherwise:
-/// found by digest like any other, replaced by a later vouch or install of the same program name,
-/// and undone by a rollback. Provisional, like the column.
+/// `name-version-architecture` and carries two hyphens. The entry is found by digest like any
+/// other and undone by a rollback. It never claims a bare name (§229, B2): [`lookup_name`] skips
+/// it, [`with_entry`] keeps it beside a package's entry of the same name rather than replacing
+/// either, and only a later vouch of that name replaces it. Provisional, like the column.
 pub const OWNER: &str = "owner";
 
 /// The file name of generation `number` in [`DIRECTORY`]: its decimal digits, no padding.
@@ -393,8 +457,10 @@ mod tests {
     }
 
     /// **The property §208 asked for by name**: a rollback restores the whole set, not one package.
-    /// **An owner's vouch is an entry like any other** (DECISIONS §221): it reads back, is found by
-    /// its digest, and a later install of the same program name replaces it.
+    /// **An owner's vouch is found by digest and claims no name** (DECISIONS §221 (the boot prompt
+    /// is the owner's console); §229 (how a bare name at the prompt reaches an installed program),
+    /// B2): it reads back, and an install of the same program name sits beside it rather than
+    /// replacing it. Before §229 the install replaced it, which is what this test asserted.
     #[test]
     fn an_owner_vouch_is_an_ordinary_entry() {
         let built = [9u8; 32];
@@ -418,7 +484,71 @@ mod tests {
         let mut h = [0u8; 256];
         let n = with_entry(table, &upgrade, &mut h).unwrap();
         let next = core::str::from_utf8(&h[..n]).unwrap();
-        assert!(lookup_digest(next, &built).unwrap().is_none());
+        assert_eq!(lookup_digest(next, &built).unwrap().unwrap().package, OWNER);
+        assert_eq!(
+            lookup_name(next, "a.out").unwrap().unwrap().package,
+            "a.out-0.1.0-aarch64"
+        );
+    }
+
+    /// **§229 B2, the install half**: the same package at a new version replaces its entry, another
+    /// package cannot take the name, and a vouch of the same name neither takes the bare name nor
+    /// is taken by a later install. Removing the package leaves the vouch.
+    #[test]
+    fn a_name_belongs_to_one_package_and_never_to_a_vouch() {
+        let mut g = [0u8; 512];
+        let first = entry("uptime", "uptime-0.1.0-aarch64", 1);
+        let n = with_entry("", &first, &mut g).unwrap();
+        let t1 = core::str::from_utf8(&g[..n]).unwrap().to_string();
+
+        let upgrade = entry("uptime", "uptime-0.2.0-aarch64", 2);
+        let mut h = [0u8; 512];
+        let n = with_entry(&t1, &upgrade, &mut h).unwrap();
+        let t2 = core::str::from_utf8(&h[..n]).unwrap().to_string();
+        assert_eq!(lookup_name(&t2, "uptime").unwrap().unwrap().digest, [2; 32]);
+        assert_eq!(
+            entries(&t2).count(),
+            1,
+            "an upgrade replaces, it does not append"
+        );
+
+        let other = entry("uptime", "procps-4.0.0-aarch64", 3);
+        let mut k = [0u8; 512];
+        assert_eq!(with_entry(&t2, &other, &mut k), Err(Error::Taken));
+
+        let vouch = Entry {
+            program: "uptime",
+            package: OWNER,
+            digest: [4; 32],
+        };
+        let n = with_entry(&t2, &vouch, &mut k).unwrap();
+        let t3 = core::str::from_utf8(&k[..n]).unwrap().to_string();
+        assert_eq!(lookup_name(&t3, "uptime").unwrap().unwrap().digest, [2; 32]);
+        assert_eq!(
+            lookup_digest(&t3, &[4; 32]).unwrap().unwrap().package,
+            OWNER
+        );
+
+        let mut m = [0u8; 512];
+        let n = without_entry(&t3, "uptime", &mut m).unwrap();
+        let t4 = core::str::from_utf8(&m[..n]).unwrap();
+        assert!(lookup_name(t4, "uptime").unwrap().is_none());
+        assert_eq!(lookup_digest(t4, &[4; 32]).unwrap().unwrap().package, OWNER);
+    }
+
+    /// A stem splits from the right, so a name may hold a hyphen; the owner's word is not a stem.
+    #[test]
+    fn a_stem_splits_into_name_version_and_architecture() {
+        assert_eq!(
+            stem_parts("uptime-0.1.0-aarch64"),
+            Some(("uptime", "0.1.0", "aarch64"))
+        );
+        assert_eq!(
+            stem_parts("net-tools-2.10-riscv64"),
+            Some(("net-tools", "2.10", "riscv64"))
+        );
+        assert_eq!(stem_parts(OWNER), None);
+        assert_eq!(stem_parts("a--b"), None);
     }
 
     /// Two programs installed, one upgraded, one removed; selecting the generation before both

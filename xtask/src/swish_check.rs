@@ -705,6 +705,29 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "its manifest note asks for: output bytes, the clock",
         ],
     ),
+    // **And by its bare name** (DECISIONS §229 (how a bare name at the prompt reaches an installed
+    // program), B2): the live generation's entry of that name, run down the same road as its path,
+    // so `caps` names the same generation.
+    line(
+        1,
+        "greeting",
+        &["hello from a package this image never carried"],
+    ),
+    line(
+        0,
+        "caps greeting",
+        &["provenance: vouched by activation generation 2 (digest "],
+    ),
+    // **A name the image and a package both have is refused, naming both** (§229 B2). `uptime` is
+    // an image program and generation 1 installed a package of that name, which the image keeps.
+    line(
+        0,
+        "uptime",
+        &[
+            "uptime is both a program the image carries and an installed one, at \
+             /packages/uptime/0.1.0/uptime",
+        ],
+    ),
     // **The owner vouches for a local build** (DECISIONS §221 (the boot prompt is the owner's
     // console), ruling 1). `installed/unvouched` is the fresh build the D2 lines above ran on the
     // ruling's endowment (slots 0, 1 and 2). Vouching writes a generation that lists its digest,
@@ -725,6 +748,9 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps installed/unvouched",
         &["provenance: vouched by the owner in activation generation 3 (digest "],
     ),
+    // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
+    // the name it was recorded under, so the bare word reaches nothing.
+    line(0, "unvouched", &["no such program"]),
     line(1, crate::disk::INSTALLED_UNVOUCHED, &["slots held: 0 7 9"]),
     line(
         0,
@@ -2935,6 +2961,10 @@ $ outlaw
     /// installed package's path, after the `time` and `xargs` prefixes. A `caps` head is a preview
     /// and builds nothing. A bound from above only; a tag that is too low is the case no host test
     /// can see, and the transcript cannot either.
+    /// Bare names this script installs before it types them (§229 (how a bare name at the prompt
+    /// reaches an installed program), B2), which run as programs without being the image's.
+    const INSTALLED_BY_THE_SCRIPT: [&str; 1] = ["greeting"];
+
     /// Feed `chunks` through a [`GaugeFilter`] and return what the checks would read, and the gauges.
     fn filtered(chunks: &[&str]) -> (String, Vec<(usize, String)>) {
         let mut f = GaugeFilter::default();
@@ -3057,7 +3087,9 @@ $ outlaw
                 // A token with a `/` in it runs a file's bytes (DECISIONS §219 D), which is the
                 // shell's own test (`components/src/swish.rs`, `run`).
                 .filter(|head| {
-                    head.contains('/') || grant_plan::Prog::ALL.iter().any(|p| p.name() == *head)
+                    head.contains('/')
+                        || grant_plan::Prog::ALL.iter().any(|p| p.name() == *head)
+                        || INSTALLED_BY_THE_SCRIPT.contains(head)
                 })
                 .count();
             assert!(

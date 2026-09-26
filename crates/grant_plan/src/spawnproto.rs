@@ -397,6 +397,11 @@ pub enum ActivationStatus {
     /// [`Activation::Vouch`] was sent bytes that do not parse as an executable, or a name the
     /// activation set cannot record. Nothing was written.
     NotExecutable = 10,
+    /// [`Activation::Install`] or a fetch, for a package whose program has the name another
+    /// installed package's program already has (`activation_set::Error::Taken`; DECISIONS §229
+    /// (how a bare name at the prompt reaches an installed program), B2). The same package at
+    /// another version is an upgrade and is not this. No generation was written. Provisional.
+    NameTaken = 11,
 }
 
 impl ActivationStatus {
@@ -414,6 +419,7 @@ impl ActivationStatus {
             8 => Self::NoNetwork,
             9 => Self::FetchFailed,
             10 => Self::NotExecutable,
+            11 => Self::NameTaken,
             _ => Self::Unknown,
         }
     }
@@ -845,6 +851,7 @@ mod tests {
             ActivationStatus::NoNetwork,
             ActivationStatus::FetchFailed,
             ActivationStatus::NotExecutable,
+            ActivationStatus::NameTaken,
         ] {
             let (w0, w1, _) = activation_reply(status, 7);
             assert_eq!(ActivationStatus::from_word(w0), status);

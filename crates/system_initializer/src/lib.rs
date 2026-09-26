@@ -4725,8 +4725,15 @@ fn edit(
                 package: stem,
                 digest: got.digest,
             };
-            let Ok(n) = activation_set::with_entry(table, &entry, &mut new) else {
-                return (S::StoreFailed, live);
+            // **A bare name belongs to one package** (DECISIONS §229 (how a bare name at the prompt
+            // reaches an installed program), B2). Another package's program of the same name is
+            // refused here, after its bytes are placed under `packages/` (where they still run by
+            // path) and before any generation names it. A name the image also carries is not
+            // refused: the image keeps the bare word, and the prompt says so.
+            let n = match activation_set::with_entry(table, &entry, &mut new) {
+                Ok(n) => n,
+                Err(activation_set::Error::Taken) => return (S::NameTaken, live),
+                Err(_) => return (S::StoreFailed, live),
             };
             let m = next();
             if !files.commit(act, m, Some(&new[..n])) {
