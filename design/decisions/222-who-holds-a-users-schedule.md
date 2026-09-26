@@ -62,12 +62,18 @@ Refused:
 
 ### When `login` builds it
 
-calef, 2026-09-26 (recorded 17:41 UTC): *"L2"*. After `OK`, a new request word on `login`'s private
-channel builds the session process and returns its `REPLACE` endpoint, announced as an extra
-capability the way `RUN_UNVOUCHED_FOLLOWS` announces one in `crates/login_protocol`. A session
-without a schedule sees no change in `login`. A session with one outlives logout, because the
-session process is a live child of its budget and §16 (object revocation) refuses to destroy a
-parent with a live child.
+calef, 2026-09-26 (recorded 17:41 UTC): *"L2"*. The session process is built only on request,
+and `login` is unchanged for a session without a schedule. A session with one outlives logout,
+because the session process is a live child of its budget and §16 (object revocation) refuses to
+destroy a parent with a live child.
+
+The build deviates from the wording calef was shown, which had a new request word on `login`'s
+private channel after `OK`. `login` cannot wait for a word after `OK` unless every existing client
+sends one. So the lane made the request the login itself: `SCHEDULE` is a login request that also
+builds the session process, and its reply announces the `REPLACE` endpoint as a following
+capability (`SCHEDULE_FOLLOWS`), the way `RUN_UNVOUCHED_FOLLOWS` announces one in
+`crates/login_protocol`. The substance of the ruling is unchanged. The build is draft pull request
+#1377 (`milestone/152-session`).
 
 Refused:
 
@@ -76,7 +82,7 @@ Refused:
 - L3, build it when the stored schedule is non-empty. The first registration still needs L2's
   request, so L3 is L2 plus a special case.
 
-The request word is a provisional wire value, and its name is not ratified.
+`SCHEDULE` and `SCHEDULE_FOLLOWS` are provisional wire values, and their names are not ratified.
 
 The program's name is not ratified, and whatever a lane ships is provisional. The `REPLACE` handler
 does not wait on this program; connecting a real session does.
