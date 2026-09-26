@@ -17,12 +17,15 @@
 //!    format) and parses it with [`timetable::parse`] unchanged, proving §122's write path (this
 //!    lane's own `fixtures/src/fs_test_client.rs::ROLE_SCHEDULE_SEED`) and this read path agree on the
 //!    same bytes through a real filesystem round trip, not a fixture.
-//! 3. Mints and tears down one synthetic per-identity session, in `smb_server.rs`'s
-//!    `DurableSession`'s own two-step shape (split a session region off [`UT`], split a pending-job
-//!    region off *that*, prove `MemoryRegion::DESTROY` on the session refuses while the job lives and
-//!    succeeds once it does not): the demonstration that boot-time re-derivation produces something
-//!    with the identical §16 lifecycle a live login's `DurableSession` already has, without wiring a
-//!    real registrar (#387, explicitly out of this lane's scope; see the roadmap doc).
+//! 3. Mints and tears down one synthetic per-identity session in two steps (split a session region
+//!    off [`UT`], split a pending-job region off *that*, prove `MemoryRegion::DESTROY` on the session
+//!    refuses while the job lives and succeeds once it does not): the demonstration that boot-time
+//!    re-derivation produces something with the identical §16 (object revocation) lifecycle a live login session has,
+//!    without wiring a real registrar (#387, out of this lane's scope; see the roadmap doc). The
+//!    live-login half is `kernel::user::login_tests`'s
+//!    `a_login_session_with_pending_work_refuses_logout_until_the_work_is_gone`, on `login`'s own
+//!    delegated budget. It replaced `smb_server.rs`'s `DurableSession`, which this shape was first
+//!    written against and which went with the SMB code on 2026-08-30.
 //! 4. Deletes its own copies of [`FS_EP`] and [`UT`] (`cap_delete`, not `MemoryRegion::DESTROY`: this
 //!    process is giving up its own *name* for the store and the budget, not tearing either down),
 //!    then attempts a further store read and a further construction and asserts both now fail,
@@ -54,7 +57,7 @@
 //! boot-time-re-derived session has the same §16 lifecycle a live login's does; and the re-deriver's
 //! own capabilities are provably gone after its one pass, in `root_supervisor`'s exact shape.
 //!
-//! **Does not build**: a real scheduled-job registrar against `DurableSession` (#387/milestone 129,
+//! **Does not build**: a real scheduled-job registrar against a durable session (#387/milestone 129 (scheduled execution),
 //! this lane's own explicit non-goal); real per-identity narrowing of [`FS_EP`] (a caretaker built
 //! per identity, `login.rs`'s `mint()` shape, rather than the one shared, unnarrowed capability this
 //! process holds for its whole run) -- named honestly in this program's own BUGS below, matching
@@ -94,7 +97,7 @@
 //!
 //! What the program does supports the distinction rather than softening it: it reads the manifest,
 //! reads each identity's schedule file, and **mints a fresh synthetic session** with the identical
-//! §16 lifecycle a live login's `DurableSession` has. Nothing is brought back. Something
+//! §16 lifecycle a live login session has. Nothing is brought back. Something
 //! equivalent is derived again, from durable inputs, with nobody present to hand over a credential.
 //!
 //! Refused `session_reviver`, above. It was never argued for: §123's own text floated *"something
@@ -162,10 +165,10 @@ const FS_WINDOW: MappedWindow =
     unsafe { MappedWindow::new(FS_VA, filesystem_protocol::PAGE as u64) };
 
 /// Each synthetic session's own construction, `MemoryRegion::SPLIT` off [`UT`]. One page is enough:
-/// nothing is ever retyped from it, matching `smb_server.rs`'s own `SESSION_UT_PAGES`.
+/// nothing is ever retyped from it.
 const SESSION_UT_PAGES: u64 = 4;
-/// The synthetic pending-job child of one synthetic session, matching `smb_server.rs`'s own
-/// `PENDING_JOB_PAGES` for the identical reason: nothing is ever retyped from it either.
+/// The synthetic pending-job child of one synthetic session, the same size as
+/// `login_test_client`'s `PENDING_JOB_PAGES` for the same reason: nothing is ever retyped from it.
 const JOB_UT_PAGES: u64 = 1;
 
 /// **Success.** Word 1 of the report is how many identities the manifest named and this process
@@ -253,7 +256,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 
 /// **Re-derive one identity's session**, standing in for what a real registrar (#387) would build:
 /// read and parse that identity's `schedule` file through a real filesystem round trip, then mint
-/// and tear down a synthetic session in `smb_server.rs`'s `DurableSession` shape, proving the §16
+/// and tear down a synthetic session in the shape a login session's budget has, proving the §16
 /// lifecycle a boot-time-re-derived session has is the identical one a live login's already has.
 ///
 /// `false` on any failure (the identity's subtree or schedule file could not be read or parsed, or
@@ -295,8 +298,8 @@ fn rederive_one(identity: &[u8]) -> bool {
         return false;
     }
 
-    // The synthetic per-identity session: `smb_server.rs`'s own `DurableSession` proof, mirrored
-    // exactly (`open_durable_session_or_die`'s scratch-session steps), because a session re-derived
+    // The synthetic per-identity session: the same proof `login_tests` makes on a live login's
+    // budget (a pending-job child holds the session up), mirrored here, because a session re-derived
     // at boot is supposed to have the identical §16 lifecycle a live login's already does, and this
     // is how that claim is checked rather than assumed.
     let Ok(session) = memory_region_split(UT, SESSION_UT_PAGES) else {
@@ -383,7 +386,7 @@ fn fs_page_mut() -> &'static mut [u8] {
 }
 
 /// Report [`FAILED`] with `stage` as its detail word, and stop. One-shot roles must exit, not spin
-/// (matching `smb_server.rs`'s own `done`).
+/// (the pattern every one-shot program in `components/` follows).
 fn done(stage: u64) -> ! {
     send(REPORT, FAILED, stage, 0);
     user_mode_runtime::exit()

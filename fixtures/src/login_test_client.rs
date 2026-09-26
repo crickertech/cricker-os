@@ -16,8 +16,8 @@
 //!
 //! So a run is `_start(behaviour, identity, secret)`:
 //!
-//! - **`behaviour`** is what this process does with the session it gets, and the six below are six
-//!   genuinely different flows rather than six spellings of one.
+//! - **`behaviour`** is what this process does with the session it gets, and the eight below are
+//!   eight genuinely different flows rather than eight spellings of one.
 //! - **`identity` and `secret`** are indices into [`credential_protocol::fixture::PEOPLE`], the roster
 //!   three files used to keep their own copy of. They are composed at the call site, so
 //!   `(CHRIS, CHRIS)` is an honest login and `(CHRIS, WRONG)` is the same program presenting a
@@ -28,7 +28,7 @@
 //! channel-per-client update: a run must map the page [`login_protocol::CONNECTED`] delegates before it
 //! holds anything else of its own to draw page tables from).
 //!
-//! # The six behaviours
+//! # The eight behaviours
 //!
 //! - [`LOGIN`] presents the credential it was handed and stops at the verdict, then proves what it
 //!   received. Every credential case is this one behaviour: two identities' correct credentials
@@ -70,6 +70,13 @@
 //!   word on the sixth delegated capability, the run-unvouched endpoint, which the kernel test
 //!   catches on the endpoint it gave `login`. Every successful login that was announced a sixth
 //!   capability also tries to delegate it and reports the refusal ([`F_RUN_UNVOUCHED_NOT_GRANTABLE`]).
+//! - [`PENDING_WORK`], for milestone 152 (durable delegation), logs in, splits a one-page child off
+//!   the delegated budget to stand for a scheduled job's authority, and then attempts the logout
+//!   [`LOGOUT`] performs. The first step of that logout, `MemoryRegion::DESTROY` on the budget, must
+//!   be refused `NotPermitted` while the child lives, the live-children rule of DECISIONS §16 (object
+//!   revocation), and the budget must still work after the refusal. Only once the child is
+//!   destroyed does the logout go through, in [`LOGOUT`]'s order and with its proofs. This is the property milestone 152's
+//!   durable session leans on, proven on the object a login session actually is.
 //! - [`FREE_TERMINAL`] sends [`login_protocol::logout_word`] on the front door directly, without ever
 //!   calling `CONNECT`: there is no identity or secret in this word at all (`login_protocol`'s own BUGS
 //!   on what this does and does not authenticate). It is the one behaviour that takes no credential,
@@ -133,7 +140,7 @@
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{
     call, destroy_region, exit, map_page_frame, recv, recv_cap, retype_page_frame, send, send_cap,
-    yield_now,
+    split_region, yield_now,
 };
 
 /// The login service's front-door request endpoint (slot 0), `WRITE`.
@@ -193,9 +200,17 @@ pub const FREE_TERMINAL: u64 = 5;
 /// names the endpoint `login` was given, by sending [`RUN_UNVOUCHED_MAGIC`] on it for the kernel
 /// test to receive, then tears its session down as [`HOLD_TERMINAL`] does.
 pub const PRESENT_RUN_UNVOUCHED: u64 = 6;
+/// Log in, split a pending-job child off the budget, and prove the logout is refused while it lives
+/// and goes through once it is gone. Milestone 152; see the module docs. Provisional name.
+pub const PENDING_WORK: u64 = 7;
 
 /// **[`PRESENT_RUN_UNVOUCHED`]'s proof of life**, [`TERM_MAGIC`]'s twin for the sixth capability.
 const RUN_UNVOUCHED_MAGIC: u64 = 0x_7e12_0000_0000_0002;
+
+/// **[`PENDING_WORK`]'s stand-in for a scheduled job's authority**, split off the delegated budget.
+/// One page: nothing is retyped from it. What matters is that it is a live child, which is all
+/// DECISIONS §16's refusal looks at.
+const PENDING_JOB_PAGES: u64 = 1;
 
 /// The one-shot marker file [`WRITE_MARKER`] writes and [`READ_MARKER`] reads, inside the identity's own
 /// granted subtree. Chosen to collide with nothing else this tree's fixtures use.
@@ -267,6 +282,16 @@ pub const F_RUN_UNVOUCHED_WORKS: u64 = 1 << 10;
 /// owner's list (DECISIONS §221 (the boot prompt is the owner's console), ruling 2) without waiting
 /// on an endpoint nothing will send to.
 pub const F_RUN_UNVOUCHED_ANNOUNCED: u64 = 1 << 11;
+/// **Set when the budget's `DESTROY` was refused `NotPermitted` while a pending-job child lived.**
+/// Set only by [`PENDING_WORK`]. Any other answer, success included, leaves it clear: a logout that
+/// succeeded here would have torn down a session with scheduled work still hanging off it.
+pub const F_LOGOUT_REFUSED_WHILE_PENDING: u64 = 1 << 12;
+/// **Set when the budget still retyped a page after that refusal.** Set only by [`PENDING_WORK`].
+/// A refused `DESTROY` that half-tore the session down would set the flag above and fail this one.
+pub const F_SESSION_SURVIVED_REFUSAL: u64 = 1 << 13;
+/// **Set when the pending-job child itself was destroyed.** Set only by [`PENDING_WORK`], and it is
+/// what makes the budget destroyable again.
+pub const F_PENDING_WORK_DESTROYED: u64 = 1 << 14;
 
 /// `a0` is the behaviour, `a1` the identity and `a2` the secret; see the module docs. Three
 /// registers because that is what a process is born with (`kernel::user::Spawn`), and the two
@@ -392,6 +417,26 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
         flags |= F_BUDGET_WORKS;
     }
 
+    // **Milestone 152's durable-session property, on a real login session.** A scheduled job's
+    // authority would be split off the session's budget, so a live child here stands for pending
+    // work. The logout's first step must be refused for exactly as long as that child lives: one
+    // attempt, not `destroy_with_retry`, because this refusal is not a kill waiting for a tick. It is
+    // permanent until the child goes, and retrying would only spend the watchdog.
+    if behaviour == PENDING_WORK {
+        let job = split_region(budget, PENDING_JOB_PAGES);
+        if job >= 0 {
+            if destroy_region(budget) == abi::Error::NotPermitted as i64 {
+                flags |= F_LOGOUT_REFUSED_WHILE_PENDING;
+            }
+            if retype_page_frame(budget) >= 0 {
+                flags |= F_SESSION_SURVIVED_REFUSAL;
+            }
+            if destroy_region(job as u64) == 0 {
+                flags |= F_PENDING_WORK_DESTROYED;
+            }
+        }
+    }
+
     // **`LOGOUT` destroys `budget` before `region`, and the order is load-bearing, not a
     // style choice.** `mint()` splits both from `login`'s own `CONSTRUCTION_UT`, `region` first and
     // `budget` second (`components/src/login.rs`), so `budget` sits at the top of `CONSTRUCTION_UT`'s
@@ -406,7 +451,10 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // fixed, which is exactly the anti-oracle failure `login_protocol::DENIED`'s own fold exists to
     // prevent (a real password silently answered as though it were wrong). See `login_protocol`'s own
     // module docs on the fourth capability for the client-facing version of this note.
-    if (behaviour == LOGOUT || behaviour == HOLD_TERMINAL || behaviour == PRESENT_RUN_UNVOUCHED)
+    if (behaviour == LOGOUT
+        || behaviour == HOLD_TERMINAL
+        || behaviour == PRESENT_RUN_UNVOUCHED
+        || behaviour == PENDING_WORK)
         && destroy_with_retry(budget)
     {
         flags |= F_BUDGET_TEARDOWN_OK;
@@ -474,6 +522,8 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
                 // caretaker lived for the rest of the suite and a later, unrelated test
                 // (`timetable_tests`) hung on riscv64 and aarch64 for want of what it held.
                 PRESENT_RUN_UNVOUCHED => flags |= teardown_directory(dir_ep, region),
+                // Its whole point is that the session comes home once the work is gone.
+                PENDING_WORK => flags |= teardown_directory(dir_ep, region),
                 _ => {}
             }
         }
