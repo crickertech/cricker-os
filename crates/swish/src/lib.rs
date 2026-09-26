@@ -85,6 +85,7 @@
 
 #![no_std]
 
+pub mod complete;
 pub mod sequence;
 
 use environment_protocol::ConfigPage;
