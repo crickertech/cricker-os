@@ -1,5 +1,5 @@
 use super::*;
-use crate::cap::{Rights, irq_cap, rendezvous_cap, virtio_cap};
+use crate::cap::{Rights, irq_cap, notification_cap, rendezvous_cap, timer_cap, virtio_cap};
 use crate::sched::RendezvousId;
 use crate::user::holding::Holding;
 
@@ -218,14 +218,23 @@ fn wire_net_server(
     // reclaiming the region its endpoints live in: the reap drains their wait queues and aborts the
     // waiter, and the doomed server is then schedulable enough to die. From the kernel's own
     // endpoint chunks (`create_rendezvous`) there is no such handle, and there was no way to end this
-    // process short of rebooting. Four pages for three endpoints, one page each and one spare.
-    let ep_region = crate::memory_region::create(4).expect("no endpoint region for net_stack");
+    // process short of rebooting. Six pages: three endpoints, the retransmit timer and its
+    // notification (milestone 106), one page each, and one spare.
+    let ep_region = crate::memory_region::create(6).expect("no endpoint region for net_stack");
     let irq_ep = crate::sched::create_rendezvous_from(ep_region).expect("no irq endpoint");
     crate::sched::bind_irq(intid, irq_ep);
     crate::arch::irq::enable(intid);
 
     let report = crate::sched::create_rendezvous_from(ep_region).expect("no report endpoint");
     let stack = crate::sched::create_rendezvous_from(ep_region).expect("no stack endpoint");
+    // **The retransmit timer** (milestone 106 (a wait that ends on either the interrupt or the
+    // deadline), DECISIONS §147 (a timer a userspace service cannot hold)): a timer and the
+    // notification it signals, the notification bound to the server's thread below, so its
+    // `Irq::WAIT` ends on a frame or on smoltcp's next deadline, whichever is first. Made and bound
+    // here, by the spawner, because a running thread holds no capability to its own TCB and so
+    // cannot bind itself (`notes/timer.md`, "Binding a notification to yourself").
+    let wake = crate::sched::create_notification_from(ep_region).expect("no notification");
+    let retransmit = crate::sched::create_timer_from(ep_region).expect("no retransmit timer");
     let vid = crate::virtio::register(transport, dma, FRAME_SIZE, rid);
     let budget =
         crate::memory_region::create(NET_SERVER_BUDGET_PAGES).expect("no untyped for net_stack");
@@ -272,12 +281,18 @@ fn wire_net_server(
                     virtio_cap(vid),                       // slot 2: the confined transport
                     memory_region_cap(budget),             // slot 3: the heap's budget
                     rendezvous_cap(stack, Rights::READ),   // slot 4: serve clients' requests
+                    notification_cap(wake, Rights::ALL),   // slot 5: bound; arm it, poll it
+                    timer_cap(retransmit, Rights::WRITE),  // slot 6: smoltcp's next deadline
                 ],
                 maps: &maps,
             },
         )
     })
     .expect("could not spawn the net server");
+    // Bound after the spawn rather than before START, which is safe for a reason worth writing
+    // down: a signal that lands before the bind is counted in the word, and the bind (or the
+    // server's next receive) delivers it. Nothing is lost by the order.
+    crate::sched::notification_bind(wake, tid).expect("bind the retransmit notification");
 
     let mut held = Holding::new();
     held.add_thread(tid);

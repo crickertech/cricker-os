@@ -3714,6 +3714,14 @@ mod reap_tests;
 #[cfg(test)]
 mod notification_tests;
 
+/// **Timers** (milestone 106 (a wait that ends on either the interrupt or the deadline), DECISIONS
+/// §147 (a timer a userspace service cannot hold)): the tick reaching the expiry walk, a wait ending
+/// on a signal or on the deadline (in `WAIT` and in a bound `RECV`), a replaced or cancelled deadline
+/// never firing, and the syscall layer's rights. Cross-ISA: the counter each test reads is the one
+/// the walk compares, on every architecture.
+#[cfg(test)]
+mod timer_tests;
+
 /// **A process listing is a capability, not a fact about the machine** (milestone 126,
 /// `rendezvous::SURVEY`, notes/process-view.md). Cross-ISA for the same reason `reap_tests` is: the
 /// scope decision reads one field of a TCB and compares two generational names, so a divergence

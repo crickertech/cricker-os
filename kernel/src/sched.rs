@@ -539,6 +539,11 @@ struct IpcTables {
     /// [`NotificationPage`] lives at the start of, retyped from its creator's region; the
     /// generational name is what an `Object::Notification` capability carries.
     notification_table: generational_table::Table<u64, MAX_NOTIFICATIONS>,
+    /// **The timer registry** (milestone 106 (a wait that ends on either the interrupt or the
+    /// deadline), DECISIONS §147 (a timer a userspace service cannot hold)): the notification
+    /// registry's shape one object type over. Each entry is the physical address of the page a
+    /// [`TimerPage`] lives at the start of; the expiry walk iterates it.
+    timer_table: generational_table::Table<u64, MAX_TIMERS>,
 }
 
 /// The most endpoints that can exist **at once**: the registry's bound.
@@ -710,6 +715,7 @@ const EMPTY_TABLES: IpcTables = IpcTables {
     kernel_ep_region: None,
     kernel_ep_chunks: 0,
     notification_table: generational_table::Table::new(),
+    timer_table: generational_table::Table::new(),
 };
 
 /// **Per-cpu ring of the last few scheduler events** (first-silicon diagnostics, 2026-08-14; the
@@ -1969,6 +1975,17 @@ pub fn on_tick() {
     // core's pass (or an arm) holds the gate, and the tick must never spin in IRQ context.
     let _ = canary::check();
 
+    // **Timer expiry** (milestone 106, DECISIONS §147): one relaxed load, one counter read and one
+    // compare when nothing is due, which is the cost `notes/timed-wait.md` priced before this was
+    // built. Only a due tick takes `IPC_TABLES`, so four cores ticking at 100 Hz do not contend for
+    // the whole-machine lock to find out that nothing happened.
+    if inter_process_communication::timer::is_due(
+        EARLIEST_DEADLINE.load(Ordering::Relaxed),
+        crate::arch::timer::now(),
+    ) {
+        expire_timers();
+    }
+
     // **The soak's cross-core hook** (milestone 221, DECISIONS 138's option D). A saturated
     // workload never migrates, because a rendezvous wake is local (§28.2), `wake_load_aware` is
     // reachable only from a device interrupt, and a work steal needs an idle core the machine does
@@ -2786,8 +2803,7 @@ fn deliver_bound(sched: &mut IpcTables, tid: ThreadId, ep: RendezvousId, word: u
 #[derive(Clone, Copy)]
 enum WakePlacement {
     Local,
-    // Constructed only by `signal_notification_from_interrupt`, whose caller is milestone 106's.
-    #[cfg_attr(not(test), allow(dead_code))]
+    // The timer expiry walk (`expire_timers`, milestone 106) and `signal_notification_from_interrupt`.
     LoadAware,
 }
 
@@ -2859,9 +2875,12 @@ pub fn notification_signal(id: NotificationId, bits: u64) -> Result<(), abi::Err
 /// stale name is dropped silently, as `irq_notify` drops a revoked route: an expiry with no
 /// notification left to signal has nowhere to go, which is not an error.
 ///
-/// **No caller in the kernel yet**, deliberately: milestone 151 builds the path and 106 builds the
-/// timer that calls it (the brief's scope). A kernel test exercises it from a kernel thread so it is
-/// not dead code that merely compiles.
+/// **Still no caller outside the tests, and milestone 106 is why.** The timer's expiry walk
+/// ([`expire_timers`]) fires several timers under one hold of `IPC_TABLES`, so it calls
+/// [`signal_locked`] with this function's placement directly rather than taking and dropping the
+/// lock once per timer through here. This entry stays for a kernel source that signals one
+/// notification at a time (§147's argument that IRQ delivery could use it); a kernel test exercises
+/// it so it is not dead code that merely compiles.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn signal_notification_from_interrupt(id: NotificationId, bits: u64) {
     let remote = {
@@ -3013,6 +3032,168 @@ fn reap_region_notifications(sched: &mut IpcTables, base: u64, end: u64) {
             });
         }
         sched.notification_table.remove(name);
+    }
+}
+
+/// The most timers that can exist at once, whole machine: the notification registry's bound, for
+/// its reason. A timer is per-waiter (a sleeping thread, a retransmit window), so §147's consumers
+/// want about one each. The expiry walk is O(this) at worst, and runs only on a due tick.
+const MAX_TIMERS: usize = 256;
+
+/// A timer's name: a generational name over the timer registry, what an `Object::Timer`
+/// capability carries. *(Provisional, as the object type is.)*
+pub type TimerId = u64;
+
+/// **What lives at the start of a timer's page**: the proved decision core, armed with the
+/// notification to signal and the bits to signal it with.
+struct TimerPage {
+    state: inter_process_communication::timer::Timer<(NotificationId, u64)>,
+}
+
+/// **The cached earliest deadline, in counter ticks**: never later than any armed timer's deadline
+/// (the invariant `inter_process_communication::timer` proves), `NEVER` when nothing is armed.
+///
+/// An atomic beside `IPC_TABLES` rather than a field in it, because the tick reads it **without**
+/// the lock, which is the whole point: the idle tick is one load and one compare. Every write happens
+/// under `IPC_TABLES`, so writers never race each other; a tick on another core may read a value one
+/// write stale, and both directions are safe. Stale-high (an arm not yet visible) delays that expiry
+/// to a later tick, bounded by the lock release that publishes it; stale-low costs one walk that
+/// finds nothing. `Relaxed` is enough for that reason, and the walk itself re-reads everything
+/// under the lock.
+static EARLIEST_DEADLINE: AtomicU64 = AtomicU64::new(inter_process_communication::timer::NEVER);
+
+/// The timer behind a name, or `None` if it no longer resolves. Caller holds `IPC_TABLES`; the
+/// `'static` is [`notification_of`]'s.
+fn timer_of(sched: &IpcTables, id: TimerId) -> Option<&'static mut TimerPage> {
+    let phys = *sched.timer_table.get(id)?;
+    // SAFETY: retyped exclusively for this timer, its region pinned while the name resolves,
+    // direct-mapped, and serialized by IPC_TABLES, which every caller holds.
+    Some(unsafe { &mut *(crate::arch::mmu::phys_to_virt(phys) as *mut TimerPage) })
+}
+
+/// Create a timer **in `region`'s memory**, disarmed. [`create_notification_from`]'s shape,
+/// registry checked before a page is spent.
+pub fn create_timer_from(region: u64) -> Option<TimerId> {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut()?;
+    if sched.timer_table.len() >= MAX_TIMERS {
+        return None;
+    }
+    let phys = crate::memory_region::retype_object_page(region)?;
+    // SAFETY: fresh page, exclusively ours, direct-mapped.
+    unsafe {
+        (crate::arch::mmu::phys_to_virt(phys) as *mut TimerPage).write(TimerPage {
+            state: inter_process_communication::timer::Timer::new(),
+        });
+    }
+    sched.timer_table.insert_with(|_| phys)
+}
+
+/// **`Timer::ARM`**: arm `id` to signal `bits` into `notification` at `deadline` (counter ticks),
+/// replacing any pending deadline. A deadline already reached signals now, from here, with a
+/// thread's placement (the arming thread's core is warm). `Gone` if either name is stale.
+pub fn timer_arm(
+    id: TimerId,
+    deadline: u64,
+    notification: NotificationId,
+    bits: u64,
+) -> Result<(), abi::Error> {
+    use inter_process_communication::timer::{Arm, lowered};
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    // Refuse a dead notification at arm time rather than letting the expiry discover it: the
+    // caller can still act on `Gone` now, and nobody can act on it at the deadline.
+    notification_of(sched, notification).ok_or(abi::Error::Gone)?;
+    let page = timer_of(sched, id).ok_or(abi::Error::Gone)?;
+    let now = crate::arch::timer::now();
+    match page.state.arm(deadline, (notification, bits), now) {
+        Arm::Pending => {
+            let cached = EARLIEST_DEADLINE.load(Ordering::Relaxed);
+            EARLIEST_DEADLINE.store(lowered(cached, deadline), Ordering::Relaxed);
+            Ok(())
+        }
+        // A local wake never returns a core to poke; the notification was checked above, so a
+        // `Gone` here is impossible under this same hold.
+        Arm::DueNow((n, b)) => signal_locked(sched, n, b, WakePlacement::Local).map(|_| ()),
+    }
+}
+
+/// **`Timer::CANCEL`**: disarm `id`. `true` if a deadline was pending and now never fires. The cache
+/// is deliberately left where it is: lowering is all an arm does, a walk is what raises it, and a
+/// stale-low cache costs one walk that fires nothing. `Gone` if the name is stale.
+pub fn timer_cancel(id: TimerId) -> Result<bool, abi::Error> {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    Ok(timer_of(sched, id).ok_or(abi::Error::Gone)?.state.cancel())
+}
+
+/// **The expiry walk**, from the tick, in interrupt context, on the interrupt stack: fire every due
+/// timer, then recompute the cache exactly. Legal here for [`signal_notification_from_interrupt`]'s
+/// reason (a wake is an enqueue, `IPC_TABLES` masks interrupts, nothing allocates), and it goes
+/// through the same [`signal_locked`] with the same load-aware placement.
+///
+/// **Rescan rather than list**, the region sweeps' shape: each step finds the first due timer,
+/// disarms it and signals, so no buffer bounds how many may fire in one tick. The cost is O(timers)
+/// per firing, paid only on a due tick.
+///
+/// `#[cold]` and out of line so its bytes stay in its own symbol rather than in `on_tick`'s, for
+/// `on_tick`'s own reason (riscv64 counts the trap path flat).
+#[cold]
+#[inline(never)]
+fn expire_timers() {
+    use inter_process_communication::timer::{earliest, next_due};
+    let mut poke: u64 = 0; // one bit per core a wake placed a thread on
+    {
+        let mut guard = IPC_TABLES.lock();
+        let Some(sched) = guard.as_mut() else { return };
+        let now = crate::arch::timer::now();
+        loop {
+            let fired = next_due(
+                sched
+                    .timer_table
+                    .values()
+                    // SAFETY: each value is a live timer page, as `timer_of` argues.
+                    .map(|&phys| unsafe {
+                        &mut (*(crate::arch::mmu::phys_to_virt(phys) as *mut TimerPage)).state
+                    }),
+                now,
+            );
+            let Some((notification, bits)) = fired else {
+                break;
+            };
+            // A notification destroyed while the timer was armed: nobody left to tell, dropped
+            // as `signal_notification_from_interrupt` drops a stale name.
+            if let Ok(Some(core)) =
+                signal_locked(sched, notification, bits, WakePlacement::LoadAware)
+            {
+                poke |= 1 << core;
+            }
+        }
+        let cached = earliest(sched.timer_table.values().map(|&phys| {
+            // SAFETY: as above.
+            unsafe { &(*(crate::arch::mmu::phys_to_virt(phys) as *const TimerPage)).state }
+        }));
+        EARLIEST_DEADLINE.store(cached, Ordering::Relaxed);
+    }
+    for core in 0..cpu::MAX_CPUS {
+        if poke & (1 << core) != 0 {
+            crate::arch::irq::send_reschedule(core);
+        }
+    }
+}
+
+/// **Tear down every timer whose page lies in `[base, end)`**: drop the name. A timer has no
+/// waiters of its own, so there is nothing to abort; an armed one simply never fires. The cache may
+/// be left stale-low, which is safe. Caller holds `IPC_TABLES`.
+fn reap_region_timers(sched: &mut IpcTables, base: u64, end: u64) {
+    loop {
+        let doomed = sched
+            .timer_table
+            .iter()
+            .find(|&(_, &phys)| base <= phys && phys < end)
+            .map(|(name, _)| name);
+        let Some(name) = doomed else { break };
+        sched.timer_table.remove(name);
     }
 }
 
@@ -4342,6 +4523,8 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
     // a thread blocked in `WAIT` on a notification in this region is aborted and woken here, and so
     // becomes schedulable enough to spend its kill.
     reap_region_notifications(sched, base, end);
+    // And its timers (milestone 106), which have no waiters to abort: an armed one just never fires.
+    reap_region_timers(sched, base, end);
 
     // --- Finish phase: end every resident the arm below could never reach (milestone 133). ---
     //
@@ -4663,6 +4846,17 @@ pub fn survey_supervised(
         }
     }
     Ok((abi::survey::DONE, 0, 0))
+}
+
+/// **The ticks charged to the running thread so far**, for a test that measures what a wait costs
+/// (milestone 106's before-and-after). Read by the thread itself, because a finished thread's slot
+/// may be reused before anyone else looks. Test-only: userspace reads the same counter in
+/// milliseconds through `SURVEY`.
+#[cfg(test)]
+pub fn current_cpu_ticks() -> u64 {
+    CPU_TICKS
+        .get(slot_of(current_thread_id()))
+        .map_or(0, |c| c.load(Ordering::Relaxed))
 }
 
 /// The CPU time a survey reports, as an `abi::survey::record::CPU_TIME` word: **milliseconds**.

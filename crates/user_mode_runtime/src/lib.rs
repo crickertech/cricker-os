@@ -459,6 +459,76 @@ pub fn notification_bind(slot: u64, thread_slot: u64) -> i64 {
     unsafe { invoke(slot, abi::notification::BIND, thread_slot, 0, 0) }
 }
 
+/// `Timer::ARM` (milestone 106 (a wait that ends on either the interrupt or the deadline), DECISIONS
+/// §147 (a timer a userspace service cannot hold)): when the counter ([`now`]) reaches `deadline`, OR
+/// `bits` into the notification in `notification_slot`. Replaces any pending deadline; a deadline
+/// already reached signals at once. `0`, or a negative [`abi::Error`].
+///
+/// A timer does not block. Wait on the notification ([`notification_wait`]), or receive with it
+/// bound ([`recv_bound`]), and the wait ends on the deadline or on anything else that signals it.
+pub fn timer_arm(timer_slot: u64, deadline: u64, notification_slot: u64, bits: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`/`syscall`; the kernel validates both capabilities.
+    unsafe {
+        invoke(
+            timer_slot,
+            abi::timer::ARM,
+            deadline,
+            notification_slot,
+            bits,
+        )
+    }
+}
+
+/// `Timer::CANCEL`: `1` if a pending deadline was disarmed and will never fire, `0` if nothing was
+/// pending (so any signal has already been sent), or a negative [`abi::Error`].
+pub fn timer_cancel(timer_slot: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`/`syscall`; the kernel validates the capability.
+    unsafe { invoke(timer_slot, abi::timer::CANCEL, 0, 0, 0) }
+}
+
+/// **A timer and a notification to sleep on, retyped from the untyped in `memory_region_slot`**:
+/// `Some((timer_slot, notification_slot))`, or `None` if they cannot be made safely. For
+/// [`sleep_until`]. A caller keeps the pair for its life rather than making one per sleep, because
+/// each is a page it cannot give back short of destroying the region.
+///
+/// **`reserved` is how many low slots mean something by being empty**, and the pair is refused
+/// while any of them is. `RETYPE_OBJ` puts a new capability in the first free slot, and several
+/// wirings say "you have no directory" or "no entropy" by leaving a fixed slot empty. A sleeper that
+/// landed there would read as that service. So this probes slots `0..reserved` first, and a
+/// caller with an empty one keeps whatever it did before (its `BUGS` says which).
+pub fn retype_sleeper(memory_region_slot: u64, reserved: u64) -> Option<(u64, u64)> {
+    for slot in 0..reserved {
+        // SAFETY: `svc`/`ecall`/`syscall` with a method no object has: a held slot answers
+        // `BadMethod` and does nothing, and an empty one answers `NoSuchSlot`.
+        if unsafe { invoke(slot, u64::MAX, 0, 0, 0) } == abi::Error::NoSuchSlot as i64 {
+            return None;
+        }
+    }
+    let n = retype_object(memory_region_slot, abi::objtype::NOTIFICATION);
+    if n < 0 {
+        return None;
+    }
+    let t = retype_object(memory_region_slot, abi::objtype::TIMER);
+    if t < 0 {
+        cap_delete(n as u64);
+        return None;
+    }
+    Some((t as u64, n as u64))
+}
+
+/// **Block until `deadline`** (counter ticks), on a timer and a notification this caller holds and
+/// uses for nothing else: arm, then wait. Returns the notification's word (the `bits` armed, unless
+/// something else also signalled it), or a negative [`abi::Error`]. The one-line sleep every
+/// consumer that only wants to sleep would otherwise write; a consumer that wants to wake on
+/// something else too arms the timer and waits its own way.
+pub fn sleep_until(timer_slot: u64, notification_slot: u64, deadline: u64) -> i64 {
+    let armed = timer_arm(timer_slot, deadline, notification_slot, 1);
+    if armed < 0 {
+        return armed;
+    }
+    notification_wait(notification_slot)
+}
+
 /// `CALL` on the endpoint capability in `slot`: send two words and block until the server
 /// replies through the one-shot Reply capability the kernel mints (milestone 12). Returns the
 /// two reply words. The atomic send-and-wait that makes a request unmistakably answerable.
