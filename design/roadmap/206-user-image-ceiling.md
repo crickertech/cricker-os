@@ -57,6 +57,13 @@ for 190 of it.
   for a program with pair pages, one fewer for a std program.
 - The screen aperture moved from `0x4000_0000` (the heap band's first page) to `0x5800_0000`.
 
+- Two things the map caught on its first CI run. `mkfs` had never been linked with the shared
+  script (lld's default put it at `0x20_0000`); it is now. And the progenitor's job regions were one
+  table short once a child's image and pair pages sit in different gigabytes: 40 became 41, and the
+  two-space directory region 96 became 98.
+- `cargo xtask` refuses to pack an archive program that does not fit the image band, so a program
+  no test loads cannot hide outside the map the way `mkfs` did.
+
 ## Band choices that were forks, and what was recommended
 
 - A guard page under the stack: yes. It costs one page of address space and makes a stack at its

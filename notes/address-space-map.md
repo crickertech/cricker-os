@@ -108,6 +108,10 @@ as `Err(())`, so there the check only makes the failure early and clean.
 - The screen aperture moved from `0x4000_0000`, the heap band's first page, to `0x5800_0000`.
 - Hand-built children in the kernel's tests and in `fixtures/` put their code at `IMAGE_BASE` and
   their stack at `STACK_TOP_PAGE`, so their page tables have a real program's shape.
+- `cargo xtask` checks every program it packs into an archive against the image band. The first
+  CI run found `mkfs` linked outside the shared script, at lld's default `0x20_0000`.
+- The progenitor's job regions grew by the one table counted above: 41 pages, and 98 for a job
+  that also builds a directory caretaker.
 
 ## BUGS
 
