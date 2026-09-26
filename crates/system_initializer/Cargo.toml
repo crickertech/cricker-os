@@ -42,6 +42,13 @@ supervision_protocol = { version = "0.1.0", path = "../supervision_protocol" }
 # places a `std` child's capabilities at. Constants only, no dependencies.
 std_runtime_protocol = { version = "0.1.0", path = "../std_runtime_protocol" }
 user_mode_runtime = { version = "0.1.0", path = "../user_mode_runtime" }
+# The two graphical programs' status words (milestone 600 (provisional)): `gpu_driver`'s `UP` and
+# `FLUSHED`, `display_terminal`'s `TERM_UP` and mode, and `keyboard_driver`'s `KEYBOARD_UP`, which
+# this crate receives now that it builds the graphical stack the kernel used to. Rule 7: what two
+# binaries agree on is a crate. `graphics_protocol` brings nothing; `video_terminal` brings
+# `bitmap_font`.
+graphics_protocol = { version = "0.1.0", path = "../graphics_protocol" }
+video_terminal = { version = "0.1.0", path = "../video_terminal" }
 # The login service's spawn contract (milestone 233), for exactly two constants: the addresses this
 # crate maps `fs_subtree_caretaker`'s image and the measurement table at before starting `login`.
 # Rule 7 (what two binaries agree on is a crate) leaves nowhere else to put them. Pure logic, and it

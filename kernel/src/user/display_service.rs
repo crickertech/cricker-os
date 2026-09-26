@@ -197,14 +197,47 @@ pub fn start_backing_escape(driver_image: &'static [u8]) -> Option<(RendezvousId
     Some((report, victim))
 }
 
-/// The shared half of both spawns: find the GPU, build the DMA region, route the interrupt,
-/// register the confined transport, and spawn `driver_image` at `role` with `arg2`. Returns
-/// `(report endpoint, display endpoint, the surface's physical base)`.
-fn wire_driver(
-    driver_image: &'static [u8],
-    role: u64,
-    arg2: u64,
-) -> Option<(RendezvousId, RendezvousId, u64)> {
+/// **A virtio-gpu, wired and confined but driven by nobody yet**: what [`wire_device`] hands back.
+///
+/// Everything the kernel has to do for a GPU that is not driving it: the transport registered and
+/// confined to [`dma`](GpuDevice::dma)'s run, the interrupt routed and enabled, and the region's own
+/// physical base written into its first page at `abi::virtio::DMA_PHYS_OFFSET`. What happens next is
+/// somebody's spawn: the kernel's own test wiring ([`wire_driver`]), or since milestone 600
+/// (provisional) the progenitor, which is granted these as capabilities by
+/// `kernel::user::boot_progenitor` and builds `gpu_driver` and `display_terminal` itself.
+/// Name: provisional.
+pub struct GpuDevice {
+    /// The `Virtio` capability's id (`crate::virtio::register`'s return value).
+    pub vid: usize,
+    /// The completion interrupt, routed and enabled.
+    pub intid: u32,
+    /// The DMA region's physical base: [`DMA_PAGE_FRAMES`] contiguous frames, the rings and
+    /// control buffers in the first and the surface after it.
+    pub dma: u64,
+    /// The surface's physical base, `dma` plus one frame: [`SURFACE_PAGE_FRAMES`] frames, the part
+    /// of the region a client also maps.
+    ///
+    /// [`SURFACE_PAGE_FRAMES`]: graphics_protocol::SURFACE_PAGE_FRAMES
+    pub surface: u64,
+}
+
+/// The run lengths a holder of a [`GpuDevice`] grants, so `kernel::user::boot_progenitor` mints the
+/// same two runs this file does rather than recomputing them.
+pub const GPU_DMA_RUN: NonZeroU64 = DMA_RUN;
+/// See [`GPU_DMA_RUN`].
+pub const GPU_SURFACE_RUN: NonZeroU64 = SURFACE_RUN;
+
+/// **Find the GPU, build its DMA region, route its interrupt and register its confined transport**,
+/// and spawn nothing. `None` if no virtio-gpu function is on the bus.
+///
+/// **The region is one contiguous run, and has been since milestone 142 (a text display good
+/// enough that people use it instead of a GUI)**, by DECISIONS §102 (a Frame names a run of pages):
+/// one `alloc_contiguous_zeroed` of [`DMA_PAGE_FRAMES`] frames, registered with `crate::virtio` as
+/// one region, and granted as one `PageFrame` capability. That is the fact milestone 600
+/// (provisional) was promoted to check, because milestone 177 (wire the graphical terminal stack
+/// into the real interactive boot) had built the graphical stack kernel-side on the premise that
+/// the driver needed a capability per DMA page.
+pub fn wire_device() -> Option<GpuDevice> {
     let d = crate::pci::find_gpu_device()?;
 
     // The DMA region: contiguous, because the surface must be one run of physical frames for the
@@ -214,6 +247,11 @@ fn wire_driver(
     let dma = crate::memory::alloc_contiguous_zeroed(DMA_PAGE_FRAMES as usize)
         .expect("no contiguous DMA region for the GPU driver")
         .addr();
+    // The region says where it is, in the tail of its first page, which `gpu_driver`'s rings and
+    // control buffers end well short of (`abi::virtio::DMA_PHYS_OFFSET`). A driver the progenitor
+    // builds has no other way to learn it: the progenitor holds the run as a capability and knows
+    // no physical address either.
+    super::write_dma_phys(dma);
     let surface = dma + FRAME_SIZE; // page 1 onward: the frames the client also maps
 
     // The device's interrupt, routed to an endpoint so the driver's WAIT receives it as a
@@ -230,6 +268,27 @@ fn wire_driver(
         DMA_PAGE_FRAMES * FRAME_SIZE,
         Some(d.rid), // the PCIe requester id the IOMMU keys its tables on
     );
+    Some(GpuDevice {
+        vid,
+        intid: d.intid,
+        dma,
+        surface,
+    })
+}
+
+/// The shared half of both spawns: [`wire_device`], then spawn `driver_image` at `role` with
+/// `arg2`. Returns `(report endpoint, display endpoint, the surface's physical base)`.
+fn wire_driver(
+    driver_image: &'static [u8],
+    role: u64,
+    arg2: u64,
+) -> Option<(RendezvousId, RendezvousId, u64)> {
+    let GpuDevice {
+        vid,
+        intid,
+        dma,
+        surface,
+    } = wire_device()?;
 
     let display_ep = crate::sched::create_rendezvous(); // client WRITE (CALL) -> driver READ
     let driver_report = crate::sched::create_rendezvous();
@@ -239,7 +298,6 @@ fn wire_driver(
     // DMA_PAGE_FRAMES-page run (§102; see [`DRIVER_SLOT_DMA`]). ---
     let budget =
         crate::memory_region::create(MAP_BUDGET_PAGES).expect("no map budget for the driver");
-    let intid = d.intid;
     crate::sched::spawn(move || {
         crate::sched::grant_at(
             DRIVER_SLOT_REPORT,
@@ -264,8 +322,11 @@ fn wire_driver(
         run(
             driver_image,
             Spawn {
-                arg0: role,  // 0 = the GPU driver; 1 = the escape attempt
-                arg1: dma,   // the DMA region's PHYSICAL base: descriptors speak physical
+                arg0: role, // 0 = the GPU driver; 1 = the escape attempt
+                // No physical address: the region's first page carries it
+                // (`abi::virtio::DMA_PHYS_OFFSET`), the same place the progenitor-built driver
+                // reads it from, so the harness and the boot hand the driver one world.
+                arg1: 0,
                 arg2,        // the escape role's victim frame; unused (0) by the GPU driver
                 grants: &[], // every one of them is placed above, at its own slot
                 maps: &[],
@@ -334,8 +395,9 @@ pub struct TerminalWiring {
 /// after `UP` and `TERM_UP` leaves the driver parked there and every later flush unanswered. That is
 /// the bug the real boot shipped with. **This is a foot gun kept on purpose, at rung three**: the
 /// tests that call this read the digest `FLUSHED` carries as the driver-side witness, so the
-/// function cannot swallow it for them, and the boot, the only other caller, takes it in
-/// `kernel::user::boot_graphical_terminal`. [`start_driver`] has the same obligation.
+/// function cannot swallow it for them. The boot no longer calls this (milestone 600
+/// (provisional)): the progenitor builds the same two processes and takes the same three reports
+/// in `system_initializer`'s `build_graphical_stack`. [`start_driver`] has the same obligation.
 pub fn start_terminal(
     driver_image: &'static [u8],
     term_image: &'static [u8],

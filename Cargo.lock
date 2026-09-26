@@ -960,6 +960,7 @@ dependencies = [
  "entropy_protocol",
  "filesystem_protocol",
  "grant_plan",
+ "graphics_protocol",
  "http_response",
  "line_editor",
  "login_protocol",
@@ -970,6 +971,7 @@ dependencies = [
  "std_runtime_protocol",
  "supervision_protocol",
  "user_mode_runtime",
+ "video_terminal",
 ]
 
 [[package]]

@@ -2203,19 +2203,56 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
         .expect("insert the instruction entropy service");
         assert_eq!(s16, 16);
     }
-    // The graphical terminal stack (slots 10-12, milestone 177), when a GPU is attached
-    // (milestone 192 dropped the keyboard from the condition; the UART is a keystroke source too).
-    // `None` on a boot with no GPU: system_initializer builds the plain console/input pair
-    // instead, the same "absence rather than failure" shape as the filesystem pair and the
-    // virtio-rng trio. See [`boot_graphical_terminal`].
-    let graphical = boot_graphical_terminal(uart_irq);
+    // **The graphical terminal stack's raw materials** (milestone 600 (provisional); milestone 177 (wire the graphical terminal stack into the real interactive boot)
+    // built the stack itself here), when a virtio-gpu is attached: the gpu's confined transport,
+    // interrupt and DMA run, and the surface run inside it, in slots 17, 18, 19 and 12. The
+    // progenitor builds `gpu_driver` and `display_terminal` from these, exactly as it builds
+    // entropy from the rng's trio, and so it holds their endowments and is the supervisor they
+    // were born under, which is what swapping `display_terminal` live (milestone 23 (a capability-routed component OS with live replacement)) needs.
+    //
+    // **Why this is no longer built here.** Milestone 177 spawned the stack kernel-side because a
+    // virtio-gpu "needed eleven capability-table slots, one `PageFrame` per DMA page". DECISIONS
+    // §102 (a Frame names a run of pages) had already given `PageFrame` a page count, and milestone 142 (a text display good enough that people use it instead of a GUI) made the gpu's region one
+    // run and one capability (`display_service::wire_device`), so the premise had expired: the gpu
+    // is four capabilities here, and the keyboard three.
+    //
+    // **Two frame capabilities over one region, deliberately.** The driver gets the whole run and
+    // the terminal only the surface after its first page, which is the split
+    // `display_service::start_terminal` already makes; nothing lets a holder narrow a run, so the
+    // kernel mints both. `None` with no GPU on the bus, or no `gpu_driver` or `display_terminal` in
+    // the archive: no device is wired for programs this boot could never run.
+    let gpu = if program("gpu_driver").is_some() && program("display_terminal").is_some() {
+        display_service::wire_device()
+    } else {
+        None
+    };
+    // **And a virtio keyboard, when the graphical boot has one** (slots 20-22), the rng trio's
+    // shape exactly. `None` is milestone 192 (a keyboard on real silicon)'s option A, not an absence: the progenitor then builds
+    // the UART's `input` driver for the graphical terminal from slots 1 and 2, as it does on a
+    // plain boot. Wired only beside a GPU, because a keyboard with no screen has no terminal to
+    // type into on this boot.
+    let keyboard = if gpu.is_some() && program("keyboard_driver").is_some() {
+        keyboard_service::wire_device()
+    } else {
+        None
+    };
+    if gpu.is_some() {
+        crate::println!(
+            "  graphics  : a virtio-gpu and {}; the progenitor builds the terminal stack",
+            if keyboard.is_some() {
+                "a virtio keyboard"
+            } else {
+                "no keyboard (the UART is the keystroke source)"
+            }
+        );
+    }
     // **Or a terminal on the screen the firmware left running** (the shell on the firmware screen,
-    // milestone 198's rung 1b), when there is no GPU stack: slots 10 and 11 exactly as the
-    // graphical stack fills them, and slot 12 left empty, which is how system_initializer tells a
-    // screen beside the serial console from a graphical boot. `None` on every machine whose
+    // milestone 198's rung 1b), when there is no GPU: slots 10 and 11, the terminal's endpoint and
+    // its output page. (They were the graphical stack's slots too, until milestone 600
+    // (provisional) moved that stack's construction into the progenitor.) `None` on every machine whose
     // console has no screen, which is every boot but a UEFI one today. See
     // [`boot_screen_terminal`].
-    let screen = if graphical.is_none() {
+    let screen = if gpu.is_none() {
         boot_screen_terminal()
     } else {
         None
@@ -2239,34 +2276,60 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
         .expect("insert the screen terminal's output page");
         assert_eq!(s11, 11);
     }
-    if let Some(g) = &graphical {
-        let s10 = crate::sched::thread_control_block_insert_cap(
-            tid,
-            crate::cap::rendezvous_cap(g.disp_term_ep, Rights::WRITE.union(Rights::GRANT)),
-            Some(10),
-        )
-        .expect("insert the display terminal's endpoint");
-        assert_eq!(s10, 10);
-        let s11 = crate::sched::thread_control_block_insert_cap(
-            tid,
+    let insert = |cap, slot: u64, what: &str| {
+        let s = crate::sched::thread_control_block_insert_cap(tid, cap, Some(slot))
+            .unwrap_or_else(|_| panic!("insert {what}"));
+        assert_eq!(s, slot, "{what} landed in the wrong slot");
+    };
+    if let Some(g) = &gpu {
+        insert(
+            crate::cap::page_frame_run_cap(
+                g.surface,
+                display_service::GPU_SURFACE_RUN,
+                Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
+            ),
+            12,
+            "the gpu's surface run",
+        );
+        insert(
+            crate::cap::virtio_cap_rights(g.vid, Rights::WRITE.union(Rights::GRANT)),
+            17,
+            "the gpu transport",
+        );
+        insert(
+            crate::cap::irq_cap_rights(g.intid, Rights::READ.union(Rights::GRANT)),
+            18,
+            "the gpu interrupt",
+        );
+        insert(
+            crate::cap::page_frame_run_cap(
+                g.dma,
+                display_service::GPU_DMA_RUN,
+                Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
+            ),
+            19,
+            "the gpu's DMA run",
+        );
+    }
+    if let Some(k) = &keyboard {
+        insert(
+            crate::cap::virtio_cap_rights(k.vid, Rights::WRITE.union(Rights::GRANT)),
+            20,
+            "the keyboard transport",
+        );
+        insert(
+            crate::cap::irq_cap_rights(k.intid, Rights::READ.union(Rights::GRANT)),
+            21,
+            "the keyboard interrupt",
+        );
+        insert(
             crate::cap::page_frame_cap(
-                g.disp_term_page,
+                k.dma,
                 Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
             ),
-            Some(11),
-        )
-        .expect("insert the display terminal's output page");
-        assert_eq!(s11, 11);
-        let s12 = crate::sched::thread_control_block_insert_cap(
-            tid,
-            crate::cap::rendezvous_cap(
-                g.kbd_ep,
-                Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
-            ),
-            Some(12),
-        )
-        .expect("insert the keyboard driver's endpoint");
-        assert_eq!(s12, 12);
+            22,
+            "the keyboard's DMA page",
+        );
     }
     // **The network card** (slots 13-15, milestone 590 (provisional)), when this boot has a
     // virtio-net device on the MMIO bus: the virtio-rng trio's shape exactly, three slots past the
@@ -2541,17 +2604,10 @@ pub mod compositor_service;
 /// In the test below the **kernel** plays the compositor, which is the same substitution three of the
 /// four rung-two tests make: it holds the doorbell and the ring, so the bytes a real keyboard
 /// produced are a value it can read and compare rather than a picture it has to infer.
-#[cfg_attr(not(test), allow(dead_code))] // spawned only by the milestone-29 test
+// The driver is spawned only by the milestone-29 test; the boot calls `wire_device` alone and the
+// progenitor builds the driver (milestone 600 (provisional)).
+#[cfg_attr(not(test), allow(dead_code))]
 pub mod keyboard_service;
-
-/// **The serial keystroke source** (milestone 192, option A): the plain UART receive driver,
-/// `components/src/input.rs`, spawned kernel-side and wired to a fixed endpoint instead of by the progenitor.
-///
-/// [`keyboard_service::start_direct`]'s twin, one device over, and it exists so that
-/// [`boot_graphical_terminal`] can put a terminal on a real framebuffer without also requiring a
-/// virtio keyboard the boards do not have. See that function's own note on why the choice of
-/// source lives in exactly one place.
-pub mod input_service;
 
 /// **The clock service** (milestone 51 lane A, DECISIONS §43): the RTC's registers, the wall
 /// clock's offset, and the propose endpoint, in one confined userspace process.
@@ -2633,15 +2689,33 @@ struct VirtioBootGrant {
     dma: u64,
 }
 
-/// Where [`boot_virtio_mmio_device`] writes the DMA region's own physical base, inside that same
-/// region. Shared by both devices the interactive boot grants this way, and safe for both for the
-/// same reason: neither driver's layout reaches the page's tail. Entropy's ring
+/// Where [`boot_virtio_mmio_device`] (and, since milestone 600 (provisional), the gpu and keyboard
+/// wiring in [`display_service`] and [`keyboard_service`]) writes a DMA region's own physical base,
+/// inside that same region. Safe for every device granted this way for one reason: no driver's
+/// layout reaches the first page's tail. Entropy's ring
 /// (`components/src/entropy.rs`'s `Q_DESC`/`Q_AVAIL`/`Q_USED`) and its one pool buffer (`POOL_OFF`
 /// 0x400, `POOL_LEN` 256 bytes) end at byte 0x500; `net_stack`'s two rings and four frame buffers
 /// (`components/src/net_transport.rs`'s `BUF_BASE` 0x400 plus four `BUF`s of 0x2C0) end at 0xF00.
-/// This sits in the last eight bytes, past both, so a future widening of either has room to move
-/// without colliding. `crates/system_initializer`'s `VIRTIO_DMA_PHYS_OFFSET` is the reader's copy.
-const VIRTIO_DMA_PHYS_OFFSET: u64 = FRAME_SIZE - 8;
+/// This sits in the last eight bytes, past all of them, so a future widening of any has room to
+/// move without colliding. The value is `abi::virtio::DMA_PHYS_OFFSET`, which every reader shares.
+pub(crate) const VIRTIO_DMA_PHYS_OFFSET: u64 = abi::virtio::DMA_PHYS_OFFSET;
+const _: () = assert!(VIRTIO_DMA_PHYS_OFFSET + 8 <= FRAME_SIZE);
+
+/// **Write a DMA region's own physical base into its first page**, at [`VIRTIO_DMA_PHYS_OFFSET`].
+/// The one place every boot virtio device's region learns where it is; see that constant.
+pub(crate) fn write_dma_phys(dma: u64) {
+    // SAFETY: `dma` is a fresh frame the caller just allocated, direct-mapped and owned by nobody
+    // else yet, and `VIRTIO_DMA_PHYS_OFFSET + 8` is inside `FRAME_SIZE` (the assertion above), so
+    // the write stays in the frame.
+    unsafe {
+        core::ptr::write_unaligned(
+            (mmu::phys_to_virt(dma) as *mut u8)
+                .add(VIRTIO_DMA_PHYS_OFFSET as usize)
+                .cast::<u64>(),
+            dma,
+        );
+    }
+}
 
 /// **Discover and wire a virtio-rng device on the MMIO bus, for the interactive boot's own use**
 /// (DECISIONS §120's 2026-08-26 amendment: "grant the QEMU-only virtio-rng stopgap"). `None` on a
@@ -2756,17 +2830,7 @@ fn boot_virtio_mmio_device(d: crate::virtio::VirtioMmioDevice) -> Option<VirtioB
         .addr();
     // The physical base is written into the tail of the same page, at an offset neither driver's
     // ring-and-buffer layout reaches (see [`VIRTIO_DMA_PHYS_OFFSET`]'s own doc).
-    //
-    // SAFETY: `dma` is a fresh frame, direct-mapped and owned by nobody else yet, and
-    // `VIRTIO_DMA_PHYS_OFFSET + 8` is inside `FRAME_SIZE`, so the write stays in the frame.
-    unsafe {
-        core::ptr::write_unaligned(
-            (mmu::phys_to_virt(dma) as *mut u8)
-                .add(VIRTIO_DMA_PHYS_OFFSET as usize)
-                .cast::<u64>(),
-            dma,
-        );
-    }
+    write_dma_phys(dma);
     // Routed, not yet enabled; see [`VirtioBootGrant::intid`]'s own doc for why enabling is the
     // caller's job.
     crate::sched::bind_irq(d.intid, crate::sched::create_rendezvous());
@@ -2829,154 +2893,6 @@ fn boot_config_page() -> u64 {
     phys
 }
 
-/// What [`boot_graphical_terminal`] hands the caller: the two capabilities the progenitor actually needs to
-/// hand a client, and one more for the keyboard driver's own target.
-pub struct GraphicalTerminal {
-    /// `display_terminal`'s own served endpoint (`display_service::TerminalWiring::term`): an
-    /// application `CALL`s it with `OP_WRITE` to print. `fs_ep`'s own shape, one level over.
-    pub disp_term_ep: crate::sched::RendezvousId,
-    /// The physical page shared with `display_terminal`
-    /// (`display_service::TerminalWiring::out`), written before an `OP_WRITE`.
-    pub disp_term_page: u64,
-    /// The endpoint the keystroke source already holds `WRITE` (`CALL`) on. The caller grants
-    /// `READ` to whatever serves it (`line_editor`, as its own terminal endpoint) and `WRITE` to
-    /// whatever else needs to reach the same discipline (`swish`), exactly the two views the
-    /// plain-console boot already carves out of a self-created endpoint of the same shape.
-    ///
-    /// **Which program holds that `WRITE` is the one thing that varies** (milestone 192): a
-    /// virtio keyboard when the board has one, the UART receive driver when it does not. The
-    /// caller cannot tell, and nothing downstream of this endpoint changes either way; see
-    /// [`KeystrokeSource`].
-    /// **No field records which one**, deliberately: no caller branches on the answer, and that a
-    /// caller *cannot* is the property milestone 192's option A is finished by. It is printed on
-    /// the boot line, where a bench operator reading a transcript is the only reader who needs it.
-    pub kbd_ep: crate::sched::RendezvousId,
-}
-
-/// **Where a keystroke comes from on a graphical boot** (milestone 192).
-///
-/// The fork design/roadmap/192-keyboard-on-real-silicon.md names, reduced to the one place in this
-/// kernel that has to know about it. Option B (a USB HID stack) adds a third variant here and
-/// changes nothing else: everything past `kbd_ep` is `line_editor::proto::OP_BYTES` on one
-/// endpoint, which is DECISIONS §21's line-discipline contract and is what both existing sources
-/// already speak, byte for byte.
-///
-/// Name: provisional (milestone 192 (a keyboard on real silicon)'s lane).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum KeystrokeSource {
-    /// A virtio-input device, driven by `components/src/keyboard_driver.rs` in `MODE_DIRECT`. What
-    /// milestone 177 built, and what QEMU has.
-    Keyboard,
-    /// The board's own UART receive line, driven by `components/src/input.rs`. Milestone 192's option A:
-    /// the source every one of the three target machines actually has, and the reason a graphical
-    /// boot on real silicon is reachable at all before a USB HID stack exists.
-    Serial,
-}
-
-/// **The whole graphical terminal stack, kernel-side, for the boot's single-terminal case**
-/// (milestone 177, option A). `None` when the GPU, both keystroke sources, or any of the programs
-/// is absent; the caller falls back to the plain console/input pair exactly the way it already
-/// falls back on a boot with no filesystem or no virtio-rng device.
-///
-/// **`uart_rx_intid` is the board's UART receive interrupt**, already routed and enabled by the
-/// caller. It is used only when there is no virtio keyboard, which is milestone 192's option A and
-/// is the case on all three real machines.
-///
-/// **Built kernel-side, mirroring `fs_service::root_directory`'s own shape**, for a mechanical
-/// reason design/roadmap/177-graphical-interactive-boot.md's own investigation worked out in full:
-/// a virtio-gpu device alone needs eleven capability-table slots (a `PageFrame` per DMA page, and
-/// the ABI's `MAP_INTO`/`CAP_INSERT` are strictly one-capability-per-physical-page), which does not
-/// fit either board's remaining budget. So the driver and the terminal are spawned here, before
-/// the progenitor exists, and the caller receives only the two capabilities it actually needs to hand a
-/// client (`disp_term_ep`/`disp_term_page`), the same shape `fs_ep`/`fs_page` already are.
-///
-/// **The keyboard driver is spawned here too, for a different reason than the GPU's.** Its own raw
-/// materials (an `Irq`, a `Virtio`, one DMA `PageFrame`) would fit the three slots aarch64's
-/// `boot_progenitor` has left, on their own -- but option A's target endpoint is `line_editor`'s own
-/// served endpoint, which does not exist until the progenitor builds it, and a driver the progenitor spawns can only be
-/// wired to capabilities the progenitor itself already holds (`ChildEndowment::maps`' own contract: it maps
-/// what the caller has, not what the caller could ask the kernel for). Creating that endpoint here
-/// instead, before either process exists, and wiring the keyboard driver to it at its own spawn
-/// time (`keyboard_service::start_direct`), means the caller receives a single capability to it
-/// (`kbd_ep`) and grants `READ` to `line_editor` and `WRITE` to `swish`, exactly the two views it
-/// already carves out of a self-created endpoint in the plain-console boot. That turns three slots
-/// into one, which is what makes 2 (GPU) + 1 (keyboard) fit the three slots aarch64 has left,
-/// where 2 + 3 would not.
-///
-/// **Readiness is drained here**, the same idiom `fs_service::wait_for_service` already uses: the
-/// kernel plays the waiting process it would otherwise be, so by the time this returns the display
-/// driver and the terminal are *running*, not merely spawned, and the progenitor never has to know either
-/// program exists.
-///
-/// **A GPU with no keyboard attached is milestone 192's option A**, not an absence: the terminal
-/// comes up on the framebuffer and the board's own UART receive line plays the keystroke source,
-/// which is the configuration every one of the three target boards actually has (the Jetson, the
-/// `StarFive` VisionFive 2 and the Dell `OptiPlex` all have a serial line and none has a
-/// virtio-input device). What is still treated as
-/// absent overall is a boot with no GPU, or one where the machine has neither a virtio keyboard
-/// **nor** a page for a UART device capability (`x86_64`, DECISIONS §121): there, the already-
-/// spawned GPU driver and terminal are left running, unused, the same "idle forever" shape the
-/// undertaker and the sink adapter already have on a boot that never builds a client for them.
-fn boot_graphical_terminal(uart_rx_intid: u32) -> Option<GraphicalTerminal> {
-    let gpu_driver = program("gpu_driver")?;
-    let display_terminal = program("display_terminal")?;
-
-    let w = display_service::start_terminal(gpu_driver, display_terminal)?;
-    assert_eq!(
-        crate::sched::ipc_recv(w.driver_report)[0],
-        graphics_protocol::status::UP,
-        "the GPU driver did not come up",
-    );
-    let [tag, ..] = crate::sched::ipc_recv(w.term_report);
-    assert_eq!(
-        tag,
-        video_terminal::status::TERM_UP,
-        "the display terminal did not come up",
-    );
-    // **The driver's third report, and the second flush's hang** (milestone 177). `gpu_driver`
-    // sends `FLUSHED` once, after serving its first flush, and `SEND` blocks until somebody
-    // receives it. The terminal's first flush is the blank grid it paints before `TERM_UP`, so by
-    // now the driver is parked in that `SEND` and not in `RECV` on its display endpoint. Until this
-    // receive existed nothing ever took the message: the terminal's second `FLUSH` (the banner)
-    // queued behind a driver that would never serve again, and no prompt reached the screen. Every
-    // other spawner of this driver is a test that reads the digest, and two of them say in a
-    // comment that they must. The boot has no use for the digest; it only has to take it.
-    let [tag, _, pixels, ..] = crate::sched::ipc_recv(w.driver_report);
-    assert_eq!(
-        (tag, pixels),
-        (
-            graphics_protocol::status::FLUSHED,
-            graphics_protocol::PIXELS as u64
-        ),
-        "the GPU driver did not serve the terminal's first flush ({tag:#x})",
-    );
-
-    let kbd_ep = crate::sched::create_rendezvous();
-
-    // **The one place this kernel decides where a keystroke comes from** (milestone 192). A
-    // virtio keyboard when the bus has one, and the board's own UART when it does not; both
-    // programs `CALL` `kbd_ep` with `line_editor::proto::OP_BYTES` and hold `WRITE` on it and
-    // nothing else, so the endpoint, the framing, the line discipline, the terminal and the shell
-    // are all identical either way. Option B lands as a third arm of this `match`.
-    let keystrokes = match program("keyboard_driver")
-        .and_then(|keyboard_driver| keyboard_service::start_direct(keyboard_driver, kbd_ep))
-    {
-        Some(()) => KeystrokeSource::Keyboard,
-        None => {
-            let input = program("input")?;
-            input_service::start_direct(input, kbd_ep, uart_rx_intid)?;
-            KeystrokeSource::Serial
-        }
-    };
-    crate::println!("  keystrokes: {keystrokes:?} (graphical boot)");
-
-    Some(GraphicalTerminal {
-        disp_term_ep: w.term,
-        disp_term_page: w.out,
-        kbd_ep,
-    })
-}
-
 /// **The shell's terminal on the screen the firmware left running** (the shell on the firmware
 /// screen, milestone 198's rung 1b; `design/roadmap/` has its block).
 ///
@@ -3000,8 +2916,9 @@ fn boot_graphical_terminal(uart_rx_intid: u32) -> Option<GraphicalTerminal> {
 /// the UART exactly as a machine with no screen does. Recorded here rather than papered over with a
 /// second handover path, because the refusal is a bound no screen in the fleet is near.
 ///
-/// Readiness is drained here, [`boot_graphical_terminal`]'s idiom: when this returns, the driver
-/// and the terminal are running and the terminal has painted its blank grid.
+/// Readiness is drained here, the idiom the kernel-built virtio-gpu stack used before milestone 600
+/// (provisional) moved it into the progenitor: when this returns, the driver and the terminal are
+/// running and the terminal has painted its blank grid.
 ///
 /// Arch-neutral, and `None` on aarch64 and riscv64 today only because nothing there tells the
 /// console about a screen: milestone 157 (real display output on the board), the U-Boot

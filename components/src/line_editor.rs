@@ -92,7 +92,7 @@ const MODE_DISPLAY: u64 = 1;
 /// The output sink's shared page, mapped read/write: we fill it, the sink prints it. In
 /// [`MODE_CONSOLE`] the same frame the console server reads at its own `SHARED_VA`; in
 /// [`MODE_DISPLAY`] the same frame `display_terminal` reads at its own `OUT_VA`. Must match the
-/// wiring (the progenitor, or `kernel::user::boot_graphical_terminal` one level further up); one address
+/// wiring (the progenitor, which builds `display_terminal` too since milestone 600 (provisional)); one address
 /// either way, since the two modes never coexist in one process.
 const CONOUT_VA: u64 = 0x0060_0000;
 /// The client's output page, mapped read-only: `OP_WRITE` text and `OP_READLINE` prompts arrive

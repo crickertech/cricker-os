@@ -1921,7 +1921,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 ///
 /// **The same two assertions cover both**, and that they can is the claim. What reaches the screen
 /// is `line_editor`'s echo of one `OP_BYTES` `CALL` on one endpoint, and neither this leg nor
-/// anything past `kbd_ep` in the guest can tell which program made that `CALL`. If a future change
+/// anything past `line_editor`'s terminal endpoint in the guest can tell which program made that `CALL`. If a future change
 /// made the graphical stack depend on the keystroke's source, exactly one of these two runs would
 /// go red.
 ///
@@ -1958,8 +1958,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 /// Finding `$ a` after `sendkey "a"` is the proof that a keystroke makes the same round trip back:
 /// `keyboard_driver` (`MODE_DIRECT`) into `line_editor`, echoed out through `display_terminal`.
 /// Which keystroke source [`swish_check_leg_graphical`] wires up. See its doc; the fork is
-/// design/roadmap/192-keyboard-on-real-silicon.md's, and the kernel's own copy of it is
-/// `kernel::user::KeystrokeSource`.
+/// design/roadmap/192-keyboard-on-real-silicon.md's, and the guest's own copy of it is the
+/// `has_keyboard` branch in `crates/system_initializer` (milestone 600 (provisional) moved it out of
+/// the kernel).
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Keystrokes {
     /// A virtio-input device, pressed with the monitor's `sendkey`. Milestone 177.
