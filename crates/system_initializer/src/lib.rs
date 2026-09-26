@@ -2464,7 +2464,7 @@ fn spawn_service(
         let interruptible = wiring.interruptible;
         // **Under `IMAGE_BIT` word 0 is a length, not a program** (DECISIONS §219 option D), so no
         // row of `progs` is consulted: the program is whatever the bytes are.
-        let mut prog = if wiring.image {
+        let prog = if wiring.image {
             None
         } else {
             Prog::from_id(spawnproto::prog_id(w0))
@@ -2546,34 +2546,50 @@ fn spawn_service(
             true
         };
 
-        // **Vouched or not** (§219 D). A hit is endowed with the installed-program manifest, which
-        // is `uptime`'s until a manifest travels with a package (`grant_plan::INSTALLED_MANIFEST_OF`).
-        // A miss is built only for a caller that presented the run-unvouched capability, and then
-        // with `grant_plan::UNVOUCHED_MANIFEST`: what the caller delegated, and the clock and
-        // configuration pages. Any other miss is refused with its own word.
+        // **Vouched or not** (§219 D), and **what the bytes declare** (milestone 597, provisional:
+        // a program carries its manifest in an ELF note). A hit is endowed with the manifest its
+        // own note carries, or `grant_plan::NO_NOTE_MANIFEST` if it carries none: the digest that
+        // vouched covers the note, so installing the package installed its manifest. A miss is
+        // built only for a caller that presented the run-unvouched capability, and then with
+        // `grant_plan::UNVOUCHED_MANIFEST` whatever its note asks (§219: an unvouched note grants
+        // nothing). Any other miss is refused with its own word, and bytes whose manifest forbids
+        // this request (`grant_plan::image_manifest`, `image_request_fits`) with another.
         let mut unvouched = false;
+        let mut refused_by_manifest = false;
+        let mut image_manifest = None;
         let image_elf = staging.and_then(|_| {
             let bytes = staged_image(spawnproto::image_len(w0));
-            if vouched(bytes, fs, own_ut, &mut fs_mapped) {
+            let vouch = vouched(bytes, fs, own_ut, &mut fs_mapped);
+            unvouched = !vouch;
+            let elf = if vouch || presented {
                 elf::Elf::parse(bytes).ok()
             } else {
-                unvouched = true;
-                presented.then(|| elf::Elf::parse(bytes).ok()).flatten()
+                None
+            };
+            let elf = elf?;
+            match endowed_image(&elf, vouch, arg, mem_pages) {
+                Some(m) => {
+                    image_manifest = Some(m);
+                    Some(elf)
+                }
+                None => {
+                    refused_by_manifest = true;
+                    None
+                }
             }
         });
-        if image_elf.is_some() && !unvouched {
-            prog = Some(grant_plan::INSTALLED_MANIFEST_OF);
-        }
-        // **The one manifest everything below reads**, so an unvouched child is endowed from the
-        // ruling and never from a `Prog` row: `prog` stays `None` for it, and no row's authority
-        // can reach it by a path this line does not name.
-        let manifest = if unvouched && image_elf.is_some() {
-            Some(grant_plan::UNVOUCHED_MANIFEST)
+        // **The one manifest everything below reads**, so an image is endowed from what
+        // `endowed_image` decided and never from a `Prog` row: `prog` stays `None` for it, and no
+        // row's authority can reach it by a path this line does not name.
+        let manifest = if wiring.image {
+            image_manifest
         } else {
             prog.map(|p| p.manifest())
         };
         let failure = if unvouched && !presented {
             spawnproto::SPAWN_UNVOUCHED
+        } else if refused_by_manifest {
+            spawnproto::SPAWN_REFUSED_BY_MANIFEST
         } else {
             spawnproto::SPAWN_FAILED
         };
@@ -2650,9 +2666,9 @@ fn spawn_service(
             // **A `std` program's region is bigger, because it is also the heap** (milestone 595
             // (provisional)); see [`grant_plan::STD_REGION_PAGES`] for why one region rather than
             // two. It covers a caretaker as well, so a directory grant does not change its size.
-            // An image request never takes this arm: its manifest is
-            // `grant_plan::INSTALLED_MANIFEST_OF`'s, which is native, and its region is sized to the
-            // image before the frames arrive (milestone 595's block, Follow-on).
+            // An image request never takes this arm: `grant_plan::image_can_carry` refuses a `std`
+            // manifest for an image, whose region is sized before the frames (and so the note)
+            // arrive (milestone 595's block, Follow-on).
             let std_layout = manifest.is_some_and(|m| m.runtime == grant_plan::Runtime::Std);
             let region = if wiring.image {
                 // Split before the frames were taken; see `image_region` above.
@@ -3485,6 +3501,27 @@ fn vouched(bytes: &[u8], fs: Option<Fs>, own_ut: u64, fs_mapped: &mut bool) -> b
     };
     files.close(d);
     hit
+}
+
+/// **The manifest a file's bytes are endowed with, or `None` to refuse them** (milestone 597,
+/// provisional). Their note is read with `elf::Elf::note` and decoded by `manifest_note`; a note
+/// that is there and unreadable refuses the bytes, since running them as if they carried none would
+/// endow a program with a manifest it did not declare. `grant_plan::image_manifest` then applies
+/// the vouch (the shell's `caps` calls the same function to preview it), and the request's own
+/// words must fit what results.
+fn endowed_image(
+    elf: &elf::Elf<'_>,
+    vouched: bool,
+    arg: u64,
+    mem_pages: u64,
+) -> Option<grant_plan::Manifest> {
+    let declared = match elf.note(manifest_note::OWNER, manifest_note::MANIFEST) {
+        Ok(None) => None,
+        Ok(Some(d)) => Some(manifest_note::decode(d).ok()?),
+        Err(_) => return None,
+    };
+    let m = grant_plan::image_manifest(declared, vouched).ok()?;
+    grant_plan::image_request_fits(&m, arg, mem_pages).then_some(m)
 }
 
 use filesystem_protocol::{dir, fs as fs_op};
