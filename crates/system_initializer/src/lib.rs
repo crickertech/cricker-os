@@ -962,11 +962,17 @@ pub fn boot(
     let net_elf = measured(&fs, table, "net_stack").elf;
     // **The graphical terminal stack** (milestone 600 (provisional)), optional in the same sense:
     // an archive without them, or a table that refuses one, boots on the serial console. Measured
-    // here like every program this process builds, which the kernel never did for these three while
-    // it built them (`kernel::user::program` reads the archive and checks nothing).
-    let gpu_elf = measured(&fs, table, "gpu_driver").elf;
-    let disp_elf = measured(&fs, table, "display_terminal").elf;
-    let kbd_elf = measured(&fs, table, "keyboard_driver").elf;
+    // like every program this process builds, which the kernel never did for these three while it
+    // built them (`kernel::user::program` reads the archive and checks nothing).
+    //
+    // **Not here, though: in [`graphical_verdict`] and the two builders**, and that is a stack
+    // budget rather than tidiness. This frame is live for the whole boot, because the spawn service
+    // runs inside it, and the progenitor's stack is eight pages (`kernel::user::INIT_STACK_PAGES`).
+    // The first version kept three more `elf::Elf`s here and inlined the builders into it, and
+    // overflowed that stack by 24 bytes under `package install` (`swish-check`, 2026-09-26). Each
+    // helper measures for itself, in a frame that is gone before the spawn service starts; hashing
+    // three small programs twice costs less than the stack does.
+
     // **Milestone 49's login stack** (`credentialer`, `identity_provisioner`, `login`,
     // `login_audit_receiver`): optional in exactly the entropy service's own sense, and gated on
     // it too -- there is no salt, no password and no credential store without real entropy, so a
@@ -1081,18 +1087,7 @@ pub fn boot(
     // screen, milestone 198's rung 1b): the kernel grants `disp_term_ep`/`disp_term_page` alone
     // when it put a terminal on the firmware's framebuffer (`kernel::user::boot_screen_terminal`),
     // and the UART stays the console and the keystroke source exactly as on a plain boot.
-    let has_graphical = is_granted(g.gpu) && gpu_elf.is_some() && disp_elf.is_some();
-    if is_granted(g.gpu) && !has_graphical {
-        for c in [g.gpu, g.gpu_irq, g.gpu_dma, g.gpu_surface] {
-            cap_delete(c);
-        }
-    }
-    let has_keyboard = has_graphical && is_granted(g.keyboard) && kbd_elf.is_some();
-    if is_granted(g.keyboard) && !has_keyboard {
-        for c in [g.keyboard, g.keyboard_irq, g.keyboard_dma] {
-            cap_delete(c);
-        }
-    }
+    let (has_graphical, has_keyboard) = graphical_verdict(&fs, table, g);
     let has_screen = !has_graphical && is_granted(g.disp_term_ep);
     // **Read before anything below retypes**, and the position is the mechanism: every object this
     // function makes lands in the first free slot, so once one has, "slot 16 holds something" no
@@ -1292,10 +1287,7 @@ pub fn boot(
     // kernel used to grant in its place, the terminal's served endpoint and its output page, so
     // everything below is unchanged by who built it.
     let graphical = if has_graphical {
-        let (Some(gpu_program), Some(disp_program)) = (gpu_elf.as_ref(), disp_elf.as_ref()) else {
-            fail()
-        };
-        Some(build_graphical_stack(ut, gpu_program, disp_program, g))
+        Some(build_graphical_stack(ut, &fs, table, g))
     } else {
         None
     };
@@ -1525,10 +1517,7 @@ pub fn boot(
     // `if` since milestone 600 (provisional) moved it out of the kernel). Nothing downstream of
     // `term_ep` can tell which one it got.
     if has_keyboard {
-        let Some(kbd_program) = kbd_elf.as_ref() else {
-            fail()
-        };
-        build_keyboard_driver(ut, kbd_program, g, term_ep);
+        build_keyboard_driver(ut, &fs, table, g, term_ep);
     } else {
         // **On aarch64/riscv64 input is interrupt-driven**: it holds the receive interrupt
         // (`g.uart_irq`) and the UART page (`IN_UART_VA`). **On x86 it polls COM1's port range**, the
@@ -3388,6 +3377,36 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
     (stack, lease)
 }
 
+/// **Whether this boot is graphical, and whether its keystrokes come from a virtio keyboard**:
+/// `(has_graphical, has_keyboard)`, for [`boot`]. Graphical means the kernel granted a gpu and the
+/// table vouches for both `gpu_driver` and `display_terminal`; a keyboard additionally needs its
+/// grant and a vouched `keyboard_driver`. A grant this process will not use is released here, at
+/// once, rather than carried: every kernel grant inflates the resting baseline for the whole boot
+/// until it is deleted.
+///
+/// Never inlined, so the verdicts' temporaries stay out of [`boot`]'s frame (see the comment where
+/// `boot` calls this).
+#[inline(never)]
+fn graphical_verdict(fs: &nifefs::Fs, table: &str, g: &BootEndowment) -> (bool, bool) {
+    let has_graphical = is_granted(g.gpu)
+        && measured(fs, table, "gpu_driver").elf.is_some()
+        && measured(fs, table, "display_terminal").elf.is_some();
+    if is_granted(g.gpu) && !has_graphical {
+        for c in [g.gpu, g.gpu_irq, g.gpu_dma, g.gpu_surface] {
+            cap_delete(c);
+        }
+    }
+    let has_keyboard = has_graphical
+        && is_granted(g.keyboard)
+        && measured(fs, table, "keyboard_driver").elf.is_some();
+    if is_granted(g.keyboard) && !has_keyboard {
+        for c in [g.keyboard, g.keyboard_irq, g.keyboard_dma] {
+            cap_delete(c);
+        }
+    }
+    (has_graphical, has_keyboard)
+}
+
 /// **The budget `gpu_driver` and `display_terminal` each map their frames through**, in pages of
 /// page tables. The kernel's test wiring hands each the same (`kernel::user::display_service`'s
 /// `MAP_BUDGET_PAGES`, whose doc says why twenty-four); stated here for [`CRED_BUDGET_PAGES`]'s
@@ -3421,12 +3440,18 @@ const KBD_MODE_DIRECT: u64 = 1;
 ///
 /// Every grant of the gpu's is deleted here once delegated: this process keeps nothing of the
 /// device, which is the posture the rng and NIC blocks take.
-fn build_graphical_stack(
-    ut: u64,
-    gpu_program: &elf::Elf,
-    disp_program: &elf::Elf,
-    g: &BootEndowment,
-) -> (u64, u64) {
+///
+/// **Never inlined, and it measures the two programs itself**, so neither its locals nor the
+/// parsed images sit in [`boot`]'s frame, which lives as long as the spawn service does (see the
+/// comment where `boot` reads the verdicts).
+#[inline(never)]
+fn build_graphical_stack(ut: u64, fs: &nifefs::Fs, table: &str, g: &BootEndowment) -> (u64, u64) {
+    let (Some(gpu_program), Some(disp_program)) = (
+        measured(fs, table, "gpu_driver").elf,
+        measured(fs, table, "display_terminal").elf,
+    ) else {
+        fail()
+    };
     // --- the driver: the confined transport, the interrupt, the display endpoint's serving half,
     // a map budget and the whole DMA run. `components/src/gpu_driver.rs`'s slots 0-5. ---
     let display = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
@@ -3435,7 +3460,7 @@ fn build_graphical_stack(
     let driver = must(build_child(
         ut,
         ut,
-        gpu_program,
+        &gpu_program,
         &ChildEndowment {
             caps: &[
                 (driver_report, abi::rights::WRITE),
@@ -3467,7 +3492,7 @@ fn build_graphical_stack(
     let terminal = must(build_child(
         ut,
         ut,
-        disp_program,
+        &disp_program,
         &ChildEndowment {
             caps: &[
                 (term_report, abi::rights::WRITE),
@@ -3506,12 +3531,18 @@ fn build_graphical_stack(
 ///
 /// Returns once the driver has sent `KEYBOARD_UP`, which it sends before its first wait and blocks
 /// on: taking it here is what lets a key reach the screen at all (milestone 177's second hang).
-fn build_keyboard_driver(ut: u64, program: &elf::Elf, g: &BootEndowment, term_ep: u64) {
+///
+/// Never inlined, and it measures the program itself, for [`build_graphical_stack`]'s stack reason.
+#[inline(never)]
+fn build_keyboard_driver(ut: u64, fs: &nifefs::Fs, table: &str, g: &BootEndowment, term_ep: u64) {
+    let Some(program) = measured(fs, table, "keyboard_driver").elf else {
+        fail()
+    };
     let report = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
     let driver = must(build_child(
         ut,
         ut,
-        program,
+        &program,
         &ChildEndowment {
             caps: &[
                 (report, abi::rights::WRITE),
