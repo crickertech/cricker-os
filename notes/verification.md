@@ -680,7 +680,7 @@ script/verify
 
 Self-installs Kani on first run (its own nightly toolchain and a CBMC backend, a minute of
 download), then runs `cargo kani` over every package carrying harnesses:
-**188 harnesses** <!--count:kani-harnesses--> **across 27 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
+**194 harnesses** <!--count:kani-harnesses--> **across 28 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
 `crates/package_archive`; both discharge in **4 seconds**, which is the cheapest row in the table
 after `elf`'s and `memory_regions`'.
 Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture) added two, in
