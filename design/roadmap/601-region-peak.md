@@ -33,8 +33,9 @@ answer there was a `threads:` line on every run. Nothing printed the region peak
   CI printed 256 of 256 on aarch64 and 255 on riscv64, and the suite still passed.
 - A frame low-water beside it. The maintainer widened the milestone to cover it after the lane of
   milestone 198 (a package manager) hit the same failure shape on frames. `memory::FREE_LOW_WATER`
-  sees every allocation. The summary also prints the shortest longest-free-run at any test
-  boundary, and any refused allocation with the test it happened in. The ledger is at
+  sees every allocation. The summary also prints any refused allocation with the test it
+  happened in. A per-test contiguity reading was built and dropped: it never moved, and its
+  bitmap scans timed out the `x86_64` 17 GiB leg. The ledger and that measurement are at
   `memory::FREE_LOW_WATER`.
 - A rendezvous peak beside both, the third ceiling the same day. The lane of milestone 152 met
   the 512-rendezvous registry in `timetable_tests`. The `rendezvous:` line prints the peak and how

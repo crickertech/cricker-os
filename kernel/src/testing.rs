@@ -742,17 +742,6 @@ static FRAME_LOW_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
 static FIRST_REFUSAL_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
 static FIRST_REFUSAL_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
 
-/// **The shortest the longest free run got at any test boundary**, and the test after which it
-/// did. Free frames are one number and contiguity is another (`notes/frames.md`, "Two numbers, not
-/// one"), and loading a program asks the second: `std_net` failing with
-/// `Unmappable(OutOfPageFrames)` is a run too short, not a machine out of frames. Scanning the
-/// bitmap on every allocation would cost the suite far more than it measures, so this reads it once
-/// per test, after the body, where it costs one pass over the bitmap. It sees what a test leaves,
-/// not a dip inside one; a dip inside one that bites shows up as a refusal instead.
-static SHORTEST_RUN: AtomicUsize = AtomicUsize::new(usize::MAX);
-static SHORTEST_RUN_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
-static SHORTEST_RUN_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
-
 /// A test name stored as a pointer and length, reassembled, or `None` if none was stored.
 fn stored_name(ptr: &AtomicPtr<u8>, len: &AtomicUsize) -> Option<&'static str> {
     let (ptr, len) = (ptr.load(Ordering::Relaxed), len.load(Ordering::Relaxed));
@@ -787,12 +776,6 @@ fn report_frame_pressure() {
     let during = stored_name(&FRAME_LOW_NAME_PTR, &FRAME_LOW_NAME_LEN)
         .unwrap_or("the boot, before the first test");
     println!("frames: at the lowest {low} were free, during {during}. See memory::FREE_LOW_WATER.");
-    if let Some(after) = stored_name(&SHORTEST_RUN_NAME_PTR, &SHORTEST_RUN_NAME_LEN) {
-        println!(
-            "  the longest free run was at its shortest, {} frames, after {after}",
-            SHORTEST_RUN.load(Ordering::Relaxed)
-        );
-    }
     if refused > 0 {
         println!(
             "  {refused} allocations were refused, the largest a request for {largest} frames; \
@@ -1094,11 +1077,6 @@ impl<T: Fn()> Testable for T {
             && FIRST_REFUSAL_NAME_PTR.load(Ordering::Relaxed).is_null()
         {
             mark(&FIRST_REFUSAL_NAME_PTR, &FIRST_REFUSAL_NAME_LEN);
-        }
-        let run = crate::memory::largest_free_run();
-        if run < SHORTEST_RUN.load(Ordering::Relaxed) {
-            SHORTEST_RUN.store(run, Ordering::Relaxed);
-            mark(&SHORTEST_RUN_NAME_PTR, &SHORTEST_RUN_NAME_LEN);
         }
 
         // Disarm: between tests there is no budget to exceed, and the next test arms its own.

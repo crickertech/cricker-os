@@ -442,8 +442,14 @@ fn overlaps(a: u64, alen: u64, b: u64, blen: u64) -> bool {
 /// budget (`memory_region::create(12288)` in `kernel/src/user.rs`) and give it back when they
 /// finish. So the ledger at the low-water is `notes/frames.md`'s held list plus that one
 /// reservation. What moves the low from one milestone to the next is the held list growing; what
-/// catches a load that no longer fits is the refusal count and the shortest longest-free-run,
-/// which the same summary prints.
+/// catches a load that no longer fits is the refusal count, which the same summary prints.
+///
+/// **Contiguity is not tracked per test, and that was measured.** A first version also read
+/// `largest_free_run` after every test, for the contiguity half of `notes/frames.md`'s "Two
+/// numbers, not one". On aarch64 and riscv64 its minimum was the first test's reading (29440 and
+/// 29249 frames, unchanged to the end), so it said nothing the end-of-suite line does not. And on
+/// the `x86_64` 17 GiB leg a bitmap scan per test pushed the suite past its time bound. A refused
+/// `alloc_contiguous` is the contiguity failure itself, and that is counted here instead.
 ///
 /// No allocation was refused on any architecture in that run, so a refusal line is news. Reports
 /// and does not gate, for `sched::MAX_THREADS`'s reason: the held list grows on purpose, and the
