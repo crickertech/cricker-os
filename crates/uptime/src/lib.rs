@@ -34,8 +34,8 @@
 //! This is the one member of milestone 126's "machine-wide statistics" row (`free`, `uptime`,
 //! `vmstat`) that turned out to be pure wiring rather than a design fork. `free` and `vmstat` read
 //! physical memory accounting the kernel keeps for itself and has no path to userspace yet
-//! (`kernel/src/memory.rs`'s `stats()`); see design/roadmap/126-who-else-is-running.md's fork
-//! write-up for why that is a different body of work.
+//! (`kernel/src/memory.rs`'s `stats()`); see notes/process-view/what-is-left.md, section 3, for
+//! why that is a different body of work and the fork it waits on.
 //!
 //! # EXAMPLES
 //!
