@@ -52,7 +52,15 @@ format and translates to an OpenAI-compatible upstream.
 Claude Code  --/v1/messages-->  LiteLLM (127.0.0.1:4000)  --/chat/completions-->  OpenRouter
 ```
 
-`config/open-lane-litellm.yaml` holds the mapping and `helpers/open-lane-gateway.sh` starts it.
+The gateway is infrastructure, operated outside this repository (calef, 2026-09-25). It runs on
+cordoba and is reached over the tailnet at `https://cordoba.<tailnet>.ts.net:4000`. Its model
+mapping, its spend logging and its service unit are mastered and deployed elsewhere; this tree holds
+only the clients (`helpers/open-lane.sh`, `helpers/review-trial.sh`, `script/nanny`). A config copy
+here had already drifted from the one cordoba ran, because it was mastered in two places, so a
+gateway change is not deployed from nife. As of 2026-09-25 it exposes `open-lane` (the default a
+lane asks for), `open-lane-qwen`, `open-lane-deepseek`, `open-lane-glm`, `open-lane-glm5`,
+`open-lane-kimi`, `open-lane-kimi-pinned`, `open-lane-qwenmax` and `open-lane-mistral`. Every name
+is a candidate, not a recommendation.
 
 **It runs on cordoba, not on patagonia** (calef, 2026-09-22, wanting to call it from several hosts
 on his tailnet). Three reasons beyond that one. cordoba is **always on**, where a laptop is not, and
@@ -60,7 +68,6 @@ a gateway that sleeps with the lid leaves callers failing on a connection error 
 failure. It keeps the **OpenRouter key on one machine** instead of copied to each. And it spends
 nothing that matters: LiteLLM runs no model, so against cordoba's 3.6 GB free it is a translator
 rather than a load, while patagonia's 16 GB is the thing that actually caps the lane count.
-`config/open-lane-gateway.service` is the unit.
 
 **It never binds a network interface, and Tailscale does the exposing** (calef's question,
 2026-09-22: can the port be reachable only over the tailnet). It can, and the best form of that is
@@ -86,8 +93,6 @@ remove the key."*).
 
 The first matters most, because it is the only one that survives a later mistake: an interface that
 appears later, or a firewall rule edited wrongly, cannot reach a socket that was never bound.
-Binding `OPEN_LANE_HOST=<tailnet address>` is supported and is second best; `0.0.0.0` is refused
-outright.
 
 **What this accepts, recorded because it is a choice rather than an oversight.** LiteLLM listens on
 cordoba's loopback with no credential, so **any process on cordoba can spend the OpenRouter key**,
@@ -174,6 +179,6 @@ it run the gate, did it read the exit code, and how many rounds did green take.
   `helpers/open-lane.sh` now passes `claude --effort`, defaulting to `low`
   ([effort-levels.md](effort-levels.md)), but that default was measured against Claude directly, not
   through this gateway against an open-weight model. Whether the flag reaches the model at all once
-  `config/open-lane-litellm.yaml`'s `drop_params: true` has a chance to strip it is exactly the kind
+  the gateway's configuration (`drop_params: true`) has a chance to strip it is exactly the kind
   of thing "nobody has run this yet" above already flags; this is the same gap, one layer more
   specific.
