@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-26
 decided: 2026-09-26
 ratified_by: calef
@@ -33,6 +33,35 @@ the table. `REPLACE` is still a provisional name.
 
 The handler can be built now, with the kernel test harness standing in as registrar. Connecting a
 real session still waits on milestone 152 (durable delegation).
+
+## Amended 2026-09-26: a per-user session process supervises the timetable
+
+calef, 2026-09-26 (recorded 16:56 UTC): *"152: S1, the per-user session process."*
+
+The ruling above has the durable session spawn and supervise the timetable, and assumes a running
+thing to do it. The lane for milestone 152 (durable delegation) found none exists. Supervising means
+holding the timetable's supervision endpoint and blocking on it, and a process has one wait point.
+Its options are in `notes/durable-delegation.md` on pull request #1347.
+
+The ruling, S1: `login` builds a per-user session process from the session budget. That process
+builds the timetable, hands out its `REPLACE` endpoint, and blocks on the supervision endpoint.
+`login` keeps two capabilities per durable identity:
+
+- the budget, for the reattach probe and for the cascade of §108 (disabling a user's login
+  credentials kills their durable session);
+- the `REPLACE` endpoint, handed back to a client that reattaches.
+
+The cost is one more process per scheduling user, beside its timetable. It blocks rather than
+yields, so it costs memory and no CPU.
+
+Refused:
+
+- S2, `login` supervises. It blocks on its front door and would never read a report.
+- S3, the client or the shell supervises. It exits at disconnect, which is the problem being solved.
+- S4, nobody supervises live. A dead timetable would silently stop the user's jobs.
+
+The program's name is not ratified, and whatever a lane ships is provisional. The `REPLACE` handler
+does not wait on this program; connecting a real session does.
 
 The rest of this file is the section as it stood before the ruling.
 
