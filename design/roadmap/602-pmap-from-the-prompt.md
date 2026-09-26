@@ -1,13 +1,22 @@
+---
+status: NOT-STARTED
+raised: 2026-09-26
+milestone_dependencies: 47
+decision_dependencies: unwritten
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
 # 602. `pmap` from the prompt
 
-**Status: NOT-STARTED.** calef, 2026-09-26 (UTC), on #1365: *"take pmap out of milestone 126, and
+calef, 2026-09-26 (UTC), on #1365: *"take pmap out of milestone 126, and
 pick among A to D later."* The choice among the four options below is deferred, not refused.
 Promoted the same day from the proposal note
 [`notes/process-view/pmap.md`](../../notes/process-view/pmap.md), written by the lane
 `proposal/126-pmap`. *(Number and title provisional: the integrator mints the number at merge,
 and the title is a draft until an architect names it.)*
 
-**Gate: DECISION, MILESTONE 47.** The open decision is the choice among A to D, which no
+The open decision is the choice among A to D, which no
 `design/decisions/` section records yet. Milestone 47 (navigation and naming) is where the note's
 source files the operand that `pmap <tid>` needs.
 
