@@ -91,6 +91,9 @@
 
 #![no_std]
 
+mod note;
+pub use note::{NoteError, NoteSearch, NoteSegment, NoteSegments};
+
 /// `\x7fELF`.
 const MAGIC: [u8; 4] = [0x7f, b'E', b'L', b'F'];
 
@@ -243,6 +246,11 @@ pub const PF_R: u32 = 4;
 /// 64 bytes of ELF64 header, then program headers of 56 bytes each.
 const EHDR_SIZE: usize = 64;
 const PHDR_SIZE: usize = 56;
+
+/// The most program headers a file may have. Bounds the header count before the O(n^2) overlap
+/// check: a legitimate static executable has a few `PT_LOAD` segments, and 65535 headers exist only
+/// to make validation stall. The note reader walks the same bound.
+const MAX_PHNUM: usize = 64;
 
 /// Why [`Elf::parse`] refused a file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -437,9 +445,6 @@ impl<'a> Elf<'a> {
         if phentsize < PHDR_SIZE {
             return Err(Error::BadProgramHeaders);
         }
-        // Bound the header count before the O(n^2) overlap check. A legitimate static executable
-        // has a few PT_LOAD segments; 65535 headers exist only to make validation stall.
-        const MAX_PHNUM: usize = 64;
         if phnum > MAX_PHNUM {
             return Err(Error::TooManyProgramHeaders);
         }
