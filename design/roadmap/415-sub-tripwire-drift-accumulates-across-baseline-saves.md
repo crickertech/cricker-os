@@ -1,26 +1,21 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-15
+built: 2026-09-26
 promoted_from: sub-tripwire-drift-accumulates-across-baseline-saves
-milestone_dependencies: none
-decision_dependencies: none
-machine_requirements: none
-specific_machine: none
-needs_person: no
 ---
 # 415. Sub-tripwire drift accumulates across baseline saves, and one architecture has no gate at all
 
-Items 1 and 2 are built and item 4 is refused. Item 3 is ruled and being
-built by the lane that recorded the ruling. Item 1 landed 2026-09-15 as commit `ba99c83`, item 2 on
-2026-09-23 in PR #1126 under milestone 302. Promoted from the proposal
+Items 1, 2 and 3 are built and item 4 is refused. Item 1 landed 2026-09-15 as
+commit `ba99c83`, item 2 on 2026-09-23 in PR #1126 under milestone 302, and item 3 on 2026-09-26 in
+PR #1375, as the report calef ruled for in §190. Promoted from the proposal
 `sub-tripwire-drift-accumulates-across-baseline-saves`, filed 2026-09-15 by the baseline-audit lane,
 which calef asked for after PR #886 found a regression that had hidden under the 10% threshold.
 *(Number provisional until the merge queue lands it.)*
 
-§190 is decided. calef ruled item 3 on 2026-09-26 as "3b", a weekly report of
-cumulative drift since a fixed anchor, not a gate; the ruling is quoted at the top of §190. Item 2
-had been ruled under milestone 302 on 2026-09-16, before this block's gate was written, so nothing
-here waits on anyone.
+calef ruled item 3 on 2026-09-26 as "3b", a weekly report of cumulative drift since a fixed
+anchor, not a gate; the ruling is quoted at the top of §190. Item 2 had been ruled under milestone
+302 on 2026-09-16, before this block's gate was written.
 
 The gate's history, kept because it explains the old token. It was `DECISION §190`, written up
 2026-09-19 by milestone 435's slice-c lane because it named no section. An earlier clause read
@@ -35,6 +30,33 @@ Premise re-checked 2026-09-26. Item 1: `script/ci-build`'s bench entry still rea
 (`xtask/src/bench.rs`, `save_reasons` and `baseline_header`); the three floors carry them since
 2026-09-23. Item 3: `bench/` still holds one baseline per architecture and nothing reports drift
 against an anchor. Item 4 stays refused for the reason milestone 25 already established.
+
+## What item 3 shipped
+
+A report, not a gate, as ruled. `helpers/baseline_drift.py` (name provisional) walks the
+first-parent history of the three baseline files from git alone and computes, per row and per
+architecture, the per-iteration move since a fixed anchor. It compounds on the compiler term
+`cargo xtask bench --restamp` has carried since the last `--save`, read back from its `# why:`
+ledger, because a restamp moves `# toolchain:` without moving a number. `script/metrics` publishes
+it in the bold backlog's shape: `notes/project-metrics/baseline-drift.csv` (the largest upward move
+and the rows past 5%, per architecture per week, restated from 2026W31), a chart of rows past 5% on
+`notes/project-metrics.md` with a generated line under it, and the generated appendix
+`notes/project-metrics/baseline-drift.md`. That appendix lists every row, then every save since the
+anchor with its `# why:` lines, or its commit subject for saves that predate the ledger.
+
+The anchor is the 2026-09-15 audit's, one commit per architecture: `74431429` for aarch64, the
+first save after the one-hart fix and the QEMU pin, and each file's birth for the other two. Refused:
+the first save that carries `# why:` lines (2026-09-23). It would read every row as zero on the day
+the report started, and riscv64's `ctx_switch`, the +10.78% that opened this block, would vanish from
+the one place meant to show it. `python3 helpers/baseline_drift.py --audit` reproduces all five of
+the audit's figures exactly from these anchors, and `--selftest` checks the arithmetic against
+fixtures in `script/lint`.
+
+What it read at `7b1bab550`: 15 rows sit more than 5% above their anchor. The largest is
+`spawn_reap`, +24.79% on aarch64 and +20.91% on riscv64, most of it one +31 to +34% step on
+2026-08-16 that tripped the gate and was re-saved on purpose (the thread-stack overflow fix).
+riscv64 `null_syscall` is +11.29% and `ctx_switch` +8.81%; x86_64's largest is `spawn_reap`,
++8.09%. No restamp has run yet, so every restamp term is zero.
 
 ## In brief
 
@@ -185,6 +207,10 @@ the half calef took.
 - This audit ran no benchmarks. Every figure is arithmetic over committed text, which is what
   made it cheap and is also its limit: it says what each save *recorded*, not what the tree measured
   between saves. A regression that appeared and was fixed inside one window is invisible here.
+- The report inherits both limits above, and adds two. The restamp term is read by string shape,
+  mirroring `prior_cumulative` in `xtask/src/restamp.rs`; if that ledger's marker or listing
+  changes there, this reads a zero term silently, and nothing compares the two. The page's line
+  and the appendix read HEAD while the CSV restates each week, so between runs they can differ.
 - Item 2 cannot make an attribution true. It moves a claim from a commit message to the file, so
   a reader meets it. `44890a8a` would still have written its false toolchain attribution; it would
   just have been findable.
@@ -194,12 +220,15 @@ the half calef took.
 - **Done.** Item 1, the x86_64 leg in CI, landed 2026-09-15 as commit `ba99c83` ("ci: gate the
   x86_64 icount baseline, which nothing ever ran"), in its own commit as the section asked, against
   the floor PR #886 had already recovered.
-- **Outstanding.** Item 2, a save that records its own attribution beside the number. Checked
-  2026-09-19: `cargo xtask bench --save` still writes rows with no reason and refuses nothing, so
-  the ledger item 3 would otherwise have to invent does not exist yet.
-- **Outstanding.** Item 3, a cumulative check against a fixed historical anchor. Checked 2026-09-19:
-  there is one baseline file per architecture and no second anchor file, and the recommendation is
-  still to hold this until item 2 has collected attributions worth gating on.
+- **Done.** Item 2, a save that records its own attribution beside the number: PR #1126, commit
+  `1c5dee224`, 2026-09-23, under milestone 302's ruling.
+- **Done.** Item 3, as a weekly report of drift since a fixed anchor rather than a check: PR #1375,
+  `helpers/baseline_drift.py` and the drift panel on `notes/project-metrics.md`.
+- **Decision.** Whether the anchor becomes a gate, which calef left open "if the `--why` reasons
+  prove good enough to gate on". It is his call and lives in
+  `design/decisions/190-what-a-baseline-save-must-record.md`.
+- **Done.** The metrics workflow dropped the page's generated lines every morning, because the
+  pathspec `notes/project-metrics` does not match `notes/project-metrics.md`. Fixed in PR #1375.
 - **Refused.** Item 4, tightening the 10% threshold. Milestone 25 demoted `--check` from a 2% gate
   deliberately, the audit re-confirmed why, and it would not have caught either 2026-09-15 step.
 - **Milestone 302.** The toolchain-bump question this block's last section was written against.
@@ -214,7 +243,7 @@ fires: riscv64's `ctx_switch` is +10.78% cumulative in steps that never reached 
 gate has fired zero times on any of the five rows audited, while `coremark` is flat to four decimal
 places across every save on all three architectures. Two saves on 2026-09-15 blessed a removable
 regression into the floor on a toolchain attribution that milestone 300 later measured at ~0. Item
-1, pulling the ungated x86_64 leg into CI, landed the same day as commit `ba99c83`. What remains is
-making a save record its own attribution beside the number, which moves a claim from a commit
-message to the file a reader opens, and then deciding whether a second fixed anchor is worth the
-per-benchmark ledger of intended deltas it needs.
+1, pulling the ungated x86_64 leg into CI, landed the same day as commit `ba99c83`. Item 2 made a
+save record its reasons beside the number (PR #1126). Item 3, ruled by calef on 2026-09-26 as a
+report rather than a gate, publishes cumulative drift per row since the audit's anchors with every
+save's reasons in the weekly metrics (PR #1375); 15 rows were past 5% on the day it shipped.
