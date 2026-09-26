@@ -2,7 +2,7 @@
 status: PARTIAL
 raised: 2026-08-15
 milestone_dependencies: 152
-decision_dependencies: unwritten
+decision_dependencies: 222
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -15,8 +15,10 @@ themselves, and nothing else on the roadmap ran anything on a schedule. The inte
 narrowed archive and a backable `--mem` grant are built. What is left waits on calef and on
 milestone 152 (durable delegation), recorded below and checked against the tree on 2026-09-26.
 
-Runtime registration needs a wire format and a ruling on which
-process holds a user's schedule, and both are calef's. The proposal is
+Runtime registration needs a wire format and a ruling on
+which process holds a user's schedule, and both are calef's. The ask is
+[§222 (who holds a user's schedule)](../decisions/222-who-holds-a-users-schedule.md), and the lane's
+proposal behind it is
 [notes/scheduled-execution/registration.md](../../notes/scheduled-execution/registration.md). It
 also needs a registrar, which is a user's durable session. That type went with `smb_server` on
 2026-08-30, and milestone 152's lane is rebuilding it. Until 2026-09-26 this line read `NONE`, on the
@@ -117,8 +119,8 @@ the shipped document is a demonstration written to show every answer registratio
 
 ## Follow-on
 
-- **Outstanding.** Runtime registration and removal: no opcode exists in `crates/timetable`, and no
-  file under `design/decisions/` covers it. The proposal is
+- **Outstanding.** Runtime registration and removal: no opcode exists in `crates/timetable`. It is
+  asked of calef as §222 (who holds a user's schedule), PROPOSED 2026-09-26, from the lane's
   `notes/scheduled-execution/registration.md`, and it waits on calef and on milestone 152's durable
   session, which no file under `components/` or `crates/` defines. Checked 2026-09-26.
 - **Outstanding.** Wiring the store into a running scheduler: neither `crates/timetable` nor

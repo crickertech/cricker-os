@@ -331,6 +331,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 219 | DECIDED | [How the shell names an installed program to the spawner](219-naming-an-installed-program-to-the-spawner.md) |
 | 220 | DECIDED | [Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped](220-signed-builds-and-scoped-key-trust.md) |
 | 221 | DECIDED | [The boot prompt is the owner's console](221-the-boot-prompt-is-the-owners-console.md) |
+| 222 | PROPOSED | [Who holds a user's schedule, and how it is changed while their session lives](222-who-holds-a-users-schedule.md) |
 | 230 | DECIDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
