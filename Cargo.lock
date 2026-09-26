@@ -1106,9 +1106,11 @@ dependencies = [
  "pgrep",
  "pmap",
  "ps",
+ "schedule_store",
  "socket_protocol",
  "spin",
  "std_runtime_protocol",
+ "timetable",
  "video_terminal",
 ]
 

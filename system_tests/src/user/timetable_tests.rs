@@ -93,17 +93,18 @@ static mut NARROWED_ARCHIVE: [u8; NARROWED_ARCHIVE_BYTES] = [0; NARROWED_ARCHIVE
 /// The timetable is handed this instead of the initrd, so a process whose document admits one
 /// program cannot load the other fifty-six. It copies images out of the initrd into a fresh archive;
 /// the initrd is untouched.
-fn narrowed_archive() -> &'static [u8] {
+fn narrowed_archive(programs: &[&'static str]) -> &'static [u8] {
     let mut files: [(&str, &[u8]); PLANNED_PROGRAMS.len()] = [("", &[]); PLANNED_PROGRAMS.len()];
-    for (i, name) in PLANNED_PROGRAMS.iter().enumerate() {
+    for (i, name) in programs.iter().enumerate() {
         let bytes = program(name).expect("a planned program is not in the initrd archive");
         files[i] = (name, bytes);
     }
+    let files = &files[..programs.len()];
 
     // SAFETY: single-threaded test setup; this is the only reference taken to the buffer, and the
     // slice returned below is read-only from here on.
     let buf = unsafe { &mut *core::ptr::addr_of_mut!(NARROWED_ARCHIVE) };
-    let len = nifefs::write_image(&files, buf).expect("the narrowed archive does not fit");
+    let len = nifefs::write_image(files, buf).expect("the narrowed archive does not fit");
     &buf[..len]
 }
 
@@ -115,10 +116,33 @@ fn narrowed_archive() -> &'static [u8] {
 /// below, which is the same list `components/src/timetable.rs`'s header states and the reason a scheduled
 /// `date` in the shipped document is refused.
 fn spawn_timetable(fires: u64) -> (RendezvousId, RendezvousId, RendezvousId) {
+    let (out, reports, deaths, _) = spawn_timetable_with(&PLANNED_PROGRAMS, fires, false, false);
+    (out, reports, deaths)
+}
+
+/// Where a registrar-mode timetable finds its registration page. The spawn site's choice, passed
+/// in `a2`; clear of the loader's scratch window (`0x1000_0000` upward), the archive at
+/// [`INITRD_VA`] and the stack below [`USER_STACK_VA`].
+const REGISTRATION_VA: u64 = 0x0600_0000;
+
+/// [`spawn_timetable`], with the archive's program list chosen by the caller and, when
+/// `registration` is set, a registration page mapped at [`REGISTRATION_VA`] and handed back as the
+/// kernel's own view of the same frame. That view is the registrar's half of the page.
+fn spawn_timetable_with(
+    programs: &[&'static str],
+    fires: u64,
+    registration: bool,
+    run_unvouched: bool,
+) -> (
+    RendezvousId,
+    RendezvousId,
+    RendezvousId,
+    Option<&'static mut [u8]>,
+) {
     // **Not the initrd.** The archive this process is handed holds exactly the programs its own
     // document will ever build; see [`narrowed_archive`] for why the spawn site is the only place
     // that decision can be made.
-    let archive = narrowed_archive();
+    let archive = narrowed_archive(programs);
     let archive_len = archive.len() as u64;
     let archive_pages = archive_len.div_ceil(FRAME_SIZE);
     let bytes = program("timetable").expect("no timetable program in the initrd archive");
@@ -140,7 +164,7 @@ fn spawn_timetable(fires: u64) -> (RendezvousId, RendezvousId, RendezvousId) {
         + archive_pages
         + archive_pages / 512
         + TIMETABLE_STACK_PAGES
-        + 8;
+        + 9; // one more than before: the registration page, when there is one
     let mut space = AddressSpace::new(content).expect("no memory for the timetable");
     map_segments(&mut space, &elf).expect("could not lay out the timetable");
     for k in 0..TIMETABLE_STACK_PAGES {
@@ -158,6 +182,11 @@ fn spawn_timetable(fires: u64) -> (RendezvousId, RendezvousId, RendezvousId) {
         let to = (from + FRAME_SIZE as usize).min(archive.len());
         page[..to - from].copy_from_slice(&archive[from..to]);
     }
+    let page = registration.then(|| {
+        space
+            .map_new(REGISTRATION_VA, Flags::user_data())
+            .expect("could not map the registration page")
+    });
     let aspace = readopt_user_address_space(space).expect("register the timetable aspace");
 
     let out = crate::sched::create_rendezvous();
@@ -200,10 +229,22 @@ fn spawn_timetable(fires: u64) -> (RendezvousId, RendezvousId, RendezvousId) {
     .expect("insert deaths");
     assert_eq!(s, 3, "the supervision endpoint must land in slot 3");
 
+    if run_unvouched {
+        // Any endpoint will do: what the timetable checks is whether the slot is occupied, exactly
+        // as `swish` probes it, because the capability's meaning is the slot it is placed in.
+        let stand_in = crate::sched::create_rendezvous();
+        crate::sched::thread_control_block_insert_cap(
+            tid,
+            rendezvous_cap(stand_in, Rights::WRITE),
+            Some(grant_plan::spawnproto::RUN_UNVOUCHED_SLOT),
+        )
+        .expect("insert the run-unvouched stand-in");
+    }
     crate::sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
-    crate::sched::start_thread_control_block(tid, [fires, archive_len, 0]).expect("start");
-    (out, child_report, deaths)
+    let page_va = if page.is_some() { REGISTRATION_VA } else { 0 };
+    crate::sched::start_thread_control_block(tid, [fires, archive_len, page_va]).expect("start");
+    (out, child_report, deaths, page)
 }
 
 /// One line of `byte_sink_protocol` bytes off `ep`, without its newline. `None` at end of stream.
@@ -425,4 +466,276 @@ fn a_scheduled_entry_holds_what_the_plan_said_and_a_refused_one_never_runs() {
         0,
         "the timetable's verdict word must be a clean finish",
     );
+}
+
+/// **Stage `doc` in the page and publish request `seq`**: the registrar's half of
+/// `timetable::registration`, which a durable session will run once milestone 152 (durable
+/// delegation) rebuilds one. The document is written first and the request word last, with
+/// release ordering, so a timetable that sees the new sequence sees the whole document.
+fn send_replace(page: &mut [u8], seq: u64, doc: &[u8]) {
+    use core::sync::atomic::{AtomicU64, Ordering};
+
+    use timetable::registration as r;
+    r::stage(page, doc).expect("the document does not fit the registration page");
+    #[allow(clippy::cast_ptr_alignment)] // the page is page-aligned and REQUEST is word 0
+    // SAFETY: `page` is the kernel's view of the frame mapped at `REGISTRATION_VA`, page-aligned,
+    // so its first word is aligned for an `AtomicU64`; both sides touch that word only atomically.
+    let request = unsafe { &*page.as_ptr().add(r::REQUEST).cast::<AtomicU64>() };
+    request.store(r::request(r::REPLACE, seq), Ordering::Release);
+}
+
+/// What the timetable answered in the page: `(status, detail, verdicts, plan)`, read only once the
+/// reply word shows `seq`. The caller has already seen the timetable's own line down `OUT`, which
+/// is a rendezvous and so already orders everything; the acquire load is the protocol's rule
+/// rather than this test's need.
+fn read_reply(page: &[u8], seq: u64) -> (u64, u64, u64, &[u8]) {
+    use core::sync::atomic::{AtomicU64, Ordering};
+
+    use timetable::registration as r;
+    #[allow(clippy::cast_ptr_alignment)] // the page is page-aligned and REPLY is word 2
+    // SAFETY: as in `send_replace`, for the reply word.
+    let reply = unsafe { &*page.as_ptr().add(r::REPLY).cast::<AtomicU64>() };
+    assert_eq!(
+        reply.load(Ordering::Acquire),
+        seq,
+        "the timetable has not answered request {seq}"
+    );
+    let word = |off: usize| u64::from_le_bytes(page[off..off + 8].try_into().unwrap());
+    let plan = word(r::PLAN_LEN) as usize;
+    (
+        word(r::STATUS),
+        word(r::DETAIL),
+        word(r::VERDICTS),
+        &page[r::BODY..r::BODY + plan],
+    )
+}
+
+/// Read `out` until the timetable either arms a replacement (`true`) or refuses one (`false`),
+/// which are the only two ways it answers.
+fn await_answer(out: RendezvousId, buf: &mut [u8; 256]) -> bool {
+    for _ in 0..256 {
+        let n =
+            line(out, buf).expect("the timetable ended its stream while a replacement was pending");
+        let s = core::str::from_utf8(&buf[..n]).expect("the timetable printed non-UTF-8");
+        if s == ARMED {
+            return true;
+        }
+        if s.starts_with("timetable: the replacement ") {
+            return false;
+        }
+    }
+    panic!("the timetable printed a great deal and never answered the replacement");
+}
+
+/// **A running timetable's document is replaced whole, by its registrar, and a replacement that
+/// fails changes nothing** (milestone 129 (scheduled execution), §222 (who holds a user's schedule)).
+///
+/// The kernel test stands in for the registrar, which will be a user's durable session once
+/// milestone 152 rebuilds one. Three replacements, each the control for the others:
+///
+/// 1. **The stored schedule**, `schedule_store::fixture::DEMO_SCHEDULE_DOC`: the very bytes
+///    milestone 152's store test writes to disk and `session_reviver` reads back at boot. §222's
+///    fifth sub-ruling is that the session writes the store and then replaces, so what the store
+///    holds must be exactly what a replacement accepts, unedited. Its `at-boot` line fires (9).
+/// 2. **A document that does not parse.** Refused whole, with its line number in the page, and
+///    nothing fires: the schedule in force is untouched.
+/// 3. **An edit.** The `at-boot` line is resent byte for byte and keeps its beat, so it does not
+///    fire a second time; the `every 30s` line is removed; a new `at-boot` line fires once (16); a
+///    scheduled `date` is unbacked; and a new hourly line arms and never comes round.
+/// 4. **An empty document**, which ends the timetable. It was asked for no fire count, so nothing
+///    else could.
+///
+/// Counted, never timed, as the test above. One tolerance, stated rather than hidden: the stored
+/// schedule's `every 30s` line is in force from the first replacement until the third, and a host
+/// stalled for thirty seconds in between would let it fire. A 49 before the 16 is therefore
+/// accepted and counted, and nowhere else; everything the test claims is about 9, 16 and the page.
+#[test_case]
+fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_nothing() {
+    use timetable::registration as r;
+    let (out, reports, _deaths, page) =
+        spawn_timetable_with(&["least_authority_demo"], 0, true, false);
+    let page = page.expect("a registrar-mode spawn maps a page");
+    let mut buf = [0u8; 256];
+
+    // It starts with nothing: the empty plan, then armed, before anyone has registered anything.
+    assert!(
+        await_answer(out, &mut buf),
+        "the timetable must arm an empty schedule at startup"
+    );
+
+    // ---- 1. the stored schedule, unedited ----
+    send_replace(
+        page,
+        1,
+        schedule_store::fixture::DEMO_SCHEDULE_DOC.as_bytes(),
+    );
+    assert!(
+        await_answer(out, &mut buf),
+        "the stored schedule must be accepted as it is"
+    );
+    let (status, _, verdicts, plan) = read_reply(page, 1);
+    assert_eq!(status, r::STATUS_REPLACED);
+    assert_eq!(
+        r::verdict_of(verdicts, 0),
+        r::KIND_FIRES,
+        "at-boot least_authority_demo 3"
+    );
+    assert_eq!(
+        r::verdict_of(verdicts, 1),
+        r::KIND_FIRES,
+        "every 30s least_authority_demo 7"
+    );
+    assert_eq!(r::verdict_of(verdicts, 2), r::KIND_NONE, "and nothing else");
+    assert!(
+        plan.starts_with(b"timetable: the plan, before anything fires"),
+        "the plan comes back in the page, not only down the output endpoint",
+    );
+    assert_eq!(
+        crate::sched::ipc_recv(reports)[0],
+        9,
+        "the stored at-boot line fires once"
+    );
+
+    // ---- 2. a replacement that does not parse ----
+    send_replace(
+        page,
+        2,
+        b"at-boot least_authority_demo 3\nevery fortnight least_authority_demo 7\n",
+    );
+    assert!(
+        !await_answer(out, &mut buf),
+        "a document that does not parse must be refused"
+    );
+    let (status, detail, _, _) = read_reply(page, 2);
+    assert_eq!(status, r::STATUS_PARSE);
+    assert_eq!(detail, 2, "the page names the line that did not parse");
+
+    // ---- 3. an edit ----
+    send_replace(
+        page,
+        3,
+        b"at-boot least_authority_demo 3\n\
+          at-boot least_authority_demo 4\n\
+          every 1s date\n\
+          every 60m least_authority_demo 2\n",
+    );
+    assert!(await_answer(out, &mut buf), "the edit must be accepted");
+    let (status, _, verdicts, plan) = read_reply(page, 3);
+    assert_eq!(status, r::STATUS_REPLACED);
+    assert_eq!(
+        r::verdict_of(verdicts, 0),
+        r::KIND_FIRES | r::KEPT_PHASE,
+        "a line resent byte for byte keeps its beat, and an at-boot line's beat is 'already fired'",
+    );
+    assert_eq!(
+        r::verdict_of(verdicts, 1),
+        r::KIND_FIRES,
+        "a new line arms fresh"
+    );
+    assert_eq!(
+        r::verdict_of(verdicts, 2),
+        r::KIND_UNBACKED | (r::unbacked_code(timetable::Unbacked::Clock) << 2),
+        "a scheduled date is unbacked in a timetable holding no clock",
+    );
+    assert_eq!(
+        r::verdict_of(verdicts, 3),
+        r::KIND_FIRES,
+        "an interval that will not come round here"
+    );
+    let plan = core::str::from_utf8(plan).expect("the plan in the page is text");
+    assert!(
+        plan.contains("this timetable holds no clock, so it cannot grant one"),
+        "the refusal's sentence travels in the page, which is why the verdict byte omits it",
+    );
+    assert!(
+        !plan.contains("least_authority_demo 7"),
+        "removing an entry is a replacement without its line",
+    );
+
+    // The new at-boot line fires once. A 49 can only be the stored schedule's 30-second line firing
+    // before the edit removed it (see the doc comment), and it queued first if it did.
+    let mut fires = 1;
+    loop {
+        match crate::sched::ipc_recv(reports)[0] {
+            16 => break,
+            49 => {}
+            9 => panic!("the resent at-boot line fired again: its beat was not kept"),
+            other => panic!("a scheduled child reported {other}, which nothing in force answers"),
+        }
+        fires += 1;
+    }
+    fires += 1;
+
+    // ---- 4. an empty document ends the timetable ----
+    //
+    // A timetable holding nothing would still hold its session up (the live-children rule of §16 (object revocation)), so
+    // emptying it is how it goes away. This run was asked for no fire count at all, so this is the
+    // only way it can end, and the summary proves every job it started was collected first.
+    send_replace(page, 4, b"# nothing scheduled\n");
+    for _ in 0..8 {
+        let n =
+            line(out, &mut buf).expect("the timetable ended before answering the empty document");
+        if core::str::from_utf8(&buf[..n]) == Ok(EMPTIED) {
+            break;
+        }
+    }
+    let (status, _, verdicts, _) = read_reply(page, 4);
+    assert_eq!(status, r::STATUS_EMPTIED);
+    assert_eq!(verdicts, 0);
+    let n = line(out, &mut buf).expect("the timetable ended its stream without a summary");
+    let s = core::str::from_utf8(&buf[..n]).expect("non-UTF-8 summary");
+    let mut want = [0u8; 64];
+    let want = fmt_summary(&mut want, fires);
+    assert_eq!(
+        s, want,
+        "every job it started was collected before it reported"
+    );
+    assert!(
+        line(out, &mut buf).is_none(),
+        "the timetable said something after its summary"
+    );
+    assert_eq!(crate::sched::ipc_recv(out)[0], 0, "a clean finish");
+}
+
+/// The line `components/src/timetable.rs` prints when a replacement empties it.
+const EMPTIED: &str =
+    "timetable: the document is empty, so this timetable exits once its running jobs finish";
+
+/// `timetable: N fires, N clean exits, 0 faults`, for `n` below ten.
+fn fmt_summary(buf: &mut [u8; 64], n: u64) -> &str {
+    assert!(n < 10, "this test fires a handful of jobs");
+    let d = b'0' + n as u8;
+    let mut len = 0;
+    for &b in b"timetable: "
+        .iter()
+        .chain(&[d])
+        .chain(b" fires, ")
+        .chain(&[d])
+        .chain(b" clean exits, 0 faults")
+    {
+        buf[len] = b;
+        len += 1;
+    }
+    core::str::from_utf8(&buf[..len]).unwrap()
+}
+
+/// **A timetable handed the run-unvouched capability runs nothing** (§220 (signed builds, and trusting a key is scoped), gate D2 of §219 (how the shell names an installed program to the spawner)).
+///
+/// A scheduled job fires long after the session that registered it proved anything, so it is the
+/// one program §220's key-trust drop could not reach if it could run an unvouched image. The
+/// timetable refuses at `_start`, before it plans or builds anything, because a timetable that
+/// holds the capability is the only way a job of its could. The document is the shipped one, which
+/// would otherwise fire, so an absent refusal fails on the verdict rather than passing quietly.
+#[test_case]
+fn a_timetable_holding_the_run_unvouched_capability_schedules_nothing() {
+    let (out, _reports, _deaths, _) = spawn_timetable_with(&PLANNED_PROGRAMS, FIRES, false, true);
+    let mut buf = [0u8; 256];
+    let n = line(out, &mut buf).expect("the timetable must say why it refuses");
+    let s = core::str::from_utf8(&buf[..n]).expect("non-UTF-8 refusal");
+    assert!(
+        s.starts_with("timetable: it holds the run-unvouched capability"),
+        "the refusal comes first, before any plan: {s}",
+    );
+    assert!(line(out, &mut buf).is_none(), "and nothing after it");
+    assert_eq!(crate::sched::ipc_recv(out)[0], 0xE304, "E_UNVOUCHED");
 }
