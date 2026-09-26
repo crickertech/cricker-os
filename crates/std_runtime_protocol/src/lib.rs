@@ -39,8 +39,8 @@
 //!   linked at `0x40_0000` like every other, and its stack grows down from `0x50_0000`, the
 //!   loader's one address for every child (`supervision_protocol::CHILD_STACK_VA`). So a std image
 //!   over about 1 MiB meets its own stack. That is milestone 206 (a program image has under 896
-//!   KiB) and DECISIONS §171 (where a program image starts), both open, and this crate does not
-//!   pretend to have answered them.
+//!   KiB), not yet built. DECISIONS §171 (where a program image starts) was ruled on 2026-09-26:
+//!   one written address-space map, with these constants derived from it.
 
 #![cfg_attr(not(test), no_std)]
 
