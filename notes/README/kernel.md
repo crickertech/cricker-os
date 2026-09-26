@@ -26,6 +26,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Supervision: a thread's death becomes a message](../supervision.md): the fault endpoint, and reaping without building.
 - [Per-process resource quotas](../quotas.md): a live-children cap on spawners, kept but unused.
 - [What a timed wait costs](../timed-wait.md): pricing a deadline on a blocked thread.
+- [The timer](../timer.md): the object that ends a wait at a deadline.
 - [Can a userspace process hold a timer?](../timer-capability.md).
 - [Trusted init: measuring the boot program, and then everything the progenitor loads](../trusted-init.md).
 - [The progenitor, and loading a program from userspace](../progenitor-and-loading.md).

@@ -1,7 +1,7 @@
 ---
 status: NOT-STARTED
 raised: 2026-08-04
-milestone_dependencies: 106
+milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
@@ -14,9 +14,10 @@ built it", which is what `notes/session-handoff.md:52` says. **The note is stale
 What is genuinely unbuilt is one line of §24's own implementation record, and this block is that
 line.
 
-Strictly downstream: the shell busy-polls because there is nothing to
-block on, and this milestone converts the watch to whatever 106 settles. If 106 puts the deadline
-on `Endpoint::RECV`/`CALL`, this is a small change in one file.
+Milestone 106 (a wait that ends on either the interrupt or the deadline) was the
+gate and is BUILT (2026-09-26): a `Timer` object that signals a notification, and the binding of
+milestone 151 (notification objects). The watch now sleeps a tick per look; what is left is making the job's end and `^C` signal
+the notification the shell waits on. See 106's block.
 
 **The correction first, because the stale claim is the more useful finding.**
 `notes/session-handoff.md`'s "Wave-3: what's next" list has five items. Items 2 and 3 were struck
@@ -53,6 +54,11 @@ where it is. `grant_plan::Escalation` is host-tested and does not change: the ti
 not the decision. The acceptance evidence is the one thing the poll cannot give, a foreground job
 that runs for a second with the shell consuming no scheduler turns, plus the existing `^C` tests
 passing unchanged on both ISAs.
+
+<!-- writing-standards: exception. Marked 2026-09-26 (UTC) by the lane for milestone 106 (a wait
+that ends on either the interrupt or the deadline). Reason: this change touches the block only to
+retire its gate, which 106 met. Bringing the block to 4 bold spans per 1,000 words is a rewrite for
+whoever builds 103, not something to hide inside a gate change. Remove this marker then. -->
 
 ## Scope note
 
