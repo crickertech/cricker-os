@@ -81,10 +81,11 @@ because a snapshot needs no clock and no accounting.
 
 ## The design: a view over a supervision domain
 
-The scope is the supervision subtree, because the kernel already maintains it. A shell holds a
-domain; the programs it spawns are in that domain; a `ps` launched from that shell sees exactly
-those and nothing else. It is the same move `rm -r` makes with a directory subtree: authority is a
-subtree, not a global. A scope the system already keeps cannot drift out of agreement with reality.
+The scope is the supervision domain, because the kernel already maintains it: the threads one
+endpoint directly supervises, one level deep (§223 (the process view is the supervision domain)). A
+shell holds a domain; the programs it spawns are in that domain; a `ps` launched from that shell
+sees exactly those and nothing else. It is the same move `rm -r` makes with a directory it was
+handed: authority is held, not global. A scope the system already keeps cannot drift out of agreement with reality.
 
 The view is `abi::rendezvous::SURVEY`, a method on the supervision endpoint and no new syscall
 number. Membership is `capability::survey_includes`, the same relationship that authorizes a reap

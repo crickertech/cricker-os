@@ -20,15 +20,18 @@ That is what makes this a good first demonstration of the argument milestone 121
 directories. Enumeration is a larger power than reading something you were handed, and the claim
 needs no setup: the reader already knows the Unix behaviour is wrong.
 
-## The design: a view over a supervision subtree
+## The design: a view over a supervision domain
 
-The scope is the supervision subtree, because the kernel already maintains it. A thread's
+The scope is the supervision domain, because the kernel already maintains it (§223 (the process view
+is the supervision domain)). A thread's
 supervision endpoint is recorded at `START` (`Thread::fault_ep`, DECISIONS §26) and never changes.
 The set of threads whose deaths arrive on one endpoint is therefore a set the kernel keeps for its
 own reasons, exactly maintained, and it costs nothing to read.
 
-So the domain a viewer sees is the endpoint it holds. Same move `rm -r` makes with a directory
-subtree: authority is a subtree, not a global. A scope the system already keeps cannot drift out of
+So the domain a viewer sees is the endpoint it holds, one level deep: a grandchild appears only if
+its spawner named the same endpoint at `START`. A monitor over unrelated services holds `ENUMERATE`
+on each one's endpoint. Same move `rm -r` makes with a directory it was handed: authority is held,
+not global. A scope the system already keeps cannot drift out of
 agreement with reality, which is the property a registry would not have had.
 
 The wide grant is not forbidden. It is nameable. An operator's monitor over the whole machine is
