@@ -106,8 +106,8 @@ use line_editor::proto;
 use swish::{Route, Say, Status, Untimed, sequence};
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{
-    call, cap_delete, destroy_region, exit, monotonic_nanos, reap, recv, recv_fault, retype_object,
-    send, split_region, yield_now,
+    call, cap_delete, cntfrq, destroy_region, exit, monotonic_nanos, now, reap, recv, recv_fault,
+    retype_object, retype_sleeper, send, sleep_until, split_region, yield_now,
 };
 
 // Pages shared with the terminal (must match the wiring in the progenitor).
@@ -3974,6 +3974,47 @@ fn watch(jf: MappedWindow, job_ut: u64) {
             }
             Action::None => {}
         }
+        watch_pause();
+    }
+}
+
+/// The (timer, notification) the watch loop sleeps on, retyped out of [`BUDGET`] on the first
+/// supervised job and kept for the life of the shell. `0` is "not made yet"; `u64::MAX` is "the
+/// budget refused", after which the loop yields as it did before milestone 106.
+static WATCH_TIMER: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+static WATCH_NOTIFICATION: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// **One beat of the watch loop: a scheduler tick asleep** (milestone 106 (a wait that ends on
+/// either the interrupt or the deadline)), rather than a `yield`.
+///
+/// Until 2026-09-26 this was `yield_now()`, which kept the shell runnable for the whole life of
+/// every foreground job: a hart's worth of scheduler passes spent asking a shared page whether
+/// anything had changed. Now the shell sleeps ten milliseconds between looks, which is 100 wakes a
+/// second, each a page read and a `CALL` for the `^C` count. It is **not** the destination of
+/// milestone 103 (`^C` stops spinning: the shell's interrupt watch, blocking), a watch that wakes
+/// only when the job ends or `^C` arrives: that needs the job's exit and the terminal's `^C` to
+/// signal a notification this shell waits on, which is 103's to build. See that milestone's block.
+///
+/// **The grace window changed meaning with it**, and is recorded rather than hidden:
+/// `grant_plan::COOP_GRACE_TICKS` counts loop iterations, so 200 of them are now two seconds of
+/// wall time where they were 200 yields, as long as a yield happened to take.
+fn watch_pause() {
+    use core::sync::atomic::Ordering::Relaxed;
+    let mut t = WATCH_TIMER.load(Relaxed);
+    if t == 0 {
+        // Slots up to the directory's are the ones whose emptiness means something.
+        let (timer, notification) =
+            retype_sleeper(BUDGET, DIR_TERMINAL + 1).unwrap_or((u64::MAX, 0));
+        WATCH_NOTIFICATION.store(notification, Relaxed);
+        WATCH_TIMER.store(timer, Relaxed);
+        t = timer;
+    }
+    if t == u64::MAX {
+        yield_now();
+        return;
+    }
+    let deadline = now() + cntfrq() / 100;
+    if sleep_until(t, WATCH_NOTIFICATION.load(Relaxed), deadline) < 0 {
         yield_now();
     }
 }

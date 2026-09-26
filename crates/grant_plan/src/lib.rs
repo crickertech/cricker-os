@@ -1028,8 +1028,9 @@ pub enum InputSpec {
         /// note: it decides whether **this shell** can run the program at all.
         ///
         /// A sink message is a rendezvous `SEND` and a process has exactly one wait point (no
-        /// select, no poll, no timed receive: DECISIONS §51's fork is still open, and
-        /// design/roadmap/106 is NOT-STARTED). So a shell that is feeding a stage cannot also be
+        /// select and no poll. Milestone 106 (a wait that ends on either the interrupt or the
+        /// deadline) added a timer and milestone 151 (notification objects) a notification binding, but a `SEND` still
+        /// blocks on its one receiver alone). So a shell that is feeding a stage cannot also be
         /// receiving from it, and a stage that writes while it reads blocks against a shell that is
         /// still writing. Both stop, and the prompt never comes back.
         ///
@@ -3137,8 +3138,8 @@ fn check_streams(m: Manifest, streams: Streams) -> Result<line::Diagnostics, Ref
 /// # The constraint, which is the kernel's and not the shell's
 ///
 /// A process has **one wait point**. `SEND` blocks until a receiver takes the message, `RECV` blocks
-/// until one arrives, and there is no select, no poll and no timed wait (design/roadmap/106 is
-/// NOT-STARTED and is a kernel-surface fork). So a shell that is feeding a chain cannot also be
+/// until one arrives, and there is no select and no poll (a timer and a bound notification can end a
+/// receive since milestones 106 and 151, but not a `SEND`). So a shell that is feeding a chain cannot also be
 /// receiving from it, and the two blocked processes have nothing that could wake either.
 ///
 /// **No interleaving schedule fixes this**, which is worth stating because it is the first thing

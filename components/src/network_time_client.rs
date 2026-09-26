@@ -58,15 +58,17 @@
 //! in the one place where the whole point of the value is that nobody can predict it, and it is the
 //! same call `SystemRng` makes when it panics rather than degrading.
 //!
-//! # One shot, because there is no timed wait
+//! # One shot, and why that is now a choice
 //!
-//! The kernel's syscall surface is `EXIT`, `YIELD`, `INVOKE`, `CAP_DELETE`. There is no sleep, no
-//! timeout, and no deadline anywhere in it (the milestone 51 block's open fork), so a poll interval
-//! is a yield-spin: a thread that stays runnable for the whole interval and costs scheduler work in
-//! proportion to it. At NTP's ordinary 64-second poll that is not a service anybody should ship, so
-//! this is a **one-shot synchroniser**: up to [`ATTEMPTS`] requests a few milliseconds apart, one
-//! proposal, exit. A long-running client is the timed-wait fork's to build, not a workaround to
-//! invent here.
+//! This client was written when the kernel had no timed wait, so a poll interval was a yield-spin
+//! that kept a thread runnable for the whole of it. At NTP's ordinary 64-second poll that is not a
+//! service anybody should ship, so it is a **one-shot synchroniser**: up to [`ATTEMPTS`] requests a
+//! few milliseconds apart, one proposal, exit.
+//!
+//! Milestone 106 (a wait that ends on either the interrupt or the deadline) built the `Timer`
+//! object, and the gap between attempts now sleeps on one. So a long-running client is no longer
+//! blocked on a kernel primitive. It is a design question of its own (who supervises it, and what
+//! it does between polls), recorded in `design/roadmap/proposals/the-last-yield-spinners-sleep-on-a-timer.md`.
 //!
 //! **A kiss-o'-death is not retried.** Stratum 0 is an instruction rather than a time (`RATE` means
 //! back off, `DENY` means go away), and a client that retries into one is the abusive client the
@@ -128,7 +130,8 @@ use network_time_protocol::{Query, Reject, Timestamp};
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    call, cntfrq, exit, map_page_frame, now, retype_page_frame, send, send_cap, yield_now,
+    call, cntfrq, exit, map_page_frame, now, retype_page_frame, retype_sleeper, send, send_cap,
+    sleep_until, yield_now,
 };
 
 // =================================================================================================
@@ -174,9 +177,9 @@ pub const RPT_BAD_LOCAL_TIME: u64 = 8;
 /// number for the same reason.
 pub const ATTEMPTS: u32 = 3;
 
-/// The gap between attempts, as a yield-spin, because there is no timed wait (see the module docs).
-/// Milliseconds rather than NTP's 64 seconds: the interval a real client wants is precisely the
-/// thing this kernel cannot yet express without keeping a thread runnable for the whole of it.
+/// The gap between attempts. Milliseconds rather than NTP's 64 seconds, because this client is still
+/// one-shot (see the module docs). Asleep on a timer since milestone 106, whose resolution is the
+/// 10 ms scheduler tick, so the gap is in practice one tick.
 const RETRY_GAP_NANOS: u64 = 2 * 1_000_000;
 
 /// Where this client maps the shared socket frame in its own address space. Above the program's
@@ -367,10 +370,36 @@ fn stamp(unix_nanos: u64) -> Option<Timestamp> {
     )
 }
 
-/// The poll interval, as the only thing this kernel can express: a yield-spin. See the module docs;
-/// keeping a thread runnable for the whole interval is why a continuously polling client waits on
-/// the timed-wait fork rather than being written around it.
+/// The poll interval, asleep on a timer (milestone 106 (a wait that ends on either the interrupt or
+/// the deadline)). The pair is retyped from this client's own untyped on the first gap; if the
+/// untyped cannot pay for it, the gap falls back to the yield-spin it was until 2026-09-26.
 fn poll_gap() {
+    use core::sync::atomic::AtomicU64;
+    use core::sync::atomic::Ordering::Relaxed;
+    static TIMER: AtomicU64 = AtomicU64::new(0); // 0: not made yet; u64::MAX: refused
+    static NOTIFICATION: AtomicU64 = AtomicU64::new(0);
+    if TIMER.load(Relaxed) == 0 {
+        // Up to the entropy slot, whose emptiness is how this client learns it has no entropy.
+        let (t, n) = retype_sleeper(MEMORY_REGION, ENTROPY + 1).unwrap_or((u64::MAX, 0));
+        NOTIFICATION.store(n, Relaxed);
+        TIMER.store(t, Relaxed);
+    }
+    let timer = TIMER.load(Relaxed);
+    if timer != u64::MAX {
+        let ticks = abi::timer::counter_ticks_for(
+            RETRY_GAP_NANOS / 1_000_000_000,
+            (RETRY_GAP_NANOS % 1_000_000_000) as u32,
+            cntfrq(),
+        );
+        if sleep_until(
+            timer,
+            NOTIFICATION.load(Relaxed),
+            now().saturating_add(ticks),
+        ) >= 0
+        {
+            return;
+        }
+    }
     let deadline = monotonic_nanos() + RETRY_GAP_NANOS;
     while monotonic_nanos() < deadline {
         yield_now();
