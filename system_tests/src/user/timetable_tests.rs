@@ -115,9 +115,71 @@ fn narrowed_archive(programs: &[&'static str]) -> &'static [u8] {
 /// under test is the scheduler rather than a shortcut. Its complete authority is the four slots
 /// below, which is the same list `components/src/timetable.rs`'s header states and the reason a scheduled
 /// `date` in the shipped document is refused.
-fn spawn_timetable(fires: u64) -> (RendezvousId, RendezvousId, RendezvousId) {
-    let (out, reports, deaths, _) = spawn_timetable_with(&PLANNED_PROGRAMS, fires, false, false);
-    (out, reports, deaths)
+fn spawn_timetable(fires: u64) -> Spawned {
+    spawn_timetable_with(&PLANNED_PROGRAMS, fires, false, false)
+}
+
+/// **One spawned timetable**: the endpoints it is wired to, the registration page when it has one,
+/// and the two regions the spawn site made for it, which [`Spawned::reclaim`] hands back.
+struct Spawned {
+    out: RendezvousId,
+    reports: RendezvousId,
+    page: Option<&'static mut [u8]>,
+    /// The page's exit word, kept apart from `page` so [`report`] can look at it while the test
+    /// holds the page itself.
+    exit_word: Option<&'static core::sync::atomic::AtomicU64>,
+    budget: u64,
+    tcb_region: u64,
+}
+
+impl Spawned {
+    /// **Give back the two regions the spawn site made**, once the timetable has finished.
+    ///
+    /// Every test here used to leave its budget and its TCB region behind, and the kernel's region
+    /// table is finite: milestone 152's lane found a later test's fire failing with "the budget
+    /// cannot back one instance" at 252 of 256 live regions. `reclaim_region` refuses a region
+    /// with a child still carved out of it, so the budget's success is also the statement that
+    /// every scheduled instance was collected.
+    fn reclaim(self) {
+        crate::sched::reclaim_region(self.budget).expect(
+            "the timetable's budget would not reclaim: an instance region is still carved out",
+        );
+        crate::sched::reclaim_region(self.tcb_region)
+            .expect("the timetable's TCB region would not reclaim");
+    }
+}
+
+/// The exit code a registrar-mode timetable left in its page, once it has stopped.
+fn exited(t: &Spawned) -> Option<u64> {
+    let word = t.exit_word?.load(core::sync::atomic::Ordering::Acquire);
+    (word & timetable::registration::EXITED != 0).then_some(word & !timetable::registration::EXITED)
+}
+
+/// **The next scheduled child's report, or the timetable's own reason there will not be one.**
+///
+/// A plain `RECV` on the report endpoint turned every fire failure into the 60-second hang
+/// watchdog: the timetable says "the budget cannot back one instance" on its output endpoint and
+/// stops, while the test waits on a report that is never coming. So this looks at both endpoints
+/// and, if the timetable speaks first, fails with its sentence. No deadline: a slow host makes this
+/// slower and never red (notes/load-sensitive-assertions.md).
+fn report(t: &Spawned) -> u64 {
+    loop {
+        if crate::sched::rendezvous_waiting_senders(t.reports) > 0 {
+            return crate::sched::ipc_recv(t.reports)[0];
+        }
+        if let Some(code) = exited(t) {
+            panic!("waiting for a scheduled child's report, the timetable exited with {code:#x}");
+        }
+        if crate::sched::rendezvous_waiting_senders(t.out) > 0 {
+            let mut buf = [0u8; 256];
+            let said = match line(t.out, &mut buf) {
+                Some(n) => core::str::from_utf8(&buf[..n]).unwrap_or("(not UTF-8)"),
+                None => "(its output ended)",
+            };
+            panic!("waiting for a scheduled child's report, the timetable said instead: {said}");
+        }
+        crate::sched::yield_now();
+    }
 }
 
 /// Where a registrar-mode timetable finds its registration page. The spawn site's choice, passed
@@ -133,12 +195,7 @@ fn spawn_timetable_with(
     fires: u64,
     registration: bool,
     run_unvouched: bool,
-) -> (
-    RendezvousId,
-    RendezvousId,
-    RendezvousId,
-    Option<&'static mut [u8]>,
-) {
+) -> Spawned {
     // **Not the initrd.** The archive this process is handed holds exactly the programs its own
     // document will ever build; see [`narrowed_archive`] for why the spawn site is the only place
     // that decision can be made.
@@ -244,7 +301,24 @@ fn spawn_timetable_with(
         .expect("configure");
     let page_va = if page.is_some() { REGISTRATION_VA } else { 0 };
     crate::sched::start_thread_control_block(tid, [fires, archive_len, page_va]).expect("start");
-    (out, child_report, deaths, page)
+    let exit_word = page.as_ref().map(|p| {
+        #[allow(clippy::cast_ptr_alignment)] // page-aligned; EXIT is word 7
+        // SAFETY: the page is page-aligned, so its exit word is aligned for an `AtomicU64`, and it
+        // lives as long as the frame, which outlives the test. Both sides touch it only atomically.
+        unsafe {
+            &*p.as_ptr()
+                .add(timetable::registration::EXIT)
+                .cast::<core::sync::atomic::AtomicU64>()
+        }
+    });
+    Spawned {
+        out,
+        reports: child_report,
+        page,
+        exit_word,
+        budget,
+        tcb_region: thread_control_block_region,
+    }
 }
 
 /// One line of `byte_sink_protocol` bytes off `ep`, without its newline. `None` at end of stream.
@@ -308,7 +382,8 @@ fn line(ep: RendezvousId, buf: &mut [u8; 256]) -> Option<usize> {
 /// notes/load-sensitive-assertions.md's rule applied at the point where it is easiest to get wrong.
 #[test_case]
 fn a_scheduled_entry_holds_what_the_plan_said_and_a_refused_one_never_runs() {
-    let (out, reports, _deaths) = spawn_timetable(FIRES);
+    let t = spawn_timetable(FIRES);
+    let out = t.out;
     let mut buf = [0u8; 256];
 
     // ---- the plan, printed before the first tick ----
@@ -413,7 +488,7 @@ fn a_scheduled_entry_holds_what_the_plan_said_and_a_refused_one_never_runs() {
     let mut forty_nines = 0;
     let mut depleter_reports = 0;
     for _ in 0..FIRES {
-        let answer = crate::sched::ipc_recv(reports)[0];
+        let answer = report(&t);
         match answer {
             9 => nines += 1,
             49 => forty_nines += 1,
@@ -466,6 +541,7 @@ fn a_scheduled_entry_holds_what_the_plan_said_and_a_refused_one_never_runs() {
         0,
         "the timetable's verdict word must be a clean finish",
     );
+    t.reclaim();
 }
 
 /// **Stage `doc` in the page and publish request `seq`**: the registrar's half of
@@ -510,21 +586,23 @@ fn read_reply(page: &[u8], seq: u64) -> (u64, u64, u64, &[u8]) {
     )
 }
 
-/// Read `out` until the timetable either arms a replacement (`true`) or refuses one (`false`),
-/// which are the only two ways it answers.
-fn await_answer(out: RendezvousId, buf: &mut [u8; 256]) -> bool {
-    for _ in 0..256 {
-        let n =
-            line(out, buf).expect("the timetable ended its stream while a replacement was pending");
-        let s = core::str::from_utf8(&buf[..n]).expect("the timetable printed non-UTF-8");
-        if s == ARMED {
-            return true;
+/// **Wait for the reply to request `seq`**, by the page's reply word: a registrar-mode timetable says
+/// nothing down its output endpoint (`timetable::contract`), because its real registrar is a session
+/// that cannot drain one. Fails at once, with the timetable's code, if it exits instead. No deadline,
+/// for [`report`]'s reason.
+fn await_reply(t: &Spawned, page: &[u8], seq: u64) {
+    use core::sync::atomic::{AtomicU64, Ordering};
+
+    use timetable::registration as r;
+    #[allow(clippy::cast_ptr_alignment)] // the page is page-aligned and REPLY is word 2
+    // SAFETY: as in `send_replace`, for the reply word.
+    let reply = unsafe { &*page.as_ptr().add(r::REPLY).cast::<AtomicU64>() };
+    while reply.load(Ordering::Acquire) != seq {
+        if let Some(code) = exited(t) {
+            panic!("waiting for the reply to request {seq}, the timetable exited with {code:#x}");
         }
-        if s.starts_with("timetable: the replacement ") {
-            return false;
-        }
+        crate::sched::yield_now();
     }
-    panic!("the timetable printed a great deal and never answered the replacement");
 }
 
 /// **A running timetable's document is replaced whole, by its registrar, and a replacement that
@@ -552,29 +630,25 @@ fn await_answer(out: RendezvousId, buf: &mut [u8; 256]) -> bool {
 #[test_case]
 fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_nothing() {
     use timetable::registration as r;
-    let (out, reports, _deaths, page) =
-        spawn_timetable_with(&["least_authority_demo"], 0, true, false);
-    let page = page.expect("a registrar-mode spawn maps a page");
-    let mut buf = [0u8; 256];
-
-    // It starts with nothing: the empty plan, then armed, before anyone has registered anything.
-    assert!(
-        await_answer(out, &mut buf),
-        "the timetable must arm an empty schedule at startup"
-    );
+    let mut t = spawn_timetable_with(&["least_authority_demo"], 0, true, false);
+    let page = t.page.take().expect("a registrar-mode spawn maps a page");
 
     // ---- 1. the stored schedule, unedited ----
+    //
+    // The timetable started with an empty document; this is how its first one arrives
+    // (`timetable::contract`).
     send_replace(
         page,
         1,
         schedule_store::fixture::DEMO_SCHEDULE_DOC.as_bytes(),
     );
-    assert!(
-        await_answer(out, &mut buf),
+    await_reply(&t, page, 1);
+    let (status, _, verdicts, plan) = read_reply(page, 1);
+    assert_eq!(
+        status,
+        r::STATUS_REPLACED,
         "the stored schedule must be accepted as it is"
     );
-    let (status, _, verdicts, plan) = read_reply(page, 1);
-    assert_eq!(status, r::STATUS_REPLACED);
     assert_eq!(
         r::verdict_of(verdicts, 0),
         r::KIND_FIRES,
@@ -588,13 +662,9 @@ fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_noth
     assert_eq!(r::verdict_of(verdicts, 2), r::KIND_NONE, "and nothing else");
     assert!(
         plan.starts_with(b"timetable: the plan, before anything fires"),
-        "the plan comes back in the page, not only down the output endpoint",
+        "the plan comes back in the page, which is the registrar's whole view",
     );
-    assert_eq!(
-        crate::sched::ipc_recv(reports)[0],
-        9,
-        "the stored at-boot line fires once"
-    );
+    assert_eq!(report(&t), 9, "the stored at-boot line fires once");
 
     // ---- 2. a replacement that does not parse ----
     send_replace(
@@ -602,12 +672,13 @@ fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_noth
         2,
         b"at-boot least_authority_demo 3\nevery fortnight least_authority_demo 7\n",
     );
-    assert!(
-        !await_answer(out, &mut buf),
+    await_reply(&t, page, 2);
+    let (status, detail, _, _) = read_reply(page, 2);
+    assert_eq!(
+        status,
+        r::STATUS_PARSE,
         "a document that does not parse must be refused"
     );
-    let (status, detail, _, _) = read_reply(page, 2);
-    assert_eq!(status, r::STATUS_PARSE);
     assert_eq!(detail, 2, "the page names the line that did not parse");
 
     // ---- 3. an edit ----
@@ -619,9 +690,9 @@ fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_noth
           every 1s date\n\
           every 60m least_authority_demo 2\n",
     );
-    assert!(await_answer(out, &mut buf), "the edit must be accepted");
+    await_reply(&t, page, 3);
     let (status, _, verdicts, plan) = read_reply(page, 3);
-    assert_eq!(status, r::STATUS_REPLACED);
+    assert_eq!(status, r::STATUS_REPLACED, "the edit must be accepted");
     assert_eq!(
         r::verdict_of(verdicts, 0),
         r::KIND_FIRES | r::KEPT_PHASE,
@@ -654,69 +725,41 @@ fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_noth
 
     // The new at-boot line fires once. A 49 can only be the stored schedule's 30-second line firing
     // before the edit removed it (see the doc comment), and it queued first if it did.
-    let mut fires = 1;
     loop {
-        match crate::sched::ipc_recv(reports)[0] {
+        match report(&t) {
             16 => break,
             49 => {}
             9 => panic!("the resent at-boot line fired again: its beat was not kept"),
             other => panic!("a scheduled child reported {other}, which nothing in force answers"),
         }
-        fires += 1;
     }
-    fires += 1;
 
     // ---- 4. an empty document ends the timetable ----
     //
-    // A timetable holding nothing would still hold its session up (the live-children rule of §16 (object revocation)), so
-    // emptying it is how it goes away. This run was asked for no fire count at all, so this is the
-    // only way it can end, and the summary proves every job it started was collected first.
+    // A timetable holding nothing would still hold its session up (the live-children rule of §16
+    // (object revocation)), so emptying it is how it goes away. This run was asked for no fire
+    // count at all, so this is the only way it can end.
     send_replace(page, 4, b"# nothing scheduled\n");
-    for _ in 0..8 {
-        let n =
-            line(out, &mut buf).expect("the timetable ended before answering the empty document");
-        if core::str::from_utf8(&buf[..n]) == Ok(EMPTIED) {
-            break;
-        }
-    }
+    await_reply(&t, page, 4);
     let (status, _, verdicts, _) = read_reply(page, 4);
     assert_eq!(status, r::STATUS_EMPTIED);
     assert_eq!(verdicts, 0);
-    let n = line(out, &mut buf).expect("the timetable ended its stream without a summary");
-    let s = core::str::from_utf8(&buf[..n]).expect("non-UTF-8 summary");
-    let mut want = [0u8; 64];
-    let want = fmt_summary(&mut want, fires);
-    assert_eq!(
-        s, want,
-        "every job it started was collected before it reported"
-    );
-    assert!(
-        line(out, &mut buf).is_none(),
-        "the timetable said something after its summary"
-    );
-    assert_eq!(crate::sched::ipc_recv(out)[0], 0, "a clean finish");
-}
-
-/// The line `components/src/timetable.rs` prints when a replacement empties it.
-const EMPTIED: &str =
-    "timetable: the document is empty, so this timetable exits once its running jobs finish";
-
-/// `timetable: N fires, N clean exits, 0 faults`, for `n` below ten.
-fn fmt_summary(buf: &mut [u8; 64], n: u64) -> &str {
-    assert!(n < 10, "this test fires a handful of jobs");
-    let d = b'0' + n as u8;
-    let mut len = 0;
-    for &b in b"timetable: "
-        .iter()
-        .chain(&[d])
-        .chain(b" fires, ")
-        .chain(&[d])
-        .chain(b" clean exits, 0 faults")
-    {
-        buf[len] = b;
-        len += 1;
+    while exited(&t).is_none() {
+        crate::sched::yield_now();
     }
-    core::str::from_utf8(&buf[..len]).unwrap()
+    assert_eq!(
+        exited(&t),
+        Some(0),
+        "a clean finish, in the page's exit word"
+    );
+    // It reached `exit` at all, which a timetable that had tried to speak down its output endpoint
+    // could not have: nobody here reads it, so that `SEND` would still be blocked.
+    assert_eq!(
+        crate::sched::rendezvous_waiting_senders(t.out),
+        0,
+        "a registrar-mode timetable is silent on its output endpoint",
+    );
+    t.reclaim();
 }
 
 /// **A timetable handed the run-unvouched capability runs nothing** (§220 (signed builds, and trusting a key is scoped), gate D2 of §219 (how the shell names an installed program to the spawner)).
@@ -728,7 +771,8 @@ fn fmt_summary(buf: &mut [u8; 64], n: u64) -> &str {
 /// would otherwise fire, so an absent refusal fails on the verdict rather than passing quietly.
 #[test_case]
 fn a_timetable_holding_the_run_unvouched_capability_schedules_nothing() {
-    let (out, _reports, _deaths, _) = spawn_timetable_with(&PLANNED_PROGRAMS, FIRES, false, true);
+    let t = spawn_timetable_with(&PLANNED_PROGRAMS, FIRES, false, true);
+    let out = t.out;
     let mut buf = [0u8; 256];
     let n = line(out, &mut buf).expect("the timetable must say why it refuses");
     let s = core::str::from_utf8(&buf[..n]).expect("non-UTF-8 refusal");
@@ -738,4 +782,5 @@ fn a_timetable_holding_the_run_unvouched_capability_schedules_nothing() {
     );
     assert!(line(out, &mut buf).is_none(), "and nothing after it");
     assert_eq!(crate::sched::ipc_recv(out)[0], 0xE304, "E_UNVOUCHED");
+    t.reclaim();
 }

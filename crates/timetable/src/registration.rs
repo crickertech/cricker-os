@@ -33,7 +33,9 @@
 //! [`LEN`], and then, **last** and with release ordering, a new [`REQUEST`] word. The timetable
 //! answers in the same page: [`STATUS`], [`DETAIL`], [`VERDICTS`], the printed plan at [`BODY`]
 //! with its length at [`PLAN_LEN`], and then, last, [`REPLY`] set to the request's sequence number.
-//! A registrar reads nothing but [`REPLY`] until that matches.
+//! A registrar reads nothing but [`REPLY`] until that matches. The page is the registrar's whole
+//! view: a timetable with a page says nothing down its output endpoint ([`crate::contract`]), and
+//! when it stops it leaves its exit code at [`EXIT`].
 //!
 //! Name: provisional, minted 2026-09-26 (UTC) by milestone 129's lane, for this module,
 //! [`REPLACE`] and every constant here. Naming is calef's.
@@ -58,6 +60,12 @@ pub const DETAIL: usize = 32;
 pub const VERDICTS: usize = 40;
 /// Byte offset of the printed plan's length, which is at most [`BODY_MAX`].
 pub const PLAN_LEN: usize = 48;
+/// Byte offset of the exit word: zero while the timetable runs, and [`EXITED`] with its exit code
+/// (one of [`crate::contract`]'s, or `0`) once it has stopped. Written just before it exits, so a
+/// registrar that has reaped it reads why.
+pub const EXIT: usize = 56;
+/// The bit that marks the exit word as written.
+pub const EXITED: u64 = 1 << 63;
 /// Where the bytes start: the document on the way in, the printed plan on the way out.
 pub const BODY: usize = 64;
 /// The most bytes a document, or a plan, can occupy.

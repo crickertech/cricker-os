@@ -84,6 +84,7 @@
 use grant_plan::expand::Expansion;
 use grant_plan::{Endowment, Holdings, Refusal};
 
+pub mod contract;
 pub mod registration;
 
 /// Nanoseconds in a second. Spelled here rather than taken from `clock_protocol`, because this crate

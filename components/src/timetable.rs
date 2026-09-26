@@ -13,7 +13,10 @@
 //!
 //! # What it holds, and that is the whole list
 //!
-//! - slot 0: the output endpoint (WRITE). Where the plan and the summary go, as `byte_sink_protocol` bytes.
+//! The slots and arguments are `timetable::contract`'s, which a session spawning this reads too.
+//!
+//! - slot 0: the output endpoint (WRITE). Where the plan and the summary go, as `byte_sink_protocol`
+//!   bytes. Never touched with a registration page, when everything goes into the page instead.
 //! - slot 1: an untyped budget (WRITE). What every instance is made of, what pays for the loader's
 //!   own scratch mappings, and what a `--mem` entry's grant is carved from (nested inside that
 //!   instance's own region rather than split from this budget directly; see `fire` and `BUGS`).
@@ -74,8 +77,10 @@
 //! load, and it has to be a poll: a blocking receive would stop it watching the clock (see
 //! `timetable::registration`). A replacement is parsed, registered and resolved against the archive
 //! in full before anything changes, so one that fails leaves the schedule in force running and
-//! says why in the page. One that succeeds keeps the beat of every line it did not change, prints
-//! its plan down [`OUT`] and into the page, and re-arms.
+//! says why in the page. One that succeeds keeps the beat of every line it did not change, writes
+//! its plan into the page, and re-arms. With a page, the page is the registrar's whole view: this
+//! process says nothing down [`OUT`], and leaves its exit code in the page when it stops (see
+//! [`PAGE`] and `timetable::contract`).
 //!
 //! Children already running when their entry is removed finish and are reaped as usual, because
 //! the counts of outstanding children belong to the loop and not to the document.
@@ -164,9 +169,13 @@
 //!   has one wait point and there is no timed wait (milestone 106 (a wait that ends on either the interrupt or the deadline)). The cost is one load per pass
 //!   on a loop that already spins; a deadline wait that also ends on a notification removes it.
 //!
-//! - **A replacement's printed plan is cut at the page.** The plan goes down [`OUT`] whole, and
-//!   into the page up to `timetable::registration::BODY_MAX` bytes. Eight entries of long refusals
-//!   could pass that; the verdict word still says what every entry became.
+//! - **A replacement's printed plan is cut at the page**, at `timetable::registration::BODY_MAX`
+//!   bytes, and with a registrar the page is the only place it goes. Eight entries of long
+//!   refusals could pass that; the verdict word still says what every entry became.
+//!
+//! - **With a registrar, a fire failure is only an exit code.** "The budget cannot back one
+//!   instance" has no stream to go down, so the registrar learns it from the page's exit word
+//!   (`contract::E_BUDGET`) after reaping this process.
 //!
 //! - **The archive audit is printed only for the compiled-in document.** With a registrar, the
 //!   archive is what the session lets its jobs run, not the plan of a document that has not
@@ -180,20 +189,28 @@
 #![no_main]
 
 use grant_plan::spawnproto;
-use timetable::{Registry, registration};
+use timetable::{Registry, contract, registration};
 use user_mode_runtime::{cap_delete, exit, monotonic_nanos, reap, recv_fault, send, yield_now};
 
 /// The document. Compiled in; see `BUGS`.
 const CONFIG: &str = include_str!("../timetable.conf");
 
-/// The output endpoint: the plan, and the summary. `byte_sink_protocol` bytes.
-const OUT: u64 = 0;
+/// The output endpoint: the plan, and the summary. `byte_sink_protocol` bytes. Unused with a
+/// registration page; see [`PAGE`].
+const OUT: u64 = contract::OUT_SLOT;
 /// The budget every instance is made of, and what pays this loader's scratch mappings.
-const BUDGET: u64 = 1;
+const BUDGET: u64 = contract::BUDGET_SLOT;
 /// Handed to each instance as its slot 0, so a scheduled child can report its answer.
-const CHILD_REPORT: u64 = 2;
+const CHILD_REPORT: u64 = contract::CHILD_REPORT_SLOT;
 /// Placed in each instance's reserved fault slot, and what corpses are collected through.
-const DEATHS: u64 = 3;
+const DEATHS: u64 = contract::DEATHS_SLOT;
+
+/// **The registration page's address, or zero**, set once at `_start` from `a2`.
+///
+/// Nonzero makes this process silent on [`OUT`], because its registrar is a session blocked on
+/// supervision that cannot drain a stream, and a `SEND` nobody takes would stop the loop. [`say`]
+/// then writes nothing, and [`done`] leaves its code in the page instead (`timetable::contract`).
+static PAGE: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
 /// Pages per instance region. Enough for a small program's segments, its stack, its address-space
 /// tables and its TCB, and the same number `components/src/spawner.rs` arrived at for the same job.
@@ -212,11 +229,7 @@ const REAP_ATTEMPTS: usize = 1024;
 
 /// Verdict codes on [`OUT`]'s stream, so a spawn site that reads nothing else can still tell what
 /// happened. The plan and the summary are text; these are the two ways the program ends.
-const E_CONFIG: u64 = 0xE300; // the document did not parse; the low byte is the line number
-const E_ARCHIVE: u64 = 0xE301; // the initrd archive did not parse
-const E_IMAGE: u64 = 0xE302; // a program an admitted entry names is not in the archive
-const E_BUDGET: u64 = 0xE303; // the budget cannot back even one instance
-const E_UNVOUCHED: u64 = 0xE304; // it was handed the run-unvouched capability; see `_start`
+use contract::{E_ARCHIVE, E_BUDGET, E_CONFIG, E_IMAGE, E_UNVOUCHED};
 
 // The relation `grant_plan` cannot state without depending on `abi`, held here as every reader of
 // the slot holds it (`components/src/swish.rs` does the same).
@@ -230,6 +243,7 @@ type Images = [Option<elf::Elf<'static>>; timetable::MAX_ENTRIES];
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: u64) -> ! {
+    PAGE.store(registration_page, core::sync::atomic::Ordering::Relaxed);
     // **A scheduled job never holds the run-unvouched capability**, which is how §220 (signed builds, and trusting a key is scoped) keeps its reach: dropping trust in a key has to reach every
     // program that could run an unvouched image, and a job firing on a schedule long after its
     // session's key was dropped is exactly the one it would miss. The capability is gate D2 of §219 (how the shell names an installed program to the spawner).
@@ -727,8 +741,12 @@ fn collect(exits: &mut u64, faults: &mut u64) {
     user_mode_runtime::trap()
 }
 
-/// Write bytes down the output endpoint, `byte_sink_protocol`-framed.
+/// Write bytes down the output endpoint, `byte_sink_protocol`-framed. Nothing, with a registration
+/// page: see [`PAGE`].
 fn say(bytes: &[u8]) {
+    if PAGE.load(core::sync::atomic::Ordering::Relaxed) != 0 {
+        return;
+    }
     let mut rest = bytes;
     while !rest.is_empty() {
         let (w0, w1, w2, n) = byte_sink_protocol::pack(rest);
@@ -762,7 +780,23 @@ fn say_num(v: u64) {
 /// The `byte_sink_protocol` end-of-stream comes first so a reader draining text sees a stream that ended
 /// rather than one that stopped, and the verdict word after it so a spawn site reading one word
 /// still learns how this went.
+///
+/// With a registration page the code goes into the page's exit word instead, with release ordering,
+/// and nothing is sent: the registrar reads it after it has reaped this process.
 fn done(code: u64) -> ! {
+    let page = PAGE.load(core::sync::atomic::Ordering::Relaxed);
+    if page != 0 {
+        // SAFETY: the registration page is mapped writable at `page` for this process's life
+        // (`_start`'s `a2`), and its exit word is only ever accessed atomically.
+        let word = unsafe {
+            &*((page + registration::EXIT as u64) as *const core::sync::atomic::AtomicU64)
+        };
+        word.store(
+            registration::EXITED | code,
+            core::sync::atomic::Ordering::Release,
+        );
+        exit();
+    }
     send(OUT, byte_sink_protocol::eof(), 0, 0);
     send(OUT, code, 0, 0);
     exit();
