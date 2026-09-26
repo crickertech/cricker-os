@@ -3177,6 +3177,63 @@ pub mod fixture {
         pub const GRANTED_ACCESS_FAILED: u64 = 1 << 5;
     }
 
+    /// **What a shell holding two trees reports**, the live half of milestone 154 (a process that
+    /// holds two directory capabilities): the real `swish` builtins, `cd`, `pwd`, `ls`, `bind` and a
+    /// planned `<`, run over two live caretakers, the first over [`tree::SUB`] and the second over
+    /// [`tree::OTHER`], mounted at [`twotrees::MOUNT`] in the first.
+    ///
+    /// calef ruled the presentation on 2026-09-26: one tree, with other trees mounted at names in
+    /// it. [`twodir`] proved one process can hold two trees; this proves the shell presents them
+    /// as one, with the same exact-set check, so the reaching bits are the controls for the
+    /// refusal bits. Provisional names, all of them.
+    pub mod twotrees {
+        /// Where the witness mounts the second tree, as the shell's own path.
+        pub const MOUNT: &str = "/second";
+        /// `pwd` printed `/` at the start: one root, whatever the shell holds.
+        pub const PWD_STARTS_AT_ROOT: u64 = 1 << 0;
+        /// `ls /` named [`super::tree::INNER`] and the mount point, and not
+        /// [`super::tree::SECRET`]: a mount point is listed in its parent.
+        pub const LISTED_ROOT: u64 = 1 << 1;
+        /// `cd` to the mount point moved the shell into the second tree, and `pwd` printed the
+        /// mount path.
+        pub const MOVED_INTO_MOUNT: u64 = 1 << 2;
+        /// `ls` inside the mount named [`super::tree::SECRET`] and not [`super::tree::INNER`].
+        pub const LISTED_MOUNT: u64 = 1 << 3;
+        /// A relative name opened inside the mount, over the second tree's own endpoint.
+        pub const OPENED_RELATIVE_IN_MOUNT: u64 = 1 << 4;
+        /// `/inner` opened from inside the mount: an absolute path reaches the first tree
+        /// without moving the shell.
+        pub const OPENED_ROOT_FROM_MOUNT: u64 = 1 << 5;
+        /// `cd ..` at the mount point moved to its parent in the first tree, as a Unix mount does,
+        /// and a relative `cd` back in returned to the mount.
+        pub const UP_FROM_MOUNT_IS_PARENT: u64 = 1 << 6;
+        /// `..` past the one root was refused and nothing moved, from the root and from inside the
+        /// mount.
+        pub const ROOT_CLAMPED: u64 = 1 << 7;
+        /// `<` planned against a file under the mount opened in the second tree and read
+        /// [`super::tree::SECRET_BODY`]: the per-command grant carried its tree through to the open.
+        pub const REDIRECTED_FROM_MOUNT: u64 = 1 << 9;
+        /// A bare `cd` came back to `/` from inside the mount.
+        pub const HOME_IS_ROOT: u64 = 1 << 10;
+        /// A name bound to the mount point listed the second tree's files, and binding the mount
+        /// point's own name was refused.
+        pub const BOUND_INTO_MOUNT: u64 = 1 << 11;
+        /// `rm` under the mount was planned and then refused at delivery rather than sent: the
+        /// progenitor would build its caretaker in the first tree.
+        pub const RM_IN_MOUNT_REFUSED: u64 = 1 << 12;
+
+        /// **A refused move moved the shell.** Never allowed.
+        pub const MOVED_ON_REFUSAL: u64 = 1 << 16;
+        /// **`..` past the root was not refused.** Never allowed.
+        pub const CLIMBED_OUT: u64 = 1 << 17;
+        /// **A name that exists only in one tree opened through the other**: the second tree's
+        /// file at the first tree's path, or the first's under the mount. Never allowed: the mount
+        /// selects the endpoint, and the endpoint is the boundary.
+        pub const REACHED_ACROSS: u64 = 1 << 18;
+        /// Nothing reachable was reached, so nothing above was proven.
+        pub const TWO_TREES_FAILED: u64 = 1 << 19;
+    }
+
     /// **What a navigating shell reports** (milestone 47's commands: `cd`, `pwd`, `ls`, `mkdir`,
     /// `rm`).
     ///

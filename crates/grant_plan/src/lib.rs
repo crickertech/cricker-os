@@ -1870,7 +1870,14 @@ pub struct Endowment {
 /// what the grant means, because there is nothing here that points at the shell any more.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct FileGrant {
-    /// The directory the name was resolved in, relative to the shell's root, fixed at plan time.
+    /// **Which of the shell's trees `dir` is in**, since milestone 154 (a process that holds two
+    /// directory capabilities): always [`nav::Which::A`] for a
+    /// shell holding one directory, and whichever tree the operand named for a shell holding two.
+    /// A required field rather than a default, so nothing that builds a grant can forget that a
+    /// position means nothing without the tree it is a position in.
+    pub which: nav::Which,
+    /// The directory the name was resolved in, relative to the root of [`FileGrant::which`]'s
+    /// tree, fixed at plan time.
     pub dir: nav::Cwd,
     /// The final component. Always a single component: a path was resolved into `dir`, not passed
     /// on, because the FS contract takes one component per request and no server here walks a path.
@@ -1910,7 +1917,10 @@ pub struct FileGrant {
 /// recursion can only reach what this designates.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DirGrant {
-    /// The directory the capability designates, relative to the shell's root, fixed at plan time.
+    /// **Which of the shell's trees `dir` is in**, [`FileGrant::which`]'s reason (milestone 154).
+    pub which: nav::Which,
+    /// The directory the capability designates, relative to the root of [`DirGrant::which`]'s
+    /// tree, fixed at plan time.
     pub dir: nav::Cwd,
     /// The names in it the program is to act on: exactly one for a literal operand, the matched set
     /// for a pattern. Each is a single component, for [`FileGrant`]'s reason: a path was resolved
@@ -1946,142 +1956,156 @@ pub mod rmopt {
 pub struct Holdings {
     /// The shell holds a directory capability it can narrow into a per-file grant.
     pub dir: bool,
-    /// **A second, disjoint directory capability, when this shell holds two** (milestone 154,
-    /// design/roadmap/154-multi-directory-namespace.md; [DECISIONS
-    /// §126](../../../design/decisions/126-two-directory-cwd.md)). `None` for a one-grant shell,
-    /// which resolves and prints exactly as it always has. Provisional name and shape.
+    /// **A second directory capability, mounted at a position in the first** (milestone 154, a
+    /// process that holds two directory capabilities). `None` for a one-grant shell, which
+    /// resolves and prints exactly as it always has. Provisional name and shape.
     pub second: Option<SecondDir>,
-    /// **Where in the currently-selected tree it stands**, which is the other half of what it
-    /// holds: a working directory is a directory capability used as the default base for
-    /// resolving names, so it belongs here beside the fact that there is one. For a one-grant
-    /// shell this is the one tree; for a two-grant shell it is whichever tree
-    /// [`SecondDir::which`] currently names. Defaults to the root, which is also the only
-    /// position a shell holding no directory can be in.
+    /// **Where the shell stands, in the one tree it presents**: a path from its root, through a
+    /// mount point when it stands in the second tree ([`Holdings::locate`] says which tree that
+    /// is and where inside it). A working directory is a directory capability used as the default
+    /// base for resolving names, so it belongs here beside the fact that there is one. Defaults to
+    /// the root, which is also the only position a shell holding no directory can be in.
     pub cwd: nav::Cwd,
     /// **Names this shell has bound to a position it already reached some other way**
-    /// (`bind`, milestone 47; [`nav::Bindings`]'s own doc has the full design). Present
-    /// regardless of `second`, because a bind is a value composed from whatever this shell
-    /// already holds, and even a one-grant shell has positions worth a shorter name. Checked
-    /// **after** `second`'s two grant labels in [`Holdings::resolve`], so a bind can never shadow
-    /// a real grant, only add a name beside it.
+    /// (`bind`, milestone 47 (navigation and naming); [`nav::Bindings`]'s own doc has the full
+    /// design). A bound position is a path in the one tree, like [`Holdings::cwd`], so a bind can
+    /// point through a mount point with nothing special to say about it.
     pub binds: nav::Bindings,
 }
 
-/// **A two-grant shell's second label and which tree [`Holdings::cwd`] is standing in**
-/// (DECISIONS §126's `(which, pos)`, `pos` being [`Holdings::cwd`]). Provisional name and shape
-/// (milestone 154).
+/// **A second tree, and where it is mounted in the first** (milestone 154). Provisional name and
+/// shape.
 ///
-/// Both labels are carried here, not just the second one, because interpreting an absolute token
-/// (`/a/...` vs `/b/...`) needs both: [`nav::TwoRoots`] matches a path's first component against
-/// either label, and a two-grant shell that only remembered one of them could not tell "the other
-/// grant" from "no such capability" apart.
+/// calef ruled the presentation on 2026-09-26: *"One tree with other trees mounted at names in
+/// it."* The user sees one root; the second tree appears at a mount point, like a Unix mount or a
+/// Plan 9 `bind`, and which capability serves a name is bookkeeping the shell keeps to itself. So
+/// the whole of what this records is the mount point. Where the shell stands is a path in the one
+/// tree ([`Holdings::cwd`]); which tree that is follows from whether the path runs through here.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct SecondDir {
-    label_a: [u8; nav::MAX_NAME],
-    label_a_len: u8,
-    label_b: [u8; nav::MAX_NAME],
-    label_b_len: u8,
-    /// Which tree [`Holdings::cwd`] is inside right now. A fresh two-grant holder starts at `A`
-    /// (DECISIONS §126: "the first-listed grant's own root", the same "slot 0 is always the
-    /// first grant" precedent milestone 154 already established for cspace ordering).
-    pub which: nav::Which,
+    mount: nav::Cwd,
 }
 
 impl SecondDir {
-    /// Compose two labels, standing in `A`. `None` if either is not a nameable component
-    /// ([`nav::component_fits`]), the same bound [`nav::TwoRoots`] matches against.
-    pub fn new(label_a: &[u8], label_b: &[u8]) -> Option<Self> {
-        let (label_a, label_a_len) = pack_label(label_a)?;
-        let (label_b, label_b_len) = pack_label(label_b)?;
-        Some(SecondDir {
-            label_a,
-            label_a_len,
-            label_b,
-            label_b_len,
-            which: nav::Which::A,
-        })
+    /// A second tree mounted at `mount`. `None` at the root: the root is the first tree's, and a
+    /// mount there would hide all of it.
+    pub fn mounted_at(mount: nav::Cwd) -> Option<Self> {
+        (!mount.is_root()).then_some(SecondDir { mount })
     }
 
-    /// Grant A's label: an absolute path's first component that selects it.
-    pub fn label_a(&self) -> &[u8] {
-        &self.label_a[..self.label_a_len as usize]
+    /// Where the second tree is mounted, as a path in the one tree.
+    pub fn mount(&self) -> nav::Cwd {
+        self.mount
     }
-
-    /// Grant B's label.
-    pub fn label_b(&self) -> &[u8] {
-        &self.label_b[..self.label_b_len as usize]
-    }
-
-    /// The two labels, composed the way [`nav::TwoRoots::resolve_from`] needs them.
-    fn roots(&self) -> nav::TwoRoots<'_> {
-        nav::TwoRoots::new(self.label_a(), self.label_b())
-    }
-}
-
-fn pack_label(label: &[u8]) -> Option<([u8; nav::MAX_NAME], u8)> {
-    // A label is matched against a parsed path's first *component* ([`nav::TwoRoots::resolve`]),
-    // and `nav::path` never produces a component `nav::component_fits` would refuse. A label that
-    // failed that same check could never match anything a real token parses to, so this rejects it
-    // at construction rather than building a namespace half of which is unreachable.
-    if !nav::component_fits(label) {
-        return None;
-    }
-    let mut bytes = [0u8; nav::MAX_NAME];
-    bytes[..label.len()].copy_from_slice(label);
-    Some((bytes, label.len() as u8))
 }
 
 impl Holdings {
-    /// **`(which, pos)` resolution** (DECISIONS §126): where `token` lands, without moving.
+    /// **Where `token` lands, without moving**: a path in the one tree this shell presents.
+    /// [`Holdings::locate`] turns it into the tree that serves it and the position inside that
+    /// tree.
     ///
-    /// A relative token is unaffected by [`Holdings::binds`]: it stays where it always did,
-    /// inside whichever tree this shell is standing in (`Holdings::cwd`, parameterized by
-    /// `second`'s `which` for a two-grant shell). Only an absolute token can name a bound entry,
-    /// the same rule a grant label already follows, and a grant label is tried first when this
-    /// shell holds two: **a bind can never shadow `a` or `b`**, only add a name beside them
-    /// (`Holdings::bind` refuses that at the point of binding, so this order is belt and braces
-    /// rather than the only thing stopping it). A one-grant shell has no label namespace to check
-    /// first, so an absolute token that names no bound entry falls through to the same literal
-    /// walk from the sole root this always did before `bind` existed: **this is additive**, and a
-    /// shell with nothing bound resolves byte for byte as it did before this milestone.
-    pub fn resolve(&self, token: &[u8]) -> Result<(nav::Which, nav::Cwd), nav::Refused> {
+    /// A relative token resolves from where the shell stands and an absolute one from the root, or
+    /// from a bound position when its first component is a bound name. `..` is plain path
+    /// arithmetic, so `..` from a mount point is its parent in the first tree, as a Unix mount is,
+    /// and `..` at the root refuses as it always has.
+    pub fn resolve(&self, token: &[u8]) -> Result<nav::Cwd, nav::Refused> {
         let p = nav::path(token)?;
-        if !p.is_from_root() {
-            return match &self.second {
-                None => Ok((nav::Which::A, self.cwd.resolve(&p)?)),
-                Some(sd) => sd.roots().resolve_from(sd.which, self.cwd, token),
-            };
+        self.resolve_path(&p)
+    }
+
+    /// [`Holdings::resolve`] for a token already parsed.
+    pub fn resolve_path(&self, p: &nav::Path<'_>) -> Result<nav::Cwd, nav::Refused> {
+        self.resolve_steps(p.is_from_root(), p.steps())
+    }
+
+    /// [`Holdings::resolve`] for a bare step sequence and where it starts from, which is what a
+    /// path's *lead* is (every step but the last).
+    pub fn resolve_steps(
+        &self,
+        from_root: bool,
+        steps: &[nav::Step<'_>],
+    ) -> Result<nav::Cwd, nav::Refused> {
+        let mut pos = nav::Cwd::root();
+        let rest = self.anchor(from_root, steps, &mut pos);
+        pos.apply(rest)?;
+        Ok(pos)
+    }
+
+    /// **Where a step sequence starts**, written into `pos`, and the steps left to apply from
+    /// there: where the shell stands for a relative sequence, a bound position with the bound
+    /// name consumed for one whose first component is bound, and the root otherwise.
+    ///
+    /// **The position is an out-parameter rather than part of the result**, and that is a measured
+    /// choice rather than a style: every caller is on a shell's walking or planning path, the shell
+    /// runs a debug build on a few pages of stack, and returning a `Cwd` by value put nearly 2 KiB
+    /// in this frame, which overflowed the globbing witness (`glob_grant_tests`).
+    pub fn anchor<'s, 'p>(
+        &self,
+        from_root: bool,
+        steps: &'s [nav::Step<'p>],
+        pos: &mut nav::Cwd,
+    ) -> &'s [nav::Step<'p>] {
+        if !from_root {
+            *pos = self.cwd;
+            return steps;
         }
-        if let Some(sd) = &self.second
-            && let Some(r) = sd.roots().try_resolve_absolute(&p)
+        *pos = nav::Cwd::root();
+        if let Some((nav::Step::Down(first), rest)) = steps.split_first()
+            && let Some(entry) = self.binds.lookup(first)
         {
-            return r;
+            *pos = entry.pos();
+            return rest;
         }
-        if let Some(r) = self.binds.resolve_absolute(&p) {
-            return r;
+        steps
+    }
+
+    /// **Which tree serves a path in the one tree, and where inside it**: the second tree, from
+    /// its own root, for a path that runs through its mount point; the first tree, unchanged, for
+    /// everything else. This is the bookkeeping calef's ruling keeps out of sight: a path never
+    /// says which tree it is in, and this is the one place that decides.
+    pub fn locate(&self, place: &nav::Cwd) -> (nav::Which, nav::Cwd) {
+        if let Some(sd) = &self.second {
+            let m = &sd.mount;
+            if place.depth() >= m.depth()
+                && (0..m.depth()).all(|l| place.component(l) == m.component(l))
+            {
+                let mut inside = nav::Cwd::root();
+                for l in m.depth()..place.depth() {
+                    inside.descend(place.component(l));
+                }
+                return (nav::Which::B, inside);
+            }
         }
-        match &self.second {
-            Some(_) => Err(nav::Refused::NotAName),
-            None => Ok((nav::Which::A, self.cwd.resolve(&p)?)),
+        (nav::Which::A, *place)
+    }
+
+    /// [`Holdings::locate`] reversed: the path in the one tree for a position inside `which`. What
+    /// `caps` prints for a planned grant, which records the tree and the position rather than the
+    /// path it came from.
+    pub fn place(&self, which: nav::Which, pos: &nav::Cwd) -> nav::Cwd {
+        match (which, &self.second) {
+            (nav::Which::B, Some(sd)) => {
+                let mut place = sd.mount;
+                for l in 0..pos.depth() {
+                    place.descend(pos.component(l));
+                }
+                place
+            }
+            _ => *pos,
         }
     }
 
     /// **`bind`'s mutator**: name a position this shell already reached some other way
-    /// ([`nav::Bindings::add`]'s own doc has the full design), refusing a name that would shadow
-    /// one of a two-grant shell's own grant labels in addition to everything the bind table
-    /// itself refuses (already bound, too many, not a nameable component).
-    pub fn bind(
-        &mut self,
-        name: &[u8],
-        which: nav::Which,
-        pos: nav::Cwd,
-    ) -> Result<(), nav::BindRefused> {
+    /// ([`nav::Bindings::add`]'s own doc has the full design), refusing, in addition to everything
+    /// the bind table itself refuses, a name that would hide the path to the mount point: a bound
+    /// name wins over the literal first component of an absolute path.
+    pub fn bind(&mut self, name: &[u8], pos: nav::Cwd) -> Result<(), nav::BindRefused> {
         if let Some(sd) = &self.second
-            && (name == sd.label_a() || name == sd.label_b())
+            && name == sd.mount.component(0)
         {
             return Err(nav::BindRefused::ReservedLabel);
         }
-        self.binds.add(name, which, pos)
+        self.binds.add(name, pos)
     }
 }
 
@@ -2809,11 +2833,12 @@ pub fn plan_against_with(
             if !holds.dir {
                 return Err(Refusal::NoSuchCapability(CapKind::File));
             }
-            let (dir, names) = designate(token, at, holds.cwd, expanded)?;
+            let (which, dir, names) = designate(token, at, &holds, expanded)?;
             // One file, so a pattern that matched more than one has designated something this
             // program cannot be handed. The count is the designation; nothing was denied.
             let name = names.only().ok_or(Refusal::AmbiguousFile)?;
             Some(FileGrant {
+                which,
                 dir,
                 name: Name::new(name).ok_or(Refusal::FileNotNameable)?,
                 writable,
@@ -2835,7 +2860,7 @@ pub fn plan_against_with(
             if !holds.dir {
                 return Err(Refusal::NoSuchCapability(CapKind::File));
             }
-            let (dir, names) = designate(token, at, holds.cwd, expanded)?;
+            let (which, dir, names) = designate(token, at, &holds, expanded)?;
             // Typing the recursion option is what widens the capability from "take names out of
             // this directory" to "walk what is under it". A program run without it holds no way to
             // descend, so its recursion is not disabled by a branch anybody has to get right.
@@ -2849,6 +2874,7 @@ pub fn plan_against_with(
                 None => false,
             };
             Some(DirGrant {
+                which,
                 dir,
                 names,
                 subtree,
@@ -2901,9 +2927,10 @@ pub fn plan_against_with(
         if !holds.dir {
             return Err(Refusal::NoSuchCapability(CapKind::File));
         }
-        let (dir, names) = designate(token, at, holds.cwd, expanded)?;
+        let (which, dir, names) = designate(token, at, &holds, expanded)?;
         let name = names.only().ok_or(Refusal::AmbiguousFile)?;
         streams.source = Source::File(FileGrant {
+            which,
             dir,
             name: Name::new(name).ok_or(Refusal::FileNotNameable)?,
             // A reader reads. The direction is the manifest's here as everywhere else, and
@@ -2973,9 +3000,10 @@ pub fn redirect_target(
     if !holds.dir {
         return Err(Refusal::NoSuchCapability(CapKind::File));
     }
-    let (dir, names) = designate(token, 0, holds.cwd, Expansion::none())?;
+    let (which, dir, names) = designate(token, 0, &holds, Expansion::none())?;
     let name = names.only().ok_or(Refusal::FileNotNameable)?;
     Ok(FileGrant {
+        which,
         dir,
         name: Name::new(name).ok_or(Refusal::FileNotNameable)?,
         writable,
@@ -3100,9 +3128,9 @@ pub fn check_chain(shell_feeds_head: bool, plans: &[Option<Endowment>]) -> Resul
 fn designate(
     token: &[u8],
     at: usize,
-    cwd: nav::Cwd,
+    holds: &Holdings,
     expanded: Expansion,
-) -> Result<(nav::Cwd, NameSet), Refusal> {
+) -> Result<(nav::Which, nav::Cwd, NameSet), Refusal> {
     // Refuses a pattern anywhere but the last component before anything else looks at the token,
     // because `a*/b` is not a smaller question than `a*`, it is a different one (notes/glob.md).
     let magic = expand::magic_component(token)?;
@@ -3110,16 +3138,23 @@ fn designate(
     let (lead, last) = parsed
         .split_last_component()
         .ok_or(Refusal::FileNotNameable)?;
-    // **An absolute token is resolved from the holder's own root**, not from where it is standing,
-    // which is the one thing the steps cannot say for themselves. Everything downstream already
-    // re-walks a recorded position from the root (`swish::open_at`), so rooting it here is the
-    // whole of what the syntax needed.
-    let mut dir = if parsed.is_from_root() {
-        nav::Cwd::root()
-    } else {
-        cwd
-    };
-    dir.apply(lead).map_err(nav_refusal)?;
+    // **The lead resolves exactly as `cd` would resolve it** ([`Holdings::anchor`]): a
+    // relative one from where the shell stands, an absolute one from a bound name or the root.
+    // [`Holdings::locate`] then says which tree serves it. Everything downstream re-walks the
+    // recorded `(which, dir)` from that tree's own root (`swish::open_at`), so the position is all
+    // a grant carries.
+    //
+    // Before milestone 154 this rooted every absolute token at the sole root literally, so
+    // `wc /recent/x` with `recent` bound walked a directory named `recent` while `ls /recent`
+    // walked the bind. One resolver for both is what closed that.
+    //
+    // The anchor and the apply are spelled out here rather than through `resolve_steps` because
+    // this runs on the shell's planning path, on a debug build's few pages of stack, and one frame
+    // fewer is the margin `glob_grant_tests` records.
+    let mut place = nav::Cwd::root();
+    let rest = holds.anchor(parsed.is_from_root(), lead, &mut place);
+    place.apply(rest).map_err(nav_refusal)?;
+    let (which, dir) = holds.locate(&place);
 
     let names = if magic {
         // The pattern's whole meaning is the set, so a planner with no set has nothing to grant and
@@ -3137,7 +3172,7 @@ fn designate(
         // in notes/glob-grant.md. Only a set the shell expanded carries types it observed.
         NameSet::one(last, false).ok_or(Refusal::FileNotNameable)?
     };
-    Ok((dir, names))
+    Ok((which, dir, names))
 }
 
 /// A navigation refusal, in the vocabulary the prompt prints for a *grant*.
@@ -4057,48 +4092,71 @@ mod tests {
         binds: nav::Bindings::none(),
     };
 
-    // ---- milestone 154 / DECISIONS §126: Holdings' `(which, pos)` shape ----
+    // ---- milestone 154 (a process that holds two directory capabilities): one tree, a mount ----
 
-    /// A one-grant [`Holdings`] resolves exactly as it always has, and `which` can only ever come
-    /// back `A`: there is no second tree for it to mean anything else.
+    fn at(components: &[&[u8]]) -> nav::Cwd {
+        let mut c = nav::Cwd::root();
+        for name in components {
+            assert!(c.descend(name));
+        }
+        c
+    }
+
+    /// A shell with a second tree mounted at `/media/usb`, standing at the root.
+    fn mounted() -> Holdings {
+        Holdings {
+            second: SecondDir::mounted_at(at(&[b"media", b"usb"])),
+            ..WITH_DIR
+        }
+    }
+
+    /// A one-grant [`Holdings`] resolves exactly as it always has.
     #[test]
     fn a_one_grant_holdings_resolves_exactly_as_before() {
-        assert_eq!(
-            WITH_DIR.resolve(b"logs"),
-            Ok((nav::Which::A, {
-                let mut c = nav::Cwd::root();
-                c.descend(b"logs");
-                c
-            })),
-        );
+        assert_eq!(WITH_DIR.resolve(b"logs"), Ok(at(&[b"logs"])));
         assert_eq!(WITH_DIR.resolve(b".."), Err(nav::Refused::AtYourRoot));
+        assert_eq!(
+            WITH_DIR.locate(&at(&[b"logs"])),
+            (nav::Which::A, at(&[b"logs"]))
+        );
     }
 
-    /// A two-grant [`Holdings`] resolves through [`SecondDir`]: a relative token stays in the
-    /// current tree, and an absolute one crosses by label, which is `caps`'s namespace section
-    /// and a two-grant shell's `cd` both reading the same primitive.
+    /// **One tree, with the second mounted in it** (calef, 2026-09-26): a path through the mount
+    /// point is the second tree from its own root, every other path is the first, and `..` from
+    /// the mount point is its parent in the first tree, as a Unix mount is.
     #[test]
-    fn a_two_grant_holdings_resolves_relative_and_absolute_tokens() {
-        let holds = Holdings {
-            dir: true,
-            second: Some(SecondDir::new(b"a", b"b").unwrap()),
-            cwd: nav::Cwd::root(),
-            binds: nav::Bindings::none(),
-        };
-        // Relative: stays in A, the starting tree.
-        let (which, pos) = holds.resolve(b"x").unwrap();
-        assert_eq!(which, nav::Which::A);
-        assert_eq!(pos.component(0), b"x");
-        // Absolute: crosses into B.
-        let (which, pos) = holds.resolve(b"/b/y").unwrap();
-        assert_eq!(which, nav::Which::B);
-        assert_eq!(pos.component(0), b"y");
-        // The negative control this milestone is named for: `/a/../b` is refused rather than
-        // crossing, because selecting `a` leaves nothing above `a`'s own root to pop.
-        assert_eq!(holds.resolve(b"/a/../b"), Err(nav::Refused::AtYourRoot));
+    fn a_mounted_tree_is_a_path_in_the_one_tree() {
+        let holds = mounted();
+        let usb = holds.resolve(b"/media/usb/photos").unwrap();
+        assert_eq!(holds.locate(&usb), (nav::Which::B, at(&[b"photos"])));
+        assert_eq!(
+            holds.locate(&at(&[b"media", b"usb"])),
+            (nav::Which::B, nav::Cwd::root())
+        );
+        // Beside the mount point and above it: the first tree.
+        assert_eq!(
+            holds.locate(&at(&[b"media"])),
+            (nav::Which::A, at(&[b"media"]))
+        );
+        assert_eq!(
+            holds.locate(&at(&[b"media", b"usbx"])),
+            (nav::Which::A, at(&[b"media", b"usbx"])),
+        );
+        // `..` from the mount point, and from inside it, climbs the one tree.
+        let mut standing = mounted();
+        standing.cwd = at(&[b"media", b"usb"]);
+        let up = standing.resolve(b"..").unwrap();
+        assert_eq!(standing.locate(&up), (nav::Which::A, at(&[b"media"])));
+        assert_eq!(
+            standing.resolve(b"../../..").map(|_| ()),
+            Err(nav::Refused::AtYourRoot)
+        );
+        // `place` is `locate` reversed.
+        assert_eq!(holds.place(nav::Which::B, &at(&[b"photos"])), usb);
+        assert!(SecondDir::mounted_at(nav::Cwd::root()).is_none());
     }
 
-    // ---- `bind` (milestone 47: "blocked on a second grant", now that 154 built it) ----
+    // ---- `bind` (milestone 47 (navigation and naming): "blocked on a second grant") ----
 
     /// **A one-grant `Holdings` resolves absolute paths exactly as before when nothing is
     /// bound**, and a bound name is reachable once one is: `bind` is additive, not a new mode.
@@ -4108,82 +4166,118 @@ mod tests {
             dir: true,
             ..Holdings::default()
         };
-        // Unaffected before anything is bound: a literal walk from the sole root.
-        let (which, pos) = holds.resolve(b"/etc/passwd").unwrap();
-        assert_eq!(which, nav::Which::A);
-        assert_eq!(pos.component(0), b"etc");
-
-        let mut target = nav::Cwd::root();
-        target.descend(b"logs");
-        target.descend(b"2026");
-        holds.bind(b"recent", nav::Which::A, target).unwrap();
-
-        let (which, pos) = holds.resolve(b"/recent").unwrap();
-        assert_eq!(which, nav::Which::A);
-        assert_eq!(pos, target);
-        let (_, pos) = holds.resolve(b"/recent/report.txt").unwrap();
-        assert_eq!(pos.component(2), b"report.txt");
-
-        // Unaffected by the bind: a real name that is not bound still walks literally.
-        let (_, pos) = holds.resolve(b"/etc/passwd").unwrap();
-        assert_eq!(pos.component(0), b"etc");
+        assert_eq!(holds.resolve(b"/etc/passwd"), Ok(at(&[b"etc", b"passwd"])));
+        let target = at(&[b"logs", b"2026"]);
+        holds.bind(b"recent", target).unwrap();
+        assert_eq!(holds.resolve(b"/recent"), Ok(target));
+        assert_eq!(
+            holds.resolve(b"/recent/report.txt"),
+            Ok(at(&[b"logs", b"2026", b"report.txt"])),
+        );
+        assert_eq!(holds.resolve(b"/etc/passwd"), Ok(at(&[b"etc", b"passwd"])));
     }
 
-    /// **A grant label wins over a bind in a two-grant `Holdings`**, and `bind` refuses to create
-    /// the collision in the first place: two independent guards for the one property, "a bind
-    /// must never shadow `a` or `b`."
+    /// **A bind can point through a mount point, and cannot hide the path to one**: a bound name
+    /// wins over the literal first component of an absolute path, so binding `media` would make
+    /// `/media/usb` unreachable.
     #[test]
-    fn a_grant_label_is_never_shadowed_by_a_bind() {
-        let mut holds = Holdings {
-            dir: true,
-            second: Some(SecondDir::new(b"a", b"b").unwrap()),
-            cwd: nav::Cwd::root(),
-            binds: nav::Bindings::none(),
-        };
+    fn a_bind_reaches_into_a_mount_and_cannot_hide_one() {
+        let mut holds = mounted();
         assert_eq!(
-            holds.bind(b"a", nav::Which::B, nav::Cwd::root()),
+            holds.bind(b"media", nav::Cwd::root()),
             Err(nav::BindRefused::ReservedLabel),
         );
-        assert_eq!(
-            holds.bind(b"b", nav::Which::A, nav::Cwd::root()),
-            Err(nav::BindRefused::ReservedLabel),
-        );
-        // A name that is not a label binds fine, and does not disturb either grant's own row.
         holds
-            .bind(b"shortcut", nav::Which::B, nav::Cwd::root())
+            .bind(b"photos", at(&[b"media", b"usb", b"photos"]))
             .unwrap();
-        let (which, _) = holds.resolve(b"/a").unwrap();
-        assert_eq!(which, nav::Which::A);
-        let (which, _) = holds.resolve(b"/shortcut").unwrap();
-        assert_eq!(which, nav::Which::B);
+        let p = holds.resolve(b"/photos/2026").unwrap();
+        assert_eq!(holds.locate(&p), (nav::Which::B, at(&[b"photos", b"2026"])));
     }
 
-    /// **`bind`'s own refusals surface through `Holdings`**: a second bind under the same name,
-    /// and a table already at [`nav::MAX_BINDS`].
+    /// **`bind`'s own refusals surface through `Holdings`**.
     #[test]
     fn holdings_bind_surfaces_the_bind_tables_own_refusals() {
         let mut holds = Holdings {
             dir: true,
             ..Holdings::default()
         };
-        holds.bind(b"x", nav::Which::A, nav::Cwd::root()).unwrap();
+        holds.bind(b"x", nav::Cwd::root()).unwrap();
         assert_eq!(
-            holds.bind(b"x", nav::Which::A, nav::Cwd::root()),
+            holds.bind(b"x", nav::Cwd::root()),
             Err(nav::BindRefused::AlreadyBound),
         );
     }
 
-    /// [`SecondDir::new`] refuses a label that is not a nameable component, the same bound
-    /// [`nav::TwoRoots`] matches against, so a caller cannot build a `Holdings` whose absolute
-    /// paths could never resolve to what it claims to hold.
+    /// The source a line planned for `wc`, which reads a stream and designates it by name: the
+    /// simplest per-command grant that carries a position.
+    fn wc_source(line: &[u8], holds: Holdings) -> Result<FileGrant, Refusal> {
+        let Command::Run(r) = parse(line) else {
+            panic!("not a run: {line:?}")
+        };
+        match plan_against(&r, Prog::Wc, Prog::Wc.manifest(), holds)?.source {
+            Source::File(g) => Ok(g),
+            other => panic!("wc's operand planned as {other:?}"),
+        }
+    }
+
+    /// **A per-command grant says which tree it is in**: before this, `FileGrant` carried a bare
+    /// position, so a shell holding two trees would have planned a grant under the mount point
+    /// against the first tree.
     #[test]
-    fn second_dir_refuses_an_unnameable_label() {
-        assert!(SecondDir::new(b"", b"b").is_none());
-        assert!(SecondDir::new(b"a", b"").is_none());
-        assert!(SecondDir::new(b"a/b", b"c").is_none());
-        let too_long = [b'x'; nav::MAX_NAME + 1];
-        assert!(SecondDir::new(&too_long, b"b").is_none());
-        assert!(SecondDir::new(b"a", b"b").is_some());
+    fn a_grant_under_a_mount_point_is_in_the_mounted_tree() {
+        let g = wc_source(b"wc /media/usb/secret", mounted()).unwrap();
+        assert_eq!(
+            (g.which, g.dir, g.name.as_bytes()),
+            (nav::Which::B, nav::Cwd::root(), &b"secret"[..])
+        );
+        let g = wc_source(b"wc /media/x", mounted()).unwrap();
+        assert_eq!((g.which, g.dir), (nav::Which::A, at(&[b"media"])));
+
+        // A relative name from inside the mount stays there, and `..` out of it leaves it.
+        let mut holds = mounted();
+        holds.cwd = at(&[b"media", b"usb", b"deep"]);
+        let g = wc_source(b"wc x", holds).unwrap();
+        assert_eq!((g.which, g.dir), (nav::Which::B, at(&[b"deep"])));
+        let g = wc_source(b"wc ../../x", holds).unwrap();
+        assert_eq!((g.which, g.dir), (nav::Which::A, at(&[b"media"])));
+
+        // The redirection planner is the same resolver.
+        let g = redirect_target(b"/media/usb/out", mounted(), true).unwrap();
+        assert_eq!((g.which, g.dir), (nav::Which::B, nav::Cwd::root()));
+    }
+
+    /// **A bound name designates what it is bound to**, which it did not before milestone 154
+    /// unified the resolvers: `designate` rooted every absolute token literally, so `wc
+    /// /recent/x` asked for a directory named `recent` while `ls /recent` walked the bind.
+    #[test]
+    fn a_bound_name_designates_what_it_is_bound_to() {
+        let mut holds = WITH_DIR;
+        holds.bind(b"recent", at(&[b"logs", b"2026"])).unwrap();
+        let g = wc_source(b"wc /recent/x", holds).unwrap();
+        assert_eq!((g.which, g.dir), (nav::Which::A, at(&[b"logs", b"2026"])));
+        let g = wc_source(b"wc /recent/../y", holds).unwrap();
+        assert_eq!((g.which, g.dir), (nav::Which::A, at(&[b"logs"])));
+    }
+
+    /// [`Holdings::anchor`] hands back exactly the steps that are left, which is what the shell
+    /// opens handles for: a bound name is consumed, nothing else is.
+    #[test]
+    fn anchor_consumes_a_bound_name_and_nothing_else() {
+        let mut base = nav::Cwd::root();
+        let p = nav::path(b"/media/usb/y").unwrap();
+        let rest = mounted().anchor(true, p.steps(), &mut base);
+        assert_eq!((base, rest.len()), (nav::Cwd::root(), 3));
+
+        let mut holds = WITH_DIR;
+        holds.bind(b"here", at(&[b"x"])).unwrap();
+        let p = nav::path(b"/here/y").unwrap();
+        let rest = holds.anchor(true, p.steps(), &mut base);
+        assert_eq!((base, rest.len()), (at(&[b"x"]), 1));
+
+        holds.cwd = at(&[b"deep"]);
+        let p = nav::path(b"x").unwrap();
+        let rest = holds.anchor(false, p.steps(), &mut base);
+        assert_eq!((base, rest.len()), (at(&[b"deep"]), 1));
     }
 
     /// The combination milestone 117's fifth stranger found no program declares: an integer
@@ -4286,6 +4380,7 @@ mod tests {
         assert_eq!(
             e.source,
             Source::File(FileGrant {
+                which: nav::Which::A,
                 dir: nav::Cwd::root(),
                 name: Name::new(b"report.txt").unwrap(),
                 writable: false,
@@ -4968,6 +5063,7 @@ mod tests {
     fn writing_while_reading_is_a_declaration_the_plan_carries() {
         let streams = Streams {
             source: line::Source::File(FileGrant {
+                which: nav::Which::A,
                 dir: nav::Cwd::root(),
                 name: Name::new(b"page.md").unwrap(),
                 writable: false,
@@ -4988,6 +5084,7 @@ mod tests {
     fn a_chain_this_shell_feeds_needs_one_stage_that_reads_to_the_end() {
         let src = Streams {
             source: line::Source::File(FileGrant {
+                which: nav::Which::A,
                 dir: nav::Cwd::root(),
                 name: Name::new(b"page.md").unwrap(),
                 writable: false,
@@ -5025,6 +5122,7 @@ mod tests {
         let to_file = Streams {
             sink: line::Sink::File(
                 FileGrant {
+                    which: nav::Which::A,
                     dir: nav::Cwd::root(),
                     name: Name::new(b"out.txt").unwrap(),
                     writable: true,

@@ -189,21 +189,7 @@ const NO_CLOCK: u64 = 0;
 /// wiring with no filesystem and runs in the wiring with one, and nothing in this file branches on
 /// which. See notes/pipes.md.
 fn holdings(nav: &Nav) -> grant_plan::Holdings {
-    grant_plan::Holdings {
-        dir: nav.dir.is_some(),
-        // **Always `None` from this shell today** (milestone 154's boot-wiring mechanism,
-        // `system_initializer::boot`'s `second_dir` parameter, is not enabled at any real entry
-        // point, since DECISIONS §126 reserves that policy call for calef). Even where it were, this
-        // shell has no way yet to *learn* of a second grant's label and cspace slot: `Nav` is
-        // built from `_start`'s three `START` words (role, argument, clock slot), all already
-        // spoken for, so wiring a second grant into `Nav` needs its own wire-format decision
-        // (`grant_plan`'s `SecondDir` type and `caps`'s display already exist and are ready for
-        // whichever mechanism tells the shell). Tracked in
-        // design/roadmap/154-multi-directory-namespace.md.
-        second: None,
-        cwd: nav.cwd,
-        binds: nav.binds,
-    }
+    nav.holds
 }
 
 // ---- the navigation builtins (milestone 47) ----
@@ -236,9 +222,9 @@ const DIR_TERMINAL: u64 = 4;
 /// walked through to get there.
 ///
 /// A working directory, in capability terms, is a directory capability used as the default base for
-/// resolving names. This is that, made concrete: [`Nav::cwd`] is the position as a value (what `pwd`
-/// prints, and what a grant records at plan time), and [`Nav::handles`] is the stack of directory
-/// capabilities that back it, one per level. **`..` is a pop of that stack**, which is why it cannot
+/// resolving names. This is that, made concrete: `holds.cwd` ([`Nav::holds`]) is the position as a
+/// value (what `pwd` prints, and what a grant records at plan time), and [`Nav::handles`] is the
+/// stack of directory capabilities that back it, one per level. **`..` is a pop of that stack**, which is why it cannot
 /// climb out: at the root there is nothing to pop, and no request is sent for the FS server to have
 /// to refuse. Chroot's shape, arrived at from the other direction.
 struct Nav {
@@ -251,18 +237,45 @@ struct Nav {
     /// refuses (`EPERM`) when the intersection is smaller than the request, so a shell that asked
     /// for `dir::ALL` from a narrower capability could not `cd` at all. See notes/shell-navigation.md.
     rights: u64,
-    /// Where we are, as a value.
-    cwd: Cwd,
+    /// **What this shell holds, as the planner sees it**: where it stands (`holds.cwd`, a path in
+    /// the one tree it presents), the names it has bound (`holds.binds`; `bind` is milestone 47
+    /// (navigation and naming), and a bound name is a value rather than a capability, so no
+    /// cspace slot is spent minting one), and, when it holds two trees, where the second is
+    /// mounted (`holds.second`).
+    ///
+    /// **Kept whole rather than assembled on demand**, because the resolver reads it on every
+    /// walk: building an 800-byte `Holdings` in each walking frame overflowed the globbing
+    /// witness's stack, which is the frame-size budget `glob_grant_tests` records.
+    ///
+    /// `holds.second` is `Some` only in a wiring that told this shell it holds two trees. The
+    /// two-tree witness ([`two_trees`]) is one today; the interactive boot is not, because nothing
+    /// yet tells an interactive shell it holds a second grant or where to mount it
+    /// (notes/two-trees.md: that lands with the first real second filesystem).
+    holds: grant_plan::Holdings,
     /// `handles[i]` is the directory capability for level `i + 1`; level 0 is [`fs::ROOT`], the
     /// capability the rendezvous itself designates.
     handles: [u64; nav::MAX_DEPTH],
-    /// **Names this shell has bound to a position it already reached some other way** (`bind`,
-    /// milestone 47/154). A value, not a capability: no cspace slot is spent minting one and none
-    /// is leaked by forgetting one, which is [`nav::Bindings`]'s own doc restated at the one place
-    /// that actually holds the table for a live shell.
-    binds: nav::Bindings,
     /// The sweep in progress, when the line is under `xargs` (milestone 109). Zeroed outside one.
     batching: Batching,
+    /// **The second tree, when this shell holds two**: milestone 154 (a process that holds two
+    /// directory capabilities), mounted where `holds.second` says. [`Nav::dir`] and
+    /// [`Nav::rights`] stay the first tree's whichever one the shell stands in, because the first
+    /// is also where the system's own files are (the manual, the activation table); which tree
+    /// [`Nav::handles`] are in follows from `holds.cwd` ([`Nav::which`]).
+    second: Option<Tree>,
+}
+
+/// **One directory tree this shell holds**: the slot of the endpoint that serves it and the rights
+/// that endpoint carries (milestone 154).
+///
+/// A handle means nothing without the endpoint it came from: two caretakers number their handles
+/// independently, so handle 3 in one tree and handle 3 in the other are different directories.
+/// Every request that carries a handle a walk produced is therefore sent on that walk's [`Tree`],
+/// never on "the" directory slot.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Tree {
+    slot: u64,
+    rights: u64,
 }
 
 /// **The state of a batched sweep**, which lives on [`Nav`] because the expander is the one place a
@@ -338,10 +351,10 @@ fn last() -> Status {
 /// A resolved path lead: the directory handle it designates, plus the temporary capabilities opened
 /// to reach it, which the caller either adopts (`cd`) or closes.
 struct Walk {
+    /// The tree the walk is in, which every request on [`Walk::handle`] and [`Walk::tmp`] goes to.
+    tree: Tree,
     /// The directory the lead designates.
     handle: u64,
-    /// How far up the shell's own stack the lead started, after any `..`s.
-    base: usize,
     /// The capabilities opened on the way down, in order.
     tmp: [u64; nav::MAX_DEPTH],
     n: usize,
@@ -354,10 +367,10 @@ impl Nav {
         Nav {
             dir: None,
             rights: 0,
-            cwd: Cwd::root(),
+            holds: grant_plan::Holdings::default(),
             handles: [0; nav::MAX_DEPTH],
-            binds: nav::Bindings::none(),
             batching: Batching::default(),
+            second: None,
         }
     }
 
@@ -373,16 +386,61 @@ impl Nav {
         Nav {
             dir: Some(slot),
             rights,
-            cwd: Cwd::root(),
+            holds: grant_plan::Holdings {
+                dir: true,
+                ..grant_plan::Holdings::default()
+            },
             handles: [0; nav::MAX_DEPTH],
-            binds: nav::Bindings::none(),
             batching: Batching::default(),
+            second: None,
         }
     }
 
-    /// The handle for the level we are standing on.
+    /// **A shell holding two trees** (milestone 154): the first at `a`, the second at `b` mounted
+    /// at `mount` in the first, standing at the root of the one tree it presents.
+    fn rooted_twice(a: Tree, b: Tree, mount: grant_plan::SecondDir) -> Self {
+        let mut nav = Nav::rooted_at(a.slot, a.rights);
+        nav.holds.second = Some(mount);
+        nav.second = Some(b);
+        nav
+    }
+
+    /// Which tree this shell stands in: the second when its path runs through the mount point,
+    /// the first otherwise ([`grant_plan::Holdings::locate`]).
+    fn which(&self) -> nav::Which {
+        self.holds.locate(&self.holds.cwd).0
+    }
+
+    /// The tree `which` names. The second tree of a shell that holds one is the first, which no
+    /// caller reaches: `which` only comes back [`nav::Which::B`] out of a two-grant [`Holdings`].
+    ///
+    /// [`Holdings`]: grant_plan::Holdings
+    fn tree(&self, which: nav::Which) -> Tree {
+        match (which, self.second) {
+            (nav::Which::B, Some(t)) => t,
+            _ => Tree {
+                slot: self.dir.unwrap_or(DIR),
+                rights: self.rights,
+            },
+        }
+    }
+
+    /// The tree this shell stands in, which is where [`Nav::here`] and [`Nav::handles`] live.
+    fn cur(&self) -> Tree {
+        self.tree(self.which())
+    }
+
+    /// The first tree, which is where this system keeps its own files (the manual, the activation
+    /// table, a package to install) whichever tree the shell stands in.
+    fn first(&self) -> Tree {
+        self.tree(nav::Which::A)
+    }
+
+    /// The handle for the level we are standing on. [`Nav::handles`] holds the levels of the
+    /// position *inside* the tree the shell stands in, which under a mount point is shorter than
+    /// the path `pwd` prints.
     fn here(&self) -> u64 {
-        self.at(self.cwd.depth())
+        self.at(self.holds.locate(&self.holds.cwd).1.depth())
     }
 
     /// The handle for `level` levels below the root.
@@ -393,145 +451,88 @@ impl Nav {
         }
     }
 
-    /// One request that names something: stage the name in the shared page and call.
+    /// One request that names something, in the tree this shell stands in: stage the name in the
+    /// shared page and call. For a handle a walk produced, [`Nav::name_call_in`] with the walk's
+    /// tree, since the walk may have been into the other one.
     fn name_call(&self, verb: u64, handle: u64, name: &[u8], w1: u64) -> i64 {
+        self.name_call_in(self.cur(), verb, handle, name, w1)
+    }
+
+    /// [`Nav::name_call`] on a named tree. Both trees share one page with the FS server, which is
+    /// sound for `narrow_dir`'s reason: this shell is one thread with one `CALL` in flight.
+    fn name_call_in(&self, t: Tree, verb: u64, handle: u64, name: &[u8], w1: u64) -> i64 {
         put_page(name);
-        call(
-            self.dir.unwrap_or(DIR),
-            fs::req(verb, handle, name.len() as u64),
-            w1,
-        )
-        .0 as i64
+        call(t.slot, fs::req(verb, handle, name.len() as u64), w1).0 as i64
     }
 
-    /// Close a handle we opened. A failure here is not reportable and not recoverable: the reply is
-    /// dropped deliberately rather than turned into a refusal for something the user did not ask.
+    /// Close a handle we opened in the tree we stand in. A failure here is not reportable and not
+    /// recoverable: the reply is dropped deliberately rather than turned into a refusal for
+    /// something the user did not ask.
     fn close(&self, handle: u64) {
-        call(self.dir.unwrap_or(DIR), fs::req(fs::CLOSE, handle, 0), 0);
+        self.close_in(self.cur(), handle);
     }
 
-    /// **Resolve a path without moving**, from this shell's root when the token began with `/` and
-    /// from where it stands otherwise. Bind-aware: an absolute path whose first component names a
-    /// bound entry ([`Nav::binds`]) walks through *that* entry's own stored position instead of a
-    /// literal descent from [`fs::ROOT`], which is [`Nav::walk_bind`].
-    ///
-    /// `..` is answered from the shell's own stack (a level up is a handle it already holds), and
-    /// each `Down` is one `OPENDIR`, because the FS contract takes a single component per request
-    /// and nothing here walks a path. The steps are validated by [`Cwd::apply`] *before* this runs,
-    /// so an `Up` past the root and a path deeper than the shell tracks are already refused with
-    /// nothing sent; the only failure left is the server's.
+    /// [`Nav::close`] on a named tree.
+    fn close_in(&self, t: Tree, handle: u64) {
+        call(t.slot, fs::req(fs::CLOSE, handle, 0), 0);
+    }
+
+    /// **Resolve a path without moving and open it**, from the root when the token began with `/`
+    /// and from where the shell stands otherwise; [`Nav::walk_steps`] has the whole of it.
     fn walk(&mut self, p: &nav::Path<'_>) -> Result<Walk, Say> {
         self.walk_steps(p.is_from_root(), p.steps())
     }
 
     /// [`Nav::walk`] with the lead of a path rather than the whole of it: the same walk, stopping
-    /// one component short, which is what every verb that acts on a *name* needs. Also bind-aware,
-    /// for the same reason [`Nav::walk`] is: `mkdir /recent/newdir` must open `newdir`'s parent
-    /// through the bind, not try to `OPENDIR("recent")` at the literal root.
+    /// one component short, which is what every verb that acts on a *name* needs.
     ///
-    /// `from_root` is carried separately because a lead is a bare step sequence and cannot say
-    /// where it started. **A walk from the root starts at [`fs::ROOT`]**, the capability the
-    /// rendezvous itself designates, which is the only root this process has and the reason an
-    /// absolute path can reach nothing a `cd` could not.
+    /// **The path is resolved first, as a path, and then opened.** [`grant_plan::Holdings::anchor`]
+    /// says where the steps start (where the shell stands, a bound name's position, or the root)
+    /// and [`Cwd::apply`] applies them, which is where `..` is answered and where `..` past the
+    /// root is refused with nothing sent. [`grant_plan::Holdings::locate`] then says which tree
+    /// serves the result and where inside it, and the walk opens that position one `OPENDIR` at
+    /// a time from that tree's own root, because the FS contract takes a single component per
+    /// request and nothing here walks a path.
+    ///
+    /// That is milestone 154's one-tree presentation in one place: `..` from a mount point is its
+    /// parent in the first tree, because that is what the path says, and a path through the mount
+    /// point is opened on the second tree's endpoint and no other. A bound name misdirects a path
+    /// and cannot manufacture a boundary, since `..` past it is the same arithmetic on the same
+    /// path a direct walk would do.
+    ///
+    /// **Depth safety.** [`Cwd::apply`] refuses a path deeper than [`nav::MAX_DEPTH`], and a
+    /// position inside a mounted tree is never deeper than the path it came from, so
+    /// [`Walk::tmp`]'s fixed capacity is never at risk.
     fn walk_steps(&mut self, from_root: bool, steps: &[Step<'_>]) -> Result<Walk, Say> {
-        if from_root
-            && let Some((Step::Down(name), rest)) = steps.split_first()
-            && let Some(entry) = self.binds.lookup(name)
-        {
-            return self.walk_bind(entry.pos(), rest);
-        }
-        self.walk_from(from_root, steps)
-    }
-
-    /// **Walk through a bound entry's own stored position, then continue through `rest`.**
-    ///
-    /// Two phases over the one [`Walk`], not two walks: first [`Nav::walk_from`] opens the real
-    /// chain of handles the bind's own position names (bounded by [`nav::MAX_DEPTH`], exactly as
-    /// any other walk from the root is), then [`Nav::extend_walk`] continues through whatever
-    /// followed the bound name in the token. This is why `bind` does not clamp `..` at the alias:
-    /// ascending from inside a bound path pops the *same* stack a direct walk to that position
-    /// would have built, so it climbs the bind's own real tree and stops only where a direct walk
-    /// would, at that tree's true root. A bind can misdirect a name; it cannot manufacture a
-    /// boundary that was not already there.
-    ///
-    /// **Depth safety.** [`Nav::plan_path`] validates the whole logical target
-    /// (`base.apply(rest)`, [`Cwd::apply`]'s own incremental [`nav::MAX_DEPTH`] check) *before*
-    /// either phase here runs, for every caller that resolves a token before walking it. Since
-    /// that check runs the identical step sequence in the identical order, its success guarantees
-    /// this walk's net open handles never exceed [`nav::MAX_DEPTH`] either, so [`Walk::tmp`]'s
-    /// fixed capacity is never at risk of overrunning.
-    fn walk_bind(&mut self, base: Cwd, rest: &[Step<'_>]) -> Result<Walk, Say> {
-        let mut base_steps = [Step::Up; nav::MAX_DEPTH];
-        let n = base.depth();
-        for (level, slot) in base_steps.iter_mut().enumerate().take(n) {
-            *slot = Step::Down(base.component(level));
-        }
-        let mut w = self.walk_from(true, &base_steps[..n])?;
-        self.extend_walk(&mut w, rest)?;
-        Ok(w)
-    }
-
-    /// The literal walk, with no bind lookup: from [`fs::ROOT`] when `from_root`, from where this
-    /// shell stands otherwise. [`Nav::walk_steps`] is every other caller's entry point; this stays
-    /// separate because [`Nav::walk_bind`]'s first phase needs exactly this and nothing more (a
-    /// bound name's own components can never themselves resolve through *another* bind: a
-    /// [`nav::BindEntry`] stores a position, not a token, so there is no second lookup to make).
-    fn walk_from(&mut self, from_root: bool, steps: &[Step<'_>]) -> Result<Walk, Say> {
-        let mut w = if from_root {
-            Walk {
-                handle: fs::ROOT,
-                base: 0,
-                tmp: [0; nav::MAX_DEPTH],
-                n: 0,
-            }
-        } else {
-            Walk {
-                handle: self.here(),
-                base: self.cwd.depth(),
-                tmp: [0; nav::MAX_DEPTH],
-                n: 0,
-            }
+        let mut place = Cwd::root();
+        let rest = self.holds.anchor(from_root, steps, &mut place);
+        place.apply(rest).map_err(Say::Refused)?;
+        let (which, pos) = self.holds.locate(&place);
+        let mut w = Walk {
+            tree: self.tree(which),
+            handle: fs::ROOT,
+            tmp: [0; nav::MAX_DEPTH],
+            n: 0,
         };
-        self.extend_walk(&mut w, steps)?;
+        // One level at a time from that tree's own root. One step per call rather than a staged
+        // array of steps, which is the frame this shell's few pages of stack cannot spare.
+        for level in 0..pos.depth() {
+            self.descend(&mut w, pos.component(level))?;
+        }
         Ok(w)
     }
 
-    /// **Continue an in-progress walk with more steps, in place.** The one loop [`Nav::walk_from`]
-    /// and [`Nav::walk_bind`] both drive: the former seeds `w` and runs every step through here,
-    /// the latter seeds `w` by walking a bind's own position first and then extends it with
-    /// whatever followed the bound name. Same unwind-on-failure rule either way: a step that
-    /// cannot be taken closes everything this call and the walk before it opened.
-    fn extend_walk(&self, w: &mut Walk, steps: &[Step<'_>]) -> Result<(), Say> {
-        for step in steps {
-            match step {
-                Step::Up => {
-                    if w.n > 0 {
-                        w.n -= 1;
-                        self.close(w.tmp[w.n]);
-                    } else if w.base > 0 {
-                        w.base -= 1;
-                    } else {
-                        self.unwind(w);
-                        return Err(Say::Refused(Refused::AtYourRoot));
-                    }
-                    w.handle = if w.n > 0 {
-                        w.tmp[w.n - 1]
-                    } else {
-                        self.at(w.base)
-                    };
-                }
-                Step::Down(name) => {
-                    let r = self.name_call(fs::OPENDIR, w.handle, name, self.rights);
-                    if r < 0 {
-                        self.unwind(w);
-                        return Err(Say::Failed(-r as i32));
-                    }
-                    w.tmp[w.n] = r as u64;
-                    w.n += 1;
-                    w.handle = r as u64;
-                }
-            }
+    /// **One level further down a walk**: one `OPENDIR` on the walk's own tree. A level that
+    /// cannot be opened closes everything the walk opened before it.
+    fn descend(&self, w: &mut Walk, name: &[u8]) -> Result<(), Say> {
+        let r = self.name_call_in(w.tree, fs::OPENDIR, w.handle, name, w.tree.rights);
+        if r < 0 {
+            self.unwind(w);
+            return Err(Say::Failed(-r as i32));
         }
+        w.tmp[w.n] = r as u64;
+        w.n += 1;
+        w.handle = r as u64;
         Ok(())
     }
 
@@ -540,25 +541,17 @@ impl Nav {
     /// the boot, exactly as a leaked fd does.
     fn unwind(&self, w: &Walk) {
         for &handle in &w.tmp[..w.n] {
-            self.close(handle);
+            self.close_in(w.tree, handle);
         }
     }
 
-    /// Parse and validate a path operand: the steps, and where they would leave us.
-    /// Bind-aware: an absolute path whose first component names a bound entry ([`Nav::binds`])
-    /// resolves against that entry's own stored position rather than a literal walk from the sole
-    /// root, exactly as [`Nav::walk`] will resolve it for real. A token that names no bound entry
-    /// resolves exactly as it always did, which is what makes `bind` additive rather than a mode
-    /// switch: a shell with nothing bound behaves byte for byte as before this existed.
+    /// Parse and validate a path operand: the steps, and the path in the one tree they land on.
+    /// [`grant_plan::Holdings::resolve_path`], so a bound name and the root are told apart exactly
+    /// as [`Nav::walk_steps`] and the planner tell them apart. A shell with one tree and nothing
+    /// bound resolves byte for byte as it did before either existed.
     fn plan_path<'a>(&self, token: &'a [u8]) -> Result<(nav::Path<'a>, Cwd), Say> {
         let p = nav::path(token).map_err(Say::Refused)?;
-        if p.is_from_root()
-            && let Some(r) = self.binds.resolve_absolute(&p)
-        {
-            let (_, target) = r.map_err(Say::Refused)?;
-            return Ok((p, target));
-        }
-        let target = self.cwd.resolve(&p).map_err(Say::Refused)?;
+        let target = self.holds.resolve_path(&p).map_err(Say::Refused)?;
         Ok((p, target))
     }
 
@@ -584,24 +577,25 @@ impl Nav {
             Ok(w) => w,
             Err(s) => return s,
         };
-        // Adopt the walk: the capabilities we walked out of are no longer reachable from where we
-        // now stand, so they are given back, and the ones we opened become the new stack.
-        for level in w.base..self.cwd.depth() {
+        // Adopt the walk: every walk starts at its tree's root, so the whole old stack is given
+        // back, on the endpoint of the tree being left (still the current one until `cwd` moves),
+        // and the handles the walk opened become the new stack.
+        let depth = self.holds.locate(&self.holds.cwd).1.depth();
+        for level in 0..depth {
             self.close(self.handles[level]);
         }
-        for i in 0..w.n {
-            self.handles[w.base + i] = w.tmp[i];
-        }
-        self.cwd = target;
+        self.handles[..w.n].copy_from_slice(&w.tmp[..w.n]);
+        self.holds.cwd = target;
         Say::Nothing
     }
 
     /// Back to the root: close everything we descended through and forget it.
     fn go_home(&mut self) -> Say {
-        for level in 0..self.cwd.depth() {
+        let depth = self.holds.locate(&self.holds.cwd).1.depth();
+        for level in 0..depth {
             self.close(self.handles[level]);
         }
-        while self.cwd.ascend() {}
+        self.holds.cwd = Cwd::root();
         Say::Nothing
     }
 
@@ -616,20 +610,38 @@ impl Nav {
         if self.dir.is_none() {
             return Say::NoDirectory;
         }
-        let (handle, walked) = if token.is_empty() {
-            (self.here(), None)
+        let (listed, tree, handle, walked) = if token.is_empty() {
+            (self.holds.cwd, self.cur(), self.here(), None)
         } else {
-            let (p, _) = match self.plan_path(token) {
+            let (p, target) = match self.plan_path(token) {
                 Ok(v) => v,
                 Err(s) => return s,
             };
             match self.walk(&p) {
-                Ok(w) => (w.handle, Some(w)),
+                Ok(w) => (target, w.tree, w.handle, Some(w)),
                 Err(s) => return s,
             }
         };
 
-        let said = self.each_entry(handle, each);
+        // **A mount point is listed in its parent**, as a Unix mount point is, whether or not the
+        // first tree has a directory of that name: the second tree is what the name reaches, and a
+        // listing that hid it would be a namespace the user could `cd` into but never see.
+        let mount = self.holds.second.map(|sd| sd.mount());
+        let mount_here = mount.filter(|m| {
+            let mut parent = *m;
+            parent.ascend() && parent == listed
+        });
+        let mut seen = false;
+        let said = self.each_entry(tree, handle, &mut |name, is_dir| {
+            seen |= mount_here.as_ref().and_then(|m| m.last()) == Some(name);
+            each(name, is_dir);
+        });
+        if let Some(name) = mount_here.as_ref().and_then(|m| m.last())
+            && said == Say::Nothing
+            && !seen
+        {
+            each(name, true);
+        }
         if let Some(w) = walked {
             self.unwind(&w);
         }
@@ -643,12 +655,12 @@ impl Nav {
     /// The capability it mints is given straight back. `mkdir` makes a directory; `cd` is how you go
     /// there, and a shell that silently moved you would be doing two things under one word.
     fn mkdir(&mut self, token: &[u8]) -> Say {
-        self.act(token, |nav, handle, name| {
-            let r = nav.name_call(fs::MKDIR, handle, name, nav.rights);
+        self.act(token, |nav, t, handle, name| {
+            let r = nav.name_call_in(t, fs::MKDIR, handle, name, t.rights);
             if r < 0 {
                 Say::Failed(-r as i32)
             } else {
-                nav.close(r as u64);
+                nav.close_in(t, r as u64);
                 Say::Nothing
             }
         })
@@ -665,11 +677,9 @@ impl Nav {
     /// no more than the directory capability this shell already holds. A value is filed under a
     /// name; nothing is opened and nothing is kept.
     ///
-    /// **`Which::A` is the only answer this shell could ever carry**: it holds at most one
-    /// directory capability today ([`Nav::binds`]'s own doc has the reason this field exists
-    /// anyway). Neither of the two real entry points constructs a second one yet
-    /// (design/roadmap/154-multi-directory-namespace.md's own gap), so a two-grant `bind` is
-    /// provable in `grant_plan`'s host suite but not yet reachable from this shell's own prompt.
+    /// **A bound position is a path in the one tree**, so a bound name can point through a mount
+    /// point, and [`grant_plan::Holdings::bind`] refuses a name that would hide the path to one
+    /// (milestone 154).
     fn bind(&mut self, target: &[u8], name: &[u8]) -> Say {
         if self.dir.is_none() {
             return Say::NoDirectory;
@@ -678,7 +688,7 @@ impl Nav {
             Ok(v) => v,
             Err(s) => return s,
         };
-        match self.binds.add(name, nav::Which::A, pos) {
+        match self.holds.bind(name, pos) {
             Ok(()) => Say::Nothing,
             Err(r) => Say::CannotBind(r),
         }
@@ -710,10 +720,10 @@ impl Nav {
             },
         };
 
-        self.act(args.name, |nav, handle, name| {
-            let r = nav.name_call(fs::CREATE, handle, name, 0);
+        self.act(args.name, |nav, t, handle, name| {
+            let r = nav.name_call_in(t, fs::CREATE, handle, name, 0);
             if r >= 0 {
-                nav.close(r as u64);
+                nav.close_in(t, r as u64);
             } else {
                 let errno = -r as i32;
                 // `CREATE` is create, not create-or-open (DECISIONS §27): an existing name answers
@@ -729,8 +739,8 @@ impl Nav {
             }
 
             let r = match at_seconds {
-                None => nav.name_call(fs::SETMTIME, handle, name, 0),
-                Some(secs) => nav.name_call(fs::SETMTIME_AT, handle, name, secs),
+                None => nav.name_call_in(t, fs::SETMTIME, handle, name, 0),
+                Some(secs) => nav.name_call_in(t, fs::SETMTIME_AT, handle, name, secs),
             };
             if r < 0 {
                 return Say::Failed(-r as i32);
@@ -742,7 +752,7 @@ impl Nav {
     /// The shape `mkdir` has, and the witness's removals share: resolve everything but the last
     /// component, act on that component in the directory it named, and give back whatever the
     /// resolution opened.
-    fn act(&mut self, token: &[u8], f: impl Fn(&mut Nav, u64, &[u8]) -> Say) -> Say {
+    fn act(&mut self, token: &[u8], f: impl Fn(&mut Nav, Tree, u64, &[u8]) -> Say) -> Say {
         if self.dir.is_none() {
             return Say::NoDirectory;
         }
@@ -761,7 +771,7 @@ impl Nav {
             Ok(w) => w,
             Err(s) => return s,
         };
-        let said = f(self, w.handle, name);
+        let said = f(self, w.tree, w.handle, name);
         self.unwind(&w);
         said
     }
@@ -800,7 +810,7 @@ impl Nav {
             Some(r) => Expander::batch(pattern, r),
             None => Expander::new(pattern),
         };
-        let said = self.each_entry(w.handle, &mut |name, is_dir| e.offer(name, is_dir));
+        let said = self.each_entry(w.tree, w.handle, &mut |name, is_dir| e.offer(name, is_dir));
         self.unwind(&w);
         if said != Say::Nothing {
             return Err(said);
@@ -823,18 +833,13 @@ impl Nav {
     /// Read a directory in rounds, calling `each` with every entry. The body `ls` had, lifted out so
     /// the listing loop is written once: a listing is a rendering of authority whether it is being
     /// printed or matched against.
-    fn each_entry(&mut self, handle: u64, each: &mut dyn FnMut(&[u8], bool)) -> Say {
+    fn each_entry(&mut self, t: Tree, handle: u64, each: &mut dyn FnMut(&[u8], bool)) -> Say {
         let mut cursor = 0u64;
         let mut buf = [0u8; LISTING];
         // Bounded so a server whose cursor does not advance costs a short listing rather than a
         // prompt that never comes back.
         for _ in 0..ROUNDS {
-            let n = call(
-                self.dir.unwrap_or(DIR),
-                fs::req(fs::READDIR, handle, 0),
-                cursor,
-            )
-            .0 as i64;
+            let n = call(t.slot, fs::req(fs::READDIR, handle, 0), cursor).0 as i64;
             if n < 0 {
                 return Say::Failed(-n as i32);
             }
@@ -964,13 +969,17 @@ fn apropos(nav: &mut Nav, term: &[u8]) -> Say {
     if term.is_empty() {
         return Say::NeedsAName;
     }
-    let dir = nav.dir.unwrap_or(DIR);
+    // The first tree whichever one this shell stands in: the manual is installed at the root of
+    // what the system itself was granted, and a second tree is somebody else's files.
+    let t = nav.first();
+    let dir = t.slot;
 
-    let store = nav.name_call(
+    let store = nav.name_call_in(
+        t,
         fs::OPENDIR,
         fs::ROOT,
         index::STORE_DIR.as_bytes(),
-        nav.rights,
+        t.rights,
     );
     if store < 0 {
         return Say::Failed(-store as i32);
@@ -980,9 +989,9 @@ fn apropos(nav: &mut Nav, term: &[u8]) -> Say {
     // The manifest, copied out of the shared page before anything else touches it: every `OPENDIR`
     // below stages a name in that same page.
     let mut names = [0u8; MANIFEST_MAX];
-    let handle = nav.name_call(fs::OPEN, store, index::MANIFEST.as_bytes(), 0);
+    let handle = nav.name_call_in(t, fs::OPEN, store, index::MANIFEST.as_bytes(), 0);
     if handle < 0 {
-        nav.close(store);
+        nav.close_in(t, store);
         return Say::Failed(-handle as i32);
     }
     let got = call(
@@ -991,9 +1000,9 @@ fn apropos(nav: &mut Nav, term: &[u8]) -> Say {
         0,
     )
     .0 as i64;
-    nav.close(handle as u64);
+    nav.close_in(t, handle as u64);
     if got < 0 {
-        nav.close(store);
+        nav.close_in(t, store);
         return Say::Failed(-got as i32);
     }
     let got = (got as usize).min(MANIFEST_MAX);
@@ -1006,12 +1015,12 @@ fn apropos(nav: &mut Nav, term: &[u8]) -> Say {
     let mut trouble = 0i32;
     let mut unreadable = false;
     index::bundles(&names[..got], |bundle| {
-        let at = nav.name_call(fs::OPENDIR, store, bundle, nav.rights);
+        let at = nav.name_call_in(t, fs::OPENDIR, store, bundle, t.rights);
         if at < 0 {
             trouble = -at as i32;
             return;
         }
-        let shard = nav.name_call(fs::OPEN, at as u64, index::SHARD.as_bytes(), 0);
+        let shard = nav.name_call_in(t, fs::OPEN, at as u64, index::SHARD.as_bytes(), 0);
         if shard < 0 {
             trouble = -shard as i32;
         } else {
@@ -1022,11 +1031,11 @@ fn apropos(nav: &mut Nav, term: &[u8]) -> Say {
             // A shard this reader cannot read is reported rather than skipped: a search that
             // quietly left a bundle out would answer "no page says that" about pages that do.
             unreadable |= index::search(bundle, term, &mut src, ranked).is_err();
-            nav.close(shard as u64);
+            nav.close_in(t, shard as u64);
         }
-        nav.close(at as u64);
+        nav.close_in(t, at as u64);
     });
-    nav.close(store);
+    nav.close_in(t, store);
 
     // **A manifest that filled the buffer is a search that did not cover the store**, and saying
     // nothing would make "no page says that" a lie about bundles nobody looked in. Found by review
@@ -1106,6 +1115,11 @@ const ROLE_REDIRECT: u64 = 4;
 /// the prompt uses, and the same script is run three times against three clock states, which is what
 /// makes the refusals assertions rather than unreachable branches. See [`timing`].
 const ROLE_TIMING: u64 = 5;
+/// **The two-tree witness** (milestone 154): no terminal, grant `a` at slot 0, grant `b` at slot 1
+/// and a report rendezvous at slot 2, which is `fs_service::start_granted_two_dirs`' wiring. It
+/// runs the prompt's own builtins across both trees and reports a bitmap; see [`two_trees`].
+/// Provisional name.
+const ROLE_TWO_TREES: u64 = 6;
 
 /// **What `arg1` carries into every role that holds a directory**: the `filesystem_protocol::dir` rights that
 /// capability was granted, with 0 meaning "you were granted no directory at all".
@@ -1133,6 +1147,7 @@ pub extern "C" fn _start(role: u64, arg: u64, clock: u64) -> ! {
         ROLE_PIPELINE => piping(),
         ROLE_REDIRECT => redirecting(arg),
         ROLE_TIMING => timing(),
+        ROLE_TWO_TREES => two_trees(arg),
         _ => interactive(arg),
     }
 }
@@ -1644,7 +1659,7 @@ fn print_pwd(nav: &Nav) {
         say(Say::NoDirectory);
         return;
     }
-    swish::write_pwd(&nav.cwd, &mut print);
+    swish::write_pwd(&holdings(nav), &mut print);
 }
 
 /// Print what a builtin had to say. Every line is a statement about a name or a capability, never
@@ -1754,13 +1769,13 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
         Err(Say::Cannot(r)) => return refuse(spec, r),
         Err(said) => return say(said),
     };
-    let Some(dir) = nav.dir else {
+    if nav.dir.is_none() {
         return say(Say::NoDirectory);
-    };
-    let Some((handle, size)) = open_for_bytes(nav, dir, spec.prog) else {
+    }
+    let Some((t, handle, size)) = open_for_bytes(nav, spec.prog) else {
         return;
     };
-    let declared = match read_manifest_note(dir, handle, size) {
+    let declared = match read_manifest_note(t.slot, handle, size) {
         Ok(d) => d,
         Err(r) => {
             nav.close(handle);
@@ -1790,7 +1805,7 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     // The primer first (once), then any `--mem` region, then the staging region, so staging is
     // the top of the budget when it is destroyed. See [`IMAGE_PRIMER_VA`].
     if !prime_image_window() {
-        nav.close(handle);
+        nav.close_in(t, handle);
         return out_of_budget();
     }
     let mem_slot = if e.mem_pages > 0 {
@@ -1799,7 +1814,7 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
         None
     };
     let Some(staging) = memory_region_split(pages) else {
-        nav.close(handle);
+        nav.close_in(t, handle);
         if let Some(m) = mem_slot {
             cap_delete(m);
         }
@@ -1817,8 +1832,8 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
         },
     );
     send(SPAWN, w0, w1, w2);
-    let read_ok = send_frames(dir, handle, pages, staging);
-    nav.close(handle);
+    let read_ok = send_frames(t.slot, handle, pages, staging);
+    nav.close_in(t, handle);
     if let Some(slot) = mem_slot {
         delegate(slot, abi::rights::WRITE | abi::rights::GRANT);
         cap_delete(slot);
@@ -1936,10 +1951,11 @@ fn out_of_budget() {
 }
 
 /// **Open the file `path` names, for its bytes**, the way `<` would: walk the lead, open the last
-/// component. Returns the handle and the size, or prints why not and returns `None`. A file that
+/// component. Returns the tree it is in (either, in a two-grant shell), the handle and the size, or
+/// prints why not and returns `None`. A file that
 /// is empty or larger than [`spawnproto::IMAGE_MAX_PAGES`] is refused here, before anything is
 /// sent, because both a §219 image and a package travel as that many frames at most.
-fn open_for_bytes(nav: &mut Nav, dir: u64, path: &[u8]) -> Option<(u64, u64)> {
+fn open_for_bytes(nav: &mut Nav, path: &[u8]) -> Option<(Tree, u64, u64)> {
     let (p, _) = match nav.plan_path(path) {
         Ok(planned) => planned,
         Err(said) => {
@@ -1959,21 +1975,22 @@ fn open_for_bytes(nav: &mut Nav, dir: u64, path: &[u8]) -> Option<(u64, u64)> {
             return None;
         }
     };
-    let opened = nav.name_call(fs::OPEN, w.handle, name, 0);
+    let t = w.tree;
+    let opened = nav.name_call_in(t, fs::OPEN, w.handle, name, 0);
     nav.unwind(&w);
     if opened < 0 {
         say(Say::Failed(-opened as i32));
         return None;
     }
     let handle = opened as u64;
-    let size = call(dir, fs::req(fs::FSTAT, handle, 0), 0).0 as i64;
+    let size = call(t.slot, fs::req(fs::FSTAT, handle, 0), 0).0 as i64;
     if size <= 0 || spawnproto::image_pages(size as u64) > spawnproto::IMAGE_MAX_PAGES {
-        nav.close(handle);
+        nav.close_in(t, handle);
         refused();
         print(b"  that file is empty, or larger than an image may be (256 KiB)\n");
         return None;
     }
-    Some((handle, size as u64))
+    Some((t, handle, size as u64))
 }
 
 /// Map [`IMAGE_PRIMER_VA`] once per shell, so the window's page tables exist before any staging
@@ -2043,10 +2060,10 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
             return;
         }
         grant_plan::PackageVerb::Install(path) | grant_plan::PackageVerb::Vouch(path) => {
-            let Some(dir) = nav.dir else {
+            if nav.dir.is_none() {
                 return say(Say::NoDirectory);
-            };
-            let Some((handle, size)) = open_for_bytes(nav, dir, path) else {
+            }
+            let Some((t, handle, size)) = open_for_bytes(nav, path) else {
                 return;
             };
             let pages = spawnproto::image_pages(size);
@@ -2056,7 +2073,7 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
                 None
             };
             let Some(staging) = staging else {
-                nav.close(handle);
+                nav.close_in(t, handle);
                 return out_of_budget();
             };
             let vouching = match verb {
@@ -2070,8 +2087,8 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
             };
             let (w0, w1, w2) = spawnproto::activation_request(what, size);
             send(SPAWN, w0, w1, w2);
-            let read_ok = send_frames(dir, handle, pages, staging);
-            nav.close(handle);
+            let read_ok = send_frames(t.slot, handle, pages, staging);
+            nav.close_in(t, handle);
             if let Some(name) = vouching {
                 let (lo, hi) = filesystem_protocol::grant::pack_name(name);
                 send(SPAWN, lo, hi, name.len() as u64);
@@ -2178,6 +2195,16 @@ struct DirWords {
 /// program taking its set in a frame; the progenitor builds the subtree one today. `rm *.txt` is planned,
 /// previewed by `caps`, and refused at the point of delivery.
 fn dir_grant(g: &GrantDir, flags: u64) -> Result<DirWords, &'static [u8]> {
+    // **A grant in a two-grant shell's second tree** (milestone 154). The progenitor builds the
+    // caretaker by descending from the root of the one filesystem it holds, which is the first
+    // tree's; the words below say nothing about which tree, so sending them for the second would
+    // hand the program a directory of the same name in the *first*. Refused here, with nothing
+    // spawned, until the spawn protocol carries the tree (the roadmap block's BUGS entry).
+    if g.which != nav::Which::A {
+        return Err(
+            b"  that directory is in a mounted tree, and the progenitor builds a caretaker\n  from the root tree; a grant there is not built\n",
+        );
+    }
     // The directory the caretaker descends into. One component, because that is one `OPENDIR`; a
     // deeper path is a *chain* of caretakers (DECISIONS §92 names it as the case supervision was
     // chosen for) and the progenitor builds one.
@@ -2291,9 +2318,9 @@ fn spawn(e: Endowment) {
             source: false,
             diagnostics: false,
             dir: dir_words.is_some(),
-            // **Always false from this shell**: nothing here constructs a two-directory grant
-            // for a spawned program (milestone 47's `bind`, still unbuilt); see
-            // `spawnproto::DIR2_BIT`'s own doc.
+            // **Always false from this shell**: no manifest declares two directory operands, so
+            // nothing here constructs a two-directory grant for a spawned program; see
+            // `spawnproto::DIR2_BIT`'s own doc and notes/two-trees.md's BUGS.
             dir2: false,
             // **Also always false here** (DECISIONS §106), and for the same shape of reason as
             // `diagnostics`: a program only reaches this path (no file operand, no pipe, no
@@ -2600,13 +2627,13 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
         Err(Say::Cannot(r)) => return swish::write_refusal(&spec, r, &mut print),
         Err(said) => return swish::write_say(said, &mut print),
     };
-    let Some(dir) = nav.dir else {
+    if nav.dir.is_none() {
         return say(Say::NoDirectory);
-    };
-    let Some((handle, size)) = open_for_bytes(nav, dir, spec.prog) else {
+    }
+    let Some((t, handle, size)) = open_for_bytes(nav, spec.prog) else {
         return;
     };
-    let declared = match read_manifest_note(dir, handle, size) {
+    let declared = match read_manifest_note(t.slot, handle, size) {
         Ok(d) => d,
         Err(r) => {
             nav.close(handle);
@@ -2633,7 +2660,7 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
     let mut at = 0u64;
     let mut read_ok = true;
     while at < size {
-        let n = call(dir, fs::req(fs::READ, handle, PAGE), at).0 as i64;
+        let n = call(t.slot, fs::req(fs::READ, handle, PAGE), at).0 as i64;
         if n <= 0 {
             read_ok = false;
             break;
@@ -2647,7 +2674,7 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
         }
         at += n as u64;
     }
-    nav.close(handle);
+    nav.close_in(t, handle);
     if !read_ok {
         failed();
         return print(b"  this shell could not read the whole file, so it cannot say what it is\n");
@@ -2662,6 +2689,7 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
         HOLDS_RUN_UNVOUCHED.load(core::sync::atomic::Ordering::Relaxed),
         declared,
         &e,
+        &nav.holds,
         &mut print,
     );
 }
@@ -2678,7 +2706,10 @@ static mut GENERATION_TABLE: [u8; filesystem_protocol::PAGE] = [0; filesystem_pr
 /// of failing to read the table, which is the progenitor's rule too: a table that cannot be read
 /// vouches for nothing.
 fn live_generation_listing(nav: &Nav, digest: &measured_boot::Digest) -> Option<swish::Vouched> {
-    let act = nav.name_call(
+    // The first tree's, whichever tree this shell stands in: the activation table is the system's.
+    let t = nav.first();
+    let act = nav.name_call_in(
+        t,
         fs::OPENDIR,
         fs::ROOT,
         activation_set::DIRECTORY.as_bytes(),
@@ -2690,7 +2721,7 @@ fn live_generation_listing(nav: &Nav, digest: &measured_boot::Digest) -> Option<
     let act = act as u64;
     let found = (|| {
         let mut line = [0u8; 16];
-        let n = read_named(nav, act, activation_set::CURRENT.as_bytes(), &mut line)?;
+        let n = read_named(nav, t, act, activation_set::CURRENT.as_bytes(), &mut line)?;
         let number = core::str::from_utf8(&line[..n])
             .ok()
             .and_then(activation_set::parse_current)?;
@@ -2699,7 +2730,7 @@ fn live_generation_listing(nav: &Nav, digest: &measured_boot::Digest) -> Option<
         // SAFETY: this shell is one thread and `GENERATION_TABLE` is used here and nowhere else,
         // so no other reference to it can exist while this one does.
         let table = unsafe { &mut *core::ptr::addr_of_mut!(GENERATION_TABLE) };
-        let n = read_named(nav, act, generation.as_bytes(), table)?;
+        let n = read_named(nav, t, act, generation.as_bytes(), table)?;
         // A page and not a byte more, the progenitor's rule: a full page may have been cut short.
         if n >= table.len() {
             return None;
@@ -2713,20 +2744,20 @@ fn live_generation_listing(nav: &Nav, digest: &measured_boot::Digest) -> Option<
             _ => None,
         }
     })();
-    nav.close(act);
+    nav.close_in(t, act);
     found
 }
 
-/// Open `name` under the directory handle `at`, read up to `out.len()` bytes of it (one `READ`,
+/// Open `name` under the directory handle `at` in tree `t`, read up to `out.len()` bytes of it (one `READ`,
 /// so at most a page), close it. The byte count, or `None`.
-fn read_named(nav: &Nav, at: u64, name: &[u8], out: &mut [u8]) -> Option<usize> {
-    let h = nav.name_call(fs::OPEN, at, name, 0);
+fn read_named(nav: &Nav, t: Tree, at: u64, name: &[u8], out: &mut [u8]) -> Option<usize> {
+    let h = nav.name_call_in(t, fs::OPEN, at, name, 0);
     if h < 0 {
         return None;
     }
     let want = (out.len() as u64).min(PAGE);
-    let n = call(nav.dir.unwrap_or(DIR), fs::req(fs::READ, h as u64, want), 0).0 as i64;
-    nav.close(h as u64);
+    let n = call(t.slot, fs::req(fs::READ, h as u64, want), 0).0 as i64;
+    nav.close_in(t, h as u64);
     let n = usize::try_from(n).ok()?.min(out.len());
     get_page_at(0, &mut out[..n]);
     Some(n)
@@ -3132,7 +3163,7 @@ fn feed(nav: &mut Nav, stage: &[u8], w: &mut dyn ByteOut) {
                 Say::NoDirectory
             } else {
                 let mut buf = [0u8; nav::RENDER_MAX];
-                let k = nav.cwd.render(&mut buf);
+                let k = nav.holds.cwd.render(&mut buf);
                 w.push(&buf[..k]);
                 w.push(b"\n");
                 Say::Nothing
@@ -3223,15 +3254,23 @@ const FILE_CHUNK: usize = 256;
 /// where the shell is standing *now*, which is what makes a `cd` between planning and running unable
 /// to change what a redirection means.
 ///
+/// The walk is from the root of the tree the grant names (`t`, milestone 154), so a grant planned
+/// into a two-grant shell's second tree is opened there and nowhere else.
+///
 /// Returns the handle plus the capabilities opened to reach it, which the caller closes.
-fn open_at(nav: &Nav, at: Cwd, tmp: &mut [u64; nav::MAX_DEPTH]) -> Result<(u64, usize), Say> {
+fn open_at(
+    nav: &Nav,
+    t: Tree,
+    at: Cwd,
+    tmp: &mut [u64; nav::MAX_DEPTH],
+) -> Result<(u64, usize), Say> {
     let mut handle = fs::ROOT;
     let mut n = 0usize;
     for level in 0..at.depth() {
-        let r = nav.name_call(fs::OPENDIR, handle, at.component(level), nav.rights);
+        let r = nav.name_call_in(t, fs::OPENDIR, handle, at.component(level), t.rights);
         if r < 0 {
             for h in tmp.iter().take(n) {
-                nav.close(*h);
+                nav.close_in(t, *h);
             }
             return Err(Say::Failed(-r as i32));
         }
@@ -3257,16 +3296,17 @@ fn open_at(nav: &Nav, at: Cwd, tmp: &mut [u64; nav::MAX_DEPTH]) -> Result<(u64, 
 ///   write it makes names an absolute position, so "append" is an initial value and not a mode the
 ///   filesystem has to hold.
 fn open_sink(nav: &mut Nav, g: grant_plan::FileGrant, mode: line::Mode) -> Result<FileOut, Say> {
+    let t = nav.tree(g.which);
     let mut tmp = [0u64; nav::MAX_DEPTH];
-    let (dir_handle, opened) = open_at(nav, g.dir, &mut tmp)?;
+    let (dir_handle, opened) = open_at(nav, t, g.dir, &mut tmp)?;
     let name = g.name.as_bytes();
-    let dir = nav.dir.unwrap_or(DIR);
-    let mut handle = nav.name_call(fs::CREATE, dir_handle, name, 0);
+    let dir = t.slot;
+    let mut handle = nav.name_call_in(t, fs::CREATE, dir_handle, name, 0);
     // A file this shell just created is empty, so neither operator has anything to do to it. Only
     // the name that was already there needs a decision.
     let mut off = 0u64;
     if handle < 0 {
-        handle = nav.name_call(fs::OPEN, dir_handle, name, 0);
+        handle = nav.name_call_in(t, fs::OPEN, dir_handle, name, 0);
         if handle >= 0 {
             let r = match mode {
                 line::Mode::Truncate => {
@@ -3281,13 +3321,13 @@ fn open_sink(nav: &mut Nav, g: grant_plan::FileGrant, mode: line::Mode) -> Resul
                 }
             };
             if r < 0 {
-                nav.close(handle as u64);
+                nav.close_in(t, handle as u64);
                 handle = r;
             }
         }
     }
     for h in tmp.iter().take(opened) {
-        nav.close(*h);
+        nav.close_in(t, *h);
     }
     if handle < 0 {
         return Err(Say::Failed(-handle as i32));
@@ -3307,17 +3347,18 @@ fn open_sink(nav: &mut Nav, g: grant_plan::FileGrant, mode: line::Mode) -> Resul
 /// refusal, not an empty stream, because a `wc < typo.txt` that reported zero would be a lie a
 /// person would believe.
 fn open_source(nav: &mut Nav, g: grant_plan::FileGrant) -> Result<FileIn, Say> {
+    let t = nav.tree(g.which);
     let mut tmp = [0u64; nav::MAX_DEPTH];
-    let (dir_handle, opened) = open_at(nav, g.dir, &mut tmp)?;
-    let handle = nav.name_call(fs::OPEN, dir_handle, g.name.as_bytes(), 0);
+    let (dir_handle, opened) = open_at(nav, t, g.dir, &mut tmp)?;
+    let handle = nav.name_call_in(t, fs::OPEN, dir_handle, g.name.as_bytes(), 0);
     for h in tmp.iter().take(opened) {
-        nav.close(*h);
+        nav.close_in(t, *h);
     }
     if handle < 0 {
         return Err(Say::Failed(-handle as i32));
     }
     Ok(FileIn {
-        dir: nav.dir.unwrap_or(DIR),
+        dir: t.slot,
         handle: handle as u64,
     })
 }
@@ -3966,13 +4007,13 @@ fn navigate(spec: u64) -> ! {
     // 4b. **The same two probes, asked with a leading slash.** This is what "an absolute path
     //     grants nothing" is measured as rather than asserted: each shell reaches exactly the file
     //     its own root contains, and a `/` rooted in a global namespace would make both reach both.
-    if let Some(h) = opened_token(&mut nav, tree::ABS_INNER.as_bytes()) {
+    if let Some((t, h)) = opened_token(&mut nav, tree::ABS_INNER.as_bytes()) {
         v |= nb::ABSOLUTE_REACHED_INNER;
-        nav.close(h);
+        nav.close_in(t, h);
     }
-    if let Some(h) = opened_token(&mut nav, tree::ABS_SECRET.as_bytes()) {
+    if let Some((t, h)) = opened_token(&mut nav, tree::ABS_SECRET.as_bytes()) {
         v |= nb::ABSOLUTE_REACHED_SECRET;
-        nav.close(h);
+        nav.close_in(t, h);
     }
 
     // 5. `ls`. A listing is a rendering of authority, so what is in it is checked and not merely
@@ -4135,8 +4176,8 @@ fn navigate(spec: u64) -> ! {
     //     of a stack that has nothing above the root in it, so nothing is ever sent. The name is
     //     refused where it is parsed, which is why this goes through the path resolver rather than
     //     through `removed`.
-    let reached_out = nav.act(b"../motd", |nav, handle, name| {
-        if nav.name_call(fs::UNLINK, handle, name, 0) < 0 {
+    let reached_out = nav.act(b"../motd", |nav, t, handle, name| {
+        if nav.name_call_in(t, fs::UNLINK, handle, name, 0) < 0 {
             Say::Failed(0)
         } else {
             Say::Nothing
@@ -4221,6 +4262,200 @@ fn navigate(spec: u64) -> ! {
     }
     send(REPORT, VERDICT, v, 0);
     exit();
+}
+
+// ---- the two-tree witness (milestone 154) ----
+
+/// **A shell holding two trees, driven by a script** (milestone 154, one tree with the second
+/// mounted in it, as calef ruled on 2026-09-26).
+///
+/// The wiring is `fs_service::start_granted_two_dirs`': the first tree over the fixture's `sub` at
+/// slot 0, the second over its sibling `other` at slot 1, both carrying the rights `spec` names,
+/// and a report rendezvous at slot 2. The mount point, `fixture::twotrees::MOUNT`, is this
+/// witness's own, the way the slot order is: nothing tells an interactive shell where a second
+/// tree is mounted yet, and that transport lands with the first real second filesystem.
+///
+/// Every line is a real command line through [`builtin`], the prompt's own path; the `<` probe
+/// goes through `grant_plan::redirect_target` and [`open_source`], the pipeline's own path. What
+/// is under test is the shell's resolver, walk and grant plumbing, not a reimplementation.
+///
+/// Nothing here may print: this wiring maps no terminal page, so [`print`] would fault. Every
+/// step below is one that answers in a value.
+fn two_trees(spec: u64) -> ! {
+    use filesystem_protocol::fixture::{VERDICT, tree, twotrees as tt};
+    const A: u64 = 0;
+    const B: u64 = 1;
+    const REPORT: u64 = 2;
+    let rights = filesystem_protocol::grant::spec_rights(spec);
+    let mount = nav::path(tt::MOUNT.as_bytes())
+        .ok()
+        .and_then(|p| grant_plan::Holdings::default().resolve_path(&p).ok())
+        .and_then(grant_plan::SecondDir::mounted_at);
+    let (Some(mount), true) = (mount, rights != 0) else {
+        send(REPORT, VERDICT, tt::TWO_TREES_FAILED, 0);
+        exit();
+    };
+    let mut nav = Nav::rooted_twice(Tree { slot: A, rights }, Tree { slot: B, rights }, mount);
+    // Helpers rather than one body, each its own frame and none nested in another: a planned
+    // endowment is large, and this wiring maps a few pages of stack for a debug build.
+    let mut v = two_tree_moves(&mut nav);
+    v |= two_tree_grants(&mut nav);
+    v |= two_tree_rm(&mut nav);
+    let (inner, secret) = (tree::INNER.as_bytes(), tree::SECRET.as_bytes());
+
+    // 7. A bound name can point into the mount, and the mount point's own name cannot be bound.
+    if matches!(run_line(&mut nav, b"bind /second bee"), Some(Say::Nothing))
+        && matches!(
+            run_line(&mut nav, b"bind / second"),
+            Some(Say::CannotBind(_))
+        )
+        && listing_is(&mut nav, b"/bee", secret, inner)
+    {
+        v |= tt::BOUND_INTO_MOUNT;
+    }
+
+    // 8. Home is the one root.
+    if matches!(run_line(&mut nav, b"cd /second"), Some(Say::Nothing))
+        && matches!(run_line(&mut nav, b"cd"), Some(Say::Nothing))
+        && pwd_is(&nav, b"/")
+    {
+        v |= tt::HOME_IS_ROOT;
+    }
+
+    if v & (tt::LISTED_ROOT | tt::LISTED_MOUNT | tt::OPENED_RELATIVE_IN_MOUNT) == 0 {
+        v |= tt::TWO_TREES_FAILED;
+    }
+    send(REPORT, VERDICT, v, 0);
+    exit();
+}
+
+/// [`two_trees`]' moves: where it starts, into the mount and out of it, and the refusals that
+/// must not move it.
+fn two_tree_moves(nav: &mut Nav) -> u64 {
+    use filesystem_protocol::fixture::{tree, twotrees as tt};
+    let mut v = 0u64;
+    let inner = tree::INNER.as_bytes();
+    let secret = tree::SECRET.as_bytes();
+
+    // 1. One root, and the mount point listed in it.
+    if pwd_is(nav, b"/") {
+        v |= tt::PWD_STARTS_AT_ROOT;
+    }
+    if listing_is(nav, b"", inner, secret) && listing_is(nav, b"/", b"second", secret) {
+        v |= tt::LISTED_ROOT;
+    }
+
+    // 2. Into the mount, with no new verb.
+    if matches!(run_line(nav, b"cd /second"), Some(Say::Nothing)) && pwd_is(nav, b"/second") {
+        v |= tt::MOVED_INTO_MOUNT;
+    }
+    if listing_is(nav, b"", secret, inner) {
+        v |= tt::LISTED_MOUNT;
+    }
+    if let Some(h) = opened(nav, secret) {
+        v |= tt::OPENED_RELATIVE_IN_MOUNT;
+        nav.close(h);
+    }
+    if let Some(h) = opened(nav, inner) {
+        v |= tt::REACHED_ACROSS;
+        nav.close(h);
+    }
+
+    // 3. The first tree by an absolute path, without moving; and the two names that must not
+    //    cross.
+    if let Some((t, h)) = opened_token(nav, b"/inner") {
+        v |= tt::OPENED_ROOT_FROM_MOUNT;
+        nav.close_in(t, h);
+    }
+    for token in [&b"/secret"[..], b"/second/inner"] {
+        if let Some((t, h)) = opened_token(nav, token) {
+            v |= tt::REACHED_ACROSS;
+            nav.close_in(t, h);
+        }
+    }
+
+    // 4. `..` from the mount point is its parent, and back in by a relative name.
+    if matches!(run_line(nav, b"cd .."), Some(Say::Nothing))
+        && pwd_is(nav, b"/")
+        && matches!(run_line(nav, b"cd second"), Some(Say::Nothing))
+        && pwd_is(nav, b"/second")
+    {
+        v |= tt::UP_FROM_MOUNT_IS_PARENT;
+    }
+
+    // 5. `..` past the one root refuses and moves nothing, from inside the mount and from `/`.
+    let mut clamped = 0;
+    for (line, at) in [(&b"cd ../.."[..], &b"/second"[..]), (b"cd /..", b"/second")] {
+        let said = run_line(nav, line);
+        if !pwd_is(nav, at) {
+            v |= tt::MOVED_ON_REFUSAL;
+        } else if matches!(said, Some(Say::Refused(Refused::AtYourRoot))) {
+            clamped += 1;
+        } else {
+            v |= tt::CLIMBED_OUT;
+        }
+    }
+    if clamped == 2 {
+        v |= tt::ROOT_CLAMPED;
+    }
+    v
+}
+
+/// [`two_trees`]' per-command grants, planned and opened under the mount. Its own frame because
+/// each planned `Endowment` is a kilobyte or more in a debug build.
+fn two_tree_grants(nav: &mut Nav) -> u64 {
+    use filesystem_protocol::fixture::{tree, twotrees as tt};
+    let mut v = 0u64;
+
+    if let Ok(g) = grant_plan::redirect_target(b"/second/secret", holdings(nav), false)
+        && g.which == nav::Which::B
+        && let Ok(f) = open_source(nav, g)
+    {
+        let want = tree::SECRET_BODY;
+        let got = call(f.dir, fs::req(fs::READ, f.handle, want.len() as u64), 0).0 as i64;
+        let mut buf = [0u8; 64];
+        let n = (got.max(0) as usize).min(buf.len());
+        get_page(n, &mut buf);
+        if &buf[..n] == want {
+            v |= tt::REDIRECTED_FROM_MOUNT;
+        }
+        call(f.dir, fs::req(fs::CLOSE, f.handle, 0), 0);
+    }
+    // And the same name outside the mount opens nothing, because the first tree has no `secret`.
+    if let Ok(g) = grant_plan::redirect_target(b"/secret", holdings(nav), false)
+        && let Ok(f) = open_source(nav, g)
+    {
+        v |= tt::REACHED_ACROSS;
+        call(f.dir, fs::req(fs::CLOSE, f.handle, 0), 0);
+    }
+    v
+}
+
+/// [`two_trees`]' `rm` step, alone in its frame and called from [`two_trees`] itself, because the
+/// planner under it is the deepest chain this witness reaches and nothing else should sit under it.
+fn two_tree_rm(nav: &mut Nav) -> u64 {
+    use filesystem_protocol::fixture::twotrees as tt;
+    if let Command::Run(rspec) = grant_plan::parse(b"rm /second/secret")
+        && let Ok(e) =
+            grant_plan::plan(&rspec, holdings(nav), grant_plan::expand::Expansion::none())
+        && let Some(g) = e.dir
+        && g.which == nav::Which::B
+        && dir_grant(&g, e.flags).is_err()
+    {
+        return tt::RM_IN_MOUNT_REFUSED;
+    }
+    0
+}
+
+/// Whether `ls <token>` succeeded and named `present` and not `absent`. A listing is a rendering of
+/// authority, so the absent name is as much the claim as the present one.
+fn listing_is(nav: &mut Nav, token: &[u8], present: &[u8], absent: &[u8]) -> bool {
+    let (mut saw, mut stranger) = (false, false);
+    let said = nav.ls(token, &mut |name, _| {
+        saw |= name == present;
+        stranger |= name == absent;
+    });
+    said == Say::Nothing && saw && !stranger
 }
 
 // ---- the globbing witness (milestone 47's globbing lane) ----
@@ -4354,7 +4589,7 @@ fn run_line(nav: &mut Nav, cmd: &[u8]) -> Option<Say> {
 /// Whether `pwd` would print exactly this.
 fn pwd_is(nav: &Nav, want: &[u8]) -> bool {
     let mut buf = [0u8; nav::RENDER_MAX];
-    let n = nav.cwd.render(&mut buf);
+    let n = nav.holds.cwd.render(&mut buf);
     &buf[..n] == want
 }
 
@@ -4370,13 +4605,17 @@ fn opened(nav: &Nav, name: &[u8]) -> Option<u64> {
 /// It goes through [`Nav::plan_path`] and [`Nav::walk_steps`] rather than sending a name straight
 /// at [`Nav::here`], because the claim being witnessed is about the shell's own resolver. A helper
 /// that walked the path itself would prove that the *witness* can resolve a path.
-fn opened_token(nav: &mut Nav, token: &[u8]) -> Option<u64> {
+fn opened_token(nav: &mut Nav, token: &[u8]) -> Option<(Tree, u64)> {
     let (p, _) = nav.plan_path(token).ok()?;
     let (lead, name) = p.split_last_component()?;
     let w = nav.walk_steps(p.is_from_root(), lead).ok()?;
-    let r = nav.name_call(fs::OPEN, w.handle, name, 0);
+    let r = nav.name_call_in(w.tree, fs::OPEN, w.handle, name, 0);
     nav.unwind(&w);
-    if r < 0 { None } else { Some(r as u64) }
+    if r < 0 {
+        None
+    } else {
+        Some((w.tree, r as u64))
+    }
 }
 
 /// `CREATE` a name where we stand, keeping the handle. `touch` (below) does the same call and

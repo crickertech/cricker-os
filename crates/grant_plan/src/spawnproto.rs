@@ -158,10 +158,10 @@ const DIR_BIT: u64 = 1 << 36;
 /// program is still being started, holding two narrowed endpoints (slot 0 grant A, slot 1 grant
 /// B), the same delivery `fs_service::start_granted_two_dirs` already proved.
 ///
-/// **Nothing on the shell side sets this bit yet.** No verb in `grant_plan` constructs a
-/// two-directory `Endowment`: that is milestone 47's `bind`, still unbuilt. This is the wire
-/// format and the progenitor's decode side, built ahead of an emitter the way [`DIR_BIT`] itself once
-/// stated a grant nothing could construct yet.
+/// **Nothing on the shell side sets this bit yet, and the progenitor does not decode it.** No
+/// manifest declares two directory operands, so no plan constructs a two-directory `Endowment`
+/// (notes/two-trees.md's BUGS). This is the wire format alone, built ahead of an emitter the way
+/// [`DIR_BIT`] itself once stated a grant nothing could construct yet.
 const DIR2_BIT: u64 = 1 << 38;
 
 /// **The executable's bytes follow, as page frames the caller owns** (DECISIONS §219 option D,
