@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-08-20
 decided: 2026-08-20
 ratified_by: calef
@@ -14,16 +14,45 @@ the seL4 notification object model is the right long-term solution for this kern
 the specification a build lane works from. Nothing is built on it yet; the first build flips the
 status to AMENDED with the implementation record.
 
-**What is blocked: nothing directly.** The `terminal_sink_caretaker` narrowing (milestone 40's
-remaining fork) unblocks the documentation viewer without this. What this unblocks is the class of
-problem: every component that needs to wait on more than one thing at once gets the primitive it is
-currently working around the absence of.
+What is blocked: nothing directly. The `terminal_sink_caretaker` narrowing (the remaining fork of
+milestone 40 (documentation as a system service)) unblocks the documentation viewer without this.
+What this unblocks is the class of problem: every component that needs to wait on more than one
+thing at once gets the primitive it is currently working around the absence of.
+
+## Amended 2026-09-26: a bound delivery is marked in `w4`, which only the kernel writes
+
+calef, 2026-09-26 (recorded 16:54 UTC): *"151: confirm B."*
+
+The lane for milestone 151 (notification objects) found the encoding in "The return-value
+distinction" forgeable. `RECV` returns the sender's own first data word in `w0` (the `RECV` arm of
+`kernel/src/syscall.rs` returns `msg[0]`), so any sender can `SEND(2, word, 0)` and pass for a bound
+notification. That section stands as ruled; this replaces it.
+
+The ruling, option B:
+
+- `w0 = 2` with the notification word in `w1` stays.
+- On a notification delivery, the kernel also writes `2` to `w4`, in each of `RECV`, `RECV_CAP`
+  and `Irq::WAIT`.
+- A receiver tests `w4`. A `SEND` carries three words and cannot reach it; the kernel writes `0`
+  there for every ordinary message and every §26 (the fault endpoint) death message.
+
+The constraint this leaves: §26.4 (dead-until-reaped, which reserves that word for a fault-reply
+protocol) must never put `2` in `w4`.
+
+Refused, per `notes/notification-objects.md` on pull request #1351: A (as written) and E (a new
+error meaning "notified") are forgeable. C (each method's own kernel-written register) is free on
+every path but makes three rules of one. D spends a method number on a register convention.
+
+The IRQ signal, `w0 = 1`, is forgeable the same way, and stays so. It is safe today by
+wiring, not enforcement: an interrupt's endpoint is reached only through `Irq::WAIT`, which cannot
+send, and nothing refuses a service that also grants it with `WRITE`. The fix is this section's
+undecided IRQ migration; until then it is a `BUGS` entry in milestone 151's block.
 
 ## What is being decided
 
-Whether to add a **notification object** - a new kernel object type, created by `RETYPE_OBJ`, that
+Whether to add a notification object - a new kernel object type, created by `RETYPE_OBJ`, that
 holds a data word and a wait queue, supports `SIGNAL` (async, non-rendezvous, never lost) and `WAIT`
-(blocking receive of the accumulated word), and can be **bound to a TCB** so that a signal arriving
+(blocking receive of the accumulated word), and can be bound to a TCB so that a signal arriving
 on the notification wakes a thread that is currently blocked in `RECV` on an *endpoint*.
 
 This is seL4's notification object (seL4 manual, chapter "Notifications"), adapted to this kernel's
@@ -39,16 +68,16 @@ the message; `RECV` blocks until one arrives; there is no select, no poll, no re
 timed wait (DECISIONS §51's fork is still open, milestone 106 is NOT-STARTED). Every component that
 must distinguish more than one class of sender hits this wall:
 
-- **Shell** (notes/pipes.md): cannot feed a chain and read from it, so `doc page.md` is refused
+- Shell (notes/pipes.md): cannot feed a chain and read from it, so `doc page.md` is refused
   without a barrier downstream.
-- **Compositor** (notes/compositor.md, §33): cannot hold per-client endpoints, so it routes
-  everything through one endpoint and carries authority in memory. "The constraint is structural,
-  not stylistic."
-- **Supervision** (§26.5): chose a shared endpoint with kernel-stamped identity *specifically to
+- Compositor (notes/compositor.md; §33 (the compositor's authority is memory, not messages)):
+  cannot hold per-client endpoints, so it routes everything through one endpoint and carries
+  authority in memory. "The constraint is structural, not stylistic."
+- Supervision (§26.5): chose a shared endpoint with kernel-stamped identity *specifically to
   avoid* needing wait-any or a thread per child.
-- **FS server** (notes/fs-server.md): wants a set of endpoints, doesn't have it.
-- **Credentialer** (notes/credentials.md): "this kernel has one wait point."
-- **Network stack** (milestone 106): yields and re-polls across every retransmit window, burning a
+- FS server (notes/fs-server.md): wants a set of endpoints, doesn't have it.
+- Credentialer (notes/credentials.md): "this kernel has one wait point."
+- Network stack (milestone 106): yields and re-polls across every retransmit window, burning a
   hart, because there is no timed wait.
 
 Every one of these is the same missing primitive wearing a different hat. The `terminal_sink_caretaker`
@@ -57,28 +86,23 @@ narrowing solves one instance for one program; a notification object solves the 
 ### The kernel already has half the mechanism
 
 `ipc::Endpoint` (`inter_process_communication::Rendezvous` since §113 and 2026-09-19) already
-carries a **pending-signal count**: `signal()` wakes a waiting receiver or counts the signal so it
+carries a pending-signal count: `signal()` wakes a waiting receiver or counts the signal so it
 is not lost; `recv` drains a pending signal first. IRQ capabilities are bound to endpoints via
 `bind_irq`, and `irq_notify` calls `endpoint.signal()`. The proved invariant ("at most one wait
 queue is ever non-empty") holds for signals because a signal never queues the signaller - it is
 deliberately not a rendezvous.
 
-What exists today:
-- `signal()` on `ipc::Endpoint` - wakes a receiver or increments `pending`
-- `bind_irq(intid, ep)` - routes a hardware interrupt to an endpoint
-- `irq_notify(ep)` - called from IRQ context, calls `endpoint.signal()`
-
 What is missing:
-1. A **user-callable signal**: today only the kernel's IRQ handler can signal an endpoint. A
+1. A user-callable signal: today only the kernel's IRQ handler can signal an endpoint. A
    userspace process needs to signal a notification object.
-2. A **separate object type**: signals today are a side channel on an endpoint, which means the
+2. A separate object type: signals today are a side channel on an endpoint, which means the
    signal count and the IPC rendezvous share one wait queue. seL4 separates them: a notification is
    its own object with its own queue, and an endpoint is purely synchronous.
-3. **Binding to a TCB**: today a signal wakes a thread blocked on the *same* endpoint. Binding lets
+3. Binding to a TCB: today a signal wakes a thread blocked on the *same* endpoint. Binding lets
    a signal on a notification wake a thread blocked on a *different* endpoint (one is an IPC `RECV`,
    the other is the bound notification), so a thread can wait for IPC and be woken by an async
    signal at the same time.
-4. **A badge**: the notification word carries information about which signaler fired, so the
+4. A badge: the notification word carries information about which signaler fired, so the
    receiver can distinguish "the child exited" from "the timer fired" from "a key was pressed."
 
 ## What other operating systems do
@@ -90,40 +114,17 @@ queue of TCBs. `seL4_Signal` ORs the capability's badge into the word and wakes 
 counts the signal if nobody is waiting). `seL4_Wait` blocks if the word is zero, returns the word
 and clears it if non-zero. `seL4_Poll` is the non-blocking version.
 
-The key mechanism is **binding** (`seL4_TCB_BindNotification`): a notification bound to a TCB
+The key mechanism is binding (`seL4_TCB_BindNotification`): a notification bound to a TCB
 delivers signals even while the thread is blocked in `RECV` on an endpoint. The receiver
 distinguishes "this was IPC" from "this was a notification" by checking the badge. This is how seL4
 does `select` without a `select` syscall: one blocking wait point that can be woken by either a
 synchronous IPC message or an async notification, and the badge tells you which.
 
-### Unix/Linux: select/poll/epoll/kqueue
+### Unix, Fuchsia, Mach and Redox
 
-Unix's answer is fd multiplexing. `epoll_wait` blocks until one of N fds is ready. This works
-because fds are a uniform namespace and the kernel maintains readiness state per fd. It is the wrong
-model for a capability kernel: fds are ambient (a process can reach any fd its parent didn't
-close), readiness is a polling abstraction rather than a delivery, and the mechanism is a
-kernel-internal data structure rather than a delegatable capability.
-
-### Fuchsia: zx_port_wait
-
-Fuchsia has `zx_port` objects - async signal queues a thread can wait on. Multiple sources (timer,
-channel, device interrupt) queue packets to the same port, and `zx_port_wait` returns one. Closer to
-seL4's model (delivery, not readiness) but adds a layer: the port is a separate object that queues
-packets, where seL4's notification is simpler (a word + a queue).
-
-### Mach (macOS/XNU): ports and port sets
-
-Mach has `mach_port` and `mach_port_set` - a thread can receive on a set of ports, and `mach_msg`
-returns from whichever has a message. This is the direct ancestor of seL4's model (seL4 started as
-L4, which started as a Mach replacement). seL4 replaced port sets with bound notifications because
-sets added complexity (the set is another object with its own lifetime and revocation) for a
-mechanism notifications handle more simply.
-
-### Redox: event queues
-
-Redox has `event:` schemes and an event queue. A process registers interest in events from multiple
-fds and blocks on one queue. This is the Unix model with a Redox-specific API, and it assumes the
-scheme namespace and fd model nife doesn't have.
+Cut on 2026-09-26 to fit the amendment under §212 (a prose budget)'s cap; the survey is
+[at `256815e56`](https://github.com/crickertech/nife/blob/256815e5609cfb961ccb6526f8a0d3316e589402/design/decisions/101-notification-objects.md#unixlinux-selectpollepollkqueue).
+Mach's port sets are what seL4 replaced.
 
 ## The design
 
@@ -136,9 +137,9 @@ objtype::NOTIFICATION: u64 = 4
 A notification is a page-resident kernel object, created by `RETYPE_OBJ`, owned by the caller's
 untyped budget. It holds:
 
-- A **notification word** (`u64`), acting as a bitfield of binary semaphores.
-- A **wait queue** (intrusive `Fifo<Thread>`, same as an endpoint's receiver queue).
-- A **bound TCB** (`Option<Tid>`, set by `BIND`, at most one).
+- A notification word (`u64`), acting as a bitfield of binary semaphores.
+- A wait queue (intrusive `Fifo<Thread>`, same as an endpoint's receiver queue).
+- A bound TCB (`Option<Tid>`, set by `BIND`, at most one).
 
 One page per object, same as every other object type (§14's one-object-per-page rule).
 
@@ -187,15 +188,15 @@ No new rights bits. `ENUMERATE` is not needed (a notification has no children to
 This is the part that makes it more than a counting semaphore. When a notification is bound to a
 TCB:
 
-1. If the TCB is **runnable or blocked on the notification itself**, `SIGNAL` behaves as on an
+1. If the TCB is runnable or blocked on the notification itself, `SIGNAL` behaves as on an
    unbound notification: wake the waiter or count the signal.
 
-2. If the TCB is **blocked in `RECV` on an endpoint**, `SIGNAL` wakes the TCB from that endpoint's
+2. If the TCB is blocked in `RECV` on an endpoint, `SIGNAL` wakes the TCB from that endpoint's
    wait queue instead. The `RECV` returns with a distinguished return value indicating "this was a
    notification, not an IPC message," and the notification word is available in the return
    registers (the badge).
 
-3. If the TCB is **blocked anywhere else** (in `SEND`, in `CALL`, in `REAP`), the signal is counted
+3. If the TCB is blocked anywhere else (in `SEND`, in `CALL`, in `REAP`), the signal is counted
    in the notification word and delivered when the TCB next enters `RECV` on any endpoint or calls
    `WAIT` on the notification. This is the same "remember, don't lose" semantics the existing signal
    count has.
@@ -207,6 +208,8 @@ This means a thread that does `RECV` on its IPC endpoint can be woken by either:
 and it can tell which by the return value.
 
 ### The return-value distinction
+
+*Amended 2026-09-26: forgeable; a receiver tests `w4` (the amendment at the top).*
 
 `RECV` today returns `w0` (the message's first word, or `1` for a signal). We extend the convention:
 
@@ -220,12 +223,12 @@ the ABI.
 
 ### What this does NOT add
 
-- **No new syscall.** `SIGNAL`, `WAIT`, `POLL`, and `BIND` are methods under the existing
+- No new syscall. `SIGNAL`, `WAIT`, `POLL`, and `BIND` are methods under the existing
   `SYS_INVOKE` dispatch, the same way `SEND`, `RECV`, `REAP`, and `SURVEY` are. §4's "the syscall
   surface stays narrow" holds: `SYS_INVOKE` already exists, and this adds one new `objtype` and four
   new method constants under it.
 
-- **No badged capabilities (yet).** seL4 badges the *capability* to the notification, so each
+- No badged capabilities (yet). seL4 badges the *capability* to the notification, so each
   signaler's copy ORs a different bit. This kernel has no badge field on capabilities (notes/abi.md,
   notes/supervision.md, notes/compositor.md all record this as a design fork). The notification word
   is passed as an argument to `SIGNAL`, so a signaler *can* identify itself by choosing a bit, but
@@ -233,7 +236,7 @@ the ABI.
   as a `SEND` can. Badged capabilities are the fork that retires the lie, and this decision does not
   take it; it records that the notification object is ready for the day it arrives.
 
-- **No timed wait.** `WAIT` blocks indefinitely, same as `RECV`. A timed wait is milestone 106's
+- No timed wait. `WAIT` blocks indefinitely, same as `RECV`. A timed wait is milestone 106's
   fork, and a notification bound to a TCB does not give the TCB a deadline. What it does give is the
   ability to be woken by a *timer notification* - a user process that holds a clock capability and a
   thread can signal a notification when the timer fires, which is how seL4 userspace implements
@@ -300,17 +303,17 @@ waking it from whichever child's endpoint delivers first. That is now possible b
 
 ## Sequencing
 
-1. **Now**: take the `terminal_sink_caretaker` narrowing (milestone 40, no kernel change).
-2. **Notification object**: new `objtype`, four methods, the binding mechanism, Kani proof. This is
+1. Now: take the `terminal_sink_caretaker` narrowing (milestone 40, no kernel change).
+2. Notification object: new `objtype`, four methods, the binding mechanism, Kani proof. This is
    a kernel milestone - one lane, estimated from the existing `Endpoint` and `signal()` work at the
-   same scale as 19a (which added `RETYPE_OBJ` and the endpoint object). **Minted as milestone 151**
+   same scale as 19a (which added `RETYPE_OBJ` and the endpoint object). Minted as milestone 151
    (2026-08-22), forced by a concrete bug rather than scheduled speculatively: §106's
    `terminal_sink_caretaker` narrowing can race its own completion signal, and this is that fix's
    tracked home.
-3. **Retrofit**: the shell binds a notification to its TCB and replaces the "wait for exit" hack
+3. Retrofit: the shell binds a notification to its TCB and replaces the "wait for exit" hack
    with a proper multiplexed wait. The compositor can take per-client endpoints. The network stack
    can stop yield-spinning.
-4. **Badge fork** (separate decision): badged capabilities, so notification identity is
+4. Badge fork (separate decision): badged capabilities, so notification identity is
    kernel-stamped rather than signaler-supplied. This is the fork notes/supervision.md,
    notes/compositor.md, and notes/dir-capability.md already record.
 
@@ -349,22 +352,21 @@ separate endpoints, and the multiplexing happens at the wait level, not the prot
 
 ### Buffering stage
 
-Measured and rejected (notes/pipes.md, 2026-08-03). A buffer doubles the per-message cost (second
-rendezvous) and cannot batch its way out of the 16-byte sink contract cap. Buffering buys
-decoupling, not bandwidth, and no pipeline in the tree has producer-side work to overlap. The
-notification object does not make buffering more attractive - it makes it less, because the
-deadlock buffering was proposed to fix is solved structurally.
+Measured and rejected (notes/pipes.md, 2026-08-03; full text [at
+`256815e56`](https://github.com/crickertech/nife/blob/256815e5609cfb961ccb6526f8a0d3316e589402/design/decisions/101-notification-objects.md#buffering-stage)).
+A buffer doubles the per-message cost and buys decoupling, not bandwidth, and the notification
+object solves the deadlock it was proposed for.
 
 ## The honest caveats
 
-- **Binding is the hard part.** The `RECV` dispatch change - "check whether the blocked TCB has a
+- Binding is the hard part. The `RECV` dispatch change - "check whether the blocked TCB has a
   bound notification with a non-zero word" - touches the IPC fastpath, which is the most
   performance-sensitive code in the kernel (milestone 132, notes/l4-lessons.md rows 11/13/14). The
   check is one load and one compare on a field the TCB already carries, but it is on the path that
   `ipc_rtt_el0` measures, and the cost must be measured rather than assumed. If the check is
   non-zero (the common case is no notification bound), it is one branch not taken.
 
-- **The badge is not kernel-stamped.** A signaler chooses the word it ORs in, and nothing prevents
+- The badge is not kernel-stamped. A signaler chooses the word it ORs in, and nothing prevents
   a signaler from lying. seL4 stamps the badge at the capability level, so a signaler cannot
   impersonate another. This kernel has no badge field on capabilities, and adding one is a separate
   fork (badged endpoints/notifications) that touches every capability in the tree. This decision
@@ -372,12 +374,12 @@ deadlock buffering was proposed to fix is solved structurally.
   words are signaler-supplied. Badges are the fork that retires the lie, and this design is ready
   for them.
 
-- **One notification per TCB.** seL4 allows one bound notification per TCB, and so does this design.
+- One notification per TCB. seL4 allows one bound notification per TCB, and so does this design.
   A thread that needs to wait on multiple async sources binds one notification and has each source
   signal a different bit. This is sufficient for every consumer identified above, and it keeps the
   TCB's binding field to one `Option<Tid>`.
 
-- **The notification object is not a substitute for milestone 106 (timed wait).** A timed wait is a
+- The notification object is not a substitute for milestone 106 (timed wait). A timed wait is a
   kernel primitive that blocks for a deadline. A notification object lets a *userspace timer
   process* wake a thread at a deadline, which is how seL4 does it, but it requires that timer
   process to exist and to hold a clock capability. If the kernel itself needs a timed wait (for a
@@ -387,15 +389,15 @@ deadlock buffering was proposed to fix is solved structurally.
 
 ## What this does not decide
 
-- **Badged capabilities.** Recorded as a separate fork in notes/supervision.md,
+- Badged capabilities. Recorded as a separate fork in notes/supervision.md,
   notes/compositor.md, notes/dir-capability.md, and notes/grant-expression.md. The notification
   object is compatible with badges and ready for them; this decision does not add them.
-- **The `terminal_sink_caretaker` narrowing.** That is milestone 40's fork, and this decision does
+- The `terminal_sink_caretaker` narrowing. That is milestone 40's fork, and this decision does
   not take it. The two are independent: the narrowing is a wiring change that works today; the
   notification object is a kernel change that replaces the class of workaround.
-- **Direct process switch (§96).** The L4 lessons audit found this kernel has no direct process
-  switch (rows 11/13/14). That is a separate decision about the scheduling model, and the
-  notification object does not depend on it or change it.
-- **IRQ migration.** Whether IRQs are rerouted from endpoints to notifications is a migration
+- Direct process switch, §96 (process kernel or event kernel). The L4 lessons audit found this
+  kernel has no direct process switch (rows 11/13/14). That is a separate decision about the
+  scheduling model, and the notification object does not depend on it or change it.
+- IRQ migration. Whether IRQs are rerouted from endpoints to notifications is a migration
   decision for the driver model, not this decision. The existing `bind_irq` / `irq_notify` path
   stays.
