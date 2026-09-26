@@ -104,7 +104,6 @@ design/decisions/167-what-a-profiling-session-may-name.md	-	-	49	13	7
 design/decisions/168-where-a-rotation-verb-lives.md	-	-	42	14	0
 design/decisions/169-whether-a-clipboard-exists.md	-	21.5	50	11	2
 design/decisions/17-riscv-second-architecture.md	-	22	111	8	5
-design/decisions/170-how-a-foreign-program-is-told-what-to-do.md	-	-	-	14	1
 design/decisions/171-where-a-program-image-starts.md	-	-	42	12	3
 design/decisions/172-credential-endpoint-per-resource.md	-	-	44	7	3
 design/decisions/173-narrowing-the-namespace-root.md	-	-	42	6	2
@@ -368,7 +367,6 @@ design/roadmap/201-defect-discovery-curve.md	-	-	50	29	6
 design/roadmap/202-confinement-claims-falsified.md	-	-	59	33	8
 design/roadmap/203-vendored-engine-upgrades.md	-	-	52	25	11
 design/roadmap/204-lane-claim-check.md	-	-	66	22	5
-design/roadmap/205-foreign-program-arguments.md	-	-	49	10	0
 design/roadmap/206-user-image-ceiling.md	-	-	47	7	2
 design/roadmap/207-community-documentation.md	-	21	63	22	20
 design/roadmap/208-boot-section-wx.md	-	-	56	27	7

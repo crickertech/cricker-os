@@ -12,43 +12,50 @@ needs_person: no
 Minted 2026-08-31 from milestone 121's (`ripgrep`: enumeration as a
 capability) lane. *(Number provisional until the merge queue lands it.)*
 
-Every future program is written against the answer, which puts it in AGENTS.md's
-irreversible category alongside the syscall surface, so this arrives as options rather than a
-recommendation. It is §170 (how a
-foreign program is told what to do), written up 2026-09-19 by milestone 435's lane, which also
-corrected one premise: this ABI has no argument *vector*, but it does have arguments, one `u64` and
-a flag bitmask bound into a program's declared manifest by `grant_plan::Endowment`.
+§170 (how a foreign program is told what to do), the decision this block depends on, was decided
+by calef on 2026-09-26. Two parts of the build are still an architect's: the
+block's layout, which two programs agree on, and the spelling of the mark on a word. The lane ships
+each provisionally and brings it to calef as a proposal rather than waiting.
 
-**In brief.** Unmodified `ripgrep` runs on nife and stops at argument parsing, because
-**`std::env::args()` compiles std's `unsupported` backend and yields nothing.** The nife ABI has no
-argument vector. A stranger's program reaches its own usage error and can go no further.
+In brief. Unmodified `ripgrep` runs on nife and stops at argument parsing, because
+`std::env::args()` compiles std's `unsupported` backend and yields nothing. A stranger's program
+reaches its own usage error and can go no further. Everything milestone 121 (`ripgrep` on nife)
+still owes is behind this: the confined `rg`, the loud `ENUMERATE` refusal, and the walk benchmark.
 
-Everything milestone 121 still owes is behind this: the confined `rg`, the loud `ENUMERATE` refusal,
-and the walk benchmark.
+## What the ruling asks this milestone to build
 
-## The options, and none is obviously right
+§170 has the ruling in full. In short:
 
-- **An argv, as POSIX has it.** What every ported program expects, and it imports a convention this
-  ABI deliberately does not have. DECISIONS §15 (the native ABI) chose out-of-band capability slots
-  over a self-describing environment precisely to avoid inheriting Unix's shape by default.
-- **A nife-shaped equivalent**, where arguments arrive the way capabilities do. Coherent with §15 and
-  §47's conclusion that designation is authorization, and every foreign program needs a shim.
-- **Decide that `grant_plan` is the only answer**, and foreign CLIs get a shim by design rather than
-  by omission. The most honest about what this system is, and the least welcoming to the corpus
-  milestone 123 (the demonstration: somebody else's software, running narrow) needs.
+1. An argv of plain bytes in one page, carrying no authority. The transport was priced at about 50
+   lines and no new syscall in notes/foreign-program-arguments.md (#1314), which also holds the
+   layout this milestone proposes.
+2. A word that resolves to an existing file is granted that file as the program's manifest
+   declares: read-only, read-write, or the file's directory. The manifest travels in the ELF (§197
+   (a package is one archive file), M2), which is the proposal
+   `design/roadmap/proposals/a-program-carries-its-manifest-in-an-elf-note.md`.
+3. A manifest may declare "may create the named path" for a word that does not yet resolve.
+4. An unvouched program gets every named file read-only. Read-write and create each need a mark
+   on the word, spelled provisionally here.
+5. The directories granted on the line bound everything else.
 
-**No recommendation.** The choice determines whether the ecosystem risk stays retired or comes back
-as a per-program tax, and it is the kind of decision AGENTS.md says reaches calef as options.
+## What stays open
+
+- The layout: where the page sits, `argv[0]`, bytes rather than UTF-8, the 4,080-byte ceiling.
+  The note lists the choices.
+- The mark's spelling, which is a naming decision.
+- Environment variables and exit codes for a foreign program, which §170 does not rule.
 
 ## BUGS
 
-- **This block does not price any option**, and the shim option in particular is only cheap if
-  somebody has costed one, which nobody has.
-- **It says nothing about environment variables or exit codes**, which are the same family of
-  question and will arrive right behind it.
+- It says nothing about environment variables or exit codes, which are the same family of
+  question and arrive right behind it.
+- Two code comments still call §170 open, and both change when this is built: the `std_layout`
+  arm of the progenitor's spawn path and `StdLayout`'s BUGS in `crates/system_initializer`, and
+  `Prog::StdExerciser`'s manifest in `crates/grant_plan`.
 
 ## Index row
 
-Minted from milestone 121's lane. Unmodified `ripgrep` runs and stops at argument parsing: `std::env::args()` compiles std's `unsupported` backend and yields nothing, because the nife ABI
-has no argument vector. Everything 121 still owes is behind it. Gate: DECISION, and it arrives as
-options rather than a recommendation, because every future program is written against the answer.
+Minted from milestone 121's lane. Unmodified `ripgrep` runs and stops at argument parsing. The nife
+ABI has no argument vector, so `std::env::args()` compiles std's `unsupported` backend and yields
+nothing. §170 ruled on 2026-09-26: a byte argv in one page, and authority from the
+manifest and the line's directories. Everything 121 still owes is behind this milestone.
