@@ -157,8 +157,15 @@ pub(crate) fn invoke(
                 // This one line is what turns a dead pipe reader into something the producer can
                 // act on, which is why the ABI grew a variant rather than the sink protocol growing
                 // a heartbeat.
+                //
+                // **Or it was refused** (milestone 603 (provisional), DECISIONS §101 ruling B): the
+                // endpoint carries a hardware interrupt, whose driver reads `w0 = 1` as "the device
+                // fired", so no program may deposit anything there. `NotPermitted`, because it is
+                // the answer to an operation the capability names but may not perform, and it is
+                // asked only once the abort branch is taken, so a send that went through pays
+                // nothing for it.
                 if sched::take_ipc_aborted() {
-                    return Err(Error::Gone);
+                    return Err(aborted_send_error());
                 }
                 Ok(0)
             }
@@ -206,7 +213,9 @@ pub(crate) fn invoke(
                     },
                 );
                 if sched::take_ipc_aborted() {
-                    return Err(Error::Gone); // endpoint revoked; the delegation did not happen
+                    // Revoked, or refused (§101 ruling B); either way the delegation did not happen
+                    // and the capability is still the sender's.
+                    return Err(aborted_send_error());
                 }
                 Ok(0)
             }
@@ -234,7 +243,7 @@ pub(crate) fn invoke(
                 }
                 let reply = sched::ipc_call(ep, [a0, a1]);
                 if sched::take_ipc_aborted() {
-                    return Err(Error::Gone); // endpoint revoked; no call, no reply
+                    return Err(aborted_send_error()); // revoked or refused; no call, no reply
                 }
                 frame.set_arg(1, reply[1]); // r1; r0 returns in x0 below
                 Ok(reply[0] as i64)
@@ -499,6 +508,22 @@ pub(crate) fn invoke(
         // unchanged.
         #[cfg(target_arch = "x86_64")]
         Object::PortRange(base, count) => port_range_invoke(cap.rights, base, count, method),
+    }
+}
+
+/// **Which error an aborted `SEND`, `SEND_CAP` or `CALL` answers** (milestone 603 (provisional)).
+/// `NotPermitted` when the endpoint carries an interrupt and refused the deposit (DECISIONS §101,
+/// ruling B), `Gone` when it was stale or revoked. Out of line and `#[cold]`, because it runs only
+/// on an abort and the three arms that call it are on the IPC fastpath.
+///
+/// Name: provisional (milestone 603 (provisional)): calef names public items.
+#[cold]
+#[inline(never)]
+fn aborted_send_error() -> Error {
+    if sched::take_ipc_refused() {
+        Error::NotPermitted
+    } else {
+        Error::Gone
     }
 }
 

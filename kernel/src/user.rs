@@ -3780,6 +3780,19 @@ mod survey_tests;
 #[cfg(test)]
 mod survey_record_tests;
 
+/// **An endpoint that carries an interrupt refuses every send** (milestone 603 (provisional),
+/// DECISIONS §101 ruling B). Driven through the real dispatcher (`syscall::invoke`) on the sending
+/// side and through `Irq::WAIT` on the driver's, because the ruling is about what a program can do
+/// at the boundary: a test that called `sched::ipc_send` would prove the helper.
+///
+/// Cross-ISA, and it has to be: the refusal is `Rendezvous::send`'s and the error mapping is
+/// `syscall`'s, neither under `arch/`, so all three architectures run exactly these assertions. The
+/// interrupt is delivered with `sched::irq_notify`, the function every ISA's handler calls, rather
+/// than raised at a controller, which keeps the test off each machine's interrupt wiring (proved
+/// elsewhere, in `sched`'s own tests) and on the one thing it is about.
+#[cfg(test)]
+mod irq_send_refusal_tests;
+
 /// **What the CPU-time record's number means** (milestone 282 (a thread's CPU time, and the `top` it makes possible), DECISIONS §150 (how does a thread's CPU time reach userspace?)).
 ///
 /// `survey_record_tests` proves that a record can be asked for and that an unknown one is refused,

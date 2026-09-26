@@ -606,6 +606,46 @@ fn set_ipc_aborted(sched: &mut IpcTables, tid: ThreadId) {
     }
 }
 
+/// **Refuse the current thread's send, because the rendezvous carries an interrupt** (milestone 603
+/// (provisional), DECISIONS §101 ruling B). An abort, so the syscall layer's existing
+/// `take_ipc_aborted` branch is the only one the common path pays for, plus the reason, which only
+/// that branch reads ([`take_ipc_refused`]). The sender never parked, so the abort does not weaken
+/// the boot-8 gate for anything: it is taken immediately, as a stale endpoint's is.
+///
+/// `#[cold]` for [`set_ipc_aborted`]'s reason: no healthy IPC reaches it, and it is reached from
+/// three functions on `script/fastpath-footprint`'s closures.
+///
+/// Name: provisional (milestone 603 (provisional)): calef names public items.
+#[cold]
+#[inline(never)]
+fn set_ipc_refused(sched: &mut IpcTables, tid: ThreadId) {
+    if let Some(t) = sched.threads.get_mut(tid) {
+        t.handshake.abort();
+        t.ipc_refused = true;
+    }
+}
+
+/// **Read and clear why the current thread's aborted send was aborted**: `true` when the rendezvous
+/// carries an interrupt and refused it ([`set_ipc_refused`]), `false` when it was stale or revoked.
+/// Called by the syscall layer only after [`take_ipc_aborted`] returned `true`, so an IPC that was
+/// not aborted never pays for it.
+///
+/// Name: provisional (milestone 603 (provisional)): calef names public items.
+#[cold]
+#[inline(never)]
+pub fn take_ipc_refused() -> bool {
+    let mut guard = IPC_TABLES.lock();
+    let Some(sched) = guard.as_mut() else {
+        return false;
+    };
+    let tid = current_thread_id();
+    sched
+        .threads
+        .get_mut(tid)
+        .map(|t| core::mem::take(&mut t.ipc_refused))
+        .unwrap_or(false)
+}
+
 /// **Read and clear the current thread's IPC-aborted flag** (object revocation). The syscall layer
 /// calls this right after an rendezvous IPC primitive returns: `true` means the rendezvous was stale, or
 /// revoked while the thread blocked on it, so the caller gets an error instead of the primitive's
@@ -1876,6 +1916,12 @@ fn deliver_death(sched: &mut IpcTables, corpse: ThreadId, ep: RendezvousId, msg:
                 t.handshake.wait_on = Some((ep, WaitRole::Sender));
             }
         }
+        // The supervision rendezvous carries an interrupt (§101 ruling B). Dropped, like a death
+        // to a rendezvous that is gone: its `w0` is `EVENT_FAULT` or `EVENT_EXIT`, and `EVENT_FAULT`
+        // is 1, which a driver would read as its interrupt. Reachable only by configuring an
+        // interrupt's endpoint as a fault endpoint, which needs a `Rendezvous` capability to it that
+        // no program is granted today.
+        inter_process_communication::Send::Refused => {}
     }
 }
 
@@ -2411,8 +2457,28 @@ static IRQ_ROUTES: [AtomicU64; MAX_INTID] = [const { AtomicU64::new(0) }; MAX_IN
 
 /// Route a hardware interrupt to an rendezvous. From now on, when `intid` fires, whoever is
 /// blocked on `ep` wakes; if nobody is, the signal is remembered so it is not lost.
+///
+/// **And from now on `ep` refuses every send** (DECISIONS §101, calef's ruling B, 2026-09-26). An
+/// interrupt reaches its driver as `w0 = 1`, which is also a word any sender can put in `w0`, so an
+/// endpoint that carried both could not tell a driver which one woke it. The refusal is the
+/// rendezvous's own (`Rendezvous::bind_to_interrupt`), so it holds for every endpoint bound here
+/// whoever created it: the fifteen the kernel creates for its drivers, which no program is ever
+/// granted, and the caller-supplied ones `soak::bind_tick_routes` binds, which is why this is done
+/// here rather than at each call site. `SEND`, `SEND_CAP` and `CALL` answer
+/// [`abi::Error::NotPermitted`]; see `set_ipc_refused`.
+///
+/// Marked before the route is published, so there is no instant at which the interrupt is live on
+/// an endpoint that still accepts a send. A stale `ep` is routed and not marked, exactly as before:
+/// `irq_notify` drops a signal to a name that does not resolve, and a name that does not resolve
+/// cannot be sent to either.
 pub fn bind_irq(intid: u32, ep: RendezvousId) {
     assert!((intid as usize) < MAX_INTID, "intid {intid} out of range");
+    {
+        let guard = IPC_TABLES.lock();
+        if let Some(rendezvous) = guard.as_ref().and_then(|sched| rendezvous_of(sched, ep)) {
+            rendezvous.bind_to_interrupt();
+        }
+    }
     // +1 so 0 keeps meaning "not routed". A name can never be u64::MAX (the registry mints
     // (generation << 32) | slot with slot < 256), so the increment cannot wrap.
     IRQ_ROUTES[intid as usize].store(ep + 1, Ordering::Release);
@@ -2753,6 +2819,11 @@ pub fn ipc_send(ep: RendezvousId, msg: [u64; 3]) {
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
                 true
             }
+            // The rendezvous carries an interrupt (§101 ruling B): nothing was delivered or queued.
+            inter_process_communication::Send::Refused => {
+                set_ipc_refused(sched, current);
+                false
+            }
         }
     };
 
@@ -2894,6 +2965,11 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap) {
                 me.handshake.park((ep, WaitRole::Sender)); // only a collecting receiver may wake us
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
                 true
+            }
+            // As in `ipc_send`. The capability stays with the sender: it was never moved.
+            inter_process_communication::Send::Refused => {
+                set_ipc_refused(sched, current);
+                false
             }
         }
     };
@@ -3050,6 +3126,12 @@ pub fn ipc_call(ep: RendezvousId, msg: [u64; 2]) -> [u64; 3] {
                 let me = sched.threads.get_mut(current).unwrap();
                 me.mailbox = [msg[0], msg[1], 0, 0, 0];
                 me.outgoing_cap = Some(reply);
+            }
+            // The rendezvous carries an interrupt (§101 ruling B). Return before parking: a caller
+            // whose request was refused has no reply coming, and would otherwise wait for ever.
+            inter_process_communication::Send::Refused => {
+                set_ipc_refused(sched, current);
+                return [0, 0, 0];
             }
         }
         // Either way we block until the reply arrives. We are NOT queued as a receiver; the Reply

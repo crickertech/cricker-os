@@ -1,0 +1,24 @@
+Falsifies `kernel::user::irq_send_refusal_tests::a_send_to_an_interrupts_endpoint_is_refused_and_the_driver_never_sees_it`.
+
+The defect: `Rendezvous::send` forgets DECISIONS §101's ruling B and decides as it did before it.
+`bind_irq` still marks the endpoint and nothing reads the mark, so the kernel compiles, every
+`Send::Refused` arm is simply never reached, and every other test stays green.
+
+Expected to fail: the `SEND` assertion, which gets `Ok(0)` where it wants `NotPermitted`,
+because the send rendezvouses with the driver parked in `Irq::WAIT`. That driver wakes holding
+`1`, which is exactly what its interrupt looks like.
+
+diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
+--- a/crates/inter_process_communication/src/lib.rs
++++ b/crates/inter_process_communication/src/lib.rs
+@@ -376,9 +376,7 @@ impl<T: Node> Rendezvous<T> {
+     /// as long as it may be queued here. (The kernel's discipline: `me` is the running thread,
+     /// and a thread queued here is `Blocked`, which the reaper never touches.)
+     pub unsafe fn send(&mut self, me: NonNull<T>) -> Send<T> {
+-        if self.bound_to_interrupt {
+-            Send::Refused
+-        } else if let Some(receiver) = self.receivers.pop_front() {
++        if let Some(receiver) = self.receivers.pop_front() {
+             Send::Rendezvous(receiver)
+         } else {
+             // SAFETY: the caller's contract is exactly the queue's.

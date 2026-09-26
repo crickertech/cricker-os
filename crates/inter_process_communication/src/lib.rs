@@ -139,6 +139,18 @@ pub struct Rendezvous<T: Node> {
     receivers: Fifo<T>,
     /// Async signals that arrived with nobody waiting. Drained by the next receive, never lost.
     pending: u32,
+    /// **This rendezvous carries a hardware interrupt, so it takes no message** (DECISIONS §101,
+    /// amended 2026-09-26: calef's ruling B). Set once by [`bind_to_interrupt`](Self::bind_to_interrupt)
+    /// and never cleared. While it is set, [`send`](Self::send) answers [`Send::Refused`] and
+    /// touches nothing, so the only thing a receiver here can ever be handed is a
+    /// [`signal`](Self::signal). That is what makes an interrupt's `w0 = 1` unforgeable by rule
+    /// rather than by nobody having been handed a `WRITE` capability.
+    ///
+    /// It sits in the padding after `pending`, so the object did not grow.
+    ///
+    /// Name: provisional (milestone 603 (provisional), an interrupt's rendezvous refuses every
+    /// send): calef names public items, and this is read through the public methods.
+    bound_to_interrupt: bool,
 }
 
 /// What a [`send`](Rendezvous::send) decided.
@@ -147,6 +159,17 @@ pub enum Send<T> {
     Rendezvous(NonNull<T>),
     /// Nobody was waiting: the sender is now queued on this rendezvous.
     Blocked,
+    /// **The rendezvous carries an interrupt and takes no message** (see
+    /// [`bind_to_interrupt`](Rendezvous::bind_to_interrupt)). Nothing was queued and no receiver
+    /// was taken: the rendezvous is exactly as it was. The caller turns this into an error and must
+    /// not block.
+    ///
+    /// A variant rather than a check at each call site, so that every path that deposits into a
+    /// rendezvous (the kernel has four today: `SEND`, `SEND_CAP`, `CALL`, and a §26 death message)
+    /// is made to say what it does here by the compiler, and a fifth cannot forget to.
+    ///
+    /// Name: provisional (milestone 603 (provisional)): calef names public items.
+    Refused,
 }
 
 /// What a [`recv`](Rendezvous::recv) decided.
@@ -166,6 +189,7 @@ impl<T> PartialEq for Send<T> {
         match (self, other) {
             (Send::Rendezvous(a), Send::Rendezvous(b)) => a == b,
             (Send::Blocked, Send::Blocked) => true,
+            (Send::Refused, Send::Refused) => true,
             _ => false,
         }
     }
@@ -176,6 +200,7 @@ impl<T> core::fmt::Debug for Send<T> {
         match self {
             Send::Rendezvous(p) => f.debug_tuple("Rendezvous").field(p).finish(),
             Send::Blocked => f.write_str("Blocked"),
+            Send::Refused => f.write_str("Refused"),
         }
     }
 }
@@ -209,7 +234,26 @@ impl<T: Node> Rendezvous<T> {
             senders: Fifo::new(),
             receivers: Fifo::new(),
             pending: 0,
+            bound_to_interrupt: false,
         }
+    }
+
+    /// **Make this the rendezvous a hardware interrupt is delivered to, for good** (DECISIONS §101,
+    /// ruling B). From now on every [`send`](Self::send) is [`Send::Refused`]; [`signal`](Self::signal)
+    /// and [`recv`](Self::recv) are unchanged. One-way: there is no unbind, because the kernel has
+    /// none (`sched::bind_irq` only ever overwrites a route), and a rendezvous that once carried an
+    /// interrupt is safer left refusing than reopened to senders a driver does not expect.
+    ///
+    /// Name: provisional (milestone 603 (provisional)): calef names public items.
+    pub fn bind_to_interrupt(&mut self) {
+        self.bound_to_interrupt = true;
+    }
+
+    /// Whether [`bind_to_interrupt`](Self::bind_to_interrupt) has been called on this rendezvous.
+    ///
+    /// Name: provisional (milestone 603 (provisional)): calef names public items.
+    pub fn is_bound_to_interrupt(&self) -> bool {
+        self.bound_to_interrupt
     }
 
     /// **At most one wait queue is ever non-empty.** The load-bearing invariant.
@@ -321,15 +365,20 @@ impl<T: Node> Rendezvous<T> {
     }
 
     /// A sender `me` arrives. Rendezvous with a waiting receiver if there is one, otherwise `me`
-    /// joins the sender queue (and the caller should block it).
+    /// joins the sender queue (and the caller should block it). On a rendezvous that carries an
+    /// interrupt, neither: [`Send::Refused`], with nothing touched.
     ///
+    /// The refusal is tested first, before a receiver is popped, because the receiver on an
+    /// interrupt's rendezvous is the driver, and handing it a sender's words is the forgery.
     /// # Safety
     ///
     /// `me` must satisfy the intrusive contract: valid, on no queue, and it must stay valid for
     /// as long as it may be queued here. (The kernel's discipline: `me` is the running thread,
     /// and a thread queued here is `Blocked`, which the reaper never touches.)
     pub unsafe fn send(&mut self, me: NonNull<T>) -> Send<T> {
-        if let Some(receiver) = self.receivers.pop_front() {
+        if self.bound_to_interrupt {
+            Send::Refused
+        } else if let Some(receiver) = self.receivers.pop_front() {
             Send::Rendezvous(receiver)
         } else {
             // SAFETY: the caller's contract is exactly the queue's.
@@ -444,6 +493,9 @@ mod verification {
     /// `sender` and `receiver` must be valid, distinct, unqueued nodes outliving `e`.
     unsafe fn seed(e: &mut Rendezvous<N>, sender: NonNull<N>, receiver: NonNull<N>) {
         e.pending = kani::any();
+        // Symbolic too, so every harness covers a rendezvous that carries an interrupt as well as
+        // one that does not, including one bound after a sender had already queued.
+        e.bound_to_interrupt = kani::any();
         match kani::any::<u8>() {
             // SAFETY: `sender` is valid, unqueued and outlives `e`, by this function's own
             // contract; the arms are exclusive, so it is pushed at most once.
@@ -520,18 +572,46 @@ mod verification {
         unsafe { seed(&mut e, NonNull::from(&mut s), receiver_ptr) };
 
         let had_receiver = !e.receivers.is_empty();
+        let bound = e.bound_to_interrupt;
         // SAFETY: `me` is a third fresh node declared before `e`, so it is valid, on no queue
         // (`seed` was given `s` and `r`, never `me`), and outlives the rendezvous.
         match unsafe { e.send(NonNull::from(&mut me)) } {
             Send::Rendezvous(got) => {
-                assert!(had_receiver);
+                assert!(had_receiver && !bound);
                 assert_eq!(
                     got, receiver_ptr,
                     "rendezvoused with a thread nobody queued"
                 );
             }
-            Send::Blocked => assert!(!had_receiver),
+            Send::Blocked => assert!(!had_receiver && !bound),
+            Send::Refused => assert!(bound),
         }
+    }
+
+    /// **A send to a rendezvous that carries an interrupt is refused and changes nothing**
+    /// (DECISIONS §101, calef's ruling B, 2026-09-26). Not the waiting driver taken off the
+    /// receiver queue, not the sender parked on the sender queue, not the pending signal count. The
+    /// first is the forgery itself (a driver handed words it will read as its interrupt); the
+    /// second would deliver the words to the driver's next receive instead; the third is the count
+    /// real interrupts are kept in, and a send has no business near it.
+    ///
+    /// Falsification: replayable `crates/inter_process_communication/falsifications/verification.a_send_to_an_interrupts_rendezvous_is_refused_and_changes_nothing.patch`
+    #[kani::proof]
+    fn a_send_to_an_interrupts_rendezvous_is_refused_and_changes_nothing() {
+        let (mut s, mut r, mut me) = (N::new(), N::new(), N::new());
+        let mut e: Rendezvous<N> = Rendezvous::new();
+        // SAFETY: as in `send_preserves_the_invariant`: three distinct fresh nodes declared before
+        // `e`; `send` gets `me`, which `seed` never touches.
+        unsafe { seed(&mut e, NonNull::from(&mut s), NonNull::from(&mut r)) };
+        e.bind_to_interrupt();
+        let before = (e.senders.is_empty(), e.receivers.is_empty(), e.pending);
+        // SAFETY: as above.
+        let decided = unsafe { e.send(NonNull::from(&mut me)) };
+        assert_eq!(decided, Send::Refused);
+        assert_eq!(
+            (e.senders.is_empty(), e.receivers.is_empty(), e.pending),
+            before
+        );
     }
 
     /// **Taking a waiter back off a queue preserves the one-queue invariant**, for either queue and
@@ -706,6 +786,29 @@ mod tests {
             Recv::FromSender(sp)
         ); // receiver collects it
         assert!(e.one_queue_invariant());
+    }
+
+    /// **A driver waiting on its interrupt is handed the interrupt and nothing else** (DECISIONS
+    /// §101, ruling B). The driver parks first, which is the case that matters: without the refusal
+    /// a sender would rendezvous with it and it would wake holding the sender's words.
+    #[test]
+    fn a_driver_waiting_on_its_interrupt_is_not_handed_a_send() {
+        let (mut driver, mut forger) = (node(), node());
+        let dp = NonNull::from(&mut *driver);
+        let mut e: Rendezvous<N> = Rendezvous::new();
+        e.bind_to_interrupt();
+
+        // SAFETY: `dp` is a live node, on no queue (see the module note).
+        assert_eq!(unsafe { e.recv(dp) }, Recv::Blocked);
+        // SAFETY: `forger` is a live node, on no queue.
+        assert_eq!(
+            unsafe { e.send(NonNull::from(&mut *forger)) },
+            Send::Refused
+        );
+        // Still parked, still the only waiter, and the interrupt still reaches it.
+        assert_eq!(e.debug_counts(), (0, 1, 0));
+        assert_eq!(e.signal(), Some(dp));
+        assert!(e.is_idle());
     }
 
     #[test]

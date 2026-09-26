@@ -1,0 +1,24 @@
+Falsifies `inter_process_communication::verification::a_send_to_an_interrupts_rendezvous_is_refused_and_changes_nothing`.
+
+The defect: `send` forgets the interrupt check and decides as it did before DECISIONS §101's
+ruling B. `bind_to_interrupt` still sets the flag and nothing else reads it, so every caller
+compiles and every other harness here stays green.
+
+Expected to fail: the harness's `assert_eq!(decided, Send::Refused)`, on any seeded state. On one
+with a waiting receiver the send rendezvouses with it, which in the kernel is a driver woken with a
+sender's words where it expects its interrupt.
+
+diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
+--- a/crates/inter_process_communication/src/lib.rs
++++ b/crates/inter_process_communication/src/lib.rs
+@@ -376,9 +376,7 @@ impl<T: Node> Rendezvous<T> {
+     /// as long as it may be queued here. (The kernel's discipline: `me` is the running thread,
+     /// and a thread queued here is `Blocked`, which the reaper never touches.)
+     pub unsafe fn send(&mut self, me: NonNull<T>) -> Send<T> {
+-        if self.bound_to_interrupt {
+-            Send::Refused
+-        } else if let Some(receiver) = self.receivers.pop_front() {
++        if let Some(receiver) = self.receivers.pop_front() {
+             Send::Rendezvous(receiver)
+         } else {
+             // SAFETY: the caller's contract is exactly the queue's.
