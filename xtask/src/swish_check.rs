@@ -580,10 +580,13 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // **The owner vouches for a local build** (DECISIONS §221 (the boot prompt is the owner's
     // console), ruling 1). `installed/unvouched` is the fresh build the D2 lines above ran on the
     // ruling's endowment (slots 0, 1 and 2). Vouching writes a generation that lists its digest,
-    // so the same bytes now run vouched, with the installed manifest (`uptime`'s until a manifest
-    // travels in the executable: `grant_plan::INSTALLED_MANIFEST_OF`), which holds the output and
-    // nothing else. So the census drops to slot 0: the grant changed with the vouch, and nothing
-    // else on the line did. A rollback takes the vouch away and the census is D2's again.
+    // so the same bytes now run vouched, endowed from the manifest note they carry (milestone 597
+    // (a program carries its manifest in an ELF note)). The witness's note asks for the process
+    // domain, entropy and the network and no clock, so the census moves from D2's `0 1 2` to
+    // `0 7 9`, plus 10 on a leg with a network stack (x86_64 has none): the grant changed with the
+    // vouch, and nothing else on the line did. The probe lines then read as reached, which their
+    // wording ("declared no ...") was not written for. A rollback takes the vouch away and the
+    // census is D2's again.
     line(
         0,
         "vouch installed/unvouched",
@@ -594,16 +597,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps installed/unvouched",
         &["provenance: vouched by the owner in activation generation 3 (digest "],
     ),
-    line(
-        1,
-        crate::disk::INSTALLED_UNVOUCHED,
-        &[
-            "network: refused (no capability at slot 10)",
-            "entropy: refused (no capability at slot 9)",
-            "domain: refused (no capability at slot 7)",
-            "slots held: 0\n",
-        ],
-    ),
+    line(1, crate::disk::INSTALLED_UNVOUCHED, &["slots held: 0 7 9"]),
     line(
         0,
         "package rollback",

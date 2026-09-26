@@ -116,6 +116,9 @@ refused or ignored. `uptime` carries none, deliberately, so the no-note default 
   output alone: the no-note default.
 - `installed/unvouched`'s note asks for entropy, the network and the process domain. `caps` prints
   that ask beside the ruling's three slots, and the run's census still reads `slots held: 0 1 2`.
+- After the owner vouches for `installed/unvouched` (#1340's `vouch`), the same bytes run endowed
+  from their note: the census reads `0 7 9` (and 10 where there is a network), where D2 gave
+  `0 1 2`.
 - `installed/asks-an-arg 5` is refused by the progenitor, whose words are *"the
   progenitor read those bytes' own manifest, and it does not allow this line"*. Its note asks for
   an argument and nobody vouched for it.
