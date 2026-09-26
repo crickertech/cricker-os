@@ -2,7 +2,7 @@
 status: PARTIAL
 raised: 2026-08-15
 milestone_dependencies: 152
-decision_dependencies: none
+decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -12,17 +12,16 @@ needs_person: no
 Minted 2026-08-15 at calef's request. A backup server owes housekeeping on a
 schedule (snapshot thinning, scrub passes, log rotation) even though the Mac initiates the backups
 themselves, and nothing else on the roadmap ran anything on a schedule. The interval scheduler, a
-narrowed archive and a backable `--mem` grant are built. What is left is ruled by §222 and
-waits on milestone 152 (durable delegation) only to connect a real session, as recorded below.
+narrowed archive, a backable `--mem` grant and runtime replacement under §222 (who holds a user's
+schedule) are built. What is left is two proposals awaiting calef and one connection waiting on
+milestone 152 (durable delegation), all recorded below and checked on 2026-09-26.
 
-calef ruled on runtime registration on 2026-09-26 in
-[§222 (who holds a user's schedule)](../decisions/222-who-holds-a-users-schedule.md): one timetable
-per durable session, changed by replacing the whole document, with all five sub-rulings. The
-`REPLACE` handler can be built now against the kernel test harness. Only connecting a real session
-waits, because the registrar is a user's durable session. That type went with `smb_server` on
-2026-08-30, and milestone 152's lane is rebuilding it. Until 2026-09-26 this line read `NONE`, on the
-claim that both blockers had cleared; the second half of that stopped being true when the session
-type was deleted.
+Two proposals await calef:
+[one-image-per-entry.md](../../notes/scheduled-execution/one-image-per-entry.md) recommends refusing
+that item, and [calendar-and-wall-clock.md](../../notes/scheduled-execution/calendar-and-wall-clock.md)
+asks for a grammar and a clock-step rule. Connecting the built `REPLACE` handler to a real session
+waits on milestone 152, because the registrar is a user's durable session and that type went with
+`smb_server` on 2026-08-30.
 
 ## In brief
 
@@ -78,6 +77,24 @@ The planner is now lent a directory and `unbacked` alone decides, including for 
 such as `wc report.txt`. Host test:
 `a_designation_the_scheduler_cannot_back_is_unbacked_rather_than_refused`.
 
+## Built: replacing a running document, 2026-09-26
+
+§222 ruled one timetable per durable session, changed by replacing the whole document. Built:
+
+- `crates/timetable/src/registration.rs` is the page layout, `REPLACE`, the status codes and the
+  verdict word (eight bits per entry, with a kept-beat bit). `Registry::arm_after` keeps the beat
+  of every byte-identical line. Host-tested. All provisional names.
+- `components/src/timetable.rs` takes a registration page in `a2`. It polls the request word once
+  per pass, because a blocking receive would stop it watching the clock (milestone 106). A
+  replacement is parsed, registered and resolved whole before it replaces anything. An empty one
+  ends the process, since an idle timetable would hold its session up under §16 (object
+  revocation). A timetable handed the run-unvouched capability runs nothing, so no job can hold it,
+  which is what lets §220 (signed builds, and trusting a key is scoped) reach scheduled work.
+- `kernel/src/user/timetable_tests.rs` is the registrar until milestone 152 rebuilds the session. It
+  sends `schedule_store::fixture::DEMO_SCHEDULE_DOC`, the bytes the store test writes to disk, then
+  a document that does not parse, an edit and an empty document. A second test hands the timetable
+  the run-unvouched capability and asserts it refuses. Both run on all three architectures.
+
 ## The finding: milestone 106's fifth consumer
 
 There is no timed wait in this kernel, so a program whose whole purpose is to act at a time can only
@@ -89,17 +106,12 @@ Milestone 106 (a wait that ends on either the interrupt or the deadline) is gate
 
 ## What is left
 
-- Runtime registration, including removal. §222 rules one timetable per durable session, replaced
-  a whole document at a time, so removing an entry is a replace without it, with five smaller
-  rulings. The handler is buildable now; connecting it to a real session waits on milestone 152.
-- Wiring `crates/schedule_store` into a running scheduler. Under §222 this is "spawn the
-  session's timetable with its stored document", so it waits on milestone 152's session.
-- One image per entry. The timetable keeps every entry's image mapped for its whole life, so
-  splitting the archive does not narrow what a compromise reaches. Narrowing it needs a
-  `spawner.rs`-shaped helper per entry, which is machinery nothing has. Under the proposal the reach
-  shrinks to one user's plan.
-- Calendar syntax and wall-clock entries. Each is its own decision: what a `0 2 * * *` entry does
-  across an NTP step or a DST change, and whether a scheduler is ever granted a clock.
+- Connecting a real session: the durable session spawns its timetable, writes the store and sends
+  `REPLACE`, and at boot `session_reviver` does the same from the stored file. Waits on milestone
+  152, whose session type does not exist yet.
+- One image per entry. Proposed for refusal: an image is code, not authority.
+- Calendar and wall-clock entries, proposed together: `daily` and `weekly` in UTC, and a rule for a
+  clock that steps.
 
 ## Scope note
 
@@ -111,33 +123,34 @@ the shipped document is a demonstration written to show every answer registratio
 - `timetable` is a provisional name for the crate, the program and the document, said so in every
   module header. `cron`, `almanac`, `metronome` and `scheduler` were refused; `scheduler` is already
   `kernel/src/sched.rs`.
-- The document is compiled in. Where it lives is also what answers who may register, so today that
-  right is the right to rebuild the image.
+- Without a registration page the document is still compiled in, and the shipped boot-time test
+  runs that way. With one, the right to register is holding the page, which §222 gives the session.
+- Registration control is a polled word in the page, not a message, until a deadline wait exists.
 - At most one `--mem` instance may be outstanding, and every other entry fires late while it runs.
 
 ## Follow-on
 
-- **Outstanding.** Runtime registration and removal: no opcode exists in `crates/timetable`. calef
-  ruled it as §222 (who holds a user's schedule) on 2026-09-26, from the lane's
-  `notes/scheduled-execution/registration.md`. The handler is buildable now; a real registrar
-  waits on milestone 152's durable session, which no file under `components/` or `crates/` defines. Checked 2026-09-26.
-- **Outstanding.** Wiring the store into a running scheduler: neither `crates/timetable` nor
-  `components/src/timetable.rs` names `schedule_store`. §222 ruled its shape, and it waits on
-  milestone 152's session. Checked 2026-09-26.
-- **Outstanding.** One image per entry: `components/src/root_supervisor.rs` still builds exactly one
-  spawner, and nothing builds sub-builders sized to a document. Checked 2026-09-26.
-- **Outstanding.** Calendar syntax and wall-clock entries: `crates/timetable`'s grammar is still
-  `every` and `at-boot`, and the scheduler holds no clock to give. Checked 2026-09-26.
+- **Outstanding.** Connecting a real registrar: only `kernel/src/user/timetable_tests.rs` writes a
+  registration page, and no file under `components/` or `crates/` defines milestone 152's durable
+  session. The same session is what feeds `crates/schedule_store`'s file to a running timetable.
+  Checked 2026-09-26.
+- **Outstanding.** One image per entry: proposed for refusal in
+  `notes/scheduled-execution/one-image-per-entry.md`, awaiting calef. Checked 2026-09-26.
+- **Outstanding.** Calendar syntax and wall-clock entries: proposed in
+  `notes/scheduled-execution/calendar-and-wall-clock.md`, awaiting calef; `timetable::parse` still
+  knows `every` and `at-boot` only. Checked 2026-09-26.
+- **Done.** Runtime registration and removal, per §222: `crates/timetable/src/registration.rs` and
+  `components/src/timetable.rs`, 2026-09-26.
 - **Done.** Persistence as a store was built by milestone 152: `crates/schedule_store`, per §122 (the on-disk, per-user schedule store) and §125 (which identities
   have pending work), and `components/src/session_reviver.rs`, per §123 (boot-time re-derivation).
 - **Done.** The lifted-session obstacle went with `smb_server` on 2026-08-30, so no private type has
   to be moved into a crate. The session now has to be rebuilt rather than lifted, which is 152's.
 - **Done.** A designation the scheduler cannot back reports `Unbacked`, carried by
   `crates/timetable/src/lib.rs` on 2026-09-26, closing milestone 326's recorded finding.
-- **Recorded.** The compiled-in document, recorded in `components/src/timetable.rs`.
+- **Recorded.** The compiled-in document without a registrar, recorded in `components/src/timetable.rs`.
 - **Recorded.** At most one `--mem` instance outstanding, recorded in `components/src/timetable.rs`.
-- **Recorded.** The yield loop and lazy reaping, recorded in `notes/scheduled-execution.md`, until
-  milestone 106 lands.
+- **Recorded.** The yield loop, lazy reaping and the polled registration word, recorded in
+  `components/src/timetable.rs`, until milestone 106 lands.
 
 ## Index row
 
@@ -145,6 +158,6 @@ The backup server owes housekeeping on a schedule; Unix cron is ambient authorit
 and the capability shape inverts it: an entry is a grant expression plus a schedule, checked at
 registration like a command line at the prompt. Built: the interval scheduler with four registration
 answers (2026-08-18), the archive narrowed to the plan (2026-08-18), a backable `--mem` grant
-(2026-08-22), and designations reported as unbacked rather than refused (2026-09-26). Remaining:
-runtime registration and removal, ruled by §222 and waiting on milestone 152's durable session only for a real registrar;
-one image per entry; calendar and wall-clock entries.
+(2026-08-22), designations reported as unbacked (2026-09-26), and whole-document replacement under
+§222 (2026-09-26). Remaining: connecting a real session (milestone 152), and two proposals for
+calef, refusing one image per entry and adding calendar and wall-clock entries.

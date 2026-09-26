@@ -192,7 +192,7 @@ wired through the spawn; see notes/mdns.md and milestone 131). So today the auth
 the authority to rebuild the image, which is the strongest possible answer and also the least useful
 one. A runtime registration protocol is a real decision with a real fork in it (the boot endowment?
 the shell? a per-registrar endpoint whose entries can only be as wide as the registrar?) and the
-honest thing was to ship the document and leave the fork visible rather than settle it by accident. That fork is now written up for calef in [registration.md](scheduled-execution/registration.md).
+honest thing was to ship the document and leave the fork visible rather than settle it by accident. calef ruled it as §222 (who holds a user's schedule): see [registration.md](scheduled-execution/registration.md).
 
 ## The arithmetic, and the decision inside it
 
@@ -338,8 +338,7 @@ document whose `--mem` entry shared the clock with a fast interval would.
   `session_reviver` reads at boot, but no timetable reads it; registration.md proposes how.
 
 - The document is compiled in, not read from disk, which is also what decides who may register
-  (see above). Milestone 131 (a share is configured, not compiled), which this used to point at, is dead. The fix is now proposed with the
-  runtime registration protocol in [registration.md](scheduled-execution/registration.md).
+  (see above), unless the timetable is spawned with a registration page, which §222 built.
 
 - The schedule vocabulary is two words. `every <interval>` and `at-boot`, with `ms`, `s` and `m`.
   No calendar syntax, deliberately: what a `0 2 * * *` entry should do when the wall clock steps an
