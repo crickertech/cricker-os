@@ -493,7 +493,7 @@ programs! {
 
 impl Prog {
     /// The program's declared endowment: what the shell must (and must not) grant it.
-    pub fn manifest(self) -> Manifest {
+    pub const fn manifest(self) -> Manifest {
         match self {
             Prog::LeastAuthorityDemo => Manifest {
                 arg: ArgSpec::Required,
@@ -1172,24 +1172,103 @@ pub const ENTROPY_SLOT: u64 = 9;
 /// program that shows it at the prompt.
 pub const NETWORK_SLOT: u64 = 10;
 
-/// **Whose manifest an installed program is bound and endowed with**, until a manifest travels
-/// with a package (DECISIONS §219 (how the shell names an installed program to the spawner), milestone 198 rung 3a's first cut).
+/// **What a file's bytes are bound and endowed with when they carry no manifest note** (milestone
+/// 597, provisional: a program carries its manifest in an ELF note).
 ///
-/// Where a program's manifest travels is still DECISIONS §197 (a package is one archive file)'s open question, and both sides of a
-/// §219 image request need one: the shell to bind the line, the progenitor to endow a vouched
-/// child. §219 recommends a first cut that refuses an installed program asking more than
-/// `Prog::Uptime`'s, rather than answering §197 by accident. This is that cut: every installed
-/// program is bound and endowed as `uptime` is, which is output bytes to the caller and nothing
-/// else (no clock, no domain, no config, no entropy, no network, no argument, no `--mem`). A program
-/// that needs more has no way to ask, so it finds the slot it wanted empty, which is the refusal
-/// in the only form available until §197 is answered. `spawnproto`'s BUGS carries it.
+/// `uptime`'s manifest: output bytes to the caller and nothing else (no clock, no domain, no
+/// config, no entropy, no network, no argument, no `--mem`). It was the ceiling every installed
+/// program was held to (`INSTALLED_MANIFEST_OF`, #1320) until DECISIONS §197 (a package is one
+/// archive file) was answered with M2, and it stays as the answer for a program that says
+/// nothing: the least a program can be run with and still be heard from. A program that needs
+/// more carries a note ([`image_manifest`]).
 ///
-/// A `Prog` rather than a bare [`Manifest`] because the shell's run path reads its output shape
-/// off an [`Endowment`]'s program. The shell and the progenitor both read this one constant, so
-/// they cannot disagree about the ceiling.
+/// Name: provisional (milestone 597, 2026-09-26).
+pub const NO_NOTE_MANIFEST: Manifest = Prog::Uptime.manifest();
+
+/// **The row an image's [`Endowment`] is filed under**, because an endowment names a `Prog` and
+/// a file's bytes have none.
 ///
-/// Name: provisional (2026-09-26); `design/naming.md` is the rule and calef's the call.
-pub const INSTALLED_MANIFEST_OF: Prog = Prog::Uptime;
+/// An exception, and a foot gun: nothing about an image may be decided from this row. Every
+/// decision is made from the manifest [`image_manifest`] returns, which is what the shell binds
+/// the line against and what the progenitor endows from. A reader who calls
+/// `e.prog.manifest()` on an image's endowment gets `uptime`'s manifest, which is the wrong one
+/// whenever the program carries a note. The fix is an endowment that holds its manifest rather
+/// than its row; that is wider than this milestone, and `spawnproto`'s BUGS records it.
+///
+/// Name: provisional (milestone 597, 2026-09-26).
+pub const IMAGE_ROW: Prog = Prog::Uptime;
+
+/// **Why a file's bytes are not run with the manifest they carry.** Provisional names.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ImageRefusal {
+    /// The manifest note is there and cannot be read: malformed, a version this system does not
+    /// know, or the same note twice.
+    Unreadable,
+    /// The manifest declares something the image request cannot deliver yet
+    /// ([`image_can_carry`]).
+    NotCarried,
+    /// Nobody vouched for the bytes, and their manifest asks for something the command line would
+    /// have to designate: an argument, memory, a file, a directory, an input, an option. §219 lets
+    /// unvouched bytes hold only what [`UNVOUCHED_MANIFEST`] names, so the line that bound those is
+    /// refused rather than run with the designation silently dropped.
+    ExceedsVouch,
+}
+
+/// **Whether an image request can deliver what `m` declares**, today.
+///
+/// An image travels as a plain line (DECISIONS §219 option D's first cut): the request words carry
+/// an argument and a `--mem` count, and the progenitor endows the pages and endpoints a manifest
+/// names on its own. Nothing else is on that wire yet. So a manifest that needs a file, a
+/// directory, an input, an option, a supervised job, a declared second stream, a silent output
+/// or the `std` runtime is refused at the prompt and again at the progenitor, rather than run
+/// without what it said it needs. `spawnproto`'s BUGS carries each.
+pub fn image_can_carry(m: &Manifest) -> bool {
+    matches!(m.output, OutputSpec::Bytes | OutputSpec::Words)
+        && m.file == FileSpec::Forbidden
+        && m.dir == DirSpec::Forbidden
+        && m.input == InputSpec::Forbidden
+        && m.flags.letters().is_empty()
+        && !m.interruptible
+        && m.runtime == Runtime::Native
+}
+
+/// **The manifest a file's bytes are bound and endowed with** (milestone 597, provisional), given
+/// what their note declared (`None` for no note) and whether the activation set vouches for them.
+///
+/// Vouched bytes get what they declare, because the digest that vouched covers the note: a person
+/// who installed the package installed its manifest. Unvouched bytes get [`UNVOUCHED_MANIFEST`]
+/// whatever they declare (§219: a note from bytes nobody vouched for grants nothing), and are
+/// refused if the declaration asks for anything a command line would have designated, since the
+/// shell has already bound the line against it.
+///
+/// The shell calls this to preview (`caps`) and the progenitor to decide, so the two cannot differ.
+pub fn image_manifest(declared: Option<Manifest>, vouched: bool) -> Result<Manifest, ImageRefusal> {
+    let declared = declared.unwrap_or(NO_NOTE_MANIFEST);
+    if !image_can_carry(&declared) {
+        return Err(ImageRefusal::NotCarried);
+    }
+    if vouched {
+        return Ok(declared);
+    }
+    let u = UNVOUCHED_MANIFEST;
+    if declared.arg != u.arg || declared.mem != u.mem {
+        return Err(ImageRefusal::ExceedsVouch);
+    }
+    Ok(u)
+}
+
+/// **Whether an image request's words fit the manifest it will be endowed with.** The shell bound
+/// the line against the note it read, and the progenitor judges its own copy of the bytes, so a
+/// file changed in between (or a shell that lies) can send an argument or a `--mem` grant the
+/// endowed manifest forbids. That is refused rather than half-honoured.
+pub fn image_request_fits(m: &Manifest, arg: u64, mem_pages: u64) -> bool {
+    let arg_ok = m.arg == ArgSpec::Required || arg == 0;
+    let mem_ok = match m.mem {
+        MemSpec::Forbidden => mem_pages == 0,
+        MemSpec::Required { min, max } => mem_pages >= min && mem_pages <= max,
+    };
+    arg_ok && mem_ok
+}
 
 /// **What the progenitor endows a child whose bytes nobody vouched for**, when the caller presented
 /// the run-unvouched capability (DECISIONS §219 gate D2, ruled by calef 2026-09-26: *"Yes, allow
@@ -1198,9 +1277,8 @@ pub const INSTALLED_MANIFEST_OF: Prog = Prog::Uptime;
 /// The ruling in one value. Of the five authorities the progenitor endows from a manifest rather
 /// than from the line (`clock`, `domain`, `config`, `entropy`, `network`), an unvouched child gets
 /// the two read-only pages and none of the rest: never the process domain, the network, entropy or
-/// the file service. Everything else it holds is what the caller delegated, which today is the
-/// output alone, because the shell binds an image line against [`INSTALLED_MANIFEST_OF`] before it
-/// knows the verdict (`spawnproto`'s BUGS).
+/// the file service. Everything else it holds is what the caller delegated, which is the output
+/// alone: [`image_manifest`] refuses unvouched bytes whose note asks the line to designate more.
 ///
 /// Where the two pages land, for a native child: slot 0 the output, slot 1 the clock page (mapped
 /// read-only at the address `date` reads), slot 2 the configuration page (at the address
@@ -3258,8 +3336,7 @@ mod tests {
 
     /// **The unvouched manifest is §219's ruling and nothing wider** (gate D2, calef 2026-09-26).
     /// The two read-only pages are allowed; the process domain, entropy and the network are not;
-    /// nothing a line could designate is accepted either, because the shell binds an image line
-    /// against [`INSTALLED_MANIFEST_OF`] and the progenitor must not endow more than it bound.
+    /// nothing a line could designate is accepted either, which is the no-note manifest's shape.
     #[test]
     fn the_unvouched_manifest_allows_the_two_pages_and_nothing_of_the_progenitors() {
         let m = UNVOUCHED_MANIFEST;
@@ -3267,7 +3344,7 @@ mod tests {
         assert!(!m.domain, "never the process domain");
         assert!(!m.entropy, "never entropy");
         assert!(!m.network, "never the network");
-        let bound = INSTALLED_MANIFEST_OF.manifest();
+        let bound = NO_NOTE_MANIFEST;
         assert_eq!(
             (m.arg, m.mem, m.file, m.dir, m.input, m.output, m.runtime),
             (
@@ -3281,6 +3358,118 @@ mod tests {
             ),
             "an unvouched child is endowed exactly what the shell bound the line against",
         );
+    }
+
+    /// **Vouched bytes get their note; unvouched bytes get the ruling, whatever the note says.**
+    /// The progenitor-endowed authorities an unvouched note asks for are simply not there (§219);
+    /// a line-designated one is a refusal, because the shell already bound it.
+    #[test]
+    fn an_image_is_endowed_from_its_note_only_when_vouched() {
+        let asks_everything = Manifest {
+            network: true,
+            entropy: true,
+            domain: true,
+            clock: true,
+            ..NO_NOTE_MANIFEST
+        };
+        assert_eq!(
+            image_manifest(Some(asks_everything), true),
+            Ok(asks_everything)
+        );
+        assert_eq!(
+            image_manifest(Some(asks_everything), false),
+            Ok(UNVOUCHED_MANIFEST),
+            "an unvouched note grants nothing"
+        );
+        assert_eq!(
+            image_manifest(None, true),
+            Ok(NO_NOTE_MANIFEST),
+            "no note, the default"
+        );
+        assert_eq!(image_manifest(None, false), Ok(UNVOUCHED_MANIFEST));
+
+        let asks_an_argument = Prog::LeastAuthorityDemo.manifest();
+        assert_eq!(
+            image_manifest(Some(asks_an_argument), true),
+            Ok(asks_an_argument)
+        );
+        assert_eq!(
+            image_manifest(Some(asks_an_argument), false),
+            Err(ImageRefusal::ExceedsVouch),
+            "a note that asks more than its vouch allows is refused"
+        );
+        let asks_memory = Manifest {
+            mem: MemSpec::Required { min: 1, max: 4 },
+            ..NO_NOTE_MANIFEST
+        };
+        assert_eq!(
+            image_manifest(Some(asks_memory), false),
+            Err(ImageRefusal::ExceedsVouch)
+        );
+    }
+
+    /// Every shape the image wire cannot carry is refused before the verdict matters.
+    #[test]
+    fn an_image_manifest_the_request_cannot_carry_is_refused_vouched_or_not() {
+        for p in [Prog::Wc, Prog::Rm, Prog::Uuid, Prog::Date] {
+            let m = p.manifest();
+            if image_can_carry(&m) {
+                continue;
+            }
+            assert_eq!(
+                image_manifest(Some(m), true),
+                Err(ImageRefusal::NotCarried),
+                "{}",
+                p.name()
+            );
+            assert_eq!(
+                image_manifest(Some(m), false),
+                Err(ImageRefusal::NotCarried)
+            );
+        }
+        assert!(!image_can_carry(&Prog::Wc.manifest()), "wc reads an input");
+        assert!(
+            !image_can_carry(&Prog::Rm.manifest()),
+            "rm takes a directory and options"
+        );
+        assert!(
+            !image_can_carry(&Prog::Uuid.manifest()),
+            "uuid is a std program"
+        );
+        assert!(
+            !image_can_carry(&Prog::Date.manifest()),
+            "date declares a second stream"
+        );
+        assert!(
+            image_can_carry(&Prog::LeastAuthorityDemo.manifest()),
+            "an argument and a word in a register"
+        );
+    }
+
+    #[test]
+    fn an_image_request_that_does_not_fit_its_manifest_is_refused() {
+        let none = NO_NOTE_MANIFEST;
+        assert!(image_request_fits(&none, 0, 0));
+        assert!(
+            !image_request_fits(&none, 5, 0),
+            "an argument the manifest forbids"
+        );
+        assert!(
+            !image_request_fits(&none, 0, 2),
+            "memory the manifest forbids"
+        );
+        let mem = Manifest {
+            mem: MemSpec::Required { min: 2, max: 4 },
+            ..none
+        };
+        assert!(image_request_fits(&mem, 0, 2));
+        assert!(!image_request_fits(&mem, 0, 5));
+        assert!(!image_request_fits(&mem, 0, 0), "required memory not sent");
+        assert!(image_request_fits(
+            &Prog::LeastAuthorityDemo.manifest(),
+            7,
+            0
+        ));
     }
 
     /// Plan a line with **nothing expanded**, which is every line that has no pattern on it. The two
