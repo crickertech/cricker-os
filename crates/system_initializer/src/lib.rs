@@ -615,9 +615,17 @@ pub const INIT_OWN_PAGES: u64 = 128;
 /// **One job's region**: everything a spawned program is made of, so a single reclaim frees all of
 /// it. The biggest program the prompt can spawn is `date` at seven pages, plus
 /// [`CHILD_STACK_PAGES`], a TCB, an address-space root, the intermediate tables for the four windows
-/// a child touches, and the §13 mapping records. Forty is that with room to spare, and it is spent
+/// a child touches, and the §13 mapping records. Forty was that with room to spare, and it is spent
 /// per *live* job rather than per job ever run.
-const JOB_REGION_PAGES: u64 = 40;
+///
+/// **Forty-one since 2026-09-26**, and the one is counted rather than chosen. The address-space map
+/// of milestone 206 (a program image has under 896 KiB) put a child's image and stack in the second
+/// gigabyte and left its pair pages in the first, so a child with any window mapped now walks two
+/// gigabyte-level tables where it walked one. The stack's leaf table absorbed the current-CPU page's,
+/// so that is the whole difference. The "room to spare" was not there: the first `x86_64`
+/// `script/swish-check` after the map refused `mdr gate.txt`, whose debug image is 18 pages rather
+/// than `date`'s seven, and `x86_64` also pays three tables for its timebase page.
+const JOB_REGION_PAGES: u64 = 41;
 
 /// **One directory-granted job's region**: the program *and* the `fs_subtree_caretaker` that carries
 /// its grant, plus the two endpoints between them, all out of one carve.
@@ -637,7 +645,10 @@ const JOB_REGION_PAGES: u64 = 40;
 /// a second address space with its own tables and its own stack, and the failure mode of getting it
 /// wrong is `build_child` answering `Err(())` mid-boot-command, which reads at the prompt as "could
 /// not spawn" with no way to tell a small region from an empty pool.
-const DIR_JOB_REGION_PAGES: u64 = 96;
+///
+/// **Ninety-eight since 2026-09-26**: two address spaces, each one gigabyte-level table dearer under
+/// the address-space map, for the reason [`JOB_REGION_PAGES`] gives.
+const DIR_JOB_REGION_PAGES: u64 = 98;
 
 /// The stack a `fs_subtree_caretaker` gets, beyond the one page `build_child` maps for it.
 ///
@@ -672,7 +683,7 @@ const SECOND_DIR_CARETAKER_PAGES: u64 = JOB_REGION_PAGES;
 /// **Plus one `std` program's region** (milestone 595 (provisional)), so a `std` job has room of its
 /// own rather than needing every native job before it reclaimed first: it is nearly ten native
 /// regions' worth ([`grant_plan::STD_REGION_PAGES`]), and a pool of 240 would fit it only when
-/// empty. The ratchet above still holds at 624 pages: `script/swish-check` runs more than twenty
+/// empty. The ratchet above still holds at 630 pages: `script/swish-check` runs more than twenty
 /// jobs, which is well past what the pool could hold without the regions coming back.
 pub const JOBS_BUDGET_PAGES: u64 = JOB_REGION_PAGES * 6 + grant_plan::STD_REGION_PAGES;
 
