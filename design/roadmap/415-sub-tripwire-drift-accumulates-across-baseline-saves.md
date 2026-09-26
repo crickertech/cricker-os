@@ -22,22 +22,22 @@ The decision is
 how `cargo xtask bench --save` behaves and what a save is obliged to record, which is a workflow
 calef owns.
 
-**The clause that used to follow is corrected rather than deleted, because it is the reason this
-gate was suspected of being too strong.** It read *"the first item is a one-line CI change that is
+The clause that used to follow is corrected rather than deleted, because it is the reason this
+gate was suspected of being too strong. It read *"the first item is a one-line CI change that is
 owed already and needs nobody's permission"*, and item 1 landed on 2026-09-15 as `ba99c83`. So the
-half that needed nobody's permission is gone and the token is **more** purely `DECISION` than when
+half that needed nobody's permission is gone and the token is more purely `DECISION` than when
 it was written, not less, which is the opposite of the promoting lane's hypothesis and is why it was
 not acted on.
 
-**There is a live argument that the token is still too strong, and §190 puts it to calef as its
-first question rather than settling it here.** This block's own reversibility paragraph says items 1
+There is a live argument that the token is still too strong, and §190 puts it to calef as its
+first question rather than settling it here. This block's own reversibility paragraph says items 1
 and 2 are undoable in an afternoon and nobody outside this tree has acted on them, which by
 AGENTS.md's test makes item 2 a decision for whoever is holding the problem. Against that: it
 changes what a person types on every bench evening on every board. The lane did not correct the
 token on its own reading, because a `NONE` here puts this block on `script/roadmap --ready` where a
 lane would stall on item 3, and that is the worse of the two failures.
 
-**Premise re-checked 2026-09-19: one of the four items is already done, and the other three stand.**
+Premise re-checked 2026-09-19: one of the four items is already done, and the other three stand.
 `script/ci-build`'s bench entry now reads
 `script/bench --check && script/bench --riscv --check && script/bench --x86 --check`, which is item
 1, landed the same day this was filed and in its own commit as the section asked. Item 2 has not
@@ -47,7 +47,7 @@ stays refused for the reason milestone 25 already established.
 
 ## In brief
 
-`cargo xtask bench --check` fails at >10% drift **against the last saved baseline**, and `--save`
+`cargo xtask bench --check` fails at >10% drift against the last saved baseline, and `--save`
 rewrites that baseline. So N successive sub-threshold steps accumulate and the gate never fires.
 The audit in [notes/benchmarks.md](../../notes/benchmarks.md) walked every `--save` event in the
 history of all three baseline files, from git alone with no emulation, and the accumulation is real
@@ -55,7 +55,7 @@ and measurable:
 
 | | cumulative drift | largest single step | times the gate fired |
 |---|---:|---:|---:|
-| riscv64 `ctx_switch` | **+10.78%** | +6.14% | 0 |
+| riscv64 `ctx_switch` | +10.78% | +6.14% | 0 |
 | aarch64 `yield_switch` | +9.16% | +6.49% | 0 |
 | riscv64 `ipc_rtt` | +9.25% | +4.34% | 0 |
 | aarch64 `ipc_rtt` | +8.73% | +4.95% | 0 |
@@ -66,7 +66,7 @@ close to it. `coremark`, pure compute with no context switches, is flat to four 
 across every save on all three architectures, which is what says the rest is the kernel's switch and
 IPC paths rather than measurement noise.
 
-**Most of that accumulation is honest**, disclosed in the commit that caused it, and a good part of
+Most of that accumulation is honest, disclosed in the commit that caused it, and a good part of
 it is whole-crate codegen churn the instrument cannot separate from real cost. The problem is not
 that the drift exists. It is that nothing in the tree can tell the honest part from the rest, and
 two saves on 2026-09-15 prove it.
@@ -76,7 +76,7 @@ two saves on 2026-09-15 prove it.
 `44890a8a` re-saved the x86_64 baseline and attributed its +5 to +8% to the toolchain:
 *"It also folds in the same nightly-2026-09-15 drift the other two carry."* Milestone 300 (decompose
 the icount baseline drift) then measured that toolchain term across exactly those two nightlies and
-found it **~0**, byte-identical counts on the same code. PR #886 names the real cause, a const-`false`
+found it ~0, byte-identical counts on the same code. PR #886 names the real cause, a const-`false`
 element still threaded through the shared context-switch tuple that the debug build does not fold,
 and recovers ~5.9% on x86_64 by deleting it.
 
@@ -94,16 +94,16 @@ normal and retires the gate that was supposed to catch it.
 ### Item 1: Pull the x86_64 leg into CI. One line, owed already, needs no decision.
 
 `script/ci-build`'s bench entry is `script/bench --check && script/bench --riscv --check`. The third
-tripwire is built, its baseline is committed, and **nothing pulls it**; `ci.yml` already carries a
+tripwire is built, its baseline is committed, and nothing pulls it; `ci.yml` already carries a
 `BUGS` note saying so. The audit shows what that costs: x86_64 has had exactly two saves ever, and
-the window between them is **1,526 commits**. On the two gated architectures a gross regression
+the window between them is 1,526 commits. On the two gated architectures a gross regression
 eventually forces a save, so the record has granularity. On the third nothing forces one, which is
 why its single step arrived at +9.94% wearing a false attribution.
 
 Cost: one line. It may fail the first time it runs, which is why `ci.yml`'s note says it wants its
 own commit rather than riding along with something else.
 
-**Done, on 2026-09-15, in its own commit.** `ba99c83` ("ci: gate the x86_64 icount baseline, which
+Done, on 2026-09-15, in its own commit. `ba99c83` ("ci: gate the x86_64 icount baseline, which
 nothing ever ran") made the bench entry
 `script/bench --check && script/bench --riscv --check && script/bench --x86 --check`, on the
 argument this section makes and with the same 1,526-commit window as its evidence. It was safe to
@@ -130,12 +130,12 @@ Cost: roughly the `--save` writer plus a flag, and the rows it already knows hav
 ### Item 3: A cumulative check against a fixed historical anchor. Real, and more expensive than it looks.
 
 Keep a second per-architecture file holding a historical anchor and fail when today's number drifts
-more than some bound from **it**, in addition to the last-floor check. This is the mechanism that
+more than some bound from it, in addition to the last-floor check. This is the mechanism that
 directly answers the structural hole, and the audit is the evidence that it would fire.
 
-The cost is not the code, which is a second file and a second comparison. It is that **the anchor
-goes stale for correct reasons.** Milestone 139 (drive the unsafe count down) is a decided feature
-with a real cost at the switch. `spawn_el0` legitimately fell **32.7%** on both ISAs when
+The cost is not the code, which is a second file and a second comparison. It is that the anchor
+goes stale for correct reasons. Milestone 139 (drive the unsafe count down) is a decided feature
+with a real cost at the switch. `spawn_el0` legitimately fell 32.7% on both ISAs when
 `b918337b` bounded a walk by occupancy. An anchor with no ledger of intended deltas would fire on
 both, and a gate that fires on correct work is the shape §61 and milestone 78 already dropped
 checks for. So this option is really "an anchor plus a per-benchmark ledger of what was intended",
@@ -150,15 +150,15 @@ every kernel-side IPC row by 4 to 8.5% by adding one benchmark. Tightening the t
 the false-positive problem that demotion was written to escape, and it would not have caught either
 2026-09-15 step, both of which were real costs honestly measured and wrongly explained.
 
-**A per-benchmark drift budget** consumed across saves is item 3 with extra bookkeeping: it needs the
+A per-benchmark drift budget consumed across saves is item 3 with extra bookkeeping: it needs the
 same anchor and the same intended-delta ledger, and adds a consumption rule on top. Not recommended
 separately.
 
 ## Recommendation
 
-Do **1** now, as its own commit. Do **2** next, because it is small and because it is the ledger that
-item 3 would otherwise have to invent. Hold **3** until 2 has been in the tree long enough to say
-whether the attributions it collects are good enough to gate on. Do not do **4**.
+Do 1 now, as its own commit. Do 2 next, because it is small and because it is the ledger that
+item 3 would otherwise have to invent. Hold 3 until 2 has been in the tree long enough to say
+whether the attributions it collects are good enough to gate on. Do not do 4.
 
 The reversibility test says the same thing: 1 and 2 are undoable in an afternoon and nobody outside
 this tree has acted on them, while 3 writes a second committed floor that every future measurement is
@@ -166,35 +166,35 @@ compared against, which is a fact that other work starts depending on.
 
 ## How this bears on the toolchain-bump decision, which has since been answered
 
-**Corrected 2026-09-19.** This section was written against calef's then-open decision 2 from PR #883
+Corrected 2026-09-19. This section was written against calef's then-open decision 2 from PR #883
 (`icount-baselines-drift-after-a-toolchain-bump.md`, since promoted as milestone 577 (the icount
 baselines predate the pinned nightly) and superseded in the same act): should a toolchain bump
 re-baseline in the
-same pull request, or fail loudly? **He ruled on 2026-09-16 and it is milestone 302**, a baseline
+same pull request, or fail loudly? He ruled on 2026-09-16 and it is milestone 302, a baseline
 that records what it was saved against and fails loudly when it is stale, which is the "fail
 loudly" half. The audit below remains the evidence for that ruling rather than an argument toward
 it.
 
 That proposal's premise is that a new nightly's codegen invalidates the baselines. Milestone 300
-measured it: across `nightly-2026-08-27` and `nightly-2026-09-15` the toolchain term is **~0**, and
-the QEMU upgrade term is also ~0. On that evidence, **a bump-triggered automatic re-baseline would
+measured it: across `nightly-2026-08-27` and `nightly-2026-09-15` the toolchain term is ~0, and
+the QEMU upgrade term is also ~0. On that evidence, a bump-triggered automatic re-baseline would
 have written a new floor for a cause that measured zero, and in doing so would have absorbed
-milestone 139's regression under a toolchain label**, which is exactly what `44890a8a` did by hand.
+milestone 139's regression under a toolchain label, which is exactly what `44890a8a` did by hand.
 That is an argument for the "fail loudly" half of the proposal's own option and against the
 "re-baseline in the same pull request" half, and it is a measurement rather than a preference. It is
 the half calef took.
 
 ## BUGS
 
-- **The cumulative numbers are anchored, and the anchor is a judgment.** aarch64 is anchored at
+- The cumulative numbers are anchored, and the anchor is a judgment. aarch64 is anchored at
   `74431429` (2026-07-30) rather than at its first save, because `60e75545` pinned the bench to one
   hart after finding the `-smp 4` counter was fiction, which re-means every earlier number. A
   different anchor gives different cumulative figures. The per-save tables are anchor-free and are
   the checkable record.
-- **This audit ran no benchmarks.** Every figure is arithmetic over committed text, which is what
+- This audit ran no benchmarks. Every figure is arithmetic over committed text, which is what
   made it cheap and is also its limit: it says what each save *recorded*, not what the tree measured
   between saves. A regression that appeared and was fixed inside one window is invisible here.
-- **Item 2 cannot make an attribution true.** It moves a claim from a commit message to the file, so
+- Item 2 cannot make an attribution true. It moves a claim from a commit message to the file, so
   a reader meets it. `44890a8a` would still have written its false toolchain attribution; it would
   just have been findable.
 
@@ -219,7 +219,7 @@ the half calef took.
 
 `cargo xtask bench --check` fails at more than 10% drift against the last saved baseline and
 `--save` rewrites that baseline, so successive sub-threshold steps accumulate and the gate never
-fires: riscv64's `ctx_switch` is **+10.78% cumulative in steps that never reached +6.2%**, and the
+fires: riscv64's `ctx_switch` is +10.78% cumulative in steps that never reached +6.2%, and the
 gate has fired zero times on any of the five rows audited, while `coremark` is flat to four decimal
 places across every save on all three architectures. Two saves on 2026-09-15 blessed a removable
 regression into the floor on a toolchain attribution that milestone 300 later measured at ~0. Item
