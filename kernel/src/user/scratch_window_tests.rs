@@ -91,7 +91,8 @@ fn a_builder_reuses_scratch_its_reaped_children_gave_back() {
     let [built, pages, window, ..] = sched::ipc_recv(report);
 
     assert_eq!(
-        built, BUILDS,
+        built,
+        BUILDS,
         "build {} of {BUILDS} failed after {pages} scratch pages, against a window of {window}: \
          the loader did not reuse the pages a destroyed region gave back",
         built + 1,

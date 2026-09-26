@@ -149,8 +149,12 @@ fn build_until_done() -> ! {
         let Ok(region) = memory_region_split(MEMORY_REGION, CHILD_PAGES) else {
             break;
         };
-        let ok = match build_child_space(OWN, region, &image, &ChildEndowment::new(Retention::Nothing))
-        {
+        let ok = match build_child_space(
+            OWN,
+            region,
+            &image,
+            &ChildEndowment::new(Retention::Nothing),
+        ) {
             Ok((child, aspace)) => {
                 cap_delete(child.tcb);
                 cap_delete(aspace);

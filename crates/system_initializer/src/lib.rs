@@ -676,7 +676,8 @@ pub const JOBS_BUDGET_PAGES: u64 = JOB_REGION_PAGES * 6 + grant_plan::STD_REGION
 /// grown past this (milestone 595's `rg` at the prompt will grow it) fails the build here rather
 /// than a spawn at run time.
 const _: () = assert!(
-    JOBS_BUDGET_PAGES + spawnproto::IMAGE_MAX_PAGES <= supervision_protocol::SCRATCH_WINDOW_PAGES / 2
+    JOBS_BUDGET_PAGES + spawnproto::IMAGE_MAX_PAGES
+        <= supervision_protocol::SCRATCH_WINDOW_PAGES / 2
 );
 
 /// Where the progenitor maps the shell's output frame in **its own** address space, to print the one line it
