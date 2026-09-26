@@ -84,5 +84,5 @@ whether the names and numbers above stop being provisional.
 ## The mark's spelling is a separate question
 
 §170's clause 4 needs a mark on a word ("this word is writable", "this word may be created"). That
-is a naming decision and waits on the designation half of milestone 205, which is not built; it
-gets its own proposal when there is a build to spell.
+is a naming decision with its own proposal,
+[`the-mark-on-a-foreign-programs-word.md`](the-mark-on-a-foreign-programs-word.md).

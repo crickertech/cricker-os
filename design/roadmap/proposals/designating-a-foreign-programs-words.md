@@ -47,7 +47,8 @@ the names the line's words resolve to in it.
    Boot-image programs declare it in `grant_plan`. An installed program's comes from its ELF note,
    which is blocked on that note's names (`a-program-carries-its-manifest-in-an-elf-note.md`).
 4. An unvouched program is read-only whatever it declares (clause 4). A mark on a word widens that
-   one word; its spelling is a naming decision and gets its own proposal when this is built.
+   one word; its spelling is a naming decision, proposed in
+   [`the-mark-on-a-foreign-programs-word.md`](the-mark-on-a-foreign-programs-word.md).
 
 **Prior art.** The four systems `notes/foreign-program-arguments.md` read from source (Fuchsia,
 Genode, seL4's `sel4utils`, Xous) all keep authority out of argv and hand it over separately, as a

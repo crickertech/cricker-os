@@ -81,8 +81,8 @@ choice (how a single `std` directory slot holds words from several places).
 - The layout: where the page sits, `argv[0]`, bytes rather than UTF-8, the 4,080-byte ceiling.
   Built as [`proposals/the-argument-page-layout.md`](proposals/the-argument-page-layout.md)
   proposes, and provisional until a ruling.
-- The mark's spelling, which is a naming decision. Nothing spells it yet, because it marks a word
-  for clause 4, which is not built.
+- The mark's spelling, which is a naming decision:
+  [`proposals/the-mark-on-a-foreign-programs-word.md`](proposals/the-mark-on-a-foreign-programs-word.md).
 - Environment variables and exit codes for a foreign program, which §170 does not rule.
 
 ## Provisional names
@@ -116,8 +116,9 @@ choice (how a single `std` directory slot holds words from several places).
   `design/roadmap/proposals/designating-a-foreign-programs-words.md`, with calef's one fork (what a
   line naming no file grants) and the recommended mechanism.
 - **Proposed.** The page's layout, in `design/roadmap/proposals/the-argument-page-layout.md`.
-- **Outstanding.** The mark's spelling (clause 4). Checked 2026-09-26: nothing in the tree spells
-  one, because nothing grants a word read-write yet; it arrives with the designation half.
+- **Proposed.** The mark's spelling (clause 4), in
+  `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md`. Nothing spells one yet,
+  because nothing grants a word read-write before the designation half lands.
 - **Recorded.** Environment variables and exit codes for a foreign program, the `--mem`, `xargs` and image-path
   gaps, and the scratch-page cost, in this block's `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
