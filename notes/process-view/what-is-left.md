@@ -165,8 +165,8 @@ The block recommended deriving the view from the supervision tree, and the tree 
 construction when `ps` shipped over `rendezvous::SURVEY`. No file under `design/decisions/` records
 it, so a non-subtree view (a monitor watching two unrelated services) is neither built nor refused.
 A lane may not write that section, so this was draft text for an integrator. It is now minted as
-§223 (the process view is the supervision subtree), `PROPOSED`, with the seven questions answered
-there. Two corrections came with it: the view is one supervision domain rather than every
+§223 (the process view is the supervision domain), with the seven questions answered there, and
+calef decided it 2026-09-26: "A, and refuse B." Two corrections came with it: the view is one supervision domain rather than every
 descendant, and a monitor can watch unrelated services by holding each one's endpoint.
 
 The process view is the supervision subtree. A viewer holding `ENUMERATE` on a supervision endpoint

@@ -1,9 +1,11 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-09-26
+decided: 2026-09-26
+ratified_by: calef
 ---
 
-# 223. The process view is the supervision subtree
+# 223. The process view is the supervision domain
 
 Raised 2026-09-26 by the maintainer on `maintainer/126-followups`, from section 6 of
 [`notes/process-view/what-is-left.md`](../../notes/process-view/what-is-left.md), which
@@ -13,7 +15,22 @@ provisional until the merge queue lands it. §221 and §222 are claimed by #1340
 
 The tree took this decision by construction when `ps` shipped over `rendezvous::SURVEY` on
 2026-08-16. Nothing under `design/decisions/` recorded it, so the alternative is neither built nor
-refused. This section writes down what was built and asks calef to rule on the refusal.
+refused. This section wrote down what was built and asked calef to rule on the refusal.
+
+## The ruling
+
+calef, 2026-09-26 (UTC): *"A, and refuse B."*
+
+- The process view is the supervision domain: one level, the threads a supervision endpoint
+  directly supervises. A viewer holding `ENUMERATE` on that endpoint sees them and nothing else.
+- A monitor over unrelated services holds `ENUMERATE` on each service's endpoint and walks each. It
+  sees whole domains, never one member picked out of a domain it was not handed. No common-parent
+  supervisor is needed.
+- Refused: a separate process namespace with its own capability. It can express any set, and it
+  can also disagree with the tree.
+
+The word is "domain", not "subtree", because the kernel implements one level. The rest of this
+section is the proposal as it was put to calef.
 
 ## What is being decided
 
@@ -25,7 +42,7 @@ block, under "The other fork: where the process view comes from":
 - B. Processes live in a separate namespace object with a capability of its own. A holder sees
   whichever set the namespace was built to contain.
 
-The proposed ruling is A, with B refused. The draft text from the note, unchanged in substance:
+The proposal was A, with B refused. The draft text from the note, which the ruling corrects:
 
 > The process view is the supervision subtree. A viewer holding `ENUMERATE` on a supervision
 > endpoint sees that endpoint's domain and nothing else. A set of processes that is not a subtree
@@ -33,7 +50,7 @@ The proposed ruling is A, with B refused. The draft text from the note, unchange
 > process namespace with its own capability, which can express any set but can also disagree with
 > the tree.
 
-## Recommendation: A, and DECIDED by construction if calef agrees
+## Recommendation: A, and DECIDED by construction if calef agreed
 
 A cannot disagree with reality. Membership is `capability::survey_includes`, a one-line predicate:
 a thread is in the view exactly when its `Thread::fault_ep` is the invoked endpoint. That is the
@@ -90,18 +107,16 @@ than the note assumed.
 7. Would we still choose A if both cost the same? Yes. The argument is fewer moving parts and a
    view that cannot drift, not effort.
 
-## What is blocked until this is answered
+## What was blocked until this was answered
 
-Nothing is blocked in code. What waits is the record. A lane building a monitor over processes it
-does not supervise, or a `w` that lists sessions, has no section to cite for why B is not on
+Nothing was blocked in code. What waited was the record. A lane building a monitor over processes
+it does not supervise, or a `w` that lists sessions, had no section to cite for why B is not on
 offer. Section 6 of the note calls that "neither built nor refused". Milestone 282 (a thread's CPU time, and the `top` it makes possible) and any
-`pgrep` wait mode inherit whatever scope this rules.
+`pgrep` wait mode inherit the domain scope this rules.
 
-If calef says no to A, the next step is a milestone that measures B's cost. `SURVEY` stays as it
-is, since B does not replace it.
+## The wording, fixed with the ruling
 
-## BUGS
-
-- `design/roadmap/126-who-else-is-running.md`, `notes/process-view.md` and `crates/abi`'s `SURVEY`
-  rustdoc all say "subtree". The kernel implements one level. Changing the word in those files is
-  a naming edit and waits on this ruling.
+`design/roadmap/126-who-else-is-running.md`, `notes/process-view.md`, `crates/abi`'s `SURVEY`
+rustdoc and `kernel/src/sched.rs`'s `survey_supervised` said "subtree". The ruling settled the word,
+so each now says "domain" (`maintainer/126-followups`, 2026-09-26). This was a documentation edit,
+not a rename: no identifier changed.

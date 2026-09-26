@@ -201,9 +201,10 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - Aggregate statistics are a side channel, and capabilities do not close it. CPU time per thread,
   which `top` now shows, leaks information about work the viewer was never shown. A capability
   bounds who may ask; it says nothing about what the numbers reveal to whoever may.
-- A supervision-derived view cannot express a set that is not a subtree. A monitor handed
-  `ENUMERATE` on several supervision endpoints sees their union, whole domains at a time. §223 (the
-  process view is the supervision subtree) records the choice, `PROPOSED`.
+- A supervision-derived view cannot express a set that is not a union of domains. A monitor over
+  unrelated services holds `ENUMERATE` on each service's endpoint and sees whole domains at a time,
+  never one member picked out of a domain it was not handed. §223 (the process view is the
+  supervision domain) decided this.
 - The comparison against Linux is not apples to apples. Ours lists a domain; theirs lists a machine.
   That is the entire point, and a table putting them side by side without saying so would be
   dishonest in the way the map "tie" caveat exists to prevent.
@@ -235,9 +236,9 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - **Outstanding.** `pmap` is unreachable from the prompt: `crates/grant_plan` has no program variant
   for it, and `take_user_address_space` still deregisters a space at `CONFIGURE`. Checked
   2026-09-26.
-- **Decision.** The process view is the supervision subtree, taken by construction and now written
-  down as `design/decisions/223-the-process-view-is-the-supervision-subtree.md`, `PROPOSED` and
-  waiting on calef. It refuses a separate process namespace.
+- **Decision.** The process view is the supervision domain, one level of direct supervision:
+  `design/decisions/223-the-process-view-is-the-supervision-domain.md` (calef, 2026-09-26, "A, and
+  refuse B"). A separate process namespace is refused.
 - **Milestone 47.** A pattern still cannot be typed at `pgrep`, because its manifest in
   `crates/grant_plan` is `ArgSpec::Forbidden` and positional arity is 47's.
 - **Decision.** `sysctl` is not built and will not be: `design/decisions/115-no-sysctl.md`.
