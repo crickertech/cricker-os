@@ -800,8 +800,8 @@ mod tests {
 
         // SAFETY: `dp` is a live node, on no queue (see the module note).
         assert_eq!(unsafe { e.recv(dp) }, Recv::Blocked);
-        // SAFETY: `forger` is a live node, on no queue.
         assert_eq!(
+            // SAFETY: `forger` is a live node, on no queue.
             unsafe { e.send(NonNull::from(&mut *forger)) },
             Send::Refused
         );
