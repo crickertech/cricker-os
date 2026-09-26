@@ -714,6 +714,27 @@ fn report_region_peak() {
     );
 }
 
+/// **The test during which the rendezvous registry last reached a new peak.**
+static RENDEZVOUS_PEAK_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+static RENDEZVOUS_PEAK_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
+
+/// **How close the boot came to the rendezvous registry's ceiling**, printed beside the region
+/// peak, for the same reason and in the same shape. It adds the one split that decides what can
+/// be done about a high number: how many rendezvous sit on the kernel's own chunks, which are
+/// never freed, against the ones retyped from a region that goes when its region does. The ledger
+/// is at `sched::PEAK_RENDEZVOUS`.
+fn report_rendezvous_peak() {
+    let (peak, kernel) = crate::sched::rendezvous_pressure();
+    let max = crate::sched::MAX_RENDEZVOUS;
+    println!(
+        "rendezvous: {peak} live at the peak, of {max} the image allows ({} spare), set during {}; \
+         {kernel} were created on kernel chunks, which are never freed. See sched::MAX_RENDEZVOUS.",
+        max.saturating_sub(peak),
+        stored_name(&RENDEZVOUS_PEAK_NAME_PTR, &RENDEZVOUS_PEAK_NAME_LEN)
+            .unwrap_or("the boot, before the first test"),
+    );
+}
+
 /// **The test during which free frames last reached a new low**, and the test during which the
 /// allocator first refused a request. Same shape as [`REGION_PEAK_NAME_PTR`].
 static FRAME_LOW_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
@@ -1052,6 +1073,7 @@ impl<T: Fn()> Testable for T {
         // Attribute the high-water marks to the test that moved them. Read around the body rather
         // than inside the kernel, so the instruments know nothing about tests.
         let region_peak_before = crate::memory_region::peak_region_count();
+        let (rendezvous_peak_before, _) = crate::sched::rendezvous_pressure();
         let (frames_low_before, refused_before, _) = crate::memory::allocation_pressure();
         self();
         let mark = |ptr: &AtomicPtr<u8>, len: &AtomicUsize| {
@@ -1060,6 +1082,9 @@ impl<T: Fn()> Testable for T {
         };
         if crate::memory_region::peak_region_count() > region_peak_before {
             mark(&REGION_PEAK_NAME_PTR, &REGION_PEAK_NAME_LEN);
+        }
+        if crate::sched::rendezvous_pressure().0 > rendezvous_peak_before {
+            mark(&RENDEZVOUS_PEAK_NAME_PTR, &RENDEZVOUS_PEAK_NAME_LEN);
         }
         let (frames_low_after, refused_after, _) = crate::memory::allocation_pressure();
         if frames_low_after < frames_low_before {
@@ -1243,6 +1268,7 @@ pub fn runner(tests: &[&dyn Testable]) {
     report_page_frame_ledger();
     report_thread_peak();
     report_region_peak();
+    report_rendezvous_peak();
     report_frame_pressure();
 
     println!();
