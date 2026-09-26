@@ -1,11 +1,16 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-08-25
 decided: 2026-08-25
 ratified_by: calef
 ---
 
 # 126. A process holding two directory capabilities gets a real, single, moving `cwd`
+
+*Amended 2026-09-26 (UTC) by §234 (the prompt shows one tree, and other trees are mounted at names
+in it), provisional until the merge queue lands it. At the prompt, an absolute path no longer starts
+with a tree's label: the person sees one root, and other trees appear at mount names in it. The
+single moving cwd below stands.*
 
 calef, 2026-08-25, in conversation, closing one of [milestone
 154](../roadmap/154-multi-directory-namespace.md)'s own three "still open" items. Raised as a
@@ -31,10 +36,10 @@ shell have a real, single, moving current directory, the way a one-grant shell a
 
 ## The decision: yes, a real cwd, refuse at either tree's own root
 
-**State**: a pair `(which: A | B, pos: Cwd)` in place of the single `Cwd` a one-grant `Holdings`
+State: a pair `(which: A | B, pos: Cwd)` in place of the single `Cwd` a one-grant `Holdings`
 carries today. `pos` is the existing single-tree position type, unchanged.
 
-**Resolution**:
+Resolution:
 - A bare relative name resolves against `pos` inside whichever tree `which` currently names.
   Identical to today's one-grant behavior, parameterized by which tree the process is standing in.
 - An absolute path (`/a/...` or `/b/...`) resolves the same way `TwoRoots` already does today:
@@ -45,7 +50,7 @@ carries today. `pos` is the existing single-tree position type, unchanged.
 one-grant `Cwd::apply` already gives at its own root, applied per-tree rather than newly invented.
 Two alternatives were priced before deciding this one:
 
-- **Silently clamp instead of refusing** (stay put, no error), matching real Unix shells: `/..`
+- Silently clamp instead of refusing (stay put, no error), matching real Unix shells: `/..`
   resolves to `/` itself on every mainstream system, because the on-disk directory-entry format
   requires the root's `..` entry to point somewhere and self-reference is the only sane value.
   That representational necessity does not exist in nife: `Cwd` is a synthetic position tracker in
@@ -63,12 +68,12 @@ Two alternatives were priced before deciding this one:
   (checked against Plan 9's `bind` and standard bind-mount unions, neither of which special-cases
   `..` this way). Declined.
 
-**Refuse, unchanged from the one-grant case, applied per-tree**, wins: it is nife's own existing
+Refuse, unchanged from the one-grant case, applied per-tree, wins: it is nife's own existing
 answer to the same question at smaller scope, it is no more code than the alternatives, and the
 capability-boundary reasoning that motivated the one-grant refusal in the first place applies
 identically to two.
 
-**Starting position**: the first-listed grant's own root (`which = A`), matching the existing
+Starting position: the first-listed grant's own root (`which = A`), matching the existing
 "slot 0 is always the first grant" precedent [milestone 154](../roadmap/154-multi-directory-namespace.md)
 already established for cspace ordering. No new precedent needed.
 
