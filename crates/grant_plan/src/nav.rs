@@ -281,11 +281,19 @@ impl Cwd {
 
     /// Pop one level. **`false` at the root, which is the clamp**: there is nothing above it, so
     /// there is nothing to pop and no request to send.
+    ///
+    /// **The popped component is zeroed, not just forgotten**, so one place has one representation
+    /// and the derived `PartialEq` means "the same position". Before milestone 154 (a process that
+    /// holds two directory capabilities) it only decremented the depth, and `/logs` reached by
+    /// `cd logs/x; cd ..` compared unequal to `/logs` reached directly, because the stale `x` was
+    /// still in the array behind the depth.
     pub fn ascend(&mut self) -> bool {
         if self.depth == 0 {
             return false;
         }
         self.depth -= 1;
+        self.names[self.depth] = [0; MAX_NAME];
+        self.lens[self.depth] = 0;
         true
     }
 
@@ -681,6 +689,24 @@ impl Bindings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Two routes to one position compare equal, which the derived `PartialEq` only promises if
+    /// [`Cwd::ascend`] leaves no stale component behind (milestone 154 found that it did).
+    #[test]
+    fn two_routes_to_one_position_are_equal() {
+        let mut direct = Cwd::root();
+        assert!(direct.descend(b"logs"));
+        let mut around = Cwd::root();
+        assert!(around.descend(b"logs"));
+        assert!(around.descend(b"longer-name"));
+        assert!(around.ascend());
+        assert_eq!(around, direct);
+        assert!(around.ascend());
+        assert!(around.descend(b"x"));
+        let mut x = Cwd::root();
+        assert!(x.descend(b"x"));
+        assert_eq!(around, x, "a shorter name over a longer one leaves no tail");
+    }
 
     /// Assert what `pwd` would print. A helper rather than a returned `String` because this crate is
     /// `no_std` and has no allocator, in tests or out.
