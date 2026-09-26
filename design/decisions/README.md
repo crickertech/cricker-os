@@ -217,7 +217,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 105 | DECIDED | [`std::thread::spawn` stays declined, until a customer needs it](105-thread-spawn-decline-for-now.md) |
 | 106 | DECIDED | [Take the `terminal_sink_caretaker` narrowing: an unredirected tail stage's output goes to the screen, not the shell](106-tail-output-narrowing.md) |
 | 107 | DECIDED | [`missing_docs` moves to `workspace.lints.rust`, opt-out rather than opt-in](107-missing-docs-workspace-wide.md) |
-| 108 | DECIDED | [Disabling a user's login credentials kills their durable session](108-credential-revocation-kills-durable-session.md) |
+| 108 | AMENDED | [Disabling a user's login credentials kills their durable session](108-credential-revocation-kills-durable-session.md) |
 | 109 | DECIDED | [Attribution is a property of a channel, not of a capability](109-attribution-is-a-channel-property.md) |
 | 110 | DECIDED | [Hard links are declined, for want of a customer](110-hard-links-declined.md) |
 | 111 | DECIDED | [Inert configuration is a read-only page, and each declared key is validated against a closed domain](111-inert-config-is-a-validated-page.md) |
