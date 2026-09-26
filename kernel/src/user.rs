@@ -3320,7 +3320,7 @@ pub mod session_reviver_service;
 /// `session_reviver` reads back and `timetable::parse` accepts, that the manifest (§125's own answer
 /// to "which identities", read by name rather than by `READDIR`) carries that identity to the
 /// re-deriver without either program enumerating anything, that a session re-derived at boot has the
-/// identical §16 lifecycle a live login's own durable session does, and that
+/// identical §16 (object revocation) lifecycle a live login session's budget does, and that
 /// the re-deriver's own capabilities are gone and provably so once its one pass finishes.
 #[cfg(all(test, initrd))]
 mod session_reviver_tests;

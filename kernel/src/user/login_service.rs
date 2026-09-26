@@ -53,6 +53,9 @@ pub const FREE_TERMINAL: u64 = 5;
 /// DECISIONS §219 (how the shell names an installed program to the spawner) gate D2: logs in and sends [`RUN_UNVOUCHED_MAGIC`] on the sixth delegated
 /// capability. See the same file's module docs.
 pub const PRESENT_RUN_UNVOUCHED: u64 = 6;
+/// Milestone 152 (durable delegation): logs in, holds a pending-job child off the budget, proves the logout is refused
+/// until the child is gone. See the same file's module docs. Provisional name.
+pub const PENDING_WORK: u64 = 7;
 /// [`PRESENT_RUN_UNVOUCHED`]'s proof-of-life word; must match the same file's
 /// `RUN_UNVOUCHED_MAGIC`.
 pub const RUN_UNVOUCHED_MAGIC: u64 = 0x_7e12_0000_0000_0002;
@@ -89,6 +92,12 @@ pub const F_RUN_UNVOUCHED_NOT_GRANTABLE: u64 = 1 << 9;
 pub const F_RUN_UNVOUCHED_WORKS: u64 = 1 << 10;
 /// `OK` announced a sixth capability. Set by every behaviour that was sent one.
 pub const F_RUN_UNVOUCHED_ANNOUNCED: u64 = 1 << 11;
+/// Milestone 152: the budget's `DESTROY` was refused `NotPermitted` while a pending-job child lived.
+pub const F_LOGOUT_REFUSED_WHILE_PENDING: u64 = 1 << 12;
+/// Milestone 152: the budget still retyped a page after that refusal.
+pub const F_SESSION_SURVIVED_REFUSAL: u64 = 1 << 13;
+/// Milestone 152: the pending-job child was destroyed.
+pub const F_PENDING_WORK_DESTROYED: u64 = 1 << 14;
 
 /// **[`LOGOUT`]'s third report word is microseconds, not an identity hint**: how long that
 /// behaviour's `MemoryRegion::DESTROY` on the caretaker region waited for §16's armed kill to land.

@@ -1119,3 +1119,76 @@ fn login_hands_a_listed_session_the_run_unvouched_capability_and_it_cannot_be_pa
     free_terminal(&w);
     set_run_unvouched_list(None);
 }
+
+/// **A login session with pending work cannot be logged out until the work is gone**, for
+/// milestone 152 (durable delegation), on DECISIONS §16 (object revocation).
+///
+/// Milestone 152's design keeps a user's session alive past a disconnect for exactly as long as it
+/// has scheduled work, and it builds no new mechanism for that: a scheduled job's authority is a
+/// child split off the session's budget, and §16 already refuses `MemoryRegion::DESTROY` on a
+/// parent with a live child. This proves that on the object a login session actually is. The
+/// session's own budget, delegated by `login`, carries a one-page child; the logout's first step is
+/// refused `NotPermitted`; the budget still works afterwards; and once the child is destroyed the
+/// same logout goes through in [`ls::LOGOUT`]'s order, with its proofs that both capabilities came
+/// down.
+///
+/// The proof used to live on `smb_server`'s `DurableSession`, which went with the SMB code on
+/// 2026-08-30. `session_reviver` keeps a synthetic copy of it for boot-derived sessions; this is the
+/// live-login half those comments point at.
+///
+/// **Costs nothing permanent against [`CONSTRUCTION_PAGES`]**: the session logs fully back out.
+#[test_case]
+fn a_login_session_with_pending_work_refuses_logout_until_the_work_is_gone() {
+    if fs_service::fs_server_image().is_none() {
+        crate::testing::skip!(fs_service::NO_FS_SERVER);
+    }
+    let Some(w) = wired() else {
+        crate::testing::skip!("no virtio-rng device or no RedoxFS disk attached");
+    };
+    free_terminal(&w);
+    let cli =
+        program("login_test_client").expect("no login_test_client program in the initrd archive");
+    let r = ls::client(cli, &w, ls::PENDING_WORK, CHRIS, CHRIS);
+    assert_eq!(r[0], ls::RPT_OK, "chris was not authenticated");
+    for (bit, what) in [
+        (
+            ls::F_BUDGET_WORKS,
+            "the budget did not work before the child was split",
+        ),
+        (
+            ls::F_LOGOUT_REFUSED_WHILE_PENDING,
+            "the budget's DESTROY was not refused NotPermitted while a pending-job child lived; a \
+             session with scheduled work could be logged out from under it",
+        ),
+        (
+            ls::F_SESSION_SURVIVED_REFUSAL,
+            "the budget stopped working after its refused DESTROY",
+        ),
+        (
+            ls::F_PENDING_WORK_DESTROYED,
+            "the pending-job child did not destroy",
+        ),
+        (
+            ls::F_BUDGET_TEARDOWN_OK,
+            "the budget did not destroy once its child was gone",
+        ),
+        (
+            ls::F_BUDGET_DEAD_AFTER_TEARDOWN,
+            "the budget still answered a RETYPE after its own destroy",
+        ),
+        (ls::F_TEARDOWN_OK, "the logout ticket's own DESTROY"),
+        (
+            ls::F_DEAD_AFTER_TEARDOWN,
+            "the directory still answered a READDIR after the session came down",
+        ),
+    ] {
+        assert_eq!(r[1] & bit, bit, "{what}");
+    }
+    let a = sched::ipc_recv(w.audit);
+    assert_eq!(
+        a[0],
+        login_protocol::ATTRIBUTED,
+        "no attribution record followed the login",
+    );
+    free_terminal(&w);
+}
