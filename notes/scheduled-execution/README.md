@@ -9,6 +9,8 @@ work that page points at but does not need to carry whole.
   2026-09-26 (UTC): an image is code, not authority.
 - [calendar-and-wall-clock.md](calendar-and-wall-clock.md): the grammar and the clock-step rule for
   time-of-day entries. Awaiting calef.
+- [calendar-grammar-g5.md](calendar-grammar-g5.md): G5, a calendar grammar in words, checked
+  against its sources and priced against G3 and G4. Awaiting calef.
 
 *Name: provisional, minted 2026-09-26 (UTC) by the lane for milestone 129 (scheduled execution), for the directory and every
-stem in it. Naming is calef's; `script/names --unratified` lists each stem.*
+stem in it. `calendar-grammar-g5` was minted the same day by the lane `proposal/129-calendar-grammar`. Naming is calef's; `script/names --unratified` lists each stem.*

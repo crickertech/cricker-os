@@ -44,7 +44,7 @@ counter, which needs no capability. The housekeeping milestone 55 (Time Machine)
 | | rule | cost |
 |---|---|---|
 | S1 | Vixie cron's: a forward jump under three hours runs the skipped jobs soon after; a backward jump under three hours does not re-run the repeated ones; three hours or more is a correction and the new time is used as is (cron(8), read 2026-09-26). | A magic number, chosen for daylight saving, which this tree does not have. |
-| S2 | systemd's: catch up everything that elapsed, with `Persistent=` storing the last trigger on disk (systemd.timer(5), read 2026-09-26). | A stampede after a long stall, the thing `next_after` refuses for intervals. |
+| S2 | systemd's: `Persistent=` stores the last trigger on disk and fires once for whatever elapsed while off (systemd.timer(5), read 2026-09-26). | Corrected 2026-09-26 (UTC): not a stampede, since systemd fires once. It differs from S3 by persisting a stamp across power-off. See [calendar-grammar-g5.md](calendar-grammar-g5.md). |
 | S3 (recommended) | Recompute every deadline when the generation moves. An occurrence whose time a forward step jumped past fires once. An occurrence already fired is never fired again after a backward step, because each entry remembers the last wall-clock occurrence it fired. | One word of state per entry. It is the interval rule (skip, do not catch up, never twice) applied to wall time. |
 
 And while the clock's state is not known (`state::UNKNOWN`), a calendar entry is dormant: armed, not
