@@ -20,6 +20,19 @@
 //!
 //! # BUGS
 //!
+//! - **It is slow in the suite and fast alone, and the kernel's reap is why.** Five seconds on
+//!   aarch64 run by itself; over sixty in CI's whole suite on aarch64 and riscv64 (run 36277600914).
+//!   `crate::revoke::revoke_region` finds each page to unmap by scanning every live address space's
+//!   mapping log from the start, once per page, so destroying a region costs its mapped pages times
+//!   every record on the machine. Forty 668-page reaps behind a suite's worth of live spaces pay
+//!   that forty times. The progenitor reaping a job pays it too. Proposed as its own milestone:
+//!   `design/roadmap/proposals/a-region-reap-scans-every-mapping-on-the-machine-per-page.md`.
+//! - **The test keeps 32 frames, unexplained.** Measured by the suite's frame ledger on aarch64,
+//!   run alone, 2026-09-26: both regions reclaim without error and the exerciser exits, yet 32
+//!   frames do not come back. 32 is also the scratch window's last-level table count
+//!   (`supervision_protocol::SCRATCH_TABLE_PAGES`), which points at the tables the builder's own
+//!   region paid for, but that is a guess from one number, not a trace.
+//!
 //! - **It proves the loader, not the progenitor.** The progenitor's own numbers (its 128-page table
 //!   budget, its job pool against the window) are compile-time assertions in
 //!   `crates/system_initializer`, not a boot that spawns `rg` a hundred times; `rg` is not in any
@@ -40,6 +53,11 @@ const OWN_TABLE_PAGES: u64 = 48;
 
 /// The builds the exerciser is written to make.
 const BUILDS: u64 = 40;
+
+/// How long to wait for the report. Not a measurement: the first CI run at 40 builds did not
+/// finish inside 60 s on aarch64 or riscv64, and this run's printed time is the measurement the
+/// bound and `crate::testing::SLOW_TESTS`'s entry should be tightened to.
+const WAIT_SECS: u64 = 240;
 
 /// **A builder with a 48-page table budget builds 40 `ripgrep`-sized children in a row**, three
 /// more than a climbing cursor manages on that budget, and 1.6 laps of its scratch window.
@@ -75,17 +93,25 @@ fn a_builder_reuses_scratch_its_reaped_children_gave_back() {
     })
     .expect("could not spawn the scratch window exerciser");
 
-    // Bounded, so a builder that faults says so here rather than as the suite's hang watchdog.
-    let deadline = crate::arch::timer::now() + 60 * crate::arch::timer::frequency();
+    // Bounded, so a builder that faults says so here rather than as the suite's watchdog. The bound
+    // sits under this test's own `SLOW_TESTS` budget in `crate::testing`; see this module's BUGS
+    // for why a run that takes 5 s alone takes over a minute in the whole suite.
+    let start = crate::arch::timer::now();
+    let deadline = start + WAIT_SECS * crate::arch::timer::frequency();
     while sched::rendezvous_waiting_senders(report) == 0 && crate::arch::timer::now() < deadline {
         sched::yield_now();
     }
     assert!(
         sched::rendezvous_waiting_senders(report) > 0,
-        "the exerciser never reported: it faulted ({} faults) or is still building after 60 s",
+        "the exerciser never reported: it faulted ({} faults) or is still building after \
+         {WAIT_SECS} s",
         USER_FAULTS.load(Ordering::Relaxed) - faults,
     );
     let [built, pages, window, ..] = sched::ipc_recv(report);
+    crate::println!(
+        "    {built} builds, {pages} scratch pages, in {} s",
+        (crate::arch::timer::now() - start) / crate::arch::timer::frequency(),
+    );
 
     assert_eq!(
         built,
