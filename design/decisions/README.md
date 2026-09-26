@@ -217,7 +217,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 105 | DECIDED | [`std::thread::spawn` stays declined, until a customer needs it](105-thread-spawn-decline-for-now.md) |
 | 106 | DECIDED | [Take the `terminal_sink_caretaker` narrowing: an unredirected tail stage's output goes to the screen, not the shell](106-tail-output-narrowing.md) |
 | 107 | DECIDED | [`missing_docs` moves to `workspace.lints.rust`, opt-out rather than opt-in](107-missing-docs-workspace-wide.md) |
-| 108 | DECIDED | [Disabling a user's login credentials kills their durable session](108-credential-revocation-kills-durable-session.md) |
+| 108 | AMENDED | [Disabling a user's login credentials kills their durable session](108-credential-revocation-kills-durable-session.md) |
 | 109 | DECIDED | [Attribution is a property of a channel, not of a capability](109-attribution-is-a-channel-property.md) |
 | 110 | DECIDED | [Hard links are declined, for want of a customer](110-hard-links-declined.md) |
 | 111 | DECIDED | [Inert configuration is a read-only page, and each declared key is validated against a closed domain](111-inert-config-is-a-validated-page.md) |
@@ -235,7 +235,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 123 | DECIDED | [Boot-time re-derivation: what grants the privilege, and how it dies after one use](123-boot-time-rederivation-privilege.md) |
 | 124 | DECIDED | [Ratify the x86_64 syscall ABI](124-x86-64-syscall-abi.md) |
 | 125 | DECIDED | [What tells boot-time re-derivation which identities have pending work](125-durable-schedule-manifest.md) |
-| 126 | DECIDED | [A process holding two directory capabilities gets a real, single, moving `cwd`](126-two-directory-cwd.md) |
+| 126 | AMENDED | [A process holding two directory capabilities gets a real, single, moving `cwd`](126-two-directory-cwd.md) |
 | 127 | DECIDED | [x86_64's `now()`/`cntfrq()`: PIT-calibrated `rdtsc`, ratifying what PR #476 already built](127-x86-64-timer-rdtsc.md) |
 | 128 | DECIDED | [What enforces the git-clobber rule, now that it has crossed its own threshold](128-git-clobber-enforcement.md) |
 | 129 | DECIDED | [Whether `filesystem_proto::fs::RENAME` grows a `NOREPLACE` flag, revisiting §42](129-rename-noreplace-flag.md) |
@@ -332,6 +332,10 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 220 | DECIDED | [Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped](220-signed-builds-and-scoped-key-trust.md) |
 | 221 | DECIDED | [The boot prompt is the owner's console](221-the-boot-prompt-is-the-owners-console.md) |
 | 230 | DECIDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
+| 231 | DECIDED | [A swap's warning to a dependent is advisory, and the supervisor never waits for it](231-a-dependents-warning-is-advisory.md) |
+| 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |
+| 233 | DECIDED | [`MemoryRegion::RETYPE` takes a page count](233-a-region-retypes-a-run-of-pages.md) |
+| 234 | DECIDED | [The prompt shows one tree, and other trees are mounted at names in it](234-the-prompt-shows-one-tree.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
