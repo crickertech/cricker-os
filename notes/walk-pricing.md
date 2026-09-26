@@ -101,14 +101,18 @@ cargo run --release -p walk_pricing --example host # the same walk on this host
 The HVF leg needs `cargo xtask std-src` behind it, which relinks the machine-wide `nife-dev`
 toolchain to the worktree that runs it.
 
+## Since then
+
+Milestone 606 (a directory walk costs what it does on Linux) took these figures as its starting
+point. The walk is now in the release bench boot as `fs_walk`, beside a Linux figure on the same
+machine, and a warm walk on the release kernel went from 28 ms to about 0.8 ms.
+[A directory walk against Linux on the same machine](walk-cost.md) has the numbers. The two
+`BUGS` entries this page carried about a debug kernel and a missing Linux figure are closed there.
+
 ## BUGS
 
-- The kernel is a debug build. A release reading wants the walk in the bench boot
-  (`script/bench --real --release --smp`, which attaches the RedoxFS disk), and the bench boot runs
-  no `std` program today.
-- No matched-tier Linux figure. `bench/host/run_linux_fs.sh` boots a static musl PID 1 under
-  HVF on the same virtio disk; the host example is what it would run, and nobody has built that
-  image for it.
+- The table above is from the debug kernel under the kernel suite, before milestone 606. It is
+  kept as the record of where the work started, not as the current cost.
 - Three samples per slope point now, five when the table was taken, and the table shows five is
   not enough for a slope. The totals are the figures to quote, and they want a quiet machine: the
   same walk measured 42 ms idle and up to 445 ms beside other lanes' emulators.

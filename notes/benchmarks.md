@@ -180,6 +180,11 @@ tier. Buffered Linux reads at about 7,141 MiB/s, because it has a page cache and
 Closing that is out of milestone 138's scope. Five [appendices](#appendices) hold the history,
 starting at [milestone 38's](benchmarks/filesystem-throughput.md).
 
+### A directory walk (HVF, `--release`, 2026-09-26)
+
+Warm: 28 ms before milestone 606 (a directory walk costs what it does on Linux), 0.8 ms after,
+Linux 0.41 ms. [The walk page](walk-cost.md) has more.
+
 ### The IPC fastpath's footprint
 
 `script/fastpath-footprint` walks the call graph out of the disassembly and sums the bytes an IPC
