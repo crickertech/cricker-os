@@ -455,7 +455,10 @@ static USER_SPACES: crate::sync::IrqSafeMutex<
 /// the space's table-and-record budget, exactly as for an exec-built space. `None` on an
 /// exhausted region, a full registry, or ASID exhaustion (unreachable; the type is honest).
 pub fn user_address_space_create(region: u64) -> Option<u64> {
-    let root = crate::memory_region::retype_object_page(region)?;
+    let root = crate::memory_region::retype_object_page(
+        region,
+        crate::memory_region::ObjectKind::AddressSpace,
+    )?;
     mmu::share_kernel_half(root); // RISC-V single-satp: the process root carries the kernel high half
 
     if !crate::revoke::register_space(root, region) {
@@ -2330,6 +2333,31 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
             }
         );
     }
+    // **The machine statistics page** (slot 23, milestone 126 (the `procps` package), DECISIONS §225
+    // (`free` sees the machine and your share) part 2), the config page's shape: a frame the kernel
+    // keeps its machine-wide counters in, granted unconditionally so its slot never moves, and
+    // `READ | GRANT` so the progenitor can hand it to the boot shell and let nobody write it.
+    //
+    // Slot 23 because every slot below it is named by a grant some boot makes, and the page is
+    // granted on every boot. It was the kernel's fault slot until calef raised the table to 32 on
+    // 2026-09-27 for exactly this (`crate::cap::CAPABILITY_TABLE_SLOTS`). See
+    // `crate::machine_statistics`.
+    let s23 = crate::sched::thread_control_block_insert_cap(
+        tid,
+        crate::cap::page_frame_cap(
+            crate::machine_statistics::page_phys(),
+            Rights::READ.union(Rights::GRANT),
+        ),
+        Some(23),
+    )
+    .expect("insert the machine statistics page");
+    assert_eq!(s23, 23);
+    // The graphical terminal stack (slots 10-12, milestone 177), when a GPU is attached
+    // (milestone 192 dropped the keyboard from the condition; the UART is a keystroke source too).
+    // `None` on a boot with no GPU: system_initializer builds the plain console/input pair
+    // instead, the same "absence rather than failure" shape as the filesystem pair and the
+    // virtio-rng trio. See [`boot_graphical_terminal`].
+    let graphical = boot_graphical_terminal(uart_irq);
     // **Or a terminal on the screen the firmware left running** (the shell on the firmware screen,
     // milestone 198's rung 1b), when there is no GPU: slots 10 and 11, the terminal's endpoint and
     // its output page. (They were the graphical stack's slots too, until milestone 600

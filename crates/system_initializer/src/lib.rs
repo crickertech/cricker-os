@@ -81,6 +81,9 @@
 //!         keyboard: 22,
 //!         keyboard_irq: 23,
 //!         keyboard_dma: 1, // this example's table starts at slot 2, so 0 and 1 are free
+//!         // The machine statistics page (milestone 126 (the `procps` package)): granted on
+//!         // every boot, so always this slot. The last free one in this example's table.
+//!         machine_page: 0,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -527,6 +530,16 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, lane `milestone/595-x86-std`, 2026-09-26. `fs_ep`'s shape, one service over.
     pub entropy_ep: u64,
+    /// **The machine statistics page** (milestone 126, DECISIONS §225 (`free` sees the machine and your share) part 2): a `PageFrame`
+    /// capability with `READ | GRANT` to the frame the kernel keeps its machine-wide counters in
+    /// (`crates/machine_statistics_protocol`). Granted unconditionally, like
+    /// [`config_page`](BootEndowment::config_page), so its slot never moves. [`boot`] hands it to
+    /// the boot prompt's shell when [`GRANT_MACHINE_PAGE`] says the owner allows it, and keeps no
+    /// copy; the shell sends it back with the spawn request of a program that declares
+    /// [`grant_plan::Manifest::machine`] (`spawnproto::MACHINE_BIT`).
+    ///
+    /// Name: provisional, milestone 126's `free` lane, 2026-09-26.
+    pub machine_page: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -592,6 +605,20 @@ const CHILD_CLOCK_VA: u64 = address_space_map::pair_page(0x00c0_0000);
 /// farm's own harness), in its own address space, so there is no collision to avoid, only two
 /// numbers that happen not to need to agree.
 const CHILD_CONFIG_VA: u64 = address_space_map::pair_page(0x00e0_0000);
+
+/// **Whether the boot prompt's session is handed the machine statistics page** (milestone 126,
+/// DECISIONS §225 part 2). §225 ruled the page granted to every login by default and withholdable
+/// by the machine owner, and this is the owner's switch, in the one file the owner's other
+/// boot-time policy (the run-unvouched capability) already lives in. `false` and the shell never
+/// holds the page, so every `free` prints that it cannot see the machine and `vmstat` refuses,
+/// rather than either printing zeroes.
+///
+/// **An exception worth marking**: the page already travels with the session
+/// (`spawnproto::MACHINE_BIT`), so a per-login policy is `login` handing each session the page or
+/// not. Nothing hands it to `login` yet; this constant decides for the boot prompt alone.
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const GRANT_MACHINE_PAGE: bool = true;
 
 /// Where a supervised (interruptible) child maps its shared job frame (DECISIONS §24 (interrupting the foreground process)). A pair page
 /// on the address-space map; must match `interrupt_heeder.rs` and
@@ -1844,6 +1871,22 @@ pub fn boot(
         abi::rights::READ,
         grant_plan::SHELL_CONFIG_SLOT,
     ));
+    // **The machine statistics page goes to the session, and this process keeps no copy**
+    // (milestone 126, DECISIONS §225). Placed now, before the login block, because that block is
+    // this table's peak and a page held across it would spend the table's last slot
+    // (`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`). The shell hands it back with a spawn request
+    // only for a program that declares `machine` (`spawnproto::MACHINE_PAGE_SLOT`, `MACHINE_BIT`),
+    // so which programs see the machine is decided by what the session holds. `READ | GRANT`: it
+    // can delegate the page and cannot write it. [`GRANT_MACHINE_PAGE`] is the owner's switch.
+    if GRANT_MACHINE_PAGE {
+        must_ok(place_at(
+            shell.tcb,
+            g.machine_page,
+            abi::rights::READ | abi::rights::GRANT,
+            spawnproto::MACHINE_PAGE_SLOT,
+        ));
+    }
+    cap_delete(g.machine_page);
     // The caretaker's endpoint was only ever the means of wiring: the shell holds its own copy and
     // the caretaker holds the other end, the same disposal `spawn_service`'s dynamic directory
     // grants already give their own narrowed endpoint below.
@@ -2803,6 +2846,14 @@ fn spawn_service(
         } else {
             None
         };
+        // **The machine statistics page, when the session sent it** (milestone 126,
+        // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
+        // below once the child holds its own mapping and slot.
+        let machine_page = if wiring.machine {
+            opt_cap(recv_cap(spawn_ep).1)
+        } else {
+            None
+        };
         // **The run-unvouched capability, presented** (DECISIONS §219 gate D2): the last message
         // of any request that claimed it, taken whether or not this one turns out to need it, so
         // the caller's `SEND` is never left waiting. It arrived on the endpoint only a holder can
@@ -2885,6 +2936,10 @@ fn spawn_service(
         // And a fifth (milestone 590 (provisional)): a network is not something a command line
         // designates either.
         let wants_network = manifest.is_some_and(|m| m.network);
+        // And the two views milestone 126 added (DECISIONS §225): how the machine is doing, and
+        // what this prompt's job budget was spent on. Neither is something a line designates.
+        let wants_machine = manifest.is_some_and(|m| m.machine);
+        let wants_share = manifest.is_some_and(|m| m.share);
 
         if interruptible {
             // Build the whole child from the shell's job untyped, mapping the shared job frame; no
@@ -3095,7 +3150,7 @@ fn spawn_service(
             // collect a corpse, and only the viewer's own source code said it did not. A domain names
             // its members and does not act on them (calef, 2026-08-17); `capability::Rights::ENUMERATE`
             // is what makes that a property of the grant. notes/process-view.md carries the argument.
-            let mut placed_buf = [(0u64, 0u64, 0u64); 4];
+            let mut placed_buf = [(0u64, 0u64, 0u64); 6];
             let mut placed_n = 0usize;
             if let (Some(ep), Some(slot)) = (diagnostics.or(default_diag), diag_slot) {
                 placed_buf[placed_n] = (slot, ep, abi::rights::WRITE);
@@ -3131,11 +3186,22 @@ fn spawn_service(
                 placed_buf[placed_n] = (grant_plan::NETWORK_SLOT, ep, abi::rights::WRITE);
                 placed_n += 1;
             }
+            // **The fifth and sixth named slots** (milestone 126, DECISIONS §225). The machine page
+            // carries `READ` and is also mapped below; the job budget carries `ENUMERATE` alone,
+            // which answers `abi::memory_region::USAGE` and nothing that spends, splits or
+            // destroys. It is the same region this child was split from, so "yours" includes the
+            // program asking, the way `ps` lists itself.
+            if let (true, Some(page)) = (wants_machine, machine_page) {
+                placed_buf[placed_n] = (grant_plan::MACHINE_SLOT, page, abi::rights::READ);
+                placed_n += 1;
+            }
+            if wants_share {
+                placed_buf[placed_n] = (grant_plan::SHARE_SLOT, jobs_ut, abi::rights::ENUMERATE);
+                placed_n += 1;
+            }
             let placed: &[(u64, u64, u64)] = &placed_buf[..placed_n];
             let clock_map = [(CHILD_CLOCK_VA, clock_page, abi::address_space::MAP_RO)];
             let config_map = [(CHILD_CONFIG_VA, config_page, abi::address_space::MAP_RO)];
-            // Both pages, which only `grant_plan::UNVOUCHED_MANIFEST` declares (§219 gate D2).
-            let both_map = [clock_map[0], config_map[0]];
             // **The FS contract's shared page, for a program behind a directory grant.** The same
             // frame the caretaker maps and the same frame the FS server maps: one page for all three
             // parties, sound because every request on both hops is a blocking `CALL`, so the client
@@ -3150,24 +3216,34 @@ fn spawn_service(
             // out of that carve, and a single reclaim frees all of it; the clock frame and the FS
             // page are ours and are only *mapped* into the child, so they are untouched when the
             // region goes.
-            // **Two extra mappings at most, today.** A program that declared a directory grant AND a
-            // clock AND the config page would need three, and this chain only ever offers two; no
-            // manifest reaches that combination (the directory program, `rm`, declares neither
-            // clock nor config, and only `grant_plan::UNVOUCHED_MANIFEST` declares both clock and
-            // config, with no directory), so the gap is unreached rather than closed. The same ordered-slot debt `wants_clock`'s own
-            // comment above already names for `caps`, one structure over; see notes/pipes.md's
-            // `BUGS`.
-            let maps: &[(u64, u64, u64)] = if narrowed.is_some() {
-                &dir_map
-            } else if wants_clock && wants_config {
-                &both_map
-            } else if wants_clock {
-                &clock_map
-            } else if wants_config {
-                &config_map
-            } else {
-                &[]
-            };
+            // **Every mapping the manifest asked for, in one list** (milestone 126). This was a
+            // chain offering at most two extra mappings, whose comment recorded the three-mapping
+            // combination it could not express; the machine statistics page made a fourth kind of
+            // mapping, and a list closes that debt instead of adding a branch to it. Each entry is a
+            // page this progenitor holds and only maps, so the child's reclaim leaves them all alone.
+            let mut map_buf = [(0u64, 0u64, 0u64); 4];
+            let mut map_n = 0usize;
+            if narrowed.is_some() {
+                map_buf[map_n] = dir_map[0];
+                map_n += 1;
+            }
+            if wants_clock {
+                map_buf[map_n] = clock_map[0];
+                map_n += 1;
+            }
+            if wants_config {
+                map_buf[map_n] = config_map[0];
+                map_n += 1;
+            }
+            if let (true, Some(page)) = (wants_machine, machine_page) {
+                map_buf[map_n] = (
+                    machine_statistics_protocol::PAGE_VA,
+                    page,
+                    abi::address_space::MAP_RO,
+                );
+                map_n += 1;
+            }
+            let maps: &[(u64, u64, u64)] = &map_buf[..map_n];
             // **The std layout** (milestone 595 (provisional)): the same authorities, placed where
             // nife's `std` reads them instead of in order. Computed here, beside the native arrays it
             // replaces, so both shapes read from the one set of decisions above (which output, which
@@ -3333,9 +3409,18 @@ fn spawn_service(
         // mapped, the budget and the streams inserted), and the shell holds the originals it kept
         // (the job untyped for teardown, the pipe it minted). This keeps the progenitor's 16-slot capability table from
         // filling across a long session.
-        for s in [job_ut, job_fr, sink, source, diagnostics, screen, budget]
-            .into_iter()
-            .flatten()
+        for s in [
+            job_ut,
+            job_fr,
+            sink,
+            source,
+            diagnostics,
+            screen,
+            budget,
+            machine_page,
+        ]
+        .into_iter()
+        .flatten()
         {
             cap_delete(s);
         }

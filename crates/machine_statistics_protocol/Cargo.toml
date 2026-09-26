@@ -1,0 +1,16 @@
+[package]
+name = "machine_statistics_protocol"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# The machine statistics page (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and your share) part 2): one definition of the
+# read-only page the kernel keeps its machine-wide counters in, so the kernel (the one writer) and
+# `free`, `vmstat` and `top` (the readers) cannot drift on the layout or the virtual address
+# (AGENTS.md rule 7). Name provisional.
+
+[lints]
+workspace = true
+
+[dependencies]
+current_cpu_protocol = { version = "0.1.0", path = "../current_cpu_protocol" }

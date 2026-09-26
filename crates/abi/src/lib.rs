@@ -983,6 +983,55 @@ pub mod memory_region {
     /// tree to walk). `NotPermitted` while a live thread still occupies the region, or if it has
     /// been `SPLIT` into children (destroy the children first), or without `WRITE`.
     pub const DESTROY: u64 = 4;
+
+    /// `invoke(cap, USAGE, record, _, _)` -> pages. **How much of this region has been spent, and
+    /// on what** (milestone 126, DECISIONS §225 (`free` sees the machine and your share) part 1: `free`'s "yours" line, and `slabtop`
+    /// asked per object type). `record` is one of [`usage`](super::usage)'s selectors; the answer
+    /// is a page count in x0.
+    ///
+    /// Needs `ENUMERATE` and nothing else, the rule §114 (`ENUMERATE` extends to the address-space
+    /// object) set for `pmap`: a holder learns what the region is spent on without being able to
+    /// spend, split or destroy it. `BadMethod` for an unknown record, checked before the region is
+    /// looked up; `NoSuchSlot`-style staleness reads as [`crate::Error::Gone`] for a region already
+    /// reclaimed.
+    ///
+    /// Number provisional: proposed by the lane that built it, and calef's to ratify.
+    pub const USAGE: u64 = 5;
+}
+
+/// **Which figure a [`memory_region::USAGE`] asks for** (milestone 126, DECISIONS §225). A selector
+/// on `SURVEY`'s shape, so a new figure is a new value here and an arm in the kernel.
+///
+/// Every answer is in pages. [`SIZE`](usage::SIZE), [`COMMITTED`](usage::COMMITTED) and
+/// [`CHILDREN`](usage::CHILDREN) describe this region alone. [`FRAMES`](usage::FRAMES) and the
+/// three object kinds count **the whole subtree**, this region and every live region split from
+/// it, because a budget's pages are mostly carved into child regions and the objects live in
+/// those. The counts are bump-only like a watermark: a torn-down object's page
+/// stays spent until its region is reclaimed, so they say where the budget went, not what is alive
+/// now.
+///
+/// Names and numbers provisional: calef names public items.
+pub mod usage {
+    /// Pages the region holds in total.
+    pub const SIZE: u64 = 0;
+    /// Pages spent so far: the watermark.
+    pub const COMMITTED: u64 = 1;
+    /// Plain pages over the subtree: mapped memory, page tables, image pages and revocation records.
+    pub const FRAMES: u64 = 2;
+    /// Pages retyped into rendezvous objects, over the subtree.
+    pub const RENDEZVOUS: u64 = 3;
+    /// Pages retyped into address-space roots, over the subtree.
+    pub const ADDRESS_SPACES: u64 = 4;
+    /// Pages retyped into thread control blocks, over the subtree.
+    pub const THREADS: u64 = 5;
+    /// Pages this region carved into child regions that are still live.
+    pub const CHILDREN: u64 = 6;
+
+    /// Whether this kernel answers a record, `survey::record::is_known`'s twin.
+    #[must_use]
+    pub const fn is_known(record: u64) -> bool {
+        record <= CHILDREN
+    }
 }
 
 /// Methods on a `PageFrame` capability. **A physical page a process holds, maps, and shares.**

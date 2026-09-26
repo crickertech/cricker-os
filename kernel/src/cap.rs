@@ -531,10 +531,20 @@ pub fn memory_region_cap_rights(region: u64, rights: Rights) -> Cap {
 /// here (a `SPLIT` child inherits its parent's rights; `CAP_INSERT` narrows again), so `GRANT` never
 /// appears anywhere it was not present at the root. Contrast [`memory_region_cap`], the `WRITE`-only
 /// spend-only budget a leaf child receives.
+///
+/// **`ENUMERATE` too**, since milestone 126 (the `procps` package) and DECISIONS §225 (`free` sees the machine and your share) part 1.
+/// `MemoryRegion::USAGE` is the first method on this object that consults it, and it answers what
+/// the region was spent on and nothing more. It flows down every `SPLIT` with the rest, so the progenitor can hand a job budget's
+/// holder a view narrowed to `ENUMERATE` alone, which is `free`'s "yours" line. The audit §114 (`ENUMERATE` extends to the address-space object) asked
+/// for when `ENUMERATE` first reached the address-space object applies here the same way: a holder
+/// that could already spend, split and destroy the region learns nothing new by asking what it spent.
 pub fn memory_region_root_cap(region: u64) -> Cap {
     memory_region_cap_rights(
         region,
-        Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
+        Rights::READ
+            .union(Rights::WRITE)
+            .union(Rights::GRANT)
+            .union(Rights::ENUMERATE),
     )
 }
 

@@ -47,7 +47,8 @@
 //! variants, the shape `crates/timetable`'s own `Unbacked`/`Refusal` split and POSIX's
 //! `EMFILE`/`ENFILE` both already use) for whoever eventually has one.
 
-use memory_regions::RegionTable;
+pub use memory_regions::ObjectKind;
+use memory_regions::{PageUse, RegionTable};
 use page_frames::{FRAME_SIZE, PageFrame};
 
 use crate::memory;
@@ -237,10 +238,10 @@ pub fn retype_run(region: u64, requested: u64) -> Option<(u64, u64)> {
 /// **Retype one page for a kernel object, pinning the region in the same breath** (19a). Pin and
 /// carve happen under one hold of the region lock, so no [`destroy`] can slip between them and
 /// free a page that is about to hold an endpoint. Zeroed like every retyped page.
-pub fn retype_object_page(region: u64) -> Option<u64> {
+pub fn retype_object_page(region: u64, kind: ObjectKind) -> Option<u64> {
     // Released at the semicolon, as in `retype_page`: the pin and the carve are under the lock, the
     // zeroing is not.
-    let page = REGIONS.lock().retype_object_page(region)?;
+    let page = REGIONS.lock().retype_object_page(region, kind)?;
     let phys = page * FRAME_SIZE;
 
     // SAFETY: as retype_page: exclusively ours, direct-mapped; zero before anyone reads it.
@@ -252,6 +253,23 @@ pub fn retype_object_page(region: u64) -> Option<u64> {
         );
     }
     Some(phys)
+}
+
+/// **One figure of a region's spending, for `MemoryRegion::USAGE`** (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and your share)
+/// part 1). `record` is an `abi::usage` selector the caller has already checked with
+/// `abi::usage::is_known`; `None` for a dead region.
+pub fn usage_record(region: u64, record: u64) -> Option<u64> {
+    let table = REGIONS.lock();
+    let on = match record {
+        abi::usage::SIZE => return table.usage(region).map(|(_, pages)| pages),
+        abi::usage::COMMITTED => return table.usage(region).map(|(spent, _)| spent),
+        abi::usage::FRAMES => PageUse::Frames,
+        abi::usage::RENDEZVOUS => PageUse::Object(ObjectKind::Rendezvous),
+        abi::usage::ADDRESS_SPACES => PageUse::Object(ObjectKind::AddressSpace),
+        abi::usage::THREADS => PageUse::Object(ObjectKind::Thread),
+        _ => PageUse::Children,
+    };
+    table.spent(region, on)
 }
 
 /// How many pages the region has retyped, and its size. For the demo and tests.

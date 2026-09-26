@@ -3206,6 +3206,13 @@ PINNED = {
     # (milestone 601 (the region table prints its peak)); loom has nothing to interleave in a count.
     ("RegionTable", "len", "&self"),
     ("RegionTable", "is_empty", "&self"),
+    # Milestone 126 (the `procps` package): what a region was spent on, for `MemoryRegion::USAGE`
+    # (DECISIONS §225 (`free` sees the machine and your share)). It cannot be the read half of a
+    # reclaim: it reports counts no decision in the crate or the kernel reads, never whether a
+    # region is pinned, childless or claimable. The two enums are its selector.
+    ("-", "ObjectKind", "enum"),
+    ("-", "PageUse", "enum"),
+    ("RegionTable", "spent", "&self"),
     ("RegionTable", "insert_root", "&mut self"),
     ("RegionTable", "split", "&mut self"),
     ("RegionTable", "retype_page", "&mut self"),

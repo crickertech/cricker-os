@@ -1831,6 +1831,20 @@ fn write_preview_rows(
         // milestone, and notes/process-view.md's `BUGS` carries the disposition.
         out(b"                              outside this domain but that it exists\n");
     }
+    // **The machine, and this prompt's share of it** (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and your share)). Two rows
+    // because they are two grants and one can be held without the other: `vmstat` sees the machine
+    // and not the budget, `slabtop` the budget and not the machine, `free` both. The first says the
+    // owner's switch exists, because a person reading `caps free` on a machine whose owner withheld
+    // the page should learn why the program cannot see it.
+    if e.prog.manifest().machine {
+        out(b"    cap 11 frame     machine  read-only. memory, run queue, interrupts, context\n");
+        out(b"                              switches and busy time for the whole machine.\n");
+        out(b"                              granted by default; the machine's owner can withhold it\n");
+    }
+    if e.prog.manifest().share {
+        out(b"    cap 12 region    share    ENUMERATE. this shell's job budget: how much is spent\n");
+        out(b"                              and on what. it cannot spend, split or destroy it\n");
+    }
     // **Where its output goes**, which is the demonstration milestone 50 owed: the destination is a
     // capability rather than an integer with a convention attached, so `caps` can name it. On Unix
     // the same question has no answer at this point, because fd 1 is whatever the shell's fd 1

@@ -1,5 +1,5 @@
 [package]
-name = "top"
+name = "vmstat"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
@@ -8,7 +8,4 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-abi = { version = "0.1.0", path = "../abi" }
-ps = { version = "0.1.0", path = "../ps" }
-uptime = { version = "0.1.0", path = "../uptime" }
 machine_statistics_protocol = { version = "0.1.0", path = "../machine_statistics_protocol" }

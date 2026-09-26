@@ -152,6 +152,36 @@ pub fn write_summary(rows: &[ps::Row], uptime_nanos: u64, out: &mut dyn FnMut(&[
     out(b"\n");
 }
 
+/// **The machine line under the summary, which is what became of `tload`** (milestone 126,
+/// DECISIONS §225 (`free` sees the machine and your share)).
+///
+/// Upstream `tload` draws the load average as a graph. This kernel keeps no decaying load figure,
+/// and §225 ruled that the question belongs in `top`'s summary rather than in a program of its
+/// own, so the line says what the machine statistics page can say truthfully: how many threads were
+/// runnable at each core's last tick, on how many cores, and what share of all ticks since boot
+/// went to something other than the idle thread. `None` prints the sentence a withheld page earns
+/// rather than a machine of zeroes.
+///
+/// It widens `top`'s authority past `ps`'s by one read-only page, which also settles the question
+/// milestone 281's rule left open: `top` no longer holds exactly what `ps` holds.
+pub fn write_machine_line(
+    machine: Option<&machine_statistics_protocol::Snapshot>,
+    out: &mut dyn FnMut(&[u8]),
+) {
+    let Some(m) = machine else {
+        out(b"machine: not shown, the owner has not granted the machine statistics page\n");
+        return;
+    };
+    let ticks = m.busy_ticks() + m.idle_ticks();
+    out(b"machine: ");
+    write_u64(m.runnable(), out);
+    out(b" runnable on ");
+    write_u64(m.online_cpus() as u64, out);
+    out(b" cores, ");
+    write_u64((m.busy_ticks() * 100).checked_div(ticks).unwrap_or(0), out);
+    out(b"% busy since boot\n");
+}
+
 /// A `u64` in decimal, no padding. The summary line is prose rather than a table, so its numbers
 /// are not in columns.
 fn write_u64(v: u64, out: &mut dyn FnMut(&[u8])) {
@@ -190,6 +220,29 @@ mod tests {
     /// The whole line, asserted verbatim once. Every other test here checks one property; this one
     /// checks the shape, because a status line is read by a person and its punctuation is the
     /// difference between a sentence and a debug dump.
+    #[test]
+    fn the_machine_line_is_what_became_of_tload() {
+        use machine_statistics_protocol::{Snapshot, WORDS, build_header, word};
+        let mut w = [0u64; WORDS];
+        w[..word::LINE].copy_from_slice(&build_header(4096, 100));
+        for (cpu, busy, idle, r) in [(1, 30, 70, 2), (3, 10, 90, 1)] {
+            w[word::cpu(cpu) + word::ONLINE] = 1;
+            w[word::cpu(cpu) + word::BUSY_TICKS] = busy;
+            w[word::cpu(cpu) + word::IDLE_TICKS] = idle;
+            w[word::cpu(cpu) + word::RUNNABLE] = r;
+        }
+        let m = Snapshot::from_words(&w).unwrap();
+        let mut v = Vec::new();
+        super::write_machine_line(Some(&m), &mut |b| v.extend_from_slice(b));
+        assert_eq!(
+            String::from_utf8(v).unwrap(),
+            "machine: 3 runnable on 2 cores, 20% busy since boot\n"
+        );
+        let mut v = Vec::new();
+        super::write_machine_line(None, &mut |b| v.extend_from_slice(b));
+        assert!(String::from_utf8(v).unwrap().contains("not granted"));
+    }
+
     #[test]
     fn the_summary_reads_as_a_sentence() {
         let rows = [

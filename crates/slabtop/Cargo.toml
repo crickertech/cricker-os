@@ -1,0 +1,11 @@
+[package]
+name = "slabtop"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+page_frames = { version = "0.1.0", path = "../page_frames" }

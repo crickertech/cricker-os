@@ -99,6 +99,7 @@ current_cpu_protocol = { version = "0.1.0", path = "../crates/current_cpu_protoc
 # program's image and stack, and the check that refuses an image that does not fit, shared with the
 # userspace loader so the two cannot disagree about either.
 address_space_map = { version = "0.1.0", path = "../crates/address_space_map" }
+machine_statistics_protocol = { version = "0.1.0", path = "../crates/machine_statistics_protocol" }
 # The credential contract (milestone 56, the credential half). The kernel wires the credential
 # service and its provisioner, and its tests read the reply codes the userspace clients report, so
 # no party has its own copy of what a verdict means.
