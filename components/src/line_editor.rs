@@ -237,7 +237,9 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                                 reply(p, 0, proto::FLAG_INTERRUPTED);
                             }
                         }
-                        Event::None => {}
+                        // Tab is the application's (§227 (how Tab reaches the shell)): a
+                        // client that wants completion runs the engine itself over raw mode.
+                        Event::None | Event::Tab => {}
                     }
                 }
                 con.flush();
