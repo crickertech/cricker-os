@@ -57,9 +57,9 @@
 
 /// Where the kernel maps the page in every worker's address space.
 ///
-/// Below the ELF load address (`0x40_0000`) and below the stack (`0x50_0000`), the same
-/// neighbourhood `grant_plan::job_page_frame`'s window uses, so it collides with neither.
-pub const VA: u64 = 0x0020_0000;
+/// A pair page on the address-space map (`crates/address_space_map`), the same neighbourhood
+/// `grant_plan::job_page_frame`'s window uses.
+pub const VA: u64 = address_space_map::pair_page(0x0020_0000);
 
 /// The page's size, and the ceiling on everything below.
 pub const PAGE: u64 = 4096;

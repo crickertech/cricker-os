@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "address_space_map"
+version = "0.1.0"
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -518,6 +522,7 @@ dependencies = [
 name = "redoxfs_server"
 version = "0.1.0"
 dependencies = [
+ "address_space_map",
  "entropy_protocol",
  "filesystem_protocol",
  "globally_unique_identifier_partition_table",

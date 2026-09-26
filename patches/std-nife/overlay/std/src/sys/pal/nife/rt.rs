@@ -75,10 +75,10 @@
 // **The numbers themselves live in `crates/std_runtime_protocol`** (milestone 595 (provisional)),
 // generated into this PAL as `runtimeproto` by `cargo xtask std-src`. They were written here, and
 // again twice in the kernel test harness, until the progenitor became a fourth place that had to
-// agree; now all of them read one file. The three pages are clear of the program image
-// (0x40_0000), its stack (below 0x50_0000), the net PAL's per-socket frames (0x1000_0000 upward,
-// one page per socket id), the initrd window (0x2000_0000) and the heap (0x4000_0000), and that
-// crate's tests check the parts of that a test can.
+// agree; now all of them read one file. Every address in it is a row of the user address-space map
+// (`crates/address_space_map`, milestone 206): the three pages are runtime windows, above the net
+// PAL's per-socket frames (0x1000_0000 upward, one page per socket id) and below the initrd window
+// (0x2000_0000), and the heap is the map's heap band. That crate's tests pin each number to its band.
 pub use super::runtimeproto::{
     CLOCK_PAGE, CLOCK_SLOT, CONFIG_PAGE, CONFIG_SLOT, ENTROPY_SLOT, FS_DIR_SLOT, FS_PAGE, HEAP_BASE,
     HEAP_MAX, MEMORY_REGION_SLOT, NET_MEMORY_REGION_SLOT, STACK_SLOT, STDOUT_SLOT,

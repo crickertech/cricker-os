@@ -4785,7 +4785,7 @@ pub fn dump_threads() {
             .unwrap_or(0);
         // The address-space root, which is what tells threads of DIFFERENT PROCESSES apart. Without
         // it a `pc` in this dump is close to useless for a userspace hang: every user program is
-        // linked at the same base (0x40_0000), so a bare PC resolves plausibly against several
+        // linked at the same base (`address_space_map::IMAGE_BASE`), so a bare PC resolves plausibly against several
         // binaries at once and invites exactly the wrong conclusion. That is not hypothetical, it
         // cost an hour on 2026-07-30: three spinning threads read equally well as three FS servers
         // in RedoxFS directory code or as one std client looping in `read_to_end`, and the PCs alone

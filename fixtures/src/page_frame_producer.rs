@@ -27,7 +27,7 @@ use user_mode_runtime::{exit, map_page_frame, retype_page_frame, send_cap};
 
 const MEMORY_REGION: u64 = 0; // retype the frame and draw page tables from here
 const CHANNEL: u64 = 1; // delegate the frame to the consumer over here
-const PAGE_FRAME_VA: u64 = 0x0000_0000_00A0_0000;
+const PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0000_0000_00A0_0000);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {

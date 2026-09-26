@@ -117,8 +117,8 @@ use user_mode_runtime::{
 // holds both, so the terminal page moved rather than the FS one: `FS_VA` is `fs_service`'s
 // `FILE_VA_CLIENT`, which six other programs map, and this is the one address only the shell and its
 // the progenitor know.
-const OUT_VA: u64 = 0x0000_0000_00c0_0000; // we write; the terminal reads
-const LINE_VA: u64 = 0x0000_0000_00b0_0000; // the terminal writes; we read
+const OUT_VA: u64 = address_space_map::pair_page(0x0000_0000_00c0_0000); // we write; the terminal reads
+const LINE_VA: u64 = address_space_map::pair_page(0x0000_0000_00b0_0000); // the terminal writes; we read
 
 // SAFETY: the wiring (`crates/system_initializer`'s `SH_OUT_VA` grant) maps one page read/write at
 // OUT_VA before this shell runs, in every wiring that has a terminal at all (milestone 139 round
@@ -212,7 +212,7 @@ fn holdings(nav: &Nav) -> grant_plan::Holdings {
 ///
 /// It is `fs_service`'s `FILE_VA_CLIENT`, the address every FS client in this system maps its half
 /// of the contract at, which is why [`OUT_VA`] moved out of the way rather than this.
-const FS_VA: u64 = 0x0000_0000_0060_0000;
+const FS_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 
 // SAFETY: the navigating wiring maps one page read/write at FS_VA before this shell runs, when it
 // has an FS_VA at all (milestone 139 round 2; see `user_mode_runtime::mapped_window`, which is what
@@ -1715,7 +1715,7 @@ fn run(nav: &mut Nav, cmd: &[u8], spec: RunSpec) {
 /// **The window this shell writes an image's frames through** (DECISIONS §219 option D), one page
 /// above [`IMAGE_PRIMER_VA`] and inside the same 2 MiB, so every frame's mapping lands in a page
 /// table the primer already paid for. At most [`spawnproto::IMAGE_MAX_PAGES`] pages.
-const IMAGE_VA: u64 = 0x0000_0000_0400_1000;
+const IMAGE_VA: u64 = address_space_map::pair_page(0x0000_0000_0400_1000);
 
 /// **The one page that buys the image window its page tables**, mapped once per shell and never
 /// given back. It exists because of how a region returns memory: a staging region's pages go back
@@ -1723,7 +1723,7 @@ const IMAGE_VA: u64 = 0x0000_0000_0400_1000;
 /// allocated from the budget *while* staging would sit above it and strand every staging page for
 /// the life of the shell. Mapping one page here first makes the tables exist before any staging
 /// region does. One page and its tables, once, is the price of having no unmap (DECISIONS §162 (whether a holder can give up a mapping)).
-const IMAGE_PRIMER_VA: u64 = 0x0000_0000_0400_0000;
+const IMAGE_PRIMER_VA: u64 = address_space_map::pair_page(0x0000_0000_0400_0000);
 
 /// Whether [`IMAGE_PRIMER_VA`] is mapped yet.
 static IMAGE_PRIMED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
@@ -3607,7 +3607,7 @@ const JOB_UNTYPED_PAGES: u64 = 32;
 /// Where the wiring maps this shell's clock page read-only: `crates/system_initializer`'s
 /// `SH_CLOCK_VA`, which must match. Nothing here reads through it by address; it is named so that
 /// [`JOBFRAME_WINDOWS`] can be proven clear of it.
-const SH_CLOCK_VA: u64 = 0x0000_0000_00d0_0000;
+const SH_CLOCK_VA: u64 = address_space_map::pair_page(0x0000_0000_00d0_0000);
 
 /// The range a supervised job's shared frame is mapped into, in our own space, one page per job.
 ///
@@ -3619,10 +3619,10 @@ const SH_CLOCK_VA: u64 = 0x0000_0000_00d0_0000;
 /// nothing ran it for eight weeks. The assertion below is what now holds the range apart from every
 /// fixed window this shell has, and the `interrupt_heeder` line in that script is what runs it.
 ///
-/// 16 MiB up is clear of the program image (`0x40_0000`), its stack (down from
-/// `supervision_protocol::CHILD_STACK_VA`), all four fixed windows and the image window at 64 MiB, and a whole 2 MiB-aligned
-/// table's worth of pages sits under it, so the first job costs one page-table page and the next
-/// 511 cost none.
+/// 16 MiB up is a pair page on the address-space map (milestone 206 (a program image has under 896 KiB)), clear of all four fixed
+/// windows and the image window at 64 MiB, and a whole 2 MiB-aligned table's worth of pages sits
+/// under it, so the first job costs one page-table page and the next 511 cost none. The program's
+/// own image and stack are in bands of their own and cannot be reached from here.
 const JOBFRAME_WINDOWS: core::ops::Range<u64> = 0x0000_0000_0100_0000..0x0000_0000_0120_0000;
 
 // Every fixed window this shell maps, and the job frames' range, are disjoint. A window added to
@@ -3648,7 +3648,7 @@ const _: () = {
         );
         i += 1;
     }
-    assert!(JOBFRAME_WINDOWS.start >= supervision_protocol::CHILD_STACK_VA);
+    assert!(address_space_map::PAIR_PAGES.holds(JOBFRAME_WINDOWS.start, JOBFRAME_WINDOWS.end));
 };
 
 /// The next job frame's address. It advances per job, because there is no unmap syscall: each job

@@ -3,8 +3,8 @@ use crate::cap::{Rights, irq_cap, rendezvous_cap, virtio_cap};
 use crate::sched::RendezvousId;
 
 /// Where the driver maps its DMA page and the input ring. Must match `components/src/keyboard_driver.rs`.
-const DMA_VA: u64 = 0x0000_0000_0090_0000;
-const RING_VA: u64 = 0x0000_0000_0082_0000;
+const DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
+const RING_VA: u64 = address_space_map::pair_page(0x0000_0000_0082_0000);
 
 /// One page, like every other driver here except the GPU driver's. A keyboard's event queue is
 /// eight eight-byte records; there is nothing bulk about it, so the standing rule holds in the

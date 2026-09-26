@@ -16,12 +16,13 @@
 //! ```text
 //!   c_shim (the C component's process)          c_confiner (the checker)
 //!   ------------------------------------       -----------------------------------------
-//!   0x0040_0000  text / rodata / data          0x0040_0000  text / rodata / data
-//!   0x0050_0000  stack                         0x0050_0000  stack
-//!   0x4000_0000  heap (malloc/free)            0x2000_0000  the initrd, read-only
+//!   0x2000_0000                                0x2000_0000  the initrd, read-only
+//!   0x4000_0000  heap (malloc/free)
 //!   0x5000_0000  GRANT       1 page, RW  <---> 0x5000_0000  the same frame, RW
 //!   0x5000_1000  WITNESS_RO  1 page, RO  <---> 0x5000_1000  the same frame, RW
 //!   0x5000_2000  NOTHING (unmapped)            0x5000_2000  a different frame, RW
+//!   0x6000_0000  text / rodata / data          0x6000_0000  text / rodata / data
+//!   0x7FFE_F000  stack                         0x7FFE_F000  stack
 //! ```
 //!
 //! The two witness pages answer two different questions, which is why there are two:
@@ -95,7 +96,7 @@ pub const PAGE: u64 = 4096;
 /// Where the shared grant is mapped, in **both** address spaces at the same virtual address. Same
 /// number on both sides on purpose, so `c_seam_wild`'s target address is one the checker can name
 /// without translating anything.
-pub const GRANT_VA: u64 = 0x5000_0000;
+pub const GRANT_VA: u64 = address_space_map::service_window(0x5000_0000);
 
 /// The read-only witness: the page immediately after the grant. Mapped read-only into the C
 /// component (which is what makes an off-by-one a permission fault) and read/write into the checker.

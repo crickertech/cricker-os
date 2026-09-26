@@ -150,11 +150,11 @@ const READY: u64 = 1;
 
 /// Where the spawner maps this server's data plane. **Must match
 /// `kernel/src/user/non_volatile_memory_express_service.rs`'s `DATA_PLANE_VA`.**
-const DATA_PLANE_VA: u64 = 0x0000_0000_0098_0000;
+const DATA_PLANE_VA: u64 = address_space_map::pair_page(0x0000_0000_0098_0000);
 
 /// Where the spawner maps the doorbell page of BAR0, device-typed. **Must match
 /// `kernel/src/user/non_volatile_memory_express_service.rs`'s `DOORBELL_VA`.**
-const DOORBELL_VA: u64 = 0x0000_0000_009c_0000;
+const DOORBELL_VA: u64 = address_space_map::pair_page(0x0000_0000_009c_0000);
 
 /// How many blocks one request may carry, and how many pages of transfer buffer the spawner
 /// mapped: the blk contract's own number, so this server and the virtio one clamp identically.

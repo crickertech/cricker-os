@@ -56,7 +56,7 @@ const REPORT: u64 = 1;
 
 /// Where the kernel mapped the NS16550's registers, device-typed, in this driver's address space.
 /// Must match the kernel's `riscv_uart_driver_demo`.
-const UART_VA: u64 = 0x0070_0000;
+const UART_VA: u64 = address_space_map::pair_page(0x0070_0000);
 /// NS16550 register offsets: the Receive Buffer (byte 0) and the Line Status Register (byte 5).
 const RBR: usize = 0;
 const LSR: usize = 5;

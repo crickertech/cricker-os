@@ -512,7 +512,13 @@ struct SpawnedTerminal {
 
 /// Where `framebuffer_driver` finds the covered part of the aperture. **Must match
 /// `components/src/framebuffer_driver.rs`'s `APERTURE_VA`.**
-const SCREEN_APERTURE_VA: u64 = 0x0000_0000_4000_0000;
+/// A service window on the address-space map (milestone 206 (a program image has under 896 KiB)); it was `0x4000_0000`, the heap
+/// band's first address, until 2026-09-26.
+const SCREEN_APERTURE_VA: u64 = address_space_map::service_window(0x5800_0000);
+const _: () = assert!(address_space_map::SERVICE_WINDOWS.holds(
+    SCREEN_APERTURE_VA,
+    SCREEN_APERTURE_VA + MAX_APERTURE_PAGES * page_frames::FRAME_SIZE
+));
 
 /// **The most aperture pages this wiring maps**: 8 MiB, four 2 MiB page-table windows. The tables
 /// come out of the driver's own address-space budget (`AS_OVERHEAD`, sixteen pages shared with its

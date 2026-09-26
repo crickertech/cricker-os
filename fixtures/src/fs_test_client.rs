@@ -44,7 +44,7 @@ const REPORT: u64 = 1;
 /// kernel's wiring maps every page of it here (`kernel/src/user/fs_service.rs`, `map_channel`). A
 /// client may not ask for more than it mapped, and this one maps all of it, which is what lets the
 /// throughput role measure the contract's own ceiling rather than a page.
-const FILE_VA: u64 = 0x0000_0000_0060_0000;
+const FILE_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 
 // SAFETY: the kernel's wiring maps every page of the fs::TRANSFER_MAX-byte channel at FILE_VA
 // before this program runs (milestone 139 round 2; see `user_mode_runtime::mapped_window`, which is what

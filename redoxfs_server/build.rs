@@ -1,6 +1,6 @@
 //! The FS-server EL0 binary is an ordinary nife ELF, so it links against the SAME linker
 //! script `components`, `fixtures` and `std_exerciser` use, `crates/user_mode_runtime/link.ld` (linked at
-//! 0x40_0000, explicit W^X PHDRS). The
+//! `address_space_map::IMAGE_BASE`, explicit W^X PHDRS). The
 //! link args are scoped to the `redoxfs_server` bin (`rustc-link-arg-bin`), never the lib or the host
 //! test binary, which are plain host artifacts and must link the host way.
 

@@ -24,3 +24,5 @@ user_mode_heap = { version = "0.1.0", path = "../user_mode_heap" }
 # environment_protocol's kernel-side deps are, since it is tiny, no_std, and dependency-free.
 counter_frequency_protocol = { version = "0.1.0", path = "../counter_frequency_protocol" }
 current_cpu_protocol = { version = "0.1.0", path = "../current_cpu_protocol" }
+# The address-space map (milestone 206 (a program image has under 896 KiB)): the heap's default base is its heap band.
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

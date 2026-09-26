@@ -8,7 +8,7 @@
 //! it needs. Least authority made real, because the program *is* its authority, and the squaring is
 //! arbitrary.
 //!
-//! It shares `components`' linker script (`crates/user_mode_runtime/link.ld`, linked at `0x40_0000`, in its
+//! It shares `components`' linker script (`crates/user_mode_runtime/link.ld`, linked at `address_space_map::IMAGE_BASE`, in its
 //! own address space, so the shared load address is not a conflict) but not one line of hello's
 //! code: a distinct ELF with its own `_start` and panic handler. The syscall runtime
 //! (`send`/`exit`) comes from the shared `user_mode_runtime` crate, lifted out at 19f.6 once all the split

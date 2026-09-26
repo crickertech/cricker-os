@@ -3,7 +3,7 @@ use crate::cap::{Rights, irq_cap, rendezvous_cap, virtio_cap};
 use crate::sched::RendezvousId;
 
 /// Where the service maps its DMA page. Must match components/src/entropy.rs.
-const DMA_VA: u64 = 0x0000_0000_0090_0000;
+const DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
 
 /// One page, and no more. The rings take 0x16e of it and the buffer 0x100; a device whose whole
 /// job is to write 256 bytes at a time has no business holding a larger grant, and "a device
@@ -287,7 +287,7 @@ fn start_instruction(image: &'static [u8]) -> Option<Wiring> {
 /// Where the service maps the TRNG's register page. **Must match `components/src/jh7110_entropy.rs`'s
 /// `TRNG_VA`**, and deliberately distinct from [`DMA_VA`] so the two entropy backends could be
 /// mapped into different processes at once without either constant meaning two things.
-const TRNG_VA: u64 = 0x0000_0000_0094_0000;
+const TRNG_VA: u64 = address_space_map::pair_page(0x0000_0000_0094_0000);
 
 /// **Does this machine have a JH7110 TRNG?** The device tree's answer, decoded by
 /// `jh7110_entropy::discover` (the crate that owns the `compatible` string and the `reg` decode, so

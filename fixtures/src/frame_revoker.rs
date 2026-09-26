@@ -27,7 +27,7 @@ use user_mode_runtime::{exit, map_page_frame, retype_page_frame, revoke_frame, s
 
 const MEMORY_REGION: u64 = 0; // retype + page tables
 const REPORT: u64 = 1;
-const VA: u64 = 0x0000_0000_00c0_0000;
+const VA: u64 = address_space_map::pair_page(0x0000_0000_00c0_0000);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {

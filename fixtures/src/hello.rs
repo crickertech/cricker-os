@@ -295,8 +295,8 @@ fn init_console(initrd_len: u64) -> ! {
     const MEMORY_REGION: u64 = 0;
     const REPORT: u64 = 1;
     const UART_DEV: u64 = 2;
-    const SHARED_VA: u64 = 0x0060_0000; // must match the console server's SHARED_VA
-    const CHILD_UART_VA: u64 = 0x0070_0000; // must match the console server's UART_VA
+    const SHARED_VA: u64 = address_space_map::pair_page(0x0060_0000); // must match the console server's SHARED_VA
+    const CHILD_UART_VA: u64 = address_space_map::pair_page(0x0070_0000); // must match the console server's UART_VA
 
     // The console server is its own binary now (19f.3): init loads "console" by name and builds it,
     // rather than entering hello at a console role.
@@ -367,7 +367,7 @@ fn init_build(initrd_len: u64, device: bool) -> ! {
     const MEMORY_REGION: u64 = 0;
     const REPORT: u64 = 1;
     const UART_DEV: u64 = 2; // the UART device cap the kernel granted this program (spawn_hello)
-    const CHILD_UART_VA: u64 = 0x0070_0000;
+    const CHILD_UART_VA: u64 = address_space_map::pair_page(0x0070_0000);
 
     let Some(init_bytes) = program(initrd_len, ROLES_ENTRY) else {
         send(REPORT, 0, 0, 0);
@@ -404,7 +404,7 @@ fn init_build(initrd_len: u64, device: bool) -> ! {
 /// normal memory and not the wrong page: init delegated device authority and the driver used it.
 fn dev_child() -> ! {
     const REPORT: u64 = 0; // init inserted the report cap as slot 0
-    const UART_VA: u64 = 0x0070_0000; // where init mapped the UART registers
+    const UART_VA: u64 = address_space_map::pair_page(0x0070_0000); // where init mapped the UART registers
 
     // The four PrimeCell ID bytes live at 0xFF0, 0xFF4, 0xFF8, 0xFFC and read 0x0D,0xF0,0x05,0xB1.
     // SAFETY: init mapped the UART, device-typed, at UART_VA before starting us; these are

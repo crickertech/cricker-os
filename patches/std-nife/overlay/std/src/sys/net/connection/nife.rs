@@ -83,8 +83,9 @@ use crate::time::Duration;
 const STACK: u64 = rt::STACK_SLOT;
 const NET_MEMORY_REGION: u64 = rt::NET_MEMORY_REGION_SLOT;
 
-/// Where each socket's shared frame maps in this process. One page per id, well clear of the
-/// program image (0x40_0000), its stack (below 0x50_0000), and the heap (0x4000_0000). net_stack maps
+/// Where each socket's shared frame maps in this process. One page per id, from the start of the
+/// address-space map's runtime windows (`crates/address_space_map`), below std's three runtime pages
+/// at 0x1100_0000, so 4,096 sockets before the two meet. net_stack maps
 /// the same frame at its own address; the two are the one shared page the contract grants.
 const PAGE_FRAME_BASE: u64 = 0x0000_0000_1000_0000;
 

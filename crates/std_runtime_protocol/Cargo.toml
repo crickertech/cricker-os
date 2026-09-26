@@ -16,3 +16,9 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+
+# The address-space map (milestone 206 (a program image has under 896 KiB)) is a DEV-dependency on purpose, for the reason
+# `byte_sink_protocol` gives for `abi`: this file is copied verbatim into std's PAL, where there is no
+# crate to name, so the numbers are restated and the test that pins them to the map never travels.
+[dev-dependencies]
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

@@ -4,8 +4,8 @@ use crate::sched::{self, RendezvousId};
 use crate::user::holding::Holding;
 
 /// The VAs `components/src/rmle.rs` hardcodes. Must match that file.
-const TERM_OUT_VA: u64 = 0x0000_0000_0080_0000;
-const FS_VA: u64 = 0x0000_0000_0060_0000;
+const TERM_OUT_VA: u64 = address_space_map::pair_page(0x0000_0000_0080_0000);
+const FS_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 
 /// Stack pages beyond the one `run` maps. `rmle`'s own `Editor` is a few kilobytes (32 rows of
 /// 100 bytes plus bookkeeping) and this program has no allocator, so it all lives on the stack;

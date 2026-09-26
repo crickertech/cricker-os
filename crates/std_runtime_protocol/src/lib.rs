@@ -33,14 +33,20 @@
 //! the same discipline as `abi` and every other contract the PAL reads, so this file must stay a
 //! valid non-root module: no crate attributes survive the copy, and neither does the test module.
 //!
+//! # Where the addresses come from
+//!
+//! **Every address below is a row of `crates/address_space_map`** (milestone 206 (a program image has under 896 KiB), DECISIONS §171 (where a program image starts)
+//! option D), restated as a number rather than named, because this file is copied into std's PAL
+//! where there is no crate to name. The test module (which does not travel) pins each one to its
+//! band, the shape `byte_sink_protocol` uses for `abi`. The image and the stack are the map's own
+//! rows, `IMAGE_BASE` and `STACK_TOP_PAGE`; a std program is linked at the one and its stack grows
+//! down from the other like every other program's.
+//!
 //! # BUGS
 //!
-//! - **The image and the stack are not in here**, and they are part of the layout. A std program is
-//!   linked at `0x40_0000` like every other, and its stack grows down from `0x50_0000`, the
-//!   loader's one address for every child (`supervision_protocol::CHILD_STACK_VA`). So a std image
-//!   over about 1 MiB meets its own stack. That is milestone 206 (a program image has under 896
-//!   KiB), not yet built. DECISIONS §171 (where a program image starts) was ruled on 2026-09-26:
-//!   one written address-space map, with these constants derived from it.
+//! - **The numbers are restated, not derived.** A change to the map that moves the heap or the
+//!   runtime windows fails this crate's host tests rather than failing to compile, which is rung
+//!   two where the rest of the tree is on rung one.
 
 #![cfg_attr(not(test), no_std)]
 
@@ -76,12 +82,11 @@ pub const CLOCK_PAGE: u64 = 0x1200_0000;
 /// Where the loader maps the inert-configuration page, read-only (`environment_protocol`'s layout).
 pub const CONFIG_PAGE: u64 = 0x1300_0000;
 
-/// Where the heap starts: clear of the image (`0x40_0000`), the stack below `0x50_0000`, the net
-/// PAL's per-socket frames (`0x1000_0000` upward), the three pages above, and the initrd window at
-/// `0x2000_0000`. Same value as `user_mode_runtime::heap::DEFAULT_BASE`.
+/// Where the heap starts: the start of the address-space map's heap band, and the same value as
+/// `user_mode_runtime::heap::DEFAULT_BASE`.
 pub const HEAP_BASE: u64 = 0x4000_0000;
-/// The heap's growth cap. Only a bound on the address range: the budget in
-/// [`MEMORY_REGION_SLOT`] is the real, per-program limit.
+/// The heap's growth cap: the heap band's whole width. Only a bound on the address range: the
+/// budget in [`MEMORY_REGION_SLOT`] is the real, per-program limit.
 pub const HEAP_MAX: u64 = 256 * 1024 * 1024;
 
 /// **Stack pages a loader maps for a std program**, where a native child of the progenitor gets
@@ -94,10 +99,10 @@ pub const HEAP_MAX: u64 = 256 * 1024 * 1024;
 /// Name: provisional.
 pub const STACK_PAGES: u64 = 32;
 
-// The stack grows down from `0x50_0000` and the image starts at `0x40_0000`, so the stack may not
-// take that whole megabyte: a stack sized into the image would map over code. At compile time, so
-// the PAL this file is generated into checks it too.
-const _: () = assert!(STACK_PAGES > 0 && STACK_PAGES * 4096 < 0x50_0000 - 0x40_0000);
+// The stack band holds 4,080 pages less a guard (`address_space_map::MAX_STACK_PAGES`); the test
+// below pins the exact figure. This line keeps a nonsense value out of the PAL, which cannot see
+// the map.
+const _: () = assert!(STACK_PAGES > 0 && STACK_PAGES <= 4079);
 
 #[cfg(test)]
 mod tests {
@@ -138,15 +143,25 @@ mod tests {
         for (i, a) in pages.iter().enumerate() {
             assert_eq!(a % PAGE, 0, "{a:#x} is not page aligned");
             assert!(
-                *a >= 0x50_0000,
-                "{a:#x} is inside the image and stack window"
+                address_space_map::RUNTIME_WINDOWS.holds(*a, *a + PAGE),
+                "{a:#x} is not in the address-space map's runtime windows"
             );
-            assert!(*a + PAGE <= HEAP_BASE, "{a:#x} overlaps the heap");
             for b in &pages[i + 1..] {
                 assert_ne!(a, b);
             }
         }
         assert_eq!(HEAP_BASE % PAGE, 0);
         assert_eq!(HEAP_MAX % PAGE, 0);
+    }
+
+    /// **The restated numbers are the map's**, which is the whole of what stands between this file
+    /// and a PAL that disagrees with the loader. See the crate's `BUGS`.
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn the_heap_and_the_stack_are_the_address_space_maps() {
+        assert_eq!(HEAP_BASE, address_space_map::HEAP.start);
+        assert_eq!(HEAP_MAX, address_space_map::HEAP.bytes());
+        assert!(STACK_PAGES <= address_space_map::MAX_STACK_PAGES);
+        assert_eq!(address_space_map::MAX_STACK_PAGES, 4079);
     }
 }

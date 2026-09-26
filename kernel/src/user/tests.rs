@@ -334,7 +334,8 @@ fn a_user_program_that_never_yields_is_preempted_anyway() {
 /// linked into (`dump_threads` records why that base is shared).
 #[test_case]
 fn a_user_threads_trap_frame_sits_where_the_trap_path_rebuilds_it() {
-    const USER_TEXT: core::ops::Range<u64> = 0x40_0000..USER_STACK_VA;
+    const USER_TEXT: core::ops::Range<u64> =
+        address_space_map::IMAGE.start..address_space_map::IMAGE.end;
 
     let interrupt_ignorer = spawn_bare(interrupt_ignorer_image(), 0, 0).expect("spawn failed");
 
@@ -357,6 +358,13 @@ fn a_user_threads_trap_frame_sits_where_the_trap_path_rebuilds_it() {
 /// header, one program header, sixteen bytes of code. The ELF **names its own load
 /// address**, and this is the file that names the kernel's.
 fn forged_elf(vaddr: u64, flags: u32) -> [u8; 136] {
+    forged_elf_sized(vaddr, flags, 16)
+}
+
+/// [`forged_elf`], with the one segment claiming `memsz` bytes of memory for its sixteen bytes of
+/// file: the zero-filled tail every `.bss` is, which is how a test asks for a large image without
+/// carrying one.
+fn forged_elf_sized(vaddr: u64, flags: u32, memsz: u64) -> [u8; 136] {
     const EHDR: usize = 64;
     const PHDR: usize = 56;
     let code: [u8; 16] = [0; 16];
@@ -381,7 +389,7 @@ fn forged_elf(vaddr: u64, flags: u32) -> [u8; 136] {
     out[p + 8..p + 16].copy_from_slice(&((EHDR + PHDR) as u64).to_le_bytes()); // p_offset
     out[p + 16..p + 24].copy_from_slice(&vaddr.to_le_bytes()); // p_vaddr
     out[p + 32..p + 40].copy_from_slice(&(code.len() as u64).to_le_bytes()); // p_filesz
-    out[p + 40..p + 48].copy_from_slice(&(code.len() as u64).to_le_bytes()); // p_memsz
+    out[p + 40..p + 48].copy_from_slice(&memsz.to_le_bytes()); // p_memsz
     out
 }
 
@@ -419,12 +427,74 @@ fn an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused() {
 /// Falsification: replayable `kernel/falsifications/user.tests.an_elf_that_asks_for_a_writable_executable_page_is_refused.patch`
 #[test_case]
 fn an_elf_that_asks_for_a_writable_executable_page_is_refused() {
-    let image = forged_elf(0x40_0000, elf::PF_R | elf::PF_W | elf::PF_X);
+    let image = forged_elf(
+        address_space_map::IMAGE_BASE,
+        elf::PF_R | elf::PF_W | elf::PF_X,
+    );
 
     assert_eq!(
         load(&image, 0).err(),
         Some(LoadError::NotLoadable(elf::Error::WritableAndExecutable)),
     );
+}
+
+/// **An image too large for the map is told it is too large** (milestone 206 (a program image has under 896 KiB), DECISIONS §171 (where a program image starts) option
+/// A), with the two numbers a reader needs: where the image ends and where the stack begins.
+///
+/// Before 2026-09-26 this image would have been mapped page by page until the first page that
+/// collided with the stack, and refused as `Unmappable(AlreadyMapped)`, which names an overlap and
+/// not a size. The image here is one page past the band, which is the smallest image that must be
+/// refused, and it is refused before a single frame is spent on it: the region it would need is
+/// half a gigabyte, so reaching `AddressSpace::new` would have reported running out of memory.
+#[test_case]
+fn an_image_too_large_for_its_band_is_refused_as_too_large() {
+    use address_space_map::{IMAGE, IMAGE_BASE, ImagePlacement, PAGE, STACK};
+
+    let image = forged_elf_sized(IMAGE_BASE, elf::PF_R | elf::PF_X, IMAGE.bytes() + PAGE);
+
+    assert_eq!(
+        load(&image, 0).err(),
+        Some(LoadError::Misplaced(ImagePlacement::TooLarge {
+            image_end: IMAGE.end + PAGE,
+            stack_base: STACK.start,
+        })),
+    );
+}
+
+/// **A program linked for the old layout is refused by name**, not loaded among pair pages it
+/// would collide with at some later, unrelated address.
+#[test_case]
+fn an_image_linked_below_the_image_band_is_refused_as_outside_it() {
+    let image = forged_elf(0x40_0000, elf::PF_R | elf::PF_X);
+
+    assert_eq!(
+        load(&image, 0).err(),
+        Some(LoadError::Misplaced(
+            address_space_map::ImagePlacement::OutsideBand {
+                image_start: 0x40_0000,
+                image_end: 0x40_1000,
+            }
+        )),
+    );
+}
+
+/// **The old ceiling is gone**: an image of 2 MiB, more than twice the 896 KiB that used to run
+/// into the stack, loads, and its last page is mapped where the image band says.
+#[test_case]
+fn an_image_past_the_old_ceiling_loads() {
+    use address_space_map::IMAGE_BASE;
+    const BYTES: u64 = 2 << 20;
+
+    let image = forged_elf_sized(IMAGE_BASE, elf::PF_R | elf::PF_X, BYTES);
+    let (space, entry) = load(&image, 0).expect("a 2 MiB image did not load");
+    assert_eq!(entry, IMAGE_BASE);
+
+    // SAFETY: nothing is at EL0; we are a kernel thread mid-test.
+    unsafe { mmu::activate_user(space.ttbr0()) };
+    let last = mmu::translate_user(IMAGE_BASE + BYTES - page_frames::FRAME_SIZE).is_some();
+    mmu::deactivate_user();
+    drop(space);
+    assert!(last, "the image's last page is not mapped");
 }
 
 /// Junk is refused, and refusing it does not take the kernel down.
@@ -443,7 +513,11 @@ fn the_initrd_holds_a_native_executable() {
     let image = loader_subject_image();
     let e = elf::Elf::parse(image).expect("the initrd is not a loadable native ELF");
 
-    assert_eq!(e.entry(), 0x40_0000, "linked somewhere unexpected");
+    assert_eq!(
+        e.entry(),
+        address_space_map::IMAGE_BASE,
+        "linked somewhere unexpected"
+    );
 
     // Three segments, and NONE of them writable-and-executable. Counted straight off the
     // iterator: the kernel this test rides in has no heap to collect into (milestone 14).
@@ -536,7 +610,7 @@ fn asid_tagging_keeps_address_spaces_apart_without_flushes() {
     assert_ne!(asid_a, 0, "a user space got the kernel's ASID 0");
     assert_ne!(asid_b, 0, "a user space got the kernel's ASID 0");
 
-    const VA: u64 = 0x40_0000;
+    const VA: u64 = address_space_map::pair_page(0x40_0000);
     a.map_new(VA, Flags::user_data()).expect("map A")[0] = 0xAA;
     b.map_new(VA, Flags::user_data()).expect("map B")[0] = 0xBB;
 
@@ -618,7 +692,7 @@ fn asid_tagging_keeps_address_spaces_apart_without_flushes() {
 fn an_asid_flush_reaches_the_other_cores() {
     use core::sync::atomic::{AtomicU8, AtomicUsize};
 
-    const VA: u64 = 0x40_0000;
+    const VA: u64 = address_space_map::pair_page(0x40_0000);
     const OLD: u8 = 0xAA;
     const NEW: u8 = 0xBB;
 
@@ -881,12 +955,13 @@ fn the_hardware_says_el0_cannot_read_the_kernels_memory() {
 
     // It can read its own code, or the check is a rubber stamp that says no to everything.
     assert!(
-        mmu::user_can_read(0x40_0000),
+        mmu::user_can_read(address_space_map::IMAGE_BASE),
         "EL0 cannot read its own .text, so the check refuses everything and proves nothing",
     );
 
-    // And not an address in its own half that nobody mapped.
-    assert!(!mmu::user_can_read(0x7000_0000));
+    // And not an address in its own half that nobody mapped: the stack band's guard page, which the
+    // address-space map promises no loader ever maps.
+    assert!(!mmu::user_can_read(address_space_map::STACK.start));
 
     mmu::deactivate_user();
     drop(space);
@@ -905,7 +980,7 @@ fn the_hardware_says_el0_cannot_read_the_kernels_memory() {
 fn a_user_client_moves_data_through_shared_memory() {
     // What the client prints first. Must match fixtures/src/console_test_client.rs.
     const FIRST_LINE: &[u8] = b"      hello from EL0, printed by a driver that also runs at EL0.\n";
-    const SHARED_VA: u64 = 0x0000_0000_0060_0000;
+    const SHARED_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 
     static CAPTURED: AtomicBool = AtomicBool::new(false);
     static LEN: AtomicU64 = AtomicU64::new(0);
@@ -990,8 +1065,8 @@ fn a_user_client_moves_data_through_shared_memory() {
 /// the permissions asked for and no more. The mechanism a driver leaves the kernel on.
 #[test_case]
 fn map_physical_maps_a_shared_frame_and_a_device_page() {
-    const DATA_VA: u64 = 0x0000_0000_0060_0000;
-    const DEV_VA: u64 = 0x0000_0000_0070_0000;
+    const DATA_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
+    const DEV_VA: u64 = address_space_map::pair_page(0x0000_0000_0070_0000);
     // A real device's MMIO on this machine, whichever machine it is: the virtio-mmio bus base.
     // It was the PL011's `0x0900_0000`, which is an aarch64 `virt` fact; the point of the test
     // is that a device-typed mapping lands where it was asked to, and either address serves it.
@@ -2810,8 +2885,8 @@ fn init_runs_the_coremark_workload_and_it_checks_out() {
 /// and a real EL0 thread built from parts.
 #[test_case]
 fn a_process_can_build_start_and_run_a_child_thread() {
-    const CODE_VA: u64 = 0x40_0000;
-    const STACK_VA: u64 = 0x50_0000;
+    const CODE_VA: u64 = address_space_map::IMAGE_BASE;
+    const STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
     // The child's program: SEND(slot 0, rendezvous::SEND, REPORT_WORD) then EXIT, nine
     // instructions, with the child's first granted cap in slot 0. This file used to carry three
     // separate aarch64 copies of it; `supervision_tests` already keeps one pair (aarch64 and
@@ -2930,8 +3005,8 @@ fn a_process_can_build_start_and_run_a_child_thread() {
 /// honestly be pointed at.
 #[test_case]
 fn reclaim_frees_a_started_then_exited_childs_regions() {
-    const CODE_VA: u64 = 0x40_0000;
-    const STACK_VA: u64 = 0x50_0000;
+    const CODE_VA: u64 = address_space_map::IMAGE_BASE;
+    const STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
     // SEND(slot 0, rendezvous::SEND, REPORT_WORD) then EXIT, the shared stub (see the test above).
     let code = super::supervision_tests::REPORT_STUB;
     let expect_word = super::supervision_tests::REPORT_WORD;
@@ -3047,8 +3122,8 @@ fn reclaim_frees_a_started_then_exited_childs_regions() {
 /// leak; the real magnitudes wait on the EL0 `lat_proc` benchmark.
 #[test_case]
 fn spawn_to_reap_repeats_without_leaking() {
-    const CODE_VA: u64 = 0x40_0000;
-    const STACK_VA: u64 = 0x50_0000;
+    const CODE_VA: u64 = address_space_map::IMAGE_BASE;
+    const STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
     let code = super::supervision_tests::REPORT_STUB;
     let expect_word = super::supervision_tests::REPORT_WORD;
 

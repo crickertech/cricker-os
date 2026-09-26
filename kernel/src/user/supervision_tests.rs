@@ -3,8 +3,12 @@ use abi::fault::{EVENT_EXIT, EVENT_FAULT, FAULT_EP_SLOT};
 use super::*;
 use crate::sched;
 
-pub(super) const CODE_VA: u64 = 0x40_0000;
-pub(super) const STACK_VA: u64 = 0x50_0000;
+/// Where a hand-built child's code and stack go: the address-space map's image base and top stack
+/// page, the same places a loaded program's would be (milestone 206 (a program image has under 896 KiB)). A child built from parts is
+/// still a program, and putting it where programs go keeps its page tables the shape a real
+/// program's are, which is what the current-CPU page's placement beside the stack assumes.
+pub(super) const CODE_VA: u64 = address_space_map::IMAGE_BASE;
+pub(super) const STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
 /// The unmapped address the fault stub loads from. Distinctive, so the delivered fault address
 /// proves the message carries real fault-time state and not a zero placeholder.
 const BAD_ADDR: u64 = 0x00A5_0000;

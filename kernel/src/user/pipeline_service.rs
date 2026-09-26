@@ -8,8 +8,8 @@ use crate::sched::RendezvousId;
 const ROLE_PIPELINE: u64 = 3;
 
 /// The VAs the shell hardcodes for its terminal pages. Must match components/src/swish.rs.
-const OUT_VA: u64 = 0x0000_0000_00c0_0000;
-const LINE_VA: u64 = 0x0000_0000_00b0_0000;
+const OUT_VA: u64 = address_space_map::pair_page(0x0000_0000_00c0_0000);
+const LINE_VA: u64 = address_space_map::pair_page(0x0000_0000_00b0_0000);
 
 /// The budget the shell mints its pipes out of. Each pipeline splits a region off this and
 /// gives it back, so one number covers a script of several lines; it matches `system_initializer`'s grant.
@@ -84,7 +84,7 @@ const ROLE_TIMING: u64 = 5;
 /// Where the shell maps its own clock page, read-only. Must match `components/src/swish.rs`'s
 /// `SH_CLOCK_VA` and `crates/system_initializer`'s. **Not** `date`'s `CLOCK_VA`: that is where a
 /// *child* maps one, and the shell already has the terminal's output frame at that address.
-const SH_CLOCK_VA: u64 = 0x0000_0000_00d0_0000;
+const SH_CLOCK_VA: u64 = address_space_map::pair_page(0x0000_0000_00d0_0000);
 
 /// **The same shell, one capability wider**: a directory at slot 4 and the page it shares with
 /// the FS server (milestone 50's `>` and `<`).
@@ -105,7 +105,7 @@ const ROLE_REDIRECT: u64 = 4;
 
 /// Where an FS client maps the page it shares with the FS server (`fs_service`'s
 /// `FILE_VA_CLIENT`, and `components/src/swish.rs`'s `FS_VA`).
-const FS_VA: u64 = 0x0000_0000_0060_0000;
+const FS_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 
 fn start_with(
     role: u64,

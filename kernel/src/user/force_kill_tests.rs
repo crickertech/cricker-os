@@ -1,8 +1,10 @@
 use super::*;
 use crate::sched;
 
-const CODE_VA: u64 = 0x40_0000;
-const STACK_VA: u64 = 0x50_0000;
+/// Where the hand-built child's code and stack go: the map's image base and top stack page, as
+/// `supervision_tests` gives for its own.
+const CODE_VA: u64 = address_space_map::IMAGE_BASE;
+const STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
 
 /// A one-instruction runaway: branch (aarch64) or jump (riscv) to self, forever. It never
 /// yields, never syscalls, never touches an rendezvous, so nothing cooperative can end it and the

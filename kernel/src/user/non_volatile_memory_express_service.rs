@@ -88,12 +88,12 @@ use crate::sched::RendezvousId;
 /// Deliberately distinct from the `0x0090_0000` DMA convention `entropy.rs` and
 /// `keyboard_driver.rs` share, and from milestone 159's `0x0094_0000`, so no two of these
 /// constants can mean two things at once.
-const DATA_PLANE_VA: u64 = 0x0000_0000_0098_0000;
+const DATA_PLANE_VA: u64 = address_space_map::pair_page(0x0000_0000_0098_0000);
 
 /// Where the server's one page of BAR0 is mapped, device-typed. Must match
 /// `components/src/non_volatile_memory_express.rs`. Far enough above [`DATA_PLANE_VA`] that the data plane's run
 /// can grow without colliding with it.
-const DOORBELL_VA: u64 = 0x0000_0000_009c_0000;
+const DOORBELL_VA: u64 = address_space_map::pair_page(0x0000_0000_009c_0000);
 
 /// How many pages the data plane is mapped: the two I/O rings, then the transfer buffer.
 const DATA_PLANE_PAGES: usize = 2 + crate::non_volatile_memory_express::TRANSFER_PAGES as usize;

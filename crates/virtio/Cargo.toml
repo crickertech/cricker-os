@@ -8,6 +8,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+# The user address-space map (milestone 206 (a program image has under 896 KiB)): every fixed window here is checked against its band.
+address_space_map = { version = "0.1.0", path = "../address_space_map" }
 abi = { version = "0.1.0", path = "../abi" }
 # The archive format, rather than a second copy of its offsets. This driver reads the nifefs
 # directory out of a block-0 buffer, and when the entry layout changed on 2026-08-01 its hardcoded

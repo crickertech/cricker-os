@@ -6,7 +6,7 @@ use crate::user::holding::Holding;
 /// Where the driver expects its DMA page. Must match user/src/virtio.rs. The device registers
 /// are NOT mapped to the driver any more: it drives the device through a `Virtio` capability,
 /// so it cannot point the device outside this DMA region.
-const DMA_VA: u64 = 0x0000_0000_0090_0000;
+const DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
 
 const ROLE_VIRTIO_BLK: u64 = 3;
 /// The write-path roles (milestone 32 phase 1); must match `fixtures/src/hello.rs` and `block_driver.rs`.
@@ -331,7 +331,7 @@ pub fn start_net_stack(
 /// `components/src/socket_test_client.rs`'s `CATALOGUE_VA`: the one blob today is the image's
 /// package catalogue (`package_archive::CATALOGUE`), and this is the kernel test harness playing
 /// the part the progenitor's `ChildEndowment::blobs` plays for `login` (milestone 233 (`login` dies on every boot)).
-const NET_CLIENT_CATALOGUE_VA: u64 = 0x0000_0000_00C0_0000;
+const NET_CLIENT_CATALOGUE_VA: u64 = address_space_map::pair_page(0x0000_0000_00C0_0000);
 
 /// **Rung 3a's fetch and verify** (milestone 198 (a package manager)): the net server and a client that fetches a
 /// package over plain HTTP from the runners' package peer and checks it against `catalogue`, the

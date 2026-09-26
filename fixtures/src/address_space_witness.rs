@@ -58,7 +58,7 @@ use user_mode_runtime::{exit, map_into, retype_object, retype_page_frame, send};
 
 const MEMORY_REGION: u64 = 0;
 const REPORT: u64 = 1;
-const VA: u64 = 0x0040_0000;
+const VA: u64 = address_space_map::pair_page(0x0040_0000);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {

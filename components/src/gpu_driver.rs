@@ -97,7 +97,7 @@ const DMA_PAGE_FRAMES: u64 = 1 + gfx::SURFACE_PAGE_FRAMES as u64;
 /// regardless of alignment; the alignment is kept anyway; it costs nothing and this VA is not
 /// reused for anything an unaligned base would help pack more tightly. The old `0x90_0000` was never
 /// aligned; it went unnoticed while the region was a few pages.
-const DMA_VA: u64 = 0x0000_0000_0100_0000;
+const DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0100_0000);
 
 // --- virtio-mmio v2 register offsets. The PCI transport answers this same vocabulary
 // (kernel/src/virtio.rs, the transport seam), so this driver reads like every other one here even

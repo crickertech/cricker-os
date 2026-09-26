@@ -55,7 +55,7 @@ const REPORT: u64 = 1; // WRITE|GRANT, so we can endow the servers with a narrow
 const SPAWNER_BUDGET_PAGES: u64 = 384;
 
 /// Where the spawner finds the one program image it is allowed to build. Must match spawner.rs.
-const SPAWNER_IMAGE_VA: u64 = 0x3000_0000;
+const SPAWNER_IMAGE_VA: u64 = address_space_map::runtime_window(0x3000_0000);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_a0: u64, initrd_len: u64, _a2: u64) -> ! {

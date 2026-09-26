@@ -76,10 +76,10 @@ const INPUT: u64 = 5;
 /// milestone has used, and `CLIENT_BASE` likewise. `SCREEN_VA` itself stays 2 MiB-aligned, which at
 /// today's size keeps the whole run inside one page-table window (`compositor_service`'s own
 /// `MAP_BUDGET_PAGES` comment has the arithmetic).
-const SCREEN_VA: u64 = 0x0000_0000_0080_0000;
-const WLIST_VA: u64 = 0x0000_0000_0c00_0000;
-const RING_VA: u64 = 0x0000_0000_0c01_0000;
-const CLIENT_BASE: u64 = 0x0000_0000_0e00_0000;
+const SCREEN_VA: u64 = address_space_map::pair_page(0x0000_0000_0080_0000);
+const WLIST_VA: u64 = address_space_map::pair_page(0x0000_0000_0c00_0000);
+const RING_VA: u64 = address_space_map::pair_page(0x0000_0000_0c01_0000);
+const CLIENT_BASE: u64 = address_space_map::pair_page(0x0000_0000_0e00_0000);
 const CLIENT_STRIDE: u64 = 0x0000_0000_0010_0000;
 
 /// Bring-up failures, reported in a `0xDEAD_...` word so a failure names its step instead of hanging.
