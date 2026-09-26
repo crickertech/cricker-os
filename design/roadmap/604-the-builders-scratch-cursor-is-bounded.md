@@ -77,6 +77,12 @@ The negative control, measured on aarch64 on 2026-09-26, with the wrap taken out
 `map_scratch`: 36 builds, 24,048 scratch pages, then the 37th refused. With the wrap: all 40, in 5 seconds
 locally (110 took 35 seconds on a host 5.6 times oversubscribed).
 
+It runs only when named (`script/test --test scratch_window`), not in the whole suite. There it
+took 104 seconds on aarch64 (CI run 36279440107) and ran past the `x86_64` leg's timeout, because
+every region reap scans every live mapping log once per page (the proposal below). Run by name on
+2026-09-26, it passed on all three: 3 seconds on aarch64, 10 on riscv64, 2 and 3 on the two
+`x86_64` legs. That is a weaker gate than CI, recorded as an exception in the test's BUGS.
+
 Cross-ISA: one portable test body on all three architectures. The loader is portable userspace code
 and the revocation is portable kernel code (DECISIONS §19 (architectural parity is a tenet)).
 
@@ -106,8 +112,8 @@ and the revocation is portable kernel code (DECISIONS §19 (architectural parity
 - **Proposed.** A region reap scans every live mapping log once per page, which made this test take
   over a minute in the whole suite and makes every job reap cost more the more is running:
   `design/roadmap/proposals/a-region-reap-scans-every-mapping-on-the-machine-per-page.md`.
-- **Recorded.** The test keeps 32 frames the ledger cannot attribute:
-  `kernel/src/user/scratch_window_tests.rs`.
+- **Recorded.** The test keeps 32 frames (33 on riscv64 and `x86_64`) that nothing here explains,
+  and CI does not run it: `kernel/src/user/scratch_window_tests.rs`.
 
 ## Index row
 

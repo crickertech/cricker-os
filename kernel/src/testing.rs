@@ -81,6 +81,16 @@ use crate::{print, println};
 /// about the test rather than about the code, and is worth reading as one.
 const TEST_FILTER: &str = env!("NIFE_TEST_FILTER");
 
+/// **Did this run name a test by filter?** For the few tests too expensive for the whole suite,
+/// which skip unless somebody asked for them by name (`script/test --test <name>`); each says why
+/// in its own skip reason. Name provisional (milestone 604 (the builder's scratch cursor is
+/// bounded)).
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn run_was_filtered() -> bool {
+    !TEST_FILTER.is_empty()
+}
+
 static HEARTBEAT: AtomicU64 = AtomicU64::new(0);
 static WATCH_LAST_HB: AtomicU64 = AtomicU64::new(0);
 static WATCH_STALL_TICKS: AtomicU64 = AtomicU64::new(0);
@@ -820,14 +830,6 @@ const SLOW_TESTS: &[(&str, u64)] = &[
     // net_stack's userspace smoltcp poll (DHCP, DNS, then a TCP echo). The longest honest test we have,
     // and the reason a single global ceiling would have to be uselessly large.
     ("std_net_runs_over_the_socket_contract", 700),
-    // Not yet measured in the whole suite: 5 s on aarch64 alone, over 60 s in CI's suite, because
-    // every region reap scans every live mapping log once per page (see the block of milestone 604
-    // (the builder's scratch cursor is bounded), and `user::scratch_window_tests`' BUGS). Set from
-    // the time that test prints on its first green run.
-    (
-        "a_builder_reuses_scratch_its_reaped_children_gave_back",
-        300,
-    ),
 ];
 
 /// The budget for a test, by name: its [`SLOW_TESTS`] entry if it has one, else the default.
