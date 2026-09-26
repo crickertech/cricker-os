@@ -1738,8 +1738,8 @@ static IMAGE_PRIMED: core::sync::atomic::AtomicBool = core::sync::atomic::Atomic
 /// last message; the child gets what the line granted and the clock and configuration pages.
 /// Otherwise the miss is refused with its own word ([`swish::UNVOUCHED_SENTENCE`]).
 ///
-/// **The line is bound against the manifest the file carries** (milestone 597, provisional: a
-/// program carries its manifest in an ELF note), read by [`read_manifest_note`] before anything is
+/// **The line is bound against the manifest the file carries** (milestone 597 (a program carries
+/// its manifest in an ELF note), provisional), read by [`read_manifest_note`] before anything is
 /// sent, or against `grant_plan::NO_NOTE_MANIFEST` when it carries none. So an argument the note
 /// does not declare is refused here, exactly as `uptime 3` is, and a note that cannot be read or
 /// asks for what an image cannot be given is refused with nothing sent. Whether the note is

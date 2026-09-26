@@ -20,11 +20,12 @@
 //! Slot 0, its output: the sink contract (`crates/byte_sink_protocol`). Slot 1, the clock page,
 //! because its manifest asks for one, and that is the second line it prints.
 //!
-//! **The manifest travels in its own bytes** (milestone 597, provisional; DECISIONS §197 option M2):
-//! [`MANIFEST`], carried as an ELF note. No boot image has a row for this program, so the note is
-//! the only place the progenitor can learn it wants a clock, and a vouched copy holding slot 1 is
-//! the proof the note was read. Before notes, every installed program was endowed as `uptime` is,
-//! and this line said `clock: not held`.
+//! **The manifest travels in its own bytes** (milestone 597 (a program carries its manifest in an
+//! ELF note), provisional; DECISIONS §197 (a package is one archive file) option M2): [`MANIFEST`],
+//! carried as an ELF note. No boot image has a row for this program, so the note is the only place
+//! the progenitor can learn it wants a clock, and a vouched copy holding slot 1 is the proof the
+//! note was read. Before notes, every installed program was endowed as `uptime` is, and this line
+//! said `clock: not held`.
 //!
 //! ```text
 //! $ packages/greeting/0.1.0/greeting

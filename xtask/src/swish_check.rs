@@ -453,8 +453,9 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps packages/uptime/0.1.0/uptime",
         &[
             "provenance: vouched by activation generation 1 (digest ",
-            // **No note, the default** (milestone 597, provisional): `uptime` carries no manifest
-            // note, so it is bound and endowed as `grant_plan::NO_NOTE_MANIFEST`, its output alone.
+            // **No note, the default** (milestone 597 (a program carries its manifest in an ELF
+            // note), provisional): `uptime` carries no manifest note, so it is bound and endowed as
+            // `grant_plan::NO_NOTE_MANIFEST`, its output alone.
             "it carries no manifest note, so it asks for its output and nothing else",
         ],
     ),

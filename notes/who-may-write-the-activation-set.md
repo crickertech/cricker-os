@@ -101,7 +101,7 @@ the shell's slot 4 or the caretaker's wire.
 
 Would we still choose B over C at equal cost? Not clearly. C is one rule in one place and B is a
 filter per verb. B is recommended because C needs endpoint identity in the server, a second thread
-or a kernel change. **That part of the recommendation is about effort**, and should be weighed as
+or a kernel change. That part of the recommendation is about effort, and should be weighed as
 effort.
 
 ## What I need from you
@@ -111,6 +111,9 @@ effort.
 2. B or C? B can be built by a lane with no kernel change. C needs a decision on how the server
    learns which endpoint a request came on.
 
-Nothing is blocked by this. The installer, rollback and removal work either way. What waits is the
-day an installed program's manifest travels with its package (§197 (a package is one archive file)), because then a self-vouched
-entry could claim more than `uptime`'s manifest.
+Nothing is blocked by this. The installer, rollback and removal work either way. What waited was the
+day an installed program's manifest travels with its package (§197 (a package is one archive file)).
+Then a self-vouched entry could claim more than `uptime`'s manifest. That day is milestone 597 (a
+program carries its manifest in an ELF note), built 2026-09-26. A vouched program is now endowed
+from its own note, so the boot prompt can vouch bytes whose note asks for the network. The fork
+above is unchanged; its cost of waiting is not.

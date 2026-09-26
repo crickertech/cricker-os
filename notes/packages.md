@@ -156,19 +156,18 @@ The progenitor reads and writes it on the target (below).
 DECISIONS §219 (how the shell names an installed program to the spawner) was ruled on 2026-09-26:
 option D, the executable's bytes as frames the caller owns, with gate D2. Both are built.
 
-A command word with a `/` in it is a file. The shell binds the line against
-`grant_plan::INSTALLED_MANIFEST_OF`, which is `uptime`'s manifest and the ceiling every installed
-program gets until its manifest is read from its ELF note (§197, ruled 2026-09-26). It opens the
-file and sends `spawnproto::request(len, ..)` with `IMAGE_BIT` set: word 0 is the byte length, then
+A command word with a `/` in it is a file. The shell binds the line against the manifest the file
+carries as an ELF note, or `uptime`'s if it has none: milestone 597 (a program carries its manifest
+in an ELF note). It opens the file and sends `spawnproto::request(len, ..)` with `IMAGE_BIT` set: word 0 is the byte length, then
 one `SEND_CAP` per page narrowed to `READ`, then the grants as today, holding one frame at a time.
 
 The progenitor maps each frame through the loader's never-reused scratch window, copies it into a
 page of its own, and deletes the capability before taking the next. It copies because the caller
 keeps a mapping of its frames and could change them between a hash and a build. It hashes the copy,
 reads `activation/current` and then that generation through the file service it already held, and
-looks the digest up (`activation_set::lookup_digest`). A hit is built from the copy. A miss runs
-only for a session presenting D2's capability, with its grants and two pages; otherwise it gets
-`SPAWN_UNVOUCHED`. D2 is [packages/running-unvouched.md](packages/running-unvouched.md).
+looks the digest up (`activation_set::lookup_digest`). A hit is built from the copy and endowed from
+its note. A miss runs only for a session presenting D2's capability, with its grants and two pages;
+otherwise it gets `SPAWN_UNVOUCHED`. D2 is [packages/running-unvouched.md](packages/running-unvouched.md).
 
 The digest is the member's, not the package's: the spawner is handed the executable, and the
 package's table of contents already carries each member's digest. The recipe's digest over the whole file (§195 (a reviewed recipe vouches for a package))
@@ -264,6 +263,8 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 - The boot prompt can write `activation/` directly, through the root endpoint the progenitor
   writes through. §221 (the boot prompt is the owner's console) ruled that is the owner's right.
 - Whoever holds the spawn endpoint (only the boot prompt) may install, remove, roll back and vouch.
+- A vouch, the owner's or a package's, now grants whatever the bytes' own note asks, the network
+  included (milestone 597 (a program carries its manifest in an ELF note)).
 - Nothing collects `packages/`. A removed program's bytes stay, which is what rollback needs.
 - Rollback is by number, to the generation one below the live one, as Nix's is (recalled, not
   read). Undoing a rollback is another install.
@@ -271,8 +272,8 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
   marks no member executable. A package whose program has another name installs nothing.
 - The `SYNC` before the reply is not falsified. QEMU keeps a killed guest's writes, so no gate
   here can lose a generation that was not synced.
-- An installed program's manifest is a ceiling, not its own (`grant_plan::INSTALLED_MANIFEST_OF`).
-  A program that needs more than `uptime` finds its slot empty rather than being refused by name.
+- A note may declare only what an image request can carry (`grant_plan::image_can_carry`): no
+  file, directory, input, option or `std` runtime yet. Milestone 597's BUGS has the list.
 - Only a plain line runs an image. A path in a pipe or behind a redirection reaches the planner as
   a program name and is refused as "no such program", and `caps <path>` prints no `provenance:`
   row. `crates/grant_plan/src/spawnproto.rs`'s `BUGS` has the full list.

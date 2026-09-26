@@ -271,10 +271,11 @@ it. The two candidate shapes, recorded so the decision is a choice rather than a
 
 calef ruled on 2026-09-26 (UTC): *"M2 is right."* The manifest travels inside the executable, as an
 ELF note found through a `PT_NOTE` program header. DECISIONS §197 (a package is one archive file)
-has the ruling, and draft pull request #1319 has the evidence. This entry stays until the build
-lands, because a manifest is still compiled in. The note's owner string, type number and encoding
-are still an architect's, and the build is
-`design/roadmap/proposals/a-program-carries-its-manifest-in-an-elf-note.md`.
+has the ruling, and draft pull request #1319 has the evidence. Milestone 597 (provisional) built it
+for a program run by its path: owner `nife`, type 1 and the encoding were ratified 2026-09-26, and
+`crates/manifest_note` is the format. This entry stays because a boot image's programs and every
+component are still endowed from a manifest compiled into their supervisor, not read from their
+own bytes; see `design/roadmap/597-a-program-carries-its-manifest-in-an-elf-note.md`.
 
 Correction, 2026-09-26. This entry used to say the note option meant teaching `crates/elf` "section
 headers or notes", which would extend the parser this tree is most careful about. That joined two

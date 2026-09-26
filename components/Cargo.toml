@@ -546,8 +546,9 @@ file_allocation_table = { version = "0.1.0", path = "../crates/file_allocation_t
 boot_slot = { version = "0.1.0", path = "../crates/boot_slot" }
 calendar = { version = "0.1.0", path = "../crates/calendar" }
 grant_plan = { version = "0.1.0", path = "../crates/grant_plan" }
-# A program's manifest carried in its own bytes (milestone 597, provisional): the shell reads it out
-# of a file it is asked to run, and a program carries one with `manifest_note::carry!`.
+# A program's manifest carried in its own bytes (milestone 597 (a program carries its manifest in an
+# ELF note), provisional): the shell reads it out of a file it is asked to run, and a program
+# carries one with `manifest_note::carry!`.
 manifest_note = { version = "0.1.0", path = "../crates/manifest_note" }
 clock_protocol = { version = "0.1.0", path = "../crates/clock_protocol" }
 environment_protocol = { version = "0.1.0", path = "../crates/environment_protocol" }

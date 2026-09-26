@@ -2546,10 +2546,10 @@ fn spawn_service(
             true
         };
 
-        // **Vouched or not** (§219 D), and **what the bytes declare** (milestone 597, provisional:
-        // a program carries its manifest in an ELF note). A hit is endowed with the manifest its
-        // own note carries, or `grant_plan::NO_NOTE_MANIFEST` if it carries none: the digest that
-        // vouched covers the note, so installing the package installed its manifest. A miss is
+        // **Vouched or not** (§219 D), and **what the bytes declare** (milestone 597 (a program
+        // carries its manifest in an ELF note), provisional). A hit is endowed with the manifest
+        // its own note carries, or `grant_plan::NO_NOTE_MANIFEST` if it carries none: the digest
+        // that vouched covers the note, so installing the package installed its manifest. A miss is
         // built only for a caller that presented the run-unvouched capability, and then with
         // `grant_plan::UNVOUCHED_MANIFEST` whatever its note asks (§219: an unvouched note grants
         // nothing). Any other miss is refused with its own word, and bytes whose manifest forbids

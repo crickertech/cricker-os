@@ -25,13 +25,14 @@
 //! `slots held: 0 1 2`. That is milestone 202's claim that an unvouched child holds no capability
 //! the caller did not delegate beyond the two pages the ruling allows.
 //!
-//! **Its note asks for all three, and that is deliberate** (milestone 597, provisional). The
-//! program carries a manifest note ([`NOTE_ASKS`]) declaring the network, entropy and the process
-//! domain, which its compiled-in manifest does not. Run by name, the note is never read. Run as
-//! `installed/unvouched`, it is the only manifest the bytes have, and DECISIONS §219 says an
-//! unvouched program's note grants nothing: the census must still read `0 1 2`, while `caps
-//! installed/unvouched` prints what the note asks beside what will be granted. A progenitor that
-//! honoured an unvouched note turns all three lines here into `REACHED`.
+//! **Its note asks for all three, and that is deliberate** (milestone 597 (a program carries its
+//! manifest in an ELF note), provisional). The program carries a manifest note ([`NOTE_ASKS`])
+//! declaring the network, entropy and the process domain, which its compiled-in manifest does not.
+//! Run by name, the note is never read. Run as `installed/unvouched`, it is the only manifest the
+//! bytes have, and DECISIONS §219 says an unvouched program's note grants nothing: the census must
+//! still read `0 1 2`, while `caps installed/unvouched` prints what the note asks beside what will
+//! be granted. A progenitor that honoured an unvouched note turns all three lines here into
+//! `REACHED`.
 //!
 //! A progenitor that endowed any of the three authorities to a child that did not declare it turns
 //! its line into `REACHED`, and the census gains that slot; `script/swish-check` fails on either.

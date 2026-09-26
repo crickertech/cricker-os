@@ -917,8 +917,8 @@ pub struct Vouched {
     pub by_owner: bool,
 }
 
-/// **What the prompt says when a file's own manifest refuses the line** (milestone 597,
-/// provisional: a program carries its manifest in an ELF note), one sentence per
+/// **What the prompt says when a file's own manifest refuses the line** (milestone 597
+/// (a program carries its manifest in an ELF note), provisional), one sentence per
 /// [`grant_plan::ImageRefusal`]. The shell prints it at the prompt when it can tell before sending
 /// anything, and for the progenitor's [`spawnproto::SPAWN_REFUSED_BY_MANIFEST`] when it cannot.
 pub fn image_refusal_sentence(r: grant_plan::ImageRefusal) -> &'static [u8] {

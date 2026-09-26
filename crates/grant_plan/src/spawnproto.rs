@@ -67,12 +67,13 @@
 //!   proxy, and no capability system prevents a holder from running something on another's behalf;
 //!   it is recorded so nobody reads the missing `GRANT` as a stronger promise than it is.
 //! - **An image's manifest reaches only what the request words and the progenitor's own grants can
-//!   carry** (milestone 597, provisional). The manifest now travels in the bytes, as an ELF note
-//!   (`crates/manifest_note`, §197 option M2), and [`crate::image_manifest`] endows from it. But this
-//!   wire has an argument, a `--mem` count and nothing else a line designates, so a note declaring a
-//!   file, a directory, an input, an option, a supervised job, a second stream, a silent output or
-//!   the `std` runtime is refused ([`crate::image_can_carry`]) rather than run without it. Each is
-//!   the wiring a named program already has, not a new idea.
+//!   carry** (milestone 597 (a program carries its manifest in an ELF note), provisional). The
+//!   manifest now travels in the bytes, as an ELF note (`crates/manifest_note`, §197 (a package is
+//!   one archive file) option M2), and [`crate::image_manifest`] endows from it. But this wire has
+//!   an argument, a `--mem` count and nothing else a line designates, so a note declaring a file, a
+//!   directory, an input, an option, a supervised job, a second stream, a silent output or the
+//!   `std` runtime is refused ([`crate::image_can_carry`]) rather than run without it. Each is the
+//!   wiring a named program already has, not a new idea.
 //! - **An image's [`crate::Endowment`] names a stand-in row** ([`crate::IMAGE_ROW`]), because an
 //!   endowment names a `Prog` and a file has none. Everything about an image is decided from the
 //!   manifest [`crate::image_manifest`] returns; reading the row instead is the foot gun.

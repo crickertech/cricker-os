@@ -29,7 +29,8 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     // The shell's streaming note reader runs on bytes nobody has parsed as a program yet, so it is
-    // fuzzed before `parse` gets a chance to refuse them (milestone 597, provisional).
+    // fuzzed before `parse` gets a chance to refuse them (milestone 597 (a program carries its
+    // manifest in an ELF note), provisional).
     if let Ok(segs) = elf::NoteSegments::from_head(data) {
         let mut search = elf::NoteSearch::new(b"nife", 1);
         for seg in segs {

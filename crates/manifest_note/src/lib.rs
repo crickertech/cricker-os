@@ -1,5 +1,5 @@
-//! **A program's manifest, as the bytes of an ELF note it carries** (milestone 597, provisional:
-//! a program carries its manifest in an ELF note).
+//! **A program's manifest, as the bytes of an ELF note it carries** (milestone 597 (a program
+//! carries its manifest in an ELF note), whose number is provisional).
 //!
 //! DECISIONS §197 (a package is one archive file) asked where a program's manifest travels, and
 //! calef ruled option M2 on 2026-09-26 (UTC): inside the executable, as a note found through a
@@ -97,22 +97,22 @@ use grant_plan::{
     MemSpec, OutputSpec, Runtime,
 };
 
-/// **The note's owner string**, without its NUL.
+/// **The note's owner string**, without its NUL: the project's name, lowercase as
+/// `design/naming.md` rules it spelled everywhere.
 ///
-/// Name: ratified 2026-09-26 (calef, relayed to milestone 597's lane by the maintainer: "Yes" to
-/// the lowercase project name, per `design/naming.md`'s ruling on the casing of `nife`). Refused
-/// `NIFE` (the casing ruling), a reverse-DNS owner (the gABI's owner is a vendor word, and every
-/// shipped owner is one: `GNU`, `FDO`, `Go`).
+/// Name: ratified 2026-09-26 (calef, answering "Yes" to the maintainer, who relayed it to milestone 597's lane).
 pub const OWNER: &[u8] = b"nife";
 
 /// **The note type that carries a manifest**: `1`, "manifest".
 ///
 /// Types are per owner, so `1` collides with nothing outside `nife`'s own notes.
 ///
-/// Name: ratified 2026-09-26 (calef, relayed to milestone 597's lane by the maintainer: "Yes").
+/// Name: ratified 2026-09-26 (calef, answering "Yes" to the maintainer, who relayed it to milestone 597's lane).
 pub const MANIFEST: u32 = 1;
 
-/// The descriptor version this crate writes and the only one it reads.
+/// The descriptor version this crate writes and the only one it reads. The encoding it numbers (a
+/// version word, then little-endian fields in a fixed order) is calef's ruling of 2026-09-26; the
+/// field order of version 1 is milestone 597's lane's design, in the module documentation.
 pub const VERSION: u32 = 1;
 
 /// How long a version 1 descriptor is, exactly.

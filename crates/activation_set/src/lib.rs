@@ -150,9 +150,9 @@ pub fn lookup<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Er
 /// checked first, as in [`lookup`], so a malformed line anywhere vouches for nothing.
 ///
 /// Two entries with one digest (one program installed under two names) answer with the **first**,
-/// deterministically, since the manifest an installed program is endowed with does not depend on
-/// its name today (`grant_plan::INSTALLED_MANIFEST_OF`). When a manifest travels with a package
-/// that stops being harmless, and this is where it will show.
+/// deterministically. That is harmless because the manifest an installed program is endowed with is
+/// in its bytes (an ELF note, milestone 597 (a program carries its manifest in an ELF note)), not
+/// in its entry: one digest is one set of bytes and so one manifest, whichever name was installed.
 pub fn lookup_digest<'a>(table: &'a str, digest: &Digest) -> Result<Option<Entry<'a>>, Error> {
     let mut found = None;
     for entry in entries(table) {
