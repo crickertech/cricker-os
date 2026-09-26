@@ -164,8 +164,8 @@ cargo clippy --workspace --exclude kernel --exclude user --exclude user_mode_run
 without the crate that provides them rustc stops at `use of unresolved module or unlinked crate
 kani`. `helpers/kani-lint-shim/` is that crate, built by `script/lint` with two plain `rustc`
 invocations before the pass runs. The surface it has to cover is small, which is what makes this
-cheap: across 27 packages <!--count:harness-crates--> and 188 harnesses <!--count:kani-harnesses-->
-the tree uses exactly **five** Kani items, `any`, `proof` (188) <!--count:kani-harnesses-->,
+cheap: across 27 packages <!--count:harness-crates--> and 189 harnesses <!--count:kani-harnesses-->
+the tree uses exactly **five** Kani items, `any`, `proof` (189) <!--count:kani-harnesses-->,
 `assume`, `unwind` and `cover!`, and no `Arbitrary` derive, no contracts, no
 `any_where`. A sixth, `stub`, appears only in `kernel`, which this pass excludes, so the shim
 lacks it. The claim is that the surface is **five items**, which is what the shim has to cover, and that
