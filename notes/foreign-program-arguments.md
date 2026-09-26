@@ -10,8 +10,10 @@ fourth reading describes. The argv is plain bytes in one page. Authority is carr
 the directories the line grants and by what the program's manifest says a resolved word may be. A vouched program's manifest may ask for a named
 file read-only, read-write, or as its directory, and may ask to create a name that does not yet
 resolve. An unvouched program gets named files read-only unless the word carries a mark. The
-per-program tables of option B, and option C, were refused for the reasons measured below. The
-layout in "What A asks two programs to agree on" is still milestone 205's to propose.
+per-program tables of option B, and option C, were refused for the reasons measured below.
+Milestone 205 built the transport on 2026-09-26 in the layout this page's prototype used, with
+slot 8 and `0x1400_0000` for "where"; `crates/argument_protocol` is the codec and
+`design/roadmap/proposals/the-argument-page-layout.md` is the proposal that brings it to calef.
 
 §170 set the test in one sentence. If a shim is per-program work, option A (a POSIX argv) wins. If
 it is a library written once, options B and C stay open. This page answers that with counts from
@@ -171,16 +173,18 @@ separate channel.
 
 ## BUGS
 
-- The prototype was not booted. It proves the layout round-trips on the host. It does not prove
-  `ripgrep` searches here, because the kernel wiring and a local QEMU run were outside this
-  measurement.
+- `ripgrep` has not searched here yet. The prototype became `crates/argument_protocol`, and
+  milestone 205 boots it at the prompt (`std_exerciser` prints its argv on all three
+  architectures). `rg` still has nothing to search: a `std` program at the prompt holds no
+  directory until the designation half is built
+  (`design/roadmap/proposals/designating-a-foreign-programs-words.md`).
 - The shell cannot spawn a std program at all. All 16 `grant_plan::Prog` entries are native, and
   `ripgrep` runs only from the kernel test harness (`fs_service::start_std_full`). Every option
   inherits this gap. The demonstration at the prompt that milestone 121 (`ripgrep` on nife) wants
   needs it closed. Proposed to the maintainer as a milestone of its own. *Partly closed
   2026-09-26 by milestone 595 (provisional), in which the shell runs a `std` program: the
-  progenitor builds `std`'s layout and `std_exerciser` runs from the prompt. `rg` still cannot,
-  because it needs arguments, which is the subject of this note.*
+  progenitor builds `std`'s layout and `std_exerciser` runs from the prompt. `rg` now hears its
+  arguments (milestone 205) and still holds no directory to search.*
 - gitoxide has not been built for a nife target. Its argument path was read from source, not run.
 - The counts are source counts from one release of each program. `ripgrep`'s flag count was taken
   with a script over `impl Flag for` blocks, and gitoxide's by matching field declarations. Either
