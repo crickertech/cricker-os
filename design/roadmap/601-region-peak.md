@@ -31,6 +31,10 @@ answer there was a `threads:` line on every run. Nothing printed the region peak
   sees every allocation. The summary also prints the shortest longest-free-run at any test
   boundary, and any refused allocation with the test it happened in. The ledger is at
   `memory::FREE_LOW_WATER`.
+- A rendezvous peak beside both, the third ceiling the same day. The lane of milestone 152 met
+  the 512-rendezvous registry in `timetable_tests`. The `rendezvous:` line prints the peak and how
+  many sit on kernel chunks, which are never freed. With #1347 aarch64 ends at 505 of 512 (7
+  spare), riscv64 at 491 and `x86_64` at 315. The ledger is at `sched::PEAK_RENDEZVOUS`.
 - No gate on headroom, deliberately. The thread peak's reason holds. A second reason is written at
   `MAX_REGIONS`: nothing yet says which regions are meant to be permanent.
 - A `# BUGS` entry at `RegionTable::split`. A split refused for a full table keeps the parent's
@@ -55,6 +59,8 @@ was measured at 256 of 256. It is cheap to reverse either way, and nothing is bl
 - **Proposed.** `design/roadmap/proposals/the-ntp-and-login-tests-give-their-regions-back.md`:
   those two modules hold a third of the region residue, and only the login service is on the held
   list.
+- **Proposed.** `design/roadmap/proposals/tests-retype-their-rendezvous-from-their-own-region.md`:
+  466 of aarch64's 505 live rendezvous sit on kernel chunks that are never freed.
 - **Recorded.** A split refused for a full table leaks its parent: the `# BUGS` entry on
   `RegionTable::split` in `crates/memory_regions/src/table.rs`. Whether the bump-only rule changes
   is calef's, proposed in `notes/region-split-on-a-full-table.md`.
@@ -63,8 +69,8 @@ was measured at 256 of 256. It is cheap to reverse either way, and nothing is bl
 
 **Built:** 2026-09-26
 
-The suite now prints how close the boot came to the region table's ceiling and to running out of
-page frames. It names the test that pushed it there, so the next full table is read off a
+The suite now prints how close the boot came to three ceilings: the region table, page frames and
+the rendezvous registry. It names the test that pushed it there, so the next full table is read off a
 transcript instead of found by a hang in an unrelated test. `MAX_REGIONS` carries the ledger of
 what holds regions at the peak. A refused split that leaks its parent is recorded where a reader
 meets it, and a second road to the same leak through `MemoryRegion::SPLIT` is closed.
