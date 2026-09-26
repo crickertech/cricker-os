@@ -1,6 +1,13 @@
-# 600. Paging anonymous memory out to storage under pressure
+---
+status: REFUSED
+raised: 2026-09-26
+promoted_from: anonymous-memory-pages-out-under-pressure
+refused_by: 126
+---
+# 605. Paging anonymous memory out to storage under pressure
 
-**Status: REFUSED 2026-09-26.** *(Number provisional until the merge queue lands it.)* calef ruled
+Refused 2026-09-26. *(Number provisional until the merge queue lands it. Renumbered from
+600 on 2026-09-26, because a concurrent lane kept 600.)* calef ruled
 on the proposal the day it was filed. He answered "Yes" to three things together: refuse it for now;
 call it "paging out", not swap, because swap already means live replacement; and `free` and `vmstat`
 drop their swap rows rather than printing zeros. Promoted from the proposal
@@ -42,7 +49,6 @@ for swap space, page-out, demand paging, overcommit, external pager and memory p
 - §9 (locking: IrqSafeMutex, plus a discipline): "Kernel memory is never demand-paged."
 - `crates/paging/src/aarch64.rs`: the Access Flag "exists for page-replacement policy we do not
   do".
-
 
 ## What paging out would mean here
 
