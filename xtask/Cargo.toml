@@ -23,6 +23,9 @@ nifefs = { version = "0.1.0", path = "../crates/nifefs" }
 # writer is behind the `builder` feature; the reader that runs confined allocates nothing.
 documentation = { version = "0.1.0", path = "../crates/documentation", features = ["builder"] }
 filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol" }
+# Milestone 121 (`ripgrep` on nife: enumeration as a capability)'s priced tree: the image builder stages it with the same function a host
+# comparison stages it with, so the two cannot be walks over different shapes.
+walk_pricing = { version = "0.1.0", path = "../crates/walk_pricing" }
 # The partition table (milestone 57's write half): the post-run check reads the table the GUEST
 # wrote, from outside the guest, with the same parser the guest used and the same one whose host
 # tests run against tables `sgdisk` and macOS `diskutil` wrote. It also slices the data partition out

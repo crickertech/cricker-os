@@ -3057,7 +3057,7 @@ pub mod fixture {
         /// `made-by-std` in it), so an exact comparison would couple this milestone's gate to what
         /// unrelated tests happen to write. The upward-escape half is checked against [`MADE`] and
         /// [`MADE_DIR`] instead, which are names only the attacker writes.
-        pub const ROOT_ENTRIES: [&str; 8] = [
+        pub const ROOT_ENTRIES: [&str; 9] = [
             GLOBMANY,
             GLOBSET,
             super::MOTD_NAME,
@@ -3066,7 +3066,118 @@ pub mod fixture {
             RMTREE,
             super::SCRATCH_NAME,
             SUB,
+            super::walk::ROOT,
         ];
+    }
+
+    /// **The tree milestone 121 (`ripgrep` on nife: enumeration as a capability) prices a walk
+    /// over**, for what the walk costs. A sibling of [`tree::SUB`] in the image root, granted
+    /// alone, and written by nothing: every figure the pricing prints is a function of this shape
+    /// and of nothing another test left behind.
+    ///
+    /// Three regions, one per cost the milestone separates, so each is a slope over one variable
+    /// with the others held still:
+    ///
+    /// ```text
+    ///   /walk/chain/f  chain/c/f  chain/c/c/f ... chain/c^8/f   one component per level
+    ///   /walk/wide/n000 .. n127                                 one entry per name
+    ///   /walk/narrow/n000                                       the one-entry control
+    ///   /walk/sizes/s4k  s64k  s256k                            one byte per byte
+    /// ```
+    ///
+    /// `walk_pricing` (provisional) stages it on a host and walks it on both sides, so the image
+    /// builder, the priced program and a host comparison all read the one shape written here.
+    ///
+    /// Names: provisional (2026-09-26, milestone 121's lane). They are met by anyone who lists
+    /// the test image, which is calef's to name.
+    pub mod walk {
+        /// The directory the pricing is granted, one component under the image root.
+        pub const ROOT: &str = "walk";
+        /// The depth region's top directory.
+        pub const CHAIN: &str = "chain";
+        /// The name of every directory below [`CHAIN`]: one letter, so a deeper path costs
+        /// components rather than name bytes.
+        pub const LEVEL: &str = "c";
+        /// Directories below [`CHAIN`]. Eight, so a slope has nine points and the deepest open is
+        /// ten components from the grant, deeper than any path the rest of the fixture uses.
+        pub const DEPTH: usize = 8;
+        /// The file at every level of the chain, [`CHAIN`] included.
+        pub const LEVEL_FILE: &str = "f";
+        /// The width region: one directory holding [`WIDE_COUNT`] files.
+        pub const WIDE: &str = "wide";
+        /// Files in [`WIDE`]. 128 four-byte names are 768 bytes of `READDIR` records
+        /// ([`crate::dirent::record_len`]), so the whole listing is one page and the slope is per
+        /// entry rather than per page. Pricing a page boundary would want more than 680 names.
+        pub const WIDE_COUNT: usize = 128;
+        /// The control: [`WIDE`]'s shape with one file, so the difference is entries alone.
+        pub const NARROW: &str = "narrow";
+        /// The byte region.
+        pub const SIZES: &str = "sizes";
+        /// Its files and their sizes. 4 KiB is one page; 256 KiB is sixteen of the file channel's
+        /// largest requests ([`crate::fs::TRANSFER_MAX`] at the time of writing).
+        pub const SIZE_FILES: [(&str, usize); 3] =
+            [("s4k", 4096), ("s64k", 65_536), ("s256k", 262_144)];
+        /// What every file in [`CHAIN`], [`WIDE`] and [`NARROW`] holds. Sixteen bytes, so a small
+        /// file's read is one request and the byte region is the only place bytes vary.
+        pub const SMALL_BODY: &[u8] = b"nife walk entry\n";
+
+        /// The byte at `i` of a sized file: printable, a newline every 64, so a search tool run
+        /// over the tree later has lines to match and the host and guest agree without a file.
+        pub const fn sized_byte(i: usize) -> u8 {
+            if i % 64 == 63 {
+                b'\n'
+            } else {
+                b'a' + (i % 26) as u8
+            }
+        }
+
+        /// Name of the `i`th file in [`WIDE`] (and the one in [`NARROW`]): `n` and three digits.
+        pub const fn wide_name(i: usize) -> [u8; 4] {
+            [
+                b'n',
+                b'0' + (i / 100 % 10) as u8,
+                b'0' + (i / 10 % 10) as u8,
+                b'0' + (i % 10) as u8,
+            ]
+        }
+
+        /// Directories a full walk from [`ROOT`] lists: the four regions, and the chain's levels.
+        pub const WALK_DIRS: usize = 4 + DEPTH;
+        /// Files a full walk opens.
+        pub const WALK_FILES: usize = (DEPTH + 1) + WIDE_COUNT + 1 + SIZE_FILES.len();
+        /// Entries a full walk is handed by `read_dir`, which is every directory and every file
+        /// once. Printed and asserted by the priced program, so a walk that silently skipped a
+        /// directory it could not look into fails on a count rather than on a slower figure.
+        pub const WALK_ENTRIES: usize = WALK_DIRS + WALK_FILES;
+        /// Bytes a full walk reads.
+        pub const WALK_BYTES: usize = {
+            let mut sized = 0;
+            let mut i = 0;
+            while i < SIZE_FILES.len() {
+                sized += SIZE_FILES[i].1;
+                i += 1;
+            }
+            (WALK_FILES - SIZE_FILES.len()) * SMALL_BODY.len() + sized
+        };
+        /// Path components a full walk resolves: each entry's depth below [`ROOT`], summed, since
+        /// that is the length of the path a walker hands back to list or open it. On nife it is
+        /// the number of hops a component-at-a-time resolver pays, and what a multi-component
+        /// resolve would save. Computed from the shape rather than by walking, so a walker that
+        /// skipped a directory cannot agree with it by construction.
+        pub const WALK_COMPONENTS: usize = {
+            // The four regions, at depth 1.
+            let mut sum = 4;
+            // The chain: level `i` (the chain itself is level 0, at depth 1) holds its entries at
+            // depth `i + 2`, two of them at every level but the last, which holds only the file.
+            let mut i = 0;
+            while i <= DEPTH {
+                let here = if i < DEPTH { 2 } else { 1 };
+                sum += here * (i + 2);
+                i += 1;
+            }
+            // The wide, narrow and sized files, at depth 2.
+            sum + 2 * (WIDE_COUNT + 1 + SIZE_FILES.len())
+        };
     }
 
     /// **The directory attacker's report** (milestone 47), a bitmap for the same reason the per-file

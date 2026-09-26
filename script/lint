@@ -794,13 +794,17 @@ echo "==> roadmap status"
 # this pass on its first run with `Vec` not found, and the message said where to put it. It reads
 # two files a host has and answers a question about them, so it is `std` by nature; the kernel side
 # of the same question is `kernel::trust`, which is `no_std` and stays that way.
+#
+# `walk_pricing` (milestone 121 (`ripgrep` on nife: enumeration as a capability), 2026-09-26) is the fifth, and it is `std` for a different reason:
+# it is plain `std::fs` code so that one walk runs on a host and on nife's `std` targets alike. It
+# has no bare-metal build to document, and its nife build is `std_exerciser`'s.
 echo "==> rustdoc (broken intra-doc links)"
 DOCFLAGS="-D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags"
 RUSTDOCFLAGS="$DOCFLAGS" cargo doc --no-deps --quiet --workspace --exclude xtask \
-    --exclude board_console --exclude stick_maker --exclude sealed_pair \
+    --exclude board_console --exclude stick_maker --exclude sealed_pair --exclude walk_pricing \
     --target aarch64-unknown-none-softfloat
 RUSTDOCFLAGS="$DOCFLAGS" cargo doc --no-deps --quiet -p xtask -p board_console -p stick_maker \
-    -p sealed_pair
+    -p sealed_pair -p walk_pricing
 RUSTDOCFLAGS="$DOCFLAGS" cargo doc --no-deps --quiet --manifest-path redoxfs_server/Cargo.toml --lib
 
 # The decision index (design/decisions/README.md and one file per decision, milestone 114): its
