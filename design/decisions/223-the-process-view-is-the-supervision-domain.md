@@ -11,7 +11,9 @@ Raised 2026-09-26 by the maintainer on `maintainer/126-followups`, from section 
 [`notes/process-view/what-is-left.md`](../../notes/process-view/what-is-left.md), which
 milestone 126 (the `procps` package: who else is running) wrote in pull request #1349. A developer lane
 may not write this directory, so the lane left the text for the integrator. *(Section number
-provisional until the merge queue lands it. §221 and §222 are claimed by #1340 and #1350.)*
+provisional until the merge queue lands it. §221 (the boot prompt is the owner's console) and
+§222 (who holds a user's schedule, and how it is changed while their session lives) are claimed by
+#1340 and #1350.)*
 
 The tree took this decision by construction when `ps` shipped over `rendezvous::SURVEY` on
 2026-08-16. Nothing under `design/decisions/` recorded it, so the alternative is neither built nor
