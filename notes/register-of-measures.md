@@ -176,6 +176,7 @@ time.
 | `BUGS` sections | markdown headings and Rust doc-comment headings; rising is good | [proofs and coverage](register-of-measures/code-proofs-and-coverage.md) |
 | coverage, and the lowest-covered file | the workspace aggregate, and the per-file minimum the floor acts on | [proofs and coverage](register-of-measures/code-proofs-and-coverage.md) |
 | the prose budget | words over the 3,000-word cap, and documents over it | [prose budget](register-of-measures/prose-budget.md) |
+| benchmark drift | icount rows more than 5% above a fixed anchor, per architecture; a report, not a gate | [the drift report](project-metrics/baseline-drift.md), generated |
 
 ## EXAMPLES
 
