@@ -215,8 +215,10 @@ pub const SCRATCH_WINDOW_PAGES: u64 = SCRATCH_WINDOW.bytes() / PAGE;
 /// else the builder maps under 1 GiB. Name: provisional (milestone 604).
 pub const SCRATCH_TABLE_PAGES: u64 = SCRATCH_WINDOW_PAGES / 512;
 
-const _: () =
-    assert!(SCRATCH_WINDOW.start % (512 * PAGE) == 0 && SCRATCH_WINDOW.end % (512 * PAGE) == 0);
+const _: () = assert!(
+    SCRATCH_WINDOW.start.is_multiple_of(512 * PAGE)
+        && SCRATCH_WINDOW.end.is_multiple_of(512 * PAGE)
+);
 
 /// The next page [`map_scratch`] tries. Starts at the window's base and wraps.
 static SCRATCH_NEXT: core::sync::atomic::AtomicU64 =

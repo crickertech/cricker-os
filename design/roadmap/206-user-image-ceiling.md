@@ -72,8 +72,9 @@ for 190 of it.
 
 - **Proposed.** The timebase page moves into `PROCESS_PAGES`, beside the stack, where it would pay no
   page table instead of three: `design/roadmap/proposals/the-timebase-page-moves-beside-the-stack.md`.
-- **Proposed.** The builder's scratch cursor reaches the progenitor's initrd window after about a
-  hundred `ripgrep`-sized spawns: `design/roadmap/proposals/the-builders-scratch-cursor-is-bounded.md`.
+- **Built.** The builder's scratch cursor ran out after about seventy-five `ripgrep`-sized spawns
+  (its page tables first, before the initrd window): milestone 604 (the builder's scratch cursor is
+  bounded) made it wrap inside a fixed window.
 - **Recorded.** Band checks see membership, not collisions within one program; two protocol crates
   restate their numbers: `crates/address_space_map/src/lib.rs`.
 - **Recorded.** The userspace loader refuses a too-large image as `Err(())`, with no reason:

@@ -115,12 +115,6 @@
 //!   deriving them from here.** Both are generated verbatim into std's PAL by `cargo xtask std-src`,
 //!   where there is no crate to name, so each pins itself to this map with a dev-dependency test
 //!   instead, the precedent `byte_sink_protocol` set for `abi`. That is rung two, not rung one.
-//! - **The builder's scratch cursor in [`RUNTIME_WINDOWS`] is unbounded.** `supervision_protocol`
-//!   advances one page per page it builds and never unmaps, so a long-lived builder walks upward
-//!   through the band. The progenitor's cursor starts at `0x1000_0000` and its initrd window is at
-//!   `0x2000_0000`, so after 256 MiB of built pages the cursor reaches it and every later build
-//!   fails as already mapped. A program the size of `ripgrep` costs 2.6 MiB a spawn. Bounding the
-//!   cursor needs an unmap the builder does not have.
 //! - **The kernel-built harness processes do not call [`check_image`] with a sentence to print**:
 //!   the userspace loader (`supervision_protocol`) returns `Err(())` for every refusal, so a
 //!   too-large image built by a userspace builder is still reported as "could not spawn".
