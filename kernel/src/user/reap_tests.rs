@@ -146,7 +146,7 @@ fn assert_can_only_supervise(expected: &[u64]) {
                      confinement claim is only about a capability table it fully accounts for",
                 );
                 assert!(
-                    matches!(cap.object, Object::Rendezvous(_)),
+                    matches!(cap.object, Object::Rendezvous(..)),
                     "the supervisor holds a non-rendezvous capability in slot {slot}",
                 );
             }

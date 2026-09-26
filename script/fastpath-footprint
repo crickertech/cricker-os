@@ -341,8 +341,14 @@ SHAPES = [
     ("ipc_send_recv",
      re.compile(r"kernel5sched(8ipc_send|8ipc_recv|8schedule|13finish_switch|11current_cap)")),
     ("ipc_call_reply",
-     re.compile(r"kernel5sched(8ipc_call|12ipc_recv_cap|9ipc_reply|8schedule|13finish_switch|11current_cap)")),
+     re.compile(r"kernel5sched(8ipc_call|15ipc_call_badged|12ipc_recv_cap|9ipc_reply|8schedule|13finish_switch|11current_cap)")),
 ]
+# **`ipc_call_badged` is a root because it IS the CALL body** (milestone 599 (a frame per filesystem
+# client channel), 2026-09-26). The syscall's `CALL` dispatches to it, and `ipc_call` became an
+# `#[inline(always)]` wrapper that passes badge 0, so the `ipc_call` symbol no longer exists in a
+# release build. Without this root the closure silently lost the whole CALL body and reported an
+# 18-30% "shrink" on every ISA; a root list that does not follow a rename measures less than the
+# path the system runs, which is the failure this gate exists to rule out.
 
 # **Cold, so excluded from the closure.** Two families, for two different reasons.
 #

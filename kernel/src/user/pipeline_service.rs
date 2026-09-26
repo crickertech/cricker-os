@@ -487,7 +487,7 @@ fn take_rendezvous(ep: RendezvousId) -> Option<RendezvousId> {
     let cap = crate::sched::current_cap(slot).ok()?;
     let _ = crate::sched::delete_current_cap(slot);
     match cap.object {
-        crate::cap::Object::Rendezvous(id) => Some(id),
+        crate::cap::Object::Rendezvous(id, _) => Some(id),
         _ => None,
     }
 }

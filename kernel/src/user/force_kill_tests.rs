@@ -452,7 +452,7 @@ fn tearing_down_a_reply_parked_caller_sweeps_the_reply_capability() {
     // Collect the request, which is what moves the caller off the sender queue and leaves it
     // reply-parked on nothing. `ipc_recv_cap` deliberately does not wake a caller: the reply is
     // the only thing that may, and this server never sends one.
-    let [_word, slot, _w1] = sched::ipc_recv_cap(ep);
+    let [_word, slot, _w1, _badge] = sched::ipc_recv_cap(ep);
     assert_ne!(
         slot,
         abi::rendezvous::NO_CAP,

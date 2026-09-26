@@ -195,11 +195,14 @@ pub mod rendezvous {
     /// authority moves between processes at runtime instead of being wired by the kernel at spawn.
     pub const SEND_CAP: u64 = 2;
 
-    /// `invoke(cap, RECV_CAP, _, _, _)` -> w0, with the received capability's new slot in x1 and a
-    /// second data word in x2, or [`NO_CAP`] in x1 if the message carried no capability. **Blocks
-    /// until a message arrives.** The received capability lands in a free slot of the receiver's own
-    /// capability table, chosen by the kernel; x1 is where. This is also how a server receives a [`CALL`]: the
-    /// slot in x1 holds a one-shot [`crate::reply`] capability naming the caller. Needs `READ`.
+    /// `invoke(cap, RECV_CAP, _, _, _)` -> w0, with the received capability's new slot in x1, a
+    /// second data word in x2, and the **sender's badge in x3** (milestone 599, provisional), or
+    /// [`NO_CAP`] in x1 if the message carried no capability. **Blocks until a message arrives.**
+    /// The received capability lands in a free slot of the receiver's own capability table, chosen
+    /// by the kernel; x1 is where. This is also how a server receives a [`CALL`]: the slot in x1
+    /// holds a one-shot [`crate::reply`] capability naming the caller. **x3 is the badge on the
+    /// endpoint capability the sender invoked** ([`BADGE`]), or 0 when it was unbadged, which is how
+    /// a server serving many clients on one endpoint tells them apart. Needs `READ`.
     pub const RECV_CAP: u64 = 3;
 
     /// `invoke(cap, CALL, w0, w1, _)` -> r0, with r1 in x1. **Send two words and block until
@@ -304,6 +307,22 @@ pub mod rendezvous {
     /// `IPC_TABLES` across a whole survey would put a userspace program in charge of how long the
     /// scheduler is locked.
     pub const SURVEY: u64 = 6;
+
+    /// `invoke(cap, BADGE, badge, _, _)` -> the slot the badged copy landed in, or a negative
+    /// [`crate::Error`]. The slot comes back in x0, the way `memory_region::RETYPE_OBJ` answers.
+    ///
+    /// **Mint a badged copy of this endpoint capability** (milestone 599 (a frame per filesystem
+    /// client channel), provisional name and number, kept free by DECISIONS §148 (a supervisor restarts by asking)). The new
+    /// capability names the same endpoint with the same rights, plus `badge` stamped on it; the
+    /// kernel delivers that `badge` to a server's [`RECV_CAP`] whenever this copy's holder `CALL`s
+    /// or `SEND_CAP`s here, so a server serving many clients on one endpoint can tell them apart.
+    ///
+    /// Needs `GRANT` (minting a delegatable view is a delegation-class power) and refuses a `badge`
+    /// of 0 (that is the unbadged value) or a source that is already badged (seL4's rule: a badge is
+    /// set once and never changed, which is what lets a holder trust the badge it was given). The
+    /// caller then hands the badged copy to a client with `SEND_CAP`, narrowing rights as usual; the
+    /// badge rides through that delegation because `SEND_CAP` copies the object.
+    pub const BADGE: u64 = 7;
 
     /// The x1 value from [`RECV_CAP`] when the message carried no capability.
     pub const NO_CAP: u64 = u64::MAX;
