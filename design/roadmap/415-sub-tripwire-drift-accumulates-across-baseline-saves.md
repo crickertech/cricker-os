@@ -3,47 +3,38 @@ status: PARTIAL
 raised: 2026-09-15
 promoted_from: sub-tripwire-drift-accumulates-across-baseline-saves
 milestone_dependencies: none
-decision_dependencies: 190
+decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
 # 415. Sub-tripwire drift accumulates across baseline saves, and one architecture has no gate at all
 
-Item 1 landed 2026-09-15 as commit `ba99c83`; items 2 and 3 are outstanding and
-item 4 is refused. Promoted from the proposal
+Items 1 and 2 are built and item 4 is refused. Item 3 is ruled and being
+built by the lane that recorded the ruling. Item 1 landed 2026-09-15 as commit `ba99c83`, item 2 on
+2026-09-23 in PR #1126 under milestone 302. Promoted from the proposal
 `sub-tripwire-drift-accumulates-across-baseline-saves`, filed 2026-09-15 by the baseline-audit lane,
 which calef asked for after PR #886 found a regression that had hidden under the 10% threshold.
 *(Number provisional until the merge queue lands it.)*
 
-The decision is
-§190 (must an icount baseline save record why it moved, and does a second fixed anchor earn its cost?), written up
-2026-09-19 by milestone 435's slice-c lane because this gate named no section. Items 2 and 3 change
-how `cargo xtask bench --save` behaves and what a save is obliged to record, which is a workflow
-calef owns.
+§190 is decided. calef ruled item 3 on 2026-09-26 as "3b", a weekly report of
+cumulative drift since a fixed anchor, not a gate; the ruling is quoted at the top of §190. Item 2
+had been ruled under milestone 302 on 2026-09-16, before this block's gate was written, so nothing
+here waits on anyone.
 
-The clause that used to follow is corrected rather than deleted, because it is the reason this
-gate was suspected of being too strong. It read *"the first item is a one-line CI change that is
-owed already and needs nobody's permission"*, and item 1 landed on 2026-09-15 as `ba99c83`. So the
-half that needed nobody's permission is gone and the token is more purely `DECISION` than when
-it was written, not less, which is the opposite of the promoting lane's hypothesis and is why it was
-not acted on.
+The gate's history, kept because it explains the old token. It was `DECISION §190`, written up
+2026-09-19 by milestone 435's slice-c lane because it named no section. An earlier clause read
+*"the first item is a one-line CI change that is owed already and needs nobody's permission"*, and
+item 1 landed on 2026-09-15 as `ba99c83`, which left the token more purely `DECISION`, not less.
+The live argument that it was still too strong for item 2 turned out to be moot: milestone 302's
+ruling already covered item 2, and the lane that raised §190 had not found it.
 
-There is a live argument that the token is still too strong, and §190 puts it to calef as its
-first question rather than settling it here. This block's own reversibility paragraph says items 1
-and 2 are undoable in an afternoon and nobody outside this tree has acted on them, which by
-AGENTS.md's test makes item 2 a decision for whoever is holding the problem. Against that: it
-changes what a person types on every bench evening on every board. The lane did not correct the
-token on its own reading, because a `NONE` here puts this block on `script/roadmap --ready` where a
-lane would stall on item 3, and that is the worse of the two failures.
-
-Premise re-checked 2026-09-19: one of the four items is already done, and the other three stand.
-`script/ci-build`'s bench entry now reads
-`script/bench --check && script/bench --riscv --check && script/bench --x86 --check`, which is item
-1, landed the same day this was filed and in its own commit as the section asked. Item 2 has not
-been built: nothing in `cargo xtask bench --save` takes or records a reason, so the only account of
-why a number moved is still the commit message. Item 3 depends on item 2 and is untouched. Item 4
-stays refused for the reason milestone 25 already established.
+Premise re-checked 2026-09-26. Item 1: `script/ci-build`'s bench entry still reads
+`script/bench --check && script/bench --riscv --check && script/bench --x86 --check`. Item 2:
+`cargo xtask bench --save` refuses to run without `--why` and writes one `# why:` line per reason
+(`xtask/src/bench.rs`, `save_reasons` and `baseline_header`); the three floors carry them since
+2026-09-23. Item 3: `bench/` still holds one baseline per architecture and nothing reports drift
+against an anchor. Item 4 stays refused for the reason milestone 25 already established.
 
 ## In brief
 

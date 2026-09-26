@@ -299,7 +299,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 187 | PROPOSED | [One crate per kernel-test pair, or one crate for all of them?](187-crates-for-the-numbers-a-kernel-test-and-its-program-agree-on.md) |
 | 188 | PROPOSED | [What the lifted `fn check(ok: bool)` is called, now that nine programs write it out by hand](188-one-home-for-the-trap-on-false-helper.md) |
 | 189 | PROPOSED | [Which of two definitions `caretaker` carries, and what the translating shape is called](189-what-a-caretaker-is-when-it-translates.md) |
-| 190 | PROPOSED | [Must an icount baseline save record why it moved, and does a second fixed anchor earn its cost?](190-what-a-baseline-save-must-record.md) |
+| 190 | DECIDED | [Must an icount baseline save record why it moved, and does a second fixed anchor earn its cost?](190-what-a-baseline-save-must-record.md) |
 | 191 | DECIDED | [Whether the job mix reports the spread rather than the best, and whether `REPEATS` varies by sweep point](191-job-mix-repeats-and-what-the-line-reports.md) |
 | 192 | PROPOSED | [Does the ACPI walk's direct-map read take a bound, and is the bound per-read or a region it holds?](192-a-checked-direct-map-reader-for-the-acpi-walk.md) |
 | 193 | PROPOSED | [What a block-roster entry calls an NVMe disk, and whether it carries more than virtio does](193-nvme-in-the-block-roster.md) |

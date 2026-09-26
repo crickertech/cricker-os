@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-09-19
+decided: 2026-09-26
+ratified_by: calef
 ---
 
 # 190. Must an icount baseline save record why it moved, and does a second fixed anchor earn its cost?
@@ -9,6 +11,28 @@ Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decisio
 `DECISION` gate naming no section and its gate prose gone stale. The audit behind it is the
 baseline-audit lane's, 2026-09-15, which calef asked for after PR #886 found a regression that had
 hidden under the 10% threshold. *(Section number provisional until the merge queue lands it.)*
+
+## The ruling
+
+calef, 2026-09-26, in answer to item 3: *"3b"*. Recorded at 18:36 UTC by milestone 415's lane,
+which the maintainer delegated this edit to. The three options were put to him in the
+maintainer's session, not in this file, so they are written out here as they were put.
+
+- 3b, taken. Item 3 is a report, not a gate: cumulative drift per benchmark row since a fixed
+  anchor, published with the weekly project metrics, with each save's `# why:` reasons beside it.
+- 3a, refused: the anchor as a gate. It fires on correct work, such as `spawn_el0`'s legitimate
+  -32.7%, and needs its own ledger of intended deltas.
+- 3c, refused: not doing item 3. Slow drift is then visible only to someone who looks.
+- It can become a gate later, if the `--why` reasons prove good enough to gate on.
+- Items 1 and 2 were already done, item 2 in PR #1126 under milestone 302's ruling (next section).
+  Item 4 stays refused.
+
+Milestone 415 built it in PR #1375. `helpers/baseline_drift.py` does the arithmetic from git
+alone, anchored at the 2026-09-15 audit's three commits, and reproduces that audit's five figures.
+`script/metrics` publishes it as `notes/project-metrics/baseline-drift.csv`, a chart and a
+generated appendix, `notes/project-metrics/baseline-drift.md`.
+
+The rest of this file is the section as it stood before the ruling.
 
 ## Item 2 is ruled and built, and item 3 is still open
 
