@@ -2458,13 +2458,13 @@ static IRQ_ROUTES: [AtomicU64; MAX_INTID] = [const { AtomicU64::new(0) }; MAX_IN
 /// Route a hardware interrupt to an rendezvous. From now on, when `intid` fires, whoever is
 /// blocked on `ep` wakes; if nobody is, the signal is remembered so it is not lost.
 ///
-/// **And from now on `ep` refuses every send** (DECISIONS §101, calef's ruling B, 2026-09-26). An
-/// interrupt reaches its driver as `w0 = 1`, which is also a word any sender can put in `w0`, so an
-/// endpoint that carried both could not tell a driver which one woke it. The refusal is the
-/// rendezvous's own (`Rendezvous::bind_to_interrupt`), so it holds for every endpoint bound here
-/// whoever created it: the fifteen the kernel creates for its drivers, which no program is ever
-/// granted, and the caller-supplied ones `soak::bind_tick_routes` binds, which is why this is done
-/// here rather than at each call site. `SEND`, `SEND_CAP` and `CALL` answer
+/// **And from now on `ep` refuses every send** (DECISIONS §101 (notification objects), calef's
+/// ruling B, 2026-09-26). An interrupt reaches its driver as `w0 = 1`, which is also a word any
+/// sender can put in `w0`, so an endpoint that carried both could not tell a driver which one woke
+/// it. The refusal is the rendezvous's own (`Rendezvous::bind_to_interrupt`), so it holds for every
+/// endpoint bound here whoever created it: the fifteen the kernel creates for its drivers, which
+/// no program is ever granted, and the caller-supplied ones `soak::bind_tick_routes` binds, which
+/// is why this is done here rather than at each call site. `SEND`, `SEND_CAP` and `CALL` answer
 /// [`abi::Error::NotPermitted`]; see `set_ipc_refused`.
 ///
 /// Marked before the route is published, so there is no instant at which the interrupt is live on

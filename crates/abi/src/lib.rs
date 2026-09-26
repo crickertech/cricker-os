@@ -791,7 +791,7 @@ pub enum Error {
     ///
     /// **Or the object refuses the operation whatever the rights.** The one case today: a
     /// [`rendezvous::SEND`], [`rendezvous::SEND_CAP`] or [`rendezvous::CALL`] naming an endpoint
-    /// that carries a hardware interrupt, which takes no message from any program (DECISIONS §101,
+    /// that carries a hardware interrupt, which takes no message from any program (DECISIONS §101 (notification objects),
     /// ruling B, 2026-09-26). Nothing is delivered, queued or delegated, and the caller does not
     /// block.
     NotPermitted = -3,

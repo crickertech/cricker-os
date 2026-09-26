@@ -234,14 +234,14 @@ drains it instead of blocking. An interrupt that fires one instruction before th
 ### And nothing but the interrupt reaches that endpoint (2026-09-26)
 
 A driver's `WAIT` returns `1` in `w0` when its interrupt fires, and `1` is also a word any sender
-can put in `w0`. Until milestone 603 (provisional; an interrupt's endpoint refuses every send), the
+can put in `w0`. Until milestone 603 (an interrupt's endpoint refuses every send; number provisional), the
 only thing stopping a forged interrupt was that no program is ever granted a `WRITE` capability to
 an endpoint `bind_irq` routes to. That is wiring, and nothing checked it. calef ruled on
-2026-09-26 (DECISIONS §101, option B) that the kernel refuses it instead.
+2026-09-26 (DECISIONS §101 (notification objects), option B) that the kernel refuses it instead.
 
 So `bind_irq` marks the endpoint (`Rendezvous::bind_to_interrupt`, provisional name), and from
 then on `Rendezvous::send` answers `Send::Refused` and touches nothing. `SEND`, `SEND_CAP` and
-`CALL` return `NotPermitted` without blocking, and a §26 death message addressed there is dropped,
+`CALL` return `NotPermitted` without blocking, and a §26 (the fault endpoint) death message addressed there is dropped,
 since `EVENT_FAULT` is also `1`. The refusal is a variant of `send`'s result, so every path that
 deposits into an endpoint has to handle it or it will not compile. The mark is one-way, because
 `bind_irq` has no unbind.

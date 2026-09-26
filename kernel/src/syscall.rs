@@ -158,7 +158,7 @@ pub(crate) fn invoke(
                 // act on, which is why the ABI grew a variant rather than the sink protocol growing
                 // a heartbeat.
                 //
-                // **Or it was refused** (milestone 603 (provisional), DECISIONS §101 ruling B): the
+                // **Or it was refused** (milestone 603 (provisional), DECISIONS §101 (notification objects) ruling B): the
                 // endpoint carries a hardware interrupt, whose driver reads `w0 = 1` as "the device
                 // fired", so no program may deposit anything there. `NotPermitted`, because it is
                 // the answer to an operation the capability names but may not perform, and it is

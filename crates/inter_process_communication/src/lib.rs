@@ -139,7 +139,7 @@ pub struct Rendezvous<T: Node> {
     receivers: Fifo<T>,
     /// Async signals that arrived with nobody waiting. Drained by the next receive, never lost.
     pending: u32,
-    /// **This rendezvous carries a hardware interrupt, so it takes no message** (DECISIONS §101,
+    /// **This rendezvous carries a hardware interrupt, so it takes no message** (DECISIONS §101 (notification objects),
     /// amended 2026-09-26: calef's ruling B). Set once by [`bind_to_interrupt`](Self::bind_to_interrupt)
     /// and never cleared. While it is set, [`send`](Self::send) answers [`Send::Refused`] and
     /// touches nothing, so the only thing a receiver here can ever be handed is a
@@ -165,7 +165,7 @@ pub enum Send<T> {
     /// not block.
     ///
     /// A variant rather than a check at each call site, so that every path that deposits into a
-    /// rendezvous (the kernel has four today: `SEND`, `SEND_CAP`, `CALL`, and a §26 death message)
+    /// rendezvous (the kernel has four today: `SEND`, `SEND_CAP`, `CALL`, and a §26 (the fault endpoint) death message)
     /// is made to say what it does here by the compiler, and a fifth cannot forget to.
     ///
     /// Name: provisional (milestone 603 (provisional)): calef names public items.

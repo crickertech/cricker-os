@@ -476,7 +476,7 @@ pub struct Thread {
     pub outgoing_cap: Option<crate::cap::Cap>,
 
     /// **Why the last aborted send was aborted, when the reason was a refusal** (milestone 603
-    /// (provisional), DECISIONS §101 ruling B). Set beside `handshake.abort()` when a `SEND`,
+    /// (provisional), DECISIONS §101 (notification objects) ruling B). Set beside `handshake.abort()` when a `SEND`,
     /// `SEND_CAP` or `CALL` named a rendezvous that carries an interrupt, and read-and-cleared by
     /// the syscall layer only after `take_ipc_aborted` has already said `true`. So an IPC that was
     /// not aborted never reads it, which is what keeps the refusal off the fastpath: the syscall

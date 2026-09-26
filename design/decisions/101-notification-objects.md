@@ -63,7 +63,7 @@ The ruling, option B:
 
 Refused: C, a `BUGS` entry that relies on wiring.
 
-Built by milestone 603 (provisional; an interrupt's endpoint refuses every send). `bind_irq` marks
+Built by milestone 603 (an interrupt's endpoint refuses every send; number provisional). `bind_irq` marks
 the rendezvous, `Rendezvous::send` answers `Send::Refused`, and the three methods return
 `NotPermitted` without blocking. A §26 death message sent there is dropped, because `EVENT_FAULT`
 is also `1`.

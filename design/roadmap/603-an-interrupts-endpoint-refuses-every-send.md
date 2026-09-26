@@ -27,7 +27,7 @@ binds endpoints its caller supplies. Nothing refused a program granted `WRITE` o
 | the mark: `Rendezvous::bind_to_interrupt`, one-way, in the padding after `pending` | `crates/inter_process_communication` |
 | the refusal: `send` answers `Send::Refused` and touches nothing, tested before a receiver is popped | the same |
 | `bind_irq` marks the endpoint before it publishes the route, so the soak's caller-supplied endpoints are covered too | `kernel/src/sched.rs` |
-| `SEND`, `SEND_CAP` and `CALL` return `NotPermitted` without blocking; a §26 death message sent there is dropped, since `EVENT_FAULT` is also `1` | `sched.rs`, `syscall.rs` |
+| `SEND`, `SEND_CAP` and `CALL` return `NotPermitted` without blocking; a §26 (the fault endpoint) death message sent there is dropped, since `EVENT_FAULT` is also `1` | `sched.rs`, `syscall.rs` |
 | `NotPermitted`'s doc names the case | `crates/abi` |
 
 The refusal is a variant of `send`'s result rather than a check at each caller. Every path that
@@ -83,3 +83,20 @@ ICOUNT_PENDING
   syscall layer's to read, so a kernel caller would not learn why.
 - The test's route to interrupt 250 outlives it, like milestone 151's route to 251. Reclaiming the
   region makes the name stale, and `irq_notify` drops a signal to a stale name.
+
+## Follow-on
+
+- **Recorded.** The one-way mark, the silent kernel-side abort and the test's leftover route are in
+  this block's `BUGS`, and the first is beside the method in `crates/inter_process_communication`.
+- **Done.** Milestone 151's `BUGS` entry on the forgeable `w0 = 1` is removed by this change,
+  and §101 (notification objects)'s first amendment now points at the second.
+- **Decision.** Moving each driver's interrupt onto a notification object is deferred, driver by
+  driver, by `design/decisions/101-notification-objects.md`.
+
+## Index row
+
+An endpoint bound to an interrupt now refuses every send, so a driver's `w0 = 1` can only mean its
+device fired. calef ruled it on 2026-09-26 (§101 (notification objects), option B), closing a
+forgery milestone 151 (notification objects) found that had held only because nobody was granted
+`WRITE` on such an endpoint. The refusal is a variant of `Rendezvous::send`'s result, so any future
+deposit method must handle it to compile.

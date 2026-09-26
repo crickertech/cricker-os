@@ -3781,7 +3781,7 @@ mod survey_tests;
 mod survey_record_tests;
 
 /// **An endpoint that carries an interrupt refuses every send** (milestone 603 (provisional),
-/// DECISIONS §101 ruling B). Driven through the real dispatcher (`syscall::invoke`) on the sending
+/// DECISIONS §101 (notification objects) ruling B). Driven through the real dispatcher (`syscall::invoke`) on the sending
 /// side and through `Irq::WAIT` on the driver's, because the ruling is about what a program can do
 /// at the boundary: a test that called `sched::ipc_send` would prove the helper.
 ///
