@@ -224,6 +224,27 @@ impl<const N: usize> RegionTable<N> {
         }
     }
 
+    /// **How many regions are live right now**, roots and split children together.
+    ///
+    /// The kernel reads this under its lock after every insert, to keep the high-water mark the
+    /// test suite's closing `regions:` line prints (`memory_region::MAX_REGIONS` has the ledger).
+    /// An observer about the table rather than about any region, so it names nothing a caller
+    /// could act on after the answer stopped being true, which is the argument `script/lint`'s
+    /// surface pin asks of a new `&self` method.
+    ///
+    /// Name: provisional, from milestone 601 (the region table prints its peak). It is
+    /// `generational_table`'s own spelling of the same question.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.table.len()
+    }
+
+    /// Whether no region is live. The pair clippy asks of a public `len`.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.table.is_empty()
+    }
+
     /// **Record a region carved straight out of the frame allocator**, returning its generational
     /// name. `None` when every slot is live, in which case the caller still owns the pages and must
     /// give them back rather than leak them.
@@ -253,6 +274,46 @@ impl<const N: usize> RegionTable<N> {
     /// **One borrow, where the kernel used to take its lock twice.** Nothing could observe the
     /// half-carved parent before, because the intermediate state is legal, but a window that exists
     /// is a window someone eventually reasons about; this closes it for free.
+    ///
+    /// # BUGS
+    ///
+    /// **A split refused for a full table leaves its parent undestroyable for the rest of the
+    /// boot.** The bump-only rule above keeps the parent's child count raised for a child that was
+    /// never minted, so no name exists that could ever bring the count back down, and
+    /// [`claim_for_destroy`](Self::claim_for_destroy) refuses the parent forever. In the kernel
+    /// that is `sched::reclaim_region` refusing too: both `MemoryRegion::DESTROY` and
+    /// `rendezvous::REAP` answer `NotPermitted` for good (which a restart policy reads as "not
+    /// yet"), so the parent's slot, its pages, and every thread and address space retyped from it
+    /// are held until reboot. It also ratchets. The refusal only happens when the table is full,
+    /// and it makes the table permanently fuller by at least the parent, so the next caller to
+    /// reach the ceiling reaches it sooner. The carved pages stay spent on the parent as well,
+    /// though that half is contained by the parent never being reclaimed anyway.
+    ///
+    /// Reproduction, which runs as a doctest, so the day the rule changes this entry fails and
+    /// has to be rewritten rather than left describing a table that no longer exists:
+    ///
+    /// ```
+    /// let mut table = memory_regions::RegionTable::<2>::new();
+    /// let parent = table.insert_root(0x1000, 8).unwrap();
+    /// let child = table.split(parent, 2).unwrap(); // the second and last slot
+    ///
+    /// // The table is full, so this split is refused, but the parent's count went up anyway.
+    /// assert_eq!(table.split(parent, 2), None);
+    ///
+    /// // Reclaim the one real child; the parent should now be reclaimable, and is not.
+    /// let claim = table.claim_for_destroy(child).unwrap();
+    /// table.return_to_parent(&claim);
+    /// assert!(table.has_children(parent), "a phantom child nobody can name");
+    /// assert!(table.claim_for_destroy(parent).is_none(), "refused, and it always will be");
+    /// assert_eq!(table.usage(parent), Some((4, 8)), "the refused carve stays spent");
+    /// ```
+    ///
+    /// Whether the rule should change is calef's call, not this entry's:
+    /// `notes/region-split-on-a-full-table.md` has the options and a recommendation. The kernel's
+    /// own `MemoryRegion::SPLIT` has a sibling with the same consequence, a child minted and then
+    /// orphaned when the caller's capability table is full; that note covers it too. Recorded
+    /// 2026-09-26 by milestone 601 (the region table prints its peak), from a finding in the lane
+    /// of milestone 152 (durable delegation).
     pub fn split(&mut self, parent: u64, pages: u64) -> Option<u64> {
         let base_page = {
             let r = self.table.get_mut(parent)?;

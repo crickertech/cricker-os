@@ -543,7 +543,66 @@ struct IpcTables {
 /// down a region removes every rendezvous whose page lives in it and `generational_table::Table::remove` frees the
 /// slot for reuse, so this is a concurrent bound now. Corrected rather than left, because a stale
 /// bound is the kind of comment that gets believed during a capacity argument.
-const MAX_RENDEZVOUS: usize = 512;
+pub(crate) const MAX_RENDEZVOUS: usize = 512;
+
+/// **The most rendezvous that were ever live at once on this boot**, and how many of those live at
+/// that moment sat on the kernel's own chunks. [`MAX_RENDEZVOUS`]'s instrument, built for
+/// `PEAK_THREADS`'s reason by milestone 601 (the region table prints its peak), after the lane of
+/// milestone 152 (durable delegation) met this ceiling in `timetable_tests`: a durable test created
+/// its report endpoint with [`create_rendezvous`] on every run, and kernel-chunk rendezvous are
+/// never freed (see `kernel_ep_region`), so the registry filled across the suite.
+///
+/// The split is the ledger's first cut. A rendezvous on a kernel chunk lives for the whole boot;
+/// one retyped from a region goes when its region is reclaimed. So the kernel-chunk count only
+/// ever rises, and it is the part of the peak no teardown can recover.
+///
+/// Both updated under `IPC_TABLES` at the one insert, so they never race.
+///
+/// # The ledger: what holds rendezvous at the peak
+///
+/// Measured 2026-09-26 with a temporary per-test print, on `main` at `484f3ebe` plus #1347:
+///
+/// | architecture | peak | spare | on kernel chunks | retyped from a region |
+/// |---|---|---|---|---|
+/// | aarch64 | **505** | 7 | 466 | 39 |
+/// | riscv64 | **491** | 21 | 452 | 39 |
+/// | `x86_64` | **315** | 197 | 302 | 13 |
+///
+/// The registry starts each suite empty and the peak is its last reading: it only grows, because
+/// almost everything in it sits on a kernel chunk. So the ledger is who called
+/// [`create_rendezvous`], aarch64 per module (kernel-chunk count first, then all live):
+///
+/// | module | kernel chunks | all live | |
+/// |---|---|---|---|
+/// | `kernel::sched` tests | 46 | 47 | the scheduler's own IPC tests |
+/// | `user::tests` | 45 | 46 | the oldest userspace tests, one or two each |
+/// | `ntp_tests` | 37 | 37 | |
+/// | `login_tests` | 36 | 66 | the other 30 are retyped from session regions |
+/// | `compositor_tests`, `display_tests` | 34 | 34 | |
+/// | `rm_program_tests`, `dir_capability_tests`, `disk_tests` | 51 | 51 | the file services |
+/// | `sink_tests`, `date_tests`, `time_tests` | 40 | 40 | |
+/// | 23 other modules | 97 | | |
+/// | created between tests | 80 | | services still wiring after a test returned |
+///
+/// Nothing on a kernel chunk is returned, even when the test that asked for it hands everything
+/// else back, so every test that wires a service with [`create_rendezvous`] spends the registry
+/// for the rest of the boot. The fix the lane of milestone 152 used on its own test is the
+/// pattern: retype the endpoint from the run's own region, so it goes when the region does.
+/// `design/roadmap/proposals/tests-retype-their-rendezvous-from-their-own-region.md` is that work
+/// across the suite. Reports and does not gate, for [`MAX_THREADS`]'s reason.
+static PEAK_RENDEZVOUS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
+static KERNEL_CHUNK_RENDEZVOUS: core::sync::atomic::AtomicUsize =
+    core::sync::atomic::AtomicUsize::new(0);
+
+/// `(peak live, created on kernel chunks so far)`: see [`PEAK_RENDEZVOUS`]. Printed by the test
+/// suite's closing summary.
+#[cfg_attr(not(test), allow(dead_code))] // the closing summary is the only reader
+pub fn rendezvous_pressure() -> (usize, usize) {
+    (
+        PEAK_RENDEZVOUS.load(Ordering::Relaxed),
+        KERNEL_CHUNK_RENDEZVOUS.load(Ordering::Relaxed),
+    )
+}
 
 /// An rendezvous's name: a generational `slots` name over the rendezvous registry (19a). What an
 /// `Object::Rendezvous` capability carries. `u64` like a `ThreadId`, and stale-safe the same way.
@@ -2510,10 +2569,15 @@ fn try_create_rendezvous_from(region: u64) -> Result<RendezvousId, RendezvousFai
     unsafe { (crate::arch::mmu::phys_to_virt(phys) as *mut Rendezvous).write(Rendezvous::new()) };
 
     // Cannot fail: capacity was checked above under this same lock hold.
-    sched
+    let name = sched
         .rendezvous_table
         .insert_with(|_| phys)
-        .ok_or(RendezvousFailure::RegistryFull)
+        .ok_or(RendezvousFailure::RegistryFull)?;
+    PEAK_RENDEZVOUS.fetch_max(sched.rendezvous_table.len(), Ordering::Relaxed);
+    if sched.kernel_ep_region == Some(region) {
+        KERNEL_CHUNK_RENDEZVOUS.fetch_add(1, Ordering::Relaxed);
+    }
+    Ok(name)
 }
 
 /// Create an rendezvous in `region`'s memory. `None` when the region is out of budget or the registry
