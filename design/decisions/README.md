@@ -279,7 +279,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 167 | PROPOSED | [What a profiling session's grant names](167-what-a-profiling-session-may-name.md) |
 | 168 | PROPOSED | [Where a proof-gated credential rotation verb lives](168-where-a-rotation-verb-lives.md) |
 | 169 | PROPOSED | [Whether a clipboard exists here, and what it is scoped to](169-whether-a-clipboard-exists.md) |
-| 170 | PROPOSED | [How a foreign program is told what to do](170-how-a-foreign-program-is-told-what-to-do.md) |
+| 170 | DECIDED | [How a foreign program is told what to do](170-how-a-foreign-program-is-told-what-to-do.md) |
 | 171 | PROPOSED | [Where a program image starts, and where the stack goes](171-where-a-program-image-starts.md) |
 | 172 | PROPOSED | [Whether a `credential_protocol` verify endpoint names the identity it asks about](172-credential-endpoint-per-resource.md) |
 | 173 | PROPOSED | [Narrowing the root of the shell's namespace: a verb on the wire, or a shallower root](173-narrowing-the-namespace-root.md) |

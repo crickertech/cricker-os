@@ -3,7 +3,15 @@
 *(For [§170 (how a foreign program is told what to do)](../design/decisions/170-how-a-foreign-program-is-told-what-to-do.md),
 which gates milestone 205 (how a foreign program is told what to do). Measured 2026-09-25 by lane
 `lane/argv-shim-measure`. This page's stem is provisional, per the naming tenet; calef names things.
-It measures and does not rule: the maintainer amends §170 from it.)*
+It measures and does not rule.)*
+
+§170 is decided (calef, 2026-09-26). It took the argv of option A, carried the way this page's
+fourth reading describes. The argv is plain bytes in one page. Authority is carried separately, by
+the directories the line grants and by what the program's manifest says a resolved word may be. A vouched program's manifest may ask for a named
+file read-only, read-write, or as its directory, and may ask to create a name that does not yet
+resolve. An unvouched program gets named files read-only unless the word carries a mark. The
+per-program tables of option B, and option C, were refused for the reasons measured below. The
+layout in "What A asks two programs to agree on" is still milestone 205's to propose.
 
 §170 set the test in one sentence. If a shim is per-program work, option A (a POSIX argv) wins. If
 it is a library written once, options B and C stay open. This page answers that with counts from
@@ -180,4 +188,4 @@ separate channel.
 - A byte argv can carry a secret. §111 refused free-form strings on the config page for exactly
   that reason, and validation cannot help here, because a regex is arbitrary bytes. Neither
   program measured takes a secret on its command line. The risk is real for others and would need
-  a policy answer, not a wire one.
+  a policy answer, not a wire one. §170 records it as a known cost of the ruling.

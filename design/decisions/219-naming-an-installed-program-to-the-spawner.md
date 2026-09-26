@@ -131,8 +131,8 @@ input. The tree already has the grant for that: `FileSpec::Required { writable: 
 read-only file named on the line (`grant_plan`). So `interp build.nsh` works once an interpreter
 exists, and the script's authority is the interpreter's, narrowed by the line. What it cannot yet do
 is hear its own arguments: `build.nsh release` needs a string, and the ABI carries one `u64` and a
-flag mask (§170 (how a foreign program is told what to do), PROPOSED). Milestone 205 must provide
-strings in some form for any script to take a parameter.
+flag mask. §170 (how a foreign program is told what to do) ruled a byte argv on 2026-09-26, and
+milestone 205 builds it.
 
 `#!` belongs in the shell. Resolving `#!/pkg/interp` means reading text and looking up a name.
 In the spawner that puts a parser and a name table inside the process that decides what runs, and it
@@ -243,4 +243,4 @@ recommendation. Both remain open; D's first build takes each provisionally.
 
 Rung 3a of milestone 198 after "verified by digest": installing, running, surviving a reboot,
 rolling back and removing. Also running anything a developer builds on nife, and milestone 172's
-subprocess primitive. Scripts still wait on §170 for string arguments.
+subprocess primitive. Scripts wait on milestone 205, which builds §170's argv.

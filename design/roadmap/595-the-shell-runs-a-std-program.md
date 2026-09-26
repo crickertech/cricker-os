@@ -18,9 +18,9 @@ names it.)* The progenitor's `std` layout was built on 2026-09-26 by lane
 `the-x86-64-progenitor-serves-entropy-from-rdseed` and built the same day by lane
 `milestone/595-x86-std`. See "What is built" below.
 
-Two open forks each stop a different step between a typed
-line and a running `rg`, and both are calef's. A third, §219, was ruled on 2026-09-26. The sections
-below say which step each one stops.
+One open fork stops a step between a typed line and a running `rg`, and it
+is calef's. Two others, §219 and §170, were ruled on 2026-09-26. The sections below say which step
+each one stops.
 
 ## The gap, checked 2026-09-25
 
@@ -160,15 +160,14 @@ figure, which is what the proposal predicted. The x86_64 gauge line is still sta
   primitives or whole subsystems) decision nobody has made. Two consequences follow. Such an `rg`
   is unvouched, so the session needs D2's capability to run it. And an unvouched child gets only
   what the line delegates, plus the clock and configuration pages, so its directory must come from
-  the line. That is the confinement this milestone wants. Option D is not built yet; milestone 198
-  (a package manager) owes it.
-- §170 (how a foreign program is told what to do), and milestone 205 (the nife ABI has no argument
-  vector), which builds the answer.
-  `std::env::args()` yields nothing on nife, so `rg` prints its own usage text and stops. #1314
-  measured the answer in two halves. Getting bytes into `args_os()` is one library of about 50
-  lines, and every option needs it. Deciding which bytes become capabilities is per program:
-  `ripgrep` 14.1.1 has 104 flags. This milestone needs the first half and the decision on the
-  second.
+  the line. That is the confinement this milestone wants. Option D was built by #1320 and gate D2
+  on 2026-09-26, both in milestone 198 (a package manager). Corrected 2026-09-26: this said
+  neither was built.
+- §170 (how a foreign program is told what to do), decided 2026-09-26, and milestone 205 (how a
+  foreign program is told what to do), which builds it. `std::env::args()` yields nothing on nife,
+  so `rg` prints its own usage text and stops. The ruling is a byte argv in one page with no
+  authority in it. What a word may touch comes from the program's manifest and the directories the
+  line grants, and an unvouched program gets named files read-only unless the word is marked.
 - Milestone 206 (a program image has under 896 KiB), and §171 (where a program image starts).
   The image meets its own stack there, and `rg`'s `.text` is 1.37 MiB. The harness relinks `rg` at
   `0x100_0000` to get past it. A spawn from the shell cannot rely on that trick.
@@ -225,18 +224,20 @@ A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted she
   takes a program written to do it. Closing it needs a right that allows `MAP` and not `SPLIT`,
   which is a syscall-surface question.
 - The directory half of the layout is built and unproven at the prompt. No `std` manifest
-  declares a directory, because which word on a line becomes a `std` program's directory is the
-  designation half of §170.
+  declares a directory. §170 ruled the designation half on 2026-09-26, and the manifest that would
+  declare it travels in an ELF note (§197 (a package is one archive file), M2), which is unbuilt.
 - The network half is not wired. Slots 2 and 3 exist in the contract; the progenitor does not
   mint the socket frames' budget slot 3 needs, so a `std` manifest may not declare the network yet.
 - `STD_REGION_PAGES` is the harness's number, not a measurement. 256 pages of heap is what
   every `std` program here has been proven under; `rg` over a real tree needs more, and a budget a
-  person sizes at the prompt is an argument, which is §170's.
+  person sizes at the prompt is an argument, which milestone 205 carries.
 
 - The CI half proves the mechanism with a program this project wrote. Only the second half answers
   risk 1, and it runs only on a machine that built `rg`.
-- Designation stays open. Until §170 rules, nothing says whether `docs` on the line becomes a
-  capability because the shell guessed it is a path or because `rg`'s manifest said so.
+- Designation is ruled, not built. Under §170, `docs` becomes a capability because the line
+  grants it as a directory or because `rg`'s manifest says a resolved word may be one, never
+  because the shell guessed. An unvouched `rg`'s own manifest grants nothing, so a named file
+  reaches it read-only and a directory reaches it only as the line's grant.
 
 ## Follow-on
 
@@ -247,8 +248,8 @@ A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted she
   unwired network half are in `crates/system_initializer/src/lib.rs`, in `StdLayout`'s BUGS.
 - **Outstanding.** Everything past the layout. A `std` program the shell names by §219's option D,
   its arguments (§170), and an image over 896 KiB (§171 and milestone 206) are what `rg` needs.
-  Checked against this block's "What it waits on" section on 2026-09-26: §170 and §171 are still
-  open, and nothing builds option D yet.
+  Rechecked 2026-09-26 at §170's ruling: §170 is decided and milestone 205 builds it, §171 is
+  still open, and option D and gate D2 are built.
 
 - **Milestone 198.** An installed program cannot yet declare `runtime: Std`. Pull request #1320 built §219's
   option D, and it endows every vouched image with one fixed manifest,
@@ -263,5 +264,5 @@ A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted she
 The shell cannot launch a `std` program: all 16 programs `swish` can name are native, and `ripgrep`
 runs only from the kernel test harness. This makes `rg needle docs` work at the prompt, confined to
 the granted directories, on all three architectures. It builds on §219's option D for naming and
-waits on §170 for arguments and §171 for image size, and it unblocks milestone 121's remaining items and milestone
+waits on milestone 205 for arguments (§170, decided) and §171 for image size, and it unblocks milestone 121's remaining items and milestone
 123's demonstration.
