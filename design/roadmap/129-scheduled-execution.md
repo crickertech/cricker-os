@@ -2,7 +2,7 @@
 status: PARTIAL
 raised: 2026-08-15
 milestone_dependencies: 152
-decision_dependencies: 222
+decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -12,15 +12,14 @@ needs_person: no
 Minted 2026-08-15 at calef's request. A backup server owes housekeeping on a
 schedule (snapshot thinning, scrub passes, log rotation) even though the Mac initiates the backups
 themselves, and nothing else on the roadmap ran anything on a schedule. The interval scheduler, a
-narrowed archive and a backable `--mem` grant are built. What is left waits on calef and on
-milestone 152 (durable delegation), recorded below and checked against the tree on 2026-09-26.
+narrowed archive and a backable `--mem` grant are built. What is left is ruled by §222 and
+waits on milestone 152 (durable delegation) only to connect a real session, as recorded below.
 
-Runtime registration needs a wire format and a ruling on
-which process holds a user's schedule, and both are calef's. The ask is
-[§222 (who holds a user's schedule)](../decisions/222-who-holds-a-users-schedule.md), and the lane's
-proposal behind it is
-[notes/scheduled-execution/registration.md](../../notes/scheduled-execution/registration.md). It
-also needs a registrar, which is a user's durable session. That type went with `smb_server` on
+calef ruled on runtime registration on 2026-09-26 in
+[§222 (who holds a user's schedule)](../decisions/222-who-holds-a-users-schedule.md): one timetable
+per durable session, changed by replacing the whole document, with all five sub-rulings. The
+`REPLACE` handler can be built now against the kernel test harness. Only connecting a real session
+waits, because the registrar is a user's durable session. That type went with `smb_server` on
 2026-08-30, and milestone 152's lane is rebuilding it. Until 2026-09-26 this line read `NONE`, on the
 claim that both blockers had cleared; the second half of that stopped being true when the session
 type was deleted.
@@ -90,12 +89,11 @@ Milestone 106 (a wait that ends on either the interrupt or the deadline) is gate
 
 ## What is left
 
-- Runtime registration, including removal. The proposal recommends one timetable per durable
-  session, replaced a whole document at a time, so removing an entry is a replace without it. It
-  also asks for five smaller rulings. It is calef's because it is a wire format, and it waits on
-  milestone 152 for the session that would hold it.
-- Wiring `crates/schedule_store` into a running scheduler. Under the proposal this is "spawn the
-  session's timetable with its stored document", so it waits on the same ruling.
+- Runtime registration, including removal. §222 rules one timetable per durable session, replaced
+  a whole document at a time, so removing an entry is a replace without it, with five smaller
+  rulings. The handler is buildable now; connecting it to a real session waits on milestone 152.
+- Wiring `crates/schedule_store` into a running scheduler. Under §222 this is "spawn the
+  session's timetable with its stored document", so it waits on milestone 152's session.
 - One image per entry. The timetable keeps every entry's image mapped for its whole life, so
   splitting the archive does not narrow what a compromise reaches. Narrowing it needs a
   `spawner.rs`-shaped helper per entry, which is machinery nothing has. Under the proposal the reach
@@ -119,13 +117,13 @@ the shipped document is a demonstration written to show every answer registratio
 
 ## Follow-on
 
-- **Outstanding.** Runtime registration and removal: no opcode exists in `crates/timetable`. It is
-  asked of calef as §222 (who holds a user's schedule), PROPOSED 2026-09-26, from the lane's
-  `notes/scheduled-execution/registration.md`, and it waits on calef and on milestone 152's durable
-  session, which no file under `components/` or `crates/` defines. Checked 2026-09-26.
+- **Outstanding.** Runtime registration and removal: no opcode exists in `crates/timetable`. calef
+  ruled it as §222 (who holds a user's schedule) on 2026-09-26, from the lane's
+  `notes/scheduled-execution/registration.md`. The handler is buildable now; a real registrar
+  waits on milestone 152's durable session, which no file under `components/` or `crates/` defines. Checked 2026-09-26.
 - **Outstanding.** Wiring the store into a running scheduler: neither `crates/timetable` nor
-  `components/src/timetable.rs` names `schedule_store`. It follows the registration ruling. Checked
-  2026-09-26.
+  `components/src/timetable.rs` names `schedule_store`. §222 ruled its shape, and it waits on
+  milestone 152's session. Checked 2026-09-26.
 - **Outstanding.** One image per entry: `components/src/root_supervisor.rs` still builds exactly one
   spawner, and nothing builds sub-builders sized to a document. Checked 2026-09-26.
 - **Outstanding.** Calendar syntax and wall-clock entries: `crates/timetable`'s grammar is still
@@ -148,5 +146,5 @@ and the capability shape inverts it: an entry is a grant expression plus a sched
 registration like a command line at the prompt. Built: the interval scheduler with four registration
 answers (2026-08-18), the archive narrowed to the plan (2026-08-18), a backable `--mem` grant
 (2026-08-22), and designations reported as unbacked rather than refused (2026-09-26). Remaining:
-runtime registration and removal, proposed for calef and waiting on milestone 152's durable session;
+runtime registration and removal, ruled by §222 and waiting on milestone 152's durable session only for a real registrar;
 one image per entry; calendar and wall-clock entries.

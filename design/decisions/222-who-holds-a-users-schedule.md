@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-09-26
+decided: 2026-09-26
+ratified_by: calef
 ---
 
 # 222. Who holds a user's schedule, and how it is changed while their session lives
@@ -12,6 +14,27 @@ request #1345. The note is the lane's argument and holds the detail; this file i
 and it links to the note rather than restating it. *(Section number provisional until the merge
 queue lands it. It was the next free number on 2026-09-26, after §221 (the boot prompt is the
 owner's console), claimed by #1340.)*
+
+## The ruling
+
+calef, 2026-09-26 (recorded 16:37 UTC): *"Yes, C with all five."* A user's schedule is held by a
+timetable their durable session spawns and supervises, and it is changed by replacing the whole
+document; removing an entry is a replace without that line. The five sub-rulings hold as
+recommended below:
+
+1. The document travels in one shared page, and the reply is one word of verdicts.
+2. A replace is parsed and planned whole, or it leaves the old schedule running.
+3. A byte-identical entry keeps its phase.
+4. A job from a removed entry runs to completion.
+5. The session writes the store, and the timetable holds no directory.
+
+Options A and B are refused for the reasons in
+the table. `REPLACE` is still a provisional name.
+
+The handler can be built now, with the kernel test harness standing in as registrar. Connecting a
+real session still waits on milestone 152 (durable delegation).
+
+The rest of this file is the section as it stood before the ruling.
 
 ## What is being decided
 
