@@ -1,10 +1,19 @@
+---
+status: PROPOSED
+raised: 2026-09-26
+milestone_dependencies: none
+decision_dependencies: none
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
 # The NTP and login tests give their regions back, or say why they keep them
 
-**Status: PROPOSED 2026-09-26.** Filed by the lane of milestone 601 (the region table prints its
+Filed by the lane of milestone 601 (the region table prints its
 peak), from the per-test measurement that built the ledger at `memory_region::MAX_REGIONS`. The
 title is provisional.
 
-**Gate: NONE.** Test wiring and service teardown; no syscall surface, no dependency.
+Test wiring and service teardown; no syscall surface, no dependency.
 
 ## What was measured
 

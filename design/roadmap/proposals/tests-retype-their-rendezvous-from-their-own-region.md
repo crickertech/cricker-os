@@ -1,9 +1,18 @@
+---
+status: PROPOSED
+raised: 2026-09-26
+milestone_dependencies: none
+decision_dependencies: none
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
 # Tests retype their rendezvous from their own region, so the registry stops filling
 
-**Status: PROPOSED 2026-09-26.** Filed by the lane of milestone 601 (the region table prints its
+Filed by the lane of milestone 601 (the region table prints its
 peak), from the rendezvous ledger at `sched::PEAK_RENDEZVOUS`. The title is provisional.
 
-**Gate: NONE.** Test and service wiring; no syscall surface, no dependency.
+Test and service wiring; no syscall surface, no dependency.
 
 ## What was measured
 

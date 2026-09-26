@@ -1,6 +1,11 @@
+---
+status: BUILT
+raised: 2026-09-26
+built: 2026-09-26
+---
 # 601. The region table prints its peak, and a refused split's leak is recorded
 
-**Status: BUILT.** 2026-09-26. *(Number provisional: 596 to 600 are held by open pull requests,
+Built 2026-09-26. *(Number provisional: 596 to 600 are held by open pull requests,
 so the lane took the next free; the integrator confirms it at merge. Title a draft.)* Promoted by
 the maintainer from two findings in the lane of milestone 152 (durable delegation), both about the
 kernel's region table (`memory_region::MAX_REGIONS`, 256).
@@ -66,8 +71,6 @@ was measured at 256 of 256. It is cheap to reverse either way, and nothing is bl
   is calef's, proposed in `notes/region-split-on-a-full-table.md`.
 
 ## Index row
-
-**Built:** 2026-09-26
 
 The suite now prints how close the boot came to three ceilings: the region table, page frames and
 the rendezvous registry. It names the test that pushed it there, so the next full table is read off a
