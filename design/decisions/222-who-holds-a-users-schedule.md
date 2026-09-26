@@ -60,6 +60,24 @@ Refused:
 - S3, the client or the shell supervises. It exits at disconnect, which is the problem being solved.
 - S4, nobody supervises live. A dead timetable would silently stop the user's jobs.
 
+### When `login` builds it
+
+calef, 2026-09-26 (recorded 17:41 UTC): *"L2"*. After `OK`, a new request word on `login`'s private
+channel builds the session process and returns its `REPLACE` endpoint, announced as an extra
+capability the way `RUN_UNVOUCHED_FOLLOWS` announces one in `crates/login_protocol`. A session
+without a schedule sees no change in `login`. A session with one outlives logout, because the
+session process is a live child of its budget and §16 (object revocation) refuses to destroy a
+parent with a live child.
+
+Refused:
+
+- L1, build it at every login. Every past user keeps a session process and an empty timetable
+  alive, logout becomes a detach, and ending a session needs a new request of its own.
+- L3, build it when the stored schedule is non-empty. The first registration still needs L2's
+  request, so L3 is L2 plus a special case.
+
+The request word is a provisional wire value, and its name is not ratified.
+
 The program's name is not ratified, and whatever a lane ships is provisional. The `REPLACE` handler
 does not wait on this program; connecting a real session does.
 
