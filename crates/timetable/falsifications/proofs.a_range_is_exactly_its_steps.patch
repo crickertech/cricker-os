@@ -1,0 +1,19 @@
+Falsifies `timetable::proofs::a_range_is_exactly_its_steps`.
+
+The defect: a range whose end is not its last step is accepted, so the product fires past the end a person wrote (`to 17:00 by 15m` also fires at 17:15, 17:30 and 17:45).
+
+Expected to fail: the `assert_eq!(fires, in_range)`, at a time after `end` in the end hour.
+
+diff --git a/crates/timetable/src/recurrence.rs b/crates/timetable/src/recurrence.rs
+index bb0523f64..30e93b947 100644
+--- a/crates/timetable/src/recurrence.rs
++++ b/crates/timetable/src/recurrence.rs
+@@ -534,7 +534,7 @@ pub fn range(start: u16, end: u16, step: u16) -> Result<(u32, u64), Refusal> {
+         } else {
+             None
+         };
+-        if sm >= step || eh < sh || em != last_minute {
++        if sm >= step || eh < sh {
+             return Err(Refusal::InexactRange(
+                 last.filter(|&l| l >= start as u32).map(|l| l as u16),
+             ));

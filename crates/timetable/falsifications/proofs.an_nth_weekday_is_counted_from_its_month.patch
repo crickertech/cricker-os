@@ -1,0 +1,19 @@
+Falsifies `timetable::proofs::an_nth_weekday_is_counted_from_its_month`.
+
+The defect: the week of the month is counted from day 0, so the 7th, 14th, 21st and 28th are placed in the following week.
+
+Expected to fail: the `assert_eq!` against counting, at `dom == 7` for `n == 1`.
+
+diff --git a/crates/timetable/src/recurrence.rs b/crates/timetable/src/recurrence.rs
+index e0cdeb116..9386eaa22 100644
+--- a/crates/timetable/src/recurrence.rs
++++ b/crates/timetable/src/recurrence.rs
+@@ -201,7 +201,7 @@ pub fn month_day_matches(on: MonthDay, dom: u8, dow: u8, month_len: u8) -> bool
+         MonthDay::Nth(n, want) => {
+             dow == want
+                 && if n > 0 {
+-                    (dom - 1) / 7 + 1 == n as u8
++                    dom / 7 + 1 == n as u8
+                 } else {
+                     dom + 7 > month_len
+                 }
