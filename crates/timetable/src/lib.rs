@@ -84,6 +84,8 @@
 use grant_plan::expand::Expansion;
 use grant_plan::{Endowment, Holdings, Refusal};
 
+pub mod registration;
+
 /// Nanoseconds in a second. Spelled here rather than taken from `clock_protocol`, because this crate
 /// decides *when* rather than *what time it is*: it never touches the wall clock, and depending on
 /// the wall-clock contract to name a unit would claim otherwise.
@@ -586,6 +588,41 @@ impl<'a> Registry<'a> {
                 Schedule::Every(p) => now.saturating_add(p),
             };
         }
+    }
+
+    /// **Arm this registry as the replacement for `old`**, which is the third sub-ruling of §222 (who holds a user's schedule): an
+    /// entry whose text is byte-identical to one in force keeps that entry's beat, and every other
+    /// admitted entry arms fresh against `now`, exactly as [`arm`](Registry::arm) would.
+    ///
+    /// Byte-identical means the schedule and the command both match. An `at-boot` entry that has
+    /// already fired therefore stays fired: resending a document is not a reboot. Duplicates pair
+    /// off in document order, each old row lending its beat at most once, so a document that adds
+    /// a second copy of a line gets one kept beat and one fresh one.
+    ///
+    /// Returns a mask, bit `i` set when entry `i` kept its beat. The rows it pairs are both
+    /// admitted; a line that was refused before and is admitted now has no beat to keep.
+    pub fn arm_after(&mut self, old: &Registry<'_>, now: u64) -> u8 {
+        self.arm(now);
+        let mut lent = 0u8;
+        let mut kept = 0u8;
+        for i in 0..self.n {
+            if self.rows[i].endowment().is_none() {
+                continue;
+            }
+            let mine = self.rows[i].entry;
+            for (j, theirs) in old.rows().iter().enumerate() {
+                if lent & (1 << j) != 0 || theirs.endowment().is_none() {
+                    continue;
+                }
+                if theirs.entry.schedule == mine.schedule && theirs.entry.command == mine.command {
+                    self.rows[i].next = theirs.next;
+                    lent |= 1 << j;
+                    kept |= 1 << i;
+                    break;
+                }
+            }
+        }
+        kept
     }
 
     /// **Take one row that is due at `now`, advancing it past `now`.** `None` when nothing is due.
@@ -1395,6 +1432,123 @@ mod tests {
         e.file = Some(f);
         assert_eq!(unbacked(&e, with_dir), None);
         assert_eq!(unbacked(&e, Held::default()), Some(Unbacked::File));
+    }
+
+    /// **§222's third sub-ruling: a byte-identical entry keeps its beat, and nothing else does.**
+    /// Four cases in one document pair, because each is the negative control for another: the
+    /// kept interval proves carrying happens, the edited one proves it is by text rather than by
+    /// position, the fired `at-boot` line proves a resend is not a reboot, and the duplicate proves
+    /// one old beat is lent once.
+    #[test]
+    fn a_replacement_keeps_the_beat_of_every_line_it_did_not_change() {
+        let old_doc = parse(
+            "every 10s least_authority_demo 7\n\
+             every 10s least_authority_demo 5\n\
+             at-boot least_authority_demo 3\n",
+        )
+        .unwrap();
+        let mut old = Registry::register(&old_doc, Held::default());
+        old.arm(1_000);
+        // The at-boot row fires; the intervals are due at 10_001_000 and have not come round.
+        assert_eq!(old.due(1_000), Some(2));
+        assert_eq!(old.due(1_000), None);
+
+        let new_doc = parse(
+            "at-boot least_authority_demo 3\n\
+             every 10s least_authority_demo 7\n\
+             every 10s least_authority_demo 7\n\
+             every 20s least_authority_demo 5\n",
+        )
+        .unwrap();
+        let mut new = Registry::register(&new_doc, Held::default());
+        let kept = new.arm_after(&old, 5_000_000_000);
+
+        assert_eq!(
+            kept, 0b0011,
+            "the at-boot line and the first copy of the heartbeat kept"
+        );
+        assert_eq!(
+            new.rows()[0].next_fire(),
+            None,
+            "an at-boot line that fired stays fired"
+        );
+        assert_eq!(
+            new.rows()[1].next_fire(),
+            Some(10_000_001_000),
+            "the old beat, not a new one"
+        );
+        assert_eq!(
+            new.rows()[2].next_fire(),
+            Some(15_000_000_000),
+            "a duplicate arms fresh: one old beat is lent once",
+        );
+        assert_eq!(
+            new.rows()[3].next_fire(),
+            Some(25_000_000_000),
+            "an edited interval is a new line, whatever position it holds",
+        );
+    }
+
+    /// A line refused before has no beat to lend, even if the replacement admits the same text.
+    #[test]
+    fn a_line_that_was_not_armed_lends_no_beat() {
+        let doc = parse("every 10s memory_grant_depleter --mem 4\n").unwrap();
+        let mut old = Registry::register(&doc, Held::default());
+        old.arm(0);
+        assert!(
+            old.rows()[0].next_fire().is_none(),
+            "unbacked in a timetable holding no memory"
+        );
+        let mut new = Registry::register(
+            &doc,
+            Held {
+                mem_pages: 4,
+                ..Held::default()
+            },
+        );
+        assert_eq!(new.arm_after(&old, 7), 0);
+        assert_eq!(new.rows()[0].next_fire(), Some(10_000_000_007));
+    }
+
+    /// **The verdict word a registrar reads back**, and the request word it writes. Kind in the
+    /// low two bits, the missing authority above it, the kept beat in bit 7.
+    #[test]
+    fn the_verdict_word_says_what_each_entry_became() {
+        use registration::*;
+        let doc = parse(
+            "every 1s least_authority_demo 7\n\
+             every 1s memory_grant_depleter\n\
+             every 1s date\n",
+        )
+        .unwrap();
+        let reg = Registry::register(&doc, Held::default());
+        let word = verdicts(&reg, 0b001);
+        assert_eq!(verdict_of(word, 0), KIND_FIRES | KEPT_PHASE);
+        assert_eq!(verdict_of(word, 1), KIND_REFUSED);
+        assert_eq!(
+            verdict_of(word, 2),
+            KIND_UNBACKED | (unbacked_code(Unbacked::Clock) << 2)
+        );
+        assert_eq!(verdict_of(word, 3), KIND_NONE, "no entry at index 3");
+
+        let r = request(REPLACE, 41);
+        assert_eq!((operation(r), sequence(r)), (REPLACE, 41));
+
+        let mut page = [0u8; PAGE_BYTES];
+        stage(&mut page, b"at-boot least_authority_demo 3\n").unwrap();
+        assert_eq!(
+            u64::from_le_bytes(page[LEN..LEN + 8].try_into().unwrap()),
+            31
+        );
+        assert_eq!(&page[BODY..BODY + 31], b"at-boot least_authority_demo 3\n");
+        assert!(
+            stage(&mut page, &[b'#'; BODY_MAX + 1]).is_none(),
+            "a document past the page"
+        );
+        assert!(
+            stage(&mut page, &[b'#'; BODY_MAX]).is_some(),
+            "and one that exactly fills it"
+        );
     }
 
     /// **A designation in a scheduler holding no directory is the scheduler's fault, not the
