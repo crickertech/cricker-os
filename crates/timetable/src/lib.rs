@@ -368,29 +368,16 @@ pub const SHIPPED_HELD: Held = Held {
 ///
 /// # BUGS
 ///
-/// **[`Admission::Unbacked`] never carries [`Unbacked::File`] or [`Unbacked::Directory`]**, so a
-/// designation this scheduler cannot back arrives as an [`Admission::Refused`] carrying
-/// `Refusal::NoSuchCapability` instead. The cause is one line in `admit`: it hands
-/// `grant_plan::plan` the scheduler's own `dir` holding, so a plan that would need a directory the
-/// scheduler lacks is refused during planning and never reaches the check that would have named it
-/// as unbacked. Both variants exist, both have their own sentence, and both are reachable by
-/// calling `unbacked` directly, which
-/// `a_designation_is_backed_by_the_directory_the_scheduler_holds` does.
-///
-/// The visible cost is which of two true sentences a reader meets, not a wrong answer: the refusal
-/// this path produces also says the capability is missing. The cost that is not visible is that the
-/// [`Refusal`]/`Unbacked` split above promises "edit the line" against "grant the scheduler
-/// something", and a `rm -r logs` line in a timetable that holds no directory is the second while
-/// being reported as the first.
-///
-/// **[`Unbacked::File`] has a second reason it cannot arrive**: no shipped program declares a
-/// `FileSpec::Required`, so `Endowment::file` is `None` for every plan this crate can build.
+/// **[`Unbacked::File`] is reached only through a streamed operand** (`wc report.txt`), never
+/// through `Endowment::file`, because no shipped program declares a `FileSpec::Required`.
 /// `grant_plan` keeps that branch live with a fixture of its own rather than a program.
 ///
-/// Found by milestone 326 on 2026-09-19, from two mutants that deleted the `!` in `unbacked`'s
-/// `!held.dir` tests and survived the whole suite. Whether `admit` should stop pre-consuming the
-/// holding, so the designation arms can be reached, is a behaviour change rather than a test, and
-/// it is left recorded here rather than made.
+/// Fixed 2026-09-26 by milestone 129 (scheduled execution): `admit` used to plan against the scheduler's own `dir`, so a
+/// designation this scheduler could not back was refused during planning and arrived as
+/// [`Admission::Refused`] carrying `Refusal::NoSuchCapability`, telling a reader to edit a line
+/// that had nothing wrong with it. Milestone 326 (turn a mutation score upward) found it on 2026-09-19 from two mutants that
+/// deleted the `!` in `unbacked`'s `!held.dir` tests and survived the whole suite. The planner is
+/// now lent a directory unconditionally and `unbacked` alone answers whether one is held.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Unbacked {
     /// The entry designates a file, and this scheduler holds no directory to narrow.
@@ -642,13 +629,20 @@ impl<'a> Registry<'a> {
 /// Plan one entry's command against its program's manifest and against what the scheduler holds.
 fn admit(command: &[u8], held: Held) -> Admission {
     let spec = grant_plan::parse_run(command);
-    // `Holdings::default()` is a shell that holds no directory and stands at its root, which is
-    // exactly this scheduler when `held.dir` is false. When it is true the position is still the
-    // root, because a scheduler has no `cd`: there is no prompt to have typed one at, and a
-    // working directory that could move between registration and a fire would make an already
-    // planned grant mean something different later.
+    // **The plan is made as if this scheduler held a directory, whether or not it does**, and
+    // `unbacked` below is what answers whether it really does. Planning against `held.dir` instead
+    // made `grant_plan` refuse a designation (`rm -r logs`, `wc report.txt`) during planning, so a
+    // line with nothing wrong with it came back as a `Refused` ("edit the line") when the truth was
+    // an `Unbacked` ("grant the scheduler a directory"), and `Unbacked::File`/`Directory` could not
+    // arrive at all. Milestone 326's mutation run found that on 2026-09-19; milestone 129 closed it
+    // on 2026-09-26. A line that is wrong for any other reason is still refused here, because the
+    // directory is the only holding this lends the planner.
+    //
+    // The position is the root, because a scheduler has no `cd`: there is no prompt to have typed
+    // one at, and a working directory that could move between registration and a fire would make
+    // an already planned grant mean something different later.
     let holdings = Holdings {
-        dir: held.dir,
+        dir: true,
         ..Holdings::default()
     };
     match grant_plan::plan(&spec, holdings, Expansion::none()) {
@@ -668,7 +662,15 @@ fn admit(command: &[u8], held: Held) -> Admission {
 /// fix is at the scheduler's spawn site. A reader who gets `Clock` back knows not to go looking for
 /// a typo.
 fn unbacked(e: &Endowment, held: Held) -> Option<Unbacked> {
-    if e.file.is_some() && !held.dir {
+    // A file reaches a program by four routes: the manifest's own per-file grant, an operand
+    // streamed in by an adapter (`wc report.txt`), a redirected output and a redirected second
+    // stream. Each is narrowed from a directory, so each is unbacked in a scheduler that holds
+    // none. (`plan` passes no operators today, so the last two cannot arrive; they are checked
+    // anyway so that teaching the timetable `>` cannot quietly admit a grant it cannot back.)
+    let streams_a_file = matches!(e.source, grant_plan::line::Source::File(_))
+        || matches!(e.sink, grant_plan::line::Sink::File(..))
+        || matches!(e.diagnostics, grant_plan::line::Diagnostics::File(..));
+    if (e.file.is_some() || streams_a_file) && !held.dir {
         return Some(Unbacked::File);
     }
     if e.dir.is_some() && !held.dir {
@@ -1354,18 +1356,18 @@ mod tests {
     }
 
     /// **What a designation costs when the scheduler holds a directory, and what it costs when it
-    /// does not.** `admit` hands `grant_plan::plan` the scheduler's own `dir` holding, and nothing
-    /// tested that it hands over the real one: the 2026-09-19 mutation run deleted the field from
-    /// the `Holdings` expression, falling back to the default `false`, and no test noticed. A
-    /// timetable that holds a directory and reports every `rm` line as unbackable is a scheduler
-    /// that has forgotten what it was given.
+    /// does not.** `admit` lends `grant_plan::plan` a directory, and until the 2026-09-19 mutation
+    /// run nothing tested that it does: that run deleted the field from the `Holdings` expression,
+    /// falling back to the default `false`, and no test noticed. A timetable that holds a directory
+    /// and reports every `rm` line as unbackable is a scheduler that has forgotten what it was
+    /// given.
     ///
-    /// The two `!held.dir` tests in `unbacked` are called here directly, and that is deliberate
-    /// rather than convenient: see this crate's `BUGS`, which records that `admit` cannot reach
-    /// either of them, because the `dir` it passes to `plan` is the same bit `unbacked` then
-    /// re-tests. The mutants that deleted both `!`s survived on exactly that. `e.file` has no route
-    /// in at all, since no shipped program declares a `FileSpec::Required`, so the grant below is
-    /// lifted off a real `wc` plan rather than forged.
+    /// The two `!held.dir` tests in `unbacked` are also called here directly. Until 2026-09-26
+    /// `admit` could not reach either, because the `dir` it passed to `plan` was the same bit
+    /// `unbacked` then re-tested, and the mutants that deleted both `!`s survived on exactly that;
+    /// `a_designation_the_scheduler_cannot_back_is_unbacked_rather_than_refused` now reaches them
+    /// through `register`. `e.file` has no route in at all, since no shipped program declares a
+    /// `FileSpec::Required`, so the grant below is lifted off a real `wc` plan rather than forged.
     #[test]
     fn a_designation_is_backed_by_the_directory_the_scheduler_holds() {
         let doc = parse("every 5s rm -r logs\nevery 5s wc report.txt\n").unwrap();
@@ -1393,6 +1395,37 @@ mod tests {
         e.file = Some(f);
         assert_eq!(unbacked(&e, with_dir), None);
         assert_eq!(unbacked(&e, Held::default()), Some(Unbacked::File));
+    }
+
+    /// **A designation in a scheduler holding no directory is the scheduler's fault, not the
+    /// line's.** Until 2026-09-26 `admit` planned against the scheduler's own `dir`, so these two
+    /// lines came back `Refused(NoSuchCapability)`, which tells a reader to edit a line that has
+    /// nothing wrong with it; milestone 326's mutation run found the arms unreachable. The negative
+    /// control is the third line: a line that is wrong for its own reasons is still refused even
+    /// though the planner is lent a directory.
+    #[test]
+    fn a_designation_the_scheduler_cannot_back_is_unbacked_rather_than_refused() {
+        let doc = parse(
+            "every 5s rm -r logs\n\
+             every 5s wc report.txt\n\
+             every 5s memory_grant_depleter\n",
+        )
+        .unwrap();
+        let bare = Registry::register(&doc, Held::default());
+        assert_eq!(
+            bare.rows()[0].admission,
+            Admission::Unbacked(Unbacked::Directory)
+        );
+        assert_eq!(
+            bare.rows()[1].admission,
+            Admission::Unbacked(Unbacked::File)
+        );
+        assert!(
+            matches!(bare.rows()[2].admission, Admission::Refused(_)),
+            "a line missing its own `--mem` is the line's fault in any scheduler: {:?}",
+            bare.rows()[2].admission
+        );
+        assert_eq!(bare.admitted(), 0, "and nothing unbacked is armed");
     }
 
     /// **The plan's rendering, in the units and the widths a reader meets.** The test below prints

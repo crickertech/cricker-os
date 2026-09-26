@@ -210,7 +210,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 98 | PROPOSED | [`OPENDIR` cannot be asked to attenuate, so a held directory probes for its own rights](98-opendir-cannot-attenuate.md) |
 | 99 | DECIDED | [Where Apple's metadata lands: stream or sidecar](99-apple-metadata-at-rest.md) |
 | 100 | AMENDED | [The terminal font](100-the-terminal-font.md) |
-| 101 | DECIDED | [Notification objects: async multiplexing without wait-any](101-notification-objects.md) |
+| 101 | AMENDED | [Notification objects: async multiplexing without wait-any](101-notification-objects.md) |
 | 102 | DECIDED | [A Frame names a run of pages](102-frame-names-a-run.md) |
 | 103 | SUPERSEDED BY 102 | [What a `Frame` names](103-what-a-frame-names.md) |
 | 104 | DECIDED | [The rich-text font is DejaVu Sans Mono, and the palette is Solarized](104-the-font-and-the-palette.md) |
@@ -331,6 +331,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 219 | DECIDED | [How the shell names an installed program to the spawner](219-naming-an-installed-program-to-the-spawner.md) |
 | 220 | DECIDED | [Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped](220-signed-builds-and-scoped-key-trust.md) |
 | 221 | DECIDED | [The boot prompt is the owner's console](221-the-boot-prompt-is-the-owners-console.md) |
+| 222 | AMENDED | [Who holds a user's schedule, and how it is changed while their session lives](222-who-holds-a-users-schedule.md) |
 | 230 | DECIDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
 | 231 | DECIDED | [A swap's warning to a dependent is advisory, and the supervisor never waits for it](231-a-dependents-warning-is-advisory.md) |
 | 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |
