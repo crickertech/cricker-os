@@ -4,7 +4,8 @@ An appendix to [the process view](../process-view.md), written 2026-09-26 by the
 `milestone/126-procps` for milestone 126 (the `procps` package: who else is running, and who is
 allowed to ask). Every remaining program in the package is blocked on a fork rather than on effort.
 This file holds each fork with the seven questions AGENTS.md asks of one, so that a ruling can be
-made without reading anything else. Sections 1, 3 and 4 are decided: §224 (no `pwdx`), §225 (`free`
+made without reading anything else. Since 2026-09-26, sections 2, 4 and 5 are each a milestone or proposal of
+their own (`w`, `pidwait` and `pmap` from the prompt), and milestone 126 is built. Sections 1, 3 and 4 are decided: §224 (no `pwdx`), §225 (`free`
 sees the machine and your share) and §226 (`pidwait` takes tids). The rest is not. The milestone block
 (`design/roadmap/126-who-else-is-running.md`) carries the status; this carries the reasoning.
 
@@ -83,7 +84,8 @@ region method for the caller's share, plus a read-only machine memory page held 
 granted to every login by default and withholdable by the owner. `free` prints a machine line, and
 a "yours" line when the caller holds a region. The ruling, its reasons and the prior art checked
 against primary sources are in §225 (`free` sees the machine and your share). The fork is kept as it
-was written.
+was written. Built the same day: `free`, `vmstat`, `slabtop` and `top`'s machine line, recorded in
+[the machine and your share](the-machine-and-your-share.md).
 
 The block's 2026-08-26 fork covered `free` and `vmstat` and missed the other two members of the row.
 Re-checked 2026-09-26: `kernel/src/memory.rs`'s `stats()` and `free_page_frames()` are still read
@@ -146,6 +148,36 @@ that ends on either the interrupt or the deadline) gave it a real sleep and mile
 operand. That was this section's recommendation before calef ruled. §226 refused it as option A
 (`pgrep --wait`): disorienting to users, since a program named for finding would also block.
 `pidwait` ships as its own program instead, taking tids and composing with `pgrep`.
+
+### After the ruling: how `pidwait` would see an exit (options, 2026-09-26)
+
+§226 (`pidwait` takes tids and composes with `pgrep`) chose a separate program that is named tids.
+Checked against the tree the same day by `milestone/126-free`:
+
+- The shell has pipes and no `$( … )`, so the composable form is `pgrep | pidwait`, with `pidwait`
+  reading decimal tids on its input. That needs nothing new.
+- The tid `pgrep` prints is the full generational name (`crates/ps`'s `write_thread_id`), so a
+  reused slot gets a different tid and cannot alias one `pgrep` already printed. A 32-bit generation
+  can wrap, which is not a practical race.
+- A new finding: `pgrep | pidwait` puts both programs in one domain, so `pgrep` prints `pidwait`'s
+  own tid. A `pidwait` that cannot recognise itself waits for itself forever. No program here can
+  learn its own tid, so whatever primitive is chosen has to refuse, or skip, the caller's own tid.
+- Nothing lets a program observe a named tid's exit with less authority than `pgrep` holds.
+  `RECV` needs `READ` and steals the supervisor's message; `SURVEY` needs `ENUMERATE`, which is
+  `pgrep`'s authority, and using it would undo the reason §226 made this a separate program.
+
+So `pidwait` needs a new kernel primitive, which is the syscall surface. Options only, no winner:
+
+| option | shape | cost and objection |
+|---|---|---|
+| 1 | A method on the supervision endpoint that blocks until a named member has exited, gated by a new right below `ENUMERATE` | a new right bit and a method; the kernel needs a queue of exit-watchers beside the supervisor's death message. A holder can still test a guessed tid for membership, one bit per call, but cannot list. Refuses the caller's own tid |
+| 2 | The same method under `ENUMERATE` | refused by §226's own reason: it is `pgrep`'s authority |
+| 3 | A per-child exit capability the spawner retains and hands on | Fuchsia's shape, recalled rather than re-read: a process handle with a wait right. Capability-exact, but it cannot compose with `pgrep`'s output, which is bytes, not capabilities |
+| 4 | Notification objects (§101 (notification objects), decided and unbuilt), signalled by the supervisor on each death | builds §101 first, and `pidwait` would still need a way to tell which tid died without `ENUMERATE` |
+
+Every option blocks in the kernel, so none needs milestone 106's timed wait. Nothing about
+`pidwait` is built until one is chosen. The input side (reading tids from a pipe) is small and
+waits with it, because a `pidwait` that cannot wait is not worth shipping.
 
 ## 5. `pmap` from the prompt
 

@@ -688,8 +688,11 @@ flag on a table of two columns.
 
 ## What this does not build
 
-`w`, the machine-wide statistics and `pidwait`. `w` waits on a fork. The other two are ruled and
-wait on effort: §225 (`free` sees the machine and your share) and §226 (`pidwait` takes tids).
+`w`, `pidwait` and `pmap` from the prompt, each moved out of milestone 126 as a proposal of its own:
+`w` waits on a fork, and `pidwait`, ruled by §226 (`pidwait` takes tids), waits on a kernel method
+nobody has chosen. The machine-wide statistics are built beside this view rather
+than in it, under §225 (`free` sees the machine and your share): see
+[the machine and your share](process-view/the-machine-and-your-share.md).
 `sysctl` is declined (§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the signalling
 stratum is refused (milestone 455 (the signalling stratum of `procps`)). `pmap` is built but
 unreachable from the prompt. Every fork is written up, with its premise checked, in
