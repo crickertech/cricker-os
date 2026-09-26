@@ -2552,6 +2552,15 @@ fn spawn_service(
             None
         };
 
+        // **The argv's one frame, after the image's and before every other capability**
+        // (milestone 205 (how a foreign program is told what to do), DECISIONS §170; `spawnproto::ARGS_BIT`). Taken on every request that
+        // announced it, whatever program it turns out to be for, so both sides stay in lockstep.
+        let args_seen = if wiring.args {
+            receive_args(spawn_ep, own_ut)
+        } else {
+            None
+        };
+
         // Receive the delegated caps in protocol order: the interrupt pair first (job untyped, job
         // frame), then the sink, then the source, then the diagnostics, then the screen-narrowed
         // tail's completion endpoint (DECISIONS §106), then any --mem untyped. No promise, no
@@ -2937,6 +2946,15 @@ fn spawn_service(
             // nife's `std` reads them instead of in order. Computed here, beside the native arrays it
             // replaces, so both shapes read from the one set of decisions above (which output, which
             // directory, whether the manifest declared a clock).
+            // **The child's own copy of the argv** (§170), carved from the region it is built in so
+            // its reclaim frees the page. A `std` program is the only reader; anything else had
+            // its frame taken above and hears nothing. A copy that could not be made fails the
+            // spawn rather than running the program without the words its line gave it.
+            let args_page = match (std_layout, region, args_seen) {
+                (true, Some(r), Some(theirs)) => copy_args(own_ut, r, theirs),
+                _ => None,
+            };
+            let args_failed = std_layout && args_seen.is_some() && args_page.is_none();
             let std_parts = match (std_layout, region) {
                 (true, Some(r)) => Some(StdLayout::new(
                     r,
@@ -2945,10 +2963,11 @@ fn spawn_service(
                     wants_clock.then_some(clock_page),
                     wants_config.then_some(config_page),
                     entropy.filter(|_| wants_entropy),
+                    args_page,
                 )),
                 _ => None,
             };
-            let built = match (elf.filter(|_| !dir_failed), region) {
+            let built = match (elf.filter(|_| !dir_failed && !args_failed), region) {
                 (Some(e), Some(r)) if std_layout => std_parts.as_ref().and_then(|l| {
                     build_child(
                         own_ut,
@@ -3015,8 +3034,8 @@ fn spawn_service(
                     //
                     // **A `std` program is started with nothing in its argument registers**: nife's
                     // `_start` ignores all three, and `rm`'s grant words would mean nothing to it.
-                    // How a `std` program is told what to do is DECISIONS §170 (how a foreign program
-                    // is told what to do), which is open.
+                    // Its words reach it on the argument page instead (DECISIONS §170 (how a foreign
+                    // program is told what to do), milestone 205), placed by `StdLayout`.
                     let (a0, a1, a2) = match grant {
                         _ if std_layout => (0, 0, 0),
                         Some((_, child)) => child,
@@ -3031,6 +3050,10 @@ fn spawn_service(
             // failed spawn does not cost this capability table a slot for the rest of the boot.
             if let Some(dir_ep) = narrowed {
                 cap_delete(dir_ep);
+            }
+            // The child holds its own copy of the argv page's capability; ours was only the means.
+            if let Some(page) = args_page {
+                cap_delete(page);
             }
             // Our capability to the job's region goes back now. It was only ever the means of
             // building: since §32 the reap is a method on the supervision endpoint, so nothing in
@@ -3106,6 +3129,8 @@ fn spawn_service(
 /// - slot 5 and a read-only page at `CLOCK_PAGE`, slot 7 and one at `CONFIG_PAGE`: the manifest's
 ///   clock and configuration pages.
 /// - slot 6: the entropy service, `WRITE`, if the manifest declared it and this boot built one.
+/// - slot 8 and a read-only page at `ARGS_PAGE`: the line's argv (milestone 205, DECISIONS §170),
+///   if the shell sent one. The page is the child's own, copied out of the shell's frame.
 ///
 /// Slots 2 and 3, the network, stay empty: `grant_plan`'s
 /// `a_std_program_declares_only_what_the_std_layout_can_hold` keeps any `std` manifest from asking.
@@ -3122,16 +3147,17 @@ fn spawn_service(
 ///   `MAP`s), so this takes a program written to do it. Closing it needs a right that allows `MAP`
 ///   and not `SPLIT`, which is the syscall surface and an architect's call.
 /// - **The directory half is built and never exercised at the prompt.** No `std` manifest declares
-///   a directory yet, because which word on a line becomes a `std` program's directory is the
-///   designation half of DECISIONS §170 (how a foreign program is told what to do). The kernel
-///   harness proves the same slot and page from its side (`fs_service::start_std_full`).
+///   a directory yet. DECISIONS §170 (how a foreign program is told what to do) ruled that the
+///   directories granted on a line bound what a word reaches, and granting one to a `std` program
+///   from the prompt is milestone 205's designation half, not built yet. The kernel harness proves
+///   the same slot and page from its side (`fs_service::start_std_full`).
 /// - **The network half is not wired.** The progenitor would have to mint slot 3's socket-frame
 ///   budget as well as place slot 2, and nothing needs it yet.
 struct StdLayout {
     caps: [(u64, u64); 2],
-    placed: [(u64, u64, u64); 4],
+    placed: [(u64, u64, u64); 5],
     placed_n: usize,
-    maps: [(u64, u64, u64); 3],
+    maps: [(u64, u64, u64); 4],
     maps_n: usize,
 }
 
@@ -3150,13 +3176,14 @@ impl StdLayout {
         clock: Option<u64>,
         config: Option<u64>,
         entropy: Option<u64>,
+        args: Option<u64>,
     ) -> Self {
         use std_runtime_protocol as rt;
         let mut l = StdLayout {
             caps: [(region, abi::rights::WRITE), out],
-            placed: [(0, 0, 0); 4],
+            placed: [(0, 0, 0); 5],
             placed_n: 0,
-            maps: [(0, 0, 0); 3],
+            maps: [(0, 0, 0); 4],
             maps_n: 0,
         };
         let place = |l: &mut StdLayout, slot: u64, cap: u64, rights: u64| {
@@ -3181,6 +3208,10 @@ impl StdLayout {
         if let Some(page) = config {
             place(&mut l, rt::CONFIG_SLOT, page, abi::rights::READ);
             map(&mut l, rt::CONFIG_PAGE, page, abi::address_space::MAP_RO);
+        }
+        if let Some(page) = args {
+            place(&mut l, rt::ARGS_SLOT, page, abi::rights::READ);
+            map(&mut l, rt::ARGS_PAGE, page, abi::address_space::MAP_RO);
         }
         l
     }
@@ -3638,6 +3669,45 @@ const IMAGE_STAGING_VA: u64 = 0x0f80_0000;
 ///
 /// `stage` is false when the request cannot be built anyway (no region for the child, an
 /// interruptible or directory-granted image), and then this only drains.
+/// **Take the argv's frame off the spawn endpoint and map it where this process can read it**
+/// (milestone 205, DECISIONS §170; `spawnproto::ARGS_BIT`). Returns the address, or `None` if the
+/// caller sent no frame or it would not map. The capability goes at once, as an image frame's does
+/// ([`receive_image`]): the mapping outlives it, and the slot is what is scarce.
+///
+/// The shell keeps its own mapping of this frame, so it is read once, by [`copy_args`], before the
+/// child exists; nothing reads it after.
+fn receive_args(spawn_ep: u64, own_ut: u64) -> Option<u64> {
+    let frame = opt_cap(recv_cap(spawn_ep).1)?;
+    let theirs = supervision_protocol::scratch_pages(1);
+    // SAFETY: `invoke` is the syscall; the kernel checks `READ` on the frame and the region.
+    let mapped = unsafe { invoke(frame, abi::page_frame::MAP, theirs, 0, own_ut) } == 0;
+    cap_delete(frame);
+    mapped.then_some(theirs)
+}
+
+/// **Copy the argv at `theirs` into a page carved from the child's `region`**, and return that
+/// page's capability for [`StdLayout`] to place. The bytes are not parsed: §170 ruled that they
+/// carry no authority, and `std` refuses a page that does not parse whole on its own side.
+fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
+    let page = retype_page_frame(region).ok()?;
+    let ours = supervision_protocol::scratch_pages(1);
+    // SAFETY: as above; the page is fresh from the child's region and is mapped read/write here.
+    if unsafe { invoke(page, abi::page_frame::MAP, ours, 1, own_ut) } != 0 {
+        cap_delete(page);
+        return None;
+    }
+    // SAFETY: both pages are mapped, `theirs` read-only by `receive_args` and `ours` read/write
+    // just above, one page each, in different windows of the never-reused scratch range.
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            theirs as *const u8,
+            ours as *mut u8,
+            spawnproto::IMAGE_PAGE as usize,
+        );
+    }
+    Some(page)
+}
+
 fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, jobs_ut: u64, stage: bool) -> Option<u64> {
     let pages = spawnproto::image_pages(len);
     let staging = if stage && pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES {

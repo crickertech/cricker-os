@@ -319,6 +319,12 @@ pub fn expansion(
     spec: &RunSpec,
     expand: &mut dyn FnMut(&[u8]) -> Result<NameSet, Say>,
 ) -> Result<Expansion, Say> {
+    // **A program that hears words has nothing expanded** (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign program is told what to do)). Its
+    // words carry no authority, so a pattern would designate names and grant nothing they name;
+    // `grant_plan::argv` refuses an unquoted one instead, when the line is assembled.
+    if Prog::from_name(spec.prog).is_some_and(|p| p.manifest().arg == ArgSpec::Words) {
+        return Ok(Expansion::none());
+    }
     for (i, token) in spec.positionals().iter().enumerate() {
         // **A quoted word designates itself** (milestone 67). This is the whole of what quoting
         // does to authority, and it is a narrowing: `rm "*.txt"` hands over one name where
@@ -1519,6 +1525,14 @@ fn write_preview_rows(e: &Endowment, m: &grant_plan::Manifest, out: &mut dyn FnM
         );
         out(b"                              its children\n");
     }
+    // **The argv, which is bytes and not authority** (milestone 205, DECISIONS §170). Printed
+    // because it is a capability the child holds, and worded so nobody reads it as more: a path
+    // among these words reaches only what a directory row above already granted.
+    if e.prog.manifest().arg == ArgSpec::Words {
+        cap(std_runtime_protocol::ARGS_SLOT, out);
+        out(b"frame     args     read-only. the words on the line, as bytes; they\n");
+        out(b"                              name things and grant none of them\n");
+    }
     // **The row milestone 111 exists to print, and it is the point of that milestone rather than a
     // decoration on it.** Randomness is the one authority a program can hold whose use leaves no
     // trace at all: a process that draws a key and a process that hardcodes one look identical from
@@ -1670,6 +1684,10 @@ fn write_preview_rows(e: &Endowment, m: &grant_plan::Manifest, out: &mut dyn FnM
     if m.arg == ArgSpec::Required {
         write_num(e.arg, out);
         out(b"\n");
+    } else if e.prog.manifest().arg == ArgSpec::Words {
+        out(b"(the words on the line, at cap ");
+        write_num(std_runtime_protocol::ARGS_SLOT, out);
+        out(b")\n");
     } else {
         out(b"(none)\n");
     }
@@ -2565,6 +2583,9 @@ mod tests {
         assert!(s.contains("cap 5  frame     clock"), "{s}");
         assert!(s.contains("cap 6  endpoint  entropy  WRITE"), "{s}");
         assert!(s.contains("cap 7  frame     config"), "{s}");
+        // Its words (milestone 205, DECISIONS §170), worded as bytes rather than authority.
+        assert!(s.contains("cap 8  frame     args     read-only"), "{s}");
+        assert!(s.contains("grant none of them"), "{s}");
         assert!(!s.contains("cap 0  endpoint"), "{s}");
         // And a native program's rows did not move.
         let u = shown(|o| write_preview(&endowment(Prog::Uuid), o));
@@ -2573,6 +2594,7 @@ mod tests {
             "{u}"
         );
         assert!(u.contains("cap 9  endpoint  entropy  WRITE"), "{u}");
+        assert!(!u.contains("args"), "{u}");
     }
 
     #[test]

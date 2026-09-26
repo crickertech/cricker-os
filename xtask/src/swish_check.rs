@@ -909,6 +909,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 5  frame     clock",
             "cap 6  endpoint  entropy  WRITE",
             "cap 7  frame     config",
+            "cap 8  frame     args",
         ],
     ),
     // **Every phrase is a slot or a page landing where `std` looks for it**, which is why the
@@ -920,11 +921,16 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // 6; `config seeded` is slot 7 and the page at `CONFIG_PAGE`, read before `main`; and the last
     // line is `process::exit` reaching the supervisor as an exit rather than a fault. The stack is
     // the one thing with no phrase of its own: too little of it is a fault partway through.
+    //
+    // **`args [...]` is milestone 205 (how a foreign program is told what to do)'s** (DECISIONS §170 (how a foreign program is told what to do)): the shell wrote the line's words onto a
+    // page, the progenitor copied it into the child's region at slot 8, and `std::env::args_os()`
+    // read it back, `argv[0]` first and the quoted phrase as one word with its quotes off.
     line(
         1,
-        "std_exerciser",
+        "std_exerciser one 'two words'",
         &[
             "hello from std on nife",
+            "args [\"std_exerciser\", \"one\", \"two words\"]",
             "vec sum 149985000",
             "fs honestly unsupported",
             "net honestly unsupported",
@@ -934,6 +940,13 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "exiting through process::exit",
         ],
     ),
+    // **The same words through a pipe** (milestone 205): a stage's argv takes the pipeline's path,
+    // `spawn_stage`, rather than `spawn`'s. The count is `std_tests::EXPECTED`'s transcript with
+    // its `args []` line read as `args ["std_exerciser", "piped"]`: 15 lines, 42 words, 267 bytes.
+    line(2, "std_exerciser piped | wc", &["15 42 267"]),
+    // **An unquoted pattern is refused at the prompt, with nothing spawned** (§170): the words
+    // carry no authority, so expanding one would hand over names and nothing they name.
+    line(0, "std_exerciser *.rs", &["its words are not expanded"]),
     line(0, "echo shell-boot-gate-done", &["shell-boot-gate-done"]),
 ];
 
@@ -1360,7 +1373,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         );
     }
     let skipped = |line: &str| {
-        swish_check_omits(arch, line).is_some() || (line == "std_exerciser" && !std_built)
+        swish_check_omits(arch, line).is_some() || (line.starts_with("std_exerciser") && !std_built)
     };
     eprintln!();
     eprintln!(

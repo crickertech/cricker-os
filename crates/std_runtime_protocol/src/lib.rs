@@ -23,6 +23,7 @@
 //!   slot 5  page frame  the wall clock, READ         only if given a clock; page at CLOCK_PAGE
 //!   slot 6  endpoint    the entropy service          only if given randomness
 //!   slot 7  page frame  TZ, LANG and TERM, READ      only if given configuration; page at CONFIG_PAGE
+//!   slot 8  page frame  the argv, READ               only if its line had words; page at ARGS_PAGE
 //! ```
 //!
 //! What each slot means to std, and what std does when it is empty, is `rt.rs`'s documentation,
@@ -63,10 +64,15 @@ pub const ENTROPY_SLOT: u64 = 6;
 /// A `READ` page frame capability naming the inert-configuration page, mapped read-only at
 /// [`CONFIG_PAGE`].
 pub const CONFIG_SLOT: u64 = 7;
+/// A `READ` page frame capability naming the argument page, mapped read-only at [`ARGS_PAGE`]
+/// (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign program is told what to do); the layout is
+/// `argument_protocol`'s). Plain bytes that carry no authority. Provisional, with the layout: where
+/// the page sits is one of the things the ruling on that layout fixes.
+pub const ARGS_SLOT: u64 = 8;
 
 /// How many slots the contract fixes. A loader places a std program's capabilities at these slot
 /// numbers and nowhere else; the reserved fault slot is last in the table and far above them.
-pub const SLOTS: u64 = 8;
+pub const SLOTS: u64 = 9;
 
 /// Where the loader maps the page a std program shares with its file service: one file block,
 /// carrying a name out on `OPEN` and file bytes both ways on `READ` and `WRITE`.
@@ -75,6 +81,9 @@ pub const FS_PAGE: u64 = 0x1100_0000;
 pub const CLOCK_PAGE: u64 = 0x1200_0000;
 /// Where the loader maps the inert-configuration page, read-only (`environment_protocol`'s layout).
 pub const CONFIG_PAGE: u64 = 0x1300_0000;
+/// Where the loader maps the argument page, read-only (`argument_protocol`'s layout). One page
+/// above the configuration page, following its pattern. Provisional, like [`ARGS_SLOT`].
+pub const ARGS_PAGE: u64 = 0x1400_0000;
 
 /// Where the heap starts: clear of the image (`0x40_0000`), the stack below `0x50_0000`, the net
 /// PAL's per-socket frames (`0x1000_0000` upward), the three pages above, and the initrd window at
@@ -116,6 +125,7 @@ mod tests {
             CLOCK_SLOT,
             ENTROPY_SLOT,
             CONFIG_SLOT,
+            ARGS_SLOT,
         ];
         for (i, a) in slots.iter().enumerate() {
             assert!(
@@ -129,12 +139,12 @@ mod tests {
         assert_eq!(slots.len() as u64, SLOTS);
     }
 
-    /// The three shared pages must not land on each other, on the heap, or inside the window the
+    /// The shared pages must not land on each other, on the heap, or inside the window the
     /// image and stack occupy: a collision there is not a compile error, it is two authorities
     /// aliasing one page in a child.
     #[test]
     fn the_shared_pages_are_page_aligned_and_clear_of_each_other_and_the_heap() {
-        let pages = [FS_PAGE, CLOCK_PAGE, CONFIG_PAGE];
+        let pages = [FS_PAGE, CLOCK_PAGE, CONFIG_PAGE, ARGS_PAGE];
         for (i, a) in pages.iter().enumerate() {
             assert_eq!(a % PAGE, 0, "{a:#x} is not page aligned");
             assert!(

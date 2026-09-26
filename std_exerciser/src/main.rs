@@ -74,6 +74,10 @@ fn offline_demo() {
 
     println!("hello from std on nife");
     println!("os {}", std::env::consts::OS);
+    // **The argv** (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign program is told what to do)): what the argument page at slot 8 carried, or
+    // `[]` for a program granted none, which is the kernel harness's case. At the prompt the shell
+    // always sends one, so the name it was run by comes first.
+    println!("args {:?}", std::env::args_os().collect::<Vec<_>>());
 
     // Vec: growth reallocations against the untyped-backed heap.
     let v: Vec<u64> = (0..10_000).map(|i| i * 3).collect();

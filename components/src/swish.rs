@@ -1707,9 +1707,85 @@ fn run(nav: &mut Nav, cmd: &[u8], spec: RunSpec) {
                 // is a single stage by construction, and `run_pipeline` takes a slice.
                 run_pipeline(nav, l, &[Some(endow)], false, None, Some(g), None);
             }
-            _ => spawn(endow),
+            // **A program that hears words gets the line as its argv** (milestone 205,
+            // DECISIONS §170 (how a foreign program is told what to do)). Assembled here, where a refusal can still name the program, and
+            // before anything is sent, so a line that does not fit spawns nothing.
+            _ if endow.prog.manifest().arg == grant_plan::ArgSpec::Words => {
+                match assemble_argv(spec.line(), 0) {
+                    Ok(a) => spawn(endow, Some(a)),
+                    Err(Some(r)) => refuse(spec, r),
+                    Err(None) => out_of_budget(),
+                }
+            }
+            _ => spawn(endow, None),
         },
     }
+}
+
+/// **The window a line's argvs are written through** (milestone 205 (how a foreign program is told
+/// what to do), DECISIONS §170): one page per pipeline stage after the image window, inside the same
+/// 2 MiB, so the primer that paid for the image window's page tables pays for these too.
+const ARGV_VA: u64 = IMAGE_VA + spawnproto::IMAGE_MAX_PAGES * spawnproto::IMAGE_PAGE;
+const _: () = assert!(
+    ARGV_VA + line::MAX_STAGES as u64 * spawnproto::IMAGE_PAGE <= IMAGE_PRIMER_VA + 0x20_0000
+);
+
+/// **One line's argv, written and waiting to be sent**: the one-page region it was carved from and
+/// the frame in it. The frame travels to the progenitor narrowed to `READ` (`spawnproto::ARGS_BIT`)
+/// and the progenitor copies it before the child runs, so the region goes back as soon as the
+/// child has answered.
+#[derive(Clone, Copy)]
+struct Argv {
+    staging: u64,
+    frame: u64,
+}
+
+/// **Write `cmd`'s words onto a fresh frame**, through window `stage`, with `grant_plan::argv`, or
+/// say why not: `Err(Some)` is a refusal about the line, `Err(None)` is this shell's budget.
+/// Nothing is sent either way. The planner already ran `check_words` on the same bytes, so a
+/// refusal here is not expected; it is handled rather than unwrapped because a shell that panics
+/// takes the prompt with it.
+fn assemble_argv(cmd: &[u8], stage: usize) -> Result<Argv, Option<Refusal>> {
+    let va = ARGV_VA + stage as u64 * spawnproto::IMAGE_PAGE;
+    if !prime_image_window() {
+        return Err(None);
+    }
+    let staging = memory_region_split(1).ok_or(None)?;
+    let a = match u64::try_from(user_mode_runtime::retype_page_frame(staging)) {
+        Ok(frame) if map_page_frame(frame, va) => Argv { staging, frame },
+        Ok(frame) => {
+            cap_delete(frame);
+            release_region(staging);
+            return Err(None);
+        }
+        Err(_) => {
+            release_region(staging);
+            return Err(None);
+        }
+    };
+    // SAFETY: `va` is one page this shell just mapped read/write, fresh, and nothing else reaches
+    // it until the frame is sent; the borrow ends before this function returns.
+    let page = unsafe { &mut *(va as *mut [u8; spawnproto::IMAGE_PAGE as usize]) };
+    match grant_plan::argv(cmd, page) {
+        Ok(_) => Ok(a),
+        Err(r) => {
+            release_argv(a, true);
+            Err(Some(r))
+        }
+    }
+}
+
+/// Give back an argv's region, and its frame's slot if it was never sent.
+fn release_argv(a: Argv, unsent: bool) {
+    if unsent {
+        cap_delete(a.frame);
+    }
+    release_region(a.staging);
+}
+
+fn release_region(region: u64) {
+    user_mode_runtime::destroy_region(region);
+    cap_delete(region);
 }
 
 /// **The window this shell writes an image's frames through** (DECISIONS §219 option D), one page
@@ -2230,7 +2306,12 @@ fn dir_grant(g: &GrantDir, flags: u64) -> Result<DirWords, &'static [u8]> {
 
 /// Grant and spawn. The one moment authority moves: split any memory grant off our own budget,
 /// direct the progenitor to load the program, delegate the grant, and read the one answer that comes back.
-fn spawn(e: Endowment) {
+fn spawn(e: Endowment, argv: Option<Argv>) {
+    let give_back = || {
+        if let Some(a) = argv {
+            release_argv(a, true);
+        }
+    };
     // A grant this path cannot deliver must stop here, loudly. `plan` already refuses a `file:` when
     // `holdings().dir` is false, so today this is unreachable; it exists because the day that flips,
     // the thing that must NOT happen is a child spawned without the file the command named while the
@@ -2241,6 +2322,7 @@ fn spawn(e: Endowment) {
         print(
             b"  a file grant needs the progenitor to build the caretaker; this shell cannot deliver one yet\n",
         );
+        give_back();
         return;
     }
     // **The directory grant, which the progenitor delivers** (milestone 31 phase 3). This shell's file-service
@@ -2256,6 +2338,7 @@ fn spawn(e: Endowment) {
             Err(sentence) => {
                 refused();
                 print(sentence);
+                give_back();
                 return;
             }
         },
@@ -2268,6 +2351,7 @@ fn spawn(e: Endowment) {
             None => {
                 failed();
                 print(b"  this shell's memory budget is exhausted; nothing left to grant\n");
+                give_back();
                 return;
             }
         }
@@ -2304,6 +2388,7 @@ fn spawn(e: Endowment) {
             screen: false,
             image: false,
             run_unvouched: false,
+            args: argv.is_some(),
         },
     );
     send(SPAWN, w0, w1, w2);
@@ -2314,6 +2399,14 @@ fn spawn(e: Endowment) {
     if let Some(DirWords { caretaker, child }) = dir_words {
         send(SPAWN, caretaker.0, caretaker.1, caretaker.2);
         send(SPAWN, child.0, child.1, child.2);
+    }
+
+    // **The argv's one frame, after the data and before every other capability**
+    // (`spawnproto::ARGS_BIT`), `READ` only: the progenitor copies it and can neither write it nor
+    // pass it on. The slot goes now; the region waits for the child's answer.
+    if let Some(a) = argv {
+        user_mode_runtime::send_cap(SPAWN, a.frame, abi::rights::READ, 0);
+        cap_delete(a.frame);
     }
 
     // If a budget rode along, delegate it now, narrowed to WRITE|GRANT so the progenitor can re-insert it into
@@ -2328,10 +2421,13 @@ fn spawn(e: Endowment) {
     // drained by a reader that knows the sink contract's framing.
     if e.prog.manifest().output.is_byte_stream() {
         drain_text();
-        return;
+    } else {
+        let answer = recv(RESULT).0;
+        outcome(e, answer);
     }
-    let answer = recv(RESULT).0;
-    outcome(e, answer);
+    if let Some(a) = argv {
+        release_argv(a, false);
+    }
 }
 
 /// **Drain a byte stream off the result rendezvous and print it**, which is what the shell does when
@@ -3030,6 +3126,48 @@ fn run_pipeline(
     }
     let feed_pipe = source.is_some().then(|| pipes[n - 1]);
 
+    // **Every stage that hears words gets its argv written before any stage is spawned**
+    // (milestone 205, DECISIONS §170), one window each, so running out of budget partway spawns
+    // nothing. The regions are kept until the line is drained: the progenitor copies each frame
+    // while it serves that stage's request, and a region given back sooner would unmap the page
+    // under it.
+    let mut argvs = [None::<Argv>; line::MAX_STAGES];
+    for i in 0..n {
+        let Some(e) = plans[i].filter(|_| !(i == 0 && head_builtin)) else {
+            continue;
+        };
+        if e.prog.manifest().arg != grant_plan::ArgSpec::Words {
+            continue;
+        }
+        match assemble_argv(l.stages()[i], i) {
+            Ok(a) => argvs[i] = Some(a),
+            Err(why) => {
+                for a in argvs.iter().flatten() {
+                    release_argv(*a, true);
+                }
+                release_pipeline(region, &pipes[..minted]);
+                match why {
+                    Some(r) => {
+                        refused();
+                        print(b"  ");
+                        print(e.prog.name().as_bytes());
+                        print(b": ");
+                        print(r.message().as_bytes());
+                        print(b"\n");
+                    }
+                    None => out_of_budget(),
+                }
+                return;
+            }
+        }
+    }
+    // Sent frames' slots are gone by then; the regions are what is left to give back.
+    let give_back = |argvs: &[Option<Argv>]| {
+        for a in argvs.iter().flatten() {
+            release_argv(*a, false);
+        }
+    };
+
     // Left to right, which is the order that cannot deadlock: a producer blocks in its first `SEND`
     // until its reader exists, and its reader is the next thing this loop spawns.
     for i in 0..n {
@@ -3047,7 +3185,19 @@ fn run_pipeline(
         // unset), and `sink_for` never puts `Sink::Report` anywhere but the last stage, so this
         // could equally read `i == n - 1` without the `Some` check; both say the same thing.
         let stage_screen = screen_ep.filter(|_| i + 1 == n);
-        if !spawn_stage(e, stage_sink, stage_source, stage_diag, stage_screen) {
+        if !spawn_stage(
+            e,
+            stage_sink,
+            stage_source,
+            stage_diag,
+            stage_screen,
+            argvs[i],
+        ) {
+            // Stages after this one never sent their frames, so their slots go too.
+            for a in argvs[i + 1..].iter().flatten() {
+                cap_delete(a.frame);
+            }
+            give_back(&argvs);
             release_pipeline(region, &pipes[..minted]);
             return;
         }
@@ -3092,6 +3242,7 @@ fn run_pipeline(
             None => drain_text(),
         },
     }
+    give_back(&argvs);
     release_pipeline(region, &pipes[..minted]);
 }
 
@@ -3491,11 +3642,17 @@ fn spawn_stage(
     source: Option<u64>,
     diagnostics: Option<u64>,
     screen: Option<u64>,
+    argv: Option<Argv>,
 ) -> bool {
     let mem_slot = if e.mem_pages > 0 {
         match memory_region_split(e.mem_pages) {
             Some(slot) => Some(slot),
             None => {
+                // The argv frame was never sent, so its slot is still ours; its region is the
+                // caller's to give back.
+                if let Some(a) = argv {
+                    cap_delete(a.frame);
+                }
                 failed();
                 print(b"  this shell's memory budget is exhausted; nothing left to grant\n");
                 return false;
@@ -3523,9 +3680,16 @@ fn spawn_stage(
         // only on a plain line; see `run_image`).
         image: false,
         run_unvouched: false,
+        args: argv.is_some(),
     };
     let (w0, w1, w2) = spawnproto::request(e.prog.id(), e.arg, e.mem_pages, wiring);
     send(SPAWN, w0, w1, w2);
+    // **The argv's frame before every other capability** (`spawnproto::ARGS_BIT`), as `spawn`
+    // sends it: a stage carries no directory grant and no image, so nothing comes before it.
+    if let Some(a) = argv {
+        user_mode_runtime::send_cap(SPAWN, a.frame, abi::rights::READ, 0);
+        cap_delete(a.frame);
+    }
     // In the protocol's order, which both sides read out of the same word. A `SEND_CAP` nobody
     // expects and a `RECV_CAP` nobody answers both deadlock, so the order is the contract.
     if let Some(slot) = sink {
@@ -3738,6 +3902,8 @@ fn spawn_interruptible(e: Endowment) {
             screen: false,
             image: false,
             run_unvouched: false,
+            // No `std` manifest is interruptible, so no supervised job hears words.
+            args: false,
         },
     );
     send(SPAWN, w0, w1, w2);

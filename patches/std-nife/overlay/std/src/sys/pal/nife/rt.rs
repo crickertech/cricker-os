@@ -80,7 +80,7 @@
 // one page per socket id), the initrd window (0x2000_0000) and the heap (0x4000_0000), and that
 // crate's tests check the parts of that a test can.
 pub use super::runtimeproto::{
-    CLOCK_PAGE, CLOCK_SLOT, CONFIG_PAGE, CONFIG_SLOT, ENTROPY_SLOT, FS_DIR_SLOT, FS_PAGE, HEAP_BASE,
+    ARGS_PAGE, ARGS_SLOT, CLOCK_PAGE, CLOCK_SLOT, CONFIG_PAGE, CONFIG_SLOT, ENTROPY_SLOT, FS_DIR_SLOT, FS_PAGE, HEAP_BASE,
     HEAP_MAX, MEMORY_REGION_SLOT, NET_MEMORY_REGION_SLOT, STACK_SLOT, STDOUT_SLOT,
 };
 

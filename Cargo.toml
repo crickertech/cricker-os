@@ -25,6 +25,7 @@ members = [
     "crates/credentialer",
     "crates/credential_protocol",
     "crates/clock_protocol",
+    "crates/argument_protocol",
     "crates/environment_protocol",
     "crates/std_runtime_protocol",
     "crates/counter_frequency_protocol",
