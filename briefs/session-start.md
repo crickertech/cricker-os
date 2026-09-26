@@ -1,14 +1,14 @@
-**Provisional name.** What a maintainer session does before it briefs anything. You have just opened
+Provisional name. What a maintainer session does before it briefs anything. You have just opened
 a session, on patagonia or in a cloud container, and you do not yet know what happened while nobody
 was here. Do the work; do not ask questions.
 
-**Where this came from.** The two clauses below lived in `AGENTS.md` (the `launchd` watchers, and
+Where this came from. The two clauses below lived in `AGENTS.md` (the `launchd` watchers, and
 reading the queue for what the watchers already found), moved here on 2026-09-23 by the extraction
 that milestone 579 (which of the constitution must be carried, and which is a brief) proposed. The
 trigger is a specific, recurring, nameable moment, the start of a session, which is the test that
 moved them.
 
-**Why it is a checklist rather than a habit.** Both of these are duties that belong to whoever
+Why it is a checklist rather than a habit. Both of these are duties that belong to whoever
 happens to notice, and that is precisely the arrangement this project has already watched fail. On
 2026-08-04 three such duties went unperformed in one evening: two green pull requests sat unmerged
 for hours, `main` went red with nobody assigned, and merging one pull request staled eight others
@@ -16,7 +16,7 @@ that nothing picked back up.
 
 ## 1. Are the watchers alive
 
-**Two of the three moved into GitHub Actions on 2026-09-24** and run as `nife-smelter[bot]`, so what
+Two of the three moved into GitHub Actions on 2026-09-24 and run as `nife-smelter[bot]`, so what
 you are checking is a run list rather than a laptop:
 
     gh workflow list --repo crickertech/nife | grep -Ei "merge drain|trunk health"
@@ -28,7 +28,7 @@ minutes in the others. A `disabled_inactivity` or `disabled_manually` workflow i
 re-enable it with `gh workflow enable`. GitHub also drops scheduled runs under load, so one missing
 tick is not a fault and an hour of them is.
 
-**A failed `trunk health` run is the finding, not a fault in the watcher.** That job exits non-zero
+A failed `trunk health` run is the finding, not a fault in the watcher. That job exits non-zero
 when `main` is red or a cadence is dead, deliberately, because a printed line inside a green run is
 a line nobody reads. Open it and act on it.
 
@@ -43,8 +43,8 @@ checkout. Nothing else should be in that list: `com.nife.merge-drain` and `com.n
 are retired, and a laptop still running either is a second drain arming the same pull requests the
 workflow is arming. The retirement commands are in `notes/merge-queue.md`.
 
-**In a cloud session there is no `launchctl` and no lane worktree to watch, so skip this check and
-go to step 2.** The risk it covers moves to you: an ephemeral container that ends with uncommitted
+In a cloud session there is no `launchctl` and no lane worktree to watch, so skip this check and
+go to step 2. The risk it covers moves to you: an ephemeral container that ends with uncommitted
 work loses it, and nothing watches for that, so commit and push before every pause.
 
 `notes/merge-queue.md` has the workflows, the plist, the tested premise they rest on, the cadence
@@ -52,8 +52,8 @@ costs calef accepted, and a `BUGS` section honest that nothing reports a watcher
 
 ## 2. Read what they already found
 
-**A running watcher is not the same as a watcher that has been read, and this is the half that gets
-skipped.** `merge-drain.sh` posts once per stall and then goes quiet by design, so a stalled pull
+A running watcher is not the same as a watcher that has been read, and this is the half that gets
+skipped. `merge-drain.sh` posts once per stall and then goes quiet by design, so a stalled pull
 request does not re-announce itself every five minutes. Nothing re-announces it to a session that
 opens later either. A watcher that reported at 03:00 and a session that opens at 09:00 never meet
 unless somebody goes looking.
@@ -66,24 +66,57 @@ That brief is the queue read, in full: it fetches, lists `mergeStateStatus` and 
 distinguishes a `DIRTY`/`CONFLICTING` pull request that needs a rebase from a `BLOCKED` one whose
 checks are merely still running, treats a `needs-architect` hold as a deliberate hold rather than a
 failure, and names the traps (`auto=false` does not mean unqueued; an absent pull request may have
-merged rather than vanished). **Do not restate its commands here or type them from memory.** This
+merged rather than vanished). Do not restate its commands here or type them from memory. This
 step is one line on purpose: a second copy of those instructions is a second thing to keep correct,
 and the copy that drifts is always the one nobody is looking at.
 
 ## 3. Treat what it reports as tasks, not as a status line
 
 This is the whole reason step 2 exists, and it is the failure the steward role was meant to cover
-and did not, for a reason worth keeping: **it reported and never acted.** A stalled queue announced
+and did not, for a reason worth keeping: it reported and never acted. A stalled queue announced
 in a message is only useful if somebody reads the message and then does something.
 
 Every `DIRTY` or `CONFLICTING` pull request and every `FAILURE` conclusion the survey names is a task
 to resolve, ranked the same as keeping lanes full, not a line to skim past. A conflict needs judgment
-a watcher does not have: **a queue reports, it does not resolve.**
+a watcher does not have: a queue reports, it does not resolve.
 
 Two of them already have briefs of their own:
 
 - a rebase needed: `briefs/rebase-onto-main.md`
 - a failing check to diagnose: `briefs/triage-a-failing-check.md`
+
+## 4. Tokens: lane count, model, and the watch list
+
+calef, 2026-09-26, from a session at 60% of the weekly Claude Max limit by Saturday: cache reads are
+about 96% of tokens here, so every tool call re-reads the caller's whole context. A lane that polls
+CI re-reads 200 to 400k tokens per check; one lane made 309 tool calls over six hours, nearly all of
+them waiting. Three rules follow.
+
+A lane never polls CI. `briefs/gate-in-ci.md` has the mechanics; the shape is that a lane ends its
+turn after dispatching with one line, `WAITING <run_id> [<run_id>...] on <what>`, and stops there. A
+`PreToolUse` hook on Bash (`.claude/settings.json`, script at `helpers/hooks/refuse-ci-polling`)
+refuses `gh run watch`, `gh pr checks --watch`, a `sleep` of 30 seconds or more, and a shell loop
+combining `sleep` with `gh run view`, `gh run list`, `gh pr checks`, or `gh pr view`. It does not
+refuse the two watcher scripts below.
+
+At most about five lanes work at once. The rest are PARKED: branch pushed, turn ended, resumed on a
+failure, a rebase, or calef's ask. Mechanical lanes (rebases, recording rulings, queue cleanup)
+launch on Sonnet (Agent `model: "sonnet"`), per §202 (mechanical work goes to a cheaper model).
+
+The watch list is what turns a WAITING line into something that actually wakes you: every run id a
+lane reports goes on it, because a lane nobody is watching for stops forever. Two provisional
+scripts under `helpers/` do the watching, and their names are not yet ratified. Append one line per
+run to `$NIFE_WATCH_DIR/runs.txt` (`<run_id> <lane_agent_id> <label>`), then start, or leave running:
+
+    python3 helpers/runwatch.py &   # per-lane run watcher: exits when a lane's runs all finish
+    python3 helpers/nanny.py &      # merge-queue watcher: exits on the first event needing you
+
+Start both with `run_in_background` rather than in the foreground; a maintainer session polling its
+own watcher script in a loop is the same mistake with extra steps. Each exits on its own event or
+timeout and prints why, so relaunch it to keep watching. State lives under `NIFE_WATCH_DIR` (an
+environment variable), defaulting to a directory under the system temp dir rather than beside the
+script, so two sessions on the same machine do not collide. When a watcher reports, resume the lane
+with SendMessage; do not let a lane guess whether its own run finished.
 
 ## EXAMPLES
 
@@ -103,8 +136,8 @@ The one that stays on your machine, alive (real output shape, patagonia):
     -	0	com.nife.at-risk
 
 The first column is the process id, `-` meaning the job is loaded but not currently running, which is
-correct for an interval job between ticks. The second column is the last exit status: **`0` is what
-you want, and a non-zero number there is a watcher that ran and failed**, which looks identical to a
+correct for an interval job between ticks. The second column is the last exit status: `0` is what
+you want, and a non-zero number there is a watcher that ran and failed, which looks identical to a
 healthy one if you only check that the line exists.
 
 A session that finds the retirement half-done:
@@ -119,29 +152,29 @@ leave it because it looks harmless.
 
 ## Stop, do not improvise
 
-- **A watcher whose `launchctl` exit status is non-zero, or an Actions run that failed for a reason
-  that is not a red trunk.** Report it with the number or the run link. Do not reload the job or
+- A watcher whose `launchctl` exit status is non-zero, or an Actions run that failed for a reason
+  that is not a red trunk. Report it with the number or the run link. Do not reload the job or
   re-run the workflow repeatedly hoping it takes; something is failing and that status is the only
   evidence you have of what.
-- **Anything the survey reports that is not a rebase, a failing check, or a `needs-architect` hold.**
+- Anything the survey reports that is not a rebase, a failing check, or a `needs-architect` hold.
   Say what you saw and stop.
 
 ## BUGS
 
-- **No watcher reports its own death**, which is the gap calef accepted rather than solved. Moving
+- No watcher reports its own death, which is the gap calef accepted rather than solved. Moving
   two of them into Actions made the evidence public rather than removing the gap: a disabled workflow
   is visible to anyone who looks, and looking is still step 1 of a checklist a session has to
   remember. A watcher can be down for as long as nobody opens a session.
-- **A green run list and a loaded job both show the mechanism, not the work.** A run that read the
+- A green run list and a loaded job both show the mechanism, not the work. A run that read the
   wrong repository, or a `launchd` job exiting 0 against a checkout nobody uses, looks exactly like
   a healthy one here.
-- **Scheduled runs are delayed under load and dropped at peak.** So "no run in the last five
+- Scheduled runs are delayed under load and dropped at peak. So "no run in the last five
   minutes" is not evidence of anything on its own, which makes this check softer than the one it
   replaced: you are reading a trend rather than a fact.
-- **Nothing measures whether a session actually runs this.** There is no gate, no log, and no record
+- Nothing measures whether a session actually runs this. There is no gate, no log, and no record
   that a session started; the honest position is that this is rung three of the constitution's
   ladder, a written record for whoever opens it.
-- **Steps 2 and 3 are the same instruction split across two files**, deliberately, and that split
+- Steps 2 and 3 are the same instruction split across two files, deliberately, and that split
   costs something: a reader who opens only this brief learns that the queue must be read, and has to
   open `briefs/survey-the-queue.md` to learn how. The alternative was a third copy of the queue-read
   instructions, which is the failure mode this extraction was written to remove.

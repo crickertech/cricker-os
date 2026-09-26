@@ -2706,6 +2706,12 @@ echo "==> the merge queue's admission predicate"
 #     ordinary supersede that must not be rerun and the attempt-2 run that must not be rerun again.
 "$(dirname "$0")/../helpers/cancelled-duplicate-selftest.sh"
 
+# 12. The CI-poll refusal hook (helpers/hooks/refuse-ci-polling, wired as a PreToolUse hook on Bash
+#     in .claude/settings.json). calef's 2026-09-26 ruling is that a lane never polls CI; this
+#     self-test is fixtures only, no stdin and no tree, so it costs nothing to run on every lint.
+echo "==> the CI-poll refusal hook"
+python3 "$(dirname "$0")/../helpers/hooks/refuse-ci-polling" --selftest
+
 echo "==> markdown links and the notes index"
 # Two checks, and deliberately NOT a markdown linter. A survey of all 95 markdown files found zero
 # broken relative links and exactly one unindexed note, so generic style rules (heading case, line
