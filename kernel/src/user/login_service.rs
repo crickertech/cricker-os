@@ -13,25 +13,15 @@ const CRED_VA: u64 = 0x0000_0000_00e3_0000;
 /// page a fresh mapping ever strictly needs, on this file's own existing style for every other
 /// region here.
 ///
-/// # BUGS
-///
-/// **Nothing reclaims one of these when its run exits**, so a full aarch64 suite leaves thirty of
-/// them (120 frames) held for the rest of the boot (milestone 49's terminal update added four more:
-/// `login_hands_out_the_terminal_once_and_denies_a_concurrent_second_login_until_logout`'s own
-/// `HOLD_TERMINAL` x2, a refused `LOGIN`, `FREE_TERMINAL`), which is a measured line item in
-/// `kernel::testing::SUITE_PAGE_FRAME_BUDGET`'s own account. This is scaffolding rather than a
-/// property under test, and `kernel::user::holding::Holding` is the mechanism that would give it
-/// back; what stops it being a two-line change is that a run's scratch pays for **page tables** in
-/// that run's own address space rather than for anything the run holds a capability to, so
-/// destroying the region frees tables the dying process is still walking. Doing this properly means
-/// reclaiming the run's whole address space first (`Holding::add_region_after_death`), which needs
-/// [`spawn_client`] to hand its caller the thread id it currently drops.
-///
-/// **It already costs a test.** On 2026-09-26 the lane `milestone/198-owner-console` added two
-/// client runs, and `tests::std_net_runs_over_the_socket_contract` then failed to load a program
-/// as `Unmappable(OutOfPageFrames)` on aarch64 (and riscv64 hung in the CPU matrix). Folding the
-/// same checks into logins the suite already made put it back. A new login test should ride an
-/// existing run until this is reclaimed.
+/// **Reclaimed once the run is dead** ([`wait_client`], 2026-09-26 UTC). A run's scratch pays for
+/// page tables in that run's own address space, so it is handed to
+/// `kernel::user::holding::Holding::add_region_after_death` beside the run's thread id, and comes
+/// back only after the thread is gone. Until then nothing reclaimed it, and every run held one
+/// region and four frames for the rest of the boot. It cost two lanes a test on the same day: the
+/// `milestone/198-owner-console` lane's two extra runs made `tests::std_net_runs_over_the_socket_contract`
+/// fail to load a program for want of frames, and one more login test in milestone 152's lane took
+/// the aarch64 suite to 253 of `memory_region::MAX_REGIONS` (256) live regions at `timetable_tests`,
+/// so the timetable's `--mem` split failed and the test hung rather than failing.
 const CLIENT_SCRATCH_UT_PAGES: u64 = 4;
 
 /// Stack pages beyond the one page `run` maps. This process parses the initrd, parses an ELF, and
@@ -348,6 +338,14 @@ pub fn client(
     wait_client(spawn_client(image, w, behaviour, identity, secret))
 }
 
+/// **One `login_test_client` run in flight**: where its report arrives, and what [`wait_client`]
+/// gives back once the run is dead (its thread, and the scratch region its page tables came from).
+pub struct ClientRun {
+    report: RendezvousId,
+    tid: crate::thread::ThreadId,
+    scratch: u64,
+}
+
 /// **Spawn one `login_test_client` run and return its report endpoint immediately**, without
 /// waiting for it to run at all. Milestone 49's channel-per-client update is what makes this worth
 /// having separately from [`client`]: two runs spawned this way before either is waited on reach
@@ -364,7 +362,7 @@ pub fn spawn_client(
     behaviour: u64,
     identity: u64,
     secret: u64,
-) -> RendezvousId {
+) -> ClientRun {
     let report = sched::create_rendezvous();
     // A small, private scratch budget for this one run: milestone 49's channel-per-client update
     // means a run must map the page `login`'s `CONNECT` step delegates before it holds anything
@@ -377,7 +375,7 @@ pub fn spawn_client(
     // Copied out of `w` rather than captured by reference: the spawned closure must be `'static`,
     // and an `RendezvousId` is a plain integer with nothing left to borrow once it is in hand.
     let (request, result) = (w.request, w.result);
-    sched::spawn(move || {
+    let tid = sched::spawn(move || {
         run(
             image,
             Spawn {
@@ -395,10 +393,21 @@ pub fn spawn_client(
         )
     })
     .expect("could not spawn a login_test_client");
-    report
+    ClientRun {
+        report,
+        tid,
+        scratch,
+    }
 }
 
-/// **Block for one run's report**, the other half of [`spawn_client`].
-pub fn wait_client(report: RendezvousId) -> [u64; 5] {
-    sched::ipc_recv(report)
+/// **Block for one run's report**, the other half of [`spawn_client`], then hand the run's scratch
+/// back once its thread is gone. The report is the last thing a run sends before it exits, so the
+/// wait is for an exit already under way.
+pub fn wait_client(run: ClientRun) -> [u64; 5] {
+    let report = sched::ipc_recv(run.report);
+    let mut held = super::holding::Holding::new();
+    held.add_thread(run.tid);
+    held.add_region_after_death(run.scratch);
+    held.release_or_fail("a login_test_client run");
+    report
 }
