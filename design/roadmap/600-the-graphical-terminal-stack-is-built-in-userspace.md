@@ -105,6 +105,8 @@ itself is milestone 23's, and one cost of it is below.
 
 - **Proposed.** `design/roadmap/proposals/build-the-firmware-screen-terminal-in-userspace.md`: the
   same move for `boot_screen_terminal`, which is the only way to swap `display_terminal` on x86_64.
+  And `design/roadmap/proposals/the-progenitor-stack-has-no-measured-headroom.md`: this lane's
+  first gate overflowed the progenitor's stack, which nothing measures.
 - **Recorded.** The silent trap, the four-device count and the swap's slot cost are in `BUGS` above.
   The swap's slot cost is also in this lane's report to milestone 23.
 
