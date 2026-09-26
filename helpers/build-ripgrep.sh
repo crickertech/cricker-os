@@ -60,6 +60,10 @@ fi
 # notes/ripgrep-on-nife.md, which argues this address map is the thing to change.
 #
 # Derived from `crates/user_mode_runtime/link.ld` by substitution rather than copied, so the two cannot drift.
+# That is also how it keeps a manifest note (milestone 597, provisional): the `PT_NOTE` header and
+# the `.note.nife` section arrive with the substitution. ripgrep carries no note today, so it runs
+# as a program that asks for nothing but its output; a foreign program carries one by linking an
+# object that holds it (`-Clink-arg=note.o`, measured by #1319), which nothing here writes yet.
 mkdir -p "$OUT"
 sed 's/^    \. = 0x400000;$/    . = 0x1000000;/' "$ROOT/crates/user_mode_runtime/link.ld" > "$OUT/link-high.ld"
 grep -q '0x1000000' "$OUT/link-high.ld" || { echo "build-ripgrep: crates/user_mode_runtime/link.ld no longer sets 0x400000 where this script expects it"; exit 1; }
