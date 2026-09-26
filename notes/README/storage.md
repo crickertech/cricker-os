@@ -3,6 +3,7 @@
 Part of [the notes index](../README.md), which says how to add a line.
 
 - [The RedoxFS filesystem server](../fs-server.md): RedoxFS confined behind a capability-shaped file contract.
+- [A frame per filesystem client channel](../a-frame-per-filesystem-client-channel.md): a window per file client, by badge.
 - [RedoxFS std-footprint audit](../redoxfs-audit.md): costing the RedoxFS port to no_std by building it.
 - [The directory capability](../dir-capability.md): a directory split into separable, attenuable rights.
 - [Removal needs a directory](../rm.md): why `rm` gets a directory and `-r` widens it.

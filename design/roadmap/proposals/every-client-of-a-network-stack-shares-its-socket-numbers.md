@@ -43,6 +43,16 @@ Recommendation, from reading rather than measurement: option 2, because it is th
 already uses for the analogous file case (a narrowed endpoint per grant), and a wire change is owed
 either way. What each costs has not been measured.
 
+**Option 1 is now buildable without its own §10 fork.** calef ruled the analogous filesystem
+question on 2026-09-26 (milestone 599 (a frame per filesystem client channel), a frame per filesystem client channel) in favour of badged
+endpoint capabilities, which is exactly the "endpoint badges" option 1 says it needs. Milestone 599
+builds the badge machinery on the shared `INVOKE` surface (a `BADGE` method to mint a badged
+endpoint, and the badge as a fourth `RECV_CAP` return value). So option 1's prerequisite is being
+built, and its cost here is `net_stack` keying its socket table by the badge the kernel already
+delivers, with no `socket_protocol` change. Whether to take option 1 (reuse the badge) or option 2
+(an endpoint per socket) is still open and still a wire decision, but the badge no longer has to be
+argued for from scratch.
+
 ## Index row
 
 `net_stack` names sockets by a small integer every client shares, so two network programs can
