@@ -1,9 +1,9 @@
 # `pmap` from the prompt: what it costs, and the options
 
 Milestone 126 (the `procps` package: who else is running) cannot be BUILT while `pmap` from the
-prompt is undecided, and nobody had priced it. This page prices it. It gives options and no winner
-on the parts that touch the syscall surface or §142's retention rule, and recommends on the one part
-that is reversible. Written 2026-09-26 (UTC) by the lane `proposal/126-pmap`, at base `484f3ebe2`.
+prompt is undecided, and nobody had priced it. This page prices it. It gives options and no winner,
+because they touch the syscall surface and §142's retention rule; calef's ruling is at the end, and
+the decision now lives in milestone 602 (`pmap` from the prompt). Written 2026-09-26 (UTC) by the lane `proposal/126-pmap`, at base `484f3ebe2`.
 
 *Name: provisional, minted 2026-09-26 (UTC) by the lane `proposal/126-pmap`, for the stem `pmap`.
 Naming is calef's; `script/names --unratified` lists each stem.*
@@ -228,13 +228,8 @@ the layout.
    parts and matches the tree's analogue. That is a real design fork, not an effort argument, and it
    is calef's.
 
-## The recommendation, on the reversible part only
+## The ruling
 
-Take `pmap`-from-the-prompt out of milestone 126's exit criteria and give it a proposed milestone of
-its own, whose first line is whichever of A, B or D calef picks. Milestone 126 then records the gap
-where it already does, in `crates/pmap`'s `BUGS`, and can be marked BUILT on the rest of its list.
-That is roadmap wording and can be undone in one commit. It stops a fork that needs an architect
-from holding a milestone that no longer does.
-
-Everything else on this page touches the syscall surface or §142, so it is options only.
-
+calef, 2026-09-26 (UTC), on #1365: *"take pmap out of milestone 126, and pick among A to D later."*
+`pmap` from the prompt is now milestone 602 (`pmap` from the prompt), provisional number, whose
+open decision is the table above. The choice among A, B, C and D is deferred, not refused.
