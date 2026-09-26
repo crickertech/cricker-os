@@ -179,9 +179,9 @@ SENTENCE_END = re.compile(r'[.!?][*_)\]"\'\u201d\u2019]*\s+(?=[A-Za-z0-9`"*\'\u2
 # for it without cutting someone else's prose. Found 2026-09-25 (UTC), the day the ratchet landed,
 # when #1273 and #1278 each minted a section and each failed on README.md by one row's words.
 #
-# The six below are notes/project-metrics/baseline-drift.md's, written by `script/metrics` through
-# helpers/baseline_drift.py (milestone 415), which grows by one row per baseline save. That
-# module's selftest fails if one of its headings is missing here.
+# The six below are notes/project-metrics/baseline-drift.md's, written by `script/metrics` for
+# milestone 415 (sub-tripwire drift accumulates across baseline saves). The appendix grows by one
+# row per baseline save. helpers/baseline_drift.py's selftest fails if one of its headings is missing here.
 GENERATED_TABLES = {'## The decisions'} | {
     '## %s: %s' % (arch, what)
     for arch in ('aarch64', 'riscv64', 'x86_64')

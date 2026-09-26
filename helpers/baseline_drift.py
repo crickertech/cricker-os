@@ -1,7 +1,8 @@
 """Cumulative icount drift per benchmark row since a fixed anchor, from git alone.
 
 Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3, as calef ruled it on
-2026-09-26 (UTC): "3b", a report and not a gate (§190). `cargo xtask bench --check` compares
+2026-09-26 (UTC): "3b", a report and not a gate, in §190 (must an icount baseline save record why it
+moved). `cargo xtask bench --check` compares
 against the last saved floor and `--save` rewrites that floor, so steps under the 10% tripwire add
 up and nothing fires. This module says how far each row has moved since a fixed anchor, beside the
 `# why:` lines each save wrote, so slow drift is visible to someone who did not go looking.

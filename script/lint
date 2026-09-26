@@ -2793,7 +2793,8 @@ echo "==> the prose ratchet (§212 words, §213 sentences and bold)"
 # make this ratchet cost more than it saves.
 python3 helpers/prose_ratchet.py --selftest
 python3 helpers/prose_ratchet.py --check
-# Milestone 415 item 3's arithmetic (helpers/baseline_drift.py), against fixtures and with no git:
+# Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3's arithmetic
+# (helpers/baseline_drift.py), against fixtures and with no git:
 # the weekly drift report is a record other people quote, so its sums are checked where a change to
 # them lands rather than on the morning the workflow publishes them.
 python3 helpers/baseline_drift.py --selftest >/dev/null

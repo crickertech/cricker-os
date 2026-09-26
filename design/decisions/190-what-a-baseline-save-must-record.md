@@ -103,9 +103,10 @@ on all three architectures, which is what says the rest is the kernel's switch a
 than measurement noise.
 
 Most of that accumulation is honest, disclosed in the commit that caused it. The problem is that
-nothing in the tree can tell the honest part from the rest, and two saves on 2026-09-15 prove
-it: `44890a8a` re-saved the x86_64 baseline attributing +5 to +8% to the toolchain, milestone 300
-then measured that toolchain term across exactly those two nightlies at ~0, and PR #886 found
+nothing in the tree can tell the honest part from the rest. Two saves on 2026-09-15 prove it.
+`44890a8a` re-saved the x86_64 baseline attributing +5 to +8% to the toolchain. Milestone 300
+(decompose the icount baseline drift) then measured that toolchain term across exactly those two
+nightlies at ~0, and PR #886 found
 the real cause and recovered ~5.9% by deleting a const-`false` element still threaded through the
 shared context-switch tuple. `85edb1ed` did the same on the other two architectures the same day.
 
@@ -114,19 +115,21 @@ moved, which launders growth into the new normal and retires the gate that was s
 
 ## What this tree already does in the analogous case
 
-Rung three: the record goes beside the thing a reader meets. That is milestone 115's shape and
-§75's, and item 2 is exactly it. Today the attribution is rung four, a commit message read once by
+Rung three: the record goes beside the thing a reader meets. That is the shape of milestone 115 (the names that were
+ratified, and the ones that were refused) and of §75 (directories under `design/` and `notes/`
+carry provenance in their own README), and item 2 is exactly it. Today the attribution is rung four, a commit message read once by
 one person on the day it is written; both 2026-09-15 mis-classifications sat in commit messages that
 nobody re-read until a lane went looking six weeks later.
 
-A gate that fires on correct work gets dropped. §61 adopts a lint on evidence from this tree
-rather than on its description, and milestone 78 dropped checks on the same ground. That is item 3's
-real cost, and it is not the code: the anchor goes stale for correct reasons. Milestone 139 is a
+A gate that fires on correct work gets dropped. §61 (a lint is adopted on evidence from this tree, not on
+its description) is the rule, and milestone 78 (the load-sensitive assertions, and the three that measure the
+wrong thing) dropped checks on the same ground. That is item 3's
+real cost, and it is not the code: the anchor goes stale for correct reasons. Milestone 139 (drive the unsafe count down) is a
 decided feature with a real cost at the switch, and `spawn_el0` legitimately fell 32.7% on both
 ISAs when `b918337b` bounded a walk by occupancy. An anchor with no ledger of intended deltas fires
 on both.
 
-And the threshold itself is already decided. Milestone 25 demoted `--check` from a 2% gate to
+And the threshold itself is already decided. Milestone 25 (cross-OS performance comparison) demoted `--check` from a 2% gate to
 the coarse 10% tripwire deliberately, because adding unrelated live code moves untouched benchmarks
 several percent non-uniformly through whole-crate inlining decisions; the audit re-confirms it, since
 `9890eb02` moved every kernel-side IPC row by 4 to 8.5% by adding one benchmark. Item 4,

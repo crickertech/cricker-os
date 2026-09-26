@@ -336,8 +336,9 @@ MEASURES = [
     # Temporary, and it says so where it is drawn: see `bold_backlog` and BOLD_RETIRE below. The
     # file name and both column names are provisional (lane/faux-headings, 2026-09-26).
     ('bold-backlog', ['bold_excess_spans', 'bold_documents_over']),
-    # Milestone 415 item 3: icount drift since a fixed anchor, a report and not a gate (calef,
-    # 2026-09-26, §190). See DRIFT_BEGIN below. File and column names provisional (that lane's).
+    # Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3: icount drift
+    # since a fixed anchor. calef ruled on 2026-09-26 that it is a report and not a gate, in §190
+    # (must an icount baseline save record why it moved). See DRIFT_BEGIN below. File and column names provisional (that lane's).
     ('baseline-drift', [prefix + arch for arch in baseline_drift.ARCHES
                         for prefix in ('baseline_drift_max_pct_', 'baseline_drift_rows_over_5pct_')]),
     # Milestone 519's cost columns. Three units on purpose, and no fourth column adding them up:

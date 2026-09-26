@@ -577,8 +577,13 @@ if mode == "--ratchet":
     # the first run over history flagged two citations inside a captured QEMU log. The index
     # pathspec stays although the file is gone, because this walks a range and the range can reach
     # back past the deletion.
+    #
+    # notes/project-metrics/baseline-drift.md joins them for the same reason: `script/metrics`
+    # writes it, and its reason column is each baseline save's `# why:` lines or commit subject
+    # verbatim (milestone 415, sub-tripwire drift accumulates across baseline saves). A gloss there
+    # would be an edit to a quotation, and the next run would overwrite it.
     EXCLUDE = (":!vendor/", ":!patches/", ":!*.lock", ":!*.log", ":!script/citations",
-               ":!design/roadmap/README.md")
+               ":!design/roadmap/README.md", ":!notes/project-metrics/baseline-drift.md")
 
     # Reading the committed tip instead of the working tree is correct, for the reason above the
     # diff below: line numbers from a `base..tip` diff are the tip's, and an edited file would
