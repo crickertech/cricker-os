@@ -227,6 +227,112 @@ pub const PALETTE: [u32; 16] = [
     0x00ff_ffff, // 15 bright white
 ];
 
+/// **What makes a palette a test instrument**, one field per property milestone 141 (a palette
+/// worth looking at, and a gate that lets it be one) names. A corrupted pixel should be a
+/// detectably wrong colour rather than a different legal one, and each property closes one way it
+/// could be the second:
+///
+/// 1. `repeated_channel`: entries whose three channels are not all distinct, as a bit mask by
+///    index. Such an entry survives swapping its two equal channels, so a channel-order bug in the
+///    blit leaves it untouched.
+/// 2. `permuted_pairs`: pairs of entries related by a channel permutation (the identity included,
+///    so a duplicated entry counts). Swapping channels turns one legal colour into the other.
+/// 3. `shared_saturation`: channels (bit 0 red, 1 green, 2 blue) at `0xff` in more than one
+///    entry. A saturating write or a dropped shift tends to pin a channel at `0xff`, and a palette
+///    in which only one entry can be pinned there has few legal colours for that fault to land on.
+///
+/// These are this tree's reconstruction of what the palette's original comment was reaching for,
+/// not a specification anybody wrote down; a fourth failure mode nobody has named would pass them.
+/// See design/roadmap/141-a-palette-worth-looking-at.md.
+///
+/// Name: provisional (milestone 141's lane, 2026-09-26). Private to the crate: nothing outside
+/// needs it, and the gate is the `const` assertion beside [`PALETTE`], not a caller.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the gate on PALETTE lands with a palette that passes"
+    )
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PaletteFaults {
+    repeated_channel: u16,
+    permuted_pairs: u8,
+    shared_saturation: u8,
+}
+
+impl PaletteFaults {
+    const NONE: PaletteFaults = PaletteFaults {
+        repeated_channel: 0,
+        permuted_pairs: 0,
+        shared_saturation: 0,
+    };
+}
+
+/// The three channels of a `0x00RRGGBB` word, sorted, so two colours that are channel
+/// permutations of each other compare equal. A three-element sorting network, because a `const fn`
+/// cannot call `sort`.
+const fn sorted_channels(c: u32) -> [u8; 3] {
+    let (mut a, mut b, mut d) = ((c >> 16) as u8, (c >> 8) as u8, c as u8);
+    if a > b {
+        (a, b) = (b, a);
+    }
+    if b > d {
+        (b, d) = (d, b);
+    }
+    if a > b {
+        (a, b) = (b, a);
+    }
+    [a, b, d]
+}
+
+/// **Check a palette against [`PaletteFaults`]'s three properties.** A `const fn`, so the gate on
+/// [`PALETTE`] is a compile error rather than a test someone has to run; the host tests exercise
+/// it against a palette known to fail, which is what makes a clean result mean something.
+///
+/// Name: provisional (milestone 141's lane, 2026-09-26).
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the gate on PALETTE lands with a palette that passes"
+    )
+)]
+const fn palette_faults(p: &[u32; 16]) -> PaletteFaults {
+    let mut f = PaletteFaults::NONE;
+    let mut i = 0;
+    while i < 16 {
+        let [a, b, c] = sorted_channels(p[i]);
+        if a == b || b == c {
+            f.repeated_channel |= 1 << i;
+        }
+        let mut j = i + 1;
+        while j < 16 {
+            let (x, y) = (sorted_channels(p[i]), sorted_channels(p[j]));
+            if x[0] == y[0] && x[1] == y[1] && x[2] == y[2] {
+                f.permuted_pairs += 1;
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    let mut channel = 0;
+    while channel < 3 {
+        let (mut saturated, mut k) = (0, 0);
+        while k < 16 {
+            if (p[k] >> (8 * (2 - channel))) & 0xff == 0xff {
+                saturated += 1;
+            }
+            k += 1;
+        }
+        if saturated > 1 {
+            f.shared_saturation |= 1 << channel;
+        }
+        channel += 1;
+    }
+    f
+}
+
 /// The foreground a reset terminal writes with.
 pub const DEFAULT_FG: u8 = 7;
 /// The background a reset terminal clears to. Black, so an unwritten cell is the darkest thing on
@@ -1458,6 +1564,75 @@ mod tests {
         let mut vt = Vt::new(cols, rows);
         vt.take_damage();
         vt
+    }
+
+    /// **The palette check fails on the palette it was written about**, which is what makes its
+    /// silence on any other palette evidence. These are the numbers milestone 141 measured by hand on
+    /// 2026-08-19: every one of the sixteen entries repeats a channel, eight pairs are channel
+    /// permutations (red `cd0000` and green `00cd00` first among them), and all three channels
+    /// saturate in more than one entry.
+    #[test]
+    fn the_palette_check_catches_every_fault_in_the_xterm_palette() {
+        let f = palette_faults(&PALETTE);
+        assert_eq!(
+            f.repeated_channel, 0xffff,
+            "all sixteen entries repeat a channel"
+        );
+        assert_eq!(f.permuted_pairs, 8, "eight pairs are channel permutations");
+        assert_eq!(
+            f.shared_saturation, 0b111,
+            "red, green and blue each saturate twice"
+        );
+    }
+
+    /// **Each property fires alone**, so a check that had collapsed two of them into one condition
+    /// (or lost one outright) cannot hide behind a palette that fails all three at once. The base
+    /// is sixteen colours built to pass: distinct channels, no permutations, nothing at `0xff`.
+    #[test]
+    fn each_palette_property_fires_on_its_own_fault() {
+        let mut clean = [0u32; 16];
+        for (i, c) in clean.iter_mut().enumerate() {
+            let i = i as u32;
+            *c = (0x10 + i) << 16 | (0x40 + 2 * i) << 8 | (0x90 + 3 * i);
+        }
+        assert_eq!(
+            palette_faults(&clean),
+            PaletteFaults::NONE,
+            "the base must pass"
+        );
+
+        let mut repeated = clean;
+        repeated[5] = 0x0033_3380;
+        assert_eq!(palette_faults(&repeated).repeated_channel, 1 << 5);
+        assert_eq!(palette_faults(&repeated).permuted_pairs, 0);
+
+        let mut permuted = clean;
+        // clean[1]'s channels, rotated: (r, g, b) becomes (b, r, g).
+        permuted[9] = (clean[1] & 0xff) << 16 | (clean[1] >> 16) << 8 | (clean[1] >> 8 & 0xff);
+        assert_eq!(palette_faults(&permuted).permuted_pairs, 1);
+        assert_eq!(palette_faults(&permuted).repeated_channel, 0);
+
+        let mut duplicated = clean;
+        duplicated[15] = clean[0];
+        assert_eq!(
+            palette_faults(&duplicated).permuted_pairs,
+            1,
+            "identity is a permutation"
+        );
+
+        let mut saturated = clean;
+        saturated[3] = 0x0021_ff45;
+        assert_eq!(
+            palette_faults(&saturated),
+            PaletteFaults::NONE,
+            "one entry at 0xff is allowed"
+        );
+        saturated[11] = 0x0031_ff55;
+        assert_eq!(
+            palette_faults(&saturated).shared_saturation,
+            0b010,
+            "green, twice"
+        );
     }
 
     /// **A rendition names two palette entries, and reverse swaps which is ink.** Every other test
