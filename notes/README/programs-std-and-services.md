@@ -23,6 +23,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The command line as a grant expression](../grant-expression.md): naming a resource at the prompt grants it.
 - [The glob matcher](../glob.md): a pure byte glob matcher with a bounded cost.
 - [Globbing, and the expansion you see is the grant](../glob-grant.md).
+- [A set grant at the prompt](../a-set-grant-at-the-prompt.md): PROPOSED.
 - [Navigating with no global namespace](../shell-navigation.md): `cd`, `pwd`, `ls`, `mkdir` and `rm` as capability builtins.
 - [A shell holding two trees](../two-trees.md): one tree with a second mounted in it, one resolver, and a handle sent on its own tree's endpoint.
 - [The inert-configuration page](../env-config.md): validated read-only `TZ`, `LANG` and `TERM` for programs.
