@@ -82,6 +82,7 @@
 //!     maps: &[MapNeed { role: "witness", va: 0x0300_0000, kind: PageKind::Shared }],
 //!     pages: 32,
 //!     depends_on: &[],
+//!     handoff: None,
 //! };
 //!
 //! // Malformed declarations do not compile. This one is well formed, so the assertion holds.
@@ -114,6 +115,7 @@
 //! #     maps: &[],
 //! #     pages: 32,
 //! #     depends_on: &[],
+//! #     handoff: None,
 //! # };
 //! let refused = component_plan::plan(&TALKER, &Provisions { held: &[("report", 1)] });
 //! assert_eq!(refused, Err(Refusal::Unprovided { role: "service" }));
@@ -134,6 +136,12 @@
 //! is right only while every build of a contract fits the same number, which is true in this tree and
 //! is not true in general. It is the strongest single argument for eventually shipping the manifest
 //! with the binary.
+//!
+//! **A [`Handoff`] is one page, so a blob is at most 4 KiB.** §209 (state handoff is an opaque blob over a granted frame, and it is optional) says "a granted shared `Frame`",
+//! singular, and the one stateful component in the swap suite needs sixteen bytes. The component
+//! §209 was reopened for is `redoxfs_server`, whose open-handle table and cache will not fit in a
+//! page, so the field will want a page count (or a frame run, per §102 (a frame names a run)) the day that server declares
+//! one. Not added now because nothing would exercise the second page.
 //!
 //! **A malformed declaration's compile error names the manifest, not the role.** `const` evaluation
 //! reports an assertion that failed, so the reader is told which `Requirements` is wrong and has to
@@ -287,6 +295,38 @@ pub struct MapNeed {
     pub kind: PageKind,
 }
 
+/// **The role name a supervisor routes a component's handoff page under** (DECISIONS §209). One fixed
+/// word rather than a role the component picks, because a handoff page is not a need the component
+/// names for its own purposes: it is the one page a supervisor must route to the **same** frame in the
+/// outgoing and the incoming instance, and a supervisor wiring two builds of one contract has to be
+/// able to find it without reading either build's code.
+///
+/// Name: provisional, minted on 2026-09-26 by the lane for milestone 23 (a capability-routed
+/// component OS with live replacement), beside §209's own provisional `handoff` field. An
+/// architect's call.
+pub const HANDOFF_ROLE: &str = "handoff";
+
+/// **Where a component that carries state across a live replacement wants its handoff page**
+/// (DECISIONS §209: state handoff is an opaque blob over a granted frame, and it is optional).
+///
+/// The page's bytes are the component's business and nobody else's. The supervisor never reads them
+/// and this crate never names their shape, which is the refusal of §116 (live component state handoff is declined, for want of a customer) to design one wire format for
+/// every kind of live state, kept. What the declaration buys the supervisor is two facts it could not
+/// otherwise know: **that** this contract carries state (so a swap must wait for the incoming
+/// instance to say it absorbed it before the outgoing one is retired), and **where** both instances
+/// read and write it (so the supervisor can route one frame to both).
+///
+/// One page. See this crate's `BUGS` for why that is a limit and not a design.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26). §209 left the field name `handoff`
+/// provisional and did not take one for the type.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Handoff {
+    /// The virtual address both instances read and write the blob at. In the declaration for
+    /// [`MapNeed::va`]'s reason: it is compiled into the component's own code.
+    pub va: u64,
+}
+
 /// **What a component declares it needs.** The capability half of a contract, beside the wire half.
 ///
 /// The order of [`caps`](Requirements::caps) is load-bearing: it **is** the component's capability table slot
@@ -342,6 +382,24 @@ pub struct Requirements {
     /// to is a property of that mechanism and not something this crate can infer from two contract
     /// names. See [`dependents`]'s docs and this crate's `BUGS` for what that leaves unbuilt.
     pub depends_on: &'static [&'static str],
+    /// **Whether this contract carries state across a live replacement, and where** (DECISIONS §209,
+    /// milestone 23's last residual). `None` is the default answer and the common one: a component
+    /// that declares nothing is killed and replaced, which is what every component in this tree was
+    /// before §209 and what roughly fifty of fifty-two still are.
+    ///
+    /// A required field with no default, for [`Direction`]'s reason: a contract **cannot be declared
+    /// without saying whether it hands state off**, so "we forgot" is not a state the tree can be in.
+    ///
+    /// `Some` does two things. [`plan`] routes the supervisor's [`HANDOFF_ROLE`] object to the page
+    /// at [`Handoff::va`], and refuses with [`Refusal::Unprovided`] when the supervisor routes
+    /// nothing there. That refusal is the point: **a supervisor that cannot carry state must not
+    /// silently kill-and-replace a component that declared some**, because the loss would look
+    /// exactly like a successful swap. And [`Plan::handoff`] tells the supervisor to wait for the
+    /// incoming instance's verdict before it retires the outgoing one, since under §209 a swap
+    /// whose state was not absorbed does not commit.
+    ///
+    /// Name: provisional, per §209, which names it and does not ratify it.
+    pub handoff: Option<Handoff>,
 }
 
 impl Requirements {
@@ -396,7 +454,34 @@ impl Requirements {
             }
             i += 1;
         }
+        // The handoff page is one more mapping, so it is held to the two rules every mapping is:
+        // its role word may not be declared a second time, and its address may not be shared.
+        if let Some(h) = self.handoff {
+            let mut i = 0;
+            while i < self.caps.len() {
+                if str_eq(self.caps[i].role, HANDOFF_ROLE) {
+                    return Some(Refusal::DuplicateRole { role: HANDOFF_ROLE });
+                }
+                i += 1;
+            }
+            let mut i = 0;
+            while i < self.maps.len() {
+                if str_eq(self.maps[i].role, HANDOFF_ROLE) {
+                    return Some(Refusal::DuplicateRole { role: HANDOFF_ROLE });
+                }
+                if self.maps[i].va == h.va {
+                    return Some(Refusal::OverlappingVa { va: h.va });
+                }
+                i += 1;
+            }
+        }
         None
+    }
+
+    /// How many pages a plan of this declaration maps: its declared pages, plus the handoff page if
+    /// it declares one.
+    const fn mapped(&self) -> usize {
+        self.maps.len() + if self.handoff.is_some() { 1 } else { 0 }
     }
 }
 
@@ -505,6 +590,7 @@ pub struct Plan {
     nmaps: usize,
     ndevices: usize,
     pages: u64,
+    handoff: Option<u64>,
 }
 
 impl Plan {
@@ -543,6 +629,23 @@ impl Plan {
     pub fn pages(&self) -> u64 {
         self.pages
     }
+
+    /// **Where this component's handoff page is, if it carries state across a swap** (DECISIONS
+    /// §209). `None` means kill-and-replace: retire the outgoing instance as soon as the incoming one
+    /// is running. `Some` means the swap does not commit until the incoming instance says it absorbed
+    /// the blob, and a supervisor that retires the outgoing instance first has thrown the state away
+    /// with nothing to show for it.
+    ///
+    /// The mapping itself is already in [`maps`](Plan::maps), among the shared pages and installed
+    /// at build time in both instances, so a supervisor never installs it by hand. Unlike a device it
+    /// is not deferred past a revoke, and it cannot be: `PageFrame::REVOKE` is symmetric and would take
+    /// the supervisor's own capability with everyone else's. The outgoing instance is quiesced and
+    /// blocked before the incoming one is started, so the two never run against the page at once.
+    ///
+    /// Name: provisional (milestone 23's lane, 2026-09-26).
+    pub fn handoff(&self) -> Option<u64> {
+        self.handoff
+    }
 }
 
 /// **Check a component's declaration against what a supervisor will route to it**, and yield the
@@ -561,9 +664,9 @@ pub fn plan(reqs: &Requirements, provisions: &Provisions<'_>) -> Result<Plan, Re
             asked: reqs.caps.len(),
         });
     }
-    if reqs.maps.len() > MAX_MAPS {
+    if reqs.mapped() > MAX_MAPS {
         return Err(Refusal::TooManyMaps {
-            asked: reqs.maps.len(),
+            asked: reqs.mapped(),
         });
     }
 
@@ -571,9 +674,10 @@ pub fn plan(reqs: &Requirements, provisions: &Provisions<'_>) -> Result<Plan, Re
         caps: [(0, 0); MAX_CAPS],
         ncaps: reqs.caps.len(),
         maps: [(0, 0, 0); MAX_MAPS],
-        nmaps: reqs.maps.len(),
+        nmaps: reqs.mapped(),
         ndevices: 0,
         pages: reqs.pages,
+        handoff: None,
     };
 
     for (i, need) in reqs.caps.iter().enumerate() {
@@ -597,6 +701,18 @@ pub fn plan(reqs: &Requirements, provisions: &Provisions<'_>) -> Result<Plan, Re
             if pass == PageKind::DeviceRegisters {
                 out.ndevices += 1;
             }
+        }
+        // The handoff page goes in after the shared pages and before any device, so it is part of
+        // `maps_without_devices` and a replacement is built holding it. See `Plan::handoff`.
+        if pass == PageKind::Shared
+            && let Some(h) = reqs.handoff
+        {
+            let Some(slot) = provisions.slot_for(HANDOFF_ROLE) else {
+                return Err(Refusal::Unprovided { role: HANDOFF_ROLE });
+            };
+            out.maps[n] = (h.va, slot, PageKind::Shared.mode());
+            out.handoff = Some(h.va);
+            n += 1;
         }
     }
 
@@ -624,6 +740,7 @@ pub fn plan(reqs: &Requirements, provisions: &Provisions<'_>) -> Result<Plan, Re
 ///     maps: &[],
 ///     pages: 32,
 ///     depends_on: &[],
+///     handoff: None,
 /// };
 /// // There is no `control` role, so this constant cannot be evaluated.
 /// const CONTROL: u64 = component_plan::slot_of(&R, "control");
@@ -745,6 +862,7 @@ impl Dependents {
 ///     maps: &[],
 ///     pages: 32,
 ///     depends_on: &[],
+///     handoff: None,
 /// };
 /// const BROKER: Requirements = Requirements {
 ///     contract: "broker",
@@ -755,6 +873,7 @@ impl Dependents {
 ///     maps: &[],
 ///     pages: 32,
 ///     depends_on: &["backend"],
+///     handoff: None,
 /// };
 ///
 /// let live = [
@@ -828,6 +947,7 @@ mod tests {
         maps: &[WITNESS, UART],
         pages: 32,
         depends_on: &[],
+        handoff: None,
     };
 
     fn everything() -> Provisions<'static> {
@@ -913,6 +1033,7 @@ mod tests {
             maps: &[UART, WITNESS],
             pages: 32,
             depends_on: &[],
+            handoff: None,
         };
         let p = plan(&DEVICE_FIRST, &everything()).unwrap();
         assert_eq!(p.devices(), &[(0x0310_0000, 2, abi::address_space::MAP_RO)]);
@@ -929,10 +1050,140 @@ mod tests {
             maps: &[WITNESS],
             pages: 32,
             depends_on: &[],
+            handoff: None,
         };
         let p = plan(&PLAIN, &everything()).unwrap();
         assert!(p.devices().is_empty());
         assert_eq!(p.maps_without_devices(), p.maps());
+    }
+
+    // ===========================================================================================
+    // State handoff (DECISIONS §209).
+    // ===========================================================================================
+
+    /// A console that also carries state: the widest shape a handoff can land in, with a device on
+    /// the far side of it.
+    const STATEFUL: Requirements = Requirements {
+        contract: "tally",
+        caps: &[SERVICE],
+        maps: &[UART, WITNESS],
+        pages: 32,
+        depends_on: &[],
+        handoff: Some(Handoff { va: 0x0320_0000 }),
+    };
+
+    fn with_handoff() -> Provisions<'static> {
+        Provisions {
+            held: &[
+                ("service", 5),
+                ("report", 1),
+                ("witness", 9),
+                ("uart", 2),
+                (HANDOFF_ROLE, 11),
+            ],
+        }
+    }
+
+    /// **The handoff page is built in, not deferred.** It lands among the shared pages and ahead of
+    /// the device, so a replacement built from `maps_without_devices` already holds it, and the
+    /// device split the direct swap depends on is exactly what it was.
+    #[test]
+    fn the_handoff_page_is_mapped_early_and_the_device_still_sorts_last() {
+        let p = plan(&STATEFUL, &with_handoff()).unwrap();
+        assert_eq!(p.handoff(), Some(0x0320_0000));
+        assert_eq!(
+            p.maps_without_devices(),
+            &[
+                (0x0300_0000, 9, abi::address_space::MAP_RW),
+                (0x0320_0000, 11, abi::address_space::MAP_RW),
+            ]
+        );
+        assert_eq!(p.devices(), &[(0x0310_0000, 2, abi::address_space::MAP_RO)]);
+    }
+
+    /// **The refusal §209 needs and does not spell out.** A supervisor that routes no handoff page
+    /// cannot carry state, and wiring the component anyway would be a kill-and-replace that looks
+    /// exactly like a successful swap while the state is thrown away. So it is refused before
+    /// anything is built, the same way an unrouted capability is.
+    #[test]
+    fn a_supervisor_that_cannot_carry_state_is_refused_a_component_that_declares_some() {
+        let no_state = Provisions {
+            held: &[("service", 5), ("witness", 9), ("uart", 2)],
+        };
+        assert_eq!(
+            plan(&STATEFUL, &no_state),
+            Err(Refusal::Unprovided { role: HANDOFF_ROLE })
+        );
+    }
+
+    /// And a component that declares nothing is wired exactly as before, whatever the supervisor
+    /// holds: optional is the half of §209 that most of the tree lives in.
+    #[test]
+    fn a_component_with_no_handoff_ignores_a_supervisor_that_offers_one() {
+        let p = plan(&CONSOLE, &with_handoff()).unwrap();
+        assert_eq!(p.handoff(), None);
+        assert_eq!(p.maps().len(), 2);
+    }
+
+    /// The handoff page is one more mapping and obeys both mapping rules: no shared address, and its
+    /// role word is not declared twice.
+    #[test]
+    fn a_handoff_page_is_held_to_the_mapping_rules() {
+        const COLLIDES: Requirements = Requirements {
+            handoff: Some(Handoff { va: 0x0300_0000 }),
+            ..STATEFUL
+        };
+        assert_eq!(
+            COLLIDES.problem(),
+            Some(Refusal::OverlappingVa { va: 0x0300_0000 })
+        );
+        const TWICE: Requirements = Requirements {
+            maps: &[MapNeed {
+                role: HANDOFF_ROLE,
+                va: 0x0400_0000,
+                kind: PageKind::Shared,
+            }],
+            ..STATEFUL
+        };
+        assert_eq!(
+            TWICE.problem(),
+            Some(Refusal::DuplicateRole { role: HANDOFF_ROLE })
+        );
+    }
+
+    /// The bound counts the handoff page: four declared pages plus a handoff is five mappings, and a
+    /// plan with room for four must refuse rather than overflow its array.
+    #[test]
+    fn the_handoff_page_counts_against_the_mapping_bound() {
+        const FULL: Requirements = Requirements {
+            maps: &[
+                MapNeed {
+                    role: "a",
+                    va: 0x1000,
+                    kind: PageKind::Shared,
+                },
+                MapNeed {
+                    role: "b",
+                    va: 0x2000,
+                    kind: PageKind::Shared,
+                },
+                MapNeed {
+                    role: "c",
+                    va: 0x3000,
+                    kind: PageKind::Shared,
+                },
+                MapNeed {
+                    role: "d",
+                    va: 0x4000,
+                    kind: PageKind::Shared,
+                },
+            ],
+            ..STATEFUL
+        };
+        assert_eq!(
+            plan(&FULL, &with_handoff()),
+            Err(Refusal::TooManyMaps { asked: 5 })
+        );
     }
 
     #[test]
@@ -943,6 +1194,7 @@ mod tests {
             maps: &[],
             pages: 32,
             depends_on: &[],
+            handoff: None,
         };
         assert_eq!(
             TWICE.problem(),
@@ -966,6 +1218,7 @@ mod tests {
             ],
             pages: 32,
             depends_on: &[],
+            handoff: None,
         };
         assert_eq!(
             COLLIDE.problem(),
@@ -981,6 +1234,7 @@ mod tests {
             maps: &[],
             pages: 0,
             depends_on: &[],
+            handoff: None,
         };
         assert_eq!(FREE.problem(), Some(Refusal::NoPages));
     }
@@ -1021,6 +1275,7 @@ mod tests {
         maps: &[],
         pages: 32,
         depends_on: &[],
+        handoff: None,
     };
     const BROKER: Requirements = Requirements {
         contract: "broker",
@@ -1037,6 +1292,7 @@ mod tests {
         maps: &[],
         pages: 32,
         depends_on: &["backend"],
+        handoff: None,
     };
     const CLIENT: Requirements = Requirements {
         contract: "client",
@@ -1044,6 +1300,7 @@ mod tests {
         maps: &[],
         pages: 32,
         depends_on: &[],
+        handoff: None,
     };
 
     /// The one case this residual exists for, in its smallest true form: a component that forwards
@@ -1147,6 +1404,7 @@ mod tests {
             maps: &[],
             pages: 32,
             depends_on: &["backend"],
+            handoff: None,
         };
         let live = [
             LiveInstance {
@@ -1215,6 +1473,7 @@ mod proofs {
             maps: &[],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
         Requirements {
             contract: "c",
@@ -1222,6 +1481,7 @@ mod proofs {
             maps: &[],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
         Requirements {
             contract: "c",
@@ -1229,6 +1489,7 @@ mod proofs {
             maps: &[],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
         Requirements {
             contract: "c",
@@ -1236,6 +1497,7 @@ mod proofs {
             maps: &[],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
     ];
 
@@ -1368,6 +1630,7 @@ mod proofs {
             maps: &[SHARED_P, SHARED_Q],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
         Requirements {
             contract: "c",
@@ -1375,6 +1638,7 @@ mod proofs {
             maps: &[DEVICE_P, SHARED_Q],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
         Requirements {
             contract: "c",
@@ -1382,6 +1646,7 @@ mod proofs {
             maps: &[SHARED_P, DEVICE_Q],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
         Requirements {
             contract: "c",
@@ -1389,6 +1654,7 @@ mod proofs {
             maps: &[DEVICE_P, DEVICE_Q],
             pages: 1,
             depends_on: &[],
+            handoff: None,
         },
     ];
 
@@ -1445,6 +1711,7 @@ mod proofs {
         maps: &[],
         pages: 1,
         depends_on: &[],
+        handoff: None,
     };
     const OTHER_NODEP: Requirements = Requirements {
         contract: "other",
@@ -1452,6 +1719,7 @@ mod proofs {
         maps: &[],
         pages: 1,
         depends_on: &[],
+        handoff: None,
     };
     const OTHER_DEP: Requirements = Requirements {
         contract: "other",
@@ -1459,6 +1727,7 @@ mod proofs {
         maps: &[],
         pages: 1,
         depends_on: &["a"],
+        handoff: None,
     };
 
     /// Every arrangement a two-instance registry can be in, with respect to one target contract

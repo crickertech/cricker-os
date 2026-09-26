@@ -472,6 +472,7 @@ pub const CONSOLE: Requirements = Requirements {
     // through the stable endpoint, and DECISIONS §41's own sender-queue argument is what makes
     // that need no explicit orchestration (see `Requirements::depends_on`'s doc comment).
     depends_on: &[],
+    handoff: None,
 };
 
 /// **The same programs behind a queue broker, with no device.** A different contract rather than a
@@ -488,6 +489,7 @@ pub const BACKEND: Requirements = Requirements {
     }],
     pages: INSTANCE_PAGES,
     depends_on: &[],
+    handoff: None,
 };
 
 /// **The client** (`chatty`, in all three of its roles). It *uses* the service and never serves it,
@@ -517,6 +519,7 @@ pub const CLIENT: Requirements = Requirements {
     // channel it is wired to. See `Requirements::depends_on`'s doc comment for why this is empty
     // rather than naming whichever contract `service` happens to resolve to on a given wiring.
     depends_on: &[],
+    handoff: None,
 };
 
 /// **The queue broker**, the latency ladder's opt-in rung. It serves the endpoint producers hold and
@@ -552,6 +555,7 @@ pub const BROKER: Requirements = Requirements {
     // backend and `BOP_UP` after, and it is the edge milestone 23's dependency graph exists to
     // name so that sequencing can be derived rather than hand-coded per system.
     depends_on: &["backend"],
+    handoff: None,
 };
 
 /// Every declaration in this crate is well formed, checked at compile time on both architectures.
