@@ -291,6 +291,17 @@ impl<T> IrqSafeMutex<T> {
         }
     }
 
+    // **`#[inline]`, so every codegen unit gets its own copy to decide on** (milestone 599 (a frame
+    // per filesystem client channel), 2026-09-26). Unmarked, this generic is emitted once and can be
+    // inlined only inside the codegen unit that owns it, and which unit that is depends on a
+    // metadata hash Cargo derives partly from the host triple. The same commit then built two
+    // different aarch64 kernels: the lock inlined at every site on a macOS host, outlined per
+    // instantiation on CI's Linux one, 25 KiB of text apart, and `script/fastpath-footprint`
+    // reported a 16% "shrink" that was only the coin landing the other way. With the hint each call
+    // site gets LLVM's ordinary cost decision, the same on every host (checked by building under
+    // two metadata seeds that split the old way). `#[inline(always)]` was tried and refused: it
+    // inlined sites LLVM had declined and pushed `memory::init` past the 4 KiB guard page.
+    #[inline]
     pub fn lock(&self) -> IrqSafeGuard<'_, T> {
         // ORDER: mask first, THEN acquire. Reversing these reintroduces the deadlock.
         let irqs_were_enabled = interrupts::disable();

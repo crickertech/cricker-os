@@ -2862,7 +2862,7 @@ const NO_CAP: u64 = u64::MAX;
 /// If the receiver's capability table is full the capability is dropped and the receiver sees `NO_CAP`; the
 /// data word still arrives. The syscall layer has already checked the sender may delegate this
 /// capability (it holds `GRANT`) and that the rights only narrow.
-pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap) {
+pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u64) {
     let block = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
@@ -2880,7 +2880,9 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap) {
                 let receiver = unsafe { (*receiver.as_ptr()).id };
                 let r = sched.threads.get_mut(receiver).unwrap();
                 let slot = r.capability_table.insert(cap).unwrap_or(NO_CAP);
-                r.mailbox = [data, slot, 0, 0, 0];
+                // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
+                // write a zero here, so RECV_CAP surfaces it at no extra instruction on this path.
+                r.mailbox = [data, slot, 0, badge, 0];
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 3);
                 wake(sched, receiver);
@@ -2888,8 +2890,9 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap) {
             }
             inter_process_communication::Send::Blocked => {
                 // `send` queued `current`; we park the data word and the capability to hand over.
+                // Word 3 is the badge, read back by the eventual RECV_CAP (milestone 599).
                 let me = sched.threads.get_mut(current).unwrap();
-                me.mailbox = [data, 0, 0, 0, 0];
+                me.mailbox = [data, 0, 0, badge, 0];
                 me.outgoing_cap = Some(cap);
                 me.handshake.park((ep, WaitRole::Sender)); // only a collecting receiver may wake us
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
@@ -2904,12 +2907,14 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap) {
 }
 
 /// **Receive a data word and, if one was sent, a capability.** The mirror of [`ipc_send_cap`], and
-/// the receiver's half of delegation. Returns `[data, received_slot, 0]`, where `received_slot` is
-/// where an incoming capability landed in *our* capability table, or [`NO_CAP`] if the message carried none.
+/// the receiver's half of delegation. Returns `[data, received_slot, w1, badge]`, where
+/// `received_slot` is where an incoming capability landed in *our* capability table, or [`NO_CAP`]
+/// if the message carried none, and `badge` is the badge on the endpoint capability the sender
+/// invoked (milestone 599, provisional; 0 when the sender's capability was unbadged).
 ///
 /// A capability-carrying send and this share the ordinary sender/receiver queues, so either side
 /// may arrive first, exactly as with the plain path.
-pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 3] {
+pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 4] {
     let immediate = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
@@ -2918,12 +2923,12 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 3] {
         let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
-            return [0, 0, 0]; // stale rendezvous: aborted, syscall layer errors
+            return [0, 0, 0, 0]; // stale rendezvous: aborted, syscall layer errors
         };
         // SAFETY: as in ipc_send.
         match unsafe { rendezvous.recv(me) } {
-            // An interrupt signal is not a delegation; it carries no capability.
-            inter_process_communication::Recv::Signal => Some([1, NO_CAP, 0]),
+            // An interrupt signal is not a delegation; it carries no capability and no badge.
+            inter_process_communication::Recv::Signal => Some([1, NO_CAP, 0, 0]),
             inter_process_communication::Recv::FromSender(sender) => {
                 // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                 let sender = unsafe { (*sender.as_ptr()).id };
@@ -2952,8 +2957,9 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 3] {
                     wake(sched, sender);
                 }
                 // x0 = word0, x1 = the delivered slot, x2 = word1 (a CALL's second word; 0 for a plain
-                // SEND_CAP, whose sender parked mailbox[1] = 0).
-                Some([msg[0], slot, msg[1]])
+                // SEND_CAP, whose sender parked mailbox[1] = 0), x3 = the sender's badge (msg[3],
+                // milestone 599).
+                Some([msg[0], slot, msg[1], msg[3]])
             }
             inter_process_communication::Recv::Blocked => {
                 let me = sched.threads.get_mut(current).unwrap();
@@ -2976,7 +2982,10 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 3] {
                 "recv_cap resumed with nothing delivered"
             );
             let m = t.mailbox;
-            [m[0], m[1], m[2]] // RECV_CAP carries three words; the top two are the fault path's
+            // RECV_CAP carries four words now (milestone 599): w0, slot, w1, and the sender's badge
+            // at m[3]. The rendezvous case wrote the badge into our mailbox[3]; word 4 is unused
+            // here and belongs to the fault path.
+            [m[0], m[1], m[2], m[3]]
         }
     }
 }
@@ -3006,7 +3015,21 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 3] {
 /// tell the two conversations apart. A future path that reached `ipc_reply` without presenting a
 /// capability would reopen that. The structural fix is a call identity in the payload:
 /// `design/roadmap/371-a-reply-capability-that-names-a-call.md`.
+// Inlined so the unbadged fastpath (`ipc_call_reply`, the shape real services run and the one
+// `script/icount` measures) gains no call frame: this forwards to `ipc_call_badged` with badge 0,
+// which writes the same mailbox word 3 it always did.
+#[inline(always)]
 pub fn ipc_call(ep: RendezvousId, msg: [u64; 2]) -> [u64; 3] {
+    ipc_call_badged(ep, msg, 0)
+}
+
+/// [`ipc_call`] carrying the invoked endpoint capability's badge (milestone 599, provisional). The
+/// badge reaches the server's [`ipc_recv_cap`] in the delivered mailbox's word 3; a plain
+/// [`ipc_call`] passes 0, the unbadged value. Split out rather than given a parameter on the hot
+/// name so the tree's many `ipc_call(ep, msg)` sites (benches, tests, `ipc_stack_depth`) are
+/// unchanged and the fastpath's shape is untouched, which `script/icount`'s tripwire is what
+/// confirms.
+pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] {
     // E3's footprint padding, on the CALL side as well as the SEND side (milestone 134, extended
     // 2026-09-04). It was on `ipc_send` alone, and that was the whole of the fastpath when the
     // padding was written; milestone 188 phase 1 then split the footprint gate into two closures
@@ -3038,7 +3061,9 @@ pub fn ipc_call(ep: RendezvousId, msg: [u64; 2]) -> [u64; 3] {
                 // A server is parked in RECV_CAP: hand it the reply cap and the two words now.
                 let r = sched.threads.get_mut(receiver).unwrap();
                 let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
-                r.mailbox = [msg[0], slot, msg[1], 0, 0];
+                // Word 3 is the caller's badge (milestone 599): the same store as before with a
+                // value instead of a zero, so the server's RECV_CAP surfaces which client called.
+                r.mailbox = [msg[0], slot, msg[1], badge, 0];
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 5);
                 wake(sched, receiver);
@@ -3047,8 +3072,10 @@ pub fn ipc_call(ep: RendezvousId, msg: [u64; 2]) -> [u64; 3] {
                 // No server yet; `send` queued us as a sender. Park the words and ride the reply cap
                 // in `outgoing_cap` so the eventual RECV_CAP hands it over and, seeing a Reply, leaves
                 // us blocked (see ipc_recv_cap).
+                // Park the words with the badge at word 3 (milestone 599), where the eventual
+                // RECV_CAP reads it back out of this caller's mailbox.
                 let me = sched.threads.get_mut(current).unwrap();
-                me.mailbox = [msg[0], msg[1], 0, 0, 0];
+                me.mailbox = [msg[0], msg[1], 0, badge, 0];
                 me.outgoing_cap = Some(reply);
             }
         }
@@ -4417,7 +4444,7 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     // and consume the slot, so the child cannot forge fault messages on it (the kernel stays the
     // only sender on this path, §26.5). Supervision is fixed here, at spawn, and never changes.
     if let Ok(fault_cap) = t.capability_table.get(abi::fault::FAULT_EP_SLOT)
-        && let crate::cap::Object::Rendezvous(ep) = fault_cap.object
+        && let crate::cap::Object::Rendezvous(ep, _) = fault_cap.object
     {
         t.fault_ep = Some(ep);
         let _ = t.capability_table.delete(abi::fault::FAULT_EP_SLOT);

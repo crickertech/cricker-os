@@ -97,7 +97,7 @@ fn a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver() {
             .expect("the sender could not be granted the frame it is about to delegate");
         let cap = sched::current_cap(slot).expect("the grant did not land");
         PARKED.store(true, Ordering::SeqCst);
-        sched::ipc_send_cap(ep, 0, cap);
+        sched::ipc_send_cap(ep, 0, cap, 0);
         SENDER_STILL_HELD.store(sched::current_cap(slot).is_ok(), Ordering::SeqCst);
         RETURNED.store(true, Ordering::SeqCst);
     })
@@ -114,7 +114,7 @@ fn a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver() {
 
     crate::revoke::revoke_page_frame(phys);
 
-    let [_word, slot, _second] = sched::ipc_recv_cap(ep);
+    let [_word, slot, _second, _badge] = sched::ipc_recv_cap(ep);
     let delivered = if slot == abi::rendezvous::NO_CAP {
         None
     } else {

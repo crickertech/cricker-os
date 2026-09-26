@@ -137,7 +137,7 @@ pub(crate) fn invoke(
     let cap = sched::current_cap(slot).map_err(|_| Error::NoSuchSlot)?;
 
     match cap.object {
-        Object::Rendezvous(ep) => match method {
+        Object::Rendezvous(ep, badge) => match method {
             // SEND takes WRITE, RECV takes READ. The *same* endpoint, handed out with different
             // rights, is a one-way pipe in whichever direction each holder was trusted with.
             abi::rendezvous::SEND => {
@@ -204,6 +204,7 @@ pub(crate) fn invoke(
                         object: src.object,
                         rights: narrowed,
                     },
+                    badge, // the endpoint we send on may be badged (milestone 599 (a frame per filesystem client channel))
                 );
                 if sched::take_ipc_aborted() {
                     return Err(Error::Gone); // endpoint revoked; the delegation did not happen
@@ -219,9 +220,11 @@ pub(crate) fn invoke(
                     return Err(Error::Gone); // endpoint revoked; the message is a placeholder
                 }
                 // x1 carries the slot the received capability landed in, or NO_CAP if the message
-                // brought none; x2 the second data word (a CALL's, or 0). x0 returns the first word.
+                // brought none; x2 the second data word (a CALL's, or 0); x3 the sender's badge
+                // (milestone 599), 0 when its capability was unbadged. x0 returns the first word.
                 frame.set_arg(1, msg[1]);
                 frame.set_arg(2, msg[2]);
+                frame.set_arg(3, msg[3]);
                 Ok(msg[0] as i64)
             }
 
@@ -232,7 +235,7 @@ pub(crate) fn invoke(
                 if !cap.rights.allows(Rights::WRITE) {
                     return Err(Error::NotPermitted);
                 }
-                let reply = sched::ipc_call(ep, [a0, a1]);
+                let reply = sched::ipc_call_badged(ep, [a0, a1], badge);
                 if sched::take_ipc_aborted() {
                     return Err(Error::Gone); // endpoint revoked; no call, no reply
                 }
@@ -311,6 +314,11 @@ pub(crate) fn invoke(
                 frame.set_arg(2, word);
                 Ok(next as i64)
             }
+
+            // Body extracted, the pattern of milestone 156 (`syscall_entry`'s measured size is every method
+            // combined): minting a badge is spawn-time delegation, never a step of the IPC round
+            // trip, so it stays out of `invoke`'s own bytes (milestone 599).
+            abi::rendezvous::BADGE => rendezvous_badge(ep, cap.rights, badge, a0),
             _ => Err(Error::BadMethod),
         },
 
@@ -573,6 +581,31 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
         Err(paging::MapError::OutOfPageFrames) => Err(Error::OutOfMemory),
         Err(_) => Err(Error::BadPointer), // misaligned, already mapped, or wrong half
     }
+}
+
+/// `Rendezvous::BADGE`: **mint a badged copy of an endpoint** (milestone 599 (a frame per
+/// filesystem client channel), provisional). The new capability names the same endpoint `ep` with
+/// the holder's own `rights`, plus `new_badge`, in a free slot of the caller's table, and the slot
+/// is the result, the way `RETYPE_OBJ` answers with the slot it minted.
+///
+/// GRANT-gated, because minting a delegatable view is a delegation-class power (the gate `SEND_CAP`
+/// and `CAP_INSERT` use), and refused for a zero badge (the unbadged value) or an already-badged
+/// source (`held_badge != 0`), so a badge is set once and never changed: seL4's rule, and what lets
+/// a server trust the badge it is delivered. Out of line for `memory_region_map`'s reason: it is
+/// spawn-time administration, and `script/fastpath-footprint` measures `invoke`'s own bytes.
+#[inline(never)]
+fn rendezvous_badge(
+    ep: sched::RendezvousId,
+    rights: Rights,
+    held_badge: u64,
+    new_badge: u64,
+) -> Result<i64, Error> {
+    if !rights.allows(Rights::GRANT) || new_badge == 0 || held_badge != 0 {
+        return Err(Error::NotPermitted);
+    }
+    let slot = sched::grant(crate::cap::rendezvous_cap_badged(ep, rights, new_badge))
+        .map_err(|_| Error::OutOfMemory)?;
+    Ok(slot as i64)
 }
 
 /// `MemoryRegion::RETYPE_OBJ`: retype a page into a page-resident KERNEL OBJECT the caller now owns

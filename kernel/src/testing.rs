@@ -550,9 +550,18 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// the reason the entry above gives: a margin that only just clears a local reading has not
 /// accounted for the two-frame local-against-CI divergence that entry measured. 22352 + 32 = 22384.
 ///
+/// **`22_514` (2026-09-26): the file service's client windows, a standing allocation rather than a
+/// leak** (milestone 599 (a frame per filesystem client channel)). The service now keeps
+/// `filesystem_protocol::fs::CLIENT_WINDOWS` staging windows side by side so each client has its
+/// own, and the seven beyond window 0 are allocated once when the service is wired and mapped into
+/// the file server for its whole life: 7 windows of 16 frames, 112 frames. `release_window` zeroes a
+/// window for its next client and never frees it, because the server's mapping of it is fixed at
+/// spawn. aarch64 read **22482** in CI on #1372 against 22384, which is main's reading plus exactly
+/// those 112. **+32 headroom**, the two entries above's reason. 22482 + 32 = 22514.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 22_384;
+const SUITE_PAGE_FRAME_BUDGET: usize = 22_514;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///

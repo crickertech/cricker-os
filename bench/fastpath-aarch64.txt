@@ -1,3 +1,6 @@
+# toolchain: nightly-2026-09-26
+# date: 2026-09-26
+# why: milestone 599 (a frame per filesystem client channel): badged endpoints. RECV_CAP returns the sender's badge in x3 and the CALL path carries it in mailbox word 3; measured against main 91bee635a at the same base, syscall_entry +52/+30/+32 B and ipc_call_reply +24/+34/+48 B (aarch64/riscv64/x86_64). BADGE is out of line, as milestone 156 (`syscall_entry`'s measured size is every method combined) extracts methods. The CALL root now includes ipc_call_badged, the body ipc_call forwards to.
 # bench/fastpath-aarch64.txt: an upper bound on the IPC fastpath's instruction footprint.
 # Written by script/fastpath-footprint --save. Updating this file is a statement that a
 # footprint change is intended and understood; do it in the commit that causes it.
@@ -7,7 +10,7 @@
 # milestone 188 phase 1 because the system runs the second and this gate measured only the
 # first. `ipc_fastpath` is DERIVED, the worse of the two, kept under its old name because
 # the tree cites it; it is not checked separately. Both shapes and `syscall_entry` are.
-ipc_send_recv 5356
-ipc_call_reply 7028
-ipc_fastpath 7028
-syscall_entry 1508
+ipc_send_recv 5500
+ipc_call_reply 7196
+ipc_fastpath 7196
+syscall_entry 1560

@@ -30,7 +30,17 @@ pub enum Object {
     /// Invoking it is a `SEND` or a `RECV` (which one you may do is a matter of rights). Since
     /// milestone 8 this is how a process reaches the console: it holds a `WRITE` capability on
     /// the console server's endpoint, and printing is sending.
-    Rendezvous(crate::sched::RendezvousId),
+    /// **The second field is the capability's badge** (milestone 599 (a frame per filesystem
+    /// client channel), provisional): a `u64` the kernel delivers to a server's `RECV_CAP` so it
+    /// can tell which of several clients sharing one endpoint made a request. `0` means unbadged,
+    /// which every capability is until `abi::rendezvous::BADGE` stamps one, so the 232 sites that
+    /// build an endpoint capability through [`rendezvous_cap`] are unchanged. seL4's model: a badge
+    /// is set once on an unbadged capability and never altered, and it rides on the capability, not
+    /// on the endpoint, so two clients can hold differently badged views of the same rendezvous.
+    /// DECISIONS §148 (a supervisor restarts by asking) refused `BADGE` as a thread-identity method so it stays free for this; see
+    /// also §101 (notification objects). The field fits without growing [`Object`], because `PageFrame` is already this
+    /// wide (the assertion below holds).
+    Rendezvous(crate::sched::RendezvousId, u64),
 
     /// **A memory region** (milestone 11): a capability to a chunk of raw physical memory the
     /// process may retype into pages. Invoking it grows the process's address space out of its
@@ -441,7 +451,19 @@ const _: () = assert!(
 /// out with opposite rights and you have a one-way pipe that neither side can run backwards.
 pub fn rendezvous_cap(ep: crate::sched::RendezvousId, rights: Rights) -> Cap {
     Cap {
-        object: Object::Rendezvous(ep),
+        object: Object::Rendezvous(ep, 0),
+        rights,
+    }
+}
+
+/// An endpoint capability carrying a **badge** (milestone 599, provisional). The kernel delivers
+/// `badge` to a server's `RECV_CAP` when this capability's holder `CALL`s or `SEND_CAP`s here, so a
+/// server serving many clients on one endpoint can tell them apart. `badge` `0` is unbadged and
+/// equivalent to [`rendezvous_cap`]; a non-zero badge is minted once by `abi::rendezvous::BADGE` and
+/// then rides through delegation unchanged, because `SEND_CAP` and `CAP_INSERT` copy the object.
+pub fn rendezvous_cap_badged(ep: crate::sched::RendezvousId, rights: Rights, badge: u64) -> Cap {
+    Cap {
+        object: Object::Rendezvous(ep, badge),
         rights,
     }
 }

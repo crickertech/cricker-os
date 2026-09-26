@@ -31,7 +31,7 @@
 use filesystem_protocol::{dir, fixture, fs, grant, xattr};
 use grant_plan::nav::{TwoRoots, Which};
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, exit, now, send};
+use user_mode_runtime::{call, exit, now, recv, send};
 
 /// The file-service endpoint: the client's whole authority to the filesystem. Naming a file over it
 /// is a request the server resolves under the one directory this endpoint is bound to.
@@ -222,6 +222,25 @@ const ROLE_SCHEDULE_SEED: u64 = 11;
 /// `session_reviver`'s own read path agrees, so a store holding the wrong bytes and a re-deriver
 /// that misreads the right ones can never be mistaken for each other.
 const ROLE_SCHEDULE_VERIFY: u64 = 12;
+/// Milestone 599 (a frame per filesystem client channel), provisional: the shared-frame witness's
+/// **victim**. Stages its own name, hands off to the attacker over the sync endpoint, and only then
+/// calls `OPEN`, so the name the server reads is whatever the attacker left in the page. Reports
+/// which file it actually got. See [`share_victim`] and `kernel/src/user/fs_shared_page_tests.rs`.
+const ROLE_SHARE_VICTIM: u64 = 13;
+/// Milestone 599 (provisional): the shared-frame witness's **attacker**. Holds the same file frame
+/// read-write as the victim, waits for the victim to stage its name, overwrites it with a different
+/// (same-length) name, and signals back. It never calls the FS server; sharing the frame is the
+/// whole of its power. See [`share_attacker`].
+const ROLE_SHARE_ATTACKER: u64 = 14;
+
+/// The sync endpoint the two shared-frame witness roles hand off over (slot 2 by the wiring in
+/// `fs_service::start_shared_frame_witness`). Both hold it `READ|WRITE`, so each can `SEND` and
+/// `RECV`; the roles strictly alternate, so the endpoint is never ambiguous about direction.
+const SYNC: u64 = 2;
+/// The victim's word to the attacker: "my name is staged in the page".
+const SHARE_STAGED: u64 = 0x0599_57A6;
+/// The attacker's word back to the victim: "I have overwritten the staged name; call now".
+const SHARE_OVERWROTE: u64 = 0x0599_09E2;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(role: u64, a1: u64, _a2: u64) -> ! {
@@ -236,9 +255,84 @@ pub extern "C" fn _start(role: u64, a1: u64, _a2: u64) -> ! {
         ROLE_TWO_DIR => two_dir(),
         ROLE_SCHEDULE_SEED => schedule_seed(),
         ROLE_SCHEDULE_VERIFY => schedule_verify(),
+        ROLE_SHARE_VICTIM => share_victim(a1),
+        ROLE_SHARE_ATTACKER => share_attacker(),
         ROLE_PROOF => proof(),
         _ => proof(),
     }
+}
+
+/// **The shared-frame witness's victim** (milestone 599, provisional).
+///
+/// It stages its own name, and would open exactly that name were it the only writer of the page.
+/// The attacker holds the same frame, so between this client staging its name and the server
+/// reading it, the attacker rewrites the page. This role forces that ordering deterministically
+/// with a two-message handshake rather than relying on a race, because the property under test is
+/// not "does the race fire" but "can a second holder of the frame change the bytes the server
+/// resolves for this client's call". The server has no way to tell whose bytes it read.
+///
+/// The report's first word is the verdict: [`fixture::SHARED_SUBSTITUTED`] when the body read back
+/// is the attacker's file, [`fixture::SHARED_ISOLATED`] when it is this client's own (what
+/// milestone 599's fix makes true), or [`fixture::SHARED_UNEXPECTED`] on any other outcome.
+///
+/// `window` is this client's channel window (`a1`): the victim **mints its own badged endpoint** for
+/// it with `abi::rendezvous::BADGE`, which is what exercises the mint syscall end to end (the
+/// attacker gets a pre-badged endpoint from the wiring instead, so the test covers both shapes). It
+/// then calls through the badged slot, so the server reads the victim's own window.
+fn share_victim(window: u64) -> ! {
+    let victim = fixture::SHARED_VICTIM_NAME.as_bytes();
+    // Mint a badged view of the FS endpoint naming our window, and call through it from here on.
+    let r = user_mode_runtime::badge(FILE, window);
+    if r < 0 {
+        send(REPORT, fixture::SHARED_UNEXPECTED, (-r) as u64, 0);
+        exit();
+    }
+    let ep = r as u64;
+    // Stage our own name, then tell the attacker; the SEND blocks until the attacker RECVs it.
+    put_page(victim);
+    send(SYNC, SHARE_STAGED, 0, 0);
+    // Block until the attacker has written its own window. Only then do we call. Before the fix the
+    // attacker shared our frame and this is where the substitution landed; now it cannot reach it.
+    let _ = recv(SYNC);
+    // The length travels in the register (we choose our own name's length); the name bytes travel
+    // in our window, which only we and the server map.
+    let (r0, _) = call(ep, fs::req(fs::OPEN, 0, victim.len() as u64), 0);
+    if (r0 as i64) < 0 {
+        send(REPORT, fixture::SHARED_UNEXPECTED, (-(r0 as i64)) as u64, 0);
+        exit();
+    }
+    let handle = r0;
+    let (n, _) = call(ep, fs::req(fs::READ, handle, 8), 0);
+    if (n as i64) < 0 {
+        send(REPORT, fixture::SHARED_UNEXPECTED, (-(n as i64)) as u64, 0);
+        exit();
+    }
+    let mut head = [0u8; 8];
+    get_page(n as usize, &mut head);
+    let got = &head[..];
+    let verdict = if got == &fixture::SHARED_VICTIM_BODY[..8] {
+        fixture::SHARED_ISOLATED
+    } else if got == &fixture::SHARED_USURPER_BODY[..8] {
+        fixture::SHARED_SUBSTITUTED
+    } else {
+        fixture::SHARED_UNEXPECTED
+    };
+    send(REPORT, verdict, 0, 0);
+    exit();
+}
+
+/// **The shared-frame witness's attacker** (milestone 599, provisional).
+///
+/// It maps the same file frame the victim and the FS server share, and nothing else that names the
+/// filesystem: it never calls the server. It waits for the victim's "staged" word, overwrites the
+/// staged name with its own (same-length) name, and signals back. That is the whole of finding 1's
+/// "a runnable third party": a second holder of the frame, writing it while the victim is parked in
+/// its call.
+fn share_attacker() -> ! {
+    let _ = recv(SYNC);
+    put_page(fixture::SHARED_USURPER_NAME.as_bytes());
+    send(SYNC, SHARE_OVERWROTE, 0, 0);
+    exit();
 }
 
 /// Stage tags [`schedule_seed`] adds to [`fail`]'s vocabulary, beyond [`STAGE_OPEN`]/
