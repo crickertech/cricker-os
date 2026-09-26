@@ -291,7 +291,8 @@ The third column lists the dated entries each holds, so a citation of "notes/ben
 - No seL4 number from the same silicon exists. It waits on argon (milestone 127).
 - The tripwire compares against the last floor, so steps under 10% accumulate. The 2026-09-15 audit
   found riscv64 `ctx_switch` 10.78% up across saves that never fired. Milestone 415 (sub-tripwire
-  drift accumulates across baseline saves) owns it.
+  drift accumulates across baseline saves) now reports it weekly rather than gating it:
+  [the drift report](project-metrics/baseline-drift.md).
 - `map_el0` has `map_new`'s preemption-in-the-window shape and is not masked, because a kernel cannot
   mask a window it does not own. It has not been measured for this.
 - The x86_64 two-core counters are deterministic but not a function of the code, and are not gated.

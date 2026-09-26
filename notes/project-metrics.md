@@ -39,6 +39,7 @@ not a caption, it is a register entry.
 - [The lowest-covered file](#the-lowest-covered-file)
 - [The prose budget](#the-prose-budget)
 - [The bold backlog](#the-bold-backlog)
+- [Benchmark drift since a fixed anchor](#benchmark-drift-since-a-fixed-anchor)
 <!-- /toc -->
 
 ## Read this before you read a number
@@ -207,14 +208,9 @@ failing build. 2026W31 to 2026W38 were backfilled on 2026-09-24 from each week's
 
 calef ratified a 3,000-word cap per document on 2026-09-23, enforced as a ratchet. The first chart
 is the debt, the words that would have to move into appendices for the tree to meet its own rule;
-the second is how many documents that work sits in. A ratchet is invisible without a graph,
-which is why there are two.
+the second is how many documents that work sits in.
 
-The weeks before the cap was ratified are derived, not recorded: each is counted from that week's
-own tree by `script/metrics --backfill`, applying today's cap and today's document scope to a tree
-that had no such rule. The scope is `_prose_documents()` in the script, and it will change when
-milestone 586 (a prose ratchet in lint) shares one definition with `script/lint`; the whole series is
-restated from history when it does.
+Weeks before the ratification are derived by `--backfill`, each from its own tree.
 
 ## The bold backlog
 
@@ -232,6 +228,18 @@ is zero; retire this chart" and writes it here:
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.
+
+## Benchmark drift since a fixed anchor
+
+![Benchmark rows more than 5% above their anchor](project-metrics/baseline-drift.svg)
+
+The tripwire compares each save with the last, so steps under 10% add up unseen. This counts rows
+past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drift
+report](project-metrics/baseline-drift.md).
+
+<!-- baseline-drift: script/metrics writes this -->
+2026W39: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.91%, x86_64 `spawn_reap` +8.09%; 15 rows past 5%.
+<!-- /baseline-drift -->
 
 ## How it stays current
 

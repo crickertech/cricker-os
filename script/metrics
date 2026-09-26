@@ -164,6 +164,7 @@ from datetime import date, datetime, timedelta, timezone
 # behind on every run, which is an untracked directory a gate has no business creating.
 sys.dont_write_bytecode = True
 sys.path.insert(0, 'helpers')
+import baseline_drift                                                       # noqa: E402
 import name_provenance                                                      # noqa: E402
 import prose_ratchet                                                        # noqa: E402
 import roadmap_block                                                        # noqa: E402
@@ -335,6 +336,11 @@ MEASURES = [
     # Temporary, and it says so where it is drawn: see `bold_backlog` and BOLD_RETIRE below. The
     # file name and both column names are provisional (lane/faux-headings, 2026-09-26).
     ('bold-backlog', ['bold_excess_spans', 'bold_documents_over']),
+    # Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3: icount drift
+    # since a fixed anchor. calef ruled on 2026-09-26 that it is a report and not a gate, in §190
+    # (must an icount baseline save record why it moved). See DRIFT_BEGIN below. File and column names provisional (that lane's).
+    ('baseline-drift', [prefix + arch for arch in baseline_drift.ARCHES
+                        for prefix in ('baseline_drift_max_pct_', 'baseline_drift_rows_over_5pct_')]),
     # Milestone 519's cost columns. Three units on purpose, and no fourth column adding them up:
     # person-weeks for the comparison against the verification literature, tokens with a dated
     # price for the argument about the method, cash for calef's own budgeting. 519 refuses a single
@@ -1271,6 +1277,39 @@ def write_bold_status(rows):
         path.write_text(new)
 
 
+# Cumulative icount drift since a fixed anchor: milestone 415 item 3, which calef ruled on
+# 2026-09-26 (UTC) is a report and not a gate (§190). The arithmetic and its selftest are
+# helpers/baseline_drift.py. Three outputs, the bold backlog's shape: two cells per architecture in
+# `baseline-drift.csv` (the largest upward drift, and rows past half the tripwire), one generated
+# line on the page between DRIFT_BEGIN and DRIFT_END, and the whole report, every row and every
+# save's `# why:` lines, regenerated as the appendix DRIFT_REPORT. The line and the appendix read
+# HEAD, like the table of contents; the CSV restates each week from its own revision.
+DRIFT_BEGIN = '<!-- baseline-drift: script/metrics writes this -->'
+DRIFT_END = '<!-- /baseline-drift -->'
+DRIFT_REPORT = DATA_DIR / 'baseline-drift.md'
+
+
+def write_drift_report():
+    """The page's generated drift line and the appendix beside it, both from HEAD."""
+    reports, stamp = baseline_drift.report('HEAD')
+    head = git('rev-parse', 'HEAD').decode().strip()
+    week = week_of(git('show', '-s', '--format=%cI', head).decode().strip())
+    path = pathlib.Path(PAGE)
+    text = path.read_text()
+    if text.count(DRIFT_BEGIN) != 1 or text.count(DRIFT_END) != 1:
+        raise SystemExit('metrics: %s must carry exactly one %r and one %r'
+                         % (PAGE, DRIFT_BEGIN, DRIFT_END))
+    before, rest = text.split(DRIFT_BEGIN)
+    _old, after = rest.split(DRIFT_END)
+    new = (before + DRIFT_BEGIN + '\n' + baseline_drift.status(reports, week) + '\n'
+           + DRIFT_END + after)
+    if new != text:
+        path.write_text(new)
+    body = baseline_drift.render(reports, stamp)
+    if not DRIFT_REPORT.exists() or DRIFT_REPORT.read_text() != body:
+        DRIFT_REPORT.write_text(body)
+
+
 # The ratified field and its three values, as `script/fatal-risks` gates them. calef ruled on
 # 2026-09-23 and `design/fatal-risks.md`'s vocabulary section carries the argument; the enumeration
 # is duplicated here rather than imported because `script/fatal-risks` is a shell wrapper around a
@@ -1403,6 +1442,7 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
                  unsafe_census(tree), unsafe_trust_census(tree), fatal_risks(tree),
                  prose_budget(tree), bold_backlog(tree)):
         row.update(part)
+    row.update(baseline_drift.series_cells(rev))
     return row
 
 
@@ -1955,6 +1995,13 @@ CHARTS = [
     ('bold-backlog-documents.svg', 'Documents over 4 bold per 1,000 words',
      'the same backlog by where it sits',
      [('documents over the budget', 'bold_documents_over')], 1.0, None, 'bold_documents_over'),
+    # Milestone 415 item 3. Stacked by architecture because a count adds up; the largest drift
+    # per architecture does not, so it stays in the CSV and on the page's generated line.
+    ('baseline-drift.svg', 'Benchmark rows more than 5% above their anchor',
+     'icount per iteration since the 2026-09-15 audit\'s anchors, restamp term included; '
+     'the tripwire is 10% per save, so this is what it cannot see',
+     [(arch, 'baseline_drift_rows_over_5pct_' + arch) for arch in baseline_drift.ARCHES],
+     1.0, None, 'baseline_drift_rows_over_5pct_aarch64'),
 ]
 
 
@@ -2101,6 +2148,7 @@ def trailing_mean(rows, weeks, field, span):
 def draw_charts(rows):
     write_page_toc()
     write_bold_status(rows)
+    write_drift_report()
     retire = bold_retire_line(rows)
     if retire:
         print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)

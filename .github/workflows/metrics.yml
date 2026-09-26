@@ -146,7 +146,11 @@ jobs:
           GH_TOKEN: ${{ secrets.TOOLCHAIN_BUMP_PAT || github.token }}
         run: |
           set -e
-          if git diff --quiet -- notes/project-metrics; then
+          # The page too, not only the directory: `script/metrics` writes generated lines onto
+          # notes/project-metrics.md (the table of contents, the bold backlog's line, the drift
+          # line), and the pathspec `notes/project-metrics` does not match that file. Until
+          # 2026-09-26 those lines were rewritten here and then dropped.
+          if git diff --quiet -- notes/project-metrics notes/project-metrics.md; then
             echo "Nothing moved this week; no pull request."
             exit 0
           fi
@@ -155,14 +159,14 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add notes/project-metrics
+          git add notes/project-metrics notes/project-metrics.md
           git commit -m "metrics: record $week
 
           Recomputed by the scheduled workflow. Every column but coverage is a restatement: the row
           applies today's definitions to this week's tree, which is what makes the series comparable
           and is not what any of these numbers were reported as at the time.
 
-          notes/project-metrics.md says so on its face, and this commit does not change that page."
+          notes/project-metrics.md says so on its face; this commit changes only its generated lines."
           git push --force origin "$branch"
           title="metrics: record $week"
           body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
