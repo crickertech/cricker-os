@@ -25,6 +25,24 @@
 //!
 //! The server only ever OPENS the image (never creates: creation is std-gated and host-side), and
 //! it maps RedoxFS's error type to the wire exactly once, in [`serve`], via `filesystem_protocol::reply_err`.
+//!
+//! # BUGS
+//!
+//! **The real boot's progenitor still maps window 0 into every client it wires, so its clients
+//! share one window** (milestone 599 (a frame per filesystem client channel), the remaining piece). The server now keeps a window per
+//! client and reads window `badge` for each request (finding 1 of `notes/shared-page-audit.md` is
+//! closed *at this server*: a client wired with its own window and a badged endpoint is isolated,
+//! which `kernel/src/user/fs_shared_page_tests.rs` proves with two live clients). But that per-window
+//! wiring lives in the kernel test harness (`fs_service`) so far. The production progenitor
+//! (`crates/system_initializer`) hands `BootEndowment::fs_page`, window 0, to the shell and every
+//! caretaker, so on a real boot they still share window 0 and the substitution finding 1 describes
+//! is still reachable the day two of them run at once (the set grant at the prompt). Closing it
+//! needs the progenitor to hand each client its own window and a badged endpoint, which has a design
+//! question of its own: the progenitor cannot hold a frame capability per window without blowing its
+//! 24-slot table (DECISIONS §102 (a Frame names a run of pages)), so it must address windows some other way. Until that lands,
+//! nothing in a boot path runs two FS clients concurrently, which is the property that keeps this
+//! from being live. See the milestone 599 block's Outstanding bullet and
+//! `notes/a-frame-per-filesystem-client-channel.md`.
 
 #![no_std]
 #![no_main]
@@ -35,7 +53,7 @@ use filesystem_protocol::{blk, fs, op, reply_err, xattr};
 use redoxfs::Disk;
 use redoxfs_server::{CachedDisk, Server};
 use syscall::error::{EINVAL, EIO, Error, Result};
-use user_mode_runtime::{call, invoke, recv_cap, send};
+use user_mode_runtime::{call, invoke, recv_cap_badged, send};
 
 /// Capability table slots, by convention with the kernel-side wiring (`kernel/src/user/fs_service.rs`).
 const MEMORY_REGION: u64 = 0;
@@ -363,8 +381,23 @@ impl IpcDisk {
 /// `# Safety` section, which is the form rustdoc renders as the contract and the form
 /// `clippy::missing_safety_doc` recognises. Milestone 112's `script/lint` check is what found it:
 /// it was the only one of 46 `unsafe fn`s in the tree without the section.)
-unsafe fn file_page(len: usize) -> &'static mut [u8] {
-    unsafe { core::slice::from_raw_parts_mut(FILE_PAGE as *mut u8, len) }
+unsafe fn file_page(base: u64, len: usize) -> &'static mut [u8] {
+    unsafe { core::slice::from_raw_parts_mut(base as *mut u8, len) }
+}
+
+/// The base of the client channel a request's badge names (milestone 599). Window `badge` sits
+/// `badge * fs::TRANSFER_MAX` above [`FILE_PAGE`]; badge 0 is window 0, the unbadged default. A
+/// badge at or past [`fs::CLIENT_WINDOWS`] would point outside the mapped region, so it is clamped
+/// to window 0 rather than trusted: the kernel only ever delivers a badge this server's own wiring
+/// stamped, so an out-of-range one is a wiring bug, and folding it onto window 0 fails loudly (two
+/// clients would then collide and the witness would catch it) rather than reading unmapped memory.
+fn window_base(badge: u64) -> u64 {
+    let w = if (badge as usize) < fs::CLIENT_WINDOWS {
+        badge
+    } else {
+        0
+    };
+    FILE_PAGE + w * fs::TRANSFER_MAX as u64
 }
 
 /// Answer a caller through its one-shot Reply capability (slot `reply`), then return to serving.
@@ -378,9 +411,14 @@ fn reply(reply_slot: u64, r0: i64) {
 /// below it speaks `syscall::error::Result`.
 fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
     loop {
-        // RECV_CAP delivers (first word, the Reply cap's slot, second word). The Reply names the
-        // caller; endpoint-only naming means we never learn who they are, only how to answer.
-        let (w0, reply_slot, w1) = recv_cap(FILE);
+        // RECV_CAP delivers (first word, the Reply cap's slot, second word, the caller's badge).
+        // The Reply names the caller; endpoint-only naming means we never learn who they are, only
+        // how to answer. The badge (milestone 599) names which client channel this request's bytes
+        // are in, which is the whole of how two clients are now kept apart: `win` is the base of
+        // that client's own window, and every `file_page` below reads and writes it rather than one
+        // frame shared with every client.
+        let (w0, reply_slot, w1, badge) = recv_cap_badged(FILE);
+        let win = window_base(badge);
         let handle = fs::req_handle(w0) as u32;
         // **Two clamps, and which one a verb gets is the compatibility property** (milestone 138
         // step 3). The channel is `fs::TRANSFER_MAX` bytes now, but a client maps only as much of
@@ -398,7 +436,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             // bound directory, which is what every client that predates directory handles sends.
             fs::OPEN => {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(len) };
+                let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
                     Ok(name) => server.open_file_at(handle, name).map(|h| h as i64),
                     Err(_) => Err(Error::new(EINVAL)),
@@ -406,13 +444,13 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             }
             fs::READ => {
                 // SAFETY: read straight into the shared channel, up to the whole of it.
-                let buf = unsafe { file_page(bulk_len) };
+                let buf = unsafe { file_page(win, bulk_len) };
                 server.read(handle, offset, buf).map(|n| n as i64)
             }
             fs::WRITE => {
                 inject::note_write(); // milestone 37: arm the crash if this is the named request
                 // SAFETY: the data is `bulk_len` bytes the client wrote into the shared channel.
-                let data = unsafe { file_page(bulk_len) };
+                let data = unsafe { file_page(win, bulk_len) };
                 server.write(handle, offset, data).map(|n| n as i64)
             }
             fs::FSTAT => server.fstat(handle).map(|s| s as i64),
@@ -421,7 +459,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 // Same shape as OPEN, deliberately: the name is `len` bytes at the start of the
                 // shared page, and the reply is a handle. A client that can open can create.
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(len) };
+                let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
                     Ok(name) => server.create_file_at(handle, name).map(|h| h as i64),
                     Err(_) => Err(Error::new(EINVAL)),
@@ -435,7 +473,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             // refuses if the answer is smaller than the request.
             fs::OPENDIR | fs::MKDIR => {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(len) };
+                let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
                     Ok(name) if op(w0) == fs::OPENDIR => {
                         server.open_dir(handle, name, offset).map(|h| h as i64)
@@ -449,7 +487,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             // The listing goes into the shared page and `r0` says how much of it was filled.
             fs::READDIR => {
                 // SAFETY: the whole page is ours to fill; the encoder never writes past its slice.
-                let buf = unsafe { file_page(BLOCK) };
+                let buf = unsafe { file_page(win, BLOCK) };
                 server
                     .read_dir(handle, offset as u32, buf)
                     .map(|n| n as i64)
@@ -465,7 +503,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 } else {
                     // SAFETY: both names are the client's bytes at the start of FILE_PAGE, and the
                     // sum is checked against the page above.
-                    let (src, dst) = unsafe { file_page(len + dst_len) }.split_at(len);
+                    let (src, dst) = unsafe { file_page(win, len + dst_len) }.split_at(len);
                     match (core::str::from_utf8(src), core::str::from_utf8(dst)) {
                         (Ok(src), Ok(dst)) => server
                             .rename(handle, src, fs::dst_handle(offset) as u32, dst)
@@ -482,7 +520,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             // a non-empty one, and neither spelling removes whatever it finds.
             fs::UNLINK | fs::RMDIR => {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(len) };
+                let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
                     Ok(name) if op(w0) == fs::UNLINK => server.unlink(handle, name).map(|()| 0),
                     Ok(name) => server.rmdir(handle, name).map(|()| 0),
@@ -502,10 +540,10 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                     Err(Error::new(xattr::ERANGE))
                 } else {
                     // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                    name[..len].copy_from_slice(unsafe { file_page(len) });
+                    name[..len].copy_from_slice(unsafe { file_page(win, len) });
                     // SAFETY: the whole page is ours to fill, and the server refuses a value that
                     // will not fit rather than writing past it.
-                    let out = unsafe { file_page(BLOCK) };
+                    let out = unsafe { file_page(win, BLOCK) };
                     server
                         .get_xattr(handle, &name[..len], out)
                         .map(|(kind, n)| xattr::reply(kind, n))
@@ -522,7 +560,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 } else {
                     // SAFETY: both payloads are the client's bytes at the start of FILE_PAGE, and
                     // the sum is checked against the page above.
-                    let (name, value) = unsafe { file_page(len + value_len) }.split_at(len);
+                    let (name, value) = unsafe { file_page(win, len + value_len) }.split_at(len);
                     server
                         .set_xattr(handle, name, xattr::spec_kind(offset), value)
                         .map(|()| 0)
@@ -530,12 +568,12 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             }
             fs::LISTXATTR => {
                 // SAFETY: the whole page is ours to fill; the encoder never writes past its slice.
-                let buf = unsafe { file_page(BLOCK) };
+                let buf = unsafe { file_page(win, BLOCK) };
                 server.list_xattr(handle, buf).map(|n| n as i64)
             }
             fs::REMOVEXATTR => {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name = unsafe { file_page(len) };
+                let name = unsafe { file_page(win, len) };
                 server.remove_xattr(handle, name).map(|()| 0)
             }
             // The new size rides in the second word, NOT in the length field, because it is an
@@ -556,7 +594,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             fs::SYNC => server.sync_permitted(handle).map(|()| IpcDisk::sync()),
             fs::STATFS => server.statfs(handle).and_then(|(block, total, free)| {
                 // SAFETY: the whole page is ours to fill; the encoder never writes past its slice.
-                let buf = unsafe { file_page(BLOCK) };
+                let buf = unsafe { file_page(win, BLOCK) };
                 filesystem_protocol::statfs::encode(buf, block, total, free)
                     .map(|n| n as i64)
                     .ok_or(Error::new(EINVAL))
@@ -568,7 +606,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             // arm is only where the page is cut up, [`fs::GETXATTR`]'s boundary.
             fs::GETMTIME => {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(len) };
+                let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
                     Ok(name) => server.mtime(handle, name).map(|t| t as i64),
                     Err(_) => Err(Error::new(EINVAL)),
@@ -576,7 +614,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             }
             fs::SETMTIME => {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(len) };
+                let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
                     Ok(name) => server.set_mtime_now(handle, name).map(|()| 0),
                     Err(_) => Err(Error::new(EINVAL)),
@@ -587,7 +625,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
             // nonsensical range if it rode in the length field instead.
             fs::SETMTIME_AT => {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(len) };
+                let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
                     Ok(name) => server.set_mtime_at(handle, name, offset).map(|()| 0),
                     Err(_) => Err(Error::new(EINVAL)),

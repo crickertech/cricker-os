@@ -3887,6 +3887,16 @@ mod rm_program_tests;
 #[cfg(all(test, initrd))]
 mod glob_grant_tests;
 
+/// **The shared-frame witness** (milestone 599 (a frame per filesystem client channel),
+/// provisional): two live clients on one file service, one rewriting the other's name mid-request.
+///
+/// One module for both ISAs, for [`dir_capability_tests`]'s reason: nothing here is
+/// architecture-specific, so the parity gate (DECISIONS §19) is met by the same test running on
+/// every architecture `script/test` boots. It builds finding 1 of `notes/shared-page-audit.md` (the
+/// escape the set grant at the prompt would make live) and asserts the per-client windows close it.
+#[cfg(all(test, initrd))]
+mod fs_shared_page_tests;
+
 /// Parity C: the virtio-blk driver, its two attackers, and the DMA confinement, on RISC-V.
 ///
 /// These are the riscv twins of the three disk tests in the aarch64 module above, separate

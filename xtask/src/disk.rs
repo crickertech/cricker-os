@@ -169,6 +169,27 @@ pub(crate) fn mkredoxfs() -> bool {
     }
     let motd = motd.display().to_string();
     let scratch = scratch.display().to_string();
+    // The shared-frame witness's two files (milestone 599 (a frame per filesystem client channel), provisional): same-length names, distinct
+    // bodies, so a name substituted in the shared page shows up as the wrong body. Staged the same
+    // way motd is, from the shared `filesystem_protocol::fixture` constants.
+    let witness_victim = workspace_root().join("target/redoxfs-witness-victim.tmp");
+    let witness_usurper = workspace_root().join("target/redoxfs-witness-usurper.tmp");
+    if std::fs::write(
+        &witness_victim,
+        filesystem_protocol::fixture::SHARED_VICTIM_BODY,
+    )
+    .is_err()
+        || std::fs::write(
+            &witness_usurper,
+            filesystem_protocol::fixture::SHARED_USURPER_BODY,
+        )
+        .is_err()
+    {
+        eprintln!("mkredoxfs: cannot stage the shared-frame witness files");
+        return false;
+    }
+    let witness_victim = witness_victim.display().to_string();
+    let witness_usurper = witness_usurper.display().to_string();
     let Some(tree) = stage_subtree() else {
         return false;
     };
@@ -179,6 +200,18 @@ pub(crate) fn mkredoxfs() -> bool {
             &img,
             filesystem_protocol::fixture::SCRATCH_NAME,
             &scratch,
+        ])
+        && redoxfs_host(&[
+            "put",
+            &img,
+            filesystem_protocol::fixture::SHARED_VICTIM_NAME,
+            &witness_victim,
+        ])
+        && redoxfs_host(&[
+            "put",
+            &img,
+            filesystem_protocol::fixture::SHARED_USURPER_NAME,
+            &witness_usurper,
         ])
         && doc_store().is_some()
         && redoxfs_host(&["import", &img, &tree])
