@@ -50,6 +50,13 @@ extern crate alloc;
 #[cfg(feature = "hosttest")]
 pub mod crash;
 
+// Milestone 606 (a directory walk costs what it does on Linux)'s instrument: the walk `std` sends,
+// replayed against the core with the device reads counted. Host-only for the same reason.
+#[cfg(feature = "hosttest")]
+pub mod walk_model;
+
+mod memo;
+
 use alloc::vec::Vec;
 
 use filesystem_protocol::dir::{self, Rights};
@@ -58,6 +65,8 @@ use redoxfs::{Disk, FileSystem, Node, Transaction, TreePtr};
 use syscall::error::{
     EBADF, EEXIST, EINVAL, EIO, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, EROFS, Error, Result,
 };
+
+use crate::memo::Memo;
 
 /// What one handle names, and what may be done through it.
 ///
@@ -91,6 +100,10 @@ pub struct Server<D: Disk> {
     /// mtime deterministically. The server has no RTC; the value only needs to move forward, and the
     /// host tests assert on file *contents*, not timestamps.
     clock: u64,
+    /// Listings and small files, remembered until something changes them (milestone 606). Only
+    /// [`Server::look`], [`Server::change`] and [`Server::change_file`] open a transaction, and
+    /// the last two are what keep this honest; `memo.rs` has the rule.
+    memo: Memo,
 }
 
 impl<D: Disk> Server<D> {
@@ -121,6 +134,7 @@ impl<D: Disk> Server<D> {
             // only caller.
             handles: alloc::vec![Some(Entry::Dir(TreePtr::root(), Rights::root(dir::ALL)))],
             clock: 1,
+            memo: Memo::default(),
         })
     }
 
@@ -148,17 +162,31 @@ impl<D: Disk> Server<D> {
         if rights.denies_all(dir::READ | dir::WRITE) {
             return Err(Error::new(syscall::error::ENOENT));
         }
-        let ptr = self.fs.tx(|tx| {
-            let node = tx.find_node(parent, name)?;
-            if node.data().is_dir() {
-                return Err(Error::new(EISDIR));
+        let ptr = match self.memo.lookup(parent, name) {
+            Some(Some((_, true))) => return Err(Error::new(EISDIR)),
+            Some(Some((ptr, false))) => ptr,
+            Some(None) => return Err(Error::new(ENOENT)),
+            None => {
+                let node = self.look(|tx| tx.find_node(parent, name))?;
+                self.memo
+                    .keep_found(parent, name, node.ptr(), node.data().is_dir());
+                if node.data().is_dir() {
+                    return Err(Error::new(EISDIR));
+                }
+                node.ptr()
             }
-            // Register the node as open with the engine's usage table. This is what makes
-            // `unlink` an unlink: without it, removing the last name frees the node immediately and
-            // this handle would then read a deallocated one. See `Server::unlink`.
-            tx.on_open_node(node.ptr())?;
-            Ok(node.ptr())
-        })?;
+        };
+        // Register the node as open with the engine's usage table. This is what makes `unlink` an
+        // unlink: without it, removing the last name frees the node immediately and this handle
+        // would then read a deallocated one. See `Server::unlink`.
+        //
+        // **Done here rather than by `Transaction::on_open_node`**, which is these three lines
+        // inside a transaction, and opening a transaction clones the engine's whole allocator: that
+        // clone was most of the server's remaining time per request once the memo answered the
+        // lookup (milestone 606, `examples/walk_replay.rs`). The table is the engine's own public
+        // field and nothing else about the open touches the image.
+        let uses = self.fs.node_usages.entry(ptr.id()).or_insert(0);
+        *uses = uses.checked_add(1).ok_or(Error::new(EINVAL))?;
         Ok(self.install(Entry::File(ptr, rights.attenuate(dir::READ | dir::WRITE))))
     }
 
@@ -205,7 +233,7 @@ impl<D: Disk> Server<D> {
         }
         self.clock += 1;
         let now = self.clock;
-        let node = self.fs.tx(|tx| {
+        let node = self.change(|tx| {
             if tx.find_node(parent, name).is_ok() {
                 return Err(Error::new(EEXIST));
             }
@@ -224,54 +252,28 @@ impl<D: Disk> Server<D> {
     /// loudly instead of degrading into a plausible lie.
     ///
     /// Entries are sorted by name so the cursor means the same thing across calls. **The honest
-    /// caveat**: the directory is re-read per call, so a name added or removed between two calls of
-    /// one walk can be seen twice or missed. That is readdir's usual caveat and it is recorded
-    /// rather than fixed, because fixing it means holding a snapshot per client and this table is
-    /// not per client.
+    /// caveat**: a name added or removed between two calls of one walk can be seen twice or
+    /// missed. That is readdir's usual caveat and it is recorded rather than fixed, because fixing
+    /// it means holding a snapshot per client and this table is not per client. Since milestone
+    /// 606 the listing is memoized until the next namespace change, so between changes every page
+    /// comes from one listing.
     ///
     /// # BUGS
     ///
-    /// - **Every entry costs a node read**, because the record carries
-    ///   [`filesystem_protocol::dirent::IS_DIR`] and a RedoxFS directory entry does not store the
-    ///   child's type: `read_tree` of each child is how this learns it. Measured by milestone 121
-    ///   (`ripgrep` on nife: enumeration as a capability) on 2026-09-26: listing 128 files costs
-    ///   43 to 85 us per entry under HVF, the largest per-unit cost in a walk, and more children
-    ///   than `CachedDisk` holds make it a block read each. notes/walk-pricing.md has the figures.
-    ///   Not fixed there: whether to drop the bit, cache node types or change the format is a
-    ///   choice about the contract, and the measurement came first.
+    /// - **The first listing of a directory costs a node read per entry**; [`list`] says why. It is
+    ///   paid once per directory per namespace change, not once per page.
     pub fn read_dir(&mut self, handle: u32, cursor: u32, out: &mut [u8]) -> Result<usize> {
         let (ptr, rights) = self.dir_at(handle)?;
         if !rights.allows(dir::ENUMERATE) {
             return Err(Error::new(EPERM));
         }
-        self.fs.tx(|tx| {
-            let mut children = Vec::new();
-            tx.child_nodes(ptr, &mut children)?;
-            // **The attribute store is not part of the namespace** (milestone 57). Filtered here,
-            // before the cursor is applied, so the cursor still counts what the client can see; a
-            // filter applied after `skip` would make one entry vanish at whichever offset the store
-            // happened to sort to. `check_component` refuses the name on the way in, so this is the
-            // other half of the same rule rather than a second one.
-            children.retain(|e| e.name() != Some(xattr::STORE_DIR));
-            children.sort_unstable_by(|a, b| a.name().unwrap_or("").cmp(b.name().unwrap_or("")));
-            let mut used = 0;
-            for entry in children.iter().skip(cursor as usize) {
-                let Some(name) = entry.name() else { continue };
-                let child: redoxfs::TreeData<Node> = tx.read_tree(entry.node_ptr())?;
-                match filesystem_protocol::dirent::encode(
-                    &mut out[used..],
-                    name.as_bytes(),
-                    child.data().is_dir(),
-                ) {
-                    Some(n) => used += n,
-                    // A record is never split: stop before one that will not fit and let the
-                    // caller's next cursor start here. That is what makes "the buffer filled" and
-                    // "the directory ended" distinguishable rather than a guess.
-                    None => break,
-                }
-            }
-            Ok(used)
-        })
+        if let Some(listing) = self.memo.listing(ptr) {
+            return Ok(encode_listing(listing, cursor, out));
+        }
+        let listing = self.look(|tx| list(tx, ptr))?;
+        let used = encode_listing(&listing, cursor, out);
+        self.memo.keep_listing(ptr, listing);
+        Ok(used)
     }
 
     /// Read up to `buf.len()` bytes from `handle` at `offset`, returning the count (0 at EOF). Passes
@@ -282,7 +284,30 @@ impl<D: Disk> Server<D> {
     /// write-only descriptor and is a fact about the handle rather than a policy about the file.
     pub fn read(&mut self, handle: u32, offset: u64, buf: &mut [u8]) -> Result<usize> {
         let ptr = self.file_at(handle, dir::READ, EBADF)?;
-        self.fs.tx(|tx| tx.read_node(ptr, offset, buf, 0, 0))
+        if self.memo.file(ptr).is_none() && !self.memo.is_large(ptr) {
+            // First read of this file since anything changed: a small one is read whole, once.
+            let body = self.look(|tx| {
+                let size = tx.read_tree(ptr)?.data().size();
+                if !Memo::would_keep(size) {
+                    return Ok(None);
+                }
+                let mut body = alloc::vec![0u8; size as usize];
+                let n = tx.read_node(ptr, 0, &mut body, 0, 0)?;
+                body.truncate(n);
+                Ok(Some(body))
+            })?;
+            match body {
+                Some(body) => self.memo.keep_file(ptr, body),
+                None => self.memo.mark_large(ptr),
+            }
+        }
+        if let Some(body) = self.memo.file(ptr) {
+            let start = (offset as usize).min(body.len());
+            let n = (body.len() - start).min(buf.len());
+            buf[..n].copy_from_slice(&body[start..start + n]);
+            return Ok(n);
+        }
+        self.look(|tx| tx.read_node(ptr, offset, buf, 0, 0))
     }
 
     /// Write `data` to `handle` at `offset`, returning the count. Advances the internal clock so the
@@ -295,14 +320,17 @@ impl<D: Disk> Server<D> {
         let ptr = self.file_at(handle, dir::WRITE, EROFS)?;
         self.clock += 1;
         let now = self.clock;
-        self.fs.tx(|tx| tx.write_node(ptr, offset, data, now, 0))
+        self.change_file(ptr, |tx| tx.write_node(ptr, offset, data, now, 0))
     }
 
     /// The current size, in bytes, of the file a handle names. Allowed through any file handle: a
     /// holder that may write but not read still has to be able to find the end.
     pub fn fstat(&mut self, handle: u32) -> Result<u64> {
         let ptr = self.file_at(handle, 0, EBADF)?;
-        self.fs.tx(|tx| Ok(tx.read_tree(ptr)?.data().size()))
+        if let Some(body) = self.memo.file(ptr) {
+            return Ok(body.len() as u64);
+        }
+        self.look(|tx| Ok(tx.read_tree(ptr)?.data().size()))
     }
 
     /// Create `name` under the bound directory and return a handle for it (milestone 31 phase 2).
@@ -332,7 +360,7 @@ impl<D: Disk> Server<D> {
         // one name cannot both be told they created it.
         self.clock += 1;
         let now = self.clock;
-        let ptr = self.fs.tx(|tx| {
+        let ptr = self.change(|tx| {
             if tx.find_node(parent, name).is_ok() {
                 return Err(Error::new(EEXIST));
             }
@@ -366,7 +394,7 @@ impl<D: Disk> Server<D> {
         let ptr = self.file_at(handle, dir::WRITE, EROFS)?;
         self.clock += 1;
         let now = self.clock;
-        self.fs.tx(|tx| tx.truncate_node(ptr, size, now, 0))
+        self.change_file(ptr, |tx| tx.truncate_node(ptr, size, now, 0))
     }
 
     /// **Move `src` under the directory `src_dir` names to `dst` under the directory `dst_dir`
@@ -413,7 +441,7 @@ impl<D: Disk> Server<D> {
             return Err(Error::new(EROFS));
         }
         let same_dir = src_parent.id() == dst_parent.id();
-        self.fs.tx(|tx| {
+        self.change(|tx| {
             let node = tx.find_node(src_parent, src)?;
             if node.data().is_dir() && !same_dir {
                 return Err(Error::new(EINVAL));
@@ -494,7 +522,7 @@ impl<D: Disk> Server<D> {
         // asks the engine rather than guessing, and it happens inside the same transaction as the
         // removal: a crash cannot leave a freed node's attributes behind for the next node to
         // inherit that id (milestone 57, DECISIONS §34).
-        self.fs.tx(|tx| {
+        self.change(|tx| {
             if let Some(id) = tx.remove_node(parent, name, Node::MODE_FILE)? {
                 purge_attrs(tx, id)?;
             }
@@ -544,7 +572,7 @@ impl<D: Disk> Server<D> {
         //
         // A directory carries extended attributes exactly as a file does, so it is purged exactly as
         // a file is. See [`Server::unlink`] for why the engine's `Some(id)` is what decides it.
-        self.fs.tx(|tx| {
+        self.change(|tx| {
             if let Some(id) = tx.remove_node(parent, name, Node::MODE_DIR)? {
                 purge_attrs(tx, id)?;
             }
@@ -575,7 +603,7 @@ impl<D: Disk> Server<D> {
         if !rights.allows(dir::READ) {
             return Err(Error::new(ENOENT));
         }
-        let node = self.fs.tx(|tx| tx.find_node(parent, name))?;
+        let node = self.look(|tx| tx.find_node(parent, name))?;
         Ok(node.data().mtime().0)
     }
 
@@ -601,7 +629,7 @@ impl<D: Disk> Server<D> {
         }
         self.clock += 1;
         let now = self.clock;
-        self.fs.tx(|tx| {
+        self.change(|tx| {
             let mut node = tx.find_node(parent, name)?;
             node.data_mut().set_mtime(now, 0);
             tx.sync_tree(node)
@@ -624,7 +652,7 @@ impl<D: Disk> Server<D> {
         if !rights.allows(dir::WRITE | dir::SETTIME) {
             return Err(Error::new(EROFS));
         }
-        self.fs.tx(|tx| {
+        self.change(|tx| {
             let mut node = tx.find_node(parent, name)?;
             node.data_mut().set_mtime(seconds, 0);
             tx.sync_tree(node)
@@ -654,7 +682,7 @@ impl<D: Disk> Server<D> {
             return Err(Error::new(xattr::ERANGE));
         }
         let ptr = self.node_at(handle, dir::READ, EBADF)?;
-        self.fs.tx(|tx| {
+        self.look(|tx| {
             let blob = read_attrs(tx, ptr.id())?;
             let (kind, value) = xattr::store::get(&blob, name).ok_or(Error::new(xattr::ENODATA))?;
             if out.len() < value.len() {
@@ -690,7 +718,7 @@ impl<D: Disk> Server<D> {
         let ptr = self.node_at(handle, dir::WRITE, EROFS)?;
         self.clock += 1;
         let now = self.clock;
-        self.fs.tx(|tx| {
+        self.change(|tx| {
             let blob = read_attrs(tx, ptr.id())?;
             // Replacing can only shrink, so the old blob plus one whole new record is always enough
             // and `store::set` never has to refuse for want of room.
@@ -724,12 +752,19 @@ impl<D: Disk> Server<D> {
         let ptr = self.node_at(handle, dir::WRITE, EROFS)?;
         self.clock += 1;
         let now = self.clock;
-        self.fs.tx(|tx| {
+        self.change(|tx| {
             let blob = read_attrs(tx, ptr.id())?;
             let mut out = alloc::vec![0u8; blob.len()];
             let n = xattr::store::remove(&blob, name, &mut out).map_err(Error::new)?;
             write_attrs(tx, ptr.id(), &out[..n], now)
         })
+    }
+
+    /// The disk under the filesystem, for a host test that counts what reached it
+    /// (`walk_model::Counting`). The serve loop never needs it.
+    #[cfg(feature = "hosttest")]
+    pub fn disk_mut(&mut self) -> &mut D {
+        &mut self.fs.disk
     }
 
     /// Take the disk back out of the server, **dropping the mount without unmounting**, which is
@@ -756,7 +791,25 @@ impl<D: Disk> Server<D> {
         let entry = self.entry(handle)?;
         self.handles[handle as usize] = None;
         if let Entry::File(ptr, _) = entry {
-            self.fs.tx(|tx| tx.on_close_node(ptr))?;
+            // **The one transaction outside `look`/`change`, and why the memo survives it.**
+            // Closing the last handle to an unlinked file frees its node, which is a change, but
+            // not one the memo can observe: the unlink already forgot every listing, no handle
+            // names the node once this returns, and its id can only be reused by a verb that
+            // creates a node, which goes through `change` and forgets everything. Forgetting the
+            // file's bytes here instead would make every walk re-read every file it just read.
+            //
+            // `Transaction::on_close_node` without the transaction when it has nothing to do, for
+            // the reason `open_file_at` gives: drop the use; a node still in use, or one never
+            // registered, is done. Otherwise the engine's own call runs, and it has something to
+            // do only if the release list (nodes unlinked while open) is non-empty.
+            match self.fs.node_usages.get_mut(&ptr.id()) {
+                Some(uses) if *uses > 1 => *uses -= 1,
+                Some(_) if self.fs.header.release.is_null() => {
+                    self.fs.node_usages.remove(&ptr.id());
+                }
+                Some(_) => self.fs.tx(|tx| tx.on_close_node(ptr))?,
+                None => {}
+            }
         }
         Ok(())
     }
@@ -888,12 +941,102 @@ impl<D: Disk> Server<D> {
         if !rights.allows(needed) {
             return Err(Error::new(syscall::error::ENOENT));
         }
-        let node = self.fs.tx(|tx| tx.find_node(parent, name))?;
-        if !node.data().is_dir() {
+        let (ptr, is_dir) = match self.memo.lookup(parent, name) {
+            Some(Some(found)) => found,
+            Some(None) => return Err(Error::new(ENOENT)),
+            None => {
+                let node = self.look(|tx| tx.find_node(parent, name))?;
+                self.memo
+                    .keep_found(parent, name, node.ptr(), node.data().is_dir());
+                (node.ptr(), node.data().is_dir())
+            }
+        };
+        if !is_dir {
             return Err(Error::new(ENOTDIR));
         }
-        Ok((node.ptr(), rights))
+        Ok((ptr, rights))
     }
+
+    /// **A transaction that changes nothing**: every read-only verb's way in. RedoxFS commits a
+    /// transaction that wrote nothing as a no-op, so this costs no device write.
+    fn look<T>(&mut self, f: impl FnOnce(&mut Transaction<D>) -> Result<T>) -> Result<T> {
+        self.fs.tx(f)
+    }
+
+    /// **A transaction that changes the namespace or a node**: every mutating verb's way in, and
+    /// the reason [`Memo`] is never stale. It forgets everything first; forgetting is always safe,
+    /// so it does not matter whether the change then succeeds.
+    fn change<T>(&mut self, f: impl FnOnce(&mut Transaction<D>) -> Result<T>) -> Result<T> {
+        self.memo.forget();
+        self.fs.tx(f)
+    }
+
+    /// [`Server::change`] for a change to one file's bytes, which no listing depends on.
+    fn change_file<T>(
+        &mut self,
+        ptr: TreePtr<Node>,
+        f: impl FnOnce(&mut Transaction<D>) -> Result<T>,
+    ) -> Result<T> {
+        self.memo.forget_file(ptr);
+        self.fs.tx(f)
+    }
+}
+
+/// **A directory's listing as `READDIR` sends it**: every child but the attribute store, sorted by
+/// name so a cursor means the same thing across calls, each with its node and whether it is a
+/// directory.
+///
+/// # BUGS
+///
+/// - **Every child costs a node read**, because the record carries
+///   [`filesystem_protocol::dirent::IS_DIR`] and a RedoxFS directory entry does not store the
+///   child's type: `read_tree` of each child is how this learns it. Measured by milestone 121
+///   (`ripgrep` on nife: enumeration as a capability) on 2026-09-26: listing 128 files cost 43 to
+///   85 us per entry under HVF. Since milestone 606 the listing is memoized ([`Memo`]), so the
+///   cost is paid once per directory until something changes, not once per listing.
+fn list<D: Disk>(tx: &mut Transaction<D>, dir: TreePtr<Node>) -> Result<Vec<memo::Child>> {
+    let mut children = Vec::new();
+    tx.child_nodes(dir, &mut children)?;
+    // **The attribute store is not part of the namespace** (milestone 57 (extended attributes)).
+    // Filtered here, before
+    // any cursor is applied, so the cursor still counts what the client can see; a filter applied
+    // after `skip` would make one entry vanish at whichever offset the store happened to sort to.
+    // `check_component` refuses the name on the way in, so this is the other half of the same rule
+    // rather than a second one.
+    let mut out = Vec::with_capacity(children.len());
+    for entry in &children {
+        let Some(name) = entry.name() else { continue };
+        if name == xattr::STORE_DIR {
+            continue;
+        }
+        let child: redoxfs::TreeData<Node> = tx.read_tree(entry.node_ptr())?;
+        out.push(memo::Child {
+            name: name.into(),
+            ptr: entry.node_ptr(),
+            is_dir: child.data().is_dir(),
+        });
+    }
+    out.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+    Ok(out)
+}
+
+/// Fill `out` with `listing`'s records from `cursor` on, and return the bytes used.
+fn encode_listing(listing: &[memo::Child], cursor: u32, out: &mut [u8]) -> usize {
+    let mut used = 0;
+    for child in listing.iter().skip(cursor as usize) {
+        match filesystem_protocol::dirent::encode(
+            &mut out[used..],
+            child.name.as_bytes(),
+            child.is_dir,
+        ) {
+            Some(n) => used += n,
+            // A record is never split: stop before one that will not fit and let the caller's next
+            // cursor start here. That is what makes "the buffer filled" and "the directory ended"
+            // distinguishable rather than a guess.
+            None => break,
+        }
+    }
+    used
 }
 
 /// Reject anything that is not a single path component, with `EINVAL`.
@@ -1079,6 +1222,18 @@ fn drop_store_if_empty<D: Disk>(tx: &mut Transaction<D>) -> Result<()> {
 /// One filesystem block, in bytes (RedoxFS's `BLOCK_SIZE`): the unit [`BlockIo`] transfers.
 pub const BLOCK: usize = 4096;
 
+/// **How many blocks [`CachedDisk`] holds in the EL0 server**, here rather than in the binary so a
+/// host test measures the cache the device runs.
+///
+/// 256 blocks, 1 MiB at most, allocated as they fill. Milestone 138 (close the read gap) chose 64
+/// for one open file's
+/// five-block tree spine. Milestone 606 (a directory walk costs what it does on Linux) measured a
+/// walk (`examples/walk_replay.rs`, the walk
+/// fixture): after a namespace change forgets the memo (`memo.rs`), the next walk went to the device 372
+/// times at 64 slots, 212 at 128, 71 at 192 and 2 at 256, because the tree's metadata working set
+/// is 207 blocks. A larger tree wants more; this is the smallest size that holds the one we price.
+pub const CACHE_SLOTS: usize = 256;
+
 /// **The one place in this tree that sees both the wire protocol and the store**, which is what
 /// makes the two assertions below possible at all: `filesystem_protocol` deliberately depends on nothing, and
 /// the vendored engine has never heard of it. Milestone 138 wrote them because it moved the record
@@ -1174,20 +1329,25 @@ impl<T: BlockIo> Disk for BlockDisk<T> {
 /// **Why this and not an LRU.** An LRU would hit more often at the same slot count, at the cost of
 /// bookkeeping (a recency list, a pointer to update on every hit) this cache does not need to be
 /// correct: [`BlockCache::get`] and [`BlockCache::insert`] are each one array index and one
-/// comparison. The working set this cache exists for is small and stable rather than large and
-/// shifting: one open file's tree spine is five blocks, so a capacity a few times that comfortably
-/// holds it without needing to rank which block is "least recently used", and the fewer-moving-parts
-/// option wins when it costs nothing to reach.
+/// comparison. The fewer-moving-parts option wins while it costs nothing measurable: at
+/// [`CACHE_SLOTS`] the walk fixture's whole metadata working set (207 blocks) stays resident.
+///
+/// **A slot's 4 KiB is allocated the first time something lands in it** (milestone 606). The cache
+/// is sized for the ordinary server's 8 MiB heap, and the crash test's servers run on 2 MiB and
+/// touch a few dozen blocks; allocating on use lets one constant serve both, because what a server
+/// pays is what it touched, never more than `capacity` blocks.
 struct BlockCache {
-    slots: Vec<Option<(u64, [u8; BLOCK])>>,
+    slots: Vec<Option<alloc::boxed::Box<Slot>>>,
 }
 
+/// One cached block: its number and its bytes.
+type Slot = (u64, [u8; BLOCK]);
+
 impl BlockCache {
-    /// `capacity` slots, empty. `capacity` must be at least 1; the caller picks it against a
-    /// process's own heap budget, which this type has no way to see.
+    /// `capacity` slots, none of them allocated. `capacity` must be at least 1.
     fn new(capacity: usize) -> Self {
         let mut slots = Vec::with_capacity(capacity);
-        slots.resize(capacity, None);
+        slots.resize_with(capacity, || None);
         Self { slots }
     }
 
@@ -1198,7 +1358,7 @@ impl BlockCache {
     /// The cached bytes for `block`, or `None` on a miss (never cached, or evicted by a collision).
     fn get(&self, block: u64) -> Option<&[u8; BLOCK]> {
         match &self.slots[self.slot(block)] {
-            Some((b, data)) if *b == block => Some(data),
+            Some(entry) if entry.0 == block => Some(&entry.1),
             _ => None,
         }
     }
@@ -1207,17 +1367,28 @@ impl BlockCache {
     /// or a different block's to evict). `data` must be exactly [`BLOCK`] bytes.
     fn insert(&mut self, block: u64, data: &[u8]) {
         let i = self.slot(block);
-        let mut arr = [0u8; BLOCK];
-        arr.copy_from_slice(data);
-        self.slots[i] = Some((block, arr));
+        match &mut self.slots[i] {
+            Some(entry) => {
+                entry.0 = block;
+                entry.1.copy_from_slice(data);
+            }
+            empty => {
+                let mut entry = alloc::boxed::Box::new((block, [0u8; BLOCK]));
+                entry.1.copy_from_slice(data);
+                *empty = Some(entry);
+            }
+        }
     }
 
     /// Drop `block`'s entry if it is the one occupying its slot. A no-op if the slot holds a
-    /// different block (already evicted) or nothing.
+    /// different block (already evicted) or nothing. The allocation is kept for the next insert.
     fn invalidate(&mut self, block: u64) {
         let i = self.slot(block);
-        if matches!(&self.slots[i], Some((b, _)) if *b == block) {
-            self.slots[i] = None;
+        if let Some(entry) = &mut self.slots[i]
+            && entry.0 == block
+        {
+            // `u64::MAX` is no block this disk has, so the slot now answers every `get` with a miss.
+            entry.0 = u64::MAX;
         }
     }
 }
@@ -1258,12 +1429,30 @@ impl BlockCache {
 /// change without this type observing it and updating or invalidating the entry in the same call.
 /// This is the property that makes a bare write-through cache correct here without a generation
 /// counter or a fencing scheme: one process, one `Disk` impl, every write funnelled through it.
+/// **Whether `block` is one [`CachedDisk`] keeps** (milestone 606): everything but the header ring.
+///
+/// The ring's 256 blocks are read once, all of them, when the image is mounted, and after that
+/// only written, one per commit. Caching them bought nothing and cost the whole cache: at mount
+/// they filled every slot they mapped to, and a 256-slot cache on a 2 MiB crash-test server would
+/// have spent half its heap on blocks nobody reads again. RedoxFS puts the ring at the start of
+/// the filesystem, and this server opens images whose filesystem starts at block 0
+/// (`FileSystem::open(disk, None, ..)`), so the ring is blocks `0..HEADER_RING`.
+fn cacheable(block: u64) -> bool {
+    block >= redoxfs::HEADER_RING
+}
+
 pub struct CachedDisk<D> {
     inner: D,
     cache: BlockCache,
 }
 
 impl<D> CachedDisk<D> {
+    /// The disk this wraps, so a host test can read a counter below the cache.
+    #[cfg(feature = "hosttest")]
+    pub fn inner(&self) -> &D {
+        &self.inner
+    }
+
     /// Wrap `inner`, caching up to `capacity` distinct single-block reads. `capacity` is the
     /// caller's call, against its own heap budget: milestone 37's crash-test FS servers run a
     /// fraction of the ordinary heap and must pick a smaller number than the ordinary server does.
@@ -1277,7 +1466,7 @@ impl<D> CachedDisk<D> {
 
 impl<D: Disk> Disk for CachedDisk<D> {
     unsafe fn read_at(&mut self, block: u64, buffer: &mut [u8]) -> Result<usize> {
-        if buffer.len() == BLOCK {
+        if buffer.len() == BLOCK && cacheable(block) {
             if let Some(cached) = self.cache.get(block) {
                 buffer.copy_from_slice(cached);
                 return Ok(BLOCK);
@@ -1304,7 +1493,9 @@ impl<D: Disk> Disk for CachedDisk<D> {
         let mut b = block;
         while off < n {
             let chunk = (n - off).min(BLOCK);
-            if chunk == BLOCK {
+            if !cacheable(b) {
+                // A header-ring block: never cached, so there is nothing to keep fresh.
+            } else if chunk == BLOCK {
                 self.cache.insert(b, &buffer[off..off + BLOCK]);
             } else {
                 // A short final chunk: the whole-block bytes that actually landed are a merge
@@ -1814,6 +2005,160 @@ mod tests {
             }
         }
         panic!("read_dir never reported the end of the directory");
+    }
+
+    /// The names in a listing, for the memo tests below.
+    fn names(srv: &mut Server<DiskMemory>, handle: u32) -> Vec<(String, bool)> {
+        list(srv, handle, 4096).expect("list")
+    }
+
+    /// **Every namespace change is visible to the next listing and the next lookup** (milestone
+    /// 606). The listing is memoized after the first `READDIR`, so each step below lists and looks
+    /// up once to fill the memo, changes the namespace, and checks that neither answer is stale.
+    #[test]
+    fn a_memoized_listing_follows_every_namespace_change() {
+        let root = filesystem_protocol::fs::ROOT as u32;
+        let mut srv = server_with(&[("a", b"alpha")]);
+        assert_eq!(names(&mut srv, root), [("a".into(), false)]);
+
+        let h = srv.create_file_at(root, "b").unwrap();
+        srv.close(h).unwrap();
+        assert_eq!(
+            names(&mut srv, root),
+            [("a".into(), false), ("b".into(), false)]
+        );
+        let h = srv.open_file_at(root, "b").expect("a created name opens");
+        srv.close(h).unwrap();
+
+        let d = srv.make_dir(root, "d", dir::ALL).unwrap();
+        srv.close(d).unwrap();
+        assert!(names(&mut srv, root).contains(&("d".into(), true)));
+        let d = srv
+            .open_dir(root, "d", dir::ALL)
+            .expect("a made directory opens");
+        srv.close(d).unwrap();
+
+        srv.rename(root, "b", root, "c").unwrap();
+        let after = names(&mut srv, root);
+        assert!(after.contains(&("c".into(), false)) && !after.iter().any(|(n, _)| n == "b"));
+        assert_eq!(
+            srv.open_file_at(root, "b").err().map(|e| e.errno),
+            Some(ENOENT)
+        );
+
+        srv.unlink(root, "c").unwrap();
+        srv.rmdir(root, "d").unwrap();
+        assert_eq!(names(&mut srv, root), [("a".into(), false)]);
+        assert_eq!(
+            srv.open_file_at(root, "c").err().map(|e| e.errno),
+            Some(ENOENT)
+        );
+        assert_eq!(
+            srv.open_dir(root, "d", dir::ALL).err().map(|e| e.errno),
+            Some(ENOENT)
+        );
+    }
+
+    /// **A name found without a listing is forgotten when the namespace changes** (milestone 606):
+    /// opened once (so the memo holds it), removed, and made again as a directory, it answers as
+    /// the image does at each step and never as it did.
+    #[test]
+    fn a_name_found_without_a_listing_follows_changes() {
+        let root = filesystem_protocol::fs::ROOT as u32;
+        let mut srv = server_with(&[("a", b"alpha")]);
+        let h = srv.open_file_at(root, "a").unwrap();
+        srv.close(h).unwrap();
+        let h = srv
+            .open_file_at(root, "a")
+            .expect("a remembered name opens again");
+        srv.close(h).unwrap();
+        srv.unlink(root, "a").unwrap();
+        assert_eq!(
+            srv.open_file_at(root, "a").err().map(|e| e.errno),
+            Some(ENOENT)
+        );
+        let d = srv.make_dir(root, "a", dir::ALL).unwrap();
+        srv.close(d).unwrap();
+        assert_eq!(
+            srv.open_file_at(root, "a").err().map(|e| e.errno),
+            Some(EISDIR)
+        );
+        let d = srv
+            .open_dir(root, "a", dir::ALL)
+            .expect("the new directory opens");
+        srv.close(d).unwrap();
+    }
+
+    /// **A memoized listing answers a lookup exactly as `find_node` would**: absent is `ENOENT`, a
+    /// directory is not a file and a file is not a directory.
+    #[test]
+    fn a_memoized_listing_answers_lookups_as_the_engine_does() {
+        let root = filesystem_protocol::fs::ROOT as u32;
+        let mut srv = server_with(&[("a", b"alpha")]);
+        let d = srv.make_dir(root, "d", dir::ALL).unwrap();
+        srv.close(d).unwrap();
+        names(&mut srv, root); // memoize
+        assert_eq!(
+            srv.open_file_at(root, "nope").err().map(|e| e.errno),
+            Some(ENOENT)
+        );
+        assert_eq!(
+            srv.open_file_at(root, "d").err().map(|e| e.errno),
+            Some(EISDIR)
+        );
+        assert_eq!(
+            srv.open_dir(root, "a", dir::ALL).err().map(|e| e.errno),
+            Some(ENOTDIR)
+        );
+        assert_eq!(
+            srv.open_dir(root, "nope", dir::ALL).err().map(|e| e.errno),
+            Some(ENOENT)
+        );
+    }
+
+    /// **A memoized file's bytes follow every write and truncate**, through another handle too,
+    /// and `FSTAT` follows with them.
+    #[test]
+    fn memoized_bytes_follow_writes_and_truncates() {
+        let mut srv = server_with(&[("f", b"hello world")]);
+        let reader = srv.open_file("f").unwrap();
+        let mut buf = [0u8; 64];
+        let n = srv.read(reader, 0, &mut buf).unwrap();
+        assert_eq!(&buf[..n], b"hello world");
+
+        let writer = srv.open_file("f").unwrap();
+        srv.write(writer, 0, b"HELLO").unwrap();
+        let n = srv.read(reader, 0, &mut buf).unwrap();
+        assert_eq!(
+            &buf[..n],
+            b"HELLO world",
+            "a read after a write saw the old bytes"
+        );
+
+        srv.truncate(writer, 4).unwrap();
+        assert_eq!(srv.fstat(reader).unwrap(), 4);
+        let n = srv.read(reader, 0, &mut buf).unwrap();
+        assert_eq!(
+            &buf[..n],
+            b"HELL",
+            "a read after a truncate saw the old length"
+        );
+        assert_eq!(srv.read(reader, 4, &mut buf).unwrap(), 0);
+    }
+
+    /// **The header ring is never cached**, so mounting an image does not fill the cache with 256
+    /// blocks nobody reads again (milestone 606).
+    #[test]
+    fn the_header_ring_is_never_cached() {
+        let mut disk = CachedDisk::new(CountingDisk::new(2), 8);
+        let mut buf = [0u8; BLOCK];
+        for _ in 0..2 {
+            unsafe { disk.read_at(3, &mut buf) }.unwrap();
+        }
+        assert_eq!(
+            disk.inner.reads, 2,
+            "a header-ring block was answered from the cache"
+        );
     }
 
     /// **The keystone: descending hands back a capability, and it is a capability to that directory
@@ -3673,10 +4018,10 @@ mod tests {
     /// A repeat read of the same block is answered from the cache: the inner disk sees it once.
     #[test]
     fn a_repeated_single_block_read_hits_the_cache() {
-        let mut disk = CachedDisk::new(CountingDisk::new(1), 8);
+        let mut disk = CachedDisk::new(CountingDisk::new(2), 8);
         let mut buf = [0u8; BLOCK];
         for _ in 0..5 {
-            unsafe { disk.read_at(3, &mut buf) }.unwrap();
+            unsafe { disk.read_at(259, &mut buf) }.unwrap();
         }
         assert_eq!(
             disk.inner.reads, 1,
@@ -3689,16 +4034,16 @@ mod tests {
     /// device layer, which is the point of building it host-side.
     #[test]
     fn a_write_through_the_cache_is_read_back_fresh() {
-        let mut disk = CachedDisk::new(CountingDisk::new(1), 8);
+        let mut disk = CachedDisk::new(CountingDisk::new(2), 8);
         let mut buf = [0u8; BLOCK];
-        unsafe { disk.read_at(3, &mut buf) }.unwrap(); // populate the cache
+        unsafe { disk.read_at(259, &mut buf) }.unwrap(); // populate the cache
         assert_eq!(buf, [0u8; BLOCK]);
 
         let new_bytes = [7u8; BLOCK];
-        unsafe { disk.write_at(3, &new_bytes) }.unwrap();
+        unsafe { disk.write_at(259, &new_bytes) }.unwrap();
 
         let mut buf2 = [0u8; BLOCK];
-        unsafe { disk.read_at(3, &mut buf2) }.unwrap();
+        unsafe { disk.read_at(259, &mut buf2) }.unwrap();
         assert_eq!(buf2, new_bytes, "a stale cache entry would fail this");
         // And the read that mattered was answered from the cache, not the disk: the write updated
         // the entry rather than merely invalidating it.
@@ -3712,9 +4057,9 @@ mod tests {
     /// sees the read-modify-write merge that lands underneath it.
     #[test]
     fn a_short_write_invalidates_rather_than_caching_a_guess() {
-        let mut disk = CachedDisk::new(CountingDisk::new(1), 8);
+        let mut disk = CachedDisk::new(CountingDisk::new(2), 8);
         let mut buf = [0u8; BLOCK];
-        unsafe { disk.read_at(3, &mut buf) }.unwrap(); // populate the cache
+        unsafe { disk.read_at(259, &mut buf) }.unwrap(); // populate the cache
         // A short write: the inner disk's contract is to report exactly what it wrote, and a real
         // Disk::write_at that read-modify-writes still reports the full chunk length it was asked
         // for (see BlockDisk::write_at), so simulate the case a Disk implementation reporting a
@@ -3731,15 +4076,15 @@ mod tests {
                 self.0.size()
             }
         }
-        let mut disk = CachedDisk::new(ShortWrite(CountingDisk::new(1)), 8);
-        unsafe { disk.read_at(3, &mut buf) }.unwrap();
+        let mut disk = CachedDisk::new(ShortWrite(CountingDisk::new(2)), 8);
+        unsafe { disk.read_at(259, &mut buf) }.unwrap();
         let new_bytes = [7u8; BLOCK];
-        unsafe { disk.write_at(3, &new_bytes) }.unwrap();
+        unsafe { disk.write_at(259, &new_bytes) }.unwrap();
         // The entry must be gone: a subsequent read has to reach the disk again rather than answer
         // from a cache that only ever saw half the new bytes.
         let reads_before = disk.inner.0.reads;
         let mut buf2 = [0u8; BLOCK];
-        unsafe { disk.read_at(3, &mut buf2) }.unwrap();
+        unsafe { disk.read_at(259, &mut buf2) }.unwrap();
         assert_eq!(
             disk.inner.0.reads,
             reads_before + 1,
@@ -3752,16 +4097,16 @@ mod tests {
     /// (from the inner disk, since the cache no longer has it).
     #[test]
     fn a_slot_collision_evicts_rather_than_corrupts() {
-        let mut disk = CachedDisk::new(CountingDisk::new(1), 4); // capacity 4: blocks 0 and 4 collide
+        let mut disk = CachedDisk::new(CountingDisk::new(2), 4); // capacity 4: blocks 256 and 260 collide
         let mut a = [0u8; BLOCK];
         let mut b = [0u8; BLOCK];
-        unsafe { disk.write_at(0, &[1u8; BLOCK]) }.unwrap();
-        unsafe { disk.write_at(4, &[2u8; BLOCK]) }.unwrap(); // evicts block 0's entry
-        unsafe { disk.read_at(0, &mut a) }.unwrap(); // a miss now: must come from the disk, not block 4's cached bytes
-        unsafe { disk.read_at(4, &mut b) }.unwrap();
+        unsafe { disk.write_at(256, &[1u8; BLOCK]) }.unwrap();
+        unsafe { disk.write_at(260, &[2u8; BLOCK]) }.unwrap(); // evicts block 256's entry
+        unsafe { disk.read_at(256, &mut a) }.unwrap(); // a miss now: must come from the disk, not block 260's cached bytes
+        unsafe { disk.read_at(260, &mut b) }.unwrap();
         assert_eq!(
             a, [1u8; BLOCK],
-            "block 0 must read its own bytes, not block 4's"
+            "block 256 must read its own bytes, not block 260's"
         );
         assert_eq!(b, [2u8; BLOCK]);
     }
@@ -3771,7 +4116,7 @@ mod tests {
     /// working set the cache exists for.
     #[test]
     fn a_multi_block_read_bypasses_the_cache() {
-        let mut disk = CachedDisk::new(CountingDisk::new(1), 8);
+        let mut disk = CachedDisk::new(CountingDisk::new(2), 8);
         let mut buf = [0u8; BLOCK * 2];
         for _ in 0..3 {
             unsafe { disk.read_at(0, &mut buf) }.unwrap();
