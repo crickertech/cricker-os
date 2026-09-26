@@ -929,7 +929,8 @@ def selftest():
     ]
     failed = [name for name, text, ok in cases if not ok(measure(text))]
     # A counted claim's number moving is not a touch; a word moving on the same line is.
-    a = 'We carry **188 harnesses** <!--count:kani-harnesses--> today.\nOther **bold** here.'
+    # The marker is assembled, so `script/lint`'s counted-claims reader does not take it for a claim.
+    a = 'We carry **188 widgets** <!-' + '-count:widgets--> today.\nOther **bold** here.'
     if count_masked(a) != count_masked(a.replace('188', '189')):
         failed.append('a counted claim\'s number moving reads as a touch')
     if count_masked(a) == count_masked(a.replace('today', 'now')):
