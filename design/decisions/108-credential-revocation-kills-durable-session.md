@@ -43,8 +43,8 @@ nothing to forget.
 ## Amended 2026-09-26: `user suspend` and `user resume`
 
 *Amendment provisional until the merge queue lands it, since it was recorded in one pull request
-with four provisionally numbered sections. Recorded by the maintainer at 18:35Z; that is the time of
-recording, not of the ruling.*
+with four provisionally numbered sections. Recorded by the maintainer at 18:35Z and corrected at 18:37Z;
+those are times of recording, not of the rulings.*
 
 calef, 2026-09-26 (UTC): *"user suspend and user resume"*. This answers the trigger this section left
 open below. The fork was raised by the lane for milestone 152 (authority that outlives the session
@@ -53,14 +53,24 @@ that requested it) as the second question in `notes/durable-delegation.md`. That
 
 - The names are ratified. Both are owner-console-only commands at the boot prompt, the console
   §221 (the boot prompt is the owner's console) gives the machine's owner.
-- `user suspend <name>` marks the identity suspended in the credential store and fires the cascade
-  above at once. `login` refuses a suspended identity, and `session_reviver` skips it at boot, so a
-  reboot does not bring its jobs back.
-- `user resume <name>` clears the mark. The stored schedule is untouched by a suspension, so it
-  resumes at the identity's next login.
+- The suspended mark is a list file: `suspended` (name provisional) at the root of the file
+  service. calef, 2026-09-26: *"store the suspended mark as a list file"*. It has the shape of
+  `may-run-unvouched` from §221, one identity per line, and the same reader,
+  `login_protocol::lists`.
+- `user suspend <name>` appends the name and sends `login` a front-door word that fires the cascade
+  above at once. `user resume <name>` removes the name.
+- `login` refuses a suspended identity with a distinct code. `session_reviver` reads the file at
+  boot and skips a listed identity, so a reboot does not bring its jobs back.
+- The stored schedule is untouched by a suspension, so it resumes at the identity's next login.
+- The credential store is unchanged and stays sealed.
+- The front-door word and the refusal code are provisional wire items.
 - Deleting an identity is a separate act, and it is not built.
-- The suspended mark is an additive change to the credential store's stored format. Its layout is
-  provisional.
+
+A correction, recorded as one. The maintainer first proposed keeping the mark in the credential
+store, and first recorded this amendment that way. The lane for milestone 152 checked and corrected
+it. That store is memory only and reprovisioned every boot, sealed after provisioning, and
+unreadable by `session_reviver`, so a mark there could neither persist nor be read where it is
+needed. calef then ruled the list file.
 
 Why "suspend". It is the identity provider's word, as Okta, Google Workspace and GitHub use it, for
 an act that is instant, total and reversible. "Disable" (Windows, macOS) and "lock" (Unix, where it
@@ -68,9 +78,8 @@ covers the credential only) were weighed. Unix splits locking the password, disa
 and ending its sessions into three acts, and forgetting one is the failure this avoids. That prior
 art is recalled from memory, not re-read.
 
-What stays open. How `session_reviver` learns of the mark at boot is the implementing lane's to
-propose. The note's fork 2 recorded that asking the credential service whether an identity is
-provisioned is a wire format, and a mark in the store raises the same question.
+This also settles the note's fork 2 without its wire question. `session_reviver` reads the list
+file at boot, so it never has to ask the credential service whether an identity is provisioned.
 
 ## What this does not decide
 
