@@ -699,7 +699,8 @@ pub mod memory_region {
     pub const MAP: u64 = 0;
 
     /// `invoke(cap, RETYPE, pages, _, _)` -> slot. Retype `pages` contiguous pages out of the untyped
-    /// into one **`PageFrame` capability** naming the run (§102), and return the slot it landed in.
+    /// into one **`PageFrame` capability** naming the run,
+    /// per §102 (a Frame names a run of pages), and return the slot it landed in.
     /// `pages == 0` means one page, which is what every caller passed before the count existed
     /// (calef's ruling of 2026-09-26). Nothing is mapped: the caller decides where to map it, and
     /// may delegate it first. This is the split that makes a page a first-class, delegatable object

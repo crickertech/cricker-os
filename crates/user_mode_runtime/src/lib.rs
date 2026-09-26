@@ -449,8 +449,8 @@ pub fn retype_page_frame(memory_region_slot: u64) -> i64 {
     unsafe { invoke(memory_region_slot, abi::memory_region::RETYPE, 0, 0, 0) }
 }
 
-/// `RETYPE` a run of `pages` contiguous pages into one `PageFrame` capability (§102's run), `0`
-/// meaning one. Returns the slot, or a negative `abi::Error`: `OutOfMemory` when the run does not
+/// `RETYPE` a run of `pages` contiguous pages into one `PageFrame` capability, per §102 (a Frame
+/// names a run of pages), `0` meaning one. Returns the slot, or a negative `abi::Error`: `OutOfMemory` when the run does not
 /// fit, in which case the region's budget is untouched.
 ///
 /// **The one call site in the tree that passes a count other than `0`**, and `script/lint` holds

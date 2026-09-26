@@ -624,8 +624,8 @@ fn memory_region_retype_obj(region: u64, kind: u64) -> Result<i64, Error> {
 /// `MemoryRegion::RETYPE`: retype `a0` pages (`0` meaning one) into one `PageFrame` capability the
 /// caller now holds, instead of mapping them in one shot. The caller gets full rights on its own
 /// frame (read, write, and the right to pass it on); delegation is where those narrow. Nothing is
-/// mapped yet. The count arrived with calef's ruling of 2026-09-26 and a run is §102's `PageFrame`
-/// run; every caller before it passed `0`. `#[inline(never)]` for the reason `memory_region_map`
+/// mapped yet. The count arrived with calef's ruling of 2026-09-26 and a run is the `PageFrame` run of
+/// §102 (a Frame names a run of pages); every caller before it passed `0`. `#[inline(never)]` for the reason `memory_region_map`
 /// gives.
 #[inline(never)]
 fn memory_region_retype(region: u64, requested: u64) -> Result<i64, Error> {
