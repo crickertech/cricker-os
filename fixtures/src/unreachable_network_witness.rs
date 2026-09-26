@@ -25,6 +25,14 @@
 //! `slots held: 0 1 2`. That is milestone 202's claim that an unvouched child holds no capability
 //! the caller did not delegate beyond the two pages the ruling allows.
 //!
+//! **Its note asks for all three, and that is deliberate** (milestone 597, provisional). The
+//! program carries a manifest note ([`NOTE_ASKS`]) declaring the network, entropy and the process
+//! domain, which its compiled-in manifest does not. Run by name, the note is never read. Run as
+//! `installed/unvouched`, it is the only manifest the bytes have, and DECISIONS §219 says an
+//! unvouched program's note grants nothing: the census must still read `0 1 2`, while `caps
+//! installed/unvouched` prints what the note asks beside what will be granted. A progenitor that
+//! honoured an unvouched note turns all three lines here into `REACHED`.
+//!
 //! A progenitor that endowed any of the three authorities to a child that did not declare it turns
 //! its line into `REACHED`, and the census gains that slot; `script/swish-check` fails on either.
 //! That is the whole reason this is a program rather than a sentence in a doc: the claim is about
@@ -60,6 +68,18 @@ use user_mode_runtime::{call, exit, is_granted, send, survey};
 
 /// The output slot: the sink contract.
 const OUT: u64 = 0;
+
+/// **What this program's note asks for, which is more than it is ever given.** Its compiled-in
+/// manifest (`Prog::UnreachableNetworkWitness`), plus the three authorities it probes. See the
+/// module documentation for why a witness carries a note that overreaches.
+const NOTE_ASKS: grant_plan::Manifest = grant_plan::Manifest {
+    network: true,
+    entropy: true,
+    domain: true,
+    ..grant_plan::Prog::UnreachableNetworkWitness.manifest()
+};
+
+manifest_note::carry!(NOTE_ASKS);
 
 // The lines below name the slots in prose; this keeps the prose honest if a constant moves.
 const _: () = assert!(grant_plan::NETWORK_SLOT == 10);

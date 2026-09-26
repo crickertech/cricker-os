@@ -185,7 +185,10 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         1,
         "packages/greeting/0.1.0/greeting",
-        &["hello from a package this image never carried"],
+        &[
+            "hello from a package this image never carried",
+            "clock: held at slot 1, as its manifest note asked",
+        ],
     ),
     line(
         0,
@@ -208,7 +211,10 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         1,
         "packages/greeting/0.1.0/greeting",
-        &["hello from a package this image never carried"],
+        &[
+            "hello from a package this image never carried",
+            "clock: held at slot 1, as its manifest note asked",
+        ],
     ),
     line(
         0,
@@ -445,7 +451,12 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps packages/uptime/0.1.0/uptime",
-        &["provenance: vouched by activation generation 1 (digest "],
+        &[
+            "provenance: vouched by activation generation 1 (digest ",
+            // **No note, the default** (milestone 597, provisional): `uptime` carries no manifest
+            // note, so it is bound and endowed as `grant_plan::NO_NOTE_MANIFEST`, its output alone.
+            "it carries no manifest note, so it asks for its output and nothing else",
+        ],
     ),
     // **And bytes nobody installed, previewed** (§219 gate D2): no generation lists them, and the
     // boot prompt holds the run-unvouched capability (its provisional grant,
@@ -458,6 +469,11 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 2  page      config",
             "provenance: unvouched (digest ",
             "runs on this session's capability to run unvouched bytes (slot 22)",
+            // **What the note asks, beside what is granted** (milestone 597, provisional). The
+            // witness's note asks for the three authorities it probes, and §219 says an unvouched
+            // note grants nothing: the rows above are the ruling's three and no more.
+            "its manifest note asks for: output bytes, entropy, the network, the process domain",
+            "and its note grants nothing",
         ],
     ),
     // **And run: milestone 202 (every confinement test is a ritual until somebody breaks the confinement)'s claim that an unvouched child holds no capability the caller did
@@ -477,6 +493,29 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "domain: refused (no capability at slot 7)",
             "slots held: 0 1 2\n",
         ],
+    ),
+    // **A note that asks more than its vouch allows is refused** (milestone 597, provisional).
+    // `least_authority_demo`'s note declares an argument, which only a command line designates,
+    // and unvouched bytes may hold only what the D2 ruling names. The shell binds the line
+    // against the note (it cannot know the verdict), so the refusal is the progenitor's, on its
+    // own copy, and nothing is built. `caps` says so first.
+    line(
+        0,
+        "caps installed/asks-an-arg 5",
+        &["more than unvouched bytes may hold"],
+    ),
+    line(
+        0,
+        "installed/asks-an-arg 5",
+        &["the progenitor read those bytes' own manifest, and it does not allow this line"],
+    ),
+    // **A note that cannot be read is refused, not ignored** (milestone 597): the witness again,
+    // with its note's version word set to 9 (`disk::with_note_version`). Running it as if it
+    // carried no note would endow a program with a manifest it did not declare.
+    line(
+        0,
+        crate::disk::INSTALLED_MALFORMED_NOTE,
+        &["carries a manifest note that cannot be read"],
     ),
     // **Fetching, refused before the network is touched**: the catalogue names no such package,
     // so nothing is asked of the package source. Runs on all three legs, because x86_64's missing
@@ -521,7 +560,21 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         1,
         "packages/greeting/0.1.0/greeting",
-        &["hello from a package this image never carried"],
+        &[
+            "hello from a package this image never carried",
+            "clock: held at slot 1, as its manifest note asked",
+        ],
+    ),
+    // **And the manifest it runs with is the one it carries** (milestone 597, provisional): a
+    // vouched note is honoured, which the `clock: held` line above proves at the child, and `caps`
+    // shows here at the prompt.
+    line(
+        0,
+        "caps packages/greeting/0.1.0/greeting",
+        &[
+            "clock    read-only. it can read the time",
+            "its manifest note asks for: output bytes, the clock",
+        ],
     ),
     // **The owner vouches for a local build** (DECISIONS §221 (the boot prompt is the owner's
     // console), ruling 1). `installed/unvouched` is the fresh build the D2 lines above ran on the
