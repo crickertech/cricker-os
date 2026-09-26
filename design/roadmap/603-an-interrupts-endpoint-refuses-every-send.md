@@ -1,0 +1,85 @@
+---
+status: BUILT
+raised: 2026-09-26
+built: 2026-09-26
+---
+# 603. An interrupt's endpoint refuses every send
+
+Built 2026-09-26. *(Number provisional: minted by the lane, to be confirmed at merge.)* The lane is
+`milestone/irq-send-refused`, pull request #1376.
+
+## The ruling
+
+calef, 2026-09-26, recorded at 21:33 UTC: "B", on the IRQ migration §101 (notification objects)
+left open. An endpoint bound with `bind_irq` refuses every deposit from userspace, so an interrupt's
+`w0 = 1` is unforgeable by kernel rule rather than by wiring. Moving interrupts onto notification
+objects is decided later, driver by driver. Refused: C, a `BUGS` entry that relies on wiring. The
+record is §101's second amendment.
+
+Milestone 151 (notification objects) found the gap. All fifteen `bind_irq` endpoints are created
+for their interrupt and never granted as a `Rendezvous` capability, and `soak::bind_tick_routes`
+binds endpoints its caller supplies. Nothing refused a program granted `WRITE` on one.
+
+## What was built
+
+| piece | where |
+|---|---|
+| the mark: `Rendezvous::bind_to_interrupt`, one-way, in the padding after `pending` | `crates/inter_process_communication` |
+| the refusal: `send` answers `Send::Refused` and touches nothing, tested before a receiver is popped | the same |
+| `bind_irq` marks the endpoint before it publishes the route, so the soak's caller-supplied endpoints are covered too | `kernel/src/sched.rs` |
+| `SEND`, `SEND_CAP` and `CALL` return `NotPermitted` without blocking; a §26 death message sent there is dropped, since `EVENT_FAULT` is also `1` | `sched.rs`, `syscall.rs` |
+| `NotPermitted`'s doc names the case | `crates/abi` |
+
+The refusal is a variant of `send`'s result rather than a check at each caller. Every path that
+deposits into a rendezvous has to match it or the kernel does not compile, so a fifth deposit
+method cannot forget the rule. That is the top rung of the ladder, where a per-method check
+would have been the second.
+
+The error is the tree's existing `NotPermitted`, not a new one. The syscall layer reads the reason
+only after `take_ipc_aborted` has already said `true` (`aborted_send_error`, `#[cold]`), so a send
+that went through pays nothing at that layer.
+
+Provisional names, all calef's to rule on: `Rendezvous::bind_to_interrupt`,
+`is_bound_to_interrupt`, `Send::Refused`, `sched::take_ipc_refused`, `set_ipc_refused`,
+`syscall::aborted_send_error`, the `Thread::ipc_refused` field, and the test module
+`user::irq_send_refusal_tests`.
+
+## Proof
+
+- Kani: `a_send_to_an_interrupts_rendezvous_is_refused_and_changes_nothing`. `seed` now makes the
+  mark symbolic, so all eight harnesses in the crate cover a marked rendezvous. All eight pass.
+  The new harness and `send_rendezvous_iff_a_receiver_waited` carry replayable falsifications, both
+  red when replayed.
+- Kernel, all three ISAs: `a_send_to_an_interrupts_endpoint_is_refused_and_the_driver_never_sees_it`.
+  The test grants itself `Rights::ALL` on a routed endpoint, so the kernel's rule is the only thing
+  in the way. Each of the three methods is refused, the driver stays parked in `Irq::WAIT` with no
+  sender queued, and then `irq_notify` wakes it with `w0 = 1`.
+- Falsified once on aarch64, with the check removed from `send`: the `SEND` assertion got `Ok(0)`
+  where it wanted `NotPermitted`. The patch is under `kernel/falsifications/`.
+
+## Measurement
+
+The check is one load and one branch on `send`'s common path. `script/fastpath-footprint`, measured
+on patagonia with the same nightly, the base tree against this one:
+
+| ISA | `ipc_send_recv` | `ipc_call_reply` | `syscall_entry` |
+|---|---|---|---|
+| aarch64 | 5500 to 5544 (+44) | 7172 to 7236 (+64) | 1508 to 1516 (+8) |
+| riscv64 | 4778 to 4820 (+42) | 6082 to 6102 (+20) | 1892 to 1910 (+18) |
+| `x86_64` | 6464 to 6496 (+32) | 8398 to 8414 (+16) | 1701 to 1717 (+16) |
+
+The bytes are mostly each `Refused` arm's call into the cold helper, which counts because the gate
+sums whole symbols. All three ISAs stay inside the 5% drift band. The icount deltas are CI's, below.
+
+ICOUNT_PENDING
+
+## BUGS
+
+- The mark is one-way, because `bind_irq` has no unbind. A route re-bound to a new endpoint leaves
+  the old one refusing sends. That is the safe direction, and nothing rebinds a live driver's
+  interrupt today except the riscv64 tests, which share the UART's source.
+- A kernel thread that calls `sched::ipc_send` on an interrupt's endpoint returns at once with its
+  abort flag set, as it does for a stale endpoint. No kernel caller does this. The flag is the
+  syscall layer's to read, so a kernel caller would not learn why.
+- The test's route to interrupt 250 outlives it, like milestone 151's route to 251. Reclaiming the
+  region makes the name stale, and `irq_notify` drops a signal to a stale name.

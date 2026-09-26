@@ -210,7 +210,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 98 | PROPOSED | [`OPENDIR` cannot be asked to attenuate, so a held directory probes for its own rights](98-opendir-cannot-attenuate.md) |
 | 99 | DECIDED | [Where Apple's metadata lands: stream or sidecar](99-apple-metadata-at-rest.md) |
 | 100 | AMENDED | [The terminal font](100-the-terminal-font.md) |
-| 101 | DECIDED | [Notification objects: async multiplexing without wait-any](101-notification-objects.md) |
+| 101 | AMENDED | [Notification objects: async multiplexing without wait-any](101-notification-objects.md) |
 | 102 | DECIDED | [A Frame names a run of pages](102-frame-names-a-run.md) |
 | 103 | SUPERSEDED BY 102 | [What a `Frame` names](103-what-a-frame-names.md) |
 | 104 | DECIDED | [The rich-text font is DejaVu Sans Mono, and the palette is Solarized](104-the-font-and-the-palette.md) |
