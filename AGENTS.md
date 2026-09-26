@@ -1,6 +1,6 @@
 # Working on nife
 
-<!-- prose-budget: exception. 6,092 words (wc -w, this marker included) against a 3,000-word cap.
+<!-- prose-budget: exception. 6,085 words (wc -w, this marker included) against a 3,000-word cap.
      Ratified by calef on 2026-09-24 (UTC) at 5,873 words; later rulings moved it here, and git log
      has each step. Reason: this file is nothing but rules, every reason having moved to
      design/tenets/, and the imperatives alone do not fit the cap; rules were not cut to make them
@@ -9,7 +9,7 @@
 *Two renames and one pivot sit behind the old names a reader will meet in older records:
 [design/tenets/project-history.md](design/tenets/project-history.md). Every reason, measurement and
 anecdote behind a rule here lives in [design/tenets/](design/tenets/), linked from the rule it
-explains. This file is a **ratified exception to the 3,000-word prose budget**, at 6,092 words
+explains. This file is a **ratified exception to the 3,000-word prose budget**, at 6,085 words
 (calef, 2026-09-24, UTC), because what is left after that move is rules, and rules were not cut to
 fit a cap.*
 
@@ -207,14 +207,14 @@ architect: see [ARCHITECTS.md](ARCHITECTS.md).
   worktree, delete the branch, relink `nife-dev`, leave no QEMU. Holds merge authority when an
   architect grants it. This role writes code, resolves conflicts and merges.
 - Developer. A subagent executing exactly one milestone. Reports; never merges, never mints, never
-  edits `design/decisions/`, `design/` or this file, except its own milestone's roadmap block, which
-  `script/lint` 4b requires it to edit. Names anything new provisionally and says so. A developer
-  polls its own background work to completion; ending a turn to "wait for the notification" while
-  your own gate is running is the failure mode, not patience. The report comes after the gate, and
-  nothing about a gate is finished until you have read its exit. A lane continues until it needs a
-  human or it is done (calef, 2026-08-26): finishing one item on a milestone's own list is not a
-  stopping condition when the list has more on it. The one genuine stop is hitting something that is
-  an architect's call: a design fork, a wire format, a naming decision. Write that up as a proposal
+  edits `design/decisions/`, `design/` or this file, except its own milestone's roadmap block,
+  which `script/lint` 4b requires it to edit. Names anything new provisionally and says so. A
+  developer never polls CI. It ends its turn with `WAITING <run_id>... on <what>` and the
+  maintainer resumes it once the runs finish. The report comes after the gate, and nothing about a
+  gate is finished until you have read its exit. A lane continues until it needs a human or it is
+  done (calef, 2026-08-26): finishing one item on a milestone's own list is not a stopping
+  condition when the list has more on it. The one genuine stop is hitting something that is an
+  architect's call: a design fork, a wire format, a naming decision. Write that up as a proposal
   and stop there, rather than either inventing an answer or ending the turn early.
 - Every pull request and comment an agent writes opens by saying so. One line, first thing in the
   body: `**Lane:** <branch or milestone>, written by an agent; calef's account is the author GitHub

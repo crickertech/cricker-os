@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+# Provisional name, calef has not ruled on it. A PreToolUse hook on Bash (wired in
+# .claude/settings.json) that refuses the shapes of CI polling calef ruled out on 2026-09-26: a lane
+# never polls CI, it ends its turn with `WAITING <run_id> [<run_id>...] on <what>` and lets the
+# maintainer's watch list wake it (briefs/session-start.md, briefs/gate-in-ci.md). Those briefs are
+# rung three of AGENTS.md's ladder, a written record; this hook is rung two, the same rule enforced
+# so it fires whether or not the reader remembers the prose.
+#
+# Refused, each because it is CI polling wearing a different shape:
+#   - `gh run watch`            blocks on a run instead of ending the turn.
+#   - `gh pr checks ... --watch` same thing, the pull-request-shaped spelling.
+#   - `sleep N` with N >= 30    a bare wait long enough to be a poll interval rather than a beat.
+#   - a shell loop (`while`/`until`/`for` ... `do` ... `done`) combining `sleep` with `gh run view`,
+#     `gh run list`, `gh pr checks`, or `gh pr view`: a hand-rolled watch loop.
+#
+# Deliberately NOT refused: the maintainer's own watchers, helpers/runwatch.py and helpers/nanny.py,
+# started with run_in_background. Their invocation (`python3 helpers/runwatch.py &`) matches none of
+# the shapes above; the polling they do happens inside the Python process, off the tool-call surface
+# this hook inspects, which is the whole point of having a maintainer-side watcher instead of a lane
+# polling in its own turn.
+#
+# Exit 2 refuses the call, with the reason on stderr, which Claude Code feeds back to the model as
+# the tool result; exit 0 allows it. `--selftest` runs the fixtures below against the pure predicate
+# and exits 1 on any mismatch, with no stdin read, so `script/lint` can run it for free.
+import json
+import re
+import sys
+
+GH_RUN_WATCH = re.compile(r"\bgh\s+run\s+watch\b")
+GH_PR_CHECKS = re.compile(r"\bgh\s+pr\s+checks\b")
+WATCH_FLAG = re.compile(r"(?:^|\s)--watch\b")
+SLEEP_CALL = re.compile(r"\bsleep\s+([0-9]+(?:\.[0-9]+)?)\s*([smh]?)\b")
+SHELL_LOOP = re.compile(r"\b(?:while|until|for)\b[\s\S]*?\bdo\b[\s\S]*?\bdone\b")
+GH_POLL_VERB = re.compile(r"\bgh\s+(?:run\s+(?:view|list)|pr\s+(?:checks|view))\b")
+
+SEE = "See the WAITING rule in briefs/session-start.md and briefs/gate-in-ci.md."
+
+
+def sleep_seconds(amount, unit):
+    n = float(amount)
+    return n * {"": 1, "s": 1, "m": 60, "h": 3600}[unit]
+
+
+def refusal(command):
+    """Return a refusal message for `command`, or None to allow it."""
+    if GH_RUN_WATCH.search(command):
+        return f"refuse-ci-polling: `gh run watch` blocks this turn on a CI run instead of ending it. {SEE}"
+    if GH_PR_CHECKS.search(command) and WATCH_FLAG.search(command):
+        return f"refuse-ci-polling: `gh pr checks --watch` polls until every check finishes. {SEE}"
+    for amount, unit in SLEEP_CALL.findall(command):
+        if sleep_seconds(amount, unit) >= 30:
+            return (f"refuse-ci-polling: `sleep {amount}{unit}` is a poll interval, not a beat "
+                    f"(>= 30s). {SEE}")
+    if SHELL_LOOP.search(command) and re.search(r"\bsleep\b", command) and GH_POLL_VERB.search(command):
+        return (f"refuse-ci-polling: a loop combining `sleep` with a `gh run`/`gh pr` read is a "
+                f"hand-rolled watch loop. {SEE}")
+    return None
+
+
+SELFTEST_CASES = [
+    # (command, should_refuse)
+    ("gh run watch 123456 --exit-status", True),
+    ("gh run watch --exit-status 123456", True),
+    ("gh pr checks 42 --watch", True),
+    ("gh pr checks --watch 42", True),
+    ("sleep 30", True),
+    ("sleep 30.5", True),
+    ("sleep 45", True),
+    ("sleep 1m", True),
+    ("sleep 0.5h", True),
+    ("while true; do gh run view 1 --json status; sleep 60; done", True),
+    ("until gh pr checks 1 | grep -q pass; do sleep 30; done", True),
+    ("for i in 1 2 3; do gh pr view 1; sleep 30; done", True),
+    # allowed
+    ("gh run list --branch foo --limit 5", False),
+    ("gh workflow run ci.yml --ref foo", False),
+    ("gh pr checks 42", False),
+    ("gh pr ready 42", False),
+    ("sleep 5", False),
+    ("sleep 29", False),
+    ("sleep 1", False),
+    ("python3 helpers/runwatch.py &", False),
+    ("python3 helpers/runwatch.py 7200", False),
+    ("python3 helpers/nanny.py &", False),
+    ("python3 helpers/nanny.py 1500", False),
+    ("git push -u origin HEAD", False),
+    ("script/lint", False),
+    ("while read -r line; do echo \"$line\"; done < file.txt", False),
+]
+
+
+def selftest():
+    failures = []
+    for command, expect_refuse in SELFTEST_CASES:
+        got = refusal(command)
+        if bool(got) != expect_refuse:
+            failures.append((command, expect_refuse, got))
+    if failures:
+        print("refuse-ci-polling --selftest: FAILED", file=sys.stderr)
+        for command, expect_refuse, got in failures:
+            print(f"  {command!r}: expected refuse={expect_refuse}, got {got!r}", file=sys.stderr)
+        return 1
+    print(f"refuse-ci-polling --selftest: {len(SELFTEST_CASES)} cases passed")
+    return 0
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--selftest":
+        sys.exit(selftest())
+
+    try:
+        event = json.load(sys.stdin)
+    except (ValueError, OSError):
+        return  # malformed input is not this hook's problem to adjudicate; allow
+
+    if event.get("tool_name") != "Bash":
+        return
+    command = (event.get("tool_input") or {}).get("command")
+    if not isinstance(command, str) or not command:
+        return
+
+    message = refusal(command)
+    if message:
+        print(message, file=sys.stderr)
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main()
