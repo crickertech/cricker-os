@@ -146,8 +146,10 @@ lifecycle. Both are architect's calls. `pmap <tid>` also needs an operand, so mi
 The block recommended deriving the view from the supervision tree, and the tree took that option by
 construction when `ps` shipped over `rendezvous::SURVEY`. No file under `design/decisions/` records
 it, so a non-subtree view (a monitor watching two unrelated services) is neither built nor refused.
-A lane may not write that section. This is draft text an integrator can mint as one, `DECIDED` by
-construction if calef agrees.
+A lane may not write that section, so this was draft text for an integrator. It is now minted as
+§223 (the process view is the supervision subtree), `PROPOSED`, with the seven questions answered
+there. Two corrections came with it: the view is one supervision domain rather than every
+descendant, and a monitor can watch unrelated services by holding each one's endpoint.
 
 The process view is the supervision subtree. A viewer holding `ENUMERATE` on a supervision endpoint
 sees that endpoint's domain and nothing else. A set of processes that is not a subtree is expressed

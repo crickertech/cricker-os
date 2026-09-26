@@ -332,6 +332,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 220 | DECIDED | [Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped](220-signed-builds-and-scoped-key-trust.md) |
 | 221 | DECIDED | [The boot prompt is the owner's console](221-the-boot-prompt-is-the-owners-console.md) |
 | 222 | AMENDED | [Who holds a user's schedule, and how it is changed while their session lives](222-who-holds-a-users-schedule.md) |
+| 223 | PROPOSED | [The process view is the supervision subtree](223-the-process-view-is-the-supervision-subtree.md) |
 | 230 | DECIDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
 | 231 | DECIDED | [A swap's warning to a dependent is advisory, and the supervisor never waits for it](231-a-dependents-warning-is-advisory.md) |
 | 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |

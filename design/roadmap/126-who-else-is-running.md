@@ -195,9 +195,9 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - Aggregate statistics are a side channel, and capabilities do not close it. CPU time per thread,
   which `top` now shows, leaks information about work the viewer was never shown. A capability
   bounds who may ask; it says nothing about what the numbers reveal to whoever may.
-- A supervision-derived view cannot express a set that is not a subtree. The workaround is a
-  supervisor existing only to be a common parent. No decision records that this was chosen; see
-  Follow-on.
+- A supervision-derived view cannot express a set that is not a subtree. A monitor handed
+  `ENUMERATE` on several supervision endpoints sees their union, whole domains at a time. §223 (the
+  process view is the supervision subtree) records the choice, `PROPOSED`.
 - The comparison against Linux is not apples to apples. Ours lists a domain; theirs lists a machine.
   That is the entire point, and a table putting them side by side without saying so would be
   dishonest in the way the map "tie" caveat exists to prevent.
@@ -221,9 +221,9 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - **Outstanding.** `pmap` is unreachable from the prompt: `crates/grant_plan` has no program variant
   for it, and `take_user_address_space` still deregisters a space at `CONFIGURE`. Checked
   2026-09-26.
-- **Outstanding.** The decision that the process view is the supervision subtree was taken by
-  construction and never written down, so a non-subtree view is neither built nor refused. A draft
-  an integrator can mint is at the end of what-is-left.md. Checked `design/decisions/` 2026-09-26.
+- **Decision.** The process view is the supervision subtree, taken by construction and now written
+  down as `design/decisions/223-the-process-view-is-the-supervision-subtree.md`, `PROPOSED` and
+  waiting on calef. It refuses a separate process namespace.
 - **Milestone 47.** A pattern still cannot be typed at `pgrep`, because its manifest in
   `crates/grant_plan` is `ArgSpec::Forbidden` and positional arity is 47's.
 - **Decision.** `sysctl` is not built and will not be: `design/decisions/115-no-sysctl.md`.
