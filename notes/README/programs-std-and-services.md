@@ -32,6 +32,9 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Live component replacement](../live-replacement.md): swapping a running component under a live client.
 - [The hung component](../hung-component.md): a component that stops answering without dying.
 - [Dependency-aware orchestration](../dependency-orchestration.md): which components to warn before swapping a dependency.
+- [State handoff](../state-handoff.md): a component's state carried across its own live replacement.
+- [The non-cooperative fallback](../non-cooperative-fallback.md): what a supervisor does when a dependent will not answer its warning.
+- [Swapping the interactive stack](../interactive-stack-swap.md): what stands between `line_editor`, `display_terminal`, `compositor` and a live swap.
 - [The process view](../process-view.md): `ps`, `pgrep` and `top` over a supervision subtree.
 - [Scheduled execution](../scheduled-execution.md): a cron whose every entry is a grant.
 - [Durable delegation](../durable-delegation.md): a login session that outlives its client.

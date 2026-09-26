@@ -230,22 +230,24 @@ which is the control this whole milestone rests on and which the test asserts on
 
 ## What this does not yet demonstrate
 
-- State handoff, which is where the real engineering is. The component here is near-stateless by
-  construction, and that is what makes kill-and-replace sufficient. A filesystem server's open
-  handles or a network stack's live connections need a serialise-old / absorb-new protocol.
-- ~~**A component manifest.**~~ **Built 2026-08-17**: the operator's endowments are no longer
+- ~~State handoff.~~ Built 2026-09-26 to §209 (state handoff is an opaque blob over a
+  granted frame, and it is optional): `swapper`'s `ROLE_HANDOFF` carries a component's tally across
+  the swap on a handoff page, and a replacement that cannot absorb it does not commit. It runs on all
+  three architectures. See notes/state-handoff.md, including the one-page limit that
+  `redoxfs_server` will hit.
+- ~~A component manifest.~~ Built 2026-08-17: the operator's endowments are no longer
   literals in its own source. `swap_protocol` carries the capability half of its own contract, `swapper`
   wires every component from a declaration, and the slot agreement that used to be a comment in two
   files is now a compile-time derivation. See notes/component-manifest.md, including the honest limit:
   a manifest is compiled in rather than shipped beside a binary, which is a wire format and so a
-  decision left to an architect.
-- ~~**Dependency-aware orchestration.**~~ **Built 2026-08-23**: `component_plan::depends_on` names
+  decision left to the architect.
+- ~~Dependency-aware orchestration.~~ Built 2026-08-23: `component_plan::depends_on` names
   which contracts a component cannot silently tolerate the absence of, and `dependents` answers who
   must be warned before a given contract is swapped. `queued()`'s `BOP_DOWN`/`BOP_UP` are driven by
   that answer now rather than sent unconditionally. Direct dependents only; see
   notes/dependency-orchestration.md, including the non-cooperative fallback it still owes
   notes/hung-component.md.
-- ~~**A hung component.**~~ **Demonstrated 2026-08-17, and it half-corrects the sentence that used to
+- ~~A hung component.~~ **Demonstrated 2026-08-17, and it half-corrects the sentence that used to
   stand here.** The old text said a livelocked instance "needs the stronger right, which is §32's
   recorded watchdog case". That is right about reclaiming its memory and **wrong about restarting its
   service**: `swapper`'s `ROLE_HUNG` runs the swap against an incumbent that stops answering and gets
@@ -256,14 +258,20 @@ which is the control this whole milestone rests on and which the test asserts on
   notes/hung-component.md, including the two decisions this cannot pass without (how a supervisor
   *notices*, which needs milestone 106's timed wait, and what it may do to a component that never
   cooperates) and the finding that `abi::Error::Gone` does not reach a caller stranded mid-`CALL`.
-- **The console proper.** The component swapped here owns the real UART and is shaped like a console
-  server, but `line_editor`/`display_terminal`/`compositor` are not themselves swapped: the interactive stack is not
-  running under the test harness, and building it there would have measured the harness.
+- The console proper. The component swapped here owns the real UART and is shaped like a console
+  server, but `line_editor`/`display_terminal`/`compositor` are not themselves swapped. The reason
+  given here until 2026-09-26 (not running under the test harness) stopped being true; the real
+  reasons differ per component and two of them are contract decisions. See
+  notes/interactive-stack-swap.md (PROPOSED).
+- A dependent that will not answer its warning. Measured rather than open since 2026-09-26:
+  skipping the warning costs latency and loses nothing (`ROLE_UNWARNED`). What to do instead of a
+  blocking warn is notes/non-cooperative-fallback.md (PROPOSED).
 
 ## See also
 
 - DECISIONS §41 (the endpoint is the broker), §12 (a one-shot reply capability), §13 and §16 (revocation),
   §26 (the fault endpoint), §31 (the C seam), §32 (a supervisor may collect a corpse)
-- notes/component-manifest.md and notes/hung-component.md for the two residuals that have landed
+- notes/component-manifest.md, notes/hung-component.md, notes/dependency-orchestration.md and
+  notes/state-handoff.md for the residuals that have landed
 - notes/ipc-naming.md, notes/supervision.md, notes/object-revocation.md, notes/c-seam.md
 - notes/benchmarks.md for `broker_rtt` and what the default rung costs
