@@ -119,21 +119,32 @@ pub fn has_children(region: u64) -> bool {
 /// pointer to nowhere followed at speed, and because a process should not see the previous
 /// contents of its own untyped.
 pub fn retype_page(region: u64) -> Option<u64> {
-    // `REGIONS` is released at this statement's semicolon, before the write below: zeroing a page
-    // is a memory touch of `FRAME_SIZE` bytes and has no business happening under the region lock.
-    let page = REGIONS.lock().retype_page(region)?;
+    retype_run(region, 1).map(|(phys, _)| phys)
+}
+
+/// **Retype a run of pages out of the region** (`MemoryRegion::RETYPE`'s count, calef's ruling of
+/// 2026-09-26), zeroed, returning the first page's physical address and the run's length. The run
+/// is `requested` pages, or one when `requested` is `0` (`memory_regions::retype_pages`). `None`,
+/// with the region's watermark unmoved, when it does not fit: the proved arithmetic in
+/// `memory_regions::retype_new_watermark` decides, and this only does the I/O.
+pub fn retype_run(region: u64, requested: u64) -> Option<(u64, u64)> {
+    // Released at the semicolon, as it always was for one page: zeroing is a memory touch of the
+    // whole run and has no business happening under the region lock.
+    let page = REGIONS.lock().retype_run(region, requested)?;
+    let count = memory_regions::retype_pages(requested);
     let phys = page * FRAME_SIZE;
 
-    // SAFETY: the page is inside a region we carved from the allocator and own exclusively; the
-    // direct map reaches it. Zero it before anyone can read a stale descriptor out of it.
+    // SAFETY: the run is inside a region we carved from the allocator and own exclusively, and it
+    // is contiguous because a region's watermark is; the direct map reaches all of it. Zero it
+    // before anyone can read a stale descriptor out of it.
     unsafe {
         core::ptr::write_bytes(
             crate::arch::mmu::phys_to_virt(phys) as *mut u8,
             0,
-            FRAME_SIZE as usize,
+            (count * FRAME_SIZE) as usize,
         );
     }
-    Some(phys)
+    Some((phys, count))
 }
 
 /// **Retype one page for a kernel object, pinning the region in the same breath** (19a). Pin and

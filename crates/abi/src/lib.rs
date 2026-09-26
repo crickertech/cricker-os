@@ -698,11 +698,14 @@ pub mod memory_region {
     /// exhausted (the *process* is out of budget, not the kernel).
     pub const MAP: u64 = 0;
 
-    /// `invoke(cap, RETYPE, _, _, _)` -> slot. Retype one page out of the untyped into a **`PageFrame`
-    /// capability** the caller now holds, and return the slot it landed in. Nothing is mapped: the
-    /// caller decides where to map it, and may delegate it first. This is the split that makes a
-    /// page a first-class, delegatable object rather than something mapped in one shot. `OutOfMemory`
-    /// when the untyped is exhausted or the caller's capability table is full.
+    /// `invoke(cap, RETYPE, pages, _, _)` -> slot. Retype `pages` contiguous pages out of the untyped
+    /// into one **`PageFrame` capability** naming the run (§102), and return the slot it landed in.
+    /// `pages == 0` means one page, which is what every caller passed before the count existed
+    /// (calef's ruling of 2026-09-26). Nothing is mapped: the caller decides where to map it, and
+    /// may delegate it first. This is the split that makes a page a first-class, delegatable object
+    /// rather than something mapped in one shot. `OutOfMemory` when the run does not fit, and then
+    /// the region's budget is untouched; also when the caller's capability table is full, and then
+    /// the run is spent, exactly as a single page always was.
     pub const RETYPE: u64 = 1;
 
     /// `invoke(cap, RETYPE_OBJ, objtype, _, _)` -> slot. Retype one page out of the untyped into

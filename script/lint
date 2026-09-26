@@ -3314,6 +3314,19 @@ PY
 #
 # `git grep` does not understand `\b` and silently matches nothing (design/naming.md records the
 # same trap costing two renames a count), so the boundaries here are POSIX classes.
+echo "==> every RETYPE outside the run wrapper passes 0"
+# `MemoryRegion::RETYPE`'s first argument became a page count on 2026-09-26 (calef, option A of
+# design/roadmap/proposals/a-region-retypes-a-frame-run.md), with 0 meaning one page. Every caller
+# before it passed 0 and still means one page, so a raw invoke passing anything else is a run asked
+# for by accident. The one intended caller is `user_mode_runtime::retype_page_frame_run`.
+if git grep -n 'memory_region::RETYPE,' -- '*.rs' ':!vendor' \
+    | grep -v 'RETYPE, 0, 0, 0)' | grep -v '// run wrapper$'; then
+    echo "lint: a RETYPE above passes a count. Ask for a run through" >&2
+    echo "      user_mode_runtime::retype_page_frame_run, or pass 0 for one page." >&2
+    exit 1
+fi
+echo "RETYPE: every raw call passes 0, and runs go through one wrapper"
+
 echo "==> halves that are not halves"
 if git grep -nEi '(^|[^[:alnum:]_])(three|four|five|six|seven|eight|nine|ten|several|many)[[:space:]]+halves([^[:alnum:]_]|$)' \
     -- '*.md' '*.rs' '*.yml' '*.toml' 'script/*' 'helpers/*' ':!vendor' ':!patches'; then

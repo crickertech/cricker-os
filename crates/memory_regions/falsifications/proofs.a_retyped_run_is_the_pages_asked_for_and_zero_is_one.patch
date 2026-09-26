@@ -1,0 +1,18 @@
+Falsifies `memory_regions::proofs::a_retyped_run_is_the_pages_asked_for_and_zero_is_one`.
+
+The defect: a zero count passed through as zero rather than meaning one page. Every caller before
+the count existed passed 0, so this would turn every existing single-page `RETYPE` into a refused
+empty carve, and the tree would stop being able to mint a frame at all.
+
+Expected to fail: the harness's `assert!(watermark.checked_add(want).is_none() || watermark + want >
+pages, "a run that fits must not be refused")`, at `requested == 0` with room left, which the
+defect refuses because `split_new_watermark` refuses an empty carve.
+
+diff --git a/crates/memory_regions/src/lib.rs b/crates/memory_regions/src/lib.rs
+--- a/crates/memory_regions/src/lib.rs
++++ b/crates/memory_regions/src/lib.rs
+@@ -84,3 +84,3 @@ pub const fn retype_pages(requested: u64) -> u64 {
+ pub const fn retype_pages(requested: u64) -> u64 {
+-    if requested == 0 { 1 } else { requested }
++    requested
+ }

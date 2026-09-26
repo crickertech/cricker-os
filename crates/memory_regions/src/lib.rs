@@ -77,6 +77,24 @@ pub fn split_new_watermark(parent_pages: u64, parent_watermark: u64, want: u64) 
     Some(new)
 }
 
+/// **How many pages a `RETYPE` asks for, from the word the caller passed.** `0` means one, which is
+/// what every caller passed before the count existed (the first argument was ignored), so the
+/// ruling that added a count (calef, 2026-09-26) changed nothing for them. Anything else is the
+/// count itself.
+pub const fn retype_pages(requested: u64) -> u64 {
+    if requested == 0 { 1 } else { requested }
+}
+
+/// **The watermark after retyping a run of `requested` pages**, or `None` when it does not fit.
+///
+/// The same arithmetic a split is, over [`retype_pages`]: a run is carved off the region's own
+/// budget exactly as a child is carved off a parent's, and it has to be fresh, contiguous, and
+/// within budget for the same reason. What differs is only that `0` means one here rather than
+/// being refused, because a retype of zero pages has always meant "the one page".
+pub fn retype_new_watermark(pages: u64, watermark: u64, requested: u64) -> Option<u64> {
+    split_new_watermark(pages, watermark, retype_pages(requested))
+}
+
 /// What [`destroy`](destroy_outcome) decides for a region.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DestroyOutcome {
@@ -152,6 +170,39 @@ mod proofs {
                     want == 0
                         || parent_watermark.checked_add(want).is_none()
                         || parent_watermark + want > parent_pages
+                );
+            }
+        }
+    }
+
+    /// **A retyped run is exactly the pages asked for, all fresh, all within budget, and `0` is
+    /// one.** The `RETYPE` count's whole contract, over every watermark and every requested word.
+    /// A refusal is exactly "does not fit": the table does not move, which its own host test shows.
+    /// Falsification: replayable `crates/memory_regions/falsifications/proofs.a_retyped_run_is_the_pages_asked_for_and_zero_is_one.patch`
+    #[kani::proof]
+    fn a_retyped_run_is_the_pages_asked_for_and_zero_is_one() {
+        let pages: u64 = kani::any();
+        let watermark: u64 = kani::any();
+        let requested: u64 = kani::any();
+        kani::assume(watermark <= pages);
+        let want = if requested == 0 { 1 } else { requested };
+
+        match retype_new_watermark(pages, watermark, requested) {
+            Some(new) => {
+                assert!(
+                    new == watermark + want,
+                    "the watermark advances by exactly the run"
+                );
+                assert!(new <= pages, "the run stays within the region's budget");
+                assert!(
+                    new > watermark,
+                    "the run is fresh: no page handed out twice"
+                );
+            }
+            None => {
+                assert!(
+                    watermark.checked_add(want).is_none() || watermark + want > pages,
+                    "a run that fits must not be refused"
                 );
             }
         }

@@ -449,6 +449,21 @@ pub fn retype_page_frame(memory_region_slot: u64) -> i64 {
     unsafe { invoke(memory_region_slot, abi::memory_region::RETYPE, 0, 0, 0) }
 }
 
+/// `RETYPE` a run of `pages` contiguous pages into one `PageFrame` capability (§102's run), `0`
+/// meaning one. Returns the slot, or a negative `abi::Error`: `OutOfMemory` when the run does not
+/// fit, in which case the region's budget is untouched.
+///
+/// **The one call site in the tree that passes a count other than `0`**, and `script/lint` holds
+/// it to that ("every RETYPE outside the run wrapper passes 0"), so a caller cannot ask for a run
+/// by accident through a raw `invoke`.
+///
+/// Name: provisional (the lane for milestone 23 (a capability-routed component OS with live
+/// replacement), 2026-09-26).
+pub fn retype_page_frame_run(memory_region_slot: u64, pages: u64) -> i64 {
+    // SAFETY: as `retype_page_frame`; the kernel checks the count against the remaining budget.
+    unsafe { invoke(memory_region_slot, abi::memory_region::RETYPE, pages, 0, 0) } // run wrapper
+}
+
 /// `RETYPE_OBJ` one page out of the untyped in `memory_region_slot` into a kernel object of
 /// `objtype` (see [`abi::objtype`]). Returns the slot holding a full-rights capability to the new
 /// object, or a negative `abi::Error` (`BadMethod` for an unknown `objtype`, `OutOfMemory` when the

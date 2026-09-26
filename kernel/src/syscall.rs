@@ -403,7 +403,7 @@ pub(crate) fn invoke(
                 if !cap.rights.allows(Rights::WRITE) {
                     return Err(Error::NotPermitted);
                 }
-                memory_region_retype(region)
+                memory_region_retype(region, a0)
             }
             abi::memory_region::SPLIT => {
                 if !cap.rights.allows(Rights::WRITE) {
@@ -621,15 +621,20 @@ fn memory_region_retype_obj(region: u64, kind: u64) -> Result<i64, Error> {
     }
 }
 
-/// `MemoryRegion::RETYPE`: retype a page into a `PageFrame` capability the caller now holds, instead of
-/// mapping it in one shot. The caller gets full rights on its own frame (read, write, and the
-/// right to pass it on); delegation is where those narrow. Nothing is mapped yet.
-/// `#[inline(never)]` for the reason `memory_region_map` gives.
+/// `MemoryRegion::RETYPE`: retype `a0` pages (`0` meaning one) into one `PageFrame` capability the
+/// caller now holds, instead of mapping them in one shot. The caller gets full rights on its own
+/// frame (read, write, and the right to pass it on); delegation is where those narrow. Nothing is
+/// mapped yet. The count arrived with calef's ruling of 2026-09-26 and a run is §102's `PageFrame`
+/// run; every caller before it passed `0`. `#[inline(never)]` for the reason `memory_region_map`
+/// gives.
 #[inline(never)]
-fn memory_region_retype(region: u64) -> Result<i64, Error> {
-    let phys = crate::memory_region::retype_page(region).ok_or(Error::OutOfMemory)?;
+fn memory_region_retype(region: u64, requested: u64) -> Result<i64, Error> {
+    let (phys, count) =
+        crate::memory_region::retype_run(region, requested).ok_or(Error::OutOfMemory)?;
+    // The run is non-empty by construction (`retype_pages` never returns zero).
+    let count = core::num::NonZeroU64::new(count).ok_or(Error::OutOfMemory)?;
     // capability table full
-    let slot = sched::grant(crate::cap::page_frame_cap(phys, Rights::ALL))
+    let slot = sched::grant(crate::cap::page_frame_run_cap(phys, count, Rights::ALL))
         .map_err(|_| Error::OutOfMemory)?;
     Ok(slot as i64)
 }
@@ -1304,6 +1309,65 @@ mod tests {
         let _ = sched::delete_current_cap(frame_slot);
         let _ = sched::reclaim_region(space_region);
         crate::memory_region::destroy(frame_region);
+    }
+
+    /// **`RETYPE` mints a run, `0` still means one page, and a run that does not fit moves
+    /// nothing** (calef's ruling of 2026-09-26, option A of
+    /// design/roadmap/proposals/a-region-retypes-a-frame-run.md). Through the real handler, so the
+    /// argument reaches the proved arithmetic and the capability names the whole run.
+    #[test_case]
+    fn retype_mints_a_run_and_a_refused_run_moves_nothing() {
+        let mut trap = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
+        let region = crate::memory_region::create(4).expect("a region to retype from");
+        let slot = sched::grant(crate::cap::memory_region_root_cap(region)).expect("grant it");
+
+        let run = invoke(&mut trap, slot, abi::memory_region::RETYPE, 3, 0, 0)
+            .expect("three pages fit in four") as u64;
+        let Object::PageFrame(phys, count) = sched::current_cap(run).expect("the run's cap").object
+        else {
+            panic!("RETYPE must mint a PageFrame");
+        };
+        assert_eq!(count.get(), 3, "one capability names the whole run");
+        // SAFETY: the run's pages are ours, retyped above; reading the direct map is how the zeroing
+        // is observed rather than assumed.
+        let zeroed = (0..3 * paging::PAGE_SIZE).step_by(512).all(|off| unsafe {
+            core::ptr::read_volatile((mmu::phys_to_virt(phys) + off) as *const u64) == 0
+        });
+        assert!(
+            zeroed,
+            "every page of the run must be zeroed, not only the first"
+        );
+        assert_eq!(crate::memory_region::usage(region), Some((3, 4)));
+
+        assert_eq!(
+            invoke(&mut trap, slot, abi::memory_region::RETYPE, 2, 0, 0),
+            Err(Error::OutOfMemory),
+            "two pages do not fit in one",
+        );
+        assert_eq!(
+            crate::memory_region::usage(region),
+            Some((3, 4)),
+            "a refused run moved the region's watermark",
+        );
+
+        let one = invoke(&mut trap, slot, abi::memory_region::RETYPE, 0, 0, 0)
+            .expect("the last page, asked for the way every existing caller asks")
+            as u64;
+        let Object::PageFrame(last, one_count) = sched::current_cap(one).expect("cap").object
+        else {
+            panic!("RETYPE must mint a PageFrame");
+        };
+        assert_eq!(one_count.get(), 1, "0 means one page");
+        assert_eq!(
+            last,
+            phys + 3 * paging::PAGE_SIZE,
+            "the watermark is contiguous"
+        );
+
+        let _ = sched::delete_current_cap(run);
+        let _ = sched::delete_current_cap(one);
+        let _ = sched::delete_current_cap(slot);
+        crate::memory_region::destroy(region);
     }
 
     /// **`SPLIT` never widens rights: a spend-only untyped splits into spend-only children.** SPLIT

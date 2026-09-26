@@ -285,12 +285,20 @@ impl<const N: usize> RegionTable<N> {
     /// The caller zeroes the page. This cannot, and the split is the reason the kernel keeps the
     /// I/O: a crate loom can run has no direct map to write through.
     pub fn retype_page(&mut self, name: u64) -> Option<u64> {
+        self.retype_run(name, 1)
+    }
+
+    /// **Retype a run of pages out of the region**, returning the first page's number; the run is
+    /// `requested` pages long, or one page when `requested` is `0` ([`crate::retype_pages`]). The
+    /// pages are contiguous because the watermark is. `None`, with **nothing moved**, when the run
+    /// does not fit or the name is dead.
+    ///
+    /// The caller zeroes the run, for [`retype_page`](RegionTable::retype_page)'s reason.
+    pub fn retype_run(&mut self, name: u64, requested: u64) -> Option<u64> {
         let r = self.table.get_mut(name)?;
-        if r.watermark >= r.pages {
-            return None;
-        }
+        let new = crate::retype_new_watermark(r.pages, r.watermark, requested)?;
         let page = r.base_page + r.watermark;
-        r.watermark += 1;
+        r.watermark = new;
         Some(page)
     }
 
@@ -495,6 +503,41 @@ mod tests {
         assert_eq!(t.retype_page(r), Some(8));
         assert_eq!(t.retype_page(r), None, "exhausted, not an error");
         assert_eq!(t.usage(r), Some((2, 2)));
+    }
+
+    /// **A run is contiguous, `0` is one page, and a run that does not fit moves nothing.** The
+    /// last is the one a caller relies on: a refused `RETYPE` of three pages must leave the two
+    /// that remain retypable, one page at a time or as a run.
+    #[test]
+    fn a_refused_run_moves_nothing_and_zero_means_one_page() {
+        let mut t = RegionTable::<4>::new();
+        let r = t.insert_root(100, 6).unwrap();
+        assert_eq!(t.retype_run(r, 0), Some(100), "0 is one page");
+        assert_eq!(t.usage(r), Some((1, 6)));
+        assert_eq!(
+            t.retype_run(r, 3),
+            Some(101),
+            "a run starts at the watermark"
+        );
+        assert_eq!(t.usage(r), Some((4, 6)), "and advances it by the whole run");
+        assert_eq!(t.retype_run(r, 3), None, "three pages do not fit in two");
+        assert_eq!(
+            t.usage(r),
+            Some((4, 6)),
+            "a refused run moved the watermark"
+        );
+        assert_eq!(
+            t.retype_run(r, u64::MAX),
+            None,
+            "a wrapping count is refused"
+        );
+        assert_eq!(t.usage(r), Some((4, 6)));
+        assert_eq!(
+            t.retype_run(r, 2),
+            Some(104),
+            "the two that remain are still a run"
+        );
+        assert_eq!(t.retype_page(r), None);
     }
 
     #[test]
