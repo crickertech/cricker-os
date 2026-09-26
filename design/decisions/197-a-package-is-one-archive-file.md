@@ -11,19 +11,19 @@ calef, 2026-09-20 (05:14 UTC), after comparing the container against what apt,
 Homebrew, Alpine, Haiku and Nix actually ship: *"C2 seems like the right shape given the
 comparisons."* *(Section number provisional until the merge queue lands it.)*
 
-**The ruling.** A package is **one archive file per package**, the shape apt (`.deb`), Homebrew (a
+The ruling. A package is **one archive file per package**, the shape apt (`.deb`), Homebrew (a
 bottle), Alpine (`.apk`) and Haiku (`.hpkg`) all use. It is identified by name and version, and
 DECISIONS §195 (a reviewed recipe vouches for a package) decides whether its bytes may run: the
 recipe carries the digest, per source, and the machine's owner may overrule. **Homebrew is the
 worked example of exactly this pairing**, a tar bottle whose SHA-256 lives in a human-reviewed
 formula, which is what made C2 a live option rather than the heavyweight one.
 
-**What it costs, stated because it is the reason the other two existed.** A container is bytes a
+What it costs, stated because it is the reason the other two existed. A container is bytes a
 target must parse, and parsing bytes we did not write is on this tree's hostile-input path: the
 reader owes a fuzz target and the Kani treatment `crates/nifefs` and `crates/elf` already carry.
 That cost is now accepted rather than avoided.
 
-**What it buys, and why the alternatives lost.** C1 (members of the boot archive) is what the tree
+What it buys, and why the alternatives lost. C1 (members of the boot archive) is what the tree
 does today and is not a format at all; it cannot serve DECISIONS §159 (lab machines upgrade like
 user machines), because under it installing is something the *build* does and every upgrade is a new
 image. C3 (content-addressed blobs) avoids the parser and makes identity and integrity one fact, and
@@ -34,11 +34,11 @@ looked when the options were written.
 ## Still calef's, and narrowed by this ruling
 
 - Where a program's manifest travels. Ruled 2026-09-26: M2, recorded in the next section.
-- **The digest's shape.** A plain SHA-256 over the package file, or a Merkle root. The proposal's
+- The digest's shape. A plain SHA-256 over the package file, or a Merkle root. The proposal's
   measurement says a Merkle tree buys verifying part of a file without reading all of it, which
   matters for a binary paged in on demand and not for one read whole, which is what this loader
   does, so plain unless something measures otherwise.
-- **Activation** (what installing *does*) is untouched by this and is its own ruling. It has
+- Activation (what installing *does*) is untouched by this and is its own ruling. It has
   since been ruled: §208 (installing a package is granting it), 2026-09-23.
 
 ## Where the manifest travels: M2, ruled 2026-09-26
@@ -86,17 +86,17 @@ would in fact lose the note after `--strip-sections`. The row is left as calef r
 
 Three things, which are separable and should be ruled separately if calef prefers:
 
-1. **The container.** What bytes a package is: members inside an archive the target already
+1. The container. What bytes a package is: members inside an archive the target already
    parses, one new archive file, or a content-addressed set of blobs named by digest.
-2. **Where a program's manifest lives.** Beside the binary as its own member, or inside the ELF.
+2. Where a program's manifest lives. Beside the binary as its own member, or inside the ELF.
    `notes/component-manifest.md`'s `BUGS` already records this as an open wire-format question and
    declined to decide it "until a second supervisor or an out-of-tree component actually exists".
    A package is that trigger.
-3. **What the metadata must carry.** Derived below from what the tree already needs, not invented.
+3. What the metadata must carry. Derived below from what the tree already needs, not invented.
 
 ## The constraint every option is checked against
 
-**nife cannot build software.** A package is produced on a host (macOS or Linux) by a Rust
+nife cannot build software. A package is produced on a host (macOS or Linux) by a Rust
 cross-toolchain and consumed by a target with no compiler, no allocator in the loader, and a
 Kani-proven parser policy for bytes it did not write (`crates/elf`, `crates/nifefs`, the GPT and
 device-tree parsers, all fuzzed by `script/fuzz`). So:
