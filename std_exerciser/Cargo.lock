@@ -16,4 +16,12 @@ version = "0.1.0"
 dependencies = [
  "filesystem_protocol",
  "socket_protocol",
+ "walk_pricing",
+]
+
+[[package]]
+name = "walk_pricing"
+version = "0.1.0"
+dependencies = [
+ "filesystem_protocol",
 ]

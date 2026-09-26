@@ -1154,18 +1154,84 @@ pub fn narrow_dir(
     name: &'static str,
     rights: u64,
 ) -> Option<(RendezvousId, u64)> {
+    let narrow_ep = crate::sched::create_rendezvous();
+    let caretaker_ready = crate::sched::create_rendezvous();
+    let (file_shared, _caretaker) = spawn_caretaker(
+        blk_image,
+        fs_server_image,
+        caretaker_image,
+        name,
+        rights,
+        narrow_ep,
+        caretaker_ready,
+    )?;
+    Some((narrow_ep, file_shared))
+}
+
+/// [`narrow_dir`], **with a caretaker the caller can end** (milestone 121 (`ripgrep` on nife:
+/// enumeration as a capability)).
+///
+/// [`narrow_dir`]'s caretaker parks in `RECV` on an endpoint no region owns, so it lives for the
+/// boot. That is fine for a test that grants one directory and was a frame-ledger failure for one
+/// that grants two more: the aarch64 suite ran out of page frames three tests later. Here both
+/// endpoints come out of a region of their own, `display_service`'s shape and for its reason,
+/// and the returned [`super::holding::Holding`] reclaims that region, which wakes the caretaker to
+/// die.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn narrow_dir_held(
+    blk_image: &'static [u8],
+    fs_server_image: &'static [u8],
+    caretaker_image: &'static [u8],
+    name: &'static str,
+    rights: u64,
+) -> Option<(RendezvousId, u64, RendezvousId, super::holding::Holding)> {
+    // Three endpoints, a page each, and one spare: the caretaker's two, and the program's stdout.
+    // All three live in the region so that one reclaim returns every endpoint this grant made. The
+    // kernel's rendezvous registry is a fixed 512 and the suite runs close to it: two endpoints a
+    // walk test left live were enough to exhaust it in `uuid_tests` on 2026-09-27.
+    let ep_region = crate::memory_region::create(4).expect("no endpoint region for a caretaker");
+    let endpoint =
+        || crate::sched::create_rendezvous_from(ep_region).expect("no endpoint for a caretaker");
+    let narrow_ep = endpoint();
+    let caretaker_ready = endpoint();
+    let report = endpoint();
+    let (file_shared, caretaker) = spawn_caretaker(
+        blk_image,
+        fs_server_image,
+        caretaker_image,
+        name,
+        rights,
+        narrow_ep,
+        caretaker_ready,
+    )?;
+    let mut held = super::holding::Holding::new();
+    held.add_thread(caretaker);
+    held.add_region(ep_region);
+    Some((narrow_ep, file_shared, report, held))
+}
+
+/// The caretaker both of the above start, serving `narrow_ep` and reporting once on
+/// `caretaker_ready`. Returns the file channel and the caretaker's thread.
+#[allow(clippy::too_many_arguments)]
+fn spawn_caretaker(
+    blk_image: &'static [u8],
+    fs_server_image: &'static [u8],
+    caretaker_image: &'static [u8],
+    name: &'static str,
+    rights: u64,
+    narrow_ep: RendezvousId,
+    caretaker_ready: RendezvousId,
+) -> Option<(u64, crate::thread::ThreadId)> {
     assert!(
         filesystem_protocol::grant::fits(name.as_bytes()),
         "a granted name rides in two argument words; this one does not fit",
     );
     let (file_ep, file_shared, readiness) = ensure(blk_image, fs_server_image)?;
-    let narrow_ep = crate::sched::create_rendezvous();
-    let caretaker_ready = crate::sched::create_rendezvous();
 
     let (lo, hi) = filesystem_protocol::grant::pack_name(name.as_bytes());
     let spec = filesystem_protocol::grant::spec(name.len(), rights);
 
-    crate::sched::spawn(move || {
+    let tid = crate::sched::spawn(move || {
         run(
             caretaker_image,
             Spawn {
@@ -1192,7 +1258,7 @@ pub fn narrow_dir(
     // is drained gives its client an unbounded window to write over the staged name.
     wait_for_service(readiness);
     wait_for_caretaker(caretaker_ready);
-    Some((narrow_ep, file_shared))
+    Some((file_shared, tid))
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1621,6 +1687,100 @@ pub fn start_std_full(
 ) -> Option<StdSpawn> {
     let (file_ep, file_shared, readiness) = ensure(blk_image, fs_server_image)?;
     let report = crate::sched::create_rendezvous();
+    let (heap, thread, _stack) = spawn_std(file_ep, file_shared, report, std_image);
+    Some(StdSpawn {
+        readiness,
+        report,
+        heap,
+        thread,
+    })
+}
+
+/// What [`start_std_narrowed`] hands back: [`StdSpawn`] without the readiness endpoints, because
+/// [`narrow_dir`] has already drained them before the program exists.
+#[cfg_attr(not(test), allow(dead_code))]
+pub struct NarrowedStd {
+    pub report: RendezvousId,
+    pub heap: u64,
+    pub thread: crate::thread::ThreadId,
+    /// The stack frames [`spawn_std`] allocated. A [`Mapping`] does not give its frame to the
+    /// process, so they outlive it unless somebody frees them; see [`NarrowedStd::release`].
+    stack: [u64; STD_FS_STACK_PAGES as usize],
+    /// The caretaker in front of it, which [`NarrowedStd::release`] ends.
+    caretaker: super::holding::Holding,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl NarrowedStd {
+    /// **Give back everything the program held that the caller can name**: the heap's region and
+    /// the stack frames. Only after the thread is gone, which the caller must have seen: a frame
+    /// freed under a running program is a use-after-free with the program as the victim.
+    ///
+    /// And the caretaker, through its [`super::holding::Holding`]. Returns whether everything
+    /// came back, which a test should assert: `false` is a service that outlived its holding.
+    pub fn release(self) -> bool {
+        assert!(
+            !crate::sched::is_thread_present(self.thread),
+            "released a std program's memory while it was still running",
+        );
+        let _ = crate::sched::reclaim_region(self.heap);
+        for phys in self.stack {
+            crate::memory::free(page_frames::PageFrame::from_addr(phys));
+        }
+        self.caretaker.release()
+    }
+}
+
+/// **A std program holding one subtree with a chosen set of rights** (milestone 121 (`ripgrep` on nife: enumeration as a capability)), rather than
+/// the image root with all of them.
+///
+/// [`start_std_full`]'s spawn with a [`narrow_dir`] caretaker in front: the program's slot 4 is
+/// the caretaker's narrowed endpoint instead of the FS server's own, and it maps the same file
+/// page at the same VA, for the reason [`start_granted_two_dirs`] gives (one thread of control,
+/// one `CALL` in flight). So `std::fs` inside it sees `name` as `/`, carrying `rights` and nothing
+/// wider. Nothing in the PAL knows the difference, which is the point: a stranger's walker runs
+/// against a narrowed grant exactly as it runs against the root.
+///
+/// Built for the two halves milestone 121 could price without an argument vector: the walk under
+/// `ENUMERATE | READ | DESCEND`, and the same walk refused under a grant lacking `ENUMERATE`.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn start_std_narrowed(
+    blk_image: &'static [u8],
+    fs_server_image: &'static [u8],
+    caretaker_image: &'static [u8],
+    std_image: &'static [u8],
+    name: &'static str,
+    rights: u64,
+) -> Option<NarrowedStd> {
+    let (narrow_ep, file_shared, report, caretaker) =
+        narrow_dir_held(blk_image, fs_server_image, caretaker_image, name, rights)?;
+    let (heap, thread, stack) = spawn_std(narrow_ep, file_shared, report, std_image);
+    Some(NarrowedStd {
+        report,
+        heap,
+        thread,
+        stack,
+        caretaker,
+    })
+}
+
+/// The spawn both of the above share: a std program whose directory is whatever `file_ep` serves,
+/// with the file page it shares mapped where the PAL expects it, writing to `report`. Returns the
+/// heap's region, the thread, and the stack frames, which the process does not own.
+///
+/// BUGS: [`start_std_full`] drops the stack frames, so every program it spawns keeps its 32 for
+/// the boot. That was true before this function was split out of it and is left as it was: its
+/// `std_exerciser` is spawned once and the ledger already carries it.
+fn spawn_std(
+    file_ep: RendezvousId,
+    file_shared: u64,
+    report: RendezvousId,
+    std_image: &'static [u8],
+) -> (
+    u64,
+    crate::thread::ThreadId,
+    [u64; STD_FS_STACK_PAGES as usize],
+) {
     let heap =
         crate::memory_region::create(STD_FS_HEAP_PAGES).expect("no untyped for the std fs heap");
 
@@ -1637,9 +1797,11 @@ pub fn start_std_full(
         phys: file_shared,
         flags: Flags::user_data(),
     };
-    for (k, m) in maps[1..].iter_mut().enumerate() {
+    let mut stack = [0u64; STD_FS_STACK_PAGES as usize];
+    for ((k, m), phys) in maps[1..].iter_mut().enumerate().zip(stack.iter_mut()) {
         m.va = USER_STACK_VA - (k as u64 + 1) * FRAME_SIZE;
         m.phys = page_frame();
+        *phys = m.phys;
     }
 
     let tid = crate::sched::spawn(move || {
@@ -1662,13 +1824,7 @@ pub fn start_std_full(
         )
     })
     .expect("could not spawn the std fs program");
-
-    Some(StdSpawn {
-        readiness,
-        report,
-        heap,
-        thread: tid,
-    })
+    (heap, tid, stack)
 }
 
 /// **Two directory grants to one process** (milestone 154,
