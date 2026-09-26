@@ -2974,6 +2974,11 @@ PINNED = {
     ("RegionTable", "has_children", "&self"),
     ("RegionTable", "usage", "&self"),
     ("RegionTable", "bounds", "&self"),
+    # Occupancy, not a region: these name no region, so no caller can hold an answer about one
+    # after it stopped being true. The kernel reads `len` under its own lock for the region peak
+    # (milestone 601 (the region table prints its peak)); loom has nothing to interleave in a count.
+    ("RegionTable", "len", "&self"),
+    ("RegionTable", "is_empty", "&self"),
     ("RegionTable", "insert_root", "&mut self"),
     ("RegionTable", "split", "&mut self"),
     ("RegionTable", "retype_page", "&mut self"),

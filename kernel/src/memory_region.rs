@@ -57,7 +57,82 @@ use crate::sync::{IrqSafeMutex, rank};
 /// reusable (the table is generational), so this bounds concurrent regions, not creations over the
 /// kernel's lifetime the way the old count-based table did. A system that runs workloads which come
 /// and go can create regions without end, as long as no more than this many live at a time.
-const MAX_REGIONS: usize = 256;
+///
+/// # The ledger: what holds regions at the peak
+///
+/// Read this before raising or lowering the constant. Every suite run prints the peak on its
+/// `regions:` line, with the test during which it was set; the account below is where the peak
+/// comes from, measured 2026-09-26 by milestone 601 (the region table prints its peak) with a
+/// temporary per-test print, on `main` at `484f3ebe` plus #1347's `login_test_client` fix.
+///
+/// | architecture | peak | spare | live when the first test starts | live after the last |
+/// |---|---|---|---|---|
+/// | aarch64 | **225** | 31 | 1 | 222 |
+/// | riscv64 | **224** | 32 | 1 | 221 |
+/// | `x86_64` | **125** | 131 | 1 | 122 |
+///
+/// Without #1347 the table is at its ceiling. The lane of milestone 152 (durable delegation) measured
+/// aarch64 at **252** (4 spare), and one more login test made it 253 and failed the timetable's
+/// `--mem` split as a 60-second hang. This lane's own CI run on the same base, without #1347,
+/// printed **256 of 256 on aarch64 and 255 on riscv64** and still passed: the table was full and
+/// something was refused quietly, which is the state this line exists to make visible.
+///
+/// **What the peak is made of.** The table is nearly empty at boot. Almost every region live at
+/// the peak is one an earlier test left behind, and the peak itself is only three above the
+/// residue: `timetable_tests` spawns a scheduled entry on top of everything already held. So the
+/// ledger is the per-module residue, aarch64 first (riscv64 within a few of each row; `x86_64` is
+/// smaller mostly because it has no network under QEMU):
+///
+/// | kept at the end of the suite | aarch64 | `x86_64` | what it is |
+/// |---|---|---|---|
+/// | `ntp_tests` | 39 | 5 | five tests, 5 to 11 regions each; not on `notes/frames.md`'s held list |
+/// | `login_tests` | 33 | 0 | the shared login service, plus sessions and clients per test |
+/// | `user::tests` | 18 | 17 | one or two each from the oldest userspace tests |
+/// | `compositor_tests`, `display_tests` | 20 | 10 | the compositor and GPU driver stack |
+/// | `date_tests` | 10 | 11 | the wall-clock service and its clients |
+/// | `dir_capability_tests`, `disk_tests`, `rm_program_tests` | 24 | 15 | the file services |
+/// | 23 other modules (20 on `x86_64`), 1 to 6 each | 47 | 43 | |
+/// | created **between** tests | 30 | 20 | services still building after a test returned |
+/// | **total** | **221** | **121** | |
+///
+/// The last row is the frame ledger's own lesson (`notes/frames.md`, "The instrument"): reading
+/// around a test's body misses what a service it started does after the test has its answer.
+/// These figures were read around the body, so a row can be short by what landed in that gap.
+///
+/// `ntp_tests` and `login_tests` are a third of the aarch64 total between them, and neither is
+/// accounted for as deliberately permanent; the proposal
+/// `design/roadmap/proposals/the-ntp-and-login-tests-give-their-regions-back.md` is the work to
+/// find out.
+///
+/// **No gate, deliberately, and not only by precedent.** `sched::MAX_THREADS` reports and does not
+/// gate because a climbing peak is usually a boot doing more, and that is true here. The frame
+/// ledger can gate its end state because the tree states what is permanent; nothing states that
+/// for regions yet, and a threshold set from one measurement would fire on the next milestone that
+/// adds a held service rather than on a leak. What would earn a gate is the held list the frame
+/// ledger has, and the proposal above is the first step toward one.
+pub(crate) const MAX_REGIONS: usize = 256;
+
+/// **The most regions that were ever live at once on this boot**, the instrument that makes
+/// [`MAX_REGIONS`] a measured number rather than a felt one. `sched::PEAK_THREADS`'s twin, built
+/// for the same reason: a full table is refused in whichever test happens to ask next, and by then
+/// every earlier reading is gone.
+///
+/// Updated under the `REGIONS` lock on the two paths that can grow the table, [`create`] and
+/// [`split`], so it never races. `fetch_max` rather than a compare-store, for `PEAK_THREADS`'s
+/// reason: cheap, and neither path is hot (each already costs at least a page).
+static PEAK_REGIONS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
+
+/// Record the table's occupancy against [`PEAK_REGIONS`]. Takes the table rather than the lock so
+/// the reading is the one the insert just produced, under the same hold.
+fn note_peak(table: &RegionTable<MAX_REGIONS>) {
+    PEAK_REGIONS.fetch_max(table.len(), core::sync::atomic::Ordering::Relaxed);
+}
+
+/// The high-water mark [`PEAK_REGIONS`] holds. Printed by the test suite's closing summary.
+#[cfg_attr(not(test), allow(dead_code))] // the closing summary is the only reader
+pub fn peak_region_count() -> usize {
+    PEAK_REGIONS.load(core::sync::atomic::Ordering::Relaxed)
+}
 
 /// The untyped regions (`crates/memory_regions`, notes/generational-names.md). Generational, which is the
 /// reuse the old fixed count-based array lacked: reclaiming a region removes it, which bumps its
@@ -77,7 +152,12 @@ static REGIONS: IrqSafeMutex<RegionTable<MAX_REGIONS>> =
 pub fn create(pages: u64) -> Option<u64> {
     let base = memory::alloc_contiguous(pages as usize)?.addr();
 
-    let name = REGIONS.lock().insert_root(base / FRAME_SIZE, pages);
+    let name = {
+        let mut table = REGIONS.lock();
+        let name = table.insert_root(base / FRAME_SIZE, pages);
+        note_peak(&table);
+        name
+    };
     if name.is_none() {
         // No free region slot: give the memory back rather than leak it. With reuse this is now a
         // genuine concurrency limit (too many live regions), not a lifetime one.
@@ -100,8 +180,15 @@ pub fn create(pages: u64) -> Option<u64> {
 /// budget, so a split parent is not committed for its lifetime. A child freed out of order leaves a
 /// hole until the parent itself is destroyed. This is the LIFO half of seL4's return-to-parent,
 /// without the derivation tree that would handle the general case.
+///
+/// **A split refused for a full table still bumps the parent**, and the parent can then never be
+/// reclaimed: `RegionTable::split`'s `# BUGS` entry has the consequence and a reproduction, and
+/// `notes/region-split-on-a-full-table.md` the proposal.
 pub fn split(parent: u64, pages: u64) -> Option<u64> {
-    REGIONS.lock().split(parent, pages)
+    let mut table = REGIONS.lock();
+    let child = table.split(parent, pages);
+    note_peak(&table);
+    child
 }
 
 /// Whether this region has live children (was split and they are not all reclaimed), so it cannot be
@@ -180,10 +267,6 @@ pub fn region_bounds(region: u64) -> Option<(u64, u64)> {
 /// `AddressSpace::Drop`, which already runs under the reaper's `IPC_TABLES` (see [`destroy`]'s note). So
 /// the `IPC_TABLES`-taking reap is one call, and the `IPC_TABLES`-free `unpin` + `destroy` are the next.
 pub fn unpin(region: u64) {
-///
-/// **A split refused for a full table still bumps the parent**, and the parent can then never be
-/// reclaimed: `RegionTable::split`'s `# BUGS` entry has the consequence and a reproduction, and
-/// `notes/region-split-on-a-full-table.md` the proposal.
     REGIONS.lock().unpin(region);
 }
 

@@ -684,6 +684,104 @@ fn report_thread_peak() {
     );
 }
 
+/// **The test that last raised the region table's high-water mark**, as a `&'static str` split into
+/// pointer and length the way [`WORST_NAME_PTR`] is. Null when the peak was set before the first
+/// test (the boot's own services), or never moved during one.
+static REGION_PEAK_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+static REGION_PEAK_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
+
+/// **How close the boot came to the region table's ceiling**, printed beside the thread peak.
+///
+/// [`report_thread_peak`]'s twin, one rung weaker than the frame ledger for its reason: what fills
+/// this table is mostly the services earlier tests left running on purpose, one region for each
+/// address space and more for each spawner's `SPLIT`, so a peak that climbs is usually a boot doing
+/// more. It adds one thing the thread line does not have, **the test during which the peak was
+/// set**, because that is the question the lane of milestone 152 (durable delegation) had to
+/// answer with a temporary print: the table reached 252 of 256 in `timetable_tests`, and the cause
+/// was a leak many tests earlier that no single test's behaviour showed. The name says where to start reading, not who is to
+/// blame; the ledger at `memory_region::MAX_REGIONS` says who holds what.
+///
+/// Reports and does not gate, and the reason is recorded at `MAX_REGIONS` rather than here.
+fn report_region_peak() {
+    let peak = crate::memory_region::peak_region_count();
+    let max = crate::memory_region::MAX_REGIONS;
+    let during = stored_name(&REGION_PEAK_NAME_PTR, &REGION_PEAK_NAME_LEN);
+    println!(
+        "regions: {peak} live at the peak, of {max} the image allows ({} spare), set during {}. \
+         See memory_region::MAX_REGIONS.",
+        max.saturating_sub(peak),
+        during.unwrap_or("the boot, before the first test"),
+    );
+}
+
+/// **The test during which free frames last reached a new low**, and the test during which the
+/// allocator first refused a request. Same shape as [`REGION_PEAK_NAME_PTR`].
+static FRAME_LOW_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+static FRAME_LOW_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
+static FIRST_REFUSAL_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+static FIRST_REFUSAL_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
+
+/// **The shortest the longest free run got at any test boundary**, and the test after which it
+/// did. Free frames are one number and contiguity is another (`notes/frames.md`, "Two numbers, not
+/// one"), and loading a program asks the second: `std_net` failing with
+/// `Unmappable(OutOfPageFrames)` is a run too short, not a machine out of frames. Scanning the
+/// bitmap on every allocation would cost the suite far more than it measures, so this reads it once
+/// per test, after the body, where it costs one pass over the bitmap. It sees what a test leaves,
+/// not a dip inside one; a dip inside one that bites shows up as a refusal instead.
+static SHORTEST_RUN: AtomicUsize = AtomicUsize::new(usize::MAX);
+static SHORTEST_RUN_NAME_PTR: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+static SHORTEST_RUN_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
+
+/// A test name stored as a pointer and length, reassembled, or `None` if none was stored.
+fn stored_name(ptr: &AtomicPtr<u8>, len: &AtomicUsize) -> Option<&'static str> {
+    let (ptr, len) = (ptr.load(Ordering::Relaxed), len.load(Ordering::Relaxed));
+    if ptr.is_null() || len == 0 {
+        return None;
+    }
+    // SAFETY: every pair is stored from a `&'static str` (`core::any::type_name`) by
+    // `Testable::run`, and is only ever overwritten by another such pair.
+    unsafe { core::str::from_utf8(core::slice::from_raw_parts(ptr, len)).ok() }
+}
+
+/// **The fewest frames that were free at any moment, and what the allocator refused**, printed
+/// beside the region peak.
+///
+/// The frame ledger above reads the allocator at the first test and the last. Both its gates are
+/// about that end state, so a run that dips to nothing in the middle and recovers passes them, and
+/// the test that meets the dip fails with `Unmappable(OutOfPageFrames)` or hangs far from whoever
+/// spent the memory. That is what the lane of milestone 198 (a package manager) hit: two more
+/// login tests, and aarch64's `std_net` and riscv64's CPU matrix fell over. This line is the
+/// reading that says how close the run came (`memory::FREE_LOW_WATER`) and, when it went over,
+/// where it went over first.
+///
+/// Reports and does not gate, for [`report_thread_peak`]'s reason. On 2026-09-26 no allocation was
+/// refused on any of the three architectures, so the refusal line normally does not print, and a
+/// run where it does has met the ceiling somewhere; the named test is where to start reading.
+/// `memory::FREE_LOW_WATER` carries the ledger.
+fn report_frame_pressure() {
+    let (low, refused, largest) = crate::memory::allocation_pressure();
+    if low == usize::MAX {
+        return; // nothing allocated after the allocator came up; nothing to say
+    }
+    let during = stored_name(&FRAME_LOW_NAME_PTR, &FRAME_LOW_NAME_LEN)
+        .unwrap_or("the boot, before the first test");
+    println!("frames: at the lowest {low} were free, during {during}. See memory::FREE_LOW_WATER.");
+    if let Some(after) = stored_name(&SHORTEST_RUN_NAME_PTR, &SHORTEST_RUN_NAME_LEN) {
+        println!(
+            "  the longest free run was at its shortest, {} frames, after {after}",
+            SHORTEST_RUN.load(Ordering::Relaxed)
+        );
+    }
+    if refused > 0 {
+        println!(
+            "  {refused} allocations were refused, the largest a request for {largest} frames; \
+             the first during {}",
+            stored_name(&FIRST_REFUSAL_NAME_PTR, &FIRST_REFUSAL_NAME_LEN)
+                .unwrap_or("the boot, before the first test"),
+        );
+    }
+}
+
 /// Report a test's duration once it reaches this many seconds. Below it, silence: most tests are
 /// milliseconds and a duration on every line would bury the signal. Above it, the number is what makes
 /// a [`SLOW_TESTS`] entry an evidence-based declaration rather than a guess: until this existed, the
@@ -951,7 +1049,32 @@ impl<T: Fn()> Testable for T {
         #[cfg(test)]
         PRINTED_A_SKIP_WORD.store(false, Ordering::Relaxed);
 
+        // Attribute the high-water marks to the test that moved them. Read around the body rather
+        // than inside the kernel, so the instruments know nothing about tests.
+        let region_peak_before = crate::memory_region::peak_region_count();
+        let (frames_low_before, refused_before, _) = crate::memory::allocation_pressure();
         self();
+        let mark = |ptr: &AtomicPtr<u8>, len: &AtomicUsize| {
+            ptr.store(name.as_ptr() as *mut u8, Ordering::Relaxed);
+            len.store(name.len(), Ordering::Relaxed);
+        };
+        if crate::memory_region::peak_region_count() > region_peak_before {
+            mark(&REGION_PEAK_NAME_PTR, &REGION_PEAK_NAME_LEN);
+        }
+        let (frames_low_after, refused_after, _) = crate::memory::allocation_pressure();
+        if frames_low_after < frames_low_before {
+            mark(&FRAME_LOW_NAME_PTR, &FRAME_LOW_NAME_LEN);
+        }
+        if refused_after > refused_before
+            && FIRST_REFUSAL_NAME_PTR.load(Ordering::Relaxed).is_null()
+        {
+            mark(&FIRST_REFUSAL_NAME_PTR, &FIRST_REFUSAL_NAME_LEN);
+        }
+        let run = crate::memory::largest_free_run();
+        if run < SHORTEST_RUN.load(Ordering::Relaxed) {
+            SHORTEST_RUN.store(run, Ordering::Relaxed);
+            mark(&SHORTEST_RUN_NAME_PTR, &SHORTEST_RUN_NAME_LEN);
+        }
 
         // Disarm: between tests there is no budget to exceed, and the next test arms its own.
         TEST_START.store(0, Ordering::Relaxed);
@@ -1119,6 +1242,8 @@ pub fn runner(tests: &[&dyn Testable]) {
     crate::stack::report_high_water();
     report_page_frame_ledger();
     report_thread_peak();
+    report_region_peak();
+    report_frame_pressure();
 
     println!();
     // "passed" counts only the tests that actually ran to an "ok"; a skipped test (skip!(), no

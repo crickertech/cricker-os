@@ -224,6 +224,27 @@ impl<const N: usize> RegionTable<N> {
         }
     }
 
+    /// **How many regions are live right now**, roots and split children together.
+    ///
+    /// The kernel reads this under its lock after every insert, to keep the high-water mark the
+    /// test suite's closing `regions:` line prints (`memory_region::MAX_REGIONS` has the ledger).
+    /// An observer about the table rather than about any region, so it names nothing a caller
+    /// could act on after the answer stopped being true, which is the argument `script/lint`'s
+    /// surface pin asks of a new `&self` method.
+    ///
+    /// Name: provisional, from milestone 601 (the region table prints its peak). It is
+    /// `generational_table`'s own spelling of the same question.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.table.len()
+    }
+
+    /// Whether no region is live. The pair clippy asks of a public `len`.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.table.is_empty()
+    }
+
     /// **Record a region carved straight out of the frame allocator**, returning its generational
     /// name. `None` when every slot is live, in which case the caller still owns the pages and must
     /// give them back rather than leak them.
@@ -253,27 +274,6 @@ impl<const N: usize> RegionTable<N> {
     /// **One borrow, where the kernel used to take its lock twice.** Nothing could observe the
     /// half-carved parent before, because the intermediate state is legal, but a window that exists
     /// is a window someone eventually reasons about; this closes it for free.
-    pub fn split(&mut self, parent: u64, pages: u64) -> Option<u64> {
-        let base_page = {
-            let r = self.table.get_mut(parent)?;
-            let new_watermark = split_new_watermark(r.pages, r.watermark, pages)?;
-            let base_page = r.base_page + r.watermark;
-            r.watermark = new_watermark;
-            r.children += 1;
-            base_page
-        };
-        self.table.insert_with(|_| Region {
-            base_page,
-            pages,
-            watermark: 0,
-            pinned: false,
-            parent,
-            children: 0,
-        })
-    }
-
-    /// Whether this region has live children, so a claim on it will be refused. `false` for a dead
-    /// name.
     ///
     /// # BUGS
     ///
@@ -314,6 +314,27 @@ impl<const N: usize> RegionTable<N> {
     /// orphaned when the caller's capability table is full; that note covers it too. Recorded
     /// 2026-09-26 by milestone 601 (the region table prints its peak), from a finding in the lane
     /// of milestone 152 (durable delegation).
+    pub fn split(&mut self, parent: u64, pages: u64) -> Option<u64> {
+        let base_page = {
+            let r = self.table.get_mut(parent)?;
+            let new_watermark = split_new_watermark(r.pages, r.watermark, pages)?;
+            let base_page = r.base_page + r.watermark;
+            r.watermark = new_watermark;
+            r.children += 1;
+            base_page
+        };
+        self.table.insert_with(|_| Region {
+            base_page,
+            pages,
+            watermark: 0,
+            pinned: false,
+            parent,
+            children: 0,
+        })
+    }
+
+    /// Whether this region has live children, so a claim on it will be refused. `false` for a dead
+    /// name.
     #[must_use]
     pub fn has_children(&self, name: u64) -> bool {
         self.table.get(name).is_some_and(|r| r.children > 0)

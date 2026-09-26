@@ -411,14 +411,89 @@ fn overlaps(a: u64, alen: u64, b: u64, blen: u64) -> bool {
     a < b.saturating_add(blen) && b < a.saturating_add(alen)
 }
 
+/// **The fewest frames that were ever free at once on this boot**, and what was refused.
+///
+/// The frame ledger in `testing.rs` reads the allocator twice, before the first test and after the
+/// last, and both of its gates are about that end state. What a boot actually runs out of is the
+/// middle: a service a test starts, a program another test loads while it is still running, a
+/// client whose scratch is held for the rest of the suite. The lane of milestone 198 (a package
+/// manager) added two login tests and aarch64's `std_net` failed with
+/// `Unmappable(OutOfPageFrames)` while riscv64 hung in the CPU matrix, both far from the tests that
+/// spent the memory. This is the reading that says how close the run came, and the first refusal
+/// says where it went over. Milestone 601 (the region table prints its peak), a provisional
+/// number, built it beside the region peak for that reason.
+///
+/// Kept under the allocator lock by [`alloc`] and [`alloc_contiguous`], so a plain load and store
+/// is enough (the lock orders them); atomics only because a `static` must be `Sync`.
+///
+/// # The ledger at the low-water
+///
+/// Measured 2026-09-26 on `main` at `484f3ebe` plus #1347, from the closing `frames:` lines:
+///
+/// | | free before the first test | lowest free | free after the last | refused |
+/// |---|---|---|---|---|
+/// | aarch64 | 57033 | **23654** | 34790 | 0 |
+/// | riscv64 | 57882 | **24682** | 35780 | 0 |
+/// | `x86_64` | 58841 | **35719** | 46813 | 0 |
+///
+/// Every low sits about 11,100 frames under its own end-of-suite figure, and the test named each
+/// time is a progenitor test (`userspace_init_parses_an_elf_and_builds_a_running_child`, or on
+/// riscv64 `init_builds_the_demo_and_passes_it_an_argument`). Both carve a 12,288-page building
+/// budget (`memory_region::create(12288)` in `kernel/src/user.rs`) and give it back when they
+/// finish. So the ledger at the low-water is `notes/frames.md`'s held list plus that one
+/// reservation. What moves the low from one milestone to the next is the held list growing; what
+/// catches a load that no longer fits is the refusal count and the shortest longest-free-run,
+/// which the same summary prints.
+///
+/// No allocation was refused on any architecture in that run, so a refusal line is news. Reports
+/// and does not gate, for `sched::MAX_THREADS`'s reason: the held list grows on purpose, and the
+/// frame ledger's two end-of-suite gates already hold the permanent part to account.
+static FREE_LOW_WATER: AtomicUsize = AtomicUsize::new(usize::MAX);
+/// How many allocations the allocator refused, and the largest request among them, in frames.
+static REFUSED: AtomicUsize = AtomicUsize::new(0);
+static LARGEST_REFUSED: AtomicUsize = AtomicUsize::new(0);
+
+/// Record an allocation's outcome against [`FREE_LOW_WATER`] and [`REFUSED`]. Called with the
+/// allocator still held, so the reading is the one this allocation produced.
+fn note_allocation(allocator: &PageFrameAllocator<'static>, count: usize, granted: bool) {
+    let free = allocator.stats().free();
+    if free < FREE_LOW_WATER.load(core::sync::atomic::Ordering::Relaxed) {
+        FREE_LOW_WATER.store(free, core::sync::atomic::Ordering::Relaxed);
+    }
+    if !granted {
+        REFUSED.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        LARGEST_REFUSED.fetch_max(count, core::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// `(low_water, refused, largest_refused)`: see [`FREE_LOW_WATER`]. The low-water is `usize::MAX`
+/// until the first allocation. Printed by the test suite's closing summary.
+#[cfg_attr(not(test), allow(dead_code))] // the closing summary is the only reader
+pub fn allocation_pressure() -> (usize, usize, usize) {
+    use core::sync::atomic::Ordering::Relaxed;
+    (
+        FREE_LOW_WATER.load(Relaxed),
+        REFUSED.load(Relaxed),
+        LARGEST_REFUSED.load(Relaxed),
+    )
+}
+
 pub fn alloc() -> Option<PageFrame> {
-    ALLOCATOR.lock().as_mut()?.alloc()
+    let mut guard = ALLOCATOR.lock();
+    let allocator = guard.as_mut()?;
+    let frame = allocator.alloc();
+    note_allocation(allocator, 1, frame.is_some());
+    frame
 }
 
 /// Physically contiguous frames, for hardware that does DMA and has no MMU to hide a
 /// scattered buffer behind. Milestone 8 needs this.
 pub fn alloc_contiguous(count: usize) -> Option<PageFrame> {
-    ALLOCATOR.lock().as_mut()?.alloc_contiguous(count)
+    let mut guard = ALLOCATOR.lock();
+    let allocator = guard.as_mut()?;
+    let run = allocator.alloc_contiguous(count);
+    note_allocation(allocator, count, run.is_some());
+    run
 }
 
 /// A freshly allocated frame, zeroed.
