@@ -141,11 +141,20 @@ impl Spawned {
     /// with a child still carved out of it, so the budget's success is also the statement that
     /// every scheduled instance was collected.
     fn reclaim(self) {
-        crate::sched::reclaim_region(self.budget).expect(
-            "the timetable's budget would not reclaim: an instance region is still carved out",
+        // The timetable may still be on its way out of `exit` when the test has read its last word,
+        // and a region with a running resident refuses (and arms the kill that ends it), so each
+        // reclaim is retried until the thread has gone. Not a timing assertion: the deadline is
+        // `wait_for`'s, far past the few scheduler passes an exit takes.
+        let tcb = self.tcb_region;
+        assert!(
+            super::wait_for(|| crate::sched::reclaim_region(tcb).is_ok()),
+            "the timetable's TCB region would not reclaim"
         );
-        crate::sched::reclaim_region(self.tcb_region)
-            .expect("the timetable's TCB region would not reclaim");
+        let budget = self.budget;
+        assert!(
+            super::wait_for(|| crate::sched::reclaim_region(budget).is_ok()),
+            "the timetable's budget would not reclaim: an instance region is still carved out"
+        );
     }
 }
 
