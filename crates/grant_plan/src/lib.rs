@@ -642,7 +642,7 @@ impl Prog {
                     subtree_flag: Some(b'r'),
                 },
                 // In `rmopt`'s bit order, which is what that module pins.
-                flags: b"rfv",
+                flags: Flags::new(b"rfv"),
                 // `-v` prints names, and it prints them the way `date` prints a time. Piping `rm
                 // -rv logs | wc` is therefore expressible; whether it is a good idea is the user's
                 // business and not the manifest's.
@@ -1043,7 +1043,76 @@ pub enum InputSpec {
 
 /// A program that takes no short options. Spelled once so a manifest reads as a declaration rather
 /// than as an empty literal repeated six times.
-pub const NO_FLAGS: &[u8] = b"";
+pub const NO_FLAGS: Flags = Flags::new(b"");
+
+/// **The most short options one program may declare.** Sixteen, which is far above the three `rm`
+/// declares and well inside the 64 bits of [`Endowment::flags`]. Not [`MAX_FLAGS`], which bounds
+/// what one line may type rather than what a program may accept.
+///
+/// A bound at all because a manifest is now also bytes a program carries (milestone 597,
+/// provisional: a program carries its manifest in an ELF note), and a decoded manifest has to hold
+/// its letters by value rather than point at a `'static` string the program's bytes are not.
+pub const MAX_DECLARED_FLAGS: usize = 16;
+
+/// **The short options a program declares, as their letters in bit order** ([`Manifest::flags`]).
+///
+/// A value rather than a `&'static [u8]` since milestone 597 (provisional): a manifest read out
+/// of a program's own bytes has no `'static` string to point at, so the letters are held inline.
+/// Every constructor checks the same three things, so a manifest compiled in and a manifest decoded
+/// from a note cannot disagree about what a well-formed option set is: at most [`MAX_DECLARED_FLAGS`]
+/// letters, each an ASCII letter or digit, and no letter twice (a repeated letter would give one
+/// option two bits, and [`plan`] reads the first).
+///
+/// Name: provisional (milestone 597, 2026-09-26).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Flags {
+    letters: [u8; MAX_DECLARED_FLAGS],
+    len: u8,
+}
+
+impl Flags {
+    /// The option set `letters` spells, or `None` if it breaks one of the three rules above.
+    pub const fn try_new(letters: &[u8]) -> Option<Self> {
+        if letters.len() > MAX_DECLARED_FLAGS {
+            return None;
+        }
+        let mut out = [0u8; MAX_DECLARED_FLAGS];
+        let mut i = 0;
+        while i < letters.len() {
+            let l = letters[i];
+            if !l.is_ascii_alphanumeric() {
+                return None;
+            }
+            let mut j = 0;
+            while j < i {
+                if letters[j] == l {
+                    return None;
+                }
+                j += 1;
+            }
+            out[i] = l;
+            i += 1;
+        }
+        Some(Self {
+            letters: out,
+            len: letters.len() as u8,
+        })
+    }
+
+    /// [`try_new`](Self::try_new) for a manifest written in source, where a bad option set is a
+    /// compile error rather than a value.
+    pub const fn new(letters: &[u8]) -> Self {
+        match Self::try_new(letters) {
+            Some(f) => f,
+            None => panic!("an option set is at most 16 distinct ASCII letters or digits"),
+        }
+    }
+
+    /// The letters, in bit order.
+    pub const fn letters(&self) -> &[u8] {
+        self.letters.split_at(self.len as usize).0
+    }
+}
 
 /// **The capability table slot a declared diagnostic stream lands in** (DECISIONS §67), for the programs that
 /// declare one at all.
@@ -1262,7 +1331,7 @@ pub struct Manifest {
     /// authority by itself, which is why the parser may collect letters before it knows the
     /// program; what makes one matter here is that `subtree_flag` lets one *widen a grant*, and
     /// that widening is checked and printed before anything is spawned.
-    pub flags: &'static [u8],
+    pub flags: Flags,
     /// **What this program's output slot carries** (milestone 50). A slot is a capability, but what
     /// travels over it is a convention, and `>` and `|` only make sense for one of them: a program
     /// that answers with a number in a register cannot have a file put behind it, because a file
@@ -2621,6 +2690,7 @@ pub fn plan_against_with(
     for &letter in run.options() {
         let bit = m
             .flags
+            .letters()
             .iter()
             .position(|&d| d == letter)
             .ok_or(Refusal::NoSuchOption)?;
@@ -2692,7 +2762,7 @@ pub fn plan_against_with(
             // this directory" to "walk what is under it". A program run without it holds no way to
             // descend, so its recursion is not disabled by a branch anybody has to get right.
             let subtree = match subtree_flag {
-                Some(letter) => match m.flags.iter().position(|&d| d == letter) {
+                Some(letter) => match m.flags.letters().iter().position(|&d| d == letter) {
                     Some(bit) => flags & (1 << bit) != 0,
                     // A manifest naming an option it does not declare is a bug in the manifest, and
                     // the safe reading is the narrow one: no widening.
@@ -4995,7 +5065,7 @@ mod tests {
             subtree_flag: Some(b'r'),
         },
         // `r` deliberately second, so the widening reads bit 1.
-        flags: b"vr",
+        flags: Flags::new(b"vr"),
         ..READS_A_FILE
     };
 
