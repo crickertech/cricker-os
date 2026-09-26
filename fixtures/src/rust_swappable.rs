@@ -43,14 +43,8 @@
 /// component lied to about it misbehaves rather than escaping, which is precisely what the hung
 /// channel wants it to do.
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(device: u64, log_base: u64, wedge: u64) -> ! {
-    swap_protocol::serve(
-        swap_protocol::V1,
-        swap_protocol::digest,
-        log_base,
-        device != 0,
-        wedge,
-    )
+pub extern "C" fn _start(a0: u64, log_base: u64, a2: u64) -> ! {
+    swap_protocol::start(swap_protocol::V1, swap_protocol::digest, a0, log_base, a2)
 }
 
 user_mode_runtime::panic_handler!();

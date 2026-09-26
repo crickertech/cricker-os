@@ -31,6 +31,8 @@ const STEP_DRAINED: u64 = 2;
 const STEP_REVOKED: u64 = 3;
 const STEP_STARTED: u64 = 4;
 const STEP_REAPED: u64 = 5;
+const STEP_ABSORBED: u64 = 6;
+const STEP_ROLLED_BACK: u64 = 7;
 
 /// The operator's verdict bits (`swap::log_checks`).
 const LOG_NO_GAP: u64 = 1 << 0;
@@ -52,6 +54,10 @@ const CL_WAS_RELEASED: u64 = 1 << 7;
 const ROLE_DIRECT: u64 = 0;
 const ROLE_QUEUED: u64 = 1;
 const ROLE_HUNG: u64 = 2;
+const ROLE_HANDOFF: u64 = 3;
+/// The one blob layout any build in this tree writes (`swap_protocol::LAYOUT_1`). The refusing
+/// replacement names it as the layout it could not read, so both sides name one constant.
+const LAYOUT_1: u64 = 1;
 const V1: u64 = 1;
 const V2: u64 = 2;
 const REQUESTS: u64 = 64;
@@ -207,7 +213,10 @@ fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
              60-63 the component manifests (60 means an unsatisfiable declaration was WIRED), \
              64 the dependency graph query (more live instances than MAX_LIVE), 70-87 the \
              hung-component rung (81 means the incumbent did not announce its hang with a CALL, \
-             so nothing held a reply capability on it).",
+             so nothing held a reply capability on it), 90-108 state handoff (92 means a \
+             stateful component was wired by a supervisor with no handoff page to give it, 100 \
+             means the refusing replacement did not refuse, 106 means the absorbing one did not \
+             absorb).",
             msg[1],
         );
         assert_ne!(
@@ -882,3 +891,147 @@ fn a_component_that_stops_answering_without_dying_is_invisible_to_its_supervisor
          {at_started}): the hang did not actually block it",
     );
 }
+
+/// **A component's state survives its own replacement, and a replacement that cannot take the state
+/// over does not replace anything** (DECISIONS §209 (state handoff is an opaque blob over a granted frame, and it is optional); the last residual of milestone 23 (a capability-routed component OS with live replacement);
+/// notes/state-handoff.md).
+///
+/// The component keeps a tally of every request it has served and answers each request with it.
+/// The operator tries the swap twice: once against a replacement that only understands a blob layout
+/// nobody wrote, and once against one that understands the incumbent's. Three witnesses, none
+/// consulted by the others:
+///
+/// - **The client**, from its replies. The tally rides in the reply word the other channels use to
+///   echo the sequence number, so `SEQ_ECHOED` holds across all 64 requests **only if no state was
+///   lost**: a replacement that started from zero would answer request 40 with 0.
+/// - **The operator**, from the steps: the refused attempt rolled back and named the layout it
+///   could not read, and the tally the replacement says it absorbed is exactly the tally the
+///   incumbent said it had when it quiesced the second time.
+/// - **The witness page**, byte by byte: one version change, no gap, never backwards.
+///
+/// **This is the one swap system that runs on `x86_64`.** It has no device, because the state is what
+/// is under test, so the x86 gap the other three tests skip on (`NO_UART_PAGE`) does not apply. The
+/// operator is still spawned holding a device capability in slot 2, because `spawn_swapper` gives
+/// every role one; on x86 that capability names physical page zero, and this role never maps it.
+#[test_case]
+fn a_component_keeps_its_state_across_a_swap_and_a_swap_that_cannot_absorb_it_does_not_commit() {
+    let (msgs, n) = run_swap(ROLE_HANDOFF);
+    let msgs = &msgs[..n];
+
+    // Before anything is built: a supervisor with no handoff page to route (the client's routing
+    // table) is refused the stateful contract, rather than wiring it and losing the state silently.
+    a_component_the_operator_cannot_provide_for_was_refused_first(msgs);
+
+    // Two drains, one refusal, one absorb, in that order.
+    let steps: [u64; 4] = {
+        let mut out = [0u64; 4];
+        let mut k = 0;
+        for m in of_kind(msgs, RPT_STEP) {
+            if matches!(m[1], STEP_DRAINED | STEP_ROLLED_BACK | STEP_ABSORBED) && k < 4 {
+                out[k] = m[1];
+                k += 1;
+            }
+        }
+        out
+    };
+    assert_eq!(
+        steps,
+        [STEP_DRAINED, STEP_ROLLED_BACK, STEP_DRAINED, STEP_ABSORBED],
+        "the operator should drain, roll back, drain again, then commit; it did {steps:?} \
+         (2 = drained, 7 = rolled back, 6 = absorbed)",
+    );
+    let rolled_back = of_kind(msgs, RPT_STEP)
+        .find(|m| m[1] == STEP_ROLLED_BACK)
+        .expect("checked above");
+    assert_eq!(
+        rolled_back[2], LAYOUT_1,
+        "the refusing replacement should name the layout it could not read, the incumbent's",
+    );
+
+    // The state that left is the state that arrived.
+    let mut drains = of_kind(msgs, RPT_STEP).filter(|m| m[1] == STEP_DRAINED);
+    let first_drain = drains.next().expect("checked above")[2];
+    let second_drain = drains.next().expect("checked above")[2];
+    let absorbed = of_kind(msgs, RPT_STEP)
+        .find(|m| m[1] == STEP_ABSORBED)
+        .expect("checked above")[2];
+    assert!(
+        first_drain > 0 && first_drain < second_drain && second_drain < REQUESTS,
+        "the incumbent should have served more after the rollback than before it ({first_drain} \
+         then {second_drain}): a rollback that left it unable to serve is not a rollback",
+    );
+    assert_eq!(
+        absorbed, second_drain,
+        "the replacement absorbed a tally of {absorbed}, and the incumbent quiesced holding \
+         {second_drain}: state was lost or invented in the handoff",
+    );
+
+    // Exactly two instances ever served: the refuser never came up.
+    let mut ups = of_kind(msgs, RPT_UP);
+    assert_eq!(
+        ups.next().map(|m| m[1]),
+        Some(V1),
+        "the incumbent never came up"
+    );
+    assert_eq!(
+        ups.next().map(|m| m[1]),
+        Some(V2),
+        "the replacement never came up"
+    );
+    assert!(
+        ups.next().is_none(),
+        "a third instance came up: the refusing replacement served after it refused",
+    );
+
+    // Witness one: the client. Every flag, and the swap landed exactly where the tally says.
+    let client = of_kind(msgs, RPT_CLIENT)
+        .next()
+        .expect("the client never reported a verdict");
+    for (bit, what) in [
+        (CL_ALL_REPLIED, "every request was answered"),
+        (
+            CL_SEQ_ECHOED,
+            "every reply carried the component's tally, unbroken across the swap",
+        ),
+        (CL_DIGEST_CORRECT, "every answer was right"),
+        (
+            CL_ONE_TRANSITION,
+            "the version changed once, and the refused attempt did not show",
+        ),
+        (CL_SPANNED_SWAP, "the swap landed inside the conversation"),
+    ] {
+        assert!(client[1] & bit != 0, "the client could not confirm: {what}");
+    }
+    assert_eq!(
+        client[2], absorbed,
+        "the first request the replacement answered should be request {absorbed}, the tally it \
+         took over; the client saw the version change at {}",
+        client[2],
+    );
+
+    // Witness two: the page.
+    let log = of_kind(msgs, RPT_LOG).next().expect("checked by run_swap");
+    for (bit, what) in [
+        (LOG_NO_GAP, "no request was lost"),
+        (
+            LOG_MONOTONE,
+            "the incumbent never answered after the replacement",
+        ),
+        (LOG_BOTH_VERSIONS, "both versions served"),
+    ] {
+        assert!(log[1] & bit != 0, "the witness page does not show: {what}");
+    }
+    assert_eq!(
+        log[2], absorbed,
+        "the witness page puts the swap somewhere else"
+    );
+
+    // Four children, four corpses, none of them a fault: the refuser exited, the incumbent was
+    // retired on commit, the client finished, and the replacement was retired at the end.
+    assert_eq!(of_kind(msgs, RPT_DEATH).count(), 4);
+    assert!(
+        of_kind(msgs, RPT_DEATH).all(|m| m[2] != abi::fault::EVENT_FAULT),
+        "a child of the handoff system faulted",
+    );
+}
+

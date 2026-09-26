@@ -249,6 +249,19 @@ pub mod step {
     pub const STARTED: u64 = 4;
     /// The corpse was collected through the supervision endpoint (DECISIONS §32).
     pub const REAPED: u64 = 5;
+    /// **The incoming instance absorbed the outgoing one's state** (DECISIONS §209 (state handoff is an opaque blob over a granted frame, and it is optional)). Detail = the
+    /// tally it took over. Only now is the outgoing instance retired: this is the commit.
+    ///
+    /// Name: provisional (the lane for milestone 23 (a capability-routed component OS with live
+    /// replacement), 2026-09-26).
+    pub const ABSORBED: u64 = 6;
+    /// **The incoming instance could not absorb the state, so the swap did not commit** (§209's
+    /// third part). Detail = the blob layout it was handed and did not understand. The incumbent is
+    /// told to resume, still holding the state it never lost, and the refusing instance's corpse is
+    /// collected: the new grant is revoked by the same reap that collects every other child here.
+    ///
+    /// Name: provisional (milestone 23's lane, 2026-09-26).
+    pub const ROLLED_BACK: u64 = 7;
 }
 
 /// The operator's verdict bits, computed from the shared log page after the run.
@@ -386,6 +399,68 @@ pub const ROLE_QUEUED: u64 = 1;
 /// channel's system, with one difference: the incumbent stops answering instead of being drained, so
 /// the operator has to run the swap against a component that never cooperates.
 pub const ROLE_HUNG: u64 = 2;
+/// **State handoff** (DECISIONS §209, milestone 23's last residual). A component that carries state
+/// across the swap, and a swap that is tried twice: once against a replacement that cannot absorb the
+/// state and must not commit, and once against one that can. No device, so this is the one swap
+/// system that runs on all three architectures.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26).
+pub const ROLE_HANDOFF: u64 = 3;
+
+/// **How the operator starts a stateful instance** (the first `_start` argument, where the other
+/// systems pass a device flag of `0` or `1`). A fresh instance begins at a tally of zero, which is
+/// what the first incumbent of a channel is. An absorbing one reads the handoff page first and
+/// refuses to serve if it cannot make sense of what is there.
+///
+/// Told rather than inferred from the page's contents, and that is deliberate: a supervisor knows
+/// whether it is starting a channel or replacing an instance on one, and a component that guessed
+/// from a zeroed page would take a lost blob for a fresh start, which is exactly the silent state
+/// loss §209's refusal exists to prevent.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26).
+pub const START_FRESH: u64 = 2;
+/// Absorb the handoff page's blob, or refuse. See [`START_FRESH`].
+pub const START_ABSORB: u64 = 3;
+
+/// **Where the stateful component's handoff page sits** in both instances (DECISIONS §209), declared
+/// by [`TALLY`]'s `handoff` field.
+pub const STATE_VA: u64 = 0x0320_0000;
+
+/// **The blob layouts.** The bytes on the handoff page are this component's business and nobody
+/// else's, so their layout is versioned here, beside the only code that reads them. A build knows the
+/// layouts it can absorb; the operator never does.
+///
+/// Layout 1 is two words: a marker with the layout in its low half, then the tally.
+pub const LAYOUT_1: u64 = 1;
+/// A layout no build in this tree writes. The fixture starts one replacement claiming to understand
+/// only this, which is how "a newer build that cannot read an older build's state" is staged without
+/// a third binary. The refusal it produces is real; the incompatibility is configured.
+pub const LAYOUT_2: u64 = 2;
+
+/// The marker in the blob's first word, above the layout: "TALY". A page that does not start with it
+/// holds no blob at all, which is refused exactly as an unknown layout is.
+pub const STATE_MAGIC: u64 = 0x5441_4c59 << 32;
+
+/// **Serialise the component's state** into the two words it occupies on the handoff page.
+pub const fn state_blob(layout: u64, tally: u64) -> [u64; 2] {
+    [STATE_MAGIC | layout, tally]
+}
+
+/// **Absorb a blob, or say why not.** `Ok(tally)` when the blob is in the one layout this build
+/// understands; `Err(what was found)` otherwise, where what was found is the layout, or `0` when the
+/// page held no blob at all.
+///
+/// Pure, so the refusal §209's third part hangs on is a host test and not only a guest one.
+pub const fn absorb(blob: [u64; 2], understands: u64) -> Result<u64, u64> {
+    if blob[0] & !0xffff_ffff != STATE_MAGIC {
+        return Err(0);
+    }
+    let layout = blob[0] & 0xffff_ffff;
+    if layout != understands {
+        return Err(layout);
+    }
+    Ok(blob[1])
+}
 
 /// Where the queued channel's log entries start, so the two systems can share one witness page
 /// without stepping on each other.
@@ -558,6 +633,26 @@ pub const BROKER: Requirements = Requirements {
     handoff: None,
 };
 
+/// **The stateful component** (DECISIONS §209). The backend contract, plus a handoff page: it keeps
+/// a tally of every request the *component* has served, across instances, and answers each request
+/// with it. So a replacement that lost the state is caught by the client on the first request after
+/// the swap, with nothing but the reply to go on.
+///
+/// Its own contract rather than a flag on [`BACKEND`], because §209's field is a property of the
+/// contract: whether a component has state to move is decided by what it is, and two builds of one
+/// contract that disagreed about it would not be substitutable.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26), for both the constant and the contract
+/// string `tally`.
+pub const TALLY: Requirements = Requirements {
+    contract: "tally",
+    caps: CONSOLE.caps,
+    maps: BACKEND.maps,
+    pages: INSTANCE_PAGES,
+    depends_on: &[],
+    handoff: Some(component_plan::Handoff { va: STATE_VA }),
+};
+
 /// Every declaration in this crate is well formed, checked at compile time on both architectures.
 /// A role declared twice or two pages at one address would otherwise be a component reading the
 /// wrong slot, or one mapping silently winning, with nothing to see at run time.
@@ -565,6 +660,7 @@ const _: () = assert!(CONSOLE.problem().is_none());
 const _: () = assert!(BACKEND.problem().is_none());
 const _: () = assert!(CLIENT.problem().is_none());
 const _: () = assert!(BROKER.problem().is_none());
+const _: () = assert!(TALLY.problem().is_none());
 
 // ===========================================================================================
 // The component's work, defined once so two implementations can be checked against each other.
@@ -697,6 +793,10 @@ const _: () = assert!(component_plan::slot_of(&BACKEND, "service") == SVC);
 const _: () = assert!(component_plan::slot_of(&BACKEND, "report") == RPT);
 const _: () = assert!(component_plan::slot_of(&BACKEND, "operator") == NOTE);
 const _: () = assert!(component_plan::slot_of(&BACKEND, "control") == POKE);
+const _: () = assert!(component_plan::slot_of(&TALLY, "service") == SVC);
+const _: () = assert!(component_plan::slot_of(&TALLY, "report") == RPT);
+const _: () = assert!(component_plan::slot_of(&TALLY, "operator") == NOTE);
+const _: () = assert!(component_plan::slot_of(&TALLY, "control") == POKE);
 
 /// **Touch the device one last time.** The operator sends this to an instance it has already
 /// revoked, and the fault that follows is the receipt.
@@ -705,6 +805,124 @@ pub const POKE_PROBE: u64 = 1;
 /// collected and its region returned. Distinct from `POKE_PROBE` because a probe that *succeeds* is
 /// a test failure, and the last instance of a run still legitimately holds the device.
 pub const POKE_QUIT: u64 = 2;
+/// **Go back to serving.** The operator sends this to a quiesced stateful incumbent when the swap it
+/// was quiesced for did not commit (§209's third part). The incumbent never lost its state, so it
+/// picks up where it stopped, and whatever parked on the service endpoint meanwhile is served next.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26).
+pub const POKE_RESUME: u64 = 3;
+
+/// **Start one instance, whichever system it belongs to.** Both fixtures' `_start` is this call, so
+/// which system an instance serves is the operator's choice and not a property of the binary.
+///
+/// `a0` is the device flag (`0` or `1`) for the three stateless systems, or [`START_FRESH`] /
+/// [`START_ABSORB`] for the stateful one. `a2` is the wedge sequence number for the former and the
+/// blob layout this instance understands for the latter.
+pub fn start(version: u64, xform: fn(u64) -> u64, a0: u64, log_base: u64, a2: u64) -> ! {
+    match a0 {
+        START_FRESH | START_ABSORB => {
+            serve_with_state(version, xform, log_base, a2, a0 == START_ABSORB)
+        }
+        _ => serve(version, xform, log_base, a0 != 0, a2),
+    }
+}
+
+/// **Serve the stateful contract** ([`TALLY`], DECISIONS §209).
+///
+/// [`serve`]'s loop with one word of state and three differences:
+///
+/// - **An absorbing instance reads the handoff page before it serves anything**, and either
+///   announces the tally it took over ([`NOTE_ABSORBED`]) or refuses ([`NOTE_REFUSED`]) and exits
+///   without ever receiving on the service endpoint. The refusal is what lets the operator not
+///   commit. An instance that served first and checked later would already have answered a request
+///   with the wrong tally, which is the loss the check is for.
+/// - **The reply's second word carries the tally rather than the echoed sequence number.** The two are
+///   equal exactly when no request was lost and no state was, so the client's existing `SEQ_ECHOED`
+///   check becomes the continuity witness without the client knowing which system it is in.
+/// - **Quiescing writes the blob**, before the reply, so the operator's `QUIESCED` is also the receipt
+///   that the page holds this instance's final state. And a quiesced instance can be told to
+///   [`POKE_RESUME`], because a swap that does not commit must leave the incumbent serving.
+pub fn serve_with_state(
+    version: u64,
+    xform: fn(u64) -> u64,
+    log_base: u64,
+    layout: u64,
+    absorbing: bool,
+) -> ! {
+    let mut tally = 0u64;
+    if absorbing {
+        match absorb(read_state(), layout) {
+            Ok(t) => {
+                tally = t;
+                user_mode_runtime::send(NOTE, NOTE_ABSORBED, version, tally);
+            }
+            Err(found) => {
+                // Refuse and leave. Nothing was received, nothing was answered, and the page is
+                // untouched, so the incumbent's blob is still there if anyone wants it.
+                user_mode_runtime::send(NOTE, NOTE_REFUSED, version, found);
+                user_mode_runtime::exit()
+            }
+        }
+    }
+    user_mode_runtime::send(RPT, RPT_UP, version, 0);
+
+    loop {
+        let mut since = 0u64;
+        loop {
+            let (op, slot, arg) = user_mode_runtime::recv_cap(SVC);
+            if slot == abi::rendezvous::NO_CAP {
+                continue;
+            }
+            match op {
+                OP_PUT => {
+                    log_put(log_base + arg, version);
+                    user_mode_runtime::reply(slot, xform(arg), tag(version, tally));
+                    tally += 1;
+                    since += 1;
+                    // Counted from the last (re)start, so an incumbent resumed after a swap that did
+                    // not commit asks for another one a further SWAP_TRIGGER requests in.
+                    if since == SWAP_TRIGGER && version == V1 {
+                        user_mode_runtime::send(NOTE, NOTE_SWAP_NOW, version, tally);
+                    }
+                }
+                OP_QUIESCE => {
+                    write_state(state_blob(layout, tally));
+                    user_mode_runtime::send(RPT, RPT_QUIESCED, version, tally);
+                    user_mode_runtime::reply(slot, QUIESCED, tally);
+                    break;
+                }
+                _ => {
+                    user_mode_runtime::reply(slot, BAD_REQUEST, 0);
+                }
+            }
+        }
+        let (what, _, _) = user_mode_runtime::recv(POKE);
+        if what != POKE_RESUME {
+            user_mode_runtime::exit()
+        }
+    }
+}
+
+/// The handoff page's two words, read volatile for [`log_get`]'s reason: another address space wrote
+/// them, and the read is ordered after the write by the IPC that started this instance.
+fn read_state() -> [u64; 2] {
+    // SAFETY: the handoff page is mapped read/write at STATE_VA in every instance of TALLY, by the
+    // operator's plan, before the instance is started.
+    unsafe {
+        [
+            core::ptr::read_volatile(STATE_VA as *const u64),
+            core::ptr::read_volatile((STATE_VA + 8) as *const u64),
+        ]
+    }
+}
+
+fn write_state(blob: [u64; 2]) {
+    // SAFETY: as `read_state`.
+    unsafe {
+        core::ptr::write_volatile(STATE_VA as *mut u64, blob[0]);
+        core::ptr::write_volatile((STATE_VA + 8) as *mut u64, blob[1]);
+    }
+}
 
 /// **Serve the stable endpoint until told to quiesce, then prove the revoke.**
 ///
@@ -840,6 +1058,17 @@ pub const NOTE_WEDGED: u64 = 5;
 /// component whose lack of cooperation is the definition of the hang, which is the finding rather
 /// than a limitation of this fixture.
 pub const NOTE_RELEASE: u64 = 6;
+/// **An incoming stateful instance absorbed the handoff page.** `w1` = version, `w2` = the tally it
+/// took over. Sent before it receives anything, so the operator hears it before any request is
+/// served under the new instance, and only then retires the old one.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26).
+pub const NOTE_ABSORBED: u64 = 7;
+/// **An incoming stateful instance could not absorb the handoff page and is leaving.** `w1` =
+/// version, `w2` = the layout it found (`0` for no blob at all). The swap does not commit.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-26).
+pub const NOTE_REFUSED: u64 = 8;
 
 /// Trap. A half-built system is not worth limping along, and a fault is legible: the kernel prints
 /// the pc and the process dies where the mistake was.
@@ -856,4 +1085,66 @@ pub fn fail() -> ! {
 pub fn try_recv_cap(slot: u64) -> i64 {
     // SAFETY: a plain syscall. If it succeeds we have stolen a request, which is the failure.
     unsafe { invoke(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The round trip the whole stateful system rests on.
+    #[test]
+    fn a_blob_in_the_layout_a_build_understands_is_absorbed_whole() {
+        assert_eq!(absorb(state_blob(LAYOUT_1, 40), LAYOUT_1), Ok(40));
+        assert_eq!(absorb(state_blob(LAYOUT_1, 0), LAYOUT_1), Ok(0));
+    }
+
+    /// **§209's third part, as a value.** A build that does not understand the layout says which
+    /// layout it was handed, so the operator's `ROLLED_BACK` detail names the incompatibility.
+    #[test]
+    fn a_blob_in_another_layout_is_refused_with_the_layout_it_carried() {
+        assert_eq!(absorb(state_blob(LAYOUT_1, 40), LAYOUT_2), Err(LAYOUT_1));
+    }
+
+    /// **A page with no blob on it is refused, not read as a fresh start.** The trap is that a zeroed
+    /// page looks like a tally of zero, and an instance that took it that way would lose the state
+    /// silently. This is why [`START_FRESH`] exists as its own word rather than being inferred.
+    #[test]
+    fn a_page_with_no_blob_is_refused_rather_than_taken_for_a_fresh_start() {
+        assert_eq!(absorb([0, 0], LAYOUT_1), Err(0));
+        assert_eq!(absorb([LAYOUT_1, 40], LAYOUT_1), Err(0));
+    }
+
+    /// The stateful contract declares its page, is wired only by a supervisor that can route one,
+    /// and keeps the capability layout the shared serving code reads.
+    #[test]
+    fn the_stateful_contract_is_refused_to_a_supervisor_that_cannot_carry_state() {
+        let without = component_plan::Provisions {
+            held: &[
+                ("service", 1),
+                ("report", 2),
+                ("operator", 3),
+                ("control", 4),
+                ("witness", 5),
+            ],
+        };
+        assert_eq!(
+            component_plan::plan(&TALLY, &without),
+            Err(component_plan::Refusal::Unprovided {
+                role: component_plan::HANDOFF_ROLE
+            })
+        );
+        let with = component_plan::Provisions {
+            held: &[
+                ("service", 1),
+                ("report", 2),
+                ("operator", 3),
+                ("control", 4),
+                ("witness", 5),
+                (component_plan::HANDOFF_ROLE, 6),
+            ],
+        };
+        let p = component_plan::plan(&TALLY, &with).unwrap();
+        assert_eq!(p.handoff(), Some(STATE_VA));
+        assert!(p.devices().is_empty());
+    }
 }
