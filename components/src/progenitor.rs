@@ -68,17 +68,17 @@ const GRANTS: BootEndowment = BootEndowment {
     virtio_rng: 7,
     virtio_rng_irq: 8,
     virtio_rng_dma: 9,
-    // The graphical terminal stack (milestone 177, option A), fixed past the virtio-rng trio's
-    // own floor (slot 9) for its own reason: a boot with no GPU or no keyboard attached leaves
-    // all three empty, and `system_initializer::boot`'s own probe is what tells it apart from a
-    // granted one.
+    // A terminal on the firmware's screen (milestone 198 (a package manager)'s rung 1b), past the virtio-rng trio's
+    // floor (slot 9) for that trio's reason: a boot whose console has no screen leaves both empty.
+    // (They were the kernel-built virtio-gpu stack's slots until milestone 600 (provisional).)
     disp_term_ep: 10,
     disp_term_page: 11,
-    kbd_ep: 12,
+    // The gpu's surface run (milestone 600 (provisional)), in the slot the kernel-built stack's
+    // keyboard endpoint used to take. The other three gpu grants are at 17-19, below.
+    gpu_surface: 12,
     // The network card (milestone 590 (the booted system starts its network stack)), past the
-    // graphical stack's floor (slot 12)
-    // for the same reason again: a boot with no virtio-net device leaves all three empty, and
-    // `system_initializer::boot` probes for it.
+    // slot 12 floor for the same reason again: a boot with no virtio-net device leaves all three
+    // empty, and `system_initializer::boot` probes for it.
     virtio_net: 13,
     virtio_net_irq: 14,
     virtio_net_dma: 15,
@@ -87,6 +87,17 @@ const GRANTS: BootEndowment = BootEndowment {
     // or this, never both. Past the network card's floor (slot 15) for the reason every group above
     // gives.
     entropy_ep: 16,
+    // The graphical terminal stack's raw materials (milestone 600 (provisional)): a virtio-gpu's
+    // transport, interrupt and DMA run, then a virtio keyboard's trio. The progenitor builds
+    // `gpu_driver`, `display_terminal` and `keyboard_driver` from these, where the kernel used to
+    // build them. Empty with no GPU; the keyboard's three are empty on a graphical boot whose
+    // keystrokes come from the UART, which is every real board.
+    gpu: 17,
+    gpu_irq: 18,
+    gpu_dma: 19,
+    keyboard: 20,
+    keyboard_irq: 21,
+    keyboard_dma: 22,
     // Nothing. Since milestone 166 the boot loader is not shared with milestone 19d's test roles on
     // any architecture, so the kernel grants exactly what the interactive system uses. aarch64 once
     // carried a report endpoint (slot 1) and the 19d.2b test interrupt (slot 3) here.

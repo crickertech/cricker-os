@@ -240,10 +240,19 @@ fn direct_send(buf: &[u8], n: &mut usize) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(mode: u64, direct_memory_access_phys: u64, _arg2: u64) -> ! {
+pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
     if mode != MODE_RING && mode != MODE_DIRECT {
         die(E_MODE);
     }
+    // **Where the page is, read out of the page** (milestone 600 (provisional)): whoever built this
+    // process wrote the DMA page's physical base into its own tail (`abi::virtio::DMA_PHYS_OFFSET`,
+    // well past `EVENT_BASE`'s eight records), because the progenitor, which builds this driver on
+    // the real boot, holds the page as a capability and knows no physical address. It used to
+    // arrive in `x1`.
+    // SAFETY: the page is mapped read/write at `DMA_VA` before `_start` runs (the spawner's `maps`),
+    // and the offset is inside it.
+    let direct_memory_access_phys =
+        unsafe { core::ptr::read_volatile((DMA_VA + abi::virtio::DMA_PHYS_OFFSET) as *const u64) };
     if mr(MAGIC) != 0x7472_6976 {
         die(E_MAGIC);
     }

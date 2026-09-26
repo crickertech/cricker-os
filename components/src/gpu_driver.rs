@@ -13,8 +13,9 @@
 //! - slot 4, an **untyped**: the budget the page tables for its own mappings come out of;
 //! - slot 5, its **DMA region**: one `PageFrame` capability naming the whole [`DMA_PAGE_FRAMES`]-page
 //!   run (DECISIONS §102), which it maps itself in one call (milestone 108). The region's *physical*
-//!   base still arrives in `x1`, because descriptors speak physical addresses and a process only
-//!   knows virtual ones.
+//!   base is written in the region itself, at `abi::virtio::DMA_PHYS_OFFSET` of its first page,
+//!   because descriptors speak physical addresses and a process only knows virtual ones (it came in
+//!   `x1` until milestone 600 (provisional) moved this driver's spawn into the progenitor).
 //!
 //! **One capability for one contiguous region**, since DECISIONS §102 gave `PageFrame` a page
 //! count: this driver's DMA region is adjacent in physics, adjacent in its address space, and
@@ -517,7 +518,7 @@ fn run_backing_escape(direct_memory_access_phys: u64, victim: u64) -> ! {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(role: u64, direct_memory_access_phys: u64, arg2: u64) -> ! {
+pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
     // **The DMA region is ours to place** (milestone 108): one `PageFrame` capability naming the
     // whole [`DMA_PAGE_FRAMES`]-page run (DECISIONS §102), mapped read/write out of our own budget
     // in one `MAP` call. Before either role, because the rings live in the first page of it and the
@@ -528,6 +529,16 @@ pub extern "C" fn _start(role: u64, direct_memory_access_phys: u64, arg2: u64) -
         // spawner that never sees `UP` knows bring-up failed.
         exit();
     }
+    // **Where the region is, read out of the region** (milestone 600 (provisional)). Descriptors
+    // speak physical addresses, and whoever built this process wrote the run's physical base into
+    // the tail of its first page (`abi::virtio::DMA_PHYS_OFFSET`, past `OFF_RESP`'s 408 bytes). It
+    // used to arrive in `x1`, which only a spawner that knew the address could fill; the
+    // progenitor, which builds this driver on the real boot, holds the run as a capability and
+    // knows no physical address, which is the point of holding it as one.
+    // SAFETY: the whole run was just mapped read/write at `DMA_VA`, and the offset is inside its
+    // first page.
+    let direct_memory_access_phys =
+        unsafe { core::ptr::read_volatile((DMA_VA + abi::virtio::DMA_PHYS_OFFSET) as *const u64) };
 
     // Two roles in one binary, for the reason the blk attackers ride with the blk driver: the attack
     // differs from the honest driver by one field, and sharing the bring-up is what makes it a fair

@@ -688,6 +688,23 @@ pub mod virtio {
     /// `queue` selects the virtqueue, as for `SETUP_QUEUE`; each queue keeps its own validated
     /// high-water mark, so receive and transmit submits never interfere.
     pub const NOTIFY: u64 = 3;
+
+    /// **Where a boot virtio device's DMA region says where it is**: the byte offset, inside the
+    /// region's first page, at which the kernel writes the region's own physical base as a
+    /// little-endian `u64` before it grants the region to anyone.
+    ///
+    /// Descriptors speak physical addresses and a process knows only virtual ones, and no method
+    /// translates one, deliberately. So a driver needs its region's physical base as a plain value,
+    /// and a supervisor that builds the driver has no spare `START` word to carry it in. The page
+    /// carries it instead. The last eight bytes of the first page, because no driver's rings or
+    /// control buffers reach them: `entropy` ends at `0x500`, `net_stack` at `0xF00`, `gpu_driver`
+    /// at `0x798` and `keyboard_driver` at `0x440`.
+    ///
+    /// Shared by the kernel (which writes it), `system_initializer` (which reads it back for the
+    /// rng and the NIC) and `gpu_driver` and `keyboard_driver` (which read it themselves), so it is
+    /// a constant in a crate rather than a number in four places (AGENTS.md rule 7). Milestone 600
+    /// (provisional) moved it here; it was a number in two places before. Name: provisional.
+    pub const DMA_PHYS_OFFSET: u64 = 4096 - 8;
 }
 
 /// Methods on a `MemoryRegion` capability. **How a process spends its own memory.**

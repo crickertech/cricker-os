@@ -21,21 +21,32 @@ pub struct Wiring {
     head: u32,
 }
 
-/// **Wire and spawn the keyboard driver.** `None` if no virtio-input function is on the bus.
-///
-/// The kernel keeps the doorbell's receiving half and the ring, so it can stand in for the
-/// compositor; a real system hands both to `compositor` instead and nothing about this driver
-/// changes, which is the same swap rung two made at the display seam.
-pub fn start(image: &'static [u8]) -> Option<Wiring> {
+/// **A virtio keyboard, wired and confined but driven by nobody yet**: what [`wire_device`] hands
+/// back. [`display_service::GpuDevice`]'s twin, one device over, and for the same two holders: the
+/// kernel's own test wiring ([`start`]) and, since milestone 600 (provisional), the progenitor,
+/// which `kernel::user::boot_progenitor` grants these to. Name: provisional.
+pub struct KeyboardDevice {
+    /// The `Virtio` capability's id.
+    pub vid: usize,
+    /// The event interrupt, routed and enabled.
+    pub intid: u32,
+    /// The one DMA page's physical base, which the page also carries at
+    /// `abi::virtio::DMA_PHYS_OFFSET`.
+    pub dma: u64,
+}
+
+/// **Find the keyboard, build its DMA page, route its interrupt and register its confined
+/// transport**, and spawn nothing. `None` if no virtio-input function is on the bus.
+pub fn wire_device() -> Option<KeyboardDevice> {
     let d = crate::pci::find_input_device()?;
 
     // Zeroed so no stale descriptor and no stale event is ever visible to the device or to us.
     let dma = crate::memory::alloc_contiguous_zeroed(DMA_PAGE_FRAMES as usize)
         .expect("no DMA region for the keyboard driver")
         .addr();
-    let ring = crate::memory::alloc_zeroed()
-        .expect("no frame for the input ring")
-        .addr();
+    // Where the page is, in the page (`abi::virtio::DMA_PHYS_OFFSET`): the driver reads it there
+    // rather than from `arg1`, so a supervisor that holds only the frame capability can build it.
+    super::write_dma_phys(dma);
 
     let irq_ep = crate::sched::create_rendezvous();
     crate::sched::bind_irq(d.intid, irq_ep);
@@ -47,6 +58,23 @@ pub fn start(image: &'static [u8]) -> Option<Wiring> {
         DMA_PAGE_FRAMES * FRAME_SIZE,
         Some(d.rid),
     );
+    Some(KeyboardDevice {
+        vid,
+        intid: d.intid,
+        dma,
+    })
+}
+
+/// **Wire and spawn the keyboard driver.** `None` if no virtio-input function is on the bus.
+///
+/// The kernel keeps the doorbell's receiving half and the ring, so it can stand in for the
+/// compositor; a real system hands both to `compositor` instead and nothing about this driver
+/// changes, which is the same swap rung two made at the display seam.
+pub fn start(image: &'static [u8]) -> Option<Wiring> {
+    let KeyboardDevice { vid, intid, dma } = wire_device()?;
+    let ring = crate::memory::alloc_zeroed()
+        .expect("no frame for the input ring")
+        .addr();
 
     let report = crate::sched::create_rendezvous();
     let doorbell = crate::sched::create_rendezvous();
@@ -68,11 +96,11 @@ pub fn start(image: &'static [u8]) -> Option<Wiring> {
             image,
             Spawn {
                 arg0: 0,
-                arg1: dma, // the DMA region's PHYSICAL base: descriptors speak physical
+                arg1: 0, // no physical address: the DMA page carries its own
                 arg2: 0,
                 grants: &[
                     rendezvous_cap(report, Rights::WRITE),   // slot 0: status
-                    irq_cap(d.intid),                        // slot 1: the event interrupt
+                    irq_cap(intid),                          // slot 1: the event interrupt
                     virtio_cap(vid),                         // slot 2: the confined transport
                     rendezvous_cap(doorbell, Rights::WRITE), // slot 3: ring the compositor
                 ],
@@ -88,88 +116,6 @@ pub fn start(image: &'static [u8]) -> Option<Wiring> {
         ring,
         head: 0,
     })
-}
-
-/// `arg0`'s direct-wiring value. Must match `components/src/keyboard_driver.rs` `MODE_DIRECT`.
-const MODE_DIRECT: u64 = 1;
-
-/// **Wire and spawn the keyboard driver in `MODE_DIRECT`** (milestone 177, option A): a fixed
-/// `CALL` target instead of the compositor's ring and doorbell, for a boot with exactly one
-/// terminal and no compositor in the input path at all
-/// (design/roadmap/177-graphical-interactive-boot.md's own reasoning: the compositor's focus
-/// arbitration answers a multi-client question a single-terminal boot does not have).
-///
-/// `target` is the endpoint the driver will `CALL` with `line_editor::proto::OP_BYTES`, granted
-/// here with `WRITE` and nothing else, so this driver can name exactly one destination and no
-/// other. Ordinarily `line_editor`'s own served endpoint (its slot 0), the same endpoint
-/// `components/src/input.rs`'s UART driver already holds `WRITE` on for the plain-console boot: a
-/// keyboard and a serial line are both "one input source" to the line discipline.
-///
-/// Returns once the driver is **running and has posted its buffers**, or `None` if no virtio-input
-/// function is on the bus. No input ring and no doorbell exist in this wiring: nothing here plays
-/// the compositor, because there is no compositor in this path.
-///
-/// **The driver's report is taken here, and the endpoint never leaves this function** (milestone
-/// 177). `keyboard_driver` `SEND`s `KEYBOARD_UP` before its first `WAIT`, and a `SEND` blocks until
-/// somebody receives it. This used to return the report endpoint, and the one caller discarded it,
-/// so on every graphical boot with a keyboard the driver sat parked in that `SEND` and no key ever
-/// reached the screen. Receiving it here means no caller can repeat that: there is nothing left to
-/// forget.
-pub fn start_direct(image: &'static [u8], target: RendezvousId) -> Option<()> {
-    let d = crate::pci::find_input_device()?;
-
-    // Zeroed so no stale descriptor and no stale event is ever visible to the device.
-    let dma = crate::memory::alloc_contiguous_zeroed(DMA_PAGE_FRAMES as usize)
-        .expect("no DMA region for the keyboard driver")
-        .addr();
-
-    let irq_ep = crate::sched::create_rendezvous();
-    crate::sched::bind_irq(d.intid, irq_ep);
-    crate::arch::irq::enable(d.intid);
-
-    let vid = crate::virtio::register(
-        crate::virtio::Transport::pci(&d),
-        dma,
-        DMA_PAGE_FRAMES * FRAME_SIZE,
-        Some(d.rid),
-    );
-
-    let report = crate::sched::create_rendezvous();
-
-    // Only the DMA page: MODE_DIRECT has no input ring to map, because it has no compositor to
-    // share one with.
-    let maps = [Mapping {
-        va: DMA_VA,
-        phys: dma,
-        flags: Flags::user_data(),
-    }];
-    crate::sched::spawn(move || {
-        run(
-            image,
-            Spawn {
-                arg0: MODE_DIRECT,
-                arg1: dma, // the DMA region's PHYSICAL base: descriptors speak physical
-                arg2: 0,
-                grants: &[
-                    rendezvous_cap(report, Rights::WRITE), // slot 0: status
-                    irq_cap(d.intid),                      // slot 1: the event interrupt
-                    virtio_cap(vid),                       // slot 2: the confined transport
-                    rendezvous_cap(target, Rights::WRITE), // slot 3: line_editor, directly
-                ],
-                maps: &maps,
-            },
-        )
-    })
-    .expect("could not spawn the keyboard driver");
-
-    let [tag, ..] = crate::sched::ipc_recv(report);
-    assert_eq!(
-        tag,
-        video_terminal::status::KEYBOARD_UP,
-        "the keyboard driver did not come up ({tag:#x}; a 0xDEAD_.. word's low byte names the \
-         step, see components/src/keyboard_driver.rs)",
-    );
-    Some(())
 }
 
 impl Wiring {
