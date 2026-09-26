@@ -18,7 +18,7 @@ which is packages rather than programs we like. Re-swept and condensed 2026-09-2
 2026-09-26").
 
 Nothing left in this package is waiting on effort. `w` waits on
-§164 (whether the kernel resolves a tid it already sent), because a tid has no name. `pwdx`, the
+§164 (whether the kernel resolves a tid it already sent), because a tid has no name. The
 machine-wide statistics, `pidwait` and `pmap`'s reach from the prompt each wait on a fork nobody has
 ruled on, written up with the seven questions answered in
 [notes/process-view/what-is-left.md](../../notes/process-view/what-is-left.md).
@@ -43,7 +43,7 @@ came to miss it.
 | `watch` | built 2026-08-24, cut 2026-09-13 by milestone 281 (`watch` holds exactly what `ps` holds) | notes/process-view.md |
 | `sysctl` | declined, §115 (no `sysctl`) | this block |
 | `kill`, `pkill`, `skill`, `snice` | refused, milestone 455 (the signalling stratum of `procps`) | `design/roadmap/455-the-signalling-stratum.md` |
-| `pwdx` | fork: decline recommended | what-is-left.md, section 1 |
+| `pwdx` | declined 2026-09-26, §224 (no `pwdx`): only the shell has a working directory | `design/decisions/224-no-pwdx.md` |
 | `w` | waits on §164, and on a second session existing | what-is-left.md, section 2 |
 | `free`, `vmstat` | fork: machine-wide memory statistics | what-is-left.md, section 3 |
 | `slabtop` | no subject: milestone 14 (kernel objects from untyped) removed the kernel's slab | what-is-left.md, section 3 |
@@ -204,11 +204,9 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 
 ## Follow-on
 
-- **Outstanding.** `pwdx` is unbuilt, with no ruling on whether it should exist. Upstream prints
-  another process's working directory, and here only the shell holds one (`grant_plan::nav::Cwd`
-  appears in `crates/grant_plan` and the shell and nowhere else, checked 2026-09-26). Declining it,
-  as §115 declined `sysctl`, is recommended in `notes/process-view/what-is-left.md` and is calef's
-  to rule.
+- **Decision.** `pwdx` is not built and will not be: `design/decisions/224-no-pwdx.md` (calef,
+  2026-09-26). Upstream prints another process's working directory, and here only the shell holds
+  one (`grant_plan::nav::Cwd`), which it already prints with `pwd`.
 - **Outstanding.** `w` is unbuilt: a tid has no name (§164, still `PROPOSED`), and
   `components/src/login.rs` runs one session at a time, so a `w` would always print one row. Checked
   2026-09-26.
@@ -241,5 +239,5 @@ The sharpest ambient-authority case in the utility set, because what these progr
 enumeration of the process namespace, and `/proc` hands it to anyone. Taken as a whole package for
 consistency with 123's corpus approach. Replacing `/proc` with a held capability stratifies it.
 `ps`, `pgrep`, `pmap`, `uptime` and `top` are built over `rendezvous::SURVEY` and `ENUMERATE`.
-`sysctl` and the signalling programs are declined, and `watch` was built and cut. `pwdx`, `w`, the
+`sysctl`, `pwdx` and the signalling programs are declined, and `watch` was built and cut. `w`, the
 memory statistics and `pidwait` wait on forks written up in notes/process-view/what-is-left.md.

@@ -4,7 +4,7 @@ An appendix to [the process view](../process-view.md), written 2026-09-26 by the
 `milestone/126-procps` for milestone 126 (the `procps` package: who else is running, and who is
 allowed to ask). Every remaining program in the package is blocked on a fork rather than on effort.
 This file holds each fork with the seven questions AGENTS.md asks of one, so that a ruling can be
-made without reading anything else. None of it is decided. The milestone block
+made without reading anything else. Section 1 is decided (§224 (no `pwdx`)); the rest is not. The milestone block
 (`design/roadmap/126-who-else-is-running.md`) carries the status; this carries the reasoning.
 
 The stem `what-is-left` is a provisional name, minted with this file. Nothing here adds a kernel
@@ -12,6 +12,10 @@ method or a syscall, and nothing here was built. Where an option would
 need one, the option says so and stops.
 
 ## 1. `pwdx`: the premise the block carried was wrong
+
+Decided 2026-09-26: option A. calef: *"Yes, decline pwdx."* The ruling is §224 (no `pwdx`), and
+the reason is the one below: only the shell has a working directory (`grant_plan::nav::Cwd`), so
+`pwdx` has nothing to report. The fork is kept as it was written, since it is the reasoning.
 
 The block filed `pwdx` beside `w` as "print a name for a tid", blocked on a display name. That is
 not what `pwdx` does. Upstream `pwdx PID` prints the process's current working directory, read from

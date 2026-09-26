@@ -673,7 +673,7 @@ which this one could not: re-running a named command needs a program to hold spa
 here belongs to the shell alone (`grant_plan::spawnproto`) and is granted to nothing the shell spawns
 (an interruptible child is built with no capabilities in its capability table at all), so there was
 no route from "a program is running" to "that program can start a second one". That is the same
-category of gap `top`, `pwdx` and `w` are blocked on. So it redrew the one thing it could already
+category of gap `top`, `pwdx` and `w` were blocked on. So it redrew the one thing it could already
 reach: the domain it was spawned into, which is `ps`'s own listing. A very thin member of `top`'s
 family wearing `watch`'s name, which is why the name was wrong and why neither it nor `crates/watch`
 was ever ratified. calef declined to rule on both while this milestone might retire them; it did.
@@ -685,12 +685,12 @@ flag on a table of two columns.
 
 ## What this does not build
 
-`pwdx`, `w`, the machine-wide statistics and `pidwait`. `sysctl` is declined (§115 (no `sysctl`)) and the
+`w`, the machine-wide statistics and `pidwait`. `sysctl` is declined (§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the
 signalling stratum is refused (milestone 455 (the signalling stratum of `procps`)). `pmap` is built but unreachable from the prompt. Each
 remaining program waits on a fork rather than on effort, and every fork is written up, with its
 premise checked, in [what is left](process-view/what-is-left.md). One of them corrects this note's
 own earlier reading: `pwdx` prints another process's working directory, not its name, and here only
-the shell has one.
+the shell has one, which is why it was declined.
 
 See `design/roadmap/126-who-else-is-running.md`, notes/glob.md (the matcher `pgrep` reuses),
 notes/supervision.md (the mechanism this reads),
