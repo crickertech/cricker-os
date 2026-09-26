@@ -67,7 +67,17 @@ keystroke, against a person typing ten a second.
 
 ### What was measured under QEMU
 
-Filled in from the first CI run that carried the test; see the lane's report.
+CI run 36262762671 (2026-09-26, TCG on the GitHub runner), four legs of the kernel suite:
+
+| | Per keystroke |
+|---|---|
+| Cooked, the terminal echoes | 400 to 483 µs |
+| Raw, the client reads and echoes | 692 to 807 µs |
+
+So the client-side editor costs about 1.7 times the cooked path per keystroke under emulation,
+roughly 0.3 ms more. Emulated IPC is what dominates both, so the absolute numbers say little about
+hardware. On the 350 ns EL0 round trip [benchmarks.md](benchmarks.md) records, the two extra round
+trips are under a microsecond, far below a person's ten keys a second.
 
 ## EXAMPLES
 
