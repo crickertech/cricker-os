@@ -7,9 +7,9 @@ ratified_by: calef
 
 # 231. A swap's warning to a dependent is advisory, and the supervisor never waits for it
 
-*Section number provisional until the merge queue lands it. §221 (the boot prompt is the owner's console) is on `main`
-and §222 to §230 are claimed by open pull requests (#1350, #1357, #1359, #1361, #1368), so this took the next free
-number on 2026-09-26 and may move at merge. The file name is a maintainer's coinage and provisional
+*Section number provisional until the merge queue lands it. §221 (the boot prompt is the owner's console) and
+§230 (badged endpoint capabilities) are on `main`, and §222 to §229 are claimed by open pull requests,
+so this took the next free number on 2026-09-26 and may move at merge. The file name is a maintainer's coinage and provisional
 too.*
 
 Raised 2026-09-26 by the lane for milestone 23 (a capability-routed component OS with live replacement)
