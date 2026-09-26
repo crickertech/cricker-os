@@ -173,6 +173,18 @@ static HOLDS_RUN_UNVOUCHED: core::sync::atomic::AtomicBool =
 // `grant_plan` states the slot without depending on `abi`; the relation is held by each reader.
 const _: () = assert!(spawnproto::RUN_UNVOUCHED_SLOT == abi::fault::FAULT_EP_SLOT - 1);
 
+/// **Whether this shell holds a read-only view of the inert-configuration page**
+/// ([`grant_plan::SHELL_CONFIG_SLOT`], mapped at [`grant_plan::SHELL_CONFIG_VA`]; milestone 47
+/// (navigation and naming), DECISIONS §111 (inert configuration is a validated page)). Only the
+/// progenitor places it, and it maps the page in the same build, so a capability in the slot at
+/// `_start` means the page is there to read. Probed once at `_start` for [`HOLDS_RUN_UNVOUCHED`]'s
+/// reason. `caps` reads it to print the values a child declaring `config` will read; nothing else
+/// in this shell looks at it.
+static HOLDS_CONFIG: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+// The named slot sits under the run-unvouched one and so under the kernel's fault slot.
+const _: () = assert!(grant_plan::SHELL_CONFIG_SLOT < spawnproto::RUN_UNVOUCHED_SLOT);
+
 /// The `x2` value meaning "this shell was granted no clock". Zero rather than a sentinel, because
 /// slot 0 is the terminal in every wiring, so no clock can ever legitimately be there.
 const NO_CLOCK: u64 = 0;
@@ -1139,6 +1151,10 @@ pub extern "C" fn _start(role: u64, arg: u64, clock: u64) -> ! {
     // Probed here and nowhere later: see [`HOLDS_RUN_UNVOUCHED`].
     HOLDS_RUN_UNVOUCHED.store(
         user_mode_runtime::is_granted(spawnproto::RUN_UNVOUCHED_SLOT),
+        core::sync::atomic::Ordering::Relaxed,
+    );
+    HOLDS_CONFIG.store(
+        user_mode_runtime::is_granted(grant_plan::SHELL_CONFIG_SLOT),
         core::sync::atomic::Ordering::Relaxed,
     );
     match role {
@@ -2718,11 +2734,17 @@ fn caps(nav: &mut Nav, tail: &[u8]) {
         NO_CLOCK => None,
         slot => Some(slot),
     };
+    // SAFETY: the progenitor maps the page at `SHELL_CONFIG_VA` read-only in the same build that
+    // places its capability, and never unmaps it; [`HOLDS_CONFIG`] is that capability's presence.
+    let config = HOLDS_CONFIG
+        .load(core::sync::atomic::Ordering::Relaxed)
+        .then(|| unsafe { environment_protocol::ConfigPage::new(grant_plan::SHELL_CONFIG_VA) });
     swish::write_caps(
         tail,
         SH_BUDGET_PAGES,
         holdings,
         clock,
+        config,
         &mut |token| nav.expand(token),
         &mut print,
     );
@@ -3864,11 +3886,12 @@ const JOBFRAME_WINDOWS: core::ops::Range<u64> = 0x0000_0000_0100_0000..0x0000_00
 // Every fixed window this shell maps, and the job frames' range, are disjoint. A window added to
 // the shell belongs in this list.
 const _: () = {
-    let fixed: [(u64, u64); 5] = [
+    let fixed: [(u64, u64); 6] = [
         (OUT_VA, PAGE),
         (LINE_VA, PAGE),
         (FS_VA, filesystem_protocol::PAGE as u64),
         (SH_CLOCK_VA, PAGE),
+        (grant_plan::SHELL_CONFIG_VA, PAGE),
         // The primer page and the image window above it (DECISIONS §219 option D).
         (
             IMAGE_PRIMER_VA,

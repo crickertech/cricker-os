@@ -1173,6 +1173,33 @@ pub const ENTROPY_SLOT: u64 = 9;
 /// program that shows it at the prompt.
 pub const NETWORK_SLOT: u64 = 10;
 
+/// **Where the boot shell holds the inert-configuration page** (milestone 47 (navigation and
+/// naming), DECISIONS §111 (inert configuration is a validated page)), so `caps` can print the
+/// values a child declaring [`Manifest::config`] would read rather than only that it would read
+/// some.
+///
+/// The progenitor places the **same frame** it endows every such child with here, `READ` only, and
+/// maps it at [`SHELL_CONFIG_VA`]. The same frame is the point: a preview that printed values from a
+/// copy of the defaults would agree with the child by coincidence and drift from it the first time
+/// either changed, while a second holder of one page cannot disagree with the first.
+///
+/// Twenty-one, one under `spawnproto::RUN_UNVOUCHED_SLOT`, for that constant's reason: a named
+/// slot is probed at `_start`, before the shell has allocated anything, so the slot holds exactly
+/// what its builder placed. A shell built by anything else (a `login` session, a kernel test role)
+/// finds it empty and says it cannot see the values, which is true.
+///
+/// Name: provisional (milestone 47, 2026-09-26).
+pub const SHELL_CONFIG_SLOT: u64 = 21;
+
+/// **Where the boot shell's view of the inert-configuration page is mapped**, read-only
+/// ([`SHELL_CONFIG_SLOT`]). One page above the shell's clock (`0x00d0_0000`), so both share one page
+/// table and this mapping costs the builder no table page of its own. A constant here rather than
+/// one in each binary, because the progenitor maps it and the shell reads through it, and rule 7 of
+/// the codebase rules says an address two binaries agree on is a crate's.
+///
+/// Name: provisional (milestone 47, 2026-09-26).
+pub const SHELL_CONFIG_VA: u64 = 0x0000_0000_00d0_1000;
+
 /// **What a file's bytes are bound and endowed with when they carry no manifest note** (milestone
 /// 597, provisional: a program carries its manifest in an ELF note).
 ///

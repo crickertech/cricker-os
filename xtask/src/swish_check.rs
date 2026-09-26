@@ -357,7 +357,24 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // And the visibility surface agrees with the wiring, `date`'s own check repeated for `config`:
     // `caps` claims to print a process's whole authority, so a config page endowed and not printed
     // would make that claim false.
-    line(0, "caps printenv", &["cap 1  frame     config"]),
+    //
+    // **And the values, before anything runs** (DECISIONS §111 (inert configuration is a validated
+    // page)'s preview, milestone 47 (navigation and naming)). The shell prints them from its own
+    // read-only view of the frame `printenv` was just handed, so this fails if the progenitor did
+    // not place the view at `grant_plan::SHELL_CONFIG_SLOT`, did not map it at `SHELL_CONFIG_VA`,
+    // or the shell's probe missed it (it then says it "cannot show their values" and none of the
+    // three appears).
+    line(
+        0,
+        "caps printenv",
+        &[
+            "cap 1  frame     config",
+            "the page this shell reads too",
+            "TZ=UTC",
+            "LANG=C",
+            "TERM=dumb",
+        ],
+    ),
     // **`ps`, at the real prompt** (milestone 126). The listing itself: a header, and at least the
     // row for `ps` itself, which is a member of the domain the progenitor spawned it into. Asserting the
     // header rather than a tid is deliberate: a tid is a generational name that moves with how many
