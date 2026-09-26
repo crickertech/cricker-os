@@ -1345,6 +1345,8 @@ an endowment question rather than on effort (one for the descend/create verb and
 estimates for unbuilt work are guesses on a scale calibrated from history, not measurements.
 ## Follow-on
 
+- **Done.** The shell's heap: fallible, capped at 32 KiB, and no substituted value re-split
+  (notes/heap.md).
 - **Done.** The sequencing question this block leaves open, that milestone 122 (`OPENDIR` reaches
   the PAL) is `NOT-STARTED` and some of the namespace half may want it, is stale: 122 is BUILT
   2026-08-18 (pull request #320), both options, proven on both ISAs by `std_exerciser`. Nothing

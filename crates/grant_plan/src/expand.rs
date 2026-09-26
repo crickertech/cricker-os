@@ -268,8 +268,8 @@ pub struct Expander<'a> {
 /// A name is stable under both removal and insertion, so the rule "the [`MAX_NAMES`] smallest
 /// matches strictly greater than this" terminates whether the command destroys what it was handed or
 /// leaves it alone. That is the case Unix never has to think about, because its `xargs` reads names
-/// out of a pipe that was materialized before the first child ran; a shell with no allocator cannot
-/// materialize anything.
+/// out of a pipe that was materialized before the first child ran. This shell does not materialize
+/// a match: its heap is capped at 32 KiB, far under a large directory's names.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Resume {
     #[default]

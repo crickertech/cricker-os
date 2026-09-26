@@ -93,6 +93,9 @@
 // documenting an OS-facing ABI entry point is not what the lint is for.
 #![allow(missing_docs)]
 #![no_main]
+// `Vec::push_within_capacity`: the only way this shell adds to a `Vec`, because it cannot allocate
+// behind the caller's back (see [`heap`]).
+#![feature(vec_push_within_capacity)]
 
 use filesystem_protocol::{dirent, fs};
 use grant_plan::expand::{Expander, NameSet, Resume};
@@ -137,6 +140,70 @@ const TERM: u64 = 0; // CALL requests on the terminal
 const SPAWN: u64 = 1; // SEND a spawn request to the progenitor
 const RESULT: u64 = 2; // RECV a spawned program's answer
 const BUDGET: u64 = 3; // our own untyped; SPLIT a grant off it for `--mem`
+
+/// **This shell's heap** (milestone 47 (navigation and naming), calef's ruling of 2026-09-26).
+/// Capped at [`swish::HEAP_MAX_BYTES`] and mapped from [`BUDGET`] before any other carve, so a
+/// leak exhausts the heap and never the budget children are built from.
+#[global_allocator]
+static HEAP: user_mode_runtime::heap::MemoryRegionHeap =
+    user_mode_runtime::heap::MemoryRegionHeap::new();
+
+/// Wire the allocator to [`BUDGET`] and map the whole capped heap at once. First thing at `_start`,
+/// for the roles whose slot 3 is a budget: the heap's pages and their page tables are then the
+/// budget's first retypes, under every later carve, which is what those carves' last-in first-out
+/// return needs (`MemoryRegionHeap::commit_all`). A budget too small to cover it leaves what did
+/// map usable, and an allocation past it refuses its line with [`Say::HeapFull`].
+fn heap_init() {
+    HEAP.init(
+        BUDGET,
+        user_mode_runtime::heap::DEFAULT_BASE,
+        swish::HEAP_MAX_BYTES,
+    );
+    HEAP.commit_all();
+}
+
+/// **Every allocation this shell makes, and every one of them can fail.** calef's first condition:
+/// the boot shell is the owner's root console, so running out of heap is a refusal with a sentence
+/// ([`Say::HeapFull`]) and never a panic. Nothing outside this module names `alloc`, and nothing in
+/// it calls an allocating method that panics on failure: capacity is reserved with
+/// `try_reserve_exact`, and elements go in with `push_within_capacity`, which cannot allocate.
+/// The compiler holds the first half (below), and `script/lint` holds that the declaration stays
+/// here.
+mod heap {
+    // Declared here and nowhere else, so no other module can even name `alloc`: a `no_std` crate
+    // has no `alloc` in its extern prelude unless the crate root declares it.
+    extern crate alloc;
+
+    /// **Room for a fixed number of values, on the heap.** A slice once filled (indexing works), and
+    /// there is no way to grow it: `Vec` is private to this module, so nothing outside can call a
+    /// method that would allocate and panic on failure.
+    pub struct Room<T>(alloc::vec::Vec<T>);
+
+    impl<T> core::ops::Deref for Room<T> {
+        type Target = [T];
+        fn deref(&self) -> &[T] {
+            &self.0
+        }
+    }
+
+    impl<T> core::ops::DerefMut for Room<T> {
+        fn deref_mut(&mut self) -> &mut [T] {
+            &mut self.0
+        }
+    }
+
+    /// `n` copies of `x`, or `HeapFull`. Capacity is reserved with `try_reserve_exact`, and the
+    /// copies go in with `push_within_capacity`, which cannot allocate.
+    pub fn filled<T: Copy>(n: usize, x: T) -> Result<Room<T>, swish::Say> {
+        let mut v = alloc::vec::Vec::new();
+        v.try_reserve_exact(n).map_err(|_| swish::Say::HeapFull)?;
+        for _ in 0..n {
+            v.push_within_capacity(x)
+                .map_err(|_| swish::Say::HeapFull)?;
+        }
+        Ok(Room(v))
+    }
+}
 
 /// The budget the progenitor granted us at boot, [`spawnproto::SHELL_BUDGET_PAGES`], which it reads
 /// too. We cannot query how much remains (there is no such syscall), so `caps` prints the initial
@@ -1165,6 +1232,11 @@ pub extern "C" fn _start(role: u64, arg: u64, clock: u64) -> ! {
         user_mode_runtime::is_granted(grant_plan::SHELL_CONFIG_SLOT),
         core::sync::atomic::Ordering::Relaxed,
     );
+    // After the probes, which must see the table as its builder left it. The two witness roles
+    // hold no budget at slot 3.
+    if !matches!(role, ROLE_NAVIGATE | ROLE_GLOB) {
+        heap_init();
+    }
     match role {
         ROLE_NAVIGATE => navigate(arg),
         ROLE_GLOB => globbing(arg),
@@ -3002,7 +3074,14 @@ fn pipeline(nav: &mut Nav, l: Line<'_>) {
     // that produces text, at the head of the pipeline, whose bytes **the shell writes into the pipe
     // itself**. That costs no process and no new mechanism, and it is what makes `ls | wc` a thing a
     // person can type in a shell that holds a directory.
-    let mut plans: [Option<Endowment>; line::MAX_STAGES] = [None; line::MAX_STAGES];
+    // **On the heap, not on the stack** (milestone 47, calef's allocator ruling). This array of
+    // endowments, each carrying a whole name set, is what the four stack overflows in
+    // notes/pipes/the-boot.md had in common, and this function's frame was the deepest in the
+    // program. Sized to the line's own stages rather than to `MAX_STAGES`.
+    let mut plans = match heap::filled::<Option<Endowment>>(l.stage_count(), None) {
+        Ok(v) => v,
+        Err(s) => return say(s),
+    };
     let mut head_builtin = false;
     for (i, stage) in l.stages().iter().enumerate() {
         match grant_plan::parse(stage) {
@@ -4745,8 +4824,8 @@ fn listing_is(nav: &mut Nav, token: &[u8], present: &[u8], absent: &[u8]) -> boo
 
 // ---- the globbing witness (milestone 47's globbing lane) ----
 
-/// A small collector: what `echo` printed, or what a grant rendered to. Fixed size because this
-/// program has no allocator, and generous enough that a truncation cannot make two renderings agree
+/// A small collector: what `echo` printed, or what a grant rendered to. Fixed size, written before
+/// the shell had a heap (2026-09-26) and still enough, and generous enough that a truncation cannot make two renderings agree
 /// by both running out at the same place.
 struct Text {
     buf: [u8; 96],
@@ -5085,7 +5164,7 @@ fn removed(nav: &Nav, verb: u64, name: &[u8]) -> bool {
 }
 
 /// A fixture name with the run index appended, so runs sharing one image do not collide on `EEXIST`
-/// and read it as a refusal. Fixed-size because this program has no allocator.
+/// and read it as a refusal. Fixed-size, which is all it needs; written before the shell had a heap.
 fn run_name(base: &str, run: u64) -> ([u8; 16], usize) {
     let mut out = [0u8; 16];
     let n = base.len().min(15);
