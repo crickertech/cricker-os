@@ -2,7 +2,7 @@
 status: PARTIAL
 raised: 2026-08-15
 milestone_dependencies: 152
-decision_dependencies: unwritten
+decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -13,15 +13,13 @@ Minted 2026-08-15 at calef's request. A backup server owes housekeeping on a
 schedule (snapshot thinning, scrub passes, log rotation) even though the Mac initiates the backups
 themselves, and nothing else on the roadmap ran anything on a schedule. The interval scheduler, a
 narrowed archive, a backable `--mem` grant and runtime replacement under §222 (who holds a user's
-schedule) are built. One image per entry was refused on 2026-09-26. What is left is a calendar
-proposal awaiting calef and one connection waiting on milestone 152 (durable delegation), both
-recorded below and checked on 2026-09-26.
+schedule) are built, and so are calendar entries (G5) on a granted clock. One image per entry was
+refused on 2026-09-26. The one thing left is connecting a real session, which waits on milestone
+152 (durable delegation). Checked on 2026-09-26.
 
-One proposal awaits calef:
-[calendar-and-wall-clock.md](../../notes/scheduled-execution/calendar-and-wall-clock.md) asks for a
-grammar and a clock-step rule. Connecting the built `REPLACE` handler to a real session
-waits on milestone 152, because the registrar is a user's durable session and that type went with
-`smb_server` on 2026-08-30.
+The `REPLACE` handler and the spawn contract are built and tested with the
+kernel test as registrar. The real registrar is a user's durable session, and that type went with
+`smb_server` on 2026-08-30; the lane for milestone 152 (durable delegation) is building it against `timetable::contract`.
 
 ## In brief
 
@@ -95,6 +93,26 @@ such as `wc report.txt`. Host test:
   a document that does not parse, an edit and an empty document. A second test hands the timetable
   the run-unvouched capability and asserts it refuses. Both run on all three architectures.
 
+## Built: calendar entries, 2026-09-26
+
+calef ruled G5 on 2026-09-26 (notes/scheduled-execution/calendar-grammar-g5.md), with S3 and a
+`SET` fix for a clock that steps.
+
+- `crates/timetable/src/recurrence.rs` parses the grammar to its EBNF and refuses each case in the
+  ruling's table, each with its own sentence. `next` gives RRULE-exact occurrences in UTC minutes.
+  780 answers agree with dateutil's own expansion, from `crates/timetable/oracle/`.
+- Five Kani harnesses cover what a wrong answer would hide: the time-of-day selection (strictly
+  later, listed, nothing skipped), the n-th and last weekday, the first and last weekday of a month,
+  and a range being exactly its steps. Each has a replayable falsification. All quantities are 32
+  bits or less, clear of the 64-bit modulo CBMC stalled on.
+- `Registry::observe` is S3: dormant while the clock is unknown, one fire for a forward step, never
+  twice after a backward step, and an operator's `SET` clears the stamps.
+- The clock is a grant. `timetable::contract::CLOCK_SLOT` sets `Held::clock`; without it a
+  calendar line is `Unbacked::WallClock`. A job whose manifest declares a clock gets the page too.
+- `system_tests/src/user/timetable_tests.rs` is the clock and the registrar: an unknown clock, a known
+  one, steps both ways, a scheduled `date` reading the page it was endowed with, and a `SET`. On
+  all three architectures.
+
 ## The finding: milestone 106's fifth consumer
 
 There is no timed wait in this kernel, so a program whose whole purpose is to act at a time can only
@@ -109,8 +127,6 @@ Milestone 106 (a wait that ends on either the interrupt or the deadline) is gate
 - Connecting a real session: the durable session spawns its timetable, writes the store and sends
   `REPLACE`, and at boot `session_reviver` does the same from the stored file. Waits on milestone
   152, whose session type does not exist yet.
-- Calendar and wall-clock entries, proposed together: `daily` and `weekly` in UTC, and a rule for a
-  clock that steps.
 
 ## Scope note
 
@@ -136,9 +152,10 @@ the shipped document is a demonstration written to show every answer registratio
 - **Refused.** One image per entry, by calef on 2026-09-26 ("Refuse it?", "Yes"): an image is code,
   not authority, so a helper per entry would buy nothing. The reason is
   `notes/scheduled-execution/one-image-per-entry.md`.
-- **Outstanding.** Calendar syntax and wall-clock entries: proposed in
-  `notes/scheduled-execution/calendar-and-wall-clock.md`, awaiting calef; `timetable::parse` still
-  knows `every` and `at-boot` only. Checked 2026-09-26.
+- **Done.** Calendar syntax and wall-clock entries, G5 as ruled: `crates/timetable/src/recurrence.rs`,
+  `Registry::observe`, and the clock grant in `components/src/timetable.rs`, 2026-09-26.
+- **Recorded.** A calendar line fires up to a pass late and has no monotonic deadline for a future
+  timed wait, recorded in `components/src/timetable.rs`.
 - **Done.** Runtime registration and removal, per §222: `crates/timetable/src/registration.rs` and
   `components/src/timetable.rs`, 2026-09-26.
 - **Done.** Persistence as a store was built by milestone 152: `crates/schedule_store`, per §122 (the on-disk, per-user schedule store) and §125 (which identities
@@ -158,6 +175,6 @@ The backup server owes housekeeping on a schedule; Unix cron is ambient authorit
 and the capability shape inverts it: an entry is a grant expression plus a schedule, checked at
 registration like a command line at the prompt. Built: the interval scheduler with four registration
 answers (2026-08-18), the archive narrowed to the plan (2026-08-18), a backable `--mem` grant
-(2026-08-22), designations reported as unbacked (2026-09-26), and whole-document replacement under
-§222 (2026-09-26). One image per entry was refused (2026-09-26). Remaining: connecting a real
-session (milestone 152), and calendar and wall-clock entries, proposed for calef.
+(2026-08-22), and, on 2026-09-26, designations reported as unbacked, whole-document replacement
+under §222, and calendar entries (G5) on a granted clock. One image per entry was refused. Remaining:
+connecting a real session, which waits on milestone 152.
