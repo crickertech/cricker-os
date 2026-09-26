@@ -1,10 +1,14 @@
 # A calendar grammar in words: G5, priced against G3 and G4
 
-**Status: PROPOSED 2026-09-26 (UTC).** Written by an agent on the lane
-`proposal/129-calendar-grammar` for calef's ruling on milestone 129 (scheduled execution). It extends
-[calendar-and-wall-clock.md](calendar-and-wall-clock.md), which recommended G3. calef answered: *"I
-don't want to limit us to just nightly and weekly."* The maintainer proposed a G5 from memory; this
-note checks it against its sources, designs it and prices it.
+**Status: DECIDED 2026-09-26 (UTC).** calef ruled: *"G5 full."* That is the v1 word list below as
+proposed, with the refusals as listed. The step rule is S3 plus the `SET` fix under run policy,
+adopted by the maintainer as a reversible default and not ruled by calef. Build from
+[What the 129 lane builds](#what-the-129-lane-builds).
+
+Written by an agent on the lane `proposal/129-calendar-grammar` for milestone 129 (scheduled
+execution). It extends [calendar-and-wall-clock.md](calendar-and-wall-clock.md), which recommended
+G3; calef had said *"I don't want to limit us to just nightly and weekly."* The rest of this note is
+the proposal as ruled on.
 
 ## What is being decided, and which half is irreversible
 
@@ -196,11 +200,11 @@ breaks the proof that each fire is an occurrence.
 - An occurrence before `starting` does not exist, so a backward step to before it leaves the line
   dormant until it.
 
-One finding about S3 itself, for the same ruling. The stamp rule has a failure the lane's note does
-not price. An operator `SET` typed as 2030 fires every daily line once and stamps it in 2030. A `SET`
+One change to S3 itself, the maintainer's default since the ruling, reversible because it is
+behaviour and not a stored format. The stamp rule had a failure the lane's note did not price. An operator `SET` typed as 2030 fires every daily line once and stamps it in 2030. A `SET`
 back to 2026 then leaves those lines dormant for four years; the plausibility bound admits up to
-2100. The page can tell the cases apart, since `state::SET` and `state::SYNCED` differ. A proposed
-fix: a publication in state `SET` is a correction and clears the stamps, because they were taken on
+2100. The page can tell the cases apart, since `state::SET` and `state::SYNCED` differ. The fix:
+a publication in state `SET` is a correction and clears the stamps, because they were taken on
 a clock the operator has just called wrong. A `SYNCED` step, bounded to a second backward, keeps
 them. The cost is that an operator stepping back an hour may see a line fire again, which the
 operator asked for.
@@ -217,7 +221,6 @@ lines, and `next_after`, 11. Neighbours were counted on 2026-09-26 (UTC) without
 | next occurrence, estimate | 30 to 50 | 120 to 180, a search over field bitmasks | 200 to 280, closed form per month |
 | measured neighbours | none | cronie `entry.c`, 512 | Temporal `spec.go` and `calendar.go`, 746; systemd `calendarspec.c`, 1,059; dateutil `rrule.py`, 1,453 |
 | silent traps left | none in scope | `0 0 31 * *` fires seven times a year unless refused | none: each is a refusal above |
-| looks familiar to a stranger | yes | yes, and implies local time and the union, which it lacks | reads as English |
 
 The Kani plan is the same for G4 and G5, and only the predicate differs. `matches(rule, t)` is the
 specification, written straight from the RRULE fields over a `Civil` built from fields.
@@ -238,16 +241,13 @@ as data with the command that made it, and no crate dependency.
 
 ## How each extends later without changing a stored line
 
-- G3 extends by new first words, which are errors today. Reaching calef's range means either a
-  family of one-off words, each a small grammar, or a second grammar with `daily` kept as an alias
-  forever. The alias is the permanent cost.
-- G4 extends by characters it refuses today (`L`, `#`, `W`), and a ruling on the day-field union
-  can pick either answer later. Its stored-meaning hazard is familiarity: a line pasted from a Unix
-  crontab means local time and the union, and here means UTC or a refusal.
+- G3 extends by new first words. Reaching calef's range leaves `daily` as a permanent alias.
+- G4 extends by characters it refuses today (`L`, `#`, `W`). Its hazard is familiarity: a pasted
+  crontab line means local time and the union, and here means UTC or a refusal.
 - G5 extends by tokens that are errors today: a cadence (`year`), an `on` value (`5th`), a clause
   before the time (a fixed offset), a prefix policy word. Rules 2 and 5 keep old meanings.
 
-## The options, and what the evidence favours
+## The options as presented
 
 | option | shape | cost, estimated | reversibility once stored |
 |---|---|---|---|
@@ -260,13 +260,20 @@ The evidence favours G5's shape. Nothing has acted on a calendar grammar yet, so
 undoes nothing. How many words ship first is reversible, and the smaller cut buys G3's cost without
 G3's dead end.
 
-Question 7 of `AGENTS.md`. At equal cost we would still choose G5. We would not choose G3 at equal
-cost: the lane's case for G3 rests in part on its being smaller, and that part of the recommendation
-is about effort. G4 loses on meaning rather than cost, because its familiarity promises local time
-and a day-field union that nife does not deliver.
+Question 7 of `AGENTS.md`. At equal cost we would still choose G5, and not G3: the case for G3
+rests partly on its being smaller, which is effort. G4 loses on meaning, promising local time and a
+day-field union nife lacks.
 
-## What a ruling unblocks
+## What the 129 lane builds
 
-A yes on G5 lets the milestone 129 lane build the shape with calef's word list, the five harnesses
-and the `clock` grant the lane's note lists. The S3 finding wants its own answer: whether a `SET`
-clears the stamps.
+All of it in `crates/timetable`, host-tested, on all three architectures:
+
+- The parser: [the grammar](#the-grammar) and its two side constraints, a new `Schedule` variant
+  holding the parsed rule, and one `Error` per row of [the refusals](#refused-in-v1-and-why), each
+  naming its alternative.
+- `matches` and `next`, with [the RRULE table](#the-v1-word-list-and-each-words-rrule) as host tests
+  and a dateutil fixture table as the oracle.
+- The five Kani harnesses under [what each option costs](#what-each-option-costs), in
+  `src/proofs.rs`, harness 3 first.
+- In `components/src/timetable.rs`: the `clock` grant, the generation check, and S3 with the `SET`
+  fix, as listed under run policy.

@@ -1,6 +1,6 @@
 # Calendar and wall-clock entries: a proposal
 
-**Status: PROPOSED 2026-09-26.** Written by the lane for milestone 129 (scheduled execution) for
+**Status: settled 2026-09-26 (UTC) in [calendar-grammar-g5.md](calendar-grammar-g5.md):** calef ruled "G5 full", and the step rule is S3 with a `SET` fix, the maintainer's default. Originally PROPOSED 2026-09-26. Written by the lane for milestone 129 (scheduled execution) for
 calef's decision. The block has called each of these "its own decision" since 2026-08-15, and they
 turn out to be one: a calendar entry is a wall-clock entry with a vocabulary. What is asked is the
 grammar, which is a format two programs agree on, and the rule for a clock that steps.
