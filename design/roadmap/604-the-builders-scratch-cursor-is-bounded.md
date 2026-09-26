@@ -13,7 +13,8 @@ space, at a cursor that started at `0x1000_0000`, advanced one page per page bui
 back, because nothing in the ABI unmaps (DECISIONS §162 (whether a holder can give up a mapping) is
 open). The proposal said the progenitor's cursor reaches the kernel's initrd window at `0x2000_0000`
 after about a hundred `ripgrep`-sized spawns, and every build fails after that. That is on the
-customer path: `rg` at the prompt is milestone 595's (the shell runs a `std` program) goal.
+customer path: `rg` at the prompt is the goal of milestone 595 (the shell runs a `std` program, and
+`rg pattern` works at the prompt).
 
 **The arithmetic, computed from the tree's constants rather than measured on a progenitor:**
 
@@ -28,8 +29,8 @@ customer path: `rg` at the prompt is milestone 595's (the shell runs a `std` pro
   **about seventy-five spawns**, failing as out of memory rather than already mapped. The records
   that said "a hundred" now say this.
 
-The count is reasoned, not reproduced on a progenitor: `rg` is in no CI archive (milestone 121's
-reasons), and the job pool cannot yet hold a program that size (`grant_plan::STD_REGION_PAGES` is
+The count is reasoned, not reproduced on a progenitor: `rg` is in no CI archive (the reasons of
+milestone 121 (`ripgrep` on nife)), and the job pool cannot yet hold a program that size (`grant_plan::STD_REGION_PAGES` is
 384). The same failure was reproduced in a builder the test controls, below.
 
 ## The fix: the kernel was already giving the pages back
@@ -78,7 +79,7 @@ cursor needs.
 seconds on a host 5.6 times oversubscribed.
 
 Cross-ISA: one portable test body on all three architectures. The loader is portable userspace code
-and the revocation is portable kernel code (DECISIONS §19).
+and the revocation is portable kernel code (DECISIONS §19 (architectural parity is a tenet)).
 
 ## BUGS
 
@@ -95,8 +96,21 @@ and the revocation is portable kernel code (DECISIONS §19).
   the same error for a misaligned or kernel-half address. A distinct `AlreadyMapped` error would make
   the probe say what it means; it is an ABI change and not worth one on its own.
 
-## Handoff
+## Follow-on
 
-- Unblocks milestone 595's `rg` at the prompt from failing after a fixed number of runs; its pool
-  growth is now checked against the window at compile time.
-- No new work found that wants a lane of its own.
+- **Recorded.** The count is computed rather than measured on a progenitor, the probe is one
+  thread's, a builder still maps every live child, and `BadPointer` doubles as "taken": the BUGS
+  above, and beside the code in `crates/supervision_protocol/src/lib.rs`.
+- **Decision.** Removing a builder's mapping of a live child is still
+  `design/decisions/162-giving-up-a-mapping.md`, unchanged by this.
+- **Milestone 595.** Its pool growth for `rg` is now checked against the window at compile time.
+
+## Index row
+
+**Built:** 2026-09-26
+
+The tree's one userspace loader maps every page it builds into the builder's own space and cannot
+unmap, so its cursor only climbed, and the progenitor would have stopped spawning after about
+seventy-five `ripgrep`-sized programs. The cursor now wraps inside a fixed 64 MiB window and lets
+the kernel say which pages a reaped child gave back, with no new syscall surface; a guest test
+builds past the old limit on all three architectures.

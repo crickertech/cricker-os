@@ -72,7 +72,7 @@ for 190 of it.
 
 - **Proposed.** The timebase page moves into `PROCESS_PAGES`, beside the stack, where it would pay no
   page table instead of three: `design/roadmap/proposals/the-timebase-page-moves-beside-the-stack.md`.
-- **Built.** The builder's scratch cursor ran out after about seventy-five `ripgrep`-sized spawns
+- **Milestone 604.** The builder's scratch cursor ran out after about seventy-five `ripgrep`-sized spawns
   (its page tables first, before the initrd window): milestone 604 (the builder's scratch cursor is
   bounded) made it wrap inside a fixed window.
 - **Recorded.** Band checks see membership, not collisions within one program; two protocol crates

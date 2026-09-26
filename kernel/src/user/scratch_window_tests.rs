@@ -14,7 +14,7 @@
 //! `fixtures/src/scratch_window_exerciser.rs`, whose header has the numbers and the negative control.
 //!
 //! Cross-ISA: the loader is portable userspace code and the revocation is portable kernel code, so
-//! the parity gate (DECISIONS §19, architectural parity is a tenet) is met by this one test running
+//! the parity gate (DECISIONS §19 (architectural parity is a tenet)) is met by this one test running
 //! on each architecture. `x86_64` and `riscv64` build one more scratch page per child (the timebase
 //! page), which the fixture counts.
 //!
@@ -23,7 +23,7 @@
 //! - **It proves the loader, not the progenitor.** The progenitor's own numbers (its 128-page table
 //!   budget, its job pool against the window) are compile-time assertions in
 //!   `crates/system_initializer`, not a boot that spawns `rg` a hundred times; `rg` is not in any
-//!   CI archive (milestone 121's reasons).
+//!   CI archive, for the reasons of milestone 121 (`ripgrep` on nife).
 
 use super::*;
 use crate::cap::{Rights, memory_region_cap, rendezvous_cap};

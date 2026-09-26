@@ -173,7 +173,8 @@ pub const CHILD_STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
 pub const CHILD_STACK_PAGES: u64 = 4;
 
 /// **The builder's scratch window**: where a builder maps each frame it fills for a child, and each
-/// frame of somebody else's it reads (DECISIONS §219's image request), in its own address space.
+/// frame of somebody else's it reads (the image request of DECISIONS §219 (how the shell names an
+/// installed program to the spawner)), in its own address space.
 /// 64 MiB, 16,384 pages, from the bottom of the map's runtime windows.
 ///
 /// **Why a window rather than a cursor that only climbs** (milestone 604 (provisional), the
@@ -240,10 +241,19 @@ static SCRATCH_NEXT: core::sync::atomic::AtomicU64 =
 /// job's) cost one refused probe per lap each. `Err` after a whole lap with nothing free, which
 /// means the builder holds [`SCRATCH_WINDOW_PAGES`] pages of live children at once.
 ///
-/// **One thread per builder**, which is every builder in the tree: the cursor is read, probed and
-/// written back without a lock, so two threads building at once could try the same page. The
-/// kernel would refuse the second, and it would then be skipped, so the failure is a wasted probe
-/// rather than a shared page.
+/// # BUGS
+///
+/// - **One thread per builder**, which is every builder in the tree: the cursor is read, probed and
+///   written back without a lock, so two threads building at once could try the same page. The
+///   kernel would refuse the second, and it would then be skipped, so the failure is a wasted probe
+///   rather than a shared page.
+/// - **`BadPointer` means "taken" only because every address tried is valid.** A distinct
+///   `AlreadyMapped` error would let the probe say what it means; that is an ABI change, not worth
+///   one on its own.
+/// - **The builder still maps every live child's pages**, read/write. Wrapping bounds how much
+///   address space that costs, not what it lets the builder reach; that is DECISIONS §162's question.
+/// - **The progenitor's use of it is computed, not measured**: milestone 604's block has the
+///   arithmetic, and `system_initializer` checks its budgets against the window at compile time.
 ///
 /// Name: provisional (milestone 604). It replaces `scratch_pages`, which handed out a contiguous
 /// run that was never reused.
