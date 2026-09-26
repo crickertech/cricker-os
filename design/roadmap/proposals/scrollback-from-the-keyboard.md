@@ -1,10 +1,19 @@
+---
+status: PROPOSED
+raised: 2026-09-26
+milestone_dependencies: none
+decision_dependencies: unwritten
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
 # Scrollback from the keyboard: shift and page up scrolls the display terminal's history
 
-**Status: PROPOSED 2026-09-26.** Raised by milestone 142 (a text display good enough that people use
+Raised by milestone 142 (a text display good enough that people use
 it instead of a GUI)'s lane, which went to wire the scrollback it built in August to a key and found
 the key never reaches the component that holds the history.
 
-**Gate: DECISION.** The recommended route adds one opcode to the terminal contract, which two
+The recommended route adds one opcode to the terminal contract, which two
 programs agree on. The options, the recommendation and the seven questions are below.
 
 The display terminal keeps 300 rows of history and can show any of them (`Vt::scroll_up` and
