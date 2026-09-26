@@ -31,6 +31,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Dependency-aware orchestration](../dependency-orchestration.md): which components to warn before swapping a dependency.
 - [The process view](../process-view.md): `ps` and `pgrep` over a supervision subtree.
 - [Scheduled execution](../scheduled-execution.md): a cron whose every entry is a grant.
+- [Durable delegation](../durable-delegation.md): a login session that outlives its client.
 - [Wall-clock time](../clock.md): wall clock as counter plus offset, three authorities.
 - [`date`](../date.md): prints the wall clock and cannot set it.
 - [`time`](../time-command.md): times a command on the shell's clock.
