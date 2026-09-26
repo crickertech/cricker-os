@@ -71,7 +71,8 @@ file, because their unit is the package. nife's unit is the executable, which ru
 Still open, and an architect's, because two programs agree on each of them: the note's owner string
 (#1319 proposes `nife`; nothing has chosen it), its type number, and the descriptor's encoding. The
 build is filed as the proposal
-[`a-program-carries-its-manifest-in-an-elf-note`](../roadmap/proposals/a-program-carries-its-manifest-in-an-elf-note.md).
+[`a-program-carries-its-manifest-in-an-elf-note`](../roadmap/597-a-program-carries-its-manifest-in-an-elf-note.md),
+since promoted to milestone 597 (a program carries its manifest in an ELF note).
 
 Correction, 2026-09-26. The M2 row below says M2 "extends `crates/elf`, which parses program
 headers only", and "reluctantly" rested on that. So did `notes/component-manifest.md`, which said
