@@ -1,0 +1,20 @@
+Falsifies `manifest_note::verification::a_decoded_manifest_encodes_back_to_its_bytes`.
+
+The defect: `decode` stops checking that the three bytes after the option letters are zero. Every
+manifest then has eight spellings, and two readers could each be handed a different one of them.
+The fields still decode correctly, which is why no host test built from real manifests notices.
+
+Expected to fail: the assertion that `encode` of the decoded manifest is the descriptor again.
+
+diff --git a/crates/manifest_note/src/lib.rs b/crates/manifest_note/src/lib.rs
+index 9e9c85537..0194cf278 100644
+--- a/crates/manifest_note/src/lib.rs
++++ b/crates/manifest_note/src/lib.rs
+@@ -368,7 +368,6 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
+         1 => Runtime::Std,
+         _ => return Err(Error::BadField(RUNTIME)),
+     };
+-    zero(d, TAIL, DESCRIPTOR_LEN - TAIL)?;
+     Ok(Manifest {
+         arg,
+         mem,
