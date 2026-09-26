@@ -294,6 +294,16 @@ path = "src/memory_region_depleter.rs"
 test = false
 bench = false
 
+# The scratch window exerciser (milestone 604 (provisional), the builder's scratch cursor is
+# bounded): builds a ripgrep-sized child 110 times, more than the old cursor's room, destroying each
+# child's region before the next, so it passes only if the loader reuses scratch pages the kernel
+# took back. Name provisional.
+[[bin]]
+name = "scratch_window_exerciser"
+path = "src/scratch_window_exerciser.rs"
+test = false
+bench = false
+
 # The delegation pair's giving half (milestone 10): hands a capability on, narrowed.
 # `hello`'s GRANTER role until milestone 291.
 [[bin]]

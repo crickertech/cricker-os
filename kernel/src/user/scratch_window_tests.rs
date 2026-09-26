@@ -1,0 +1,116 @@
+//! **A userspace builder keeps building past its scratch window** (milestone 604 (provisional), the
+//! builder's scratch cursor is bounded).
+//!
+//! `supervision_protocol`'s loader maps every page it fills for a child into its own address space,
+//! and nothing in the ABI unmaps it (DECISIONS §162 (whether a holder can give up a mapping) is
+//! open). Until 2026-09-26 its cursor only climbed, so a long-lived builder ran out: in the
+//! progenitor, first of page tables for the cursor and then of address space below the initrd
+//! window, after about seventy-five `ripgrep`-sized spawns. Every build after that failed.
+//!
+//! The loader now wraps inside a fixed window and asks the kernel which pages are free, and this
+//! proves the kernel half of that bargain as well as the loader's: that destroying a child's region
+//! takes the builder's scratch mappings of its frames back (DECISIONS §13 (frame revocation)), and
+//! that `PageFrame::MAP` refuses a taken page whole, so a probe is safe. The builder is
+//! `fixtures/src/scratch_window_exerciser.rs`, whose header has the numbers and the negative control.
+//!
+//! Cross-ISA: the loader is portable userspace code and the revocation is portable kernel code, so
+//! the parity gate (DECISIONS §19, architectural parity is a tenet) is met by this one test running
+//! on each architecture. `x86_64` and `riscv64` build one more scratch page per child (the timebase
+//! page), which the fixture counts.
+//!
+//! # BUGS
+//!
+//! - **It proves the loader, not the progenitor.** The progenitor's own numbers (its 128-page table
+//!   budget, its job pool against the window) are compile-time assertions in
+//!   `crates/system_initializer`, not a boot that spawns `rg` a hundred times; `rg` is not in any
+//!   CI archive (milestone 121's reasons).
+
+use super::*;
+use crate::cap::{Rights, memory_region_cap, rendezvous_cap};
+use crate::sched;
+
+/// The exerciser's building budget: 7 extra stack pages and 720 for one child at a time, with 33
+/// over. Must cover `EXTRA_STACK_PAGES + CHILD_PAGES` in the fixture.
+const BUDGET_PAGES: u64 = 760;
+
+/// **The exerciser's own table budget, and the negative control.** 48 pages covers the scratch
+/// window's 32 last-level tables and the one or two above them; the old cursor would have needed
+/// 144 for this run.
+const OWN_TABLE_PAGES: u64 = 48;
+
+/// The builds the exerciser is written to make, and the old cursor's room in the progenitor: from
+/// `0x1000_0000` to the initrd window at `0x2000_0000`, in pages.
+const BUILDS: u64 = 110;
+const OLD_CURSOR_ROOM_PAGES: u64 = 0x1000_0000 / 4096;
+
+/// **A builder with a 48-page table budget builds 110 `ripgrep`-sized children in a row**, putting
+/// more pages through its scratch window than the progenitor's old cursor had room for, and more
+/// than four times the window itself.
+#[test_case]
+fn a_builder_reuses_scratch_its_reaped_children_gave_back() {
+    use core::sync::atomic::Ordering;
+
+    use crate::arch::exceptions::USER_FAULTS;
+
+    let image = program("scratch_window_exerciser")
+        .expect("no scratch_window_exerciser program in the archive");
+    let region = crate::memory_region::create(BUDGET_PAGES).expect("no region for the exerciser");
+    let tables =
+        crate::memory_region::create(OWN_TABLE_PAGES).expect("no table region for the exerciser");
+    let report = sched::create_rendezvous();
+    let faults = USER_FAULTS.load(Ordering::Relaxed);
+
+    let tid = sched::spawn(move || {
+        run(
+            image,
+            Spawn {
+                arg0: 0,
+                arg1: 0,
+                arg2: 0,
+                grants: &[
+                    memory_region_cap(region),             // slot 0: the budget
+                    rendezvous_cap(report, Rights::WRITE), // slot 1: the report
+                    memory_region_cap(tables),             // slot 2: its own page tables
+                ],
+                maps: &[],
+            },
+        )
+    })
+    .expect("could not spawn the scratch window exerciser");
+
+    // Bounded, so a builder that faults says so here rather than as the suite's hang watchdog.
+    let deadline = crate::arch::timer::now() + 60 * crate::arch::timer::frequency();
+    while sched::rendezvous_waiting_senders(report) == 0 && crate::arch::timer::now() < deadline {
+        sched::yield_now();
+    }
+    assert!(
+        sched::rendezvous_waiting_senders(report) > 0,
+        "the exerciser never reported: it faulted ({} faults) or is still building after 60 s",
+        USER_FAULTS.load(Ordering::Relaxed) - faults,
+    );
+    let [built, pages, window, ..] = sched::ipc_recv(report);
+
+    assert_eq!(
+        built, BUILDS,
+        "build {} of {BUILDS} failed after {pages} scratch pages, against a window of {window}: \
+         the loader did not reuse the pages a destroyed region gave back",
+        built + 1,
+    );
+    assert!(
+        pages > OLD_CURSOR_ROOM_PAGES && pages > 4 * window,
+        "{pages} scratch pages is not past the old cursor's {OLD_CURSOR_ROOM_PAGES} and four laps \
+         of the {window}-page window, so this run proves less than it claims",
+    );
+
+    assert!(
+        wait_for(|| !sched::is_thread_present(tid)),
+        "the exerciser reported and did not exit",
+    );
+    assert_eq!(
+        USER_FAULTS.load(Ordering::Relaxed),
+        faults,
+        "the exerciser faulted",
+    );
+    sched::reclaim_region(region).expect("the exerciser's budget did not come back");
+    sched::reclaim_region(tables).expect("the exerciser's table budget did not come back");
+}

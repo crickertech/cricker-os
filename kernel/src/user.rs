@@ -4117,6 +4117,20 @@ mod thread_leak_police;
 #[cfg(test)]
 mod revocation_in_flight_tests;
 
+/// **A userspace builder keeps building past its scratch window** (milestone 604 (provisional),
+/// the builder's scratch cursor is bounded).
+///
+/// `supervision_protocol`'s loader wraps its scratch cursor and probes for pages the kernel took
+/// back when a child's region was destroyed; this builds 110 `ripgrep`-sized children through it on
+/// a table budget the old, climbing cursor ran out of at the thirty-seventh (measured, with the
+/// wrap taken out). Its own header has the arithmetic. A module of its own rather than a test in
+/// [`tests`], for that file's merge-hotspot reason, and named to sort before
+/// [`thread_leak_police`].
+///
+/// Cross-ISA: one portable test body, run on every architecture (DECISIONS §19).
+#[cfg(all(test, initrd))]
+mod scratch_window_tests;
+
 /// **Revocation against a mapping the kernel wired** (the `map_physical` mapping record,
 /// 2026-09-21).
 ///

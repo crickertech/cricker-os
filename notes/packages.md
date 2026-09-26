@@ -162,7 +162,7 @@ program gets until its manifest is read from its ELF note (§197, ruled 2026-09-
 file and sends `spawnproto::request(len, ..)` with `IMAGE_BIT` set: word 0 is the byte length, then
 one `SEND_CAP` per page narrowed to `READ`, then the grants as today, holding one frame at a time.
 
-The progenitor maps each frame through the loader's never-reused scratch window, copies it into a
+The progenitor maps each frame through the loader's scratch window (`supervision_protocol::map_scratch`), copies it into a
 page of its own, and deletes the capability before taking the next. It copies because the caller
 keeps a mapping of its frames and could change them between a hash and a build. It hashes the copy,
 reads `activation/current` and then that generation through the file service it already held, and
