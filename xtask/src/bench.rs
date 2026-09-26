@@ -139,6 +139,9 @@ fn leg(real: bool, check: bool, save: bool, features: &str) -> bool {
     // any run without the image the bench finds no second disk and skips, so this stays out of the
     // icount gate's build entirely.
     if (smp && !redoxfs_server_build(TARGET))
+        // `fs_walk`, from milestone 606 (a directory walk costs what it does on Linux), runs
+        // `std_exerciser`, which only reaches the archive if it was built first. This takes the machine-wide `nife-dev` link (notes/std.md), as a gate does.
+        || (smp && !crate::farm::std_exerciser())
         || !mkdisk()
         || !user()
         || (smp && !mkredoxfs())

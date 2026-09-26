@@ -114,6 +114,7 @@ pub fn run() -> ! {
     smp_throughput();
     fs_read();
     fs_throughput();
+    fs_walk();
 
     println!("bench: done");
     // Parked, not exited: the host side saw the marker and tears QEMU down. `wfi`, so a
@@ -1487,6 +1488,13 @@ fn coremark_compute() {
 /// serving layer sitting on a ~200 us block read with its own run-to-run spread puts the delta inside
 /// the device noise. The per-hop tax lives in `relay_rtt`, where it is measurable and gated.
 ///
+/// **Since milestone 606 (a directory walk costs what it does on Linux), the read after the first
+/// is served from the FS server's memory**, like a Linux buffered read from the page cache, so this
+/// row measures the confined IPC path plus a copy (about 260 ns under HVF, release, 2026-09-26)
+/// and no longer the device. The history above is kept because it is why the memo exists. The
+/// device path is still what `fs_seq_read` and its siblings measure: their file is 1 MiB, over
+/// the memo's 256 KiB limit.
+///
 /// **What it is not:** a filesystem throughput number. There is no MB/s figure and no comparison
 /// against ext4 or APFS, which is DECISIONS §34's unmet condition 2 and milestone 38.
 fn fs_read() {
@@ -1606,6 +1614,89 @@ fn fs_throughput() {
             hundredths / 100,
             hundredths % 100
         );
+    }
+}
+
+/// **A directory walk through a confined grant** (milestone 606 (a directory walk costs what it
+/// does on Linux), provisional number). `std_exerciser` holds the tree milestone 121 (`ripgrep` on nife: enumeration as a
+/// capability) priced, behind an
+/// `fs_subtree_caretaker`, with the rights the confined `rg pattern src/` will hold, and walks it
+/// with plain `std::fs` (`walk_pricing`): list every directory, read every file. The row is the
+/// median of that program's warm walks; the probes are the rest of what it printed, the split by
+/// `std::fs` call first. This is the release-kernel figure the kernel suite cannot give (its kernel
+/// is a debug build), and the one `bench/host/run_linux_walk.sh` prices Linux against on the same
+/// `virt,accel=hvf` machine and the same virtio disk tier.
+///
+/// `--real --smp` only, for `fs_read`'s reasons: it is device- and interrupt-driven, so it never
+/// reaches the icount baseline. Skips when the boot has no RedoxFS disk or the archive no
+/// `std_exerciser` (it is built with `-Zbuild-std` against `nife-dev`; the `--smp` leg builds it).
+///
+/// # BUGS
+///
+/// - **Warm only.** The program's first walk counts the tree and fills the FS server's memo; the
+///   row is a walk after that, which is what a repeated `rg` or `find` is. A cold walk is a
+///   different number, and Linux's `drop_caches` would be the matching control.
+fn fs_walk() {
+    if crate::smp::online_count() <= 1 {
+        return;
+    }
+    let (Some(blk), Some(server), Some(caretaker), Some(walker)) = (
+        crate::trust::require_program("block_driver"),
+        crate::trust::require_program("redoxfs_server"),
+        crate::trust::require_program("fs_subtree_caretaker"),
+        crate::trust::require_program("std_exerciser"),
+    ) else {
+        println!("bench-probe: fs_walk skipped (a program is missing from the archive)");
+        return;
+    };
+    use filesystem_protocol::dir;
+    let Some(spawned) = crate::user::fs_service::start_std_narrowed(
+        blk,
+        server,
+        caretaker,
+        walker,
+        filesystem_protocol::fixture::walk::ROOT,
+        dir::ENUMERATE | dir::READ | dir::DESCEND,
+    ) else {
+        return; // no RedoxFS disk on this run
+    };
+    // The transcript, decoded from the program's stdout sink and kept only as far as this buffer.
+    let mut text = [0u8; 2048];
+    let mut len = 0usize;
+    loop {
+        let words = sched::ipc_recv(spawned.report);
+        let mut chunk = [0u8; byte_sink_protocol::INLINE_MAX];
+        match byte_sink_protocol::unpack(words[0], words[1], words[2], &mut chunk) {
+            byte_sink_protocol::Msg::Bytes(n) => {
+                let take = n.min(text.len() - len);
+                text[len..len + take].copy_from_slice(&chunk[..take]);
+                len += take;
+            }
+            byte_sink_protocol::Msg::Eof => break,
+            byte_sink_protocol::Msg::Malformed => {
+                println!(
+                    "bench-probe: fs_walk malformed sink message {:#x}",
+                    words[0]
+                );
+                return;
+            }
+        }
+    }
+    let text = core::str::from_utf8(&text[..len]).unwrap_or("");
+    let hz = crate::arch::timer::frequency();
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("walk whole ") {
+            let ns: u64 = rest
+                .split(' ')
+                .next()
+                .and_then(|n| n.parse().ok())
+                .unwrap_or(0);
+            // The program timed in nanoseconds; the row is in counter ticks like every other.
+            println!("bench: fs_walk {} 1", ns * hz / 1_000_000_000);
+        }
+        if line.starts_with("walk ") {
+            println!("bench-probe: fs_{line}");
+        }
     }
 }
 
