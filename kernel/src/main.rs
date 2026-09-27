@@ -85,6 +85,8 @@ mod job_mix;
 mod disk_throughput;
 #[cfg(feature = "soak_test")]
 mod soak;
+// The progenitor's stack high-water gauge and its headroom floor (name provisional).
+mod progenitor_stack;
 mod stack;
 mod sync;
 mod syscall;

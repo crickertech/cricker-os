@@ -6,6 +6,11 @@
 #   script/swish-check --graphical         aarch64 and riscv64, GPU and keyboard attached
 #   script/swish-check --graphical-serial  aarch64 and riscv64, GPU only, typing over the UART
 #
+# **It also gates the progenitor's stack** (milestone progenitor-stack (provisional)): the kernel
+# prints `progenitor stack: N of M bytes at peak` each time the mark settles higher, this echoes
+# each line with the command it followed, and a `BELOW` (less than two pages left) fails the run.
+# notes/stack/progenitor-stack.md has the numbers and the frames.
+#
 # **The x86_64 leg (milestone 182) boots the UEFI image under OVMF**, the `BOOTX64.EFI` a customer
 # copies to a USB stick, rather than a `--features shell` kernel under QEMU's PVH loader. x86_64 has
 # no early hand-over, so the kernel it boots is the default one, tour first. It types the same

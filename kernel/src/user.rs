@@ -1146,7 +1146,8 @@ pub const HELLO_ENTRY: &str = "hello";
 /// The progenitor's stack, in pages (19d.2c): it loads whole ELFs with deep call chains, so its stack is
 /// larger than an ordinary process's one page. 8 pages (32 KiB) is generous.
 #[cfg_attr(not(test), allow(dead_code))]
-const INIT_STACK_PAGES: u64 = 8;
+pub(crate) const INIT_STACK_PAGES: u64 = 8;
+const _: () = assert!(INIT_STACK_PAGES <= address_space_map::MAX_STACK_PAGES);
 
 /// **The role that means "boot the system"**, as opposed to milestone 19d's test roles.
 ///
@@ -2072,9 +2073,12 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
         AddressSpace::new(content).ok_or(LoadError::Unmappable(MapError::OutOfPageFrames))?;
     map_segments(&mut space, &elf)?;
     for k in 0..INIT_STACK_PAGES {
-        space
+        let page = space
             .map_new(USER_STACK_VA - k * FRAME_SIZE, Flags::user_data())
             .map_err(LoadError::Unmappable)?;
+        // Painted so the kernel can say how deep this stack has ever been: see
+        // `crate::progenitor_stack`, and `script/swish-check`, which fails on too little headroom.
+        crate::progenitor_stack::paint_page(k, page);
     }
     // The timebase page, which [`load`] maps for every process it builds and a hand-built
     // address space has to map for itself (see [`map_timebase_page`] for the six call sites

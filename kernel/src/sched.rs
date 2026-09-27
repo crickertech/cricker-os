@@ -1763,6 +1763,8 @@ pub fn run_idle() -> ! {
         // kernel reaches after every phase of a boot with nothing else to do; see
         // `cap::report_peak` for why waiting for the mark to settle is what makes it one line.
         crate::cap::report_peak();
+        // And the progenitor's stack gauge, from the same place for the same reason.
+        crate::progenitor_stack::report_peak();
         try_initiate_steal();
         crate::arch::wait_for_interrupt();
         yield_now();
