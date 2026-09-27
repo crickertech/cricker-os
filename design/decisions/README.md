@@ -345,6 +345,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 236 | DECIDED | [`OPEN`/`OPENDIR` take a relative path, and `OPEN`'s reply carries the size](236-open-opendir-relative-path-and-size-hint.md) |
 | 237 | DECIDED | [Subtree grants may skip the caretaker, per filesystem](237-subtree-grants-skip-the-caretaker-per-filesystem.md) |
 | 238 | DECIDED | [The system tests leave the kernel crate as a second image, and a new test defaults to userspace](238-system-tests-leave-the-kernel-crate.md) |
+| 239 | DECIDED | [Four package kinds, and TOML for package declarations and recipes](239-package-kinds-and-toml-declarations.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
