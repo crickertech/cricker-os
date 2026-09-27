@@ -15,7 +15,7 @@ merge queue lands it.)*
 ## The ruling
 
 calef ruled 2026-09-27 (UTC): B, with a panic escape and a fallback, the same shape as §242 (a
-system log, provisional; pull request #1423). The kernel appends ordinary output, fault reports and
+system log). The kernel appends ordinary output, fault reports and
 the two gauges below, to a ring. §242's log service drains the ring, stores the records and forwards
 whole lines to the console. A panic writes the UART directly, breaking the console lock the way
 `console::force_unlock` already does for the single-process case. When the ring is not being
@@ -113,8 +113,8 @@ and that pricing is what "The ruling" above draws on.
 ## What was blocked, and what still is
 
 Milestone 342 was blocked on this section; it is decided now. The milestone's own build is not
-unblocked by that alone: the ruling routes the kernel's ring through §242 (a system log, provisional;
-pull request #1423), which is still PROPOSED and unbuilt, so milestone 342 still waits, now on §242
-landing rather than on this decision. Milestone 243 (a machine with no serial port has no way to
+unblocked by that alone: the ruling routes the kernel's ring through §242 (a system log), which is
+decided but unbuilt, so milestone 342 still waits, now on §242 landing rather than on this decision.
+Milestone 243 (a machine with no serial port has no way to
 say anything) pointed in its `BUGS` at a home for this question, which is why this section exists;
 that citation now resolves.
