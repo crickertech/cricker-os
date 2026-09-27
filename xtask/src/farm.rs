@@ -729,6 +729,14 @@ fn std_patch_dispatch() -> bool {
 /// `RUSTUP_TOOLCHAIN` is set explicitly rather than via `+nife-dev`, because the cargo proxy
 /// that launched this xtask already exports `RUSTUP_TOOLCHAIN=nightly`, which would override a
 /// `+` selector and silently build std from the *unpatched* sysroot.
+///
+/// **It names this worktree's farm by path, not `nife-dev` by name** (a correction, found by
+/// milestone 606's lane on 2026-09-27). `nife-dev` is one symlink for the whole machine, and a
+/// lane gating beside another lane had it relinked away mid-build: `std_src` relinked it to this
+/// farm, another lane's gate relinked it to theirs a moment later, and this build compiled an
+/// unpatched std and failed three times running. rustup accepts a toolchain path in
+/// `RUSTUP_TOOLCHAIN`, so the build now uses the farm it just checked and cannot be pointed
+/// elsewhere. The link is still made, for `helpers/` scripts and people who type `+nife-dev`.
 pub(crate) fn std_exerciser() -> bool {
     if !std_src() {
         return false;
@@ -737,7 +745,7 @@ pub(crate) fn std_exerciser() -> bool {
     for triple in STD_TARGETS {
         let spec = s(workspace_root().join(format!("targets/{triple}.json")));
         let ok = Command::new("cargo")
-            .env("RUSTUP_TOOLCHAIN", NIFE_TOOLCHAIN)
+            .env("RUSTUP_TOOLCHAIN", farm_dir())
             .args([
                 "build",
                 "--release",

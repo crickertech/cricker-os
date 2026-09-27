@@ -417,7 +417,28 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         // frame shared with every client.
         let (w0, reply_slot, w1, badge) = recv_cap_badged(FILE);
         let win = window_base(badge);
-        let handle = fs::req_handle(w0) as u32;
+        let code = op(w0);
+        // **A bound badge's handles go through `subtree_scope`** (milestone 606 (a directory walk
+        // costs what it does on Linux), ruling D). Its `ROOT` is its grant's directory, and any
+        // other handle must be one it minted; an unbound badge passes through as it always has.
+        // `BIND` and `UNBIND` name a handle of the binder's own, which is unbound by their rule.
+        // Closing `ROOT` is refused for a bound badge, as a caretaker refuses it: the grant's root
+        // is not the client's to close.
+        let raw = fs::req_handle(w0);
+        let admitted = if code == fs::BIND || code == fs::UNBIND {
+            Ok(raw as u32)
+        } else if code == fs::CLOSE && raw == fs::ROOT && server.scoped(badge) {
+            Err(Error::new(EINVAL))
+        } else {
+            server.admit(badge, raw)
+        };
+        let handle = match admitted {
+            Ok(h) => h,
+            Err(e) => {
+                reply(reply_slot, reply_err(e.errno), 0);
+                continue;
+            }
+        };
         // **Two clamps, and which one a verb gets is the compatibility property** (milestone 138
         // step 3). The channel is `fs::TRANSFER_MAX` bytes now, but a client maps only as much of
         // it as it intends to use, so a reply whose length THIS SERVER chooses must stay inside the
@@ -429,7 +450,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         let bulk_len = fs::req_len(w0).min(fs::TRANSFER_MAX);
         let offset = w1;
 
-        let result: Result<i64> = match op(w0) {
+        let result: Result<i64> = match code {
             // The handle field is the **parent directory**, not a file: `fs::ROOT` is the endpoint's
             // bound directory, which is what every client that predates directory handles sends.
             fs::OPEN => {
@@ -508,7 +529,8 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                     let (src, dst) = unsafe { file_page(win, len + dst_len) }.split_at(len);
                     match (core::str::from_utf8(src), core::str::from_utf8(dst)) {
                         (Ok(src), Ok(dst)) => server
-                            .rename(handle, src, fs::dst_handle(offset) as u32, dst)
+                            .admit(badge, fs::dst_handle(offset))
+                            .and_then(|to| server.rename(handle, src, to, dst))
                             .map(|()| 0),
                         _ => Err(Error::new(EINVAL)),
                     }
@@ -633,6 +655,9 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                     Err(_) => Err(Error::new(EINVAL)),
                 }
             }
+            // Ruling D's two control verbs; `fs::BIND` has the rules, `subtree_scope` enforces them.
+            fs::BIND => server.bind(badge, handle, offset).map(|()| 0),
+            fs::UNBIND => server.unbind(badge, offset).map(|()| 0),
             _ => Err(Error::new(EINVAL)),
         };
 
@@ -640,7 +665,11 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         // `OPEN`'s reply carries the file's size in its second word (milestone 606, ruling B), so
         // a client reading the whole file needs no `FSTAT` to size its buffer. Every other verb's
         // second reply word is 0, as it always was.
-        let size = match (op(w0), &result) {
+        // A handle a bound badge minted is that badge's, and no other badge can name it.
+        if let (fs::OPEN | fs::OPENDIR | fs::CREATE | fs::MKDIR, Ok(h)) = (code, &result) {
+            server.claim(*h as u32, badge);
+        }
+        let size = match (code, &result) {
             (fs::OPEN, Ok(h)) => server.fstat(*h as u32).unwrap_or(0),
             _ => 0,
         };

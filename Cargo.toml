@@ -71,6 +71,7 @@ members = [
     "crates/byte_sink_protocol",
     "crates/virtio",
     "crates/walk_pricing",
+    "crates/subtree_scope",
     "crates/intrusive_fifo",
     "crates/line_editor",
     "crates/loaded_image_check",

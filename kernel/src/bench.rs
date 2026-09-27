@@ -115,6 +115,7 @@ pub fn run() -> ! {
     fs_read();
     fs_throughput();
     fs_walk();
+    fs_walk_bound();
 
     println!("bench: done");
     // Parked, not exited: the host side saw the marker and tears QEMU down. `wfi`, so a
@@ -1660,11 +1661,50 @@ fn fs_walk() {
     ) else {
         return; // no RedoxFS disk on this run
     };
+    walk_rows(spawned.report, "fs_walk");
+}
+
+/// **The same walk through a grant the FS server enforces itself** (milestone 606, calef's
+/// ruling D): no caretaker, the program holding the server's endpoint with a badge the kernel
+/// bound to the subtree. The row beside `fs_walk` is the price of the caretaker's hop. It takes
+/// the grant back afterwards, so a later row starts from the same server state.
+fn fs_walk_bound() {
+    if crate::smp::online_count() <= 1 {
+        return;
+    }
+    let (Some(blk), Some(server), Some(walker)) = (
+        crate::trust::require_program("block_driver"),
+        crate::trust::require_program("redoxfs_server"),
+        crate::trust::require_program("std_exerciser"),
+    ) else {
+        return;
+    };
+    use filesystem_protocol::dir;
+    let Some(spawned) = crate::user::fs_service::start_std_bound(
+        blk,
+        server,
+        walker,
+        filesystem_protocol::fixture::walk::ROOT,
+        dir::ENUMERATE | dir::READ | dir::DESCEND,
+    ) else {
+        return;
+    };
+    walk_rows(spawned.report, "fs_walk_bound");
+    while crate::sched::is_thread_present(spawned.thread) {
+        sched::yield_now();
+    }
+    if !spawned.release() {
+        println!("bench-probe: fs_walk_bound could not take its grant back");
+    }
+}
+
+/// Drain a priced walk's transcript from `report` and print it as the `row` and its probes.
+fn walk_rows(report: crate::sched::RendezvousId, row: &str) {
     // The transcript, decoded from the program's stdout sink and kept only as far as this buffer.
     let mut text = [0u8; 2048];
     let mut len = 0usize;
     loop {
-        let words = sched::ipc_recv(spawned.report);
+        let words = sched::ipc_recv(report);
         let mut chunk = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(words[0], words[1], words[2], &mut chunk) {
             byte_sink_protocol::Msg::Bytes(n) => {
@@ -1692,10 +1732,10 @@ fn fs_walk() {
                 .and_then(|n| n.parse().ok())
                 .unwrap_or(0);
             // The program timed in nanoseconds; the row is in counter ticks like every other.
-            println!("bench: fs_walk {} 1", ns * hz / 1_000_000_000);
+            println!("bench: {row} {} 1", ns * hz / 1_000_000_000);
         }
-        if line.starts_with("walk ") {
-            println!("bench-probe: fs_{line}");
+        if let Some(rest) = line.strip_prefix("walk ") {
+            println!("bench-probe: {row} {rest}");
         }
     }
 }

@@ -62,6 +62,7 @@ use alloc::vec::Vec;
 use filesystem_protocol::dir::{self, Rights};
 use filesystem_protocol::xattr;
 use redoxfs::{Disk, FileSystem, Node, Transaction, TreePtr};
+use subtree_scope::Kind;
 use syscall::error::{
     EBADF, EEXIST, EINVAL, EIO, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, EROFS, Error, Result,
 };
@@ -104,6 +105,11 @@ pub struct Server<D: Disk> {
     /// [`Server::look`], [`Server::change`] and [`Server::change_file`] open a transaction, and
     /// the last two are what keep this honest; `memo.rs` has the rule.
     memo: Memo,
+    /// The badge that minted each handle, beside [`Server::handles`] and indexed the same way;
+    /// 0 for a handle no bound badge minted (milestone 606, ruling D).
+    owners: Vec<u64>,
+    /// Which badges are scoped to a subtree grant (ruling D, `subtree_scope`).
+    bindings: subtree_scope::Bindings<{ filesystem_protocol::fs::CLIENT_WINDOWS }>,
 }
 
 impl<D: Disk> Server<D> {
@@ -135,6 +141,8 @@ impl<D: Disk> Server<D> {
             handles: alloc::vec![Some(Entry::Dir(TreePtr::root(), Rights::root(dir::ALL)))],
             clock: 1,
             memo: Memo::default(),
+            owners: alloc::vec![0],
+            bindings: subtree_scope::Bindings::new(),
         })
     }
 
@@ -169,25 +177,16 @@ impl<D: Disk> Server<D> {
     /// passes `check_component`, so `..` and empty steps are still `EINVAL`. `requested` is
     /// `OPEN`'s second word; a single-component name ignores it, as `OPEN` always has.
     pub fn open_file_path(&mut self, handle: u32, name: &str, requested: u64) -> Result<u32> {
-        let (parent, rights, name) = self.walk_prefix(handle, name, dir::DESCEND | requested)?;
-        check_component(name)?;
+        let (parent, rights, name) = self.walk_prefix(handle, name, requested)?;
         if rights.denies_all(dir::READ | dir::WRITE) {
             return Err(Error::new(syscall::error::ENOENT));
         }
-        let ptr = match self.memo.lookup(parent, name) {
-            Some(Some((_, true))) => return Err(Error::new(EISDIR)),
-            Some(Some((ptr, false))) => ptr,
-            Some(None) => return Err(Error::new(ENOENT)),
-            None => {
-                let node = self.look(|tx| tx.find_node(parent, name))?;
-                self.memo
-                    .keep_found(parent, name, node.ptr(), node.data().is_dir());
-                if node.data().is_dir() {
-                    return Err(Error::new(EISDIR));
-                }
-                node.ptr()
-            }
-        };
+        let (ptr, kind) = self.lookup(parent, name)?;
+        if kind == Kind::Directory {
+            return Err(Error::new(EISDIR));
+        }
+        // A file, and never a symbolic link or a mount point: `subtree_scope` owns that rule.
+        subtree_scope::landing(kind, false).map_err(refused)?;
         // Register the node as open with the engine's usage table. This is what makes `unlink` an
         // unlink: without it, removing the last name frees the node immediately and this handle
         // would then read a deallocated one. See `Server::unlink`.
@@ -217,8 +216,7 @@ impl<D: Disk> Server<D> {
     pub fn open_dir(&mut self, handle: u32, name: &str, requested: u64) -> Result<u32> {
         // A relative path (milestone 606, ruling A): every directory before the last is a descent
         // asking for `DESCEND | requested`, the shape the hop-by-hop walk sends.
-        let (parent, rights, name) = self.walk_prefix(handle, name, dir::DESCEND | requested)?;
-        check_component(name)?;
+        let (parent, rights, name) = self.walk_prefix(handle, name, requested)?;
         let (ptr, rights) = self.child_dir(parent, rights, name, dir::DESCEND)?;
         let granted = rights.attenuate(requested);
         if granted != Rights::root(requested) {
@@ -886,11 +884,73 @@ impl<D: Disk> Server<D> {
     fn install(&mut self, entry: Entry) -> u32 {
         if let Some(i) = self.handles.iter().position(|s| s.is_none()) {
             self.handles[i] = Some(entry);
+            self.owners[i] = 0;
             i as u32
         } else {
             self.handles.push(Some(entry));
+            self.owners.push(0);
             (self.handles.len() - 1) as u32
         }
+    }
+
+    // --- Ruling D: subtree grants this server enforces itself (milestone 606) ---------------------
+
+    /// **The handle a request under `badge` may use.** `subtree_scope::admit` decides: an unbound
+    /// badge's handle passes through, a bound badge's `ROOT` is its grant's root and any other
+    /// handle must be one it minted, and a revoked badge reaches nothing (`EBADF`).
+    pub fn admit(&self, badge: u64, requested: u64) -> Result<u32> {
+        let owner = match self.handles.get(requested as usize) {
+            Some(Some(_)) => Some(self.owners[requested as usize]),
+            _ => None,
+        };
+        subtree_scope::admit(self.bindings.of(badge), badge, requested, owner)
+            .map(|h| h as u32)
+            .map_err(refused)
+    }
+
+    /// Whether `badge` is bound or revoked, rather than carrying the endpoint's whole authority.
+    pub fn scoped(&self, badge: u64) -> bool {
+        self.bindings.of(badge) != subtree_scope::Binding::Open
+    }
+
+    /// Record that `badge` minted `handle`, if `badge` is bound. Called for every handle a verb
+    /// hands back, so a bound badge can name what it opened and nothing any other client opened.
+    pub fn claim(&mut self, handle: u32, badge: u64) {
+        if matches!(
+            self.bindings.of(badge),
+            subtree_scope::Binding::Bound { .. }
+        ) && let Some(owner) = self.owners.get_mut(handle as usize)
+        {
+            *owner = badge;
+        }
+    }
+
+    /// **`BIND`: scope `badge` to the directory `handle` names**, asked for by a caller whose
+    /// badge is `caller`. The rules are `subtree_scope::Bindings::bind`'s; the directory's rights
+    /// are what the grant carries, fixed when the binder opened it.
+    pub fn bind(&mut self, caller: u64, handle: u32, badge: u64) -> Result<()> {
+        self.dir_at(handle)?;
+        self.bindings
+            .bind(caller, badge, handle as u64)
+            .map_err(refused)
+    }
+
+    /// **`UNBIND`: take `badge`'s grant back.** Closes every handle the badge minted and the grant's
+    /// root, and leaves the badge revoked, so it reaches nothing from then on.
+    pub fn unbind(&mut self, caller: u64, badge: u64) -> Result<()> {
+        let root = self.bindings.unbind(caller, badge).map_err(refused)?;
+        let minted: Vec<u32> = (0..self.owners.len())
+            .filter(|&h| self.owners[h] == badge && self.handles[h].is_some())
+            .map(|h| h as u32)
+            .collect();
+        for h in minted {
+            self.owners[h as usize] = 0;
+            let _ = self.close(h);
+        }
+        if root != filesystem_protocol::fs::ROOT {
+            let _ = self.close(root as u32);
+        }
+        Ok(())
     }
 
     /// What a handle names, or `EBADF`. Every operation reaches the table through here or through
@@ -940,33 +1000,45 @@ impl<D: Disk> Server<D> {
             Err(Error::new(refusal))
         }
     }
-    /// Every component of `path` but the last, descended from `handle` with `hop` requested at
-    /// each step, and the last component. A name with no `/` comes back unchanged under `handle`'s
-    /// own directory. See [`Server::open_file_path`] for why the steps are exactly `OPENDIR`s.
+    /// Every component of `path` but the last, descended from `handle`, and the last component.
+    /// The descent is `subtree_scope::walk`, which ruling D (milestone 606, 2026-09-27) makes the one
+    /// place any path is resolved: each step is exactly the `OPENDIR` a client could have sent,
+    /// asking for `DESCEND | hop`, and a step through a symbolic link or a mount point is refused.
+    /// This server's own naming rules (`check_component`) run on every component first, so a
+    /// malformed path is `EINVAL` whatever the tree holds.
     fn walk_prefix<'n>(
         &mut self,
         handle: u32,
         path: &'n str,
         hop: u64,
     ) -> Result<(TreePtr<Node>, Rights, &'n str)> {
-        let (mut ptr, mut rights) = self.dir_at(handle)?;
-        let Some((dirs, last)) = path.rsplit_once('/') else {
-            return Ok((ptr, rights, path));
-        };
-        // Every component is checked before any is resolved, so a malformed path is `EINVAL`
-        // whatever the tree holds, never an answer that depends on how far the walk got.
+        let (ptr, rights) = self.dir_at(handle)?;
         for step in path.split('/') {
             check_component(step)?;
         }
-        for step in dirs.split('/') {
-            let (child, parent_rights) = self.child_dir(ptr, rights, step, dir::DESCEND)?;
-            let granted = parent_rights.attenuate(hop);
-            if granted != Rights::root(hop) {
-                return Err(Error::new(EPERM));
+        let (ptr, rights, last) =
+            subtree_scope::walk(ptr, rights, path.as_bytes(), hop, |dir, name| {
+                let name = core::str::from_utf8(name).map_err(|_| Fault(Error::new(EINVAL)))?;
+                self.lookup(dir, name).map_err(Fault)
+            })
+            .map_err(|Fault(e)| e)?;
+        // `last` is a suffix of `path`, which is UTF-8, cut at a `/`.
+        Ok((ptr, rights, &path[path.len() - last.len()..]))
+    }
+
+    /// `name` in the directory `parent`, and what it is: from the memo when it can answer, from
+    /// RedoxFS otherwise, and remembered.
+    fn lookup(&mut self, parent: TreePtr<Node>, name: &str) -> Result<(TreePtr<Node>, Kind)> {
+        match self.memo.lookup(parent, name) {
+            Some(Some(found)) => Ok(found),
+            Some(None) => Err(Error::new(ENOENT)),
+            None => {
+                let node = self.look(|tx| tx.find_node(parent, name))?;
+                let kind = kind_of(node.data());
+                self.memo.keep_found(parent, name, node.ptr(), kind);
+                Ok((node.ptr(), kind))
             }
-            (ptr, rights) = (child, granted);
         }
-        Ok((ptr, rights, last))
     }
 
     /// The child directory `name` of `parent`, once `rights` allows `needed` (`ENOENT` otherwise).
@@ -980,19 +1052,8 @@ impl<D: Disk> Server<D> {
         if !rights.allows(needed) {
             return Err(Error::new(syscall::error::ENOENT));
         }
-        let (ptr, is_dir) = match self.memo.lookup(parent, name) {
-            Some(Some(found)) => found,
-            Some(None) => return Err(Error::new(ENOENT)),
-            None => {
-                let node = self.look(|tx| tx.find_node(parent, name))?;
-                self.memo
-                    .keep_found(parent, name, node.ptr(), node.data().is_dir());
-                (node.ptr(), node.data().is_dir())
-            }
-        };
-        if !is_dir {
-            return Err(Error::new(ENOTDIR));
-        }
+        let (ptr, kind) = self.lookup(parent, name)?;
+        subtree_scope::landing(kind, true).map_err(refused)?;
         Ok((ptr, rights))
     }
 
@@ -1052,7 +1113,7 @@ fn list<D: Disk>(tx: &mut Transaction<D>, dir: TreePtr<Node>) -> Result<Vec<memo
         out.push(memo::Child {
             name: name.into(),
             ptr: entry.node_ptr(),
-            is_dir: child.data().is_dir(),
+            kind: kind_of(child.data()),
         });
     }
     out.sort_unstable_by(|a, b| a.name.cmp(&b.name));
@@ -1066,7 +1127,7 @@ fn encode_listing(listing: &[memo::Child], cursor: u32, out: &mut [u8]) -> usize
         match filesystem_protocol::dirent::encode(
             &mut out[used..],
             child.name.as_bytes(),
-            child.is_dir,
+            child.kind == Kind::Directory,
         ) {
             Some(n) => used += n,
             // A record is never split: stop before one that will not fit and let the caller's next
@@ -1076,6 +1137,33 @@ fn encode_listing(listing: &[memo::Child], cursor: u32, out: &mut [u8]) -> usize
         }
     }
     used
+}
+
+/// What a RedoxFS node is, in the terms `subtree_scope` decides with. RedoxFS has no mount points.
+fn kind_of(node: &Node) -> Kind {
+    if node.is_dir() {
+        Kind::Directory
+    } else if node.is_symlink() {
+        Kind::Symlink
+    } else {
+        Kind::File
+    }
+}
+
+/// A `subtree_scope` refusal as this crate's error.
+fn refused(r: subtree_scope::Refusal) -> Error {
+    Error::new(r.errno())
+}
+
+/// An engine error carried through `subtree_scope::walk`'s lookup, so a device error on the way
+/// down is reported as itself rather than as a refusal. It exists because neither the engine's
+/// error type nor the scope crate's is this crate's, so no `From` between them may be written.
+struct Fault(Error);
+
+impl From<subtree_scope::Refusal> for Fault {
+    fn from(r: subtree_scope::Refusal) -> Self {
+        Fault(refused(r))
+    }
 }
 
 /// Reject anything that is not a single path component, with `EINVAL`.
@@ -1104,14 +1192,11 @@ fn encode_listing(listing: &[memo::Child], cursor: u32, out: &mut [u8]) -> usize
 /// and `EINVAL` is the answer because the name is not expressible here rather than not permitted.
 /// [`Server::read_dir`] is the other half: what cannot be named is also not listed.
 fn check_component(name: &str) -> Result<()> {
-    if name.is_empty()
-        || name == "."
-        || name == ".."
+    // What a name is anywhere is `subtree_scope`'s (ruling D); what RedoxFS adds is this server's.
+    if !subtree_scope::is_name(name.as_bytes())
         || name == xattr::STORE_DIR
-        || name.contains('/')
         || name.contains('\\')
         || name.contains(':')
-        || name.contains('\0')
     {
         return Err(Error::new(EINVAL));
     }
@@ -2205,6 +2290,101 @@ mod tests {
                 .map(|e| e.errno),
             Some(ENOTDIR)
         );
+    }
+
+    /// **A bound badge sees its grant as its root and reaches only what it minted** (milestone 606,
+    /// ruling D). The dispatch in the EL0 binary is `admit` on every request and `claim` on every
+    /// handle a verb hands back; this drives the same two calls.
+    #[test]
+    fn a_bound_badge_reaches_its_grant_and_what_it_minted() {
+        let mut srv = server_with_tree();
+        let grant = srv
+            .open_dir(0, "sub", dir::ENUMERATE | dir::READ | dir::DESCEND)
+            .unwrap();
+        let outside = srv.open_file("motd").unwrap();
+        srv.bind(0, grant, 3).unwrap();
+
+        let root = srv.admit(3, filesystem_protocol::fs::ROOT).unwrap();
+        assert_eq!(root, grant, "a bound badge's ROOT is its grant");
+        let f = srv.open_file_path(root, "deeper/leaf", dir::READ).unwrap();
+        srv.claim(f, 3);
+        assert_eq!(
+            srv.admit(3, f as u64).unwrap(),
+            f,
+            "what it minted, it may name"
+        );
+        let errno = |r: Result<u32>| r.err().map(|e| e.errno);
+        assert_eq!(
+            errno(srv.admit(3, outside as u64)),
+            Some(EBADF),
+            "another's handle"
+        );
+        assert_eq!(
+            errno(srv.admit(3, grant as u64)),
+            Some(EBADF),
+            "the root by its number"
+        );
+        assert_eq!(
+            srv.admit(2, outside as u64).unwrap(),
+            outside,
+            "an unbound badge is open"
+        );
+
+        let other = srv.open_dir(0, "other", dir::READ).unwrap();
+        assert_eq!(
+            srv.bind(3, other, 4).err().map(|e| e.errno),
+            Some(EPERM),
+            "bound binds"
+        );
+        assert_eq!(
+            srv.bind(0, other, 3).err().map(|e| e.errno),
+            Some(EPERM),
+            "bound twice"
+        );
+
+        srv.unbind(0, 3).unwrap();
+        assert_eq!(
+            errno(srv.admit(3, filesystem_protocol::fs::ROOT)),
+            Some(EBADF),
+            "revoked"
+        );
+        assert_eq!(errno(srv.admit(3, f as u64)), Some(EBADF));
+        let mut buf = [0u8; 8];
+        assert_eq!(
+            srv.read(f, 0, &mut buf).err().map(|e| e.errno),
+            Some(EBADF),
+            "closed"
+        );
+    }
+
+    /// **No path goes through a symbolic link, and no open lands on one** (ruling D): `sub/link`
+    /// points at `../other`, and following it would leave a `sub` grant.
+    #[test]
+    fn a_symbolic_link_is_never_followed_or_opened() {
+        let disk = DiskMemory::new(16 * 1024 * 1024);
+        let mut fs = FileSystem::create(disk, None, 0, 0).expect("create");
+        fs.tx(|tx| {
+            let sub = tx.create_node(TreePtr::root(), "sub", Node::MODE_DIR | 0o755, 0, 0)?;
+            let other = tx.create_node(TreePtr::root(), "other", Node::MODE_DIR | 0o755, 0, 0)?;
+            let secret = tx.create_node(other.ptr(), "secret", Node::MODE_FILE | 0o644, 0, 0)?;
+            tx.write_node(secret.ptr(), 0, b"in the sibling", 0, 0)?;
+            let link = tx.create_node(sub.ptr(), "link", Node::MODE_SYMLINK | 0o777, 0, 0)?;
+            tx.write_node(link.ptr(), 0, b"../other", 0, 0)?;
+            Ok(())
+        })
+        .expect("populate");
+        let mut srv = Server::open(fs.disk).expect("open");
+        let errno = |r: Result<u32>| r.err().map(|e| e.errno);
+        let eloop = subtree_scope::Refusal::Symlink.errno();
+        assert_eq!(
+            errno(srv.open_file_path(0, "sub/link/secret", dir::READ)),
+            Some(eloop)
+        );
+        assert_eq!(
+            errno(srv.open_file_path(0, "sub/link", dir::READ)),
+            Some(eloop)
+        );
+        assert_eq!(errno(srv.open_dir(0, "sub/link", dir::READ)), Some(eloop));
     }
 
     /// **A name found without a listing is forgotten when the namespace changes** (milestone 606):
