@@ -13,7 +13,10 @@
 //!
 //! # What it holds, and that is the whole list
 //!
-//! - slot 0: the output endpoint (WRITE). Where the plan and the summary go, as `byte_sink_protocol` bytes.
+//! The slots and arguments are `timetable::contract`'s, which a session spawning this reads too.
+//!
+//! - slot 0: the output endpoint (WRITE). Where the plan and the summary go, as `byte_sink_protocol`
+//!   bytes. Never touched with a registration page, when everything goes into the page instead.
 //! - slot 1: an untyped budget (WRITE). What every instance is made of, what pays for the loader's
 //!   own scratch mappings, and what a `--mem` entry's grant is carved from (nested inside that
 //!   instance's own region rather than split from this budget directly; see `fire` and `BUGS`).
@@ -22,6 +25,10 @@
 //!   so every scheduled child is born supervised (DECISIONS §26), and invoked with
 //!   `Rendezvous::REAP` to collect the corpses (§32).
 //! - `a0`: how many fires to perform before summarising and exiting. `0` means forever.
+//! - `a2`: where a registration page is mapped, or `0` for none (milestone 129 (scheduled execution), §222 (who holds a
+//!   user's schedule)). With none, the document is the compiled-in `timetable.conf`. With one, the
+//!   timetable starts empty and its document is whatever a registrar last sent with `REPLACE`; see
+//!   `timetable::registration` and "Replacement" below.
 //! - `a1`: the length of the archive the spawn site mapped read-only at
 //!   [`user_mode_runtime::initrd::INITRD_VA`]. **Not the initrd**: it holds exactly the programs this
 //!   document will ever build, because the plan is computable before the first tick and so the
@@ -63,6 +70,25 @@
 //! which matters because **this kernel has exactly one wait point per process and no timed wait at
 //! all** (milestone 106 is `NOT-STARTED` and gated on a decision). See `BUGS`.
 //!
+//! # Replacement
+//!
+//! A timetable spawned with a registration page is changed while it runs, by its session replacing
+//! the whole document (§222). The loop checks the page's request word once per pass, which is one
+//! load, and it has to be a poll: a blocking receive would stop it watching the clock (see
+//! `timetable::registration`). A replacement is parsed, registered and resolved against the archive
+//! in full before anything changes, so one that fails leaves the schedule in force running and
+//! says why in the page. One that succeeds keeps the beat of every line it did not change, writes
+//! its plan into the page, and re-arms. With a page, the page is the registrar's whole view: this
+//! process says nothing down [`OUT`], and leaves its exit code in the page when it stops (see
+//! [`PAGE`] and `timetable::contract`).
+//!
+//! Children already running when their entry is removed finish and are reaped as usual, because
+//! the counts of outstanding children belong to the loop and not to the document.
+//!
+//! An empty replacement ends the process. Its session is kept alive by its live children (§16
+//! (object revocation)), so a timetable left idling with nothing to fire would hold the session up
+//! for no job at all. It answers, drains what is running, prints its summary, and exits.
+//!
 //! Name: ratified 2026-09-13 (calef, working the unratified worklist), with `crates/timetable` and
 //! `components/timetable.conf` in one ruling, which is what a crate-and-program pair means. See the
 //! crate's module docs for the argument and the refusals. Milestone 129's own block declined to
@@ -92,12 +118,12 @@
 //!   worse than it is for a shell: at a prompt the person who typed the command is sitting there and
 //!   can press `^C`, and behind a schedule there is nobody.
 //!
-//! - **The narrowing is to the plan, not to one image per entry.** `components/src/spawner.rs` is handed
-//!   a single image and "build me program X" is not a thing that can be asked of it; this is handed
-//!   an archive and can still name anything in it. The residual is therefore the *union* of the
-//!   plan's programs rather than one program per entry, so a document admitting three programs
-//!   leaves an instance of one able to reach the other two's images. Closing that needs a
-//!   capability per entry rather than one per timetable, which is a shape this tree does not have.
+//! - **The archive holds every image the plan builds, and that is code, not authority.** A
+//!   compromised timetable can load any program in its archive, not only the one an entry names.
+//!   It gains nothing by it: a job holds exactly what `fire` or `fire_with_grant` endows, and
+//!   nothing reads which image is running to decide that, so a second image adds only code to a
+//!   process already running the attacker's. One image per entry was refused on 2026-09-26 for
+//!   this reason (notes/scheduled-execution/one-image-per-entry.md).
 //!
 //! - **`--mem` entries are backed, and run one at a time, alone.** The roadmap's first sketch said
 //!   to split the grant out of the instance's own region "so a single `DESTROY` still reclaims
@@ -132,14 +158,28 @@
 //!   even become due, so this cost is not exercised by the cross-ISA test; a document whose
 //!   `--mem` entry shares the clock with a fast interval would pay it.
 //!
-//! - **Nothing is persistent.** Entries live in a document compiled into this binary, and both die
-//!   with the boot. Milestone 129's block records this and points at whatever milestone gives
-//!   services durable configuration at all, which does not exist yet.
+//! - **Without a registration page, the document is compiled in.** `include_str!`, and the shipped
+//!   boot-time test still runs that way. With a page the document is whatever the registrar sent,
+//!   and persisting it is the registrar's job (§222's fifth sub-ruling: the session writes
+//!   `crates/schedule_store`'s file, then replaces). No session registers into a timetable yet,
+//!   because the durable session is for milestone 152 (durable delegation) to rebuild; the kernel test stands in.
 //!
-//! - **The document is compiled in, not read from disk.** `include_str!`, exactly as the
-//!   multicast DNS responder did until its retirement (notes/mdns.md), and for the same reason: reading a file needs a file
-//!   capability wired through the spawn. The format, the parser, the line-numbered errors and every
-//!   test are unaffected by where the bytes come from.
+//! - **A registration is noticed by polling, not received.** The loop loads the page's request
+//!   word once per pass. A `RECV` would block and stop the clock being watched, because a process
+//!   has one wait point and there is no timed wait (milestone 106 (a wait that ends on either the interrupt or the deadline)). The cost is one load per pass
+//!   on a loop that already spins; a deadline wait that also ends on a notification removes it.
+//!
+//! - **A replacement's printed plan is cut at the page**, at `timetable::registration::BODY_MAX`
+//!   bytes, and with a registrar the page is the only place it goes. Eight entries of long
+//!   refusals could pass that; the verdict word still says what every entry became.
+//!
+//! - **With a registrar, a fire failure is only an exit code.** "The budget cannot back one
+//!   instance" has no stream to go down, so the registrar learns it from the page's exit word
+//!   (`contract::E_BUDGET`) after reaping this process.
+//!
+//! - **The archive audit is printed only for the compiled-in document.** With a registrar, the
+//!   archive is what the session lets its jobs run, not the plan of a document that has not
+//!   arrived, so "exactly the programs its plan names" is not the right sentence to measure.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks
@@ -148,20 +188,29 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use timetable::Registry;
+use grant_plan::spawnproto;
+use timetable::{Registry, contract, registration};
 use user_mode_runtime::{cap_delete, exit, monotonic_nanos, reap, recv_fault, send, yield_now};
 
 /// The document. Compiled in; see `BUGS`.
 const CONFIG: &str = include_str!("../timetable.conf");
 
-/// The output endpoint: the plan, and the summary. `byte_sink_protocol` bytes.
-const OUT: u64 = 0;
+/// The output endpoint: the plan, and the summary. `byte_sink_protocol` bytes. Unused with a
+/// registration page; see [`PAGE`].
+const OUT: u64 = contract::OUT_SLOT;
 /// The budget every instance is made of, and what pays this loader's scratch mappings.
-const BUDGET: u64 = 1;
+const BUDGET: u64 = contract::BUDGET_SLOT;
 /// Handed to each instance as its slot 0, so a scheduled child can report its answer.
-const CHILD_REPORT: u64 = 2;
+const CHILD_REPORT: u64 = contract::CHILD_REPORT_SLOT;
 /// Placed in each instance's reserved fault slot, and what corpses are collected through.
-const DEATHS: u64 = 3;
+const DEATHS: u64 = contract::DEATHS_SLOT;
+
+/// **The registration page's address, or zero**, set once at `_start` from `a2`.
+///
+/// Nonzero makes this process silent on [`OUT`], because its registrar is a session blocked on
+/// supervision that cannot drain a stream, and a `SEND` nobody takes would stop the loop. [`say`]
+/// then writes nothing, and [`done`] leaves its code in the page instead (`timetable::contract`).
+static PAGE: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
 /// Pages per instance region. Enough for a small program's segments, its stack, its address-space
 /// tables and its TCB, and the same number `components/src/spawner.rs` arrived at for the same job.
@@ -180,19 +229,49 @@ const REAP_ATTEMPTS: usize = 1024;
 
 /// Verdict codes on [`OUT`]'s stream, so a spawn site that reads nothing else can still tell what
 /// happened. The plan and the summary are text; these are the two ways the program ends.
-const E_CONFIG: u64 = 0xE300; // the document did not parse; the low byte is the line number
-const E_ARCHIVE: u64 = 0xE301; // the initrd archive did not parse
-const E_IMAGE: u64 = 0xE302; // a program an admitted entry names is not in the archive
-const E_BUDGET: u64 = 0xE303; // the budget cannot back even one instance
+use contract::{E_ARCHIVE, E_BUDGET, E_CONFIG, E_IMAGE, E_UNVOUCHED};
+
+// The relation `grant_plan` cannot state without depending on `abi`, held here as every reader of
+// the slot holds it (`components/src/swish.rs` does the same).
+const _: () = assert!(spawnproto::RUN_UNVOUCHED_SLOT == abi::fault::FAULT_EP_SLOT - 1);
+// No slot this program hands a job is the run-unvouched slot. The job's other capability is a
+// region this program split for it, which cannot be the run-unvouched capability (see `_start`).
+const _: () = assert!(CHILD_REPORT != spawnproto::RUN_UNVOUCHED_SLOT);
+
+/// The images an admitted row will be built from, one slot per entry.
+type Images = [Option<elf::Elf<'static>>; timetable::MAX_ENTRIES];
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, _a2: u64) -> ! {
+pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: u64) -> ! {
+    PAGE.store(registration_page, core::sync::atomic::Ordering::Relaxed);
+    // **A scheduled job never holds the run-unvouched capability**, which is how §220 (signed builds, and trusting a key is scoped) keeps its reach: dropping trust in a key has to reach every
+    // program that could run an unvouched image, and a job firing on a schedule long after its
+    // session's key was dropped is exactly the one it would miss. The capability is gate D2 of §219 (how the shell names an installed program to the spawner).
+    //
+    // Enforced here, once, rather than at each fire, and the argument is why once suffices. A job's
+    // authority is built in `fire` and `fire_with_grant` from two sources only: [`CHILD_REPORT`],
+    // and a region split for it from [`BUDGET`]. Neither can be the capability unless this process
+    // holds it. It can only hold it if a spawn site put it there, because this program never
+    // receives a capability after `_start` (it makes no `RECV_CAP`). So a timetable that does not
+    // hold it at `_start` can never endow a job with it. The probe is sound only now, before
+    // anything is allocated: a region split later could land in the slot and read as held.
+    if user_mode_runtime::is_granted(spawnproto::RUN_UNVOUCHED_SLOT) {
+        say(
+            b"timetable: it holds the run-unvouched capability, which no scheduled job may hold, \
+              so it runs nothing\n",
+        );
+        done(E_UNVOUCHED)
+    }
+
     // SAFETY: forwarded from user_mode_runtime::initrd::initrd_bytes's own contract, the same one
     // `components/src/root_supervisor.rs` is started under. It named `components/src/builder.rs`
     // until milestone 295 retired that program; the contract is unchanged, only the sibling is.
     let archive = unsafe { user_mode_runtime::initrd::initrd_bytes(initrd_len) };
 
-    let doc = match timetable::parse(CONFIG) {
+    // With a registrar, the timetable starts with nothing and waits to be told; without one, the
+    // compiled-in document is the whole story, exactly as it was before §222.
+    let text = if registration_page == 0 { CONFIG } else { "" };
+    let doc = match timetable::parse(text) {
         Ok(d) => d,
         // The line number rides in the low byte, so a wrong document is findable from the verdict
         // alone even when nobody is reading the text stream.
@@ -231,34 +310,32 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, _a2: u64) -> ! {
     // It measures rather than enforces, because a process cannot narrow its own endowment: the
     // width is the spawn site's decision (`system_tests/src/user/timetable_tests.rs` builds a sub-archive
     // from exactly `Registry::programs`), and saying it out loud is what makes the decision
-    // checkable from in here rather than only from out there.
-    let mut audit = timetable::Audit::of(&reg);
-    for entry in fs.entries() {
-        if let Some(name) = entry.name_str() {
-            audit.saw(name);
+    // checkable from in here rather than only from out there. Not with a registrar: see `BUGS`.
+    if registration_page == 0 {
+        let mut audit = timetable::Audit::of(&reg);
+        for entry in fs.entries() {
+            if let Some(name) = entry.name_str() {
+                audit.saw(name);
+            }
         }
+        audit.write(&mut say);
     }
-    audit.write(&mut say);
 
     // Resolve every admitted entry's program **now**, so a plan that names a program the archive
     // does not carry fails loudly at startup rather than as a fire that quietly does not happen.
     // This is also the moment `Registry::programs`' claim becomes checkable: nothing after this
     // point looks anything else up.
-    let mut images: [Option<elf::Elf<'static>>; timetable::MAX_ENTRIES] =
-        [const { None }; timetable::MAX_ENTRIES];
-    for (i, row) in reg.rows().iter().enumerate() {
-        let Some(e) = row.endowment() else { continue };
-        let Some(bytes) = fs.read(e.prog.name()) else {
-            say(b"timetable: no such program in the archive: ");
-            say(e.prog.name().as_bytes());
-            say(b"\n");
+    let mut images: Images = match resolve(&reg, &fs) {
+        Ok(images) => images,
+        Err(i) => {
+            if let Some(e) = reg.rows()[i].endowment() {
+                say(b"timetable: no such program in the archive: ");
+                say(e.prog.name().as_bytes());
+                say(b"\n");
+            }
             done(E_IMAGE)
-        };
-        let Ok(elf) = elf::Elf::parse(bytes) else {
-            done(E_IMAGE)
-        };
-        images[i] = Some(elf);
-    }
+        }
+    };
 
     // The end of the plan, and the start of the running. One line, because the plan and everything
     // after it travel down one endpoint and a reader has to know where one stops: `kernel/src/user/
@@ -268,12 +345,30 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, _a2: u64) -> ! {
 
     reg.arm(monotonic_nanos());
 
+    // Which of the two document buffers the registry in force borrows from; see [`DOCUMENTS`].
+    let mut current = 0usize;
+    let mut answered = 0u64;
+
     let mut fired = 0u64;
     let mut outstanding = 0u64;
     let mut exits = 0u64;
     let mut faults = 0u64;
 
     while fires_wanted == 0 || fired < fires_wanted {
+        if registration_page != 0
+            && replace_if_asked(
+                registration_page,
+                &mut answered,
+                &mut current,
+                &mut reg,
+                &mut images,
+                &fs,
+                held,
+            )
+        {
+            // Emptied: nothing more fires, and what is running finishes below.
+            break;
+        }
         let now = monotonic_nanos();
         let mut any = false;
         while let Some(i) = reg.due(now) {
@@ -353,6 +448,160 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, _a2: u64) -> ! {
     say_num(faults);
     say(b" faults\n");
     done(0)
+}
+
+/// **Resolve every admitted row's program in the archive**, or the index of the first that is not
+/// there. Nothing is parsed lazily later: a plan that names a missing program is caught here.
+fn resolve(reg: &Registry<'_>, fs: &nifefs::Fs<'static>) -> Result<Images, usize> {
+    let mut images: Images = [const { None }; timetable::MAX_ENTRIES];
+    for (i, row) in reg.rows().iter().enumerate() {
+        let Some(e) = row.endowment() else { continue };
+        let Some(bytes) = fs.read(e.prog.name()) else {
+            return Err(i);
+        };
+        let Ok(elf) = elf::Elf::parse(bytes) else {
+            return Err(i);
+        };
+        images[i] = Some(elf);
+    }
+    Ok(images)
+}
+
+/// **The two buffers a replacement's document is copied into**, alternately.
+///
+/// A [`Registry`] borrows its document's bytes, and the page cannot be what it borrows: the reply
+/// overwrites the page with the plan, and a registrar may start staging the next document the
+/// moment it has read the reply. So the document is copied out first. Two buffers because the
+/// replacement must be registered and resolved in full while the registry in force still borrows
+/// the other one, and only then may it replace it (§222's all-or-nothing sub-ruling).
+static mut DOCUMENTS: [[u8; registration::BODY_MAX]; 2] = [[0; registration::BODY_MAX]; 2];
+
+/// **Answer a replacement, if the registrar has asked for one since the last answer.**
+///
+/// Everything that can refuse happens before anything changes: the length, the text, the parse,
+/// the registration and the archive lookup. Only then is the registry in force swapped, armed with
+/// [`Registry::arm_after`] so unchanged lines keep their beat, and its plan printed down [`OUT`]
+/// and into the page. The reply word is written last, with release ordering, so a registrar that
+/// sees it sees everything before it.
+///
+/// Returns `true` when the replacement was an empty document: the caller stops firing, drains what
+/// is running, and exits ([`registration::STATUS_EMPTIED`] says why an idle timetable must not stay).
+fn replace_if_asked(
+    page: u64,
+    answered: &mut u64,
+    current: &mut usize,
+    reg: &mut Registry<'static>,
+    images: &mut Images,
+    fs: &nifefs::Fs<'static>,
+    held: timetable::Held,
+) -> bool {
+    use core::sync::atomic::{AtomicU64, Ordering};
+    // SAFETY: the spawn site mapped one writable page at `page` for exactly this protocol, and it
+    // stays mapped for this process's life. Its first two header words are only ever accessed as
+    // atomics, by both sides.
+    let request = unsafe { &*((page + registration::REQUEST as u64) as *const AtomicU64) };
+    // SAFETY: the same page and the same rule, for the reply word.
+    let reply = unsafe { &*((page + registration::REPLY as u64) as *const AtomicU64) };
+    // PAIR: the registrar's release store of the request word, after it staged the document.
+    let word = request.load(Ordering::Acquire);
+    let seq = registration::sequence(word);
+    if seq == *answered {
+        return false;
+    }
+    *answered = seq;
+    // SAFETY: as above, the whole page is ours to read and write while the registrar waits for the
+    // reply word, which is the protocol's one rule for the other side.
+    let body =
+        unsafe { core::slice::from_raw_parts_mut(page as *mut u8, registration::PAGE_BYTES) };
+    // Every path answers in the page first and then speaks down `OUT`, never the other way round.
+    let answer = |body: &mut [u8], status: u64, detail: u64, verdicts: u64, plan: usize| {
+        body[registration::STATUS..registration::STATUS + 8].copy_from_slice(&status.to_le_bytes());
+        body[registration::DETAIL..registration::DETAIL + 8].copy_from_slice(&detail.to_le_bytes());
+        body[registration::VERDICTS..registration::VERDICTS + 8]
+            .copy_from_slice(&verdicts.to_le_bytes());
+        body[registration::PLAN_LEN..registration::PLAN_LEN + 8]
+            .copy_from_slice(&(plan as u64).to_le_bytes());
+        reply.store(seq, Ordering::Release);
+    };
+
+    if registration::operation(word) != registration::REPLACE {
+        answer(body, registration::STATUS_UNKNOWN_OPERATION, 0, 0, 0);
+        say(b"timetable: a registration asked for something other than a replacement\n");
+        return false;
+    }
+    let len = u64::from_le_bytes(
+        body[registration::LEN..registration::LEN + 8]
+            .try_into()
+            .unwrap(),
+    );
+    if len as usize > registration::BODY_MAX {
+        answer(body, registration::STATUS_MALFORMED, 0, 0, 0);
+        say(b"timetable: a replacement longer than the page, refused whole\n");
+        return false;
+    }
+    let len = len as usize;
+    let spare = 1 - *current;
+    // SAFETY: `spare` is the buffer the registry in force does not borrow (see `DOCUMENTS`). The
+    // registry that last borrowed it was replaced, and so dropped, before `current` moved off it.
+    let text: &'static [u8] = unsafe {
+        let buf = core::ptr::addr_of_mut!(DOCUMENTS[spare]).cast::<u8>();
+        core::ptr::copy_nonoverlapping(body[registration::BODY..].as_ptr(), buf, len);
+        core::slice::from_raw_parts(buf, len)
+    };
+    let Ok(text) = core::str::from_utf8(text) else {
+        answer(body, registration::STATUS_MALFORMED, 0, 0, 0);
+        say(b"timetable: a replacement that is not text, refused whole\n");
+        return false;
+    };
+    let doc = match timetable::parse(text) {
+        Ok(d) => d,
+        Err(e) => {
+            answer(body, registration::STATUS_PARSE, e.line() as u64, 0, 0);
+            say(b"timetable: the replacement does not parse, and the schedule in force is unchanged: ");
+            say(e.message().as_bytes());
+            say(b"\n");
+            return false;
+        }
+    };
+    if doc.entries().is_empty() {
+        answer(body, registration::STATUS_EMPTIED, 0, 0, 0);
+        say(b"timetable: the document is empty, so this timetable exits once its running jobs finish\n");
+        return true;
+    }
+    let mut next = Registry::register(&doc, held);
+    let next_images = match resolve(&next, fs) {
+        Ok(images) => images,
+        Err(i) => {
+            answer(body, registration::STATUS_NO_IMAGE, i as u64, 0, 0);
+            say(
+                b"timetable: the replacement names a program this timetable cannot load, and the \
+                  schedule in force is unchanged\n",
+            );
+            return false;
+        }
+    };
+
+    // Committed from here: nothing below can refuse.
+    let kept = next.arm_after(reg, monotonic_nanos());
+    *reg = next;
+    *images = next_images;
+    *current = spare;
+
+    // The reply goes into the page before anything goes down `OUT`. With a registrar `say` writes
+    // nothing, so the page is the whole answer; the order matters only to a reader of both, which
+    // must find the reply there by the time it sees the line.
+    let mut plan = 0usize;
+    timetable::write_plan(reg, &mut |bytes: &[u8]| {
+        let room = registration::BODY_MAX - plan;
+        let n = bytes.len().min(room);
+        body[registration::BODY + plan..registration::BODY + plan + n].copy_from_slice(&bytes[..n]);
+        plan += n;
+    });
+    let verdicts = registration::verdicts(reg, kept);
+    answer(body, registration::STATUS_REPLACED, 0, verdicts, plan);
+    timetable::write_plan(reg, &mut say);
+    say(b"timetable: armed\n");
+    false
 }
 
 /// Build one instance in its own region and start it with `arg`.
@@ -493,8 +742,12 @@ fn collect(exits: &mut u64, faults: &mut u64) {
     user_mode_runtime::trap()
 }
 
-/// Write bytes down the output endpoint, `byte_sink_protocol`-framed.
+/// Write bytes down the output endpoint, `byte_sink_protocol`-framed. Nothing, with a registration
+/// page: see [`PAGE`].
 fn say(bytes: &[u8]) {
+    if PAGE.load(core::sync::atomic::Ordering::Relaxed) != 0 {
+        return;
+    }
     let mut rest = bytes;
     while !rest.is_empty() {
         let (w0, w1, w2, n) = byte_sink_protocol::pack(rest);
@@ -528,7 +781,23 @@ fn say_num(v: u64) {
 /// The `byte_sink_protocol` end-of-stream comes first so a reader draining text sees a stream that ended
 /// rather than one that stopped, and the verdict word after it so a spawn site reading one word
 /// still learns how this went.
+///
+/// With a registration page the code goes into the page's exit word instead, with release ordering,
+/// and nothing is sent: the registrar reads it after it has reaped this process.
 fn done(code: u64) -> ! {
+    let page = PAGE.load(core::sync::atomic::Ordering::Relaxed);
+    if page != 0 {
+        // SAFETY: the registration page is mapped writable at `page` for this process's life
+        // (`_start`'s `a2`), and its exit word is only ever accessed atomically.
+        let word = unsafe {
+            &*((page + registration::EXIT as u64) as *const core::sync::atomic::AtomicU64)
+        };
+        word.store(
+            registration::EXITED | code,
+            core::sync::atomic::Ordering::Release,
+        );
+        exit();
+    }
     send(OUT, byte_sink_protocol::eof(), 0, 0);
     send(OUT, code, 0, 0);
     exit();

@@ -68,6 +68,16 @@ entropy_protocol = { version = "0.1.0", path = "../crates/entropy_protocol" }
 environment_protocol = { version = "0.1.0", path = "../crates/environment_protocol" }
 filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol" }
 grant_plan = { version = "0.1.0", path = "../crates/grant_plan" }
+# The registration page's layout (milestone 129 (scheduled execution), DECISIONS §222 (who holds a
+# user's schedule)). The timetable test is the registrar until milestone 152 (durable delegation)
+# rebuilds the durable session, so it stages replacements with the same `timetable::registration`
+# the program answers with. Only that module's constants and small functions are reached:
+# `Registry::register`'s 21 KiB frame stays out of the image, which is the reason
+# `src/user/timetable_tests.rs` gives for writing its program list by hand.
+timetable = { version = "0.1.0", path = "../crates/timetable" }
+# The stored schedule's fixture (milestone 152), so the replacement the test sends first is the
+# document the store test writes to disk, byte for byte.
+schedule_store = { version = "0.1.0", path = "../crates/schedule_store" }
 graphics_protocol = { version = "0.1.0", path = "../crates/graphics_protocol" }
 line_editor = { version = "0.1.0", path = "../crates/line_editor" }
 login_protocol = { version = "0.1.0", path = "../crates/login_protocol" }
