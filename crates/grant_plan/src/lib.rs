@@ -1657,6 +1657,24 @@ pub enum Runtime {
 /// Name: provisional.
 pub const STD_REGION_PAGES: u64 = 256 + 128;
 
+/// **The region a file run by its path is built in**, in pages: what a named program of the same
+/// runtime gets ([`STD_REGION_PAGES`], or `native` for the progenitor's native job), plus the
+/// image's own pages (milestone 595 (the shell runs a `std` program), 2026-09-27).
+///
+/// A named program's region was sized around its image, and every one in the archive is small. A
+/// file is not: `rg`'s image is nearly twice a `std` region by itself, so a fixed size would either
+/// refuse it or leave it no heap. Adding the image keeps what a program has left after its build
+/// the same whichever way it arrived, at the price of counting a small image's pages twice.
+///
+/// Name: provisional.
+pub const fn image_region_pages(image_pages: u64, runtime: Runtime, native: u64) -> u64 {
+    image_pages
+        + match runtime {
+            Runtime::Std => STD_REGION_PAGES,
+            Runtime::Native => native,
+        }
+}
+
 /// A parsed command line. The shell dispatches on this; only [`Command::Run`] carries a grant
 /// expression that must be planned against a manifest.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

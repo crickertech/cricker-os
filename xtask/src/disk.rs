@@ -266,6 +266,20 @@ pub(crate) const INSTALLED_MALFORMED_NOTE: &str = "installed/malformed-note";
 /// its lines otherwise, as it skips `std_exerciser`'s. Provisional.
 pub(crate) const INSTALLED_STD_ECHO: &str = "installed/std-echo";
 
+/// **`std_echo` as large as `ripgrep`** (milestone 595 (the shell runs a `std` program), 2026-09-27,
+/// provisional): its bytes followed by zeros to [`LARGE_IMAGE_BYTES`]. `rg` is never in CI (its
+/// crates are fetched from crates.io, a §46 (thin primitives or whole subsystems) decision nobody has
+/// made), so this is what proves an image of its size travels from the prompt: past the old 64-page
+/// cap, across the shell's 2 MiB page-table spans, through both staging copies, and into a region
+/// sized from its length. A loader reads an ELF through its program headers, so bytes past the
+/// last segment are carried, hashed and ignored. What it does not prove is a segment that large;
+/// the kernel harness already loads `rg` itself (`kernel/src/user/ripgrep_tests.rs`).
+pub(crate) const INSTALLED_STD_ECHO_LARGE: &str = "installed/std-echo-large";
+
+/// How large [`INSTALLED_STD_ECHO_LARGE`] is: 3 MiB, 768 pages, about `rg` 14.1.1's image
+/// (`notes/ripgrep-on-nife.md`) and under `spawnproto::IMAGE_MAX_PAGES`.
+const LARGE_IMAGE_BYTES: usize = 3 * 1024 * 1024;
+
 /// **`bytes` with its one manifest note's version word replaced by `version`**, for
 /// [`INSTALLED_MALFORMED_NOTE`]. The note is found by its header and owner, which
 /// `manifest_note::Note::of` writes for every manifest; exactly one must be present, or the fixture
@@ -430,6 +444,9 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     write(tree.join(INSTALLED_MALFORMED_NOTE), &malformed)?;
     if let Some(bytes) = &std_echo {
         write(tree.join(INSTALLED_STD_ECHO), bytes)?;
+        let mut large = bytes.clone();
+        large.resize(LARGE_IMAGE_BYTES.max(bytes.len()), 0);
+        write(tree.join(INSTALLED_STD_ECHO_LARGE), &large)?;
     }
     write(tree.join(DOWNLOADED_GREETING), &greeting)?;
     eprintln!(

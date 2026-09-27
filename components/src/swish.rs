@@ -138,9 +138,10 @@ const SPAWN: u64 = 1; // SEND a spawn request to the progenitor
 const RESULT: u64 = 2; // RECV a spawned program's answer
 const BUDGET: u64 = 3; // our own untyped; SPLIT a grant off it for `--mem`
 
-/// The budget the progenitor granted us at boot (must match `crates/system_initializer`'s `SH_BUDGET_PAGES`).
-/// We cannot query how much remains (there is no such syscall), so `caps` prints the initial grant.
-const SH_BUDGET_PAGES: u64 = 128;
+/// The budget the progenitor granted us at boot, [`spawnproto::SHELL_BUDGET_PAGES`], which it reads
+/// too. We cannot query how much remains (there is no such syscall), so `caps` prints the initial
+/// grant.
+const SH_BUDGET_PAGES: u64 = spawnproto::SHELL_BUDGET_PAGES;
 
 // ---- the shell's own clock (milestone 86, notes/time-command.md) ----
 
@@ -1754,12 +1755,9 @@ fn run(nav: &mut Nav, cmd: &[u8], spec: RunSpec) {
 }
 
 /// **The window a line's argvs are written through** (milestone 205 (how a foreign program is told
-/// what to do), DECISIONS §170): one page per pipeline stage after the image window, inside the same
-/// 2 MiB, so the primer that paid for the image window's page tables pays for these too.
-const ARGV_VA: u64 = IMAGE_VA + spawnproto::IMAGE_MAX_PAGES * spawnproto::IMAGE_PAGE;
-const _: () = assert!(
-    ARGV_VA + line::MAX_STAGES as u64 * spawnproto::IMAGE_PAGE <= IMAGE_PRIMER_VA + 0x20_0000
-);
+/// what to do), DECISIONS §170): one page per pipeline stage at the bottom of [`IMAGE_WINDOW`], below
+/// the image, so their page tables come from [`IMAGE_TABLE_PAGES`] as the image's do.
+const ARGV_VA: u64 = IMAGE_WINDOW;
 
 /// **One line's argv, written and waiting to be sent**: the one-page region it was carved from and
 /// the frame in it. The frame travels to the progenitor narrowed to `READ` (`spawnproto::ARGS_BIT`)
@@ -1783,7 +1781,7 @@ fn assemble_argv(cmd: &[u8], stage: usize) -> Result<Argv, Option<Refusal>> {
     }
     let staging = memory_region_split(1).ok_or(None)?;
     let a = match u64::try_from(user_mode_runtime::retype_page_frame(staging)) {
-        Ok(frame) if map_page_frame(frame, va) => Argv { staging, frame },
+        Ok(frame) if map_window_frame(frame, va) => Argv { staging, frame },
         Ok(frame) => {
             cap_delete(frame);
             release_region(staging);
@@ -1819,21 +1817,33 @@ fn release_region(region: u64) {
     cap_delete(region);
 }
 
-/// **The window this shell writes an image's frames through** (DECISIONS §219 option D), one page
-/// above [`IMAGE_PRIMER_VA`] and inside the same 2 MiB, so every frame's mapping lands in a page
-/// table the primer already paid for. At most [`spawnproto::IMAGE_MAX_PAGES`] pages.
-const IMAGE_VA: u64 = address_space_map::pair_page(0x0000_0000_0400_1000);
+/// **Where this shell writes what it sends the progenitor in frames**: the argv pages
+/// ([`ARGV_VA`]), then an image's frames ([`IMAGE_VA`], DECISIONS §219 option D).
+const IMAGE_WINDOW: u64 = address_space_map::pair_page(0x0000_0000_0400_0000);
 
-/// **The one page that buys the image window its page tables**, mapped once per shell and never
-/// given back. It exists because of how a region returns memory: a staging region's pages go back
-/// to [`BUDGET`] on `DESTROY` only if it is the budget's most recent carve, and a page table
-/// allocated from the budget *while* staging would sit above it and strand every staging page for
-/// the life of the shell. Mapping one page here first makes the tables exist before any staging
-/// region does. One page and its tables, once, is the price of having no unmap (DECISIONS §162 (whether a holder can give up a mapping)).
-const IMAGE_PRIMER_VA: u64 = address_space_map::pair_page(0x0000_0000_0400_0000);
+/// **The window this shell writes an image's frames through**, above the argv pages. At most
+/// [`spawnproto::IMAGE_MAX_PAGES`] pages, which is 4 MiB and so crosses 2 MiB page-table spans.
+const IMAGE_VA: u64 = ARGV_VA + line::MAX_STAGES as u64 * spawnproto::IMAGE_PAGE;
 
-/// Whether [`IMAGE_PRIMER_VA`] is mapped yet.
-static IMAGE_PRIMED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// The first address past [`IMAGE_WINDOW`].
+const IMAGE_WINDOW_END: u64 = IMAGE_VA + spawnproto::IMAGE_MAX_PAGES * spawnproto::IMAGE_PAGE;
+
+/// **The pages that pay for [`IMAGE_WINDOW`]'s page tables**, split off [`BUDGET`] once per shell
+/// and never given back. It exists because of how a region returns memory: a staging region's
+/// pages go back to [`BUDGET`] on `DESTROY` only if it is the budget's most recent carve, and a
+/// page table allocated from the budget *while* staging would sit above it and strand every
+/// staging page for the life of the shell. Every mapping in the window takes its tables from this
+/// region instead, so none comes from the budget after the first image. Tables, once, are the price
+/// of having no unmap (DECISIONS §162 (whether a holder can give up a mapping)).
+///
+/// One last-level table per 2 MiB span the window touches, and one more for the level above in
+/// case the window is the first thing this shell maps in its gigabyte. Until milestone 595 (the
+/// shell runs a `std` program) raised the image cap past 2 MiB, one primer page mapped at the
+/// window's base paid for its one table.
+const IMAGE_TABLE_PAGES: u64 = (IMAGE_WINDOW_END - 1) / 0x20_0000 - IMAGE_WINDOW / 0x20_0000 + 2;
+
+/// The region [`IMAGE_TABLE_PAGES`] describes, once split; [`u64::MAX`] until then.
+static IMAGE_TABLES: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(u64::MAX);
 
 /// **Run a file by its bytes** (DECISIONS §219 option D, ruled 2026-09-26; milestone 198 rung 3a).
 ///
@@ -1894,8 +1904,8 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     let pages = spawnproto::image_pages(size);
     let holds_run_unvouched = HOLDS_RUN_UNVOUCHED.load(core::sync::atomic::Ordering::Relaxed);
 
-    // The primer first (once), then any `--mem` region, then the staging region, so staging is
-    // the top of the budget when it is destroyed. See [`IMAGE_PRIMER_VA`].
+    // The window's tables first (once), then any `--mem` region, then the staging region, so
+    // staging is the top of the budget when it is destroyed. See [`IMAGE_TABLE_PAGES`].
     if !prime_image_window() {
         nav.close_in(t, handle);
         return out_of_budget();
@@ -2110,22 +2120,31 @@ fn open_for_bytes(nav: &mut Nav, path: &[u8]) -> Option<(Tree, u64, u64)> {
     if size <= 0 || spawnproto::image_pages(size as u64) > spawnproto::IMAGE_MAX_PAGES {
         nav.close_in(t, handle);
         refused();
-        print(b"  that file is empty, or larger than an image may be (256 KiB)\n");
+        print(b"  that file is empty, or larger than an image may be (4 MiB)\n");
         return None;
     }
     Some((t, handle, size as u64))
 }
 
-/// Map [`IMAGE_PRIMER_VA`] once per shell, so the window's page tables exist before any staging
-/// region does. `false` if the budget could not pay for it.
+/// Split [`IMAGE_TABLE_PAGES`] off the budget once per shell, before any staging region, so the
+/// window's page tables never come from the budget above one. `false` if the budget could not pay.
 fn prime_image_window() -> bool {
-    if !IMAGE_PRIMED.load(core::sync::atomic::Ordering::Relaxed) {
-        if user_mode_runtime::map_region_page(BUDGET, IMAGE_PRIMER_VA) < 0 {
+    use core::sync::atomic::Ordering::Relaxed;
+    if IMAGE_TABLES.load(Relaxed) == u64::MAX {
+        let Some(tables) = memory_region_split(IMAGE_TABLE_PAGES) else {
             return false;
-        }
-        IMAGE_PRIMED.store(true, core::sync::atomic::Ordering::Relaxed);
+        };
+        IMAGE_TABLES.store(tables, Relaxed);
     }
     true
+}
+
+/// Map a frame read/write into [`IMAGE_WINDOW`], its page tables paid from [`IMAGE_TABLES`]. Only
+/// after [`prime_image_window`] has answered `true`.
+fn map_window_frame(frame: u64, va: u64) -> bool {
+    debug_assert!((IMAGE_WINDOW..IMAGE_WINDOW_END).contains(&va));
+    let tables = IMAGE_TABLES.load(core::sync::atomic::Ordering::Relaxed);
+    tables != u64::MAX && user_mode_runtime::map_page_frame(frame, va, true, tables)
 }
 
 /// **Send a file's bytes on the spawn endpoint as `pages` frames**, after a request that announced
@@ -2145,7 +2164,7 @@ fn send_frames(dir: u64, handle: u64, pages: u64, staging: u64) -> bool {
             // `spawnproto`'s BUGS.
             return false;
         };
-        if map_page_frame(frame, va) {
+        if map_window_frame(frame, va) {
             // SAFETY: `va` was just mapped read/write, one page.
             let window = unsafe { MappedWindow::new(va, PAGE) };
             let n = call(dir, fs::req(fs::READ, handle, PAGE), i * PAGE).0 as i64;
@@ -3892,11 +3911,8 @@ const _: () = {
         (FS_VA, filesystem_protocol::PAGE as u64),
         (SH_CLOCK_VA, PAGE),
         (grant_plan::SHELL_CONFIG_VA, PAGE),
-        // The primer page and the image window above it (DECISIONS §219 option D).
-        (
-            IMAGE_PRIMER_VA,
-            IMAGE_VA - IMAGE_PRIMER_VA + spawnproto::IMAGE_MAX_PAGES * PAGE,
-        ),
+        // The argv pages and the image window above them (DECISIONS §219 option D).
+        (IMAGE_WINDOW, IMAGE_WINDOW_END - IMAGE_WINDOW),
     ];
     let mut i = 0;
     while i < fixed.len() {
@@ -3908,6 +3924,7 @@ const _: () = {
         i += 1;
     }
     assert!(address_space_map::PAIR_PAGES.holds(JOBFRAME_WINDOWS.start, JOBFRAME_WINDOWS.end));
+    assert!(address_space_map::PAIR_PAGES.holds(IMAGE_WINDOW, IMAGE_WINDOW_END));
 };
 
 /// The next job frame's address. It advances per job, because there is no unmap syscall: each job

@@ -154,56 +154,41 @@ figure, which is what the proposal predicted. The x86_64 gauge line is still sta
 
 ## What it waits on
 
-Every fork is ruled. What remains is built by other lanes, or edits code they are rewriting.
+Every fork is ruled, and every step but one is built.
 
 - §219 (how the shell names an installed program to the spawner): option D with gate D2, built in
-  milestone 198 (a package manager) by #1320 and #1334. The shell sends a binary's bytes as frames,
-  which fits an `rg` built by `helpers/build-ripgrep.sh` and run by path. `rg` cannot be an archive
-  row, because fetching its crates in CI is a §46 (thin primitives or whole subsystems) decision
-  nobody has made. So it runs unvouched, under D2, holding only what the line delegates plus the
-  clock and configuration pages. That is the confinement this milestone wants.
-- Milestone 205 (how a foreign program is told what to do), in #1385, builds §170's ruling: a
-  byte argv in one page, and what a word may touch from the manifest and the line's directories.
-  Its list names `Prog::StdExerciser`'s manifest and the progenitor's `std_layout` arm, so the
-  directory half of `StdLayout` is proven there. The image arm's refusal of a directory grant
-  (`wiring.dir` in `spawn_service`) is the same designation question for an unvouched program.
-- The manifest note (#1338, promoted from the proposal
-  `a-program-carries-its-manifest-in-an-elf-note`, unmerged when this was written). Its note
-  carries `runtime`, which is how the progenitor can learn that a file run by its path is a `std`
-  program. Until then an image always gets a native layout, and `grant_plan::image_can_carry`
-  refuses `Runtime::Std` on purpose. Its number belongs in `milestone_dependencies` once the
-  block exists on `main`, where lint looks for it.
-- Milestone 206 (a program image has under 896 KiB), in #1352, builds §171's option D. Corrected
-  2026-09-26: this said a spawn from the shell cannot use the relink to `0x100_0000` that gets
-  `rg` past the ceiling in the harness. It can. `supervision_protocol::build_child_space` maps each
-  segment where its program header says, and nothing a `std` child holds sits below
-  `std_runtime_protocol::FS_PAGE` at `0x1100_0000`. 206 is still owed for a program linked the
-  stock way.
+  milestone 198 (a package manager). `rg` cannot be an archive row, because fetching its crates in
+  CI is a §46 (thin primitives or whole subsystems) decision nobody has made. So it runs by its
+  path, unvouched, holding only what the line delegates plus the clock and configuration pages.
+- Milestone 205 (how a foreign program is told what to do). Its #1394 gives a file run by its path its
+  words, and runs one whose note declares the `std` runtime in `std`'s layout, which was step 1 of
+  this block's list. What is still 205's is the designation half, which word becomes a directory,
+  and it has a fork that is calef's (`proposals/designating-a-foreign-programs-words.md`). Until it
+  lands `rg needle docs` hears its pattern and holds nothing to search.
+- Milestone 206 (a program image has under 896 KiB) built §171's map on 2026-09-27, so an image
+  linked the stock way has 496 MiB of image band, and the relink in `helpers/build-ripgrep.sh` is
+  no longer needed.
 
-## What is left, checked 2026-09-26
+## What is built: an image as large as `rg` (2026-09-27, lane `milestone/595-std-image`)
 
-Two steps are this milestone's own. Both are sequenced behind the lanes above rather than built
-beside them.
+`spawnproto::IMAGE_MAX_PAGES` went from 64 pages to 1024 (4 MiB), and `rg`'s image is about 670.
+Proven by `script/swish-check`: `installed/std-echo-large big`, `std_echo` padded with zeros to 768
+pages, prints its words. The kernel harness already loads a segment that large; this proves the
+path from the prompt.
 
-1. An image that declares the `std` runtime runs in `std`'s layout. The progenitor splits an
-   image's region at a native job's size (`JOB_REGION_PAGES`) before the bytes arrive, and never
-   consults `manifest.runtime`. The choice must come from the note, before `receive_image`.
-   `StdLayout` needs no change. `std_exerciser` can prove it under today's cap: after
-   `llvm-strip --strip-all` it is 204 KiB on aarch64, 133 on riscv64 and 140 on x86_64 (release
-   builds, measured 2026-09-26). Waits on #1338.
-2. An image as large as `rg`, about 2.6 MiB against `spawnproto::IMAGE_MAX_PAGES`, 64 pages.
-   Raising it is not one constant. The image is held three times while a child is built: the
-   shell's staging frames, the progenitor's own copy (§219 hashes that), and the child's pages. The
-   progenitor maps the caller's frames through its scratch window, which milestone 604 (the
-   builder's scratch cursor is bounded) made wrap; its compile-time check will fail the build if
-   the pool outgrows half the window. `IMAGE_VA` and `IMAGE_STAGING_VA` are fixed
-   windows milestone 206 is moving onto its map, and the second ends where the scratch window
-   starts. The jobs pool, `JOBS_BUDGET_PAGES` at 624 pages, cannot hold one `rg`. Waits on
-   milestone 206 and #1338.
-
-An unvouched `std` program starts without entropy. `hashmap_random_keys` falls back to a
-counter-seeded stream when slot 6 is empty (`patches/std-nife/overlay/std/src/sys/random/nife.rs`),
-so a `HashMap` works and only `std::random` refuses.
+- The progenitor stages and builds an image in a pool of its own, `IMAGE_POOL_PAGES` (2,432
+  pages, provisional). The job pool stays small, so the gate still runs more jobs through it than
+  it holds.
+- An image's region is `grant_plan::image_region_pages`: a named program's region plus the
+  image's pages, so a large `std` image keeps the same heap.
+- The shell's budget is one constant both sides read, `spawnproto::SHELL_BUDGET_PAGES`
+  (provisional), 128 plus one image's staging. It was two constants kept equal by hand.
+- The shell's image window is now 4 MiB and crosses 2 MiB page-table spans. Its tables come from a
+  small region split once (`IMAGE_TABLE_PAGES`) rather than one primer page, so no table is ever
+  paid from the budget above a staging region.
+- Milestone 604 (the builder's scratch cursor is bounded)'s compile-time check now counts the
+  image pool too, since its pages are built through the same scratch window: 4,086 of the 8,192
+  pages it allows.
 
 ## What it unblocks
 
@@ -262,6 +247,15 @@ A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted she
   every `std` program here has been proven under; `rg` over a real tree needs more, and a budget a
   person sizes at the prompt is an argument, which milestone 205 carries.
 
+- An image is held three times while it is built: the shell's frames, the progenitor's copy
+  and the child's pages. So an image of 4 MiB costs about 13.5 MiB of the progenitor's 48, set
+  aside at boot whether or not one ever runs. Hashing as it copies into the child would drop the
+  middle copy. Not done because it is more work in the tree's one loader, not because the copy is
+  better; `IMAGE_POOL_PAGES`' BUGS in `crates/system_initializer` says the same.
+- `caps` on a `std` image still names a 384-page region. The region an image is built in is that
+  plus its own pages, and the preview has no length to add.
+- `installed/std-echo-large` is padding past the last segment. It proves the transport, the
+  pools and the page tables, not a 3 MiB segment.
 - The CI half proves the mechanism with a program this project wrote. Only the second half answers
   risk 1, and it runs only on a machine that built `rg`.
 - Designation is ruled, not built. Under §170, `docs` becomes a capability because the line
