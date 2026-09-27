@@ -26,7 +26,7 @@
 //! it can do with the wall clock is ask, and `clock_protocol::policy` answers. **A compromised NTP
 //! client can lie inside the service's bounds and can do nothing else.** In Unix `ntpd` runs as root
 //! and may set the clock to anything at all. `an_ntp_client_holds_no_writable_clock_page` in
-//! `kernel/src/user/ntp_tests.rs` proves the claim the way the machine proves things: a process
+//! `system_tests/src/user/ntp_tests.rs` proves the claim the way the machine proves things: a process
 //! given **these five slots and nothing else**, plus the address at which a *setter* maps the clock
 //! page, writes there and dies of a fault.
 //!

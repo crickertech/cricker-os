@@ -271,7 +271,10 @@ pub fn send_reschedule(target_cpu: usize) {
 // `#[cfg(not(any(test, feature = "bench")))]`: a test boot exits through semihosting and a bench
 // boot diverges into `bench::run`, so neither reads a bring-up transcript. Same treatment
 // `memory::print_summary` already carries, and for the same reason.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     match crate::memory::gic_regions() {
         Some(Gic::V2 {

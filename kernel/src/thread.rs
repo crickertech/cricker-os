@@ -212,7 +212,7 @@ impl KernelStack {
         //
         // SAFETY: the loop above mapped every page of `[bottom, top)` and returned early on any
         // failure, and this `KernelStack` has not been handed to a thread yet, so nothing is on it.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         unsafe {
             crate::stack::paint(bottom, top);
         };
@@ -231,13 +231,13 @@ impl KernelStack {
     }
 
     /// The unmapped page below the stack. Test support.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     pub fn guard(&self) -> u64 {
         self.guard
     }
 
     /// The lowest usable byte. Test support.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     pub fn bottom(&self) -> u64 {
         self.bottom
     }
@@ -248,7 +248,7 @@ impl Drop for KernelStack {
         // Measure before unmapping (milestone 84). The reaper runs this on the successor's stack,
         // never the one being scanned. Skip a partial build (some pages never mapped, so a scan
         // would fault) and note it was never painted or used anyway.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         if self.pages.iter().all(|&p| p != 0) {
             // SAFETY: every page is mapped (the `all` above is exactly that check), still mapped
             // because the unmap loop below has not run, and `new` painted the whole span.
@@ -522,7 +522,7 @@ pub struct Thread {
     /// the whole mechanism is a measurement build the way `soak` is; `kernel/Cargo.toml`'s feature
     /// block is where the reasoning and the measured cost live. Every other `cfg` on this mechanism
     /// spells the same predicate, and `test` is in it so milestone 229's proofs keep compiling it.
-    #[cfg(any(test, feature = "cycle_counter_grant"))]
+    #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
     pub(crate) cycle_counter_grant: bool,
 
     /// **The x86 I/O ports this thread may reach from ring 3** (milestone 299, DECISIONS §121
@@ -702,7 +702,7 @@ impl Thread {
             thread_control_block_region: None,
             fault_msg: None,
             bound_notification: None,
-            #[cfg(any(test, feature = "cycle_counter_grant"))]
+            #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
             cycle_counter_grant: false,
             #[cfg(target_arch = "x86_64")]
             port_range_grant: None,
@@ -739,7 +739,7 @@ impl Thread {
             thread_control_block_region: None,
             fault_msg: None,
             bound_notification: None,
-            #[cfg(any(test, feature = "cycle_counter_grant"))]
+            #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
             cycle_counter_grant: false,
             #[cfg(target_arch = "x86_64")]
             port_range_grant: None,
@@ -850,7 +850,7 @@ impl Thread {
                 thread_control_block_region: None,
                 fault_msg: None,
                 bound_notification: None,
-                #[cfg(any(test, feature = "cycle_counter_grant"))]
+                #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
                 cycle_counter_grant: false,
                 #[cfg(target_arch = "x86_64")]
                 port_range_grant: None,
@@ -901,7 +901,7 @@ impl Thread {
             thread_control_block_region: None,
             fault_msg: None,
             bound_notification: None,
-            #[cfg(any(test, feature = "cycle_counter_grant"))]
+            #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
             cycle_counter_grant: false,
             #[cfg(target_arch = "x86_64")]
             port_range_grant: None,

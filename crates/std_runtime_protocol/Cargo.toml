@@ -9,7 +9,7 @@ license.workspace = true
 # Three programs agree on it: the std PAL (`patches/std-nife/overlay/std/src/sys/pal/nife/rt.rs`,
 # which gets this file generated into it verbatim by `cargo xtask std-src`), the progenitor's spawn
 # service (`crates/system_initializer`), and the kernel test harness that stood in for the
-# progenitor until this crate existed (`kernel/src/user/std_service.rs`, `fs_service.rs`). Pure
+# progenitor until this crate existed (`system_tests/src/user/std_service.rs`, `fs_service.rs`). Pure
 # constants, no_std, dependency-free, the split every other `*_protocol` crate the PAL reads makes.
 
 [lints]

@@ -952,7 +952,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     ),
     // **A `std` program, spawned by the progenitor rather than by the kernel's test harness**
     // (milestone 595 (provisional)). Until this, every `std` program that ran on nife was built by
-    // `kernel/src/user/std_service.rs`, and the progenitor had never produced a child in the layout
+    // `system_tests/src/user/std_service.rs`, and the progenitor had never produced a child in the layout
     // nife's `std` reads (`crates/std_runtime_protocol`): eight fixed slots, three shared pages,
     // thirty-two stack pages. The preview first, because it is where a person learns the slots
     // moved, and slot 0 is not even the same kind of object as a native child's.
@@ -1049,12 +1049,12 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
     }
 }
 
-/// The first thing `x86_hand_over` prints (`kernel/src/main.rs`), where the `x86_64` leg starts
+/// The first thing `x86_hand_over` prints (`kernel/src/lib.rs`), where the `x86_64` leg starts
 /// reading for faults; see `after_hand_over` in [`swish_check_leg`]. The same sentence
 /// `uefi_boot` requires.
 const X86_HAND_OVER_START: &str = "nife: handing the system to the userspace progenitor.";
 
-/// The last thing `x86_hand_over` prints (`kernel/src/main.rs`) once the progenitor has outlived
+/// The last thing `x86_hand_over` prints (`kernel/src/lib.rs`) once the progenitor has outlived
 /// its ten-second watch, which is the ordinary interactive outcome. The `x86_64` leg waits for it
 /// before typing; see [`swish_check_leg`]'s doc.
 const X86_HAND_OVER_REPORT: &str = "as a port capability (milestone 299).";
@@ -2176,7 +2176,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 /// 177-graphical-interactive-boot.md's own finding), so there is no serial channel left to pipe.
 /// The only observable surface is what a person looking at the screen would see, which on this
 /// machine means a `screendump` over the QEMU monitor (`NIFE_GPU_MON`) and a real key press
-/// (`sendkey`) for the same reason `kernel/src/user/display_tests.rs`'s own keyboard test needs the
+/// (`sendkey`) for the same reason `system_tests/src/user/display_tests.rs`'s own keyboard test needs the
 /// host to press one: nothing in the guest can.
 ///
 /// # Why this proves less than [`swish_check_leg`], and on purpose

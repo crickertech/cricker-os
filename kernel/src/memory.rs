@@ -474,7 +474,7 @@ fn note_allocation(allocator: &PageFrameAllocator<'static>, count: usize, grante
 
 /// `(low_water, refused, largest_refused)`: see [`FREE_LOW_WATER`]. The low-water is `usize::MAX`
 /// until the first allocation. Printed by the test suite's closing summary.
-#[cfg_attr(not(test), allow(dead_code))] // the closing summary is the only reader
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the closing summary is the only reader
 pub fn allocation_pressure() -> (usize, usize, usize) {
     use core::sync::atomic::Ordering::Relaxed;
     (
@@ -566,7 +566,7 @@ pub fn stats() -> Option<Stats> {
 /// Free frames right now. For tests that prove reclamation actually returns memory (the memory
 /// region flat-frame-count property, notes/memory-regions.md): a region reclaimed by object revocation should
 /// bring this exactly back to where it stood before the region was created.
-#[cfg_attr(not(test), allow(dead_code))] // the reclamation tests in sched.rs and user/tests.rs
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the reclamation tests in sched.rs and user/tests.rs
 pub fn free_page_frames() -> usize {
     ALLOCATOR.lock().as_ref().map_or(0, |a| a.stats().free())
 }
@@ -578,7 +578,7 @@ pub fn free_page_frames() -> usize {
 /// pieces, which is exactly what milestone 107 measured (137 free, no run of 128) and read as
 /// exhaustion. The frame ledger prints both, so the next person meets the distinction rather than
 /// deducing it. See notes/frames.md.
-#[cfg_attr(not(test), allow(dead_code))] // the frame ledger in testing.rs is the caller
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the frame ledger in testing.rs is the caller
 pub fn largest_free_run() -> usize {
     ALLOCATOR
         .lock()
@@ -587,13 +587,13 @@ pub fn largest_free_run() -> usize {
 }
 
 /// Is this address inside the kernel image?
-#[cfg_attr(not(test), allow(dead_code))] // this file's bootstrap tests are the callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's bootstrap tests are the callers
 pub fn is_in_kernel_image(addr: u64) -> bool {
     (image_start()..image_end()).contains(&addr)
 }
 
 /// Where the kernel image begins and ends, per the linker.
-#[cfg_attr(not(test), allow(dead_code))] // this file's bootstrap tests are the callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's bootstrap tests are the callers
 pub fn image_bounds() -> (u64, u64) {
     (image_start(), image_end())
 }
@@ -604,7 +604,7 @@ pub fn image_bounds() -> (u64, u64) {
 /// frame it is asking about: a machine-wide free count moves whenever any other part of the kernel
 /// allocates or frees, so a test bracketing it is asserting that the rest of the system held still.
 /// `user/current_cpu_tests.rs` is the worked example (notes/load-sensitive-assertions.md).
-#[cfg_attr(not(test), allow(dead_code))] // this file's bootstrap tests and user/current_cpu_tests.rs
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's bootstrap tests and user/current_cpu_tests.rs
 pub fn is_page_frame_used(frame: PageFrame) -> Option<bool> {
     ALLOCATOR.lock().as_ref()?.is_used(frame)
 }
@@ -751,7 +751,10 @@ pub fn record_framebuffer(base: u64, size: u64) {
 /// what the machine said, not from `target_arch`, because the VisionFive 2 is riscv64 and has
 /// neither of these devices; an ISA-keyed driver would compile clean and read garbage on the first
 /// real board (DECISIONS §43).
-#[cfg_attr(not(any(test, feature = "shell")), allow(dead_code))]
+#[cfg_attr(
+    not(any(test, feature = "system_tests", feature = "shell")),
+    allow(dead_code)
+)]
 pub fn rtc_region() -> Option<(u64, u64, u64)> {
     *RTC_REGION.lock()
 }
@@ -798,7 +801,7 @@ pub fn ram_regions() -> impl Iterator<Item = (u64, u64)> {
 }
 
 /// Where the frame bitmap landed, and how big it is. Test support.
-#[cfg_attr(not(test), allow(dead_code))] // this file's bootstrap tests are the callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's bootstrap tests are the callers
 pub fn bitmap_region() -> (u64, u64) {
     (
         BITMAP_START.load(core::sync::atomic::Ordering::Relaxed) as u64,
@@ -992,7 +995,10 @@ static INITRD_SIZE: AtomicUsize = AtomicUsize::new(0);
 
 /// The boot banner's memory line. Only the banner in `main.rs` calls it, and the test build and the
 /// `bench` boot mode both compile the banner out, so it has no caller in exactly those two.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     let Some(s) = stats() else {
         println!("  memory          : uninitialized");

@@ -547,7 +547,10 @@ fn unmap_matching(phys: u64, spare: u64, object: Option<u64>) {
 /// that revoke a single kernel-minted page (`user::disk_tests`, `user::tests`) and the suite in
 /// this file. Kept rather than deleted because those are the tests that prove the property, and
 /// because it is what a caller wanting exactly one page should still reach for.
-#[cfg_attr(not(all(test, initrd)), allow(dead_code))]
+#[cfg_attr(
+    not(all(any(test, feature = "system_tests"), initrd)),
+    allow(dead_code)
+)]
 pub fn revoke_page_frame(phys: u64) {
     revoke_page_frame_run(phys, 1);
 }
@@ -645,7 +648,10 @@ pub fn revoke_port_range_from_others(base: u16, count: u16) {
 /// but the kernel's own port-capability tests do (they grant a range to a child, prove it can `out`,
 /// revoke, and prove it faults). Test-only, like its frame twin. `x86_64` only.
 #[cfg(target_arch = "x86_64")]
-#[cfg_attr(not(all(test, initrd)), allow(dead_code))]
+#[cfg_attr(
+    not(all(any(test, feature = "system_tests"), initrd)),
+    allow(dead_code)
+)]
 pub fn revoke_port_range(base: u16, count: u16) {
     crate::sched::delete_port_range_caps(base, count);
 }

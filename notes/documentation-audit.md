@@ -216,7 +216,7 @@ $ script/audits --baseline     # the counts to paste into both index tables
 - **It scores breadth, not staleness, and it cannot read a sentence.** The rank is how many cited
   files moved; whether any of that movement made a sentence wrong is exactly the judgment the sweep
   exists to supply. Ranking by commit count alone was tried and is worse: it puts every document
-  that mentions `xtask/src/main.rs` on top, because that file and `kernel/src/user/tests.rs` are
+  that mentions `xtask/src/main.rs` on top, because that file and `system_tests/src/user/tests.rs` are
   where every lane wires its test.
 
 - **A `path::symbol` citation, and a bare filename, are invisible to the unresolvable-path survey**,

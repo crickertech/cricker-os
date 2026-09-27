@@ -171,7 +171,7 @@ pub const MAX_CELLS: usize = MAX_COLS * MAX_ROWS;
 /// 177 page frames per terminal instance, a small fraction of the free page-frame pool a terminal's
 /// own region draws from (see notes/frames.md's measurement that hundreds of page frames are "under
 /// one percent of the free pool"). The kernel's test image holds eight `Vt` statics as witnesses
-/// (`kernel/src/user/display_tests.rs` and `compositor_tests.rs`), so the widening cost it about
+/// (`system_tests/src/user/display_tests.rs` and `compositor_tests.rs`), so the widening cost it about
 /// 2.9 MB of `.bss` against QEMU's 256 MiB. There is no principled reason it could not be larger or smaller; it is a constant a
 /// future lane can change without touching the shape of the ring around it.
 pub const SCROLLBACK_ROWS: usize = 300;

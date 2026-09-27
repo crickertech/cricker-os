@@ -97,7 +97,7 @@ const UART_SIZE: u64 = 0x1000;
 /// The direct map. boot.s already established it (both TTBRs pointing at one table), and the
 /// fine-grained tables we build below preserve it, so this is valid from the first
 /// instruction of Rust to the last.
-pub(crate) fn phys_to_ptr(pa: u64) -> *mut PageTable {
+pub fn phys_to_ptr(pa: u64) -> *mut PageTable {
     phys_to_virt(pa) as *mut PageTable
 }
 
@@ -623,7 +623,7 @@ pub fn ttbr0_value(root: u64, asid: u16) -> u64 {
 /// Read the ASID back out of a composed [`ttbr0_value`]. The inverse of the line above, and it
 /// exists so a portable test can ask "which tag is this space wearing?" without knowing that this
 /// ISA keeps it in bits 63:48 and RISC-V keeps it in `satp[59:44]`.
-#[cfg_attr(not(test), allow(dead_code))] // the tests are its only caller; the kernel composes, never decomposes
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the tests are its only caller; the kernel composes, never decomposes
 pub fn asid_of(ttbr: u64) -> u16 {
     (ttbr >> 48) as u16
 }
@@ -639,7 +639,7 @@ pub fn asid_of(ttbr: u64) -> u16 {
 /// it. The RISC-V twin carries the full explanation.
 ///
 /// Returns the previous state (always `true`) so the two arch modules have one signature.
-#[cfg(test)]
+#[cfg(feature = "system_tests")]
 pub fn permit_kernel_access_to_user_pages(_allowed: bool) -> bool {
     true
 }
@@ -717,7 +717,7 @@ pub fn flush_asid(asid: u16) {
 /// `ttbr` must compose ([`ttbr0_value`]) a live L0 table built by a `Mapper` with `Half::Low`
 /// and the ASID that owns it, and the table must outlive every instruction executed at EL0
 /// afterwards.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub unsafe fn activate_user(ttbr: u64) {
     // SAFETY: this function's own `# Safety` contract is exactly the one this call needs; it forwards, it does not weaken.
     unsafe { set_ttbr0(ttbr) };
@@ -775,14 +775,14 @@ pub fn deactivate_user() {
 /// to a kernel address and yes to the process's own text, so the technique notes/capabilities.md
 /// leans on is exercised on every test run. Hence `cfg_attr(not(test), ...)`: the attribute names
 /// the one configuration with no caller, instead of blanket-suppressing a function that has one.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn user_can_read(va: u64) -> bool {
     // SAFETY: address translation has no side effects beyond PAR_EL1.
     unsafe { translate_as_el0(va, false) }
 }
 
 /// As [`user_can_read`], for a write. `AT S1E0W`. Same disposition, same test.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn user_can_write(va: u64) -> bool {
     // SAFETY: as above.
     unsafe { translate_as_el0(va, true) }
@@ -1074,7 +1074,7 @@ pub fn is_mapped(va: u64) -> bool {
 ///
 /// Reads `TTBR0_EL1`, so it answers for whichever address space is installed right now, which
 /// is either a process's or the empty reserved table.
-#[cfg_attr(not(test), allow(dead_code))] // the address-space tests are the only callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the address-space tests are the only callers
 pub fn translate_user(va: u64) -> Option<(u64, Flags)> {
     let root = TTBR0_EL1.get_baddr();
 
@@ -1086,7 +1086,10 @@ pub fn translate_user(va: u64) -> Option<(u64, Flags)> {
 /// The boot banner's MMU line. Its only caller is the banner in `main.rs`, which the test build and
 /// the `bench` boot mode both compile out (`cfg(not(any(test, feature = "bench")))`), so it has no
 /// caller in exactly those two configurations.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     println!(
         "  mmu             : {}, kernel in TTBR1 at {:#018x}, TTBR0 free for userspace",

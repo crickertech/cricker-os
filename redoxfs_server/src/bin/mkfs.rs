@@ -131,7 +131,7 @@ const ROLE_MAKE: u64 = 0;
 /// both before and after a run that was supposed to create nothing.
 const ROLE_CHECK: u64 = 1;
 
-// The report's first word. Must match kernel/src/user/disk_tests.rs.
+// The report's first word. Must match system_tests/src/user/disk_tests.rs.
 /// A filesystem was created and a file written into it. ASCII `MKFSD`, so a hex dump reads.
 pub const R_MADE: u64 = 0x_4D_4B_46_53_44;
 /// **No entropy endpoint, so nothing was created.** A filesystem id that is not unique is a

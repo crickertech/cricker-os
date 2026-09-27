@@ -882,6 +882,9 @@ mod tests {
         }
         let mut files = Vec::new();
         walk(&workspace_root().join("kernel/src"), &mut files);
+        // The system tests look most programs up by name, and they left `kernel/src` for their own
+        // image (milestone 609 (the system tests leave the kernel crate)).
+        walk(&workspace_root().join("system_tests/src"), &mut files);
         walk(
             &workspace_root().join("crates/system_initializer/src"),
             &mut files,

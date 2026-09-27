@@ -445,7 +445,7 @@ pub fn find_block_device() -> Option<PciVirtioDevice> {
 /// [`find_block_device`] is `n = 0` and is kept rather than folded into this, because the PCIe
 /// transport tests (`virtio_service::start_role_pci`) want "the PCI disk" rather than an ordinal
 /// into an ordering that spans a bus they are deliberately not on.
-#[cfg_attr(not(test), allow(dead_code))] // the mmio half answers first on both virt boards
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the mmio half answers first on both virt boards
 pub fn find_block_device_n(n: usize) -> Option<PciVirtioDevice> {
     if !is_host_bridge_present() {
         return None;
@@ -516,7 +516,7 @@ pub fn find_input_device() -> Option<PciVirtioDevice> {
 /// milestone-56 test runs it over each in turn. An RNG behind the IOMMU is worth having for the
 /// same reason a keyboard is: its buffer is the one place in memory whose contents must not be
 /// guessable, and an unconfined device could write it anywhere and read the rest.
-#[cfg_attr(not(test), allow(dead_code))] // entropy_service is the caller, and the m56 tests drive it
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // entropy_service is the caller, and the m56 tests drive it
 pub fn find_rng_device() -> Option<PciVirtioDevice> {
     let bdf = find_virtio_bdf(
         pci::VIRTIO_RNG_MODERN,

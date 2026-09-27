@@ -122,13 +122,17 @@ for arch in $arches; do
         *) echo "script/stack-depth-check: no target for arch $arch" >&2; exit 2 ;;
     esac
 
-    echo "==> $arch: building the kernel test binary with stack-size metadata"
+    # Both test images (milestone 609 (the system tests leave the kernel crate)): the kernel's unit
+    # tests and the whole-system suite are separate binaries now, and each has test bodies and
+    # test-only code the other lacks. Both contain the kernel itself.
+    for pkg in kernel system_tests; do
+    echo "==> $arch: building the $pkg test image with stack-size metadata"
     artifact=$(RUSTFLAGS="-Z emit-stack-sizes" \
-        cargo test -p kernel --target "$target" --no-run 2>&1 \
+        cargo test -p "$pkg" --target "$target" --no-run 2>&1 \
         | grep -oE "\(target/[^)]*\)" | tr -d '()' | tail -1)
 
     if [ -z "$artifact" ] || [ ! -f "$artifact" ]; then
-        echo "script/stack-depth-check: could not find the $arch test binary" >&2
+        echo "script/stack-depth-check: could not find the $arch $pkg test image" >&2
         exit 1
     fi
 
@@ -487,6 +491,7 @@ print(f"    {ARCH}: deepest thread-stack chain {worst} of {STACK} bytes, {headro
       f"{on_interrupt} of {INTERRUPT_STACK}, no context switch reachable from it; "
       f"{len(reach)} functions reachable, none over the guard page{warn}")
 PYEOF
+    done
 done
 
 exit $status

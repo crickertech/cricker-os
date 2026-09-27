@@ -147,7 +147,7 @@ const LBA: u64 = blank::LBA;
 const ROLE_PARTITION: u64 = 0;
 const ROLE_VERIFY: u64 = 1;
 
-// The partition role's verdict, the report's first word. Must match kernel/src/user/disk_tests.rs.
+// The partition role's verdict, the report's first word. Must match system_tests/src/user/disk_tests.rs.
 /// The table was laid out and both copies were written. ASCII `PARTD`, so a hex dump reads.
 pub const R_PARTITIONED: u64 = 0x_50_41_52_54_44;
 /// **The entropy endpoint was not there, so nothing was written.** The refusal this program exists
@@ -157,7 +157,7 @@ pub const R_NO_ENTROPY: u64 = 0x_4E_4F_52_4E_47;
 /// The disk refused a read or a write, or the layout did not fit it. The second word says where.
 pub const R_DISK_FAILED: u64 = 0x_44_49_53_4B_45;
 
-// The verify role's flags, the report's first word. Must match kernel/src/user/disk_tests.rs.
+// The verify role's flags, the report's first word. Must match system_tests/src/user/disk_tests.rs.
 /// LBA 0 holds a well-formed protective MBR covering the whole disk.
 pub const F_MBR: u64 = 1 << 0;
 /// The primary header and entry array parsed: four CRCs, the geometry, no overlaps.

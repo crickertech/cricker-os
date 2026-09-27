@@ -1,4 +1,4 @@
-Falsifies `kernel::user::x86_port_tests::a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write`.
+Falsifies `system_tests::user::x86_port_tests::a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write`.
 
 Architecture: x86_64
 
@@ -30,7 +30,7 @@ over, and it was met on the first replay of this record. The program was changed
 `out`, which makes the escape arrive as `EVENT_EXIT` in the assertion that states the claim.
 
 Replayed by hand on 2026-09-17 with the sweep's own argument list (`cargo xtask test --arch
-x86_64 --test a_holder_that_deletes`), red at `kernel/src/user/x86_port_tests.rs`, `left: 2`,
+x86_64 --test a_holder_that_deletes`), red at `system_tests/src/user/x86_port_tests.rs`, `left: 2`,
 `right: 1`.
 
 Regenerated 2026-09-25 (UTC) against 53cb6d620, which landed

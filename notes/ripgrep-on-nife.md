@@ -74,7 +74,7 @@ succeeds.
 
 ### 2. Does it run, and on what subset?
 
-It runs, on all three ISAs. `kernel/src/user/ripgrep_tests.rs` is one test body serving all of
+It runs, on all three ISAs. `system_tests/src/user/ripgrep_tests.rs` is one test body serving all of
 them, because nothing it asserts is architecture-specific; it spawns `rg` exactly as milestone 27's `std` demo is
 spawned, with a heap untyped at slot 0, an output endpoint at slot 1, and the FS service's directory
 capability at slot 4. What that proves, layer by layer, and none of it written for `ripgrep`:

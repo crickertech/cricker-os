@@ -13,7 +13,7 @@ two-line version already knew. Neither line number had moved (checked directly a
 2026-08-27), and neither site was touched: the lane's brief was to record, not to chase. A third
 entry, `current_cpu_tests.rs`, was added on 2026-09-22.
 
-### `kernel/src/user/live_swap_tests.rs:263`, `run_swap`: "reclaiming the operator's budget returned 277 of 224 pages" (FIXED 2026-09-22)
+### `system_tests/src/user/live_swap_tests.rs:263`, `run_swap`: "reclaiming the operator's budget returned 277 of 224 pages" (FIXED 2026-09-22)
 
 ```rust
 let recovered = memory::free_page_frames() - before_reclaim;
@@ -96,7 +96,7 @@ The open question above is answered by construction rather than by investigation
 longer worth a lane. The assertion can no longer be moved by a neighbour at all. If it ever goes red,
 the answer is "a leak", with nothing else to rule out first.
 
-### `kernel/src/user/current_cpu_tests.rs:134`, `the_page_is_returned_when_the_space_is_dropped` (FIXED 2026-09-23)
+### `system_tests/src/user/current_cpu_tests.rs:134`, `the_page_is_returned_when_the_space_is_dropped` (FIXED 2026-09-23)
 
 ```rust
 let before = crate::memory::free_page_frames();

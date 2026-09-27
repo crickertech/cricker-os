@@ -34,14 +34,14 @@ include!(concat!(env!("OUT_DIR"), "/trust_root.rs"));
 /// The digest the trust root demands for the boot program `name`, if it names it.
 // Test-only today: the boot path calls `require`, which decides and halts. These two are the same
 // decision without the halt, which is what a test can actually assert on.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn expected(name: &str) -> Option<measured_boot::Digest> {
     measured_boot::expected(TRUST_ROOT, name)
 }
 
 /// Measure `bytes` against the trust root's entry for `name`. The decision function, separated from
 /// the halt so tests can ask it what it thinks without ending the run.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn verify(name: &str, bytes: &[u8]) -> Result<(), measured_boot::VerifyError> {
     measured_boot::verify(TRUST_ROOT, name, bytes)
 }

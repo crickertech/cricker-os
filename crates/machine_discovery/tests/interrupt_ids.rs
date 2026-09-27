@@ -1,7 +1,7 @@
 //! The console UART's interrupt line, read from each machine's own tree, on the host.
 //!
 //! The number this replaces was the last QEMU constant on the interrupt path: `UART_IRQ = 10` in
-//! `kernel/src/main.rs`, which on the JH7110 armed an unrelated PLIC source, and boot 13
+//! `kernel/src/lib.rs`, which on the JH7110 armed an unrelated PLIC source, and boot 13
 //! (2026-08-15) proved it on silicon when a key press at the completed tour's prompt reached
 //! nothing (notes/visionfive2.md, BUGS). These tests hold the fix's whole claim: the same read
 //! that answers 10 on QEMU's tree answers 32 on both JH7110 fixtures, and 33 on the aarch64

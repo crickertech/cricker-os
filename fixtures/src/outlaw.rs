@@ -37,7 +37,7 @@
 //! running system wants, and that are deliberately not roles of `hello` because init has no
 //! business sharing an image with a program that faults on purpose.
 //!
-//! Refused `kernel_user_tests` (calef's, withdrawn): it collides with `kernel/src/user/tests.rs`,
+//! Refused `kernel_user_tests` (calef's, withdrawn): it collides with `system_tests/src/user/tests.rs`,
 //! the module that drives this program, so it names the caller rather than the subject; that
 //! module also drives `hello`, `flaky` and `worker`, so the name would be equally true of four
 //! programs and distinguish none; and it is plural where every other program here is one thing.

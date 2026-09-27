@@ -361,7 +361,10 @@ pub fn outcome() -> CycleCounter {
 // that rather than manufacturing one is the same call `arch::riscv64::pmu::cycles` makes. The
 // counter is still configured and printed in every build, because *whether this machine has one* is
 // a fact about the machine and belongs on the boot line either way.
-#[cfg_attr(not(any(test, feature = "bench")), allow(dead_code))]
+#[cfg_attr(
+    not(any(test, feature = "system_tests", feature = "bench")),
+    allow(dead_code)
+)]
 pub fn cycles() -> Option<u64> {
     if outcome() != CycleCounter::Running {
         return None;
@@ -380,7 +383,10 @@ pub fn cycle_counter_width() -> Option<u32> {
 
 /// Difference two reads of [`cycles`], wrapped at the counter's width. Public because the width is
 /// this module's business and not its caller's.
-#[cfg_attr(not(any(test, feature = "bench")), allow(dead_code))]
+#[cfg_attr(
+    not(any(test, feature = "system_tests", feature = "bench")),
+    allow(dead_code)
+)]
 pub fn elapsed_cycles(first: u64, second: u64) -> u64 {
     cycles_delta(first, second)
 }

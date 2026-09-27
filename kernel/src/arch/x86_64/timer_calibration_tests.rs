@@ -38,7 +38,7 @@
 //!   a skip rather than an assertion so that the day it is taken, the suite says so instead of
 //!   going red for the wrong reason.
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 mod estimator {
     //! The stopping rule, fed sequences by hand. No device access, so nothing here can flake.
 
@@ -101,7 +101,7 @@ mod estimator {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 mod boot {
     //! The tests that need a machine, run by `script/test --arch x86_64`.
 

@@ -232,7 +232,7 @@ to explain would have been the difference. The suite grew by the two tests this 
 which says those tests are nowhere near the deepest chain.
 
 The FS server's *user* stack has its own watermark already (`the_redoxfs_servers_stack_still_has_headroom`,
-in `kernel/src/user/tests.rs` and its RISC-V twin in `riscv_virtio_tests.rs`); this instrument is the
+in `system_tests/src/user/tests.rs` and its RISC-V twin in `riscv_virtio_tests.rs`); this instrument is the
 kernel-stack complement.
 
 ## The gate

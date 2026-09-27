@@ -7,7 +7,7 @@ authority, and the demonstration that hangs on it.
 The code is `crates/grant_plan/src/expand.rs` (the expander and the name set, host-tested),
 `crates/filesystem_protocol`'s `nameset` module (the wire encoding), `components/src/fs_nameset_caretaker.rs` (the
 caretaker), `components/src/swish.rs` (`echo`, and the grant path), `components/src/rm.rs` (the namespace mode),
-and `kernel/src/user/fs_service.rs`'s `start_granted_set`, and `kernel/src/user/glob_grant_tests.rs`.
+and `kernel/src/user/fs_service.rs`'s `start_granted_set`, and `system_tests/src/user/glob_grant_tests.rs`.
 
 Read [dir-capability.md](dir-capability.md) first for the rights ladder and `fs_subtree_caretaker`,
 and [rm.md](rm.md) for why `rm` is a program with a directory grant. This lane is the wiring the
@@ -492,7 +492,7 @@ assert_eq!(e.dir.unwrap().names, shown);           // and what `rm` would hold
 Wire a set grant and attack it:
 
 ```rust
-// kernel/src/user/glob_grant_tests.rs
+// system_tests/src/user/glob_grant_tests.rs
 let report = fs_service::start_granted_set(
     blk_server_image(),
     program("redoxfs_server").unwrap(),

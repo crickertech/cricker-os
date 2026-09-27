@@ -239,7 +239,7 @@ fn a_user_program_reaches_el0_and_returns_twice() {
 /// sloppier test and prove nothing at all. Both ISAs assert it; only aarch64 is *told* it (see
 /// `arch::UserFault`, and the BUGS note on the RISC-V classifier).
 ///
-/// Falsification: replayable `kernel/falsifications/user.tests.a_user_program_cannot_read_a_kernel_address.patch`
+/// Falsification: replayable `system_tests/falsifications/user.tests.a_user_program_cannot_read_a_kernel_address.patch`
 #[test_case]
 fn a_user_program_cannot_read_a_kernel_address() {
     let kernel_addr = a_kernel_address();
@@ -407,7 +407,7 @@ fn forged_elf_sized(vaddr: u64, flags: u32, memsz: u64) -> [u8; 136] {
 /// attack on both ISAs: aarch64's kernel half starts at `0xffff_0000_0000_0000` and RISC-V's
 /// Sv39 kernel half at `0xffff_ffc0_0000_0000`, and the loader must refuse either.
 ///
-/// Falsification: replayable `kernel/falsifications/user.tests.an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused.patch`
+/// Falsification: replayable `system_tests/falsifications/user.tests.an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused.patch`
 #[test_case]
 fn an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused() {
     let image = forged_elf(mmu::KERNEL_VA_BASE, elf::PF_R | elf::PF_X);
@@ -424,7 +424,7 @@ fn an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused() {
 /// Caught in `crates/elf`, on the host, in microseconds. But assert it end-to-end too: the
 /// value of the host test is that it is fast, not that it is the only line of defence.
 ///
-/// Falsification: replayable `kernel/falsifications/user.tests.an_elf_that_asks_for_a_writable_executable_page_is_refused.patch`
+/// Falsification: replayable `system_tests/falsifications/user.tests.an_elf_that_asks_for_a_writable_executable_page_is_refused.patch`
 #[test_case]
 fn an_elf_that_asks_for_a_writable_executable_page_is_refused() {
     let image = forged_elf(
@@ -930,7 +930,7 @@ fn a_read_only_segment_is_mapped_read_only() {
 /// and reads the `U` bit. Merging them would mean asserting only what both can say, which is
 /// less than either says now.
 ///
-/// Falsification: replayable `kernel/falsifications/user.tests.the_hardware_says_el0_cannot_read_the_kernels_memory.patch`
+/// Falsification: replayable `system_tests/falsifications/user.tests.the_hardware_says_el0_cannot_read_the_kernels_memory.patch`
 #[cfg(target_arch = "aarch64")]
 #[test_case]
 fn the_hardware_says_el0_cannot_read_the_kernels_memory() {

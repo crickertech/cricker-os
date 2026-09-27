@@ -378,6 +378,6 @@ Stated plainly, because a demonstrator's honest limits are part of the deliverab
 | the compositor | `components/src/compositor.rs` |
 | a client, with its roles and its attacks | `fixtures/src/window.rs` |
 | the wiring (frames, endpoints, grants) | `kernel/src/user/compositor_service.rs` |
-| the tests | `kernel/src/user/compositor_tests.rs` |
+| the tests | `system_tests/src/user/compositor_tests.rs` |
 | the host-side scanout check and its negative control | `xtask/src/scanout.rs` |
 | the display driver it flushes to, unchanged | `components/src/gpu_driver.rs` |

@@ -108,16 +108,20 @@ for arch in $arches; do
         *) stack_size_rustflags="-Z emit-stack-sizes" ;;
     esac
 
-    echo "==> $arch: building the kernel test binary with stack-size metadata"
+    # Both test images (milestone 609 (the system tests leave the kernel crate)): the kernel's unit
+    # tests and the whole-system suite are separate binaries now, and each has test bodies and
+    # test-only code the other lacks. Both contain the kernel itself.
+    for pkg in kernel system_tests; do
+    echo "==> $arch: building the $pkg test image with stack-size metadata"
     # The TEST binary, not `cargo build`. Half the spawn paths and every test body are `cfg(test)`,
     # so the plain binary is missing exactly what this is looking for. That mistake cost an hour on
     # the day this was written, and the tell was that a test-only symbol was absent from `nm`.
     artifact=$(RUSTFLAGS="$stack_size_rustflags" \
-        cargo test -p kernel --target "$target" --no-run 2>&1 \
+        cargo test -p "$pkg" --target "$target" --no-run 2>&1 \
         | grep -oE "\(target/[^)]*\)" | tr -d '()' | tail -1)
 
     if [ -z "$artifact" ] || [ ! -f "$artifact" ]; then
-        echo "script/stack-frame-check: could not find the $arch test binary" >&2
+        echo "script/stack-frame-check: could not find the $arch $pkg test image" >&2
         exit 1
     fi
 
@@ -154,6 +158,15 @@ CEILING = GUARD_PAGE
 # They are reported and not gated. If a test body ever moved onto a thread stack this would have to
 # change, and so would a great deal else.
 TEST_MARKERS = ("_tests::", "::tests::", "kernel::testing::")
+
+
+def is_test_body(name):
+    # The system-test image's crate is itself named `system_tests` (milestone 609 (the system tests
+    # leave the kernel crate)), so every symbol in it would match "_tests::". Strip the crate name
+    # first: the services only the suite spawns (`system_tests::user::alloc_service::...`) run on
+    # thread stacks and stay gated, as they were when they were `kernel::user::alloc_service`.
+    name = name.removeprefix("system_tests::")
+    return any(m in name for m in TEST_MARKERS)
 
 # Functions over the ceiling that provably do not run on a kernel thread stack. Each states why, and
 # a reader who makes one of these reachable from a thread has to come here and say so.
@@ -222,7 +235,7 @@ if os.environ.get("REPORT"):
 # a ratchet exists to reach and then be deleted from.
 over = [
     (n, s) for n, s in ranked
-    if s > CEILING and n not in EXCEPT and not any(m in n for m in TEST_MARKERS)
+    if s > CEILING and n not in EXCEPT and not is_test_body(n)
 ]
 
 if over:
@@ -247,10 +260,11 @@ If the function provably cannot run on a kernel thread stack, add it to EXCEPT i
 the reason**, so the next reader can check whether the reason is still true.""", file=sys.stderr)
     sys.exit(1)
 
-gated = sum(1 for n, s in frames.items() if not any(m in n for m in TEST_MARKERS))
+gated = sum(1 for n, s in frames.items() if not is_test_body(n))
 print(f"    {arch}: {gated} gated frames, ceiling {CEILING} (the guard page), "
       f"{len(EXCEPT)} boot-only exceptions, no ratchet")
 PYEOF
+    done
 done
 
 exit $status

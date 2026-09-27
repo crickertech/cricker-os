@@ -38,7 +38,7 @@ cd "$(dirname "$0")/.."
 # The "host pass excludes exactly the bare-metal crates" gate below derives this set rather than
 # trusting this line.
 echo "==> clippy: host crates + xtask"
-cargo clippy --workspace --exclude kernel --exclude components --exclude fixtures --exclude user_mode_runtime \
+cargo clippy --workspace --exclude kernel --exclude system_tests --exclude components --exclude fixtures --exclude user_mode_runtime \
     --exclude swap_protocol --exclude virtio --exclude supervision_protocol --exclude system_initializer \
     --all-targets -- -D warnings
 
@@ -117,13 +117,21 @@ rustc --edition 2024 --crate-type lib --crate-name kani \
 # kernel's harnesses. What still covers them: `script/verify` builds them for real and gates rustc
 # lints through `RUSTFLAGS`, and `script/lint`'s aarch64 pass below compiles the same file without
 # the cfg. Keep kernel harnesses free of `unsafe` while this holds.
-cargo clippy --workspace --exclude kernel --exclude components --exclude fixtures --exclude user_mode_runtime \
+cargo clippy --workspace --exclude kernel --exclude system_tests --exclude components --exclude fixtures --exclude user_mode_runtime \
     --exclude swap_protocol --exclude virtio --exclude supervision_protocol --exclude system_initializer \
     --all-targets -- \
     --cfg kani --extern "kani=$shim/libkani.rlib" -L "$shim" -D warnings
 
 echo "==> clippy: kernel + user + user_mode_runtime (aarch64)"
 cargo clippy -p kernel -p components -p fixtures -p user_mode_runtime --target aarch64-unknown-none-softfloat --all-targets -- -D warnings
+
+# The system-test image (milestone 609 (the system tests leave the kernel crate)), in its own
+# invocation and never beside `-p kernel`: it turns on the kernel's `system_tests` feature, cargo
+# unifies features across one invocation, and under that feature the kernel allows dead code, so a
+# shared run would quietly lint the kernel with its dead-code check off. `--all-targets` is what
+# reaches the suite, which is `cfg(test)`.
+echo "==> clippy: system_tests (aarch64)"
+cargo clippy -p system_tests --target aarch64-unknown-none-softfloat --all-targets -- -D warnings
 
 # The third architecture (milestone 161). **The kernel BINARY only, with dead code allowed**, and
 # every one of those narrowings is a scope gap rather than an oversight, so they are named here,
@@ -375,8 +383,10 @@ PY
 # self-consistency argument: prose may name the macro (`asm!`, no parenthesis, as user.rs already
 # does), but a comment that spells the call form is one copy-paste from being code.
 echo "==> rule 1 (arch code stays under kernel/src/arch/)"
+# `system_tests/src` too: the system suite is kernel-side code that left the kernel crate
+# (milestone 609 (the system tests leave the kernel crate)), and the rule did not move with it.
 if git grep -nE 'asm!\(|core::arch::' -- \
-    'kernel/src' ':!kernel/src/arch' > /tmp/nife-rule-1.txt 2>/dev/null; then
+    'kernel/src' ':!kernel/src/arch' 'system_tests/src' > /tmp/nife-rule-1.txt 2>/dev/null; then
     echo "lint: architecture-specific code outside kernel/src/arch/ (CLAUDE.md rule 1):" >&2
     cat /tmp/nife-rule-1.txt >&2
     echo "" >&2
@@ -434,7 +444,7 @@ echo "CFI: every hand-written .s file with an exported symbol carries call-frame
 
 # The machine description prints on every boot (milestone 267).
 #
-# `kernel/src/main.rs`'s `print_machine_description` is the bring-up transcript: paging, the ISA,
+# `kernel/src/lib.rs`'s `print_machine_description` is the bring-up transcript: paging, the ISA,
 # firmware, the cores, the timer, the memory map. On xenon there was no serial console this project
 # could read at first light, so those lines *were* the record, photographed off a monitor, and they
 # are what diagnosed the local-APIC collision and the PCI BAR window landing in RAM.
@@ -455,10 +465,11 @@ echo "==> the machine description is not gated on a boot mode"
 python3 - <<'M267EOF' || exit 1
 import re, sys
 
-src = open("kernel/src/main.rs", encoding="utf8").read()
+src = open("kernel/src/lib.rs", encoding="utf8").read()
 start = src.find("fn print_machine_description")
 if start < 0:
-    print("lint: kernel/src/main.rs has no `print_machine_description`. Milestone 267 made the",
+    print("lint: kernel/src/lib.rs has no `print_machine_description`.", file=sys.stderr)
+    print("      Milestone 267 (the milestone tour is three things wearing one name) made the",
           file=sys.stderr)
     print("      machine description a function so that nothing could gate half of it. If it was",
           file=sys.stderr)
@@ -653,7 +664,12 @@ for f in $(git ls-files '*.rs' | grep -v '^vendor/' | grep -v '^patches/'); do
             opens += gsub(/\(/, "(")
             closes += gsub(/\)/, ")")
             if (opens <= closes) {
-                if (buf ~ /dead_code|unused/) { gsub(/^[[:space:]]+/, "", buf); print ln ": " buf }
+                # One exemption, and it is not dead code: `unused_crate_dependencies` is about the
+                # manifest, fires per target, and a bin target can only silence it crate-wide.
+                # `kernel/src/main.rs` is a link line that names none of the package`s dependencies
+                # (milestone 609 (the system tests leave the kernel crate)). Only an attribute whose
+                # whole list is that one lint passes; anything more in it is still caught.
+                if (buf ~ /dead_code|unused/ && buf !~ /^[[:space:]]*#!\[allow\(unused_crate_dependencies\)\][[:space:]]*$/) { gsub(/^[[:space:]]+/, "", buf); print ln ": " buf }
                 collecting = 0
             }
         }
@@ -802,6 +818,13 @@ echo "==> rustdoc (broken intra-doc links)"
 DOCFLAGS="-D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags"
 RUSTDOCFLAGS="$DOCFLAGS" cargo doc --no-deps --quiet --workspace --exclude xtask \
     --exclude board_console --exclude stick_maker --exclude sealed_pair --exclude walk_pricing \
+    --exclude kernel --target aarch64-unknown-none-softfloat
+# The kernel on its own, private items included (milestone 609 (the system tests leave the kernel
+# crate)). It was a binary, and rustdoc documents a binary's private items by default; it is a
+# library now, and a library's docs are its public surface, which for the kernel is nearly nothing.
+# Its doc comments link private items throughout, so it is documented the way it always was. The
+# library target only: the binary is a link line with the same name.
+RUSTDOCFLAGS="$DOCFLAGS" cargo doc --no-deps --quiet -p kernel --lib --document-private-items \
     --target aarch64-unknown-none-softfloat
 RUSTDOCFLAGS="$DOCFLAGS" cargo doc --no-deps --quiet -p xtask -p board_console -p stick_maker \
     -p sealed_pair -p walk_pricing

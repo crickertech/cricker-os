@@ -1,4 +1,4 @@
-Falsifies `kernel::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again`.
+Falsifies `system_tests::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again`.
 
 Architecture: aarch64
 
@@ -9,7 +9,7 @@ two proof attempts immediately below, which now succeed.
 
 Expected to fail: `assert_eq!(dropped[1], 1, "progenitor still built a page or a kernel object
 after deleting its untyped: the authority was not actually dropped")`. Confirmed red on
-2026-09-16 at `kernel/src/user/authority_tests.rs:165`.
+2026-09-16 at `system_tests/src/user/authority_tests.rs:165`.
 
 **The kernel-side defect was tried first and is recorded here because it failed for the wrong
 reason**, which is milestone 202's hazard and the thing this file exists to be honest about.

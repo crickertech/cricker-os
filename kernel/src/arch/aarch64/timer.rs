@@ -249,8 +249,8 @@ fn close_cycle_counter_to_el0() {
 // callers that have to skip rather than fault on a part with no counter to grant. Milestone 74's
 // aarch64 half answers the neighbouring question (does the counter *run*) in `arch::pmu::outcome`,
 // and deliberately did not fold the two: a counter can be grantable and stuck.
-#[cfg_attr(not(test), allow(dead_code))]
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 pub fn is_cycle_counter_grantable() -> bool {
     PMU_PRESENT[cpu::id()].load(Ordering::Relaxed)
 }
@@ -302,7 +302,7 @@ pub fn is_cycle_counter_grantable() -> bool {
 /// **Built only under `test` or `--features cycle_counter_grant`** (milestone 237): the grant is
 /// a measurement build the way `soak_test` is. `kernel/Cargo.toml`'s feature block carries the
 /// reasoning and the measured cost. Milestone 228's closed default at `init` is NOT gated.
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 pub fn set_cycle_counter_grant(granted: bool) {
     let cpu = cpu::id();
     if COUNTER_OPEN[cpu].load(Ordering::Relaxed) == granted {
@@ -362,7 +362,7 @@ fn rearm(interval: u64) {
         // was late. Two relaxed stores, no branch on the hot path, and nothing printed: this runs in
         // interrupt context and DECISIONS §9's rule (handlers record and defer) applies to
         // diagnostics too.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         miss_detail::record(now, next);
         next = now + interval;
     }
@@ -441,7 +441,7 @@ pub fn calibration_loop(iters: u64) -> u64 {
 static MISSED_TICKS: [AtomicU64; MAX_CPUS] = [const { AtomicU64::new(0) }; MAX_CPUS];
 
 /// This core's missed ticks.
-#[cfg_attr(not(test), allow(dead_code))] // this file's tests are the callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's tests are the callers
 pub fn missed_ticks() -> u64 {
     missed_ticks_on(cpu::id())
 }
@@ -449,7 +449,7 @@ pub fn missed_ticks() -> u64 {
 /// A named core's missed ticks. The [`ticks_on`] argument, applied to the miss count: a test that
 /// reads it either side of a wait must name the core, or a migration compares two unrelated
 /// counters.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn missed_ticks_on(core: usize) -> u64 {
     MISSED_TICKS[core].load(Ordering::Relaxed)
 }
@@ -463,7 +463,10 @@ pub fn missed_ticks_on(core: usize) -> u64 {
 /// **Two callers now**, which is milestone 62's shape: the suite's test, which measures the law on
 /// a wall clock and may report `UNMEASURED` when a loaded host denies it a miss-free window, and
 /// `icount::run`'s claim 4, which measures the same law in instructions and always answers.
-#[cfg_attr(all(not(test), not(feature = "icount")), allow(dead_code))]
+#[cfg_attr(
+    all(not(any(test, feature = "system_tests")), not(feature = "icount")),
+    allow(dead_code)
+)]
 pub fn deadline() -> u64 {
     CNTV_CVAL_EL0.get()
 }
@@ -477,7 +480,7 @@ pub fn deadline() -> u64 {
 ///
 /// The last miss only, plus a count. A burst records once and reports the final pair, which is
 /// enough to tell the two cases apart and cheaper than a ring buffer in interrupt context.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub mod miss_detail {
     use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -520,13 +523,13 @@ pub fn tick() {
     TICKS[cpu::id()].fetch_add(1, Ordering::Relaxed);
     // Test builds only: watch for a hung test (a lost IPC wakeup) and fail fast with a diagnostic
     // instead of blocking the run forever. Costs a couple of atomic loads per tick.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     crate::testing::watchdog_tick();
     rearm(INTERVAL.load(Ordering::Relaxed));
 }
 
 /// This core's ticks since it started.
-#[cfg_attr(not(test), allow(dead_code))] // this file's tests are the callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's tests are the callers
 pub fn ticks() -> u64 {
     ticks_on(cpu::id())
 }
@@ -538,7 +541,7 @@ pub fn ticks() -> u64 {
 /// only if nothing migrated the caller in between; a kernel thread on a run queue can be stolen by
 /// an idle core at any preemption point (DECISIONS §28.3). Reading by index makes the pair name one
 /// core on purpose. See notes/load-sensitive-assertions.md.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn ticks_on(core: usize) -> u64 {
     TICKS[core].load(Ordering::Relaxed)
 }
@@ -623,7 +626,7 @@ pub fn check_frequency_against_device_tree(dtb_ptr: usize) {
 /// section, a slow handler: the tick count undercounts and time appears to slow down. The
 /// hardware counter cannot lie. This is `Instant`, and it is the thing `core` could never give
 /// us because nothing in `core` knows what time it is.
-#[cfg_attr(not(test), allow(dead_code))] // this file's tests are the callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's tests are the callers
 pub fn uptime_ms() -> u64 {
     let freq = CNTFRQ_EL0.get();
     if freq == 0 {
@@ -644,7 +647,7 @@ pub fn uptime_ms() -> u64 {
 ///
 /// Name: ratified 2026-09-24 (calef, the Rust predicate-naming rule in design/naming.md). Refused
 /// `tick_pending` (a bare participle reads as a getter, and Rust asks the question with `is_`).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn is_tick_pending() -> bool {
     CNTV_CTL_EL0.is_set(CNTV_CTL_EL0::ISTATUS)
 }
@@ -665,7 +668,7 @@ pub fn spin_for(counter_ticks: u64) {
 }
 
 /// Counter ticks in one timer period.
-#[cfg_attr(not(test), allow(dead_code))] // this file's tests are the callers
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // this file's tests are the callers
 pub fn interval() -> u64 {
     INTERVAL.load(Ordering::Relaxed)
 }

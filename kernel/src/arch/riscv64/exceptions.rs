@@ -255,7 +255,7 @@ static LAST_USER_FAULT_ADDR: AtomicU64 = AtomicU64::new(0);
 /// existed the kernel recorded that a user thread faulted and threw away everything about the
 /// fault, so a test on this ISA could assert "something died" and nothing more. See [`classify`]
 /// for what "kind" costs here that it does not cost on aarch64.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn last_user_fault() -> Option<(UserFault, u64)> {
     // Pairs with the `Release` on `USER_FAULTS` in [`user_fault`], so a caller that has seen the
     // counter rise reads the record the faulting hart wrote rather than something older.

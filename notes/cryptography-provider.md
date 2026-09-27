@@ -167,7 +167,7 @@ So `cryptography_exerciser` is a `std` program that runs **published test vector
 primitives directly and against `cryptography_provider`, the provider this tree assembles, transcribed
 from the specification that publishes each one and named beside it, in the shape
 `crates/measured_boot` already uses for its hand-written SHA-256 ("the published FIPS 180-4
-vectors, **not** self-consistency checks"). `kernel/src/user/cryptography_tests.rs` boots it under
+vectors, **not** self-consistency checks"). `system_tests/src/user/cryptography_tests.rs` boots it under
 QEMU on all three architectures.
 
 | line | vector |

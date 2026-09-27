@@ -2576,7 +2576,7 @@ pub mod fixture {
     /// The witness has the victim intend [`SHARED_VICTIM_NAME`] and the attacker overwrite the
     /// staged name with [`SHARED_USURPER_NAME`] before the victim calls. A server that read the
     /// victim's own bytes returns [`SHARED_VICTIM_BODY`]; a server that read the attacker's bytes
-    /// returns [`SHARED_USURPER_BODY`], which is the escape. See `kernel/src/user/fs_shared_page_tests.rs`.
+    /// returns [`SHARED_USURPER_BODY`], which is the escape. See `system_tests/src/user/fs_shared_page_tests.rs`.
     ///
     /// Names provisional (this lane's coinage); an architect names files.
     pub const SHARED_VICTIM_NAME: &str = "fs-witness-victim";

@@ -396,7 +396,7 @@ fn bottom() -> u64 {
     (&raw const __stack_bottom) as u64
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 fn top() -> u64 {
     unsafe extern "C" {
         static __stack_top: c_void;
@@ -486,7 +486,7 @@ pub unsafe fn high_water(bottom: u64, top: u64) -> u64 {
 /// How far below the paint-time `sp` the boot-stack paint stopped, recorded so the report can say
 /// what its floor is: a measured high-water equal to the floor means "nothing after the paint went
 /// deeper than the paint itself", not "this is the true maximum".
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 static BOOT_PAINT_CEILING: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
 /// Paint the unused part of the boot stack. Called from `kernel_main` right after [`init`], so the
@@ -498,7 +498,7 @@ static BOOT_PAINT_CEILING: core::sync::atomic::AtomicU64 = core::sync::atomic::A
 /// the margin below `sp` exists because the paint loop's own callees (`write_volatile` is a real
 /// call in a debug build) push frames below our `sp` while the loop runs; painting inside a live
 /// callee frame would corrupt it.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn paint_boot_stack() {
     let ceiling = crate::arch::current_sp() - 512;
     BOOT_PAINT_CEILING.store(ceiling, core::sync::atomic::Ordering::Relaxed);
@@ -513,17 +513,17 @@ pub fn paint_boot_stack() {
 /// Deepest thread-stack use seen so far, in bytes, over every reaped [`crate::thread::KernelStack`]
 /// (scanned in its `Drop`) and, at report time, every live one. One number, because every kernel
 /// thread stack is the same size.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 static THREAD_STACK_MAX: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
 /// How many thread stacks fed [`THREAD_STACK_MAX`], so the report says how much evidence the
 /// number rests on.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 static THREAD_STACK_SCANS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
 /// Record one thread stack's measured use (called from `KernelStack`'s `Drop`, and from the live
 /// scan at report time).
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn note_thread_stack_use(used: u64) {
     use core::sync::atomic::Ordering;
     THREAD_STACK_MAX.fetch_max(used, Ordering::Relaxed);
@@ -534,7 +534,7 @@ pub fn note_thread_stack_use(used: u64) {
 /// property of the code and the suite, not of the host: depth is determined by what ran, so a
 /// loaded runner moves nothing here (the one caveat is interrupt-arrival timing, which decides
 /// where on a stack a trap frame lands; see notes/stack-high-water.md for the measured spread).
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn report_high_water() {
     use core::sync::atomic::Ordering;
 

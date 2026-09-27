@@ -6,7 +6,7 @@ program.
 
 The pieces: `crates/timetable` (the decision, host-tested and Kani-reached),
 `components/src/timetable.rs` (the budget, the counter, the loader), `components/timetable.conf` (the
-document), `kernel/src/user/timetable_tests.rs` (both ISAs). Every name in that list is
+document), `system_tests/src/user/timetable_tests.rs` (both ISAs). Every name in that list is
 provisional; the block for milestone 129 (scheduled execution) declines to propose one and AGENTS.md says the eventual one
 is an architect's.
 
@@ -134,7 +134,7 @@ result. The kernel cannot do that, and the reason is worth knowing before anyone
 kilobyte of `grant_plan::Endowment`. So `Registry::register` compiles to a 21632-byte stack
 frame, and the `grant_plan::plan` underneath it to a further 12048. In `components/src/timetable.rs`
 those numbers are fine and stated: it is a process with a 32-page stack, and
-`kernel/src/user/timetable_tests.rs` says why it maps 32 pages. In the kernel they are exactly
+`system_tests/src/user/timetable_tests.rs` says why it maps 32 pages. In the kernel they are exactly
 what `script/stack-frame-check` refuses, because a frame larger than the 4096-byte guard page can
 move `sp` from inside a thread's stack to below the guard in one step, touching nothing in between,
 so the guard never faults and the write lands in the neighbouring thread's stack. This tree measured
@@ -168,7 +168,7 @@ timetable: the archive it holds carries 57 programs, 55 of them beyond its plan
 
 The second one is what the shipped program printed before this landed, and keeping both is the
 point rather than politeness: the width of an endowment should be a line on the console rather than
-a fact only the spawn site knows. `kernel/src/user/timetable_tests.rs` asserts the first sentence
+a fact only the spawn site knows. `system_tests/src/user/timetable_tests.rs` asserts the first sentence
 and asserts the second never appears, so a spawn site that quietly went back to handing over the
 initrd fails a test rather than passing one it no longer earns.
 
@@ -262,7 +262,7 @@ and it is the same fork.
 
 ## What is built, and on what
 
-`kernel/src/user/timetable_tests.rs`, one module for both ISAs (nothing in it is
+`system_tests/src/user/timetable_tests.rs`, one module for both ISAs (nothing in it is
 architecture-specific, so the parity gate is met by literally the same test running twice). It spawns
 the real program on the real `components/timetable.conf`, reads the plan it prints, then watches what
 fires:

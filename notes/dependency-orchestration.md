@@ -89,7 +89,7 @@ every positive assertion with one: `dependents("console", &[(1, CONSOLE)])` must
 nothing in that system declares a dependency on `console`, and a mechanism that only ever returns
 something has not been shown to refuse correctly.
 
-Both are asserted in `kernel/src/user/live_swap_tests.rs` via `RPT_DEPENDENTS`, on both architectures.
+Both are asserted in `system_tests/src/user/live_swap_tests.rs` via `RPT_DEPENDENTS`, on both architectures.
 
 ## EXAMPLES
 

@@ -108,7 +108,7 @@
 //!   shell protocol declares wanting this page: `Manifest` carries no `config` field, the way it
 //!   carries `clock` for `date`. What is built end to end is the page format and the kernel- and
 //!   `std`-PAL-side wiring that grants it to a std program, proven by `std_exerciser`
-//!   (`kernel/src/user/std_service.rs`, `patches/std-nife/overlay/std/src/sys/env/nife.rs`). A
+//!   (`system_tests/src/user/std_service.rs`, `patches/std-nife/overlay/std/src/sys/env/nife.rs`). A
 //!   shell-facing program that wants a declared key, and the `caps` preview extension §111 also
 //!   asks for, wait on a real customer the way `clock` waited on `date`.
 //!

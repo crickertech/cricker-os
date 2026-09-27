@@ -191,7 +191,10 @@ pub fn init() {
 // `#[cfg(not(any(test, feature = "bench")))]`: a test boot exits through semihosting and a bench
 // boot diverges into `bench::run`, so neither reads a bring-up transcript. Same treatment
 // `memory::print_summary` already carries, and for the same reason.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     let irq = crate::memory::uart_irq();
     // The screen is read through the same lock the UART is, which is the point of `KernelConsole`:
@@ -221,10 +224,16 @@ pub fn print_summary() {
 
 /// What the console driver is called, for the line above. x86 spells its own inline because the
 /// address is a port rather than a pointer and the sentence is shaped differently.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 #[cfg(target_arch = "aarch64")]
 const CONSOLE_KIND: &str = "PL011";
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 #[cfg(target_arch = "riscv64")]
 const CONSOLE_KIND: &str = "NS16550";
 
@@ -601,13 +610,13 @@ pub fn discard_rx() {
 /// other consumer to disturb, and lowering it restores exactly the state `init` left.
 ///
 /// See `kernel::sched::tests` and notes/interrupts.md.
-#[cfg(all(test, target_arch = "riscv64"))]
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "riscv64"))]
 pub fn raise_uart_interrupt() {
     CONSOLE.lock().uart.enable_tx_interrupt();
 }
 
 /// Quiet the line [`raise_uart_interrupt`] raised. Test builds only.
-#[cfg(all(test, target_arch = "riscv64"))]
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "riscv64"))]
 pub fn quiet_uart_interrupt() {
     CONSOLE.lock().uart.disable_interrupts();
 }
@@ -717,7 +726,7 @@ impl core::fmt::Write for CountedWrites<'_> {
         // What a test says about itself is evidence the harness can act on: a test that announces
         // a skip and then returns is counted as a pass, and this is where that becomes visible.
         // Test builds only. See testing::note_printed.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         crate::testing::note_printed(s);
         Ok(())
     }
@@ -727,7 +736,7 @@ impl core::fmt::Write for CountedWrites<'_> {
 pub fn _print(args: core::fmt::Arguments) {
     // Output is forward progress: it keeps the test hang-watchdog's heartbeat alive so a slow but
     // live test is not mistaken for a deadlock (test builds only; see testing::note_progress).
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     crate::testing::note_progress();
     // Writing to a UART cannot fail in any way we can act on, so drop the Result.
     let _ = CountedWrites(&mut CONSOLE.lock()).write_fmt(args);
@@ -740,7 +749,7 @@ pub fn _print(args: core::fmt::Arguments) {
 /// is dropped in `console::_print` rather than propagated to every call site.
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::_print(format_args!($($arg)*)));
 }
 
 /// [`print!`] with a trailing newline. The no-argument form writes just the newline.

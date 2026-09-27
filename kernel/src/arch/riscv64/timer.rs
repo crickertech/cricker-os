@@ -229,7 +229,7 @@ pub fn init() {
 /// Gated with its only reader (milestone 237): `init` above closes `CY` by writing `TM` alone, so
 /// the constant is needed to *open* it and nothing else, and a production kernel that cannot grant
 /// the counter has nothing to open.
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 const CY: u64 = 1 << 0;
 
 /// **Can a thread on this hart be granted the cycle counter at all?** Always, on this ISA:
@@ -250,8 +250,8 @@ const CY: u64 = 1 << 0;
 // Asked only by tests today (`sched`'s grant round trip and `user`'s EL0 one), which are the
 // callers that have to skip rather than fault on a part with no counter to grant. Marked rather
 // than deleted: milestone 74's cycle-counter work is the caller that will want it in anger.
-#[cfg_attr(not(test), allow(dead_code))]
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 pub fn is_cycle_counter_grantable() -> bool {
     true
 }
@@ -277,7 +277,7 @@ pub fn is_cycle_counter_grantable() -> bool {
 /// **Built only under `test` or `--features cycle_counter_grant`** (milestone 237): the grant is
 /// a measurement build the way `soak_test` is. `kernel/Cargo.toml`'s feature block carries the
 /// reasoning and the measured cost. Milestone 228's closed default at `init` is NOT gated.
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 pub fn set_cycle_counter_grant(granted: bool) {
     let current = instructions::read_scounteren();
 
@@ -311,7 +311,7 @@ pub fn tick() {
     TICKS[cpu::id()].fetch_add(1, Ordering::Relaxed);
     // In a test build, feed the hang watchdog: a lost IPC wakeup would otherwise block a test
     // forever and the whole run would hang silently. Driven from the timer so it costs nothing.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     crate::testing::watchdog_tick();
     rearm();
 }
@@ -343,7 +343,7 @@ fn rearm() {
         // in trap context and DECISIONS §9's rule (handlers record and defer) applies to
         // diagnostics too. aarch64's `rearm` has carried this since milestone 78; the twin was the
         // rule-5 gap this closes.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         miss_detail::record(now, next);
         next = now + interval();
     }
@@ -425,7 +425,7 @@ pub fn ticks() -> u64 {
 /// only if nothing migrated the caller in between; a kernel thread on a run queue can be stolen by
 /// an idle core at any preemption point (DECISIONS §28.3). Reading by index makes the pair name one
 /// hart on purpose. See notes/load-sensitive-assertions.md.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn ticks_on(hart: usize) -> u64 {
     TICKS[hart].load(Ordering::Relaxed)
 }
@@ -447,7 +447,7 @@ pub fn ticks_on(hart: usize) -> u64 {
 /// Name: ratified 2026-09-24 (calef, the Rust predicate-naming rule in design/naming.md). Refused
 /// `tick_pending` (a bare participle reads as a getter, and Rust asks the question with `is_`).
 /// The three architectures' copies are named alike on purpose.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn is_tick_pending() -> bool {
     let sip = instructions::read_sip();
     // `sip.STIP` is bit 5, the same bit position `sie.STIE` enables.
@@ -458,7 +458,7 @@ pub fn is_tick_pending() -> bool {
 ///
 /// Part of the arch timer contract rather than of any caller; this file's tests are what exercise
 /// it, exactly as on aarch64.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn uptime_ms() -> u64 {
     now() / (timebase_hz() / 1000)
 }
@@ -478,7 +478,7 @@ pub fn spin_for(counter_ticks: u64) {
 /// from `now` is what made the count unmeasurable, not what made it unnecessary. With the grid in
 /// [`DEADLINE`] the count is real, and it is what makes the cost of masking interrupts visible (see
 /// this file's `a_long_critical_section_costs_a_tick`).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn missed_ticks() -> u64 {
     missed_ticks_on(cpu::id())
 }
@@ -486,7 +486,7 @@ pub fn missed_ticks() -> u64 {
 /// This hart's missed ticks, by hart index. The [`ticks_on`] argument, applied to the miss count:
 /// a test that reads it either side of a wait must name the hart, or a migration compares two
 /// unrelated counters.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn missed_ticks_on(hart: usize) -> u64 {
     MISSED_TICKS[hart].load(Ordering::Relaxed)
 }
@@ -503,7 +503,10 @@ pub fn missed_ticks_on(hart: usize) -> u64 {
 /// `icount::run`'s claim 4, which measures the same law in instructions and always answers. On this
 /// ISA claim 4 is the stronger of the two in a second way: `DEADLINE` is bookkeeping, and claim 1
 /// beside it is what proves SBI was armed with this word rather than another.
-#[cfg_attr(all(not(test), not(feature = "icount")), allow(dead_code))]
+#[cfg_attr(
+    all(not(any(test, feature = "system_tests")), not(feature = "icount")),
+    allow(dead_code)
+)]
 pub fn deadline() -> u64 {
     DEADLINE[cpu::id()].load(Ordering::Relaxed)
 }
@@ -520,7 +523,7 @@ pub fn deadline() -> u64 {
 ///
 /// The last miss only, plus a count. A burst records once and reports the final pair, which is
 /// enough to tell the two cases apart and cheaper than a ring buffer in trap context.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub mod miss_detail {
     use core::sync::atomic::{AtomicU64, Ordering};
 

@@ -97,7 +97,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 23	22	context	at-creation	2026-08-03	2026-08-03	M-22's authority-minimisation. It also connects directly to the parked competitor ambition
 23	106	context	later	2026-09-03	2026-08-03	- **M-106.** How a supervisor notices a hang is the timed wait,
 23	106	context	later	2026-09-03	2026-08-03	`design/roadmap/106-deadline-wait.md`, NOT-STARTED and itself a kernel-surface fork for calef.
-23	177	context	later	2026-09-03	2026-08-03	`kernel/src/user/display_tests.rs`, `kernel/src/user/compositor_tests.rs`) and M-177
+23	177	context	later	2026-09-03	2026-08-03	`system_tests/src/user/display_tests.rs`, `system_tests/src/user/compositor_tests.rs`) and M-177
 24	88	prerequisite	later	2026-08-25	2026-08-03	follows M-88's stage 1 while the Linux-boot-protocol path needs neither.
 24	60	context	at-creation	2026-08-03	2026-08-03	protocol. Small delta: add the header, reuse the existing DTB front door (M-60), write
 24	88	context	at-creation	2026-08-03	2026-08-03	- **`VZEFIBootLoader`** is generic UEFI, sharing M-88's boot stub. Bigger alone, but if
@@ -621,7 +621,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 102	29	prerequisite	later	2026-09-19	2026-08-04	overflow bit on drain, needs no decision and has a witness in M-29's flood, and should not
 102	435	context	later	2026-09-19	2026-08-04	is delivered), written up 2026-09-19 by M-435's lane; this gate had named no decision since
 102	16	context	at-creation	2026-08-04	2026-08-04	fault queue. M-16b built both drivers and proved the stop happens on both ISAs. Nothing
-102	29	context	at-creation	2026-08-04	2026-08-04	test: `kernel/src/user/display_tests.rs` (three, M-29's framebuffer work) and
+102	29	context	at-creation	2026-08-04	2026-08-04	test: `system_tests/src/user/display_tests.rs` (three, M-29's framebuffer work) and
 102	29	context	at-creation	2026-08-04	2026-08-04	**The overflow bit is the small half, and it has a witness.** M-29's escape test first
 102	22	context	at-creation	2026-08-04	2026-08-04	message its supervisor holds (S-26, M-22), so a device escaping its grant could arrive as
 102	16	context	at-creation	2026-08-04	2026-08-04	**The proof shape is M-16b's, reused.** Point a confined device at a frame outside its
@@ -1045,7 +1045,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 139	193	context	later	2026-09-01	2026-08-18	**Round 8 was possible in a way earlier rounds were not**, because M-193 (put `kernel/src`
 184	27	context	at-creation	2026-08-27	2026-08-27	# 184. Extend the `std` port (M-27) to x86_64
 184	27	context	later	2026-09-14	2026-08-27	**Status: BUILT 2026-09-14.** Minted 2026-08-28, calef, discussed directly: M-27 (`std` on the
-184	161	context	later	2026-09-14	2026-08-27	one clause in M-161's remaining-work tally and in `kernel/src/user/std_service.rs`'s
+184	161	context	later	2026-09-14	2026-08-27	one clause in M-161's remaining-work tally and in `system_tests/src/user/std_service.rs`'s
 184	27	context	later	2026-09-14	2026-08-27	`NO_STD_EXERCISER` constant. It was built by one lane, following M-27's shape rather than
 184	162	context	later	2026-09-14	2026-08-27	- **`std_service` serves `SystemRng` from `RDSEED` on x86_64** (M-162's instruction backend),
 139	161	context	later	2026-09-01	2026-08-18	  text. The growth is M-161's `x86_64` port, which is a third architecture's worth of
@@ -1617,7 +1617,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 176	161	context	at-creation	2026-08-25	2026-08-25	**Status: BUILT.** Minted 2026-08-25, from M-161's own item 0, "the wide half is
 226	127	context	at-creation	2026-09-03	2026-09-02	**Status: BUILT 2026-09-03.** Minted 2026-09-02 by the maintainer, from M-127's EL2 entry
 176	161	context	at-creation	2026-08-25	2026-08-25	- **The interrupt controller (IO APIC) is built**, M-161's own item 2, reached directly by
-176	165	context	at-creation	2026-08-25	2026-08-25	- **PCI is wired**, and has been since M-165's ACPI/MCFG work: `kernel/src/main.rs`
+176	165	context	at-creation	2026-08-25	2026-08-25	- **PCI is wired**, and has been since M-165's ACPI/MCFG work: `kernel/src/lib.rs`
 226	38	context	at-creation	2026-09-03	2026-09-02	still killed at the bound. So is the M-38 property beside it: a fast child in a pipeline
 176	165	context	at-creation	2026-08-25	2026-08-25	since M-165 and the interrupt controller since M-161 item 2, neither is `None`
 226	235	context	at-creation	2026-09-03	2026-09-02	itself the case the message warns about, since the other QEMU was M-235's lane mid-gate with
@@ -1913,7 +1913,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 268	161	context	later	2026-09-14	2026-09-09	  has had `x86_64` arms since M-161 (the x86_64 kernel port), which is why the x86 archive
 268	184	context	later	2026-09-14	2026-09-09	  packs every portable program and `std_exerciser` ran there at M-184; and the same day the progenitor itself was loaded
 268	286	context	later	2026-09-14	2026-09-09	Exit 1 is what fails CI: `boot-check` is a `local` row in `script/ci-build`'s table (M-286's
-268	267	context	later	2026-09-14	2026-09-09	   stays in `kernel/src/main.rs` (M-267's lint reads it there by name) and is now called
+268	267	context	later	2026-09-14	2026-09-09	   stays in `kernel/src/lib.rs` (M-267's lint reads it there by name) and is now called
 268	286	context	later	2026-09-14	2026-09-09	   (M-286's one enumeration), named by CI's test job beside `test` and `shell-check`.
 268	182	context	later	2026-09-14	2026-09-09	and M-182 for the entry point. `crates/board_console`'s `Stage::Prompt` says so in its own
 268	295	context	later	2026-09-14	2026-09-09	`design/roadmap/295-retire-the-builder-program.md` now, listed under Follow-on above. The

@@ -4,7 +4,7 @@
 without dying. The mechanism it interferes with is DECISIONS §41 and notes/live-replacement.md;
 read those first if you want the swap itself. `crates/swap_protocol`, `components/src/swapper.rs`'s
 `ROLE_HUNG`, and `a_component_that_stops_answering_without_dying_is_invisible_to_its_supervisor` in
-`kernel/src/user/live_swap_tests.rs`.*
+`system_tests/src/user/live_swap_tests.rs`.*
 
 ## The problem, stated so the precision is usable
 

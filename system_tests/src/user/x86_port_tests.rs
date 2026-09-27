@@ -177,7 +177,7 @@ fn reap(region: u64) {
 /// holder installed and then vacated the TSS bitmap, so its fault is proof the switch left the port
 /// denied rather than inheriting the holder's grant.
 ///
-/// Falsification: replayable `kernel/falsifications/user.x86_port_tests.port_holder_transmits_then_a_non_holder_faults.patch`
+/// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.port_holder_transmits_then_a_non_holder_faults.patch`
 #[test_case]
 fn port_holder_transmits_then_a_non_holder_faults() {
     // The holder: it executes `out` to a port its capability names, so the CPU permits it, and the
@@ -236,7 +236,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
 /// cached grant the switch installs), then wakes it. The `out` it executes on waking faults, which
 /// is the whole claim: a capability that was real became unusable the instant it was revoked.
 ///
-/// Falsification: replayable `kernel/falsifications/user.x86_port_tests.a_revoked_holder_faults_on_its_next_port_write.patch`
+/// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.a_revoked_holder_faults_on_its_next_port_write.patch`
 #[test_case]
 fn a_revoked_holder_faults_on_its_next_port_write() {
     let report = sched::create_rendezvous();
@@ -286,7 +286,7 @@ fn a_revoked_holder_faults_on_its_next_port_write() {
 /// wrong-reason guard for the other direction: a `syscall` that faulted, or a bad slot, would
 /// report a different pc.
 ///
-/// Falsification: replayable `kernel/falsifications/user.x86_port_tests.a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write.patch`
+/// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write.patch`
 #[test_case]
 fn a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write() {
     // The report endpoint is granted so slot 0 is what it is for every other child; this child

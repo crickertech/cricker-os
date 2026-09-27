@@ -129,7 +129,7 @@ fn note_peak(table: &RegionTable<MAX_REGIONS>) {
 }
 
 /// The high-water mark [`PEAK_REGIONS`] holds. Printed by the test suite's closing summary.
-#[cfg_attr(not(test), allow(dead_code))] // the closing summary is the only reader
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the closing summary is the only reader
 pub fn peak_region_count() -> usize {
     PEAK_REGIONS.load(core::sync::atomic::Ordering::Relaxed)
 }
@@ -255,7 +255,7 @@ pub fn retype_object_page(region: u64) -> Option<u64> {
 }
 
 /// How many pages the region has retyped, and its size. For the demo and tests.
-#[cfg_attr(not(test), allow(dead_code))] // the untyped property test is the only caller
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the untyped property test is the only caller
 pub fn usage(region: u64) -> Option<(u64, u64)> {
     REGIONS.lock().usage(region)
 }

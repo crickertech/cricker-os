@@ -94,7 +94,7 @@ pub const PAGE_FRAME_SENTINEL: u64 = 0xF00D_CAFE_D00D_1234;
 /// whoever holds the other end can confirm a capability minted by one process carries real
 /// authority when a different process invokes it.
 ///
-/// `kernel/src/user/delegation_service.rs` re-exports this; it kept its own copy with a "must
+/// `system_tests/src/user/delegation_service.rs` re-exports this; it kept its own copy with a "must
 /// match" comment beside it until milestone 291, which is the duplicate this crate removes.
 pub const USED_WORD: u64 = 0x5A;
 

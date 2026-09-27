@@ -34,7 +34,7 @@
 //! the use-after-free DECISIONS §13 (capability revocation and untyped reclamation) exists to
 //! prevent, reopened through the one slot the sweep does not look in.
 //!
-//! **This module is a new file on purpose.** `kernel/src/user/tests.rs` is this tree's worst merge
+//! **This module is a new file on purpose.** `system_tests/src/user/tests.rs` is this tree's worst merge
 //! hotspot and AGENTS.md's lane rules say to stay out of it.
 //!
 //! # BUGS
@@ -76,7 +76,7 @@ use crate::sched;
 /// park) and a premise check (the revoke really did reach the sender's table); either failing means
 /// this test proved nothing, which is why they say that rather than stating the claim a second time.
 ///
-/// Falsification: replayable `kernel/falsifications/user.revocation_in_flight_tests.a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver.patch`
+/// Falsification: replayable `system_tests/falsifications/user.revocation_in_flight_tests.a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver.patch`
 #[test_case]
 fn a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver() {
     static PARKED: AtomicBool = AtomicBool::new(false);

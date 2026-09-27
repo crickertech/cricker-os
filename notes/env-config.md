@@ -42,7 +42,7 @@ atomics at all.
   validated) and `ConfigPage` (read). Host-tested: round trips, refusals, an unrecognized magic
   or a zeroed frame reading as "no configuration" (DECISIONS §42's rule, applied here), every
   domain member fitting its field's byte cap.
-- `kernel/src/user/std_service.rs`: assembles a page (`TZ=UTC`, `LANG=C`, `TERM=dumb`, the
+- `system_tests/src/user/std_service.rs`: assembles a page (`TZ=UTC`, `LANG=C`, `TERM=dumb`, the
   conservative universal defaults, chosen because nothing holds a *different* default to pass
   explicitly: the shell exists, but the "a shell holds its own default" mechanism does not, which is
   this note's own second BUGS entry) and maps it read-only into a std program at `CONFIG_PAGE_STD`

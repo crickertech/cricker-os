@@ -49,9 +49,9 @@ fn panic(info: &PanicInfo) -> ! {
     println!("[PANIC] {info}");
     crate::stack::warn_if_smashed();
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     arch::semihosting::exit(arch::semihosting::EXIT_FAILURE);
 
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "system_tests")))]
     arch::halt()
 }

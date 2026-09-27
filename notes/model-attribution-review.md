@@ -253,7 +253,7 @@ and Fable's 673, and 8% of Sonnet's are under 200 characters against Opus 5's 1%
 If the sample is uneven rather than uniformly weak, then the thing to review is **conditions** and
 not a model: which lanes were rushed, which briefs were thin, which subsystems were unfamiliar, how
 many lanes were running at once against the hot files. A review that reports "the model is worse"
-when the truth is "four lanes were racing in `kernel/src/user/tests.rs` on Tuesday" has found nothing
+when the truth is "four lanes were racing in `system_tests/src/user/tests.rs` on Tuesday" has found nothing
 actionable, because nobody can change the model but everybody can change the brief.
 
 ## The design a real answer needs, and where it breaks here

@@ -1,7 +1,7 @@
 //! Fuzz the device-tree parser with arbitrary bytes.
 //!
 //! **Why this target exists.** The device tree is the one parse in this system that runs before
-//! anything else: `kernel/src/main.rs` reads it from the pointer firmware left in a register, on
+//! anything else: `kernel/src/lib.rs` reads it from the pointer firmware left in a register, on
 //! both ISAs, before there is a frame allocator, a scheduler, or a way to report a failure. The
 //! bytes are written by QEMU, by OpenSBI, or by a board's firmware, and none of those is us. A panic
 //! here is a kernel that cannot boot and cannot say why.

@@ -225,7 +225,7 @@ const ROLE_SCHEDULE_VERIFY: u64 = 12;
 /// Milestone 599 (a frame per filesystem client channel), provisional: the shared-frame witness's
 /// **victim**. Stages its own name, hands off to the attacker over the sync endpoint, and only then
 /// calls `OPEN`, so the name the server reads is whatever the attacker left in the page. Reports
-/// which file it actually got. See [`share_victim`] and `kernel/src/user/fs_shared_page_tests.rs`.
+/// which file it actually got. See [`share_victim`] and `system_tests/src/user/fs_shared_page_tests.rs`.
 const ROLE_SHARE_VICTIM: u64 = 13;
 /// Milestone 599 (provisional): the shared-frame witness's **attacker**. Holds the same file frame
 /// read-write as the victim, waits for the victim to stage its name, overwrites it with a different

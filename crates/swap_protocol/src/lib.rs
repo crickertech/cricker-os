@@ -177,7 +177,7 @@ pub const QUEUE_FULL: u64 = 0x4655_4c4c; // "FULL"
 
 // ===========================================================================================
 // The report protocol. Every process holds a WRITE view of one report endpoint and says what it did
-// on it; the kernel test is the receiver. Mirrored in kernel/src/user/live_swap_tests.rs, the
+// on it; the kernel test is the receiver. Mirrored in system_tests/src/user/live_swap_tests.rs, the
 // same convention `authority_tests` and `c_seam_tests` follow: userspace owns the definition.
 // ===========================================================================================
 
@@ -777,7 +777,7 @@ pub fn probe_device() -> u64 {
 /// [DECISIONS §121](../../../design/decisions/121-port-io-capability.md) (PROPOSED), which is a
 /// question about what a capability *is* rather than a driver to write.
 ///
-/// **So the live-swap fixture does not run here**, and `kernel/src/user/live_swap_tests.rs` says so
+/// **So the live-swap fixture does not run here**, and `system_tests/src/user/live_swap_tests.rs` says so
 /// with `skip!()` rather than by leaving this arm to produce a passing test. A version of this that
 /// read `DEV_VA` anyway would in fact pass: on x86 the fixture would map physical page zero, the
 /// read would return an IVT byte, and revocation would still fault. That is the trap worth naming,

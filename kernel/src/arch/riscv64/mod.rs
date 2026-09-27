@@ -150,7 +150,7 @@ pub fn percpu() -> usize {
 /// them cannot split them across harts and manufacture a false mismatch. The aarch64 twin is a
 /// constant `true`: there the per-CPU pointer is `TPIDR_EL1`, a system register the trap frame never
 /// carries, so it cannot go stale on migration.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn percpu_matches_hart() -> bool {
     let was_enabled = crate::arch::interrupts::disable();
     // `sscratch` holds `&TRAP_STASH[hart]` in S-mode (trap.s keeps it so).

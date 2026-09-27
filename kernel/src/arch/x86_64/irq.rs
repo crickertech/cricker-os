@@ -339,7 +339,7 @@ pub fn arm_periodic_timer(count: u32) {
 ///
 /// Name: ratified 2026-09-24 (calef, the Rust predicate-naming rule in design/naming.md). Refused
 /// `timer_pending` (a bare participle reads as a getter, and Rust asks the question with `is_`).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn is_timer_pending() -> bool {
     let v = TIMER_VECTOR as u64;
     read(reg::IRR + (v / 32) * 0x10) & (1 << (v % 32)) != 0
@@ -1016,7 +1016,10 @@ pub fn send_startup(dest_apic_id: u8, vector: u8) {
 // `#[cfg(not(any(test, feature = "bench")))]`: a test boot exits through semihosting and a bench
 // boot diverges into `bench::run`, so neither reads a bring-up transcript. Same treatment
 // `memory::print_summary` already carries, and for the same reason.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     match (local_apic_phys(), io_apic_phys()) {
         (Some(lapic), Some(ioapic)) => crate::println!(

@@ -123,7 +123,7 @@ fn a_faulting_user_thread_is_killed_and_the_kernel_survives() {
 /// builds carried, and `user_can_read`/`user_can_write` fell out of it as dead on this ISA
 /// only: the aarch64 test module proved them, and nothing on RISC-V ever called them.
 ///
-/// Falsification: replayable `kernel/falsifications/user.riscv_virtio_tests.the_page_tables_say_u_mode_cannot_read_the_kernels_memory.patch`
+/// Falsification: replayable `system_tests/falsifications/user.riscv_virtio_tests.the_page_tables_say_u_mode_cannot_read_the_kernels_memory.patch`
 #[test_case]
 fn the_page_tables_say_u_mode_cannot_read_the_kernels_memory() {
     // Inside the direct map, so it is mapped for certain and it is the kernel's own memory.

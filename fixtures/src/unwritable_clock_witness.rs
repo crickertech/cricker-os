@@ -8,7 +8,7 @@
 //!
 //! This is the claim Unix cannot make. `ntpd` runs as root: there is no address in a Unix system
 //! its `settimeofday` cannot reach. `an_ntp_client_holds_no_writable_clock_page` in
-//! `kernel/src/user/ntp_tests.rs` is the assertion; this program is the thing it asserts about.
+//! `system_tests/src/user/ntp_tests.rs` is the assertion; this program is the thing it asserts about.
 //!
 //! # Why this can be its own binary, and what actually keeps it honest
 //!

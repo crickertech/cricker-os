@@ -50,7 +50,7 @@
 //! **It cannot check the executable segment.** A program that is running has already proven its
 //! `.text` was mapped, so there is nothing left for a marker to say; a loader that mapped `.text`
 //! writable would pass every check here and DECISIONS §10's `W^X` assertions in
-//! `kernel/src/user/tests.rs` are what catch that instead.
+//! `system_tests/src/user/tests.rs` are what catch that instead.
 //! Name: ratified 2026-09-14 (calef, working the unratified worklist). A program's check that its
 //! own ELF image was loaded correctly.
 //!

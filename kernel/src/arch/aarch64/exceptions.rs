@@ -205,7 +205,10 @@ pub static BRK_COUNT: AtomicUsize = AtomicUsize::new(0);
 // `#[cfg(not(any(test, feature = "bench")))]`: a test boot exits through semihosting and a bench
 // boot diverges into `bench::run`, so neither reads a bring-up transcript. Same treatment
 // `memory::print_summary` already carries, and for the same reason.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn self_test() -> usize {
     let before = BRK_COUNT.load(Ordering::Relaxed);
     // SAFETY: `brk #0` raises a synchronous exception the dispatcher handles, and the guard in that
@@ -492,7 +495,7 @@ static LAST_USER_FAULT_ADDR: AtomicU64 = AtomicU64::new(0);
 
 /// The last user fault's kind and the address it named, or `None` if no user thread has faulted
 /// yet. The RISC-V twin is `arch::riscv64::exceptions::last_user_fault`.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn last_user_fault() -> Option<(UserFault, u64)> {
     // Pairs with the `Release` on `USER_FAULTS` in [`user_fault`]. A caller that has already seen
     // the counter rise (every one of them has; that is how they know to look) reads the record the

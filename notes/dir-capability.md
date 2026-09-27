@@ -10,7 +10,7 @@ The contract lives with its code in `crates/filesystem_protocol` (the `dir` and 
 `OPENDIR`/`READDIR`/`MKDIR`/`RENAME` verbs in `fs`). The engine-side implementation is
 `redoxfs_server/src/lib.rs`; the caretaker is `components/src/fs_subtree_caretaker.rs`; the wiring and the
 attacks are `kernel/src/user/fs_service.rs`'s `start_granted_dir` and
-`kernel/src/user/dir_capability_tests.rs`. This note is the argument around them. Read
+`system_tests/src/user/dir_capability_tests.rs`. This note is the argument around them. Read
 [fs-server.md](fs-server.md) first for the contract this extends.
 
 What milestone 47 (navigation and naming) builds on this, from `cd` to globbing and completion, is
@@ -437,7 +437,7 @@ Known limitations, next to the feature rather than only in a tracker.
 Grant a subtree to a confined program, read-only, and attack it:
 
 ```rust
-// kernel/src/user/dir_capability_tests.rs
+// system_tests/src/user/dir_capability_tests.rs
 let report = fs_service::start_granted_dir(
     blk_server_image(),
     program("redoxfs_server").unwrap(),

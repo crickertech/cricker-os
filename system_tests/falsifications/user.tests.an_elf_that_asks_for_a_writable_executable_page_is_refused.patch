@@ -1,4 +1,4 @@
-Falsifies `kernel::user::tests::an_elf_that_asks_for_a_writable_executable_page_is_refused`.
+Falsifies `system_tests::user::tests::an_elf_that_asks_for_a_writable_executable_page_is_refused`.
 
 Architecture: aarch64
 

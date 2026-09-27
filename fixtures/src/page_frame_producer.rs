@@ -9,7 +9,7 @@
 //! write visible to the consumer, which is why the sentinel is written before the `SEND_CAP` and
 //! not after.
 //!
-//! The other half is `page_frame_consumer`; the wiring is `kernel/src/user/page_frame_service.rs`.
+//! The other half is `page_frame_consumer`; the wiring is `system_tests/src/user/page_frame_service.rs`.
 //!
 //! Name: provisional (milestone 291). This was `hello`'s `PAGE_FRAME_PRODUCER` role, number 11,
 //! and the lowercase of the role constant is the name. Refused `frame_sharer`: `PageFrame` is the

@@ -163,7 +163,7 @@ static FS_STACK_PHYS: [[core::sync::atomic::AtomicU64; FS_STACK_PAGES as usize];
 /// milestone 37's recovery mount is covered by it too. A mount that has to walk back a
 /// generation is the case most likely to recurse further than a clean one, so it is exactly the
 /// case this instrument should be watching.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn fs_stack_used() -> Option<(u64, u64)> {
     use core::sync::atomic::Ordering;
     let total = (FS_STACK_PAGES + 1) * FRAME_SIZE;
@@ -228,7 +228,7 @@ static WINDOW_TAKEN: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU
 /// window 0 is the default) and the physical base of its frame run, or `None` when all
 /// [`CLIENT_WINDOWS`] are in use, which is this service's live-client ceiling. The badge a client is
 /// granted IS its window index, so the FS server reads the right frame for its request.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 fn claim_window() -> Option<(u64, u64)> {
     use core::sync::atomic::Ordering;
     for (w, window) in WINDOWS.iter().enumerate().skip(1) {
@@ -241,7 +241,7 @@ fn claim_window() -> Option<(u64, u64)> {
 }
 
 /// [`release_window`] for a test that bound a grant and holds no program (milestone 606).
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn release_window_after_test(w: u64) {
     release_window(w);
 }
@@ -622,7 +622,7 @@ fn spawn_fs_server(fs_server_image: &'static [u8], cfg: FsServer) {
 /// `fixture::crash::CUT` from inside the injector, immediately before it traps. The second one
 /// is what tells the test the kill was the injector's doing and not something else going wrong,
 /// and it is what gives the recovery mount a defined moment to start at instead of a guess.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct CrashRun {
     pub blk_ready: RendezvousId,
     pub fs_ready: RendezvousId,
@@ -668,12 +668,12 @@ const CRASH_DISK_INDEX: usize = 2;
 /// written in, so the two callers asked their question one frame too late and were counted as
 /// passes. This is the same guard-then-run shape those tests already use for
 /// [`NO_FS_SERVER`], and it belongs in this module because the device index does.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn is_crash_disk_present() -> bool {
     crate::virtio::find_block_device_n(CRASH_DISK_INDEX).is_some()
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_crash(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -725,7 +725,7 @@ pub fn start_crash(
 /// of the result, because that open fails outright on an image it cannot make sense of.
 ///
 /// Returns `(ready, report)`.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn recover_crash(
     fs_server_image: &'static [u8],
     client_image: &'static [u8],
@@ -779,7 +779,7 @@ const CLIENT_EXTRA_STACK: usize = 8;
 /// (which hardcodes `0`): `kernel::user::session_reviver_tests` needs more than the one-page default
 /// for its two `fs_test_client` roles, found short under `script/test`'s own aarch64 run (a data
 /// abort at the stack's guard page).
-pub(super) fn spawn_fs_client(
+pub fn spawn_fs_client(
     client_image: &'static [u8],
     file_ep: RendezvousId,
     file_shared: u64,
@@ -870,7 +870,7 @@ pub fn start(
 /// The grant, as one value, because its four fields are one decision: which file, in which
 /// direction, handed to which program started how. Splitting them across a long argument list
 /// invites a caller to get `rights` and `role` the wrong way round, and both are bare integers.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct Grant {
     /// The one name the caretaker will answer for. Must fit [`filesystem_protocol::grant::MAX_NAME`].
     pub name: &'static str,
@@ -890,7 +890,7 @@ pub struct Grant {
 /// and [`wait_for_caretaker`] documents what that ordering is load-bearing for.
 ///
 /// `None` means an earlier caller in this boot already wired the service and drained these.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn wait_for_service(readiness: Readiness) {
     let Some((blk_ready, fs_ready)) = readiness else {
         return;
@@ -933,7 +933,7 @@ pub fn wait_for_service(readiness: Readiness) {
 ///
 /// The fix is ordering, not a second page: drain the service, wait for the caretaker's own
 /// sentinel, and only then spawn the confined program.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 fn wait_for_caretaker(caretaker_ready: RendezvousId) {
     assert_eq!(
         crate::sched::ipc_recv(caretaker_ready)[0],
@@ -942,7 +942,7 @@ fn wait_for_caretaker(caretaker_ready: RendezvousId) {
     );
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_granted(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1030,7 +1030,7 @@ pub fn start_granted(
 /// intersects it with the root's and refuses if the answer is smaller, so a wiring that asked
 /// for more than exists fails at the caretaker's first request rather than silently serving
 /// less.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct DirGrant {
     /// The directory the caretaker descends into, one component under the image root. Must fit
     /// [`filesystem_protocol::grant::MAX_NAME`].
@@ -1131,7 +1131,7 @@ pub fn blk_server_image() -> &'static [u8] {
 /// The endpoint **is** the directory capability (DECISIONS §27), rooted at the image root. A
 /// boot hands it to the shell unnarrowed on purpose: it is the machine's own prompt, and the
 /// interesting confinement claims are about what the shell then hands to the programs it spawns.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn root_directory(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1152,7 +1152,7 @@ pub fn root_directory(
 ///
 /// Returns `(narrow_ep, file_shared)`, with both handshakes already drained for
 /// [`wait_for_caretaker`]'s reason, so a caller may spawn its client the moment this returns.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn narrow_dir(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1183,7 +1183,7 @@ pub fn narrow_dir(
 /// endpoints come out of a region of their own, `display_service`'s shape and for its reason,
 /// and the returned [`super::holding::Holding`] reclaims that region, which wakes the caretaker to
 /// die.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn narrow_dir_held(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1267,7 +1267,7 @@ fn spawn_caretaker(
     Some((file_shared, tid))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_granted_dir(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1321,7 +1321,7 @@ const SET_VA_CARETAKER: u64 = 0x0000_0000_0070_0000;
 /// The set is written **before the caretaker is spawned**, into a frame nothing else has ever
 /// been handed, which is why it needs none of [`wait_for_caretaker`]'s ordering care: unlike
 /// the shared page, no client can reach it at all.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct SetGrant<'a> {
     /// The directory the caretaker descends into, one component under the image root. The set's
     /// names are the names *in* it that the grant designates.
@@ -1342,7 +1342,7 @@ pub struct SetGrant<'a> {
     pub stack_pages: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_granted_set(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1453,7 +1453,7 @@ pub fn start_granted_set(
 /// (which cannot happen with two clients against [`CLIENT_WINDOWS`] of at least three).
 ///
 /// Provisional name (this lane's coinage); an architect names functions.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_shared_frame_witness(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1550,7 +1550,7 @@ pub fn start_shared_frame_witness(
 /// `sink` is the capability a program's output slot gets, and **that endpoint is the whole of
 /// what the writer holds**, which is the property the milestone rests on: it is created here
 /// and handed out with `WRITE` to whoever is redirected and `READ` to the sink.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct FileSink {
     /// The FS service's two readiness endpoints, if this call is the one that wired it.
     pub readiness: Readiness,
@@ -1560,7 +1560,7 @@ pub struct FileSink {
     pub report: RendezvousId,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_file_sink(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1606,7 +1606,7 @@ pub fn start_file_sink(
 ///
 /// It streams the file's contents out **over the sink contract**, so the bytes that reach the
 /// test arrive in the same sixteen-byte framing a `println!` does. Returns `(out, report)`.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_file_source(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1704,7 +1704,7 @@ pub fn start_std_full(
 
 /// What [`start_std_narrowed`] hands back: [`StdSpawn`] without the readiness endpoints, because
 /// [`narrow_dir`] has already drained them before the program exists.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct NarrowedStd {
     pub report: RendezvousId,
     pub heap: u64,
@@ -1716,7 +1716,7 @@ pub struct NarrowedStd {
     caretaker: super::holding::Holding,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 impl NarrowedStd {
     /// **Give back everything the program held that the caller can name**: the heap's region and
     /// the stack frames. Only after the thread is gone, which the caller must have seen: a frame
@@ -1749,7 +1749,7 @@ impl NarrowedStd {
 ///
 /// Built for the two halves milestone 121 could price without an argument vector: the walk under
 /// `ENUMERATE | READ | DESCEND`, and the same walk refused under a grant lacking `ENUMERATE`.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_std_narrowed(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1772,7 +1772,7 @@ pub fn start_std_narrowed(
 
 /// What [`start_std_bound`] hands back: [`NarrowedStd`]'s shape, with the badge and window the
 /// grant holds in place of a caretaker.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct BoundStd {
     pub report: RendezvousId,
     pub heap: u64,
@@ -1787,7 +1787,7 @@ pub struct BoundStd {
     ep_region: u64,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 impl BoundStd {
     /// **Give back everything, and take the grant back first.** `UNBIND` from the kernel's own
     /// unbadged call closes every handle the badge minted and leaves the badge revoked; then the
@@ -1828,7 +1828,7 @@ impl BoundStd {
 /// Caretakers stay the default: the production choice between the two is the progenitor's, per
 /// mount, from what the filesystem's package declares. This is the kernel harness's route, for
 /// the tests and the bench boot.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_std_bound(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -1854,7 +1854,7 @@ pub fn start_std_bound(
 
 /// A subtree bound to a client window's badge, before anyone holds it: the FS server's endpoint,
 /// the window (which is the badge), and the window's physical base.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct BoundGrant {
     pub file_ep: RendezvousId,
     pub window: u64,
@@ -1865,7 +1865,7 @@ pub struct BoundGrant {
 
 /// **Bind `name` under the image root, with `rights`, to a fresh client window's badge** (ruling
 /// D). [`start_std_bound`]'s first half, and what a test uses to speak for the badge itself.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn bind_subtree(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],
@@ -2018,7 +2018,7 @@ static TWO_DIRS: spin::Mutex<
     )>,
 > = spin::Mutex::new(None);
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub struct TwoDirGrant {
     /// The first grant: the directory (one component under the image root) and the
     /// [`filesystem_protocol::dir`] rights, delivered at the confined program's capability table slot 0.
@@ -2032,7 +2032,7 @@ pub struct TwoDirGrant {
     pub stack_pages: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_granted_two_dirs(
     blk_image: &'static [u8],
     fs_server_image: &'static [u8],

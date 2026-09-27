@@ -128,3 +128,63 @@ pub(crate) fn run(program: &str, args: &[&str]) -> bool {
             false
         })
 }
+
+/// How many tests a transcript line says the harness selected: `K` in `running K of N tests`,
+/// which `kernel/src/testing.rs`'s runner prints once per image under a filter.
+pub(crate) fn selected_by(line: &str) -> Option<usize> {
+    let rest = line.trim_start().strip_prefix("running ")?;
+    let (count, rest) = rest.split_once(' ')?;
+    rest.starts_with("of ").then(|| count.parse().ok())?
+}
+
+/// [`run`] for `cargo test` under `--test`: the child's stdout passes through line by line, and the
+/// return is whether it succeeded and how many tests its harness selected (milestone 609 (the
+/// system tests leave the kernel crate)). A leg boots two test images now and a filter may match
+/// in only one, so the "selected nothing" verdict is the caller's, over both.
+pub(crate) fn cargo_test_counting_selected(args: &[&str]) -> (bool, usize) {
+    use std::io::BufRead;
+    let mut child = match Command::new("cargo")
+        .args(args)
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("failed to run cargo: {e}");
+            return (false, 0);
+        }
+    };
+    let mut selected = 0;
+    if let Some(stdout) = child.stdout.take() {
+        for line in std::io::BufReader::new(stdout).lines() {
+            let Ok(line) = line else { break };
+            println!("{line}");
+            selected += selected_by(&line).unwrap_or(0);
+        }
+    }
+    let ok = child.wait().is_ok_and(|s| s.success());
+    (ok, selected)
+}
+
+#[cfg(test)]
+mod selected_by_tests {
+    use super::selected_by;
+
+    /// The filtered runner's line is the only one that counts, and it counts as its first number.
+    /// An unfiltered run prints `running N tests` with no `of`, and a leg that summed that as a
+    /// selection would call a whole suite "one test selected" (milestone 609 (the system tests
+    /// leave the kernel crate)).
+    #[test]
+    fn only_the_filtered_runner_line_is_a_selection() {
+        assert_eq!(selected_by("running 1 of 363 tests (filter: bss)"), Some(1));
+        assert_eq!(
+            selected_by("running 0 of 205 tests (filter: surveys)"),
+            Some(0)
+        );
+        assert_eq!(selected_by("running 363 tests"), None);
+        assert_eq!(
+            selected_by("  cycles      : PMCCNTR_EL0 running on 4 of 4 cores"),
+            None
+        );
+    }
+}

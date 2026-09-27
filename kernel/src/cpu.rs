@@ -281,7 +281,7 @@ impl PerCpu {
     /// can read it either side of a placement and see the delivery even if the thread has already
     /// moved on. Relaxed: the only writer is the owning core, and a reader wants "has it happened
     /// yet", which is a question a stale read answers late rather than wrongly.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     pub fn adopted(&self) -> u64 {
         self.adopted.load(Ordering::Relaxed)
     }
@@ -394,7 +394,7 @@ pub fn inbox_of(id: usize) -> &'static IrqSafeMutex<Fifo<Thread>> {
 
 /// Any core's block, by id, for read-only diagnostics (the hang dump). Reading another core's
 /// atomics is racy but best-effort, which is all a post-mortem dump needs.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn of(id: usize) -> &'static PerCpu {
     &PERCPU[id]
 }

@@ -45,7 +45,7 @@ and belongs to the ruling.
 | the layout codec (build and parse) | 39 lines of code, 4 host tests passing | `crates/environment_protocol` |
 | `sys/args/nife.rs` in the `std` overlay | 11 lines of code | std's own `sys/args/xous.rs`, 19 lines |
 | `xtask std-src` dispatch | 2 anchors, 1 generated-module job | the `sys/env/mod.rs` arm in `xtask/src/farm.rs` |
-| the spawner's half | one read-only mapping and one `grant_at` | slot 7, the config page, in `kernel/src/user/std_service.rs` |
+| the spawner's half | one read-only mapping and one `grant_at` | slot 7, the config page, in `system_tests/src/user/std_service.rs` |
 
 The layout: an 8-byte magic, a `u32` count, a `u32` total length, then each argument as a `u32`
 length and its bytes. Length-prefixed so an argument may hold any byte, including the `0xff` the

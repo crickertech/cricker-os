@@ -590,6 +590,39 @@ def only_fields_moved(path, base):
         open(path).read())))
 
 
+def renamed_paths(base):
+    """Every file git calls renamed between `base` and the working tree, as (old, new) path pairs."""
+    pairs = []
+    for line in (git('diff', '--name-status', '-M', base) or '').splitlines():
+        cells = line.split('\t')
+        if cells[0].startswith('R') and len(cells) == 3:
+            pairs.append((cells[1], cells[2]))
+    return pairs
+
+
+def only_paths_renamed(path, base, renamed):
+    """True when a document's only change since `base` is a path that git itself reports as renamed
+    in the same diff, rewritten from its old spelling to its new one (milestone 609 (the system
+    tests leave the kernel crate)). Moving 66 files would otherwise put forty notes under the bold
+    rule for a repointed path each, which is `only_fields_moved`'s case in a different rewrite:
+    nobody edited the prose."""
+    if not renamed or not os.path.exists(path):
+        return False
+    old = at(base, path)
+    if old is None:
+        return False
+    before, after = old.split('\n'), open(path).read().split('\n')
+    if len(before) != len(after):
+        return False
+
+    def repointed(line):
+        for was, now in renamed:
+            line = line.replace(was, now)
+        return line
+    # Line by line, so a record that repoints only the one path a gate resolves still qualifies.
+    return all(a == b or repointed(a) == b for a, b in zip(before, after))
+
+
 def counted_words(text):
     """The word count a prose-budget grant is held to: the file's `wc -w`, frontmatter excluded.
 
@@ -837,6 +870,8 @@ def check():
                               # 2026-09-27 ruling
                 touched.add(path)
         touched = {p for p in touched if not only_fields_moved(p, base)}
+        renamed = renamed_paths(base)
+        touched = {p for p in touched if not only_paths_renamed(p, base, renamed)}
 
     excused = 0
     held = 0

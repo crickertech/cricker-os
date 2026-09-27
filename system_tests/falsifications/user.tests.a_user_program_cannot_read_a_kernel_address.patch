@@ -1,4 +1,4 @@
-Falsifies `kernel::user::tests::a_user_program_cannot_read_a_kernel_address`.
+Falsifies `system_tests::user::tests::a_user_program_cannot_read_a_kernel_address`.
 
 Architecture: aarch64
 

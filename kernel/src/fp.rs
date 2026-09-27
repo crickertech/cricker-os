@@ -198,7 +198,7 @@ pub fn enable_for_current() -> bool {
 /// `SplitMix64` both use; nothing here needs it to be good, only for neighbouring seeds and
 /// neighbouring indices to land nowhere near each other, so that a save which copies the right
 /// number of bytes to the wrong offset fails rather than passes.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn register_pattern(seed: u64, index: usize) -> u64 {
     seed.wrapping_mul(0x9E37_79B9_7F4A_7C15)
         .wrapping_add(index as u64 + 1)

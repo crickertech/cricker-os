@@ -85,11 +85,17 @@ const TEST_FILTER: &str = env!("NIFE_TEST_FILTER");
 /// which skip unless somebody asked for them by name (`script/test --test <name>`); each says why
 /// in its own skip reason. Name provisional (milestone 604 (the builder's scratch cursor is
 /// bounded)).
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 #[allow(dead_code)]
-pub(crate) fn run_was_filtered() -> bool {
+pub fn run_was_filtered() -> bool {
     !TEST_FILTER.is_empty()
 }
+
+/// Set by `cargo xtask test --test` (through `kernel/build.rs`) when it boots more than one test
+/// image per leg and counts the selections itself (milestone 609 (the system tests leave the kernel
+/// crate)). Then an image with no matching test exits cleanly and says so, and the harness fails
+/// the leg if the images together selected nothing. Unset, the rule below holds per image.
+const FILTER_COUNTED_ACROSS_IMAGES: bool = !env!("NIFE_TEST_FILTER_ACROSS_IMAGES").is_empty();
 
 static HEARTBEAT: AtomicU64 = AtomicU64::new(0);
 static WATCH_LAST_HB: AtomicU64 = AtomicU64::new(0);
@@ -122,11 +128,11 @@ static TEST_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
 /// it prints the same message a passing test would have, tagged `skipped` instead of `ok`, then
 /// returns from the calling function. The macro (not a function) is what makes the early return
 /// reach the test: a function can only return `()` and hand back control, not unwind its caller.
-pub(crate) static SKIP_REASON: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
-pub(crate) static SKIP_REASON_LEN: AtomicUsize = AtomicUsize::new(0);
+pub static SKIP_REASON: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+pub static SKIP_REASON_LEN: AtomicUsize = AtomicUsize::new(0);
 /// **A test printed the word "skip" while it was running**, set by the console writer and read
 /// once the test returns. See [`note_printed`] and the check in `Testable::run`.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 static PRINTED_A_SKIP_WORD: AtomicBool = AtomicBool::new(false);
 
 /// **The mechanism that keeps [`skip!`] from being optional**, from milestone 214
@@ -152,7 +158,7 @@ static PRINTED_A_SKIP_WORD: AtomicBool = AtomicBool::new(false);
 /// loudly rather than returning. The other direction is silent: a test that returns early having
 /// proved nothing and printed nothing is invisible to this, which is why the sweep also went
 /// looking for early returns with no line at all.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub(crate) fn note_printed(fragment: &str) {
     if fragment.contains("skip") {
         PRINTED_A_SKIP_WORD.store(true, Ordering::Relaxed);
@@ -171,22 +177,26 @@ static SKIPPED: AtomicUsize = AtomicUsize::new(0);
 /// test did not run. Must be called from directly inside a `#[test_case]` function (it returns
 /// from its caller); calling it from a nested helper returns out of the helper instead, which
 /// is a bug at the call site, not in the macro.
-#[cfg(test)]
+// Exported (milestone 609 (the system tests leave the kernel crate)) because most of its callers now
+// live in `system_tests/`, and its statics are named at the crate root for the same reason: from
+// another crate, `$crate::testing` is a private module.
+#[cfg(any(test, feature = "system_tests"))]
 #[allow(unused_macros)]
+#[macro_export]
 macro_rules! skip {
     ($reason:expr) => {{
         let reason: &'static str = $reason;
-        $crate::testing::SKIP_REASON.store(
+        $crate::SKIP_REASON.store(
             reason.as_ptr() as *mut u8,
             core::sync::atomic::Ordering::Relaxed,
         );
-        $crate::testing::SKIP_REASON_LEN.store(reason.len(), core::sync::atomic::Ordering::Relaxed);
+        $crate::SKIP_REASON_LEN.store(reason.len(), core::sync::atomic::Ordering::Relaxed);
         return;
     }};
 }
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 #[allow(unused_imports)]
-pub(crate) use skip;
+pub use crate::skip;
 
 // ---------------------------------------------------------------------------------------------
 // The frame ledger.
@@ -266,7 +276,7 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// reclaimed. 16200 + 768 = 16968.
 ///
 /// **Raised again, 2026-08-23, milestone 155's provisioning tool.** Its own guest suite
-/// (`kernel/src/user/identity_provisioning_tests.rs`) needs a credential store *before* it is
+/// (`system_tests/src/user/identity_provisioning_tests.rs`) needs a credential store *before* it is
 /// sealed, which the tree's one shared fixture cannot offer once it returns (`credential_tests.rs`'s
 /// own doc: the seal deletes the provision endpoint at both ends). So the suite wires a **second**,
 /// independent `credential_service` instance, the same permanent shape the first one already is in
@@ -365,7 +375,7 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 ///
 /// **Raised again, 2026-08-26, milestone 47's `printenv` (DECISIONS §111, `date`'s own shape one
 /// manifest field over), landing on top of the 19060 raise above rather than the 18632 it was
-/// separately measured against.** `kernel/src/user/printenv_tests.rs`'s four new `#[test_case]`s
+/// separately measured against.** `system_tests/src/user/printenv_tests.rs`'s four new `#[test_case]`s
 /// join a suite that already carries milestone 49's channel-per-client login, so the number this
 /// constant needs is the two changes measured together, not 19060 + 85 by arithmetic: this ledger's
 /// own convention (see every raise above) is a real run, not a sum of two separate ones, because
@@ -1015,14 +1025,14 @@ fn current_test_name() -> Option<&'static str> {
 ///     crate::sched::yield_now();
 /// }
 /// ```
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub struct TickBudget {
     core: usize,
     start: u64,
     ticks: u64,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 impl TickBudget {
     /// Start a budget of `ticks` timer ticks on whatever core is running now.
     pub fn new(ticks: u64) -> Self {
@@ -1103,7 +1113,7 @@ impl<T: Fn()> Testable for T {
 
         // Cleared HERE rather than before the name is printed, so a test whose own name contains
         // "skip" does not accuse itself. See note_printed.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         PRINTED_A_SKIP_WORD.store(false, Ordering::Relaxed);
 
         // Attribute the high-water marks to the test that moved them. Read around the body rather
@@ -1167,7 +1177,7 @@ impl<T: Fn()> Testable for T {
         // and there is no honest reading of it: either the test skipped, in which case the branch
         // above should have run, or it did not, in which case it printed something misleading
         // about itself. Fail the run rather than let the final line carry it.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         if PRINTED_A_SKIP_WORD.swap(false, Ordering::Relaxed) {
             panic!(
                 "this test printed \"skip\" and then returned, so the run counts it as a PASS. \
@@ -1220,7 +1230,7 @@ impl<T: Fn()> Testable for T {
 ///
 /// Expected: the run FAILS after this test's 90 s default budget, naming the test and its runtime.
 /// Without the ceiling it hangs until the outer bound kills it, which is the regression this guards.
-#[cfg(all(test, feature = "watchdog_probe"))]
+#[cfg(all(any(test, feature = "system_tests"), feature = "watchdog_probe"))]
 #[test_case]
 fn a_livelock_that_keeps_doing_ipc_trips_the_per_test_ceiling() {
     let ep = crate::sched::create_rendezvous();
@@ -1275,6 +1285,14 @@ pub fn runner(tests: &[&dyn Testable]) {
     // **A filter that selects nothing fails the run.** Reporting "ok. 0 passed" for a typo would be
     // a green result that proves nothing, which is exactly the manufactured fact the `skip!()`
     // accounting and the NIFE_DISK check elsewhere in this tree exist to refuse.
+    if selected == 0 && FILTER_COUNTED_ACROSS_IMAGES {
+        // Not a verdict on its own: the other image in this leg may carry the test, and
+        // `cargo xtask test` adds the `running` lines up. The result line keeps the shape every
+        // reader of these transcripts (the HVF leg, `script/falsifications`) already parses.
+        println!("no test in this image matches the filter `{filter}`; the harness counts the leg");
+        println!("test result: ok. 0 passed");
+        semihosting::exit(semihosting::EXIT_SUCCESS)
+    }
     if selected == 0 {
         println!("no test matches the filter `{filter}`");
         // The likeliest cause on a multi-leg run, named here because the reader is looking at one
@@ -1293,7 +1311,7 @@ pub fn runner(tests: &[&dyn Testable]) {
     }
 
     println!();
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     // the runner itself is compiled in every build; the instrument only exists in test
     crate::stack::report_high_water();
     report_page_frame_ledger();

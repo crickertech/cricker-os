@@ -59,7 +59,7 @@ pub(crate) fn std_echo_elf(triple: &str) -> PathBuf {
 /// point: fetching `ripgrep` and its transitive crates is a crates.io dependency tree, which
 /// DECISIONS §46 makes calef's decision rather than a gate's. So the initrd carries it when it is
 /// on disk and does not when it is not, exactly as `std_exerciser` rides along, and
-/// `kernel/src/user/ripgrep_tests.rs` skips rather than fails when the archive has no `rg`.
+/// `system_tests/src/user/ripgrep_tests.rs` skips rather than fails when the archive has no `rg`.
 pub(crate) fn ripgrep_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!("target/ripgrep/{triple}/rg"))
 }
@@ -71,7 +71,7 @@ pub(crate) fn ripgrep_elf(triple: &str) -> PathBuf {
 /// provider; DECISIONS §196 (nife carries TLS: `rustls` for the protocol, and a crypto provider we
 /// make work) ruled on the first and explicitly not on the second, so making a gate fetch a
 /// hundred crates would take a dependency decision that is an architect's. The archive carries it
-/// when it is on disk and does not when it is not, and `kernel/src/user/cryptography_tests.rs`
+/// when it is on disk and does not when it is not, and `system_tests/src/user/cryptography_tests.rs`
 /// skips.
 pub(crate) fn cryptography_exerciser_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!(

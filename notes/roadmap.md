@@ -429,7 +429,7 @@ re-conflicted every open lane.
 It was structural. `script/lint` check 4b requires every lane to touch its own milestone's block;
 every milestone also needed a row in one sorted table; so every milestone in flight collided with
 every other milestone in flight, always, in that one file. `AGENTS.md` names
-`kernel/src/user/tests.rs` as the hotspot to fear, measured on 2026-08-16, and that is the wrong
+`system_tests/src/user/tests.rs` as the hotspot to fear, measured on 2026-08-16, and that is the wrong
 file: only some lanes wire a test, and every lane adds a row.
 
 The strongest argument is that `script/roadmap` exists because of this table. Its header records

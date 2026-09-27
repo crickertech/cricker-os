@@ -1,4 +1,4 @@
-Falsifies `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files`.
+Falsifies `system_tests::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files`.
 
 Architecture: aarch64
 
@@ -8,7 +8,7 @@ a handle `r0` that reaches that subtree and nothing above it, and then serves `r
 client's slot-0 "root of my namespace". Serving `fs::ROOT` instead gives the shell a namespace
 rooted at the whole image, which is precisely the authority §50 says it must not have.
 
-Expected to fail, and it does, at `kernel/src/user/shell_navigation_tests.rs:99` on 2026-09-16:
+Expected to fail, and it does, at `system_tests/src/user/shell_navigation_tests.rs:99` on 2026-09-16:
 `assert_eq!(got & want, want, "the shell rooted at {what} could not do what its capability
 allows ({:#x} missing), so every refusal it reported proves nothing")`, inside the
 `assert_report` helper, with `0x100690` of the expected bits missing.

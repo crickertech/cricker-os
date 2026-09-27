@@ -23,7 +23,7 @@
 # sentence says is worst to leave there.
 #
 # Measured cost, all in one session on 2026-09-23: a fix to `helpers/open-lane.sh` found only while
-# pruning merged worktrees, a fix to `kernel/src/user/live_swap_tests.rs` that survived two prunes
+# pruning merged worktrees, a fix to `system_tests/src/user/live_swap_tests.rs` that survived two prunes
 # uncommitted and had to be recovered twice, and 62 lines of a decisions amendment sitting unsaved
 # on a branch for hours after the conversation moved on. The maintainer pruned worktrees twice that
 # session; any of the three could have been destroyed rather than merely delayed.

@@ -42,7 +42,7 @@ use super::instructions;
 /// Read by the tests in [`crate::fp`], which name the register that failed rather than reporting
 /// that one did, and which therefore cannot hard-code a count that is 32 here, 32 on RISC-V and 16
 /// on `x86_64`.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub const REGISTERS: usize = 32;
 
 /// **The whole of a thread's FP/SIMD register file**, plus the flag that says whether any of it is
@@ -202,7 +202,7 @@ unsafe extern "C" {
 /// `fmov d0, xzr` writes zero into a register [`crate::fp::load_pattern`] is about to overwrite
 /// anyway, so it has no effect beyond the trap it provokes. Tests only: the shipping kernel is
 /// `softfloat` and asks for the unit nowhere.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn touch() {
     // SAFETY: writes one vector register. Under a trapping `CPACR_EL1.FPEN` this takes the enable
     // trap and is re-executed after it, which is the entire point of calling it.
@@ -216,7 +216,7 @@ pub fn touch() {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 impl FpState {
     /// Write [`crate::fp::register_pattern`] across all 32 lanes, each one's complement in the high
     /// half so the full 128 bits are exercised rather than only the `d` half a scalar `double`

@@ -173,7 +173,10 @@ pub fn psci_record() -> Option<Psci> {
 /// compile out, so it has no caller in exactly those two configurations. The same shape as
 /// `mmu::print_summary` beside it. The RISC-V twin has no such exemption, because that boot prints
 /// its ISA line before the branch into the test, shell or bench paths.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     let cpu = get();
 

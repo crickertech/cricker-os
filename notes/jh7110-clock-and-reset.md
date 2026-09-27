@@ -125,7 +125,7 @@ from a comment:
   the TRNG whose clocks this exists to ungate). QEMU's `virt` names neither.
 - `mmu::map_everything` maps only what `memory::jh7110_clock_and_reset()` returned, so on any other machine
   there is no mapping to store through.
-- `no_clock_window_is_mapped_where_there_is_no_jh7110` (`kernel/src/user/entropy_tests.rs`) pins
+- `no_clock_window_is_mapped_where_there_is_no_jh7110` (`system_tests/src/user/entropy_tests.rs`) pins
   it, because the failure is silent in the direction that matters: a load or store fault during
   boot on a machine nobody would think to blame a clock driver for.
 - The boot tour **prints which source the address came from**, in words, so a transcript can never

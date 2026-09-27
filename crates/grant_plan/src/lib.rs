@@ -1549,7 +1549,7 @@ pub struct Manifest {
     /// write. What this field does is tell **The progenitor** which children to endow, and tell a person
     /// reading `caps printenv` that the authority exists at all. Before this field existed, the
     /// page was granted **unconditionally** to a `std` program by a kernel test harness standing
-    /// in for a real customer (`kernel/src/user/std_service.rs`); this is the manifest declaration
+    /// in for a real customer (`system_tests/src/user/std_service.rs`); this is the manifest declaration
     /// that section's own "Not yet built" line named, now with a real, `no_std`, shell-spawnable
     /// customer ([`Prog::Printenv`]) declaring it.
     ///
@@ -1646,7 +1646,7 @@ pub enum Runtime {
 /// the build left, and one reclaim returns all of it.
 ///
 /// Sized as the 256 pages of heap the kernel test harness has given every `std` program since
-/// milestone 27 (Rust `std` on the native ABI), `BUDGET_PAGES` in `kernel/src/user/std_service.rs`, which is the budget
+/// milestone 27 (Rust `std` on the native ABI), `BUDGET_PAGES` in `system_tests/src/user/std_service.rs`, which is the budget
 /// `std_exerciser`'s transcript is proven under, plus 128 for the build: about 40 pages of image,
 /// 32 of stack, the page tables for the windows a `std` child touches, and a caretaker if a
 /// directory grant rides along. It is not a measurement of any program's high-water mark, and it is

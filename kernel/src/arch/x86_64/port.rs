@@ -88,7 +88,7 @@ pub unsafe fn out32(port: u16, val: u32) {
 ///
 /// # Safety
 /// As [`out8`].
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub unsafe fn in32(port: u16) -> u32 {
     let val: u32;
     // SAFETY: as `out8`.

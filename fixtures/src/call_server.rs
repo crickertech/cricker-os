@@ -8,7 +8,7 @@
 //! is minted by the kernel at the moment of the call, names the caller, and is consumed on first
 //! use; nothing the server holds outlives the one answer it owed.
 //!
-//! The other half is `call_client`; the wiring is `kernel/src/user/call_service.rs`.
+//! The other half is `call_client`; the wiring is `system_tests/src/user/call_service.rs`.
 //!
 //! Name: ratified 2026-09-15 (calef, this header). Ratified as `call_reply_server`; was provisional
 //! `call_server` (milestone 291); qualified to the `call_reply` stem (the round-trip benchmark's

@@ -10,7 +10,7 @@
 //! module") is why this is a crate rather than a `const` in each place. Three binaries agree on
 //! these strings today: the kernel prints [`BANNER`], [`MACHINE`] and [`SELF_TEST`]; `swish` prints
 //! [`PROMPT`]; `board_console` matches all of them. Before this crate, the one marker that existed
-//! was a string literal inside one architecture's arm of `kernel/src/main.rs` and a second copy of
+//! was a string literal inside one architecture's arm of `kernel/src/lib.rs` and a second copy of
 //! it inside a recogniser, which is milestone 268's finding 3: the two could not disagree *loudly*,
 //! only silently.
 //!
@@ -84,7 +84,7 @@ pub const BANNER: &str = "nife on ";
 
 /// **The machine description finished: `nife machine: <arch>, <n> processor(s), ...`.**
 ///
-/// Printed by `kernel/src/main.rs`'s `print_machine_description` as its **last** line, and that
+/// Printed by `kernel/src/lib.rs`'s `print_machine_description` as its **last** line, and that
 /// position is the point: reaching it means the whole description printed, which is the claim a
 /// ladder rung should make. A header would only have meant the block started.
 pub const MACHINE: &str = "nife machine: ";
@@ -98,7 +98,7 @@ pub const SELF_TEST: &str = "nife self-test: ";
 
 /// **What a red verdict says before it names the checks that failed.**
 ///
-/// Uppercase, and the same token `kernel/src/main.rs`'s preemption check has used since milestone
+/// Uppercase, and the same token `kernel/src/lib.rs`'s preemption check has used since milestone
 /// 267 (`FAILED: a spinner did not run, or nothing was preempted.`), so this is the tree's word
 /// rather than a new one. It appears *inside* a [`SELF_TEST`] line; a matcher wanting a failed
 /// verdict must find both.
@@ -122,9 +122,10 @@ pub const SELF_TEST_CHECKS: &[&str] = &["exceptions", "mapping", "frames", "time
 
 /// **The RISC-V demonstration tour ran to its end.**
 ///
-/// Printed by the RISC-V arm of `kernel/src/main.rs` and by nothing else, which is milestone 268's
-/// finding 3 stated as a constant rather than as a defect: this rung is **one architecture's**, and
-/// keeping it here beside the three that are not is what makes that visible. It is not a rung of
+/// Printed by the RISC-V arm of `kernel/src/lib.rs` and by nothing else. That is finding 3 of
+/// milestone 268 (every architecture boots the same way), stated as a constant rather than as a
+/// defect: this rung is **one architecture's**, and keeping it here beside the three that are not is
+/// what makes that visible. It is not a rung of
 /// the portable ladder and the other two architectures do not print it.
 pub const TOUR: &str = "nife: the capability core runs on ";
 
