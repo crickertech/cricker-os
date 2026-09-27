@@ -462,6 +462,7 @@ pub fn invoke(
                 }
                 page_frame_revoke(phys, count.get())
             }
+            abi::page_frame::SLICE => page_frame_slice(cap.rights, phys, count, a0, a1),
             _ => Err(Error::BadMethod),
         },
 
@@ -1218,6 +1219,33 @@ fn unmap_run_prefix(root: u64, phys: u64, va: u64, mapped: u64) {
     }
 }
 
+/// `PageFrame::SLICE` (milestone 599, calef's option-4 ruling of 2026-09-27): a capability naming
+/// the `len` pages `first` pages into this run, with the same rights. `abi::page_frame::SLICE` has
+/// the rules; `#[inline(never)]` for the reason `memory_region_map` gives, since slicing is
+/// spawn-time wiring and never a step of the IPC round trip.
+#[inline(never)]
+fn page_frame_slice(
+    rights: Rights,
+    phys: u64,
+    count: core::num::NonZeroU64,
+    first: u64,
+    len: u64,
+) -> Result<i64, Error> {
+    if !rights.allows(Rights::GRANT) {
+        return Err(Error::NotPermitted);
+    }
+    let (Some(end), Some(len)) = (first.checked_add(len), core::num::NonZeroU64::new(len)) else {
+        return Err(Error::BadPointer);
+    };
+    if end > count.get() {
+        return Err(Error::BadPointer);
+    }
+    let base = phys + first * page_frames::FRAME_SIZE;
+    let slot = sched::grant(crate::cap::page_frame_run_cap(base, len, rights))
+        .map_err(|_| Error::OutOfMemory)?;
+    Ok(slot as i64)
+}
+
 /// `PageFrame::REVOKE`: un-share the run of `count` frames starting at `phys` from every holder and
 /// delete every capability naming the run, including the caller's own. Does not reclaim the pages
 /// (untyped is spend-only); that is `MemoryRegion::DESTROY`. §13, §102.
@@ -1472,6 +1500,91 @@ mod tests {
         // (which reaps the space itself) rather than through `destroy`.
         let _ = sched::delete_current_cap(space_slot);
         let _ = sched::delete_current_cap(frame_slot);
+        let _ = sched::reclaim_region(space_region);
+        crate::memory_region::destroy(frame_region);
+    }
+
+    /// **A slice maps only its window** (milestone 599, calef's option-4 ruling of 2026-09-27).
+    /// The progenitor's pool is one capability over every client's window; `SLICE` is what lets it
+    /// hand a client exactly one. Through the real handlers: slice page 2 of a four-page pool,
+    /// `MAP_INTO` a space with the slice, and the space holds that page and none of its
+    /// neighbours. Then the refusals: out of range, empty, and without `GRANT`.
+    #[test_case]
+    fn a_slice_maps_only_its_window() {
+        let mut trap = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
+        let space_region = crate::memory_region::create(16).expect("no space region");
+        let name = crate::user::user_address_space_create(space_region).expect("no address space");
+        let root = crate::user::user_address_space_root(name).expect("no root");
+        let space_slot = sched::grant(crate::cap::address_space_cap(name, Rights::ALL))
+            .expect("grant the address space");
+
+        let frame_region = crate::memory_region::create(4).expect("no frame region");
+        let region_slot =
+            sched::grant(crate::cap::memory_region_root_cap(frame_region)).expect("grant");
+        let pool = invoke(&mut trap, region_slot, abi::memory_region::RETYPE, 4, 0, 0)
+            .expect("a four-page pool") as u64;
+        let Object::PageFrame(base, _) = sched::current_cap(pool).expect("the pool").object else {
+            panic!("RETYPE must mint a PageFrame");
+        };
+
+        let slice = invoke(&mut trap, pool, abi::page_frame::SLICE, 2, 1, 0)
+            .expect("page 2 of four is inside the pool") as u64;
+        let cap = sched::current_cap(slice).expect("the slice");
+        assert_eq!(
+            cap.object,
+            Object::PageFrame(
+                base + 2 * paging::PAGE_SIZE,
+                crate::cap::page_frame_run_len(1)
+            ),
+            "a slice names exactly the pages asked for",
+        );
+
+        // Map the slice, then look at the window and both neighbours' would-be addresses.
+        let va = 0x40_0000u64;
+        invoke(
+            &mut trap,
+            space_slot,
+            abi::address_space::MAP_INTO,
+            va,
+            slice,
+            abi::address_space::MAP_RW,
+        )
+        .expect("the slice maps");
+        assert_eq!(
+            mmu::translate_at(root, va).map(|(phys, _)| phys),
+            Some(base + 2 * paging::PAGE_SIZE),
+            "the slice mapped its own page",
+        );
+        for off in [va - paging::PAGE_SIZE, va + paging::PAGE_SIZE] {
+            assert!(
+                mmu::translate_at(root, off).is_none(),
+                "a slice's mapping reached past its window",
+            );
+        }
+
+        // Refusals: past the end, empty, overflowing, and a source without GRANT.
+        for (first, len) in [(3, 2), (4, 1), (1, 0), (u64::MAX, 2)] {
+            assert_eq!(
+                invoke(&mut trap, pool, abi::page_frame::SLICE, first, len, 0),
+                Err(Error::BadPointer),
+                "slice ({first}, {len}) of a four-page pool",
+            );
+        }
+        let narrow = sched::grant(crate::cap::page_frame_run_cap(
+            base,
+            crate::cap::page_frame_run_len(4),
+            Rights::WRITE,
+        ))
+        .expect("a pool without GRANT");
+        assert_eq!(
+            invoke(&mut trap, narrow, abi::page_frame::SLICE, 0, 1, 0),
+            Err(Error::NotPermitted),
+            "slicing without GRANT",
+        );
+
+        for s in [space_slot, slice, narrow, pool, region_slot] {
+            let _ = sched::delete_current_cap(s);
+        }
         let _ = sched::reclaim_region(space_region);
         crate::memory_region::destroy(frame_region);
     }
