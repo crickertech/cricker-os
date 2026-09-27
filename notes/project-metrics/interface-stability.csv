@@ -1,0 +1,12 @@
+week,interface_breaking,interface_additions,interface_std_abi_breaking,interface_std_abi_additions,interface_syscall_added,interface_syscall_changed,interface_syscall_renamed,interface_format_bumps,interface_format_amendments,interface_contract_commits,interface_contract_commits_crossing,interface_cochange_pct,interface_cochange_pct_excluding_mass,interface_crates_unmeasured
+2026W29,0,117,0,38,21,0,0,0,0,10,10,100.0,100.0,0
+2026W30,0,17,0,17,17,0,0,0,0,10,9,90.0,88.9,0
+2026W31,7,1355,1,438,5,0,0,1,0,79,65,82.3,80.8,0
+2026W32,13,165,1,24,0,0,0,0,0,66,48,72.7,67.9,0
+2026W33,18,25,4,11,0,0,0,0,0,15,12,80.0,81.8,0
+2026W34,28,289,16,123,16,0,8,0,0,49,45,91.8,89.2,0
+2026W35,54,147,25,49,18,2,17,0,0,33,31,93.9,92.3,0
+2026W36,52,37,18,5,0,2,0,0,0,28,17,60.7,58.3,0
+2026W37,6,5,0,0,0,0,0,0,0,19,17,89.5,66.7,0
+2026W38,44,42,8,1,1,0,0,0,0,37,23,62.2,51.9,0
+2026W39,19,365,4,42,6,0,0,0,0,67,50,74.6,71.2,0
