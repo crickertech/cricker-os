@@ -101,6 +101,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `host-tools` | sdk | crates: `portable_executable`, `stick_maker`, `walk_pricing`, `xtask`; programs: `stick_maker`, `xtask` | `boot`, `display` | `host-tools` (provisional) |
 | `runtime` | sdk | crates: `calendar*`, `entropy_backend*`, `user_mode_heap*`, `user_mode_runtime*`; paths: `patches/`, `targets/` | interfaces only | `runtime` (provisional) |
 | `fixtures` | test | crates: `c_seam`, `coremark`, `cryptography_exerciser`, `fixtures`, `fuzz`, `job_mix`, `loaded_image_check`, `soak_page`, `std_exerciser`; programs: 54, too many to list here; paths: `packages/greeting.recipe`, `packages/greeting-riscv64.recipe`, `packages/greeting-x86_64.recipe` | `init`, `time`, `timetable`, `network`, `host-tools` | `fixtures` (provisional) |
+| `system-tests` | test | crates: `system_tests`; programs: `system_tests` | `kernel` | `system_tests` (provisional) |
 <!-- end of package table -->
 
 26 packages: 16 base, 5 optional, 4 sdk and 1 test by the table's count. One has an undecided

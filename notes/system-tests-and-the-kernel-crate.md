@@ -177,8 +177,6 @@ observes kernel state no syscall exposes, which is the case rule 2 allows.
 - Dead code is checked per item in both test images, but an item's `allow` names only which suite
   calls it on the architecture that reported it. An x86_64 test build is not gated, so its
   allowances were added only where a gated build found them.
-- The new crate is not in a `packages/*.package` file yet: pull request #1396, which introduces
-  them, had not landed when this was built.
 - Five notes still say `kernel/src/main.rs` for code that is now in `lib.rs`: board-console.md,
   boot-ladder.md, nifefs.md, pipes/second-stream.md and visionfive2.md. A new `main.rs` keeps the
   old name, so git does not call the move a rename, and the prose ratchet would hold each note to

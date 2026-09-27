@@ -53,5 +53,5 @@ check 13 fails if one creeps back.
   real (`calendar`, `jh7110_entropy`, `video_terminal`, `block_roster`,
   `non_volatile_memory_express`); whether each is a service at all is pull request #1389's division
   question. The BUGS section of notes/system-tests-and-the-kernel-crate.md carries it.
-- **Recorded.** `system_tests` is in no package file, because pull request #1396, which
-  introduces them, had not landed; the same BUGS section carries it.
+- **Done.** `system_tests` is its own package, `system-tests`, of kind `test`, in
+  `packages/system-tests.package`; the package name and kind are provisional.
