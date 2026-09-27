@@ -1,0 +1,13 @@
+# filesystem: the caretakers that attenuate a directory capability. nife's own grouping.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name filesystem
+kind base
+home filesystem provisional
+
+program fs_file_caretaker
+program fs_nameset_caretaker
+program fs_subtree_caretaker

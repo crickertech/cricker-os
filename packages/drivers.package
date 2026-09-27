@@ -1,0 +1,18 @@
+# drivers: the userspace device drivers. nife's own grouping: Linux ships these in the kernel.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name drivers
+kind base
+home drivers provisional
+
+crate virtio
+crate non_volatile_memory_express
+crate jh7110_entropy
+
+program block_driver
+program serial_driver
+program non_volatile_memory_express
+program jh7110_entropy

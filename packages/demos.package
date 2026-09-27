@@ -1,0 +1,11 @@
+# demos: demonstration programs. Debian's *-examples packages.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name demos
+kind optional
+home demos provisional
+
+program least_authority_demo

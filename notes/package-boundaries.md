@@ -1,0 +1,204 @@
+# Package boundaries: every crate and program in a package, every path with a home
+
+*Milestone 611 (every program and crate belongs to a package, and every package has a home). The
+file name, both file formats, the four kinds, every package name and every home below are
+provisional, minted by that lane on 2026-09-27 (UTC). calef ratifies the table; the questions are at
+the end.* What a package is as a file on a target is [notes/packages.md](packages.md). This note is
+about the tree: which crate, program and path belongs to which package, and where each is going.
+
+## What calef ruled
+
+On 2026-09-27, on pull request #1389 (the OS is built and updated from packages; its decision is not yet on main):
+
+- Fork 3: "R1 for now is right with package boundaries drawn and enforced inside it by lint
+  check." The end state is everything moving out, and "I want to force decisions on homes versus
+  there being a default of sticking around."
+- Composition: "borrow the composition of packages from linux distros." A package is what releases
+  together and may hold several programs. Authority stays per program: milestone 597 (a
+  program carries its manifest in an ELF note) and §208 (installing a package is granting it).
+- Scope: "Everything in the tree may not be in a package, but it may be in a repo." So a path has
+  a home whether or not it ships.
+
+## The two declarations
+
+`packages/<name>.package` declares a package. `packages/homes` gives a home to every tracked path
+that is in no package. Both use the `directive value` lines `packages/*.recipe` already uses, so
+xtask's recipe parser is the model for the reader a build will need. The field list, in full, is
+the header of `helpers/packages.py`. The required fields have no default:
+
+| field | required | what it says |
+|---|---|---|
+| `name` | yes | equals the file's stem |
+| `kind` | yes | `base`, `optional`, `sdk` or `test` |
+| `home` | yes | `<repo> provisional`, `<repo> ratified <date>`, or `undecided <reason>` |
+| `crate`, `interface` | one member at least | a Cargo package; an interface is one other packages may link |
+| `program` | | a binary target of a crate whose programs are split across packages |
+| `path` | | anything else: the std overlay, a recipe, a `#[path]` module |
+| `depends` | | a declared dependency; that package's crates may be linked |
+| `exception` | | `<date> <member> <crate> <reason>`: one dated link the rules refuse |
+
+The four kinds say where a package ships. `base` is in every image and `optional` is installed on
+a running nife. `sdk` runs on or ships to a developer's machine: the contracts, the runtime and the
+host tools. `test` is never in a release image. The brief asked for two kinds; the other two are
+this lane's, because the fixtures and the host tools fit neither.
+
+This is the in-tree form the base image list (P1 in #1389's decision) and the recipes are to be generated from.
+A recipe needs a name, a version, an architecture and members; this file has the name and members,
+and the version and architecture belong to a build. Nothing generates either one yet.
+
+## The gate
+
+`script/lint` runs `python3 helpers/packages.py --check`, after a selftest that plants one violation
+per rule and fails unless each is caught. The rules:
+
+1. Every tracked path has exactly one home. The longest claimed prefix wins, across every package
+   member and every `packages/homes` line. A path nobody claims fails, and so does a prefix claimed
+   twice or a claim that holds nothing.
+2. Every Cargo package in the tree is in exactly one package. A crate's binaries go with it,
+   unless any of them is placed elsewhere: then every binary needs a `program` line. That is
+   `components` today, so a new program there has to be placed on purpose.
+3. A link across a boundary goes to an `interface` crate, to a package the linker `depends` on, or
+   through a dated exception. An exception whose link has gone fails, so the list only shrinks.
+4. Nothing but a `test` package depends on a `test` package. A `base` package does not depend on an
+   `optional` one.
+
+For `components`, whose manifest links the union of fifty programs, rule 3 is checked per program.
+It reads which crates each program's source names, comments stripped, among the crates the manifest
+declares. The check was proved on the tree as well as in the selftest: a planted `use timetable`
+in `components/src/rm.rs` failed with "coreutils: rm links timetable, an internal crate of
+timetable", and a planted untracked-then-added file failed as a path with no home.
+
+## The table
+
+`*` marks an interface. This table is generated, and `script/lint` fails when it is stale.
+
+<!-- package table: helpers/packages.py --table writes this -->
+| package | kind | members | allowed dependencies | home |
+|---|---|---|---|---|
+| `boot` | base | crates: `bitmap_font*`, `board_console`, `screen_console*`, `sealed_pair*`, `uefi_loader`; programs: `uefi_loader` | interfaces only; 1 dated exception(s) | `boot` (provisional) |
+| `coreutils` | base | programs: `date`, `printenv`, `rm`, `wc` | interfaces only | `coreutils` (provisional) |
+| `drivers` | base | crates: `jh7110_entropy`, `non_volatile_memory_express`, `virtio`; programs: `block_driver`, `jh7110_entropy`, `non_volatile_memory_express`, `serial_driver` | interfaces only | `drivers` (provisional) |
+| `entropy` | base | programs: `entropy` | interfaces only | `entropy` (provisional) |
+| `filesystem` | base | programs: `fs_file_caretaker`, `fs_nameset_caretaker`, `fs_subtree_caretaker` | interfaces only | `filesystem` (provisional) |
+| `init` | base | crates: `components`, `system_initializer`; programs: `broker`, `job_undertaker`, `progenitor`, `root_supervisor`, `session_reviver`, `spawner`, `sub_server_supervisor`, `swapper` | `timetable`; 2 dated exception(s) | `init` (provisional) |
+| `kernel` | base | crates: `address_space_identifier`, `capability`, `cpu_set`, `direct_memory_access_validator`, `firmware_configuration`, `generational_table`, `inter_process_communication`, `intrusive_fifo`, `jh7110_clock_and_reset`, `kernel`, `memory_corruption_canary_gate`, `memory_regions`, `page_frames`, `paging`, `pci`, `thread_wake_handshake`, `work_steal_slot`; programs: `kernel` | interfaces only; 6 dated exception(s) | `kernel` (provisional) |
+| `login` | base | crates: `credentialer`; programs: `credentialer`, `identity_provisioner`, `login`, `login_audit_receiver` | interfaces only | `login` (provisional) |
+| `mdr` | base | programs: `mdr` | interfaces only | `mdr` (provisional) |
+| `network` | base | crates: `http_response`; programs: `net_stack`; paths: `components/src/net_transport.rs`, `components/src/socket_test_client.rs` | interfaces only | `network` (provisional) |
+| `procps` | base | crates: `pgrep`, `pmap`, `ps`, `top`, `uptime`; programs: `pgrep`, `pmap`, `ps`, `top`, `uptime`; paths: `packages/uptime.recipe`, `packages/uptime-riscv64.recipe`, `packages/uptime-x86_64.recipe` | interfaces only | `procps` (provisional) |
+| `swish` | base | crates: `swish`; programs: `swish` | interfaces only | `swish` (provisional) |
+| `terminal` | base | crates: `line_editor*`; programs: `console`, `input`, `line_editor`, `terminal_sink_caretaker` | interfaces only | `terminal` (provisional) |
+| `time` | base | crates: `network_time_protocol`; programs: `clock`, `network_time_client` | interfaces only | `time` (provisional) |
+| `timetable` | base | crates: `schedule_store`, `timetable`; programs: `timetable`; paths: `components/timetable.conf` | interfaces only | `timetable` (provisional) |
+| `util-linux` | base | programs: `disk_partitioner`, `disk_surveyor`, `uuid` | interfaces only | `util-linux` (provisional) |
+| `demos` | optional | programs: `least_authority_demo` | interfaces only | `demos` (provisional) |
+| `display` | optional | crates: `compositor*`, `video_terminal`; programs: `compositor`, `display_terminal`, `framebuffer_driver`, `gpu_driver`, `keyboard_driver` | interfaces only | `display` (provisional) |
+| `installer` | optional | programs: `installer` | interfaces only | `installer` (provisional) |
+| `redoxfs` | optional | crates: `redoxfs`, `redoxfs_host`, `redoxfs_server`; programs: `mkfs`, `redoxfs`, `redoxfs-ar`, `redoxfs-clone`, `redoxfs-mkfs`, `redoxfs-resize`, `redoxfs_host`, `redoxfs_server`, `second_mount`; paths: `vendor/redoxfs.divergence.patch`, `vendor/redoxfs.pin` | interfaces only | undecided: the server and host tool are ours and the library is Redox's; whether the port goes upstream is open |
+| `rmle` | optional | programs: `rmle` | interfaces only | `rmle` (provisional) |
+| `contracts` | sdk | crates: `abi*`, `activation_set*`, `address_space_map*`, `argument_protocol*`, `block_roster*`, `boot_ladder*`, `boot_slot*`, `byte_sink_protocol*`, `capability_witness_protocol*`, `clock_protocol*`, `component_plan*`, `counter_frequency_protocol*`, `credential_protocol*`, `current_cpu_protocol*`, `device_tree_blob*`, `documentation*`, `elf*`, `entropy_protocol*`, `environment_protocol*`, `file_allocation_table*`, `filesystem_protocol*`, `glob*`, `globally_unique_identifier_partition_table*`, `grant_plan*`, `graphics_protocol*`, `login_protocol*`, `machine_discovery*`, `manifest_note*`, `measured_boot*`, `nifefs*`, `package_archive*`, `socket_protocol*`, `std_runtime_protocol*`, `supervision_protocol*`, `swap_protocol*` | interfaces only | `contracts` (provisional) |
+| `cryptography` | sdk | crates: `cryptography_provider*` | interfaces only | `cryptography` (provisional) |
+| `host-tools` | sdk | crates: `portable_executable`, `stick_maker`, `walk_pricing`, `xtask`; programs: `stick_maker`, `xtask` | `boot`, `display` | `host-tools` (provisional) |
+| `runtime` | sdk | crates: `calendar*`, `entropy_backend*`, `user_mode_heap*`, `user_mode_runtime*`; paths: `patches/`, `targets/` | interfaces only | `runtime` (provisional) |
+| `fixtures` | test | crates: `c_seam`, `coremark`, `cryptography_exerciser`, `fixtures`, `fuzz`, `job_mix`, `loaded_image_check`, `soak_page`, `std_exerciser`; programs: 54, too many to list here; paths: `packages/greeting.recipe`, `packages/greeting-riscv64.recipe`, `packages/greeting-x86_64.recipe` | `init`, `time`, `timetable`, `network`, `host-tools` | `fixtures` (provisional) |
+<!-- end of package table -->
+
+26 packages: 16 base, 5 optional, 4 sdk and 1 test by the table's count. One has an undecided
+home; the other 25 carry a provisional one. On 2026-09-27, 1,693 of 2,637 tracked paths had an
+undecided home and 944 a provisional one; the weekly metrics page has the current count.
+
+## How the packages were drawn
+
+The start was #1389's seven divisions, `cargo metadata` over the eight workspaces, and one read of
+which crates each component program names.
+
+Where Linux has the tool, the distros' grouping was taken. `procps` holds `ps`, `pgrep`, `pmap`,
+`top` and `uptime`, after milestone 126 (the `procps` package). `coreutils` holds `date`, `printenv`, `rm` and `wc`.
+`util-linux` holds `uuid` (uuidgen), `disk_surveyor` (lsblk) and `disk_partitioner` (fdisk). Each
+shell and each editor is its own package in Debian, so `swish` and `rmle` are too. `timetable` is
+the `cron` slot, and `mdr` the `man-db` one.
+
+Where Linux has only a role, nife groups by role and the table's header comment names the Debian
+package it stands in for. These are `kernel`, `boot`, `init`, `drivers`, `terminal`, `display`,
+`filesystem`, `network`, `time`, `entropy`, `login` and `installer`.
+
+The contracts are one `-dev` split, Debian's `linux-libc-dev` shape: the ABI, every `*_protocol`
+and the formats two programs agree on. A split per service, the `libfoo-dev` shape, is the
+alternative. It waits until a contract changes on its own schedule, which #1389 measured as not yet
+(76% of contracts commits touch another division).
+
+The judgment calls, each a place the table could reasonably differ:
+
+- `calendar` and `entropy_backend` are in `runtime`, since they are the time and randomness a libc
+  provides. `glob`, `documentation`, `boot_ladder`, `block_roster`, `device_tree_blob` and
+  `machine_discovery` are in `contracts`. Each is a pattern language, a store, a byte sequence, a
+  page or a machine description that two programs read the same way.
+- `line_editor` is an interface of `terminal`, and `compositor` of `display`. Each crate is the
+  contract its package serves and the engine behind it at once.
+- The `components` crate itself sits in `init`. It is a build container that the moves dissolve.
+- `socket_test_client.rs` and `net_transport.rs` are `path` members of `network`, because
+  `net_stack` includes both through `#[path]` and neither is a binary.
+- `redoxfs` holds the vendored library, the server and the host tool. Its home is the one undecided
+  package home: whether the port goes upstream is open.
+- Documentation is in no package yet. calef (2026-09-27): "I'm thinking of building a website for
+  much of our documentation. It may also ship in packages." Until that is settled every note has an
+  undecided home, and [the proposal](../design/roadmap/proposals/a-documentation-site.md) holds the
+  question. A README inside a crate goes with its crate.
+
+## What the gate found
+
+Nothing was moved and no rule was weakened. The first run failed on 21 links across a boundary.
+
+Eight were real dependencies, now declared in seven `depends` lines. `init`'s `session_reviver`
+re-derives timetable entries, so it links the timetable crates. `fixtures` links internals of `init`, `time`, `timetable` and `network`,
+which a test package is for. `host-tools` builds images from `boot` and `display`.
+
+Thirteen were recorded as exceptions dated 2026-09-27, in the package file of the linker. Pull
+request #1392 (the system tests leave the kernel) then made four of the kernel's links
+dev-dependencies, and the gate failed their exceptions as stale, so nine remain:
+
+| linker | links | why it is refused, and what fixes it |
+|---|---|---|
+| `kernel` | `non_volatile_memory_express`, `jh7110_entropy` | a handoff record and a device discovery living in driver crates |
+| `kernel` | `video_terminal` | display service wiring in `kernel/src/user/` |
+| `kernel` | `coremark`, `job_mix`, `soak_page` | benchmarks and probes built into the kernel; a release kernel should not link a fixture |
+| `boot` | `job_mix` | `board_console` runs the job mix to prove a board boots |
+| `init` | `http_response`, `video_terminal` | `system_initializer` builds the whole interactive image; it is integration, not init |
+
+The driver row wants a lane of its own, and so do `ps::Row` and `pmap::Row`, which the kernel
+now reaches only from its tests: each layout moves into `contracts`. That is
+[contracts leave implementation crates](../design/roadmap/proposals/contracts-leave-implementation-crates.md).
+The fixture rows and the integration row are limitations, recorded below.
+
+## How the moves will be done
+
+Not in this milestone. One package per pull request, at a quiet moment in the queue, as unchanged
+file moves (`git mv` and nothing else in the commit), so `git log --follow` and review both see a
+rename. The package's `crate`, `program` and `path` lines are the list of what moves. The workspace
+root and the gates follow in a second commit. The order is leaves first, contracts before the
+programs that link them. [The proposal](../design/roadmap/proposals/packages-move-out-one-per-pull-request.md)
+holds the plan.
+
+## Questions for calef
+
+1. The format. Two files, `directive value` lines, the fields above. Is that the shape, and are
+   `packages/<name>.package` and `packages/homes` the names?
+2. The kinds. Two were asked for and four shipped. Keep `sdk` and `test`, or fold them?
+3. The homes. The proposal is one repository per package, named after it, which is Debian's
+   source-package shape. Grouping by #1389's seven divisions is the alternative. Which?
+4. The project records: `design/`, `briefs/`, `script/`, `helpers/` and `.github/`. Does this
+   repository become their home, or do they leave too?
+5. The names: all 26 packages, `helpers/packages.py`, this note and the `homes` metric.
+
+## BUGS
+
+- Dev-dependencies are not checked, since they never ship. A test that links another package's
+  internals is therefore invisible here, and it will break at the move.
+- The per-program check reads source text. A crate reached only through a macro, or a `use` of a
+  renamed dependency, is missed. The manifest-level check covers every crate that is not split.
+- A `depends` line admits every crate of that package, internals included. It is a reviewed
+  declaration, not a proof, so review has to ask whether each one is true.
+- Four fixtures are linked by base packages: `coremark`, `job_mix` and `soak_page` by the kernel,
+  and `job_mix` by `board_console`. They are exceptions until a release build can leave them out.
+- `system_initializer` sits in `init` but builds the whole image. It links `network` and `display`
+  internals under exception until it has its own integration package.

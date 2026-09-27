@@ -40,8 +40,7 @@ them at once, which it stops doing at about the third.
 
 Milestone 291 (fixtures) is the worked example. `fixtures/src/hello.rs` reached thirty-one roles one
 convenient arm at a time over two months. Seven of them were an exact duplicate of
-`components/src/block_driver.rs`, a whole program nobody had noticed was already there, kept alive
-only because one archive table did not pack it; fourteen more became programs. See
+`components/src/block_driver.rs`, kept alive only because one archive table did not pack it; fourteen more became programs. See
 [291](../design/roadmap/291-one-program-one-job.md).
 
 The exception is allowed and has to say so (AGENTS.md's ladder, rung four's rule). If two
@@ -104,15 +103,17 @@ bench = false
 
 That block is the whole of step 3, and of packing. `xtask` reads the `[[bin]]` blocks of both
 packages (`declared_programs()`) and packs every one into all three archives, aarch64, riscv64 and
-`x86_64`, under its own name. There is no packing table to edit and no per-architecture filter; see
-"Why it works this way" below for what that replaced and why a program that cannot run on some
-architecture is packed there anyway. You do not touch the measurement table either: `xtask`
+`x86_64`, under its own name. There is no packing table and no per-architecture filter; "Why it works this way" says
+why. You do not touch the measurement table either: `xtask`
 hashes every entry of the archive it just packed and writes the table the progenitor measures
 against from that (`write_measure_manifest`).
 
 The reader is strict on purpose. A key it does not know inside a `[[bin]]` block
 (`required-features`, say) stops the pack with the key named, rather than packing an archive with
 that program silently missing.
+
+A new program or crate also needs a line in a `packages/*.package` file, provisional like a
+name, or `script/lint` fails ([package boundaries](package-boundaries.md)).
 
 ### 4. Keep the name under 32 bytes
 
