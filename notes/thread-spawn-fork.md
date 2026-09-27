@@ -3,7 +3,7 @@
 *(Written 2026-08-22, investigating milestone 64's rank-3 gap ahead of a decision. See
 `design/roadmap/64-std-for-real-crates.md`'s BUGS section and `notes/crates-io-on-nife.md`,
 rank 3, for where this was first named. This note is the six-questions write-up; the decision
-itself is calef's, requested on pull request #394.)*
+itself is an architect's, requested on pull request #394.)*
 
 calef decided it on 2026-08-22: option C, decline, until a customer needs a thread (DECISIONS §105
 (`std::thread::spawn` stays declined, until a customer needs it)). The note below is the argument
@@ -213,9 +213,9 @@ naming the scope limit honestly where milestone 149 and any future consumer meet
 
 ## What this note is not
 
-It does not pick A or B. That is the syscall-surface fork CLAUDE.md says is calef's, and "which
-option costs less" only resolves once there is a concrete customer for real OS threads on nife,
-which there is not today (the NPB Rayon-parallel variants are useful evidence, not a paying
+It does not pick A or B. That is the syscall-surface fork CLAUDE.md says is an architect's, and
+"which option costs less" only resolves once there is a concrete customer for real OS threads on
+nife, which there is not today (the NPB Rayon-parallel variants are useful evidence, not a paying
 workload). What it does do is retire the "B is the free option" intuition: measured against what
-Rust's own allocator needs, B is not obviously cheaper than A, only differently expensive, and in
-a way that is easy to miss until a consumer actually grows a heap across the boundary.
+Rust's own allocator needs, B is not obviously cheaper than A, only differently expensive, and in a
+way that is easy to miss until a consumer actually grows a heap across the boundary.

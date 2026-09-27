@@ -5,7 +5,7 @@
 worked `script/names` examples. It exists to verify or challenge the main page. A reader who only
 needs to name, ratify or rename something should not have to open it. The directory
 `design/naming/` and this file's stem are provisional names, minted 2026-09-24 by the lane that
-split the file; naming is calef's.*
+split the file; naming is an architect's.*
 
 ## Where a name's provenance lives (milestone 115)
 
@@ -254,14 +254,14 @@ The whole table, and the gate:
 ```
 $ script/names | tail -3
 total: 126 names, 72 ratified, 10 recorded, 44 unrecorded, 85 refusals
-54 still want calef: script/names --unratified
+54 still want an architect: script/names --unratified
 refused but live: video_terminal
 
 $ script/names --check
 names: NOTE 'video_terminal' is recorded as refused and is also a live name
 names: 126 names carry provenance (43 crates, 54 programs, 29 scripts)
 names: 72 ratified, 10 recorded, 44 unrecorded, 85 refusals recorded beside them
-names: 54 still want calef (script/names --unratified), which is a worklist and not a failure
+names: 54 still want an architect (script/names --unratified), which is a worklist and not a failure
 ```
 
 That `video_terminal` line is the mechanism working rather than a defect. The name was refused for
@@ -288,7 +288,7 @@ reading first. The census names all four states and all four kinds, so it sums:
 $ script/names --check 2>/dev/null
 names: 222 names carry provenance (68 crates, 89 programs, 10 packages, 55 scripts)
 names: 153 ratified, 41 provisional, 27 recorded, 1 unrecorded, 273 refusals recorded beside them
-names: 69 still want calef (script/names --unratified), which is a worklist and not a failure
+names: 69 still want an architect (script/names --unratified), which is a worklist and not a failure
 
 $ script/names --unratified | head -1
 UNRATIFIED (69 of 222), in the order worth working through

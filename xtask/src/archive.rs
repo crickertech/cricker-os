@@ -470,15 +470,15 @@ pub(crate) fn x86_initrd_path() -> String {
 /// **Naming, updated 2026-08-27**: this function's own name predates a naming scheme; the mismatch
 /// it used to flag against its two siblings (`mkinitrd` for aarch64, `initrd_riscv` for RISC-V,
 /// `initrd_x86` here) is resolved on calef's behalf as follows, and remains **provisional** because
-/// naming is calef's call, not a lane's (per this repo's naming convention; function names get more
-/// latitude than crate names but still ship provisional). aarch64's `mkinitrd` is renamed to
-/// `initrd_aarch64` and given its own `initrd-aarch64` subcommand, matching the `initrd_<arch>` /
-/// `initrd-<arch>` shape `initrd_riscv`/`initrd-riscv` and this function/`initrd-x86` already had;
-/// this function and `initrd_riscv` are left as they were; see the PR that made this change for the
-/// reasoning (chiefly: extending the pattern two of three already used costs one new subcommand and
-/// one rename, where making all three agree on fully-spelled ISA names, e.g. `initrd_riscv64` /
-/// `initrd_x86_64`, would also rename two already-typed, already-documented subcommand names for a
-/// smaller win). Confirm or redirect.
+/// naming is an architect's call, not a lane's (per this repo's naming convention; function names
+/// get more latitude than crate names but still ship provisional). aarch64's `mkinitrd` is renamed
+/// to `initrd_aarch64` and given its own `initrd-aarch64` subcommand, matching the `initrd_<arch>`
+/// / `initrd-<arch>` shape `initrd_riscv`/`initrd-riscv` and this function/`initrd-x86` already
+/// had; this function and `initrd_riscv` are left as they were; see the PR that made this change
+/// for the reasoning (chiefly: extending the pattern two of three already used costs one new
+/// subcommand and one rename, where making all three agree on fully-spelled ISA names, e.g.
+/// `initrd_riscv64` / `initrd_x86_64`, would also rename two already-typed, already-documented
+/// subcommand names for a smaller win). Confirm or redirect.
 pub(crate) fn initrd_x86() -> bool {
     if !cargo_profiled(&[
         "build",
@@ -603,7 +603,7 @@ pub(crate) fn initrd_x86() -> bool {
 /// called internally by `user()` (and so by `build`, `run`, `shell`, and everything else that
 /// boots the aarch64 kernel) exactly as `mkinitrd` was; the new subcommand is additive, so nothing
 /// that already called this function changed. **Name and subcommand provisional**, per this
-/// repo's naming convention: calef's call to confirm or redirect.
+/// repo's naming convention: an architect's call to confirm or redirect.
 pub(crate) fn initrd_aarch64() -> bool {
     // **No table** since milestone 150: every `[[bin]]` in `components/` and `fixtures/`, the
     // same list the other two archives pack ([`declared_programs`]). This function carried its own

@@ -5,7 +5,7 @@
 # called mixing them with the real components "much of why the directory reads as shapeless"; this
 # is that separation. `tests/` was not available and would have been wrong anyway, since Cargo owns
 # that directory name and these are `[[bin]]` targets rather than test harnesses. Nobody has put
-# the name to calef.
+# the name to an architect.
 
 [package]
 name = "fixtures"

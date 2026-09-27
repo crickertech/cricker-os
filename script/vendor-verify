@@ -39,7 +39,7 @@
 # smoothed over. The word order is established only by this script and `script/toolchain-bump`,
 # which establish each other. And it sits one word away from `script/verify`, which verifies
 # something else entirely: the two are distinguishable by their qualifier and are not
-# distinguished by anything stronger. calef has not ratified it.
+# distinguished by anything stronger. no architect has ratified it.
 
 set -e
 

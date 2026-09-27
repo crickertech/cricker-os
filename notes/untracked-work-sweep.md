@@ -3,7 +3,7 @@
 On 2026-08-04 milestone 94 (the untracked-work sweep) read the tree for work somebody had
 identified and never given a home: a `TODO` nothing lists, a note saying "not built" with no block
 behind it, a decision's follow-up aside, a roadmap stretch item. Every finding had to end in one of
-three states. **"Noted" is not a state.**
+three states. "Noted" is not a state.
 
 The sweep ran and its inventory then lived in pull request #91's description and nowhere else, for
 twelve days, which is precisely the failure the milestone was written about. A pull request body is
@@ -15,8 +15,8 @@ Four surfaces: `TODO`/`FIXME`-class markers in the Rust tree, notes carrying def
 (`someday`, `follow-on`, `not built`, `deferred`), `DECISIONS` follow-up asides, and the roadmap's
 own stretch items.
 
-**The measurement corrected the block's own floor, in a useful direction.** The block predicted 11
-TODO-class markers. There were 11 hits and only **two markers**: seven were comments *about* a
+The measurement corrected the block's own floor, in a useful direction. The block predicted 11
+TODO-class markers. There were 11 hits and only two markers: seven were comments *about* a
 `TODO` ("see the `TODO` on `paging::unmap`", "Not a TODO."), and two were literal text, the GUID
 formatter's `XXXXXXXX-XXXX` and `gl-one.txtXXX` in a glob test. `git grep -w TODO` is 82% false
 positives on this tree.
@@ -94,9 +94,9 @@ promoted the moment one of its three triggers fires. The blessing asserts only w
 sweep: no trigger had fired, and the limitation is a decision rather than an oversight.
 
 **One of the nine touches that convention directly.** §71 names the signature variant as the shape
-of its second trigger, a design fork calef must rule on before any lane could start, which is the
-one case that lands as a `RECORDED` row. No such row exists. Promotion is the integrator's act and
-not a lane's, so the blessing stands and this paragraph is the flag.
+of its second trigger, a design fork an architect must rule on before any lane could start, which is
+the one case that lands as a `RECORDED` row. No such row exists. Promotion is the integrator's act
+and not a lane's, so the blessing stands and this paragraph is the flag.
 
 ## The candidates that were looked at and not blessed
 
@@ -134,7 +134,7 @@ assigned is the same rung-zero "somebody will notice" this whole family exists t
 
 ## BUGS
 
-- **The original nine are not recoverable, and the nine above are a re-derivation.** Pull request
+- The original nine are not recoverable, and the nine above are a re-derivation. Pull request
   #91's body states the count and describes the category; it never lists the items, its commits
   touch only the lint and the PSCI comment, it has no review comments, and no local session
   transcript of the lane survives. So the list above is the sweep's own rule applied a second time
@@ -142,11 +142,11 @@ assigned is the same rung-zero "somebody will notice" this whole family exists t
   are deliberate, still present, and carried by no roadmap row. Where the two sets differ, nobody
   can now tell. This is stated rather than smoothed over because the whole point of the milestone
   is that a record which cannot be checked is not a record.
-- **The ten already-tracked items are a count and not a list.** They were deduped against existing
+- The ten already-tracked items are a count and not a list. They were deduped against existing
   blocks and named nowhere that survived. A milestone 93 audit meeting one of them will find the
   block that owns it, which is the outcome the dedupe was for, so the loss costs a reader
   provenance rather than correctness.
-- **Nothing gates a blessing.** A limitation can lose its blessing by being edited out of the
+- Nothing gates a blessing. A limitation can lose its blessing by being edited out of the
   paragraph that carries it, and no check would notice. The higher rung is not obviously worth its
   cost for nine paragraphs, so this is a marked exception: if the set grows past what a person can
   hold, it wants a gate rather than another sweep.

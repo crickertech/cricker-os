@@ -1864,7 +1864,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             //
             // **That is a question, not a design**, and it is deliberately left open here rather
             // than answered by deleting one more thing: whether a boot-time console server earns
-            // its bring-up once its only client is gone is calef's call, because deleting it
+            // its bring-up once its only client is gone is an architect's call, because deleting it
             // removes infrastructure rather than a demonstration. Milestone 267's block states the
             // case both ways. The interactive system does not reach this code at all; it builds
             // its own console through `boot_progenitor` further down.
@@ -2156,8 +2156,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
 /// Truncating division, deliberately: this is an instrument, and a figure that rounded up would
 /// report a nonzero duration for work that took no measurable time at all.
 ///
-/// Provisional name (calef's call): `micros`, with `micros_between` and `bytes_per_second` beside
-/// it.
+/// Provisional name (an architect's call): `micros`, with `micros_between` and `bytes_per_second`
+/// beside it.
 #[cfg(target_arch = "riscv64")]
 #[allow(dead_code)]
 fn micros(ticks: u64) -> u64 {
@@ -2574,7 +2574,8 @@ fn print_machine_description(boot_info_pointer: usize) {
     // printed, which is the claim a ladder rung should make. A header would only mean the block
     // started.
     //
-    // **Wording provisional** (milestone 268): a line two programs agree on is calef's under
+    // **Wording provisional** (milestone 268 (every architecture boots the same way)): a line two
+    // programs agree on is an architect's under
     // AGENTS.md's *move fast on what can be undone* tenet, and a lane ships one and says so rather
     // than waiting.
     println!(

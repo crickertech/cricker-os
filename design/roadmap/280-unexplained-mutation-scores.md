@@ -153,8 +153,8 @@ it."*
   not. Nothing in the tree does that today.
 - **Table alignment is honoured in the first chunk of a table only**, on the same terms as the
   header emphasis beside it, and both are recorded in `crates/documentation`'s own `BUGS`.
-- **This does not re-read `design/fatal-risks.md`'s third risk**, which is calef's, and does not
-  produce the clean full sweep that risk wants. It removes one of the two named holes from the
+- **This does not re-read `design/fatal-risks.md`'s third risk**, which is an architect's, and does
+  not produce the clean full sweep that risk wants. It removes one of the two named holes from the
   number that sweep will publish.
 
 ## Follow-on

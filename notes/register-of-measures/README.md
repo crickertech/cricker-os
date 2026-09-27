@@ -5,4 +5,5 @@ a reader can act without opening anything here, and its appendix table is the in
 hold each measure's argument.
 
 *Name: provisional, minted 2026-09-24 by the lane that split the register (`d70f6dcd4`), for the
-directory and every stem in it. Naming is calef's; `script/names --unratified` lists each stem.*
+directory and every stem in it. Naming is an architect's; `script/names --unratified` lists each
+stem.*

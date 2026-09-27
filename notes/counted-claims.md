@@ -1,7 +1,7 @@
 # Counted claims: a number in the prose is a claim, and a gate can keep it
 
 *The name `counted-claims.md`, and the phrase "counted claim" it introduces, are **provisional**.
-A lane ships a provisional name and says so; naming is calef's (AGENTS.md).*
+A lane ships a provisional name and says so; naming is an architect's (AGENTS.md).*
 
 DECISIONS §39 says a name is a claim, made before a reader sees a line of code. So is a number, and
 a number is the kind of claim a machine can check. That difference is the whole of this convention:

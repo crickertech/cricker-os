@@ -180,7 +180,7 @@
 # it is not one; refused `falsifications-check`, which collides with `script/falsifications` over a
 # different sense of the word (a harness's replayable falsification record, DECISIONS §134); and
 # refused `fatal-risk-drift`, which names the symptom and reads as a report of drift rather than a
-# gate against it. calef has not ratified it.
+# gate against it. no architect has ratified it.
 #
 # **The VOCABULARY this script gates is ratified, even though the script's own name is not, and the
 # two are recorded together because there is nowhere else to put the first one.** `script/names`
@@ -323,12 +323,12 @@ def analyse(text, milestones, built_on, decisions, exists, last_touched):
                        f"none of them able to see the other two. An open vocabulary is how that "
                        f"happened, and a field that mixes 'did it run' with 'what did it find' is "
                        f"what it produced.\n"
-                       f"      The right action is to get a new value ratified by calef, not to edit "
-                       f"the enumeration in this script. A value here is a name, names are his, and "
-                       f"this list is a record of his ruling rather than a list to extend. If what "
-                       f"you want to say is what the experiment FOUND, say it in the prose under "
-                       f"the status line, which is where this file keeps GREEN, AMBER, MEASURED "
-                       f"and AUDITED.")
+                       f"      The right action is to get a new value ratified by an architect, "
+                       f"not to edit the enumeration in this script. A value here is a name, "
+                       f"names are an architect's, and this list is a record of calef's ruling "
+                       f"rather than a list to extend. If what you want to say is what the "
+                       f"experiment FOUND, say it in the prose under the status line, which is "
+                       f"where this file keeps GREEN, AMBER, MEASURED and AUDITED.")
         # ---- 8: one entry, one status ----------------------------------------
         # Risk 7 carried two `**Status:` lines for six days and this script read only the first, so
         # `AUDITED` was invisible to every consumer of the file. A second line is not a thing to
@@ -471,9 +471,10 @@ def analyse(text, milestones, built_on, decisions, exists, last_touched):
                    f"      This table states every verdict a second time, so it is a second place a "
                    f"word can be invented, and it was one: it carried its own vocabulary until "
                    f"2026-09-23.\n"
-                   f"      The right action is to get a new value ratified by calef, not to edit the "
-                   f"enumeration in this script. Say what the experiment found in the rest of the "
-                   f"cell, which is where this table's GREEN, amber and AUDITED already live.")
+                   f"      The right action is to get a new value ratified by an architect, not "
+                   f"to edit the enumeration in this script. Say what the experiment found in the "
+                   f"rest of the cell, which is where this table's GREEN, amber and AUDITED "
+                   f"already live.")
 
     for row in order.split("\n"):
         cells = [c.strip() for c in row.strip().strip("|").split("|")]

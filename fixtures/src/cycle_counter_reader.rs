@@ -65,7 +65,7 @@ pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
 /// 74's deliverable, and it will want to say what the number means (a frequency, a scaling, a
 /// story about what a "cycle" is on a big.LITTLE part). This is the raw read, in the one program
 /// that needs it today, so that 74 designs the API rather than inheriting one from a test vehicle.
-/// **Its name and promise are calef's**, and the options are in
+/// **Its name and promise are an architect's**, and the options are in
 /// design/roadmap/proposals/the-aarch64-half-of-74.md; the aarch64 half of 74 started the counter
 /// and left this read where it was on purpose.
 #[cfg(target_arch = "aarch64")]

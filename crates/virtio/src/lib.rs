@@ -70,7 +70,7 @@
 //! family's name rather than one device's. design/naming.md's BUGS comes one clause short of the
 //! same conclusion, saying "the crate keeps its name, which is right" without giving the reason,
 //! so a reader there learns that somebody agreed rather than why; the reason is the two citations
-//! above. calef has not ratified it.
+//! above. no architect has ratified it.
 
 use abi::irq;
 use filesystem_protocol::blk;

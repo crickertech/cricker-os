@@ -224,8 +224,8 @@ of three.
   scope note is somebody else's lane. It is recorded in that script's `BUGS`, where it already was.
   This milestone stops here rather than guessing at a trap-frame size.
 - **Recorded.** `virtio_ring_barrier` is a **provisional name**. It is a new public function, which
-  is calef's call; it sits in `user_mode_runtime::virtio` and carries that module's `virtio_` prefix,
-  which is the argument for it, and nothing about the fix depends on the spelling.
+  is an architect's call; it sits in `user_mode_runtime::virtio` and carries that module's `virtio_`
+  prefix, which is the argument for it, and nothing about the fix depends on the spelling.
 - **Recorded.** The rung-1 limit this milestone's own note states still holds: deriving the list
   removes the copy, not the incompleteness. Nothing stops a new gate writing
   `for arch in aarch64 riscv64`, and `deny.toml` cannot read the derivation at all. The

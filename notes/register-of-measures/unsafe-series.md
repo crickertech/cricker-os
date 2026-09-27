@@ -77,8 +77,8 @@ prefixes, and each says so in its own header.
 exactly what they meant, and `script/lint`'s ceiling still gates the same number it always has. This
 split simply does not count those three crates' 6 blocks toward either side. The question it
 answers, kernel privilege or userspace confinement, has no answer for code that runs on neither.
-Whether `unsafe_census`'s own `HOST_ONLY` should widen to match is calef's call, recorded rather than
-made here.
+Whether `unsafe_census`'s own `HOST_ONLY` should widen to match is an architect's call, recorded
+rather than made here.
 
 ### What each bucket is
 
@@ -115,13 +115,13 @@ The boundary decisions behind each bucket are in `helpers/rust_source.py`'s own 
   once, before the kernel starts, with the full privilege of the pre-OS environment, to decide which
   kernel image gets control. Its memory is gone by the time the kernel's isolation boundary exists.
   That is a chain-of-trust question, not a runtime-isolation one, so it is reported on its own. Which
-  claim it backs is calef's to decide.
+  claim it backs is an architect's to decide.
 
 ### Which number the ceiling should be held against
 
 `script/lint`'s `<!--count-at-most:unsafe-density-outside-arch-->` (`notes/unsafe-obligations.md`)
 holds the mixed density: currently 88 (2026-09-24) against 77. This pass does not change that
-marker's value, because a gate's threshold is calef's. What the ceiling would mean under each
+marker's value, because a gate's threshold is an architect's. What the ceiling would mean under each
 candidate:
 
 - 142, held against the kernel-only density. This answers "how much of the code nothing confines is
@@ -132,7 +132,7 @@ candidate:
 
 Recommendation: the kernel density is the one worth a ceiling of its own, because the mixed number's
 blind spot lives there. But a ceiling set on it starts cold, with no history of it moving
-deliberately. That decision is calef's to make with these numbers in hand.
+deliberately. That decision is an architect's to make with these numbers in hand.
 
 ### The backfill, and its gap
 

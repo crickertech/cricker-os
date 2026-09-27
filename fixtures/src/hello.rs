@@ -9,8 +9,8 @@
 //! the children those roles build: `CHILD` reports a word, `DEV_CHILD` reads a device's identity
 //! registers, `IRQ_CHILD` blocks on an interrupt.
 //!
-//! **The name is wrong and the rename is calef's** (see the limitation below). What is left here
-//! is not a greeting and has not been since 19d.
+//! **The name is wrong and the rename is an architect's** (see the limitation below). What is left
+//! here is not a greeting and has not been since 19d.
 //!
 //! # The principle this file is the exception to
 //!
@@ -52,8 +52,9 @@
 //! Name: unrecorded, and overdue. Nobody wrote down why `hello` is called `hello` and nobody
 //! needed to while it was a first program: it is the universal name for one, and this was the
 //! first program this kernel ever loaded, on 2026-07-14. It has not been a first program since
-//! milestone 19d and stopped being a catalogue at 291; the rename is calef's and is deferred until
-//! there is something settled to name. See the `# Bugs` section above.
+//! milestone 19d (run a real workload) and stopped being a catalogue at 291; the rename is an
+//! architect's and is deferred until there is something settled to name. See the `# Bugs` section
+//! above.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks
@@ -167,7 +168,7 @@ const CHILD_WORD: u64 = 0xC0FFEE;
 /// **The init role, milestone 19d.** The role in which this binary is the parent: it parses an ELF
 /// and starts a child, with the loader in userspace rather than in the kernel. It is **not** the
 /// first process; since milestone 266 that is `progenitor`, and this role's name has not followed
-/// it (the constants below are unratified, and a rename of them is calef's). init holds a
+/// it (the constants below are unratified, and a rename of them is an architect's). init holds a
 /// building untyped (slot 0) and a report endpoint (slot 1, `WRITE|GRANT`); the initrd is mapped
 /// read-only at [`user_mode_runtime::initrd::INITRD_VA`], and its length arrives in `x1`.
 ///

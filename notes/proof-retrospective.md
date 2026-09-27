@@ -5,18 +5,18 @@ the harnesses work, and until this note nothing in the tree had asked whether th
 anything. This is that question, asked against the only evidence that cannot be arranged after the
 fact: the project's own written record of real defects.
 
-*Note name provisional, per the naming tenet. calef names things.*
+*Note name provisional, per the naming tenet. An architect names things.*
 
 ## The finding
 
-**Amber, and the red half is structural rather than a criticism of any harness.**
+Amber, and the red half is structural rather than a criticism of any harness.
 
-**No Kani harness in this tree has ever caught a defect after the day it was written.** Every defect
+No Kani harness in this tree has ever caught a defect after the day it was written. Every defect
 in the corpus below was found by something else: a flaky suite, a boot on real silicon, a fuzzer, a
 mutation sweep, loom, a code read, or a CI lint. Not one red `script/verify` run appears anywhere in
 the record.
 
-**Two real defects were caught while harnesses were being written**, which is the proofs working
+Two real defects were caught while harnesses were being written, which is the proofs working
 exactly as designed and is invisible in any defect list. `dtb::be32`/`be64` had an unchecked `at + 4`
 that panicked on a near-`usize::MAX` offset out of a corrupt device tree, on the kernel's boot path,
 before there is any way to report a failure. `pci::intx_irq` underflowed on a pin of 0 and panicked
@@ -24,7 +24,7 @@ in debug builds. Both were found by trying to state totality and discovering it 
 were hardened rather than merely proved. That is the survivorship asymmetry milestone 191's block
 predicted, and it is the reason the answer is amber rather than red.
 
-**The reason for the red half was one sentence, in `script/verify`'s own header:** `cargo kani -p
+The reason for the red half was one sentence, in `script/verify`'s own header: `cargo kani -p
 <crate>` never compiles the kernel, the user programs, or xtask. So 64,818 lines of `kernel/src`,
 holding the scheduler, IPC, trap frames, timer, arch trees and resource accounting, were out of
 reach by construction. That is, without exception, where the expensive defects were. The harnesses
@@ -32,12 +32,12 @@ were not weak; they were not pointed at the code that broke. *(Corrected 2026-09
 that day, when `kernel` became a harness crate; [`kernel-proofs.md`](kernel-proofs.md) has the
 reach now.)*
 
-**And the corpus is not evenly distributed over kinds of defect.** Of the eighteen entries below,
+And the corpus is not evenly distributed over kinds of defect. Of the eighteen entries below,
 five are concurrency, four are a hardware or firmware contract, three are resource accounting across
 a program's control flow, three are a specification that was never written down, and three are
 records rather than code. Kani, as this tree uses it, is aimed at none of those five classes. It is
 aimed at the sixth, panic-freedom and algebraic correctness over hostile input, and in that class the
-record shows **zero escapes**: nothing that a shipped harness states has ever afterwards turned out
+record shows zero escapes: nothing that a shipped harness states has ever afterwards turned out
 to be false in the code it covers.
 
 That is the honest shape of the result. The proofs are a net with a known, documented perimeter, and
@@ -53,7 +53,7 @@ below was taken from the merged worktree at base `f1f138a8` on 2026-08-30, with 
 |---|---|---|
 | Lines matching `kani::proof` anywhere | 148 | `grep -rn "kani::proof" --include="*.rs" . \| grep -v target \| wc -l` |
 | Of those, doc-comment mentions in `scripts/kani-lint-shim/` | 3 | same, filtered to that path |
-| **Actual harnesses** | **145** | `grep -rn "^\s*#\[kani::proof\]" --include="*.rs" . \| grep -v target \| wc -l` |
+| Actual harnesses | 145 | `grep -rn "^\s*#\[kani::proof\]" --include="*.rs" . \| grep -v target \| wc -l` |
 | Harnesses under `crates/` | 143 | same, scoped to `crates/` |
 
 The shim directory was `scripts/kani-lint-shim/` when these were measured; it is
@@ -61,7 +61,7 @@ The shim directory was `scripts/kani-lint-shim/` when these were measured; it is
 | Harnesses in `vendor/redoxfs` | 2 | same, scoped to `vendor/` |
 | Packages carrying at least one harness | 25 (24 under `crates/`, plus vendored RedoxFS) | see EXAMPLES |
 | Crates in the workspace | 65 | `ls -d crates/*/ \| wc -l` |
-| **Harnesses `script/verify` actually runs** | **140** | sum the shard table in `script/verify` |
+| Harnesses `script/verify` actually runs | 140 | sum the shard table in `script/verify` |
 | Source lines in harness-carrying crates | 31,725 | see EXAMPLES |
 | Source lines of Rust outside `vendor/` and `target/` | 206,728 | `find . -name "*.rs" ... \| xargs wc -l` |
 | Source lines of `kernel/src`, which no harness then compiled | 64,818 | `find kernel/src -name "*.rs" \| xargs wc -l` |
@@ -70,25 +70,25 @@ The shim directory was `scripts/kani-lint-shim/` when these were measured; it is
 Two of those rows are findings rather than facts, and they are picked up below: the gap between 145
 and 140, and the fact that twenty of the twenty-four harness crates carry no vacuity guard at all.
 
-**Take these numbers from the tree, not from here.** This note will drift the same way the roadmap's
+Take these numbers from the tree, not from here. This note will drift the same way the roadmap's
 112 did. The EXAMPLES section is the re-derivation.
 
 ## The method
 
 Four fixed questions per defect, from milestone 191's block:
 
-1. **What was the defect, as a property that was false?** Not "the board hung". The invariant.
-2. **Was that property provable at all?** A property about what a U74 does with a store buffer is not
+1. What was the defect, as a property that was false? Not "the board hung". The invariant.
+2. Was that property provable at all? A property about what a U74 does with a store buffer is not
    a property of our source and no prover here will ever see it.
-3. **Did a harness exist that covered it?** A harness that existed, passed, and let the defect through
+3. Did a harness exist that covered it? A harness that existed, passed, and let the defect through
    is the most interesting outcome available, and it gets its own section.
-4. **What would it have cost to have one?** This is what makes the study a worklist.
+4. What would it have cost to have one? This is what makes the study a worklist.
 
 Then the reverse pass, which is not optional: which harnesses prove something that could plausibly
 have been false, and which prove a tautology of the operators they use. Without that pass a study of
 proofs can only confirm.
 
-**Every counterfactual below is marked as a judgement.** "A proof would have caught this" is not a
+Every counterfactual below is marked as a judgement. "A proof would have caught this" is not a
 measurement, and the ones that are close to measurements say why.
 
 ## The defect corpus
@@ -105,17 +105,17 @@ Column 4 is a judgement in every row.
 | 1 | aarch64 exception-return race | staged `SPSR_EL1`/`ELR_EL1` survive to the `eret` | no (assembly, hardware semantics) | none possible | a flake, 1 run in 4 |
 | 2 | riscv64 `trap_return` sibling | same, for `sepc`/`sstatus` | no | none possible | reading, after #1 |
 | 3 | riscv64 `trap_entry` `sscratch` window | no user value is a `&TrapStash` | no | none possible | the arch audit; left documented |
-| 4 | PLIC enable-bit lost update | concurrent `enable`/`disable` on one word preserve each other | **by loom, not by Kani** | none | the arch audit |
-| 5 | wake-before-switch-out race | a thread is never queued while a core still executes it | **by loom**, and now is | Kani harness existed, structurally blind | a flake, 10/10 to 8/10 |
-| 6 | `clock_protocol` seqlock missing `fence(Release)` | a reader never sees a torn `(state, offset)` pair | **by loom** | none | loom, on its first run |
-| 7 | timer re-arm drift (milestone 6) | the deadline advances one interval per delivered tick | **yes, and the proof now exists elsewhere** | none | measurement, 100 Hz became ~70 Hz |
+| 4 | PLIC enable-bit lost update | concurrent `enable`/`disable` on one word preserve each other | by loom, not by Kani | none | the arch audit |
+| 5 | wake-before-switch-out race | a thread is never queued while a core still executes it | by loom, and now is | Kani harness existed, structurally blind | a flake, 10/10 to 8/10 |
+| 6 | `clock_protocol` seqlock missing `fence(Release)` | a reader never sees a torn `(state, offset)` pair | by loom | none | loom, on its first run |
+| 7 | timer re-arm drift (milestone 6 (threads)) | the deadline advances one interval per delivered tick | yes, and the proof now exists elsewhere | none | measurement, 100 Hz became ~70 Hz |
 | 8 | FS-server stack 528 bytes short | the grant exceeds the deepest handler recursion | no (a property of codegen) | none | a wall-clock ceiling, misread for a day |
-| 9 | `nifefs::write_image` accepted a NUL name | every accepted name reads back as itself | **yes, cheaply** | 2 harnesses, neither states it | the fuzzer, under a minute |
+| 9 | `nifefs::write_image` accepted a NUL name | every accepted name reads back as itself | yes, cheaply | 2 harnesses, neither states it | the fuzzer, under a minute |
 | 10 | `dtb::node_reg` indexed past its cell stack | the walker is total | no (the BMC wall, named in advance) | 4 harnesses, all on the leaves | reading, while writing the fuzz target |
-| 11 | `dtb::Region::end` overflowed | `start + size` does not wrap on a hostile memory map | **yes** | none for `end()` | the fuzzer, ten minutes cold |
-| 12 | `gpt::parse` accepted a backup-boundary equality | no accepted table puts a usable block in the backup array | **yes** | 9 harnesses, none states it | mutation testing |
-| 13 | `login::mint()` cspace slot leak | `mint` returns the cspace to its entry occupancy | **yes, after an extraction** | none | a 9th login answered DENIED |
-| 14 | `login::connect()` rendezvous leak | a served channel leaves no global registry slot behind | **yes, after an extraction** | none | an unrelated later test, "512 live at once" |
+| 11 | `dtb::Region::end` overflowed | `start + size` does not wrap on a hostile memory map | yes | none for `end()` | the fuzzer, ten minutes cold |
+| 12 | `gpt::parse` accepted a backup-boundary equality | no accepted table puts a usable block in the backup array | yes | 9 harnesses, none states it | mutation testing |
+| 13 | `login::mint()` cspace slot leak | `mint` returns the cspace to its entry occupancy | yes, after an extraction | none | a 9th login answered DENIED |
+| 14 | `login::connect()` rendezvous leak | a served channel leaves no global registry slot behind | yes, after an extraction | none | an unrelated later test, "512 live at once" |
 | 15 | x86_64 `boot_cpu_id` answered "which core am I" | `boot_cpu_id` is the core that booted, on every arch | no (a cross-arch contract; rung 1 territory) | none | a test failing half the time |
 | 16 | x86_64 PVH `pci::place_bars` trusted any nonzero BAR | a BAR is usable only inside the window this kernel mapped | yes, and a proof would have proved the wrong predicate | 5 pci harnesses | attaching a real NVMe device |
 | 17 | nine roadmap statuses wrong in both records | the roadmap describes the tree | not a code property | the gate compared two records; the tree is a third | a sweep, after a lane burned its budget |
@@ -125,49 +125,49 @@ Six rows deserve more than a cell.
 
 ### 7. The timer re-arm drift, and the one property this study can price exactly
 
-**The defect.** `kernel/src/arch/aarch64/timer.rs`'s module header says it plainly: *"We shipped this
+The defect. `kernel/src/arch/aarch64/timer.rs`'s module header says it plainly: *"We shipped this
 bug and then measured it."* Re-arming with `TVAL`, a relative countdown, means every tick starts its
 countdown late by however long the trap took, and the lateness is never recovered. Measured under
-QEMU: **100 Hz configured, about 70 Hz observed**. Thirty percent of the kernel's preemptions, gone,
+QEMU: 100 Hz configured, about 70 Hz observed. Thirty percent of the kernel's preemptions, gone,
 with nothing saying so.
 
-**The property.** `next_deadline = fired_deadline + interval`, except that a deadline already in the
+The property. `next_deadline = fired_deadline + interval`, except that a deadline in the
 past re-anchors and costs exactly one fire rather than a backlog.
 
-**Provable? Yes, and the proof already exists in this tree, over a different subsystem.**
+Provable? Yes, and the proof already exists in this tree, over a different subsystem.
 `crates/timetable`'s `next_after(prev, period, now)` is the same three arguments and the same law, and
 its five harnesses state it: `a_fire_is_strictly_in_the_future`, `a_fire_is_at_least_one_whole_period_on`
 (`next >= prev + period`, which is the drift law), and `a_stall_costs_one_fire_and_not_a_backlog`
 (`next <= now + period`, which is the re-anchor). Put `rearm`'s twelve lines of arithmetic behind that
 function and the milestone-6 defect becomes unrepresentable.
 
-**The honest qualification, and it matters.** The *original* defect was one register below the
+The honest qualification, and it matters. The *original* defect was one register below the
 arithmetic: `TVAL` versus `CVAL`, relative versus absolute, with no `next` computed at all. A pure
 function proof does not see a register's semantics, so it would not have caught the first form.
 It would have caught the second. Milestone 62 injected exactly that second form, `sbi_set_timer(now +
 interval())` with the grid still maintained correctly beside it, and `notes/instruction-clock.md`
-records that the instruction-count instrument went **green with every number byte-identical to a
-clean run**, because that instrument compares each arrival against the deadline that fired, which a
+records that the instruction-count instrument went green with every number byte-identical to a
+clean run, because that instrument compares each arrival against the deadline that fired, which a
 re-anchoring kernel satisfies forever. A `timetable`-shaped proof is the one form of evidence in this
 tree that would have gone red on that injection without needing an emulator.
 
-Judgement, and it is the strongest one in this study: **this is a defect a proof would have caught,
-the proof is already written, and the only thing missing is that the timer does not call it.** That
+Judgement, and it is the strongest one in this study: this is a defect a proof would have caught,
+the proof is already written, and the only thing missing is that the timer does not call it. That
 is the Phase-2 extraction pattern `memory_regions`, `inter_process_communication`, `dma_validator` and `paging::domain` all
 took, applied to a subsystem that has not had it yet.
 
 ### 5 and 6. The two concurrency defects, and why one tool found one of them
 
 Both are races. Neither is a Kani property as this tree uses Kani, and `notes/verification.md` says
-so before either was found, in its list of what a green check does not mean: *"**Concurrency is the
-sharpest edge of this limit**: every queue and endpoint proof here is single-threaded, and the
+so before either was found, in its list of what a green check does not mean: *"Concurrency is the
+sharpest edge of this limit: every queue and endpoint proof here is single-threaded, and the
 wake-before-switch-out race (notes/intrusive-queues.md) lived precisely in the SMP interleaving those
 proofs cannot see. Green harnesses and a real race coexisted; the flaky test found it."*
 
 That paragraph is the model for how this project should talk about its proofs, and it was written
 before this retrospective existed.
 
-The seqlock defect (#6) is the corpus's one unambiguous **green** for a formal method, and the method
+The seqlock defect (#6) is the corpus's one unambiguous green for a formal method, and the method
 is loom rather than Kani. The writer claimed the sequence with a compare-exchange and then wrote the
 data with nothing ordering the claim ahead of them. Three of four harnesses failed on the first run.
 The instructive part is the table of fixes that do not work: `Acquire`, `AcqRel` and `SeqCst` on the
@@ -177,7 +177,7 @@ else in the tree could see it: the ten host tests, the kernel clock tests on bot
 `script/verify`, `script/fuzz` and `script/undefined-behavior-check` all passed before the fix and all
 pass after it.
 
-**What this says about coverage.** The class Kani cannot reach is precisely the class loom can, and
+What this says about coverage. The class Kani cannot reach is precisely the class loom can, and
 this project noticed and built the second tool. Five of the eighteen defects are concurrency and
 `crates/` now holds five loom-checked protocols. That is the verification programme working as a map
 even where it did not work as a net.
@@ -186,42 +186,42 @@ even where it did not work as a net.
 
 These are question 3's interesting outcome, and each one fails for a different reason.
 
-**`nifefs::write_image` and the NUL name.** `nifefs` has two harnesses, both about the *reader*:
+`nifefs::write_image` and the NUL name. `nifefs` has two harnesses, both about the *reader*:
 `the_validation_implies_reads_slice_is_in_bounds` and `a_short_image_is_refused_not_indexed`. The
 crate's reader is proved total with no bound on the image size at all, which is strong. The defect was
 in the writer: a name containing a NUL went into a NUL-padded field, so `"a\0b"` was written and read
 back as `"a"`, and two names agreeing up to their first NUL collapse into one entry. Nothing panicked,
 so no totality proof could have found it. `notes/fuzzing.md` states the reason correctly: *"it is a
-**property** violation, and the property had never been written down."* The property is one line
-(`for every accepted name, read(name) returns what write stored`) and it is Kani-shaped. **Worklist.**
+property violation, and the property had never been written down."* The property is one line
+(`for every accepted name, read(name) returns what write stored`) and it is Kani-shaped. Worklist.
 
-**`dtb::Region::end`.** Four harnesses, all on `be32`/`be64`. `end()` was `self.start + self.size` on
+`dtb::Region::end`. Four harnesses, all on `be32`/`be64`. `end()` was `self.start + self.size` on
 two `u64`s straight out of the blob, and the kernel calls it on every RAM region the device tree
 declares, in a dev-profile build with overflow checks on. A `/memory` node claiming
 `start = size = u64::MAX` panics on the boot path; in release it wraps, which is worse. Nobody had
 thought to look at `end()`. That is not a limit of the tool, it is a gap in what anyone chose to
-state. **Worklist.**
+state. Worklist.
 
-**`gpt::parse`, the best near-miss in the corpus.** Nine harnesses, including
+`gpt::parse`, the best near-miss in the corpus. Nine harnesses, including
 `create_never_lays_out_a_table_parse_would_reject`, which sounds exactly like the property the defect
 violated. It is not. That harness asserts that whenever `Gpt::create` succeeds, its output satisfies
-the four inequalities `parse` checks, and it spells those inequalities out **as the code writes them**
+the four inequalities `parse` checks, and it spells those inequalities out as the code writes them
 (`h.last_usable_lba + span < h.alternate_lba`). The defect was a wrong-*accept* in `parse`: `>` where
 `>=` was needed at the backup-array boundary, putting one usable block inside the backup entry array
 where a partition would overwrite it. `create` makes tight tables, so a create-then-parse harness
 never reaches the equality, and a harness that restates the reader's own inequality cannot detect that
 the inequality is wrong. `notes/mutation-testing.md` draws the same conclusion from its own side:
-*"an exhaustive sweep proves **rejection**, not **rejection for the right reason**."*
+*"an exhaustive sweep proves rejection, not rejection for the right reason."*
 
-This is verification.md's failure mode 1, on the record, in a shipped crate: **a proof proves what
-you asserted, not what you meant.** The fix is to state the property absolutely rather than relative
-to the writer: *no accepted table places a usable block inside either entry array*. **Worklist.**
+This is verification.md's failure mode 1, on the record, in a shipped crate: a proof proves what
+you asserted, not what you meant. The fix is to state the property absolutely rather than relative
+to the writer: *no accepted table places a usable block inside either entry array*. Worklist.
 
 ### 13 and 14. Resource accounting, a class nothing here is aimed at
 
 `login::mint()` never freed its own copy of the caretaker's construction-region capability on the
 success path. `login`'s cspace is fixed at 16 slots and 8 are spent at rest, so the leak bounded the
-service to **exactly eight successful logins ever**, and a ninth correctly-authenticated login was
+service to exactly eight successful logins ever, and a ninth correctly-authenticated login was
 answered `DENIED`, indistinguishable from a wrong password. `login::connect()` had the same shape one
 level out: two rendezvous objects per connect, retyped from a shared region and released with
 `cap_delete`, which drops login's reference but leaves the kernel object in a global 512-slot registry
@@ -232,7 +232,7 @@ Both are "every path through this function returns the resource to its entry occ
 provable property and nothing in this tree proves it for any function. It needs the slot bookkeeping
 lifted out of `components/src/login.rs` into a crate, which is a real extraction rather than a harness, and
 it is the class most likely to recur: sixteen slots is a small ceiling and every service program has
-one. **Worklist, and the largest item on it.**
+one. Worklist, and the largest item on it.
 
 ### 16. The defect a proof would have got wrong
 
@@ -243,8 +243,8 @@ QEMU resets `-device nvme`'s BAR0 to a live address of its own choosing, unrelat
 
 `crates/pci` has five harnesses, one of which is `ecam_offset_stays_inside_the_window`. A sixth
 stating "a BAR this function accepts is inside the mapped window" would have been written, in
-2026-07, against the predicate the code used, because that predicate was believed. **A proof would
-have encoded the bug.** The thing that found it was attaching a real device to a real boot path, which
+2026-07, against the predicate the code used, because that predicate was believed. A proof would
+have encoded the bug. The thing that found it was attaching a real device to a real boot path, which
 is the ranking function at the top of `AGENTS.md` doing its job.
 
 Recorded because a study of proofs that only lists cases where a proof would have helped is
@@ -254,7 +254,7 @@ propaganda.
 
 Nine milestones (81, 82, 85, 94, 96, 100, 101, 109, 110, 113) had merged implementation pull requests
 while both roadmap records read `NOT-STARTED`. `script/roadmap --check` was green throughout, because
-it compares two records and **the tree is a third record nothing compares against**. A developer spent
+it compares two records and the tree is a third record nothing compares against. A developer spent
 its entire budget re-running mutation tests for milestone 85, which had merged hours earlier.
 
 A block quote in `design/roadmap/74-cycle-counters.md`, attributed to `notes/benchmarks.md`, quoted
@@ -262,8 +262,8 @@ arithmetic that milestone 101 had re-measured and retracted. The roadmap was cit
 the current record and nothing could see it, because a prose block quote attributed to another file is
 a citation no gate resolved. `script/citations` exists because of it.
 
-The shape is identical to the code cases and is worth naming as one thing: **a checker compares two
-artifacts and the truth lives in a third.** `parse` against `create`, a roadmap file against a README,
+The shape is identical to the code cases and is worth naming as one thing: a checker compares two
+artifacts and the truth lives in a third. `parse` against `create`, a roadmap file against a README,
 a quote against nothing at all. The generalisation for the proofs is that a harness written against
 the code's own predicate is that shape exactly.
 
@@ -272,30 +272,30 @@ the code's own predicate is that shape exactly.
 The corpus above is a list of escapes. This is the other half, and it is the reason the finding is
 amber.
 
-**Two real defects, both found at harness-writing time.**
+Two real defects, both found at harness-writing time.
 
-- **`dtb::be32` and `be64`.** The original `at + 4` was a bare add on a `usize` taken straight out of
+- `dtb::be32` and `be64`. The original `at + 4` was a bare add on a `usize` taken straight out of
   an untrusted blob. Trying to state `be32_is_total` made it fail, and the readers were hardened to a
   checked add returning `Truncated`. This is a panic on the kernel's boot path, reachable from
   firmware, in the first parser that runs on both ISAs. Real, and found by the attempt to prove.
-- **`pci::intx_irq`.** The pin-0 case underflowed and panicked in debug builds. Hardened with
+- `pci::intx_irq`. The pin-0 case underflowed and panicked in debug builds. Hardened with
   saturating arithmetic while writing `intx_irq_is_total_and_bounded`. The comment records the honest
   scope: every caller checks `pin == 0` first, so this is defence in depth rather than a live hole.
 
-**One proof obligation closed, marked honestly as not a bug.** `paging::domain::grant_pages` gained a
+One proof obligation closed, marked honestly as not a bug. `paging::domain::grant_pages` gained a
 wrap refusal because `an_enumerated_page_lies_inside_the_grant` cannot compute the grant's limit
 without it. The comment says out loud that the first draft of itself overstated this: reaching a
 wrapped address needs a `size` within a page of `2^64` and the frame allocator would run dry tens of
 orders of magnitude earlier. What the check buys is totality, not a fix. That paragraph is the model
 for how a proof-driven change should be described.
 
-**One specification falsified by the prover.** In `crates/glob`, Kani came back in 42 seconds with a
+One specification falsified by the prover. In `crates/glob`, Kani came back in 42 seconds with a
 counterexample to the *harness*, not the code: with a fully symbolic class body, `[!y]` is already a
 negated class, so "`[xy]` and `[!xy]` are complements" is false when `x` is `!`. `notes/verification.md`
 keeps it because *"the reflex on a red harness is to suspect the code."* A prover that corrects the
 person writing the specification is doing something no test can.
 
-**And the counterfactual that cannot be measured.** Nothing that a shipped harness states has
+And the counterfactual that cannot be measured. Nothing that a shipped harness states has
 afterwards turned out to be false. The capability model's twelve harnesses, the DMA validator's seven,
 the untyped-region no-double-free pair, the address arithmetic, the IOMMU domain's page set: all of
 these underwrite security claims that would otherwise rest on argument, and none has ever needed
@@ -304,14 +304,14 @@ only thing that tells them apart.
 
 ## The reverse pass
 
-The question that keeps this study from being able only to confirm: **which harnesses prove a property
-that could plausibly have been false?**
+The question that keeps this study from being able only to confirm: which harnesses prove a property
+that could plausibly have been false?
 
 ### Harnesses that could not have failed
 
 Judgement, harness by harness, on the ones that look weakest.
 
-**`capability::subset_is_reflexive` is the clearest case.** It proves `a.is_subset_of(a)` for every
+`capability::subset_is_reflexive` is the clearest case. It proves `a.is_subset_of(a)` for every
 `a`, and `is_subset_of` is `self.0 & !other.0 == 0`. Reflexivity is then `a & !a == 0`, a tautology of
 the two operators. Work through the plausible ways to get `is_subset_of` wrong and none of them
 break it: reversing the operands passes, writing it as `self.0 & other.0 == self.0` passes, using the
@@ -428,11 +428,11 @@ next lane on.
 | 5 | `region_end_is_total` in `dtb`, and a sweep for its siblings | `Region::end` overflowed on a hostile memory map | the `be32` hardening applied to every `pub` arithmetic helper on blob-derived fields | small |
 | 6 | Lift `login`'s cspace bookkeeping into a crate and prove occupancy is restored | `mint()`'s 8-login ceiling; `connect()`'s rendezvous leak | a real extraction, the largest item here | a lane |
 | 7 | A loom crate over the PLIC enable-bit read-modify-write | the lost update the arch audit found and fixed by inspection | the `work_steal_slot` pattern, which is precedented | modest |
-| 8 | A convention that marks a harness's falsification record | the reverse pass could not enumerate them | naming or an attribute; **calef's call**, since it is a convention | a decision, not a lane |
+| 8 | A convention that marks a harness's falsification record | the reverse pass could not enumerate them | naming or an attribute; **an architect's call**, since it is a convention | a decision, not a lane |
 | 9 | `cover!` guards on the assuming harnesses that have none | twenty of twenty-four harness crates carry no vacuity guard | mechanical, one per harness that assumes | modest |
 
-Item 8 is a proposal rather than a task, and it is the only thing here that is calef's rather than a
-lane's: it is a tree-wide convention, and this note has no authority to mint one.
+Item 8 is a proposal rather than a task, and it is the only thing here that is an architect's rather
+than a lane's: it is a tree-wide convention, and this note has no authority to mint one.
 
 ## EXAMPLES
 
@@ -534,7 +534,7 @@ in the tree does it.
 **This note has no gate and produces no artifact the build checks**, which is milestone 191's own
 `BUGS` entry and remains true. Its worklist is nine rows of prose, and prose is rung four. The one
 thing that stops it going the way milestone 94's inventory went is that item 1 is a gate, item 8 is a
-decision for calef, and the rest name a crate a reader can grep for.
+decision for an architect, and the rest name a crate a reader can grep for.
 
 **The counts will drift.** They were taken on 2026-08-30 at base `f1f138a8`. The EXAMPLES section
 exists so the next reader re-derives them instead of quoting this table, which is the failure

@@ -24,34 +24,34 @@ has existed and been live all along; this milestone spent it for its first real 
 
 ## What was built
 
-**The `MappedWindow` cluster, the milestone's first real reduction.** Seven userspace programs
+The `MappedWindow` cluster, the milestone's first real reduction. Seven userspace programs
 (`entropy`, `kbd`, `net_transport`, `multicast_dns_responder`, `socket_test_client`, `smb_server`, `ntp`)
 each hand-rolled the same `r8`/`w8`/`r16`/`w16`/`r32` volatile-access functions over a DMA page or
 a shared IPC frame, one hand-written `// SAFETY:` comment per function asserting the same
 invariant ("this offset is inside the page the kernel mapped here") by hand at every call site --
-the exact §94 shape this milestone's own text names as the best available reduction.
+the exact §94 (what) shape this milestone's own text names as the best available reduction.
 `user_rt::mapped_window::MappedWindow` (new) holds that invariant once, at construction, and turns
 every access into a bounds-checked call: a wrong offset used to be a silent out-of-bounds volatile
 access and is now a panic naming the access, which is a real soundness improvement the hand-written
 copies never had, not just a relocation.
 
-**Measured precisely from the diff** (a before/after tree census is contaminated by unrelated
+Measured precisely from the diff (a before/after tree census is contaminated by unrelated
 concurrent growth -- five days between this milestone's baseline and this reduction added 30
-unrelated `unsafe` blocks elsewhere in the tree at roughly the tree's own rate): **32 `unsafe {`
-blocks removed across the seven programs, 11 added** (9 window constructions -- one per program
+unrelated `unsafe` blocks elsewhere in the tree at roughly the tree's own rate): 32 `unsafe {`
+blocks removed across the seven programs, 11 added (9 window constructions -- one per program
 except `smb_server`, which needs two: one for its boot-wired FS channel sized to
 `fs::TRANSFER_MAX`, one for its runtime-mapped socket frame -- plus the 2 generic `read`/`write`
-methods inside `MappedWindow` itself). **Net -21.** `smb_server.rs` alone is flat (11 blocks before
+methods inside `MappedWindow` itself). Net -21. `smb_server.rs` alone is flat (11 blocks before
 and after), still a real reduction by this milestone's own criterion 2 (raw pointer arithmetic
 replaced by a typed, bounds-checked abstraction) even though it does not move that file's own
 count.
 
-**Density**: 93.4 (799 blocks over 85,476 lines) immediately before this reduction, 90.8 (778 over
+Density: 93.4 (799 blocks over 85,476 lines) immediately before this reduction, 90.8 (778 over
 85,526) after -- essentially the density the milestone's own baseline recorded on 2026-08-18 (93.0),
 despite five days of unrelated tree growth in between, which is what makes density rather than raw
 count the number worth trusting. Full measurement history in `notes/unsafe-obligations.md`'s table.
 
-**The ratchet, cinched**: `<!--count-at-most:unsafe-density-outside-arch-->` lowered from 100 to 97
+The ratchet, cinched: `<!--count-at-most:unsafe-density-outside-arch-->` lowered from 100 to 97
 in the same commit (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
 `notes/register-of-measures.md`), 7 points of headroom above the 90.8 this reduction reached -- the
 same absolute headroom the original 100-vs-93 ceiling carried, not a zero-headroom ceiling that
@@ -63,7 +63,7 @@ in `notes/unsafe-obligations.md` beside the marker.
 
 The three concrete next steps round 1 named, taken in the order it suggested.
 
-**`crates/user_rt`'s `SYS_INVOKE` round trip collapsed, a second real §94-shaped reduction.** Six
+`crates/user_rt`'s `SYS_INVOKE` round trip collapsed, a second real §94-shaped reduction. Six
 methods (`recv`, `recv_cap`, `recv_fault`, `call`, `survey`, `list`), each duplicated once per
 architecture, had each hand-rolled its own `asm!` block asserting the identical invariant
 ("`svc`/`ecall` traps to the kernel, which validates before acting") at a register layout that
@@ -76,11 +76,11 @@ this block's own text names as the best available reduction. One honest behaviou
 `recv_fault`) used to leave one input register unset for the kernel to read as whatever value
 happened to be there (harmless, since those methods read no input words); routing them through the
 shared primitive means they now pass an explicit `0`, a strict tightening rather than a behaviour
-change. **Measured from the diff: 14 `unsafe {` blocks removed, 9 added, net -5**, entirely inside
+change. Measured from the diff: 14 `unsafe {` blocks removed, 9 added, net -5, entirely inside
 `crates/user_rt/src/lib.rs`.
 
-**`crates/inter_process_communication` read in full: no reduction found, and that is the milestone's own predicted outcome
-for at least one target.** Production code carries exactly three `unsafe` blocks, one each inside
+`crates/inter_process_communication` read in full: no reduction found, and that is the milestone's own predicted outcome
+for at least one target. Production code carries exactly three `unsafe` blocks, one each inside
 `send`, `recv` and `remove_sender`, and each already asserts a genuinely different fact (which of
 two queues, which node, under what caller contract) rather than the same fact copied three times --
 there is no §94 shape to collapse here. The other 41 sites the crate's `unsafe {` count includes
@@ -94,8 +94,8 @@ re-derived at each of the eleven/twenty-odd sites"), with each call site's own c
 what is particular to it. Nothing to migrate; reported honestly rather than forcing a relocation to
 move a number.
 
-**The broader `read_volatile`/`write_volatile` sweep round 1's own BUGS section asked for, run for
-real this time.** Grepping directly for `read_volatile`/`write_volatile` across `user/src/` (rather
+The broader `read_volatile`/`write_volatile` sweep round 1's own BUGS section asked for, run for
+real this time. Grepping directly for `read_volatile`/`write_volatile` across `user/src/` (rather
 than by the `r8`/`w8`/`r16` naming convention round 1 searched by name) surfaced roughly thirty
 files; most turned out not to be the pattern (device register blocks with their own poll loops,
 framebuffer/graphics code, or programs whose entire point is deliberately invalid or one-off memory
@@ -105,15 +105,15 @@ eight programs (`rm`, `fs_file_caretaker`, `sink`, `fs_subtree_caretaker`, `fs_n
 byte-copy loop over the page shared with the FS server, every one asserting "this VA is a mapped
 page of this size" by hand in near-identical wording (`fs_nameset_caretaker` carries a second,
 read-only window for its name set; `fs_test_client` carries five such helpers over one window sized
-to `fs::TRANSFER_MAX` rather than one page). Migrated onto the **existing**
+to `fs::TRANSFER_MAX` rather than one page). Migrated onto the existing
 `user_rt::mapped_window::MappedWindow` (round 1's type, reused rather than duplicated, per this
-block's own instruction). **21 `unsafe {` blocks removed, 10 added, net -11** across the nine files.
+block's own instruction). 21 `unsafe {` blocks removed, 10 added, net -11 across the nine files.
 `fs_subtree_caretaker.rs` alone is flat (1 block before and after: one hand-rolled function traded
 for one window construction), the same "still real by criterion 2" case `smb_server.rs` was in round
 1: raw pointer arithmetic replaced by a typed, bounds-checked abstraction, even though the file's own
 count does not move.
 
-**Combined round 2: 35 `unsafe {` blocks removed, 19 added, net -16.** Measured from the diff against
+Combined round 2: 35 `unsafe {` blocks removed, 19 added, net -16. Measured from the diff against
 this round's own base commit (`a269403e`), the same discipline round 1 used and for the same reason:
 a tree-wide census is contaminated by unrelated concurrent growth. This round's paired measurement
 happens to be uncontaminated regardless -- nothing else landed on this branch between the base commit
@@ -123,7 +123,7 @@ truncated, because this reduction also removed lines (duplicated `asm!` blocks a
 along with the blocks themselves), so the denominator moved with the numerator for the first time
 this ceiling has had to account for.
 
-**The ratchet, cinched again**: `<!--count-at-most:unsafe-density-outside-arch-->` lowered from 97 to
+The ratchet, cinched again: `<!--count-at-most:unsafe-density-outside-arch-->` lowered from 97 to
 96 in the same commit (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
 `notes/register-of-measures.md`), keeping the same 7-point headroom the 100-vs-93 and 97-vs-90
 ceilings both carried, now above the 89 this round reached.
@@ -135,7 +135,7 @@ Round 2's own handoff list named five items precisely enough that this round did
 re-derive a net; it took the three it named as clear migrations and investigated the two it named as
 open questions.
 
-**`swish.rs`'s remaining two windows.** `OUT_VA`/`LINE_VA` (`stage`/`read_line`, the shell's terminal
+`swish.rs`'s remaining two windows. `OUT_VA`/`LINE_VA` (`stage`/`read_line`, the shell's terminal
 pages) and the job frame `spawn_interruptible`/`watch` signal through (`jf_load`/`jf_store`,
 parametrized by a runtime `va`, "actually a *better* `MappedWindow` fit than the FS cluster, since
 `new` already takes a runtime base" in round 2's own words). The terminal pair is flat by block count
@@ -144,20 +144,20 @@ parametrized by a runtime `va`, "actually a *better* `MappedWindow` fit than the
 `fs_subtree_caretaker.rs` were in rounds 1 and 2. The job frame collapses for real: `jf_load`/
 `jf_store` were two functions with their own `// SAFETY:` comments, called eight times combined
 across `spawn_interruptible` and `watch`; one `MappedWindow`, constructed once right after the frame
-is mapped, replaced both. **4 `unsafe {` blocks removed, 3 added, net -1**, in `components/src/swish.rs`
+is mapped, replaced both. 4 `unsafe {` blocks removed, 3 added, net -1, in `components/src/swish.rs`
 alone.
 
-**`disk_surveyor.rs`'s `ROSTER_VA`.** A single shared `u64` flag at a fixed VA the program maps
+`disk_surveyor.rs`'s `ROSTER_VA`. A single shared `u64` flag at a fixed VA the program maps
 itself at runtime (`Frame::MAP`, not a boot-time wiring), read once in `ROLE_HOLDER`, read again
 after the kernel deliberately revokes the mapping (the module's own negative control: the second
 read must fault), and written once in `ROLE_PROBE` (refused by the kernel; the mapping is read-only).
 The two deliberate-fault sites are the one honest exception recorded where a reader meets it:
 `MappedWindow`'s bounds check cannot catch either fault, because offset 0 is inside the declared
 window both times, so the real hardware fault happens inside `read`/`write` at exactly the access the
-hand-written version made, and the test's behaviour is unchanged by the migration. **3 `unsafe {`
-blocks removed, 2 added, net -1**, in `components/src/disk_surveyor.rs` alone.
+hand-written version made, and the test's behaviour is unchanged by the migration. 3 `unsafe {`
+blocks removed, 2 added, net -1, in `components/src/disk_surveyor.rs` alone.
 
-**`net_stack.rs`'s `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster**, the exact naming variant
+`net_stack.rs`'s `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster, the exact naming variant
 `user_rt::mapped_window`'s own doc comment already named as a shape round 1's search should have
 caught and did not. Genuinely harder than the FS cluster, as round 2 flagged: the VA is not a fixed
 constant but `socket_va(sid) = 0x00A0_0000 + sid * 0x1000`, a different page per open socket, and
@@ -173,14 +173,14 @@ Every downstream call site (`read_dst`, `udp_sendto`, `sock_recv`, `tcp_connect`
 `udp_bind`, `tcp_send`) now takes or holds a `MappedWindow` rather than a raw VA, so the
 restructuring reaches the caller side. One further site collapsed for the same reason though it was
 never named `a_w8`: `sock_recv`'s payload-write loop had its own hand-rolled `write_volatile`,
-identical in shape, folded into the same window. **5 `unsafe {` blocks removed (the four functions'
-bodies plus the hand-rolled loop), 1 added (the window construction in `OP_ATTACH_FRAME`), net -4**,
+identical in shape, folded into the same window. 5 `unsafe {` blocks removed (the four functions'
+bodies plus the hand-rolled loop), 1 added (the window construction in `OP_ATTACH_FRAME`), net -4,
 in `components/src/net_stack.rs` alone. `script/test`'s aarch64 and riscv64 net suites (DHCP, UDP, TCP
 connect/accept/listen, the mDNS responder) passed clean, which is the load-bearing evidence here: the
 restructuring touches per-socket lifecycle state, exactly the kind of change where a mistake shows up
 as a flaky network test rather than a compile error.
 
-**Combined round 3: 12 `unsafe {` blocks removed, 6 added, net -6.** Measured from the diff against
+Combined round 3: 12 `unsafe {` blocks removed, 6 added, net -6. Measured from the diff against
 this round's own base commit (`f731894d`), uncontaminated: nothing else landed on this branch between
 the base commit and this reduction, so the tree-wide census confirms it exactly: 776 blocks outside
 `arch/` at the base commit (89 per 10,000, matching round 2's own final reading), 770 after, exactly
@@ -188,14 +188,14 @@ the base commit and this reduction, so the tree-wide census confirms it exactly:
 explaining the new windows, so the denominator barely moved this round, unlike round 2's
 `asm!`-collapse.
 
-**The ratchet, cinched a third time**: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
+The ratchet, cinched a third time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
 from 96 to 95 in the same commit (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
 `notes/register-of-measures.md`), keeping the same 7-point headroom every ceiling in this milestone
 has carried, now above the 88 this round reached.
 
-**Investigation: device-register blocks (`console.rs`, `input.rs`, `driver.rs`, `clock.rs`,
+Investigation: device-register blocks (`console.rs`, `input.rs`, `driver.rs`, `clock.rs`,
 `jh7110_trng.rs`) -- genuinely per-driver distinct, and `MappedWindow` is the wrong fit; a stronger
-idiom already lives in this tree and is unused by these five files.** Read in full. `driver.rs` is
+idiom already lives in this tree and is unused by these five files. Read in full. `driver.rs` is
 already a different idiom (a raw `*const u8` with `.add(offset)`, not a named accessor pair) and
 needs nothing. `clock.rs`'s two RTC drivers (`pl031_unix_nanos`, `goldfish_unix_nanos`) are each a
 single one-shot function with its own `// SAFETY:` comment, called once; there is no duplication
@@ -211,12 +211,12 @@ under what caller contract... there is no §94 shape to collapse here"). A share
 type wrapping these would relocate the assertion from "a local `rd`/`wr` function" to "a shared
 type's constructor," not collapse it, which is this milestone's own named anti-pattern.
 
-But the investigation did not end at "nothing to do." **The tree already has the right idiom for
-this shape, in the kernel, for the very same two devices.** `kernel/src/drivers/pl011.rs` and
+But the investigation did not end at "nothing to do." The tree already has the right idiom for
+this shape, in the kernel, for the very same two devices. `kernel/src/drivers/pl011.rs` and
 `kernel/src/drivers/ns16550.rs` drive the identical PL011/NS16550 hardware these five userspace
 programs also drive, using `tock-registers`' `register_structs!`/`register_bitfields!` macros: one
 `unsafe` block for the whole driver (the base-pointer construction), and every register offset
-checked **at compile time** rather than asserted by hand, which is a stronger property than
+checked at compile time rather than asserted by hand, which is a stronger property than
 `MappedWindow`'s runtime bounds check gives (`kernel/src/drivers/pl011.rs`'s own comment: "an
 off-by-four here is a build error rather than a mystery at runtime"). This is exactly the "what does
 this tree already do in the analogous case" answer AGENTS.md's fork-readiness section asks for, and
@@ -232,8 +232,8 @@ restructuring. Left as a named follow-on: migrate `console.rs`, `input.rs` and `
 `tock_registers::register_structs!`, matching `kernel/src/drivers/pl011.rs`'s and
 `kernel/src/drivers/ns16550.rs`'s own shape; `clock.rs` and `driver.rs` need nothing, per above.
 
-**Correction, 2026-08-24 (round 5's lane, found by reading the file rather than trusting the
-paragraph above): `kernel/src/drivers/ns16550.rs` does not use `tock_registers`.** The two
+Correction, 2026-08-24 (round 5's lane, found by reading the file rather than trusting the
+paragraph above): `kernel/src/drivers/ns16550.rs` does not use `tock_registers`. The two
 paragraphs above claim it does ("drive the identical PL011/NS16550 hardware... using
 `tock-registers`' `register_structs!`/`register_bitfields!` macros"), twice, and both are wrong.
 `ns16550.rs`'s own module doc says plainly: "This one uses plain volatile access rather than
@@ -247,18 +247,18 @@ below is still real and still worth taking); it changes which half of `console.r
 that follow-on actually applies to, which round 5 (below) worked out per-file rather than assuming
 "the identical hardware" meant identical treatment.
 
-**Decided, 2026-08-24:** calef, in conversation: *"Take the dependency for user, launch the
+Decided, 2026-08-24: calef, in conversation: *"Take the dependency for user, launch the
 lane."* `tock-registers` is now a dependency of the `user` crate (`user/Cargo.toml`), pinned to
 `"0.10"`, matching `kernel/Cargo.toml`'s own pin so the two crates using this library never skew.
 See round 5 below for what actually migrated, including the runtime-stride finding above that
 narrowed it.
 
-**Investigation: framebuffer/graphics code (`display.rs`, `painter.rs`, `window.rs`, `compositor.rs`,
+Investigation: framebuffer/graphics code (`display.rs`, `painter.rs`, `window.rs`, `compositor.rs`,
 `display_terminal.rs`) -- one decisive structural finding, and the performance question narrowed but
-not settled.** Read in full. **The part of this pipeline that would actually run at real per-frame
-volume carries no per-pixel unsafe at all, migrated or not.** `compositor.rs`'s `paint`/`serve_frame`
+not settled. Read in full. The part of this pipeline that would actually run at real per-frame
+volume carries no per-pixel unsafe at all, migrated or not. `compositor.rs`'s `paint`/`serve_frame`
 call `compositor::composite(screen(), &srcs[..n], n, damage)`, the crate's host-tested pure logic,
-over ordinary safe `&mut [u32]`/`&[u32]` slices obtained by exactly **one** `unsafe` call per frame
+over ordinary safe `&mut [u32]`/`&[u32]` slices obtained by exactly one `unsafe` call per frame
 (`screen()`, `source(i)`), not one per pixel: the compositor's hot loop already is the "assert the
 invariant once, then use safe indexing" idiom `MappedWindow` generalizes, just spelled as a slice
 rather than as that type. This is the decisive part of round 2's "is a bounds check per pixel write a
@@ -279,7 +279,7 @@ path turned out not to exist in this file set. But "bounded and one-shot" or "bo
 speed" is a structural characterization, not a measurement: this round did not obtain an actual
 instruction-count or cycle number for a `MappedWindow`-checked pixel write versus the current raw
 one, because no such micro-benchmark exists yet and building one was out of this round's reasonable
-scope alongside the three migrations above. **Left as a narrowed follow-on** rather than a migration
+scope alongside the three migrations above. Left as a narrowed follow-on rather than a migration
 on a guess: the question a next lane needs to answer is no longer "does a bounds check survive 60fps"
 (it does not need to, because nothing here runs at 60fps) but "does a bounds check cost enough at
 2,048-8,192 accesses per one-shot run, or per keystroke-driven repaint, to matter" -- a much smaller
@@ -296,7 +296,7 @@ open question was no longer structural, it was a number: does `MappedWindow`'s b
 enough at these volumes to matter, "worth `script/icount` or `script/bench` rather than reasoning
 about it further" in round 3's own words. This round got that number, then migrated on it.
 
-**The measurement.** A temporary comparison loop over a page-sized buffer, one raw `write_volatile`
+The measurement. A temporary comparison loop over a page-sized buffer, one raw `write_volatile`
 against one loop performing `MappedWindow::check`'s own arithmetic first
 (`off.checked_add(size).is_some_and(|end| end <= len)`), at three volumes: 56 (one glyph cell,
 `bitmap_font::GLYPH_W * GLYPH_H`, `display_terminal.rs`'s smallest keystroke-driven repaint), 2,048
@@ -318,7 +318,7 @@ absolute terms even at the largest bounded volume: 8,192 accesses costs ~29,000 
 under 30 `ipc_rtt` round trips (1,017 ticks each) -- inside a test that already pays several real
 round trips (at least one `CALL` to a driver or the compositor) and, for `display.rs`, a real device
 DMA completion at ~200 us wall clock (`fs_read`'s own reading of what a completion-interrupt wait
-costs). **Negligible on both ISAs, settling round 3's open question**: the bounds check is not worth
+costs). Negligible on both ISAs, settling round 3's open question: the bounds check is not worth
 avoiding at any volume this cluster actually sees.
 
 The comparison itself was not kept in the tree. It answered a one-time design question rather than
@@ -328,40 +328,40 @@ keeping it would have cost this milestone's own ceiling two more `unsafe {` bloc
 comparison loop) for a question that is now closed -- working directly against the number this round
 exists to lower. The numbers above are the reproducible record instead.
 
-**The migration, on that number.** All four sites round 3 named, migrated onto `MappedWindow`:
+The migration, on that number. All four sites round 3 named, migrated onto `MappedWindow`:
 
 - `painter.rs`'s `px_write`/`px_read`: a `const WINDOW` at `SURFACE_VA`, sized to
-  `gfx::SURFACE_BYTES`, the same shape round 1's cluster used. **2 `unsafe {` blocks removed, 1
-  added, net -1.**
-- `window.rs`'s `px_write`/`px_read`: **not** a `const`, unlike `painter.rs`'s twin. The compositor's
+  `gfx::SURFACE_BYTES`, the same shape round 1's cluster used. 2 `unsafe {` blocks removed, 1
+  added, net -1.
+- `window.rs`'s `px_write`/`px_read`: not a `const`, unlike `painter.rs`'s twin. The compositor's
   `spawn_client` maps a different frame count per client (`SCENE[i].frames()`,
   `kernel/src/user/compositor_service.rs`), not knowable at this program's compile time, so the
   window is constructed once in `_start`, sized to `bytes` (this client's own `w * h * 4`, already
   computed and bound-checked against `compositor::MAX_SURFACE_BYTES` before any pixel is painted --
   milestone 43, notes/shared-page-audit.md finding 4), and threaded through both call sites
   (`px_write`, and `px_read` via a closure into `compositor::surface_checksum`). The genuinely
-  per-client, runtime-sized case `net_stack.rs`'s socket cluster was in round 3. **2 removed, 1
-  added, net -1.**
+  per-client, runtime-sized case `net_stack.rs`'s socket cluster was in round 3. 2 removed, 1
+  added, net -1.
 - `display.rs`'s `dma_write`/`dma_read`: round 3 scoped this to `surface_pixel` alone, but
   `surface_pixel` is one of dozens of callers of a shared pair of functions that already collapse the
   DMA region's invariant into one hand-written assertion apiece; migrating only `surface_pixel`'s own
-  call would have **duplicated** that invariant (a second `MappedWindow` beside the untouched
+  call would have duplicated that invariant (a second `MappedWindow` beside the untouched
   `dma_write`/`dma_read`) rather than collapsed it, the wrong direction for this milestone. Migrating
   the two shared functions instead -- a `const WINDOW` over the whole DMA region
   (`DMA_FRAMES * 4096` bytes), with `dma_write`/`dma_read`'s bodies becoming `WINDOW.write`/
   `WINDOW.read` -- covers `surface_pixel` for free and bounds-checks every one of the few dozen
   virtqueue-field one-off writes in the file too, which round 3's own text flagged as "not the
   performance question and could be migrated independently": here it came along for free rather than
-  as separate scope. **2 removed, 1 added, net -1.**
+  as separate scope. 2 removed, 1 added, net -1.
 - `display_terminal.rs`'s `paint`: a window constructed once in `_start`, sized to
   `gfx::SURFACE_BYTES` in `MODE_DISPLAY` (this process maps that many bytes itself) or to
   `stride * h` in `MODE_WINDOW` (the compositor's own published geometry, the same per-client
   reasoning as `window.rs`'s), held in the `Wiring` struct rather than declared as a file-level
-  `const` for the same reason `window.rs`'s is not one. **1 removed, 1 added, net 0** -- flat by
+  `const` for the same reason `window.rs`'s is not one. 1 removed, 1 added, net 0 -- flat by
   block count, still a real reduction by criterion 2 (raw pointer arithmetic replaced by a typed,
   bounds-checked abstraction), the same case `swish.rs`'s terminal pair and `smb_server.rs` were.
 
-**Combined round 4: 7 `unsafe {` blocks removed, 4 added, net -3.** Measured from the diff against
+Combined round 4: 7 `unsafe {` blocks removed, 4 added, net -3. Measured from the diff against
 this round's own base commit (`757562a3`), uncontaminated: nothing else landed on this branch between
 the base commit and this reduction, so the tree-wide census confirms it exactly: 782 blocks outside
 `arch/` at the base commit (88 per 10,000, matching round 3's own final reading despite 12 blocks of
@@ -370,12 +370,12 @@ round 2's readings did), 779 after, exactly -3. Density moved 88 to 87 (truncate
 the line count moved by +19 net (mostly the new `SAFETY` comments explaining each window's
 invariant), so the denominator barely moved this round, like round 3's.
 
-**The ratchet, cinched a fourth time**: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
+The ratchet, cinched a fourth time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
 from 95 to 94 in the same commit (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
 `notes/register-of-measures.md`), keeping the same 7-point headroom every ceiling in this milestone
 has carried, now above the 87 this round reached.
 
-**The framebuffer/graphics investigation is now settled, not just narrowed.** `compositor.rs`'s
+The framebuffer/graphics investigation is now settled, not just narrowed. `compositor.rs`'s
 per-frame hot path still carries no per-pixel `unsafe` at all (round 3's finding, unchanged); the
 five genuinely per-pixel sites round 2 and round 3 identified are now four migrations and one
 structural non-issue (`compositor.rs` itself needed nothing). Nothing about this cluster remains
@@ -394,7 +394,7 @@ That correction changed the unit of analysis from "three files" to "which half o
 compile-time-fixed layout," since `console.rs` and `input.rs` each carry two architecture-gated
 halves (an aarch64 PL011 driver and a riscv64 NS16550 driver) behind one file name.
 
-**`console.rs`'s and `input.rs`'s aarch64 halves: migrated.** Both drive the PL011 at a fixed
+`console.rs`'s and `input.rs`'s aarch64 halves: migrated. Both drive the PL011 at a fixed
 offset table (`DR`, `FR`; `input.rs` also `IMSC`, `ICR`), the same fixed layout
 `kernel/src/drivers/pl011.rs` already verifies at compile time for the identical hardware, with no
 runtime knob analogous to the NS16550's stride. Each file gained a local `register_structs!`/
@@ -402,8 +402,8 @@ runtime knob analogous to the NS16550's stride. Each file gained a local `regist
 already did not share their hand-written offset constants either) and a single-pointer-cast
 `unsafe` function replacing the hand-rolled `read_volatile`/`write_volatile` pair.
 
-**`console.rs`'s and `input.rs`'s riscv64 halves: genuinely unsuitable, the same finding
-`ns16550.rs` itself already made.** Both hard-code the NS16550 register layout at QEMU's one-byte
+`console.rs`'s and `input.rs`'s riscv64 halves: genuinely unsuitable, the same finding
+`ns16550.rs` itself already made. Both hard-code the NS16550 register layout at QEMU's one-byte
 stride (`THR`/`LSR` in `console.rs`; `RBR`/`IER`/`LSR` in `input.rs`), with no `Shape` parameter
 and no way to vary it at runtime today. That is not a reason to migrate them: it is a reason not
 to. The underlying hardware fact `ns16550.rs`'s module doc names, that this device family's
@@ -417,7 +417,7 @@ against real JH7110 hardware, which is a worse failure mode than the honest hand
 that at least invite a reader to ask "is this the right stride." Left unmigrated, on purpose,
 matching `ns16550.rs`'s own precedent rather than round 3's "identical hardware" premise.
 
-**`jh7110_trng.rs`: migrated.** Checked against the crate's own sourced register file
+`jh7110_trng.rs`: migrated. Checked against the crate's own sourced register file
 (`crates/jh7110_entropy::regs`, transcribed from `jh7110-trng.c`) and the device-tree binding
 (`starfive,jh7110-trng`, `reg = <0x1600C000 0x4000>`) before assuming this was the file round 3's
 brief warned it might be ("the one most likely to have this problem," being real-hardware-specific
@@ -432,8 +432,8 @@ used" status the crate's own `regs` module already gives several of them. This h
 real silicon either way (see the crate's and the program's own module docs); the migration changes
 nothing about that gap, only how the register offsets are checked.
 
-**Measured from the diff against this round's own base commit (`757562a3`): 5 `unsafe {` blocks
-removed, 3 added, net -2** (`console.rs` flat at 1 before and 1 after -- still a real reduction by
+Measured from the diff against this round's own base commit (`757562a3`): 5 `unsafe {` blocks
+removed, 3 added, net -2 (`console.rs` flat at 1 before and 1 after -- still a real reduction by
 rounds 1-3's own criterion 2, raw pointer arithmetic replaced by a compile-time-checked typed
 abstraction, the same "flat but real" case `smb_server.rs`, `fs_subtree_caretaker.rs` and
 `swish.rs`'s terminal pair were; `input.rs` 2 removed, 1 added, net -1; `jh7110_trng.rs` 2 removed,
@@ -448,11 +448,11 @@ two 2026-09-13 rulings, `jh7110_entropy_source` and then `jh7110_entropy`; the s
 2026-09-14). This round's sections spell it as it was when the blocks were counted, so the -1 stays
 checkable against base commit `757562a3`, and `notes/unsafe-obligations.md` spells it the same way.*
 
-**The ratchet, cinched a fourth time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
-from 95 to 94** (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
+The ratchet, cinched a fourth time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
+from 95 to 94 (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
 `notes/register-of-measures.md`), keeping the same 7-point headroom every ceiling in this milestone
-has carried, now above the 87 this round reached. **One honest caveat this round's own report
-should carry rather than let a merge discover**: a separate, concurrently-running round-4 lane
+has carried, now above the 87 this round reached. One honest caveat this round's own report
+should carry rather than let a merge discover: a separate, concurrently-running round-4 lane
 (`milestone/139-round4-graphics`) is measuring and migrating a different candidate set from the
 same base commit at the same time. Whichever of the two rounds' pull requests lands second will
 find this ceiling arithmetic stale (both rounds subtracted from the same starting density) and
@@ -471,7 +471,7 @@ confirmed the census against `script/lint`'s own regex rather than a hand grep, 
 named gap ("what is still open"'s `login_test_client.rs`'s `PAGE_VA`) plus five more files reading
 found in the same shape.
 
-**The re-measured count.** `user/` carries **284** `unsafe {` blocks today (replicating
+The re-measured count. `user/` carries 284 `unsafe {` blocks today (replicating
 `script/lint`'s exact stripping-and-counting regex, scoped to `user/*.rs`), against the milestone's
 own opening baseline of 285 (2026-08-18) and the 287 a mid-milestone reading of this same section
 recorded. Roughly flat, and that flatness is itself the finding: five rounds removed real
@@ -483,7 +483,7 @@ even while the raw count outside `arch/` grew from 799 to (as of this round's st
 despite five weeks of concurrent development. `user/`'s own raw count is not the number to read;
 the density is.
 
-**The breakdown**, by what the first non-comment token inside each block is:
+The breakdown, by what the first non-comment token inside each block is:
 
 | shape | blocks | what it is |
 |---|---|---|
@@ -493,7 +493,7 @@ the density is.
 | `core::slice::from_raw_parts[_mut]` | 12 | whole-page slice construction; down from ~30 before this round's own migration |
 | everything else | 97 | `MappedWindow`/`RegisterBlock`-family constructors (new, mostly this round: see below), the C ABI shim (`c_shim.rs`, `malloc`/`free`, already documented per milestone 82's survey), deliberate-fault test programs (`flaky.rs`, `outlaw.rs`, `hello.rs`'s `.bss`/`.data` probes), and single one-off writes (`memory_grant_depleter.rs`, `swapper.rs`) |
 
-**Two clusters migrated this round, on `MappedWindow`, the same primitive round 1 built.**
+Two clusters migrated this round, on `MappedWindow`, the same primitive round 1 built.
 
 *`user_rt::initrd::initrd_bytes` (new, provisional name).* Seven programs (`builder`, `c_confiner`,
 `hello`, `login`, `root_supervisor`, `swapper`, `timetable`) each declared their own `const
@@ -503,8 +503,8 @@ initrd_len) }`, one hand-written `// SAFETY:` comment per file asserting the ide
 `timetable.rs`'s own comment had already named the duplication out loud ("the same contract
 `components/src/builder.rs` is started under") without anyone lifting it out, the same shape `ntp.rs`'s
 comment named for round 1's cluster. One `unsafe fn` in `crates/user_rt/src/initrd.rs` now holds
-that assertion once. **Measured from the diff: 7 `unsafe {` blocks removed at the seven call sites,
-7 added at the same sites (calling the shared function) plus 1 added inside it, net +1.** Flat at
+that assertion once. Measured from the diff: 7 `unsafe {` blocks removed at the seven call sites,
+7 added at the same sites (calling the shared function) plus 1 added inside it, net +1. Flat at
 the call sites, still a real reduction by this milestone's own criterion 1: seven independently
 worded assertions of one invariant collapsed into one declaration plus seven one-line "forwarded
 from `initrd_bytes`'s own contract" comments, the same "flat count, real reduction" shape
@@ -532,8 +532,8 @@ shape. Six new window constants (`PROV_WINDOW`, `VERIFY_WINDOW`, `PAGE_WINDOW` x
 changed from taking a raw `va: u64` to taking a `MappedWindow`, so the type carries the "which
 page" fact through the call rather than a bare integer.
 
-**The honest count, which this round is not going to round off.** Unlike round 1's `r8`/`w8`
-cluster, this migration does **not** reduce the raw block count, and it should not be reported as
+The honest count, which this round is not going to round off. Unlike round 1's `r8`/`w8`
+cluster, this migration does not reduce the raw block count, and it should not be reported as
 if it does. Round 1's `read`/`write` are ordinary safe functions: the bounds check they perform
 (`offset + size <= len`) is a real runtime assertion that lets the call site drop `unsafe`
 entirely. `as_slice`/`as_mut_slice` have no equivalent check to add: the risk they carry is not "an
@@ -542,14 +542,14 @@ no bounds check catches and no cheap runtime check can verify. So both methods s
 every one of the eighteen call sites still carries its own `unsafe {}` block (unchanged in count),
 and centralizing the "which page" half of the invariant cost one new block per shared window (ten
 constructors) plus two new blocks inside `MappedWindow` itself for the methods' own bodies.
-**Measured from the diff against this round's own base commit: 18 `unsafe {` blocks removed, 30
-added, net +12.** Combined with `initrd_bytes`'s +1, this round is **net +13** against a
+Measured from the diff against this round's own base commit: 18 `unsafe {` blocks removed, 30
+added, net +12. Combined with `initrd_bytes`'s +1, this round is net +13 against a
 tree-wide `outside_arch` count of 792 at its own start, landing at 805 (89 per 10,000 lines,
 truncated, against the still-unmoved ceiling of 94: 5 points of headroom, one point less than the
 7-point cushion every prior round preserved, spent by unrelated growth and this round's own
 choice rather than by a ceiling that fired).
 
-**What this round believes it bought for that cost, and why it might be the wrong trade.** Eighteen
+What this round believes it bought for that cost, and why it might be the wrong trade. Eighteen
 independently worded assertions became six canonical declarations plus eighteen one-line forwarding
 comments: a reader auditing "is `PROV_VA` really exclusive to the provisioner while a request is
 in flight" now checks one comment instead of five worded slightly differently across two files.
@@ -557,23 +557,23 @@ That is a real reduction in *the number of distinct claims a reader has to indep
 which is the milestone's own stated test ("the test is not the token count, it is the number of
 distinct invariants asserted by hand"). But it is not a reduction in the number the ratchet
 watches, and a careful reader comparing this round to rounds 1-5 should notice that difference
-rather than take "round 6" as more of the same shape. **This is easy to revert**: it touches
+rather than take "round 6" as more of the same shape. This is easy to revert: it touches
 exactly six `user/` files plus two new methods on one type, none of it wire format, syscall
 surface, or anything else two programs must agree on, so if calef would rather the raw count stay
 the primary signal even at the cost of the six duplicate comments, reverting this specific piece
 (not `initrd_bytes`, which is unambiguously a reduction) costs nothing but the six files' worth of
 diff.
 
-**The one cluster this round did not touch, and the reason is a design fork rather than a
-reduction this lane could invent.** `invoke(cap, method, a0, a1, a2)` calls are 123 of `user/`'s
+The one cluster this round did not touch, and the reason is a design fork rather than a
+reduction this lane could invent. `invoke(cap, method, a0, a1, a2)` calls are 123 of `user/`'s
 284 blocks, by far the largest single share (43%), and every one carries the identical comment
 `invoke` itself carries: *"the kernel validates the capability and the method before acting; the
 caller is trusting the kernel, not the other way around."* Milestone 134's own census already
 named this precisely: *"a per-method obligation carried by a single all-methods signature... some
 methods (`aspace::MAP_INTO` among them) can perturb the caller's own address space, so some
 obligation is real,"* and its own conclusion was "neither is this milestone's work; the handoff in
-its lane report proposes it." This round counted rather than proposed: at least **18 distinct
-methods** are invoked directly this way across `user/` (by literal `abi::module::CONST` at the
+its lane report proposes it." This round counted rather than proposed: at least 18 distinct
+methods are invoked directly this way across `user/` (by literal `abi::module::CONST` at the
 call site; calls that compute the method dynamically are not counted, so 18 is a floor, not a
 ceiling), led by `RETYPE` (10 sites), `REPLY` (9), `page_frame::MAP` (8), `page_frame::REVOKE` (3),
 `memory_region::DESTROY` (3), `irq::WAIT` (3), `address_space::MAP_INTO` (3), and nine more at one
@@ -583,30 +583,30 @@ long-tail and program-specific: page-frame and address-space construction verbs 
 handful of programs that build child processes (`hello`, `builder`, `login`, the caretakers), and
 IRQ and virtio methods used only by the drivers that own those devices.
 
-**Why this is calef's call and not a migration to invent.** Building a safe wrapper per method
-the way `send`/`reap` already exist would need a decision this lane has no standing to make:
+Why this is an architect's call and not a migration to invent. Building a safe wrapper per
+method the way `send`/`reap` already exist would need a decision this lane has no standing to make:
 whether the per-method obligation is real (as `MAP_INTO`'s is, per milestone 134's own reading) or
-vestigial (as most of `send`/`recv`/`reap`'s turned out to be), for each of at least 18 methods,
-and whether the wrappers belong in `user_rt` (available to every program, growing that crate's
-surface by a wrapper per verb) or in a smaller per-purpose crate (a construction-verbs module used
-only by the handful of programs that build children). Getting this wrong in either direction costs
-more than the code: too permissive and a genuinely dangerous method (one that perturbs the
-caller's own address space) reads as safe; too conservative and the exercise reduces to renaming
-123 identical comments without moving the count, the exact "relocates unsafe... hides it behind a
-[wrapper]" anti-pattern this block's own text refuses. **Left as a named follow-on, not attempted
-here**: the next lane's job is not "wrap `invoke`," it is "decide, method by method, which of the
-18-plus obligations are real, the same reading milestone 112 already did for the four SAFETY
-comments that discharged onto nobody" -- and only then does a mechanical wrapping pass become safe
-to write.
+vestigial (as most of `send`/`recv`/`reap`'s turned out to be), for each of at least 18 methods, and
+whether the wrappers belong in `user_rt` (available to every program, growing that crate's surface
+by a wrapper per verb) or in a smaller per-purpose crate (a construction-verbs module used only by
+the handful of programs that build children). Getting this wrong in either direction costs more than
+the code: too permissive and a genuinely dangerous method (one that perturbs the caller's own
+address space) reads as safe; too conservative and the exercise reduces to renaming 123 identical
+comments without moving the count, the exact "relocates unsafe... hides it behind a [wrapper]"
+anti-pattern this block's own text refuses. Left as a named follow-on, not attempted here: the
+next lane's job is not "wrap `invoke`," it is "decide, method by method, which of the 18-plus
+obligations are real, the same reading milestone 112 (SAFETY comments) already
+did for the four SAFETY comments that discharged onto nobody" -- and only then does a mechanical
+wrapping pass become safe to write.
 
-**A realistic floor for `user/`, as this milestone's own BUGS section asked the first lane to
-report rather than pick a target here.** The `invoke` cluster is the whole question: it is 123 of
+A realistic floor for `user/`, as this milestone's own BUGS section asked the first lane to
+report rather than pick a target here. The `invoke` cluster is the whole question: it is 123 of
 284 blocks, and the achievable reduction ranges from near zero (if most of the 18-plus methods
 turn out to carry the real, per-call obligation `MAP_INTO` does) to on the order of 100 (if most
 turn out to be the same non-obligation `send`/`recv`/`reap` already were). No number in that range
-is more than a guess without the method-by-method reading above. **Setting the `invoke` cluster
+is more than a guess without the method-by-method reading above. Setting the `invoke` cluster
 aside, the rest of `user/` (roughly 161 blocks: the `read_volatile`/`write_volatile`, `asm!`,
-`from_raw_parts` and "everything else" rows above) is close to its practical floor already.** Six
+`from_raw_parts` and "everything else" rows above) is close to its practical floor already. Six
 rounds have read essentially all of it: the `asm!` entries are ABI entry stubs and traps with no
 further collapse available; the remaining `read_volatile`/`write_volatile` sites are device
 registers this milestone investigated and deliberately left unmigrated (the NS16550 halves of
@@ -615,18 +615,18 @@ express; `clock.rs` and `driver.rs`, each already collapsed to one function apie
 `from_raw_parts` sites are deliberate-fault test programs (`flaky.rs`, `outlaw.rs`) and one-off
 writes (`memory_grant_depleter.rs`, `swapper.rs`) this milestone's own text already names as not having a §94
 shape to collapse; and `crates/inter_process_communication`'s three call sites are DECIDED as genuinely distinct (round 2).
-So: **no single number, but a bounded one** -- somewhere between roughly 160 (if the `invoke`
+So: no single number, but a bounded one -- somewhere between roughly 160 (if the `invoke`
 cluster turns out to need no wrapper at all) and roughly 260 (if it turns out nearly all of it is
 real per-call obligation and stays exactly as it is), and the only way to narrow that range further
 is the method-by-method reading named above, not more reading of the kind this round and its five
 predecessors already did.
 
-**The ceiling's own open question, answered as far as it can be from five weeks of data.** BUGS
+The ceiling's own open question, answered as far as it can be from five weeks of data. BUGS
 item 1 (below) asks whether the density ceiling fires on honest work. It has not: the density has
 moved from 93.4 (this milestone's own start) through 90.8, 89, 88, 87, 87 (unchanged), and now 89
 again after this round's own count-regression, always 5 to 7 points under whatever the ceiling was
 at the time, across five weeks and both growth and reduction. That is not proof it never will, but
-it is the honest answer available today: **no evidence yet that 94 is too tight**, and this
+it is the honest answer available today: no evidence yet that 94 is too tight, and this
 round's own +13 is the first commit in the milestone's history to spend headroom rather than widen
 it, which is worth calef seeing plainly rather than folded into a paragraph that reads like every
 other round's.
@@ -638,15 +638,15 @@ its largest single share) and deliberately did not migrate it, naming the open q
 *"deciding which of the 18-plus obligations are real... versus vestigial... is a design fork for
 calef."* This round did that reading, method by method, and it resolves almost the whole cluster.
 
-**The re-read, replicating round 6's own count first.** `user/`'s 123 `invoke(...)` call sites
+The re-read, replicating round 6's own count first. `user/`'s 123 `invoke(...)` call sites
 (confirmed against round 6's number exactly; the 124th grep hit is a doc comment on
 `os_primitives_benchmarker.rs`, not code) resolve, after following each file's own `use abi::... as
-...` aliases (`ut` for `memory_region`, `fr` for `page_frame`), to **22 distinct methods**, four more
+...` aliases (`ut` for `memory_region`, `fr` for `page_frame`), to 22 distinct methods, four more
 than round 6's own floor of "at least 18" because round 6's count did not fully resolve aliases.
 Grouped by method rather than by call site, the shape round 6 predicted is exactly what is there:
 some methods have one or two call sites, and several have a dozen or more.
 
-**The reading, method by method, and the answer to round 6's own question.** Every one of the 22
+The reading, method by method, and the answer to round 6's own question. Every one of the 22
 methods carries the *identical* safety argument `invoke`'s own doc already states: *"the kernel
 validates the capability and the method before acting; the caller is trusting the kernel, not the
 other way around."* That argument does not vary by method, because it is not about what the method
@@ -661,14 +661,14 @@ nothing about the *call itself* can violate a Rust invariant the wrapper could h
 not. What can go wrong after a successful call (aliasing a page a Rust reference already assumes is
 private, racing a mapping change) is a caller-side correctness question every syscall in this cluster
 already has, `map_page_frame`'s included, and it is the argument the raw call site's own SAFETY
-comment already discharges onto "the caller is trusting the kernel." **So round 6's "real vs.
+comment already discharges onto "the caller is trusting the kernel." So round 6's "real vs.
 vestigial" question resolves to: for Rust-safety purposes, all 22 are the `send`/`recv`/`reap` shape,
-not the exception `MAP_INTO` was flagged as being.** The genuinely separate question, "should a
+not the exception `MAP_INTO` was flagged as being. The genuinely separate question, "should a
 supervisor be able to remap a child's memory out from under it without the child's cooperation," is
 real, but it is a capability-policy question the kernel's rights model already answers (`WRITE` on
 the address-space capability), not a Rust-safety gap a wrapper's absence was leaving open.
 
-**What that reading bought, mechanically.** Three of the 22 methods already had a safe wrapper
+What that reading bought, mechanically. Three of the 22 methods already had a safe wrapper
 sitting unused: nine `abi::reply::REPLY` call sites (three of them local one-line `fn reply(slot,
 r0)` re-wrappers, in `fs_file_caretaker.rs`, `fs_nameset_caretaker.rs`, `fs_subtree_caretaker.rs`,
 each duplicating [`reply`]'s own body) and one `abi::rendezvous::SEND` call site were migrated onto
@@ -694,7 +694,7 @@ wrapper round 1's `map_page_frame` already established the shape for: [`retype_p
 `entropy.rs`, `kbd.rs`, `net_transport.rs`) went into a new opt-in `user_rt::virtio` module rather
 than the crate root, the same "scoped to the programs that actually touch this capability" shape
 `mapped_window`/`initrd` already established, since only four of `user/`'s programs hold a `Virtio`
-capability. **Provisional names, all of them**, per this milestone's own naming discipline: none is
+capability. Provisional names, all of them, per this milestone's own naming discipline: none is
 ratified, and `calef`'s call on all fourteen (plus `granted`) is open.
 
 One `tcb_start` correction found while wrapping it: `abi::thread_control_block::START`'s own doc
@@ -870,20 +870,20 @@ cinched than was gained.
 
 ### What this round deliberately did not take, and why, so nobody re-derives it
 
-- **`kernel/src/arch/` (248 blocks, up from 141 on 2026-08-23).** Not a target, per this block's own
+- `kernel/src/arch/` (248 blocks, up from 141 on 2026-08-23). Not a target, per this block's own
   text. The growth is milestone 161's `x86_64` port, which is a third architecture's worth of
   assembly and system registers: exactly the population the measurement excludes on purpose.
-- **MMIO and device-register access** (`ns16550.rs`, `plic.rs`, `gic.rs`, `pl011.rs`, `pci.rs`,
+- MMIO and device-register access (`ns16550.rs`, `plic.rs`, `gic.rs`, `pl011.rs`, `pci.rs`,
   `non_volatile_memory_express.rs`, `virtio.rs`). The same finding round 3 and round 5 reached for the userspace drivers,
   and for the same reasons: each block names a different device at a different offset table, and the
   one file that could carry a compile-time layout already does (`pl011.rs` uses
   `tock_registers::register_structs!`; `ns16550.rs`'s own module doc explains why it cannot, the
   runtime-variable register stride). No §94 shape.
-- **The three stack helpers** (`crate::stack::paint`, `high_water`, 9 blocks across
+- The three stack helpers (`crate::stack::paint`, `high_water`, 9 blocks across
   `interrupt_stack.rs`, `smp.rs`, `thread.rs`, `stack.rs`). The comments rhyme and the facts do not:
   an interrupt-stack slot, a not-yet-handed-out `KernelStack`, and a secondary core's boot stack are
   three different ownership arguments. The `crates/inter_process_communication` shape from round 2.
-- **`kernel/src/user/tests.rs` (14 blocks) and the `mmu::activate_user` fixtures.** Left alone for a
+- `kernel/src/user/tests.rs` (14 blocks) and the `mmu::activate_user` fixtures. Left alone for a
   scheduling reason rather than a technical one: AGENTS.md names that file the tree's merge hotspot
   and another lane held it this session. A later round should read it; nothing here says it is
   irreducible.
@@ -921,8 +921,8 @@ named anti-pattern. The reduction that would be real is rung one of AGENTS.md's 
 wrong state unrepresentable, so a thread pointer can only reach `push_back` by way of a type that
 only a Ready-transition can mint. That is a scheduler-core typestate change, it touches the one
 subsystem where a mistake is an intermittent hang rather than a compile error, and it is exactly the
-kind of thing milestone 193's prover should be pointed at first. **calef's call**, not a lane's to
-invent.
+kind of thing milestone 193's prover should be pointed at first. **An architect's call**, not a
+lane's to invent.
 
 ## What is still open
 
@@ -934,16 +934,16 @@ now a better-informed job than it was after round 1: the `read_volatile`/`write_
 (rather than the round-1 name-based search) is the right net, and round 2's pass through its results
 sorted the non-FS hits into rough categories a follow-on lane can use rather than re-deriving:
 
-- **`swish.rs`'s other two windows, `disk_surveyor.rs`'s `ROSTER_VA`, and `net_stack.rs`'s
-  `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster are all done** (round 3, see above). Nothing else in these
+- `swish.rs`'s other two windows, `disk_surveyor.rs`'s `ROSTER_VA`, and `net_stack.rs`'s
+  `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster are all done (round 3, see above). Nothing else in these
   three files' shape remains outstanding.
-- **Framebuffer/graphics code is done** (round 4, see above): `painter.rs`, `window.rs`,
+- Framebuffer/graphics code is done (round 4, see above): `painter.rs`, `window.rs`,
   `display.rs` and `display_terminal.rs` are all migrated, and the measured bounds-check cost that
   round 3 left open (negligible at every volume this cluster sees, on both ISAs) is recorded there.
   Nothing else in this cluster remains outstanding.
-- **`heeder.rs` is done** (round 2); nothing else in that shape remains outstanding there.
-- **Device register blocks: done for the files that had a fixed layout (round 5), and nothing
-  else in this shape remains outstanding.** `console.rs`'s and `input.rs`'s aarch64 (PL011) halves
+- `heeder.rs` is done (round 2); nothing else in that shape remains outstanding there.
+- Device register blocks: done for the files that had a fixed layout (round 5), and nothing
+  else in this shape remains outstanding. `console.rs`'s and `input.rs`'s aarch64 (PL011) halves
   and `jh7110_trng.rs` are migrated onto `tock_registers::register_structs!`/`register_bitfields!`,
   matching `kernel/src/drivers/pl011.rs`'s own idiom. `console.rs`'s and `input.rs`'s riscv64
   (NS16550) halves are deliberately NOT migrated: round 3's premise that
@@ -953,12 +953,12 @@ sorted the non-FS hits into rough categories a follow-on lane can use rather tha
   riscv64 halves exactly as it applies to the kernel's own NS16550 driver. `clock.rs`'s RTC drivers
   and `driver.rs` still need nothing, per round 3's reading. See round 5 above for the full
   per-file, per-architecture reasoning and the measured reduction.
-- **Deliberately not migration candidates, named so nobody re-derives them and wastes a look**:
+- Deliberately not migration candidates, named so nobody re-derives them and wastes a look:
   `hello.rs` (tests `.bss` zeroing and `.data` writability on purpose; the raw access *is* the test),
   `flaky.rs` and `outlaw.rs` (deliberately touch a bad/unauthorized address to provoke a fault; a
   bounds-checked wrapper would defeat the point), `memory_grant_depleter.rs` and `swapper.rs` (single one-off
   writes, not a repeated hand-written invariant -- nothing to collapse).
-- **`login_test_client.rs`'s `PAGE_VA` is done** (round 6), along with five more files in the
+- `login_test_client.rs`'s `PAGE_VA` is done (round 6), along with five more files in the
   identical `core::slice::from_raw_parts[_mut]`-over-a-whole-page shape that reading this one
   surfaced: `credentialer.rs`, `credentialer_test_client.rs`, `identity_provisioner.rs`,
   `session_reviver.rs`, `smb_server.rs`. See round 6 above, including the honest note that this
@@ -1031,9 +1031,9 @@ was not only ugly, it was already wrong in one place and nobody knew.
 
 So a reduction qualifies when it does one of these:
 
-- **Collapses N hand-written assertions of one invariant into one**, the §94 shape. Best available,
+- Collapses N hand-written assertions of one invariant into one, the §94 shape. Best available,
   and the only one that reliably reduces risk rather than moving it.
-- **Replaces raw pointer arithmetic with a typed abstraction** whose invariant the compiler or Kani
+- Replaces raw pointer arithmetic with a typed abstraction whose invariant the compiler or Kani
   holds, so the assertion stops being a comment. Rung one on the ladder.
 - **Deletes unsafe that was never needed**, which is the cheapest and rarest.
 
@@ -1055,7 +1055,7 @@ proofs and the type system are standing aside and a person's comment is the whol
 
 ## BUGS
 
-- **This block sets no target number.** `script/lint` has already had three checks deleted for the
+- This block sets no target number. `script/lint` has already had three checks deleted for the
   signature "only ever rejects legitimate work", and a ceiling cinched past what the tree can
   sustain would be the fourth. **Round 6 answered the "does it fire on honest work" half**: across
   five weeks and six rounds of both growth and reduction, the density has stayed 5 to 7 points
@@ -1070,7 +1070,7 @@ proofs and the type system are standing aside and a person's comment is the whol
   ones. `user/` now stands at 162 blocks; whether that is close to a practical floor for the
   *rest* of `user/` (the `asm!`, device-register and deliberate-fault categories) is still the
   reading rounds 1-6 already did, recorded below.
-- **`user/`'s 285 (then 284, now 162) is explained**, closing this milestone's own original BUGS
+- `user/`'s 285 (then 284, now 162) is explained, closing this milestone's own original BUGS
   item and, as of round 7, resolving the one piece of the breakdown round 6 left open. The
   breakdown (round 6's own table, updated by round 7): 122 of the 123 raw `invoke(...)` calls (43%
   of the original total) are now behind fourteen new thin wrappers, `granted`, or the existing
@@ -1082,8 +1082,8 @@ proofs and the type system are standing aside and a person's comment is the whol
   the C ABI shim, deliberate `.bss`/`.data` probes) are unchanged by this round. What was "how much
   of the `invoke` cluster is real" is now answered: essentially none of it, in the sense that
   mattered for whether a safe wrapper could exist.
-- **`sched.rs` is the kernel's largest remaining share (47 of 202) and it is a design fork, not a
-  migration.** Its run-queue handoff pushes a thread-control-block pointer under eight
+- `sched.rs` is the kernel's largest remaining share (47 of 202) and it is a design fork, not a
+  migration. Its run-queue handoff pushes a thread-control-block pointer under eight
   hand-written copies of one sentence (*live, Ready, on no other queue*), which looks like the §94
   shape and is not: unlike the allocator's postcondition that round 8 collapsed, this invariant is
   established by the **caller** two lines earlier, so a safe `enqueue_ready` wrapper would relocate
@@ -1103,8 +1103,8 @@ proofs and the type system are standing aside and a person's comment is the whol
   blocks, each restating what the helper's own safety comment says. Round 8 named it a proposed
   milestone and no block has been minted for it. Checked 2026-09-03.
 - **Outstanding.** `kernel/src/sched.rs` is unchanged at 47 blocks, eight of them the run-queue and
-  inbox pushes. The typestate that only a ready transition can mint is calef's call and there is no
-  file for it under `design/decisions/`. Checked 2026-09-03.
+  inbox pushes. The typestate that only a ready transition can mint is an architect's call and there
+  is no file for it under `design/decisions/`. Checked 2026-09-03.
 - **Outstanding.** `kernel/src/user/tests.rs` still carries 14 unsafe blocks, untouched. Round 8
   skipped it for a scheduling reason, another lane holding the tree's merge hotspot, and said
   explicitly that nothing makes it irreducible. Checked 2026-09-03.

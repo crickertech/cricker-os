@@ -71,7 +71,8 @@
 //! killed the two-tier draft (it was internal plumbing and became a prompt-typed pipeline stage
 //! inside a day, so "a short name for a typed command" is not a stable property to key a
 //! convention on) and then as the rule's closing line, that nobody needs a rule to know `wc`
-//! beats `word_count`. Introduced 2026-07-31. What is missing is calef's signature, not a reason.
+//! beats `word_count`. Introduced 2026-07-31. What is missing is an architect's signature, not a
+//! reason.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks

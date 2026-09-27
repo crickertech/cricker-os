@@ -250,7 +250,7 @@ SHARED_CRATES = frozenset({
 # means the isolation boundary the kernel enforces at runtime; `uefi_loader` has come and gone
 # (its memory reclaimed) before that boundary exists, so it is a boot-chain-of-trust question rather
 # than a runtime-isolation one, and folding it into either side would misstate which claim it backs.
-# Reported as its own bucket; which claim it belongs to is calef's to decide.
+# Reported as its own bucket; which claim it belongs to is an architect's to decide.
 BOOT_CHAIN_DIRS = ('uefi_loader/',)
 BOOT_CHAIN_CRATES = frozenset({'sealed_pair'})
 

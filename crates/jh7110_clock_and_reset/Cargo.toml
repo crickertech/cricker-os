@@ -9,7 +9,7 @@ license.workspace = true
 # the blocks `syscrg`, `stgcrg` and `aoncrg` (mainline's `starfive,jh7110-stgcrg` compatible, the
 # vendor U-Boot's `reg-names = "syscrg", "stgcrg", ...`), so it is the AGENTS.md "standard term a
 # reader already knows from outside" case rather than the `capsh`/`uheap` case. Chip-qualified for
-# the reason `jh7110_entropy` is: a bare `crg` would name almost anything. calef has not ratified it;
+# the reason `jh7110_entropy` is: a bare `crg` would name almost anything. no architect has ratified it;
 # see src/lib.rs and `script/names`.
 #
 # no_std for the kernel, std for host tests, the same rule-7 pure-logic split `jh7110_entropy` uses:

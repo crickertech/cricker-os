@@ -36,18 +36,32 @@
 # A schema removes that class of defect. A tighter regex removes the two instances. That is rung one
 # of AGENTS.md's ladder against rung two, and the ladder says take the higher rung where it fits.
 #
-# The schema is calef's, ratified 2026-09-23, and nothing here extends it:
+# The schema was ratified by calef on 2026-09-23. Extending it is an architect's call, and nothing
+# here extends it:
 #
 #     ---
 #     status: DECIDED          PROPOSED | DECIDED | AMENDED | SUPERSEDED, always
 #     raised: 2026-09-23       UTC, always
 #     decided: 2026-09-23      UTC, required by DECIDED and AMENDED
-#     ratified_by: calef       a GitHub username, required by DECIDED and AMENDED
+#     ratified_by: calef       a GitHub username listed in ARCHITECTS.md, required by DECIDED and
+#                              AMENDED
 #     superseded_by: 42        a section number, required by SUPERSEDED
 #     ---
 #
 # `superseded_by` is its own key rather than half of a compound `SUPERSEDED BY 42` token, which is
 # what makes the forward pointer checkable: it resolves to a section or the gate fails.
+#
+# **`ratified_by` must name somebody ARCHITECTS.md lists** (2026-09-25, UTC, when calef asked that
+# the
+# tree stop assuming it has one architect). Before, the key accepted any string, which was harmless
+# while the only value anyone wrote was `calef` and stops being harmless the day a second name is
+# possible: a typo, or a ratification by someone who does not hold the role, would pass. The list is
+# read from ARCHITECTS.md's table on every run rather than copied here, so adding an architect is
+# one
+# row in one file and this gate follows. A removed architect's past ratifications would then fail,
+# which is deliberate and not yet exercised: the row is the grant, so removing one is a decision
+# that
+# should have to say what happens to the record, rather than one this script makes quietly.
 #
 # **The index table is generated from the files**, which removes the tree's last additive-index
 # conflict of the shape milestone 294 (`design/roadmap/README.md`'s index is generated, not hand-maintained) removed from the roadmap. Every lane minting a section had to
@@ -150,7 +164,7 @@
 # *does* something in this directory takes a verb (`verify`, `test`, `fuzz`, `bench`) and what
 # *reports* takes a noun, and it lists this script by name in the noun half beside `names`,
 # `citations`, `roadmap`, `coverage` and `mutation`. The stem raises no second question, because
-# the noun is the record it reads. calef has not ratified it.
+# the noun is the record it reads. no architect has ratified it.
 
 set -e
 
@@ -176,6 +190,39 @@ FNAME = re.compile(r"(\d+)-[a-z0-9][a-z0-9-]*\.md")
 problems = []
 
 
+def architects():
+    """The GitHub usernames ARCHITECTS.md's table lists, or None when the file cannot be read.
+
+    The table's first column is the username, one row per architect. A header row, the separator
+    row and anything after the table are not rows of it.
+    """
+    try:
+        text = open(os.path.join(root, "ARCHITECTS.md"), encoding="utf-8").read()
+    except OSError:
+        return None
+    names, in_table = set(), False
+    for line in text.split("\n"):
+        if not line.startswith("|"):
+            if in_table:
+                break
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if not in_table:
+            in_table = cells[0].lower() == "github username"
+            continue
+        if set(cells[0]) <= set("-: "):
+            continue
+        names.add(cells[0].strip("`"))
+    return names or None
+
+
+ARCHITECTS = architects()
+if ARCHITECTS is None:
+    problems.append("ARCHITECTS.md: no table with a 'GitHub username' column, so no 'ratified_by' can "
+                    "be checked. That file lists who holds the architect role; this gate reads it")
+    ARCHITECTS = set()
+
+
 def parse_frontmatter(fname, lines):
     """({key: value}, index of the first line after the closing fence), or (None, 0)."""
     if not lines or lines[0] != "---":
@@ -198,8 +245,8 @@ def parse_frontmatter(fname, lines):
         key, value = m.group(1), m.group(2).strip()
         if key not in KEYS:
             problems.append(f"{fname}:{n}: {key!r} is not in the schema "
-                            f"({', '.join(KEYS)}). The schema is calef's and is not extended "
-                            f"by a lane")
+                            f"({', '.join(KEYS)}). Extending the schema is an architect's call, "
+                            f"not a lane's")
         elif key in fm:
             problems.append(f"{fname}:{n}: {key!r} twice. One fact, one field")
         else:
@@ -233,6 +280,10 @@ def check_frontmatter(fname, fm):
                         f"requires is recoverable: a date from the commit that added the file or "
                         f"turned it {status}, and the ratifier from the decision itself. See this "
                         f"script's header for which source wins when they disagree")
+    if fm.get("ratified_by") and ARCHITECTS and fm["ratified_by"] not in ARCHITECTS:
+        problems.append(f"{fname}: ratified_by is {fm['ratified_by']!r}, who is not listed in "
+                        f"ARCHITECTS.md ({', '.join(sorted(ARCHITECTS))}). Only an architect "
+                        f"ratifies, and that file's table is the list")
     for key in ("decided", "ratified_by"):
         if key in fm and status in ("PROPOSED", "SUPERSEDED"):
             problems.append(f"{fname}: status is {status} and it carries {key!r}, which belongs to "

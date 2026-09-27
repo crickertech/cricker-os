@@ -82,7 +82,7 @@ reader to infer a trend from a convention's birth.
   here because the next person to change the chart inherits the hazard rather than the fix.
 - **It measures the record, not the names.** A name can be ratified and bad, or provisional and
   perfect. This counts signatures.
-- **`script/metrics`' own name is provisional** (its header, line 45: *"calef has not ratified it"*),
+- **`script/metrics`' own name is provisional** (its header, line 45: *"no architect has ratified it"*),
   so this milestone adds a naming metric computed by a tool that appears in its own unratified
   column. It does: `metrics` is one of the 63 `provisional` names in the 2026W36 bar, and so is
   `script/names`, which supplies the vocabulary.
@@ -163,9 +163,10 @@ name is the mechanism working rather than failing, and the note that the band wo
   had, and `script/metrics --update` on trunk or `.github/workflows/metrics.yml` on Monday writes
   2026W37. Nothing is owed; this is recorded so the next reader does not file the missing row as a
   bug.
-- **Recorded.** `helpers/name_provenance.py` is a provisional name and calef names modules. It
-  carries no `Name:` block because `script/names` puts `helpers/` out of its own scope, which is the
-  same hole the `package` kind closed one surface over; its header paragraph is the record instead.
+- **Recorded.** `helpers/name_provenance.py` is a provisional name and an architect names modules.
+  It carries no `Name:` block because `script/names` puts `helpers/` out of its own scope, which is
+  the same hole the `package` kind closed one surface over; its header paragraph is the record
+  instead.
 - **Recorded.** design/naming.md's `BUGS` said `kernel`, `xtask`, `redoxfs_server` and
   `tools/redoxfs_host` were uncovered surfaces. They have carried blocks since the `package` kind
   landed on 2026-08-18, and this milestone's own series is what showed the sentence was stale. The

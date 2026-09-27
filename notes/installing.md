@@ -194,8 +194,8 @@ proposal in `design/roadmap/proposals/`. The five, and what each is actually abo
 | `the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` | `/chosen` has one initrd slot and no second one, which is why this rung is an `x86_64` claim |
 
 The sixth, the partition-bounded mount, is a `BUGS` entry in `installer` rather than a proposal,
-because what closes it is a wire value two programs agree on and that is calef's to name rather than
-a lane's to propose.
+because what closes it is a wire value two programs agree on and that is an architect's to name
+rather than a lane's to propose.
 
 ## See also
 

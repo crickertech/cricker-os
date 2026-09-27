@@ -67,8 +67,8 @@ currently held open by a parameter named `_boot_file`.
 ## BUGS
 
 - **A property name is a thing two programs agree on.** `nife,boot-file-start` is provisional and
-  the spelling is calef's, the same way every other name is; a lane should ship one and say so
-  rather than wait.
+  the spelling is an architect's, the same way every other name is; a lane should ship one and say
+  so rather than wait.
 - **It is not clear a device-tree machine should carry the file at all.** On a board that boots from
   a card there may be no "file the firmware started" in the sense this mechanism means, and the
   answer there may be that the installer reads the card rather than that the loader hands the file

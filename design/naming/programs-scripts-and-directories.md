@@ -5,7 +5,7 @@ that a name is a claim, the component and program conventions, shell builtins, `
 `helpers/`, and directories. It exists to verify or challenge the main page, and a reader who only
 needs to name, ratify or rename something should not have to open it. The directory `design/naming/`
 and this file's stem are provisional names, minted 2026-09-24 by the lane that split the file;
-naming is calef's.*
+naming is an architect's.*
 
 ## The rule everything else is a corollary of
 

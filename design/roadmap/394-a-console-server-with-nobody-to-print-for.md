@@ -105,5 +105,5 @@ and accept that the exercise is worth very little, stop starting it on the tour 
 a kernel module and one boot line and deletes no program, because `components/src/console.rs` has
 four consumers that have nothing to do with this path), or give it a client again, which is the
 option that says the server was infrastructure rather than scaffolding and wants somebody to say so
-out loud. It is calef's because it is not the narrator, and because the second option touches the
-boot path where the three arms diverge.
+out loud. It is an architect's because it is not the narrator, and because the second option touches
+the boot path where the three arms diverge.

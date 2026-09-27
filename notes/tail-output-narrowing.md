@@ -185,7 +185,7 @@ this falls on the expensive side for two independent reasons:
   a wire format, which the tenet lists explicitly as one of the few genuinely expensive categories.
 - **It changes what a spawned program's authority *implies* at this prompt**, which is exactly the
   kind of thing DECISIONS §101 itself flags as syscall-adjacent: "what a spawned program holds at
-  this prompt is calef's."
+  this prompt is an architect's."
 
 **Who has already acted on it:** nobody, yet, in code. But three records already treat the
 *direction* as settled and only the *specifics* as open, which narrows what calef actually has to

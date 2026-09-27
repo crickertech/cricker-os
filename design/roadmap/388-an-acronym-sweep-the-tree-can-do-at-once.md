@@ -11,10 +11,10 @@ needs_person: no
 
 Filed 2026-09-05 as an unnumbered proposal by milestone 264, which asked
 the acronym question of sixty names and deliberately answered none of them; numbered 2026-09-19 by
-milestone 433's drain of the proposal pile. **Premise re-read against the tree on 2026-09-19.** The
+milestone 433 (drain)'s drain of the proposal pile. Premise re-read against the tree on 2026-09-19. The
 table below is already history rather than a worklist, and says so: all four rows were ruled by
-calef on 2026-09-13 and performed by milestones 265, 290 and 298. **What is left is the BUGS
-section, and both halves of it are still live.** `kernel/src/user/entropy_service.rs` still exports
+calef on 2026-09-13 and performed by milestones 265, 290 and 298. What is left is the BUGS
+section, and both halves of it are still live. `kernel/src/user/entropy_service.rs` still exports
 `jh7110_trng_device` (line 300) and `jh7110_crg_window` (line 416), so the file still reads
 `jh7110_entropy::discover` inside a function called `jh7110_trng_device`, and
 `kernel/src/user/entropy_tests.rs` and `kernel/src/main.rs` still call both by those names. Of the
@@ -22,11 +22,11 @@ five names the 2026-09-05 rule deratified, three are still live crates carrying 
 recorded refusal apiece (`dtb`, `gpt`, `ipc`); `dma` and `asid` are no longer names
 `script/names` sees. *(Number provisional until the merge queue lands it.)*
 
-calef names things, and this is a list of names. **The rule behind the gate is
-[§154](../decisions/154-the-acronym-test-is-whether-the-phrase-is-spoken.md)**, cited here from
+an architect names things, and this is a list of names. The rule behind the gate is
+[§154 (acronym)](../decisions/154-the-acronym-test-is-whether-the-phrase-is-spoken.md), cited here from
 2026-09-19; the block argued from it throughout and never named it.
 
-**§154 is `DECIDED` and it already answers this block's hard half**, which is why nothing new is
+§154 is `DECIDED` and it already answers this block's hard half, which is why nothing new is
 minted for it. calef ratified it on 2026-09-18: an acronym expands where its expansion is a phrase
 people actually say, and stays whole where nobody says it, asked again of any acronym left inside
 the expansion. Its own table rules four of the five names in this block's first `BUGS` entry by
@@ -35,34 +35,34 @@ name: `dtb` becomes `device_tree_blob`, `ipc` becomes `inter_process_communicati
 was already ruled on 2026-09-05. [§113](../decisions/113-kernel-object-plain-names.md)'s amendment
 is the other half, since it ends the external-standard exemption the `jh7110_crg` row leaned on.
 
-**So what stands here is performance and one genuinely open name, not a fork.** Applying §154 to
+So what stands here is performance and one genuinely open name, not a fork. Applying §154 to
 those four is a ratified rename per `design/naming.md`'s procedure and a sweep `ipc` makes large,
 which is why this is still a milestone; it is not a question anybody has to answer first. The one
-thing §154 does **not** settle is the second `BUGS` entry, `jh7110_trng_device` and
+thing §154 does not settle is the second `BUGS` entry, `jh7110_trng_device` and
 `jh7110_crg_window` in `kernel/src/user/entropy_service.rs`, where `design/naming.md`'s
 *"abbreviation we receive rather than author"* clause may cover a name for a hardware block whose
 device-tree spelling is the vendor's (`starfive,jh7110-trng`). That is a ruling per name on
 `script/names`' worklist rather than a `design/decisions/` section, and this block is where it
 waits.
 
-**All four rows are now answered, every one of them by calef on 2026-09-13**, working the
+All four rows are now answered, every one of them by calef on 2026-09-13, working the
 unratified worklist: `jh7110_crg` is `jh7110_clock_and_reset`, `jh7110_trng` (crate and program) is
 `jh7110_entropy`, by way of `jh7110_entropy_source`, which he ratified first and replaced later the
 same day, and he ruled the `ntp` and `mdns` stems the same day. The rows stay in the table below
 with their answers beside them, because the question each one asked is the half a future proposer
 needs.
 
-**The two stem rulings were recorded and not performed**, deliberately, and milestone 265 performed
+The two stem rulings were recorded and not performed, deliberately, and milestone 265 (proto) performed
 them on 2026-09-14 along with its own suffix change, so that one crate was not renamed twice.
 `ntp_proto` is `network_time_protocol`, `mdns_proto` is `multicast_dns_protocol`, and the two
-siblings carrying the same stem moved with it. **The nested `mdns` question this proposal called the
-interesting one was answered rather than dissolved**: calef ruled that DNS stops because it is the
+siblings carrying the same stem moved with it. The nested `mdns` question this proposal called the
+interesting one was answered rather than dissolved: calef ruled that DNS stops because it is the
 `pci` case one level down, so `multicast_dns` is the whole expansion and
-`multicast_domain_name_system` is not. The `ntp` **program** was to stay short and no longer exists
+`multicast_domain_name_system` is not. The `ntp` program was to stay short and no longer exists
 to: milestone 290 split it into `network_time_client`, `network_time_test_server` and
 `unwritable_clock_witness` on 2026-09-14.
 
-**The gate no longer stands for the four names in the table.** It stands for the BUGS below, which
+The gate no longer stands for the four names in the table. It stands for the BUGS below, which
 are the larger half and were never in it.
 
 ## Why it cannot be done a name at a time
@@ -115,7 +115,7 @@ rather than an afternoon.
 
 ## BUGS
 
-- **The five names the rule deratified by name are not in the table above**, because 264's scope was
+- The five names the rule deratified by name are not in the table above, because 264's scope was
   the sixty unrecorded ones and all five were ratified. They are the larger half of the work and
   `ipc` is the reason this is a milestone rather than an afternoon.
 - **Two public function names in the kernel carry the acronyms the crates just shed, and nobody has
@@ -127,8 +127,8 @@ rather than an afternoon.
   these names the **hardware block**, whose device-tree spelling is the vendor's
   (`starfive,jh7110-trng`) and whose boot-log wording throughout the tree is "JH7110 TRNG", so the
   "abbreviation we receive rather than author" clause in design/naming.md may cover them where it did
-  not cover the crate. A lane should not guess: AGENTS.md puts public function names in calef's
-  hands, and this list is where a name waits for him.
+  not cover the crate. A lane should not guess: AGENTS.md puts public function names in an
+  architect's hands, and this list is where a name waits for one.
 
 ## Index row
 

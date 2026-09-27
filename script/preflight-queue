@@ -152,7 +152,11 @@ WT = os.path.expanduser(os.environ.get("PREFLIGHT_WORKTREE", "~/projects/nife-wo
 RUN = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
 LOGS = os.path.join(os.environ.get("TMPDIR", "/tmp"), "preflight-queue", RUN)
 os.makedirs(LOGS, exist_ok=True)
-LANE = "**Lane:** script/preflight-queue; calef's account is the author GitHub shows."
+# Whose account GitHub shows is whoever `gh` is logged in as, read rather than spelled, because more
+# than one architect can run this (ARCHITECTS.md).
+ACCOUNT = subprocess.run(["gh", "api", "user", "--jq", ".login"], capture_output=True,
+                         text=True).stdout.strip() or "the `gh` user"
+LANE = f"**Lane:** script/preflight-queue; {ACCOUNT}'s account is the author GitHub shows."
 
 # Bounds, in seconds, per rung. Generous against the measured costs so that only a hang trips them.
 BOUND = {"fmt": 300, "lint": 1800, "documentation": 900, "host": 1800,

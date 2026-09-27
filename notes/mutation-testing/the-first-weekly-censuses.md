@@ -107,10 +107,10 @@ proposes to restructure code for testability.
 
 ### What the sample does not say
 
-It does not re-read `design/fatal-risks.md`'s third risk, which is calef's. It is a sample, not a
-census: the memory failure above killed seven of eight shards, so 8,700 of the 9,857 mutants were
-still unrun since 2026-08-03. What it removes is the reason the stale number was acceptable, the
-clause saying a refresh arrives on its own. A refresh had arrived, once, and it was lower.
+It does not re-read `design/fatal-risks.md`'s third risk, which is an architect's. It is a sample,
+not a census: the memory failure above killed seven of eight shards, so 8,700 of the 9,857 mutants
+were still unrun since 2026-08-03. What it removes is the reason the stale number was acceptable,
+the clause saying a refresh arrives on its own. A refresh had arrived, once, and it was lower.
 
 ## 2026-09-14: the first census since the baseline, and the fall was an artifact
 
@@ -208,7 +208,7 @@ run wants, and choosing when a new census becomes the baseline is not a records 
 
 ### What the census does not say
 
-It does not re-read `design/fatal-risks.md`'s third risk. That is calef's, and
+It does not re-read `design/fatal-risks.md`'s third risk. That is an architect's, and
 `design/roadmap/proposals/fatal-risk-3-against-the-new-number.md` has been holding it since
 2026-09-03. The census gives that proposal the number it was written to be read against, and the
 number is not the one anyone expected.

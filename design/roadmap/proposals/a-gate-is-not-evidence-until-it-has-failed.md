@@ -12,9 +12,10 @@ needs_person: no
 `a-gate-is-not-evidence-until-it-has-failed`: ratified 2026-09-23 (calef, reviewing
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md` on pull request #1166). **It may
 belong inside `design/roadmap/proposals/a-mechanism-reports-its-denominator.md` rather than standing
-on its own**, since both come out of the same correction and the same fifth why. That is calef's
-call, and ratifying the name does not settle it. Raised by `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md`, which asked
-whether the failing workflow was ever tested when it was deployed. It was not.
+on its own**, since both come out of the same correction and the same fifth why. That is an
+architect's call, and ratifying the name does not settle it. Raised by
+`notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md`, which asked whether the failing
+workflow was ever tested when it was deployed. It was not.
 
 No hardware, no other milestone, no decision owed.
 

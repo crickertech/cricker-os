@@ -133,5 +133,5 @@ That is higher on AGENTS.md's ladder, because the default becomes on and the opt
 greppable worklist that can only shrink, and it is what would cover a crate created tomorrow. It also
 contradicts a rule written in that table's own comment: *"adding a lint to this table is a decision to
 fix every existing violation first. Nothing goes in this table to see what it finds."* Inverting that
-for one lint is a policy change, so it is calef's and not a lane's; see the pull request that closed
-this worklist down to 7 crates for the six-questions writeup and a recommendation.
+for one lint is a policy change, so it is an architect's and not a lane's; see the pull request that
+closed this worklist down to 7 crates for the six-questions writeup and a recommendation.

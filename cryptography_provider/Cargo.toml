@@ -15,7 +15,7 @@
 # `Cargo.lock`, in `deny.toml`'s reach, or in CI. `helpers/build-cryptography-exerciser.sh` builds
 # it, nothing else does, and the kernel test skips when nobody has.
 #
-# Name: provisional, minted on 2026-09-20 by this milestone's lane. Names are calef's.
+# Name: provisional, minted on 2026-09-20 by this milestone's lane. Names are an architect's.
 # `cryptography_provider` takes `entropy_backend`'s shape, which is the domain word this tree
 # already uses plus the role the thing plays, and spells `cryptography` out because this tree
 # spells names out. `rustls_provider` was set aside for naming somebody else's crate rather than

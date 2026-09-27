@@ -18,7 +18,8 @@
 #
 # NOT wired into script/lint or CI. See the BUGS section of notes/rule-violations.md for why: doing
 # so today would fail the shared gate for every lane over a decision (what replaces the git-clobber
-# rule) that is calef's or the integrator's, never a lane's. Whether to wire it in is an open question
+# rule) that is an architect's or the integrator's, never a lane's. Whether to wire it in is an open
+# question
 # named there rather than answered here.
 #
 # Name: provisional. Minted by milestone 118's lane on 2026-08-22. Named for what it reads, in the
@@ -27,7 +28,7 @@
 # rather than the form. `rule-violations` names the exceptions rather than the rules, which is
 # deliberate, since the rules live in AGENTS.md and design/decisions/ and this reports only where the
 # tree departs from them; the alternative reading, that it reports on rules, is the misreading to
-# weigh against. calef has not ratified it.
+# weigh against. no architect has ratified it.
 
 set -e
 
@@ -100,8 +101,8 @@ if mode == "--check":
                   f"see notes/rule-violations.md), which is the promotion threshold "
                   f"({STRIKE_THRESHOLD}).", file=sys.stderr)
             print("  Move it up the ladder (a mechanism, in AGENTS.md's ladder sense) or mark its "
-                  "row `resolved` as unenforceable in notes/rule-violations.md; either is calef's or "
-                  "the integrator's call, never a lane's.", file=sys.stderr)
+                  "row `resolved` as unenforceable in notes/rule-violations.md; either is an "
+                  "architect's or the integrator's call, never a lane's.", file=sys.stderr)
         sys.exit(1)
     print(f"rule violations: {total_rows} rows, {total_open} open instances across "
           f"{len(by_rule)} rules, none past {STRIKE_THRESHOLD} strikes")

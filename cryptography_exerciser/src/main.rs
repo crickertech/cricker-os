@@ -62,7 +62,7 @@
 //!   `x86_64-unknown-nife` the fallbacks are exactly what is being run.
 //! - **It is absent from every ordinary build and from CI**, because its dependencies are not this
 //!   repository's to take, which is DECISIONS §46 (thin primitives or whole subsystems; we
-//!   write everything in between), until calef rules on them. The kernel test skips when
+//!   write everything in between), until an architect rules on them. The kernel test skips when
 //!   the archive has no `cryptography_exerciser`; `helpers/build-cryptography-exerciser.sh` is
 //!   what puts one there.
 

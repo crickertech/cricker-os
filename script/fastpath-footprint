@@ -36,7 +36,8 @@
 # other, never both.
 #
 # Names: `ipc_send_recv` and `ipc_call_reply` are **provisional** (milestone 188's lane, 2026-09-04).
-# Every name in this tree is calef's; these two are shipped so the measurement can exist and are
+# Every name in this tree is an architect's; these two are shipped so the measurement can exist and
+# are
 # expected to change.
 #
 # **`syscall_entry` is not like for like across the three ISAs, and the reason is architectural.**
@@ -114,10 +115,10 @@
 # known inconsistency, stated rather than left for a reader to notice: `-check` is this
 # directory's suffix for a gate that fails a build (`interleaving-check`, `qemu-check`,
 # `stack-frame-check`), and by that convention this should be `fastpath-footprint-check`. It is
-# not, because the name would then be nine syllables to say a thing calef may want spelled
+# not, because the name would then be nine syllables to say a thing an architect may want spelled
 # differently anyway, and that is an argument from typing cost rather than from design. DECISIONS
 # §134's split points the other way and would put a reporter in the noun half, where this already
-# sits. Nothing depends on it. calef has not ratified it.
+# sits. Nothing depends on it. no architect has ratified it.
 #
 # See notes/benchmarks.md and script/stack-frame-check, whose shape this copies: derive a number
 # from the built kernel, compare it against a rule, fail the build. That gate exists because
@@ -148,7 +149,8 @@
 #   - **Once stamped, nothing compares the stamp against the pin.** `script/lint`'s
 #     baseline-toolchain check globs `bench/baseline-*.txt` only. Widening it to these files would
 #     make every toolchain bump re-save the footprint floors, which is the re-save the 2026-09-21
-#     ruling holds back, so that is calef's call rather than a lint edit. Until then the stamp is
+#     ruling holds back, so that is an architect's call rather than a lint edit. Until then the
+#     stamp is
 #     a record a failing run prints, not a gate.
 #   - **`syscall_entry` is flat, so an inlining decision can move bytes into it that no syscall
 #     fetches.** Three instances in two days on 2026-09-04, each closed with `#[inline(never)]` on

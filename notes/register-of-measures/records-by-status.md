@@ -57,8 +57,8 @@ There were 139 decisions in eight weeks, of which 17 are `AMENDED` and 3 `SUPERS
 Twenty revised or replaced out of 139 says the vocabulary is doing work. A tree where nothing was
 ever amended would mean either that every first answer was right or that nobody went back.
 
-`PROPOSED` is the queue waiting on calef, and it stays small (10, 4, 8, 2, 3). It is a queue depth
-rather than a backlog.
+`PROPOSED` is the queue waiting on an architect, and it stays small (10, 4, 8, 2, 3). It is a queue
+depth rather than a backlog.
 
 ## Names by what the tree records about them
 

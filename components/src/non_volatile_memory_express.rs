@@ -129,7 +129,7 @@
 //!
 //! **That inconsistency outlives this ruling and is not settled here.** `block_driver` and this
 //! program will spell the same role two ways until somebody rules on the `_driver`/`_server` split
-//! itself, which is calef's and is a separate question from the acronym.
+//! itself, which is an architect's and is a separate question from the acronym.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks

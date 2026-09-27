@@ -41,7 +41,7 @@
 //! Its `P`, `U` and `NSH` bits decide whether cycles spent at EL1, EL0 and EL2 are counted. That
 //! decides what every cycle number this kernel ever prints *means*: a count that includes EL1 is
 //! comparable to seL4's IPC figures, and one that excludes it is a userspace-only profile. It is a
-//! fact that leaves the machine, so it is calef's, and the options are
+//! fact that leaves the machine, so it is an architect's, and the options are
 //! `design/roadmap/proposals/the-aarch64-half-of-74.md`. What is written today is
 //! zero, for the reasons [`PMCCFILTR_PROVISIONAL`] gives, and no number measured under it is a
 //! result.

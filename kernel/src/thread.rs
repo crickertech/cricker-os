@@ -515,7 +515,7 @@ pub struct Thread {
     /// `arch::timer::set_cycle_counter_grant`, which writes the enable only when it differs from
     /// what the core already holds. So a machine where nothing is granted pays one compare.
     ///
-    /// *(Field name provisional: names are calef's.)*
+    /// *(Field name provisional: names are an architect's.)*
     ///
     /// **Built only under `test` or `--features cycle_counter_grant`** (milestone 237). The grant
     /// costs `sched::schedule` 192 bytes it was spending for an instrument nothing can request, so
@@ -546,7 +546,7 @@ pub struct Thread {
     /// only**: the field, and every path that reads it, is compiled out on the architectures that
     /// have no port space, so the switch path there is byte-for-byte what it was.
     ///
-    /// *(Field name provisional: names are calef's.)*
+    /// *(Field name provisional: names are an architect's.)*
     #[cfg(target_arch = "x86_64")]
     pub(crate) port_range_grant: Option<(u16, u16)>,
 

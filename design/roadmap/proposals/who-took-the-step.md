@@ -422,8 +422,8 @@ is the fallback, and the ranking of the remaining three is unchanged: (d), then 
 **The decision is reversible; the key's exposure is not.** Pointing the drain back at calef's token
 is a one-line change. But `AGENTS.md`'s test is not "can I revert the commit", it is "who else has
 already acted on this", and for a credential the answer is the machine: a key that has sat on a
-laptop has sat on it, and reverting does not un-sit it. That asymmetry is why this is calef's call
-and not a lane's.
+laptop has sat on it, and reverting does not un-sit it. That asymmetry is why this is an architect's
+call and not a lane's.
 
 Who has acted so far: calef created the App, generated a key and stored it as two organization
 secrets on 2026-09-23, so **a key file was downloaded to a browser's downloads folder and, per

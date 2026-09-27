@@ -550,11 +550,11 @@ pub struct BootEndowment {
 /// kernel-side test harness. What it does
 /// not decide is *what* the second subtree should be: [DECISIONS
 /// §126](../../../design/decisions/126-two-directory-cwd.md) named that a boot-time policy
-/// question reserved for calef, so no shipped boot enables it. A second, separate gap: nothing
-/// yet tells the shell process *which* label and cspace slot this landed at (the `START` ABI's
-/// three words are already spoken for by the role, the argument, and the clock slot), so a shell
-/// built with one of these today would hold a capability its own `Nav` has no way to learn about.
-/// Provisional shape.
+/// question reserved for an architect, so no shipped boot enables it. A second, separate gap:
+/// nothing yet tells the shell process *which* label and cspace slot this landed at (the `START`
+/// ABI's three words are already spoken for by the role, the argument, and the clock slot), so a
+/// shell built with one of these today would hold a capability its own `Nav` has no way to learn
+/// about. Provisional shape.
 #[derive(Clone, Copy)]
 pub struct SecondDirGrant {
     /// One component under the image root, the same shape a `DirGrant`'s `name` already takes.
@@ -1664,7 +1664,9 @@ pub fn boot(
     // # BUGS
     //
     // **Unverified against a real boot.** `second_dir` is `None` at every shipped entry point
-    // (DECISIONS §126: what the subtree should be is calef's call), so this branch has never run
+    // (DECISIONS §126 (a real, single, moving `cwd`): what the subtree should be is an architect's
+    // call), so this branch has never
+    // run
     // under `script/swish-check`, which is the only thing in the tree that runs a real progenitor.
     // `build_caretaker` retypes two more objects into *this process's* capability table right
     // where the comment two screens up already documents this table as tight ("the shell's

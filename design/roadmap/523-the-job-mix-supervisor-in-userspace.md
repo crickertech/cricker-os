@@ -12,9 +12,10 @@ needs_person: no
 Minted 2026-09-21 by the maintainer, an hour before a bench evening on
 radon, after `script/board-image --job-mix --tftp` reported `NOT SEALED` on every attempt. This lane
 investigated the move end to end and **built none of it**, because every route to it runs through a
-decision that is calef's. What is below is the investigation, the one premise in the brief that is
-false, the five things a shell-spawned program would have to be allowed to do, and what each would
-cost. Nothing about the instrument changed; `--features job_mix` is still how the number is taken.
+decision that is an architect's. What is below is the investigation, the one premise in the brief
+that is false, the five things a shell-spawned program would have to be allowed to do, and what each
+would cost. Nothing about the instrument changed; `--features job_mix` is still how the number is
+taken.
 
 Five of them, and they are not one question wearing five hats. Two are the
 syscall surface (a thread's placement, a `START` return value), one is the spawn manifest, one is
@@ -121,7 +122,7 @@ contract between the shell and the progenitor.
 
 **What would close it**: a new `MemSpec`-shaped declaration for construction authority, or a
 decision that this one program is endowed by the progenitor at boot rather than by the shell. Both
-are calef's, and the second brings blocker 1b with it: a boot-built supervisor needs a **wire
+are an architect's, and the second brings blocker 1b with it: a boot-built supervisor needs a **wire
 protocol** for the shell to ask it to run, which is squarely *anything two programs agree on*.
 
 ### Blocker two: a shell-spawned program never receives the initrd
@@ -187,7 +188,7 @@ There is **no userspace path to that fact**, and it is not a gap in one place:
   and it is **one line of kernel** -- and it changes a syscall's return contract, which existing
   callers test for equality with zero (`fixtures/src/os_primitives_benchmarker.rs`).
 
-**Three options, and all three are calef's:**
+**Three options, and all three are an architect's:**
 
 - **A. `START` returns the placed CPU** instead of zero. Smallest change, gives a builder exactly
   what the kernel supervisor gets, ships on all three architectures for free because placement is

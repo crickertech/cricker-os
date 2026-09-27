@@ -108,7 +108,7 @@
 //! boundary on 2026-09-13: *a standard's own name stays whole where it names a format or a piece
 //! of hardware (`elf`, `pci`, `dtb`, `gpt`), and expands where it names a network protocol*, and
 //! it closed by saying nothing mechanical can tell the two apart, so the next name that tests the
-//! line comes to calef. This is that name.
+//! line comes to an architect. This is that name.
 //!
 //! **It lands on the protocol side without the line moving.** NVM Express is not a piece of
 //! hardware and not a format; its own specifications define how host software *communicates* with

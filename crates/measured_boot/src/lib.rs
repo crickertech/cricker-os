@@ -434,9 +434,9 @@ pub struct Verdict<'a> {
 ///
 /// Names **provisional** (milestone 246's lane): `verdict` and [`Verdict`] are this lane's choice,
 /// picked to sit beside [`verify`] and [`verify_in_manifest`] as the third member of that family and
-/// to read as a noun at the call site. Public function and type names are calef's (AGENTS.md,
-/// milestone 160); a name inside one crate is reversible, so the lane shipped one rather than
-/// waiting.
+/// to read as a noun at the call site. Public function and type names are an architect's
+/// (AGENTS.md, milestone 160 (review the public function names)); a name inside one crate is
+/// reversible, so the lane shipped one rather than waiting.
 pub fn verdict<'a>(table: &str, name: &str, bytes: Option<&'a [u8]>) -> Verdict<'a> {
     let Some(bytes) = bytes else {
         return Verdict {

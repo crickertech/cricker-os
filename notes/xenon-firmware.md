@@ -117,8 +117,8 @@ entries** across a year, so this is a thing it actually does rather than a thing
 Nothing about this was hit during first light, because a keyboard and a monitor were both attached.
 It matters for what `notes/bench-runbook.md` and `notes/serial-less-output.md` want next: a machine
 that can be power-cycled and left to boot on its own. Two settings would have to change together
-(`Continue on Warnings and Errors`, and keyboard error detection off), and both are calef's call
-because both change the machine's behaviour for everything else it is used for.
+(`Continue on Warnings and Errors`, and keyboard error detection off), and both are an architect's
+call because both change the machine's behaviour for everything else it is used for.
 
 ## The full transcription
 

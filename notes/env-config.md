@@ -1,7 +1,8 @@
 # The inert-configuration page: `TZ`, `LANG`, `TERM`, and what still waits
 
 Milestone 47's environment-variable fork. Built 2026-08-23. The contract is `environment_protocol` (a
-provisional name; naming crates is calef's call, per AGENTS.md); the decision is DECISIONS §111.
+provisional name; naming crates is an architect's call, per AGENTS.md); the decision is DECISIONS
+§111 (inert configuration is a read-only page).
 
 ## What this is
 
@@ -12,7 +13,7 @@ encoded as a bearer string). Only the first third is built here. Names wait on `
 154's two-directory endowment, not yet built); secrets are answered elsewhere, by an endpoint
 (§41), and are never meant to arrive as a string on this table at all.
 
-The wire encoding is a read-only page, the same rights-ladder shape the clock page uses: no
+The wire encoding is a read-only page, the same rights-ladder shape the clock page uses. No
 capability, or a `Frame` with `READ`. A config value is never something a person designates on a
 command line, and there is nothing to propose or set from inside the process that holds it, so an
 endpoint (as the clock's propose half uses) would be the wrong shape here.
@@ -85,8 +86,8 @@ atomics at all.
   ```
 
   Bare `caps` lists the shell's own view as one more `READ only, NOT delegable` row.
-- `PATH` and `HOME` are not seeded here. Both are namespace questions (directory capabilities),
-  not variable ones, and the roadmap's own text is explicit that they wait on `bind`.
+- `PATH` and `HOME` are not seeded here. Both are namespace questions, directory capabilities
+  rather than variable ones. The roadmap's own text is explicit that they wait on `bind`.
 
 ## Tests
 

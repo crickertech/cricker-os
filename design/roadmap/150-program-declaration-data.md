@@ -59,7 +59,7 @@ spawnable program to have a `SWISH_CHECK_SCRIPT` line or a stated reason. That l
 
 **The eighth edit site is closed**: `the_arg_line_follows_the_manifest_for_every_program` types
 every operand a manifest asks for, so an argument-plus-input program needs no edit in `crates/swish`.
-Whether such a program is *wanted* (item 3) is calef's call and is written up as
+Whether such a program is *wanted* (item 3) is an architect's call and is written up as
 [a-program-that-takes-an-argument-and-an-input.md](498-a-program-that-takes-an-argument-and-an-input.md),
 recommending the status quo. The neighbouring file-plus-input refusal moved from a comment into a
 host test.
@@ -90,7 +90,8 @@ way", for the integrator to mint a `design/decisions/` section from.
 `programs!`, `Prog::ALL`, `declared_programs`, `declared_program_blobs`, `bin_names`,
 `check_declared_programs`, `PROGRAM_PACKAGES`, and the test names added in `grant_plan`, `swish` and
 `xtask`. `PROG_COUNT` keeps its name with a changed meaning (one past the highest id, not a count),
-which a reader of the name alone would get wrong once an id is retired; renaming it is calef's call.
+which a reader of the name alone would get wrong once an id is retired; renaming it is an
+architect's call.
 
 ## What this is
 
@@ -211,8 +212,8 @@ milestone 117's handoff."
 
 - **Milestone 498.** milestone 498 (whether a program may take an argument), `design/roadmap/498-a-program-that-takes-an-argument-and-an-input.md`: item 3,
   whether a manifest may declare an argument and an input together. The mechanical half is done
-  (the `crates/swish` sweep supplies both); whether the shape is wanted is calef's call, and the
-  proposal recommends the status quo.
+  (the `crates/swish` sweep supplies both); whether the shape is wanted is an architect's call, and
+  the proposal recommends the status quo.
 - **Decision.** The mechanism (the `[[bin]]` block as the archive list, `programs!` for `Prog`, and
   three relationship checks in place of a pinned count) is reasoned with what lost in
   `notes/adding-a-program.md` under "Why it works this way", for the integrator to mint a
@@ -224,7 +225,7 @@ milestone 117's handoff."
   `BUGS`.
 - **Recorded.** `PROG_COUNT` keeps its name with a changed meaning (one past the highest wire id,
   not a count of programs), stated in its doc comment in `crates/grant_plan/src/lib.rs`. A rename is
-  a naming decision and is calef's.
+  a naming decision and is an architect's.
 - **Done.** `memory_grant_depleter` had no `SWISH_CHECK_SCRIPT` line; the new coverage test found
   it and it has one.
 

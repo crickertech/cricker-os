@@ -26,7 +26,7 @@ it on 2026-09-24**; the deferral, its reason and its trigger are the last sectio
 nothing in the first increment waits on it.
 
 *The slug `does-this-layer-earn-its-keep` is **provisional**, and so is the instrument name proposed
-below. Naming is calef's; a lane ships a provisional name and says so.*
+below. Naming is an architect's; a lane ships a provisional name and says so.*
 
 ## This is the same argument, one rung up
 

@@ -37,9 +37,10 @@
 //!   is printed immediately before the first prompt by the same program, so a reader that finds it
 //!   knows the shell is up; what it does not know is that the *prompt* came out, which is a
 //!   distinction `cargo xtask swish-check` cares about and this crate cannot make.
-//! - **The wordings are provisional** (milestone 268). They are contracts, so they are calef's
-//!   under `AGENTS.md`'s *move fast on what can be undone* tenet; a lane ships one and says so
-//!   rather than waiting, which is what the milestone block instructed.
+//! - **The wordings are provisional** (milestone 268 (every architecture boots the same way)). They
+//!   are contracts, so they are an architect's under `AGENTS.md`'s *move fast on what can be
+//!   undone* tenet; a lane ships one and says so rather than waiting, which is what the milestone
+//!   block instructed.
 //!
 //! Name: ratified 2026-09-14 (calef, working the unratified worklist), the same day milestone
 //! 268's lane minted it. A noun for the thing it describes: the ladder a boot climbs.

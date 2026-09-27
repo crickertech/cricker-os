@@ -26,7 +26,7 @@ The decision is
 option 1 on a measurement rather than restating the three: the x86_64 runner image is already in use
 by `verify.yml`, so option 1 and option 2 cost the same slot and option 2 buys a symmetric claim for
 it, which leaves the real question as 2 against 3.
-Whether to spend runner minutes on a second host is calef's, because it is a
+Whether to spend runner minutes on a second host is an architect's, because it is a
 standing cost on every pull request rather than a one-off. Everything below is the measurement he
 would otherwise have to ask for; the shapes are priced, so the answer is one sentence and the lane
 that follows it needs no further ruling.

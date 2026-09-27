@@ -37,11 +37,11 @@
 //! - **`FAILED:` is spelled the way this tree already spells it**, in `main.rs`'s preemption check
 //!   (`FAILED: a spinner did not run, or nothing was preempted.`), rather than as a new word.
 //!
-//! The wording is **provisional** (milestone 268): a line two programs agree on is calef's under
-//! AGENTS.md's *move fast on what can be undone* tenet, and the milestone block says a lane should
-//! ship one and say so rather than wait. The other half of the contract is
-//! `board_console::progress`, which is tested against this module's own constant rather than
-//! against a remembered string.
+//! The wording is **provisional** (milestone 268 (every architecture boots the same way)): a line
+//! two programs agree on is an architect's under AGENTS.md's *move fast on what can be undone*
+//! tenet, and the milestone block says a lane should ship one and say so rather than wait. The
+//! other half of the contract is `board_console::progress`, which is tested against this module's
+//! own constant rather than against a remembered string.
 //!
 //! # BUGS
 //!

@@ -66,7 +66,7 @@ fi
 
 # **NIFE_GIC picks the interrupt controller: 2 (the TCG default) or 3** (milestone 317 added the
 # flag to reproduce a failure; milestone 227 made the kernel drive what it asks for). The name is
-# PROVISIONAL, a lane's to propose and calef's to ratify.
+# PROVISIONAL, a lane's to propose and an architect's to ratify.
 #
 # The kernel no longer cares which: `machine_discovery::gic` reads the device tree's `compatible`
 # (`arm,cortex-a15-gic` for 2, `arm,gic-v3` for 3), and `arch::irq::init` confirms it against the

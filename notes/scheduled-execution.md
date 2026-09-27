@@ -8,7 +8,7 @@ The pieces: `crates/timetable` (the decision, host-tested and Kani-reached),
 `components/src/timetable.rs` (the budget, the counter, the loader), `components/timetable.conf` (the
 document), `kernel/src/user/timetable_tests.rs` (both ISAs). Every name in that list is
 provisional; the block for milestone 129 (scheduled execution) declines to propose one and AGENTS.md says the eventual one
-is calef's.
+is an architect's.
 
 ## What cron actually is, and what is wrong with it here
 

@@ -4,7 +4,7 @@
 compiler cannot see when a program or crate is renamed, and why the census is taken twice. It exists
 to verify or challenge the main page. A reader who only needs to name, ratify or rename something
 should not have to open it. The directory `design/naming/` and this file's stem are provisional
-names, minted 2026-09-24 by the lane that split the file; naming is calef's.*
+names, minted 2026-09-24 by the lane that split the file; naming is an architect's.*
 
 ## Renaming a crate is compiler-checked; renaming a program is not
 
@@ -131,8 +131,8 @@ directory outside the workspace is outside all of them at once.
 The one gate that did see it is `script/names`, because it walks `crates/*/src/lib.rs` on disk
 rather than the package graph. So the defect surfaced as a worklist entry: `jh7110_crg` went on
 `script/names --unratified`. That queued a name nobody could compile into the one queue whose entire
-purpose is to spend calef's attention well. Nothing red happened anywhere. The cost was paid in the
-scarcest thing in the project rather than in a build.
+purpose is to spend an architect's attention well. Nothing red happened anywhere. The cost was paid
+in the scarcest thing in the project rather than in a build.
 
 The general fact is worth more than the incident: an on-disk walker and a package-graph walker
 disagree, and the disagreement is information. `script/verify` and `script/falsifications` both

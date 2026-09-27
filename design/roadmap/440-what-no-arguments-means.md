@@ -138,18 +138,18 @@ and in milestone 286's block. A `**Proposed.**` bullet in that block points here
 
 Milestone 286 collapsed two enumerations of "the checks that gate a pull request" into one table
 inside `script/ci-build`, with a tier column saying which checks a developer waits for before
-pushing and which only a runner waits for. How that column is spelled is calef's, because it is a
-name a contributor meets in `CONTRIBUTING.md`, in `--list` output and in every row. It cannot mean
-everything: `script/verify` is about 47 minutes of Kani, and the retired `script/gates` carried the
-sentence that decides it, which has to survive the milestone that deleted the file, that **a gate
-people skip is not a gate**. So the no-argument path is a subset and the only question is how the
-subset is named and defended. Four options are priced, and the tempting one is refused on the
+pushing and which only a runner waits for. How that column is spelled is an architect's, because it
+is a name a contributor meets in `CONTRIBUTING.md`, in `--list` output and in every row. It cannot
+mean everything: `script/verify` is about 47 minutes of Kani, and the retired `script/gates` carried
+the sentence that decides it, which has to survive the milestone that deleted the file, that **a
+gate people skip is not a gate**. So the no-argument path is a subset and the only question is how
+the subset is named and defended. Four options are priced, and the tempting one is refused on the
 newcomer principle rather than on mechanism: deriving the set from what the machine can do now
 removes the hand-maintained tag and makes two contributors run different sets from the same command,
 neither able to say what the other's green meant. The shipped pair is `local` and `ci`, and the
-strongest argument against it is that `ci` names a deployment rather than a property, so it would
-be wrong the day this repository stopped using GitHub Actions while the check was untouched.
-`runner` is the obvious fix and is not available: this tree already spends it in two senses across
-163 files, including four entry points named for it, and a third sense costs a reader the
-recognition. The tags are cheap to change; the default is not, because `CONTRIBUTING.md` now tells a
-stranger this is the one command to remember.
+strongest argument against it is that `ci` names a deployment rather than a property, so it would be
+wrong the day this repository stopped using GitHub Actions while the check was untouched. `runner`
+is the obvious fix and is not available: this tree already spends it in two senses across 163 files,
+including four entry points named for it, and a third sense costs a reader the recognition. The tags
+are cheap to change; the default is not, because `CONTRIBUTING.md` now tells a stranger this is the
+one command to remember.

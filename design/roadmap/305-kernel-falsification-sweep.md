@@ -198,7 +198,7 @@ keeps comparing two derivations of one fact; that check fired on the first run h
   Defaulted to `aarch64`. Row 21's riscv64 record is the only one that is not, and the reason it is
   not is in that patch rather than here.
 - **`Architecture:` is a provisional spelling**, this lane's. It is a field in a patch's prose head
-  beside `Falsifies`, which is where the sweep reads it, and calef names things.
+  beside `Falsifies`, which is where the sweep reads it, and an architect names things.
 - **The sweep checks a red's shape, not its sentence.** It requires the kernel to have booted and
   selected exactly one test before a non-zero exit counts as red, which is what keeps a patch that
   does not compile from reading as a successful falsification. It cannot check that the failure came

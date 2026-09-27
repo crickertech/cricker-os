@@ -17,11 +17,11 @@ Milestone 240 (the soak reports what happened and not where, so an eightfold
 difference cannot be explained) built the placement instrument this would histogram, and it is
 merged.
 
-**In brief.** `script/soak` prints eight counters every five seconds and **every one of them is a
-volume.** `rounds`, `wakes`, `crossings`, `remote`, `steals` and `deferred` all count how much
+In brief. `script/soak` prints eight counters every five seconds and every one of them is a
+volume. `rounds`, `wakes`, `crossings`, `remote`, `steals` and `deferred` all count how much
 happened. Nothing counts how many *different* things happened, so no beat can be compared with the
-beat before it and **a run that stopped learning anything an hour ago looks exactly like one that is
-still finding new interleavings.**
+beat before it and a run that stopped learning anything an hour ago looks exactly like one that is
+still finding new interleavings.
 
 That is why the duration question has no answer today. notes/soak.md's own research section reached
 this and named the gap rather than papering over it:
@@ -30,7 +30,7 @@ this and named the gap rather than papering over it:
 
 ## Why this is the milestone and not more hours
 
-**The saturation is measured, by somebody else, on this exact question.** Burckhardt, Kothari, Musuvathi
+The saturation is measured, by somebody else, on this exact question. Burckhardt, Kothari, Musuvathi
 and Nagarakatte, *A Randomized Scheduler with Probabilistic Guarantees of Finding Bugs*, ASPLOS 2010,
 instrumented a work stealing queue with twenty events and 168 possible event pairs and compared
 coverage against run count:
@@ -41,10 +41,10 @@ coverage against run count:
 > in a bug.
 
 Their stress harness inserted random sleeps, thread suspensions and priority changes, which is a
-superset of this soak's jitter. **Coverage climbed, flattened, and the flat part was free.** This
+superset of this soak's jitter. Coverage climbed, flattened, and the flat part was free. This
 project has no way to see which part it is in.
 
-**And the cost of not knowing is now measured here rather than assumed.** Two radon runs on
+And the cost of not knowing is now measured here rather than assumed. Two radon runs on
 2026-09-03, the same card:
 
 | | crossings total | crossings/s |
@@ -52,14 +52,14 @@ project has no way to see which part it is in.
 | the 2 h 59 m run | 5,509 | 0.51 |
 | the run that followed it | 197,952 in 17 min | 186 |
 
-The second boot passed the first's entire three-hour crossing count in about **thirty seconds**. A
+The second boot passed the first's entire three-hour crossing count in about thirty seconds. A
 duration chosen in hours is therefore choosing an unknown multiple of the thing that matters, and the
 multiple is set by a boot-time lottery nobody controls.
 
 ## What would close it
 
-**A coarse histogram over the placement and scheduling decisions the soak makes, reported per beat,
-so a beat can be compared with the one before it.** Milestone 240 already computes the raw material:
+A coarse histogram over the placement and scheduling decisions the soak makes, reported per beat,
+so a beat can be compared with the one before it. Milestone 240 already computes the raw material:
 `sched::last_cpus` knows where every worker is, and the census prints it whenever it changes. What is
 missing is the summary that turns a sequence of arrangements into *"this beat saw an arrangement no
 earlier beat saw"* or *"this beat saw nothing new."*
@@ -68,14 +68,14 @@ The shape is deliberately not specified here, because the interesting design que
 as a distinct behaviour, and that is the milestone rather than a detail of it. Some candidates, none
 endorsed:
 
-- **Distinct settled arrangements**, which is the coarsest and probably the most honest, given that
+- Distinct settled arrangements, which is the coarsest and probably the most honest, given that
   240 found the arrangement is stable on silicon (`drifted=0` held for a whole run) where it churns
   under QEMU.
-- **Distinct (waker core, woken core) pairs**, which is closest to PCT's event pairs and to the
+- Distinct (waker core, woken core) pairs, which is closest to PCT's event pairs and to the
   wake path radon's defect was once thought to live on. That reading was retracted by
   [`notes/visionfive2.md`](../../notes/visionfive2.md)'s fifth bench stop (2026-08-15), so this
   counts for PCT's sake and not for a recorded defect.
-- **Distinct orderings within a group's exchange**, which is the most sensitive and the most
+- Distinct orderings within a group's exchange, which is the most sensitive and the most
   expensive.
 
 **Whatever it is, it must be cheap enough to run for hours** and must not itself perturb what it
@@ -92,13 +92,13 @@ Not a new counter that rises monotonically, which is what the existing eight alr
 
 ## BUGS
 
-- **This does not decide a duration**, and should not be read as promising one. It makes the duration
-  decidable from evidence; the number stays calef's, on the axis notes/soak.md gives him.
-- **A flat histogram is not proof a run is worthless.** PCT's own finding is that stress covers a
+- This does not decide a duration, and should not be read as promising one. It makes the duration
+  decidable from evidence; the number stays an architect's, on the axis notes/soak.md gives them.
+- A flat histogram is not proof a run is worthless. PCT's own finding is that stress covers a
   fraction of the space and stays there; a soak that has gone flat on placement may still be
   accumulating hours of the *same* interleaving, which is exactly what a wearout or leak question
   would want and a concurrency question would not.
-- **It measures this soak's behaviour, not the kernel's.** A histogram over the workload's placements
+- It measures this soak's behaviour, not the kernel's. A histogram over the workload's placements
   says nothing about paths no worker takes, and reading it as a coverage number for the scheduler
   would be the same overclaim `notes/mutation-testing.md` warns about for its own score.
 - **Nothing here helps the slow draw.** A run at 0.51 crossings per second will look flat because it

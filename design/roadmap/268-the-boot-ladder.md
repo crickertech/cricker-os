@@ -135,8 +135,8 @@ prints, and not a marker that exists on one architecture, which is the defect be
   x86_64's existing output and asking what the other two would need; nobody has checked it against
   what a person actually wants when bringing up an unfamiliar board.
 - **This block does not say what the verdict line reads.** That is a contract two programs agree on,
-  so it is calef's under the *move fast on what can be undone* tenet, and a lane should ship a
-  provisional wording and say so rather than wait.
+  so it is an architect's under the *move fast on what can be undone* tenet, and a lane should ship
+  a provisional wording and say so rather than wait.
 
 ## Follow-on
 

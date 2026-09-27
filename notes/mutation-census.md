@@ -1,7 +1,7 @@
 # The mutation census record: one row per crate, per census
 
 *Names: `notes/mutation-census.md`, `script/mutation-census` and the two CSV files below are
-**provisional**. Naming is calef's (AGENTS.md); a lane ships a provisional name and says so.
+**provisional**. Naming is an architect's (AGENTS.md); a lane ships a provisional name and says so.
 Milestone 518 (a census that cannot be attributed is a number nobody can act on), 2026-09-20.*
 
 [`notes/mutation-testing.md`](mutation-testing.md) is the ledger of triage: what a mutant is, what

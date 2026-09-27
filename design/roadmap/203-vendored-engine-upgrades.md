@@ -123,8 +123,8 @@ mechanism works before it ever has to be right about something.
   upstream commits land continuously and most of them will not matter, so the "report what changed"
   half is what keeps the git side from becoming the log line nobody reads.
 - **A bump is where the divergences get re-litigated**, and divergence 3 in particular is one
-  `vendor/README.md` says is kept rather than reverted only because reverting it is calef's call.
-  Any bump lane will meet that.
+  `vendor/README.md` says is kept rather than reverted only because reverting it is an architect's
+  call. Any bump lane will meet that.
 
 ## Follow-on
 
@@ -140,9 +140,9 @@ mechanism works before it ever has to be right about something.
   what keeps that side from becoming the log line nobody reads.
   `design/roadmap/203-vendored-engine-upgrades.md`.
 - **Recorded.** A bump is where the five divergences get re-litigated, and divergence 3 is kept
-  rather than reverted only because reverting it is calef's call. Three of the five are re-applied
-  forever and can conflict, and if upstream restructures the code they touch they may not be
-  re-applicable at all, at which point the honest outcome is a decision (rewrite the divergences,
+  rather than reverted only because reverting it is an architect's call. Three of the five are
+  re-applied forever and can conflict, and if upstream restructures the code they touch they may not
+  be re-applicable at all, at which point the honest outcome is a decision (rewrite the divergences,
   stay on the pin and record why, or fork permanently) rather than a forced patch.
   `vendor/README.md`.
 - **Refused.** The expensive half of the workflow, which would re-apply the divergence patch and

@@ -8,7 +8,7 @@ Removed 2026-08-30. The premise was retired the same day. calef decided to remov
 the SMB implementation: the customer this milestone existed for backs up with borg over SSH on
 cordoba, so journey 2 is retired and there is no Time Machine target to finish. The status word is
 the vocabulary's closest fit rather than the right one; there is no word for "retired", and minting
-one is calef's.
+one is an architect's.
 
 **What is built and stays**: the **discovery half** (pull request #246, 2026-08-16), a responder
 program that binds UDP 5353 through a grant, announces `_smb._tcp`, `_adisk._tcp` and
@@ -424,7 +424,7 @@ not an unscoped rewrite. "The path to BUILT" above is the current re-scope this 
 
 - **Milestone 137.** The Mac file-server workload this block split out on 2026-08-18. Its subject
   went with the SMB implementation on 2026-08-30 and its own index row says the block needs
-  retiring, which is calef's call.
+  retiring, which is an architect's call.
 - **Recorded.** `notes/smb.md` keeps everything the removal took, including the two things this
   milestone most wanted and never got: no Mac ever saw the `AAPL` answer, and nobody proved macOS
   would offer the share as a backup destination. Those needed the kernel on hardware on a real

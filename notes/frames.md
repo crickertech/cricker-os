@@ -450,7 +450,7 @@ went), and the difference is accounted rather than shrugged at:
   physical pages exactly as it was. Even a capability-perfect revocation of a surface leaves the
   device able to write those pages until the driver's virtio registration is itself torn down.
   Whether `REVOKE` should narrow a DMA window couples two objects that are independent today; it is
-  the last open section of the decision above and remains calef's call.
+  the last open section of the decision above and remains an architect's call.
 
 - **A failed multi-page `MAP` gives the page tables back to nobody.** Both mapping paths
   (`page_frame::MAP` and `address_space::MAP_INTO`) are all-or-nothing across a run since

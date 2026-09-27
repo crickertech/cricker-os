@@ -3,9 +3,9 @@
 What the tree's names mean, which conventions are rules, and which of those a machine checks.
 
 This file is the authority for naming conventions, per §155 (the naming conventions move out of the
-constitution, and the note becomes the rule). `AGENTS.md` keeps only the authority: names are
-calef's, ship a provisional one and say so, never rename on your own initiative. Where the two
-disagree, this file is the rule and `AGENTS.md` is the bug. The headline rule is
+constitution, and the note becomes the rule). `AGENTS.md` keeps only the authority: naming is an
+architect's call, ship a provisional one and say so, never rename on your own initiative. Where the
+two disagree, this file is the rule and `AGENTS.md` is the bug. The headline rule is
 [§39 (a component is named for what it is)](decisions/39-component-names.md).
 
 This page is what a lane or a maintainer acts on. The argument, history, worked examples and every
@@ -14,9 +14,9 @@ budget) and §213 (writing standards).
 
 ## Who names things
 
-calef names the crates, the programs, the shared modules and the public functions. A name is global
-to the tree, so the person who can see the whole tree decides it. In a capability system a name is
-often the only thing that says what a program may do.
+An architect names the crates, the programs, the shared modules and the public functions. A name is
+global to the tree, so an architect, who can see the whole tree, decides it. In a capability system
+a name is often the only thing that says what a program may do.
 
 - A lane ships a provisional name, marks its `Name:` block `provisional`, and says so in its report.
   The integrator surfaces it.

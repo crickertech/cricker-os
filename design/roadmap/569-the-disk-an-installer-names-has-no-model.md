@@ -60,7 +60,7 @@ Forty ASCII bytes do not fit in a spawn, so **a program cannot be told the model
 the geometry.** That is the sentence the rung 2a lane wrote down, and it is true; what it does not
 say is that the kernel does not need the spawn at all.
 
-## Two halves, and only one of them is calef's
+## Two halves, and only one of them is an architect's
 
 **A. The kernel prints the model. Reversible, needs no ruling, and is the whole of the sentence
 above.** The offer is printed by `install_service`, in the kernel, which is also where the admin
@@ -73,8 +73,8 @@ that is space-padded rather than NUL-terminated.
 naming *which*, and a machine with two NVMe controllers needs an identity a person can match against
 the thing in their hand. A serial number is that; a model number on its own is not.
 
-**B. A program names the disk. This is the wire question and it is calef's.** `disk_surveyor` is
-what would list the machine's drives for a person to choose between, and it cannot see an NVMe
+**B. A program names the disk. This is the wire question and it is an architect's.** `disk_surveyor`
+is what would list the machine's drives for a person to choose between, and it cannot see an NVMe
 controller at all: `crates/block_roster` encodes two transport kinds and neither is NVMe. That is
 milestone 421 (the block roster cannot name an NVMe disk) exactly, held since 2026-09-19 on
 DECISIONS §193 (NVMe in the block roster), whose open question is the transport kind's spelling

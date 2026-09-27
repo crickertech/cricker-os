@@ -206,12 +206,12 @@ recovered by #886, merged 2026-09-16.)*
   than 2%.
 - It does not re-baseline anything. Recovering the two flagged steps was PR #886's job, which merged
   2026-09-16 and recovered ~33 ticks/switch on aarch64, ~5.5 on riscv64 and ~5.9% on x86_64.
-  Deciding the mechanism is calef's.
+  Deciding the mechanism is an architect's.
 - Two rows moved a long way down: `spawn_el0` -32.7% on both ISAs, which is `b918337b`'s occupancy
   bound and a genuine win (see [the `spawn_el0` appendix](spawn-el0.md)). Cumulative drift is not a
   one-directional story, and a mechanism that assumed it was would be wrong about these.
 
-The mechanism this argues for is written up separately, since it is calef's call:
+The mechanism this argues for is written up separately, since it is an architect's call:
 `design/roadmap/415-sub-tripwire-drift-accumulates-across-baseline-saves.md`.
 
 *(Since then, 2026-09-24: part of that mechanism has landed. Milestone 302 (a baseline records what

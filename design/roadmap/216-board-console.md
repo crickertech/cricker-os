@@ -8,7 +8,7 @@ built: 2026-09-01
 Built 2026-09-01. Minted the same day by the maintainer, from calef wiring the
 VisionFive 2 as a remote target and the gap becoming concrete the same hour.
 
-**What was built.** `script/board-console` (name provisional), over `cargo xtask board-console`
+What was built. `script/board-console` (name provisional), over `cargo xtask board-console`
 and `crates/board_console` (both names provisional). It opens the port at 115200 8N1, tees every
 byte to a log file that is never optional, recognises the runbook's boot sequence, and returns a
 different exit status for each way a session can end: reached the stage asked for, the board
@@ -17,23 +17,23 @@ five-way answer is the deliverable rather than a nicety, because a bench script'
 exist is telling a hang from a refusal. See notes/board-console.md, which carries the runbook, the
 marker table with each marker's source, and the BUGS.
 
-**Built with the board powered off, then checked against the board.** The tool was written and
+Built with the board powered off, then checked against the board. The tool was written and
 tested with no hardware: fixtures fed one byte at a time for the recogniser, sources that block
 forever for the deadline, a FIFO standing in for a port to cover a failing `stty` and a source that
 speaks and then stops, and the real CH343 dongle for everything except the board, including that
-`stty` on the already-open descriptor moves it from 9600 to 115200 and reverts on exit. **Then
-calef powered the board on**, on 2026-09-01, and captured a full boot and a full failure. Both are
+`stty` on the already-open descriptor moves it from 9600 to 115200 and reverts on exit. Then
+calef powered the board on, on 2026-09-01, and captured a full boot and a full failure. Both are
 committed under `crates/board_console/tests/fixtures/captured/` as raw bytes off the wire, and
 both are asserted on. The documentation was right about the seven markers it named, which is the
 part worth recording: the recogniser needed no correction, only additions.
 
-**Four outcomes, three of them captured.** Success, U-Boot refusing before the kernel runs, the
+Four outcomes, three of them captured. Success, U-Boot refusing before the kernel runs, the
 kernel booting and then halting on purpose at the measured-boot gate, and a genuine hang. The last
 has no real sample and its fixture is synthetic and says so; the other three are bytes off the wire.
 
-**Two things the board knew that this tree's documentation did not.**
+Two things the board knew that this tree's documentation did not.
 
-The first is a **third outcome**. From power-on, the extlinux path ends `Moving Image from ...` /
+The first is a third outcome. From power-on, the extlinux path ends `Moving Image from ...` /
 `Device tree not found or missing FDT support` / `### ERROR ### Please RESET the board ###`,
 exactly the caveat notes/visionfive2.md records about U-Boot's fallback DTB addresses. That arrives
 after the image loads and before the kernel runs, so a recogniser that knew only the stages would
@@ -41,11 +41,11 @@ have called the silence after it a hang, which is the worst available answer: it
 hunting a multicore bug in a kernel that never started. Booted, hung, and refused-before-the-kernel
 are three outcomes, and the tool now exits 1 for the refusal and 2 for a hang.
 
-The second is that `nife: the capability core runs on ...` exists and is a **stronger claim than
-the banner**, which is printed before the device tree is touched. `--until tour` is the one to want
+The second is that `nife: the capability core runs on ...` exists and is a stronger claim than
+the banner, which is printed before the device tree is touched. `--until tour` is the one to want
 when the question is "did it work".
 
-**And two traps that only the fourth capture exposed.** The measured-boot refusal prints
+And two traps that only the fourth capture exposed. The measured-boot refusal prints
 `Starting kernel ...`, the whole banner, and most of a tour *before* halting, so a watcher that
 returned the instant its stage arrived would report the trust boundary refusing as a successful
 boot. Reaching the wanted stage now opens a two-second settle window instead of ending the session,
@@ -54,26 +54,26 @@ quiet: treating silence as a hang would fail every good boot, so the quiet timer
 the tour completes. Both were wrong before the captures arrived and neither would have been found by
 reasoning about the runbook.
 
-**And a port-handling fact that cost a power cycle.** calef's first capture was garbage, because
+And a port-handling fact that cost a power cycle. calef's first capture was garbage, because
 `stty` configured the port and then `cat` reopened it, and a new open on a macOS `cu` device puts
 it back to the default rate. It looks exactly like a wiring fault. The tool opens first and
 configures second, which avoids it, and now also reads the speed back and complains loudly when it
 is not 115200, because an invisible wrong baud sends the next person chasing hardware.
 
-**The one finding worth carrying out of the lane**, because reasoning did not produce it and a
+The one finding worth carrying out of the lane, because reasoning did not produce it and a
 byte-at-a-time test did: a partial line is weaker evidence than a complete one. `U-Boot ` reads as
 U-Boot proper right up until the next three bytes turn out to be `SPL`, and a marker carrying a
 payload captures a truncated one. So a tail may ratchet a stage and may not settle a word boundary
 or capture text.
 
-**Nothing gated this**, which was the point when it was minted and is now a fact rather than a
+Nothing gated this, which was the point when it was minted and is now a fact rather than a
 plan: no board was needed to build the thing that lets a lane use a board it cannot see, and none
 was available while it was built.
 
-**In brief.** `script/console` runs `cargo xtask shell`, which is QEMU. `script/board-image` builds
+In brief. `script/console` runs `cargo xtask shell`, which is QEMU. `script/board-image` builds
 the VisionFive 2 payload and prints the `dd` commands for a card, deliberately running nothing
-destructive itself. Between those two there is nothing. **A serial console on real hardware is not
-a thing this repository knows how to open**, so every `Gate: HARDWARE` milestone in the sense that
+destructive itself. Between those two there is nothing. A serial console on real hardware is not
+a thing this repository knows how to open, so every `Gate: HARDWARE` milestone in the sense that
 means "the board is on the desk" needs a person at a terminal emulator, reading with their eyes.
 
 That is the binding constraint on the fatal risks rather than a convenience. Four of the five
@@ -85,7 +85,7 @@ a bench is worst at.
 
 ## What exists as of today, so nobody re-derives it
 
-calef wired the rig on 2026-09-01. The UART is a **WCH CH343** dongle, presenting as CDC-ACM, at
+calef wired the rig on 2026-09-01. The UART is a WCH CH343 dongle, presenting as CDC-ACM, at
 `/dev/cu.usbmodem*` on the development Mac; it enumerates whether or not the board is powered.
 Board power is on a Kasa smart strip, and `~/.local/bin/vf2-power` on that machine drives it, with
 the outlet addressed by alias and no way for a caller to name a different one, because another
@@ -102,10 +102,10 @@ that reads and logs is useful the moment somebody presses power by hand, and gai
 clause is the whole difficulty and is why this is a milestone rather than a one-line `screen`
 invocation:
 
-- **Knowing a boot succeeded** means recognising the sequence `notes/visionfive2.md`'s bench
+- Knowing a boot succeeded means recognising the sequence `notes/visionfive2.md`'s bench
   runbook already writes down: the SPL banner, OpenSBI's, U-Boot's, then `Starting kernel ...`,
   then ours. That note is the specification; read it rather than inventing markers.
-- **Knowing a boot hung** is the case that matters, because a hang is what a multicore defect looks
+- Knowing a boot hung is the case that matters, because a hang is what a multicore defect looks
   like. A timeout with the captured log is the answer, not a hang of the tool itself.
 - **Never leaving the port open**, which is this tree's `Never leave QEMU running` rule wearing
   different clothes. A held serial port locks out the next run and the failure surfaces far from
@@ -113,22 +113,22 @@ invocation:
 
 ## BUGS
 
-- **This block does not decide whether the tool drives power**, and it should not until the plug is
+- This block does not decide whether the tool drives power, and it should not until the plug is
   reachable. A tool that power-cycles is a different and more dangerous object than one that reads.
   **The built tool reads and never writes**, to the port or to the outlet, so this stayed undecided
   rather than being settled by an implementation.
-- **Reading alone cannot boot this board, and the capture proves it.** The extlinux path fails, so
+- Reading alone cannot boot this board, and the capture proves it. The extlinux path fails, so
   reaching nife means interrupting autoboot and typing four commands at `StarFive #`. That is not a
   gap in the tool as specified; it is this block's specification being incomplete, and it is
   written up as a proposal below rather than fixed here, because it is a scope decision.
-- **It says nothing about the aarch64 or x86_64 boards**, which will want the same thing with
+- It says nothing about the aarch64 or x86_64 boards, which will want the same thing with
   different banners. Whether that is one tool with a board profile or three is a real design
   question and is not answered here.
-- **A captured log is not a test result.** Deciding pass or fail from console text is how a harness
+- A captured log is not a test result. Deciding pass or fail from console text is how a harness
   ends up asserting on a vendor's boot message; where that line sits is worth naming before it is
   crossed. The tool names its outcome `Reached`, for what it observed, rather than `Passed`; that
   is a wording, not a mechanism, and the line is still uncrossed rather than defended.
-- **The markers are checked against one board, on one day, in two states.** Better than
+- The markers are checked against one board, on one day, in two states. Better than
   documentation alone, and not the same as proven. Uncovered: other firmware builds, the two
   synthetic fixtures nobody has yet seen at a bench, and the aarch64 and x86_64 boards. The
   fixtures split into `captured/` and `synthetic/` so the provenance is a path rather than a claim
@@ -148,13 +148,13 @@ the same day and take most of it**, so the proposal is withdrawn rather than lef
 what the boot loader is supposed to do, and depends on catching a two-second window. Fix the boot
 path and nothing needs to type.
 
-**What is left over, and it is calef's**, is smaller than the proposal was: *should this tool ever
-be able to write to the port at all?* 218 may remove the need entirely, in which case the answer is
-no and this stays a reader. If 218's routes all fail, something has to type, and then the question
-is whether it is this tool with an explicit mode or a second one. The argument for one tool is that
-the port can only be held once and a driver contains a reader; the argument for two is that a tool
-which writes to a board is a more dangerous object than one that reads, which is the reasoning this
-block already applies to power.
+**What is left over, and it is an architect's**, is smaller than the proposal was: *should this tool
+ever be able to write to the port at all?* 218 may remove the need entirely, in which case the
+answer is no and this stays a reader. If 218's routes all fail, something has to type, and then the
+question is whether it is this tool with an explicit mode or a second one. The argument for one tool
+is that the port can only be held once and a driver contains a reader; the argument for two is that
+a tool which writes to a board is a more dangerous object than one that reads, which is the
+reasoning this block already applies to power.
 
 **Nothing is blocked on the answer**, which is why it is a paragraph and not a milestone: the tool
 as built serves every read-only use, and 218 is the thing to do first either way.
@@ -193,14 +193,15 @@ as built serves every read-only use, and 218 is the thing to do first either way
   provisional, as a lane's names are, and `script/names --unratified` is the worklist.
 - **Milestone 324.** Whether `script/board-console`
   should ever be able to write to the serial port at all, and if so whether that is this tool with
-  an explicit mode or a second tool. It is calef's call. Milestone 218 may remove the need by fixing
-  autoboot, in which case the answer is no; while it is open, a bench session facing a board that
-  will not boot has no sanctioned way to type at it.
+  an explicit mode or a second tool. It is an architect's call. Milestone 218 (a human typing four
+  commands into U-Boot) may remove the need by fixing autoboot, in which case the answer is no;
+  while it is open, a bench session facing a board that will not boot has no sanctioned way to type
+  at it.
 - **Milestone 324.** Whether argon
   (aarch64) and xenon (x86_64) get this console with a board profile or a tool each. Same behaviour,
-  different banners and a different boot sequence, and the choice is calef's. Until it is made the
-  other two boards have no console tool at all, so the bench workflow this milestone built exists
-  for one board out of three.
+  different banners and a different boot sequence, and the choice is an architect's. Until it is
+  made the other two boards have no console tool at all, so the bench workflow this milestone built
+  exists for one board out of three.
 
 ## Index row
 

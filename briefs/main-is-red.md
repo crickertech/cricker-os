@@ -1,7 +1,7 @@
 # `main` is red
 
 Hold the merge queue, land one fix alone, give the queue back. This brief holds the judgement;
-`helpers/queue-hold.sh` does the mechanical half. **Provisional names, both of them.**
+`helpers/queue-hold.sh` does the mechanical half. Provisional names, both of them.
 
 You are the maintainer session that noticed, or the one `helpers/trunk-health.sh` shouted at. Either
 way the trunk is now yours: "we are all owners here, so if there isn't an owner then own it."
@@ -11,19 +11,19 @@ way the trunk is now yours: "we are all owners here, so if there isn't an owner 
 Do this before touching anything. A hold costs everybody's lane a cycle, and holding for a phantom
 teaches the next session to ignore the procedure.
 
-- **A stale base.** A pull request red against a base it was cut from says nothing about `main`. Read
+- A stale base. A pull request red against a base it was cut from says nothing about `main`. Read
   the run whose `headSha` is `main`'s current tip, which is what `helpers/trunk-health.sh --once`
   already filters for. If you are reading a pull request's checks, you are reading the wrong thing.
-- **A cancelled shard.** A cancelled run reads as a failure in most listings and is not one. Ask what
+- A cancelled shard. A cancelled run reads as a failure in most listings and is not one. Ask what
   cancelled it: a superseded group build, an eviction, or somebody's `gh run cancel` (including this
   procedure's own step 3, one incident ago). Nothing was learned by a cancelled run, in either
   direction.
-- **A dead cadence, not a broken trunk.** `script/cadence-check` reports a weekly job that has
+- A dead cadence, not a broken trunk. `script/cadence-check` reports a weekly job that has
   produced no result, and `trunk-health.sh` relays it. That is a real problem and it is not this
   one: a cadence has been dead for weeks by the time it is noticed, so it never justifies holding a
   queue.
 
-**And the fourth case, which is the opposite mistake: green does not mean healthy.** `ci.yml` skips
+And the fourth case, which is the opposite mistake: green does not mean healthy. `ci.yml` skips
 `build + test`'s steps for a commit that touches only `notes/`, `design/` or a root `*.md`, and the
 check still posts `success`. On 2026-09-23 that hid a broken `crates/documentation` test for hours.
 So if a lane reports a failure that CI says did not happen, believe the lane and reproduce locally
@@ -32,15 +32,15 @@ So if a lane reports a failure that CI says did not happen, believe the lane and
 ## Know that a watcher will fight you, and check it first
 
 `helpers/merge-drain.sh` runs unattended as the `merge drain` Actions workflow every five minutes, and
-its charter is the first line of its own header: enqueue every pull request that does not need calef.
-**It re-enqueued a held set three times on 2026-09-23 while the operator watched**, because its
-admission policy knew only drafts and `needs-architect`. The failure is invisible in the worst way: a
-dequeue leaves no trace of why an entry came back, so it reads as your own dequeue having failed, and
-it was misdiagnosed twice before anyone read the script.
+its charter is the first line of its own header: enqueue every pull request that does not need an
+architect. It re-enqueued a held set three times on 2026-09-23 while the operator watched,
+because its admission policy knew only drafts and `needs-architect`. The failure is invisible in the
+worst way: a dequeue leaves no trace of why an entry came back, so it reads as your own dequeue
+having failed, and it was misdiagnosed twice before anyone read the script.
 
 The drain now excludes `held-for-red-trunk` as well, so a hold placed with that change on `main`
-survives. **A hold placed against a checkout or a running drain from before it does not, and will be
-undone within five minutes.** If in doubt, stop the drain first and remember that you now owe a
+survives. A hold placed against a checkout or a running drain from before it does not, and will be
+undone within five minutes. If in doubt, stop the drain first and remember that you now owe a
 re-enable. This works from any host with `gh`, including a cloud session:
 
     gh workflow disable "merge drain"
@@ -50,17 +50,17 @@ re-enable. This works from any host with `gh`, including a cloud session:
     helpers/queue-hold.sh hold <fix-pr> --dry-run     # read it first; it names every pull request
     helpers/queue-hold.sh hold <fix-pr>
 
-**Order matters.** Hold first, enqueue the fix second. The script cancels in-flight group builds and
+Order matters. Hold first, enqueue the fix second. The script cancels in-flight group builds and
 cannot tell one that contains the fix from one that does not (its own `BUGS` says why: the branch
 name carries only the group's last entry). Holding first makes that impossible rather than unlikely.
 
 The four steps it performs are in its header with the failure behind each one. The two worth knowing
 by heart, because they are what a person doing this by hand gets wrong:
 
-- **Disabling auto-merge and dequeuing are both required, in that order.** Dequeuing an armed pull
+- Disabling auto-merge and dequeuing are both required, in that order. Dequeuing an armed pull
   request re-enqueues it within minutes. This is how a queue reported drained comes back with all
   seven entries.
-- **Orphaned `gh-readonly-queue/...` runs keep executing** for entries that no longer exist. Their
+- Orphaned `gh-readonly-queue/...` runs keep executing for entries that no longer exist. Their
   results cannot be consumed and they starve the fix of runners.
 
 ## Land the fix alone

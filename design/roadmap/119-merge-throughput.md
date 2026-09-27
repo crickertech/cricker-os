@@ -92,7 +92,7 @@ and should be measured rather than assumed.
 Balance matters and should be measured, not guessed: nineteen crates split four ways by *crate count*
 will be lopsided, because `glob` and `calendar` dominate. Shard by measured time.
 
-## Two structural options, and both are calef's
+## Two structural options, and both are an architect's
 
 **A merge queue.** GitHub's feature tests each pull request against the *projected* trunk and can
 batch, so N pull requests cost one test cycle instead of N. It is the feature designed for exactly
@@ -158,5 +158,5 @@ shape, which is why it is named here rather than deferred.
 Ten pull requests landing one at a time under the up-to-date rule, and a merge cycle is the Kani
 job plus noise: 28 to 36 minutes against six for the next slowest. Scoping is already pulled and
 VERIFY_JOBS is capped by one runner's memory, so the unpulled lever is sharding, which
-mutation.yml already does four ways. A merge queue and a self-hosted runner are named as calef's
-to decide
+mutation.yml already does four ways. A merge queue and a self-hosted runner are named as an
+architect's to decide

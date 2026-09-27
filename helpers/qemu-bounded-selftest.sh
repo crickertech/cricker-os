@@ -5,7 +5,9 @@
 #     helpers/qemu-bounded-selftest.sh                 test the sibling script
 #     helpers/qemu-bounded-selftest.sh path/to/other   test a specific copy (e.g. an old one)
 #
-# **The name is provisional** (milestone 226's lane; naming is calef's call).
+# **The name is provisional** (the lane of milestone 226 (`qemu-bounded.sh` leaves an emulator
+# behind);
+# naming is an architect's call).
 #
 # # Why a script rather than a paragraph
 #

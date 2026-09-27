@@ -3,7 +3,7 @@
 <!--
 Delete the line above only if a human wrote this pull request. AGENTS.md requires it first thing in
 the body of anything an agent writes, because every artifact here carries calef's name whether he
-wrote it or not, and a reader cannot otherwise tell the architect's voice from a lane's.
+wrote it or not, and a reader cannot otherwise tell an architect's voice from a lane's.
 -->
 
 ## What changed, and why
@@ -32,10 +32,10 @@ doing someday" is neither. Either a proposed milestone (the integrator mints the
 or a `BUGS` entry written where a reader meets the feature. Say "none" if there is none.
 -->
 
-## Needs the architect
+## Needs an architect
 
 <!--
-Delete this section unless something here is calef's call: a design fork, the syscall surface, a new
-dependency, a name, or anything two programs agree on. If it is, add the `needs-architect` label and
-say what the ask is, answerable without reading the diff, including what happens if he says no.
--->
+Delete this section unless something here is an architect's call: a design fork, the syscall
+surface, a new dependency, a name, or anything two programs agree on. If it is, add the
+`needs-architect` label and say what the ask is, answerable without reading the diff, including what
+happens if the answer is no. -->

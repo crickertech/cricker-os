@@ -15,8 +15,9 @@ const PL011_PHYS: u64 = 0x0900_0000;
 /// (milestone 267). [`start`] still fills the handle in because the wiring it describes is real:
 /// the server is listening on `request` and will ack on `reply`. What is missing is a client, and
 /// whether this boot should still have one, or should stop starting the server at all, is the
-/// question milestone 267's block leaves open for calef. The `expect` is that question made
-/// visible; delete it, not the fields, when the question is answered.
+/// question the block of milestone 267 (the milestone tour is three things wearing one name) leaves
+/// open for an architect. The `expect` is that question made visible; delete it, not the fields,
+/// when the question is answered.
 #[expect(
     dead_code,
     reason = "no client since the narrator went; see milestone 267's block"

@@ -10,8 +10,8 @@
 //! **This program's name lags its job**, and knowingly. Milestone 65 says the credentialer becomes
 //! one operation in a secrets service rather than a service beside it, because a second process
 //! holding secrets is exactly what the design exists to avoid. So the generalisation happened here
-//! rather than in a new program. A rename is a naming decision and belongs to calef (CLAUDE.md);
-//! this header is the note that it is owed.
+//! rather than in a new program. A rename is a naming decision and belongs to an architect
+//! (CLAUDE.md); this header is the note that it is owed.
 //!
 //! # Two kinds of secret, two operations, one store
 //!
@@ -122,7 +122,7 @@
 //! credential service into a **secrets service**: it now holds an `NTOWFv2` beside the
 //! Argon2id tag and answers `NTLM_PROOF`, so the argument above ("this service will never
 //! give you a credential") still holds while the noun no longer describes the scope. A
-//! rename is owed, and it is calef's, not a lane's; `cred`, `credential_protocol` and
+//! rename is owed, and it is an architect's, not a lane's; `cred`, `credential_protocol` and
 //! `credentialer_test_client` are in the same boat. Recorded here rather than acted on.
 
 #![no_std]

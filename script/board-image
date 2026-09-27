@@ -39,7 +39,7 @@
 # `script/board-netboot` on 2026-09-05 and gave the scheme its reason in doing so: every member
 # names the thing rather than its wire, so `board-image` names the image it builds,
 # `board-console` names the console it gives you, and `board-tftp` was turned down for naming a
-# protocol. This script is the member that scheme was read off. calef has not ratified it
+# protocol. This script is the member that scheme was read off. no architect has ratified it
 # directly.
 #
 # Exception, on the record: this entry point only partly delegates to `cargo xtask`. It is a

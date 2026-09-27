@@ -1,32 +1,32 @@
 # Adding a user program
 
-Task-oriented, because milestone 117's first stranger run found that **no file described this**. It
+Task-oriented, because milestone 117 (stranger)'s first stranger run found that no file described this. It
 used to be long because the tree was: until milestone 150 (2026-09-19) a program's name went into
-seven hand-maintained places and this page was an eighth. It is now **one place for a program, and
-four for one the shell can spawn** (five if it answers in a register), and only the first two of
+seven hand-maintained places and this page was an eighth. It is now one place for a program, and
+four for one the shell can spawn (five if it answers in a register), and only the first two of
 those are places you have to remember: the build or a host test sends you to each of the rest. What follows is what survived, not a description of what went.
 
 A program is a `[[bin]]` in one of two packages, running at EL0, linked against `user_mode_runtime`.
 
 ## Which package: `components/` or `fixtures/`?
 
-**Decide this first**, because it picks the directory and the `Cargo.toml` every later step edits.
+Decide this first, because it picks the directory and the `Cargo.toml` every later step edits.
 Milestone 175 split `user/` on 2026-09-13, and the question it answers is *would a distribution ship
 this because somebody wants its function?*
 
-- **`components/`** if yes: a service, a driver, the progenitor and supervision spine, or a tool a person
+- `components/` if yes: a service, a driver, the progenitor and supervision spine, or a tool a person
   invokes at the prompt. `net_stack`, `gpu_driver`, `progenitor`, `wc`, `rm`, `date`.
-- **`fixtures/`** if no: the program exists to exercise or measure the system. Test clients,
+- `fixtures/` if no: the program exists to exercise or measure the system. Test clients,
   attackers that share the honest path, stand-in servers, workloads, benchmarks. `chatty`,
   `outlaw`, `coremark`, `soaker`, `interrupt_ignorer`.
 
-**"Who calls it" is not the test**, and getting that wrong is the easy mistake: nearly everything
+"Who calls it" is not the test, and getting that wrong is the easy mistake: nearly everything
 here is reached only from a kernel test, `disk_partitioner` and `timetable` included, because this
 system has one user. What separates them is what the program *is*.
 
 ## One program does one thing
 
-**A behaviour is a program, not a role.** The tempting shortcut, when a fixture already exists that
+A behaviour is a program, not a role. The tempting shortcut, when a fixture already exists that
 is nearly what you want, is to add an arm to its `match` on `x0` and select the new behaviour with
 a number. Do not. calef, 2026-09-14: *"Part of the beauty of Unix that I think we want to retain is
 small programs with specific functions"*, and, on the binary that had accumulated thirty-one arms,
@@ -38,13 +38,13 @@ files apart rather than in the archive; the binary links everything every role n
 spawned to prove one syscall drags in an ELF parser; and the program's name has to describe all of
 them at once, which it stops doing at about the third.
 
-**Milestone 291 is the worked example.** `fixtures/src/hello.rs` reached thirty-one roles one
+Milestone 291 (fixtures) is the worked example. `fixtures/src/hello.rs` reached thirty-one roles one
 convenient arm at a time over two months. Seven of them were an exact duplicate of
 `components/src/block_driver.rs`, a whole program nobody had noticed was already there, kept alive
 only because one archive table did not pack it; fourteen more became programs. See
 [291](../design/roadmap/291-one-program-one-job.md).
 
-**The exception is allowed and has to say so** (AGENTS.md's ladder, rung four's rule). If two
+The exception is allowed and has to say so (AGENTS.md's ladder, rung four's rule). If two
 behaviours genuinely are one program, write down in the module doc why, where a reader meets it.
 `hello`'s remaining nine do: six of them build a child and three of them *are* that child, which is
 a relationship rather than a convenience.
@@ -62,15 +62,15 @@ convention table in [naming.md](../design/naming.md)). `no_std`, against `user_m
 //! Name: unrecorded. Introduced 2026-08-14 for <what it does>.
 ```
 
-**`script/lint` fails without one**, via `script/names --check`. Three states: `ratified` (calef
+`script/lint` fails without one, via `script/names --check`. Three states: `ratified` (calef
 ruled, with the date and what was refused), `recorded` (the tree argues the name somewhere, with a
-citation), `unrecorded` (nothing outside this block says why). **The gate checks presence, never
-`ratified`**, so an unratified name never blocks a build and `unrecorded` is a truthful answer.
+citation), `unrecorded` (nothing outside this block says why). The gate checks presence, never
+`ratified`, so an unratified name never blocks a build and `unrecorded` is a truthful answer.
 
-**The name is calef's** (AGENTS.md, "calef names the crates, the programs, and the shared modules").
-Ship a provisional one, say so in your report, expect it to change.
+The name is an architect's (AGENTS.md, "calef names the crates, the programs, and the shared
+modules"). Ship a provisional one, say so in your report, expect it to change.
 
-**Write `provisional` when you expect the name to change**, which is AGENTS.md's word and, since
+Write `provisional` when you expect the name to change, which is AGENTS.md's word and, since
 §89 (2026-08-16), the gate's too. Four states:
 
 ```
@@ -80,14 +80,14 @@ Name: provisional. <what you called it and why you expect it to change>
 Name: unrecorded. <what the history does and does not say>
 ```
 
-`provisional` is a claim about **intent** (you expect this to change); the other three are claims
-about the **record**. A settled name can be `unrecorded` (nobody wrote down why `hello` is called
+`provisional` is a claim about intent (you expect this to change); the other three are claims
+about the record. A settled name can be `unrecorded` (nobody wrote down why `hello` is called
 `hello`, and nobody needs to), so the two are not the same word for the same thing.
 
 `script/names --provisional` lists them and they sort first in `--unratified`, because a name its
-own author called wrong is the shortest conversation calef can have. This page told newcomers the
-opposite until §89: run 2 of the stranger test wrote the word AGENTS.md asked for and got a red
-gate, which is what raised the decision.
+own author called wrong is the shortest conversation an architect can have. This page told newcomers
+the opposite until §89 (provisional): run 2 of the stranger
+test wrote the word AGENTS.md asked for and got a red gate, raising the decision.
 
 ### 3. A `[[bin]]` block in that package's `Cargo.toml`
 
@@ -99,14 +99,14 @@ test = false
 bench = false
 ```
 
-`test` and `bench` off are **mandatory**, not tidiness: the default libtest harness needs
+`test` and `bench` off are mandatory, not tidiness: the default libtest harness needs
 `extern crate test`, which does not exist for a bare-metal target.
 
-**That block is the whole of step 3, and of packing.** `xtask` reads the `[[bin]]` blocks of both
+That block is the whole of step 3, and of packing. `xtask` reads the `[[bin]]` blocks of both
 packages (`declared_programs()`) and packs every one into all three archives, aarch64, riscv64 and
 `x86_64`, under its own name. There is no packing table to edit and no per-architecture filter; see
 "Why it works this way" below for what that replaced and why a program that cannot run on some
-architecture is packed there anyway. **You do not touch the measurement table either**: `xtask`
+architecture is packed there anyway. You do not touch the measurement table either: `xtask`
 hashes every entry of the archive it just packed and writes the table the progenitor measures
 against from that (`write_measure_manifest`).
 
@@ -119,7 +119,7 @@ that program silently missing.
 `nifefs` caps `NAME_LEN` at 32, raised from 24 so `os_primitives_benchmarker` would fit. Raising
 it again costs directory entries per block, so do not let a name spend it.
 
-**There is also a ceiling on how many programs an archive holds**, `nifefs::MAX_FILES`, 127 since
+There is also a ceiling on how many programs an archive holds, `nifefs::MAX_FILES`, 127 since
 milestone 291 raised `DIR_BLOCKS` from 6 to 10. Every archive packs 87 programs plus up to five
 optional entries as of 2026-09-19, so the headroom is about thirty. It fails loudly: `write_image`
 returns `TooManyFiles` and each `initrd_*` function prints the error, the file count and the size.
@@ -128,28 +128,28 @@ returns `TooManyFiles` and each `initrd_*` function prints the error, the file c
 
 Three edits, and after the first the machine names each of the others.
 
-1. **A row in `programs!`** in `crates/grant_plan/src/lib.rs`, with its doc comment:
+1. A row in `programs!` in `crates/grant_plan/src/lib.rs`, with its doc comment:
 
    ```rust
    /// Triples its integer argument (milestone N, `components/src/triple.rs`).
    Triple { id: 13, name: "triple" },
    ```
 
-   `name` is the `[[bin]]` name. **`id` is the stable wire id**: the shell sends it and the
+   `name` is the `[[bin]]` name. `id` is the stable wire id: the shell sends it and the
    progenitor decodes it, so it is a thing two programs agree on and changing it later is a flag
    day. Take the next unused number; never reuse a removed program's id (the build refuses a
    duplicate, and `the_wire_ids_already_shipped_never_move` refuses reuse of any id shipped before
    milestone 150). The enum, `name()`, `id()`, `from_id()`, `from_name()`, `Prog::ALL` and
    `PROG_COUNT` are all generated from the row.
-2. **Its `manifest()` arm**, which the compiler asks for (`E0004` in `grant_plan`). This carries all
+2. Its `manifest()` arm, which the compiler asks for (`E0004` in `grant_plan`). This carries all
    of the actual meaning: see "What you declare" below.
-3. **A line in `SWISH_CHECK_SCRIPT`** in `xtask/src/swish_check.rs`, and the array length the compiler then
+3. A line in `SWISH_CHECK_SCRIPT` in `xtask/src/swish_check.rs`, and the array length the compiler then
    asks for. The element is a `(&str, &[&str])` pair, one line typed and the substrings its answer
    must contain: `("triple 21", &["21*3 = 63"]),`. The host test
    `every_spawnable_program_has_a_swish_check_line` fails until the line exists, and names the one
    exception it allows (a program a transcript cannot drive, listed with the reason).
 
-**And a fourth only if your manifest says `output: OutputSpec::Words`**, meaning the answer is a
+And a fourth only if your manifest says `output: OutputSpec::Words`, meaning the answer is a
 number in a register rather than a stream: an arm in `write_outcome` in `crates/swish/src/lib.rs`
 that renders it. `every_program_that_answers_in_words_renders_its_answer` fails without one. A
 byte-stream program needs nothing there.
@@ -159,8 +159,8 @@ getting the name wrong in step 1 is a build failure rather than a program that c
 
 ## What you declare: the manifest
 
-The manifest is the program's endowment, and the shell checks it **at the prompt, before a child
-exists**. A mismatch is a legible refusal on the line you typed rather than a hang deep inside a
+The manifest is the program's endowment, and the shell checks it at the prompt, before a child
+exists. A mismatch is a legible refusal on the line you typed rather than a hang deep inside a
 program that assumed a slot was full. See [grant-expression.md](grant-expression.md) and
 [program-manifest.md](program-manifest.md).
 
@@ -268,36 +268,37 @@ rung one, deliberately, and it is the one place this milestone went down the lad
 
 ## BUGS
 
-- **The `[[bin]]` reader knows four keys** (`name`, `path`, `test`, `bench`), because those are all
+- The `[[bin]]` reader knows four keys (`name`, `path`, `test`, `bench`), because those are all
   this tree writes. Anything else in a `[[bin]]` block stops every pack with the key named. That is
   the intended failure, not an accident, but it means the first program to want
   `required-features` has to teach `bin_names` in `xtask` what the key means for the archives.
-- **The removal gate is textual.** `every_program_the_tree_loads_by_name_is_declared` reads
+- The removal gate is textual. `every_program_the_tree_loads_by_name_is_declared` reads
   `program("...")` and `.read("...")` literals in `kernel/src` and
   `crates/system_initializer/src`. A name built at runtime, or looked up through some other
   spelling, is invisible to it, and a kernel test that `skip!()`s on a missing program still skips
   quietly for such a name. It counts what it matched and fails below fifty, so it cannot go blind
   without saying so.
-- **Nothing on the host checks `SWISH_CHECK_SCRIPT` in the other direction.** A line typing a
+- Nothing on the host checks `SWISH_CHECK_SCRIPT` in the other direction. A line typing a
   program that no longer exists is found by `script/swish-check`, at the cost of a boot. And the
   forward check is a whole-word match on the program's name, which proves a line mentions it, not
   that the line ran it.
-- **The wire-id pin covers the thirteen ids shipped before 2026-09-19.** A program added after that
+- The wire-id pin covers the thirteen ids shipped before 2026-09-19. A program added after that
   and later removed leaves an id that only the duplicate check protects, and only while nothing else
   claims it. The declaration's written id makes a renumbering visible in review; reuse of a
   post-pin id is not gated. Appending a row to `the_wire_ids_already_shipped_never_move` is how to
   pin a later one.
-- **Every archive packs every program, including ones that cannot run there**, which is the rule
+- Every archive packs every program, including ones that cannot run there, which is the rule
   rather than an oversight (see "Why it works this way"). On 2026-09-19 that added `serial_driver`,
   `jh7110_entropy` and `pmap` to the aarch64 archive and `pmap` to the other two. `pmap` is packed
   and spawned by nothing (see `crates/pmap`'s `BUGS`); it costs a directory slot, which is what the
   rule prices it at.
-- **Whether a program may take an argument and an input together is open**, and it is calef's call:
+- Whether a program may take an argument and an input together is open, and it is an architect's
+  call:
   [a-program-that-takes-an-argument-and-an-input.md](../design/roadmap/498-a-program-that-takes-an-argument-and-an-input.md).
   The tree allows it and nothing uses it. The `crates/swish` sweep that used to go red on it (the
   "eighth edit site" milestone 117's fifth stranger found) now types every operand a manifest asks
   for, so the combination needs no edit outside its own declaration.
-- **This page is prose and the code can move without it.** The step that rots first is the manifest
+- This page is prose and the code can move without it. The step that rots first is the manifest
   field list, which is why it is not repeated here: [program-manifest.md](program-manifest.md) has it,
   and the struct in `crates/grant_plan/src/lib.rs` is the authority over both.
 - **Written from having done it, and wrong most times it was walked.** Every walk before milestone

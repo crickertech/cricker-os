@@ -17,7 +17,7 @@ rung when you notice that shape.
 
 `.github/workflows/mutation.yml` has `permissions: contents: read` today, and
 every workflow in this tree makes that same least-privilege choice deliberately. Changing it for one
-job is calef's call, not a lane's.
+job is an architect's call, not a lane's.
 
 ## The gap
 

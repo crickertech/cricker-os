@@ -18,7 +18,9 @@ measures 40% of them". `notes/project-metrics/weekly.csv`'s latest row (2026W38,
 So the figure a reader meets in the front-door file is six and a half points low and still
 climbing.
 
-Nothing is left to start: the ruling answered the question and the edit it asked for was calef's commit. What follows is the gate as it read before 2026-09-24. `AGENTS.md` is calef's file and the correction is a one-line edit only he makes.
+Nothing is left to start: the ruling answered the question and the edit it asked for was calef's
+commit. What follows is the gate as it read before 2026-09-24. `AGENTS.md` is calef's file and the
+correction is a one-line edit only he makes.
 The measurement is already done and stored, so nothing else is owed: what is missing is the edit and
 a decision about whether a hand-copied number belongs in that file at all.
 

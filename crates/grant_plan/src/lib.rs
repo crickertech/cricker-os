@@ -3079,7 +3079,7 @@ pub fn plan_against_with(
     // manifest declaring both `ArgSpec::Required` and `InputSpec::Required` has nothing left to
     // disambiguate: `arg` takes position 0, `input`'s fallback takes whatever bare name is left,
     // exactly as `arg` and `file` already compose for [`STAMPS_A_FILE`] below. No shipped program
-    // has declared the combination, and whether one should is an open question for calef
+    // has declared the combination, and whether one should is an open question for an architect
     // (design/roadmap/proposals/a-program-that-takes-an-argument-and-an-input.md), but the
     // absence is unclaimed headroom rather than a refusal here; see
     // `an_argument_and_an_input_stream_compose_by_the_same_fixed_order` in this module's tests.
@@ -4508,7 +4508,8 @@ mod tests {
     /// numeric-shaped) before `input`'s bare-name fallback ever looks at what is left; see the
     /// `positionals_fill_the_manifest_slots_in_the_order_typed` and
     /// `an_argument_and_an_input_compose_by_the_same_fixed_order` tests below. Kept here rather than
-    /// promoted to a shipped manifest: whether the combination is *wanted* is calef's call, not
+    /// promoted to a shipped manifest: whether the combination is *wanted* is an architect's call,
+    /// not
     /// this test's (design/roadmap/proposals/a-program-that-takes-an-argument-and-an-input.md).
     const TAKES_ARG_AND_READS: Manifest = Manifest {
         arg: ArgSpec::Required,

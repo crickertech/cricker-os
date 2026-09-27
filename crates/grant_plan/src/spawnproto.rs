@@ -617,7 +617,7 @@ pub const SPAWN_FAILED: u64 = u64::MAX;
 /// that one sits at it, and the same caveat applies: no program in this tree answers with either.
 ///
 /// Name: provisional, like everything a lane mints: a word in a protocol is exactly the kind of
-/// name calef decides.
+/// name an architect decides.
 pub const JOB_FAULTED: u64 = u64::MAX - 1;
 
 /// **The word for bytes nobody vouched for** (DECISIONS §219, milestone 198 rung 3a). Sent on the

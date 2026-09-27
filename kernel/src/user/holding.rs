@@ -53,7 +53,7 @@
 //! what a service holds. It is deliberately *not* `Lease`, which reads better in the abstract and
 //! would collide head-on with the DHCP lease this file's biggest caller talks about on every other
 //! line (`notes/net.md`). Crate, module and type names are
-//! calef's call; expect this one to change.
+//! an architect's call; expect this one to change.
 
 use crate::sched;
 use crate::thread::ThreadId;

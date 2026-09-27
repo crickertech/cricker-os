@@ -63,7 +63,7 @@
 //!   ends are spawned on the caller's core, and the report's spread says whether it mattered.
 //!
 //! Name: provisional (milestone 134 (the register of measures)'s lane, 2026-09-19): module, feature
-//! and the `ipc-stack-depth:` line prefix alike. Names are calef's.
+//! and the `ipc-stack-depth:` line prefix alike. Names are an architect's.
 
 use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 

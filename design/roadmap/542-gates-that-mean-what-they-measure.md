@@ -127,8 +127,8 @@ re-record and the pin have to be settled in one commit, because CI builds the pi
 
 **Nothing was fixed by changing either version.** The pin stays 11.0.2, the machine stays 11.1.1,
 and what is true is written down in the baselines themselves and in `notes/benchmarks.md`. **Which
-version this project should run is calef's call**, and it is the more urgent half: the divergence
-has already reached published figures.
+version this project should run is an architect's call**, and it is the more urgent half: the
+divergence has already reached published figures.
 
 ## Part 2: the footprint gate measured drift when it should measure distance
 
@@ -222,13 +222,12 @@ would fail on the day it was written and be turned off on the next.
 - **Recorded.** §144 (a delta and a ceiling) remains DECIDED and not built. This milestone prints
   its ceiling as a fraction and enforces nothing, and the delta-against-`main` half is untouched.
 - **Recorded.** `NIFE_BUMP_IN_PROGRESS` is a provisional name, like every name a lane coins.
-- **Recorded.** The most urgent item here, and calef's call. It is deliberately not written up
-  as a `design/decisions/` section, because a lane does not mint them; the maintainer holds it.
-  `.qemu-version` pins QEMU 11.0.2 and the development
-  machine has run 11.1.1 since 2026-08-28. Which one this project should run is not decided by this
-  milestone, and it is not a tidying job: the divergence has already reached published figures, and
-  the first deliberate `--save` of any baseline forces the answer, because CI builds the pinned
-  emulator and will read that floor on it.
+- **Recorded.** The most urgent item here, and an architect's call. It is deliberately not written
+  up as a `design/decisions/` section, because a lane does not mint them; the maintainer holds it.
+  `.qemu-version` pins QEMU 11.0.2 and the development machine has run 11.1.1 since 2026-08-28.
+  Which one this project should run is not decided by this milestone, and it is not a tidying job:
+  the divergence has already reached published figures, and the first deliberate `--save` of any
+  baseline forces the answer, because CI builds the pinned emulator and will read that floor on it.
 - **Recorded.** Every baseline's `# qemu:` line says `unrecorded`, truthfully, and will keep saying
   so until somebody re-records deliberately. Re-recording was out of scope here.
 

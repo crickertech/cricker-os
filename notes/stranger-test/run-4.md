@@ -171,12 +171,12 @@ Still unopened after four runs: every file under `design/decisions/`, `notes/net
 - `script/lint`'s naming worklist under-counted by exactly the provisional names, then named the
   command that prints the other number. The `--check` path printed `len(recorded) +
   len(unrecorded)`. The default listing printed `len(provisional) + len(recorded) +
-  len(unrecorded)`. So the gate said `82 still want calef (script/names --unratified)`, and that
-  command said `UNRATIFIED (86 of 162)`. The census line above it dropped them too: `76 ratified, 15
-  recorded, 67 unrecorded` sums to 158 of 162. Reproduced on `main`. It bit exactly the state a
-  newcomer is told to use, since `AGENTS.md` and `notes/adding-a-program.md` both say to ship a
-  provisional name. Recorded then in design/naming.md's `BUGS`. Fixed on 2026-09-19 by run 6's lane:
-  `script/names` now prints one worklist count everywhere, and that `BUGS` entry is gone.
+  len(unrecorded)`. So the gate said `82 still want an architect (script/names --unratified)`, and
+  that command said `UNRATIFIED (86 of 162)`. The census line above it dropped them too: `76
+  ratified, 15 recorded, 67 unrecorded` sums to 158 of 162. Reproduced on `main`. It bit exactly the
+  state a newcomer is told to use, since `AGENTS.md` and `notes/adding-a-program.md` both say to
+  ship a provisional name. Recorded then in design/naming.md's `BUGS`. Fixed on 2026-09-19 by run
+  6's lane: `script/names` now prints one worklist count everywhere, and that `BUGS` entry is gone.
 - The two archives boot different binaries under the name `init`: `hello` on aarch64 and `builder`
   on riscv64, in a project whose loudest claim is architectural parity. The stranger reported this
   as undocumented and was wrong. `xtask/src/archive.rs` said so, in a comment on the aarch64 table's

@@ -14,7 +14,7 @@ deliverable includes "the benches on real cycles via the SBI PMU extension", and
 **nothing in the tree implemented it**: `PMU` appeared only in device-tree test fixtures and in this
 file. **Both ISA halves are now built** (riscv64 2026-09-03, aarch64 2026-09-19), and it stays
 `PARTIAL` for two reasons that are not code: argon has not run the aarch64 half, and what aarch64's
-counter counts (`PMCCFILTR_EL0`) and what the user-mode read is called are calef's
+counter counts (`PMCCFILTR_EL0`) and what the user-mode read is called are an architect's
 (`design/roadmap/353-the-aarch64-half-of-74.md`).
 
 **Both halves of this line are under correction, and neither says
@@ -26,11 +26,11 @@ Milestone 75's index row reads `NOT-STARTED` and that is false: its mechanism is
 at every context switch behind the `cycle_counter_grant` feature, and
 `kernel::user::tests::a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults` passes
 on all three architectures, negative case included. Whether 75's row is flipped, and what that
-unblocks, is calef's rather than a lane's; the mechanism cited here is what a reader can check
-today. **The aarch64 half of 74 was out of the riscv64 lane's scope, not blocked by an unanswered
-question.** Until 2026-09-19 `PMCR_EL0.E` and `PMCNTENSET_EL0.C` were never written by this kernel,
-so `PMCCNTR_EL0` was a stopped counter that a granted thread read the same value from every time.
-That is built now; see "What the aarch64 half built" below.
+unblocks, is an architect's rather than a lane's; the mechanism cited here is what a reader can
+check today. **The aarch64 half of 74 was out of the riscv64 lane's scope, not blocked by an
+unanswered question.** Until 2026-09-19 `PMCR_EL0.E` and `PMCNTENSET_EL0.C` were never written by
+this kernel, so `PMCCNTR_EL0` was a stopped counter that a granted thread read the same value from
+every time. That is built now; see "What the aarch64 half built" below.
 
 The `HARDWARE` half is now the **second** sense of that gate rather than the first: the riscv64 code
 is written and gated, and what remains is a person at radon following
@@ -386,5 +386,5 @@ built.** riscv64 (2026-09-03): SBI PMU is probed as the first *optional* row of 
 prints one `cycles_per_tick` probe; radon measured `250.00` on 2026-09-16. aarch64 (2026-09-19):
 every core starts and checks `PMCCNTR_EL0`, the boot prints the answer and what firmware left in
 `PMCCFILTR_EL0`, and `bench` prints the probe under a **provisional** filter; argon has not run it.
-What aarch64's counter counts and what the user-mode read is called are calef's
+What aarch64's counter counts and what the user-mode read is called are an architect's
 (design/roadmap/353-the-aarch64-half-of-74.md)

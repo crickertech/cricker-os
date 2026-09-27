@@ -70,7 +70,7 @@ ceiling are left exactly as they were.** The 824 and 77 that `script/lint` still
 precisely what they meant before this milestone. Widening `HOST_ONLY` to also exclude these three
 crates is a real, small correction (it would move the published 824 to 818 and the density from 77
 to roughly 81), but it is a decision about an existing gate's inputs, not a byproduct of drawing a
-new one, and it is calef's to make.
+new one, and it is an architect's to make.
 
 ## The history, and why a gap in it is not a bug
 
@@ -98,10 +98,10 @@ two populations. **If a ceiling is held against the split, kernel density (142 p
 number it belongs on**, because it is the population a mixed number's blind spot actually lives in:
 unsafe code nothing confines. Userspace density (120) matters less for the same reason a bug there
 is a bug in one confined program rather than in the base. **This is a recommendation. Changing
-`script/lint`'s 88, or setting any ceiling on the new columns, is calef's, not this milestone's**;
-a ceiling started cold, with no history of it moving deliberately the way 88 was cinched down six
-times (milestone 134 (the register of measures: every number this kernel owes itself)), and that
-history is worth having before a number is chosen.
+`script/lint`'s 88, or setting any ceiling on the new columns, is an architect's, not this
+milestone's**; a ceiling started cold, with no history of it moving deliberately the way 88 was
+cinched down six times (milestone 134 (the register of measures: every number this kernel owes
+itself)), and that history is worth having before a number is chosen.
 
 ## What this means for the published RedLeaf/Tock comparison
 

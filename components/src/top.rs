@@ -17,7 +17,7 @@
 //! kernel's own slot order. This answers *what is consuming*, most first, with a summary line
 //! saying how large the thing being ranked is. Milestone 281 (`watch` holds exactly what `ps` holds) deleted `watch` for holding `ps`'s
 //! authority while being `ps`'s own loop, and whether this program clears that bar or belongs in
-//! `ps` as a flag is calef's; `crates/top`'s module docs carry the argument both ways.
+//! `ps` as a flag is an architect's; `crates/top`'s module docs carry the argument both ways.
 //!
 //! # Capability contract
 //!

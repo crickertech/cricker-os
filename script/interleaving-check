@@ -8,7 +8,7 @@
 # `script/undefined-behavior-check`, which calef ratified on 2026-08-03 for exactly that reason:
 # he turned down `miri` there because "it names the tool rather than the function". So the
 # principle is signed and this is its second application; what is unsigned is the noun chosen for
-# the question. calef has not ratified it.
+# the question. no architect has ratified it.
 #
 # The gap this fills. CLAUDE.md's fourth rule is "assume weak memory ordering", and until this
 # script existed nothing in the tree could falsify a violation of it. QEMU's TCG executes guest

@@ -95,7 +95,7 @@ security property the crate documented was still true of the crate.
 **The lesson for a future reader**: a dependency taken for a stated reason should be re-checked when
 that reason changes, and the place that check can actually happen is a decision record naming its
 own premise. §79 named its premise plainly, which is what made this removal easy to argue for; it is
-now stale and needs amending, and the amendment is calef's.
+now stale and needs amending, and the amendment is an architect's.
 
 **Two facts that made the removal safe**, verified in the tree rather than assumed:
 
@@ -682,7 +682,7 @@ last attempt knew it had not solved, written while the code was in front of some
   `link`/`unlink`; it is not a description of a from-scratch, single-request-at-a-time server
   transacting against its own B-tree. This is a wire-format change on a verb two programs already
   agree on (`fs_proto::fs::RENAME`), so it needs a decision that amends or narrows §42, which is
-  calef's call and not a lane's; see design/roadmap/55-time-machine.md for the writeup.
+  an architect's call and not a lane's; see design/roadmap/55-time-machine.md for the writeup.
 
 - **The demo boot still admits guests, so the thing a person actually runs is still open to
   everyone who can reach the port.** `--features smb_serve` wires `SHARE_FS_READ_WRITE`, not
@@ -821,7 +821,7 @@ last attempt knew it had not solved, written while the code was in front of some
 2. **The resource should be implied by the capability, not named in the request.** The adapter is
    configured with a resource name, which is one authority more than it needs; the endpoint should
    *be* the credential for one resource. DECISIONS §27's argument applied to `cred_proto`, and a
-   change to a contract two programs agree on, so it is calef's.
+   change to a contract two programs agree on, so it is an architect's.
 3. **Signing**, which is what `SessionBaseKey` is for and the reason the credential service publishes
    one. A proven session is currently unprotected once established.
 4. **An entropy capability for the server challenge**, which is `now()` today.

@@ -324,7 +324,7 @@ done here.
 - **Decision.** *Whether `**Proposed.**` should survive as a disposition word at all.* A follow-on
   bullet is a permanent record and the file it names is, by this block's rule, ephemeral: it exists
   only between a lane writing it and the next integrator numbering it. That is a vocabulary
-  question, so it is calef's, and it is written up in
+  question, so it is an architect's, and it is written up in
   `design/decisions/140-follow-on-disposition-vocabulary.md`'s own terms rather than minted here.
 - **Recorded.** *Nothing stops the pile refilling*, and this block's `BUGS` says the assumed steady
   state (an integrator drains it at every merge) is rung four. The measurement above weakens that

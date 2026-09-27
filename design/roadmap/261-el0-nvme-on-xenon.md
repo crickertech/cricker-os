@@ -12,7 +12,7 @@ needs_person: yes
 Built 2026-09-17: the driver is out of the kernel and a confined EL0 process
 serves the block contract off QEMU's NVMe on all three architectures. What is left is the machine,
 and the machine is what this block's gate always said it was. Minted 2026-09-05 by the maintainer. [§86](../decisions/86-el0-nvme-driver.md)
-was **DECIDED on 2026-09-03** and the work it authorises has had no milestone since, which is
+was DECIDED on 2026-09-03 and the work it authorises has had no milestone since, which is
 milestone 247's failure class (work identified by a finished piece goes nowhere) applied to a
 decision rather than to a block. *(Number provisional until the merge queue lands it.)*
 
@@ -21,49 +21,50 @@ below. The driver itself is buildable and testable under QEMU and does not wait 
 
 ## What §86 decided, so this block does not reopen it
 
-**Option 2a**, in its own words: an EL0 NVMe server that **adds no syscall surface at all**, so *"the
+Option 2a, in its own words: an EL0 NVMe server that adds no syscall surface at all, so *"the
 only durable commitment is what an `nvme_server`'s spawn contract says, and this tree changes spawn
 contracts routinely."* Designed so option 4 can be added later without reshaping the driver, and the
 choice between them settled by measurement rather than argument.
 
-**Not reopened here**: whether a new `Object` variant is minted, and whether a validator ships with
-it. §86 says plainly those are calef's, and they are option 4's questions, not 2a's.
+Not reopened here: whether a new `Object` variant is minted, and whether a validator ships with
+it. §86 (whether an NVMe driver can leave the kernel) says plainly those are an architect's, and
+they are option 4's questions, not 2a's.
 
 ## One premise of §86 has changed, and it matters to this milestone
 
 §86's reading, written 2026-09-03:
 
 > fatal risk 6's decisive experiment is "one real, non-virtio device on real silicon, confined, at
-> throughput", **the silicon this project owns has no IOMMU**, and option 4 is the only entry here
+> throughput", the silicon this project owns has no IOMMU, and option 4 is the only entry here
 > that confines without one.
 
-**That is no longer true, and nobody had established it when §86 was written.** xenon has VT-d and an
+That is no longer true, and nobody had established it when §86 was written. xenon has VT-d and an
 NVMe behind it. `notes/xenon-firmware.md` records the machine's own setup UI: a `Micron 2450 NVMe
 256GB` on M.2 PCIe SSD-0 with SATA in AHCI rather than RAID, *"so the NVMe is a plain PCIe function
-rather than hidden behind Intel RST"*, on a machine milestone 87 selected partly for VT-d. The tour
+rather than hidden behind Intel RST"*, on a machine milestone 87 (bare) selected partly for VT-d. The tour
 has already reported `vt-d: drhd 0xfed90000 up, translation enabled (gsts.tes confirmed)` under OVMF.
 
-**This does not overturn §86's choice; it strengthens it.** Option 4 exists to confine a device on
-silicon with no IOMMU. On xenon the IOMMU is present, so **option 2a plus VT-d is a confined real
-device at throughput**, which is risk 6's decisive experiment without the validator option 4 was
+This does not overturn §86's choice; it strengthens it. Option 4 exists to confine a device on
+silicon with no IOMMU. On xenon the IOMMU is present, so option 2a plus VT-d is a confined real
+device at throughput, which is risk 6's decisive experiment without the validator option 4 was
 reaching for. Option 4 remains what a board without an IOMMU would need, and that is a different
 machine's problem.
 
 ## What calef has to do, and it is one thing
 
-**Wipe xenon's internal NVMe.** The disk currently holds a Windows installation, and **a disk this
-project must not write to is not a disk it can drive**, which is what has actually been standing
+Wipe xenon's internal NVMe. The disk currently holds a Windows installation, and a disk this
+project must not write to is not a disk it can drive, which is what has actually been standing
 between this tree and risk 6's decisive experiment rather than any missing hardware.
 
-- **The machine's own firmware does it**: Setup, Maintenance, **Data Wipe**, `Wipe on Next Boot`
+- The machine's own firmware does it: Setup, Maintenance, Data Wipe, `Wipe on Next Boot`
   (`notes/xenon-firmware.md`, IMG_4091). It covers internal SATA HDD/SSD, M.2 SATA SSD, M.2 PCIe SSD
   and eMMC; on a 7050 Micro that is this NVMe and nothing else, and it does not touch removable
   media.
-- **It is not recoverable and cannot be terminated once started**, which is the page's own warning.
-- **Nothing on it is wanted.** calef, 2026-09-05: *"The Windows image is freshly wiped. Don't worry
+- It is not recoverable and cannot be terminated once started, which is the page's own warning.
+- Nothing on it is wanted. calef, 2026-09-05: *"The Windows image is freshly wiped. Don't worry
   about it. The system listing told me it would be there and I wouldn't want somebody else's data
   anyways."* So this is a seller's fresh image rather than anyone's data.
-- **Cost: nothing, and one boot.** No purchase, unlike milestone 87's requirements list.
+- Cost: nothing, and one boot. No purchase, unlike milestone 87's requirements list.
 
 Done 2026-09-17, per `design/fatal-risks.md` risk 6. Corrected 2026-09-24: this line still read
 "not done" a week later.
@@ -75,14 +76,14 @@ An EL0 NVMe server under §86's option 2a, against QEMU's NVMe, which the runner
 in-kernel driver milestone 53 built; the work is moving the queue mechanics out to a confined process
 that is handed a doorbell page and a DMA window and nothing else.
 
-**The name is calef's** and a lane should ship a provisional one and say so. `nvme_server` is what
-§86 calls it in passing and that is not a ratification. **Settled 2026-09-18**: the program is
+The name is an architect's and a lane should ship a provisional one and say so. `nvme_server` is
+what §86 calls it in passing and that is not a ratification. Settled 2026-09-18: the program is
 `non_volatile_memory_express`, sharing its crate's name, under DECISIONS §154. The paragraph above
 is kept as the brief the lane worked from.
 
 ## What was built, 2026-09-17
 
-**The data plane left the kernel and nothing about the syscall surface moved**, which is option 2a's
+The data plane left the kernel and nothing about the syscall surface moved, which is option 2a's
 whole claim and is the thing to check first: no new `Object` variant, no new syscall number, no new
 method constant. The split is expressible because NVMe 1.4 §3.1 already put a page boundary where the
 authority boundary belongs. The controller registers (`CC`, `CSTS`, `AQA`, `ASQ`, `ACQ`) are at
@@ -96,31 +97,31 @@ EL0 gets the data path" is one page mapped and another not.
 | every piece of arithmetic either half does | `crates/non_volatile_memory_express`, host-tested, Kani-reachable |
 | what the process is handed and what it is refused | `kernel/src/user/non_volatile_memory_express_service.rs`'s `Spawn` literal |
 
-**What the server holds**, and it is the complete list, because a capability system has no ambient
+What the server holds, and it is the complete list, because a capability system has no ambient
 environment: the request endpoint (RECV, `filesystem_protocol::blk`), a readiness endpoint (WRITE,
-one message), **one page of BAR0** device-typed (the doorbell page at `bar0 + 0x1000`), and the
+one message), one page of BAR0 device-typed (the doorbell page at `bar0 + 0x1000`), and the
 **data plane's pages** of one confined DMA region (the two I/O rings and sixteen pages of transfer
 buffer).
 
 **What it is denied**, each line a decision rather than an omission:
 
-- **BAR0's controller register page.** It cannot reset the controller, disable it, or repoint the
+- BAR0's controller register page. It cannot reset the controller, disable it, or repoint the
   admin rings, because it cannot name the page those registers are on.
-- **The admin plane's pages of the DMA region**: the two admin rings and the IDENTIFY buffer. The
+- The admin plane's pages of the DMA region: the two admin rings and the IDENTIFY buffer. The
   kernel allocated the region and mints every mapping into it.
-- **Every admin command.** Creating a queue is what names the physical address a ring lives at; this
+- Every admin command. Creating a queue is what names the physical address a ring lives at; this
   process never issues one, so where its rings live is the kernel's statement and not its own.
-- **An `Irq` capability.** It polls. That is one authority fewer than `entropy.rs` holds, and §86's
+- An `Irq` capability. It polls. That is one authority fewer than `entropy.rs` holds, and §86's
   own interrupt finding (this tree runs `intel-iommu` with no `intremap=on` and `gic-version=2` with
   no ITS, so nothing would confine an interrupt a userspace driver aimed) is the reason not to reach
   for MSI-X casually.
-- **A `Virtio` capability**, because there is no kernel-mediated transport here; that absence is
+- A `Virtio` capability, because there is no kernel-mediated transport here; that absence is
   §86's reason for existing.
-- **A `DeviceFrame` or `PageFrame` capability.** Both windows arrive as `Mapping`s installed before
+- A `DeviceFrame` or `PageFrame` capability. Both windows arrive as `Mapping`s installed before
   `_start` runs, so the server holds no *name* for either and can neither delegate nor revoke them.
   Milestone 159's TRNG driver made the same choice, and its header records why an earlier draft's
   capability slot was describing a thing nobody hands over.
-- **The physical address of anything but its own data plane.** The handoff carries one base, and it
+- The physical address of anything but its own data plane. The handoff carries one base, and it
   is page 3 of the region rather than page 0.
 - **The initrd, a budget, a filesystem, a network, a clock.**
 
@@ -179,17 +180,17 @@ about a real device at real speed.
 *Reviewed 2026-09-17 against what the build learned. The first entry got sharper rather than
 weaker, the fourth is partly answered, and two are new.*
 
-- **Whether xenon's DMAR gives the NVMe to the unit this kernel translates is still unread**, and
+- Whether xenon's DMAR gives the NVMe to the unit this kernel translates is still unread, and
   with the driver at EL0 it is the whole confinement story. The bench boot's first preflight line
   now answers it in print; the catch-all path has run only against host-test tables.
-- **Nothing here is measured.** "At throughput" still has no number attached. Nothing in this lane's
+- Nothing here is measured. "At throughput" still has no number attached. Nothing in this lane's
   work produced one and nothing should be read as one: a QEMU figure is a figure about QEMU, and
   risk 6's clause is specifically about a real device at real speed.
-- **xenon halts at POST without a keyboard**, so every boot here is attended until the two settings
+- xenon halts at POST without a keyboard, so every boot here is attended until the two settings
   milestone 260 names are changed. That makes an iteration loop expensive in exactly the way the
   netboot work was meant to fix. Unchanged, and it is now the main cost of the remaining step,
   because the software side no longer needs iterating.
-- **`crates/non_volatile_memory_express`'s Kani harnesses cover queue mechanics, not confinement**, and that is still true
+- `crates/non_volatile_memory_express`'s Kani harnesses cover queue mechanics, not confinement, and that is still true
   of the three this milestone added: they prove the handoff round-trips, that the doorbell offsets
   an accepted handoff produces stay inside the one page mapped, and that no block outside the
   namespace becomes a command. The first two are *about* the confinement's arithmetic rather than
@@ -198,7 +199,7 @@ weaker, the fourth is partly answered, and two are new.*
   what is missing to meet milestone 202's convention is a replayable falsification: an EL0 server
   deliberately aiming a PRP outside its region, the way `block_driver`'s two attacker roles do for
   virtio. That is named in `## Follow-on`.
-- **A confined driver can still aim DMA inside its own confinement.** The IOMMU bounds the controller
+- A confined driver can still aim DMA inside its own confinement. The IOMMU bounds the controller
   to the whole allocation, admin rings included, because the controller fetches from both halves; so
   a server that computes a PRP backwards from its own base can make the controller overwrite the
   admin submission ring. Not an escape, and §86's option 2a states it in those terms; option 4's

@@ -13,8 +13,8 @@ needs_person: no
 (notes/smb.md): this block is entirely about what a Mac's Finder wants from an SMB share, and there
 is no SMB server. Nothing in it is buildable, and unlike milestone 131 no part of it generalizes:
 named streams, resource forks and Apple's directory-enumeration extensions are SMB surface and
-nothing else here wants them. **Retiring this block is calef's call**; the status word is unchanged
-because the vocabulary has no word for it.
+nothing else here wants them. **Retiring this block is an architect's call**; the status word is
+unchanged because the vocabulary has no word for it.
 
 The first thing this milestone needs is the choice §99 deferred rather than
 refused: where Apple metadata lands, given that this is the workload that actually wants it.
@@ -76,4 +76,4 @@ Split out of milestone 55 by calef on 2026-08-18, ruling on §99. A Time Machine
 bundle and never touches Apple's metadata surface, so the two workloads had two feature lists
 under one block and the backup path looked blocked on work it never needed. This is where `FILE_NAMED_STREAMS`, resource forks and the Finder-facing enumeration extensions lived. **Subject
 removed 2026-08-30** with the SMB implementation (notes/smb.md); nothing here is buildable without
-an SMB server, so the block needs retiring, which is calef's
+an SMB server, so the block needs retiring, which is an architect's

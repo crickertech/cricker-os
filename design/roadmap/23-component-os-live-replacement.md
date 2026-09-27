@@ -16,7 +16,7 @@ shared `Frame`** for state, **`GRANT`** for capabilities. **Handoff is optional*
 component manifest beside `depends_on`; a component that declares nothing is kill-and-replaced, as
 the console already is. **Failure does not commit**: an incoming instance that cannot absorb the
 state leaves the swap incomplete, which is a revoke of the new grant under §16 (object revocation). The manifest
-field's name is calef's and is unratified.
+field's name is an architect's and is unratified.
 
 The premise §116 declined on did not survive the week it was written in, and that is worth keeping
 here: it said no component with meaningful live state existed or was being built, and
@@ -25,7 +25,7 @@ filesystem server with open handles this milestone's hardest state-handoff case.
 ruling that reopened this was the **second** customer, not the first. §209 (state handoff is an opaque blob over a granted frame, and it is optional) carries the full record.
 
 **Building it is ordinary unblocked work.** All four residuals this block named now have their
-decisions; none of the four is waiting on calef.
+decisions; none of the four is waiting on an architect.
 
 **The component manifest is built** (2026-08-17, `crates/component_plan`,
 notes/component-manifest.md), which is the piece milestone 39's packaging analysis leans on. **The
@@ -86,7 +86,7 @@ a second supervisor or an out-of-tree component actually exists, because until t
 format would be a format with one producer and one consumer that are compiled together." Nothing
 has shipped outside this tree, so the trigger (also `design/what-a-distribution-packages.md`'s: "a
 component first built outside this tree, or a binary first distributed to someone who cannot rebuild
-it") has not fired. Not a live question awaiting calef's call; a correctly-deferred one.
+it") has not fired. Not a live question awaiting an architect's call; a correctly-deferred one.
 
 **The hung component was demonstrated 2026-08-17, and it corrects a sentence this block and two
 DECISIONS sections all repeat.** §32 declined the case with "a supervisor that must restart a *hung*

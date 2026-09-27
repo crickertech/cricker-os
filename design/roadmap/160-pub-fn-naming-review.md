@@ -37,11 +37,11 @@ this milestone reviews.
 
 CLAUDE.md's naming tenet, as written, states its scope narrowly: *"calef names the crates, the
 programs, and the shared modules"* and *"the name of a crate, a program, or a shared module is
-calef's call, not a lane's and not yours."* Nothing in that text, nor in `script/names`'s provenance
-mechanism, currently extends to individual function or method names. This milestone is itself the
-record of that extension, at calef's direct request on 2026-08-23, rather than a silent scope creep
-discovered later. CLAUDE.md gained one sentence recording it in the same breath this milestone was
-minted.
+calef's call, not a lane's and not yours."* Nothing in that text, nor in `script/names`'s
+provenance mechanism, currently extends to individual function or method names. This milestone is
+itself the record of that extension, at calef's direct request on 2026-08-23, rather than a silent
+scope creep discovered later. CLAUDE.md gained one sentence recording it in the same breath this
+milestone was minted.
 
 ## Sequencing
 

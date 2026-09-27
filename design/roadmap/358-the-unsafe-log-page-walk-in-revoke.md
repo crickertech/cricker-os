@@ -32,7 +32,8 @@ maps and the mapped windows.
 Milestone 139's whole argument is that an `unsafe` block is a proof obligation, and that six copies
 of one obligation is six chances to get it wrong while the ratchet counts it as six facts. The six
 sites here are the largest remaining cluster in the kernel outside `arch/` and `sched.rs`, and
-`sched.rs` is blocked on a typestate decision that is calef's. This one is not blocked on anything.
+`sched.rs` is blocked on a typestate decision that is an architect's. This one is not blocked on
+anything.
 
 ## What it needs
 
@@ -59,7 +60,7 @@ restating in a comment what `log_page`'s own safety section already says. Milest
 argument is that an `unsafe` block is a proof obligation and that six copies of one obligation is
 six chances to get it wrong while the ratchet counts it as six facts. This is the largest remaining
 cluster in the kernel outside `arch/` and `sched.rs`, and `sched.rs` is blocked on a typestate
-decision that is calef's while this is blocked on nothing. The honest outcome may be that the
+decision that is an architect's while this is blocked on nothing. The honest outcome may be that the
 obligation is genuinely six arguments rather than one, in which case saying so in
 notes/unsafe-obligations.md closes the item: a wrapper whose own safety argument is weaker than the
 six it replaced improves the count and not the kernel.

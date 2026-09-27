@@ -19,8 +19,8 @@ should be read as current intent.
 **Journeys have no status field** (design/journeys/README.md says why), so retirement is recorded in
 prose here and in that README's index. The roadmap did not have a word for this either; it does now,
 minted the same day, and `REMOVED` is why milestones 54 and 55 can say what happened while this file
-still needs a paragraph. If a second journey is ever retired, that is the point to ask calef whether
-this convention should grow a field rather than borrow the roadmap's.
+still needs a paragraph. If a second journey is ever retired, that is the point to ask an architect
+whether this convention should grow a field rather than borrow the roadmap's.
 
 calef, 2026-08-26: a second journey, running a Time Machine backup host. Unlike journey 1, this
 story is not waiting on unwritten code for its first light: milestone 55's own 2026-08-22 scoping

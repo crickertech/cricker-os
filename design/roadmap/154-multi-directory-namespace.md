@@ -137,9 +137,9 @@ disjoint, individually-labeled trees with one position at a time.
   both boards run (`user/src/system_initializer.rs`, `fixtures/src/hello.rs`'s `init_boot` role), not a
   kernel-side test harness.
 
-  Both real entry points pass `None`. What the second subtree should *be* remains calef's
-  boot-time policy call (DECISIONS §126), unanswered by this increment on purpose. Two further
-  gaps, recorded rather than hidden. First, this exact path is unverified against a real boot:
+  **Both real entry points pass `None`.** What the second subtree should *be* remains an architect's
+  boot-time policy call (DECISIONS §126), unanswered by this increment on purpose. **Two further
+  gaps, recorded rather than hidden.** First, this exact path is unverified against a real boot:
   `script/swish-check` is the only thing that runs a real init, nothing types a second grant
   through it, and the capability-table headroom at the point this builds a caretaker is the same
   spot a past bug already found tight (`boot`'s own `# BUGS` note says so; watch for "reaches
@@ -168,7 +168,7 @@ Lane `milestone/154-two-directories`. The detail is [notes/two-trees.md](../../n
 
 - The presentation is calef's 2026-09-26 ruling: one root, and the second tree at a mount point.
   `pwd` prints the mount path. `cd ..` from a mount point reaches its parent, which is this lane's
-  choice pending calef (the written ruling leaves it open). An earlier cut of
+  choice pending an architect (the written ruling leaves it open). An earlier cut of
   this lane printed per-tree labels (`/b/logs`) and was replaced the same day.
 - One resolver. `grant_plan::Holdings::anchor` says where a path starts (where the shell stands, a
   bound name, or the root), `Cwd::apply` applies it, and `Holdings::locate` says which tree serves
@@ -194,7 +194,7 @@ Lane `milestone/154-two-directories`. The detail is [notes/two-trees.md](../../n
   behaviour for a dead mount, and `rm` under a mount. Its trigger is the first real second
   filesystem: `design/roadmap/proposals/a-second-filesystem-mounts-in-the-boot-shell.md`.
 - **Proposed.** What `..` does at a mount point, which the written ruling leaves open: the shell
-  goes to the mount point's parent, as Unix and Plan 9 do, and calef is asked to confirm:
+  goes to the mount point's parent, as Unix and Plan 9 do, and an architect is asked to confirm:
   `design/roadmap/proposals/what-dot-dot-does-at-a-mount-point.md`.
 - **Recorded.** `spawnproto::DIR2_BIT` has no emitter and no decoder in init, because no manifest
   declares two directory operands and §170 (how a foreign program is told what to do), as ruled
@@ -207,7 +207,7 @@ Lane `milestone/154-two-directories`. The detail is [notes/two-trees.md](../../n
   sources, enumeration, the compile-time-to-runtime lookup gap, and whether `$PATH` survives as a
   string) are untouched here and stay 47's, which its own block confirms.
 - **Recorded.** The two-root type, the second-directory type and its grant ship as provisional
-  names, said so where they live, and naming is calef's. So do this lane's: `Holdings::anchor`,
+  names, said so where they live, and naming is an architect's. So do this lane's: `Holdings::anchor`,
   `locate`, `place`, `SecondDir::mounted_at`, `swish`'s `Tree` and `ROLE_TWO_TREES`, the
   `fixture::twotrees` bits, and `notes/two-trees.md`.
 

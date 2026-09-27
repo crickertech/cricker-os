@@ -517,7 +517,7 @@ impl SlotHeader {
 /// assert_eq!(cmdline::parse("screen=0x80000000,800,600,3200,bgrx"), None);
 /// ```
 pub mod cmdline {
-    /// The token's key, including the `=`. Provisional: names are calef's.
+    /// The token's key, including the `=`. Provisional: names are an architect's.
     pub const KEY: &str = "boot-slot=";
 
     /// The longest this token can be: the key and one decimal digit.

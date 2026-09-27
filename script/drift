@@ -38,7 +38,7 @@
 # build us". Bare rather than `toolchain-drift` because the toolchain is the only thing in this
 # tree that drifts against a moving upstream, and the sibling it would pair with,
 # `script/toolchain-bump`, is the fix rather than the detector. That last clause is this lane's
-# reading rather than the record's, and it is the part worth ruling on. calef has not ratified it.
+# reading rather than the record's, and it is the part worth ruling on. no architect has ratified it.
 
 set -e
 cd "$(dirname "$0")/.."

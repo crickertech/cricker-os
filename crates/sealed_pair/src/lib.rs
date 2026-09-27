@@ -94,7 +94,7 @@
 //! was named over `measure`. Refused `card_check`, because the pair is checked in three places that
 //! are not a card (the UEFI loader's build, a staged directory, a stick's single file) and a name
 //! saying "card" would be wrong in two of them; refused `seal`, a verb, and generic enough to name
-//! almost anything. calef has not ratified it.
+//! almost anything. no architect has ratified it.
 
 use std::fmt::Write as _;
 

@@ -71,7 +71,7 @@ happening to look. Milestone 232 was that somebody, once.
   finding that this milestone does not cover.
 - **Fixing the cadence does not re-read risk 3.** It removes the reason the verdict is currently
   unsupported; whether the verdict then holds is a question for whoever reads the new number, and it
-  is calef's.
+  is an architect's.
 - **Neither repair says anything about the other seven scheduled workflows**, which milestone 232
   inventoried but did not run.
 
@@ -153,8 +153,8 @@ or `script/gates`, for `script/audits`' recorded reason.
 
 ## BUGS, after the work
 
-- **Fatal risk 3 was not re-read, deliberately.** That is calef's, and the block above says so. What
-  changed is that the clause making a stale number acceptable, "the weekly workflow already
+- **Fatal risk 3 was not re-read, deliberately.** That is an architect's, and the block above says
+  so. What changed is that the clause making a stale number acceptable, "the weekly workflow already
   publishes the report", is now true rather than false: one has been published. **What it says is
   that the score has fallen from 92.4% to roughly 83.4%**, on a uniform sample rather than a census
   (7 of 8 shards died, so 8,700 of 9,857 mutants remain unrun since 2026-08-03). Whether that moves

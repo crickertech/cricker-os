@@ -16,7 +16,7 @@ block's 2026-09-20 measurement; the corrections carry the 2026-09-25 re-measure 
 15,966 in files calling `asm!`, eight harnesses). *(Number provisional until the merge queue lands it.)* Promoted from the proposal `the-unreachable-kernel-claim-is-three-weeks-stale`, filed 2026-09-20, on calef's instruction of 2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own, unedited except for this paragraph and one bold lead-in the prose ratchet refused: the argument is its author's and promotion is not the moment to improve it. Raised by the `maintainer/verus-versus-kani` lane, which was briefed
 on the claim and found it expired before it found anything else.
 
-The gate was DECISION until §216 answered it on 2026-09-25. Its reasoning, as proposed: `design/fatal-risks.md` is calef's file and risk 2's text is his to amend;
+The gate was DECISION until §216 answered it on 2026-09-25. Its reasoning, as proposed: `design/fatal-risks.md` is an architect's file and risk 2's text is theirs to amend;
 AGENTS.md puts the falsification list outside a lane's reach, and the edit to it by the lane for
 milestone 64 (enough `std` to run somebody else's crate) is recorded as an exception rather than a
 precedent. `notes/proof-retrospective.md` is an ordinary
@@ -28,9 +28,9 @@ the reader meets a tree that disagrees with itself.
 `design/fatal-risks.md` risk 2 (the proofs prove trivia, and the real bugs live where Kani cannot
 reach), verbatim:
 
-> **The cause is one line of `script/verify`'s own header**, verified rather than inferred:
-> *"`cargo kani -p <crate>` never compiles the kernel, the user programs, or xtask."* So **64,818
-> lines of `kernel/src` are out of reach by construction**, and that is exactly where every
+> The cause is one line of `script/verify`'s own header, verified rather than inferred:
+> *"`cargo kani -p <crate>` never compiles the kernel, the user programs, or xtask."* So 64,818
+> lines of `kernel/src` are out of reach by construction, and that is exactly where every
 > concurrency, hardware-contract and resource-accounting defect lived.
 
 `notes/proof-retrospective.md` carries the same sentence, which is where risk 2 got it.
@@ -39,11 +39,11 @@ reach), verbatim:
 
 Three milestones landed after it was written:
 
-- **Milestone 193 (put `kernel/src` within reach of the prover, because today the proofs cannot see it)**,
+- Milestone 193 (put `kernel/src` within reach of the prover, because today the proofs cannot see it),
   2026-08-30. Four changes, three of them one-line `cfg`s.
-- **Milestone 255 (a quarter of `kernel/src/arch/` has no assembly in it, and none of it is proved)**,
+- Milestone 255 (a quarter of `kernel/src/arch/` has no assembly in it, and none of it is proved),
   2026-09-04. Two harnesses inside `arch/aarch64/iommu.rs`.
-- **Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture, and it was the runner's)**,
+- Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture, and it was the runner's),
   2026-09-16. Two harnesses inside `arch/x86_64/irq.rs`, and a second verify host.
 
 `notes/kernel-proofs.md` is the record and this lane re-ran it. Six kernel harnesses exist; four run

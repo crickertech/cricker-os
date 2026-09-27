@@ -18,7 +18,7 @@ defect in the system rather than in the script, and milestone 243's `BUGS` still
 its own home", which is this block.
 
 Where the kernel's own output goes once userspace owns the console is a design
-fork rather than a bug to fix, and it is calef's. The options are genuinely different systems, not
+fork rather than a bug to fix, and it is an architect's. The options are genuinely different systems, not
 variations on one, and the choice binds every architecture and every future console consumer.
 
 **In brief.** Once the `console` server owns the console, two address spaces are writing to the same

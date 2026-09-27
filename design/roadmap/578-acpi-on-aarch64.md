@@ -16,8 +16,8 @@ device tree can boot nife.* The file name and every name this block invents are 
 
 A lane can start today, on this laptop, with no account and no board. The failure
 this milestone fixes reproduces under QEMU by changing one flag, and the first two items below are
-host-tested table parsing. One item inside this block does reach a fork that is calef's, and it is
-named as such where it sits rather than gating the whole thing.
+host-tested table parsing. One item inside this block does reach a fork that is an architect's, and
+it is named as such where it sits rather than gating the whole thing.
 
 ## What this is, and why it is not a purchasing problem
 
@@ -176,7 +176,7 @@ because it is three lines of behaviour rather than a subsystem:
 carrying whichever it found, is the same loop with a second predicate. The x86 GUID constants already
 exist in `uefi_loader::efi`.
 
-**The third is where the fork is**, and this is the one item in this block that is calef's:
+**The third is where the fork is**, and this is the one item in this block that is an architect's:
 
 > **How does an ACPI machine's description reach the aarch64 kernel?** The Linux arm64 boot
 > contract this kernel implements is `x0` = the physical address of a device tree, with `x1` to `x3`

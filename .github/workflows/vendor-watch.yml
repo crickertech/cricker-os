@@ -141,8 +141,8 @@ jobs:
           five divergences are re-applied forever and can stop applying outright if upstream
           restructures what they touch. If that happens, the honest outcome is a decision (take the
           new version and rewrite the divergences, stay put and record why, or fork permanently and
-          stop pretending the pin tracks upstream), and that decision is calef's rather than a
-          lane's."
+          stop pretending the pin tracks upstream), and that decision is an architect's rather
+          than a lane's."
 
           if [ "$CODE" = "3" ]; then
             title="vendor: the RedoxFS upstream watch is BROKEN (it can no longer see upstream)"

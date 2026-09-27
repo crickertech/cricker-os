@@ -112,8 +112,8 @@ That makes option 2, keeping legacy devices in the kernel, the correct default a
 a userspace console on `x86_64`. The conclusion is the amendment's own, now with a number under its
 option-1 half.
 
-It does not settle which option §121 picks. That is calef's call per the decision's closing question;
-this section changes only what he decides with.
+It does not settle which option §121 picks. That is an architect's call per the decision's closing
+question; this section changes only what he decides with.
 
 It does not build option 1 either. There is no port-range capability, no `Untyped::SPLIT`-derived
 granting and no syscall surface change. `bench_write_io_bitmap` is deliberately not wired to the live

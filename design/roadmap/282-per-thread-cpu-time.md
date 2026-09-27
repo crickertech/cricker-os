@@ -68,12 +68,12 @@ which is the fault `flaky` was renamed for on the same day this was minted. Unde
 it became both available and correct. Under the two refused options it would not have: wall-clock
 age is not `%CPU`, and a sampled estimate is not a measurement.
 
-**Two things about the name are calef's and neither blocks anything.** The name `top` itself, which
-ships provisional. And the prior question of whether this is a program at all: milestone 281 (`watch` holds exactly what `ps` holds)
-deleted `watch` on the rule that *two programs are two programs when they hold different authority*,
-and `top` holds `ps`'s three slots exactly. What differs is the question asked rather than the
-endowment, and the argument is written out both ways in `crates/top`'s module docs. Folding it into
-`ps` as a flag is a day's work and stays available.
+**Two things about the name are an architect's and neither blocks anything.** The name `top` itself,
+which ships provisional. And the prior question of whether this is a program at all: milestone 281
+(`watch` holds exactly what `ps` holds) deleted `watch` on the rule that *two programs are two
+programs when they hold different authority*, and `top` holds `ps`'s three slots exactly. What
+differs is the question asked rather than the endowment, and the argument is written out both ways
+in `crates/top`'s module docs. Folding it into `ps` as a flag is a day's work and stays available.
 
 ## BUGS
 

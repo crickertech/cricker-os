@@ -117,13 +117,13 @@ milestone:
   at any position, a path through a file, `..` through a held `Dir`). A std program spawned on an
   `fs_subtree_caretaker` endpoint is the test that would close it and is proposed as its own
   milestone.
-- **It turned up one contract question, and it is calef's.** `OPENDIR` has no way to say "attenuate
-  to whatever you have": the request is refused with `EPERM` when the intersection comes up short,
-  which is right for a verb asking for a minimum and wrong for an object that has no single verb.
-  A held `Dir` therefore asks for `dir::ALL` and, when a narrowed grant refuses, finds out what is
-  there by asking for one right at a time (six messages, at most once per `Dir::open`). That works
-  and is recorded as a workaround where a reader meets it. The fix is a sentinel in the rights word,
-  which is a wire-format change and not a lane's to make.
+- **It turned up one contract question, and it is an architect's.** `OPENDIR` has no way to say
+  "attenuate to whatever you have": the request is refused with `EPERM` when the intersection comes
+  up short, which is right for a verb asking for a minimum and wrong for an object that has no
+  single verb. A held `Dir` therefore asks for `dir::ALL` and, when a narrowed grant refuses, finds
+  out what is there by asking for one right at a time (six messages, at most once per `Dir::open`).
+  That works and is recorded as a workaround where a reader meets it. The fix is a sentinel in the
+  rights word, which is a wire-format change and not a lane's to make.
 
 ## Prior art
 

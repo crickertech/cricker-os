@@ -19,7 +19,7 @@ the SMB implementation went, the premise evaporated and nothing noticed: every g
 `cargo-deny` stayed happy, and the crate's documented security property was still true of the crate.
 A dependency taken for a stated reason has to be re-checked when the reason changes, and a decision
 record naming its own premise is what makes that possible. **§79 is now stale and needs amending;
-that is calef's.** See notes/smb.md for the whole account.
+that is an architect's.** See notes/smb.md for the whole account.
 
 *What follows is the note as it stood before the removal.*
 

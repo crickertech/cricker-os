@@ -1,7 +1,7 @@
 # The register of measures: every number this kernel owes itself
 
 *(Milestone 134 (the register of measures). The name `register-of-measures.md` is provisional;
-naming is calef's, and a lane ships a provisional one and says so.)*
+naming is an architect's, and a lane ships a provisional one and says so.)*
 
 This tree measures a great deal and remembers almost none of it. A number gets taken once, written
 beside the reasoning that needed it, and stays true only on the day it was written. `notes/counted-claims.md` found three such numbers on 2026-08-14 and all three were wrong.

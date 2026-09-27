@@ -6,7 +6,7 @@ built: 2026-09-15
 # 300. Decompose the icount baseline drift, and re-baseline only what is proven
 
 Built 2026-09-15. *(Number provisional until the merge queue lands it.)* Re-saving a
-baseline commits a new performance floor, which is calef's call like any baseline save; this
+baseline commits a new performance floor, which is an architect's call like any baseline save; this
 milestone was briefed with that latitude and executes Decision 1 of the finding below. Decision 2
 stays open for calef as the follow-on.
 

@@ -195,8 +195,8 @@ pub unsafe fn write_msr(msr: u32, value: u64) {
 /// catch it, whereas `CPUID` remains readable forever, which is exactly what made the recomputing
 /// version look correct. aarch64 needs no static at all because its boot core is architecturally 0.
 ///
-/// The name is **provisional** (calef names things): it mirrors `BOOT_HARTID` on the architecture
-/// that already had this shape.
+/// The name is **provisional** (an architect names things): it mirrors `BOOT_HARTID` on the
+/// architecture that already had this shape.
 #[unsafe(no_mangle)]
 static BOOT_CPU_ID: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
 

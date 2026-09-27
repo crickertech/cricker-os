@@ -132,9 +132,9 @@ already required. Three things are:
    nothing. `design/fatal-risks.md`'s risk 3 is a claim about the whole tree's derivative, and this
    instrument can only see the part of the tree a host test can execute.
 
-**What would be a different question, and it is calef's to ask rather than a lane's to answer.**
-The measurement that is missing is not "does `--in-diff` work", which it plainly does, but "what
-fraction of the corpus's survivor growth arrives on lines a pull request touched". That is
+**What would be a different question, and it is an architect's to ask rather than a lane's to
+answer.** The measurement that is missing is not "does `--in-diff` work", which it plainly does, but
+"what fraction of the corpus's survivor growth arrives on lines a pull request touched". That is
 answerable, and answering it needs the pull requests between 2026-08-03 and 2026-09-14 that grew
 `machine_discovery` from 212 mutants to 686.
 
@@ -179,8 +179,8 @@ the block about it. So an advisory period is not the safe default here, it is th
 and this milestone does not propose one.
 
 **This milestone does not switch anything on.** It produced three numbers and a recommendation. The
-ruling is calef's, because a gate on every pull request changes what contributing costs, which is the
-irreversible half.
+ruling is an architect's, because a gate on every pull request changes what contributing costs,
+which is the irreversible half.
 
 ## Follow-on
 

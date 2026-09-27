@@ -150,13 +150,14 @@ import line in the way.
 
 ## BUGS
 
-**The module names are provisional** (2026-09-19). A module name is a name, so it is calef's, and a
-lane ships one and says so. Nineteen of them landed in one commit: `archive`, `bench`, `board`,
-`boot_check`, `disk`, `disk_check`, `farm`, `host`, `icount`, `inbound`, `inspect`, `manual`,
-`measure`, `scanout`, `shell_check`, `soak`, `suite`, `uefi`, and the existing `stick`. Two are
-worth a second look. `suite` is the `cargo xtask test` command, named around the fact that `test.rs`
-holding a `mod tests` reads badly. `host` is the residue module described above, and its name is
-doing more work than the others' because it is what keeps the module from becoming a `common`.
+**The module names are provisional** (2026-09-19). A module name is a name, so it is an architect's,
+and a lane ships one and says so. Nineteen of them landed in one commit: `archive`, `bench`,
+`board`, `boot_check`, `disk`, `disk_check`, `farm`, `host`, `icount`, `inbound`, `inspect`,
+`manual`, `measure`, `scanout`, `shell_check`, `soak`, `suite`, `uefi`, and the existing `stick`.
+Two are worth a second look. `suite` is the `cargo xtask test` command, named around the fact that
+`test.rs` holding a `mod tests` reads badly. `host` is the residue module described above, and its
+name is doing more work than the others' because it is what keeps the module from becoming a
+`common`.
 
 **`shell_check.rs` is still 1,866 lines**, which is smaller than the file it came out of by a factor
 of six and larger than anything else here. It is one command whose script table is 390 lines and

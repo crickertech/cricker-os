@@ -597,7 +597,9 @@ fn asid_tagging_keeps_address_spaces_apart_without_flushes() {
     // those bits are reserved-zero, so `arch::x86_64::mmu::ttbr0_value` drops the number and every
     // `mov cr3` flushes the whole TLB. B's read would then return B's byte because nothing was
     // cached, not because the tagging works. Turning `PCIDE` on is worth a measurement and is
-    // recorded as calef's call (milestone 161's roadmap item 3); the day it is on, both spaces get
+    // recorded as an architect's call (item 3 of milestone 161 (the x86_64 kernel port)); the day
+    // it is on, both
+    // spaces get
     // real tags and this skip stops firing with nothing else edited.
     if asid_a == 0 && asid_b == 0 {
         crate::testing::skip!(

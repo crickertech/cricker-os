@@ -126,8 +126,8 @@ It was written 2026-08-18 as `script/stranger-test`, and the entry did not close
 fell from an afternoon of reconstruction to one command. The four isolation failures became the
 script's problem rather than the operator's memory. What did not change was the entry's opening
 sentence: nothing scheduled the test, and nothing went red when it had not been run in a month. A
-cadence is a decision about how often the answer is worth its cost. That is calef's call rather than
-a lane's, and milestone 129 (scheduled execution) is the machinery it would use.
+cadence is a decision about how often the answer is worth its cost. That is an architect's call
+rather than a lane's, and milestone 129 (scheduled execution) is the machinery it would use.
 
 [Run 5](run-5.md) used the script and it held, which is the evidence the lane that wrote it
 deliberately did not produce. It took one command, after a `--smoke` run first for `$0.09`. None of

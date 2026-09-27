@@ -36,7 +36,7 @@ recommendations provisionally (the table's shape, and where a manifest travels, 
 (a trivial install is a web page, a USB drive, and packages over the internet) gate later rungs,
 each on a milestone of its own: the install layout on milestone 515 (rung 2a), Secure Boot on
 milestone 500 (a stick that boots with Secure Boot on) for rungs 1d and 4, and publication is
-calef's act at rung 4.
+an architect's act at rung 4.
 
 **The history of that line.** **Ruled by calef on 2026-09-19 (16:32 UTC):
 `MILESTONE 23` is dropped from this line.** It read `DECISION, MILESTONE 23`, inherited through
@@ -320,4 +320,4 @@ recipe into one; fetch and verify followed on 2026-09-24): a stick reaching a pr
 needs nothing new; the screen and the USB keyboard, milestone 242, are the rest), that system
 installed onto the disk (a new installer proposal plus milestone 261's bench step), growing by
 packages over the network (this milestone on a LAN first, then a real network card and the
-internet), and the web page, which is calef's act.
+internet), and the web page, which is an architect's act.

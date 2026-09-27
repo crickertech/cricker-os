@@ -38,7 +38,7 @@
 #   - **every non-lettered block carries one `## Index row` section** holding exactly one summary
 #     paragraph, the one fact nothing else in the block states. The heading keeps the name
 #     milestone 294 gave it although the index it was named for is retired: renaming it would touch
-#     every block in this directory, and a name is calef's;
+#     every block in this directory, and a name is an architect's;
 #   - each file holds exactly one milestone: one H1, first after the frontmatter, whose number
 #     matches the filename (the filed-under-an-essay class, and the appended-past-the-closer class);
 #   - two files claiming one milestone number is fatal, for the reason script/decisions records: as
@@ -134,7 +134,7 @@
 # Name: recorded (DECISIONS §134, which lists this script by name in the `script/` family's noun
 # half). Introduced 2026-07-30 with the status vocabulary and its gate. It reports rather than
 # does, so §134's split gives it a noun, and the noun is the record it reads, which leaves nothing
-# else to decide. calef has not ratified it.
+# else to decide. no architect has ratified it.
 
 set -e
 
@@ -842,7 +842,7 @@ for num in sorted(milestones):
     generated[num] = (f"| {num} | {ms['status']} | [{cell(ms['title'], link_text=True)}]({ms['file']}) "
                       f"| {cell(ms['summary'])} |" + tail)
 # ---- unnumbered proposals (milestone 247, calef 2026-09-03) -------------------
-# **Anybody may add to the roadmap; prioritising it is a different act.** That is calef's
+# **Anybody may add to the roadmap; prioritising it is a different act.** That is an architect's
 # distinction and it dissolves a rule this tree had been treating as one thing. Lanes could not
 # mint milestone numbers because concurrent lanes cannot see each other and two reaching for the
 # same number collide. The collision is in the NUMBER, not in the authority, and conflating them
@@ -960,7 +960,7 @@ for slug, by in sorted(promoted.items()):
 #   - **Recorded.**          it is a limitation and it stays one; names the file it lives beside,
 #                            in backticks, and that file must exist.
 #   - **Refused.**           it was considered and deliberately not taken; carries the reason.
-#   - **Decision.**          it is calef's call and is written up as one; names the file under
+#   - **Decision.** it is an architect's call and is written up as one; names the file under
 #                            design/decisions/ that holds it.
 #   - **Proposed.**          the block named work nobody has taken, so it is now a proposal in
 #                            design/roadmap/proposals/, named here.
@@ -1037,7 +1037,7 @@ PATHISH = re.compile(r"(?:" + "|".join(re.escape(d) for d in sorted(_ROOT_DIRS))
 # **What it buys is the date, not the word.** The gate cannot tell a stale claim from a live one, and
 # this does not change that. What changes is that somebody wrote "still true, and here is what I
 # checked" beside each item, which is the act that found milestone 16's two finished items. Name
-# provisional (calef names things); the vocabulary it joins is provisional in the same way.
+# provisional (an architect names things); the vocabulary it joins is provisional in the same way.
 DISPOSITION = roadmap_block.DISPOSITION  # spelled in helpers/roadmap_block.py
 
 swept = 0
@@ -1162,8 +1162,9 @@ for mid, fname in sorted(ids.items()):
                     and os.path.exists(os.path.join(root, p.split("#")[0]))]
             if not real:
                 problems.append(
-                    f"{fname}:{n}: '**Decision.**' means calef's call is written up as one, so it "
-                    f"names the file under design/decisions/ that holds it, in backticks, and that "
+                    f"{fname}:{n}: '**Decision.**' means an architect's call is written up as "
+                    f"one, so it names the file under design/decisions/ that holds it, in "
+                    f"backticks, and that "
                     f"file has to exist (found {paths if paths else 'no path'}). A decision that "
                     f"lives only in a conversation is the medium AGENTS.md abolished")
         elif kind == "Outstanding":

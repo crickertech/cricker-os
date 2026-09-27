@@ -312,7 +312,7 @@ Compare the device trees the two GIC versions produce, which is how the table ab
   the original reading could well be right there. Nobody has checked what the CI Linux runners do,
   and milestone 87's `OptiPlex` (xenon) is real silicon whose firmware answers this question in its
   own way.
-- **`NIFE_INTREMAP` and `NIFE_GIC` are provisional names.** Names are calef's
+- **`NIFE_INTREMAP` and `NIFE_GIC` are provisional names.** Names are an architect's
   (`AGENTS.md`); these follow the existing `NIFE_*` runner-knob convention (`NIFE_SMP`, `NIFE_CPU`,
   `NIFE_EL2`, `NIFE_DISK`) and nothing outside this repository has acted on either.
 - **The x86_64 measurement is one machine.** QEMU 11.1.1, TCG, macOS on Apple Silicon, no KVM. The

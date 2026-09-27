@@ -179,8 +179,8 @@ not wrong, and calef names public items. Proposed, not performed, and said out l
   vector-to-intid inversion is still missing and still needed by nothing, re-checked rather than
   assumed; the entry now names the extra step an inversion would take, which is adding the owning
   part's global interrupt base.
-- **Refused.** Renaming `gsi_vector`. It is calef's call, the lane proposes it at the function, and
-  a rename performed on a lane's own initiative is a naming decision with extra steps.
+- **Refused.** Renaming `gsi_vector`. It is an architect's call, the lane proposes it at the
+  function, and a rename performed on a lane's own initiative is a naming decision with extra steps.
 - **Done.** Milestone 304's `kani::assume(base == 0)`, which that block named as this proposal
   standing in the harness until the fork was answered. The assumption is gone and nothing replaced
   it.

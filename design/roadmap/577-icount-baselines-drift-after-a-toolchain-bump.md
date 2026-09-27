@@ -125,8 +125,8 @@ result and preserves nothing else. A row that cannot carry a reason cannot carry
    415's item 2 is the same work stated once more. Correcting that status is 302's own lane's to do.
 2. **Do not open a fourth block for the attribution ledger.**
 3. **Do not re-save any floor to settle the `rfence_self` question.** A save is a committed floor and
-   is calef's, and the two readings above disagree about cause, which is the one condition under
-   which blessing a number is worst.
+   is an architect's, and the two readings above disagree about cause, which is the one condition
+   under which blessing a number is worst.
 
 ## BUGS
 
@@ -147,7 +147,7 @@ result and preserves nothing else. A row that cannot carry a reason cannot carry
 `bench/baseline-*.txt` are the icount tripwire's committed floors and a new nightly revalues every
 number in them, so this was filed on 2026-09-15 after a bump left the floors alone and most of the
 headroom went with it. Both of its items were answered while it sat unpromoted on a branch: milestone
-300 decomposed the drift and measured the toolchain term at ~0, and milestone 302 is calef's
+300 decomposed the drift and measured the toolchain term at ~0, and milestone 302 is an architect's
 fail-loudly ruling, most of which landed as `99f13dad`'s `script/lint` check that fires when a
 baseline's `# toolchain:` line and `rust-toolchain.toml` disagree. Promoted and superseded in one act
 so the number is spent and the evidence has a home: that check covers staleness and nothing else, and

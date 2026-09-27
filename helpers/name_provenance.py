@@ -26,7 +26,8 @@ Name: provisional, minted by milestone 276's lane on 2026-09-11. It is a shared 
 own and this paragraph is the record instead. `provenance` alone was considered and reads as the
 mechanism rather than the subject, which is the same objection `script/names`' own header records
 against `provenance` as a command name; `naming` names the whole topic, including the conventions in
-design/naming.md that this file knows nothing about. calef names modules, and has not ratified it.
+design/naming.md that this file knows nothing about. An architect names modules, and none has
+ratified it.
 """
 
 import re

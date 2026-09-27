@@ -131,8 +131,8 @@
 //! not resolve, and it is exactly the "open-ended judgment about cryptographic soundness" this
 //! milestone's brief said to write up rather than guess at. **It is not decided here.** See the
 //! roadmap doc and the final report for milestone 159's lane; the honest state of the question
-//! belongs in `design/decisions/` as a PROPOSED entry, which is calef's call to write, not this
-//! lane's (AGENTS.md: a developer never edits `design/`).
+//! belongs in `design/decisions/` as a PROPOSED entry, which is an architect's call to write, not
+//! this lane's (AGENTS.md: a developer never edits `design/`).
 //!
 //! # Examples
 //!

@@ -490,7 +490,8 @@
 //!    lane should not silently choose one. Two shapes were considered, not built: a password baked
 //!    into the image at build time (rejected here as a recommendation, not decided against
 //!    absolutely: a fixed secret shipped in a public repository is exactly the "a fact that leaves
-//!    the machine" category `AGENTS.md`'s own tenet reserves for calef, and it is also the harder
+//!    the machine" category `AGENTS.md`'s own tenet reserves for an architect, and it is also the
+//!    harder
 //!    one to undo); and a password the boot itself generates, from the entropy service already
 //!    built here, provisioned once per boot and printed to the console before the prompt (in the
 //!    shape cloud images already use for a generated first-boot password). The second is the

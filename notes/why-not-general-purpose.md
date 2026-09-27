@@ -13,9 +13,9 @@ that would move the needle (a writable FS, a POSIX shim, a net stack) actually g
 those three were built and the page kept saying they did not exist. That is AGENTS.md's ladder
 working as advertised: a note is rung four, it fires only when somebody remembers, and nobody did.
 
-**The title now overstates the case** and is left alone on purpose, because note names are calef's
-(AGENTS.md's naming rule) and a rename is a naming decision with extra steps. Read it as *"what a
-general-purpose application still hits"*, which is what the page is actually about.
+**The title now overstates the case** and is left alone on purpose, because note names are an
+architect's (AGENTS.md's naming rule) and a rename is a naming decision with extra steps. Read it as
+*"what a general-purpose application still hits"*, which is what the page is actually about.
 
 ## The part that has not changed, and it is the interesting half
 

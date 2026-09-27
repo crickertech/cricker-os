@@ -20,8 +20,8 @@ as disagreeing still disagree.
 
 What a spawner keeps of a child's *region* is a convention with the same shape
 as §142's, and §40 (there is no reaper of last resort) already records the open question this would
-answer. It is calef's call whether the declaration widens, and it should not widen on a lane's
-initiative: the field is read by every spawn path in the tree.
+answer. It is an architect's call whether the declaration widens, and it should not widen on a
+lane's initiative: the field is read by every spawn path in the tree.
 
 **In brief.** §142 gave `ChildEndowment` a `retention` field, so one struct literal now states both
 what a child is given and what its spawner keeps. What it states is the disposal of one capability,
@@ -81,6 +81,6 @@ says nothing about it: `components/src/spawner.rs`, `fixtures/src/c_confiner.rs`
 `components/src/timetable.rs` drop the region when the child runs while `crates/system_initializer`
 keeps its across the child's life, both correct for what they do and neither stated where a reader
 of the endowment can see it. §40's first recorded caveat is the same question in other words.
-Whether the declaration widens is calef's, which is why the gate is DECISION: three shapes are
-written out here and the third, leaving it out and saying so in `Retention`'s own docs, is a real
-answer.
+Whether the declaration widens is an architect's, which is why the gate is DECISION: three shapes
+are written out here and the third, leaving it out and saying so in `Retention`'s own docs, is a
+real answer.

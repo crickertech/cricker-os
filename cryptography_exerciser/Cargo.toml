@@ -11,7 +11,8 @@
 #   * it needs `--cfg getrandom_backend="custom"` and the four soft-implementation cfgs below,
 #     which nothing else in this tree wants; and
 #   * **its dependencies are not this repository's to take.** DECISIONS §46 (thin primitives or
-#     whole subsystems; we write everything in between) makes adding one a decision calef owns, and
+#     whole subsystems; we write everything in between) makes adding one a decision an architect
+#     owns, and
 #     §196 (nife carries TLS: `rustls` for the protocol, and a crypto provider we make work)
 #     ruled on `rustls` and explicitly not on a provider. Keeping this package out of the
 #     workspace keeps every crate below out of the shipping graph, out of `Cargo.lock`, and out of
@@ -19,7 +20,7 @@
 #     `script/test` builds this and no gate needs it; the kernel test skips when the archive has no
 #     `cryptography_exerciser`.
 #
-# Name: provisional, minted on 2026-09-19 by this milestone's lane. Names are calef's. The
+# Name: provisional, minted on 2026-09-19 by this milestone's lane. Names are an architect's. The
 # `_exerciser` half is not this package's coinage: milestone 63 (directory and package names:
 # one spelling per thing) ratified it as this tree's word for
 # a program that puts a subsystem under load and sees whether it holds, against `demo`, which that

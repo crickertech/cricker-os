@@ -1,7 +1,7 @@
 # The boot ladder: what a nife boot says, in order, on every architecture
 
 Milestone 268. A boot on this system climbs a fixed ladder, and each rung announces itself with one
-line. Those lines are a **contract**: they are what `crates/board_console` matches on a bench and in
+line. Those lines are a contract: they are what `crates/board_console` matches on a bench and in
 CI, and they are what a person reads off a photograph of a monitor when there is no serial port.
 
 ```
@@ -16,14 +16,14 @@ $
 
 The heads of those four lines live in one crate, `crates/boot_ladder`, because three binaries agree
 on them (the kernel, `swish`, and `board_console`) and AGENTS.md rule 7 says that makes them a
-crate. The **tails** carry numbers and are free to improve; a matcher keys on the head only.
+crate. The tails carry numbers and are free to improve; a matcher keys on the head only.
 
 ## Why the ladder exists at all
 
 Three boot arms had quietly diverged. `machine.rs` was on one architecture; `exceptions::self_test`
 was on two; and `Stage::Tour`, the checkpoint the bench tooling relied on to mean "paging, traps,
-the timer, the frame allocator, SMP and the scheduler all came up", was printed **inside the RISC-V
-arm** of `kernel/src/main.rs` and nowhere else. So on aarch64 and `x86_64` there was no signal on
+the timer, the frame allocator, SMP and the scheduler all came up", was printed inside the RISC-V
+arm of `kernel/src/main.rs` and nowhere else. So on aarch64 and `x86_64` there was no signal on
 that channel at all, and a missing marker looks exactly like a slow board.
 
 Milestone 268's lane found a fifth case of the same shape one rung lower: `Stage::Banner` matches
@@ -31,7 +31,7 @@ Milestone 268's lane found a fifth case of the same shape one rung lower: `Stage
 a healthy aarch64 or `x86_64` board as never having booted" -- and aarch64 printed no such line at
 all. The recogniser had anticipated parity that the thing it read did not have.
 
-**The general lesson, which is worth more than the fix:** a marker that only one architecture prints
+The general lesson, which is worth more than the fix: a marker that only one architecture prints
 is indistinguishable from a marker that never fires, and neither one fails a build. The defence is
 a shared definition (the crate) plus a gate that reads the channel (`script/boot-check`).
 
@@ -45,12 +45,12 @@ a shared definition (the crate) plus a gate that reads the channel (`script/boot
 | `Tour` | `nife: the capability core runs on ` | no | yes | no |
 | `Prompt` | `nife capability shell` | yes | yes | yes |
 
-`Tour` is deliberately **one architecture's rung** and is documented as one. Levelling it up would
+`Tour` is deliberately one architecture's rung and is documented as one. Levelling it up would
 mean giving two architectures a marker for a demonstration tour they do not have; levelling it down
 would delete riscv64's, which is the trap milestone 268's block warns about. The rungs that replace
 it for every tool are `Machine` and `SelfTest`, which every architecture reaches.
 
-`Prompt` needs an **archive** on every architecture, because the shell that prints it is loaded out
+`Prompt` needs an archive on every architecture, because the shell that prints it is loaded out
 of one. It was unreachable on `x86_64` until 2026-09-19: DECISIONS §149 (may the kernel answer on
 an endpoint) settled how `swish` gets a console there, milestone 299 (the x86 port-range
 capability) built the capability that makes `console` a userspace driver on that machine, and
@@ -138,27 +138,27 @@ $ cargo xtask board-console --replay target/boot-check-riscv64.log --until selft
 
 ## BUGS
 
-- **Closed 2026-09-14: "Nothing proves an architecture ran the *right* five checks."**
+- Closed 2026-09-14: "Nothing proves an architecture ran the *right* five checks."
   `boot_ladder::SELF_TEST_CHECKS` is the set, one list for every architecture and the recogniser;
   the kernel names a listed check that never ran and `board_console` fails a verdict whose total is
   not the list's length. What remains is that changing the set is one edit, which review judges.
-- **Closed 2026-09-14: "A self-test can hang the boot."** `timer` and `scheduler` read through
+- Closed 2026-09-14: "A self-test can hang the boot." `timer` and `scheduler` read through
   `self_test::Counter`, which reports a counter that read one value a million times running, and
   `timer` spins rather than sleeping. What remains is a check whose *operation* never returns, which
   needs a watchdog `kernel/src/self_test.rs` does not own and says so.
-- **The prompt rung is the shell's banner, not the `$ `.** `crates/boot_ladder`'s own BUGS has the
+- The prompt rung is the shell's banner, not the `$ `. `crates/boot_ladder`'s own BUGS has the
   reason. So `script/boot-check` proves `swish` started and printed, not that a prompt was offered
   or that anything could be typed at it. `script/swish-check` makes that stronger claim by typing.
-- **The injected leg is not in CI.** `--inject` rebuilds three kernels for one boolean, and what it
+- The injected leg is not in CI. `--inject` rebuilds three kernels for one boolean, and what it
   proves is a property of the gate rather than of the change under test. Run it by hand when the
   self-test or the recogniser changes. This is rung four of AGENTS.md's ladder and it is said out
   loud rather than implied.
-- **The riscv64 and `x86_64` arms narrate their own bring-up and the description then repeats some
-  of it.** Noise rather than a defect, and trimming it is not free: those arms' lines are what a
+- The riscv64 and `x86_64` arms narrate their own bring-up and the description then repeats some
+  of it. Noise rather than a defect, and trimming it is not free: those arms' lines are what a
   `test` or `bench` boot has instead, since the description is compiled out of both. It is milestone
   409 (`design/roadmap/409-one-machine-description-not-two.md`).
-- **The wordings are provisional** (milestone 268). They are contracts, so they are calef's under
-  AGENTS.md's *move fast on what can be undone* tenet; a lane ships one and says so rather than
-  waiting.
+- **The wordings are provisional** (milestone 268 (every architecture boots the same way)). They are
+  contracts, so they are an architect's under AGENTS.md's *move fast on what can be undone* tenet; a
+  lane ships one and says so rather than waiting.
 
 See `design/roadmap/268-the-boot-ladder.md`, `notes/board-console.md`, and `notes/visionfive2.md`.

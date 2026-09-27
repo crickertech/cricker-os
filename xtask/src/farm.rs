@@ -70,8 +70,9 @@ pub(crate) fn ripgrep_elf(triple: &str) -> PathBuf {
 /// `ripgrep`'s terms and for exactly its reason. The program depends on `rustls` and a crypto
 /// provider; DECISIONS §196 (nife carries TLS: `rustls` for the protocol, and a crypto provider we
 /// make work) ruled on the first and explicitly not on the second, so making a gate fetch a
-/// hundred crates would take a dependency decision that is calef's. The archive carries it when it
-/// is on disk and does not when it is not, and `kernel/src/user/cryptography_tests.rs` skips.
+/// hundred crates would take a dependency decision that is an architect's. The archive carries it
+/// when it is on disk and does not when it is not, and `kernel/src/user/cryptography_tests.rs`
+/// skips.
 pub(crate) fn cryptography_exerciser_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!(
         "target/cryptography-exerciser/{triple}/cryptography_exerciser"

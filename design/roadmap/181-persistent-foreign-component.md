@@ -101,8 +101,8 @@ mechanism.
 ## What this does not decide
 
 Whether the eventual `kilo.c` port replaces or coexists with the Rust `kilo` milestone 169 already
-built; that is calef's call once both exist to compare, not a decision this milestone forces in
-either direction. Also does not decide licence questions for whichever `dc` implementation gets
+built; that is an architect's call once both exist to compare, not a decision this milestone forces
+in either direction. Also does not decide licence questions for whichever `dc` implementation gets
 used as source material, checked at that point, not assumed here.
 
 ## BUGS

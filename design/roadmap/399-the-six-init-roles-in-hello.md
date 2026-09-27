@@ -19,11 +19,11 @@ closed, and it is still true**: `fixtures/src/hello.rs` declares all six constan
 `kernel/src/user/tests.rs` declares all six again, so the defect this names is live. What makes it
 `SUPERSEDED` rather than `NOT-STARTED` is milestone 405's own argument, which this block cannot
 answer: after that split the six parents are programs with their own names and these constants do
-not exist, so renaming them now spends a naming decision, which is calef's scarcest resource, on an
-interim state. 405 quotes his deferral in the same breath (*"If there is anything left then we can
-consider a name for what remains"*). The refusals below are the durable half and are cited from 405,
-because they refuse names that work will reach for. *(Number provisional until the merge queue lands
-it.)*
+not exist, so renaming them now spends a naming decision, which is an architect's scarcest resource,
+on an interim state. 405 quotes his deferral in the same breath (*"If there is anything left then we
+can consider a name for what remains"*). The refusals below are the durable half and are cited from
+405, because they refuse names that work will reach for. *(Number provisional until the merge queue
+lands it.)*
 
 Nothing gates this because nothing should start it: the work is milestone 405's, and
 this block is the record of what was found and what was refused. The gate was `DECISION` while it

@@ -1,7 +1,7 @@
 # The CI log baseline: per-check attribution mined before the logs expire
 
 *Names: `notes/ci-log-baseline.md`, `script/ci-log-baseline` and the CSV below are **provisional**.
-Naming is calef's (AGENTS.md); a lane ships a provisional name and says so.*
+Naming is an architect's (AGENTS.md); a lane ships a provisional name and says so.*
 
 This tree cannot currently answer "has this gate ever fired in CI?" GitHub Actions keeps a failed
 run's metadata forever, but a job conclusion alone says only "the job failed", not which of its
@@ -9,17 +9,17 @@ sub-checks did. The one place that answer lives is the job's own log, and GitHub
 retention window; **there turn out to be two such windows, one per log endpoint, and they do not
 expire in step** (see "Two clocks" below).
 `design/roadmap/531-no-gate-records-when-it-fires.md` (a research lane's
-proposal, calef's to rule on, unedited by this record) mined that answer for the `clippy` job on
-2026-09-21 and found the window closing around 2026-10-21. This page and
+proposal, an architect's to rule on, unedited by this record) mined that answer for the `clippy` job
+on 2026-09-21 and found the window closing around 2026-10-21. This page and
 [`notes/project-metrics/ci-log-baseline.csv`](project-metrics/ci-log-baseline.csv) absorb that
 mining into a committed, re-derivable record, and extend it to every other CI job whose log names a
 sub-check the same way, before more of it is gone.
 
-**This is not the gate-firing ledger** proposed alongside it. That ledger (still calef's to rule on)
-would capture every future, local firing, the ones that never reach Actions because a lane ran
-`script/lint`, saw red, fixed it, and pushed green. This page captures only the past, and only the
-slice of the past that escaped local gating and reached GitHub. It is not a ranking of which gates
-are worth keeping; see the caveat below.
+**This is not the gate-firing ledger** proposed alongside it. That ledger (still an architect's to
+rule on) would capture every future, local firing, the ones that never reach Actions because a lane
+ran `script/lint`, saw red, fixed it, and pushed green. This page captures only the past, and only
+the slice of the past that escaped local gating and reached GitHub. It is not a ranking of which
+gates are worth keeping; see the caveat below.
 
 ## The record, and its provenance
 
