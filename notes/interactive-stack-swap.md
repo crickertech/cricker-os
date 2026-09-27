@@ -1,8 +1,10 @@
 # Swapping the interactive stack
 
-*A proposal from the lane for milestone 23 (a capability-routed component OS with live
-replacement), 2026-09-26. Status: **PROPOSED**, waiting on an architect for two contract changes.
-Nothing here is built. The block's last `Outstanding` line says `line_editor`, `display_terminal` and
+*Written by the lane for milestone 23 (a capability-routed component OS with live
+replacement) on 2026-09-26 as a proposal. Status on 2026-09-27: `line_editor` **is swapped live**,
+by `terminal_supervisor` (calef ruled both contract forks and the supervisor, see below); the
+trigger that would ask it to on a real boot is the next ask. `display_terminal` and `compositor`
+are as described here. The block's last `Outstanding` line says `line_editor`, `display_terminal` and
 `compositor` are not swapped by `swapper` and that "what is missing is a swap role for them, not a
 harness". Checked against the tree, that is not quite what is missing, and the three are three
 different problems.*
@@ -11,7 +13,7 @@ different problems.*
 
 | component | who builds it on a real boot | who could swap it | state it holds |
 |---|---|---|---|
-| `line_editor` | `system_initializer`, out of its own budget (`crates/system_initializer/src/lib.rs`, item 3) | `system_initializer`: it holds every object it routed | the edit line, the kill buffer, eight lines of history, up to four queued lines, raw or cooked mode, the interrupt count: a little over 4 KiB |
+| `line_editor` | `system_initializer`, out of its own budget (`crates/system_initializer/src/lib.rs`, item 3) | `system_initializer`: it holds every object it routed | the edit line, the kill buffer, eight lines of history, up to four queued lines, raw or cooked mode, the interrupt count: under 4 KiB, measured (see BUGS) |
 | `display_terminal` | the kernel, before the progenitor exists (`kernel/src/user.rs`, `boot_graphical_terminal`) | nobody: no userspace process holds its endowment or its supervision endpoint | the character grid and scrollback, several hundred KiB (`video_terminal::Vt`) |
 | `compositor` | no boot builds it. Only the tests of milestone 33 (a compositor: one screen, mutually distrusting clients) spawn it (`kernel/src/user/compositor_service.rs`, `#[cfg_attr(not(test), ...)]`); the graphical boot is option A of milestone 177 (wire the graphical terminal stack into the real interactive boot), "no compositor in this path" | nobody outside a test | nothing it could not rebuild: each client's surface is a frame the client owns |
 
@@ -57,12 +59,36 @@ quiesces. Three answers:
 Recommend `FLAG_RETRY`, because it is the only one that makes the swap invisible, which is the
 milestone's whole claim. The flag name is provisional.
 
-Then the state. With history, the blob is a little over one page, which is the one-page limit in
-`component_plan`'s `BUGS`. Carrying the edit line, the queue, the mode and the interrupt count fits;
-history does not. Either drop history across a swap (recorded as a limit) or give `Handoff` a page
-count first. Recommend the latter, because `redoxfs_server` needs it too.
+Then the state. `Handoff` carries a page count, and a supervisor mints the run with
+`MemoryRegion::RETYPE`'s count. `line_editor` declares one page, because its blob with a full
+history ring and a full queue is under 4 KiB. That corrects this note's own earlier estimate (BUGS).
+
+## line_editor: built (2026-09-27)
+
+calef ruled 1a and 2b on 2026-09-26 (an additive `OP_QUIESCE`; a `FLAG_RETRY` reply that a reader
+answers by asking again) and, on 2026-09-27, option A of
+`design/roadmap/proposals/a-terminal-supervisor-holds-the-line-editor.md`. So:
+
+- `line_editor::component` declares what a supervisor routes to it, with one declaration per
+  output-sink shape. `line_editor::handoff` is its blob: the edit line and cursor, the kill buffer,
+  the history ring, the prompt, the queued lines, raw mode and its queue, and the `^C` count.
+- `terminal_supervisor` (name provisional, calef's to name) is what `system_initializer` builds
+  now. It builds `line_editor` from the declaration and runs the §209 (state handoff is an opaque
+  blob over a granted frame, and it is optional) swap when asked on its swap endpoint. Instances are
+  built in two reusable bays, because a replacement split straight from the budget sits above the
+  incumbent and leaves a hole when it dies; the second swap failed for want of budget until then.
+- `kernel::user::terminal_swap_tests` swaps it twice under a typist and a parked reader on all
+  three architectures: a line half typed before the swap finishes after it, and history typed
+  before it is recalled after it. `script/swish-check`, plain and graphical, boots through it.
+
+What is left is the trigger, which `design/roadmap/proposals/the-installer-asks-the-terminal-to-swap.md`
+sets out.
 
 ## display_terminal: blocked on where it is built
+
+*Superseded 2026-09-27: milestone 600 (the graphical terminal stack is built in userspace) moved the
+build into `system_initializer`. What is left for a swap is a declaration and a handoff for the
+grid. The account below is kept as the record of why.*
 
 No supervisor can swap what no supervisor built. `display_terminal` is spawned by the kernel because
 a virtio-gpu driver needed eleven capability-table slots, one `PageFrame` per DMA page, and the
@@ -88,25 +114,26 @@ the harness, which is what the block's original sentence warned against.
 
 ## Proposed milestones
 
-Provisional titles; the integrator mints the numbers. Each is a file under `design/roadmap/proposals/`:
-`swap-line-editor-live-under-system-initializer.md` and
-`build-the-graphical-terminal-stack-in-userspace.md`, since promoted to milestone 600 (the
-graphical terminal stack is built in userspace).
+Provisional titles; the integrator mints the numbers. Each was a file under `design/roadmap/proposals/`.
 
-1. Swap `line_editor` live under `system_initializer`. Blocked on forks 1 and 2 above, and best
-   sequenced after the ELF-note manifest work and after `Handoff` grows a page count.
-2. Build the graphical terminal stack in userspace now that a frame names a run. Starts by
-   answering the one open question above (are the gpu's DMA pages one run). It unblocks swapping
-   `display_terminal`, removes a kernel-side spawn that exists for a budget reason that may have
-   expired, and corrects `boot_graphical_terminal`'s doc comment either way.
+1. Swap `line_editor` live (`swap-line-editor-live-under-system-initializer.md`): built on
+   2026-09-27 under a terminal supervisor rather than `system_initializer`, as ruled.
+2. Build the graphical terminal stack in userspace now that a frame names a run: promoted to
+   milestone 600 (the graphical terminal stack is built in userspace) and built, so
+   `system_initializer` now builds `display_terminal` and a supervisor could hold it.
 
 The compositor gets no milestone until it has a boot path; that is recorded in the block.
 
 ## BUGS
 
-The state sizes are read from the code, not measured. `line_editor`'s "a little over 4 KiB"
-adds up `LINE_MAX`, `HIST` and `QUEUE` from `crates/line_editor/src/lib.rs` and
-`components/src/line_editor.rs`; `display_terminal`'s is `video_terminal::Vt`'s own doc comment.
+`line_editor`'s state was first estimated here as "a little over 4 KiB", and that was wrong. The
+estimate added up every buffer in `LineDisc`, including the completed-line snapshot and the
+browse stash, which a blob does not carry. Measured by `line_editor`'s host test on 2026-09-27: a
+full ring of near-maximal history lines serialises to under 2 KiB, and with four queued lines the
+whole blob is under 4 KiB, so it fits the one page it declares. The estimate is part of why
+`MemoryRegion::RETYPE` gained a page count (calef's ruling of 2026-09-26); the count still earns its place,
+because `redoxfs_server` will not fit a page and `swapper`'s fixture uses two.
+`display_terminal`'s size is still read from `video_terminal::Vt`'s own doc comment.
 
 ## See also
 

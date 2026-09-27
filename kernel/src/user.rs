@@ -4002,6 +4002,16 @@ pub mod raw_mode_service;
 /// echo-suppression check is proven both ways rather than only the direction that matters.
 #[cfg(all(test, initrd))]
 mod raw_mode_tests;
+/// `OP_QUIESCE` and `FLAG_RETRY` (milestone 23 (a capability-routed component OS with live
+/// replacement)): a terminal quiesced for replacement hands its parked reader back rather than
+/// stranding it, and resumes a half-typed line without repainting it.
+#[cfg(all(test, initrd))]
+mod terminal_quiesce_tests;
+/// `terminal_supervisor` replaces a live `line_editor` under a reader and a typist, carrying the
+/// half-typed line and the history across (milestone 23 (a capability-routed component OS with live
+/// replacement)).
+#[cfg(all(test, initrd))]
+mod terminal_swap_tests;
 
 /// **`rmle`'s wiring** (milestone 169): a real terminal ([`raw_mode_service`]'s own shape) and a
 /// real filesystem ([`fs_service::narrow_dir`]'s shape) composed for the one program in this tree

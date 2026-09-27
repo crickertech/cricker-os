@@ -208,6 +208,16 @@ bench = false
 # its answers in C, so the replacement is a different implementation in a different language);
 # `chatty` is the client that keeps talking across the swap and the attacker that tries to become
 # the server. Portable, both ISAs; the kernel's live_swap_tests drive them.
+# The terminal's supervisor (milestone 23 (a capability-routed component OS with live replacement),
+# calef's ruling of 2026-09-27): builds `line_editor` from
+# its declaration and replaces it live, carrying its state. `system_initializer` builds this in
+# place of `line_editor`. Name provisional; calef's to name.
+[[bin]]
+name = "terminal_supervisor"
+path = "src/terminal_supervisor.rs"
+test = false
+bench = false
+
 [[bin]]
 name = "swapper"
 path = "src/swapper.rs"

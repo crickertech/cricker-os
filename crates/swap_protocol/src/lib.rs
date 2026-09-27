@@ -437,7 +437,8 @@ pub const STATE_VA: u64 = 0x0320_0000;
 /// else's, so their layout is versioned here, beside the only code that reads them. A build knows the
 /// layouts it can absorb; the operator never does.
 ///
-/// Layout 1 is two words: a marker with the layout in its low half, then the tally.
+/// Layout 1 is two words: a marker with the layout in its low half at the start of the first
+/// page, then the tally at the start of the second.
 pub const LAYOUT_1: u64 = 1;
 /// A layout no build in this tree writes. The fixture starts one replacement claiming to understand
 /// only this, which is how "a newer build that cannot read an older build's state" is staged without
@@ -657,7 +658,12 @@ pub const TALLY: Requirements = Requirements {
     maps: BACKEND.maps,
     pages: INSTANCE_PAGES,
     depends_on: &[],
-    handoff: Some(component_plan::Handoff { va: STATE_VA }),
+    handoff: Some(component_plan::Handoff {
+        va: STATE_VA,
+        // Two, and the tally is written on the second: a blob that only used the first page would
+        // pass whether or not the operator's run reached past it.
+        pages: 2,
+    }),
 };
 
 /// Every declaration in this crate is well formed, checked at compile time on both architectures.
@@ -918,7 +924,7 @@ fn read_state() -> [u64; 2] {
     unsafe {
         [
             core::ptr::read_volatile(STATE_VA as *const u64),
-            core::ptr::read_volatile((STATE_VA + 8) as *const u64),
+            core::ptr::read_volatile((STATE_VA + PAGE) as *const u64),
         ]
     }
 }
@@ -927,7 +933,7 @@ fn write_state(blob: [u64; 2]) {
     // SAFETY: as `read_state`.
     unsafe {
         core::ptr::write_volatile(STATE_VA as *mut u64, blob[0]);
-        core::ptr::write_volatile((STATE_VA + 8) as *mut u64, blob[1]);
+        core::ptr::write_volatile((STATE_VA + PAGE) as *mut u64, blob[1]);
     }
 }
 
@@ -1151,7 +1157,7 @@ mod tests {
             ],
         };
         let p = component_plan::plan(&TALLY, &with).unwrap();
-        assert_eq!(p.handoff(), Some(STATE_VA));
+        assert_eq!(p.handoff().map(|h| h.va), Some(STATE_VA));
         assert!(p.devices().is_empty());
     }
 }

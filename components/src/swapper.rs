@@ -404,7 +404,15 @@ fn handoff(fs: &nifefs::Fs, w: &Wiring) -> ! {
     let v2 = image(fs, "c_swappable", 3);
     let client_img = image(fs, "chatty", 4);
 
-    let state = page_frame(90);
+    // The handoff run, as many pages as the contract declares, minted as one frame capability
+    // (`MemoryRegion::RETYPE`'s page count). A contract with no handoff would not reach this role.
+    let Some(declared) = swap_protocol::TALLY.handoff else {
+        bail(90)
+    };
+    let state = match user_mode_runtime::retype_page_frame_run(ROOT_UT, declared.pages) {
+        s if s >= 0 => s as u64,
+        _ => bail(90),
+    };
     let replacement_control = obj(abi::objtype::RENDEZVOUS, 91);
 
     let to_incumbent = Provisions {
@@ -452,7 +460,7 @@ fn handoff(fs: &nifefs::Fs, w: &Wiring) -> ! {
     let Ok(client) = component_plan::plan(&swap_protocol::CLIENT, &to_client) else {
         bail(95)
     };
-    if incumbent.handoff() != Some(swap_protocol::STATE_VA) {
+    if incumbent.handoff() != Some(declared) {
         bail(96)
     }
 

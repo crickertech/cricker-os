@@ -29,6 +29,10 @@ pub struct Wiring {
     pub app_out_phys: u64,
     /// The client input page: `line_editor` writes a completed line here for `OP_READLINE`.
     pub app_in_phys: u64,
+    /// `line_editor`'s control endpoint, when [`start_replaceable`] built it with one: the test
+    /// plays the supervisor and `SEND`s `CTL_RESUME` or `CTL_QUIT` here after an `OP_QUIESCE`.
+    /// `None` from [`start`], which wires `line_editor` exactly as every boot does today.
+    pub control: Option<RendezvousId>,
 }
 
 /// **Spawn a fake console and a real `line_editor`**, wired exactly as the boot path wires them
@@ -52,6 +56,18 @@ pub struct Wiring {
 /// suite (an unrelated FS client, `fs_service.rs`) failed with `could not spawn`. See
 /// `notes/frames.md` and this module's own `BUGS`.
 pub fn start() -> (Wiring, Holding) {
+    start_with(false)
+}
+
+/// [`start`], plus a control endpoint in slot 3 whose number is `line_editor`'s second start
+/// argument: the wiring a supervisor that can replace it would use (milestone 23 (a
+/// capability-routed component OS with live replacement)). The only difference `line_editor` can
+/// see is that `OP_QUIESCE` is honoured rather than refused.
+pub fn start_replaceable() -> (Wiring, Holding) {
+    start_with(true)
+}
+
+fn start_with(replaceable: bool) -> (Wiring, Holding) {
     let image = program("line_editor").expect("no line_editor program in the initrd archive");
 
     // Four pages for three endpoints, one page each and one spare: `virtio_service`'s own
@@ -61,6 +77,9 @@ pub fn start() -> (Wiring, Holding) {
     let term = sched::create_rendezvous_from(ep_region).expect("no TERM endpoint");
     let conreq = sched::create_rendezvous_from(ep_region).expect("no CONREQ endpoint");
     let conrep = sched::create_rendezvous_from(ep_region).expect("no CONREP endpoint");
+    // The spare page. Minted either way so both wirings spend the same region; granted only when
+    // the caller asked for a replaceable terminal.
+    let control = sched::create_rendezvous_from(ep_region).expect("no control endpoint");
 
     // Zeroed, so no stale RAM leaks into the test.
     let console_phys = crate::memory::alloc_zeroed()
@@ -82,17 +101,19 @@ pub fn start() -> (Wiring, Holding) {
     .expect("could not spawn the fake console");
 
     let line_editor_tid = sched::spawn(move || {
+        let all = [
+            rendezvous_cap(term, Rights::READ),    // slot 0: TERM, RECV_CAP
+            rendezvous_cap(conreq, Rights::WRITE), // slot 1: CONREQ, SEND
+            rendezvous_cap(conrep, Rights::READ),  // slot 2: CONREP, RECV
+            rendezvous_cap(control, Rights::READ), // slot 3: control, RECV (replaceable only)
+        ];
         run(
             image,
             Spawn {
                 arg0: 0,
-                arg1: 0,
+                arg1: if replaceable { 3 } else { 0 },
                 arg2: 0,
-                grants: &[
-                    rendezvous_cap(term, Rights::READ),    // slot 0: TERM, RECV_CAP
-                    rendezvous_cap(conreq, Rights::WRITE), // slot 1: CONREQ, SEND
-                    rendezvous_cap(conrep, Rights::READ),  // slot 2: CONREP, RECV
-                ],
+                grants: if replaceable { &all } else { &all[..3] },
                 maps: &[
                     Mapping {
                         va: CONOUT_VA,
@@ -126,6 +147,7 @@ pub fn start() -> (Wiring, Holding) {
             console_phys,
             app_out_phys,
             app_in_phys,
+            control: replaceable.then_some(control),
         },
         held,
     )
