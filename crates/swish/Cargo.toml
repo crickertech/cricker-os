@@ -28,6 +28,11 @@ grant_plan = { version = "0.1.0", path = "../grant_plan" }
 # only, no dependencies.
 std_runtime_protocol = { version = "0.1.0", path = "../std_runtime_protocol" }
 
+# `ConfigPage`, so `caps` prints the inert-configuration values a child would read (milestone 47
+# (navigation and naming), DECISIONS §111 (inert configuration is a validated page)) from the
+# shell's own view of the same page. No dependencies of its own.
+environment_protocol = { version = "0.1.0", path = "../environment_protocol" }
+
 # `dir::explain`, the filesystem's half of a refusal. `grant_plan` deliberately keeps this a dev
 # dependency so a command line can be checked without linking the filesystem contract; the shell
 # links it either way, because `Say::Failed` carries an errno that only `filesystem_protocol` can put a sentence

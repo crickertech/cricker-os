@@ -1717,7 +1717,7 @@ pub fn boot(
     // before this milestone (4 without a disk, 5 with one); it now also moves to 6 when a second
     // grant lands, and the mechanism that keeps the shell honest about the number is unchanged.
     let mut sh_caps = [(0u64, 0u64); 7];
-    let mut sh_maps = [(0u64, 0u64, 0u64); 4];
+    let mut sh_maps = [(0u64, 0u64, 0u64); 5];
     let mut n_caps = 0usize;
     let mut n_maps = 0usize;
     sh_caps[n_caps] = (term_ep, abi::rights::WRITE);
@@ -1746,6 +1746,18 @@ pub fn boot(
     n_caps += 1;
     sh_maps[n_maps] = (SH_CLOCK_VA, g.clock_page, abi::address_space::MAP_RO);
     n_maps += 1;
+    // **The inert-configuration page, mapped for `caps` to read** (milestone 47 (navigation and
+    // naming), DECISIONS §111 (inert configuration is a validated page)'s "extend that preview to
+    // print the actual values"). The frame every child declaring `Manifest::config` is endowed
+    // with, so what the shell prints is what the child will read. Its capability is placed at a
+    // named slot after the build (below), not in this list, because the list's slots move with what
+    // the boot granted and the shell probes rather than being told.
+    sh_maps[n_maps] = (
+        grant_plan::SHELL_CONFIG_VA,
+        g.config_page,
+        abi::address_space::MAP_RO,
+    );
+    n_maps += 1;
     // Which slot the clock landed in, for the shell's `x2`: the count of what went before it, the
     // same arithmetic `build_child` does when it fills the capability table from zero.
     let sh_clock_slot: u64 = n_caps as u64 - 1;
@@ -1764,6 +1776,16 @@ pub fn boot(
         },
     ));
     cap_delete(sh_budget); // our copy; the shell holds its own now
+    // `READ` and no `GRANT`, the clock's rights for the clock's reason: the shell can read the
+    // configuration and can hand it to nothing it spawns, so which children see it is still decided
+    // by their manifests. Placed before the shell starts, which is what makes its `_start` probe of
+    // this slot sound.
+    must_ok(place_at(
+        shell.tcb,
+        g.config_page,
+        abi::rights::READ,
+        grant_plan::SHELL_CONFIG_SLOT,
+    ));
     // The caretaker's endpoint was only ever the means of wiring: the shell holds its own copy and
     // the caretaker holds the other end, the same disposal `spawn_service`'s dynamic directory
     // grants already give their own narrowed endpoint below.

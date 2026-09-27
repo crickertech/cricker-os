@@ -958,6 +958,7 @@ name = "swish"
 version = "0.1.0"
 dependencies = [
  "documentation",
+ "environment_protocol",
  "filesystem_protocol",
  "glob",
  "grant_plan",
