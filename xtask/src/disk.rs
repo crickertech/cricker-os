@@ -259,6 +259,12 @@ pub(crate) const INSTALLED_ASKS_AN_ARGUMENT: &str = "installed/asks-an-arg";
 /// witness again, with its note's version word set to one no reader knows. The shell must refuse it
 /// at the prompt, before anything is sent, rather than run it as if it carried no note.
 pub(crate) const INSTALLED_MALFORMED_NOTE: &str = "installed/malformed-note";
+/// **A `std` program whose note says it hears words** (milestone 205 (how a foreign program is
+/// told what to do)): `std_echo`, from the `std_exerciser` workspace, unvouched. Run by path, it is
+/// an installed foreign program told what to do, which is the shape an installed `rg` will have.
+/// Written only if `cargo xtask std-exerciser` built it, which `script/test` does; the gate skips
+/// its lines otherwise, as it skips `std_exerciser`'s. Provisional.
+pub(crate) const INSTALLED_STD_ECHO: &str = "installed/std-echo";
 
 /// **`bytes` with its one manifest note's version word replaced by `version`**, for
 /// [`INSTALLED_MALFORMED_NOTE`]. The note is found by its header and owner, which
@@ -363,6 +369,12 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     ));
     let asks_an_argument = crate::inspect::read_stripped(&demo.display().to_string())
         .map_err(|e| format!("could not read {}: {e}", demo.display()))?;
+    let std_echo = crate::farm::std_echo_elf(&format!("{architecture}-unknown-nife"));
+    let std_echo = std_echo
+        .exists()
+        .then(|| crate::inspect::read_stripped(&std_echo.display().to_string()))
+        .transpose()
+        .map_err(|e| format!("could not read std_echo: {e}"))?;
 
     // `greeting`, the package whose program no image carries: to the disk for x86_64, and to the
     // gate's package source (with the lying `uptime`) for the legs that fetch.
@@ -416,6 +428,9 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     write(tree.join(INSTALLED_UNVOUCHED), &unvouched)?;
     write(tree.join(INSTALLED_ASKS_AN_ARGUMENT), &asks_an_argument)?;
     write(tree.join(INSTALLED_MALFORMED_NOTE), &malformed)?;
+    if let Some(bytes) = &std_echo {
+        write(tree.join(INSTALLED_STD_ECHO), bytes)?;
+    }
     write(tree.join(DOWNLOADED_GREETING), &greeting)?;
     eprintln!(
         "seed_installed ({architecture}): {stem} ({} bytes, digest {}) at {DOWNLOADED_PACKAGE}, \

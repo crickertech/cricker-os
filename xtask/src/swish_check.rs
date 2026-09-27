@@ -495,6 +495,26 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "slots held: 0 1 2\n",
         ],
     ),
+    // **An installed `std` program run by path hears its words** (milestone 205 (how a foreign
+    // program is told what to do)). `std_echo`'s note declares `ArgSpec::Words` in the `std`
+    // runtime, so the shell sent the line as its argv, the progenitor sized a `std` region from the
+    // argv bit and built the `std` layout for an image, and `std::env::args_os()` read the page.
+    // Unvouched, so its grants are §219's two pages at the `std` slots, and the preview says so.
+    line(
+        0,
+        "caps installed/std-echo one",
+        &[
+            "cap 5  frame     clock",
+            "cap 7  frame     config",
+            "cap 8  frame     args",
+            "its manifest note asks for: output bytes, its words, the clock, the configuration page",
+        ],
+    ),
+    line(
+        1,
+        "installed/std-echo one 'two words'",
+        &["words [\"installed/std-echo\", \"one\", \"two words\"]"],
+    ),
     // **A note that asks more than its vouch allows is refused** (milestone 597, provisional).
     // `least_authority_demo`'s note declares an argument, which only a command line designates,
     // and unvouched bytes may hold only what the D2 ruling names. The shell binds the line
@@ -1381,7 +1401,10 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         );
     }
     let skipped = |line: &str| {
-        swish_check_omits(arch, line).is_some() || (line.starts_with("std_exerciser") && !std_built)
+        swish_check_omits(arch, line).is_some()
+            || ((line.starts_with("std_exerciser")
+                || line.contains(crate::disk::INSTALLED_STD_ECHO))
+                && !std_built)
     };
     eprintln!();
     eprintln!(

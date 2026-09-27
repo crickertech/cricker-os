@@ -1220,17 +1220,38 @@ pub enum ImageRefusal {
 /// An image travels as a plain line (DECISIONS §219 option D's first cut): the request words carry
 /// an argument and a `--mem` count, and the progenitor endows the pages and endpoints a manifest
 /// names on its own. Nothing else is on that wire yet. So a manifest that needs a file, a
-/// directory, an input, an option, a supervised job, a declared second stream, a silent output
-/// or the `std` runtime is refused at the prompt and again at the progenitor, rather than run
-/// without what it said it needs. `spawnproto`'s BUGS carries each.
+/// directory, an input, an option, a supervised job, a declared second stream or a silent output
+/// is refused at the prompt and again at the progenitor, rather than run without what it said it
+/// needs. `spawnproto`'s BUGS carries each.
+///
+/// **A `std` image is carried when it hears words, and only then** (milestone 205 (how a foreign
+/// program is told what to do)): `Runtime::Std` and [`ArgSpec::Words`] go together or not at all.
+/// The progenitor sizes an image's region before its frames arrive, so before it can read the note,
+/// and the one thing the request tells it is whether an argv follows (`spawnproto::ARGS_BIT`). Tying
+/// the two makes that bit the region's size: [`image_hears_words`]. A `std` image also declares no
+/// memory grant, domain or network, which is what the `std` layout can hold.
 pub fn image_can_carry(m: &Manifest) -> bool {
+    let std = m.runtime == Runtime::Std;
     matches!(m.output, OutputSpec::Bytes | OutputSpec::Words)
         && m.file == FileSpec::Forbidden
         && m.dir == DirSpec::Forbidden
         && m.input == InputSpec::Forbidden
         && m.flags.letters().is_empty()
         && !m.interruptible
-        && m.runtime == Runtime::Native
+        && std == (m.arg == ArgSpec::Words)
+        && (!std
+            || (m.output == OutputSpec::Bytes
+                && m.mem == MemSpec::Forbidden
+                && !m.domain
+                && !m.network))
+}
+
+/// **Whether an image is sent its line as an argv**, which for an image is also whether it is built
+/// in the `std` layout ([`image_can_carry`] ties the two). The shell asks it of the note it read and
+/// sets `spawnproto::ARGS_BIT`; the progenitor sizes the region from that bit and then checks its
+/// own reading of the note agrees ([`image_request_fits`]). Name: provisional.
+pub const fn image_hears_words(m: &Manifest) -> bool {
+    matches!(m.arg, ArgSpec::Words)
 }
 
 /// **The manifest a file's bytes are bound and endowed with** (milestone 597, provisional), given
@@ -1251,6 +1272,13 @@ pub fn image_manifest(declared: Option<Manifest>, vouched: bool) -> Result<Manif
     if vouched {
         return Ok(declared);
     }
+    // **An unvouched `std` program still hears its words** (§170 (how a foreign program is told
+    // what to do)): the argv carries no authority, and `std` is how the bytes were built rather than
+    // anything they are granted. So it gets the unvouched grants in the `std` layout, and nothing
+    // more; its note's entropy or clock requests grant nothing, as §219 says.
+    if declared.runtime == Runtime::Std {
+        return Ok(UNVOUCHED_STD_MANIFEST);
+    }
     let u = UNVOUCHED_MANIFEST;
     if declared.arg != u.arg || declared.mem != u.mem {
         return Err(ImageRefusal::ExceedsVouch);
@@ -1262,7 +1290,14 @@ pub fn image_manifest(declared: Option<Manifest>, vouched: bool) -> Result<Manif
 /// the line against the note it read, and the progenitor judges its own copy of the bytes, so a
 /// file changed in between (or a shell that lies) can send an argument or a `--mem` grant the
 /// endowed manifest forbids. That is refused rather than half-honoured.
-pub fn image_request_fits(m: &Manifest, arg: u64, mem_pages: u64) -> bool {
+///
+/// `words` is whether the request carried an argv (`spawnproto::ARGS_BIT`), which sized the
+/// region: it must agree with [`image_hears_words`] of the manifest, or a `std` program would be
+/// built in a native job's forty pages.
+pub fn image_request_fits(m: &Manifest, arg: u64, mem_pages: u64, words: bool) -> bool {
+    if words != image_hears_words(m) {
+        return false;
+    }
     let arg_ok = m.arg == ArgSpec::Required || arg == 0;
     let mem_ok = match m.mem {
         MemSpec::Forbidden => mem_pages == 0,
@@ -1303,6 +1338,16 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
     entropy: false,
     network: false,
     runtime: Runtime::Native,
+};
+
+/// **[`UNVOUCHED_MANIFEST`] for bytes built against nife's `std`** (milestone 205 (how a foreign
+/// program is told what to do)): the same two pages, in the `std` layout (clock at slot 5,
+/// configuration at slot 7), plus the line's words at slot 8, which §170 ruled carry no authority.
+/// No entropy, network or domain, whatever the note asks. Name: provisional.
+pub const UNVOUCHED_STD_MANIFEST: Manifest = Manifest {
+    arg: ArgSpec::Words,
+    runtime: Runtime::Std,
+    ..UNVOUCHED_MANIFEST
 };
 
 /// A program's expectation about the integer argument (`least_authority_demo 9`'s `9`).
@@ -3593,27 +3638,68 @@ mod tests {
     #[test]
     fn an_image_request_that_does_not_fit_its_manifest_is_refused() {
         let none = NO_NOTE_MANIFEST;
-        assert!(image_request_fits(&none, 0, 0));
+        assert!(image_request_fits(&none, 0, 0, false));
         assert!(
-            !image_request_fits(&none, 5, 0),
+            !image_request_fits(&none, 5, 0, false),
             "an argument the manifest forbids"
         );
         assert!(
-            !image_request_fits(&none, 0, 2),
+            !image_request_fits(&none, 0, 2, false),
             "memory the manifest forbids"
         );
         let mem = Manifest {
             mem: MemSpec::Required { min: 2, max: 4 },
             ..none
         };
-        assert!(image_request_fits(&mem, 0, 2));
-        assert!(!image_request_fits(&mem, 0, 5));
-        assert!(!image_request_fits(&mem, 0, 0), "required memory not sent");
+        assert!(image_request_fits(&mem, 0, 2, false));
+        assert!(!image_request_fits(&mem, 0, 5, false));
+        assert!(
+            !image_request_fits(&mem, 0, 0, false),
+            "required memory not sent"
+        );
         assert!(image_request_fits(
             &Prog::LeastAuthorityDemo.manifest(),
             7,
-            0
+            0,
+            false
         ));
+        // **The argv bit sized the region, so it must match the note** (milestone 205): a request
+        // that carried words for a native manifest, or none for a `std` one, is refused.
+        assert!(!image_request_fits(&none, 0, 0, true));
+        let std = UNVOUCHED_STD_MANIFEST;
+        assert!(image_request_fits(&std, 0, 0, true));
+        assert!(!image_request_fits(&std, 0, 0, false));
+    }
+
+    /// **A `std` image is carried exactly when it hears words** (milestone 205), and unvouched it
+    /// gets the unvouched grants in the `std` layout whatever its note asks.
+    #[test]
+    fn a_std_image_is_carried_when_it_hears_words_and_unvouched_gets_two_pages() {
+        let ex = Prog::StdExerciser.manifest();
+        assert!(image_can_carry(&ex));
+        assert!(image_hears_words(&ex));
+        assert_eq!(image_manifest(Some(ex), true), Ok(ex));
+        // Unvouched, its note's entropy grants nothing (§219 (how the shell names an installed
+        // program to the spawner)): the unvouched `std` manifest differs from the native one only
+        // in the runtime and the words.
+        assert_eq!(image_manifest(Some(ex), false), Ok(UNVOUCHED_STD_MANIFEST));
+        assert_eq!(
+            Manifest {
+                arg: ArgSpec::Forbidden,
+                runtime: Runtime::Native,
+                ..UNVOUCHED_STD_MANIFEST
+            },
+            UNVOUCHED_MANIFEST
+        );
+        // Either half without the other is not carried.
+        assert!(!image_can_carry(&Manifest {
+            arg: ArgSpec::Forbidden,
+            ..ex
+        }));
+        assert!(!image_can_carry(&Manifest {
+            arg: ArgSpec::Words,
+            ..NO_NOTE_MANIFEST
+        }));
     }
 
     /// Plan a line with **nothing expanded**, which is every line that has no pattern on it. The two

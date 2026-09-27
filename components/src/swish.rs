@@ -1889,10 +1889,32 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     } else {
         None
     };
+    // **Bytes whose note says they hear words get the line as their argv** (milestone 205 (how a
+    // foreign program is told what to do)), which is how an installed `rg` hears its pattern. The
+    // line's first word is the path it was run by, so that is `argv[0]`. Its region is carved
+    // below staging, so staging is still the top when it goes; a program that hears words takes no
+    // `--mem` (`grant_plan::image_can_carry`), so nothing sits between the two.
+    let argv = if grant_plan::image_hears_words(&m) {
+        match assemble_argv(spec.line(), 0) {
+            Ok(a) => Some(a),
+            Err(why) => {
+                nav.close_in(t, handle);
+                return match why {
+                    Some(r) => refuse(spec, r),
+                    None => out_of_budget(),
+                };
+            }
+        }
+    } else {
+        None
+    };
     let Some(staging) = memory_region_split(pages) else {
         nav.close_in(t, handle);
         if let Some(m) = mem_slot {
             cap_delete(m);
+        }
+        if let Some(a) = argv {
+            release_argv(a, true);
         }
         return out_of_budget();
     };
@@ -1904,12 +1926,18 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
         spawnproto::Wiring {
             image: true,
             run_unvouched: holds_run_unvouched,
+            args: argv.is_some(),
             ..spawnproto::Wiring::default()
         },
     );
     send(SPAWN, w0, w1, w2);
     let read_ok = send_frames(t.slot, handle, pages, staging);
     nav.close_in(t, handle);
+    // The argv's frame follows the image's, before every other capability (`spawnproto::ARGS_BIT`).
+    if let Some(a) = argv {
+        user_mode_runtime::send_cap(SPAWN, a.frame, abi::rights::READ, 0);
+        cap_delete(a.frame);
+    }
     if let Some(slot) = mem_slot {
         delegate(slot, abi::rights::WRITE | abi::rights::GRANT);
         cap_delete(slot);
@@ -1944,6 +1972,9 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     // revokes every mapping of them, ours and the progenitor's, and returns the pages.
     user_mode_runtime::destroy_region(staging);
     cap_delete(staging);
+    if let Some(a) = argv {
+        release_argv(a, false);
+    }
 }
 
 /// The first page of a file whose manifest note is being read, and the note segment it points at.
