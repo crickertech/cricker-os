@@ -114,7 +114,7 @@ fn a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver() {
 
     crate::revoke::revoke_page_frame(phys);
 
-    let [_word, slot, _second, _badge] = sched::ipc_recv_cap(ep);
+    let [_word, slot, _second, _badge, ..] = sched::ipc_recv_cap(ep);
     let delivered = if slot == abi::rendezvous::NO_CAP {
         None
     } else {

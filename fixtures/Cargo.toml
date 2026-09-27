@@ -357,6 +357,14 @@ path = "src/rendezvous_minter.rs"
 test = false
 bench = false
 
+# The notification binder (milestone 151 (notification objects), DECISIONS §101 (notification objects)): binds a notification to itself and
+# receives on an endpoint, woken by either. Name provisional.
+[[bin]]
+name = "notification_binder"
+path = "src/notification_binder.rs"
+test = false
+bench = false
+
 # The minted rendezvous's peer (milestone 19a): receives the delegation and listens.
 # `hello`'s EP_USER role until milestone 291.
 [[bin]]

@@ -1,0 +1,28 @@
+Falsifies `inter_process_communication::notification::verification::every_operation_preserves_the_invariant`.
+
+The defect: the binding path replaces the waiter path instead of following it, so a signal with
+the bound thread elsewhere counts its bits even though a thread is queued in `WAIT`. It is the
+shape a reader writing "bound, else count" from §101 (notification objects)'s rules 2 and 3 produces if rule 1 is
+forgotten.
+
+Expected to fail: `assert!(n.invariant_holds())` when a waiter is seeded and the signal is not
+bound-receiving: the word becomes non-zero with the waiter still queued, which is a thread asleep
+beside a doorbell that has already rung.
+
+diff --git a/crates/inter_process_communication/src/notification.rs b/crates/inter_process_communication/src/notification.rs
+index c20bff922..9df161f4b 100644
+--- a/crates/inter_process_communication/src/notification.rs
++++ b/crates/inter_process_communication/src/notification.rs
+@@ -177,11 +177,7 @@ impl<T: Node> Notification<T> {
+         if bits == 0 {
+             return Signal::Empty;
+         }
+-        if let Some(waiter) = self.waiters.pop_front() {
+-            // The invariant says the word is zero while anyone waits, so these bits are the whole
+-            // of what is pending. `| self.word` would be a no-op, and writing it would hide that.
+-            Signal::Woke(waiter, bits)
+-        } else if bound_receiving {
++        if bound_receiving {
+             let word = self.word | bits;
+             self.word = 0;
+             Signal::ToBound(word)

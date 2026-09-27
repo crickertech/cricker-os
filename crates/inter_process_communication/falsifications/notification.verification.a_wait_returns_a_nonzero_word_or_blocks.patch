@@ -1,0 +1,20 @@
+Falsifies `inter_process_communication::notification::verification::a_wait_returns_a_nonzero_word_or_blocks`.
+
+The defect: `WAIT` reads the word and forgets to clear it, so the same bits are delivered again
+on every later wait. A copy where a take was meant.
+
+Expected to fail: `assert_eq!(n.word, 0)` after `Wait::Word`.
+
+diff --git a/crates/inter_process_communication/src/notification.rs b/crates/inter_process_communication/src/notification.rs
+index c20bff922..d70bab7a0 100644
+--- a/crates/inter_process_communication/src/notification.rs
++++ b/crates/inter_process_communication/src/notification.rs
+@@ -201,7 +201,7 @@ impl<T: Node> Notification<T> {
+     /// `Blocked`, which the reaper never frees).
+     pub unsafe fn wait(&mut self, me: NonNull<T>) -> Wait {
+         if self.word != 0 {
+-            Wait::Word(core::mem::take(&mut self.word))
++            Wait::Word(self.word)
+         } else {
+             // SAFETY: the caller's contract is exactly the queue's.
+             unsafe { self.waiters.push_back(me) };

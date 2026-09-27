@@ -3707,6 +3707,13 @@ mod x86_port_tests;
 #[cfg(test)]
 mod reap_tests;
 
+/// **Notification objects** (milestone 151 (notification objects), DECISIONS §101 (notification objects)): the kernel half of the binding, the
+/// syscall layer's rights and registers, teardown, and a program binding a notification to itself
+/// through the real boundary. Cross-ISA: nothing here is architecture-specific except the register
+/// each `TrapFrame::arg` names, which is exactly what the `Irq::WAIT` and program tests read.
+#[cfg(test)]
+mod notification_tests;
+
 /// **A process listing is a capability, not a fact about the machine** (milestone 126,
 /// `rendezvous::SURVEY`, notes/process-view.md). Cross-ISA for the same reason `reap_tests` is: the
 /// scope decision reads one field of a TCB and compares two generational names, so a divergence
