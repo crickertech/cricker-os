@@ -79,6 +79,9 @@ pub fn dispatch(frame: &mut TrapFrame) {
 
     let result: Result<i64, Error> = match nr {
         abi::SYS_YIELD => {
+            // x86_64's stand-in for the idle loop's gauge call: see `progenitor_stack::on_yield`.
+            #[cfg(target_arch = "x86_64")]
+            crate::progenitor_stack::on_yield();
             sched::yield_now();
             Ok(0)
         }

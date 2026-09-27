@@ -1144,9 +1144,29 @@ pub const PROGENITOR_ENTRY: &str = "progenitor";
 pub const HELLO_ENTRY: &str = "hello";
 
 /// The progenitor's stack, in pages (19d.2c): it loads whole ELFs with deep call chains, so its stack is
-/// larger than an ordinary process's one page. 8 pages (32 KiB) is generous.
+/// larger than an ordinary process's one page. Also the stack of `hello`'s init roles and the
+/// riscv64 serial driver, which share this constant and are far shallower.
+///
+/// **Twelve pages (48 KiB) since the progenitor's stack was first measured** (milestone
+/// progenitor-stack (provisional), 2026-09-27). It was eight, whose doc called 32 KiB "generous",
+/// and nothing measured it until `crate::progenitor_stack`'s gauge read these peaks on
+/// `script/swish-check`, out of 32,768:
+///
+/// | | aarch64 | riscv64 |
+/// |---|---|---|
+/// | debug, at the prompt | 19,000 | 18,976 |
+/// | debug, `package install` | **32,440** | **32,184** |
+/// | release, `package install` | 16,432 | 16,544 |
+///
+/// Debug, the build `swish-check` and CI boot, had 328 bytes to spare, which is why three lanes in
+/// a row hit it. It is twice release because `system_initializer::boot`'s own frame is 12,848
+/// bytes unoptimised (3,200 optimised) and stays live under the spawn service, which runs inside
+/// it. Twelve pages puts the debug peak at 66% and leaves twice the gauge's floor
+/// (`progenitor_stack::HEADROOM_FLOOR`, 8 KiB) before `swish-check` fails.
+/// notes/stack/progenitor-stack.md has the frames and why this is a raise rather than a trim.
 #[cfg_attr(not(test), allow(dead_code))]
-const INIT_STACK_PAGES: u64 = 8;
+pub(crate) const INIT_STACK_PAGES: u64 = 12;
+const _: () = assert!(INIT_STACK_PAGES <= address_space_map::MAX_STACK_PAGES);
 
 /// **The role that means "boot the system"**, as opposed to milestone 19d's test roles.
 ///
@@ -2072,9 +2092,12 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
         AddressSpace::new(content).ok_or(LoadError::Unmappable(MapError::OutOfPageFrames))?;
     map_segments(&mut space, &elf)?;
     for k in 0..INIT_STACK_PAGES {
-        space
+        let page = space
             .map_new(USER_STACK_VA - k * FRAME_SIZE, Flags::user_data())
             .map_err(LoadError::Unmappable)?;
+        // Painted so the kernel can say how deep this stack has ever been: see
+        // `crate::progenitor_stack`, and `script/swish-check`, which fails on too little headroom.
+        crate::progenitor_stack::paint_page(k, page);
     }
     // The timebase page, which [`load`] maps for every process it builds and a hand-built
     // address space has to map for itself (see [`map_timebase_page`] for the six call sites

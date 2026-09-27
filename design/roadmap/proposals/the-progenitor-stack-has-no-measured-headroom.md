@@ -37,3 +37,38 @@ Nothing measures this stack. `script/stack-depth-check` walks kernel thread stac
    call-graph walk from `_start`).
 2. Then either raise `INIT_STACK_PAGES` with the number beside it, or gate the depth, so the next
    lane that adds a local to `boot` fails loudly instead of at a prompt.
+
+## Built (lane `milestone/progenitor-stack`, 2026-09-27)
+
+*Promotion and a number are the integrator's at merge. Names below are provisional.*
+
+**Measured.** A kernel gauge, `kernel/src/progenitor_stack.rs`, paints the progenitor's stack pages
+as `boot_progenitor` maps them and prints the high-water mark from the idle loop (the yield syscall
+on `x86_64`) each time it settles at a new peak. On `script/swish-check`, out of 32,768 bytes:
+
+| | aarch64 | riscv64 | x86_64 |
+|---|---|---|---|
+| debug, at the prompt | 19,000 | 18,976 | 18,184 |
+| debug, `package install` | **32,440** | **32,184** | **31,304** |
+| release, `package install` | 16,432 | 16,544 | not run |
+
+So main had 328 bytes to spare on aarch64 debug, which is what three lanes in a row hit. The finding
+above had inferred about 540. `boot`'s frame is 12,848 bytes of it in debug and stays live under the
+spawn service.
+
+**Gated.** `kernel::progenitor_stack::HEADROOM_FLOOR` is two pages. A boot that leaves less prints
+`BELOW`, and `script/swish-check` fails on it, naming the command; it also fails if the gauge never
+prints. `swish-check` strips the gauge's lines out of the transcript as they arrive, since they land
+between a prompt and the next echo.
+
+**Fixed with the numbers.** `INIT_STACK_PAGES` went from 8 to 12: the debug peak is now 66%, and the
+gate fires 8.5 KB above it. The more elegant fix is to stop the spawn service standing on `boot`'s
+frame, and that is proposed separately
+([the-spawn-service-runs-outside-boots-frame.md](the-spawn-service-runs-outside-boots-frame.md))
+because four open lanes were editing those functions. By the elegance test the raise wins on effort
+and collision, not on elegance, and the note says so.
+
+Also: `script/swish-check --release` (aarch64 and riscv64 tested), which the release column needed,
+and `cargo xtask initrd-riscv` now packs the profile it builds.
+
+notes/stack/progenitor-stack.md has the frames, the decision and the `BUGS`.

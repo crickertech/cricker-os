@@ -70,6 +70,13 @@ pub(crate) fn swish_check() -> bool {
     // attached instead of the plain UART pair, verified by screendump rather than by transcript.
     // See [`swish_check_leg_graphical`]'s own doc for why this needs a whole different verification
     // shape rather than two env vars added to [`swish_check_leg`].
+    // `--release` builds and boots the optimised kernel and programs, which is what a customer's
+    // stick carries (`xtask stick` is release-only). Added for the progenitor stack's measurement
+    // (milestone progenitor-stack (provisional)): the gauge's numbers differ by profile, and the
+    // debug build is the deeper one. Not in CI. Flag name provisional.
+    if std::env::args().any(|a| a == "--release") {
+        crate::RELEASE.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     let graphical = std::env::args().any(|a| a == "--graphical");
     // **Milestone 192's option A**: the same graphical boot with the *keyboard* left off, so the
     // keystroke source is the board's own UART. See [`swish_check_leg_graphical`]'s own doc.
@@ -1133,6 +1140,88 @@ const KERNEL_FAULT_TOKENS: [&str; 6] = [
 /// last one it sees and fails if the kernel flagged it as past the recorded peak.
 const SLOT_GAUGE: &str = "capability slots:";
 
+/// **Takes the kernel's progenitor stack gauge out of the transcript as it arrives**, and keeps it.
+///
+/// The gauge (`kernel::progenitor_stack`) speaks from the idle loop once the stack's mark has been
+/// still for a while, and on a healthy boot that is shortly after a command's prompt has come back.
+/// So it lands between `$ ` and the next line's echo, and every reader in this file assumes those
+/// two are adjacent: the first version with the gauge in it waited thirty seconds for a prompt that
+/// had already been printed, then read `echo hello world | wc` as having answered nothing. Rather
+/// than teach each reader about a third writer, the gauge never reaches them.
+///
+/// **Streaming, and prefix-stable on purpose.** The reader thread sees the UART in arbitrary
+/// chunks, so a gauge line can arrive in pieces, and the waits below take `seen.len()` as a cursor
+/// into text that is still growing. So this never emits text it might later want back: a tail that
+/// could be the start of a gauge line is held until it either is one (and is dropped, newline and
+/// all) or is not (and is emitted). What is emitted is only ever appended to.
+///
+/// It removes the kernel's line only when the kernel's line is whole. A gauge a userspace writer
+/// shuffled into is left in place, which fails the run in the way any shuffle does.
+#[derive(Default)]
+struct GaugeFilter {
+    pending: String,
+}
+
+impl GaugeFilter {
+    /// What `kernel::progenitor_stack::announce` prints first, its leading indent included: the
+    /// kernel's own prefix for the line. Name provisional.
+    const NEEDLE: &'static str = "  progenitor stack:";
+
+    /// Feed the next chunk. Text that is certainly not a gauge is appended to `out`; each whole
+    /// gauge line is pushed to `gauges` with the length `out` had when it was removed.
+    fn feed(&mut self, chunk: &str, out: &mut String, gauges: &mut Vec<(usize, String)>) {
+        self.pending.push_str(chunk);
+        loop {
+            if let Some(at) = self.pending.find(Self::NEEDLE) {
+                out.push_str(&self.pending[..at]);
+                match self.pending[at..].find('\n') {
+                    Some(nl) => {
+                        let line = self.pending[at..at + nl].trim().to_string();
+                        gauges.push((out.len(), line));
+                        self.pending.drain(..at + nl + 1);
+                    }
+                    None => {
+                        self.pending.drain(..at);
+                        return;
+                    }
+                }
+            } else {
+                // Hold back the longest tail that is a proper prefix of the needle, except the
+                // space of a bare `$ `: the needle starts with the kernel's indent, so without
+                // this the prompt every wait below looks for would never be emitted whole.
+                let mut keep = (1..Self::NEEDLE.len())
+                    .rev()
+                    .find(|&n| self.pending.ends_with(&Self::NEEDLE[..n]))
+                    .unwrap_or(0);
+                let before = &self.pending[..self.pending.len() - keep];
+                let after_dollar = if before.is_empty() {
+                    out.ends_with('$')
+                } else {
+                    before.ends_with('$')
+                };
+                if keep > 0 && after_dollar {
+                    keep -= 1;
+                }
+                let cut = self.pending.len() - keep;
+                out.push_str(&self.pending[..cut]);
+                self.pending.drain(..cut);
+                return;
+            }
+        }
+    }
+}
+
+/// Which typed command a gauge removed at `at` belongs to: the last `$ ` line before it, skipping
+/// the bare prompt the gauge usually follows, since that prompt is the *next* command's.
+fn gauge_follows(transcript: &str, at: usize) -> &str {
+    let before = transcript[..at].trim_end_matches("$ ");
+    before
+        .lines()
+        .rev()
+        .find_map(|l| l.strip_prefix("$ ").filter(|c| !c.trim().is_empty()))
+        .unwrap_or("(boot)")
+}
+
 /// Where a marker was found in a transcript, and what it cost to find it.
 enum Marker<'a> {
     /// Present, contiguous. What a boot with one writer gives.
@@ -1452,18 +1541,15 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     // lines in the script (milestone 198 rung 3a).
     && crate::disk::seed_installed(arch)
     && (x86
-        || run(
-            "cargo",
-            &[
-                "build",
-                "-p",
-                "kernel",
-                "--features",
-                "shell",
-                "--target",
-                target,
-            ],
-        ));
+        || crate::cargo_profiled(&[
+            "build",
+            "-p",
+            "kernel",
+            "--features",
+            "shell",
+            "--target",
+            target,
+        ]));
     if !built {
         return false;
     }
@@ -1543,9 +1629,18 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     // A reader thread rather than blocking reads on this one, because every wait below needs a
     // deadline: a boot that hangs is exactly the failure this gate is for, and a gate that hangs
     // with it reports nothing.
+    //
+    // Three views of one stream: `raw` is every byte, for the transcript a person reads; `seen` is
+    // the same with the kernel's progenitor stack gauge taken out, which is what every check reads;
+    // `gauges` is what was taken out, and where. [`GaugeFilter`] says why.
     let seen = Arc::new(Mutex::new(String::new()));
+    let raw = Arc::new(Mutex::new(String::new()));
+    let gauges: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(Vec::new()));
     let collector = Arc::clone(&seen);
+    let raw_collector = Arc::clone(&raw);
+    let gauge_collector = Arc::clone(&gauges);
     let reader = std::thread::spawn(move || {
+        let mut filter = GaugeFilter::default();
         let mut buf = [0u8; 1024];
         while let Ok(n) = stdout.read(&mut buf) {
             if n == 0 {
@@ -1554,7 +1649,14 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
             // The terminal's own carriage returns are the line editor's, not content. Dropped so
             // the checks below can be about what a person reads.
             let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
-            collector.lock().expect("transcript lock").push_str(&text);
+            raw_collector
+                .lock()
+                .expect("transcript lock")
+                .push_str(&text);
+            // `seen` before `gauges`, both held, so no reader sees a gauge's offset past the text.
+            let mut out = collector.lock().expect("transcript lock");
+            let mut removed = gauge_collector.lock().expect("gauge lock");
+            filter.feed(&text, &mut out, &mut removed);
         }
     });
 
@@ -1778,8 +1880,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         );
     }
 
-    let whole = seen.lock().expect("transcript lock").clone();
-    let transcript = after_hand_over(&whole);
+    let whole = raw.lock().expect("transcript lock").clone();
+    let filtered = seen.lock().expect("transcript lock").clone();
+    let transcript = after_hand_over(&filtered);
     // The transcript is printed on failure below, because that is when somebody needs it. This
     // prints it on success too, and it exists because the notes in this tree quote real prompt
     // sessions: `NIFE_SHOW_TRANSCRIPT=1 script/swish-check --arch aarch64` is where the EXAMPLES
@@ -1927,6 +2030,38 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
              because it is the only thing standing between this tree and a fourth reactive raise \
              of CAPABILITY_TABLE_SLOTS."
         )),
+    }
+
+    // **And the progenitor's stack gauge** (milestone progenitor-stack (provisional)), the same
+    // shape as the slot gauge above for the same reason: its stack was raised three times, each
+    // time by overflowing it. The line must be there, and it must not say `BELOW`, which is the
+    // kernel's word for a boot that left less than `kernel::progenitor_stack::HEADROOM_FLOOR` of
+    // the stack unused. Every line is echoed with the prompt line it followed, which makes the
+    // transcript a per-command measurement: a line after `package install uptime` is that path.
+    let gauges: Vec<(String, &str)> = gauges
+        .lock()
+        .expect("gauge lock")
+        .iter()
+        .map(|(at, line)| (line.clone(), gauge_follows(&filtered, *at)))
+        .collect();
+    for (gauge, after) in &gauges {
+        eprintln!("swish-check ({arch}): {gauge}  [after {after:?}]");
+        if gauge.contains("BELOW") {
+            failed.push(format!(
+                "the progenitor's stack came within its headroom floor: {gauge:?}, after \
+                 {after:?}. Something on that path grew a frame; notes/stack/progenitor-stack.md says how \
+                 to list the progenitor's largest frames. Trim the frame, \
+                 or raise INIT_STACK_PAGES in kernel/src/user.rs with the new measurement beside it."
+            ));
+        }
+    }
+    if gauges.is_empty() {
+        failed.push(format!(
+            "the boot never printed {:?}. The kernel says this from the scheduler's idle loop, and \
+             from the yield syscall on x86_64 (kernel::progenitor_stack); a gauge that stopped \
+             printing is how the stack got raised three times by overflowing it.",
+            GaugeFilter::NEEDLE.trim()
+        ));
     }
 
     // SIGTERM rather than `kill()`'s SIGKILL on x86_64: that runner is `qemu-bounded.sh`, which
@@ -2501,6 +2636,74 @@ $ outlaw
     /// installed package's path, after the `time` and `xargs` prefixes. A `caps` head is a preview
     /// and builds nothing. A bound from above only; a tag that is too low is the case no host test
     /// can see, and the transcript cannot either.
+    /// Feed `chunks` through a [`GaugeFilter`] and return what the checks would read, and the gauges.
+    fn filtered(chunks: &[&str]) -> (String, Vec<(usize, String)>) {
+        let mut f = GaugeFilter::default();
+        let (mut out, mut gauges) = (String::new(), Vec::new());
+        for c in chunks {
+            f.feed(c, &mut out, &mut gauges);
+        }
+        (out, gauges)
+    }
+
+    #[test]
+    fn the_stack_gauge_is_taken_out_from_between_a_prompt_and_its_echo() {
+        // What aarch64 printed on the first run with the gauge in it, which read as no answer.
+        let (out, gauges) = filtered(&[
+            "  1 2 12\n$   progenitor stack: 22880 of 32768 bytes at peak, 9888 spare\n",
+            "echo hello world > gate.txt\n$ ",
+        ]);
+        assert_eq!(out, "  1 2 12\n$ echo hello world > gate.txt\n$ ");
+        assert_eq!(gauges.len(), 1);
+        assert_eq!(gauges[0].0, "  1 2 12\n$ ".len());
+        assert!(gauges[0].1.starts_with("progenitor stack: 22880"));
+    }
+
+    #[test]
+    fn a_gauge_split_across_reads_is_held_back_and_never_emitted() {
+        // Every split point, because the reader thread's chunks fall wherever the UART's did.
+        let whole = "$   progenitor stack: 19000 of 32768 bytes at peak, 13768 spare\nwc\n";
+        for cut in 0..whole.len() {
+            let mut f = GaugeFilter::default();
+            let (mut out, mut gauges) = (String::new(), Vec::new());
+            f.feed(&whole[..cut], &mut out, &mut gauges);
+            let first = out.clone();
+            f.feed(&whole[cut..], &mut out, &mut gauges);
+            assert!(
+                out.starts_with(&first),
+                "emitted text was taken back at cut {cut}"
+            );
+            assert_eq!(out, "$ wc\n", "cut {cut}");
+            assert_eq!(gauges.len(), 1, "cut {cut}");
+        }
+    }
+
+    #[test]
+    fn a_bare_prompt_is_emitted_whole_although_its_space_could_start_a_gauge() {
+        let (out, _) = filtered(&["commands: ...\n$ "]);
+        assert!(out.ends_with("$ "));
+        // The same prompt, read as two chunks, which is how the third local run with the gauge hung.
+        let (out, _) = filtered(&["up 00:00:06\n$", " "]);
+        assert!(out.ends_with("$ "));
+        let (out, gauges) = filtered(&["$  ", " progenitor stack: 1 of 2 bytes at peak\n", "wc\n"]);
+        assert_eq!(out, "$ wc\n");
+        assert_eq!(gauges.len(), 1);
+    }
+
+    #[test]
+    fn text_that_only_starts_like_the_gauge_is_let_through() {
+        let (out, gauges) = filtered(&["$ echo   pro", "gress\n"]);
+        assert_eq!(out, "$ echo   progress\n");
+        assert!(gauges.is_empty());
+    }
+
+    #[test]
+    fn a_gauge_is_billed_to_the_command_whose_prompt_it_followed() {
+        let t = "banner\n$ package install greeting\ninstalled\n$ ";
+        assert_eq!(gauge_follows(t, t.len()), "package install greeting");
+        assert_eq!(gauge_follows("banner\n$ ", 9), "(boot)");
+    }
+
     #[test]
     fn a_job_count_names_a_program() {
         for l in SWISH_CHECK_SCRIPT.iter().chain(SWISH_CHECK_AFTER_REBOOT) {
