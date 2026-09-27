@@ -385,15 +385,27 @@ PY
 echo "==> rule 1 (arch code stays under kernel/src/arch/)"
 # `system_tests/src` too: the system suite is kernel-side code that left the kernel crate
 # (milestone 609 (the system tests leave the kernel crate)), and the rule did not move with it.
+# $$ (this shell's own pid), not a fixed name: `/tmp` is shared by every worktree on the machine,
+# and lanes gate concurrently (CLAUDE.md, "lane count"). A fixed path here raced two lint runs in
+# different worktrees against the same file: one run's `git grep` would truncate-and-write it after
+# another run's had already succeeded but before that run's own `cat` read it back, so a lane could
+# report a check failure quoting a FILE THAT DOES NOT EXIST IN ITS OWN WORKTREE. Reproduced
+# 2026-09-27 (Milestone lint-worktree-leak): two `script/lint`-shaped loops racing this same command
+# in two worktrees, one with a matching file and one without, produced the matchless run's output
+# containing the OTHER worktree's file in 69 of 100 iterations. `$$` is unique per running process,
+# so two concurrent lint runs never share a path, which is what makes this the strongest fix rather
+# than a narrower one: no lint run can observe another's temp file at all.
 if git grep -nE 'asm!\(|core::arch::' -- \
-    'kernel/src' ':!kernel/src/arch' 'system_tests/src' > /tmp/nife-rule-1.txt 2>/dev/null; then
+    'kernel/src' ':!kernel/src/arch' 'system_tests/src' > "/tmp/nife-rule-1.$$" 2>/dev/null; then
     echo "lint: architecture-specific code outside kernel/src/arch/ (CLAUDE.md rule 1):" >&2
-    cat /tmp/nife-rule-1.txt >&2
+    cat "/tmp/nife-rule-1.$$" >&2
     echo "" >&2
     echo "Move the register touch behind a helper in kernel/src/arch/ and call that; see" >&2
     echo "arch::current_sp for the shape. A port should be a new directory, not a diff." >&2
+    rm -f "/tmp/nife-rule-1.$$"
     exit 1
 fi
+rm -f "/tmp/nife-rule-1.$$"
 echo "rule 1: no asm outside kernel/src/arch/"
 
 # Hand-written assembly carries call-frame information (milestone: CFI in hand-written asm).
@@ -698,12 +710,16 @@ echo "module-wide suppression: none"
 # so nothing failed and no test noticed, which is exactly why it needs a gate: broken markup in a
 # documentation deliverable is invisible to every other check we run. Costs a grep.
 echo "==> conflict markers"
+# $$, not a fixed name: see the note on the rule-1 check above for why (a shared /tmp path races
+# two worktrees' lint runs against each other).
 if git grep -nE '^(<{7}|={7}|>{7})( |$)' -- \
-    ':!vendor' ':!*.lock' > /tmp/nife-conflict-markers.txt 2>/dev/null; then
+    ':!vendor' ':!*.lock' > "/tmp/nife-conflict-markers.$$" 2>/dev/null; then
     echo "lint: merge conflict markers left in tracked files:" >&2
-    cat /tmp/nife-conflict-markers.txt >&2
+    cat "/tmp/nife-conflict-markers.$$" >&2
+    rm -f "/tmp/nife-conflict-markers.$$"
     exit 1
 fi
+rm -f "/tmp/nife-conflict-markers.$$"
 
 # A TODO marker names the milestone that owns it, or it does not exist (milestone 94).
 #
@@ -2243,14 +2259,49 @@ fi
 #    excluded from code, comments and notes. Two places are exempt because they are where the
 #    ARGUMENT about the word lives: design/, which holds the decisions and (since §155) the naming
 #    conventions, and this script. A rule's rationale has to be able to name the thing it rejects.
+# $$, not a fixed name: see the note on the rule-1 check above (a shared /tmp path races two
+# worktrees' lint runs against each other).
 if git -C "$(dirname "$0")/.." grep -Iilnw daemon -- \
     ':!vendor' ':!design' ':!script/lint' \
-    > /tmp/nife-daemon.txt 2>/dev/null; then
+    > "/tmp/nife-daemon.$$" 2>/dev/null; then
     echo "lint: \"daemon\" outside the two places the argument about the word lives:" >&2
-    cat /tmp/nife-daemon.txt >&2
+    cat "/tmp/nife-daemon.$$" >&2
     echo "The vocabulary is component / service / contract (DECISIONS §39)." >&2
+    rm -f "/tmp/nife-daemon.$$"
     exit 1
 fi
+rm -f "/tmp/nife-daemon.$$"
+
+# A fixed /tmp path in a script this tree ships, made mechanical (milestone lint-worktree-leak,
+# 2026-09-27, closing the gap the three checks above just fixed). `/tmp` is one filesystem shared by
+# every worktree on the machine, and lanes gate concurrently (CLAUDE.md, "lane count"), so a script
+# that redirects into `/tmp/some-fixed-name` races every other worktree doing the same: whichever
+# process's write lands last between another process's write and its own read wins, and the loser
+# reports a finding that names a file from a WORKTREE IT NEVER READ. Reproduced for exactly this
+# script: two lint-shaped loops racing the (now-fixed) `/tmp/nife-daemon.txt` path in two worktrees
+# put the matchless worktree's own file report at 69 of 100 iterations.
+#
+# The check is a name test, not a behavior test, because a behavior test would mean racing every
+# script on every run. A path is exempt when it contains a `$`: `$$` (this shell's pid, what the
+# three checks above now use), `$(mktemp ...)`, or `$RANDOM` all make the path unique to the running
+# process, which is what makes the race impossible rather than merely unlikely. A fixed literal has
+# none, so `grep -v '\$'` is the whole test once comments are stripped. Comments are excluded because
+# this paragraph and the three above it correctly say `/tmp/nife-daemon.txt` in prose, and
+# `script/stranger-test`'s own usage note names literal example paths for a human to paste.
+echo "==> fixed /tmp paths in scripts (they race across worktrees; see the note above)"
+if git grep -nE '[<>]>?[[:space:]]*"?/tmp/[A-Za-z0-9_.-]+"?' -- 'script/*' 'helpers/*.sh' \
+    | grep -vE ':[[:space:]]*#' \
+    | grep -v '\$' > "/tmp/nife-fixed-tmp-paths.$$" 2>/dev/null; then
+    echo "lint: a script redirects into a fixed /tmp path, which races every other worktree on" >&2
+    echo "the machine doing the same (see the comment above this check):" >&2
+    cat "/tmp/nife-fixed-tmp-paths.$$" >&2
+    echo "" >&2
+    echo "Make the path unique to this process: append \".\$\$\" (see the rule-1 check above for" >&2
+    echo "the pattern) or use \$(mktemp)." >&2
+    rm -f "/tmp/nife-fixed-tmp-paths.$$"
+    exit 1
+fi
+rm -f "/tmp/nife-fixed-tmp-paths.$$"
 
 # 3. One spelling for contract crates. The tree had four spellings of "the wire contract" when this
 #    was written (`fs_proto`, `gfx_proto`, `netproto`, `line_editor::proto`); `*_proto` won for CRATES
