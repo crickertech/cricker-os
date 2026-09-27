@@ -22,10 +22,14 @@ folded into this note below.
    runs p50 165K tokens, p90 358K (sub-agent lanes only). A quarter of requests need over 256K, up to
    854K measured. Every open model plausible for a home rig caps out at or under 256K natively, or
    needs a hardware tier with no published long-context benchmark at all.
-4. No researched hardware tier is a clear buy. A 128GB unified-memory box cannot hold a
-   context-adequate model. The two tiers that can hold the one proven model (Qwen3-Coder-480B-A35B)
-   at long context, a maxed Mac Studio or four RTX PRO 6000 Blackwell cards, cost $10K-70K+ with zero
-   published prefill numbers at this size. Every such number below is this note's own arithmetic.
+4. No researched hardware tier is a clear buy. Corrected 2026-09-27: this note first ruled out the
+   128GB unified-memory tier by checking a 4-bit fit against the 8-bit weight size. It fits
+   Qwen3.5-122B-A10B at 4-bit and Qwen3.8-27B at 8-bit; quality untested in this tree. The 2026-09-27
+   stage-1 bake-off (#1425) found the different, already-proven Qwen3-Coder-480B-A35B only 2 of 6
+   correct, so the tier question is open again for these two models. The two tiers that can hold
+   Qwen3-Coder-480B-A35B itself at long context, a maxed Mac Studio or four RTX PRO 6000 Blackwell
+   cards, cost $10K-70K+ with zero published prefill numbers at this size. Every such number below is
+   this note's own arithmetic.
 5. The recommended next step is a bake-off, not a purchase. Rent the candidate model on OpenRouter
    against 15-20 real past nife tasks with known-good outcomes, reusing the blind-graded protocol
    already built for the Opus 5 vs 5.5 pilot. Estimated cost is $40-500, against $10K-70K+ for
@@ -104,7 +108,7 @@ scores 88.2 on Terminal-Bench 2.1 and 28.3 on 3.0, per the vendor's own numbers)
 
 | tier | price (2026-09-27) | usable memory | fits |
 |---|---|---:|---|
-| 128GB unified memory (DGX Spark, Strix Halo) | $3,449-5,000 | 128GB | nothing above on both size and context; gpt-oss-120B fits size but its window is already short |
+| 128GB unified memory (DGX Spark, Strix Halo) | $3,449-5,000 | 128GB | Qwen3.5-122B-A10B at 4-bit, Qwen3.8-27B at 8-bit; quality untested (corrected 2026-09-27, see below) |
 | Mac Studio, 256GB | $9,499-10,799 | 256GB | Qwen3.5-122B-A10B, comfortably |
 | Mac Studio, 512GB (not yet priced, ships "late October," may slip) | absent | up to 512GB | Qwen3-Coder-480B-A35B, tight: ~300GB weights plus 67-178GB KV at 256K-700K context (Est) |
 | 1x RTX PRO 6000 Blackwell | $16,000 | 96GB | Qwen3.8-27B or GLM-4.5-Air at 8-bit |
@@ -113,6 +117,18 @@ scores 88.2 on Terminal-Bench 2.1 and 28.3 on 3.0, per the vendor's own numbers)
 No tier reaches the class's p90 context (400-700K) with headroom. The two tiers that reach it at all
 do so at the edge, on this note's own unverified arithmetic (Est), for a model with one real success
 in this tree and no independent long-context benchmark found anywhere.
+
+Correction, same pass, 2026-09-27: the 128GB row above first failed Qwen3.5-122B-A10B by checking
+its 4-bit fit against the 8-bit weight size. 125.1B parameters is about 125GB at 8-bit (1
+byte/parameter), and about 62.5GB at 4-bit (0.5 bytes/parameter). At 4-bit, 62.5GB of weights plus
+about 6GB of KV cache for the model's full 262K native context (about 24 KiB/token) totals about
+68.5GB, well inside 128GB. Qwen3.8-27B at 8-bit is 27.8GB. At about 64 KiB of KV per token it adds
+about 10GB at this workload's p50 context (165K) and about 22GB at its p90 (358K), both comfortably
+inside 128GB too. Corrected verdict: the tier fits Qwen3.5-122B-A10B at 4-bit and Qwen3.8-27B at
+8-bit; quality untested in this tree. It still does not fit Qwen3-Coder-480B-A35B, the model with a
+proven result in this tree, which needs the larger tiers below. 2026-09-27's stage-1 bake-off (#1425)
+tested that different model and found it 2 of 6 correct, so the tier question is open again
+specifically for Qwen3.5-122B-A10B and Qwen3.8-27B.
 
 ## The bake-off, drafted and not run
 
