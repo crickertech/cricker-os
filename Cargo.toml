@@ -68,6 +68,7 @@ members = [
     "crates/socket_protocol",
     "crates/byte_sink_protocol",
     "crates/virtio",
+    "crates/walk_pricing",
     "crates/intrusive_fifo",
     "crates/line_editor",
     "crates/loaded_image_check",

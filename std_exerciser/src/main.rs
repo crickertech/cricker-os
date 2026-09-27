@@ -33,6 +33,12 @@
 //!     "neither" is about the filesystem and the network specifically, not about everything the
 //!     spawn wires in.
 //!
+//!   - **granted a subtree rather than the root** (milestone 121 (`ripgrep` on nife:
+//!     enumeration as a capability)): the priced tree
+//!     `filesystem_protocol::fixture::walk` describes, behind a caretaker. With `ENUMERATE` it
+//!     prices a walk over it; without, it proves the walk is refused rather than empty. See
+//!     `walk_transcript`.
+//!
 //! One binary keeps the initrd inside its nifefs directory limit (`MAX_FILES`, 31 entries when
 //! this was written and 76 since 2026-08-01) while still proving all three. The kernel test suite spawns it three ways and checks each transcript
 //! byte for byte, on both ISAs.
@@ -55,6 +61,9 @@ fn main() {
     match File::open(filesystem_protocol::fixture::MOTD_NAME) {
         Ok(f) => return fs_demo(f),
         Err(e) if e.kind() == ErrorKind::Unsupported => {}
+        // A directory, and not the image root: the only narrower grant any spawn hands this
+        // program is milestone 121's priced tree, so that is what it must be.
+        Err(e) if e.kind() == ErrorKind::NotFound => return walk_transcript(),
         Err(e) => panic!("a directory capability was granted but the motd would not open: {e:?}"),
     }
 
@@ -1000,6 +1009,82 @@ fn descent_transcript() {
         "remove_dir_all left the tree behind",
     );
     println!("remove_dir_all ok");
+}
+
+/// **Milestone 121's two halves, chosen by the rights of the one directory this process holds.**
+///
+/// Granted [`filesystem_protocol::fixture::walk`]'s tree with `ENUMERATE`, it prices a walk
+/// (`walk_pricing`) and prints the figures. Granted the same tree without `ENUMERATE`, the same
+/// walk must be **refused loudly**: `read_dir` answers `PermissionDenied`, and the walker a search
+/// tool is built on returns that error rather than a walk of nothing. The program does not know
+/// which grant it holds and does not ask; it tries to list, and the capability answers.
+fn walk_transcript() {
+    use filesystem_protocol::fixture::walk as tree;
+
+    // Whichever grant this is, the tree is here: a name the program can spell opens under both,
+    // because reaching what you can name is `READ` and `DESCEND`, and `ENUMERATE` is only the
+    // power to find out what else there is.
+    let first = tree::wide_name(0);
+    let first = std::str::from_utf8(&first).expect("fixture names are ASCII");
+    let named = format!("{}/{first}", tree::NARROW);
+    let bytes = std::fs::read(&named).expect("a named file in the priced tree would not open");
+    assert_eq!(
+        bytes,
+        tree::SMALL_BODY,
+        "the named file read the wrong bytes"
+    );
+
+    match std::fs::read_dir(".") {
+        Ok(_) => price_walk(),
+        Err(e) if e.kind() == ErrorKind::PermissionDenied => enumeration_withheld(),
+        Err(e) => {
+            panic!("listing the granted directory failed for a reason that is not authority: {e:?}")
+        }
+    }
+}
+
+/// The walk, priced. The first line is the counts, which the kernel test asserts; the rest are
+/// timings, which it prints and does not.
+fn price_walk() {
+    println!("walk granted with enumerate");
+    let price = walk_pricing::price(std::path::Path::new(".")).expect("the priced walk failed");
+    for line in walk_pricing::report(&price) {
+        println!("{line}");
+    }
+}
+
+/// The same walk against a grant lacking `ENUMERATE`, refused at every level and never empty.
+fn enumeration_withheld() {
+    use filesystem_protocol::fixture::walk as tree;
+    println!("walk granted without enumerate");
+    println!("read_dir refused");
+
+    // One level down the right has not reappeared: a child's rights are its parent's intersected
+    // with the request, so a descent asking for `ENUMERATE` is refused on the way.
+    match std::fs::read_dir(tree::WIDE) {
+        Err(e) if e.kind() == ErrorKind::PermissionDenied => println!("read_dir below refused"),
+        other => panic!("a subdirectory listed under a grant without ENUMERATE: {other:?}"),
+    }
+
+    // **The claim milestone 121 exists to make, in the shape a search tool meets it**: the walk
+    // is an error, not a walk that found nothing. A `grep -r` that silently matches zero files
+    // because it could not look is the worst failure such a tool can have.
+    match walk_pricing::walk(std::path::Path::new(".")) {
+        Err(e) if e.kind() == ErrorKind::PermissionDenied => println!("walk refused, not empty"),
+        Ok(t) => panic!("a walk without ENUMERATE returned {t:?} instead of an error"),
+        Err(e) => panic!("a walk without ENUMERATE failed for another reason: {e:?}"),
+    }
+
+    // And naming still works at depth, so the refusals above are about enumeration alone and not a
+    // capability that reaches nothing (the control the directory attacker's bitmap also keeps).
+    let deep = format!("{}/{}/{}", tree::CHAIN, tree::LEVEL, tree::LEVEL_FILE);
+    let bytes = std::fs::read(&deep).expect("a named file two levels down would not open");
+    assert_eq!(
+        bytes,
+        tree::SMALL_BODY,
+        "the deep named file read the wrong bytes"
+    );
+    println!("named file opened");
 }
 
 /// Assert that a path is refused as un-nameable, and say which case it was.

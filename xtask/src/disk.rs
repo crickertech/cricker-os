@@ -493,6 +493,14 @@ fn stage_subtree() -> Option<String> {
         eprintln!("mkredoxfs: cannot stage the milestone-47 subtree");
         return None;
     }
+    // Milestone 121 (`ripgrep` on nife: enumeration as a capability)'s priced tree, a sibling of everything above and written by nothing after
+    // this: the walk pricing reads it through a grant of its own, so its figures cannot depend on
+    // which test ran first. Staged by the same function a host comparison stages it with.
+    let walk = root.join(filesystem_protocol::fixture::walk::ROOT);
+    if let Err(e) = walk_pricing::stage(&walk) {
+        eprintln!("mkredoxfs: cannot stage milestone 121's priced tree: {e}");
+        return None;
+    }
     Some(root.display().to_string())
 }
 

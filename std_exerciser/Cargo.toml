@@ -38,6 +38,11 @@ filesystem_protocol = { path = "../crates/filesystem_protocol" }
 # `std::net`'s job now, which is this milestone's whole point.
 socket_protocol = { path = "../crates/socket_protocol" }
 
+# Milestone 121 (`ripgrep` on nife: enumeration as a capability)'s walk pricing: plain `std::fs` code that runs unchanged on a host, so the walk
+# priced through a granted directory here is the same function a host comparison prices. It
+# depends on `filesystem_protocol` alone, for the priced tree's shape.
+walk_pricing = { path = "../crates/walk_pricing" }
+
 # The kernel's ELF loader maps whole pages per segment and the initrd carries the file; keep the
 # binary small and the build deterministic.
 [profile.release]

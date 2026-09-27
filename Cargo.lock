@@ -1160,6 +1160,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "walk_pricing"
+version = "0.1.0"
+dependencies = [
+ "filesystem_protocol",
+]
+
+[[package]]
 name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1211,6 +1218,7 @@ dependencies = [
  "portable_executable",
  "sealed_pair",
  "video_terminal",
+ "walk_pricing",
 ]
 
 [[package]]

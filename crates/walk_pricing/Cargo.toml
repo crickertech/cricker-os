@@ -1,0 +1,14 @@
+# Name: the block lives in src/lib.rs, where `script/names` reads it.
+[package]
+name = "walk_pricing"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# The priced tree's shape. `no_std` and dependency-free; only its `fixture::walk` module is used,
+# so the image builder, the priced program and a host run cannot disagree about what was walked.
+filesystem_protocol = { version = "0.1.0", path = "../filesystem_protocol" }

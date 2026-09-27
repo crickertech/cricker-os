@@ -7,6 +7,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Rust `std` on the native ABI](../std.md): std's platform layer implemented on the capability ABI.
 - [Somebody else's crate on nife](../crates-io-on-nife.md): fifty crates.io crates built against nife's `std`.
 - [`ripgrep` on nife](../ripgrep-on-nife.md): unmodified ripgrep builds and runs, and what stops it.
+- [What a directory walk costs](../walk-pricing.md): a walk split per component, per entry and per KiB, on nife and a host.
 - [What one shim costs](../foreign-program-arguments.md): priced per program and as a library.
 - [A TLS crypto provider on nife](../cryptography-provider.md): building a `rustls` crypto provider for all three targets.
 - [The `thread::spawn` fork](../thread-spawn-fork.md): what a std thread would cost, and why declined.

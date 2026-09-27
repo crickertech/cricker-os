@@ -803,8 +803,14 @@ fn hvf_kernel_leg() -> bool {
     let _ = child.kill();
     let _ = child.wait();
 
+    // **A filtered run drops both verdicts**, as `test`'s own doc promises for every leg: the scanout
+    // and inbound tests were not selected, so their referees watch a guest that never ran them and
+    // fail on the absence. This leg printed three scanout FAILs and an inbound FAIL under `--test`
+    // until 2026-09-26, when milestone 121 (`ripgrep` on nife: enumeration as a capability)'s
+    // lane met it with its two selected tests passing.
+    let filtered = std::env::var_os("NIFE_TEST_FILTER").is_some_and(|f| !f.is_empty());
     let ok = match verdict {
-        Some(true) => scanout_ok && inbound_ok,
+        Some(true) => filtered || (scanout_ok && inbound_ok),
         Some(false) => {
             eprintln!();
             eprintln!(

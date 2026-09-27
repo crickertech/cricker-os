@@ -228,6 +228,17 @@ impl<D: Disk> Server<D> {
     /// one walk can be seen twice or missed. That is readdir's usual caveat and it is recorded
     /// rather than fixed, because fixing it means holding a snapshot per client and this table is
     /// not per client.
+    ///
+    /// # BUGS
+    ///
+    /// - **Every entry costs a node read**, because the record carries
+    ///   [`filesystem_protocol::dirent::IS_DIR`] and a RedoxFS directory entry does not store the
+    ///   child's type: `read_tree` of each child is how this learns it. Measured by milestone 121
+    ///   (`ripgrep` on nife: enumeration as a capability) on 2026-09-26: listing 128 files costs
+    ///   43 to 85 us per entry under HVF, the largest per-unit cost in a walk, and more children
+    ///   than `CachedDisk` holds make it a block read each. notes/walk-pricing.md has the figures.
+    ///   Not fixed there: whether to drop the bit, cache node types or change the format is a
+    ///   choice about the contract, and the measurement came first.
     pub fn read_dir(&mut self, handle: u32, cursor: u32, out: &mut [u8]) -> Result<usize> {
         let (ptr, rights) = self.dir_at(handle)?;
         if !rights.allows(dir::ENUMERATE) {
