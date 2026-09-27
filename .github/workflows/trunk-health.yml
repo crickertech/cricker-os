@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: token
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
