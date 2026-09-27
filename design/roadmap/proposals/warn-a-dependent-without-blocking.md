@@ -23,6 +23,11 @@ producer loses nothing.
 
 calef, 2026-09-26: "Make the warning advisory." Build it once milestone 151 lands (#1351).
 
+## Built
+
+2026-09-27, on PR #1382: the page, the bound signal, the late-warning test, and the stranded-operator
+`BUGS` entry closed in notes/non-cooperative-fallback.md, where it was recorded.
+
 ## What to build
 
 - Replace `broker`'s `BOP_DOWN`/`BOP_UP` `CALL`s with a read-only state page the supervisor writes

@@ -131,7 +131,7 @@ estimate added up every buffer in `LineDisc`, including the completed-line snaps
 browse stash, which a blob does not carry. Measured by `line_editor`'s host test on 2026-09-27: a
 full ring of near-maximal history lines serialises to under 2 KiB, and with four queued lines the
 whole blob is under 4 KiB, so it fits the one page it declares. The estimate is part of why
-`MemoryRegion::RETYPE` gained a page count (calef's ruling of 2026-09-26); the count still earns its place,
+`MemoryRegion::RETYPE` gained a page count, DECISIONS §233 (`MemoryRegion::RETYPE` takes a page count); the count still earns its place,
 because `redoxfs_server` will not fit a page and `swapper`'s fixture uses two.
 `display_terminal`'s size is still read from `video_terminal::Vt`'s own doc comment.
 

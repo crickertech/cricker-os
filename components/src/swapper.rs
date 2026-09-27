@@ -121,8 +121,9 @@ pub extern "C" fn _start(role: u64, initrd_len: u64, _a2: u64) -> ! {
     }
 
     match role {
-        swap_protocol::ROLE_QUEUED => queued(&fs, &w, true),
-        swap_protocol::ROLE_UNWARNED => queued(&fs, &w, false),
+        swap_protocol::ROLE_QUEUED => queued(&fs, &w, Warn::OnTime),
+        swap_protocol::ROLE_UNWARNED => queued(&fs, &w, Warn::Never),
+        swap_protocol::ROLE_LATE_WARNING => queued(&fs, &w, Warn::Late),
         swap_protocol::ROLE_HUNG => hung(&fs, &w),
         swap_protocol::ROLE_HANDOFF => handoff(&fs, &w),
         _ => direct(&fs, &w),
@@ -640,11 +641,36 @@ fn launch(u: Unstarted, elf: &elf::Elf, args: [u64; 3], stage: u64) {
 // absent consumer.
 // ===============================================================================================
 
-/// `warn` is `false` only on [`ROLE_UNWARNED`](swap_protocol::ROLE_UNWARNED): the graph is still
-/// asked and still names `broker`, and the operator then does not tell it, as if it had not
-/// answered. Everything else is identical, so the difference in the producer's verdict is the price
-/// of the warning and nothing else.
-fn queued(fs: &nifefs::Fs, w: &Wiring, warn: bool) -> ! {
+/// **When the broker is warned** (DECISIONS §231 (a swap's warning to a dependent is advisory, and
+/// the supervisor never waits for it)). The warning is a page the broker reads and a signal that
+/// wakes it, and this operator never waits for either to be seen, so the three cases differ only in
+/// when the page is written.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Warn {
+    /// Down before the backend goes, up once its replacement runs: the queued rung as designed.
+    OnTime,
+    /// Never: what a supervisor is left with when a dependent will not answer. The measurement
+    /// §231 rests on (`ROLE_UNWARNED`).
+    Never,
+    /// Down and up only after the replacement is already serving: the warning arrives when there
+    /// is nothing left to warn about, and must still cost nothing but latency.
+    Late,
+}
+
+/// Write the broker's warning page and wake it. Never blocks, never waits for an answer.
+fn warn_broker(signal: u64, down: bool) {
+    let want = if down {
+        swap_protocol::WANT_DOWN
+    } else {
+        swap_protocol::WANT_UP
+    };
+    // SAFETY: the warning page is mapped read/write at BROKER_WARN_VA in this operator (and
+    // read-only in the broker), by `queued` before the broker was built.
+    unsafe { core::ptr::write_volatile(swap_protocol::BROKER_WARN_VA as *mut u64, want) };
+    let _ = user_mode_runtime::notification_signal(signal, 1);
+}
+
+fn queued(fs: &nifefs::Fs, w: &Wiring, warn: Warn) -> ! {
     let v1 = image(fs, "rust_swappable", 2);
     let v2 = image(fs, "c_swappable", 3);
     let client_img = image(fs, "chatty", 4);
@@ -670,12 +696,21 @@ fn queued(fs: &nifefs::Fs, w: &Wiring, warn: bool) -> ! {
             ("witness", w.log_page_frame),
         ],
     };
+    // The warning page and the signal that wakes the broker to read it (§231). The page is mapped
+    // here read/write so this operator can write it, and routed to the broker read-only by its
+    // declaration.
+    let warning = page_frame(53);
+    if !map_page_frame(warning, swap_protocol::BROKER_WARN_VA, true, ROOT_UT) {
+        bail(54)
+    }
+    let signal = obj(abi::objtype::NOTIFICATION, 55);
     let to_broker = Provisions {
         held: &[
             ("requests", front),
             ("backend", w.svc),
             ("report", REPORT),
             ("operator", w.note),
+            ("warning", warning),
         ],
     };
     let to_producer = Provisions {
@@ -705,7 +740,7 @@ fn queued(fs: &nifefs::Fs, w: &Wiring, warn: bool) -> ! {
     };
 
     start_child(&v1, &backend, w.faultep, [0, base, 0], 42);
-    start_child(&broker_img, &broker, w.faultep, [0, 0, 0], 43);
+    start_bound(&broker_img, &broker, w.faultep, signal, 43);
     start_child(
         &client_img,
         &producer,
@@ -717,14 +752,14 @@ fn queued(fs: &nifefs::Fs, w: &Wiring, warn: bool) -> ! {
     expect_note(w.note, swap_protocol::NOTE_SWAP_NOW, 45);
 
     // ------------------------------------------------------------------------------------------
-    // **Dependency-aware orchestration, for real this time.** `BOP_DOWN` below used to be
+    // **Dependency-aware orchestration, for real this time.** The warning below used to be
     // unconditional: every system on this channel happens to have exactly one component
     // (`broker`) that forwards synchronously to the backend, so "always warn it" and "warn
     // whoever the graph names" have always produced the same four syscalls. What changed is which
     // one this operator actually asked. `broker`'s own manifest (`swap_protocol::BROKER`) declares
     // `depends_on: &["backend"]`, so a two-instance live registry naming this system's broker and
-    // backend, checked against `component_plan::dependents`, is what decides whether `BOP_DOWN` is
-    // sent at all -- not this function's own memory of what it built five lines up.
+    // backend, checked against `component_plan::dependents`, is what decides whether the broker is
+    // warned at all -- not this function's own memory of what it built five lines up.
     // ------------------------------------------------------------------------------------------
 
     let live = [
@@ -748,21 +783,15 @@ fn queued(fs: &nifefs::Fs, w: &Wiring, warn: bool) -> ! {
         order.first().copied().unwrap_or(0),
     );
 
-    // Tell every dependent the graph named to take custody. From here until BOP_UP there is no
-    // backend at all on this channel, and the producer keeps running: that window is the whole
-    // reason this rung exists. This system's registry has exactly one entry (`broker`, id 2), so
-    // the loop below sends `BOP_DOWN` once; a system with a second forwarding dependent would send
-    // it to each one the graph named, in the order the graph returned them.
-    //
-    // **A `CALL`, so a dependent that does not answer hangs this operator too**, which is the
-    // defect notes/non-cooperative-fallback.md starts from. `warn == false` is the measurement of
-    // the way out: what the swap costs if the warning is simply never sent.
-    for &id in order.iter().filter(|_| warn) {
-        if id == 2 {
-            let (r, _) = user_mode_runtime::call(front, swap_protocol::BOP_DOWN, 0);
-            if r != 0 {
-                bail(46)
-            }
+    // Tell every dependent the graph named to take custody. From here until it is told the backend
+    // is back there is no backend at all on this channel, and the producer keeps running: that
+    // window is the whole reason this rung exists. This system's registry has exactly one entry
+    // (`broker`, id 2); a system with a second forwarding dependent would warn each one the graph
+    // named. **Without waiting for any of them** (§231): a dependent that never looks at its page
+    // costs its callers the down window and nothing else, which `ROLE_UNWARNED` measures.
+    for &id in order {
+        if id == 2 && warn == Warn::OnTime {
+            warn_broker(signal, true);
         }
     }
 
@@ -791,14 +820,18 @@ fn queued(fs: &nifefs::Fs, w: &Wiring, warn: bool) -> ! {
         swap_protocol::V2,
     );
 
-    // Release the backlog, one dependent at a time, in the reverse of the order they were warned:
-    // the graph's own resume order. The broker drains in arrival order before it answers, so this
-    // call returning means every buffered item has reached the new backend.
-    for &id in order.iter().rev().filter(|_| warn) {
+    // Release the backlog, in the reverse of the order they were warned: the graph's own resume
+    // order. The broker drains in arrival order the next time it wakes, before it serves anything
+    // newer. On the late channel both warnings go only now, after the swap has finished.
+    for &id in order.iter().rev() {
         if id == 2 {
-            let (r, _drained) = user_mode_runtime::call(front, swap_protocol::BOP_UP, 0);
-            if r != 0 {
-                bail(49)
+            match warn {
+                Warn::OnTime => warn_broker(signal, false),
+                Warn::Late => {
+                    warn_broker(signal, true);
+                    warn_broker(signal, false);
+                }
+                Warn::Never => {}
             }
         }
     }
@@ -1140,6 +1173,35 @@ fn start_child(
     if !supervision_protocol::start_child(child, args[0], args[1], args[2]) {
         bail(stage + 2)
     }
+    cap_delete(region);
+}
+
+/// [`start_child`], for a child with a notification bound to its thread before it runs: `broker`,
+/// whose §231 warning arrives as a signal while it is parked receiving on its front endpoint.
+fn start_bound(elf: &elf::Elf, plan: &component_plan::Plan, faultep: u64, signal: u64, stage: u64) {
+    let Ok(region) = supervision_protocol::memory_region_split(ROOT_UT, plan.pages()) else {
+        bail(stage)
+    };
+    let endow = ChildEndowment {
+        caps: plan.caps(),
+        maps: plan.maps(),
+        blobs: &[],
+        fault: Some(faultep),
+        ..ChildEndowment::new(Retention::ThreadControlBlock {
+            reason: "bind the broker's warning notification before it runs",
+        })
+    };
+    let Ok(child) = supervision_protocol::build_child(ROOT_UT, region, elf, &endow) else {
+        bail(stage + 1)
+    };
+    let tcb = child.tcb;
+    if user_mode_runtime::notification_bind(signal, tcb) != 0 {
+        bail(stage + 2)
+    }
+    if !supervision_protocol::start_child(child, 0, 0, 0) {
+        bail(stage + 2)
+    }
+    cap_delete(tcb);
     cap_delete(region);
 }
 

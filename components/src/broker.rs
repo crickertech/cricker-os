@@ -45,7 +45,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{call, recv_cap, reply, send};
+use user_mode_runtime::{call, reply, send};
 
 // A source file shared by several binaries through `#[path]`, and each uses a different slice of it,
 // so the unused halves are expected (§38).
@@ -110,7 +110,28 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     send(RPT, swap_protocol::RPT_UP, 0, 0);
 
     loop {
-        let (op, slot, arg) = recv_cap(FRONT);
+        // **The warning is read on every wakeup** (DECISIONS §231 (a swap's warning to a dependent
+        // is advisory, and the supervisor never waits for it)). A signal only wakes us when idle; a
+        // request that arrives first finds the page already written, and a signal we never see
+        // costs latency and nothing else.
+        let got = user_mode_runtime::recv_cap_bound(FRONT);
+        let wants_down = swap_protocol::broker_wants_down();
+        if wants_down && up {
+            up = false;
+        } else if !wants_down && !up {
+            // Drain in arrival order before serving anything newer, so the backlog reaches the new
+            // backend ahead of whatever the producer sends next.
+            let mut drained = 0u64;
+            while let Some(item) = q.pop() {
+                let _ = call(BACK, swap_protocol::OP_PUT, item);
+                drained += 1;
+            }
+            up = true;
+            send(RPT, swap_protocol::RPT_DRAINED, drained, buffered);
+        }
+        let user_mode_runtime::Received::Message(op, slot, arg) = got else {
+            continue; // the signal itself carries nothing; the page is the message
+        };
         if slot == abi::rendezvous::NO_CAP {
             continue; // the contract says CALL; with no reply capability there is nobody to answer
         }
@@ -131,23 +152,6 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
                 } else {
                     reply(slot, swap_protocol::QUEUE_FULL, q.count as u64);
                 }
-            }
-            swap_protocol::BOP_DOWN => {
-                up = false;
-                reply(slot, 0, q.count as u64);
-            }
-            swap_protocol::BOP_UP => {
-                // Drain in arrival order, before answering the operator, so "the broker is up
-                // again" and "the backlog is delivered" are the same event as far as anyone
-                // watching this endpoint is concerned.
-                let mut drained = 0u64;
-                while let Some(item) = q.pop() {
-                    let _ = call(BACK, swap_protocol::OP_PUT, item);
-                    drained += 1;
-                }
-                up = true;
-                send(RPT, swap_protocol::RPT_DRAINED, drained, buffered);
-                reply(slot, 0, drained);
             }
             swap_protocol::OP_QUIESCE => {
                 send(RPT, swap_protocol::RPT_QUIESCED, 0, buffered);

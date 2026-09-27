@@ -323,7 +323,7 @@ const HANDOFF_PAGE: u64 = 4096;
 /// read and write it (so the supervisor can route one frame to both).
 ///
 /// A run of [`pages`](Handoff::pages) pages, which the supervisor mints as one frame capability
-/// with `MemoryRegion::RETYPE`'s page count (calef's ruling of 2026-09-26). The count is the
+/// with `MemoryRegion::RETYPE`'s page count, per DECISIONS §233 (`MemoryRegion::RETYPE` takes a page count). The count is the
 /// component's to declare, because it is a fact about how much state that component keeps.
 ///
 /// Name: provisional (milestone 23's lane, 2026-09-26). §209 left the field name `handoff`
@@ -384,7 +384,9 @@ pub struct Requirements {
     /// claims one needs telling. A component that *serves* others while itself calling through to a
     /// swappable dependency is different: `broker` blocks its one serving thread on a `CALL` to its
     /// backend, so if the backend is what is being swapped, `broker` cannot go on answering its own
-    /// producers unless it is told first (`BOP_DOWN`) to stop calling through and start buffering.
+    /// producers unless it is told first to stop calling through and start buffering (a page and a
+    /// signal it is never asked to acknowledge, DECISIONS §231 (a swap's warning to a dependent is
+    /// advisory, and the supervisor never waits for it)).
     /// That is the edge this field exists to name.
     ///
     /// **Direct dependents only.** A dependent that has its own decoupling mechanism (a queue, a
@@ -808,8 +810,8 @@ const fn str_eq(a: &str, b: &str) -> bool {
 // than a fact a supervisor would otherwise have to work out by hand. It answers exactly one
 // question: **given the components a supervisor is currently running, which of them must be told
 // before a named contract is swapped?** It does not run the swap, does not touch a capability, and
-// does not decide *how* a dependent is told (that is a per-contract protocol, `broker`'s
-// `BOP_DOWN`/`BOP_UP` today); it only says *who*.
+// does not decide *how* a dependent is told (that is a per-contract protocol, `broker`'s warning
+// page and signal today); it only says *who*.
 //
 // **Direct dependents only, and that is a scope decision recorded rather than an oversight.** A
 // dependent that itself absorbs its own dependency's downtime (a queue, in `broker`'s case) is not

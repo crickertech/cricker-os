@@ -9,11 +9,12 @@ needs_person: no
 ---
 # 23. A capability-routed component OS with live replacement
 
-Every residual this block named is built. What keeps it PARTIAL is three lines under
-Follow-on: the interactive stack is not swapped, the fallback for a dependent that will not answer is
-proposed and not built, and what may be done to a component that never cooperates has no answer.
-Two of the three wait on an architect as proposals; the third belongs to §32 (a supervisor may
-collect a corpse without being able to build one).
+Every residual this block named is built, and so are the advisory warning (§231) and the live
+swap of `line_editor` (§232 (the line editor swap contract), with a terminal supervisor). What keeps
+it PARTIAL, as of 2026-09-27: the installer does not yet ask the terminal to swap (proposed, an
+architect's), `display_terminal` and `compositor` are not swapped, and what may be done to a
+component that never cooperates belongs to §32 (a supervisor may collect a corpse without being able
+to build one).
 
 ## The idea
 
@@ -133,16 +134,17 @@ warning is a `CALL`. notes/non-cooperative-fallback.md.
   since a permanently blocked thread never reaches the scheduler to spend the kill a destroy arms.
   A hang can also cost two unreclaimable regions, the component's and its stranded caller's.
   Checked 2026-09-26.
-- **Proposed.** `design/roadmap/proposals/warn-a-dependent-without-blocking.md`, **ruled 2026-09-26
-  by calef: "Make the warning advisory."** The fallback for a dependent that will not answer is not
-  "the same open question one level out": measured above, it needs only a warning that never
-  blocks. To build: signal a notification bound to the dependent plus a read-only state page, once
-  milestone 151 (notification objects: async multiplexing without wait-any) lands (#1351). Until then a hung `broker` hangs `swapper`, recorded at the
-  `CALL` in `swapper.rs` and in notes/non-cooperative-fallback.md.
+- **Done.** The advisory warning, 2026-09-27, as ruled in DECISIONS §231 (a swap's warning to a
+  dependent is advisory, and the supervisor never waits for it): `broker` reads a warning page on
+  every wakeup and `swapper` signals a notification bound to it and never waits, so a dependent that
+  does not answer no longer hangs the supervisor. Tested on time, never, and late
+  (`ROLE_LATE_WARNING`) on all three architectures. notes/non-cooperative-fallback.md.
+- **Done.** A handoff is a run of pages, 2026-09-26: `Handoff::pages`, minted with
+  `MemoryRegion::RETYPE`'s page count, DECISIONS §233 (`MemoryRegion::RETYPE` takes a page count).
 - **Done.** `line_editor` is swapped live, 2026-09-27, by `terminal_supervisor` (name provisional,
-  calef's to name), which `system_initializer` now builds in its place. Rulings: calef's "1a and 2b"
-  of 2026-09-26 (an additive `OP_QUIESCE`, and `FLAG_RETRY` for a parked reader, which `swish` and
-  `rmle` handle) and option A of `design/roadmap/proposals/a-terminal-supervisor-holds-the-line-editor.md`
+  calef's to name), which `system_initializer` now builds in its place. Rulings: DECISIONS §232 (the
+  `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag), whose
+  `FLAG_RETRY` `swish` and `rmle` handle, and option A of `design/roadmap/proposals/a-terminal-supervisor-holds-the-line-editor.md`
   on 2026-09-27. `kernel::user::terminal_swap_tests` swaps it twice under a typist on all three
   architectures, carrying the half-typed line and the history. notes/interactive-stack-swap.md.
 - **Proposed.** `design/roadmap/proposals/the-installer-asks-the-terminal-to-swap.md`, PROPOSED

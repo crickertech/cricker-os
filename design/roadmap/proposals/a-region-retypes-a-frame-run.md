@@ -42,7 +42,7 @@ watermark (`crates/memory_regions/src/table.rs`, `retype_page`).
 
 calef, 2026-09-26: option A. Built on PR #1373 (branch `milestone/23-retype-run`), with the
 arithmetic proved in `crates/memory_regions` and a guest test through the real handler; the
-decision section is being recorded by PR #1380.
+decision is recorded as DECISIONS §233 (`MemoryRegion::RETYPE` takes a page count).
 
 ## What it unblocks
 

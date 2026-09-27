@@ -432,6 +432,24 @@ pub fn recv_bound(slot: u64) -> Received {
     }
 }
 
+/// [`recv_cap`], for a thread with a bound notification: a message comes back as
+/// `Received::Message(w0, reply_slot, w1)`, and a signal on the bound notification as
+/// `Received::Notification(word)`, told apart by the kernel-written `w4` exactly as in
+/// [`recv_bound`].
+///
+/// Name: provisional (the lane for milestone 23 (a capability-routed component OS with live
+/// replacement), 2026-09-27), for `broker`'s advisory warning, DECISIONS §231 (a swap's warning to
+/// a dependent is advisory, and the supervisor never waits for it).
+pub fn recv_cap_bound(slot: u64) -> Received {
+    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP returns five words.
+    let (w0, w1, w2, _, w4) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+    if w4 == abi::notification::BOUND {
+        Received::Notification(w1)
+    } else {
+        Received::Message(w0, w1, w2)
+    }
+}
+
 /// `Notification::SIGNAL`: OR `bits` into the notification in `slot`. Never blocks. `0`, or a
 /// negative [`abi::Error`].
 pub fn notification_signal(slot: u64, bits: u64) -> i64 {
