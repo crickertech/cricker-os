@@ -285,12 +285,12 @@ pub mod rendezvous {
     /// not trust. `BadMethod` from a `SURVEY` names the selector without ambiguity, because `SURVEY`
     /// itself is a known method and the selector is the only other word this arm dispatches on.
     ///
-    /// **The scope is the supervision subtree, because the kernel already maintains it.** A thread
+    /// **The scope is the supervision domain, because the kernel already maintains it.** A thread
     /// is in this survey exactly when its recorded fault endpoint *is* this endpoint, which is the
     /// same relationship [`REAP`] is authorized by and needs no second bookkeeping. So a `ps`
     /// launched from a shell sees the shell's children and nothing else, and an operator's `ps`
     /// sees the whole machine only because somebody handed it the endpoint that supervises the
-    /// whole machine. Authority is a subtree, not a global, and the difference between the two is
+    /// whole machine. Authority is a domain, not a global, and the difference between the two is
     /// a capability a reader can point at.
     ///
     /// **Needs [`rights::ENUMERATE`](super::rights::ENUMERATE), and pointedly not `READ`.** This
@@ -453,7 +453,7 @@ pub mod survey {
         /// without holding anything that lets it act on that thread. §150 weighed that and accepted
         /// it, on the ground that `ENUMERATE` is already "the right to learn what exists, as
         /// distinct from acting on it", and the leak is bounded by the domain: a survey never
-        /// reaches outside the supervision subtree the caller was endowed. §204 (how userspace asks where a thread runs) records that
+        /// reaches outside the supervision domain the caller was endowed. §204 (how userspace asks where a thread runs) records that
         /// [`PLACEMENT`] is strictly less than this, which is the comparison that makes the
         /// magnitude concrete rather than adjectival.
         ///

@@ -4796,7 +4796,7 @@ pub fn reap_supervised(ep: RendezvousId, tid: ThreadId) -> Result<(), abi::Error
 /// refusal rather than a `DONE` that a reader would print as "nothing here". A plausible wrong
 /// answer is worse than an error.
 ///
-/// **The domain is the supervision subtree the kernel already maintains**, so there is no registry
+/// **The domain is the one level of supervision the kernel already maintains**, so there is no registry
 /// to keep in step with reality and no way for the view to disagree with it. Membership is
 /// `capability::survey_includes`, which is the same relationship `reap_supervised` authorizes with
 /// and is proved in that crate; a thread appears here exactly when its `Thread::fault_ep` *is* the
