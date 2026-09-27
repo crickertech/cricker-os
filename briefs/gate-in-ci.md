@@ -100,6 +100,26 @@ push and only `ready` are not close in time never produces it. It bites hardest 
 this brief itself creates: a fix pushed in response to Step 4, then marked ready right after, with no
 wait in between.
 
+## Pausing on another pull request, rather than on CI
+
+`WAITING <run-id>` is for CI, and only for CI: it names a run the maintainer's watcher is polling on
+your behalf. If your draft is parked for a different reason, because it is stacked on another
+pull request, shares a file another lane is mid-edit on, or needs a decision only that other pull
+request settles, that is not a `WAITING` line and CI is not what will unblock it.
+
+Say so where a machine can act on it instead: add `Blocked-by: #N[, #M ...]` to this draft's own
+body before ending the turn. `helpers/merge-drain.sh` labels the draft `unblocked` and comments once
+every listed pull request has merged or closed (`notes/merge-queue.md`'s `Blocked-by:` section has
+the mechanism and why a plain "held" label was refused); a listed pull request closed without
+merging is called out as such rather than silently released, because it usually means the plan
+changed. The label clears itself the moment you push a new commit or mark the draft ready, so
+resuming needs nothing more than doing the work.
+
+Without it, the pause lives only in the pull request's own prose, which nothing re-reads once
+`stale_drafts` has posted its one note. That is exactly what happened to #1289 in 2026-09: paused
+waiting on #1288, which merged an hour later, and left alone for two days because the pause was
+never machine-readable.
+
 ## What you must not do
 
 - Do not run `script/verify` or `script/test` locally to "check first". That is the cost this
