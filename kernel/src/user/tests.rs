@@ -2067,10 +2067,11 @@ fn a_std_program_serves_a_granted_listening_port() {
 /// `run n`, minus the interactive loop, which is exercised by the piped demo instead.
 #[test_case]
 fn a_spawned_least_authority_demo_computes_and_reports() {
-    let result = sched::create_rendezvous();
+    let region = crate::memory_region::create(1).expect("no region for the demo's report");
+    let result = sched::create_rendezvous_from(region).expect("no rendezvous from region");
     let faults = USER_FAULTS.load(Ordering::Relaxed);
 
-    sched::spawn(move || {
+    let tid = sched::spawn(move || {
         run(
             least_authority_demo_image(), // its own binary now (19f.2), not a role of hello
             Spawn {
@@ -2097,6 +2098,11 @@ fn a_spawned_least_authority_demo_computes_and_reports() {
         faults,
         "the least_authority_demo faulted instead of computing cleanly",
     );
+    assert!(
+        wait_for(|| !sched::is_thread_present(tid)),
+        "the least_authority_demo never exited",
+    );
+    sched::reclaim_region(region).expect("the demo's report region would not reclaim");
 }
 
 /// **The kernel stops allocating.** Milestone 11's whole point, as one number.
@@ -2590,7 +2596,9 @@ fn userspace_init_delegates_an_interrupt_to_a_child() {
     const IRQ_WORD: u64 = 0x1590;
     const INIT_IRQ_ROLE: u64 = 25;
 
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for init's report");
+    let report =
+        crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_IRQ_ROLE, report);
 
     // Raise the test interrupt. The rendezvous counts it if the child is not waiting yet (it is
@@ -2603,6 +2611,7 @@ fn userspace_init_delegates_an_interrupt_to_a_child() {
         "the interrupt never reached the init-built child through the delegated Irq cap",
     );
     init.release_or_fail("an init test's building budget");
+    crate::sched::reclaim_region(report_region).expect("init's report region would not reclaim");
 }
 
 /// **Milestone 19d.2b: userspace init brings up the real console server.** Past 19d.2a's
@@ -2622,7 +2631,9 @@ fn userspace_init_brings_up_the_console_server() {
     const MSG_LEN: u64 = 66;
     const INIT_CONSOLE_ROLE: u64 = 24;
 
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for init's report");
+    let report =
+        crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_CONSOLE_ROLE, report);
 
     let acked = crate::sched::ipc_recv(report)[0];
@@ -2631,6 +2642,7 @@ fn userspace_init_brings_up_the_console_server() {
         "the init-built console server did not print-and-ack: {acked} bytes, expected {MSG_LEN}",
     );
     init.release_or_fail("an init test's building budget");
+    crate::sched::reclaim_region(report_region).expect("init's report region would not reclaim");
 }
 
 /// **Milestone 19d.2: userspace init builds a device driver and hands it the hardware.**
@@ -2655,7 +2667,9 @@ fn userspace_init_builds_a_driver_that_reads_real_hardware() {
     const PL011_PRIMECELL_ID: u64 = 0xB105_F00D;
     const INIT_DEV_ROLE: u64 = 23;
 
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for init's report");
+    let report =
+        crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_DEV_ROLE, report);
 
     let id = crate::sched::ipc_recv(report)[0];
@@ -2664,6 +2678,7 @@ fn userspace_init_builds_a_driver_that_reads_real_hardware() {
         "the init-built driver did not read the PL011's id: device delegation or the              device-typed mapping is broken",
     );
     init.release_or_fail("an init test's building budget");
+    crate::sched::reclaim_region(report_region).expect("init's report region would not reclaim");
 }
 
 /// **Milestone 19d: userspace init parses a real ELF and builds a running process from it.**
@@ -2679,7 +2694,9 @@ fn userspace_init_parses_an_elf_and_builds_a_running_child() {
     const CHILD_WORD: u64 = 0xC0FFEE;
     const INIT_ROLE: u64 = 20;
 
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for init's report");
+    let report =
+        crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_ROLE, report);
 
     let word = crate::sched::ipc_recv(report)[0];
@@ -2688,6 +2705,7 @@ fn userspace_init_parses_an_elf_and_builds_a_running_child() {
         "init did not build a running child from the ELF it parsed in userspace",
     );
     init.release_or_fail("an init test's building budget");
+    crate::sched::reclaim_region(report_region).expect("init's report region would not reclaim");
 }
 
 /// **Milestone 19e: init builds a `least_authority_demo`, passes it an argument, and gets the answer back.**
@@ -2701,7 +2719,9 @@ fn init_builds_the_demo_and_passes_it_an_argument() {
     const INIT_LEAST_AUTHORITY_DEMO_ROLE: u64 = 28;
     const WORKER_INPUT: u64 = 7;
 
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for init's report");
+    let report =
+        crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(
         initrd().expect("no initrd"),
         INIT_LEAST_AUTHORITY_DEMO_ROLE,
@@ -2715,6 +2735,7 @@ fn init_builds_the_demo_and_passes_it_an_argument() {
         "the least_authority_demo did not receive its START argument: expected n*n back",
     );
     init.release_or_fail("an init test's building budget");
+    crate::sched::reclaim_region(report_region).expect("init's report region would not reclaim");
 }
 
 /// **Milestone 229: a granted thread reads the cycle counter, and an ungranted one is killed for
@@ -2855,7 +2876,9 @@ fn el0_cycle_counter_is_known_to_run() -> bool {
 fn init_runs_the_coremark_workload_and_it_checks_out() {
     const INIT_COREMARK_ROLE: u64 = 29;
 
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for init's report");
+    let report =
+        crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_COREMARK_ROLE, report);
 
     let [crc, ticks, freq, _, _] = crate::sched::ipc_recv(report);
@@ -2873,6 +2896,7 @@ fn init_runs_the_coremark_workload_and_it_checks_out() {
     );
     assert!(freq > 0, "CNTFRQ_EL0 read as zero at EL0");
     init.release_or_fail("an init test's building budget");
+    crate::sched::reclaim_region(report_region).expect("init's report region would not reclaim");
 }
 
 /// **Milestone 19c.3, the whole point: one process builds and starts another, and it runs.**
