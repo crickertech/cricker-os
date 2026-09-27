@@ -13,7 +13,8 @@ Name: provisional, minted by that lane on 2026-09-26, after the roadmap slug.
 The design's first piece claims no new mechanism is needed. A job's authority is a child region
 split off the session's budget, and DECISIONS §16 (object revocation) already refuses `MemoryRegion::DESTROY` on a
 parent with a live child. That was proven on `smb_server`'s `DurableSession`, which went with the
-SMB code on 2026-08-30, leaving only a synthetic copy inside `session_reviver`.
+SMB code on 2026-08-30, leaving a synthetic copy inside `session_reviver` until that program was
+retired on 2026-09-27 (fork 7).
 
 It is proven again on the object a login session actually is:
 `kernel::user::login_tests::a_login_session_with_pending_work_refuses_logout_until_the_work_is_gone`.
@@ -86,8 +87,9 @@ mechanism to milestones 56 and 49, neither of which has built one.
 
 The second half matters more than the first. The credential store is memory only and reprovisioned
 every boot, while the schedule store is on disk: DECISIONS §122 (the on-disk schedule store) and
-§125 (which identities have pending work). `session_reviver` re-derives every identity the manifest
-names without asking the credential service whether that identity still exists. So once disabling is built, a disabled user's jobs come back at the next reboot unless one of
+§125 (which identities have pending work). `login`'s start-up pass (fork 7) re-derives every
+identity the manifest names without asking the credential service whether that identity still
+exists; it asks only at the login that is handed the session. So once disabling is built, a disabled user's jobs come back at the next reboot unless one of
 two things is true:
 
 - Disabling also removes the identity from the manifest, in the same act.
@@ -115,6 +117,10 @@ builds it; the milestone 129 (scheduled execution) lane working the scheduler in
 
 ### 4. Where the re-deriver's per-identity narrowing belongs
 
+**Closed 2026-09-27 as moot**, by calef's ruling of fork 7: there is no separate re-deriver whose
+window could shrink, and `login` already holds the unnarrowed root for its whole life. The
+question as it stood:
+
 The first hardening refinement of DECISIONS §123 (the boot-time re-derivation privilege) asks the re-deriver to narrow its store-read capability
 per identity. Inside the re-deriver alone that cannot shrink anything. To build a per-identity
 caretaker it has to hold the unnarrowed endpoint the caretaker is built from. A directory handle is
@@ -126,9 +132,9 @@ That caretaker is exactly the directory a re-derived session would be handed, wh
 `login`'s `mint` builds. So the refinement should be built when the re-deriver hands a real session
 to a real consumer, sharing `mint`'s construction. Built now, it would be up to eight processes per
 boot whose only purpose is to be destroyed, in a process §123's third refinement asks to keep
-minimal. The same reasoning is why `session_reviver` is still not in the real boot
-(`crates/system_initializer`): until a scheduler receives what it re-derives, wiring it in adds a
-privileged process to every boot that produces nothing anyone holds.
+minimal. The same reasoning kept `session_reviver` out of the real boot
+(`crates/system_initializer`): until a scheduler received what it re-derived, wiring it in added a
+privileged process to every boot that produced nothing anyone held.
 
 ## The schedule ruling, and what "the session supervises" needs
 
@@ -221,15 +227,24 @@ from building them, each recorded where a reader meets it:
 
 ### 7. Where boot re-derivation runs
 
+**DECIDED: option A.** calef, 2026-09-27 (UTC): at start-up `login` re-derives every durable session
+that is not suspended, using the code that restores a stored schedule at login, and
+`session_reviver` is retired. DECISIONS §123 carries the amendment. Built the same day:
+`components/src/login.rs`'s `rederive`, with the capacity in `login_protocol::durable` (both
+provisional names), proven by `login_tests`'
+`a_durable_session_is_re_derived_at_start_up_unless_suspended`.
+
 The options table, the authority each holder has, the prior art and the measured costs are in
 [the fork 7 appendix](durable-delegation/boot-rederivation-in-login.md). In short: `login` already
 holds every capability the separate re-deriver of §123 would, so deleting the re-deriver's copies
-after one use leaves the machine where `login` already stands. The recommendation is that `login`
-re-derives at start-up and `session_reviver` is retired. `login`'s 24-slot table holds one durable
-session (19 + 4N at an ordinary login's peak), so that is also the boot pass's limit until the
-table is widened, at 8 KiB of kernel memory per slot.
+after one use leaves the machine where `login` already stands. `login`'s 24-slot table holds one durable session (19 + 4N at an ordinary login's peak), so that
+is also the start-up pass's limit. The built limit derives from `abi::CAPABILITY_TABLE_SLOTS`
+rather than being written as one. It also derives from the memory `login` sets aside for durable
+budgets, which is one budget, so a wider table (PR #1360 proposes 32 slots, room for three) moves
+only the first. `login.rs`'s BUGS says what raising the second takes.
 
 The appendix also found a latent failure. The real boot gives `login` 768 construction pages, and
 with a schedule archive `_start` splits 800 before it serves anyone, so `login` would die at
-`fail(2)`. Fork 8's archive needs `LOGIN_CONSTRUCTION_PAGES` raised first, whichever way fork 7
-goes.
+`fail(2)`. Option A does not make it bite: the start-up pass runs only when an archive is present,
+and the real boot still passes none. Fork 8's archive needs `LOGIN_CONSTRUCTION_PAGES` raised
+first.

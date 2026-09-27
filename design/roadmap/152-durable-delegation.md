@@ -9,7 +9,7 @@ needs_person: no
 ---
 # 152. Durable delegation: authority that outlives the session that requested it
 
-Updated 2026-09-26 (UTC). Minted 2026-08-22, from a milestone 129 (scheduled execution) discussion: calef
+Updated 2026-09-27 (UTC). Minted 2026-08-22, from a milestone 129 (scheduled execution) discussion: calef
 wants nife to support multiple users, and wants the jobs a user schedules to carry capabilities that
 reflect that user's own authority. Working through what that requires surfaced a gap this tree has
 not needed to close before, and #387 (milestone 129's `--mem` grant, held pending this) is where it
@@ -150,41 +150,14 @@ proof is re-homed below (2026-09-26), and the full account is in git and `notes/
 
 ## What was built (2026-08-24, the schedule store and the boot-time re-deriver)
 
-The second and third BUGS items below (the on-disk schedule store, and boot-time re-derivation's own
-mechanism) are closed, once [DECISIONS §122](../decisions/122-durable-schedule-store-format.md) and
-[§123](../decisions/123-boot-time-rederivation-privilege.md) were ratified (option 1 and option (a)
-respectively) and this lane built what they recommended, plus the manifest question neither decision
-fully specified ([DECISIONS §125](../decisions/125-durable-schedule-manifest.md), PROPOSED,
-provisional number, this lane's own finding).
-
-- `crates/schedule_store` (provisional name) holds the shared names two programs agree on: the
-  schedule file's own filename inside an identity's subtree (§122), the manifest's filename and
-  document format (§125, this lane's own answer to "which identities"), and the render/parse
-  functions for the manifest. It depends on nothing and reuses `timetable::parse` for the schedule
-  document itself unchanged, exactly §122's recommendation.
-- The write path: `fixtures/src/fs_test_client.rs`'s new `ROLE_SCHEDULE_SEED` (this lane's own
-  demonstration writer, not a real registrar; #387 remains that) `MKDIR`s one identity's subtree,
-  writes its `schedule` file through ordinary `filesystem_protocol::fs::CREATE`/`WRITE`, and records
-  that identity in the manifest at the store's own root. `ROLE_SCHEDULE_VERIFY` reads both back
-  through a fresh descent, independent of the re-deriver's own read, and confirms the bytes match
-  exactly (the `smb_seed`/`smb_verify` shape, one level over).
-- `components/src/session_reviver.rs` (provisional name; §123 itself floated this placeholder) is the
-  boot-only re-deriver: granted a construction budget and the store-read capability, checked against
-  the boot's measurement table before either is handed over
-  (`kernel/src/user/session_reviver_service.rs`, §123's second hardening refinement), it reads the
-  manifest by name (never `READDIR`, milestone 126's rule honored throughout), reads and parses each
-  named identity's `schedule` file with the real `timetable::parse`, mints and tears down a synthetic
-  per-identity session in `smb_server.rs`'s own `DurableSession` shape (proving a boot-derived
-  session has the identical §16 lifecycle a live login's already does), then `cap_delete`s its own
-  store-read capability and construction budget and proves both gone by attempting the now-forbidden
-  operations and asserting they fail, `root_supervisor`'s own idiom.
-- A new, dedicated process rather than a phase of `system_initializer`, the smaller fork §123 left
-  open; `session_reviver.rs`'s module doc gives the reasoning. Proven on every boot with a RedoxFS
-  disk, on aarch64 and riscv64, by `kernel::user::session_reviver_tests`.
-
-What this did not build: a real registrar (built 2026-09-26, below), per-identity narrowing of the
-re-deriver's `FS_EP`, a liveness watchdog (§123's addendum declines to design one), and wiring into
-the real boot. The Follow-on list below tracks each.
+Built to [DECISIONS §122](../decisions/122-durable-schedule-store-format.md) and
+[§123](../decisions/123-boot-time-rederivation-privilege.md), plus the manifest neither fully
+specified ([DECISIONS §125](../decisions/125-durable-schedule-manifest.md), since ratified).
+`crates/schedule_store` (provisional name) holds the file names and the manifest format; the
+schedule document is `timetable::parse`'s, unchanged. A separate boot-only process,
+`session_reviver`, read the manifest by name, parsed each identity's stored schedule, proved a
+synthetic session's §16 lifecycle and then deleted its own capabilities. It ran only under the
+kernel harness and was retired on 2026-09-27 (below); git history has it.
 
 ## What was built (2026-09-26, the live-children proof re-homed on a login session)
 
@@ -217,11 +190,33 @@ To calef's §108 ruling. `login_protocol::SUSPENDED_LIST` (`suspended`, provisio
 file service's root in `may-run-unvouched`'s format; the credential store stays sealed. `user
 suspend <name>` and `user resume <name>` edit it at the owner's console (`swish-check` types both).
 `login` refuses a listed identity `SUSPENDED` after authentication and ends its durable session;
-the front-door word `SUSPEND` ends it at once. `session_reviver` skips a listed identity at boot.
+the front-door word `SUSPEND` ends it at once. `session_reviver` skipped a listed identity at boot
+(retired 2026-09-27; `login`'s start-up pass skips one now, below).
 `SUSPEND`, `SUSPENDED` and `APPLIED` are provisional wire items. The console holds no capability to
 `login`'s front door, so on the real boot the cascade runs at the next login attempt; the real boot
 has no durable sessions yet. Proven by `suspending_a_user_ends_their_schedule_and_refuses_them_until_resumed`
-and `a_suspended_identity_is_not_re_derived_at_boot`, each falsified by hand on aarch64.
+and `a_suspended_identity_is_not_re_derived_at_boot` (retired with `session_reviver`), each
+falsified by hand on aarch64.
+
+## What was built (2026-09-27, boot re-derivation moves into `login`)
+
+To calef's ruling of Fork 7, option A. `components/src/login.rs`'s `rederive` runs once in `_start`,
+before the front door opens. For each identity the manifest names and the suspended list does not,
+it opens a session with `Durable::open` and puts the stored document in force with
+`Durable::restore`, the calls a login makes. A refused document ends the session and keeps the
+manifest line, so its user sees the verdict at their next login. Only an authenticated login is
+handed the session.
+
+- The cap, `DURABLE_SESSIONS`, is the fewer of `login_protocol::durable::sessions_held` over
+  `abi::CAPABILITY_TABLE_SLOTS` (one at 24 slots, three at PR #1360's 32) and one budget of memory.
+  The arithmetic and the skip are host-tested there.
+- `session_reviver`, its spawner, its tests and `fs_test_client`'s seed and verify roles are gone.
+- Proven by `login_tests`' `a_durable_session_is_re_derived_at_start_up_unless_suspended`, falsified
+  twice on aarch64 (a pass ignoring the list, and no pass at all).
+- §123 is AMENDED. Fork 4 closes as moot.
+
+Provisional names: `login_protocol::durable` and its items, `rederive`, `Durables`,
+`DURABLE_SESSIONS`, `fs_service::set_home_file`, and the test.
 
 ## Forks this lane found, for an architect
 
@@ -234,11 +229,12 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
    builds) reaches it. Built: the timetable refuses to run holding it (milestone 129), and the session
    process never passes it.
 4. The per-identity narrowing in §123 (the boot-time re-derivation privilege) belongs with the first
-   real consumer, sharing `login`'s `mint`. **Status: PROPOSED.**
+   real consumer, sharing `login`'s `mint`. **Status: CLOSED** 2026-09-27, moot under fork 7's
+   ruling: with no separate re-deriver there is no window to narrow.
 5. When `login` builds the session process. Ruled L2 (calef, 2026-09-26); built.
 7. Boot re-derivation moves into `login`; `session_reviver` is retired. Reasoning in
    [the fork 7 appendix](../../notes/durable-delegation/boot-rederivation-in-login.md).
-   **Status: PROPOSED.** Blocks real sessions at boot.
+   **Status: DECIDED**, option A, calef, 2026-09-27; built the same day.
 8. Which programs a scheduled job may run on the real boot, which decides the schedule archive the
    progenitor hands `login`. **Status: PROPOSED.** Blocks `SCHEDULE` on the real boot.
 6. Where a scheduled job's report goes once nobody is attached. Recommended: a job holds no report
@@ -251,16 +247,17 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
   then removed with the SMB code on 2026-08-30; the proof is re-homed (2026-09-26).
 - ~~The on-disk, per-user schedule store has no format, no write path, and no read-at-boot path.~~
   Built 2026-08-24; see `crates/schedule_store`'s module doc, §122 (the on-disk schedule store) and §125 (which identities have pending work).
-- ~~Boot-time re-derivation's own mechanism was asserted, not designed.~~ Built 2026-08-24; see
-  `components/src/session_reviver.rs`'s module doc and BUGS, and §123.
+- ~~Boot-time re-derivation's own mechanism was asserted, not designed.~~ Built 2026-08-24 as
+  `session_reviver`, and moved into `login` on 2026-09-27 (Fork 7); see `components/src/login.rs`'s
+  `rederive` and BUGS, and §123 as amended.
 - ~~#387 (milestone 129's `--mem` grant): no scheduled job is registered against a real session.~~
   Built 2026-09-26: a user's session registers through `SCHEDULE` and the registration page.
 
 ## Follow-on
 
-- **Outstanding.** Registration does not persist: nothing writes the identity's schedule file or
-  the manifest when a document is replaced, and the boot-time re-deriver still mints synthetic
-  sessions rather than opening real ones. Checked 2026-09-26.
+- **Done.** Registration persists: the client writes the identity's schedule file before it
+  replaces, `login` keeps the manifest, and `login`'s start-up pass opens real sessions from both
+  (2026-09-26 and 2026-09-27).
 - **Outstanding.** The real boot hands `login` no schedule archive (`crates/system_initializer`
   starts it with a zero third argument), so `SCHEDULE` there is an ordinary login. Checked
   2026-09-26.
@@ -269,17 +266,23 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
   after journey 2 was retired.
 - **Done.** Reattachment: `login` keeps the durable session and hands it back (2026-09-26). It
   keeps one; `components/src/login.rs`'s BUGS says why.
-- **Outstanding.** `components/src/session_reviver.rs` still holds one unnarrowed filesystem endpoint for
-  its whole pass, which is §123's first hardening refinement and is unbuilt. Its own `BUGS` says
-  so. Fork 4 above recommends building it with the first real consumer. Checked 2026-09-26.
+- **Refused.** Per-identity narrowing of the re-deriver's filesystem endpoint (§123's first
+  hardening refinement): moot once `login` re-derives, since `login` holds the unnarrowed root for
+  its whole life anyway. Fork 4, closed 2026-09-27.
 - **Outstanding.** `LOGIN_CONSTRUCTION_PAGES` (768) cannot hold a durable budget: see fork 7's
-  appendix. Found 2026-09-27.
-- **Recorded.** No liveness watchdog exists for a re-deriver that hangs before deleting its
-  capabilities; §123's addendum declines to design one.
-- **Outstanding.** `components/src/session_reviver.rs` is spawned only under the kernel test harness by
-  `kernel/src/user/session_reviver_service.rs`; `crates/system_initializer` never names it, so it
-  is not in the real interactive boot. Fork 4 above says why it should stay out until a scheduler
-  receives what it derives. Checked 2026-09-26.
+  appendix and `components/src/login.rs`'s BUGS. Latent: the start-up pass runs only with a
+  schedule archive, and the real boot passes none until fork 8 is answered. Found 2026-09-27;
+  checked again the same day under option A.
+- **Recorded.** No liveness watchdog for the start-up pass. It is bounded instead: each re-derived
+  session waits at most `END_WAIT_SECS` for its timetable, before the front door opens.
+  `components/src/login.rs`'s BUGS.
+- **Recorded.** `login` keeps one durable session, at start-up and at login alike. The table limit
+  derives from `abi::CAPABILITY_TABLE_SLOTS` and rises to three with PR #1360's 32 slots; the
+  memory limit stays one budget until `login`'s `DURABLE_UT_PAGES`, the progenitor's
+  `LOGIN_CONSTRUCTION_PAGES` and the harness are raised together and the out-of-order hole in
+  `durable_ut` is fixed. `components/src/login.rs`'s BUGS.
+- **Done.** `session_reviver` is retired and the real boot's `login` carries the start-up pass,
+  which runs as soon as the progenitor hands it a schedule archive (fork 8). 2026-09-27.
 - **Done.** The manifest question is settled: `design/decisions/125-durable-schedule-manifest.md`
   is DECIDED, ratified by calef on 2026-08-25, and its own text notes the recommended shape was
   already built rather than merely proposed.
@@ -296,7 +299,7 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 calef wants a scheduled job's capabilities to reflect the scheduling user's own authority
 (milestone 129's #387), so the registrar is a user's session, and its authority must outlive the
 connection that registered it, which DECISIONS §92 (a caretaker is supervised by the client it
-serves) does not allow. Built: the on-disk schedule store (§122), boot-time re-derivation
-(`session_reviver`, §123, §125), and the §16 live-children proof on a login session's budget
-(2026-09-26). The session process is ruled (S1); the rest waits on proposed forks 2 to 6 and on
-milestone 129's replace contract.
+serves) does not allow. Built: the on-disk schedule store (§122), boot-time re-derivation (in
+`login` since 2026-09-27, §123 as amended, §125), and the §16 live-children proof on a login
+session's budget (2026-09-26). The session process is ruled (S1) and built; the rest waits on
+proposed forks 6 and 8 and on milestone 129's replace contract.

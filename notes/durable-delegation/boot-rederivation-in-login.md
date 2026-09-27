@@ -1,5 +1,9 @@
 # Fork 7: where boot re-derivation runs
 
+**DECIDED: option A**, calef, 2026-09-27 (UTC). Built the same day: `login`'s `rederive`, and
+`session_reviver` is gone. DECISIONS §123 carries the amendment. What follows is the analysis as
+it was presented, kept as the record of why.
+
 Milestone 152 (durable delegation) found that `login` already restores a stored schedule when its
 user logs in. Doing the same thing at start-up is boot re-derivation, which DECISIONS §123 (the
 boot-time re-derivation privilege) gives to a separate, boot-only process. This appendix to
@@ -87,11 +91,11 @@ Read on 2026-09-27 (UTC):
   around after logouts" (`loginctl(1)`). `user@.service(5)` says the system manager, PID 1, starts
   every user manager. The process that starts a user's manager at boot is the one that starts it
   at login, and it holds that power for its whole life.
-- launchd: LaunchDaemons load at boot and run with nobody logged in. LaunchAgents load when a user
-  logs in and stop at logout (Apple, "Creating Launch Daemons and Agents"). There is no
-  per-user-at-boot tier; that is option E.
+- launchd: system-wide jobs load at boot and run with nobody logged in; per-user agents
+  (`LaunchAgents`) load when a user logs in and stop at logout (Apple's launchd documentation).
+  There is no per-user-at-boot tier; that is option E.
 - cron: `cron(8)` reads every account's crontab from `/var/spool/cron` at start-up and rechecks
-  them each minute. From memory, not read: the daemon runs as root and switches to the crontab's
+  them each minute. From memory, not read: `cron` runs as root and switches to the crontab's
   owner for each command, so one long-lived process holds the power to act as any user.
 
 From memory, not read: Fuchsia's `session_manager` is started by the component manager at boot and

@@ -1,0 +1,11 @@
+# Durable delegation: the appendices
+
+[`notes/durable-delegation.md`](../durable-delegation.md) is the page to read. The files here hold
+work that page points at but does not need to carry whole.
+
+- [boot-rederivation-in-login.md](boot-rederivation-in-login.md): Fork 7, where boot re-derivation
+  runs, written to the seven questions. calef ruled option A on 2026-09-27 (UTC): `login`
+  re-derives at start-up and `session_reviver` is retired.
+
+*Name: provisional, minted 2026-09-27 (UTC) by the lane for milestone 152 (durable delegation), for
+the directory and every stem in it. Naming is calef's; `script/names --unratified` lists each stem.*

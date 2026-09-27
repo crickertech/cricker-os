@@ -232,7 +232,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 120 | AMENDED | [A QEMU-only virtio-rng stopgap for the interactive boot](120-boot-entropy-stopgap-declined.md) |
 | 121 | AMENDED | [What a device capability is when the device has no page: x86 port I/O](121-port-io-capability.md) |
 | 122 | DECIDED | [The on-disk, per-user schedule store: format, write path, read-at-boot path](122-durable-schedule-store-format.md) |
-| 123 | DECIDED | [Boot-time re-derivation: what grants the privilege, and how it dies after one use](123-boot-time-rederivation-privilege.md) |
+| 123 | AMENDED | [Boot-time re-derivation: what grants the privilege, and how it dies after one use](123-boot-time-rederivation-privilege.md) |
 | 124 | DECIDED | [Ratify the x86_64 syscall ABI](124-x86-64-syscall-abi.md) |
 | 125 | DECIDED | [What tells boot-time re-derivation which identities have pending work](125-durable-schedule-manifest.md) |
 | 126 | AMENDED | [A process holding two directory capabilities gets a real, single, moving `cwd`](126-two-directory-cwd.md) |

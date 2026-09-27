@@ -327,8 +327,9 @@ document whose `--mem` entry shared the clock with a fast interval would.
   die. Fine for a document with one such entry that fires at boot; a document leaning on `--mem`
   entries competing with fast intervals would feel it.
 
-- A running scheduler persists nothing. Milestone 152 (durable delegation) built the store that
-  `session_reviver` reads at boot, but no timetable reads it; registration.md proposes how.
+- A running scheduler persists nothing itself. Under milestone 152 (durable delegation) the user's
+  client writes the store before it replaces, and `login` puts the stored document back in force
+  through the registration page, at the user's next login and, since 2026-09-27, at start-up.
 
 - The document is compiled in, not read from disk, which is also what decides who may register
   (see above), unless the timetable is spawned with a registration page, which §222 built.
