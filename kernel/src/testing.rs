@@ -576,11 +576,15 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// change landed within the same day against slightly different bases (22367 against 22384, a
 /// pre-existing 17-frame drift neither entry's own change explains), so neither number above
 /// describes the tree this merge actually produces, exactly the collision `b84b3a35c` named:
-/// "the frame budget is the merged tree's number, not either branch's." <MEASURED_VALUE>
+/// "the frame budget is the merged tree's number, not either branch's." Measured fresh on the
+/// rebased branch with `script/test`, both architectures green, no `FRAME LEDGER` failure, longest
+/// free run 28928 (aarch64) well clear of `SUITE_MIN_FREE_RUN`: aarch64 read **22754**, riscv64
+/// **22613**. aarch64 is again the tighter of the pair and is what the headroom is measured
+/// against, the same convention every entry above follows. 22754 + 32 = 22786.
 ///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 23_500; // TEMP measurement placeholder, fixed up below
+const SUITE_PAGE_FRAME_BUDGET: usize = 22_786;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///
