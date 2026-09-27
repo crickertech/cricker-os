@@ -19,6 +19,23 @@ Nothing is built yet, because the mark qualifies a grant and the grant is the de
 ([`designating-a-foreign-programs-words.md`](designating-a-foreign-programs-words.md)). This page
 exists so the spelling is decided before that half lands, not while it waits.
 
+## Refused: there is no mark
+
+calef ruled on 2026-09-27 at 06:35Z (UTC): "no mark", option 1. An unvouched program gets every
+named word read-only, plus `>` for its output. To widen that, a person installs (vouches for) the
+program, and its manifest then applies. An unvouched note grants nothing, so clause 3's "may
+create" does not apply to it either.
+
+The reasons:
+
+- Choosing a spelling is irreversible, because every script carries it.
+- Having no mark is reversible. A mark can be added later without breaking any script.
+- Installing is already how trust widens here, by §208 (installing a package is granting it).
+
+This file's frontmatter says PROPOSED only because a proposal can carry no other status. It is
+refused, and waits for an integrator to promote it as a refused block. Everything below is the
+analysis as it was put to calef.
+
 ## What the spelling has to survive
 
 - **The program must never see the mark.** `sed -i x.txt` has to reach `sed` as `x.txt`. So the

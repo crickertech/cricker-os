@@ -1,5 +1,6 @@
 ---
-status: PARTIAL
+status: BUILT
+built: 2026-09-27
 raised: 2026-08-31
 milestone_dependencies: none
 decision_dependencies: 170
@@ -13,9 +14,9 @@ Minted 2026-08-31 from milestone 121's (`ripgrep`: enumeration as a
 capability) lane. *(Number provisional until the merge queue lands it.)*
 
 §170 (how a foreign program is told what to do), the decision this block depends on, was decided
-by calef on 2026-09-26. Two parts of the build are still an architect's: the
-block's layout, which two programs agree on, and the spelling of the mark on a word. The lane ships
-each provisionally and brings it to calef as a proposal rather than waiting.
+by calef on 2026-09-26. He ruled twice more on 2026-09-27 (UTC), both recorded below: "N1" at
+06:27Z, and "no mark" at 06:35Z. The argument page's layout is still his, built provisionally and
+proposed.
 
 In brief. Unmodified `ripgrep` ran on nife and stopped at argument parsing, because the native ABI
 had no argument vector and `std::env::args()` compiled std's `unsupported` backend and yielded
@@ -77,29 +78,53 @@ which carry no authority. Proven by `installed/std-echo one 'two words'` on ever
 which prints `words ["installed/std-echo", "one", "two words"]`. `std_echo` is a second, small
 binary in the `std_exerciser` workspace, with a provisional name.
 
-## What is left
+## What is built (2026-09-27, lane `milestone/205-designation`)
 
-Clauses 2 to 5, the designation half: turning the words that resolve into grants. Nothing below is
-built. A `std` program at the prompt still holds no directory, so `rg pattern` hears its pattern and
-has nothing to search. The design is
-[`proposals/designating-a-foreign-programs-words.md`](proposals/designating-a-foreign-programs-words.md).
-It has one fork that is calef's (what a line with no path grants) and one that is a mechanism
-choice (how a single `std` directory slot holds words from several places).
+Clauses 2 to 5: a word that names something here is granted it. calef ruled two questions first.
+
+- N1, at 2026-09-27T06:27Z, on
+  [`proposals/designating-a-foreign-programs-words.md`](proposals/designating-a-foreign-programs-words.md):
+  a line that names no file grants nothing. To search here, a person types `rg pattern .`.
+- No mark, at 06:35Z, option 1 on
+  [`proposals/the-mark-on-a-foreign-programs-word.md`](proposals/the-mark-on-a-foreign-programs-word.md).
+  An unvouched program gets every named word read-only, plus `>` for its output. To widen that, a
+  person installs (vouches for) the program, and its manifest applies. There is no mark to spell.
+
+How it works:
+
+- The shell designates. For each word after the name, `swish::designation` looks the first path
+  component up in the shell's directory, with the same directory read `echo *` uses. A name that
+  is there is designated, `.` designates the directory itself, and anything else is inert bytes.
+- The planner turns that into one `DirGrant` at the shell's directory: the names, or the whole
+  directory for `.`. Nothing designated, nothing granted.
+- The manifest says what a named word may do: `ArgSpec::Words(WordGrant)`, read-only, read-write,
+  or read-write and create (clause 3). The note encodes them as 2, 3 and 4 in its `arg` byte.
+- The shell sends the grant as a directory grant. Named entries also send a name-set frame
+  (`spawnproto::NAMESET_BIT`), and the progenitor builds `fs_nameset_caretaker`. The whole
+  directory gets `fs_subtree_caretaker`. The caretaker's endpoint lands at `std`'s slot 4.
+- The progenitor clamps the caretaker's rights to the manifest it endows. Bytes nobody vouched for
+  get `UNVOUCHED_STD_MANIFEST`, which is read-only, whatever their note asks.
+- Plain lines, pipeline stages and images run by path all carry it.
+
+Proven by `script/swish-check` with `std_grep`, a small `std` program that searches like `rg` and
+runs from the disk unvouched. In a directory holding `docs/n.txt`, `std_grep needle docs` prints
+`docs/n.txt:find the needle here`. `std_grep needle` prints `std_grep: .: no directory was granted
+to search`. `caps` previews the grant as `docs` only, read-only. Host tests cover designation,
+the planner's grant and the note's round trip.
 
 ## What stays open
 
 - The layout: where the page sits, `argv[0]`, bytes rather than UTF-8, the 4,080-byte ceiling.
   Built as [`proposals/the-argument-page-layout.md`](proposals/the-argument-page-layout.md)
   proposes, and provisional until a ruling.
-- The mark's spelling, which is a naming decision:
-  [`proposals/the-mark-on-a-foreign-programs-word.md`](proposals/the-mark-on-a-foreign-programs-word.md).
 - Environment variables and exit codes for a foreign program, which §170 does not rule.
 
 ## Provisional names
 
 `argument_protocol`, `ArgSpec::Words`, `argv`, `check_words`, `ARGS_BIT`, `ARGS_SLOT`,
 `ARGS_PAGE`, the magic `nifeargv`, `Refusal::PatternInArguments`, `Refusal::ArgumentsTooLong`,
-`image_hears_words`, `UNVOUCHED_STD_MANIFEST`, `std_echo` and `installed/std-echo`.
+`image_hears_words`, `UNVOUCHED_STD_MANIFEST`, `std_echo`, `installed/std-echo`, `WordGrant`,
+`Designation`, `designation`, `each_word`, `NAMESET_BIT`, `std_grep` and `installed/std-grep`.
 
 ## BUGS
 
@@ -119,9 +144,16 @@ choice (how a single `std` directory slot holds words from several places).
   the gate proves the path with `std_echo` (166 KiB on aarch64). Raising the ceiling moves the
   shell's image window and both budgets; milestone 206 (a program image has under 896 KiB)'s
   address-space map is where the window would go.
-- **A pattern on a line run by path is expanded before the note is read.** `run_image` expands
-  first. So when `installed/std-echo *.rs` matches nothing, the answer is the expansion's "no name
-  here matches" rather than `PatternInArguments`. When it matches, the planner still refuses it.
+- **There is no mark, by design** (calef, 2026-09-27T06:35Z). An unvouched program cannot be
+  given write on a word from the prompt. Installing it is how trust widens. A note's read-write or
+  create grants nothing until then.
+- **A word grants its whole first component.** `std_grep needle docs/n.txt` grants all of `docs`,
+  because the caretaker filters at the shell's directory and nowhere below. And a pattern that
+  happens to be a file's name here is granted too, read-only.
+- The shell must stand exactly one directory down. At its root, or deeper, a word grant is
+  refused with a sentence saying so, because the progenitor builds one caretaker per grant from a
+  single directory name (`dir_grant`'s limit, shared).
+- A word grant holds at most eight names, the name-set page's ceiling; a ninth is refused.
 - **A pipeline with a `std` program at its head strands that program's region until reboot.**
   The job pool is a stack: a region's pages go back only when it is the most recent carve
   (`memory_regions`' `return_to_parent`). A pipeline carves its head first, and the head exits
@@ -146,15 +178,14 @@ choice (how a single `std` directory slot holds words from several places).
 
 ## Follow-on
 
-- **Proposed.** Clauses 2 to 5, the designation half, in
-  `design/roadmap/proposals/designating-a-foreign-programs-words.md`, with calef's one fork (what a
-  line naming no file grants) and the recommended mechanism.
+- **Done.** Clauses 2 to 5, carried by this block's designation build; the proposal is kept only
+  until the integrator retires it, `design/roadmap/proposals/designating-a-foreign-programs-words.md`.
 - **Proposed.** The page's layout, in `design/roadmap/proposals/the-argument-page-layout.md`.
-- **Proposed.** The mark's spelling (clause 4), in
-  `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md`. Nothing spells one yet,
-  because nothing grants a word read-write before the designation half lands.
-- **Recorded.** Environment variables and exit codes for a foreign program, and the `--mem` and
-  `xargs` gaps. Also a `std` pipeline head stranding its region, the 256 KiB image ceiling that
+- **Proposed.** The mark, refused by calef at 2026-09-27T06:35Z and awaiting promotion as a
+  refused block, in `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md`.
+- **Decision.** Environment variables and exit codes for a foreign program, which §170 leaves open
+  in `design/decisions/170-how-a-foreign-program-is-told-what-to-do.md`.
+- **Recorded.** The `--mem` and `xargs` gaps. Also a `std` pipeline head stranding its region, the 256 KiB image ceiling that
   keeps `rg` from running by path, and the scratch-page cost. All are in this block's `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
 
@@ -162,6 +193,6 @@ choice (how a single `std` directory slot holds words from several places).
 
 Minted from milestone 121's lane. §170 ruled on 2026-09-26: a byte argv in one page, and
 authority from the manifest and the line's directories. The argv is built: a `std` program at the
-prompt hears its line through `std::env::args()`, in a pipeline too. Still to build: the
-designation half, which turns a word that names a file into a grant. That half is proposed, with
-one fork for calef.
+prompt hears its line through `std::env::args()`, in a pipeline too. A word that names something
+in the shell's directory is granted it, read-only for bytes nobody vouched for; a line naming
+nothing grants nothing (N1), and there is no mark (calef, 2026-09-27).
