@@ -1,7 +1,8 @@
-# toolchain: nightly-2026-09-26
+# toolchain: nightly-2026-09-27
 # qemu: 11.1.1
 # date: 2026-09-26
 # why: nightly-2026-09-26: measured on the bump branch (main at 50d32760a plus the pin) against the nightly-2026-09-25 floors, every row unchanged to the tick; this mixes the compiler with drift on main since the last save, not separated
+# why: 2026-09-27: restamped from nightly-2026-09-26 to nightly-2026-09-27 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: none (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: none
 # bench/baseline-x86_64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on

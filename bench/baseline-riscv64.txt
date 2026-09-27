@@ -1,7 +1,8 @@
-# toolchain: nightly-2026-09-26
+# toolchain: nightly-2026-09-27
 # qemu: 11.1.1
 # date: 2026-09-26
 # why: nightly-2026-09-26: measured on the bump branch (main at 50d32760a plus the pin) against the nightly-2026-09-25 floors, every row within 0.1% (largest ctx_switch +0.08%, yield_switch -0.05%); this mixes the compiler with drift on main since the last save, not separated
+# why: 2026-09-27: restamped from nightly-2026-09-26 to nightly-2026-09-27 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ipc_rtt +0.216%, ctx_switch -0.063%, yield_switch +0.049% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt +0.216%, ctx_switch -0.063%, yield_switch +0.049%, map_new -0.039%, ipc_rtt_el0 -0.025%, broker_rtt +0.005%, spawn_reap +0.003%, map_el0 +0.002%, call_reply -0.001%
 # bench/baseline-riscv64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
