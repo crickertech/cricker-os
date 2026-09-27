@@ -57,10 +57,10 @@ cordoba and is reached over the tailnet at `https://cordoba.<tailnet>.ts.net:400
 mapping, its spend logging and its service unit are mastered and deployed elsewhere; this tree holds
 only the clients (`helpers/open-lane.sh`, `helpers/review-trial.sh`, `script/nanny`). A config copy
 here had already drifted from the one cordoba ran, because it was mastered in two places, so a
-gateway change is not deployed from nife. As of 2026-09-25 it exposes `open-lane` (the default a
-lane asks for), `open-lane-qwen`, `open-lane-deepseek`, `open-lane-glm`, `open-lane-glm5`,
-`open-lane-kimi`, `open-lane-kimi-pinned`, `open-lane-qwenmax` and `open-lane-mistral`. Every name
-is a candidate, not a recommendation.
+gateway change is not deployed from nife. As of 2026-09-26 it exposes `open-lane` (the default a
+lane asks for), `open-lane-qwen`, `open-lane-qwen-next`, `open-lane-deepseek`, `open-lane-glm`,
+`open-lane-glm5`, `open-lane-kimi`, `open-lane-kimi-pinned`, `open-lane-qwenmax` and
+`open-lane-mistral`. Every name is a candidate, not a recommendation.
 
 **It runs on cordoba, not on patagonia** (calef, 2026-09-22, wanting to call it from several hosts
 on his tailnet). Three reasons beyond that one. cordoba is **always on**, where a laptop is not, and
