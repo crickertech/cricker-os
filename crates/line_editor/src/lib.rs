@@ -223,6 +223,50 @@ pub mod proto {
     /// [`OP_READLINE`]; a second one while one is parked is refused with `BAD_REQUEST`.
     pub const OP_READRAW: u64 = 7;
 
+    /// Supervisor → terminal: **stop serving so a replacement can take over** (milestone 23 (a capability-routed component OS with live replacement), the
+    /// `line_editor` swap; ruled by calef 2026-09-26, "1a"). It rides the served endpoint, so its
+    /// FIFO does the draining: every request queued ahead of it is served by this instance, and
+    /// every one behind it by whoever receives next.
+    ///
+    /// Before replying, the terminal answers any parked [`OP_READLINE`] or [`OP_READRAW`] with
+    /// [`FLAG_RETRY`], because a reply capability cannot leave this process and a reader stranded
+    /// on it could never be woken. Then it replies r0 = [`QUIESCED`] and stops receiving until its
+    /// supervisor says [`CTL_RESUME`] or [`CTL_QUIT`] on its control endpoint.
+    ///
+    /// **Refused with [`BAD_REQUEST`] by a terminal started with no control endpoint**, which is
+    /// every terminal a boot builds today. Without one there is nobody to tell it to resume, so an
+    /// honoured quiesce would be a dead terminal. See this crate's `BUGS` for who may send it.
+    ///
+    /// Name: provisional (the lane for milestone 23, 2026-09-26).
+    pub const OP_QUIESCE: u64 = 8;
+
+    /// The reply word to [`OP_QUIESCE`]: "QUIT", the value `swap_protocol::QUIESCED` also uses.
+    pub const QUIESCED: u64 = 0x5155_4954;
+
+    /// Supervisor → quiesced terminal, on its control endpoint: go back to serving. The swap did not
+    /// commit, and this instance never lost its state.
+    pub const CTL_RESUME: u64 = 1;
+    /// Supervisor → quiesced terminal, on its control endpoint: exit. The replacement has taken
+    /// over.
+    pub const CTL_QUIT: u64 = 2;
+
+    /// `line_editor`'s third start argument, a set of bits a supervisor passes (milestone 23 (a
+    /// capability-routed component OS with live replacement)). `START_HANDOFF`: a handoff page is
+    /// mapped at [`HANDOFF_VA`](super::component::HANDOFF_VA), so a quiesce writes the blob there.
+    /// `START_ABSORB`: this instance replaces another, so it reads that blob before serving and
+    /// tells its supervisor [`NOTE_ABSORBED`] or [`NOTE_REFUSED`] on the slot after its control
+    /// endpoint.
+    ///
+    /// Name: provisional (the lane for milestone 23, 2026-09-27).
+    pub const START_HANDOFF: u64 = 1 << 0;
+    /// See [`START_HANDOFF`].
+    pub const START_ABSORB: u64 = 1 << 1;
+    /// Terminal → supervisor: the blob was absorbed; this instance is serving.
+    pub const NOTE_ABSORBED: u64 = 1;
+    /// Terminal → supervisor: the blob was refused; this instance is leaving without serving.
+    /// The second word is the refusal: 0 no blob, 1 malformed, otherwise the layout found.
+    pub const NOTE_REFUSED: u64 = 2;
+
     /// Pack a request's first word from an opcode and a length/count.
     pub const fn req(op: u64, len: u64) -> u64 {
         (op << OP_SHIFT) | (len & 0xffff_ffff)
@@ -241,6 +285,22 @@ pub mod proto {
     /// READLINE reply flag: the read was interrupted (^C). The line length is 0. This is the
     /// contract's hook for interrupt routing; see design/interrupt-routing.md.
     pub const FLAG_INTERRUPTED: u64 = 1 << 1;
+    /// Read reply flag: **ask again** (calef, 2026-09-26, "2b"). The terminal is about to be
+    /// replaced and could not hold this read across the swap; nothing was typed away. Re-issue the
+    /// same request, unchanged, and the terminal that answers it resumes the line where it was.
+    ///
+    /// An [`OP_READLINE`] reply carries it in r1 with r0 = 0. An [`OP_READRAW`] reply cannot,
+    /// because r1 is the data there, so it is r0 = 0 (never a byte count, which is 1..=8) with this
+    /// flag in r1. [`is_retry`] reads both.
+    ///
+    /// Name: provisional (the lane for milestone 23, 2026-09-26).
+    pub const FLAG_RETRY: u64 = 1 << 2;
+
+    /// **Whether a read reply means "ask again".** One test for both read shapes, so a reader
+    /// cannot check the flag in the wrong register.
+    pub const fn is_retry(r0: u64, r1: u64) -> bool {
+        r0 == 0 && r1 == FLAG_RETRY
+    }
 
     /// The reply to a request whose opcode the terminal does not implement: r0 = this, r1 = 0.
     /// A sentinel rather than silence, so a confused client fails fast instead of hanging.
@@ -357,6 +417,15 @@ impl LineDisc {
         self.len = 0;
         self.cur = 0;
         self.browse = None;
+    }
+
+    /// **Resume a read the reader re-issued after [`proto::FLAG_RETRY`]**: remember `prompt` as
+    /// [`start_line`](LineDisc::start_line) does, but paint nothing, because the screen already
+    /// shows the prompt and the half-typed line. Painting again would print them twice.
+    pub fn resume_line(&mut self, prompt: &[u8]) {
+        let n = prompt.len().min(PROMPT_MAX);
+        self.prompt[..n].copy_from_slice(&prompt[..n]);
+        self.prompt_len = n;
     }
 
     /// Begin a read: remember `prompt` (for repaints) and paint it, followed by whatever the
@@ -827,6 +896,364 @@ fn csi_move(out: &mut impl Sink, n: usize, dir: u8) {
     }
 }
 
+/// **What a supervisor routes to a `line_editor` it can replace** (milestone 23 (a
+/// capability-routed component OS with live replacement)): the capability half of the terminal
+/// contract, beside the wire half in [`proto`]. Two declarations, because the output sink is one of
+/// two shapes: the console's two-endpoint protocol, older than §12 (call/reply IPC: a
+/// one-shot reply capability), which needs a reply endpoint, or
+/// `display_terminal`'s one `CALL`, which does not. Everything else is shared.
+///
+/// **Slot order is the one `line_editor` already reads**: the terminal in 0, the sink in 1, the
+/// console's reply in 2 when there is one, then the control endpoint and the supervisor's
+/// notification endpoint. `line_editor` learns the control slot from its second start argument and
+/// finds the notification endpoint in the slot after it, so one binary serves both shapes; the
+/// `const` assertions below hold the declarations to that.
+///
+/// Name: provisional (the lane for milestone 23, 2026-09-27), for the module, both constants,
+/// `HANDOFF_VA` and the role and contract strings.
+pub mod component {
+    use component_plan::Direction::{Serve, Use};
+    use component_plan::{CapNeed, Handoff, MapNeed, PageKind, Requirements};
+
+    /// Where the handoff page sits. Clear of the three pages `line_editor` already maps.
+    pub const HANDOFF_VA: u64 = 0x00a0_0000;
+    /// One page. Measured, not assumed: a full history ring and a full queue are under 4 KiB.
+    pub const HANDOFF_PAGES: u64 = 1;
+    /// Pages one instance is built out of: its image, its `.bss` (the discipline, the queues), a
+    /// twelve-page stack, its page tables and revocation log: twelve image pages measured on riscv64
+    /// (2026-09-27), about thirty in all, so roughly one and a half times what it uses.
+    pub const INSTANCE_PAGES: u64 = 48;
+    /// The stack a supervisor builds an instance with: `system_initializer`'s `CHILD_STACK_PAGES`,
+    /// which is what `line_editor` has always run on.
+    pub const STACK_PAGES: u64 = 12;
+
+    const HANDOFF: Handoff = Handoff {
+        va: HANDOFF_VA,
+        pages: HANDOFF_PAGES,
+    };
+    const MAPS: &[MapNeed] = &[
+        MapNeed {
+            role: "sink_page",
+            va: 0x0060_0000,
+            kind: PageKind::Shared,
+        },
+        MapNeed {
+            role: "client_out",
+            va: 0x0080_0000,
+            kind: PageKind::ReadOnly,
+        },
+        MapNeed {
+            role: "client_in",
+            va: 0x0090_0000,
+            kind: PageKind::Shared,
+        },
+    ];
+
+    /// A `line_editor` printing through the console server.
+    pub const CONSOLE: Requirements = Requirements {
+        contract: "terminal",
+        caps: &[
+            CapNeed {
+                role: "terminal",
+                direction: Serve,
+            },
+            CapNeed {
+                role: "sink",
+                direction: Use,
+            },
+            CapNeed {
+                role: "sink_reply",
+                direction: Serve,
+            },
+            CapNeed {
+                role: "control",
+                direction: Serve,
+            },
+            CapNeed {
+                role: "supervisor",
+                direction: Use,
+            },
+        ],
+        maps: MAPS,
+        pages: INSTANCE_PAGES,
+        // It forwards synchronously to its sink while serving the shell, which is the one shape
+        // `depends_on` exists to name.
+        depends_on: &["console"],
+        handoff: Some(HANDOFF),
+    };
+
+    /// A `line_editor` printing through `display_terminal`.
+    pub const DISPLAY: Requirements = Requirements {
+        contract: "terminal",
+        caps: &[
+            CapNeed {
+                role: "terminal",
+                direction: Serve,
+            },
+            CapNeed {
+                role: "sink",
+                direction: Use,
+            },
+            CapNeed {
+                role: "control",
+                direction: Serve,
+            },
+            CapNeed {
+                role: "supervisor",
+                direction: Use,
+            },
+        ],
+        maps: MAPS,
+        pages: INSTANCE_PAGES,
+        depends_on: &["display"],
+        handoff: Some(HANDOFF),
+    };
+
+    /// **How `terminal_supervisor` is endowed**, by `system_initializer` on a real boot and by the
+    /// kernel's own test: one list both builders and the supervisor read (AGENTS.md rule 7). The
+    /// supervisor holds every object a `line_editor` is built from, with `GRANT`, so it can build a
+    /// second one; and the terminal endpoint with `WRITE` too, so it can send `OP_QUIESCE`.
+    ///
+    /// Start arguments: the output sink's mode (`line_editor`'s own `MODE_CONSOLE` = 0 or
+    /// `MODE_DISPLAY` = 1), the length of the `line_editor` image copied to [`ELF_VA`](supervisor::ELF_VA), and the slot
+    /// of an endpoint to receive swap requests on, `0` for none (a boot today: the trigger is
+    /// milestone 198 (a package manager, and the trivial install)'s installer and is not built).
+    ///
+    /// Name: provisional (the lane for milestone 23, 2026-09-27), for the module and every constant
+    /// in it. `terminal_supervisor` itself is calef's to name.
+    pub mod supervisor {
+        /// The construction budget.
+        pub const BUDGET: u64 = 0;
+        /// The terminal endpoint: `READ | WRITE | GRANT`.
+        pub const TERMINAL: u64 = 1;
+        /// The output sink's request endpoint (console) or served endpoint (display).
+        pub const SINK: u64 = 2;
+        /// The page `line_editor` fills and the sink prints.
+        pub const SINK_PAGE: u64 = 3;
+        /// The client's outgoing page, which `line_editor` only reads.
+        pub const CLIENT_OUT: u64 = 4;
+        /// The client's incoming page, which `line_editor` writes completed lines into.
+        pub const CLIENT_IN: u64 = 5;
+        /// The console's reply endpoint, in console mode only.
+        pub const SINK_REPLY: u64 = 6;
+        /// Where the `line_editor` image is copied into the supervisor. Below `supervision_protocol`'s
+        /// scratch window, which starts at `0x1000_0000` and grows upward.
+        pub const ELF_VA: u64 = 0x0800_0000;
+        /// How many pages of budget the supervisor needs: two instances at once (the incumbent
+        /// and its replacement) and its own handful of objects and page tables.
+        pub const BUDGET_PAGES: u64 = 2 * super::INSTANCE_PAGES + 16;
+
+        /// Requester → supervisor, on the swap endpoint: replace the running `line_editor`.
+        pub const SWAP: u64 = 1;
+        /// Requester → supervisor: retire the running `line_editor` (quiesce it, tell it to quit,
+        /// collect it), reply [`STOPPED`], and exit. So a test's terminal can end with every
+        /// region back in its budget; nothing on a boot sends it.
+        pub const STOP: u64 = 2;
+        /// Supervisor → requester: stopped, and exiting.
+        pub const STOPPED: u64 = 0x5354_4f50;
+        /// Supervisor → requester: the replacement absorbed the state and serves; the old one is
+        /// gone. Second word: how many instances this supervisor has started.
+        pub const SWAPPED: u64 = 0x5357_4150;
+        /// Supervisor → requester: the replacement refused, and the incumbent serves on. Second
+        /// word: the refusal `NOTE_REFUSED` carried.
+        pub const ROLLED_BACK: u64 = 0x524f_4c4c;
+    }
+
+    const _: () = assert!(CONSOLE.problem().is_none());
+    const _: () = assert!(DISPLAY.problem().is_none());
+    // The slots `line_editor` reads without being told.
+    const _: () = assert!(component_plan::slot_of(&CONSOLE, "terminal") == 0);
+    const _: () = assert!(component_plan::slot_of(&CONSOLE, "sink") == 1);
+    const _: () = assert!(component_plan::slot_of(&CONSOLE, "sink_reply") == 2);
+    const _: () = assert!(component_plan::slot_of(&DISPLAY, "terminal") == 0);
+    const _: () = assert!(component_plan::slot_of(&DISPLAY, "sink") == 1);
+    // And the one it is told: the notification endpoint follows the control endpoint in both.
+    const _: () = assert!(
+        component_plan::slot_of(&CONSOLE, "supervisor")
+            == component_plan::slot_of(&CONSOLE, "control") + 1
+    );
+    const _: () = assert!(
+        component_plan::slot_of(&DISPLAY, "supervisor")
+            == component_plan::slot_of(&DISPLAY, "control") + 1
+    );
+}
+
+/// **The line editor's state as a handoff blob** (milestone 23 (a capability-routed component OS
+/// with live replacement); DECISIONS §209 (state handoff is an opaque blob over a granted frame, and
+/// it is optional)). What a replacement `line_editor` needs to carry on as if nothing happened: the
+/// half-typed line and its cursor, the kill buffer, the history ring and the prompt.
+///
+/// **What is deliberately not carried**: a half-received escape sequence (the replacement starts
+/// between keys), history browsing (the line being browsed is the edit line, which is carried),
+/// and the snapshot of the last completed line (it was already delivered or queued). Each is a
+/// state that lasts one keystroke.
+///
+/// The layout is this crate's, versioned by [`handoff::LAYOUT`]; a supervisor never reads it.
+///
+/// Name: provisional (the lane for milestone 23, 2026-09-27).
+pub mod handoff {
+    use super::{HIST, LINE_MAX, LineDisc, PROMPT_MAX, RAW_QUEUE_MAX, RawQueue};
+
+    /// "LEDT", then the layout, in the blob's first eight bytes.
+    pub const MAGIC: u32 = 0x5444_454c;
+    /// The one layout this build writes and reads.
+    pub const LAYOUT: u32 = 1;
+
+    /// A cursor writing into a blob. Refuses to run past its end rather than truncating, because a
+    /// truncated blob that parsed would be state silently lost.
+    pub struct Writer<'a> {
+        buf: &'a mut [u8],
+        at: usize,
+        full: bool,
+    }
+
+    impl<'a> Writer<'a> {
+        /// Start a blob: the magic and layout go in first.
+        pub fn new(buf: &'a mut [u8]) -> Self {
+            let mut w = Writer {
+                buf,
+                at: 0,
+                full: false,
+            };
+            w.u32(MAGIC);
+            w.u32(LAYOUT);
+            w
+        }
+        /// Append bytes.
+        pub fn bytes(&mut self, b: &[u8]) {
+            if self.at + b.len() > self.buf.len() {
+                self.full = true;
+                return;
+            }
+            self.buf[self.at..self.at + b.len()].copy_from_slice(b);
+            self.at += b.len();
+        }
+        /// Append a little-endian word.
+        pub fn u32(&mut self, v: u32) {
+            self.bytes(&v.to_le_bytes());
+        }
+        /// Append a length, then that many bytes.
+        pub fn field(&mut self, b: &[u8]) {
+            self.u32(b.len() as u32);
+            self.bytes(b);
+        }
+        /// How many bytes were written, or `None` if the blob did not fit.
+        pub fn finish(self) -> Option<usize> {
+            if self.full { None } else { Some(self.at) }
+        }
+    }
+
+    /// A cursor reading a blob.
+    pub struct Reader<'a> {
+        buf: &'a [u8],
+        at: usize,
+    }
+
+    /// Why a blob was not absorbed.
+    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+    pub enum Refusal {
+        /// The blob does not start with [`MAGIC`]: there is no blob at all.
+        NoBlob,
+        /// The blob is in a layout this build does not understand; carries that layout.
+        Layout(u32),
+        /// The blob ends early or a field is longer than its buffer.
+        Malformed,
+    }
+
+    impl<'a> Reader<'a> {
+        /// Open a blob, checking the magic and the layout.
+        pub fn new(buf: &'a [u8]) -> Result<Self, Refusal> {
+            let mut r = Reader { buf, at: 0 };
+            if r.u32().ok_or(Refusal::NoBlob)? != MAGIC {
+                return Err(Refusal::NoBlob);
+            }
+            let layout = r.u32().ok_or(Refusal::Malformed)?;
+            if layout != LAYOUT {
+                return Err(Refusal::Layout(layout));
+            }
+            Ok(r)
+        }
+        /// Read `n` bytes.
+        pub fn bytes(&mut self, n: usize) -> Option<&'a [u8]> {
+            let out = self.buf.get(self.at..self.at.checked_add(n)?)?;
+            self.at += n;
+            Some(out)
+        }
+        /// Read a little-endian word.
+        pub fn u32(&mut self) -> Option<u32> {
+            let b = self.bytes(4)?;
+            Some(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        }
+        /// Read a length-prefixed field into `out`, returning its length. `None` when it would
+        /// not fit, which is a malformed blob rather than a truncation.
+        pub fn field(&mut self, out: &mut [u8]) -> Option<usize> {
+            let n = self.u32()? as usize;
+            if n > out.len() {
+                return None;
+            }
+            out[..n].copy_from_slice(self.bytes(n)?);
+            Some(n)
+        }
+    }
+
+    impl LineDisc {
+        /// Write this discipline's carried state (see the module docs) into `w`.
+        pub fn save(&self, w: &mut Writer<'_>) {
+            w.field(&self.buf[..self.len]);
+            w.u32(self.cur as u32);
+            w.field(&self.kill[..self.kill_len]);
+            w.field(&self.prompt[..self.prompt_len]);
+            w.u32(self.hist_count as u32);
+            w.u32(self.hist_next as u32);
+            for (line, n) in &self.hist {
+                w.field(&line[..*n]);
+            }
+        }
+
+        /// Replace this discipline's carried state with what `r` holds. On `None` the discipline
+        /// may be half written, and the caller refuses the whole blob rather than serve from it.
+        pub fn restore(&mut self, r: &mut Reader<'_>) -> Option<()> {
+            self.len = r.field(&mut self.buf)?;
+            let cur = r.u32()? as usize;
+            if cur > self.len {
+                return None;
+            }
+            self.cur = cur;
+            self.kill_len = r.field(&mut self.kill)?;
+            self.prompt_len = r.field(&mut self.prompt[..PROMPT_MAX])?;
+            self.hist_count = (r.u32()? as usize).min(HIST);
+            self.hist_next = (r.u32()? as usize) % HIST;
+            for entry in &mut self.hist {
+                let mut line = [0u8; LINE_MAX];
+                let n = r.field(&mut line)?;
+                *entry = (line, n);
+            }
+            self.browse = None;
+            Some(())
+        }
+    }
+
+    impl RawQueue {
+        /// Write the unread raw bytes into `w`, oldest first.
+        pub fn save(&self, w: &mut Writer<'_>) {
+            let mut out = [0u8; RAW_QUEUE_MAX];
+            for (i, b) in out.iter_mut().take(self.len).enumerate() {
+                *b = self.buf[(self.head + i) % RAW_QUEUE_MAX];
+            }
+            w.field(&out[..self.len]);
+        }
+
+        /// Replace the queue with what `r` holds.
+        pub fn restore(&mut self, r: &mut Reader<'_>) -> Option<()> {
+            let mut buf = [0u8; RAW_QUEUE_MAX];
+            let n = r.field(&mut buf)?;
+            *self = RawQueue::new();
+            self.push(&buf[..n]);
+            Some(())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1151,6 +1578,115 @@ mod tests {
         assert_eq!(s2.text(), "$ early");
         feed_all(&mut d, &mut s2, b"\r");
         assert_eq!(d.line(), b"early");
+    }
+
+    /// **A read re-issued after `FLAG_RETRY` paints nothing and loses nothing.** The half-typed
+    /// line survives, the prompt is remembered for later repaints, and finishing the line returns
+    /// all of it: the promise `FLAG_RETRY` makes to a reader.
+    #[test]
+    fn a_resumed_read_keeps_the_half_typed_line_and_paints_nothing() {
+        let (mut d, mut s) = (LineDisc::new(), Screen::new());
+        d.start_line(b"$ ", &mut s);
+        feed_all(&mut d, &mut s, b"ech");
+        let mut quiet = Screen::new();
+        d.resume_line(b"$ ");
+        assert_eq!(
+            quiet.text(),
+            "",
+            "a resumed read must not repaint the prompt"
+        );
+        feed_all(&mut d, &mut quiet, b"o\r");
+        assert_eq!(d.line(), b"echo");
+    }
+
+    /// `FLAG_RETRY` is distinguishable from every other read reply, in both shapes: a line reply
+    /// of length zero with no flags is an empty line, and a raw reply always carries 1..=8 bytes.
+    #[test]
+    fn a_retry_is_never_mistaken_for_data() {
+        assert!(proto::is_retry(0, proto::FLAG_RETRY));
+        assert!(!proto::is_retry(0, 0), "an empty line is not a retry");
+        assert!(!proto::is_retry(0, proto::FLAG_INTERRUPTED));
+        assert!(
+            !proto::is_retry(1, proto::FLAG_RETRY),
+            "a one-byte raw read of 0x04 is data"
+        );
+        assert_eq!(
+            proto::FLAG_RETRY & (proto::FLAG_EOF | proto::FLAG_INTERRUPTED),
+            0
+        );
+        assert_eq!(proto::OP_QUIESCE, 8);
+    }
+
+    /// **A handoff round trip carries the half-typed line, the cursor, the kill buffer and the
+    /// history**, so the replacement's next keystrokes land exactly where the old one's would have:
+    /// finishing the line returns all of it, and Up recalls a line typed before the swap.
+    #[test]
+    fn a_handed_off_discipline_carries_on_where_the_old_one_stopped() {
+        let (mut old, mut s) = (LineDisc::new(), Screen::new());
+        // A full ring of long lines, so the blob is the size a real terminal's is.
+        // Distinct lines, because the ring skips an exact repeat of its newest entry.
+        for i in 0..HIST - 1 {
+            let long = [b'a' + i as u8; LINE_MAX - 8];
+            old.start_line(b"$ ", &mut s);
+            feed_all(&mut old, &mut s, &long);
+            feed_all(&mut old, &mut s, b"\r");
+        }
+        old.start_line(b"$ ", &mut s);
+        feed_all(&mut old, &mut s, b"first\r");
+        old.start_line(b"$ ", &mut s);
+        feed_all(&mut old, &mut s, b"ec");
+
+        let mut page = [0u8; 8192];
+        let mut w = handoff::Writer::new(&mut page);
+        old.save(&mut w);
+        let n = w.finish().expect("a whole history fits");
+        // Measured, correcting an estimate this lane recorded on 2026-09-26: a full ring of
+        // near-maximal lines is under 2 KiB, so the whole terminal (with its four queued lines) fits
+        // in one page. The estimate had counted buffers the blob does not carry.
+        assert!(n < 2048, "the discipline's blob grew to {n} bytes");
+
+        let mut new = LineDisc::new();
+        let mut r = handoff::Reader::new(&page[..n]).unwrap();
+        new.restore(&mut r).unwrap();
+        new.resume_line(b"$ ");
+        let mut s2 = Screen::new();
+        feed_all(&mut new, &mut s2, b"ho\r");
+        assert_eq!(
+            new.line(),
+            b"echo",
+            "the half-typed line did not survive the swap"
+        );
+        new.start_line(b"$ ", &mut s2);
+        feed_all(&mut new, &mut s2, b"\x1b[A\x1b[A\r");
+        assert_eq!(
+            new.line(),
+            b"first",
+            "history typed before the swap is not recallable after it"
+        );
+    }
+
+    /// **A blob this build cannot read is refused whole, with the reason**, which is what lets a
+    /// supervisor not commit a swap to it.
+    #[test]
+    fn a_blob_in_another_layout_or_none_at_all_is_refused() {
+        assert_eq!(
+            handoff::Reader::new(&[0u8; 16]).err(),
+            Some(handoff::Refusal::NoBlob)
+        );
+        let mut page = [0u8; 16];
+        page[..4].copy_from_slice(&handoff::MAGIC.to_le_bytes());
+        page[4..8].copy_from_slice(&2u32.to_le_bytes());
+        assert_eq!(
+            handoff::Reader::new(&page).err(),
+            Some(handoff::Refusal::Layout(2))
+        );
+        let mut w = handoff::Writer::new(&mut page);
+        w.field(&[1; 64]);
+        assert_eq!(
+            w.finish(),
+            None,
+            "a blob that does not fit must say so, not truncate"
+        );
     }
 
     /// Unknown CSI sequences (F-keys and friends) are swallowed whole: no stray bytes appear

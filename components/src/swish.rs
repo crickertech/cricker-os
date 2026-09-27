@@ -1093,7 +1093,14 @@ fn print_num(v: u64) {
 /// we get the finished line in `LINE_VA` and its length and flags in the reply.
 fn read_line(prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
     stage(prompt, prompt.len());
-    let (len, flags) = call(TERM, proto::req(proto::OP_READLINE, prompt.len() as u64), 0);
+    let (len, flags) = loop {
+        let r = call(TERM, proto::req(proto::OP_READLINE, prompt.len() as u64), 0);
+        // The terminal is being replaced and handed this read back (FLAG_RETRY, milestone 23 (a capability-routed component OS with live replacement)).
+        // Ask again, unchanged: whichever terminal answers resumes the line where it was.
+        if !proto::is_retry(r.0, r.1) {
+            break r;
+        }
+    };
     let len = (len as usize).min(out.len());
     for (i, b) in out[..len].iter_mut().enumerate() {
         *b = LINE_WINDOW.r8(i as u64);

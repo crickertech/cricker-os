@@ -43,6 +43,12 @@
 //! hardware, which is exactly why it did not exist until the drivers did and exactly why it did
 //! not need to change to gain a second one.
 //!
+//! **Plus, when a supervisor that can replace it built it, a control endpoint** (milestone 23 (a capability-routed
+//! component OS with live replacement)):
+//! its slot is the second start argument, and `0` means there is none. With one, `OP_QUIESCE`
+//! answers any parked read with `FLAG_RETRY`, replies, and waits there for `CTL_RESUME` or
+//! `CTL_QUIT`. Without one, `OP_QUIESCE` is refused, because nothing could ever resume it.
+//!
 //! Name: ratified 2026-07-30 (calef, DECISIONS §39, landed by milestone 46) for the word and again
 //! 2026-08-01 (milestone 63) for the spelling, replacing `termd` and then `lineedit`. Refused
 //! `termd` (the `-d` claim) and `linedisc`, the correct Unix term of art, which is the second half
@@ -104,6 +110,11 @@ const APP_IN_VA: u64 = address_space_map::pair_page(0x0090_0000);
 
 const PAGE: usize = 4096;
 
+/// Where a supervisor maps the handoff page when it starts us with `START_HANDOFF`. Declared in
+/// `line_editor::component`, beside the capability half of the contract.
+const HANDOFF_VA: u64 = line_editor::component::HANDOFF_VA;
+const HANDOFF_BYTES: usize = PAGE * line_editor::component::HANDOFF_PAGES as usize;
+
 /// How many completed lines the type-ahead queue holds. A user typing while the application is
 /// busy loses nothing until this overflows, and then the newest line is dropped with a bell,
 /// which is what a real tty's flooded input queue does too.
@@ -122,7 +133,7 @@ static mut LINE_QUEUE: LineQueue = LineQueue::new();
 static mut RAW_QUEUE: RawQueue = RawQueue::new();
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
+pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
     // A raw pointer first, then one dereference: taking `&mut DISC` directly is what
     // `static_mut_refs` exists to refuse. This process has exactly one thread (DECISIONS §33), so
     // each pointer below is the only route to its static and there is no aliasing question, the
@@ -149,6 +160,43 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
     // OP_READRAW's own parked reply capability, the raw-mode twin of `pending`.
     let mut raw_mode = false;
     let mut pending_raw: Option<u64> = None;
+    // Set when a quiesce answered a parked OP_READLINE with FLAG_RETRY and this instance then
+    // resumed: the reader's re-issued read must not repaint a prompt the screen already shows.
+    let mut resuming_line = false;
+
+    // A replacement reads its predecessor's state before it serves anything, per DECISIONS §209 (state
+    // handoff is an opaque blob over a granted frame, and it is optional). An
+    // instance that served first and checked later would already have answered with a blank line.
+    if start & proto::START_ABSORB != 0 {
+        let notify = control + 1;
+        // SAFETY: a supervisor passes START_ABSORB only alongside START_HANDOFF, having mapped the
+        // handoff page read/write at HANDOFF_VA before starting us.
+        let page = unsafe { core::slice::from_raw_parts(HANDOFF_VA as *const u8, HANDOFF_BYTES) };
+        let absorbed = line_editor::handoff::Reader::new(page).map_err(|e| match e {
+            line_editor::handoff::Refusal::NoBlob => 0,
+            line_editor::handoff::Refusal::Malformed => 1,
+            line_editor::handoff::Refusal::Layout(l) => l as u64,
+        });
+        let ok = match absorbed {
+            Ok(mut r) => restore(&mut r, disc, queue, raw_queue)
+                .map(|(raw, intr, resuming)| {
+                    raw_mode = raw;
+                    intr_count = intr;
+                    resuming_line = resuming;
+                })
+                .ok_or(1),
+            Err(why) => Err(why),
+        };
+        match ok {
+            Ok(()) => {
+                send(notify, proto::NOTE_ABSORBED, 0, 0);
+            }
+            Err(why) => {
+                send(notify, proto::NOTE_REFUSED, why, 0);
+                user_mode_runtime::exit()
+            }
+        }
+    }
 
     loop {
         let (w0, slot, w1) = recv_cap(TERM);
@@ -256,8 +304,12 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
                 let plen = proto::len(w0).min(PROMPT_MAX);
                 let mut prompt = [0u8; PROMPT_MAX];
                 copy_in(APP_OUT_VA, 0, &mut prompt[..plen]);
-                disc.start_line(&prompt[..plen], &mut con);
-                con.flush();
+                if core::mem::replace(&mut resuming_line, false) {
+                    disc.resume_line(&prompt[..plen]);
+                } else {
+                    disc.start_line(&prompt[..plen], &mut con);
+                    con.flush();
+                }
                 pending = Some(slot);
                 deliver(queue, &mut pending);
             }
@@ -275,6 +327,48 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
                 line_editor::expand_output(&bytes[..len], &mut con);
                 con.flush();
                 reply(slot, len as u64, 0);
+            }
+            proto::OP_QUIESCE if control == 0 => {
+                // No control endpoint means nobody could ever tell us to resume: honouring this
+                // would leave a dead terminal. Every boot-built terminal today is this case.
+                reply(slot, proto::BAD_REQUEST, 0);
+            }
+            proto::OP_QUIESCE => {
+                // A reply capability cannot leave this process, so a parked reader is answered
+                // now or never. It asks again, and whoever receives next answers it.
+                if let Some(p) = pending.take() {
+                    reply(p, 0, proto::FLAG_RETRY);
+                    resuming_line = true;
+                }
+                if let Some(p) = pending_raw.take() {
+                    reply(p, 0, proto::FLAG_RETRY);
+                }
+                if start & proto::START_HANDOFF != 0 {
+                    // Written before the reply, so the supervisor's QUIESCED is also the receipt
+                    // that the page holds this instance's final state.
+                    // SAFETY: START_HANDOFF means the page is mapped read/write at HANDOFF_VA.
+                    let page = unsafe {
+                        core::slice::from_raw_parts_mut(HANDOFF_VA as *mut u8, HANDOFF_BYTES)
+                    };
+                    let mut w = line_editor::handoff::Writer::new(page);
+                    disc.save(&mut w);
+                    queue.save(&mut w);
+                    raw_queue.save(&mut w);
+                    w.u32(raw_mode as u32);
+                    w.u32(intr_count as u32);
+                    w.u32(resuming_line as u32);
+                    if w.finish().is_none() {
+                        // Cannot happen at these sizes (the blob is under 4 KiB); if it did, the
+                        // replacement's reader refuses a truncated blob and the swap rolls back.
+                        page[..4].copy_from_slice(&[0; 4]);
+                    }
+                }
+                reply(slot, proto::QUIESCED, 0);
+                // Stopped receiving on TERM: anything that arrives now parks on its sender queue.
+                let (what, _, _) = recv(control);
+                if what != proto::CTL_RESUME {
+                    user_mode_runtime::exit()
+                }
             }
             proto::OP_INTRCOUNT => {
                 // The shell's ^C sensor: reply immediately with the running count. Never blocks, so
@@ -422,6 +516,48 @@ impl LineQueue {
         self.count -= 1;
         out
     }
+}
+
+impl LineQueue {
+    fn save(&self, w: &mut line_editor::handoff::Writer<'_>) {
+        w.u32(self.count as u32);
+        for i in 0..self.count {
+            let (line, len, flags) = &self.lines[(self.head + i) % QUEUE];
+            w.field(&line[..*len]);
+            w.u32(*flags as u32);
+        }
+    }
+
+    fn restore(&mut self, r: &mut line_editor::handoff::Reader<'_>) -> Option<()> {
+        *self = LineQueue::new();
+        let count = r.u32()? as usize;
+        if count > QUEUE {
+            return None;
+        }
+        for line in self.lines.iter_mut().take(count) {
+            line.1 = r.field(&mut line.0)?;
+            line.2 = u64::from(r.u32()?);
+        }
+        self.count = count;
+        Some(())
+    }
+}
+
+/// Read a whole handoff blob, in the order the quiesce path writes it. `None` on anything short
+/// or malformed, and then the caller refuses the swap rather than serve half a state.
+fn restore(
+    r: &mut line_editor::handoff::Reader<'_>,
+    disc: &mut LineDisc,
+    queue: &mut LineQueue,
+    raw_queue: &mut RawQueue,
+) -> Option<(bool, u64, bool)> {
+    disc.restore(r)?;
+    queue.restore(r)?;
+    raw_queue.restore(r)?;
+    let raw = r.u32()? != 0;
+    let intr = u64::from(r.u32()?);
+    let resuming = r.u32()? != 0;
+    Some((raw, intr, resuming))
 }
 
 user_mode_runtime::panic_handler!();

@@ -19,7 +19,16 @@ wait-any), which is what the build needs. The decision is whether a dependent's 
 can be is built: `swapper`'s `ROLE_UNWARNED` swaps a backend without ever warning `broker`, and the
 producer loses nothing.
 
-## What to build, if the answer is yes
+## Ruled
+
+calef, 2026-09-26: "Make the warning advisory." Build it once milestone 151 lands (#1351).
+
+## Built
+
+2026-09-27, on PR #1382: the page, the bound signal, the late-warning test, and the stranded-operator
+`BUGS` entry closed in notes/non-cooperative-fallback.md, where it was recorded.
+
+## What to build
 
 - Replace `broker`'s `BOP_DOWN`/`BOP_UP` `CALL`s with a read-only state page the supervisor writes
   and a notification bound to `broker`'s thread that it signals. The supervisor never waits.

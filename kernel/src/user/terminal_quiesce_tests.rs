@@ -1,0 +1,160 @@
+//! **A terminal can be quiesced for replacement without stranding its reader** (milestone 23 (a
+//! capability-routed component OS with live replacement); calef's ruling of 2026-09-26, "1a and
+//! 2b"). `OP_QUIESCE` rides the terminal endpoint, and a parked `OP_READLINE` or `OP_READRAW` is
+//! answered `FLAG_RETRY` before the terminal stops receiving, because the reply capability that
+//! names the reader cannot leave `line_editor`'s capability table.
+//!
+//! The test plays the supervisor as well as the input driver and the reader, on the harness
+//! `raw_mode_service` already provides. What it proves is the incumbent's half of a swap: the
+//! reader is handed back, the half-typed line survives a resume, and the resumed read repaints
+//! nothing. The replacement's half needs the handoff page count first
+//! (`design/roadmap/proposals/a-region-retypes-a-frame-run.md`).
+
+use line_editor::proto;
+use raw_mode_service as svc;
+
+use super::*;
+use crate::sched;
+
+const SENTINEL: u8 = 0xaa;
+
+fn bytes_call(term: sched::RendezvousId, bytes: &[u8]) {
+    let mut w1 = 0u64;
+    for (i, &b) in bytes.iter().enumerate() {
+        w1 |= (b as u64) << (8 * i);
+    }
+    sched::ipc_call(term, [proto::req(proto::OP_BYTES, bytes.len() as u64), w1]);
+}
+
+/// Let the other threads run for a twentieth of a second: long enough for a spawned reader to
+/// park, the same settle `raw_mode_tests` uses for the same reason.
+fn settle() {
+    let deadline = crate::arch::timer::now() + crate::arch::timer::frequency() / 20;
+    while crate::arch::timer::now() < deadline {
+        sched::yield_now();
+    }
+}
+
+fn page_byte(phys: u64, i: u64) -> u8 {
+    // SAFETY: a frame the harness allocated and mapped into `line_editor`; the read is ordered
+    // after the exchange that wrote it by the IPC the test just completed.
+    unsafe { core::ptr::read_volatile((mmu::phys_to_virt(phys) + i) as *const u8) }
+}
+
+fn fill(phys: u64, bytes: &[u8]) {
+    for (i, &b) in bytes.iter().enumerate() {
+        // SAFETY: as `page_byte`; no request naming this page is in flight.
+        unsafe { core::ptr::write_volatile((mmu::phys_to_virt(phys) + i as u64) as *mut u8, b) };
+    }
+}
+
+/// **A terminal nobody can resume refuses to quiesce.** Every boot builds its terminal this way
+/// today, so the new opcode must change nothing there: honouring it would be a dead terminal.
+#[test_case]
+fn a_terminal_with_no_control_endpoint_refuses_to_quiesce() {
+    let (w, held) = svc::start();
+    let r = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
+    assert_eq!(
+        r[0],
+        proto::BAD_REQUEST,
+        "an unsupervised terminal honoured OP_QUIESCE"
+    );
+    bytes_call(w.term, b"ok\r");
+    let r = sched::ipc_call(w.term, [proto::req(proto::OP_READLINE, 0), 0]);
+    assert_eq!(
+        r[0], 2,
+        "the terminal stopped serving after refusing a quiesce"
+    );
+    held.release_or_fail("raw_mode_service");
+}
+
+/// **A parked line read is handed back, and the line resumes where it was.** The reader sees
+/// `FLAG_RETRY` and asks again; the terminal, resumed, answers the second read with the whole
+/// line, half typed before the quiesce and finished after it, and repaints nothing in between.
+#[test_case]
+fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
+    let (w, held) = svc::start_replaceable();
+    let control = w
+        .control
+        .expect("start_replaceable grants a control endpoint");
+    fill(w.app_out_phys, b"$ ");
+
+    let report = sched::create_rendezvous();
+    let term = w.term;
+    sched::spawn(move || {
+        loop {
+            let r = sched::ipc_call(term, [proto::req(proto::OP_READLINE, 2), 0]);
+            sched::ipc_send(report, [r[0], r[1], 0]);
+            if !proto::is_retry(r[0], r[1]) {
+                break;
+            }
+        }
+    })
+    .expect("could not spawn the reader");
+    settle();
+    bytes_call(w.term, b"ec");
+
+    let q = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
+    assert_eq!(q[0], proto::QUIESCED, "the quiesce was not acknowledged");
+    let first = sched::ipc_recv(report);
+    assert!(
+        proto::is_retry(first[0], first[1]),
+        "the parked read was not handed back with FLAG_RETRY (r0 {:#x}, r1 {:#x})",
+        first[0],
+        first[1],
+    );
+
+    // The reader has asked again and is parked on the endpoint's sender queue, with nobody
+    // receiving. Resume, and watch the console page: a repaint of "$ ec" would land there.
+    settle();
+    fill(w.console_phys, &[SENTINEL; 8]);
+    sched::ipc_send(control, [proto::CTL_RESUME, 0, 0]);
+    settle();
+    assert_eq!(
+        page_byte(w.console_phys, 0),
+        SENTINEL,
+        "the resumed read repainted the prompt and the half-typed line, which the screen already shows",
+    );
+
+    bytes_call(w.term, b"ho\r");
+    let done = sched::ipc_recv(report);
+    assert_eq!(done[0], 4, "the resumed read did not return the whole line");
+    let got: [u8; 4] = core::array::from_fn(|i| page_byte(w.app_in_phys, i as u64));
+    assert_eq!(
+        &got, b"echo",
+        "the line typed across the quiesce came back wrong"
+    );
+    held.release_or_fail("raw_mode_service");
+}
+
+/// **A parked raw read is handed back in the raw reply's own shape**, r0 = 0 with the flag in r1,
+/// because r1 is the data word there. Then the supervisor says quit, and the terminal goes.
+#[test_case]
+fn a_parked_raw_read_is_handed_back_and_the_terminal_can_be_retired() {
+    let (w, held) = svc::start_replaceable();
+    let control = w
+        .control
+        .expect("start_replaceable grants a control endpoint");
+    let r = sched::ipc_call(w.term, [proto::req(proto::OP_RAWMODE, 1), 0]);
+    assert_eq!(r[0], 0);
+
+    let report = sched::create_rendezvous();
+    let term = w.term;
+    sched::spawn(move || {
+        let r = sched::ipc_call(term, [proto::req(proto::OP_READRAW, 0), 0]);
+        sched::ipc_send(report, [r[0], r[1], 0]);
+    })
+    .expect("could not spawn the raw reader");
+    settle();
+
+    let q = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
+    assert_eq!(q[0], proto::QUIESCED);
+    let got = sched::ipc_recv(report);
+    assert_eq!(
+        (got[0], got[1]),
+        (0, proto::FLAG_RETRY),
+        "a parked raw read must come back as r0 = 0, r1 = FLAG_RETRY",
+    );
+    sched::ipc_send(control, [proto::CTL_QUIT, 0, 0]);
+    held.release_or_fail("raw_mode_service");
+}

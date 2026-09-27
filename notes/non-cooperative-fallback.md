@@ -1,7 +1,7 @@
 # The non-cooperative fallback for a dependent
 
 *A proposal from the lane for milestone 23 (a capability-routed component OS with live
-replacement), 2026-09-26. Status: **PROPOSED**, waiting on an architect. The measurement behind it is
+replacement), 2026-09-26. Status: **BUILT** 2026-09-27, after calef ruled it on 2026-09-26 (DECISIONS §231 (a swap's warning to a dependent is advisory, and the supervisor never waits for it)). The measurement behind it is
 built and gated: `swapper`'s `ROLE_UNWARNED` and the guest test
 `a_dependent_that_is_never_warned_loses_nothing_and_only_waits`. Read
 notes/dependency-orchestration.md and notes/hung-component.md first.*
@@ -105,10 +105,24 @@ every dependent that is alive and hangs the operator on one that is not.
 What this does not decide. What may be done to a component that never cooperates stays open,
 and stays §32's. This proposal only shows the dependent case does not need it.
 
+## Built (2026-09-27)
+
+The recommendation, as ruled. `swap_protocol::BROKER` declares a read-only warning page;
+`swapper` writes `WANT_DOWN` or `WANT_UP` on it and signals a notification bound to `broker`'s
+thread before it runs, and never waits. `broker` reads the page on every wakeup, message or
+signal, so a signal it has not seen changes only latency. `BOP_DOWN` and `BOP_UP` are gone. Three
+guest tests cover the orderings on all three architectures: on time (the queued channel, which
+still buffers and drains everything it buffered), never (`ROLE_UNWARNED`), and late
+(`ROLE_LATE_WARNING`, warned only after the replacement is serving), and none loses a request.
+
 ## BUGS
 
-A dependent that does not answer its warning hangs the supervisor, for the reason above. It
-stays true until the recommendation is built.
+~~A dependent that does not answer its warning hangs the supervisor.~~ Closed 2026-09-27: the
+warning is a page and a signal, and `swapper` never waits for either (see "Built" above).
+
+The steady-state price moved and is not measured. `broker` now reads its warning page on every
+wakeup, one load per request. `broker_rtt` models the broker as a kernel thread, so it does not see
+that load; a benchmark of the real program would.
 
 B leaves the dependent's callers waiting for the whole down window when the signal is late. That
 is latency, and it is the price of never blocking the supervisor. A late signal cannot be detected

@@ -797,8 +797,8 @@ type EndowmentSlices<'a> = (&'a [(u64, u64)], &'a [(u64, u64, u64)]);
 // drivers hold the port capability instead.
 #[cfg_attr(target_arch = "x86_64", allow(dead_code))]
 const CON_UART_VA: u64 = address_space_map::pair_page(0x0070_0000); // console's UART mapping
-const TERM_OUT_VA: u64 = address_space_map::pair_page(0x0080_0000); // line_editor reads the shell's text/prompts here
-const TERM_IN_VA: u64 = address_space_map::pair_page(0x0090_0000); // line_editor delivers completed lines here
+// line_editor's own pages (the shell's text in, completed lines out) are declared with it now, in
+// `line_editor::component`, and `terminal_supervisor` maps them.
 #[cfg_attr(target_arch = "x86_64", allow(dead_code))]
 const IN_UART_VA: u64 = address_space_map::pair_page(0x00a0_0000); // input driver's UART mapping
 const SH_OUT_VA: u64 = address_space_map::pair_page(0x00c0_0000); // the shell's view of the TERM_OUT frame (swish.rs OUT_VA)
@@ -976,6 +976,12 @@ pub fn boot(
     let con_elf = measured(&fs, table, "console");
     let in_elf = measured(&fs, table, "input");
     let td_elf = measured(&fs, table, "line_editor");
+    // **The terminal's supervisor** (milestone 23 (a capability-routed component OS with live
+    // replacement), calef's ruling of 2026-09-27): what builds `line_editor` now, so that something
+    // on a running system holds what a replacement would need. It is handed `line_editor`'s bytes
+    // rather than the archive, which this process cannot delegate, the same way `login` is handed
+    // the caretaker's.
+    let ts_elf = measured(&fs, table, "terminal_supervisor");
     let sh_elf = measured(&fs, table, "swish");
     // **The terminal's sink adapter** (milestone 50's last remainder). Optional on purpose: an
     // initrd built without it still boots, and a program that declares a second stream then finds
@@ -1330,9 +1336,11 @@ pub fn boot(
     // the UART and the line discipline is its only client, so a refusal of either has no route to a
     // person and this is the one case that stops in silence (see this module's BUGS). Everything
     // else is checked below, after they are running.
-    let (Some(con_elf), Some(td_elf)) = (con_elf.elf, td_elf.elf) else {
+    let (Some(con_elf), Some(_), Some(ts_elf)) = (con_elf.elf, td_elf.elf, ts_elf.elf) else {
         fail()
     };
+    // Vouched above, so these are the measured bytes.
+    let td_bytes = fs.read("line_editor").unwrap_or(&[]);
 
     // `has_graphical`, `has_keyboard` and the early `uart_dev`/`uart_irq` free all happened at the top
     // of this function, before the entropy block: see that comment for why the timing is
@@ -1355,26 +1363,22 @@ pub fn boot(
         // client. It prints through `display_terminal`'s own `OP_WRITE`/one-`CALL` contract
         // (`disp_term_ep`/`disp_term_page`, `LINE_EDITOR_MODE_DISPLAY`) instead of the console's
         // bespoke two-endpoint one. The keystroke source is built with the plain boot's, at step 3.
-        let r = build_child(
+        build_terminal(
             ut,
-            ut,
-            &td_elf,
-            &ChildEndowment {
-                caps: &[
-                    (term_ep, abi::rights::READ),
-                    (disp_term_ep, abi::rights::WRITE),
-                ],
-                maps: &[
-                    (CON_SHARED_VA, disp_term_page, abi::address_space::MAP_RW),
-                    (TERM_OUT_VA, term_out, abi::address_space::MAP_RO),
-                    (TERM_IN_VA, term_in, abi::address_space::MAP_RW),
-                ],
-                stack_pages: CHILD_STACK_PAGES,
-                ..ChildEndowment::new(Retention::Nothing)
-            },
+            &ts_elf,
+            td_bytes,
+            LINE_EDITOR_MODE_DISPLAY,
+            &[
+                (
+                    term_ep,
+                    abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
+                ),
+                (disp_term_ep, abi::rights::WRITE | abi::rights::GRANT),
+                (disp_term_page, abi::rights::READ | abi::rights::WRITE),
+                (term_out, abi::rights::READ),
+                (term_in, abi::rights::READ | abi::rights::WRITE),
+            ],
         );
-        let line_editor = must(r);
-        must_ok(start_child(line_editor, LINE_EDITOR_MODE_DISPLAY, 0, 0));
 
         // `disp_term_ep`/`disp_term_page` are ours no further: `line_editor` holds its own
         // narrowed copies, granting was a copy rather than a move (the same reason `con_shared`
@@ -1467,26 +1471,23 @@ pub fn boot(
         // the console's only client; everyone else prints through it. `LINE_EDITOR_MODE_CONSOLE`
         // (0) is `start_child`'s own default, so this is unchanged from before
         // milestone 177 gave `line_editor` a second mode.
-        let line_editor = must(build_child(
+        build_terminal(
             ut,
-            ut,
-            &td_elf,
-            &ChildEndowment {
-                caps: &[
-                    (term_ep, abi::rights::READ),
-                    (request, abi::rights::WRITE),
-                    (reply, abi::rights::READ),
-                ],
-                maps: &[
-                    (CON_SHARED_VA, con_shared, abi::address_space::MAP_RW), // it fills what the console reads
-                    (TERM_OUT_VA, term_out, abi::address_space::MAP_RO),
-                    (TERM_IN_VA, term_in, abi::address_space::MAP_RW),
-                ],
-                stack_pages: CHILD_STACK_PAGES,
-                ..ChildEndowment::new(Retention::Nothing)
-            },
-        ));
-        must_ok(start_child(line_editor, LINE_EDITOR_MODE_CONSOLE, 0, 0));
+            &ts_elf,
+            td_bytes,
+            LINE_EDITOR_MODE_CONSOLE,
+            &[
+                (
+                    term_ep,
+                    abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
+                ),
+                (request, abi::rights::WRITE | abi::rights::GRANT),
+                (con_shared, abi::rights::READ | abi::rights::WRITE), // it fills what the console reads
+                (term_out, abi::rights::READ),
+                (term_in, abi::rights::READ | abi::rights::WRITE),
+                (reply, abi::rights::READ | abi::rights::GRANT),
+            ],
+        );
 
         // `request`/`reply`/`con_shared` are ours no further: the console and `line_editor` both
         // hold their own narrowed copies (the console's own doc, one screen down, gives the
@@ -4649,6 +4650,37 @@ fn announce(term_ep: u64, text: &[u8]) {
 /// lives, and left this line: an archive read and a call. `script/swish-check` still proves that the
 /// boot *makes* the call, on both ISAs, with the table the kernel measured, and nothing about that
 /// changed.
+/// **Build the terminal: `terminal_supervisor`, which builds `line_editor`** (milestone 23 (a
+/// capability-routed component OS with live replacement), calef's ruling of 2026-09-27). `caps` is
+/// in `line_editor::component::supervisor`'s slot order after its budget: the terminal endpoint
+/// with every right (it delegates `READ` and sends `OP_QUIESCE`), the output sink, the three pages,
+/// and the console's reply endpoint in console mode. Copies, not moves: this process frees its own
+/// as it always did.
+///
+/// No swap endpoint is passed: the trigger (milestone 198 (a package manager, and the trivial
+/// install)'s installer activating a new build) is not built, so nothing on this boot asks the
+/// supervisor to swap. `terminal_supervisor`'s `BUGS`.
+fn build_terminal(ut: u64, ts_elf: &elf::Elf, td_bytes: &[u8], mode: u64, caps: &[(u64, u64)]) {
+    use line_editor::component::supervisor as s;
+    let budget = must(memory_region_split(ut, s::BUDGET_PAGES));
+    let mut all = [(0u64, 0u64); 8];
+    all[0] = (budget, abi::rights::WRITE | abi::rights::GRANT);
+    all[1..=caps.len()].copy_from_slice(caps);
+    let sup = must(build_child(
+        ut,
+        ut,
+        ts_elf,
+        &ChildEndowment {
+            caps: &all[..=caps.len()],
+            blobs: &[(s::ELF_VA, td_bytes)],
+            stack_pages: CHILD_STACK_PAGES,
+            ..ChildEndowment::new(Retention::Nothing)
+        },
+    ));
+    must_ok(start_child(sup, mode, td_bytes.len() as u64, 0));
+    cap_delete(budget);
+}
+
 fn measured<'a>(fs: &nifefs::Fs<'a>, table: &str, name: &str) -> measured_boot::Verdict<'a> {
     measured_boot::verdict(table, name, fs.read(name))
 }

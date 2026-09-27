@@ -143,11 +143,31 @@ pub const BAD_REQUEST: u64 = u64::MAX;
 // wait-any primitive the kernel deliberately does not have (DECISIONS §26.5).
 // ===========================================================================================
 
-/// `call(FRONT, BOP_DOWN, 0)` -> `(0, depth)`. Stop forwarding; buffer from here on.
-pub const BOP_DOWN: u64 = 10;
-/// `call(FRONT, BOP_UP, 0)` -> `(0, drained)`. Drain the backlog to the backend, in order, then
-/// resume pass-through.
-pub const BOP_UP: u64 = 11;
+/// **The broker's warning, which it is never asked to acknowledge** (DECISIONS §231 (a swap's warning
+/// to a dependent is advisory, and the supervisor never waits for it)). It replaced two in-band
+/// `CALL`s, `BOP_DOWN` and `BOP_UP`, on 2026-09-27. A `CALL` to a broker that does not answer hangs
+/// the operator, and the measurement behind §231 (`ROLE_UNWARNED`) showed the warning is only a
+/// courtesy: an unwarned broker loses nothing. So the operator writes what it wants on a page the
+/// broker maps read-only and signals a notification bound to the broker's thread, and does not wait.
+///
+/// The page's first word is [`WANT_DOWN`] or [`WANT_UP`]. The signal only wakes the broker; it reads
+/// the page on every wakeup, message or signal, so a signal it has not yet seen changes nothing but
+/// latency. That is what makes every ordering safe: a late or missed signal degrades to pass-through,
+/// which is the case `ROLE_UNWARNED` measured as lossless.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-27), for this constant and the two below.
+pub const BROKER_WARN_VA: u64 = 0x0330_0000;
+/// The backend is going away: buffer from the next request on.
+pub const WANT_DOWN: u64 = 1;
+/// The backend is back (the page's initial zero): drain the backlog in order, then pass through.
+pub const WANT_UP: u64 = 0;
+
+/// What the operator last wrote on the broker's warning page.
+pub fn broker_wants_down() -> bool {
+    // SAFETY: `BROKER` declares the warning page read-only at BROKER_WARN_VA, so every broker has it
+    // mapped; the operator writes it before it signals.
+    unsafe { core::ptr::read_volatile(BROKER_WARN_VA as *const u64) == WANT_DOWN }
+}
 
 /// The broker took custody of an item instead of answering it. `w1` = the queue depth after it.
 pub const ACCEPTED: u64 = 0x4143_4350; // "ACCP"
@@ -413,6 +433,13 @@ pub const ROLE_HANDOFF: u64 = 3;
 ///
 /// Name: provisional (milestone 23's lane, 2026-09-26).
 pub const ROLE_UNWARNED: u64 = 4;
+/// **The queued system with the warning arriving after the swap has finished** (DECISIONS §231 (a
+/// swap's warning to a dependent is advisory, and the supervisor never waits for it)). The broker is
+/// told down and up only once the replacement backend already serves; a late warning must cost
+/// nothing but latency, the same as none.
+///
+/// Name: provisional (milestone 23's lane, 2026-09-27).
+pub const ROLE_LATE_WARNING: u64 = 5;
 
 /// **How the operator starts a stateful instance** (the first `_start` argument, where the other
 /// systems pass a device flag of `0` or `1`). A fresh instance begins at a tally of zero, which is
@@ -437,7 +464,8 @@ pub const STATE_VA: u64 = 0x0320_0000;
 /// else's, so their layout is versioned here, beside the only code that reads them. A build knows the
 /// layouts it can absorb; the operator never does.
 ///
-/// Layout 1 is two words: a marker with the layout in its low half, then the tally.
+/// Layout 1 is two words: a marker with the layout in its low half at the start of the first
+/// page, then the tally at the start of the second.
 pub const LAYOUT_1: u64 = 1;
 /// A layout no build in this tree writes. The fixture starts one replacement claiming to understand
 /// only this, which is how "a newer build that cannot read an older build's state" is staged without
@@ -627,14 +655,19 @@ pub const BROKER: Requirements = Requirements {
             direction: Use,
         },
     ],
-    maps: &[],
+    // DECISIONS §231's warning page: the operator writes it, the broker only reads it.
+    maps: &[MapNeed {
+        role: "warning",
+        va: BROKER_WARN_VA,
+        kind: PageKind::ReadOnly,
+    }],
     pages: INSTANCE_PAGES,
     // **The one real edge in this system.** `broker` serves `requests` and, to answer them, calls
     // through to whatever holds `backend` (DECISIONS §41's pass-through). That call is a `CALL` on
     // its own single serving thread, so unlike a pure consumer it cannot just let a swap of its
     // backend block it: it would stop answering its own producers for the down window. That is
-    // exactly why `queued()`'s hand-written orchestration sends `BOP_DOWN` before swapping the
-    // backend and `BOP_UP` after, and it is the edge milestone 23's dependency graph exists to
+    // exactly why `queued()` warns it before swapping the backend and after (DECISIONS §231's
+    // signal and page, which it never waits on), and it is the edge milestone 23's dependency graph exists to
     // name so that sequencing can be derived rather than hand-coded per system.
     depends_on: &["backend"],
     handoff: None,
@@ -657,7 +690,12 @@ pub const TALLY: Requirements = Requirements {
     maps: BACKEND.maps,
     pages: INSTANCE_PAGES,
     depends_on: &[],
-    handoff: Some(component_plan::Handoff { va: STATE_VA }),
+    handoff: Some(component_plan::Handoff {
+        va: STATE_VA,
+        // Two, and the tally is written on the second: a blob that only used the first page would
+        // pass whether or not the operator's run reached past it.
+        pages: 2,
+    }),
 };
 
 /// Every declaration in this crate is well formed, checked at compile time on both architectures.
@@ -918,7 +956,7 @@ fn read_state() -> [u64; 2] {
     unsafe {
         [
             core::ptr::read_volatile(STATE_VA as *const u64),
-            core::ptr::read_volatile((STATE_VA + 8) as *const u64),
+            core::ptr::read_volatile((STATE_VA + PAGE) as *const u64),
         ]
     }
 }
@@ -927,7 +965,7 @@ fn write_state(blob: [u64; 2]) {
     // SAFETY: as `read_state`.
     unsafe {
         core::ptr::write_volatile(STATE_VA as *mut u64, blob[0]);
-        core::ptr::write_volatile((STATE_VA + 8) as *mut u64, blob[1]);
+        core::ptr::write_volatile((STATE_VA + PAGE) as *mut u64, blob[1]);
     }
 }
 
@@ -1151,7 +1189,7 @@ mod tests {
             ],
         };
         let p = component_plan::plan(&TALLY, &with).unwrap();
-        assert_eq!(p.handoff(), Some(STATE_VA));
+        assert_eq!(p.handoff().map(|h| h.va), Some(STATE_VA));
         assert!(p.devices().is_empty());
     }
 }

@@ -18,7 +18,25 @@ wire-format calls for an architect: an additive quiesce opcode in `line_editor::
 reader parked in `OP_READLINE` is told when a swap begins. The recommendation for each, with the
 options that lost, is in the note.
 
-## What to build, once the two forks are answered
+## Ruled
+
+calef, 2026-09-26: "1a and 2b". Fork 1: an additive `OP_QUIESCE` in `line_editor::proto`, sent
+only by a supervisor, riding the served endpoint's FIFO. Fork 2: a new reply flag meaning "ask
+again" (`FLAG_RETRY`, provisional); a reader handles it by re-issuing the same request.
+
+Two things follow that the ruling did not say. The handoff grows a page count rather than dropping
+history: the coordinator's reversible default, not calef's ruling, and it needs
+`a-region-retypes-a-frame-run.md` first. And calef's option D on #1361 (the shell edits its own line) moves `swish` to raw mode,
+parked in `OP_READRAW`, so `FLAG_RETRY` must answer a parked `OP_READRAW` too, and the swap test's
+witness is a line-mode client of `line_editor` as well as `swish`.
+
+## Built
+
+2026-09-27, on PR #1382, under a terminal supervisor rather than `system_initializer` (calef's
+option A of `a-terminal-supervisor-holds-the-line-editor.md`). What this proposal still carries is
+the record of the two forks; an integrator promoting it can mark it built.
+
+## What to build
 
 - A `component_plan` declaration for `line_editor`, after the ELF-note manifest lane (PR #1338)
   settles where a manifest lives, so the declaration is written once in its final home.

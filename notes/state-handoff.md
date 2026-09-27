@@ -97,10 +97,11 @@ script/test --test a_component_keeps_its_state_across_a_swap
 
 ## BUGS
 
-A handoff page is one page. The component §209 was reopened for, `redoxfs_server`, will not fit,
-and neither would `line_editor` if it carried its history (eight 256-byte lines plus the edit
-buffers is a little over 4 KiB). Recorded in `component_plan`'s `BUGS`; the field wants a page count
-the day a component that needs one declares it.
+A handoff was one page until 2026-09-26, and is now a run. `Handoff` carries a page count, and the
+supervisor mints the run as one frame with `MemoryRegion::RETYPE`'s count (calef's ruling of that
+day, which a lane proposed because `line_editor` with its history needs a little over 4 KiB). The
+stateful fixture declares two pages and writes its tally on the second, so a run that stopped at
+its first page would lose the state and fail the test.
 
 A refusing replacement leaves because it chooses to. The operator cannot tear down a live child
 (notes/hung-component.md, question 4), so "revoke the new grant" is the refuser's own exit plus the

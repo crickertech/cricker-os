@@ -87,7 +87,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `network` | base | crates: `http_response`; programs: `net_stack`; paths: `components/src/net_transport.rs`, `components/src/socket_test_client.rs` | interfaces only | `network` (provisional) |
 | `procps` | base | crates: `pgrep`, `pmap`, `ps`, `top`, `uptime`; programs: `pgrep`, `pmap`, `ps`, `top`, `uptime`; paths: `packages/uptime.recipe`, `packages/uptime-riscv64.recipe`, `packages/uptime-x86_64.recipe` | interfaces only | `procps` (provisional) |
 | `swish` | base | crates: `swish`; programs: `swish` | interfaces only | `swish` (provisional) |
-| `terminal` | base | crates: `line_editor*`; programs: `console`, `input`, `line_editor`, `terminal_sink_caretaker` | interfaces only | `terminal` (provisional) |
+| `terminal` | base | crates: `line_editor*`; programs: `console`, `input`, `line_editor`, `terminal_sink_caretaker`, `terminal_supervisor` | interfaces only | `terminal` (provisional) |
 | `time` | base | crates: `network_time_protocol`; programs: `clock`, `network_time_client` | interfaces only | `time` (provisional) |
 | `timetable` | base | crates: `schedule_store`, `timetable`; programs: `timetable`; paths: `components/timetable.conf` | interfaces only | `timetable` (provisional) |
 | `util-linux` | base | programs: `disk_partitioner`, `disk_surveyor`, `uuid` | interfaces only | `util-linux` (provisional) |

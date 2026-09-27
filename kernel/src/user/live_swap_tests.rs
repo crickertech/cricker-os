@@ -56,6 +56,7 @@ const ROLE_QUEUED: u64 = 1;
 const ROLE_HUNG: u64 = 2;
 const ROLE_HANDOFF: u64 = 3;
 const ROLE_UNWARNED: u64 = 4;
+const ROLE_LATE_WARNING: u64 = 5;
 /// The one blob layout any build in this tree writes (`swap_protocol::LAYOUT_1`). The refusing
 /// replacement names it as the layout it could not read, so both sides name one constant.
 const LAYOUT_1: u64 = 1;
@@ -578,8 +579,9 @@ fn a_producer_never_blocks_on_an_absent_consumer_and_loses_nothing() {
 
     // **The one real edge in this milestone's residual.** `broker` declares `depends_on:
     // &["backend"]`, so the graph names it (id 2) as the sole instance that must be warned before
-    // the backend is swapped, and it is what actually decides whether `BOP_DOWN`/`BOP_UP` get sent
-    // on this run rather than the operator's own hard-coded memory of what it built.
+    // the backend is swapped, and it is what actually decides whether the broker is warned on this
+    // run rather than the operator's own hard-coded memory of what it built. The warning is §231's
+    // page and signal, which the operator never waits on.
     the_dependency_graph_matches_what_this_channel_ran(msgs, 1, 2);
 
     let producer = of_kind(msgs, RPT_CLIENT)
@@ -1040,7 +1042,7 @@ fn a_component_keeps_its_state_across_a_swap_and_a_swap_that_cannot_absorb_it_do
 /// fallback, notes/non-cooperative-fallback.md).
 ///
 /// The queued system, with one change: the dependency graph names `broker` exactly as it does on
-/// the queued channel, and the operator then never sends it `BOP_DOWN`, which is what a supervisor
+/// the queued channel, and the operator then never warns it, which is what a supervisor
 /// is reduced to when the dependent it must warn does not answer. The backend is swapped anyway.
 /// `broker` stays in pass-through, its forwarded `CALL` parks on the back endpoint's sender queue
 /// for the down window, and the replacement drains it (the argument of DECISIONS §41 (the endpoint
@@ -1087,6 +1089,46 @@ fn a_dependent_that_is_never_warned_loses_nothing_and_only_waits() {
         log[1] & LOG_CLEAN,
         LOG_CLEAN,
         "the unwarned channel lost or reordered work (verdict {:#x})",
+        log[1],
+    );
+}
+
+/// **A warning that arrives after the swap has finished costs nothing** (DECISIONS §231 (a swap's
+/// warning to a dependent is advisory, and the supervisor never waits for it)). The operator writes
+/// the broker's page down and then up, and signals, only once the replacement backend is already
+/// serving. Whatever the broker makes of it, buffering a few requests or none, every request is
+/// answered correctly and in order, and anything it did buffer reaches the backend.
+#[test_case]
+fn a_warning_that_lands_after_the_swap_loses_nothing() {
+    let (msgs, n) = run_swap(ROLE_LATE_WARNING);
+    let msgs = &msgs[..n];
+    a_component_the_operator_cannot_provide_for_was_refused_first(msgs);
+    the_dependency_graph_matches_what_this_channel_ran(msgs, 1, 2);
+
+    let producer = of_kind(msgs, RPT_CLIENT)
+        .next()
+        .expect("the producer never reported a verdict");
+    const PRODUCER_OK: u64 = CL_ALL_REPLIED | CL_SEQ_ECHOED | CL_DIGEST_CORRECT | CL_NONE_REFUSED;
+    assert_eq!(
+        producer[1] & PRODUCER_OK,
+        PRODUCER_OK,
+        "a late warning cost more than latency (verdict {:#x})",
+        producer[1],
+    );
+    let drained: u64 = of_kind(msgs, RPT_DRAINED).map(|m| m[1]).sum();
+    assert_eq!(
+        drained, producer[2],
+        "the broker buffered {} items for the producer and drained {drained}: a late warning lost work",
+        producer[2],
+    );
+    let log = of_kind(msgs, RPT_LOG)
+        .next()
+        .expect("the operator never reported its verdict");
+    const LOG_CLEAN: u64 = LOG_NO_GAP | LOG_MONOTONE | LOG_BOTH_VERSIONS;
+    assert_eq!(
+        log[1] & LOG_CLEAN,
+        LOG_CLEAN,
+        "the late-warning channel lost or reordered work (verdict {:#x})",
         log[1],
     );
 }

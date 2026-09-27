@@ -9,11 +9,12 @@ needs_person: no
 ---
 # 23. A capability-routed component OS with live replacement
 
-Every residual this block named is built. What keeps it PARTIAL is three lines under
-Follow-on: the interactive stack is not swapped, the fallback for a dependent that will not answer is
-proposed and not built, and what may be done to a component that never cooperates has no answer.
-Two of the three wait on an architect as proposals; the third belongs to §32 (a supervisor may
-collect a corpse without being able to build one).
+Every residual this block named is built, and so are the advisory warning (§231) and the live
+swap of `line_editor` (§232 (the line editor swap contract), with a terminal supervisor). What keeps
+it PARTIAL, as of 2026-09-27: the installer does not yet ask the terminal to swap (proposed, an
+architect's), `display_terminal` and `compositor` are not swapped, and what may be done to a
+component that never cooperates belongs to §32 (a supervisor may collect a corpse without being able
+to build one).
 
 ## The idea
 
@@ -120,8 +121,9 @@ warning is a `CALL`. notes/non-cooperative-fallback.md.
 
 ## Follow-on
 
-- **Recorded.** A handoff page is one page; `redoxfs_server`, §209's own motivating customer, will
-  not fit. `component_plan`'s `BUGS` and notes/state-handoff.md's.
+- **Done.** A handoff is a run of pages, 2026-09-26: `Handoff::pages`, minted with
+  `MemoryRegion::RETYPE`'s page count, which calef ruled the same day
+  (`design/roadmap/proposals/a-region-retypes-a-frame-run.md`, option A).
 - **Recorded.** A manifest is compiled in rather than shipped beside a binary. The ELF-note manifest
   work, milestone 597 (a program carries its manifest in an ELF note), carries a program's grant
   manifest rather than a component's declaration; notes/component-manifest.md's `BUGS` carries the history.
@@ -132,26 +134,26 @@ warning is a `CALL`. notes/non-cooperative-fallback.md.
   since a permanently blocked thread never reaches the scheduler to spend the kill a destroy arms.
   A hang can also cost two unreclaimable regions, the component's and its stranded caller's.
   Checked 2026-09-26.
-- **Proposed.** `design/roadmap/proposals/warn-a-dependent-without-blocking.md`, PROPOSED 2026-09-26.
-  The fallback for a dependent that will not answer is not "the same open question one level out":
-  measured above, it needs only a warning that never blocks. Recommended: signal a notification
-  bound to the dependent plus a read-only state page, after milestone 151 (notification objects:
-  async multiplexing without wait-any). Until then a hung `broker` hangs `swapper`, recorded at the
-  `CALL` in `swapper.rs` and in notes/non-cooperative-fallback.md.
-- **Outstanding.** `line_editor`, `display_terminal` and `compositor` are not swapped. The 2026-09-03
-  line that stood here was half right: all three run under the kernel test harness, but milestone
-  177 (wire the graphical terminal stack into the real interactive boot) wired two into a boot path,
-  not three, and the kernel builds `display_terminal`, so no userspace supervisor could swap it. The
-  compositor runs only in the tests of milestone 33 (a compositor: one screen, mutually distrusting
-  clients) and gets nothing until some boot runs it. notes/interactive-stack-swap.md, checked
-  2026-09-26.
-- **Proposed.** `design/roadmap/proposals/swap-line-editor-live-under-system-initializer.md`,
-  PROPOSED 2026-09-26, behind two terminal-contract forks for an architect: an additive quiesce
-  opcode, and what a reader parked in `OP_READLINE` is told when a swap begins (recommended: a new
-  "ask again" flag).
-- **Milestone 600.** Milestone 600 (the graphical terminal stack is built in userspace), promoted from this block's
-  proposal. `MAP_INTO` already maps a frame run, so the eleven-slot reason the kernel builds
-  `display_terminal` looks expired; whether the gpu's DMA pages are one run is the question.
+- **Done.** The advisory warning, 2026-09-27, as ruled in DECISIONS §231 (a swap's warning to a
+  dependent is advisory, and the supervisor never waits for it): `broker` reads a warning page on
+  every wakeup and `swapper` signals a notification bound to it and never waits, so a dependent that
+  does not answer no longer hangs the supervisor. Tested on time, never, and late
+  (`ROLE_LATE_WARNING`) on all three architectures. notes/non-cooperative-fallback.md.
+- **Done.** A handoff is a run of pages, 2026-09-26: `Handoff::pages`, minted with
+  `MemoryRegion::RETYPE`'s page count, DECISIONS §233 (`MemoryRegion::RETYPE` takes a page count).
+- **Done.** `line_editor` is swapped live, 2026-09-27, by `terminal_supervisor` (name provisional,
+  calef's to name), which `system_initializer` now builds in its place. Rulings: DECISIONS §232 (the
+  `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag), whose
+  `FLAG_RETRY` `swish` and `rmle` handle, and option A of `design/roadmap/proposals/a-terminal-supervisor-holds-the-line-editor.md`
+  on 2026-09-27. `kernel::user::terminal_swap_tests` swaps it twice under a typist on all three
+  architectures, carrying the half-typed line and the history. notes/interactive-stack-swap.md.
+- **Proposed.** `design/roadmap/proposals/the-installer-asks-the-terminal-to-swap.md`, PROPOSED
+  2026-09-27: the trigger. Nothing on a real boot asks the supervisor to swap yet.
+- **Outstanding.** `display_terminal` and `compositor` are not swapped. Milestone 600 (the
+  graphical terminal stack is built in userspace) moved `display_terminal`'s construction into
+  `system_initializer`, so a supervisor could now hold it; what it lacks is a declaration and a
+  handoff for a grid of several hundred KiB. The compositor runs only in the tests of milestone 33
+  (a compositor: one screen, mutually distrusting clients). Checked 2026-09-27.
 
 ## Index row
 
