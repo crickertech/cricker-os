@@ -2925,14 +2925,14 @@ python3 helpers/interface_stability.py --selftest >/dev/null
 echo "==> the architect-label diff rules"
 python3 helpers/architect-label-rules.py --selftest >/dev/null
 
-# The base-resolution half of the same check: helpers/architect-label-diff.sh takes the merge base
-# of HEAD against the base branch's CURRENT tip rather than trusting the event payload's own
-# base.sha, which goes stale the moment an unrelated pull request merges into the base branch
-# without a push to this one (#1416's false `dependency` flag for #1405's toml addition). This
-# selftest builds a throwaway repo under mktemp to reproduce that exact shape, cheap enough (one
-# `git init`, five commits) to run on every invocation here.
-echo "==> the architect-label merge-base resolution"
-helpers/architect-label-diff-selftest.sh >/dev/null
+# The base-resolution half of the same check, shared with ci.yml's six scope-check steps:
+# helpers/scope-merge-base.sh takes the merge base of HEAD against the base branch's CURRENT tip
+# rather than trusting the event payload's own base.sha, which goes stale the moment an unrelated
+# pull request merges into the base branch without a push to this one (#1416's false `dependency`
+# flag for #1405's toml addition). This selftest builds a throwaway repo under mktemp to reproduce
+# that exact shape, cheap enough (one `git init`, five commits) to run on every invocation here.
+echo "==> the shared scope/architect-label merge-base resolution"
+helpers/scope-merge-base-selftest.sh >/dev/null
 
 echo "==> em-dashes"
 # calef's standing style rule (CLAUDE.md): no em-dashes, use commas, periods, semicolons or

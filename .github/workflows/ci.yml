@@ -271,7 +271,19 @@ jobs:
       - name: Does this change need the build?
         id: scope
         run: |
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          # `helpers/scope-merge-base.sh` (its own header has the full story): a raw
+          # `pull_request.base.sha` is a snapshot from when THIS pull request's base last changed,
+          # not the base branch's current tip, so it goes stale the moment an unrelated pull
+          # request merges into the base branch without a push to this one. The script takes the
+          # merge base of HEAD against `origin/<base-ref>` instead, the base branch's actual
+          # current tip (already fetched fresh by this job's own `fetch-depth: 0` checkout above),
+          # falling back to the payload sha (still `|| merge_group.base_sha` for that event, whose
+          # own base is short-lived enough that this staleness is not its risk) only if the local
+          # ref cannot be resolved. Every one of this workflow's other five scope-check steps uses
+          # the identical call, for the identical reason.
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -417,7 +429,9 @@ jobs:
       - name: Does this change need the matrix?
         id: scope
         run: |
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -500,7 +514,9 @@ jobs:
         id: scope
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then echo "needed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -725,7 +741,9 @@ jobs:
       - name: Does this change need the tripwire?
         id: scope
         run: |
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -858,7 +876,9 @@ jobs:
       - name: Does this change need the sweep?
         id: scope
         run: |
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -936,7 +956,9 @@ jobs:
       - name: Does this change need the measurement?
         id: scope
         run: |
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
