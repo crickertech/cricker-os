@@ -181,5 +181,8 @@ rebase that also gated would hold this machine's memory for an hour to prove som
 proves for free.
 
 Do not push unless your brief says to. Do not enqueue, enable auto-merge, or merge. A rebase
-re-presents the whole diff to the `coe architect label` workflow, so `needs-architect` may reappear;
-that is expected and not yours to remove.
+re-presents the whole diff to `architect-label.yml` and `coe-architect-label.yml`, so
+`needs-architect` may reappear; that is expected and not yours to remove. If an architect has
+already ruled on this pull request's surface and the maintainer applied `architect-ruled`,
+`architect-label.yml` skips re-adding it instead; `coe-architect-label.yml` never re-adds it in the
+first place (its own detection asks what THIS push added, not what the whole diff still contains).
