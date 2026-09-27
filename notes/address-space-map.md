@@ -123,7 +123,3 @@ as `Err(())`, so there the check only makes the failure early and clean.
 - The timebase page still sits far above the map, paying three tables of its own in every `x86_64`
   and `riscv64` process. It belongs in `PROCESS_PAGES`; moving it is a std farm rebuild and a
   benchmark re-baseline, proposed in milestone 206's block as a follow-up.
-- The builder's scratch cursor has no bound. `supervision_protocol` advances one page per page it
-  builds and never unmaps. The progenitor's cursor starts at `0x1000_0000` and its initrd window is
-  at `0x2000_0000`. After 256 MiB of built pages, about a hundred spawns of a program `ripgrep`'s
-  size, the cursor reaches the archive's window and every later build fails as already mapped.

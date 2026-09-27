@@ -124,9 +124,9 @@ choice (how a single `std` directory slot holds words from several places).
   wait in the progenitor when the pool is short would close it, the clock-bounded wait `reclaim`'s
   BUGS in `crates/system_initializer` already asks for.
 - Each spawn costs a scratch page or two in the progenitor: one to read the shell's frame
-  and one to fill the child's copy. They come from `supervision_protocol`'s never-reused
-  scratch cursor, which milestone 206 (a program image has under 896 KiB)'s block records as unbounded and a draft pull request
-  (#1384) proposes to bound.
+  and one to fill the child's copy. They come from `supervision_protocol`'s scratch
+  window, which milestone 604 (the builder's scratch cursor is bounded) made wrap, so a reaped
+  job's pages are reused.
 
 ## Follow-on
 

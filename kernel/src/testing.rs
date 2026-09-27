@@ -81,6 +81,16 @@ use crate::{print, println};
 /// about the test rather than about the code, and is worth reading as one.
 const TEST_FILTER: &str = env!("NIFE_TEST_FILTER");
 
+/// **Did this run name a test by filter?** For the few tests too expensive for the whole suite,
+/// which skip unless somebody asked for them by name (`script/test --test <name>`); each says why
+/// in its own skip reason. Name provisional (milestone 604 (the builder's scratch cursor is
+/// bounded)).
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn run_was_filtered() -> bool {
+    !TEST_FILTER.is_empty()
+}
+
 static HEARTBEAT: AtomicU64 = AtomicU64::new(0);
 static WATCH_LAST_HB: AtomicU64 = AtomicU64::new(0);
 static WATCH_STALL_TICKS: AtomicU64 = AtomicU64::new(0);
