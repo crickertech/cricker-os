@@ -1042,6 +1042,11 @@ pub(crate) fn provoke_iommu_escape(id: usize, avail_out_of_domain: u64) {
 
     // Reset, then the modern handshake up to FEATURES_OK.
     dev.transport.write_reg(REG_STATUS, 0);
+    // Drain after the reset, not before it. An earlier test may have left this device running a
+    // queue that the new domain does not map, and it faults until the reset stops it; a drain before
+    // the reset left those stale records to be read as this test's (milestone 609 (the system tests
+    // leave the kernel crate) found it on x86_64, once the kernel's tests booted without the suite's).
+    while crate::iommu::take_fault().is_some() {}
     dev.transport.write_reg(REG_STATUS, S_ACK);
     dev.transport.write_reg(REG_STATUS, S_ACK | S_DRIVER);
     dev.transport.write_reg(REG_DRIVER_FEATURES_SEL, 0);

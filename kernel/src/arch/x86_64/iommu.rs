@@ -123,8 +123,9 @@
 //!   run zero times.
 //! - **The fault path decodes and clears exactly one Fault Recording Register per unit.** `CAP.NFR` is read
 //!   to find where the bank starts, not to size it; QEMU's model reports `NFR = 0` (one register),
-//!   so a real unit with more than one is read at the same fixed offset only, and a burst of faults
-//!   past that one register overflows silently until `FSTS.PFO` is read (it never is).
+//!   so a real unit with more than one is read at the same fixed offset only. A burst of faults past
+//!   that one register sets `FSTS.PFO`, and the hardware records nothing new until it is cleared;
+//!   [`take_fault`] clears it, so the faults lost in a burst are lost but the next one is recorded.
 
 use machine_discovery::acpi::{DmarUnits, Drhd, MAX_DRHDS, MAX_RMRR_SCOPES, SCOPE_PCI_ENDPOINT};
 use paging::PageFormat;
@@ -199,7 +200,9 @@ const CCMD_CIRG_GLOBAL: u64 = 1 << 61;
 const IOTLB_IVT: u64 = 1 << 63;
 const IOTLB_IIRG_GLOBAL: u64 = 1 << 60;
 
-// FSTS: fault status. PPF is the only bit read; PFO (overflow) is not (see this module's BUGS).
+// FSTS: fault status. PPF says a record is waiting; PFO says a fault arrived with no free record, and
+// while it is set the unit records nothing at all (write 1 to clear).
+const FSTS_PFO: u32 = 1 << 0;
 const FSTS_PPF: u32 = 1 << 1;
 
 // Root entry (one page, 256 x 16 bytes, one per PCI bus): lower qword only, in legacy mode.
@@ -760,6 +763,14 @@ pub fn take_fault() -> Option<Fault> {
     let g = IOMMU.lock();
     for slot in g.iter() {
         let Slot::Up(s) = slot else { continue };
+        // **An overflow blinds the unit until it is cleared** (found 2026-09-27 by milestone 609 (the
+        // system tests leave the kernel crate), which changed which tests share a boot). A device
+        // still running a queue from an earlier registration faulted until its one record was full;
+        // QEMU then set PFO and dropped every later fault, including the one the confinement test
+        // provoked, so the test read a stale record. Clearing PFO here makes the next fault land.
+        if r32(s.base, FSTS) & FSTS_PFO != 0 {
+            w32(s.base, FSTS, FSTS_PFO);
+        }
         if r32(s.base, FSTS) & FSTS_PPF == 0 {
             continue;
         }
