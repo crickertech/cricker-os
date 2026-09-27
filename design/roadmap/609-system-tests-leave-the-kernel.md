@@ -54,4 +54,4 @@ check 13 fails if one creeps back.
   `non_volatile_memory_express`); whether each is a service at all is pull request #1389's division
   question. The BUGS section of notes/system-tests-and-the-kernel-crate.md carries it.
 - **Done.** `system_tests` is its own package, `system-tests`, of kind `test`, in
-  `packages/system-tests.package`; the package name and kind are provisional.
+  `packages/system-tests.package.toml`; the package name and kind are provisional.

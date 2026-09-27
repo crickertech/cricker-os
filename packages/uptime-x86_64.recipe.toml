@@ -1,0 +1,18 @@
+# uptime, as an x86_64 package.
+#
+# The same package as `uptime.recipe`, for the third architecture (DECISIONS §19 (architectural parity is a tenet): parity is a
+# gate): milestone 198 (a package manager) rung 3a's installer runs `package install` on all three,
+# and x86_64 had no package until it did. No fetch test uses it, because the x86_64 QEMU runner
+# attaches no network. The digest line is absent for the reason `uptime.recipe` gives. Name:
+# provisional 2026-09-26.
+
+name = "uptime"
+version = "0.1.0"
+architecture = "x86_64"
+
+[[member]]
+program = "uptime"
+
+[[member]]
+name = "uptime.licence"
+file = "LICENSE-MIT"

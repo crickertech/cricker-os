@@ -1,0 +1,26 @@
+# fixtures: every program and crate that exists to be tested against. Never in a release image.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "fixtures"
+kind = "test"
+home = { repo = "fixtures", status = "provisional" }
+crates = [
+    "fixtures",
+    "coremark",
+    "job_mix",
+    "soak_page",
+    "c_seam",
+    "loaded_image_check",
+    "std_exerciser",
+    "cryptography_exerciser",
+    "fuzz",
+]
+paths = [
+    "packages/greeting.recipe.toml",
+    "packages/greeting-riscv64.recipe.toml",
+    "packages/greeting-x86_64.recipe.toml",
+]
+depends = ["init", "time", "timetable", "network", "host-tools"]

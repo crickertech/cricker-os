@@ -30,7 +30,7 @@ satisfy its letter, being crates, and miss its intent, being the wrong crates.
 
 ## Done when
 
-The two driver `exception` lines in `packages/kernel.package` are deleted, the kernel's tests take
-`ps::Row` and `pmap::Row` from `contracts`, and `script/lint` passes.
+The two driver `[[exception]]` entries in `packages/kernel.package.toml` are deleted, the kernel's
+tests take `ps::Row` and `pmap::Row` from `contracts`, and `script/lint` passes.
 The gate fails any exception whose link is gone, so it will say when each one can go. A name for
 each new crate is calef's.

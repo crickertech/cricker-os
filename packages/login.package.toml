@@ -1,0 +1,11 @@
+# login: authentication, secrets and identities. Debian's login and passwd.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "login"
+kind = "base"
+home = { repo = "login", status = "provisional" }
+crates = ["credentialer"]
+programs = ["login", "login_audit_receiver", "credentialer", "identity_provisioner"]

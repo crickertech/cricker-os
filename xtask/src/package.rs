@@ -18,7 +18,7 @@
 //! # EXAMPLES
 //!
 //! ```text
-//! $ cargo xtask package packages/uptime.recipe
+//! $ cargo xtask package packages/uptime.recipe.toml
 //! uptime 0.1.0 aarch64, 2 members, 4600 bytes
 //!   uptime          4528 bytes  7d8e...c1
 //!   uptime.licence    68 bytes  a3f0...9e
@@ -27,26 +27,37 @@
 //! package: PASS
 //! ```
 //!
-//! A recipe with no `digest` line builds and prints the digest to paste in; one whose `digest`
+//! A recipe with no `digest` key builds and prints the digest to paste in; one whose `digest`
 //! disagrees with the bytes fails, which is the whole mechanism: the reviewed line is what decides
 //! whether the bytes may run, so a rebuild that does not reproduce it is a fact somebody must see.
 //!
 //! # The recipe format
 //!
-//! One directive per line, `#` comments and blank lines skipped. Provisional, like everything else
-//! this lane named.
+//! TOML (calef, 2026-09-27: package declarations and recipes both move to TOML; JSON was refused
+//! for having no comments, and YAML too). The file extension `.recipe.toml` and every key name
+//! are provisional, named by the lane of milestone 611 (every program and crate belongs to a
+//! package).
 //!
-//! ```text
-//! name uptime                 # required, at most package_archive::NAME_LEN bytes
-//! version 0.1.0               # required
-//! architecture aarch64        # required: aarch64, riscv64 or x86_64
-//! program uptime              # a built ELF for that architecture, resolved from target/
-//! member uptime.licence LICENSE-MIT   # any file, by a path relative to the repository root
-//! digest 9f2c...              # optional: 64 hex characters, checked against what was built
+//! ```toml
+//! name = "uptime"              # required, at most package_archive::NAME_LEN bytes
+//! version = "0.1.0"            # required
+//! architecture = "aarch64"     # required: aarch64, riscv64 or x86_64
+//! digest = "9f2c..."           # optional: 64 hex characters, checked against what was built
+//!
+//! [[member]]                   # members in order: the package's bytes depend on it
+//! program = "uptime"           # a built ELF for that architecture, resolved from target/
+//!
+//! [[member]]
+//! name = "uptime.licence"      # any file, by a path relative to the repository root
+//! file = "LICENSE-MIT"
 //! ```
 //!
 //! `program` exists so a recipe does not have to spell a target triple and a cargo profile, which
-//! are facts about this checkout rather than about the package.
+//! are facts about this checkout rather than about the package. A key the parser does not know is
+//! refused, so a misspelt `digest` cannot pass review as a recipe that records none.
+//!
+//! The parser is the `toml` crate, host-only: `xtask` never reaches the shipping graph, and no
+//! target reads a recipe. The target reads the image's catalogue (`name digest` lines, below).
 //!
 //! # BUGS
 //!
@@ -75,25 +86,25 @@ use crate::{RISCV_TARGET, TARGET, X86_TARGET, profile_dir};
 /// nothing in this tree is ready to publish one.
 const OUTPUT: &str = "target/packages";
 
-/// A recipe, parsed. Borrowed out of the text so the parser can be a pure function a test can call
-/// with a string literal, which is the shape every parser in this tree that is worth testing has.
+/// A recipe, parsed. The parser is a pure function over the text, so a test can call it with a
+/// string literal, which is the shape every parser in this tree that is worth testing has.
 #[derive(Debug, PartialEq, Eq)]
-struct Recipe<'a> {
-    name: &'a str,
-    version: &'a str,
-    architecture: &'a str,
+struct Recipe {
+    name: String,
+    version: String,
+    architecture: String,
     /// `(member name, where its bytes come from)`, in the order the recipe lists them, because the
     /// package's bytes are a function of that order and a reviewed digest depends on it.
-    members: Vec<(&'a str, Source<'a>)>,
-    digest: Option<&'a str>,
+    members: Vec<(String, Source)>,
+    digest: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Source<'a> {
+enum Source {
     /// A built ELF for the recipe's architecture, resolved from `target/`.
-    Program(&'a str),
+    Program(String),
     /// A path relative to the repository root.
-    File(&'a str),
+    File(String),
 }
 
 /// `cargo xtask package <recipe>`: build it, check it against the recipe, and report.
@@ -176,7 +187,7 @@ pub(crate) fn build(root: &std::path::Path, text: &str) -> Result<Built, String>
     let mut bytes = Vec::new();
     for (name, source) in &recipe.members {
         let path =
-            resolve(root, recipe.architecture, source).map_err(|c| format!("{name}: {c}"))?;
+            resolve(root, &recipe.architecture, source).map_err(|c| format!("{name}: {c}"))?;
         // **A program is packed stripped**, the same bytes the image packs (`read_stripped`).
         // Unstripped, `uptime` was 881,152 bytes against a job region of 40 pages (160 KiB): an
         // installed program is bytes something on the target must read into memory to build a
@@ -193,13 +204,13 @@ pub(crate) fn build(root: &std::path::Path, text: &str) -> Result<Built, String>
         .members
         .iter()
         .zip(&bytes)
-        .map(|((name, _), content)| (*name, content.as_slice()))
+        .map(|((name, _), content)| (name.as_str(), content.as_slice()))
         .collect();
 
     let attributes = Attributes {
-        name: recipe.name,
-        version: recipe.version,
-        architecture: recipe.architecture,
+        name: &recipe.name,
+        version: &recipe.version,
+        architecture: &recipe.architecture,
     };
     let mut file = vec![0u8; package_size(&members)];
     write_package(&attributes, &members, &mut file).map_err(|e| format!("refused: {e:?}"))?;
@@ -218,8 +229,8 @@ pub(crate) fn build(root: &std::path::Path, text: &str) -> Result<Built, String>
     // for even though it costs a rebuild to find out. A package whose bytes do not reproduce the
     // reviewed line is one nothing accepts, so leaving it on disk beside a catalogue entry
     // vouching for it would be the tool disagreeing with itself.
-    if let Some(recorded) = recipe.digest
-        && recorded != digest
+    if let Some(recorded) = &recipe.digest
+        && *recorded != digest
     {
         return Err(format!(
             "the recipe records {recorded}, these bytes are {digest}: a rebuild that does not \
@@ -270,7 +281,11 @@ pub(crate) fn image_catalogue(architecture: &str) -> Result<String, String> {
     let mut recipes: Vec<PathBuf> = std::fs::read_dir(&dir)
         .map_err(|e| format!("could not read {}: {e}", dir.display()))?
         .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|path| path.extension().is_some_and(|x| x == "recipe"))
+        .filter(|path| {
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.ends_with(".recipe.toml"))
+        })
         .collect();
     recipes.sort();
     let mut catalogue = String::new();
@@ -313,11 +328,7 @@ fn hex(digest: &[u8]) -> String {
 }
 
 /// Where a member's bytes live on this host.
-fn resolve(
-    root: &std::path::Path,
-    architecture: &str,
-    source: &Source<'_>,
-) -> Result<PathBuf, String> {
+fn resolve(root: &std::path::Path, architecture: &str, source: &Source) -> Result<PathBuf, String> {
     match source {
         Source::File(path) => Ok(root.join(path)),
         Source::Program(name) => {
@@ -347,53 +358,72 @@ fn resolve(
     }
 }
 
-/// Parse a recipe, or say which line could not be read and why.
+/// Parse a recipe, or say which key could not be read and why.
 ///
 /// A pure function over the text, so the interesting half is host-testable in milliseconds, which
 /// is what `AGENTS.md` asks of every parser in this tree.
-fn parse_recipe(text: &str) -> Result<Recipe<'_>, String> {
-    let mut name = None;
-    let mut version = None;
-    let mut architecture = None;
-    let mut digest = None;
-    let mut members = Vec::new();
+fn parse_recipe(text: &str) -> Result<Recipe, String> {
+    let table: toml::Table = text
+        .parse()
+        .map_err(|e: toml::de::Error| e.message().to_string())?;
+    let string = |key: &str| -> Result<Option<String>, String> {
+        match table.get(key) {
+            None => Ok(None),
+            Some(toml::Value::String(value)) if !value.is_empty() => Ok(Some(value.clone())),
+            Some(_) => Err(format!("{key} is a non-empty string")),
+        }
+    };
+    for key in table.keys() {
+        if !["name", "version", "architecture", "digest", "member"].contains(&key.as_str()) {
+            return Err(format!("unknown key {key}"));
+        }
+    }
+    let name = string("name")?.ok_or("no name")?;
+    let version = string("version")?.ok_or("no version")?;
+    let architecture = string("architecture")?.ok_or("no architecture")?;
+    let digest = string("digest")?;
+    if let Some(digest) = &digest
+        && (digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()))
+    {
+        return Err("a digest is 64 hex characters".to_string());
+    }
 
-    for (number, line) in text.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let number = number + 1;
-        let (directive, rest) = line.split_once(' ').unwrap_or((line, ""));
-        let rest = rest.trim();
-        if rest.is_empty() {
-            return Err(format!("line {number}: {directive} says nothing"));
-        }
-        match directive {
-            "name" => name = Some(rest),
-            "version" => version = Some(rest),
-            "architecture" => architecture = Some(rest),
-            "digest" => {
-                if rest.len() != 64 || !rest.bytes().all(|b| b.is_ascii_hexdigit()) {
-                    return Err(format!("line {number}: a digest is 64 hex characters"));
-                }
-                digest = Some(rest);
+    let mut members = Vec::new();
+    let entries = match table.get("member") {
+        None => &Vec::new(),
+        Some(toml::Value::Array(entries)) => entries,
+        Some(_) => return Err("member is an array of tables, [[member]]".to_string()),
+    };
+    for (index, entry) in entries.iter().enumerate() {
+        let number = index + 1;
+        let Some(entry) = entry.as_table() else {
+            return Err(format!("member {number} is not a table"));
+        };
+        let field = |key: &str| entry.get(key).and_then(toml::Value::as_str);
+        for key in entry.keys() {
+            if !["program", "name", "file"].contains(&key.as_str()) {
+                return Err(format!("member {number}: unknown key {key}"));
             }
-            "program" => members.push((rest, Source::Program(rest))),
-            "member" => {
-                let Some((member, path)) = rest.split_once(' ') else {
-                    return Err(format!("line {number}: member needs a name and a path"));
-                };
-                members.push((member, Source::File(path.trim())));
+        }
+        match (field("program"), field("name"), field("file")) {
+            (Some(program), None, None) => {
+                members.push((program.to_string(), Source::Program(program.to_string())));
             }
-            other => return Err(format!("line {number}: unknown directive {other}")),
+            (None, Some(member), Some(path)) => {
+                members.push((member.to_string(), Source::File(path.to_string())));
+            }
+            _ => {
+                return Err(format!(
+                    "member {number} is either `program` alone or `name` with `file`"
+                ));
+            }
         }
     }
 
     Ok(Recipe {
-        name: name.ok_or("no name".to_string())?,
-        version: version.ok_or("no version".to_string())?,
-        architecture: architecture.ok_or("no architecture".to_string())?,
+        name,
+        version,
+        architecture,
         members,
         digest,
     })
@@ -403,15 +433,19 @@ fn parse_recipe(text: &str) -> Result<Recipe<'_>, String> {
 mod tests {
     use super::*;
 
-    const RECIPE: &str = "\
+    const RECIPE: &str = r#"
 # a comment
-name uptime
-version 0.1.0
-architecture aarch64
+name = "uptime"
+version = "0.1.0"
+architecture = "aarch64"
 
-program uptime
-member uptime.licence LICENSE-MIT
-";
+[[member]]
+program = "uptime"
+
+[[member]]
+name = "uptime.licence"
+file = "LICENSE-MIT"
+"#;
 
     #[test]
     fn a_recipe_reads_as_what_it_says() {
@@ -423,52 +457,80 @@ member uptime.licence LICENSE-MIT
         assert_eq!(
             recipe.members,
             vec![
-                ("uptime", Source::Program("uptime")),
-                ("uptime.licence", Source::File("LICENSE-MIT")),
+                ("uptime".to_string(), Source::Program("uptime".to_string())),
+                (
+                    "uptime.licence".to_string(),
+                    Source::File("LICENSE-MIT".to_string())
+                ),
             ]
         );
     }
 
     #[test]
     fn a_missing_field_is_named() {
-        for (line, missing) in [
-            ("name uptime", "no version"),
-            ("version 0.1.0", "no name"),
-            ("name uptime\nversion 0.1.0", "no architecture"),
+        for (text, missing) in [
+            ("name = \"uptime\"", "no version"),
+            ("version = \"0.1.0\"", "no name"),
+            ("name = \"uptime\"\nversion = \"0.1.0\"", "no architecture"),
         ] {
-            assert_eq!(parse_recipe(line).unwrap_err(), missing);
+            assert_eq!(parse_recipe(text).unwrap_err(), missing);
         }
     }
 
     #[test]
     fn a_digest_that_is_not_a_digest_is_refused() {
         // The one field where a typo would otherwise pass review and then fail a build on another
-        // host, which is the failure §195's whole arrangement is trying not to have.
-        let short = format!("{RECIPE}digest abc123\n");
+        // host, which is the failure §195's whole arrangement is trying not to have. The digest
+        // goes before the first [[member]], where TOML puts a top-level key.
+        let with = |digest: &str| {
+            RECIPE.replacen(
+                "[[member]]",
+                &format!("digest = \"{digest}\"\n\n[[member]]"),
+                1,
+            )
+        };
         assert_eq!(
-            parse_recipe(&short).unwrap_err(),
-            "line 8: a digest is 64 hex characters"
+            parse_recipe(&with("abc123")).unwrap_err(),
+            "a digest is 64 hex characters"
         );
-        let good = format!("{RECIPE}digest {}\n", "a".repeat(64));
         assert_eq!(
-            parse_recipe(&good).unwrap().digest,
-            Some("a".repeat(64)).as_deref()
+            parse_recipe(&with(&"a".repeat(64))).unwrap().digest,
+            Some("a".repeat(64))
         );
     }
 
     #[test]
-    fn a_line_nobody_can_read_names_itself() {
+    fn a_key_nobody_can_read_names_itself() {
+        // A misspelt key must not read as an absent one: a misspelt `digest` would otherwise be a
+        // recipe that records no digest, which review would pass.
         assert_eq!(
-            parse_recipe("name uptime\nfetch https://example.invalid\n").unwrap_err(),
-            "line 2: unknown directive fetch"
+            parse_recipe("name = \"uptime\"\nfetch = \"https://example.invalid\"\n").unwrap_err(),
+            "unknown key fetch"
         );
         assert_eq!(
-            parse_recipe("name uptime\nmember justaname\n").unwrap_err(),
-            "line 2: member needs a name and a path"
+            parse_recipe(&RECIPE.replace("file = \"LICENSE-MIT\"", "")).unwrap_err(),
+            "member 2 is either `program` alone or `name` with `file`"
         );
         assert_eq!(
-            parse_recipe("name\n").unwrap_err(),
-            "line 1: name says nothing"
+            parse_recipe("name = \"\"\n").unwrap_err(),
+            "name is a non-empty string"
         );
+    }
+
+    #[test]
+    fn every_recipe_in_the_tree_parses() {
+        // The recipes are read by every archive build, so a malformed one breaks the image rather
+        // than this command; catching it here costs milliseconds.
+        let dir = workspace_root().join("packages");
+        let mut seen = 0;
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.to_string_lossy().ends_with(".recipe.toml") {
+                parse_recipe(&std::fs::read_to_string(&path).unwrap())
+                    .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+                seen += 1;
+            }
+        }
+        assert!(seen > 0, "no recipes found");
     }
 }

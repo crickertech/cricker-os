@@ -51,12 +51,16 @@ is the day the format is fixed; nobody has.
 ## The producer
 
 `cargo xtask package <recipe>` turns a reviewed recipe into one package file, a digest, and a
-catalogue line. `packages/uptime.recipe` is the worked example and a real recipe rather than a
+catalogue line. `packages/uptime.recipe.toml` is the worked example and a real recipe rather than a
 fixture.
+
+Recipes are TOML since calef's ruling of 2026-09-27. `xtask` reads them with the `toml` crate, a
+dependency under §46 (thin primitives or whole subsystems): host-only, never shipped, parsing a
+format calef chose, correct by exposure. No target reads a recipe; it reads the catalogue.
 
 ```
 $ cargo build -p components --bin uptime --target aarch64-unknown-none-softfloat
-$ cargo xtask package packages/uptime.recipe
+$ cargo xtask package packages/uptime.recipe.toml
 uptime 0.1.0 aarch64, 2 members, 90491 bytes
   uptime                       89168 bytes  d801cd2b65dbfbd4982226394c8ad5de471d4f782f39eb16c5ee06cd71bcef26
   uptime.licence                1067 bytes  dba2f854c33606c0a4f028f88baf9d9bcef8d30714e29c8f3314dd5eeebf1c14
@@ -92,7 +96,7 @@ The bytes are a function of the inputs alone: no timestamp, no ordering pass, no
 padding. A reviewed digest is worth nothing if two hosts building the same recipe disagree, and
 `the_same_inputs_give_the_same_bytes` is the host test that says so.
 
-`packages/uptime.recipe` deliberately records no digest, and the comment in it says why: the
+`packages/uptime.recipe.toml` deliberately records no digest, and the comment in it says why: the
 program it names is rebuilt by this checkout whenever anything it links changes, so a recorded
 digest would be a number that fails for the next reader. A recorded number that is wrong is worse
 than an absent one. The line goes in when there is a release to pin it to, which is rung 4.

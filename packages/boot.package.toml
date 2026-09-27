@@ -1,0 +1,17 @@
+# boot: the UEFI loader and what draws the boot on a screen. Debian's grub-efi.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "boot"
+kind = "base"
+home = { repo = "boot", status = "provisional" }
+interfaces = ["screen_console", "bitmap_font", "sealed_pair"]
+crates = ["uefi_loader", "board_console"]
+
+[[exception]]
+date = 2026-09-27
+member = "board_console"
+crate = "job_mix"
+reason = "the board console runs the job mix to prove a board boots; the mix is a fixture a release image should not carry"

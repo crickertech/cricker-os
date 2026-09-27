@@ -54,7 +54,7 @@ test = false
 bench = false
 
 # The greeting (milestone 198 (a package manager) rung 3a, name provisional): a program no boot
-# image carries. It reaches a machine only as a package (`packages/greeting.recipe`), which is what
+# image carries. It reaches a machine only as a package (`packages/greeting.recipe.toml`), which is what
 # lets `script/swish-check` install and run something the image has never seen. Listed in
 # `packaged_only` below, so no archive packs it.
 [[bin]]

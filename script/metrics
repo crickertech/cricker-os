@@ -1146,7 +1146,7 @@ _RS_BUGS = re.compile(r'^[ \t]*(?:///|//!)[ \t]*#{1,6} BUGS\b', re.M)
 
 
 def homes(tree):
-    if not any(p.startswith('packages/') and p.endswith('.package') for p in tree.paths):
+    if not any(p.startswith('packages/') and p.endswith(package_boundaries.PACKAGE_SUFFIX) for p in tree.paths):
         return {}
     texts = dict(tree.text)
     for path in tree.paths:

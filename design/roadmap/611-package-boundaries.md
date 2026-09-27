@@ -25,11 +25,13 @@ and the reasons.
 ## What is built
 
 - Map. 26 packages over every crate, program and the std overlay in the eight workspaces: 16
-  base, 5 optional, 4 sdk, 1 test. Where Linux has the tool the distros' grouping is taken
+  base, 5 optional, 4 sdk, 1 test. A kind says where a package ends up (calef ratified the rule
+  and the four kinds at 2026-09-27T07:23Z). Where Linux has the tool the distros' grouping is taken
   (`procps`, `coreutils`, `util-linux`); where it has only a role, nife groups by role.
-- Declare. `packages/<name>.package` per package, with `name`, `kind`, `home` and at least one
-  member required. `packages/homes` gives a home to every tracked path in no package. Both use the
-  recipe's `directive value` lines. `home` is required, and `undecided` needs a reason.
+- Declare. `packages/<name>.package.toml` per package, with `name`, `kind`, `home` and at least
+  one member required. `packages/homes.toml` gives a home to every tracked path in no package. Both
+  are TOML, as the recipes are since calef's ruling of 2026-09-27. `home` is required, and
+  `undecided` needs a reason.
 - Gate. `script/lint` runs `helpers/packages.py`: a selftest planting fourteen violations, then
   the tree. Every tracked path has one home, and every crate and program is in one package. A link
   across a boundary goes to an interface or a declared dependency, or through a dated exception

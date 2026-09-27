@@ -19,7 +19,7 @@ is proposed to go. It needs calef first: a move is only possible once a package'
 - One package per pull request, at a quiet moment in the merge queue, since a move touches the
   workspace root that every lane shares.
 - The first commit is unchanged file moves and nothing else, so `git log --follow` and review both
-  see a rename. The package's `crate`, `program` and `path` lines in `packages/<name>.package` are
+  see a rename. The package's `crates`, `programs` and `paths` in `packages/<name>.package.toml` are
   the list of what moves.
 - The second commit repairs what pointed at the old paths: the workspace members, the gates, CI.
 - The package's `home` line flips to ratified when the repository exists, and the weekly metrics

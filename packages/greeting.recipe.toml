@@ -1,0 +1,19 @@
+# greeting, as a package: the first package whose program no boot image carries.
+#
+# `fixtures/Cargo.toml` lists `greeting` as `packaged_only`, so every archive build compiles it and
+# none packs it; this recipe is the only way it reaches a machine. Milestone 198 (a package manager)
+# rung 3a's `script/swish-check` fetches it over the network (aarch64, riscv64) or installs it from
+# the disk (x86_64) and runs it, which is the one line in that gate a copy of the image's own
+# programs could not pass. The digest line is absent for the reason `uptime.recipe` gives. Name:
+# provisional 2026-09-26.
+
+name = "greeting"
+version = "0.1.0"
+architecture = "aarch64"
+
+[[member]]
+program = "greeting"
+
+[[member]]
+name = "greeting.licence"
+file = "LICENSE-MIT"

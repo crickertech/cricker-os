@@ -12,35 +12,47 @@ weekly metrics page draws from it.
     python3 helpers/packages.py --write-table  # write it there, between the markers
     python3 helpers/packages.py --summary    # one line of counts
 
-Name: provisional, minted by milestone 611's lane on 2026-09-27. So are the file formats below, the
-four kinds, every package name and every home. calef names things and rules formats; the note
+Name: provisional, minted by milestone 611's lane on 2026-09-27. So are the key names below, every
+package name and every home. calef names things and rules formats; the note
 notes/package-boundaries.md lists the questions.
+
+**A package's kind says where it ends up** (calef ratified the rule and the four kinds at
+2026-09-27T07:23Z, UTC). `base`: every image. `optional`: a running nife that installs it. `sdk`: a
+developer's machine (the contracts, the runtime, the host tools). `test`: a test image, never a
+release. Not what a package does, and not who runs it.
 
 **Two declarations, because calef separated them (2026-09-27): "Everything in the tree may not be
 in a package, but it may be in a repo."**
 
-1. `packages/<name>.package`, one per package: what releases, updates and is trusted together.
-   Directives, one per line, the grammar `packages/*.recipe` already uses:
+TOML, both of them (calef, 2026-09-27: package declarations and recipes move to TOML; JSON was
+refused for having no comments, and YAML too). The extensions and every key name are provisional.
+An unknown key is refused, so a misspelt one cannot read as an absent one.
 
-       name <name>                 required; equals the file's stem
-       kind base|optional|sdk|test required, no default
-       home <repo> provisional     required, no default; or `home <repo> ratified <date>`,
-                                   or `home undecided <reason>`
-       crate <cargo package>       a member crate; claims its directory
-       interface <cargo package>   a member crate other packages may link without declaring it
-       program <binary>            a member program; claims its source file
-       path <prefix>               a member path (the std overlay, a feature's note, a recipe)
-       depends <package>           a declared dependency; its crates may be linked
-       exception <date> <member> <crate> <reason>
-                                   one recorded, dated link across a boundary the rules refuse
+1. `packages/<name>.package.toml`, one per package: what releases, updates and is trusted together.
 
-2. `packages/homes`, for tracked paths in no package: project records, CI, scripts, bench data.
-   `path <prefix> <home spec>` per line, the home spec being what follows `home` above.
+       name = "procps"              required; equals the file's stem
+       kind = "base"                required, no default: base, optional, sdk or test
+       home = { repo = "procps", status = "provisional" }
+                                    required, no default; or { repo, status = "ratified", date },
+                                    or { status = "undecided", reason = "..." }
+       crates = ["ps"]              member crates; each claims its directory
+       interfaces = ["abi"]         member crates other packages may link without declaring them
+       programs = ["ps"]            member programs; each claims its source file
+       paths = ["patches/"]         member paths (the std overlay, a recipe, a `#[path]` module)
+       depends = ["init"]           declared dependencies; their crates may be linked
+       [[exception]]                one recorded, dated link across a boundary the rules refuse:
+       date = 2026-09-27            date, member, crate and reason, all required
+       member = "kernel"
+       crate = "ps"
+       reason = "..."
+
+2. `packages/homes.toml`, for tracked paths in no package: project records, CI, scripts, bench
+   data. One `[[home]]` table per home, its keys those of `home` above plus `paths`.
 
 **The rules, each a rule over the tree and none a list of names:**
 
 - Every tracked path has exactly one home. A path's claim is the longest prefix naming it, among
-  every package member and every `packages/homes` line; two claims of the same prefix fail, and so
+  every package member and every `packages/homes.toml` entry; two claims of the same prefix fail, and so
   does a path nothing claims. A package's paths take the package's home.
 - Every Cargo package in the tree is a member of exactly one package, and so is every binary target.
   A crate's binaries go with it, unless any of them is placed in another package: then every one
@@ -65,76 +77,98 @@ import re
 import subprocess
 import sys
 import tomllib
+from datetime import date
 
 KINDS = ('base', 'optional', 'sdk', 'test')
-HOMES_FILE = 'packages/homes'
+HOMES_FILE = 'packages/homes.toml'
 PACKAGE_DIR = 'packages/'
-PACKAGE_SUFFIX = '.package'
-DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+PACKAGE_SUFFIX = '.package.toml'
 REPO = re.compile(r'^[a-z0-9][a-z0-9._/-]*$')
 
 
 # ---------------------------------------------------------------------------------------------
 # Parsing. Pure functions over text, so the selftest needs no tree.
 
-def parse_home(words, where):
-    """A home spec: `<repo> provisional`, `<repo> ratified <date>`, or `undecided <reason>`."""
-    if not words:
+HOME_KEYS = {'undecided': {'status', 'reason'}, 'provisional': {'status', 'repo'},
+             'ratified': {'status', 'repo', 'date'}}
+PACKAGE_KEYS = {'name', 'kind', 'home', 'crates', 'interfaces', 'programs', 'paths', 'depends',
+                'exception'}
+EXCEPTION_KEYS = {'date', 'member', 'crate', 'reason'}
+
+
+def _load(text, where):
+    try:
+        return tomllib.loads(text), []
+    except tomllib.TOMLDecodeError as e:
+        return None, [f'{where}: {e}']
+
+
+def parse_home(table, where, extra=()):
+    """A home: `{repo, status = "provisional"}`, `{repo, status = "ratified", date}`, or
+    `{status = "undecided", reason}`. `extra` names keys the caller reads itself."""
+    if not isinstance(table, dict):
         return None, [f'{where}: a home is required, even when the answer is "undecided"']
-    if words[0] == 'undecided':
-        if len(words) < 2:
+    status = table.get('status')
+    if status not in HOME_KEYS:
+        return None, [f'{where}: a home\'s status is undecided, provisional or ratified']
+    keys = set(table) - set(extra)
+    if keys != HOME_KEYS[status]:
+        if status == 'undecided' and 'reason' not in keys:
             return None, [f'{where}: an undecided home says why, in a few words']
-        return {'repo': None, 'status': 'undecided', 'reason': ' '.join(words[1:])}, []
-    repo = words[0]
-    if not REPO.match(repo):
+        return None, [f'{where}: a {status} home has exactly {", ".join(sorted(HOME_KEYS[status]))}']
+    if status == 'undecided':
+        if not isinstance(table['reason'], str) or not table['reason'].strip():
+            return None, [f'{where}: an undecided home says why, in a few words']
+        return {'repo': None, 'status': 'undecided', 'reason': table['reason']}, []
+    repo = table['repo']
+    if not isinstance(repo, str) or not REPO.match(repo):
         return None, [f'{where}: {repo!r} is not a repository name']
-    if words[1:] == ['provisional']:
-        return {'repo': repo, 'status': 'provisional'}, []
-    if len(words) == 3 and words[1] == 'ratified' and DATE.match(words[2]):
-        return {'repo': repo, 'status': 'ratified', 'date': words[2]}, []
-    return None, [f'{where}: a home is `<repo> provisional`, `<repo> ratified <date>` '
-                  'or `undecided <reason>`']
+    if status == 'ratified':
+        if not isinstance(table['date'], date):
+            return None, [f'{where}: a ratified home carries a TOML date, 2026-09-27']
+        return {'repo': repo, 'status': 'ratified', 'date': table['date'].isoformat()}, []
+    return {'repo': repo, 'status': 'provisional'}, []
+
+
+def _names(value, key, where, errors):
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(v, str) and v for v in value):
+        errors.append(f'{where}: {key} is a list of names')
+        return []
+    return value
 
 
 def parse_package(stem, text):
     where = f'{PACKAGE_DIR}{stem}{PACKAGE_SUFFIX}'
     pkg = {'file': where, 'name': None, 'kind': None, 'home': None, 'crates': [],
            'interfaces': set(), 'programs': [], 'paths': [], 'depends': [], 'exceptions': []}
-    errors = []
-    for number, raw in enumerate(text.splitlines(), 1):
-        line = raw.strip()
-        if not line or line.startswith('#'):
-            continue
-        at = f'{where}:{number}'
-        directive, *words = line.split()
-        if directive == 'name':
-            pkg['name'] = ' '.join(words)
-        elif directive == 'kind':
-            if words not in ([k] for k in KINDS):
-                errors.append(f'{at}: kind is one of {", ".join(KINDS)}')
-            else:
-                pkg['kind'] = words[0]
-        elif directive == 'home':
-            pkg['home'], errs = parse_home(words, at)
-            errors += errs
-        elif directive in ('crate', 'interface', 'program', 'path', 'depends'):
-            if len(words) != 1:
-                errors.append(f'{at}: {directive} takes one word')
-                continue
-            if directive == 'interface':
-                pkg['crates'].append(words[0])
-                pkg['interfaces'].add(words[0])
-            else:
-                pkg[{'crate': 'crates', 'program': 'programs', 'path': 'paths',
-                     'depends': 'depends'}[directive]].append(words[0])
-        elif directive == 'exception':
-            if len(words) < 4 or not DATE.match(words[0]):
-                errors.append(f'{at}: exception is `<date> <member> <crate> <reason>`')
-                continue
-            pkg['exceptions'].append({'date': words[0], 'member': words[1], 'crate': words[2],
-                                      'reason': ' '.join(words[3:]), 'at': at})
+    table, errors = _load(text, where)
+    if table is None:
+        return pkg, errors
+    for key in sorted(set(table) - PACKAGE_KEYS):
+        errors.append(f'{where}: unknown key {key}')
+    pkg['name'] = table.get('name')
+    if 'kind' in table:
+        if table['kind'] in KINDS:
+            pkg['kind'] = table['kind']
         else:
-            errors.append(f'{at}: unknown directive {directive}')
+            errors.append(f'{where}: kind is one of {", ".join(KINDS)}')
+    if 'home' in table:
+        pkg['home'], errs = parse_home(table['home'], f'{where}: home')
+        errors += errs
+    interfaces = _names(table.get('interfaces'), 'interfaces', where, errors)
+    pkg['crates'] = interfaces + _names(table.get('crates'), 'crates', where, errors)
+    pkg['interfaces'] = set(interfaces)
+    for key in ('programs', 'paths', 'depends'):
+        pkg[key] = _names(table.get(key), key, where, errors)
+    for number, x in enumerate(table.get('exception', []), 1):
+        at = f'{where}: exception {number}'
+        if not isinstance(x, dict) or set(x) != EXCEPTION_KEYS or not isinstance(x['date'], date):
+            errors.append(f'{at}: an exception has exactly a TOML date, member, crate and reason')
+            continue
+        pkg['exceptions'].append({'date': x['date'].isoformat(), 'member': x['member'],
+                                  'crate': x['crate'], 'reason': x['reason'], 'at': at})
     if pkg['name'] != stem:
         errors.append(f'{where}: name must be {stem!r}, the file\'s stem')
     for field in ('kind', 'home'):
@@ -146,20 +180,21 @@ def parse_package(stem, text):
 
 
 def parse_homes(text):
-    claims, errors = [], []
-    for number, raw in enumerate(text.splitlines(), 1):
-        line = raw.strip()
-        if not line or line.startswith('#'):
-            continue
-        at = f'{HOMES_FILE}:{number}'
-        words = line.split()
-        if words[0] != 'path' or len(words) < 3:
-            errors.append(f'{at}: a line is `path <prefix> <home spec>`')
-            continue
-        home, errs = parse_home(words[2:], at)
+    claims = []
+    table, errors = _load(text, HOMES_FILE)
+    if table is None:
+        return claims, errors
+    for key in sorted(set(table) - {'home'}):
+        errors.append(f'{HOMES_FILE}: unknown key {key}')
+    for number, entry in enumerate(table.get('home', []), 1):
+        at = f'{HOMES_FILE}: home {number}'
+        home, errs = parse_home(entry, at, extra=('paths',))
         errors += errs
+        paths = _names(entry.get('paths') if isinstance(entry, dict) else None, 'paths', at, errors)
+        if not paths:
+            errors.append(f'{at}: a home with no paths')
         if home:
-            claims.append((words[1], home, at))
+            claims += [(prefix, home, at) for prefix in paths]
     return claims, errors
 
 
@@ -244,7 +279,7 @@ def program_mentions(source_path, texts, lib_names):
 def evaluate(tracked, texts):
     """Everything the gate and the metric need, from the tracked paths and the texts it reads.
 
-    `texts` holds at least every tracked `Cargo.toml`, every `packages/*.package`, `packages/homes`
+    `texts` holds at least every tracked `Cargo.toml`, every `packages/*.package.toml`, `packages/homes.toml`
     and the source of every program whose crate's binaries are split across packages.
     """
     errors = []
@@ -335,7 +370,7 @@ def evaluate(tracked, texts):
             errors.append(f'{at}: {prefix} claims no tracked path, or only paths a longer claim holds')
     if unclaimed:
         errors.append(f'{len(unclaimed)} tracked path(s) have no home, for example '
-                      + ', '.join(unclaimed[:5]) + ' (claim them in a package or packages/homes)')
+                      + ', '.join(unclaimed[:5]) + ' (claim them in a package or packages/homes.toml)')
 
     # Links across a boundary.
     edges = []   # (package, member, crate linked)
@@ -514,31 +549,67 @@ def check(root='.'):
 # ---------------------------------------------------------------------------------------------
 # The selftest: a small tree that passes, and one planted violation per rule.
 
-def _fixture():
-    toml = lambda name, deps='', extra='': (f'[package]\nname = "{name}"\nversion = "0.1.0"\n'
-                                            f'{extra}\n[dependencies]\n{deps}')
+def _toml(table):
+    """Just enough TOML for the selftest's fixtures: strings, lists, dates, inline tables and
+    arrays of tables. Writing the fixtures as dictionaries lets a planted violation change one key
+    rather than splice text, since TOML refuses a key given twice."""
+    def value(v):
+        if isinstance(v, str):
+            return '"' + v.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        if isinstance(v, date):
+            return v.isoformat()
+        if isinstance(v, list):
+            return '[' + ', '.join(value(x) for x in v) + ']'
+        return '{ ' + ', '.join(f'{k} = {value(x)}' for k, x in v.items()) + ' }'
+    lines, arrays = [], []
+    for k, v in table.items():
+        if isinstance(v, list) and v and all(isinstance(x, dict) for x in v):
+            arrays.append((k, v))
+        else:
+            lines.append(f'{k} = {value(v)}')
+    for k, entries in arrays:
+        for entry in entries:
+            lines += ['', f'[[{k}]]'] + [f'{a} = {value(b)}' for a, b in entry.items()]
+    return '\n'.join(lines) + '\n'
+
+
+def _fixture(plant=None):
+    cargo = lambda name, deps='', extra='': (f'[package]\nname = "{name}"\nversion = "0.1.0"\n'
+                                             f'{extra}\n[dependencies]\n{deps}')
+    provisional = lambda repo: {'repo': repo, 'status': 'provisional'}
+    spec = {
+        'homes': {'home': [
+            {'status': 'undecided', 'reason': 'the workspace root', 'paths': ['Cargo.toml']},
+            dict(provisional('records'), paths=['notes/', 'packages/homes.toml']),
+        ]},
+        'contracts': {'name': 'contracts', 'kind': 'sdk', 'home': provisional('sdk'),
+                      'interfaces': ['proto']},
+        'toolbox': {'name': 'toolbox', 'kind': 'base', 'home': provisional('toolbox'),
+                    'crates': ['lib', 'tool', 'host'], 'programs': ['b']},
+        'extra': {'name': 'extra', 'kind': 'optional',
+                  'home': {'status': 'undecided', 'reason': 'nobody asked yet'},
+                  'programs': ['a'], 'paths': ['notes/extra.md']},
+    }
     texts = {
         'Cargo.toml': '[workspace]\nmembers = []\n',
-        'crates/proto/Cargo.toml': toml('proto'),
-        'crates/lib/Cargo.toml': toml('lib'),
-        'crates/tool/Cargo.toml': toml('tool', 'proto = { path = "../proto" }\n'
-                                       'lib = { path = "../lib" }\n'),
-        'host/Cargo.toml': toml('host', 'lib = { path = "../crates/lib" }\n',
-                                '[[bin]]\nname = "a"\npath = "src/a.rs"\n'
-                                '[[bin]]\nname = "b"\npath = "src/b.rs"\n'),
+        'crates/proto/Cargo.toml': cargo('proto'),
+        'crates/lib/Cargo.toml': cargo('lib'),
+        'crates/tool/Cargo.toml': cargo('tool', 'proto = { path = "../proto" }\n'
+                                        'lib = { path = "../lib" }\n'),
+        'host/Cargo.toml': cargo('host', 'lib = { path = "../crates/lib" }\n',
+                                 '[[bin]]\nname = "a"\npath = "src/a.rs"\n'
+                                 '[[bin]]\nname = "b"\npath = "src/b.rs"\n'),
         'host/src/a.rs': 'use proto::X;\n',
         'host/src/b.rs': 'fn main() { lib::go(); }\n',
         'crates/tool/src/main.rs': '',
-        'packages/homes': 'path Cargo.toml undecided the workspace root\npath notes/ records provisional\n'
-                          'path packages/homes records provisional\n',
-        'packages/contracts.package': 'name contracts\nkind sdk\nhome sdk provisional\ninterface proto\n',
-        'packages/toolbox.package': 'name toolbox\nkind base\nhome toolbox provisional\n'
-                                    'crate lib\ncrate tool\ncrate host\nprogram b\n',
-        'packages/extra.package': 'name extra\nkind optional\nhome undecided nobody asked yet\n'
-                                  'program a\npath notes/extra.md\n',
     }
-    tracked = sorted(set(texts) | {'notes/a.md', 'notes/extra.md', 'crates/lib/src/lib.rs'})
-    return tracked, texts
+    tracked = set(texts) | {'notes/a.md', 'notes/extra.md', 'crates/lib/src/lib.rs'}
+    if plant:
+        plant(spec, tracked, texts)
+    texts[HOMES_FILE] = _toml(spec.pop('homes'))
+    for stem, table in spec.items():
+        texts[f'{PACKAGE_DIR}{stem}{PACKAGE_SUFFIX}'] = _toml(table)
+    return sorted(tracked | set(texts)), texts
 
 
 def selftest():
@@ -549,58 +620,53 @@ def selftest():
     assert (c['packages_total'], c['packages_home_undecided'], c['paths_home_undecided']) == (3, 1, 4), c
     assert good['program_pkg'] == {'a': 'extra', 'b': 'toolbox', 'tool': 'toolbox'}, good['program_pkg']
 
-    def planted(change, expect):
-        t, x = _fixture()
-        change(t, x)
-        errs = evaluate(t, x)['errors']
-        assert any(expect in e for e in errs), (expect, errs)
+    planted_count = 0
 
+    def planted(plant, expect):
+        nonlocal planted_count
+        errs = evaluate(*_fixture(plant))['errors']
+        assert any(expect in e for e in errs), (expect, errs)
+        planted_count += 1
+
+    stale = {'date': date(2026, 9, 27), 'member': 'a', 'crate': 'lib', 'reason': 'a stale excuse'}
     # A path nobody claims.
-    planted(lambda t, x: t.append('stray.txt'), 'have no home')
+    planted(lambda s, t, x: t.add('stray.txt'), 'have no home')
     # A crate in no package, and one in two.
-    planted(lambda t, x: x.update({'crates/new/Cargo.toml': 'package = {name = "new"}\n'}) or
-            t.append('crates/new/Cargo.toml'), 'crate new (crates/new) is in no package')
-    planted(lambda t, x: x.update({'packages/extra.package': x['packages/extra.package'] + 'crate lib\n'}),
-            'crate lib is in two packages')
+    planted(lambda s, t, x: x.update({'crates/new/Cargo.toml': 'package = {name = "new"}\n'}),
+            'crate new (crates/new) is in no package')
+    planted(lambda s, t, x: s['extra'].update(crates=['lib']), 'crate lib is in two packages')
     # A program of a split crate that nobody placed.
-    planted(lambda t, x: x.update({'host/Cargo.toml': x['host/Cargo.toml'].replace(
+    planted(lambda s, t, x: x.update({'host/Cargo.toml': x['host/Cargo.toml'].replace(
                 '[dependencies]', '[[bin]]\nname = "c"\npath = "src/c.rs"\n[dependencies]'),
-                'host/src/c.rs': ''}) or t.append('host/src/c.rs'),
-            'program c (host/src/c.rs) is in no package')
+                'host/src/c.rs': ''}), 'program c (host/src/c.rs) is in no package')
     # A program reaching into another package's internals, and a crate doing the same.
-    planted(lambda t, x: x.update({'host/src/a.rs': 'use lib::Y;\n'}), 'extra: a links lib')
-    planted(lambda t, x: x.update({'packages/contracts.package': x['packages/contracts.package']
-                                   .replace('interface proto', 'crate proto')}),
+    planted(lambda s, t, x: x.update({'host/src/a.rs': 'use lib::Y;\n'}), 'extra: a links lib')
+    planted(lambda s, t, x: s['contracts'].update(interfaces=[], crates=['proto']),
             'toolbox: tool links proto, an internal crate of contracts')
-    # A home missing, a kind missing, a malformed home.
-    planted(lambda t, x: x.update({'packages/extra.package': 'name extra\nkind optional\nprogram a\npath notes/extra.md\n'}),
-            'no home')
-    planted(lambda t, x: x.update({'packages/extra.package': 'name extra\nhome undecided x\nprogram a\npath notes/extra.md\n'}),
-            'no kind')
-    planted(lambda t, x: x.update({'packages/homes': 'path Cargo.toml undecided\npath notes/ records provisional\n'}),
-            'says why')
+    # A home missing, a kind missing, an undecided home with no reason.
+    planted(lambda s, t, x: s['extra'].pop('home'), 'no home')
+    planted(lambda s, t, x: s['extra'].pop('kind'), 'no kind')
+    planted(lambda s, t, x: s['homes']['home'][0].pop('reason'), 'says why')
     # Two claims of one prefix, and a claim of nothing.
-    planted(lambda t, x: x.update({'packages/homes': x['packages/homes'] + 'path notes/extra.md records provisional\n'}),
-            'already claimed')
-    planted(lambda t, x: x.update({'packages/homes': x['packages/homes'] + 'path gone/ records provisional\n'}),
-            'claims no tracked path')
+    planted(lambda s, t, x: s['homes']['home'][1]['paths'].append('notes/extra.md'), 'already claimed')
+    planted(lambda s, t, x: s['homes']['home'][1]['paths'].append('gone/'), 'claims no tracked path')
     # An exception that excuses a link which is not there any more.
-    planted(lambda t, x: x.update({'packages/extra.package': x['packages/extra.package']
-                                   + 'exception 2026-09-27 a lib a stale excuse\n'}),
-            'names a link that is gone')
+    planted(lambda s, t, x: s['extra'].update(exception=[stale]), 'names a link that is gone')
     # Kinds: a base package depending on an optional one; a non-test on a test package.
-    planted(lambda t, x: x.update({'packages/toolbox.package': x['packages/toolbox.package'] + 'depends extra\n'}),
+    planted(lambda s, t, x: s['toolbox'].update(depends=['extra']),
             'base package depends on the optional package extra')
-    planted(lambda t, x: x.update({'packages/extra.package': x['packages/extra.package'].replace('optional', 'test'),
-                                   'packages/toolbox.package': x['packages/toolbox.package'] + 'depends extra\n'}),
+    planted(lambda s, t, x: (s['extra'].update(kind='test'), s['toolbox'].update(depends=['extra'])),
             'depends on the test package extra')
 
     # And the ways out that are not weakening: an exception that names the link, and a declaration.
-    t, x = _fixture()
-    x['host/src/a.rs'] = 'use lib::Y;\n'
-    x['packages/extra.package'] += 'exception 2026-09-27 a lib the reason goes here\n'
-    assert evaluate(t, x)['errors'] == []
-    print('packages: selftest passed (14 planted violations, each caught)')
+    def excused(s, t, x):
+        x['host/src/a.rs'] = 'use lib::Y;\n'
+        s['extra']['exception'] = [dict(stale, reason='the reason goes here')]
+    assert evaluate(*_fixture(excused))['errors'] == []
+    # And a misspelt key is refused rather than read as absent.
+    assert any('unknown key hme' in e for e in evaluate(*_fixture(
+        lambda s, t, x: s['extra'].update(hme=s['extra'].pop('home'))))['errors'])
+    print(f'packages: selftest passed ({planted_count} planted violations, each caught)')
 
 
 def main(argv):
