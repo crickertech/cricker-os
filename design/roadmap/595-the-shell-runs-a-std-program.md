@@ -18,9 +18,10 @@ names it.)* The progenitor's `std` layout was built on 2026-09-26 by lane
 `the-x86-64-progenitor-serves-entropy-from-rdseed` and built the same day by lane
 `milestone/595-x86-std`. See "What is built" below.
 
-No open fork stops a step between a typed line and a running `rg` any more. §219,
-§170 and §171 were ruled on 2026-09-26, and milestones 205 and 206 build the answers to §170
-and §171. The sections below say which step each one stops.
+No open fork stops a step between a typed line and a running `rg` any more. §219, §170 (how a
+foreign program is told what to do) and §171 (where a program image starts, and where the stack
+goes) were ruled on 2026-09-26. Milestones 205 and 206 build the last two. "What is left" says
+which step waits on which lane.
 
 ## The gap, checked 2026-09-25
 
@@ -153,28 +154,55 @@ figure, which is what the proposal predicted. The x86_64 gauge line is still sta
 
 ## What it waits on
 
-- §219 (how the shell names an installed program to the spawner), decided: option D with gate D2
-  (calef, 2026-09-26, recorded by #1317). The shell sends a binary's bytes as frames it owns, which
-  fits a program built by `helpers/build-ripgrep.sh` and run by path. That is also why `rg` cannot be
-  an enum row: it is never in an ordinary archive, because fetching its crates in CI is a §46 (thin
-  primitives or whole subsystems) decision nobody has made. Two consequences follow. Such an `rg`
-  is unvouched, so the session needs D2's capability to run it. And an unvouched child gets only
-  what the line delegates, plus the clock and configuration pages, so its directory must come from
-  the line. That is the confinement this milestone wants. Option D was built by #1320 and gate D2
-  on 2026-09-26, both in milestone 198 (a package manager). Corrected 2026-09-26: this said
-  neither was built.
-- §170 (how a foreign program is told what to do), decided 2026-09-26, and milestone 205 (how a
-  foreign program is told what to do), which builds it. `std::env::args()` yields nothing on nife,
-  so `rg` prints its own usage text and stops. The ruling is a byte argv in one page with no
-  authority in it. What a word may touch comes from the program's manifest and the directories the
-  line grants, and an unvouched program gets named files read-only unless the word is marked.
-- Milestone 206 (a program image has under 896 KiB), which builds §171 (where a program image
-  starts), ruled 2026-09-26 as option D: a written address-space map the constants derive from.
-  The image meets its own stack there, and `rg`'s `.text` is 1.37 MiB. The harness relinks `rg` at
-  `0x100_0000` to get past it. A spawn from the shell cannot rely on that trick.
+Every fork is ruled. What remains is built by other lanes, or edits code they are rewriting.
 
-The std address-space layout in the progenitor is this milestone's own work and waits on nothing.
-It could start today, proven with `std_exerciser`, which is in every archive.
+- §219 (how the shell names an installed program to the spawner): option D with gate D2, built in
+  milestone 198 (a package manager) by #1320 and #1334. The shell sends a binary's bytes as frames,
+  which fits an `rg` built by `helpers/build-ripgrep.sh` and run by path. `rg` cannot be an archive
+  row, because fetching its crates in CI is a §46 (thin primitives or whole subsystems) decision
+  nobody has made. So it runs unvouched, under D2, holding only what the line delegates plus the
+  clock and configuration pages. That is the confinement this milestone wants.
+- Milestone 205 (how a foreign program is told what to do), in #1385, builds §170's ruling: a
+  byte argv in one page, and what a word may touch from the manifest and the line's directories.
+  Its list names `Prog::StdExerciser`'s manifest and the progenitor's `std_layout` arm, so the
+  directory half of `StdLayout` is proven there. The image arm's refusal of a directory grant
+  (`wiring.dir` in `spawn_service`) is the same designation question for an unvouched program.
+- The manifest note (#1338, promoted from the proposal
+  `a-program-carries-its-manifest-in-an-elf-note`, unmerged when this was written). Its note
+  carries `runtime`, which is how the progenitor can learn that a file run by its path is a `std`
+  program. Until then an image always gets a native layout, and `grant_plan::image_can_carry`
+  refuses `Runtime::Std` on purpose. Its number belongs in `milestone_dependencies` once the
+  block exists on `main`, where lint looks for it.
+- Milestone 206 (a program image has under 896 KiB), in #1352, builds §171's option D. Corrected
+  2026-09-26: this said a spawn from the shell cannot use the relink to `0x100_0000` that gets
+  `rg` past the ceiling in the harness. It can. `supervision_protocol::build_child_space` maps each
+  segment where its program header says, and nothing a `std` child holds sits below
+  `std_runtime_protocol::FS_PAGE` at `0x1100_0000`. 206 is still owed for a program linked the
+  stock way.
+
+## What is left, checked 2026-09-26
+
+Two steps are this milestone's own. Both are sequenced behind the lanes above rather than built
+beside them.
+
+1. An image that declares the `std` runtime runs in `std`'s layout. The progenitor splits an
+   image's region at a native job's size (`JOB_REGION_PAGES`) before the bytes arrive, and never
+   consults `manifest.runtime`. The choice must come from the note, before `receive_image`.
+   `StdLayout` needs no change. `std_exerciser` can prove it under today's cap: after
+   `llvm-strip --strip-all` it is 204 KiB on aarch64, 133 on riscv64 and 140 on x86_64 (release
+   builds, measured 2026-09-26). Waits on #1338.
+2. An image as large as `rg`, about 2.6 MiB against `spawnproto::IMAGE_MAX_PAGES`, 64 pages.
+   Raising it is not one constant. The image is held three times while a child is built: the
+   shell's staging frames, the progenitor's own copy (§219 hashes that), and the child's pages. The
+   progenitor maps the caller's frames through its never-reused scratch window, which #1384 (the
+   builder's scratch cursor is bounded) is bounding. `IMAGE_VA` and `IMAGE_STAGING_VA` are fixed
+   windows milestone 206 is moving onto its map, and the second ends where the scratch window
+   starts. The jobs pool, `JOBS_BUDGET_PAGES` at 624 pages, cannot hold one `rg`. Waits on
+   milestone 206 and #1338.
+
+An unvouched `std` program starts without entropy. `hashmap_random_keys` falls back to a
+counter-seeded stream when slot 6 is empty (`patches/std-nife/overlay/std/src/sys/random/nife.rs`),
+so a `HashMap` works and only `std::random` refuses.
 
 ## What it unblocks
 
@@ -251,14 +279,9 @@ A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted she
   its arguments (§170), and an image over 896 KiB (§171 and milestone 206) are what `rg` needs.
   Rechecked 2026-09-26 at the §170 and §171 rulings: §170 is decided and milestone 205 builds
   it, §171 is decided and milestone 206 builds it, and option D and gate D2 are built.
+  Rechecked again the same day by lane `milestone/595-shell-runs-std-program`: see "What is
+  left", which also replaces this list's note on milestone 198's fixed installed manifest.
 
-- **Milestone 198.** An installed program cannot yet declare `runtime: Std`. Pull request #1320 built §219's
-  option D, and it endows every vouched image with one fixed manifest,
-  `grant_plan::INSTALLED_MANIFEST_OF`, which is `uptime`'s, because no manifest travels with a
-  package yet (§197 (a package is one archive file) leaves that open). The progenitor also sizes an
-  image's region before the bytes arrive, at a native job's 40 pages, where a `std` child needs
-  `STD_REGION_PAGES`. Both change when a package carries its own manifest, which is more than one
-  line, so it is not wired here. Checked 2026-09-26 against `crates/system_initializer`'s image path.
 
 ## Index row
 
