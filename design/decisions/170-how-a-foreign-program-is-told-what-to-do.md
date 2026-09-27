@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-19
 decided: 2026-09-26
 ratified_by: calef
@@ -50,10 +50,6 @@ can still:
 - damage the one file whose word carried a mark.
 
 ## Still open
-
-The mark's spelling. Clause 4 needs a way to say "this word is writable" and "this word may be
-created" on the line. How that is spelled is a naming decision, and it is calef's. Milestone 205
-ships a provisional spelling, says so, and does not choose.
 
 Environment variables and exit codes for a foreign program. They are the same family, and this
 ruling is silent on both. §111 (inert configuration is a validated page) covers the native case
@@ -134,3 +130,52 @@ milestone 121 (`ripgrep` on nife) still owes: the confined `rg`, the loud `ENUME
 the walk benchmark. Milestone 595 (the shell runs a `std` program)'s `rg pattern` step. Scripts
 that take a parameter (§219). Milestone 123's corpus still waits on §171 (where a program image
 starts) as well.
+
+## Amendment (2026-09-27, 06:27Z): a word that names nothing grants nothing (N1)
+
+Clause 2 says what a resolving word is granted. It left open what a word that resolves to nothing
+grants, and calef ruled it: **a command line whose words name no existing file grants nothing.**
+There is no directory implied by absence. To search here, you type `rg pattern .`; the `.` is the
+word that does the granting, not a default filled in when nothing was typed.
+
+The alternative, N2, was to grant the shell's current directory read-only whenever the line names
+none. It was refused. Naming is what authorizes everywhere else in the shell: `rm`, `wc` and
+globbing all require a word that names what they touch, and none of them falls back to "wherever
+you happen to be" when a word is missing. N2 would have been the first grant in this system that
+nobody typed. It remains possible to add later, because widening a grant breaks no script that
+already runs without it; refusing it now costs nothing that narrowing later would not also have to
+pay.
+
+## Amendment (2026-09-27, 06:35Z): there is no mark
+
+This resolves the "Still open" item above this section used to carry: the mark's spelling. calef's
+ruling is that there is no mark to spell.
+
+- An unvouched program is granted read-only on each word on its command line that names an
+  existing file, plus `>` redirection for its own output. That is the whole of what it gets.
+- To give a program more than that, you install it: vouching, and its manifest then applies, per
+  §208 (installing is granting).
+- Clause 4's "read-write or create each need an explicit mark on the word" is withdrawn. There is
+  no mark, so an unvouched program cannot be handed read-write or create authority on the line at
+  all.
+- Clause 3's "This holds for vouched and unvouched programs alike" is superseded for the unvouched
+  case: an unvouched program's own note grants nothing, so it cannot declare its own create-path
+  clause. Only a vouched program's manifest can still say "may create the named path".
+
+calef's question that prompted this: "Why do we need this? Why isn't it contextual?" It already is
+contextual, for a vouched program: its manifest says what it may touch, through the mechanism
+clause 2 and §208 give it. A mark on the command line only ever mattered for the unvouched case,
+and that case is now fixed at read-only, so there is nothing left for a mark to spell.
+
+The reasoning, in calef's framing: a mark exists only to widen an untrusted program past the
+read-only default. Choosing its spelling is the expensive kind of decision, because a script would
+carry whatever got picked, and every later user of that script inherits the choice. Having no mark
+at all is the reversible one instead: a mark can still be added later without breaking any script
+that predates it, since no script yet depends on one.
+
+Considered and refused: M1, a prefix (`+file`); M2, a separate word; M3, a flag (`--rw`/`--new`);
+M4, a suffix (`file:rw`); a runtime prompt (a powerbox), refused for the same reason the y/n prompt
+above was, that it breaks scripts and pipelines with nobody there to answer it; and honouring the
+unvouched program's own note up to a ceiling set per session, which was already deferred to §220
+(signed builds: a vendor signs, a developer self-signs), itself PROPOSED. Until §220 is ruled, an
+unvouched note still grants nothing.
