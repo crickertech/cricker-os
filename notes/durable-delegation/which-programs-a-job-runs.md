@@ -1,8 +1,9 @@
 # Fork 8: which programs a scheduled job may run on the real boot
 
 *Milestone 152 (durable delegation), written 2026-09-27 (UTC) to the seven questions of CLAUDE.md's
-"A fork reaches an architect with its questions already answered". **Status: PROPOSED.** Line
-numbers are this branch's at the commit that adds this file.*
+"A fork reaches an architect with its questions already answered". **Status: DECIDED**, option D,
+calef, 2026-09-27 (UTC), on #1377; built the same day (below). Line numbers are this branch's at the
+commit that added this file.*
 
 ## The question
 
@@ -93,3 +94,18 @@ nothing from it, since the timetable endows a job only with what its entry grant
   bare names) are not on `main`. That pull request shows as merged, but a force-push dropped them.
   The restore is commit `5f4bca6db` on #1374's branch and lands with it. So the rulings of #1374,
   #1421 and #1423 are cited here by pull request, and gain section numbers when those land.
+
+## What building D found (2026-09-27)
+
+- The timetable needs a file-service channel of its own. A job fires while its user may be
+  using the store at the prompt, and two clients staging bytes in one page overwrite each other.
+  So the timetable reads through the file service's last window, which the progenitor and the kernel
+  harness reserve for `login` (milestone 599 (a frame per filesystem client channel)).
+  `login` badges the endpoint with the window's number and builds both caretakers on it.
+- That costs `login` a slot at rest, which leaves a 24-slot table exactly full at a login's
+  peak with one durable session. The open stays inside it because `login` now builds the two store
+  caretakers before the rest of the session, and the client's own caretaker after it. Counted from
+  the code, not measured, in `login_protocol::durable`.
+- An upgrade stops an entry until its document is re-sent, because the plan was made against
+  the old bytes' manifest. `login`'s start-up pass re-sends every stored document, so a reboot
+  re-plans. `components/src/timetable.rs`'s BUGS has this and the 64 KiB load limit.

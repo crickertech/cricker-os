@@ -190,6 +190,8 @@ supervision and cannot also read a stream.
 
 ### 6. Where a scheduled job's report goes once nobody is attached
 
+**DECIDED: option C** (the third below), calef, 2026-09-27 (UTC), on #1377; built the same day.
+
 Today every scheduled child is handed the timetable's child-report endpoint and blocks sending its
 answer until someone receives it; in `timetable_tests` that someone is the kernel harness. Under S1
 the only process left for it is the session process, which already blocks on the timetable's
@@ -206,10 +208,7 @@ reports, the timetable's death) and one reader. Options:
   entry, as any other granted program would.
 
 The third needs nothing new and fits the claim that an entry holds only what its line grants, so
-it is the recommendation. It changes what `timetable.conf`'s demonstration entries report through,
-which is milestone 129's to move. Until this and question 5 are answered, and 129's timetable has
-its replace contract, the session process has no settled contract to be built against. It is the blocker for connecting a real
-session to the timetable; the replace handler itself does not wait on it.
+it was the recommendation.
 
 Question 3's rule applies to the `Held` a session hands its timetable.
 
@@ -248,11 +247,11 @@ only the first. `login.rs`'s BUGS says what raising the second takes.
 The appendix also found a latent failure. The real boot gives `login` 768 construction pages, and
 with a schedule archive `_start` splits 800 before it serves anyone, so `login` would die at
 `fail(2)`. Option A does not make it bite: the start-up pass runs only when an archive is present,
-and the real boot still passes none. Fork 8's archive needs `LOGIN_CONSTRUCTION_PAGES` raised
-first.
+and the real boot still passed none. Fork 8's build raised `LOGIN_CONSTRUCTION_PAGES`.
 
 ### 8. Which programs a scheduled job may run on the real boot
 
-**PROPOSED.** Recommended: the live activation generation, what a bare word runs at the prompt
-minus D2, checked at each fire. The options and costs are in
+**DECIDED: option D**, calef, 2026-09-27 (UTC), on #1377: the live activation generation, what a
+bare word runs at the prompt minus D2, checked at each fire. Built the same day, over a file-service
+window of the timetable's own. The options, costs and what building it found are in
 [the fork 8 appendix](durable-delegation/which-programs-a-job-runs.md).

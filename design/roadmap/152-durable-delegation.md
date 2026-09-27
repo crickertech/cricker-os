@@ -138,26 +138,14 @@ points here for the mechanism.
 
 #387's runtime registration: §222 (who holds a user's schedule), built here.
 
-## What was built (2026-08-24, `smb_server`'s session/connection split)
+## What was built (2026-08-24, superseded)
 
-`user/src/smb_server.rs` split its accept-serve-close loop in two: the per-connection protocol
-handler, rebuilt on every socket, and `DurableSession`, a budget split once before the accept loop
-and never torn down by a connection. DECISIONS §16 (object revocation) kept it alive: `DESTROY` refused while it had a
-live child. Its `mint_pending_job` was the primitive a registrar would hold a job's authority
-against, and the SMB gate proved the refusal on aarch64 and riscv64 with stage codes
-`0xE140`-`0xE146`. The SMB implementation, and this type with it, was removed on 2026-08-30; the
-proof is re-homed below (2026-09-26), and the full account is in git and `notes/smb.md`.
-
-## What was built (2026-08-24, the schedule store and the boot-time re-deriver)
-
-Built to [DECISIONS §122](../decisions/122-durable-schedule-store-format.md) and
-[§123](../decisions/123-boot-time-rederivation-privilege.md), plus the manifest neither fully
-specified ([DECISIONS §125](../decisions/125-durable-schedule-manifest.md), since ratified).
-`crates/schedule_store` (provisional name) holds the file names and the manifest format; the
-schedule document is `timetable::parse`'s, unchanged. A separate boot-only process,
-`session_reviver`, read the manifest by name, parsed each identity's stored schedule, proved a
-synthetic session's §16 lifecycle and then deleted its own capabilities. It ran only under the
-kernel harness and was retired on 2026-09-27 (below); git history has it.
+`smb_server`'s `DurableSession` first proved §16 (object revocation) holds a budget up while it has a
+live child; it went with the SMB code on 2026-08-30. `crates/schedule_store` (provisional) holds the
+file names and the manifest format of [§122](../decisions/122-durable-schedule-store-format.md) and
+[§125](../decisions/125-durable-schedule-manifest.md). `session_reviver`, the boot-only re-deriver
+of [§123](../decisions/123-boot-time-rederivation-privilege.md), ran only under the kernel harness
+and was retired on 2026-09-27 (below). Git history has all three.
 
 ## What was built (2026-09-26, the live-children proof re-homed on a login session)
 
@@ -175,8 +163,7 @@ registrar must build a job's directory inside the job's own region.
 To calef's rulings S1 and L2. `login_protocol::SCHEDULE` (provisional) is `LOGIN` plus "open my
 schedule": `login` splits a durable budget, builds `components/src/session.rs` (provisional) from
 a region of it, and `OK` announces the timetable's registration page. The session process builds the
-timetable to `timetable::contract` and blocks on one endpoint that carries both the timetable's
-death and every job's report. A later login for that identity is handed the same budget and page;
+timetable to `timetable::contract` and blocks on the timetable's supervision endpoint. A later login for that identity is handed the same budget and page;
 `login` tells a live session from a stopped one by the timetable's exit word in the page, because
 `DESTROY` answers `NotPermitted` for a stale name and a busy one alike. An empty replace stops the
 timetable, the session process gives its budget back and exits, and the next login retires what is
@@ -218,6 +205,20 @@ handed the session.
 Provisional names: `login_protocol::durable` and its items, `rederive`, `Durables`,
 `DURABLE_SESSIONS`, `fs_service::set_home_file`, and the test.
 
+## What was built (2026-09-27, forks 6 and 8)
+
+To calef's rulings on #1377. **Fork 6 C:** a durable job holds no report endpoint. The session
+process places none; the timetable probes the slot and hands jobs what it holds
+(`timetable::Held::report`), and the plan lists no endpoint (`F_NO_REPORT`). **Fork 8 D:** a
+durable timetable holds no archive. It holds read-only caretakers for `activation/` and `packages/`
+over the file service's last window, reserved for `login` (milestone 599 (a frame per filesystem
+client channel)), since its user may be using window 0. It resolves each entry as the prompt resolves a bare
+name, plans against the bytes' manifest, and fires only bytes still hashing to the registered entry.
+`login` gets `session` and `timetable` as two blobs, and builds the store caretakers first and the
+client's last, keeping a 24-slot table within 24. The real boot hands
+all of it over, `login`'s budget sized by `login_protocol::durable::BUDGET_PAGES`.
+The [fork 8 appendix](../../notes/durable-delegation/which-programs-a-job-runs.md) has the costs.
+
 ## Forks this lane found, for an architect
 
 Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-delegation.md).
@@ -235,12 +236,10 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 7. Boot re-derivation moves into `login`; `session_reviver` is retired. Reasoning in
    [the fork 7 appendix](../../notes/durable-delegation/boot-rederivation-in-login.md).
    **Status: DECIDED**, option A, calef, 2026-09-27; built the same day.
-8. Which programs a scheduled job may run on the real boot, which decides the schedule archive the
-   progenitor hands `login`. **Status: PROPOSED.** Blocks `SCHEDULE` on the real boot. Reasoning
-   in [the fork 8 appendix](../../notes/durable-delegation/which-programs-a-job-runs.md).
-6. Where a scheduled job's report goes once nobody is attached. Recommended: a job holds no report
-   endpoint and writes through a directory grant in its entry. **Status: PROPOSED.** Until then the
-   session process receives and drops reports.
+8. Which programs a scheduled job may run on the real boot. **Status: DECIDED**, option D (the
+   live activation generation), calef, 2026-09-27, on #1377; built the same day.
+6. Where a scheduled job's report goes once nobody is attached. **Status: DECIDED**, option C (no
+   report endpoint; output through the entry's grants), calef, 2026-09-27, on #1377; built.
 
 ## BUGS
 
@@ -259,9 +258,8 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 - **Done.** Registration persists: the client writes the identity's schedule file before it
   replaces, `login` keeps the manifest, and `login`'s start-up pass opens real sessions from both
   (2026-09-26 and 2026-09-27).
-- **Outstanding.** The real boot hands `login` no schedule archive (`crates/system_initializer`
-  starts it with a zero third argument), so `SCHEDULE` there is an ordinary login. Checked
-  2026-09-26.
+- **Done.** The real boot hands `login` what Fork 8 D needs, 2026-09-27. No gate types
+  `SCHEDULE` on the real boot yet: `script/swish-check` has no login.
 - **Refused.** Per-login narrowing of the directory capability was deliberately not taken, because
   the adapter it applied to was deleted: the SMB implementation went on 2026-08-30, calef's call,
   after journey 2 was retired.
@@ -270,10 +268,11 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 - **Refused.** Per-identity narrowing of the re-deriver's filesystem endpoint (§123's first
   hardening refinement): moot once `login` re-derives, since `login` holds the unnarrowed root for
   its whole life anyway. Fork 4, closed 2026-09-27.
-- **Outstanding.** `LOGIN_CONSTRUCTION_PAGES` (768) cannot hold a durable budget: see fork 7's
-  appendix and `components/src/login.rs`'s BUGS. Latent: the start-up pass runs only with a
-  schedule archive, and the real boot passes none until fork 8 is answered. Found 2026-09-27;
-  checked again the same day under option A.
+- **Done.** `LOGIN_CONSTRUCTION_PAGES` holds a durable budget, derived from
+  `login_protocol::durable::BUDGET_PAGES` (2026-09-27).
+- **Recorded.** A durable job has nowhere to write yet: its timetable holds no directory to back an
+  entry's grant, so such a line is planned unbacked. The system log of #1423 is the likely grant.
+  `components/src/timetable.rs`'s BUGS has the store-mode limits.
 - **Recorded.** No liveness watchdog for the start-up pass. It is bounded instead: each re-derived
   session waits at most `END_WAIT_SECS` for its timetable, before the front door opens.
   `components/src/login.rs`'s BUGS.
@@ -282,8 +281,8 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
   memory limit stays one budget until `login`'s `DURABLE_UT_PAGES`, the progenitor's
   `LOGIN_CONSTRUCTION_PAGES` and the harness are raised together and the out-of-order hole in
   `durable_ut` is fixed. `components/src/login.rs`'s BUGS.
-- **Done.** `session_reviver` is retired and the real boot's `login` carries the start-up pass,
-  which runs as soon as the progenitor hands it a schedule archive (fork 8). 2026-09-27.
+- **Done.** `session_reviver` is retired and the real boot's `login` carries the start-up pass.
+  2026-09-27.
 - **Done.** The manifest question is settled: `design/decisions/125-durable-schedule-manifest.md`
   is DECIDED, ratified by calef on 2026-08-25, and its own text notes the recommended shape was
   already built rather than merely proposed.
@@ -302,5 +301,6 @@ calef wants a scheduled job's capabilities to reflect the scheduling user's own 
 connection that registered it, which DECISIONS §92 (a caretaker is supervised by the client it
 serves) does not allow. Built: the on-disk schedule store (§122), boot-time re-derivation (in
 `login` since 2026-09-27, §123 as amended, §125), and the §16 live-children proof on a login
-session's budget (2026-09-26). The session process is ruled (S1) and built; the rest waits on
-proposed forks 6 and 8 and on milestone 129's replace contract.
+session's budget (2026-09-26). The session process is ruled (S1) and built, as are forks 6 (C)
+and 8 (D), ruled on #1377: a durable job holds no report endpoint and runs what the live activation
+generation names, read over a file-service window of its own.
