@@ -10,7 +10,9 @@ side is built (#1408): `subtree_scope`, `BIND` and `UNBIND`, and RedoxFS as the 
 server. This page is why the progenitor side is not built yet. It needs two answers that are
 calef's, and one of them was already open before this milestone.
 
-Status: PROPOSED.
+Status: ruled and built. calef ruled T1 at 2026-09-27 15:22Z and option 4 of milestone 599's pool
+at 15:29Z, both on #1413. The pool landed as #1418; this page's last section says what was built
+on top of it. The body above that is the proposal as it was written.
 
 ## Is the premise true?
 
@@ -101,7 +103,21 @@ These are code in the progenitor, and would be built as soon as both answers are
 7. At equal cost. T1 still wins, for keeping the fact with the binary. The recommendation is not
    about effort.
 
-## What is blocked
+## What was built (2026-09-27)
 
-Only the progenitor's choice. Everything else in ruling D is built and measured on #1408, and the
-kernel harness binds grants for the tests and the bench today.
+- `manifest_note::SUBTREE_GRANTS` (note type 2, provisional): a version word and a scope word, one
+  scope (`subtree_scope`). `carry_subtree_grants!` places it; `redoxfs_server` carries it.
+- `packages/redoxfs.package` declares `subtree_grants subtree_scope` (provisional field), and
+  `helpers/packages.py` checks three things agree: a crate carrying the note depends on
+  `subtree_scope`, its package declares the field, and a package declaring the field has a crate
+  that carries the note. The selftest plants a violation of each. When #1405 moves the package
+  files to TOML, the field becomes `subtree_grants = "subtree_scope"`.
+- The progenitor reads the note from `redoxfs_server`'s measured bytes at boot and says which way
+  it went. For a directory grant it binds the next window's badge to the named directory on its own
+  channel, before the job holds anything, and hands the job the badged endpoint and a page of that
+  window. It falls back to a caretaker on any failure. `script/swish-check` requires the
+  bound-badge sentence, so a boot that lost the note fails the gate. It passes on all three
+  architectures, and the `rm` lines run through the bound grant.
+- `UNBIND` runs when a bound window is reused, not at reap, because nothing tells the progenitor
+  when a job dies. Lane 205's "job reaped" signal moves it to reap; `Windows` records the gap.
+
