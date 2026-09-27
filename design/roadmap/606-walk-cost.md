@@ -53,8 +53,11 @@ measured; the note has the table and the terms.
 
 - A. `OPEN` and `OPENDIR` take a relative path, resolved per component on the server. 0.60 ms.
 - B. `OPEN`'s reply carries the size, so a whole-file read skips `FSTAT`. With A, 0.53 ms.
-- D. The server narrows a subtree itself and the caretaker hop goes. With A and B, 0.35 ms,
-  under Linux. A kernel question: a receive that says which capability a request came through.
+- D. The server narrows a subtree itself, keyed on the badge milestone 599 (a frame per
+  filesystem client channel) added, and the caretaker hop goes. With A and B, 0.35 ms, under
+  Linux. No kernel change; two new verbs and a new meaning for the badge. It trades the
+  confinement by capability space of §27 (the filesystem service) for a check in the server,
+  which the note costs out.
 - E, not built. A 64 KiB channel for `std`, which `std_runtime_protocol` fixes at one page.
 
 Recommendation: A first. Nothing built waits on the answer. The milestone moves to BUILT when a

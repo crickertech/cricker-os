@@ -118,13 +118,142 @@ semantic choice in the PAL, because `std` asks `metadata()` for the hint. Either
 `std::fs`'s `buffer_capacity_required` to ask the PAL for a hint instead. The experiment did the
 first.
 
-**D. No relay process for a subtree grant.** The caretaker exists because the server's handle
-table is per server, not per client, so narrowing needs a process in front. If the server could
-receive on several endpoints and know which one a request came in on, it could bind each to a
-directory handle and do the narrowing itself. That halves the IPC per request: 0.21 ms of this
-walk today, and it takes A and B below Linux. It is a kernel question and the biggest of the three: a receive that says which capability a
-request arrived through. §101 (notification objects) gave notifications a badge; this lane found
-no equivalent for an IPC endpoint, which is a search, not a proof.
+**D. No relay process for a subtree grant.** Re-costed 2026-09-26 after milestone 599 (a frame per
+filesystem client channel) landed badged endpoints under §230 (badged endpoint capabilities). The
+server would narrow a grant itself, keyed on the badge `RECV_CAP` now returns, and the caretaker
+process would go. Its own section follows, because it is as much about trust as speed.
+
+## D in detail: the server narrows, keyed on the badge
+
+### Is the premise true?
+
+Half. The first version of this page said the server could not tell which endpoint a request came
+through. Since milestone 599 it can: `rendezvous::BADGE` mints a badged copy of an endpoint
+capability, and `RECV_CAP` returns the badge in x3. That part of the premise is now false.
+
+The other half was that the caretaker is where confinement is enforced. That is only partly
+true. The rights arithmetic is already the server's, with three Kani harnesses in `filesystem_protocol` (`attenuate_never_widens`,
+`a_grandchild_is_bounded_by_the_root`, `a_root_carries_nothing_undefined`). What the subtree
+caretaker adds is handle scoping. The server's handle table is one per server, and handle 0 is the
+image root with every right. The caretaker keeps its own 64-slot table, so a client can only name
+the handles its own caretaker minted, and its `ROOT` means the granted directory. D moves that
+table into the server.
+
+### What it would take
+
+No kernel change. Every kernel piece exists: `BADGE`, the badge on `RECV_CAP`, `SEND_CAP` to hand
+the badged copy over. `REPLY` cannot carry a capability, so the server cannot mint a grant and
+return it. Whoever holds an unbadged endpoint capability with `GRANT` has to mint it: the
+progenitor, or the kernel's wiring in the test harness. Then:
+
+1. The minting holder opens the subtree with `OPENDIR`, as a caretaker does at startup today, and
+   tells the server "badge `b` is rooted at this handle". That is a new verb, call it `BIND`, on
+   the holder's own channel. `UNBIND` is its inverse.
+2. The server keeps a small table from badge to grant: root handle, rights, and which window the
+   badge reads. Today the badge is the window index (§230's pool of K = 8). Under D a badge names a
+   grant, so the window becomes a column in that table, or both go into the badge as packed bits.
+   That choice is a wire format.
+3. Every handle records the badge that minted it. A request under badge `b` resolves `ROOT` to
+   `b`'s root and refuses any handle `b` did not mint, with `EBADF`, the answer the caretaker gives
+   today.
+
+The wire formats are the two verbs' numbers and layout and the badge's meaning. Everything else is
+code inside `redoxfs_server`.
+
+### What it costs, measured
+
+The IPC saving was measured by the no-caretaker prototype above: 0.57 to 0.59 ms against 0.76 to
+0.82 ms today, and 0.35 ms with A and B, under Linux's 0.41 ms. That prototype used an unbadged
+endpoint and the image root. What a badged version adds per request is one table index by badge
+and one compare of a handle's owner. It was not prototyped: the server's whole per-request work in
+`walk_replay` is 34 ns, and an array index and a compare are inside that noise. That is an
+estimate, and it is the only figure in this section that is.
+
+It also saves a process per grant.
+
+### The trust tradeoff
+
+Lines of code outside tests, blank lines and comments, counted 2026-09-26:
+
+| | code lines | shares an address space with |
+|---|---:|---|
+| `fs_subtree_caretaker` | 111 | nothing; no heap, one stack page |
+| `fs_nameset_caretaker` | 170 | nothing |
+| `redoxfs_server`: serve loop (`bin/redoxfs_server.rs`) | 341 | the engine below |
+| `redoxfs_server`: core and memo (`lib.rs`, `memo.rs`) | 836 | the engine below |
+| vendored RedoxFS engine | about 8,900 | the server |
+
+What a bug in each exposes:
+
+- A handle-scoping bug in a caretaker lets its client use a server handle it did not mint. The
+  first one it would find is handle 0, the image root with every right. So the blast radius is the
+  whole image. That is also the blast radius of the same bug in the server under D.
+- The difference is what else can reach the scoping state. Under D the handle table sits beside
+  the RedoxFS engine, so a memory-safety bug in parsing a hostile image could corrupt it. That
+  buys an attacker little: a compromised engine already holds the whole image, with or without a
+  caretaker in front. The caretaker protects against clients, not against the server.
+- What D gives up is the caretaker's case in §27 (the filesystem service). There, "it cannot
+  reach a second file" is a property of the client's capability space: it holds nothing that
+  names the FS server. Under D the client holds a badged endpoint to the server itself, and confinement
+  becomes a branch the server is trusted to take. That was calef's reason, and it is the real
+  cost.
+
+What verification exists or is feasible:
+
+- Today: the three Kani harnesses on the rights arithmetic, which both designs share. Neither
+  caretaker's handle table has a harness.
+- Under D the scoping is a pure function of (badge table, handle table, request), which could live
+  in a host-testable crate with a Kani harness proving "a request under badge `b` resolves only
+  handles `b` minted, and `ROOT` only to `b`'s root". Nothing stops the same harness being written
+  for the caretaker's table today; neither side has one.
+
+### Does D cover the name-set caretaker too?
+
+It can, at a larger price. `fs_nameset_caretaker` filters every name-taking verb in the granted
+directory against a set of names. Under D the server would hold each badge's name set as well and
+apply `filesystem_protocol::nameset::contains` on those verbs. The set is variable-length, so
+`BIND` would carry it through the channel page. That is a second, larger piece of policy moving into
+the server, with no walk measurement behind it: glob grants are the shell's and are rarely on a
+walk's path. D for subtrees alone is the smaller step.
+
+### Who holds what, and revocation
+
+- Today: the progenitor holds the FS endpoint; each caretaker holds a badged copy with its window;
+  the client holds the caretaker's endpoint. Revoking a grant is ending the caretaker
+  (`Holding::release`), which §41 (the endpoint is the broker) describes as taking the endpoint back.
+- Under D: the progenitor holds an unbadged copy with `GRANT` and mints one badge per grant; the
+  client holds the badged copy. There is no kernel method to pull a capability back out of another
+  process's slots, today or under D. So revocation becomes `UNBIND`: the server closes every handle
+  the badge minted and answers `EBADF` to it from then on. The client keeps a capability that names
+  the server and does nothing. §41's "take it back" turns into "the server stops honouring it",
+  which is weaker as a statement even when the effect is the same.
+
+### What else was considered
+
+- Keeping the caretaker and making the hop cheaper. The only lever is the IPC path, which milestone
+  188 (the IPC fastpath) has already been over.
+- The server minting badges itself and handing them out. Refused: `REPLY` carries no capability,
+  so it would need a kernel change, and it would put delegation authority in the process D is
+  already asking us to trust more.
+- A receive over a set of endpoints, which §27 named as the other way to tell clients apart.
+  Superseded by §230, which chose badges.
+
+### Prior art
+
+From memory, not read for this note: seL4 servers identify clients by badge. A 9P server keeps
+fids per connection, which is D's per-badge handle table under another name.
+
+### Reversibility, and who has acted
+
+The server code is reversible. The verbs and the badge's meaning are not, once a progenitor mints
+badges that way. Already acted on: milestone 599, which made the badge mean a window index, and
+§230's text, "the caretaker is still what narrows a client to its subtree".
+
+### If both cost the same
+
+Performance picks D, and it is the only option that reaches Linux. The effort is not the argument
+either way; the argument is §27's capability-space property against a measured 0.21 ms per walk.
+That is calef's call, and this section does not recommend on it.
 
 **E, not built. A wider channel for `std`.** `READ` already accepts 64 KiB, but a `std` program
 maps one page at `FS_PAGE`, which `std_runtime_protocol` fixes, and the caretaker clamps to it.
@@ -134,8 +263,9 @@ the progenitor and the kernel harness share with the PAL.
 
 The recommendation, for what it is worth to the decision: A first. It is the one with prior art
 everywhere (`openat` resolves a path), it is backward compatible by refusal, and alone it takes a
-quarter off. B is small and additive. D is the one that reaches parity, and it is a design fork in
-the kernel, not in the file service.
+quarter off. B is small and additive. D reaches parity and needs no kernel change since milestone
+599, but it trades §27's confinement-by-capability-space for a check in the server, which the
+section above lays out rather than decides.
 
 What is blocked until this is answered: nothing already built. The milestone is BUILT on what the
 contract allows, and parity waits on these.
