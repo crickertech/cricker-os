@@ -44,7 +44,8 @@ the kernel-side ring and drain syscall themselves, which are milestone 342 (the 
 - A home for a scheduled job's output and refusals, milestone 152 (durable delegation), pull
   request #1377, whose Fork 6 option C grants a job's declared diagnostics stream to this log
   instead of discarding it.
-- The notice board's history, §243, pull request #1424 (provisional).
+- The notice board's history, proposed in pull request #1424 (its own section number
+  provisional and not yet landed).
 
 ## Done means
 
