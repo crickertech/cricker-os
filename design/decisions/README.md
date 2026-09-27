@@ -352,6 +352,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 240 | DECIDED | [§46 (thin primitives or whole subsystems): `toml` in `xtask`](240-toml-in-xtask.md) |
 | 241 | DECIDED | [A threadbare base: the boot slot holds the kernel and what boots and repairs, and every other program is a package](241-a-threadbare-base.md) |
 | 242 | DECIDED | [A system log: one service that programs and the kernel append to](242-a-system-log.md) |
+| 243 | PROPOSED | [Notices for people: programs publish, users curate, displays show](243-notices-for-people.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
