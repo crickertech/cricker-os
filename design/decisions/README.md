@@ -337,7 +337,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |
 | 233 | DECIDED | [`MemoryRegion::RETYPE` takes a page count](233-a-region-retypes-a-run-of-pages.md) |
 | 234 | DECIDED | [The prompt shows one tree, and other trees are mounted at names in it](234-the-prompt-shows-one-tree.md) |
-| 235 | PROPOSED | [The OS is built and updated from packages, and the tree divides by what releases together](235-packages-build-the-os-and-the-tree-divides-by-release.md) |
+| 235 | DECIDED | [The OS is built and updated from packages, and the tree divides by what releases together](235-packages-build-the-os-and-the-tree-divides-by-release.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design

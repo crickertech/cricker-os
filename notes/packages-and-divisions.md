@@ -136,7 +136,7 @@ SDK (the IDK) is a tarball, and each component manifest carries an ABI revision 
 
 Take: the image as a hash-pinned list of packages, which keeps the slot atomic while packages
 become the unit of transfer. Take: an ABI revision in each program's manifest, which is where
-the ELF note of pull request #1338 already sits. Refuse for now: TUF and the universe tier. One digest per image,
+milestone 597 (a program carries its manifest in an ELF note) already puts it, as a field ruled 2026-09-27. Refuse for now: TUF and the universe tier. One digest per image,
 plus §220's per-source keys, cover one vendor and no mirrors.
 
 ### Nix and NixOS

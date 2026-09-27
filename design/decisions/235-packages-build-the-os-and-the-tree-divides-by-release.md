@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-09-26
+decided: 2026-09-27
+ratified_by: calef
 ---
 
 # 235. The OS is built and updated from packages, and the tree divides by what releases together
@@ -15,6 +17,51 @@ the design lane `milestone/607-packages-and-divisions`, which builds nothing. Th
 the prior art are in [notes/packages-and-divisions.md](../../notes/packages-and-divisions.md); this
 section holds the forks and does not restate the numbers beyond what a fork needs.
 
+## The rulings
+
+calef ruled on every fork on 2026-09-27 (UTC), in the maintainer session, relayed in comments on
+pull request #1389. What is left open is a follow-on, not a fork.
+
+- Fork 2, the trust root: T4 with T2, an option added for the ruling and shown in Fork 2's table.
+  The loader hands over two digests, the progenitor's and the system manifest's. The kernel checks
+  only the progenitor. The progenitor checks the base set against the manifest digest. No table
+  and no signature code enter the kernel. Signatures stay where §220 put them, at install and
+  update, then pinned by digest. calef: *"T4 with T2."* The comparable shape is Fuchsia's: the
+  system image's Merkle root in the boot arguments, checked in userspace.
+- Fork 1, the update unit: packages, as the direction. calef: *"I think the unit of update should
+  be packages."*
+- Fork 1, the slot layout: U4, a full copy per slot, ruled 2026-09-27. calef: *"A shared store
+  disk savings doesn't seem worth the potential of a brick. Full copy looks right."* U2 is refused
+  for that reason.
+- Fork 4, the SDK: S2 now, S3 as the destination, ruled 2026-09-27. calef: *"confirm S2, with S3
+  as the destination once the metrics show stability."* The S2 archive also carries C headers
+  generated from the contracts and the prebuilt runtime library for C. S3 waits on the
+  interface-stability metrics of `milestone/610-interface-stability` (provisional number 610). S1
+  is not planned, because the `std` overlay cannot be a crate, so S1 would always need S2 anyway.
+- The ABI revision is a field in the manifest note of milestone 597 (a program carries its
+  manifest in an ELF note), not a separate note. calef: *"yes"*. Whoever builds it picks the
+  encoding: the descriptor's reserved zero bytes, or a longer layout. Amending version 1 in place
+  holds only while nothing outside the tree has acted on the note.
+- Fork 3, the repositories: R1 now, and every package leaves this repository in the end. calef:
+  *"R1 for now is right with package boundaries drawn and enforced inside it by lint check."* And:
+  *"I want to force decisions on homes versus there being a default of sticking around if we don't
+  find a home for something."* So a package's in-tree definition carries a required `home` field
+  with no default, and lint fails when it is missing or undecided. The lane
+  `milestone/611-package-boundaries` (provisional number 611) is building the boundaries. And:
+  *"Everything in the tree may not be in a package, but it may be in a repo."* Every tracked path
+  has exactly one home repository. Only shippable things are packages: programs, crates, the `std`
+  overlay, and the docs that ship with them. Project records get a home but are not packages.
+- Composition, borrowed from the Linux distributions. calef: *"I think we can borrow the
+  composition of packages from linux distros, which look markedly similar in what they bundle
+  together in their packages."* A package is what releases together and may hold several
+  programs. Authority stays per program, through each binary's manifest note and §208's grants.
+  A tool with a Linux counterpart follows the distributions' grouping (procps, coreutils,
+  findutils, util-linux, iproute2), as milestone 126 (the `procps` package) already does. Consumer
+  splits follow Debian where needed: `-dev` and SDK parts, and debug symbols.
+- P2 is decided. calef: *"We now move the system tests out of the kernel crate. So that's
+  decided."* The lane `milestone/609-system-tests-leave-the-kernel` (provisional number 609)
+  is building it.
+
 ## What is already decided, and holds under every option here
 
 - §151 (the goal of the repository split is independent release): the split's goal is independent release and third-party programs. The order is open.
@@ -27,8 +74,7 @@ section holds the forks and does not restate the numbers beyond what a fork need
   complete image.
 - Milestone 104 (the measurement continues past init): the kernel's compiled-in trust root pins the progenitor and the table of program
   digests. Milestone 450 (a signature over the init image) refused a signature in its place.
-- Pull request #1338 (in flight, provisionally numbered 597, not yet on `main`): a program's
-  manifest travels in an ELF note, version 1.
+- Milestone 597: a program's manifest travels in an ELF note, version 1.
 - §201 (one roadmap until a citation has to cross): one roadmap until a citation has to cross a repository.
 
 ## The premise, checked
@@ -52,18 +98,26 @@ are live.
 
 ## Fork 1: what an OS update ships
 
-What a slot receives, and whether a base service can change without a slot swap. The on-disk layout
-and the update manifest are formats two programs agree on (the updater and the booting system), so
-this fork gets options only.
+What a slot receives. The on-disk layout and the update manifest are formats the updater and the
+booting system agree on.
 
 | option | shape | what it costs |
 |---|---|---|
-| U1. The image stays the unit | Packages are a build input. An image recipe names base packages by digest, the build assembles them, and a slot receives the whole image. User packages stay under §208. | Every base fix is a full image, about 10 MB today. No new on-disk format. The trust root is untouched. Base services cannot be fixed without a reboot into the other slot. |
-| U2. The image is a list of digests | A slot holds the loader, kernel, progenitor and a system manifest. Base packages live in one content-addressed store both slots read. An update is a new manifest plus the blobs the store lacks. This is Fuchsia's and OSTree's shape. | A new store format, read by the progenitor before any file service runs, which grows the boot path. A slot stops being self-contained, so rollback depends on the store keeping the old slot's blobs. A collection rule is new, and a mistake in it bricks both slots at once. |
-| U3. Two tiers | U1 for the part that boots to the package manager (kernel, progenitor, drivers, the network, the installer). §208 activation for every other base service, updated without a reboot. | The line between tiers is itself a decision, and it moves whenever a service is added. Two rollback mechanisms: 525's tries for the lower tier, §208 generations for the upper. A bad upper-tier service is not caught by a trial boot. |
+| U1. The image stays the unit (not taken) | Packages are only a build input; a slot receives the whole image | Every base fix is a full image, about 10 MB. |
+| U2. One shared store (refused 2026-09-27) | Both slots read one content-addressed store of base packages (Fuchsia, OSTree). | A mistake in the store's collection rule bricks both slots. The disk saved is not worth that. |
+| U4. Packages downloaded, each slot a full copy (ruled) | Packages are the download unit, as in U2, but a slot holds its own full copy of every base package. The inactive slot is wiped whole before it is reused, then filled from the new manifest. | No collection rule, so nothing can delete a blob the other slot needs, and the slots stay independent. Disk holds two full base sets. A download can still skip packages whose digests match the running slot, by copying them locally. |
+| U3. Two tiers (not taken) | U1 below the package manager, §208 activation above it | A tier line to maintain, and two rollback mechanisms. |
 
-Every option keeps 525's slots. U1 and U3 need no new boot format; U2 needs one. U2 is the only one
-where bandwidth falls with the size of a change, and at ten megabytes an image that saving is small.
+Every option keeps 525's slots. U1 and U3 need no new boot format; U2 and U4 each need one. The
+ruling takes packages as the unit and U4 as the slot layout. U4 still lets bandwidth fall with the
+size of a change, since a package whose digest the running slot holds is copied locally.
+
+The base image is the resolved lock of a dependency graph. Resolution happens at build time, not
+on the device, the way `Cargo.lock` and a Nix closure work and apt does not. Programs outside the
+base are resolved at install time and pinned by digest under §220. An installed package can fill a
+service's role through a grant (§208) without changing the base list. And an owner-pinned base,
+built from §220's scoped keys, is a door T4 with T2 leaves open, since the progenitor checks
+whatever manifest digest the loader hands it.
 
 ## Fork 2: where the trust root lives
 
@@ -72,12 +126,14 @@ it, so it is irreversible once an installed machine boots it.
 
 | option | shape | what it costs |
 |---|---|---|
-| T1. Compiled into the kernel (today) | `TRUST_ROOT` pins the progenitor and the table | The kernel and the base image release as one unit. §151's independent kernel is not reachable. Nothing new in the trusted computing base. |
+| T1. Compiled into the kernel (today) | `TRUST_ROOT` pins the progenitor and the table | Kernel and base image release as one unit. |
 | T2. Handed over by the loader | The slot carries one manifest digest, the loader passes it to the kernel, and the kernel checks the progenitor and table against it | The kernel binary stops depending on userspace. Trust moves to the loader, which only Secure Boot (milestone 500 (a stick that boots with Secure Boot on)) or the slot checksum protects. Three handoff paths to change: a device tree `/chosen` on aarch64 and riscv64, PVH on x86_64. Milestone 525 records that the device-tree path has one initrd slot. |
-| T3. A signature over the system manifest | The kernel verifies a vendor key's signature over the manifest | Reopens milestone 450's refusal. Keys and verification code enter the kernel. §220 put signatures at install, never at boot, and this would move one to boot. |
+| T4 with T2 (ruled) | The loader hands over the progenitor digest and the manifest digest. The kernel checks only the progenitor. The progenitor checks the base set against the manifest digest. | The kernel binary stops depending on the base set, and the checking of it moves to userspace, which already refuses unlisted programs (milestone 104 (the measurement continues past init)). T2's costs stay: trust in the loader and three handoff paths. The kernel still depends on the progenitor, so the two release together. |
+| T3. A signature over the system manifest | The kernel verifies a vendor key | Reopens milestone 450's refusal: keys and verification code in the kernel. |
 
 T1 fits U1 and U3 without change. U2 works under T1 too: the kernel pins the manifest's digest, and
-the manifest pins the blobs. So Fork 2 is about the kernel's independence, not about packages.
+the manifest pins the blobs. So Fork 2 is about the kernel's independence, not about packages. The ruling makes the kernel
+independent of the base set, though not of the progenitor.
 
 ## Fork 3: the divisions, and whether they become repositories
 
@@ -87,31 +143,30 @@ Proofs are not a division, because each proof lives beside its code in 28 places
 
 | option | shape | what it costs |
 |---|---|---|
-| R1. One repository, divisions released from it | Each division becomes a workspace (milestone 39 (repository structure for a loosely-coupled OS)'s B) with its own version and release tags. The SDK is a release artifact. `script/test` stays one command. | Nothing moves between repositories. A third party never needs this one, only its releases. Versioning discipline arrives without the split's integration cost. §151's goal is met without a split, which may not be what calef meant by it. |
-| R2. Split out the SDK alone | Contracts and runtime move to their own repository. Everything else stays. | 76% of contract commits touch another division today, so most contract changes become two pull requests in two repositories. It gives the third-party boundary a hard wall. |
-| R3. Split along all seven | Milestone 39's option C, with `basalt` running the whole-system gate. | 27% of code commits cross a division. `kernel/src/user/` must leave the kernel first. The whole-system proof on three architectures moves to a repository that must run on every change to any other, or it stops running. |
+| R1 (ruled, now). One repository, boundaries enforced inside it | Each package's boundary is drawn in-tree and checked by lint, in the spirit of milestone 39 (repository structure for a loosely-coupled OS)'s option B. `script/test` stays one command. | Nothing moves between repositories yet. |
+| R2. Split out the SDK alone (not taken) | Contracts and runtime move out | 76% of contract commits touch another division, so most become two pull requests. |
+| R3. Split along all seven (not taken) | Milestone 39's option C, with `basalt` as the gate | 27% of code commits cross a division. |
+| R4 (ruled, the end state). Every package leaves | Each package has a required `home`, no default | Forces a decision per package rather than a default of staying. |
 
 Two things stay single-tree under every option. One `script/test` proves every architecture (§19 (architectural parity is a tenet)),
-and the integration test suite needs every division at a known version to run. R3 keeps them by
-building that gate in `basalt`; R1 and R2 keep them by not moving them.
+and the integration test suite needs every division at a known version to run. R1 keeps both. The
+end state has to rebuild them wherever the base's gate goes.
 
 ## Fork 4: how a third party builds against the ABI
 
 This is milestone 198 (a package manager)'s SDK gap: an outside author must clone this repository to get the toolchain.
 The closure a `std` program needs is ten crates, about 24,400 lines, plus the 4,486-line `std`
-overlay, the target files and the linker script. Publishing any of it is a fact that leaves the
-machine, so options only.
+overlay, the target files and the linker script.
 
 | option | shape | what it costs |
 |---|---|---|
-| S1. Publish crates and a toolchain | The ten crates go to crates.io with real versions. A toolchain archive carries the patched `rust-src`, the targets and the linker script. | A semver promise to strangers. crates.io names are global and first come. Milestone 39 warns that the first real outside caller finds the shape wrong. |
-| S2. One SDK archive per release | Fuchsia's IDK and Genode's `api` archive: the crates and toolchain pieces in one file, used through `[patch]` or a path. | Nothing published to a registry. A bespoke install step for every third party. |
-| S3. An upstream Rust target | The `std` overlay moves upstream as a tier 3 target. | Upstream review, and a claim that the ABI is stable enough for someone else's tree. Months, not a milestone. |
+| S1. Publish crates and a toolchain (not planned) | The ten crates on crates.io, plus a toolchain archive | A semver promise to strangers, and it still needs S2 for the overlay. |
+| S2. One SDK archive per release (ruled, now) | Fuchsia's IDK and Genode's `api` archive: the crates and toolchain pieces in one file, used through `[patch]` or a path. | Nothing published to a registry. A bespoke install step for every third party. |
+| S3. An upstream Rust target (ruled, the destination) | The `std` overlay moves upstream as a tier 3 target. | Upstream review, and a claim that the ABI is stable enough for someone else's tree. Months, not a milestone. |
 
-Under any of them, a program should carry the ABI revision it was built against, so the progenitor
-can refuse one it no longer supports. The ELF note of #1338 has a version field for its own
-layout. Whether the ABI revision is a field in that note or a second note is a wire format, and it
-is calef's.
+Under the ruling, a program should carry the ABI revision it was built against, so the progenitor
+can refuse one it no longer supports. It is a field in milestone 597's manifest note (ruled; see
+Rulings so far).
 
 ## Recommendations on the reversible parts
 
@@ -120,33 +175,26 @@ machine in no form.
 
 First, three pieces that are right under every option:
 
-1. Build the image from packages (proposal P1 below). `cargo xtask` turns each base program into a
-   §197 package, and the image is assembled from a declared set by digest. This is milestone 198's
-   superseded "item 2", now wanted because it is what "the OS is built from packages" means at
-   build time. It changes no format on the device.
-2. Pull the integrator and the test harness out of the kernel crate (P2). This is the one boundary
-   the graph says is wrong under every fork, and it is code, so it is cheap to undo.
+1. Build the image from packages (P1). `cargo xtask` turns each base program into a §197 package,
+   and the image is assembled from a declared set by digest. It changes no format on the device.
+2. Pull the integrator and the test harness out of the kernel crate (P2). Decided, and in a lane
+   (see Rulings so far).
 3. Cut the two contract-to-runtime edges (P3). Two crates, reversible.
 
-Then, gated on rulings: the SDK (P4) on Fork 4, the update path (P5) on Fork 1, the kernel's trust
-handoff (P6) on Fork 2, and division workspaces (P7) on Fork 3.
-
-The order of the rulings is reversible too, so a recommendation: rule on Fork 1 first. It decides
-what P5 builds, whether Fork 2 matters before the kernel wants its own release, and what the SDK
-must version. Fork 3 can wait longest, because its precondition (contracts that stop churning) is
-not met.
+Then the ruled work: the SDK archive (P4), the update path (P5), the trust handoff (P6) and the
+package boundaries (P7).
 
 The proposals, none minted:
 
 | id | proposal | waits on |
 |---|---|---|
 | P1 | The image is assembled from base packages by digest | nothing |
-| P2 | The kernel crate stops carrying the bring-up and the system tests | nothing; collides with the test-wiring hotspot, so one lane alone |
+| P2 | The kernel crate stops carrying the bring-up and the system tests | decided; in the lane `milestone/609-system-tests-leave-the-kernel` |
 | P3 | A contract never links the runtime | nothing |
-| P4 | A third party builds `greeting` with no clone of this repository | Fork 4 |
-| P5 | An OS update is a set of packages that lands through a slot | Fork 1, P1 |
-| P6 | The kernel stops pinning userspace | Fork 2, P2 |
-| P7 | Each division is a workspace with a version | Fork 3, P2, P3 |
+| P4 | A third party builds `greeting` from the S2 archive, with no clone of this repository | nothing (S2 and the note field ruled) |
+| P5 | An OS update is a set of packages that lands through a slot | P1 (U4 ruled) |
+| P6 | The loader hands over two digests, and the progenitor checks the base set (T4 with T2) | P2 |
+| P7 | Package boundaries drawn in-tree, lint-checked, each with a required `home` | decided; in the lane `milestone/611-package-boundaries` |
 
 ## The seven questions
 
@@ -160,12 +208,11 @@ The proposals, none minted:
    2026-09-26. What to take and refuse is in the note.
 4. Is the premise true? Partly, and three facts above qualify it. The kernel cannot release
    independently under T1, whatever the repository shape.
-5. What does each option cost? Measured where a command could measure it: the image size, the edge
-   counts, the commit coupling, the SDK closure. The costs a command cannot give (a store's
-   collection rule, a semver promise) are named as such.
+5. What does each option cost? Measured where a command could: image size, edges, commit coupling
+   and the SDK closure. The rest is named as unmeasured.
 6. How reversible, and who has acted on it? Nobody outside this machine has fetched a package,
-   installed a slot, or built against the ABI. Every fork is still cheap to rule on; each becomes
-   expensive at its own first outside consumer.
+   installed a slot, or built against the ABI. Each ruling becomes expensive at its own first
+   outside consumer.
 7. Would we choose the same if every option cost the same? The recommendations are about order, not
    effort. P1 goes first because every Fork 1 option needs it, not because it is small.
 
@@ -175,15 +222,24 @@ The update manifest and store layout (Fork 1), the trust handoff (Fork 2), repos
 and their names (Fork 3), and anything published to a stranger (Fork 4) are irreversible once a
 machine or a person outside acts on them. Everything in P1 to P3 is host code and can be reverted.
 
-## What is blocked until this is answered
+## What this unblocks
 
-Nothing on the customer path today. P1 to P3 can start now. Milestone 198's rung 4 (the web page)
-needs Fork 4 answered before the SDK sentence on it can be written. Milestone 39 and §151's order
-wait on Fork 3.
+Every proposal above. Milestone 198's rung 4 (the web page) can say the SDK is an S2 archive.
+Milestone 39 and §151's order now have an answer: R1 now, every package out in the end.
+
+## Follow-on
+
+Open, and none of them a fork of this section:
+
+- How base services with no Linux counterpart are grouped: the progenitor, the file server, the
+  drivers. nife needs its own grouping here.
+- Package names, which are calef's under the naming rule.
+- The format of a package's in-tree definition, and of the home record for paths that are not
+  packages, which the lane `milestone/611-package-boundaries` proposes.
 
 ## BUGS
 
 - The division assignment is a judgment per crate. The note says which crates are ambiguous.
 - The image size is a stale local build. P1's lane should measure a fresh one.
-- The word "manifest" now means two things: a program's ask (#1338's ELF note) and the list of
-  packages an image holds (U2 and T2). The second needs its own name before it is built.
+- The word "manifest" now means two things: a program's ask (milestone 597's ELF note) and the list of
+  packages an image holds (U4 and T4 with T2, both ruled). The second needs its own name before it is built.
