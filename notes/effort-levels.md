@@ -18,7 +18,7 @@ markdown table of milestone and slug, plus a total count.* Ground truth was comp
 `grep` and never touched again, so scoring a run means comparing its output against a fixed file,
 not against a second LLM call.
 
-**The first wording was ambiguous, and that ambiguity is itself a finding (see below).** It asked
+The first wording was ambiguous, and that ambiguity is itself a finding (see below). It asked
 for lines beginning exactly `**Gate: DECISION.**`, meant to exclude compound gates like
 `**Gate: MILESTONE 75, DECISION.**`. It did not say what to do with the other kind of compound,
 `**Gate: DECISION, MILESTONE 23.**`, where `DECISION` is first. Ground truth (67 milestones) counts
@@ -30,16 +30,16 @@ Both wordings were run at all five levels, twice each, for 20 runs total. Every 
 
 ## Result 1: effort did not move correctness, in either direction
 
-**Ambiguous wording, 10 runs:** all five levels, both runs each, produced the identical answer (63,
+Ambiguous wording, 10 runs: all five levels, both runs each, produced the identical answer (63,
 the same four milestones missing: 39, 48, 347, 493). Not close-but-different: byte-for-byte the same
 list. `max` did not do a more careful reading than `low`; it did the identical reading, slower.
 
-**Disambiguated wording, 10 runs:** all five levels, both runs each, produced the exactly correct
+Disambiguated wording, 10 runs: all five levels, both runs each, produced the exactly correct
 answer (67, full list, matching ground truth). `low` was right both times. `max` was also right both
 times and bought nothing beyond that.
 
-So on this task, over 20 runs, correctness was **100% determined by the wording of the prompt and
-0% determined by the effort level.** A bad prompt gets the same wrong answer from every effort
+So on this task, over 20 runs, correctness was 100% determined by the wording of the prompt and
+0% determined by the effort level. A bad prompt gets the same wrong answer from every effort
 level; a good prompt gets the same right answer from every effort level. That is a genuine null
 result, not an absence of a result: effort is not the lever that fixes an underspecified brief, and
 raising it is not a substitute for writing the brief correctly. One run (`xhigh`, ambiguous wording,
@@ -69,7 +69,7 @@ Wall-clock and turn count scaled cleanly with level, on both wordings:
 not checked in; see the BUGS section below.) `max` runs roughly 5x longer and takes roughly 4x the
 turns of `low`, for an identical answer.
 
-**Cost is real but noisy, and the noise has an honest cause: prompt caching.** Each `claude
+Cost is real but noisy, and the noise has an honest cause: prompt caching. Each `claude
 --effort <level> -p ...` invocation loaded this repository's full `AGENTS.md`/skills/system-prompt
 context fresh (about 40-43K tokens), unless a prior run in the same benchmark had written that
 exact content to Anthropic's server-side cache within its TTL, in which case the second run paid
@@ -79,10 +79,10 @@ ordering, not from effort level. With that caveat stated plainly: even comparing
 (cache-miss) runs, `low` ($0.37-0.38) to `max` ($0.68-0.74) is roughly a 2x spread, growing to
 5-10x once a `max` run's much larger output (thinking and verification tokens) is included.
 
-**This cost is the CLI's own `total_cost_usd`, at list-price rates against a subscription
-session, not a bill.** These runs went through `claude`'s ordinary session auth (this lane had no
+This cost is the CLI's own `total_cost_usd`, at list-price rates against a subscription
+session, not a bill. These runs went through `claude`'s ordinary session auth (this lane had no
 `ANTHROPIC_API_KEY` and could not use `--bare`, and had no OpenRouter credentials to route through
-`helpers/open-lane-gateway.sh`), so no real dollar amount moved and no OpenRouter credit balance
+the open-lane gateway), so no real dollar amount moved and no OpenRouter credit balance
 was checked. `total_cost_usd` is Claude Code's own notional accounting of what the same usage would
 cost at API list price (`"costBasis":"list"` in the raw JSON); it is the only cost number this lane
 could get, and it is reported as exactly that, not as a charge.
@@ -93,7 +93,7 @@ could get, and it is reported as exactly that, not as a charge.
 That script runs `claude --bare --effort <level>` with `ANTHROPIC_BASE_URL` pointed at a LiteLLM
 gateway translating to an open-weight model over OpenRouter (`notes/open-model-lanes.md`). This
 lane had no `OPENROUTER_API_KEY` and no running gateway to test against, so every run above went
-straight to Claude. `config/open-lane-litellm.yaml` sets `drop_params: true`, which strips request
+straight to Claude. The gateway's configuration sets `drop_params: true`, which strips request
 fields the upstream model does not recognise; whether an open-weight model's `/chat/completions`
 translation preserves anything `--effort` sends, or silently drops it, is unmeasured. The default
 chosen below is evidence-based for Claude and a guess, clearly labelled as one, for the rented
@@ -113,20 +113,20 @@ null result, reported as one, rather than a manufactured recommendation. If a fu
 *does* show effort moving correctness, this default should change with that evidence, not before
 it.
 
-**This should be re-measured through the actual gateway once `OPENROUTER_API_KEY` and a running
-`helpers/open-lane-gateway.sh` are available to a lane.** That is the gap that matters most: this
+**This should be re-measured through the actual gateway once a lane can reach it on cordoba**
+(`notes/open-model-lanes.md`). That is the gap that matters most: this
 note answers "does `--effort` change what Claude does," which it does (time, turns, tokens) without
 changing correctness on this task; it does not yet answer "does `--effort` reach the open-weight
 model at all."
 
 ## BUGS
 
-- **No raw run data is checked in.** The 20 JSON transcripts and the scoring scripts live in a
+- No raw run data is checked in. The 20 JSON transcripts and the scoring scripts live in a
   scratch directory outside this repository and are gone once that scratch is cleared. Anyone
   wanting to re-verify has to re-run the benchmark, not re-read a saved transcript. This is a lower
   rung than the tree's own convention prefers; a lane with more time budget should save the raw JSON
   under `notes/` or a `bench/` directory rather than a summary table.
-- **Two runs per level per wording is a small sample.** It is enough to see that the ambiguous
+- Two runs per level per wording is a small sample. It is enough to see that the ambiguous
   wording's answer was not noisy (it was identical, not merely similar, across all 10 runs), which
   is the strongest kind of evidence a small sample can give. It is not enough to bound a confidence
   interval on the cost or wall-clock numbers, which is why this note reports ranges and says "noisy"

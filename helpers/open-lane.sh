@@ -41,7 +41,7 @@
 # unmeasured. Override per run (`OPEN_LANE_EFFORT=max helpers/open-lane.sh ...`) for a lane worth
 # spending more on, and re-measure against the real backend before trusting this default there.
 #
-# The gateway has no password of its own (see `helpers/open-lane-gateway.sh`), but Claude Code under
+# The gateway has no password of its own (notes/open-model-lanes.md), but Claude Code under
 # `--bare` still insists on *some* credential, so this sends a placeholder. It is not a secret and
 # the gateway ignores it.
 #
