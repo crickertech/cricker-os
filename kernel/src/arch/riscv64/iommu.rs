@@ -105,7 +105,7 @@ const TA_PSCID_SHIFT: u32 = 12;
 /// One recorded fault, in portable terms. `code` is the spec's CAUSE (e.g. 15 = store/AMO page
 /// fault, the "no mapping for that IOVA" case; 258 = invalid device-directory entry). Read today
 /// only by the confinement test; a production fault handler is future work.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 #[derive(Debug, Clone, Copy)]
 pub struct Fault {
     pub rid: u32,
@@ -129,9 +129,9 @@ struct Iommu {
     cq: u64,
     cq_tail: u32,
     // Read by take_fault (the confinement test); no production fault handler yet.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     fq: u64,
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     fq_head: u32,
 }
 
@@ -296,7 +296,10 @@ pub fn init(base: u64) {
 // `#[cfg(not(any(test, feature = "bench")))]`: a test boot exits through semihosting and a bench
 // boot diverges into `bench::run`, so neither reads a bring-up transcript. Same treatment
 // `memory::print_summary` already carries, and for the same reason.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     match IOMMU.lock().as_ref() {
         Some(s) => crate::println!(
@@ -402,7 +405,7 @@ pub fn attach(rid: u32, root: u64, pscid: u16) {
 
 /// Pop one fault from the fault queue, if any. The confinement test drains this to prove a DMA
 /// escape was stopped by the hardware, not merely absent.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn take_fault() -> Option<Fault> {
     let mut g = IOMMU.lock();
     let s = g.as_mut()?;

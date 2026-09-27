@@ -130,7 +130,7 @@ pub fn region() -> (u64, u64) {
 /// this instant, which is exactly what `stack::paint` requires and what makes the later measurement
 /// a measurement rather than a reading of somebody's live frame.
 pub fn init() {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     {
         for id in 0..MAX_CPUS {
             let (bottom, top) = span(id);

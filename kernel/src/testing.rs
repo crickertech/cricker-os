@@ -122,11 +122,11 @@ static TEST_NAME_LEN: AtomicUsize = AtomicUsize::new(0);
 /// it prints the same message a passing test would have, tagged `skipped` instead of `ok`, then
 /// returns from the calling function. The macro (not a function) is what makes the early return
 /// reach the test: a function can only return `()` and hand back control, not unwind its caller.
-pub(crate) static SKIP_REASON: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
-pub(crate) static SKIP_REASON_LEN: AtomicUsize = AtomicUsize::new(0);
+pub static SKIP_REASON: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+pub static SKIP_REASON_LEN: AtomicUsize = AtomicUsize::new(0);
 /// **A test printed the word "skip" while it was running**, set by the console writer and read
 /// once the test returns. See [`note_printed`] and the check in `Testable::run`.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 static PRINTED_A_SKIP_WORD: AtomicBool = AtomicBool::new(false);
 
 /// **The mechanism that keeps [`skip!`] from being optional**, from milestone 214
@@ -152,7 +152,7 @@ static PRINTED_A_SKIP_WORD: AtomicBool = AtomicBool::new(false);
 /// loudly rather than returning. The other direction is silent: a test that returns early having
 /// proved nothing and printed nothing is invisible to this, which is why the sweep also went
 /// looking for early returns with no line at all.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub(crate) fn note_printed(fragment: &str) {
     if fragment.contains("skip") {
         PRINTED_A_SKIP_WORD.store(true, Ordering::Relaxed);
@@ -171,22 +171,26 @@ static SKIPPED: AtomicUsize = AtomicUsize::new(0);
 /// test did not run. Must be called from directly inside a `#[test_case]` function (it returns
 /// from its caller); calling it from a nested helper returns out of the helper instead, which
 /// is a bug at the call site, not in the macro.
-#[cfg(test)]
+// Exported (milestone 609 (the system tests leave the kernel crate)) because most of its callers now
+// live in `system_tests/`, and its statics are named at the crate root for the same reason: from
+// another crate, `$crate::testing` is a private module.
+#[cfg(any(test, feature = "system_tests"))]
 #[allow(unused_macros)]
+#[macro_export]
 macro_rules! skip {
     ($reason:expr) => {{
         let reason: &'static str = $reason;
-        $crate::testing::SKIP_REASON.store(
+        $crate::SKIP_REASON.store(
             reason.as_ptr() as *mut u8,
             core::sync::atomic::Ordering::Relaxed,
         );
-        $crate::testing::SKIP_REASON_LEN.store(reason.len(), core::sync::atomic::Ordering::Relaxed);
+        $crate::SKIP_REASON_LEN.store(reason.len(), core::sync::atomic::Ordering::Relaxed);
         return;
     }};
 }
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 #[allow(unused_imports)]
-pub(crate) use skip;
+pub use crate::skip;
 
 // ---------------------------------------------------------------------------------------------
 // The frame ledger.
@@ -1015,14 +1019,14 @@ fn current_test_name() -> Option<&'static str> {
 ///     crate::sched::yield_now();
 /// }
 /// ```
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub struct TickBudget {
     core: usize,
     start: u64,
     ticks: u64,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 impl TickBudget {
     /// Start a budget of `ticks` timer ticks on whatever core is running now.
     pub fn new(ticks: u64) -> Self {
@@ -1103,7 +1107,7 @@ impl<T: Fn()> Testable for T {
 
         // Cleared HERE rather than before the name is printed, so a test whose own name contains
         // "skip" does not accuse itself. See note_printed.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         PRINTED_A_SKIP_WORD.store(false, Ordering::Relaxed);
 
         // Attribute the high-water marks to the test that moved them. Read around the body rather
@@ -1167,7 +1171,7 @@ impl<T: Fn()> Testable for T {
         // and there is no honest reading of it: either the test skipped, in which case the branch
         // above should have run, or it did not, in which case it printed something misleading
         // about itself. Fail the run rather than let the final line carry it.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         if PRINTED_A_SKIP_WORD.swap(false, Ordering::Relaxed) {
             panic!(
                 "this test printed \"skip\" and then returned, so the run counts it as a PASS. \
@@ -1220,7 +1224,7 @@ impl<T: Fn()> Testable for T {
 ///
 /// Expected: the run FAILS after this test's 90 s default budget, naming the test and its runtime.
 /// Without the ceiling it hangs until the outer bound kills it, which is the regression this guards.
-#[cfg(all(test, feature = "watchdog_probe"))]
+#[cfg(all(any(test, feature = "system_tests"), feature = "watchdog_probe"))]
 #[test_case]
 fn a_livelock_that_keeps_doing_ipc_trips_the_per_test_ceiling() {
     let ep = crate::sched::create_rendezvous();
@@ -1293,7 +1297,7 @@ pub fn runner(tests: &[&dyn Testable]) {
     }
 
     println!();
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     // the runner itself is compiled in every build; the instrument only exists in test
     crate::stack::report_high_water();
     report_page_frame_ledger();

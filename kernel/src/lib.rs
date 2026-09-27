@@ -23,10 +23,17 @@
 //! bootable test image for the kernel's unit tests.
 
 #![no_std]
-#![cfg_attr(test, no_main)]
+#![cfg_attr(any(test, feature = "system_tests"), no_main)]
 // Not the crates/ library surface milestone 68's ratchet tracks (DECISIONS §107): the kernel binary
 // is one crate root behind an ABI boundary, not a documented API.
 #![allow(missing_docs)]
+// And clippy's public-API lints, which fire in that image only because `system_test_access` makes
+// kernel internals reachable from outside: `Holding::new` without a `Default`, a `Result<_, ()>`.
+// They are advice about a crate's published surface, and the kernel publishes none.
+#![cfg_attr(
+    all(feature = "system_tests", not(test)),
+    allow(clippy::new_without_default, clippy::result_unit_err)
+)]
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::testing::runner)]
 #![reexport_test_harness_main = "test_main"]
@@ -67,7 +74,7 @@ mod pci;
 // Only the test boot drives it today (nothing production-wired rides NVMe until the block-server
 // question in notes/non-volatile-memory-express.md's BUGS is decided), so the non-test build allows it dead rather than
 // cfg-gating a module whose next caller is already known.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 mod non_volatile_memory_express;
 mod revoke;
 mod sched;
@@ -80,7 +87,7 @@ mod screen;
 // `bench` or `icount` boot parks before userspace by design and never reaches this, and a `test`
 // boot exits through semihosting; neither is a boot anybody reads to bring up a board, which is the
 // same exclusion `print_machine_description` carries and for the same reason.
-#[cfg(not(any(test, feature = "bench")))]
+#[cfg(not(any(test, feature = "system_tests", feature = "bench")))]
 mod self_test;
 mod smp;
 // The sustained multicore workload (milestone 219). Behind its own feature because an ordinary boot
@@ -106,8 +113,115 @@ mod trust;
 mod user;
 mod virtio;
 
-#[cfg(test)]
+// `print!` expands to `$crate::_print`, and a macro another crate expands can only name what that
+// crate can see: `console` is private, so its entry point is re-exported here (milestone 609 (the
+// system tests leave the kernel crate)).
+#[doc(hidden)]
+pub use console::_print;
+
+#[cfg(any(test, feature = "system_tests"))]
 mod testing;
+
+// The two statics `skip!` (testing.rs) writes, at a path any crate that expands it can name. The
+// macro is exported because most of its callers now live in `system_tests/`, and from there
+// `$crate::testing` is a private module (milestone 609 (the system tests leave the kernel crate)).
+#[cfg(any(test, feature = "system_tests"))]
+#[doc(hidden)]
+pub use testing::{SKIP_REASON, SKIP_REASON_LEN};
+
+/// **The kernel's insides, for the system-test image and nothing else** (milestone 609 (the system
+/// tests leave the kernel crate)). The whole-system suite lives in `system_tests/`, a second image
+/// that links this library, and its tests observe state no syscall exposes: the scheduler's queues,
+/// capability slots, region accounting. So under the `system_tests` feature, and only there, each
+/// module that suite names is re-exported here, and the test crate glob-imports this module so its
+/// `crate::sched::...` paths read exactly as they did when the files lived in this crate.
+///
+/// The modules themselves stay private. Making them `pub` would have been one word each and would
+/// have switched off dead-code warnings for the whole kernel, because a library's public items are
+/// never dead. A facade that exists only in the test image keeps every ordinary build checked.
+///
+/// Each `pub use` brings a module's `pub` items only. A test that needs something private asks for
+/// it to be made `pub`; that is the visibility cost of the move, paid where it is visible.
+#[cfg(feature = "system_tests")]
+#[doc(hidden)]
+pub mod system_test_access {
+    pub mod arch {
+        pub use crate::arch::*;
+    }
+    pub mod cap {
+        pub use crate::cap::*;
+    }
+    pub mod console {
+        pub use crate::console::*;
+    }
+    pub mod cpu {
+        pub use crate::cpu::*;
+    }
+    pub mod iommu {
+        pub use crate::iommu::*;
+    }
+    pub mod memory {
+        pub use crate::memory::*;
+    }
+    pub mod memory_region {
+        pub use crate::memory_region::*;
+    }
+    pub mod non_volatile_memory_express {
+        pub use crate::non_volatile_memory_express::*;
+    }
+    pub mod revoke {
+        pub use crate::revoke::*;
+    }
+    pub mod sched {
+        pub use crate::sched::*;
+    }
+    pub mod smp {
+        pub use crate::smp::*;
+    }
+    pub mod syscall {
+        pub use crate::syscall::*;
+    }
+    pub mod testing {
+        pub use crate::testing::*;
+    }
+    pub mod thread {
+        pub use crate::thread::*;
+    }
+    pub mod trust {
+        pub use crate::trust::*;
+    }
+    pub mod user {
+        pub use crate::user::*;
+    }
+}
+
+#[cfg(all(feature = "system_tests", not(test)))]
+unsafe extern "Rust" {
+    /// The hook the system-test image defines (`system_tests/src/main.rs`). A kernel built with the
+    /// `system_tests` feature calls it where a `cargo test` kernel calls `test_main`, so the same boot
+    /// runs the other crate's suite.
+    ///
+    /// **A foot gun, and why it fails loudly rather than quietly.** Cargo unifies features across one
+    /// invocation, so `cargo build --workspace` for a bare-metal target would build the kernel *binary*
+    /// with this feature on. Nothing defines this symbol in that binary, so the link fails. That is the
+    /// wanted outcome: a kernel that would run a test suite instead of booting never gets built by
+    /// accident. `script/drift` builds `system_tests` separately for exactly this reason.
+    fn system_tests_main();
+}
+
+/// Runs the suite this image carries: the kernel's own unit tests under `cargo test -p kernel`, or
+/// the system tests when `system_tests/` links this library with its feature on.
+#[cfg(any(test, feature = "system_tests"))]
+fn run_test_suite() {
+    #[cfg(test)]
+    test_main();
+    // SAFETY: `system_tests_main` is a plain Rust function the linked system-test image defines,
+    // with this exact signature; it takes nothing and returns when its suite has run.
+    #[cfg(all(feature = "system_tests", not(test)))]
+    unsafe {
+        system_tests_main();
+    }
+}
 
 /// The physical address of the Device Tree Blob, as handed to us in `x0`.
 ///
@@ -562,7 +676,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // anything else can push a frame into it. Both other boots do this here, in the same breath
         // as `stack::init`; without it the instrument reads whatever the trampoline left and reports
         // 100% of a 64 KiB stack in use, which is what the first x86 test run said.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         stack::paint_boot_stack();
         let regions = arch::machine::bring_up_memory(&info);
         let first = memory::alloc().expect("no frame from the allocator");
@@ -679,7 +793,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // exists and waits on neither, which is why it lands now.
         //
         // The `bench` exclusion is on the functions rather than here; see the riscv64 site.
-        #[cfg(not(any(test, feature = "bench")))]
+        #[cfg(not(any(test, feature = "system_tests", feature = "bench")))]
         {
             print_machine_description(boot_info_pointer);
             self_test::run();
@@ -796,9 +910,9 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // rest of the tour. Everything the tests need is now up: the frame allocator, the fine page
         // tables, the scheduler and its idle thread, the timer and interrupts. The x86 equivalent of
         // the `#[cfg(test)] test_main()` both other boots reach.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         {
-            test_main();
+            run_test_suite();
             arch::halt();
         }
 
@@ -894,7 +1008,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         stack::init();
         // Paint the boot stack's unused region for the high-water report (milestone 84), before
         // memory::init and everything after it can push frames into it.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         stack::paint_boot_stack();
         memory::init();
         let f = memory::alloc().expect("no frame from the allocator");
@@ -983,7 +1097,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // `kernel/Cargo.toml`'s feature comments: a board has no command line, so a measurement
         // build is compile-time or it is nothing). A `test` boot exits through semihosting a few
         // lines below and is excluded the same way.
-        #[cfg(not(any(test, feature = "bench")))]
+        #[cfg(not(any(test, feature = "system_tests", feature = "bench")))]
         {
             print_machine_description(boot_info_pointer);
             self_test::run();
@@ -1020,7 +1134,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // demonstration tour below. Everything the tests need is now up: memory and the frame
         // allocator, the Sv39 paging, the scheduler and its idle thread, the timer, interrupts, and
         // the other harts. The RISC-V equivalent of the `#[cfg(test)] test_main()` on the aarch64 boot.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "system_tests"))]
         {
             // The PLIC too: the parity-C disk tests route a device interrupt, and `plic::enable`
             // through a never-initialized PLIC is a store through a zero base (a fault this test
@@ -1038,7 +1152,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                 };
                 arch::exceptions::enable_external();
             }
-            test_main();
+            run_test_suite();
             arch::halt();
         }
 
@@ -1720,7 +1834,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
     stack::init();
     // Paint the boot stack's unused region for the high-water report (milestone 84), before
     // memory::init and everything after it can push frames into it.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     stack::paint_boot_stack();
 
     // Now that faults are reportable, go find out how much RAM we actually have. A bug
@@ -1799,8 +1913,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
     // about the machine, and the test and bench transcripts are where QEMU's answer gets read.
     arch::pmu::print_summary();
 
-    #[cfg(test)]
-    test_main();
+    #[cfg(any(test, feature = "system_tests"))]
+    run_test_suite();
 
     // The instruction-count boot (milestone 78, `script/icount`): assert the two timing claims on
     // the deterministic clock and park. **Before the bench boot, and its feature implies that one**,
@@ -1816,7 +1930,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
     #[cfg(feature = "bench")]
     bench::run();
 
-    #[cfg(not(any(test, feature = "bench")))]
+    #[cfg(not(any(test, feature = "system_tests", feature = "bench")))]
     {
         print_machine_description(boot_info_pointer);
 
@@ -2224,7 +2338,7 @@ fn mode_note(stat: u32) -> &'static str {
 /// The driver the virtio service spawns. `block_driver` on every architecture since milestone 291;
 /// on aarch64 this used to be a role of `hello`, which was the same `crates/virtio` code behind a
 /// second dispatch table. Panics if absent (the demo checked `initrd()` above).
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "system_tests")))]
 // Tour-only: the shell and bench boots both skip the milestone tour where it is used.
 #[cfg_attr(feature = "shell", allow(dead_code))]
 #[cfg(not(feature = "bench"))]
@@ -2252,7 +2366,7 @@ fn interrupts_init(_dtb: usize) {
 /// The linker invents this symbol and writes its address into the ELF; we declare
 /// it here so Rust can see it. Note that we want the *address of* the symbol, not
 /// its contents. There is no value there. See notes/linker-scripts.md.
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "system_tests")))]
 #[cfg(not(feature = "bench"))] // tour-only, and the bench boot skips the tour
 fn stack_top() -> usize {
     unsafe extern "C" {
@@ -2440,7 +2554,7 @@ fn x86_hand_over() {
 /// kept. A `bench` boot diverges into `bench::run` before this point and never returns, and a
 /// `test` boot exits through semihosting; neither is a boot anybody reads to bring up a board.
 /// Every boot that reaches this line prints all of it.
-#[cfg(not(any(test, feature = "bench")))]
+#[cfg(not(any(test, feature = "system_tests", feature = "bench")))]
 fn print_machine_description(boot_info_pointer: usize) {
     println!();
     println!("nife");

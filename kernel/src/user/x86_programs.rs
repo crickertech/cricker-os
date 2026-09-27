@@ -188,7 +188,7 @@ pub const fn port_out(port: u16, val: u8, word: u32) -> [u32; 9] {
 /// The faulting pc offset for [`port_out`]: `mov dx, port` (`66 BA` + imm16, 4 bytes) and
 /// `mov al, val` (`B0` + imm8, 2 bytes) precede the `out`, so a fault on it is reported six bytes
 /// past the entry.
-#[cfg(all(test, target_arch = "x86_64"))]
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const PORT_OUT_PC_OFFSET: u64 = 6;
 
 /// **A child that writes one byte to an I/O port and then exits, reporting nothing** (milestone
@@ -271,7 +271,7 @@ pub const fn cap_delete_then_port_out(slot: u32, port: u16, val: u8) -> [u32; 7]
 
 /// The faulting pc offset for [`cap_delete_then_port_out`]: two five-byte `mov r32, imm32`s and the
 /// two-byte `syscall` (12 bytes), then [`port_out`]'s own six bytes before its `out`.
-#[cfg(all(test, target_arch = "x86_64"))]
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const CAP_DELETE_THEN_PORT_OUT_PC_OFFSET: u64 = 12 + PORT_OUT_PC_OFFSET;
 
 /// **A child that blocks in RECV on slot 1, then writes a byte to a port, then exits**

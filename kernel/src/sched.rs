@@ -180,7 +180,7 @@ type Rendezvous = inter_process_communication::Rendezvous<Thread>;
 ///   pushed the table up, only that something did, and for this table that is the honest shape:
 ///   what fills it is what earlier tests deliberately left running. See
 ///   `kernel::testing`'s `report_thread_peak`, which explains why it reports and does not gate.
-pub(crate) const MAX_THREADS: usize = 256;
+pub const MAX_THREADS: usize = 256;
 
 /// **The most threads that were ever alive at once on this boot.**
 ///
@@ -275,7 +275,7 @@ fn clear_cpu_ticks(tid: ThreadId) {
 }
 
 /// The high-water mark [`PEAK_THREADS`] holds. Printed by the test suite's closing summary.
-#[cfg_attr(not(test), allow(dead_code))] // the closing summary is the only reader
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the closing summary is the only reader
 pub fn peak_thread_count() -> usize {
     PEAK_THREADS.load(Ordering::Relaxed)
 }
@@ -606,7 +606,7 @@ static KERNEL_CHUNK_RENDEZVOUS: core::sync::atomic::AtomicUsize =
 
 /// `(peak live, created on kernel chunks so far)`: see [`PEAK_RENDEZVOUS`]. Printed by the test
 /// suite's closing summary.
-#[cfg_attr(not(test), allow(dead_code))] // the closing summary is the only reader
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the closing summary is the only reader
 pub fn rendezvous_pressure() -> (usize, usize) {
     (
         PEAK_RENDEZVOUS.load(Ordering::Relaxed),
@@ -1235,7 +1235,7 @@ mod canary {
     }
 
     /// How many bytes have diverged since arming. The test hook, and a bench-note number.
-    #[cfg_attr(not(test), allow(dead_code))] // release builds read it off the serial print
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // release builds read it off the serial print
     pub fn divergences() -> u64 {
         DIVERGED.load(Ordering::Relaxed)
     }
@@ -2020,7 +2020,7 @@ pub fn take_need_resched() -> bool {
 /// what we claim is closed is right whether or not anyone can be granted an exception, which is why
 /// 228's default write is NOT behind the feature and this is. `kernel/Cargo.toml`'s
 /// `cycle_counter_grant` block carries the rest of the measurement.
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 fn install_cycle_counter_grant(granted: bool) {
     crate::arch::timer::set_cycle_counter_grant(granted);
 }
@@ -2081,7 +2081,7 @@ pub fn schedule() {
     // unless the block decides to switch. Built only when a grant can exist (`test` or
     // `--features cycle_counter_grant`), so every shipping build's `schedule()` gains nothing at all
     // and the switch tuple stays at its pre-139 width. See `install_cycle_counter_grant`.
-    #[cfg(any(test, feature = "cycle_counter_grant"))]
+    #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
     let mut next_cycle_counter = false;
 
     // A labeled block, so every exit path leaves through the SAME point: the guard drops at the
@@ -2236,7 +2236,7 @@ pub fn schedule() {
         // `#[cfg]`-gated variable declared above the block, not the switch tuple, so it costs the
         // shipping build nothing at all (milestone 300; see `install_cycle_counter_grant` for why the
         // old tuple-and-fold did not fold in the debug build the icount gate measures).
-        #[cfg(any(test, feature = "cycle_counter_grant"))]
+        #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
         {
             next_cycle_counter = sched.threads.get(next).unwrap().cycle_counter_grant;
         }
@@ -2337,7 +2337,7 @@ pub fn schedule() {
         // on a machine where nothing is granted. `#[cfg]`-gated, not folded (milestone 300): it
         // exists only in a build that can grant the counter, the same shape as the port grant just
         // below. See `arch::timer::set_cycle_counter_grant` and `install_cycle_counter_grant`.
-        #[cfg(any(test, feature = "cycle_counter_grant"))]
+        #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
         install_cycle_counter_grant(next_cycle_counter);
 
         // And the register file the two threads are about to share a core over (milestone 447).
@@ -2883,7 +2883,7 @@ pub fn notification_signal(id: NotificationId, bits: u64) -> Result<(), abi::Err
 /// lock once per timer through here. This entry stays for a kernel source that signals one
 /// notification at a time (§147's argument that IRQ delivery could use it); a kernel test exercises
 /// it so it is not dead code that merely compiles.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn signal_notification_from_interrupt(id: NotificationId, bits: u64) {
     let remote = {
         let mut guard = IPC_TABLES.lock();
@@ -3250,13 +3250,13 @@ fn wake_load_aware(sched: &mut IpcTables, tid: ThreadId) -> Option<usize> {
             // A device-IRQ wake is forward progress too (test builds only). A deferral in this
             // window is rare, and one non-load-aware completion in `finish_switch` is not worth
             // teaching that path a placement policy.
-            #[cfg(test)]
+            #[cfg(any(test, feature = "system_tests"))]
             crate::testing::note_progress();
             trace::record(trace::Event::WakeDeferred, tid, 0);
             None
         }
         WakeVerdict::Queue => {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "system_tests"))]
             crate::testing::note_progress();
             let ptr = core::ptr::NonNull::from(t);
             trace::record(trace::Event::Wake, tid, 0);
@@ -3295,12 +3295,12 @@ fn wake(sched: &mut IpcTables, tid: ThreadId) {
                 // A completed rendezvous is forward progress even when its queueing is deferred:
                 // keep the hang watchdog's heartbeat alive so a slow-but-live IPC pipeline
                 // (std_net) is not read as a deadlock (test builds only).
-                #[cfg(test)]
+                #[cfg(any(test, feature = "system_tests"))]
                 crate::testing::note_progress();
                 trace::record(trace::Event::WakeDeferred, tid, 0);
             }
             WakeVerdict::Queue => {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "system_tests"))]
                 crate::testing::note_progress();
                 let ptr = core::ptr::NonNull::from(t);
                 trace::record(trace::Event::Wake, tid, 0);
@@ -4070,7 +4070,7 @@ pub fn delete_port_range_caps_from_others(base: u16, count: u16) {
 /// [`crate::revoke::revoke_page_frame`]'s test-only whole-machine sweep); no syscall reaches it,
 /// because a live driver replacement wants the sparing variant above. `x86_64` only.
 #[cfg(target_arch = "x86_64")]
-#[cfg_attr(not(any(test, initrd)), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests", initrd)), allow(dead_code))]
 pub fn delete_port_range_caps(base: u16, count: u16) {
     delete_port_range_caps_impl(base, count, None);
 }
@@ -4854,7 +4854,8 @@ pub fn survey_supervised(
 /// (milestone 106's before-and-after). Read by the thread itself, because a finished thread's slot
 /// may be reused before anyone else looks. Test-only: userspace reads the same counter in
 /// milliseconds through `SURVEY`.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
 pub fn current_cpu_ticks() -> u64 {
     CPU_TICKS
         .get(slot_of(current_thread_id()))
@@ -4993,8 +4994,8 @@ pub fn configure_thread_control_block(
 /// style choice here, it is a measurement: without it the riscv64 `syscall_entry` set grew 12%
 /// against a 5% bound, because the callee folded into `invoke`.
 #[inline(never)]
-#[cfg_attr(not(test), allow(dead_code))]
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 pub fn grant_cycle_counter(tid: ThreadId) -> Result<(), abi::Error> {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
@@ -5019,7 +5020,7 @@ pub fn grant_cycle_counter(tid: ThreadId) -> Result<(), abi::Error> {
 /// running and will not pass through `schedule`'s switch again before it drops to EL0. Every later
 /// switch back into this thread re-applies the same value from the field, which is the ordinary
 /// path.
-#[cfg(test)]
+#[cfg(feature = "system_tests")]
 pub fn grant_cycle_counter_to_current() {
     {
         let mut guard = IPC_TABLES.lock();
@@ -5230,7 +5231,7 @@ pub fn current() -> ThreadId {
 /// This is [`dump_threads`]'s per-thread PC lookup, exposed so a test can assert the agreement
 /// rather than only a human reading a hang dump. A thread that has reached user mode reads back a
 /// user address here; a zero means nothing wrote a frame where the trap path will look for one.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn user_pc_of(tid: ThreadId) -> Option<u64> {
     let guard = IPC_TABLES.lock();
     let sched = guard.as_ref()?;
@@ -5244,7 +5245,7 @@ pub fn user_pc_of(tid: ThreadId) -> Option<u64> {
 /// `Dead` thread keeps its five-word §26 message until the supervisor reaps it, so this proves the
 /// corpse's TCB still holds its fault-time state after the notification was delivered. `None` if
 /// the name does not resolve or the thread is not a corpse.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn corpse_fault_msg(tid: ThreadId) -> Option<[u64; 5]> {
     let guard = IPC_TABLES.lock();
     let sched = guard.as_ref()?;
@@ -5264,7 +5265,7 @@ pub fn corpse_fault_msg(tid: ThreadId) -> Option<[u64; 5]> {
 ///
 /// The name is generational, so a reaped thread's `ThreadId` never resolves again even if its slot is
 /// reused: `false` here means gone, not "gone or replaced".
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn is_thread_present(tid: ThreadId) -> bool {
     IPC_TABLES
         .lock()
@@ -5295,7 +5296,7 @@ pub fn is_thread_present(tid: ThreadId) -> bool {
 ///
 /// The kill is **armed, not immediate**: the thread dies at its next preemption, so a caller that
 /// needs it actually gone waits for [`is_thread_present`] to go false rather than assuming.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn kill_thread(tid: ThreadId) -> bool {
     let mut guard = IPC_TABLES.lock();
     let Some(sched) = guard.as_mut() else {
@@ -5310,6 +5311,9 @@ pub fn kill_thread(tid: ThreadId) -> bool {
     }
 }
 
+// The ordinary boot and the system tests call this; the kernel's unit-test boot does neither
+// (milestone 609 (the system tests leave the kernel crate)).
+#[cfg_attr(test, allow(dead_code))]
 pub fn thread_count() -> usize {
     IPC_TABLES.lock().as_ref().map_or(0, |s| s.threads.len())
 }
@@ -5322,7 +5326,7 @@ pub fn thread_count() -> usize {
 /// number of leaked spinners: the idle threads (one per core) and the probe itself are the only
 /// runnable threads a clean system has. The regression proxy for the test-thread starvation that
 /// made the RedoxFS mount overrun the hang watchdog.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn runnable_non_idle_count(&exclude: &ThreadId) -> usize {
     let mut guard = IPC_TABLES.lock();
     let Some(sched) = guard.as_mut() else {
@@ -5356,7 +5360,7 @@ pub fn runnable_non_idle_count(&exclude: &ThreadId) -> usize {
 /// never reaped, so their stacks are only visible here, not in `KernelStack`'s `Drop`. A thread may
 /// be running on another core while its stack is scanned; the scan reads a snapshot, and a racing
 /// deepening is at worst under-reported by this run (see `stack::high_water`).
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn scan_live_thread_stacks() {
     let mut guard = IPC_TABLES.lock();
     let Some(sched) = guard.as_mut() else {
@@ -5373,7 +5377,7 @@ pub fn scan_live_thread_stacks() {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn dump_threads() {
     let mut guard = IPC_TABLES.lock();
     let Some(sched) = guard.as_mut() else {
@@ -5505,7 +5509,7 @@ pub fn dump_threads() {
 /// A negative assertion ("the supervisor sent nothing more") cannot be made with `RECV`, which would
 /// block forever on a quiet rendezvous. This is the non-blocking look that lets a test say "and then
 /// nothing happened" instead of hanging when the code is right.
-#[cfg(test)]
+#[cfg(feature = "system_tests")]
 pub fn rendezvous_waiting_senders(ep: RendezvousId) -> usize {
     let mut guard = IPC_TABLES.lock();
     let Some(sched) = guard.as_mut() else {
@@ -5552,7 +5556,7 @@ pub fn rendezvous_waiting_senders(ep: RendezvousId) -> usize {
 /// whole point of the type report as never read. The allow is the exception and this is it saying
 /// so. It is also the tell that the type is doing one job: if a field ever gets read by code, the
 /// allow should shrink rather than stay.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub struct ThreadDeathDisposition {
@@ -5565,7 +5569,7 @@ pub struct ThreadDeathDisposition {
     pub wait_on: Option<Wait>,
 }
 
-#[cfg(test)]
+#[cfg(feature = "system_tests")]
 pub fn thread_death_disposition(tid: ThreadId) -> Option<ThreadDeathDisposition> {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut()?;
@@ -5584,7 +5588,7 @@ pub fn thread_death_disposition(tid: ThreadId) -> Option<ThreadDeathDisposition>
 /// yielded, so it must have run" is not that knowledge: since DECISIONS §28 the waiter is placed on
 /// another core, and on the physical core under HVF a yield on this one returns in nanoseconds. So
 /// the wait has to be on the queue itself, which is what this reads.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn rendezvous_waiting_receivers(ep: RendezvousId) -> usize {
     let mut guard = IPC_TABLES.lock();
     let Some(sched) = guard.as_mut() else {
@@ -5604,7 +5608,7 @@ pub fn rendezvous_waiting_receivers(ep: RendezvousId) -> usize {
 /// on a boot where no sender to its rendezvous existed). This is deliberately not a hand-rolled
 /// state poke: it exercises the real wake path, so whatever `wake()` does about an undelivered
 /// wake is what this injects.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn wake_without_delivery(tid: ThreadId) {
     let mut guard = IPC_TABLES.lock();
     if let Some(sched) = guard.as_mut() {
@@ -5641,7 +5645,10 @@ pub fn count_preemption() {
 /// loses it under `shell` and `bench`, while this one has callers only under `test` and `bench`
 /// and is genuinely dead in the build that ships. The counter it reads is written unconditionally,
 /// so no configuration can make the number stale.
-#[cfg_attr(not(any(test, feature = "bench")), allow(dead_code))]
+#[cfg_attr(
+    not(any(test, feature = "system_tests", feature = "bench")),
+    allow(dead_code)
+)]
 pub fn preemptions_here() -> u64 {
     preemptions_on(cpu::id())
 }
@@ -5651,7 +5658,7 @@ pub fn preemptions_here() -> u64 {
 /// [`preemptions_here`] reads whichever core is running *now*, which is the wrong counter for any
 /// observation that straddles a preemption: the preemption is exactly what may move the reader.
 /// `kernel/src/preemption_window_tests.rs` samples one core across an unmask for that reason.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn preemptions_on(id: usize) -> u64 {
     PREEMPTIONS_PER_CPU[id].load(Ordering::Relaxed)
 }

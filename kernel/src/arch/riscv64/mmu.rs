@@ -204,7 +204,7 @@ pub const fn virt_to_phys(va: u64) -> u64 {
 
 /// A physical page-table address as a kernel pointer. Identity in bare mode; the direct map makes it
 /// valid once the Sv39 step maps all of RAM into the high-half. Same role as the aarch64 helper.
-pub(crate) fn phys_to_ptr(pa: u64) -> *mut PageTable {
+pub fn phys_to_ptr(pa: u64) -> *mut PageTable {
     phys_to_virt(pa) as *mut PageTable
 }
 
@@ -649,7 +649,7 @@ pub fn ttbr0_value(root: u64, asid: u16) -> u64 {
 /// Read the ASID back out of a composed [`ttbr0_value`]. The inverse of the line above, and it
 /// exists so a portable test can ask "which tag is this space wearing?" without knowing that this
 /// ISA keeps it in `satp[59:44]` and aarch64 keeps it in `TTBR0_EL1[63:48]`.
-#[cfg_attr(not(test), allow(dead_code))] // the tests are its only caller; the kernel composes, never decomposes
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the tests are its only caller; the kernel composes, never decomposes
 pub fn asid_of(satp: u64) -> u16 {
     ((satp >> SATP_ASID_SHIFT) & 0xffff) as u16
 }
@@ -699,7 +699,8 @@ pub fn flush_asid(asid: u16) {
 /// clear in a shipping build means a kernel bug that strays into the low half faults instead of
 /// succeeding quietly. Making that reachable outside tests would trade a real protection for
 /// nothing.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
 pub fn permit_kernel_access_to_user_pages(allowed: bool) -> bool {
     const SSTATUS_SUM: u64 = 1 << 18;
     // Widening what S-mode may touch is a permission change, not a memory-safety one; the kernel's
@@ -766,13 +767,13 @@ fn translate_in_either_half(va: u64) -> Option<(u64, Flags)> {
 /// **The walk is [`translate_in_either_half`] rather than [`translate_user`], and that is the whole
 /// of milestone 305's correction here.** With `translate_user` this function answered "no" for
 /// every kernel address by refusing to look, so the one assertion it exists for could not fail.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn user_can_read(va: u64) -> bool {
     translate_in_either_half(va).is_some_and(|(_, f)| f.is_user_accessible())
 }
 
 /// Whether U-mode may write `va`: user-accessible and writable. Same disposition, same test.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn user_can_write(va: u64) -> bool {
     translate_in_either_half(va).is_some_and(|(_, f)| f.is_user_accessible() && f.is_writable())
 }
@@ -1012,7 +1013,10 @@ pub fn share_kernel_half(root: u64) {
 ///
 /// The shape is aarch64's, said in this architecture's vocabulary: one root register rather than a
 /// TTBR pair, so the line names `satp` and the root it holds rather than a split.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     crate::println!(
         "  mmu             : Sv39 {}, one satp, kernel high half at {:#018x}",

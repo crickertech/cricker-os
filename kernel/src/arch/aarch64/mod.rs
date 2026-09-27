@@ -116,7 +116,7 @@ pub fn percpu() -> usize {
 /// thread migrating between cores keeps whatever `TPIDR_EL1` the destination core set at boot. The
 /// RISC-V twin has to check (its per-CPU pointer is `tp`, a general register that CAN ride a stale
 /// trap frame across a migration, DECISIONS §28); this exists so a portable test can call it on both.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn percpu_matches_hart() -> bool {
     true
 }
@@ -351,7 +351,7 @@ pub fn current_sp() -> u64 {
 /// than embedding an `asm!` in portable code, the same shape as [`current_sp`]. Test-only because
 /// nothing but that test asks, and aarch64-only on purpose: RISC-V does not bank the stack pointer
 /// by privilege level, so there is no analogous register to read (notes/riscv-parity-scope.md).
-#[cfg(test)]
+#[cfg(feature = "system_tests")]
 pub fn spsel() -> u64 {
     instructions::read_spsel()
 }

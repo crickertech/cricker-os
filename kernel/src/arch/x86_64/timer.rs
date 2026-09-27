@@ -585,8 +585,8 @@ pub fn init() {
 // Asked only by tests today (`sched`'s grant round trip and `user`'s EL0 one), which are the
 // callers that have to skip rather than fault on a part with no counter to grant. Marked rather
 // than deleted: milestone 74's cycle-counter work is the caller that will want it in anger.
-#[cfg_attr(not(test), allow(dead_code))]
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 pub fn is_cycle_counter_grantable() -> bool {
     true
 }
@@ -614,7 +614,7 @@ pub fn is_cycle_counter_grantable() -> bool {
 /// a measurement build the way `soak_test` is. `kernel/Cargo.toml`'s feature block carries the
 /// reasoning and the measured cost. Milestone 228's closed default at `init` is NOT gated.
 #[inline(always)]
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 pub fn set_cycle_counter_grant(_granted: bool) {}
 
 /// **Take one tick.** Called from the trap handler when [`irq::TIMER_VECTOR`] arrives.
@@ -640,7 +640,7 @@ pub fn ticks() -> u64 {
 ///
 /// Name: ratified 2026-09-24 (calef, the Rust predicate-naming rule in design/naming.md). Refused
 /// `tick_pending` (a bare participle reads as a getter, and Rust asks the question with `is_`).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn is_tick_pending() -> bool {
     irq::is_timer_pending()
 }

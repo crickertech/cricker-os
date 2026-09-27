@@ -1,0 +1,83 @@
+# Name: provisional, minted on 2026-09-27 by the lane for milestone 609 (the system tests leave the
+# kernel crate). calef's ruling that day named the shape, a system-test image crate, and called the
+# name provisional. The provenance block lives in src/main.rs, which is where the naming gate reads
+# it and where a reader meets the crate.
+[package]
+name = "system_tests"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# One target, a bootable image. `cargo test -p system_tests` builds it with the suite and is the
+# only build that means anything; a plain `cargo build` gives the same kernel with an empty suite.
+[[bin]]
+name = "system_tests"
+path = "src/main.rs"
+test = true
+bench = false
+
+[dependencies]
+# The kernel, as a library, with the feature that makes its boot a test boot and hands over to the
+# suite here (kernel/src/lib.rs, `run_test_suite`).
+kernel = { version = "0.1.0", path = "../kernel", features = ["system_tests"] }
+
+# Everything the suite names, and nothing a plain build of this crate needs, so all of it is a
+# dev-dependency: built for `cargo test`, which is the build that has the tests in it.
+[dev-dependencies]
+# The NTPv4 wire format (milestone 51 (wall-clock time, the `date` command, and an NTP service)).
+# The kernel's NTP tests read the request the client actually put on the wire, so the version, mode
+# and port they assert on come from the same definition the client serialised from rather than from
+# three copies of section 7.3 of RFC 5905.
+network_time_protocol = { version = "0.1.0", path = "../crates/network_time_protocol" }
+# The process listing (milestone 126 (the `procps` package)). The kernel's survey tests drive
+# `ps::collect`, the real program's real loop, against the real `endpoint::SURVEY`, so the cursor
+# protocol is proved end to end rather than by a second copy of the walk written in a test. Same
+# rule as `grant_plan`, `byte_sink_protocol` and `calendar` above: no party has its own copy of a
+# shared definition.
+ps = { version = "0.1.0", path = "../crates/ps" }
+# The filter over that listing (milestone 126). Driven by the same tests for the same reason, and
+# for one more: at the prompt `pgrep`'s selector cannot be typed, so the kernel test is the only
+# thing in the tree that hands the filter a real selector over a real domain.
+pgrep = { version = "0.1.0", path = "../crates/pgrep" }
+# The address-space listing (milestone 126, and §114 (`pmap` gets its listing)). `pmap_tests` drives
+# `pmap::collect`, `components/src/pmap.rs`'s real loop, against the real `aspace::LIST`, `ps`'s
+# reasoning one object type over: no party has its own copy of the cursor walk.
+pmap = { version = "0.1.0", path = "../crates/pmap" }
+# The package format (milestone 198 rung 3a). The kernel's package tests look the image's package
+# catalogue up by `package_archive::CATALOGUE`, the entry name the archive build packs it under,
+# rather than by a second spelling of it.
+package_archive = { version = "0.1.0", path = "../crates/package_archive" }
+coremark = { version = "0.1.0", path = "../crates/coremark" }
+abi = { version = "0.1.0", path = "../crates/abi" }
+bitmap_font = { version = "0.1.0", path = "../crates/bitmap_font" }
+block_roster = { version = "0.1.0", path = "../crates/block_roster" }
+byte_sink_protocol = { version = "0.1.0", path = "../crates/byte_sink_protocol" }
+calendar = { version = "0.1.0", path = "../crates/calendar" }
+capability_witness_protocol = { version = "0.1.0", path = "../crates/capability_witness_protocol" }
+clock_protocol = { version = "0.1.0", path = "../crates/clock_protocol" }
+compositor = { version = "0.1.0", path = "../crates/compositor" }
+counter_frequency_protocol = { version = "0.1.0", path = "../crates/counter_frequency_protocol" }
+credential_protocol = { version = "0.1.0", path = "../crates/credential_protocol" }
+current_cpu_protocol = { version = "0.1.0", path = "../crates/current_cpu_protocol" }
+elf = { version = "0.1.0", path = "../crates/elf" }
+entropy_protocol = { version = "0.1.0", path = "../crates/entropy_protocol" }
+environment_protocol = { version = "0.1.0", path = "../crates/environment_protocol" }
+filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol" }
+grant_plan = { version = "0.1.0", path = "../crates/grant_plan" }
+graphics_protocol = { version = "0.1.0", path = "../crates/graphics_protocol" }
+line_editor = { version = "0.1.0", path = "../crates/line_editor" }
+login_protocol = { version = "0.1.0", path = "../crates/login_protocol" }
+machine_discovery = { version = "0.1.0", path = "../crates/machine_discovery" }
+measured_boot = { version = "0.1.0", path = "../crates/measured_boot" }
+nifefs = { version = "0.1.0", path = "../crates/nifefs" }
+page_frames = { version = "0.1.0", path = "../crates/page_frames" }
+paging = { version = "0.1.0", path = "../crates/paging" }
+socket_protocol = { version = "0.1.0", path = "../crates/socket_protocol" }
+spin = { version = "0.12", default-features = false, features = ["spin_mutex"] }
+std_runtime_protocol = { version = "0.1.0", path = "../crates/std_runtime_protocol" }
+video_terminal = { version = "0.1.0", path = "../crates/video_terminal" }
+address_space_map = { version = "0.1.0", path = "../crates/address_space_map" }

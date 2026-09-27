@@ -407,7 +407,7 @@ impl Wiring {
     /// Ring the doorbell without typing anything: "look at the surfaces". Returns the reply's `r0`.
     ///
     /// The milestone tour uses it; the compositor tests all type something first.
-    #[cfg_attr(test, allow(dead_code))]
+    #[cfg_attr(any(test, feature = "system_tests"), allow(dead_code))]
     pub fn ring_doorbell(&self, op: u64) -> u64 {
         crate::sched::ipc_call(self.doorbell, [compositor::proto::req(op, 0), 0])[0]
     }

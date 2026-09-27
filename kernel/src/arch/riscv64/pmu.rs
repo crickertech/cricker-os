@@ -289,7 +289,10 @@ fn stop_counter(idx: usize) {
 // makes four files over. The counter is still configured and printed in every build, because
 // *whether this machine has one* is a fact about the machine and belongs on the boot line either
 // way.
-#[cfg_attr(not(any(test, feature = "bench")), allow(dead_code))]
+#[cfg_attr(
+    not(any(test, feature = "system_tests", feature = "bench")),
+    allow(dead_code)
+)]
 pub fn cycles() -> Option<u64> {
     if outcome() != CycleCounter::Running {
         return None;
@@ -315,7 +318,7 @@ pub fn cycle_counter_width() -> Option<u32> {
 /// Returns the SBI error code, so a caller can tell "stopped" from "was already stopped"
 /// (`SBI_ERR_ALREADY_STOPPED`, -8) from "there was no counter" (-3, which is what an invalid index
 /// earns).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn stop() -> isize {
     if outcome() != CycleCounter::Running {
         return -3;

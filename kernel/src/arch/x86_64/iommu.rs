@@ -158,7 +158,7 @@ const GSTS_ONE_SHOT_MASK: u32 = 0x96FF_FFFF;
 // IRES: interrupt remapping is ENABLED. Read only by the test that asserts it is clear; this
 // driver has no `GCMD_IRE` constant to pair it with, deliberately, because there is nothing here
 // that should be one typo away from turning interrupt remapping on. See this module's BUGS.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 const GSTS_IRES: u32 = 1 << 25;
 
 // CAP fields this driver reads. SAGAW is a bitmap (bit N means "AGAW level N is supported"), not
@@ -219,7 +219,7 @@ const CTX_DID_SHIFT: u64 = 8; // bits 23:8 of the upper qword
 /// `0x02` is a write past the second-level page table's write permission; `0x07` is no entry for
 /// the address at all). Read today only by the confinement test; a production fault handler is
 /// future work, the same posture the other two drivers take.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 #[derive(Debug, Clone, Copy)]
 pub struct Fault {
     pub rid: u32,
@@ -616,7 +616,10 @@ pub fn interrupt_remapping_available() -> Option<bool> {
 // `#[cfg(not(any(test, feature = "bench")))]`: a test boot exits through semihosting and a bench
 // boot diverges into `bench::run`, so neither reads a bring-up transcript. Same treatment
 // `memory::print_summary` already carries, and for the same reason.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     let g = IOMMU.lock();
     let mut any = false;
@@ -752,7 +755,7 @@ pub fn attach(rid: u32, root: u64, _tag: u16) {
 /// holds an unprocessed record, and (with `CAP.NFR` reporting one register on every unit this
 /// driver has met) the first is the only one read. The confinement test drains this to prove a
 /// DMA escape was stopped by the hardware, not merely absent.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn take_fault() -> Option<Fault> {
     let g = IOMMU.lock();
     for slot in g.iter() {

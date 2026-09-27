@@ -75,7 +75,8 @@ const IER_ERBFI: u8 = 0b0000_0001;
 // Test builds only, because that is where its only caller is; the crate-wide removal in
 // milestone 41 (dead code: triage the suppressions) of the
 // riscv `allow(dead_code)` means an unused constant here is a build error, which is the point.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
 const IER_ETBEI: u8 = 0b0000_0010;
 
 /// The console's line rate, which every machine here runs at (QEMU has no real wire and does not
@@ -411,7 +412,7 @@ impl<S: RegisterSpace> Ns16550<S> {
     /// Name: provisional, flagged 2026-09-25 by the lane that re-derived the x86 port
     /// falsifications (design/naming/boolean-predicates-worklist.md, "`rx` and `tx`"). calef asked
     /// what `rx` stands for in his #1255 review; recommended `enable_transmit_interrupt`.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     pub fn enable_tx_interrupt(&self) {
         let mut spins = 1_000_000u32;
         while self.read(LSR) & LSR_THRE == 0 && spins > 0 {
@@ -424,7 +425,7 @@ impl<S: RegisterSpace> Ns16550<S> {
     /// Mask every interrupt source in this UART, quieting a line raised by
     /// [`enable_tx_interrupt`]. The console is a polling console, so all-off is its resting state
     /// (`init` writes the same value). Test builds only, for the same reason as its partner above.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     pub fn disable_interrupts(&self) {
         self.write(IER, 0x00);
     }

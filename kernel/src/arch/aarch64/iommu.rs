@@ -67,7 +67,7 @@ const GBPA_UPDATE: u32 = 1 << 31;
 const CMDQ_LOG2: u32 = 8;
 const CMD_BYTES: u64 = 16;
 const EVTQ_LOG2: u32 = 7;
-#[cfg_attr(not(test), allow(dead_code))] // used by take_fault, which only the confinement test calls
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // used by take_fault, which only the confinement test calls
 const EVT_BYTES: u64 = 32;
 
 // The linear stream table: 64 STEs of 64 bytes, one frame. StreamID on this board is the PCIe
@@ -84,7 +84,7 @@ const CMD_SYNC: u32 = 0x46;
 /// One recorded fault, in portable terms. `code` is the SMMU event type (0x10 is `F_TRANSLATION`,
 /// the "no mapping for that IOVA" event the confinement test expects). Read today only by the
 /// confinement test; a production fault handler is future work, hence dead outside the test build.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 #[derive(Debug, Clone, Copy)]
 pub struct Fault {
     pub rid: u32,
@@ -102,9 +102,9 @@ struct Smmu {
     cmdq: u64,
     cmdq_prod: u32,
     // Read by take_fault (the confinement test); no production fault handler yet.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     evtq: u64,
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     evtq_cons: u32,
 }
 
@@ -226,7 +226,10 @@ pub fn init(base: u64) {
 // `#[cfg(not(any(test, feature = "bench")))]`: a test boot exits through semihosting and a bench
 // boot diverges into `bench::run`, so neither reads a bring-up transcript. Same treatment
 // `memory::print_summary` already carries, and for the same reason.
-#[cfg_attr(any(test, feature = "bench"), allow(dead_code))]
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
 pub fn print_summary() {
     match SMMU.lock().as_ref() {
         Some(s) => crate::println!(
@@ -395,7 +398,7 @@ pub fn attach(rid: u32, ttb: u64, asid: u16) {
 
 /// Pop one fault from the event queue, if any. The confinement test drains this to prove a DMA
 /// escape was stopped by the hardware, not merely absent.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn take_fault() -> Option<Fault> {
     let mut g = SMMU.lock();
     let s = g.as_mut()?;

@@ -40,7 +40,7 @@ use super::instructions::{self, read_cr0, read_cr4};
 
 /// **How many vector registers this architecture saves**: `xmm0`-`xmm15`, sixteen rather than the
 /// other two ISAs' thirty-two. See the aarch64 twin.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub const REGISTERS: usize = 16;
 
 /// **A thread's FP/SSE register file**, plus the flag that says whether any of it is worth moving.
@@ -201,7 +201,7 @@ unsafe extern "C" {
 /// **One harmless SSE instruction, to take the first-use trap on purpose.** Tests only.
 ///
 /// `xorps xmm0, xmm0` zeroes a register the caller is about to overwrite anyway.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn touch() {
     // SAFETY: writes one `xmm` register. Under a set `CR0.TS` this raises `#NM`, which
     // `exceptions.rs` turns into an enable, and is re-executed after it.
@@ -214,7 +214,7 @@ pub fn touch() {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 impl FpState {
     /// Write [`crate::fp::register_pattern`] across all sixteen `xmm` registers, each one's
     /// complement in the high half so the full 128 bits are exercised.

@@ -272,7 +272,10 @@ pub fn outcome_on(core: usize) -> CycleCounter {
 // production boot has nothing to measure, so it has no caller, the same call the other two halves
 // make; the counter is still started and printed in every build, because whether this machine has
 // one is a fact about the machine.
-#[cfg_attr(not(any(test, feature = "bench")), allow(dead_code))]
+#[cfg_attr(
+    not(any(test, feature = "system_tests", feature = "bench")),
+    allow(dead_code)
+)]
 pub fn cycles() -> Option<u64> {
     if outcome() != CycleCounter::Running {
         return None;

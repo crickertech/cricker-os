@@ -46,7 +46,7 @@
 use super::instructions;
 
 /// **How many FP registers this architecture saves**: `f0`-`f31`. See the aarch64 twin.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub const REGISTERS: usize = 32;
 
 /// **A thread's FP register file**, plus the flag that says whether any of it is worth moving.
@@ -187,7 +187,7 @@ unsafe extern "C" {
 /// **One harmless FP instruction, to take the first-use trap on purpose.** Tests only.
 ///
 /// `fmv.d.x f0, zero` writes zero into a register the caller is about to overwrite anyway.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn touch() {
     // SAFETY: writes one FP register. Under `FS == Off` this raises the illegal-instruction trap
     // that `exceptions.rs` turns into an enable, and is re-executed after it.
@@ -202,7 +202,7 @@ pub fn touch() {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 impl FpState {
     /// Write [`crate::fp::register_pattern`] across all 32 registers.
     pub fn set_pattern(&mut self, seed: u64) {

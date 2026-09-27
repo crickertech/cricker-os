@@ -118,7 +118,8 @@ pub(super) fn clear_sstatus(bits: u64) {
 /// `csrrs sstatus`: set `bits`, return the old value. **No `nomem`**, because the one caller sets
 /// `SUM`, which changes whether an S-mode load of a `U` page faults, so no memory access may move
 /// across it. Test-only, like that caller.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
 #[inline(always)]
 pub(super) fn read_and_set_sstatus(bits: u64) -> u64 {
     let previous: u64;
@@ -129,7 +130,8 @@ pub(super) fn read_and_set_sstatus(bits: u64) -> u64 {
 }
 
 /// `csrrc sstatus`: clear `bits`, return the old value. No `nomem`, as [`read_and_set_sstatus`].
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
 #[inline(always)]
 pub(super) fn read_and_clear_sstatus(bits: u64) -> u64 {
     let previous: u64;
@@ -202,7 +204,7 @@ pub(super) unsafe fn write_stvec(vector: usize) {
 }
 
 /// `csrr stvec`.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 #[inline(always)]
 pub(super) fn read_stvec() -> u64 {
     let stvec: u64;
@@ -214,7 +216,7 @@ pub(super) fn read_stvec() -> u64 {
 // ---- per-hart registers ----
 
 /// `csrr sscratch`.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 #[inline(always)]
 pub(super) fn read_sscratch() -> usize {
     let sscratch: usize;
@@ -276,7 +278,7 @@ pub(super) fn read_time() -> u64 {
 
 /// `csrr scounteren`. `scounteren` is mandatory in S-mode, so the read cannot be illegal. Built with
 /// its only callers, the cycle-counter grant and its test.
-#[cfg(any(test, feature = "cycle_counter_grant"))]
+#[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
 #[inline(always)]
 pub(super) fn read_scounteren() -> u64 {
     let value: u64;

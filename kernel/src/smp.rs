@@ -115,7 +115,7 @@ pub fn nth_online(k: usize) -> usize {
 
 /// Set by each secondary's probe thread, indexed by the core it actually ran on. The proof that a
 /// secondary schedules real work from its own queue, not just idles. See `secondary_main` step 5.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 static RAN_ON: [core::sync::atomic::AtomicBool; MAX_CPUS] =
     [const { core::sync::atomic::AtomicBool::new(false) }; MAX_CPUS];
 
@@ -358,7 +358,10 @@ pub fn seat_cpus_from_acpi(cpus: &[(u8, bool)]) {
 /// **Used outside tests on `x86_64` only**: `arch::x86_64::irq::send_reschedule` looks up a target
 /// core's local APIC id here (milestone 161's SMP item). aarch64 and RISC-V never need to ask,
 /// because their own reschedule messages (an SGI, an SBI IPI) are already sent by *logical* id.
-#[cfg_attr(not(any(test, target_arch = "x86_64")), allow(dead_code))]
+#[cfg_attr(
+    not(any(test, feature = "system_tests", target_arch = "x86_64")),
+    allow(dead_code)
+)]
 pub fn hwid(id: usize) -> Option<u64> {
     match HWID.get(id)?.load(Ordering::Acquire) {
         u64::MAX => None,
@@ -368,7 +371,7 @@ pub fn hwid(id: usize) -> Option<u64> {
 
 /// How many cores the device tree described, which is not how many this kernel can use. Greater than
 /// [`MAX_CPUS`] on a bigger machine than this build is sized for.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn described_count() -> usize {
     DESCRIBED.load(Ordering::Acquire)
 }
@@ -433,7 +436,7 @@ pub fn bring_up_secondaries() {
 
     // Paint every secondary's stack before any CPU_ON, while the slots are still untouched `.bss`,
     // so no live frame can be painted over (milestone 84). Whole slots: nothing has run on them.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     for id in 0..MAX_CPUS {
         if id != cpu::id() {
             let (b, t) = secondary_stack_span(id);
@@ -566,7 +569,7 @@ pub extern "C" fn secondary_main(cpu_id: usize) -> ! {
     //
     //    The comment here used to say "there is no migration yet, so it runs here". That was true
     //    when it was written and stopped being true at §28, with nothing to catch it.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "system_tests"))]
     crate::sched::spawn_on(cpu::id(), || {
         RAN_ON[cpu::id()].store(true, Ordering::Release);
     })

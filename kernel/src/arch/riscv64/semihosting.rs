@@ -26,31 +26,43 @@
 // still holds this file to the dead-code gate.
 
 /// The harness's success code (a passing exit).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const EXIT_SUCCESS: u32 = 0;
 /// The harness's failure code (any non-zero exit).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const EXIT_FAILURE: u32 = 1;
 
 // ---- QEMU `virt` exit: the `sifive_test` finisher ----
 
 /// The `sifive_test` finisher's **physical** address on QEMU's `virt` machine. Reached through the
 /// direct map at run time, since paging is on (bare-mode identity is long gone).
-#[cfg_attr(all(not(test), not(feature = "board")), allow(dead_code))]
+#[cfg_attr(
+    all(not(any(test, feature = "system_tests")), not(feature = "board")),
+    allow(dead_code)
+)]
 #[cfg(not(feature = "board"))]
 const SIFIVE_TEST_PHYS: u64 = 0x10_0000;
 /// Write this to exit QEMU with status 0.
-#[cfg_attr(all(not(test), not(feature = "board")), allow(dead_code))]
+#[cfg_attr(
+    all(not(any(test, feature = "system_tests")), not(feature = "board")),
+    allow(dead_code)
+)]
 #[cfg(not(feature = "board"))]
 const FINISHER_PASS: u32 = 0x5555;
 /// Base value for a failing exit; the caller's code is packed into the high half.
-#[cfg_attr(all(not(test), not(feature = "board")), allow(dead_code))]
+#[cfg_attr(
+    all(not(any(test, feature = "system_tests")), not(feature = "board")),
+    allow(dead_code)
+)]
 #[cfg(not(feature = "board"))]
 const FINISHER_FAIL: u32 = 0x3333;
 
 /// Terminate the QEMU guest with `code` (0 = success). Drives the `sifive_test` finisher: `PASS` for
 /// a clean exit, `FAIL` with the code in the high bits otherwise.
-#[cfg_attr(all(not(test), not(feature = "board")), allow(dead_code))]
+#[cfg_attr(
+    all(not(any(test, feature = "system_tests")), not(feature = "board")),
+    allow(dead_code)
+)]
 #[cfg(not(feature = "board"))]
 pub fn exit(code: u32) -> ! {
     let word = if code == 0 {
@@ -152,7 +164,10 @@ pub fn reboot(marker: &str) {
 /// Terminate the board run with `code` (0 = success). Prints a fixed UART marker line so a harness
 /// on the serial line can read the verdict, then calls SBI SRST to shut the board down. The
 /// `sifive_test` finisher does not exist on the VisionFive 2, so this is the silicon exit path.
-#[cfg_attr(all(not(test), feature = "board"), allow(dead_code))]
+#[cfg_attr(
+    all(not(any(test, feature = "system_tests")), feature = "board"),
+    allow(dead_code)
+)]
 #[cfg(feature = "board")]
 pub fn exit(code: u32) -> ! {
     // Print the marker before calling SBI: once the firmware begins shutdown the UART stops

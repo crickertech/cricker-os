@@ -239,7 +239,7 @@ pub fn percpu() -> usize {
 /// resumes on a different hart. `IA32_GS_BASE` is an MSR: it is not saved or restored by any context
 /// switch and does not travel with a thread, so there is nothing that could make it stale. The
 /// independent ground truth (the local APIC id) is not readable yet either way.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 pub fn percpu_matches_hart() -> bool {
     true
 }

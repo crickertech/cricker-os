@@ -132,7 +132,7 @@ pub type Format = Ia32e;
 /// `Ia32e` here would be a real bug rather than an approximation: a second-level leaf has exactly
 /// two meaningful bits (`R`, `W`), and everything `Ia32e` sets beyond those (`US`, `XD`, the
 /// software bits) is reserved-must-be-zero on this hardware.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub type DmaFormat = Vtd;
 
 /// The base of the kernel **image**'s virtual addresses.
@@ -232,13 +232,13 @@ pub const COM1_PORT: usize = 0x3f8;
 
 /// The local APIC's default physical base. Relocatable through `IA32_APIC_BASE`, and nothing
 /// relocates it; the constant is where the machine puts it at reset.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const LOCAL_APIC_PHYS: u64 = 0xfee0_0000;
 
 /// The IO APIC's default physical base on a PC-compatible machine, used only when the ACPI MADT
 /// did not say. `irq::io_apic_phys()` is what the machine actually reported, and q35 reports
 /// exactly this.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const IO_APIC_PHYS: u64 = 0xfec0_0000;
 
 /// **Where q35 puts the PCIe ECAM window**, and QEMU's q35 default. `map_everything` no longer
@@ -258,7 +258,7 @@ pub const IO_APIC_PHYS: u64 = 0xfec0_0000;
 /// `print_acpi_summary` names q35 rather than this constant when it prints the comparison
 /// (milestone 314); the earlier wording read as a defect report everywhere except the one firmware
 /// it was written against, and was eventually reported as one.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const PCI_ECAM_PHYS: u64 = 0xb000_0000;
 
 /// How many PCI buses of the ECAM window the kernel maps **before it has asked the machine**. One
@@ -270,7 +270,7 @@ pub const PCI_ECAM_PHYS: u64 = 0xb000_0000;
 /// The survey runs from `kernel_main` while the boot tables still cover the low 4 GiB
 /// indiscriminately, which is the only window in the boot where every bus the MCFG describes is
 /// readable; `map_everything` runs after it and maps what it found.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const PCI_ECAM_BUSES: u16 = 1;
 
 /// Is paging on? True from the moment `boot.s` set `CR0.PG`, which is before any Rust runs, so this
@@ -1579,7 +1579,7 @@ linker_symbol!(
 );
 
 /// A page table at physical address `pa`, reached through the direct map.
-pub(crate) fn phys_to_ptr(pa: u64) -> *mut paging::PageTable {
+pub fn phys_to_ptr(pa: u64) -> *mut paging::PageTable {
     phys_to_virt(pa) as *mut paging::PageTable
 }
 
@@ -1714,7 +1714,7 @@ pub unsafe fn switch_user_root(cr3: u64) {
 /// asserting something this architecture does not do yet, and should say so with `skip!()` rather
 /// than read a zero as agreement. The aarch64 twin shifts bits 63:48 out and the RISC-V one
 /// `satp[59:44]`.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn asid_of(cr3: u64) -> u16 {
     let _ = cr3;
     0
@@ -1737,7 +1737,8 @@ pub fn asid_of(cr3: u64) -> u16 {
 /// rather than succeed quietly. It is not on because nothing has measured what it costs on the
 /// syscall path, and a protection turned on without a number is the shape of change this tree asks
 /// for evidence about.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
 pub fn permit_kernel_access_to_user_pages(_allowed: bool) -> bool {
     true
 }
@@ -1753,7 +1754,7 @@ pub fn permit_kernel_access_to_user_pages(_allowed: bool) -> bool {
 /// `cr3` must be a value [`ttbr0_value`] composed over a live root that carries the kernel's high
 /// half. Anything else unmaps the instruction after this one; see [`switch_user_root`] for what that
 /// costs on this architecture.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub unsafe fn activate_user(cr3: u64) {
     // SAFETY: this function's own `# Safety` contract is exactly the one `install` needs; it
     // forwards, it does not weaken.
@@ -1867,17 +1868,17 @@ pub fn translate_user(va: u64) -> Option<(u64, paging::Flags)> {
 /// which is what makes `virtio::find_block_device` find nothing rather than probe an address that
 /// answers with bus noise. The PCIe transport (DECISIONS §18) is the one that carries here, which is
 /// the arrangement that transport was built for.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const VIRTIO_MMIO_BASE: u64 = 0;
 /// Bytes between consecutive virtio-mmio transports. Meaningless with no bus; see
 /// [`VIRTIO_MMIO_BASE`].
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const VIRTIO_SLOT_STRIDE: u64 = 0x1000;
 /// **Zero virtio-mmio slots**, which is the fact, not a placeholder. See [`VIRTIO_MMIO_BASE`].
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const VIRTIO_SLOTS: u64 = 0;
 /// The interrupt the first virtio-mmio slot would raise. Unreachable with no slots.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const VIRTIO_IRQ_BASE: u32 = 0;
 
 /// Bytes of PCI BAR space the kernel maps for device registers, matching what the other two
@@ -1890,7 +1891,7 @@ pub const VIRTIO_IRQ_BASE: u32 = 0;
 /// here, so on real firmware almost nothing is drawn from it. Every byte of it is mapped with
 /// 4 KiB leaves at boot, which is this module's first recorded BUG, so a window sized for the
 /// whole MMIO hole would be page tables for hundreds of megabytes nothing decodes.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const PCI_BAR_MAPPED: u64 = 0x20_0000;
 
 /// The first interrupt a PCI function raises.
@@ -1908,7 +1909,7 @@ pub const PCI_BAR_MAPPED: u64 = 0x20_0000;
 /// constant survives because the arch contract's other two implementations are real and the
 /// portable code names it; `kernel/src/pci.rs` reaches it only on a machine whose
 /// `alloc_msi_vector` answers `None`, which this one never does.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const PCI_IRQ_BASE: u32 = 0;
 
 #[cfg(test)]

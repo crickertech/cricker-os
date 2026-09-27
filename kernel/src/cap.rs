@@ -389,7 +389,7 @@ pub fn report_peak() {
 /// workload through the same kernel, so a test run going past twenty-one would be a true sentence
 /// about the wrong thing. The counting itself stays on, so a test that filled a table still moves
 /// the mark for anything that asks.
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "system_tests")))]
 fn announce_peak(peak: usize, ceiling: usize) {
     if peak > CAPABILITY_TABLE_PEAK_MEASURED {
         crate::println!(
@@ -402,7 +402,7 @@ fn announce_peak(peak: usize, ceiling: usize) {
 }
 
 /// See the other arm: the test kernel counts and does not print.
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 fn announce_peak(_peak: usize, _ceiling: usize) {}
 
 // The ABI names the reserved fault slot as `CAPABILITY_TABLE_SLOTS - 1`, so the two constants
@@ -491,7 +491,7 @@ pub fn irq_cap(intid: u32) -> Cap {
 
 /// An interrupt capability with explicit rights (milestone 19d.2b): the progenitor holds one with `GRANT`
 /// so it can delegate the interrupt to a driver it builds.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn irq_cap_rights(intid: u32, rights: Rights) -> Cap {
     Cap {
         object: Object::Irq(intid),
@@ -549,7 +549,7 @@ pub fn virtio_cap(id: usize) -> Cap {
 /// A virtio transport capability with explicit rights (DECISIONS §120's 2026-08-26 amendment):
 /// The progenitor holds one with `GRANT` so it can delegate the device to an entropy service it builds,
 /// [`irq_cap_rights`]'s own reason one object type over.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn virtio_cap_rights(id: usize, rights: Rights) -> Cap {
     Cap {
         object: Object::Virtio(id),

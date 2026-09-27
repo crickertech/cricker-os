@@ -137,7 +137,7 @@ pub(super) fn read_sp() -> u64 {
 }
 
 /// `mrs spsel`.
-#[cfg(test)]
+#[cfg(feature = "system_tests")]
 #[inline(always)]
 pub(super) fn read_spsel() -> u64 {
     let spsel: u64;

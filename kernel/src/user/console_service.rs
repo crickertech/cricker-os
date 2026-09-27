@@ -18,9 +18,14 @@ const PL011_PHYS: u64 = 0x0900_0000;
 /// question the block of milestone 267 (the milestone tour is three things wearing one name) leaves
 /// open for an architect. The `expect` is that question made visible; delete it, not the fields,
 /// when the question is answered.
-#[expect(
-    dead_code,
-    reason = "no client since the narrator went; see milestone 267's block"
+// Not in the system-test image, where `system_test_access` re-exports `user` and so reaches these
+// fields: there the lint cannot fire, and an `expect` that cannot be met is its own warning.
+#[cfg_attr(
+    not(feature = "system_tests"),
+    expect(
+        dead_code,
+        reason = "no client since the narrator went; see milestone 267's block"
+    )
 )]
 #[derive(Clone, Copy)]
 pub struct Console {
