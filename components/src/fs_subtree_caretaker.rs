@@ -120,8 +120,8 @@ fn forward(w0: u64, w1: u64) -> i64 {
 }
 
 /// Answer the blocked caller through the one-shot Reply the kernel minted.
-fn reply(slot: u64, r0: i64) {
-    user_mode_runtime::reply(slot, r0 as u64, 0);
+fn reply(slot: u64, r0: i64, r1: u64) {
+    user_mode_runtime::reply(slot, r0 as u64, r1);
 }
 
 /// The client's handle namespace: `table[i]` is the FS server's handle for the client's handle `i`,
@@ -176,16 +176,19 @@ fn serve(dir: u64) -> ! {
         let len = fs::req_len(w0).min(PAGE) as u64;
         let code = op(w0);
         let Some(server_handle) = table.get(fs::req_handle(w0)) else {
-            reply(reply_slot, reply_err(EBADF));
+            reply(reply_slot, reply_err(EBADF), 0);
             continue;
         };
         // An opcode the contract does not carry. One refusal site, and `EINVAL` because a word this
         // contract cannot resolve is a malformed request rather than a capability's refusal.
         let Some(v) = verb::of(code) else {
-            reply(reply_slot, reply_err(EINVAL));
+            reply(reply_slot, reply_err(EINVAL), 0);
             continue;
         };
 
+        // `OPEN`'s second reply word is the file's size (milestone 606 (a directory walk costs
+        // what it does on Linux), ruling B), passed through untouched; every other verb's is 0.
+        let mut size = 0u64;
         let r: i64 = if code == fs::CLOSE {
             // Closing the granted directory is refused for the same reason the FS server refuses to
             // close its own root: it is not something the client opened, and a client that could
@@ -224,7 +227,11 @@ fn serve(dir: u64) -> ! {
             // client named, whatever the client meant.
             let n = if v.carries_len() { len } else { 0 };
             let second = if v.carries_w1 { w1 } else { 0 };
-            let r = forward(fs::req(code, server_handle, n), second);
+            let (r0, r1) = call(FS, fs::req(code, server_handle, n), second);
+            let r = r0 as i64;
+            if code == fs::OPEN {
+                size = r1;
+            }
             // The verbs that mint a handle get a number of the client's own. The client never learns
             // the FS server's numbering, so a handle it guesses is a guess in a space it did not
             // choose.
@@ -243,7 +250,7 @@ fn serve(dir: u64) -> ! {
                 }
             }
         };
-        reply(reply_slot, r);
+        reply(reply_slot, r, size);
     }
 }
 

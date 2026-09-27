@@ -293,7 +293,11 @@ pub(crate) fn std_src() -> bool {
         return false;
     }
 
-    if !std_apply_overlay() || !std_generate_modules() || !std_patch_dispatch() {
+    if !std_apply_overlay()
+        || !std_generate_modules()
+        || !std_patch_dispatch()
+        || !std_patch_size_hint()
+    {
         return false;
     }
 
@@ -518,6 +522,55 @@ fn patch_after(path: &Path, anchor: &str, insert: &str) -> bool {
         return false;
     }
     true
+}
+
+/// Replace every occurrence of `old` in `path` with `new`, failing loudly if there are not exactly
+/// `count`: the same tripwire as [`patch_after`], for the one patch that has to change a line rather
+/// than add one.
+fn patch_replace(path: &Path, old: &str, new: &str, count: usize) -> bool {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        eprintln!("std-src: cannot read {}", path.display());
+        return false;
+    };
+    let found = text.matches(old).count();
+    if found != count {
+        eprintln!(
+            "std-src: expected {count} of {old:?} in {}, found {found} (std internals changed?)",
+            path.display()
+        );
+        return false;
+    }
+    if let Err(e) = std::fs::write(path, text.replace(old, new)) {
+        eprintln!("std-src: cannot write {}: {e}", path.display());
+        return false;
+    }
+    true
+}
+
+/// **Size a whole-file read from `OPEN`'s reply rather than an `FSTAT`** (milestone 606 (a
+/// directory walk costs what it does on Linux), calef's ruling B, form 2, 2026-09-27).
+///
+/// `std::fs::read`, `read_to_string` and `File::read_to_end` size their buffer from
+/// `file.metadata()`, which on nife is one more message per file. Since ruling B the server's
+/// `OPEN` reply carries the size, and the PAL keeps it as a hint (`File::open_size_hint`). This
+/// routes those three buffer sizings through a helper that asks the hint first and falls back to
+/// `metadata()`. `metadata()` itself is untouched and always asks the server: calef's reason is
+/// that a stale hint costs at most one resize, while a stale `metadata()` lies to the program.
+fn std_patch_size_hint() -> bool {
+    let fs = farm_std_src().join("fs.rs");
+    let read_size =
+        "let size = file.metadata().map(|m| usize::try_from(m.len()).unwrap_or(usize::MAX)).ok();";
+    patch_replace(
+        &fs,
+        read_size,
+        "let size = file_size_hint(&file).map(|n| usize::try_from(n).unwrap_or(usize::MAX));",
+        2,
+    ) && patch_replace(
+        &fs,
+        "fn buffer_capacity_required(mut file: &File) -> Option<usize> {\n    let size = file.metadata().map(|m| m.len()).ok()?;",
+        "/// nife (milestone 606, ruling B): the size `OPEN` reported, else `metadata()`.\nfn file_size_hint(file: &File) -> Option<u64> {\n    #[cfg(target_os = \"nife\")]\n    if let Some(size) = file.inner.open_size_hint() {\n        return Some(size);\n    }\n    file.metadata().map(|m| m.len()).ok()\n}\n\nfn buffer_capacity_required(mut file: &File) -> Option<usize> {\n    let size = file_size_hint(file)?;",
+        1,
+    )
 }
 
 /// Add a `target_os = "nife"` arm to std's `cfg_select!` dispatchers so they pick the nife

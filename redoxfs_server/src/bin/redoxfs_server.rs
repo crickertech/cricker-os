@@ -399,9 +399,9 @@ fn window_base(badge: u64) -> u64 {
 }
 
 /// Answer a caller through its one-shot Reply capability (slot `reply`), then return to serving.
-fn reply(reply_slot: u64, r0: i64) {
+fn reply(reply_slot: u64, r0: i64, r1: u64) {
     // SAFETY: the kernel minted this Reply naming the blocked caller; REPLY consumes it.
-    unsafe { invoke(reply_slot, abi::reply::REPLY, r0 as u64, 0, 0) };
+    unsafe { invoke(reply_slot, abi::reply::REPLY, r0 as u64, r1, 0) };
 }
 
 /// The serve loop. Blocks on the file-service endpoint, dispatches one request, replies, repeats.
@@ -436,7 +436,11 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
                 let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
-                    Ok(name) => server.open_file_at(handle, name).map(|h| h as i64),
+                    // The second word is the rights each directory on a path asks for (milestone
+                    // 606, ruling A); `fs::OPEN` has the whole rule.
+                    Ok(name) => server
+                        .open_file_path(handle, name, offset)
+                        .map(|h| h as i64),
                     Err(_) => Err(Error::new(EINVAL)),
                 }
             }
@@ -633,7 +637,18 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         };
 
         // The one error-mapping site: RedoxFS's Error -> the negated-errno wire value.
-        reply(reply_slot, result.unwrap_or_else(|e| reply_err(e.errno)));
+        // `OPEN`'s reply carries the file's size in its second word (milestone 606, ruling B), so
+        // a client reading the whole file needs no `FSTAT` to size its buffer. Every other verb's
+        // second reply word is 0, as it always was.
+        let size = match (op(w0), &result) {
+            (fs::OPEN, Ok(h)) => server.fstat(*h as u32).unwrap_or(0),
+            _ => 0,
+        };
+        reply(
+            reply_slot,
+            result.unwrap_or_else(|e| reply_err(e.errno)),
+            size,
+        );
     }
 }
 

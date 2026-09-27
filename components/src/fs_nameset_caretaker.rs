@@ -131,8 +131,8 @@ fn forward(w0: u64, w1: u64) -> i64 {
 }
 
 /// Answer the blocked caller through the one-shot Reply the kernel minted.
-fn reply(slot: u64, r0: i64) {
-    user_mode_runtime::reply(slot, r0 as u64, 0);
+fn reply(slot: u64, r0: i64, r1: u64) {
+    user_mode_runtime::reply(slot, r0 as u64, r1);
 }
 
 /// The client's handle namespace, `fs_subtree_caretaker`'s table verbatim: `table[i]` is the FS
@@ -149,6 +149,20 @@ impl Table {
         self.0[i] = Some(server);
         Some(i as u64)
     }
+}
+
+/// The length of the first component of the `len`-byte name at the start of the shared page: up to
+/// its first `/`, or all of it. Scanning stops one byte past the longest name a grant carries,
+/// because a first component longer than that is in no set and [`name_at`] refuses it anyway.
+fn first_component(len: usize) -> usize {
+    let mut b = [0u8; 1];
+    for i in 0..len.min(grant::MAX_NAME + 1) {
+        get_at(i, &mut b);
+        if b[0] == b'/' {
+            return i;
+        }
+    }
+    len
 }
 
 /// Read a name of `len` bytes out of the shared page at `off`.
@@ -190,11 +204,11 @@ fn serve(dir: u64, set: &[u8]) -> ! {
         let code = op(w0);
         let asked = fs::req_handle(w0);
         let Some(server_handle) = table.get(asked) else {
-            reply(reply_slot, reply_err(EBADF));
+            reply(reply_slot, reply_err(EBADF), 0);
             continue;
         };
         let Some(v) = verb::of(code) else {
-            reply(reply_slot, reply_err(EINVAL));
+            reply(reply_slot, reply_err(EINVAL), 0);
             continue;
         };
         // The filter is at the granted directory and nowhere else: what is under a directory the
@@ -207,9 +221,19 @@ fn serve(dir: u64, set: &[u8]) -> ! {
         // name that is not on the disk. `RENAME` needs both halves and is checked below.
         if filtered && v.takes_name() && v.operand == verb::Operand::Name {
             let mut buf = [0u8; grant::MAX_NAME];
-            let n = name_at(0, len, &mut buf);
+            // `OPEN` and `OPENDIR` may carry a relative path (milestone 606 (a directory walk
+            // costs what it does on Linux), ruling A), and only its first component is a name in
+            // this directory; the rest are names below one the set already admits, which this
+            // grant never filtered. So the check is on the first component, and that is also all
+            // that is written back.
+            let first = if code == fs::OPEN || code == fs::OPENDIR {
+                first_component(len)
+            } else {
+                len
+            };
+            let n = name_at(0, first, &mut buf);
             if !nameset::contains(set, &buf[..n]) {
-                reply(reply_slot, reply_err(ENOENT));
+                reply(reply_slot, reply_err(ENOENT), 0);
                 continue;
             }
             // **Write the checked name back before forwarding** (milestone 43,
@@ -221,6 +245,9 @@ fn serve(dir: u64, set: &[u8]) -> ! {
             put_at(0, &buf[..n]);
         }
 
+        // `OPEN`'s second reply word is the file's size (milestone 606 (a directory walk costs
+        // what it does on Linux), ruling B), passed through untouched; every other verb's is 0.
+        let mut size = 0u64;
         let r: i64 = if code == fs::CLOSE {
             if asked == fs::ROOT {
                 reply_err(EINVAL)
@@ -275,7 +302,11 @@ fn serve(dir: u64, set: &[u8]) -> ! {
             // word only for the verbs that read it.
             let n = if v.carries_len() { len as u64 } else { 0 };
             let second = if v.carries_w1 { w1 } else { 0 };
-            let r = forward(fs::req(code, server_handle, n), second);
+            let (r0, r1) = call(FS, fs::req(code, server_handle, n), second);
+            let r = r0 as i64;
+            if code == fs::OPEN {
+                size = r1;
+            }
             if !v.mints_handle || r < 0 {
                 r
             } else {
@@ -288,7 +319,7 @@ fn serve(dir: u64, set: &[u8]) -> ! {
                 }
             }
         };
-        reply(reply_slot, r);
+        reply(reply_slot, r, size);
     }
 }
 
