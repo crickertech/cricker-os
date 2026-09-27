@@ -204,3 +204,17 @@ its replace contract, the session process has no settled contract to be built ag
 session to the timetable; the replace handler itself does not wait on it.
 
 Question 3's rule applies to the `Held` a session hands its timetable.
+
+## What was built to the rulings, and what it found (2026-09-26)
+
+S1, L2 and the suspension ruling are built (the block's "What was built" entries). Three findings
+from building them, each recorded where a reader meets it:
+
+- The ruling put L2's request after `OK`. It is the request itself (`login_protocol::SCHEDULE`),
+  because `login` blocks on one endpoint and cannot wait for a word after `OK` without every client
+  sending one.
+- Reclaiming a session process too early kills it between its two teardown destroys and strands a
+  region under the user's budget. It now says `STOPPED` and `login` waits for the word.
+- "The stored schedule resumes at the next login" makes `login` read an identity's stored schedule
+  at login time. Doing the same at start-up is boot re-derivation, which is why the block proposes
+  moving it into `login` (fork 7).
