@@ -29,3 +29,4 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Prior art and reuse](../prior-art.md): where to look before building, and the build-versus-reuse rule.
 - [Handing a session over](../session-handoff.md): superseded 2026-07-29 restart point, kept as history.
 - [Cobble, the mascot](../mascot.md): the project's mascot, drawn by Clay.
+- [The system tests and the kernel crate](../system-tests-and-the-kernel-crate.md): what the kernel linked for its tests, the gate that keeps them out, and where the tests go. Name provisional.
