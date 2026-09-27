@@ -1,0 +1,26 @@
+# init: the progenitor, supervision and the process builder. The role Debian's init and systemd fill.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name init
+kind base
+home init provisional
+
+crate components
+crate system_initializer
+
+program progenitor
+program root_supervisor
+program spawner
+program sub_server_supervisor
+program job_undertaker
+program session_reviver
+program broker
+program swapper
+
+depends timetable
+
+exception 2026-09-27 system_initializer http_response system_initializer builds the whole interactive image and so links every package's pieces; it is integration, not init
+exception 2026-09-27 system_initializer video_terminal the same: integration living in init, and a base package reaching into the optional display package

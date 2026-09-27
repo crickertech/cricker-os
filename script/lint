@@ -3015,6 +3015,19 @@ if [ -n "$upward" ]; then
 fi
 echo "dependency direction: $(ls -d crates/*/ | wc -l | tr -d ' ') crates, none depends on a binary"
 
+echo "==> package boundaries"
+# Milestone 611 (every program and crate belongs to a package, and every package has a home). calef
+# ruled on 2026-09-27 (pull request #1389, its decision's fork 3) that the tree stays one repository for now
+# with package boundaries "drawn and enforced inside it by lint check", and that the end state is
+# everything leaving it, with no default of staying. The rules, all over the tree and none a list:
+# every tracked path has exactly one home; every crate and program is in exactly one package; a link
+# across a package boundary goes to an `interface` crate, to a declared `depends`, or through a
+# dated exception that fails once its link is gone. helpers/packages.py's header is the manual and
+# notes/package-boundaries.md the table. The selftest plants one violation per rule first, because
+# a green check that could not have gone red says nothing.
+python3 helpers/packages.py --selftest
+python3 helpers/packages.py --check
+
 # The region claim protocol has ONE decision path (milestone 136).
 #
 # Milestone 135 lifted the untyped region table out of `kernel/src/untyped.rs` into

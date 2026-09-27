@@ -1,0 +1,25 @@
+# procps: who else is running. Debian's procps, after milestone 126 (the procps package).
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name procps
+kind base
+home procps provisional
+
+crate ps
+crate pgrep
+crate pmap
+crate top
+crate uptime
+
+program ps
+program pgrep
+program pmap
+program top
+program uptime
+
+path packages/uptime.recipe
+path packages/uptime-riscv64.recipe
+path packages/uptime-x86_64.recipe
