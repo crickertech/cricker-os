@@ -39,7 +39,7 @@ use thread_wake_handshake::{SwitchOutVerdict, WakeVerdict};
 
 use crate::cpu;
 use crate::sync::{IrqSafeMutex, rank};
-use crate::thread::{Context, QuotaToken, State, Thread, ThreadId, WaitRole, switch_to};
+use crate::thread::{Context, QuotaToken, State, Thread, ThreadId, Wait, WaitRole, switch_to};
 
 /// How many times we have actually taken the CPU away from a thread. The number that says
 /// preemption is real.
@@ -534,6 +534,11 @@ struct IpcTables {
     kernel_ep_region: Option<u64>,
     /// How many chunks have been carved, so growth is bounded by something rather than by nothing.
     kernel_ep_chunks: usize,
+    /// **The notification registry** (milestone 151 (notification objects), DECISIONS §101 (notification objects)): the rendezvous registry's
+    /// shape one object type over. Each entry is the physical address of the page a
+    /// [`NotificationPage`] lives at the start of, retyped from its creator's region; the
+    /// generational name is what an `Object::Notification` capability carries.
+    notification_table: generational_table::Table<u64, MAX_NOTIFICATIONS>,
 }
 
 /// The most endpoints that can exist **at once**: the registry's bound.
@@ -704,6 +709,7 @@ const EMPTY_TABLES: IpcTables = IpcTables {
     rendezvous_table: generational_table::Table::new(),
     kernel_ep_region: None,
     kernel_ep_chunks: 0,
+    notification_table: generational_table::Table::new(),
 };
 
 /// **Per-cpu ring of the last few scheduler events** (first-silicon diagnostics, 2026-08-14; the
@@ -772,7 +778,8 @@ mod trace {
         Migrated = 11,
         /// This core set `ipc_served` on `tid`: a delivery completed the thread's parked IPC.
         /// `aux` names the delivering site (1 send, 2 recv-collect, 3 `send_cap`, 4 `recv_cap`-collect,
-        /// 5 call, 6 reply, 7 irq signal, 8 death message), so a bench dump answers "who served
+        /// 5 call, 6 reply, 7 irq signal, 8 death message, 9 a notification signal to a waiter, 10 a
+        /// notification signal to its bound receiver), so a bench dump answers "who served
         /// this thread" by reading the ring instead of inferring it from a frozen syscall count,
         /// which is the inference boots 7 through 9 got wrong (notes/visionfive2.md, fifth stop).
         Served = 10,
@@ -1932,7 +1939,7 @@ fn deliver_death(sched: &mut IpcTables, corpse: ThreadId, ep: RendezvousId, msg:
             // The corpse is parked on the sender queue now, its mailbox already holding `msg`.
             // Record the parking so a dump shows where the death message waits.
             if let Some(t) = sched.threads.get_mut(corpse) {
-                t.handshake.wait_on = Some((ep, WaitRole::Sender));
+                t.handshake.wait_on = Some(Wait::Rendezvous(ep, WaitRole::Sender));
             }
         }
     }
@@ -2641,6 +2648,374 @@ pub fn create_rendezvous() -> RendezvousId {
     }
 }
 
+// --- Notifications (milestone 151, DECISIONS §101) --------------------------------------------
+//
+// The asynchronous half of IPC: a word a signaller ORs into and a waiter takes. The decision core
+// (what a signal, a wait and a poll do) is `inter_process_communication::notification`, proved
+// there; what lives here is what the crate cannot see: the registry, the mailboxes, the wake, and
+// the TCB binding, which reaches into another object's wait queue. See notes/notification-objects.md.
+
+/// The most notifications that can exist at once, whole machine. A registry bound like
+/// [`MAX_RENDEZVOUS`], and half of it, because a notification is a per-thread or per-service
+/// doorbell where a rendezvous is a per-conversation object: §101's consumers want about one each.
+/// The pages come from the creators' own regions; this bounds only the name table, which is 16 bytes
+/// a slot. Raise it when a real workload refuses a `RETYPE_OBJ` here, not before.
+const MAX_NOTIFICATIONS: usize = 256;
+
+/// A notification's name: a generational name over the notification registry, what an
+/// `Object::Notification` capability carries. Stale-safe like every other name.
+pub type NotificationId = u64;
+
+/// **What lives at the start of a notification's page**: the proved state machine, and the one
+/// thread it is bound to, if any. The binding sits here and on the thread (`Thread::bound_notification`)
+/// because each side needs it without a search: a signal asks "who is bound to me", and a receive
+/// asks "what is bound to me".
+struct NotificationPage {
+    state: inter_process_communication::notification::Notification<Thread>,
+    /// Set once by `BIND` and never cleared. A generational name, so a dead thread leaves it stale
+    /// and every reader treats a miss as unbound.
+    bound: Option<ThreadId>,
+}
+
+/// The notification behind a name, or `None` if it no longer resolves. Caller holds `IPC_TABLES`.
+/// The `'static` is [`rendezvous_of`]'s, for the same reason: the page is pinned while the name
+/// resolves, and `IPC_TABLES` serializes every access.
+fn notification_of(sched: &IpcTables, id: NotificationId) -> Option<&'static mut NotificationPage> {
+    let phys = *sched.notification_table.get(id)?;
+    // SAFETY: retyped exclusively for this notification, its region pinned while the name
+    // resolves, direct-mapped, and serialized by IPC_TABLES, which every caller holds.
+    Some(unsafe { &mut *(crate::arch::mmu::phys_to_virt(phys) as *mut NotificationPage) })
+}
+
+/// Create a notification **in `region`'s memory**: one page retyped and pinned, the object at its
+/// start, a fresh name. `RETYPE_OBJ`'s engine, and [`try_create_rendezvous_from`]'s shape, including
+/// its fix: the registry is checked *before* a page is spent. `None` when the region or the registry
+/// is full; userspace gets one flat `OutOfMemory` for both, as it does for a rendezvous.
+pub fn create_notification_from(region: u64) -> Option<NotificationId> {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut()?;
+    if sched.notification_table.len() >= MAX_NOTIFICATIONS {
+        return None;
+    }
+    let phys = crate::memory_region::retype_object_page(region)?;
+    // SAFETY: fresh page, exclusively ours, direct-mapped.
+    unsafe {
+        (crate::arch::mmu::phys_to_virt(phys) as *mut NotificationPage).write(NotificationPage {
+            state: inter_process_communication::notification::Notification::new(),
+            bound: None,
+        });
+    }
+    // Cannot fail: capacity was checked above under this same lock hold.
+    sched.notification_table.insert_with(|_| phys)
+}
+
+/// **The mailbox of a receive the bound notification ended.** `(BOUND, word, 0, 0, BOUND)`:
+/// §101's `w0 = 2` and the word in `w1`, and the tag again in `w4`, the one register of a receive
+/// that no sender can write. See `abi::notification::BOUND`, and notes/notification-objects.md for
+/// why `w0` alone is forgeable.
+const fn bound_delivery(word: u64) -> [u64; 5] {
+    [
+        abi::notification::BOUND,
+        word,
+        0,
+        0,
+        abi::notification::BOUND,
+    ]
+}
+
+/// **The bound thread, if it is parked in a receive right now**, with the rendezvous it is parked
+/// on. This is the one boolean the crate's `signal` takes on trust, so the argument that it is right
+/// lives here.
+///
+/// "Parked in a receive" is `Blocked` on a rendezvous as a `Receiver` **with nothing delivered
+/// yet**, and the last clause is not decoration. A receiver a sender has already served stays
+/// `Blocked` with its `wait_on` intact until the wake completes, and that can be a whole context
+/// switch later (a wake deferred behind `on_cpu` finishes in `finish_switch`). It is off the queue
+/// and its mailbox is full; delivering a notification there would overwrite the message. Every way
+/// off a receiver queue marks the thread delivered or aborted in the same critical section (a
+/// sender's `serve`, an IRQ signal's `serve`, a drain's `abort`, a bound delivery's `serve`), except
+/// `finish_blocked_resident`, which ends the thread (`Finished`, not `Blocked`). So this test is
+/// exactly "still linked on that receiver queue", and [`deliver_bound`] asserts it.
+///
+/// `RECV`, `RECV_CAP` and `Irq::WAIT` all park this way, so the binding wakes all three: one rule
+/// for "blocked receiving on an endpoint", which is §101's phrase.
+fn bound_receiver(sched: &IpcTables, page: &NotificationPage) -> Option<(ThreadId, RendezvousId)> {
+    let tid = page.bound?;
+    let t = sched.threads.get(tid)?;
+    match t.handshake.wait_on {
+        Some(Wait::Rendezvous(ep, WaitRole::Receiver))
+            if t.handshake.state == State::Blocked && !t.handshake.is_delivered() =>
+        {
+            Some((tid, ep))
+        }
+        _ => None,
+    }
+}
+
+/// **Deliver `word` to a bound thread parked receiving on `ep`**: unlink it from that rendezvous's
+/// receiver queue, fill its mailbox with [`bound_delivery`], and record the delivery. The caller
+/// wakes it. Caller holds `IPC_TABLES` and got `(tid, ep)` from [`bound_receiver`] in the same hold.
+///
+/// **The unlink is `remove_receiver`'s drain-and-repush**, O(receivers queued on `ep`), which is the
+/// cost §101's binding pays for reaching into another object's queue with a singly linked FIFO.
+/// A server's endpoint usually holds one receiver (the server itself), so this is one pop and one
+/// push in the common case.
+fn deliver_bound(sched: &mut IpcTables, tid: ThreadId, ep: RendezvousId, word: u64) {
+    let ptr = thread_control_block_ptr(sched, tid);
+    // SAFETY: `ptr` is compared by pointer and never dereferenced by the remove; every other queued
+    // receiver is popped and pushed again and is a live Blocked thread, which is the contract.
+    let unlinked = rendezvous_of(sched, ep).is_some_and(|r| unsafe { r.remove_receiver(ptr) });
+    debug_assert!(
+        unlinked,
+        "a bound receiver was not on the receiver queue it was parked on"
+    );
+    let t = sched
+        .threads
+        .get_mut(tid)
+        .expect("bound receiver vanished under IPC_TABLES");
+    t.mailbox = bound_delivery(word);
+    t.handshake.serve(); // delivered: this wake passes the boot-8 gate
+    trace::record(trace::Event::Served, tid, 10);
+}
+
+/// Where a notification wake queues the thread it woke. A signal from a thread is a
+/// [`wake`]: local, because the signaller's core is warm and the pair is often a conversation. A
+/// signal from interrupt context is [`wake_load_aware`], the device-IRQ placement of §28 (SMP
+/// placement) step 2, because a timer expiry (milestone 106 (a wait that ends on either the interrupt
+/// or the deadline)) or an interrupt carries no such locality.
+#[derive(Clone, Copy)]
+enum WakePlacement {
+    Local,
+    // Constructed only by `signal_notification_from_interrupt`, whose caller is milestone 106's.
+    #[cfg_attr(not(test), allow(dead_code))]
+    LoadAware,
+}
+
+/// Wake `tid` by `placement`. Returns the remote core to poke once `IPC_TABLES` is released, as
+/// [`wake_load_aware`] does; a local wake never needs one.
+fn wake_placed(sched: &mut IpcTables, tid: ThreadId, placement: WakePlacement) -> Option<usize> {
+    match placement {
+        WakePlacement::Local => {
+            wake(sched, tid);
+            None
+        }
+        WakePlacement::LoadAware => wake_load_aware(sched, tid),
+    }
+}
+
+/// **The one signal path**, for a thread's `SIGNAL` and for a kernel-originated signal alike.
+/// Caller holds `IPC_TABLES`. `Err(Gone)` if the name no longer resolves; otherwise the remote core
+/// to poke, if the wake placed a thread there.
+///
+/// **Why one function with a placement rather than two**: milestone 106's timer
+/// (DECISIONS §147 (a timer a userspace service cannot hold), `Timer::ARM(deadline, notification)`) will signal from the tick, in interrupt
+/// context, on the interrupt stack. Everything here is already legal there, for the reason
+/// `irq_notify` is: `IPC_TABLES` masks interrupts while held, a wake is an enqueue and not a switch,
+/// and nothing allocates. So the kernel's signal and the user's differ only in where the woken
+/// thread is placed, and a second copy of the delivery logic would be the drift the tree keeps
+/// paying for.
+fn signal_locked(
+    sched: &mut IpcTables,
+    id: NotificationId,
+    bits: u64,
+    placement: WakePlacement,
+) -> Result<Option<usize>, abi::Error> {
+    use inter_process_communication::notification::Signal;
+    let page = notification_of(sched, id).ok_or(abi::Error::Gone)?;
+    let bound = bound_receiver(sched, page);
+    match page.state.signal(bits, bound.is_some()) {
+        Signal::Woke(waiter, word) => {
+            // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
+            let tid = unsafe { (*waiter.as_ptr()).id };
+            let t = sched
+                .threads
+                .get_mut(tid)
+                .expect("a notification waiter vanished under IPC_TABLES");
+            t.mailbox = [word, 0, 0, 0, 0];
+            t.handshake.serve();
+            trace::record(trace::Event::Served, tid, 9);
+            Ok(wake_placed(sched, tid, placement))
+        }
+        Signal::ToBound(word) => {
+            let (tid, ep) = bound.expect("the crate answered ToBound without a bound receiver");
+            deliver_bound(sched, tid, ep, word);
+            Ok(wake_placed(sched, tid, placement))
+        }
+        Signal::Counted | Signal::Empty => Ok(None),
+    }
+}
+
+/// **`Notification::SIGNAL`**: OR `bits` in, waking a waiter or the bound receiver. Never blocks.
+pub fn notification_signal(id: NotificationId, bits: u64) -> Result<(), abi::Error> {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    // A local wake never returns a core to poke.
+    signal_locked(sched, id, bits, WakePlacement::Local).map(|_| ())
+}
+
+/// **Signal a notification from interrupt context**: the kernel-originated signal milestone 106's
+/// timer expiry will call from the tick, and §147's argument says IRQ delivery can use too. Safe
+/// from an interrupt handler for [`irq_notify`]'s reason, and placed load-aware for its reason. A
+/// stale name is dropped silently, as `irq_notify` drops a revoked route: an expiry with no
+/// notification left to signal has nowhere to go, which is not an error.
+///
+/// **No caller in the kernel yet**, deliberately: milestone 151 builds the path and 106 builds the
+/// timer that calls it (the brief's scope). A kernel test exercises it from a kernel thread so it is
+/// not dead code that merely compiles.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn signal_notification_from_interrupt(id: NotificationId, bits: u64) {
+    let remote = {
+        let mut guard = IPC_TABLES.lock();
+        let sched = guard.as_mut().expect("no scheduler");
+        signal_locked(sched, id, bits, WakePlacement::LoadAware)
+            .ok()
+            .flatten()
+    };
+    if let Some(target) = remote {
+        crate::arch::irq::send_reschedule(target);
+    }
+}
+
+/// **`Notification::WAIT`**: take the word, or block until a signal arrives. `Err(Gone)` if the
+/// notification is stale, or is destroyed while this thread waits (the region sweep aborts its
+/// waiters, exactly as it aborts a rendezvous's).
+pub fn notification_wait(id: NotificationId) -> Result<u64, abi::Error> {
+    use inter_process_communication::notification::Wait as Waited;
+    let immediate = {
+        let mut guard = IPC_TABLES.lock();
+        let sched = guard.as_mut().expect("no scheduler");
+        let current = current_thread_id();
+        let me = thread_control_block_ptr(sched, current);
+        let page = notification_of(sched, id).ok_or(abi::Error::Gone)?;
+        // SAFETY: `me` is the running thread (live, on no queue), and if queued it stays live: a
+        // thread waiting here is Blocked, which the reaper never frees.
+        match unsafe { page.state.wait(me) } {
+            Waited::Word(word) => Some(word),
+            Waited::Blocked => {
+                let t = sched.threads.get_mut(current).expect("running thread");
+                t.handshake.park(Wait::Notification(id)); // only a signal (or an abort) may wake us
+                trace::record(trace::Event::BlockSelf, current, id as u8);
+                None
+            }
+        }
+    };
+    if let Some(word) = immediate {
+        return Ok(word);
+    }
+    schedule(); // blocks; a signal fills our mailbox and wakes us
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    let t = sched
+        .threads
+        .get_mut(current_thread_id())
+        .expect("running thread");
+    debug_assert!(
+        t.handshake.is_delivered(),
+        "notification wait resumed with nothing delivered"
+    );
+    if t.handshake.take_aborted() {
+        return Err(abi::Error::Gone);
+    }
+    Ok(t.mailbox[0])
+}
+
+/// **`Notification::POLL`**: take the word without blocking; `0` if nothing was pending.
+pub fn notification_poll(id: NotificationId) -> Result<u64, abi::Error> {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    let page = notification_of(sched, id).ok_or(abi::Error::Gone)?;
+    Ok(page.state.poll())
+}
+
+/// **`Notification::BIND`**: bind notification `id` to thread `tid`, once each (§101: "at most one
+/// notification may be bound to a TCB", and one bound TCB per notification).
+///
+/// - `Gone`: the notification is stale, or the thread is gone or already dead.
+/// - `NotPermitted`: either side is already bound to something that still exists. A binding whose
+///   other half has been destroyed does not count, so a thread whose notification was reclaimed
+///   can be bound again.
+///
+/// **A word already waiting is delivered at once if the thread is already receiving.** Without
+/// this, a signal counted before the bind would sit in the word until the thread's *next* receive,
+/// which for a server blocked forever in `RECV` is never: not lost, but not delivered either.
+pub fn notification_bind(id: NotificationId, tid: ThreadId) -> Result<(), abi::Error> {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    let page = notification_of(sched, id).ok_or(abi::Error::Gone)?;
+    if page.bound.is_some_and(|b| sched.threads.get(b).is_some()) {
+        return Err(abi::Error::NotPermitted);
+    }
+    let t = sched.threads.get(tid).ok_or(abi::Error::Gone)?;
+    if matches!(t.handshake.state, State::Finished | State::Dead) {
+        return Err(abi::Error::Gone);
+    }
+    if t.bound_notification
+        .is_some_and(|n| notification_of(sched, n).is_some())
+    {
+        return Err(abi::Error::NotPermitted);
+    }
+    page.bound = Some(tid);
+    sched
+        .threads
+        .get_mut(tid)
+        .expect("checked above under this hold")
+        .bound_notification = Some(id);
+
+    if page.state.word() != 0
+        && let Some((tid, ep)) = bound_receiver(sched, page)
+    {
+        let word = page.state.poll();
+        deliver_bound(sched, tid, ep, word);
+        wake(sched, tid);
+    }
+    Ok(())
+}
+
+/// **The receive-side half of the binding**: on entry to a receive, a bound thread takes a word
+/// that was counted while it was elsewhere, and returns without blocking. `None` when the thread
+/// has no live binding or the word is zero. Caller holds `IPC_TABLES`.
+///
+/// It returns the bare word rather than the five-word delivery because a `u64` comes back in a
+/// register and an array through memory; the caller builds [`bound_delivery`] from constants.
+///
+/// **`#[cold]` and `#[inline(never)]`, and the claim is about who pays.** The receive fastpath
+/// tests `bound_notification.is_some()` on the thread it already holds, which is §101's "one load
+/// and one compare"; only a bound thread reaches this body. Keeping it out of line keeps its bytes
+/// out of `script/fastpath-footprint`'s closure, the same reason `set_ipc_aborted` is out of line.
+#[cold]
+#[inline(never)]
+fn take_bound_signal(sched: &mut IpcTables, tid: ThreadId) -> Option<u64> {
+    let id = sched.threads.get(tid)?.bound_notification?;
+    match notification_of(sched, id)?.state.poll() {
+        0 => None,
+        word => Some(word),
+    }
+}
+
+/// **Tear down every notification whose page lies in `[base, end)`** (a region being destroyed):
+/// abort and wake each waiter, then drop the name. The rendezvous sweep's shape, including its rule
+/// to rescan rather than list, for its stack-depth reason. A thread bound to a notification destroyed
+/// here keeps a stale name, which every reader treats as unbound. Caller holds `IPC_TABLES`.
+fn reap_region_notifications(sched: &mut IpcTables, base: u64, end: u64) {
+    loop {
+        let doomed = sched
+            .notification_table
+            .iter()
+            .find(|&(_, &phys)| base <= phys && phys < end)
+            .map(|(name, _)| name);
+        let Some(name) = doomed else { break };
+        if let Some(page) = notification_of(sched, name) {
+            page.state.drain_waiters(|w| {
+                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
+                let tid = unsafe { (*w.as_ptr()).id };
+                set_ipc_aborted(sched, tid);
+                wake(sched, tid);
+            });
+        }
+        sched.notification_table.remove(name);
+    }
+}
+
 /// **Which core should a device-IRQ wake place its driver on** (DECISIONS §28.2). The least-loaded
 /// online core, with the current (IRQ-handling) core winning ties: only a *strictly* less-loaded
 /// core displaces it. That is what makes this load-aware without thrashing. A driver that takes a
@@ -2813,7 +3188,7 @@ pub fn ipc_send(ep: RendezvousId, msg: [u64; 3]) {
                 // `send` has already queued `current` as a sender; we record why it is parked.
                 let me = sched.threads.get_mut(current).unwrap();
                 me.mailbox = msg;
-                me.handshake.park((ep, WaitRole::Sender)); // only a collecting receiver may wake us
+                me.handshake.park(Wait::Rendezvous(ep, WaitRole::Sender)); // only a collecting receiver may wake us
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
                 true
             }
@@ -2843,50 +3218,69 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
             set_ipc_aborted(sched, current);
             return [0, 0, 0, 0, 0];
         };
-        // SAFETY: as in ipc_send: the running thread, and Blocked-while-queued keeps it live.
-        match unsafe { rendezvous.recv(me) } {
-            // An interrupt already fired while we were not waiting. Take it and do not block.
-            inter_process_communication::Recv::Signal => Some([1, 0, 0, 0, 0]),
-            inter_process_communication::Recv::FromSender(sender) => {
-                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                let sender = unsafe { (*sender.as_ptr()).id };
-                let msg = sched.threads.get(sender).unwrap().mailbox;
-                // A caller (its outgoing cap is the one-shot Reply the kernel minted for a CALL, §12)
-                // is awaiting a *reply*, which a plain RECV cannot furnish: only RECV_CAP delivers the
-                // reply capability. Deliver the words but leave the caller blocked rather than wake it
-                // with its own request masquerading as a reply. Serve CALL endpoints with RECV_CAP; a
-                // plain RECV here leaves the caller hung, the same no-timeout limitation as a reply
-                // that never comes.
-                //
-                // A **dead sender** is a fault/exit corpse parked on its supervision rendezvous
-                // (DECISIONS §26): deliver its five-word message but never wake it, exactly as for a
-                // caller, because it is dead-until-reaped and must not run again. `recv` already
-                // popped it off the sender queue, so it is now a free-standing corpse the supervisor
-                // reaps with revocation.
-                let leave_blocked = matches!(
-                    sched.threads.get(sender).unwrap().outgoing_cap,
-                    Some(c) if matches!(c.object, crate::cap::Object::Reply(_))
-                ) || sched.threads.get(sender).unwrap().handshake.state
-                    == State::Dead;
-                if !leave_blocked {
-                    // Collected: the sender's rendezvous is complete, which is what lets its
-                    // wake through the boot-8 gate.
-                    sched.threads.get_mut(sender).unwrap().handshake.serve();
-                    trace::record(trace::Event::Served, sender, 2);
-                    wake(sched, sender);
-                } else if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
-                    // The corpse's death message is collected and `recv` popped it off the sender
-                    // queue; it waits on nothing now, it only awaits its reap.
-                    sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+        // **The binding's receive-side half** (milestone 151, DECISIONS §101): a signal counted
+        // while this thread was elsewhere ends the receive before it can block. First, as a pending
+        // IRQ signal is taken before a queued sender, and for the same reason: it arrived earlier.
+        // This `is_some` on the thread already in hand is the one load and one branch §101 priced
+        // onto this path; only a bound thread goes further.
+        //
+        //
+        // **An arm of the same decision, not an early return**, and the difference is measured: a
+        // `return` from inside the lock hold gave the function a second copy of the unlock path,
+        // and cost `ipc_recv` 138 bytes on riscv64 and 174 on `x86_64`. Joining the other arms
+        // shares the one release below.
+        //
+        // SAFETY: `me` is the running thread's TCB, live, and nothing else holds a reference to it.
+        if unsafe { (*me.as_ptr()).bound_notification.is_some() }
+            && let Some(word) = take_bound_signal(sched, current)
+        {
+            Some(bound_delivery(word))
+        } else {
+            // SAFETY: as in ipc_send: the running thread, and Blocked-while-queued keeps it live.
+            match unsafe { rendezvous.recv(me) } {
+                // An interrupt already fired while we were not waiting. Take it and do not block.
+                inter_process_communication::Recv::Signal => Some([1, 0, 0, 0, 0]),
+                inter_process_communication::Recv::FromSender(sender) => {
+                    // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
+                    let sender = unsafe { (*sender.as_ptr()).id };
+                    let msg = sched.threads.get(sender).unwrap().mailbox;
+                    // A caller (its outgoing cap is the one-shot Reply the kernel minted for a CALL, §12 (call/reply IPC))
+                    // is awaiting a *reply*, which a plain RECV cannot furnish: only RECV_CAP delivers the
+                    // reply capability. Deliver the words but leave the caller blocked rather than wake it
+                    // with its own request masquerading as a reply. Serve CALL endpoints with RECV_CAP; a
+                    // plain RECV here leaves the caller hung, the same no-timeout limitation as a reply
+                    // that never comes.
+                    //
+                    // A **dead sender** is a fault/exit corpse parked on its supervision rendezvous
+                    // (DECISIONS §26): deliver its five-word message but never wake it, exactly as for a
+                    // caller, because it is dead-until-reaped and must not run again. `recv` already
+                    // popped it off the sender queue, so it is now a free-standing corpse the supervisor
+                    // reaps with revocation.
+                    let leave_blocked = matches!(
+                        sched.threads.get(sender).unwrap().outgoing_cap,
+                        Some(c) if matches!(c.object, crate::cap::Object::Reply(_))
+                    ) || sched.threads.get(sender).unwrap().handshake.state
+                        == State::Dead;
+                    if !leave_blocked {
+                        // Collected: the sender's rendezvous is complete, which is what lets its
+                        // wake through the boot-8 gate.
+                        sched.threads.get_mut(sender).unwrap().handshake.serve();
+                        trace::record(trace::Event::Served, sender, 2);
+                        wake(sched, sender);
+                    } else if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
+                        // The corpse's death message is collected and `recv` popped it off the sender
+                        // queue; it waits on nothing now, it only awaits its reap.
+                        sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+                    }
+                    Some(msg)
                 }
-                Some(msg)
-            }
-            inter_process_communication::Recv::Blocked => {
-                // `recv` has already queued `current` as a receiver.
-                let me = sched.threads.get_mut(current).unwrap();
-                me.handshake.park((ep, WaitRole::Receiver)); // only a delivering sender may wake us
-                trace::record(trace::Event::BlockSelf, current, ep as u8);
-                None
+                inter_process_communication::Recv::Blocked => {
+                    // `recv` has already queued `current` as a receiver.
+                    let me = sched.threads.get_mut(current).unwrap();
+                    me.handshake.park(Wait::Rendezvous(ep, WaitRole::Receiver)); // only a delivering sender may wake us
+                    trace::record(trace::Event::BlockSelf, current, ep as u8);
+                    None
+                }
             }
         }
     };
@@ -2958,7 +3352,7 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
                 let me = sched.threads.get_mut(current).unwrap();
                 me.mailbox = [data, 0, 0, badge, 0];
                 me.outgoing_cap = Some(cap);
-                me.handshake.park((ep, WaitRole::Sender)); // only a collecting receiver may wake us
+                me.handshake.park(Wait::Rendezvous(ep, WaitRole::Sender)); // only a collecting receiver may wake us
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
                 true
             }
@@ -2978,7 +3372,7 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
 ///
 /// A capability-carrying send and this share the ordinary sender/receiver queues, so either side
 /// may arrive first, exactly as with the plain path.
-pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 4] {
+pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
     let immediate = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
@@ -2987,49 +3381,59 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 4] {
         let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
-            return [0, 0, 0, 0]; // stale rendezvous: aborted, syscall layer errors
+            return [0, 0, 0, 0, 0]; // stale rendezvous: aborted, syscall layer errors
         };
-        // SAFETY: as in ipc_send.
-        match unsafe { rendezvous.recv(me) } {
-            // An interrupt signal is not a delegation; it carries no capability and no badge.
-            inter_process_communication::Recv::Signal => Some([1, NO_CAP, 0, 0]),
-            inter_process_communication::Recv::FromSender(sender) => {
-                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                let sender = unsafe { (*sender.as_ptr()).id };
-                let msg = sched.threads.get(sender).unwrap().mailbox;
-                let cap = sched.threads.get_mut(sender).unwrap().outgoing_cap.take();
-                // A caller's outgoing cap is the one-shot Reply the kernel minted for its CALL (§12); a
-                // SEND_CAP sender's is the capability it chose to delegate. The difference is liveness:
-                // a caller stays blocked awaiting its reply, so it must NOT be woken here; a SEND_CAP
-                // sender's rendezvous is complete the moment we take the cap.
-                let is_reply =
-                    matches!(cap, Some(c) if matches!(c.object, crate::cap::Object::Reply(_)));
-                let slot = match cap {
-                    Some(c) => sched
-                        .threads
-                        .get_mut(current)
-                        .unwrap()
-                        .capability_table
-                        .insert(c)
-                        .unwrap_or(NO_CAP),
-                    None => NO_CAP,
-                };
-                if !is_reply {
-                    // Collected: the sender's rendezvous is complete (the boot-8 gate).
-                    sched.threads.get_mut(sender).unwrap().handshake.serve();
-                    trace::record(trace::Event::Served, sender, 4);
-                    wake(sched, sender);
+        // The binding's receive-side half, exactly as in `ipc_recv`: a server in `RECV_CAP` is the
+        // commonest bound thread §101's table names (the FS server, the compositor).
+        //
+        // SAFETY: `me` is the running thread's TCB, live, and nothing else holds a reference to it.
+        if unsafe { (*me.as_ptr()).bound_notification.is_some() }
+            && let Some(word) = take_bound_signal(sched, current)
+        {
+            Some(bound_delivery(word))
+        } else {
+            // SAFETY: as in ipc_send.
+            match unsafe { rendezvous.recv(me) } {
+                // An interrupt signal is not a delegation; it carries no capability and no badge.
+                inter_process_communication::Recv::Signal => Some([1, NO_CAP, 0, 0, 0]),
+                inter_process_communication::Recv::FromSender(sender) => {
+                    // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
+                    let sender = unsafe { (*sender.as_ptr()).id };
+                    let msg = sched.threads.get(sender).unwrap().mailbox;
+                    let cap = sched.threads.get_mut(sender).unwrap().outgoing_cap.take();
+                    // A caller's outgoing cap is the one-shot Reply the kernel minted for its CALL (§12); a
+                    // SEND_CAP sender's is the capability it chose to delegate. The difference is liveness:
+                    // a caller stays blocked awaiting its reply, so it must NOT be woken here; a SEND_CAP
+                    // sender's rendezvous is complete the moment we take the cap.
+                    let is_reply =
+                        matches!(cap, Some(c) if matches!(c.object, crate::cap::Object::Reply(_)));
+                    let slot = match cap {
+                        Some(c) => sched
+                            .threads
+                            .get_mut(current)
+                            .unwrap()
+                            .capability_table
+                            .insert(c)
+                            .unwrap_or(NO_CAP),
+                        None => NO_CAP,
+                    };
+                    if !is_reply {
+                        // Collected: the sender's rendezvous is complete (the boot-8 gate).
+                        sched.threads.get_mut(sender).unwrap().handshake.serve();
+                        trace::record(trace::Event::Served, sender, 4);
+                        wake(sched, sender);
+                    }
+                    // x0 = word0, x1 = the delivered slot, x2 = word1 (a CALL's second word; 0 for a plain
+                    // SEND_CAP, whose sender parked mailbox[1] = 0), x3 = the sender's badge (msg[3],
+                    // milestone 599), x4 = 0: not a bound delivery (milestone 151).
+                    Some([msg[0], slot, msg[1], msg[3], 0])
                 }
-                // x0 = word0, x1 = the delivered slot, x2 = word1 (a CALL's second word; 0 for a plain
-                // SEND_CAP, whose sender parked mailbox[1] = 0), x3 = the sender's badge (msg[3],
-                // milestone 599).
-                Some([msg[0], slot, msg[1], msg[3]])
-            }
-            inter_process_communication::Recv::Blocked => {
-                let me = sched.threads.get_mut(current).unwrap();
-                me.handshake.park((ep, WaitRole::Receiver)); // only a delivering sender may wake us
-                trace::record(trace::Event::BlockSelf, current, ep as u8);
-                None
+                inter_process_communication::Recv::Blocked => {
+                    let me = sched.threads.get_mut(current).unwrap();
+                    me.handshake.park(Wait::Rendezvous(ep, WaitRole::Receiver)); // only a delivering sender may wake us
+                    trace::record(trace::Event::BlockSelf, current, ep as u8);
+                    None
+                }
             }
         }
     };
@@ -3045,11 +3449,11 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 4] {
                 t.handshake.is_delivered(),
                 "recv_cap resumed with nothing delivered"
             );
-            let m = t.mailbox;
-            // RECV_CAP carries four words now (milestone 599): w0, slot, w1, and the sender's badge
-            // at m[3]. The rendezvous case wrote the badge into our mailbox[3]; word 4 is unused
-            // here and belongs to the fault path.
-            [m[0], m[1], m[2], m[3]]
+            // The whole mailbox: RECV_CAP's three words, the sender's badge at m[3] (milestone 599),
+            // and `w4`, which is `abi::notification::BOUND` when the bound notification ended this
+            // receive and `0` for every delivery a sender or the kernel's death path makes
+            // (milestone 151).
+            t.mailbox
         }
     }
 }
@@ -3146,7 +3550,7 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
         // Either way we block until the reply arrives. We are NOT queued as a receiver; the Reply
         // capability, which carries our tid, is the only thing that can wake us.
         let me = sched.threads.get_mut(current).unwrap();
-        me.handshake.park((ep, WaitRole::Reply)); // only the reply (or an abort) may wake us
+        me.handshake.park(Wait::Rendezvous(ep, WaitRole::Reply)); // only the reply (or an abort) may wake us
         trace::record(trace::Event::BlockSelf, current, ep as u8);
     }
 
@@ -3178,7 +3582,10 @@ pub fn ipc_reply(caller: ThreadId, msg: [u64; 2]) {
         // elsewhere), it would clobber that thread's mailbox and wake it messageless while its
         // TCB is still linked on the rendezvous's wait queue, a double-enqueue on the one intrusive
         // link. Anything not Reply-parked gets nothing, exactly as a reply to a dead caller.
-        if !matches!(t.handshake.wait_on, Some((_, WaitRole::Reply))) {
+        if !matches!(
+            t.handshake.wait_on,
+            Some(Wait::Rendezvous(_, WaitRole::Reply))
+        ) {
             return;
         }
         t.mailbox = [msg[0], msg[1], 0, 0, 0];
@@ -3246,10 +3653,12 @@ fn delete_reply_caps_naming(sched: &mut IpcTables, caller: ThreadId) {
 #[cold]
 #[inline(never)]
 fn strand_reply_caller(sched: &mut IpcTables, caller: ThreadId) -> bool {
-    let parked = sched
-        .threads
-        .get(caller)
-        .is_some_and(|t| matches!(t.handshake.wait_on, Some((_, WaitRole::Reply))));
+    let parked = sched.threads.get(caller).is_some_and(|t| {
+        matches!(
+            t.handshake.wait_on,
+            Some(Wait::Rendezvous(_, WaitRole::Reply))
+        )
+    });
     if !parked {
         return false;
     }
@@ -3325,7 +3734,7 @@ fn strand_callers_awaiting(sched: &mut IpcTables, ep: RendezvousId) {
             .threads
             .iter_mut()
             .find(|t| {
-                matches!(t.handshake.wait_on, Some((on, WaitRole::Reply)) if on == ep)
+                matches!(t.handshake.wait_on, Some(Wait::Rendezvous(on, WaitRole::Reply)) if on == ep)
                     && !t.handshake.ipc_aborted
             })
             .map(|t| t.id);
@@ -3804,19 +4213,32 @@ fn finish_blocked_resident(sched: &mut IpcTables, tid: ThreadId) {
         "a Blocked thread with no recorded wait: some block site wrote the state by hand",
     );
 
-    // Unlink. `wait_on` names the rendezvous; the pointer identifies the thread on its queue.
-    if let Some((ep, _role)) = sched.threads.get(tid).and_then(|t| t.handshake.wait_on) {
-        let ptr = thread_control_block_ptr(sched, tid);
-        if let Some(rendezvous) = rendezvous_of(sched, ep) {
-            // SAFETY: `ptr` is compared by pointer and never dereferenced. Every other queued
-            // waiter is popped and pushed again and is still live (a blocked thread or a corpse,
-            // neither of which is freed while linked), which is `remove_sender`'s existing
-            // contract on the very same queues.
-            unsafe {
-                rendezvous.remove_sender(ptr);
-                rendezvous.remove_receiver(ptr);
+    // Unlink. `wait_on` names the object; the pointer identifies the thread on its queue.
+    match sched.threads.get(tid).and_then(|t| t.handshake.wait_on) {
+        Some(Wait::Rendezvous(ep, _role)) => {
+            let ptr = thread_control_block_ptr(sched, tid);
+            if let Some(rendezvous) = rendezvous_of(sched, ep) {
+                // SAFETY: `ptr` is compared by pointer and never dereferenced. Every other queued
+                // waiter is popped and pushed again and is still live (a blocked thread or a
+                // corpse, neither of which is freed while linked), which is `remove_sender`'s
+                // existing contract on the very same queues.
+                unsafe {
+                    rendezvous.remove_sender(ptr);
+                    rendezvous.remove_receiver(ptr);
+                }
             }
         }
+        // A thread blocked in `Notification::WAIT` (milestone 151) is linked on that
+        // notification's queue, and its page may outlive this region.
+        Some(Wait::Notification(id)) => {
+            let ptr = thread_control_block_ptr(sched, tid);
+            if let Some(page) = notification_of(sched, id) {
+                // SAFETY: as above; `remove_waiter` has the same contract over the same kind of
+                // queue.
+                unsafe { page.state.remove_waiter(ptr) };
+            }
+        }
+        None => {}
     }
 
     // Sweep the outstanding reply capabilities, sharing milestone 254's function rather than
@@ -3913,6 +4335,13 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
         // rendezvous, which no longer exists.
         strand_callers_awaiting(sched, name);
     }
+
+    // --- Notification phase (milestone 151): the same sweep for the region's notifications. ---
+    //
+    // After the rendezvous phase and before the finish phase, for the rendezvous phase's reason:
+    // a thread blocked in `WAIT` on a notification in this region is aborted and woken here, and so
+    // becomes schedulable enough to spend its kill.
+    reap_region_notifications(sched, base, end);
 
     // --- Finish phase: end every resident the arm below could never reach (milestone 133). ---
     //
@@ -4808,7 +5237,8 @@ pub fn dump_threads() {
         // the block paths (corruption, or a block applied to the wrong TCB): every legal block
         // records what it waits on. See notes/visionfive2.md, fourth bench stop.
         match t.handshake.wait_on {
-            Some((ep, role)) => crate::println!(" wait={ep:#x}/{role:?}"),
+            Some(Wait::Rendezvous(ep, role)) => crate::println!(" wait={ep:#x}/{role:?}"),
+            Some(Wait::Notification(n)) => crate::println!(" wait={n:#x}/Notification"),
             None => crate::println!(" wait=-"),
         }
     }
@@ -4820,6 +5250,19 @@ pub fn dump_threads() {
         let (ns, nr, np) = ep.debug_counts();
         if ns != 0 || nr != 0 || np != 0 {
             crate::println!("  ep={name:#06x} senders={ns} receivers={nr} pending={np}");
+        }
+    }
+    // And each notification with a waiter or a word pending (milestone 151): a thread asleep beside
+    // a non-zero word is the notification twin of a sender with no receiver.
+    for (name, &phys) in sched.notification_table.iter() {
+        // SAFETY: a live notification page, direct-mapped, under IPC_TABLES.
+        let n = unsafe { &*(crate::arch::mmu::phys_to_virt(phys) as *const NotificationPage) };
+        let (waiters, word) = n.state.debug_counts();
+        if waiters != 0 || word != 0 {
+            crate::println!(
+                "  notification={name:#06x} waiters={waiters} word={word:#x} bound={:?}",
+                n.bound
+            );
         }
     }
     // The online set, not `0..count` (first-silicon sweep, 2026-08-14): on the VisionFive 2 the
@@ -4923,7 +5366,7 @@ pub struct ThreadDeathDisposition {
     /// unsupervised path, so supervision was lost before the fault rather than in delivery.
     pub fault_ep: Option<RendezvousId>,
     /// The queue it is recorded as parked on, and in which role.
-    pub wait_on: Option<(RendezvousId, WaitRole)>,
+    pub wait_on: Option<Wait>,
 }
 
 #[cfg(test)]
@@ -5531,7 +5974,7 @@ mod tests {
             .threads
             .iter_from(0)
             .filter(|(_, t)| {
-                matches!(t.handshake.wait_on, Some((on, super::WaitRole::Reply)) if on == ep)
+                matches!(t.handshake.wait_on, Some(super::Wait::Rendezvous(on, super::WaitRole::Reply)) if on == ep)
             })
             .count()
     }

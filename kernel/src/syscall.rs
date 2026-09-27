@@ -222,9 +222,13 @@ pub(crate) fn invoke(
                 // x1 carries the slot the received capability landed in, or NO_CAP if the message
                 // brought none; x2 the second data word (a CALL's, or 0); x3 the sender's badge
                 // (milestone 599), 0 when its capability was unbadged. x0 returns the first word.
+                // x4 is `abi::notification::BOUND` when the bound notification ended this receive
+                // and 0 otherwise (milestone 151 (notification objects)): the one register here no
+                // sender can write, so the one a bound server tests.
                 frame.set_arg(1, msg[1]);
                 frame.set_arg(2, msg[2]);
                 frame.set_arg(3, msg[3]);
+                frame.set_arg(4, msg[4]);
                 Ok(msg[0] as i64)
             }
 
@@ -390,6 +394,12 @@ pub(crate) fn invoke(
             _ => Err(Error::BadMethod),
         },
 
+        // A notification (milestone 151, DECISIONS §101 (notification objects)). Extracted and `#[inline(never)]` for
+        // `memory_region_map`'s reason: none of these is a step of the IPC round trip
+        // `script/fastpath-footprint` bounds, so the new arm costs the flat `syscall_entry` one
+        // call rather than four method bodies.
+        Object::Notification(id) => notification_invoke(cap.rights, id, method, a0),
+
         Object::MemoryRegion(region) => match method {
             // Body extracted (milestone 156): all five `MemoryRegion` methods are memory-management
             // administration a spawner runs while building a process, never a step of the IPC
@@ -486,7 +496,7 @@ pub(crate) fn invoke(
                 if !cap.rights.allows(Rights::READ) {
                     return Err(Error::NotPermitted);
                 }
-                irq_wait(intid)
+                irq_wait(frame, intid)
             }
             abi::irq::ACK => {
                 if !cap.rights.allows(Rights::READ) {
@@ -528,6 +538,54 @@ fn port_range_invoke(rights: Rights, base: u16, count: u16, method: u64) -> Resu
                 return Err(Error::NotPermitted);
             }
             crate::revoke::revoke_port_range_from_others(base, count);
+            Ok(0)
+        }
+        _ => Err(Error::BadMethod),
+    }
+}
+
+/// The four `Notification` methods (milestone 151, DECISIONS §101). Rights are §101's: `WRITE` to
+/// signal and to bind, `READ` to wait and to poll. `BIND` also needs `WRITE` on the thread it names,
+/// because binding changes what that thread's receives return. See `abi::notification`.
+#[inline(never)]
+fn notification_invoke(
+    rights: Rights,
+    id: sched::NotificationId,
+    method: u64,
+    a0: u64,
+) -> Result<i64, Error> {
+    match method {
+        abi::notification::SIGNAL => {
+            if !rights.allows(Rights::WRITE) {
+                return Err(Error::NotPermitted);
+            }
+            sched::notification_signal(id, a0)?;
+            Ok(0)
+        }
+        abi::notification::WAIT => {
+            if !rights.allows(Rights::READ) {
+                return Err(Error::NotPermitted);
+            }
+            sched::notification_wait(id).map(|w| w as i64)
+        }
+        abi::notification::POLL => {
+            if !rights.allows(Rights::READ) {
+                return Err(Error::NotPermitted);
+            }
+            sched::notification_poll(id).map(|w| w as i64)
+        }
+        abi::notification::BIND => {
+            if !rights.allows(Rights::WRITE) {
+                return Err(Error::NotPermitted);
+            }
+            let thread = sched::current_cap(a0).map_err(|_| Error::NoSuchSlot)?;
+            let Object::ThreadControlBlock(tid) = thread.object else {
+                return Err(Error::WrongObject);
+            };
+            if !thread.rights.allows(Rights::WRITE) {
+                return Err(Error::NotPermitted);
+            }
+            sched::notification_bind(id, tid)?;
             Ok(0)
         }
         _ => Err(Error::BadMethod),
@@ -647,6 +705,14 @@ fn memory_region_retype_obj(region: u64, kind: u64) -> Result<i64, Error> {
         abi::objtype::THREAD_CONTROL_BLOCK => {
             let tid = sched::create_thread_control_block(region).ok_or(Error::OutOfMemory)?;
             let slot = sched::grant(crate::cap::thread_control_block_cap(tid, Rights::ALL))
+                .map_err(|_| Error::OutOfMemory)?;
+            Ok(slot as i64)
+        }
+        // A notification (milestone 151, DECISIONS §101): a word and a wait queue in the page.
+        // `Rights::ALL` for the RENDEZVOUS arm's reason.
+        abi::objtype::NOTIFICATION => {
+            let id = sched::create_notification_from(region).ok_or(Error::OutOfMemory)?;
+            let slot = sched::grant(crate::cap::notification_cap(id, Rights::ALL))
                 .map_err(|_| Error::OutOfMemory)?;
             Ok(slot as i64)
         }
@@ -1177,9 +1243,16 @@ fn thread_control_block_cap_insert(
 /// as a message (`sched::irq_notify`), exactly like any other. `#[inline(never)]` for the reason
 /// `memory_region_map` gives.
 #[inline(never)]
-fn irq_wait(intid: u32) -> Result<i64, Error> {
+fn irq_wait(frame: &mut TrapFrame, intid: u32) -> Result<i64, Error> {
     let ep = sched::irq_route(intid).ok_or(Error::WrongObject)?;
     let m = sched::ipc_recv(ep);
+    // A driver with a bound notification (milestone 151) is woken here by either the interrupt
+    // (`1` in x0, x1 and x4 zero) or the notification (`abi::notification::BOUND` in x0 and x4, the
+    // word in x1). This is what lets a driver wait on its device and a deadline at once, which is
+    // the complaint milestone 106 (a wait that ends on either the interrupt or the deadline) makes about `net_stack`. Unconditional stores: an interrupt's mailbox has
+    // zeros in both, so a driver that never bound anything reads the same zeros it would have.
+    frame.set_arg(1, m[1]);
+    frame.set_arg(4, m[4]);
     Ok(m[0] as i64)
 }
 

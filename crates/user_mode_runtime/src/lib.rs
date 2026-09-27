@@ -404,6 +404,61 @@ pub fn badge(slot: u64, badge: u64) -> i64 {
     unsafe { invoke(slot, abi::rendezvous::BADGE, badge, 0, 0) }
 }
 
+/// **What a bound thread's receive returned** (milestone 151 (notification objects)): an ordinary message, or the bound
+/// notification's word. *(Name provisional, milestone 151's lane.)*
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Received {
+    /// A sender's three words, exactly what [`recv`] returns.
+    Message(u64, u64, u64),
+    /// The bound notification ended the receive; this is its word.
+    Notification(u64),
+}
+
+/// `RECV` on the endpoint capability in `slot`, for a thread with a notification bound to it
+/// ([`notification_bind`]): blocks until either a message arrives or the notification is
+/// signalled, and says which.
+///
+/// **It tests `x4`, not `x0`**, and that is the whole reason this wrapper exists rather than
+/// callers reading [`recv`]: `x0` is the sender's own first word, so a sender can put
+/// [`abi::notification::BOUND`] there, while `x4` is written only by the kernel. See
+/// `abi::notification::BOUND` and notes/notification-objects.md. *(Name provisional.)*
+pub fn recv_bound(slot: u64) -> Received {
+    // SAFETY: forwarded from `invoke5`'s contract; RECV returns five words.
+    let (w0, w1, w2, _, w4) = unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) };
+    if w4 == abi::notification::BOUND {
+        Received::Notification(w1)
+    } else {
+        Received::Message(w0, w1, w2)
+    }
+}
+
+/// `Notification::SIGNAL`: OR `bits` into the notification in `slot`. Never blocks. `0`, or a
+/// negative [`abi::Error`].
+pub fn notification_signal(slot: u64, bits: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`; the kernel validates the capability.
+    unsafe { invoke(slot, abi::notification::SIGNAL, bits, 0, 0) }
+}
+
+/// `Notification::WAIT`: the accumulated word, blocking until it is non-zero. A negative
+/// [`abi::Error`] on refusal (see `abi::notification::WAIT` for the top-bit caveat).
+pub fn notification_wait(slot: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`; the kernel validates the capability.
+    unsafe { invoke(slot, abi::notification::WAIT, 0, 0, 0) }
+}
+
+/// `Notification::POLL`: the accumulated word without blocking, `0` if nothing was pending.
+pub fn notification_poll(slot: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`; the kernel validates the capability.
+    unsafe { invoke(slot, abi::notification::POLL, 0, 0, 0) }
+}
+
+/// `Notification::BIND`: bind the notification in `slot` to the thread whose `ThreadControlBlock`
+/// capability is in `thread_slot`. `0`, or a negative [`abi::Error`].
+pub fn notification_bind(slot: u64, thread_slot: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`; the kernel validates both capabilities.
+    unsafe { invoke(slot, abi::notification::BIND, thread_slot, 0, 0) }
+}
+
 /// `CALL` on the endpoint capability in `slot`: send two words and block until the server
 /// replies through the one-shot Reply capability the kernel mints (milestone 12). Returns the
 /// two reply words. The atomic send-and-wait that makes a request unmistakably answerable.

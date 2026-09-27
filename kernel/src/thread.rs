@@ -328,10 +328,22 @@ impl Drop for QuotaToken {
     }
 }
 
-/// What a blocked thread waits on: the endpoint and the side of the rendezvous it waits as. The
-/// payload of [`thread_wake_handshake::Handshake::wait_on`], opaque to that crate, matched by the kernel
-/// (`ipc_reply`'s reply-role check, the hang dump's wait column).
-pub type Wait = (crate::sched::RendezvousId, WaitRole);
+/// What a blocked thread waits on. The payload of [`thread_wake_handshake::Handshake::wait_on`],
+/// opaque to that crate, matched by the kernel (`ipc_reply`'s reply-role check, the teardown that
+/// unlinks a blocked thread, the hang dump's wait column).
+///
+/// **An enum rather than a `(u64, WaitRole)` pair since milestone 151 (notification objects)**, because a thread can now
+/// wait on two kinds of object and the two names live in two registries. A pair with a
+/// `Notification` role would have carried a notification's name in a field every existing reader
+/// treats as a rendezvous name, and a teardown that resolved it in the rendezvous table would have
+/// found a stranger. Here the name cannot be read as the wrong kind (AGENTS.md's ladder, rung 1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wait {
+    /// Parked in IPC on a rendezvous, as the given side of it.
+    Rendezvous(crate::sched::RendezvousId, WaitRole),
+    /// Parked in `WAIT` on a notification (milestone 151), on its wait queue.
+    Notification(crate::sched::NotificationId),
+}
 
 pub struct Thread {
     pub id: ThreadId,
@@ -581,6 +593,16 @@ pub struct Thread {
     /// with a `fault_ep`; `None` while it lives. The words are the §26 format
     /// `[event, tid, pc, addr, reserved]`, the same five the supervisor received.
     pub(crate) fault_msg: Option<[u64; 5]>,
+
+    /// **The notification bound to this thread** (milestone 151, DECISIONS §101 (notification objects)), or `None`. Set
+    /// once by `Notification::BIND`, never cleared: §101 has no unbind. A signal on it wakes this
+    /// thread out of a receive on any endpoint, and a receive checks it on entry, which is the one
+    /// load and one branch §101 priced onto the IPC fastpath.
+    ///
+    /// A generational name, so a destroyed notification leaves this `Some` and stale: every reader
+    /// resolves it and treats a miss as unbound, which is also what lets `BIND` succeed again on a
+    /// thread whose notification is gone. *(Field name provisional.)*
+    pub(crate) bound_notification: Option<crate::sched::NotificationId>,
 }
 
 /// **Where a thread's FP/SIMD register file lives: the free space of its own TCB page**
@@ -679,6 +701,7 @@ impl Thread {
             fault_ep: None,
             thread_control_block_region: None,
             fault_msg: None,
+            bound_notification: None,
             #[cfg(any(test, feature = "cycle_counter_grant"))]
             cycle_counter_grant: false,
             #[cfg(target_arch = "x86_64")]
@@ -715,6 +738,7 @@ impl Thread {
             fault_ep: None,
             thread_control_block_region: None,
             fault_msg: None,
+            bound_notification: None,
             #[cfg(any(test, feature = "cycle_counter_grant"))]
             cycle_counter_grant: false,
             #[cfg(target_arch = "x86_64")]
@@ -825,6 +849,7 @@ impl Thread {
                 fault_ep: None,
                 thread_control_block_region: None,
                 fault_msg: None,
+                bound_notification: None,
                 #[cfg(any(test, feature = "cycle_counter_grant"))]
                 cycle_counter_grant: false,
                 #[cfg(target_arch = "x86_64")]
@@ -875,6 +900,7 @@ impl Thread {
             fault_ep: None,
             thread_control_block_region: None,
             fault_msg: None,
+            bound_notification: None,
             #[cfg(any(test, feature = "cycle_counter_grant"))]
             cycle_counter_grant: false,
             #[cfg(target_arch = "x86_64")]

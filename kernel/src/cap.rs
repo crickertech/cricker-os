@@ -124,6 +124,12 @@ pub enum Object {
     /// resolves to nothing rather than to a stranger.
     ThreadControlBlock(crate::thread::ThreadId),
 
+    /// **A notification** (milestone 151 (notification objects), DECISIONS §101 (notification objects)), by generational name in the
+    /// scheduler's notification registry: a data word and a wait queue in a page retyped from its
+    /// creator's region. `WRITE` signals it and binds it to a thread; `READ` waits on it and polls
+    /// it. Same payload width as `Rendezvous`, so the assertion below on a slot's size still holds.
+    Notification(crate::sched::NotificationId),
+
     /// A virtio device's **transport**, by id (into the kernel's virtio device table).
     ///
     /// The DMA-confinement capability. The device has no IOMMU, so the kernel keeps the two
@@ -562,6 +568,15 @@ pub fn port_range_cap(base: u16, count: u16, rights: Rights) -> Cap {
 pub fn thread_control_block_cap(tid: crate::thread::ThreadId, rights: Rights) -> Cap {
     Cap {
         object: Object::ThreadControlBlock(tid),
+        rights,
+    }
+}
+
+/// A capability naming a notification (milestone 151). Full rights at creation, from
+/// `RETYPE_OBJ`; delegation narrows.
+pub fn notification_cap(id: crate::sched::NotificationId, rights: Rights) -> Cap {
+    Cap {
+        object: Object::Notification(id),
         rights,
     }
 }
