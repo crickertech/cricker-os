@@ -342,6 +342,11 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 233 | DECIDED | [`MemoryRegion::RETYPE` takes a page count](233-a-region-retypes-a-run-of-pages.md) |
 | 234 | DECIDED | [The prompt shows one tree, and other trees are mounted at names in it](234-the-prompt-shows-one-tree.md) |
 | 235 | DECIDED | [The OS is built and updated from packages, and the tree divides by what releases together](235-packages-build-the-os-and-the-tree-divides-by-release.md) |
+| 236 | DECIDED | [`OPEN`/`OPENDIR` take a relative path, and `OPEN`'s reply carries the size](236-open-opendir-relative-path-and-size-hint.md) |
+| 237 | DECIDED | [Subtree grants may skip the caretaker, per filesystem](237-subtree-grants-skip-the-caretaker-per-filesystem.md) |
+| 238 | DECIDED | [The system tests leave the kernel crate as a second image, and a new test defaults to userspace](238-system-tests-leave-the-kernel-crate.md) |
+| 239 | DECIDED | [Four package kinds, and TOML for package declarations and recipes](239-package-kinds-and-toml-declarations.md) |
+| 240 | DECIDED | [§46 (thin primitives or whole subsystems): `toml` in `xtask`](240-toml-in-xtask.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
