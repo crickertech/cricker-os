@@ -1539,15 +1539,6 @@ mod tests {
     /// asserts rather than skips.
     #[test_case]
     fn the_iommu_faults_a_dma_that_escapes_the_domain() {
-        // x86_64 only: skipped, with the reason as the skip's own text, until the first DMA after
-        // registration is explained. The BUGS entry in `arch/x86_64/iommu.rs` has the sequence and
-        // `design/roadmap/proposals/x86-iommu-first-dma-before-context.md` the plan.
-        if cfg!(target_arch = "x86_64") {
-            crate::testing::skip!(
-                "x86_64: the device DMAs once before its VT-d context exists (fault code 0x2), and the \
-                 unit's one fault record then drops the escape fault this test provokes"
-            );
-        }
         let Some(d) = crate::pci::find_block_device() else {
             // No PCIe disk attached: nothing to confine, nothing to prove. (The test runners always
             // attach one, so this branch is for a bare boot, not the parity gate.)
@@ -1561,6 +1552,31 @@ mod tests {
             "a PCIe disk is present but the IOMMU is not active: DMA is bypassing translation \
              (is iommu=smmuv3 / -device riscv-iommu-pci missing from the runner?)",
         );
+
+        // **Quiesce every OTHER block device the runner attaches** (found 2026-09-27, x86_64
+        // only, but harmless and cheap everywhere: DECISIONS-adjacent, see the BUGS entry this
+        // replaces in `arch/x86_64/iommu.rs`). This test's runners attach a second disk, the
+        // RedoxFS fixture from milestone 303 (`x86_64`'s FS service has a server and no disk it can
+        // find), that no code in this filtered boot ever registers, so
+        // it never gets a VT-d context entry. Traced under QEMU's `-d trace:vtd_*`: the moment
+        // THIS test's own `confine` below runs its context-cache/IOTLB invalidation, that
+        // *other*, unconfined device attempts a real access of its own and correctly faults
+        // default-deny (reason 0x2) -- nothing is unconfined in the security sense, the fault
+        // fires exactly as it should. But `CAP.NFR` reports one fault-recording register, and
+        // that unrelated device keeps refaulting the same address on every retry, so it can win
+        // the single slot every time and starve the fault this test provokes on device `d`. A
+        // plain virtio reset (`STATUS = 0`) on every other block device stops its DMA outright,
+        // the same way `provoke_iommu_escape`'s own reset stops a queue THIS device was left
+        // running by an earlier test. Bounded at 8: no runner this tree has attaches more than
+        // two block devices, and a bound turns a discovery bug into a fast loop instead of a hang.
+        for n in 0..8 {
+            let Some(mut other) = find_block_device_n(n) else {
+                break;
+            };
+            if other.rid != Some(d.rid) {
+                other.transport.write_reg(REG_STATUS, 0);
+            }
+        }
 
         // Register (and thereby confine) the device to its DMA region + shadow page.
         let dma = crate::memory::alloc_zeroed().expect("no DMA frame").addr();

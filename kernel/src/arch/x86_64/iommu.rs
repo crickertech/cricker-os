@@ -121,24 +121,44 @@
 //!   (`CAP.PLMR`/`PHMR`, which the 7040's units both set) has `PMEN.EPM` cleared once translation
 //!   is on, as Linux does, in case firmware left one enabled. QEMU's model offers none, so this has
 //!   run zero times.
-//! - **A registered device's first DMA can arrive before its context exists, and it is not
-//!   understood.** Found 2026-09-27 (UTC) when milestone 609 (the system tests leave the kernel
-//!   crate) gave the kernel's unit tests a boot of their own; it fails the same way with the test
-//!   run alone, so it is not a test-order dependency, and before that the system suite had always
-//!   attached this disk first. `virtio::tests::the_iommu_faults_a_dma_that_escapes_the_domain`
-//!   registers the PCIe disk (rid `0x20`) and aims its available ring at an unmapped frame. QEMU
-//!   then logs, in order: a translation fault from the device at `0xffdb000`, one of the frames
-//!   registration mapped, with reason `0x2` (context entry not present); then the intended fault,
-//!   a second-level permission error at the escape frame plus 2, by which point the context does
-//!   exist; then "Next Fault Recording Reg is used ... set PFO", so the intended fault is dropped
-//!   and the test reads the first. `attach` runs a global context-cache and IOTLB invalidation, so
-//!   a missing invalidation is not the obvious answer. The test skips on `x86_64` until this is
-//!   explained; aarch64 and riscv64 pass it in the same boot.
+//! - **FIXED (2026-09-27): an unconfined sibling disk could win the one fault-recording
+//!   register and starve a test's own fault.** Not the device racing its own attach, which was
+//!   the original (wrong) theory: `virtio::tests::the_iommu_faults_a_dma_that_escapes_the_domain`
+//!   registers *one* PCIe disk (its rid varies with bus layout; `0x18` in the run that found
+//!   this), and this test's own runners also attach a second, unrelated virtio-blk-pci disk, the
+//!   RedoxFS fixture from milestone 303 (`x86_64`'s FS service has a server and no disk it can
+//!   find), that nothing in a filtered kernel-unit-test boot ever registers. Traced under QEMU's
+//!   `-d trace:vtd_dmar_translate,vtd_dmar_fault,vtd_ce_not_present`:
+//!   the moment *any* device's context-cache/IOTLB is globally invalidated (this driver's own
+//!   `attach`, below, always does this), every virtio-blk-pci function on the bus attempts a real
+//!   access near the top of guest RAM, confined device or not. A device with no context entry
+//!   faults default-deny with reason `0x2` (context entry not present), correctly; the device
+//!   under test, freshly attached, faults with reason `0x1` (present context, address outside its
+//!   own domain) against the same neighbourhood of addresses, also correctly. **Both cases are the
+//!   confinement working, not a gap**: nothing DMAs through unconfined or out of its own domain.
+//!   The bug was purely in the test's observation: `CAP.NFR` reports one fault-recording register
+//!   (see the next entry), the *other* disk's fault re-fires on every retry and can occupy that
+//!   one slot indefinitely, and a fault arriving while the register already holds one is dropped
+//!   with `FSTS.PFO` set rather than recorded, so the escape fault the test provokes on its own
+//!   device could be the one silently lost. The exact reason the other disk's device model does
+//!   this on a global invalidate, with no guest driver ever touching it, was not chased past the
+//!   trace: it reproduces every time and is QEMU/VT-d-model-specific (aarch64's SMMUv3 and
+//!   riscv64's IOMMU do not show it, which is why those two legs always passed). The test now
+//!   resets every *other* block device on the bus (`STATUS = 0`, an ordinary virtio reset) before
+//!   registering and provoking its own, which stops their DMA outright regardless of the
+//!   mechanism; see the test for the commented fix. Green on all three architectures.
 //! - **The fault path decodes and clears exactly one Fault Recording Register per unit.** `CAP.NFR` is read
 //!   to find where the bank starts, not to size it; QEMU's model reports `NFR = 0` (one register),
 //!   so a real unit with more than one is read at the same fixed offset only. A burst of faults past
 //!   that one register sets `FSTS.PFO`, and the hardware records nothing new until it is cleared;
 //!   [`take_fault`] clears it, so the faults lost in a burst are lost but the next one is recorded.
+//!   **This is why a caller that reads faults for one device must first make sure no other device
+//!   on the bus is still faulting**: the one slot is shared across every requester id this unit
+//!   serves, so an unrelated device's repeating fault can occupy it indefinitely and there is no
+//!   way to read "the next fault for rid X" directly. The confinement test above is the first
+//!   caller this has bitten; it quiesces every other block device rather than this driver growing
+//!   a per-rid filter that a single hardware record cannot actually satisfy (filtering by rid at
+//!   read time cannot recover a fault the register already dropped in favour of a different one).
 
 use machine_discovery::acpi::{DmarUnits, Drhd, MAX_DRHDS, MAX_RMRR_SCOPES, SCOPE_PCI_ENDPOINT};
 use paging::PageFormat;
