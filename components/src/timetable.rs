@@ -587,8 +587,9 @@ fn replace_if_asked(
     *images = next_images;
     *current = spare;
 
-    // The reply goes into the page before anything goes down `OUT`, so a registrar that waits on
-    // the output line, as the kernel test does, finds the reply already there.
+    // The reply goes into the page before anything goes down `OUT`. With a registrar `say` writes
+    // nothing, so the page is the whole answer; the order matters only to a reader of both, which
+    // must find the reply there by the time it sees the line.
     let mut plan = 0usize;
     timetable::write_plan(reg, &mut |bytes: &[u8]| {
         let room = registration::BODY_MAX - plan;

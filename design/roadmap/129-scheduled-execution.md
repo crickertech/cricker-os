@@ -40,7 +40,7 @@ is deliberately small: `every <interval>` and `at-boot`. The full account is
 - `components/src/timetable.rs` holds four capabilities: an output endpoint, an untyped budget, a
   child report endpoint and a supervision endpoint. No clock, no directory, no console, no network.
 - `components/timetable.conf` is the document, compiled in.
-- `kernel/src/user/timetable_tests.rs` is one module that runs on aarch64, riscv64 and x86_64.
+- `system_tests/src/user/timetable_tests.rs` is one module that runs on aarch64, riscv64 and x86_64.
 
 The demonstration is the refusals. A crontab has one answer; registration here has four, and the
 split that matters is "the line is wrong" against "this scheduler holds nothing to back it". `every
@@ -90,7 +90,7 @@ such as `wc report.txt`. Host test:
   ends the process, since an idle timetable would hold its session up under §16 (object
   revocation). A timetable handed the run-unvouched capability runs nothing, so no job can hold it,
   which is what lets §220 (signed builds, and trusting a key is scoped) reach scheduled work.
-- `kernel/src/user/timetable_tests.rs` is the registrar until milestone 152 rebuilds the session. It
+- `system_tests/src/user/timetable_tests.rs` is the registrar until milestone 152 rebuilds the session. It
   sends `schedule_store::fixture::DEMO_SCHEDULE_DOC`, the bytes the store test writes to disk, then
   a document that does not parse, an edit and an empty document. A second test hands the timetable
   the run-unvouched capability and asserts it refuses. Both run on all three architectures.
@@ -129,7 +129,7 @@ the shipped document is a demonstration written to show every answer registratio
 
 ## Follow-on
 
-- **Outstanding.** Connecting a real registrar: only `kernel/src/user/timetable_tests.rs` writes a
+- **Outstanding.** Connecting a real registrar: only `system_tests/src/user/timetable_tests.rs` writes a
   registration page, and no file under `components/` or `crates/` defines milestone 152's durable
   session. The same session is what feeds `crates/schedule_store`'s file to a running timetable.
   Checked 2026-09-26.
