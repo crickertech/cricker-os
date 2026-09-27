@@ -96,6 +96,21 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import roadmap_block  # noqa: E402
 
+# --- a counted claim's number is not a touch --------------------------------------------------
+#
+# `script/lint`'s counted-claims check (notes/counted-claims.md) makes a lane that adds, say, a Kani
+# harness bump every `<!--count:...-->`-marked number in the tree, and the touch rule below then
+# held two 10,000-word notes to 4 bold per 1,000 words for a one-digit edit the other gate forced
+# (found 2026-09-26 by the lane for milestone 23 (a capability-routed component OS with live
+# replacement), adding one harness). So digits on a line carrying a count marker are masked before
+# deciding whether a document was touched. Any other edit on that line, or anywhere else, still is.
+COUNT_MARKER = re.compile(r'<!--count:[a-z0-9-]+-->')
+
+
+def count_masked(text):
+    return '\n'.join(re.sub(r'\d', '#', line) if COUNT_MARKER.search(line) else line
+                     for line in text.split('\n'))
+
 # --- scope -------------------------------------------------------------------------------------
 #
 # The document scope is `script/metrics`' (milestone 581 (one metrics file per measure)'s prose-budget graph), moved here so the
@@ -746,7 +761,12 @@ def check():
         for line in (git('diff', '--name-status', '-M', base, '--', '*.md') or '').splitlines():
             cells = line.split('\t')
             if cells[0] != 'R100' and cells[0] != 'D':
-                touched.add(cells[-1])
+                path = cells[-1]
+                old_text = at(base, cells[1] if cells[0].startswith('R') else path)
+                if old_text is not None and os.path.exists(path) and \
+                        count_masked(old_text) == count_masked(open(path).read()):
+                    continue  # only a counted claim's number moved: `script/lint` made it do so
+                touched.add(path)
         touched = {p for p in touched if not only_fields_moved(p, base)}
 
     excused = 0
@@ -908,6 +928,13 @@ def selftest():
          lambda m: (m['bold_lead'], m['bold_inline']) == (1, 0)),
     ]
     failed = [name for name, text, ok in cases if not ok(measure(text))]
+    # A counted claim's number moving is not a touch; a word moving on the same line is.
+    # The marker is assembled, so `script/lint`'s counted-claims reader does not take it for a claim.
+    a = 'We carry **188 widgets** <!-' + '-count:widgets--> today.\nOther **bold** here.'
+    if count_masked(a) != count_masked(a.replace('188', '189')):
+        failed.append('a counted claim\'s number moving reads as a touch')
+    if count_masked(a) == count_masked(a.replace('today', 'now')):
+        failed.append('a word moving on a counted-claim line reads as no touch')
     # The derived-marker guard: a parser pattern that matches ordinary bold would exempt all of it.
     found = derived_markers()
     if not found:
