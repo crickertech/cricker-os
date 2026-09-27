@@ -1055,16 +1055,23 @@ def replay_kernel_test(t):
     rc, out, _, hung = run_bounded(t.replay_argv(), LIMIT_KERNEL_TEST)
     if hung:
         return timed_out(LIMIT_KERNEL_TEST, "the build and boot")
-    selected = re.search(r"running (\d+) of (\d+) tests", out)
-    if selected is None:
+    # One `running K of N` line per test image: a leg boots the kernel's own unit-test image and
+    # then the system-test image (milestone 609 (the system tests leave the kernel crate)), and the
+    # record's test is in exactly one of them. So the selections are summed, and the result line
+    # read is the one after the image that selected it.
+    runs = list(re.finditer(r"running (\d+) of (\d+) tests", out))
+    if not runs:
         last = [l for l in out.strip().splitlines() if l.strip()]
         return "error", ("the kernel never reached its test runner on %s (exit %d): the patch may "
                          "not compile, or the boot died.%s"
                          % (t.architecture, rc,
                             ("\n    " + last[-1]) if last else ""))
-    if selected.group(1) != "1":
-        return "error", ("`--test %s` selected %s tests, not 1: a red would not be about this one"
-                         % (t.name, selected.group(1)))
+    total = sum(int(m.group(1)) for m in runs)
+    if total != 1:
+        return "error", ("`--test %s` selected %d tests, not 1: a red would not be about this one"
+                         % (t.name, total))
+    chosen = next(m for m in runs if m.group(1) == "1")
+    out = out[chosen.start():]
     result = re.search(r"^test result:.*$", out, re.M)
     if result is not None and "skipped" in result.group(0):
         return "error", ("the test SKIPPED on %s (%s): its fixture was not attached to this boot, "

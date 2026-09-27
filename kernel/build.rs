@@ -39,6 +39,16 @@ fn main() {
         "cargo::rustc-env=NIFE_TEST_FILTER={}",
         std::env::var("NIFE_TEST_FILTER").unwrap_or_default()
     );
+    // **Whether the harness counts the filter across images** (milestone 609 (the system tests
+    // leave the kernel crate)). A leg now boots two test images, and a filter naming a system test
+    // selects nothing in the kernel's own. `cargo xtask test --test` sets this and then checks the
+    // sum itself; left unset, as it is for a bare `cargo test`, an empty selection still fails.
+    // Name provisional.
+    println!("cargo::rerun-if-env-changed=NIFE_TEST_FILTER_ACROSS_IMAGES");
+    println!(
+        "cargo::rustc-env=NIFE_TEST_FILTER_ACROSS_IMAGES={}",
+        std::env::var("NIFE_TEST_FILTER_ACROSS_IMAGES").unwrap_or_default()
+    );
 
     // **E3's pad size and layout shift** (milestone 134's layout control), the same mechanism as
     // the test filter above and chosen for a measured reason: a Cargo feature per size was built

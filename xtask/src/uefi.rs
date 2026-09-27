@@ -774,7 +774,15 @@ pub(crate) fn uefi_test() -> bool {
     if !initrd_x86() || !mkdisk() || !mknvmedisk() {
         return false;
     }
-    let Some(kernel) = kernel_test_elf(X86_TARGET, "uefi-test") else {
+    // Both test images (milestone 609 (the system tests leave the kernel crate)): the kernel's own
+    // unit tests and the whole-system suite are separate boots now, and "passes under real
+    // firmware" is a claim about both.
+    uefi_test_image("kernel") && uefi_test_image("system_tests")
+}
+
+/// One test image's boot under OVMF, and its verdict: [`uefi_test`] runs it for each image.
+fn uefi_test_image(package: &str) -> bool {
+    let Some(kernel) = kernel_test_elf(package, X86_TARGET, "uefi-test") else {
         return false;
     };
     if !uefi_stage(
@@ -786,7 +794,7 @@ pub(crate) fn uefi_test() -> bool {
         return false;
     }
     eprintln!();
-    eprintln!("--- kernel tests under real firmware, x86_64 (QEMU q35 + OVMF) ---");
+    eprintln!("--- {package} tests under real firmware, x86_64 (QEMU q35 + OVMF) ---");
 
     let output = match Command::new("helpers/qemu-uefi-x86_64.sh")
         .arg(uefi_test_esp_dir())
@@ -846,7 +854,7 @@ pub(crate) fn uefi_test() -> bool {
         ok = false;
     }
     if ok {
-        eprintln!("uefi-test: the kernel suite passed under OVMF");
+        eprintln!("uefi-test: the {package} suite passed under OVMF");
     }
     ok
 }

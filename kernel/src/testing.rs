@@ -85,11 +85,17 @@ const TEST_FILTER: &str = env!("NIFE_TEST_FILTER");
 /// which skip unless somebody asked for them by name (`script/test --test <name>`); each says why
 /// in its own skip reason. Name provisional (milestone 604 (the builder's scratch cursor is
 /// bounded)).
-#[cfg(test)]
+#[cfg(any(test, feature = "system_tests"))]
 #[allow(dead_code)]
-pub(crate) fn run_was_filtered() -> bool {
+pub fn run_was_filtered() -> bool {
     !TEST_FILTER.is_empty()
 }
+
+/// Set by `cargo xtask test --test` (through `kernel/build.rs`) when it boots more than one test
+/// image per leg and counts the selections itself (milestone 609 (the system tests leave the kernel
+/// crate)). Then an image with no matching test exits cleanly and says so, and the harness fails
+/// the leg if the images together selected nothing. Unset, the rule below holds per image.
+const FILTER_COUNTED_ACROSS_IMAGES: bool = !env!("NIFE_TEST_FILTER_ACROSS_IMAGES").is_empty();
 
 static HEARTBEAT: AtomicU64 = AtomicU64::new(0);
 static WATCH_LAST_HB: AtomicU64 = AtomicU64::new(0);
@@ -1279,6 +1285,14 @@ pub fn runner(tests: &[&dyn Testable]) {
     // **A filter that selects nothing fails the run.** Reporting "ok. 0 passed" for a typo would be
     // a green result that proves nothing, which is exactly the manufactured fact the `skip!()`
     // accounting and the NIFE_DISK check elsewhere in this tree exist to refuse.
+    if selected == 0 && FILTER_COUNTED_ACROSS_IMAGES {
+        // Not a verdict on its own: the other image in this leg may carry the test, and
+        // `cargo xtask test` adds the `running` lines up. The result line keeps the shape every
+        // reader of these transcripts (the HVF leg, `script/falsifications`) already parses.
+        println!("no test in this image matches the filter `{filter}`; the harness counts the leg");
+        println!("test result: ok. 0 passed");
+        semihosting::exit(semihosting::EXIT_SUCCESS)
+    }
     if selected == 0 {
         println!("no test matches the filter `{filter}`");
         // The likeliest cause on a multi-leg run, named here because the reader is looking at one

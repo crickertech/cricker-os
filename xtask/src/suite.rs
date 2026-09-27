@@ -13,7 +13,7 @@ use crate::disk_check::{
     blank_check_after_run, redoxfs_check_after_run, redoxfs_crash_check_after_run,
 };
 use crate::farm::std_exerciser;
-use crate::host::{cargo, flag_value, run};
+use crate::host::{cargo, cargo_test_counting_selected, flag_value, run, selected_by};
 use crate::inbound::InboundProber;
 use crate::scanout::{HostLoad, ScanoutReferee, cargo_test_with_scanout_check};
 use crate::uefi::{uefi_boot, uefi_test};
@@ -181,9 +181,17 @@ pub(crate) fn test() -> bool {
             // that reads it is spawned, and the only thread xtask ever starts (the transcript reader
             // in swish_check_leg) copies pipe bytes into a String and never touches the environment.
             unsafe { std::env::set_var("NIFE_TEST_FILTER", f) };
+            // Each leg boots two test images now (milestone 609 (the system tests leave the
+            // kernel crate)), and the filter may match in only one. This tells the kernel's runner
+            // that an image with no match is not the verdict; `filtered_leg` adds the legs up.
+            // SAFETY: as above.
+            unsafe { std::env::set_var("NIFE_TEST_FILTER_ACROSS_IMAGES", "1") };
         }
         // SAFETY: as above.
-        None => unsafe { std::env::remove_var("NIFE_TEST_FILTER") },
+        None => unsafe {
+            std::env::remove_var("NIFE_TEST_FILTER");
+            std::env::remove_var("NIFE_TEST_FILTER_ACROSS_IMAGES");
+        },
     }
 
     // Nothing cargo starts inherits an accelerator choice. The default leg is TCG, which is the
@@ -241,6 +249,8 @@ pub(crate) fn test() -> bool {
             "--workspace",
             "--exclude",
             "kernel",
+            "--exclude",
+            "system_tests",
             "--exclude",
             "components",
             "--exclude",
@@ -371,10 +381,20 @@ pub(crate) fn test() -> bool {
         if !cargo(&["build", "-p", "kernel", "--target", TARGET]) {
             return false;
         }
+        // **Two images per leg** (milestone 609 (the system tests leave the kernel crate)): the
+        // kernel's own unit tests, then the whole-system suite, which is the kernel linked as a
+        // library under `system_tests/`. The scanout and inbound checks watch the second, because
+        // the display, compositor and network tests that paint and listen moved with it.
         let leg = if hvf {
-            hvf_kernel_leg()
+            hvf_both_images(filter.is_some())
+        } else if filter.is_some() {
+            filtered_leg("aarch64", TARGET)
         } else {
-            cargo_test_with_scanout_check("aarch64", &["test", "-p", "kernel", "--target", TARGET])
+            cargo(&["test", "-p", "kernel", "--target", TARGET])
+                && cargo_test_with_scanout_check(
+                    "aarch64",
+                    &["test", "-p", "system_tests", "--target", TARGET],
+                )
         };
         if !leg {
             return false;
@@ -425,10 +445,18 @@ pub(crate) fn test() -> bool {
         // that reads it is spawned, and the only thread xtask ever starts (the transcript reader
         // in swish_check_leg) copies pipe bytes into a String and never touches the environment.
         unsafe { std::env::set_var("NIFE_NET", "1") }; // a virtio-net NIC for the net test (m30)
-        if !cargo_test_with_scanout_check(
-            "riscv64",
-            &["test", "-p", "kernel", "--target", RISCV_TARGET],
-        ) {
+        // The kernel's unit tests, then the system suite under the scanout check (milestone 609 (the
+        // system tests leave the kernel crate)); the aarch64 leg says why the check is on the second.
+        if filter.is_some() {
+            if !filtered_leg("riscv64", RISCV_TARGET) {
+                return false;
+            }
+        } else if !run("cargo", &["test", "-p", "kernel", "--target", RISCV_TARGET])
+            || !cargo_test_with_scanout_check(
+                "riscv64",
+                &["test", "-p", "system_tests", "--target", RISCV_TARGET],
+            )
+        {
             return false;
         }
     }
@@ -491,7 +519,18 @@ pub(crate) fn test() -> bool {
         // spawned, and the only thread xtask ever starts (the transcript reader in
         // swish_check_leg) copies pipe bytes into a String and never touches the environment.
         unsafe { std::env::set_var("NIFE_DISK", disk_path()) };
-        if !run("cargo", &["test", "-p", "kernel", "--target", X86_TARGET]) {
+        // The kernel's unit tests, then the system suite (milestone 609 (the system tests leave the
+        // kernel crate)).
+        if filter.is_some() {
+            if !filtered_leg("x86_64", X86_TARGET) {
+                return false;
+            }
+        } else if !run("cargo", &["test", "-p", "kernel", "--target", X86_TARGET])
+            || !run(
+                "cargo",
+                &["test", "-p", "system_tests", "--target", X86_TARGET],
+            )
+        {
             return false;
         }
         // **And one more boot, on a machine with a bridge on it** (milestone 320). `q35` is a flat
@@ -653,13 +692,59 @@ pub(crate) fn test() -> bool {
 /// can press a key. Reading the transcript blocks, so the referee is driven from a second thread
 /// and joined when the verdict is in. It touches a unix socket and two files and never the
 /// environment.
-fn hvf_kernel_leg() -> bool {
-    let Some(elf) = kernel_test_elf(TARGET, "test --hvf") else {
+/// Both test images on the physical core, and under `--test` the selection counted across them
+/// (milestone 609 (the system tests leave the kernel crate)); [`filtered_leg`] says why.
+fn hvf_both_images(filtered: bool) -> bool {
+    let (kernel_ok, kernel_selected) = hvf_kernel_leg("kernel", false);
+    if !kernel_ok {
         return false;
+    }
+    let (system_ok, system_selected) = hvf_kernel_leg("system_tests", true);
+    if !system_ok {
+        return false;
+    }
+    if filtered && kernel_selected + system_selected == 0 {
+        eprintln!("test --hvf: no test in either image matches the filter");
+        return false;
+    }
+    true
+}
+
+/// One leg under `--test`: both test images, each run with its transcript counted, and the leg
+/// failed if either failed or if together they selected nothing (milestone 609 (the system tests
+/// leave the kernel crate)). The kernel's runner keeps "a filter that selects nothing fails" for a
+/// bare `cargo test`; here the rule moves up to the leg, because the test the filter names lives in
+/// exactly one of the two images. The scanout and inbound checks are skipped, as they were already
+/// advisory under a filter: they assert on what particular tests draw and receive.
+fn filtered_leg(arch: &str, target: &str) -> bool {
+    let mut selected = 0;
+    for package in ["kernel", "system_tests"] {
+        let (ok, n) = cargo_test_counting_selected(&["test", "-p", package, "--target", target]);
+        if !ok {
+            return false;
+        }
+        selected += n;
+    }
+    if selected == 0 {
+        eprintln!(
+            "test: no test on the {arch} leg matches the filter, in either image (a test only this \
+             architecture lacks? `--test` runs every leg; add `--arch`)"
+        );
+        return false;
+    }
+    true
+}
+
+/// One test image on the physical core. Returns the verdict and how many tests its harness selected.
+fn hvf_kernel_leg(package: &str, watch_devices: bool) -> (bool, usize) {
+    let Some(elf) = kernel_test_elf(package, TARGET, "test --hvf") else {
+        return (false, 0);
     };
 
     eprintln!();
-    eprintln!("--- kernel tests, aarch64, ON THE PHYSICAL CORE (QEMU + Hypervisor.framework) ---");
+    eprintln!(
+        "--- {package} tests, aarch64, ON THE PHYSICAL CORE (QEMU + Hypervisor.framework) ---"
+    );
 
     // Ask whether QEMU will start this machine at all, BEFORE standing up the referee and the two
     // probers (milestone 222). If it will not, each of those reports its own failure about a QEMU
@@ -678,23 +763,26 @@ fn hvf_kernel_leg() -> bool {
                 "test --hvf: nothing ran. `script/ci-build` skips this leg and says so; only an \
                  explicit --hvf fails."
             );
-            return false;
+            return (false, 0);
         }
         Ok(_) => {}
         Err(e) => {
             eprintln!("test --hvf: failed to start {RUNNER} for the machine probe: {e}");
-            return false;
+            return (false, 0);
         }
     }
 
     // Constructed before the child, because it is what sets `NIFE_GPU_MON`: the runner reads
     // that when it builds the QEMU command line, so a referee born later would find no monitor.
-    let referee = ScanoutReferee::new("aarch64");
+    //
+    // Only the system suite paints the scanout and answers the network (milestone 609 (the system
+    // tests leave the kernel crate)), so only its run gets either.
+    let referee = watch_devices.then(|| ScanoutReferee::new("aarch64"));
     // And the inbound prober, for the same reason and on the same terms: it sets
     // `NIFE_HOSTFWD_PORT` before the child exists, and it runs on its own thread throughout. The
     // accept test is not accelerator-sensitive, but it is in the suite, so a leg without a prober
     // would fail it. Its "before the child" placement is load-bearing exactly as the referee's is.
-    let prober = InboundProber::new("aarch64");
+    let prober = watch_devices.then(|| InboundProber::new("aarch64"));
 
     let mut cmd = Command::new(RUNNER);
     cmd.arg(&elf);
@@ -712,7 +800,7 @@ fn hvf_kernel_leg() -> bool {
         Ok(c) => c,
         Err(e) => {
             eprintln!("test --hvf: failed to start {RUNNER}: {e}");
-            return false;
+            return (false, 0);
         }
     };
 
@@ -725,7 +813,9 @@ fn hvf_kernel_leg() -> bool {
         let mut referee = referee;
         std::thread::spawn(move || {
             while running.load(Ordering::Relaxed) {
-                referee.poll();
+                if let Some(referee) = referee.as_mut() {
+                    referee.poll();
+                }
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
             referee
@@ -736,6 +826,7 @@ fn hvf_kernel_leg() -> bool {
     let stdout = child.stdout.take().expect("piped stdout");
     let reader = std::io::BufReader::new(stdout);
     let mut verdict: Option<bool> = None;
+    let mut selected = 0;
     // Sampled from the transcript reader rather than from the referee thread, because this is the
     // loop that runs for the length of the leg and the sampler is rate-limited anyway. **This leg
     // needs it more than the TCG one does**: HVF runs the guest on the physical cores, so the
@@ -756,6 +847,7 @@ fn hvf_kernel_leg() -> bool {
         // Stream it, because a test suite you cannot watch is a test suite you cannot debug. The
         // TCG leg inherits stdio and prints as it goes; this leg has to relay.
         println!("{line}");
+        selected += selected_by(&line).unwrap_or(0);
         load.sample();
         if line.starts_with("test result: ok.") {
             verdict = Some(true);
@@ -788,7 +880,8 @@ fn hvf_kernel_leg() -> bool {
     // while there is still a device to look at.
     running.store(false, Ordering::Relaxed);
     let scanout_ok = match watcher.join() {
-        Ok(referee) => referee.report(),
+        Ok(Some(referee)) => referee.report(),
+        Ok(None) => true,
         Err(_) => {
             eprintln!("test --hvf: the scanout referee panicked");
             false
@@ -797,7 +890,7 @@ fn hvf_kernel_leg() -> bool {
 
     // Same ordering argument as the referee's: the prober has to stop while the guest is still
     // there, and its verdict is collected before QEMU is killed.
-    let inbound_ok = prober.report();
+    let inbound_ok = prober.is_none_or(|prober| prober.report());
 
     // It is parked at a semihosting trap HVF will not answer, so it will never exit by itself.
     let _ = child.kill();
@@ -828,10 +921,12 @@ fn hvf_kernel_leg() -> bool {
         }
     };
     load.report_if_failed(ok, "aarch64 --hvf");
-    ok
+    (ok, selected)
 }
 
-/// Ask cargo to build the kernel's test binary and say where it put it, without running it.
+/// Ask cargo to build a kernel test image and say where it put it, without running it. `package` is
+/// `kernel` for the kernel's own unit tests or `system_tests` for the whole-system suite (milestone
+/// 609 (the system tests leave the kernel crate)); both are the kernel, booted to run tests.
 ///
 /// `cargo test --no-run` is the build; `--message-format=json` is how we learn the path, which
 /// carries a content hash and lives under the build script's `OUT_DIR`, so it cannot be spelled
@@ -839,11 +934,11 @@ fn hvf_kernel_leg() -> bool {
 /// dependency and taking one for a single field would be the wrong trade (DECISIONS §46): the
 /// field is a filesystem path emitted by cargo, so it contains no escapes, and the only artifact
 /// line `cargo test --no-run -p kernel` emits with a non-null `executable` is the one we want.
-pub(crate) fn kernel_test_elf(target: &str, who: &str) -> Option<String> {
+pub(crate) fn kernel_test_elf(package: &str, target: &str, who: &str) -> Option<String> {
     let mut args = std::vec![
         "test",
         "-p",
-        "kernel",
+        package,
         "--target",
         target,
         "--no-run",
@@ -875,7 +970,8 @@ pub(crate) fn kernel_test_elf(target: &str, who: &str) -> Option<String> {
     let found = String::from_utf8_lossy(&out.stdout)
         .lines()
         .filter(|l| {
-            l.contains("\"reason\":\"compiler-artifact\"") && l.contains("\"name\":\"kernel\"")
+            l.contains("\"reason\":\"compiler-artifact\"")
+                && l.contains(&format!("\"name\":\"{package}\""))
         })
         .filter_map(|l| l.split_once(KEY).map(|(_, rest)| rest.to_string()))
         .filter_map(|rest| rest.split_once('"').map(|(path, _)| path.to_string()))
@@ -944,6 +1040,8 @@ pub(crate) fn undefined_behavior_check() -> bool {
         "--workspace",
         "--exclude",
         "kernel",
+        "--exclude",
+        "system_tests",
         "--exclude",
         "components",
         "--exclude",

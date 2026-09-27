@@ -139,8 +139,14 @@ echo "    host-only: $(echo "$host_only" | sed 's/--exclude //g')"
 # milestone 312 it built aarch64 alone, so riscv64 was installed four lines above and never used.
 for bare_target in $kernel_targets; do
     echo "==> Bare-metal build ($bare_target)"
+    # `system_tests` is built on its own (milestone 609 (the system tests leave the kernel crate)).
+    # It turns on the kernel's `system_tests` feature, cargo unifies features across one
+    # invocation, and a kernel BINARY built with that feature fails to link by design
+    # (kernel/src/lib.rs, `system_tests_main`). So the workspace build excludes it and the next
+    # line builds it alone, which is also the build that proves it links.
     # shellcheck disable=SC2086  # host_only is a flag list and must split
-    cargo build --workspace $host_only --target "$bare_target"
+    cargo build --workspace $host_only --exclude system_tests --target "$bare_target"
+    cargo build -p system_tests --target "$bare_target"
 done
 
 # The host-logic crates. kernel, components and fixtures are excluded because they are `no_std`
@@ -154,6 +160,6 @@ done
 # The bare-metal list was rung four and failed *silently*, inside a job designed to tolerate red,
 # which is why it got the derivation and this did not.
 echo "==> Host tests"
-cargo test --workspace --exclude kernel --exclude components --exclude fixtures
+cargo test --workspace --exclude kernel --exclude system_tests --exclude components --exclude fixtures
 
 echo "==> drift: clean"

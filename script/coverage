@@ -67,7 +67,7 @@ fi
 # That is a line of maintenance per featured crate, and it buys back the limitation `--all-features`
 # had anyway, which is that a union-of-all-features run can carry an undertested default build.
 cargo llvm-cov --workspace --features documentation/builder \
-    --exclude kernel --exclude components --exclude fixtures --exclude xtask --exclude user_mode_runtime \
+    --exclude kernel --exclude system_tests --exclude components --exclude fixtures --exclude xtask --exclude user_mode_runtime \
     --exclude supervision_protocol --exclude swap_protocol --exclude system_initializer --no-report
 cargo llvm-cov report --summary-only
 mkdir -p target/llvm-cov # the lcov --output-path parent must exist; --html creates its own
