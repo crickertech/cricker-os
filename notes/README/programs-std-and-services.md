@@ -24,6 +24,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The glob matcher](../glob.md): a pure byte glob matcher with a bounded cost.
 - [Globbing, and the expansion you see is the grant](../glob-grant.md).
 - [Navigating with no global namespace](../shell-navigation.md): `cd`, `pwd`, `ls`, `mkdir` and `rm` as capability builtins.
+- [A shell holding two trees](../two-trees.md): one tree with a second mounted in it, one resolver, and a handle sent on its own tree's endpoint.
 - [The inert-configuration page](../env-config.md): validated read-only `TZ`, `LANG` and `TERM` for programs.
 - [The documentation crate](../documentation.md): streaming markdown renderer, manual viewer and search index.
 - [The component manifest](../component-manifest.md): what a supervisor must route before a component serves.

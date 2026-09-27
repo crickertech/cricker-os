@@ -281,11 +281,19 @@ impl Cwd {
 
     /// Pop one level. **`false` at the root, which is the clamp**: there is nothing above it, so
     /// there is nothing to pop and no request to send.
+    ///
+    /// **The popped component is zeroed, not just forgotten**, so one place has one representation
+    /// and the derived `PartialEq` means "the same position". Before milestone 154 (a process that
+    /// holds two directory capabilities) it only decremented the depth, and `/logs` reached by
+    /// `cd logs/x; cd ..` compared unequal to `/logs` reached directly, because the stale `x` was
+    /// still in the array behind the depth.
     pub fn ascend(&mut self) -> bool {
         if self.depth == 0 {
             return false;
         }
         self.depth -= 1;
+        self.names[self.depth] = [0; MAX_NAME];
+        self.lens[self.depth] = 0;
         true
     }
 
@@ -450,14 +458,10 @@ impl<'a> TwoRoots<'a> {
 
     /// [`TwoRoots::resolve_absolute`], with the "no label matched" case told apart from a real
     /// refusal: `None` when the token's first component is not `Down` at all (a bare `/` or a
-    /// leading `..`) or names neither label, `Some` once a label committed. [`Holdings::resolve`]
-    /// (`crate::lib`) needs this split to fall through to [`Bindings`] only when no grant label
-    /// matched, never when a label matched and *applying the rest* is what failed: a bind lookup
-    /// must not paper over `/a/../../elsewhere`'s real [`Refused::AtYourRoot`].
-    pub(crate) fn try_resolve_absolute(
-        &self,
-        p: &Path<'_>,
-    ) -> Option<Result<(Which, Cwd), Refused>> {
+    /// leading `..`) or names neither label, `Some` once a label committed. `Holdings::anchor`
+    /// (`crate::lib`) makes the same split for a two-grant shell, and falls through to the bind
+    /// table only when no label matched, never when a label matched and applying the rest failed.
+    fn try_resolve_absolute(&self, p: &Path<'_>) -> Option<Result<(Which, Cwd), Refused>> {
         let (label, rest) = match p.steps().split_first() {
             Some((Step::Down(name), rest)) => (*name, rest),
             _ => return None,
@@ -540,7 +544,6 @@ pub const MAX_BINDS: usize = 4;
 pub struct BindEntry {
     name: [u8; MAX_NAME],
     name_len: u8,
-    which: Which,
     pos: Cwd,
 }
 
@@ -548,13 +551,6 @@ impl BindEntry {
     /// The name an absolute path's first component must match to reach this entry.
     pub fn name(&self) -> &[u8] {
         &self.name[..self.name_len as usize]
-    }
-
-    /// Which of a two-grant shell's trees this entry's position is inside. Always [`Which::A`] for
-    /// a shell that never held a second grant; the field exists so this type is ready for that
-    /// case rather than needing a second shape once it arrives.
-    pub fn which(&self) -> Which {
-        self.which
     }
 
     /// Where this entry points, **before** anything after the bound name in a token is applied.
@@ -575,10 +571,9 @@ pub enum BindRefused {
     AlreadyBound,
     /// [`MAX_BINDS`] entries are already in use.
     TooMany,
-    /// This name already names one of a two-grant shell's own labeled trees
-    /// ([`crate::SecondDir::label_a`] / `label_b`). A bind must add a name beside the grant
-    /// namespace, never shadow an entry in it: `crate::Holdings::resolve` checks a grant label
-    /// first, so a bind under a label's own name would silently bind an unreachable alias.
+    /// This name is the first component of the path to a mounted tree ([`crate::SecondDir`]).
+    /// A bound name wins over the literal first component of an absolute path, so binding it
+    /// would hide the mount point. Provisional name, kept from when a second tree had a label.
     ReservedLabel,
 }
 
@@ -590,7 +585,7 @@ impl BindRefused {
             BindRefused::NotAName => "that is not a name: one component, at most 16 bytes",
             BindRefused::AlreadyBound => "that name is already bound; unbind it first",
             BindRefused::TooMany => "too many bound names: this shell tracks at most 4",
-            BindRefused::ReservedLabel => "that name is already one of this shell's own trees",
+            BindRefused::ReservedLabel => "that name leads to where a tree is mounted",
         }
     }
 }
@@ -616,9 +611,9 @@ impl Bindings {
         }
     }
 
-    /// Bind `name` to `(which, pos)`. Refuses a name that cannot be a component, one already
+    /// Bind `name` to `pos`, a path in the one tree the shell presents. Refuses a name that cannot be a component, one already
     /// bound, or a full table; never overwrites.
-    pub fn add(&mut self, name: &[u8], which: Which, pos: Cwd) -> Result<(), BindRefused> {
+    pub fn add(&mut self, name: &[u8], pos: Cwd) -> Result<(), BindRefused> {
         if !component_fits(name) {
             return Err(BindRefused::NotAName);
         }
@@ -635,7 +630,6 @@ impl Bindings {
         *slot = Some(BindEntry {
             name: packed,
             name_len: name.len() as u8,
-            which,
             pos,
         });
         Ok(())
@@ -658,29 +652,47 @@ impl Bindings {
     /// label, the same split `TwoRoots`'s own absolute-path resolver makes for a grant label; a real
     /// wire walk needs both separately (open the bind's own chain first, then continue), where
     /// [`Bindings::resolve_absolute`] needs only their sum.
-    pub fn split_absolute<'p>(&self, p: &'p Path<'p>) -> Option<(Which, Cwd, &'p [Step<'p>])> {
+    pub fn split_absolute<'p>(&self, p: &'p Path<'p>) -> Option<(Cwd, &'p [Step<'p>])> {
         let (label, rest) = match p.steps().split_first() {
             Some((Step::Down(name), rest)) => (*name, rest),
             _ => return None,
         };
         let entry = self.lookup(label)?;
-        Some((entry.which(), entry.pos(), rest))
+        Some((entry.pos(), rest))
     }
 
     /// [`Bindings::split_absolute`], fully resolved: the bound position with the rest of the token
     /// applied, or the [`Refused`] applying it produced (the same [`Refused::TooDeep`] /
     /// [`Refused::AtYourRoot`] a direct [`Cwd::apply`] would give, since that is exactly what runs
     /// underneath). `None` when the label matches no bound entry.
-    pub fn resolve_absolute(&self, p: &Path<'_>) -> Option<Result<(Which, Cwd), Refused>> {
-        let (which, base, rest) = self.split_absolute(p)?;
+    pub fn resolve_absolute(&self, p: &Path<'_>) -> Option<Result<Cwd, Refused>> {
+        let (base, rest) = self.split_absolute(p)?;
         let mut pos = base;
-        Some(pos.apply(rest).map(|_| (which, pos)))
+        Some(pos.apply(rest).map(|_| pos))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Two routes to one position compare equal, which the derived `PartialEq` only promises if
+    /// [`Cwd::ascend`] leaves no stale component behind (milestone 154 found that it did).
+    #[test]
+    fn two_routes_to_one_position_are_equal() {
+        let mut direct = Cwd::root();
+        assert!(direct.descend(b"logs"));
+        let mut around = Cwd::root();
+        assert!(around.descend(b"logs"));
+        assert!(around.descend(b"longer-name"));
+        assert!(around.ascend());
+        assert_eq!(around, direct);
+        assert!(around.ascend());
+        assert!(around.descend(b"x"));
+        let mut x = Cwd::root();
+        assert!(x.descend(b"x"));
+        assert_eq!(around, x, "a shorter name over a longer one leaves no tail");
+    }
 
     /// Assert what `pwd` would print. A helper rather than a returned `String` because this crate is
     /// `no_std` and has no allocator, in tests or out.
@@ -1110,11 +1122,10 @@ mod tests {
         let mut target = Cwd::root();
         target.descend(b"logs");
         target.descend(b"2026");
-        binds.add(b"recent", Which::A, target).unwrap();
+        binds.add(b"recent", target).unwrap();
 
         let p = path(b"/recent").unwrap();
-        let (which, cwd) = binds.resolve_absolute(&p).unwrap().unwrap();
-        assert_eq!(which, Which::A);
+        let cwd = binds.resolve_absolute(&p).unwrap().unwrap();
         assert_eq!(cwd, target);
     }
 
@@ -1125,10 +1136,10 @@ mod tests {
         let mut binds = Bindings::default();
         let mut target = Cwd::root();
         target.descend(b"logs");
-        binds.add(b"recent", Which::A, target).unwrap();
+        binds.add(b"recent", target).unwrap();
 
         let p = path(b"/recent/report.txt").unwrap();
-        let (_, cwd) = binds.resolve_absolute(&p).unwrap().unwrap();
+        let cwd = binds.resolve_absolute(&p).unwrap().unwrap();
         assert_pwd(&cwd, b"/logs/report.txt");
     }
 
@@ -1143,17 +1154,17 @@ mod tests {
         let mut target = Cwd::root();
         target.descend(b"a");
         target.descend(b"b");
-        binds.add(b"recent", Which::A, target).unwrap();
+        binds.add(b"recent", target).unwrap();
 
         // One `..` lands where a direct walk to `/a` would: the bind's own parent, not refused.
         let p = path(b"/recent/..").unwrap();
-        let (_, cwd) = binds.resolve_absolute(&p).unwrap().unwrap();
+        let cwd = binds.resolve_absolute(&p).unwrap().unwrap();
         assert_pwd(&cwd, b"/a");
 
         // A second reaches the real root, and a third refuses there: the same wall a direct `/a/b`
         // would meet, not a wall invented at the alias.
         let p = path(b"/recent/../..").unwrap();
-        let (_, cwd) = binds.resolve_absolute(&p).unwrap().unwrap();
+        let cwd = binds.resolve_absolute(&p).unwrap().unwrap();
         assert_pwd(&cwd, b"/");
         let p = path(b"/recent/../../..").unwrap();
         assert_eq!(
@@ -1181,16 +1192,13 @@ mod tests {
         let mut binds = Bindings::default();
         let mut first = Cwd::root();
         first.descend(b"a");
-        binds.add(b"x", Which::A, first).unwrap();
+        binds.add(b"x", first).unwrap();
         let mut second = Cwd::root();
         second.descend(b"b");
-        assert_eq!(
-            binds.add(b"x", Which::A, second),
-            Err(BindRefused::AlreadyBound),
-        );
+        assert_eq!(binds.add(b"x", second), Err(BindRefused::AlreadyBound),);
         // Still resolves to the first, untouched.
         let p = path(b"/x").unwrap();
-        assert_eq!(binds.resolve_absolute(&p).unwrap().unwrap().1, first);
+        assert_eq!(binds.resolve_absolute(&p).unwrap().unwrap(), first);
     }
 
     /// The table holds at most [`MAX_BINDS`], loud rather than silently dropping one.
@@ -1199,10 +1207,10 @@ mod tests {
         let mut binds = Bindings::default();
         for i in 0..MAX_BINDS {
             let name = [b'a' + i as u8];
-            binds.add(&name, Which::A, Cwd::root()).unwrap();
+            binds.add(&name, Cwd::root()).unwrap();
         }
         assert_eq!(
-            binds.add(b"one-too-many", Which::A, Cwd::root()),
+            binds.add(b"one-too-many", Cwd::root()),
             Err(BindRefused::TooMany),
         );
     }
@@ -1212,14 +1220,8 @@ mod tests {
     #[test]
     fn an_unnameable_bind_target_is_refused() {
         let mut binds = Bindings::default();
-        assert_eq!(
-            binds.add(b"a/b", Which::A, Cwd::root()),
-            Err(BindRefused::NotAName),
-        );
-        assert_eq!(
-            binds.add(b"", Which::A, Cwd::root()),
-            Err(BindRefused::NotAName)
-        );
+        assert_eq!(binds.add(b"a/b", Cwd::root()), Err(BindRefused::NotAName),);
+        assert_eq!(binds.add(b"", Cwd::root()), Err(BindRefused::NotAName));
     }
 
     /// [`BindRefused::message`], pinned exactly, [`each_refusal_is_its_own_exact_sentence`]'s
@@ -1240,7 +1242,7 @@ mod tests {
         );
         assert_eq!(
             BindRefused::ReservedLabel.message(),
-            "that name is already one of this shell's own trees",
+            "that name leads to where a tree is mounted",
         );
     }
 }
