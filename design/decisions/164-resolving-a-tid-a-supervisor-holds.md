@@ -79,6 +79,12 @@ is the *anything two programs agree on* category: cheaper than the surface, not 
 ## What is blocked until this is answered
 
 **Milestone 105**, which is now one fork rather than two, and through it **milestone 23** (the
-component OS with live replacement), which is the first consumer with more than one child. Nothing
-else: the supervision tree runs one sub-server at a time today and the spawner-issued handle
+component OS with live replacement), which is the first consumer with more than one child. The
+supervision tree runs one sub-server at a time today and the spawner-issued handle
 `sub_server_supervisor` uses works for exactly that reason.
+
+**Amendment, 2026-09-27, milestone 126 (the `procps` package: who else is running).** Two more
+consumers, found by that milestone's lane and recorded in
+[`notes/process-view/what-is-left.md`](../../notes/process-view/what-is-left.md) section 2: `w`'s
+`WHAT` column and `ps`'s missing `CMD` column. Both ask this section's exact question, a name for a
+tid already held, so neither is a new fork and both wait on this one.

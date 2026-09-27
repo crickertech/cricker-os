@@ -141,9 +141,11 @@ And there is nothing to wait for from the prompt yet: `pgrep` cannot be given a 
 since its manifest is `ArgSpec::Forbidden` until milestone 47 (navigation and naming) grows
 positional arity.
 
-Recommendation: no `pidwait` program. A wait mode on `pgrep` once milestone 106 (a wait that ends on
-either the interrupt or the deadline) gives it a real sleep and milestone 47 gives it an operand.
-The mode's spelling is a name, and calef's.
+Considered and refused: no `pidwait` program, only a wait mode on `pgrep` once milestone 106 (a wait
+that ends on either the interrupt or the deadline) gave it a real sleep and milestone 47 gave it an
+operand. That was this section's recommendation before calef ruled. §226 refused it as option A
+(`pgrep --wait`): disorienting to users, since a program named for finding would also block.
+`pidwait` ships as its own program instead, taking tids and composing with `pgrep`.
 
 ## 5. `pmap` from the prompt
 
