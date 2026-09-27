@@ -5,7 +5,7 @@
 `Vec` and `String` and `println!` and `Instant`, compile and run on the capability ABI. See
 DECISIONS §22 for the decision and why; notes/abi.md for the ABI it binds to.)*
 
-The shape is **Hermit's, not Redox's**. Hermit implements std's platform layer directly on a
+The shape is Hermit's, not Redox's. Hermit implements std's platform layer directly on a
 non-POSIX unikernel ABI; Redox writes a POSIX C library (relibc) first and puts std on top of that.
 We took the native road: there is no errno, no fd table, no `open`, no `fork` under our `sys`
 backend, because the OS does not have them and std does not actually need them to run a workload
@@ -16,25 +16,25 @@ crates.io, without smuggling in the POSIX assumptions the ABI deliberately exclu
 ## What a std program is given
 
 A std program is an ordinary nife ELF (notes/abi.md §3): entered at `_start`, linked at
-`0x40_0000`, capability table populated by its parent. std's runtime contract needs two things, and the ABI's
+`0x6000_0000` (notes/address-space-map.md), capability table populated by its parent. std's runtime contract needs two things, and the ABI's
 out-of-band convention (notes/abi.md §4) grants them at fixed slots:
 
-- **slot 0: an untyped budget.** The global allocator draws heap pages from it lazily via
+- slot 0: an untyped budget. The global allocator draws heap pages from it lazily via
   `untyped::MAP`, one page per invoke, at `0x4000_0000`. This is the same untyped-backed heap the
   `allocator_exerciser` workload proved (`crates/user_mode_heap` algorithm, host-tested), restated inside std because
   std cannot depend on an out-of-tree crate.
-- **slot 1: an endpoint with WRITE.** `stdout` and `stderr` SEND here, 16 bytes per message (w0 =
+- slot 1: an endpoint with WRITE. `stdout` and `stderr` SEND here, 16 bytes per message (w0 =
   byte count, w1|w2 = the bytes, little-endian). std's own `LineWriter` batches user writes; the
   receiver reassembles.
 
 Three more slots exist, and a program holds each only if it was *given* the thing behind it
 (milestone 27 phase two, the `std::net` and `std::fs` bindings below):
 
-- **slot 2: a `Stack` endpoint with WRITE.** `std::net` speaks net_stack's socket contract over it.
-- **slot 3: an untyped budget** the net PAL mints each socket's shared frame from.
-- **slot 4: an FS-service endpoint with WRITE**, which *is* a directory capability, plus the page it
+- slot 2: a `Stack` endpoint with WRITE. `std::net` speaks net_stack's socket contract over it.
+- slot 3: an untyped budget the net PAL mints each socket's shared frame from.
+- slot 4: an FS-service endpoint with WRITE, which *is* a directory capability, plus the page it
   shares with the FS server mapped at `0x1100_0000`. `std::fs` speaks the §27 file contract over it.
-- **slot 5: a `Frame` capability naming the clock page**, with `READ`, plus a read-only mapping of it
+- slot 5: a `Frame` capability naming the clock page, with `READ`, plus a read-only mapping of it
   at `0x1200_0000`. `SystemTime::now()` is the offset it finds there plus the ambient counter
   (milestone 51, §43).
 - **slot 6: the entropy service's request endpoint**, with WRITE (milestone 56, §44). It means "you
@@ -71,7 +71,7 @@ std by `cargo xtask std-src`. Each file binds one std concept to the ABI:
 | `std::process::id` | `0`, because this system issues no process identifier (`sys/process/nife.rs`); everything else in `std::process` refuses |
 
 The syscall glue (`sys/pal/nife/rt.rs`) is a deliberate twin of `crates/user_mode_runtime`: the same
-`svc`/`ecall` wrappers, restated because std cannot depend on the crate. The ABI **constants** are
+`svc`/`ecall` wrappers, restated because std cannot depend on the crate. The ABI constants are
 not restated: `abi.rs` is generated verbatim from `crates/abi` by `std-src`, so the numbers cannot
 drift. Likewise `user_mode_heap.rs` from `crates/user_mode_heap` (the host-tested heap algorithm is the only heap
 algorithm), `netproto.rs` from `crates/socket_protocol/src/lib.rs`, and `fsproto.rs` from `crates/filesystem_protocol`: every
@@ -84,21 +84,21 @@ come the same way, as `runtimeproto.rs` from `crates/std_runtime_protocol`, sinc
 
 There is no crate to adopt; the deliverable IS the PAL, plus the machinery to build it. Rust's
 `-Zbuild-std` compiles std from source, and it finds that source in the sysroot of the rustc it
-invokes. So a **patched std means a toolchain whose sysroot is patched**. `cargo xtask std-src`
+invokes. So a patched std means a toolchain whose sysroot is patched. `cargo xtask std-src`
 builds one:
 
-1. **Hardlink-clone the real nightly** (`cp -al` of `bin` and `lib`). Blocks are shared, so the
+1. Hardlink-clone the real nightly (`cp -al` of `bin` and `lib`). Blocks are shared, so the
    clone costs almost no disk. rustc resolves *this* directory as its sysroot (it derives the
    sysroot from the location of `librustc_driver`, which the clone puts inside the farm; a symlink
    farm does not work, because the symlink resolves back to the real toolchain, which was the first
    thing tried and measured).
-2. **Replace the `src` subtree with a real copy** (independent inodes), so patching it never
+2. Replace the `src` subtree with a real copy (independent inodes), so patching it never
    touches the shared rustup toolchain.
-3. **Patch that copy**: drop in the overlay PAL files, generate `abi.rs`/`user_mode_heap.rs`, and insert a
+3. Patch that copy: drop in the overlay PAL files, generate `abi.rs`/`user_mode_heap.rs`, and insert a
    `target_os = "nife"` arm into std's `cfg_select!` dispatchers (pal, alloc, stdio, random,
    thread, time, io/error, thread_local storage and guard) plus `env_consts` and the
    `restricted_std` chain in std's `build.rs`.
-4. **Link it** as the `nife-dev` toolchain (`rustup toolchain link`).
+4. Link it as the `nife-dev` toolchain (`rustup toolchain link`).
 
 `cargo xtask std-exerciser` then builds the `std_exerciser` demo for both custom targets against it. The build
 sets `RUSTUP_TOOLCHAIN=nife-dev` explicitly rather than `+nife-dev`, because the cargo proxy
@@ -111,20 +111,20 @@ its build-std cache survive across runs and only a PAL change forces std to reco
 
 ### `nife-dev` is global to the machine, and the stamp does not guard it
 
-**The farm is per-worktree; the name is not.** `rustup toolchain link` writes one symlink under
+The farm is per-worktree; the name is not. `rustup toolchain link` writes one symlink under
 `$RUSTUP_HOME/toolchains` for the whole user account, so `nife-dev` means whichever worktree ran
 `std-src` last, while every build downstream resolves std through that name rather than through a
 path. Two agent lanes gating at once therefore contend for it, and the loser does not fail: it
 compiles against a farm inside somebody else's worktree.
 
-**A warm stamp used to be enough to skip the link entirely**, which is what made the failure silent.
+A warm stamp used to be enough to skip the link entirely, which is what made the failure silent.
 The stamp answers *is this worktree's farm built*, and nothing was asking *does `nife-dev` still
 mean it*. On 2026-08-18 lane `55-durability` relinked mid-run and lane `64-more`'s `std_exerciser`
 built against 55's farm; it was caught by a person reading the `Compiling std` path out of the build
 output, and nothing else would have caught it. AGENTS.md had warned about this shape in prose since
 2026-08-01 and the warning is rung four, which is exactly as much as it turned out to be worth.
 
-`std_src` now verifies the link on the warm path and **relinks, loudly, when it points elsewhere**.
+`std_src` now verifies the link on the warm path and relinks, loudly, when it points elsewhere.
 Relink rather than refuse, because the lane calling it is about to build and needs the name to mean
 its own farm; taking the link is what every lane already does by design. What changed is that the
 theft is deliberate and printed, so a foreign `Compiling std` path cannot happen without a line
@@ -134,17 +134,17 @@ worktree left `nife-dev` pointing at nothing and unrelated builds failed far fro
 
 **Telling a lane not to take the link was never possible**, which milestone 57's lane established on
 2026-08-01 by reading the code rather than by failing. `script/test` calls `std_src()` transitively
-and a fresh worktree always has a cold farm, so **any lane that runs the gate takes the
-account-wide name.** `AGENTS.md` had at that point given two instructions that could not both be
+and a fresh worktree always has a cold farm, so any lane that runs the gate takes the
+account-wide name. `AGENTS.md` had at that point given two instructions that could not both be
 obeyed: gate before reporting, and do not run `xtask std-src`. The honest rule that replaced them is
 the integrator's, and is all that `AGENTS.md` still carries: expect every lane to take it, and
 relink from the main checkout at merge.
 
-**The workaround worth knowing, from the same lane**: symlink the worktree's `target/nife-farm` at
+The workaround worth knowing, from the same lane: symlink the worktree's `target/nife-farm` at
 the main checkout's farm once `cargo xtask std-stamp` shows the stamps match, and `std_src()`
 early-returns instead of rebuilding a second copy.
 
-**This does not make concurrent lanes safe, and must not be read that way.** It makes the loss
+This does not make concurrent lanes safe, and must not be read that way. It makes the loss
 visible and self-healing at the next call. A lane whose build is already in flight when another
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
@@ -162,7 +162,7 @@ The load-bearing fields:
   process, `thread::spawn` is `Unsupported`); it flips off when real threads arrive.
 - softfloat (aarch64 `-neon`, riscv `lp64`, x86_64 `-mmx,-sse...,+soft-float` with
   `"rustc-abi": "softfloat"`) matches EL0/U-mode/ring 3 with no FP save area, the same choice the
-  `no_std` programs make. **On x86_64 this is a correctness requirement, not a preference**:
+  `no_std` programs make. On x86_64 this is a correctness requirement, not a preference:
   `kernel/src/arch/x86_64/` saves no FPU or SSE state on a context switch, so a std program that let
   LLVM emit SSE would have its `xmm` registers overwritten by whichever thread ran next.
 

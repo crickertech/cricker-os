@@ -106,12 +106,12 @@ const OUT_PAGE_FRAME: u64 = SURFACE_FRAME + 1;
 /// already-mapped. Both moved well clear; `SURFACE_VA`'s own 2 MiB alignment is unchanged and is
 /// what keeps a run this large inside as few page-table windows as possible
 /// (`display_service::MAP_BUDGET_PAGES`'s own comment has the arithmetic).
-const SURFACE_VA: u64 = 0x0000_0000_0060_0000;
+const SURFACE_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 /// The page an application writes the bytes of an `OP_WRITE` into. The terminal contract's
 /// "control by message, bulk by shared page" split (DECISIONS §10), the same one `filesystem_protocol` makes.
-const OUT_VA: u64 = 0x0000_0000_0a00_0000;
+const OUT_VA: u64 = address_space_map::pair_page(0x0000_0000_0a00_0000);
 /// The compositor's per-client control page. [`MODE_WINDOW`] only.
-const CTL_VA: u64 = 0x0000_0000_0a01_0000;
+const CTL_VA: u64 = address_space_map::pair_page(0x0000_0000_0a01_0000);
 
 /// Failure codes, in a `0xDEAD_...` word so a failure names its step rather than hanging.
 const E_INFO: u64 = 0x01;

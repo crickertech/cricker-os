@@ -4,7 +4,7 @@ use crate::sched::RendezvousId;
 
 /// Where `session_reviver` expects its FS channel; must match `components/src/session_reviver.rs`'s own
 /// `FS_VA`.
-const FS_VA: u64 = 0x0000_0000_00e6_0000;
+const FS_VA: u64 = address_space_map::pair_page(0x0000_0000_00e6_0000);
 
 /// Extra stack pages beyond `run`'s own one-page default (`kernel::user::USER_STACK_VA` maps
 /// exactly one page unless a caller adds more, `fs_service::CLIENT_EXTRA_STACK`'s own reasoning).

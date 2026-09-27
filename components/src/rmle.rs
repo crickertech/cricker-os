@@ -93,12 +93,12 @@ const MAX_COLS: usize = 100;
 /// The terminal's own output page, mapped read/write here and read-only on the terminal's side
 /// (`components/src/line_editor.rs`'s `APP_OUT_VA`). Chosen not to collide with [`FS_VA`] below, in the
 /// same address space.
-const TERM_OUT_VA: u64 = 0x0000_0000_0080_0000;
+const TERM_OUT_VA: u64 = address_space_map::pair_page(0x0000_0000_0080_0000);
 /// The page shared with the FS server, `filesystem_protocol`'s own transfer unit. The same
 /// conventional address `swish` and `fs_test_client` use; nothing requires it match theirs, since
 /// each program is its own address space, but a reader who knows one FS client's layout should not
 /// have to learn a second one for no reason.
-const FS_VA: u64 = 0x0000_0000_0060_0000;
+const FS_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 
 // SAFETY: the wiring (`kernel/src/user/rmle_service.rs`) maps one page read/write at each VA
 // before this program runs, the same convention `fs_file_caretaker.rs`'s own `WINDOW` documents.

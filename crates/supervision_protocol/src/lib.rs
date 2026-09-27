@@ -153,9 +153,14 @@ pub const REP_FAILED: u64 = 3;
 /// The page size the loader maps in.
 pub const PAGE: u64 = 4096;
 
-/// Where a child's stack top sits. One address for every process this system builds, which is what
-/// lets [`configure_child`] compute the entry `sp` without being told.
-pub const CHILD_STACK_VA: u64 = 0x0050_0000;
+/// Where a child's highest stack page sits. One address for every process this system builds, which
+/// is what lets [`configure_child`] compute the entry `sp` without being told.
+///
+/// **The map's `STACK_TOP_PAGE`** (milestone 206 (a program image has under 896 KiB), DECISIONS §171 (where a program image starts) option D), the same page
+/// `kernel::user::USER_STACK_VA` names, derived rather than restated. It was `0x50_0000` until
+/// 2026-09-26, and moving the kernel's copy alone broke `authority_tests` at stage 10 because this
+/// one did not move with it; now neither can move without the other.
+pub const CHILD_STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
 
 /// The stack a child gets when its builder does not say otherwise ([`ChildEndowment::new`]). Four pages,
 /// which is enough for the supervision tree's programs; the flaky sub-server would be fine with one.
@@ -169,9 +174,18 @@ pub const CHILD_STACK_PAGES: u64 = 4;
 
 /// An ever-advancing scratch window: where we temporarily map each child frame to fill it. Never
 /// unmapped, so a per-call reset would collide with a previous child's mappings (the bug 19d.2c
-/// found and this inherits the fix for).
+/// found and this inherits the fix for). It starts at the bottom of the address-space map's runtime
+/// windows.
+///
+/// **BUGS: nothing bounds it** (recorded 2026-09-26, milestone 206). It advances one page per page
+/// built and never comes back, so a long-lived builder walks up through the runtime windows. In the
+/// progenitor the kernel's initrd window is at `0x2000_0000`, 256 MiB above the start, and a program
+/// the size of `ripgrep` costs 2.6 MiB a spawn: after about a hundred such spawns the cursor reaches
+/// the archive's window, the kernel refuses the mapping as already mapped, and every later build
+/// fails. Bounding it needs an unmap this loader does not
+/// have; milestone 206's block proposes the follow-up.
 static SCRATCH_NEXT: core::sync::atomic::AtomicU64 =
-    core::sync::atomic::AtomicU64::new(0x1000_0000);
+    core::sync::atomic::AtomicU64::new(address_space_map::runtime_window(0x1000_0000));
 
 /// **Take `pages` of the never-reused scratch window for a caller's own mapping**, returning the
 /// first address. The progenitor maps each frame of a DECISIONS §219 (how the shell names an installed program to the spawner) image request here: a frame
@@ -361,6 +375,22 @@ pub fn build_child_space(
     elf: &elf::Elf,
     endow: &ChildEndowment,
 ) -> Result<(Child, u64), ()> {
+    // The map's image band, checked before anything is retyped, the same check `kernel::user::load`
+    // makes. This loader has no channel for the reason (every refusal is `Err(())`, see BUGS above),
+    // so a too-large image still reads as "could not build"; what the check buys is that it fails
+    // here, cleanly, rather than half-built at the first stack page it would have collided with.
+    let (mut lo, mut hi) = (u64::MAX, 0);
+    for seg in elf.segments() {
+        let (start, end) = seg.page_range(PAGE);
+        lo = lo.min(start);
+        hi = hi.max(end);
+    }
+    if address_space_map::check_image(lo, hi).is_err()
+        || endow.stack_pages > address_space_map::MAX_STACK_PAGES
+    {
+        return Err(());
+    }
+
     let aspace = retype_obj_from(build_ut, abi::objtype::ADDRESS_SPACE)?;
 
     for seg in elf.segments() {

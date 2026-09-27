@@ -3,7 +3,7 @@ use crate::cap::{Rights, memory_region_root_cap, page_frame_cap, rendezvous_cap}
 use crate::sched::{self, RendezvousId};
 
 /// Where the service maps its own request to the credential service. Must match `components/src/login.rs`.
-const CRED_VA: u64 = 0x0000_0000_00e3_0000;
+const CRED_VA: u64 = address_space_map::pair_page(0x0000_0000_00e3_0000);
 
 /// How many pages a spawned `login_test_client` run's own `memory_region_cap` (slot 3) holds:
 /// enough for `page_frame::MAP`'s own page-table cost when it self-maps the frame `login`'s

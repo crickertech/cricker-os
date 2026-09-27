@@ -21,9 +21,8 @@
 //! - **Which untyped slot** feeds the heap is the program's convention with its parent, like
 //!   every other slot. There is no ambient memory to fall back on: no untyped granted, no heap.
 //! - **Where the heap lives** is a virtual range the program promises not to use for anything
-//!   else. [`DEFAULT_BASE`] (1 GiB) clears every VA convention in the tree today (program text at
-//!   `0x40_0000`, stacks, the shared pages, init's scratch at `0x1000_0000`, the initrd at
-//!   `0x2000_0000`).
+//!   else. [`DEFAULT_BASE`] (1 GiB) is the start of `address_space_map::HEAP`, the band the
+//!   address-space map keeps for a heap and nothing else.
 //! - **`max_bytes`** caps growth so a leak exhausts the heap, visibly, before it silently eats
 //!   the budget the program also builds children from. The untyped itself is the hard ceiling
 //!   either way: `MAP` returns `OutOfMemory` when the region is spent, and the allocator reports
@@ -43,11 +42,12 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::sync::atomic::{AtomicBool, Ordering};
 
-/// The suggested heap base: 1 GiB, clear of every VA the userspace tree currently hardcodes.
-/// A convention, not a law; a program with its own layout passes its own base to [`init`].
+/// The suggested heap base: 1 GiB, the start of the address-space map's heap band (milestone 206 (a program image has under 896 KiB)).
+/// A convention, not a law; a program with its own layout passes its own base to [`init`], and one
+/// that does should still keep it inside `address_space_map::HEAP`.
 ///
 /// [`init`]: MemoryRegionHeap::init
-pub const DEFAULT_BASE: u64 = 0x4000_0000;
+pub const DEFAULT_BASE: u64 = address_space_map::HEAP.start;
 
 const PAGE: u64 = 4096;
 

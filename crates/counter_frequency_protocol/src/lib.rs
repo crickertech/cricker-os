@@ -223,16 +223,22 @@ pub const PAGE_BYTES: usize = OFF_HZ + 8;
 /// refused rather than merely unusual. See the `riscv64` arm's own comment for where its number
 /// comes from.
 ///
-/// **Deliberately far above every other low-half address this tree hands out**, rather than
-/// beside the boot tour's own small demo addresses (`kernel::user::X86_DEMO_CODE_VA` = `0x40_0000`,
-/// `USER_STACK_VA` = `0x50_0000`). Every program's ELF loads at `0x40_0000` (`crates/user_mode_runtime/link.ld`) and
-/// individual test fixtures map their own extra windows in the low few megabytes above it (a
-/// first attempt at `0x60_0000` collided with `fixtures/src/window.rs`'s own `CTL_VA`, which a
-/// full-suite run under `script/test --arch x86_64` caught as `AlreadyMapped`). Because this page
-/// is mapped **unconditionally into every `x86_64` process** rather than opted into by one
-/// program's own wiring, it cannot share that convention's address space at all: any low-MiB
-/// address might be exactly what some future program's own segments or some future fixture's own
-/// window wants. `0x0000_7000_0000_0000` sits at seven-eighths of the low half's own ceiling
+/// **Deliberately far above every other low-half address this tree hands out.** When this was
+/// sited, every program's ELF loaded at `0x40_0000`, its stack sat at `0x50_0000`, and individual
+/// test fixtures mapped their own extra windows in the low few megabytes above them (a first
+/// attempt at `0x60_0000` collided with `fixtures/src/window.rs`'s own `CTL_VA`, which a full-suite
+/// run under `script/test --arch x86_64` caught as `AlreadyMapped`). Because this page is mapped
+/// **unconditionally into every `x86_64` process** rather than opted into by one program's own
+/// wiring, it could not share that convention's address space at all: any low-MiB address might be
+/// exactly what some future program's own segments or some future fixture's own window wants.
+///
+/// **That collision is why `crates/address_space_map` exists** (milestone 206 (a program image has under 896 KiB), DECISIONS §171 (where a program image starts) option
+/// D). Under the map, `0x60_0000` is a pair page by definition and a page like this one belongs in
+/// the map's `PROCESS_PAGES`, beside the stack, where it would share the stack's page tables
+/// instead of paying for three of its own. It has not moved there: this file is generated into
+/// std's PAL, so the move is a farm rebuild and a benchmark re-baseline, and it is recorded in the
+/// map's roadmap block as the next step rather than folded into the change that drew the map. The
+/// test module pins that it stays above every band on the map meanwhile. `0x0000_7000_0000_0000` sits at seven-eighths of the low half's own ceiling
 /// (`x86_64`'s `SPLIT_SHIFT` is 47, so the low half is every address under `0x0000_8000_0000_0000`;
 /// see `crates/paging/src/x86_64.rs`), leaving roughly 26 TiB of headroom below the boundary and
 /// none of this tree's other conventions anywhere near it.
@@ -243,8 +249,8 @@ pub const PAGE_VA: u64 = 0x0000_7000_0000_0000;
 /// value above is not addressable. `0x38_0000_0000` is seven-eighths of that ceiling, which is the
 /// same rule the `x86_64` arm follows one address width down: 224 GiB in, with 8 GiB of headroom
 /// below the boundary and every other user address this tree hands out (the highest is
-/// `disk_service::ROSTER_VA` at `0x5001_0000`, plus `supervision_protocol`'s ever-advancing scratch
-/// window from `0x1000_0000`) more than a hundred gigabytes below it.
+/// `address_space_map::CODE_MODEL_CEILING`, 2 GiB, below which the whole map lies) more than two
+/// hundred gigabytes below it.
 ///
 /// The host build of this crate takes the `x86_64` arm, which is harmless: nothing in the `cfg(test)`
 /// suite below depends on the value, only on the layout.
@@ -321,6 +327,16 @@ mod tests {
 
     /// The round trip: build a page for a real-looking rate, read it back through a raw pointer
     /// the way a mapped frame would be named.
+    /// **The page stays above every band of the address-space map**, on the architecture the
+    /// host build stands in for and on Sv39's own arm, so a program's image, stack, heap or windows
+    /// can never be placed over it.
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn the_page_is_above_every_band_of_the_address_space_map() {
+        assert!(PAGE_VA >= address_space_map::CODE_MODEL_CEILING);
+        assert!(0x0000_0038_0000_0000 >= address_space_map::CODE_MODEL_CEILING);
+    }
+
     #[test]
     fn a_built_page_round_trips_its_rate() {
         let bytes = build_page(2_400_000_000);

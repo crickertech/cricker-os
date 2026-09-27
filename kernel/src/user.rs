@@ -47,12 +47,19 @@ use crate::arch::sync_icache;
 use crate::memory;
 
 /// Where a user program's stack goes. One page, and `sp` starts at the top of it: stacks grow down.
+/// A program given a deeper stack gets the rest mapped below this, one page at a time.
+///
+/// **Derived from `address_space_map`**, the band the map gives the stack, rather than chosen here.
+/// It was `0x50_0000` until 2026-09-26 (milestone 206 (a program image has under 896 KiB)), directly above an image linked at
+/// `0x40_0000`, which left a program image under 896 KiB; the map moved the image and the stack
+/// together to the top of the second gigabyte.
 ///
 /// There is no matching `USER_CODE_VA` any more: it existed for `exec`, the one-page raw
 /// machine-code loader the hand-assembled programs needed, and every program the kernel runs now
-/// names its own load address in its ELF header.
-pub const USER_STACK_VA: u64 = 0x0000_0000_0050_0000;
-pub const USER_STACK_TOP: u64 = USER_STACK_VA + FRAME_SIZE;
+/// names its own load address in its ELF header, which [`load`] checks against the map's image band.
+pub const USER_STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
+pub const USER_STACK_TOP: u64 = address_space_map::STACK_TOP;
+const _: () = assert!(USER_STACK_TOP == USER_STACK_VA + FRAME_SIZE);
 
 /// A user address space: an L0 table for `TTBR0`, and every frame that hangs off it.
 ///
@@ -647,6 +654,45 @@ pub enum LoadError {
     /// refused by construction rather than by a check, because the `Mapper` is built with
     /// `Half::Low` and a high address is not a thing it can express (`MapError::WrongHalf`).
     Unmappable(MapError),
+
+    /// **It does not fit the address-space map's image band**: too large, which names the image's
+    /// end and the stack's base, or linked somewhere else entirely (milestone 206, DECISIONS §171 (where a program image starts)
+    /// option A). Refused before a page is mapped. Until 2026-09-26 an image too large for its band
+    /// was reported as `Unmappable(AlreadyMapped)` from the first stack page it collided with, which
+    /// named an overlap and not a size, and nobody hitting it learned what was wrong.
+    ///
+    /// Its `Display` is the sentence; the boot prints that rather than the `Debug` form.
+    Misplaced(address_space_map::ImagePlacement),
+}
+
+impl core::fmt::Display for LoadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            LoadError::Misplaced(p) => write!(f, "{p}"),
+            other => write!(f, "{other:?}"),
+        }
+    }
+}
+
+/// **Refuse an image the address-space map has no room for**, before anything is mapped.
+///
+/// An image that starts in the kernel's half is left to the `Mapper`, which refuses a kernel-half
+/// address by construction (`MapError::WrongHalf`) and must keep being the thing that does:
+/// `an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused` proves the construction, and a band
+/// check in front of it would prove only the check. Every other image the map has no room for,
+/// including one linked for the old layout at `0x40_0000`, is refused here.
+fn check_image_band(elf: &Elf) -> Result<(), LoadError> {
+    let mut lo = u64::MAX;
+    let mut hi = 0;
+    for seg in elf.segments() {
+        let (start, end) = seg.page_range(FRAME_SIZE);
+        lo = lo.min(start);
+        hi = hi.max(end);
+    }
+    if lo == u64::MAX || mmu::KERNEL_VA_BASE <= lo {
+        return Ok(());
+    }
+    address_space_map::check_image(lo, hi).map_err(LoadError::Misplaced)
 }
 
 /// Parse an ELF, build an address space, and put it in memory. Do **not** run it.
@@ -675,6 +721,7 @@ pub enum LoadError {
 /// twice costs a frame per process forever.
 pub fn load(image: &[u8], windowed: u64) -> Result<(AddressSpace, u64), LoadError> {
     let elf = Elf::parse(image).map_err(LoadError::NotLoadable)?;
+    check_image_band(&elf)?;
 
     // The budget, counted from the file before anything is carved: every segment's pages, plus
     // one for the stack, plus what the caller's own windows will cost. (AS_OVERHEAD covers the
@@ -820,6 +867,10 @@ fn map_timebase_page(space: &mut AddressSpace) -> Result<(), MapError> {
 /// A read-only segment gets `user_rodata`, not `user_data`: a loader that widens permissions is
 /// a loader you cannot reason about. `.bss` is free because `map_new` zeroes every page.
 fn map_segments(space: &mut AddressSpace, elf: &Elf) -> Result<(), LoadError> {
+    // Every kernel path that lays out an image comes through here, so the map is enforced here as
+    // well as early in [`load`] (which checks before it sizes a region, so a huge image is told it
+    // is too large rather than that memory ran out).
+    check_image_band(elf)?;
     for seg in elf.segments() {
         let flags = if seg.is_executable() {
             Flags::user_code()
@@ -923,10 +974,10 @@ pub struct Spawn<'a> {
 }
 
 /// Where the kernel maps the initrd read-only into the progenitor's address space (milestone 19d): the progenitor
-/// reads the ELF to parse it here. High enough not to collide with the progenitor's own segments (`0x40_0000`)
-/// or its stack (`0x50_0000`).
+/// reads the ELF to parse it here. A runtime window on the address-space map (milestone 206): the
+/// kernel places it for a program that did not choose the address.
 #[cfg_attr(not(test), allow(dead_code))] // becomes the boot path at 19d.2; test-driven until then
-pub const INITRD_VA: u64 = 0x2000_0000;
+pub const INITRD_VA: u64 = address_space_map::runtime_window(0x2000_0000);
 
 /// **Spawn the progenitor task** (milestone 19d): load `image` as an ordinary user process, but also
 /// map the whole initrd read-only at [`INITRD_VA`] so the progenitor can parse it, and hand the progenitor a building
@@ -1339,7 +1390,7 @@ fn run_with(image: &[u8], spawn: Spawn, device: Option<DeviceRun>) -> ! {
         Ok(v) => v,
         Err(e) => {
             crate::println!();
-            crate::println!("  refused to load a user program: {e:?}");
+            crate::println!("  refused to load a user program: {e}");
             crate::println!("  the kernel is fine.");
             crate::sched::exit();
         }
@@ -1543,13 +1594,13 @@ pub const OUTLAW_READ_KERNEL: u64 = 1;
 #[cfg(target_arch = "x86_64")]
 pub mod x86_programs;
 
-/// Where the x86 demo's children put their code and stack. Any two low-half pages would do; these
-/// are the ones the supervision fixtures use on every architecture, so a reader who has seen one
-/// recognises them.
+/// Where the x86 demo's children put their code and stack: the address-space map's image base and
+/// top stack page, where the supervision fixtures put theirs on every architecture, so a reader who
+/// has seen one recognises them.
 #[cfg(target_arch = "x86_64")]
-const X86_DEMO_CODE_VA: u64 = 0x40_0000;
+const X86_DEMO_CODE_VA: u64 = address_space_map::IMAGE_BASE;
 #[cfg(target_arch = "x86_64")]
-const X86_DEMO_STACK_VA: u64 = 0x50_0000;
+const X86_DEMO_STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
 /// The word the reporting child SENDs, and the address the faulting one loads from. Both are
 /// distinctive so that a zero anywhere in the report is visibly a failure rather than a plausible
 /// value.
@@ -1829,7 +1880,7 @@ pub fn riscv_uart_driver_demo(
     archive: &'static [u8],
     uart_irq: u32,
 ) -> Result<crate::sched::RendezvousId, LoadError> {
-    const DRIVER_UART_VA: u64 = 0x0070_0000; // must match components/src/serial_driver.rs UART_VA
+    const DRIVER_UART_VA: u64 = address_space_map::pair_page(0x0070_0000); // must match components/src/serial_driver.rs UART_VA
     const UART_PHYS: u64 = 0x1000_0000; // the NS16550 on QEMU virt
 
     let fs = nifefs::Fs::parse(archive).expect("initrd is not a nifefs archive");

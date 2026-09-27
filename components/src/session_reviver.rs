@@ -158,7 +158,7 @@ const FS_EP: u64 = 2;
 /// The page shared with the FS server, in the `0x...00eN_0000` family `credentialer.rs`,
 /// `login.rs` and `identity_provisioner.rs` already use, one past `identity_provisioner.rs`'s
 /// highest (`FS_VA`, `0xe5_0000`).
-const FS_VA: u64 = 0x0000_0000_00e6_0000;
+const FS_VA: u64 = address_space_map::pair_page(0x0000_0000_00e6_0000);
 // SAFETY: the wiring maps one page read/write at FS_VA before this process runs, shared with the
 // FS server and with nothing else.
 const FS_WINDOW: MappedWindow =

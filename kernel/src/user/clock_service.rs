@@ -7,8 +7,8 @@ use crate::sched::RendezvousId;
 /// `CLOCK_VA` is public because it is the address the **set** authority lives at, and milestone
 /// 51's NTP tests aim a write there from a process that holds no such mapping. An attack on an
 /// address nobody uses would prove nothing.
-pub const CLOCK_VA: u64 = 0x00c0_0000;
-const RTC_VA: u64 = 0x00d0_0000;
+pub const CLOCK_VA: u64 = address_space_map::pair_page(0x00c0_0000);
+const RTC_VA: u64 = address_space_map::pair_page(0x00d0_0000);
 
 /// What the clock service was wired with, so a test (or a real progenitor) can play its clients.
 pub struct Wiring {

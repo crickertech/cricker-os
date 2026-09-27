@@ -62,14 +62,14 @@ const FILE: u64 = 2;
 /// A readiness endpoint: the server SENDs one word here once the image is open, before it serves.
 const READY: u64 = 3;
 
-/// Where the kernel maps the two shared regions. Above the program image (0x40_0000) and the heap
-/// (0x4000_0000 + a few MiB), so nothing collides.
+/// Where the kernel maps the two shared regions: the block channel, a service window on the
+/// address-space map (`crates/address_space_map`), above the heap band and below the image band.
 ///
 /// [`BLK_PAGE`] is `blk::TRANSFER_MAX` bytes wide rather than one page (milestone 138 step 4) and
 /// [`FILE_PAGE`] is `fs::TRANSFER_MAX` bytes wide rather than one page (step 3); [`FILE_PAGE`] sits
 /// above [`BLK_PAGE`] by exactly `blk::TRANSFER_MAX` so growing either region stays inside the 8 MiB
 /// nothing else this process maps comes within.
-const BLK_PAGE: u64 = 0x5000_0000;
+const BLK_PAGE: u64 = address_space_map::service_window(0x5000_0000);
 const FILE_PAGE: u64 = BLK_PAGE + blk::TRANSFER_MAX as u64;
 
 /// One filesystem block, in bytes: the unit [`BLK_PAGE`] is carved into. The transfer unit for

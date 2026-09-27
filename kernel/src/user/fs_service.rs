@@ -43,7 +43,7 @@ const FS_STACK_PAGES: u64 = 96;
 const STACK_POISON: u64 = 0xC71C_5E57_C71C_5E57;
 
 // The VAs each process expects its mappings at. Each MUST match that program's source.
-const DMA_VA: u64 = 0x0000_0000_0090_0000; // block server DMA region, 1 + BLK_PAGES pages (crates/virtio)
+const DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000); // block server DMA region, 1 + BLK_PAGES pages (crates/virtio)
 const BLK_PAGE_FS: u64 = 0x5000_0000; // FS server's block region (redoxfs_server.rs BLK_PAGE)
 // FS server's file region (redoxfs_server.rs FILE_PAGE): BLK_PAGES pages above BLK_PAGE_FS, so growing
 // the block channel (milestone 138 step 4) cannot walk into it.

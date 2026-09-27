@@ -202,7 +202,7 @@ pub const PAGE_BYTES: usize = OFF_CPU + 8;
 /// for, and it is the same number on all three architectures. Both sides agree on it through this
 /// crate rather than through two copies of a constant.
 ///
-/// **The last page of the first gigabyte**, and the reason is a measurement rather than a
+/// **Beside the stack, in the same last-level table**, and the reason is a measurement rather than a
 /// convention. The first draft put this at three quarters of each architecture's low half, copying
 /// `counter_frequency_protocol::PAGE_VA` (seven eighths) and its argument: a page mapped
 /// unconditionally into every process must not share a neighbourhood with the low few megabytes
@@ -218,23 +218,26 @@ pub const PAGE_BYTES: usize = OFF_CPU + 8;
 /// (+10.25% against the recorded baseline, over the gate's 10% bound), of which only 277 was
 /// allocating and zeroing this page's own frame. The other 968 was the walk.
 ///
-/// Inside the first gigabyte the L1 and L2 tables are ones the process's own segments already paid
-/// for, so the mapping buys **one** L3 rather than three, and the same measurement reads 741 ticks.
-/// Sharing the L3 as well would mean sitting in the same 2 MiB as the program's own segments, which
-/// is the collision hazard the first draft was right about, so that is where this stops.
+/// So the page goes **under tables the process already paid for**. From 2026-09-21 that was the
+/// last page of the first gigabyte (`0x3FFF_F000`), which shared the L1 and L2 tables every program's
+/// segments paid for and bought one L3, measured at 741 ticks a spawn. Sharing the L3 as well would
+/// have meant sitting in the same 2 MiB as the program's own segments, a collision hazard, because
+/// nothing said which pages were whose.
 ///
-/// `0x3FFF_F000` is the top of that gigabyte: the conventions in this tree all grow upward from
-/// zero (the highest is `kernel::user::INITRD_VA` at `0x2000_0000`, and
-/// `display_service::SCREEN_APERTURE_VA` sits at `0x4000_0000`, one page above this and outside
-/// the gigabyte), so the top of it is the furthest a page can be from them while still sharing
-/// their tables.
+/// **Since 2026-09-26 it is `address_space_map::CURRENT_CPU_PAGE`, `0x7FFF_F000`**, and the hazard is
+/// gone rather than avoided (milestone 206 (a program image has under 896 KiB), DECISIONS §171 (where a program image starts) option D). The map moved every program's
+/// image and stack to the top of the second gigabyte and reserved the last 64 KiB of it,
+/// `PROCESS_PAGES`, for pages the kernel maps into every process unasked. This page is the last of
+/// them, one page above the stack's top page and in the same 2 MiB, so it shares the stack's L1, L2
+/// **and** L3: the mapping buys no table at all, only its leaf. The first gigabyte's tables, which
+/// this page used to lean on, are no longer paid for by every program, so staying there would have
+/// cost two more tables per spawn than it did.
 ///
-/// **One number rather than three**, which the first draft could not have: `0x3FFF_F000` is inside
+/// **One number rather than three**, which the first draft could not have: `0x7FFF_F000` is inside
 /// every one of these architectures' low halves, Sv39's included (its `SPLIT_SHIFT` is 38, so its
-/// low half ends at `0x0000_0040_0000_0000` and the three-quarters addresses the first draft
-/// computed per architecture were all different). The host build gets the same constant and maps
+/// low half ends at `0x0000_0040_0000_0000`). The host build gets the same constant and maps
 /// nothing anywhere.
-pub const PAGE_VA: u64 = 0x0000_0000_3FFF_F000;
+pub const PAGE_VA: u64 = address_space_map::CURRENT_CPU_PAGE;
 
 /// Build a fresh page's bytes: the magic, and [`UNSCHEDULED`] for a thread that has not run yet.
 /// The kernel writes this into a zeroed frame before mapping it read-only into the process, and
@@ -427,24 +430,18 @@ mod tests {
         assert!(PAGE_BYTES < 4096, "the page must fit in one frame");
     }
 
-    /// The page address is page-aligned on every target, which is what makes it mappable at all,
-    /// and is far from the addresses programs and fixtures use.
-    /// The address is page-aligned (which is what makes it mappable at all), inside the first
-    /// gigabyte (which is what makes it share the process's own L1 and L2 tables, worth 504 ticks
-    /// a spawn), and at the top of that gigabyte, clear of every convention in this tree that
-    /// grows upward from zero. Pinned because all three properties are load-bearing and none of
-    /// them is visible from the number.
+    /// **The page shares the stack's last-level table**, which is what makes the mapping cost only
+    /// its leaf. A 4 KiB-granule L3 covers 2 MiB on all three architectures, so two addresses share
+    /// one when they agree above bit 21.
     #[test]
     #[allow(clippy::assertions_on_constants)]
-    fn the_page_address_is_page_aligned_and_at_the_top_of_the_first_gigabyte() {
+    fn the_page_shares_the_stacks_last_level_table() {
         assert_eq!(PAGE_VA % 4096, 0);
-        assert!(
-            PAGE_VA < 0x4000_0000,
-            "inside the first gigabyte, or the mapping buys two more page-table levels"
-        );
-        assert!(
-            PAGE_VA >= 0x4000_0000 - 0x20_0000,
-            "in the top 2 MiB of that gigabyte, clear of everything that grows up from zero"
+        assert!(address_space_map::PROCESS_PAGES.contains(PAGE_VA));
+        assert_eq!(
+            PAGE_VA >> 21,
+            address_space_map::STACK_TOP_PAGE >> 21,
+            "not in the stack's 2 MiB, so the mapping buys an L3 of its own"
         );
     }
 }

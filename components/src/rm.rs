@@ -69,7 +69,7 @@ const DIR: u64 = 0;
 /// Where the diagnostics, the `-v` lines and the verdict go.
 const REPORT: u64 = 1;
 /// The page shared with the FS server.
-const PAGE_VA: u64 = 0x0000_0000_0060_0000;
+const PAGE_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 
 // SAFETY: the wiring maps one page read/write at PAGE_VA before this program runs (milestone 139
 // round 2; see `user_mode_runtime::mapped_window`, which is what collapsed the hand-rolled read_volatile/

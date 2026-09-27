@@ -183,7 +183,7 @@ const RETRY_GAP_NANOS: u64 = 2 * 1_000_000;
 /// segments; the same address `socket_test_client` uses, and each address space is its own. The
 /// test server picks its own, and the two do not have to agree: what they share is the frame's
 /// *layout*, which is `socket_protocol`'s.
-const PAGE_FRAME_VA: u64 = 0x0000_0000_00A0_0000;
+const PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0000_0000_00A0_0000);
 
 // SAFETY: this program's own `PageFrame::MAP` (in `attach_page_frame`, before the frame is touched)
 // mapped one page read/write at PAGE_FRAME_VA before any of `WINDOW`'s accessors are called

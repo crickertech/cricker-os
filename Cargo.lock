@@ -27,6 +27,10 @@ name = "address_space_identifier"
 version = "0.1.0"
 
 [[package]]
+name = "address_space_map"
+version = "0.1.0"
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -127,6 +131,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 [[package]]
 name = "c_seam"
 version = "0.1.0"
+dependencies = [
+ "address_space_map",
+]
 
 [[package]]
 name = "calendar"
@@ -182,6 +189,7 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "activation_set",
+ "address_space_map",
  "bitmap_font",
  "block_roster",
  "boot_ladder",
@@ -245,6 +253,9 @@ version = "0.1.0"
 [[package]]
 name = "counter_frequency_protocol"
 version = "0.1.0"
+dependencies = [
+ "address_space_map",
+]
 
 [[package]]
 name = "cpu_set"
@@ -292,6 +303,9 @@ dependencies = [
 [[package]]
 name = "current_cpu_protocol"
 version = "0.1.0"
+dependencies = [
+ "address_space_map",
+]
 
 [[package]]
 name = "defmt"
@@ -391,6 +405,7 @@ name = "fixtures"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "address_space_map",
  "byte_sink_protocol",
  "c_seam",
  "capability_witness_protocol",
@@ -529,6 +544,7 @@ dependencies = [
  "aarch64-cpu",
  "abi",
  "address_space_identifier",
+ "address_space_map",
  "bitmap_font",
  "block_roster",
  "boot_ladder",
@@ -876,6 +892,9 @@ dependencies = [
 [[package]]
 name = "soak_page"
 version = "0.1.0"
+dependencies = [
+ "address_space_map",
+]
 
 [[package]]
 name = "socket_protocol"
@@ -896,6 +915,9 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 [[package]]
 name = "std_runtime_protocol"
 version = "0.1.0"
+dependencies = [
+ "address_space_map",
+]
 
 [[package]]
 name = "stick_maker"
@@ -915,6 +937,7 @@ name = "supervision_protocol"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "address_space_map",
  "counter_frequency_protocol",
  "elf",
  "user_mode_runtime",
@@ -925,6 +948,7 @@ name = "swap_protocol"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "address_space_map",
  "component_plan",
  "user_mode_runtime",
 ]
@@ -968,6 +992,7 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "activation_set",
+ "address_space_map",
  "byte_sink_protocol",
  "credential_protocol",
  "elf",
@@ -1135,6 +1160,7 @@ name = "user_mode_runtime"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "address_space_map",
  "counter_frequency_protocol",
  "current_cpu_protocol",
  "user_mode_heap",
@@ -1159,6 +1185,7 @@ name = "virtio"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "address_space_map",
  "filesystem_protocol",
  "nifefs",
  "user_mode_runtime",
@@ -1206,6 +1233,7 @@ dependencies = [
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "address_space_map",
  "bitmap_font",
  "board_console",
  "boot_ladder",

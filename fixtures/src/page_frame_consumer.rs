@@ -24,8 +24,8 @@ use user_mode_runtime::{exit, map_page_frame, recv_cap, send};
 const CHANNEL: u64 = 0; // RECV_CAP the frame here
 const MEMORY_REGION: u64 = 1; // page tables for our own mappings come from here
 const REPORT: u64 = 2; // report the verdict here
-const PAGE_FRAME_VA: u64 = 0x0000_0000_00A0_0000;
-const RW_VA: u64 = 0x0000_0000_00B0_0000;
+const PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0000_0000_00A0_0000);
+const RW_VA: u64 = address_space_map::pair_page(0x0000_0000_00B0_0000);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {

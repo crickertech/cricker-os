@@ -86,7 +86,7 @@ const CONFIG_SLOT: u64 = 1;
 
 /// Where the wiring maps the config page, read-only. Must match
 /// `crates/system_initializer`'s `CHILD_CONFIG_VA`.
-const CONFIG_VA: u64 = 0x00e0_0000;
+const CONFIG_VA: u64 = address_space_map::pair_page(0x00e0_0000);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {

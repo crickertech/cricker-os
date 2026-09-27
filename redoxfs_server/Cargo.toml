@@ -88,6 +88,8 @@ debug = false
 strip = "debuginfo"
 
 [dependencies]
+# The user address-space map (milestone 206 (a program image has under 896 KiB)): every fixed window here is checked against its band.
+address_space_map = { version = "0.1.0", path = "../crates/address_space_map" }
 # The vendored engine, no default features: the pure no_std core (creation APIs stay host-side).
 redoxfs = { path = "../vendor/redoxfs", default-features = false }
 # The untyped heap's ALGORITHM (the EL0 binary uses it through user_mode_runtime::heap). Depended on directly so

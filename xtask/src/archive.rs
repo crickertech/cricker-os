@@ -386,6 +386,9 @@ pub(crate) fn initrd_riscv() -> bool {
     // The measurement table (milestone 104), on the same terms as aarch64's: last, so it measures
     // everything above it, and vouched for by the kernel's trust root so the progenitor's refusals mean
     // something. Parity is the point (§19): the same table, the same parser, the same policy.
+    if !programs_fit_the_address_space_map("initrd-riscv", &files) {
+        return false;
+    }
     let table = measurement_table(&files);
     files.push((measured_boot::PROGRAM_MEASUREMENTS, table.as_bytes()));
     let size = nifefs::image_size(&files);
@@ -546,6 +549,9 @@ pub(crate) fn initrd_x86() -> bool {
     // The measurement table (milestone 104), on the same terms as the other two: last, so it
     // measures everything above it, and vouched for by the kernel's trust root so the progenitor's refusals
     // mean something. Parity is the point (§19): the same table, the same parser, the same policy.
+    if !programs_fit_the_address_space_map("initrd-x86", &files) {
+        return false;
+    }
     let table = measurement_table(&files);
     files.push((measured_boot::PROGRAM_MEASUREMENTS, table.as_bytes()));
     let size = nifefs::image_size(&files);
@@ -667,6 +673,9 @@ pub(crate) fn initrd_aarch64() -> bool {
     // reads this entry out of the archive it already holds and refuses to load a program whose
     // bytes it does not match. See [`measurement_table`] for why it lives here rather than inside
     // the progenitor's own image.
+    if !programs_fit_the_address_space_map("initrd-aarch64", &files) {
+        return false;
+    }
     let table = measurement_table(&files);
     files.push((measured_boot::PROGRAM_MEASUREMENTS, table.as_bytes()));
 
@@ -693,6 +702,57 @@ pub(crate) fn initrd_aarch64() -> bool {
     write_measure_manifest("aarch64", &img)
 }
 
+/// **Every program in an archive fits the address-space map's image band**, checked when the
+/// archive is packed rather than when some test first loads the program (milestone 206 (a program
+/// image has under 896 KiB)). The kernel's loader refuses a misplaced image by name, but only the
+/// programs a boot actually loads ever reach it; this reaches all of them. It exists because the
+/// first run after the map landed found `mkfs` linked with lld's default layout at `0x20_0000`,
+/// outside the shared linker script, where nothing had looked for eight weeks.
+///
+/// The program headers are read here by hand rather than with `crates/elf`, because that parser
+/// refuses a foreign `e_machine` and this packs riscv64 and `x86_64` archives on an aarch64 host.
+/// Entries that are not ELF (the catalogue, the measurement table) are skipped.
+fn programs_fit_the_address_space_map(archive: &str, files: &[(&str, &[u8])]) -> bool {
+    let mut fits = true;
+    for (name, bytes) in files {
+        let Some((lo, hi)) = image_span(bytes) else {
+            continue;
+        };
+        if let Err(e) = address_space_map::check_image(lo, hi) {
+            eprintln!("{archive}: `{name}` does not fit the address-space map: {e}");
+            fits = false;
+        }
+    }
+    fits
+}
+
+/// The page-rounded span of a 64-bit little-endian ELF's `PT_LOAD` segments, or `None` if `bytes`
+/// is not one or has no loadable segment.
+fn image_span(bytes: &[u8]) -> Option<(u64, u64)> {
+    const PAGE: u64 = address_space_map::PAGE;
+    let u16_at = |o: usize| Some(u16::from_le_bytes(bytes.get(o..o + 2)?.try_into().ok()?));
+    let u32_at = |o: usize| Some(u32::from_le_bytes(bytes.get(o..o + 4)?.try_into().ok()?));
+    let u64_at = |o: usize| Some(u64::from_le_bytes(bytes.get(o..o + 8)?.try_into().ok()?));
+    if bytes.get(0..6)? != [0x7f, b'E', b'L', b'F', 2, 1] {
+        return None;
+    }
+    let phoff = usize::try_from(u64_at(32)?).ok()?;
+    let phentsize = usize::from(u16_at(54)?);
+    let phnum = usize::from(u16_at(56)?);
+    let (mut lo, mut hi) = (u64::MAX, 0u64);
+    for i in 0..phnum {
+        let ph = phoff.checked_add(i.checked_mul(phentsize)?)?;
+        if u32_at(ph)? != 1 {
+            continue; // not PT_LOAD
+        }
+        let vaddr = u64_at(ph + 16)?;
+        let end = vaddr.checked_add(u64_at(ph + 40)?)?;
+        lo = lo.min(vaddr / PAGE * PAGE);
+        hi = hi.max(end.div_ceil(PAGE) * PAGE);
+    }
+    (lo < hi).then_some((lo, hi))
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -715,6 +775,40 @@ mod tests {
 
         let nameless = "[[bin]]\npath = \"src/x.rs\"\n[[bin]]\nname = \"y\"\n";
         assert!(bin_names(nameless).unwrap_err().contains("no `name`"));
+    }
+
+    /// A program linked where the map says passes, and one linked at lld's default base, where
+    /// `mkfs` was, is named.
+    #[test]
+    fn an_archive_program_outside_the_image_band_is_named() {
+        fn elf_at(vaddr: u64) -> Vec<u8> {
+            let mut v = vec![0u8; 64 + 56];
+            v[0..6].copy_from_slice(&[0x7f, b'E', b'L', b'F', 2, 1]);
+            v[32..40].copy_from_slice(&64u64.to_le_bytes());
+            v[54..56].copy_from_slice(&56u16.to_le_bytes());
+            v[56..58].copy_from_slice(&1u16.to_le_bytes());
+            v[64..68].copy_from_slice(&1u32.to_le_bytes());
+            v[64 + 16..64 + 24].copy_from_slice(&vaddr.to_le_bytes());
+            v[64 + 40..64 + 48].copy_from_slice(&0x1800u64.to_le_bytes());
+            v
+        }
+        let good = elf_at(address_space_map::IMAGE_BASE);
+        let mkfs_as_it_was = elf_at(0x20_0000);
+        assert_eq!(
+            image_span(&good),
+            Some((
+                address_space_map::IMAGE_BASE,
+                address_space_map::IMAGE_BASE + 0x2000
+            ))
+        );
+        assert!(programs_fit_the_address_space_map(
+            "t",
+            &[("good", &good), ("catalogue", b"text")]
+        ));
+        assert!(!programs_fit_the_address_space_map(
+            "t",
+            &[("mkfs", &mkfs_as_it_was)]
+        ));
     }
 
     /// **`packaged_only` reads its one shape and refuses anything else in its table** (milestone

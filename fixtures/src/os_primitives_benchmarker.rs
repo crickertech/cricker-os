@@ -108,8 +108,8 @@ const MAP_ITERS: u64 = 500;
 /// sum). The page size is fixed (aarch64 4 KiB), and the VA bases are arbitrary aligned user pages.
 const MAP_WARMUP: u64 = 8;
 const PAGE: u64 = 4096;
-const MAP_WARM_BASE: u64 = 0x20_0000;
-const MAP_TIMED_BASE: u64 = 0x40_0000;
+const MAP_WARM_BASE: u64 = address_space_map::pair_page(0x20_0000);
+const MAP_TIMED_BASE: u64 = address_space_map::pair_page(0x40_0000);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(role: u64, _x1: u64, _x2: u64) -> ! {
@@ -283,9 +283,13 @@ fn map_one(va: u64) -> i64 {
 const SPAWN_ITERS: u64 = 100;
 const SPAWN_WARMUP: u64 = 8;
 const CHILD_PAGES: u64 = 10; // the child's address space root + tables + one stack page + revoke records
-const CHILD_CODE_VA: u64 = 0x40_0000;
-const CHILD_STACK_VA: u64 = 0x50_0000;
-const SPAWN_SCRATCH_VA: u64 = 0x0100_0000; // where we map the shared code frame to write the stub
+// The child's code and stack sit where a loaded program's would, the address-space map's image base
+// and top stack page (milestone 206 (a program image has under 896 KiB)). That keeps the page tables this benchmark pays for the shape
+// every real spawn pays for: one table for the code, one shared by the stack and the current-CPU
+// page, the same count as when both lived at `0x40_0000` and `0x50_0000`.
+const CHILD_CODE_VA: u64 = address_space_map::IMAGE_BASE;
+const CHILD_STACK_VA: u64 = address_space_map::STACK_TOP_PAGE;
+const SPAWN_SCRATCH_VA: u64 = address_space_map::pair_page(0x0100_0000); // where we map the shared code frame to write the stub
 const SPAWN_PAGE: u64 = 4096;
 
 /// **Spawn latency, measured from EL0 (the primitive suite).** lmbench's `lat_proc`: the cost to

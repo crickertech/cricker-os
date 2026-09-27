@@ -64,7 +64,7 @@ const BLANK_DISK: usize = 4;
 /// here. An attack on an address nobody uses would prove nothing. The address the surveyor uses for
 /// the page it shares with its block server is not here at all, for the same reason: nothing on
 /// this side needs to know it.
-pub const ROSTER_VA: u64 = 0x5001_0000;
+pub const ROSTER_VA: u64 = address_space_map::service_window(0x5001_0000);
 
 /// **The budget every program on this path draws its page tables from** (milestone 108).
 ///

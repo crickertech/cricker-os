@@ -66,8 +66,8 @@ const BUDGET: u64 = 4;
 /// uses the same addresses**, which is the point: two clients' surfaces are the same virtual address
 /// in different address spaces, so "the neighbour's surface" is not somewhere a client can reach by
 /// guessing.
-const CTL_VA: u64 = 0x0000_0000_0060_0000;
-const SURFACE_VA: u64 = 0x0000_0000_0061_0000;
+const CTL_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
+const SURFACE_VA: u64 = address_space_map::pair_page(0x0000_0000_0061_0000);
 /// The screen and the window list, read-only, and **only** for a client granted them.
 ///
 /// **`SCREEN_VA` moved and is 2 MiB-aligned** (milestone 142, DECISIONS §102): the screen grew
@@ -79,8 +79,8 @@ const SURFACE_VA: u64 = 0x0000_0000_0061_0000;
 /// rather than the two the 900-frame size spanned), so `SCREEN_VA`'s alignment now keeps the run
 /// inside even fewer page-table windows than it was chosen for
 /// (`compositor_service::MAP_BUDGET_PAGES`'s own comment has the arithmetic).
-const SCREEN_VA: u64 = 0x0000_0000_0080_0000;
-const WLIST_VA: u64 = 0x0000_0000_0c00_0000;
+const SCREEN_VA: u64 = address_space_map::pair_page(0x0000_0000_0080_0000);
+const WLIST_VA: u64 = address_space_map::pair_page(0x0000_0000_0c00_0000);
 
 /// Roles, as a bitmask in `arg0`. A plain window is 0.
 const ROLE_INPUT: u64 = 1 << 0;

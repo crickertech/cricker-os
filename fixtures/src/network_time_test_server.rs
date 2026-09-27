@@ -112,7 +112,7 @@ const SERVER_TURNAROUND_NANOS: u64 = 1_000;
 /// Where this server maps the client's shared frame in its own address space. The client picks its
 /// own, and the two do not have to agree: what they share is the frame's *layout*, which is
 /// `socket_protocol`'s.
-const PAGE_FRAME_VA: u64 = 0x0000_0000_00A0_0000;
+const PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0000_0000_00A0_0000);
 
 // SAFETY: the `OP_ATTACH_PAGE_FRAME` arm below maps one page read/write at PAGE_FRAME_VA, and it is
 // the first request the client makes, before any of `WINDOW`'s accessors are reached (milestone 139).

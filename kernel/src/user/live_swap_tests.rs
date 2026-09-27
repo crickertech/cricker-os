@@ -62,7 +62,7 @@ const WEDGE_SEQ: u64 = 24;
 
 /// The device's virtual address in every component, matching `swap::DEV_VA`. The test asserts
 /// the kernel's reported fault address against this, which is why both sides name one constant.
-const DEV_VA: u64 = 0x0310_0000;
+const DEV_VA: u64 = address_space_map::pair_page(0x0310_0000);
 
 /// The console UART's physical address, matching `crate::console`. This is the device the
 /// operator lends, takes back, and lends again.

@@ -506,7 +506,7 @@ test = false
 bench = false
 
 # The least-authority demo (milestone 19f.2): the first program that is its own binary rather than
-# a role of `hello`. It shares this package's `build.rs` link.ld (linked at 0x40_0000) but no code.
+# a role of `hello`. It shares this package's `build.rs` link.ld (linked at the address-space map's image base) but no code.
 # Same test/bench reasoning as `hello`'s block. `initrd_aarch64` packs it into the archive under
 # the name "least_authority_demo".
 [[bin]]
@@ -519,6 +519,8 @@ bench = false
 workspace = true
 
 [dependencies]
+# The user address-space map (milestone 206 (a program image has under 896 KiB)): every fixed window here is checked against its band.
+address_space_map = { version = "0.1.0", path = "../crates/address_space_map" }
 # The boot ladder's console markers (milestone 268). `swish` prints the last rung; the kernel
 # prints the ones below it and `crates/board_console` matches all of them, so AGENTS.md rule 7
 # makes the strings a crate rather than copies. `no_std`, no dependencies of its own.

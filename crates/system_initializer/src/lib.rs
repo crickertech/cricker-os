@@ -564,7 +564,7 @@ pub struct SecondDirGrant {
 }
 
 /// Where the kernel maps the initrd archive, read-only. Must match `kernel::user::INITRD_VA`.
-const INITRD_VA: u64 = 0x2000_0000;
+const INITRD_VA: u64 = address_space_map::runtime_window(0x2000_0000);
 
 /// Stack pages every child the progenitor builds gets, mapped down from `supervision_protocol::CHILD_STACK_VA`.
 ///
@@ -584,19 +584,19 @@ pub const CHILD_STACK_PAGES: u64 = 12;
 
 /// Where a child that declares a clock maps it, read-only. Must match `components/src/date.rs`'s
 /// `CLOCK_VA` and `kernel/src/user/clock_service.rs`.
-const CHILD_CLOCK_VA: u64 = 0x00c0_0000;
+const CHILD_CLOCK_VA: u64 = address_space_map::pair_page(0x00c0_0000);
 
 /// Where a child that declares the inert-configuration page maps it, read-only (DECISIONS §111).
 /// Must match `components/src/printenv.rs`'s `CONFIG_VA`. A different address from `std_service.rs`'s
 /// `CONFIG_PAGE_STD`: that std program is spawned by a different wiring entirely (the `-Zbuild-std`
 /// farm's own harness), in its own address space, so there is no collision to avoid, only two
 /// numbers that happen not to need to agree.
-const CHILD_CONFIG_VA: u64 = 0x00e0_0000;
+const CHILD_CONFIG_VA: u64 = address_space_map::pair_page(0x00e0_0000);
 
-/// Where a supervised (interruptible) child maps its shared job frame (DECISIONS §24). Below the
-/// ELF load address (`0x40_0000`) and the stack; must match `interrupt_heeder.rs` and
+/// Where a supervised (interruptible) child maps its shared job frame (DECISIONS §24 (interrupting the foreground process)). A pair page
+/// on the address-space map; must match `interrupt_heeder.rs` and
 /// `interrupt_ignorer.rs`'s `JOB_PAGE_FRAME_VA`.
-const CHILD_JOB_PAGE_FRAME_VA: u64 = 0x0030_0000;
+const CHILD_JOB_PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0030_0000);
 
 /// Pages of untyped split off our own budget and handed the shell (milestone 31), so the shell can
 /// in turn endow the programs it spawns (`run --mem N`) out of a budget that is genuinely *its own*.
@@ -615,9 +615,17 @@ pub const INIT_OWN_PAGES: u64 = 128;
 /// **One job's region**: everything a spawned program is made of, so a single reclaim frees all of
 /// it. The biggest program the prompt can spawn is `date` at seven pages, plus
 /// [`CHILD_STACK_PAGES`], a TCB, an address-space root, the intermediate tables for the four windows
-/// a child touches, and the §13 mapping records. Forty is that with room to spare, and it is spent
+/// a child touches, and the §13 mapping records. Forty was that with room to spare, and it is spent
 /// per *live* job rather than per job ever run.
-const JOB_REGION_PAGES: u64 = 40;
+///
+/// **Forty-one since 2026-09-26**, and the one is counted rather than chosen. The address-space map
+/// of milestone 206 (a program image has under 896 KiB) put a child's image and stack in the second
+/// gigabyte and left its pair pages in the first, so a child with any window mapped now walks two
+/// gigabyte-level tables where it walked one. The stack's leaf table absorbed the current-CPU page's,
+/// so that is the whole difference. The "room to spare" was not there: the first `x86_64`
+/// `script/swish-check` after the map refused `mdr gate.txt`, whose debug image is 18 pages rather
+/// than `date`'s seven, and `x86_64` also pays three tables for its timebase page.
+const JOB_REGION_PAGES: u64 = 41;
 
 /// **One directory-granted job's region**: the program *and* the `fs_subtree_caretaker` that carries
 /// its grant, plus the two endpoints between them, all out of one carve.
@@ -637,7 +645,10 @@ const JOB_REGION_PAGES: u64 = 40;
 /// a second address space with its own tables and its own stack, and the failure mode of getting it
 /// wrong is `build_child` answering `Err(())` mid-boot-command, which reads at the prompt as "could
 /// not spawn" with no way to tell a small region from an empty pool.
-const DIR_JOB_REGION_PAGES: u64 = 96;
+///
+/// **Ninety-eight since 2026-09-26**: two address spaces, each one gigabyte-level table dearer under
+/// the address-space map, for the reason [`JOB_REGION_PAGES`] gives.
+const DIR_JOB_REGION_PAGES: u64 = 98;
 
 /// The stack a `fs_subtree_caretaker` gets, beyond the one page `build_child` maps for it.
 ///
@@ -653,7 +664,7 @@ const CARETAKER_STACK_PAGES: u64 = 4;
 /// One address for both because they are two ends of one contract and neither is the other's parent:
 /// a request travels caretaker-to-server and program-to-caretaker through the same frame, so a
 /// second VA would only be a second name for the same page.
-const FS_CLIENT_PAGE_VA: u64 = 0x0060_0000;
+const FS_CLIENT_PAGE_VA: u64 = address_space_map::pair_page(0x0060_0000);
 
 /// **One shell-boot second-directory caretaker's region** (milestone 154's "wiring a second
 /// grant into the real boot"). Sized for one caretaker alone, the way [`CARETAKER_STACK_PAGES`]
@@ -672,20 +683,20 @@ const SECOND_DIR_CARETAKER_PAGES: u64 = JOB_REGION_PAGES;
 /// **Plus one `std` program's region** (milestone 595 (provisional)), so a `std` job has room of its
 /// own rather than needing every native job before it reclaimed first: it is nearly ten native
 /// regions' worth ([`grant_plan::STD_REGION_PAGES`]), and a pool of 240 would fit it only when
-/// empty. The ratchet above still holds at 624 pages: `script/swish-check` runs more than twenty
+/// empty. The ratchet above still holds at 630 pages: `script/swish-check` runs more than twenty
 /// jobs, which is well past what the pool could hold without the regions coming back.
 pub const JOBS_BUDGET_PAGES: u64 = JOB_REGION_PAGES * 6 + grant_plan::STD_REGION_PAGES;
 
 /// Where the progenitor maps the shell's output frame in **its own** address space, to print the one line it
 /// ever prints (the dropped-authority negative control). Well clear of the progenitor's segments, its stack,
 /// and the loader's scratch window at `0x1000_0000`.
-const INIT_OUT_VA: u64 = 0x0f00_0000;
+const INIT_OUT_VA: u64 = address_space_map::pair_page(0x0f00_0000);
 
 /// Where the progenitor briefly maps the virtio-rng DMA page, in **its own** address space, to read
 /// [`VIRTIO_DMA_PHYS_OFFSET`] back out before handing the same frame on to entropy. Distinct from
 /// [`INIT_OUT_VA`] and never unmapped (this file's own BUGS: there is no unmap in the ABI), the
 /// same permanent-scratch cost that address already carries.
-const RNG_DMA_PEEK_VA: u64 = 0x0f10_0000;
+const RNG_DMA_PEEK_VA: u64 = address_space_map::pair_page(0x0f10_0000);
 
 /// The DMA region's own physical base, written inside the page itself at its last eight bytes
 /// (`abi::virtio::DMA_PHYS_OFFSET`, which carries the reasoning for exactly this offset). It was a
@@ -695,7 +706,7 @@ const RNG_DMA_PEEK_VA: u64 = 0x0f10_0000;
 const VIRTIO_DMA_PHYS_OFFSET: u64 = abi::virtio::DMA_PHYS_OFFSET;
 
 /// Where entropy maps its own DMA page. Must match `components/src/entropy.rs`'s `DMA_VA`.
-const RNG_DMA_VA: u64 = 0x0000_0000_0090_0000;
+const RNG_DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
 
 /// `entropy.rs`'s own spawn-argument convention (`components/src/entropy.rs`'s `MODE_VIRTIO`): the
 /// kernel's (and now this crate's) shared understanding with the one program it spawns, not a wire
@@ -711,11 +722,11 @@ const RNG_MODE_VIRTIO: u64 = 0;
 /// unmap in the ABI, so this process keeps a writable view of the NIC's rings for the life of the
 /// boot. It already keeps one of every page it laid down for a child (this module's BUGS), so the
 /// exposure is one more page of a kind it already has, not a new kind.
-const NET_DMA_PEEK_VA: u64 = 0x0f30_0000;
+const NET_DMA_PEEK_VA: u64 = address_space_map::pair_page(0x0f30_0000);
 
 /// Where `net_stack` maps its DMA page. Must match `components/src/net_transport.rs`'s `DMA_VA`, the
 /// same kernel-and-spawner convention [`RNG_DMA_VA`] is.
-const NET_DMA_VA: u64 = 0x0000_0000_0090_0000;
+const NET_DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
 
 /// `net_stack`'s heap budget, in pages: matches
 /// `kernel::user::virtio_service::NET_SERVER_BUDGET_PAGES`,
@@ -745,10 +756,10 @@ const LINE_EDITOR_MODE_CONSOLE: u64 = 0;
 const LINE_EDITOR_MODE_DISPLAY: u64 = 1;
 
 // The VAs each program hardcodes; they must match console.rs / input.rs / line_editor.rs / swish.rs.
-const CON_SHARED_VA: u64 = 0x0060_0000; // console reads text here; line_editor writes it
+const CON_SHARED_VA: u64 = address_space_map::pair_page(0x0060_0000); // console reads text here; line_editor writes it
 /// Where the console maps the page `display_terminal` reads an `OP_WRITE`'s bytes from, when a
 /// screen was wired beside the UART. Must match `components/src/console.rs`'s `SCREEN_OUT_VA`.
-const CON_SCREEN_OUT_VA: u64 = 0x0068_0000;
+const CON_SCREEN_OUT_VA: u64 = address_space_map::pair_page(0x0068_0000);
 /// `console.rs`'s own `MODE_SCREEN`: [`LINE_EDITOR_MODE_CONSOLE`]'s reasoning, one program over.
 /// `0`, what every other boot passes, is the UART alone.
 const CONSOLE_MODE_SCREEN: u64 = 1;
@@ -762,20 +773,20 @@ type EndowmentSlices<'a> = (&'a [(u64, u64)], &'a [(u64, u64, u64)]);
 // to map (milestone 299), so on that architecture these VAs name nothing and the console/input
 // drivers hold the port capability instead.
 #[cfg_attr(target_arch = "x86_64", allow(dead_code))]
-const CON_UART_VA: u64 = 0x0070_0000; // console's UART mapping
-const TERM_OUT_VA: u64 = 0x0080_0000; // line_editor reads the shell's text/prompts here
-const TERM_IN_VA: u64 = 0x0090_0000; // line_editor delivers completed lines here
+const CON_UART_VA: u64 = address_space_map::pair_page(0x0070_0000); // console's UART mapping
+const TERM_OUT_VA: u64 = address_space_map::pair_page(0x0080_0000); // line_editor reads the shell's text/prompts here
+const TERM_IN_VA: u64 = address_space_map::pair_page(0x0090_0000); // line_editor delivers completed lines here
 #[cfg_attr(target_arch = "x86_64", allow(dead_code))]
-const IN_UART_VA: u64 = 0x00a0_0000; // input driver's UART mapping
-const SH_OUT_VA: u64 = 0x00c0_0000; // the shell's view of the TERM_OUT frame (swish.rs OUT_VA)
-const LINE_VA: u64 = 0x00b0_0000; // the shell's view of the TERM_IN frame
-const SH_FS_VA: u64 = 0x0060_0000; // the shell's half of the FS contract (swish.rs FS_VA)
+const IN_UART_VA: u64 = address_space_map::pair_page(0x00a0_0000); // input driver's UART mapping
+const SH_OUT_VA: u64 = address_space_map::pair_page(0x00c0_0000); // the shell's view of the TERM_OUT frame (swish.rs OUT_VA)
+const LINE_VA: u64 = address_space_map::pair_page(0x00b0_0000); // the shell's view of the TERM_IN frame
+const SH_FS_VA: u64 = address_space_map::pair_page(0x0060_0000); // the shell's half of the FS contract (swish.rs FS_VA)
 
 /// Where the **shell** maps its own read-only clock (milestone 86). Must match swish.rs's
 /// `SH_CLOCK_VA`. A different address from [`CHILD_CLOCK_VA`], because that is where a *child* maps
 /// its clock and the shell already maps the terminal's output frame there; two address spaces may
 /// agree on an address, one may not.
-const SH_CLOCK_VA: u64 = 0x00d0_0000;
+const SH_CLOCK_VA: u64 = address_space_map::pair_page(0x00d0_0000);
 
 // -------------------------------------------------------------------------------------------
 // The login stack of milestone 49 (users and attribution): credentialer, identity_provisioner,
@@ -784,27 +795,27 @@ const SH_CLOCK_VA: u64 = 0x00d0_0000;
 
 /// Where `credentialer` maps its own provision page. Must match `components/src/credentialer.rs`'s own
 /// `PROV_VA`.
-const CRED_SVC_PROV_VA: u64 = 0x0000_0000_00e0_0000;
+const CRED_SVC_PROV_VA: u64 = address_space_map::pair_page(0x0000_0000_00e0_0000);
 /// Where `credentialer` maps its own verify page. Must match the same file's `VERIFY_VA`.
-const CRED_SVC_VERIFY_VA: u64 = 0x0000_0000_00e1_0000;
+const CRED_SVC_VERIFY_VA: u64 = address_space_map::pair_page(0x0000_0000_00e1_0000);
 /// Where `login` maps its relay of the verify page (the same physical frame as
 /// [`CRED_SVC_VERIFY_VA`], mapped into a different address space). Must match `components/src/login.rs`'s
 /// own `CRED_VA`.
-const LOGIN_CRED_VA: u64 = 0x0000_0000_00e3_0000;
+const LOGIN_CRED_VA: u64 = address_space_map::pair_page(0x0000_0000_00e3_0000);
 /// Where `identity_provisioner` maps the identity/secret this boot stages for it. Must match
 /// `components/src/identity_provisioner.rs`'s own `REQ_VA`.
-const IDP_REQ_VA: u64 = 0x0000_0000_00e4_0000;
+const IDP_REQ_VA: u64 = address_space_map::pair_page(0x0000_0000_00e4_0000);
 /// Where `identity_provisioner` maps `credentialer`'s provision page (the same physical frame as
 /// [`CRED_SVC_PROV_VA`]). Must match the same file's own `PROV_VA`.
-const IDP_PROV_VA: u64 = 0x0000_0000_00e0_0000;
+const IDP_PROV_VA: u64 = address_space_map::pair_page(0x0000_0000_00e0_0000);
 /// Where `identity_provisioner` maps the file service's shared page. Must match the same file's own
 /// `FS_VA`.
-const IDP_FS_VA: u64 = 0x0000_0000_00e5_0000;
+const IDP_FS_VA: u64 = address_space_map::pair_page(0x0000_0000_00e5_0000);
 /// Where this process briefly maps the page it stages `identity_provisioner`'s request into, in its
 /// own address space, before delegating the same physical frame on. Distinct from every VA above
 /// (those are addresses inside a *child's* address space); in the same scratch family as
 /// [`RNG_DMA_PEEK_VA`] and [`INIT_OUT_VA`].
-const PROVISION_SCRATCH_VA: u64 = 0x0f20_0000;
+const PROVISION_SCRATCH_VA: u64 = address_space_map::pair_page(0x0f20_0000);
 
 /// `credentialer`'s own construction budget, in pages: matches
 /// `kernel::user::credential_service::CRED_BUDGET_PAGES` (6 MiB, sized from `credentialer::Cost::DEFAULT`'s
@@ -3462,7 +3473,7 @@ const GRAPHICAL_MAP_BUDGET_PAGES: u64 = 24;
 
 /// Where `keyboard_driver` finds its DMA page. Must match `components/src/keyboard_driver.rs`'s
 /// `DMA_VA`, the same kernel-and-spawner convention [`RNG_DMA_VA`] is.
-const KBD_DMA_VA: u64 = 0x0000_0000_0090_0000;
+const KBD_DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
 
 /// `keyboard_driver.rs`'s own `MODE_DIRECT`: a fixed `CALL` to the terminal endpoint instead of a
 /// compositor's ring and doorbell (milestone 177). [`RNG_MODE_VIRTIO`]'s reasoning.
@@ -3641,14 +3652,14 @@ fn render_ipv4(addr: u32, out: &mut [u8]) -> usize {
 /// once, on the first image request, with page tables from its own budget. Clear of every other
 /// window this process maps (`INIT_OUT_VA` and the three peek pages below it, and the loader's
 /// scratch window, which starts at `0x1000_0000` and only grows).
-const ACTIVATION_FS_VA: u64 = 0x0f40_0000;
+const ACTIVATION_FS_VA: u64 = address_space_map::pair_page(0x0f40_0000);
 
 /// **Where the progenitor keeps its own copy of an image**, [`spawnproto::IMAGE_MAX_PAGES`] pages
 /// at most. A fixed window rather than more of the never-reused scratch, because every page mapped
 /// here comes from a staging region *this process* destroys once the child is built, and a destroy
 /// revokes the mapping (DECISIONS §13 (frame revocation)), so the next request finds the window empty again. The page
 /// tables behind it come from `own_ut` and are reused.
-const IMAGE_STAGING_VA: u64 = 0x0f80_0000;
+const IMAGE_STAGING_VA: u64 = address_space_map::pair_page(0x0f80_0000);
 
 /// **Take an image request's frames off the spawn endpoint and copy them into pages of our own.**
 /// Returns the staging region holding the copy, or `None` if it could not be staged.
@@ -4345,7 +4356,7 @@ fn edit(
 /// Clear of [`ACTIVATION_FS_VA`] (one page) and of [`IMAGE_STAGING_VA`], where the body goes.
 /// Every page mapped here comes from a region [`activate`] destroys at the end of the request, so
 /// the window is empty again for the next fetch.
-const FETCH_SOCKET_VA: u64 = 0x0f50_0000;
+const FETCH_SOCKET_VA: u64 = address_space_map::pair_page(0x0f50_0000);
 
 /// **The socket number the progenitor fetches on**: the last one, because every program at the
 /// prompt that dials out uses 0 (`network_echo_client`). The contract's socket numbers are shared by

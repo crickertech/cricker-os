@@ -40,8 +40,8 @@ the test calls its single line of defence, and it is also what makes that defect
 unrepresentable.
 
 **The rubber-stamp guards stay green, which is what makes this a real falsification rather
-than a broken function.** The test also requires `user_can_read(0x40_0000)` (the process's own
-text, mapped and `U`) and `!user_can_read(0x7000_0000)` (its own half, unmapped). Under this
+than a broken function.** The test also requires `user_can_read(IMAGE_BASE)` (the process's own
+text, mapped and `U`) and `!user_can_read(STACK.start)` (its own half, unmapped). Under this
 patch the first is still true because the page is mapped, and the second is still false
 because nothing is there. A checker that simply said yes to everything would fail the second,
 and the red would be about the checker rather than about the kernel.

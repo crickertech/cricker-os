@@ -82,5 +82,5 @@ pub fn start() -> Console {
 
 /// The user VAs the client and server agree on. Kept here so the kernel and the binary have
 /// one source of truth; they must match fixtures/src/hello.rs.
-const SHARED_VA: u64 = 0x0000_0000_0060_0000;
-const UART_VA: u64 = 0x0000_0000_0070_0000;
+const SHARED_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
+const UART_VA: u64 = address_space_map::pair_page(0x0000_0000_0070_0000);

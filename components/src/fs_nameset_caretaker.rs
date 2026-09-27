@@ -80,10 +80,10 @@ const CLIENT: u64 = 1;
 const REPORT: u64 = 2;
 
 /// The one page, shared with the FS server above and the client below.
-const PAGE_VA: u64 = 0x0000_0000_0060_0000;
+const PAGE_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 /// The read-only page the encoded name set arrives in. A second frame, and the only place in the
 /// grant machinery that needs one: a set is the first thing a grant carries that registers cannot.
-const SET_VA: u64 = 0x0000_0000_0070_0000;
+const SET_VA: u64 = address_space_map::pair_page(0x0000_0000_0070_0000);
 /// The shared page's size, the contract's transfer unit.
 const PAGE: usize = filesystem_protocol::PAGE;
 

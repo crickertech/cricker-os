@@ -70,7 +70,7 @@ const EBADF: i32 = filesystem_protocol::verb::file_grant::EBADF;
 
 /// The one page, shared with the FS server above and the client below. See the module note on why
 /// one frame is enough.
-const PAGE_VA: u64 = 0x0000_0000_0060_0000;
+const PAGE_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
 /// Its size, the contract's transfer unit.
 const PAGE: usize = filesystem_protocol::PAGE;
 
