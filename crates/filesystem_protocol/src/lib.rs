@@ -807,6 +807,38 @@ pub mod fs {
     /// Name: provisional (milestone 47's mtime lane, 2026-08-24); an architect's to ratify.
     pub const SETMTIME_AT: u64 = 22;
 
+    /// **Bind a badge to a directory: a subtree grant the server enforces itself** (milestone 606
+    /// (a directory walk costs what it does on Linux), calef's ruling D, 2026-09-27). [`req_handle`]
+    /// is a directory handle the caller holds, the second word is a badge: in practice a client
+    /// window's index, under §230 (badged endpoint capabilities). From then on a request carrying that
+    /// badge sees the directory as its [`ROOT`] and reaches only the handles it minted, through the
+    /// `subtree_scope` crate. Reply `r0` = 0 or an error.
+    ///
+    /// The rules are `subtree_scope::Bindings::bind`'s. Only a caller whose own badge is unbound
+    /// may bind, because only such a caller already holds everything a binding could hand out.
+    /// Badge 0 cannot be bound, and a bound badge cannot be bound again. A refusal is `EPERM`.
+    ///
+    /// **Not a directory verb**, and deliberately outside [`super::verb::TABLE`]'s range, so
+    /// `verb::of` knows nothing of it and no caretaker forwards it: a client behind a caretaker
+    /// could otherwise re-bind or revoke another client's badge. The binder is whoever holds an
+    /// unbound endpoint to the server, which is the progenitor, or the kernel's own test wiring.
+    ///
+    /// Caretakers stay the default. A server takes this verb only if it is eligible under ruling D:
+    /// memory-safe, and resolving every path and handle through `subtree_scope`. `redoxfs_server`
+    /// is the first. One that is not answers `EINVAL`, as for any unknown opcode.
+    ///
+    /// Name and number provisional; the number sits above the directory verbs on purpose.
+    pub const BIND: u64 = 64;
+    /// **Take a badge's grant back** ([`BIND`]'s inverse). The second word is the badge; the handle
+    /// field is ignored. The server closes the grant's root and every handle the badge minted, and
+    /// the badge reaches nothing from then on: it never falls back to the endpoint's whole
+    /// authority. Same caller rule as [`BIND`]. Reply `r0` = 0 or an error.
+    ///
+    /// This is revocation for a server-enforced grant. The kernel has no way to take a capability
+    /// back out of a client's table, so the client keeps an endpoint that answers `EBADF`, where a
+    /// caretaker grant's revocation ended the caretaker instead.
+    pub const UNBIND: u64 = 65;
+
     /// **How many pages the file channel spans** (milestone 138 step 3). The client and the FS
     /// server share this many *contiguous* pages, not one, and a [`READ`] or [`WRITE`] may carry
     /// up to [`TRANSFER_MAX`] bytes through them in a single request.
@@ -3843,6 +3875,20 @@ mod tests {
         // Saturating, because these numbers come off a disk: a corrupt pair must stay obviously
         // wrong instead of wrapping into a small plausible answer.
         assert_eq!(statfs::total_bytes(u64::MAX, 2), u64::MAX);
+    }
+
+    /// **No caretaker can forward a binding** (milestone 606, ruling D). `BIND` and `UNBIND` are
+    /// outside the verb table, so `verb::of` answers `None` and every caretaker refuses them, and a
+    /// verb added to the table later cannot land on their numbers by accident.
+    #[test]
+    fn bind_and_unbind_are_not_directory_verbs() {
+        for code in [fs::BIND, fs::UNBIND] {
+            assert!(
+                verb::of(code).is_none(),
+                "a caretaker would forward opcode {code}"
+            );
+            assert!(code > verb::LAST);
+        }
     }
 
     /// **`STATFS` asks for no right and mints no handle**, which is the whole of its row and the

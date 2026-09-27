@@ -47,6 +47,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
 use redoxfs::{Node, TreePtr};
+use subtree_scope::Kind;
 
 /// The largest file whose bytes are kept. The walk fixture's largest is 256 KiB, and a source
 /// tree's files are almost all smaller.
@@ -63,11 +64,13 @@ pub const NAME_BUDGET: usize = 16 * 1024;
 pub struct Child {
     pub name: Box<str>,
     pub ptr: TreePtr<Node>,
-    pub is_dir: bool,
+    /// What the node is, as `subtree_scope` needs to know it: a symbolic link is kept apart from
+    /// a file so that no walk steps through one and no open lands on one (ruling D).
+    pub kind: Kind,
 }
 
-/// The names found in one directory: name to its node and whether it is a directory.
-type Found = BTreeMap<Box<str>, (TreePtr<Node>, bool)>;
+/// The names found in one directory: name to its node and what it is.
+type Found = BTreeMap<Box<str>, (TreePtr<Node>, Kind)>;
 
 /// See the module header.
 #[derive(Default)]
@@ -138,13 +141,7 @@ impl Memo {
     }
 
     /// Keep one name `find_node` found in `dir`.
-    pub fn keep_found(
-        &mut self,
-        dir: TreePtr<Node>,
-        name: &str,
-        child: TreePtr<Node>,
-        is_dir: bool,
-    ) {
+    pub fn keep_found(&mut self, dir: TreePtr<Node>, name: &str, child: TreePtr<Node>, kind: Kind) {
         if self.listings.contains_key(&dir.id()) {
             return; // the listing already answers it
         }
@@ -157,7 +154,7 @@ impl Memo {
             .found
             .entry(dir.id())
             .or_default()
-            .insert(name.into(), (child, is_dir))
+            .insert(name.into(), (child, kind))
             .is_none()
         {
             self.names += 1;
@@ -166,7 +163,7 @@ impl Memo {
 
     /// `name` in `dir`: `None` if nothing is memoized that answers it, `Some(None)` if `dir`'s
     /// listing is memoized and the name is not in it, which is as good as `find_node`'s `ENOENT`.
-    pub fn lookup(&self, dir: TreePtr<Node>, name: &str) -> Option<Option<(TreePtr<Node>, bool)>> {
+    pub fn lookup(&self, dir: TreePtr<Node>, name: &str) -> Option<Option<(TreePtr<Node>, Kind)>> {
         let Some(list) = self.listing(dir) else {
             let found = self.found.get(&dir.id())?.get(name)?;
             return Some(Some(*found));
@@ -174,7 +171,7 @@ impl Memo {
         Some(
             list.binary_search_by(|c| (*c.name).cmp(name))
                 .ok()
-                .map(|i| (list[i].ptr, list[i].is_dir)),
+                .map(|i| (list[i].ptr, list[i].kind)),
         )
     }
 
