@@ -753,56 +753,6 @@ is not coming.
 the right answer, and the two must not be conflated: one is a queue for calef's attention, the other
 is a fact about two branches.
 
-**The line takes a list, not just one number** (2026-09-27, fixing the limitation this section's
-BUGS bullet used to record): `Blocked-by: #1347, #1354` or `Blocked-by: #1347 #1354` both hold the
-pull request until every named number has merged or been reported closed. The parser is
-`helpers/blocked-by.sh`'s `nife_blocked_by`, pulled out of `merge-drain.sh` so
-`helpers/blocked-by-selftest.sh` can check it against fixtures without running the drain's own loop.
-
-### The same convention, read on a paused DRAFT: `unblocked`
-
-**Draft #1289 was paused on 2026-09-25 waiting on #1288.** #1288 merged an hour later. Nobody
-resumed #1289 for two days, because the pause was recorded only in prose (a comment, a lane report)
-and `stale_drafts` posts its one `STALE DRAFT` note, sees a draft that has not committed, and goes
-quiet. A note that says "if its lane is finished, mark it ready" is the wrong note for a lane that
-is not finished, it is *waiting*, and nothing distinguished the two until now.
-
-So a draft that names `Blocked-by: #N[, #M ...]` in its own body is read the same way a held,
-ready-to-merge pull request is, except the action is a label rather than an enqueue: `unblocked`,
-plus one comment naming which pull request resolved and when:
-
-```
-merge-drain: UNBLOCKED. #1288 merged at 2026-09-25T19:04:11Z; resume this lane.
-```
-
-A listed pull request closed without merging is called out as such, `closed unmerged`, rather than
-silently released, for the same reason the admission hold does: it usually means the plan changed.
-The board is one command, the same shape as `gh pr list --draft` and `gh pr list --label
-needs-architect` already are:
-
-```
-gh pr list --label unblocked
-```
-
-**The decision is `helpers/blocked-by-resolution.jq`**, a pure predicate over
-`{has_label, blockers: [{number, state}]}` that returns `unblocked`, `waiting`, `closed-unmerged`,
-or `already-labelled`, checked by `helpers/blocked-by-resolution-selftest.sh` against fixtures with
-no `gh` call. `merge-drain.sh`'s `unblocked_drafts` fetches each named pull request's state and the
-comment's timestamps, and is the only part of this that touches the network.
-
-**The label releases itself**, in the family of the hold it is modelled on: a new commit (the lane
-resumed on its own before anyone read the comment) or `ready_for_review` (the draft is not paused
-any more, it is asking to merge) removes `unblocked`, in `release_unblocked_labels`. Nothing here
-needs a person to remember to take the label back off.
-
-**Moved `stale_drafts` to run before the empty-queue return, alongside the two new passes.** Both
-`unblocked_drafts` and `release_unblocked_labels` read the pull request list directly rather than
-the eligible queue `pass()` builds, so they cannot sit behind `return 1` on a pass where nothing
-else is open, and `stale_drafts` had exactly that same blind spot until this moved it: a repository
-with nothing but drafts and held pull requests open would have gone silent about a stale or a paused
-one, which is precisely the shape this whole mechanism exists to fix. `lane-claim-check.sh` already
-runs ahead of the same early return for the same reason; see `pass`'s own comment.
-
 ## BUGS
 
 **The event lines start from the day they landed, and the 3,355 passes before it cannot be
@@ -907,18 +857,8 @@ moment forgets.
 - **It holds the drain, not the queue.** Anyone who enqueues by hand, or arms with `gh pr merge
   --auto` directly, bypasses it entirely. The drain is the normal path and this covers the normal
   path; it is not an interlock.
-- **Only the first `Blocked-by:` LINE is read** (narrowed from "only the first number" on
-  2026-09-27, once the parser started reading every number on that line). A second `Blocked-by:`
-  lower in the body is still not accumulated, so a pull request sequenced behind several others has
-  to name all of them on the one line: `Blocked-by: #1347, #1354`.
-- **`release_unblocked_labels` costs one `gh api .../timeline` call per draft still carrying
-  `unblocked`**, to find when the label was added and compare it against the last commit. That set
-  is normally small (a label only lands once a draft's blockers resolve), but it is an extra round
-  trip nothing else in this script needs, and it is the one place the draft-unblock pass reads
-  anything beyond `gh pr list` and `gh pr view`.
-- **A draft's `unblocked` label can go stale for one pass** if a lane pushes a commit and the drain
-  has not run since. `release_unblocked_labels` clears it on the next pass, five minutes later at
-  most under the scheduled workflow; nothing marks it stale in between.
+- **Only the first `Blocked-by:` is read.** A pull request sequenced behind two others can only say
+  so once, and the honest workaround is to name the later one.
 - **A push after the pull request is enqueued is silently discarded, and the pull request keeps
   reporting the newer commit as its head** (found 2026-09-16, milestone 304). The queue merges the
   **SHA it enqueued**. Push again before the group build lands and GitHub updates
