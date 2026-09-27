@@ -621,7 +621,7 @@ fn await_reply(t: &Spawned, page: &[u8], seq: u64) {
 /// milestone 152 rebuilds one. Three replacements, each the control for the others:
 ///
 /// 1. **The stored schedule**, `schedule_store::fixture::DEMO_SCHEDULE_DOC`: the very bytes
-///    milestone 152's store test writes to disk and `session_reviver` reads back at boot. §222's
+///    milestone 152's start-up test writes to disk and `login` reads back at start-up. §222's
 ///    fifth sub-ruling is that the session writes the store and then replaces, so what the store
 ///    holds must be exactly what a replacement accepts, unedited. Its `at-boot` line fires (9).
 /// 2. **A document that does not parse.** Refused whole, with its line number in the page, and

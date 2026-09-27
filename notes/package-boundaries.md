@@ -83,7 +83,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `drivers` | base | crates: `jh7110_entropy`, `non_volatile_memory_express`, `virtio`; programs: `block_driver`, `jh7110_entropy`, `non_volatile_memory_express`, `serial_driver` | interfaces only | `drivers` (provisional) |
 | `entropy` | base | programs: `entropy` | interfaces only | `entropy` (provisional) |
 | `filesystem` | base | crates: `subtree_scope*`; programs: `fs_file_caretaker`, `fs_nameset_caretaker`, `fs_subtree_caretaker` | interfaces only | `filesystem` (provisional) |
-| `init` | base | crates: `components`, `system_initializer`; programs: `broker`, `job_undertaker`, `progenitor`, `root_supervisor`, `session_reviver`, `spawner`, `sub_server_supervisor`, `swapper` | `timetable`; 2 dated exception(s) | `init` (provisional) |
+| `init` | base | crates: `components`, `system_initializer`; programs: `broker`, `job_undertaker`, `progenitor`, `root_supervisor`, `spawner`, `sub_server_supervisor`, `swapper` | `timetable`; 2 dated exception(s) | `init` (provisional) |
 | `kernel` | base | crates: `address_space_identifier`, `capability`, `cpu_set`, `direct_memory_access_validator`, `firmware_configuration`, `generational_table`, `inter_process_communication`, `intrusive_fifo`, `jh7110_clock_and_reset`, `kernel`, `memory_corruption_canary_gate`, `memory_regions`, `page_frames`, `paging`, `pci`, `thread_wake_handshake`, `work_steal_slot`; programs: `kernel` | interfaces only; 6 dated exception(s) | `kernel` (provisional) |
 | `login` | base | crates: `credentialer`; programs: `credentialer`, `identity_provisioner`, `login`, `login_audit_receiver`, `session` | `timetable` | `login` (provisional) |
 | `mdr` | base | programs: `mdr` | interfaces only | `mdr` (provisional) |
@@ -155,7 +155,8 @@ The judgment calls, each a place the table could reasonably differ:
 Nothing was moved and no rule was weakened. The first run failed on 21 links across a boundary.
 
 Eight were real dependencies, now declared in seven `depends` lines. `init`'s `session_reviver`
-re-derives timetable entries, so it links the timetable crates. `fixtures` links internals of `init`, `time`, `timetable` and `network`,
+re-derived timetable entries, so it linked the timetable crates (retired 2026-09-27; `init`'s
+`components` crate still links `timetable`). `fixtures` links internals of `init`, `time`, `timetable` and `network`,
 which a test package is for. `host-tools` builds images from `boot` and `display`.
 
 Thirteen were recorded as exceptions dated 2026-09-27, in the package file of the linker. Pull

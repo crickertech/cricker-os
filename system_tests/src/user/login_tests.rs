@@ -79,11 +79,21 @@ static mut SCHEDULE_ARCHIVE: [u8; 1 << 20] = [0; 1 << 20];
 
 /// **Build the schedule archive `login` is started with** (milestone 152): `session`, `timetable`,
 /// and `jobs`, an archive of the one program the durable test schedules, all out of the initrd's
-/// own copies, the way `timetable_tests` narrows its archive to a plan.
+/// own copies, the way `timetable_tests` narrows its archive to a plan. Built on the first call and
+/// handed back unchanged after, because two `login`s in this suite are started with it.
 fn schedule_archive() -> &'static [u8] {
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    static LEN: AtomicUsize = AtomicUsize::new(0);
+    let built = LEN.load(Ordering::Acquire);
+    if built != 0 {
+        // SAFETY: written once, below, before `LEN` was set; only ever read since.
+        let archive: &'static [u8; 1 << 20] = unsafe { &*core::ptr::addr_of!(SCHEDULE_ARCHIVE) };
+        return &archive[..built];
+    }
     let initrd = |name| program(name).expect("a schedule program is not in the initrd");
-    // SAFETY: called once, from `wired`'s one-time setup, before any other reference to either
-    // buffer exists; the slices returned are only ever read afterwards.
+    // SAFETY: reached once, on the first call (`LEN` is still zero, and the kernel test harness
+    // runs tests on one thread), before any other reference to either buffer exists; the slices
+    // returned are only ever read afterwards.
     let (jobs_buf, buf) = unsafe {
         (
             &mut *core::ptr::addr_of_mut!(JOBS_ARCHIVE),
@@ -98,6 +108,7 @@ fn schedule_archive() -> &'static [u8] {
         (login_protocol::session::JOBS, &jobs_buf[..jobs_len]),
     ];
     let len = nifefs::write_image(&files, buf).expect("the schedule archive does not fit");
+    LEN.store(len, Ordering::Release);
     &buf[..len]
 }
 
@@ -217,6 +228,10 @@ fn wired() -> Option<ls::Wiring> {
                 fs_service::root_directory(fs_service::blk_server_image(), redoxfs_server_image())?;
             ensure_home_subtree(fs_ep, fs_page_frame, b"chris");
             ensure_home_subtree(fs_ep, fs_page_frame, b"corinne");
+            // A fresh machine's manifest: nothing for `login`'s start-up pass to re-derive, so
+            // every test here meets a `login` holding no durable session. The start-up pass has
+            // its own test and its own `login`.
+            fs_service::set_root_list(schedule_store::MANIFEST_FILE_NAME, None);
             let login_image = program("login").expect("no login program in the initrd archive");
             let w = ls::start(
                 login_image,
@@ -1130,8 +1145,8 @@ fn login_hands_a_listed_session_the_run_unvouched_capability_and_it_cannot_be_pa
 /// down.
 ///
 /// The proof used to live on `smb_server`'s `DurableSession`, which went with the SMB code on
-/// 2026-08-30. `session_reviver` keeps a synthetic copy of it for boot-derived sessions; this is the
-/// live-login half those comments point at.
+/// 2026-08-30. A session re-derived at start-up is built on a budget the same way
+/// (`a_durable_session_is_re_derived_at_start_up_unless_suspended`), so this holds for it too.
 ///
 /// **Costs nothing permanent against [`CONSTRUCTION_PAGES`]**: the session logs fully back out.
 #[test_case]
@@ -1434,4 +1449,114 @@ fn manifest_lists(identity: &[u8]) -> bool {
     let mut buf = [0u8; 512];
     fs_service::read_root_file(schedule_store::MANIFEST_FILE_NAME, &mut buf)
         .is_some_and(|n| login_protocol::lists(&buf[..n], identity))
+}
+
+/// The construction budget the start-up test's own `login` is given: `login.rs`'s `OWN_UT_PAGES`
+/// (128), `DURABLE_UT_PAGES` (640) and `CHANNEL_UT_PAGES` (32), split at its start, with 32 pages of
+/// margin. It serves no successful login, so nothing else is spent from it.
+const START_UP_CONSTRUCTION_PAGES: u64 = 128 + 640 + 32 + 32;
+
+/// **`login` re-derives a stored schedule at start-up, before anyone logs in, and skips a suspended
+/// identity** (milestone 152 (durable delegation); Fork 7 ruled A by calef on 2026-09-27; DECISIONS
+/// §123 (the boot-time re-derivation privilege) as amended). What `session_reviver_tests` proved
+/// against the retired `session_reviver`, now against `login` itself.
+///
+/// The store is written as a reboot would find it: `chris` and `corinne` each have
+/// `schedule_store::fixture::DEMO_SCHEDULE_DOC` stored in their own subtree (§122 (the on-disk
+/// schedule store)), the manifest (§125 (which identities have pending work)) names both, `chris`
+/// first, and the owner's suspended list names `chris`. Then a second `login` starts against that
+/// store, and three exchanges on its front door, none of them a successful login, show what its
+/// start-up pass did:
+///
+/// 1. `SUSPEND` with `chris` listed ends nothing. He has a stored schedule and comes first in the
+///    manifest, so only the skip explains it; with one session kept, a pass that ignored the list
+///    would have spent it on him.
+/// 2. A wrong secret for `corinne` is `DENIED`. The session re-derived for her is handed out only
+///    after the credential service says yes, as at any login.
+/// 3. `SUSPEND` with `corinne` listed ends one session. Nothing but the start-up pass could have
+///    built it, and it only stays kept when the timetable accepted the stored document, so this
+///    is also the proof that what was written through the file service is what `login` read and
+///    the timetable took, the connective proof `session_reviver` made against `timetable::parse`.
+///
+/// Its own `login`, because the start-up pass runs once, at start: `wired()`'s is shared by the
+/// whole suite and starts on an empty manifest. The store is put back afterwards.
+///
+/// **A permanent charge against `kernel::testing::SUITE_PAGE_FRAME_BUDGET`**: a second `login`
+/// process and its [`START_UP_CONSTRUCTION_PAGES`], which no test tears down. The re-derived
+/// session itself comes home to that budget when step 3 ends it.
+#[test_case]
+fn a_durable_session_is_re_derived_at_start_up_unless_suspended() {
+    if fs_service::fs_server_image().is_none() {
+        crate::testing::skip!(fs_service::NO_FS_SERVER);
+    }
+    // Brings up the file service and both home subtrees, and so orders this after them.
+    if wired().is_none() {
+        crate::testing::skip!("no virtio-rng device or no RedoxFS disk attached");
+    }
+    let Some((cred, _, _)) = credential_tests::provisioned() else {
+        crate::testing::skip!("no virtio-rng device");
+    };
+    let (fs_ep, fs_page_frame) =
+        fs_service::root_directory(fs_service::blk_server_image(), redoxfs_server_image())
+            .expect("wired() already brought the file service up");
+
+    let doc = schedule_store::fixture::DEMO_SCHEDULE_DOC.as_bytes();
+    let stored = schedule_store::SCHEDULE_FILE_NAME;
+    fs_service::set_home_file(b"chris", stored, Some(doc));
+    fs_service::set_home_file(b"corinne", stored, Some(doc));
+    fs_service::set_root_list(
+        schedule_store::MANIFEST_FILE_NAME,
+        Some(b"chris\ncorinne\n"),
+    );
+    fs_service::set_root_list(login_protocol::SUSPENDED_LIST, Some(b"chris\n"));
+
+    let w = ls::start(
+        program("login").expect("no login program in the initrd archive"),
+        cred.verify,
+        cred.verify_page_frame,
+        fs_ep,
+        fs_page_frame,
+        START_UP_CONSTRUCTION_PAGES,
+        schedule_archive(),
+    );
+    // The first word on the front door is received only once the start-up pass is over, so every
+    // exchange below sees what it left.
+    let suspend = || {
+        sched::ipc_send(w.request, [login_protocol::suspend_word(), 0, 0]);
+        let r = sched::ipc_recv(w.result);
+        assert_eq!(
+            r[0],
+            login_protocol::APPLIED,
+            "SUSPEND was not answered APPLIED"
+        );
+        r[1]
+    };
+
+    assert_eq!(
+        suspend(),
+        0,
+        "a suspended identity's stored schedule was re-derived at start-up",
+    );
+
+    let cli =
+        program("login_test_client").expect("no login_test_client program in the initrd archive");
+    let wrong = ls::client(cli, &w, ls::LOGIN, CORINNE, WRONG);
+    assert_eq!(
+        wrong[0],
+        ls::RPT_DENIED,
+        "a wrong secret for an identity with a re-derived session was not DENIED",
+    );
+
+    fs_service::set_root_list(login_protocol::SUSPENDED_LIST, Some(b"corinne\n"));
+    let ended = suspend();
+
+    fs_service::set_root_list(login_protocol::SUSPENDED_LIST, None);
+    fs_service::set_root_list(schedule_store::MANIFEST_FILE_NAME, None);
+    fs_service::set_home_file(b"chris", stored, None);
+    fs_service::set_home_file(b"corinne", stored, None);
+    assert_eq!(
+        ended, 1,
+        "no durable session was kept for corinne at start-up: the manifest, her stored schedule \
+         or the timetable's answer to it did not carry through `login`'s start-up pass",
+    );
 }

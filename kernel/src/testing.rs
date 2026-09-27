@@ -613,9 +613,19 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// re-measured: 22754 + 14 = 22768, and + 32 headroom = 22800. The next branch to read the ledger
 /// in CI should replace this with a measured figure.
 ///
+/// **`23_482` (2026-09-27): a second `login`, started to prove its start-up pass.** calef ruled
+/// milestone 152's Fork 7 option A: `login` re-derives durable sessions at start-up. The pass runs
+/// once, in `_start`, so `login_tests`' `a_durable_session_is_re_derived_at_start_up_unless_suspended`
+/// starts a `login` of its own, which no test tears down: its image, its stack and its
+/// `START_UP_CONSTRUCTION_PAGES` (832). `session_reviver_tests` went in the same change and gave
+/// back its 32-page budget. CI read **22442** on aarch64 for the branch before this change
+/// (run 36335364103); a full local aarch64 `script/test` after it read **23450**, +1008. Of that,
+/// 800 is the construction budget net of the 32 given back; the other 208 is the size of a `login`
+/// process with its three blobs copied in, and is not attributed further. 23450 + 32 = 23482. riscv64 read 22297 before, and is the lower of the pair as usual.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 22_800;
+const SUITE_PAGE_FRAME_BUDGET: usize = 23_482;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///

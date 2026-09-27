@@ -32,10 +32,11 @@
 //! # What this crate is not
 //!
 //! It performs no IO and makes no syscalls (CLAUDE.md rule 7: two programs that must agree on a
-//! format share a crate, not a wire convention re-derived twice). The write side
-//! (`fixtures/src/fs_test_client.rs`'s `ROLE_SCHEDULE_SEED`, this lane's own demonstration writer) and
-//! the read side (`components/src/session_reviver.rs`, the boot-time re-deriver) both depend on it for
-//! exactly the same reason `timetable` is shared by the process that writes the shipped
+//! format share a crate, not a wire convention re-derived twice). Both sides are
+//! `components/src/login.rs` since calef ruled Fork 7 on 2026-09-27: it writes an identity's line
+//! when a schedule opens at a login and reads the manifest at start-up to re-derive each session
+//! (DECISIONS §123 (the boot-time re-derivation privilege) as amended). It depends on this crate
+//! for exactly the same reason `timetable` is shared by the process that writes the shipped
 //! `timetable.conf` file and the process that reads it: the parser and the render logic must be one
 //! function, not two that could drift.
 //!
@@ -199,9 +200,9 @@ fn strip_comment(line: &str) -> &str {
 }
 
 /// **Render a manifest**, one identity name per line: the write-path half of this crate, used by
-/// whoever records that an identity now has a durable session with pending work (this lane's own
-/// demonstration writer, `fixtures/src/fs_test_client.rs`'s `ROLE_SCHEDULE_SEED`; a real registrar,
-/// #387, would call this every time a schedule changes).
+/// whoever records that an identity now has a durable session with pending work. `login` edits the
+/// manifest a line at a time instead (`login_protocol::with_listed`, the same format), so this is
+/// the whole-document form, host-tested against [`parse_manifest`].
 ///
 /// A fixed buffer rather than a `String`, because this crate is `no_std` with no `alloc`
 /// (`timetable::write_plan`'s own reasoning, matching it exactly). `None` if `names` will not fit
@@ -242,19 +243,10 @@ pub fn render_manifest(names: &[&[u8]], buf: &mut [u8]) -> Option<usize> {
     Some(n)
 }
 
-/// Fixture data both this lane's own demonstration writer
-/// (`fixtures/src/fs_test_client.rs`'s `ROLE_SCHEDULE_SEED`) and the kernel test wiring them together
-/// use, so the identity and the schedule document a reader meets in either place are the one the
-/// other was written against, matching `filesystem_protocol::fixture`'s own convention for
-/// `SMB_SEED`/`SMB_SEED_NAME`.
+/// Fixture data the kernel's tests share, so the schedule document a reader meets in
+/// `timetable_tests` and in `login_tests`' start-up test is the same one, matching
+/// `filesystem_protocol::fixture`'s own convention.
 pub mod fixture {
-    /// The one identity this lane's demonstration seeds a durable schedule for. Deliberately not
-    /// `chris` or `corinne` (used by other suites' own fixtures, `credentialer_test_client.rs`'s
-    /// `PEOPLE` and `identity_provisioning_tests.rs`), so this suite's own subtree and manifest
-    /// entry cannot collide with anything an earlier test in the same continuous boot already
-    /// wrote.
-    pub const DEMO_IDENTITY: &str = "durable_demo";
-
     /// One `at-boot` entry and one `every` entry, matching `timetable::parse`'s own document shape
     /// (`components/timetable.conf`'s own reference document is the model): enough to prove the format
     /// round-trips through a real read from the filesystem, not merely through `include_str!`.

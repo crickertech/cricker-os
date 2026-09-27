@@ -200,19 +200,6 @@ mod login_tests;
 #[cfg(all(test, initrd))]
 mod identity_provisioning_tests;
 
-/// **The schedule store's write path and read-at-boot path prove each other** (milestone 152's
-/// first and third pieces; DECISIONS §122, §123, §125).
-///
-/// What these prove that nothing else would: that a schedule entry `fs_test_client`'s
-/// `ROLE_SCHEDULE_SEED` writes through ordinary `filesystem_protocol` verbs is the same document
-/// `session_reviver` reads back and `timetable::parse` accepts, that the manifest (§125's own answer
-/// to "which identities", read by name rather than by `READDIR`) carries that identity to the
-/// re-deriver without either program enumerating anything, that a session re-derived at boot has the
-/// identical §16 (object revocation) lifecycle a live login session's budget does, and that
-/// the re-deriver's own capabilities are gone and provably so once its one pass finishes.
-#[cfg(all(test, initrd))]
-mod session_reviver_tests;
-
 /// **An NTP client may propose a time and may not set one** (milestone 51).
 ///
 /// The milestone's demonstrable claim, and the one Unix cannot make: `ntpd` runs as root and may set

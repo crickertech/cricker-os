@@ -505,6 +505,123 @@ pub mod session {
     pub const FAILED: u64 = 0x5e55_0000_0000_0f00;
 }
 
+/// **How many durable sessions `login` can keep, and which ones it re-derives at start-up**
+/// (milestone 152 (durable delegation), Fork 7 ruled A by calef on 2026-09-27: `login` re-derives
+/// every durable session that is not suspended, before it serves its front door). Pure logic, in
+/// this crate so a host test reaches it; `components/src/login.rs` is the one caller.
+///
+/// The slot counts are from `login.rs`'s code, counted in
+/// `notes/durable-delegation/boot-rederivation-in-login.md` (question 5). They are counts, not a
+/// measurement: no gauge reports one process's table.
+///
+/// Name: provisional, minted 2026-09-27 (UTC) by milestone 152's lane, for this module and
+/// everything in it.
+pub mod durable {
+    /// Slots `login` holds at rest: nine endowed (`REQUEST`, `RESULT`, `VERIFY`, `FS_EP`,
+    /// `FS_PAGE_FRAME`, `CONSTRUCTION_UT`, `AUDIT`, `TERM_EP`, `RUN_UNVOUCHED`) and the three
+    /// budgets `_start` splits (`own_ut`, `durable_ut`, `channel_ut`).
+    pub const SLOTS_AT_REST: u64 = 12;
+    /// Slots an ordinary login adds at its peak, inside `mint`'s `build_child`: the channel's
+    /// `result` and `region`, then `region`, `narrow_ep`, `ready`, and the child's address space
+    /// and one frame or its thread.
+    pub const SLOTS_LOGIN_PEAK: u64 = 7;
+    /// Slots each kept durable session holds: the user's budget, the session process's region, the
+    /// registration page and the readiness endpoint.
+    pub const SLOTS_PER_SESSION: u64 = 4;
+
+    /// **How many durable sessions fit a `table_slots`-slot capability table** with room left for
+    /// one ordinary login beside them: the largest `n` with
+    /// `SLOTS_AT_REST + SLOTS_PER_SESSION * n + SLOTS_LOGIN_PEAK <= table_slots`. That bound is
+    /// also the tightest of the three the note counts: opening the last of them, at a login or at
+    /// start-up, peaks lower.
+    ///
+    /// # EXAMPLES
+    ///
+    /// ```
+    /// use login_protocol::durable::sessions_held;
+    /// assert_eq!(sessions_held(24), 1); // today's table: one session, 23 of 24 at a login's peak
+    /// assert_eq!(sessions_held(32), 3); // the table PR #1360 proposes
+    /// assert_eq!(sessions_held(16), 0); // too small for any
+    /// ```
+    pub const fn sessions_held(table_slots: u64) -> usize {
+        let fixed = SLOTS_AT_REST + SLOTS_LOGIN_PEAK;
+        if table_slots < fixed {
+            return 0;
+        }
+        ((table_slots - fixed) / SLOTS_PER_SESSION) as usize
+    }
+
+    /// **The identities a start-up pass re-derives, in manifest order**: every entry of the
+    /// durable-session manifest (DECISIONS §125 (which identities have pending work)) that the
+    /// owner's suspended list (`super::lists`'s format, [`super::SUSPENDED_LIST`]) does not name.
+    /// The caller stops at its own capacity and skips an identity whose stored schedule is missing
+    /// or empty, which is a stale manifest line rather than a failure (§125).
+    ///
+    /// # EXAMPLES
+    ///
+    /// ```
+    /// let manifest: [&[u8]; 3] = [b"chris", b"corinne", b"graeme"];
+    /// let mut left = login_protocol::durable::to_rederive(&manifest, b"# suspended\ncorinne\n");
+    /// assert_eq!(left.next(), Some(&b"chris"[..]));
+    /// assert_eq!(left.next(), Some(&b"graeme"[..]));
+    /// assert_eq!(left.next(), None);
+    /// ```
+    pub fn to_rederive<'a>(
+        manifest: &'a [&'a [u8]],
+        suspended: &'a [u8],
+    ) -> impl Iterator<Item = &'a [u8]> + 'a {
+        manifest
+            .iter()
+            .copied()
+            .filter(move |identity| !super::lists(suspended, identity))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// **The capacity is the note's arithmetic, at both table sizes in play.** 24 slots hold
+        /// one session and 27 would be needed for two; 32 (PR #1360) holds three. Falsified by
+        /// dropping `SLOTS_LOGIN_PEAK` from the sum, which answers two for 24.
+        #[test]
+        fn the_capacity_leaves_room_for_one_login_beside_the_sessions() {
+            assert_eq!(sessions_held(24), 1);
+            assert_eq!(sessions_held(26), 1);
+            assert_eq!(sessions_held(27), 2);
+            assert_eq!(sessions_held(32), 3);
+            assert_eq!(sessions_held(18), 0);
+            assert_eq!(sessions_held(0), 0);
+            for slots in 0..64u64 {
+                let n = sessions_held(slots) as u64;
+                if n > 0 {
+                    assert!(
+                        SLOTS_AT_REST + SLOTS_PER_SESSION * n + SLOTS_LOGIN_PEAK <= slots,
+                        "{n} sessions overflow a {slots}-slot table at a login's peak"
+                    );
+                }
+                assert!(
+                    SLOTS_AT_REST + SLOTS_PER_SESSION * (n + 1) + SLOTS_LOGIN_PEAK > slots,
+                    "a {slots}-slot table could hold {} sessions, not {n}",
+                    n + 1
+                );
+            }
+        }
+
+        /// **A suspended identity is never re-derived, and nothing else is dropped.** The proof
+        /// `session_reviver`'s skip carried, now on the function `login`'s start-up pass calls.
+        #[test]
+        fn a_suspended_identity_is_skipped_and_the_rest_keep_their_order() {
+            let manifest: [&[u8]; 3] = [b"chris", b"corinne", b"graeme"];
+            let all: [&[u8]; 3] = manifest;
+            assert!(to_rederive(&manifest, b"").eq(all.iter().copied()));
+            assert!(to_rederive(&manifest, b"chris\ngraeme\n").eq([&b"corinne"[..]]));
+            // A prefix is not a name, and a comment suspends nobody.
+            assert!(to_rederive(&manifest, b"chr\n#corinne\n").eq(all.iter().copied()));
+            assert_eq!(to_rederive(&[], b"chris\n").count(), 0);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

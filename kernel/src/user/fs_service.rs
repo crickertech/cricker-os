@@ -795,9 +795,10 @@ const CLIENT_EXTRA_STACK: usize = 8;
 /// `grant_plan` hands it, so a field added there is a page needed here.
 /// `pub(super)` (rather than private, its shape before milestone 152) so a sibling test module can
 /// spawn a client with a nonzero `extra_stack` directly, bypassing [`start`]'s convenience wrapper
-/// (which hardcodes `0`): `kernel::user::session_reviver_tests` needs more than the one-page default
-/// for its two `fs_test_client` roles, found short under `script/test`'s own aarch64 run (a data
-/// abort at the stack's guard page).
+/// (which hardcodes `0`): milestone 152's schedule-store roles needed more than the one-page
+/// default, found short under `script/test`'s own aarch64 run (a data abort at the stack's guard
+/// page). Those roles went with `session_reviver` on 2026-09-27; the granted-directory spawners
+/// below still pass their callers' stack pages through it.
 pub fn spawn_fs_client(
     client_image: &'static [u8],
     file_ep: RendezvousId,
@@ -2131,12 +2132,27 @@ pub fn start_granted_two_dirs(
     Some(report)
 }
 
-/// **Write one of the owner's lists at the file service's root** (`kernel::user::login_tests` and
-/// `session_reviver_tests` both need to), as the owner's console would: the run-unvouched list, or the suspended list of milestone 152
-/// (durable delegation). `None` removes it.
+/// **Write one of the owner's lists at the file service's root** (`kernel::user::login_tests` needs
+/// to), as the owner's console would: the run-unvouched list, the suspended list of milestone 152
+/// (durable delegation), or the durable-session manifest. `None` removes it.
 #[cfg(any(test, feature = "system_tests"))]
 pub fn set_root_list(file: &str, list: Option<&[u8]>) {
-    use filesystem_protocol::fs;
+    set_file(None, file, list);
+}
+
+/// **Write `file` inside `identity`'s own subtree** (DECISIONS §117 (a principal's subtree is named
+/// by its identity string)), which must already exist: an identity's stored schedule (§122 (the
+/// on-disk schedule store)), as that identity's session would have written it. `None` removes it.
+#[cfg(any(test, feature = "system_tests"))]
+pub fn set_home_file(identity: &[u8], file: &str, contents: Option<&[u8]>) {
+    set_file(Some(identity), file, contents);
+}
+
+/// [`set_root_list`] and [`set_home_file`]'s one body: `file` at the root, or under the subtree
+/// named `dir`.
+#[cfg(any(test, feature = "system_tests"))]
+fn set_file(dir: Option<&[u8]>, file: &str, contents: Option<&[u8]>) {
+    use filesystem_protocol::{dir as rights, fs};
     let (fs_ep, fs_page_frame) = root_directory(
         blk_server_image(),
         crate::user::program("redoxfs_server").expect("no redoxfs_server in the initrd"),
@@ -2149,29 +2165,48 @@ pub fn set_root_list(file: &str, list: Option<&[u8]>) {
             filesystem_protocol::PAGE,
         )
     };
+    let call = |w: [u64; 2]| crate::sched::ipc_call(fs_ep, w)[0] as i64;
+    let at = match dir {
+        None => fs::ROOT,
+        Some(d) => {
+            page[..d.len()].copy_from_slice(d);
+            let h = call([fs::req(fs::OPENDIR, fs::ROOT, d.len() as u64), rights::ALL]);
+            assert!(
+                h >= 0,
+                "could not open the subtree {:?} ({h})",
+                core::str::from_utf8(d)
+            );
+            h as u64
+        }
+    };
     let name = file.as_bytes();
     let named = |page: &mut [u8], verb: u64| {
         page[..name.len()].copy_from_slice(name);
-        crate::sched::ipc_call(fs_ep, [fs::req(verb, fs::ROOT, name.len() as u64), 0])[0] as i64
+        call([fs::req(verb, at, name.len() as u64), 0])
     };
-    let Some(list) = list else {
+    if let Some(contents) = contents {
+        let mut h = named(page, fs::OPEN);
+        if h < 0 {
+            h = named(page, fs::CREATE);
+        }
+        assert!(h >= 0, "could not open or create {file} ({h})");
+        let h = h as u64;
+        assert_eq!(
+            call([fs::req(fs::TRUNCATE, h, 0), 0]),
+            0,
+            "could not truncate {file}"
+        );
+        page[..contents.len()].copy_from_slice(contents);
+        let wrote = call([fs::req(fs::WRITE, h, contents.len() as u64), 0]);
+        assert_eq!(wrote, contents.len() as i64, "short write of {file}");
+        call([fs::req(fs::CLOSE, h, 0), 0]);
+    } else {
         // `ENOENT` is the state asked for, so the answer is not checked.
         named(page, fs::UNLINK);
-        return;
-    };
-    let mut h = named(page, fs::OPEN);
-    if h < 0 {
-        h = named(page, fs::CREATE);
     }
-    assert!(h >= 0, "could not open or create the list {file} ({h})");
-    let h = h as u64;
-    let truncated = crate::sched::ipc_call(fs_ep, [fs::req(fs::TRUNCATE, h, 0), 0])[0] as i64;
-    assert_eq!(truncated, 0, "could not truncate the list {file}");
-    page[..list.len()].copy_from_slice(list);
-    let wrote =
-        crate::sched::ipc_call(fs_ep, [fs::req(fs::WRITE, h, list.len() as u64), 0])[0] as i64;
-    assert_eq!(wrote, list.len() as i64, "short write of the list {file}");
-    crate::sched::ipc_call(fs_ep, [fs::req(fs::CLOSE, h, 0), 0]);
+    if at != fs::ROOT {
+        call([fs::req(fs::CLOSE, at, 0), 0]);
+    }
 }
 
 /// **Read one of the owner's files at the file service's root** into `out`, [`set_root_list`]'s
