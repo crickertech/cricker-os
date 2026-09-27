@@ -123,6 +123,24 @@ jobs:
         continue-on-error: true
         run: script/coverage
 
+      # Milestone 610 (provisional): the interface's stability. The one step here besides coverage
+      # that builds, because the public API is read from rustdoc's JSON and rustdoc needs a crate
+      # that compiles. It writes only the interface cells, which `script/metrics` carries rather
+      # than recomputes, so it must run BEFORE the step below for today's cells to reach the charts.
+      # Measured 2026-09-26 on the dev machine: ten seconds for the whole eleven-week backfill, so a
+      # daily `--update` (two week-end trees) costs the toolchain install and little else.
+      # `continue-on-error` for coverage's reason: a rustdoc failure is an instrument problem, and
+      # every other column should still be recorded.
+      - name: Install the target the interface is read for
+        id: interfacetool
+        continue-on-error: true
+        run: rustup target add aarch64-unknown-none-softfloat
+
+      - name: Measure the interface's stability
+        if: steps.interfacetool.outcome == 'success'
+        continue-on-error: true
+        run: python3 helpers/interface_stability.py --update
+
       - name: Recompute this week's row and redraw the charts
         run: |
           set -e
