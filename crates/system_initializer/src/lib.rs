@@ -601,9 +601,9 @@ const CHILD_JOB_PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0030_0000);
 /// Pages of untyped split off our own budget and handed the shell (milestone 31), so the shell can
 /// in turn endow the programs it spawns (`run --mem N`) out of a budget that is genuinely *its own*.
 /// The shell shrinks this by N pages per grant; the pages a spawned child pins are not reclaimed in
-/// phase 1, so this is a session budget, not a renewable one. Must match swish.rs's
-/// `SH_BUDGET_PAGES`.
-const SH_BUDGET_PAGES: u64 = 128;
+/// phase 1, so this is a session budget, not a renewable one. The number is
+/// [`spawnproto::SHELL_BUDGET_PAGES`], which the shell reads too.
+const SH_BUDGET_PAGES: u64 = spawnproto::SHELL_BUDGET_PAGES;
 
 /// **What the progenitor keeps for itself after the boot servers are up** (milestone 22, the interactive
 /// increment). It pays for one thing: the page tables reaching the loader's scratch window, which
@@ -697,16 +697,45 @@ const SECOND_DIR_CARETAKER_PAGES: u64 = JOB_REGION_PAGES;
 /// jobs, which is well past what the pool could hold without the regions coming back.
 pub const JOBS_BUDGET_PAGES: u64 = JOB_REGION_PAGES * 6 + grant_plan::STD_REGION_PAGES;
 
+/// **The image pool**: where a file run by its path, or a package being installed, is staged and
+/// built (milestone 595 (the shell runs a `std` program), 2026-09-27). Provisional name.
+///
+/// Room for the largest image twice (this process's own copy, which §219 has it hash, and the
+/// child's pages) and a `std` program's heap beside it: `grant_plan::image_region_pages` for a
+/// `std` image of [`spawnproto::IMAGE_MAX_PAGES`], plus its staging. About 9.5 MiB of the
+/// progenitor's 48.
+///
+/// **Apart from [`JOBS_BUDGET_PAGES`] on purpose.** That pool is small so that `script/swish-check`
+/// runs more jobs through it than it could hold without the regions coming back; folding 2,400
+/// pages into it would retire that ratchet without saying so. Named programs never carve from this
+/// one, and an image never carves from that one.
+///
+/// # BUGS
+///
+/// - **The image is held three times while a child is built**: the shell's frames, this copy, and
+///   the child's pages. Hashing each byte as it is copied into the child would drop this copy and
+///   halve the pool, but it means building the child from the caller's still-mapped frames, and
+///   the tree's one loader would have to learn to hash as it fills. That is more work than the copy,
+///   and the copy is why this pool is twice the image rather than once: a choice made on effort.
+/// - **Reserved, not borrowed.** These pages are set aside at boot whether or not an image ever
+///   runs, as the shell's matching staging pages are.
+pub const IMAGE_POOL_PAGES: u64 = grant_plan::image_region_pages(
+    spawnproto::IMAGE_MAX_PAGES,
+    grant_plan::Runtime::Std,
+    JOB_REGION_PAGES,
+) + spawnproto::IMAGE_MAX_PAGES;
+
 /// **Everything the job pool can have built at once fits in the loader's scratch window**, twice
 /// over (milestone 604 (provisional)). Every page the progenitor builds for a job is mapped once in
 /// its own scratch window and stays mapped until the job's region is destroyed, so the window must
 /// hold the whole pool at once, plus an image request's peek pages, beside the boot servers' pages,
 /// which are never given back. Half the window is left for those. They were not measured, and the
 /// sum of every program in the archive is under 2,400 pages of file, so half is generous; a pool
-/// grown past this (milestone 595's `rg` at the prompt will grow it) fails the build here rather
-/// than a spawn at run time.
+/// grown past this fails the build here rather than a spawn at run time. The image pool
+/// ([`IMAGE_POOL_PAGES`], milestone 595 (the shell runs a `std` program)) is built through the
+/// same window, so it counts too.
 const _: () = assert!(
-    JOBS_BUDGET_PAGES + spawnproto::IMAGE_MAX_PAGES
+    JOBS_BUDGET_PAGES + IMAGE_POOL_PAGES + spawnproto::IMAGE_MAX_PAGES
         <= supervision_protocol::SCRATCH_WINDOW_PAGES / 2
 );
 
@@ -2198,6 +2227,7 @@ pub fn boot(
 
     let own_ut = must(memory_region_split(ut, INIT_OWN_PAGES));
     let jobs_ut = must(memory_region_split(ut, JOBS_BUDGET_PAGES));
+    let images_ut = must(memory_region_split(ut, IMAGE_POOL_PAGES));
     // The shell's output page, in our own space, so we can say what just happened. This mapping is
     // permanent (there is no unmap, and `PageFrame::REVOKE` would take the page from the shell too); see
     // this module's BUGS.
@@ -2364,6 +2394,7 @@ pub fn boot(
             deaths,
             own_ut,
             jobs_ut,
+            images_ut,
             clock_page: g.clock_page,
             config_page: g.config_page,
             // The terminal's sink, if this initrd carried an adapter to serve it. This is what a
@@ -2435,6 +2466,8 @@ struct Channels {
     own_ut: u64,
     /// The job pool. One region per job, split off here and returned here when the job is reaped.
     jobs_ut: u64,
+    /// The image pool, [`IMAGE_POOL_PAGES`]: a file run by its path, and a package's staging.
+    images_ut: u64,
     /// READ on the wall clock, endowed to a child whose manifest declares one (DECISIONS §43).
     clock_page: u64,
     /// READ on the inert-configuration page, endowed to a child whose manifest declares
@@ -2537,6 +2570,7 @@ fn spawn_service(
         deaths,
         own_ut,
         jobs_ut,
+        images_ut,
         clock_page,
         config_page,
         term_sink,
@@ -2559,7 +2593,7 @@ fn spawn_service(
                 &Activating {
                     spawn_ep,
                     own_ut,
-                    jobs_ut,
+                    images_ut,
                     fs,
                     catalogue,
                     network,
@@ -2599,14 +2633,21 @@ fn spawn_service(
         // (how a foreign program is told what to do)). The note that says which is inside the
         // frames, which have not arrived, so the argv bit sizes the region and `endowed_image`
         // checks the note agrees (`grant_plan::image_can_carry` ties the two).
+        //
+        // **From the image pool, and as large as the image** (milestone 595): see
+        // [`IMAGE_POOL_PAGES`] and `grant_plan::image_region_pages`.
         let image_region = if wiring.image && !interruptible && !wiring.dir {
             memory_region_split(
-                jobs_ut,
-                if wiring.args {
-                    grant_plan::STD_REGION_PAGES
-                } else {
-                    JOB_REGION_PAGES
-                },
+                images_ut,
+                grant_plan::image_region_pages(
+                    spawnproto::image_pages(spawnproto::image_len(w0)),
+                    if wiring.args {
+                        grant_plan::Runtime::Std
+                    } else {
+                        grant_plan::Runtime::Native
+                    },
+                    JOB_REGION_PAGES,
+                ),
             )
             .ok()
         } else {
@@ -2617,7 +2658,7 @@ fn spawn_service(
                 spawn_ep,
                 spawnproto::image_len(w0),
                 own_ut,
-                jobs_ut,
+                images_ut,
                 image_region.is_some(),
             )
         } else {
@@ -3721,6 +3762,13 @@ const ACTIVATION_FS_VA: u64 = address_space_map::pair_page(0x0f40_0000);
 /// tables behind it come from `own_ut` and are reused.
 const IMAGE_STAGING_VA: u64 = address_space_map::pair_page(0x0f80_0000);
 
+// The largest image's copy stays inside the pair band, clear of the loader's scratch window at its
+// top (milestone 595 raised [`spawnproto::IMAGE_MAX_PAGES`] to 1024, which is 4 of the 8 MiB here).
+const _: () = assert!(
+    IMAGE_STAGING_VA + spawnproto::IMAGE_MAX_PAGES * spawnproto::IMAGE_PAGE
+        <= address_space_map::PAIR_PAGES.end
+);
+
 /// **Take the argv's frame off the spawn endpoint and map it where this process can read it**
 /// (milestone 205, DECISIONS §170; `spawnproto::ARGS_BIT`). Returns the address, or `None` if the
 /// caller sent no frame or it would not map. The capability goes at once, as an image frame's does
@@ -3778,10 +3826,10 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
 ///
 /// `stage` is false when the request cannot be built anyway (no region for the child, an
 /// interruptible or directory-granted image), and then this only drains.
-fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, jobs_ut: u64, stage: bool) -> Option<u64> {
+fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bool) -> Option<u64> {
     let pages = spawnproto::image_pages(len);
     let staging = if stage && pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES {
-        memory_region_split(jobs_ut, pages).ok()
+        memory_region_split(images_ut, pages).ok()
     } else {
         None
     };
@@ -4121,7 +4169,8 @@ impl FsCalls {
 struct Activating {
     spawn_ep: u64,
     own_ut: u64,
-    jobs_ut: u64,
+    /// [`IMAGE_POOL_PAGES`]: a package is staged where an image is.
+    images_ut: u64,
     fs: Option<Fs>,
     catalogue: &'static str,
     /// The network stack's endpoint, for [`spawnproto::Activation::Fetch`]. `None` on a boot with
@@ -4166,7 +4215,7 @@ fn activate(
     // refusal never leaves words behind that the next request would read as its own.
     let staging = match verb {
         Some(Activation::Install | Activation::Vouch) => {
-            receive_image(a.spawn_ep, w0, a.own_ut, a.jobs_ut, true).map(|st| (st, w0))
+            receive_image(a.spawn_ep, w0, a.own_ut, a.images_ut, true).map(|st| (st, w0))
         }
         _ => None,
     };
@@ -4469,7 +4518,7 @@ fn fetch(
         .ok_or(S::NoSuchPackage)?;
     let stack = a.network.ok_or(S::NoNetwork)?;
 
-    let region = memory_region_split(a.jobs_ut, 1).map_err(|()| S::FetchFailed)?;
+    let region = memory_region_split(a.images_ut, 1).map_err(|()| S::FetchFailed)?;
     *socket_region = Some(region);
     let page = retype_page_frame(region).map_err(|()| S::FetchFailed)?;
     // SAFETY: `invoke` is the syscall; the page is ours and fresh, the window is clear (see
@@ -4587,7 +4636,7 @@ fn receive_body(
 /// [`receive_image`] does for a caller's frames. The region, or `FetchFailed` with nothing held.
 fn stage_pages(a: &Activating, len: u64) -> Result<u64, spawnproto::ActivationStatus> {
     let pages = spawnproto::image_pages(len);
-    let st = memory_region_split(a.jobs_ut, pages)
+    let st = memory_region_split(a.images_ut, pages)
         .map_err(|()| spawnproto::ActivationStatus::FetchFailed)?;
     for i in 0..pages {
         let mapped = match retype_page_frame(st) {

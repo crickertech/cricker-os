@@ -410,13 +410,32 @@ pub fn activation_reply(status: ActivationStatus, live: u32) -> (u64, u64, u64) 
     (status as u64, u64::from(live), 0)
 }
 
-/// **The largest image `IMAGE_BIT` may carry, in pages** (256 KiB). A ceiling both sides read,
+/// **The largest image `IMAGE_BIT` may carry, in pages** (4 MiB). A ceiling both sides read,
 /// so the shell refuses a larger file before it sends anything and the progenitor never stages more
-/// than its job pool can hold beside the child built from it. `uptime` is 22 pages stripped.
+/// than its image pool can hold beside the child built from it. `uptime` is 22 pages stripped, and
+/// `ripgrep` 14.1.1's image spans about 670 (`notes/ripgrep-on-nife.md`), which is the program this
+/// was raised from 64 for (milestone 595 (the shell runs a `std` program), 2026-09-27).
 ///
-/// Provisional, like the bit: the number is the job pool's arithmetic (`JOBS_BUDGET_PAGES` in
-/// `crates/system_initializer`), not a property of any program.
-pub const IMAGE_MAX_PAGES: u64 = 64;
+/// What the number costs, because it is reserved rather than spent: the shell's budget carries one
+/// image's worth of staging frames, and the progenitor's image pool two (its own copy, which §219
+/// has it hash, and the child's pages) plus a `std` program's heap. That is
+/// `IMAGE_MAX_PAGES * 3 + grant_plan::STD_REGION_PAGES` pages, about 13.5 MiB, set aside at boot
+/// whether or not an image is ever run. See `IMAGE_POOL_PAGES` in `crates/system_initializer`.
+///
+/// Provisional, like the bit: the number is the pools' arithmetic, not a property of any program.
+pub const IMAGE_MAX_PAGES: u64 = 1024;
+
+/// **The budget the progenitor hands the boot shell**, in pages, which both read: the progenitor
+/// splits it, and the shell prints it in `caps` because there is no call that says how much is left.
+/// Moved here from two constants that had to be kept equal by hand (milestone 595 (the shell runs a
+/// `std` program), 2026-09-27).
+///
+/// 128 pages for `--mem` grants, pipes and the shell's own windows, as it was from milestone 31 (a
+/// capability shell), plus one image's staging frames ([`IMAGE_MAX_PAGES`]), since the shell
+/// reads a file run by its path into frames split from this budget before it sends them.
+///
+/// Name: provisional.
+pub const SHELL_BUDGET_PAGES: u64 = 128 + IMAGE_MAX_PAGES;
 
 /// The page size an image is carried in. A frame is one page on every architecture this tree
 /// builds for.

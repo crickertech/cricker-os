@@ -539,6 +539,16 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "installed/std-echo one 'two words'",
         &["words [\"installed/std-echo\", \"one\", \"two words\"]"],
     ),
+    // **An image the size of `rg` runs from the prompt** (milestone 595 (the shell runs a `std`
+    // program)). `crate::disk::INSTALLED_STD_ECHO_LARGE` is `std_echo` padded to 768 pages, twelve
+    // times the cap this path had, so the shell staged it across two 2 MiB page-table spans, the
+    // progenitor copied and hashed all of it in its image pool, and built it in a region sized from
+    // its length. Before, the shell refused it as "larger than an image may be".
+    line(
+        1,
+        "installed/std-echo-large big",
+        &["words [\"installed/std-echo-large\", \"big\"]"],
+    ),
     // **A note that asks more than its vouch allows is refused** (milestone 597, provisional).
     // `least_authority_demo`'s note declares an argument, which only a command line designates,
     // and unvouched bytes may hold only what the D2 ruling names. The shell binds the line
