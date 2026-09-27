@@ -140,10 +140,16 @@
 //!   (see the next entry), the *other* disk's fault re-fires on every retry and can occupy that
 //!   one slot indefinitely, and a fault arriving while the register already holds one is dropped
 //!   with `FSTS.PFO` set rather than recorded, so the escape fault the test provokes on its own
-//!   device could be the one silently lost. The exact reason the other disk's device model does
-//!   this on a global invalidate, with no guest driver ever touching it, was not chased past the
-//!   trace: it reproduces every time and is QEMU/VT-d-model-specific (aarch64's SMMUv3 and
-//!   riscv64's IOMMU do not show it, which is why those two legs always passed). The test now
+//!   device could be the one silently lost. **The other disk was not a QEMU quirk.** A read-only
+//!   `COMMAND`-register read taken before this boot ever calls `bring_up` shows Bus Master Enable
+//!   already set on it: something upstream of this kernel left it able to master the bus before
+//!   any driver here touched it, and `attach`'s invalidation is only when it first has a reason to
+//!   try. `init` never clears Bus Master Enable for a function it does not own, so the same thing
+//!   would happen with real firmware in the seat QEMU sits in here (aarch64's SMMUv3 and riscv64's
+//!   IOMMU do not show it, which is why those two legs always passed; whether their firmware
+//!   leaves functions bus-mastering the same way is unmeasured). The production question is
+//!   proposed, not answered, in
+//!   `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md`. The test now
 //!   resets every *other* block device on the bus (`STATUS = 0`, an ordinary virtio reset) before
 //!   registering and provoking its own, which stops their DMA outright regardless of the
 //!   mechanism; see the test for the commented fix. Green on all three architectures.

@@ -47,10 +47,17 @@ fault-recording register (already documented below). The unconfined disk's fault
 one slot indefinitely, and a fault arriving while the register already holds one is dropped
 (`FSTS.PFO`) rather than queued. The escape fault this test provokes on its own device could be the
 one silently lost. That is what made the test fail on `x86_64` and nowhere else: aarch64's SMMUv3
-and riscv64's IOMMU do not show this behaviour. Neither drives a never-touched virtio-blk device
-into a phantom access on a global invalidate the way QEMU's Intel-IOMMU model does here. That
-mechanism was traced far enough to fix reliably. It was not chased into QEMU's own source, which is
-out of tree and not this milestone's to fix.
+and riscv64's IOMMU do not show this behaviour.
+
+**A second correction, to this milestone's own first cut.** The neighbour disk's DMA is not a QEMU
+device-model quirk. A read-only `COMMAND`-register read of both virtio-blk functions, taken before
+this boot ever calls `bring_up` on either, shows Bus Master Enable and Memory Space Enable already
+set on both. Something upstream of this kernel, not this kernel, left the neighbour disk able to
+master the bus before any driver here touched it. `arch::iommu::init` establishes default-deny for
+*translation* but never touches Bus Master Enable, so a function left bus-mastering by whatever ran
+before this kernel can still attempt DMA the moment translation turns on. On real hardware
+(`xenon`) the same mechanism is firmware, not QEMU: `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md`
+is the write-up and the open question, raised rather than answered here.
 
 ## The fix
 
@@ -86,17 +93,20 @@ clean after each run.
 
 ## BUGS
 
-- The exact reason QEMU's Intel-IOMMU/virtio-blk-pci models attempt this access on an unconfined,
-  never-driven device was traced (`-d trace:vtd_*`) but not chased into QEMU's own source. It
-  reproduces every time on this QEMU version (11.1.1) and is worth a QEMU-side report. Not filed as
-  part of this milestone.
+- Bus Master Enable was already set on the neighbour disk before this kernel ever ran `bring_up`,
+  confirmed by a read-only `COMMAND` register read taken first thing in the test. `arch::iommu::init`
+  never clears it for a function this kernel does not own, so a device left bus-mastering by
+  whatever ran before this kernel (QEMU's own defaults here; firmware on real hardware) can still
+  attempt DMA the moment translation turns on. Not fixed here:
+  `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md` is the write-up.
 - The quiescing loop is bounded at 8 block devices, a sanity cap rather than a measured maximum. No
   runner this tree has attaches more than two.
 
 ## Follow-on
 
-- **Recorded.** The QEMU device-model quirk itself: see BUGS above. Nobody owns a QEMU bug report
-  for it yet.
+- **Proposed.** Should the kernel clear Bus Master Enable, or reset outright, every PCI function it
+  does not immediately own, before the IOMMU turns on?
+  `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md`.
 
 ## Index row
 
