@@ -101,7 +101,7 @@
 # next reader starts where this one stopped.
 #
 #   script/names              the table, by kind
-#   script/names --unratified the worklist: what still wants calef, in the order to work it
+#   script/names --unratified the worklist: what still wants an architect, in the order to work it
 #   script/names --refused    every refused name, and what holds the refusal
 #   script/names --unrecorded the names nobody wrote a reason for
 #   script/names <name>       one name: its provenance, or the entry that refused it
@@ -128,7 +128,7 @@
 # which are the half that pays. DECISIONS §134 has since cited this script by name as an
 # established member of the `script/` family's reporting half, which signs the form and leaves the
 # stem where it was: 134 was choosing between `falsifications` and `falsify`, not between `names`
-# and `provenance`. calef has not ratified it.
+# and `provenance`. no architect has ratified it.
 
 set -e
 
@@ -178,7 +178,8 @@ SURFACES = [
 ]
 
 # The fourth kind is not a directory listing, so it is discovered rather than listed: see
-# `packages()`. `package` is a PROVISIONAL name for the kind (calef names things). It is Cargo's own
+# `packages()`. `package` is a PROVISIONAL name for the kind (an architect names things). It is
+# Cargo's own
 # word, which is the argument for it, and it is imprecise against Cargo's strict taxonomy, where a
 # package contains crates and everything in `crates/` is one too. What the tree means by it is
 # narrower and positional, the way the other three kinds are: `crate` is a thing in `crates/`,
@@ -340,7 +341,8 @@ def stray_problems(kind, name, path, prefix, text):
 #
 # Only a name that CARRIES a marker is tracked, for `item` and `module`. Thousands of `pub fn`s have
 # no record of why they are named so, and failing them would build the wall this script refuses to
-# build. A lane minting a name writes the marker, which is how the name reaches calef's queue.
+# build. A lane minting a name writes the marker, which is how the name reaches the architects'
+# queue.
 # `directory` is the exception: §75 already required the README, so a directory without one fails.
 #
 # Two stem families are not names anybody ratifies, and are skipped: a stem that opens with a digit
@@ -493,7 +495,8 @@ provisional = [r for r in records if r["status"] == "provisional"]
 refusals = [(bad, r) for r in records for bad in r["refused"]]
 
 # **The worklist is every name that is not ratified, and it is computed once.** Every line below that
-# says how much still wants calef reads THIS list, because until 2026-09-19 three lines computed it
+# says how much still wants an architect reads THIS list, because until 2026-09-19 three lines
+# computed it
 # three ways: `--check` printed `recorded + unrecorded` beside a pointer to `--unratified`, which
 # printed `provisional + recorded + unrecorded`, and both census lines dropped `provisional`, so the
 # three numbers a reader was shown did not sum to the total. Milestone 117's fourth stranger found it
@@ -502,7 +505,7 @@ refusals = [(bad, r) for r in records for bad in r["refused"]]
 #
 # **`provisional` belongs in it, and the reason is this script's own sort order**: `--unratified`
 # puts provisional names FIRST in every tier, because their author has already said they are wrong
-# and so they are the shortest conversation calef can have (§89). A count that left them out
+# and so they are the shortest conversation an architect can have (§89). A count that left them out
 # under-reported exactly the part of the worklist worth reading first, and design/naming.md defines
 # the worklist as what `--unratified` prints. So the two-category number was the bug and the
 # three-category one was right.
@@ -529,7 +532,7 @@ EXPOSURE = {"program": 0, "crate": 1, "package": 2, "item": 3, "module": 3,
 # (`kernel`, `user`, `xtask`) and a stranger meets them as directories rather than as choices.
 # Within a tier, a name nobody can justify outranks one whose reasoning merely lacks a signature.
 # `provisional` outranks both: its author has SAID it is wrong, so it is the shortest
-# conversation calef can have.
+# conversation an architect can have.
 URGENCY = {"provisional": 0, "unrecorded": 1, "recorded": 2}
 
 # A refused name that something in the tree still USES is a contradiction worth seeing: either the
@@ -556,8 +559,8 @@ if mode == "--check":
               "(the parse stops at the first) and a", file=sys.stderr)
         print("bolded, indented or `///` one is invisible, which is how two of calef's "
               "ratifications sat on the worklist for a week.", file=sys.stderr)
-        print("See design/naming.md. Presence is the gate, never `ratified`: a name waiting on calef "
-              "never fails a build.", file=sys.stderr)
+        print("See design/naming.md. Presence is the gate, never `ratified`: a name waiting on an "
+              "architect never fails a build.", file=sys.stderr)
         print("`unrecorded` is a real answer; a ratification you cannot cite is not.",
               file=sys.stderr)
         print("An item marks its name with a `/// Name: provisional, <who, when>.` paragraph, a "
@@ -569,7 +572,7 @@ if mode == "--check":
           f"({', '.join(f'{len(by_kind.get(k, []))} {PLURAL.get(k, k + chr(115))}' for k in KINDS)})")
     print(f"names: {len(ratified)} ratified, {len(provisional)} provisional, {len(recorded)} "
           f"recorded, {len(unrecorded)} unrecorded, {len(refusals)} refusals recorded beside them")
-    print(f"names: {len(worklist)} still want calef "
+    print(f"names: {len(worklist)} still want an architect "
           f"(script/names --unratified), which is a worklist and not a failure")
     for bad in contradictions:
         print(f"names: NOTE {bad!r} is recorded as refused and is also a live name", file=sys.stderr)
@@ -692,7 +695,7 @@ for kind in KINDS:
 
 print(f"\ntotal: {len(records)} names, {len(ratified)} ratified, {len(provisional)} provisional, "
       f"{len(recorded)} recorded, {len(unrecorded)} unrecorded, {len(refusals)} refusals")
-print(f"{len(worklist)} still want calef: script/names --unratified")
+print(f"{len(worklist)} still want an architect: script/names --unratified")
 if contradictions:
     print(f"refused but live: {', '.join(contradictions)}")
 for p in sorted(set(problems)):

@@ -136,7 +136,10 @@ echo "==> claim: empty commit, push, draft pull request"
     cd "$worktree"
     git commit --allow-empty -m "claim: $claim_text"
     git push -u origin HEAD
-    gh pr create --draft --title "$claim_text" --body "**Lane:** \`$branch\`, written by an agent; calef's account is the author GitHub shows.
+    # The account is whoever `gh` is logged in as, read rather than spelled, because more than one
+    # architect can run a lane (ARCHITECTS.md) and the line exists to say whose name GitHub shows.
+    account="$(gh api user --jq .login 2>/dev/null || echo "the \`gh\` user")"
+    gh pr create --draft --title "$claim_text" --body "**Lane:** \`$branch\`, written by an agent; $account's account is the author GitHub shows.
 
 Claim commit only so far."
 )

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Drain the merge queue: enqueue every pull request that does not need calef.
+# Drain the merge queue: enqueue every pull request that does not need an architect.
 #
 #     helpers/merge-drain.sh              # run until nothing is left to enqueue
 #     helpers/merge-drain.sh --once       # one pass, then exit (for a cron or a check)
@@ -95,7 +95,7 @@ ME="merge-drain[$INSTANCE]"
 # policy excluded exactly two things, drafts and `needs-architect`. A hold therefore survived five
 # minutes at most, and the failure was invisible in the worst way: a dequeue leaves no trace of why
 # an entry came back, so the operator concluded their own dequeue had failed and misdiagnosed it
-# twice. The two labels mean different things (one pull request needs calef; the trunk needs
+# twice. The two labels mean different things (one pull request needs an architect; the trunk needs
 # everybody to stop) and behave identically here, which is why they are two names and one policy.
 RED_TRUNK_LABEL="held-for-red-trunk"
 once=""
@@ -139,7 +139,8 @@ fi
 #
 # The shape is AGENTS.md's ladder: the label was rung two (a gate that fires without being
 # remembered) for everything *except* the queue, where it was rung zero. This closes that, on the
-# side that can see both facts. A lane discovering late that it needs calef is the normal case
+# side that can see both facts. A lane discovering late that it needs an architect is the normal
+# case
 # rather than the exceptional one, because finding the thing that needs deciding is usually the
 # work.
 dequeue_held() {
@@ -205,7 +206,7 @@ queue() {
 			| sort_by(.number)' 2>/dev/null || echo '[]'
 }
 
-# **A report only this script's own stdout can see is not a report calef will find in time.**
+# **A report only this script's own stdout can see is not a report an architect will find in time.**
 #
 # # Why this exists
 #
@@ -447,7 +448,9 @@ release_unblocked_labels() {
 # green alone; a merge-queue group containing both fails the decisions gate, because two sections
 # cannot share a number. #329 was evicted as UNMERGEABLE while reporting CLEAN on its own page, and
 # the only lever available to keep the drain from re-arming it was `needs-architect`, which says a
-# person must rule on something. Using it here would have put a false entry on calef's queue, which
+# person must rule on something. Using it here would have put a false entry on the architects'
+# queue,
+# which
 # is the one queue in this project that must not accumulate noise.
 #
 # That is the same shape as #274, which was enqueued and evicted **29 times, 26 of them in a
@@ -609,7 +612,7 @@ pass() {
 	q=$(queue)
 	n=$(printf '%s' "$q" | jq -r 'length' 2>/dev/null || echo 0)
 	if [ "$n" = "0" ] || [ -z "$n" ]; then
-		echo "$ME: queue empty; nothing open that does not need calef"
+		echo "$ME: queue empty; nothing open that does not need an architect"
 		return 1
 	fi
 
