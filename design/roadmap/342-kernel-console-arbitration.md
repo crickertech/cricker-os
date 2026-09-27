@@ -47,6 +47,20 @@ Where the kernel's own output goes once userspace owns the console is a design
 fork rather than a bug to fix, and it is an architect's. The options are genuinely different systems, not
 variations on one, and the choice binds every architecture and every future console consumer.
 
+## Decided, 2026-09-27
+
+calef ruled §175: **B, with a panic escape and a fallback**, the same shape as pull request #1423's
+system log proposal (`design/decisions/242-a-system-log.md`, its own section number provisional and
+not yet landed). See §175's "The ruling" for the full record and why A and E lost and C and D are
+superseded. `decision_dependencies` stays `175`; the citation now resolves to a DECIDED section
+instead of a PROPOSED one.
+
+This block stays NOT-STARTED. The ruling names a customer for the kernel's ring: the log service
+proposed in pull request #1423, which drains the ring and forwards whole lines to the console. That
+service is itself still PROPOSED and unbuilt. Building this milestone means implementing the kernel
+side of §175's ruling against something to drain into, so it waits on that log service landing, not
+on a further ruling here.
+
 **In brief.** Once the `console` server owns the console, two address spaces are writing to the same
 UART with no arbitration between them. The kernel writes directly, because a kernel that cannot
 print during a fault is a kernel nobody can debug, and the server writes on behalf of userspace. The

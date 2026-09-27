@@ -284,7 +284,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 172 | PROPOSED | [Whether a `credential_protocol` verify endpoint names the identity it asks about](172-credential-endpoint-per-resource.md) |
 | 173 | PROPOSED | [Narrowing the root of the shell's namespace: a verb on the wire, or a shallower root](173-narrowing-the-namespace-root.md) |
 | 174 | PROPOSED | [Which caller each of the three uncalled instruments gets](174-a-caller-for-the-three-uncalled-instruments.md) |
-| 175 | PROPOSED | [Where the kernel's own output goes once userspace owns the console](175-kernel-console-arbitration.md) |
+| 175 | DECIDED | [Where the kernel's own output goes once userspace owns the console](175-kernel-console-arbitration.md) |
 | 176 | PROPOSED | [Offering the two RedoxFS patches upstream, and under whose name](176-offering-the-redoxfs-patches-upstream.md) |
 | 177 | DECIDED | [Whether AGENTS.md quotes measured numbers at all](177-measured-numbers-in-the-front-door-file.md) |
 | 178 | PROPOSED | [Where the timer re-arm seam goes, and which miss behaviour the kernel tick is meant to have](178-timer-rearm-seam.md) |
