@@ -167,6 +167,7 @@ sys.path.insert(0, 'helpers')
 import baseline_drift                                                       # noqa: E402
 import interface_stability                                                  # noqa: E402
 import name_provenance                                                      # noqa: E402
+import packages as package_boundaries                                       # noqa: E402
 import prose_ratchet                                                        # noqa: E402
 import roadmap_block                                                        # noqa: E402
 import roadmap_proposals                                                    # noqa: E402
@@ -302,6 +303,12 @@ def _col(prefix, status):
 # output and an input to this script. The chart it feeds keeps its own name, `effort.svg`.
 WEEK = 'week'
 
+# Milestone 611's columns; `homes` below fills them.
+HOMES_COLUMNS = ['packages_total', 'packages_home_undecided', 'packages_home_provisional',
+                 'packages_home_ratified', 'packages_in_this_repo', 'packages_moved_out',
+                 'paths_home_undecided', 'paths_home_provisional', 'paths_home_ratified',
+                 'paths_unclaimed']
+
 MEASURES = [
     ('weeks', ['commit', 'date']),
     ('milestones', [_col('milestones', s) for s in MILESTONE_STATUSES]
@@ -337,6 +344,8 @@ MEASURES = [
     # Temporary, and it says so where it is drawn: see `bold_backlog` and BOLD_RETIRE below. The
     # file name and both column names are provisional (lane/faux-headings, 2026-09-26).
     ('bold-backlog', ['bold_excess_spans', 'bold_documents_over']),
+    # Milestone 611. File and column names provisional (that lane's, 2026-09-27).
+    ('homes', HOMES_COLUMNS),
     # Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3: icount drift
     # since a fixed anchor. calef ruled on 2026-09-26 that it is a report and not a gate, in §190
     # (must an icount baseline save record why it moved). See DRIFT_BEGIN below. File and column names provisional (that lane's).
@@ -423,7 +432,8 @@ def _wanted(path):
     if path.startswith(('vendor/', 'target/')):
         return False
     return (path.endswith(('.rs', '.md', '/Cargo.toml'))
-            or (path.startswith('script/') and path.count('/') == 1))
+            or (path.startswith('script/') and path.count('/') == 1)
+            or path.startswith('packages/'))
 
 
 class Tree:
@@ -432,12 +442,19 @@ class Tree:
     def __init__(self, rev):
         self.rev = rev
         paths, oids = [], []
+        # Every tracked path, wanted or not, for the homes measure: it asks whether each one has a
+        # home, and the blob filter below is about which texts to read, not which paths exist.
+        self.paths, self.oid = [], {}
         for entry in git('ls-tree', '-r', '-z', rev).decode('utf-8', 'replace').split('\0'):
             if not entry:
                 continue
             meta, path = entry.split('\t', 1)
             _mode, kind, oid = meta.split()
-            if kind != 'blob' or not _wanted(path):
+            if kind != 'blob':
+                continue
+            self.paths.append(path)
+            self.oid[path] = oid
+            if not _wanted(path):
                 continue
             paths.append(path)
             oids.append(oid)
@@ -1121,6 +1138,24 @@ _MD_BUGS = re.compile(r'^#{1,6} BUGS\b', re.M)
 _RS_BUGS = re.compile(r'^[ \t]*(?:///|//!)[ \t]*#{1,6} BUGS\b', re.M)
 
 
+# Milestone 611 (every program and crate belongs to a package, and every package has a home).
+# calef's end state is everything leaving this repository, with no default of staying, so the
+# numbers to watch are homes still undecided and packages still here. Counted by
+# helpers/packages.py, the same code `script/lint` gates with; blank before the first package file.
+# The manifests `_wanted` skips (vendor/) are read here, a handful of blobs per week.
+
+
+def homes(tree):
+    if not any(p.startswith('packages/') and p.endswith('.package') for p in tree.paths):
+        return {}
+    texts = dict(tree.text)
+    for path in tree.paths:
+        if path not in texts and package_boundaries.wanted(path) and not path.endswith('.rs'):
+            texts[path] = git('cat-file', '-p', tree.oid[path]).decode('utf-8', 'replace')
+    cells = package_boundaries.counts(package_boundaries.evaluate(tree.paths, texts))
+    return {k: cells[k] for k in HOMES_COLUMNS}
+
+
 def bugs(tree):
     return {'bugs_markdown': sum(len(_MD_BUGS.findall(t)) for _p, t in tree.markdown()),
             'bugs_rust': sum(len(_RS_BUGS.findall(t)) for _p, t in tree.rust())}
@@ -1497,7 +1532,7 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
     row['names_total'] = named
     for part in (proposals(tree), lines(tree), bugs(tree), harnesses(tree),
                  unsafe_census(tree), unsafe_trust_census(tree), fatal_risks(tree),
-                 prose_budget(tree), bold_backlog(tree)):
+                 prose_budget(tree), bold_backlog(tree), homes(tree)):
         row.update(part)
     row.update(baseline_drift.series_cells(rev))
     return row
@@ -2052,6 +2087,20 @@ CHARTS = [
     ('bold-backlog-documents.svg', 'Documents over 4 bold per 1,000 words',
      'the same backlog by where it sits',
      [('documents over the budget', 'bold_documents_over')], 1.0, None, 'bold_documents_over'),
+    # Milestone 611. Packages stack by where their home stands, with the ones that have left on
+    # top: the end state is one band. Paths are a separate panel because a path that has left is
+    # not in the tree to count, so that panel's end state is empty rather than full.
+    ('homes-packages.svg', 'Packages, by where their home stands',
+     'every band but "moved out" has to empty: calef\'s end state is nothing left in this repository',
+     [('here, home undecided', 'packages_home_undecided'),
+      ('here, home provisional', 'packages_home_provisional'),
+      ('here, home ratified', 'packages_home_ratified'),
+      ('moved out', 'packages_moved_out')], 1.0, None, 'packages_total'),
+    ('homes-paths.svg', 'Tracked files still here, by where their home stands, in thousands',
+     'packaged or not; unclaimed is a gate failure and should never draw',
+     [('home undecided', 'paths_home_undecided'), ('home provisional', 'paths_home_provisional'),
+      ('home ratified', 'paths_home_ratified'), ('unclaimed', 'paths_unclaimed')], 1000.0, None,
+     'packages_total'),
     # Milestone 415 item 3. Stacked by architecture because a count adds up; the largest drift
     # per architecture does not, so it stays in the CSV and on the page's generated line.
     ('baseline-drift.svg', 'Benchmark rows more than 5% above their anchor',

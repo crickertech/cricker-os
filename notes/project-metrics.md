@@ -39,6 +39,7 @@ not a caption, it is a register entry.
 - [The lowest-covered file](#the-lowest-covered-file)
 - [The prose budget](#the-prose-budget)
 - [The bold backlog](#the-bold-backlog)
+- [Homes](#homes)
 - [Benchmark drift since a fixed anchor](#benchmark-drift-since-a-fixed-anchor)
 - [Interface stability](#interface-stability)
 <!-- /toc -->
@@ -229,6 +230,12 @@ is zero; retire this chart" and writes it here:
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.
+
+## Homes
+
+![Packages](project-metrics/homes-packages.svg)
+
+![Files](project-metrics/homes-paths.svg)
 
 ## Benchmark drift since a fixed anchor
 
