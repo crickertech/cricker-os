@@ -1,0 +1,68 @@
+# Homes for tracked paths in no package. Milestone 611 (every program and crate belongs to a
+# package, and every package has a home); provisional.
+#
+# calef, 2026-09-27: "Everything in the tree may not be in a package, but it may be in a repo." A
+# package's paths take the package's home, in packages/<name>.package.toml. Everything else is
+# claimed here, one [[home]] table per home listing its path prefixes, and the longest prefix naming
+# a file wins across both. TOML since calef's ruling of 2026-09-27; the keys are helpers/packages.py's
+# header, provisional; the reasons are notes/package-boundaries.md.
+#
+# The end state is that everything leaves this repository, so "undecided" is allowed and counted,
+# and every undecided home says in a few words what the decision is waiting on. Nothing here is a
+# default: a new top-level directory has no home until somebody writes one.
+
+[[home]]
+status = "undecided"
+reason = "project records; whether this repository keeps them is calef's call"
+paths = [
+    "design/",
+    "briefs/",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "ARCHITECTS.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "SECURITY.md",
+    "README.md",
+    "art/",
+    "packages/homes.toml",
+]
+
+[[home]]
+status = "undecided"
+reason = "documentation; the site, a package or the records is an open question"
+paths = ["notes/", "vendor/README.md", "vendor/upstream-status.md"]
+
+[[home]]
+status = "undecided"
+reason = "the build and gates follow the integrating repository, not yet named"
+paths = ["script/", "helpers/", ".github/", ".githooks/", ".claude/"]
+
+[[home]]
+status = "undecided"
+reason = "measurements; they follow the integrating repository, not yet named"
+paths = ["bench/"]
+
+[[home]]
+status = "undecided"
+reason = "the workspace root dissolves as packages move out"
+paths = [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    ".cargo/",
+    ".gitignore",
+    "clippy.toml",
+    "rustfmt.toml",
+    "deny.toml",
+    "_typos.toml",
+    ".qemu-version",
+    ".cargo-deny-version",
+    ".cargo-fuzz-version",
+    ".cargo-mutants-version",
+]
+
+[[home]]
+status = "undecided"
+reason = "every repository carries its own copy; this one follows the root"
+paths = ["LICENSE-MIT", "LICENSE-APACHE"]

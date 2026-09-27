@@ -1,0 +1,64 @@
+# kernel: the kernel and the crates only it links. Debian's linux-image.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "kernel"
+kind = "base"
+home = { repo = "kernel", status = "provisional" }
+crates = [
+    "kernel",
+    "capability",
+    "paging",
+    "page_frames",
+    "pci",
+    "address_space_identifier",
+    "cpu_set",
+    "generational_table",
+    "inter_process_communication",
+    "intrusive_fifo",
+    "memory_corruption_canary_gate",
+    "memory_regions",
+    "thread_wake_handshake",
+    "work_steal_slot",
+    "direct_memory_access_validator",
+    "firmware_configuration",
+    "jh7110_clock_and_reset",
+]
+
+[[exception]]
+date = 2026-09-27
+member = "kernel"
+crate = "video_terminal"
+reason = "kernel/src/user/ display tests and service wiring; pull request #1392 moves them"
+
+[[exception]]
+date = 2026-09-27
+member = "kernel"
+crate = "non_volatile_memory_express"
+reason = "the kernel hands the driver non_volatile_memory_express::Handoff, a contract living in a driver crate"
+
+[[exception]]
+date = 2026-09-27
+member = "kernel"
+crate = "jh7110_entropy"
+reason = "the kernel discovers the TRNG with the driver's own discover(); a board description living in a driver crate"
+
+[[exception]]
+date = 2026-09-27
+member = "kernel"
+crate = "coremark"
+reason = "the bench feature runs coremark inside the kernel; a benchmark is a fixture a release kernel should not link"
+
+[[exception]]
+date = 2026-09-27
+member = "kernel"
+crate = "job_mix"
+reason = "the kernel runs the job mix at boot; a fixture a release kernel should not link"
+
+[[exception]]
+date = 2026-09-27
+member = "kernel"
+crate = "soak_page"
+reason = "the soak and stack-depth probes; a fixture a release kernel should not link"

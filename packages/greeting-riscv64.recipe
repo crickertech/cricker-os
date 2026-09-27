@@ -1,6 +1,0 @@
-# greeting, as a riscv64 package. The same package as `greeting.recipe`, which says why it exists.
-name greeting
-version 0.1.0
-architecture riscv64
-program greeting
-member greeting.licence LICENSE-MIT

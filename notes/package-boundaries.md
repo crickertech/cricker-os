@@ -1,9 +1,9 @@
 # Package boundaries: every crate and program in a package, every path with a home
 
 *Milestone 611 (every program and crate belongs to a package, and every package has a home). The
-file name, both file formats, the four kinds, every package name and every home below are
-provisional, minted by that lane on 2026-09-27 (UTC). calef ratifies the table; the questions are at
-the end.* What a package is as a file on a target is [notes/packages.md](packages.md). This note is
+file name, the key names of both TOML files, every package name and every home below are
+provisional, minted by that lane on 2026-09-27 (UTC); the four kinds were ratified at 07:23Z that
+day. calef ratifies the table; the questions are at the end.* What a package is as a file on a target is [notes/packages.md](packages.md). This note is
 about the tree: which crate, program and path belongs to which package, and where each is going.
 
 ## What calef ruled
@@ -21,26 +21,29 @@ On 2026-09-27, on pull request #1389 (the OS is built and updated from packages;
 
 ## The two declarations
 
-`packages/<name>.package` declares a package. `packages/homes` gives a home to every tracked path
-that is in no package. Both use the `directive value` lines `packages/*.recipe` already uses, so
-xtask's recipe parser is the model for the reader a build will need. The field list, in full, is
-the header of `helpers/packages.py`. The required fields have no default:
+`packages/<name>.package.toml` declares a package. `packages/homes.toml` gives a home to every
+tracked path that is in no package. Both are TOML, as the recipes are: calef ruled on 2026-09-27
+that declarations and recipes move to TOML, refusing JSON for having no comments, and YAML. The
+extensions and key names are provisional. An unknown key is refused, so a misspelt one cannot read
+as absent. The field list, in full, is the header of `helpers/packages.py`. The required fields
+have no default:
 
 | field | required | what it says |
 |---|---|---|
 | `name` | yes | equals the file's stem |
 | `kind` | yes | `base`, `optional`, `sdk` or `test` |
-| `home` | yes | `<repo> provisional`, `<repo> ratified <date>`, or `undecided <reason>` |
-| `crate`, `interface` | one member at least | a Cargo package; an interface is one other packages may link |
-| `program` | | a binary target of a crate whose programs are split across packages |
-| `path` | | anything else: the std overlay, a recipe, a `#[path]` module |
-| `depends` | | a declared dependency; that package's crates may be linked |
-| `exception` | | `<date> <member> <crate> <reason>`: one dated link the rules refuse |
+| `home` | yes | `{ repo, status = "provisional" }`, `{ repo, status = "ratified", date }`, or `{ status = "undecided", reason }` |
+| `crates`, `interfaces` | one member at least | Cargo packages; an interface is one other packages may link |
+| `programs` | | binary targets of a crate whose programs are split across packages |
+| `paths` | | anything else: the std overlay, a recipe, a `#[path]` module |
+| `depends` | | declared dependencies; those packages' crates may be linked |
+| `[[exception]]` | | `date`, `member`, `crate`, `reason`: one dated link the rules refuse |
 
-The four kinds say where a package ships. `base` is in every image and `optional` is installed on
-a running nife. `sdk` runs on or ships to a developer's machine: the contracts, the runtime and the
-host tools. `test` is never in a release image. The brief asked for two kinds; the other two are
-this lane's, because the fixtures and the host tools fit neither.
+A package's kind says where it ends up. calef ratified that rule and the four kinds at
+2026-09-27T07:23Z (UTC). `base` ends up in every image and `optional` on a running nife that
+installs it. `sdk` ends up on a developer's machine: the contracts, the runtime and the host tools.
+`test` ends up only in a test image, never in a release. A kind is not what a package does or who
+runs it, so a question about a new package's kind is a question about its destination.
 
 This is the in-tree form the base image list (P1 in #1389's decision) and the recipes are to be generated from.
 A recipe needs a name, a version, an architecture and members; this file has the name and members,
@@ -52,7 +55,7 @@ and the version and architecture belong to a build. Nothing generates either one
 per rule and fails unless each is caught. The rules:
 
 1. Every tracked path has exactly one home. The longest claimed prefix wins, across every package
-   member and every `packages/homes` line. A path nobody claims fails, and so does a prefix claimed
+   member and every `packages/homes.toml` entry. A path nobody claims fails, and so does a prefix claimed
    twice or a claim that holds nothing.
 2. Every Cargo package in the tree is in exactly one package. A crate's binaries go with it,
    unless any of them is placed elsewhere: then every binary needs a `program` line. That is
@@ -85,7 +88,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `login` | base | crates: `credentialer`; programs: `credentialer`, `identity_provisioner`, `login`, `login_audit_receiver` | interfaces only | `login` (provisional) |
 | `mdr` | base | programs: `mdr` | interfaces only | `mdr` (provisional) |
 | `network` | base | crates: `http_response`; programs: `net_stack`; paths: `components/src/net_transport.rs`, `components/src/socket_test_client.rs` | interfaces only | `network` (provisional) |
-| `procps` | base | crates: `pgrep`, `pmap`, `ps`, `top`, `uptime`; programs: `pgrep`, `pmap`, `ps`, `top`, `uptime`; paths: `packages/uptime.recipe`, `packages/uptime-riscv64.recipe`, `packages/uptime-x86_64.recipe` | interfaces only | `procps` (provisional) |
+| `procps` | base | crates: `pgrep`, `pmap`, `ps`, `top`, `uptime`; programs: `pgrep`, `pmap`, `ps`, `top`, `uptime`; paths: `packages/uptime.recipe.toml`, `packages/uptime-riscv64.recipe.toml`, `packages/uptime-x86_64.recipe.toml` | interfaces only | `procps` (provisional) |
 | `swish` | base | crates: `swish`; programs: `swish` | interfaces only | `swish` (provisional) |
 | `terminal` | base | crates: `line_editor*`; programs: `console`, `input`, `line_editor`, `terminal_sink_caretaker`, `terminal_supervisor` | interfaces only | `terminal` (provisional) |
 | `time` | base | crates: `network_time_protocol`; programs: `clock`, `network_time_client` | interfaces only | `time` (provisional) |
@@ -100,13 +103,14 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `cryptography` | sdk | crates: `cryptography_provider*` | interfaces only | `cryptography` (provisional) |
 | `host-tools` | sdk | crates: `portable_executable`, `stick_maker`, `walk_pricing`, `xtask`; programs: `stick_maker`, `xtask` | `boot`, `display` | `host-tools` (provisional) |
 | `runtime` | sdk | crates: `calendar*`, `entropy_backend*`, `user_mode_heap*`, `user_mode_runtime*`; paths: `patches/`, `targets/` | interfaces only | `runtime` (provisional) |
-| `fixtures` | test | crates: `c_seam`, `coremark`, `cryptography_exerciser`, `fixtures`, `fuzz`, `job_mix`, `loaded_image_check`, `soak_page`, `std_exerciser`; programs: 54, too many to list here; paths: `packages/greeting.recipe`, `packages/greeting-riscv64.recipe`, `packages/greeting-x86_64.recipe` | `init`, `time`, `timetable`, `network`, `host-tools` | `fixtures` (provisional) |
+| `fixtures` | test | crates: `c_seam`, `coremark`, `cryptography_exerciser`, `fixtures`, `fuzz`, `job_mix`, `loaded_image_check`, `soak_page`, `std_exerciser`; programs: 54, too many to list here; paths: `packages/greeting.recipe.toml`, `packages/greeting-riscv64.recipe.toml`, `packages/greeting-x86_64.recipe.toml` | `init`, `time`, `timetable`, `network`, `host-tools` | `fixtures` (provisional) |
 | `system-tests` | test | crates: `system_tests`; programs: `system_tests` | `kernel` | `system_tests` (provisional) |
 <!-- end of package table -->
 
-26 packages: 16 base, 5 optional, 4 sdk and 1 test by the table's count. One has an undecided
-home; the other 25 carry a provisional one. On 2026-09-27, 1,693 of 2,637 tracked paths had an
-undecided home and 944 a provisional one; the weekly metrics page has the current count.
+27 packages: 16 base, 5 optional, 4 sdk and 2 test by the table's count, `system-tests` having
+joined from milestone 609 (the system tests leave the kernel crate). One has an undecided home; the
+other 26 carry a provisional one. On 2026-09-27, 1,718 of 2,678 tracked paths had an undecided
+home and 960 a provisional one; the weekly metrics page has the current count.
 
 ## How the packages were drawn
 
@@ -175,21 +179,21 @@ The fixture rows and the integration row are limitations, recorded below.
 
 Not in this milestone. One package per pull request, at a quiet moment in the queue, as unchanged
 file moves (`git mv` and nothing else in the commit), so `git log --follow` and review both see a
-rename. The package's `crate`, `program` and `path` lines are the list of what moves. The workspace
+rename. The package's `crates`, `programs` and `paths` are the list of what moves. The workspace
 root and the gates follow in a second commit. The order is leaves first, contracts before the
 programs that link them. [The proposal](../design/roadmap/proposals/packages-move-out-one-per-pull-request.md)
 holds the plan.
 
 ## Questions for calef
 
-1. The format. Two files, `directive value` lines, the fields above. Is that the shape, and are
-   `packages/<name>.package` and `packages/homes` the names?
-2. The kinds. Two were asked for and four shipped. Keep `sdk` and `test`, or fold them?
+1. The format is TOML (ruled 2026-09-27). Are the fields above the shape, and are
+   `packages/<name>.package.toml`, `packages/homes.toml` and `.recipe.toml` the names?
+2. The kinds: answered, ratified at 07:23Z with the rule that a kind says where a package ends up.
 3. The homes. The proposal is one repository per package, named after it, which is Debian's
    source-package shape. Grouping by #1389's seven divisions is the alternative. Which?
 4. The project records: `design/`, `briefs/`, `script/`, `helpers/` and `.github/`. Does this
    repository become their home, or do they leave too?
-5. The names: all 26 packages, `helpers/packages.py`, this note and the `homes` metric.
+5. The names: all 27 packages, `helpers/packages.py`, this note and the `homes` metric.
 
 ## BUGS
 

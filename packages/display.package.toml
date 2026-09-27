@@ -1,0 +1,18 @@
+# display: the compositor, the display drivers and the terminal drawn on a screen. The role of Debian's xserver-xorg.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "display"
+kind = "optional"
+home = { repo = "display", status = "provisional" }
+interfaces = ["compositor"]
+crates = ["video_terminal"]
+programs = [
+    "compositor",
+    "gpu_driver",
+    "framebuffer_driver",
+    "keyboard_driver",
+    "display_terminal",
+]

@@ -1,0 +1,12 @@
+# greeting, as a x86_64 package. The same package as `greeting.recipe`, which says why it exists.
+
+name = "greeting"
+version = "0.1.0"
+architecture = "x86_64"
+
+[[member]]
+program = "greeting"
+
+[[member]]
+name = "greeting.licence"
+file = "LICENSE-MIT"

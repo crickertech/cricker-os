@@ -28,7 +28,7 @@ yet. But I'd like a presentation of the documentation beyond what github provide
   document is the thing to avoid.
 - Where the site's own source and build live, which is a home like any other.
 
-Until this is answered, every file under `notes/` has an undecided home in `packages/homes`, and
+Until this is answered, every file under `notes/` has an undecided home in `packages/homes.toml`, and
 the weekly metrics page counts them. That count is this proposal's measure of progress.
 
 ## Prior art to read, not yet read

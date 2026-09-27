@@ -1,0 +1,46 @@
+# contracts: every interface two programs agree on: the ABI, each *_protocol, and the formats. Debian's linux-libc-dev, the one -dev split the platform needs today.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "contracts"
+kind = "sdk"
+home = { repo = "contracts", status = "provisional" }
+interfaces = [
+    "abi",
+    "byte_sink_protocol",
+    "capability_witness_protocol",
+    "clock_protocol",
+    "counter_frequency_protocol",
+    "credential_protocol",
+    "current_cpu_protocol",
+    "entropy_protocol",
+    "environment_protocol",
+    "filesystem_protocol",
+    "graphics_protocol",
+    "login_protocol",
+    "socket_protocol",
+    "std_runtime_protocol",
+    "supervision_protocol",
+    "swap_protocol",
+    "elf",
+    "measured_boot",
+    "package_archive",
+    "activation_set",
+    "boot_slot",
+    "nifefs",
+    "globally_unique_identifier_partition_table",
+    "file_allocation_table",
+    "grant_plan",
+    "component_plan",
+    "manifest_note",
+    "glob",
+    "documentation",
+    "device_tree_blob",
+    "machine_discovery",
+    "boot_ladder",
+    "block_roster",
+    "address_space_map",
+    "argument_protocol",
+]

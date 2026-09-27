@@ -45,7 +45,7 @@ once milestone 205 lands, a program can take the fetch and the progenitor keeps 
 
 `greeting` (`fixtures/src/greeting.rs`) prints one line. `fixtures/Cargo.toml` lists it as
 `packaged_only`, which `xtask`'s `declared_programs` reads. So it is built with every fixture and
-packed by no archive, and `packages/greeting*.recipe` package it for all three architectures.
+packed by no archive, and `packages/greeting*.recipe.toml` package it for all three architectures.
 
 The prompt cannot show its absence. It is no `grant_plan::Prog`, so its bare name is refused either
 way. `script/swish-check` reads the archive on the host before the boot instead, and stops if the

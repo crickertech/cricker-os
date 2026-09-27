@@ -1,0 +1,24 @@
+# uptime, as a package.
+#
+# The worked example for `cargo xtask package`, and the first recipe in this tree. It is a real
+# recipe rather than a fixture: the member it names is the program the aarch64 image already packs,
+# and the digest below is what a rebuild of that program must reproduce.
+#
+# **The digest line is deliberately absent.** DECISIONS §195 (a reviewed recipe vouches for a
+# package) puts the digest in a line a human reviewed, and a package built from a program that this
+# checkout rebuilds on every `cargo xtask initrd-aarch64` does not have a stable one yet: the ELF
+# changes whenever anything it links changes. Recording a digest here would be recording a number
+# that fails for the next reader, which is worse than recording none. What makes that safe is that
+# `package` prints the digest it built and refuses a recipe whose recorded digest disagrees; the
+# line goes in when there is a release to pin it to, which is rung 4.
+
+name = "uptime"
+version = "0.1.0"
+architecture = "aarch64"
+
+[[member]]
+program = "uptime"
+
+[[member]]
+name = "uptime.licence"
+file = "LICENSE-MIT"

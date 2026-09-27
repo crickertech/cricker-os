@@ -112,7 +112,7 @@ The reader is strict on purpose. A key it does not know inside a `[[bin]]` block
 (`required-features`, say) stops the pack with the key named, rather than packing an archive with
 that program silently missing.
 
-A new program or crate also needs a line in a `packages/*.package` file, provisional like a
+A new program or crate also needs an entry in a `packages/*.package.toml` file, provisional like a
 name, or `script/lint` fails ([package boundaries](package-boundaries.md)).
 
 ### 4. Keep the name under 32 bytes

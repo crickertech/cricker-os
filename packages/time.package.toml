@@ -1,0 +1,11 @@
+# time: the clock service and the network time client. The role of Debian's systemd-timesyncd.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "time"
+kind = "base"
+home = { repo = "time", status = "provisional" }
+crates = ["network_time_protocol"]
+programs = ["clock", "network_time_client"]

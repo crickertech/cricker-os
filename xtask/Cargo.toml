@@ -86,3 +86,9 @@ manifest_note = { version = "0.1.0", path = "../crates/manifest_note" }
 # reads one with, and reads its own output back before writing it to disk, so a producer that
 # emitted a file its consumer refuses could not get past the gate.
 package_archive = { version = "0.1.0", path = "../crates/package_archive" }
+# Recipes and package declarations are TOML (calef, 2026-09-27; JSON refused for having no comments,
+# YAML too). A §46 (thin primitives or whole subsystems) dependency, taken rather than written: it is
+# host-only and never on the shipping graph, no target reads a recipe, it parses a format calef chose
+# rather than one this tree defines, and a TOML parser's correctness is won by exposure, not by
+# reading the spec. `serde` is only `serde_core` for `toml::Table`; no derive, no proc macro.
+toml = { version = "1.1.6", default-features = false, features = ["std", "parse", "serde"] }
