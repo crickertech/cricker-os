@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-09-27
+decided: 2026-09-27
+ratified_by: calef
 ---
 
 # 241. A threadbare base: the boot slot holds the kernel and what boots and repairs, and every other program is a package
@@ -12,6 +14,15 @@ Raised 2026-09-27 (UTC) by calef, in the maintainer session: *"we need to come b
 the set of programs in the base so that we can update more without updating the base... However it
 seems like maybe the base need not contain the kernel... Really, don't we just want a thread bare
 base?"* Written by the lane `proposal/threadbare-base`, which builds nothing.
+
+## The ruling
+
+calef ruled both questions on #1421, 2026-09-27 (UTC).
+
+1. **Yes, B2.** The slot holds the kernel plus the floor, and every other program is a package. B3
+   (a kernel unit of its own) is refused. A thinner floor, with a minimal recovery shell in the slot
+   and `swish` as a package, is noted for later and not ruled; see Follow-on.
+2. **The default set is a list in the slot**, not a fifth package kind. §239 is unchanged.
 
 ## What is being decided
 
@@ -124,20 +135,18 @@ lives.
 | Long-lived, no swap | `net_stack`, `entropy`, `clock`, `network_time_client`, `login`, `login_audit_receiver`, `credentialer`, `terminal_sink_caretaker`, `display_terminal`, `compositor`, the display drivers | at the next boot | §159's restart tier: a supervisor that rebuilds the service from new bytes, and clients that survive a reconnect |
 | Not started by a real boot | `root_supervisor`, `spawner`, `sub_server_supervisor`, `swapper`, `broker`, `timetable`, `session_reviver` outside its test | at the next spawn | nothing |
 
-`credentialer` is the hard case. Its store is sealed at boot and nothing can write it afterwards
-(§221), so a restart cannot recover it without a provisioning path. It reboots until someone designs
-that.
+`credentialer` is the hard case: its sealed store cannot be rewritten after boot (§221), so it
+reboots until someone designs a provisioning path (see BUGS).
 
-For the long-lived group, moving out of the slot still buys two things before the restart tier
-exists. A bad version is undone by `package rollback`, not by a slot fallback. And the update does
-not rewrite the floor, so it cannot break the machine's ability to boot to a prompt.
+For the long-lived group, leaving the slot still buys two things before the restart tier exists.
+A bad version is undone by `package rollback` rather than a slot fallback, and the update cannot
+break the floor's ability to boot a prompt.
 
 ## Recovery
 
 The two slots protect only what is in a slot. Installed packages are protected by §208 (installing
 is granting)'s generations: a generation is never rewritten, `current` is renamed into place, and
-`package rollback` points it one generation back. That covers a bad package. It does not cover a
-corrupt store, since the generations live in the store.
+`package rollback` points it one generation back. That covers a bad package, not a corrupt store, since the generations live in the store.
 
 Today a corrupt store degrades rather than bricks. When `redoxfs_server` finds no filesystem, the
 kernel passes no file service and the progenitor boots a prompt without one, which is the ordinary
@@ -159,12 +168,11 @@ rollback.
 A floor program is checked as today: the progenitor against the slot's manifest digest (T4 with
 T2). A program moved out is checked at spawn, by digest, against the live activation generation
 (`vouched` in `crates/system_initializer`, §219 (how the shell names an installed program to the spawner)). That digest was pinned at install, against the
-catalogue today and a trusted key once §220 is built. So everything that runs is still measured. What
-changes is where the list lives.
+catalogue today and a trusted key once §220 is built. So everything that runs is still measured; only where the list lives changes.
 
-It matters in one case. The slot will be protected by Secure Boot (milestone 500 (a stick that boots with Secure Boot on)) once that lands.
-The activation set is on a disk the owner's console may write (§221), and so may anyone with the disk
-out of the machine. Moving a program out moves its pin from a place Secure Boot covers to one it
+It matters once Secure Boot (milestone 500 (a stick that boots with Secure Boot on)) protects the
+slot. The activation set is on a disk the owner's console may write (§221), and so may anyone with
+the disk out of the machine. Moving a program out moves its pin from a place Secure Boot covers to one it
 does not. Until milestone 500 lands, neither is covered, and nothing changes. When it lands, the gap
 is an offline attacker adding a digest to `activation/`. Two remedies exist, neither needed now:
 seal the activation set with a machine key, or check signatures again at boot, which §220 refused
@@ -179,14 +187,13 @@ for spawn. Recorded in BUGS.
 - Genode's Sculpt, read 2026-09-27 at `genode.org/documentation/articles/sculpt-24-10`. The boot
   image holds a GUI multiplexer, the config and report file systems, and "the most fundamental
   drivers". Everything else is fetched from the depot and "the change takes immediate effect". A new
-  system image needs "reboot to activate". The closest precedent: a capability system with a
-  threadbare static image.
+  system image needs "reboot to activate".
 - Debian Policy 2.5, read 2026-09-27. `required` is what "dpkg functionality depends on", and
   `standard` is "what will be installed by default". Here the floor is `required` and the default
   set is `standard`.
 - Fedora Silverblue, from memory (the page refused the fetch). The OSTree image changes at a reboot.
   Flatpak applications live outside it and update live, and layering a package onto the image costs a
-  reboot. The split is the one proposed here.
+  reboot.
 - ChromeOS keeps almost everything in the image, with DLC version-locked to it
   (`notes/packages-and-divisions.md`, read for §235).
 
@@ -195,20 +202,18 @@ for spawn. Recorded in BUGS.
 | option | shape | cost | verdict |
 |---|---|---|---|
 | B1. Status quo, full base | Every `base` package in every slot, as `packages/*.package.toml` says today | Every change to 16 base packages reboots. §159's rule 2 holds for nothing except installed third-party programs. | Refused: it contradicts §159. |
-| B2. Threadbare slot | Kernel plus the floor above in the slot. Every other program is a package; a default set is installed with the image. | The default set needs a home (a slot list), the progenitor must build optional services from the store, and §220 must be built. | Recommended. |
+| B2. Threadbare slot | Kernel plus the floor above in the slot. Every other program is a package; a default set is installed with the image. | The default set needs a home (a slot list), the progenitor must build optional services from the store, and §220 must be built. | Ruled. |
 | B3. Kernel in a unit of its own | A third updatable unit for the kernel, separate from the floor's slot | Tries for a second unit, and kernel and floor pairs nobody tested together. Saves nothing U4 does not already save. | Refused. |
 | B4. Minimal slot with no network | B2 without `net_stack` | 1 MB less per slot. A remote machine whose store breaks needs a person. | Refused, on milestone 525's premise. |
 | B5. Floor programs overridable from the store | B2, and a newer store copy of a floor program replaces the slot's after boot | Recovery runs a shell older than the one in daily use, and §229's refusal gets an exception. | Not now. Follow-on, because of the churn numbers above. |
 
-The recommendation is B2 with two parts that are calef's. First, the floor as listed. Second, the
-default set is a list in the slot, not a fifth package kind. §239 says a new kind must name a new
-destination, and "installed by default" differs per image (a lab image and a desktop image), so it is
-a property of an image rather than of a package. Under B2 the `base` kind shrinks to the floor's
-packages.
+B2 was ruled (The ruling, above), with the floor as listed and the default set a list in the slot
+rather than a fifth package kind. §239 says a new kind must name a new destination, and "installed
+by default" differs per image (a lab image and a desktop image), so it is a property of an image
+rather than of a package. Under B2 the `base` kind shrinks to the floor's packages.
 
-Would we choose B2 if every option cost the same? Yes. B1 is the cheapest and it fails the
-requirement. B2 has fewer moving parts than B3 (one rollback unit, not two) and fewer reboots than B1.
-It is the Sculpt shape, not the least work.
+Would we choose B2 if every option cost the same? Yes: fewer moving parts than B3 and fewer
+reboots than B1. It is the Sculpt shape, not the least work.
 
 ## The seven questions, briefly
 
@@ -226,14 +231,14 @@ needs to know which packages a slot carries. P1 (the image assembled from base p
 builds whichever set is ruled. Milestone 198 (a package manager)'s exit criterion "a new package version with no
 reimage and no reboot" is met for the run-per-use group only under B2 and a built §220.
 
-## What calef is asked, and what happens on a no
+## What was asked, and what was ruled
 
-1. B2, with the floor as listed? On a no, B1 stands: P5 carries the full `base` set, §229's
-   refusal keeps every base program slot-only, and §159 rule 2 is met by third-party packages alone.
-2. The default set as a list in the slot rather than a fifth kind? On a no, a fifth kind is named
-   and §239 amended.
+Two questions were asked; both were ruled yes (see The ruling, above).
 
-Nothing is blocked today. P5 and P1 are blocked on the first answer before either picks its set.
+1. B2, with the floor as listed?
+2. The default set as a list in the slot, rather than a fifth kind?
+
+P5 and P1 were blocked on the first ruling; both now build against the floor as listed.
 
 ## Proposed work, none minted
 
@@ -241,11 +246,12 @@ Nothing is blocked today. P5 and P1 are blocked on the first answer before eithe
 |---|---|---|
 | P8 | The archive packs by package kind: no `test` or `optional` package in a release image | nothing |
 | P9 | A store can be made new from the owner's prompt | nothing |
-| P10 | The progenitor builds optional boot services from the live generation, falling back to the slot while one exists | B2 |
-| P11 | §159's restart tier: a supervisor restarts a service under new bytes, starting with `net_stack` | B2 |
+| P10 | The progenitor builds optional boot services from the live generation, falling back to the slot while one exists | nothing (B2 ruled) |
+| P11 | §159's restart tier: a supervisor restarts a service under new bytes, starting with `net_stack` | nothing (B2 ruled) |
 
 ## Follow-on
 
+- A thinner floor, noted for later in the ruling above and not decided.
 - Shrinking the floor's churn. The HTTP fetch can leave the progenitor once milestone 205 (how a
   foreign program is told what to do) lands, as `notes/packages/fetching.md` already says. B5 is
   the other lever.
