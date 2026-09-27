@@ -241,8 +241,7 @@ calef's acts are named there rather than here.
 - **Done.** §219 was ruled 2026-09-26 and its request, gate D2 and the unvouched-child
   confinement claim built (notes/packages/running-unvouched.md).
 - **Proposed.** The virtio device table never reuses a slot
-  (`design/roadmap/proposals/a-virtio-slot-comes-back-when-its-driver-dies.md`). The booted system
-  had no network either; milestone 590 (the booted system starts its network stack) built it.
+  (`design/roadmap/proposals/a-virtio-slot-comes-back-when-its-driver-dies.md`).
 - **Done.** Every archive build runs `cargo xtask package` end to end since 2026-09-24.
 - **Decision.** Whether the digest is a Merkle root is still calef's:
   `design/decisions/197-a-package-is-one-archive-file.md`, which also records the manifest ruling
@@ -253,6 +252,8 @@ calef's acts are named there rather than here.
   `notes/packages.md`).
 - **Recorded.** `packages/uptime.recipe.toml` records no digest on purpose, because the program it names
   is rebuilt by this checkout whenever anything it links changes (the recipe's own comment).
+- **Decision.** Owed to `design/decisions/135-running-gpl-software.md`'s amendment (calef,
+  2026-09-27T15:11Z): the GPL repo's org, and how source is published per binary.
 
 ## BUGS
 

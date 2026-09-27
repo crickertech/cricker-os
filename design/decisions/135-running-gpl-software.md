@@ -1,11 +1,14 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-08-30
 decided: 2026-08-30
 ratified_by: calef
 ---
 
 # 135. Running GPL software is aggregation, the capability boundary is what makes it so, and packages are how it arrives
+
+*Amended 2026-09-27T15:11Z: the project itself will serve GPL packages. See the "Amendment" at the
+bottom.*
 
 calef, 2026-08-30, ratifying the principle he raised himself and the two
 amendments below. Raised the same day, from the question of whether to delete the SMB
@@ -14,6 +17,13 @@ demonstration in itself? There is a lot of GPL software we would want to run."* 
 sharpening that changed the answer: *"does GPL and LGPL need to be shipped in an image as
 aggregation? Can't it be installed through our to be delivered package manager?"* *(Section number
 provisional until the merge queue lands it.)*
+
+<!-- writing-standards: exception. Marked 2026-09-27 (UTC) by the maintainer recording calef's
+     GPL-packages amendment, below. Reason: this edit only appends an amendment section; the
+     document's pre-existing bold density (38 spans, from the 2026-08-30 ruling) is unrelated
+     content, and bringing it under the density limit of §213 (writing standards: three countable
+     rules, one review rule, and a ratchet) is a separate rewrite that would obscure the amendment
+     inside a cosmetic change. Remove this marker when that rewrite lands. -->
 
 ## What is being decided
 
@@ -195,3 +205,23 @@ use.
 - **The demonstration claim is untested.** No GPL program runs on nife today. Milestone 121
   (`ripgrep` on nife: enumeration as a capability) is MIT/Unlicense, so it is not even a test of
   it, and the first real one is `git` or `nano`.
+
+## Amendment, 2026-09-27: the project will serve GPL packages
+
+calef, 2026-09-27T15:11Z, verbatim: *"There will be a package repo that serves GPL binaries. We
+can make it a different org if need be. But we will want to expose GPL packages to our users
+through our basalt distribution even if they have to opt in for it."*
+
+**This supersedes this section's premise that the package manager moves the GPL obligation away
+from nife.** The project (or a sibling organisation it runs) will distribute GPL binaries, so it
+takes on the distributor's obligations for them: corresponding source published beside each
+binary, and the licence text shipped in the package. A separate organisation isolates the
+obligation; it does not remove it.
+
+**Unchanged.** The image and the `base` kind carry no copyleft. GPL and LGPL arrive only in
+`optional` packages, from a repository the user opts into through the basalt distribution
+(milestone 120 (nife and the organization)). Opt-in is the rule, not a default-on source.
+
+**Open, owed to milestone 198 (a package manager).** Whether the GPL repository lives under this
+organisation or a sibling one, and the mechanism that publishes corresponding source beside each
+binary. Both are recorded as open questions in milestone 198's own block.

@@ -244,7 +244,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 132 | DECIDED | [What `PageFrame::REVOKE` owes an overlapping run](132-overlapping-page-frame-runs.md) |
 | 133 | DECIDED | [Whether an idle core should drain its own inbox before parking](133-idle-core-self-rescue.md) |
 | 134 | AMENDED | [A harness carries a machine-replayable falsification record, or it is not evidence](134-harness-falsification-record.md) |
-| 135 | DECIDED | [Running GPL software is aggregation, the capability boundary is what makes it so, and packages are how it arrives](135-running-gpl-software.md) |
+| 135 | AMENDED | [Running GPL software is aggregation, the capability boundary is what makes it so, and packages are how it arrives](135-running-gpl-software.md) |
 | 136 | DECIDED | [A mature foreign implementation earns its place as an oracle, not as a dependency](136-foreign-implementation-as-oracle.md) |
 | 137 | PROPOSED | [A hardware TRNG with no published health-test claim](137-trng-health-tests.md) |
 | 138 | DECIDED | [How a saturated workload is made to hand threads across cores](138-cross-core-handoff-under-load.md) |
