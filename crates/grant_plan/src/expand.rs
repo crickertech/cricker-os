@@ -540,7 +540,11 @@ impl Designation {
 pub struct Expansion {
     at: Option<usize>,
     names: NameSet,
-    words: Option<Designation>,
+    /// `Some(here)` when this is a [`Designation`] rather than an expansion, whose names are
+    /// `names`. One `NameSet` shared by both rather than a second one beside it, because an
+    /// `Expansion` is copied through the shell's deepest frames by value, and a second set there
+    /// overflowed its stack at `package install` (CI, 2026-09-27).
+    words: Option<bool>,
 }
 
 impl Expansion {
@@ -559,14 +563,17 @@ impl Expansion {
     pub const fn designated(words: Designation) -> Self {
         Expansion {
             at: None,
-            names: NameSet::empty(),
-            words: Some(words),
+            names: words.names,
+            words: Some(words.here),
         }
     }
 
     /// The designation, if the shell resolved the line's words.
     pub fn designation(&self) -> Option<Designation> {
-        self.words
+        self.words.map(|here| Designation {
+            names: self.names,
+            here,
+        })
     }
 
     /// The positional at `index` was a pattern, and these are the names it matched.

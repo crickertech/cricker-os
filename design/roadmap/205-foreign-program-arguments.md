@@ -153,6 +153,11 @@ the planner's grant and the note's round trip.
 - The shell must stand exactly one directory down. At its root, or deeper, a word grant is
   refused with a sentence saying so, because the progenitor builds one caretaker per grant from a
   single directory name (`dir_grant`'s limit, shared).
+- The progenitor's install path has almost no stack to spare. In a debug build, `package install
+  uptime` runs `package_archive`'s parser under `spawn_service`, and 416 bytes more in that frame
+  overflowed the 32 KiB stack (kernel `INIT_STACK_PAGES`); CI found it on 2026-09-27. Moving the
+  grant's locals into `build_grant` left 112 bytes over main, which passes, but the margin was never
+  measured. The next change to `spawn_service` can trip it again.
 - A word grant holds at most eight names, the name-set page's ceiling; a ninth is refused.
 - **A pipeline with a `std` program at its head strands that program's region until reboot.**
   The job pool is a stack: a region's pages go back only when it is the most recent carve

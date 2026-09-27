@@ -2945,42 +2945,10 @@ fn spawn_service(
             } else {
                 None
             };
-            //
-            // **A program that hears words gets the rights its endowed manifest allows, and no
-            // more** (milestone 205, §170 clause 4): the shell asked with the rights of the note it
-            // read, and this clamps them to the manifest decided here, which for bytes nobody
-            // vouched for is read-only (`grant_plan::UNVOUCHED_STD_MANIFEST`). A name set is built
-            // into `fs_nameset_caretaker` with its set on a page from the job's region; a set that
-            // arrived for anything else is dropped with the grant refused.
-            let clamp = |words: (u64, u64, u64)| match manifest.map(|m| m.arg) {
-                Some(grant_plan::ArgSpec::Words(g)) => {
-                    use filesystem_protocol::grant as gr;
-                    let rights = gr::spec_rights(words.2) & g.rights();
-                    (words.0, words.1, gr::spec(gr::spec_len(words.2), rights))
-                }
-                _ => words,
-            };
-            let hears_words = manifest.is_some_and(|m| m.arg.hears_words());
             let narrowed = if wiring.dir {
-                match (region, channel, grant, set_seen) {
-                    (Some(r), Some(ch), Some((care_words, _)), None) => care
-                        .subtree
-                        .as_ref()
-                        .and_then(|e| build_caretaker(own_ut, r, e, ch, clamp(care_words), None)),
-                    (Some(r), Some(ch), Some((care_words, _)), Some(theirs)) if hears_words => {
-                        match (care.nameset.as_ref(), copy_args(own_ut, r, theirs)) {
-                            (Some(e), Some(set)) => {
-                                let ep =
-                                    build_caretaker(own_ut, r, e, ch, clamp(care_words), Some(set));
-                                cap_delete(set);
-                                ep
-                            }
-                            (_, Some(set)) => {
-                                cap_delete(set);
-                                None
-                            }
-                            _ => None,
-                        }
+                match (region, channel, grant) {
+                    (Some(r), Some(ch), Some((care_words, _))) => {
+                        build_grant(own_ut, r, ch, &care, care_words, set_seen, manifest)
                     }
                     _ => None,
                 }
@@ -3452,6 +3420,64 @@ impl StdLayout {
 
     fn maps(&self) -> &[(u64, u64, u64)] {
         &self.maps[..self.maps_n]
+    }
+}
+
+/// **Build the caretaker a directory grant is delivered by**, and hand back its endpoint.
+///
+/// `fs_subtree_caretaker` for a directory, or `fs_nameset_caretaker` with its name set on a page
+/// from the job's region when the shell sent one (milestone 205 (how a foreign program is told what
+/// to do)'s designation half, `spawnproto::NAMESET_BIT`). A set that arrives for a program that does
+/// not hear words is refused with the grant.
+///
+/// **A program that hears words gets the rights its endowed manifest allows, and no more** (§170
+/// clause 4): the shell asked with the rights of the note it read, and this clamps them to the
+/// manifest decided here, which for bytes nobody vouched for is read-only
+/// (`grant_plan::UNVOUCHED_STD_MANIFEST`).
+///
+/// **Out of line on purpose.** `spawn_service`'s frame is on the stack under every activation, and
+/// an install of `uptime` runs `package_archive`'s parser beneath it; in a debug build that path
+/// sat within about 400 bytes of the progenitor's 32 KiB stack (kernel `INIT_STACK_PAGES`) until
+/// these locals were moved here. CI found it on 2026-09-27 as a data abort one word below the
+/// stack's lowest page.
+#[inline(never)]
+fn build_grant(
+    own_ut: u64,
+    region: u64,
+    fs: Fs,
+    care: &Caretakers,
+    care_words: (u64, u64, u64),
+    set_seen: Option<u64>,
+    manifest: Option<grant_plan::Manifest>,
+) -> Option<u64> {
+    let words = match manifest.map(|m| m.arg) {
+        Some(grant_plan::ArgSpec::Words(g)) => {
+            use filesystem_protocol::grant as gr;
+            let rights = gr::spec_rights(care_words.2) & g.rights();
+            (
+                care_words.0,
+                care_words.1,
+                gr::spec(gr::spec_len(care_words.2), rights),
+            )
+        }
+        _ => care_words,
+    };
+    let hears_words = manifest.is_some_and(|m| m.arg.hears_words());
+    match set_seen {
+        None => care
+            .subtree
+            .as_ref()
+            .and_then(|e| build_caretaker(own_ut, region, e, fs, words, None)),
+        Some(theirs) if hears_words => {
+            let set = copy_args(own_ut, region, theirs)?;
+            let ep = care
+                .nameset
+                .as_ref()
+                .and_then(|e| build_caretaker(own_ut, region, e, fs, words, Some(set)));
+            cap_delete(set);
+            ep
+        }
+        Some(_) => None,
     }
 }
 
