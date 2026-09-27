@@ -86,8 +86,12 @@ mkdir "$WORK/iroot/mods" && cp "$WORK"/mods/*.ko "$WORK/iroot/mods/"
 # `helpers/qemu-bounded.sh`, not `timeout(1)` (which macOS does not have) and never `perl -e alarm`
 # (QEMU installs its own SIGALRM handler and swallows it; CLAUDE.md records the eleven leaked
 # emulators that taught us).
+# gic-version=3, not 2: QEMU 11.1.1 refuses `gic-version=2` under HVF outright ("HVF does not
+# support GICv2 emulation"), and nife's own runner moved for the same reason
+# (helpers/qemu-runner-aarch64.sh). Found on 2026-09-26, when this would not boot, by milestone
+# 606 (a directory walk costs what it does on Linux).
 "$ROOT/helpers/qemu-bounded.sh" 300 \
-    qemu-system-aarch64 -M virt,accel=hvf,gic-version=2 -cpu host -m 256M -smp 4 \
+    qemu-system-aarch64 -M virt,accel=hvf,gic-version=3 -cpu host -m 256M -smp 4 \
     -kernel "$KERNEL" -initrd "$WORK/initramfs.cpio" \
     -append "console=ttyAMA0 rdinit=/init panic=1 quiet loglevel=0" \
     -global virtio-mmio.force-legacy=false \

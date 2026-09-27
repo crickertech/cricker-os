@@ -15,9 +15,11 @@
 //!
 //! # BUGS
 //!
-//! - **The matched-tier Linux run is not wired.** `bench/host/run_linux_fs.sh` is the shape (a
-//!   static musl PID 1 under QEMU-HVF on the same core and the same virtio disk); this example is
-//!   what it would run, and nobody has built that image for it yet.
+//! - **The matched-tier Linux run stages on tmpfs.** `bench/host/run_linux_walk.sh` (milestone
+//!   606, a directory walk costs what it does on Linux) builds this example static for musl and
+//!   boots it as PID 1 under QEMU-HVF on the machine nife's bench boot uses, so the tree lives on
+//!   the initramfs rather than ext4 on virtio. For a warm walk that does not matter; for a cold
+//!   one it does, and notes/walk-cost.md says so.
 
 fn main() {
     let dir = std::env::args_os()

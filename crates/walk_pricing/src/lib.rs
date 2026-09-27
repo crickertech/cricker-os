@@ -26,8 +26,8 @@
 //!   checked against the total rather than trusted.
 //!
 //! Each slope's points are the median of [`REPS`] timed runs after one untimed one. The whole walk
-//! is timed once, warm, straight after the walk that counted: it is by far the longest figure, and
-//! under an emulator in CI five of it cost more wall clock than the rest of the test.
+//! is the median of [`WHOLE_REPS`], warm, after the walk that counted, and each of those runs is
+//! also split by the `std::fs` call that spent the time ([`Split`]).
 //!
 //! # Name
 //!
@@ -58,6 +58,11 @@ use filesystem_protocol::fixture::walk as tree;
 /// rather than five because the kernel suite runs this under TCG on three architectures inside a
 /// CI job with a time limit; the figures to quote are the totals anyway (notes/walk-pricing.md).
 pub const REPS: usize = 3;
+
+/// Timed runs of the whole walk. Five since milestone 606 (a directory walk costs what it does on
+/// Linux) made a warm walk about seven times cheaper on nife, which paid for
+/// them under TCG; before that the walk was timed once.
+pub const WHOLE_REPS: usize = 5;
 
 /// **Build the priced tree under `root`**, which becomes [`tree::ROOT`]'s contents. Used by the
 /// image builder (`xtask`), by this crate's own test, and by a host that wants to price the same
@@ -121,17 +126,73 @@ pub fn walk(root: &Path) -> io::Result<Totals> {
 }
 
 fn walk_from(dir: &Path, depth: usize, t: &mut Totals) -> io::Result<()> {
+    walk_split(dir, depth, t, &mut Split::default())
+}
+
+/// **Where a walk's time went**, by the `std::fs` call that spent it (milestone 606 (a directory
+/// walk costs what it does on Linux), provisional number). The four are the whole of what a walk
+/// asks of the platform, so they sum to the walk less the walker's own bookkeeping, and each maps
+/// onto a distinct part of nife's path: `list` is `OPENDIR` per component, `READDIR` pages and a
+/// `CLOSE` per hop; `open` is the same descent plus `OPEN`; `read` is `FSTAT` and the `READ`s;
+/// `close` is one `CLOSE`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Split {
+    /// `read_dir` of a directory and draining its entries, with each entry's `file_type`.
+    pub list: u64,
+    /// `File::open` of each file, by the path the listing handed back.
+    pub open: u64,
+    /// `read_to_end` on each open file: the size hint and every read, to end of file.
+    pub read: u64,
+    /// Dropping each file, which closes it.
+    pub close: u64,
+}
+
+impl Split {
+    /// The four summed.
+    pub fn total(&self) -> u64 {
+        self.list + self.open + self.read + self.close
+    }
+}
+
+/// Nanoseconds since `t0`, saturating.
+fn since(t0: Instant) -> u64 {
+    u64::try_from(t0.elapsed().as_nanos()).unwrap_or(u64::MAX)
+}
+
+/// [`walk_from`], timing each platform call into `s`. One walker rather than a timed copy of it,
+/// so the walk that is split is the walk that is counted: `Instant` on nife is one counter read,
+/// cheap next to any of the calls it brackets.
+fn walk_split(dir: &Path, depth: usize, t: &mut Totals, s: &mut Split) -> io::Result<()> {
+    use std::io::Read;
+    let t0 = Instant::now();
+    let mut entries = Vec::new();
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
+        let is_dir = entry.file_type()?.is_dir();
+        entries.push((entry.path(), is_dir));
+    }
+    s.list += since(t0);
+    for (path, is_dir) in entries {
         t.entries += 1;
         // The entry's own depth below the root is the component count of the path about to be
         // resolved, for a descent and an open alike.
         t.components += depth + 1;
-        let path = entry.path();
-        if entry.file_type()?.is_dir() {
-            walk_from(&path, depth + 1, t)?;
+        if is_dir {
+            walk_split(&path, depth + 1, t, s)?;
         } else {
-            t.bytes += fs::read(&path)?.len();
+            let t0 = Instant::now();
+            let mut file = fs::File::open(&path)?;
+            s.open += since(t0);
+            // `fs::read` is exactly these two calls with the open in front: `read_to_end` on a
+            // `File` asks for the size first, as `fs::read` does.
+            let mut body = Vec::new();
+            let t0 = Instant::now();
+            file.read_to_end(&mut body)?;
+            s.read += since(t0);
+            let t0 = Instant::now();
+            drop(file);
+            s.close += since(t0);
+            t.bytes += body.len();
             t.files += 1;
         }
     }
@@ -180,8 +241,14 @@ pub struct Price {
     pub read_small: u64,
     /// See [`Self::read_small`].
     pub read_large: u64,
-    /// The whole walk, one warm run.
+    /// The whole walk, warm: the median of [`WHOLE_REPS`] runs.
     pub whole: u64,
+    /// The fastest of those runs.
+    pub whole_min: u64,
+    /// The slowest.
+    pub whole_max: u64,
+    /// [`Self::whole`], by the call that spent it.
+    pub split: Split,
 }
 
 impl Price {
@@ -232,10 +299,18 @@ pub fn price(root: &Path) -> io::Result<Price> {
     let read_small = median_ns(|| fs::read(&small).map(drop))?;
     let read_large = median_ns(|| fs::read(&large).map(drop))?;
 
-    // Once, warm: the walk that counted above is its untimed run.
-    let t0 = Instant::now();
-    walk(root)?;
-    let whole = u64::try_from(t0.elapsed().as_nanos()).unwrap_or(u64::MAX);
+    // Warm: the walk that counted above is the untimed run. Each timed run is also split by call,
+    // and the split reported is the median run's.
+    let mut wholes = Vec::with_capacity(WHOLE_REPS);
+    for _ in 0..WHOLE_REPS {
+        let mut split = Split::default();
+        let t0 = Instant::now();
+        walk_split(root, 0, &mut Totals::default(), &mut split)?;
+        wholes.push((since(t0), split));
+    }
+    wholes.sort_unstable_by_key(|&(ns, _)| ns);
+    let (whole, split) = wholes[WHOLE_REPS / 2];
+    let (whole_min, whole_max) = (wholes[0].0, wholes[WHOLE_REPS - 1].0);
 
     Ok(Price {
         totals,
@@ -246,6 +321,9 @@ pub fn price(root: &Path) -> io::Result<Price> {
         read_small,
         read_large,
         whole,
+        whole_min,
+        whole_max,
+        split,
     })
 }
 
@@ -282,7 +360,14 @@ pub fn report(p: &Price) -> Vec<String> {
             p.read_small,
             p.read_large,
         ),
-        format!("walk whole {} ns", p.whole),
+        format!(
+            "walk whole {} ns (min {} ns, max {} ns, {} runs)",
+            p.whole, p.whole_min, p.whole_max, WHOLE_REPS,
+        ),
+        format!(
+            "walk split list {} ns, open {} ns, read {} ns, close {} ns",
+            p.split.list, p.split.open, p.split.read, p.split.close,
+        ),
     ]
 }
 
@@ -323,6 +408,8 @@ mod tests {
         let p = price(&root).expect("price the walk");
         assert_eq!(p.by_depth.len(), tree::DEPTH + 1);
         assert!(p.whole > 0 && p.list_wide > 0 && p.read_large > 0);
+        // The split is the whole walk less the walker's own bookkeeping, so it cannot exceed it.
+        assert!(p.split.total() <= p.whole && p.split.list > 0 && p.split.read > 0);
         assert!(p.per_entry().is_finite() && p.per_kib().is_finite());
         let lines = report(&p);
         assert_eq!(lines[0], totals_line(&p.totals));
@@ -331,6 +418,7 @@ mod tests {
             "walk per entry",
             "walk per KiB",
             "walk whole",
+            "walk split",
         ]) {
             assert!(
                 line.starts_with(prefix),

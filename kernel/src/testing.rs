@@ -592,9 +592,20 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// **22613**. aarch64 is again the tighter of the pair and is what the headroom is measured
 /// against, the same convention every entry above follows. 22754 + 32 = 22786.
 ///
+/// **`22_800` (2026-09-26): the FS servers now keep a working set, and their heaps grow to hold
+/// it.** Milestone 606 (a directory walk costs what it does on Linux) gave `redoxfs_server` a memo of
+/// listings, names and small files and a 256-slot block cache allocated as it fills, where the old
+/// cache was 64 slots allocated at start. The pages come out of each server's own region, but every
+/// heap page `MemoryRegion::MAP` adds is also a mapping record kept for §13 (capability revocation
+/// and untyped reclamation), and those records are what the ledger sees. On its own branch this
+/// read **+14** in CI (#1344's 22373 to 22387), as +1 on most FS-using tests and +7 on the crash
+/// test and the full directory capability test. Added to the merged reading above rather than
+/// re-measured: 22754 + 14 = 22768, and + 32 headroom = 22800. The next branch to read the ledger
+/// in CI should replace this with a measured figure.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 22_786;
+const SUITE_PAGE_FRAME_BUDGET: usize = 22_800;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///

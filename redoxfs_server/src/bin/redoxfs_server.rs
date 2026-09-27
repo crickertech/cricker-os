@@ -84,18 +84,16 @@ const BLOCK: usize = blk::BLOCK_SIZE;
 /// kernel grants is the real ceiling.
 const HEAP_MAX: u64 = 8 * 1024 * 1024;
 
-/// **How many single blocks [`redoxfs_server::CachedDisk`] holds** (milestone 138 step 2). One open
-/// file's tree spine is five blocks
-/// (notes/benchmarks/read-path-block-contract-and-metadata-cache.md, "the same five blocks every
-/// time"); 64 gives more than twelve times that so several open handles stay hot at once without
-/// thrashing each other out, at `64 * (8 + BLOCK) = 262,656` bytes, about 257 KiB.
+/// **How many single blocks [`redoxfs_server::CachedDisk`] holds** (milestone 138 (close the read
+/// gap) step 2, resized by milestone 606 (a directory walk costs what it does on Linux)). The number and its measurement live beside the cache, in the library, so the
+/// host test that counts a walk's device reads runs the same cache this binary does.
 ///
 /// **One constant for every FS server this build starts**, including milestone 37's two crash-test
 /// instances, whose heap budget is a fraction of [`HEAP_MAX`] (`CRASH_BUDGET_PAGES` in
-/// `kernel/src/user/fs_service.rs`, 2 MiB). 257 KiB is comfortable there too, next to RedoxFS's own
-/// measured high-water of a few hundred KiB, so there is no second number to keep in sync with a
-/// budget this file cannot see.
-const CACHE_SLOTS: usize = 64;
+/// `kernel/src/user/fs_service.rs`, 2 MiB). That holds because a slot is allocated when a block
+/// first lands in it and the header ring is never cached, so a server pays for the blocks it
+/// touched, and a crash-test server touches a few dozen.
+const CACHE_SLOTS: usize = redoxfs_server::CACHE_SLOTS;
 
 #[global_allocator]
 static HEAP: user_mode_runtime::heap::MemoryRegionHeap =

@@ -281,6 +281,7 @@ fn a_walk_through_a_confined_grant_is_priced() {
         "walk per entry",
         "walk per KiB",
         "walk whole",
+        "walk split",
     ] {
         assert!(
             text.contains(figure),
