@@ -12,8 +12,12 @@ released as though a transfer happened.
 diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
 --- a/crates/inter_process_communication/src/lib.rs
 +++ b/crates/inter_process_communication/src/lib.rs
-@@ -326,3 +326,3 @@ impl<T: Node> Rendezvous<T> {
+@@ -378,7 +378,7 @@ impl<T: Node> Rendezvous<T> {
      pub unsafe fn send(&mut self, me: NonNull<T>) -> Send<T> {
--        if let Some(receiver) = self.receivers.pop_front() {
-+        if let Some(receiver) = self.senders.pop_front() {
+         if self.bound_to_interrupt {
+             Send::Refused
+-        } else if let Some(receiver) = self.receivers.pop_front() {
++        } else if let Some(receiver) = self.senders.pop_front() {
              Send::Rendezvous(receiver)
+         } else {
+             // SAFETY: the caller's contract is exactly the queue's.

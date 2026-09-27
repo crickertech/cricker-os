@@ -487,6 +487,14 @@ pub struct Thread {
     /// and inserts it into its own capability table. `None` for every ordinary send. See sched.rs.
     pub outgoing_cap: Option<crate::cap::Cap>,
 
+    /// **Why the last aborted send was aborted, when the reason was a refusal** (milestone 603
+    /// (provisional), DECISIONS §101 (notification objects) ruling B). Set beside `handshake.abort()` when a `SEND`,
+    /// `SEND_CAP` or `CALL` named a rendezvous that carries an interrupt, and read-and-cleared by
+    /// the syscall layer only after `take_ipc_aborted` has already said `true`. So an IPC that was
+    /// not aborted never reads it, which is what keeps the refusal off the fastpath: the syscall
+    /// layer's common case is the one branch it already had.
+    pub ipc_refused: bool,
+
     /// **The intrusive queue link** (milestone 14 phases A.2/A.3; notes/intrusive-queues.md).
     /// When this thread is on a run queue, a migration inbox, or an endpoint wait queue, this
     /// points at the next thread in it; `None` otherwise. One link, so a thread can be on at most
@@ -693,6 +701,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -730,6 +739,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -841,6 +851,7 @@ impl Thread {
                 mailbox: [0; 5],
                 quota: None,
                 outgoing_cap: None,
+                ipc_refused: false,
                 next: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
                 start_args: [0; 3],
@@ -892,6 +903,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            ipc_refused: false,
             next: None,
             entry: (0, 0),
             start_args: [0; 3],
