@@ -63,6 +63,17 @@ path = "src/greeting.rs"
 test = false
 bench = false
 
+# noteless (milestone 47 (navigation and naming)'s bare-name lane, name provisional): a second
+# program no boot image carries, and one with no manifest note, so `script/swish-check` can install
+# a package the image lacks and still prove the no-note default. It took that job from `uptime`
+# when DECISIONS §229 (how a bare name at the prompt reaches an installed program) came to refuse,
+# on 2026-09-27, packages named after image programs. `packaged_only`.
+[[bin]]
+name = "noteless"
+path = "src/noteless.rs"
+test = false
+bench = false
+
 # The interrupt_heeder (DECISIONS §24): a long-running job that heeds the cooperative ^C,
 # polling a shared flag between work units and exiting cleanly when the shell sets it. The
 # cooperative interrupt tier.
@@ -414,7 +425,7 @@ bench = false
 # be a `[[bin]]` above, and must not be a program the shell or the boot needs, and `xtask` refuses
 # the archive otherwise. Key name provisional.
 [package.metadata.nife]
-packaged_only = ["greeting"]
+packaged_only = ["greeting", "noteless"]
 
 [dependencies]
 # The user address-space map (milestone 206 (a program image has under 896 KiB)): every fixed window here is checked against its band.

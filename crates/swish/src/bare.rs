@@ -5,7 +5,9 @@
 //! here is asked. A word without one is a builtin, a program the image carries, or the live
 //! activation set's entry of that name, found with `activation_set::lookup_name`, which never
 //! matches an owner's vouch. There is no search order. A name that is both the image's and an
-//! installed package's is refused, naming both, because either choice would be a guess.
+//! installed package's is refused, naming both, because either choice would be a guess. Install
+//! refuses an image program's name (§229, calef's ruling of 2026-09-27), so the pair arises only
+//! when a later base adds a name a package already holds.
 //!
 //! The shell reads the live table on each line that needs it, rather than caching it. It is two
 //! small file reads, against a spawn that builds a whole process, and a table the shell never
@@ -30,6 +32,12 @@
 //! - A table that cannot be read resolves nothing, so an installed program's bare name is then
 //!   refused as unknown and an image program runs without the collision check. The progenitor's
 //!   rule is the same: a table it cannot read vouches for nothing.
+//! - **The both-names refusal is proven on the host only.** No boot gate reaches it:
+//!   `script/swish-check` cannot install a package named after an image program (§229,
+//!   2026-09-27), and no gate boots a second base that adds a name. It reaches a machine the first
+//!   time a base update under §235 (the OS is built and updated from packages) adds a program
+//!   some installed package already provides; a gate that boots such a base is what would cover
+//!   it.
 //!
 //! Name: provisional, milestone 47's bare-name lane, 2026-09-26.
 

@@ -44,7 +44,7 @@
 //! let digest = [7u8; 32];
 //! let uptime = Entry { program: "uptime", package: "uptime-0.1.0-aarch64", digest };
 //! let mut first = [0u8; 256];
-//! let n = with_entry("", &uptime, &mut first).unwrap();
+//! let n = with_entry("", &uptime, false, &mut first).unwrap();
 //! let generation_1 = core::str::from_utf8(&first[..n]).unwrap();
 //! assert_eq!(lookup(generation_1, "uptime").unwrap().unwrap().package, "uptime-0.1.0-aarch64");
 //!
@@ -109,6 +109,14 @@ pub enum Error {
     /// second package's program under it would silently take the name from the first. The same
     /// package at another version is an upgrade and is not this.
     Taken,
+    /// **The image carries a program of this name** (DECISIONS §229, calef's ruling of 2026-09-27).
+    /// A package cannot take a base program's name. Under §235 (the OS is built and updated from
+    /// packages) a base program is updated by writing base packages into the inactive boot slot,
+    /// never by `package install`, so this refusal blocks no update. An owner's vouch claims no
+    /// name and is never this.
+    ///
+    /// Name: provisional, milestone 47 (navigation and naming)'s bare-name lane, 2026-09-27.
+    ImageName,
 }
 
 /// Every entry in a generation, or [`Error::Malformed`] at the first line that is not one. Blank
@@ -213,11 +221,24 @@ pub fn lookup_digest<'a>(table: &'a str, digest: &Digest) -> Result<Option<Entry
 ///   earlier vouch of the same name.
 ///
 /// Anything else is appended.
-pub fn with_entry(table: &str, entry: &Entry<'_>, out: &mut [u8]) -> Result<usize, Error> {
+///
+/// `image_carries` is whether the running image has a program named `entry.program`. A package's
+/// entry under such a name is [`Error::ImageName`] (§229, 2026-09-27), checked before
+/// [`Error::Taken`]; a vouch ignores it. It is a required argument rather than a second function
+/// so an installer cannot forget to ask.
+pub fn with_entry(
+    table: &str,
+    entry: &Entry<'_>,
+    image_carries: bool,
+    out: &mut [u8],
+) -> Result<usize, Error> {
     if !good_name(entry.program) || !good_name(entry.package) {
         return Err(Error::BadName);
     }
     let vouch = entry.package == OWNER;
+    if !vouch && image_carries {
+        return Err(Error::ImageName);
+    }
     let name_of = |stem| stem_parts(stem).map(|(name, _, _)| name);
     // Refuse before writing a byte, so a refused install leaves `out` meaning nothing.
     for existing in entries(table) {
@@ -432,7 +453,7 @@ mod tests {
         }
         fn install(&mut self, entry: Entry<'_>) {
             let mut out = vec![0u8; 4096];
-            let n = with_entry(self.table(), &entry, &mut out).unwrap();
+            let n = with_entry(self.table(), &entry, false, &mut out).unwrap();
             self.commit(&out[..n]);
         }
         fn remove(&mut self, program: &str) -> Result<(), Error> {
@@ -470,7 +491,7 @@ mod tests {
             digest: built,
         };
         let mut g = [0u8; 256];
-        let n = with_entry("", &vouch, &mut g).unwrap();
+        let n = with_entry("", &vouch, false, &mut g).unwrap();
         let table = core::str::from_utf8(&g[..n]).unwrap();
         assert_eq!(
             lookup_digest(table, &built).unwrap().unwrap().package,
@@ -482,7 +503,7 @@ mod tests {
             digest: [1; 32],
         };
         let mut h = [0u8; 256];
-        let n = with_entry(table, &upgrade, &mut h).unwrap();
+        let n = with_entry(table, &upgrade, false, &mut h).unwrap();
         let next = core::str::from_utf8(&h[..n]).unwrap();
         assert_eq!(lookup_digest(next, &built).unwrap().unwrap().package, OWNER);
         assert_eq!(
@@ -498,12 +519,12 @@ mod tests {
     fn a_name_belongs_to_one_package_and_never_to_a_vouch() {
         let mut g = [0u8; 512];
         let first = entry("uptime", "uptime-0.1.0-aarch64", 1);
-        let n = with_entry("", &first, &mut g).unwrap();
+        let n = with_entry("", &first, false, &mut g).unwrap();
         let t1 = core::str::from_utf8(&g[..n]).unwrap().to_string();
 
         let upgrade = entry("uptime", "uptime-0.2.0-aarch64", 2);
         let mut h = [0u8; 512];
-        let n = with_entry(&t1, &upgrade, &mut h).unwrap();
+        let n = with_entry(&t1, &upgrade, false, &mut h).unwrap();
         let t2 = core::str::from_utf8(&h[..n]).unwrap().to_string();
         assert_eq!(lookup_name(&t2, "uptime").unwrap().unwrap().digest, [2; 32]);
         assert_eq!(
@@ -514,14 +535,14 @@ mod tests {
 
         let other = entry("uptime", "procps-4.0.0-aarch64", 3);
         let mut k = [0u8; 512];
-        assert_eq!(with_entry(&t2, &other, &mut k), Err(Error::Taken));
+        assert_eq!(with_entry(&t2, &other, false, &mut k), Err(Error::Taken));
 
         let vouch = Entry {
             program: "uptime",
             package: OWNER,
             digest: [4; 32],
         };
-        let n = with_entry(&t2, &vouch, &mut k).unwrap();
+        let n = with_entry(&t2, &vouch, false, &mut k).unwrap();
         let t3 = core::str::from_utf8(&k[..n]).unwrap().to_string();
         assert_eq!(lookup_name(&t3, "uptime").unwrap().unwrap().digest, [2; 32]);
         assert_eq!(
@@ -534,6 +555,41 @@ mod tests {
         let t4 = core::str::from_utf8(&m[..n]).unwrap();
         assert!(lookup_name(t4, "uptime").unwrap().is_none());
         assert_eq!(lookup_digest(t4, &[4; 32]).unwrap().unwrap().package, OWNER);
+    }
+
+    /// **§229, calef's ruling of 2026-09-27: a package cannot take a name the image carries.**
+    /// Refused before `Taken` and before a byte is written, whether or not the table already has
+    /// the name, and at any version. An owner's vouch of the same name claims no name and is kept.
+    #[test]
+    fn a_package_cannot_take_an_image_programs_name() {
+        let mut out = [0u8; 512];
+        let base = entry("uptime", "uptime-0.1.0-aarch64", 1);
+        assert_eq!(with_entry("", &base, true, &mut out), Err(Error::ImageName));
+
+        // Already installed (a later base added the name, which §229's prompt refusal covers):
+        // an upgrade of that package is refused too, and so is another package's.
+        let n = with_entry("", &base, false, &mut out).unwrap();
+        let t = core::str::from_utf8(&out[..n]).unwrap().to_string();
+        let mut next = [0u8; 512];
+        let upgrade = entry("uptime", "uptime-0.2.0-aarch64", 2);
+        assert_eq!(
+            with_entry(&t, &upgrade, true, &mut next),
+            Err(Error::ImageName)
+        );
+        let other = entry("uptime", "procps-4.0.0-aarch64", 3);
+        assert_eq!(
+            with_entry(&t, &other, true, &mut next),
+            Err(Error::ImageName)
+        );
+
+        let vouch = Entry {
+            program: "uptime",
+            package: OWNER,
+            digest: [4; 32],
+        };
+        let n = with_entry(&t, &vouch, true, &mut next).unwrap();
+        let t2 = core::str::from_utf8(&next[..n]).unwrap();
+        assert_eq!(lookup_digest(t2, &[4; 32]).unwrap().unwrap().package, OWNER);
     }
 
     /// A stem splits from the right, so a name may hold a hyphen; the owner's word is not a stem.
@@ -622,7 +678,7 @@ mod tests {
                 digest: [0; 32],
             };
             assert_eq!(
-                with_entry("", &e, &mut out),
+                with_entry("", &e, false, &mut out),
                 Err(Error::BadName),
                 "{program:?}"
             );
@@ -633,7 +689,7 @@ mod tests {
     fn a_buffer_too_small_is_refused_rather_than_truncated() {
         let mut out = [0u8; 40];
         let e = entry("uptime", "uptime-0.1.0-aarch64", 1);
-        assert_eq!(with_entry("", &e, &mut out), Err(Error::TooSmall));
+        assert_eq!(with_entry("", &e, false, &mut out), Err(Error::TooSmall));
         assert_eq!(format_current(1234, &mut [0u8; 4]), Err(Error::TooSmall));
     }
 
@@ -643,10 +699,22 @@ mod tests {
     #[test]
     fn a_digest_finds_its_entry_and_a_miss_is_none() {
         let mut out = [0u8; 512];
-        let n = with_entry("", &entry("uptime", "uptime-0.1.0-aarch64", 3), &mut out).unwrap();
+        let n = with_entry(
+            "",
+            &entry("uptime", "uptime-0.1.0-aarch64", 3),
+            false,
+            &mut out,
+        )
+        .unwrap();
         let mut two = [0u8; 512];
         let text = core::str::from_utf8(&out[..n]).unwrap();
-        let n = with_entry(text, &entry("date", "date-0.1.0-aarch64", 4), &mut two).unwrap();
+        let n = with_entry(
+            text,
+            &entry("date", "date-0.1.0-aarch64", 4),
+            false,
+            &mut two,
+        )
+        .unwrap();
         let table = core::str::from_utf8(&two[..n]).unwrap();
 
         let hit = lookup_digest(table, &[4u8; 32]).unwrap().unwrap();

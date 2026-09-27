@@ -1270,6 +1270,9 @@ pub fn write_activation(
         (S::NameTaken, _) => {
             b"  refused: another installed package already provides a program of that name"
         }
+        (S::ImageName, _) => {
+            b"  refused: the image carries a program of that name; a new base updates it, not install"
+        }
     };
     out(said);
     if live == 0 {
@@ -2108,6 +2111,13 @@ mod tests {
         assert_eq!(
             shown(|o| write_activation(V::Vouch(b"./a.out"), S::Done, 3, o)),
             "  vouched; generation 3 is live\n"
+        );
+        // §229 (how a bare name at the prompt reaches an installed program), 2026-09-27:
+        // `script/swish-check` asserts this sentence whole.
+        assert_eq!(
+            shown(|o| write_activation(V::Install(b"x"), S::ImageName, 0, o)),
+            "  refused: the image carries a program of that name; a new base updates it, not \
+             install; nothing is installed\n"
         );
     }
 

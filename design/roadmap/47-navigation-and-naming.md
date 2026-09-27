@@ -1288,9 +1288,12 @@ estimates for unbuilt work are guesses on a scale calibrated from history, not m
   completion from the manifest (`design/roadmap/proposals/argument-completion-reads-the-manifest.md`).
 - **Done.** `PATH`, built 2026-09-26 as §229 B2: a bare word resolves through the live
   activation set (`activation_set::lookup_name`, which skips owner vouches), a name both the image
-  and a package have is refused naming both, and another package cannot take an installed name
-  (`NameTaken`). An owner's vouch now sits beside a package's entry instead of replacing it.
-  Proven by host tests and by `script/swish-check` (`greeting`, `uptime`, `unvouched`).
+  and a package have is refused naming both, and install refuses a name another package provides
+  (`NameTaken`) or the image carries (`ImageName`, calef's ruling of 2026-09-27). An owner's vouch
+  now sits beside a package's entry instead of replacing it. Proven by host tests and by
+  `script/swish-check` (`greeting` and `noteless` by bare name, `package install
+  downloads/uptime.nifepkg` refused, `unvouched` reaching nothing). The prompt's both-names refusal
+  is host-tested only, since no gate can now make the pair (`swish::bare`'s BUGS).
 - **Milestone 65.** Environment's secrets third, moved rather than built. A secret here is an
   endpoint (§41), the service that holds one is milestone 65's (BUILT), and where a stored secret comes from is §165 (PROPOSED). §220
   (signed builds) met the one candidate customer, a signing key, on 2026-09-26 and recommended
