@@ -566,6 +566,7 @@ version = "0.1.0"
 dependencies = [
  "aarch64-cpu",
  "abi",
+ "activation_set",
  "address_space_identifier",
  "address_space_map",
  "bitmap_font",
@@ -653,6 +654,7 @@ name = "login_protocol"
 version = "0.1.0"
 dependencies = [
  "credential_protocol",
+ "filesystem_protocol",
 ]
 
 [[package]]

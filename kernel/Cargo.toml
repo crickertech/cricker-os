@@ -156,6 +156,10 @@ machine_discovery = { version = "0.1.0", path = "../crates/machine_discovery" }
 # serial terminal's clients and drivers do rather than a second one invented for a test.
 line_editor = { version = "0.1.0", path = "../crates/line_editor" }
 measured_boot = { version = "0.1.0", path = "../crates/measured_boot" }
+# The activation set's names and line format (milestone 198 (a package manager)), which the harness
+# writes when a test installs a program the way an installer would: milestone 152 (durable
+# delegation) runs a scheduled job from it. Only the system tests do, so only their feature links it.
+activation_set = { version = "0.1.0", path = "../crates/activation_set", optional = true }
 # **Text on a screen for a machine with no serial port** (milestone 243). The painter and the cursor
 # are pure logic over a `&mut [u8]`, so they are proved on the host in milliseconds rather than by
 # looking at a monitor, which is the one thing nobody in this project can do from a lane. The kernel
@@ -202,7 +206,7 @@ soak_page = { version = "0.1.0", path = "../crates/soak_page" }
 # crate)). Only `system_tests/` turns it on. It makes the boot a test boot, the way `cfg(test)` does
 # for `cargo test -p kernel`, exposes `system_test_access` (lib.rs), and calls the suite that crate
 # defines. A kernel binary built with it fails to link, on purpose; lib.rs says why. Name provisional.
-system_tests = []
+system_tests = ["dep:activation_set"]
 # The board build (milestone 16a): the kernel targets the VisionFive 2 (JH7110) rather than
 # QEMU's `virt` machine. A property of the target, not the build mode: the board has no
 # sifive_test finisher, so the test exit prints a UART marker and calls SBI SRST shutdown

@@ -13,10 +13,13 @@
 //! # What it does
 //!
 //! 1. Builds `timetable` from the image `login` copied in, out of [`BUDGET`]: its own region, a
-//!    budget for the jobs it fires, and two endpoints. It is handed the jobs archive `login` copied
-//!    in, which holds exactly the programs a scheduled job may run. The registration page `login` made
-//!    ([`PAGE`]) is mapped into it at [`TIMETABLE_PAGE_VA`], so the timetable starts empty and
-//!    silent and waits for a `REPLACE` (`timetable::contract`).
+//!    budget for the jobs it fires, and two endpoints. It is handed no programs: a scheduled job
+//!    runs what the live activation generation names (Fork 8 ruled D by calef on 2026-09-27, on
+//!    #1377), so the timetable is handed the two read-only store caretakers `login` built
+//!    ([`ACTIVATION`], [`PACKAGES`]) and their channel's page ([`STORE_PAGE`]), which makes it a
+//!    store-mode timetable (`timetable::contract`). The registration page `login` made ([`PAGE`])
+//!    is mapped into it at [`TIMETABLE_PAGE_VA`], so the timetable starts empty and silent and
+//!    waits for a `REPLACE`.
 //! 2. Says it is ready on [`READY`], once. `login` is blocked waiting for exactly that word.
 //! 3. Blocks on `e`, its one endpoint, for the rest of its life. The timetable's death arrives
 //!    there, because `e` is its supervision endpoint. No job report does: calef ruled Fork 6 C on
@@ -37,8 +40,11 @@
 //!   it; `GRANT` because the timetable is handed a split of it.
 //! - slot [`PAGE`]: `WRITE`. The registration page, retyped by `login` from this process's own
 //!   construction region.
+//! - slots [`ACTIVATION`] and [`PACKAGES`]: `WRITE`. Endpoints to the caretakers serving the
+//!   store's `activation/` and `packages/` read-only, handed on to the timetable.
+//! - slot [`STORE_PAGE`]: `WRITE`. The durable window's page the caretakers stage through, mapped
+//!   into the timetable and never here.
 //! - `a0`: the length of `timetable`'s image, copied in at `login_protocol::session::TIMETABLE_VA`.
-//! - `a1`: the length of the jobs archive, copied in at `login_protocol::session::JOBS_VA`.
 //!
 //! Name: provisional. calef ruled S1 on 2026-09-26 and gave no name; the maintainer suggested
 //! `session`, and this lane shipped it on 2026-09-26. It names what the process is for a user
@@ -48,9 +54,10 @@
 //!
 //! - **Nothing restarts a timetable that faults.** The session exits, and the schedule stays on
 //!   disk for the next `SCHEDULE` or the boot-time re-deriver.
-//! - **The jobs archive is copied twice**, once into this process and once into the timetable, because
-//!   `supervision_protocol::build_child` can hand a child data only by copying a blob or mapping a
-//!   frame this process holds a capability to, and `login` hands it bytes rather than frames.
+//! - **The timetable's image is copied twice**, once into this process and once into the
+//!   timetable, because `supervision_protocol::build_child` can hand a child data only by copying a
+//!   blob or mapping a frame this process holds a capability to, and `login` hands it bytes rather
+//!   than frames.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68 (code-quality gates) tracks
@@ -73,33 +80,40 @@ const READY: u64 = contract::READY_SLOT;
 const BUDGET: u64 = contract::BUDGET_SLOT;
 /// The registration page, `WRITE`.
 const PAGE: u64 = contract::PAGE_SLOT;
+/// The store's `activation/`, read-only, `WRITE`.
+const ACTIVATION: u64 = contract::ACTIVATION_SLOT;
+/// The store's `packages/`, read-only, `WRITE`.
+const PACKAGES: u64 = contract::PACKAGES_SLOT;
+/// The store channel's page, `WRITE`.
+const STORE_PAGE: u64 = contract::STORE_PAGE_SLOT;
 
 /// Where the timetable finds its registration page. Any address clear of its program, its stack
 /// and the archive at `user_mode_runtime::initrd::INITRD_VA` would do; this is the one
 /// `kernel/src/user/timetable_tests.rs` already uses for the same job.
 const TIMETABLE_PAGE_VA: u64 = 0x0600_0000;
 
-/// The timetable's own construction: its segments, the archive copied into it, its
-/// `timetable::contract::STACK_PAGES` stack and its tables. Measured against the aarch64 debug
-/// build on 2026-09-26 with room to spare; see this program's own test for what fails if it is short.
-const TIMETABLE_REGION_PAGES: u64 = 224;
+/// The timetable's own construction: its segments (which since Fork 8 D include a
+/// `timetable::contract::STAGING_BYTES` buffer, 16 pages), its `timetable::contract::STACK_PAGES`
+/// stack and its tables. Measured against the aarch64 debug build on 2026-09-26 at 224 with room to
+/// spare, before the buffer; see this program's own test for what fails if it is short.
+const TIMETABLE_REGION_PAGES: u64 = 240;
 /// The budget the timetable fires jobs from: two 48-page instances and the loader's scratch.
 const JOB_BUDGET_PAGES: u64 = 128;
+// What this process splits must fit what `login` gives it, with the two endpoints' pages beside.
+const _: () = assert!(
+    TIMETABLE_REGION_PAGES + JOB_BUDGET_PAGES < login_protocol::durable::SESSION_BUDGET_PAGES
+);
 
 /// How many times to retry a reap or a destroy that finds something still standing on its region.
 /// The same net `components/src/timetable.rs` keeps, for the same reason.
 const ATTEMPTS: usize = 1024;
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(image_len: u64, jobs_len: u64, _a2: u64) -> ! {
-    // SAFETY: `login` copies `image_len` bytes to `TIMETABLE_VA` and `jobs_len` bytes to `JOBS_VA`
-    // before this process runs (`login_protocol::session`'s contract), and nothing writes them
-    // afterwards.
-    let (image, jobs_archive) = unsafe {
-        (
-            core::slice::from_raw_parts(contract::TIMETABLE_VA as *const u8, image_len as usize),
-            core::slice::from_raw_parts(contract::JOBS_VA as *const u8, jobs_len as usize),
-        )
+pub extern "C" fn _start(image_len: u64, _a1: u64, _a2: u64) -> ! {
+    // SAFETY: `login` copies `image_len` bytes to `TIMETABLE_VA` before this process runs
+    // (`login_protocol::session`'s contract), and nothing writes them afterwards.
+    let image = unsafe {
+        core::slice::from_raw_parts(contract::TIMETABLE_VA as *const u8, image_len as usize)
     };
     let Ok(elf) = elf::Elf::parse(image) else {
         fail(3)
@@ -132,9 +146,13 @@ pub extern "C" fn _start(image_len: u64, jobs_len: u64, _a2: u64) -> ! {
                     deaths,
                     abi::rights::READ | abi::rights::GRANT,
                 ),
+                (tt::ACTIVATION_SLOT, ACTIVATION, abi::rights::WRITE),
+                (tt::PACKAGES_SLOT, PACKAGES, abi::rights::WRITE),
             ],
-            maps: &[(TIMETABLE_PAGE_VA, PAGE, abi::address_space::MAP_RW)],
-            blobs: &[(user_mode_runtime::initrd::INITRD_VA, jobs_archive)],
+            maps: &[
+                (TIMETABLE_PAGE_VA, PAGE, abi::address_space::MAP_RW),
+                (tt::STORE_PAGE_VA, STORE_PAGE, abi::address_space::MAP_RW),
+            ],
             fault: Some(e),
             stack_pages: tt::STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
@@ -142,13 +160,17 @@ pub extern "C" fn _start(image_len: u64, jobs_len: u64, _a2: u64) -> ! {
     );
     let Ok(child) = built else { fail(8) };
     // Forever (`a0 == 0`): the timetable stops when its document is emptied, not after a count.
-    if !start_child(child, 0, jobs_len, TIMETABLE_PAGE_VA) {
+    // No archive (`a1 == 0`): it is in store mode.
+    if !start_child(child, 0, 0, TIMETABLE_PAGE_VA) {
         fail(9)
     }
     // The timetable holds its own copies now. `jobs` is kept: it is a child of `BUDGET`, and
     // `BUDGET` cannot come down until it does.
     cap_delete(deaths);
     cap_delete(PAGE);
+    cap_delete(ACTIVATION);
+    cap_delete(PACKAGES);
+    cap_delete(STORE_PAGE);
 
     send(READY, contract::READY, 0, 0);
 

@@ -67,49 +67,22 @@ use crate::sched;
 const CONSTRUCTION_PAGES: u64 = 2176;
 
 /// **What `login` splits off its construction budget at start-up for durable sessions** (milestone
-/// 152): `components/src/login.rs`'s `DURABLE_UT_PAGES`, which is its client budget, a session
-/// process's region and that process's own budget. Kept apart from [`CONSTRUCTION_PAGES`] so the
-/// account above stays the account it was. Must match that file.
-const DURABLE_UT_PAGES: u64 = 64 + 192 + 384;
+/// 152): one durable session's budget, `login_protocol::durable::BUDGET_PAGES`, the constant `login`
+/// splits by. Kept apart from [`CONSTRUCTION_PAGES`] so the account above stays the account it was.
+const DURABLE_UT_PAGES: u64 = login_protocol::durable::BUDGET_PAGES;
 
-/// The schedule archive's buffers: the jobs archive, then the schedule archive that carries it.
-/// `.bss`, and `#[cfg(test)]` reaches this module, so a shipping kernel pays nothing for them.
-static mut JOBS_ARCHIVE: [u8; 256 << 10] = [0; 256 << 10];
-static mut SCHEDULE_ARCHIVE: [u8; 1 << 20] = [0; 1 << 20];
-
-/// **Build the schedule archive `login` is started with** (milestone 152): `session`, `timetable`,
-/// and `jobs`, an archive of the one program the durable test schedules, all out of the initrd's
-/// own copies, the way `timetable_tests` narrows its archive to a plan. Built on the first call and
-/// handed back unchanged after, because two `login`s in this suite are started with it.
-fn schedule_archive() -> &'static [u8] {
-    use core::sync::atomic::{AtomicUsize, Ordering};
-    static LEN: AtomicUsize = AtomicUsize::new(0);
-    let built = LEN.load(Ordering::Acquire);
-    if built != 0 {
-        // SAFETY: written once, below, before `LEN` was set; only ever read since.
-        let archive: &'static [u8; 1 << 20] = unsafe { &*core::ptr::addr_of!(SCHEDULE_ARCHIVE) };
-        return &archive[..built];
+/// **Install the one program the durable tests schedule**, as an installer would (milestone 152,
+/// Fork 8 ruled D by calef on 2026-09-27, on #1377): a scheduled job runs what the live activation
+/// generation names, so `least_authority_demo`'s bytes go to `packages/` and a generation naming
+/// them to `activation/`. Written once per boot, before either `login` that opens a schedule starts.
+fn install_scheduled_program() {
+    use core::sync::atomic::{AtomicBool, Ordering};
+    static DONE: AtomicBool = AtomicBool::new(false);
+    if DONE.swap(true, Ordering::Relaxed) {
+        return;
     }
-    let initrd = |name| program(name).expect("a schedule program is not in the initrd");
-    // SAFETY: reached once, on the first call (`LEN` is still zero, and the kernel test harness
-    // runs tests on one thread), before any other reference to either buffer exists; the slices
-    // returned are only ever read afterwards.
-    let (jobs_buf, buf) = unsafe {
-        (
-            &mut *core::ptr::addr_of_mut!(JOBS_ARCHIVE),
-            &mut *core::ptr::addr_of_mut!(SCHEDULE_ARCHIVE),
-        )
-    };
-    let jobs = [("least_authority_demo", initrd("least_authority_demo"))];
-    let jobs_len = nifefs::write_image(&jobs, jobs_buf).expect("the jobs archive does not fit");
-    let files: [(&str, &[u8]); 3] = [
-        ("session", initrd("session")),
-        ("timetable", initrd("timetable")),
-        (login_protocol::session::JOBS, &jobs_buf[..jobs_len]),
-    ];
-    let len = nifefs::write_image(&files, buf).expect("the schedule archive does not fit");
-    LEN.store(len, Ordering::Release);
-    &buf[..len]
+    let bytes = program("least_authority_demo").expect("no least_authority_demo in the initrd");
+    fs_service::install_for_test("least_authority_demo", "demo", "0.1.0", bytes);
 }
 
 /// `EEXIST`, matching `identity_provisioner.rs`'s own local constant: `fs_proto` does not re-export
@@ -232,6 +205,7 @@ fn wired() -> Option<ls::Wiring> {
             // every test here meets a `login` holding no durable session. The start-up pass has
             // its own test and its own `login`.
             fs_service::set_root_list(schedule_store::MANIFEST_FILE_NAME, None);
+            install_scheduled_program();
             let login_image = program("login").expect("no login program in the initrd archive");
             let w = ls::start(
                 login_image,
@@ -240,7 +214,7 @@ fn wired() -> Option<ls::Wiring> {
                 fs_ep,
                 fs_page_frame,
                 CONSTRUCTION_PAGES + DURABLE_UT_PAGES,
-                schedule_archive(),
+                true,
             );
             Some(w)
         })();
@@ -1456,9 +1430,9 @@ fn manifest_lists(identity: &[u8]) -> bool {
 }
 
 /// The construction budget the start-up test's own `login` is given: `login.rs`'s `OWN_UT_PAGES`
-/// (128), `DURABLE_UT_PAGES` (640) and `CHANNEL_UT_PAGES` (32), split at its start, with 32 pages of
+/// (128), [`DURABLE_UT_PAGES`] and `CHANNEL_UT_PAGES` (32), split at its start, with 32 pages of
 /// margin. It serves no successful login, so nothing else is spent from it.
-const START_UP_CONSTRUCTION_PAGES: u64 = 128 + 640 + 32 + 32;
+const START_UP_CONSTRUCTION_PAGES: u64 = 128 + DURABLE_UT_PAGES + 32 + 32;
 
 /// **`login` re-derives a stored schedule at start-up, before anyone logs in, and skips a suspended
 /// identity** (milestone 152 (durable delegation); Fork 7 ruled A by calef on 2026-09-27; DECISIONS
@@ -1521,7 +1495,7 @@ fn a_durable_session_is_re_derived_at_start_up_unless_suspended() {
         fs_ep,
         fs_page_frame,
         START_UP_CONSTRUCTION_PAGES,
-        schedule_archive(),
+        true,
     );
     // The first word on the front door is received only once the start-up pass is over, so every
     // exchange below sees what it left.

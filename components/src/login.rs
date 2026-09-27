@@ -238,11 +238,18 @@
 //!   table `crates/system_initializer` checks everything it loads against.
 //! - mapped, dynamically, starting at [`CONNECT_VA_BASE`]: one page per channel [`connect`] mints,
 //!   for as long as this process runs (see BUGS: never unmapped or reused in this slice).
-//! - mapped [`login_protocol::SCHEDULE_ARCHIVE_VA`]: the schedule archive, read-only, with the
-//!   length in `x2` (milestone 152 (durable delegation)): `session`, `timetable`, and the jobs a
-//!   timetable may fire, each checked against the table above. Zero length, which is what the real
-//!   boot passes today, means [`login_protocol::SCHEDULE`] is answered as a plain login and no
-//!   durable session is re-derived at start-up ([`rederive`]).
+//! - mapped [`login_protocol::SESSION_ELF_VA`] and [`login_protocol::TIMETABLE_ELF_VA`]:
+//!   `session`'s and `timetable`'s images, read-only, with both lengths in `x2`
+//!   ([`login_protocol::schedule_lengths`]) (milestone 152 (durable delegation)), each checked
+//!   against the table above. No job's program travels with them: a scheduled job runs what the
+//!   live activation generation names (Fork 8 ruled D by calef on 2026-09-27, on #1377). Zero
+//!   lengths mean [`login_protocol::SCHEDULE`] is answered as a plain login and no durable session
+//!   is re-derived at start-up ([`rederive`]).
+//! - slot [`DURABLE_WINDOW`] ([`login_protocol::DURABLE_WINDOW_SLOT`]): `WRITE | GRANT` on one
+//!   page of the file service's window [`login_protocol::DURABLE_WINDOW`], the channel a durable
+//!   session's timetable reads the store through (Fork 8 D). This process badges [`FS_EP`] with the
+//!   window's number for the two store caretakers it builds per durable session
+//!   ([`open_schedule`]); nothing else of its own uses the window.
 //! - mapped [`DURABLE_PAGE_VA`]: the durable session's registration page, read-only, while there is
 //!   one.
 //!
@@ -265,31 +272,35 @@
 //!
 //! **One durable session at a time** (milestone 152), at start-up and at a login alike. Each costs
 //! four capability slots (the user's budget, the session process's region, the registration page,
-//! its readiness endpoint). [`DURABLE_SESSIONS`] is the fewer of two limits, and today both are
+//! its readiness endpoint). [`DURABLE_SESSIONS`] is the fewest of three limits, and today all are
 //! one. The table: `login_protocol::durable::sessions_held` of `abi::CAPABILITY_TABLE_SLOTS`,
-//! 24, is one, because an ordinary login beside two sessions would need 27. The memory:
-//! [`DURABLE_UT_PAGES`] holds one budget. A second identity asking for its schedule while another's
-//! is durable gets an ordinary session, not a refusal, and the start-up pass keeps the first
-//! identity in manifest order and leaves the rest to their next login. PR #1360 (open on
-//! 2026-09-27) raises the table to 32 slots; the table's limit then derives to three with no edit
-//! here, and memory stays the binding one. Raising it takes three more budgets from
-//! `crates/system_initializer`'s `LOGIN_CONSTRUCTION_PAGES` and the kernel harness alike, and a
-//! fix for what several budgets in one parent do: a budget retired out of order leaves a hole in
-//! `durable_ut` until the ones above it go (the LIFO rule [`CHANNEL_UT_PAGES`] explains), so a
-//! slot freed in the middle may not be reusable. One parent region per slot would fix that and
-//! costs a slot each, which the table count above does not yet include. The slot counts are from
-//! the code, not measured; `notes/durable-delegation/boot-rederivation-in-login.md` has them.
+//! 24, is one, because the durable window's page is held at rest and an ordinary login beside two
+//! sessions would need 28; one session leaves no slot spare at a login's peak. The memory:
+//! [`DURABLE_UT_PAGES`] holds one budget. The channel: one durable window, and two timetables
+//! staging in one page would overwrite each other (Fork 8 D). A second identity asking for its
+//! schedule while another's is durable gets an ordinary session, not a refusal, and the start-up
+//! pass keeps the first identity in manifest order and leaves the rest to their next login. PR
+//! #1360 (open on 2026-09-27) raises the table to 32 slots; the table's limit then derives to three
+//! with no edit here. Raising the other two takes a window and a budget per session from
+//! `crates/system_initializer` and the kernel harness alike, and a fix for what several budgets in
+//! one parent do: a budget retired out of order leaves a hole in `durable_ut` until the ones above
+//! it go (the LIFO rule [`CHANNEL_UT_PAGES`] explains), so a slot freed in the middle may not be
+//! reusable. The slot counts are from the code, not measured;
+//! `notes/durable-delegation/boot-rederivation-in-login.md` has them.
+//!
+//! **The durable window is shared by a session's two caretakers and its timetable**, and by
+//! nothing else. That is sound for the reason window 0 is: the timetable is the only client, and
+//! every request on both hops is a blocking `CALL`.
 //!
 //! **Start-up waits on each re-derived session's timetable.** [`rederive`] restores each stored
 //! document before the front door opens, and [`Durable::restore`] waits up to [`END_WAIT_SECS`]
 //! for the timetable's answer, so a slow timetable delays the first login by up to that much per
 //! session kept. Nobody has measured the usual wait, in the suite or on a board.
 //!
-//! **The real boot re-derives nothing yet.** The start-up pass runs only when a schedule archive
-//! is present, and `crates/system_initializer` passes none (fork 8 of milestone 152 decides what
-//! it would carry). When it does, `LOGIN_CONSTRUCTION_PAGES` (768) must first grow to hold
-//! [`OWN_UT_PAGES`], [`DURABLE_UT_PAGES`] and [`CHANNEL_UT_PAGES`] (800) plus the logins it serves:
-//! with an archive and today's 768, `channel_ut` fails and this process stops at `fail(2)`.
+//! **`LOGIN_CONSTRUCTION_PAGES` must hold a durable budget.** Handed `session` and `timetable`,
+//! `_start` splits [`OWN_UT_PAGES`], [`DURABLE_UT_PAGES`] and [`CHANNEL_UT_PAGES`] before it serves
+//! anyone, and a budget short of them stops this process at `fail(2)`. `crates/system_initializer`
+//! derives its figure from `login_protocol::durable::BUDGET_PAGES`, and so does the kernel harness.
 //!
 //! **A session process that fails half way leaves what it split off.** `open_schedule` reclaims the
 //! session process's region on a failure, but anything the process split off its own budget before
@@ -720,6 +731,9 @@ const TERM_EP: u64 = 7;
 /// pass it on. A named slot rather than the ninth, because a spawner that has none leaves it
 /// empty and the other eight where they were; probed once at [`_start`] ([`HOLDS_RUN_UNVOUCHED`]).
 const RUN_UNVOUCHED: u64 = grant_plan::spawnproto::RUN_UNVOUCHED_SLOT;
+/// One page of the file service's durable window, `WRITE | GRANT` (milestone 152, Fork 8 D). See
+/// the capability contract above.
+const DURABLE_WINDOW: u64 = login_protocol::DURABLE_WINDOW_SLOT;
 // `grant_plan` states the slot without depending on `abi`; the relation is held by each reader.
 const _: () = assert!(RUN_UNVOUCHED == abi::fault::FAULT_EP_SLOT - 1);
 
@@ -823,7 +837,7 @@ const CARETAKER_STACK_PAGES: u64 = 4;
 /// What this process hands each authenticated principal as its own budget. Arbitrary and modest,
 /// for the demonstration this slice is; a real deployment sizes it against what a session actually
 /// needs, which is not yet a question this program has enough callers to answer.
-const CLIENT_BUDGET_PAGES: u64 = 64;
+const CLIENT_BUDGET_PAGES: u64 = login_protocol::durable::CLIENT_BUDGET_PAGES;
 
 /// **The budget durable sessions are split from** (milestone 152 (durable delegation)), split once at start-up and only
 /// when a schedule can be opened at all. Its own parent for the reason [`CHANNEL_UT_PAGES`] is:
@@ -834,22 +848,25 @@ const DURABLE_UT_PAGES: u64 = DURABLE_BUDGET_PAGES;
 /// **How many durable sessions this process keeps**: the fewer of what its capability table
 /// holds beside one ordinary login (`login_protocol::durable::sessions_held`, derived from
 /// `abi::CAPABILITY_TABLE_SLOTS`, so a wider table raises it with no edit here) and what
-/// [`DURABLE_UT_PAGES`] has memory for. One today on both counts; BUGS says what a 32-slot table
-/// changes.
+/// [`DURABLE_UT_PAGES`] has memory for, and one, because the durable window is one channel and two
+/// timetables staging in one page would overwrite each other (Fork 8 D). One today on all three
+/// counts; BUGS says what a 32-slot table changes.
 const DURABLE_SESSIONS: usize = {
     let slots = login_protocol::durable::sessions_held(abi::CAPABILITY_TABLE_SLOTS);
     let memory = (DURABLE_UT_PAGES / DURABLE_BUDGET_PAGES) as usize;
-    if slots < memory { slots } else { memory }
+    let fewer = if slots < memory { slots } else { memory };
+    if fewer < 1 { fewer } else { 1 }
 };
 /// A durable session's budget: the client's own spending, plus the session process and its
-/// timetable, both built from regions split off it.
-const DURABLE_BUDGET_PAGES: u64 = CLIENT_BUDGET_PAGES + SESSION_REGION_PAGES + SESSION_BUDGET_PAGES;
-/// The session process's construction: its segments, its stack, the schedule archive copied in,
-/// its tables, and the registration page. Provisional, sized against the aarch64 debug build.
-const SESSION_REGION_PAGES: u64 = 192;
+/// timetable, both built from regions split off it (`login_protocol::durable::BUDGET_PAGES`).
+const DURABLE_BUDGET_PAGES: u64 = login_protocol::durable::BUDGET_PAGES;
+/// The session process's construction: its segments, its stack, the timetable's image copied in,
+/// its tables, the registration page, and the two store caretakers
+/// (`login_protocol::durable::SESSION_REGION_PAGES`).
+const SESSION_REGION_PAGES: u64 = login_protocol::durable::SESSION_REGION_PAGES;
 /// The session process's own budget: its timetable's region and the budget its jobs fire from
 /// (`components/src/session.rs`), and the two endpoints.
-const SESSION_BUDGET_PAGES: u64 = 384;
+const SESSION_BUDGET_PAGES: u64 = login_protocol::durable::SESSION_BUDGET_PAGES;
 /// Stack pages for the session process, beyond `build_child`'s default.
 const SESSION_STACK_PAGES: u64 = 8;
 /// Where this process maps the first durable session's registration page, to read the timetable's
@@ -929,20 +946,29 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
         measured_boot::verify_in_manifest(table, "fs_subtree_caretaker", care_bytes).is_ok()
     });
 
-    // **The schedule archive** (milestone 152): `session`, `timetable`, and the programs a
-    // scheduled job may run, every one of them checked against the same table the caretaker is.
-    // One unvouched entry and no schedule opens on this boot, which is the caretaker's own fold:
-    // `SCHEDULE` is then answered as `LOGIN` is.
-    //
-    // SAFETY: the spawner maps `schedule_len` bytes read-only at `SCHEDULE_ARCHIVE_VA` for the
-    // life of this process before `_start` runs (`login_protocol::SCHEDULE_ARCHIVE_VA`'s contract).
-    let schedule_bytes = unsafe {
-        core::slice::from_raw_parts(
-            login_protocol::SCHEDULE_ARCHIVE_VA as *const u8,
-            schedule_len as usize,
+    // **What a durable session is built from** (milestone 152): `session` and `timetable`, each
+    // checked against the same table the caretaker is, and the caretaker itself, since each
+    // session's timetable reads the store through two of them (Fork 8 D). Anything unvouched and no
+    // schedule opens on this boot, which is the caretaker's own fold: `SCHEDULE` is then answered
+    // as `LOGIN` is.
+    let (session_len, timetable_len) = login_protocol::split_schedule_lengths(schedule_len);
+    // SAFETY: the spawner maps each image's bytes read-only at its address for the life of this
+    // process before `_start` runs (`login_protocol::SESSION_ELF_VA`'s contract).
+    let (session_bytes, timetable_bytes) = unsafe {
+        (
+            core::slice::from_raw_parts(
+                login_protocol::SESSION_ELF_VA as *const u8,
+                session_len as usize,
+            ),
+            core::slice::from_raw_parts(
+                login_protocol::TIMETABLE_ELF_VA as *const u8,
+                timetable_len as usize,
+            ),
         )
     };
-    let schedule = vouched_schedule(schedule_bytes, table);
+    let schedule = care_elf
+        .as_ref()
+        .and_then(|care| vouched_schedule(session_bytes, timetable_bytes, care, table));
 
     let Ok(own_ut) = memory_region_split(CONSTRUCTION_UT, OWN_UT_PAGES) else {
         fail(1)
@@ -970,8 +996,8 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
     // durable session the manifest names and the owner has not suspended is opened again, by the
     // code that opens one at a login. No session is live yet, so the file page is this process's
     // alone.
-    if let (Some(archive), Some(ut)) = (schedule, durable_ut) {
-        rederive(own_ut, archive, ut, &mut durables);
+    if let (Some(images), Some(ut)) = (schedule, durable_ut) {
+        rederive(own_ut, images, ut, &mut durables);
     }
 
     // How many logins this process has established, in order. The audit trail's sequence number,
@@ -1220,15 +1246,6 @@ fn serve_login(
         .and_then(|k| schedules.durables.held[k].as_ref())
         .map(|d| (d.budget, d.page));
 
-    let Some((dir_ep, region)) = mint(own_ut, care, identity) else {
-        // Authenticated, and the service still could not serve it (the construction budget is
-        // spent, or the caretaker's descent was refused). Answered identically to a wrong
-        // secret; see login_protocol::DENIED's own doc on why that fold is deliberate rather than
-        // a missed distinction.
-        send(channel.result, login_protocol::DENIED, 0, 0);
-        return;
-    };
-
     // The budget: the durable session's own on a reattach, a fresh one otherwise. A session that
     // asks for its schedule gets one from [`DURABLE_UT_PAGES`]'s budget, sized for the session
     // process and its timetable as well as the client's own spending.
@@ -1253,17 +1270,12 @@ fn serve_login(
                 _ => memory_region_split(CONSTRUCTION_UT, CLIENT_BUDGET_PAGES),
             };
             let Ok(budget) = split else {
-                // The caretaker is already running and parked on `dir_ep`, which was retyped
-                // from `region`, so destroying `region` drains that wait queue and the armed kill
-                // lands at the caretaker's next scheduling.
-                cap_delete(dir_ep);
-                discard(region);
                 send(channel.result, login_protocol::DENIED, 0, 0);
                 return;
             };
             let opened = match (opening, schedules.archive, room) {
-                (true, Some(archive), Some(k)) => {
-                    Durable::open(own_ut, archive, budget, identity, k).map(|d| (k, d))
+                (true, Some(images), Some(k)) => {
+                    Durable::open(own_ut, images, budget, identity, k).map(|d| (k, d))
                 }
                 _ => None,
             };
@@ -1282,6 +1294,23 @@ fn serve_login(
                 None => (budget, None, false),
             }
         }
+    };
+
+    // **The client's own caretaker, minted after any durable session is opened**, and the order is
+    // for the capability table: a durable session's two store caretakers (Fork 8 D) are built while
+    // this process holds as little as it can, and one ordinary login's peak comes after, as it
+    // does beside a kept session. Counted in `login_protocol::durable`.
+    let Some((dir_ep, region)) = mint(own_ut, care, identity) else {
+        // Authenticated, and the service still could not serve it (the construction budget is
+        // spent, or the caretaker's descent was refused). Answered identically to a wrong
+        // secret; see login_protocol::DENIED's own doc on why that fold is deliberate rather than
+        // a missed distinction. A durable session opened above stays kept, as one re-derived at
+        // start-up does, for its user's next login.
+        if !keep_budget {
+            discard(budget);
+        }
+        send(channel.result, login_protocol::DENIED, 0, 0);
+        return;
     };
 
     // Read after the session is built, so a list read that fails costs the grant and nothing else
@@ -1340,9 +1369,10 @@ fn serve_login(
 
 /// **The schedule side of this process's state** (milestone 152), passed to [`serve_login`] as one
 /// argument rather than three.
-struct Schedules<'a> {
-    /// The vouched schedule archive, or `None` when no schedule can be opened on this boot.
-    archive: Option<&'static [u8]>,
+struct Schedules<'a, 'e> {
+    /// What a durable session is built from, vouched, or `None` when no schedule can be opened on
+    /// this boot.
+    archive: Option<ScheduleImages<'e>>,
     /// The budget durable sessions are split from: see [`DURABLE_UT_PAGES`].
     durable_ut: Option<u64>,
     /// The durable sessions this process keeps.
@@ -1391,7 +1421,7 @@ impl Durables {
 /// process cannot be built. A stored document the timetable refuses ends its session again at
 /// once, and the manifest line stays, so the refusal is shown to its user at their next login,
 /// where the same document is restored with a client there to read the verdict.
-fn rederive(own_ut: u64, archive: &'static [u8], durable_ut: u64, durables: &mut Durables) {
+fn rederive(own_ut: u64, images: ScheduleImages<'_>, durable_ut: u64, durables: &mut Durables) {
     use filesystem_protocol::fs;
     let mut manifest = [0u8; login_protocol::PAGE];
     let Some(n) = read_file(
@@ -1433,7 +1463,7 @@ fn rederive(own_ut: u64, archive: &'static [u8], durable_ut: u64, durables: &mut
         let Ok(budget) = memory_region_split(durable_ut, DURABLE_BUDGET_PAGES) else {
             break;
         };
-        let Some(d) = Durable::open(own_ut, archive, budget, identity, k) else {
+        let Some(d) = Durable::open(own_ut, images, budget, identity, k) else {
             discard(budget);
             continue;
         };
@@ -1474,13 +1504,13 @@ impl Durable {
     /// and at start-up ([`rederive`]) alike. `None` leaves `budget` childless and the caller's.
     fn open(
         own_ut: u64,
-        archive: &'static [u8],
+        images: ScheduleImages<'_>,
         budget: u64,
         identity: &[u8],
         k: usize,
     ) -> Option<Self> {
         let va = DURABLE_PAGE_VA + k as u64 * DURABLE_PAGE_STRIDE;
-        let (session, page, ready) = open_schedule(own_ut, budget, archive, va)?;
+        let (session, page, ready) = open_schedule(own_ut, budget, images, va)?;
         let mut id = [0u8; filesystem_protocol::grant::MAX_NAME];
         id[..identity.len()].copy_from_slice(identity);
         Some(Durable {
@@ -1607,22 +1637,33 @@ impl Durable {
     }
 }
 
-/// **Check every entry of the schedule archive against the measurement table**, and answer it back
-/// only if all of them pass and it carries both `session` and `timetable`.
-fn vouched_schedule(bytes: &'static [u8], table: &str) -> Option<&'static [u8]> {
-    if bytes.is_empty() {
+/// **What a durable session is built from**: `session`'s and `timetable`'s images, both vouched
+/// for, and the caretaker image the store caretakers are built from (milestone 152, Fork 8 D).
+#[derive(Clone, Copy)]
+struct ScheduleImages<'e> {
+    session: &'static [u8],
+    timetable: &'static [u8],
+    care: &'e elf::Elf<'static>,
+}
+
+/// **Check `session` and `timetable` against the measurement table**, and answer them back with
+/// `care` only if both pass.
+fn vouched_schedule<'e>(
+    session: &'static [u8],
+    timetable: &'static [u8],
+    care: &'e elf::Elf<'static>,
+    table: &str,
+) -> Option<ScheduleImages<'e>> {
+    if session.is_empty() || timetable.is_empty() {
         return None;
     }
-    let fs = nifefs::Fs::parse(bytes).ok()?;
-    for name in ["session", "timetable"] {
-        measured_boot::verify_in_manifest(table, name, fs.read(name)?).ok()?;
-    }
-    let jobs = nifefs::Fs::parse(fs.read(login_protocol::session::JOBS)?).ok()?;
-    for entry in jobs.entries() {
-        let name = entry.name_str()?;
-        measured_boot::verify_in_manifest(table, name, jobs.read(name)?).ok()?;
-    }
-    Some(bytes)
+    measured_boot::verify_in_manifest(table, "session", session).ok()?;
+    measured_boot::verify_in_manifest(table, "timetable", timetable).ok()?;
+    Some(ScheduleImages {
+        session,
+        timetable,
+        care,
+    })
 }
 
 /// **Build a user's session process** out of `budget` (milestone 152, S1 and L2 of 2026-09-26):
@@ -1634,16 +1675,28 @@ fn vouched_schedule(bytes: &'static [u8], table: &str) -> Option<&'static [u8]> 
 fn open_schedule(
     own_ut: u64,
     budget: u64,
-    archive: &'static [u8],
+    images: ScheduleImages<'_>,
     va: u64,
 ) -> Option<(u64, u64, u64)> {
-    let fs = nifefs::Fs::parse(archive).ok()?;
-    let elf = elf::Elf::parse(fs.read("session")?).ok()?;
-    let timetable = fs.read("timetable")?;
-    let jobs = fs.read(login_protocol::session::JOBS)?;
+    let elf = elf::Elf::parse(images.session).ok()?;
+    let timetable = images.timetable;
     let session = memory_region_split(budget, SESSION_REGION_PAGES).ok()?;
-    let Ok(its_budget) = memory_region_split(budget, SESSION_BUDGET_PAGES) else {
+    // **The store, read-only, for the timetable** (Fork 8 D): a caretaker each for `activation/`
+    // and `packages/`, built in the session process's own region so reclaiming it takes them too,
+    // on the durable window's channel. First, before anything else is held, because building them
+    // is where this function's use of the capability table peaks (`login_protocol::durable`).
+    let Some((activation, packages)) = store_caretakers(own_ut, session, images.care) else {
         discard(session);
+        return None;
+    };
+    let fail = |held: &[u64]| {
+        for &c in held {
+            cap_delete(c);
+        }
+        discard(session);
+    };
+    let Ok(its_budget) = memory_region_split(budget, SESSION_BUDGET_PAGES) else {
+        fail(&[activation, packages]);
         return None;
     };
     let (Ok(page), Ok(ready)) = (
@@ -1651,7 +1704,7 @@ fn open_schedule(
         retype_obj(session, abi::objtype::RENDEZVOUS),
     ) else {
         discard(its_budget);
-        discard(session);
+        fail(&[activation, packages]);
         return None;
     };
     let built = build_child(
@@ -1666,17 +1719,21 @@ fn open_schedule(
                 // `GRANT`.
                 (its_budget, abi::rights::WRITE | abi::rights::GRANT),
                 (page, abi::rights::WRITE),
+                // `GRANT` on the two endpoints the session process only hands on; the page it
+                // only maps into its timetable, which `WRITE` alone allows.
+                (activation, abi::rights::WRITE | abi::rights::GRANT),
+                (packages, abi::rights::WRITE | abi::rights::GRANT),
+                (DURABLE_WINDOW, abi::rights::WRITE),
             ],
-            blobs: &[
-                (login_protocol::session::TIMETABLE_VA, timetable),
-                (login_protocol::session::JOBS_VA, jobs),
-            ],
+            blobs: &[(login_protocol::session::TIMETABLE_VA, timetable)],
             stack_pages: SESSION_STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
         },
     );
+    cap_delete(activation);
+    cap_delete(packages);
     let started = match built {
-        Ok(child) => start_child(child, timetable.len() as u64, jobs.len() as u64, 0),
+        Ok(child) => start_child(child, timetable.len() as u64, 0, 0),
         Err(()) => false,
     };
     let answer = if started { recv(ready).0 } else { 0 };
@@ -1685,12 +1742,83 @@ fn open_schedule(
         cap_delete(ready);
         // The session process has stopped (it reports a failure and exits) or never ran. What it
         // split off its budget before failing, if anything, stays until the user's budget is
-        // reclaimed: see this program's BUGS.
+        // reclaimed: see this program's BUGS. Discarding `session` also takes the two caretakers.
         cap_delete(page);
         discard(session);
         return None;
     }
     Some((session, page, ready))
+}
+
+/// **The two read-only store caretakers a durable session's timetable reads through** (milestone
+/// 152, Fork 8 ruled D by calef on 2026-09-27, on #1377): `activation/` and `packages/`, each an
+/// `fs_subtree_caretaker` holding the file service's endpoint badged with
+/// [`login_protocol::DURABLE_WINDOW`] and staging through [`DURABLE_WINDOW`]'s page, never window
+/// 0, which this process and every signed-in user's caretaker share. Built in `region` from
+/// `own_ut`'s scratch, the way [`mint`] builds one. The two narrowed endpoints, or `None` with
+/// nothing of this process's own left behind (whatever started in `region` goes with it).
+fn store_caretakers(own_ut: u64, region: u64, care: &elf::Elf) -> Option<(u64, u64)> {
+    let badged = u64::try_from(user_mode_runtime::badge(
+        FS_EP,
+        login_protocol::DURABLE_WINDOW,
+    ))
+    .ok()?;
+    let activation = store_caretaker(own_ut, region, care, badged, activation_set::DIRECTORY);
+    let packages = activation
+        .and_then(|_| store_caretaker(own_ut, region, care, badged, activation_set::PACKAGES));
+    cap_delete(badged);
+    match (activation, packages) {
+        (Some(a), Some(p)) => Some((a, p)),
+        (Some(a), None) => {
+            cap_delete(a);
+            None
+        }
+        _ => None,
+    }
+}
+
+/// One of [`store_caretakers`]: `name` at the store's root, `READ | DESCEND` and nothing more.
+fn store_caretaker(
+    own_ut: u64,
+    region: u64,
+    care: &elf::Elf,
+    badged: u64,
+    name: &str,
+) -> Option<u64> {
+    let name = name.as_bytes();
+    let narrow_ep = retype_obj(region, abi::objtype::RENDEZVOUS).ok()?;
+    let Ok(ready) = retype_obj(region, abi::objtype::RENDEZVOUS) else {
+        cap_delete(narrow_ep);
+        return None;
+    };
+    let (lo, hi) = filesystem_protocol::grant::pack_name(name);
+    let spec = filesystem_protocol::grant::spec(
+        name.len(),
+        filesystem_protocol::dir::READ | filesystem_protocol::dir::DESCEND,
+    );
+    let started = build_child(
+        own_ut,
+        region,
+        care,
+        &ChildEndowment {
+            caps: &[
+                (badged, abi::rights::WRITE),
+                (narrow_ep, abi::rights::READ),
+                (ready, abi::rights::WRITE),
+            ],
+            maps: &[(CARETAKER_FS_VA, DURABLE_WINDOW, abi::address_space::MAP_RW)],
+            stack_pages: CARETAKER_STACK_PAGES,
+            ..ChildEndowment::new(Retention::Nothing)
+        },
+    )
+    .is_ok_and(|child| start_child(child, lo, hi, spec));
+    let verdict = if started { recv(ready).0 } else { 0 };
+    cap_delete(ready);
+    if verdict != filesystem_protocol::fixture::READY {
+        cap_delete(narrow_ep);
+        return None;
+    }
+    Some(narrow_ep)
 }
 
 /// One connecting client's own private channel: this process's own copies of the request/result

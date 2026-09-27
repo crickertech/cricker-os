@@ -623,9 +623,18 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// 800 is the construction budget net of the 32 given back; the other 208 is the size of a `login`
 /// process with its three blobs copied in, and is not attributed further. 23450 + 32 = 23482. riscv64 read 22297 before, and is the lower of the pair as usual.
 ///
+/// **`23_626` (2026-09-27): that `login`'s durable budget grew by the store caretakers and the
+/// timetable's staging buffer.** calef ruled milestone 152's Fork 8 option D: a scheduled job runs
+/// what the live activation generation names, so a durable session's process region holds two
+/// read-only store caretakers (+128 pages) and its budget the timetable's 64 KiB staging buffer
+/// (+16). `login_protocol::durable::BUDGET_PAGES` went from 640 to 784, and the start-up test's
+/// `login`, which no test tears down, carries one: +144. Its blobs lose the jobs archive and gain
+/// nothing. Added by arithmetic, not measured: 23482 + 144 = 23626. The next CI run should replace
+/// this with its reading.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 23_482;
+const SUITE_PAGE_FRAME_BUDGET: usize = 23_626;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///

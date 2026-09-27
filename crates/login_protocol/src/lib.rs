@@ -469,15 +469,53 @@ pub const CARETAKER_ELF_VA: u64 = 0x0000_0000_0100_0000;
 /// space that grows.
 pub const PROGRAM_MEASUREMENTS_VA: u64 = 0x0000_0000_0140_0000;
 
-/// **Where the schedule archive is mapped, read-only, before `login`'s `_start` runs**, with its
-/// length in the third argument register (milestone 152). A `nifefs` archive holding `session`,
-/// `timetable`, and `jobs`: a second `nifefs` archive of the programs a scheduled job may run. Every
-/// program in both is checked against the table at [`PROGRAM_MEASUREMENTS_VA`] before anything is
-/// built from it. The jobs travel as their own archive so the timetable is handed exactly them, and
-/// not a second copy of itself and of `session`. Zero length means no schedule can
-/// be opened on this boot: [`SCHEDULE`] is then answered as [`LOGIN`] is, without
-/// [`SCHEDULE_FOLLOWS`].
-pub const SCHEDULE_ARCHIVE_VA: u64 = 0x0000_0000_0180_0000;
+/// **Where `session`'s image is mapped, read-only, before `login`'s `_start` runs** (milestone 152),
+/// with `timetable`'s at [`TIMETABLE_ELF_VA`] and both lengths in the third argument register
+/// ([`schedule_lengths`]). They are the two programs a durable session is built from, and each is
+/// checked against the table at [`PROGRAM_MEASUREMENTS_VA`] before anything is built from it. No
+/// program a job runs travels with them: a job runs what the live activation generation names
+/// (Fork 8 ruled D by calef on 2026-09-27, on #1377). Zero lengths mean no schedule can be opened
+/// on this boot: [`SCHEDULE`] is then answered as [`LOGIN`] is, without [`SCHEDULE_FOLLOWS`].
+///
+/// Name: provisional, milestone 152's lane, 2026-09-27; it replaces a schedule archive that also
+/// carried the jobs.
+pub const SESSION_ELF_VA: u64 = 0x0000_0000_0180_0000;
+
+/// **Where `timetable`'s image is mapped**, beside [`SESSION_ELF_VA`], four megabytes above it.
+/// Provisional.
+pub const TIMETABLE_ELF_VA: u64 = 0x0000_0000_01c0_0000;
+
+/// **The third start argument: `session`'s length in the low half, `timetable`'s in the high.**
+/// Two lengths in one register, because the first two carry the caretaker's and the table's. An
+/// image of 4 GiB or more cannot be mapped at these addresses anyway. Provisional.
+///
+/// ```
+/// use login_protocol::{schedule_lengths, split_schedule_lengths};
+/// assert_eq!(split_schedule_lengths(schedule_lengths(40_960, 409_600)), (40_960, 409_600));
+/// assert_eq!(split_schedule_lengths(0), (0, 0));
+/// ```
+pub const fn schedule_lengths(session: u64, timetable: u64) -> u64 {
+    (session & 0xffff_ffff) | (timetable << 32)
+}
+
+/// [`schedule_lengths`]' inverse: `(session, timetable)`.
+pub const fn split_schedule_lengths(word: u64) -> (u64, u64) {
+    (word & 0xffff_ffff, word >> 32)
+}
+
+/// **`login`'s slot for its durable sessions' file-service channel**: one page of the file
+/// service's window [`DURABLE_WINDOW`], `WRITE | GRANT`, placed by the spawner. A durable session's
+/// timetable reads the store through it while its user may be using the store through window 0 at
+/// the prompt, and two clients staging bytes in one page overwrite each other (milestone 599 (a
+/// frame per filesystem client channel)). `login` badges the file service's endpoint with the
+/// window's number itself. Provisional.
+pub const DURABLE_WINDOW_SLOT: u64 = 8;
+
+/// **The file service's window the spawner reserves for `login`'s durable sessions**: the last. The
+/// progenitor hands jobs behind a directory grant the others, and the kernel harness claims this
+/// one for `login`. One window, so one durable session at a time reads the store
+/// ([`durable::sessions_held`] is bounded by it too). Provisional.
+pub const DURABLE_WINDOW: u64 = filesystem_protocol::fs::CLIENT_WINDOWS as u64 - 1;
 
 /// **How `login` starts a session process** (milestone 152, S1 of 2026-09-26), in this crate for
 /// the reason the two constants above are: `components/src/login.rs` and
@@ -489,12 +527,16 @@ pub mod session {
     pub const BUDGET_SLOT: u64 = 1;
     /// Slot 2: the registration page, `WRITE`, which the session maps into its timetable.
     pub const PAGE_SLOT: u64 = 2;
+    /// Slot 3: an endpoint to a caretaker serving the store's `activation/` read-only, `WRITE`,
+    /// which the session hands its timetable (Fork 8 D).
+    pub const ACTIVATION_SLOT: u64 = 3;
+    /// Slot 4: likewise for `packages/`.
+    pub const PACKAGES_SLOT: u64 = 4;
+    /// Slot 5: the page of the durable window the two caretakers stage through, `WRITE`, which the
+    /// session maps into its timetable at `timetable::contract::STORE_PAGE_VA`.
+    pub const STORE_PAGE_SLOT: u64 = 5;
     /// Where `timetable`'s image is copied into the session process; its length is `a0`.
     pub const TIMETABLE_VA: u64 = 0x0000_0000_0200_0000;
-    /// Where the jobs archive is copied into the session process; its length is `a1`.
-    pub const JOBS_VA: u64 = 0x0000_0000_0280_0000;
-    /// The name the jobs archive travels under inside the schedule archive.
-    pub const JOBS: &str = "jobs";
     /// The readiness word: the timetable is built, started, and watching the page.
     pub const READY: u64 = 0x5e55_0000_0000_0001;
     /// The last word, on the same endpoint: the timetable is gone and everything built from the
@@ -517,10 +559,11 @@ pub mod session {
 /// Name: provisional, minted 2026-09-27 (UTC) by milestone 152's lane, for this module and
 /// everything in it.
 pub mod durable {
-    /// Slots `login` holds at rest: nine endowed (`REQUEST`, `RESULT`, `VERIFY`, `FS_EP`,
-    /// `FS_PAGE_FRAME`, `CONSTRUCTION_UT`, `AUDIT`, `TERM_EP`, `RUN_UNVOUCHED`) and the three
-    /// budgets `_start` splits (`own_ut`, `durable_ut`, `channel_ut`).
-    pub const SLOTS_AT_REST: u64 = 12;
+    /// Slots `login` holds at rest: ten endowed (`REQUEST`, `RESULT`, `VERIFY`, `FS_EP`,
+    /// `FS_PAGE_FRAME`, `CONSTRUCTION_UT`, `AUDIT`, `TERM_EP`, `RUN_UNVOUCHED` and
+    /// [`super::DURABLE_WINDOW_SLOT`]) and the three budgets `_start` splits (`own_ut`,
+    /// `durable_ut`, `channel_ut`).
+    pub const SLOTS_AT_REST: u64 = 13;
     /// Slots an ordinary login adds at its peak, inside `mint`'s `build_child`: the channel's
     /// `result` and `region`, then `region`, `narrow_ep`, `ready`, and the child's address space
     /// and one frame or its thread.
@@ -529,17 +572,37 @@ pub mod durable {
     /// registration page and the readiness endpoint.
     pub const SLOTS_PER_SESSION: u64 = 4;
 
+    /// **A signed-in client's own spending budget**, in pages, split for every login and delegated
+    /// to it. In this crate because `login`, the kernel harness and the progenitor all size budgets
+    /// from it and [`BUDGET_PAGES`]. Provisional.
+    pub const CLIENT_BUDGET_PAGES: u64 = 64;
+    /// **A durable session process's region**: the process, its copy of `timetable`'s image, and
+    /// the two store caretakers `login` builds in it (Fork 8 D), 64 pages each as `login` sizes a
+    /// caretaker's region. Measured for the process on aarch64's debug build on 2026-09-26 at 192
+    /// with room to spare. Provisional.
+    pub const SESSION_REGION_PAGES: u64 = 192 + 2 * 64;
+    /// **What a durable session process builds its timetable from**: the timetable's region (240)
+    /// and its jobs' budget (128), with room for two endpoints. Provisional.
+    pub const SESSION_BUDGET_PAGES: u64 = 400;
+    /// **One durable session's whole budget**: the client's own, the session process's region, and
+    /// what it builds from. `login` splits this many pages per durable session, and its spawner
+    /// sizes `login`'s construction budget with it. Provisional.
+    pub const BUDGET_PAGES: u64 = CLIENT_BUDGET_PAGES + SESSION_REGION_PAGES + SESSION_BUDGET_PAGES;
+
     /// **How many durable sessions fit a `table_slots`-slot capability table** with room left for
     /// one ordinary login beside them: the largest `n` with
-    /// `SLOTS_AT_REST + SLOTS_PER_SESSION * n + SLOTS_LOGIN_PEAK <= table_slots`. That bound is
-    /// also the tightest of the three the note counts: opening the last of them, at a login or at
-    /// start-up, peaks lower.
+    /// `SLOTS_AT_REST + SLOTS_PER_SESSION * n + SLOTS_LOGIN_PEAK <= table_slots`. Opening the last
+    /// of them at a login peaks at the same count and no higher, because `login` builds that
+    /// session's two store caretakers (Fork 8 D) before anything else of the session and mints the
+    /// client's own caretaker after it: 16 held at the open, 23 building the second caretaker, 24
+    /// building the session process. At start-up it peaks lower. Counted from the code on
+    /// 2026-09-27, not measured.
     ///
     /// # EXAMPLES
     ///
     /// ```
     /// use login_protocol::durable::sessions_held;
-    /// assert_eq!(sessions_held(24), 1); // today's table: one session, 23 of 24 at a login's peak
+    /// assert_eq!(sessions_held(24), 1); // today's table: one session, 24 of 24 at a login's peak
     /// assert_eq!(sessions_held(32), 3); // the table PR #1360 proposes
     /// assert_eq!(sessions_held(16), 0); // too small for any
     /// ```
@@ -581,15 +644,16 @@ pub mod durable {
         use super::*;
 
         /// **The capacity is the note's arithmetic, at both table sizes in play.** 24 slots hold
-        /// one session and 27 would be needed for two; 32 (PR #1360) holds three. Falsified by
-        /// dropping `SLOTS_LOGIN_PEAK` from the sum, which answers two for 24.
+        /// one session and 28 would be needed for two, since the durable window's page is held at
+        /// rest (Fork 8 D); 32 (PR #1360) holds three. Falsified by dropping `SLOTS_LOGIN_PEAK`
+        /// from the sum, which answers two for 24.
         #[test]
         fn the_capacity_leaves_room_for_one_login_beside_the_sessions() {
             assert_eq!(sessions_held(24), 1);
-            assert_eq!(sessions_held(26), 1);
-            assert_eq!(sessions_held(27), 2);
+            assert_eq!(sessions_held(27), 1);
+            assert_eq!(sessions_held(28), 2);
             assert_eq!(sessions_held(32), 3);
-            assert_eq!(sessions_held(18), 0);
+            assert_eq!(sessions_held(19), 0);
             assert_eq!(sessions_held(0), 0);
             for slots in 0..64u64 {
                 let n = sessions_held(slots) as u64;

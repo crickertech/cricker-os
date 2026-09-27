@@ -194,7 +194,7 @@ pub fn start(
     fs_ep: RendezvousId,
     fs_page_frame: u64,
     construction_pages: u64,
-    schedule: &'static [u8],
+    schedule: bool,
 ) -> Wiring {
     let elf = Elf::parse(image).expect("login is not loadable");
 
@@ -212,6 +212,16 @@ pub fn start(
     let fs = nifefs::Fs::parse(archive).expect("the initrd is not a nifefs archive");
     let caretaker = fs.read("fs_subtree_caretaker").unwrap_or(&[]);
     let measurements = fs.read(measured_boot::PROGRAM_MEASUREMENTS).unwrap_or(&[]);
+    // **What a durable session is built from** (milestone 152), when this `login` may open one:
+    // `session` and `timetable`, out of the same archive, as the progenitor hands them.
+    let (session, timetable) = if schedule {
+        (
+            fs.read("session").expect("no session in the initrd"),
+            fs.read("timetable").expect("no timetable in the initrd"),
+        )
+    } else {
+        (&[][..], &[][..])
+    };
 
     let content: u64 = elf
         .segments()
@@ -223,9 +233,12 @@ pub fn start(
         + 1 // CRED_VA
         + caretaker.len().div_ceil(FRAME_SIZE as usize) as u64
         + measurements.len().div_ceil(FRAME_SIZE as usize) as u64
-        + schedule.len().div_ceil(FRAME_SIZE as usize) as u64
+        + session.len().div_ceil(FRAME_SIZE as usize) as u64
+        + timetable.len().div_ceil(FRAME_SIZE as usize) as u64
         + LOGIN_STACK_PAGES
-        + 8;
+        // The tables: two more than when one schedule archive sat at one address, since the two
+        // images each reach a table of their own.
+        + 10;
     let mut space = AddressSpace::new(content).expect("no memory for login");
     map_segments(&mut space, &elf).expect("could not lay out login");
     for k in 0..LOGIN_STACK_PAGES {
@@ -241,9 +254,10 @@ pub fn start(
         login_protocol::PROGRAM_MEASUREMENTS_VA,
         measurements,
     );
-    // The schedule archive (milestone 152): what `login` builds a user's session process and
-    // timetable from, when they ask for their schedule. Empty means no schedule opens.
-    map_blob(&mut space, login_protocol::SCHEDULE_ARCHIVE_VA, schedule);
+    // What `login` builds a user's session process and timetable from, when they ask for their
+    // schedule (milestone 152). Empty means no schedule opens.
+    map_blob(&mut space, login_protocol::SESSION_ELF_VA, session);
+    map_blob(&mut space, login_protocol::TIMETABLE_ELF_VA, timetable);
     // Milestone 49's channel-per-client update removed the front door's own shared staging page:
     // `CONNECT` (the only word the front door accepts) carries no page at all, and every actual
     // login's identity and secret now travel on a page `login`'s own `connect()` mints and maps at
@@ -342,6 +356,19 @@ pub fn start(
     )
     .expect("insert run_unvouched");
     assert_eq!(landed, grant_plan::spawnproto::RUN_UNVOUCHED_SLOT);
+    // **And the durable window's page at its named slot** (milestone 152, Fork 8 D), the channel a
+    // durable session's timetable reads the store through, as the progenitor places it.
+    let window = super::fs_service::durable_window().expect("the file service is wired");
+    let landed = sched::thread_control_block_insert_cap(
+        tid,
+        page_frame_cap(
+            window,
+            Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
+        ),
+        Some(login_protocol::DURABLE_WINDOW_SLOT),
+    )
+    .expect("insert the durable window");
+    assert_eq!(landed, login_protocol::DURABLE_WINDOW_SLOT);
 
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
@@ -350,7 +377,7 @@ pub fn start(
         [
             caretaker.len() as u64,
             measurements.len() as u64,
-            schedule.len() as u64,
+            login_protocol::schedule_lengths(session.len() as u64, timetable.len() as u64),
         ],
     )
     .expect("start");

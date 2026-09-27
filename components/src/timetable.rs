@@ -42,8 +42,8 @@
 //! abort whose faulting address was the stack pointer, which is what a stack overflow looks like
 //! from the kernel side and reads like a wild pointer if you have not seen it before.
 //!
-//! **And nothing else beyond that budget.** No clock page, no directory, no console, no network, no
-//! device. That list is not modesty: it is why a scheduled `date` in `timetable.conf` is refused at
+//! **And nothing else beyond that budget**, except in store mode below. No clock page, no
+//! directory, no console, no network, no device. That list is not modesty: it is why a scheduled `date` in `timetable.conf` is refused at
 //! registration rather than run, and why the refusal names the timetable rather than the line.
 //! `timetable::SHIPPED_HELD` is the one fact that has widened since milestone 129's first stratum:
 //! this process now holds enough budget to back a `--mem` grant up to `SHIPPED_HELD.mem_pages`
@@ -61,6 +61,18 @@
 //! answer next to the plan (`timetable::Audit`). A scheduler handed the whole initrd still works
 //! and says a different sentence, which is the property worth having: the width of the endowment is
 //! a line on the console rather than a fact only the spawn site knows.
+//!
+//! # Store mode: a job runs what a bare word runs
+//!
+//! calef ruled milestone 152 (durable delegation)'s Fork 8 as D on 2026-09-27 (UTC, #1377). A
+//! timetable its durable session spawns holds no archive. It holds read-only views of the store's
+//! `activation/` and `packages/`, over a file-service channel of its own (`timetable::contract`),
+//! and resolves each entry's program as the prompt resolves a bare name: the live generation's
+//! entry, never an owner's vouch. A document is planned against the manifest each program's bytes
+//! carry (`timetable::Registry::register_installed`), and every fire reads the bytes again and
+//! fires only if they are still that entry's. So uninstalling a program, or a generation that stops
+//! naming it, stops its job at the next beat. The two views reach code, not authority: a job holds
+//! what `fire` endows and nothing that reads the store.
 //!
 //! # The loop, and the one thing it cannot do
 //!
@@ -173,6 +185,13 @@
 //!   bytes, and with a registrar the page is the only place it goes. Eight entries of long
 //!   refusals could pass that; the verdict word still says what every entry became.
 //!
+//! - **An upgrade stops a store-mode entry until its document is sent again.** A fire fires only
+//!   bytes whose digest is the one registered, because the plan was made against their manifest,
+//!   and a new version may carry another. The missed beats say nothing: the page is written only in
+//!   reply to a request. `login` re-sends every stored document at start-up, so a reboot re-plans.
+//! - **Store mode loads programs of up to `timetable::contract::STAGING_BYTES`** (64 KiB) and
+//!   refuses a document naming a larger one, the same way it refuses one naming a program that is
+//!   not installed (`registration::STATUS_NO_IMAGE`). The page does not say which of those it was.
 //! - **With a registrar, a fire failure is only an exit code.** "The budget cannot back one
 //!   instance" has no stream to go down, so the registrar learns it from the page's exit word
 //!   (`contract::E_BUDGET`) after reaping this process.
@@ -204,6 +223,10 @@ const BUDGET: u64 = contract::BUDGET_SLOT;
 const CHILD_REPORT: u64 = contract::CHILD_REPORT_SLOT;
 /// Placed in each instance's reserved fault slot, and what corpses are collected through.
 const DEATHS: u64 = contract::DEATHS_SLOT;
+/// Store mode's `activation/`, read-only (Fork 8 D of milestone 152).
+const ACTIVATION: u64 = contract::ACTIVATION_SLOT;
+/// Store mode's `packages/`, read-only.
+const PACKAGES: u64 = contract::PACKAGES_SLOT;
 
 /// **The registration page's address, or zero**, set once at `_start` from `a2`.
 ///
@@ -229,7 +252,7 @@ const REAP_ATTEMPTS: usize = 1024;
 
 /// Verdict codes on [`OUT`]'s stream, so a spawn site that reads nothing else can still tell what
 /// happened. The plan and the summary are text; these are the two ways the program ends.
-use contract::{E_ARCHIVE, E_BUDGET, E_CONFIG, E_IMAGE, E_UNVOUCHED};
+use contract::{E_ARCHIVE, E_BUDGET, E_CONFIG, E_IMAGE, E_STORE, E_UNVOUCHED};
 
 // The relation `grant_plan` cannot state without depending on `abi`, held here as every reader of
 // the slot holds it (`components/src/swish.rs` does the same).
@@ -238,8 +261,35 @@ const _: () = assert!(spawnproto::RUN_UNVOUCHED_SLOT == abi::fault::FAULT_EP_SLO
 // region this program split for it, which cannot be the run-unvouched capability (see `_start`).
 const _: () = assert!(CHILD_REPORT != spawnproto::RUN_UNVOUCHED_SLOT);
 
+/// **What an admitted row is built from.**
+enum Image {
+    /// Parsed out of the archive this timetable was handed, once, at registration.
+    Archived(elf::Elf<'static>),
+    /// **An installed program** (store mode, Fork 8 D of milestone 152): the name its line gave,
+    /// and the digest its bytes had in the live generation when the document was registered. Its
+    /// bytes are read again at every fire and must still be that entry's, so a program removed,
+    /// upgraded or no longer trusted stops firing at its next beat.
+    Installed(Installed),
+}
+
+/// The name and digest an installed row was registered with. See [`Image::Installed`].
+struct Installed {
+    name: [u8; NAME_MAX],
+    len: usize,
+    digest: measured_boot::Digest,
+}
+
+/// The longest program name store mode resolves; a prompt name is at most sixteen bytes.
+const NAME_MAX: usize = 32;
+
 /// The images an admitted row will be built from, one slot per entry.
-type Images = [Option<elf::Elf<'static>>; timetable::MAX_ENTRIES];
+type Images = [Option<Image>; timetable::MAX_ENTRIES];
+
+/// **Where this timetable's programs come from**: an archive its spawn site narrowed, or the store.
+enum Programs {
+    Archive(nifefs::Fs<'static>),
+    Store,
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: u64) -> ! {
@@ -255,6 +305,9 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // receives a capability after `_start` (it makes no `RECV_CAP`). So a timetable that does not
     // hold it at `_start` can never endow a job with it. The probe is sound only now, before
     // anything is allocated: a region split later could land in the slot and read as held.
+    // Store mode is a timetable holding `activation/` (`timetable::contract`), probed here with the
+    // report slot below, before anything is allocated, for the reason the next probe gives.
+    let store = user_mode_runtime::is_granted(ACTIVATION);
     if user_mode_runtime::is_granted(spawnproto::RUN_UNVOUCHED_SLOT) {
         say(
             b"timetable: it holds the run-unvouched capability, which no scheduled job may hold, \
@@ -306,8 +359,17 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // happened yet. A crontab has nothing to print here.
     timetable::write_plan(&reg, &mut say);
 
-    let Ok(fs) = nifefs::Fs::parse(archive) else {
-        done(E_ARCHIVE)
+    if store && registration_page == 0 {
+        say(b"timetable: it holds the store and no registration page, so it runs nothing\n");
+        done(E_STORE)
+    }
+    let programs = if store {
+        Programs::Store
+    } else {
+        match nifefs::Fs::parse(archive) {
+            Ok(fs) => Programs::Archive(fs),
+            Err(_) => done(E_ARCHIVE),
+        }
     };
 
     // **What the archive it was handed reaches, next to what the plan will build.** The plan above
@@ -319,7 +381,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // width is the spawn site's decision (`system_tests/src/user/timetable_tests.rs` builds a sub-archive
     // from exactly `Registry::programs`), and saying it out loud is what makes the decision
     // checkable from in here rather than only from out there. Not with a registrar: see `BUGS`.
-    if registration_page == 0 {
+    if let (0, Programs::Archive(fs)) = (registration_page, &programs) {
         let mut audit = timetable::Audit::of(&reg);
         for entry in fs.entries() {
             if let Some(name) = entry.name_str() {
@@ -333,7 +395,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // does not carry fails loudly at startup rather than as a fire that quietly does not happen.
     // This is also the moment `Registry::programs`' claim becomes checkable: nothing after this
     // point looks anything else up.
-    let mut images: Images = match resolve(&reg, &fs) {
+    let mut images: Images = match resolve(&reg, &programs) {
         Ok(images) => images,
         Err(i) => {
             if let Some(e) = reg.rows()[i].endowment() {
@@ -370,7 +432,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                 &mut current,
                 &mut reg,
                 &mut images,
-                &fs,
+                &programs,
                 held,
             )
         {
@@ -388,11 +450,22 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             if fires_wanted != 0 && fired >= fires_wanted {
                 break;
             }
-            let Some(elf) = images[i].as_ref() else {
-                continue;
-            };
             let Some(e) = reg.rows()[i].endowment() else {
                 continue;
+            };
+            // An installed program's bytes are read and checked again now, so the beat is missed
+            // (skipped, never retried) when they are no longer the registered entry's.
+            let loaded;
+            let elf = match images[i].as_ref() {
+                None => continue,
+                Some(Image::Archived(elf)) => elf,
+                Some(Image::Installed(p)) => match load_registered(p) {
+                    Some(elf) => {
+                        loaded = elf;
+                        &loaded
+                    }
+                    None => continue,
+                },
             };
 
             if e.mem_pages > 0 {
@@ -459,9 +532,14 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
 }
 
 /// **Resolve every admitted row's program in the archive**, or the index of the first that is not
-/// there. Nothing is parsed lazily later: a plan that names a missing program is caught here.
-fn resolve(reg: &Registry<'_>, fs: &nifefs::Fs<'static>) -> Result<Images, usize> {
+/// there. Nothing is parsed lazily later: a plan that names a missing program is caught here. A
+/// store-mode registry was resolved before it was planned ([`resolve_installed`]), so this answers
+/// it with no images, which is right only for the empty document a store-mode timetable starts with.
+fn resolve(reg: &Registry<'_>, programs: &Programs) -> Result<Images, usize> {
     let mut images: Images = [const { None }; timetable::MAX_ENTRIES];
+    let Programs::Archive(fs) = programs else {
+        return Ok(images);
+    };
     for (i, row) in reg.rows().iter().enumerate() {
         let Some(e) = row.endowment() else { continue };
         let Some(bytes) = fs.read(e.prog.name()) else {
@@ -470,9 +548,183 @@ fn resolve(reg: &Registry<'_>, fs: &nifefs::Fs<'static>) -> Result<Images, usize
         let Ok(elf) = elf::Elf::parse(bytes) else {
             return Err(i);
         };
-        images[i] = Some(elf);
+        images[i] = Some(Image::Archived(elf));
     }
     Ok(images)
+}
+
+/// **Resolve every entry of a store-mode document in the live activation generation**, before
+/// anything is planned: the manifest each program's bytes carry, which is what its line is planned
+/// against, and the image it will be fired from. `Err(i)` at the first entry whose program is not
+/// installed, cannot be read, or needs what no timetable endows (`timetable::schedulable`).
+fn resolve_installed(
+    doc: &timetable::Document<'_>,
+) -> Result<([grant_plan::Manifest; timetable::MAX_ENTRIES], Images), usize> {
+    let mut manifests = [grant_plan::NO_NOTE_MANIFEST; timetable::MAX_ENTRIES];
+    let mut images: Images = [const { None }; timetable::MAX_ENTRIES];
+    for (i, entry) in doc.entries().iter().enumerate() {
+        let word = grant_plan::parse_run(entry.command).prog;
+        let (Ok(name), true) = (core::str::from_utf8(word), word.len() <= NAME_MAX) else {
+            return Err(i);
+        };
+        let Some((len, digest)) = store::load(name) else {
+            return Err(i);
+        };
+        let Ok(elf) = elf::Elf::parse(store::staged(len)) else {
+            return Err(i);
+        };
+        // The note, or `None` for bytes that carry none; a note that cannot be read refuses.
+        let declared = match elf.note(manifest_note::OWNER, manifest_note::MANIFEST) {
+            Ok(None) => None,
+            Ok(Some(d)) => match manifest_note::decode(d) {
+                Ok(m) => Some(m),
+                Err(_) => return Err(i),
+            },
+            Err(_) => return Err(i),
+        };
+        // Vouched: the live generation named these bytes, so they get what they declare, exactly
+        // as the progenitor endows an installed program run at the prompt.
+        let m = match grant_plan::image_manifest(declared, true) {
+            Ok(m) if timetable::schedulable(&m) => m,
+            _ => return Err(i),
+        };
+        let mut n = [0u8; NAME_MAX];
+        n[..word.len()].copy_from_slice(word);
+        manifests[i] = m;
+        images[i] = Some(Image::Installed(Installed {
+            name: n,
+            len: word.len(),
+            digest,
+        }));
+    }
+    Ok((manifests, images))
+}
+
+/// **An installed row's bytes, read again and checked**: still the live generation's entry for its
+/// name, and still the digest it was registered with. `None` means this beat is missed.
+fn load_registered(p: &Installed) -> Option<elf::Elf<'static>> {
+    let name = core::str::from_utf8(&p.name[..p.len]).ok()?;
+    let (len, digest) = store::load(name)?;
+    if digest != p.digest {
+        return None;
+    }
+    elf::Elf::parse(store::staged(len)).ok()
+}
+
+/// **The store, read through the two caretakers** store mode holds, over the channel whose page is
+/// mapped at `timetable::contract::STORE_PAGE_VA`. Every call is a blocking `CALL`, so the page is
+/// this process's between them.
+mod store {
+    use activation_set::{CURRENT, generation_name, lookup_name, parse_current, stem_parts};
+    use filesystem_protocol::{PAGE, dir, fs};
+    use timetable::contract;
+    use user_mode_runtime::call;
+
+    use super::{ACTIVATION, PACKAGES};
+
+    /// Where a program's bytes are read to, one at a time. See [`staged`].
+    static mut STAGING: [u8; contract::STAGING_BYTES] = [0; contract::STAGING_BYTES];
+
+    /// **The first `len` bytes [`load`] staged.** Valid until the next [`load`], which is the only
+    /// writer: this process is one thread, and every caller parses and builds from the slice before
+    /// it loads again.
+    pub fn staged(len: usize) -> &'static [u8] {
+        // SAFETY: as above. `len` came from `load`, which never answers more than the buffer.
+        let all: &'static [u8; contract::STAGING_BYTES] = unsafe { &*core::ptr::addr_of!(STAGING) };
+        &all[..len]
+    }
+
+    fn page() -> &'static mut [u8] {
+        // SAFETY: the spawn site maps one read/write page at STORE_PAGE_VA for this process's life
+        // (`timetable::contract`), and nothing here holds two borrows of it at once.
+        unsafe { core::slice::from_raw_parts_mut(contract::STORE_PAGE_VA as *mut u8, PAGE) }
+    }
+
+    /// A request that names something: `name` into the page, then the call.
+    fn named(ep: u64, verb: u64, at: u64, name: &[u8], w1: u64) -> i64 {
+        if name.len() > PAGE {
+            return -1;
+        }
+        page()[..name.len()].copy_from_slice(name);
+        call(ep, fs::req(verb, at, name.len() as u64), w1).0 as i64
+    }
+
+    fn close(ep: u64, h: i64) {
+        if h >= 0 {
+            call(ep, fs::req(fs::CLOSE, h as u64, 0), 0);
+        }
+    }
+
+    /// The whole of the file `h` into `out`, or `None` if a read fails or it does not fit.
+    fn read_into(ep: u64, h: i64, out: &mut [u8]) -> Option<usize> {
+        if h < 0 {
+            return None;
+        }
+        let mut done = 0usize;
+        loop {
+            // One byte past a full buffer, so a file exactly its size is told from a larger one.
+            let want = (out.len() - done).clamp(1, PAGE);
+            let n = call(ep, fs::req(fs::READ, h as u64, want as u64), done as u64).0 as i64;
+            if n < 0 {
+                return None;
+            }
+            if n == 0 {
+                return Some(done);
+            }
+            let n = n as usize;
+            if done + n > out.len() {
+                return None;
+            }
+            out[done..done + n].copy_from_slice(&page()[..n]);
+            done += n;
+        }
+    }
+
+    /// The live generation's text into `buf`, and its length.
+    fn live_table(buf: &mut [u8; PAGE]) -> Option<usize> {
+        let h = named(ACTIVATION, fs::OPEN, fs::ROOT, CURRENT.as_bytes(), 0);
+        let mut line = [0u8; 32];
+        let n = read_into(ACTIVATION, h, &mut line);
+        close(ACTIVATION, h);
+        let number = parse_current(core::str::from_utf8(&line[..n?]).ok()?)?;
+        let mut digits = [0u8; 10];
+        let name = generation_name(number, &mut digits);
+        let h = named(ACTIVATION, fs::OPEN, fs::ROOT, name.as_bytes(), 0);
+        let n = read_into(ACTIVATION, h, buf);
+        close(ACTIVATION, h);
+        n
+    }
+
+    /// **Stage the bytes a bare `name` runs**: the live generation's entry for it (never an owner's
+    /// vouch, `activation_set::lookup_name`), read from `packages/<name>/<version>/<program>`, and
+    /// answered only if they hash to that entry's digest. `(length, digest)`.
+    pub fn load(name: &str) -> Option<(usize, measured_boot::Digest)> {
+        let mut table = [0u8; PAGE];
+        let n = live_table(&mut table)?;
+        let table = core::str::from_utf8(&table[..n]).ok()?;
+        let entry = lookup_name(table, name).ok()??;
+        let (package, version, _) = stem_parts(entry.package)?;
+        let walk = dir::READ | dir::DESCEND;
+        let d1 = named(PACKAGES, fs::OPENDIR, fs::ROOT, package.as_bytes(), walk);
+        let d2 = if d1 >= 0 {
+            named(PACKAGES, fs::OPENDIR, d1 as u64, version.as_bytes(), walk)
+        } else {
+            -1
+        };
+        let f = if d2 >= 0 {
+            named(PACKAGES, fs::OPEN, d2 as u64, entry.program.as_bytes(), 0)
+        } else {
+            -1
+        };
+        // SAFETY: see `staged`; this is the one writer, and no slice from it is live across here.
+        let buf = unsafe { &mut *core::ptr::addr_of_mut!(STAGING) };
+        let len = read_into(PACKAGES, f, buf);
+        for h in [f, d2, d1] {
+            close(PACKAGES, h);
+        }
+        let len = len?;
+        (measured_boot::sha256(&buf[..len]) == entry.digest).then_some((len, entry.digest))
+    }
 }
 
 /// **The two buffers a replacement's document is copied into**, alternately.
@@ -500,7 +752,7 @@ fn replace_if_asked(
     current: &mut usize,
     reg: &mut Registry<'static>,
     images: &mut Images,
-    fs: &nifefs::Fs<'static>,
+    programs: &Programs,
     held: timetable::Held,
 ) -> bool {
     use core::sync::atomic::{AtomicU64, Ordering};
@@ -576,9 +828,17 @@ fn replace_if_asked(
         say(b"timetable: the document is empty, so this timetable exits once its running jobs finish\n");
         return true;
     }
-    let mut next = Registry::register(&doc, held);
-    let next_images = match resolve(&next, fs) {
-        Ok(images) => images,
+    let resolved = match programs {
+        Programs::Archive(_) => {
+            let next = Registry::register(&doc, held);
+            resolve(&next, programs).map(|images| (next, images))
+        }
+        Programs::Store => resolve_installed(&doc).map(|(manifests, images)| {
+            (Registry::register_installed(&doc, held, &manifests), images)
+        }),
+    };
+    let (mut next, next_images) = match resolved {
+        Ok(r) => r,
         Err(i) => {
             answer(body, registration::STATUS_NO_IMAGE, i as u64, 0, 0);
             say(

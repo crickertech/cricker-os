@@ -887,7 +887,12 @@ const CRED_STACK_PAGES: u64 = 16;
 /// 64 per session that never logs out), not the much larger figure
 /// `kernel::user::login_tests::CONSTRUCTION_PAGES` carries for a whole guest-test suite's worth of
 /// logins against one shared instance.
-const LOGIN_CONSTRUCTION_PAGES: u64 = 768;
+///
+/// **Plus one durable session's budget** (milestone 152 (durable delegation)), which `login` splits
+/// at start-up whenever it is handed `session` and `timetable`, before it serves anyone. Without it,
+/// 768 pages less `login`'s 128 + 32 + the durable budget is less than nothing, and `login` stopped at
+/// `fail(2)`. Derived from `login_protocol::durable::BUDGET_PAGES` so the two cannot drift.
+const LOGIN_CONSTRUCTION_PAGES: u64 = 768 + login_protocol::durable::BUDGET_PAGES;
 /// Extra stack pages `login` needs, beyond the one page `build_child` maps: matches
 /// `kernel::user::login_service::LOGIN_STACK_PAGES`, "sized against `credentialer.rs`'s own lesson"
 /// (that file's own comment).
@@ -1101,6 +1106,20 @@ pub fn boot(
         fs.read("fs_subtree_caretaker").unwrap_or(&[])
     } else {
         &[]
+    };
+    // **And what `login` builds a durable session from** (milestone 152 (durable delegation)):
+    // `session` and `timetable`, as blobs for the caretaker's reason, and empty unless this process
+    // vouches for both, so `login` then answers `SCHEDULE` as a plain login. No program a job runs
+    // travels with them: a scheduled job runs what the live activation generation names (Fork 8
+    // ruled D by calef on 2026-09-27, on #1377).
+    let (session_blob, timetable_blob): (&[u8], &[u8]) = match (
+        measured(&fs, table, "session").elf.is_some(),
+        measured(&fs, table, "timetable").elf.is_some(),
+        fs.read("session"),
+        fs.read("timetable"),
+    ) {
+        (true, true, Some(session), Some(timetable)) => (session, timetable),
+        _ => (&[], &[]),
     };
 
     // **The programs the shell can spawn** (milestone 31), measured and parsed here rather than
@@ -2215,6 +2234,8 @@ pub fn boot(
                         blobs: &[
                             (login_protocol::CARETAKER_ELF_VA, care_blob),
                             (login_protocol::PROGRAM_MEASUREMENTS_VA, table.as_bytes()),
+                            (login_protocol::SESSION_ELF_VA, session_blob),
+                            (login_protocol::TIMETABLE_ELF_VA, timetable_blob),
                         ],
                         stack_pages: LOGIN_STACK_PAGES,
                         ..ChildEndowment::new(Retention::Nothing)
@@ -2238,11 +2259,28 @@ pub fn boot(
                 ));
                 // The two blob lengths, in `x0` and `x1`, which is the rest of that contract: a
                 // mapping with no length is a slice this process cannot bound.
+                // **The durable window's page** (milestone 152, Fork 8 D): the channel a durable
+                // session's timetable reads the store through, apart from window 0, which `login`
+                // and every signed-in user's caretaker share. Placed after the build, like the
+                // run-unvouched endpoint and for its reason: the build is this table's peak.
+                // [`Windows`] never hands this window to a job.
+                let durable_page =
+                    must(window_page(g.fs_page, login_protocol::DURABLE_WINDOW).ok_or(()));
+                must_ok(place_at(
+                    login_child.tcb,
+                    durable_page,
+                    abi::rights::WRITE | abi::rights::GRANT,
+                    login_protocol::DURABLE_WINDOW_SLOT,
+                ));
+                cap_delete(durable_page);
                 must_ok(start_child(
                     login_child,
                     care_blob.len() as u64,
                     table.len() as u64,
-                    0,
+                    login_protocol::schedule_lengths(
+                        session_blob.len() as u64,
+                        timetable_blob.len() as u64,
+                    ),
                 ));
                 // login holds its own copies now; ours were only ever the means of wiring.
                 cap_delete(login_page);
@@ -4215,15 +4253,16 @@ fn window_zero(fs: Fs) -> Option<Fs> {
     })
 }
 
-/// **Which window the next directory-granted job gets.** Windows `1..CLIENT_WINDOWS`, handed out
-/// round robin; window 0 is the boot's long-lived clients' (see [`window_zero`]).
+/// **Which window the next directory-granted job gets.** Windows `1..login_protocol::DURABLE_WINDOW`,
+/// handed out round robin; window 0 is the boot's long-lived clients' (see [`window_zero`]), and the
+/// last is `login`'s durable sessions' (milestone 152).
 ///
 /// # BUGS
 ///
-/// - **A window is reused after `CLIENT_WINDOWS - 1` more granted jobs, whether or not its last
+/// - **A window is reused after `DURABLE_WINDOW - 1` more granted jobs, whether or not its last
 ///   holder has exited.** The progenitor is not told when a job dies (`job_undertaker` reaps, and
-///   nothing reports back here), so it cannot know which windows are free. With seven windows, an
-///   eighth directory-granted job running at once shares a window with the oldest, and those two
+///   nothing reports back here), so it cannot know which windows are free. With six windows, a
+///   seventh directory-granted job running at once shares a window with the oldest, and those two
 ///   are back in the shared-channel race this pool exists to close. A release at reap needs the
 ///   undertaker to report the death to this process, which is a channel that does not exist.
 /// - **A bound window is taken back when it is reused, not when its job is reaped** (milestone 606,
@@ -4244,7 +4283,9 @@ impl Windows {
 
     fn take(&mut self) -> u64 {
         let w = self.next;
-        self.next = if w + 1 < fs_op::CLIENT_WINDOWS as u64 {
+        // Never the last window: that one is `login`'s, for its durable sessions (milestone 152,
+        // `login_protocol::DURABLE_WINDOW`).
+        self.next = if w + 1 < login_protocol::DURABLE_WINDOW {
             w + 1
         } else {
             1
