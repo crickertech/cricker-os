@@ -178,12 +178,14 @@ the planner's grant and the note's round trip.
   way. Milestone 26 (object revocation) built the LIFO case and recorded non-LIFO return as
   having "no reason to build one"; this is the reason. `script/swish-check` proves the pipeline
   path with `std_exerciser redirected > args.txt`, a one-stage line, instead.
-- **A `std` job typed straight after another may race the reaper.** A region comes back when
-  `job_undertaker` reaps the job, and the shell prompts once it has drained the output, which can
-  come first. The first CI failure (riscv64, 2026-09-27, a pipeline typed right after a plain
-  `std_exerciser`) fits this, and aarch64 passed the same lines. Inferred, not measured. A bounded
-  wait in the progenitor when the pool is short would close it, the clock-bounded wait `reclaim`'s
-  BUGS in `crates/system_initializer` already asks for.
+- **A `std` job typed straight after another races the reaper, and the progenitor's retry is kept
+  on effort.** A region comes back when `job_undertaker` reaps the job, which can be after the shell
+  has prompted. CI hit it on 2026-09-27: `/installed/std-grep needle` right after
+  `/installed/std-grep needle docs` answered "could not spawn". `split_job` in
+  `crates/system_initializer` yields up to 1,024 times before it gives up. That is a timing guess,
+  and whether it covers one reap depends on what else is runnable. We would not choose it if the
+  proper fix cost the same; the proper fix is a wire change, proposed in
+  `proposals/a-job-is-finished-when-its-memory-is-back.md`.
 - Each spawn costs a scratch page or two in the progenitor: one to read the shell's frame
   and one to fill the child's copy. They come from `supervision_protocol`'s scratch
   window, which milestone 604 (the builder's scratch cursor is bounded) made wrap, so a reaped
@@ -200,6 +202,8 @@ the planner's grant and the note's round trip.
   in `design/decisions/170-how-a-foreign-program-is-told-what-to-do.md`.
 - **Recorded.** The `--mem` and `xargs` gaps, in this block's `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
+- **Proposed.** A job counts as finished only when its memory is back, replacing the retry, in
+  `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`.
 - **Milestone 599.** A frame per filesystem client channel, whose production pool closes the race
   in the nameset grant recorded in `BUGS` above.
 - **Recorded.** `notes/shared-page-audit.md` finding 1 still says the window is unreachable. This

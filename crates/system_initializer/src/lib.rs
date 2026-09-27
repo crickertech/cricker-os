@@ -2701,7 +2701,7 @@ fn spawn_service(
         // **From the image pool, and as large as the image** (milestone 595): see
         // [`IMAGE_POOL_PAGES`] and `grant_plan::image_region_pages`.
         let image_region = if wiring.image && !interruptible && (!wiring.dir || wiring.args) {
-            memory_region_split(
+            split_job(
                 images_ut,
                 grant_plan::image_region_pages(
                     spawnproto::image_pages(spawnproto::image_len(w0)),
@@ -2713,7 +2713,6 @@ fn spawn_service(
                     JOB_REGION_PAGES,
                 ),
             )
-            .ok()
         } else {
             None
         };
@@ -2919,7 +2918,7 @@ fn spawn_service(
                 // Split before the frames were taken; see `image_region` above.
                 image_region
             } else {
-                memory_region_split(
+                split_job(
                     jobs_ut,
                     if std_layout {
                         grant_plan::STD_REGION_PAGES
@@ -2929,7 +2928,6 @@ fn spawn_service(
                         JOB_REGION_PAGES
                     },
                 )
-                .ok()
             };
 
             // **The caretaker, built before the program it serves**, because the program's slot 0 is
@@ -3962,6 +3960,38 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
     Some(page)
 }
 
+/// **Carve `pages` from the job pool, waiting a bounded while for the reaper if it is short.**
+/// The image pool (milestone 595) is carved the same way, because an image's region is also a
+/// job's and comes back the same way.
+///
+/// A finished job's region comes back when `job_undertaker` reaps it, and that is after the shell
+/// has read the job's output and shown the next prompt. So a job typed straight after another can
+/// find the pool still holding the last one, and a `std` job, which needs the pool's one `std`-sized
+/// share (`JOBS_BUDGET_PAGES`), found it that way in CI on 2026-09-27: `/installed/std-grep needle`
+/// right after `/installed/std-grep needle docs` answered "could not spawn". Yielding lets the
+/// undertaker, which is runnable once the job has died, finish the reap.
+///
+/// **Kept on effort, and a foot gun.** Bounded by a count, not by the reap it waits for: whether
+/// [`JOB_WAIT_ATTEMPTS`] yields cover one reap depends on what else is runnable. We would not choose
+/// it if the proper fix cost the same. That fix has the undertaker tell the progenitor which job it
+/// reaped, a change the two agree on, proposed in
+/// `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`. A pool that is
+/// genuinely full still answers "out of memory", only later.
+fn split_job(pool: u64, pages: u64) -> Option<u64> {
+    for _ in 0..JOB_WAIT_ATTEMPTS {
+        if let Ok(r) = memory_region_split(pool, pages) {
+            return Some(r);
+        }
+        user_mode_runtime::yield_now();
+    }
+    memory_region_split(pool, pages).ok()
+}
+
+/// How many times [`split_job`] yields before it gives up. Generous next to [`RECLAIM_ATTEMPTS`],
+/// because what it waits on is another process's whole reap rather than one preemption. Name:
+/// provisional.
+const JOB_WAIT_ATTEMPTS: usize = 1024;
+
 /// **Take an image request's frames off the spawn endpoint and copy them into pages of our own.**
 /// Returns the staging region holding the copy, or `None` if it could not be staged.
 ///
@@ -3979,12 +4009,12 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
 /// staging page's own capability is deleted as soon as it is mapped: an image of any size costs one
 /// transient slot plus the staging region's.
 ///
-/// `stage` is false when the request cannot be built anyway (no region for the child, an
-/// interruptible or directory-granted image), and then this only drains.
+/// `stage` is false when the request cannot be built anyway (no region for the child, or an
+/// interruptible image), and then this only drains.
 fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bool) -> Option<u64> {
     let pages = spawnproto::image_pages(len);
     let staging = if stage && pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES {
-        memory_region_split(images_ut, pages).ok()
+        split_job(images_ut, pages)
     } else {
         None
     };
