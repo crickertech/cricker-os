@@ -213,6 +213,13 @@ unsafe extern "Rust" {
 /// the system tests when `system_tests/` links this library with its feature on.
 #[cfg(any(test, feature = "system_tests"))]
 fn run_test_suite() {
+    // **Every kernel image carries its trust root, a test image included** (milestone 609 (the
+    // system tests leave the kernel crate)). `uefi_loader/build.rs` and `sealed_pair` tell which
+    // archive a kernel belongs to by finding these digests in its bytes. The unit-test image never
+    // enters the archive, so nothing in it calls `trust::verify`, and without this the linker drops
+    // `TRUST_ROOT`: `uefi-test` then refused the kernel image as "NOT SEALED" against the archive
+    // it was built with. Before the split, the system tests in the same image kept it.
+    core::hint::black_box(trust::TRUST_ROOT);
     #[cfg(test)]
     test_main();
     // SAFETY: `system_tests_main` is a plain Rust function the linked system-test image defines,
