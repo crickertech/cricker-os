@@ -758,6 +758,19 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "noteless",
         &["noteless: installed, and carrying no manifest note"],
     ),
+    // **The owner suspends and resumes an identity** (milestone 152 (durable delegation), calef's
+    // §108 (disabling credentials kills the durable session) ruling of 2026-09-26). `user` edits `login_protocol::SUSPENDED_LIST` at this prompt's
+    // root, the file service's, in the format `login` and the boot-time re-deriver read; the kernel
+    // suite's `login_tests` and `session_reviver_tests` prove what each does with it. Here: the
+    // two verbs answer, the file is where `login` looks, and a malformed line changes nothing.
+    line(0, "user suspend chris", &["suspended chris"]),
+    line(0, "ls", &["suspended"]),
+    line(0, "user resume chris", &["resumed chris"]),
+    line(
+        0,
+        "user delete chris",
+        &["user suspend <name> | user resume <name>"],
+    ),
     // **The owner vouches for a local build** (DECISIONS §221 (the boot prompt is the owner's
     // console), ruling 1). `installed/unvouched` is the fresh build the D2 lines above ran on the
     // ruling's endowment (slots 0, 1 and 2). Vouching writes a generation that lists its digest,

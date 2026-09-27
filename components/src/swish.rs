@@ -1953,6 +1953,7 @@ fn dispatch_one(nav: &mut Nav, cmd: &[u8]) {
             package(nav, grant_plan::package_verb(tail), swish::PACKAGE_USAGE);
         }
         Command::Vouch(tail) => package(nav, grant_plan::vouch_verb(tail), swish::VOUCH_USAGE),
+        Command::User(tail) => user(nav, grant_plan::user_verb(tail)),
         Command::Run(spec) => run(nav, cmd, spec),
         // Handled above, by the one implementation the witness also runs.
         Command::Cd(_)
@@ -1962,6 +1963,83 @@ fn dispatch_one(nav: &mut Nav, cmd: &[u8]) {
         | Command::Bind(_, _) => {}
     }
 }
+
+/// **`user suspend <name>` and `user resume <name>`** (milestone 152 (durable delegation), calef's
+/// §108 (disabling credentials kills the durable session) ruling of 2026-09-26, names ratified): add the name to, or take it off,
+/// `login_protocol::SUSPENDED_LIST` at the root of this shell's directory, in the one format
+/// `login` and the boot-time re-deriver read it in. `login` refuses a listed identity from its next
+/// login attempt, ends its durable session then, and the re-deriver skips it at boot.
+///
+/// **Owner-only by authority, not by a check.** The file `login` reads is at the file service's
+/// root, and only the owner's console holds that root. A confined shell running this edits a file
+/// of that name in its own subtree, which nothing reads.
+///
+/// # BUGS
+///
+/// **It does not send `login_protocol::SUSPEND`**, the word that ends a durable session at once:
+/// this shell holds no capability to `login`'s front door. On the boot that runs this prompt that
+/// costs nothing yet, because `login` is started there with no schedule archive and so holds no
+/// durable session to end; the day it is, this shell needs the front door, `WRITE`, beside its
+/// root. Until then the cascade runs at the suspended identity's next login attempt.
+fn user(nav: &mut Nav, verb: grant_plan::UserVerb<'_>) {
+    use grant_plan::UserVerb;
+    let (name, suspend) = match verb {
+        UserVerb::Suspend(n) => (n, true),
+        UserVerb::Resume(n) => (n, false),
+        UserVerb::Usage => {
+            refused();
+            print(swish::USER_USAGE);
+            return;
+        }
+    };
+    if nav.dir.is_none() {
+        return say(Say::NoDirectory);
+    }
+    // The first tree, as `caps` reads the activation table from: the owner's lists are the
+    // system's, whichever tree this shell stands in.
+    let t = nav.first();
+    let file = login_protocol::SUSPENDED_LIST.as_bytes();
+    let mut list = [0u8; USER_LIST_MAX];
+    let had = read_named(nav, t, fs::ROOT, file, &mut list).unwrap_or(0);
+    let mut edited = [0u8; USER_LIST_MAX];
+    let n = if suspend {
+        login_protocol::with_listed(&list[..had], name, &mut edited)
+    } else {
+        login_protocol::without_listed(&list[..had], name, &mut edited)
+    };
+    let Some(n) = n else {
+        refused();
+        print(b"  user: the suspended list is full\n");
+        return;
+    };
+    let mut h = nav.name_call_in(t, fs::CREATE, fs::ROOT, file, 0);
+    if h < 0 {
+        h = nav.name_call_in(t, fs::OPEN, fs::ROOT, file, 0);
+    }
+    if h < 0 {
+        return say(Say::Failed(-h as i32));
+    }
+    let h = h as u64;
+    let truncated = call(t.slot, fs::req(fs::TRUNCATE, h, 0), 0).0 as i64;
+    put_page(&edited[..n]);
+    let wrote = call(t.slot, fs::req(fs::WRITE, h, n as u64), 0).0 as i64;
+    nav.close_in(t, h);
+    if truncated < 0 || wrote != n as i64 {
+        return say(Say::Failed(
+            if truncated < 0 { -truncated } else { 5 } as i32
+        ));
+    }
+    print(if suspend {
+        b"  suspended "
+    } else {
+        b"  resumed "
+    });
+    print(name);
+    print(b"\n");
+}
+
+/// The longest suspended list `user` edits: two kilobytes, more than a hundred names.
+const USER_LIST_MAX: usize = 2048;
 
 /// Print where we are, relative to our own root.
 fn print_pwd(nav: &Nav) {

@@ -1856,6 +1856,11 @@ pub enum Command<'a> {
     /// same request as [`Command::Package`]'s, one verb over (`spawnproto::Activation::Vouch`), and
     /// the tail is classified by [`vouch_verb`]. Name: provisional (2026-09-26).
     Vouch(&'a [u8]),
+    /// `user suspend <name>` and `user resume <name>`: **the owner suspends or resumes an identity**
+    /// (milestone 152 (durable delegation), calef's §108 (disabling credentials kills the durable session) ruling of 2026-09-26, names ratified), by
+    /// editing the suspended list at the root of this shell's directory. The tail is classified by
+    /// [`user_verb`].
+    User(&'a [u8]),
     /// A program invocation: `<prog> [--mem N] [token ...]`. Named `Run` for the act of running a
     /// program, not for a verb on the line; milestone 47 deleted the verb. A first word that is not
     /// a builtin lands here even when no such program exists, and [`plan`] answers
@@ -2760,6 +2765,11 @@ pub fn parse(line: &[u8]) -> Command<'_> {
         // **The owner vouches for a file** (DECISIONS §221). Its own word rather than a
         // `package` verb because it names no package: the bytes are the whole of what is vouched.
         b"vouch" => Command::Vouch(trim(rest)),
+        // **The owner suspends or resumes an identity** (milestone 152's §108 ruling). A builtin
+        // because what it edits is a file at this shell's own root, which is the owner's authority
+        // only when this shell is the owner's console: a confined shell's root is its own subtree,
+        // where a `suspended` file is one nothing reads.
+        b"user" => Command::User(trim(rest)),
         // **`rm` is deliberately not here.** It was a builtin in the commands lane and is a program
         // now (milestone 47's rmdir lane): a builtin runs with the shell's whole endowment, and a
         // destructive loop should take an explicit attenuated grant instead. Since builtins are
@@ -2808,6 +2818,33 @@ pub fn package_verb(tail: &[u8]) -> PackageVerb<'_> {
         b"remove" if one_word && operand.len() <= 16 => PackageVerb::Remove(operand),
         b"rollback" if operand.is_empty() => PackageVerb::Rollback,
         _ => PackageVerb::Usage,
+    }
+}
+
+/// **What `user` was asked to do** (milestone 152, calef's §108 ruling of 2026-09-26).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum UserVerb<'a> {
+    /// `user suspend <name>`: list the identity as suspended.
+    Suspend(&'a [u8]),
+    /// `user resume <name>`: take the identity off the list.
+    Resume(&'a [u8]),
+    /// Anything else. The shell answers with the two forms and changes nothing.
+    Usage,
+}
+
+/// Classify [`Command::User`]'s tail: a verb and one name of at most sixteen bytes, the most an
+/// identity can be and still have a subtree (`filesystem_protocol::grant::MAX_NAME`).
+pub fn user_verb(tail: &[u8]) -> UserVerb<'_> {
+    let (verb, rest) = split_first_word(trim(tail));
+    let name = trim(rest);
+    let one_name = !name.is_empty()
+        && name.len() <= 16
+        && !name.starts_with(b"#")
+        && !name.iter().any(u8::is_ascii_whitespace);
+    match verb {
+        b"suspend" if one_name => UserVerb::Suspend(name),
+        b"resume" if one_name => UserVerb::Resume(name),
+        _ => UserVerb::Usage,
     }
 }
 
@@ -4099,6 +4136,32 @@ mod tests {
     /// **`vouch` takes one file and records it by its last component** (DECISIONS §221). A bare
     /// name is not a file by the prompt's rule, and a name the activation set could not read back
     /// as itself is refused before anything is sent.
+    /// **`user` takes a verb and one name** (milestone 152's §108 ruling), and anything else is
+    /// [`UserVerb::Usage`], so a line the list could not hold never reaches it.
+    #[test]
+    fn user_takes_suspend_or_resume_and_one_name() {
+        let Command::User(tail) = parse(b"user  suspend  chris ") else {
+            panic!("`user` is not its own command");
+        };
+        assert_eq!(user_verb(tail), UserVerb::Suspend(b"chris"));
+        assert_eq!(user_verb(b"resume corinne"), UserVerb::Resume(b"corinne"));
+        for bad in [
+            &b""[..],
+            b"suspend",
+            b"suspend two names",
+            b"delete chris",
+            b"suspend #chris",
+            b"resume seventeen-bytes!!",
+        ] {
+            assert_eq!(
+                user_verb(bad),
+                UserVerb::Usage,
+                "{:?}",
+                core::str::from_utf8(bad)
+            );
+        }
+    }
+
     #[test]
     fn vouch_takes_one_path_and_names_it_by_its_last_component() {
         let Command::Vouch(tail) = parse(b"vouch  installed/unvouched ") else {

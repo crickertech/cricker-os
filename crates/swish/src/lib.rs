@@ -966,6 +966,8 @@ pub fn write_help(out: &mut dyn FnMut(&[u8])) {
     out(b"  package remove <prog>   a new generation without it; its bytes stay for rollback\n");
     out(b"  package rollback        make the generation before the live one live again\n");
     out(b"  vouch <file>            the owner vouches for these bytes; a rollback undoes it\n");
+    out(b"  user suspend <name>     the owner suspends an identity: its logins and schedule end\n");
+    out(b"  user resume <name>      the owner lets a suspended identity back in\n");
     out(b"  rm [-rfv] <path>        a PROGRAM, granted the directory holding what you name\n");
     // Two spaces rather than the column the rest of this block keeps: these two names run past the
     // description column (26), so aligning them would leave no separator at all. Both were ratified
@@ -1287,6 +1289,9 @@ pub fn write_activation(
 /// What a malformed `vouch` line is answered with, sending nothing.
 pub const VOUCH_USAGE: &[u8] =
     b"  vouch <file>: a path to a program, whose last name is at most sixteen bytes\n";
+
+/// What a malformed `user` line is answered with, changing nothing (milestone 152 (durable delegation)).
+pub const USER_USAGE: &[u8] = b"  user suspend <name> | user resume <name>\n";
 
 /// What a malformed `package` line is answered with, sending nothing.
 pub const PACKAGE_USAGE: &[u8] =
