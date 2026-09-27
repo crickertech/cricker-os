@@ -12,7 +12,7 @@ that day: is there value in a logging service that everything in the OS logs to?
 152 (durable delegation)'s Fork 6 as option C the same day: a scheduled job writes its output
 through whatever its schedule entry grants, so a later log capability is one more grant. He asked
 for this to include §175 (where the kernel's own output goes once userspace owns the console) and
-pull request #1419, which prices §175's options. *(Section number provisional: §241 is claimed by
+pull request #1419, which prices §175's options. *(Section number provisional: §241 (threadbare) is claimed by
 #1421, so this took 242 on 2026-09-27 and may move at merge. The slug, the service's name and every
 constant below are provisional too.)*
 
