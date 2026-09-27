@@ -59,7 +59,7 @@ check "mixed merged and closed unmerged" \
 	'{"status":"closed-unmerged","numbers":[2]}'
 
 # Already labelled: short-circuits regardless of blocker states, so a draft is never relabelled or
-# recommented once the label has done its job.
+# commented on twice once the label has done its job.
 check "already labelled" \
 	'{"has_label": true, "blockers": [{"number": 1, "state": "MERGED"}]}' \
 	'{"status":"already-labelled"}'
