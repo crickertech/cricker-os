@@ -5787,7 +5787,8 @@ mod tests {
         GOT.store(u64::MAX, Ordering::SeqCst);
         DONE.store(false, Ordering::SeqCst);
 
-        let ep = crate::sched::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = crate::sched::create_rendezvous_from(region).expect("no rendezvous from region");
         let tid = crate::sched::spawn(move || {
             let m = crate::sched::ipc_recv(ep);
             GOT.store(m[0], Ordering::SeqCst);
@@ -5832,6 +5833,11 @@ mod tests {
             81,
             "the recv completed with something other than the real message"
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the receiver never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// **A reply only wakes a caller that awaits one** (boot 8's observe-and-strand guard). A
@@ -5848,7 +5854,8 @@ mod tests {
         GOT.store(u64::MAX, Ordering::SeqCst);
         DONE.store(false, Ordering::SeqCst);
 
-        let ep = crate::sched::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = crate::sched::create_rendezvous_from(region).expect("no rendezvous from region");
         let tid = crate::sched::spawn(move || {
             let m = crate::sched::ipc_recv(ep);
             GOT.store(m[0], Ordering::SeqCst);
@@ -5886,6 +5893,11 @@ mod tests {
             81,
             "the recv completed with the stray reply's words, not the real message"
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the receiver never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// Several threads take turns.
@@ -6436,9 +6448,10 @@ mod tests {
         static GOT: AtomicU64 = AtomicU64::new(0);
         static RECEIVED: AtomicBool = AtomicBool::new(false);
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
-        super::spawn(move || {
+        let tid = super::spawn(move || {
             let msg = super::ipc_recv(ep); // nobody is sending yet: this BLOCKS
             GOT.store(msg[0], Ordering::SeqCst);
             RECEIVED.store(true, Ordering::SeqCst);
@@ -6467,6 +6480,11 @@ mod tests {
             0xABCD,
             "wrong message delivered"
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the receiver never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// **The rendezvous, sender-first.** The other order: a sender blocks on an rendezvous with no
@@ -6475,9 +6493,10 @@ mod tests {
     fn a_sender_blocks_until_a_receiver_arrives() {
         static SENT_RETURNED: AtomicBool = AtomicBool::new(false);
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
-        super::spawn(move || {
+        let tid = super::spawn(move || {
             super::ipc_send(ep, [0x1234, 0x5678, 0x9abc]); // nobody receiving yet: BLOCKS
             SENT_RETURNED.store(true, Ordering::SeqCst);
         })
@@ -6508,6 +6527,11 @@ mod tests {
             wait_for(|| SENT_RETURNED.load(Ordering::SeqCst)),
             "the sender never woke after its message was taken",
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the sender never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// **A request and a reply, over two endpoints.** The shape milestone 8's console server
@@ -6521,18 +6545,19 @@ mod tests {
         static ANSWER: AtomicU64 = AtomicU64::new(0);
         static DONE: AtomicBool = AtomicBool::new(false);
 
-        let req = super::create_rendezvous();
-        let rep = super::create_rendezvous();
+        let region = crate::memory_region::create(2).expect("no region for two test rendezvous");
+        let req = super::create_rendezvous_from(region).expect("no rendezvous from region");
+        let rep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
         // The server: receive n on `req`, send n + 1 back on `rep`.
-        super::spawn(move || {
+        let server = super::spawn(move || {
             let m = super::ipc_recv(req);
             super::ipc_send(rep, [m[0] + 1, m[1], m[2]]);
         })
         .expect("spawn failed");
 
         // The client.
-        super::spawn(move || {
+        let client = super::spawn(move || {
             super::ipc_send(req, [41, 0, 0]);
             let answer = super::ipc_recv(rep);
             ANSWER.store(answer[0], Ordering::SeqCst);
@@ -6549,6 +6574,12 @@ mod tests {
             42,
             "the server computed the wrong answer"
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(server)
+                && !crate::sched::is_thread_present(client)),
+            "the request/reply test's own threads had not finished when it returned",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// **Milestone 19c.1: the kernel cannot spend beyond its boot carve, for stacks.** Spawn a
@@ -6661,9 +6692,10 @@ mod tests {
         static ANSWER: AtomicU64 = AtomicU64::new(0);
         static DONE: AtomicBool = AtomicBool::new(false);
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
-        super::spawn(move || {
+        let server = super::spawn(move || {
             let m = super::ipc_recv_cap(ep); // [n, reply_slot, second_word]
             let slot = m[1];
             let crate::cap::Object::Reply(caller) = super::current_cap(slot).unwrap().object else {
@@ -6674,7 +6706,7 @@ mod tests {
         })
         .expect("spawn failed");
 
-        super::spawn(move || {
+        let client = super::spawn(move || {
             let r = super::ipc_call(ep, [41, 0]);
             ANSWER.store(r[0], Ordering::SeqCst);
             DONE.store(true, Ordering::SeqCst);
@@ -6686,6 +6718,12 @@ mod tests {
             "the call never returned"
         );
         assert_eq!(ANSWER.load(Ordering::SeqCst), 42, "wrong reply");
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(server)
+                && !crate::sched::is_thread_present(client)),
+            "the call/reply test's own threads had not finished when it returned",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// **Milestone 12: a reply reaches the caller that called, not another.**
@@ -6699,10 +6737,11 @@ mod tests {
         static GOT_A: AtomicU64 = AtomicU64::new(0);
         static GOT_B: AtomicU64 = AtomicU64::new(0);
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
         // The server: field two calls, reply each caller its own word + 11, via its own cap.
-        super::spawn(move || {
+        let server = super::spawn(move || {
             for _ in 0..2 {
                 let m = super::ipc_recv_cap(ep);
                 let (word, slot) = (m[0], m[1]);
@@ -6716,12 +6755,12 @@ mod tests {
         })
         .expect("spawn failed");
 
-        super::spawn(move || {
+        let client_a = super::spawn(move || {
             let r = super::ipc_call(ep, [100, 0]);
             GOT_A.store(r[0], Ordering::SeqCst);
         })
         .expect("spawn failed");
-        super::spawn(move || {
+        let client_b = super::spawn(move || {
             let r = super::ipc_call(ep, [200, 0]);
             GOT_B.store(r[0], Ordering::SeqCst);
         })
@@ -6738,6 +6777,13 @@ mod tests {
             211,
             "client B got the wrong caller's reply"
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(server)
+                && !crate::sched::is_thread_present(client_a)
+                && !crate::sched::is_thread_present(client_b)),
+            "this test's own threads had not finished when it returned",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// A blocked thread is genuinely off the CPU: other threads keep running while it waits.
@@ -6751,7 +6797,8 @@ mod tests {
         static PROGRESS: AtomicU64 = AtomicU64::new(0);
         static STOP: AtomicBool = AtomicBool::new(false);
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
         PROGRESS.store(0, Ordering::SeqCst);
         STOP.store(false, Ordering::SeqCst);
@@ -6792,6 +6839,7 @@ mod tests {
                 && !crate::sched::is_thread_present(worker)),
             "this test's own threads had not finished when it returned",
         );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// **An interrupt becomes a message.** DECISIONS §10 and notes/interrupts.md, executed.
@@ -6813,11 +6861,12 @@ mod tests {
     fn an_interrupt_becomes_a_message() {
         static WOKE: AtomicBool = AtomicBool::new(false);
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
         super::bind_irq(delivery_irq(), ep);
         arm_test_irq(delivery_irq());
 
-        super::spawn(move || {
+        let tid = super::spawn(move || {
             super::ipc_recv(ep); // blocks until the interrupt fires
             WOKE.store(true, Ordering::SeqCst);
         })
@@ -6841,6 +6890,11 @@ mod tests {
             woke,
             "a hardware interrupt fired and the thread waiting on it never woke",
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the interrupt waiter never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// **A spawn quota caps how many children a spawner can have alive, and replenishes on death.**
@@ -6854,23 +6908,18 @@ mod tests {
         use core::sync::atomic::AtomicU32;
         static BUDGET: AtomicU32 = AtomicU32::new(2);
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
         // Two children that block forever (nobody sends), each holding a quota slot.
-        assert!(
-            super::spawn_with_quota(&BUDGET, move || {
-                super::ipc_recv(ep);
-            })
-            .is_some(),
-            "first child should fit in the budget",
-        );
-        assert!(
-            super::spawn_with_quota(&BUDGET, move || {
-                super::ipc_recv(ep);
-            })
-            .is_some(),
-            "second child should fit in the budget",
-        );
+        let first = super::spawn_with_quota(&BUDGET, move || {
+            super::ipc_recv(ep);
+        });
+        assert!(first.is_some(), "first child should fit in the budget",);
+        let second = super::spawn_with_quota(&BUDGET, move || {
+            super::ipc_recv(ep);
+        });
+        assert!(second.is_some(), "second child should fit in the budget",);
 
         // Let them run and block, so both slots are genuinely held.
         for _ in 0..50 {
@@ -6905,9 +6954,12 @@ mod tests {
 
         // Clean up: wake the other blocked child so it does not sit forever.
         super::ipc_send(ep, [0, 0, 0]);
-        for _ in 0..50 {
-            super::yield_now();
-        }
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(first.unwrap())
+                && !crate::sched::is_thread_present(second.unwrap())),
+            "this test's own children had not finished when it returned",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// A signal that arrives while nobody is waiting is **remembered, not lost.** An interrupt is
@@ -6920,7 +6972,8 @@ mod tests {
     fn an_interrupt_that_arrives_before_the_wait_is_not_lost() {
         use crate::arch::exceptions::ROUTED_IRQS;
 
-        let ep = super::create_rendezvous();
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
         super::bind_irq(pending_irq(), ep);
         arm_test_irq(pending_irq());
 
@@ -6939,7 +6992,7 @@ mod tests {
         );
 
         static SAW: AtomicBool = AtomicBool::new(false);
-        super::spawn(move || {
+        let tid = super::spawn(move || {
             super::ipc_recv(ep); // must return immediately: the signal is pending
             SAW.store(true, Ordering::SeqCst);
         })
@@ -6949,6 +7002,11 @@ mod tests {
             spin_until(|| SAW.load(Ordering::SeqCst)),
             "an interrupt that fired before the WAIT was lost",
         );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the interrupt waiter never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
     }
 
     /// The kernel's rendezvous supply grows past one chunk, and a retired chunk's endpoints keep working.
