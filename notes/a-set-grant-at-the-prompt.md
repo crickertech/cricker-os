@@ -19,7 +19,7 @@ without `xargs`:
   and the child's three start words. A single name fits in two words. A set does not, and no bit
   says one follows.
 - The set caretaker exists and is proven (`components/src/fs_nameset_caretaker.rs`,
-  `kernel/src/user/glob_grant_tests.rs`), but only a kernel test harness wires it. The progenitor
+  `system_tests/src/user/glob_grant_tests.rs`), but only a kernel test harness wires it. The progenitor
   builds `fs_subtree_caretaker` and nothing else.
 
 So `rm *.txt` over two files is refused at a keyboard today, and `xargs rm` stops at batch one for

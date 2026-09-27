@@ -139,7 +139,7 @@ which architecture is running.
 ## EXAMPLES
 
 Wire the server and move a block through it (this is the boot test, abridged; the full version is
-`kernel/src/user/non_volatile_memory_express_tests.rs`). Every one of these calls crosses a
+`system_tests/src/user/non_volatile_memory_express_tests.rs`). Every one of these calls crosses a
 rendezvous to an unprivileged process; the caller holds one endpoint and no device:
 
 ```rust
@@ -178,7 +178,7 @@ cargo xtask build && NIFE_NVME=target/nife-nvme.img cargo xtask run
 
 ## What the test proves, and where
 
-`kernel/src/user/non_volatile_memory_express_tests.rs`'s
+`system_tests/src/user/non_volatile_memory_express_tests.rs`'s
 `a_confined_el0_process_serves_the_block_interface_end_to_end`, on
 **all three** architectures (§19; x86_64 joined 2026-08-25, decisions §86's evidence section): the
 controller enumerates over ECAM, comes up confined behind the SMMU (aarch64), the RISC-V IOMMU

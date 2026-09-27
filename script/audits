@@ -419,7 +419,7 @@ if mode == "--baseline":
 #
 # The rank is **how many of a document's cited files moved**, and the commit count only breaks ties.
 # Ranking by commits alone puts every document that mentions xtask/src/main.rs on top, because that
-# file and kernel/src/user/tests.rs are where every lane wires its test (CLAUDE.md names them as the
+# file and system_tests/src/user/tests.rs are where every lane wires its test (CLAUDE.md names them as the
 # merge hotspot). A note where eight of its twelve cited files moved has more surface that could have
 # gone stale than one where a single hotspot moved thirty times.
 

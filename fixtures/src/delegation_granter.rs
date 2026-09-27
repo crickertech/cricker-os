@@ -6,7 +6,7 @@
 //! handed to another process, at runtime, with less power than it arrived with.
 //!
 //! The other half is `delegation_receiver`; the wiring and the assertions are
-//! `kernel/src/user/delegation_service.rs` and `kernel::user::tests`.
+//! `system_tests/src/user/delegation_service.rs` and `kernel::user::tests`.
 //!
 //! Name: provisional (milestone 291). This was `hello`'s `GRANTER` role, number 9. Qualified with
 //! `delegation_` because `granter` alone is one of AGENTS.md's generic words: half this system

@@ -86,7 +86,7 @@ Each has a recommendation, and each is cheap to reverse until a second program s
 ## What each costs
 
 - Memory. C runs one timetable per scheduling user. The kernel test sizes one at a 768-page
-  budget and a 32-page stack (`kernel/src/user/timetable_tests.rs`). A real session chooses its own
+  budget and a 32-page stack (`system_tests/src/user/timetable_tests.rs`). A real session chooses its own
   budget, and a one-entry document needs one 48-page instance at a time.
 - The yield loop. This is the larger cost, and the best argument for A. There is no timed wait
   here. Milestone 106 (a wait that ends on either the interrupt or the deadline) is gated on
@@ -104,7 +104,7 @@ Checked on 2026-09-26 against `256815e56`:
 - `Registry::register` takes `held` as a parameter. True.
 - A durable session type exists. False: it went with `smb_server`, and `session_reviver.rs` cites it
   only in comments. The registrar needs 152's rebuild.
-- The timetable runs in the interactive boot. False: only `kernel/src/user/timetable_tests.rs`
+- The timetable runs in the interactive boot. False: only `system_tests/src/user/timetable_tests.rs`
   spawns it, and `crates/system_initializer` never names it. C adds no process to a real boot until
   a session schedules something.
 - `crates/schedule_store` has no removal verb. True, and under C it needs none.

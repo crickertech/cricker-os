@@ -69,7 +69,7 @@ $ echo chris >> may-run-unvouched
 `login` reads it on every login, after the secret is checked and the session is built, so an edit
 holds from the next login on. A session cannot reach the file: it is confined to its own subtree.
 
-The proof rides logins `kernel/src/user/login_tests.rs` already makes. A listed `chris` gets the
+The proof rides logins `system_tests/src/user/login_tests.rs` already makes. A listed `chris` gets the
 capability, and it reaches the endpoint `login` was given and cannot be passed on. With no list,
 `chris` gets none. With a list naming only `corinne`, she gets one and `chris` does not. Falsified
 once on aarch64: with the list check answering yes for everyone, the no-list login failed.

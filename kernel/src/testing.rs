@@ -276,7 +276,7 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// reclaimed. 16200 + 768 = 16968.
 ///
 /// **Raised again, 2026-08-23, milestone 155's provisioning tool.** Its own guest suite
-/// (`kernel/src/user/identity_provisioning_tests.rs`) needs a credential store *before* it is
+/// (`system_tests/src/user/identity_provisioning_tests.rs`) needs a credential store *before* it is
 /// sealed, which the tree's one shared fixture cannot offer once it returns (`credential_tests.rs`'s
 /// own doc: the seal deletes the provision endpoint at both ends). So the suite wires a **second**,
 /// independent `credential_service` instance, the same permanent shape the first one already is in
@@ -375,7 +375,7 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 ///
 /// **Raised again, 2026-08-26, milestone 47's `printenv` (DECISIONS §111, `date`'s own shape one
 /// manifest field over), landing on top of the 19060 raise above rather than the 18632 it was
-/// separately measured against.** `kernel/src/user/printenv_tests.rs`'s four new `#[test_case]`s
+/// separately measured against.** `system_tests/src/user/printenv_tests.rs`'s four new `#[test_case]`s
 /// join a suite that already carries milestone 49's channel-per-client login, so the number this
 /// constant needs is the two changes measured together, not 19060 + 85 by arithmetic: this ledger's
 /// own convention (see every raise above) is a real run, not a sum of two separate ones, because

@@ -8,7 +8,7 @@
 //! a rendezvous that did not exist a moment ago. The `SEND` blocks until the peer receives, so
 //! reaching `exit` is itself half the proof.
 //!
-//! The other half is `rendezvous_peer`; the wiring is `kernel/src/user/retype_ep_service.rs`.
+//! The other half is `rendezvous_peer`; the wiring is `system_tests/src/user/retype_ep_service.rs`.
 //!
 //! Name: provisional (milestone 291). This was `hello`'s `EP_MAKER` role, number 17. `ep` is an
 //! abbreviation that needs a decoder, which is the first of AGENTS.md's three naming failure

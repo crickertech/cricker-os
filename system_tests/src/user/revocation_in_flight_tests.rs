@@ -34,7 +34,7 @@
 //! the use-after-free DECISIONS §13 (capability revocation and untyped reclamation) exists to
 //! prevent, reopened through the one slot the sweep does not look in.
 //!
-//! **This module is a new file on purpose.** `kernel/src/user/tests.rs` is this tree's worst merge
+//! **This module is a new file on purpose.** `system_tests/src/user/tests.rs` is this tree's worst merge
 //! hotspot and AGENTS.md's lane rules say to stay out of it.
 //!
 //! # BUGS

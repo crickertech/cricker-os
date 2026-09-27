@@ -142,7 +142,7 @@ const ROLE_PROBE: u64 = 1;
 const ROLE_HOLDER: u64 = 2;
 
 // The report's first word: what this program managed to establish. Must match
-// kernel/src/user/disk_tests.rs.
+// system_tests/src/user/disk_tests.rs.
 /// The roster page read as a roster (right magic, believable count).
 pub const F_ROSTER: u64 = 1 << 0;
 /// The block service answered `SIZE` with a size that is a whole number of logical blocks.
@@ -160,15 +160,15 @@ pub const F_NIFE: u64 = 1 << 5;
 pub const F_NAMES: u64 = 1 << 6;
 
 /// The probe's announcement, so a fault that never reached the write is distinguishable from the
-/// write being refused. Must match `kernel/src/user/disk_tests.rs`.
+/// write being refused. Must match `system_tests/src/user/disk_tests.rs`.
 pub const R_PROBING: u64 = 0x50_0B_11_46;
 
 /// The probe's second word: `PageFrame::MAP` refused it a writable window on the roster, one rung
-/// before the page permissions would have. Must match `kernel/src/user/disk_tests.rs`.
+/// before the page permissions would have. Must match `system_tests/src/user/disk_tests.rs`.
 pub const P_RW_REFUSED: u64 = 1 << 0;
 
 /// [`ROLE_HOLDER`]'s announcement: it has the roster mapped and here is the first word of it.
-/// ASCII `HOLDG`. Must match `kernel/src/user/disk_tests.rs`.
+/// ASCII `HOLDG`. Must match `system_tests/src/user/disk_tests.rs`.
 pub const R_HOLDING: u64 = 0x_48_4F_4C_44_47;
 
 #[unsafe(no_mangle)]

@@ -31,7 +31,7 @@
 //! **It wants a bigger stack than a small program does**, and a spawn site has to say so: a
 //! `grant_plan::Endowment` is about a kilobyte (mostly the name set a directory grant can carry) and
 //! the plan holds one per entry, so the working set is tens of kilobytes rather than hundreds of
-//! bytes. `kernel/src/user/timetable_tests.rs` maps 32 pages and says why; eight died with a data
+//! bytes. `system_tests/src/user/timetable_tests.rs` maps 32 pages and says why; eight died with a data
 //! abort whose faulting address was the stack pointer, which is what a stack overflow looks like
 //! from the kernel side and reads like a wild pointer if you have not seen it before.
 //!
@@ -229,7 +229,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, _a2: u64) -> ! {
     // capability that reaches every program in the tree, and nothing in the plan would say so.
     //
     // It measures rather than enforces, because a process cannot narrow its own endowment: the
-    // width is the spawn site's decision (`kernel/src/user/timetable_tests.rs` builds a sub-archive
+    // width is the spawn site's decision (`system_tests/src/user/timetable_tests.rs` builds a sub-archive
     // from exactly `Registry::programs`), and saying it out loud is what makes the decision
     // checkable from in here rather than only from out there.
     let mut audit = timetable::Audit::of(&reg);

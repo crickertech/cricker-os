@@ -365,7 +365,7 @@ words, not to grow a second `grants` array beside the first.
 
 ## What is proven, and where
 
-Six kernel tests (`kernel/src/user/ntp_tests.rs`), not arch-gated: three portable binaries, so
+Six kernel tests (`system_tests/src/user/ntp_tests.rs`), not arch-gated: three portable binaries, so
 aarch64 and riscv64 run literally the same assertions. The suite went from 181 to 187 tests on
 aarch64 and 152 to 158 on riscv64.
 

@@ -322,14 +322,14 @@ went), and the difference is accounted rather than shrugged at:
 - **A page per kernel endpoint**, carved into chunks by `sched::create_endpoint` and never freed by
   design.
 - **The login service, ~640 (2026-08-22, milestone 49).** Same shape as the credential store above:
-  wired once behind a `DONE` flag (`kernel/src/user/login_tests.rs`) and shared by every login test.
+  wired once behind a `DONE` flag (`system_tests/src/user/login_tests.rs`) and shared by every login test.
   `crate::untyped::create` reserves the whole 640-page-frame construction budget the instant the
   service is spawned; splitting pieces of it into a caretaker or a client budget afterwards costs the
   ledger nothing further; only the initial reservation does. See notes/login.md and
   `components/src/login.rs`'s own BUGS on why nothing gives it back: the service serves logins for the life
   of the boot and this slice builds no teardown path.
 - **A second credential service instance, ~1659 (2026-08-23, milestone 155).** The provisioning
-  suite (`kernel/src/user/identity_provisioning_tests.rs`) needs a store *before* anyone has sealed
+  suite (`system_tests/src/user/identity_provisioning_tests.rs`) needs a store *before* anyone has sealed
   it, which the tree's one shared fixture (`credential_tests::provisioned()`) cannot offer: that
   instance is sealed by the time it returns. So this suite wires its own, same shape as the shared
   one and just as permanent for the same reason (`credential_service::start`'s own 1552-page-frame
@@ -348,7 +348,7 @@ went), and the difference is accounted rather than shrugged at:
   (`llvm-size`, dev profile): `painter`, `window` and `display` each grew their linked text by
   roughly 54 KiB (11–15 KiB to 65–70 KiB) adopting it; `display_terminal`, which already pulled the
   formatter in elsewhere, grew by only ~5 KiB. `display` is the standing candidate for where this
-  becomes permanent rather than transient: `kernel/src/user/display_tests.rs` says outright that
+  becomes permanent rather than transient: `system_tests/src/user/display_tests.rs` says outright that
   its driver instance "is a long-lived server and never exits" for the rest of that test's boot,
   and a process's `AddressSpace` is sized from its own ELF segment page count
   (`kernel/src/user.rs::load`), so a permanently bigger binary should cost permanently more frames
@@ -366,7 +366,7 @@ went), and the difference is accounted rather than shrugged at:
   18628 the one CI run that actually failed), which this investigation ruled a `swish.rs` change
   and a QEMU version mismatch out of and could not otherwise pin down.
 - **`printenv`'s four spawns, ~85 (2026-08-26, milestone 47, DECISIONS §111).** `date_tests.rs`'s
-  own shape one program over: `kernel/src/user/printenv_tests.rs` spawns a real `printenv` ELF four
+  own shape one program over: `system_tests/src/user/printenv_tests.rs` spawns a real `printenv` ELF four
   times (`spawn_printenv`, `date_tests::spawn_date`'s own helper), and neither the child processes
   nor, in three of the four cases, a by-hand-allocated config-page frame (`assembled_page`/
   `blank_page`) are ever reclaimed, exactly as `date_tests.rs`'s own five spawns and one `blank`

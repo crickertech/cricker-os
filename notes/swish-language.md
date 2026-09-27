@@ -2,7 +2,7 @@
 
 *Milestone 67. `crates/grant_plan/src/word.rs`, `crates/grant_plan/src/line.rs`,
 `crates/swish/src/sequence.rs`, `crates/swish/src/lib.rs`, `components/src/swish.rs`,
-`kernel/src/user/language_tests.rs`, `xtask`'s `SWISH_CHECK_SCRIPT`. Read notes/pipes.md first if
+`system_tests/src/user/language_tests.rs`, `xtask`'s `SWISH_CHECK_SCRIPT`. Read notes/pipes.md first if
 you have not: this is the layer above its operators, and it reuses their vocabulary.*
 
 `swish` had composition, grants, navigation and globbing, and no scripting language at all. This

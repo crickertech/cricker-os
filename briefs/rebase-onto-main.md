@@ -91,7 +91,7 @@ converted every other literal to `$ME:`, which would have left the script printi
 and untagged lines and defeated the tagging for the one event that branch existed to add.
 
 Why `helpers/` needs its own case. `helpers/merge-drain.sh` has become what
-`kernel/src/user/tests.rs` already was: the one file every branch in a subsystem has to edit. When
+`system_tests/src/user/tests.rs` already was: the one file every branch in a subsystem has to edit. When
 `main` gained instance tagging for the watchers (`INSTANCE`, `ME`), every in-flight watcher branch
 collided with it at once.
 

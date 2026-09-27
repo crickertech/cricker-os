@@ -386,7 +386,7 @@ mechanism behind it.
 
 The cost was measured, not hypothetical: in one session on 2026-09-23 three pieces of work were
 found only by luck rather than by anything watching. A fix to `helpers/open-lane.sh` (later #1097)
-surfaced while pruning merged worktrees. A fix to `kernel/src/user/live_swap_tests.rs` (later #1101)
+surfaced while pruning merged worktrees. A fix to `system_tests/src/user/live_swap_tests.rs` (later #1101)
 survived two prunes uncommitted and had to be recovered twice. Sixty-two lines of a decisions
 amendment sat unsaved on `maintainer/202-four-tiers` for hours after the conversation had moved on.
 The maintainer pruned worktrees twice that same session; any of the three could have been destroyed

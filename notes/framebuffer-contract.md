@@ -447,5 +447,5 @@ returns. That was read as pointing at `gpu_driver`'s interrupt handling. The rea
 | the client that draws | `fixtures/src/painter.rs` |
 | enumeration | `kernel/src/pci.rs` (`find_gpu_device`) |
 | the spawn wiring | `kernel/src/user/display_service.rs` |
-| the tests | `kernel/src/user/display_tests.rs` |
+| the tests | `system_tests/src/user/display_tests.rs` |
 | the device lines | `helpers/qemu-runner-aarch64.sh`, `helpers/qemu-runner-riscv64.sh` (`NIFE_GPU`) |

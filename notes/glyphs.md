@@ -722,6 +722,6 @@ property this increment was asked to keep and did.
 | the keyboard driver | `components/src/keyboard_driver.rs` |
 | enumeration | `kernel/src/pci.rs` (`find_input_device`) |
 | the wiring | `kernel/src/user/display_service.rs` (`start_terminal`), `kernel/src/user/compositor_service.rs` (`spawn_terminal`), `kernel/src/user/keyboard_service.rs` |
-| the tests | `kernel/src/user/display_tests.rs`, `kernel/src/user/compositor_tests.rs` |
+| the tests | `system_tests/src/user/display_tests.rs`, `system_tests/src/user/compositor_tests.rs` |
 | the host-side text check and its negative control | `xtask/src/scanout.rs` |
 | the device lines | `helpers/qemu-runner-aarch64.sh`, `helpers/qemu-runner-riscv64.sh` (`NIFE_KBD`) |

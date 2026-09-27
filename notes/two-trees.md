@@ -4,7 +4,7 @@
 
 Milestone 154 (a process that holds two directory capabilities) proved the mechanism first: one
 confined program, two `fs_subtree_caretaker`s, both subtrees reachable and neither able to see the
-other's (`kernel/src/user/multi_dir_namespace_tests.rs`, the `fs_test_client` witness). This note is
+other's (`system_tests/src/user/multi_dir_namespace_tests.rs`, the `fs_test_client` witness). This note is
 the half after that: the real `swish` builtins and the per-command grant planner working across two
 trees, presented the way calef ruled.
 

@@ -141,7 +141,7 @@ tell, and a client that accepted whatever arrived would pass the first half too.
 spawn because every `net_stack` a test starts holds a virtio slot for the rest of the boot; this
 lane took the table's tenth bump (`MAX_DEVICES`, to 34) and filed the unregister it keeps deferring
 as `design/roadmap/proposals/a-virtio-slot-comes-back-when-its-driver-dies.md`. riscv64 runs the
-same test as a twin in `kernel/src/user/riscv_virtio_tests.rs`.
+same test as a twin in `system_tests/src/user/riscv_virtio_tests.rs`.
 
 ### The versioned table, as logic
 

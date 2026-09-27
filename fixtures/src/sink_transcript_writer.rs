@@ -29,7 +29,7 @@
 //!
 //! # EXAMPLES
 //!
-//! The one the tests assert, in the kernel's vocabulary (`kernel/src/user/sink_tests.rs`):
+//! The one the tests assert, in the kernel's vocabulary (`system_tests/src/user/sink_tests.rs`):
 //!
 //! ```text
 //! let report = spawn_writer(image, Some(endpoint), 1);

@@ -33,7 +33,7 @@
 //! the fact: [`super::user_address_space_map`] used to be the one path that remembered, and it is
 //! now the one path that has nothing extra to remember.
 //!
-//! **This module is a new file on purpose.** `kernel/src/user/tests.rs` is this tree's worst merge
+//! **This module is a new file on purpose.** `system_tests/src/user/tests.rs` is this tree's worst merge
 //! hotspot and AGENTS.md's lane rules say to stay out of it. It is named to sort before
 //! `thread_leak_police`, whose own header explains why that matters.
 //!

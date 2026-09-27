@@ -28,7 +28,7 @@
 //! # EXAMPLES
 //!
 //! The pairing the test asserts, in the kernel's vocabulary
-//! (`kernel/src/user/sink_tests.rs::one_reader_two_sources_and_the_same_answer`):
+//! (`system_tests/src/user/sink_tests.rs::one_reader_two_sources_and_the_same_answer`):
 //!
 //! ```text
 //! let (source, report) = fs_service::start_file_source(blk, fs_server, image).unwrap();

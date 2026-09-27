@@ -115,7 +115,7 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
   while it is off. Switching mode in either direction abandons whatever line was in progress in the
   mode being left (the line discipline's edit buffer, or raw mode's queued-but-unread bytes), and
   fails a parked read of the mode being left rather than hang it forever; history and the kill
-  buffer are untouched. Proved in `kernel/src/user/raw_mode_tests.rs` against a real `line_editor`
+  buffer are untouched. Proved in `system_tests/src/user/raw_mode_tests.rs` against a real `line_editor`
   process: echo suppression (both ways, so the check cannot be vacuous), literal delivery of bytes
   the line discipline would otherwise interpret, the two refusals, and a read parked before data
   arrives still being answered once it does.

@@ -122,9 +122,10 @@ pub const SELF_TEST_CHECKS: &[&str] = &["exceptions", "mapping", "frames", "time
 
 /// **The RISC-V demonstration tour ran to its end.**
 ///
-/// Printed by the RISC-V arm of `kernel/src/lib.rs` and by nothing else, which is milestone 268's
-/// finding 3 stated as a constant rather than as a defect: this rung is **one architecture's**, and
-/// keeping it here beside the three that are not is what makes that visible. It is not a rung of
+/// Printed by the RISC-V arm of `kernel/src/lib.rs` and by nothing else. That is finding 3 of
+/// milestone 268 (every architecture boots the same way), stated as a constant rather than as a
+/// defect: this rung is **one architecture's**, and keeping it here beside the three that are not is
+/// what makes that visible. It is not a rung of
 /// the portable ladder and the other two architectures do not print it.
 pub const TOUR: &str = "nife: the capability core runs on ";
 

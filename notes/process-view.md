@@ -82,7 +82,7 @@ x0 and x1 are the frame; only x2 belongs to the record. The cursor walk and the 
 whichever record is asked for, so a caller that wants two facts walks the domain twice and joins on
 the tid, and a caller that wants one is unaffected by every record it does not ask for. That is what
 makes adding a record cost an existing reader nothing, and it is asserted rather than assumed
-(`kernel/src/user/survey_record_tests.rs`), because the cheap way to build a selector is to let each
+(`system_tests/src/user/survey_record_tests.rs`), because the cheap way to build a selector is to let each
 record drive its own walk, and that version makes the tids unjoinable while passing everything else.
 
 `record::STATE` is 0, which is the backward-compatibility claim and not a coincidence. Every

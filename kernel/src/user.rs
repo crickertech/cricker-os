@@ -1210,7 +1210,7 @@ pub const PROGENITOR_ROLE: u64 = 27;
 /// this function carried until milestone 166 split it in two: the boot half it was named for is
 /// [`boot_progenitor`] now, and what stayed here never spawns the progenitor at all. It only ever
 /// re-enters [`HELLO_ENTRY`] at one of milestone 19d/19e's test roles, at every call site it has
-/// (all of them in `kernel/src/user/tests.rs`), so the old name pointed at the half that left.
+/// (all of them in `system_tests/src/user/tests.rs`), so the old name pointed at the half that left.
 /// `spawn` is the verb this body performs and `hello` the program it performs it on, which makes
 /// the name a claim about what the function does rather than about what it used to do, and greps
 /// with [`HELLO_ENTRY`] as one family.
@@ -2928,7 +2928,7 @@ fn boot_virtio_mmio_device(d: crate::virtio::VirtioMmioDevice) -> Option<VirtioB
 /// whether or not anything downstream ever declares wanting the page, is what lets the progenitor's
 /// capability table stay positional. The values are the conservative universal defaults this
 /// tree's kernel test harness for `std` programs already uses
-/// (`kernel/src/user/std_service.rs`): "nothing configured this program's locale or terminal, so
+/// (`system_tests/src/user/std_service.rs`): "nothing configured this program's locale or terminal, so
 /// tell it the least assuming thing" is the honest baseline, the same posture `boot_clock_page`
 /// takes for a machine with no RTC. There is no shell-held default config set yet to pass instead
 /// (the "inheritance with visibility" shape design/roadmap/47-navigation-and-naming.md names);

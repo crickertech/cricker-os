@@ -91,12 +91,12 @@ the shell spawns is born supervised, and `job_undertaker` collects the corpse. I
 supervisor in the tree and the one that says most plainly what supervision costs a system: one
 endpoint capability, no memory, no policy, and the job's pages come home to the progenitor's pool rather than to
 the collector. The restart half is deliberately absent, because a command a person typed has no
-business being restarted when it ends. `kernel/src/user/job_undertaker_tests.rs` proves it with a control
+business being restarted when it ends. `system_tests/src/user/job_undertaker_tests.rs` proves it with a control
 (three jobs exhaust a three-job pool when nothing collects) and a claim (twelve go through the same
 pool when `job_undertaker` runs); `script/swish-check` runs eleven through the real boot's six-job pool.
 See notes/trusted-init.md for what the progenitor gave up and what it still holds.
 
-Cross-ISA kernel tests (`kernel/src/user/supervision_tests.rs`): a child built holding a fault
+Cross-ISA kernel tests (`system_tests/src/user/supervision_tests.rs`): a child built holding a fault
 endpoint crashes on a null load, the supervisor receives `(FAULT, tid, pc, addr)` with the right tid
 and address, the corpse still holds its fault message after delivery, revocation reaps it, and a
 fresh child runs in its place; a second test drives the clean-exit path and asserts the `EXIT` event.

@@ -138,7 +138,7 @@ Two consequences worth knowing:
   equals one-shot; a flipped bit changes the digest; accept / mismatch / unmeasured are the three
   verdicts, and both an unknown name and an empty root are refusals; hex round-trips and malformed
   hex does not parse as zeros.
-- Both ISAs (`kernel/src/user/measured_boot_tests.rs`):
+- Both ISAs (`system_tests/src/user/measured_boot_tests.rs`):
   - `the_boot_program_measures_to_the_compiled_in_trust_root` is the end-to-end build-composition
     proof. Nothing in it is hard-coded: the digest comes out of the running kernel's own `.rodata`
     and the bytes come out of the archive QEMU loaded into RAM, and they have to agree. If the build
@@ -233,7 +233,7 @@ rebuild, the spawner is what can. Policy and authority, separated by an IPC boun
 
 ### What is proven, both ISAs
 
-`kernel/src/user/authority_tests.rs`:
+`system_tests/src/user/authority_tests.rs`:
 
 - `init_drops_its_construction_authority_and_cannot_build_again`. After the handoff, root_supervisor tries the
   two primitives that build things (retype a page, retype a kernel object) and reports the result from
@@ -330,7 +330,7 @@ the program ids `spawnproto` already sends in word 0.
 
 ### Proven, both ISAs
 
-- `kernel/src/user/job_undertaker_tests.rs`, a control and a claim in that order.
+- `system_tests/src/user/job_undertaker_tests.rs`, a control and a claim in that order.
   `without_a_collector_a_bounded_job_pool_runs_out` builds three jobs in a three-job pool, lets all
   three *finish*, and shows the fourth refused: a finished job's region is not free memory. Then
   `job_undertaker_returns_every_finished_job_to_the_pool` puts twelve jobs through the same pool with
@@ -544,7 +544,7 @@ nife: handing the system to userspace init.
   compiled-in trust root does, including that a malformed line and an empty table both refuse
   their program; and the parser skips comments and blank lines but reports the line it could not
   read, which is what lets `kernel/build.rs` turn that into a hard error.
-- Both ISAs (`kernel/src/user/measured_boot_tests.rs`):
+- Both ISAs (`system_tests/src/user/measured_boot_tests.rs`):
   - `the_measurement_table_measures_to_the_compiled_in_trust_root`, the build-composition proof one
     link down from the boot program's.
   - `every_program_init_loads_is_vouched_for_by_the_measurement_table`, which is the one that earns

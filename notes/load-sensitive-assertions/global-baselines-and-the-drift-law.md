@@ -4,10 +4,10 @@
 the register and the rules. Moved here on 2026-09-24 and tightened; pull request #1211's first
 commit has the text verbatim.)*
 
-*(Milestone 78 (the load-sensitive assertions). `kernel/src/sched.rs`, `kernel/src/user/tests.rs`,
+*(Milestone 78 (the load-sensitive assertions). `kernel/src/sched.rs`, `system_tests/src/user/tests.rs`,
 the timer drift twins in `kernel/src/arch/riscv64/timer.rs` and `kernel/src/arch/aarch64/timer.rs`,
 `kernel/src/smp.rs`, and the frame-hygiene assertion already removed from
-`kernel/src/user/live_swap_tests.rs`.)*
+`system_tests/src/user/live_swap_tests.rs`.)*
 
 On 2026-08-03 five distinct assertions had failed pull requests that changed no executable code.
 The roadmap block holds the evidence table

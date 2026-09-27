@@ -82,7 +82,7 @@ service), §28 (SMP placement) + amendment, §16 amendment (SPLIT rights inherit
    authority rather than reduce it, because the loader *is* the archive) and instead delete the root
    untyped for a bounded job pool, give back the UART and its interrupt, and build every job in a
    region that `job_undertaker` returns when the job ends, so a bounded budget is affordable. Proven by a
-   control-and-claim pair in `kernel/src/user/job_undertaker_tests.rs` and by `script/swish-check`, which
+   control-and-claim pair in `system_tests/src/user/job_undertaker_tests.rs` and by `script/swish-check`, which
    reads init's own dropped-authority sentence and runs thirteen jobs through a six-job pool. Both
    design forks recorded here were since closed by DECISIONS §32 (a supervisor may collect a corpse). This work also
    found and fixed a real pre-existing race in the exception-return path on both ISAs

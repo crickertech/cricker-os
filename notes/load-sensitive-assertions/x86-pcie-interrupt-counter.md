@@ -12,7 +12,7 @@ merge queue. The shape was always the same. The first assertion passed: the driv
 bytes off the `virtio-blk-pci` disk and reported them. The second did not.
 
 ```
-[PANIC] panicked at kernel/src/user/tests.rs:2061:5:
+[PANIC] panicked at system_tests/src/user/tests.rs:2061:5:
 the read completed but the device's interrupt was never delivered to this kernel
 ```
 
@@ -94,7 +94,7 @@ on the first try, with the field's panic verbatim:
 
 ```
 [DIAG] pcie read: entry=43 before=51 after=51
-[PANIC] panicked at kernel/src/user/tests.rs:2071:5:
+[PANIC] panicked at system_tests/src/user/tests.rs:2071:5:
 the read completed but the device's interrupt was never delivered to this kernel
 ```
 

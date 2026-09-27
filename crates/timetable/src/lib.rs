@@ -342,7 +342,7 @@ pub struct Held {
 /// **What the shipped `components/src/timetable.rs` actually holds**, and the one `Held` value it and
 /// this crate's own host test both use, so the two cannot drift the way [`Registry::register`]'s
 /// module doc already warns a document and a spawn site can. `PLANNED_PROGRAMS` in
-/// `kernel/src/user/timetable_tests.rs` is the same idea applied to the archive; this is it applied
+/// `system_tests/src/user/timetable_tests.rs` is the same idea applied to the archive; this is it applied
 /// to what the scheduler holds.
 ///
 /// Four pages: enough to admit one `at-boot memory_grant_depleter --mem 4` line as this milestone's proof that a
@@ -429,7 +429,7 @@ impl Unbacked {
 /// same rule that keeps it host-testable and Kani-reachable. So the alternative is not a smaller
 /// enum, it is a `Row` that stores an outcome beside a separate endowment and lets the two disagree.
 /// The size is paid for where it lands, which is a fixed inline table sized for exactly this
-/// (`kernel/src/user/timetable_tests.rs` states the stack the program needs, and why).
+/// (`system_tests/src/user/timetable_tests.rs` states the stack the program needs, and why).
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Admission {
@@ -1545,7 +1545,7 @@ mod tests {
     ///
     /// **This test is also the mechanism behind a written list in another file**, which is why the
     /// first assertion names `least_authority_demo` and `memory_grant_depleter` rather than counting to two.
-    /// `kernel/src/user/timetable_tests.rs` builds the narrowed archive from a `PLANNED_PROGRAMS`
+    /// `system_tests/src/user/timetable_tests.rs` builds the narrowed archive from a `PLANNED_PROGRAMS`
     /// list it does not compute, because computing it there means a `Registry` on a kernel stack and
     /// a `Registry` is 21632 bytes against a 4096-byte guard page (`script/stack-frame-check`). So
     /// the plan is computed **here**, on the host, in milliseconds, and a document edited without
@@ -1565,7 +1565,7 @@ mod tests {
             reg.programs(),
             1 << Prog::LeastAuthorityDemo.id() | 1 << Prog::MemoryGrantDepleter.id(),
             "the shipped document's plan changed; \
-             kernel/src/user/timetable_tests.rs's PLANNED_PROGRAMS must change with it",
+             system_tests/src/user/timetable_tests.rs's PLANNED_PROGRAMS must change with it",
         );
         assert_eq!(Audit::of(&reg).planned(), 2);
 

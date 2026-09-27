@@ -5,7 +5,7 @@
 # **This is an experiment's apparatus, not part of the build**, and that is the same posture
 # `helpers/build-ripgrep.sh` takes for the same reason. Nothing in `script/test` runs it and no gate
 # needs it: `xtask` packs the resulting ELF only if it is already on disk, and
-# `kernel/src/user/cryptography_tests.rs` skips when it is not.
+# `system_tests/src/user/cryptography_tests.rs` skips when it is not.
 #
 # DECISIONS §46 (thin primitives or whole subsystems; we write everything in between) is why. The
 # program depends on `rustls` and a crypto provider, and while §196 (nife carries TLS: `rustls` for the protocol, and a crypto provider we make work)

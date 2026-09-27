@@ -13,7 +13,7 @@ actually force this"**, and three divergences clear it. The rest of Unix's surfa
 
 The pure half is `crates/grant_plan/src/nav.rs` (host-tested in milliseconds); the requests are
 `components/src/swish.rs`; the wire verb `rm` needed is `filesystem_protocol::fs::UNLINK` with `Server::unlink` behind
-it; the guest proof is `kernel/src/user/shell_navigation_tests.rs` and the host half is
+it; the guest proof is `system_tests/src/user/shell_navigation_tests.rs` and the host half is
 `xtask::shell_navigation_landed`.
 
 ## They are builtins, and that retires a worry rather than dodging one

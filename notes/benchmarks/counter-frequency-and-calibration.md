@@ -39,7 +39,7 @@ built, `coremark` included.
 The fix widened a `cfg`. `x86_64` had already built the mechanism (`counter_frequency_protocol`, a
 page the kernel fills and maps read-only into every process), and riscv64 now uses it. An unknown
 rate refuses rather than falling back. The test is what would have caught this in July:
-`kernel/src/user/counter_frequency_tests.rs` asserts that what a userspace program reports equals
+`system_tests/src/user/counter_frequency_tests.rs` asserts that what a userspace program reports equals
 what the kernel measured, on all three architectures. A test that compares a rate against a
 constant cannot catch a constant, which is why `freq > 0` held for two months.
 

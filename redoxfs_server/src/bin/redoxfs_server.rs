@@ -32,7 +32,7 @@
 //! share one window** (milestone 599 (a frame per filesystem client channel), the remaining piece). The server now keeps a window per
 //! client and reads window `badge` for each request (finding 1 of `notes/shared-page-audit.md` is
 //! closed *at this server*: a client wired with its own window and a badged endpoint is isolated,
-//! which `kernel/src/user/fs_shared_page_tests.rs` proves with two live clients). But that per-window
+//! which `system_tests/src/user/fs_shared_page_tests.rs` proves with two live clients). But that per-window
 //! wiring lives in the kernel test harness (`fs_service`) so far. The production progenitor
 //! (`crates/system_initializer`) hands `BootEndowment::fs_page`, window 0, to the shell and every
 //! caretaker, so on a real boot they still share window 0 and the substitution finding 1 describes

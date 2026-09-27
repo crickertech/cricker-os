@@ -952,7 +952,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     ),
     // **A `std` program, spawned by the progenitor rather than by the kernel's test harness**
     // (milestone 595 (provisional)). Until this, every `std` program that ran on nife was built by
-    // `kernel/src/user/std_service.rs`, and the progenitor had never produced a child in the layout
+    // `system_tests/src/user/std_service.rs`, and the progenitor had never produced a child in the layout
     // nife's `std` reads (`crates/std_runtime_protocol`): eight fixed slots, three shared pages,
     // thirty-two stack pages. The preview first, because it is where a person learns the slots
     // moved, and slot 0 is not even the same kind of object as a native child's.
@@ -2176,7 +2176,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 /// 177-graphical-interactive-boot.md's own finding), so there is no serial channel left to pipe.
 /// The only observable surface is what a person looking at the screen would see, which on this
 /// machine means a `screendump` over the QEMU monitor (`NIFE_GPU_MON`) and a real key press
-/// (`sendkey`) for the same reason `kernel/src/user/display_tests.rs`'s own keyboard test needs the
+/// (`sendkey`) for the same reason `system_tests/src/user/display_tests.rs`'s own keyboard test needs the
 /// host to press one: nothing in the guest can.
 ///
 /// # Why this proves less than [`swish_check_leg`], and on purpose
