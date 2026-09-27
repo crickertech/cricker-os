@@ -106,6 +106,8 @@ nothing from it, since the timetable endows a job only with what its entry grant
   peak with one durable session. The open stays inside it because `login` now builds the two store
   caretakers before the rest of the session, and the client's own caretaker after it. Counted from
   the code, not measured, in `login_protocol::durable`.
-- An upgrade stops an entry until its document is re-sent, because the plan was made against
-  the old bytes' manifest. `login`'s start-up pass re-sends every stored document, so a reboot
-  re-plans. `components/src/timetable.rs`'s BUGS has this and the 64 KiB load limit.
+- It first bound each entry to the digest registered, so an upgrade stopped the job until its
+  document was re-sent. calef called that a foot gun and amended D the same day (#1377). Every
+  fire now resolves the name and plans the line again against the current manifest, as a bare
+  word does. A version asking for more than the line grants does not fire. Nothing can tell the
+  owner yet; `components/src/timetable.rs`'s BUGS names the system log (#1423) and notices (#1424).

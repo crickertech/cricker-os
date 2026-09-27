@@ -213,7 +213,7 @@ process places none; the timetable probes the slot and hands jobs what it holds
 durable timetable holds no archive. It holds read-only caretakers for `activation/` and `packages/`
 over the file service's last window, reserved for `login` (milestone 599 (a frame per filesystem
 client channel)), since its user may be using window 0. It resolves each entry as the prompt resolves a bare
-name, plans against the bytes' manifest, and fires only bytes still hashing to the registered entry.
+name, and plans each fire against the current version's manifest (amended by calef on #1377).
 `login` gets `session` and `timetable` as two blobs, and builds the store caretakers first and the
 client's last, keeping a 24-slot table within 24. The real boot hands
 all of it over, `login`'s budget sized by `login_protocol::durable::BUDGET_PAGES`.

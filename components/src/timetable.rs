@@ -68,10 +68,11 @@
 //! timetable its durable session spawns holds no archive. It holds read-only views of the store's
 //! `activation/` and `packages/`, over a file-service channel of its own (`timetable::contract`),
 //! and resolves each entry's program as the prompt resolves a bare name: the live generation's
-//! entry, never an owner's vouch. A document is planned against the manifest each program's bytes
-//! carry (`timetable::Registry::register_installed`), and every fire reads the bytes again and
-//! fires only if they are still that entry's. So uninstalling a program, or a generation that stops
-//! naming it, stops its job at the next beat. The two views reach code, not authority: a job holds
+//! entry, never an owner's vouch. A document is checked against the manifest each program's bytes
+//! carry when it is registered (`timetable::Registry::register_installed`), so a bad line is refused
+//! up front, and every fire resolves the name and plans the line again against what it finds
+//! (`timetable::Registry::plan_at_fire`). So an upgraded program's job fires the new version, and
+//! uninstalling a program, or a generation that stops naming it, stops its job at the next beat. The two views reach code, not authority: a job holds
 //! what `fire` endows and nothing that reads the store.
 //!
 //! # The loop, and the one thing it cannot do
@@ -185,10 +186,17 @@
 //!   bytes, and with a registrar the page is the only place it goes. Eight entries of long
 //!   refusals could pass that; the verdict word still says what every entry became.
 //!
-//! - **An upgrade stops a store-mode entry until its document is sent again.** A fire fires only
-//!   bytes whose digest is the one registered, because the plan was made against their manifest,
-//!   and a new version may carry another. The missed beats say nothing: the page is written only in
-//!   reply to a request. `login` re-sends every stored document at start-up, so a reboot re-plans.
+//! - **A store-mode beat that does not fire says so to nobody.** When a name no longer resolves
+//!   in the live generation, or the current version's manifest asks for more than its line grants,
+//!   the beat is skipped and nothing records it. Nothing a durable timetable holds can reach its
+//!   owner today: the page is written only in reply to a registrar's request, and it holds no
+//!   directory, console or log. The eventual home is the system log proposed on #1423 and the
+//!   notices for people proposed on #1424; neither is built. (calef asked for this refusal to be
+//!   loud, 2026-09-27 on #1377.)
+//! - **A durable job has nowhere to write its output.** Fork 6 C gives a job only what its entry
+//!   grants, and a store-mode timetable holds no directory to narrow into a grant, so a line that
+//!   designates a file or directory is planned unbacked. The system log proposed on #1423 is the
+//!   intended grant: an entry would grant "append to the log".
 //! - **Store mode loads programs of up to `timetable::contract::STAGING_BYTES`** (64 KiB) and
 //!   refuses a document naming a larger one, the same way it refuses one naming a program that is
 //!   not installed (`registration::STATUS_NO_IMAGE`). The page does not say which of those it was.
@@ -265,18 +273,18 @@ const _: () = assert!(CHILD_REPORT != spawnproto::RUN_UNVOUCHED_SLOT);
 enum Image {
     /// Parsed out of the archive this timetable was handed, once, at registration.
     Archived(elf::Elf<'static>),
-    /// **An installed program** (store mode, Fork 8 D of milestone 152): the name its line gave,
-    /// and the digest its bytes had in the live generation when the document was registered. Its
-    /// bytes are read again at every fire and must still be that entry's, so a program removed,
-    /// upgraded or no longer trusted stops firing at its next beat.
+    /// **An installed program** (store mode, Fork 8 D of milestone 152): only the name its line
+    /// gave. At every fire the name is resolved in the live generation again and the line planned
+    /// again against the manifest those bytes carry, as a bare word at the prompt is (calef's
+    /// amendment of 2026-09-27 on #1377). So an upgraded program's job fires the new version, and a
+    /// program removed or no longer trusted, which leaves the generation, stops firing.
     Installed(Installed),
 }
 
-/// The name and digest an installed row was registered with. See [`Image::Installed`].
+/// The name an installed row was registered with. See [`Image::Installed`].
 struct Installed {
     name: [u8; NAME_MAX],
     len: usize,
-    digest: measured_boot::Digest,
 }
 
 /// The longest program name store mode resolves; a prompt name is at most sixteen bytes.
@@ -450,22 +458,26 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             if fires_wanted != 0 && fired >= fires_wanted {
                 break;
             }
-            let Some(e) = reg.rows()[i].endowment() else {
+            let Some(registered) = reg.rows()[i].endowment() else {
                 continue;
             };
-            // An installed program's bytes are read and checked again now, so the beat is missed
-            // (skipped, never retried) when they are no longer the registered entry's.
+            // An installed program is resolved and its line planned again now, against what the
+            // live generation names today. When the name no longer resolves, or the plan no longer
+            // fires, the beat is missed (skipped, never retried); `BUGS` says who hears of it.
             let loaded;
-            let elf = match images[i].as_ref() {
+            let (elf, e) = match images[i].as_ref() {
                 None => continue,
-                Some(Image::Archived(elf)) => elf,
-                Some(Image::Installed(p)) => match load_registered(p) {
-                    Some(elf) => {
-                        loaded = elf;
-                        &loaded
-                    }
-                    None => continue,
-                },
+                Some(Image::Archived(elf)) => (elf, registered),
+                Some(Image::Installed(p)) => {
+                    let Some((elf, m)) = load_current(p) else {
+                        continue;
+                    };
+                    let timetable::Admission::Fires(e) = reg.plan_at_fire(i, m) else {
+                        continue;
+                    };
+                    loaded = elf;
+                    (&loaded, e)
+                }
             };
 
             if e.mem_pages > 0 {
@@ -564,51 +576,43 @@ fn resolve_installed(
     let mut images: Images = [const { None }; timetable::MAX_ENTRIES];
     for (i, entry) in doc.entries().iter().enumerate() {
         let word = grant_plan::parse_run(entry.command).prog;
-        let (Ok(name), true) = (core::str::from_utf8(word), word.len() <= NAME_MAX) else {
+        let (Ok(_), true) = (core::str::from_utf8(word), word.len() <= NAME_MAX) else {
             return Err(i);
-        };
-        let Some((len, digest)) = store::load(name) else {
-            return Err(i);
-        };
-        let Ok(elf) = elf::Elf::parse(store::staged(len)) else {
-            return Err(i);
-        };
-        // The note, or `None` for bytes that carry none; a note that cannot be read refuses.
-        let declared = match elf.note(manifest_note::OWNER, manifest_note::MANIFEST) {
-            Ok(None) => None,
-            Ok(Some(d)) => match manifest_note::decode(d) {
-                Ok(m) => Some(m),
-                Err(_) => return Err(i),
-            },
-            Err(_) => return Err(i),
-        };
-        // Vouched: the live generation named these bytes, so they get what they declare, exactly
-        // as the progenitor endows an installed program run at the prompt.
-        let m = match grant_plan::image_manifest(declared, true) {
-            Ok(m) if timetable::schedulable(&m) => m,
-            _ => return Err(i),
         };
         let mut n = [0u8; NAME_MAX];
         n[..word.len()].copy_from_slice(word);
-        manifests[i] = m;
-        images[i] = Some(Image::Installed(Installed {
+        let p = Installed {
             name: n,
             len: word.len(),
-            digest,
-        }));
+        };
+        let Some((_, m)) = load_current(&p) else {
+            return Err(i);
+        };
+        manifests[i] = m;
+        images[i] = Some(Image::Installed(p));
     }
     Ok((manifests, images))
 }
 
-/// **An installed row's bytes, read again and checked**: still the live generation's entry for its
-/// name, and still the digest it was registered with. `None` means this beat is missed.
-fn load_registered(p: &Installed) -> Option<elf::Elf<'static>> {
+/// **What an installed row's name runs now**: the live generation's entry for it, staged and
+/// parsed, and the manifest its bytes carry. `None` when the name no longer resolves, the bytes do
+/// not hash to the entry, or they need what no timetable endows (`timetable::schedulable`).
+fn load_current(p: &Installed) -> Option<(elf::Elf<'static>, grant_plan::Manifest)> {
     let name = core::str::from_utf8(&p.name[..p.len]).ok()?;
-    let (len, digest) = store::load(name)?;
-    if digest != p.digest {
-        return None;
-    }
-    elf::Elf::parse(store::staged(len)).ok()
+    let (len, _) = store::load(name)?;
+    let elf = elf::Elf::parse(store::staged(len)).ok()?;
+    // The note, or `None` for bytes that carry none; a note that cannot be read refuses.
+    let declared = match elf
+        .note(manifest_note::OWNER, manifest_note::MANIFEST)
+        .ok()?
+    {
+        None => None,
+        Some(d) => Some(manifest_note::decode(d).ok()?),
+    };
+    // Vouched: the live generation named these bytes, so they get what they declare, exactly as
+    // the progenitor endows an installed program run at the prompt.
+    let m = grant_plan::image_manifest(declared, true).ok()?;
+    timetable::schedulable(&m).then_some((elf, m))
 }
 
 /// **The store, read through the two caretakers** store mode holds, over the channel whose page is

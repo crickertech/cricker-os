@@ -574,6 +574,15 @@ impl<'a> Registry<'a> {
         reg
     }
 
+    /// **Row `i`'s line, planned again against the manifest its program carries now** (store mode,
+    /// milestone 152's Fork 8 D as calef amended it on 2026-09-27, #1377): what a fire of an
+    /// installed program builds from, since the program may have been upgraded since the document
+    /// was registered. Anything but [`Admission::Fires`] means the beat does not fire, because the
+    /// new version asks for more than the line grants or this scheduler holds. Name: provisional.
+    pub fn plan_at_fire(&self, i: usize, m: Manifest) -> Admission {
+        admit_installed(self.rows[i].entry.command, m, self.held)
+    }
+
     /// What this registry was registered against.
     pub fn held(&self) -> Held {
         self.held
@@ -1913,6 +1922,68 @@ mod tests {
         assert!(
             plan.contains("grants tick exactly:"),
             "the plan names the word typed, not the row: {plan}",
+        );
+    }
+
+    /// **An upgrade between two fires still fires, with the new version** (calef's amendment of
+    /// Fork 8 D, 2026-09-27 on #1377). The line was registered against one manifest; at the next
+    /// fire the program carries another that the line still binds, and the fire is planned from
+    /// the new one. Falsified by planning from the registered row, which keeps the old endowment.
+    #[test]
+    fn an_upgraded_program_fires_its_new_version() {
+        let doc = parse("every 5s tick --mem 2\n").unwrap();
+        let old = Manifest {
+            mem: Prog::MemoryGrantDepleter.manifest().mem,
+            ..grant_plan::NO_NOTE_MANIFEST
+        };
+        let mut manifests = [grant_plan::NO_NOTE_MANIFEST; MAX_ENTRIES];
+        manifests[0] = old;
+        let reg = Registry::register_installed(&doc, SHIPPED_HELD, &manifests);
+        assert_eq!(reg.rows()[0].endowment().unwrap().mem_pages, 2);
+
+        // Version two flips whether it reports, and still takes `--mem`.
+        let new = Manifest {
+            reports: !old.reports,
+            ..old
+        };
+        match reg.plan_at_fire(0, new) {
+            Admission::Fires(e) => {
+                assert_eq!(e.mem_pages, 2);
+                assert_eq!(
+                    e.reports, new.reports,
+                    "planned from the new version's manifest"
+                );
+            }
+            other => panic!("the new version must fire: {other:?}"),
+        }
+    }
+
+    /// **A new version that asks for more than its line grants does not fire.** Version two wants
+    /// the clock, which this scheduler cannot back, and a later one drops the `--mem` its line
+    /// passes. Both are refusals at the fire, not a silently different job.
+    #[test]
+    fn a_new_version_asking_for_more_than_its_line_grants_does_not_fire() {
+        let doc = parse("every 5s tick --mem 2\n").unwrap();
+        let old = Manifest {
+            mem: Prog::MemoryGrantDepleter.manifest().mem,
+            ..grant_plan::NO_NOTE_MANIFEST
+        };
+        let mut manifests = [grant_plan::NO_NOTE_MANIFEST; MAX_ENTRIES];
+        manifests[0] = old;
+        let reg = Registry::register_installed(&doc, SHIPPED_HELD, &manifests);
+        assert!(reg.rows()[0].endowment().is_some());
+
+        let wants_clock = Manifest { clock: true, ..old };
+        assert_eq!(
+            reg.plan_at_fire(0, wants_clock),
+            Admission::Unbacked(Unbacked::Clock),
+        );
+        assert!(
+            matches!(
+                reg.plan_at_fire(0, grant_plan::NO_NOTE_MANIFEST),
+                Admission::Refused(_)
+            ),
+            "a version that takes no `--mem` refuses the line that passes one",
         );
     }
 
