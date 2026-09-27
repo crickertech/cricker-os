@@ -1,0 +1,22 @@
+Falsifies `inter_process_communication::notification::verification::a_signal_loses_no_bit`.
+
+The defect: the bound delivery hands over only the new bits and clears the word, dropping
+whatever accumulated while the bound thread was elsewhere. It reads naturally, because the signal
+"is" the bits it carried.
+
+Expected to fail: `assert_eq!(delivered | n.word, before | bits)` whenever the word was non-zero
+before a bound-receiving signal.
+
+diff --git a/crates/inter_process_communication/src/notification.rs b/crates/inter_process_communication/src/notification.rs
+index c20bff922..6386474ae 100644
+--- a/crates/inter_process_communication/src/notification.rs
++++ b/crates/inter_process_communication/src/notification.rs
+@@ -182,7 +182,7 @@ impl<T: Node> Notification<T> {
+             // of what is pending. `| self.word` would be a no-op, and writing it would hide that.
+             Signal::Woke(waiter, bits)
+         } else if bound_receiving {
+-            let word = self.word | bits;
++            let word = bits;
+             self.word = 0;
+             Signal::ToBound(word)
+         } else {

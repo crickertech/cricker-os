@@ -131,6 +131,8 @@ use core::ptr::NonNull;
 
 use intrusive_fifo::{Fifo, Node};
 
+pub mod notification;
+
 /// One IPC rendezvous: two intrusive wait queues and the pending-signal count.
 pub struct Rendezvous<T: Node> {
     /// Senders blocked here, waiting for a receiver.
