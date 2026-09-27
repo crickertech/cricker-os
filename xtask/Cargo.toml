@@ -2,8 +2,8 @@
 # `xtask` is the established Rust pattern for a build-automation binary in its own package
 # (matklad's, widely adopted), so this is the protected class: a stranger who has met `cargo
 # xtask` anywhere else has met it here. Renaming it would assert novelty where there is none,
-# which is the argument DECISIONS §50 records for keeping Plan 9's `bind`. calef has not ratified
-# it.
+# which is the argument DECISIONS §50 (namespace composition (`bind`), not stored paths) records for
+# keeping Plan 9's `bind`. no architect has ratified it.
 
 [package]
 name = "xtask"

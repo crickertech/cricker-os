@@ -4,7 +4,7 @@
 `design/project-metrics.md` and moved it here on the argument that `design/` holds arguments
 (`fatal-risks.md`, the decisions, the roadmap) while `notes/` holds what was measured
 (`benchmarks.md`, `mutation-testing.md`, `unsafe-obligations.md`). `script/metrics` and the
-directory `notes/project-metrics/` are **provisional**; naming is calef's, and a lane ships a
+directory `notes/project-metrics/` are **provisional**; naming is an architect's, and a lane ships a
 provisional name and says so.*
 
 One row per ISO week, computed by `script/metrics` from git history. The data is one CSV per

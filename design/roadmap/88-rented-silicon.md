@@ -10,7 +10,7 @@ needs_person: yes
 # 88. nife on rented silicon: Oracle's free tier first, Graviton metal for the PMU
 
 Raised 2026-08-03, from the observation that several open milestones are
-hardware-gated and a cloud instance is hardware without a purchase. Oracle-first is calef's call
+hardware-gated and a cloud instance is hardware without a purchase. Oracle-first is an architect's call
 (2026-08-03): the always-free A1 shape (4 Ampere cores, 24 GB) makes the recurring cost zero, so
 the rented-silicon story starts with no bill to watch.
 

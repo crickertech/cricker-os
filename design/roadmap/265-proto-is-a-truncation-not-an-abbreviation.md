@@ -69,8 +69,8 @@ form: it rewrote *"Refused `timebase_proto`, above"* into a name refusing itself
 enumerating the diff found it.
 
 The crate this milestone was minted over is therefore `counter_frequency_protocol`, not
-`timebase_protocol`. The stem is calef's and the suffix is this block's, applied in one pass for the
-same reason the `mdns` and `ntp` rows exist.
+`timebase_protocol`. The stem is an architect's and the suffix is this block's, applied in one pass
+for the same reason the `mdns` and `ntp` rows exist.
 
 **`network_time_protocol` is also the answer to a stutter.** Expanding the stem alone gives
 `network_time_protocol_proto`, which says protocol twice. The suffix change removes the duplication
@@ -294,10 +294,10 @@ moved: `PROPOSED`, `NOT-STARTED` and `PARTIAL` blocks, every file under
   meets the rename: `design/roadmap/265-proto-is-a-truncation-not-an-abbreviation.md` says `_rt`,
   `_cli` and any other suffix are untouched and that nobody has checked. It is the same shape as the
   acronym question, and milestone 388 is the list that already exists for acronyms, with its `BUGS`
-  carrying the names still waiting on calef. **The disposition was `**Proposed.**` until 2026-09-19
-  and was wrong then**: that word names the proposal file holding *this* work, and the file it named
-  holds the acronym question instead, so the gate passed on the path's shape rather than on what it
-  held.
+  carrying the names still waiting on an architect. **The disposition was `**Proposed.**` until
+  2026-09-19 and was wrong then**: that word names the proposal file holding *this* work, and the
+  file it named holds the acronym question instead, so the gate passed on the path's shape rather
+  than on what it held.
 
 ## Index row
 

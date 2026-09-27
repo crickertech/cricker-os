@@ -18,7 +18,7 @@ asserts a reset, and `kernel/src/drivers/jh7110_clock_and_reset.rs` still offers
 decision the gate names is unanswered: nothing in `design/decisions/` takes up who may turn a device
 off.
 
-The mechanism is small; who is allowed to hold it is calef's, because the
+The mechanism is small; who is allowed to hold it is an architect's, because the
 answer decides whether a capability variant appears on the syscall surface (§10, §16).
 
 **What the work is.** `crates/jh7110_clock_and_reset` can enable a clock and release a reset. It cannot gate a

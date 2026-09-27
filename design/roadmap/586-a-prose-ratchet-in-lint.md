@@ -75,7 +75,7 @@ file afterwards, and the 2026-09-24 documentation audit found both marked except
 same day they were granted. `design/fatal-risks.md` was granted 4,235 words and measured 4,440, after
 a correction to risk 2 landed. `AGENTS.md`'s marker says 6,279 and the file measured 6,292. The gate
 should treat the marker's number as the file's baseline: growth past it fails like growth past any
-other baseline, and raising it is a new grant, which is calef's.
+other baseline, and raising it is a new grant, which is an architect's.
 
 calef ruled the same day to cut `design/fatal-risks.md` back rather than raise its grant, and it is
 back at 4,235 words, within the grant, as of 2026-09-24. `AGENTS.md` was not part of that ruling.
@@ -113,6 +113,17 @@ A density ratchet would fail the work §212 asks for. Each count may not rise; c
 This departs from §213's words, "bold density may not rise", and calef may overrule it.
 calef overruled it on 2026-09-26 (UTC): a document a change touches is judged on density, and
 whoever condenses a document removes its bold too. §213 records the ruling in his words.
+
+A mechanical rename is not a touch, either (calef, 2026-09-27T05:23Z, ruling on PR #1289): "a
+mechanical rename that adds no new sentence does not count as touching a document for the
+§212/§213 prose ratchet." A rename sweep's substitution ("calef's" to "an architect's", and forms
+like it) adds a word almost everywhere it lands, which both checks above read as growth though
+nobody wrote a new sentence. The exception is a mechanism: `RENAME_PAIRS` names the forms a
+sweep produces, mapped back to the form each replaced. `rename_masked` reads a line through that
+mapping before it is measured or diffed against the merge base, so a line whose only difference
+from its old version is one of these substitutions reads as unchanged. A line that also carries a
+new sentence still differs after the mapping, and still counts; the module's own selftest checks
+this. A future rename of this shape needs a new pair in the list, not a new per-file exception.
 
 Banking is lazy. A shrink does not force a baseline edit, because forced banking would put the
 baseline in most pull requests. The merge-base comparison closes the slack instead.

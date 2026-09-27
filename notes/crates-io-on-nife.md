@@ -1,18 +1,18 @@
 # Somebody else's crate: what crates.io does against the nife `std`
 
-*(Milestone 64, measurement phase, 2026-08-04. Milestone 27 built a `std` platform layer on the
+*(Milestone 64, measurement phase, 2026-08-04. Milestone 27 (rust) built a `std` platform layer on the
 native ABI (notes/std.md) and claimed it widened real workloads to "most of crates.io that stays off
 fs and threads". This note is the attempt to find out whether the qualifier is doing as much work as
 it sounds like. Fifty crates were taken off crates.io and built against the patched `std`; this is
 what happened and why.)*
 
-**The short answer: the qualifier was pessimistic, and the table was measuring the wrong thing.**
+The short answer: the qualifier was pessimistic, and the table was measuring the wrong thing.
 `std::fs` answering `Unsupported` for 32 of 54 functions is not what stops crates from building.
-**39 of 50 probes built with no change at all**, including `regex`, `serde_json`, `tokio`'s
-current-thread runtime, `rayon`, `clap`, `chrono` and `walkdir`. Of the 11 that failed, **eight
-failed on one crate**, and it is not part of `std`.
+39 of 50 probes built with no change at all, including `regex`, `serde_json`, `tokio`'s
+current-thread runtime, `rayon`, `clap`, `chrono` and `walkdir`. Of the 11 that failed, eight
+failed on one crate, and it is not part of `std`.
 
-> **The split is 43/7 today, and it was 39/11 before `entropy_backend` landed** (re-derived
+> The split is 43/7 today, and it was 39/11 before `entropy_backend` landed (re-derived
 > 2026-08-18, milestone 64's third pass, by `script/crate-probes`, which is now the measurement
 > rather than the recipe below). Both numbers are one command apart and both are real: bare
 > `script/crate-probes` gives 43 built and 7 failed, and `script/crate-probes --no-backend` runs
@@ -20,21 +20,21 @@ failed on one crate**, and it is not part of `std`.
 >
 > The four crates between them are `rand`, `uuid`, `gix-object` and `gix-actor`, which is exactly
 > class A's remainder, and the second run was checked against those four rather than assumed: all
-> four still stop at `getrandom`'s `compile_error!` without the backend. **So 39 "built with no
-> change at all" and 43 "built against this tree as it ships"**, and the old headline is the first
+> four still stop at `getrandom`'s `compile_error!` without the backend. So 39 "built with no
+> change at all" and 43 "built against this tree as it ships", and the old headline is the first
 > of those, still true and no longer the interesting one. `entropy_backend` is eleven lines and two
 > lines of consuming config; calling that "a change" and 43 crates "not building" was the reading
 > that kept the number down.
 >
-> **The number before that was 35/15, and it was wrong for thirteen days** (corrected 2026-08-17).
-> The headline **double-counted the four crates that appear in two failure classes at once**:
+> The number before that was 35/15, and it was wrong for thirteen days (corrected 2026-08-17).
+> The headline double-counted the four crates that appear in two failure classes at once:
 > `zip` and `ring` are in class A *and* class C; `gix-config` and `gix` are in class A *and* class
 > B. Summing the class headings gives 8 + 3 + 3 + 1 = 15, and the distinct crates behind them are
 > eleven. The tables below were right all along; only the sentence over them was wrong, which is why
 > nothing caught it. Three hand re-derivations of one measurement produced two wrong headlines,
 > which is why `script/crate-probes` exists: a measurement a reader cannot re-run is a claim.
 
-**The long answer has a sting in it, and it is the block's own BUGS entry made concrete:** a crate
+The long answer has a sting in it, and it is the block's own BUGS entry made concrete: a crate
 that compiles is not a crate that works. `tempfile` builds and links, and every one of its
 operations returns "operation not supported on this platform" at runtime, because it has an explicit
 fallback arm for platforms it does not know. Nothing in a green build says so. See
@@ -49,8 +49,8 @@ script/crate-probes --no-backend     # the same fifty without entropy_backend
 script/crate-probes --keep           # leave the generated probe crates and their build logs
 ```
 
-**PROVISIONAL NAME** (milestone 64, 2026-08-18): script names are calef's and this one is not
-ratified.
+PROVISIONAL NAME (milestone 64 (std), 2026-08-18): names
+are an architect's and this one is not ratified.
 
 It takes the account-wide `nife-dev` link (it calls `cargo xtask std-src`) and it needs the network,
 so it is not a CI gate and `script/test` does not run it. It builds for aarch64 only, deliberately:
@@ -58,7 +58,7 @@ the PAL speaks the capability ABI rather than an ISA, so a second target would r
 thing at twice the cost, and the parity that matters is `std_exerciser`'s, which `script/test` runs
 on both.
 
-**A failing probe is rebuilt for the host**, and reports `BODY` rather than `FAIL` if the host build
+A failing probe is rebuilt for the host, and reports `BODY` rather than `FAIL` if the host build
 fails too. That is the harness saying "my own call site is wrong, ignore this row", which is the
 check fifty hand-written `main`s could not give anyone.
 
@@ -89,16 +89,16 @@ RUSTUP_TOOLCHAIN=nife-dev cargo build --release \
     --target /path/to/nife/targets/aarch64-unknown-nife.json
 ```
 
-**Build a `[[bin]]`, not a `[lib]`, and this is not a detail.** A library target is never linked, so
+Build a `[[bin]]`, not a `[lib]`, and this is not a detail. A library target is never linked, so
 a crate whose only blocker is a missing C library passes. `diesel` with the `sqlite` feature compiles
 clean and then fails at `rust-lld: error: unable to find library -lsqlite3`. The first pass of this
 measurement used libraries and recorded `diesel` as a pass.
 
-**And the `main` must CALL the crate**, which is the same rule one notch further in and which the
+And the `main` must CALL the crate, which is the same rule one notch further in and which the
 2026-08-17 re-derivation found by tripping over it. A `[[bin]]` whose body is `fn main() {}` declares
 the dependency, compiles it, and still does not link it, so `diesel` passed again until the probe was
 given `SqliteConnection::establish(":memory:")` to call, at which point `-lsqlite3` came back exactly
-as recorded. The rule that covers both: **a probe proves nothing the linker was not asked to do.**
+as recorded. The rule that covers both: a probe proves nothing the linker was not asked to do.
 
 Set `CARGO_TARGET_DIR` to one shared directory across probes so build-std compiles the patched `std`
 once (about 10 seconds) instead of once per crate.
@@ -151,16 +151,16 @@ Fifty crates, resolved versions as of 2026-08-04, built for `aarch64-unknown-nif
 | `tracing` | 0.1.44 | ubiquitous observability |
 | `gix-hash` | 0.20.1 | milestone 99 leaf |
 
-Twelve of these were rebuilt as **executables** that call the crate for real (`serde_json` round
+Twelve of these were rebuilt as executables that call the crate for real (`serde_json` round
 trip, `regex` match, `flate2` gzip round trip, `walkdir` over `.`, `chrono::Utc::now`, `clap` parse,
 a `tokio` current-thread `block_on`, `csv` records, `tempfile::NamedTempFile::new`,
-`fs_err::read_to_string`, `rayon` parallel sum). All twelve linked. **Whether they work is a
-different question**, answered below and not by this measurement.
+`fs_err::read_to_string`, `rayon` parallel sum). All twelve linked. Whether they work is a
+different question, answered below and not by this measurement.
 
 ### Failed, and why (11 crates, in four classes)
 
 Every failure is one of four classes. The class matters much more than the crate, which is why the
-classes are the headings; **four crates are in two classes at once**, and adding the class headings
+classes are the headings; four crates are in two classes at once, and adding the class headings
 up is what produced the wrong 15 above.
 
 | crate | classes |
@@ -172,7 +172,7 @@ up is what produced the wrong 15 above.
 | `diesel` | C |
 | `rocket` | D |
 
-#### Class A: `getrandom` has no `nife` backend (8 of 11), **closed 2026-08-17**
+#### Class A: `getrandom` has no `nife` backend (8 of 11), closed 2026-08-17
 
 `rand`, `uuid`, `zip`, `gix-object`, `gix-actor`, `gix-config`, `gix`, `ring` all die on the same
 `compile_error!`:
@@ -186,19 +186,19 @@ error: target is not supported. You may need to define a custom backend see:
 at all: `std::random::SystemRng` works (milestone 56, slot 6). It is one crate in the ecosystem that
 predates us.
 
-**It is also the cheapest thing on this list to fix, and that was measured rather than assumed.**
+It is also the cheapest thing on this list to fix, and that was measured rather than assumed.
 `getrandom` 0.3 and 0.4 both document a custom backend: build with
 `RUSTFLAGS='--cfg getrandom_backend="custom"'` and define one function. With a stub backend that
 fills from `std::random::SystemRng`, six of the eight went from failing to building:
 
 | crate | round 1 | with a custom `getrandom` backend |
 |---|---|---|
-| `rand` 0.9.5 | FAIL | **PASS** |
-| `uuid` 1.24.0 | FAIL | **PASS** |
-| `gix-object` 0.51.1 | FAIL | **PASS** |
-| `gix-actor` 0.36.1 | FAIL | **PASS** |
-| `gix-features` 0.45 | FAIL | **PASS** |
-| `gix-hash` 0.20.1 | (passed) | **PASS** |
+| `rand` 0.9.5 | FAIL | PASS |
+| `uuid` 1.24.0 | FAIL | PASS |
+| `gix-object` 0.51.1 | FAIL | PASS |
+| `gix-actor` 0.36.1 | FAIL | PASS |
+| `gix-features` 0.45 | FAIL | PASS |
+| `gix-hash` 0.20.1 | (passed) | PASS |
 | `zip` 5.1.1 | FAIL | FAIL (class C: `zstd-sys`) |
 | `gix-config` 0.48.0 | FAIL | FAIL (class B: `gix-sec`) |
 | `gix` 0.74.1 | FAIL | FAIL (class B: `gix-sec`) |
@@ -221,33 +221,33 @@ unsafe extern "Rust" fn __getrandom_v03_custom(
 }
 ```
 
-Note the symbol is `__getrandom_v03_custom` for **both** 0.3 and 0.4; `getrandom` 0.4.3's
+Note the symbol is `__getrandom_v03_custom` for both 0.3 and 0.4; `getrandom` 0.4.3's
 `backends/custom.rs` still declares the v03 name. `getrandom` 0.2, which `ring` pulls, uses a
 different mechanism (the `register_custom_getrandom!` macro), so a fix has to cover two shapes.
 
-**The right fix is probably not the custom hook**, because the hook is a `RUSTFLAGS` setting that
+The right fix is probably not the custom hook, because the hook is a `RUSTFLAGS` setting that
 every consumer has to remember and that a workspace cannot express per-dependency. `getrandom` 0.4
 carries a `hermit.rs` backend selected by `target_os = "hermit"`, which is exactly the shape this
-project's `std` already took from Hermit. An upstream arm, or a patch under `patches/`, is a
+project's `std` took from Hermit. An upstream arm, or a patch under `patches/`, is a
 decision for whoever picks this up.
 
 ##### What was decided, and where the paragraph above was wrong
 
-**`entropy_backend` is the answer** (milestone 64, 2026-08-17), and it is the custom hook
+`entropy_backend` is the answer (milestone 64, 2026-08-17), and it is the custom hook
 after all. The objection above is half right: the flag is a `RUSTFLAGS` setting, and a consumer that
-forgets it gets the same `compile_error!`. But **a workspace states it once, in its own
-`.cargo/config.toml`**, and per-workspace is the correct granularity anyway, because whether an
+forgets it gets the same `compile_error!`. But a workspace states it once, in its own
+`.cargo/config.toml`, and per-workspace is the correct granularity anyway, because whether an
 entropy source exists is a property of the target rather than of any one dependency. "Cannot express
 per-dependency" was true and was not the requirement.
 
 What tipped it was the other side of the ledger. A `[patch.crates-io]` fork needs no flag at the call
 site, which is genuinely nicer, and costs a maintained fork of a crate this very note recorded as
-**mid-transition across 0.2, 0.3 and 0.4 inside one dependency graph**. §46's rule is that we vendor
+mid-transition across 0.2, 0.3 and 0.4 inside one dependency graph. §46 (thin)'s rule is that we vendor
 where correctness is won by exposure; a hook the upstream crate designed for this case is neither
 that nor code we would otherwise write, and it is eleven lines that upstream cannot break without
 also breaking Hermit's.
 
-**The upstream arm is still the right long-term fix and is a smaller diff than the hook.** It is a
+The upstream arm is still the right long-term fix and is a smaller diff than the hook. It is a
 pull request against `getrandom`, not a change to this tree.
 
 Three things about the recipe, and the third cost an hour:
@@ -255,7 +255,7 @@ Three things about the recipe, and the third cost an hour:
 1. Depend on `entropy_backend`.
 2. `rustflags = ["--cfg", "getrandom_backend=\"custom\""]` in the consuming workspace's
    `.cargo/config.toml`.
-3. **`use entropy_backend as _;` in the binary.** An rlib nothing references is not linked, so
+3. `use entropy_backend as _;` in the binary. An rlib nothing references is not linked, so
    without this the build reaches `rust-lld: error: undefined symbol: __getrandom_v03_custom`. Two of
    the eight probes linked without it because they happened to call `getrandom` on a path the linker
    kept; six did not. Same shape as a `no_std` panic handler: a crate that exists to define a symbol
@@ -265,23 +265,23 @@ Re-measured with it, on 2026-08-17:
 
 | crate | with `entropy_backend` |
 |---|---|
-| `rand` 0.9 | **PASS** |
-| `uuid` 1 | **PASS** |
-| `gix-object` 0.51 | **PASS** |
-| `gix-actor` 0.36 | **PASS** |
+| `rand` 0.9 | PASS |
+| `uuid` 1 | PASS |
+| `gix-object` 0.51 | PASS |
+| `gix-actor` 0.36 | PASS |
 | `gix-config` 0.48 | FAIL, class B (`gix-sec`) |
 | `gix` 0.74 | FAIL, class B (the `errno` crate now, not `gix-sec`) |
 | `zip` 5 | FAIL, class C (`zstd-sys`) |
-| `ring` 0.17 | FAIL, `getrandom` **0.2**, whose hook is the `register_custom_getrandom!` macro |
+| `ring` 0.17 | FAIL, `getrandom` 0.2, whose hook is the `register_custom_getrandom!` macro |
 
-**Four of eight, which is exactly what the 2026-08-04 stub reached**, and the point is the other
+Four of eight, which is exactly what the 2026-08-04 stub reached, and the point is the other
 four: not one of them still fails on `getrandom`'s dispatch. Class A is closed and what is left
 behind it is classes B and C, which are different work.
 
 #### Class B: the crate falls through to `unix` (3 of 11)
 
 `tar` (via `filetime` 0.2.29) and `gix-config`/`gix` (via `gix-sec` 0.12.2) both do a
-`cfg_if`-shaped dispatch whose **last arm assumes unix**:
+`cfg_if`-shaped dispatch whose last arm assumes unix:
 
 ```
 error[E0433]: cannot find `unix` in `os`
@@ -293,11 +293,11 @@ error[E0425]: cannot find function `geteuid` in crate `libc`
 
 This is the class that says something about us rather than about them. There is no
 `std::os::nife`, `libc` has no `nife` module, and a crate whose platform ladder ends in "else
-it is unix" cannot compile here. The three crates that hit it are asking for a **uid** and a
-**file mtime set**, neither of which this system has in the form they want.
+it is unix" cannot compile here. The three crates that hit it are asking for a uid and a
+file mtime set, neither of which this system has in the form they want.
 
-Contrast `tempfile`, which has an explicit `other.rs` arm and therefore compiles. **The distinction
-between the 35 and this class is entirely whether the crate author wrote a fallback**, and nothing
+Contrast `tempfile`, which has an explicit `other.rs` arm and therefore compiles. The distinction
+between the 35 and this class is entirely whether the crate author wrote a fallback, and nothing
 about how hard the crate is.
 
 #### Class C: a C library or C sources (3 of 11)
@@ -305,7 +305,7 @@ about how hard the crate is.
 - `ring` 0.17.14: builds C and assembly, and `cc` cannot find `assert.h` for this target.
   `fatal error: 'assert.h' file not found`.
 - `zip` 5.1.1 (via `zstd-sys`): same shape, a C build script.
-- `diesel` 2.3.11 with `sqlite`: **compiles** and fails at link,
+- `diesel` 2.3.11 with `sqlite`: compiles and fails at link,
   `rust-lld: error: unable to find library -lsqlite3`.
 
 These are jobs for the C seam (notes/c-seam.md), not for the `std` PAL. They are also the only class
@@ -320,7 +320,7 @@ error: Socket2 doesn't support the compile target
 error[E0432]: unresolved import `crate::sys::IoSourceState`
 ```
 
-`mio` with **no** features compiles (its `sys` module is empty), which is why it appears in the pass
+`mio` with no features compiles (its `sys` module is empty), which is why it appears in the pass
 list; the moment anything asks for the reactor it does not. This is the same shape as class B, one
 level up: a readiness-based IO model wants file descriptors and a poller, and neither exists here.
 
@@ -342,13 +342,13 @@ Err(io::Error::new(io::ErrorKind::Other, "operation not supported on this platfo
 ```
 
 So `tempfile` builds, links, and returns an error from `NamedTempFile::new()`. That matters far
-beyond `tempfile`, because **gitoxide's atomicity story runs through it**: `gix-lock`'s commit calls
+beyond `tempfile`, because gitoxide's atomicity story runs through it: `gix-lock`'s commit calls
 `self.inner.persist(&resource_path)`, which is `gix-tempfile`, which is `tempfile::persist`, which
 on nife is `not_supported()`. A `gix` that built cleanly would fail to write a single ref.
 
-> **That paragraph was wrong about which failure came first, and the correction is worse than the
-> claim** (2026-08-18, milestone 64's third pass). Until that day `NamedTempFile::new()` did not
-> return an error: it **aborted the process**. `tempfile::env::temp_dir()` delegates straight to
+> That paragraph was wrong about which failure came first, and the correction is worse than the
+> claim (2026-08-18, milestone 64's third pass). Until that day `NamedTempFile::new()` did not
+> return an error: it aborted the process. `tempfile::env::temp_dir()` delegates straight to
 > `std::env::temp_dir`, nife had no `sys/paths` backend, and the shared fallback's `temp_dir()` is
 > `panic!("no filesystem on this platform")`. The program died there, before `other.rs` was ever
 > reached. Reading a crate's fallback arm and stopping is how that was missed: the analysis was
@@ -356,27 +356,27 @@ on nife is `not_supported()`. A `gix` that built cleanly would fail to write a s
 >
 > It is fixed as of that date (`sys/paths/nife.rs`), and fixing it changed nothing about the
 > conclusion above, which is the point worth keeping. `temp_dir` now answers, `other.rs` now gets
-> reached, and `other.rs` still refuses everything. **The abort became the error this section
-> always described.**
+> reached, and `other.rs` still refuses everything. The abort became the error this section
+> always described.
 
-The lesson for milestone 99 and 66 is a sequencing one. **Do not read a passing build as a working
-crate**, and do not order the work by what fails to compile: `tempfile` never appears on a build
+The lesson for milestone 99 and 66 is a sequencing one. Do not read a passing build as a working
+crate, and do not order the work by what fails to compile: `tempfile` never appears on a build
 failure list and is on the critical path for git.
 
 ## The prioritised gap list
 
-This is the deliverable milestones 99 and 66 consume. It is **not** the order the milestone 27 table
+This is the deliverable milestones 99 and 66 consume. It is not the order the milestone 27 table
 suggests, because that table counts functions and this counts demand.
 
 The method: for each probe, take `cargo tree -e normal --target aarch64-unknown-nife.json` (normal
 edges only, so `cc`, `autocfg`, `vcpkg` and every proc-macro crate are excluded, since those run on
-the **host** and can call anything they like), then grep every package's `src/` for call sites of the
+the host and can call anything they like), then grep every package's `src/` for call sites of the
 std APIs the PAL refuses. The "probes" column is how many of the 50 dependency closures contain at
 least one call site.
 
-**Six rows in this table were stale until 2026-09-05** (milestone 259's notes sweep), all in the
+Six rows in this table were stale until 2026-09-05 (milestone 259 (sweep)'s notes sweep), all in the
 same direction: `Unsupported` where milestone 64 had since bound the call. The table's own
-annotations are what made it obvious, because five of the six already carried a **verb exists**
+annotations are what made it obvious, because five of the six carried a verb exists
 note, which is a gap list saying out loud that it is one binding away and then not being reread
 when the binding landed. The PAL's own header (`sys/fs/nife.rs`) had recorded all six under "Also
 bound since milestone 64" and nothing propagated it here. Nothing gates this; the only mechanism is
@@ -384,101 +384,101 @@ somebody reading the PAL and this page together.
 
 | rank | gap | PAL today | probes | packages | note |
 |---|---|---|---|---|---|
-| 1 | `getrandom` backend | **CLOSED** 2026-08-17 | 8 failed outright | `rand`, `uuid`, `ring`, all of `gix` | not a std gap; the `entropy_backend` workspace crate (named by calef, 2026-08-18). This cell said `patches/getrandom-nife`, which has never existed under that name |
-| 2 | `std::os::unix` fallthrough | absent, **declined** | 21 | 34 | mostly benign (behind `cfg(unix)`); fatal in `filetime`, `gix-sec`. See below |
-| 3 | `thread::spawn` | `Unsupported`, **decided** | 20 | 33 | `rayon`, `crossbeam`, `tokio`, `diesel`. The fork was resolved by DECISIONS §105 (2026-08-22): declined for want of a customer, not for want of a mechanism. See below, and notes/thread-spawn-fork.md |
-| 4 | `env::var` | **CLOSED** 2026-08-17 | 16 | 24 | `chrono` (TZ), `clap`, `gix`, `figment`; `vars()` used to **panic** |
-| 5 | `fs::create_dir(_all)` | **CLOSED**, milestone 64 | 11 | 17 | bound on `MKDIR`. `create_dir_all` also needed rank 19a |
-| 6 | `available_parallelism` | `Ok(1)` | 11 | 7 | already answers honestly |
+| 1 | `getrandom` backend | CLOSED 2026-08-17 | 8 failed outright | `rand`, `uuid`, `ring`, all of `gix` | not a std gap; the `entropy_backend` workspace crate (named by calef, 2026-08-18). This cell said `patches/getrandom-nife`, which has never existed under that name |
+| 2 | `std::os::unix` fallthrough | absent, declined | 21 | 34 | mostly benign (behind `cfg(unix)`); fatal in `filetime`, `gix-sec`. See below |
+| 3 | `thread::spawn` | `Unsupported`, decided | 20 | 33 | `rayon`, `crossbeam`, `tokio`, `diesel`. The fork was resolved by DECISIONS §105 (declined) (2026-08-22): for want of a customer, not for want of a mechanism. See below, and notes/thread-spawn-fork.md |
+| 4 | `env::var` | CLOSED 2026-08-17 | 16 | 24 | `chrono` (TZ), `clap`, `gix`, `figment`; `vars()` used to panic |
+| 5 | `fs::create_dir(_all)` | CLOSED, milestone 64 | 11 | 17 | bound on `MKDIR`. `create_dir_all` also needed rank 19a |
+| 6 | `available_parallelism` | `Ok(1)` | 11 | 7 | answers honestly |
 | 7 | `fs::read_link` | `Unsupported` | 10 | 10 | no symlinks in the contract |
-| 8 | `File::set_len` | **CLOSED** 2026-08-17 | 10 | 9 | `TRUNCATE` existed all along; only the size word was missing |
-| 9 | `fs::symlink_metadata` | **already bound** | 9 | 13 | the row was stale: std routes it to `lstat`, which this PAL binds |
+| 8 | `File::set_len` | CLOSED 2026-08-17 | 10 | 9 | `TRUNCATE` existed all along; only the size word was missing |
+| 9 | `fs::symlink_metadata` | bound | 9 | 13 | the row was stale: std routes it to `lstat`, which this PAL binds |
 | 10 | `std::os::fd` | absent | 9 | 12 | `mio`, `memmap2`, `is-terminal` |
-| 11 | `fs::read_dir` | **CLOSED**, milestone 64 | 8 | 13 | bound on `OPENDIR` and `READDIR` |
-| 12 | `fs::remove_file` | **CLOSED**, milestone 64 | 7 | 12 | bound on `UNLINK` |
-| 13 | `fs::remove_dir(_all)` | **CLOSED**, milestone 64, with `remove_dir_all` at milestone 122 | 7 | 8 | bound on `RMDIR`; `remove_dir_all` needed no verb once nested paths resolved |
+| 11 | `fs::read_dir` | CLOSED, milestone 64 | 8 | 13 | bound on `OPENDIR` and `READDIR` |
+| 12 | `fs::remove_file` | CLOSED, milestone 64 | 7 | 12 | bound on `UNLINK` |
+| 13 | `fs::remove_dir(_all)` | CLOSED, milestone 64, with `remove_dir_all` at milestone 122 (directory) | 7 | 8 | bound on `RMDIR`; `remove_dir_all` needed no verb once nested paths resolved |
 | 14 | `fs::hard_link` | `Unsupported` | 7 | 4 | no verb |
 | 15 | `Permissions` | `readonly` is `false` | 7 | 8 | authority is a capability, not a mode bit |
-| 16 | `env::temp_dir` | **CLOSED** 2026-08-18 | 11 | 9 | it was a `panic!`, not a refusal; re-counted from 7 |
-| 16a | `env::split_paths` | **CLOSED** 2026-08-18 | 8 | 4 | also a `panic!`; no row existed, and no namespace in it |
-| 16b | `process::id` | **CLOSED** 2026-08-18 | 5 | 5 | also a `panic!`; `gix-tempfile`'s fork check |
+| 16 | `env::temp_dir` | CLOSED 2026-08-18 | 11 | 9 | it was a `panic!`, not a refusal; re-counted from 7 |
+| 16a | `env::split_paths` | CLOSED 2026-08-18 | 8 | 4 | also a `panic!`; no row existed, and no namespace in it |
+| 16b | `process::id` | CLOSED 2026-08-18 | 5 | 5 | also a `panic!`; `gix-tempfile`'s fork check |
 | 17 | `process::Command` | no PAL at all | 6 | 10 | `gix-command`, `gix-credentials` |
-| 18 | `env::current_dir` | `Unsupported`, **declined** | 6 | 5 | refuses honestly; it is the namespace question |
-| 19 | `Metadata::modified` | **CLOSED** 2026-09-19, by path | 5 | 7 | bound on `GETMTIME`, which milestone 47's `touch` added on 2026-08-24; the reason column said a wire change was needed for three weeks after it stopped being true. Through an open `File` it still refuses (the verb takes a name); see notes/std.md |
+| 18 | `env::current_dir` | `Unsupported`, declined | 6 | 5 | refuses honestly; it is the namespace question |
+| 19 | `Metadata::modified` | CLOSED 2026-09-19, by path | 5 | 7 | bound on `GETMTIME`, which milestone 47 (navigation)'s `touch` added on 2026-08-24; the reason column said a wire change was needed for three weeks after it stopped being true. Through an open `File` it still refuses (the verb takes a name); see notes/std.md |
 | 19a | `Path::is_dir` on a directory | was always `false` | (not counted) | | closed with the five above; `create_dir_all` needed it |
 | 20 | `fs::set_permissions` | `Unsupported` | 4 | 3 | |
-| 21 | `TcpListener` | **CLOSED** 2026-08-18 | 4 | 11 | the LISTEN verb landed at milestone 107; the reason column was stale for a fortnight |
+| 21 | `TcpListener` | CLOSED 2026-08-18 | 4 | 11 | the LISTEN verb landed at milestone 107 (socket); the reason column was stale for a fortnight |
 | 22 | `ToSocketAddrs` / DNS | numeric only | 4 | 5 | |
 | 23 | `Metadata::created` | `Unsupported` | 3 | 3 | |
 | 24 | `set_nonblocking` | `Unsupported` | 3 | 4 | contract is blocking-only |
-| 25 | `fs::rename` | **CLOSED**, milestone 64 | 2 | 2 | bound on `RENAME`; undercounted, see BUGS |
-| 26 | `fs::copy` | **CLOSED** 2026-08-17 | 2 | 2 | needs no verb: an open, a read/write loop, two closes |
+| 25 | `fs::rename` | CLOSED, milestone 64 | 2 | 2 | bound on `RENAME`; undercounted, see BUGS |
+| 26 | `fs::copy` | CLOSED 2026-08-17 | 2 | 2 | needs no verb: an open, a read/write loop, two closes |
 | 27 | `fs::canonicalize` | `Unsupported` | 2 | 1 | |
-| 28 | `File::set_times` | `fs::set_times` **CLOSED** 2026-09-19; `File::set_times` still `Unsupported` | 2 | 1 | `SETMTIME_AT` sets by name, needing `dir::WRITE` and `dir::SETTIME` (§112 (touch's two behaviors need two rights)); a handle has no name, so the `File` form is design/roadmap/504-an-mtime-for-an-open-file.md |
+| 28 | `File::set_times` | `fs::set_times` CLOSED 2026-09-19; `File::set_times` still `Unsupported` | 2 | 1 | `SETMTIME_AT` sets by name, needing `dir::WRITE` and `dir::SETTIME` (§112 (touch's two behaviors need two rights)); a handle has no name, so the `File` form is design/roadmap/504-an-mtime-for-an-open-file.md |
 | 29 | `File::try_clone` | `Unsupported` | 2 | 1 | a handle is one session's token (§27) |
 | 30 | `File::lock`/`try_lock` | `Unsupported` | 2 | 1 | `gix-tempfile` |
 | 31 | read/write timeouts | `Unsupported` | 1 | 1 | |
-| 32 | `Metadata::accessed` | `Unsupported` | 0 | 0 | **nobody asked for it** |
+| 32 | `Metadata::accessed` | `Unsupported` | 0 | 0 | nobody asked for it |
 
 ### The second pass, 2026-08-17: what closed, what was declined, and why
 
 Milestone 64's first pass took the five bindings below. The second worked the ranked list from the
 top and stopped where the reason to stop was a decision rather than an effort.
 
-**Closed:** rank 1 (`getrandom`, above), rank 4 (`env`), rank 8 (`File::set_len`), rank 26
+Closed: rank 1 (`getrandom`, above), rank 4 (`env`), rank 8 (`File::set_len`), rank 26
 (`fs::copy`). Rank 9 turned out to need nothing: `fs::symlink_metadata` routes to `sys::fs::lstat`,
 which this PAL has bound since milestone 27, so the row was recording a refusal that was not there.
 
-**Rank 4 is the one worth reading, because it is the sting in a second place.** `env::var` was
+Rank 4 is the one worth reading, because it is the sting in a second place. `env::var` was
 recorded as "no PAL at all", which sounded like the harmless kind of gap: `getenv` falling through to
 `sys::env::unsupported` answers `None`, and `None` is what a Unix box with the variable unset answers
 too. But the same fallback's `env()` is `panic!("not supported on this platform")`, so
-**`std::env::vars()` aborted the process**, and so did `Command::envs`, a logger dumping its
+`std::env::vars()` aborted the process, and so did `Command::envs`, a logger dumping its
 configuration, anything that filters the environment rather than asking for one name. Like
 `tempfile`, it compiled perfectly. Unlike `tempfile`, the fix was ours.
 
-The backend (`patches/std-nife/overlay/std/src/sys/env/nife.rs`) is a **process-local table, empty at
-start**: nothing endows a nife process with variables, `set_var` works because that is what `set_var`
+The backend (`patches/std-nife/overlay/std/src/sys/env/nife.rs`) is a process-local table, empty at
+start: nothing endows a nife process with variables, `set_var` works because that is what `set_var`
 means everywhere, and `vars()` returns an empty iterator, which is the one answer here that is never
 a lie. Milestone 47's namespace is where a *seeded* environment would come from, and the shape does
 not change when it arrives.
 
-**Declined, and each for a reason rather than for time:**
+Declined, and each for a reason rather than for time:
 
-- **Rank 2, `std::os::unix`.** The three crates behind it want a **uid** (`gix-sec`) and a **file
-  mtime set** (`filetime`), and this system has neither in the form they ask for. A `std::os::nife`
+- Rank 2, `std::os::unix`. The three crates behind it want a uid (`gix-sec`) and a file
+  mtime set (`filetime`), and this system has neither in the form they ask for. A `std::os::nife`
   that answered `geteuid()` would be inventing an identity nothing issues, and a `MetadataExt` over
   a contract with no mode bits would be a Unix fiction over a capability refusal, which is exactly
   what the `InvalidFilename`-not-`PermissionDenied` choice in `sys/fs/nife.rs` exists to avoid. §42's
   rule is to declare what you offer; the honest answer here is that these crates cannot build, and
   the note's own observation stands: *the distinction between the passes and this class is entirely
   whether the crate author wrote a fallback.*
-- **Rank 3, `thread::spawn`.** Not declined on the merits: it is a **design fork** and the roadmap
-  block already says so in its own BUGS. The kernel has everything the spawn needs (retype a TCB,
+- Rank 3, `thread::spawn`. Not declined on the merits: it is a design fork and the roadmap
+  block says so in its own BUGS. The kernel has everything the spawn needs (retype a TCB,
   CONFIGURE it into this address space, START it); what has never been decided is *what a `std`
   thread is* against the budget model, and a PAL that guessed would ship the answer as an
   implementation detail. It also has no build failures behind it at all: all four of `rayon`,
   `crossbeam-channel`, `tokio` and `ignore` compile and link today.
-- **Ranks 7, 10, 14, 15, 20, 23, 29 and 30** (`read_link`, `std::os::fd`, `hard_link`, `Permissions`,
+- Ranks 7, 10, 14, 15, 20, 23, 29 and 30 (`read_link`, `std::os::fd`, `hard_link`, `Permissions`,
   `set_permissions`, `Metadata::created`, `File::try_clone`, `File::lock`). Each refuses because
   nothing in §27 backs it, and inventing a backing is the failure mode. `try_lock` is the one that
   will hurt: `gix-tempfile` wants it.
-- **Ranks 19 and 28 closed on 2026-09-19, by path, and the two paragraphs below are what this note
-  said before that.** Milestone 47's `touch` lane added the three mtime verbs on 2026-08-24
+- Ranks 19 and 28 closed on 2026-09-19, by path, and the two paragraphs below are what this note
+  said before that. Milestone 47's `touch` lane added the three mtime verbs on 2026-08-24
   (DECISIONS §112), which made both rows PAL bindings; this note went on calling them wire-format
   decisions for three weeks. What is still refused is the open-`File` form of each, because the
   verbs take a name and a handle has none; that one genuinely is a wire change, and it is proposed
   in design/roadmap/504-an-mtime-for-an-open-file.md.
-- **Rank 19, `Metadata::modified`.** The nearest miss on the list. The FS server keeps an mtime and
+- Rank 19, `Metadata::modified`. The nearest miss on the list. The FS server keeps an mtime and
   §43 gave us a clock to read it against, so the only missing piece is a **field in `FSTAT`'s
   reply**, which makes it a wire-format change, the expensive and irreversible kind, and not a
   lane's to make. It wants a `DECISIONS` section and calef.
-- **Rank 28, `File::set_times`, is the same shape as rank 19 and was never named as a decision by an
-  earlier pass** (found on milestone 64's next lane, 2026-08-22, while checking the list for anything
+- Rank 28, `File::set_times`, is the same shape as rank 19 and was never named as a decision by an
+  earlier pass (found on milestone 64's next lane, 2026-08-22, while checking the list for anything
   still genuinely buildable). Setting an mtime needs a verb no less than reading one does; there is
   no `SET_TIME` (or equivalent) in `filesystem_protocol`'s verb table today. It is a second wire-format row
   behind the same open decision, not a second question.
-- **Ranks 16, 18 and 27** (`env::temp_dir`, `env::current_dir`, `fs::canonicalize`) and everything
+- Ranks 16, 18 and 27 (`env::temp_dir`, `env::current_dir`, `fs::canonicalize`) and everything
   else that needs to resolve a path against something. These are the `File::open` resolution fork,
   which the roadmap block reserves to be answered jointly with milestone 47's namespace half rather
   than twice. Nothing here routed around it.
@@ -514,15 +514,15 @@ also undercounted by four probes.
 so the next lane can apply it rather than re-derive it: **fix the ones that abort, leave the ones
 that refuse.**
 
-- **`env::temp_dir`** (`patches/std-nife/overlay/std/src/sys/paths/nife.rs`) answers `TMPDIR` if the
+- `env::temp_dir` (`patches/std-nife/overlay/std/src/sys/paths/nife.rs`) answers `TMPDIR` if the
   program set one, otherwise `.`. `PathBuf` has no error channel, so *something* had to be named,
-  and `.` is not a new decision: `sys/fs/nife.rs`'s `one_name` already says *"./motd is motd: the
+  and `.` is not a new decision: `sys/fs/nife.rs`'s `one_name` says *"./motd is motd: the
   current directory IS the granted one."* A process holds one directory and that is the only place a
   temporary file can go. `/tmp` lost because it names a filesystem root this system does not have,
   so every path built on it would be refused with `InvalidFilename`, turning an abort into a
   guaranteed failure rather than into working code. `TMPDIR` is first for parity and because it is
   the seam milestone 47's namespace arrives through, with no change to the file.
-- **`env::split_paths` and `env::join_paths`** are pure string work over a separator with no
+- `env::split_paths` and `env::join_paths` are pure string work over a separator with no
   platform in them at all, which is what makes the old `panic!` indefensible rather than merely
   unimplemented. Round-tripped in `std_exerciser`, because a splitter that agrees with nothing is
   worth less than no splitter.
@@ -619,7 +619,7 @@ with a narrowed directory capability does not exist yet; that wants a lane).
 
 ## BUGS
 
-- **The runtime half is still not measured, for somebody else's crate.** Everything in the tables
+- The runtime half is still not measured, for somebody else's crate. Everything in the tables
   here is compile and link; no probe has ever been booted, so no line in them is evidence that a
   *crate* works, and `tempfile` is proof that the distinction is real rather than pedantic.
   What the second pass added is runtime evidence for **the PAL surfaces it closed** (`env`,
@@ -634,24 +634,24 @@ with a narrowed directory capability does not exist yet; that wants a lane).
   refusal the census greps for. The method that found them is not a list at all: read every module
   the PAL falls through instead of binding, and read what its *neighbours* do.
 
-  **This is now a gate, `cargo xtask std-aborts`** (milestone 64's fourth pass), and building it
+  This is now a gate, `cargo xtask std-aborts` (milestone 64's fourth pass), and building it
   found a fifth that the reading could not have: `std::process::exit` was `intrinsics::abort()`,
   in a file that is not a module dispatcher at all. The gate's own blind spot is that it covers
   `sys/` only; see notes/std.md, "What still ends a nife process", for why that boundary and what
   it costs.
-- **The census counts call sites, not reachable calls.** A `fs::read_dir` inside a `#[cfg(windows)]`
+- The census counts call sites, not reachable calls. A `fs::read_dir` inside a `#[cfg(windows)]`
   block counts. The over-count is roughly uniform across rows, so the *ordering* is trustworthy and
   the absolute numbers are not. The precise version (make each `unsupported()` a distinct undefined
   symbol and let the linker report reachability) needs a farm rebuild per probe and was not worth it
   to reorder a list that would not reorder.
-- **`fs::rename` is undercounted, badly.** It sits at rank 25 with two probes, and gitoxide renames
+- `fs::rename` is undercounted, badly. It sits at rank 25 with two probes, and gitoxide renames
   constantly; it just does it through `tempfile::persist` rather than by naming `fs::rename`. Any
   row here can be wrong in the same direction whenever a crate wraps the call. Treat the ranks as a
   starting order, not a budget.
-- **Fifty crates is not crates.io.** They were chosen to span categories and to include milestone
+- Fifty crates is not crates.io. They were chosen to span categories and to include milestone
   99's and 66's own leaves, which is a deliberate bias toward the things this project is about to
   need. A random sample would look different and would be less useful.
-- **Feature flags change the answer.** `flate2` was probed with `rust_backend`; its default C
+- Feature flags change the answer. `flate2` was probed with `rust_backend`; its default C
   backend would land in class C. `mio` was probed with no features and passes; with any it does not.
   `clap` was probed with `std` only. Where a crate has a pure-Rust option, the probe took it, and
   that is a choice this note is making on the reader's behalf.
@@ -669,8 +669,8 @@ small patch under `patches/`. Nothing in gitoxide's tree wants `fork`, and nothi
 
 Three things the block does not currently say, which the measurement adds:
 
-1. **`getrandom` is the first task, not an incidental.** Nothing in `gix` builds without it.
-2. **`tempfile` is the second**, and it is invisible to a build-failure list. `gix-lock` cannot
+1. `getrandom` is the first task, not an incidental. Nothing in `gix` builds without it.
+2. `tempfile` is the second, and it is invisible to a build-failure list. `gix-lock` cannot
    commit a ref until `tempfile::persist` works, which means `fs::rename` matters far more than its
    rank-25 position says.
 3. **`gix-command` and `gix-credentials` call `process::Command`**, for which there is no PAL at

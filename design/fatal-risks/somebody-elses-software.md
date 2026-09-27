@@ -6,7 +6,7 @@ file. This one exists to be verified or challenged: it holds the evidence, the d
 the corrections and the refusals behind the verdict, at the length they need rather than the length
 the six-pager has. Where a study has its own home in `notes/` this page links it rather than copying
 it. Name provisional (`design/fatal-risks/` and this file's stem), minted 2026-09-23 by the lane
-that split the file; naming is calef's.*
+that split the file; naming is an architect's.*
 
 ### The claim, stated so it can fail
 

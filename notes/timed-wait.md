@@ -15,7 +15,7 @@ wheel or an ordered deadline list, which is scheduler work the kernel does not d
 sentence is the only cost estimate five consumers have ever been weighed against, and every clause
 of it turns out to be either wrong or beside the point. This note replaces it with numbers.
 
-Name: **provisional.** `timed-wait` takes the phrase the tree already uses in five places ("there
+Name: provisional. `timed-wait` takes the phrase the tree uses in five places ("there
 is no timed wait anywhere in the kernel", roadmap 51, roadmap 106, notes/clock.md, notes/ntp.md,
 notes/pipes.md) rather than inventing a second one; the roadmap file beside it is
 `106-deadline-wait.md`, and the two words are the same idea from the caller's side and the
@@ -28,37 +28,37 @@ measured on, and its error bar, is in its own section.
 
 | what | today | with a deadline | how it was measured |
 |---|---|---|---|
-| bytes per thread | `size_of::<Thread>()` = **744**, in a 4096-byte page | **752**, in the same page | compile-time probe, both ISAs |
-| bytes of BSS | **0** (the pool is gone; TCBs are page-resident) | **0** | `sched.rs:81`, milestone 19c.2 |
-| the idle tick, per core | ~491 instructions aarch64, ~400 riscv64 | **+30** (aarch64), **+31** (riscv64) | `llvm-objdump`, debug build, executed path |
-| the idle tick, as a fraction of a core | n/a | **under 3 parts per million** | 30 instructions x 100 Hz against a 1 GHz core; less on a faster one |
-| per-tick comparisons when nothing is due | n/a | **1**, identically for all three data structures | host model, 100,000 ticks |
-| interrupt-stack chain | 4352 B aarch64, 4160 B riscv64, of 16384 | **3888 B / 4208 B** | `script/stack-depth-check`, prototype wired in |
-| a context switch is reachable from the interrupt stack | no | **still no**, both ISAs | the same gate, gating mode |
-| threads blocked at once, suite peak | **97** of 128 (mean 37, live peak 102) | unchanged | `#[cfg(test)]` census, 31,371 samples, full suite |
-| one second of the current yield-spin | **a whole core-second, 10^5 to 10^6 syscalls** | ~12,400 instructions | derived from `bench/baseline-*.txt` and notes/benchmarks.md |
+| bytes per thread | `size_of::<Thread>()` = 744, in a 4096-byte page | 752, in the same page | compile-time probe, both ISAs |
+| bytes of BSS | 0 (the pool is gone; TCBs are page-resident) | 0 | `sched.rs:81`, milestone 19c (real).2 |
+| the idle tick, per core | ~491 instructions aarch64, ~400 riscv64 | +30 (aarch64), +31 (riscv64) | `llvm-objdump`, debug build, executed path |
+| the idle tick, as a fraction of a core | n/a | under 3 parts per million | 30 instructions x 100 Hz against a 1 GHz core; less on a faster one |
+| per-tick comparisons when nothing is due | n/a | 1, identically for all three data structures | host model, 100,000 ticks |
+| interrupt-stack chain | 4352 B aarch64, 4160 B riscv64, of 16384 | 3888 B / 4208 B | `script/stack-depth-check`, prototype wired in |
+| a context switch is reachable from the interrupt stack | no | still no, both ISAs | the same gate, gating mode |
+| threads blocked at once, suite peak | 97 of 128 (mean 37, live peak 102) | unchanged | `#[cfg(test)]` census, 31,371 samples, full suite |
+| one second of the current yield-spin | a whole core-second, 10^5 to 10^6 syscalls | ~12,400 instructions | derived from `bench/baseline-*.txt` and notes/benchmarks.md |
 
 The two numbers that decide anything are the last two, and neither is a data structure.
 
 ## 1. A per-thread deadline is free, and the block's premise is stale
 
 The brief for this lane said "`MAX_THREADS` is 128 and the thread pool is a static BSS array". That
-was true at milestone 14 phase B.2 and **stopped being true at 19c.2**: the static pool is gone, and
+was true at milestone 14 (kernel) phase B.2 and stopped being true at 19c.2: the static pool is gone, and
 every `Thread` now lives at the start of one page drawn from `kmem` or from a user process's own
 untyped (`sched.rs:80-93`, notes/tcb.md). The table is `generational_table::Table<TcbPtr, 128>`, about 2 KiB of
 pointers.
 
 So the question "what does a per-thread deadline field cost in bytes" has an answer nobody has to
-weigh: **`size_of::<Thread>()` is 744 bytes in a 4096-byte page.** Measured, not reasoned, on both
+weigh: `size_of::<Thread>()` is 744 bytes in a 4096-byte page. Measured, not reasoned, on both
 ISAs, with a compile-time probe (`let _: [u8; 1] = [0u8; size_of::<Thread>()];` and read the error).
-Adding `deadline: u64` makes it **752**. There are 3352 bytes of slack in that page before and 3344
+Adding `deadline: u64` makes it 752. There are 3352 bytes of slack in that page before and 3344
 after.
 
-- **It changes no size class**, because the size class is a page and the page is paid by whoever owns
+- It changes no size class, because the size class is a page and the page is paid by whoever owns
   the thread.
-- **It changes no cache behaviour worth naming.** A `u64` appended to a struct already spanning 12
+- It changes no cache behaviour worth naming. A `u64` appended to a struct spanning 12
   cache lines lands in the twelfth, which the expiry walk touches and nothing else does.
-- **It costs no BSS at all**, which is the number the stale premise would have made 1 KiB.
+- It costs no BSS at all, which is the number the stale premise would have made 1 KiB.
 
 This is the same for all three of milestone 51's shapes. A `SYS_SLEEP`, a timer object and a deadline
 on `RECV` all have to record, somewhere reachable from the tick, when this thread's wait ends; the
@@ -73,11 +73,11 @@ asymptotic.
 Three candidates, modelled on the host over 200,000 ticks (2,000 seconds of kernel time) with a
 deterministic operation count as the currency and wall clock beside it:
 
-- **A. No structure at all.** A per-thread deadline word, plus one cached `earliest`. The tick
+- A. No structure at all. A per-thread deadline word, plus one cached `earliest`. The tick
   compares `now` against `earliest`; only when that fires does anything walk the table.
-- **B. A sorted deadline list**, intrusive and doubly linked, ordered by deadline. The head is the
+- B. A sorted deadline list, intrusive and doubly linked, ordered by deadline. The head is the
   minimum, so the tick is one compare; insert walks to its position.
-- **C. A hashed timer wheel**, 256 slots at one tick each (2.56 s of range) plus an overflow list
+- C. A hashed timer wheel, 256 slots at one tick each (2.56 s of range) plus an overflow list
   rehomed at each wrap.
 
 Comparisons per tick, averaged over the pass. `occ` is how many threads hold a deadline; `churn` is
@@ -86,50 +86,50 @@ dominates (an ACK arrives and the retransmit timer is thrown away):
 
 | occ | churn | A/no-structure | B/sorted list | C/wheel |
 |---|---|---|---|---|
-| 0 | - | **1.00** | **1.00** | **1.00** |
-| 1 | 90% | **1.95** | 2.90 | 5.50 |
-| 4 | 90% | **4.99** | 16.39 | 19.01 |
-| 16 | 90% | **18.06** | 162.21 | 73.02 |
-| 64 | 90% | **75.33** | 2179.20 | 289.04 |
-| 128 | 90% | 156.48 | 8435.52 | **577.04** |
-| 16 | 10% | **6.76** | 31.41 | 9.34 |
-| 128 | 10% | 149.69 | 1701.46 | **67.65** |
+| 0 | - | 1.00 | 1.00 | 1.00 |
+| 1 | 90% | 1.95 | 2.90 | 5.50 |
+| 4 | 90% | 4.99 | 16.39 | 19.01 |
+| 16 | 90% | 18.06 | 162.21 | 73.02 |
+| 64 | 90% | 75.33 | 2179.20 | 289.04 |
+| 128 | 90% | 156.48 | 8435.52 | 577.04 |
+| 16 | 10% | 6.76 | 31.41 | 9.34 |
+| 128 | 10% | 149.69 | 1701.46 | 67.65 |
 
 Three things fall out, and the first is the one that collapses part of the fork:
 
-**The idle tick is one comparison, and it is the same one comparison for all three.** Every shape can
+The idle tick is one comparison, and it is the same one comparison for all three. Every shape can
 cache the earliest deadline in a word; the tick loads it, compares, and returns. That is the number
 paid on every tick on every core whether or not anyone is waiting, and it does not distinguish
 between a wheel, a list, and no structure at all. Measured over 100,000 ticks at occupancy zero: 1.000
-comparisons and **0.000 writes** for A and B, 1.004 for C (the wrap check). So "the scheduler carries
-a timer wheel" is not a cost the fork has to weigh: **whatever is chosen, the always-paid cost is
-identical.**
+comparisons and 0.000 writes for A and B, 1.004 for C (the wrap check). So "the scheduler carries
+a timer wheel" is not a cost the fork has to weigh: whatever is chosen, the always-paid cost is
+identical.
 
-**The sorted list is the worst option at every occupancy above one**, which is the opposite of what
+The sorted list is the worst option at every occupancy above one, which is the opposite of what
 the block's "or an ordered deadline list" implies. Its tick is cheap and its *insert* is O(k), and
 inserts outnumber expiries by the churn rate. At occ=128 it costs 8,435 comparisons per tick where
 scanning costs 156.
 
-**Scanning wins until about 64 threads hold deadlines simultaneously**, and the wheel wins past that.
+Scanning wins until about 64 threads hold deadlines simultaneously, and the wheel wins past that.
 The crossover is where it is because a scan is O(live threads) *per expiry event* while a wheel is
 O(1) per insert and per expiry; at a handful of deadline holders the scan's constant factor is
 smaller than the wheel's bookkeeping. The five known consumers (net_stack's retransmit window,
 `thread::sleep`, `Endpoint::RECV`'s no-timeout limitation, milestone 103's `^C` watch, milestone
 106's `Irq::WAIT`) are on the order of one deadline each.
 
-**The honest error bars.** These are *modelled* operation counts, not machine instructions: the host
+The honest error bars. These are *modelled* operation counts, not machine instructions: the host
 model counts comparisons and pointer writes at the points a kernel implementation would perform them,
 which is load-independent and reproducible but is a model. Wall-clock ns/tick was recorded beside them
 and is not reported as a number, because the machine was not quiet: another lane's `script/test` and
 `script/lint` were running throughout and load average sat between 9 and 25. Two runs at different
-loads produced the same **ordering** at every row, which is what the table is being read for.
+loads produced the same ordering at every row, which is what the table is being read for.
 
 ## 3. What the timer interrupt path costs, and what a deadline scan adds to it
 
 This is the number that matters most, because it is paid on every tick on every core whether or not
 anyone is waiting.
 
-**Today's path**, static instruction counts of the Rust half in the debug build the icount tripwire
+Today's path, static instruction counts of the Rust half in the debug build the icount tripwire
 measures (`llvm-objdump -d`, whole functions, excluding the assembly vector's frame save):
 
 | aarch64 | | riscv64 | |
@@ -145,30 +145,30 @@ measures (`llvm-objdump -d`, whole functions, excluding the assembly vector's fr
 | `canary::check` | 17 | `canary::check` | 19 |
 | `preempt_if_needed` | 12 | `preempt_if_needed` | 18 |
 | `take_need_resched` | 8 | `take_need_resched` | 12 |
-| **total** | **491** | **total** | **400** |
+| total | 491 | total | 400 |
 
-**What the deadline check adds.** A prototype was wired into `on_tick` (read the counter, compare
+What the deadline check adds. A prototype was wired into `on_tick` (read the counter, compare
 against a cached `EARLIEST_DEADLINE`, walk only if it fired) and the two builds' disassembly of
-`on_tick` compared instruction by instruction on the **executed** path, which is exact rather than
+`on_tick` compared instruction by instruction on the executed path, which is exact rather than
 static:
 
 - aarch64: `on_tick` goes 9 -> 25 executed instructions, plus two non-inlined callees the debug build
-  keeps as real calls (`timer::now` 6, `Atomic<u64>::load` 8). **+30 instructions per tick per core.**
-- riscv64: the same shape, `on_tick` 14 -> 30, callees 6 and 9. **+31.**
+  keeps as real calls (`timer::now` 6, `Atomic<u64>::load` 8). +30 instructions per tick per core.
+- riscv64: the same shape, `on_tick` 14 -> 30, callees 6 and 9. +31.
 
 Parity is not a coincidence: the added work is one counter read, one relaxed load and one compare on
 both, and the ISAs differ only in how the debug build spills.
 
-**So "nothing when the list is empty" is nearly true and is now proved rather than asserted.** It is
+So "nothing when the list is empty" is nearly true and is now proved rather than asserted. It is
 not literally nothing: it is 30 instructions, at 100 Hz, per core. At 400 ticks per second across four
-cores that is 12,000 instructions per second, which against a 1 GHz core is **under three parts per
-million** and less on a faster one. In a release build the same code collapses to roughly four instructions (an `mrs`, a load, a
+cores that is 12,000 instructions per second, which against a 1 GHz core is under three parts per
+million and less on a faster one. In a release build the same code collapses to roughly four instructions (an `mrs`, a load, a
 compare, a not-taken branch), and the debug number is the one reported because the debug build is what
 this tree gates.
 
-**The error bar, stated plainly.** The 491 and 400 totals are *static whole-function* counts and
+The error bar, stated plainly. The 491 and 400 totals are *static whole-function* counts and
 therefore over-count: they include arms of `exception_body` and `handle_irq` that a timer tick does
-not take. The **+30 / +31** figures do not have that problem, because they were read off the executed
+not take. The +30 / +31 figures do not have that problem, because they were read off the executed
 path of one function. So the ratio "+30 on ~491" is a lower bound on the percentage; the percentage is
 somewhere above 6% of the Rust half of the tick handler and the absolute number is exact. Nothing was
 measured under icount, because the icount tripwire's own note records ±5% codegen drift between
@@ -177,16 +177,16 @@ instrument here, not the coarser one.
 
 ## 4. The interrupt-stack proof holds, and the reason it holds was already in the tree
 
-Milestone 124 gave each core an interrupt stack and gates one rule in CI: **nothing that runs on an
-interrupt stack may context-switch away from it.** `script/stack-depth-check` proves no context switch
+Milestone 124 (thread) gave each core an interrupt stack and gates one rule in CI: nothing that runs on an
+interrupt stack may context-switch away from it. `script/stack-depth-check` proves no context switch
 is *reachable* from the interrupt-stack entry point on either ISA. A deadline expiring in the timer
 handler wants to wake a thread, and this was the question most likely to be the real cost.
 
-**It is not the real cost, and the reason is that the kernel already does exactly this.**
+It is not the real cost, and the reason is that the kernel does exactly this.
 `handle_irq` calls `sched::irq_notify` for every routed device interrupt
 (`arch/aarch64/exceptions.rs`, in `exception_body`, on the interrupt stack), and `irq_notify` takes
 `SCHED`, signals the endpoint, and calls `wake_load_aware`, which moves a `Blocked` thread to `Ready`
-and pushes it onto a run queue. **A wake is an enqueue, not a switch.** The switch is already deferred:
+and pushes it onto a run queue. A wake is an enqueue, not a switch. The switch is already deferred:
 `exception_body` returns `true`, and `exception_dispatch` runs `sched::preempt_if_needed` one frame
 out, back on the interrupted thread's own stack. A deadline expiry is the same operation on the same
 stack through the same function.
@@ -204,18 +204,18 @@ table under `SCHED` and calling the existing `wake`, and the gate was run:
 ```
 
 Against the same gate on the unmodified tree (4352 aarch64, 4160 riscv64 on the interrupt stack): the
-budget moves by **-464 bytes on aarch64 and +48 on riscv64**, and the aarch64 number going *down* is
+budget moves by -464 bytes on aarch64 and +48 on riscv64, and the aarch64 number going *down* is
 the tell that this is codegen churn rather than the scan. The deepest interrupt-stack chain on either
 ISA runs through `watchdog_tick` -> `check_test_ceiling` -> `dump_threads` and a panic, which is a
 test-build failure path and has nothing to do with deadlines. The suite's own runtime measurement
-agrees: **the interrupt stacks' high-water is 1088 of 16384 bytes, 6%**, on all four cores.
+agrees: the interrupt stacks' high-water is 1088 of 16384 bytes, 6%, on all four cores.
 
-**What it does cost, and this is the finding worth carrying to the fork.** A deadline expiry has to
+What it does cost, and this is the finding worth carrying to the fork. A deadline expiry has to
 take `SCHED`, and `SCHED` is the whole-machine lock. `irq_notify` establishes that this is *allowed*
 from interrupt context (`IrqSafeMutex` masks interrupts for as long as it is held, so the interrupted
 code on this core cannot have been holding it), but a device interrupt is rare and a timer tick is
 not: four cores ticking at 100 Hz all reaching for `SCHED` is contention that nothing pays today.
-**The cached `earliest` is what keeps that off the common path**, and it is therefore load-bearing
+The cached `earliest` is what keeps that off the common path, and it is therefore load-bearing
 rather than an optimization: without it, every tick on every core takes the whole-machine lock. That
 is the one place where "add a deadline" genuinely does touch scheduler structure, and it is a word,
 not a wheel.
@@ -279,7 +279,7 @@ counterparty; the expiry wakes it; it returns.
 
 **A deadline on `Endpoint::RECV`/`CALL` needs two things the other two do not**, and both are concrete:
 
-1. **A targeted unlink from an endpoint's wait queue.** `crates/intrusive_fifo`'s `Fifo` is
+1. A targeted unlink from an endpoint's wait queue. `crates/intrusive_fifo`'s `Fifo` is
    **singly linked**: one `next` per node, `head`/`tail`/`len`, and its whole API is `push_back`,
    `pop_front`, `is_empty`, `len`. `inter_process_communication::Rendezvous` adds only
    `drain_waiters`, which drains *all* of them. Removing one specific waiter is a new method,
@@ -319,7 +319,7 @@ runs near the ceiling, and "128 is theoretical" would have been wrong.
 
 Two caveats that matter for how the number is used:
 
-- **Blocked is not deadline-holding.** These are threads parked on endpoints, overwhelmingly with no
+- Blocked is not deadline-holding. These are threads parked on endpoints, overwhelmingly with no
   timed wait in sight. The deadline-list occupancy is bounded above by this and in practice would be
   the number of consumers actually in a timed wait, which is single digits. Section 2's table should
   be read at `occ` = 1 to 16, not at 97.
@@ -329,27 +329,27 @@ Two caveats that matter for how the number is used:
 
 ## BUGS
 
-- **No end-to-end measurement of the spin exists.** Section 5 is derived from the tree's gated icount
+- No end-to-end measurement of the spin exists. Section 5 is derived from the tree's gated icount
   baselines and its HVF medians rather than from a run that counted `SYS_YIELD` calls during a real
   retransmit backoff. The order of magnitude is uncertain by about ten; the conclusion is not.
-- **Section 2 is a host model, not a kernel measurement.** It counts the comparisons and pointer
+- Section 2 is a host model, not a kernel measurement. It counts the comparisons and pointer
   writes a kernel implementation would perform, at the points it would perform them. It does not
   model cache behaviour, and its wall-clock column was taken on a machine running two other lanes'
   gates (load average 9 to 25) and is therefore not reported. Two runs at different loads agreed on
   the ordering of every row.
-- **The 491 and 400 instruction totals in section 3 are static whole-function counts** and include
+- The 491 and 400 instruction totals in section 3 are static whole-function counts and include
   arms a timer tick does not take, so they over-count. The +30 / +31 deltas do not: those are executed
   paths of one function. Treat the ratio as a lower bound and the delta as exact.
-- **No release-build number is reported.** Everything here is the debug build, because that is what
+- No release-build number is reported. Everything here is the debug build, because that is what
   this tree gates and what its icount baselines measure. The release figures would be smaller and
   nothing here turns on them.
-- **The prototype was thrown away.** The `deadline` field, the cached `EARLIEST_DEADLINE`, the
+- The prototype was thrown away. The `deadline` field, the cached `EARLIEST_DEADLINE`, the
   `expire_deadlines` walk and the census were built to obtain the numbers above and are not in the
   tree. Reproducing them means writing them again; the shapes are described precisely enough here
   that this is a morning's work, and shipping them would have settled the fork by accident, which
   milestone 51's block and milestone 106's both warn against.
 - **Nothing here says which shape to choose.** That is the point: this note exists to make the fork
-  decidable, and the decision is calef's.
+  decidable, and the decision is an architect's.
 
 ## A miscitation found on the way
 

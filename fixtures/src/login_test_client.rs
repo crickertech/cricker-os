@@ -710,7 +710,7 @@ const DESTROY_WAIT_SECS: u64 = 5;
 /// is the raw counter and nothing publishes the kernel's per-core tick count), so what makes this
 /// safe is the 40x margin above rather than the unit. The margin is what would have to be
 /// re-measured if the wait ever grew. Giving a process a delivered-tick reading is an ABI addition
-/// and therefore calef's call, not a lane's.
+/// and therefore an architect's call, not a lane's.
 fn destroy_with_retry(ut: u64) -> bool {
     let ceiling = user_mode_runtime::cntfrq().saturating_mul(DESTROY_WAIT_SECS);
     let started = user_mode_runtime::now();

@@ -157,7 +157,7 @@ itself, at which point no further code change is expected, only a status flip on
 - **Decision.** `design/decisions/120-boot-entropy-stopgap-declined.md` holds the question of
   whether the interactive-boot entropy stopgap should be revisited now that the customer condition
   it was declined for is met. This milestone says explicitly that landing it does not reopen the
-  question and that reopening it is calef's.
+  question and that reopening it is an architect's.
 - **Recorded.** `notes/entropy.md` says beside the backend that the aarch64 proof runs only under
   `--cpu neoverse-n2`. The suite's default `cortex-a72` predates `FEAT_RNG`, so the test skips
   cleanly there rather than proving anything, and a green default run is not evidence that `RNDRRS`

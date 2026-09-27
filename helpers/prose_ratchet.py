@@ -85,6 +85,18 @@ document raises it. The answer now is that whoever condenses a document removes 
 Untouched documents still pass on their baseline bold counts, so the tree did not go red on the
 day of the ruling. "Touched" is the diff against the merge base this module already takes for its
 tight half, read with renames: a pure rename (100% similar) is not a touch, and an edit is.
+
+**A mechanical rename is not a touch either** (calef, 2026-09-27T05:23Z, ruling on the
+architect-role-census sweep, PR #1289: "a mechanical rename that adds no new sentence does not
+count as touching a document for the §212/§213 prose ratchet"). That sweep's own substitution
+adds a word almost everywhere it lands ("calef's" to "an architect's"), which both the word-count
+ceiling and the bold-density touch rule read as growth though nobody wrote a new sentence.
+`RENAME_PAIRS` names the forms this sweep produces, each mapped back to the form it replaced, and
+`rename_masked` reads a line through that mapping before a document is measured or diffed: a line
+whose only difference from its old version is one of these substitutions is read as unchanged; a
+line that also carries a new sentence still differs after the mapping, and still counts. This is
+the general mechanism the class exception asked for, so a future rename of this shape needs a new
+pair in the list, not a new per-file exception.
 """
 
 import os
@@ -110,6 +122,56 @@ COUNT_MARKER = re.compile(r'<!--count:[a-z0-9-]+-->')
 def count_masked(text):
     return '\n'.join(re.sub(r'\d', '#', line) if COUNT_MARKER.search(line) else line
                      for line in text.split('\n'))
+
+# --- a mechanical rename is not a touch ---------------------------------------------------------
+#
+# calef ruled 2026-09-27T05:23Z, on the architect-role-census sweep (PR #1289): "a mechanical rename
+# that adds no new sentence does not count as touching a document for the §212/§213 prose ratchet."
+# That sweep's own substitution ("calef's" to "an architect's", and the forms below) adds a word
+# almost everywhere it lands, which the ceiling check and the touch rule both read as growth even
+# though nobody wrote a new sentence. `RENAME_PAIRS` is the explicit list the ruling asks for: a
+# form this sweep produced, mapped back to the form it replaced. `rename_masked` is applied
+# wherever a document is measured or diffed against its merge-base copy, so a line whose only
+# difference from its old version is one of these substitutions reads as unchanged; a line that
+# also carries a new sentence still differs after the mapping, and still counts.
+#
+# Matched with `\s+` between a form's own words, not a literal string: the rewrap a longer
+# replacement forces can land the break inside the phrase itself ("and those are an\n  architect's."
+# was found this way, on 117's own sweep), and a literal match would miss exactly the case this
+# exists for.
+RENAME_PAIRS = (
+    ("calef has not ratified the package name itself", "no architect has ratified the package name itself"),
+    ("calef has not ratified this instance", "no architect has ratified this instance"),
+    ("calef has not ratified any of them", "no architect has ratified any of them"),
+    ("calef has not ratified it", "no architect has ratified it"),
+    ("Not ratified by calef.", "Not ratified by an architect."),
+    ("waiting on calef", "waiting on an architect"),
+    ("Calef names", "An architect names"),
+    ("calef names", "an architect names"),
+    ("Calef's", "An architect's"),
+    ("calef's", "an architect's"),
+    # The bare form last: every longer phrase above is tried first, so by the time this one
+    # runs, an "an architect" left in the text is not part of one of them, whichever case
+    # sentence position gave it.
+    ("Calef", "An architect"),
+    ("calef", "an architect"),
+)
+
+_RENAME_RES = tuple(
+    (re.compile(r'\s+'.join(re.escape(w) for w in new.split())), old)
+    for old, new in RENAME_PAIRS)
+
+
+def rename_masked(text):
+    for pattern, old in _RENAME_RES:
+        text = pattern.sub(old, text)
+    return text
+
+
+def _flat(text):
+    """Whitespace-insensitive, for comparing two copies of a paragraph a rename rewrapped: a word
+    moved to a different line, at the same column limit, is not a new word."""
+    return re.sub(r'\s+', ' ', text).strip()
 
 # --- scope -------------------------------------------------------------------------------------
 #
@@ -504,10 +566,12 @@ MEASURE = 2
 
 
 def measured(path, text):
-    """`measure`, with a roadmap document's field tokens read as syntax rather than sentences."""
+    """`measure`, with a roadmap document's field tokens read as syntax rather than sentences, and
+    a mechanical rename (`RENAME_PAIRS`) read as the form it replaced, per calef's 2026-09-27
+    ruling: such a substitution does not count as growth against the baseline."""
     if path.startswith('design/roadmap/'):
         text = roadmap_block.without_field_tokens(text)
-    return measure(text)
+    return measure(rename_masked(text))
 
 
 def only_fields_moved(path, base):
@@ -763,9 +827,14 @@ def check():
             if cells[0] != 'R100' and cells[0] != 'D':
                 path = cells[-1]
                 old_text = at(base, cells[1] if cells[0].startswith('R') else path)
-                if old_text is not None and os.path.exists(path) and \
-                        count_masked(old_text) == count_masked(open(path).read()):
+                new_text = open(path).read() if os.path.exists(path) else None
+                if old_text is not None and new_text is not None and \
+                        count_masked(old_text) == count_masked(new_text):
                     continue  # only a counted claim's number moved: `script/lint` made it do so
+                if old_text is not None and new_text is not None and \
+                        rename_masked(_flat(old_text)) == rename_masked(_flat(new_text)):
+                    continue  # only a mechanical rename (and the rewrap it forced) moved: calef's
+                              # 2026-09-27 ruling
                 touched.add(path)
         touched = {p for p in touched if not only_fields_moved(p, base)}
 
@@ -779,10 +848,11 @@ def check():
                 bad.append(f'{path}: its {family} exception {problem}. An exception has to say '
                            f'when it was granted and why, or it reads as a design')
         grant = granted_words(text)
-        if grant is not None and counted_words(text) > grant:
-            bad.append(f'{path}: {counted_words(text):,} words (wc -w, frontmatter excluded) '
-                       f'against the {grant:,} its prose-budget exception grants. Cut it back; '
-                       f'raising the grant is calef\'s')
+        counted = counted_words(rename_masked(text))
+        if grant is not None and counted > grant:
+            bad.append(f'{path}: {counted:,} words (wc -w, frontmatter excluded, a mechanical '
+                       f'rename read as the form it replaced) against the {grant:,} its '
+                       f'prose-budget exception grants. Cut it back; raising the grant is calef\'s')
         m = measured(path, text)
         now_over = over(m)
         if not now_over:
@@ -935,6 +1005,31 @@ def selftest():
         failed.append('a counted claim\'s number moving reads as a touch')
     if count_masked(a) == count_masked(a.replace('today', 'now')):
         failed.append('a word moving on a counted-claim line reads as no touch')
+    # A mechanical rename from RENAME_PAIRS is not a touch; the same line plus a new sentence is.
+    old_line = "The gate is calef's, not a lane's, and the fork is still open."
+    renamed_only = "The gate is an architect's, not a lane's, and the fork is still open."
+    renamed_plus_sentence = renamed_only + " A second sentence nobody wrote before."
+    if rename_masked(old_line) != rename_masked(renamed_only):
+        failed.append('a mechanical rename reads as a touch')
+    if rename_masked(old_line) == rename_masked(renamed_plus_sentence):
+        failed.append('a mechanical rename plus a new sentence reads as no touch')
+    if measure(rename_masked(old_line))['words'] != measure(rename_masked(renamed_only))['words']:
+        failed.append('a mechanical rename changes the measured word count')
+    # The rewrap a rename forces (an extra word pushes a line past the column limit) is not a
+    # second touch: `check()` compares the flattened, rename-masked text, so a word moving to the
+    # next line reads the same as the word staying put.
+    rewrapped = "The gate is an architect's, not a lane's,\nand the fork is still open."
+    if rename_masked(_flat(old_line)) != rename_masked(_flat(rewrapped)):
+        failed.append('a mechanical rename\'s forced rewrap reads as a touch')
+    rewrapped_plus_sentence = rewrapped + "\nA second sentence nobody wrote before."
+    if rename_masked(_flat(old_line)) == rename_masked(_flat(rewrapped_plus_sentence)):
+        failed.append('a rewrap plus a new sentence reads as no touch')
+    # The rewrap can split a seeded phrase itself across the line break (found on 117's own
+    # sweep: "and those are an\n  architect's."), so flattening has to run BEFORE the phrase is
+    # matched, not after; the reverse order leaves the split phrase unmatched.
+    split_mid_phrase = "The gate is an\narchitect's, not a lane's, and the fork is still open."
+    if rename_masked(_flat(old_line)) != rename_masked(_flat(split_mid_phrase)):
+        failed.append('a rewrap that splits a seeded phrase reads as a touch')
     # The derived-marker guard: a parser pattern that matches ordinary bold would exempt all of it.
     found = derived_markers()
     if not found:

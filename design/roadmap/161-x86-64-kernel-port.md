@@ -478,9 +478,9 @@ In the order it should be done, because each is a prerequisite for the next.
    **Item 4 landed and the measurement is now available but was not taken, deliberately.** There is
    a workload to measure against (the suite context-switches throughout, and `mmu::switch_user_root`
    already skips a `CR3` write that would change nothing, which is worth more here than on either
-   other architecture precisely because PGE is off). Turning either bit on is calef's call and wants
-   a number rather than an argument: `script/icount` has no x86 leg, so producing one is its own
-   small piece of work rather than a line in item 4's diff.
+   other architecture precisely because PGE is off). Turning either bit on is an architect's call
+   and wants a number rather than an argument: `script/icount` has no x86 leg, so producing one is
+   its own small piece of work rather than a line in item 4's diff.
 
    **The tooling half is now done (2026-08-25), the decision is not.** `cargo xtask bench --x86`
    gates on a deterministic instruction count the same way the other two ISAs already do

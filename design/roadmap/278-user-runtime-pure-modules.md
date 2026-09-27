@@ -65,7 +65,7 @@ and the core where they are, and leave the exclusion on `user_rt` exactly as it 
 three tools that were always able to read this code read it: a harness on the bounds check, coverage,
 and mutants.
 
-**The new crate's name is calef's.** A lane ships a provisional one and says so.
+**The new crate's name is an architect's.** A lane ships a provisional one and says so.
 
 ## What makes this more than a file move
 
@@ -108,8 +108,8 @@ a name had been refused. Read before sweeping.
 - **This does not settle whether `user_rt` keeps its name.** `rt` is an abbreviation needing a
   decoder, the first failure mode `AGENTS.md` names, and the 2026-08-23 batch expanded eleven such
   names in one pass (`fs_proto` to `filesystem_protocol`, `cred_proto` to `credential_protocol`). That
-  ruling is calef's and is independent of this move; whichever way it goes, the crate being split is
-  the same crate.
+  ruling is an architect's and is independent of this move; whichever way it goes, the crate being
+  split is the same crate.
 - **A harness is not yet a proof of anything useful.** Reaching the code is a precondition. Milestone
   194's falsification discipline (§134) is what then says whether the harness could ever come back
   red, and a harness over `checked_add` that cannot be falsified is chaff of exactly the kind 191's

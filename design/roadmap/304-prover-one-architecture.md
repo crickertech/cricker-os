@@ -106,8 +106,8 @@ zero, where the flat map is exact.
 `GSI_VECTOR_BASE + redirection_index(gsi)` rather than `+ gsi`, and that costs `gsi_vector` its
 `const fn`, its total signature, and the "flat and reversible" property three doc comments in
 `irq.rs` and one in `exceptions.rs` rest on. That is a public-function signature change and a policy
-decision about multi-IO-APIC machines the kernel does not otherwise support, which is calef's fork
-rather than this lane's. It leaves here in the two shapes AGENTS.md allows: a `BUGS` entry in
+decision about multi-IO-APIC machines the kernel does not otherwise support, which is an architect's
+fork rather than this lane's. It leaves here in the two shapes AGENTS.md allows: a `BUGS` entry in
 `irq.rs`'s module header, where a reader meets the feature, and
 `design/roadmap/proposals/the-gsi-vector-map-wraps-on-a-second-io-apic.md`.
 

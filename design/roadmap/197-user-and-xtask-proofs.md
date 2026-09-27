@@ -12,8 +12,8 @@ merge queue lands it.)*
 
 ## What was built, and where the block was wrong
 
-**One property, over code that lives in `components/src/printenv.rs` today, proved by two harnesses
-`script/verify` runs, and falsified before it was believed.** `push_never_writes_past_the_buffer_it_was_given`
+One property, over code that lives in `components/src/printenv.rs` today, proved by two harnesses
+`script/verify` runs, and falsified before it was believed. `push_never_writes_past_the_buffer_it_was_given`
 says that for every starting offset in the whole of `usize` and every content, the bounded append
 that renders a configuration page this program did not write stays inside its 96-byte line buffer,
 appends only at the offset it was given, and reports exactly what it wrote;
@@ -23,44 +23,44 @@ both red, and the patch is recorded (`user/falsifications/` at the time; milesto
 user/: components/ for services, fixtures/ for test and benchmark programs) moved `printenv`
 into `components/`, and the record now lives at `components/falsifications/`, corrected here
 2026-09-23 for milestone 323 (the falsification record is incomplete in five ways, and each was
-found by a different lane)). **Cost: 2.4 seconds** on `script/verify`'s ~650.
+found by a different lane)). Cost: 2.4 seconds on `script/verify`'s ~650.
 
-**The premise above is half false, and that is the finding.** This block argued `user/` had a better
+The premise above is half false, and that is the finding. This block argued `user/` had a better
 claim on the prover than the kernel because it holds real parsers over untrusted bytes. It mostly
 does not, any more: rule 7 and the host-testability discipline have already lifted the initrd, ELF,
-GPT, mDNS, directory-entry, terminal-escape, shell and glob parsers into crates, **every one of
-which is in `script/verify`'s table today**. What is left in `user/src` is overwhelmingly IO glue.
+GPT, mDNS, directory-entry, terminal-escape, shell and glob parsers into crates, every one of
+which is in `script/verify`'s table today. What is left in `user/src` is overwhelmingly IO glue.
 The prize this block was reaching for had largely been collected under other numbers.
 
-**A live defect fell out anyway, and it fell out before any harness ran.** `rmle`'s save buffer was
+A live defect fell out anyway, and it fell out before any harness ran. `rmle`'s save buffer was
 `MAX_ROWS * MAX_COLS`, the size of the document's *text*, while `save` joins the rows with `\n` and
 so writes up to `MAX_ROWS - 1` bytes more. A document at both bounds staged 3231 bytes into a
 3200-byte buffer and panicked the editor on `^S`, and nothing had found it. It was found by writing
 the property down, which is the first time the two constants were compared. The fix is the buffer
-sized `MAX_ROWS * (MAX_COLS + 1)` **plus a `const` assertion**, not a harness: the claim is a
+sized `MAX_ROWS * (MAX_COLS + 1)` plus a `const` assertion, not a harness: the claim is a
 relationship between compile-time constants, so rung one of the ladder holds it for nothing.
 
-**Three property shapes did not work, and the numbers are the deliverable.** A bound on a sum of 32
+Three property shapes did not work, and the numbers are the deliverable. A bound on a sum of 32
 symbolic values did not finish in twenty minutes on CaDiCaL or Z3, because it is a cardinality
 argument and that is what resolution-based SAT is worst at. A symbolic index into the editor's
 3.5 KB document struct exhausted CBMC's memory in 3m23s. Any assertion about a value downstream of
 `render`'s twenty chained divisions stopped finishing, while the same harness asserting only a
-length bound returns in 0.3 seconds because `--slice-formula` throws the divisions away: **a fast
-harness can be evidence that the assertion asked nothing.**
+length bound returns in 0.3 seconds because `--slice-formula` throws the divisions away: a fast
+harness can be evidence that the assertion asked nothing.
 
-**Mechanically it was cheaper than the kernel.** No `--ignore-global-asm`, because there is no
+Mechanically it was cheaper than the kernel. No `--ignore-global-asm`, because there is no
 `global_asm!` under `user/` at all (rule 1 again). Two changes: `#[cfg(not(kani))]` on the one
 binary's `user_rt::panic_handler!()`, and `--bin` selection, because `cargo kani -p user` compiles
 all 68 programs and Kani refuses any `#![no_std]` root that never mentions it. The `--bin` list is
-**derived from a grep of the tree** in `script/verify` rather than written there, for the reason that
+derived from a grep of the tree in `script/verify` rather than written there, for the reason that
 file has already recorded twice: a list one name short fails invisibly and the suite just goes green
 faster.
 
-**`xtask` is refused**, and the argument is in notes/user-proofs.md rather than left as a shrug. Its
+`xtask` is refused, and the argument is in notes/user-proofs.md rather than left as a shrug. Its
 front door is already open (`cargo kani -p xtask` compiles with no changes at all, measured), so the
 refusal is on value: a defect there cannot reach anything that runs, it is host `std` code with
 tests and a debugger where Kani is least differentiated, its pure logic already lives in crates the
-suite proves, and its hand-written decoders **exist to be a second opinion** on the crates they
+suite proves, and its hand-written decoders exist to be a second opinion on the crates they
 check, so aiming one prover at both halves narrows the independence that justifies them.
 
 *This block carried `Gate: NONE` while it was open, and correctly: the `user/` half needed nothing
@@ -68,9 +68,9 @@ that did not exist, milestone 193 having established the mechanics. The line is 
 milestone cannot have one. The timer seam further down was and is a genuine fork, marked as one
 there rather than gating this block.*
 
-**In brief.** `script/verify`'s header names three things `cargo kani` never compiles: the kernel, the
+In brief. `script/verify`'s header names three things `cargo kani` never compiles: the kernel, the
 user programs, and xtask. Milestone 193 removed the first for about ten seconds of run time. The
-other two are unchanged, and **`user/` has at least as good a claim on the prover as the kernel did**,
+other two are unchanged, and `user/` has at least as good a claim on the prover as the kernel did,
 because it holds real parsers over bytes this system did not produce.
 
 ## Why `user/` first
@@ -84,7 +84,7 @@ The mechanics should be milestone 193's, and cheaply: `#[cfg(not(kani))]` on wha
 
 ## Two smaller things the same lane found
 
-**The timer re-arm seam, and it is a fork rather than work.** Milestone 191 (did the proofs catch the
+The timer re-arm seam, and it is a fork rather than work. Milestone 191 (did the proofs catch the
 bugs?) named the milestone 6 timer drift as the sharpest counterfactual in the tree: its property is
 already proved in `crates/timetable`'s `next_after`, over already-written code, and the timer does
 not call it. Milestone 193's lane could not use it, because `rearm` lives in
@@ -97,11 +97,11 @@ half of the same observation and is untouched.
 
 ## BUGS
 
-- **`xtask` was named here and not argued for**, and it is now argued and refused; see above and
+- `xtask` was named here and not argued for, and it is now argued and refused; see above and
   notes/user-proofs.md. What would reverse the refusal is `xtask` growing logic the target then
   trusts, and the shape to watch is the measured-boot digest, which already lives in
   `crates/measured_boot` for exactly this reason.
-- **The run-time cost was not estimated here** and is now measured: 2.4 seconds for the two
+- The run-time cost was not estimated here and is now measured: 2.4 seconds for the two
   harnesses that shipped, against `script/verify`'s ~650. The worry that "a parser over symbolic
   input can cost far more" was right in a way this block did not predict: the expensive shapes are
   not parsers but sums, symbolic indices into large structs, and values downstream of division, and
@@ -146,9 +146,10 @@ half of the same observation and is untouched.
   harness can be evidence the assertion asked nothing.
 - **Milestone 360.** `design/roadmap/360-timer-rearm-seam.md`, lift the timer re-arm arithmetic out
   of the register access so `crates/timetable`'s already proved `next_after` is what the timer
-  actually calls. Where the seam goes is calef's: too high and the arch layer keeps the milestone 6
-  drift bug, too low and every ISA restates it. Until it moves, the tree's sharpest counterfactual
-  is a property proved over code that nothing runs.
+  actually calls. Where the seam goes is an architect's: too high and the arch layer keeps the
+  milestone 6 (threads, the context switch, and preemption) drift bug, too low and every ISA
+  restates it. Until it moves, the tree's sharpest counterfactual is a property proved over code
+  that nothing runs.
 
 ## Index row
 

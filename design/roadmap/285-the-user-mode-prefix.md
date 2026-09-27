@@ -117,7 +117,7 @@ blind; the sets were listed, read, and then edited, which is what caught the rec
   `design/roadmap/345-pure-halves-of-the-user-rt-crates.md`. The obstacle this entry named is gone:
   milestone 433 numbered it on 2026-09-19 and milestone 68's bullet became `**Milestone 345.**` with
   no path in it, so a rename no longer reaches into another block. The body is current; only the
-  slug is stale, and a slug is a name, so it is calef's.
+  slug is stale, and a slug is a name, so it is an architect's.
 - **Four `NOT-STARTED` and eight `PARTIAL` roadmap blocks still spell the crate `user_rt`.** They
   are live intent pointing at a directory that no longer exists, and they are listed below rather
   than fixed, for the same reason. Four other blocks had to be touched despite that rule, because

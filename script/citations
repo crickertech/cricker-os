@@ -87,7 +87,7 @@
 # "the name matches `citations` in shape", which is the tree using this name to decide another
 # one. The stem is the thing it reads. This block was added at merge rather than by that lane: the
 # provenance gate arrived from milestone 115 in a *different* pull request, so both were green
-# apart and red together, and `main` was briefly red until it was noticed. calef has not ratified
+# apart and red together, and `main` was briefly red until it was noticed. no architect has ratified
 # it.
 
 set -e

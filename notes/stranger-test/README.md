@@ -5,4 +5,5 @@ act without opening anything here, and its appendix table is the index. These fi
 record and the history.
 
 *Name: provisional, minted 2026-09-24 by the lane that condensed the note (`05d6a7eda`), for the
-directory and every stem in it. Naming is calef's; `script/names --unratified` lists each stem.*
+directory and every stem in it. Naming is an architect's; `script/names --unratified` lists each
+stem.*

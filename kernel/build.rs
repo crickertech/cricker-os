@@ -90,7 +90,7 @@ fn main() {
 /// is worth recording here rather than only in the roadmap: the alternative spelling would have
 /// needed thirty edits and would have been found by whoever hit the thirty-first.
 ///
-/// Name: provisional (milestone 161 (the `x86_64` kernel port)): calef names things, and a `cfg` a
+/// Name: provisional (milestone 161 (the `x86_64` kernel port)): an architect names things, and a `cfg` a
 /// reader meets in front of a module is as reader-facing as a crate.
 fn declare_initrd_cfg(arch: &str) {
     // Declare it whatever the answer, so `unexpected_cfgs` stays a useful lint rather than being

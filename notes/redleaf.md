@@ -504,4 +504,4 @@ moved since January 2022.
 - **Nothing here is a positioning statement, on purpose.** The comparison is laid out and the
   concluding sentence is not written, the same way
   `design/roadmap/528-cheri-capabilities-are-not-these-capabilities.md` stops short of one.
-  Where nife stands relative to RedLeaf is calef's to say.
+  Where nife stands relative to RedLeaf is an architect's to say.

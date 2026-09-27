@@ -101,5 +101,5 @@ the adequacy check becomes its own row in `script/ci-build`'s table; or distinct
 does not fix the conflation but makes it legible to one caller and should be priced honestly as the
 cheap one. The split is the shape this tree already reaches for, and its own cost is that
 `script/setup` and `script/update` currently get the adequacy verdict for free on a fresh machine,
-which is exactly the reader the check was written for. It is calef's because the exit code of a
-canonical "Scripts to Rule Them All" entry point is read by four callers.
+which is exactly the reader the check was written for. It is an architect's because the exit code of
+a canonical "Scripts to Rule Them All" entry point is read by four callers.

@@ -75,7 +75,7 @@ unsafe extern "C" {
 /// **And so does what a stranger reads at a serial console**, which is milestone 127's entire
 /// deliverable. The boot banner prints this line first.
 ///
-/// The name is provisional (AGENTS.md: names are calef's).
+/// The name is provisional (AGENTS.md: names are an architect's).
 ///
 /// Its two callers are the banner in `main.rs` and `isa`'s conduit test, and the `bench` boot
 /// compiles the banner out, so it has no caller in exactly that configuration. Same shape and same

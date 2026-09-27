@@ -5,7 +5,7 @@
 # gate needs it: `xtask initrd-aarch64` packs the resulting ELF only if it is already on disk, and
 # `kernel/src/user/ripgrep_tests.rs` skips when it is not. That is deliberate, and DECISIONS §46 is
 # the reason: making the gate fetch `ripgrep` and its ~40 transitive crates would put a crates.io
-# dependency tree in this repository's build, which is calef's call and not a lane's.
+# dependency tree in this repository's build, which is an architect's call and not a lane's.
 #
 # The whole point of milestone 121 is that the source is somebody else's and is untouched. There is
 # no patch, no vendored copy, and no fork. What differs from a Linux build is entirely on the

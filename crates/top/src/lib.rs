@@ -28,12 +28,13 @@
 //! for the same reason, which is that a ranked table shows you the head of a distribution and tells
 //! you nothing about its size.
 //!
-//! **Whether this should be a program at all is calef's**, and the argument is live rather than
-//! settled. Milestone 281 (`watch` holds exactly what `ps` holds) deleted `watch` on the finding that *two programs are two programs when
-//! they hold different authority*, and `top` holds exactly `ps`'s three slots. What is different
-//! here is the question asked rather than the authority held: `ps` answers *what exists*, in the
-//! kernel's own order, and `top` answers *what is consuming*, in order of consumption. Folding it
-//! back into `ps` as a flag is a day's work and stays available; see this crate's `BUGS`.
+//! **Whether this should be a program at all is an architect's**, and the argument is live rather
+//! than settled. Milestone 281 (`watch` holds exactly what `ps` holds) deleted `watch` on the
+//! finding that *two programs are two programs when they hold different authority*, and `top` holds
+//! exactly `ps`'s three slots. What is different here is the question asked rather than the
+//! authority held: `ps` answers *what exists*, in the kernel's own order, and `top` answers *what
+//! is consuming*, in order of consumption. Folding it back into `ps` as a flag is a day's work and
+//! stays available; see this crate's `BUGS`.
 //!
 //! # EXAMPLES
 //!

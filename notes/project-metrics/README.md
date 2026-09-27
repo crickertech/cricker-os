@@ -5,4 +5,4 @@
 hand and holds what no script can derive.
 
 *Name: provisional, minted 2026-09-02 with `script/metrics` (`175a2409b`), for the directory and
-`ledger.md`; `notes/project-metrics.md` records the same. Naming is calef's.*
+`ledger.md`; `notes/project-metrics.md` records the same. Naming is an architect's.*

@@ -193,7 +193,7 @@ not an error. That skip is DECISIONS 139 part 3 showing up in a test rather than
 
 - **Every name here is provisional**: `Thread::cycle_counter_grant`,
   `arch::timer::set_cycle_counter_grant`, `cycle_counter_grantable`,
-  `sched::grant_cycle_counter` and its test-only twin. Names are calef's.
+  `sched::grant_cycle_counter` and its test-only twin. Names are an architect's.
 - **No consumer exists yet, and that is still true after this.** The only exerciser is the kernel's
   own test. Milestone 74 (cycle counters) is the first real consumer, and
   it is also the owner of a portable userspace read: the raw `mrs`/`csrr` here lives in the one test
@@ -218,8 +218,9 @@ not an error. That skip is DECISIONS 139 part 3 showing up in a test rather than
   `#[cfg(test)]` back door that breaks the embryo rule and cannot exist in a shipped kernel, so the
   embryo-only path a real ABI would take is proven by a unit test rather than end to end.
 - **Recorded.** `design/roadmap/229-the-counter-grant.md`: every name here is provisional and names
-  are calef's, including `Thread::cycle_counter_grant`, `arch::timer::set_cycle_counter_grant`,
-  `cycle_counter_grantable` and `sched::grant_cycle_counter`.
+  are an architect's, including `Thread::cycle_counter_grant`,
+  `arch::timer::set_cycle_counter_grant`, `cycle_counter_grantable` and
+  `sched::grant_cycle_counter`.
 
 ## Index row
 

@@ -253,7 +253,8 @@ fails under the hand-applied mutant.
 ## Appendices
 
 Each holds the dated entries named in its row, so a citation of "notes/mutation-testing.md, the
-2026-09-20 section" resolves here. The appendix stems are provisional names; naming is calef's.
+2026-09-20 section" resolves here. The appendix stems are provisional names; naming is an
+architect's.
 
 | appendix | what it verifies | holds |
 |---|---|---|

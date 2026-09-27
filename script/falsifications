@@ -5,7 +5,7 @@
 # PROVISIONAL beyond four names. DECISIONS §134 ratified `Falsification:`, the three states
 # `replayable`/`attested`/`unfalsified`, this script's name, and the patch path
 # `<package>/falsifications/<module.path>.<harness_fn_name>.patch`. Every other spelling here (the
-# flags, the column headings) is this lane's and calef names things.
+# flags, the column headings) is this lane's and an architect names things.
 #
 # Why this exists. notes/verification.md has said "falsify a property before believing it" since
 # milestone 35, and milestone 191 measured what that produced: 141 harnesses and **not one of them
@@ -56,7 +56,8 @@
 # 202's patch filename obeys the section's spelling exactly with no special case:
 # `<package>/falsifications/<module.path>.<harness_fn_name>.patch` names
 # `kernel/falsifications/user.c_seam_tests.a_c_...patch`. The only word that strains is `harness`,
-# and it strains in prose rather than in the convention. If calef wants the wording widened, that is
+# and it strains in prose rather than in the convention. If an architect wants the wording widened,
+# that is
 # a decisions edit and not this script's.
 #
 # **Kernel tests are opt-in where Kani harnesses are mandatory**, which is the one deliberate

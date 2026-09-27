@@ -12,31 +12,31 @@ milestone/115-ratified-names` for thirteen days after that merge; found 2026-08-
 status-accuracy sweep. §76's defect class, and the sharpest instance of it in this sweep, because
 `script/roadmap` was listing 115 under `IN-PROGRESS` and under "ready to start" at the same time.
 
-**All of it landed.** Provenance lives at the name: a `Name:` block in 55 crates, 58 programs and 35
+All of it landed. Provenance lives at the name: a `Name:` block in 55 crates, 58 programs and 35
 script entry points, 148 in total, which is complete coverage rather than a sample.
 `script/names --check` verifies every one of them carries a block, and `script/lint` runs it. The
 table is a derived query (`script/names`, with `--unratified`, `--refused`, `--unrecorded`,
 `--provisional` and a bare-name lookup) rather than a file anyone maintains, which is the half calef
 rejected the first draft over. The convention is design/naming.md:223.
 
-**The worklist's length is the mechanism working, not a shortfall.** `script/names --unratified`
+The worklist's length is the mechanism working, not a shortfall. `script/names --unratified`
 stands at 74 of 148. The gate deliberately checks that a name carries provenance and never that its
 state is `ratified`, because a gate keyed on ratification would hold every unrelated merge behind a
 review nobody can hurry; `unrecorded` is a truthful answer and passes. Draining the worklist is
 calef's, on his own clock, and was explicitly out of this milestone's scope.
 
-**Extended since, which is what a live mechanism looks like:** `design/decisions/89` added
+Extended since, which is what a live mechanism looks like: `design/decisions/89` added
 `provisional` as a fourth state on 2026-08-16, implemented at `script/names:252`.
 
-**The incident.** A lane proposed `system_builder` for the crate milestone 96 extracted; the
+The incident. A lane proposed `system_builder` for the crate milestone 96 (init) extracted; the
 maintainer endorsed it; calef overruled it to `system_initializer`. Only afterwards did the
-maintainer find that **milestone 63 had already refused `system_builder`**, for a reason neither had
+maintainer find that milestone 63 (directory) had already refused `system_builder`, for a reason neither had
 located: `components/src/builder.rs`'s own header calls itself "a minimal init: the system builder", so two
 programs would claim one phrase. The refusal was recorded in one table cell inside one milestone
 block, invisible at the moment it was needed. A blind rename then swept the old name out of that very
 row, and the record of the refusal was nearly destroyed by the rename it should have prevented.
 
-**The refusals are the valuable half**, and today produced six worth keeping: `job_killer` (claims an
+The refusals are the valuable half, and today produced six worth keeping: `job_killer` (claims an
 authority the program is specifically denied), `system_bootloader` (claims a position in the boot
 sequence it does not occupy, and milestone 88 will need the real one), `script/sanitize` (reads as
 *input* sanitization in a project about confining hostile input), `script/brief` (collides with
@@ -45,29 +45,29 @@ role (spent on capability-narrowing programs), and `Watcher`/`Project Manager` f
 (both understate a delegated merge authority). None of that is written down anywhere a future
 proposer would look.
 
-**The deliverable, and its first draft was wrong in an instructive way.** That draft proposed one
+The deliverable, and its first draft was wrong in an instructive way. That draft proposed one
 ratified-names table in design/naming.md. calef rejected it on 2026-08-04 for scaling like the
 original `design/roadmap.md` and `DECISIONS.md`, which is exactly right and is the third instance of
-that pattern in three days. Size is the smaller half; the **conflict shape** is the real one, since
+that pattern in three days. Size is the smaller half; the conflict shape is the real one, since
 every lane that adds a name would edit the one file, which is what produced three §-number
-collisions in a day. The fix is the one this tree reached twice the same afternoon: **do not
-maintain a record, derive one.**
+collisions in a day. The fix is the one this tree reached twice the same afternoon: do not
+maintain a record, derive one.
 
-1. **Provenance lives at the name.** A crate's `lib.rs` header, a program's module doc and a
+1. Provenance lives at the name. A crate's `lib.rs` header, a program's module doc and a
    script's comment block already say what the thing is; each gains a line saying when its name was
    ratified and what was refused. `job_undertaker` carries why `job_killer` was refused;
    `crates/system_initializer` carries why `system_builder` was. That is this project's own
    posture, the reason beside the thing, and it fixes the failure that prompted the milestone:
    a refusal is most useful to whoever is about to propose the same name, and that person is reading
    the file where the name would go, not a registry.
-2. **A lint checks presence, never content.** Every crate, program and `script/` entry point carries
+2. A lint checks presence, never content. Every crate, program and `script/` entry point carries
    a provenance line or the build fails: 42, 54 and 27 today. Adding a name touches exactly one
    file, so two lanes naming two things cannot collide.
-3. **The table is a query.** `script/names` (provisional) collects the lines into the view a reader
+3. The table is a query. `script/names` (provisional) collects the lines into the view a reader
    wants, computed rather than maintained, so it cannot drift from the tree. Same family as
    `script/roadmap`, `script/decisions` and `script/catch-up`.
-4. **The maintainer writes the provenance at ratification**, in the same commit that applies the
-   name, when the alternatives are still in mind. A convention, so it is calef's to land in
+4. The maintainer writes the provenance at ratification, in the same commit that applies the
+   name, when the alternatives are still in mind. A convention, so it is an architect's to land in
    CLAUDE.md.
 
 Refusals of names that were never adopted anywhere (`caretaker` for the steward role, `Project
@@ -126,8 +126,8 @@ citations, and milestone 97 is the neighbouring case.
 - **Refused.** Draining `script/names --unratified`, which stood at 74 of 148 when this landed. The
   gate deliberately checks that a name carries provenance and never that its state is ratified,
   because a gate keyed on ratification would hold every unrelated merge behind a review nobody can
-  hurry. Working back through the list is calef's, on his own clock, and was explicitly out of
-  scope.
+  hurry. Working back through the list is an architect's, on their own clock, and was explicitly out
+  of scope.
 - **Refused.** A rename pass. Nothing in the tree changes name because of this milestone; the
   backfill records what is already true, and a name whose history says nothing is entered as
   unrecorded rather than given an invented ratification.

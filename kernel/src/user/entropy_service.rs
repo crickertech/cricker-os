@@ -25,7 +25,8 @@ const MODE_INSTRUCTION: u64 = 1;
 /// everything this type already exists to do (pick which source `ensure` wires, index the
 /// once-per-boot state below, name the source a failure came from) is exactly what an instruction
 /// source also needs, and "no bus" is itself the fact worth a reader seeing in the same place the
-/// other two sources are. Provisional; flagged for calef the same as the other new names here.
+/// other two sources are. Provisional; flagged for an architect the same as the other new names
+/// here.
 ///
 /// **`Jh7110` is not a bus either** (milestone 159), and it is here for `Instruction`'s reason
 /// rather than by analogy to it: the JH7110's TRNG is a plain MMIO register block on the `SoC`'s
@@ -33,7 +34,7 @@ const MODE_INSTRUCTION: u64 = 1;
 /// `Bus` variant buys the same four things the variant above buys (pick which source `ensure`
 /// wires, index the once-per-boot state, name the source a failure came from, and reuse
 /// [`Wiring`]'s client half unchanged), and the alternative was a parallel enum with a parallel
-/// registry saying the same thing twice. Provisional; flagged for calef with the rest.
+/// registry saying the same thing twice. Provisional; flagged for an architect with the rest.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Bus {
     Mmio,

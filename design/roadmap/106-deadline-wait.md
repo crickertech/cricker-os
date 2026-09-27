@@ -137,7 +137,7 @@ PROPOSED"). The short form:
   directly. A binding is needed only to wait on a notification and an endpoint at once.
 - A spawner can bind for its child today, with no wire change. `net_stack` is built that way.
 - A self sentinel in `BIND`'s slot, a capability to your own TCB, or a new `BIND_SELF` method are
-  each a wire decision, so they are calef's, offered without a recommendation.
+  each a wire decision, so they are an architect's, offered without a recommendation.
 
 Nothing in this milestone waits on the answer. The first consumer that might is `timetable` under
 milestone 129 (scheduled execution: a cron whose every entry is a grant).
@@ -188,7 +188,7 @@ milestone 129 (scheduled execution: a cron whose every entry is a grant).
 
 ## Follow-on
 
-- **Recorded.** Binding a notification to yourself is a wire decision for calef, written up with
+- **Recorded.** Binding a notification to yourself is a wire decision for an architect, written up with
   its options in `notes/timer.md` ("Binding a notification to yourself: PROPOSED").
 - **Proposed.** The soak supervisor, a long-running NTP client and the timetable's adoption:
   `design/roadmap/proposals/the-last-yield-spinners-sleep-on-a-timer.md`.

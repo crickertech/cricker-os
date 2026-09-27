@@ -724,7 +724,7 @@ pub mod fs {
     /// Works on a directory exactly as on a file, [`GETXATTR`]'s reason: mtime is part of what a
     /// node *is*, not a property files alone carry.
     ///
-    /// Name: provisional (milestone 47 (navigation and naming)'s mtime lane, 2026-08-24); calef's
+    /// Name: provisional (milestone 47 (navigation and naming)'s mtime lane, 2026-08-24); an architect's
     /// to ratify.
     pub const GETMTIME: u64 = 20;
 
@@ -755,7 +755,7 @@ pub mod fs {
     /// asymmetry on the wall clock itself. A capability that may write a file may therefore also
     /// record that it was written, without a separate grant.
     ///
-    /// Name: provisional (milestone 47's mtime lane, 2026-08-24); calef's to ratify.
+    /// Name: provisional (milestone 47's mtime lane, 2026-08-24); an architect's to ratify.
     pub const SETMTIME: u64 = 21;
 
     /// **Set `name`'s modification time to a value the caller supplies** (`touch -t`; DECISIONS
@@ -780,7 +780,7 @@ pub mod fs {
     /// same authority as asserting a merely surprising one and this contract does not referee which
     /// lies are plausible.
     ///
-    /// Name: provisional (milestone 47's mtime lane, 2026-08-24); calef's to ratify.
+    /// Name: provisional (milestone 47's mtime lane, 2026-08-24); an architect's to ratify.
     pub const SETMTIME_AT: u64 = 22;
 
     /// **How many pages the file channel spans** (milestone 138 step 3). The client and the FS
@@ -967,7 +967,7 @@ pub mod dir {
     /// the one DECISIONS §43 already draws between reading the wall clock and setting it.
     ///
     /// Name: provisional (milestone 47's mtime lane, 2026-08-24, DECISIONS §112 (`touch`'s two
-    /// behaviors need two rights)); calef's to ratify. Candidates considered and set aside:
+    /// behaviors need two rights)); an architect's to ratify. Candidates considered and set aside:
     /// `BACKDATE` (the capability also permits a *future* value, so a name for lying only backward
     /// would be narrower than what it grants), `RETIME` (read as "change the pace of something" as
     /// readily as "reassign its recorded time"). `SETTIME` was chosen for reading as exactly what

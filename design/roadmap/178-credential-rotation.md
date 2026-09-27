@@ -15,7 +15,7 @@ now generates a fresh password each boot and prints it before the prompt, and th
 calef expects a person to do with a new system is set their own. Nothing in this tree lets them.
 
 Where a proof-gated rotation verb lives is a `credential_protocol` wire change two
-programs must agree on, and the options below are close enough in cost that the choice is calef's
+programs must agree on, and the options below are close enough in cost that the choice is an architect's
 rather than a lane's. It is
 §168 (where a proof-gated credential rotation
 verb lives), written up 2026-09-19 by milestone 435's lane, which found this gate naming no decision
@@ -46,7 +46,7 @@ that second model actually avoids `Store::put`'s own named race (concurrent writ
 change gated on proving the *old* secret can only ever be initiated by whoever already is that
 identity, one at a time, by construction.
 
-## The design question this needs answered, and why it is calef's
+## The design question this needs answered, and why it is an architect's
 
 Where the rotation verb lives, and it is a wire change to `credential_protocol` two programs (whichever
 client calls it, and `credentialer.rs`) must agree on, which the *move fast on what can be undone*

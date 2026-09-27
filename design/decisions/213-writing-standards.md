@@ -206,6 +206,8 @@ is PARTIAL: one week of baseline-churn measurement remains.
   parsers' own source (maintainer ruling on #1311, 2026-09-26). An untouched document keeps its baseline
   counts, so the tree did not go red that day. He chose not to sweep the backlog. The weekly bold
   chart in `notes/project-metrics.md` drives it down, and retires itself at zero.
+- A mechanical rename is not a touch (calef, 2026-09-27T05:23Z; ruling in design/roadmap/586).
+  `rename_masked` reads such a line as the form it replaced.
 - The check reports line-opening and inline bold as two counts. They have different fixes, and a
   single density number hides which one a document has.
 - A new document meets the standard outright. So does a document being rewritten wholesale, which is

@@ -1,6 +1,6 @@
 # The bench runbook: which machine, in what order, and what an evening buys
 
-*(Name **provisional**, per the naming tenet; calef names things.)*
+*(Name **provisional**, per the naming tenet; an architect names things.)*
 
 This page **points at procedures rather than repeating them.** Every step below lives somewhere
 already, and a second copy would drift from the first, which is the defect milestone 236 (three

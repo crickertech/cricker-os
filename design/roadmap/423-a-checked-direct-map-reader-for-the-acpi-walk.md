@@ -17,10 +17,11 @@ half is actually for. *(Number provisional until the merge queue lands it.)*
 The decision is
 §192 (does the ACPI walk's direct-map read take a bound, and is the bound per-read or a region it holds?),
 written up 2026-09-19 by milestone 435's slice-c lane because this gate named no section. It is a
-new accessor at a trust boundary, so its shape and its name are calef's; §192 recommends on the
-shape, which is reversible, and proposes no name.
+new accessor at a trust boundary, so its shape and its name are an architect's; §192 (does the ACPI
+walk's direct-map read take a bound) recommends on the shape, which is reversible, and proposes no
+name.
 
-**Premise re-checked 2026-09-19 and still true, and this block subsumes milestone 431.**
+Premise re-checked 2026-09-19 and still true, and this block subsumes milestone 431 (acpi).
 `kernel/src/arch/x86_64/machine.rs` is 847 lines with no bounded accessor: `read_acpi` still takes a
 firmware-supplied hint and each table body is still a raw pointer plus a length the table itself
 supplied. `crates/machine_discovery` is proved (21 harnesses, its own `script/verify` row), so the
@@ -64,7 +65,8 @@ physical address inside another one.
   outside it.
 - Whether the bound is per-read or a region capability the walk holds, which is the part that could
   go either way and is why this is a decision.
-- The accessor's name, which is calef's and which this proposal deliberately does not guess at.
+- The accessor's name, which is an architect's and which this proposal deliberately does not guess
+  at.
 
 ## What is out of scope
 
@@ -88,4 +90,5 @@ parser. The question is whether that accessor takes a bound and what it does whe
 exceeded, since an RSDT whose `length` field says 64 KiB is a 64 KiB read at whatever the RSDP
 pointed at. The other two architectures answer it: `dtb::Dtb::from_ptr` takes the blob's own length
 and validates the header before anything is read. Whether the bound is per-read or a region
-capability the walk holds is the part that could go either way, and the accessor's name is calef's.
+capability the walk holds is the part that could go either way, and the accessor's name is an
+architect's.

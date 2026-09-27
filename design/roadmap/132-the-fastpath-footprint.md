@@ -110,7 +110,7 @@ Tooling and a note. It moves no syscall, adds no dependency, changes no wire for
 
 **The name is provisional.** By this directory's convention a build-failing gate takes `-check`, and
 `fastpath-footprint-check` is the consistent spelling; it reads badly, which is why it is worth
-settling rather than applying. Nothing depends on it and it is calef's call.
+settling rather than applying. Nothing depends on it and it is an architect's call.
 
 **One claim in the prose it replaced did not survive being checked**, and it is recorded in
 notes/benchmarks.md rather than here because that is where a reader meets it: L1i has **not** grown
@@ -141,8 +141,8 @@ tens of cycles instead of a trip to DRAM, rather than not costing anything.
 - **Recorded.** `script/fastpath-footprint`. The script's name is provisional and unratified, and
   the script's own header says so where a reader meets it. This directory's suffix for a
   build-failing gate is `-check`, so the consistent spelling is `fastpath-footprint-check`; it was
-  not taken because the name reads badly at nine syllables. Nothing depends on it and it is calef's
-  call.
+  not taken because the name reads badly at nine syllables. Nothing depends on it and it is an
+  architect's call.
 
 ## Index row
 

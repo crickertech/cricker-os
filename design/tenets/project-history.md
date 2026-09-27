@@ -11,15 +11,22 @@ own the same day.*
 
 ## The architect was Chris and is calef
 
-The architect is **calef** (GitHub username; Chris Alef): older records and commits may say Chris,
+The architect is calef (GitHub username; Chris Alef): older records and commits may say Chris,
 and both are the same person, renamed 2026-08-15 at his request. Contributors are referred to by
 their GitHub username in prose, attributions, records and lane reports, so a grep for a contributor
 finds them rather than everyone sharing a first name; that rule is in `AGENTS.md` and this is the
 case that prompted it.
 
+Since 2026-09-25, "the architect" also names a role, listed in
+[`ARCHITECTS.md`](../../ARCHITECTS.md), that more than one person can hold
+([§217 (every architect holds the whole role)](../decisions/217-every-architect-holds-the-whole-role.md)).
+A record from before that date
+means calef, since he was the only one; a reader meeting "an architect" or "the architect" in a
+record after it should check the list rather than assume it still does.
+
 ## The OS was cricker-os and is nife
 
-The OS was renamed the same day: **nife**, formerly cricker-os, by milestone 120 (the rename: the OS
+The OS was renamed the same day: nife, formerly cricker-os, by milestone 120 (the rename: the OS
 becomes `nife`). Older records, commits, and quoted transcripts keep the old name where they
 describe the past, which is the general rule for a rename here: a record says what was true when it
 was written.

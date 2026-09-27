@@ -15,8 +15,8 @@ A review that reads only one model's commits cannot answer the question it was s
 
 All code contains defects. Reading 180 diffs will find some. Those findings will read as
 confirmation whether or not the work is actually worse than anyone else's, because there is nothing
-in the exercise capable of producing the other answer. Such a review spends calef's attention and
-hands back a false result with evidence stapled to it, which is worse than handing back nothing.
+in the exercise capable of producing the other answer. Such a review spends an architect's attention
+and hands back a false result with evidence stapled to it, which is worse than handing back nothing.
 
 So every tier below is built to be capable of exonerating as well as indicting: a control group, a
 rubric fixed before the reading, blinding where blinding is achievable, and a stated null result. The

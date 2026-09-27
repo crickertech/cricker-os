@@ -7,8 +7,9 @@ from crates.io ([notes/ripgrep-on-nife.md](notes/ripgrep-on-nife.md)).
 
 It is a demonstrator, per §14 (the project's direction): built to stand next to Linux, macOS and
 seL4 on the primitives that define an operating system. The security-critical logic carries
-machine-checked proofs. Many agents build it in parallel lanes and one architect reviews the
-outcomes; [notes/how-this-is-built.md](notes/how-this-is-built.md) has the numbers and their caveats.
+machine-checked proofs. Many agents build it in parallel lanes and the architects
+([ARCHITECTS.md](ARCHITECTS.md)) review the outcomes;
+[notes/how-this-is-built.md](notes/how-this-is-built.md) has the numbers and their caveats.
 
 *The name is lowercase everywhere and is said like* knife: *Ni + Fe, the Earth's nickel-iron core
 ([design/naming.md](design/naming.md)).*

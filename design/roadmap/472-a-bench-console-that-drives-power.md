@@ -36,10 +36,10 @@ switch that one.
 ## Revisit
 
 - **Unstated.** The refusal deliberately leaves the question undecided rather than settling it by
-  implementation, and it names a hazard rather than a condition. It is calef's call, and what a reader
-  needs before it can be made is not a trigger but an answer about whether a reading tool should ever
-  hold a writing authority. The hazard is on the record here so that it cannot be rediscovered the
-  expensive way.
+  implementation, and it names a hazard rather than a condition. It is an architect's call, and what
+  a reader needs before it can be made is not a trigger but an answer about whether a reading tool
+  should ever hold a writing authority. The hazard is on the record here so that it cannot be
+  rediscovered the expensive way.
 
 ## Index row
 

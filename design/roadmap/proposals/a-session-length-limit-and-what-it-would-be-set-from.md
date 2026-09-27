@@ -15,7 +15,7 @@ output**: a turn costs roughly the size of its context, not the size of its thou
 question this file exists to answer: *"How do we set a checkpoint to re-evaluate that will not be
 forgotten?"* The lane that built the measurement wrote this block.
 
-The threshold is calef's, and it is deliberately not being chosen yet.
+The threshold is an architect's, and it is deliberately not being chosen yet.
 `AGENTS.md`'s *measure first, then decide* rules that a threshold set before the data exists is no
 better than one chosen under attachment, and on the day this was raised there was one measurement,
 which is not a distribution. **The trigger is enough weeks of per-turn context to show a
@@ -87,4 +87,4 @@ after it stops.
 names it proposes (`lane_turns`, `lane_cache_read_share_pct`, `lane_context_per_turn_mean`,
 `lane_context_per_turn_peak`) and the panel file (`context-per-turn.svg`) are provisional too. They
 follow the `lane_` prefix `lane_tokens` and `lane_wall_clock_hours` already established for
-harness-measured columns. calef has not ratified any of them.
+harness-measured columns. no architect has ratified any of them.

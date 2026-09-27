@@ -113,7 +113,9 @@ pub extern "C" fn _start(_a0: u64, initrd_len: u64, fs_rights: u64) -> ! {
     //
     // `None`: milestone 154's second directory grant is a real mechanism
     // (`system_initializer::boot`'s `second_dir` parameter), but what the second subtree should
-    // *be* is a boot-time policy decision DECISIONS §126 reserves for calef, so this real boot
+    // *be* is a boot-time policy decision DECISIONS §126 (a real, single, moving `cwd`) reserves
+    // for an architect, so this real
+    // boot
     // does not enable it.
     system_initializer::boot(&GRANTS, initrd_len, fs_rights, None)
 }

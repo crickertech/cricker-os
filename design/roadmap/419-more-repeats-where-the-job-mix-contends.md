@@ -7,21 +7,21 @@ promoted_from: more-repeats-where-the-job-mix-contends
 # 419. `tasks=4` needs more repeats, not more power cycles, and `REPEATS` is one constant for the whole sweep
 
 Built 2026-09-19, by milestone 168's own lane, in a different session and on the same
-day this block was numbered and its decision written up. What landed is **options 1 and 3 together**
+day this block was numbered and its decision written up. What landed is options 1 and 3 together
 from the list below: a uniform `REPEATS` of 21 for the whole sweep, and the median reported with the
-minimum and maximum beside it. **Option 2, a per-point table, was refused on measured board time**:
+minimum and maximum beside it. Option 2, a per-point table, was refused on measured board time:
 at 21 repeats the timed windows are a small share of a boot, so varying the count per point buys
 nothing it costs. Promoted from the proposal `more-repeats-where-the-job-mix-contends`, filed
 2026-09-16 by the maintainer from the five-boot job-mix session on radon, where the fourth and fifth
 boots each landed outside the range the first three had established. *(Number provisional until the
 merge queue lands it.)*
 
-**Its `DECISION` gate was answered by a build rather than by calef, and that is worth saying
-plainly.** The gate was right: `job_mix::REPEATS` decides how long every bench evening takes on
+Its `DECISION` gate was answered by a build rather than by calef, and that is worth saying
+plainly. The gate was right: `job_mix::REPEATS` decides how long every bench evening takes on
 every board, and the `job-mix-repeat:` line is output that two programs read (`script/job-mix`'s
 rehearsal and `crates/board_console`'s recogniser). The lane that built it had the change assigned
 in its maintainer's brief, noted that both readers are in-tree, and recorded the choice in milestone
-168 so it is visible rather than implied. So the question **is** settled in the tree, and it was not
+168 so it is visible rather than implied. So the question is settled in the tree, and it was not
 settled by the person whose call it was.
 [§191](../decisions/191-job-mix-repeats-and-what-the-line-reports.md) stays `PROPOSED` for exactly
 that reason: it is now a ratification or an overrule rather than an open fork, and the difference
@@ -31,13 +31,13 @@ between those two is not a lane's to erase.
 §191 as shipped."* §191 (whether the job mix reports the spread rather than the best) is `DECIDED`, so the paragraph above describes a question that is now
 closed, and it was closed by the person whose call it was.
 
-**Premise re-checked 2026-09-19 and still true.** *(That check predates commit `ab6ff0fa0` the
+Premise re-checked 2026-09-19 and still true. *(That check predates commit `ab6ff0fa0` the
 same day; `REPEATS` has been 21 since, at `crates/job_mix/src/lib.rs:465`.)* `job_mix::REPEATS` is still `3`, one constant for
 the whole sweep, and milestone 168 is still `PARTIAL` for the reason this block names: its status
 line says it does not turn `BUILT` until `tasks=4` has a number, and it still does not have one. The
 interim this block recommends, option 4, is what 168's block now does.
 
-**In brief.** Milestone 168's sweep reports the **best of three** repeats per sweep point. At
+In brief. Milestone 168's sweep reports the best of three repeats per sweep point. At
 `tasks=4` the underlying distribution is wide enough that the best of three is itself a coin flip:
 across five boots of an identical image the reported figure ranged from 766,361 to 991,671 jobs per
 minute, a 29.4% spread, while boot 3's three repeats *on their own* spanned 132,148 to 181,408
@@ -64,11 +64,11 @@ rather than noise to be minimised away, and reporting only the best discards it.
 
 ## The options
 
-1. **Raise `REPEATS` uniformly**, to 5 or 7. Simplest, one constant, no format change. Costs the
+1. Raise `REPEATS` uniformly, to 5 or 7. Simplest, one constant, no format change. Costs the
    most board time, and spends it mostly where it is not needed.
-2. **A per-sweep-point repeat table.** Cheap in board time and targets the problem. Costs a
+2. A per-sweep-point repeat table. Cheap in board time and targets the problem. Costs a
    constant becoming a table, and `board_console`'s recogniser has to stop assuming a fixed count.
-3. **Keep three repeats and report the spread rather than the best**, so the line carries min, max
+3. Keep three repeats and report the spread rather than the best, so the line carries min, max
    and median. No extra board time at all, and it makes the instability visible rather than
    averaged away, which is arguably what a multi-tasking benchmark should publish. Costs a wire
    format change to the `job-mix:` line, which is the most expensive thing on this list by
@@ -79,8 +79,9 @@ rather than noise to be minimised away, and reporting only the best discards it.
 **Recommendation: 3, with 4 as the interim**, and the reason is the one this proposal opened with.
 The job mix exists to measure what contention costs; a report that keeps only the least-contended
 sample is answering a different question than the one §96 asked. But option 3 changes a line two
-programs read, so it is calef's rather than a lane's, and until it is decided the honest thing is
-option 4, which is what milestone 168's block now does.
+programs read, so it is an architect's rather than a lane's, and until it is decided the honest
+thing is option 4, which is what the block of milestone 168 (a multi-tasking workload benchmark) now
+does.
 
 **Blocked until it is answered:** milestone 168 turning `BUILT`. Its own status line says it does
 not, until a number exists, and `tasks=4` does not yet have one.

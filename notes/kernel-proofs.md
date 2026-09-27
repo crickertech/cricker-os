@@ -4,8 +4,9 @@ Milestone 193. The companion to [verification.md](verification.md), which is abo
 crates; this one is about the 64,818 lines the prover could not see until 2026-08-30, and about the
 stubs you take on when you point it at them.
 
-*Name provisional: notes are an interface and their names are calef's call (AGENTS.md). `kernel-proofs`
-says what the file is about and matches `verification.md`'s neighbourhood; expect it to change.*
+*Name provisional: notes are an interface and their names are an architect's call (AGENTS.md).
+`kernel-proofs` says what the file is about and matches `verification.md`'s neighbourhood; expect it
+to change.*
 
 ## Why this note exists at all
 

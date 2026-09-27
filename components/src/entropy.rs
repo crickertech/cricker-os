@@ -506,9 +506,9 @@ fn serve(mut pool: Pool, refuse: bool) -> ! {
 /// has
 /// needed one before this (the precedent, `crates/user_mode_runtime`, is the syscall ABI itself, one crate
 /// *every* program depends on, not a single-consumer helper), so a module inside the one program
-/// that uses it is the smaller thing to build. **Provisional**, flagged for calef: if a second
-/// userspace program ever needs per-architecture `asm!` of its own, this is the first candidate to
-/// pull out into a crate rather than duplicate.
+/// that uses it is the smaller thing to build. **Provisional**, flagged for an architect: if a
+/// second userspace program ever needs per-architecture `asm!` of its own, this is the first
+/// candidate to pull out into a crate rather than duplicate.
 mod instr {
     /// How many times to retry a transient "no data this cycle" result before giving up.
     ///

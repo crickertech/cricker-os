@@ -5,10 +5,10 @@
 ## 2026-08-25: an icount leg for x86_64, and the "no icount leg" line was wrong
 
 Milestone 161's roadmap (item 3, the `CR4.PCIDE`/`CR4.PGE` question) named the gap: turning either
-bit on is calef's call and wants a number, and `script/icount` had no x86 leg to produce one. This
-section is that leg. It corrects the 2026-08-24 entry in
-[the TSS appendix](x86-tss-iomap.md), which inferred, untested, that nothing pins x86's virtual
-clock to the instruction stream on `q35`. Measuring showed the inference was backwards.
+bit on is an architect's call and wants a number, and `script/icount` had no x86 leg to produce one.
+This section is that leg. It corrects the 2026-08-24 entry in [the TSS appendix](x86-tss-iomap.md),
+which inferred, untested, that nothing pins x86's virtual clock to the instruction stream on `q35`.
+Measuring showed the inference was backwards.
 
 Two different questions were being conflated, and they have different answers.
 
@@ -76,8 +76,8 @@ on and re-running `--check` would show whether the change moves it at all. It do
 question alone, because nothing on this port switched address spaces under load yet:
 `switch_user_root` still skips the `CR3` write `yield_switch` exercises. So this baseline is a
 kernel-thread switch's cost, not an address-space switch's. The tooling gap is retired. The
-measurement gap, a workload that actually switches `CR3`, stayed open and stayed calef's call. The
-2026-09-19 entry below is that workload.
+measurement gap, a workload that actually switches `CR3`, stayed open and stayed an architect's
+call. The 2026-09-19 entry below is that workload.
 
 ## 2026-09-19: `CR4.PGE` and `CR4.PCIDE`, and why this tree cannot yet measure either (milestone 161 (the x86_64 kernel port))
 

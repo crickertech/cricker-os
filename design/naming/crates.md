@@ -4,7 +4,7 @@
 rule and how far it reaches, nouns over verbs, the acronym history, and what `crates/` holds. It
 exists to verify or challenge the main page, and a reader who only needs to name, ratify or rename
 something should not have to open it. The directory `design/naming/` and this file's stem are
-provisional names, minted 2026-09-24 by the lane that split the file; naming is calef's.*
+provisional names, minted 2026-09-24 by the lane that split the file; naming is an architect's.*
 
 ## Crates
 
@@ -26,8 +26,8 @@ contributor has to get right.
 So one rule, no branch. A short name for a typed command is a *choice its author makes*, not a
 convention to apply; nobody needs a rule to know `wc` beats `word_count`.
 
-calef names the crates, the programs, and the shared modules. It has the same shape as
-`design/decisions/` section numbers: global to the tree, so decided by the person who can see the
+An architect names the crates, the programs, and the shared modules. It has the same shape as
+`design/decisions/` section numbers: global to the tree, so decided by an architect, who can see the
 whole tree. The procedure (ship a provisional name, never rename on your own initiative) is on the
 [main page](../naming.md). The reason is that names are what make this OS legible to humans and to
 LLMs. In a capability system a name is often the only thing that says what a program can *do*.

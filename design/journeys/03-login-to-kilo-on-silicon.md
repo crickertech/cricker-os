@@ -37,9 +37,9 @@ is emulated.
 the whole roadmap for `usb`, `xhci`, `hid` and `ps/2` returns nothing. Milestone 29's keyboard is
 virtio-input, a QEMU device that none of the three boards has, and every graphical story in the
 project has quietly assumed it. Milestone 192 (a keyboard on real silicon) is the block that now
-owns it, and its fork is calef's: serial input with framebuffer output, which needs no new driver at
-all, or a USB HID stack on three architectures, which is weeks of work and is what the title of this
-journey actually claims.
+owns it, and its fork is an architect's: serial input with framebuffer output, which needs no new
+driver at all, or a USB HID stack on three architectures, which is weeks of work and is what the
+title of this journey actually claims.
 
 That is the same discovery journey 1 made about milestone 177, one layer down, and it is the second
 time this format has found unowned work that scanning the roadmap milestone by milestone did not.

@@ -9,7 +9,7 @@
 //! device tree today, **and a change to what the loader and the kernel agree on across the
 //! handoff**: `x0` is the physical address of a device tree blob (Linux's arm64 boot protocol, which
 //! `boot.s` cites and U-Boot's `booti` meets). That is a wire format, and wire formats are decided
-//! by the architect rather than by a lane.
+//! by an architect rather than by a lane.
 //!
 //! So this takes the other road, which costs one module and changes nothing anybody agreed on: the
 //! loader reads the tables while the firmware is still alive and **writes the tree the kernel would
@@ -49,7 +49,7 @@
 //!
 //! Names in this module are **provisional** (2026-09-23): the module, [`Machine`], [`Cpu`],
 //! [`Uart`], [`build`] and the root node's `compatible` string all name things a reader meets, and
-//! naming is calef's call.
+//! naming is an architect's call.
 
 use machine_discovery::acpi::{GTDT_ACTIVE_LOW, GTDT_EDGE_TRIGGERED, Gtdt};
 use machine_discovery::gic::Gic;

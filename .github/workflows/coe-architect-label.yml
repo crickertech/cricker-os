@@ -29,7 +29,8 @@ name: coe architect label
 # decisions this branch actually has, and this branch does not have that one yet). Its own number is
 # provisional per its first line too, because two other decision files were open on unmerged
 # branches the same night. So the directory this workflow watches is named once, as COE_DIR below,
-# with this comment as the only place that needs to change if calef ratifies a different layout or
+# with this comment as the only place that needs to change if an architect ratifies a different
+# layout or
 # number.
 #
 # **A record, not any file in that directory** (2026-09-24). §210 (a correction of error, and its
@@ -184,7 +185,8 @@ jobs:
         run: |
           # COE_DIR tracks decision 210 (a correction of error, and its action items are
           # decisions, proposals or milestones; see this file's header), which is UNRATIFIED as of
-          # this writing. If calef ratifies a different path, this is the only line to change.
+          # this writing. If an architect ratifies a different path, this is the only line to
+          # change.
           COE_DIR="notes/corrections/"
           # A record is `<date>-<slug>.md` directly in COE_DIR (§210); a README or anything else
           # the directory holds is not a correction of error.

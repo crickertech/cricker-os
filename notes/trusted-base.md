@@ -11,7 +11,7 @@ times its trusted part, and that reader is not doing arithmetic wrong. They are 
 different definitions of "trusted" without being told there are three.
 
 **The note's job is to make the comparison possible, not to win it.** No positioning sentence is
-written here; where nife stands is calef's to say.
+written here; where nife stands is an architect's to say.
 
 ## The three definitions, and why they are not interchangeable
 

@@ -6,25 +6,25 @@ for the taxonomy and for why the supervisor's whole vocabulary is refused. This 
 seven other systems solve the same problem, maps each onto this kernel, and lays four proposals side
 by side.*
 
-**The fork is answered. calef chose proposal A on 2026-09-03, and milestone 133 built it**
+The fork is answered. calef chose proposal A on 2026-09-03, and milestone 133 (ending) built it
 (design/roadmap/133-blocked-thread-teardown.md). Everything below is kept as it was written, because
 the argument is what the decision was made against and a note edited into agreement with its own
 outcome is worth nothing to the next reader. What changed against the text: the mechanism landed in
 `sched::finish_blocked_resident` and `RegionReap::FinishInPlace`; `Endpoint` is spelled
-`Rendezvous` in this tree and `remove_receiver` is now written; **and the claim below that
-`WaitRole` says which queue holds a thread is wrong**, which the implementation found and this note
+`Rendezvous` in this tree and `remove_receiver` is now written; and the claim below that
+`WaitRole` says which queue holds a thread is wrong, which the implementation found and this note
 did not. `ipc_call`'s `Send::Blocked` arm records a caller as `WaitRole::Reply` while queueing it as
 a sender, so role and queue disagree on every call that meets no server, and the shipped code asks
 both queues rather than believing the role. See this note's own BUGS for what else was left
 untested.
 
-**One piece of this is no longer research: proposal C's first half shipped as milestone 254 on
-2026-09-04**, on calef's ruling that it is a defect rather than a fork, because it asks for no
-authority anybody does not already hold. A caller reply-parked on a server that stops being able to
+One piece of this is no longer research: proposal C's first half shipped as milestone 254 (caller) on
+2026-09-04, on calef's ruling that it is a defect rather than a fork, because it asks for no
+authority anybody does not hold. A caller reply-parked on a server that stops being able to
 answer now returns `abi::Error::Gone`, and the stale reply capability this note identified as the
 blocking hazard is deleted before the wake. The proposals below are unedited apart from proposal C's
 own block, which says what was built; the fork this note exists for (proposals A, B and D: who may
-end a **blocked thread**, and whether anybody should) is untouched and is milestone 133's.
+end a blocked thread, and whether anybody should) is untouched and is milestone 133's.
 
 *The code this note reads: `kernel/src/sched.rs` (`schedule`, `ipc_call`, `ipc_reply`,
 `set_ipc_aborted`, `reap_region_objects`), `crates/inter_process_communication/src/lib.rs` (`drain_waiters`,
@@ -48,8 +48,8 @@ if let Some(t) = sched.threads.get_mut(current)
 
 A permanently `Blocked` thread never becomes `current` again, so the kill is armed and never lands
 and the refusal is permanent. The region is unreclaimable for the life of the machine, and so is the
-region of every caller that thread stranded. **No privilege fixes this. It is a scheduler property,
-not an authorization one**, which is why §32's "stronger right" is not merely large for the purpose
+region of every caller that thread stranded. No privilege fixes this. It is a scheduler property,
+not an authorization one, which is why §32 (supervisor)'s "stronger right" is not merely large for the purpose
 but insufficient.
 
 For a backup target meant to run unattended for months, the shape of the risk is that the number of
@@ -57,8 +57,8 @@ hangs the system survives is a function of spare budget.
 
 ## What the machine already has, which reframes the question
 
-The most useful finding in this lane is not from the prior art. It is that **the mechanism is nearly
-free and the authority is the whole problem**, and that is the opposite of how the question reads
+The most useful finding in this lane is not from the prior art. It is that the mechanism is nearly
+free and the authority is the whole problem, and that is the opposite of how the question reads
 from outside.
 
 ### Every blocked thread is in exactly one of three places, and the kernel knows which
@@ -70,11 +70,11 @@ writes `Blocked`:
 |---|---|---|
 | `Sender` | the endpoint's sender `Fifo` | `Endpoint::recv`, `drain_waiters`, `remove_sender` |
 | `Receiver` | the endpoint's receiver `Fifo` | `Endpoint::send`, `Endpoint::signal`, `drain_waiters` |
-| `Reply` | **no queue at all** | `sched::ipc_reply`, addressed by tid |
+| `Reply` | no queue at all | `sched::ipc_reply`, addressed by tid |
 
 There is no fourth. An `Irq::WAIT` is `sched::ipc_recv` on a routed endpoint, so it is a `Receiver`.
 `handshake.wait_on` carries `(EpId, WaitRole)` and `endpoint_of` resolves the `EpId`, so from a bare
-`Tid` the kernel can already say exactly which queue, if any, holds that thread.
+`Tid` the kernel can say exactly which queue, if any, holds that thread.
 
 ### The abort-and-resume pair already exists, and is already used
 
@@ -85,15 +85,15 @@ wake(sched, tid);              // Blocked -> Ready, onto a run queue
 
 Those two lines are what `reap_region_objects` runs against every waiter it drains from a doomed
 endpoint. The syscall layer then reads the flag through `take_ipc_aborted` and hands userspace
-`abi::Error::Gone`. **The abort path is complete; it is only ever entered from an endpoint's wait
-queue**, which is the whole of `Error::Gone`'s reach.
+`abi::Error::Gone`. The abort path is complete; it is only ever entered from an endpoint's wait
+queue, which is the whole of `Error::Gone`'s reach.
 
 ### The one primitive that is missing is twelve lines
 
-`Endpoint::remove_sender` already exists, and it exists for exactly this shape of problem: a corpse
+`Endpoint::remove_sender` exists, and it exists for exactly this shape of problem: a corpse
 parked on its supervisor's sender queue must be unlinked before its TCB is freed. Its doc calls it
-"the one operation an intrusive `Fifo` deliberately does not offer (arbitrary remove)". There is **no
-`remove_receiver`**, and it is the same drain-and-repush over the other `Fifo`.
+"the one operation an intrusive `Fifo` deliberately does not offer (arbitrary remove)". There is no
+`remove_receiver`, and it is the same drain-and-repush over the other `Fifo`.
 
 For `WaitRole::Reply` no unlink is needed at all, because the thread is on no queue. Mechanically the
 case the hung-component note frames as hardest is the easiest one.
@@ -101,26 +101,25 @@ case the hung-component note frames as hardest is the easiest one.
 ### And the precedent for reaching outside the region is already settled
 
 The objection that suggests itself is that ending a thread blocked on somebody else's endpoint means
-mutating an endpoint the destroyer does not own. The removal phase of `reap_region_objects` already
-does that, deliberately and with its reasoning written down: a corpse parked on its *supervisor's*
+mutating an endpoint the destroyer does not own. The removal phase of `reap_region_objects` does that, deliberately and with its reasoning written down: a corpse parked on its *supervisor's*
 endpoint, which "is not in this region and the endpoint sweep above did not touch it", is unlinked
 with `remove_sender` before its TCB is freed. Endpoint wait queues are kernel state under `SCHED`,
-not the endpoint owner's property, and the tree has already decided that once.
+not the endpoint owner's property, and the tree has decided that once.
 
-**So: the kernel could end any blocked thread today, in about thirty lines, with no new syscall.**
+So: the kernel could end any blocked thread today, in about thirty lines, with no new syscall.
 Every proposal below differs in who may ask and in what the victim and its peers observe, not in
 whether it can be done.
 
 ## A hazard any proposal must solve: the stale reply capability
 
-This is a live correctness bug that no current code path can reach, and **the first proposal that
-wakes a reply-parked caller reaches it.**
+This is a live correctness bug that no current code path can reach, and the first proposal that
+wakes a reply-parked caller reaches it.
 
 `cap::reply_cap` mints `Object::Reply(tid)`. The payload is a generational `Tid` and nothing else:
 there is no call sequence number, no endpoint, no nonce. `generational_table` bumps a slot's generation when the
 *thread* is removed, not per call.
 
-`ipc_reply`'s guard, the one boot 8 added, checks the **role and not the call**:
+`ipc_reply`'s guard, the one boot 8 added, checks the role and not the call:
 
 ```rust
 if !matches!(t.handshake.wait_on, Some((_, WaitRole::Reply))) {
@@ -129,22 +128,22 @@ if !matches!(t.handshake.wait_on, Some((_, WaitRole::Reply))) {
 ```
 
 The `_` is the endpoint, and it is discarded. Today this is sound, and the reason is worth writing out
-because it is what an abort would invalidate. There are three ways out of a reply park, and **no
-server holds an unconsumed `Reply(tid)` at the end of any of them**:
+because it is what an abort would invalidate. There are three ways out of a reply park, and no
+server holds an unconsumed `Reply(tid)` at the end of any of them:
 
-- **The reply arrives.** `abi::reply::REPLY` calls `ipc_reply` and then `delete_current_cap(slot)`,
+- The reply arrives. `abi::reply::REPLY` calls `ipc_reply` and then `delete_current_cap(slot)`,
   "so a second reply is `NoSuchSlot`". The cap is gone whether or not the delivery landed.
-- **The caller is drained off a sender queue.** A `CALL` that met no receiver leaves the caller
+- The caller is drained off a sender queue. A `CALL` that met no receiver leaves the caller
   *both* Reply-parked and queued as a sender, with the reply cap riding in `outgoing_cap` rather than
-  in anyone's capability table, so `drain_waiters` reaches it and `Gone` does resolve. **No server ever held
-  that cap**, because no server ever collected the message.
-- **The caller dies.** The `generational_table` generation bumps and every `Reply(tid)` naming it goes stale on its
+  in anyone's capability table, so `drain_waiters` reaches it and `Gone` does resolve. No server ever held
+  that cap, because no server ever collected the message.
+- The caller dies. The `generational_table` generation bumps and every `Reply(tid)` naming it goes stale on its
   next use.
 
 The dangerous shape is the one no path produces: a caller that resumes from a `CALL` whose request
 *was* collected, so a server holds the cap, and then makes a second call.
 
-**An abort creates that path.** Free a caller stranded by a hung server, hand it `Gone`, let it call
+An abort creates that path. Free a caller stranded by a hung server, hand it `Gone`, let it call
 a healthy server instead, and the hung server still holds a live `Reply(tid)`. Its next invocation
 passes the role check, clobbers the caller's mailbox, and wakes it with a forged reply belonging to a
 different conversation. A merely hung server never does this; a compromised or confused one does, and
@@ -165,11 +164,11 @@ strongest corroboration available that it is real rather than theoretical:
 
 Two fixes exist, and both have prior art below:
 
-- **Delete the outstanding reply capability at abort**, sweeping every capability table for `Object::Reply(tid)`
+- Delete the outstanding reply capability at abort, sweeping every capability table for `Object::Reply(tid)`
   the way `sched::delete_frame_caps` sweeps for `Object::Frame(phys)`. This is seL4 non-MCS's
   `cteDeleteOne(callerCap)`, reached from `cancelIPC`. Cost is O(threads x 16 slots) on a teardown
   path, which is 2048 comparisons at `MAX_THREADS = 128` and `CAPABILITY_TABLE_SLOTS = 16`.
-- **Do not wake the caller at all**, so no second call can exist. This is seL4's `ThreadState_Inactive`
+- Do not wake the caller at all, so no second call can exist. This is seL4's `ThreadState_Inactive`
   and is discussed under proposal A.
 
 ## Prior art
@@ -236,19 +235,19 @@ Source: [`seL4/src/object/endpoint.c`](https://raw.githubusercontent.com/seL4/se
 
 Four things to take from this, and the last is the one that changes the shape of the question.
 
-**The authority is a TCB capability and nothing narrower.** `seL4_TCB_Suspend` "Suspend a thread",
+The authority is a TCB capability and nothing narrower. `seL4_TCB_Suspend` "Suspend a thread",
 capability required: "seL4_TCB capability to the target thread"
 ([API reference](https://docs.sel4.systems/projects/sel4/api-doc.html)). There is no suspend right, no
 kill right, and no way to reach a thread you were not handed a TCB cap for. Holding a TCB cap is
 holding the thread.
 
-**Cancellation is not a message; it is a state.** The suspended thread is `ThreadState_Inactive`. It
+Cancellation is not a message; it is a state. The suspended thread is `ThreadState_Inactive`. It
 does not resume, does not return an error to userspace, and does not run another user instruction. A
 later `seL4_TCB_Resume` calls `restart()`, which sets `ThreadState_Restart` and re-executes the
-interrupted syscall from the top. **seL4 never hands a cancelled thread an error code**, so it never
+interrupted syscall from the top. seL4 never hands a cancelled thread an error code, so it never
 has to define one, and userspace never has to handle one.
 
-**The reply relationship is a first-class object with a back-pointer.** Under MCS a `reply_t` holds
+The reply relationship is a first-class object with a back-pointer. Under MCS a `reply_t` holds
 `replyTCB`, so finalising a reply capability finds the blocked caller:
 
 ```c
@@ -288,7 +287,7 @@ static inline void reply_unlink(reply_t *reply, tcb_t *tcb)
 
 Source: [`seL4/include/object/reply.h`](https://raw.githubusercontent.com/seL4/seL4/master/include/object/reply.h)
 
-**So seL4 solves nife's stranded-caller problem structurally rather than by adding an operation.**
+So seL4 solves nife's stranded-caller problem structurally rather than by adding an operation.
 Destroying the reply object *is* freeing the caller, in both configurations: MCS through
 `replyTCB`, non-MCS through the mapping database that links the caller's `tcbReply` slot to the
 server's `callerCap`. In nife the `Reply` capability is a bare `(tid)` with no back-link and no
@@ -317,11 +316,11 @@ know what system trap the thread might be executing. Against that:
 
 `KERN_FAILURE` means "The thread is in the middle of a non-restartable operation."
 
-The lesson for nife is sharper than it looks. **Mach's split is between an abort that can leave the
-victim's own invariants broken and one that refuses rather than do so**, and it needed both because
+The lesson for nife is sharper than it looks. Mach's split is between an abort that can leave the
+victim's own invariants broken and one that refuses rather than do so, and it needed both because
 Mach threads block inside arbitrary kernel work. This kernel's blocked threads are all parked at one
-of three well-defined points, with no kernel state in flight, so **every abort here is
-`thread_abort_safely`-shaped and the dangerous variant has no reason to exist.** That is a real
+of three well-defined points, with no kernel state in flight, so every abort here is
+`thread_abort_safely`-shaped and the dangerous variant has no reason to exist. That is a real
 advantage of a microkernel with four syscalls, and it is worth stating out loud rather than
 assuming.
 
@@ -330,8 +329,8 @@ assuming.
 L4 has no abort verb either. It has `ex_regs`, whose stated job is setting a thread's instruction and
 stack pointer, and cancellation is a *flag* on it:
 
-> **L4_THREAD_EX_REGS_CANCEL** = 0x10000UL, "Cancel ongoing IPC in the thread"
-> **L4_THREAD_EX_REGS_TRIGGER_EXCEPTION** = 0x20000UL, "Trigger artificial exception in thread"
+> L4_THREAD_EX_REGS_CANCEL = 0x10000UL, "Cancel ongoing IPC in the thread"
+> L4_THREAD_EX_REGS_TRIGGER_EXCEPTION = 0x20000UL, "Trigger artificial exception in thread"
 >
 > "This method allows to manipulate and start a thread. The basic functionality is to set the
 > instruction pointer and the stack pointer of a thread. [...] Additionally, this method allows also
@@ -349,12 +348,12 @@ Unlike seL4, L4 *does* hand the victim an error, and it distinguishes the two si
 > Source: [L4Re, *L4 Inter-Process Communication (IPC)*](https://l4re.org/doc/l4re_concepts_ipc.html)
 
 with a separate `SEABORTED`/`REABORTED` pair in the error table
-([error codes](https://l4re.org/doc/group__l4__ipc__err__api.html)). **The documentation does not say
-what distinguishes cancel from abort**, and it uses "aborted" in the sentence explaining the
+([error codes](https://l4re.org/doc/group__l4__ipc__err__api.html)). The documentation does not say
+what distinguishes cancel from abort, and it uses "aborted" in the sentence explaining the
 *canceled* codes, which is a caution about inheriting a vocabulary: two words that a reader cannot
 tell apart are worse than one.
 
-The shape worth taking seriously is the third one on the list: L4 also has **IPC timeouts**, so an L4
+The shape worth taking seriously is the third one on the list: L4 also has IPC timeouts, so an L4
 thread need never block forever in the first place. That is a different answer to the same problem
 and it is not one the milestone 23 lane sketched. It is milestone 106's fork.
 
@@ -377,12 +376,12 @@ The most valuable entry, because Fuchsia shipped thread killing, lived with it, 
 The current syscall documentation is the outcome:
 
 > "This asynchronously kills the given process or job and its children recursively, until the entire
-> task tree rooted at handle is dead. **Killing a thread is not supported.**" Rights: "_handle_ must
+> task tree rooted at handle is dead. Killing a thread is not supported." Rights: "_handle_ must
 > have `ZX_RIGHT_DESTROY`." Errors: "`ZX_ERR_NOT_SUPPORTED` handle is a thread handle."
 >
 > Source: [`zx_task_kill`](https://fuchsia.dev/fuchsia-src/reference/syscalls/task_kill)
 
-Zircon's answer to a thread blocked in `zx_channel_call` is therefore **not to touch the thread**. It
+Zircon's answer to a thread blocked in `zx_channel_call` is therefore not to touch the thread. It
 closes the channel and lets the call fail:
 
 > `ZX_ERR_PEER_CLOSED`, "The other side of the channel was closed or became closed while waiting for
@@ -393,9 +392,9 @@ closes the channel and lets the call fail:
 
 That is precisely case (b) in the hung-component taxonomy: destroy the object the thread is blocked
 on and the block resolves itself. Zircon can always do this because a channel handle is an ordinary
-object with an owner, and killing the *process* closes all of its handles. **The granularity at which
+object with an owner, and killing the *process* closes all of its handles. The granularity at which
 Zircon expresses "may end this" is the task, and the authority is a right on the object's own
-handle**, which is the closest match in the survey to how this tree already thinks.
+handle, which is the closest match in the survey to how this tree thinks.
 
 Zircon also documents the stale-transaction problem in its own vocabulary:
 
@@ -413,8 +412,8 @@ QNX is the industrial synchronous-IPC system and its state machine is nife's, re
 > "If the client thread calls MsgSend(), and the server thread hasn't yet called MsgReceive(), then
 > the client thread becomes SEND blocked." [...] "Once the server thread calls MsgReceive(), the
 > kernel changes the client thread's state to be REPLY blocked, which means that server thread has
-> received the message and now must reply." [...] **"If the server thread fails, exits, or
-> disappears, the client thread becomes READY, with MsgSend() indicating an error."**
+> received the message and now must reply." [...] "If the server thread fails, exits, or
+> disappears, the client thread becomes READY, with MsgSend() indicating an error."
 >
 > Source: [QNX Neutrino, *Synchronous message passing*](http://www.qnx.com/developers/docs/7.0.0/com.qnx.doc.neutrino.sys_arch/topic/ipc_Sync_messaging.html)
 
@@ -423,10 +422,10 @@ SEND-blocked or REPLY-blocked"
 ([`MsgSend()`](https://www.qnx.com/developers/docs/6.4.1/neutrino/lib_ref/m/msgsend.html)).
 
 This is the entry that most directly indicted the state of this kernel when the note was written.
-**QNX unblocks a REPLY-blocked client when its server dies. nife did not**, because `Error::Gone`
+QNX unblocks a REPLY-blocked client when its server dies. nife did not, because `Error::Gone`
 reached only endpoint wait queues and a reply-parked caller left the queue at the rendezvous. A hung
-*or dead* server stranded its callers here in a way QNX has not since the 1990s. **Milestone 254
-closed the dead half on 2026-09-04**; the hung half (a server alive and simply not replying) is
+*or dead* server stranded its callers here in a way QNX has not since the 1990s. Milestone 254
+closed the dead half on 2026-09-04; the hung half (a server alive and simply not replying) is
 still open and is milestone 133's and 106's.
 
 ### Linux: the third state had to be invented, and the reason was social
@@ -447,16 +446,16 @@ Included for contrast, and the contrast is that Linux could not fix this by fiat
 
 Two lessons, and neither is "copy this".
 
-**A third state was needed because two were a false choice.** `TASK_INTERRUPTIBLE` means every wait
+A third state was needed because two were a false choice. `TASK_INTERRUPTIBLE` means every wait
 site must handle `-EINTR` and every application must expect it; `TASK_UNINTERRUPTIBLE` means nobody
 handles anything and the process is unkillable. `TASK_KILLABLE` splits the difference by making the
-wait breakable *only* by something that ends the process anyway, so **no correct program ever
-observes the interruption**, and therefore no wait site has to be rewritten to handle it.
+wait breakable *only* by something that ends the process anyway, so no correct program ever
+observes the interruption, and therefore no wait site has to be rewritten to handle it.
 
 That is directly transferable. An abort that only ever precedes teardown costs userspace nothing; an
 abort that returns an error a program is expected to survive costs every `CALL` site in the tree.
 
-**And the constraint that forced it was compatibility, which this project does not have.** Linux
+And the constraint that forced it was compatibility, which this project does not have. Linux
 could not change what a blocking write means because applications depend on it. nife has 54 user
 programs, all in this tree. The window in which this decision is cheap is now.
 
@@ -479,33 +478,33 @@ the flag were the caller's rather than the destroyer's.
 
 | System | Verb | Authority | What the victim sees | Does it reach a reply-parked caller? |
 |---|---|---|---|---|
-| seL4 | `seL4_TCB_Suspend` (cancel is a side effect) | a TCB capability | **nothing**: `ThreadState_Inactive` | yes, via the reply object's `replyTCB` back-link |
+| seL4 | `seL4_TCB_Suspend` (cancel is a side effect) | a TCB capability | nothing: `ThreadState_Inactive` | yes, via the reply object's `replyTCB` back-link |
 | Mach | `thread_abort` / `thread_abort_safely` | task/thread port | an interrupted-syscall return code | yes (message primitives) |
 | L4Re | `ex_regs` with `..._CANCEL` (cancel is a flag) | a thread capability | `L4_IPC_SECANCELED` / `RECANCELED` | yes; also avoided by IPC timeouts |
-| Zircon | `zx_task_kill`, **refused for threads** | `ZX_RIGHT_DESTROY` on a process/job handle | `ZX_ERR_PEER_CLOSED` / `ZX_ERR_CANCELED` from the channel | yes, by closing the channel, not by touching the thread |
-| QNX | server death, implicitly | none: it is automatic | `ESRCH` from `MsgSend` | **yes, and this is its headline behaviour** |
+| Zircon | `zx_task_kill`, refused for threads | `ZX_RIGHT_DESTROY` on a process/job handle | `ZX_ERR_PEER_CLOSED` / `ZX_ERR_CANCELED` from the channel | yes, by closing the channel, not by touching the thread |
+| QNX | server death, implicitly | none: it is automatic | `ESRCH` from `MsgSend` | yes, and this is its headline behaviour |
 | Linux | fatal signal + `TASK_KILLABLE` | ambient, by pid | nothing (the process dies) | n/a |
 | NT | user APC to an alertable wait | thread handle | `STATUS_USER_APC` | only if the wait opted in |
 
-**Nobody in this survey blocks forever with no way out.** nife was alone in that when this table was
+Nobody in this survey blocks forever with no way out. nife was alone in that when this table was
 written, and alone in it by accident rather than by decision, which is what made it worth a fork
 rather than a `BUGS` entry. Milestone 254 took the row's last column: a reply-parked caller here is
 now reached, by the server's death and by the rendezvous's, which is QNX's route and Zircon's
-together. The **first** column is still open, because nothing here can end a blocked thread.
+together. The first column is still open, because nothing here can end a blocked thread.
 
 ## Mapping onto this kernel: what each shape would break
 
 ### Milestone 124's static proof stays intact, for all four proposals
 
 `script/stack-depth-check` proves in CI, on both ISAs, that no context switch is reachable from the
-interrupt-stack entry point, and `schedule()` carries the runtime half as a `debug_assert!`. **No
-proposal here delivers an abort from an interrupt context.** Every one of them is entered from a
+interrupt-stack entry point, and `schedule()` carries the runtime half as a `debug_assert!`. No
+proposal here delivers an abort from an interrupt context. Every one of them is entered from a
 syscall on the *destroyer's* own thread stack, takes `SCHED`, mutates the victim's `Handshake` and
 possibly one endpoint queue, and returns. The victim is touched as data, never switched to, and the
 destroyer never calls `schedule()` from anywhere new.
 
 The property to preserve if a proposal ever grows a timer (a deadline on `CALL`, milestone 106's
-fork) is that **firing a deadline from the timer IRQ must not switch there either**. The existing
+fork) is that firing a deadline from the timer IRQ must not switch there either. The existing
 answer is already written: the interrupt path defers its switch to `preempt_if_needed`, one frame
 outside the trampoline, back on the interrupted thread's own stack. A deadline would have to use the
 same deferral, and that is a constraint to write into 106 rather than a reason to refuse it.
@@ -515,13 +514,13 @@ same deferral, and that is a constraint to write into 106 rather than a reason t
 One-shot, `WRITE` without `GRANT`, minted at the rendezvous, consumed on use, living in the callee's
 capability table. Three consequences:
 
-- **The operator cannot answer on the component's behalf**, and this is by construction rather than
+- The operator cannot answer on the component's behalf, and this is by construction rather than
   by omission: the cap is minted without `GRANT` "so it could not have been delegated here in the
   first place". Nothing about freeing a stranded caller can route through delegating the reply.
-- **The cap carries a thread name, not a call name.** See the hazard section above. Any proposal that
+- The cap carries a thread name, not a call name. See the hazard section above. Any proposal that
   wakes a reply-parked caller and lets it call again must either delete the outstanding `Reply(tid)`
   caps or refuse to let the caller run.
-- **Deleting them is a sweep of the whole capability table**, and `sched::delete_frame_caps` is the existing pattern
+- Deleting them is a sweep of the whole capability table, and `sched::delete_frame_caps` is the existing pattern
   for exactly that. It is not free but it is a teardown path.
 
 ### §16's revocation model and the `killed` flag
@@ -529,7 +528,7 @@ capability table. Three consequences:
 `killed` today means "convert to a corpse at the next preemption", and its one enforcement point
 requires `state == Running`. Two of the proposals below change what `killed` means for a `Blocked`
 thread, and that is a semantic change to a flag that `Untyped::DESTROY`, §24's `^C` escalation and
-`sched::kill_thread` all set. **Whatever is decided, `killed` should end up with one meaning**, not a
+`sched::kill_thread` all set. Whatever is decided, `killed` should end up with one meaning, not a
 meaning that depends on the victim's state, because the current pair (armed for a runaway, inert for a
 sleeper) is exactly the kind of state-dependent rule this tree's ladder says to design out.
 
@@ -537,7 +536,7 @@ sleeper) is exactly the kind of state-dependent rule this tree's ladder says to 
 
 The rule is that nothing may acquire the ability to name a thread it was not handed. A `ThreadControlBlock`
 capability *is* a thread name that was handed over, so it does not breach the rule. But note what it
-would change: **`Object::ThreadControlBlock` is a construction-time authority today.** Every method on it
+would change: `Object::ThreadControlBlock` is a construction-time authority today. Every method on it
 (`CONFIGURE`, `CAP_INSERT`, `START`) refuses a thread that is not an `Embryo`, so a `ThreadControlBlock` cap is inert
 the moment the thread runs. Giving it a method that works on a *running* thread converts it from a
 builder's tool into a lifetime handle, which is a real widening and has to be decided as one.
@@ -557,60 +556,60 @@ learn.
 ## The authorization question
 
 The mechanism is small. This is the part that is not, and it is the part this system exists to get
-right. In Unix you kill by pid with ambient authority; here the question is **which held capability
-expresses the right to end a blocked thread**, and there are four candidate answers with different
+right. In Unix you kill by pid with ambient authority; here the question is which held capability
+expresses the right to end a blocked thread, and there are four candidate answers with different
 consequences.
 
-**Milestone 126 set the frame.** A domain names its members and does not act on them, with
+Milestone 126 (procps) set the frame. A domain names its members and does not act on them, with
 `Rights::ENUMERATE` separating looking from acting, and `SURVEY` taking `ENUMERATE` while `RECV` and
 `REAP` take `READ`. Any answer here has to say which side of that line it falls on.
 
 | Candidate | Who holds it today | What it already authorizes | What ending a blocked thread would add |
 |---|---|---|---|
-| **The region capability** (`Untyped`) | the builder | `DESTROY`: reclaim the region and everything retyped from it | nothing new. `DESTROY` already commits to ending every resident; it just cannot finish |
-| **The `ThreadControlBlock` capability** | the builder, during construction | configure, endow, start | a lifetime handle where there is now a construction tool. seL4's answer |
-| **The supervision endpoint** (`READ`) | the supervisor | `RECV` a death message, `REAP` a corpse | the "stronger right" §32 declined, and the hung-component note showed it is insufficient for case (c) anyway |
-| **A new right** (`Rights::TERMINATE`) | nobody | nothing | a fifth bit; `Rights::ALL` is `0b1111` today, so this is an ABI change to `abi::rights` |
+| The region capability (`Untyped`) | the builder | `DESTROY`: reclaim the region and everything retyped from it | nothing new. `DESTROY` already commits to ending every resident; it just cannot finish |
+| The `ThreadControlBlock` capability | the builder, during construction | configure, endow, start | a lifetime handle where there is now a construction tool. seL4's answer |
+| The supervision endpoint (`READ`) | the supervisor | `RECV` a death message, `REAP` a corpse | the "stronger right" §32 declined, and the hung-component note showed it is insufficient for case (c) anyway |
+| A new right (`Rights::TERMINATE`) | nobody | nothing | a fifth bit; `Rights::ALL` is `0b1111` today, so this is an ABI change to `abi::rights` |
 
 Three observations, offered as analysis rather than as a verdict.
 
-**The region capability is the answer that adds no authority at all**, and that is a strong argument
+The region capability is the answer that adds no authority at all, and that is a strong argument
 in a system whose first principle about rights is that they should not widen. A holder of an
 `Untyped` cap can already end every `Ready` and `Running` thread in the region, and can already leave
 every `Blocked` one permanently killed-and-refused. It cannot only *finish*. Framed that way, ending
 a blocked resident is not a new power; it is the completion of one that is already granted and
 already destructive, and `reclaim_region`'s own `BUGS` already says a refused reclaim is destructive.
 
-**The `ThreadControlBlock` capability is the answer that composes**, and it is what seL4 chose. It names one thread
+The `ThreadControlBlock` capability is the answer that composes, and it is what seL4 chose. It names one thread
 rather than a region, so it can end a hung component without touching its neighbours, and it is
 already delegable and already narrowable. What it costs is the widening above: a builder that hands
 out a `ThreadControlBlock` cap today is handing out "you may assemble this thread", and afterwards would be handing
 out "you may end this thread whenever you like, forever". Those are different offers and existing
 call sites made the first one.
 
-**The supervision endpoint is the answer that is most tempting and least available.** It is where a
+The supervision endpoint is the answer that is most tempting and least available. It is where a
 reader expects the authority to live, because the supervisor is the party that notices. But §32
 declined it, milestone 126 ruled that a domain names its members and does not act on them, and the
 hung-component note proved the supervisor's vocabulary is insufficient for case (c) regardless. Adding
 a terminate verb to `Endpoint` would overturn all three at once. It should be refused unless calef
 means to overturn them.
 
-**And the watchdog does not want any of these** (hung-component's answer 1, which stands). A watchdog
+And the watchdog does not want any of these (hung-component's answer 1, which stands). A watchdog
 holds `ENUMERATE` and produces a verdict; the party that acts is the one that already holds the
 authority to act. Nothing in this note changes that separation, and every proposal below keeps it.
 
 ## Four proposals
 
-Each states the mechanism, the authority, the cost, what it breaks, and how it fails. **They are not
-ranked, and none is recommended.** They are ordered from smallest surface to largest.
+Each states the mechanism, the authority, the cost, what it breaks, and how it fails. They are not
+ranked, and none is recommended. They are ordered from smallest surface to largest.
 
 ---
 
 ### Proposal A: `DESTROY` finishes what it starts
 
-**Provisional name for the concept: *the completed reclaim*. Not minted; calef's call.**
+**Provisional name for the concept: *the completed reclaim*. Not minted; an architect's call.**
 
-**Mechanism.** In `reap_region_objects`'s refuse phase, a resident thread that is `Blocked` is not
+Mechanism. In `reap_region_objects`'s refuse phase, a resident thread that is `Blocked` is not
 merely marked `killed`. It is unlinked from whatever holds it (`remove_sender`, a new
 `remove_receiver`, or nothing at all for `WaitRole::Reply`), every `Object::Reply(tid)` naming it is
 swept out of every capability table, and its state is written straight to `Finished` without ever waking it.
@@ -619,29 +618,29 @@ reclaims the region. `RegionReap` grows a fourth verdict; `region_reap_verdict` 
 lifted, testable function precisely so a rule like this can be stated and proved without staging a
 race.
 
-**Authority: the region capability. No new right, no new method, no new syscall number, no ABI
-change.** The holder of the `Untyped` has already said this region is going away.
+Authority: the region capability. No new right, no new method, no new syscall number, no ABI
+change. The holder of the `Untyped` has already said this region is going away.
 
-**What it costs.** Roughly thirty lines plus `remove_receiver`. One reply-cap sweep per victim, O(128
+What it costs. Roughly thirty lines plus `remove_receiver`. One reply-cap sweep per victim, O(128
 x 16). No user-visible surface change whatsoever, so no program in the tree needs editing and no
 documentation outside the kernel changes.
 
-**What it breaks.**
+What it breaks.
 
-- **A `Blocked` thread dies without running another instruction.** It never returns from its syscall,
+- A `Blocked` thread dies without running another instruction. It never returns from its syscall,
   never sees `Gone`, never runs a destructor. This is seL4's `ThreadState_Inactive` and Zircon's
   entire objection to thread killing, and the objection lands: locks it holds stay held, and whatever
   it was in the middle of stays in the middle. The mitigating fact particular to this kernel is that
   a `Blocked` thread holds no *kernel* state in flight, and its region is being destroyed anyway, so
   the "process left in a bad state" hazard applies to the region's other threads and to nothing else.
-- **Destroying region A silently removes a waiter from an endpoint in region B.** The endpoint's owner
+- Destroying region A silently removes a waiter from an endpoint in region B. The endpoint's owner
   observes a sender that never arrived, which is indistinguishable from a client that never called.
   The precedent is settled (`remove_sender` on a supervisor's endpoint already does this) but the
   scope widens from corpses to live threads.
-- **`killed` acquires a second meaning**, or, better, loses its old one for blocked threads. Worth
+- `killed` acquires a second meaning, or, better, loses its old one for blocked threads. Worth
   deciding explicitly rather than letting the two coexist.
 
-**How it fails.** It does not solve the *stranded caller in another region*. A client of the hung
+How it fails. It does not solve the *stranded caller in another region*. A client of the hung
 server, blocked in `CALL`, sits in its own region, and freeing that region is its own owner's act.
 Proposal A makes each region individually reclaimable by its own owner, which is enough for the
 capacity problem and is not the same as an abort. If `wait_on` is ever stale (a future block site that
@@ -654,28 +653,28 @@ in an endpoint queue: the worst failure mode in the set. That argues for a `debu
 
 ### Proposal B: a terminate verb on the `ThreadControlBlock` capability
 
-**Provisional names, all unratified: `ThreadControlBlock::TERMINATE`, `ThreadControlBlock::STOP`, `ThreadControlBlock::CANCEL`. calef's call, and
-the vocabulary matters more than usual because L4 shipped two words for this and cannot tell them
-apart in its own documentation.**
+**Provisional names, all unratified: `ThreadControlBlock::TERMINATE`, `ThreadControlBlock::STOP`,
+`ThreadControlBlock::CANCEL`. An architect's call, and the vocabulary matters more than usual
+because L4 shipped two words for this and cannot tell them apart in its own documentation.**
 
-**Mechanism.** seL4's `suspend()`, transliterated: cancel the IPC (unlink, sweep the reply caps),
+Mechanism. seL4's `suspend()`, transliterated: cancel the IPC (unlink, sweep the reply caps),
 dequeue, set a terminal state. A `ThreadControlBlock` capability's methods stop refusing non-`Embryo` threads for
 this one verb.
 
-**Authority: a `ThreadControlBlock` capability with `WRITE`.** Delegable, narrowable, and it names exactly one thread
+Authority: a `ThreadControlBlock` capability with `WRITE`. Delegable, narrowable, and it names exactly one thread
 that the holder was handed. Endpoint-only naming is not breached.
 
-**What it costs.** A new method number in `abi::tcb`, a `DECISIONS` section for its semantics (§10's
+What it costs. A new method number in `abi::tcb`, a `DECISIONS` section for its semantics (§10 (process)'s
 rule), and the widening of what a `ThreadControlBlock` cap means. Existing holders gain a power they were not offered;
 `crates/system_initializer` and every spawn path would need auditing for who ends up holding one after
 `START`.
 
-**What it breaks.**
+What it breaks.
 
-- **The construction-time invariant.** Today a `ThreadControlBlock` cap is inert once the thread runs, and that is a
+- The construction-time invariant. Today a `ThreadControlBlock` cap is inert once the thread runs, and that is a
   clean, checkable property. Afterwards it is a lifetime handle, and "who holds a `ThreadControlBlock` cap on this
   thread" becomes a question with security weight that it does not have now.
-- **It gives a *narrower* authority than proposal A gives**, which sounds like an advantage and is
+- It gives a *narrower* authority than proposal A gives, which sounds like an advantage and is
   also the risk: a holder can end one thread without owning its region, so the thread's memory is not
   thereby reclaimed. Ending a thread and reclaiming its memory become two acts with two authorities,
   and the hung-component note already found that conflating them is what made §32's sentence half
@@ -696,7 +695,7 @@ is depends on a spawn-time endowment convention that does not exist yet.
 **Mechanism.** Leave the hung *server* alone entirely and fix the stranded *client*, which is QNX's
 behaviour and Zircon's. Two independent pieces, and they can be taken separately:
 
-1. **A reply-parked caller is woken when the thing it awaits becomes unreachable**, closing the gap
+1. A reply-parked caller is woken when the thing it awaits becomes unreachable, closing the gap
    the hung-component note found: `Error::Gone` reaches endpoint wait queues and not reply parks. The
    trigger would be the destruction of the server's region or of the endpoint the call went to, both
    of which the kernel already witnesses. This makes case (b) work for callers the way it already
@@ -738,15 +737,15 @@ Argued properly, because it may be right.
 
 **Mechanism.** No kernel change. Instead:
 
-1. **Record the limitation where a reader meets it**, which is `reclaim_region`'s `BUGS`, `Holding`'s
+1. Record the limitation where a reader meets it, which is `reclaim_region`'s `BUGS`, `Holding`'s
    `BUGS`, `notes/frames.md` and `notes/quotas.md`. Today `reap_region_objects`'s comment is the only
    place this fact lives, and a comment inside a kernel function is rung four.
-2. **Bound it with the quota machinery that already exists.** `QuotaToken` is documented as holding a
+2. Bound it with the quota machinery that already exists. `QuotaToken` is documented as holding a
    spawner's slot precisely for this case: "a child that blocks forever keeps holding it, which is
    correct: it is still consuming a thread, a stack, and an address space." A supervisor that spawns
    from a bounded budget cannot leak unboundedly; it runs out of children and refuses, loudly, at a
    place a human can see.
-3. **Make the leak visible.** `SURVEY` already reports `BLOCKED`; a count of unreclaimable regions is
+3. Make the leak visible. `SURVEY` already reports `BLOCKED`; a count of unreclaimable regions is
    a `free`-shaped program (milestone 126 already names `Untyped` + `ENUMERATE` as wanting exactly
    this) rather than a kernel change.
 4. **Recover the service, not the memory**, which is what the hung-component lane demonstrated works
@@ -756,16 +755,16 @@ Argued properly, because it may be right.
 
 **The argument for it, which is not a straw man.**
 
-- **§40 is "no reaper of last resort", and Zircon deleted this feature after shipping it.** RFC-0007
+- §40 (supervisor) is "no reaper of last resort", and Zircon deleted this feature after shipping it. RFC-0007
   is a system with far more users than this one concluding that thread killing "encourages bad
   practices" and removing it. A project that adds it should be able to say why Fuchsia was wrong, or
   why its case differs. The honest difference is that Fuchsia kills the *process* instead, which nife
   can do for cases (a) and (b) and cannot for (c); the honest similarity is that both are arguing
   about the same hazards.
-- **The failure this prevents is a capacity failure, and a capacity failure is survivable and
-  visible.** Running out of untyped budget is a refusal at a call site, not corruption. A forcible
+- The failure this prevents is a capacity failure, and a capacity failure is survivable and
+  visible. Running out of untyped budget is a refusal at a call site, not corruption. A forcible
   teardown's failure mode is an invariant broken inside a component that was still holding something.
-- **The customer path may not need it.** A backup target's hang budget is set by its supervisor's
+- The customer path may not need it. A backup target's hang budget is set by its supervisor's
   quota; if the supervisor can restart the service (which it can) and the operator can restart the
   machine on a schedule it already has, an unreclaimable region is a monthly reboot rather than an
   outage. That is a real answer, and it should be tested against the actual budget before a kernel
@@ -798,11 +797,11 @@ in having no way out at all, which is a claim a stranger reading the demonstrato
 
 **What I would want to know more about, offered as questions rather than as a ranking.**
 
-1. **Is the stale-reply hazard reachable today by any path I did not find?** I convinced myself it is
+1. Is the stale-reply hazard reachable today by any path I did not find? I convinced myself it is
    not, by enumerating the exits from a reply park, but it is a proof by exhaustion over code I read
    rather than a checked property. It is Kani-shaped if `ipc_reply`'s guard were lifted into a
    testable function the way `region_reap_verdict` was.
-2. **What does the customer path actually need?** Proposal D's case stands or falls on whether
+2. What does the customer path actually need? Proposal D's case stands or falls on whether
    milestone 55's supervisor quota bounds the leak below the reboot cadence, and that is a number
    nobody has measured. It is measurable now.
 3. **Is C separable enough to take on its own merits?** It looks less like a fork and more like a

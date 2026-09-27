@@ -5,7 +5,7 @@ limits of `Name:` blocks and `script/names`, including the kinds of name the wor
 cover and why `helpers/` helpers are left out. It exists to verify or challenge the main page. A
 reader who only needs to name, ratify or rename something should not have to open it. The directory
 `design/naming/` and this file's stem are provisional names, minted 2026-09-24 by the lane that
-split the file; naming is calef's.*
+split the file; naming is an architect's.*
 
 ## BUGS
 
@@ -86,7 +86,7 @@ There were 17 files in `scripts/` (the drawer's name until 2026-09-23), of which
 them for, written by the lane that added the file. So the question is not whether a helper may argue
 its own name. It may, and more than half did. The question is whether the worklist should enumerate
 them. Enumerating cost about 15 rows on a worklist 76 deep that day: a fifth again of the only queue
-in this tree whose sole consumer is calef's attention. Three things decided it against.
+in this tree whose sole consumer is an architect's attention. Three things decided it against.
 
 1. The worklist is ordered by exposure, and its own header says so. A program is typed at the
    prompt, a crate is what a newcomer greps, a `script/` entry point is typed by whoever works on

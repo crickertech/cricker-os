@@ -199,7 +199,7 @@ been read against these questions.
   time. And a `TickBudget` that re-anchors on every check would never expire; the harness's per-test
   ceiling is the backstop ([migration drain](load-sensitive-assertions/migration-drain-tick-budget.md)).
 - A user program cannot read delivered ticks, so `destroy_with_retry` is safe by margin, not by
-  unit. Giving a process a tick reading is an ABI addition, which is calef's call.
+  unit. Giving a process a tick reading is an ABI addition, which is an architect's call.
 - The host-side post-run checks are emulator-dependent. On one tree, apt's QEMU 8.2.2 and the pinned
   11.0.2 fail disjoint sets of them, and nothing in the output names the emulator. Before reading a
   red post-run check as this family or as a regression, check which QEMU ran it. Milestone 414 (a

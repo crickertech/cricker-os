@@ -155,7 +155,7 @@ enough to confirm that there is no excuse for leaving one unconfirmed.
   the patch's prose and the transcript would simply agree on a different line. What it buys is that
   the *next* 305, where a red arrives through a helper at "the supervision tree could not be built:
   stage 3", is a gate failure rather than something somebody happens to read. It is a format change,
-  so the field's spelling is calef's.
+  so the field's spelling is an architect's.
 - **Milestone 418.**
   Point `script/mutation` at `crates/paging`, `crates/dma_validator`, `crates/component_plan` and
   `crates/capability`, and compare its verdict against this milestone's. Risk 3's census measures whether a change to the code is

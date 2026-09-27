@@ -85,7 +85,7 @@
 # numbers and would go stale the day the charts changed shape; `measures`, which collides with
 # notes/register-of-measures.md, a different thing (what the kernel owes itself, rather than what
 # moved this week). The directory `notes/project-metrics/` holding the CSV and the SVGs follows
-# this name and moves with it. calef has not ratified it.
+# this name and moves with it. no architect has ratified it.
 #
 # **One spelling of a week, everywhere.** A week is `2026W36`: the chart axis, the CSV's `week`
 # column, this script's own output and the prose on `notes/project-metrics.md` all use it. calef

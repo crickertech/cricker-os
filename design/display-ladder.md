@@ -6,30 +6,30 @@ honest. COSMIC's shape is Rust clients rendering into shared buffers, a composit
 them to scanout, everything message-passing; nife already has shared frames and endpoints,
 so the *architecture* is aligned even where the drivers are mountains.
 
-**Status (2026-07-30): rungs one and two are built, and rung one's deferred VT engine now is too.**
+Status (2026-07-30): rungs one and two are built, and rung one's deferred VT engine now is too.
 Rung one shipped its contract and its pixels, rung two shipped whole, and milestone 29's remaining
 increment closed the gap with a bitmap font, a sans-IO VT engine, a display terminal that is a client
-at both seams, and a confined virtio keyboard (DECISIONS §37, notes/glyphs.md). All on both ISAs, all
-with the pictures verified from the host as well as the guest: `cargo xtask` now proves **three**
+at both seams, and a confined virtio keyboard (DECISIONS §37 (text), notes/glyphs.md). All on both ISAs, all
+with the pictures verified from the host as well as the guest: `cargo xtask` now proves three
 pictures over one boot, in order, and the text check's negative control is a screen with one letter
 changed. Rung three is the next step and is where the parked competitor question ([competitor-question.md](competitor-question.md)) has to be
 answered on purpose.
 
-1. **Rung one: milestone 29** (promoted from optional). **Built**: a confined userspace virtio-gpu
+1. Rung one: milestone 29 (promoted from optional). Built: a confined userspace virtio-gpu
    driver (`display`), a client that draws (`painter`), and the framebuffer contract between them
    (`crates/gfx_proto`, notes/framebuffer-contract.md, DECISIONS §29). The framebuffer is a bigger
    grant and never an exemption; the pixels are proved in the guest by two witnesses in two address
    spaces and from the host by comparing QEMU's `screendump` against the pattern definition.
 
-   **Its deferred half is built too** (2026-07-30, DECISIONS §37, notes/glyphs.md): a public-domain
+   Its deferred half is built too (2026-07-30, DECISIONS §37, notes/glyphs.md): a public-domain
    7x8 bitmap font, a sans-IO VT engine, a display terminal, and a virtio keyboard. The deferral's
    premise held exactly as written: the contract carries pixels, not text, so the terminal arrived as
-   another client and **neither `gfx_proto` nor `display` changed a line**, which the same binary then
+   another client and neither `gfx_proto` nor `display` changed a line, which the same binary then
    demonstrated a second time by being a compositor client with `window`'s authority. The VT engine's
    language is still an open choice, and notes/glyphs.md now prices libghostty-vt against a built
    Rust engine rather than against an estimate.
 
-   **Its font increment is blocked, and the blocker is not graphical** (2026-08-19).
+   Its font increment is blocked, and the blocker is not graphical (2026-08-19).
    `design/decisions/100-the-terminal-font.md` chose gohufont-14 at 8x14, which on this rung's
    128x64 scanout is a 16x4 grid rather than a terminal, so the surface has to grow with it. It
    cannot: a `PageFrame` capability names one page and occupies one of sixteen capability-table
@@ -38,20 +38,20 @@ answered on purpose.
    That is `notes/frames.md`'s recorded fork arriving with a bill attached, and it has to be
    answered before this rung's text gets any better. The pixel-for-pixel verification, the VT
    engine, the terminal and the keyboard are all unaffected and all still built.
-2. **Rung two: a compositor component (milestone 33). Built**, both ISAs: `compositor` multiplexing one
+2. Rung two: a compositor component (milestone 33). Built, both ISAs: `compositor` multiplexing one
    screen among three mutually distrusting clients, each holding a capability to its own surface;
    software composition honouring a damage rectangle; input routed by capability using the terminal
    contract's `OP_BYTES` driver half, so a terminal drops in unchanged. No ambient display: window
-   enumeration and screenshots are **read-only mappings**, not verbs, so a client that holds neither
+   enumeration and screenshots are read-only mappings, not verbs, so a client that holds neither
    has nothing to call and nowhere to look. See notes/compositor.md and DECISIONS §33. The design's
-   load-bearing idea, which was not the obvious one: the shared doorbell endpoint carries **no
-   authority at all** (a shared endpoint has no sender identity, so anything named in a message would
+   load-bearing idea, which was not the obvious one: the shared doorbell endpoint carries no
+   authority at all (a shared endpoint has no sender identity, so anything named in a message would
    be forgeable), every per-client fact lives in per-client memory, and the compositor therefore
    contains no authorization code. Wayland's model is the prior art and this is the difference in kind
    from it: Wayland attaches client identity at the transport and decides in code, so its security is a
    property of that code.
 
-   **The rung also found the one primitive this kernel lacks**, and it is recorded as a fork rather
+   The rung also found the one primitive this kernel lacks, and it is recorded as a fork rather
    than built: there is no wait-any, and two threads cannot share an address space, so a process has
    exactly one blocking wait point. A component that must distinguish more than one *class* of sender
    must therefore be more than one process, or carry authority somewhere other than its messages. The
@@ -60,9 +60,9 @@ answered on purpose.
    author rather than clipped), a screenshot could be a consistent served snapshot, and input delivery
    would stop being a blocking `CALL` into a client. DECISIONS §33 has the two candidate forms and
    their costs. **Architect's call.**
-3. **Rung three: real applications.** iced's software-rendering path and cosmic-text on the
+3. Rung three: real applications. iced's software-rendering path and cosmic-text on the
    milestone 27 std PAL. Something COSMIC-like appears here, before any GPU.
-4. **Rung four: GPU acceleration via virtio-gpu 3D (milestone 34).** The Venus path (Vulkan over
+4. Rung four: GPU acceleration via virtio-gpu 3D (milestone 34 (acceleration)). The Venus path (Vulkan over
    the virtio device, over the §18 PCIe transport): how every VM gets a GPU without a hardware
    driver, and what would give wgpu something real. A mountain, but a climbable one, priced as
    such.
@@ -76,10 +76,12 @@ answered on purpose.
    tracked; until then the plan above is recorded but not built.
 
 Governance, stated now so it is not smuggled later: rungs one and two are demonstrator work.
-Rungs three and four reopen the parked competitor question ([competitor-question.md](competitor-question.md)), which is the architect's call
-to make consciously when rung two is real. **Rung two is now real, and the call is made**: hold at
-rung two ([DECISIONS §131](decisions/131-hold-at-rung-two.md), calef, 2026-08-26). Rungs three and
-four stay unstarted; milestone 33 deliberately stopped at its edge (no iced, no cosmic-text, no
-application work), and that edge holds until something useful is built and proven on text mode.
-Text-mode work that is not GUI-toolkit work (a kick-ass shell and editor experience, the 169-174
-self-hosting line, milestone 142's typography) is exactly the direction §131 asks for instead.
+Rungs three and four reopen the parked competitor question
+([competitor-question.md](competitor-question.md)), which is an architect's call to make consciously
+when rung two is real. **Rung two is now real, and the call is made**: hold at rung two ([DECISIONS
+§131 (the competitor question)](decisions/131-hold-at-rung-two.md), calef, 2026-08-26). Rungs three
+and four stay unstarted; milestone 33 (a compositor) deliberately stopped at its edge (no iced, no
+cosmic-text, no application work), and that edge holds until something useful is built and proven on
+text mode. Text-mode work that is not GUI-toolkit work (a kick-ass shell and editor experience, the
+169-174 self-hosting line, the typography of milestone 142 (a text display good enough that people
+use it instead of a GUI)) is exactly the direction §131 asks for instead.

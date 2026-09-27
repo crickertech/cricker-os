@@ -55,7 +55,8 @@
 //! fixed-pitch cell and wrong for anything else.
 //!
 //! Name: provisional (this lane, bench/font-options). "Specimen" is the printing trade's word
-//! for exactly this sheet, which is the guard rail the naming tenet keeps, but the name is calef's.
+//! for exactly this sheet, which is the guard rail the naming tenet keeps, but the name is an
+//! architect's.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;

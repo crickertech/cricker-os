@@ -88,9 +88,9 @@ half an hour of wall clock, with the score and the write-up after that.
 Run 5's `$10.56` needs its caveat, and it has already been quoted without one. It is the CLI's
 `total_cost_usd` for the stranger process alone. It excludes the lane that pre-registered the run,
 watched it, debriefed it, scored it and wrote it up, which is the larger half of the cost. A monthly
-cadence claims that a stranger's questions are worth about that much once a month. That is calef's
-claim, and the runs support it: five runs produced roughly seven findings each, including two
-defects nobody in the tree could see.
+cadence claims that a stranger's questions are worth about that much once a month. That is an
+architect's claim, and the runs support it: five runs produced roughly seven findings each,
+including two defects nobody in the tree could see.
 
 ### Why the calendar, and when to revisit it
 

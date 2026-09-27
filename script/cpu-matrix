@@ -18,7 +18,7 @@
 # Introduced 2026-07-31 to run the riscv64 suite across QEMU's CPU models. A noun phrase naming
 # the thing it sweeps, and "CPU matrix" is the ordinary term for the axis a test suite is run
 # across, so neither half needs decoding. The 2026-09-05 acronym test does not reach `cpu`, whose
-# expansion tells a reader nothing they did not have. calef has not ratified it.
+# expansion tells a reader nothing they did not have. no architect has ratified it.
 
 set -e
 cd "$(dirname "$0")/.."

@@ -30,7 +30,7 @@
 # terms a reader brings with them, and the `ci-` prefix says which machine is meant to run it,
 # which is the distinction that matters at a glance beside `script/test`. The hyphen was this
 # directory's practice before milestone 63 made it a rule on 2026-08-01, and this script is part
-# of what that rule was describing. calef has not ratified it.
+# of what that rule was describing. no architect has ratified it.
 
 set -e
 

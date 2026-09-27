@@ -436,8 +436,8 @@ fn recorded_reasons(text: &str) -> Vec<&str> {
 /// The comment header a `--save` writes above the rows, built as a pure function of its four
 /// facts so it can be tested without running a benchmark or rewriting a committed floor.
 ///
-/// **A floor is calef's to move**, so the only honest way to test the writer is not to call the
-/// writer: `--save` commits a performance floor, and there is no dry run that would not be one.
+/// **A floor is an architect's to move**, so the only honest way to test the writer is not to call
+/// the writer: `--save` commits a performance floor, and there is no dry run that would not be one.
 /// Pulling the header out of the write is what makes the format checkable at all.
 fn baseline_header(
     stem: &str,

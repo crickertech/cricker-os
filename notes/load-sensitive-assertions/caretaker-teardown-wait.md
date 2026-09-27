@@ -149,9 +149,9 @@ time) re-denominated `smp.rs`'s drain in delivered timer ticks, precisely becaus
 keeps running while the guest is descheduled. A process cannot do that. `user_mode_runtime::now` is
 the raw counter, and nothing publishes the kernel's per-core tick count to userspace. So what makes
 this safe is the margin, not the unit, and the margin would have to be re-measured if the wait ever
-grew. Giving a process a delivered-tick reading is an ABI addition, which is calef's call rather
-than a lane's. It is written in that function's own BUGS section, so the next reader meets it there
-and not only here.
+grew. Giving a process a delivered-tick reading is an ABI addition, which is an architect's call
+rather than a lane's. It is written in that function's own BUGS section, so the next reader meets it
+there and not only here.
 
 The failure message now carries the observation the wait decided on. The client reports its wait in
 the third report word (where every other behaviour puts an identity hint, and `LOGOUT` has no

@@ -283,7 +283,7 @@ have been: it shows the capability *moved* rather than being written twice.
 
 **Not the partition name.** GPT labels are cosmetic and frequently absent: macOS writes none at all
 (notes/globally-unique-identifier-partition-table.md), so a selector keyed on one would fail on exactly the disk the recovery story is
-about. Both flag names are **provisional** (CLAUDE.md: names are calef's call).
+about. Both flag names are **provisional** (CLAUDE.md: names are an architect's call).
 
 The selector is **refused on `mkfs`, `put` and `import`**. Those verbs open read-write, recovery
 never does, and opening a *device* read-write by accident is a considerably worse mistake than

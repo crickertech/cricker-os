@@ -97,8 +97,8 @@ They are not assertions about a window, which is what makes a global count wrong
   to the allocator, so its frames are marked used either way, and `assert_returned` would fail on a
   correct reclaim. `memory_region::usage` is the instrument for that case (`live_swap_tests.rs`), and
   nothing in the type stops a caller reaching for the wrong one. The refusal would want a
-  `memory_region` accessor saying whether a name is a root. That is a kernel surface, and so calef's
-  call rather than this lane's.
+  `memory_region` accessor saying whether a name is a root. That is a kernel surface, and so an
+  architect's call rather than this lane's.
 - It walks the run one frame at a time. Sixteen frames is sixteen bitmap reads under the allocator
   lock, taken separately, so the check is not atomic with respect to another core. That is sound for
   what it asserts: a frame nobody has any name for cannot be re-allocated between two of the reads

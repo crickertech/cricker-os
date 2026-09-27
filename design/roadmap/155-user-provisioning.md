@@ -7,8 +7,8 @@ built: 2026-08-23
 
 `milestone/155-identity-provisioner`, 2026-08-23 (an agent lane; see that pull
 request's `**Lane:**` line for the record CLAUDE.md asks for). `components/src/identity_provisioner.rs`
-(provisional name, calef's to ratify) `PUT`s an identity and secret into the credential store and
-`MKDIR`s its home subtree, as one tool invocation, tested end to end against a real credential
+(provisional name, an architect's to ratify) `PUT`s an identity and secret into the credential store
+and `MKDIR`s its home subtree, as one tool invocation, tested end to end against a real credential
 service and a real filesystem (`kernel/src/user/identity_provisioning_tests.rs`,
 `kernel/src/user/identity_provisioner_service.rs`). All three questions this block itself raised
 were answered by precedent, without a design fork (it needed none: minted with **Gate: NONE**, and

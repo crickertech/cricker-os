@@ -10,10 +10,10 @@ needs_person: no
 # 330. Nothing stops the lost prompt returning, because the fault path has no regression gate
 
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
-from milestone 235's block; numbered 2026-09-19 by milestone 433. **Premise re-checked 2026-09-19 and
-it holds, with one correction to where the sibling assertion lives.** No program in
+from milestone 235's block; numbered 2026-09-19 by milestone 433 (drain). Premise re-checked 2026-09-19 and
+it holds, with one correction to where the sibling assertion lives. No program in
 `components/src/` or `fixtures/src/` faults on purpose, and `script/swish-check` spawns none. The
-no-thread-killed assertion milestone 235 (a command that faults hangs the prompt) named is real but is **not** in `script/swish-check`: it is
+no-thread-killed assertion milestone 235 (a command that faults hangs the prompt) named is real but is not in `script/swish-check`: it is
 in `xtask/src/main.rs`, reading the kernel's fault-report text out of the transcript through the same
 `KERNEL_FAULT_TOKENS` milestone 230 (`script/shell-check` is red on `main`, on both architectures) introduced (this block read `KERNEL_WRITER_ANCHORS` until 2026-09-19; no such name exists anywhere in the tree, and the constant's own doc comment is the sharpest statement of the property this milestone protects: the fault report is "the only thing it writes after the userspace console has started"). `script/swish-check`'s own `BUGS` still says "a
 killed user thread is not itself a failure here" and calls that assertion "the obvious next
@@ -21,13 +21,13 @@ ratchet", which stopped being true when milestone 233 landed it; that stale sent
 class milestone 333 collects.
 
 A lane could start this today. The reasoning that produced `DECISION` is sound as
-far as it goes (a new program is a new name, and names are calef's) and it does not reach a gate,
+far as it goes (a new program is a new name, and names are an architect's) and it does not reach a gate,
 because a name has never been a blocker in this tree. `design/naming.md`, which DECISIONS §155
-made the rule, says it in one sentence: a new crate, program or module *"ships a **provisional**
+made the rule, says it in one sentence: a new crate, program or module *"ships a provisional
 name, says so in its report, and expects it to change"*. AGENTS.md says the same thing from the
-other side, that `script/names --unratified` is a worklist rather than a wall *"precisely so that
-an unratified name never blocks anyone's build"*, and milestone 115's gate takes `unrecorded` as a
-truthful answer for the same reason. So the lane ships `faulter` or whatever it proposes, marks it
+other side, that `script/names --unratified` is a worklist rather than a wall *"precisely so that an
+unratified name never blocks anyone's build"*, and milestone 115 (the names that were ratified, and
+the ones that were refused)'s gate takes `unrecorded` as a truthful answer for the same reason. So the lane ships `faulter` or whatever it proposes, marks it
 provisional, and calef ratifies or replaces it on the worklist afterwards.
 
 **The token was `DECISION` from 2026-09-03 to 2026-09-19**, carried across unchanged when milestone

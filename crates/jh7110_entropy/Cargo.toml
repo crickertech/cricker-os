@@ -7,7 +7,7 @@ license.workspace = true
 # Name: PROVISIONAL (milestone 159's lane, 2026-08-24). Chip-qualified and unambiguous rather than
 # generic (`trng` alone would be the "generic word that could name almost anything" AGENTS.md
 # warns off), the same reasoning that keeps `non_volatile_memory_express` and `pci` named for the spec rather than for
-# "storage" or "bus". calef has not ratified it; see src/lib.rs for the full note and script/names.
+# "storage" or "bus". no architect has ratified it; see src/lib.rs for the full note and script/names.
 #
 # no_std for the driver, std for host tests, the §7 pure-logic split `pci` and `non_volatile_memory_express` already use:
 # this crate owns register offsets, bit decode, and the DTB discovery query only. No unsafe code

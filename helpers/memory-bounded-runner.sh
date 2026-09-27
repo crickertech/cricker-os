@@ -1,7 +1,9 @@
 #!/bin/sh
 # helpers/memory-bounded-runner.sh: run one host test binary under a hard memory ceiling.
 #
-# **The name is PROVISIONAL** (milestone 277): names are calef's, and a lane ships one saying so.
+# **The name is PROVISIONAL** (milestone 277 (bound what one mutant may allocate)): names are an
+# architect's, and a lane ships one saying
+# so.
 # It sits between the two families already in this directory. `helpers/qemu-runner-*.sh` are cargo
 # runners; `helpers/qemu-bounded.sh` bounds a process that would otherwise never stop. This is both,
 # which is what the compound is trying to say.

@@ -60,7 +60,7 @@ Milestone 130's Follow-on: *"Decide whether to retire the branch-prefix taxonomy
 `milestone/N-`, the one prefix §90's roadmap-block check actually reads. A grep found nothing else
 consumes it, so the rest is a gate enforcing a convention with no consumer.
 `design/decisions/77-branch-prefixes.md` answers which prefixes belong on the list and assumes it
-stays, so retiring it is calef's call."*
+stays, so retiring it is an architect's call."*
 
 ## What answering it needs
 

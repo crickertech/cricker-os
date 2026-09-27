@@ -14,7 +14,7 @@
 # That is exactly what this package does to `std` on nife. `std` is the standard library's own
 # name. This is also the package the `script/names` blind spot was found through: it sat here for
 # weeks answering "neither a name in the tree nor a recorded refusal", because the tool only
-# looked in `crates/`, `components/src/`, `fixtures/src/` and `script/`. calef has not ratified it.
+# looked in `crates/`, `components/src/`, `fixtures/src/` and `script/`. no architect has ratified it.
 
 [package]
 name = "std_exerciser"

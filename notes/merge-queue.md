@@ -1,7 +1,7 @@
 # The merge queue, and the three things that watch it
 
 Three scripts, all maintainer tools rather than front doors. Two were born on 2026-08-04 out of the
-same evening's failures: `helpers/merge-drain.sh` lands what does not need calef, and
+same evening's failures: `helpers/merge-drain.sh` lands what does not need an architect, and
 `helpers/trunk-health.sh` says when `main` is red. `helpers/lane-claim-check.sh` joined them on
 2026-08-31 and watches one step earlier, for work that has not reached the queue at all. A fourth,
 `helpers/at-risk-check.sh`, joined on 2026-09-23 and watches earlier still, for uncommitted work
@@ -12,22 +12,22 @@ are provisional.
 ## Why they exist rather than being someone's job
 
 The roles in CLAUDE.md are Maintainer, Developer, Steward. On 2026-08-04 three things went wrong in
-one evening and all three were the same shape: **a duty that belonged to whoever happened to notice.**
+one evening and all three were the same shape: a duty that belonged to whoever happened to notice.
 
-- **Two green pull requests sat unmerged for hours** because nobody armed auto-merge on them. Not a
+- Two green pull requests sat unmerged for hours because nobody armed auto-merge on them. Not a
   judgement call, not a policy: they were opened and forgotten.
-- **`main` went red and nobody owned it.** A developer cannot see `main` by design. The steward
+- `main` went red and nobody owned it. A developer cannot see `main` by design. The steward
   watched pull request checks and never the trunk. The maintainer's hygiene list is prune the
   worktree, delete the branch, relink `nife-dev`, leave no QEMU, and does not mention it.
-- **Merging one pull request staled the other eight** under the new up-to-date rule, and nothing
+- Merging one pull request staled the other eight under the new up-to-date rule, and nothing
   picked them back up until calef asked.
 
 The pattern is the one milestone 92 argues about audits: a practice that lives in memory gets skipped
 exactly when it matters, and the maintainer is structurally worst at this particular duty because
 merging happens *between* conversations rather than during them.
 
-The steward was supposed to cover that and did not, for a reason worth recording: **it reported and
-never acted.** "The queue is stalled" arriving in a message is only useful if someone reads the
+The steward was supposed to cover that and did not, for a reason worth recording: it reported and
+never acted. "The queue is stalled" arriving in a message is only useful if someone reads the
 message and does something. These two scripts act.
 
 ## `helpers/merge-drain.sh`
@@ -43,10 +43,10 @@ merge-drain: 4 armed, 1 stalled, of 5 unheld
 
 $ helpers/merge-drain.sh            # loop until nothing is left to enqueue
 merge-drain: 2 armed, 0 stalled, of 2 unheld
-merge-drain: queue empty; nothing open that does not need calef
+merge-drain: queue empty; nothing open that does not need an architect
 ```
 
-**Two of those lines are events and the rest are snapshots, and only the events can be counted.**
+Two of those lines are events and the rest are snapshots, and only the events can be counted.
 `ARMED`, `DEQUEUED`, `ENQUEUED` and `RERAN` say what this pass *did*; every other line says what was *true* when the pass
 ended. Summing `4 armed` across passes double counts every pull request that was still armed on the
 next pass, which is why 3,355 passes of this log could not answer "how often does the drain act"
@@ -64,30 +64,30 @@ $ grep -c 'merge-drain: [0-9]* armed' ~/Library/Logs/nife/merge-drain.log # pass
 ```
 
 `ARMED` prints only on the transition: arming is attempted on every eligible pull request on every
-pass, and the script suppresses the line where the pull request was already armed when the pass
+pass, and the script suppresses the line where the pull request was armed when the pass
 began. Without that suppression it would be a snapshot with a new name on it. This tree made the
 same mistake once before, in `script/metrics`, and the correction is written up there and in the
 "The only flow on this page" section of [project-metrics.md](project-metrics.md): a stock read late
 is merely stale, a flow read late lands in the wrong bucket.
 
-**The summary line stays**, because it answers a question the events cannot, which is whether
+The summary line stays, because it answers a question the events cannot, which is whether
 anything is stuck right now.
 
-It takes the open pull requests **without** the `needs-architect` label, skips drafts, arms
+It takes the open pull requests without the `needs-architect` label, skips drafts, arms
 auto-merge on every one of them, and names anything that is conflicted or failing. That is the whole
 script. Arming is one API call that changes nothing until the checks pass, so there is no reason to
 ration it, and an armed pull request enters GitHub's merge queue on its own when it goes green.
 
-**It never merges anything labelled `held-for-red-trunk` either**, added 2026-09-23 after it
+It never merges anything labelled `held-for-red-trunk` either, added 2026-09-23 after it
 re-enqueued a held set three times in one evening: that label means `main` is broken and one fix is
 landing alone, which is a reason about the queue rather than about a pull request, and the drain's
 admission policy had no way to express one. See [notes/main-is-red.md](main-is-red.md).
 
-**It never merges anything labelled `needs-architect`**, which is the one policy the platform does
+It never merges anything labelled `needs-architect`, which is the one policy the platform does
 not know. That label means the work is outside standing merge authority: it touches the syscall
 surface, adds a dependency, or owes a `DECISIONS` section.
 
-**It stops rather than guessing, per pull request rather than per pass.** A conflict or a failing
+It stops rather than guessing, per pull request rather than per pass. A conflict or a failing
 check is reported with the pull request named, and the pass carries on arming the others. Both need
 a person, and a loop that retries them just burns CI. A pass where nothing could be armed ends the
 loop, because re-printing the same stall lines every 150 seconds is not watching.
@@ -102,24 +102,24 @@ lane-claim-check: UNCLAIMED. milestone/194-falsification-roadmap-status has no p
 
 Both of those lines are from the first run it ever did, which is the only evidence worth quoting.
 
-**It watches the gap the two scripts above cannot see.** Everything they do starts from
+It watches the gap the two scripts above cannot see. Everything they do starts from
 `gh pr list`, so a lane that pushed a branch and opened nothing is invisible to both, and invisible
 is exactly what it was: on 2026-08-31 two lanes did that and it was noticed because calef asked. The
 rule they broke is AGENTS.md §90, *a lane's first act is a draft pull request*, and the reason that
-rule exists is that the draft **is** the claim: it is the whole mechanism preventing two lanes from
+rule exists is that the draft is the claim: it is the whole mechanism preventing two lanes from
 silently taking the same milestone, and the board is one command.
 
 Both briefs said so, in a section headed *First act*, with the command spelled out. That is rung
 four behaving the way AGENTS.md says rung four behaves, and it was the second instance of the shape
 in this project's history; the first was lanes ending their turn mid-gate.
 
-**It runs from `merge-drain.sh`'s pass**, once, before the drain's own empty-queue return. The
+It runs from `merge-drain.sh`'s pass, once, before the drain's own empty-queue return. The
 ordering is not cosmetic: an empty queue is exactly when an unclaimed lane is easiest to miss,
 because nothing else on that pass prints a word. The drain is also the only unattended runner this
 project has (`launchd`, every five minutes, patagonia), so siting it there is the difference between
 a report and a report that happens.
 
-**Three false positives were designed out**, because a report that cries wolf gets ignored and then
+Three false positives were designed out, because a report that cries wolf gets ignored and then
 the real case goes unread with it.
 
 | Shape | Why it is not a missing claim | What the script does |
@@ -128,14 +128,14 @@ the real case goes unread with it.
 | A merged lane's leftover branch | Hygiene, not a claim | Its own `LEFTOVER` line, with the pull request number |
 | A branch with a ready (non-draft) pull request | A louder claim than a draft, not a quieter one | Any open pull request counts |
 
-**The grace period was measured, not picked.** The branch that built this took three minutes from
+The grace period was measured, not picked. The branch that built this took three minutes from
 `branch_creation` to its draft, and that included writing the file that made the branch non-empty:
 GitHub refuses a pull request with no commits between the head and `main`, so the literal first-act
 command block cannot be run straight through and every lane has that delay. Fifteen minutes is five
 times the observed case, and comfortably under the 75 minutes `stale_drafts` waits, which is the
 neighbouring report and the one this must not shadow.
 
-**The clock runs from the branch's birth, and a later push does not reset it.** That is the opposite
+The clock runs from the branch's birth, and a later push does not reset it. That is the opposite
 of `stale_drafts` next door, and the pair is worth reading together: a stale draft is one that
 stopped moving, so it watches the last commit; a missing claim is due from the moment the branch
 exists, and a lane hard at work committing is precisely the one whose absent claim matters most. A
@@ -144,44 +144,44 @@ birth time comes from the repository activity feed (`repos/{owner}/{repo}/activi
 commit date cannot answer the question at all: a branch pushed empty carries `main`'s commit date
 and would be reported the instant it existed.
 
-**It is a report and not a gate**, and `script/lint` was refused for a stated reason rather than by
+It is a report and not a gate, and `script/lint` was refused for a stated reason rather than by
 taste: the lane that most needs telling is one mid-work and about to open its pull request anyway,
 and failing its build would be the least useful moment to interrupt it. Nothing was missing from the
 enforcement; what was missing was anything that looks.
 
 ## What the merge queue took over, and the four shapes that preceded it
 
-**GitHub's merge queue was enabled on this repository by milestone 120's organization move** (the
+GitHub's merge queue was enabled on this repository by milestone 120 (rename)'s organization move (the
 setting exists only for organization-owned repositories, which is why it used to be absent rather
 than hidden), and on 2026-08-16 this script lost about 150 lines to it. The queue serializes
 candidates, tests each against the tip, and ejects what fails, which is precisely what the script
 had been reconstructing from outside. Three things changed at once:
 
-- **Ordering stopped being ours.** Enqueue everything eligible and let the queue decide.
-- **Updating a branch became neither necessary nor possible.** The queue builds the merge candidate
+- Ordering stopped being ours. Enqueue everything eligible and let the queue decide.
+- Updating a branch became neither necessary nor possible. The queue builds the merge candidate
   itself, and GitHub answers `update-branch` on a queued pull request with a 422.
-- **"Arm exactly one" became the wrong answer** rather than a redundant one, because it holds ready
+- "Arm exactly one" became the wrong answer rather than a redundant one, because it holds ready
   work back for a cycle when arming is free.
 
-**The history is kept because it is evidence about the up-to-date rule, not about this script.** The
+The history is kept because it is evidence about the up-to-date rule, not about this script. The
 merge queue can be turned off, and if it is, every one of these failures returns. The loop took four
 shapes and three of them starved something:
 
-1. **Arm the head only.** #134 sat CLEAN with twelve green checks behind a lower-numbered pull
+1. Arm the head only. #134 sat CLEAN with twelve green checks behind a lower-numbered pull
    request that was still building. calef found it, not the script.
-2. **Arm everything.** That starved the head instead. Under the up-to-date rule a merge stales every
+2. Arm everything. That starved the head instead. Under the up-to-date rule a merge stales every
    other branch, so a small doc-only pull request goes green during a big one's thirty-minute cycle,
-   merges, and sends the big one back to the start. **#117 was re-updated twice that way.**
-3. **One target.** Both failures are one fact from two sides: a merge is exclusive, so the queue can
+   merges, and sends the big one back to the start. #117 was re-updated twice that way.
+3. One target. Both failures are one fact from two sides: a merge is exclusive, so the queue can
    only land one thing at a time and the only question is which.
-4. **Whatever is in flight finishes first.** The third shape preferred a CLEAN pull request on the
-   reasoning that it lands in minutes. Wrong: merging the cheap one **stales the one in flight**, so
+4. Whatever is in flight finishes first. The third shape preferred a CLEAN pull request on the
+   reasoning that it lands in minutes. Wrong: merging the cheap one stales the one in flight, so
    a five-minute merge costs a thirty-minute one a whole further cycle and saves nothing, because
-   the cheap one would have landed straight afterwards anyway. **#120 paid three cycles** while #137
+   the cheap one would have landed straight afterwards anyway. #120 paid three cycles while #137
    and #139 went past it.
 
-The rule those four shapes were groping toward: **order the two operations by what they cost the
-queue, not by what they cost themselves.** A merge queue is that rule implemented by the platform,
+The rule those four shapes were groping toward: order the two operations by what they cost the
+queue, not by what they cost themselves. A merge queue is that rule implemented by the platform,
 which is why the script no longer needs to hold it.
 
 ## How they run: in Actions, as `nife-smelter[bot]` (2026-09-24)
@@ -190,20 +190,20 @@ Moved here from `AGENTS.md` by `design/decisions/` §155's principle, which the 
 established: the constitution keeps the duty, this document keeps the mechanism. What `AGENTS.md`
 still says is that a session confirms the watchers are alive and acts on what they found.
 
-**Two scheduled workflows, owned by the organization rather than by a laptop**, every five minutes:
+Two scheduled workflows, owned by the organization rather than by a laptop, every five minutes:
 
 | Workflow | Runs | Identity |
 | --- | --- | --- |
 | `.github/workflows/merge-drain.yml` | `helpers/merge-drain.sh --once`, which calls `helpers/lane-claim-check.sh` inside its own pass | `nife-smelter[bot]` |
-| `.github/workflows/trunk-health.yml` | `helpers/trunk-health.sh --once`, and **fails the run** when `main` is red or a cadence is dead | `nife-smelter[bot]` |
+| `.github/workflows/trunk-health.yml` | `helpers/trunk-health.sh --once`, and fails the run when `main` is red or a cadence is dead | `nife-smelter[bot]` |
 | `launchd`, per developer | `helpers/at-risk-check.sh`, which reads that machine's own worktrees | nobody: it needs no credential |
 
 Each workflow mints a one-hour installation token with `actions/create-github-app-token` from the
-organization secrets `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY`. **No key is at rest on anybody's
-machine**, which is the property that made this the recommendation over putting the App's private
+organization secrets `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY`. No key is at rest on anybody's
+machine, which is the property that made this the recommendation over putting the App's private
 key on patagonia: the credential-at-rest question does not arise for anything that runs here.
 
-**What this bought, in the order the proposal argued it.** Everything these do is attributed to
+What this bought, in the order the proposal argued it. Everything these do is attributed to
 `nife-smelter[bot]` rather than to `calef`, so what is still attributed to calef is genuinely calef,
 which is the negative half a local log can never give. The singleton is a singleton by construction
 (`concurrency:`), rather than because one laptop happened to be awake. The run list is a log every
@@ -215,7 +215,7 @@ knowable to exactly one reader.
 ### The premise this rested on, tested before anything was written
 
 `cli/cli#7213` reports `gh pr merge --auto` failing under a GitHub App installation token where a
-personal token succeeds. **The merge drain's entire job is arming pull requests**, so if that were
+personal token succeeds. The merge drain's entire job is arming pull requests, so if that were
 true here, every option that authenticates the drain as `smelter` loses and the fork collapses back
 to a machine account or the status quo.
 
@@ -239,7 +239,7 @@ posted, rendering as `nife-smelter[bot]`.
 
 ### What a person must run on patagonia to retire the old jobs
 
-**This is not optional and it is not automatic.** Until it is done there are two drains, one in
+This is not optional and it is not automatic. Until it is done there are two drains, one in
 Actions and one on a laptop, both arming the same pull requests. Nothing in this repository can do
 it: `launchd` jobs live in `~/Library/LaunchAgents/` on one machine.
 
@@ -280,8 +280,8 @@ $ launchctl list | grep nife
 -	0	com.nife.at-risk
 ```
 
-**An already-installed plist names its script by absolute path, so the rename of `scripts/` to
-`helpers/` on 2026-09-23 breaks it silently**: `launchd` logs the missing file and the watch simply
+An already-installed plist names its script by absolute path, so the rename of `scripts/` to
+`helpers/` on 2026-09-23 breaks it silently: `launchd` logs the missing file and the watch simply
 stops reporting. Fix an existing one in place, or reinstall it from the block above.
 
 ```console
@@ -290,55 +290,55 @@ $ launchctl unload ~/Library/LaunchAgents/com.nife.at-risk.plist
 $ launchctl load -w ~/Library/LaunchAgents/com.nife.at-risk.plist
 ```
 
-**`launchd` is the loop here**, which is why `helpers/at-risk-check.sh` did not grow one: it does a
+`launchd` is the loop here, which is why `helpers/at-risk-check.sh` did not grow one: it does a
 pass and exits, `StartInterval` runs it every five minutes, and a script with no loop cannot be
 killed mid-loop by a prune of the checkout it was launched from (the failure that killed both
 watchers on 2026-08-18).
 
 ### What is lost, and it is smaller than the proposal priced it
 
-**Cadence.** GitHub's shortest `schedule` interval is five minutes, and scheduled runs are delayed
+Cadence. GitHub's shortest `schedule` interval is five minutes, and scheduled runs are delayed
 under load and dropped at peak, which is a documented behaviour rather than a caveat. The proposal
 priced this against the script's own 150-second loop and that comparison was wrong: the `launchd`
-jobs already fired `--once` every five minutes, so the real loss is only the delay and the drops,
+jobs fired `--once` every five minutes, so the real loss is only the delay and the drops,
 not two and a half minutes. calef accepted it on 2026-09-23.
 
-**Transition reporting.** `trunk-health.sh`'s loop said "red" once and "recovered" once because it
+Transition reporting. `trunk-health.sh`'s loop said "red" once and "recovered" once because it
 remembered the previous poll. A scheduled run remembers nothing, so a trunk red for an hour is
 twelve failed runs. The workflow's own BUGS section says so; carrying state in an artifact was more
 machinery than the fact is worth.
 
-**The gap that was accepted and is now closed.** Patagonia asleep meant nobody was watching. That
+The gap that was accepted and is now closed. Patagonia asleep meant nobody was watching. That
 was named rather than hidden, and a cron on cordoba was declined in 2026-08-26 in favour of the
 simpler thing on the machine already in use. Actions closes it for the two that moved and leaves it
 exactly where it was for the at-risk check, which is correct: a laptop that is asleep has no lane
 worktree being edited on it.
 
-**A restraint that was reweighed rather than ignored.** calef declined an unattended scheduled agent
+A restraint that was reweighed rather than ignored. calef declined an unattended scheduled agent
 on 2026-08-26, preferring that this shut down when the session driving it does. His 2026-09-23
 approval supersedes that for these two, and the distinction he drew in September holds here as well:
 what runs on a timer is a shell script reading GitHub and arming what is eligible, with no judgment
-in it. **A queue reports, it does not resolve** is still the boundary. Neither workflow resolves a
+in it. A queue reports, it does not resolve is still the boundary. Neither workflow resolves a
 conflict, retries a failed check, or marks anybody's draft ready.
 
-**Why `notify()` speaks once per stall.** `merge-drain.sh` posts a PR comment on a conflict, a check
+Why `notify()` speaks once per stall. `merge-drain.sh` posts a PR comment on a conflict, a check
 failure or a stuck check, and then goes quiet. That is deliberate, so a stalled pull request does not
 re-announce itself every five minutes. The consequence a maintainer has to hold is the other half of
-it: **nothing re-announces the stall to a session that opens later**, so reading the queue is a
+it: nothing re-announces the stall to a session that opens later, so reading the queue is a
 standing duty rather than something the watcher does for you. Read
 `gh pr list --json number,mergeStateStatus,statusCheckRollup` for `DIRTY`/`CONFLICTING` or a
 `FAILURE` conclusion.
 
-**Which drain spoke.** Every line the drain prints, and every comment it posts, is prefixed
+Which drain spoke. Every line the drain prints, and every comment it posts, is prefixed
 `merge-drain[<instance>]`: `actions:<run id>` from the workflow, the hostname from a laptop. An
 installation token carries the App and not the caller, so GitHub cannot tell a reader which instance
 acted once the automation runs in more than one place. The `notify()` dedupe markers are
 deliberately untagged, so two instances cannot each post the same stall once.
 
-**Two fields that lie to a session watching one pull request**, both met on 2026-09-19 watching
-#965. `autoMergeRequest` goes **null the moment GitHub enqueues** the pull request, so "auto-merge
+Two fields that lie to a session watching one pull request, both met on 2026-09-19 watching
+#965. `autoMergeRequest` goes null the moment GitHub enqueues the pull request, so "auto-merge
 is off" reads exactly like "dropped from the queue" when it means the opposite. And
-`statusCheckRollup` keeps every run, including the ones a newer push **cancelled**, so a
+`statusCheckRollup` keeps every run, including the ones a newer push cancelled, so a
 `CANCELLED` conclusion is usually a superseded run sitting beside its own `SUCCESS`. Ask the queue
 itself instead: `gh api graphql` for
 `pullRequest(number: N) { mergeQueueEntry { state position } }`, where no entry while open means
@@ -363,14 +363,14 @@ watcher produces.
 The phrase "nobody is assigned to this" is not filler. A red trunk with an owner is a task; a red
 trunk without one is the failure being surfaced.
 
-**What to do once it speaks is [notes/main-is-red.md](main-is-red.md)**, added 2026-09-23 because
+What to do once it speaks is [notes/main-is-red.md](main-is-red.md), added 2026-09-23 because
 calef asked whether the response existed and it did not: this watcher reported a red trunk and
 `helpers/merge-drain.sh` carried on arming pull requests into it every five minutes. The response is
 `helpers/queue-hold.sh` (hold the queue, land one fix alone, release) with the judgement in
 [briefs/main-is-red.md](../briefs/main-is-red.md). It stays a person's to run, for the reason this
 note gives throughout: a queue reports, it does not resolve.
 
-**And this watcher has a blind spot worth knowing here**, now recorded in its own `BUGS`: it reads
+And this watcher has a blind spot worth knowing here, now recorded in its own `BUGS`: it reads
 CI's *conclusion*, and a required check whose steps were skipped posts `success` having run nothing.
 On 2026-09-23 a documentation-only commit broke a `crates/documentation` test that `ci.yml` had
 skipped, and `main` was red for hours while this script said green.
@@ -397,15 +397,15 @@ $ helpers/at-risk-check.sh
 at-risk-check: UNCOMMITTED. /Users/calef/projects/nife-worktrees/atrisk (maintainer/work-one-prune-from-gone) has 2 changed file(s), newest touched 41 minutes ago. One prune away from gone; commit and push.
 ```
 
-**It reads every worktree but the main checkout** (`git worktree list --porcelain`), skips any
+It reads every worktree but the main checkout (`git worktree list --porcelain`), skips any
 already `prunable` (nothing left in them to lose), and for the rest reads `git status --porcelain`.
-The clock is the newest modification time among the changed files, tracked or untracked, **not the
-branch's last commit date**: a worktree can carry a commit from hours ago and be mid-edit again a
+The clock is the newest modification time among the changed files, tracked or untracked, not the
+branch's last commit date: a worktree can carry a commit from hours ago and be mid-edit again a
 moment later, and the fact that matters is how long the current uncommitted state has sat, not when
 it was last saved. `AT_RISK_MINUTES` (default 30, AGENTS.md's own "half an hour") overrides it, the
 same convention `GRACE_MINUTES` already sets in `helpers/lane-claim-check.sh`.
 
-**It reports and never acts**, the same boundary `helpers/lane-claim-check.sh` holds. It does not
+It reports and never acts, the same boundary `helpers/lane-claim-check.sh` holds. It does not
 commit on a lane's behalf, and it does not use `git stash`: the stash stack is per-`.git`, shared
 across every worktree of this repository rather than scoped to one, so one worktree's `git stash`
 can be popped by a session working in a completely different worktree, which is action at a distance
@@ -413,17 +413,17 @@ of exactly the kind this script exists to warn about rather than to commit. AGEN
 "`git stash` is unsafe in these worktrees, for the same reason one level over," is the same finding
 from the other side.
 
-**Folded into `helpers/trunk-health.sh`'s loop on 2026-09-23, unfolded on 2026-09-24, and the
-reasoning is worth keeping because it was right both times.** The fold was to avoid a third watcher
+Folded into `helpers/trunk-health.sh`'s loop on 2026-09-23, unfolded on 2026-09-24, and the
+reasoning is worth keeping because it was right both times. The fold was to avoid a third watcher
 that could die silently, reusing a job already firing on the right interval. That holds only while
 both halves run on the same machine. When the trunk half moved to Actions they stopped doing so:
-everything else in `trunk-health.sh` reads GitHub, and this reads **this machine's** worktrees, so
+everything else in `trunk-health.sh` reads GitHub, and this reads this machine's worktrees, so
 carrying the fold into a runner would have produced a check reporting nothing forever while the
 hazard sat on a laptop unwatched. It now has the third `launchd` job the fold avoided, with the
 cost that decision was avoiding accepted explicitly: nothing reports its death either. The plist and
 the commands are in "What a person must run on patagonia" above.
 
-Unlike RED/GREEN and unlike the cadence check beside it, this does **not** dedupe by transition. A
+Unlike RED/GREEN and unlike the cadence check beside it, this does not dedupe by transition. A
 worktree still at risk on the next poll is still exactly as at risk, distinguishing "still true" from
 "newly true" would need a second piece of state this script does not otherwise keep, and the cost of
 not deduping is log lines rather than anything a reader has to act on twice.
@@ -437,36 +437,36 @@ lane's own worktree, confirming the mechanism fires.
 ## The prevention half, which is not these scripts
 
 `main` went red on 2026-08-04 because two pull requests, each green against the base it was cut from,
-merged in an order **neither had ever been tested in**: one added `script/citations`, the other added
+merged in an order neither had ever been tested in: one added `script/citations`, the other added
 a gate requiring every `script/` entry point to carry a provenance block. Neither branch ever
 contained the other.
 
 No per-pull-request check can see that, because the failing input is the merge order, which is not a
-property of either branch. GitHub's **require branches to be up to date before merging** is the
+property of either branch. GitHub's require branches to be up to date before merging is the
 mechanical answer and was applied the same evening (§73). It converts that failure from a red trunk
 into one re-run. These scripts are the detection half; that rule is the prevention half, and it is the
 better one.
 
-**The merge queue is the same prevention with the cost removed** (2026-08-16). Up-to-date-before-merge
+The merge queue is the same prevention with the cost removed (2026-08-16). Up-to-date-before-merge
 buys the guarantee by making every author pay for it serially, in full CI cycles, which is what made
-the ordering brain above necessary and what milestone 119 measured as the bottleneck. The queue tests
+the ordering brain above necessary and what milestone 119 (merge) measured as the bottleneck. The queue tests
 the same thing, the candidate against the tip, without staling anybody's branch to do it. Same
 prevention, one rung up: the platform holds it rather than a rule everybody has to route around.
 
 ## A push to `main` cites the merge group instead of repeating it (A′, 2026-09-24)
 
 calef approved this on 2026-09-24 ("Proceed with A′"). On a `push` to `main`, the `draft gate` job in
-`ci.yml` and `verify.yml` asks the API whether a `merge_group` run of the **same workflow** concluded
-`success` at **exactly** `github.sha`. If one did, it sets `run=false`, prints that run's ID and URL,
+`ci.yml` and `verify.yml` asks the API whether a `merge_group` run of the same workflow concluded
+`success` at exactly `github.sha`. If one did, it sets `run=false`, prints that run's ID and URL,
 and every gated job skips. If there is no such run, the run did not succeed, or the API errors, it
 runs everything. A commit that reaches `main` outside the queue has no merge-group run and still gets
 the full suite.
 
-**Why.** The runners were starved. 31 runs were queued at 16:40 UTC that day, and every landed batch
+Why. The runners were starved. 31 runs were queued at 16:40 UTC that day, and every landed batch
 paid for its suite twice: once on the `gh-readonly-queue/` ref, then again, identically, on the push
 to `main`. A full verify is the project's long pole on its own.
 
-**The premise, checked against history first.** For each of the twelve first-parent commits on
+The premise, checked against history first. For each of the twelve first-parent commits on
 `main` from `aee5b141` to `47c3a3c9`, a successful `merge_group` CI run has `head_sha` equal to that
 commit. The queue builds each entry's merge commit on its own ref, and the commit that lands is that
 very object. Inside a batch only the tip gets a `push` run: `ac04fb01` (#1179) and `b9b0d4bb` (#1202)
@@ -498,17 +498,17 @@ evicted with reason `checks_timed_out`. Measured from the timeline and the run d
 | merge-group CI 36030550892 and verify 36030550968 created | 16:54:01 |
 | first verify job past the gate starts (a runner freed) | 17:13:05 |
 | last prove shard finishes | 17:48:23 |
-| **evicted, `checks_timed_out`** | **17:54:14** |
+| evicted, `checks_timed_out` | 17:54:14 |
 | required `verify (Kani proofs)` aggregate starts, then reports `success` | 17:58:53 |
 
-**The build did run.** What timed out was the wait: about nineteen minutes queued before any real job,
+The build did run. What timed out was the wait: about nineteen minutes queued before any real job,
 then a five-second aggregate job that sat ten minutes for a runner after the last shard and reported
 four minutes past the deadline. CI had finished green at 17:45:20. At 60 minutes the timeout measured
 runner supply rather than the change, so it evicted a green pull request and made it queue again.
 
 ## `script/preflight-queue`: the group build, run here first
 
-**The queue's prevention has a price, and a red member is where it is paid.** A group of up to five
+The queue's prevention has a price, and a red member is where it is paid. A group of up to five
 is built as one, and a member that is red on top of the entries ahead of it fails the whole group,
 which is then rebuilt without it. Every other member's build is thrown away. Per-pull-request CI
 cannot see this case at all, because the failing input is the stack, not the branch: on 2026-09-24 a
@@ -521,16 +521,16 @@ requests armed but not yet queued, merges each onto the green ones ahead in a sc
 runs the cheap end of `script/ci-build` plus one aarch64 suite for anything that touches code. Its
 header has the ladder, what it skips and why, and its `BUGS`.
 
-**When to run it:**
+When to run it:
 
-- **Before enqueueing a batch.** When a session is about to arm several pull requests at once, and
+- Before enqueueing a batch. When a session is about to arm several pull requests at once, and
   especially when two of them touch the test-wiring hotspot, run it with the batch armed but before
   the queue has formed groups. A dry run costs this machine minutes per code entry and seconds per
   documentation entry.
-- **When a group has just failed and the queue is deep.** The failure evicted one member; the rest
+- When a group has just failed and the queue is deep. The failure evicted one member; the rest
   are rebuilt, and a second red member behind it costs another group. A dry run says whether there is
   one.
-- **Not beside a `script/verify` or a mutation sweep**, which is AGENTS.md's memory ceiling; the
+- Not beside a `script/verify` or a mutation sweep, which is AGENTS.md's memory ceiling; the
   script already skips its own falsification rung when a solver is running, but its aarch64 suite
   still competes for cores.
 
@@ -546,11 +546,11 @@ done: the block already had the before-median and the sharding, and said plainly
 had to come from a run of pull requests rather than from the first one on the new path. There are
 eighteen now.
 
-**Where the numbers come from.** The GitHub REST API, three endpoints: the merged pull requests, each
+Where the numbers come from. The GitHub REST API, three endpoints: the merged pull requests, each
 one's timeline events, and every workflow run's jobs with their start and finish. Nothing here is read
 off a dashboard or remembered.
 
-**The two windows, and why the before one starts where it does.** The proof shards landed on `main`
+The two windows, and why the before one starts where it does. The proof shards landed on `main`
 with #159 at 2026-08-14T05:22Z; the queue's first group build ran at 2026-08-15T21:46Z. So the before
 window is the 40.4 hours between them, which holds the *current* prover constant and measures only
 what the queue changed. The after window is the 10.2 hours from the first group build to
@@ -560,14 +560,14 @@ what the queue changed. The after window is the 10.2 hours from the first group 
 |---|---|---|
 | window | 08-14T05:22 to 08-15T21:46 (40.4 h) | 08-15T21:46 to 08-16T08:00 (10.2 h) |
 | pull requests landed | 39 | 18 |
-| **"land this" to merged, median** | **17.0 min** (n=29, auto-merge armed) | **12.3 min** (n=17, last enqueue) |
+| "land this" to merged, median | 17.0 min (n=29, auto-merge armed) | 12.3 min (n=17, last enqueue) |
 | gap between consecutive merges, median | 15.8 min (n=34) | 10.8 min (n=17) |
 | merges per elapsed hour | 0.97 | 1.76 |
 | opened to merged, median | 47.0 min (n=38) | 160.9 min (n=18) |
 | CI job-minutes per landed pull request | 122 | 157, or 109 with the storm hour removed |
 | runs on `main` that went red | 2 of 120 since 08-13 | 0 of 30 |
 
-**The row that got worse says nothing about the queue, and saying so is the point.** Opened-to-merged
+The row that got worse says nothing about the queue, and saying so is the point. Opened-to-merged
 counts everything that happened to a pull request, including how long it sat before a person enqueued
 it. Its after-window median of 160.9 minutes decomposes: the median from *first* enqueue to merged is
 112.1 minutes and from *last* enqueue to merged is 12.3, and the difference is one afternoon's storm
@@ -580,30 +580,30 @@ within six seconds of each other. GitHub built five chained candidates concurren
 each containing one more entry than the last. #204 and #205 landed at 23:50:37; #207, #208 and #209
 landed at 00:03:32.
 
-**Five pull requests, 20.6 minutes from enqueue to the last merge.** At the before-window median of
+Five pull requests, 20.6 minutes from enqueue to the last merge. At the before-window median of
 17.0 minutes each, serialized, the same five would have been about 85 minutes, and under §73's
 up-to-date rule each merge would have staled the other four at least once, so the real before-cost is
 higher than that and is the thing the ordering brain above was written to manage.
 
 ### The caveats, and there are five
 
-- **The samples are small and each is one afternoon.** 39 landings against 18, both from the same
+- The samples are small and each is one afternoon. 39 landings against 18, both from the same
   week, both from lanes run by the same architect. This is a measurement of this tree in August, not
   a general result about merge queues.
-- **Runner contention varies and is not controlled.** The same `CI` job, on candidates that differ
+- Runner contention varies and is not controlled. The same `CI` job, on candidates that differ
   only in which pull requests they contain, ranged from 6.6 to 23.5 minutes across the 44 group
   builds. Any single comparison of two runs is inside that noise; only the medians are worth reading.
-- **One storm inflates every early after-number.** Between 21:46 and 22:34 on 08-15, twenty-five
+- One storm inflates every early after-number. Between 21:46 and 22:34 on 08-15, twenty-five
   candidate builds failed CI for one reason: `script/lint`'s branch-prefix check rejected the
   queue's own `gh-readonly-queue/*` branches, so every candidate was ejected and rebuilt. 678
   job-minutes, and the pull requests caught in it carry a two-hour first-enqueue-to-merged that is
   the gate's bug rather than the queue's behaviour. #217 fixed it and was merged directly, outside
   the queue, because the queue could not land anything until it was.
-- **Several re-enqueues on 08-16 were operator error, not eviction.** Eleven re-enqueues across
+- Several re-enqueues on 08-16 were operator error, not eviction. Eleven re-enqueues across
   seventeen pull requests, nine of which needed more than one. Some were the queue ejecting a
   candidate; others were a person removing and re-adding one. The timeline records both as the same
   event pair, so this measurement cannot separate them and does not try.
-- **The after window's composition is not the before window's.** It holds the day's largest change
+- The after window's composition is not the before window's. It holds the day's largest change
   (#210, the SMB service) and three that waited on calef for a decision. That pulls
   opened-to-merged up and leaves the enqueue-to-merged numbers alone, which is why both are in the
   table.
@@ -619,17 +619,17 @@ Group builds run `CI` and `verify` concurrently, so the landing waits on whichev
 | the 6 where the proofs actually ran | 11.2 min | 16.7 min |
 
 Twelve of the nineteen post-storm builds finished `verify` in under two minutes, because the scope
-job proved that nothing in the change could reach a harness. **So the median landing is now CI-bound
-rather than prover-bound**, which is the scoping and the sharding working exactly as milestone 119
+job proved that nothing in the change could reach a harness. So the median landing is now CI-bound
+rather than prover-bound, which is the scoping and the sharding working exactly as milestone 119
 predicted, and it is a real change from the block's 2026-08-05 measurement that "a merge cycle is the
 Kani job plus noise".
 
 What is left is the tail, and in the tail the prover decides the landing: in those six builds it ran
 a median 5.6 minutes past a `CI` that was already green.
 
-**And that tail is almost entirely false positives.** Re-running the `--affected-since` predicate over
+And that tail is almost entirely false positives. Re-running the `--affected-since` predicate over
 the seventeen changes that landed since 08-14 having run the full suite: for all five of the
-post-storm ones, **no file in the change was inside any harness crate's dependency closure.** They
+post-storm ones, no file in the change was inside any harness crate's dependency closure. They
 proved everything because of files the predicate cannot attribute to a crate, and so runs by default:
 
 | landing | what made it prove the whole suite | harness crates it could reach |
@@ -643,16 +643,16 @@ proved everything because of files the predicate cannot attribute to a crate, an
 Three levers follow, ranked by what the counts say and by how much judgment each needs. Together they
 account for twelve of the seventeen:
 
-1. **`scripts/` is not `script/`, and the predicate only knows the singular.** A change to
+1. `scripts/` is not `script/`, and the predicate only knows the singular. A change to
    `merge-drain.sh` proves twenty crates. Nothing under `scripts/` is an input to `cargo kani`: the
    QEMU runners belong to `xtask test` and `kani-lint-shim/` belongs to `script/lint`'s clippy pass,
-   which is the same argument the existing `script/` case already makes. **Three of seventeen**, and
+   which is the same argument the existing `script/` case already makes. Three of seventeen, and
    it is one branch in the `elif` that handles `script/` today.
-2. **`Cargo.lock` and the workspace `Cargo.toml`: seven of seventeen**, the largest bucket and the
+2. `Cargo.lock` and the workspace `Cargo.toml`: seven of seventeen, the largest bucket and the
    one that needs judgment rather than a line. Adding a workspace member cannot change a harness's
    closure; bumping a dependency version can. The honest version parses the lock diff for changed
    package entries and tests those against the closure, and it wants its own lane.
-3. **Binary and data files: two of seventeen** (`art/`, `bench/baseline-*.txt`). Same shape as the
+3. Binary and data files: two of seventeen (`art/`, `bench/baseline-*.txt`). Same shape as the
    documentation case the predicate already handles.
 
 **More shards is not the lever, and the block already measured why.** `glob` is atomic at 15.0 minutes
@@ -750,8 +750,8 @@ reported loudly rather than silently released, because it means the thing this w
 is not coming.
 
 **Use it for a mechanical constraint and nothing else.** If a person must decide, the label is still
-the right answer, and the two must not be conflated: one is a queue for calef's attention, the other
-is a fact about two branches.
+the right answer, and the two must not be conflated: one is a queue for an architect's attention,
+the other is a fact about two branches.
 
 ## BUGS
 
@@ -770,22 +770,22 @@ from it is ambiguous between "the drain did not do this" and "somebody did it by
 ambiguity is worst exactly when it matters, which is when something unexpected happened. Closing
 that needs distinct GitHub identities rather than a better log; the proposal is
 [design/roadmap/proposals/who-took-the-step.md](../design/roadmap/proposals/who-took-the-step.md)
-(name provisional) and it is calef's call.
+(name provisional) and it is an architect's call.
 
-- **A′ lets `main`'s Actions caches go stale.** `Swatinem/rust-cache` saves on the ref that ran, and
+- A′ lets `main`'s Actions caches go stale. `Swatinem/rust-cache` saves on the ref that ran, and
   a pull request can restore only its own ref's caches and the base branch's. Merge-group refs are
   neither, so once most pushes to `main` skip, the `main` caches that pull requests fall back to stop
   being refreshed by CI and verify. Pushes that still run in full refresh them: commits landed outside
   the queue, and any tip whose merge-group run did not succeed. Expect slower cold builds on pull
   requests, not wrong ones. Nobody has measured it yet.
-- **A′ trusts a merge-group run's overall conclusion, which is stricter than what the queue
-  requires.** The queue lands on the required checks alone. A merge-group run can conclude
+- A′ trusts a merge-group run's overall conclusion, which is stricter than what the queue
+  requires. The queue lands on the required checks alone. A merge-group run can conclude
   `cancelled` or `failure` because of a non-required job and still land: `0b72f673` (#1156) did,
   when verify's falsify job hit its 45-minute timeout. That push then re-runs the whole workflow,
   and it did (verify 36029132635, cancelled by the same timeout). This errs toward running, which
   is the right direction, but a flaky non-required job costs a full re-run on `main`.
-- **A 240-minute check timeout is four hours in which a genuinely hung group blocks everything
-  behind it.** Sixty was right for the work and wrong for runner supply. The honest fix is fewer
+- A 240-minute check timeout is four hours in which a genuinely hung group blocks everything
+  behind it. Sixty was right for the work and wrong for runner supply. The honest fix is fewer
   runs competing for runners, and A′ is the first of those. When the queue stops starving, lower
   the timeout again, because the cost of a long timeout only shows up when a group is actually stuck.
 - **One push can raise two `synchronize` events, and when the cancelled copy is the newer run the
@@ -820,7 +820,7 @@ that needs distinct GitHub identities rather than a better log; the proposal is
   #1211 each have a cancelled CI run followed 20 to 66 seconds later by a successful one, which is
   a draft marked ready, and none of them was stranded.
 
-  **The drain does this now** (#1252, 2026-09-24): the query above is `helpers/cancelled-duplicate.jq`,
+  The drain does this now (#1252, 2026-09-24): the query above is `helpers/cancelled-duplicate.jq`,
   spliced into `merge-drain.sh`, and a pull request in this shape gets its cancelled duplicate
   rerun once, logged as `RERAN #N run <id>`. Once is decided by the run's own `run_attempt`, so no
   file or label holds the state; a duplicate already at attempt 2 is a `STALLED.` line for a person.
@@ -850,14 +850,14 @@ moment forgets.
 
 
 
-- **`Blocked-by:` is matched anywhere in the body, including inside a code span or a quotation.** A
+- `Blocked-by:` is matched anywhere in the body, including inside a code span or a quotation. A
   pull request that *discusses* the convention, as opposed to using it, will be held. The
   counted-claims check in `script/lint` solved the same problem by blanking code spans first; this
   does not, and the cheap fix is available if it ever bites.
-- **It holds the drain, not the queue.** Anyone who enqueues by hand, or arms with `gh pr merge
+- It holds the drain, not the queue. Anyone who enqueues by hand, or arms with `gh pr merge
   --auto` directly, bypasses it entirely. The drain is the normal path and this covers the normal
   path; it is not an interlock.
-- **Only the first `Blocked-by:` is read.** A pull request sequenced behind two others can only say
+- Only the first `Blocked-by:` is read. A pull request sequenced behind two others can only say
   so once, and the honest workaround is to name the later one.
 - **A push after the pull request is enqueued is silently discarded, and the pull request keeps
   reporting the newer commit as its head** (found 2026-09-16, milestone 304). The queue merges the
@@ -889,11 +889,11 @@ moment forgets.
   `--once` is still allowed anywhere, because it exits long before a prune could reach it.
 
 
-- **Neither script survives the session that starts it.** They are ordinary loops, not services.
+- Neither script survives the session that starts it. They are ordinary loops, not services.
   CLAUDE.md's session-start list is what makes them run; nothing enforces it, and a session that
   forgets has exactly the gap they were written to close. A launchd job or a scheduled workflow would
   fix this and neither has been built.
-- **`merge-drain.sh` trusts the label.** A pull request that *should* be held but was never labelled
+- `merge-drain.sh` trusts the label. A pull request that *should* be held but was never labelled
   will be merged by it. The label is applied by hand at the moment the decision to hold is made, so a
   maintainer that forgets the label has bypassed the gate rather than tripped it.
 - **The reduced `merge-drain.sh` had not been run against a live queue, and the first time it was,
@@ -907,34 +907,34 @@ moment forgets.
   as fatal: this repository sets `delete_branch_on_merge`, so the platform deletes the head branch
   itself.
 
-  **Two lessons, and the second is the reusable one.** A count of *attempts* was being printed as a
+  Two lessons, and the second is the reusable one. A count of *attempts* was being printed as a
   count of *results*, which is the shape AGENTS.md's ladder calls rung zero wearing a uniform. And
   **nothing on a pull request object says it is in a merge queue**: a queued pull request reports
   `mergeStateStatus: CLEAN` with a **null** `autoMergeRequest`, because arming became membership.
   `mergeQueue.entries` is the only authority, and the obvious field looking authoritative while
   being wrong is what cost the three hours. The verification now asks the queue.
-- **`merge-drain.sh` re-arms what is already armed, forever.** A pass counts an arming call as work
+- `merge-drain.sh` re-arms what is already armed, forever. A pass counts an arming call as work
   whether or not it changed anything, so one pull request that never merges (a required check that
   was removed, a broken workflow file, a queue that is wedged) keeps the loop alive at 150-second
   intervals with nothing happening. It is cheap and it is silent, which is the bad combination: the
   script cannot tell a queue that is moving from one that is stuck, and neither can its reader.
-- **It reports what the queue is about to reject, not what the queue did.** Stalls are read from the
+- It reports what the queue is about to reject, not what the queue did. Stalls are read from the
   pull request's own checks. A candidate that fails *inside* the merge queue, against the tip rather
   than against its own base, is ejected by GitHub and this script says nothing about it; the next
   pass simply arms it again.
-- **`lane-claim-check.sh` is only as alive as the drain is.** It runs from the drain's pass and has
+- `lane-claim-check.sh` is only as alive as the drain is. It runs from the drain's pass and has
   no schedule of its own, so it inherits the recorded gap AGENTS.md already accepts: patagonia
   asleep means nobody is watching. It also reports to stdout only, because a branch with no pull
   request has nowhere to be commented on, so its findings reach whoever reads the drain's log and
   nobody else. Its own header carries the rest (`milestone/*` only, one page of activity feed, and
   that it sees a missing claim rather than the duplicate claim §90 actually fears).
-- **`at-risk-check.sh` is only as alive as `trunk-health.sh` is**, the same dependency
+- `at-risk-check.sh` is only as alive as `trunk-health.sh` is, the same dependency
   `lane-claim-check.sh` has on the drain, for the same reason: it has no schedule of its own. It also
   only sees the worktrees on the machine it runs from, so patagonia asleep means a worktree on a
   laptop taken elsewhere is unwatched regardless, which the recorded gap above already names.
-- **`trunk-health.sh` polls at 90 seconds and reads only `main`.** A release branch, if this tree ever
+- `trunk-health.sh` polls at 90 seconds and reads only `main`. A release branch, if this tree ever
   grows one, is invisible to it.
-- **Neither reports its own death, and on 2026-08-18 that cost hours of red trunk.** If the process
+- Neither reports its own death, and on 2026-08-18 that cost hours of red trunk. If the process
   is killed, both simply stop saying anything, and the failure mode is indistinguishable from a
   healthy quiet queue. The entry above removes the commonest *cause* of the death; it does nothing
   about the silence, which is still unfixed. This is the same defect the
@@ -942,13 +942,13 @@ moment forgets.
   `merge-drain.sh` did and the whole class of failure `trunk-health.sh` watched for, so this defect
   now costs less than it did; it costs more than nothing, because the arming call is still what puts
   a pull request into the queue and a dead drain still looks exactly like an empty one.
-- **The measurement above is a snapshot and nothing re-derives it.** Every number in it was taken by
+- The measurement above is a snapshot and nothing re-derives it. Every number in it was taken by
   hand from the API on 2026-08-16 and pasted into prose, which is precisely the class milestone 125
   (a number in the prose is a claim) exists to fix. Re-take them rather than trusting them once the
   windows are wider than a day; the scripts that produced them were a lane's scratch files and were
   not kept, deliberately, because a throwaway analysis committed as a tool is a tool nobody
   maintains.
-- **"Opened to merged" is mostly a measurement of people.** It is in the table because leaving it out
+- "Opened to merged" is mostly a measurement of people. It is in the table because leaving it out
   would be picking the flattering metric, but it is dominated by how long a pull request waited for a
   human to enqueue it, and no arrangement of CI moves it. Read the enqueue-to-merged rows for
   anything about the queue.

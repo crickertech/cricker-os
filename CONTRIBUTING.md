@@ -17,8 +17,9 @@ kernel allocates no memory of its own. Every driver and server is a userspace pr
 security-critical logic carries machine-checked proofs. Architectural parity across all three ISAs is
 a gate rather than an aspiration, which is DECISIONS §19 (architectural parity is a tenet).
 
-It is a research project with one architect, so the response you get to a pull request is a real
-person reading it between other things. Both halves of that are honest.
+It is a research project with few architects ([ARCHITECTS.md](ARCHITECTS.md)), so the response you
+get to a pull request is a real person reading it between other things. Both halves of that are
+honest.
 
 ## Before you write anything
 
@@ -31,7 +32,7 @@ do need these, and each one will otherwise cost you a rewrite:
   agree on is a crate, never
   a `#[path]` module, because a shared module inside a `no_std` binary is unreachable by host tests
   and by Kani, and this project's whole method is pure logic in host-testable crates plus proofs.
-- **Names are the architect's call.** Ship a provisional one and say so in your pull request; do not
+- **Names are an architect's call.** Ship a provisional one and say so in your pull request; do not
   wait, and do not rename anything on your own initiative. [`design/naming.md`](design/naming.md)
   has the conventions, and `script/names --unratified` lists what is still waiting on a ruling.
 - **`design/decisions/` section numbers are assigned at merge**, never claimed by a branch. Put your
@@ -111,7 +112,7 @@ about:
 |---|---|
 | **The syscall surface** | A boundary, not a habit. A new method inside the existing capability model is fine and gets its semantics recorded in `design/decisions/`; a new syscall number is a design fork. |
 | **A new dependency** | Taking one is a decision (DECISIONS §46 (thin primitives or whole subsystems)). The tree is thin architectural primitives or whole subsystems nobody would write, with nothing in between. |
-| **Names** | Crates, programs, modules, public functions and directories are named by the architect. Ship provisional, say so. |
+| **Names** | Crates, programs, modules, public functions and directories are named by an architect. Ship provisional, say so. |
 | **Anything two programs agree on** | A wire format, an opcode number, a packed word. The code is a morning's work; the un-shipping is not. |
 | **`design/decisions/` section numbers** | Assigned at merge. |
 
@@ -154,7 +155,7 @@ Landing is automatic for a branch in this repository. Once a pull request is rea
 `nife-smelter[bot]` arms auto-merge from `merge-drain.yml`. It lands through GitHub's merge queue
 when green, and the queue batches and rebases it, so you do not need to keep the branch current. A pull request from a fork waits for a
 maintainer: its workflows need an approving click, and the drain never arms a head from another
-repository. The `needs-architect` label holds a pull request for the architect's decision, and a
+repository. The `needs-architect` label holds a pull request for an architect's decision, and a
 correction-of-error pull request gets that label automatically. If an agent writes a pull request,
 its body opens with the `**Lane:**` line AGENTS.md describes, so a reader can tell who is speaking.
 

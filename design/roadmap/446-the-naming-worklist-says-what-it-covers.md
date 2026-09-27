@@ -58,7 +58,7 @@ from `script/`'s entry points. It was priced rather than assumed, and refused. T
   not whether a helper may argue its own name, since more than half already do, but whether the
   worklist should **enumerate** them.
 - Enumerating costs **about 15 rows on a worklist 76 deep**, a fifth again of the only queue in
-  this tree whose sole consumer is calef's attention.
+  this tree whose sole consumer is an architect's attention.
 - **Zero of the 9 paragraphs records a refusal.** The claim of milestone 115 (the names that were
   ratified, and the ones that were refused) is that the refusals are the valuable half, and today
   that half is empty here, so leaving `helpers/` out loses nothing that mechanism was built to
@@ -148,10 +148,10 @@ unratified" about a crate the worklist lists. A `BUGS` section claiming a limita
 not have spends a newcomer's trust exactly as fast as hiding one, and costs more, because it sends
 somebody to build a thing that exists. The genuinely uncovered surface, `helpers/`, was priced
 rather than assumed: 17 files, 9 already carrying a voluntary `Name:` paragraph, zero refusals
-recorded in any of them, and about 15 new rows on a worklist 76 deep whose only consumer is calef's
-attention. It is refused on the worklist's own ordering rule, since that list is sorted by exposure
-and `design/naming.md` defines `helpers/` as the drawer people do not type. What the refusal still
-owed was cheap: `script/names merge-drain` no longer answers "neither a name in the tree nor a
-recorded refusal" about a file that argues its name at length. No gate is proposed, because every
-stale phrase was ordinary English inside comments that legitimately discuss coverage, and a grep
-keyed on it would reject every honest description of the limitation.
+recorded in any of them, and about 15 new rows on a worklist 76 deep whose only consumer is an
+architect's attention. It is refused on the worklist's own ordering rule, since that list is sorted
+by exposure and `design/naming.md` defines `helpers/` as the drawer people do not type. What the
+refusal still owed was cheap: `script/names merge-drain` no longer answers "neither a name in the
+tree nor a recorded refusal" about a file that argues its name at length. No gate is proposed,
+because every stale phrase was ordinary English inside comments that legitimately discuss coverage,
+and a grep keyed on it would reject every honest description of the limitation.

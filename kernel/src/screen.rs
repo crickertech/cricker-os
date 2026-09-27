@@ -1,6 +1,6 @@
 //! **Getting a screen on the two architectures whose firmware never gives one** (milestone 243).
 //!
-//! *Module name provisional (AGENTS.md: calef names modules).*
+//! *Module name provisional (AGENTS.md: an architect names modules).*
 //!
 //! Milestone 243 (a machine with no serial port) built the whole console-on-a-framebuffer path arch-neutrally and then wired it up
 //! on `x86_64` alone, because `x86_64` is the only one of the three whose boot chain includes a

@@ -65,7 +65,8 @@ what a caller actually sees when it happens found the three-way collapse.
 
 §119 declined this **for want of a customer**, on the honest ground that it was found by pricing a
 future cost rather than by an actual bug. There is now an actual bug, and it is recorded here as the
-evidence that decision asked for rather than as a request to reverse it (that is calef's call).
+evidence that decision asked for rather than as a request to reverse it (that is an architect's
+call).
 
 Milestone 49's channel-per-client lane spent two days on a `login` service that answered
 `login_protocol::DENIED` to a correct password on its second login after start-up. The failing call was

@@ -50,7 +50,7 @@ screen, and by then there will be a habit rather than a protocol.
 Milestone 40's block: *"The other two thirds of §106's spawn-protocol narrowing: a bit telling a
 tail stage it ends at a real screen (colour, the honest `isatty` replacement), and a way to grant
 one line of input without granting the keyboard (the pager). Both widen a protocol two programs
-agree on, so both are calef's call."*
+agree on, so both are an architect's call."*
 
 `notes/documentation.md`'s "Where this goes next" is the only other record, and it heads its list with
 these two: *"DECISIONS §106 took the narrowing for a tail stage's primary output; it did not extend
@@ -70,4 +70,4 @@ about colour by asking the kernel what a file descriptor is attached to and a ca
 say it properly as a bit the spawner passes. The second blocks the pager outright: holding the
 keyboard is exactly the authority a confined viewer should not have, there is no way to express the
 narrower thing, and so `mdr` renders and cannot page. Both widen a protocol two programs agree on,
-so both are calef's.
+so both are an architect's.

@@ -180,4 +180,4 @@ model is the version of this that does not leave a fork behind; #2402's age says
 lane could build; the survivorship half closes only when a standing harness goes red on a regression
 somebody else introduced. Option 1 adds a riscv64 proof, which is reach. The honest outcome is a
 narrower sentence in risk 2: riscv64's asm-free files are provable from an aarch64 host, and 87.5%
-of `arch/riscv64/` still is not. That sentence is calef's to write, through milestone 536.
+of `arch/riscv64/` still is not. That sentence is an architect's to write, through milestone 536.

@@ -1,7 +1,7 @@
 # The automation's own identity
 
 *Name of the App: ratified 2026-09-23 (calef, milestone 128 (the automation gets its own identity)).
-**`smelter`**, hence the byline `smelter[bot]`. Refused `nife automation` (the lane's original: it
+`smelter`, hence the byline `smelter[bot]`. Refused `nife automation` (the lane's original: it
 names the mechanism rather than what the thing is, which is the failure mode `design/naming.md`
 warns about), `dynamo` (the maintainer's recommendation, on the grounds that the geodynamo is what
 a nickel-iron core actually does; calef chose otherwise), `mantle` (carries "take up the mantle",
@@ -16,13 +16,14 @@ artifacts. The maintainer argued against it on literal process-matching grounds 
 objection: the tree's actor names are metaphors already, so convention-match is the stronger test.*
 
 *Name of this note: provisional. `automation-identity` is a lane's coinage; `design/naming.md` is
-the rule and calef ratifies. The alternatives considered were `github-app.md` (names the vendor's
-mechanism rather than what it is for, and this note would survive a move off GitHub only by lying)
-and `bot-identity.md` (`bot` is what GitHub calls the badge, not what the thing is). The two secret
-names below, `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY`, are provisional too and are deliberately
-left alone rather than renamed to match `smelter`: a rename is a naming decision with extra steps.*
+the rule and an architect ratifies. The alternatives considered were `github-app.md` (names the
+vendor's mechanism rather than what it is for, and this note would survive a move off GitHub only by
+lying) and `bot-identity.md` (`bot` is what GitHub calls the badge, not what the thing is). The two
+secret names below, `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY`, are provisional too and are
+deliberately left alone rather than renamed to match `smelter`: a rename is a naming decision with
+extra steps.*
 
-The daily toolchain-bump workflow has to open a pull request that **gets CI**. GitHub's
+The daily toolchain-bump workflow has to open a pull request that gets CI. GitHub's
 anti-recursion rule says a pull request opened with a workflow's own ephemeral `GITHUB_TOKEN`
 triggers no further workflow runs, so such a pull request sits with every required check stuck on
 "Expected", permanently unmergeable. The workflow therefore authenticates as something else.
@@ -30,57 +31,57 @@ triggers no further workflow runs, so such a pull request sits with every requir
 Today that something else is `TOOLCHAIN_BUMP_PAT`, a fine-grained personal access token on calef's
 account. It works. It has two structural flaws: it expires on a personal timer that nobody reading
 the workflow can inspect, and it couples the project's automation to one person's account. A
-**GitHub App owned by the `crickertech` organization**, installed on `nife`, fixes both. Its
+GitHub App owned by the `crickertech` organization, installed on `nife`, fixes both. Its
 installation tokens are minted fresh per run, so nothing stored expires, and the identity belongs to
 the role rather than to the person. That is `needs-architect`'s principle applied to credentials.
 
-**As of 2026-09-23 the App exists**: `smelter`, App ID **5053502**, created by calef under
-`crickertech` and installed on `nife` alone, with both secrets stored as **organization secrets
-scoped to `nife`**. This note stays written as a procedure rather than as a history, because the
+As of 2026-09-23 the App exists: `smelter`, App ID 5053502, created by calef under
+`crickertech` and installed on `nife` alone, with both secrets stored as organization secrets
+scoped to `nife`. This note stays written as a procedure rather than as a history, because the
 next person to run it will be provisioning a second App or replacing a lost key, and the steps are
 the same either way. Where a step has already been taken, it says so.
 
 ## What it does not fix
 
-**Commit authorship.** An App's installation token authors the *pull request* and its *comments*,
+Commit authorship. An App's installation token authors the *pull request* and its *comments*,
 not the commits inside it. A commit's author is whoever holds the git identity at the moment
 `git commit` runs, which in `toolchain-bump.yml` is `github-actions[bot]` by explicit
 `git config`, and in a lane's worktree is calef. `Co-Authored-By:` stays the record of who actually
 wrote a commit, and that split is honest rather than awkward: the human owns the change, the agent
 is named as its co-author, and the conversation around the change is visibly the agent's.
 
-**Anything else that authenticates as calef.** The App covers the workflows that are given its
+Anything else that authenticates as calef. The App covers the workflows that are given its
 token. A lane's `gh` calls from a developer machine still run as calef's `gh` login and still
 produce pull requests with his byline; that is what the `**Lane:**` line in every body exists to
 say in the meantime.
 
 ## Why `smelter` has no repository of its own
 
-calef asked, 2026-09-23. **No, and the reason was never scope.** A GitHub App is a registered
+calef asked, 2026-09-23. No, and the reason was never scope. A GitHub App is a registered
 identity plus a permission set, held at the organization level; it has no code unless it has a
 webhook handler, and this one deliberately has none. Its only artifacts are an App ID and a private
 key, both secrets. A repository for it would hold an empty tree and a README pointing back at this
-note. **The breakup of the monorepo does not change that**, because an App without a webhook still
+note. The breakup of the monorepo does not change that, because an App without a webhook still
 has no code to put anywhere.
 
-Two things would change the answer, and either is enough: the App grows a **webhook handler**, a
+Two things would change the answer, and either is enough: the App grows a webhook handler, a
 service receiving events and acting on them, which is real code with its own deploy and tests and
-does not belong inside an OS repository; or it grows **custom actions** shared by several
+does not belong inside an OS repository; or it grows custom actions shared by several
 repositories and needing their own release cadence. Note what is *not* on that list. The milestone's
-stated reuse, a future workflow copying the two steps from `EXAMPLES` below, is **copied steps
-rather than shared code**, and triggers neither. That distinction is the whole reason this is
+stated reuse, a future workflow copying the two steps from `EXAMPLES` below, is copied steps
+rather than shared code, and triggers neither. That distinction is the whole reason this is
 written down: "reuse is the compounding value" reads like an argument for a repository, and it is
 not one.
 
-**What the split does change is where this note lives, and that is an open question with a
-trigger rather than a decision to make now.** `smelter` is expected to serve several repositories:
+What the split does change is where this note lives, and that is an open question with a
+trigger rather than a decision to make now. `smelter` is expected to serve several repositories:
 §151 (the goal of the repository split is independent release and third-party programs) is DECIDED,
 milestone 39 (repository structure for a loosely-coupled OS) names option C as the destination, and
 milestone 120 (the OS becomes `nife`, and the project gets an organization) already put the
 manifest in a separate repository, `basalt`. Once `nife` is one
 repository among several it stops being the obvious home for organization-wide tooling
-documentation, and `basalt` is the plausible destination for this page. **The move happens at the
-split, not before**, because today the argument for keeping it here is the stronger one: it sits
+documentation, and `basalt` is the plausible destination for this page. The move happens at the
+split, not before, because today the argument for keeping it here is the stronger one: it sits
 beside `toolchain-bump.yml`, the workflow it documents, so the two version together and a change to
 that workflow cannot silently invalidate this page. When it moves, §201 (one roadmap until a
 citation has to cross) already governs how the citations survive crossing a repository boundary, so
@@ -90,108 +91,108 @@ this is an existing framework rather than a new problem.
 
 Once, by an owner of the `crickertech` organization.
 
-1. Go to **https://github.com/organizations/crickertech/settings/apps** and press **New GitHub App**.
-   (The path by clicking: your avatar, **Your organizations**, `crickertech`, **Settings**,
-   **Developer settings**, **GitHub Apps**, **New GitHub App**.)
-2. **GitHub App name**: type **`smelter`**. Ratified 2026-09-23 by calef; the refusals and the
+1. Go to https://github.com/organizations/crickertech/settings/apps and press New GitHub App.
+   (The path by clicking: your avatar, Your organizations, `crickertech`, Settings,
+   Developer settings, GitHub Apps, New GitHub App.)
+2. GitHub App name: type `smelter`. Ratified 2026-09-23 by calef; the refusals and the
    reasoning are in the name block at the top of this note.
 
-   **It may be taken.** App names are globally unique across the whole of GitHub, not just this
+   It may be taken. App names are globally unique across the whole of GitHub, not just this
    organization, and a one-word English name very likely already belongs to somebody. GitHub tells
-   you at this screen and nowhere earlier. If it is unavailable, use **`nife smelter`**, which
-   renders as `nife-smelter[bot]`. Do not invent a third; bring it back to calef.
+   you at this screen and nowhere earlier. If it is unavailable, use `nife smelter`, which
+   renders as `nife-smelter[bot]`. Do not invent a third; bring it back to an architect.
 
    Whichever of the two you get, the byline (`smelter[bot]` or `nife-smelter[bot]`) is what every
    future bump pull request is authored by, so write down which one you took.
-3. **Homepage URL**: `https://github.com/crickertech/nife`. It is required and unused.
-4. **Webhook**: untick **Active**. Nothing here listens for webhooks, and an inactive webhook is one
+3. Homepage URL: `https://github.com/crickertech/nife`. It is required and unused.
+4. Webhook: untick Active. Nothing here listens for webhooks, and an inactive webhook is one
    fewer endpoint to secure.
-5. **Repository permissions**, exactly two, matching what the PAT carries today and nothing wider:
-   - **Contents**: Read and write (push the `toolchain/nightly-bump` branch).
-   - **Pull requests**: Read and write (open, retitle and un-draft the proposal).
-   Leave every other permission at **No access**. Leave organization and account permissions alone.
-6. **Where can this GitHub App be installed?**: **Only on this account**. It is not a public listing.
-7. Press **Create GitHub App**.
+5. Repository permissions, exactly two, matching what the PAT carries today and nothing wider:
+   - Contents: Read and write (push the `toolchain/nightly-bump` branch).
+   - Pull requests: Read and write (open, retitle and un-draft the proposal).
+   Leave every other permission at No access. Leave organization and account permissions alone.
+6. Where can this GitHub App be installed?: Only on this account. It is not a public listing.
+7. Press Create GitHub App.
 
 ## Installing it and storing the secrets
 
-8. On the App's settings page, note the **App ID** near the top. For `smelter` it is **5053502**,
-   created 2026-09-23 by calef; this step is done. Then **Generate a private key**, which downloads a `.pem` file.
+8. On the App's settings page, note the App ID near the top. For `smelter` it is 5053502,
+   created 2026-09-23 by calef; this step is done. Then Generate a private key, which downloads a `.pem` file.
    GitHub never shows it again; a lost key is regenerated rather than recovered.
 
-   **The App ID is not sensitive** and the private key is the only thing here that is. An App ID is
+   The App ID is not sensitive and the private key is the only thing here that is. An App ID is
    visible to anyone who can see the App, which is why it can be written down in this note while
    the key never is; finding one in a log or a diff is not an incident.
 
-   **The Client ID on the same page is not used.** `actions/create-github-app-token` authenticates
+   The Client ID on the same page is not used. `actions/create-github-app-token` authenticates
    with the App ID and the private key; a Client ID exists for OAuth flows, which this App does not
    do. It is deliberately not recorded here, because a value nothing reads is a value that rots.
-9. In the left sidebar, **Install App**, then **Install** next to `crickertech`. Choose **Only select
-   repositories** and pick **`nife`** alone. **Never "All repositories"**, then or later: add
+9. In the left sidebar, Install App, then Install next to `crickertech`. Choose Only select
+   repositories and pick `nife` alone. Never "All repositories", then or later: add
    repositories to this list as they appear. An App installed on every repository holds authority
    over repositories it has no business in.
-10. Store both as **organization** secrets, scoped to exactly the repositories that may read them.
+10. Store both as organization secrets, scoped to exactly the repositories that may read them.
     The commands are:
 
         gh secret set AUTOMATION_APP_ID  --org crickertech --repos nife --body '5053502'
         gh secret set AUTOMATION_APP_KEY --org crickertech --repos nife < ~/Downloads/smelter.private-key.pem
 
-    **Expect them to fail, and do not fix it the way `gh` suggests.** Unless your shell's token
+    Expect them to fail, and do not fix it the way `gh` suggests. Unless your shell's token
     already carries organization admin, both return:
 
         failed to fetch public key: HTTP 403: You must be an org admin or have the
         actions secrets fine-grained permission.
         This API operation needs the "admin:org" scope.
 
-    `gh` offers `gh auth refresh -h github.com -s admin:org`, and it works. **Do not run it.** That
+    `gh` offers `gh auth refresh -h github.com -s admin:org`, and it works. Do not run it. That
     token is shared by every agent on this machine, and widening it permanently for a one-time task
     grants organization-admin to automation: on 2026-09-23 eight lanes were using that token while
     merging unattended. Least privilege says do the one-time thing by hand. The reasoning is the
     durable part of this paragraph; the clicks below are not.
 
-    **So use the browser.** https://github.com/organizations/crickertech/settings/secrets/actions,
-    then **New organization secret**, twice:
+    So use the browser. https://github.com/organizations/crickertech/settings/secrets/actions,
+    then New organization secret, twice:
 
     - `AUTOMATION_APP_ID` = `5053502`
     - `AUTOMATION_APP_KEY` = the whole `.pem`, including both the `-----BEGIN` and `-----END` lines
       and the trailing newline.
 
-    Set **Repository access: Selected repositories → `nife`** on both. To get the key into the
+    Set Repository access: Selected repositories → `nife` on both. To get the key into the
     clipboard without opening it in an editor, and to remove it afterwards:
 
         pbcopy < ~/Downloads/*.private-key.pem
         rm ~/Downloads/*.private-key.pem
 
-    **You cannot confirm this from the shell either**, and that is not something being broken:
+    You cannot confirm this from the shell either, and that is not something being broken:
     `gh secret list --org crickertech` needs the same `admin:org` scope and returns the same 403 for
     any shell that is not an organization admin's, which is the ordinary case rather than a fault.
     On the browser path the secrets page itself is the confirmation, and the first real proof is the
     identity probe in step 11, once the workflow change has merged.
 
-    **This is the path that was actually used.** Both `smelter` secrets were stored this way by
+    This is the path that was actually used. Both `smelter` secrets were stored this way by
     calef in the browser on 2026-09-23, after the `gh` commands above returned the 403.
 
-    **Storing them early is safe, and the argument is structural rather than an observation.** Until
+    Storing them early is safe, and the argument is structural rather than an observation. Until
     the workflow change has merged, `main`'s `toolchain-bump.yml` contains no reference to
     `AUTOMATION_APP_ID` or `AUTOMATION_APP_KEY` at all, so the secrets cannot reach it whatever they
     contain; the daily bump keeps using the PAT. There is no window in which a half-provisioned App
     can change what the scheduled job does.
 
-    **`--repos nife` is what makes this safe, and it is why this is not the looser choice it looks
-    like.** An organization secret naming exactly which repositories may read it has the same blast
+    `--repos nife` is what makes this safe, and it is why this is not the looser choice it looks
+    like. An organization secret naming exactly which repositories may read it has the same blast
     radius today as a repository secret on `nife`, because today that list is `nife`. What it buys
     is the split: `smelter` is expected to serve several repositories once the monorepo is broken up
     (see the section above), and adding one then is editing a list rather than re-provisioning a
     key. Fewer moving parts at no cost now.
 
-    **Never "All repositories."** The list is the mechanism; a secret every repository can read is
+    Never "All repositories." The list is the mechanism; a secret every repository can read is
     the one shape this buys nothing over.
 
-    **Why a non-secret is stored as a secret**, since the App ID is public and this looks wrong at
+    Why a non-secret is stored as a secret, since the App ID is public and this looks wrong at
     first reading. The workflow uses `AUTOMATION_APP_ID`'s *emptiness* as its inertness switch
     (`if: env.AUTOMATION_APP_ID != ''`), so what is wanted is a per-repository value that is absent
     until someone provisions it, and a secret is the kind of value the workflow already reads. A
-    repository or organization **variable** would serve that switch equally and read more honestly,
+    repository or organization variable would serve that switch equally and read more honestly,
     since it would not claim to protect something that needs no protection. It is provisioned as a
     secret and stays that way; the alternative is noted here so the next reader does not have to
     work out whether the choice was considered.
@@ -199,9 +200,9 @@ Once, by an owner of the `crickertech` organization.
     Either way, delete the downloaded `.pem` afterwards. A key sitting in a downloads folder is the
     leak this whole exercise is meant to reduce.
 
-    Both secret names are **provisional** until calef ratifies them. They were deliberately not
-    renamed to match `smelter` when the App's name was ratified: a rename is a naming decision with
-    extra steps, and `AUTOMATION_*` says what the secrets are for rather than what the App is
+    Both secret names are provisional until an architect ratifies them. They were deliberately
+    not renamed to match `smelter` when the App's name was ratified: a rename is a naming decision
+    with extra steps, and `AUTOMATION_*` says what the secrets are for rather than what the App is
     called, which survives the App being renamed.
 
 ## Confirming it took, and only then retiring the PAT
@@ -212,12 +213,12 @@ Once, by an owner of the `crickertech` organization.
         gh run watch "$(gh run list --workflow=toolchain-bump.yml --repo crickertech/nife \
               --limit 1 --json databaseId --jq '.[0].databaseId')"
 
-    The **Say which identity this run is authenticating as** step must print
+    The Say which identity this run is authenticating as step must print
     `identity: the crickertech automation App`. If it prints the PAT line instead, the secrets are
     not visible to the job: check the names, and check that the organization secrets list `nife`
     among the repositories that may read them.
 
-12. **Only after a real bump pull request has been opened by the App and received checks**, retire
+12. Only after a real bump pull request has been opened by the App and received checks, retire
     the token, in this order:
 
         gh secret delete TOOLCHAIN_BUMP_PAT --repo crickertech/nife
@@ -230,7 +231,7 @@ Once, by an owner of the `crickertech` organization.
 
 ## The one dependency, and why it was taken
 
-**`actions/create-github-app-token`. Approved by calef, 2026-09-23 UTC.** §46 (thin primitives or
+`actions/create-github-app-token`. Approved by calef, 2026-09-23 UTC. §46 (thin primitives or
 whole subsystems) makes taking a dependency a decision rather than a convenience, so it is recorded
 rather than merely described. It is **maintained by GitHub** and does exactly one thing, mint an
 installation token per run. It is **outside the shipping graph**: it runs in CI and no part of the

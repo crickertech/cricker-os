@@ -55,9 +55,9 @@ interacts: an `xargs` whose input is a second operand meets a shell that has no 
 Check that interaction before designing the command line, because it may decide whether `xargs`
 reads a set or is handed one.
 
-**The name is provisional and calef's call**, like every program name in this tree. `xargs` is what
-milestone 47 and both notes call it, and it is a standard term a reader already knows from outside,
-which is the strongest argument any name gets here.
+**The name is provisional and an architect's call**, like every program name in this tree. `xargs`
+is what milestone 47 and both notes call it, and it is a standard term a reader already knows from
+outside, which is the strongest argument any name gets here.
 
 ## Follow-on
 
@@ -80,9 +80,9 @@ which is the strongest argument any name gets here.
   expanded, which interacts with this command: an `xargs` whose input is a second operand meets a
   shell that has no second name slot.
 - **Recorded.** `design/roadmap/109-xargs-at-the-grant-bound.md` says the name is provisional and
-  calef's call, like every name a lane ships. It is what milestone 47 and both glob notes call it,
-  and it is a standard term a reader already knows from outside, which is the strongest argument any
-  name gets here.
+  an architect's call, like every name a lane ships. It is what milestone 47 and both glob notes
+  call it, and it is a standard term a reader already knows from outside, which is the strongest
+  argument any name gets here.
 
 ## Index row
 

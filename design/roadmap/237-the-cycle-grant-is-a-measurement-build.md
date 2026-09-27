@@ -88,7 +88,7 @@ rebuild and re-measure at any time.
 
 **The feature is `cycle_counter_grant`, declared in `kernel/Cargo.toml`, and the name is
 provisional** like everything a lane mints. It is the field it builds
-(`Thread::cycle_counter_grant`) rather than a new word for the same thing; names are calef's.
+(`Thread::cycle_counter_grant`) rather than a new word for the same thing; names are an architect's.
 
 **The gate on every piece is `any(test, feature = "cycle_counter_grant")`, not the feature alone**,
 and that is the answer to this block's first `BUGS` entry. Milestone 229's proofs are the only
@@ -205,7 +205,7 @@ that a footprint change is intended and understood; do it in the commit that cau
   beside the seL4 calibration in `notes/benchmarks.md`, which is where milestone 25 keeps its
   comparison, and beside the mechanism in `notes/abi.md`.
 - **Recorded.** The feature name `cycle_counter_grant` is provisional, like everything a lane mints;
-  names are calef's. It is the field it builds rather than a new word for the same thing.
+  names are an architect's. It is the field it builds rather than a new word for the same thing.
   `kernel/Cargo.toml`.
 - **Milestone 361.** `design/roadmap/361-unattributed-fastpath-residuals.md`, attribute the riscv64
   and x86_64 fastpath residuals, then re-record those baselines in the commit that does it. riscv64

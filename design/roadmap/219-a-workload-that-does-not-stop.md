@@ -168,7 +168,7 @@ on its first run found two real warnings in code nothing had ever linted.
 ## Handoff
 
 Two proposed milestones, both of which this lane found and neither of which it should decide,
-because each is a scheduler-policy or syscall-surface question and those are calef's:
+because each is a scheduler-policy or syscall-surface question and those are an architect's:
 
 - **Proposed milestone: a workload can be made to cross cores, or it is admitted that none can.**
   The options are thread affinity (pin a responder so its callers must reach it from elsewhere), a

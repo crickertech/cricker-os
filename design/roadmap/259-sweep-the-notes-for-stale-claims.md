@@ -191,7 +191,7 @@ not.
 - **Refused.** Deleting `notes/session-handoff.md`, which its own first paragraph authorises
   ("delete or overwrite once its contents are stale"). It carries the only narration several
   2026-07-29 decisions have. It gets a banner and a corrected index entry instead, and whether it
-  should exist at all is calef's.
+  should exist at all is an architect's.
 
 ## BUGS
 
@@ -201,7 +201,7 @@ not.
 - **`notes/why-not-general-purpose.md`'s title overstates its own content**, and a rename is
   calef's. PR #750 landed during this lane and its rewrite records the same thing at the page
   itself, so the page was read here and needed nothing further; the title question stays open and
-  stays calef's.
+  stays an architect's.
 - **A sweep is a snapshot and this one will go stale too**, on a tree where 68 milestone rows flipped
   to `BUILT` in fourteen days. The proposal it comes from is the recurring half; this is the
   one-time half, and neither substitutes for the other.

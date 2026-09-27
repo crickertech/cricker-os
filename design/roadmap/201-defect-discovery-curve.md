@@ -157,7 +157,7 @@ this risk names.
   architecture. Checked 2026-09-24: the note has three radon rows, all riscv64, and none for argon or
   xenon.
 - **Outstanding.** The stated duration `design/fatal-risks/multicore-reliability.md` asks for. It is
-  calef's; checked 2026-09-24 that it is not decided anywhere in the tree. Its sibling question is
+  an architect's; checked 2026-09-24 that it is not decided anywhere in the tree. Its sibling question is
   answered: calef ruled on 2026-09-25 (UTC) that the curve is judged on crossings, with hours and
   boots still recorded, carried by pull request #1282 into the run section above and
   `notes/multicore-defect-curve.md`'s *Which denominator*.

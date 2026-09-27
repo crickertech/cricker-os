@@ -1,4 +1,4 @@
-# A TLS crypto provider on nife: what builds, what runs, and what is still calef's to decide
+# A TLS crypto provider on nife: what builds, what runs, and what is still an architect's to decide
 
 *(Milestone 442 (a crypto provider `rustls` can use on all three bare-metal targets), 2026-09-19.
 DECISIONS §196 (nife carries TLS: `rustls` for the protocol, and a crypto provider we make work)

@@ -322,8 +322,8 @@ an ABI two programs agree on, which AGENTS.md's *move fast on what can be undone
 irreversible category, and which §22 (Rust `std` on the native ABI, the Hermit way)
 chose deliberately when it specified nife's target JSON as "softfloat, and `singlethread = true`".
 
-This milestone makes that flip **possible**. It is calef's to make, and the point of the section
-below is that it can now be made on evidence.
+This milestone makes that flip **possible**. It is an architect's to make, and the point of the
+section below is that it can now be made on evidence.
 
 ### The proposal
 

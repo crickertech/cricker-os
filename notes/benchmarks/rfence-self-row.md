@@ -137,8 +137,9 @@ times:
 The row alternates between two values across saves under two different pins, with a hand
 correction in the middle that a later `--save` rewrote. Which cause is right is open. Deciding it
 needs an A/B across two nightlies at a fixed hart count, which nobody has run. Neither reading is a
-reason to move the floor: `script/bench --save` commits a performance floor and is calef's call.
-*(Since then: `a66e8c5f9`, 2026-09-23, re-recorded the row at 5991 under `nightly-2026-09-23`.)*
+reason to move the floor: `script/bench --save` commits a performance floor and is an architect's
+call. *(Since then: `a66e8c5f9`, 2026-09-23, re-recorded the row at 5991 under
+`nightly-2026-09-23`.)*
 
 ### `spawn_el0` under `nightly-2026-09-23`
 

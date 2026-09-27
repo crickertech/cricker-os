@@ -15,7 +15,7 @@
 # Its something like redoxfs_server", which is a ruling that the engine's name belongs in front.
 # Milestone 63 renamed the DIRECTORY from `tools/redoxfs-host/` to match the package on
 # 2026-08-01, which is AGENTS.md's rule that a directory holding a Rust package is named exactly
-# as the package. calef has not ratified the package name itself.
+# as the package. no architect has ratified the package name itself.
 
 [package]
 name = "redoxfs_host"

@@ -330,7 +330,8 @@ about **architectures**. Two x86_64 providers are the **same** silicon with diff
 different boot delivery, and different tables at entry. A nife that boots on xenon and not on some
 provider's metal falls through that gap entirely, and the HAL being a fiction would surface **first**
 in that form, long before it surfaced as an architecture costing a restructure. Whether that widens
-risk 9 or becomes its own entry is calef's call; this file does not touch `design/fatal-risks.md`.
+risk 9 or becomes its own entry is an architect's call; this file does not touch
+`design/fatal-risks.md`.
 
 **The hypothesis, stated before the numbers exist**, in the shape this tree already uses: nife boots
 unchanged on two providers' x86_64 metal, and the only differences are in how the image and the

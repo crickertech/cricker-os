@@ -75,7 +75,8 @@
 #   the other word it could be short for)'s gate that passed by checking zero crates and the
 #   `job_mix` feature that had never once been compiled: a check that stops checking does not go
 #   red. Wiring this into a gate is a real decision (it is a *cadence* signal, so a hard failure
-#   would block every PR the moment an audit came due) and is left to calef rather than assumed.
+#   would block every PR the moment an audit came due) and is left to an architect rather than
+#   assumed.
 # - **It cannot tell a report that says nothing from one that found nothing.** `fixed 0, minted 0,
 #   accepted 0` parses and passes.
 # - **`--worklist` ranks documents it can parse a citation out of, and says nothing about the rest.**
@@ -123,7 +124,7 @@
 # tree takes a noun (`metrics`, `citations`, `decisions`, `names`, `roadmap`, `journeys`, `coverage`,
 # `drift`, `falsifications`, `rule-violations`, `fatal-risks`, `crate-probes`). So this name sits in
 # an observable family rather than under a codified rule, and whether that family earns a section is
-# calef's call, not this block's to assert.
+# an architect's call, not this block's to assert.
 #
 # See notes/scripts.md, design/audit-reports/README.md, and design/decisions/74-audit-cadence.md.
 

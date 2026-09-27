@@ -28,10 +28,10 @@ build runs a pull request's own workflow edits with this repository's secrets. T
 path in the script (`helpers/queue-eligible.jq` refuses a head in another repository); this is the
 rung above it.
 
-Option 1 is still calef's to rule, and the secret move is an organisation
+Option 1 is still an architect's to rule, and the secret move is an organisation
 setting only he can make. As filed: every option below is a repository or organisation setting, which is a fact
 that leaves the tree: no lane can change it, and every lane works under it from the moment it
-changes. It is calef's.
+changes. It is an architect's.
 
 **Ruled the same day, in part (calef, 2026-09-24 UTC): options 2 and 3 are adopted.** Option 2 is
 set: the repository's fork approval policy now reads `all_external_contributors`, so no outside

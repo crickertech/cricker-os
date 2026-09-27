@@ -99,4 +99,4 @@ serves `filesystem_protocol::blk` on a request endpoint, which is the shape the 
 already point at. What it settles is whether the roster's shape is about block devices or about
 virtio, since milestone 57's claim that listing and holding are different powers has only ever been
 exercised against one transport. The transport kind's spelling is a wire value two programs read and
-is calef's, along with whether an NVMe entry carries a namespace id or a controller identity.
+is an architect's, along with whether an NVMe entry carries a namespace id or a controller identity.

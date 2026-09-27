@@ -20,7 +20,7 @@ which tier a row takes rather than which script it joins. Milestone 286's own fo
 stale name to the integrator, and this is where it is corrected.
 
 Which of the three takes a `local` row in `script/ci-build`, which takes a `ci`
-row and which gets a cadence is calef's call, because two of them are expensive enough that "run it
+row and which gets a cadence is an architect's call, because two of them are expensive enough that "run it
 in CI" changes what a pull request costs. The measuring and the wiring are a lane's; the placement is not.
 
 **In brief.** Milestone 232's audit found three instruments in this tree that render a verdict and

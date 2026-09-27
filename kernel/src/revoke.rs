@@ -588,8 +588,8 @@ pub fn revoke_page_frame(phys: u64) {
 /// `virtio::register`, that window is not derived from any capability, and revoking one does not
 /// narrow it. So a capability-perfect revocation of a surface leaves the device able to write those
 /// pages until the driver's virtio registration is itself torn down. Coupling `PageFrame` and
-/// `Virtio`, which are independent today, is a separate decision and remains calef's call: see
-/// design/decisions/132-overlapping-page-frame-runs.md.
+/// `Virtio`, which are independent today, is a separate decision and remains an architect's call:
+/// see design/decisions/132-overlapping-page-frame-runs.md.
 pub fn revoke_page_frame_run(phys: u64, count: u64) {
     crate::sched::delete_page_frame_caps(phys, count);
     for k in 0..count {

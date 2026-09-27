@@ -260,7 +260,7 @@ first riscv64 `kani::stub` harnesses need. aarch64 and x86_64 follow the same pa
    upstream-quality rework and CI cold time are estimates, marked.
 6. Reversibility. A carried patch and one CI job come out cleanly, and nobody downstream acts on
    them. An upstream contribution is a public commitment to maintain, in a small way, a flag other
-   people will use; that is the irreversible part, and it is calef's.
+   people will use; that is the irreversible part, and it is an architect's.
 7. Same cost, same choice? Yes. If the native host cost what the flag does, the flag still wins:
    it runs on hosted runners, on every pull request, and leaves `radon` on the bench. This
    recommendation is not about effort. Carrying versus waiting is about time, and says so.
@@ -300,7 +300,7 @@ Warm: 45 s, 3 s of it proving. On patagonia a cold build took 244 to 621 s by lo
   only in this job.
 - **Milestone 536.** `design/fatal-risks.md` risk 2 ("Only riscv64 is unreachable, and nobody here
   can change that") and `design/fatal-risks/proofs-and-their-reach.md` say the same false sentence.
-  Both are calef's files; milestone 536 (two records still say the prover cannot see `kernel/src`) is the correction already in flight for that risk's text.
+  Both are an architect's files; milestone 536 (two records still say the prover cannot see `kernel/src`) is the correction already in flight for that risk's text.
 - **Recorded.** `notes/kernel-proofs/riscv64-with-a-patched-kani.md`'s `BUGS`: the rebase per Kani release, the
   unpinned Kani of the sibling jobs, the one-slot sysroot, and riscv64-only harnesses the
   falsification sweep cannot replay.

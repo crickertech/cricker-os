@@ -19,7 +19,7 @@
 # splitting the family: the verbs are the ones that act (`verify`, `test`, `fuzz`, `bench`) and
 # this acts. What is left unsigned is the word order rather than the words. `<object>-<verb>` is
 # established here only by this script and `vendor-verify`, which is two scripts establishing each
-# other, and nothing weighs it against `bump-toolchain`. calef has not ratified it.
+# other, and nothing weighs it against `bump-toolchain`. no architect has ratified it.
 
 set -e
 cd "$(dirname "$0")/.."

@@ -87,8 +87,8 @@ pull request there is no pull request to hang it on. AGENTS.md's answer for work
 is the `needs-architect` label and a `## What I need from you` comment, and neither has a home when
 the finding belongs to no branch.
 
-That is calef's call, not a lane's, and it is the same question the steward's own "it reported and
-never acted" failure of 2026-08-04 raised without settling.
+That is an architect's call, not a lane's, and it is the same question the steward's own "it
+reported and never acted" failure of 2026-08-04 raised without settling.
 
 ## What this does not propose
 

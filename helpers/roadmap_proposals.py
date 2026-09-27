@@ -22,7 +22,7 @@ under `helpers/`, which `script/names` puts out of its own scope, so this paragr
 rather than a `Name:` block. `proposals` alone would not say which proposals (this tree also has
 `**Status: PROPOSED**` decisions in `design/decisions/`, a different record with a different form);
 `roadmap_records` would promise the index rows too, which live in two different parses that this
-does not touch. calef names modules, and has not ratified it.
+does not touch. An architect names modules, and none has ratified it.
 """
 
 import re

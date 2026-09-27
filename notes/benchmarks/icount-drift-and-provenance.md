@@ -126,7 +126,7 @@ onward, and never on a number nobody stamped.
 
 A failure does not mean "upgrade something". A re-record and the pin have to be settled in the same
 commit, because CI builds the pinned emulator (`script/ci-qemu`) and reads these floors on it. Which
-version to run was left as calef's call.
+version to run was left as an architect's call.
 
 *Correction, 2026-09-24: both open points above have since closed. `e9c8723c3` (2026-09-21) pinned
 `.qemu-version` to 11.1.1, the version this machine had been running. All three

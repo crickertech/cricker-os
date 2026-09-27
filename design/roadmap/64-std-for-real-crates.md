@@ -378,7 +378,7 @@ build them, and report what breaks.
   a body reachable, never a call, so portable std code reachable only on a platform this thin stays
   invisible to it.
 - **Recorded.** `script/crate-probes` and the abort scan both ship under provisional names, said so
-  where they live, and naming is calef's.
+  where they live, and naming is an architect's.
 
 ## Index row
 

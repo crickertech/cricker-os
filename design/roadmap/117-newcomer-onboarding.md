@@ -17,7 +17,7 @@ same day, run 2 went 2026-08-16 (pull request #219), runs 3 and 4 went 2026-08-1
 runs, eleven defects fixed between the first two, and the two documents the block predicted have now
 been seen twice: `CONTRIBUTING.md` at the repository root, and a reading order at the top of
 `README.md`, both still **provisional**, because a reading order is a claim about what matters and
-those are calef's.
+those are an architect's.
 
 What held it until then: run 4 said the blocker was the missing recurrence mechanism rather than the
 worklist; that mechanism was built the same day and **run 5 is the evidence it works**. Run 5 then
@@ -363,8 +363,8 @@ more leak by being a `script/` entry point; it does not schedule itself, which i
 and calef's; and the withheld note is still one `git show HEAD~1:<path>` away, which is measured
 rather than closed, since the summary reports whether the transcript ever mentions it.
 
-**The name `stranger-test` is provisional**, as `script/` names are calef's. It takes its noun from
-the note that named the instrument first, so the command and the record share a word.
+**The name `stranger-test` is provisional**, as `script/` names are an architect's. It takes its
+noun from the note that named the instrument first, so the command and the record share a word.
 
 ## What run 5 found and hands off, 2026-08-18
 
@@ -437,7 +437,7 @@ with a falsifiable instance attached.
 6. **Handoff 4 from runs 3 and 4 is unchanged and is now nominated by three successive strangers**:
    adding a program should not need eight hand-maintained lists. Run 5 adds that the eighth is not
    even a constant, since it depends on the manifest shape.
-7. **The cadence for running this is calef's and nothing else can move the status.**
+7. **The cadence for running this is an architect's and nothing else can move the status.**
    ***Answered 2026-08-18: monthly, and built the same day.*** Two things in this handoff were
    wrong and are worth correcting rather than deleting. Milestone 129 is **not** the machinery: it
    is nife's own cron, and this run happens on a host with a `claude` CLI and two QEMUs, so the
@@ -533,8 +533,9 @@ fully handed off: five of seven items were still open four days later, which is 
    stale again by 2026-08-22 is the same finding this tree keeps making about duplicated facts, not a
    new one.
 5. **Where `script/apropos` should be named: unchanged, correctly.** Its own `BUGS` section already
-   records that five runs have missed it and says why it is calef's call rather than a lane's: naming
-   a place in the reading order is a claim about what matters. Nothing here decides that.
+   records that five runs have missed it and says why it is an architect's call rather than a
+   lane's: naming a place in the reading order is a claim about what matters. Nothing here decides
+   that.
 6. **Handoff 4/6, nominated by three successive strangers, now has a tracked home: minted as
    milestone 150**, "Adding a program should not need eight hand-maintained lists"
    (`design/roadmap/150-program-declaration-data.md`, provisional number; 147, 148 and 149 were
@@ -683,7 +684,7 @@ the milestone should say so wherever it reports a number.
   there is no removing-a-program page and that this one is the count reached from the other side.
 - **Recorded.** The argument-plus-input fork stays undecided and is recorded in three places rather
   than one: the planner's own comment, `notes/adding-a-program.md`'s `BUGS`, and a passing host
-  test in `crates/grant_plan`. Whether such a program is wanted at all is calef's.
+  test in `crates/grant_plan`. Whether such a program is wanted at all is an architect's.
 - **Recorded.** The load-average diagnostic is built and still unexercised in anger. The host-load
   sampler in `xtask/src/main.rs` runs on both kernel legs and `notes/load-sensitive-assertions.md`
   carries its own `BUGS`, but no run has been recorded where it fired on a red leg.
@@ -691,7 +692,8 @@ the milestone should say so wherever it reports a number.
   remembered now: `README.md`'s counts carry count-at-least markers and `script/lint` fires when a
   floor goes down.
 - **Recorded.** `CONTRIBUTING.md` and `README.md`'s reading order are both still provisional, as
-  this block says, because a reading order is a claim about what matters and those are calef's.
+  this block says, because a reading order is a claim about what matters and those are an
+  architect's.
 - **Recorded.** The farm-contamination assertion in `xtask/src/main.rs` has still not met a real
   contaminated farm. It is verified by host coverage and a clean `script/test`, not by reproducing
   run 5's race.

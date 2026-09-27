@@ -36,7 +36,8 @@ end one lives with whoever holds the child's region.
 - **Condition.** A capability that names a thread's life. The refusal states exactly what is missing
   ("a tid is not a capability, and killing stays with whoever holds the child's region"), so either a
   verb on a thread handle or a supervision-domain right to end a child is what would make `kill`
-  expressible at all. Both are syscall-surface questions, which is calef's call rather than a lane's.
+  expressible at all. Both are syscall-surface questions, which is an architect's call rather than a
+  lane's.
 
 ## Index row
 

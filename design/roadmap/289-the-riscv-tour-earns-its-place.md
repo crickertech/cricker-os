@@ -106,7 +106,7 @@ block, because the next person to ask calef's question will be reading that file
 **The tour's own comment now names `crates/board_console` as a consumer of its output line**, so
 "nothing reads this" is falsifiable from the call site.
 
-## What is calef's, and is not decided here
+## What is an architect's, and is not decided here
 
 **The category.** `builder` sits in `components/`, and milestones 39 and 175 both listed it as a
 `fixtures/` example. Milestone 175 is explicit that those lists classified `builder` and `worker`

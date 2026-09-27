@@ -59,7 +59,7 @@ Three outcomes, and the split should be stated per name rather than assumed:
   writing. **Do not invent a justification for a name that has none**: say what the history says,
   propose one, and let calef rule.
 - **A rename proposed**, where the research shows the name is wrong. Propose it; do not do it.
-  Renaming is a naming decision with extra steps and is calef's.
+  Renaming is a naming decision with extra steps and is an architect's.
 
 ## Two rules that govern this and were both set the same day
 
@@ -76,8 +76,8 @@ say so in those words.
 **It is not a renaming sweep.** The deliverable is the record, and a rename is an outcome the record
 may recommend. Milestone 63 did the renaming; this writes down why the survivors survived.
 
-**And it does not touch the 31 provisional ones.** Those are calef's to ratify and are already
-prepared; adding to their argument is not this lane's business.
+**And it does not touch the 31 provisional ones.** Those are an architect's to ratify and are
+already prepared; adding to their argument is not this lane's business.
 
 ## The proof that this milestone worked
 

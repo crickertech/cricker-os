@@ -1,6 +1,6 @@
 # Does the TSC tick at a constant rate under TCG?
 
-*Name: provisional (`tsc-under-tcg`). A lane's proposal; names are calef's.*
+*Name: provisional (`tsc-under-tcg`). A lane's proposal; names are an architect's.*
 
 **Yes, and to sub-100-ppm. The rate is not the problem. The number the boot writes down is.**
 

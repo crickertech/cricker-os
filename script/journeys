@@ -30,7 +30,7 @@
 # for the stem). Deliberately the third instance of the `script/roadmap` and `script/decisions`
 # pattern, and §134 later wrote that pattern down: a script that reports takes a noun, and the
 # noun is the record it reads. Here that record is `design/journeys/`, indexed by its own README,
-# so the name is fixed by the directory rather than chosen. calef has not ratified it.
+# so the name is fixed by the directory rather than chosen. no architect has ratified it.
 
 set -e
 

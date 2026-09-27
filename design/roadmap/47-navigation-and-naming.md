@@ -51,7 +51,7 @@ in the shell and in the `std` PAL together so that one fork was answered once.
 
 Environment variables' inert third was built 2026-08-23 (`milestone/47-env-config-page`), the
 second piece of the namespace half: a read-only page carrying `TZ`, `LANG` and `TERM`, each
-validated against a closed domain before it is ever written (DECISIONS §111). See "Environment
+validated against a closed domain before it is ever written (DECISIONS §111 (inert)). See "Environment
 variables" below and notes/env-config.md. What is built is end to end for a std program
 (`env_proto`, the kernel-side assembly and mapping, the `std` PAL's `sys/env::seed`), proven by
 `std_exerciser` on both ISAs; what remains is a shell-facing customer to declare wanting it (no
@@ -70,17 +70,16 @@ harness that stood in for it above. See "The shell-facing customer was built 202
 found the doc's own sketch ("a bind entry is a value, not a capability... a `nav::Cwd` under a
 name") held up against the real, now-built mechanism without change. `crates/grant_plan::nav::Bindings`
 (provisional name) is a small fixed table, up to four entries, mapping a name to a `(Which, Cwd)`
-position this shell already reached some other way; `Holdings::resolve` tries a grant label first
+position this shell reached some other way; `Holdings::resolve` tries a grant label first
 (when this shell holds two), then the bind table, then, for the one-grant shell every real boot is
 today, the same literal walk from the sole root it always did, so `bind` is additive and a shell
 with nothing bound resolves byte for byte as before. `Holdings::bind` is the mutator, refusing a
-name that collides with a grant label in addition to everything the table itself refuses (already
-bound, full, unnameable). Wired into the real interactive `swish` as a builtin, `bind <target>
+name that collides with a grant label in addition to everything the table itself refuses (bound, full, unnameable). Wired into the real interactive `swish` as a builtin, `bind <target>
 <name>`, in `mkdir`'s category (mints no capability, spawns nothing): `target` resolves through the
 same bind-aware `plan_path`/`walk` every other verb now shares, so binding a name under an existing
 bind composes rather than needing a special case, and `..` past a bound name climbs the *real* tree
 the bind points at rather than stopping at a boundary invented at the alias (the same "misdirect,
-never grant more" property §50 gives symlinks-as-bind). Proven over the real wire, both ISAs,
+never grant more" property §50 (namespace) gives symlinks-as-bind). Proven over the real wire, both ISAs,
 extending `kernel::user::shell_navigation_tests`' navigating witness: a bound name lists the real
 directory it points at (`ls`), three `cd ..`s from inside it reach the real parent, the real root,
 and refuse there exactly where a direct walk to that depth would.
@@ -88,17 +87,17 @@ and refuse there exactly where a direct walk to that depth would.
 What this increment does not reach, honestly. `bind` in a *two-grant* shell (composing two
 disjoint trees under more names than the two grant labels) is host-tested in `grant_plan` but not
 guest-provable, because milestone 154's own gap is still open: nothing tells a real, live `swish`
-process it holds a second directory capability at all (`_start`'s three `START` words are already
-spoken for), and both real init entry points still pass `second_dir: None`. That gap is 154's, not
+process it holds a second directory capability at all (`_start`'s three `START` words are spoken for), and both real init entry points still pass `second_dir: None`. That gap is 154's, not
 this lane's to close: it is a spawn-protocol wire decision 154 itself declined to make "under this
-lane's time pressure," and what the second directory should even *be* is calef's boot-time policy
-call (DECISIONS §126 already made the harder judgment call next to it, the real single moving cwd,
-without answering this one). This lane did not invent an answer to either.
+lane's time pressure," and what the second directory should even *be* is an architect's boot-time
+policy call (DECISIONS §126 (moving `cwd`) made the harder judgment call
+next to it, the real single moving cwd, without answering this one). This lane did not invent an
+answer to either.
 
 `ln`'s symlink half is retired from "still to do" rather than built as a separate command: DECISIONS
-§50 already settled that symlinks-as-stored-paths are superseded by `bind`, not implemented beside
+§50 settled that symlinks-as-stored-paths are superseded by `bind`, not implemented beside
 it, so `bind` landing *is* that half of `ln` landing, under Plan 9's name rather than Unix's. Hard
-links stay declined (DECISIONS §110, want of a customer); see the `ln` section below, kept as
+links stay declined (DECISIONS §110 (hard), want of a customer); see the `ln` section below, kept as
 history, with this line added rather than rewritten.
 
 Completion and `PATH` were investigated on 2026-08-26 and neither was built. Each turned out to
@@ -262,7 +261,7 @@ written; this roadmap block did not, and that gap outlived the design it describ
 The section below is kept as written, because the reasoning is the reasoning that shipped; treat it
 as history rather than as an open question.
 
-`mkdir` shipped in §48 with no way to remove what it makes: `rm` answers `EISDIR` and there is no
+`mkdir` shipped in §48 (navigation) with no way to remove what it makes: `rm` answers `EISDIR` and there is no
 `RMDIR`. The lane declined to add one, on the grounds that "a verb that removes whatever it finds is
 how one word takes a subtree away". That objection is right about a *recursive* verb and does not
 apply to Unix's, which is the point.
@@ -362,7 +361,7 @@ Hard links: decided, declined (§110 (hard links declined)). What remains, for s
 `..` means when the holder's root is shallower than the creator's. §48 clamps, so it should clamp
 here too rather than erroring, but that is a decision, not yet made.
 
-### ~~Open fork~~ **SETTLED 2026-07-31: `bind`, not stored paths** (DECISIONS §50)
+### ~~Open fork~~ SETTLED 2026-07-31: `bind`, not stored paths (DECISIONS §50)
 
 calef chose namespace composition. The analysis below is kept because the naming search is the
 evidence for the decision rather than a digression: twenty-eight-plus candidates, terminating without
@@ -394,11 +393,11 @@ Worked, and rejected with reasons rather than by taste:
 
 | Candidate | Why not |
 |---|---|
-| `alias` | Semantically closer than `link`: a shell alias is stored text, expanded at use, meaning what the current environment makes it mean, with no identity claim. But **taken twice**: zsh's `alias` (which this milestone tracks, so we would collide with ourselves), and macOS "aliases", which store a file ID and **survive the target moving**: they track the object, the inverse of ours. Borrowing a Mac term for its opposite is a poor trade on a project whose first real user is a Mac |
-| `costume`, `disguise` | Both imply **an underlying thing being dressed or concealed**, reinstating exactly the object identity the word must avoid. `disguise` also claims intent to mislead, naming into existence a danger this design removes: a stored name here cannot escalate, because it resolves only within what the holder already reaches |
-| `projection`, `shadow` | Honest about viewpoint-dependence without implying concealment, and still **metaphors**. This project names descriptively (`net_stack`, `compositor`, `line_editor`), which is §39's doing; `link` got away with a false claim partly *because* it was a metaphor |
-| `mirror` family (`erised`, `matsuyama`) | **The best framing anyone found, and the only family to pass all three tests**: a mirror shows something viewer-dependent, implies no object identity, implies no connection, and does not collide with "reference". It fails on the word rather than the idea. In computing a **mirror is an identical replica at another location**: "same content, elsewhere", which is the identity claim we are trying to avoid. The literary instances add their own wrong axis: Erised shows what you **desire** (ours shows what your namespace resolves to, often nothing), and the Matsuyama tale is about a **mistake** (the deception axis where `disguise` failed). Both also need a decoder ring, and `design/naming.md` sets the bar at names that parse without prior exposure |
-| `fsalias` | Fixes the zsh collision, and prefixes are in-style here (`fs_file_caretaker`, `fs_subtree_caretaker`, `c_confiner`). But **"filesystem alias" is exactly what Finder calls a macOS alias** (the object-tracking one), so the prefix picks the *wrong* one of the word's two meanings. And prefixing to fix a collision is a smell: it answers *which* alias, where the objection was that **alias claims another name for the same thing** |
+| `alias` | Semantically closer than `link`: a shell alias is stored text, expanded at use, meaning what the current environment makes it mean, with no identity claim. But taken twice: zsh's `alias` (which this milestone tracks, so we would collide with ourselves), and macOS "aliases", which store a file ID and survive the target moving: they track the object, the inverse of ours. Borrowing a Mac term for its opposite is a poor trade on a project whose first real user is a Mac |
+| `costume`, `disguise` | Both imply an underlying thing being dressed or concealed, reinstating exactly the object identity the word must avoid. `disguise` also claims intent to mislead, naming into existence a danger this design removes: a stored name here cannot escalate, because it resolves only within what the holder already reaches |
+| `projection`, `shadow` | Honest about viewpoint-dependence without implying concealment, and still metaphors. This project names descriptively (`net_stack`, `compositor`, `line_editor`), which is §39's doing; `link` got away with a false claim partly *because* it was a metaphor |
+| `mirror` family (`erised`, `matsuyama`) | The best framing anyone found, and the only family to pass all three tests: a mirror shows something viewer-dependent, implies no object identity, implies no connection, and does not collide with "reference". It fails on the word rather than the idea. In computing a mirror is an identical replica at another location: "same content, elsewhere", which is the identity claim we are trying to avoid. The literary instances add their own wrong axis: Erised shows what you desire (ours shows what your namespace resolves to, often nothing), and the Matsuyama tale is about a mistake (the deception axis where `disguise` failed). Both also need a decoder ring, and `design/naming.md` sets the bar at names that parse without prior exposure |
+| `fsalias` | Fixes the zsh collision, and prefixes are in-style here (`fs_file_caretaker`, `fs_subtree_caretaker`, `c_confiner`). But "filesystem alias" is exactly what Finder calls a macOS alias (the object-tracking one), so the prefix picks the *wrong* one of the word's two meanings. And prefixing to fix a collision is a smell: it answers *which* alias, where the objection was that alias claims another name for the same thing |
 
 The descriptive candidate, if the mechanism survives: a third entry kind beside file and
 directory: a `path`. A directory entry names a file, a directory, or a path; it stores a path and
@@ -580,9 +579,9 @@ The fork is not how to match. It is what a match grants.
 | Answer | Verdict |
 |---|---|
 | Grant 500 file capabilities | Honest, and it exhausts capability slots |
-| Grant the directory plus a name list | Cheap, and it **over-grants catastrophically**: `rm` could touch anything in that directory, which is the thing this whole model refuses |
+| Grant the directory plus a name list | Cheap, and it over-grants catastrophically: `rm` could touch anything in that directory, which is the thing this whole model refuses |
 | Make `rm` a builtin so the shell deletes and nothing is granted | Dodges the question, and costs `rm` as a program |
-| **A directory capability attenuated to a name set** | **The principled one** |
+| A directory capability attenuated to a name set | The principled one |
 
 The last is a smaller change than it looks, and that is the finding. `fs_file_caretaker` today
 serves "a namespace of exactly one name"; globbing generalizes it to a set of names. Same
@@ -625,7 +624,7 @@ The resolver is the client's, as recommended, and it turned out to already be th
 records a *position* rather than a token (`grant_plan::designate` resolves once, at plan time) and
 `swish::open_at` re-walks that position from the root at run time, so rooting a token at
 `Cwd::root()` instead of at the shell's position was the whole of the change on the planning side.
-The server still sees a single component against a handle it was given, and §27 is untouched.
+The server still sees a single component against a handle it was given, and §27 (filesystem) is untouched.
 
 Four things this section did not predict.
 
@@ -753,14 +752,15 @@ undone. Four facts, each a lookup rather than an opinion, and the first changes 
   one. (Prediction borne out: see the "Built 2026-08-23" subsection below, and
   notes/env-config.md.)
 
-Three encodings, with what each costs. They are not equivalent and the choice is calef's, because
-the shell and init both read whatever is chosen and a stranger's program is written against it.
+Three encodings, with what each costs. They are not equivalent and the choice is an architect's,
+because the shell and init both read whatever is chosen and a stranger's program is written against
+it.
 
 | Encoding | What it costs | Where it fails |
 |---|---|---|
-| **More `SEND`s on the spawn endpoint**, the `GRANT_WORDS` shape | No page, no capability, no new VA. Three words a message, so ~24 bytes a pair and a fixed maximum count | A `PATH`-shaped value does not fit in 24 bytes, and raising the count means more round trips per spawn |
-| **A read-only page init maps** (§15's BootInfo) | One frame per process, one fixed VA constant, and a parser crate both `user_rt` and the `std` PAL depend on (rule 7: two binaries agree on it, so it is a crate) | A page is 4 KiB and an environment is unbounded in principle; the page is a fixed cost even for the programs that read nothing |
-| **An endpoint to a configuration service** | The most machinery by far: a server, a protocol, a slot | It is the right answer for the **secrets** third of this section and the wrong one for `TZ` |
+| More `SEND`s on the spawn endpoint, the `GRANT_WORDS` shape | No page, no capability, no new VA. Three words a message, so ~24 bytes a pair and a fixed maximum count | A `PATH`-shaped value does not fit in 24 bytes, and raising the count means more round trips per spawn |
+| A read-only page init maps (§15's BootInfo) | One frame per process, one fixed VA constant, and a parser crate both `user_rt` and the `std` PAL depend on (rule 7: two binaries agree on it, so it is a crate) | A page is 4 KiB and an environment is unbounded in principle; the page is a fixed cost even for the programs that read nothing |
+| An endpoint to a configuration service | The most machinery by far: a server, a protocol, a slot | It is the right answer for the secrets third of this section and the wrong one for `TZ` |
 
 Decided (calef, 2026-08-23, DECISIONS §111): the page, for the inert-configuration third only,
 with the declaration in the manifest that closes the `LD_PRELOAD` class. The other two thirds stay
@@ -1117,7 +1117,7 @@ token with a `/` is a file's bytes), and its bare name is refused as "no such pr
 
 Leaning toward the activation set, because it is "the program namespace is the endowment" with no
 search at all: installing is what puts a name in it (§208). It is a name the shell and every script
-will depend on, so it is calef's.
+will depend on, so it is an architect's.
 
 ## Completion: a concrete primitive, priced and not built (investigated further 2026-08-26, `milestone/47-remainder-round2`). **PROPOSED, not decided.**
 

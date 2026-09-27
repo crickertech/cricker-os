@@ -18,7 +18,7 @@ the milestone 64 (enough std to run somebody else's crate) lane (`milestone/64-s
 
 Every option that closes this puts something on the file contract, which two
 programs agree on (`crates/filesystem_protocol`, the FS server, every caretaker and the `std` PAL),
-and so is calef's. Declining is also an answer, and the PAL already implements it.
+and so is an architect's. Declining is also an answer, and the PAL already implements it.
 
 **In brief.** The three mtime verbs milestone 47 (navigation and naming) added for `touch` (`GETMTIME`, `SETMTIME`,
 `SETMTIME_AT`, DECISIONS §112 (touch's two behaviors need two rights)) all take a **name under a directory handle**. `std` asks for a

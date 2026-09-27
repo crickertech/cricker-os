@@ -18,8 +18,8 @@
 //! §46 (thin primitives or whole subsystems; we write everything in between). It is built by
 //! `helpers/build-cryptography-exerciser.sh` and rides in the archive only when somebody ran it,
 //! exactly as `ripgrep` does and for the same reason: making a gate fetch a hundred crypto crates
-//! would take a dependency decision that is calef's. So this **skips** on every ordinary build and
-//! in all of CI.
+//! would take a dependency decision that is an architect's. So this **skips** on every ordinary
+//! build and in all of CI.
 //!
 //! **All three ISAs run it**, which is DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64 and x86_64) rather than thoroughness, and here parity is not a formality: x86_64 is the only
 //! one of the three whose build forced a different implementation, so it is the one whose answers

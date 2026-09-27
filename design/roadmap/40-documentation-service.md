@@ -296,7 +296,8 @@ later. **Effort: 1 lane estimated per phase**, three phases, landed separately.
   §106's spawn-protocol narrowing: a bit telling a tail stage
   it ends at a real screen (colour, the honest `isatty` replacement), and a way to grant one line of
   input without granting the keyboard (the pager). Both widen a protocol two programs agree on, so
-  both are calef's call; `notes/manual.md`'s "where this goes next" is the only record either has.
+  both are an architect's call; `notes/manual.md`'s "where this goes next" is the only record either
+  has.
 
 ## Index row
 

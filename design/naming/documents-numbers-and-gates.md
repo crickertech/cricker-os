@@ -5,7 +5,7 @@ document goes, why `§N` is not milestone N, why a numbering gap passes, the bra
 what `script/lint` checks. It exists to verify or challenge the main page, and a reader who only
 needs to name, ratify or rename something should not have to open it. The directory `design/naming/`
 and this file's stem are provisional names, minted 2026-09-24 by the lane that split the file;
-naming is calef's.*
+naming is an architect's.*
 
 ## Where a document goes
 
@@ -182,8 +182,8 @@ which is the ordinary way a hand-kept count drifts; take it from the script.)
    that were ratified), and the provenance appendix). Presence only: it cannot check that the reason
    is still true. It checks that the block names one of the three states, that `ratified` carries a
    date and that `recorded` carries a citation. It never checks that the state is `ratified`, so a
-   name waiting on calef does not fail anybody's build. `script/names --unratified` is how that
-   queue gets worked.
+   name waiting on an architect does not fail anybody's build. `script/names --unratified` is how
+   that queue gets worked.
 
    *Corrected 2026-09-24: four states, not three. §89 (`provisional` becomes the fourth provenance
    state) added `provisional` on 2026-08-16, and `helpers/name_provenance.py`'s `STATUSES` lists

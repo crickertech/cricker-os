@@ -118,7 +118,7 @@ The honest cost, so it is priced rather than assumed: the sequence's order is lo
 crate's head comment says so, over three evenings' worth of evidence), so the table must be ordered
 and the walk must be the same order, and a table that is really a sequence with extra ceremony is
 worse than what is there now. Whether it can be genuinely declarative is the fork that lane opens
-with, and it is calef's.
+with, and it is an architect's.
 
 ---
 

@@ -182,7 +182,7 @@ part of milestone 161 (the x86_64 kernel port). None of them is needed to build,
   notes/x86-uefi-boot.md's fork.
 - The four places the `arch/` contract does not fit x86 are recorded in
   [what-does-not-fit.md](x86-port/what-does-not-fit.md). Two of them are names, and names are
-  calef's.
+  an architect's.
 - The swapgs exit window is open to an NMI or a machine check, because there is no paranoid entry
   path. See [ring-3.md](x86-port/ring-3.md).
 - `rdtsc` is readable from ring 3 by inheritance, not by decision. Closing it needs a coarse time

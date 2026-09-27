@@ -83,8 +83,8 @@ written down. Milestone 293 did the same for the credential values three files w
 **The crate names.** The numbers a kernel test and its test client agree on are not part of any
 shipped wire contract: putting `login_test_client`'s six behaviour numbers into `login_proto` would
 widen the protocol a real login client is written against with something no real client needs. So
-each pair either gets a small crate of its own or a shared one, and both are calef's call. That, and
-not the work, is what this waits on.
+each pair either gets a small crate of its own or a shared one, and both are an architect's call.
+That, and not the work, is what this waits on.
 
 **Two shapes worth pricing before asking**, because the question should arrive answered:
 

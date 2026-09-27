@@ -1,6 +1,6 @@
 # `ripgrep` on nife: what a stranger's program actually hits
 
-*(Milestone 121, and `design/fatal-risks.md` risk 1's decisive experiment. Run 2026-08-31 on
+*(Milestone 121 (ripgrep), and `design/fatal-risks.md` risk 1's decisive experiment. Run 2026-08-31 on
 aarch64 and riscv64, QEMU virt, against `ripgrep` 14.1.1 from crates.io.)*
 
 Risk 1 says the platform *"can run hand-written Rust and nothing else, so every piece of software
@@ -26,7 +26,7 @@ ok
 
 That line is `ripgrep`'s, word for word, from `crates/core/main.rs`. Somebody else's application
 reached its own error path on this kernel. Byte for byte identical on all three ISAs, from three
-separately built binaries (aarch64 and riscv64 at milestone 121, x86_64 at milestone 303).
+separately built binaries (aarch64 and riscv64 at milestone 121, x86_64 at milestone 303 (service)).
 
 ## Parity (DECISIONS §19)
 
@@ -34,7 +34,7 @@ separately built binaries (aarch64 and riscv64 at milestone 121, x86_64 at miles
 |---|---|---|
 | `aarch64-unknown-nife` | built and run, 4.7 MB ELF, 62-byte transcript | |
 | `riscv64-unknown-nife` | built and run, 10.7 MB ELF, same 62-byte transcript | |
-| `x86_64-unknown-nife` | built and run, 4.1 MB ELF, same 62-byte transcript | Milestone 184 (extend the `std` port to x86_64) built the target and its `std`; milestone 303 (x86_64's FS service has no disk it can find) gave the FS service a disk it can find on `q35` (the lookup spans virtio-mmio and virtio-pci, and the runner attaches the RedoxFS image as a second `virtio-blk-pci` function). Ran 2026-09-16. |
+| `x86_64-unknown-nife` | built and run, 4.1 MB ELF, same 62-byte transcript | Milestone 184 (extend) built the target and its `std`; milestone 303 gave the FS service a disk it can find on `q35` (the lookup spans virtio-mmio and virtio-pci, and the runner attaches the RedoxFS image as a second `virtio-blk-pci` function). Ran 2026-09-16. |
 
 The RISC-V leg was worth running rather than assuming, and it produced one difference worth
 recording and one non-difference worth recording:
@@ -126,7 +126,7 @@ and `grep-searcher` falls back to reads on its own.
 The milestone's own subject, and the honest answer is that this experiment did not get far enough
 to price the walk, because it never got a directory to walk. What is now known:
 
-- The primitives a walker needs exist. Milestone 122 (a directory handle `std` can hold) landed `std::fs::Dir` and multi-component
+- The primitives a walker needs exist. Milestone 122 (directory) landed `std::fs::Dir` and multi-component
   descent, and `std_exerciser`'s pinned transcript already asserts `read_dir descend ok`,
   `walk entry ok` (list a subdirectory, then open every file the listing named through the `path()`
   the listing handed back), `dir handle ok` and `remove_dir_all ok`. That last one is std's own
@@ -163,8 +163,8 @@ three-key page: `TZ`, `LANG` and `TERM`, each validated against a curated domain
 way to hand a std program an arbitrary environment variable, by design (DECISIONS §111).
 
 This is the finding to act on, and it is a wire-format decision rather than a lane's: what a
-process may be told at startup, in bytes rather than capabilities. It is calef's under *move fast on
-what can be undone*, because every future program is written against it.
+process may be told at startup, in bytes rather than capabilities. It is an architect's under *move
+fast on what can be undone*, because every future program is written against it.
 
 ### B. A program image has under 896 KiB before it hits its own stack
 
@@ -189,7 +189,7 @@ is written into `crates/supervision_protocol` (`CHILD_STACK_VA`), `crates/counte
 `crates/c_seam`, `components/src/builder.rs`, `fixtures/src/os_primitives_benchmarker.rs`, and half a dozen
 kernel tests. Moving `USER_STACK_VA` alone breaks `authority_tests` immediately (measured: the
 supervision tree fails to build at stage 10, because the programs building it map their children's
-stacks at the old address by hand). So it is an ABI-shaped change and belongs to calef.
+stacks at the old address by hand). So it is an ABI-shaped change and belongs to an architect.
 
 ### C. `mmap` is absent, and that one is already recorded
 

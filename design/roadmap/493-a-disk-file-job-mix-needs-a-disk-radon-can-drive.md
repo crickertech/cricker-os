@@ -19,7 +19,7 @@ file category as a second mix and found two blockers, neither of which is a job-
 
 The first blocker is a block driver for radon; the second is
 a change to how the file service shares memory with its clients, which is a wire agreement between
-two programs and so is calef's call rather than a lane's.
+two programs and so is an architect's call rather than a lane's.
 
 **In brief.** Milestone 168's mix now covers AIM7's compute, user-memory, pipe, page-mapping and process-creation
 categories (see its block). The disk-file category is the one left, and the proposal that asked for it

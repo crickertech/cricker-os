@@ -65,7 +65,7 @@ verification is the only thing separating this rule from a guess.
 
 Keep both.
 If the two sides edit the same sentence or the same rule, stop. A rule's meaning in dispute is
-calef's call, not a lane's.
+an architect's call, not a lane's.
 
 ### 7. Both sides edit one line of a shell script under `helpers/`, touching different tokens
 

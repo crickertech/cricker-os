@@ -4,7 +4,7 @@
 [boolean-predicates.md](boolean-predicates.md), which argues it. This file is the census the pass
 took on 2026-09-24 and what became of each name. It is a dated record: the counts are from that
 day's tree, and a later reader should expect them to drift. The file's stem is a provisional name,
-minted 2026-09-24 by the lane that wrote it; naming is calef's.*
+minted 2026-09-24 by the lane that wrote it; naming is an architect's.*
 
 ## How the census was taken
 
@@ -20,7 +20,7 @@ because the scanner skipped `patches/`.
 | Class | Scanned | Std overlay | What happens |
 |---|---|---|---|
 | Renamed, the rule applied as written | 87 | 3 | the table below; 734 sites in all |
-| A word needs choosing, so calef's | 9 | 1 | [What needs calef](#what-needs-calef) |
+| A word needs choosing, so an architect's | 9 | 1 | [What needs an architect](#what-needs-an-architect) |
 | Fits already: a finite verb phrase or a quantifier | 57 | 0 | [Fits as written](#fits-as-written) |
 | Exempt: an action that reports whether it worked | 162 | 1 | [Actions](#actions) |
 | Exempt for another reason | 1 | 1 | [Other exemptions](#other-exemptions) |
@@ -88,7 +88,7 @@ names they were written with, per the rename procedure.
 | `rx_pending` | `components/src/input.rs` | pub (in a program) | 4 | `is_byte_waiting` | crates follow-up | first renamed `is_rx_pending`; see `rx_waiting` above |
 | `output_correct`, `absent` | `fixtures (c_confiner, login_test_client)` | private | 4 | `is_output_correct`, `is_absent` | crates follow-up |  |
 
-## What needs calef
+## What needs an architect
 
 Each of these answers a question, so the rule covers it, but adding `is_` to the existing words
 does not produce a name that reads. Choosing the words is a naming decision. All are function

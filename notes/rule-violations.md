@@ -1,13 +1,14 @@
 # The violation ledger: a rule that gets broken three times moves up the ladder
 
 *The name `rule-violations.md`, the ledger's column shape, and `script/rule-violations`'s name are
-all **provisional**. A lane ships a provisional name and says so; naming is calef's (AGENTS.md).*
+all provisional. A lane ships a provisional name and says so; naming is an architect's
+(AGENTS.md).*
 
-Milestone 118 found that `AGENTS.md` warns against two things by name, each exactly once: `pkill`-ing
+Milestone 118 (claude) found that `AGENTS.md` warns against two things by name, each exactly once: `pkill`-ing
 another lane's QEMU, and `git reset --hard` to "take a measurement". Both had already been violated
 by the day the warning was measured: one lane killed another lane's emulator mid-test, and four
-agents clobbered work with `reset --hard`, `checkout` or `stash` in a single day. **The rule was
-present and was skipped.**
+agents clobbered work with `reset --hard`, `checkout` or `stash` in a single day. The rule was
+present and was skipped.
 Milestone 118's own roadmap block names the fix for exactly this shape, echoing the ladder
 `AGENTS.md`'s "Nobody remembers, so build the mechanism that does not need them to" section already
 lays out for everything else: *"A rule that is violated repeatedly is not stated too quietly. It is
@@ -17,12 +18,12 @@ feeling behind it.
 
 ## What this is not
 
-**It is not an enforcement mechanism**, and milestone 118's own honest-limit paragraph says so:
+It is not an enforcement mechanism, and milestone 118's own honest-limit paragraph says so:
 *"The ledger is the counterweight and it is weaker than a gate, because it depends on lanes
 continuing to report their own mistakes honestly, which is a culture rather than a mechanism."*
 Nothing here can see a violation happen. It can only total what somebody wrote down, the same way
-`script/audits` cannot run an audit and can only say one is due. **Red means a rule needs a
-decision, never that this script made one.**
+`script/audits` cannot run an audit and can only say one is due. Red means a rule needs a
+decision, never that this script made one.
 
 ## The convention
 
@@ -40,25 +41,25 @@ distinguish individual incidents), in the table below:
 
 Columns:
 
-- **date.** When the incident (or the batch) happened, not when the row was added.
-- **rule.** The rule's own words or a close paraphrase, so two rows about the same rule can be
+- date. When the incident (or the batch) happened, not when the row was added.
+- rule. The rule's own words or a close paraphrase, so two rows about the same rule can be
   told apart mechanically (see BUGS: today that means *identical text*, not judgement).
-- **instances.** How many times it happened. Usually 1; a source that reports an aggregate
+- instances. How many times it happened. Usually 1; a source that reports an aggregate
   ("three agents... in one day") without naming each one gets a single row with that count, which is
   honest about what is known rather than inventing distinct incidents to hit a row-per-count shape.
-- **status.** `open` (nothing has changed about the rule since), `escalated` (a higher-rung
+- status. `open` (nothing has changed about the rule since), `escalated` (a higher-rung
   mechanism now exists, and the row stays as the record of why), or `resolved` (the rule itself is
   gone, e.g. deleted as unenforceable). Only `open` rows count toward a strike.
-- **source.** Where the incident is on the record. A lane report or a pull request is fine; today's
+- source. Where the incident is on the record. A lane report or a pull request is fine; today's
   three rows are backfilled from `AGENTS.md`'s own prose and from milestone 118's roadmap block
   (design/roadmap/118-constitution-budget.md), because those are what recorded and measured the
   incidents, not because a lane report is a worse source than a constitution.
 
-**Three strikes on an `open` rule, and it must move up the ladder or be deleted as unenforceable.**
+Three strikes on an `open` rule, and it must move up the ladder or be deleted as unenforceable.
 `AGENTS.md`'s own ladder (Nobody remembers...) names four rungs; a rule stuck at rung four (prose)
 after three strikes has demonstrated that prose is not the rung it needs. Moving it is an edit to
-`AGENTS.md`, which is calef's or the integrator's, never a developer lane's: this ledger's job ends
-at naming which rule has crossed the line, not at deciding what replaces it.
+`AGENTS.md`, which is an architect's or the integrator's, never a developer lane's: this ledger's
+job ends at naming which rule has crossed the line, not at deciding what replaces it.
 
 ## What it found on its first run, 2026-08-22
 
@@ -118,12 +119,13 @@ $ echo $?
 ## BUGS
 
 - **Not wired into `script/lint` or CI.** `--check` passes clean today (the git-clobber row that
-  once sat past threshold is `resolved`, see "What changed, 2026-08-25" above), but the reason not
+  once sat past threshold is `resolved`, see "What changed, 2026-08-25" above). The reason not
   to wire it in stays live for the next rule that crosses three strikes: doing so automatically
-  would fail every lane's pull request over a decision that belongs to calef or the integrator, the
-  same failure mode DECISIONS §61 warns about for an ordinary lint ("adding a lint is a commitment
-  to fix every existing violation first"). Whether and when to wire this in for a *future* crossing
-  is itself an open decision, named here rather than made.
+  would fail every lane's pull request over a decision that belongs to an architect or the
+  integrator, the same failure mode DECISIONS §61 (a lint is adopted on evidence from this tree)
+  warns about for an ordinary lint ("adding a lint is a commitment to fix every existing violation
+  first"). Whether and when to wire this in for a *future* crossing is itself an open decision,
+  named here rather than made.
 
 - **"The rule" is matched by exact text, not by meaning.** Two rows describing the same rule in
   different words are counted as two different rules. A human curating the table has to normalize

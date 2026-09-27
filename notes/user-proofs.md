@@ -6,7 +6,7 @@ proving the pure crates. This one is about the 68 EL0 programs the prover could 
 2026-08-31, about the stubs you take on when you point it at them, and about the two shapes of
 property that turned out to be out of reach.
 
-*Name provisional: notes are an interface and their names are calef's call (AGENTS.md).
+*Name provisional: notes are an interface and their names are an architect's call (AGENTS.md).
 `user-proofs` says what the file is about and matches `kernel-proofs.md`'s neighbourhood; expect it
 to change.*
 

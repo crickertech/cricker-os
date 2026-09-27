@@ -11,18 +11,18 @@ needs_person: no
 # 428. What the weekly Miri run should cost
 
 Promoted from the proposal `what-the-weekly-miri-run-should-cost`, filed
-2026-09-17 by the milestone 310 lane on the first measurement of a run that actually finished. The
-cadence itself is calef's call; the measurement and the cut are not. *(Number provisional until the
-merge queue lands it.)*
+2026-09-17 by milestone 310's lane, on its first finished run's measurement. The cadence itself is
+an architect's call; the measurement and the cut are not. *(Number provisional until the merge
+queue lands it.)*
 
 A lane can start today and get most of the value: collecting per-crate wall clocks
 and sampling the crates that dominate are `cfg(miri)` gates at the test site, the convention five
-crates in this tree already follow, and neither needs a ruling. Only the last step is calef's,
-changing the weekly cadence or tightening `timeout-minutes`, and it is the cheapest step of the
-three. Nothing is blocked meanwhile: the job is green as of milestone 310 and finishes inside its
-current budget.
+crates in this tree already follow, and neither needs a ruling. Only the last step is an
+architect's, changing the weekly cadence or tightening `timeout-minutes`, and it is the cheapest
+step of the three. Nothing is blocked meanwhile: the job is green as of milestone 310 (the Miri leak
+check stays on) and finishes inside its current budget.
 
-**Premise re-checked 2026-09-19 and still true.**
+Premise re-checked 2026-09-19 and still true.
 `.github/workflows/undefined-behavior-check.yml` still runs on `cron: "0 6 * * 1"` with
 `timeout-minutes: 240`, and nothing in the tree collects a per-crate wall clock: the number this
 block says is missing is still missing, which is what makes the argument below an argument rather
@@ -47,16 +47,16 @@ that too.
 ```
 
 And in CI, `workflow_dispatch` on `milestone/310-miri-leak-free`, run 35256118545 on
-`ubuntu-24.04-arm`: **success in 2:58:13**.
+`ubuntu-24.04-arm`: success in 2:58:13.
 
-**About three hours, on both machines.** The 47% CPU is the load-bearing half of the local line:
+About three hours, on both machines. The 47% CPU is the load-bearing half of the local line:
 most of this is one interpreter thread, so more cores do not buy the wall clock back. That the two
 very different machines agree within eleven minutes is what makes three hours the job's cost rather
 than one laptop's, and it means the 240-minute budget has about twenty percent of headroom.
 
 ## What the answer probably is, and what has to be measured before it is one
 
-**The cost is concentrated, not spread**, which is why "run it less often" is the wrong lever and
+The cost is concentrated, not spread, which is why "run it less often" is the wrong lever and
 "run less of it" is the right one. The evidence already in the tree:
 
 - `board_console` alone was **55 minutes** against roughly four for the whole rest of the workspace,

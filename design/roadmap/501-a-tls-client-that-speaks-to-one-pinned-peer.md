@@ -18,7 +18,7 @@ it. Written by the lane for milestone 442 (a crypto provider `rustls` can use on
 metal targets), which carried that block's clauses 1 and 2 and repriced this one out of it rather
 than leaving it unnamed.
 
-Which provider the client is built on is calef's, stated under "The decision
+Which provider the client is built on is an architect's, stated under "The decision
 this leaves" in 442's block. The handshake code is the same either way, so a lane could start
 against either and rewire; naming the gate is honest about the fact that it would be building on a
 crate nobody has agreed to take.

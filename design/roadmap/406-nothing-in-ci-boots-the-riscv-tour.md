@@ -34,8 +34,8 @@ The decision is
 §186 (where a riscv64 tour-boot check runs, what it asserts, and what it is called), written up
 2026-09-19 by milestone 435's slice-c lane because this gate named no section. **That lane judged
 the gate and not the title**: the title's claim is false as written, the status paragraph above says
-so, and retitling a block is calef's rather than a sweep's.
-Where the check goes is calef's: a CI job, a row in `script/ci-build`'s table,
+so, and retitling a block is an architect's rather than a sweep's.
+Where the check goes is an architect's: a CI job, a row in `script/ci-build`'s table,
 or a `script/cadence-check` entry. It boots a kernel and it is not free, and milestone 232's own refusal
 to assume CI is the answer for an expensive instrument applies here unchanged. The wiring and the
 measurement are a lane's; the placement is not.
@@ -92,7 +92,7 @@ The boot itself is one `cargo xtask` verb over machinery that is all present: `i
 minutes, because the tour halts on its own; the cost is the riscv64 kernel build, which
 `script/ci-build` already pays for other reasons.
 
-The open questions are calef's and are the reason this is not just done:
+The open questions are an architect's and are the reason this is not just done:
 
 - **Where it runs.** A CI job of its own, an arm of `script/ci-build` (which is where
   `script/swish-check` and `script/boot-check` were both put, for the same "reuse the build"
@@ -100,7 +100,8 @@ The open questions are calef's and are the reason this is not just done:
 - **What it asserts.** Reaching `Stage::Tour` with `userspace_ran()` is the floor. The device-IRQ and
   preemption lines are the other two claims a reader would expect a tour check to make, and asserting
   them means recognising them, which is two more `Progress` fields.
-- **Its name**, since it is a new `script/` entry point or a new xtask verb, and names are calef's.
+- **Its name**, since it is a new `script/` entry point or a new xtask verb, and names are an
+  architect's.
 
 ## The aarch64 and x86_64 halves, named so they are not discovered later
 

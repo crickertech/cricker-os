@@ -137,7 +137,8 @@ DEBUG_EXIT="-device isa-debug-exit,iobase=0xf4,iosize=0x04"
 # point) is the first PCI device this runner confines behind it.
 #
 # **NIFE_INTREMAP passes `intremap=` through to the unit** (milestone 317; the name is PROVISIONAL,
-# a lane's to propose and calef's to ratify). `on` and `off` are the only values; unset leaves
+# a lane's to propose and an architect's to ratify). `on` and `off` are the only values; unset
+# leaves
 # QEMU's own default, which is what every boot before this milestone got.
 #
 # **The useful value is `off`, and that is the opposite of what this milestone set out to build.**
@@ -238,8 +239,10 @@ if [ -n "$NIFE_DISK" ]; then
 fi
 
 # **NIFE_PCIE_ROOT_PORT puts the NVMe controller behind a PCIe root port** instead of directly on
-# the root complex (milestone 320; the name is PROVISIONAL, a lane's to propose and calef's to
-# ratify). Unset, nothing changes and every existing boot gets the flat `q35` it always had.
+# the root complex (milestone 320 (every PCI bus the machine has, not just bus zero); the name is
+# PROVISIONAL, a lane's to propose and an
+# architect's to ratify). Unset, nothing changes and every existing boot gets the flat `q35` it
+# always had.
 #
 # It exists because `q35` has no bridge in its default configuration and xenon does. The kernel
 # mapped one megabyte of configuration space and enumerated bus 0 for a year, which is exactly

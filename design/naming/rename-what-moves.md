@@ -5,7 +5,7 @@ occurrences of a ratified name move and which stay, the refusal-count gate, and 
 a sweep from rewriting a record. It exists to verify or challenge the main page. A reader who only
 needs to name, ratify or rename something should not have to open it. The directory
 `design/naming/` and this file's stem are provisional names, minted 2026-09-24 by the lane that
-split the file; naming is calef's.*
+split the file; naming is an architect's.*
 
 ## Performing a ratified rename
 

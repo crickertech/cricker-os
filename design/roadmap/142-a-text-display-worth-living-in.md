@@ -22,7 +22,7 @@ decision is the font and the dependency that renders it. Half of that was taken 
 the palette is Solarized) chose both the family and the palette. What is left is
 §166 (the rasteriser dependency, and
 whether the glyph atlas ships one face or four), written up by milestone 435's lane: §46 makes the
-crate a decision, and §104 is silent on faces. **Increments one and two need neither** and are
+crate a decision, and §104 (rich-text) is silent on faces. Increments one and two need neither and are
 built; they were the larger half of the deliverable and none of it is aesthetic.
 
 Increments one and two are built (`milestone/142-terminal-size`), and are also
@@ -30,7 +30,7 @@ Increments one and two are built (`milestone/142-terminal-size`), and are also
 usable terminal"), added there once tracing the journey found step 3 (milestone 177) alone only
 wires an 18x8 test-instrument grid into the real boot, not a terminal anyone would sit at.
 Independent of 177: this milestone grows the VT engine's own grid, provable under the same test
-harness milestone 29 already uses, and needed neither the real-boot wiring 177 does nor anything
+harness milestone 29 (display) uses, and needed neither the real-boot wiring 177 does nor anything
 else on that journey.
 
 §102 ("A Frame names a run of pages") is built and consumed, `Object::PageFrame` now carrying the
@@ -113,7 +113,7 @@ text.
 ## What "would use it outside a GUI" actually requires
 
 calef named colour, type and rich text. The axis he did not name is the one that decides whether
-anybody would actually live in it, and it is the axis that needs no rasteriser at all.
+anybody would live in it, and it is the axis that needs no rasteriser at all.
 
 Today's terminal is 18 columns by 8 rows, with no scrollback, no UTF-8, no reflow, no arrow
 keys, no mouse and no bell (notes/glyphs.md records all of these as honest limits). A person
@@ -139,23 +139,23 @@ The recommendation is 1280x720, and it is arithmetic:
 |---|---|---|---|
 | 128x64 today | 8 | 9 x 2 | 18 x 4 |
 | 1024x768 | 768 | 73 x 29 | 146 x 59 |
-| **1280x720** | **900** | **91 x 27** | **182 x 55** |
+| 1280x720 | 900 | 91 x 27 | 182 x 55 |
 
 1024x768 is the obvious number and it misses 80 columns at the 2x cell, which is the one
 requirement a terminal has. 1280x720 clears it with room, is 16:9 and so is decidedly not square,
-and satisfies both `const` assertions `gfx_proto` already carries: it is far above 16 a side, and
+and satisfies both `const` assertions `gfx_proto` carries: it is far above 16 a side, and
 1280x720x4 is 3,686,400 bytes, exactly 900 frames with nothing left over.
 
-**§102 is what makes this reachable, it is decided, and nobody is building it.** A `PageFrame`
+§102 is what makes this reachable, it is decided, and nobody is building it. A `PageFrame`
 naming a run turns 900 capabilities and 900 `MAP` calls into one of each, and without it the
 sixteen-slot capability table refuses the surface outright. `Object::PageFrame` is still
 `PageFrame(u64)` in `crates/capability/src/lib.rs`, one page and no count.
 
-That is worth flagging rather than assuming, because **the milestone that motivated §102 no longer
-needs it.** §102 was raised to unblock milestone 29's font increment at 800x608 for gohufont-14 at
-8x14; §100 was then amended and the font that is landing is a 7x8 drawing that gives 18x8 on the
+That is worth flagging rather than assuming, because the milestone that motivated §102 no longer
+needs it. §102 was raised to unblock milestone 29's font increment at 800x608 for gohufont-14 at
+8x14; §100 (terminal) was then amended and the font that is landing is a 7x8 drawing that gives 18x8 on the
 scanout we already have. So the decision was made, the pressure that produced it went away, and
-**this milestone is now §102's first consumer.** Increment one is where it gets built.
+this milestone is now §102's first consumer. Increment one is where it gets built.
 
 Two costs that are nobody's decision and that a lane will meet:
 
@@ -205,8 +205,8 @@ height is 1493 and x-height 1120.
 
 | "Menlo Regular 11" at | Cell | Cap height |
 |---|---|---|
-| 1x (11 px per em) | **6.62 x 12.80 px**, so a 7x13 cell | 8.0 px |
-| 2x (22 px per em) | **13.25 x 25.61 px**, so a 14x26 cell | 16.0 px |
+| 1x (11 px per em) | 6.62 x 12.80 px, so a 7x13 cell | 8.0 px |
+| 2x (22 px per em) | 13.25 x 25.61 px, so a 14x26 cell | 16.0 px |
 
 "11 point" is not a number of pixels until a density is fixed, and that choice is the one that
 decides whether this looks like macOS or like a 1990s X terminal. At the 1x cell the cap is eight
@@ -223,9 +223,9 @@ taken by downloading the releases:
 
 | Family | Licence | Reserved name | Faces | Regular `.ttf` |
 |---|---|---|---|---|
-| **DejaVu Sans Mono** 2.37 | Bitstream Vera for the base, DejaVu's own changes **public domain**, Arev glyphs on a Vera-shaped licence | "Bitstream", "Vera", "Tavmjong Bah" and "Arev" may not appear in a modified name. **"DejaVu" itself is not reserved.** | 4 | 340,712 B |
-| **JetBrains Mono** 2.304 | OFL 1.1 | **none declared**, so OFL clause 3's renaming requirement does not bite | 4 and a variable font | 273,900 B |
-| **Source Code Pro** 2.042R | OFL 1.1 | **"Source"**, which is broader than it looks | many | 210,312 B `.ttf`, 131,128 B `.otf` |
+| DejaVu Sans Mono 2.37 | Bitstream Vera for the base, DejaVu's own changes public domain, Arev glyphs on a Vera-shaped licence | "Bitstream", "Vera", "Tavmjong Bah" and "Arev" may not appear in a modified name. "DejaVu" itself is not reserved. | 4 | 340,712 B |
+| JetBrains Mono 2.304 | OFL 1.1 | none declared, so OFL clause 3's renaming requirement does not bite | 4 and a variable font | 273,900 B |
+| Source Code Pro 2.042R | OFL 1.1 | "Source", which is broader than it looks | many | 210,312 B `.ttf`, 131,128 B `.otf` |
 | Menlo | Apple, All Rights Reserved | not applicable | 4 | not available |
 
 Three things in that table decide more than the letterforms will.
@@ -238,8 +238,8 @@ notices to travel with every copy, and forbids selling the font by itself.
 JetBrains Mono has the cleanest obligations of the three. OFL 1.1 with no Reserved Font
 Name, which is exactly the clause §100 called the expensive one when it refused Terminus: *"being
 picky about fonts means eventually fixing a glyph"*, and a font with no reserved name lets us fix
-one and keep the name. It is also the only actively maintained candidate. **Source Code Pro
-reserves the word "Source"** and inherits §100's objection whole.
+one and keep the name. It is also the only actively maintained candidate. Source Code Pro
+reserves the word "Source" and inherits §100's objection whole.
 
 None of the three is on the supply-chain allow-list, and that is a fact about crates rather than
 about fonts. `deny.toml` allows `MIT`, `Apache-2.0`, `Apache-2.0 WITH LLVM-exception`,
@@ -272,10 +272,10 @@ discards is Solarized's structural idea, and that is the difference calef would 
 
 | ANSI slot | Canonical Solarized Dark | Higher Contrast |
 |---|---|---|
-| 10 bright green | `#586e75` **base01, a grey** | `#51EF84` a green |
-| 11 bright yellow | `#657b83` **base00, a grey** | `#B27E28` a yellow |
-| 12 bright blue | `#839496` **base0, a grey** | `#178EC8` a blue |
-| 14 bright cyan | `#93a1a1` **base1, a grey** | `#00B39E` a cyan |
+| 10 bright green | `#586e75` base01, a grey | `#51EF84` a green |
+| 11 bright yellow | `#657b83` base00, a grey | `#B27E28` a yellow |
+| 12 bright blue | `#839496` base0, a grey | `#178EC8` a blue |
+| 14 bright cyan | `#93a1a1` base1, a grey | `#00B39E` a cyan |
 
 Canonical Solarized spends half its ANSI table on a greyscale ramp on purpose, so only eight of
 sixteen slots hold a hue. That is a deliberate and unusual choice, and it means every program that
@@ -285,15 +285,15 @@ ground, which is very likely why it exists and why someone would prefer it. Neit
 they are different things and the record should not call the second one Solarized without saying
 so.
 
-**Now milestone 141's three properties, computed over both.** The check is over exactly the right
+Now milestone 141's three properties, computed over both. The check is over exactly the right
 sixteen values in both cases, because Solarized's published ANSI mapping uses each palette entry
 exactly once.
 
 | Property | Canonical Solarized Dark | Higher Contrast | Today's palette |
 |---|---|---|---|
-| 1. every entry has three distinct channel values | **fails on one entry**: ANSI 14 `#93a1a1` (`a1` twice) | **fails on one entry**: ANSI 2 `#6CBE6C` (`6C` twice) | fails on **all sixteen** |
-| 2. no two entries are channel permutations | **passes** | **passes** | fails |
-| 3. no two entries saturate `0xff` in the same channel | **passes**, and no entry has any channel at `0xff` at all | **passes**, same | fails on all three channels |
+| 1. every entry has three distinct channel values | fails on one entry: ANSI 14 `#93a1a1` (`a1` twice) | fails on one entry: ANSI 2 `#6CBE6C` (`6C` twice) | fails on all sixteen |
+| 2. no two entries are channel permutations | passes | passes | fails |
+| 3. no two entries saturate `0xff` in the same channel | passes, and no entry has any channel at `0xff` at all | passes, same | fails on all three channels |
 
 So the answer calef needs before he picks is: both pass, each after a one-unit nudge to a single
 channel of a single colour. `#93a1a1` becomes `#93a1a0`; `#6CBE6C` becomes `#6CBE6B`. Neither is
@@ -302,8 +302,8 @@ perceptible, both are inside the noise of the display, and each is a one-charact
 Two things worth saying beyond the verdict. Both candidates are strictly better test instruments
 than what ships, which fails all three properties, and both are better on property 3 in a way 141
 did not anticipate: neither has a single channel at `0xff` anywhere, where the current palette has
-twelve. And **milestone 141's gate does not choose between them.** It says both are admissible. The
-choice is taste and the greyscale-ramp question above, and it is calef's.
+twelve. And milestone 141's gate does not choose between them. It says both are admissible. The
+choice is taste and the greyscale-ramp question above, and it is an architect's.
 
 ## Rich text: what `Attr` would have to grow
 
@@ -458,7 +458,7 @@ made deliberately:
   sRGB-to-linear table and a reverse table, all integer, no float at runtime, and it is perhaps
   fifty lines.
 
-**And one property that anti-aliasing quietly retires**, which milestone 141 could not have known
+And one property that anti-aliasing quietly retires, which milestone 141 could not have known
 because it was written for a bitmap terminal. 141's palette check exists so that a corrupted pixel
 is a detectably wrong colour rather than a different legal one. With anti-aliasing there is no
 such thing as an off-palette pixel: every edge pixel is already a blend, so the legal set is not
@@ -560,7 +560,7 @@ it knowingly.
 Six increments. The first two need no decision from calef and no dependency at all, and they
 are the larger half of "would use it outside a GUI".
 
-1. **Grow the surface. BUILT.** §102 built (`Object::PageFrame` gains a page count), the scanout
+1. Grow the surface. BUILT. §102 built (`Object::PageFrame` gains a page count), the scanout
    was first grown to 1280x720 and `gfx_proto::WIDTH`'s non-square argument re-checked at that size
    and held by construction; retargeted 2026-08-27 to 924x344 (see the status note above). The
    harness cost was paid, not dodged: see the lane's own report for the measured `screendump` and
@@ -594,7 +594,7 @@ this milestone needs (the atlas is smaller, faster and verifiable) and everythin
 (arbitrary sizes, proportional faces, fallback). Proposed as its own milestone when rung three is
 live, rather than folded in here.
 
-## What is calef's, separated from what is blocking
+## What is an architect's, separated from what is blocking
 
 Blocking increment three, and only three:
 
@@ -658,7 +658,7 @@ Eventually his and blocking nothing:
   inferred. Rosetta is also not native x86 silicon: faithful for SSE float semantics, and still one
   machine rather than a fleet. Neither limit touches the two architectures this project actually
   targets, both of which were built and run.
-- **This milestone enlarges §100's recorded supply-chain gap rather than inheriting it quietly.**
+- This milestone enlarges §100's recorded supply-chain gap rather than inheriting it quietly.
   `script/supply-chain` reads the cargo graph, so a font transcribed into a Rust table is invisible
   to it. That gap is a kilobyte of public-domain bitmap today and would become hundreds of
   kilobytes derived from a third party's obliging licence. The register in `vendor/README.md` is

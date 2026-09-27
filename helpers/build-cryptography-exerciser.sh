@@ -10,7 +10,8 @@
 # DECISIONS §46 (thin primitives or whole subsystems; we write everything in between) is why. The
 # program depends on `rustls` and a crypto provider, and while §196 (nife carries TLS: `rustls` for the protocol, and a crypto provider we make work)
 # ruled on `rustls`, it ruled
-# explicitly **not** on a provider: that is calef's decision and not a lane's. Keeping the build
+# explicitly **not** on a provider: that is an architect's decision and not a lane's. Keeping the
+# build
 # here rather than in `script/test` keeps roughly a hundred crates out of this repository's
 # `Cargo.lock`, out of `deny.toml`'s reach, and out of CI, until there is a ruling to put them in.
 #

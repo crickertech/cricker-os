@@ -5,7 +5,7 @@ individual words calef has ruled on and the tests they set: halves and arms, abb
 receive, structural termini, identity and principal, the `login` stem, and the casing of `nife`. It
 exists to verify or challenge the main page, and a reader who only needs to name, ratify or rename
 something should not have to open it. The directory `design/naming/` and this file's stem are
-provisional names, minted 2026-09-24 by the lane that split the file; naming is calef's.*
+provisional names, minted 2026-09-24 by the lane that split the file; naming is an architect's.*
 
 ## A half implies two; a third of anything is an arm
 
