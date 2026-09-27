@@ -2721,6 +2721,78 @@ echo "==> the merge queue's admission predicate"
 echo "==> the CI-poll refusal hook"
 python3 "$(dirname "$0")/../helpers/hooks/refuse-ci-polling" --selftest
 
+# 13. **The kernel links no crate only its tests use, and no fixture unless a feature asks**
+#     (milestone 609 (the system tests leave the kernel crate)). The kernel crate used to link
+#     `ps`, `pgrep`, `pmap` and `network_time_protocol` as ordinary dependencies, for nothing but
+#     the system tests in `kernel/src/user/`, and `coremark`, `job_mix` and `soak_page` for three
+#     feature builds and the suite. So every kernel build, including one meant to boot or to ship,
+#     compiled a service's or a fixture's code. Those are now dev-dependencies (built for
+#     `cargo test`, never for `cargo build`) and optional dependencies behind the features that use
+#     them. Two rules keep it that way:
+#
+#     - A non-optional `[dependencies]` entry must be named by at least one kernel source file that
+#       is not a test file (`*_tests.rs` or `tests.rs`). One named only by test files belongs in
+#       `[dev-dependencies]`. This is a property, not a list, so it catches a crate nobody has
+#       thought of yet.
+#     - The fixture crates below are optional or absent, never a plain dependency.
+#
+#     **What it cannot see** (a limitation, recorded here where a reader meets it): a test module
+#     written inline in a non-test file (`#[cfg(test)] mod tests { use ps::... }`) counts as a
+#     production use, so a crate used only there slips through. Comment lines are skipped, but a
+#     name inside a string is not. And it says nothing about a service crate the kernel uses for
+#     real: `calendar`, `jh7110_entropy`, `video_terminal`, `block_roster` and
+#     `non_volatile_memory_express` are the five of those today, and whether they are services at
+#     all is the division question pull request #1389 raises, not this check's.
+echo "==> the kernel's dependencies: nothing only its tests use"
+python3 - <<'KDEPEOF' || exit 1
+import json, os, re, subprocess, sys
+run = subprocess.run(['cargo', 'metadata', '--no-deps', '--offline', '--format-version', '1'],
+                     capture_output=True, text=True)
+if run.returncode != 0:
+    sys.exit("lint: cargo metadata failed, so the kernel's dependencies were not read:\n" + run.stderr)
+meta = json.loads(run.stdout)
+kernel = next(p for p in meta['packages'] if p['name'] == 'kernel')
+src = os.path.join(os.path.dirname(kernel['manifest_path']), 'src')
+FIXTURES = {'coremark', 'job_mix', 'soak_page'}
+comment = re.compile(r'^\s*(//|\*)')
+test_file = re.compile(r'(^|/)([a-z0-9_]+_tests|tests)\.rs$')
+used_in = {}  # crate -> set of 'prod' / 'test'
+deps = [d for d in kernel['dependencies'] if d['kind'] is None]
+names = {(d.get('rename') or d['name']).replace('-', '_') for d in deps}
+pats = {n: re.compile(r'(?<![A-Za-z0-9_:])' + n + r'::|\buse ' + n + r'\b|\bextern crate ' + n + r'\b')
+        for n in names}
+for dirpath, _, files in os.walk(src):
+    for f in files:
+        if not f.endswith('.rs'):
+            continue
+        path = os.path.join(dirpath, f)
+        kind = 'test' if test_file.search(path) else 'prod'
+        for line in open(path, encoding='utf-8'):
+            if comment.match(line):
+                continue
+            for n, p in pats.items():
+                if p.search(line):
+                    used_in.setdefault(n, set()).add(kind)
+bad = []
+for d in deps:
+    n = (d.get('rename') or d['name']).replace('-', '_')
+    if d['optional']:
+        continue
+    if n in FIXTURES:
+        bad.append(f"{n}: a fixture crate, linked by every kernel build (make it optional behind the feature that uses it)")
+    elif used_in.get(n) == {'test'}:
+        bad.append(f"{n}: named only by kernel test files (move it to [dev-dependencies])")
+    elif n not in used_in:
+        bad.append(f"{n}: named by no kernel source file at all (drop it, or say why it is linked)")
+if bad:
+    print("lint: kernel/Cargo.toml links, for every kernel build, a crate that is not the kernel's:", file=sys.stderr)
+    for b in bad:
+        print("  " + b, file=sys.stderr)
+    print("  milestone 609: a kernel built to boot or to ship must not compile a service's or a fixture's code.", file=sys.stderr)
+    sys.exit(1)
+print(f"kernel dependencies: {len(deps)} normal, none used only by tests, no fixture unconditional")
+KDEPEOF
+
 echo "==> markdown links and the notes index"
 # Two checks, and deliberately NOT a markdown linter. A survey of all 95 markdown files found zero
 # broken relative links and exactly one unindexed note, so generic style rules (heading case, line
