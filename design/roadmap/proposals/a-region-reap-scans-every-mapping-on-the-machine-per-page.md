@@ -1,9 +1,18 @@
+---
+status: PROPOSED
+raised: 2026-09-26
+milestone_dependencies: none
+decision_dependencies: none
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
 # A region reap scans every mapping on the machine, once per page
 
-**Status: PROPOSED 2026-09-26.** Raised by the lane for milestone 604 (the builder's scratch
-cursor is bounded), whose guest test runs in 5 seconds alone and did not finish in 60 inside CI's whole suite.
+Raised by the lane for milestone 604 (the builder's scratch cursor is bounded), whose guest test
+runs in 3 seconds alone and took 104 inside CI's whole aarch64 suite.
 
-**Gate: NONE.** No decision owed to start measuring. The fix itself touches the revocation path
+No decision owed to start measuring. The fix itself touches the revocation path
 of §13 (frame revocation) and should come back with numbers.
 
 ## The finding

@@ -1,6 +1,12 @@
+---
+status: BUILT
+raised: 2026-09-26
+built: 2026-09-26
+promoted_from: the-builders-scratch-cursor-is-bounded
+---
 # 604. The builder's scratch cursor is bounded
 
-**Status: BUILT.** Promoted on 2026-09-26 from the proposal `the-builders-scratch-cursor-is-bounded`.
+Promoted on 2026-09-26 from the proposal `the-builders-scratch-cursor-is-bounded`.
 The lane for milestone 206 (a program image has under 896 KiB) filed it while siting every window on
 the address-space map, and lane `milestone/604-scratch-cursor` built it the same day. *(Number
 provisional: minted by the lane, to be confirmed at merge. 596 to 603 were held on `main` and open
@@ -116,8 +122,6 @@ and the revocation is portable kernel code (DECISIONS §19 (architectural parity
   and CI does not run it: `kernel/src/user/scratch_window_tests.rs`.
 
 ## Index row
-
-**Built:** 2026-09-26
 
 The tree's one userspace loader maps every page it builds into the builder's own space and cannot
 unmap, so its cursor only climbed, and the progenitor would have stopped spawning after about

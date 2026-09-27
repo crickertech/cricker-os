@@ -194,8 +194,9 @@ beside them.
 2. An image as large as `rg`, about 2.6 MiB against `spawnproto::IMAGE_MAX_PAGES`, 64 pages.
    Raising it is not one constant. The image is held three times while a child is built: the
    shell's staging frames, the progenitor's own copy (§219 hashes that), and the child's pages. The
-   progenitor maps the caller's frames through its never-reused scratch window, which #1384 (the
-   builder's scratch cursor is bounded) is bounding. `IMAGE_VA` and `IMAGE_STAGING_VA` are fixed
+   progenitor maps the caller's frames through its scratch window, which milestone 604 (the
+   builder's scratch cursor is bounded) made wrap; its compile-time check will fail the build if
+   the pool outgrows half the window. `IMAGE_VA` and `IMAGE_STAGING_VA` are fixed
    windows milestone 206 is moving onto its map, and the second ends where the scratch window
    starts. The jobs pool, `JOBS_BUDGET_PAGES` at 624 pages, cannot hold one `rg`. Waits on
    milestone 206 and #1338.
