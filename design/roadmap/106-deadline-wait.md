@@ -1,244 +1,206 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-08-04
-milestone_dependencies: 263
-decision_dependencies: none
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-09-26
 ---
 # 106. A wait that ends on either the interrupt or the deadline
 
-Raised 2026-08-04 from `notes/net.md:307`, where milestone 30's network
-lane recorded the cost of not having one. It is a kernel-surface addition, so it is **a design fork
-for calef before it is a task**, and it is the same fork **milestone 51** already records.
+Built 2026-09-26 (PR #1378). A `Timer` kernel object, `Timer::ARM(deadline,
+notification)` and `CANCEL`, on aarch64, riscv64 and x86_64, as §147 (a timer a userspace service
+cannot hold) ruled. The kernel owns the comparator and signals a notification at the deadline; a
+thread waiting on that notification, or blocked receiving with it bound, wakes on either.
 
-The three-shape fork below is **not being decided**, which is calef's
-answer of 2026-09-05 rather than a deferral by neglect. **The timed wait should be served from a
-userspace timer service signalling a notification**, which is [§101](../decisions/101-notification-objects.md)'s
-own anticipated shape and how seL4 does it, so none of the three kernel shapes has to be lived with.
+## Why this exists
 
-**All four consumers this block names are userspace**, and §101's carve-out for a kernel timed wait
-names kernel needs (a watchdog, a scheduling deadline, an in-kernel retransmit) of which the tree has
-no instance: both of `sched.rs`'s no-timeout complaints are about userspace callers being hung. **So
-this block stays owed against a kernel-side consumer appearing**, and that trigger is the whole of
-what would reopen it.
+There was no timed wait anywhere in the kernel. Every consumer that wanted to act at a time
+yielded in a loop instead, at a derived cost of about `10^5` to one against a timed wait
+(`notes/timed-wait.md`, section 5). The one that forced the question was `net_stack`:
+smoltcp's retransmits need a `poll` at a deadline, and the only way to get one was to keep a hart
+spinning through every backoff.
 
-**One prerequisite is unpriced and could sink the answer**, which is why the gate points at a spike
-rather than at nothing. A userspace timer service needs a timer of its own, because it cannot use a
-timed wait to implement one, and on two of three architectures there may be nothing to hand it:
-aarch64's is part of the CPU with no base address, and riscv64's is an SBI call U-mode cannot make.
-Milestone 263 settles that and prices a fourth shape (`Timer::ARM(deadline, notification)`) that
-neither this block nor milestone 51 lists.
+It waited, after §147 ruled on 2026-09-05 (calef, option 1, the new object), on the TCB binding of
+§101 (notification objects), which milestone 151 (notification objects) built (#1351). Until
+2026-09-26 this block still gated on milestone 263 (can a userspace process hold a timer, on all three architectures), which was stale
+from the day §147 ruled: 263's answer was §147's input, not a separate gate.
 
-*(The original gate is kept below, because the three shapes are still the record of what was
-considered.)*
+The history of the fork is in §147 and in `notes/timed-wait.md`, which priced it. Milestone 51
+(wall-clock time, the `date` command, and an NTP service) offered three shapes. calef preferred a
+userspace timer service on 2026-09-05, milestone 263 found riscv64 has no comparator U-mode can
+hold, and §147 ruled the same day.
 
-**Original gate: DECISION.** A timed wait is a kernel-surface addition and **milestone 51's block**
-(`design/roadmap/51-wall-clock-time.md`, "The fork this exposes, which is bigger than the milestone")
-already records the fork with three candidate shapes. The block adds the fourth consumer and asks for
-the decision to be made against all of them at once, and warns against settling it by accident.
+## What was built
 
-This block said "DECISIONS §51" until 2026-08-17, and that citation was wrong: §51 is the sink
-protocol. The fork is a *milestone* 51 block, not a decisions section, and `script/decisions --check`
-cannot see the difference because a well-formed wrong citation resolves. Two other places still carry
-it (`design/roadmap/103-interrupt-watch-stops-spinning.md:50`, `notes/pipes.md:656`) and belong to
-whoever owns those files next.
+| piece | where |
+|---|---|
+| `objtype::TIMER = 5`, `abi::timer::{ARM = 0, CANCEL = 1}`, and `counter_ticks_for` | `crates/abi/src/lib.rs` |
+| the decision core: one deadline per timer, the cached earliest, the expiry walk | `crates/inter_process_communication/src/timer.rs` |
+| three Kani harnesses, each with a replayable falsification | the same file, `falsifications/timer.verification.*` |
+| the registry, `ARM`, `CANCEL`, the tick's one comparison, `expire_timers`, the region sweep | `kernel/src/sched.rs` |
+| `Object::Timer`, the syscall arm, `RETYPE_OBJ(TIMER)` | `kernel/src/cap.rs`, `kernel/src/syscall.rs` |
+| `timer_arm`, `timer_cancel`, `sleep_until`, `retype_sleeper` | `crates/user_mode_runtime/src/lib.rs` |
+| five kernel tests, all three ISAs | `kernel/src/user/timer_tests.rs` |
 
-**Priced 2026-08-17, and the pricing is the gate's input rather than its answer.** See
-[notes/timed-wait.md](../../notes/timed-wait.md) for the numbers, what each was measured on and its
-error bars. The fork is still calef's and this lane deliberately does not recommend a shape.
+The kernel tests prove what the harnesses cannot:
 
-**The status deliberately does not move, and `NOT-STARTED` is the right word.** The pricing lane added
-a syscall, an ABI constant and a line of kernel code: none. Nothing in the milestone is built, and
-`PARTIAL` would claim otherwise. What changed is that the gate now has its input, so the block is
-decidable without a conversation. The prototype that produced the numbers (a `deadline` word on
-`Thread`, a cached earliest, an expiry walk in `on_tick`, and a blocked-thread census) was thrown away
-on purpose: shipping it would have settled the fork by accident, which this block and milestone 51's
-both warn against.
+- the real tick reaches the walk;
+- a wait ends on a signal before the deadline, with the timer still armed;
+- a wait ends at the deadline and never before it, in `WAIT` and in a bound `RECV`;
+- a cancelled or re-armed timer never fires its old deadline;
+- `ARM` checks `WRITE` on both the timer and the notification.
 
-**The finding, and it was found the expensive way.** `std_net` hung on riscv64 under the four-hart
-boot, watchdog-killed with every core idle and every thread blocked, while the identical test passed
-on aarch64. The cause was not a dropped interrupt: instrumenting the PLIC at the hang showed no
-source pending and the net source still enabled. The device was idle because both ends were waiting
-on the same stalled timer. smoltcp drives retransmits, delayed ACKs and DNS timeouts from a clock
-that only advances when `poll` is called; the old server loop blocked on the NIC interrupt between
-polls, so a dropped segment left net_stack waiting for a peer that was waiting for a retransmit that
-only a `poll` could fire.
+A fifth test measures the before and after.
 
-**The fix, and the residual it leaves.** `wait_for_nic` (`components/src/net_stack.rs:331`) asks smoltcp
-when it next needs to run. With no timer pending it blocks on the interrupt, 0% CPU until a frame
-arrives. With a timer pending it does **not** block: it yields and re-polls, so the timer fires. The
-note is plain about the price: "yielding across a retransmit window spins a hart until the timer is
-due", bounded by the exchange and by a 15-second per-call backstop. Correct, and it burns a core
-through every retransmit backoff, which is the interval a congested or lossy link spends most of its
-time in.
+`CANCEL` is §147's by implication rather than by name. §147 names only `ARM`, but the common case in
+`notes/timed-wait.md` section 2 is a retransmit timer thrown away when its ACK arrives. Without a
+cancel, a consumer would re-arm to a far deadline, which is a cancel spelled worse.
 
-**What the clean version needs.** A wait that returns on either the interrupt or a deadline, so the
-server sleeps through the backoff instead of spinning. There is **no timed wait anywhere in the
-kernel**: the syscall surface is `EXIT`, `YIELD`, `INVOKE` and `CAP_DELETE`, and `sched.rs` twice
-calls out its own no-timeout limitation.
+### The consumers converted
 
-**This is milestone 51's fork, and it should be decided once.** Milestone 51 (wall-clock time) records three
-candidate shapes and the argument between them:
-
-| shape | the case for it | the case against |
+| consumer | before | after |
 |---|---|---|
-| `SYS_SLEEP` | simplest | ambient, not capability-shaped |
-| a timer object with `WAIT` | consistent with the model | the most machinery |
-| a deadline on `Endpoint::RECV`/`CALL` | one addition fixes sleep, the `RECV` no-timeout limitation, and the shell's `^C` poll | it changes a primitive rather than adding one |
+| `std::thread::sleep` | `yield` until the counter passes | `ARM`, then `WAIT`; the loop survives as a fallback |
+| `net_stack`'s `wait_for_nic` | `yield` and re-poll across a retransmit window | `Irq::WAIT` ends on a frame or smoltcp's deadline |
+| the network time client's retry gap | `yield` for 2 ms | one tick asleep |
+| `swish`'s `^C` watch | `yield` between looks | 10 ms asleep between looks |
 
-51's block calls the third strongest, and the reason is the count of consumers rather than
-elegance: **three problems, one addition**. This milestone adds a fourth, an `Irq::WAIT` with a
-deadline, and milestone 103 (the shell's interrupt watch) is the consumer that turns the third
-column's "the shell's `^C` poll" from a footnote into an owner.
+`net_stack`'s notification is made and bound by its spawner (`kernel/src/user/virtio_service.rs`),
+because a running thread cannot bind itself. See the proposal below.
 
-## The consumers, counted 2026-09-13, and one of them is not userspace
+### Confirmed, and still provisional
 
-This block was written against four consumers and the count is what every cost above was weighed
-against. It has grown while the block sat, and nobody was counting, so the list is written out here
-rather than left to the next person to re-derive.
+calef confirmed the surface on 2026-09-27 (UTC): `objtype::TIMER = 5`, `Timer::ARM(deadline,
+notification, bits) = 0` and `Timer::CANCEL = 1`. He declined a slack argument after reading the
+prior art (Zircon's `zx_timer_set`, Mach's `mk_timer`, seL4's badge bits, Linux's `timerfd`,
+kqueue): *"Keep it confirmed. We will build a slack if we need it."*
 
-| consumer | what it does instead | where it says so |
-|---|---|---|
-| `net_stack`'s `wait_for_nic` | yields and re-polls across a retransmit window | `components/src/net_stack.rs:331`, and the section above |
-| `timetable` | "a process that wants to act at a time can only yield and re-read the counter" | `components/src/timetable.rs:73` |
-| `ntp` | one shot only, and a yield-spin between attempts | `components/src/ntp.rs:44`, `:188` |
-| `swish`'s interrupt watch | the `^C` poll, milestone 103's owner | milestone 103 |
-| **`soak.rs`'s supervisor** | **a kernel thread yielding in a loop** | `kernel/src/soak.rs:94` |
-| `watch` (retired) | burned a core for two seconds per refresh | cut 2026-09-13, its own `BUGS` |
+Still provisional: the `Object::Timer` variant name, the `TimerId` type, the note name `notes/timer.md`, the module `inter_process_communication::timer`,
+and the runtime names `timer_arm`, `timer_cancel`, `sleep_until` and `retype_sleeper`.
 
-**`watch` earns a row although it no longer exists.** It was cut rather than fixed, and the busy-wait
-was part of why: a program deleted to avoid a workaround is evidence about the gap, not an absence of
-one.
+## What it cost, measured
 
-### The last row may be the trigger this block names, and that is calef's to rule
+### The before and after: 200 ms asleep
 
-This block's own words: *"§101's carve-out for a kernel timed wait names kernel needs (a watchdog, a
-scheduling deadline, an in-kernel retransmit) of which the tree has no instance... **So this block
-stays owed against a kernel-side consumer appearing**, and that trigger is the whole of what would
-reopen it."*
+From `a_timer_sleep_costs_a_wake_where_a_yield_loop_costs_a_core`, run on each ISA under QEMU on
+2026-09-26 (patagonia, `script/test --test timer_tests`). The yield loop is the one
+`thread::sleep` ran until this milestone; the timer sleep is its new body.
 
-`kernel/src/soak.rs`'s supervisor is a **kernel thread**, and its own `BUGS` says why it spins:
-*"It yields in a loop rather than blocking on a timer, because this kernel has no sleep-until
-primitive a kernel thread can use."* It is a watchdog in everything but name: it wakes on a cadence,
-reads the workers' counters, and fails the run when one stops moving.
+| ISA | yield loop: yields | yield loop: ticks charged | timer: wakes | timer: ticks charged |
+|---|---|---|---|---|
+| aarch64 | 69,951 | 20 of 20 | 1 | 0 |
+| riscv64 | 34,102 | 20 of 20 | 1 | 0 |
+| `x86_64` | 53,087 (15,526 on the one-core leg) | 20 (13) | 1 | 0 |
 
-**A userspace timer service cannot serve it.** That is the whole point of the 2026-09-05 ruling's
-shape, and a kernel thread is on the wrong side of it.
+So a sleeping thread went from a whole core for the duration, and tens of thousands of scheduler
+passes, to one wake and nothing charged. That is the `10^5` to one `notes/timed-wait.md` derived,
+measured end to end at the low end of its range on emulated cores; a faster real core spins more.
 
-**Two things argue it is not the trigger, and both are honest rather than convenient.** It exists
-only in a `--features soak` build, so it is a test harness rather than a shipped kernel need. And its
-spin is priced and accepted in its own `BUGS` as load on the machine under test, which is *"not
-entirely a cost (it is one more thread contending)"*.
+### The IPC fastpath: unchanged within a few bytes
 
-**Recorded rather than decided.** Whether a soak-build watchdog counts as the kernel-side consumer
-that reopens the fork is exactly the kind of question this block says is calef's, and the block would
-be worth less if a maintainer answered it in passing. What changes today is that the question is
-written where the trigger is written, instead of living in one file's `BUGS` section that nothing
-connects to this one.
+`script/fastpath-footprint`, release build, against the baselines milestone 151 recorded from CI.
+riscv64 and `x86_64` are local runs and match CI's:
 
-## What it costs, measured
+| ISA | `ipc_call_reply` | `ipc_send_recv` | `syscall_entry` (flat) |
+|---|---|---|---|
+| riscv64 | 6186 -> 6200 B (+14) | 4854 -> 4862 B (+8) | 1894 -> 1912 B (+18) |
+| `x86_64` | 8542 -> 8598 B (+56) | 6512 -> 6560 B (+48) | 1701 -> 1733 B (+32) |
+| aarch64 | 7280 -> 7280 B (0) | 5572 -> 5572 B (0) | 1512 -> 1528 B (+16) |
 
-**The sentence this block used to carry was hand-waving, and it was wrong in three places.** It said:
-"A deadline in the blocked state means the scheduler carries a timer wheel or an ordered deadline
-list, which is scheduler work the kernel does not do today. That is real, and it is the honest
-counterweight to four consumers wanting it." Quoted rather than deleted, because it was the only cost
-estimate the consumers had ever been weighed against and a reader should be able to see what the
-numbers replaced. Priced 2026-08-17; the numbers and their error bars are in
-[notes/timed-wait.md](../../notes/timed-wait.md), and the short form is:
+The closure grows by the `Timer` arm of `invoke`'s object match, which the IPC roots pass through;
+`timer_invoke` itself is out of line. §147's scaffold measured `syscall_entry` at +12, +158 and +96
+B. The aarch64 row is CI's (run 36276567183), because a local aarch64 build disagrees with CI's,
+as milestone 151 also found.
 
-- **The per-thread word is free.** `size_of::<Thread>()` is **744 bytes in a 4096-byte page**
-  (measured, both ISAs); a `deadline: u64` makes it 752. The static `MAX_THREADS`-sized BSS pool the
-  cost argument assumed **has not existed since milestone 19c.2**: TCBs are page-resident, so this
-  costs zero bytes of BSS and no size class moves.
-- **The always-paid cost is one comparison, and it is the same for every candidate structure.** Any
-  shape can cache the earliest deadline in a word, so the tick loads, compares and returns. Measured
-  over 100,000 idle ticks: **1.000 comparisons and 0.000 writes** for a scan and for a sorted list,
-  1.004 for a wheel. "The scheduler carries a timer wheel" is therefore **not a cost the fork has to
-  weigh**: whichever is chosen, the tick pays the same.
-- **The ordered deadline list is the worst of the three above one waiter**, which is the opposite of
-  what this block implied. Its tick is cheap and its *insert* is O(k), and inserts outnumber expiries.
-  At 128 holders it costs 8,435 comparisons per tick where a plain scan costs 156. **Scanning wins
-  outright until about 64 threads hold deadlines at once**, and the five known consumers hold about
-  one each.
-- **The tick handler grows by 30 instructions on aarch64 and 31 on riscv64**, per core, debug build,
-  read off the executed path of `on_tick` in two disassemblies. Against ~491 (aarch64) and ~400
-  (riscv64) instructions on the Rust half of the timer-IRQ path, and **under three parts per million
-  of a core** at 100 Hz.
-- **Milestone 124's proof holds, measured, on both ISAs.** A prototype expiry was wired into `on_tick`
-  and `script/stack-depth-check` still reports "no context switch reachable from it"; the
-  interrupt-stack budget moves by -464 bytes on aarch64 and +48 on riscv64 against 16384, and the
-  measured runtime high-water is 1088. The reason is structural and already in the tree:
-  `handle_irq` already calls `sched::irq_notify` from the interrupt stack, and that already wakes a
-  blocked thread onto a run queue. **A wake is an enqueue, not a switch**, and the switch is already
-  deferred to `preempt_if_needed` one frame out. This was the question most likely to be the real
-  cost and it is not.
-- **The one place a deadline genuinely touches scheduler structure is `SCHED`.** An expiry has to take
-  the whole-machine lock, and four cores ticking at 100 Hz all reaching for it is contention nothing
-  pays today. The cached `earliest` is what keeps that off the common path, so it is load-bearing
-  rather than an optimization. That is a word, not a wheel.
-- **And the counterweight runs the other way.** One second of today's yield-spin is **100% of a hart
-  and 10^5 to a few times 10^6 syscalls**; the same second on a deadline is about **12,400
-  instructions** with the hart in `wfi`. The ratio is **at least 10^5 to 1** and grows with core clock.
-  That is five orders of magnitude larger than any difference between the three shapes.
+### Instructions: icount, against milestone 151's CI figures
 
-**What the pricing found that this block did not ask about.** Sections 1 to 4 of the note are common
-to all three shapes; where they differ is not the scheduler:
+`script/bench --check`, TCG with icount, all three passing the 10% tripwire. The left figures are
+milestone 151's from CI run 36258812324 and the right ones this branch's on patagonia, so a small
+move can be build difference rather than this change.
 
-- A `SYS_SLEEP` and a timer object need nothing beyond the above.
-- **A deadline on `Endpoint::RECV`/`CALL` needs exactly one thing more**: a targeted unlink from an
-  endpoint's wait queue. `crates/intrusive_fifo`'s `Fifo` is **singly linked** and its API is
-  `push_back`, `pop_front`, `is_empty`, `len`; `inter_process_communication::Rendezvous` adds only
-  `drain_waiters`, which drains all of them. Removing one waiter is a new O(queue length) method on
-  a crate carrying machine-checked proofs, so the proofs move with it. The census says that queue
-  can hold **97 of 128 threads** at the suite's peak, so the walk is not always short.
-- **The half that looked harder is already built.** `wake_handshake`'s undelivered-wake gate (boot 8)
-  would refuse a timeout wake, and `Handshake::abort()` already passes that gate for precisely this
-  reason: `set_ipc_aborted` + `wake` is the pair revocation already uses on a drained waiter. A
-  timeout is that pair with a different reason.
-- **One hazard to decide rather than discover.** A `CALL` that times out leaves a live `Reply`
-  capability naming a thread that is no longer waiting. `ipc_reply` already refuses to deliver to a
-  thread not parked as `WaitRole::Reply`, and its comment names this exact case, so the dangerous
-  version is covered. The residual: `Object::Reply(tid)` carries a Tid and **no per-call nonce**, so a
-  caller that times out and then issues a second `CALL` could be satisfied by the first call's stale
-  reply. Latent today (revocation produces the same shape) and reachable on purpose with a deadline on
-  `CALL`. It wants a lane of its own whichever shape wins.
+| ISA | `ipc_rtt` | `call_reply` | `ipc_rtt_el0` |
+|---|---|---|---|
+| aarch64 | 1045327 -> 1045334 (+7) | 1061673 -> 1061676 (+3) | 11034763 -> 11050503 (+0.14%) |
+| riscv64 | 171076 -> 171449 (+0.22%) | 177534 -> 177534 (0) | 1865150 -> 1866611 (+0.08%) |
+| `x86_64` | 17313622 -> 17313736 (+114) | 17830619 -> 17827655 (-0.02%) | not measured |
 
-## Scope note
+The idle tick pays one relaxed load, one counter read and one compare, which `notes/timed-wait.md`
+section 3 priced at about 30 debug-build instructions per tick per core. It lands in benches long
+enough to span ticks, which is why only the `_el0` row moves.
 
-**Milestone 51 is BUILT and this fork is explicitly tracked outside it.** 51's block says the
-timed-wait fork "is separable and should be decided on its own, since it serves more than this
-milestone", and 51's `date` client is a one-shot synchroniser rather than a polling service for
-exactly this reason: "adding a sleep syscall to get a real one would settle that fork by accident."
-Do not settle it by accident here either.
+## Proposed: binding a notification to yourself
 
-**The consumers, so the decision is made against all of them at once**: net_stack's retransmit
-window (this block), `thread::sleep` in the std PAL (a yield-spin today), `Endpoint::RECV`'s
-no-timeout limitation (the kernel complains about it twice), the shell's `^C` watch (milestone
-103), and a **liveness watch over a supervision domain** (milestone 23's hung-component residual,
-added 2026-08-17, notes/hung-component.md). A shape that serves one and not the others is the wrong
-shape.
+A running thread holds no `ThreadControlBlock` capability to itself, so it cannot `BIND` a
+notification to itself. Milestone 151's handoff named this as 106's to propose. The options, with
+the seven questions answered, are in `notes/timer.md` ("Binding a notification to yourself:
+PROPOSED"). The short form:
 
-**The fifth consumer discriminates between the candidates rather than only adding a vote**, which is
-why it is worth more than a line. A liveness watch does not want to *sleep*: it wants to be told
-"nothing arrived by time T" while staying able to receive a report, so a bare `SYS_SLEEP` leaves it
-spinning on the very question it exists to answer, and it wants the answer on a `RECV`, because the
-domain it watches reports progress to it. Its own note also recommends bounding a hang in **progress
-rather than duration** (milestone 62's argument, one level out), which softens what an inaccurate
-deadline costs it: a bad number delays a diagnosis rather than convicting a healthy component of being
-slow. So it is the cheapest of the five to serve and has the most specific requirement.
+- The premise is half true. `thread::sleep` does not need a binding: it waits on the notification
+  directly. A binding is needed only to wait on a notification and an endpoint at once.
+- A spawner can bind for its child today, with no wire change. `net_stack` is built that way.
+- A self sentinel in `BIND`'s slot, a capability to your own TCB, or a new `BIND_SELF` method are
+  each a wire decision, so they are calef's, offered without a recommendation.
 
-**Two citations corrected 2026-08-17**, by milestone 23's hung-component lane, which needed this fork
-and so read it closely. This block twice attributed the three candidate shapes to "DECISIONS §51", and
-§51 is *the sink protocol*; they live in **milestone 51's** roadmap block, in its rejected-alternatives
-list. `script/decisions --check` proves that a cited §N resolves to *some* section and never that it
-resolves to the right one, so a well-formed wrong citation is invisible to it. §N and milestone N are
-colliding schemes, and this is what the collision costs.
+Nothing in this milestone waits on the answer. The first consumer that might is `timetable` under
+milestone 129 (scheduled execution: a cron whose every entry is a grant).
+
+## BUGS
+
+- Resolution is the scheduler tick. A deadline fires at the first 10 ms tick at or after it: never
+  early, up to one tick late. A tickless comparator would fix it at the rearm seam §178 (where the
+  timer re-arm seam goes) placed, on all three architectures. Nobody has asked for finer.
+- `x86_64` compares deadlines against each core's own TSC. That is right on an invariant,
+  synchronised TSC, which QEMU provides. Nothing checks it at boot, and xenon has not been checked.
+- A deadline already passed signals from `ARM` with a thread's local placement, and one that expires
+  signals load-aware from the tick. The two paths wake the same way; only placement differs, as
+  `notes/notification-objects.md` describes for the two signal entries.
+- The shell's watch still wakes 100 times a second while a job runs. That is milestone 103 (`^C`
+  stops spinning: the shell's interrupt watch, blocking)'s to finish. And
+  `grant_plan::COOP_GRACE_TICKS` counts watch iterations, so its 200 are now two seconds of wall
+  time where they were 200 yields.
+- A sleeper blocks only when it can be made safely, and otherwise keeps the yield loop, silently.
+  `RETYPE_OBJ` puts a capability in the first free slot, and an empty fixed slot is how a std
+  program, the shell and the NTP client learn a service was not granted. So `retype_sleeper` and
+  the std PAL refuse while any such slot is empty; a std program granted no network or no directory
+  still spins in `thread::sleep`. Found by the std tests, where the first version faulted: its
+  notification landed in slot 4 and the PAL took it for a directory. The fix that ends the fallback
+  is the loader granting the pair, as `net_stack`'s spawner does, which is a change to the std
+  runtime contract and is recorded in
+  `design/roadmap/proposals/the-last-yield-spinners-sleep-on-a-timer.md`.
+- `std::thread::sleep` costs a process two pages of its heap untyped on first use.
+- `counter_ticks_for` is tested, not proved. CBMC did not finish it with a symbolic rate in ten
+  minutes, nor with five concrete rates in five.
+- "There is no timed wait" is still written in about a dozen places this milestone made false:
+  `components/src/timetable.rs`, `crates/top`, `notes/clock.md`, `notes/ntp.md`,
+  `notes/scheduled-execution.md`, `notes/hung-component.md`, `notes/pipes.md` and its
+  `one-wait-point.md`, and the blocks of milestones 51, 126 and 129. They were left because most sit
+  in files other lanes are editing today. `grep -rn "no timed wait"` finds them; each owner's next
+  edit should correct its own.
+- The expiry walk is O(timers) per timer fired, under the whole-machine lock, in interrupt context.
+  At the registry bound of 256 that is a short walk; it is the number to watch if timers multiply.
+
+## What it unblocks
+
+- Milestone 103 (`^C` stops spinning: the shell's interrupt watch, blocking) has its primitive.
+- Milestone 129 (scheduled execution)'s timetable, and the per-user session's cost the schedule
+  decision names, can end their yield loops. What each needs is in
+  `design/roadmap/proposals/the-last-yield-spinners-sleep-on-a-timer.md`.
+- Milestone 23 (a capability-routed component OS with live replacement)'s liveness watch: a `RECV`
+  on the reports endpoint with a deadline, through a binding its spawner makes.
+
+## Follow-on
+
+- **Recorded.** Binding a notification to yourself is a wire decision for calef, written up with
+  its options in `notes/timer.md` ("Binding a notification to yourself: PROPOSED").
+- **Proposed.** The soak supervisor, a long-running NTP client and the timetable's adoption:
+  `design/roadmap/proposals/the-last-yield-spinners-sleep-on-a-timer.md`.
+- **Milestone 103.** The shell's watch the rest of the way, waking only on the job's end or `^C`.
+- **Milestone 129.** The timetable sleeps until its next deadline, and the per-user session's yield
+  cost ends with it.
+- **Recorded.** Tick resolution, the unchecked TSC synchronisation, the silent sleep fallback and the
+  stale "no timed wait" claims, in this block's `BUGS` beside `kernel/src/sched.rs`'s timer code.
 
 ## Index row
 
-calef, 2026-09-05: not deciding the three-shape fork. The timed wait is served from a userspace
-timer service signalling a notification, which is how seL4 does it and what §101 anticipated. All
-four consumers are userspace; this stays owed against a kernel-side one appearing. Milestone 263
-prices the prerequisite
+Built 2026-09-26 on §147 option 1: a `Timer` object whose `ARM(deadline, notification)` signals a
+notification at the deadline, on all three ISAs, proved and falsified. `thread::sleep`, `net_stack`'s
+retransmit window, the NTP retry gap and the shell's `^C` watch no longer spin. Self-binding is
+proposed, not built.

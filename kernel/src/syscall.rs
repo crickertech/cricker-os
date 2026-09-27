@@ -400,6 +400,10 @@ pub(crate) fn invoke(
         // call rather than four method bodies.
         Object::Notification(id) => notification_invoke(cap.rights, id, method, a0),
 
+        // A timer (milestone 106, DECISIONS §147 (a timer a userspace service cannot hold)). Out of line for the notification arm's reason:
+        // neither method is a step of the IPC round trip the fastpath footprint bounds.
+        Object::Timer(id) => timer_invoke(cap.rights, id, method, a0, a1, a2),
+
         Object::MemoryRegion(region) => match method {
             // Body extracted (milestone 156): all five `MemoryRegion` methods are memory-management
             // administration a spawner runs while building a process, never a step of the IPC
@@ -592,6 +596,38 @@ fn notification_invoke(
     }
 }
 
+/// The two `Timer` methods (milestone 106, DECISIONS §147). `WRITE` on the timer for both, and
+/// for `ARM` also `WRITE` on the notification it names, because arming is signalling later and
+/// `SIGNAL` takes `WRITE`. See `abi::timer`.
+#[inline(never)]
+fn timer_invoke(
+    rights: Rights,
+    id: sched::TimerId,
+    method: u64,
+    a0: u64,
+    a1: u64,
+    a2: u64,
+) -> Result<i64, Error> {
+    if !rights.allows(Rights::WRITE) {
+        return Err(Error::NotPermitted);
+    }
+    match method {
+        abi::timer::ARM => {
+            let target = sched::current_cap(a1).map_err(|_| Error::NoSuchSlot)?;
+            let Object::Notification(notification) = target.object else {
+                return Err(Error::WrongObject);
+            };
+            if !target.rights.allows(Rights::WRITE) {
+                return Err(Error::NotPermitted);
+            }
+            sched::timer_arm(id, a0, notification, a2)?;
+            Ok(0)
+        }
+        abi::timer::CANCEL => sched::timer_cancel(id).map(i64::from),
+        _ => Err(Error::BadMethod),
+    }
+}
+
 /// `MemoryRegion::MAP`: retype a page out of the untyped and map it, writable, at `va` in the caller's
 /// own address space. Both the page and any page tables come from the untyped, so the KERNEL
 /// ALLOCATES NOTHING: `mmu::map_current_user_page`'s only source of memory is the closure below,
@@ -713,6 +749,14 @@ fn memory_region_retype_obj(region: u64, kind: u64) -> Result<i64, Error> {
         abi::objtype::NOTIFICATION => {
             let id = sched::create_notification_from(region).ok_or(Error::OutOfMemory)?;
             let slot = sched::grant(crate::cap::notification_cap(id, Rights::ALL))
+                .map_err(|_| Error::OutOfMemory)?;
+            Ok(slot as i64)
+        }
+        // A timer (milestone 106, DECISIONS §147): one deadline and its target in the page.
+        // `Rights::ALL` for the RENDEZVOUS arm's reason.
+        abi::objtype::TIMER => {
+            let id = sched::create_timer_from(region).ok_or(Error::OutOfMemory)?;
+            let slot = sched::grant(crate::cap::timer_cap(id, Rights::ALL))
                 .map_err(|_| Error::OutOfMemory)?;
             Ok(slot as i64)
         }

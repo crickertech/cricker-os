@@ -5,7 +5,8 @@ Reason: this change touches the file only to update a derived harness-count clai
 counted-claims gate derives from the tree (195 to 199, four harnesses the lane added). Bringing the
 whole document to 4 bold spans per 1,000 words is a rewrite for the document's own owner, and
 doing it inside a count bump would hide a rewrite inside a number. Remove this marker when that
-rewrite lands. -->
+rewrite lands. Milestone 106 (a wait that ends on either the interrupt or the deadline) bumped it
+again, 199 to 202, on 2026-09-26, for the same reason and under the same marker. -->
 
 The companion to the verification thesis (DECISIONS §14). That decision says *why* we verify; this
 note is *how*, and the record of the experiment that green-lit it.
@@ -688,7 +689,7 @@ script/verify
 ```
 
 Self-installs Kani on first run (its own nightly toolchain and a CBMC backend), then runs `cargo kani` over every package carrying harnesses:
-199 harnesses <!--count:kani-harnesses--> **across 28 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
+202 harnesses <!--count:kani-harnesses--> **across 28 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
 `crates/package_archive`; both discharge in 4 seconds.
 Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture) added two, in
 `kernel/src/arch/x86_64/irq.rs`, which **only an x86_64 host runs** (the `prove` shards, since milestone 587 (most CI jobs do not need an arm64 host)): the count is of the tree, not of

@@ -130,6 +130,13 @@ pub enum Object {
     /// it. Same payload width as `Rendezvous`, so the assertion below on a slot's size still holds.
     Notification(crate::sched::NotificationId),
 
+    /// **A timer** (milestone 106 (a wait that ends on either the interrupt or the deadline),
+    /// DECISIONS §147 (a timer a userspace service cannot hold)), by generational name in the
+    /// scheduler's timer registry: one armed deadline and the notification it signals, in a page
+    /// retyped from its creator's region. `WRITE` arms and cancels it. *(Provisional, with its
+    /// method numbers.)*
+    Timer(crate::sched::TimerId),
+
     /// A virtio device's **transport**, by id (into the kernel's virtio device table).
     ///
     /// The DMA-confinement capability. The device has no IOMMU, so the kernel keeps the two
@@ -577,6 +584,15 @@ pub fn thread_control_block_cap(tid: crate::thread::ThreadId, rights: Rights) ->
 pub fn notification_cap(id: crate::sched::NotificationId, rights: Rights) -> Cap {
     Cap {
         object: Object::Notification(id),
+        rights,
+    }
+}
+
+/// A capability naming a timer (milestone 106). Full rights at creation, from `RETYPE_OBJ`;
+/// delegation narrows.
+pub fn timer_cap(id: crate::sched::TimerId, rights: Rights) -> Cap {
+    Cap {
+        object: Object::Timer(id),
         rights,
     }
 }

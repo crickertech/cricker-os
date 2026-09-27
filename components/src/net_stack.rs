@@ -47,7 +47,10 @@ use smoltcp::socket::{dhcpv4, tcp, udp};
 use smoltcp::time::Instant;
 use smoltcp::wire::{EthernetAddress, HardwareAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address};
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{cap_delete, cntfrq, irq_wait, map_page_frame, now, recv_cap, reply, send};
+use user_mode_runtime::{
+    cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now, recv_cap, reply, send,
+    timer_arm, timer_cancel,
+};
 
 #[path = "net_transport.rs"]
 mod net_transport;
@@ -61,6 +64,11 @@ const REPORT: u64 = 0;
 const IRQ: u64 = 1;
 const MEMORY_REGION: u64 = 3;
 const STACK: u64 = 4;
+/// The notification bound to this thread, which the retransmit timer signals (milestone 106 (a wait
+/// that ends on either the interrupt or the deadline)). The spawner makes and binds it.
+const WAKE: u64 = 5;
+/// The retransmit timer: armed for smoltcp's next deadline while this server waits for a frame.
+const RETRANSMIT: u64 = 6;
 
 /// The heap smoltcp allocates against, capped under the granted budget.
 ///
@@ -411,15 +419,35 @@ fn wait_for_nic(
     dev: &mut net_transport::VirtioNet,
     sockets: &mut SocketSet,
 ) {
-    if iface.poll_delay(instant(), sockets).is_none() {
+    let Some(delay) = iface.poll_delay(instant(), sockets) else {
         irq_wait(IRQ);
         dev.ack_irq();
+        return;
+    };
+    // A smoltcp timer is due in `delay`: wait for a frame **or** that deadline, whichever comes
+    // first (milestone 106 (a wait that ends on either the interrupt or the deadline)). The
+    // notification in `WAKE` is bound to this thread, so `Irq::WAIT` ends on either and the hart is
+    // idle in between. Until 2026-09-26 this yielded and re-polled instead, spinning a hart through
+    // every retransmit backoff (`notes/timed-wait.md`, section 5).
+    let micros = delay.total_micros();
+    let ticks = abi::timer::counter_ticks_for(
+        micros / 1_000_000,
+        ((micros % 1_000_000) * 1000) as u32,
+        cntfrq(),
+    );
+    if timer_arm(RETRANSMIT, now().saturating_add(ticks), WAKE, 1) == 0 {
+        irq_wait(IRQ); // 1: a frame; BOUND: the deadline
+        // Whichever ended the wait, leave nothing behind: disarm, and clear a fire that raced the
+        // frame, so a stale deadline never ends the next `recv_cap(STACK)` as a bound delivery.
+        if timer_cancel(RETRANSMIT) == 0 {
+            notification_poll(WAKE);
+        }
     } else {
-        // A smoltcp timer is due: keep the source armed and the device quiet, then yield so the
-        // caller re-polls and smoltcp emits the retransmit/ACK. Not a blocking wait, on purpose.
-        dev.ack_irq();
+        // No timer granted (a spawner that predates milestone 106): the old yield, so the caller
+        // re-polls and smoltcp's timer still fires, at a hart's cost.
         user_mode_runtime::yield_now();
     }
+    dev.ack_irq();
 }
 
 /// Drive the poll loop until `cond` holds, servicing the NIC on each wakeup. Bounded so a stuck

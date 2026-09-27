@@ -510,6 +510,11 @@ pub mod objtype {
     /// A notification (milestone 151, DECISIONS §101): a data word and a wait queue, the
     /// asynchronous half of IPC. See [`crate::notification`].
     pub const NOTIFICATION: u64 = 4;
+
+    /// A timer (milestone 106 (a wait that ends on either the interrupt or the deadline), DECISIONS
+    /// §147): one deadline and the notification it signals when
+    /// the deadline passes. See [`crate::timer`]. Confirmed by calef on 2026-09-27 (UTC).
+    pub const TIMER: u64 = 5;
 }
 
 /// Methods on a `Notification` capability (milestone 151, DECISIONS §101): **a doorbell, not a
@@ -571,6 +576,136 @@ pub mod notification {
     /// fault-reply protocol, which [`fault`](super::fault) says arrives in `w4`, must not put this
     /// value there.
     pub const BOUND: u64 = 2;
+}
+
+/// Methods on a `Timer` capability (milestone 106, DECISIONS §147 (a timer a userspace service
+/// cannot hold)): **the kernel's comparator, lent one deadline at a time.** Created by
+/// [`memory_region::RETYPE_OBJ`] with [`objtype::TIMER`].
+///
+/// A timer does not block and has no wait of its own. It signals a [`notification`] when its
+/// deadline passes, so whoever waits on that notification (or is blocked receiving with it bound to
+/// their thread) wakes on the deadline or on whatever else signals it, whichever comes first. That
+/// is the whole of §147's option 1: "a timer object with a blocking `WAIT` has one wake source";
+/// this one has none, and borrows the notification's.
+///
+/// **Deadlines are absolute, in counter ticks**: the same counter a program reads without a syscall
+/// (`CNTVCT_EL0`, `rdtime`, `rdtsc`), so `now() + n` is a deadline `n` ticks away and nothing
+/// converts between clocks. **Resolution is the scheduler tick** (100 Hz, 10 ms): a deadline fires at
+/// the first tick at or after it, never before it. See `design/roadmap/106-deadline-wait.md`'s
+/// BUGS for why, and what a tickless comparator would change.
+///
+/// Rights: `WRITE` on the timer to [`ARM`](timer::ARM) or [`CANCEL`](timer::CANCEL), and `WRITE`
+/// on the notification `ARM` names, which is the right [`notification::SIGNAL`] needs: arming a
+/// timer is signalling that notification later, so it takes the same authority.
+///
+/// **The surface was confirmed by calef on 2026-09-27 (UTC)**, `bits` and `CANCEL` included, and
+/// with no slack argument: *"Keep it confirmed. We will build a slack if we need it."* A slack
+/// (Zircon's `zx_timer_set` carries one) would be a later change if a tickless kernel wants it.
+pub mod timer {
+    /// `invoke(cap, ARM, deadline, notification_slot, bits)` -> 0. Arm this timer: when the counter
+    /// reaches `deadline`, OR `bits` into the notification named by `notification_slot`, exactly as
+    /// a [`SIGNAL`](super::notification::SIGNAL) would. **Replaces any pending deadline**, which then
+    /// never fires. A deadline already reached signals at once and leaves nothing armed. `bits` of
+    /// zero is accepted and delivers nothing when it fires, as `SIGNAL(0)` does.
+    ///
+    /// `WrongObject` if the slot is not a notification; `NotPermitted` without `WRITE` on either.
+    /// A notification destroyed while the timer is armed makes the expiry a no-op, not an error:
+    /// there is nobody left to tell.
+    pub const ARM: u64 = 0;
+
+    /// `invoke(cap, CANCEL, _, _, _)` -> 1 or 0. Disarm. `1` if a deadline was pending and now never
+    /// fires; `0` if nothing was armed (never armed, already fired, or already cancelled), which
+    /// tells the caller any signal has already been sent. Bits a timer already signalled stay in
+    /// the notification's word: a notification never loses a bit, and a cancel does not reach into
+    /// one.
+    pub const CANCEL: u64 = 1;
+
+    /// **Counter ticks in a duration, rounded up**, for a counter running at `hz`: the `n` that
+    /// makes `now() + n` a deadline that is never early. Saturates at `u64::MAX` rather than
+    /// wrapping, and a saturated deadline is one that never fires, which is the right reading of a
+    /// duration too long to represent.
+    ///
+    /// Rounding up is the point. `std::thread::sleep` promises to sleep *at least* its duration, and
+    /// truncating (what the PAL's yield-spin did) could make it one tick short.
+    ///
+    /// Split into whole seconds and a sub-second part so every product fits in 64 bits for any
+    /// counter up to 2^34 Hz: `nanos * hz` is under `10^9 * 2^34`, which is under `2^64`. That keeps
+    /// the arithmetic in the width the solver can check, and in the width a 64-bit core divides in.
+    pub const fn counter_ticks_for(secs: u64, nanos: u32, hz: u64) -> u64 {
+        const NS: u64 = 1_000_000_000;
+        let Some(whole) = secs.checked_mul(hz) else {
+            return u64::MAX;
+        };
+        let Some(part) = (nanos as u64).checked_mul(hz) else {
+            return u64::MAX;
+        };
+        whole.saturating_add(part.div_ceil(NS))
+    }
+
+    /// **Tested, not proved, and the reason is a measurement.** A Kani harness over this function
+    /// did not finish in ten minutes with a symbolic rate, nor in five with five concrete rates
+    /// (2026-09-26): a symbolic 64-bit divide is the expensive thing for CBMC whatever the
+    /// divisor. The deadline arithmetic that *is* proved is the kernel's
+    /// (`inter_process_communication::timer`), where a wrong answer is a missed wake for everyone;
+    /// a wrong answer here is one sleep one tick short, and the tests below pin the boundaries
+    /// where that could happen.
+    #[cfg(test)]
+    mod tests {
+        use super::counter_ticks_for;
+
+        const RATES: [u64; 5] = [62_500_000, 10_000_000, 4_000_000, 31_250_000, 4_200_000_000];
+
+        fn check(secs: u64, nanos: u32, hz: u64) {
+            let n = counter_ticks_for(secs, nanos, hz) as u128;
+            let exact = (secs as u128 * 1_000_000_000 + nanos as u128) * hz as u128;
+            assert!(
+                n * 1_000_000_000 >= exact,
+                "early: {secs}s {nanos}ns at {hz} Hz"
+            );
+            assert!(
+                n == 0 || (n - 1) * 1_000_000_000 < exact,
+                "late: {secs}s {nanos}ns at {hz} Hz"
+            );
+        }
+
+        #[test]
+        fn a_duration_is_never_short_and_at_most_one_tick_long() {
+            for hz in RATES {
+                for secs in [0, 1, 59, 86_400, 1 << 30] {
+                    for nanos in [
+                        0,
+                        1,
+                        15,
+                        16,
+                        17,
+                        99,
+                        100,
+                        101,
+                        999_999_999,
+                        500_000_000,
+                        238,
+                    ] {
+                        check(secs, nanos, hz);
+                    }
+                }
+                // Every nanosecond count below one tick, and just past it, at this rate.
+                let tick_ns = (1_000_000_000 / hz).max(1) as u32;
+                for nanos in 0..(3 * tick_ns + 3) {
+                    check(0, nanos, hz);
+                }
+            }
+        }
+
+        #[test]
+        fn a_duration_too_long_to_represent_saturates_rather_than_wraps() {
+            assert_eq!(counter_ticks_for(u64::MAX, 0, 62_500_000), u64::MAX);
+            assert_eq!(
+                counter_ticks_for(u64::MAX / 62_500_000, 999_999_999, 62_500_000),
+                u64::MAX
+            );
+            assert_eq!(counter_ticks_for(0, 0, 62_500_000), 0);
+        }
+    }
 }
 
 /// Methods on a `ThreadControlBlock` capability (milestone 19c.3): **another thread, under construction.**

@@ -54,6 +54,17 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use socket_protocol::fixture;
 
 fn main() {
+    // `thread::sleep` blocks on a kernel timer (milestone 106 (a wait that ends on either the
+    // interrupt or the deadline)), retyping its timer and notification from slot 0 on this first
+    // call. Silent when it works, so every transcript below is unchanged; a sleep that returns early
+    // panics, and the transcript no longer matches.
+    let before = Instant::now();
+    std::thread::sleep(Duration::from_millis(20));
+    assert!(
+        before.elapsed() >= Duration::from_millis(20),
+        "thread::sleep returned early"
+    );
+
     // Probe for a directory capability first: an `Unsupported` open means no FS-service endpoint in
     // slot 4, i.e. this process holds no directory and there is no ambient filesystem to fall back
     // on. Anything else means the filesystem IS granted, so a failure to open the file the image

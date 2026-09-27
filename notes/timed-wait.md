@@ -1,8 +1,14 @@
 # What a timed wait costs
 
-*(Written 2026-08-17, for milestone 106's fork. This note prices a design and does not build one:
-nothing here adds a syscall, and the fork between milestone 51's three candidate shapes is calef's
-and stays open.)*
+<!-- writing-standards: exception. Marked 2026-09-26 (UTC) by the lane for milestone 106 (a wait that
+ends on either the interrupt or the deadline). Reason: this change touches the note only to point its
+header at notes/timer.md, where what was built is recorded. Bringing a 3,800-word pricing note to 4
+bold spans per 1,000 words is a rewrite for the note's own owner, not something to hide inside a
+pointer. Remove this marker when that rewrite lands. -->
+
+*(Written 2026-08-17 to price the fork of milestone 106 (a wait that ends on either the interrupt
+or the deadline); §147 (a timer a userspace service cannot hold) settled it;
+[timer.md](timer.md) has what was built.)*
 
 Milestone 106's block says a deadline in the blocked state "means the scheduler carries a timer
 wheel or an ordered deadline list, which is scheduler work the kernel does not do today". That

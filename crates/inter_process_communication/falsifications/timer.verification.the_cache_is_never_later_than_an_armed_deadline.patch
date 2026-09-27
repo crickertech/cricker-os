@@ -1,0 +1,22 @@
+Falsifies `inter_process_communication::timer::verification::the_cache_is_never_later_than_an_armed_deadline`.
+
+The defect: arming overwrites the cache with the new deadline instead of taking the minimum. It
+reads naturally, because "the next thing due" is what was just armed, and it is right whenever only
+one timer is armed, which is every single-consumer test.
+
+Expected to fail: `cache_is_sound` after an arm, whenever another timer was already armed earlier
+than the new deadline: that timer's expiry is now invisible to the tick.
+
+diff --git a/crates/inter_process_communication/src/timer.rs b/crates/inter_process_communication/src/timer.rs
+index 5e38c9a0c..5ceab0715 100644
+--- a/crates/inter_process_communication/src/timer.rs
++++ b/crates/inter_process_communication/src/timer.rs
+@@ -137,7 +137,7 @@ impl<T: Copy> Timer<T> {
+ /// **The cache after arming `deadline`**: never raised, only lowered. Called under the same lock
+ /// as the arm, so the cache and the timers never disagree for anyone who holds it.
+ pub fn lowered(cached: u64, deadline: u64) -> u64 {
+-    cached.min(deadline)
++    deadline
+ }
+ 
+ /// **Whether the tick must walk.** The one comparison per idle tick `notes/timed-wait.md` priced.

@@ -1,0 +1,21 @@
+Falsifies `inter_process_communication::timer::verification::a_walk_fires_exactly_the_due_timers`.
+
+The defect: expiry uses a strict comparison, so a timer whose deadline equals `now` does not fire
+on this walk. It looks like an off-by-one that cannot matter, and the cache (`is_due` is `>=`)
+disagrees with it, so a walk runs and fires nothing.
+
+Expected to fail: `assert_eq!(fired[k], due)` for a timer armed at exactly `now`.
+
+diff --git a/crates/inter_process_communication/src/timer.rs b/crates/inter_process_communication/src/timer.rs
+index 5e38c9a0c..2775a84ea 100644
+--- a/crates/inter_process_communication/src/timer.rs
++++ b/crates/inter_process_communication/src/timer.rs
+@@ -115,7 +115,7 @@ impl<T: Copy> Timer<T> {
+     /// otherwise `None` and untouched. Fires at most once per arm.
+     pub fn expire(&mut self, now: u64) -> Option<T> {
+         match self.armed {
+-            Some((deadline, target)) if deadline <= now => {
++            Some((deadline, target)) if deadline < now => {
+                 self.armed = None;
+                 Some(target)
+             }

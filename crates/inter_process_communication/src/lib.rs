@@ -132,6 +132,7 @@ use core::ptr::NonNull;
 use intrusive_fifo::{Fifo, Node};
 
 pub mod notification;
+pub mod timer;
 
 /// One IPC rendezvous: two intrusive wait queues and the pending-signal count.
 pub struct Rendezvous<T: Node> {
