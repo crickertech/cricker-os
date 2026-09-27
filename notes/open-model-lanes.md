@@ -52,6 +52,14 @@ format and translates to an OpenAI-compatible upstream.
 Claude Code  --/v1/messages-->  LiteLLM (127.0.0.1:4000)  --/chat/completions-->  OpenRouter
 ```
 
+OpenRouter now documents an Anthropic-compatible endpoint for Claude Code
+(`ANTHROPIC_BASE_URL=https://openrouter.ai/api`), verified 2026-09-27 against its own docs, which
+did not exist when the paragraph above was written on 2026-09-22. It calls itself "optimized for
+Anthropic models" and says this path is "only guaranteed to work with the Anthropic first-party
+provider." So it covers Claude models routed through OpenRouter, not the open-weight models this
+note is about, and the LiteLLM gateway above is still what an open-weight model needs. See
+[notes/local-inference.md](local-inference.md).
+
 The gateway is infrastructure, operated outside this repository (calef, 2026-09-25). It runs on
 cordoba and is reached over the tailnet at `https://cordoba.<tailnet>.ts.net:4000`. Its model
 mapping, its spend logging and its service unit are mastered and deployed elsewhere; this tree holds
@@ -142,13 +150,18 @@ So the briefs live in `briefs/` as checked-in assets rather than being retyped f
 a brief written fresh each time loses a clause a month and the clause it loses is the one that stops
 a wrong conflict resolution shipping as housekeeping.
 
-**This reframes the offload estimate.** The decision that the subscription stays and rented models
-fill the mechanical tail, taken the same day and not yet on `main`, puts the lane tail at about 18%
-of a day's tokens. Maintainer work sits on top of
-that, is nearly all delegatable at these prices, and is done in the most expensive context
-available. Nobody has measured it, because the session's own consumption is not instrumented. The milestone for
-that, *what a lane spent on its milestone*, was promoted the same day and is not yet on `main`, so
-it is named here rather than cited.
+**This estimate is superseded.** The 18% figure above was a guess from one example, on the day this
+note was written. [notes/local-inference.md](local-inference.md) measured the real split over 28
+days, ending 2026-09-27: work with a crisp gate (`mechanical_gated`) is 36% of tokens and 36% of
+spend, a ceiling, not a number to plan against today. Only a narrow slice of that class, the tasks
+shaped like the one proven win above, is safely offloadable now. The realistic share is 5-10% of
+total spend, per that note's short answer. Read it before repricing any offload plan on the 18%
+figure.
+
+Maintainer work sits on top of the gated class, is nearly all delegatable at these prices, and is
+done in the most expensive context available. Nobody has measured it, because the session's own
+consumption is not instrumented. The milestone for that, *what a lane spent on its milestone*, was
+promoted the same day and is not yet on `main`, so it is named here rather than cited.
 
 ## What has to be benchmarked before this is trusted
 
