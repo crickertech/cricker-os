@@ -34,6 +34,22 @@ name: architect label
 # describing them would drift from the code the moment either changed without the other; the
 # script is the one place they are decided, and this file's job is only to feed it a diff and act
 # on what it says.
+#
+# **`architect-ruled` is the label that makes a ruling stick.** Unlike `coe-architect-label.yml`
+# (whose own detection question, "did THIS push add the file", already tells a re-added label from
+# a human's removal), this workflow has no such memory: every run re-diffs base...head from
+# scratch, so any push that leaves a matched rule's line still in the diff, including an ordinary
+# rebase that carries no new decision at all, re-adds `needs-architect` the moment the maintainer
+# removes it. That happened twice within hours, 2026-09-27 04:10 UTC: #1378 and #1400, both
+# unlabelled by hand after calef ruled on their syscall surface, both re-labelled by the next push.
+# `architect-ruled` records that the ruling happened, not just that someone once removed the
+# consequence of it: a pull request that carries it is skipped outright, logged and not
+# re-evaluated, regardless of what its diff still matches. The maintainer applies it together with
+# a comment citing the ruling (which PR, which line, what calef said), the same discipline
+# `Blocked-by: #N` uses for a hold that releases itself (notes/merge-queue.md); this is a hold that
+# a decision releases rather than a commit. It is never applied by this workflow itself, only read
+# by it, so creating the label in the repository (`gh label create`) is a one-time, out-of-band
+# step, not a run of this job.
 
 on:
   # Same three types `coe-architect-label.yml` listens for, and the same reason: only a new commit
@@ -97,9 +113,22 @@ jobs:
       # its own comment on the same line); the `merge-base` fallback is dead code for a plain
       # `pull_request` trigger (this workflow has no `merge_group:` trigger to need it for) and
       # stays only because it costs nothing to keep this step honest if that ever changes.
+      # `architect-ruled` short-circuits everything below: it is read straight off the event
+      # payload's own label list (`github.event.pull_request.labels`), so this costs no extra API
+      # call, and it means what an architect said, not what this event's diff still matches. See
+      # this file's header for the two mislabelled pull requests (#1378, #1400) that this exists to
+      # stop from recurring.
       - name: Run the diff-reading rules
         id: rules
+        env:
+          RULED: ${{ contains(github.event.pull_request.labels.*.name, 'architect-ruled') }}
         run: |
+          if [ "$RULED" = "true" ]; then
+            echo "architect-label: architect-ruled is on this PR; an architect has already ruled" >&2
+            echo "architect-label: on its surface, so this run is not re-adding needs-architect." >&2
+            echo "add=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           base="${{ github.event.pull_request.base.sha }}"
           [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
           if [ -z "$base" ]; then
