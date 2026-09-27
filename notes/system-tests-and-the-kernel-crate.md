@@ -76,6 +76,10 @@ private `mod`s of a binary crate.
 
 ## The fork: where the tests go
 
+*Decided 2026-09-27T06:40Z: calef chose A, below. What was built is in the next section; the
+options are kept as they were put to him.*
+
+
 This changes what `script/test` runs and needs a crate name that sticks, so it is calef's.
 
 **A. A system-test image crate** (provisional name `system_tests`, beside `kernel/`). The kernel
@@ -119,8 +123,63 @@ provisional crate name), and nobody outside the tree has acted on the kernel bei
 6,724 lines of bring-up stay in the kernel under A. They are the integrator, and leave with the
 trust-root and progenitor work, not with the tests.
 
+## What was built (option A)
+
+Seven commits on `milestone/609-system-tests-crate`, each with one purpose.
+
+1. The kernel became a library plus a thin binary. `src/main.rs` is a link line; `_start` is still
+   the library's, and the linked kernel has the same symbols at the same entry address.
+2. The 66 `cfg(test)`-only files moved to `system_tests/src/user/` byte for byte, in their own
+   commit, so `git blame` follows every line. That is 61 plus five that landed on `main` while
+   this was built (`notification_tests`, `timer_tests`, `scratch_window_tests`,
+   `terminal_quiesce_tests`, `terminal_swap_tests`): 22,824 lines and 306 `#[test_case]`s.
+3. The wiring. A kernel `system_tests` feature makes the boot a test boot and calls
+   `system_tests_main`, which the new crate defines. The kernel's modules stay private; under the
+   feature only, `system_test_access` re-exports the fifteen the suite names, and the new crate
+   glob-imports it so the moved files' `crate::sched::...` paths resolve unchanged. Twelve items
+   widened to `pub`. Items that only one of the two suites calls say which, per item, because §38
+   (a suppression is scoped to an item and carries a reason) forbids a blanket.
+4. The fourteen falsification records whose tests moved went with them.
+5. `script/test` runs both images on each leg, and so do the HVF leg and `uefi-test`. Under
+   `--test` the selection is counted across the two images. The host passes, clippy, drift, both
+   stack checks, rustdoc and the falsification sweep all learned about the second image.
+6. Living path references were repointed.
+7. The citation ratchet stopped counting a line moved verbatim as a new citation.
+
+The kernel binary built together with `system_tests` fails to link, on purpose: the feature would
+otherwise turn a shippable kernel into one that runs tests instead of booting.
+
+## The rule for new tests, and the migration backlog
+
+calef's ruling carries two rules beyond the move. A new service test is a userspace program unless
+it has to observe kernel internals, and a test that does says which internals and why; this is
+written where `script/test` is documented, in [scripts.md](scripts.md). And existing tests that
+touch no kernel internals migrate to userspace over time.
+
+That backlog is small, measured over the 66 files on 2026-09-27 (UTC):
+
+| cut | files | `#[test_case]`s |
+|---|---|---|
+| names none of `sched`, `testing`, `memory_region` | 2 (`pipeline_tests`, `measured_boot_tests`) | 10 |
+| names no kernel module but the test harness (`testing`, for `skip!`) | 3 (`language_tests`, `pipeline_tests`, `redirection_tests`) | 17 |
+| names no kernel module at all | 1 (`pipeline_tests`) | 5 |
+
+`measured_boot_tests` avoids the three named modules but reads `cap` and `trust`, so it observes
+internals after all. The honest backlog is the three harness-only files: the shell language,
+pipeline and redirection tests, which drive `swish` and read what it printed. Every other file
+observes kernel state no syscall exposes, which is the case rule 2 allows.
+
 ## BUGS
 
 - Five service crates are still kernel dependencies, pending #1389's division of them.
 - Check 13 counts a crate used only inside an inline `#[cfg(test)] mod` in a non-test file as a
   production use, and does not skip a crate name that appears inside a string.
+- Dead code is checked per item in both test images, but an item's `allow` names only which suite
+  calls it on the architecture that reported it. An x86_64 test build is not gated, so its
+  allowances were added only where a gated build found them.
+- The new crate is not in a `packages/*.package` file yet: pull request #1396, which introduces
+  them, had not landed when this was built.
+- Five notes still say `kernel/src/main.rs` for code that is now in `lib.rs`: board-console.md,
+  boot-ladder.md, nifefs.md, pipes/second-stream.md and visionfive2.md. A new `main.rs` keeps the
+  old name, so git does not call the move a rename, and the prose ratchet would hold each note to
+  today's bold limit for a one-word repoint. Code and data pointers were repointed.

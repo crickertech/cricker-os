@@ -210,6 +210,22 @@ An existing clone installs it by rerunning `script/setup`, or by hand with the c
 - It checks the whole tree, not the pushed range. Cheap enough at this size that the
   precision is not worth the complexity, and a tree that is unformatted anywhere fails CI anyway.
 
+## Two test images per architecture, and where a new test goes
+
+Since milestone 609 (the system tests leave the kernel crate), each architecture leg of
+`script/test` boots two images, one after the other. `cargo test -p kernel` is the kernel's own
+unit tests, beside the code they test. `cargo test -p system_tests` is the whole-system suite: the
+same kernel, linked as a library from `system_tests/`, with the tests that spawn and drive real
+programs. The scanout and network checks watch the second image, because that is where the
+display, compositor and network tests live. The kernel crate links no service or fixture crate;
+`script/lint` check 13 keeps it that way.
+
+**A new service test is a userspace program**, unless it has to observe kernel internals (calef,
+2026-09-27). A test that does goes in `system_tests/src/user/`, and its doc comment says which
+internals it observes and why no syscall could show them. Existing tests that observe nothing
+internal move to userspace over time; the backlog is in
+[system-tests-and-the-kernel-crate.md](system-tests-and-the-kernel-crate.md).
+
 ## Running one kernel test (`script/test --test`)
 
 Milestone 210. A host crate's test is a function a harness calls, so `cargo test <name>` has always
@@ -259,14 +275,24 @@ test kernel::arch::aarch64::isa::tests::the_asid_width_supports_the_allocator ..
 test result: ok. 1 passed
 ```
 
-A filter that matches nothing fails the run, rather than reporting a green `0 passed`:
+A filter that matches nothing fails the run, rather than reporting a green `0 passed`. Both
+images run, and the count is taken over the leg, because the test a filter names lives in exactly
+one of them: an image with no match says so and exits cleanly, and the leg fails if the two
+together selected nothing.
 
 ```
 $ script/test --arch aarch64 --test no_such_test_anywhere
-running 0 of 312 tests (filter: no_such_test_anywhere)
-no test matches the filter `no_such_test_anywhere`
-  (a test only this architecture lacks? `--test` runs every leg; add `--arch`)
+running 0 of N tests (filter: no_such_test_anywhere)
+no test in this image matches the filter `no_such_test_anywhere`; the harness counts the leg
+...
+running 0 of M tests (filter: no_such_test_anywhere)
+no test in this image matches the filter `no_such_test_anywhere`; the harness counts the leg
+test: no test on the aarch64 leg matches the filter, in either image (a test only this
+architecture lacks? `--test` runs every leg; add `--arch`)
 ```
+
+A bare `NIFE_TEST_FILTER=x cargo test -p kernel` keeps the older rule and fails on its own, since
+nothing is counting across images for it.
 
 ### BUGS
 
