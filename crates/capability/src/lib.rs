@@ -349,6 +349,17 @@ mod storage {
             self.free
         }
 
+        /// The occupied slots, as a mask: `free`'s complement, restricted to the `N` bits that
+        /// exist (bits at and above `N` are always clear in `free`, so inverting it would set
+        /// them). [`delete_matching`](super::CapabilityTable::delete_matching) walks this instead
+        /// of `0..N` so a sweep over a mostly-empty table costs its occupancy, not its capacity;
+        /// milestone 126 (the `procps` package) raised `N` and found the sweep had never made that
+        /// trade, on `insert`'s reasoning exactly, in the one caller (revocation, `sched.rs`'s
+        /// `delete_page_frame_caps_where`) that runs it over every thread's table for every frame.
+        pub(super) fn occupied_mask(&self) -> u32 {
+            !self.free & Self::ALL_FREE
+        }
+
         /// Whether every slot is empty: one compare, because the word already knows.
         pub(super) fn all_free(&self) -> bool {
             self.free == Self::ALL_FREE
@@ -500,8 +511,18 @@ impl<O: Copy, const N: usize> CapabilityTable<O, N> {
     /// each slot once instead of a `get`-then-`delete` pair, whose halves both re-run the bounds
     /// check and which a sweep over every slot of every thread pays thousands of times per call.
     /// Behaviorally identical to that pair.
+    ///
+    /// **Walks the occupied mask, not `0..N`** (milestone 126 (the `procps` package), 2026-09-27,
+    /// UTC): raising `CAPABILITY_TABLE_SLOTS` to 32 put this sweep's cost, paid by every thread's
+    /// table on every frame a revocation touches, on the table's *capacity* rather than what it
+    /// actually holds, and `spawn_el0` (which destroys a small, mostly-empty table every
+    /// iteration) is exactly that sweep's shape. `insert` stopped scanning for the same reason;
+    /// this is that fix's other caller.
     pub fn delete_matching(&mut self, matches: impl Fn(&O) -> bool) {
-        for slot in 0..N {
+        let mut occupied = self.occupied_mask();
+        while occupied != 0 {
+            let slot = occupied.trailing_zeros() as usize;
+            occupied &= occupied - 1; // clear the lowest set bit; each slot visited once
             if matches!(self.slot(slot), Some(c) if matches(&c.object)) {
                 self.empty(slot);
             }
