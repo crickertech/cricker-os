@@ -505,11 +505,70 @@ fn walk<'a>(p: &mut Page, from: u64, path: &'a Path, needs: u64) -> io::Result<(
 /// else is [`walk`] followed by one more descent, since the last component of a path a caller wants
 /// listed is itself the directory rather than a name inside one.
 fn dir_at(p: &mut Page, path: &Path, want: u64) -> io::Result<At> {
-    if count_names(path)? == 0 {
+    let names_in_path = count_names(path)?;
+    if names_in_path == 0 {
         return Ok(At(proto::ROOT));
+    }
+    // One `OPENDIR` for the whole path when the server takes paths (milestone 606, ruling A); the
+    // server descends each step asking for `DESCEND | want`, which is what the walk below sends.
+    if names_in_path > 1 && paths_offered() {
+        let joined = joined(path);
+        match descend(p, &At(proto::ROOT), &joined, want) {
+            Err(e) if refused_as_a_path(&e) => {}
+            done => return done.inspect(|_| paths_seen()),
+        }
+        let (parent, name) = walk(p, proto::ROOT, path, want)?;
+        let at = descend(p, &parent, name, want)?;
+        paths_refused();
+        return Ok(at);
     }
     let (parent, name) = walk(p, proto::ROOT, path, want)?;
     descend(p, &parent, name, want)
+}
+
+// --- Paths in one request (milestone 606, ruling A) -----------------------------------------
+//
+// A server since milestone 606 (a directory walk costs what it does on Linux) resolves a relative
+// path in one `OPEN` or `OPENDIR`, with exactly the rights the hop-by-hop walk would get
+// (`filesystem_protocol::fs::OPEN` has the rule). One that predates it answers `EINVAL` to any
+// name with a `/`. So the PAL sends the path, and on `EINVAL` walks it hop by hop instead; if the
+// walk then succeeds, the `EINVAL` was the server's age rather than the name, and every later
+// request walks without asking again. An `EINVAL` the walk repeats was the name's, and says
+// nothing about the server.
+//
+// 0 = not yet known, 1 = paths work, 2 = this server walks hop by hop.
+static PATHS: AtomicU8 = AtomicU8::new(0);
+
+fn paths_offered() -> bool {
+    PATHS.load(Ordering::Relaxed) != 2
+}
+
+fn paths_seen() {
+    PATHS.store(1, Ordering::Relaxed);
+}
+
+fn paths_refused() {
+    if PATHS.load(Ordering::Relaxed) == 0 {
+        PATHS.store(2, Ordering::Relaxed);
+    }
+}
+
+/// Whether an error to a one-request path could be an older server's refusal of the `/`.
+fn refused_as_a_path(e: &io::Error) -> bool {
+    PATHS.load(Ordering::Relaxed) == 0 && e.kind() == io::ErrorKind::InvalidInput
+}
+
+/// The names in `path` joined by `/`: what one request carries. `count_names` has already refused
+/// anything that is not a plain name.
+fn joined(path: &Path) -> String {
+    let mut out = String::new();
+    for (i, name) in names(path).enumerate() {
+        if i > 0 {
+            out.push('/');
+        }
+        out.push_str(name);
+    }
+    out
 }
 
 /// The [`dir`] rights an `OPEN` needs on the directory holding the name.
@@ -531,16 +590,40 @@ fn open_rights(opts: &OpenOptions) -> u64 {
     want
 }
 
-/// `OPEN` the last name in `path`, walking to the directory that holds it. Returns the server's
-/// handle.
-fn open_handle(path: &Path, opts: &OpenOptions) -> io::Result<u64> {
+/// `OPEN` the last name in `path`. Returns the server's handle and the size its reply carried (0
+/// when it carried none; `filesystem_protocol::fs::OPEN` says why 0 means "not given").
+///
+/// Since ruling A of milestone 606 (a directory walk costs what it does on Linux) a multi-name
+/// path is one `OPEN` with the rights each step asks for in the second word, and a server that
+/// refuses it gets the hop-by-hop walk ([`paths_offered`] and its note).
+fn open_handle(path: &Path, opts: &OpenOptions) -> io::Result<(u64, u64)> {
     if !is_reachable() {
         return Err(unsupported_err());
     }
     let mut p = page();
-    let (at, name) = walk(&mut p, proto::ROOT, path, open_rights(opts))?;
+    let want = open_rights(opts);
+    if count_names(path)? > 1 && paths_offered() {
+        let joined = joined(path);
+        p.put(joined.as_bytes());
+        match open_reply(proto::req(proto::OPEN, proto::ROOT, joined.len() as u64), want) {
+            Err(e) if refused_as_a_path(&e) => {}
+            done => return done.inspect(|_| paths_seen()),
+        }
+        let (at, name) = walk(&mut p, proto::ROOT, path, want)?;
+        p.put(name.as_bytes());
+        let opened = open_reply(proto::req(proto::OPEN, at.0, name.len() as u64), want)?;
+        paths_refused();
+        return Ok(opened);
+    }
+    let (at, name) = walk(&mut p, proto::ROOT, path, want)?;
     p.put(name.as_bytes());
-    request(proto::req(proto::OPEN, at.0, name.len() as u64), 0)
+    open_reply(proto::req(proto::OPEN, at.0, name.len() as u64), want)
+}
+
+/// One `OPEN`, keeping both reply words: the handle, and the size ruling B put in the second.
+fn open_reply(w0: u64, want: u64) -> io::Result<(u64, u64)> {
+    let (r0, r1) = rt::call(FS, w0, want);
+    Ok((reply(r0)?, r1))
 }
 
 /// Create the last name in `path` and return the handle. [`open_handle`]'s twin: the wire shape is
@@ -590,6 +673,10 @@ pub struct File {
     /// from `FSTAT` before each one. Not atomic against another writer (no lock verb in the
     /// contract), which is the same caveat every non-POSIX backend carries.
     append: bool,
+    /// The size `OPEN`'s reply carried (milestone 606, ruling B), for sizing a buffer and for
+    /// nothing else: [`File::open_size_hint`] is the only reader, and `metadata()` always asks the
+    /// server. 0 is "no hint". A write or a truncate through this handle clears it.
+    size_hint: AtomicU64,
 }
 
 /// A file's metadata, as much of it as the contract carries: the size, whether the name was a
@@ -945,8 +1032,9 @@ impl File {
         // `create(true).truncate(true)`, so getting the order wrong would leave the old tail behind
         // on exactly the path that exists to replace a file's contents, which is the day-costing bug
         // this milestone is here to remove.
+        let mut opened_size = 0;
         let handle = match open_handle(path, opts) {
-            Ok(h) if opts.create_new => {
+            Ok((h, _)) if opts.create_new => {
                 // `create_new` means "must not already exist", and it does. Close the handle the open
                 // just minted rather than leaking it for the life of the process: the error path is
                 // the one nobody exercises, so it is the one that leaks.
@@ -956,7 +1044,10 @@ impl File {
                     "the file already exists"
                 ));
             }
-            Ok(h) => h,
+            Ok((h, size)) => {
+                opened_size = size;
+                h
+            }
             // Not there, and the caller asked for it to be made. This is the case that used to be
             // Unsupported.
             Err(e) if (opts.create || opts.create_new) && e.kind() == io::ErrorKind::NotFound => {
@@ -974,7 +1065,14 @@ impl File {
             }
         }
 
-        let file = File { handle, pos: AtomicU64::new(0), append: opts.append };
+        // A truncated file's size is 0 whatever the open said, and 0 already means "no hint".
+        let hint = if opts.truncate { 0 } else { opened_size };
+        let file = File {
+            handle,
+            pos: AtomicU64::new(0),
+            append: opts.append,
+            size_hint: AtomicU64::new(hint),
+        };
         if opts.append {
             let end = file.file_attr()?.size;
             file.pos.store(end, Ordering::Relaxed);
@@ -1030,6 +1128,7 @@ impl File {
     /// difference between "the file was emptied" and "the file is now n bytes" was the word this
     /// function passes.
     pub fn truncate(&self, size: u64) -> io::Result<()> {
+        self.size_hint.store(0, Ordering::Relaxed);
         request(proto::req(proto::TRUNCATE, self.handle, 0), size)?;
         Ok(())
     }
@@ -1065,6 +1164,7 @@ impl File {
         if buf.is_empty() {
             return Ok(0);
         }
+        self.size_hint.store(0, Ordering::Relaxed);
         if self.append {
             let end = self.file_attr()?.size;
             self.pos.store(end, Ordering::Relaxed);
@@ -1111,6 +1211,18 @@ impl File {
         })?;
         self.pos.store(target, Ordering::Relaxed);
         Ok(target)
+    }
+
+    /// **The size `OPEN` reported, as a buffer-sizing hint** (milestone 606, calef's ruling B, form
+    /// 2, 2026-09-27). The overlay's patch to `std::fs` asks this before `metadata()` when it sizes
+    /// the buffer for `fs::read`, `fs::read_to_string` and `read_to_end`, which is what saves the
+    /// `FSTAT` in front of every whole-file read. It is never used to answer `metadata()`: calef's
+    /// reason is that a stale hint costs at most one resize, while a stale `metadata()` lies.
+    pub fn open_size_hint(&self) -> Option<u64> {
+        match self.size_hint.load(Ordering::Relaxed) {
+            0 => None,
+            size => Some(size),
+        }
     }
 
     pub fn size(&self) -> Option<io::Result<u64>> {
@@ -1336,7 +1448,12 @@ impl Dir {
                 return Err(e);
             }
         }
-        let file = File { handle, pos: AtomicU64::new(0), append: opts.append };
+        let file = File {
+            handle,
+            pos: AtomicU64::new(0),
+            append: opts.append,
+            size_hint: AtomicU64::new(0),
+        };
         if opts.append {
             let end = file.file_attr()?.size;
             file.pos.store(end, Ordering::Relaxed);

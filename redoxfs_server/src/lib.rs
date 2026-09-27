@@ -157,8 +157,20 @@ impl<D: Disk> Server<D> {
     /// milestone 47's "a program handed a directory to write logs into" mean something: the
     /// direction was decided when the directory was granted, and the file cannot widen it.
     pub fn open_file_at(&mut self, handle: u32, name: &str) -> Result<u32> {
+        self.open_file_path(handle, name, 0)
+    }
+
+    /// [`Server::open_file_at`], where `name` may be a **relative path** (milestone 606, calef's
+    /// ruling A on #1387, 2026-09-27): `a/b/f` is resolved one component at a time, exactly as the
+    /// hop-by-hop walk a client used to send, and nothing else. Each directory on the way is an
+    /// [`Server::open_dir`] asking for `DESCEND | requested`: it needs `DESCEND` on its parent,
+    /// narrows to that request, and refuses with `EPERM` if it would come up short. So the file
+    /// handle carries exactly the bits the hop-by-hop walk would have given it. Every component
+    /// passes `check_component`, so `..` and empty steps are still `EINVAL`. `requested` is
+    /// `OPEN`'s second word; a single-component name ignores it, as `OPEN` always has.
+    pub fn open_file_path(&mut self, handle: u32, name: &str, requested: u64) -> Result<u32> {
+        let (parent, rights, name) = self.walk_prefix(handle, name, dir::DESCEND | requested)?;
         check_component(name)?;
-        let (parent, rights) = self.dir_at(handle)?;
         if rights.denies_all(dir::READ | dir::WRITE) {
             return Err(Error::new(syscall::error::ENOENT));
         }
@@ -203,7 +215,11 @@ impl<D: Disk> Server<D> {
     /// Needs [`dir::DESCEND`] on the parent, and its absence answers `ENOENT` rather than a
     /// refusal, so a holder that may not walk in cannot map what is there.
     pub fn open_dir(&mut self, handle: u32, name: &str, requested: u64) -> Result<u32> {
-        let (ptr, rights) = self.resolve_child_dir(handle, name, dir::DESCEND)?;
+        // A relative path (milestone 606, ruling A): every directory before the last is a descent
+        // asking for `DESCEND | requested`, the shape the hop-by-hop walk sends.
+        let (parent, rights, name) = self.walk_prefix(handle, name, dir::DESCEND | requested)?;
+        check_component(name)?;
+        let (ptr, rights) = self.child_dir(parent, rights, name, dir::DESCEND)?;
         let granted = rights.attenuate(requested);
         if granted != Rights::root(requested) {
             return Err(Error::new(EPERM));
@@ -924,20 +940,43 @@ impl<D: Disk> Server<D> {
             Err(Error::new(refusal))
         }
     }
-
-    /// Resolve `name` under the directory `handle` names, requiring `needed` on the parent, and
-    /// return the child **directory** with the parent's rights for the caller to attenuate.
-    ///
-    /// The missing-right answer is `ENOENT`, not a refusal: this is the naming rung of the ladder,
-    /// and a holder that may not descend must not be able to learn what is below.
-    fn resolve_child_dir(
+    /// Every component of `path` but the last, descended from `handle` with `hop` requested at
+    /// each step, and the last component. A name with no `/` comes back unchanged under `handle`'s
+    /// own directory. See [`Server::open_file_path`] for why the steps are exactly `OPENDIR`s.
+    fn walk_prefix<'n>(
         &mut self,
         handle: u32,
+        path: &'n str,
+        hop: u64,
+    ) -> Result<(TreePtr<Node>, Rights, &'n str)> {
+        let (mut ptr, mut rights) = self.dir_at(handle)?;
+        let Some((dirs, last)) = path.rsplit_once('/') else {
+            return Ok((ptr, rights, path));
+        };
+        // Every component is checked before any is resolved, so a malformed path is `EINVAL`
+        // whatever the tree holds, never an answer that depends on how far the walk got.
+        for step in path.split('/') {
+            check_component(step)?;
+        }
+        for step in dirs.split('/') {
+            let (child, parent_rights) = self.child_dir(ptr, rights, step, dir::DESCEND)?;
+            let granted = parent_rights.attenuate(hop);
+            if granted != Rights::root(hop) {
+                return Err(Error::new(EPERM));
+            }
+            (ptr, rights) = (child, granted);
+        }
+        Ok((ptr, rights, last))
+    }
+
+    /// The child directory `name` of `parent`, once `rights` allows `needed` (`ENOENT` otherwise).
+    fn child_dir(
+        &mut self,
+        parent: TreePtr<Node>,
+        rights: Rights,
         name: &str,
         needed: u64,
     ) -> Result<(TreePtr<Node>, Rights)> {
-        check_component(name)?;
-        let (parent, rights) = self.dir_at(handle)?;
         if !rights.allows(needed) {
             return Err(Error::new(syscall::error::ENOENT));
         }
@@ -2056,6 +2095,115 @@ mod tests {
         assert_eq!(
             srv.open_dir(root, "d", dir::ALL).err().map(|e| e.errno),
             Some(ENOENT)
+        );
+    }
+
+    /// **A path opens exactly what the hop-by-hop walk opens, with the same rights** (milestone 606,
+    /// ruling A). The walk asks each directory for `DESCEND | READ` when a file is opened for
+    /// reading, so the file it reaches carries `READ` and not `WRITE`, even under a grant that has
+    /// both; one `OPEN` with the path and `READ` in the second word must give the same handle.
+    #[test]
+    fn a_path_opens_what_the_walk_opens() {
+        let mut srv = server_with_tree();
+        let walked = {
+            let sub = srv.open_dir(0, "sub", dir::DESCEND | dir::READ).unwrap();
+            let deeper = srv
+                .open_dir(sub, "deeper", dir::DESCEND | dir::READ)
+                .unwrap();
+            let f = srv.open_file_at(deeper, "leaf").unwrap();
+            srv.close(sub).unwrap();
+            srv.close(deeper).unwrap();
+            f
+        };
+        let pathed = srv.open_file_path(0, "sub/deeper/leaf", dir::READ).unwrap();
+        for h in [walked, pathed] {
+            let mut buf = [0u8; 32];
+            let n = srv.read(h, 0, &mut buf).unwrap();
+            assert_eq!(&buf[..n], b"two levels down");
+            assert_eq!(srv.write(h, 0, b"x").err().map(|e| e.errno), Some(EROFS));
+        }
+        let rw = srv
+            .open_file_path(0, "sub/deeper/leaf", dir::READ | dir::WRITE)
+            .unwrap();
+        assert_eq!(
+            srv.write(rw, 0, b"T").unwrap(),
+            1,
+            "asked for WRITE, got it"
+        );
+    }
+
+    /// **A path reaches nothing the walk could not** (ruling A): a step that would come up short
+    /// is `EPERM`, a directory without `DESCEND` hides what is below it, and every step is one
+    /// name, so `..`, an empty step, a leading or trailing `/` and a file in the middle are refused.
+    #[test]
+    fn a_path_reaches_nothing_the_walk_could_not() {
+        let mut srv = server_with_tree();
+        let read_only = srv.open_dir(0, "sub", dir::DESCEND | dir::READ).unwrap();
+        let errno = |r: Result<u32>| r.err().map(|e| e.errno);
+        assert_eq!(
+            errno(srv.open_file_path(read_only, "deeper/leaf", dir::READ | dir::WRITE)),
+            Some(EPERM),
+            "a step asking for more than its parent holds is refused, not narrowed"
+        );
+        assert!(
+            srv.open_file_path(read_only, "deeper/leaf", dir::READ)
+                .is_ok()
+        );
+
+        let no_descend = srv.open_dir(0, "sub", dir::READ).unwrap();
+        assert_eq!(
+            errno(srv.open_file_path(no_descend, "deeper/leaf", dir::READ)),
+            Some(ENOENT)
+        );
+        assert!(
+            srv.open_file_at(no_descend, "inner").is_ok(),
+            "one name needs no DESCEND"
+        );
+
+        for bad in [
+            "sub/../motd",
+            "sub//inner",
+            "/sub/inner",
+            "sub/inner/",
+            "sub/./inner",
+        ] {
+            assert_eq!(
+                errno(srv.open_file_path(0, bad, dir::READ)),
+                Some(EINVAL),
+                "{bad}"
+            );
+            assert_eq!(
+                errno(srv.open_dir(0, bad, dir::READ)),
+                Some(EINVAL),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            errno(srv.open_file_path(0, "motd/x", dir::READ)),
+            Some(ENOTDIR)
+        );
+        assert_eq!(
+            errno(srv.open_file_path(0, "sub/deeper", dir::READ)),
+            Some(EISDIR)
+        );
+    }
+
+    /// **`OPENDIR` takes a path too**, and the directory it hands back carries exactly what was
+    /// asked for: `ENUMERATE` lists and does not open.
+    #[test]
+    fn opendir_takes_a_path_and_narrows_to_the_request() {
+        let mut srv = server_with_tree();
+        let h = srv.open_dir(0, "sub/deeper", dir::ENUMERATE).unwrap();
+        assert_eq!(list(&mut srv, h, 4096).unwrap(), [("leaf".into(), false)]);
+        assert_eq!(
+            srv.open_file_at(h, "leaf").err().map(|e| e.errno),
+            Some(ENOENT)
+        );
+        assert_eq!(
+            srv.open_dir(0, "sub/inner", dir::ENUMERATE)
+                .err()
+                .map(|e| e.errno),
+            Some(ENOTDIR)
         );
     }
 
@@ -3257,10 +3405,15 @@ mod tests {
                 Some(EINVAL),
                 "create must refuse {bad:?} as EINVAL: a name is not a path",
             );
+            // `OPEN` takes a relative path since ruling A of milestone 606 (a directory walk costs
+            // what it does on Linux), so `sub/deep` is a path to open rather than a malformed name,
+            // and there is no `sub` here: `ENOENT`. Every other entry still has a component that
+            // is not a name.
+            let want = if bad == "sub/deep" { ENOENT } else { EINVAL };
             assert_eq!(
                 srv.open_file(bad).err().map(|e| e.errno),
-                Some(EINVAL),
-                "and open must refuse {bad:?} the same way, not fall through to ENOENT",
+                Some(want),
+                "and open must refuse {bad:?} the same way create does, or as a path",
             );
         }
     }

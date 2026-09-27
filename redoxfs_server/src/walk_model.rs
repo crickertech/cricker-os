@@ -163,9 +163,10 @@ pub fn stage<D: Disk>(srv: &mut Server<D>, parent: u32) -> Result<()> {
     srv.close(root)
 }
 
-/// The PAL's rights for a descent: `DESCEND` plus what the final verb needs (`walk` in the PAL).
-const LIST: u64 = dir::DESCEND | dir::ENUMERATE;
-const OPEN: u64 = dir::DESCEND | dir::READ;
+/// The rights the PAL asks for: `ENUMERATE` on a directory it lists, `READ` in an `OPEN`'s second
+/// word. The server adds `DESCEND` for every step on the way (ruling A).
+const LIST: u64 = dir::ENUMERATE;
+const OPEN: u64 = dir::READ;
 
 /// **Replay `walk_pricing::walk` over the tree at `root`**, a directory handle holding at least
 /// `ENUMERATE | READ | DESCEND`, as the PAL would send it through a caretaker bound there.
@@ -185,17 +186,24 @@ fn descend<D: Disk>(
     want: u64,
     r: &mut Requests,
 ) -> Result<u32> {
-    let mut at = root;
-    for name in path {
-        r.opendir += 1;
-        let next = srv.open_dir(at, core::str::from_utf8(name).unwrap_or("?"), want)?;
-        if at != root {
-            r.close += 1;
-            srv.close(at)?;
-        }
-        at = next;
+    // Since milestone 606's ruling A the PAL sends the whole path in one `OPENDIR`.
+    if path.is_empty() {
+        return Ok(root);
     }
-    Ok(at)
+    r.opendir += 1;
+    srv.open_dir(root, &joined(path), want)
+}
+
+/// The names joined by `/`, as the PAL sends a path.
+fn joined(path: &[Vec<u8>]) -> alloc::string::String {
+    let mut out = alloc::string::String::new();
+    for (i, name) in path.iter().enumerate() {
+        if i > 0 {
+            out.push('/');
+        }
+        out.push_str(core::str::from_utf8(name).unwrap_or("?"));
+    }
+    out
 }
 
 fn walk_from<D: Disk>(
@@ -230,17 +238,11 @@ fn walk_from<D: Disk>(
         if is_dir {
             walk_from(srv, root, path, w)?;
         } else {
-            // `File::open`: descend to the parent, `OPEN` the last name, close the parent.
-            let (last, dirs) = path.split_last().expect("just pushed");
-            let parent = descend(srv, root, dirs, OPEN, &mut w.requests)?;
+            // `File::open`: one `OPEN` with the whole path and the rights each step asks for
+            // (ruling A). The server answers with the size in the reply's second word (ruling B),
+            // which is server work but no request, and `read_to_end` sizes its buffer from it.
             w.requests.open += 1;
-            let h = srv.open_file_at(parent, core::str::from_utf8(last).unwrap_or("?"))?;
-            if parent != root {
-                w.requests.close += 1;
-                srv.close(parent)?;
-            }
-            // `read_to_end`: the size hint, then page-sized reads until one comes back empty.
-            w.requests.fstat += 1;
+            let h = srv.open_file_path(root, &joined(path), OPEN)?;
             let _size = srv.fstat(h)?;
             let mut off = 0u64;
             loop {

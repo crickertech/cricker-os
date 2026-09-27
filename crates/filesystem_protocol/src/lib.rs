@@ -320,13 +320,32 @@ pub mod fs {
     pub const ROOT: u64 = 0;
 
     /// Resolve the name in the shared page (its length is [`req_len`] of the request word) under the
-    /// directory handle in [`req_handle`] ([`ROOT`] for the endpoint's bound directory). Second word
-    /// 0. Reply `r0` = a handle (≥ 0) or an error.
+    /// directory handle in [`req_handle`] ([`ROOT`] for the endpoint's bound directory). Reply `r0`
+    /// = a handle (≥ 0) or an error, and `r1` = the file's size in bytes (see below).
     ///
     /// Needs [`super::dir::READ`] or [`super::dir::WRITE`] on that directory, and the file handle it
     /// returns **inherits both bits** from it, so what you may do to the file was decided when the
     /// directory was granted. Without either the answer is `ENOENT`: in this scope there is no such
     /// name. `EISDIR` if the name is a directory ([`OPENDIR`] is the verb for that).
+    ///
+    /// **The name may be a relative path** (milestone 606 (a directory walk costs what it does on
+    /// Linux), calef's ruling A on #1387, 2026-09-27). `a/b/f` means exactly the hop-by-hop walk a
+    /// client would otherwise send: [`OPENDIR`] `a` asking for `DESCEND | w1`, [`OPENDIR`] `b` asking
+    /// for the same, then `OPEN f` in `b`, with every intermediate handle closed. So each directory
+    /// on the way needs `DESCEND` on its parent and is narrowed to `DESCEND | w1`, a step that comes
+    /// up short is [`super::dir::EPERM`], and the file handle carries what the walk would have given
+    /// it. The **second word `w1`** is that per-step request (a [`super::dir`] mask, in practice
+    /// `READ`, `WRITE` or both). A single-component name ignores it, as `OPEN` always did, and every
+    /// component is still one name: an empty step, `.` or `..` is `EINVAL`. A server that predates
+    /// this answers any name with a `/` in it with `EINVAL`, which is how a client knows to fall back
+    /// to the hop-by-hop walk.
+    ///
+    /// **The reply's second word is the file's size** (ruling B, same day), so a client reading a
+    /// whole file can size its buffer without an [`FSTAT`]. It is a hint for exactly that and nothing
+    /// else: it is the size at the moment of the open, and a client must not answer a later
+    /// "what is the size" from it, because the file may have changed since. A caretaker or server
+    /// that does not fill it replies 0, so 0 means "not given" and a client asks with [`FSTAT`]; for
+    /// an empty file that costs one message.
     pub const OPEN: u64 = 1;
     /// Read up to [`req_len`] bytes from the handle ([`req_handle`]) at offset `w1` into the shared
     /// page. Reply `r0` = bytes read (≥ 0, 0 at EOF) into the shared page, or an error.
@@ -378,8 +397,13 @@ pub mod fs {
     ///   courtesy, not the safety property: delete it and the intersection above still holds.
     /// - It needs [`super::dir::DESCEND`] on the parent. Without it the answer is `ENOENT`, so a
     ///   holder that may not walk into a subtree cannot learn that the subtree is there.
-    /// - `ENOTDIR` if the name is a file. `EINVAL` if the name is not a single component, which is
+    /// - `ENOTDIR` if the name is a file. `EINVAL` if any component is empty, `.` or `..`, which is
     ///   what keeps `..` from meaning anything.
+    /// - **The name may be a relative path** (milestone 606 (a directory walk costs what it does on
+    ///   Linux), calef's ruling A on #1387, 2026-09-27), resolved as the hop-by-hop walk would be:
+    ///   every directory before the last is a descent asking for `DESCEND | requested`, and the last
+    ///   asks for `requested`. Each step obeys the three rules above, so a path reaches nothing the
+    ///   walk could not. A server that predates this answers `EINVAL`.
     pub const OPENDIR: u64 = 8;
     /// **Enumerate a directory handle.** [`req_handle`] is the directory, the second word is a
     /// **cursor**: the index of the first entry to return, 0 to start. The reply's `r0` is the
@@ -1316,11 +1340,13 @@ pub mod verb {
     pub const TABLE: [Verb; (LAST - FIRST + 1) as usize] = [
         // OPEN's requirement is "READ or WRITE", the one any-of in the contract, so it is the one
         // row built by hand rather than by `row`.
+        // Its second word is the per-step rights request a relative path descends with (milestone
+        // 606, ruling A), so a caretaker must forward it.
         Verb {
             op: fs::OPEN,
             name: "OPEN",
             operand: Operand::Name,
-            carries_w1: false,
+            carries_w1: true,
             mints_handle: true,
             needs_all: 0,
             needs_any: dir::READ | dir::WRITE,
