@@ -236,7 +236,8 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
    [the fork 7 appendix](../../notes/durable-delegation/boot-rederivation-in-login.md).
    **Status: DECIDED**, option A, calef, 2026-09-27; built the same day.
 8. Which programs a scheduled job may run on the real boot, which decides the schedule archive the
-   progenitor hands `login`. **Status: PROPOSED.** Blocks `SCHEDULE` on the real boot.
+   progenitor hands `login`. **Status: PROPOSED.** Blocks `SCHEDULE` on the real boot. Reasoning
+   in [the fork 8 appendix](../../notes/durable-delegation/which-programs-a-job-runs.md).
 6. Where a scheduled job's report goes once nobody is attached. Recommended: a job holds no report
    endpoint and writes through a directory grant in its entry. **Status: PROPOSED.** Until then the
    session process receives and drops reports.
