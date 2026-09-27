@@ -6,7 +6,8 @@
 # rung three of AGENTS.md's ladder, a written record; this hook is rung two, the same rule enforced
 # so it fires whether or not the reader remembers the prose.
 #
-# Refused, each because it is CI polling wearing a different shape:
+# Refused, each because it is CI polling wearing a different shape, and only when it would actually
+# run: see `command position`, below.
 #   - `gh run watch`            blocks on a run instead of ending the turn.
 #   - `gh pr checks ... --watch` same thing, the pull-request-shaped spelling.
 #   - `sleep N` with N >= 30    a bare wait long enough to be a poll interval rather than a beat.
@@ -19,6 +20,41 @@
 # this hook inspects, which is the whole point of having a maintainer-side watcher instead of a lane
 # polling in its own turn.
 #
+# # Command position (2026-09-27, follow-up to #1388)
+#
+# The first cut matched these shapes anywhere in the command *string*, so a command that only
+# *mentions* one of them, a heredoc body writing a note ("...gh run watch was refused..."), an
+# `echo`/`printf` of the phrase, a `grep` for it, was refused even though nothing in it would run
+# `gh run watch`. That is the bug this follow-up fixes: match only where a command could actually
+# start, not wherever the text happens to appear.
+#
+# Before matching, `strip_noise` removes what is data rather than a command to run: heredoc bodies
+# (the text between `<<'EOF'`/`<<EOF` and its closing line) and quoted strings (`'...'`, `"..."`).
+# What is left is checked with each pattern anchored to *command position*: the start of the string,
+# or right after `;`, `&&`, `||`, `|`, `(`, a backtick, a newline, or the keyword `do` or `then`.
+# `--watch` is checked as a plain flag search, not anchored, because a flag is never itself a command
+# start; it only counts once `gh pr checks` has already matched in command position.
+#
+# This is a regex approximation of a shell parser, not one. What is still imprecise, so a lane
+# reading this later does not mistake the approximation for a guarantee:
+#
+# BUGS:
+#   - Quote-stripping is not parser-accurate: an apostrophe inside an unrelated double-quoted string
+#     ("don't") is itself fine (double-quote stripping runs first and consumes the whole string,
+#     apostrophe included), but two separate single-quoted strings on one line with unquoted text
+#     between them could, in principle, be swallowed as one long "quoted" span if a single-quote
+#     regex ever ran across both. This can only cause a false *negative* (a real poll allowed
+#     through), never a false refusal, so it is a gap rather than a foot gun for this hook's job.
+#   - Heredoc detection assumes a plain identifier delimiter (`EOF`, `PRBODY`, ...); an unusual
+#     delimiter (quoted with embedded spaces, or one shell-escaped) is not recognized as a heredoc
+#     and its body is matched like ordinary command text.
+#   - Nesting is not balanced. `(`, and a backtick, are treated as unconditional command-position
+#     starts rather than paired with their closing `)` or backtick, so a deeply nested subshell is
+#     still handled, but not verified structurally.
+#   - Command substitution `$(...)` and arithmetic `$((...))` are recognized only via the `(`
+#     boundary character, not as their own construct; this is adequate for the shapes this hook
+#     refuses but is not a real parse.
+#
 # Exit 2 refuses the call, with the reason on stderr, which Claude Code feeds back to the model as
 # the tool result; exit 0 allows it. `--selftest` runs the fixtures below against the pure predicate
 # and exits 1 on any mismatch, with no stdin read, so `script/lint` can run it for free.
@@ -26,12 +62,27 @@ import json
 import re
 import sys
 
-GH_RUN_WATCH = re.compile(r"\bgh\s+run\s+watch\b")
-GH_PR_CHECKS = re.compile(r"\bgh\s+pr\s+checks\b")
+# Data, not commands: stripped out before any refused-shape pattern is matched.
+_HEREDOC = re.compile(
+    r"<<-?\s*(?P<q>['\"]?)(?P<tag>[A-Za-z_][A-Za-z0-9_]*)(?P=q)[^\n]*\n"
+    r"(?:.*\n)*?"
+    r"[ \t]*(?P=tag)\b[^\n]*(?:\n|$)"
+)
+_QUOTED_DOUBLE = re.compile(r'"(?:\\.|[^"\\])*"')
+_QUOTED_SINGLE = re.compile(r"'[^']*'")
+
+# Where a new command can start: the string's start, after a separator (`;`, `&&`, `||`, `|`), after
+# `(` or a backtick (a subshell or command substitution opening), after a newline, or after the
+# keyword `do`/`then`. Longer separators (`&&`, `||`) are listed before their single-character
+# prefixes so the alternation consumes the whole separator.
+_CMD_START = r"(?:^|[;\n(`]|&&|\|\||\||\bdo\b|\bthen\b)\s*"
+
+GH_RUN_WATCH = re.compile(_CMD_START + r"gh\s+run\s+watch\b")
+GH_PR_CHECKS = re.compile(_CMD_START + r"gh\s+pr\s+checks\b")
 WATCH_FLAG = re.compile(r"(?:^|\s)--watch\b")
-SLEEP_CALL = re.compile(r"\bsleep\s+([0-9]+(?:\.[0-9]+)?)\s*([smh]?)\b")
-SHELL_LOOP = re.compile(r"\b(?:while|until|for)\b[\s\S]*?\bdo\b[\s\S]*?\bdone\b")
-GH_POLL_VERB = re.compile(r"\bgh\s+(?:run\s+(?:view|list)|pr\s+(?:checks|view))\b")
+SLEEP_CALL = re.compile(_CMD_START + r"sleep\s+([0-9]+(?:\.[0-9]+)?)\s*([smh]?)\b")
+SHELL_LOOP = re.compile(_CMD_START + r"(?:while|until|for)\b[\s\S]*?\bdo\b[\s\S]*?\bdone\b")
+GH_POLL_VERB = re.compile(_CMD_START + r"gh\s+(?:run\s+(?:view|list)|pr\s+(?:checks|view))\b")
 
 SEE = "See the WAITING rule in briefs/session-start.md and briefs/gate-in-ci.md."
 
@@ -41,17 +92,26 @@ def sleep_seconds(amount, unit):
     return n * {"": 1, "s": 1, "m": 60, "h": 3600}[unit]
 
 
+def strip_noise(command):
+    """Remove heredoc bodies and quoted strings: text a command can carry without running it."""
+    text = _HEREDOC.sub("\n", command)
+    text = _QUOTED_DOUBLE.sub("", text)
+    text = _QUOTED_SINGLE.sub("", text)
+    return text
+
+
 def refusal(command):
     """Return a refusal message for `command`, or None to allow it."""
-    if GH_RUN_WATCH.search(command):
+    text = strip_noise(command)
+    if GH_RUN_WATCH.search(text):
         return f"refuse-ci-polling: `gh run watch` blocks this turn on a CI run instead of ending it. {SEE}"
-    if GH_PR_CHECKS.search(command) and WATCH_FLAG.search(command):
+    if GH_PR_CHECKS.search(text) and WATCH_FLAG.search(text):
         return f"refuse-ci-polling: `gh pr checks --watch` polls until every check finishes. {SEE}"
-    for amount, unit in SLEEP_CALL.findall(command):
+    for amount, unit in SLEEP_CALL.findall(text):
         if sleep_seconds(amount, unit) >= 30:
             return (f"refuse-ci-polling: `sleep {amount}{unit}` is a poll interval, not a beat "
                     f"(>= 30s). {SEE}")
-    if SHELL_LOOP.search(command) and re.search(r"\bsleep\b", command) and GH_POLL_VERB.search(command):
+    if SHELL_LOOP.search(text) and re.search(r"\bsleep\b", text) and GH_POLL_VERB.search(text):
         return (f"refuse-ci-polling: a loop combining `sleep` with a `gh run`/`gh pr` read is a "
                 f"hand-rolled watch loop. {SEE}")
     return None
@@ -71,6 +131,15 @@ SELFTEST_CASES = [
     ("while true; do gh run view 1 --json status; sleep 60; done", True),
     ("until gh pr checks 1 | grep -q pass; do sleep 30; done", True),
     ("for i in 1 2 3; do gh pr view 1; sleep 30; done", True),
+    # true positives in command position, not just at the start of the string
+    ("echo hi; gh run watch 123 --exit-status", True),
+    ("true && gh run watch 123 --exit-status", True),
+    ("echo hi\ngh run watch 123 --exit-status", True),
+    ("(gh run watch 123 --exit-status)", True),
+    ("if true; then gh run watch 123 --exit-status; fi", True),
+    ("echo hi || gh pr checks 42 --watch", True),
+    ("x=`gh run watch 123 --exit-status`", True),
+    ("echo hi; sleep 45", True),
     # allowed
     ("gh run list --branch foo --limit 5", False),
     ("gh workflow run ci.yml --ref foo", False),
@@ -86,6 +155,15 @@ SELFTEST_CASES = [
     ("git push -u origin HEAD", False),
     ("script/lint", False),
     ("while read -r line; do echo \"$line\"; done < file.txt", False),
+    # false positives this follow-up closes: mentioning a refused phrase is not running it
+    ("cat <<'EOF'\na subagent's gh run watch was refused\nEOF\n", False),
+    ("cat <<EOF\nnote: gh pr checks --watch is refused, sleep 60 too\nEOF\n", False),
+    ('echo "a subagent\'s gh run watch was refused"', False),
+    ("printf 'gh run watch refused, see the note\\n'", False),
+    ('grep -q "gh run watch" history.log', False),
+    ('grep "gh pr checks --watch" history.log', False),
+    ("echo note: sleep 45 was used earlier", False),
+    ("echo 'a poll loop looked like: while true; do sleep 60; gh run view 1; done'", False),
 ]
 
 
