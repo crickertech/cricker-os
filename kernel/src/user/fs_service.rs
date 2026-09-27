@@ -2130,3 +2130,76 @@ pub fn start_granted_two_dirs(
     .expect("could not spawn the two-directory client");
     Some(report)
 }
+
+/// **Write one of the owner's lists at the file service's root** (`kernel::user::login_tests` and
+/// `session_reviver_tests` both need to), as the owner's console would: the run-unvouched list, or the suspended list of milestone 152
+/// (durable delegation). `None` removes it.
+#[cfg(any(test, feature = "system_tests"))]
+pub fn set_root_list(file: &str, list: Option<&[u8]>) {
+    use filesystem_protocol::fs;
+    let (fs_ep, fs_page_frame) = root_directory(
+        blk_server_image(),
+        crate::user::program("redoxfs_server").expect("no redoxfs_server in the initrd"),
+    )
+    .expect("wired() already brought the file service up");
+    // SAFETY: as in `ensure_home_subtree`: the file service's own shared page, idle between logins.
+    let page = unsafe {
+        core::slice::from_raw_parts_mut(
+            mmu::phys_to_virt(fs_page_frame) as *mut u8,
+            filesystem_protocol::PAGE,
+        )
+    };
+    let name = file.as_bytes();
+    let named = |page: &mut [u8], verb: u64| {
+        page[..name.len()].copy_from_slice(name);
+        crate::sched::ipc_call(fs_ep, [fs::req(verb, fs::ROOT, name.len() as u64), 0])[0] as i64
+    };
+    let Some(list) = list else {
+        // `ENOENT` is the state asked for, so the answer is not checked.
+        named(page, fs::UNLINK);
+        return;
+    };
+    let mut h = named(page, fs::OPEN);
+    if h < 0 {
+        h = named(page, fs::CREATE);
+    }
+    assert!(h >= 0, "could not open or create the list {file} ({h})");
+    let h = h as u64;
+    let truncated = crate::sched::ipc_call(fs_ep, [fs::req(fs::TRUNCATE, h, 0), 0])[0] as i64;
+    assert_eq!(truncated, 0, "could not truncate the list {file}");
+    page[..list.len()].copy_from_slice(list);
+    let wrote =
+        crate::sched::ipc_call(fs_ep, [fs::req(fs::WRITE, h, list.len() as u64), 0])[0] as i64;
+    assert_eq!(wrote, list.len() as i64, "short write of the list {file}");
+    crate::sched::ipc_call(fs_ep, [fs::req(fs::CLOSE, h, 0), 0]);
+}
+
+/// **Read one of the owner's files at the file service's root** into `out`, [`set_root_list`]'s
+/// other half: the byte count, or `None` when there is no such file.
+#[cfg(any(test, feature = "system_tests"))]
+pub fn read_root_file(file: &str, out: &mut [u8]) -> Option<usize> {
+    use filesystem_protocol::fs;
+    let (fs_ep, fs_page_frame) = root_directory(
+        blk_server_image(),
+        crate::user::program("redoxfs_server").expect("no redoxfs_server in the initrd"),
+    )?;
+    // SAFETY: as in `set_root_list`: the file service's own shared page, idle between logins.
+    let page = unsafe {
+        core::slice::from_raw_parts_mut(
+            mmu::phys_to_virt(fs_page_frame) as *mut u8,
+            filesystem_protocol::PAGE,
+        )
+    };
+    page[..file.len()].copy_from_slice(file.as_bytes());
+    let h = crate::sched::ipc_call(fs_ep, [fs::req(fs::OPEN, fs::ROOT, file.len() as u64), 0])[0]
+        as i64;
+    if h < 0 {
+        return None;
+    }
+    let want = out.len().min(filesystem_protocol::PAGE) as u64;
+    let n = crate::sched::ipc_call(fs_ep, [fs::req(fs::READ, h as u64, want), 0])[0] as i64;
+    crate::sched::ipc_call(fs_ep, [fs::req(fs::CLOSE, h as u64, 0), 0]);
+    let n = usize::try_from(n).ok()?.min(out.len());
+    out[..n].copy_from_slice(&page[..n]);
+    Some(n)
+}

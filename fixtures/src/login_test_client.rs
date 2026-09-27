@@ -203,6 +203,19 @@ pub const PRESENT_RUN_UNVOUCHED: u64 = 6;
 /// Log in, split a pending-job child off the budget, and prove the logout is refused while it lives
 /// and goes through once it is gone. Milestone 152; see the module docs. Provisional name.
 pub const PENDING_WORK: u64 = 7;
+/// Log in with `login_protocol::SCHEDULE`, replace the new timetable's empty document with
+/// [`SCHEDULED`], then detach: tear the directory down and leave the budget, which must refuse its
+/// own `DESTROY` because the session process lives on it. Milestone 152. Provisional name.
+pub const OPEN_SCHEDULE: u64 = 8;
+/// Log in plainly, expect to be handed the same durable session back (its page still carries
+/// [`OPEN_SCHEDULE`]'s reply), replace the document with an empty one, and wait for the timetable's
+/// exit word. Milestone 152. Provisional name.
+pub const EMPTY_SCHEDULE: u64 = 9;
+
+/// [`OPEN_SCHEDULE`]'s document: one entry the suite's schedule archive can back.
+const SCHEDULED: &[u8] = b"every 1s least_authority_demo 7\n";
+/// Where this program maps the registration page.
+const REGISTRATION_VA: u64 = 0x0000_0000_0300_0000;
 
 /// **[`PRESENT_RUN_UNVOUCHED`]'s proof of life**, [`TERM_MAGIC`]'s twin for the sixth capability.
 const RUN_UNVOUCHED_MAGIC: u64 = 0x_7e12_0000_0000_0002;
@@ -292,6 +305,21 @@ pub const F_SESSION_SURVIVED_REFUSAL: u64 = 1 << 13;
 /// **Set when the pending-job child itself was destroyed.** Set only by [`PENDING_WORK`], and it is
 /// what makes the budget destroyable again.
 pub const F_PENDING_WORK_DESTROYED: u64 = 1 << 14;
+/// **Set when the reply announced the registration page** (`login_protocol::SCHEDULE_FOLLOWS`),
+/// by any behaviour. Milestone 152.
+pub const F_SCHEDULE_ANNOUNCED: u64 = 1 << 15;
+/// **Set when a replace was in force**: [`OPEN_SCHEDULE`]'s document replaced with its one entry
+/// planned to fire, or [`EMPTY_SCHEDULE`]'s empty one answered `STATUS_EMPTIED`.
+pub const F_REPLACED: u64 = 1 << 16;
+/// **Set when the page already carried the first session's reply.** Set only by
+/// [`EMPTY_SCHEDULE`]: the proof that the login reattached rather than minting a second session.
+pub const F_REATTACHED: u64 = 1 << 17;
+/// **Set when the timetable's exit word appeared** after the empty replace. Set only by
+/// [`EMPTY_SCHEDULE`].
+pub const F_TIMETABLE_EXITED: u64 = 1 << 18;
+/// **Set when the document was written to the identity's stored schedule first.** Set only by
+/// [`OPEN_SCHEDULE`] and [`EMPTY_SCHEDULE`]. Milestone 152.
+pub const F_STORED: u64 = 1 << 19;
 
 /// `a0` is the behaviour, `a1` the identity and `a2` the secret; see the module docs. Three
 /// registers because that is what a process is born with (`kernel::user::Spawn`), and the two
@@ -347,7 +375,12 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // the page is now mapped dynamically, per connection, from a capability CONNECT hands back at
     // runtime, so there is nothing for a compile-time-constant window to be a window onto yet.
     let page = unsafe { core::slice::from_raw_parts_mut(PAGE_VA as *mut u8, login_protocol::PAGE) };
-    let Some(w0) = login_protocol::place(page, identity, secret, login_protocol::LOGIN) else {
+    let op = if behaviour == OPEN_SCHEDULE {
+        login_protocol::SCHEDULE
+    } else {
+        login_protocol::LOGIN
+    };
+    let Some(w0) = login_protocol::place(page, identity, secret, op) else {
         done(RPT_MALFORMED, 0, 0);
     };
     send(priv_request, w0, 0, 0);
@@ -373,10 +406,16 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // that is itself waiting on `login`.
     let run_unvouched =
         (extra & login_protocol::RUN_UNVOUCHED_FOLLOWS != 0).then(|| recv_cap(priv_result).1);
+    // The registration page, last, and only as announced (milestone 152).
+    let registration =
+        (extra & login_protocol::SCHEDULE_FOLLOWS != 0).then(|| recv_cap(priv_result).1);
 
     let mut flags = 0u64;
     if run_unvouched.is_some() {
         flags |= F_RUN_UNVOUCHED_ANNOUNCED;
+    }
+    if registration.is_some() {
+        flags |= F_SCHEDULE_ANNOUNCED;
     }
     let mut hint = 0u64;
 
@@ -415,6 +454,15 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // alive (`map_page_frame` above), and before anything below tears it down.
     if retype_page_frame(budget) >= 0 {
         flags |= F_BUDGET_WORKS;
+    }
+
+    // **Milestone 152's schedule, opened and later emptied through its page.**
+    if let Some(reg) = registration
+        && (behaviour == OPEN_SCHEDULE || behaviour == EMPTY_SCHEDULE)
+        && mapped
+        && map_page_frame(reg, REGISTRATION_VA, true, budget)
+    {
+        flags |= schedule(behaviour, budget, dir_ep);
     }
 
     // **Milestone 152's durable-session property, on a real login session.** A scheduled job's
@@ -524,6 +572,8 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
                 PRESENT_RUN_UNVOUCHED => flags |= teardown_directory(dir_ep, region),
                 // Its whole point is that the session comes home once the work is gone.
                 PENDING_WORK => flags |= teardown_directory(dir_ep, region),
+                // Detach: the directory goes, the durable budget stays with its session.
+                OPEN_SCHEDULE | EMPTY_SCHEDULE => flags |= teardown_directory(dir_ep, region),
                 _ => {}
             }
         }
@@ -539,6 +589,100 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // `kernel::user::login_tests::free_terminal`, used exactly this way by
     // `caretaker_teardown_reclaims_a_full_session_worth_of_memory`.
     done(RPT_OK, flags, hint);
+}
+
+/// **Drive the registration page for [`OPEN_SCHEDULE`] or [`EMPTY_SCHEDULE`]**, mapped at
+/// [`REGISTRATION_VA`], and answer the flags it earned.
+fn schedule(behaviour: u64, budget: u64, dir: u64) -> u64 {
+    use core::sync::atomic::{AtomicU64, Ordering};
+
+    use timetable::registration as reg;
+    let word = |off: usize| {
+        // SAFETY: the page is mapped read/write at REGISTRATION_VA, and every offset used here is
+        // an aligned word inside it (`timetable::registration`'s layout).
+        unsafe { &*((REGISTRATION_VA + off as u64) as *const AtomicU64) }
+    };
+    let mut flags = 0u64;
+    let (doc, seq): (&[u8], u64) = if behaviour == OPEN_SCHEDULE {
+        (SCHEDULED, 1)
+    } else {
+        // The first session's reply is still in the page: this is the same session.
+        if word(reg::REPLY).load(Ordering::Acquire) == 1 {
+            flags |= F_REATTACHED;
+        }
+        (b"", 2)
+    };
+    // **The session writes the store, then stages the replace** (§222 (who holds a user's
+    // schedule), sub-ruling 5): the document goes to `schedule` in this identity's own subtree,
+    // where `login` reads it back at the next login.
+    if store_schedule(dir, doc) {
+        flags |= F_STORED;
+    }
+    // SAFETY: as above; the body is ours to write until the request word is published.
+    let body = unsafe {
+        core::slice::from_raw_parts_mut((REGISTRATION_VA + reg::BODY as u64) as *mut u8, doc.len())
+    };
+    body.copy_from_slice(doc);
+    word(reg::LEN).store(doc.len() as u64, Ordering::Relaxed);
+    word(reg::REQUEST).store(reg::request(reg::REPLACE, seq), Ordering::Release);
+    if !wait(|| word(reg::REPLY).load(Ordering::Acquire) == seq) {
+        return flags;
+    }
+    let status = word(reg::STATUS).load(Ordering::Acquire);
+    let verdicts = word(reg::VERDICTS).load(Ordering::Acquire);
+    let replaced = if behaviour == OPEN_SCHEDULE {
+        status == reg::STATUS_REPLACED && reg::verdict_of(verdicts, 0) & 0x3 == reg::KIND_FIRES
+    } else {
+        status == reg::STATUS_EMPTIED
+    };
+    if replaced {
+        flags |= F_REPLACED;
+    }
+    if behaviour == EMPTY_SCHEDULE
+        && replaced
+        && wait(|| word(reg::EXIT).load(Ordering::Acquire) & reg::EXITED != 0)
+    {
+        flags |= F_TIMETABLE_EXITED;
+    }
+    // Both detach with the session still standing, so the budget must refuse to come down.
+    if destroy_region(budget) == abi::Error::NotPermitted as i64 {
+        flags |= F_LOGOUT_REFUSED_WHILE_PENDING;
+    }
+    flags
+}
+
+/// **Write `doc` as this identity's stored schedule** (`schedule_store::SCHEDULE_FILE_NAME`, in
+/// the root of the delegated directory, which is the identity's own subtree), replacing whatever
+/// was there. `true` when every byte landed.
+fn store_schedule(dir: u64, doc: &[u8]) -> bool {
+    use filesystem_protocol::fs;
+    let name = schedule_store::SCHEDULE_FILE_NAME.as_bytes();
+    put_page(name);
+    let (mut h, _) = call(dir, fs::req(fs::CREATE, fs::ROOT, name.len() as u64), 0);
+    if (h as i64) < 0 {
+        put_page(name);
+        h = call(dir, fs::req(fs::OPEN, fs::ROOT, name.len() as u64), 0).0;
+        if (h as i64) < 0 || (call(dir, fs::req(fs::TRUNCATE, h, 0), 0).0 as i64) < 0 {
+            return false;
+        }
+    }
+    put_page(doc);
+    let (w, _) = call(dir, fs::req(fs::WRITE, h, doc.len() as u64), 0);
+    let _ = call(dir, fs::req(fs::CLOSE, h, 0), 0);
+    w as i64 == doc.len() as i64
+}
+
+/// Poll `done` until it holds or [`DESTROY_WAIT_SECS`] of counter time pass, yielding between.
+fn wait(done: impl Fn() -> bool) -> bool {
+    let ceiling = user_mode_runtime::cntfrq().saturating_mul(DESTROY_WAIT_SECS);
+    let started = user_mode_runtime::now();
+    while user_mode_runtime::now().wrapping_sub(started) < ceiling {
+        if done() {
+            return true;
+        }
+        yield_now();
+    }
+    false
 }
 
 /// Copy `bytes` into the shared filesystem page (a name to open/create, or data to write).

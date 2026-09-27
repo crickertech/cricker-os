@@ -410,6 +410,15 @@ path = "src/session_reviver.rs"
 test = false
 bench = false
 
+# The session process (milestone 152 (durable delegation), S1 of 2026-09-26, provisional name): built by `login` from a
+# user's session budget when they open their schedule; it builds their timetable, supervises it, and
+# is what keeps the session alive after they disconnect. `initrd_aarch64` packs it as "session".
+[[bin]]
+name = "session"
+path = "src/session.rs"
+test = false
+bench = false
+
 # The network time client (milestone 51, renamed and split by milestone 290): holds a network
 # capability and the right to PROPOSE a time, and deliberately not the right to set one. It used to
 # be one binary with three `arg0` roles; the other two are test-only and live in `fixtures/` now

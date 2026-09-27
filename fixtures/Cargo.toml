@@ -456,6 +456,9 @@ soak_page = { version = "0.1.0", path = "../crates/soak_page" }
 job_mix = { version = "0.1.0", path = "../crates/job_mix" }
 credential_protocol = { version = "0.1.0", path = "../crates/credential_protocol" }
 login_protocol = { version = "0.1.0", path = "../crates/login_protocol" }
+# The registration page's layout (milestone 152 (durable delegation)): `login_test_client` opens and empties a durable
+# session's schedule through it.
+timetable = { version = "0.1.0", path = "../crates/timetable" }
 compositor = { version = "0.1.0", path = "../crates/compositor" }
 coremark = { version = "0.1.0", path = "../crates/coremark" }
 nifefs = { version = "0.1.0", path = "../crates/nifefs" }

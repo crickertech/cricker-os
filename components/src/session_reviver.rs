@@ -12,7 +12,8 @@
 //!    ([`schedule_store::parse_manifest`]): the hard-wired set of identities that currently have a
 //!    durable session with pending scheduled work (DECISIONS §125, this lane's own answer to the gap
 //!    neither §122 nor §123 fully specified).
-//! 2. For every identity the manifest names, reads that identity's own
+//! 2. For every identity the manifest names and the owner's suspended list
+//!    (`login_protocol::SUSPENDED_LIST`, milestone 152's §108 (disabling credentials kills the durable session) ruling) does not, reads that identity's own
 //!    [`schedule_store::SCHEDULE_FILE_NAME`] file (DECISIONS §117's per-identity subtree, §122's
 //!    format) and parses it with [`timetable::parse`] unchanged, proving §122's write path (this
 //!    lane's own `fixtures/src/fs_test_client.rs::ROLE_SCHEDULE_SEED`) and this read path agree on the
@@ -171,8 +172,8 @@ const SESSION_UT_PAGES: u64 = 4;
 /// `login_test_client`'s `PENDING_JOB_PAGES` for the same reason: nothing is ever retyped from it.
 const JOB_UT_PAGES: u64 = 1;
 
-/// **Success.** Word 1 of the report is how many identities the manifest named and this process
-/// re-derived (proved the §16 lifecycle for) before deleting its own capabilities.
+/// **Success.** Word 1 of the report is how many identities the manifest named, were not on the
+/// owner's suspended list, and this process re-derived (proved the §16 lifecycle for) before deleting its own capabilities.
 pub const OK: u64 = 1;
 
 /// The manifest itself could not be read or did not parse. Word 1 is the stage (see [`done`]'s
@@ -188,11 +189,19 @@ pub const FAILED: u64 = 2;
 /// mistake, found by the same `script/test` run that caught this one.
 static mut MANIFEST_BUF: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
 static mut DOC_BUF: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
+/// The owner's suspended list, alive beside the manifest for the whole loop, for the same reason.
+static mut SUSPENDED_BUF: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
 
 /// One thread per address space (DECISIONS §33), so there is no concurrent access.
 fn manifest_buf() -> &'static mut [u8; filesystem_protocol::PAGE] {
     let p = &raw mut MANIFEST_BUF;
     // SAFETY: see above.
+    unsafe { &mut *p }
+}
+/// Same reasoning as [`manifest_buf`].
+fn suspended_buf() -> &'static mut [u8; filesystem_protocol::PAGE] {
+    let p = &raw mut SUSPENDED_BUF;
+    // SAFETY: see `manifest_buf`.
     unsafe { &mut *p }
 }
 /// Same reasoning as [`manifest_buf`].
@@ -222,8 +231,19 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
         done(0x12)
     };
 
+    // **Suspended identities are skipped** (milestone 152 (durable delegation), calef's §108 ruling
+    // of 2026-09-26): the owner's list, read once, by name, in `login`'s format. No list, or one
+    // that cannot be read, suspends nobody, which is `login_protocol::SUSPENDED_LIST`'s direction.
+    let suspended_len = read_root_file(login_protocol::SUSPENDED_LIST.as_bytes()).unwrap_or(0);
+    let suspended = suspended_buf();
+    suspended[..suspended_len].copy_from_slice(&fs_page()[..suspended_len]);
+    let suspended = &suspended[..suspended_len];
+
     let mut rederived = 0u64;
     for identity in manifest.entries() {
+        if login_protocol::lists(suspended, identity) {
+            continue;
+        }
         if !rederive_one(identity) {
             done(0x20 + rederived.min(0x0F)); // which identity (bounded) this process got to
         }

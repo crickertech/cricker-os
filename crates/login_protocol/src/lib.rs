@@ -189,11 +189,34 @@ pub const LOGIN: u64 = 1;
 /// carries no page: there is nothing here a caller did not already know. Build it with
 /// [`logout_word`]. See this contract's own BUGS for what `LOGOUT` does not authenticate.
 pub const LOGOUT: u64 = 3;
+/// **Authenticate, and open this identity's schedule** (milestone 152 (durable delegation),
+/// §222 (who holds a user's schedule), calef's L2 ruling of 2026-09-26). Sent on the private
+/// channel in place of [`LOGIN`], staged with [`place`] exactly as [`LOGIN`] is. On success `login`
+/// builds the session process that holds the identity's timetable, and [`OK`] carries
+/// [`SCHEDULE_FOLLOWS`]. A [`LOGIN`] for an identity whose session is already durable reattaches to
+/// it and carries [`SCHEDULE_FOLLOWS`] too.
+///
+/// The ruling said "a new request word after `OK`". It travels as the request itself instead,
+/// because `login` blocks on one endpoint at a time and could not wait for a word after `OK`
+/// without every existing client sending one. Name and value: provisional.
+pub const SCHEDULE: u64 = 7;
+/// **The owner's suspended list changed: apply it now** (milestone 152 (durable delegation),
+/// calef's §108 (disabling credentials kills the durable session) ruling of 2026-09-26). A bare word on the front door, like [`LOGOUT`], built with
+/// [`suspend_word`]. `login` rereads [`SUSPENDED_LIST`] and ends every durable session it keeps for
+/// an identity on it, then answers [`APPLIED`] with how many it ended. Anyone holding the front
+/// door can send it, which is harmless for the reason [`LOGOUT`] is: it acts only on a list a
+/// session cannot write. Name and value: provisional, a wire item.
+pub const SUSPEND: u64 = 8;
 
 /// `send(REQUEST, connect_word(), 0, 0)`. The bare word [`CONNECT`] travels as; a client never calls
 /// [`place`] for this step, because there is no identity or secret to stage.
 pub fn connect_word() -> u64 {
     CONNECT << credential_protocol::OP_SHIFT
+}
+
+/// `send(REQUEST, suspend_word(), 0, 0)`. The bare word [`SUSPEND`] travels as.
+pub fn suspend_word() -> u64 {
+    SUSPEND << credential_protocol::OP_SHIFT
 }
 
 /// `send(REQUEST, logout_word(), 0, 0)`. The bare word [`LOGOUT`] travels as, on the *front door*
@@ -218,6 +241,11 @@ pub const OK: u64 = 1;
 /// (every kernel test harness before this bit) sends five, and a client that always waited for six
 /// would block for ever. Name: provisional.
 pub const RUN_UNVOUCHED_FOLLOWS: u64 = 1;
+/// **A bit of [`OK`]'s second word: the registration page follows** (milestone 152). After the
+/// run-unvouched capability when that is announced too, one more `RECV_CAP` delivers a page frame
+/// (`WRITE`): the identity's timetable's registration page, `timetable::registration`'s whole
+/// protocol. Announced for the reason [`RUN_UNVOUCHED_FOLLOWS`] is. Name: provisional.
+pub const SCHEDULE_FOLLOWS: u64 = 2;
 
 /// **The owner's list of identities whose sessions may run unvouched bytes** (DECISIONS §221 (the
 /// boot prompt is the owner's console), ruling 2): a file at the root of the file service, beside
@@ -256,6 +284,72 @@ pub fn lists(list: &[u8], identity: &[u8]) -> bool {
             .any(|line| line == identity)
 }
 
+/// **`list` with `identity` added**, into `out`: `list` unchanged when it already names it, else
+/// `list`, a newline if it did not end in one, and `identity` on a line of its own. The byte count,
+/// or `None` when `out` is too small or `identity` is not a name a list can hold (empty, or with
+/// whitespace, or starting with `#`). What `user suspend <name>` writes (milestone 152 (durable
+/// delegation)).
+///
+/// # EXAMPLES
+///
+/// ```
+/// let mut out = [0u8; 64];
+/// let n = login_protocol::with_listed(b"# suspended\nchris", b"corinne", &mut out).unwrap();
+/// assert_eq!(&out[..n], b"# suspended\nchris\ncorinne\n");
+/// let n = login_protocol::with_listed(b"chris\n", b"chris", &mut out).unwrap();
+/// assert_eq!(&out[..n], b"chris\n");
+/// assert!(login_protocol::with_listed(b"", b"two words", &mut out).is_none());
+/// ```
+pub fn with_listed(list: &[u8], identity: &[u8], out: &mut [u8]) -> Option<usize> {
+    if !listable(identity) {
+        return None;
+    }
+    if lists(list, identity) {
+        out.get_mut(..list.len())?.copy_from_slice(list);
+        return Some(list.len());
+    }
+    let sep = usize::from(!list.is_empty() && !list.ends_with(b"\n"));
+    let n = list.len() + sep + identity.len() + 1;
+    let dst = out.get_mut(..n)?;
+    dst[..list.len()].copy_from_slice(list);
+    if sep == 1 {
+        dst[list.len()] = b'\n';
+    }
+    dst[list.len() + sep..n - 1].copy_from_slice(identity);
+    dst[n - 1] = b'\n';
+    Some(n)
+}
+
+/// **`list` with every line naming `identity` removed**, into `out`, other lines and comments kept
+/// as they were. What `user resume <name>` writes (milestone 152). `None` when `out` is too small.
+///
+/// # EXAMPLES
+///
+/// ```
+/// let mut out = [0u8; 64];
+/// let n = login_protocol::without_listed(b"# suspended\nchris\n corinne\n", b"corinne", &mut out).unwrap();
+/// assert_eq!(&out[..n], b"# suspended\nchris\n");
+/// ```
+pub fn without_listed(list: &[u8], identity: &[u8], out: &mut [u8]) -> Option<usize> {
+    let mut n = 0;
+    for line in list.split_inclusive(|&b| b == b'\n') {
+        let body = line.strip_suffix(b"\n").unwrap_or(line).trim_ascii();
+        if !identity.is_empty() && body == identity {
+            continue;
+        }
+        out.get_mut(n..n + line.len())?.copy_from_slice(line);
+        n += line.len();
+    }
+    Some(n)
+}
+
+/// Whether `identity` can be a line of a list: non-empty, no whitespace, not a comment.
+fn listable(identity: &[u8]) -> bool {
+    !identity.is_empty()
+        && !identity.starts_with(b"#")
+        && !identity.iter().any(u8::is_ascii_whitespace)
+}
+
 /// **Refused.** The identity is unknown, the secret is wrong, the service could not mint a
 /// capability set for an otherwise-authenticated principal, or (on the front door) the service could
 /// not mint a private channel at all (see this service's BUGS on the second and third cases: both
@@ -282,6 +376,30 @@ pub const NO_TERMINAL: u64 = 5;
 /// [`LOGOUT`]. Idempotent: sent whether or not anything was actually held, since a logout that
 /// arrives when nobody holds the terminal is harmless rather than an error.
 pub const LOGGED_OUT: u64 = 6;
+
+/// **Authenticated, and suspended** (milestone 152, the §108 ruling of 2026-09-26). The identity
+/// and secret were right and the identity is on [`SUSPENDED_LIST`]. Sent only after a successful
+/// authentication, so only someone who already holds the secret learns the account is suspended,
+/// and learns it plainly rather than as a wrong password. Nothing follows. Name and value:
+/// provisional, a wire item.
+pub const SUSPENDED: u64 = 7;
+
+/// **[`SUSPEND`]'s answer**, on the front door's `RESULT`; the second word is how many durable
+/// sessions were ended. Name and value: provisional.
+pub const APPLIED: u64 = 8;
+
+/// **The owner's list of suspended identities** (milestone 152, calef's §108 ruling of
+/// 2026-09-26), a file at the root of the file service in [`RUN_UNVOUCHED_LIST`]'s place and
+/// format, read with [`lists`]. `user suspend <name>` at the owner's console adds a name and
+/// `user resume <name>` removes it. `login` refuses a listed identity with [`SUSPENDED`] and ends
+/// its durable session; the boot-time re-deriver skips it.
+///
+/// **Empty by default, and the failure direction is the opposite of the run-unvouched list's**, which
+/// is worth saying because it is not a free choice: no file, or one that cannot be read, suspends
+/// nobody. Failing toward "suspended" would lock every user out when the file service is slow.
+///
+/// Name: provisional (milestone 152, 2026-09-26).
+pub const SUSPENDED_LIST: &str = "suspended";
 
 /// **One attribution record**, sent once per successful login on the service's own audit endpoint
 /// (`components/src/login.rs`'s `AUDIT` slot), so the property DECISIONS §109 names ("a server ... logs
@@ -351,6 +469,42 @@ pub const CARETAKER_ELF_VA: u64 = 0x0000_0000_0100_0000;
 /// space that grows.
 pub const PROGRAM_MEASUREMENTS_VA: u64 = 0x0000_0000_0140_0000;
 
+/// **Where the schedule archive is mapped, read-only, before `login`'s `_start` runs**, with its
+/// length in the third argument register (milestone 152). A `nifefs` archive holding `session`,
+/// `timetable`, and `jobs`: a second `nifefs` archive of the programs a scheduled job may run. Every
+/// program in both is checked against the table at [`PROGRAM_MEASUREMENTS_VA`] before anything is
+/// built from it. The jobs travel as their own archive so the timetable is handed exactly them, and
+/// not a second copy of itself and of `session`. Zero length means no schedule can
+/// be opened on this boot: [`SCHEDULE`] is then answered as [`LOGIN`] is, without
+/// [`SCHEDULE_FOLLOWS`].
+pub const SCHEDULE_ARCHIVE_VA: u64 = 0x0000_0000_0180_0000;
+
+/// **How `login` starts a session process** (milestone 152, S1 of 2026-09-26), in this crate for
+/// the reason the two constants above are: `components/src/login.rs` and
+/// `components/src/session.rs` both read it. Every name here is provisional.
+pub mod session {
+    /// Slot 0: the endpoint the session process reports readiness on, once, `WRITE`.
+    pub const READY_SLOT: u64 = 0;
+    /// Slot 1: the region the timetable and every job it fires are built from, `WRITE | GRANT`.
+    pub const BUDGET_SLOT: u64 = 1;
+    /// Slot 2: the registration page, `WRITE`, which the session maps into its timetable.
+    pub const PAGE_SLOT: u64 = 2;
+    /// Where `timetable`'s image is copied into the session process; its length is `a0`.
+    pub const TIMETABLE_VA: u64 = 0x0000_0000_0200_0000;
+    /// Where the jobs archive is copied into the session process; its length is `a1`.
+    pub const JOBS_VA: u64 = 0x0000_0000_0280_0000;
+    /// The name the jobs archive travels under inside the schedule archive.
+    pub const JOBS: &str = "jobs";
+    /// The readiness word: the timetable is built, started, and watching the page.
+    pub const READY: u64 = 0x5e55_0000_0000_0001;
+    /// The last word, on the same endpoint: the timetable is gone and everything built from the
+    /// session process's budget is given back. `login` takes it before reclaiming the process, so
+    /// the reclaim never lands mid-teardown and strands a region under the user's budget.
+    pub const STOPPED: u64 = 0x5e55_0000_0000_0002;
+    /// The failure word; the low byte says which step.
+    pub const FAILED: u64 = 0x5e55_0000_0000_0f00;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,6 +524,34 @@ mod tests {
             );
         }
         assert!(!lists(b"", b"chris"), "an empty list named somebody");
+    }
+
+    /// **What `user suspend` and `user resume` write is what `login` reads** (milestone 152
+    /// (durable delegation)): a name added is listed, added twice is listed once, removed is not
+    /// listed, and a name the list cannot hold is refused rather than written.
+    #[test]
+    fn the_suspended_list_round_trips_through_its_two_edits() {
+        let mut out = [0u8; 128];
+        let n = with_listed(b"# owner's list\nchris", b"corinne", &mut out).unwrap();
+        let list = out;
+        assert!(lists(&list[..n], b"corinne") && lists(&list[..n], b"chris"));
+        let again = with_listed(&list[..n], b"corinne", &mut out).unwrap();
+        assert_eq!(again, n, "adding a listed name changed the list");
+        let n2 = without_listed(&list[..n], b"corinne", &mut out).unwrap();
+        assert!(!lists(&out[..n2], b"corinne") && lists(&out[..n2], b"chris"));
+        assert!(
+            out[..n2].starts_with(b"# owner's list\n"),
+            "the comment was lost"
+        );
+        for bad in [&b""[..], b"two words", b"#chris"] {
+            assert!(with_listed(b"", bad, &mut out).is_none(), "{bad:?}");
+        }
+        assert!(with_listed(b"chris\n", b"corinne", &mut [0u8; 4]).is_none());
+        assert!(without_listed(b"chris\n", b"corinne", &mut [0u8; 2]).is_none());
+        assert_eq!(with_listed(b"", b"chris", &mut out), Some(6));
+        assert_eq!(op(suspend_word()), SUSPEND);
+        assert_eq!(op(logout_word()), LOGOUT);
+        assert_eq!(op(connect_word()), CONNECT);
     }
 
     #[test]

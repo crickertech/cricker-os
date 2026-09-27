@@ -210,3 +210,42 @@ fn a_fresh_reader_confirms_the_store_holds_exactly_what_the_seed_wrote() {
         verify[1],
     );
 }
+
+/// **A suspended identity is not re-derived** (milestone 152 (durable delegation), calef's §108 (disabling credentials kills the durable session)
+/// ruling of 2026-09-26). The same store the headline test re-derives one identity from, with that
+/// identity on the owner's suspended list: a second pass of the re-deriver re-derives none, and
+/// still reports success and its own deletion proof, because skipping a suspended user is not a
+/// failure. The list is removed again afterwards; the file service is one fixture for the suite.
+#[test_case]
+fn a_suspended_identity_is_not_re_derived_at_boot() {
+    if fs_service::fs_server_image().is_none() {
+        crate::testing::skip!(fs_service::NO_FS_SERVER);
+    }
+    if wired().is_none() {
+        crate::testing::skip!("no RedoxFS disk attached");
+    }
+    let (fs_ep, fs_page_frame) =
+        fss::root_directory(fss::blk_server_image(), redoxfs_server_image())
+            .expect("wired() already brought the file service up");
+    let mut list = [0u8; 64];
+    let id = schedule_store::fixture::DEMO_IDENTITY.as_bytes();
+    list[..id.len()].copy_from_slice(id);
+    list[id.len()] = b'\n';
+    fss::set_root_list(login_protocol::SUSPENDED_LIST, Some(&list[..id.len() + 1]));
+    let w = srs::revive(fs_ep, fs_page_frame, REVIVER_BUDGET_PAGES)
+        .expect("session_reviver was not packed, or refused by its measured-boot check");
+    fss::set_root_list(login_protocol::SUSPENDED_LIST, None);
+    assert_eq!(
+        w[0],
+        srs::RPT_OK,
+        "the re-deriver failed rather than skipping: {w:?}"
+    );
+    assert_eq!(
+        w[1], 0,
+        "a suspended identity was re-derived at boot: {w:?}"
+    );
+    assert_eq!(
+        w[2], 1,
+        "the re-deriver's deletion proof did not hold: {w:?}"
+    );
+}

@@ -11,7 +11,7 @@ const CRED_VA: u64 = address_space_map::pair_page(0x0000_0000_00e3_0000);
 /// mirrors this program's own post-auth `map_page_frame(fs_page_frame, FS_VA, true, budget)`, but a
 /// run holds no budget yet at the point it must map its own connect channel). Margin over the one
 /// page a fresh mapping ever strictly needs, on this file's own existing style for every other
-/// region here.
+/// region here. One page more since milestone 152: the run's report endpoint is retyped from it.
 ///
 /// **Reclaimed once the run is dead** ([`wait_client`], 2026-09-26 UTC). A run's scratch pays for
 /// page tables in that run's own address space, so it is handed to
@@ -22,7 +22,7 @@ const CRED_VA: u64 = address_space_map::pair_page(0x0000_0000_00e3_0000);
 /// fail to load a program for want of frames, and one more login test in milestone 152's lane took
 /// the aarch64 suite to 253 of `memory_region::MAX_REGIONS` (256) live regions at `timetable_tests`,
 /// so the timetable's `--mem` split failed and the test hung rather than failing.
-const CLIENT_SCRATCH_UT_PAGES: u64 = 4;
+const CLIENT_SCRATCH_UT_PAGES: u64 = 5;
 
 /// Stack pages beyond the one page `run` maps. This process parses the initrd, parses an ELF, and
 /// builds a child address space (`supervision_protocol::build_child`), which is deeper than
@@ -56,6 +56,11 @@ pub const PRESENT_RUN_UNVOUCHED: u64 = 6;
 /// Milestone 152 (durable delegation): logs in, holds a pending-job child off the budget, proves the logout is refused
 /// until the child is gone. See the same file's module docs. Provisional name.
 pub const PENDING_WORK: u64 = 7;
+/// Milestone 152: logs in with `SCHEDULE`, replaces the document, detaches. Provisional name.
+pub const OPEN_SCHEDULE: u64 = 8;
+/// Milestone 152: logs in, reattaches, empties the schedule, waits for the timetable to stop.
+/// Provisional name.
+pub const EMPTY_SCHEDULE: u64 = 9;
 /// [`PRESENT_RUN_UNVOUCHED`]'s proof-of-life word; must match the same file's
 /// `RUN_UNVOUCHED_MAGIC`.
 pub const RUN_UNVOUCHED_MAGIC: u64 = 0x_7e12_0000_0000_0002;
@@ -69,6 +74,8 @@ pub const RPT_MALFORMED: u64 = login_protocol::MALFORMED;
 pub const RPT_NO_TERMINAL: u64 = login_protocol::NO_TERMINAL;
 /// [`FREE_TERMINAL`]'s own answer.
 pub const RPT_LOGGED_OUT: u64 = login_protocol::LOGGED_OUT;
+/// Milestone 152: authenticated, and on the owner's suspended list.
+pub const RPT_SUSPENDED: u64 = login_protocol::SUSPENDED;
 
 /// [`HOLD_TERMINAL`]'s proof-of-life word for the delegated terminal; must match the same file's
 /// `TERM_MAGIC`.
@@ -98,6 +105,16 @@ pub const F_LOGOUT_REFUSED_WHILE_PENDING: u64 = 1 << 12;
 pub const F_SESSION_SURVIVED_REFUSAL: u64 = 1 << 13;
 /// Milestone 152: the pending-job child was destroyed.
 pub const F_PENDING_WORK_DESTROYED: u64 = 1 << 14;
+/// Milestone 152: the reply announced the registration page.
+pub const F_SCHEDULE_ANNOUNCED: u64 = 1 << 15;
+/// Milestone 152: the replace was in force (planned to fire, or emptied).
+pub const F_REPLACED: u64 = 1 << 16;
+/// Milestone 152: the page already carried the first session's reply.
+pub const F_REATTACHED: u64 = 1 << 17;
+/// Milestone 152: the timetable's exit word appeared.
+pub const F_TIMETABLE_EXITED: u64 = 1 << 18;
+/// Milestone 152: the document was written to the identity's stored schedule first.
+pub const F_STORED: u64 = 1 << 19;
 
 /// **[`LOGOUT`]'s third report word is microseconds, not an identity hint**: how long that
 /// behaviour's `MemoryRegion::DESTROY` on the caretaker region waited for §16's armed kill to land.
@@ -175,6 +192,7 @@ pub fn start(
     fs_ep: RendezvousId,
     fs_page_frame: u64,
     construction_pages: u64,
+    schedule: &'static [u8],
 ) -> Wiring {
     let elf = Elf::parse(image).expect("login is not loadable");
 
@@ -203,6 +221,7 @@ pub fn start(
         + 1 // CRED_VA
         + caretaker.len().div_ceil(FRAME_SIZE as usize) as u64
         + measurements.len().div_ceil(FRAME_SIZE as usize) as u64
+        + schedule.len().div_ceil(FRAME_SIZE as usize) as u64
         + LOGIN_STACK_PAGES
         + 8;
     let mut space = AddressSpace::new(content).expect("no memory for login");
@@ -220,6 +239,9 @@ pub fn start(
         login_protocol::PROGRAM_MEASUREMENTS_VA,
         measurements,
     );
+    // The schedule archive (milestone 152): what `login` builds a user's session process and
+    // timetable from, when they ask for their schedule. Empty means no schedule opens.
+    map_blob(&mut space, login_protocol::SCHEDULE_ARCHIVE_VA, schedule);
     // Milestone 49's channel-per-client update removed the front door's own shared staging page:
     // `CONNECT` (the only word the front door accepts) carries no page at all, and every actual
     // login's identity and secret now travel on a page `login`'s own `connect()` mints and maps at
@@ -321,8 +343,15 @@ pub fn start(
 
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
-    sched::start_thread_control_block(tid, [caretaker.len() as u64, measurements.len() as u64, 0])
-        .expect("start");
+    sched::start_thread_control_block(
+        tid,
+        [
+            caretaker.len() as u64,
+            measurements.len() as u64,
+            schedule.len() as u64,
+        ],
+    )
+    .expect("start");
 
     Wiring {
         request,
@@ -372,7 +401,6 @@ pub fn spawn_client(
     identity: u64,
     secret: u64,
 ) -> ClientRun {
-    let report = sched::create_rendezvous();
     // A small, private scratch budget for this one run: milestone 49's channel-per-client update
     // means a run must map the page `login`'s `CONNECT` step delegates before it holds anything
     // else of its own (unlike the post-auth `budget`, `map_page_frame`'s own page-table cost has
@@ -381,6 +409,13 @@ pub fn spawn_client(
     // own, unrelated pages must never be able to exhaust or interfere with each other's page tables.
     let scratch =
         crate::memory_region::create(CLIENT_SCRATCH_UT_PAGES).expect("no scratch region for a run");
+    // **The report endpoint comes out of the scratch too** (milestone 152), so reclaiming the
+    // scratch once the run is dead takes the endpoint with it. `sched::create_rendezvous` draws on
+    // the kernel's own chunks, which are never given back, and the whole machine shares
+    // `sched::MAX_RENDEZVOUS` (512) live endpoints: one per run was enough, with the durable-session
+    // tests' three more, to reach that ceiling in `timetable_tests` on 2026-09-26.
+    let report =
+        sched::create_rendezvous_from(scratch).expect("no report endpoint in a run's scratch");
     // Copied out of `w` rather than captured by reference: the spawned closure must be `'static`,
     // and an `RendezvousId` is a plain integer with nothing left to borrow once it is in hand.
     let (request, result) = (w.request, w.result);
