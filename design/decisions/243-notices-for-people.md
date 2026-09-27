@@ -7,8 +7,8 @@ ratified_by: calef
 
 # 243. Notices for people: programs publish, users curate, displays show
 
-*Section number provisional: §241 is claimed by #1421 and §242 by #1423, so this took 243 on
-2026-09-27 (UTC) and may move at merge. The slug and every wire value and constant below stay
+*Section number provisional: §241 (threadbare) is claimed by #1421 and §242 by #1423, so this took
+243 on 2026-09-27 (UTC) and may move at merge. The slug and every wire value and constant stay
 provisional; the name and the service, ratified below, do not.*
 
 Raised 2026-09-27 (UTC) by calef in the maintainer session: *"We want components to be able to
