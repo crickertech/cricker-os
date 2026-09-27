@@ -1,0 +1,165 @@
+name: architect label
+
+# **The general case of `coe-architect-label.yml`.** That workflow's own header quotes §88 (`needs-
+# architect` as a required check, rather than as a script's restraint): it built the enforcement
+# half of `needs-architect` (`architect-hold.yml` fails while the label sits on a pull request) and
+# named the harder half it did not build, *"a check that reads the diff and demands
+# the label when the syscall surface or the dependency graph moved... the second is the real
+# answer,"* then built one shape of it, a correction of error. This workflow is the rest of it: the
+# syscall surface, the dependency graph, a format crate's wire layout, the spawn protocol, and
+# CLAUDE.md/`design/decisions/`.
+#
+# **A separate workflow, not an extension of `coe-architect-label.yml`, and not a change to
+# `architect-hold.yml`.** `coe-architect-label.yml`'s own header already argues the second half of
+# that (read it there: a labeler earns its keep by being best-effort, a required check earns its
+# keep by being small, deterministic and read-only, and mixing them costs the required check its
+# argument for nothing this job needs). Its first half does not carry over to a second labeler
+# unmodified, though, and the difference is what decided "separate file" here: that workflow reads
+# ONLY the pull request's changed-file *names*, over the API, so it never checks the repository out
+# and needs nothing past `contents: read` plus the one label-write scope. This workflow's rules
+# cannot be answered from file names. Rule 2 (an external dependency) has to tell a version bump
+# of an existing dependency from a brand-new one, which means parsing each `Cargo.toml`'s
+# dependency table on both sides of the change; rule 3 (a format crate) has to classify a file from
+# its own content (does it declare a `VERSION`/`MAGIC` constant, does its module doc carry a
+# version table) before deciding whether a change to it counts. Both need the file, not just its
+# path, on both sides of the diff. So this workflow checks the repository out (still never
+# `pull_request_target`, for the same fork-safety reason `coe-architect-label.yml`'s header gives:
+# the risk that trigger carries is base-repo token privilege against a fork-controlled event, which
+# nothing here is worth) and hands a `git diff` to the actual predicate,
+# `helpers/architect-label-rules.py`, which is pure text-in, text-out and has its own `--selftest`
+# (wired into `script/lint`, so it costs nothing there and needs no repository or subprocess to
+# run).
+#
+# **The five rules live in that script's own docstring, not duplicated here.** A comment here
+# describing them would drift from the code the moment either changed without the other; the
+# script is the one place they are decided, and this file's job is only to feed it a diff and act
+# on what it says.
+
+on:
+  # Same three types `coe-architect-label.yml` listens for, and the same reason: only a new commit
+  # can change what the diff says, so `labeled`/`unlabeled`/`ready_for_review` would cost a run for
+  # no chance of a different answer (this label is never removed by this job, so `unlabeled` in
+  # particular has nothing to react to). No draft-skip condition: a lane's first act is a draft
+  # pull request (AGENTS.md; DECISIONS §90 (the claim is a draft pull request; the status flip is
+  # a gate)), and the whole point of a diff-reading check is to tell a lane about its own syscall
+  # or dependency change before it asks to be reviewed, not after.
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+# `contents: read` for the checkout (this job, unlike `coe-architect-label.yml`, needs actual file
+# content, not just the API's changed-file list; see the header above). `pull-requests: write` for
+# the label and the one comment. Nothing else: no merge action, no repository write, no wider API
+# scope. Same fork caveat as `coe-architect-label.yml`: this is deliberately `pull_request`, not
+# `pull_request_target`, so a fork's `GITHUB_TOKEN` is read-only regardless of this block and both
+# the label and the comment steps below log why they could not act rather than failing the job.
+permissions:
+  contents: read
+  pull-requests: write
+
+# **`cancel-in-progress: true`, unlike `coe-architect-label.yml`'s `false` for the same trigger
+# shape, and deliberately the opposite call.** That workflow's header explains its `false`: an
+# `opened` run and a later `synchronize` run there read two DIFFERENT diffs (a `synchronize` there
+# asks "what did THIS push add" so it can tell a re-added label from a human's removal), so
+# cancelling the older one can silently drop a detection rather than just being late with it. This
+# workflow has no such split: every run here diffs the same two things, the pull request's base sha
+# and its current head, regardless of which event triggered it, and it never removes the label
+# either, so an in-flight run superseded by a newer push is answering a question a newer run is
+# about to answer again from scratch. Cancelling it costs nothing this job needs and saves a
+# runner-minute on every force-push.
+concurrency:
+  group: architect-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: label the diff's syscall/dependency/format/decision surface
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      # `fetch-depth: 0` + `filter: blob:none` is `merge-drain.yml`'s own pairing for the same
+      # reason: this needs history to diff against the pull request's base, but not every blob in
+      # that history, and a partial clone fetches on demand exactly the blobs the diff below
+      # actually touches (the changed files on both sides) rather than the whole tree.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      # **The diff, at unlimited context, is the whole contract `helpers/architect-label-rules.py`
+      # is written against**: its own docstring explains why `--unified=1000000` turns each changed
+      # file's hunk into that file's whole content with the changed lines marked, which is what
+      # lets its rules reconstruct both the pre-image and the post-image without a second `git
+      # show` per file. No pathspec restricts this diff; an unchanged file emits nothing regardless
+      # of the context width, so widening it costs bytes only for files that already changed.
+      #
+      # `github.event.pull_request.base.sha` is this pull request's own base commit at the moment
+      # this event fired, exactly what `ci.yml`'s scope check uses for the same comparison (read
+      # its own comment on the same line); the `merge-base` fallback is dead code for a plain
+      # `pull_request` trigger (this workflow has no `merge_group:` trigger to need it for) and
+      # stays only because it costs nothing to keep this step honest if that ever changes.
+      - name: Run the diff-reading rules
+        id: rules
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+          if [ -z "$base" ]; then
+            echo "architect-label: no base to diff against; skipping this run." >&2
+            echo "add=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "architect-label: diffing $base..HEAD"
+          report="$(git diff --unified=1000000 "$base" HEAD | \
+              python3 helpers/architect-label-rules.py || true)"
+          if [ -n "$report" ]; then
+            echo "architect-label: fired:"
+            printf '%s\n' "$report" | sed 's/^/  /'
+            echo "add=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "report<<ARCHITECT_LABEL_EOF"
+              printf '%s\n' "$report"
+              echo "ARCHITECT_LABEL_EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "architect-label: nothing in this diff matched a rule"
+            echo "add=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # **Never fails the build, same as `coe-architect-label.yml`'s label step and for the same
+      # reason: this is a convenience that routes attention, not a gate**, and no `design/decisions/`
+      # section or dependency addition should ever be blocked from existing because a label API call
+      # failed. `--repo` is passed explicitly for the same reason that workflow's own header records
+      # about the cost of leaving it out: this job never checks the repository out under a git
+      # remote `gh` can infer from (it does check the repository out here, but not via a remote
+      # named the same as `github.repository`'s normalized form, and the earlier failure cost a
+      # whole labeler silently doing nothing for a day), so naming it is cheap insurance either way.
+      - name: Add needs-architect (never removes it)
+        if: steps.rules.outputs.add == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label needs-architect 2>&1; then
+            echo "architect-label: needs-architect added (or already present) on PR #$PR_NUMBER"
+          else
+            echo "architect-label: could not add needs-architect to PR #$PR_NUMBER." >&2
+            echo "architect-label: not fatal -- a human reading the diff still sees the change." >&2
+          fi
+          exit 0
+
+      # **The one comment, marker-guarded so it posts once.** The composition and the marker-guard
+      # both live in `helpers/architect-label-comment.sh` (its own header has the reasoning,
+      # including why a YAML `run:` block is the wrong place to write a multi-line comment body: a
+      # block literal's indentation rule makes a fenced code block starting in column 1 invalid
+      # YAML the moment it is written the way a human would write a comment). What stays here is
+      # only: do it if a rule fired, and pass the three things the script needs.
+      - name: Comment once, naming which rule fired
+        if: steps.rules.outputs.add == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.rules.outputs.report }}
+        run: |
+          helpers/architect-label-comment.sh \
+            "${{ github.event.pull_request.number }}" \
+            "${{ github.repository }}" \
+            "$REPORT"

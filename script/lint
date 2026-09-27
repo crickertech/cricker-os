@@ -2814,6 +2814,15 @@ python3 helpers/prose_ratchet.py --check
 # them lands rather than on the morning the workflow publishes them.
 python3 helpers/baseline_drift.py --selftest >/dev/null
 
+# §88 (`needs-architect` as a required check, rather than as a script's restraint)'s diff-reading
+# half (.github/workflows/architect-label.yml, the general case of
+# coe-architect-label.yml): whether a pull request's diff moved the syscall surface, the dependency
+# graph, a format crate's wire layout, the spawn protocol, or CLAUDE.md/design/decisions/. The rule
+# engine is pure text-in-text-out (helpers/architect-label-rules.py), so its selftest is fixtures
+# only, no git and no subprocess, and costs nothing here.
+echo "==> the architect-label diff rules"
+python3 helpers/architect-label-rules.py --selftest >/dev/null
+
 echo "==> em-dashes"
 # calef's standing style rule (CLAUDE.md): no em-dashes, use commas, periods, semicolons or
 # parentheses. It is a house style rather than a correctness property, and it is gated for the same
