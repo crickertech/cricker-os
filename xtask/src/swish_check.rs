@@ -635,6 +635,18 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // real bytes and had nothing to complain about", said without asserting any byte of them.
     line(1, "uuid 2> ent.txt", &[]),
     line(1, "wc < ent.txt", &["0 0 0"]),
+    // **A `std` program's words on a redirected line** (milestone 205 (how a foreign program is
+    // told what to do)): `>` sends the line down the pipeline path, `spawn_stage`, rather than
+    // `spawn`'s, so the argv takes the other of the shell's two routes. The count is
+    // `std_tests::EXPECTED`'s transcript with its `args []` line read as `args ["std_exerciser",
+    // "redirected"]`: 15 lines, 42 words, 272 bytes.
+    //
+    // **Not `std_exerciser | wc`**, which was this line until CI said otherwise on 2026-09-27. The
+    // job pool returns a region only when it is the most recent carve, and a pipeline's head is
+    // carved first and reaped first, so a `std` head strands its whole region and no `std` job
+    // runs again until reboot. See 205's BUGS.
+    line(1, "std_exerciser redirected > args.txt", &[]),
+    line(1, "wc < args.txt", &["15 42 272"]),
     // And the visibility surface, which is what a person meets before anything is spawned. On
     // Linux there is nothing here to say: no tool reports whether a program will read
     // `/dev/urandom`, and nothing about running one reveals it either. Here it is a row, and the
@@ -909,6 +921,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 5  frame     clock",
             "cap 6  endpoint  entropy  WRITE",
             "cap 7  frame     config",
+            "cap 8  frame     args",
         ],
     ),
     // **Every phrase is a slot or a page landing where `std` looks for it**, which is why the
@@ -920,11 +933,16 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // 6; `config seeded` is slot 7 and the page at `CONFIG_PAGE`, read before `main`; and the last
     // line is `process::exit` reaching the supervisor as an exit rather than a fault. The stack is
     // the one thing with no phrase of its own: too little of it is a fault partway through.
+    //
+    // **`args [...]` is milestone 205 (how a foreign program is told what to do)'s** (DECISIONS §170 (how a foreign program is told what to do)): the shell wrote the line's words onto a
+    // page, the progenitor copied it into the child's region at slot 8, and `std::env::args_os()`
+    // read it back, `argv[0]` first and the quoted phrase as one word with its quotes off.
     line(
         1,
-        "std_exerciser",
+        "std_exerciser one 'two words'",
         &[
             "hello from std on nife",
+            "args [\"std_exerciser\", \"one\", \"two words\"]",
             "vec sum 149985000",
             "fs honestly unsupported",
             "net honestly unsupported",
@@ -934,6 +952,9 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "exiting through process::exit",
         ],
     ),
+    // **An unquoted pattern is refused at the prompt, with nothing spawned** (§170): the words
+    // carry no authority, so expanding one would hand over names and nothing they name.
+    line(0, "std_exerciser *.rs", &["its words are not expanded"]),
     line(0, "echo shell-boot-gate-done", &["shell-boot-gate-done"]),
 ];
 
@@ -1360,7 +1381,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         );
     }
     let skipped = |line: &str| {
-        swish_check_omits(arch, line).is_some() || (line == "std_exerciser" && !std_built)
+        swish_check_omits(arch, line).is_some() || (line.starts_with("std_exerciser") && !std_built)
     };
     eprintln!();
     eprintln!(

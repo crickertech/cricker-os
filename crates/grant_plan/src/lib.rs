@@ -919,15 +919,15 @@ impl Prog {
                 runtime: Runtime::Native,
             },
             Prog::StdExerciser => Manifest {
-                // Nothing on the line: how a `std` program is told what to do is DECISIONS §170 (how a foreign program is
-                // told what to do),
-                // which is open, and `std::env::args()` yields nothing on nife until it rules.
-                arg: ArgSpec::Forbidden,
+                // **The line's words are its argv** (milestone 205, DECISIONS §170): `std_exerciser
+                // one 'two words'` prints what `std::env::args()` yielded, which is the transcript
+                // proving the page reaches `std`.
+                arg: ArgSpec::Words,
                 mem: MemSpec::Forbidden,
                 file: FileSpec::Forbidden,
-                // No directory either. Which word on a line becomes a `std` program's directory
-                // is the designation half of §170, so this program is spawned holding none and
-                // runs its offline transcript, which is also the one that asserts the most slots.
+                // No directory. §170 ruled that a word's bytes carry no authority and that the
+                // directories granted on the line bound what they reach; this program is spawned
+                // holding none and runs its offline transcript, the one that asserts the most slots.
                 dir: DirSpec::Forbidden,
                 flags: NO_FLAGS,
                 // std's `stdout` and `stderr` both send on `std_runtime_protocol::STDOUT_SLOT` in
@@ -1311,6 +1311,17 @@ pub enum ArgSpec {
     Required,
     /// The program takes no argument; supplying one is [`Refusal::ArgForbidden`].
     Forbidden,
+    /// **The program hears the line's words as its argv, as bytes** (milestone 205 (how a foreign
+    /// program is told what to do), DECISIONS §170). Everything typed after the program's name, up
+    /// to the first operator, reaches it as one argument per word with its quotes taken off,
+    /// preceded by the name itself as `argv[0]`. Nothing is classified: an option letter the shell
+    /// has never heard of is the program's business, not a refusal, because §170 ruled that these
+    /// bytes carry no authority. What a word may reach is decided by the grants alone, so a
+    /// manifest declaring this declares no positional grant (`a_program_that_hears_words_places_no_positional_grant`).
+    ///
+    /// Only a program on the `std` layout can read an argv ([`Runtime::Std`]); see [`argv`] for how
+    /// the page is assembled. Name: provisional (2026-09-26).
+    Words,
 }
 
 /// A program's expectation about a memory grant (`--mem N`).
@@ -1566,8 +1577,9 @@ pub enum Runtime {
 /// `std_exerciser`'s transcript is proven under, plus 128 for the build: about 40 pages of image,
 /// 32 of stack, the page tables for the windows a `std` child touches, and a caretaker if a
 /// directory grant rides along. It is not a measurement of any program's high-water mark, and it is
-/// nowhere near what `rg` over a real tree needs; a budget a person can size at the prompt is an
-/// argument, which is DECISIONS §170's.
+/// nowhere near what `rg` over a real tree needs. A budget a person sizes at the prompt would be
+/// `--mem`'s shape, which no `std` manifest declares yet; §170 (how a foreign program is told what
+/// to do) gave a `std` program its words and not a budget.
 ///
 /// Name: provisional.
 pub const STD_REGION_PAGES: u64 = 256 + 128;
@@ -1736,6 +1748,10 @@ pub const MAX_POSITIONALS: usize = 4;
 pub struct RunSpec<'a> {
     /// The program name as typed (may not resolve).
     pub prog: &'a [u8],
+    /// **The whole invocation as it was typed**, which is what a program that hears words is given
+    /// ([`ArgSpec::Words`], milestone 205). Everything else here is a classification of it, and a
+    /// classification is exactly what §170 said such a program must not get.
+    line: &'a [u8],
     /// `--mem N`, if given. Recognized before or after the program name, because with the `run`
     /// verb gone the line reads `memory_grant_depleter --mem 16` the way every other command line does.
     pub mem: Option<u64>,
@@ -1772,6 +1788,11 @@ impl<'a> RunSpec<'a> {
     /// manifest declares; nothing else should interpret them.
     pub fn positionals(&self) -> &[&'a [u8]] {
         &self.pos[..self.npos]
+    }
+
+    /// The whole invocation as typed, for [`argv`]. See the field.
+    pub fn line(&self) -> &'a [u8] {
+        self.line
     }
 
     /// The short-option letters typed, in order. Meaningless until a manifest says which exist.
@@ -2243,6 +2264,18 @@ pub enum Refusal {
     /// [`TooManyStages`](Refusal::TooManyStages), and a line that wants more is better written as
     /// several lines than silently truncated.
     TooManySegments,
+    // ---- milestone 205's argv (DECISIONS §170).
+    /// **A pattern on the line of a program that hears words** (`rg foo *.rs`). A pattern elsewhere
+    /// designates the names it matched, and that is a grant; here the words carry no authority, so
+    /// expanding one would hand over names without handing over anything they name. Refused rather
+    /// than passed through literally, because every other shell a person has used would have
+    /// expanded it, and a program searching a file called `*.rs` is a silent misreading. Quoting
+    /// the word passes it as it is. Name: provisional.
+    PatternInArguments,
+    /// **The words do not fit on one argument page** (`argument_protocol::CAPACITY`, 4,080 bytes
+    /// with a four-byte length per word). Refused whole rather than truncated, for
+    /// [`Refusal::TooManyNames`]'s reason. Name: provisional.
+    ArgumentsTooLong,
 }
 
 /// The kind of capability a command designated but the shell cannot back. Phase 1 has one; the
@@ -2353,6 +2386,12 @@ impl Refusal {
             }
             Refusal::EmptySegment => "a connector with no command on one side of it",
             Refusal::TooManySegments => "that is more commands than one line sequences (at most 8)",
+            Refusal::PatternInArguments => {
+                "its words are not expanded, so a pattern would reach it as it is: quote it to mean that"
+            }
+            Refusal::ArgumentsTooLong => {
+                "those words do not fit on its argument page (4,080 bytes, four more for each word)"
+            }
         }
     }
 }
@@ -2387,6 +2426,63 @@ pub fn tokenize<'a, 'b>(line: &'a [u8], out: &'b mut [&'a [u8]]) -> &'b [&'a [u8
         }
     }
     &out[..n]
+}
+
+/// **Assemble the argv of a program that hears words** (milestone 205 (how a foreign program is
+/// told what to do), DECISIONS §170; see [`ArgSpec::Words`]), onto `page`, and return how many
+/// words it carries.
+///
+/// `line` is one command: the program's name and its words, with no operator on it. Every word is
+/// read exactly as [`parse_run`] reads one, quotes off, and none is classified: `-i`,
+/// `--color=never` and `8` all arrive as the bytes that were typed. The program's name is `argv[0]`,
+/// as typed, because `ripgrep` skips the first element and `clap` treats it as the binary's name.
+///
+/// Refused, with the page left not an argv, for [`check_words`]'s reasons. The planner has already
+/// asked that question of the same line, so a refusal here means the line changed in between.
+pub fn argv(line: &[u8], page: &mut [u8; argument_protocol::PAGE_BYTES]) -> Result<u32, Refusal> {
+    let mut b = argument_protocol::PageBuilder::new(page);
+    each_word(line, &mut |w| {
+        b.push(w).map_err(|_| Refusal::ArgumentsTooLong)
+    })?;
+    Ok(b.finish())
+}
+
+/// **Whether [`argv`] would take `line`**, without a page to write on. The planner asks it, so a
+/// line is refused at the prompt, and in `caps`, before anything is spawned. Three reasons: quotes
+/// that do not make sense ([`word::read`]'s), an unquoted pattern
+/// ([`Refusal::PatternInArguments`]), and more than one page ([`Refusal::ArgumentsTooLong`]). There
+/// is no word-count ceiling beyond the page, unlike [`parse_run`]'s sixteen tokens, because nothing
+/// here is placed into a slot.
+pub fn check_words(line: &[u8]) -> Result<(), Refusal> {
+    let mut used = 0usize;
+    each_word(line, &mut |w| {
+        used += 4 + w.len();
+        if used > argument_protocol::CAPACITY {
+            Err(Refusal::ArgumentsTooLong)
+        } else {
+            Ok(())
+        }
+    })
+}
+
+/// Every word of `line`, quotes off, with an unquoted pattern refused. The one walk [`argv`] and
+/// [`check_words`] share, so the check and the page cannot disagree about what a word is.
+fn each_word(line: &[u8], f: &mut dyn FnMut(&[u8]) -> Result<(), Refusal>) -> Result<(), Refusal> {
+    let mut rest = line;
+    loop {
+        let mut one = [&b""[..]; 1];
+        let Some(&token) = tokenize(rest, &mut one).first() else {
+            return Ok(());
+        };
+        // `token` is a slice of `rest`, so what follows it is everything after its last byte.
+        let end = token.as_ptr() as usize - rest.as_ptr() as usize + token.len();
+        rest = &rest[end..];
+        let w = word::read(token)?;
+        if !w.quoted && glob::has_magic(w.text) {
+            return Err(Refusal::PatternInArguments);
+        }
+        f(w.text)?;
+    }
 }
 
 /// Parse a whole command line into a [`Command`]. Pure and allocation-free.
@@ -2637,6 +2733,7 @@ pub fn parse_run(line: &[u8]) -> RunSpec<'_> {
 
     RunSpec {
         prog,
+        line,
         mem,
         pos,
         posq,
@@ -2756,7 +2853,11 @@ pub fn plan_against_with(
 
     // A flag nothing knows, or a token past what any manifest could hold. Nothing about this
     // program's declaration can rescue it, so it is answered before the slots are filled.
-    if run.unexpected.is_some() {
+    //
+    // **Not for a program that hears words** (§170): its line is its argv, a flag-shaped token is
+    // one of its words, and the shell has no business refusing an option it never had to know.
+    let words = m.arg == ArgSpec::Words;
+    if run.unexpected.is_some() && !words {
         return Err(Refusal::Unexpected);
     }
 
@@ -2765,7 +2866,7 @@ pub fn plan_against_with(
     // one of them may *widen the directory grant* below, so the line has to be known-good before
     // anything is decided about how much authority it moves.
     let mut flags = 0u64;
-    for &letter in run.options() {
+    for &letter in run.options().iter().filter(|_| !words) {
         let bit = m
             .flags
             .letters()
@@ -2792,6 +2893,13 @@ pub fn plan_against_with(
             v
         }
         ArgSpec::Forbidden => 0,
+        // Every positional is a word of the argv the shell assembles at spawn ([`argv`]), so none
+        // is left to place and none is unplaceable.
+        ArgSpec::Words => {
+            check_words(run.line)?;
+            next = pos.len();
+            0
+        }
     };
 
     // The file grant takes the next positional. The name is the whole designation; the direction
@@ -5735,6 +5843,101 @@ mod tests {
             );
         }
         assert!(std_programs > 0, "a sweep over nothing proves nothing");
+    }
+
+    /// **A program that hears words places no positional grant** (milestone 205, DECISIONS §170).
+    /// Its words carry no authority and all of them go to its argv, so a positional file,
+    /// directory or input slot would have nothing left to fill, and an option letter the shell
+    /// validated would be one the program never sees. Only `std` reads an argv.
+    #[test]
+    fn a_program_that_hears_words_places_no_positional_grant() {
+        let mut hearing = 0;
+        for &p in Prog::ALL {
+            let m = p.manifest();
+            if m.arg != ArgSpec::Words {
+                continue;
+            }
+            hearing += 1;
+            let name = p.name();
+            assert_eq!(m.runtime, Runtime::Std, "{name}: only std reads an argv");
+            assert_eq!(m.file, FileSpec::Forbidden, "{name}");
+            assert_eq!(m.dir, DirSpec::Forbidden, "{name}");
+            assert_eq!(m.input, InputSpec::Forbidden, "{name}");
+            assert!(
+                m.flags.letters().is_empty(),
+                "{name}: its options are its own"
+            );
+        }
+        assert!(hearing > 0, "a sweep over nothing proves nothing");
+    }
+
+    /// Assemble `line`'s argv and check it reads back as exactly `want`.
+    fn assert_words(line: &[u8], want: &[&[u8]]) {
+        let mut page = [0u8; argument_protocol::PAGE_BYTES];
+        assert_eq!(argv(line, &mut page), Ok(want.len() as u32));
+        let got = argument_protocol::ArgPage::parse(&page);
+        assert_eq!(got.len(), want.len());
+        assert!(got.iter().eq(want.iter().copied()));
+    }
+
+    fn refused(line: &[u8]) -> Refusal {
+        argv(line, &mut [0u8; argument_protocol::PAGE_BYTES]).unwrap_err()
+    }
+
+    /// **Every word arrives as it was typed, and none is classified** (§170). An option the shell
+    /// never heard of, a `--long=value`, an integer, and a quoted phrase with the quotes off; the
+    /// name first, as `argv[0]`. Past `parse_run`'s sixteen tokens too, because nothing is placed.
+    #[test]
+    fn argv_carries_every_word_as_typed() {
+        assert_words(
+            b"rg  -i --color=never 'two words' 8 \"a*b\"",
+            &[b"rg", b"-i", b"--color=never", b"two words", b"8", b"a*b"],
+        );
+        let mut many = [b' '; 80];
+        for i in 0..40 {
+            many[2 * i] = b'w';
+        }
+        assert_words(&many, &[&b"w"[..]; 40]);
+    }
+
+    /// **An unquoted pattern is refused, not expanded and not passed through** (§170: the words
+    /// carry no authority, so expanding one would hand over names and nothing they name). The same
+    /// bytes quoted are one word.
+    #[test]
+    fn argv_refuses_an_unquoted_pattern_and_passes_a_quoted_one() {
+        assert_eq!(refused(b"rg foo *.rs"), Refusal::PatternInArguments);
+        assert_words(b"rg foo '*.rs'", &[b"rg", b"foo", b"*.rs"]);
+        assert_eq!(refused(b"rg 'foo"), Refusal::UnclosedQuote);
+    }
+
+    /// **A line that does not fit is refused whole**, and the page it was being written onto is
+    /// left reading as no arguments rather than as the words that fitted.
+    #[test]
+    fn argv_refuses_a_line_past_one_page_and_leaves_no_argv() {
+        let mut line = [b'x'; argument_protocol::CAPACITY + 3];
+        line[..3].copy_from_slice(b"rg ");
+        let mut page = [0u8; argument_protocol::PAGE_BYTES];
+        assert_eq!(argv(&line, &mut page), Err(Refusal::ArgumentsTooLong));
+        assert!(argument_protocol::ArgPage::parse(&page).is_empty());
+    }
+
+    /// **The planner lets a program that hears words have its whole line** (§170): a flag-shaped
+    /// token is not `Unexpected`, a letter is not `NoSuchOption`, and five words are not past
+    /// `MAX_POSITIONALS`. Nothing is placed, so the endowment carries no argument and no flags.
+    #[test]
+    fn a_program_that_hears_words_is_planned_whatever_its_words_are() {
+        let e = plan(
+            &parse_run(b"std_exerciser -xyz --long a b c d e f"),
+            WITH_DIR,
+        )
+        .unwrap();
+        assert_eq!(e.prog, Prog::StdExerciser);
+        assert_eq!((e.arg, e.flags, e.file, e.dir), (0, 0, None, None));
+        // And a line `argv` would refuse is refused here, at the prompt, before anything is sent.
+        assert_eq!(
+            plan(&parse_run(b"std_exerciser *.rs"), WITH_DIR),
+            Err(Refusal::PatternInArguments)
+        );
     }
 
     /// **No manifest declares both a file and an input** (milestone 150). Both take a bare name on

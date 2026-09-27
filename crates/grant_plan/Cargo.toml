@@ -18,6 +18,10 @@ workspace = true
 # on. `grant_plan` is depended on by `user` and `kernel`, so it is exactly that case.
 glob = { version = "0.1.0", path = "../glob" }
 
+# The argument page's layout (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign program is told what to do)): `argv` assembles a line's words onto
+# it, so the shell and the std PAL that reads the page share one definition.
+argument_protocol = { version = "0.1.0", path = "../argument_protocol" }
+
 # `filesystem_protocol` is a DEV dependency only, and deliberately: the shell must be able to check a command
 # line without linking the filesystem contract. It is here so one host test can pin the grant name
 # limit against the contract that actually carries it, which is what makes the duplicated constant

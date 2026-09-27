@@ -246,6 +246,23 @@ const ACTIVATION_BIT: u64 = 1 << 40;
 /// Name: provisional (milestone 198 rung 3a, 2026-09-26).
 const RUN_UNVOUCHED_BIT: u64 = 1 << 41;
 
+/// **The line's argv follows as one frame** (milestone 205 (how a foreign program is told what to
+/// do), DECISIONS §170 (how a foreign program is told what to do)). The shell assembles the words it was typed into one page in
+/// `argument_protocol`'s layout and `SEND_CAP`s it narrowed to `READ`, after the directory grant's
+/// data and any image's frames, and before every other delegated capability.
+///
+/// **The progenitor copies it**, for [`IMAGE_BIT`]'s reason: the shell keeps a mapping of the frame.
+/// It copies into a page carved from the child's own region, so the child's reclaim frees it, and
+/// places that at `std_runtime_protocol::ARGS_SLOT` mapped read-only at `ARGS_PAGE`. The bytes are
+/// not read on the way, because §170 ruled that they carry no authority: what a word may reach is
+/// the directory grant's business and nothing on this page can widen it.
+///
+/// A request that sets it for a program that does not run on the `std` layout has its frame taken
+/// and dropped, so both sides stay in lockstep and the child gets nothing it could not read.
+///
+/// Name: provisional (milestone 205, 2026-09-26).
+const ARGS_BIT: u64 = 1 << 42;
+
 /// **Where a session holds the run-unvouched capability** (DECISIONS §219 gate D2): the slot the
 /// progenitor places it in, `WRITE` only, in the boot shell and in `login`, and the slot `login`
 /// delegates it from.
@@ -459,6 +476,8 @@ pub struct Wiring {
     /// **One `SEND` on the run-unvouched capability follows the delegation** (DECISIONS §219 gate
     /// D2). See `RUN_UNVOUCHED_BIT`.
     pub run_unvouched: bool,
+    /// **The line's argv follows as one `READ` frame** (DECISIONS §170). See `ARGS_BIT`.
+    pub args: bool,
 }
 
 /// Build the three request words from a resolved endowment's parts.
@@ -491,6 +510,9 @@ pub fn request(prog_id: u64, arg: u64, mem_pages: u64, w: Wiring) -> (u64, u64, 
     if w.run_unvouched {
         w2 |= RUN_UNVOUCHED_BIT;
     }
+    if w.args {
+        w2 |= ARGS_BIT;
+    }
     (prog_id, arg, w2)
 }
 
@@ -507,6 +529,7 @@ pub fn wiring(w2: u64) -> Wiring {
         screen: w2 & SCREEN_BIT != 0,
         image: w2 & IMAGE_BIT != 0,
         run_unvouched: w2 & RUN_UNVOUCHED_BIT != 0,
+        args: w2 & ARGS_BIT != 0,
     }
 }
 
@@ -663,44 +686,32 @@ mod tests {
         assert_eq!(mem_pages(w2), 0);
     }
 
-    /// **The nine flags are independent of each other and of the page count** (milestone 50 (pipes and redirection),
-    /// §67 (a program's second stream is a declaration)'s fourth, milestone 31 (a capability shell) phase 3's fifth, DECISIONS §106 (the `terminal_sink_caretaker` narrowing)'s sixth, milestone 154 (a process that holds two directory capabilities)'s
-    /// seventh, and §219's image and its gate D2). They share one word, and what the progenitor reads next off the endpoint depends on all of
-    /// them, so a bit that bled into another would make the progenitor take a capability for a data word
-    /// (or the reverse) and hang rather than fail.
+    /// **The ten flags are independent of each other and of the page count** (milestone 50 (pipes
+    /// and redirection), §67 (a program's second stream is a declaration)'s fourth, milestone 31 (a
+    /// capability shell) phase 3's fifth, DECISIONS §106 (the `terminal_sink_caretaker` narrowing)'s
+    /// sixth, milestone 154 (a process that holds two directory capabilities)'s seventh, §219's
+    /// image and its gate D2, and §170's argv). They share one word, and what the progenitor reads
+    /// next off the endpoint depends on all of them, so a bit that bled into another would make the
+    /// progenitor take a capability for a data word (or the reverse) and hang rather than fail.
     #[test]
     fn the_wiring_flags_do_not_collide() {
-        for &interruptible in &[false, true] {
-            for &sink in &[false, true] {
-                for &source in &[false, true] {
-                    for &diagnostics in &[false, true] {
-                        for &dir in &[false, true] {
-                            for &dir2 in &[false, true] {
-                                for &screen in &[false, true] {
-                                    for &image in &[false, true] {
-                                        for &run_unvouched in &[false, true] {
-                                            let w = Wiring {
-                                                interruptible,
-                                                sink,
-                                                source,
-                                                diagnostics,
-                                                dir,
-                                                dir2,
-                                                screen,
-                                                image,
-                                                run_unvouched,
-                                            };
-                                            let (_, _, w2) = request(3, 0, 64, w);
-                                            assert_eq!(wiring(w2), w, "{w:?}");
-                                            assert_eq!(mem_pages(w2), 64, "{w:?}");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        for m in 0u32..1 << 10 {
+            let b = |i: u32| m & (1 << i) != 0;
+            let w = Wiring {
+                interruptible: b(0),
+                sink: b(1),
+                source: b(2),
+                diagnostics: b(3),
+                dir: b(4),
+                dir2: b(5),
+                screen: b(6),
+                image: b(7),
+                run_unvouched: b(8),
+                args: b(9),
+            };
+            let (_, _, w2) = request(3, 0, 64, w);
+            assert_eq!(wiring(w2), w, "{w:?}");
+            assert_eq!(mem_pages(w2), 64, "{w:?}");
         }
     }
 
@@ -756,6 +767,7 @@ mod tests {
             screen: true,
             image: true,
             run_unvouched: true,
+            args: true,
         };
         let (_, w1, w2) = request(3, 2, 64, all);
         assert_eq!(activation(w1, w2), None);

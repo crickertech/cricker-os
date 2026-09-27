@@ -48,6 +48,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "argument_protocol"
+version = "0.1.0"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -448,6 +452,7 @@ version = "0.1.0"
 name = "grant_plan"
 version = "0.1.0"
 dependencies = [
+ "argument_protocol",
  "filesystem_protocol",
  "glob",
 ]

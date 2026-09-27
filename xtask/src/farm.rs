@@ -22,7 +22,7 @@ const STD_TARGETS: [&str; 3] = [
 const NIFE_TOOLCHAIN: &str = "nife-dev";
 
 /// Bump to force every farm to rebuild after a change to the patch logic itself (not the inputs).
-const STD_SRC_PATCH_VERSION: u32 = 8;
+const STD_SRC_PATCH_VERSION: u32 = 9;
 
 fn farm_dir() -> PathBuf {
     workspace_root().join("target/nife-farm")
@@ -110,6 +110,9 @@ pub(crate) fn std_inputs_stamp() -> u64 {
         // this crate, generated verbatim into the PAL, so a change to either must rebuild the
         // farm or the PAL silently drifts from what assembles the page.
         root.join("crates/environment_protocol/src/lib.rs"),
+        // The argument page (milestone 205, DECISIONS §170 (how a foreign program is told what to do)): `sys/args` reads the byte argv's
+        // layout out of this crate, so a change to it must rebuild the farm.
+        root.join("crates/argument_protocol/src/lib.rs"),
         // The std runtime contract (milestone 595 (provisional)): `rt`'s slot numbers and page
         // addresses, generated verbatim into the PAL, so the loader and the PAL read one file.
         root.join("crates/std_runtime_protocol/src/lib.rs"),
@@ -426,6 +429,12 @@ fn std_generate_modules() -> bool {
             root.join("crates/environment_protocol/src/lib.rs"),
             farm_std_src().join("sys/pal/nife/envproto.rs"),
         ),
+        // The argument page (milestone 205 (how a foreign program is told what to do), DECISIONS
+        // §170), so `sys/args` reads the argv with the layout the shell assembles it in.
+        (
+            root.join("crates/argument_protocol/src/lib.rs"),
+            farm_std_src().join("sys/pal/nife/argproto.rs"),
+        ),
         // The byte-sink contract (milestone 50), so `println!`'s framing and the classification of
         // a failed SEND are one definition shared with every sink and with the kernel-side tests.
         // Same discipline as the six above, and the one that would hurt most to get wrong: a drift
@@ -570,6 +579,14 @@ fn std_patch_dispatch() -> bool {
         // env costs us; `common` is gated on a `#[cfg(any(...))]` platform list that would have been
         // a second one to keep in step across nightlies.
         &sys.join("env/mod.rs"),
+        "cfg_select! {",
+        "    target_os = \"nife\" => {\n        mod nife;\n        pub use nife::*;\n    }",
+    ) && patch_after(
+        // args: the byte argv (milestone 205, DECISIONS §170). The arm precedes the `_ =>`
+        // unsupported fallback, whose `args()` yields nothing, which is where unmodified `ripgrep`
+        // stopped. `sys/args/nife.rs` defines its own `Args`, as `sys/env/nife.rs` does, because
+        // `sys/args/common.rs` is gated on a platform list that would be a second anchor.
+        &sys.join("args/mod.rs"),
         "cfg_select! {",
         "    target_os = \"nife\" => {\n        mod nife;\n        pub use nife::*;\n    }",
     ) && patch_after(

@@ -292,6 +292,7 @@ pub(super) fn std_fs_expected(buf: &mut [u8; 768]) -> usize {
 /// two `unsupported` lines prove `fs`/`net` refuse honestly rather than pretend.
 pub(super) const EXPECTED: &[u8] = b"hello from std on nife\n\
     os nife\n\
+    args []\n\
     vec sum 149985000\n\
     string len 500\n\
     map lookup 1369\n\
