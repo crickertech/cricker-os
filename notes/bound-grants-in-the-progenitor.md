@@ -23,7 +23,7 @@ Partly. Three things the brief assumed turned out otherwise when the tree was re
   its one endpoint as `BootEndowment::fs_ep`. "Per mount" today means "for the one filesystem".
   The choice is still worth making per server, because milestone 140 (mount a drive this system did
   not create) will add a second server kind, and FAT will not be eligible.
-- Nothing on the device reads a package declaration. `packages/*.package` is read by
+- Nothing on the device reads a package declaration. `packages/*.package.toml` is read by
   `helpers/packages.py` on the host and by nothing else. What reaches the device is the package
   catalogue (stem and digest lines) and each program's ELF manifest note (milestone 597 (a program carries its
   manifest in an ELF note)). So a
@@ -107,11 +107,10 @@ These are code in the progenitor, and would be built as soon as both answers are
 
 - `manifest_note::SUBTREE_GRANTS` (note type 2, provisional): a version word and a scope word, one
   scope (`subtree_scope`). `carry_subtree_grants!` places it; `redoxfs_server` carries it.
-- `packages/redoxfs.package` declares `subtree_grants subtree_scope` (provisional field), and
-  `helpers/packages.py` checks three things agree: a crate carrying the note depends on
+- `packages/redoxfs.package.toml` declares `subtree_grants = "subtree_scope"` (provisional field),
+  and `helpers/packages.py` checks three things agree: a crate carrying the note depends on
   `subtree_scope`, its package declares the field, and a package declaring the field has a crate
-  that carries the note. The selftest plants a violation of each. When #1405 moves the package
-  files to TOML, the field becomes `subtree_grants = "subtree_scope"`.
+  that carries the note. The selftest plants a violation of each.
 - The progenitor reads the note from `redoxfs_server`'s measured bytes at boot and says which way
   it went. For a directory grant it binds the next window's badge to the named directory on its own
   channel, before the job holds anything, and hands the job the badged endpoint and a page of that
