@@ -1,35 +1,36 @@
 Falsifies `capability::the_count_is_the_slots`.
 
-The defect: `delete_matching` empties every matching slot and does not tell
-`shrank`. This is the exact mistake the private `grew`/`shrank` pair exists to make
-unwritable, and it is the plausible one rather than an invented one: `delete` is
-one slot and calls `shrank(1)` on the way out, while this is a sweep that frees a
-predicate's worth in a loop and has to count them itself. A revocation sweep is
-where a reviewer would least expect the bookkeeping to live.
+The defect: `empty`, the one door that frees a slot, sets the slot's free bit and
+does not decrement `used`. Milestone 231 (nothing counts how many capability
+slots a boot actually uses)'s original defect was `delete_matching`
+not telling `shrank`; since milestone 126 there is no separate call to forget,
+because both freeing paths go through `empty`, so the mistake moves to the door
+itself. It is still the plausible one: `empty` now keeps two records (the free-slot
+word and the count), and updating one of a pair is how a pair drifts.
 
-The cost is not authority, which is what makes it worth a harness of its own: every
-capability really is gone, so nothing can be named that should not be. What breaks
-is the *record*. `used` stays permanently above the truth for that table, the
-high-water mark stays above it with it, and the number a boot prints as
-`capability slots: N of M at peak` becomes an overstatement that nothing else in
-the tree can contradict. Milestone 231 exists because nobody knew that number;
-a silently wrong one is worse than none.
+The cost is not authority: every capability really is gone and the word says so,
+so `insert` reuses the slot correctly. What breaks is the *record*. `used` stays
+permanently above the truth, the high-water mark with it, and the number a boot
+prints as `capability slots: N of M at peak` becomes an overstatement that nothing
+else in the tree can contradict.
 
-Expected to fail: the third assertion, `assert_eq!(cs.used(), occupied(&cs),
-"delete_matching left the count behind")`, on any table state where the swept
-predicate matched at least one occupied slot. The two before it pass, because the
-`put` path and `delete` are both untouched by this edit.
+Expected to fail: the second assertion, `assert_eq!(cs.used(), occupied(&cs),
+"delete left the count behind")`, on any table state where the deleted slot was
+occupied. The first passes, because `put` goes through `fill`, which this edit does
+not touch.
+
+**Re-cut 2026-09-27 (UTC) for milestone 126 (the `procps` package).** The previous
+cut removed `self.shrank(freed)` from `delete_matching`; that line no longer exists.
 
 diff --git a/crates/capability/src/lib.rs b/crates/capability/src/lib.rs
-index 89ae29da..12ebc2c6 100644
+index 7c197bdf4..a18b72fad 100644
 --- a/crates/capability/src/lib.rs
 +++ b/crates/capability/src/lib.rs
-@@ -438,7 +438,7 @@ impl<O: Copy, const N: usize> CapabilityTable<O, N> {
-                 freed += 1;
-             }
+@@ -382,7 +382,6 @@ mod storage {
+         pub(super) fn empty(&mut self, slot: usize) -> Option<Cap<O>> {
+             let cap = self.slots.get_mut(slot)?.take()?;
+             self.free |= 1u32 << slot;
+-            self.used -= 1;
+             Some(cap)
          }
--        self.shrank(freed);
-+        let _ = freed;
-     }
- }
  

@@ -268,6 +268,22 @@ const _: () = assert!(core::mem::size_of::<Cap>() == 32);
 /// slot, derived, moves from 23 to 31; the machine page takes 23. The headroom account is
 /// [`CAPABILITY_TABLE_PEAK_MEASURED`]'s.
 pub const CAPABILITY_TABLE_SLOTS: usize = 32;
+
+// **The free-slot word is a `u32`, so thirty-two is also the ceiling the type allows** (milestone
+// 126 (the `procps` package), calef's ruling on #1360, 2026-09-27, UTC). `capability::CapabilityTable`
+// asserts this for every size it is built at; it is repeated here because this line is where the
+// next raise will be typed, and the message should meet that person here rather than inside a
+// const evaluation in another crate. Raising past it is widening that word to a `u64`, which the
+// constant's doc on `capability::MAX_SLOTS` prices.
+const _: () = assert!(
+    CAPABILITY_TABLE_SLOTS <= capability::MAX_SLOTS,
+    "the capability table's free-slot bitmap is one u32; widen it before raising the slot count"
+);
+// And the word cost nothing: it sits in the four bytes of padding after `used` and `peak`, so the
+// table is 1,032 bytes with the bitmap and was 1,032 without it (32 slots of 32 bytes, two `u16`s,
+// rounded to eight). If this fires, the layout moved and `crate::thread`'s page-fit check is the
+// next thing to read.
+const _: () = assert!(core::mem::size_of::<CapabilityTable>() == 1032);
 pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_SLOTS>;
 
 /// **What a real interactive boot actually reaches**, and the number the three slots of headroom

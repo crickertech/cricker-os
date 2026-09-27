@@ -83,7 +83,29 @@ patagonia (2026-09-27, one sample each, seconds):
 
 No change the noise can tell apart; a first 32-slot run read 8.5 s on the second harness and the
 next read 2.5, which is the size of that noise. `crates/capability`'s harnesses fix their own small
-table sizes (2, 3, 4, 16, 64) and do not read the constant, so the raise does not reach them.
+table sizes (2, 3, 4, 8, 16, 32) and do not read the constant, so the raise does not reach them.
+
+## What 32 slots cost the fastpath, and how it was paid
+
+The raise put two gates red. Stack frames: every `Thread` copy grew 256 bytes, and a debug build
+holds two or three per spawn frame, so two frames crossed the 4096-byte guard page. The fix builds
+kernel threads in place and needed no ruling. Fastpath footprint: `CapabilityTable::insert` found
+its slot with a scan LLVM unrolled once per slot, so the Reply mint on every `CALL` grew with `N`.
+calef chose a free-slot bitmap on #1360 (2026-09-27, UTC): `insert` is now one `trailing_zeros`,
+and the slots sit behind a private module whose only writers keep the word in step, proved by
+`capability::the_free_mask_is_the_empty_slots`.
+
+`ipc_call_reply` in bytes, measured on `nightly-2026-09-27` against `main` at `bc943534f`:
+
+| ISA | baseline | main | 32 slots, scan | 32 slots, bitmap |
+|---|---|---|---|---|
+| aarch64 | 7196 | 7212 | 7576 (+5.3%) | 6988 (-2.9%) |
+| riscv64 | 6116 | 6268 | 6414 (+4.9%) | 6052 (-1.0%) |
+| x86_64 | 8446 | 8610 | 8886 (+5.2%) | 8275 (-2.0%) |
+
+riscv64 has no Zbb here, so `trailing_zeros` is a de Bruijn multiply and a 32-byte table lookup:
+ten instructions whatever the slot, where the scan cost about two and a half per slot it passed.
+aarch64 is `rbit` and `clz`; x86_64 is one `tzcnt`, which a CPU without BMI1 runs as `bsf`.
 
 ## The owner's switch is a boot-time constant, and that is an exception
 

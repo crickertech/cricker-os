@@ -57,6 +57,10 @@ of what moved and why, and the Kani timings that raise touched (the five `compon
 harnesses, 13.3 s at 24 slots and 11.8 s at 32, one sample each), are in
 `notes/process-view/the-machine-and-your-share.md`.
 
+The raise put the stack-frame and fastpath-footprint gates red. Kernel threads are now built in
+place, and calef chose a free-slot bitmap for `CapabilityTable::insert` on #1360; that note
+has the before and after numbers.
+
 ## Why this package, and why the package rather than the program
 
 What these programs want is enumeration of the process namespace, and enumeration is the authority
