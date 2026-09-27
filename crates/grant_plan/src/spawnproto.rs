@@ -83,8 +83,9 @@
 //!   [`SPAWN_REFUSED_BY_MANIFEST`] ([`crate::image_request_fits`]), never half-honoured.
 //! - **Only a plain line runs an image.** A path in a pipeline or behind a redirection reaches
 //!   the planner as a program name and is refused as "no such program", which is true of the name
-//!   and says nothing about the bytes. Nothing sets the bit alongside `interruptible` or `dir`, and
-//!   the progenitor refuses an interruptible image request if one arrives.
+//!   and says nothing about the bytes. Nothing sets the bit alongside `interruptible`, and the
+//!   progenitor refuses an interruptible image request if one arrives. `dir` rides an image only for
+//!   bytes that hear words (milestone 205), whose `std` region holds the caretaker too.
 //! - **Every activation verb is open to whoever holds the spawn endpoint**, including
 //!   [`Activation::Vouch`], which vouches for any bytes at all. That is the owner's authority by
 //!   DECISIONS §221 (the boot prompt is the owner's console), and it is safe only because the boot
@@ -262,6 +263,20 @@ const RUN_UNVOUCHED_BIT: u64 = 1 << 41;
 ///
 /// Name: provisional (milestone 205, 2026-09-26).
 const ARGS_BIT: u64 = 1 << 42;
+
+/// **The directory grant is a set of names, and the set follows as one frame** (milestone 205 (how
+/// a foreign program is told what to do), §170 clauses 2 to 5). Meaningful with [`Wiring::dir`]: the
+/// progenitor builds `fs_nameset_caretaker` rather than `fs_subtree_caretaker` for the grant, and
+/// maps it the set, `filesystem_protocol::nameset`'s encoding, read-only. The shell sends the frame
+/// `READ`-only after the argv's, before every other delegated capability; the progenitor copies it,
+/// for [`IMAGE_BIT`]'s reason, into a page from the job's region.
+///
+/// It is how a program that hears words gets exactly the names its words designated in the
+/// shell's directory and no sibling of them. `rm *.txt` would ride it too; nothing sends it for
+/// `rm` yet (`components/src/swish.rs`'s `dir_grant`).
+///
+/// Name: provisional (milestone 205, 2026-09-27).
+const NAMESET_BIT: u64 = 1 << 43;
 
 /// **Where a session holds the run-unvouched capability** (DECISIONS §219 gate D2): the slot the
 /// progenitor places it in, `WRITE` only, in the boot shell and in `login`, and the slot `login`
@@ -497,6 +512,9 @@ pub struct Wiring {
     pub run_unvouched: bool,
     /// **The line's argv follows as one `READ` frame** (DECISIONS §170). See `ARGS_BIT`.
     pub args: bool,
+    /// **The directory grant is a set of names, which follows as one `READ` frame** (milestone
+    /// 205). See `NAMESET_BIT`.
+    pub nameset: bool,
 }
 
 /// Build the three request words from a resolved endowment's parts.
@@ -532,6 +550,9 @@ pub fn request(prog_id: u64, arg: u64, mem_pages: u64, w: Wiring) -> (u64, u64, 
     if w.args {
         w2 |= ARGS_BIT;
     }
+    if w.nameset {
+        w2 |= NAMESET_BIT;
+    }
     (prog_id, arg, w2)
 }
 
@@ -549,6 +570,7 @@ pub fn wiring(w2: u64) -> Wiring {
         image: w2 & IMAGE_BIT != 0,
         run_unvouched: w2 & RUN_UNVOUCHED_BIT != 0,
         args: w2 & ARGS_BIT != 0,
+        nameset: w2 & NAMESET_BIT != 0,
     }
 }
 
@@ -705,16 +727,16 @@ mod tests {
         assert_eq!(mem_pages(w2), 0);
     }
 
-    /// **The ten flags are independent of each other and of the page count** (milestone 50 (pipes
+    /// **The eleven flags are independent of each other and of the page count** (milestone 50 (pipes
     /// and redirection), §67 (a program's second stream is a declaration)'s fourth, milestone 31 (a
     /// capability shell) phase 3's fifth, DECISIONS §106 (the `terminal_sink_caretaker` narrowing)'s
     /// sixth, milestone 154 (a process that holds two directory capabilities)'s seventh, §219's
-    /// image and its gate D2, and §170's argv). They share one word, and what the progenitor reads
+    /// image and its gate D2, and §170's argv and name set). They share one word, and what the progenitor reads
     /// next off the endpoint depends on all of them, so a bit that bled into another would make the
     /// progenitor take a capability for a data word (or the reverse) and hang rather than fail.
     #[test]
     fn the_wiring_flags_do_not_collide() {
-        for m in 0u32..1 << 10 {
+        for m in 0u32..1 << 11 {
             let b = |i: u32| m & (1 << i) != 0;
             let w = Wiring {
                 interruptible: b(0),
@@ -727,6 +749,7 @@ mod tests {
                 image: b(7),
                 run_unvouched: b(8),
                 args: b(9),
+                nameset: b(10),
             };
             let (_, _, w2) = request(3, 0, 64, w);
             assert_eq!(wiring(w2), w, "{w:?}");
@@ -787,6 +810,7 @@ mod tests {
             image: true,
             run_unvouched: true,
             args: true,
+            nameset: true,
         };
         let (_, w1, w2) = request(3, 2, 64, all);
         assert_eq!(activation(w1, w2), None);

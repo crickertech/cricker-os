@@ -30,7 +30,7 @@
 //! | offset | size | field | values |
 //! |---|---|---|---|
 //! | 0 | 4 | version | `1` |
-//! | 4 | 1 | `arg` | 0 forbidden, 1 required, 2 words (the line is the argv, milestone 205) |
+//! | 4 | 1 | `arg` | 0 forbidden, 1 required; hears words (milestone 205): 2 read-only, 3 read-write, 4 create |
 //! | 5 | 1 | `mem` | 0 forbidden, 1 required |
 //! | 6 | 1 | `file` | 0 forbidden, 1 read-only, 2 read-write |
 //! | 7 | 1 | `dir` | 0 forbidden, 1 required |
@@ -63,8 +63,12 @@
 //! **Version 1 was amended once, in place**, on 2026-09-27 (UTC): the `arg` field gained `2` for
 //! milestone 205 (how a foreign program is told what to do)'s `ArgSpec::Words`, with no version
 //! bump, on calef's ruling ("I think an incompatible change is probably fine. It has just been a
-//! few hours."). Nothing outside this tree had acted on version 1 by then. The rule above holds
-//! from here on.
+//! few hours."). Nothing outside this tree had acted on version 1 by then.
+//!
+//! **And a second time, later the same day**: `3` and `4` for the `WordGrant` a program that hears
+//! words declares (milestone 205's designation half), under the same ruling and before anything
+//! outside the tree had acted on it. `2` kept its meaning, read-only. Provisional until calef
+//! confirms the ruling covers this one too; the rule above holds from then on.
 //!
 //! # EXAMPLES
 //!
@@ -100,7 +104,7 @@
 
 use grant_plan::{
     ArgSpec, DIAGNOSTICS_SLOT, DirSpec, FileSpec, Flags, InputSpec, MAX_DECLARED_FLAGS, Manifest,
-    MemSpec, OutputSpec, Runtime,
+    MemSpec, OutputSpec, Runtime, WordGrant,
 };
 
 /// **The note's owner string**, without its NUL: the project's name, lowercase as
@@ -203,7 +207,9 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
         // A program whose line is its argv (milestone 205 (how a foreign program is told what to
         // do), §170 (how a foreign program is told what to do)). Added to version 1 in place on 2026-09-27; see the module's "one encoding"
         // paragraph for calef's ruling.
-        ArgSpec::Words => 2,
+        ArgSpec::Words(WordGrant::ReadOnly) => 2,
+        ArgSpec::Words(WordGrant::ReadWrite) => 3,
+        ArgSpec::Words(WordGrant::Create) => 4,
     };
     if let MemSpec::Required { min, max } = m.mem {
         out[MEM] = 1;
@@ -311,7 +317,9 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
     let arg = match d[ARG] {
         0 => ArgSpec::Forbidden,
         1 => ArgSpec::Required,
-        2 => ArgSpec::Words,
+        2 => ArgSpec::Words(WordGrant::ReadOnly),
+        3 => ArgSpec::Words(WordGrant::ReadWrite),
+        4 => ArgSpec::Words(WordGrant::Create),
         _ => return Err(Error::BadField(ARG)),
     };
     let mem = match d[MEM] {
@@ -500,6 +508,14 @@ mod tests {
         }
         let m = grant_plan::UNVOUCHED_MANIFEST;
         assert_eq!(decode(&encode(&m)), Ok(m));
+        // Each word grant a program that hears words may declare (milestone 205).
+        for g in [WordGrant::ReadOnly, WordGrant::ReadWrite, WordGrant::Create] {
+            let m = Manifest {
+                arg: ArgSpec::Words(g),
+                ..grant_plan::UNVOUCHED_STD_MANIFEST
+            };
+            assert_eq!(decode(&encode(&m)), Ok(m), "{g:?}");
+        }
     }
 
     #[test]

@@ -53,6 +53,12 @@ pub(crate) fn std_echo_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!("std_exerciser/target/{triple}/release/std_echo"))
 }
 
+/// **`std_grep`**, the workspace's third binary (milestone 205's designation half), put on the disk
+/// to be run by path.
+pub(crate) fn std_grep_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!("std_exerciser/target/{triple}/release/std_grep"))
+}
+
 /// **Unmodified `ripgrep` from crates.io, if somebody built it** (milestone 121).
 ///
 /// `helpers/build-ripgrep.sh` puts it here. Nothing in this build produces it, and that is the

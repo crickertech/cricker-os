@@ -922,7 +922,7 @@ impl Prog {
                 // **The line's words are its argv** (milestone 205, DECISIONS §170): `std_exerciser
                 // one 'two words'` prints what `std::env::args()` yielded, which is the transcript
                 // proving the page reaches `std`.
-                arg: ArgSpec::Words,
+                arg: ArgSpec::Words(WordGrant::ReadOnly),
                 mem: MemSpec::Forbidden,
                 file: FileSpec::Forbidden,
                 // No directory. §170 ruled that a word's bytes carry no authority and that the
@@ -1265,7 +1265,7 @@ pub fn image_can_carry(m: &Manifest) -> bool {
         && m.input == InputSpec::Forbidden
         && m.flags.letters().is_empty()
         && !m.interruptible
-        && std == (m.arg == ArgSpec::Words)
+        && std == (m.arg.hears_words())
         && (!std
             || (m.output == OutputSpec::Bytes
                 && m.mem == MemSpec::Forbidden
@@ -1278,7 +1278,7 @@ pub fn image_can_carry(m: &Manifest) -> bool {
 /// sets `spawnproto::ARGS_BIT`; the progenitor sizes the region from that bit and then checks its
 /// own reading of the note agrees ([`image_request_fits`]). Name: provisional.
 pub const fn image_hears_words(m: &Manifest) -> bool {
-    matches!(m.arg, ArgSpec::Words)
+    m.arg.hears_words()
 }
 
 /// **The manifest a file's bytes are bound and endowed with** (milestone 597, provisional), given
@@ -1372,7 +1372,7 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
 /// configuration at slot 7), plus the line's words at slot 8, which §170 ruled carry no authority.
 /// No entropy, network or domain, whatever the note asks. Name: provisional.
 pub const UNVOUCHED_STD_MANIFEST: Manifest = Manifest {
-    arg: ArgSpec::Words,
+    arg: ArgSpec::Words(WordGrant::ReadOnly),
     runtime: Runtime::Std,
     ..UNVOUCHED_MANIFEST
 };
@@ -1394,7 +1394,62 @@ pub enum ArgSpec {
     ///
     /// Only a program on the `std` layout can read an argv ([`Runtime::Std`]); see [`argv`] for how
     /// the page is assembled. Name: provisional (2026-09-26).
-    Words,
+    ///
+    /// **A word that names something here is granted it, as the [`WordGrant`] says** (§170 clauses
+    /// 2 to 5, milestone 205's designation half): see [`expand::Designation`] for which words those are.
+    Words(WordGrant),
+}
+
+impl ArgSpec {
+    /// Whether the program hears the line as its argv ([`ArgSpec::Words`]).
+    pub const fn hears_words(&self) -> bool {
+        matches!(self, ArgSpec::Words(_))
+    }
+}
+
+/// **What a word that names an existing file is granted** (§170 (how a foreign program is told what
+/// to do) clause 2, and clause 3's create), declared by a program that hears words. The field §170
+/// calls the manifest's `words`, carried inside [`ArgSpec::Words`] so a program that hears no words
+/// cannot declare one.
+///
+/// Every variant grants the named names and nothing else in their directory, with the walk below a
+/// named directory (`filesystem_protocol`'s `DESCEND`), because a program handed `src` means to
+/// read what is in it. **An unvouched program gets [`WordGrant::ReadOnly`] whatever it declares**
+/// (clause 4): [`UNVOUCHED_STD_MANIFEST`] is read-only. A mark on a word that widens it is clause 4's
+/// other half, and its spelling is not ruled, so none is built.
+///
+/// §170's third shape, "the file's directory", is not a variant: a line says it by naming the
+/// directory, `.` included (calef's N1 ruling, 2026-09-27T06:27Z: `rg pattern .`).
+///
+/// Name: provisional (2026-09-27).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WordGrant {
+    /// Read, list and walk what was named. `rg`'s.
+    ReadOnly,
+    /// And write what was named.
+    ReadWrite,
+    /// And write it, and create a name that does not resolve yet (clause 3: `cc -o main`). A word
+    /// that names nothing is still designated, as a name the program may create.
+    Create,
+}
+
+impl WordGrant {
+    /// The rights a caretaker asks the file service for, as `filesystem_protocol::dir`'s bits. Spelled
+    /// as numbers here because this crate does not link the filesystem contract (see its
+    /// `Cargo.toml`); `word_rights_are_the_filesystem_contracts` pins them to its constants.
+    pub const fn rights(self) -> u64 {
+        const ENUMERATE: u64 = 1 << 0;
+        const READ: u64 = 1 << 1;
+        const WRITE: u64 = 1 << 2;
+        const CREATE: u64 = 1 << 3;
+        const DESCEND: u64 = 1 << 5;
+        let read = ENUMERATE | READ | DESCEND;
+        match self {
+            WordGrant::ReadOnly => read,
+            WordGrant::ReadWrite => read | WRITE,
+            WordGrant::Create => read | WRITE | CREATE,
+        }
+    }
 }
 
 /// A program's expectation about a memory grant (`--mem N`).
@@ -2037,6 +2092,9 @@ pub struct DirGrant {
     /// The names in it the program is to act on: exactly one for a literal operand, the matched set
     /// for a pattern. Each is a single component, for [`FileGrant`]'s reason: a path was resolved
     /// into `dir` rather than passed on.
+    ///
+    /// **Empty means the whole directory**, and only a program that hears words gets that: its
+    /// line said `.` ([`expand::Designation::is_here`]). Every other grant carries at least one name.
     pub names: NameSet,
     /// The capability must reach **below** this directory (walk into it and list it), because the
     /// program was given the option its manifest declares for that. False means it may take names
@@ -2581,8 +2639,13 @@ pub fn check_words(line: &[u8]) -> Result<(), Refusal> {
 }
 
 /// Every word of `line`, quotes off, with an unquoted pattern refused. The one walk [`argv`] and
-/// [`check_words`] share, so the check and the page cannot disagree about what a word is.
-fn each_word(line: &[u8], f: &mut dyn FnMut(&[u8]) -> Result<(), Refusal>) -> Result<(), Refusal> {
+/// [`check_words`] share, so the check and the page cannot disagree about what a word is, and the
+/// shell's designation walks it too (milestone 205), so it designates from the same words the
+/// program hears. Name: provisional.
+pub fn each_word(
+    line: &[u8],
+    f: &mut dyn FnMut(&[u8]) -> Result<(), Refusal>,
+) -> Result<(), Refusal> {
     let mut rest = line;
     loop {
         let mut one = [&b""[..]; 1];
@@ -2971,7 +3034,7 @@ pub fn plan_against_with(
     //
     // **Not for a program that hears words** (§170): its line is its argv, a flag-shaped token is
     // one of its words, and the shell has no business refusing an option it never had to know.
-    let words = m.arg == ArgSpec::Words;
+    let words = m.arg.hears_words();
     if run.unexpected.is_some() && !words {
         return Err(Refusal::Unexpected);
     }
@@ -3010,7 +3073,7 @@ pub fn plan_against_with(
         ArgSpec::Forbidden => 0,
         // Every positional is a word of the argv the shell assembles at spawn ([`argv`]), so none
         // is left to place and none is unplaceable.
-        ArgSpec::Words => {
+        ArgSpec::Words(_) => {
             check_words(run.line)?;
             next = pos.len();
             0
@@ -3079,6 +3142,31 @@ pub fn plan_against_with(
                 subtree,
             })
         }
+    };
+
+    // **A program that hears words is granted what its words designate** (milestone 205, §170
+    // (how a foreign program is told what to do) clauses 2 to 5): one directory grant at the
+    // shell's current directory, filtered to the designated names, or the whole directory when a
+    // word was `.`. A line that designated nothing grants nothing (calef's N1 ruling,
+    // 2026-09-27T06:27Z). What the grant may do is the manifest's [`WordGrant`], which the shell
+    // turns into rights and the progenitor clamps to the manifest it endows.
+    let dir = match (m.arg, expanded.designation()) {
+        (ArgSpec::Words(_), Some(d)) if !d.is_empty() => {
+            if !holds.dir {
+                return Err(Refusal::NoSuchCapability(CapKind::File));
+            }
+            Some(DirGrant {
+                which: nav::Which::A,
+                dir: holds.cwd,
+                names: if d.is_here() {
+                    NameSet::empty()
+                } else {
+                    *d.names()
+                },
+                subtree: true,
+            })
+        }
+        _ => dir,
     };
 
     // **The input operand: `wc report.txt` is `wc < report.txt` with the operator left out.**
@@ -3742,7 +3830,7 @@ mod tests {
             ..ex
         }));
         assert!(!image_can_carry(&Manifest {
-            arg: ArgSpec::Words,
+            arg: ArgSpec::Words(WordGrant::ReadOnly),
             ..NO_NOTE_MANIFEST
         }));
     }
@@ -6085,7 +6173,7 @@ mod tests {
         let mut hearing = 0;
         for &p in Prog::ALL {
             let m = p.manifest();
-            if m.arg != ArgSpec::Words {
+            if !m.arg.hears_words() {
                 continue;
             }
             hearing += 1;
@@ -6168,6 +6256,84 @@ mod tests {
         assert_eq!(
             plan(&parse_run(b"std_exerciser *.rs"), WITH_DIR),
             Err(Refusal::PatternInArguments)
+        );
+    }
+
+    /// **The rights a word grant asks for are the filesystem contract's bits** (milestone 205).
+    /// `WordGrant::rights` spells them as numbers because this crate does not link the contract.
+    #[test]
+    fn word_rights_are_the_filesystem_contracts() {
+        use filesystem_protocol::dir;
+        let read = dir::ENUMERATE | dir::READ | dir::DESCEND;
+        assert_eq!(WordGrant::ReadOnly.rights(), read);
+        assert_eq!(WordGrant::ReadWrite.rights(), read | dir::WRITE);
+        assert_eq!(WordGrant::Create.rights(), read | dir::WRITE | dir::CREATE);
+    }
+
+    /// **What a line's words designate becomes one directory grant at the current directory**
+    /// (milestone 205, §170 clauses 2 and 5): the names for a line that named some, the whole
+    /// directory for `.`, and nothing for a line that named nothing (calef's N1 ruling,
+    /// 2026-09-27T06:27Z). A shell holding no directory cannot back a designation.
+    #[test]
+    fn a_designation_becomes_one_grant_at_the_current_directory() {
+        use expand::Designation;
+        let run = parse_run(b"std_exerciser needle src");
+        let mut d = Designation::none();
+        d.name(b"src", true).unwrap();
+        let e = super::plan_against(
+            &run,
+            Prog::StdExerciser,
+            Prog::StdExerciser.manifest(),
+            WITH_DIR,
+            Expansion::designated(d),
+        )
+        .unwrap();
+        let g = e.dir.expect("src was designated");
+        assert_eq!(g.dir, WITH_DIR.cwd);
+        assert_eq!(g.names.only(), Some(&b"src"[..]));
+        assert!(g.subtree);
+
+        let none = super::plan_against(
+            &parse_run(b"std_exerciser needle"),
+            Prog::StdExerciser,
+            Prog::StdExerciser.manifest(),
+            WITH_DIR,
+            Expansion::designated(Designation::none()),
+        )
+        .unwrap();
+        assert_eq!(
+            none.dir, None,
+            "N1: a line that names no file grants nothing"
+        );
+
+        let mut here = Designation::none();
+        here.here();
+        let e = super::plan_against(
+            &parse_run(b"std_exerciser needle ."),
+            Prog::StdExerciser,
+            Prog::StdExerciser.manifest(),
+            WITH_DIR,
+            Expansion::designated(here),
+        )
+        .unwrap();
+        assert!(
+            e.dir.expect("here").names.is_empty(),
+            "empty names: the whole directory"
+        );
+
+        let holds_none = Holdings {
+            dir: false,
+            ..WITH_DIR
+        };
+        assert_eq!(
+            super::plan_against(
+                &run,
+                Prog::StdExerciser,
+                Prog::StdExerciser.manifest(),
+                holds_none,
+                Expansion::designated(d)
+            ),
+            Err(Refusal::NoSuchCapability(CapKind::File))
         );
     }
 

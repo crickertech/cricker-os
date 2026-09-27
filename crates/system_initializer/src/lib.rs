@@ -676,6 +676,10 @@ const CARETAKER_STACK_PAGES: u64 = 4;
 /// second VA would only be a second name for the same page.
 const FS_CLIENT_PAGE_VA: u64 = address_space_map::pair_page(0x0060_0000);
 
+/// Where `fs_nameset_caretaker` reads its name set, read-only (milestone 205). Must match that
+/// program's `SET_VA`, as [`FS_CLIENT_PAGE_VA`] matches its `PAGE_VA`.
+const NAMESET_PAGE_VA: u64 = address_space_map::pair_page(0x0070_0000);
+
 /// **One shell-boot second-directory caretaker's region** (milestone 154's "wiring a second
 /// grant into the real boot"). Sized for one caretaker alone, the way [`CARETAKER_STACK_PAGES`]
 /// already is: unlike [`DIR_JOB_REGION_PAGES`], nothing else is built out of this region, because
@@ -1068,6 +1072,11 @@ pub fn boot(
     // prompt says so, which costs `rm` and nothing else. A refusal by the measurement table costs
     // the same, because the progenitor treats what it cannot vouch for as what is not there.
     let care_elf = measured(&fs, table, "fs_subtree_caretaker").elf;
+    // **The nameset caretaker** (milestone 205 (how a foreign program is told what to do)'s
+    // designation half): what a program that hears words is granted when its words named some
+    // entries of the shell's directory and not the directory itself. A boot without it refuses such
+    // a grant rather than widening it to the subtree one.
+    let set_elf = measured(&fs, table, "fs_nameset_caretaker").elf;
     // **And the same bytes again, unparsed, because `login` needs them too** (milestone 233).
     //
     // That program builds one caretaker per authenticated session, so it needs an image to build
@@ -1718,7 +1727,7 @@ pub fn boot(
             ep: g.fs_ep,
             page: g.fs_page,
         })?;
-        let built = build_caretaker(ut, region, care, zero, (lo, hi, spec));
+        let built = build_caretaker(ut, region, care, zero, (lo, hi, spec), None);
         cap_delete(zero.page);
         built
     });
@@ -2456,8 +2465,19 @@ pub fn boot(
             run_unvouched,
         },
         &progs,
-        care_elf,
+        Caretakers {
+            subtree: care_elf,
+            nameset: set_elf,
+        },
     )
+}
+
+/// **The two caretakers a directory grant is built from**: `fs_subtree_caretaker` for a directory
+/// and everything under it, `fs_nameset_caretaker` for named entries of one directory (milestone
+/// 205). `None` when the archive did not carry it, or it did not measure. Name: provisional.
+struct Caretakers {
+    subtree: Option<elf::Elf<'static>>,
+    nameset: Option<elf::Elf<'static>>,
 }
 
 /// The archive entry a spawnable program is loaded from.
@@ -2602,7 +2622,7 @@ struct Fs {
 fn spawn_service(
     c: Channels,
     progs: &[Option<elf::Elf>; grant_plan::PROG_COUNT],
-    care_elf: Option<elf::Elf>,
+    care: Caretakers,
 ) -> ! {
     let Channels {
         spawn_ep,
@@ -2675,10 +2695,12 @@ fn spawn_service(
         // (how a foreign program is told what to do)). The note that says which is inside the
         // frames, which have not arrived, so the argv bit sizes the region and `endowed_image`
         // checks the note agrees (`grant_plan::image_can_carry` ties the two).
+        // A directory grant rides an image only for bytes that hear words (milestone 205): their
+        // `std` region is sized to hold the caretaker as well (`grant_plan::STD_REGION_PAGES`).
         //
         // **From the image pool, and as large as the image** (milestone 595): see
         // [`IMAGE_POOL_PAGES`] and `grant_plan::image_region_pages`.
-        let image_region = if wiring.image && !interruptible && !wiring.dir {
+        let image_region = if wiring.image && !interruptible && (!wiring.dir || wiring.args) {
             memory_region_split(
                 images_ut,
                 grant_plan::image_region_pages(
@@ -2711,6 +2733,13 @@ fn spawn_service(
         // (milestone 205 (how a foreign program is told what to do), DECISIONS §170; `spawnproto::ARGS_BIT`). Taken on every request that
         // announced it, whatever program it turns out to be for, so both sides stay in lockstep.
         let args_seen = if wiring.args {
+            receive_args(spawn_ep, own_ut)
+        } else {
+            None
+        };
+        // **And the name set's frame, right after** (milestone 205, `spawnproto::NAMESET_BIT`),
+        // read the same way: mapped here, copied into the job's region below, never read again.
+        let set_seen = if wiring.nameset {
             receive_args(spawn_ep, own_ut)
         } else {
             None
@@ -2916,10 +2945,42 @@ fn spawn_service(
             } else {
                 None
             };
+            //
+            // **A program that hears words gets the rights its endowed manifest allows, and no
+            // more** (milestone 205, §170 clause 4): the shell asked with the rights of the note it
+            // read, and this clamps them to the manifest decided here, which for bytes nobody
+            // vouched for is read-only (`grant_plan::UNVOUCHED_STD_MANIFEST`). A name set is built
+            // into `fs_nameset_caretaker` with its set on a page from the job's region; a set that
+            // arrived for anything else is dropped with the grant refused.
+            let clamp = |words: (u64, u64, u64)| match manifest.map(|m| m.arg) {
+                Some(grant_plan::ArgSpec::Words(g)) => {
+                    use filesystem_protocol::grant as gr;
+                    let rights = gr::spec_rights(words.2) & g.rights();
+                    (words.0, words.1, gr::spec(gr::spec_len(words.2), rights))
+                }
+                _ => words,
+            };
+            let hears_words = manifest.is_some_and(|m| m.arg.hears_words());
             let narrowed = if wiring.dir {
-                match (region, channel, care_elf.as_ref(), grant) {
-                    (Some(r), Some(ch), Some(care), Some((care_words, _))) => {
-                        build_caretaker(own_ut, r, care, ch, care_words)
+                match (region, channel, grant, set_seen) {
+                    (Some(r), Some(ch), Some((care_words, _)), None) => care
+                        .subtree
+                        .as_ref()
+                        .and_then(|e| build_caretaker(own_ut, r, e, ch, clamp(care_words), None)),
+                    (Some(r), Some(ch), Some((care_words, _)), Some(theirs)) if hears_words => {
+                        match (care.nameset.as_ref(), copy_args(own_ut, r, theirs)) {
+                            (Some(e), Some(set)) => {
+                                let ep =
+                                    build_caretaker(own_ut, r, e, ch, clamp(care_words), Some(set));
+                                cap_delete(set);
+                                ep
+                            }
+                            (_, Some(set)) => {
+                                cap_delete(set);
+                                None
+                            }
+                            _ => None,
+                        }
                     }
                     _ => None,
                 }
@@ -3430,9 +3491,20 @@ fn build_caretaker(
     care: &elf::Elf,
     fs: Fs,
     care_words: (u64, u64, u64),
+    set: Option<u64>,
 ) -> Option<u64> {
     let narrow_ep = retype_obj(region, abi::objtype::RENDEZVOUS).ok()?;
     let ready = retype_obj(region, abi::objtype::RENDEZVOUS).ok()?;
+    // The shared page, and the name set read-only where `fs_nameset_caretaker` reads it (milestone
+    // 205), when there is one.
+    let maps = [
+        (FS_CLIENT_PAGE_VA, fs.page, abi::address_space::MAP_RW),
+        (
+            NAMESET_PAGE_VA,
+            set.unwrap_or(0),
+            abi::address_space::MAP_RO,
+        ),
+    ];
     // Its whole authority, and reading these three lines is reading it: the file service to
     // attenuate, the endpoint it will serve, and one place to say it is ready. No untyped, no clock,
     // no terminal, and nothing that could name another process.
@@ -3446,7 +3518,7 @@ fn build_caretaker(
                 (narrow_ep, abi::rights::READ),
                 (ready, abi::rights::WRITE),
             ],
-            maps: &[(FS_CLIENT_PAGE_VA, fs.page, abi::address_space::MAP_RW)],
+            maps: &maps[..if set.is_some() { 2 } else { 1 }],
             stack_pages: CARETAKER_STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
         },
