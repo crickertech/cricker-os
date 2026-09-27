@@ -53,18 +53,19 @@ calef ruled on #1387. Each option was prototyped and measured first; the note ha
   resolved per step on the server with the rights the hop-by-hop walk would get. 0.58 to 0.61 ms.
 - B (07:06Z, second form), built on the same branch: `OPEN`'s reply carries the size, and the
   std overlay sizes whole-file reads from it. With A, 0.515 to 0.53 ms, about 1.26x Linux.
-- D (07:17Z, option 2): the server narrows a subtree grant itself, keyed on the badge milestone
-  599 (a frame per filesystem client channel) added. That is only for a memory-safe server that
-  resolves every path through one shared scope crate proven with Kani. Caretakers stay the
-  default, and the progenitor chooses per mount from the filesystem's package. Not yet built.
+- D (07:17Z, option 2), built for RedoxFS on `milestone/606-scope`: an eligible server narrows a
+  subtree grant itself, keyed on the badge milestone 599 (a frame per filesystem client channel)
+  added. Every path and handle goes through `crates/subtree_scope`, whose Kani harnesses prove it.
+  0.347 to 0.355 ms, about 0.85x Linux. Caretakers stay the default.
 - E, not built and not asked: a 64 KiB channel for `std`, which `std_runtime_protocol` fixes at
   one page.
 
 ## Follow-on
 
-- **Outstanding.** D on the terms ruled above: the scope crate and its Kani harness, then
-  RedoxFS as the first eligible server, as its own pull request. Checked 2026-09-27: no scope
-  crate exists in `crates/`.
+- **Outstanding.** The progenitor's choice per mount, between a bound badge and a caretaker,
+  from what the filesystem's package declares. Checked 2026-09-27: package declarations are not
+  on `main` yet (#1396, then #1405 moves them to TOML), and the progenitor-stack lane is working
+  in the progenitor.
 - **Recorded.** A cold walk on both sides, with Linux on ext4 over virtio rather than tmpfs, is a
   limitation in `notes/walk-cost.md`.
 

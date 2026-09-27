@@ -122,8 +122,8 @@ filesystem. D is a fast path only for a memory-safe server that resolves every p
 shared scope crate, proven with Kani, which owns `..`, symbolic links, hard links and mount
 crossings. It is for subtree grants only, and the progenitor chooses per mount, from what the
 filesystem's package declares, between a badge and a caretaker. The section below is the costing
-that ruling was made on, after milestone 599 (a frame per filesystem client channel) landed badged
-endpoints under §230 (badged endpoint capabilities).
+that ruling was made on and what was built from it, after milestone 599 (a frame per filesystem
+client channel) landed badged endpoints under §230 (badged endpoint capabilities).
 
 ## D in detail: the server narrows, keyed on the badge
 
@@ -141,37 +141,28 @@ image root with every right. The caretaker keeps its own 64-slot table, so a cli
 the handles its own caretaker minted, and its `ROOT` means the granted directory. D moves that
 table into the server.
 
-### What it would take
+### What was built, and what it costs
 
-No kernel change. Every kernel piece exists: `BADGE`, the badge on `RECV_CAP`, `SEND_CAP` to hand
-the badged copy over. `REPLY` cannot carry a capability, so the server cannot mint a grant and
-return it. Whoever holds an unbadged endpoint capability with `GRANT` has to mint it: the
-progenitor, or the kernel's wiring in the test harness. Then:
+No kernel change. The kernel pieces all came with milestone 599: `BADGE`, the badge on
+`RECV_CAP`, and `SEND_CAP` to hand the badged copy over. Built on branch `milestone/606-scope`:
 
-1. The minting holder opens the subtree with `OPENDIR`, as a caretaker does at startup today, and
-   tells the server "badge `b` is rooted at this handle". That is a new verb, call it `BIND`, on
-   the holder's own channel. `UNBIND` is its inverse.
-2. The server keeps a small table from badge to grant: root handle, rights, and which window the
-   badge reads. Today the badge is the window index (§230's pool of K = 8). Under D a badge names a
-   grant, so the window becomes a column in that table, or both go into the badge as packed bits.
-   That choice is a wire format.
-3. Every handle records the badge that minted it. A request under badge `b` resolves `ROOT` to
-   `b`'s root and refuses any handle `b` did not mint, with `EBADF`, the answer the caretaker gives
-   today.
+1. `crates/subtree_scope` (name provisional): `walk` resolves every path, `landing` decides the
+   last step, and `admit` and `Bindings` decide what a badge reaches. Four Kani harnesses prove
+   it, and `script/verify`'s table has the row. A step is one name; a walk never widens, never goes
+   through a symbolic link, never crosses a mount; a bound badge reaches its root and what it
+   minted; a badge once bound is never open again.
+2. Two control verbs, `BIND` and `UNBIND` (`filesystem_protocol::fs`, numbers 64 and 65,
+   provisional). They sit outside the verb table on purpose, so no caretaker forwards them. Only a
+   caller whose own badge is unbound may use them. The badge still names the client's window
+   (§230), and a grant is bound to that same index.
+3. `redoxfs_server`, the first eligible server: every path goes through `subtree_scope::walk`, every
+   handle through `admit`, and every handle a bound badge mints is recorded as its.
+4. The kernel harness (`fs_service::start_std_bound`) and two tests on device. The walk through a
+   bound grant visits exactly the fixture. A bound badge cannot open a name outside its subtree, use a handle it did not mint, bind, close its root, or reach anything after `UNBIND`.
 
-The wire formats are the two verbs' numbers and layout and the badge's meaning. Everything else is
-code inside `redoxfs_server`.
-
-### What it costs, measured
-
-The IPC saving was measured by the no-caretaker prototype above: 0.57 to 0.59 ms against 0.76 to
-0.82 ms today, and 0.35 ms with A and B, under Linux's 0.41 ms. That prototype used an unbadged
-endpoint and the image root. What a badged version adds per request is one table index by badge
-and one compare of a handle's owner. It was not prototyped: the server's whole per-request work in
-`walk_replay` is 34 ns, and an array index and a compare are inside that noise. That is an
-estimate, and it is the only figure in this section that is.
-
-It also saves a process per grant.
+Measured 2026-09-27 on the release kernel, three `--smp` boots in one session: `fs_walk_bound` is
+0.347 to 0.355 ms, against 0.508 to 0.521 ms through the caretaker and Linux's 0.41 to 0.42 ms.
+That is about 0.85x Linux. It also saves a process per grant.
 
 ### The trust tradeoff
 
@@ -204,10 +195,9 @@ What verification exists or is feasible:
 
 - Today: the three Kani harnesses on the rights arithmetic, which both designs share. Neither
   caretaker's handle table has a harness.
-- Under D the scoping is a pure function of (badge table, handle table, request), which could live
-  in a host-testable crate with a Kani harness proving "a request under badge `b` resolves only
-  handles `b` minted, and `ROOT` only to `b`'s root". Nothing stops the same harness being written
-  for the caretaker's table today; neither side has one.
+- Under D the scoping is `subtree_scope`, a host-testable crate, and its Kani harnesses prove that
+  a request under badge `b` resolves only handles `b` minted, and `ROOT` only to `b`'s root.
+  Nothing stops the same harness being written for the caretaker's table; it has none.
 
 ### Does D cover the name-set caretaker too?
 
@@ -218,13 +208,13 @@ apply `filesystem_protocol::nameset::contains` on those verbs. The set is variab
 the server, with no walk measurement behind it: glob grants are the shell's and are rarely on a
 walk's path. D for subtrees alone is the smaller step.
 
-### Who holds what, and revocation
+### Who holds what, and revocation (as built)
 
 - Today: the progenitor holds the FS endpoint; each caretaker holds a badged copy with its window;
   the client holds the caretaker's endpoint. Revoking a grant is ending the caretaker
   (`Holding::release`), which §41 (the endpoint is the broker) describes as taking the endpoint back.
-- Under D: the progenitor holds an unbadged copy with `GRANT` and mints one badge per grant; the
-  client holds the badged copy. There is no kernel method to pull a capability back out of another
+- Under D: the binder holds an unbadged copy and binds one badge per grant; the client holds the
+  badged copy. There is no kernel method to pull a capability back out of another
   process's slots, today or under D. So revocation becomes `UNBIND`: the server closes every handle
   the badge minted and answers `EBADF` to it from then on. The client keeps a capability that names
   the server and does nothing. §41's "take it back" turns into "the server stops honouring it",
@@ -232,30 +222,11 @@ walk's path. D for subtrees alone is the smaller step.
 
 ### What else was considered
 
-- Keeping the caretaker and making the hop cheaper. The only lever is the IPC path, which milestone
-  188 (the IPC fastpath) has already been over.
-- The server minting badges itself and handing them out. Refused: `REPLY` carries no capability,
-  so it would need a kernel change, and it would put delegation authority in the process D is
-  already asking us to trust more.
-- A receive over a set of endpoints, which §27 named as the other way to tell clients apart.
-  Superseded by §230, which chose badges.
-
-### Prior art
-
-From memory, not read for this note: seL4 servers identify clients by badge. A 9P server keeps
-fids per connection, which is D's per-badge handle table under another name.
-
-### Reversibility, and who has acted
-
-The server code is reversible. The verbs and the badge's meaning are not, once a progenitor mints
-badges that way. Already acted on: milestone 599, which made the badge mean a window index, and
-§230's text, "the caretaker is still what narrows a client to its subtree".
-
-### If both cost the same
-
-Performance picks D, and it is the only option that reaches Linux. The effort is not the argument
-either way; the argument is §27's capability-space property against a measured 0.21 ms per walk.
-That is calef's call, and this section does not recommend on it.
+Keeping the caretaker and making its hop cheaper: the only lever is the IPC path, which milestone
+188 (the IPC fastpath) has already been over. The server minting badges itself: `REPLY` carries no
+capability, so it would need a kernel change. From memory, not read: seL4 servers identify
+clients by badge, and a 9P server keeps fids per connection, which is this per-badge handle table
+under another name.
 
 **E, not built. A wider channel for `std`.** `READ` already accepts 64 KiB, but a `std` program
 maps one page at `FS_PAGE`, which `std_runtime_protocol` fixes, and the caretaker clamps to it.
@@ -263,7 +234,9 @@ The walk's three sized files take 80 `READ`s where they could take 6. In a real 
 files are over 4 KiB, so this matters more there than here. It changes the loader's mapping, which
 the progenitor and the kernel harness share with the PAL.
 
-What is left: building D on those terms, as its own pull request after A and B.
+What is left of D: the progenitor's choice per mount, from what the filesystem's package declares.
+It waits on package declarations moving to TOML (#1405) and on the progenitor-stack lane, which is
+working in the progenitor now.
 
 ## Reproduce
 
