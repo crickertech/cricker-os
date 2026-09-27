@@ -41,7 +41,7 @@ sections that follow keep each question's reasoning with the ruling folded in.
 
 ## The name comes first, because the obvious one is taken
 
-"Notification" is a kernel object: §101 / milestone 151 (notification objects), `objtype::NOTIFICATION
+"Notification" is a kernel object: §101 (notification objects), milestone 151 (notification objects), `objtype::NOTIFICATION
 = 4` in `crates/abi/src/lib.rs:512`, with `SIGNAL`, `WAIT`, `POLL` and `BIND`, and
 `Received::Notification` in `crates/user_mode_runtime`. The design below uses that object as a
 display's doorbell, so the two would meet in one sentence, and the person-facing thing needs
@@ -85,7 +85,7 @@ Nothing person-facing. Lookups on base `995ac5bce`:
 
 ## Prior art, read
 
-Read on 2026-09-27 from primary sources by this lane; "(memory)" marks what was not verified.
+Read from primary sources by this lane; "(memory)" marks what was not verified.
 
 | system | who names the sender | who controls loudness | replace or dedupe | no display attached |
 |---|---|---|---|---|
@@ -103,10 +103,8 @@ Every desktop system assumes an attached display, so the headless case has only 
 
 ## Question 1: a separate service or a view over the log
 
-Priced both ways.
-
-A view over §242 would make a notice a log record with a new body kind (F3 has the byte for it).
-It would need four changes to §242, each measured against what was ruled today:
+Priced both ways. A view over §242 would make a notice a log record with a new body kind (F3 has
+the byte for it), needing four changes to §242, each measured against what was ruled today:
 
 - Audience. The log's badge maps to (program, user, process); a notice also needs an audience, so
   registration grows a field.
@@ -136,10 +134,10 @@ is enumeration, and has no curation.
 its audience. The writer never states its audience, program or time.
 
 - Minting mirrors §242: whoever spawns a publisher holds the board's unbadged endpoint, mints a
-  badged copy (`rendezvous::BADGE`, §230, badged endpoint capabilities) and registers it, badge to
+  badged copy (`rendezvous::BADGE`, §230 (badged endpoint capabilities)) and registers it, badge to
   (program digest, audience, bypass); the board stamps the rest.
-- Three audiences: one identity; the owners (§221's owner-written list plus the console owner); and
-  every attached display.
+- Three audiences: one identity; the owners (§221 (the boot prompt is the owner's console)'s
+  owner-written list plus the console owner); and every attached display.
 - `login` registers per-user badges. It mints one publish badge (audience: that identity) when it
   builds a session process, and one read badge per login.
 - The spawner of a system service registers the others. The reboot program (proposed,
@@ -160,8 +158,8 @@ tree's doorbell, "a doorbell, not a meeting" (`crates/abi/src/lib.rs:520`).
 ## Curation
 
 Recommended: a per-user document, stored at `<principal root>/<identity>/notices` (provisional)
-beside `schedule`, written by the user's own session and handed to the board whole, §222's shape
-(who holds a user's schedule): one document in one shared page, parsed whole or refused.
+beside `schedule`, written by the user's own session and handed to the board whole, §222 (who
+holds a user's schedule)'s shape: one document in one shared page, parsed whole or refused.
 
 - A rule is (program, class, least urgency shown). Program is the board's stamp, class is the
   publisher's label (`job.ended`, `package.updates`). The pair is Android's channel.
@@ -215,7 +213,7 @@ Two surfaces become wire formats.
 | read, board to display | every display, including a remote one | R1: JSONL, one object per notice, with the board's stamped `seq`, `time`, `program` and `audience`, then `class`, `key`, `urgency`, `expires`, `text`. R2: the binary record as stored. |
 
 **Decided: W1 and R1.** §242's split, ruled the same day for the log: binary where programs write,
-JSON where people and tools read, an in-tree JSON writer with no dependency (§46, thin primitives
+JSON where people and tools read, an in-tree JSON writer with no dependency, §46 (thin primitives
 or whole subsystems). W2 would put a JSON parser in the board, where every publisher's bytes reach
 it, and make every publisher link a JSON writer; R2 would make the remote client a second binary
 parser for nothing. W1's 224-byte total means a notice's text always fits F3's text bound when the
@@ -258,7 +256,7 @@ A user who wants only failures sets `job.ended`'s least urgency to normal.
 
 ## What it costs
 
-Derived from the tree's counts; nothing is built or measured.
+Derived, nothing is built or measured.
 
 - Slots. `login` gains one (the board's unbadged endpoint). Its own comment counts eight at rest
   and six more at a login's peak (`components/src/login.rs:367`), against a table now of 24. A
