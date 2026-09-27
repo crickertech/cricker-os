@@ -11,7 +11,7 @@
 //! |---|---|---|---|
 //! | 0 | [`OUT_SLOT`] | `WRITE` | the plan and the summary, `byte_sink_protocol` bytes; compiled-in mode only |
 //! | 1 | [`BUDGET_SLOT`] | `WRITE` | the untyped every instance is split from |
-//! | 2 | [`CHILD_REPORT_SLOT`] | `WRITE`, `GRANT` | handed to each job as its slot 0 |
+//! | 2 | [`CHILD_REPORT_SLOT`] | `WRITE`, `GRANT` | handed to each job as its slot 0, when placed; a durable session places none |
 //! | 3 | [`DEATHS_SLOT`] | `READ`, `GRANT` | each job's supervision endpoint, and what corpses are reaped through |
 //!
 //! Nothing else. In particular never the run-unvouched capability
@@ -36,7 +36,10 @@
 //! **silent on [`OUT_SLOT`]**: a session supervising it is blocked on supervision and cannot drain
 //! a stream, and a `SEND` nobody takes would stop the timetable. Everything a registrar needs is in
 //! the page: each reply's status, verdicts and printed plan, and, once the timetable has stopped,
-//! its exit code at [`crate::registration::EXIT`]. Slot 0 may be left empty.
+//! its exit code at [`crate::registration::EXIT`]. Slot 0 may be left empty, and so may slot 2: a
+//! timetable that holds no report endpoint hands its jobs none (`crate::Held::report`). A durable
+//! session leaves it empty, which is Fork 6 C of milestone 152 (durable delegation), ruled 2026-09-27
+//! on #1377.
 //!
 //! Name: provisional, minted 2026-09-26 (UTC) by milestone 129's lane, for this module and every
 //! constant here. Naming is calef's.

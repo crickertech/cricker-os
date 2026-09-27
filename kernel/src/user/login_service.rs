@@ -115,6 +115,8 @@ pub const F_REATTACHED: u64 = 1 << 17;
 pub const F_TIMETABLE_EXITED: u64 = 1 << 18;
 /// Milestone 152: the document was written to the identity's stored schedule first.
 pub const F_STORED: u64 = 1 << 19;
+/// Milestone 152, Fork 6 C: the plan in the page granted the job no report endpoint.
+pub const F_NO_REPORT: u64 = 1 << 20;
 
 /// **[`LOGOUT`]'s third report word is microseconds, not an identity hint**: how long that
 /// behaviour's `MemoryRegion::DESTROY` on the caretaker region waited for §16's armed kill to land.

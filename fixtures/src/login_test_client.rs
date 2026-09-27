@@ -320,6 +320,10 @@ pub const F_TIMETABLE_EXITED: u64 = 1 << 18;
 /// **Set when the document was written to the identity's stored schedule first.** Set only by
 /// [`OPEN_SCHEDULE`] and [`EMPTY_SCHEDULE`]. Milestone 152.
 pub const F_STORED: u64 = 1 << 19;
+/// **Set when the plan in the page grants the job no report endpoint.** Set only by
+/// [`OPEN_SCHEDULE`], and only when the plan lists what the job holds at all: Fork 6 C of milestone
+/// 152, ruled 2026-09-27 on #1377, says a durable job holds none.
+pub const F_NO_REPORT: u64 = 1 << 20;
 
 /// `a0` is the behaviour, `a1` the identity and `a2` the secret; see the module docs. Three
 /// registers because that is what a process is born with (`kernel::user::Spawn`), and the two
@@ -637,6 +641,18 @@ fn schedule(behaviour: u64, budget: u64, dir: u64) -> u64 {
     };
     if replaced {
         flags |= F_REPLACED;
+    }
+    if behaviour == OPEN_SCHEDULE && replaced {
+        let len = (word(reg::PLAN_LEN).load(Ordering::Acquire) as usize).min(reg::BODY_MAX);
+        // SAFETY: the reply is published (the sequence above), so the plan it wrote into the body
+        // is complete and nothing writes the page until this client's next request.
+        let plan = unsafe {
+            core::slice::from_raw_parts((REGISTRATION_VA + reg::BODY as u64) as *const u8, len)
+        };
+        let has = |needle: &[u8]| plan.windows(needle.len()).any(|w| w == needle);
+        if has(b"exactly:") && !has(b"endpoint") {
+            flags |= F_NO_REPORT;
+        }
     }
     if behaviour == EMPTY_SCHEDULE
         && replaced

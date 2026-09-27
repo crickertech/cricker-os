@@ -1260,6 +1260,10 @@ fn a_users_schedule_outlives_their_login_and_ends_when_they_empty_it() {
             "the new timetable did not put the first document in force",
         ),
         (
+            ls::F_NO_REPORT,
+            "the plan granted a durable job a report endpoint, which Fork 6 C refuses",
+        ),
+        (
             ls::F_LOGOUT_REFUSED_WHILE_PENDING,
             "the budget came down while its session process lived on it",
         ),

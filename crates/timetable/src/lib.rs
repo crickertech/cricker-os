@@ -340,6 +340,14 @@ pub struct Held {
     /// §24). A scheduled job has nobody at a keyboard, so this is the field least likely ever to be
     /// true, and it is here rather than assumed so that the refusal has a reason a reader can find.
     pub interrupt: bool,
+    /// **An endpoint a job may report its answer on**, handed to every job as its slot 0.
+    ///
+    /// `components/src/timetable.rs` sets it from whether its spawn site placed one, probed at
+    /// `_start`. A durable session places none: calef ruled milestone 152 (durable delegation)'s
+    /// Fork 6 as option C on 2026-09-27 (UTC, on #1377), so a durable job writes its output through
+    /// whatever its entry grants, and nobody is left holding a stream nobody drains. The kernel
+    /// harness still places one, because reports are how it watches jobs fire. Name: provisional.
+    pub report: bool,
 }
 
 /// **What the shipped `components/src/timetable.rs` actually holds**, and the one `Held` value it and
@@ -358,6 +366,7 @@ pub const SHIPPED_HELD: Held = Held {
     domain: false,
     dir: false,
     interrupt: false,
+    report: true,
 };
 
 /// **An authority the entry's plan needs and this scheduler does not hold.**
@@ -482,6 +491,8 @@ const NEVER: u64 = u64::MAX;
 pub struct Registry<'a> {
     rows: [Row<'a>; MAX_ENTRIES],
     n: usize,
+    /// What it was registered against, so the plan can say what each job holds.
+    held: Held,
 }
 
 impl<'a> Registry<'a> {
@@ -539,7 +550,12 @@ impl<'a> Registry<'a> {
             };
             n += 1;
         }
-        Registry { rows, n }
+        Registry { rows, n, held }
+    }
+
+    /// What this registry was registered against.
+    pub fn held(&self) -> Held {
+        self.held
     }
 
     /// The registered rows, in document order.
@@ -840,7 +856,7 @@ pub fn write_plan(reg: &Registry<'_>, out: &mut dyn FnMut(&[u8])) {
         out(r.entry.command);
         out(b"\n");
         match r.admission {
-            Admission::Fires(e) => write_grant(&e, out),
+            Admission::Fires(e) => write_grant(&e, reg.held.report, out),
             Admission::Refused(refusal) => {
                 out(b"    will not fire: ");
                 out(refusal.message().as_bytes());
@@ -911,11 +927,13 @@ fn write_u64(v: u64, out: &mut [u8]) -> usize {
 }
 
 /// **What the child will hold, and nothing else.** The `caps` half.
-fn write_grant(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
+fn write_grant(e: &Endowment, report: bool, out: &mut dyn FnMut(&[u8])) {
     out(b"    grants ");
     out(e.prog.name().as_bytes());
     out(b" exactly:\n");
-    out(b"      cap 0  endpoint  report its answer to this timetable\n");
+    if report {
+        out(b"      cap 0  endpoint  report its answer to this timetable\n");
+    }
     if e.mem_pages > 0 {
         out(b"      cap 1  untyped   ");
         let mut buf = [0u8; 20];
@@ -1798,6 +1816,26 @@ mod tests {
             "granting the scheduler a clock admits `date`, so its image is in the plan",
         );
         assert_eq!(b.planned(), 2);
+    }
+
+    /// **A job holds no report endpoint when its timetable holds none** (Fork 6 C of milestone 152,
+    /// ruled 2026-09-27 on #1377), and the printed plan, which is a registrar's whole view of what a
+    /// job holds, says so by not listing one.
+    #[test]
+    fn a_timetable_holding_no_report_endpoint_grants_none() {
+        let durable = Held {
+            report: false,
+            ..SHIPPED_HELD
+        };
+        let doc = parse("every 5s least_authority_demo 7\n").unwrap();
+        let shipped = shown(|out| write_plan(&Registry::register(&doc, SHIPPED_HELD), out));
+        let registered = shown(|out| write_plan(&Registry::register(&doc, durable), out));
+        assert!(shipped.contains("cap 0  endpoint  report its answer"));
+        assert!(
+            !registered.contains("endpoint"),
+            "a registered plan lists a report endpoint: {registered}",
+        );
+        assert!(registered.contains("grants least_authority_demo exactly:"));
     }
 }
 

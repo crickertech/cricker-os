@@ -19,17 +19,15 @@
 //!    silent and waits for a `REPLACE` (`timetable::contract`).
 //! 2. Says it is ready on [`READY`], once. `login` is blocked waiting for exactly that word.
 //! 3. Blocks on `e`, its one endpoint, for the rest of its life. The timetable's death arrives
-//!    there, because `e` is its supervision endpoint, and so does every scheduled job's report,
-//!    because `e` is also the endpoint the timetable hands each job as its report slot. A process
-//!    has one wait point, and this is how one reader serves both.
+//!    there, because `e` is its supervision endpoint. No job report does: calef ruled Fork 6 C on
+//!    2026-09-27 (UTC, #1377), so a scheduled job holds no report endpoint and writes its output
+//!    through whatever its entry grants.
 //! 4. When the timetable is gone, gives [`BUDGET`]'s contents back and exits. The page stays, in
 //!    `login`'s region, so `login` can read why the timetable stopped before it reclaims this
 //!    process.
 //!
-//! **Telling a death from a report.** A death is five words from the kernel with an event of
-//! `abi::fault::EVENT_EXIT` or `EVENT_FAULT`. A job can send those same numbers, so the event alone
-//! decides nothing: the reap decides. Only the timetable is supervised by `e`, so `REAP` on the
-//! tid a job claims answers `NotSupervised` or `StillAlive`, and the message is treated as a report.
+//! **Only the timetable's death arrives.** The reap still decides rather than the event word, which
+//! is cheap and keeps this process right if something else ever holds `e`.
 //!
 //! # Capability contract (`login_protocol::session`)
 //!
@@ -48,10 +46,6 @@
 //!
 //! # BUGS
 //!
-//! - **A scheduled job's report is received and dropped.** Question 6 in
-//!   `notes/durable-delegation.md` asks where it should go once nobody is attached; until that is
-//!   answered, this process is the only reader there is, and it reads so that no job blocks for
-//!   ever on its report.
 //! - **Nothing restarts a timetable that faults.** The session exits, and the schedule stays on
 //!   disk for the next `SCHEDULE` or the boot-time re-deriver.
 //! - **The jobs archive is copied twice**, once into this process and once into the timetable, because
@@ -134,11 +128,6 @@ pub extern "C" fn _start(image_len: u64, jobs_len: u64, _a2: u64) -> ! {
             placed: &[
                 (tt::BUDGET_SLOT, jobs, abi::rights::WRITE),
                 (
-                    tt::CHILD_REPORT_SLOT,
-                    e,
-                    abi::rights::WRITE | abi::rights::GRANT,
-                ),
-                (
                     tt::DEATHS_SLOT,
                     deaths,
                     abi::rights::READ | abi::rights::GRANT,
@@ -163,17 +152,16 @@ pub extern "C" fn _start(image_len: u64, jobs_len: u64, _a2: u64) -> ! {
 
     send(READY, contract::READY, 0, 0);
 
-    let mut reports = 0u64;
+    // Only the kernel sends here: the timetable's death, since no job holds this endpoint (Fork 6
+    // C). The reap still decides, so a message that is not the timetable's death is skipped rather
+    // than believed.
     loop {
         let (event, tid, ..) = recv_fault(e);
         let death = event == abi::fault::EVENT_EXIT || event == abi::fault::EVENT_FAULT;
         if death && reaped(e, tid) {
             break;
         }
-        // A job's report, or a job pretending to be a death. Either way nothing more is owed.
-        reports = reports.wrapping_add(1);
     }
-    let _ = reports;
 
     // The reap took the timetable's own region with it. It drained its jobs before it stopped, so
     // `jobs` is empty; then `BUDGET` has no children and comes down too, taking both endpoints.

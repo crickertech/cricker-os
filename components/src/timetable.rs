@@ -289,7 +289,15 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // that has widened since milestone 129's first stratum, and this crate's own host test uses the
     // same constant so the two cannot drift apart. Widening it further is an edit here and a
     // visible change in the printed plan, which is the property worth having.
-    let held = timetable::SHIPPED_HELD;
+    //
+    // Less the report endpoint when the spawn site placed none, which a durable session never does
+    // (Fork 6 C of milestone 152 (durable delegation), ruled 2026-09-27 on #1377): a durable job
+    // writes through what its entry grants. Probed here, before anything is allocated, for the
+    // reason the run-unvouched probe above gives.
+    let held = timetable::Held {
+        report: user_mode_runtime::is_granted(CHILD_REPORT),
+        ..timetable::SHIPPED_HELD
+    };
 
     let mut reg = Registry::register(&doc, held);
 
@@ -397,7 +405,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                     collect(&mut exits, &mut faults);
                     outstanding -= 1;
                 }
-                let Some(mem_slot) = fire_with_grant(elf, e.arg, e.mem_pages) else {
+                let Some(mem_slot) = fire_with_grant(elf, e.arg, e.mem_pages, held.report) else {
                     say(b"timetable: the budget cannot back one instance\n");
                     done(E_BUDGET)
                 };
@@ -409,7 +417,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             // Fire. If the budget cannot back another instance, block until a corpse comes back and
             // its region with it, then try once more. A second failure is a budget too small for
             // even one instance, which is a wiring error rather than congestion.
-            if !fire(elf, e.arg) {
+            if !fire(elf, e.arg, held.report) {
                 if outstanding == 0 {
                     // Nothing is out, so there is nothing to wait for: the budget is too small for
                     // even one instance, which is a wiring error rather than congestion.
@@ -418,7 +426,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                 }
                 collect(&mut exits, &mut faults);
                 outstanding -= 1;
-                if !fire(elf, e.arg) {
+                if !fire(elf, e.arg, held.report) {
                     say(b"timetable: the budget cannot back one instance\n");
                     done(E_BUDGET)
                 }
@@ -606,14 +614,16 @@ fn replace_if_asked(
 
 /// Build one instance in its own region and start it with `arg`.
 ///
-/// It is endowed exactly two things and both are in the plan the timetable already printed: the
-/// child report endpoint as its slot 0, and its supervision endpoint in the reserved fault slot,
-/// which `START` reads and then clears so the child holds no authority on its own death channel.
+/// It is endowed at most two things and both are in the plan the timetable already printed: the
+/// child report endpoint as its slot 0 when `report` says this timetable hands one out
+/// ([`timetable::Held::report`], false with a registrar), and its supervision endpoint in the
+/// reserved fault slot, which `START` reads and then clears so the child holds no authority on its
+/// own death channel.
 ///
 /// Nothing is kept afterwards and there is nothing left worth keeping: the TCB capability is not the
 /// thread, and since DECISIONS §32 the region capability is not the reap either. The pages come back
 /// to this budget when the corpse is collected.
-fn fire(elf: &elf::Elf, arg: u64) -> bool {
+fn fire(elf: &elf::Elf, arg: u64, report: bool) -> bool {
     let Ok(region) = supervision_protocol::memory_region_split(BUDGET, INSTANCE_PAGES) else {
         return false;
     };
@@ -622,7 +632,7 @@ fn fire(elf: &elf::Elf, arg: u64) -> bool {
         region,
         elf,
         &supervision_protocol::ChildEndowment {
-            caps: &[(CHILD_REPORT, abi::rights::WRITE)],
+            placed: reports(report),
             fault: Some(DEATHS),
             ..supervision_protocol::ChildEndowment::new(supervision_protocol::Retention::Nothing)
         },
@@ -650,7 +660,7 @@ fn fire(elf: &elf::Elf, arg: u64) -> bool {
 /// Returns the grant's own capability, still held, on success. **This is deliberately not deleted
 /// the way [`fire`] deletes `region`**: it is the caller's only way to reclaim the grant later, and
 /// the caller is [`collect_grant`], called next and only next by this program's one call site.
-fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64) -> Option<u64> {
+fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64, report: bool) -> Option<u64> {
     let Ok(region) = supervision_protocol::memory_region_split(BUDGET, INSTANCE_PAGES + mem_pages)
     else {
         return None;
@@ -659,18 +669,20 @@ fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64) -> Option<u64> {
         supervision_protocol::memory_region_destroy(region);
         return None;
     };
+    let both = [
+        (0, CHILD_REPORT, abi::rights::WRITE),
+        (1, mem_slot, abi::rights::WRITE),
+    ];
     let Ok(child) = supervision_protocol::build_child(
         BUDGET,
         region,
         elf,
         &supervision_protocol::ChildEndowment {
-            // Slot 0: the report endpoint, as every instance gets. Slot 1: the grant, narrowed to
-            // WRITE so the child may spend it and not lend it (the same narrowing
-            // `system_initializer` gives a shell's `--mem` delegation).
-            caps: &[
-                (CHILD_REPORT, abi::rights::WRITE),
-                (mem_slot, abi::rights::WRITE),
-            ],
+            // Slot 0: the report endpoint, when this timetable hands one out. Slot 1: the grant,
+            // narrowed to WRITE so the child may spend it and not lend it (the same narrowing
+            // `system_initializer` gives a shell's `--mem` delegation). Placed by number, so the
+            // grant stays in slot 1 whether or not slot 0 is filled.
+            placed: if report { &both } else { &both[1..] },
             fault: Some(DEATHS),
             ..supervision_protocol::ChildEndowment::new(supervision_protocol::Retention::Nothing)
         },
@@ -687,6 +699,15 @@ fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64) -> Option<u64> {
     }
     cap_delete(region);
     Some(mem_slot)
+}
+
+/// **Slot 0 of a job: the report endpoint, or nothing.** The slot list [`fire`] places.
+fn reports(report: bool) -> &'static [(u64, u64, u64)] {
+    if report {
+        &[(0, CHILD_REPORT, abi::rights::WRITE)]
+    } else {
+        &[]
+    }
 }
 
 /// **Wait for the one instance [`fire_with_grant`] just started, and reclaim its grant.**
