@@ -70,6 +70,13 @@ pub(crate) fn swish_check() -> bool {
     // attached instead of the plain UART pair, verified by screendump rather than by transcript.
     // See [`swish_check_leg_graphical`]'s own doc for why this needs a whole different verification
     // shape rather than two env vars added to [`swish_check_leg`].
+    // `--release` builds and boots the optimised kernel and programs, which is what a customer's
+    // stick carries (`xtask stick` is release-only). Added for the progenitor stack's measurement
+    // (milestone progenitor-stack (provisional)): the gauge's numbers differ by profile, and the
+    // debug build is the deeper one. Not in CI. Flag name provisional.
+    if std::env::args().any(|a| a == "--release") {
+        crate::RELEASE.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     let graphical = std::env::args().any(|a| a == "--graphical");
     // **Milestone 192's option A**: the same graphical boot with the *keyboard* left off, so the
     // keystroke source is the board's own UART. See [`swish_check_leg_graphical`]'s own doc.
@@ -1534,18 +1541,15 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     // lines in the script (milestone 198 rung 3a).
     && crate::disk::seed_installed(arch)
     && (x86
-        || run(
-            "cargo",
-            &[
-                "build",
-                "-p",
-                "kernel",
-                "--features",
-                "shell",
-                "--target",
-                target,
-            ],
-        ));
+        || crate::cargo_profiled(&[
+            "build",
+            "-p",
+            "kernel",
+            "--features",
+            "shell",
+            "--target",
+            target,
+        ]));
     if !built {
         return false;
     }

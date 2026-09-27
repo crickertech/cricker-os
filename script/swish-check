@@ -5,6 +5,7 @@
 #   script/swish-check --arch aarch64      one leg (aarch64, riscv64 or x86_64)
 #   script/swish-check --graphical         aarch64 and riscv64, GPU and keyboard attached
 #   script/swish-check --graphical-serial  aarch64 and riscv64, GPU only, typing over the UART
+#   script/swish-check --release           the optimised build a stick carries (not in CI; x86_64 untried)
 #
 # **It also gates the progenitor's stack** (milestone progenitor-stack (provisional)): the kernel
 # prints `progenitor stack: N of M bytes at peak` each time the mark settles higher, this echoes

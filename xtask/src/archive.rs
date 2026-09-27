@@ -5,7 +5,7 @@
 
 use crate::disk::{mkfs_elf, redoxfs_server_elf};
 use crate::farm::{cryptography_exerciser_elf, ripgrep_elf, std_exerciser_elf};
-use crate::host::{bin_elf, run, workspace_root};
+use crate::host::{bin_elf, workspace_root};
 use crate::inspect::read_stripped;
 use crate::measure::{boot_programs, measurement_table, write_measure_manifest};
 use crate::{RISCV_TARGET, TARGET, X86_TARGET, cargo_profiled, profile_dir};
@@ -314,24 +314,27 @@ pub(crate) fn initrd_riscv() -> bool {
     // compiles clean on current `main` (every program is already riscv64-portable), so the list
     // bought nothing but a place to forget an entry. Now a missing binary is structurally
     // impossible instead of a gate someone has to remember to update.
-    if !run(
-        "cargo",
-        &[
-            "build",
-            "-p",
-            "components",
-            "-p",
-            "fixtures",
-            "--target",
-            RISCV_TARGET,
-        ],
-    ) {
+    //
+    // Profiled since `swish-check --release` (milestone progenitor-stack (provisional)), which
+    // packed debug programs under a release kernel until this read `profile_dir()`.
+    if !crate::cargo_profiled(&[
+        "build",
+        "-p",
+        "components",
+        "-p",
+        "fixtures",
+        "--target",
+        RISCV_TARGET,
+    ]) {
         return false;
     }
 
     let bin = |name: &str| {
         workspace_root()
-            .join(format!("target/{RISCV_TARGET}/debug/{name}"))
+            .join(format!(
+                "target/{RISCV_TARGET}/{}/{name}",
+                crate::profile_dir()
+            ))
             .display()
             .to_string()
     };
