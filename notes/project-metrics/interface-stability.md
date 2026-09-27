@@ -8,56 +8,84 @@ Sorted by breaking changes in the last four weeks (2026W36 to 2026W39), then by 
 
 | crate | breaking, 4 weeks | additions, 4 weeks | breaking | additions | commits | crossing another division |
 |---|---:|---:|---:|---:|---:|---:|
+| `grant_plan` | 40 | 140 | 75 | 762 | 113 | 95 (84%) |
 | `credential_protocol` | 27 | 10 | 28 | 65 | 29 | 26 (90%) |
 | `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 30 | 23 (77%) |
-| `grant_plan` | 25 | 120 | 60 | 742 | 104 | 87 (84%) |
-| `filesystem_protocol` | 19 | 10 | 35 | 410 | 88 | 81 (92%) |
-| `supervision_protocol` | 6 | 21 | 21 | 61 | 41 | 37 (90%) |
+| `filesystem_protocol` | 21 | 47 | 37 | 447 | 93 | 86 (92%) |
+| `supervision_protocol` | 7 | 24 | 22 | 64 | 43 | 39 (91%) |
+| `swap_protocol` | 7 | 23 | 8 | 113 | 33 | 32 (97%) |
 | `clock_protocol` | 3 | 2 | 3 | 52 | 26 | 24 (92%) |
-| `abi` | 2 | 8 | 30 | 105 | 68 | 66 (97%) |
+| `component_plan` | 3 | 14 | 3 | 126 | 17 | 14 (82%) |
+| `abi` | 2 | 18 | 30 | 115 | 71 | 69 (97%) |
 | `nifefs` | 2 | 0 | 7 | 41 | 37 | 26 (70%) |
 | `graphics_protocol` | 1 | 0 | 9 | 31 | 25 | 25 (100%) |
 | `elf` | 1 | 5 | 3 | 53 | 38 | 31 (82%) |
 | `socket_protocol` | 1 | 5 | 3 | 43 | 23 | 21 (91%) |
 | `byte_sink_protocol` | 1 | 0 | 2 | 38 | 22 | 22 (100%) |
-| `swap_protocol` | 1 | 0 | 2 | 90 | 27 | 27 (100%) |
-| `counter_frequency_protocol` | 1 | 3 | 1 | 15 | 11 | 9 (82%) |
+| `counter_frequency_protocol` | 1 | 3 | 1 | 15 | 12 | 10 (83%) |
 | `entropy_protocol` | 1 | 5 | 1 | 15 | 17 | 15 (88%) |
 | `environment_protocol` | 1 | 0 | 1 | 44 | 8 | 8 (100%) |
 | `login_protocol` | 1 | 5 | 1 | 18 | 20 | 20 (100%) |
 | `user_mode_heap` | 1 | 0 | 1 | 11 | 0 | 0 |
 | `compositor` | 0 | 0 | 4 | 92 | 23 | 19 (83%) |
-| `line_editor` | 0 | 0 | 1 | 45 | 21 | 19 (90%) |
+| `line_editor` | 0 | 58 | 1 | 103 | 22 | 20 (91%) |
 | `activation_set` | 0 | 34 | 0 | 34 | 9 | 9 (100%) |
-| `boot_slot` | 0 | 48 | 0 | 48 | 7 | 3 (43%) |
+| `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
+| `boot_slot` | 0 | 48 | 0 | 48 | 8 | 4 (50%) |
 | `capability_witness_protocol` | 0 | 3 | 0 | 3 | 9 | 7 (78%) |
-| `component_plan` | 0 | 0 | 0 | 112 | 14 | 12 (86%) |
-| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 2 | 1 (50%) |
-| `manifest_note` | 0 | 22 | 0 | 22 | 2 | 2 (100%) |
-| `measured_boot` | 0 | 5 | 0 | 41 | 18 | 14 (78%) |
-| `package_archive` | 0 | 88 | 0 | 88 | 9 | 6 (67%) |
-| `std_runtime_protocol` | 0 | 15 | 0 | 15 | 3 | 2 (67%) |
+| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 3 | 2 (67%) |
+| `manifest_note` | 0 | 22 | 0 | 22 | 4 | 3 (75%) |
+| `measured_boot` | 0 | 5 | 0 | 41 | 19 | 15 (79%) |
+| `package_archive` | 0 | 88 | 0 | 88 | 10 | 7 (70%) |
+| `std_runtime_protocol` | 0 | 17 | 0 | 17 | 5 | 4 (80%) |
 
 ## What broke in 2026W39
 
-Read at `0dd453535ab8` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `63d81e4a4e5a` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `clock_protocol`: removed `policy::plausible`
 - `clock_protocol`: removed `state::known`
+- `component_plan`: changed `PageKind`
+- `component_plan`: changed `Refusal`
+- `component_plan`: changed `Requirements`
 - `credential_protocol`: removed `authenticated`
+- `filesystem_protocol`: changed `fixture::tree::ROOT_ENTRIES`
 - `filesystem_protocol`: removed `grant::writable`
+- `filesystem_protocol`: changed `verb::TABLE`
 - `filesystem_protocol`: removed `xattr::valid_name`
 - `globally_unique_identifier_partition_table`: removed `block_size_ok`
+- `grant_plan`: changed `ArgSpec`
 - `grant_plan`: changed `Command`
+- `grant_plan`: changed `DirGrant`
 - `grant_plan`: removed `Escalation::spent`
+- `grant_plan`: changed `FileGrant`
+- `grant_plan`: changed `Holdings::bind`
+- `grant_plan`: changed `Holdings::resolve`
 - `grant_plan`: changed `Manifest`
 - `grant_plan`: changed `Manifest::flags`
 - `grant_plan`: changed `NO_FLAGS`
 - `grant_plan`: changed `PROG_COUNT`
 - `grant_plan`: changed `Prog`
 - `grant_plan`: changed `Prog::manifest`
+- `grant_plan`: changed `Refusal`
 - `grant_plan`: removed `RunSpec::quoted`
+- `grant_plan`: changed `SecondDir`
+- `grant_plan`: removed `SecondDir::label_a`
+- `grant_plan`: removed `SecondDir::label_b`
+- `grant_plan`: removed `SecondDir::new`
+- `grant_plan`: removed `SecondDir::which`
+- `grant_plan`: removed `nav::BindEntry::which`
+- `grant_plan`: changed `nav::Bindings::add`
+- `grant_plan`: changed `nav::Bindings::resolve_absolute`
+- `grant_plan`: changed `nav::Bindings::split_absolute`
 - `grant_plan`: removed `nav::Path::from_root`
 - `grant_plan`: changed `spawnproto::Wiring`
 - `grant_plan`: removed `spawnproto::interruptible`
 - `grant_plan`: removed `word::Cursor::open`
+- `supervision_protocol`: changed `CHILD_STACK_VA`
+- `swap_protocol`: changed `BACKEND`
+- `swap_protocol`: removed `BOP_DOWN`
+- `swap_protocol`: removed `BOP_UP`
+- `swap_protocol`: changed `BROKER`
+- `swap_protocol`: changed `CLIENT`
+- `swap_protocol`: changed `CONSOLE`
