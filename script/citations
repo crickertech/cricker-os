@@ -95,6 +95,7 @@ set -e
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 
 exec python3 - "$ROOT" "${1:-}" "${2:-}" <<'PY'
+import collections
 import os
 import re
 import subprocess
@@ -725,6 +726,27 @@ if mode == "--ratchet":
         same = {l for l in roadmap_block.without_fields(old).split("\n") if l.strip()}
         now = (head_blob(path) or "").split("\n")
         added[path] = {n for n in added[path] if n > len(now) or now[n - 1] not in same}
+
+    # **A line moved verbatim is not added prose** (milestone 609 (the system tests leave the kernel
+    # crate)). That milestone moved 828 lines of declarations from one file to another and renamed
+    # the kernel's crate root to `lib.rs` while a new `main.rs` took the old name, so git reports
+    # every one of those lines as added and their citations as new. They are the same citations,
+    # carried unchanged. So an added line whose exact text (indentation aside) this same diff also
+    # removed is matched against that removal, one for one, and not counted. A citation someone
+    # writes fresh is on a line nothing removed, and is judged as before.
+    removed = collections.Counter(
+        line[1:].strip() for line in diff.split("\n")
+        if line.startswith("-") and not line.startswith("---") and line[1:].strip())
+    for path in sorted(added):
+        now = (head_blob(path) or "").split("\n")
+        kept = set()
+        for n in sorted(added[path]):
+            text = now[n - 1].strip() if n <= len(now) else ""
+            if text and removed[text] > 0:
+                removed[text] -= 1
+            else:
+                kept.add(n)
+        added[path] = kept
 
     ungloss = []
     for path in sorted(added):
