@@ -45,29 +45,26 @@ Warm walk, release kernel, HVF, 2026-09-26: 27.0 to 29.5 ms before, 0.76 to 0.82
 Linux 0.41 to 0.42 ms. [notes/walk-cost.md](../../notes/walk-cost.md) has the split, the method
 and the caveats.
 
-## PROPOSED: the wire changes that would close the rest
+## The wire changes, ruled 2026-09-27
 
-The remaining time is 1,259 requests at about 0.63 us each, two IPC round trips apiece. Reducing
-either needs a change two programs agree on, so it is calef's call. Each option was prototyped and
-measured; the note has the table and the terms.
+calef ruled on #1387. Each option was prototyped and measured first; the note has the table.
 
-- A. `OPEN` and `OPENDIR` take a relative path, resolved per component on the server. 0.60 ms.
-- B. `OPEN`'s reply carries the size, so a whole-file read skips `FSTAT`. With A, 0.53 ms.
-- D. The server narrows a subtree itself, keyed on the badge milestone 599 (a frame per
-  filesystem client channel) added, and the caretaker hop goes. With A and B, 0.35 ms, under
-  Linux. No kernel change; two new verbs and a new meaning for the badge. It trades the
-  confinement by capability space of §27 (the filesystem service) for a check in the server,
-  which the note costs out.
-- E, not built. A 64 KiB channel for `std`, which `std_runtime_protocol` fixes at one page.
-
-Recommendation: A first. Nothing built waits on the answer. The milestone moves to BUILT when a
-chosen option lands and the walk is at parity, or when calef rules parity out.
+- A (07:04Z), built on `milestone/606-open-path`: `OPEN` and `OPENDIR` take a relative path,
+  resolved per step on the server with the rights the hop-by-hop walk would get. 0.58 to 0.61 ms.
+- B (07:06Z, second form), built on the same branch: `OPEN`'s reply carries the size, and the
+  std overlay sizes whole-file reads from it. With A, 0.515 to 0.53 ms, about 1.26x Linux.
+- D (07:17Z, option 2): the server narrows a subtree grant itself, keyed on the badge milestone
+  599 (a frame per filesystem client channel) added. That is only for a memory-safe server that
+  resolves every path through one shared scope crate proven with Kani. Caretakers stay the
+  default, and the progenitor chooses per mount from the filesystem's package. Not yet built.
+- E, not built and not asked: a 64 KiB channel for `std`, which `std_runtime_protocol` fixes at
+  one page.
 
 ## Follow-on
 
-- **Outstanding.** The decision above, and building whichever options it picks. Checked
-  2026-09-26: no `design/decisions/` section covers a multi-component name, a size in `OPEN`'s
-  reply, or server-side narrowing.
+- **Outstanding.** D on the terms ruled above: the scope crate and its Kani harness, then
+  RedoxFS as the first eligible server, as its own pull request. Checked 2026-09-27: no scope
+  crate exists in `crates/`.
 - **Recorded.** A cold walk on both sides, with Linux on ext4 over virtio rather than tmpfs, is a
   limitation in `notes/walk-cost.md`.
 

@@ -5,9 +5,8 @@
 the integrator mints the number and calef names things.)*
 
 calef, 2026-09-26: "20x slower is unacceptable." This page is what the walk cost, where the time
-went, what was fixed inside the file-service contract, and what closing the rest would take. The
-last part is a set of wire changes, which are calef's call. They are written up below as a
-proposal with a measured number for each option.
+went, what was fixed inside the file-service contract, and the wire changes calef ruled on to
+close the rest, each with its measured number.
 
 The walk is the one milestone 121 (`ripgrep` on nife: enumeration as a capability) priced:
 `walk_pricing::walk` over `filesystem_protocol::fixture::walk`, 153 entries and 141 files, read
@@ -87,41 +86,44 @@ Two things that look like levers are not:
   after a rename, where a path should name what is there now. That is a semantic change, not an
   optimization.
 
-## Proposed: what would close the gap
+## The wire changes: A and B built, D ruled
 
-Status: PROPOSED. Each option changes something two programs agree on, so each is calef's
-call. Each was built on an experimental branch and measured in the same session as the table
-above. The branches were not kept: the numbers are the finding, and each prototype was a few
-dozen lines.
+Each option changes something two programs agree on, so each was calef's call. All three were
+prototyped and measured first; the branches were not kept, because the numbers were the finding.
 
 | | requests | with the caretaker | no caretaker |
 |---|---:|---:|---:|
-| today (inside the contract) | 1,259 | 0.76 to 0.82 ms | 0.57 to 0.59 ms |
-| A: a path in one `OPEN` or `OPENDIR` | 833 | 0.60 ms | 0.39 ms |
-| A and B: `OPEN` also returns the size | 692 | 0.52 to 0.53 ms | 0.35 to 0.36 ms |
+| inside the old contract | 1,259 | 0.79 ms | 0.57 to 0.59 ms (prototype) |
+| A: a path in one `OPEN` or `OPENDIR`, built | 833 | 0.58 to 0.61 ms | 0.39 ms (prototype) |
+| A and B: `OPEN` also returns the size, built | 692 | 0.515 to 0.53 ms | 0.35 to 0.36 ms (prototype) |
 | Linux | | 0.41 to 0.42 ms | |
 
-**A. A name may be a relative path.** `OPEN` and `OPENDIR` resolve `a/b/c` under the handle, one
-component at a time on the server, each needing `DESCEND`. It removes an `OPENDIR` and a `CLOSE`
-per component, 426 of the walk's requests. Today a name with a `/` is `EINVAL`, so an old server
-refuses it loudly and a new PAL can fall back. Two things are owed before it could land. First,
-`fs_nameset_caretaker` compares whole names, so it would refuse `d/x` where it allows `d` then
-`x`; it must split on `/` and check the first component. Second, the rights on the minted handle
-have to match what the per-hop walk gives. Today the PAL asks each hop for `DESCEND | READ`, so a
-file opened for reading carries `READ` only. A server-side walk needs that request on the wire,
-and `OPEN`'s second word is free for it.
+The built rows were measured on 2026-09-27 on branch `milestone/606-open-path`, three `--smp`
+release boots each, in one session with the old-contract row and Linux (load average 7 to 12). A
+and B together leave nife at about 1.26x Linux.
 
-**B. `OPEN`'s reply carries the file's size** in its second word, which is unused today. It saves
-the `FSTAT` in front of every whole-file read. An old client ignores the word. The cost is a
-semantic choice in the PAL, because `std` asks `metadata()` for the hint. Either the first
-`metadata()` after an open answers with the size at open time, or the overlay patches
-`std::fs`'s `buffer_capacity_required` to ask the PAL for a hint instead. The experiment did the
-first.
+**A, ruled 2026-09-27 07:04Z and built.** `OPEN` and `OPENDIR` resolve a relative path on the
+server, exactly as the hop-by-hop walk would. Every directory on the way is a descent asking for
+`DESCEND` plus the request: it needs `DESCEND` on its parent, is narrowed, and is `EPERM` if it
+comes up short. `OPEN`'s second word carries that request, so a file opened for reading still
+carries only `READ`. Every component is checked before any is resolved. An older server answers
+`EINVAL`, and the PAL then walks hop by hop and stops asking. `fs_nameset_caretaker` checks the
+first component of a path against its set. `filesystem_protocol::fs::OPEN` and `OPENDIR` hold the
+rule.
 
-**D. No relay process for a subtree grant.** Re-costed 2026-09-26 after milestone 599 (a frame per
-filesystem client channel) landed badged endpoints under §230 (badged endpoint capabilities). The
-server would narrow a grant itself, keyed on the badge `RECV_CAP` now returns, and the caretaker
-process would go. Its own section follows, because it is as much about trust as speed.
+**B, ruled 07:06Z in its second form and built.** `OPEN`'s reply carries the file's size in its
+second word, and 0 means "not given". The PAL keeps it as `File::open_size_hint`, and the std
+overlay routes the buffer sizing of `fs::read`, `fs::read_to_string` and `read_to_end` through it
+(`std_patch_size_hint` in `xtask/src/farm.rs`). `metadata()` still always asks the server. calef's
+reason: a stale hint costs at most one resize, and a stale `metadata()` lies to the program.
+
+**D, ruled 07:17Z as option 2, on per-filesystem terms.** Caretakers stay the default for every
+filesystem. D is a fast path only for a memory-safe server that resolves every path through one
+shared scope crate, proven with Kani, which owns `..`, symbolic links, hard links and mount
+crossings. It is for subtree grants only, and the progenitor chooses per mount, from what the
+filesystem's package declares, between a badge and a caretaker. The section below is the costing
+that ruling was made on, after milestone 599 (a frame per filesystem client channel) landed badged
+endpoints under §230 (badged endpoint capabilities).
 
 ## D in detail: the server narrows, keyed on the badge
 
@@ -261,14 +263,7 @@ The walk's three sized files take 80 `READ`s where they could take 6. In a real 
 files are over 4 KiB, so this matters more there than here. It changes the loader's mapping, which
 the progenitor and the kernel harness share with the PAL.
 
-The recommendation, for what it is worth to the decision: A first. It is the one with prior art
-everywhere (`openat` resolves a path), it is backward compatible by refusal, and alone it takes a
-quarter off. B is small and additive. D reaches parity and needs no kernel change since milestone
-599, but it trades §27's confinement-by-capability-space for a check in the server, which the
-section above lays out rather than decides.
-
-What is blocked until this is answered: nothing already built. The milestone is BUILT on what the
-contract allows, and parity waits on these.
+What is left: building D on those terms, as its own pull request after A and B.
 
 ## Reproduce
 
