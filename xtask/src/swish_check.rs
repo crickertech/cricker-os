@@ -253,6 +253,15 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // answer above it counted. Spelled out rather than derived for this file's reason: it is a boot
     // gate, and deriving one number from another would hide the case where both are wrong.
     line(2, "wc gate.txt | wc", &["1 3 7"]),
+    // **A `std` program's words through a pipe** (milestone 205 (how a foreign program is told what
+    // to do)): a stage's argv takes the pipeline's path, `spawn_stage`, rather than `spawn`'s.
+    // **Here, far from the plain `std_exerciser` line, on purpose.** The job pool holds one `std`
+    // region, and a `std` job's region comes back when `job_undertaker` reaps it, after the shell
+    // has already drained its output and prompted. Typed straight after another `std` job, this
+    // line answered "could not spawn" on riscv64 in CI (2026-09-27), which is that reap losing a
+    // race by inference rather than measurement. See 205's BUGS. The count is `std_tests::EXPECTED`'s transcript with
+    // its `args []` line read as `args ["std_exerciser", "piped"]`: 15 lines, 42 words, 267 bytes.
+    line(2, "std_exerciser piped | wc", &["15 42 267"]),
     // The negative control the pair would be weaker without. `wc` alone is refused **at the
     // prompt**, before anything is spawned, because its manifest declares that it reads a stream;
     // on Unix the same command is a shell that appears to hang. So the line above granted
@@ -940,10 +949,6 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "exiting through process::exit",
         ],
     ),
-    // **The same words through a pipe** (milestone 205): a stage's argv takes the pipeline's path,
-    // `spawn_stage`, rather than `spawn`'s. The count is `std_tests::EXPECTED`'s transcript with
-    // its `args []` line read as `args ["std_exerciser", "piped"]`: 15 lines, 42 words, 267 bytes.
-    line(2, "std_exerciser piped | wc", &["15 42 267"]),
     // **An unquoted pattern is refused at the prompt, with nothing spawned** (§170): the words
     // carry no authority, so expanding one would hand over names and nothing they name.
     line(0, "std_exerciser *.rs", &["its words are not expanded"]),

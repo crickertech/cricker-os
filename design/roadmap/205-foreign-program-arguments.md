@@ -101,10 +101,20 @@ choice (how a single `std` directory slot holds words from several places).
 - **A backslash is a pattern byte here**, as it is to `glob`, so a regex such as `\d+` has to be
   quoted. That matches what another shell would do to it unquoted, but it is not what a person
   typing a regex expects.
-- **An image run by path hears nothing.** `run_image` sends no argv, because every image runs
-  with a native manifest (`INSTALLED_MANIFEST_OF` or `UNVOUCHED_MANIFEST`). A `std` program
-  installed as a package cannot be told what to do until a manifest travels in its ELF note
-  (`proposals/a-program-carries-its-manifest-in-an-elf-note.md`).
+- **An image run by path hears nothing.** `run_image` sends no argv. Since milestone 597 (a
+  program carries its manifest in an ELF note) landed on 2026-09-26, an image's note can declare
+  `ArgSpec::Words`. This milestone encodes it as `2`, provisionally. The image path does not yet
+  read that value to build a `std` child with its words. Wiring it is the next piece
+  of this milestone, and it is what lets an installed `rg` hear its pattern.
+- **Two `std` jobs typed back to back can race the reaper.** The job pool holds one `std` region
+  (`JOBS_BUDGET_PAGES` in `crates/system_initializer`), and it comes back only when
+  `job_undertaker` reaps the finished job. The shell prompts as soon as it has drained the output,
+  which can be before the reap. The next `std` line then answers "could not spawn (the progenitor
+  is out of memory)". Seen once in CI on riscv64 on 2026-09-27, when the pipeline line followed the
+  plain one; aarch64 passed the same lines in the same run. The reap race is inferred from that and
+  was not measured. `script/swish-check` now keeps the two lines apart. The fix is for the progenitor to
+  wait, bounded, for a reap when the pool is short. That wait is the clock-bounded one `reclaim`'s
+  BUGS already asks for. This predates milestone 205; any two `std` jobs hit it.
 - **Each spawn costs a scratch page or two in the progenitor**: one to read the shell's frame
   and one to fill the child's copy. They come from `supervision_protocol`'s never-reused
   scratch cursor, which milestone 206 (a program image has under 896 KiB)'s block records as unbounded and a draft pull request

@@ -5863,7 +5863,10 @@ mod tests {
             assert_eq!(m.file, FileSpec::Forbidden, "{name}");
             assert_eq!(m.dir, DirSpec::Forbidden, "{name}");
             assert_eq!(m.input, InputSpec::Forbidden, "{name}");
-            assert!(m.flags.is_empty(), "{name}: its options are its own");
+            assert!(
+                m.flags.letters().is_empty(),
+                "{name}: its options are its own"
+            );
         }
         assert!(hearing > 0, "a sweep over nothing proves nothing");
     }

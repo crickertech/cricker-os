@@ -30,7 +30,7 @@
 //! | offset | size | field | values |
 //! |---|---|---|---|
 //! | 0 | 4 | version | `1` |
-//! | 4 | 1 | `arg` | 0 forbidden, 1 required |
+//! | 4 | 1 | `arg` | 0 forbidden, 1 required, 2 words (milestone 205, provisional) |
 //! | 5 | 1 | `mem` | 0 forbidden, 1 required |
 //! | 6 | 1 | `file` | 0 forbidden, 1 read-only, 2 read-write |
 //! | 7 | 1 | `dir` | 0 forbidden, 1 required |
@@ -194,6 +194,11 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
     out[ARG] = match m.arg {
         ArgSpec::Forbidden => 0,
         ArgSpec::Required => 1,
+        // **Added by milestone 205 (how a foreign program is told what to do), provisionally**: a
+        // program whose line is its argv (§170 (how a foreign program is told what to do)). An
+        // additive value in a ratified encoding, so a reader that predates it refuses the note
+        // (`BadField(ARG)`) rather than misreading it; whether that wants a version bump is calef's.
+        ArgSpec::Words => 2,
     };
     if let MemSpec::Required { min, max } = m.mem {
         out[MEM] = 1;
@@ -301,6 +306,7 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
     let arg = match d[ARG] {
         0 => ArgSpec::Forbidden,
         1 => ArgSpec::Required,
+        2 => ArgSpec::Words,
         _ => return Err(Error::BadField(ARG)),
     };
     let mem = match d[MEM] {
