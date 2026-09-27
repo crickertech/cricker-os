@@ -121,6 +121,19 @@
 //!   (`CAP.PLMR`/`PHMR`, which the 7040's units both set) has `PMEN.EPM` cleared once translation
 //!   is on, as Linux does, in case firmware left one enabled. QEMU's model offers none, so this has
 //!   run zero times.
+//! - **A registered device's first DMA can arrive before its context exists, and it is not
+//!   understood.** Found 2026-09-27 (UTC) when milestone 609 (the system tests leave the kernel
+//!   crate) gave the kernel's unit tests a boot of their own; it fails the same way with the test
+//!   run alone, so it is not a test-order dependency, and before that the system suite had always
+//!   attached this disk first. `virtio::tests::the_iommu_faults_a_dma_that_escapes_the_domain`
+//!   registers the PCIe disk (rid `0x20`) and aims its available ring at an unmapped frame. QEMU
+//!   then logs, in order: a translation fault from the device at `0xffdb000`, one of the frames
+//!   registration mapped, with reason `0x2` (context entry not present); then the intended fault,
+//!   a second-level permission error at the escape frame plus 2, by which point the context does
+//!   exist; then "Next Fault Recording Reg is used ... set PFO", so the intended fault is dropped
+//!   and the test reads the first. `attach` runs a global context-cache and IOTLB invalidation, so
+//!   a missing invalidation is not the obvious answer. The test skips on `x86_64` until this is
+//!   explained; aarch64 and riscv64 pass it in the same boot.
 //! - **The fault path decodes and clears exactly one Fault Recording Register per unit.** `CAP.NFR` is read
 //!   to find where the bank starts, not to size it; QEMU's model reports `NFR = 0` (one register),
 //!   so a real unit with more than one is read at the same fixed offset only. A burst of faults past
