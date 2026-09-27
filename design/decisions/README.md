@@ -256,7 +256,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 144 | DECIDED | [The fastpath footprint gate gets a delta and a ceiling, and the ceiling is 16 KiB](144-fastpath-footprint-ceiling.md) |
 | 145 | PROPOSED | [Compartmentalization at process cost: is Qubes' mission the reason the world needs this OS?](145-compartmentalization-at-process-cost.md) |
 | 146 | PROPOSED | [Archive and compression: which pieces we write, which we take, and which we refuse](146-archive-and-compression-write-or-take.md) |
-| 147 | DECIDED | [A timer a userspace service cannot hold](147-a-timer-a-userspace-service-cannot-hold.md) |
+| 147 | AMENDED | [A timer a userspace service cannot hold](147-a-timer-a-userspace-service-cannot-hold.md) |
 | 148 | DECIDED | [Milestone 105's two forks: a supervisor restarts by asking, and resolves by asking the kernel](148-reap-and-thread-identity.md) |
 | 149 | DECIDED | [May the kernel answer on an endpoint, where §121 leaves no userspace holder?](149-kernel-served-console-endpoint.md) |
 | 150 | DECIDED | [How does a thread's CPU time reach userspace?](150-per-thread-cpu-accounting.md) |
