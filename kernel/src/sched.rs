@@ -1453,18 +1453,21 @@ pub fn init() {
     // The idle thread. Its entire body is "wait for an interrupt, then let the scheduler look for
     // work." It is deliberately kept OUT of the ready queue (see cpu::PerCpu::idle): the scheduler picks it
     // only when nothing else is runnable, so it never steals a turn from real work.
-    let idle = Thread::spawn(|| run_idle()).expect("could not create the idle thread");
-
+    //
+    // Built on its own TCB page, as `spawn_on` builds every other kernel thread (milestone 124 (a
+    // thread is born where it lives: the spawn path's copies)), rather than as a value carried
+    // there: the by-value `Thread::spawn` this used held three `Thread`s in one frame in an
+    // unoptimised build, 4368 bytes once the capability table grew to 32 slots, over the 4096-byte
+    // guard page (milestone 126 (the `procps` package), 2026-09-27, UTC).
     let mut sched = IPC_TABLES.lock();
     let s = sched.as_mut().unwrap();
     let idle_id = s
         .threads
-        .insert_with(|tid| {
-            let mut idle = idle;
-            idle.id = tid;
-            idle
+        .insert_in_place(|tid, dst| {
+            // SAFETY: `dst` is the fresh, exclusively-ours TCB page `insert_in_place` claimed.
+            unsafe { Thread::spawn_into(|| run_idle(), tid, dst) }
         })
-        .expect("thread table full at boot");
+        .expect("could not create the idle thread (no kernel stack, no TCB page, or a full table)");
     drop(sched);
     // NOT pushed onto `ready`: the idle thread is a fallback, not a peer.
     cpu::current().idle.store(idle_id, Ordering::Relaxed);
@@ -1863,23 +1866,22 @@ pub fn spawn_with_quota<F: FnOnce() + Send + 'static>(
         }
     }
 
-    let Some(mut thread) = Thread::spawn(f) else {
-        // Out of kernel memory. Give the reserved slot back, since no thread will hold it.
-        budget.fetch_add(1, Ordering::Relaxed);
-        return None;
-    };
-    thread.quota = Some(QuotaToken::new(budget)); // returned to `budget` when the thread is reaped
+    // The reserved slot is held by this token from here on, so every early return below hands it
+    // back by dropping it, and a thread that is built carries it until it is reaped.
+    let token = QuotaToken::new(budget);
 
     let mut guard = IPC_TABLES.lock();
-    let Some(sched) = guard.as_mut() else {
-        return None; // no scheduler: `thread` drops here and its QuotaToken returns the slot
-    };
-    // A full table is the same outcome as out-of-memory: `insert_with` never calls the closure,
-    // `thread` drops uncalled, and its QuotaToken hands the reserved slot back.
-    let id = sched.threads.insert_with(|tid| {
-        thread.id = tid;
-        thread
+    let sched = guard.as_mut()?;
+    // Built in place on its TCB page rather than as a value (see `spawn_on`, milestone 124): the
+    // by-value path held three `Thread`s in one frame in an unoptimised build.
+    let id = sched.threads.insert_in_place(|tid, dst| {
+        // SAFETY: `dst` is the fresh, exclusively-ours TCB page `insert_in_place` claimed.
+        unsafe { Thread::spawn_into(f, tid, dst) }
     })?;
+    // `insert_in_place` just returned this id, so the thread is there.
+    if let Some(t) = sched.threads.get_mut(id) {
+        t.quota = Some(token); // returned to `budget` when the thread is reaped
+    }
     let ptr = thread_control_block_ptr(sched, id);
     // SAFETY: freshly inserted, Ready, on no queue; this core's queue, IPC_TABLES held, IRQs masked.
     cpu::current().with_runq(|q| unsafe { q.push_back(ptr) });

@@ -12,7 +12,7 @@
 //! [`TrapFrame`] with `SPSR = EL0t`, point `sp` at it, and fall into the `exception_restore`
 //! that milestone 2 already wrote.
 //!
-//! This is the second time the project has pulled exactly this trick. `Thread::spawn` fakes a
+//! This is the second time the project has pulled exactly this trick. `Thread::spawn_into` fakes a
 //! `switch_to` frame so that the `ret` which *resumes* a thread also *starts* one
 //! (notes/threads.md). Both times the "start" path turned out to be the "resume" path with a
 //! forged frame, and no new code at all.
