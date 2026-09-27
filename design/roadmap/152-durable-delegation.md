@@ -236,9 +236,9 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 4. The per-identity narrowing in §123 (the boot-time re-derivation privilege) belongs with the first
    real consumer, sharing `login`'s `mint`. **Status: PROPOSED.**
 5. When `login` builds the session process. Ruled L2 (calef, 2026-09-26); built.
-7. Boot re-derivation moves into `login`, which already holds every durable session and the same
-   authority the separate re-deriver of §123 (the boot-time re-derivation privilege) would hold;
-   `session_reviver` is retired. **Status: PROPOSED.** Blocks real sessions at boot.
+7. Boot re-derivation moves into `login`; `session_reviver` is retired. Reasoning in
+   [the fork 7 appendix](../../notes/durable-delegation/boot-rederivation-in-login.md).
+   **Status: PROPOSED.** Blocks real sessions at boot.
 8. Which programs a scheduled job may run on the real boot, which decides the schedule archive the
    progenitor hands `login`. **Status: PROPOSED.** Blocks `SCHEDULE` on the real boot.
 6. Where a scheduled job's report goes once nobody is attached. Recommended: a job holds no report
@@ -272,6 +272,8 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 - **Outstanding.** `components/src/session_reviver.rs` still holds one unnarrowed filesystem endpoint for
   its whole pass, which is §123's first hardening refinement and is unbuilt. Its own `BUGS` says
   so. Fork 4 above recommends building it with the first real consumer. Checked 2026-09-26.
+- **Outstanding.** `LOGIN_CONSTRUCTION_PAGES` (768) cannot hold a durable budget: see fork 7's
+  appendix. Found 2026-09-27.
 - **Recorded.** No liveness watchdog exists for a re-deriver that hangs before deleting its
   capabilities; §123's addendum declines to design one.
 - **Outstanding.** `components/src/session_reviver.rs` is spawned only under the kernel test harness by

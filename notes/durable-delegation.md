@@ -218,3 +218,18 @@ from building them, each recorded where a reader meets it:
 - "The stored schedule resumes at the next login" makes `login` read an identity's stored schedule
   at login time. Doing the same at start-up is boot re-derivation, which is why the block proposes
   moving it into `login` (fork 7).
+
+### 7. Where boot re-derivation runs
+
+The options table, the authority each holder has, the prior art and the measured costs are in
+[the fork 7 appendix](durable-delegation/boot-rederivation-in-login.md). In short: `login` already
+holds every capability the separate re-deriver of §123 would, so deleting the re-deriver's copies
+after one use leaves the machine where `login` already stands. The recommendation is that `login`
+re-derives at start-up and `session_reviver` is retired. `login`'s 24-slot table holds one durable
+session (19 + 4N at an ordinary login's peak), so that is also the boot pass's limit until the
+table is widened, at 8 KiB of kernel memory per slot.
+
+The appendix also found a latent failure. The real boot gives `login` 768 construction pages, and
+with a schedule archive `_start` splits 800 before it serves anyone, so `login` would die at
+`fail(2)`. Fork 8's archive needs `LOGIN_CONSTRUCTION_PAGES` raised first, whichever way fork 7
+goes.
