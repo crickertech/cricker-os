@@ -1617,7 +1617,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 176	161	context	at-creation	2026-08-25	2026-08-25	**Status: BUILT.** Minted 2026-08-25, from M-161's own item 0, "the wide half is
 226	127	context	at-creation	2026-09-03	2026-09-02	**Status: BUILT 2026-09-03.** Minted 2026-09-02 by the maintainer, from M-127's EL2 entry
 176	161	context	at-creation	2026-08-25	2026-08-25	- **The interrupt controller (IO APIC) is built**, M-161's own item 2, reached directly by
-176	165	context	at-creation	2026-08-25	2026-08-25	- **PCI is wired**, and has been since M-165's ACPI/MCFG work: `kernel/src/main.rs`
+176	165	context	at-creation	2026-08-25	2026-08-25	- **PCI is wired**, and has been since M-165's ACPI/MCFG work: `kernel/src/lib.rs`
 226	38	context	at-creation	2026-09-03	2026-09-02	still killed at the bound. So is the M-38 property beside it: a fast child in a pipeline
 176	165	context	at-creation	2026-08-25	2026-08-25	since M-165 and the interrupt controller since M-161 item 2, neither is `None`
 226	235	context	at-creation	2026-09-03	2026-09-02	itself the case the message warns about, since the other QEMU was M-235's lane mid-gate with
@@ -1913,7 +1913,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 268	161	context	later	2026-09-14	2026-09-09	  has had `x86_64` arms since M-161 (the x86_64 kernel port), which is why the x86 archive
 268	184	context	later	2026-09-14	2026-09-09	  packs every portable program and `std_exerciser` ran there at M-184; and the same day the progenitor itself was loaded
 268	286	context	later	2026-09-14	2026-09-09	Exit 1 is what fails CI: `boot-check` is a `local` row in `script/ci-build`'s table (M-286's
-268	267	context	later	2026-09-14	2026-09-09	   stays in `kernel/src/main.rs` (M-267's lint reads it there by name) and is now called
+268	267	context	later	2026-09-14	2026-09-09	   stays in `kernel/src/lib.rs` (M-267's lint reads it there by name) and is now called
 268	286	context	later	2026-09-14	2026-09-09	   (M-286's one enumeration), named by CI's test job beside `test` and `shell-check`.
 268	182	context	later	2026-09-14	2026-09-09	and M-182 for the entry point. `crates/board_console`'s `Stage::Prompt` says so in its own
 268	295	context	later	2026-09-14	2026-09-09	`design/roadmap/295-retire-the-builder-program.md` now, listed under Follow-on above. The

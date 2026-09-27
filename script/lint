@@ -434,7 +434,7 @@ echo "CFI: every hand-written .s file with an exported symbol carries call-frame
 
 # The machine description prints on every boot (milestone 267).
 #
-# `kernel/src/main.rs`'s `print_machine_description` is the bring-up transcript: paging, the ISA,
+# `kernel/src/lib.rs`'s `print_machine_description` is the bring-up transcript: paging, the ISA,
 # firmware, the cores, the timer, the memory map. On xenon there was no serial console this project
 # could read at first light, so those lines *were* the record, photographed off a monitor, and they
 # are what diagnosed the local-APIC collision and the PCI BAR window landing in RAM.
@@ -455,10 +455,10 @@ echo "==> the machine description is not gated on a boot mode"
 python3 - <<'M267EOF' || exit 1
 import re, sys
 
-src = open("kernel/src/main.rs", encoding="utf8").read()
+src = open("kernel/src/lib.rs", encoding="utf8").read()
 start = src.find("fn print_machine_description")
 if start < 0:
-    print("lint: kernel/src/main.rs has no `print_machine_description`. Milestone 267 made the",
+    print("lint: kernel/src/lib.rs has no `print_machine_description`. Milestone 267 made the",
           file=sys.stderr)
     print("      machine description a function so that nothing could gate half of it. If it was",
           file=sys.stderr)

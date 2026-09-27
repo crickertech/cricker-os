@@ -13,9 +13,17 @@
 //!             assembly, and it sets up the stack itself.
 //!
 //! See notes/no-std.md.
+//!
+//! # Why a library
+//!
+//! Two images link this crate (milestone 609 (the system tests leave the kernel crate)): the
+//! kernel binary, `src/main.rs`, which is nothing but a link line, and the system-test image,
+//! `system_tests/`, which is the same kernel with the whole-system suite on top. So everything
+//! lives here, and `no_main` applies only when `cargo test` builds this library as its own
+//! bootable test image for the kernel's unit tests.
 
 #![no_std]
-#![no_main]
+#![cfg_attr(test, no_main)]
 // Not the crates/ library surface milestone 68's ratchet tracks (DECISIONS §107): the kernel binary
 // is one crate root behind an ABI boundary, not a documented API.
 #![allow(missing_docs)]

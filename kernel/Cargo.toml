@@ -12,6 +12,20 @@ version = "0.1.0"
 edition = "2024"
 license.workspace = true
 
+# A library plus a thin binary (milestone 609 (the system tests leave the kernel crate)), so the
+# system-test image can link the same kernel. The library's `cargo test` build is the bootable image
+# that runs the kernel's own unit tests; the binary has none, and doctests cannot run on bare metal.
+[lib]
+path = "src/lib.rs"
+doctest = false
+bench = false
+
+[[bin]]
+name = "kernel"
+path = "src/main.rs"
+test = false
+bench = false
+
 [lints]
 workspace = true
 

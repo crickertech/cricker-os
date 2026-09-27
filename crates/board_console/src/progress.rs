@@ -2,7 +2,7 @@
 //!
 //! Every marker below is quoted from something in this tree rather than remembered: the bench
 //! runbook in `notes/visionfive2.md` ("What appears, in order, on a good day" and the
-//! failure-triage ladder), and `kernel/src/main.rs` and `kernel/src/panic.rs` for the lines that
+//! failure-triage ladder), and `kernel/src/lib.rs` and `kernel/src/panic.rs` for the lines that
 //! are ours. Nothing here was invented, which matters more than usual, because a recogniser that
 //! matches text no board ever prints fails in the direction that looks like success.
 //!
@@ -500,7 +500,7 @@ impl BootProgress {
     }
 
     /// Whether a **pre-milestone-295** kernel's userspace init built its child
-    /// (`init/build  : ...`, which `kernel/src/main.rs` printed until 2026-09-14).
+    /// (`init/build  : ...`, which `kernel/src/lib.rs` printed until 2026-09-14).
     ///
     /// **This answers a question about captured logs, not about a live board**, and that is the
     /// whole of what milestone 295 changed here. calef retired `components/src/builder.rs` on
@@ -636,9 +636,9 @@ impl BootProgress {
         // **Every marker below is `boot_ladder`'s rather than a literal** (milestone 268), so this
         // recogniser and the kernel cannot hold two copies of one contract. Before that crate the
         // only marker that existed was a string literal in one architecture's arm of
-        // `kernel/src/main.rs` and a second copy of it here, which is exactly how finding 3 hid.
+        // `kernel/src/lib.rs` and a second copy of it here, which is exactly how finding 3 hid.
         //
-        // `nife on ` rather than the RISC-V line specifically: `kernel/src/main.rs` prints one of
+        // `nife on ` rather than the RISC-V line specifically: `kernel/src/lib.rs` prints one of
         // these per architecture, and a recogniser that only knew the VisionFive 2's would report
         // a healthy aarch64 or x86_64 board as never having booted. The full line is kept so the
         // reader sees which one answered, and only from a complete line, or it is kept truncated.
