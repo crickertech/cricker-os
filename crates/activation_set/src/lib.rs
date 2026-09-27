@@ -161,7 +161,9 @@ pub fn lookup<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Er
 /// **The entry a bare name at the prompt runs** (DECISIONS §229 (how a bare name at the prompt
 /// reaches an installed program), B2): the live entry for `program`, never an owner's vouch. A
 /// vouch grants by digest and does not claim a name, so a system program keeps its name and a
-/// local build runs by its path. The whole table is checked first, as in [`lookup`].
+/// local build runs by its path. The whole table is checked first, as in [`lookup`]. A scheduled
+/// job resolves its program the same way (milestone 152 (durable delegation), Fork 8 ruled D on
+/// #1377).
 ///
 /// Name: provisional, milestone 47 (navigation and naming)'s bare-name lane, 2026-09-26.
 pub fn lookup_name<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Error> {
@@ -177,7 +179,8 @@ pub fn lookup_name<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>
 
 /// **A package stem's three fields**: `name`, `version`, `architecture`. A name may hold a hyphen
 /// and the other two may not, so the stem is split from the right. `None` for [`OWNER`] and for
-/// anything else with fewer than two hyphens.
+/// anything else with fewer than two hyphens. An installed program lives at
+/// `packages/<name>/<version>/<program>` ([`PACKAGES`]).
 ///
 /// Name: provisional, milestone 47's bare-name lane, 2026-09-26.
 pub fn stem_parts(stem: &str) -> Option<(&str, &str, &str)> {
@@ -403,6 +406,29 @@ mod tests {
     use std::{format, vec};
 
     use super::*;
+
+    /// **A name resolves to the package's entry and never to an owner's vouch**, and the entry's
+    /// stem splits into the directories its bytes are placed under. What a scheduled job resolves
+    /// (milestone 152, Fork 8 D).
+    #[test]
+    fn a_scheduled_name_resolves_like_a_bare_name() {
+        let table = format!(
+            "uptime owner {}\nuptime util-linux-0.1.0-aarch64 {}\n",
+            "11".repeat(32),
+            "22".repeat(32),
+        );
+        let e = lookup_name(&table, "uptime").unwrap().unwrap();
+        assert_eq!(e.package, "util-linux-0.1.0-aarch64");
+        assert_eq!(e.digest, [0x22; 32]);
+        assert_eq!(
+            stem_parts(e.package),
+            Some(("util-linux", "0.1.0", "aarch64")),
+            "a name may hold a hyphen; the stem splits from the right",
+        );
+        let vouched_only = format!("a.out owner {}\n", "11".repeat(32));
+        assert!(lookup_name(&vouched_only, "a.out").unwrap().is_none());
+        assert_eq!(stem_parts(OWNER), None);
+    }
 
     /// The store as the protocol in the crate documentation uses it: generation files that are
     /// written once, and one `current` line. A `BTreeMap` stands in for the directory.
