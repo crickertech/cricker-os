@@ -2,7 +2,7 @@
 status: NOT-STARTED
 raised: 2026-09-03
 milestone_dependencies: none
-decision_dependencies: unwritten
+decision_dependencies: 175
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -11,11 +11,37 @@ needs_person: no
 
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
 from milestone 230's block; numbered 2026-09-19 by milestone 433. **Premise re-checked 2026-09-19 and
-it holds.** Nothing in `design/decisions/` answers it: §149 (may the kernel answer on an endpoint)
-decided how a program *reaches* a console server and was itself dissolved by §121's reopening, which
-is a different question. `script/swish-check`'s own `BUGS` still describes the interleaving as a live
-defect in the system rather than in the script, and milestone 243's `BUGS` still records that it "has
-its own home", which is this block.
+it holds.** §149 (may the kernel answer on an endpoint) decided how a program *reaches* a console
+server and was itself dissolved by §121 (what a device capability is when the device has no page)'s
+reopening, which is a different question. `script/swish-check`'s
+own `BUGS` still describes the interleaving as a live defect in the system rather than in the script,
+and milestone 243 (a machine with no serial port has no way to say anything)'s `BUGS` still records
+that it "has its own home", which is this block.
+
+**Corrected 2026-09-27**: this block's earlier text said "nothing in `design/decisions/` answers
+it." That was true on 2026-09-19 and stopped being true the same day. Milestone 435 (forty-five
+milestones are gated on a decision nobody wrote down) raised §175 (where the kernel's own output
+goes once userspace owns the console) as this question's actual home, status PROPOSED still.
+`decision_dependencies` above pointed at `unwritten` regardless; it now points at `175`.
+
+## Priced, 2026-09-27 (PRICING lane, calef's approval)
+
+[`notes/kernel-console-arbitration-pricing.md`](../../notes/kernel-console-arbitration-pricing.md)
+answers §175's two open items: the hardware fact per board, and what a panic costs under each
+option. It prices a fifth option calef asked for (release builds go quiet, seL4's shape), and
+confirms the interleaving with a captured, byte-exact CI transcript already in-tree
+(`xtask/src/swish_check.rs`'s `SHREDDED_CI_TRANSCRIPT`), rather than assuming it.
+
+Highlights: a second port is free under QEMU on all three architectures, and confirmed absent,
+unconfirmed, or flatly impossible on the three real boards respectively, worst on xenon where there
+is no second serial connector at all. The kernel's collision surface is larger than §175 measured:
+two routine gauges, not just fault reports, and one of the two (`capability slots:`) has no
+equivalent filter to the one already built for the other gauge after it caused this exact failure
+once. The release-only option does not touch CI at all, since CI never builds release.
+
+No option is recommended, per §175's own reasoning and AGENTS.md's rule to give options rather than
+a recommendation on an irreversible fork. Still no work on the fork itself: this remains NOT-STARTED
+pending calef's ruling on §175.
 
 Where the kernel's own output goes once userspace owns the console is a design
 fork rather than a bug to fix, and it is an architect's. The options are genuinely different systems, not
