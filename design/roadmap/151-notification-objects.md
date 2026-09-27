@@ -164,11 +164,6 @@ implies) is most of the difference.
   is exercised from a kernel thread; that it is safe on the interrupt stack is argued from
   `irq_notify`, which takes the same lock the same way, not tested. Milestone 106's tick is the first
   real caller and the first proof.
-- An IRQ signal's `w0 = 1` is forgeable in principle, and unreachable today. Every endpoint the
-  kernel routes an interrupt to is never granted as a `Rendezvous` capability, so no sender can reach
-  it, but nothing enforces that: it is wiring discipline. `soak.rs` binds the tick to caller-supplied
-  endpoints in `--features soak_test` builds. The fix is §101's undecided "IRQ migration" onto
-  notifications. See `notes/notification-objects.md`.
 - A sender can make a receiver read an error. Not new, found while checking the premise above:
   `RECV` returns the sender's `w0` in `x0`, and a sender that sends a negative `w0` equal to an error
   code is decoded as that error by every wrapper that checks the sign. Recorded at
@@ -192,8 +187,10 @@ implies) is most of the difference.
 - **Milestone 33.** Milestone 33 (a compositor) owns the compositor's per-client endpoints woken by a bound notification, §101's
   table's second row. Its own follow-on, not built here.
 - **Recorded.** No unbind, `WAIT`'s word sharing `x0` with the error encoding, `SIGNAL(0)` as a
-  no-op, the O(queue) unlink, and the latent `w0 = 1` IRQ forgery, all in this block's `BUGS` and in
-  `crates/abi/src/lib.rs` beside `abi::notification`.
+  no-op and the O(queue) unlink, all in this block's `BUGS` and in `crates/abi/src/lib.rs` beside
+  `abi::notification`.
+- **Done.** The latent `w0 = 1` IRQ forgery this lane found: calef ruled B on 2026-09-26 (§101's
+  second amendment), and milestone 603 (an interrupt's endpoint refuses every send) built it.
 - **Recorded.** A sender can make a receiver read an error by sending a negative `w0`: beside
   `abi::rendezvous::RECV` in `crates/abi/src/lib.rs`.
 - **Decision.** The receive tag (option B), ruled by calef on 2026-09-26, is being recorded as an

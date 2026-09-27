@@ -136,3 +136,8 @@ its caller supplies, in a `--features soak_test` build only; those are the soak'
 carry no senders today. Recorded as a `BUGS` entry in the block rather than fixed here, because the
 fix (make an interrupt endpoint unsendable, or move IRQ delivery onto notifications) is §101's
 "IRQ migration", which §101 explicitly left undecided.
+
+Closed on 2026-09-26. calef ruled the first fix (§101's second amendment), and milestone 603 (an
+interrupt's endpoint refuses every send) built it: `bind_irq` marks the endpoint, and a `SEND`,
+`SEND_CAP` or `CALL` to it answers `NotPermitted`. Moving interrupts onto notifications is
+decided driver by driver.

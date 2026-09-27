@@ -107,8 +107,9 @@ baseline to re-record at merge with both numbers in hand, not a regression in ei
 
 - **Recorded.** The one-way mark, the silent kernel-side abort and the test's leftover route are in
   this block's `BUGS`, and the first is beside the method in `crates/inter_process_communication`.
-- **Done.** Milestone 151's `BUGS` entry on the forgeable `w0 = 1` is removed by this change,
-  and §101 (notification objects)'s first amendment now points at the second.
+- **Done.** Milestone 151's `BUGS` entry on the forgeable `w0 = 1` is removed by this change, its
+  note says the gap is closed, and §101 (notification objects)'s first amendment now points at the
+  second.
 - **Decision.** Moving each driver's interrupt onto a notification object is deferred, driver by
   driver, by `design/decisions/101-notification-objects.md`.
 
