@@ -43,10 +43,30 @@ Refused, per `notes/notification-objects.md` on pull request #1351: A (as writte
 error meaning "notified") are forgeable. C (each method's own kernel-written register) is free on
 every path but makes three rules of one. D spends a method number on a register convention.
 
-The IRQ signal, `w0 = 1`, is forgeable the same way, and stays so. It is safe today by
-wiring, not enforcement: an interrupt's endpoint is reached only through `Irq::WAIT`, which cannot
-send, and nothing refuses a service that also grants it with `WRITE`. The fix is this section's
-undecided IRQ migration; until then it is a `BUGS` entry in milestone 151's block.
+The IRQ signal, `w0 = 1`, was forgeable too; the next amendment closes it.
+
+## Amended 2026-09-26: an endpoint bound to an interrupt refuses every send
+
+calef, 2026-09-26 (recorded 21:33 UTC): *"B"*, on the IRQ migration.
+
+The lane for milestone 151 found that `w0 = 1` held only by wiring. All fifteen `bind_irq`
+endpoints are made for their interrupt and never granted as a `Rendezvous` capability, and a soak
+build binds endpoints its caller supplies. Nothing refused a `WRITE` grant.
+
+The ruling, option B:
+
+- An endpoint bound with `bind_irq` refuses every deposit from userspace: `SEND`, `SEND_CAP`,
+  `CALL`, and any later method that deposits a message, with an error.
+- So `w0 = 1` is unforgeable by kernel rule, not by wiring.
+- Moving interrupts onto notification objects (option A) is decided later, driver by driver, when a
+  driver needs to wait on its interrupt and its requests together.
+
+Refused: C, a `BUGS` entry that relies on wiring.
+
+Built by milestone 603 (an interrupt's endpoint refuses every send), a provisional number.
+`bind_irq` marks the rendezvous, `Rendezvous::send` answers `Send::Refused`, and the three methods
+return `NotPermitted` without blocking. A §26 death message sent there is dropped, because `EVENT_FAULT`
+is also `1`.
 
 ## What is being decided
 
@@ -92,18 +112,10 @@ is not lost; `recv` drains a pending signal first. IRQ capabilities are bound to
 queue is ever non-empty") holds for signals because a signal never queues the signaller - it is
 deliberately not a rendezvous.
 
-What is missing:
-1. A user-callable signal: today only the kernel's IRQ handler can signal an endpoint. A
-   userspace process needs to signal a notification object.
-2. A separate object type: signals today are a side channel on an endpoint, which means the
-   signal count and the IPC rendezvous share one wait queue. seL4 separates them: a notification is
-   its own object with its own queue, and an endpoint is purely synchronous.
-3. Binding to a TCB: today a signal wakes a thread blocked on the *same* endpoint. Binding lets
-   a signal on a notification wake a thread blocked on a *different* endpoint (one is an IPC `RECV`,
-   the other is the bound notification), so a thread can wait for IPC and be woken by an async
-   signal at the same time.
-4. A badge: the notification word carries information about which signaler fired, so the
-   receiver can distinguish "the child exited" from "the timer fired" from "a key was pressed."
+What is missing is a user-callable signal, a separate object type, binding to a TCB, and a badge.
+The design adds the first three. The list was cut on 2026-09-26 to fit the second amendment
+under §212's cap, and is
+[at `256815e56`](https://github.com/crickertech/nife/blob/256815e5609cfb961ccb6526f8a0d3316e589402/design/decisions/101-notification-objects.md#the-kernel-already-has-half-the-mechanism).
 
 ## What other operating systems do
 
@@ -398,6 +410,4 @@ object solves the deadlock it was proposed for.
 - Direct process switch, §96 (process kernel or event kernel). The L4 lessons audit found this
   kernel has no direct process switch (rows 11/13/14). That is a separate decision about the
   scheduling model, and the notification object does not depend on it or change it.
-- IRQ migration. Whether IRQs are rerouted from endpoints to notifications is a migration
-  decision for the driver model, not this decision. The existing `bind_irq` / `irq_notify` path
-  stays.
+- IRQ migration. Deferred driver by driver; see the second amendment.
