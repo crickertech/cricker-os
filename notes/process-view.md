@@ -688,17 +688,12 @@ flag on a table of two columns.
 
 ## What this does not build
 
-`w`, `pidwait` and `pmap` from the prompt, each moved out of milestone 126 as a proposal of its own:
-`w` waits on a fork, and `pidwait`, ruled by §226 (`pidwait` takes tids), waits on a kernel method
-nobody has chosen. The machine-wide statistics are built beside this view rather
-than in it, under §225 (`free` sees the machine and your share): see
-[the machine and your share](process-view/the-machine-and-your-share.md).
-`sysctl` is declined (§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the signalling
-stratum is refused (milestone 455 (the signalling stratum of `procps`)). `pmap` is built but
-unreachable from the prompt. Every fork is written up, with its premise checked, in
-[what is left](process-view/what-is-left.md). One of them corrects this note's own earlier reading:
-`pwdx` prints another process's working directory, not its name, and here only the shell has one,
-which is why it was declined.
+`w`, `pidwait` and `pmap` from the prompt, each now a proposal of its own. `sysctl` is declined
+(§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the signalling stratum is refused
+(milestone 455 (the signalling stratum of `procps`)). The machine-wide statistics are built beside
+this view, under §225 (`free` sees the machine and your share): see
+[the machine and your share](process-view/the-machine-and-your-share.md). The forks are written up
+in [what is left](process-view/what-is-left.md).
 
 See `design/roadmap/126-who-else-is-running.md`, notes/glob.md (the matcher `pgrep` reuses),
 notes/supervision.md (the mechanism this reads),

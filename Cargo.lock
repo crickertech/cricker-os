@@ -450,8 +450,8 @@ dependencies = [
 name = "free"
 version = "0.1.0"
 dependencies = [
+ "address_space_map",
  "machine_statistics_protocol",
- "page_frames",
 ]
 
 [[package]]
@@ -691,6 +691,7 @@ dependencies = [
 name = "machine_statistics_protocol"
 version = "0.1.0"
 dependencies = [
+ "address_space_map",
  "current_cpu_protocol",
 ]
 
@@ -941,7 +942,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 name = "slabtop"
 version = "0.1.0"
 dependencies = [
- "page_frames",
+ "address_space_map",
 ]
 
 [[package]]

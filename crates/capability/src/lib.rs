@@ -460,7 +460,7 @@ impl<O: Copy, const N: usize> CapabilityTable<O, N> {
 ///
 /// **It does not say which table.** A `static` cannot be keyed by a const generic, so this is one
 /// number for every instantiation of [`CapabilityTable`] linked into the binary. The kernel has
-/// exactly one (`kernel::cap::CapabilityTable`, `N = 24`), so there the number is unambiguous; a
+/// exactly one (`kernel::cap::CapabilityTable`, `N = kernel::cap::CAPABILITY_TABLE_SLOTS`), so there the number is unambiguous; a
 /// host test binary that exercises several sizes will see whichever one climbed highest, and the
 /// `ceiling` half tells a reader which. Finding the owning thread means the scan this exists to
 /// avoid, and `kernel/src/sched.rs` does it once, only when it is about to print.

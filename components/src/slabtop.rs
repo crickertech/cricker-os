@@ -32,7 +32,7 @@
 //! `crates/slabtop`'s: the counts say where pages went rather than what is alive, and the table
 //! counts `slabtop` itself.
 //!
-//! Name: provisional, milestone 126's `free` lane, 2026-09-26.
+//! Name: ratified 2026-09-27 (calef, #1360's table), as milestone 126's `free` lane minted it.
 
 #![no_std]
 // Program entry points, not the crates/ library surface the ratchet of milestone 68 (code-quality

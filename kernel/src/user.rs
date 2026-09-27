@@ -2002,7 +2002,8 @@ pub fn riscv_uart_driver_demo(
 /// 50), the virtio-rng trio at 7-9, the graphical terminal stack at 10-12 and the virtio-net trio
 /// at 13-15 (milestone 590 (the booted system starts its network stack)) when each is present.
 /// That fills sixteen of the table's
-/// twenty-four slots at spawn, which is why the progenitor spends the net trio before anything else.
+/// thirty-two slots at spawn (the GPU and keyboard grants at 17-22 and the machine statistics page
+/// at 23 came later), which is why the progenitor spends the net trio before anything else.
 /// `components/src/progenitor.rs`'s single `GRANTS` table reads exactly this. Until milestone 166
 /// aarch64's boot carried two extra capabilities at slots 1 and 3 (a report endpoint and a test
 /// interrupt) that the interactive system never used, only because its loader was shared with
@@ -2352,12 +2353,6 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     )
     .expect("insert the machine statistics page");
     assert_eq!(s23, 23);
-    // The graphical terminal stack (slots 10-12, milestone 177), when a GPU is attached
-    // (milestone 192 dropped the keyboard from the condition; the UART is a keystroke source too).
-    // `None` on a boot with no GPU: system_initializer builds the plain console/input pair
-    // instead, the same "absence rather than failure" shape as the filesystem pair and the
-    // virtio-rng trio. See [`boot_graphical_terminal`].
-    let graphical = boot_graphical_terminal(uart_irq);
     // **Or a terminal on the screen the firmware left running** (the shell on the firmware screen,
     // milestone 198's rung 1b), when there is no GPU: slots 10 and 11, the terminal's endpoint and
     // its output page. (They were the graphical stack's slots too, until milestone 600

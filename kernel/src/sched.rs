@@ -2813,7 +2813,10 @@ pub fn create_notification_from(region: u64) -> Option<NotificationId> {
     if sched.notification_table.len() >= MAX_NOTIFICATIONS {
         return None;
     }
-    let phys = crate::memory_region::retype_object_page(region)?;
+    let phys = crate::memory_region::retype_object_page(
+        region,
+        crate::memory_region::ObjectKind::Notification,
+    )?;
     // SAFETY: fresh page, exclusively ours, direct-mapped.
     unsafe {
         (crate::arch::mmu::phys_to_virt(phys) as *mut NotificationPage).write(NotificationPage {
@@ -3178,7 +3181,8 @@ pub fn create_timer_from(region: u64) -> Option<TimerId> {
     if sched.timer_table.len() >= MAX_TIMERS {
         return None;
     }
-    let phys = crate::memory_region::retype_object_page(region)?;
+    let phys =
+        crate::memory_region::retype_object_page(region, crate::memory_region::ObjectKind::Timer)?;
     // SAFETY: fresh page, exclusively ours, direct-mapped.
     unsafe {
         (crate::arch::mmu::phys_to_virt(phys) as *mut TimerPage).write(TimerPage {
@@ -3974,9 +3978,9 @@ fn strand_reply_caller(sched: &mut IpcTables, caller: ThreadId) -> bool {
 /// **It reads the table once and then acts**, which is a measured shape rather than a stylistic
 /// one. The obvious loop re-resolves `tid` through the generational thread table on every slot,
 /// because [`strand_reply_caller`] takes `sched` mutably and deletes out of this very table as it
-/// goes; at 24 slots that is 24 generational lookups per departing thread, and `script/bench`
-/// priced it at about 830 icount ticks on every `spawn_reap` iteration. One lookup, a 192-byte
-/// array of victims in this function's own frame (it is `#[inline(never)]`, so the array is never
+/// goes; at 24 slots that was 24 generational lookups per departing thread, and `script/bench`
+/// priced it at about 830 icount ticks on every `spawn_reap` iteration. One lookup, an array of
+/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (256 bytes at 32 slots) in this function's own frame (it is `#[inline(never)]`, so the array is never
 /// on `reap_region_objects`'s), and the empty-table early-out cost nothing and gave it back.
 #[cold]
 #[inline(never)]
@@ -4014,7 +4018,7 @@ fn strand_callers_of(sched: &mut IpcTables, tid: ThreadId) {
 /// server.
 ///
 /// **Rescan rather than list**, which is the opposite choice from [`strand_callers_of`] above and
-/// the difference is the bound: that one lists because a capability table is 24 slots, 192 bytes,
+/// the difference is the bound: that one lists because a capability table is 32 slots, 256 bytes,
 /// and this one cannot because the bound here is `MAX_THREADS`, a kilobyte that grows every time
 /// the thread ceiling does. Both functions sit on the call chain through
 /// [`reap_region_objects`], the deepest frame in the kernel, whose own comment spends a paragraph

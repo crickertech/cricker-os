@@ -29,7 +29,7 @@
 //!
 //! `crates/vmstat`'s: no interval (milestone 106 (a wait that ends on either the interrupt or the deadline)), and `busy` is `us` and `sy` together.
 //!
-//! Name: provisional, milestone 126's `free` lane, 2026-09-26.
+//! Name: ratified 2026-09-27 (calef, #1360's table), as milestone 126's `free` lane minted it.
 
 #![no_std]
 // Program entry points, not the crates/ library surface the ratchet of milestone 68 (code-quality

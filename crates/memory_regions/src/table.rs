@@ -140,10 +140,15 @@ pub enum ObjectKind {
     /// A page of the kernel's own object pool (`kernel/src/kmem.rs`), whose contents change kind as
     /// pages are recycled, so no finer count would stay true.
     KernelPool,
+    /// A notification object (`abi::objtype::NOTIFICATION`). Counted, and not yet reported by any
+    /// `abi::usage` record: the ratified records predate this object kind (see that module's BUGS).
+    Notification,
+    /// A timer object (`abi::objtype::TIMER`), counted and unreported for the same reason.
+    Timer,
 }
 
 impl ObjectKind {
-    const COUNT: usize = 4;
+    const COUNT: usize = 6;
 }
 
 /// **One line of a region's spending, as [`RegionTable::spent`] reports it.**

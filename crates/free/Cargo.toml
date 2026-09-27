@@ -9,4 +9,4 @@ workspace = true
 
 [dependencies]
 machine_statistics_protocol = { version = "0.1.0", path = "../machine_statistics_protocol" }
-page_frames = { version = "0.1.0", path = "../page_frames" }
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

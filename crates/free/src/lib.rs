@@ -41,7 +41,7 @@
 //!   lists itself.
 //! - The two lines are read at slightly different moments, and neither is a snapshot of the other.
 //!
-//! Name: provisional, milestone 126's `free` lane, 2026-09-26: upstream `procps`'s name for the
+//! Name: ratified 2026-09-27 (calef, #1360's table): upstream `procps`'s name for the
 //! program a reader types to ask this.
 
 #![cfg_attr(not(test), no_std)]
@@ -124,7 +124,7 @@ pub fn write_report(
         row(b"Mem:  ", total, total.saturating_sub(free), free, out);
     }
     if let Ok(sh) = share {
-        let kib = page_frames::FRAME_SIZE / 1024;
+        let kib = address_space_map::PAGE / 1024;
         let total = sh.pages * kib;
         let used = sh.committed.min(sh.pages) * kib;
         row(b"Yours:", total, used, total - used, out);

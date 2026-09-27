@@ -34,7 +34,7 @@
 //! - The breakdown need not sum to the pages spent: a job region's unspent pages are spent from the
 //!   budget's point of view and on nothing from the job's.
 //!
-//! Name: provisional, milestone 126's `free` lane, 2026-09-26, and flagged harder than `free`'s:
+//! Name: ratified 2026-09-27 (calef, #1360's table), though it was flagged harder than `free`'s:
 //! the upstream name promises a kernel-wide cache view, and this is one budget's breakdown.
 
 #![cfg_attr(not(test), no_std)]
@@ -81,7 +81,7 @@ pub fn write_report(s: &Spending, out: &mut dyn FnMut(&[u8])) {
     }
     for (pages, what) in rows {
         write_right(pages, 8, out);
-        write_right(pages * (page_frames::FRAME_SIZE / 1024), 9, out);
+        write_right(pages * (address_space_map::PAGE / 1024), 9, out);
         out(b"  ");
         out(what);
         out(b"\n");

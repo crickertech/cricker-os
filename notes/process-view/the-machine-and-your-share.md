@@ -45,23 +45,45 @@ into job regions, and the objects live in those, so a count of the budget alone 
 threads cost nothing. The object counts therefore sum over the region's whole live subtree, which
 the region table already records through each region's parent.
 
-## Proposed, and calef's to ratify
+## Ratified, and what moved at rebase
 
-Every number and name here was minted by this lane and ships provisional.
+calef ratified this table on 2026-09-27 (UTC). Three numbers moved when the branch was rebased onto
+a `main` that had taken them in the meantime. Numbers stay provisional until the queue lands them,
+so a move at rebase needs no second ratification. Each is recorded where it lives.
 
-| what | proposed | why this and not another |
+| what | ratified | landed | why |
+|---|---|---|---|
+| the method | `abi::memory_region::USAGE = 5` | 5 | nothing collided |
+| its records | `abi::usage` 0 to 6 | 0 to 6 | nothing collided |
+| the page's name and layout | `machine_statistics_protocol`, magic `MACHSTA1`, a 64-byte header, one line per core | the same | nothing collided |
+| where a child sees it | `0x005F_F000` | the same, now a pair page | the address-space map of milestone 206 (a program image has under 896 KiB) moved images and stacks away from it, so the page-table argument for it no longer holds; nothing collides with it |
+| the progenitor's boot slot | 17 | 23 | the GPU and keyboard of milestone 600 (the graphical terminal stack is built in userspace) took 17 to 22; calef raised the table from 24 slots to 32 so a slot free on every boot exists |
+| the session's slot | 21 | 20 | `grant_plan::SHELL_CONFIG_SLOT` took 21 (milestone 47 (navigation and naming)) |
+| the spawn wire | `MACHINE_BIT`, bit 42 | bit 44 | `ARGS_BIT` took 42 (milestone 205 (how a foreign program is told what to do)) and `NAMESET_BIT` takes 43 (#1402) |
+| the child's slots | `MACHINE_SLOT` 11, `SHARE_SLOT` 12 | the same | nothing collided |
+| the owner's switch | `GRANT_MACHINE_PAGE`, default `true` | the same | |
+
+The manifest fields `machine` and `share` were not in the table and stay provisional. They also
+needed two bytes of the ELF manifest note's descriptor (`crates/manifest_note`), whose layout calef
+ratified after this table was drawn; that amendment is raised on #1360.
+
+## The table raise, measured
+
+The one Kani harness family that ranges over the table size is `crates/component_plan`'s, whose
+`any_slot` assumes `s < abi::CAPABILITY_TABLE_SLOTS`. The five harnesses' verification times on
+patagonia (2026-09-27, one sample each, seconds):
+
+| harness | 24 slots | 32 slots |
 |---|---|---|
-| the method | `abi::memory_region::USAGE = 5` | the next number on the object, after `DESTROY` |
-| its records | `abi::usage`: `SIZE` 0, `COMMITTED` 1, `FRAMES` 2, `RENDEZVOUS` 3, `ADDRESS_SPACES` 4, `THREADS` 5, `CHILDREN` 6 | one figure per call, `SURVEY`'s selector shape, so a new figure is a value and not a new return register |
-| the page's name | the machine statistics page, crate `machine_statistics_protocol` | §225 said "machine memory page"; the page carries the scheduler's counters too, because a second page would be a second grant for one question |
-| the page's layout | a 64-byte header line (magic `MACHSTA1`, frame bytes, tick rate, total and free frames), then one line per possible core | one writer per line, so no two cores share a written cache line |
-| where a child sees it | `0x005F_F000`, read-only | the last page of the 2 MiB block a child's program and stack already use, so a spawn pays no new page-table frame. The first choice, `0x00f0_0000`, cost one, and on `x86_64` that took `top` over its job region |
-| the progenitor's slot | 17 | past the entropy slot, the highest fixed boot slot before it |
-| the session's slot | `spawnproto::MACHINE_PAGE_SLOT` 21 | one under the run-unvouched slot, for that slot's reasons |
-| the spawn wire | `spawnproto::MACHINE_BIT`, bit 42 of word 2; the page is the last delegated capability | the next free bit, and last so every existing request keeps its order |
-| the child's slots | `MACHINE_SLOT` 11, `SHARE_SLOT` 12 | named slots past `NETWORK_SLOT`, for the reasons `DOMAIN_SLOT` gives |
-| the manifest fields | `machine`, `share` | `clock`'s family: nothing a command line designates |
-| the owner's switch | `system_initializer::GRANT_MACHINE_PAGE`, default `true` | see below |
+| `too_many_live_instances_never_silently_truncates` | 0.03 | 0.03 |
+| `dependents_finds_exactly_the_non_target_instances_that_declared_it` | 2.89 | 2.47 |
+| `the_device_split_partitions_the_mappings` | 3.43 | 4.02 |
+| `a_missing_route_refuses_rather_than_falling_through_to_a_slot` | 3.87 | 3.28 |
+| `a_plan_never_grants_a_right_the_declaration_did_not_ask_for` | 3.09 | 1.98 |
+
+No change the noise can tell apart; a first 32-slot run read 8.5 s on the second harness and the
+next read 2.5, which is the size of that noise. `crates/capability`'s harnesses fix their own small
+table sizes (2, 3, 4, 16, 64) and do not read the constant, so the raise does not reach them.
 
 ## The owner's switch is a boot-time constant, and that is an exception
 

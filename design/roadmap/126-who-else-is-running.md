@@ -47,6 +47,16 @@ came to miss it.
 | `tload` | built 2026-09-26 as a line in `top`'s summary, not a program | `crates/top` |
 | `pidwait` | ruled 2026-09-26 by §226 (`pidwait` takes tids); moved out, because its wait primitive is a new kernel method | `design/roadmap/proposals/pidwait-waits-on-a-named-tid.md` |
 
+## The wire it added, and the table it grew
+
+calef ratified the numbers and names this milestone minted on 2026-09-27 (UTC). Three moved at
+rebase because `main` had taken them: the machine page's progenitor boot slot from 17 to 23, the
+session's slot from 21 to 20, and `spawnproto::MACHINE_BIT` from bit 42 to bit 44. The boot slot
+needed the capability table raised from 24 slots to 32, which calef ruled the same day. The table
+of what moved and why, and the Kani timings that raise touched (the five `component_plan`
+harnesses, 13.3 s at 24 slots and 11.8 s at 32, one sample each), are in
+`notes/process-view/the-machine-and-your-share.md`.
+
 ## Why this package, and why the package rather than the program
 
 What these programs want is enumeration of the process namespace, and enumeration is the authority

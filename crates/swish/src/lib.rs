@@ -2018,7 +2018,8 @@ mod tests {
         assert!(!held.contains("cap 10"), "an unvouched note grants nothing");
         assert!(held.contains("asks for: output bytes, the network"));
         assert!(held.contains("its note grants nothing"));
-        assert!(held.contains("slot 22"));
+        let slot = std::format!("slot {}", grant_plan::spawnproto::RUN_UNVOUCHED_SLOT);
+        assert!(held.contains(&slot), "{held}");
 
         let asks_arg = grant_plan::Prog::LeastAuthorityDemo.manifest();
         let exceeds = say(None, true, Some(asks_arg), b"bin/x 5");

@@ -67,8 +67,8 @@
 //!   is no page cache or block I/O counter either, because the kernel has none of them to count:
 //!   the filesystem and the block driver are userspace programs.
 //!
-//! Name: provisional, minted 2026-09-26 by milestone 126's `free` lane, for the crate and for "the
-//! machine statistics page". §225 called it the machine memory page; it carries the scheduler's
+//! Name: ratified 2026-09-27 (calef, #1360's table), for the crate and for "the machine statistics
+//! page", as milestone 126's `free` lane minted them on 2026-09-26. §225 called it the machine memory page; it carries the scheduler's
 //! counters too, because `vmstat` needs them and a second page would be a second grant for one
 //! question.
 
@@ -96,18 +96,18 @@ const _: () = assert!(
     "a mapping starts on a page boundary"
 );
 
-/// **Where a child that declares `machine` finds the page**, read-only: the last page of the 2 MiB
-/// block every child's program and stack already live in (the ELF loads at `0x40_0000` and the
-/// stack sits under `supervision_protocol::CHILD_STACK_VA`, `0x50_0000`), so mapping it costs a
-/// spawn no page-table frame of its own, the measurement `current_cpu_protocol::PAGE_VA` records.
+/// **Where a child that declares `machine` finds the page**, read-only. A pair page on the
+/// address-space map (`address_space_map::pair_page`): the progenitor and the one child it builds
+/// agree on it, the way they agree on the clock page's address.
 ///
-/// **A measured choice, not a first guess.** The first build put it at `0x00f0_0000`, beside the
-/// configuration page, which reads as tidy and cost a fresh last-level table on every spawn of a
-/// program that maps no configuration page. On `x86_64`, whose debug `top` is nineteen pages, that
-/// one table took the job over its forty-page region, and `top` could not be spawned. Here the only
-/// thing that could collide is a program over a megabyte, which would already have collided with
-/// its own stack. Provisional.
-pub const PAGE_VA: u64 = 0x005F_F000;
+/// Chosen before milestone 206 (a program image has under 896 KiB) moved every image and stack to
+/// the second gigabyte, when this was the last page of the 2 MiB block a child's program and stack
+/// shared, so it cost a spawn no page-table frame. Under the map it costs what any pair page does,
+/// which `system_initializer`'s `JOB_REGION_PAGES` already counts. The number stayed because calef
+/// had ratified it and nothing collides with it.
+///
+/// Ratified 2026-09-27 (calef, #1360's table).
+pub const PAGE_VA: u64 = address_space_map::pair_page(0x005F_F000);
 
 /// **Word indices into the page.** A per-core word is `cpu(id) + OFFSET`.
 pub mod word {

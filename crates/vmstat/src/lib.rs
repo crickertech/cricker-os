@@ -37,7 +37,7 @@
 //! - `busy` is `us` and `sy` together; see the table.
 //! - Each figure is a word read a moment apart from the others, not one snapshot.
 //!
-//! Name: provisional, milestone 126's `free` lane, 2026-09-26: upstream `procps`'s.
+//! Name: ratified 2026-09-27 (calef, #1360's table): upstream `procps`'s.
 
 #![cfg_attr(not(test), no_std)]
 

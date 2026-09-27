@@ -294,8 +294,8 @@
 //! answer is immediate; on a network with a virtio NIC and no DHCP server the boot would sit there
 //! with no console to say why. Nothing grants a NIC on real hardware today, so the case is
 //! unreached rather than closed. Taking the lease later, when the first declaring child is spawned,
-//! would unblock the boot and cost the report endpoint a permanent slot, and the table has one left
-//! (23 of 24, `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
+//! would unblock the boot and cost the report endpoint a permanent slot (the peak is 23 of 32,
+//! `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
 //!
 //! **And it keeps a writable view of the NIC's DMA page**, at `NET_DMA_PEEK_VA`, for the rng's
 //! reason (reading the physical base the kernel wrote there) and with its cost: there is no unmap.
@@ -308,10 +308,11 @@
 //! have, and `build_child` answering `Err(())` is a silent halt. Three of the four evenings this
 //! file has cost were that: once when the kernel grew two grants, once when a boot component was
 //! built one step too early, and once when a block that had never run before started running
-//! (milestone 230, below). The order below is load-bearing and the comments say where.
+//! (milestone 230 (`script/shell-check` is red on `main`), below). The order below is load-bearing and the comments say where.
 //!
-//! **The table was sixteen slots, then seventeen, and is twenty-four now**
-//! (`kernel::cap::CAPABILITY_TABLE_SLOTS`, raised by milestone 230 on 2026-09-02). Milestone 31
+//! **The table was sixteen slots, then seventeen, then twenty-four, and is thirty-two now**
+//! (`kernel::cap::CAPABILITY_TABLE_SLOTS`, raised to twenty-four by milestone 230 on 2026-09-02
+//! and to thirty-two by calef on 2026-09-27 for the machine statistics page's boot slot). Milestone 31
 //! phase 3 measured this process at nine capabilities at rest and fifteen at peak, one slot from
 //! the seventeen-slot wall, and that number described the boot as it then was: the login stack
 //! below did not exist yet. It does now, and with a virtio-rng attached (DECISIONS §120's
@@ -341,8 +342,11 @@
 //! **That twenty-second capability arrived, and so did a twenty-third.** Milestone 111 (a shell
 //! that can endow a child with entropy)'s entropy endpoint took the peak to twenty-two, and
 //! milestone 590's network-stack endpoint took it to **twenty-three of twenty-four** on a boot with a NIC (`kernel::cap::
-//! CAPABILITY_TABLE_PEAK_MEASURED` carries both). One slot is left, so the next permanent
-//! capability here should buy one back through the two candidates above before it is added.
+//! CAPABILITY_TABLE_PEAK_MEASURED` carries both). One slot was left, and the next permanent
+//! capability was to buy one back through the two candidates above. The raise to thirty-two
+//! (milestone 126 (the `procps` package)) leaves nine above the same peak; the machine statistics
+//! page it was raised for arrives at boot slot 23 and goes to the shell before the login block, so
+//! it is never held across the peak.
 //!
 //! Name: ratified 2026-08-04 (calef, milestone 96), and it is the ratification that raised
 //! milestone 115. Refused `system_builder` (milestone 63 had already refused it, for a reason still
@@ -662,7 +666,13 @@ const _: () = assert!(INIT_OWN_PAGES >= 2 * supervision_protocol::SCRATCH_TABLE_
 /// so that is the whole difference. The "room to spare" was not there: the first `x86_64`
 /// `script/swish-check` after the map refused `mdr gate.txt`, whose debug image is 18 pages rather
 /// than `date`'s seven, and `x86_64` also pays three tables for its timebase page.
-const JOB_REGION_PAGES: u64 = 41;
+///
+/// **Forty-eight since milestone 126 (the `procps` package), and counted the same way.** `top`
+/// gained the machine statistics page, a pair page of its own, and on `x86_64` its debug image is
+/// nineteen pages; at forty-one the progenitor refused to build it ("could not spawn") in the
+/// `x86_64` leg of `script/swish-check`, and at forty-eight that leg passes every line. The pool is
+/// six of these, so the raise costs the job pool forty-two pages.
+const JOB_REGION_PAGES: u64 = 48;
 
 /// **One directory-granted job's region**: the program *and* the `fs_subtree_caretaker` that carries
 /// its grant, plus the two endpoints between them, all out of one carve.
@@ -1188,9 +1198,10 @@ pub fn boot(
     // `input`, and with a virtio keyboard there is none. Freeing it here, before entropy spends
     // anything, is what keeps the first build under the wall. The gpu's four and the keyboard's
     // three are kernel grants alive from spawn, four more than the three the kernel-built stack
-    // granted, so a boot with all four QEMU devices (gpu, keyboard, rng, NIC) starts holding twenty
-    // capabilities. Less these two, entropy's build (two endpoints, then an address space and one
-    // page or TCB at a time) peaks at twenty-two of twenty-four. That is counted from the code, not
+    // granted, so a boot with all four QEMU devices (gpu, keyboard, rng, NIC) starts holding
+    // twenty-one capabilities (twenty before milestone 126's machine statistics page, which is held
+    // until the shell is built). Less these two, entropy's build (two endpoints, then an address
+    // space and one page or TCB at a time) peaks at twenty-three of thirty-two. That is counted from the code, not
     // measured, and no gate boots all four devices; milestone 600's block records it. (The
     // kernel-built stack's own three were found to push this build past the wall by bisection.)
     //
@@ -1261,7 +1272,7 @@ pub fn boot(
     // manifest declares [`grant_plan::Manifest::entropy`] is endowed a `WRITE` view of this same
     // endpoint at spawn, so the progenitor is the only process that can hand a program at the prompt a
     // random source, exactly as it is the only one that can hand it a clock. That costs one
-    // permanent capability slot in a table milestone 230 measured at 21 of 24 at peak; milestone
+    // permanent capability slot in a table milestone 230 measured at 21 of 24 at peak (the table is 32 now); milestone
     // 231's `capability slots: N of M at peak` line is what says whether that is still true, and it
     // is printed by every boot.
     let mut entropy_client: Option<u64> = None;
@@ -2646,7 +2657,7 @@ struct Channels {
     /// run_unvouched` is followed by one `SEND` on it, which this process takes with a `RECV`;
     /// arriving is the proof, because nothing but a holder can send here.
     ///
-    /// One slot for the life of the boot, and the table had one left (23 of 24). It is retyped
+    /// One slot for the life of the boot, and the table had one left (23 of 24; 32 slots since 2026-09-27). It is retyped
     /// after `login`'s build, the peak, so it is not held across it; `script/swish-check`'s
     /// `capability slots:` line is what says whether that held.
     run_unvouched: u64,

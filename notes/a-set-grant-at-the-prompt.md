@@ -64,8 +64,9 @@ slot, one transient.
 
 ## Costs that must be measured, not asserted
 
-- The progenitor's capability table. `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` is 23 of 24,
-  and its doc says the next addition should buy a slot back. Option 2 adds one *transient* slot on a
+- The progenitor's capability table. `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` is 23 of 32
+  since calef raised the table on 2026-09-27 (it was 23 of 24 when this was written, and the doc
+  then said the next addition should buy a slot back). Option 2 adds one *transient* slot on a
   directory-granted spawn. Whether that spawn path's peak is below the login block's peak is
   unmeasured; `script/swish-check` fails loudly on this, as it did twice before.
 - Shared-page audit finding 1 becomes reachable. `notes/shared-page-audit.md` records that one

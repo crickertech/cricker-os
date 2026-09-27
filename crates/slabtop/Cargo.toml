@@ -8,4 +8,4 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-page_frames = { version = "0.1.0", path = "../page_frames" }
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

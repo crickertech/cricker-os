@@ -288,7 +288,7 @@ const MACHINE_BIT: u64 = 1 << 44;
 /// GRANT`, so it can delegate it with [`MACHINE_BIT`] and not write it. A named slot probed at
 /// `_start`, for [`RUN_UNVOUCHED_SLOT`]'s reasons.
 ///
-/// **Twenty, not the 21 calef ratified**: `crate::SHELL_CONFIG_SLOT` took 21 (milestone 47) while
+/// **Twenty, not the 21 calef ratified**: `crate::SHELL_CONFIG_SLOT` took 21 (milestone 47 (navigation and naming)) while
 /// this was in flight.
 ///
 /// Name: ratified 2026-09-27 (calef, #1360's table).
@@ -312,15 +312,16 @@ const NAMESET_BIT: u64 = 1 << 43;
 /// progenitor places it in, `WRITE` only, in the boot shell and in `login`, and the slot `login`
 /// delegates it from.
 ///
-/// Twenty-two, the highest slot below the kernel's reserved fault slot (`abi::fault::FAULT_EP_SLOT`,
-/// 23; `grant_plan` does not depend on `abi`, so each binary that reads this asserts the relation
-/// itself). A named slot for the reason [`crate::NETWORK_SLOT`] is one: the holder probes it rather
+/// Thirty, the highest slot below the kernel's reserved fault slot (`abi::fault::FAULT_EP_SLOT`,
+/// 31; `grant_plan` does not depend on `abi`, so each binary that reads this asserts the relation
+/// itself). It was twenty-two until calef raised the table from 24 slots to 32 on 2026-09-27 (UTC),
+/// and it moved with the fault slot so those assertions still hold. A named slot for the reason [`crate::NETWORK_SLOT`] is one: the holder probes it rather
 /// than being told, and the probe is sound only at `_start`, before the process has allocated
 /// anything, because a runtime allocation takes the first free slot and could land here only in a
 /// table that is almost full.
 ///
 /// Name: provisional.
-pub const RUN_UNVOUCHED_SLOT: u64 = 22;
+pub const RUN_UNVOUCHED_SLOT: u64 = 30;
 
 /// **What an activation request asks for** (see `ACTIVATION_BIT`). Provisional names, like the
 /// bit's; the prompt spells them `package install`, `package remove` and `package rollback`.

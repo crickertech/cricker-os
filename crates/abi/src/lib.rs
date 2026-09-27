@@ -147,7 +147,12 @@ pub type CapSlot = u64;
 /// have been built against a temporary value of 28 that a later cleanup reverted to 17. Same place
 /// as ever for the measurement and the account: the progenitor's boot peaks at 21 simultaneous slots, and
 /// three of the seven added here are headroom rather than need.
-pub const CAPABILITY_TABLE_SLOTS: u64 = 24;
+///
+/// **Raised 24 -> 32** (calef, 2026-09-27, UTC), when milestone 126 (the `procps` package) found
+/// every progenitor boot slot below the fault slot named by some boot's grant and needed one more
+/// for the machine statistics page. calef chose eight rather than one, so the next boot grant does
+/// not meet the same wall. [`fault::FAULT_EP_SLOT`] moves from 23 to 31 with it, since it is derived.
+pub const CAPABILITY_TABLE_SLOTS: u64 = 32;
 
 /// Methods on a `Console` capability. **Historical: no longer wired up.**
 ///
@@ -995,7 +1000,7 @@ pub mod memory_region {
     /// looked up; `NoSuchSlot`-style staleness reads as [`crate::Error::Gone`] for a region already
     /// reclaimed.
     ///
-    /// Number provisional: proposed by the lane that built it, and calef's to ratify.
+    /// Name and number ratified 2026-09-27 (calef, #1360's table).
     pub const USAGE: u64 = 5;
 }
 
@@ -1010,7 +1015,14 @@ pub mod memory_region {
 /// stays spent until its region is reclaimed, so they say where the budget went, not what is alive
 /// now.
 ///
-/// Names and numbers provisional: calef names public items.
+/// # BUGS
+///
+/// - Notification and timer objects (`objtype::NOTIFICATION`, `objtype::TIMER`) landed after these
+///   records were ratified. Their pages are counted by the kernel and reported by no record, so the
+///   object rows under-count a region that holds either. A record for each is a new wire number,
+///   and so a question for calef rather than for the lane that noticed.
+///
+/// Names and numbers ratified 2026-09-27 (calef, #1360's table).
 pub mod usage {
     /// Pages the region holds in total.
     pub const SIZE: u64 = 0;

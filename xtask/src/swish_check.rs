@@ -441,7 +441,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // gate presses under `interrupt_heeder` and `interrupt_ignorer`.
     keys(0, "echo abandoned\x03", "echo abandoned^C", &[]),
     line(0, "echo kept", &["kept"]),
-    // **`ps`, at the real prompt** (milestone 126). The listing itself: a header, and at least the
+    // **`ps`, at the real prompt** (milestone 126 (the `procps` package)). The listing itself: a header, and at least the
     // row for `ps` itself, which is a member of the domain the progenitor spawned it into. Asserting the
     // header rather than a tid is deliberate: a tid is a generational name that moves with how many
     // jobs ran before it, and a gate that pinned one would be pinning the boot's history.
@@ -619,7 +619,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 1  page      clock",
             "cap 2  page      config",
             "provenance: unvouched (digest ",
-            "runs on this session's capability to run unvouched bytes (slot 22)",
+            "runs on this session's capability to run unvouched bytes (slot 30)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
             // note grants nothing: the rows above are the ruling's three and no more.

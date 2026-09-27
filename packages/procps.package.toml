@@ -7,8 +7,8 @@
 name = "procps"
 kind = "base"
 home = { repo = "procps", status = "provisional" }
-crates = ["ps", "pgrep", "pmap", "top", "uptime"]
-programs = ["ps", "pgrep", "pmap", "top", "uptime"]
+crates = ["ps", "pgrep", "pmap", "top", "uptime", "free", "vmstat", "slabtop"]
+programs = ["ps", "pgrep", "pmap", "top", "uptime", "free", "vmstat", "slabtop"]
 paths = [
     "packages/uptime.recipe.toml",
     "packages/uptime-riscv64.recipe.toml",
