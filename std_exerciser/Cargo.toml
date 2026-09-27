@@ -43,6 +43,12 @@ socket_protocol = { path = "../crates/socket_protocol" }
 # depends on `filesystem_protocol` alone, for the priced tree's shape.
 walk_pricing = { path = "../crates/walk_pricing" }
 
+# `std_echo`'s manifest note (milestone 205 (how a foreign program is told what to do)): the note's
+# encoding and the manifest it encodes, both no_std, so a `std` program carries one the same way a
+# native program does.
+grant_plan = { path = "../crates/grant_plan" }
+manifest_note = { path = "../crates/manifest_note" }
+
 # The kernel's ELF loader maps whole pages per segment and the initrd carries the file; keep the
 # binary small and the build deterministic.
 [profile.release]

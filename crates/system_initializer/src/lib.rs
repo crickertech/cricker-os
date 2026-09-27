@@ -2546,8 +2546,21 @@ fn spawn_service(
         // its pages to its parent only when it is the most recent carve, `memory_regions`'
         // `return_to_parent`). A plain line is the only shape the shell sends; anything else is
         // drained and refused.
+        //
+        // **An image that hears words is a `std` program, and gets a `std` region** (milestone 205
+        // (how a foreign program is told what to do)). The note that says which is inside the
+        // frames, which have not arrived, so the argv bit sizes the region and `endowed_image`
+        // checks the note agrees (`grant_plan::image_can_carry` ties the two).
         let image_region = if wiring.image && !interruptible && !wiring.dir {
-            memory_region_split(jobs_ut, JOB_REGION_PAGES).ok()
+            memory_region_split(
+                jobs_ut,
+                if wiring.args {
+                    grant_plan::STD_REGION_PAGES
+                } else {
+                    JOB_REGION_PAGES
+                },
+            )
+            .ok()
         } else {
             None
         };
@@ -2640,7 +2653,7 @@ fn spawn_service(
                 None
             };
             let elf = elf?;
-            match endowed_image(&elf, vouch, arg, mem_pages) {
+            match endowed_image(&elf, vouch, arg, mem_pages, wiring.args) {
                 Some(m) => {
                     image_manifest = Some(m);
                     Some(elf)
@@ -2739,9 +2752,8 @@ fn spawn_service(
             // **A `std` program's region is bigger, because it is also the heap** (milestone 595
             // (provisional)); see [`grant_plan::STD_REGION_PAGES`] for why one region rather than
             // two. It covers a caretaker as well, so a directory grant does not change its size.
-            // An image request never takes this arm: `grant_plan::image_can_carry` refuses a `std`
-            // manifest for an image, whose region is sized before the frames (and so the note)
-            // arrive (milestone 595's block, Follow-on).
+            // An image's region was split before its frames arrived, sized by the argv bit, which
+            // `endowed_image` has checked against the note (milestone 205).
             let std_layout = manifest.is_some_and(|m| m.runtime == grant_plan::Runtime::Std);
             let region = if wiring.image {
                 // Split before the frames were taken; see `image_region` above.
@@ -3834,6 +3846,7 @@ fn endowed_image(
     vouched: bool,
     arg: u64,
     mem_pages: u64,
+    words: bool,
 ) -> Option<grant_plan::Manifest> {
     let declared = match elf.note(manifest_note::OWNER, manifest_note::MANIFEST) {
         Ok(None) => None,
@@ -3841,7 +3854,7 @@ fn endowed_image(
         Err(_) => return None,
     };
     let m = grant_plan::image_manifest(declared, vouched).ok()?;
-    grant_plan::image_request_fits(&m, arg, mem_pages).then_some(m)
+    grant_plan::image_request_fits(&m, arg, mem_pages, words).then_some(m)
 }
 
 use filesystem_protocol::{dir, fs as fs_op};

@@ -67,6 +67,16 @@ pipeline path, and `wc` counts what it wrote. `std_exerciser *.rs` is refused wi
 that no damage to the header or a length yields a partial argv. `grant_plan`'s tests show that
 every word arrives unclassified, past the sixteen tokens `parse_run` keeps.
 
+A `std` program run by path hears its words too (lane `milestone/205-args-by-path`). The shell reads
+the program's manifest note, and when it declares `ArgSpec::Words` sends the line as the argv. The
+note also has to declare the `std` runtime; `grant_plan::image_can_carry` ties the two. The
+progenitor sizes the image's region from the argv bit, because the region is split before the frames
+carrying the note arrive, and then checks that the note agrees. Bytes nobody vouched for get
+`UNVOUCHED_STD_MANIFEST`: §219 (how the shell names an installed program to the spawner)'s clock and configuration pages at the `std` slots, and the words,
+which carry no authority. Proven by `installed/std-echo one 'two words'` on every architecture,
+which prints `words ["installed/std-echo", "one", "two words"]`. `std_echo` is a second, small
+binary in the `std_exerciser` workspace, with a provisional name.
+
 ## What is left
 
 Clauses 2 to 5, the designation half: turning the words that resolve into grants. Nothing below is
@@ -88,7 +98,8 @@ choice (how a single `std` directory slot holds words from several places).
 ## Provisional names
 
 `argument_protocol`, `ArgSpec::Words`, `argv`, `check_words`, `ARGS_BIT`, `ARGS_SLOT`,
-`ARGS_PAGE`, the magic `nifeargv`, `Refusal::PatternInArguments` and `Refusal::ArgumentsTooLong`.
+`ARGS_PAGE`, the magic `nifeargv`, `Refusal::PatternInArguments`, `Refusal::ArgumentsTooLong`,
+`image_hears_words`, `UNVOUCHED_STD_MANIFEST`, `std_echo` and `installed/std-echo`.
 
 ## BUGS
 
@@ -101,11 +112,16 @@ choice (how a single `std` directory slot holds words from several places).
 - **A backslash is a pattern byte here**, as it is to `glob`, so a regex such as `\d+` has to be
   quoted. That matches what another shell would do to it unquoted, but it is not what a person
   typing a regex expects.
-- **An image run by path hears nothing.** `run_image` sends no argv. Since milestone 597 (a
-  program carries its manifest in an ELF note) landed on 2026-09-26, an image's note can declare
-  `ArgSpec::Words`. This milestone encodes it as `2`, provisionally. The image path does not yet
-  read that value to build a `std` child with its words. Wiring it is the next piece
-  of this milestone, and it is what lets an installed `rg` hear its pattern.
+- **An installed `rg` still cannot run by path, because it is too big to travel.** An image
+  goes from the shell to the progenitor as frames staged in the shell's own budget. That is at
+  most 64 pages (256 KiB, `spawnproto::IMAGE_MAX_PAGES`), out of a 128-page shell budget
+  (`SH_BUDGET_PAGES`). `ripgrep` is about 2.6 MiB and `std_exerciser` is 347 KiB, which is why
+  the gate proves the path with `std_echo` (166 KiB on aarch64). Raising the ceiling moves the
+  shell's image window and both budgets; milestone 206 (a program image has under 896 KiB)'s
+  address-space map is where the window would go.
+- **A pattern on a line run by path is expanded before the note is read.** `run_image` expands
+  first. So when `installed/std-echo *.rs` matches nothing, the answer is the expansion's "no name
+  here matches" rather than `PatternInArguments`. When it matches, the planner still refuses it.
 - **A pipeline with a `std` program at its head strands that program's region until reboot.**
   The job pool is a stack: a region's pages go back only when it is the most recent carve
   (`memory_regions`' `return_to_parent`). A pipeline carves its head first, and the head exits
@@ -137,9 +153,9 @@ choice (how a single `std` directory slot holds words from several places).
 - **Proposed.** The mark's spelling (clause 4), in
   `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md`. Nothing spells one yet,
   because nothing grants a word read-write before the designation half lands.
-- **Recorded.** Environment variables and exit codes for a foreign program, the `--mem`, `xargs` and image-path
-  gaps, a `std` pipeline head stranding its region, and the scratch-page cost, in this block's
-  `BUGS` above
+- **Recorded.** Environment variables and exit codes for a foreign program, and the `--mem` and
+  `xargs` gaps. Also a `std` pipeline head stranding its region, the 256 KiB image ceiling that
+  keeps `rg` from running by path, and the scratch-page cost. All are in this block's `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
 
 ## Index row

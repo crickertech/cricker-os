@@ -3,8 +3,31 @@
 version = 4
 
 [[package]]
+name = "argument_protocol"
+version = "0.1.0"
+
+[[package]]
 name = "filesystem_protocol"
 version = "0.1.0"
+
+[[package]]
+name = "glob"
+version = "0.1.0"
+
+[[package]]
+name = "grant_plan"
+version = "0.1.0"
+dependencies = [
+ "argument_protocol",
+ "glob",
+]
+
+[[package]]
+name = "manifest_note"
+version = "0.1.0"
+dependencies = [
+ "grant_plan",
+]
 
 [[package]]
 name = "socket_protocol"
@@ -15,6 +38,8 @@ name = "std_exerciser"
 version = "0.1.0"
 dependencies = [
  "filesystem_protocol",
+ "grant_plan",
+ "manifest_note",
  "socket_protocol",
  "walk_pricing",
 ]

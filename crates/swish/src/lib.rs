@@ -1002,7 +1002,10 @@ pub fn write_image_caps(
     out(b"  ");
     out(path);
     match verdict {
-        Some(Ok(m)) if vouched => {
+        // **An unvouched `std` image is previewed from its manifest too** (milestone 205): its
+        // two pages sit at the `std` layout's slots, and its words at slot 8, so the native rows
+        // below would name slots it does not get.
+        Some(Ok(m)) if vouched || m.runtime == grant_plan::Runtime::Std => {
             out(b" would grant the new process, and nothing else:\n");
             write_preview_rows(e, &m, holdings, out);
         }
@@ -1065,8 +1068,9 @@ fn write_note_asks(declared: Option<grant_plan::Manifest>, out: &mut dyn FnMut(&
         OutputSpec::Silent => b"no output",
         _ => b"output bytes",
     });
-    let items: [(bool, &[u8]); 8] = [
+    let items: [(bool, &[u8]); 9] = [
         (m.arg == ArgSpec::Required, b"an argument"),
+        (m.arg == ArgSpec::Words, b"its words"),
         (!matches!(m.mem, grant_plan::MemSpec::Forbidden), b"memory"),
         (m.clock, b"the clock"),
         (m.config, b"the configuration page"),
@@ -1511,7 +1515,7 @@ fn write_preview_rows(
     // **The argv, which is bytes and not authority** (milestone 205, DECISIONS §170). Printed
     // because it is a capability the child holds, and worded so nobody reads it as more: a path
     // among these words reaches only what a directory row above already granted.
-    if e.prog.manifest().arg == ArgSpec::Words {
+    if m.arg == ArgSpec::Words {
         cap(std_runtime_protocol::ARGS_SLOT, out);
         out(b"frame     args     read-only. the words on the line, as bytes; they\n");
         out(b"                              name things and grant none of them\n");
@@ -1667,7 +1671,7 @@ fn write_preview_rows(
     if m.arg == ArgSpec::Required {
         write_num(e.arg, out);
         out(b"\n");
-    } else if e.prog.manifest().arg == ArgSpec::Words {
+    } else if m.arg == ArgSpec::Words {
         out(b"(the words on the line, at cap ");
         write_num(std_runtime_protocol::ARGS_SLOT, out);
         out(b")\n");

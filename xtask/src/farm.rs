@@ -46,6 +46,13 @@ pub(crate) fn std_exerciser_elf(triple: &str) -> PathBuf {
     ))
 }
 
+/// **`std_echo`**, the second binary of the same workspace (milestone 205 (how a foreign program is
+/// told what to do)): built by the same `cargo xtask std-exerciser`, and put on the disk to be run
+/// by path.
+pub(crate) fn std_echo_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!("std_exerciser/target/{triple}/release/std_echo"))
+}
+
 /// **Unmodified `ripgrep` from crates.io, if somebody built it** (milestone 121).
 ///
 /// `helpers/build-ripgrep.sh` puts it here. Nothing in this build produces it, and that is the
