@@ -3684,6 +3684,44 @@ const ACTIVATION_FS_VA: u64 = address_space_map::pair_page(0x0f40_0000);
 /// tables behind it come from `own_ut` and are reused.
 const IMAGE_STAGING_VA: u64 = address_space_map::pair_page(0x0f80_0000);
 
+/// **Take the argv's frame off the spawn endpoint and map it where this process can read it**
+/// (milestone 205, DECISIONS §170; `spawnproto::ARGS_BIT`). Returns the address, or `None` if the
+/// caller sent no frame or it would not map. The capability goes at once, as an image frame's does
+/// ([`receive_image`]): the mapping outlives it, and the slot is what is scarce.
+///
+/// The shell keeps its own mapping of this frame, so it is read once, by [`copy_args`], before the
+/// child exists; nothing reads it after.
+fn receive_args(spawn_ep: u64, own_ut: u64) -> Option<u64> {
+    let frame = opt_cap(recv_cap(spawn_ep).1)?;
+    // The loader's scratch window, revoked when the shell reclaims its frame and reused on a later
+    // lap (milestone 604 (the builder's scratch cursor is bounded)).
+    let theirs = supervision_protocol::map_scratch(frame, false, own_ut).ok();
+    cap_delete(frame);
+    theirs
+}
+
+/// **Copy the argv at `theirs` into a page carved from the child's `region`**, and return that
+/// page's capability for [`StdLayout`] to place. The bytes are not parsed: §170 ruled that they
+/// carry no authority, and `std` refuses a page that does not parse whole on its own side.
+fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
+    let page = retype_page_frame(region).ok()?;
+    // Fresh from the child's region, so reaping the child takes this mapping back.
+    let Ok(ours) = supervision_protocol::map_scratch(page, true, own_ut) else {
+        cap_delete(page);
+        return None;
+    };
+    // SAFETY: both pages are mapped, `theirs` read-only by `receive_args` and `ours` read/write
+    // just above, one page each, at two different pages of the scratch window.
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            theirs as *const u8,
+            ours as *mut u8,
+            spawnproto::IMAGE_PAGE as usize,
+        );
+    }
+    Some(page)
+}
+
 /// **Take an image request's frames off the spawn endpoint and copy them into pages of our own.**
 /// Returns the staging region holding the copy, or `None` if it could not be staged.
 ///
@@ -3703,45 +3741,6 @@ const IMAGE_STAGING_VA: u64 = address_space_map::pair_page(0x0f80_0000);
 ///
 /// `stage` is false when the request cannot be built anyway (no region for the child, an
 /// interruptible or directory-granted image), and then this only drains.
-/// **Take the argv's frame off the spawn endpoint and map it where this process can read it**
-/// (milestone 205, DECISIONS §170; `spawnproto::ARGS_BIT`). Returns the address, or `None` if the
-/// caller sent no frame or it would not map. The capability goes at once, as an image frame's does
-/// ([`receive_image`]): the mapping outlives it, and the slot is what is scarce.
-///
-/// The shell keeps its own mapping of this frame, so it is read once, by [`copy_args`], before the
-/// child exists; nothing reads it after.
-fn receive_args(spawn_ep: u64, own_ut: u64) -> Option<u64> {
-    let frame = opt_cap(recv_cap(spawn_ep).1)?;
-    let theirs = supervision_protocol::scratch_pages(1);
-    // SAFETY: `invoke` is the syscall; the kernel checks `READ` on the frame and the region.
-    let mapped = unsafe { invoke(frame, abi::page_frame::MAP, theirs, 0, own_ut) } == 0;
-    cap_delete(frame);
-    mapped.then_some(theirs)
-}
-
-/// **Copy the argv at `theirs` into a page carved from the child's `region`**, and return that
-/// page's capability for [`StdLayout`] to place. The bytes are not parsed: §170 ruled that they
-/// carry no authority, and `std` refuses a page that does not parse whole on its own side.
-fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
-    let page = retype_page_frame(region).ok()?;
-    let ours = supervision_protocol::scratch_pages(1);
-    // SAFETY: as above; the page is fresh from the child's region and is mapped read/write here.
-    if unsafe { invoke(page, abi::page_frame::MAP, ours, 1, own_ut) } != 0 {
-        cap_delete(page);
-        return None;
-    }
-    // SAFETY: both pages are mapped, `theirs` read-only by `receive_args` and `ours` read/write
-    // just above, one page each, in different windows of the never-reused scratch range.
-    unsafe {
-        core::ptr::copy_nonoverlapping(
-            theirs as *const u8,
-            ours as *mut u8,
-            spawnproto::IMAGE_PAGE as usize,
-        );
-    }
-    Some(page)
-}
-
 fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, jobs_ut: u64, stage: bool) -> Option<u64> {
     let pages = spawnproto::image_pages(len);
     let staging = if stage && pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES {

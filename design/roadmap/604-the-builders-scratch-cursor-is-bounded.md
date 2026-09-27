@@ -56,7 +56,9 @@ scratch page is free again once its child is reaped. Only the cursor did not kno
   per lap each.
 - The image request moved onto it. The progenitor's `receive_image` took a contiguous run with
   `scratch_pages`, which is gone; it maps each of the caller's frames with `map_scratch`. The shell
-  destroys its staging region once the answer is in, so those pages come back too.
+  destroys its staging region once the answer is in, so those pages come back too. The argv page
+  of milestone 205 (how a foreign program is told what to do), which landed on `main` while this was in
+  review, moved the same way: `receive_args` and `copy_args` call `map_scratch`.
 - The progenitor's numbers are checked against the window at compile time. `INIT_OWN_PAGES` must
   be at least twice `SCRATCH_TABLE_PAGES`, and the job pool plus an image request's pages must fit in
   half the window, leaving the other half for the boot servers' permanent pages. Milestone 595 will
