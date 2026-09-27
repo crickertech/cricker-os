@@ -72,11 +72,12 @@
 //! outside the tree had acted on it. `2` kept its meaning, read-only. calef confirmed the ruling
 //! covers these on 2026-09-27 at 15:14Z (UTC), on #1402. The rule above holds from here on.
 //!
-//! **And a third time, provisionally**: milestone 126 (the `procps` package) gave
+//! **And a third time, in place**, the same day: milestone 126 (the `procps` package) gave
 //! `grant_plan::Manifest` its `machine` and `share` fields after this layout was ratified, and
-//! they take two of the three zero bytes at the tail. An old descriptor has zeros there and decodes
-//! unchanged, as a program declaring neither. Whether this amends version 1 or is version 2 is
-//! calef's; it is raised on #1360.
+//! they take bytes 53 and 54 of the tail. calef ruled on 2026-09-27 (UTC), on #1360, that this
+//! amends version 1 in place too, for the same reason as the `arg` amendment above: nothing outside
+//! the tree had acted on version 1. An old descriptor has zeros there and decodes unchanged, as a
+//! program declaring neither. One zero byte (55) remains, so the next field is likely version 2.
 //!
 //! # EXAMPLES
 //!
