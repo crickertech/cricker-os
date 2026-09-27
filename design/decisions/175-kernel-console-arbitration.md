@@ -115,5 +115,6 @@ and that pricing is what "The ruling" above draws on.
 Milestone 342 was blocked on this section; it is decided now. The milestone's own build is not
 unblocked by that alone: the ruling routes the kernel's ring through §242 (a system log, provisional;
 pull request #1423), which is still PROPOSED and unbuilt, so milestone 342 still waits, now on §242
-landing rather than on this decision. Milestone 243's `BUGS` pointed at a home for this question,
-which is why this section exists; that citation now resolves.
+landing rather than on this decision. Milestone 243 (a machine with no serial port has no way to
+say anything) pointed in its `BUGS` at a home for this question, which is why this section exists;
+that citation now resolves.
