@@ -103,8 +103,12 @@
 //!   `TAB`, `BEL` (ignored: there is no bell here).
 //! - `CSI A/B/C/D` cursor motion, `CSI H` / `CSI f` absolute positioning.
 //! - `CSI J` erase in display, `CSI K` erase in line, both with all three modes.
-//! - `CSI m` (SGR): reset, bold, reverse, and the eight ANSI foreground and background colours plus
-//!   the bright foregrounds.
+//! - `CSI m` (SGR): reset; bold, dim, underline, reverse, concealed and crossed-out, each with its
+//!   off switch; the eight ANSI colours and their bright forms, foreground and background; and the
+//!   256-colour (`38;5;n`) and 24-bit (`38;2;r;g;b`) forms of both (milestone 142 (a text display
+//!   good enough that people use it instead of a GUI), the 2026-09-26 pass). Italic and blink are
+//!   parsed and dropped, since italic needs a face this font does not have and blink needs a clock
+//!   this engine does not read.
 //! - `ESC c` (RIS), a full reset.
 //!
 //! Anything else is **swallowed whole**, introducer and all, rather than printed as garbage.
@@ -161,11 +165,14 @@ pub const MAX_CELLS: usize = MAX_COLS * MAX_ROWS;
 /// reaches no allocator, so the capacity is a constant three parties (the terminal, the kernel test,
 /// the host-side check) already agree on the same way they agree on [`MAX_COLS`]/[`MAX_ROWS`].
 ///
-/// **300, chosen as a working depth rather than derived from anything.** At [`MAX_COLS`] (132) that
-/// is roughly 300 KiB more of `.bss`, comparable in order of magnitude to the live grid itself and a
-/// small fraction of the free page-frame pool a terminal's own region draws from (see
-/// notes/frames.md's measurement that hundreds of page frames are "under one percent of the free
-/// pool"). There is no principled reason it could not be larger or smaller; it is a constant a
+/// **300, chosen as a working depth rather than derived from anything.** At [`MAX_COLS`] (132) and
+/// sixteen bytes a [`Cell`] that is 633,600 bytes of `.bss` (it was half that before the truecolour
+/// pass widened the cell, 2026-09-26), and a whole `Vt` is 724,416 bytes, up from 362,208. That is
+/// 177 page frames per terminal instance, a small fraction of the free page-frame pool a terminal's
+/// own region draws from (see notes/frames.md's measurement that hundreds of page frames are "under
+/// one percent of the free pool"). The kernel's test image holds eight `Vt` statics as witnesses
+/// (`kernel/src/user/display_tests.rs` and `compositor_tests.rs`), so the widening cost it about
+/// 2.9 MB of `.bss` against QEMU's 256 MiB. There is no principled reason it could not be larger or smaller; it is a constant a
 /// future lane can change without touching the shape of the ring around it.
 pub const SCROLLBACK_ROWS: usize = 300;
 /// Cells in the scrollback ring. See [`SCROLLBACK_ROWS`].
@@ -230,37 +237,131 @@ pub const DEFAULT_BG: u8 = 0;
 // Cells.
 // ================================================================================================
 
-/// A cell's rendition: which colours, and whether it is reversed.
+/// **One colour a cell can name**: an entry in the 256-colour table, or a 24-bit value.
 ///
-/// One byte, packed, because the grid is a fixed array and 512 cells of `struct { u8, u8, bool }`
-/// would be three times the size for no gain. Bits 0..4 are the foreground index (0..16), bits 4..7
-/// the background index (0..8), bit 7 the reverse flag.
+/// The two are the two ways a program asks for colour (milestone 142, the 2026-09-26 pass): the
+/// indexed form is what SGR 30..37, 90..97 and `38;5;n` carry, and the 24-bit form is what `38;2;r;g;b`
+/// carries, which is what every syntax highlighter emits and was this terminal's single largest gap.
+/// Four bytes, alignment one, so the rendition that holds two of them stays small.
+///
+/// Name: provisional (milestone 142's lane, 2026-09-26). British spelling to match the rest of this
+/// crate ([`Attr::colours`], [`PALETTE`]'s doc).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Colour {
+    /// An index into the 256-colour table: 0..16 are [`PALETTE`], 16..232 the 6x6x6 cube, 232..256
+    /// the grey ramp. See [`Colour::resolve`].
+    Indexed(u8),
+    /// A 24-bit colour, red, green and blue.
+    Rgb(u8, u8, u8),
+}
+
+/// One channel of the 256-colour cube at step `v` (0..6): `0, 0x5f, 0x87, 0xaf, 0xd7, 0xff`.
+const fn cube_level(v: u32) -> u32 {
+    if v == 0 { 0 } else { 0x37 + 40 * v }
+}
+
+impl Colour {
+    /// **The `0x00RRGGBB` word this colour paints**, in the surface's own pixel format.
+    ///
+    /// The indexed range above sixteen is xterm's, computed rather than tabulated because it is
+    /// arithmetic: the cube's six levels per channel are `0, 0x5f, 0x87, 0xaf, 0xd7, 0xff` (a step of
+    /// 40 after an uneven first one), and the ramp is `0x08 + 10 * k` for 24 greys that stop short of
+    /// both black and white, which the cube already has. Every emulator that implements `38;5;n`
+    /// agrees on these numbers, which is why a program's 256-colour theme looks the same here.
+    ///
+    /// Name: provisional (milestone 142's lane, 2026-09-26).
+    pub const fn resolve(self) -> u32 {
+        match self {
+            Colour::Rgb(r, g, b) => (r as u32) << 16 | (g as u32) << 8 | b as u32,
+            Colour::Indexed(i) if i < 16 => PALETTE[i as usize],
+            Colour::Indexed(i) if i < 232 => {
+                let n = i as u32 - 16;
+                cube_level(n / 36) << 16 | cube_level(n / 6 % 6) << 8 | cube_level(n % 6)
+            }
+            Colour::Indexed(i) => {
+                let v = 0x08 + 10 * (i as u32 - 232);
+                v << 16 | v << 8 | v
+            }
+        }
+    }
+}
+
+/// **How a cell is painted**: two colours, and the renditions that change how they are used.
+///
+/// Nine bytes (two [`Colour`]s and a byte of flags), where it was one byte of palette indices
+/// before milestone 142's 2026-09-26 pass: truecolour does not fit in less, and a [`Cell`] is
+/// sixteen bytes either way once a `char` is beside it. The cost is measured where it lands, in
+/// [`SCROLLBACK_ROWS`]'s doc.
 ///
 /// **Bold is bright, and that is a decision rather than a shortcut.** A bold weight needs a second
 /// font, and in a five-column cell a bold face is a smudge; every terminal from the DEC VT onward
-/// has answered SGR
-/// 1 by brightening instead, which is why the palette has eight bright entries. Recorded in
-/// notes/glyphs.md.
+/// has answered SGR 1 by brightening instead, which is why the palette has eight bright entries.
+/// Bold is now a **flag** rather than a rewrite of the foreground index, so it is resolved at paint
+/// time: it brightens the eight normal colours and nothing else (a 256-colour or 24-bit foreground
+/// is drawn as asked, which is xterm's rule), and SGR 22 restores exactly the colour that was set,
+/// including an explicitly bright one. Keeping the flag is also what lets the atlas (increment 3)
+/// draw a real bold face later without the parser changing. Recorded in notes/glyphs.md.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Attr(u8);
+pub struct Attr {
+    fg: Colour,
+    bg: Colour,
+    flags: u8,
+}
+
+/// SGR 1.
+const BOLD: u8 = 1 << 0;
+/// SGR 2, faint.
+const DIM: u8 = 1 << 1;
+/// SGR 4 (and 21, drawn the same: one underline row is all an eight-row cell has room for).
+const UNDERLINE: u8 = 1 << 2;
+/// SGR 7.
+const REVERSE: u8 = 1 << 3;
+/// SGR 8, concealed.
+const INVISIBLE: u8 = 1 << 4;
+/// SGR 9, crossed out.
+const STRIKETHROUGH: u8 = 1 << 5;
+
+/// The glyph row an underline is drawn on: the last, which carries only descenders and the
+/// underscore (`bitmap_font::GLYPH_H`'s doc), so an underline runs under the letters rather than
+/// through them and joins across cells.
+const UNDERLINE_ROW: u32 = bitmap_font::GLYPH_H - 1;
+/// The glyph row a strikethrough is drawn on: the hyphen's row, which is also the crossbar of `e`,
+/// so a struck-out word is crossed at the middle of its lower-case letters.
+const STRIKETHROUGH_ROW: u32 = 4;
 
 impl Attr {
     /// The rendition a reset terminal writes with.
-    pub const DEFAULT: Attr = Attr(DEFAULT_FG | (DEFAULT_BG << 4));
+    pub const DEFAULT: Attr = Attr::new(Colour::Indexed(DEFAULT_FG), Colour::Indexed(DEFAULT_BG));
 
-    /// Pack a rendition: `fg` masked to 4 bits, `bg` to 3, plus the reverse flag.
-    pub const fn new(fg: u8, bg: u8, reverse: bool) -> Attr {
-        Attr((fg & 0x0f) | ((bg & 0x07) << 4) | if reverse { 0x80 } else { 0 })
+    /// A plain rendition: these two colours, and no flag set.
+    pub const fn new(fg: Colour, bg: Colour) -> Attr {
+        Attr { fg, bg, flags: 0 }
     }
 
-    /// The foreground palette index (bits 0..4).
-    pub const fn fg(self) -> u8 {
-        self.0 & 0x0f
+    /// The same rendition with `flag` turned on or off.
+    const fn with(self, flag: u8, on: bool) -> Attr {
+        Attr {
+            flags: if on {
+                self.flags | flag
+            } else {
+                self.flags & !flag
+            },
+            ..self
+        }
     }
 
-    /// The background palette index (bits 4..7).
-    pub const fn bg(self) -> u8 {
-        (self.0 >> 4) & 0x07
+    const fn has(self, flag: u8) -> bool {
+        self.flags & flag != 0
+    }
+
+    /// The foreground as it was set, before bold, dim or reverse are applied.
+    pub const fn fg(self) -> Colour {
+        self.fg
+    }
+
+    /// The background as it was set, before reverse is applied.
+    pub const fn bg(self) -> Colour {
+        self.bg
     }
 
     /// Whether the reverse-video bit is set. See [`colours`](Self::colours) for what it does to
@@ -271,15 +372,74 @@ impl Attr {
     /// rule calef ratified 2026-09-24; recommended `is_reverse_video`, because `is_reverse` reads
     /// as a direction.
     pub const fn reverse(self) -> bool {
-        self.0 & 0x80 != 0
+        self.has(REVERSE)
     }
 
-    /// The `(foreground, background)` colours this rendition actually paints with, reverse applied.
-    /// One place, so the cursor and the SGR path cannot disagree about what "reversed" means.
-    pub const fn colours(self) -> (u32, u32) {
-        let (f, b) = (PALETTE[self.fg() as usize], PALETTE[self.bg() as usize & 7]);
-        if self.reverse() { (b, f) } else { (f, b) }
+    /// Whether SGR 1 is in force. Name: provisional (milestone 142's lane, 2026-09-26).
+    pub const fn is_bold(self) -> bool {
+        self.has(BOLD)
     }
+
+    /// Whether SGR 2 is in force. Name: provisional (milestone 142's lane, 2026-09-26).
+    pub const fn is_dim(self) -> bool {
+        self.has(DIM)
+    }
+
+    /// Whether SGR 4 is in force. Name: provisional (milestone 142's lane, 2026-09-26).
+    pub const fn is_underlined(self) -> bool {
+        self.has(UNDERLINE)
+    }
+
+    /// Whether SGR 8 is in force. Name: provisional (milestone 142's lane, 2026-09-26).
+    pub const fn is_invisible(self) -> bool {
+        self.has(INVISIBLE)
+    }
+
+    /// Whether SGR 9 is in force. Name: provisional (milestone 142's lane, 2026-09-26).
+    pub const fn is_struck_through(self) -> bool {
+        self.has(STRIKETHROUGH)
+    }
+
+    /// The `(foreground, background)` colours this rendition actually paints with, as
+    /// `0x00RRGGBB` words. One place, so the cursor and the SGR path cannot disagree about what any
+    /// flag means. In order:
+    ///
+    /// 1. **Bold** brightens a foreground among the eight normal colours (see [`Attr`]).
+    /// 2. **Dim** moves the foreground halfway to the background, channel by channel, in sRGB. The
+    ///    midpoint is xterm's choice of amount. sRGB rather than linear light on purpose: dim asks
+    ///    for half the *apparent* brightness, and the linear-light midpoint of white and black is
+    ///    sRGB 188, which reads as barely dimmed. Linear light is right for anti-aliased coverage
+    ///    (increment 4), where the question is how much physical light a partly covered pixel emits.
+    /// 3. **Reverse** swaps the two.
+    /// 4. **Invisible** paints the foreground in the (post-reverse) background, so the text is
+    ///    there to copy and not there to see. Last, so the block cursor (which is reverse toggled on
+    ///    a cell) still shows on a concealed cell rather than vanishing with its text.
+    pub const fn colours(self) -> (u32, u32) {
+        let fg = match self.fg {
+            Colour::Indexed(i) if i < 8 && self.has(BOLD) => Colour::Indexed(i + 8),
+            other => other,
+        };
+        let (mut f, mut b) = (fg.resolve(), self.bg.resolve());
+        if self.has(DIM) {
+            f = midpoint(f, b);
+        }
+        if self.has(REVERSE) {
+            (f, b) = (b, f);
+        }
+        if self.has(INVISIBLE) {
+            f = b;
+        }
+        (f, b)
+    }
+}
+
+/// The per-channel midpoint of two `0x00RRGGBB` words, rounding down.
+const fn midpoint(a: u32, b: u32) -> u32 {
+    channel_midpoint(a, b, 16) | channel_midpoint(a, b, 8) | channel_midpoint(a, b, 0)
+}
+
+const fn channel_midpoint(a: u32, b: u32, shift: u32) -> u32 {
+    ((((a >> shift) & 0xff) + ((b >> shift) & 0xff)) / 2) << shift
 }
 
 impl Default for Attr {
@@ -301,6 +461,13 @@ pub struct Cell {
     /// How to paint it.
     pub attr: Attr,
 }
+
+// **Sixteen bytes a cell, as a gate rather than a hope.** A `char` (four) beside an [`Attr`] (nine,
+// alignment one) pads to sixteen; before the truecolour pass it was eight. Every `Vt` holds
+// `MAX_CELLS + SCROLLBACK_CELLS` of these, so this number is what the memory cost in
+// [`SCROLLBACK_ROWS`]'s doc is computed from, and a change that grew the cell again (a wider flag
+// word, a third colour for SGR 58's underline colour) must fail here and be priced there.
+const _: () = assert!(core::mem::size_of::<Cell>() == 16);
 
 impl Cell {
     /// A blank cell in `attr`. Erasing writes **spaces in the current rendition**, not zeroes, which
@@ -402,10 +569,12 @@ enum State {
     StrEsc,
 }
 
-/// How many numeric parameters a CSI sequence may carry. `CSI 1;2;3;4 m` is already more than
-/// anything here emits; a fifth is swallowed rather than growing the array, because a parameter list
-/// long enough to matter belongs to a sequence this engine does not implement.
-const MAX_PARAMS: usize = 4;
+/// How many numeric parameters a CSI sequence may carry. **Sixteen since milestone 142's truecolour
+/// pass**, up from four: one 24-bit colour is five parameters (`38;2;r;g;b`), a foreground and a
+/// background together are ten, and a highlighter commonly adds a reset and a rendition or two in
+/// the same sequence. A seventeenth is swallowed rather than growing the array, because a parameter
+/// list that long belongs to a sequence this engine does not implement.
+const MAX_PARAMS: usize = 16;
 
 /// **A terminal's live grid, plus its off-screen history.**
 ///
@@ -665,16 +834,20 @@ impl Vt {
             && row == self.row
             && col < self.cols
         {
-            attr = Attr::new(attr.fg(), attr.bg(), !attr.reverse());
+            attr = attr.with(REVERSE, !attr.reverse());
         }
         let (fg, bg) = attr.colours();
-        bitmap_font::cell_pixel(
-            cell.ch,
-            x % bitmap_font::GLYPH_W,
-            y % bitmap_font::GLYPH_H,
-            fg,
-            bg,
-        )
+        let (gx, gy) = (x % bitmap_font::GLYPH_W, y % bitmap_font::GLYPH_H);
+        // The two line renditions are ink across the **whole** cell width, gutters included, so an
+        // underlined or struck-out word is one unbroken line rather than a dash per letter (unlike
+        // the underscore glyph, whose ink stops at the gutters; see notes/glyphs.md).
+        let line = (attr.is_underlined() && gy == UNDERLINE_ROW)
+            || (attr.is_struck_through() && gy == STRIKETHROUGH_ROW);
+        if line || bitmap_font::is_ink(cell.ch, gx, gy) {
+            fg
+        } else {
+            bg
+        }
     }
 
     /// What has changed since the last [`Vt::take_damage`], in cells.
@@ -1089,39 +1262,90 @@ impl Vt {
 
     /// `CSI ... m`: the rendition. An empty parameter list is `CSI 0 m`, a reset, which is the one
     /// place the "absent means zero" default differs from the cursor sequences' "absent means one".
+    ///
+    /// The extended colours (`38`/`48` followed by `5;n` or `2;r;g;b`) consume the parameters they
+    /// name, so the loop walks an index rather than iterating. A malformed one (a missing or
+    /// out-of-range component, or a colour space other than 2 or 5) ends the sequence's effect
+    /// there, which is xterm's behaviour: the parameters after it cannot be told apart from the
+    /// broken colour's own.
     fn sgr(&mut self) {
         let n = self.nparams.max(1);
-        for i in 0..n {
-            let p = self.params.get(i).copied().unwrap_or(0);
-            match p {
-                0 => self.attr = Attr::DEFAULT,
-                // Bold brightens rather than thickening: see [`Attr`].
-                1 => self.attr = Attr::new(self.attr.fg() | 8, self.attr.bg(), self.attr.reverse()),
-                7 => self.attr = Attr::new(self.attr.fg(), self.attr.bg(), true),
-                22 => {
-                    self.attr = Attr::new(self.attr.fg() & 7, self.attr.bg(), self.attr.reverse());
+        let mut i = 0;
+        while i < n {
+            let p = self.params[i];
+            i += 1;
+            let a = self.attr;
+            self.attr = match p {
+                0 => Attr::DEFAULT,
+                1 => a.with(BOLD, true),
+                2 => a.with(DIM, true),
+                4 | 21 => a.with(UNDERLINE, true),
+                7 => a.with(REVERSE, true),
+                8 => a.with(INVISIBLE, true),
+                9 => a.with(STRIKETHROUGH, true),
+                22 => a.with(BOLD, false).with(DIM, false),
+                24 => a.with(UNDERLINE, false),
+                27 => a.with(REVERSE, false),
+                28 => a.with(INVISIBLE, false),
+                29 => a.with(STRIKETHROUGH, false),
+                30..=37 => Attr {
+                    fg: Colour::Indexed(p as u8 - 30),
+                    ..a
+                },
+                39 => Attr {
+                    fg: Colour::Indexed(DEFAULT_FG),
+                    ..a
+                },
+                40..=47 => Attr {
+                    bg: Colour::Indexed(p as u8 - 40),
+                    ..a
+                },
+                49 => Attr {
+                    bg: Colour::Indexed(DEFAULT_BG),
+                    ..a
+                },
+                90..=97 => Attr {
+                    fg: Colour::Indexed(p as u8 - 90 + 8),
+                    ..a
+                },
+                100..=107 => Attr {
+                    bg: Colour::Indexed(p as u8 - 100 + 8),
+                    ..a
+                },
+                38 | 48 => {
+                    let Some((colour, used)) = self.extended_colour(i, n) else {
+                        return;
+                    };
+                    i += used;
+                    if p == 38 {
+                        Attr { fg: colour, ..a }
+                    } else {
+                        Attr { bg: colour, ..a }
+                    }
                 }
-                27 => self.attr = Attr::new(self.attr.fg(), self.attr.bg(), false),
-                30..=37 => {
-                    // Setting a colour keeps the bold bit, the way a terminal does: `ESC[1m ESC[31m`
-                    // is bright red, not dark red.
-                    let bright = self.attr.fg() & 8;
-                    self.attr =
-                        Attr::new((p as u8 - 30) | bright, self.attr.bg(), self.attr.reverse());
-                }
-                39 => self.attr = Attr::new(DEFAULT_FG, self.attr.bg(), self.attr.reverse()),
-                40..=47 => {
-                    self.attr = Attr::new(self.attr.fg(), p as u8 - 40, self.attr.reverse());
-                }
-                49 => self.attr = Attr::new(self.attr.fg(), DEFAULT_BG, self.attr.reverse()),
-                90..=97 => {
-                    self.attr = Attr::new((p as u8 - 90) | 8, self.attr.bg(), self.attr.reverse());
-                }
-                // Everything else (underline, blink, 256-colour, truecolour) is dropped. A cell here
-                // has no bit for them, and drawing the *text* in the wrong style is better than not
-                // drawing it.
-                _ => {}
+                // Everything else (italic, blink, overline, the underline colour) is dropped. Italic
+                // needs a face this font does not have (increment 3), and blink needs a clock this
+                // engine deliberately does not read; drawing the *text* in the wrong style is better
+                // than not drawing it.
+                _ => a,
+            };
+        }
+    }
+
+    /// The colour named by the parameters from `i` onward, after a `38` or `48`, and how many
+    /// parameters it used. `None` for a malformed one; see [`Vt::sgr`].
+    fn extended_colour(&self, i: usize, n: usize) -> Option<(Colour, usize)> {
+        let component = |k: usize| -> Option<u8> {
+            if i + k < n {
+                u8::try_from(self.params[i + k]).ok()
+            } else {
+                None
             }
+        };
+        match self.params.get(i).filter(|_| i < n)? {
+            5 => Some((Colour::Indexed(component(1)?), 2)),
+            2 => Some((Colour::Rgb(component(1)?, component(2)?, component(3)?), 4)),
+            _ => None,
         }
     }
 
@@ -1218,6 +1442,18 @@ mod tests {
             .collect()
     }
 
+    /// A plain rendition in two indexed colours.
+    fn attr(fg: u8, bg: u8) -> Attr {
+        Attr::new(Colour::Indexed(fg), Colour::Indexed(bg))
+    }
+
+    /// The foreground a cell actually paints with, bold and dim applied: what a person sees, which
+    /// is the thing an SGR test should be about now that bold is a flag rather than a rewritten
+    /// index.
+    fn ink(t: &Vt, col: u32, row: u32) -> u32 {
+        t.cell(col, row).attr.colours().0
+    }
+
     fn vt(cols: u32, rows: u32) -> Vt {
         let mut vt = Vt::new(cols, rows);
         vt.take_damage();
@@ -1229,14 +1465,14 @@ mod tests {
     /// `colours` that returns a constant: both sides move together. These are the numbers.
     #[test]
     fn a_rendition_resolves_to_the_palette_entries_it_names() {
-        assert_eq!(Attr::DEFAULT.fg(), DEFAULT_FG);
-        assert_eq!(Attr::DEFAULT.bg(), DEFAULT_BG);
+        assert_eq!(Attr::DEFAULT.fg(), Colour::Indexed(DEFAULT_FG));
+        assert_eq!(Attr::DEFAULT.bg(), Colour::Indexed(DEFAULT_BG));
         assert!(!Attr::DEFAULT.reverse());
         assert_eq!(Attr::DEFAULT.colours(), (PALETTE[7], PALETTE[0]));
         // A background that is not 7, so a mask that widened to "always 7" is visible.
-        assert_eq!(Attr::new(3, 4, false).colours(), (PALETTE[3], PALETTE[4]));
+        assert_eq!(attr(3, 4).colours(), (PALETTE[3], PALETTE[4]));
         assert_eq!(
-            Attr::new(3, 4, true).colours(),
+            attr(3, 4).with(REVERSE, true).colours(),
             (PALETTE[4], PALETTE[3]),
             "reverse swaps ink and paper, it does not pick different colours"
         );
@@ -1334,18 +1570,20 @@ mod tests {
         );
     }
 
-    /// Four parameters is the limit and the limit is **legal**: `CSI 1;2;3;4 m` acts, and only a
-    /// fifth is dropped. Every other test here uses two or three, so the limit itself was never
-    /// judged from the inside.
+    /// Sixteen parameters is the limit and the limit is **legal**: a sixteen-parameter `CSI m`
+    /// acts, and only a seventeenth is dropped. Every other test here uses fewer, so the limit
+    /// itself was never judged from the inside.
     #[test]
-    fn the_fourth_parameter_is_legal_and_the_fifth_is_not() {
+    fn the_sixteenth_parameter_is_legal_and_the_seventeenth_is_not() {
         let mut t = vt(8, 1);
-        t.feed(b"\x1b[0;1;32;7ma");
-        assert_eq!(t.cell(0, 0).attr, Attr::new(10, DEFAULT_BG, true));
-        t.feed(b"\x1b[0;1;2;3;31mb");
+        // Fourteen harmless parameters, then bold and green: the last two are the ones that count.
+        t.feed(b"\x1b[0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;32ma");
+        let want = attr(2, DEFAULT_BG).with(BOLD, true);
+        assert_eq!(t.cell(0, 0).attr, want);
+        t.feed(b"\x1b[0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;31mb");
         assert_eq!(
             t.cell(1, 0).attr,
-            Attr::new(10, DEFAULT_BG, true),
+            want,
             "a sequence with too many parameters is swallowed, not half-applied"
         );
     }
@@ -1378,22 +1616,24 @@ mod tests {
     fn sgr_has_bright_colours_and_switches_that_turn_things_off() {
         let mut t = vt(8, 1);
         t.feed(b"\x1b[92ma");
-        assert_eq!(t.cell(0, 0).attr, Attr::new(10, DEFAULT_BG, false));
+        assert_eq!(t.cell(0, 0).attr, attr(10, DEFAULT_BG));
         t.feed(b"\x1b[1mb");
         assert_eq!(
-            t.cell(1, 0).attr.fg(),
-            10,
+            ink(&t, 1, 0),
+            PALETTE[10],
             "bold on an already-bright colour is idempotent, not a toggle"
         );
-        t.feed(b"\x1b[7;41mc\x1b[27md\x1b[39me\x1b[49mf");
-        assert_eq!(t.cell(2, 0).attr, Attr::new(10, 1, true));
-        assert_eq!(t.cell(3, 0).attr, Attr::new(10, 1, false), "SGR 27");
-        assert_eq!(t.cell(4, 0).attr, Attr::new(DEFAULT_FG, 1, false), "SGR 39");
+        t.feed(b"\x1b[22mc");
         assert_eq!(
-            t.cell(5, 0).attr,
-            Attr::new(DEFAULT_FG, DEFAULT_BG, false),
-            "SGR 49"
+            ink(&t, 2, 0),
+            PALETTE[10],
+            "SGR 22 undoes bold, not a colour that was asked for bright"
         );
+        t.feed(b"\x1b[7;41md\x1b[27me\x1b[39mf\x1b[49mg");
+        assert_eq!(t.cell(3, 0).attr, attr(10, 1).with(REVERSE, true));
+        assert_eq!(t.cell(4, 0).attr, attr(10, 1), "SGR 27");
+        assert_eq!(t.cell(5, 0).attr, attr(DEFAULT_FG, 1), "SGR 39");
+        assert_eq!(t.cell(6, 0).attr, Attr::DEFAULT, "SGR 49");
     }
 
     /// Text lands in the grid, `CR` returns to column 0, and `LF` goes down without returning.
@@ -1549,7 +1789,11 @@ mod tests {
         let mut t = vt(4, 1);
         t.feed(b"\x1b[44mxy\x1b[K");
         for c in 0..4 {
-            assert_eq!(t.cell(c, 0).attr.bg(), 4, "column {c} lost its background");
+            assert_eq!(
+                t.cell(c, 0).attr.bg(),
+                Colour::Indexed(4),
+                "column {c} lost its background"
+            );
         }
         assert_eq!(t.cell(3, 0).ch, ' ');
     }
@@ -1560,23 +1804,183 @@ mod tests {
     fn sgr_sets_colour_brightness_and_reverse() {
         let mut t = vt(8, 1);
         t.feed(b"\x1b[31ma");
-        assert_eq!(t.cell(0, 0).attr, Attr::new(1, DEFAULT_BG, false));
+        assert_eq!(t.cell(0, 0).attr, attr(1, DEFAULT_BG));
         t.feed(b"\x1b[1mb");
-        assert_eq!(t.cell(1, 0).attr.fg(), 9, "bold must brighten the colour");
+        assert_eq!(ink(&t, 1, 0), PALETTE[9], "bold must brighten the colour");
         t.feed(b"\x1b[32mc");
         assert_eq!(
-            t.cell(2, 0).attr.fg(),
-            10,
+            ink(&t, 2, 0),
+            PALETTE[10],
             "a new colour keeps the bold bit"
         );
         t.feed(b"\x1b[22md");
-        assert_eq!(t.cell(3, 0).attr.fg(), 2);
+        assert_eq!(ink(&t, 3, 0), PALETTE[2]);
         t.feed(b"\x1b[7;44me");
-        assert_eq!(t.cell(4, 0).attr, Attr::new(2, 4, true));
+        assert_eq!(t.cell(4, 0).attr, attr(2, 4).with(REVERSE, true));
         t.feed(b"\x1b[0mf");
         assert_eq!(t.cell(5, 0).attr, Attr::DEFAULT, "SGR 0 resets everything");
         t.feed(b"\x1b[mg");
         assert_eq!(t.cell(6, 0).attr, Attr::DEFAULT, "an empty SGR is a reset");
+    }
+
+    /// **The three ways to name a colour resolve to the numbers every emulator agrees on.** The
+    /// 256-colour table is arithmetic, so it is checked at its seams: the last of the sixteen, the
+    /// cube's first, a mid-cube entry whose three channels all differ (so a swapped axis fails),
+    /// the cube's last, and both ends of the grey ramp. Values are xterm's, written out.
+    #[test]
+    fn indexed_and_24_bit_colours_resolve_to_xterms_numbers() {
+        assert_eq!(Colour::Indexed(15).resolve(), PALETTE[15]);
+        assert_eq!(Colour::Indexed(16).resolve(), 0x00_0000);
+        // 16 + 36*1 + 6*2 + 3 = 67: red step 1, green step 2, blue step 3.
+        assert_eq!(Colour::Indexed(67).resolve(), 0x5f_87af);
+        assert_eq!(Colour::Indexed(231).resolve(), 0xff_ffff);
+        assert_eq!(Colour::Indexed(232).resolve(), 0x08_0808);
+        assert_eq!(Colour::Indexed(255).resolve(), 0xee_eeee);
+        assert_eq!(Colour::Rgb(0xb5, 0x89, 0x00).resolve(), 0xb5_8900);
+    }
+
+    /// **Truecolour and the 256-colour form, as a program sends them**, including both in one
+    /// sequence (ten parameters, past the old limit of four) and a rendition after them, which is
+    /// the case that proves the extended forms consume exactly the parameters they name.
+    #[test]
+    fn sgr_takes_24_bit_and_256_colour_foregrounds_and_backgrounds() {
+        let mut t = vt(8, 1);
+        t.feed(b"\x1b[38;2;181;137;0ma");
+        assert_eq!(t.cell(0, 0).attr.fg(), Colour::Rgb(181, 137, 0));
+        t.feed(b"\x1b[48;5;67mb");
+        assert_eq!(t.cell(1, 0).attr.bg(), Colour::Indexed(67));
+        assert_eq!(
+            t.cell(1, 0).attr.fg(),
+            Colour::Rgb(181, 137, 0),
+            "the foreground stays"
+        );
+        t.feed(b"\x1b[0;38;5;196;48;2;0;43;54;4mc");
+        let c = t.cell(2, 0).attr;
+        assert_eq!(
+            (c.fg(), c.bg()),
+            (Colour::Indexed(196), Colour::Rgb(0, 43, 54))
+        );
+        assert!(
+            c.is_underlined(),
+            "the rendition after two extended colours was lost"
+        );
+        // Bold does not brighten a colour that was not one of the eight: xterm's rule.
+        t.feed(b"\x1b[1md");
+        assert_eq!(ink(&t, 3, 0), Colour::Indexed(196).resolve());
+        // The bright backgrounds, which the one-byte rendition had no room for.
+        t.feed(b"\x1b[0;104me");
+        assert_eq!(t.cell(4, 0).attr.bg(), Colour::Indexed(12));
+    }
+
+    /// **A malformed extended colour ends the sequence's effect** rather than reading its missing
+    /// components out of whatever follows: a `38;2` with one component, an out-of-range component,
+    /// and an unknown colour space. What came *before* it in the same sequence still applies.
+    #[test]
+    fn a_malformed_extended_colour_is_not_half_applied() {
+        let mut t = vt(8, 1);
+        t.feed(b"\x1b[31;38;2;10ma");
+        assert_eq!(t.cell(0, 0).attr, attr(1, DEFAULT_BG), "missing components");
+        t.feed(b"\x1b[0;38;2;10;300;10;4mb");
+        assert_eq!(t.cell(1, 0).attr, Attr::DEFAULT, "a component past 255");
+        t.feed(b"\x1b[38;3;1;2;3;4mc");
+        assert_eq!(
+            t.cell(2, 0).attr,
+            Attr::DEFAULT,
+            "colour space 3 is not one"
+        );
+        t.feed(b"\x1b[38;5md");
+        assert_eq!(
+            t.cell(3, 0).attr,
+            Attr::DEFAULT,
+            "an index that never arrived"
+        );
+    }
+
+    /// **Underline and strikethrough are ink across the whole cell, on their own rows**, and each
+    /// has an off switch. Read from the pixels, because a flag that is set and never drawn is the
+    /// failure a person would see and an attribute comparison would not. A space is used so every
+    /// ink pixel in the cell is the line's.
+    #[test]
+    fn underline_and_strikethrough_draw_a_full_width_line_on_their_rows() {
+        let mut t = vt(4, 1);
+        t.set_cursor_visible(false);
+        t.feed(b"\x1b[4m \x1b[9m \x1b[24m \x1b[29m ");
+        let (fg, bg) = Attr::DEFAULT.colours();
+        let row_of = |col: u32, gy: u32| -> std::vec::Vec<u32> {
+            (0..bitmap_font::GLYPH_W)
+                .map(|gx| t.pixel(col * bitmap_font::GLYPH_W + gx, gy))
+                .collect()
+        };
+        let full = std::vec![fg; bitmap_font::GLYPH_W as usize];
+        let none = std::vec![bg; bitmap_font::GLYPH_W as usize];
+        for gy in 0..bitmap_font::GLYPH_H {
+            let under = gy == UNDERLINE_ROW;
+            let strike = gy == STRIKETHROUGH_ROW;
+            assert_eq!(
+                &row_of(0, gy),
+                if under { &full } else { &none },
+                "underline, row {gy}"
+            );
+            assert_eq!(
+                &row_of(1, gy),
+                if under || strike { &full } else { &none },
+                "both, row {gy}"
+            );
+            assert_eq!(
+                &row_of(2, gy),
+                if strike { &full } else { &none },
+                "SGR 24, row {gy}"
+            );
+            assert_eq!(row_of(3, gy), none, "SGR 29, row {gy}");
+        }
+        assert_ne!(UNDERLINE_ROW, STRIKETHROUGH_ROW);
+    }
+
+    /// **Dim, invisible and the cursor, in the order [`Attr::colours`] documents.** Dim is the
+    /// channel midpoint toward the background; invisible paints the text in the background; and the
+    /// block cursor on a concealed cell still shows, which is what applying invisible last buys.
+    #[test]
+    fn dim_and_invisible_resolve_in_the_documented_order() {
+        let red_on_blue = Attr::new(Colour::Rgb(200, 0, 0), Colour::Rgb(0, 0, 100));
+        assert_eq!(
+            red_on_blue.with(DIM, true).colours(),
+            (0x64_0032, 0x00_0064)
+        );
+        assert_eq!(
+            red_on_blue.with(INVISIBLE, true).colours(),
+            (0x00_0064, 0x00_0064)
+        );
+        assert_eq!(
+            red_on_blue
+                .with(INVISIBLE, true)
+                .with(REVERSE, true)
+                .colours(),
+            (0xc8_0000, 0xc8_0000),
+            "reversed and concealed is a solid block of the old foreground"
+        );
+
+        let mut t = vt(4, 1);
+        t.feed(b"\x1b[8mA\x1b[28mB\x1b[8m");
+        let (fg, bg) = Attr::DEFAULT.colours();
+        let ink_in = |col: u32| {
+            (0..bitmap_font::GLYPH_W * bitmap_font::GLYPH_H).any(|i| {
+                let (gx, gy) = (i % bitmap_font::GLYPH_W, i / bitmap_font::GLYPH_W);
+                t.pixel(col * bitmap_font::GLYPH_W + gx, gy) == fg
+            })
+        };
+        assert!(!ink_in(0), "concealed text drew ink");
+        assert!(ink_in(1), "SGR 28 reveals");
+        // The cursor sits on column 2, which is blank; conceal it and it is still a block.
+        t.feed(b"\x1b[D\x1b[C");
+        assert_eq!(t.cursor(), (2, 0));
+        t.feed(b" \x1b[D");
+        assert_eq!(
+            t.pixel(2 * bitmap_font::GLYPH_W, 0),
+            fg,
+            "the cursor vanished on a concealed cell"
+        );
+        assert_ne!(fg, bg);
+        assert!(t.cell(2, 0).attr.is_invisible());
     }
 
     /// **A sequence this engine does not implement is swallowed whole.** The failure mode this
@@ -1807,6 +2211,16 @@ mod tests {
         assert!(
             attrs.iter().any(|a| *a != Attr::DEFAULT),
             "the script never changes rendition: the colour path is untested on the machine",
+        );
+        // The truecolour pass's own two claims reach the machine only if the script carries them:
+        // a 24-bit colour, and a line rendition, each on a cell with ink.
+        assert!(
+            attrs.iter().any(|a| matches!(a.fg(), Colour::Rgb(..))),
+            "the script has no 24-bit colour: truecolour is untested on the machine",
+        );
+        assert!(
+            attrs.iter().any(|a| a.is_underlined()),
+            "the script has no underline: the line renditions are untested on the machine",
         );
         assert!(
             (0..t.rows()).any(|r| (0..t.cols()).any(|c| t.cell(c, r).ch != ' ')),

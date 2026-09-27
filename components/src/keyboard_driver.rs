@@ -359,8 +359,8 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
             seen = seen.wrapping_add(1);
 
             if let Some(bytes) = keys.event(kind, code, value) {
-                // Most keys send one byte; an arrow key sends its three-byte `CSI` sequence
-                // (video_terminal::keymap::Bytes). Either way both delivery modes take them one at
+                // Most keys send one byte; a cursor or navigation key sends its `CSI` sequence,
+                // up to six bytes (video_terminal::keymap::Bytes). Either way both delivery modes take them one at
                 // a time, in order, which is what makes a multi-byte key indistinguishable
                 // downstream from several single-byte keys typed fast -- true of the ring
                 // (MODE_RING) and just as true of the direct-batch buffer (MODE_DIRECT).

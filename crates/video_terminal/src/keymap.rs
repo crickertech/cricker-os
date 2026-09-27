@@ -15,12 +15,15 @@
 //! # What it covers, and the limits that are real
 //!
 //! A **US layout's main block**: the alphanumerics, the symbol keys, space, enter, tab, backspace,
-//! and escape, shifted and unshifted. **Plus the arrow cluster** (milestone 142 increment 2): a
-//! terminal sends an escape sequence for those, and `crates/line_editor` already understood the
-//! receiving half of that mapping (`CSI A/B/C/D`, its own `arrow_keys_edit_mid_line` and history
-//! tests) before this crate could produce it. What is still missing, and stays the honest line: no
-//! keypad, no function keys, no compose, no dead keys, no other layout, and no key repeat beyond
-//! what the device itself sends. Recorded in notes/glyphs.md rather than half-built.
+//! and escape, shifted and unshifted. **Plus the arrow cluster** (milestone 142 (a text display
+//! good enough that people use it instead of a GUI), increment 2) **and the navigation cluster**
+//! (home, end, insert, delete, page up, page down; milestone 142, the 2026-09-26 pass), each with
+//! its shift-modified form: a terminal sends an escape sequence for those, and `crates/line_editor`
+//! already understood the receiving half of that mapping (`CSI A/B/C/D`, `CSI H`/`CSI F`, `CSI 3~`)
+//! before this crate could produce it. What is still missing, and stays the honest line: no keypad,
+//! no function keys, no control or alt modifier on a cluster key, no compose, no dead keys, no
+//! other layout, and no key repeat beyond what the device itself sends. Recorded in notes/glyphs.md
+//! rather than half-built.
 
 /// `EV_SYN`: an event-batch separator. Carries no key and is ignored here.
 pub const EV_SYN: u16 = 0;
@@ -47,28 +50,38 @@ static UNSHIFTED: [u8; MAX_CODE as usize + 1] =
 static SHIFTED: [u8; MAX_CODE as usize + 1] =
     *b"\0\x1b!@#$%^&*()_+\x08\tQWERTYUIOP{}\r\0ASDFGHJKL:\"~\0|ZXCVBNM<>?\0*\0 ";
 
-// The arrow cluster's evdev codes. Numerically far above [`MAX_CODE`] (the main block's own flat
-// table stops at 57; the arrow cluster starts at 103), so they get their own case in [`arrow`]
-// rather than a much wider table padded with zeros in between.
+// The cursor and navigation clusters' evdev codes. Numerically far above [`MAX_CODE`] (the main
+// block's own flat table stops at 57; these start at 102), so they get their own case in
+// [`cluster`] rather than a much wider table padded with zeros in between.
 
+/// `KEY_HOME`.
+pub const KEY_HOME: u16 = 102;
 /// `KEY_UP`.
 pub const KEY_UP: u16 = 103;
+/// `KEY_PAGEUP`.
+pub const KEY_PAGEUP: u16 = 104;
 /// `KEY_LEFT`.
 pub const KEY_LEFT: u16 = 105;
 /// `KEY_RIGHT`.
 pub const KEY_RIGHT: u16 = 106;
+/// `KEY_END`.
+pub const KEY_END: u16 = 107;
 /// `KEY_DOWN`.
 pub const KEY_DOWN: u16 = 108;
+/// `KEY_PAGEDOWN`.
+pub const KEY_PAGEDOWN: u16 = 109;
+/// `KEY_INSERT`.
+pub const KEY_INSERT: u16 = 110;
+/// `KEY_DELETE`.
+pub const KEY_DELETE: u16 = 111;
 
-// The arrow cluster sits entirely above the main block's own table, checked at compile time so a
-// future edit that moved `MAX_CODE` up past 103 fails the build rather than silently making
-// `byte`'s table start answering for an arrow code (`arrow` is matched first in `Keyboard::event`,
-// so `byte` would never be reached, but the table itself would then hold a wrong, unreachable
-// entry, which is exactly the kind of fact this file's own tests exist to keep visible).
-const _: () = assert!(KEY_UP > MAX_CODE);
-const _: () = assert!(KEY_DOWN > MAX_CODE);
-const _: () = assert!(KEY_LEFT > MAX_CODE);
-const _: () = assert!(KEY_RIGHT > MAX_CODE);
+// The clusters sit entirely above the main block's own table, checked at compile time so a future
+// edit that moved `MAX_CODE` up past 102 fails the build rather than silently making `byte`'s
+// table start answering for a cluster code (`cluster` is matched first in `Keyboard::event`, so
+// `byte` would never be reached, but the table itself would then hold a wrong, unreachable entry,
+// which is exactly the kind of fact this file's own tests exist to keep visible). `KEY_HOME` is the
+// lowest of them.
+const _: () = assert!(KEY_HOME > MAX_CODE);
 
 /// Is this key a shift?
 pub const fn is_shift(code: u16) -> bool {
@@ -81,8 +94,8 @@ pub const fn is_shift(code: u16) -> bool {
 /// terminal that inserted a substitute character for every unmapped function key would corrupt every
 /// line the user typed while reaching for one.
 ///
-/// The main block only: an arrow key is not in `UNSHIFTED`/`SHIFTED` (it sends three bytes, not
-/// one) and is handled separately, by `arrow` and [`Keyboard::event`].
+/// The main block only: a cluster key is not in `UNSHIFTED`/`SHIFTED` (it sends a sequence, not one
+/// byte) and is handled separately, by `cluster` and [`Keyboard::event`].
 pub fn byte(code: u16, shift: bool) -> Option<u8> {
     let table = if shift { &SHIFTED } else { &UNSHIFTED };
     match table.get(code as usize) {
@@ -91,43 +104,75 @@ pub fn byte(code: u16, shift: bool) -> Option<u8> {
     }
 }
 
-/// The CSI final byte one arrow key's sequence ends in, or `None` if `code` is not an arrow key.
-/// `ESC [` plus this byte is `CSI A/B/C/D`, cursor up/down/right/left: the standard VT100/ANSI
-/// cursor-key sequences, and the exact bytes `crates/line_editor`'s own parser already recognizes on
-/// its receiving side. No shift or application-mode (SS3) variant: a plain arrow always sends the
-/// CSI form, which is the one `line_editor` treats identically to SS3 already
-/// (`ss3_arrows_are_understood`).
-const fn arrow(code: u16) -> Option<u8> {
+/// **The `(parameter, final byte)` of one cursor- or navigation-cluster key's `CSI` sequence**, or
+/// `None` if `code` is not one of them.
+///
+/// These are xterm's sequences in its default (normal, not application) cursor mode, which is what
+/// every terminal emulator a program here was written against sends, and what
+/// `crates/line_editor` already understands on its receiving side:
+///
+/// | Key | Sends | With shift |
+/// |---|---|---|
+/// | up, down, right, left | `CSI A/B/C/D` | `CSI 1;2 A/B/C/D` |
+/// | home, end | `CSI H`, `CSI F` | `CSI 1;2 H`, `CSI 1;2 F` |
+/// | insert, delete | `CSI 2 ~`, `CSI 3 ~` | `CSI 2;2 ~`, `CSI 3;2 ~` |
+/// | page up, page down | `CSI 5 ~`, `CSI 6 ~` | `CSI 5;2 ~`, `CSI 6;2 ~` |
+///
+/// The parameter is `1` for the keys whose unmodified form carries none; it is only written when a
+/// modifier forces a second parameter, which is xterm's own rule (`CSI 1;2 A`, never `CSI 1 A`).
+/// No SS3 (application-mode) variant: a plain arrow always sends the CSI form, which `line_editor`
+/// treats identically to SS3 already (`ss3_arrows_are_understood`).
+const fn cluster(code: u16) -> Option<(u8, u8)> {
     match code {
-        KEY_UP => Some(b'A'),
-        KEY_DOWN => Some(b'B'),
-        KEY_RIGHT => Some(b'C'),
-        KEY_LEFT => Some(b'D'),
+        KEY_UP => Some((b'1', b'A')),
+        KEY_DOWN => Some((b'1', b'B')),
+        KEY_RIGHT => Some((b'1', b'C')),
+        KEY_LEFT => Some((b'1', b'D')),
+        KEY_HOME => Some((b'1', b'H')),
+        KEY_END => Some((b'1', b'F')),
+        KEY_INSERT => Some((b'2', b'~')),
+        KEY_DELETE => Some((b'3', b'~')),
+        KEY_PAGEUP => Some((b'5', b'~')),
+        KEY_PAGEDOWN => Some((b'6', b'~')),
         _ => None,
     }
 }
 
-/// **What one key event sends**: at most three bytes, in a fixed-capacity buffer rather than a
-/// `Vec`, because this crate is `no_std` and reaches no allocator. Three is the longest sequence this
-/// table emits (`CSI` plus a final byte); most keys send exactly one.
+/// **What one key event sends**: at most six bytes, in a fixed-capacity buffer rather than a `Vec`,
+/// because this crate is `no_std` and reaches no allocator. Six is the longest sequence this table
+/// emits (`CSI 5;2~`, shift and page up); most keys send exactly one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Bytes {
-    buf: [u8; 3],
+    buf: [u8; 6],
     len: u8,
 }
 
 impl Bytes {
     const fn one(b: u8) -> Bytes {
         Bytes {
-            buf: [b, 0, 0],
+            buf: [b, 0, 0, 0, 0, 0],
             len: 1,
         }
     }
 
-    const fn csi(final_byte: u8) -> Bytes {
+    /// The `CSI` sequence for a cluster key: `ESC [`, the parameter when the final byte is `~` or a
+    /// modifier is held, `;2` when shift is held, then the final byte.
+    const fn csi(param: u8, final_byte: u8, shift: bool) -> Bytes {
+        let mut buf = [0x1b, b'[', 0, 0, 0, 0];
+        let mut len = 2;
+        if final_byte == b'~' || shift {
+            buf[len] = param;
+            len += 1;
+        }
+        if shift {
+            buf[len] = b';';
+            buf[len + 1] = b'2';
+            len += 2;
+        }
+        buf[len] = final_byte;
         Bytes {
-            buf: [0x1b, b'[', final_byte],
-            len: 3,
+            buf,
+            len: len as u8 + 1,
         }
     }
 
@@ -172,7 +217,7 @@ impl Keyboard {
     /// `value` is 0 for a release, 1 for a press, and 2 for the device's own auto-repeat. **Repeats
     /// count as presses**, which is what makes holding a key type: a driver that only honoured
     /// `value == 1` would look correct in every test and be maddening to use. That includes the
-    /// arrow keys: a held arrow repeats the same three-byte sequence, exactly as a real terminal's
+    /// cluster keys: a held arrow repeats the same sequence, exactly as a real terminal's
     /// auto-repeat would.
     pub fn event(&mut self, kind: u16, code: u16, value: u32) -> Option<Bytes> {
         if kind != EV_KEY {
@@ -190,8 +235,8 @@ impl Keyboard {
         if value == 0 {
             return None; // a release types nothing
         }
-        if let Some(final_byte) = arrow(code) {
-            return Some(Bytes::csi(final_byte));
+        if let Some((param, final_byte)) = cluster(code) {
+            return Some(Bytes::csi(param, final_byte, self.shift()));
         }
         byte(code, self.shift()).map(Bytes::one)
     }
@@ -355,13 +400,96 @@ mod tests {
         }
     }
 
+    /// **The navigation cluster sends xterm's sequences, and shift adds xterm's modifier
+    /// parameter.** Spelled out as bytes rather than built from [`cluster`]'s table, so a wrong row
+    /// there is a failure here rather than two copies of the same mistake agreeing.
+    #[test]
+    fn the_navigation_cluster_sends_xterms_sequences_with_and_without_shift() {
+        let mut kb = Keyboard::new();
+        let cases: [(u16, &[u8], &[u8]); 10] = [
+            (KEY_HOME, b"\x1b[H", b"\x1b[1;2H"),
+            (KEY_END, b"\x1b[F", b"\x1b[1;2F"),
+            (KEY_INSERT, b"\x1b[2~", b"\x1b[2;2~"),
+            (KEY_DELETE, b"\x1b[3~", b"\x1b[3;2~"),
+            (KEY_PAGEUP, b"\x1b[5~", b"\x1b[5;2~"),
+            (KEY_PAGEDOWN, b"\x1b[6~", b"\x1b[6;2~"),
+            (KEY_UP, b"\x1b[A", b"\x1b[1;2A"),
+            (KEY_DOWN, b"\x1b[B", b"\x1b[1;2B"),
+            (KEY_RIGHT, b"\x1b[C", b"\x1b[1;2C"),
+            (KEY_LEFT, b"\x1b[D", b"\x1b[1;2D"),
+        ];
+        for (code, plain, shifted) in cases {
+            assert_eq!(
+                kb.event(EV_KEY, code, 1).unwrap().as_slice(),
+                plain,
+                "code {code}"
+            );
+            kb.event(EV_KEY, KEY_RIGHTSHIFT, 1);
+            assert_eq!(
+                kb.event(EV_KEY, code, 1).unwrap().as_slice(),
+                shifted,
+                "shift and code {code}"
+            );
+            kb.event(EV_KEY, KEY_RIGHTSHIFT, 0);
+            assert_eq!(kb.event(EV_KEY, code, 0), None, "release, code {code}");
+        }
+    }
+
+    /// **The cluster edits a line through the real line discipline**, which is the claim the
+    /// table above makes and the one a person notices: home, end and delete do what their keycaps
+    /// say at a prompt. Checked against `crates/line_editor` itself rather than against its
+    /// documentation, the same way the VT engine's interoperability test is.
+    #[test]
+    fn home_end_and_delete_edit_a_line_through_the_line_discipline() {
+        struct Discard;
+        impl line_editor::Sink for Discard {
+            fn put(&mut self, _: &[u8]) {}
+        }
+        let mut kb = Keyboard::new();
+        let mut ld = line_editor::LineDisc::new();
+        // "xy", Home, "w", End, "z", Left, Left, Delete, Enter: "wxyz" with the "y" deleted.
+        let keys = [
+            45u16, 21, KEY_HOME, 17, KEY_END, 44, KEY_LEFT, KEY_LEFT, KEY_DELETE, 28,
+        ];
+        let mut event = line_editor::Event::None;
+        for code in keys {
+            for &b in kb.event(EV_KEY, code, 1).unwrap().as_slice() {
+                event = ld.feed(b, &mut Discard);
+            }
+        }
+        assert_eq!(event, line_editor::Event::Line);
+        assert_eq!(ld.line(), b"wxz");
+
+        // Page up reaches the discipline as a sequence it swallows whole: a key the line has no
+        // use for must not type its parameter and final byte into the line as `5~`.
+        let mut ld = line_editor::LineDisc::new();
+        for code in [30u16, KEY_PAGEUP, KEY_PAGEDOWN, 28] {
+            for &b in kb.event(EV_KEY, code, 1).unwrap().as_slice() {
+                event = ld.feed(b, &mut Discard);
+            }
+        }
+        assert_eq!(event, line_editor::Event::Line);
+        assert_eq!(ld.line(), b"a");
+    }
+
     /// Arrow codes sit well above [`MAX_CODE`] (checked at compile time, below this module): this
     /// proves the runtime half of the same claim, that [`byte`] (the main block's own lookup) does
     /// not accidentally answer for them. If it ever did, [`Keyboard::event`]'s arrow case would be
     /// dead code nobody noticed.
     #[test]
     fn arrow_codes_are_outside_the_main_blocks_table() {
-        for code in [KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT] {
+        for code in [
+            KEY_UP,
+            KEY_DOWN,
+            KEY_LEFT,
+            KEY_RIGHT,
+            KEY_HOME,
+            KEY_END,
+            KEY_INSERT,
+            KEY_DELETE,
+            KEY_PAGEUP,
+            KEY_PAGEDOWN,
+        ] {
             assert_eq!(byte(code, false), None);
             assert_eq!(byte(code, true), None);
         }

@@ -39,13 +39,19 @@ pub const ROWS: u32 = 43;
 /// Chosen so the picture is hard to produce by accident:
 ///
 /// - **four rows of text**, so a stride error or a one-row shift is visible (one row would not be);
-/// - **three renditions**: default, a green foreground, and a reversed block. A terminal that
-///   ignored SGR would draw every glyph correctly and still fail;
+/// - **five renditions**: a 24-bit foreground, default, a green foreground, an underline, and a
+///   reversed block. A terminal that ignored SGR would draw every glyph correctly and still fail,
+///   and since milestone 142 (a text display good enough that people use it instead of a GUI)'s
+///   truecolour pass (2026-09-26) so would one that dropped `38;2` or drew underlined text without
+///   its line. The 24-bit value is Solarized's yellow (`#b58900`), from §104 (the palette is
+///   Solarized), and it is in neither the sixteen-colour palette nor the 256-colour table, so a
+///   terminal that rounded it to the nearest indexed colour fails too;
 /// - **a `\r\n` pair**, which is what `line_editor::expand_output` puts on the wire for a Unix `\n`, so
 ///   this is the byte stream a real program's output actually becomes;
 /// - **descenders and an underscore** (`y`, `_`), which are the glyph rows a font table truncated to
 ///   seven rows would lose.
-pub const GREETING: &[u8] = b"nife\r\n\x1b[32mglyphs_ok\x1b[0m\r\nby a vt\r\n\x1b[7mFOCUS\x1b[0m";
+pub const GREETING: &[u8] =
+    b"\x1b[38;2;181;137;0mnife\x1b[0m\r\n\x1b[32mglyphs_ok\x1b[0m\r\nby a \x1b[4mvt\x1b[24m\r\n\x1b[7mFOCUS\x1b[0m";
 
 /// **What the user types.** Delivered as `OP_BYTES`, the terminal contract's driver half, which is
 /// the same framing the compositor uses to route a keystroke to the focused client (DECISIONS §33).
@@ -60,7 +66,7 @@ pub const TYPED: &[u8] = b"\r\n> hi";
 /// run, including the ones where the terminal drew the wrong thing. One letter, because a wholly
 /// different screen would be rejected by a much weaker check.
 pub const GREETING_TYPO: &[u8] =
-    b"nife\r\n\x1b[32mglyphs_0k\x1b[0m\r\nby a vt\r\n\x1b[7mFOCUS\x1b[0m";
+    b"\x1b[38;2;181;137;0mnife\x1b[0m\r\n\x1b[32mglyphs_0k\x1b[0m\r\nby a \x1b[4mvt\x1b[24m\r\n\x1b[7mFOCUS\x1b[0m";
 
 /// **The banner each terminal in the compositor test prints**, indexed by window.
 ///

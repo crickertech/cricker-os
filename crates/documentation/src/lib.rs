@@ -110,10 +110,6 @@
 //! - **No HTML.** An HTML tag is passed through as text, which is what it looks like in a terminal
 //!   anyway. There are 53 in the corpus and every one of them is either inside a code span or a
 //!   placeholder like `<name>` that a reader wants to see literally.
-//! - **Emphasis is rendered as underline (SGR 4), which `video_terminal` silently drops** because
-//!   its SGR handler implements only 0, 1, 7, 22, 27 and the colour ranges. On the serial console,
-//!   where the far end is the host's terminal, it shows. So emphasis is visible on one of the two
-//!   terminals this system has, and the choice was between that and spending a colour on it.
 //! - **A table wider than [`TABLE_COLS`] folds its remaining cells into the last column**, so the
 //!   layout degrades and the text does not. Until 2026-09-23 it dropped them instead, in silence,
 //!   and `notes/rented-metal.md` landed with twelve columns against a bound of 8 and turned `main`

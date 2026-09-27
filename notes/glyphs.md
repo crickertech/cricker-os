@@ -28,39 +28,39 @@ Everything above the surface is text; everything below it is rung one's contract
 `crates/bitmap_font` is a 7x8 monochrome bitmap font and a pure function from `(byte, x, y)` to a
 colour.
 
-**It is an original drawing**, made for this tree in `crates/bitmap_font/kaypro-style-7x8.art`. Nobody
+It is an original drawing, made for this tree in `crates/bitmap_font/kaypro-style-7x8.art`. Nobody
 holds a licence over it and no obligation travels with it. It replaced `font8x8` (public domain, by
 Daniel Hepper, from Marcel Sondaar's `font8x8.h`, from IBM's public-domain VGA fonts) on 2026-08-20,
 after a poll calef ran was won by the Kaypro II's character generator.
 
-**The style is the Kaypro II's and the bits are not**, which is a distinction the law makes and this
+The style is the Kaypro II's and the bits are not, which is a distinction the law makes and this
 tree relies on. A *typeface as typeface* is listed by 37 CFR 202.1(e) among the things not subject
 to copyright, along with "mere variations of typographic ornamentation, lettering or coloring", so
 the look of a font is free to reproduce. A particular file of bitmaps is somebody's work. The ROM is
 excluded on exactly that second ground, and the case is set out under [The Kaypro II character ROM,
 found, rendered, and excluded](#the-kaypro-ii-character-rom-found-rendered-and-excluded) below: the
 dumps in circulation state no licence at all, `ivanizag/kaypro-disassembly` has no `LICENSE` file,
-and this file's standing rule is that ambiguous is treated as obliged. **So the ROM is not in this
-repository, was not traced, and is not needed**: it was used the way a person uses a reference,
+and this file's standing rule is that ambiguous is treated as obliged. So the ROM is not in this
+repository, was not traced, and is not needed: it was used the way a person uses a reference,
 which is by looking at the shapes and drawing your own.
 
 A reader who wants to check that claim can: the `.art` file is the drawing, every glyph is a picture
 of `#` and `.`, and `crates/bitmap_font/src/glyphs.rs` is that file transcribed with a test
 (`the_art_file_and_this_table_agree`) that parses it back and fails if the two ever drift.
 
-**Why the licence question is worth this much care**: a bitmap font is compiled into the kernel
+Why the licence question is worth this much care: a bitmap font is compiled into the kernel
 image and into every binary that draws text, so its licence is a licence on the *artefact* rather
 than on a build-time tool. That was the reason `font8x8` was chosen and it is the reason this one is
 drawn rather than downloaded.
 
 ### The geometry, which is the machine's and is why the terminal got wider
 
-Seven columns, of which the **middle five carry ink** and the outer two are gutter. That is not a
+Seven columns, of which the middle five carry ink and the outer two are gutter. That is not a
 stylistic choice; it is what the Kaypro's video board did in hardware, shifting out a zero, five ROM
 bits and a zero (MAME's `kaypro_v.cpp`). Eight rows: 0 to 6 are the body with the baseline at row 6,
 and row 7 is the one-row descender. Caps and digits fill rows 0 to 6, x-height letters rows 2 to 6.
 
-**That geometry is most of the argument for the font.** 128 / 7 is **18 columns** where 128 / 8 was
+That geometry is most of the argument for the font. 128 / 7 is 18 columns where 128 / 8 was
 16, on the same 128x64 scanout, at the same 1024-byte table. Milestone 29's other candidate,
 `gohufont-14`, has better letterforms and gives four rows of text, and four rows is not a terminal.
 No larger scanout is reachable today (a `Frame` names one page and the display driver has nine
@@ -77,29 +77,29 @@ change, and no surface has to be a whole number of cells any more.
 The brief was a font in the Kaypro's style, not a forgery, so where the machine is weak for reasons
 the grid does not force, this is not.
 
-- **One baseline for every glyph.** `g p q y` sit on row 6 like `o` and descend into row 7. The
+- One baseline for every glyph. `g p q y` sit on row 6 like `o` and descend into row 7. The
   usual 8-row compromise, which the earlier hand-drawn candidate took and named, is to raise the
   descender bowls a row so the tail gets two; that leaves `p` visibly shorter than `o`. Here the
   tails are one row and the bowls are not raised.
-- **`Il1|` are four different shapes**, deliberately: `I` has serifs at both ends, `l` has a flag at
+- `Il1|` are four different shapes, deliberately: `I` has serifs at both ends, `l` has a flag at
   the top left and a tail at the bottom right, `1` has a flag and a flat foot, and `|` is the only
   glyph that runs the full eight rows.
-- **A slashed zero**, which the ROM also has and which is the reason a terminal font is usable in a
+- A slashed zero, which the ROM also has and which is the reason a terminal font is usable in a
   hex dump.
 
 And what is kept because it is the grid rather than the drawing:
 
-- **`M` and `W` are near mirrors.** Five columns leaves one way to draw each, so they differ only in
+- `M` and `W` are near mirrors. Five columns leaves one way to draw each, so they differ only in
   which end the middle spike sits at. That is the Kaypro's own failing and it is not fixable at this
   width.
-- **The descender is one row.** Eight rows with a seven-row cap height leaves exactly one, so `g`
+- The descender is one row. Eight rows with a seven-row cap height leaves exactly one, so `g`
   has a hook rather than a tail.
-- **The underscore does not join.** `_` is five ink columns with a gutter each side, so a run of
+- The underscore does not join. `_` is five ink columns with a gutter each side, so a run of
   them is dashed rather than continuous. The ROM had the same property for the same reason.
 
 ### The options, with pictures (2026-08-19, lane `bench/font-options`)
 
-**First, a correction to the framing above.** The paragraph about Terminus and Spleen reads as
+First, a correction to the framing above. The paragraph about Terminus and Spleen reads as
 though the font were a compromise forced by licensing. It is not: `font8x8` is public domain, which
 was verified for this survey by opening the upstream project rather than by recalling it. Its
 `README` says, of the header files this table came from:
@@ -110,18 +110,18 @@ License: Public Domain
 ```
 
 and the credits below that carry Marcel Sondaar's original header, which says the same thing and
-names IBM's public-domain VGA fonts as the source. **Nothing in this tree owes an obligation to
-anyone for the letters on the screen**, so a change of font would be a decision about how it looks.
+names IBM's public-domain VGA fonts as the source. Nothing in this tree owes an obligation to
+anyone for the letters on the screen, so a change of font would be a decision about how it looks.
 
-**And a reversal on top of that correction, which is calef's** (2026-08-19). The old rule refused
+And a reversal on top of that correction, which is calef's (2026-08-19). The old rule refused
 any font with an attribution obligation, on the ground that a bitmap font is compiled into the image
 and its licence therefore travels with the artefact. The first half of that reasoning stands; the
 conclusion does not. He read OFL 1.1 and his verdict was that the obligation "actually doesn't look
-onerous", so **obliging licences are in scope and priced rather than refused.** That matters,
+onerous", so obliging licences are in scope and priced rather than refused. That matters,
 because the public-domain corner of this field is small and the well-drawn fonts mostly live under
 the OFL.
 
-**The specimen sheet is how the aesthetic question gets answered.** The crate's design claim is that
+The specimen sheet is how the aesthetic question gets answered. The crate's design claim is that
 the expected picture is a pure function, which is what lets the terminal, the kernel test and the
 host-side scanout check agree about a letter. Spend the same property on the choice itself and a
 font stops being an argument:
@@ -142,7 +142,7 @@ one that makes prose *wrong* rather than ugly), the descenders `g q y p j`, and 
 ordinary prose and ordinary code, because a font that looks good on a pangram and bad in a sentence
 is bad.
 
-**The candidates, what they cost, and what they oblige.** "Grid" is the decisive practical column:
+The candidates, what they cost, and what they oblige. "Grid" is the decisive practical column:
 characters by rows on the display ladder's 128x64 scanout, which is 16x8 today.
 
 | Font | Cell | Table | Grid | Licence | Reserved name |
@@ -169,30 +169,30 @@ Dimitar Toshkov Zhekov, with Reserved Font Name "Terminus Font""; Spleen's `LICE
 `github.com/fcambus/spleen`, two-clause BSD; and gohufont's `COPYING-LICENSE`, whose entire terms
 are "0. You just DO WHAT THE FUCK YOU WANT TO."
 
-**What an obligation would actually cost us**, in the order that matters:
+What an obligation would actually cost us, in the order that matters:
 
-- **The Reserved Font Name is the expensive clause, and only Terminus has one.** Being picky about
+- The Reserved Font Name is the expensive clause, and only Terminus has one. Being picky about
   fonts means eventually fixing a glyph, and under the OFL the moment a glyph changes the table is a
   Modified Version, which may not carry the reserved name without written permission. So adopting
   Terminus means either never touching it or renaming our copy. Spleen (BSD-2) and gohufont (WTFPL)
   reserve nothing, and a redrawn glyph costs nothing beyond the notice.
-- **The OFL has no cure period.** Its own words are that the licence "becomes null and void" if a
+- The OFL has no cure period. Its own words are that the licence "becomes null and void" if a
   condition is not met, so shipping the notice has to be a mechanism rather than an intention.
-- **Where the notice would live**, three places, because the obligation attaches to the image and
+- Where the notice would live, three places, because the obligation attaches to the image and
   not to the source tree. The font's source and its `LICENSE` in `vendor/`, registered in
   `vendor/README.md` the way the RedoxFS pin is. The identifier in `deny.toml`'s shared licence
-  policy, with the honest caveat that `script/supply-chain` checks the **cargo graph**, so a font
+  policy, with the honest caveat that `script/supply-chain` checks the cargo graph, so a font
   transcribed into `crates/bitmap_font/src/glyphs.rs` is on the register rather than on the gate. And a
   page in milestone 40's documentation store, so a machine running nife carries the text it owes.
 
-**What is still excluded.** The Linux console's `lib/fonts/font_8x16.c` is the familiar IBM VGA
+What is still excluded. The Linux console's `lib/fonts/font_8x16.c` is the familiar IBM VGA
 shape, and its first line is `// SPDX-License-Identifier: GPL-2.0`; copyleft on a table compiled
 into every binary is a different question from attribution, and it is out. Fixedsys Excelsior is
 called public domain by unscii's `README`, but that is a third party's summary and
 `fixedsysexcelsior.com` does not resolve (checked 2026-08-19), so the claim cannot be read at its
-source. **Ambiguous is treated as obliged.**
+source. Ambiguous is treated as obliged.
 
-**What the shapes measure**, over the 52 letters, straight from the tables:
+What the shapes measure, over the 52 letters, straight from the tables:
 
 | Font | Ink per letter | Left edge sigma | Width sigma | Cap | x-height | Descender |
 |---|---|---|---|---|---|---|
@@ -210,7 +210,7 @@ source. **Ambiguous is treated as obliged.**
 | `spleen-8x16` | 33.6 | 0.46 | 0.74 | 10 | 7 | 3 |
 | `unscii-16` | 34.6 | 0.38 | 0.52 | 11 | 7 | 3 |
 
-**The drawn font measures like the machine it is drawn after**, which is the check on whether the
+The drawn font measures like the machine it is drawn after, which is the check on whether the
 style survived the drawing: 13.7 ink per letter against the ROM's 13.6, a left-edge sigma of 0.23
 against 0.27, and a width sigma of 0.54 against 0.48. Lighter than everything here but Spleen and
 `unscii-8-thin`, and more evenly fitted than everything but Spleen. The one number that moved the
@@ -220,30 +220,30 @@ read worse.
 
 Ink per letter is weight, the two sigmas are consistency (which is what the eye reads as rhythm
 rather than as any one glyph), and the descender column is how many rows a `g` gets below the
-baseline an `x` sits on. **Descender depth is what separates the sizes**, and it is why every 8x8
+baseline an `x` sits on. Descender depth is what separates the sizes, and it is why every 8x8
 font here, ours included, has a cramped `g`: one row against three.
 
-**The cell size is a screen decision before it is a taste decision, and the screen turned out not
-to be free to move.** The scanout is 128x64, so an
+The cell size is a screen decision before it is a taste decision, and the screen turned out not
+to be free to move. The scanout is 128x64, so an
 8x8 cell gives the 16x8 grid recorded under Honest limits, and any 8x14 or 8x16 font gives 16x4.
 Four rows of text is not a terminal. Two candidates dodge that entirely by being narrower rather
-than shorter: Terminus 6x12 gives 21x5, and Spleen 5x8 gives **25x8**, which is more columns than
+than shorter: Terminus 6x12 gives 21x5, and Spleen 5x8 gives 25x8, which is more columns than
 today at the same number of rows. A narrower cell costs nothing but `GLYPH_W`, which is a constant
 in `crates/bitmap_font` that three parties read.
 
-**Growing the scanout is blocked, and it is blocked on the capability model rather than on memory**
+Growing the scanout is blocked, and it is blocked on the capability model rather than on memory
 (measured 2026-08-19, when a lane tried to build the chosen font onto a terminal-sized surface). A
 `Frame` capability names exactly one page and each one occupies a capability table slot, the capability table has
 sixteen slots, and the virtio-gpu driver's DMA region already uses nine of them. The hard ceiling is
 `SURFACE_FRAMES <= 9`, which is 36,864 bytes: every non-square shape inside it (128x72, 144x64,
-192x48) gives five text rows or fewer at 8x14, so **there is no scanout reachable today on which
-gohufont-14 is a terminal.** 800x600, which is 100x42 characters and the size calef picked, needs
+192x48) gives five text rows or fewer at 8x14, so there is no scanout reachable today on which
+gohufont-14 is a terminal. 800x600, which is 100x42 characters and the size calef picked, needs
 469 frames. The build fails rather than the boot, because `display_service::DRIVER_SLOT_DMA` carries
 a `const` assertion for exactly this. The fork, its three priced options and the sizing arithmetic
 that goes with it are in notes/frames.md's `BUGS`; until it is answered, gohufont-14 is the right
 font for a screen this tree cannot yet make.
 
-**Authoring our own is priced too**, because it was raised as an option and no existing sample can
+Authoring our own is priced too, because it was raised as an option and no existing sample can
 answer it. `bench/font-options/hand-drawn-8x8.art` is 95 printable glyphs drawn for this survey, in
 the `#`/`.` format the specimen tool reads, at exactly the cost of any other 8x8 font: 128 glyphs by
 8 rows is 1024 bytes, and 8x16 would be 2048. The drawing cost was one lane for 8x8; 8x16 would be
@@ -254,25 +254,25 @@ consistent and plain rather than good.
 ### The Kaypro II character ROM: found, rendered, and excluded
 
 calef owned a Kaypro II and asked what its font was. It was not a typeface with a designer; it was a
-chip, and the chip has been dumped. The dump renders, it is genuinely the Kaypro II's, and **it is
-excluded on licence**, which is the same answer this file already gives Fixedsys Excelsior and for
+chip, and the chip has been dumped. The dump renders, it is genuinely the Kaypro II's, and it is
+excluded on licence, which is the same answer this file already gives Fixedsys Excelsior and for
 the same reason.
 
-**Which machine, and how that is known.** MAME's `src/mame/kaypro/kaypro.cpp` gives the `kayproii`
+Which machine, and how that is known. MAME's `src/mame/kaypro/kaypro.cpp` gives the `kayproii`
 machine one `"chargen"` region holding `81-146.u43`, 2048 bytes, `CRC(4cc7d206)`
 `SHA1(5cb880083b94bd8220aac1f87d537db7cfeb9013)`. Don Maslin's archive at
 `retroarchive.org/maslin/roms/kaypro/` lists `81-146A` as "Kaypro II/4/83 character generator", and
 `github.com/ivanizag/kaypro-disassembly` carries `chars/81-146a.bin`, whose own `README` says
-"81-146a: Kapyro II/83, downloaded from Retroarchive". That file is **bit-identical to MAME's**:
+"81-146a: Kapyro II/83, downloaded from Retroarchive". That file is bit-identical to MAME's:
 2048 bytes, the same SHA-1 and the same CRC-32, checked 2026-08-19. So the artefact is the Kaypro
 II's own, not a later model's, and two archives and one emulator agree on it.
 
 The distinction matters because the line ran on. The only Kaypro font in circulation under a clear
 licence is VileR's `Kaypro2K` in the Ultimate Oldschool PC Font Pack (CC BY-SA 4.0), and its own
-entry says it is the **Kaypro 2000**, a 1985 PC-compatible laptop. Different machine, different
+entry says it is the Kaypro 2000, a 1985 PC-compatible laptop. Different machine, different
 decade, different font. A dump labelled "Kaypro" is not automatically the II.
 
-**The geometry, which is a fact about the video board rather than about the file.** A character
+The geometry, which is a fact about the video board rather than about the file. A character
 generator has no header, so it is read by knowing the wiring. MAME's `kaypro_v.cpp`
 `screen_update_kayproii` indexes it as `m_p_chargen[(chr<<3) | ra]` with `ra < 8`, shifts out
 `0, BIT(gfx,4), BIT(gfx,3), BIT(gfx,2), BIT(gfx,1), BIT(gfx,0), 0`, and its comment says "The first
@@ -281,28 +281,28 @@ half of the character generator is blank, with the visible characters in the 2nd
 shift register, the remaining pixels are held high." Reading the bytes says the same thing: the
 first 1024 are uniform and the font is the second 1024.
 
-So the cell is **7 pixels wide by 10 scanlines**, of which the ROM supplies **5 ink columns by 8
-rows** and the hardware holds the rest blank, on an 80x24 display. The specimen tool derives all of
+So the cell is 7 pixels wide by 10 scanlines, of which the ROM supplies 5 ink columns by 8
+rows and the hardware holds the rest blank, on an 80x24 display. The specimen tool derives all of
 that from the bytes and prints `7x8 cell, 1024 B table, 94/94 printable drawn, 18x8 on 128x64`.
 
-**The licence, which is three questions and not one.** They are answered separately because they
+The licence, which is three questions and not one. They are answered separately because they
 have different answers, and collapsing them is how a tree ends up shipping something it cannot
 account for.
 
-1. **The 1982 bits.** A copyrighted work of Kaypro Corporation, which went through Chapter 11 and no
+1. The 1982 bits. A copyrighted work of Kaypro Corporation, which went through Chapter 11 and no
    longer exists. No release, dedication or grant was found. There is a real argument that the
    subject matter is not protected at all, since 37 CFR 202.1 lists as material not subject to
    copyright both "mere variations of typographic ornamentation, lettering or coloring" and, flatly,
    "(e) Typeface as typeface". That is a defence and not a licence, and it has never been tested on
    this artefact.
-2. **The dump.** Somebody's labour, and nobody's stated terms. Retroarchive publishes it with no
+2. The dump. Somebody's labour, and nobody's stated terms. Retroarchive publishes it with no
    licence statement; `ivanizag/kaypro-disassembly` has no `LICENSE` file, which under GitHub's own
    terms leaves it all-rights-reserved. MAME records the hash and does not distribute the bytes.
-3. **A recreation.** None exists for this ROM. The one clearly-licensed Kaypro font is the wrong
+3. A recreation. None exists for this ROM. The one clearly-licensed Kaypro font is the wrong
    machine, as above.
 
-**Ambiguous is treated as obliged**, which is this section's existing rule, so **the ROM is not in
-this repository and the font is not a candidate.** What *is* a candidate, and what now ships, is an
+Ambiguous is treated as obliged, which is this section's existing rule, so the ROM is not in
+this repository and the font is not a candidate. What *is* a candidate, and what now ships, is an
 original drawing in its style: answer 1 above says the look is not the protected part, and answer 2
 says the file is. See [The font](#the-font-ours-drawn-in-the-kaypro-iis-style) at the top of this
 page. What is committed is the reader and the recipe:
@@ -316,29 +316,29 @@ cargo run -p bitmap_font --example specimen -- --metrics \
     --font 81-146a.bin --name kaypro-ii --font gohufont-14.bdf --name gohufont-14
 ```
 
-**How it actually looks, next to `gohufont-14`**, which is the current pick. The two are drawn
+How it actually looks, next to `gohufont-14`, which is the current pick. The two are drawn
 interleaved by giving `--font` twice, because a specimen in a section of its own is an inventory.
 
-The Kaypro is **the most evenly-fitted font in this survey bar one**. Its left-edge sigma is 0.27
+The Kaypro is the most evenly-fitted font in this survey bar one. Its left-edge sigma is 0.27
 and its width sigma 0.48, against gohufont's 0.44 and 0.74; only Spleen 5x8 is tighter. That
 evenness is real and it is the thing a person remembers about the machine. But it is the evenness of
-a **constraint rather than of a design**: five columns leaves exactly one way to draw most letters,
+a constraint rather than of a design: five columns leaves exactly one way to draw most letters,
 so the regularity is enforced rather than chosen, and it is paid for twice. `M` and `W` come out as
 exact vertical mirrors of each other, distinguished only by which end the middle spike sits at. And
-the descender is **one row against gohufont's three**, so `g p q y j` all descend, but by a single
+the descender is one row against gohufont's three, so `g p q y j` all descend, but by a single
 row each: a hook where gohufont has a tail.
 
 It is also light, 13.6 ink per letter against 19.1, which is the weight that suited a green phosphor
 tube whose bloom filled the strokes in. On a modern panel with no bloom it reads thin.
 
-**The verdict, plainly: gohufont-14 is the better font, and it is not close on the letterforms.**
+The verdict, plainly: gohufont-14 is the better font, and it is not close on the letterforms.
 Nine rows of cap against seven, three rows of descender against one, a `g` with a real tail rather
 than a hook, and an `M` and `W` that cannot be confused. (The two draw `a` the same way, so that is
 not one of the differences, and an earlier draft of this paragraph said it was.) Its higher sigmas are the good kind of
 variation, letters given their own width rather than padded to a grid, which reads as typographic
 where the Kaypro reads as gridded.
 
-**And the survey's verdict was overruled, on purpose and by the right person** (2026-08-20). calef
+And the survey's verdict was overruled, on purpose and by the right person (2026-08-20). calef
 ran a poll, the Kaypro's font won it, and the tree now ships a drawing in its style. The paragraph
 above stands as written rather than being quietly softened: the letterforms below are genuinely
 better than what ships, and a reader deciding whether to change the font again should have the
@@ -346,18 +346,18 @@ argument against the current one in front of them. What the poll settled is a qu
 measurement was never going to answer, and the screen argument in the next paragraph is the reason
 the taste and the engineering agree here.
 
-**The one place the Kaypro wins is the screen, and it wins decisively**: 18x8 against 16x4 on the
+The one place the Kaypro wins is the screen, and it wins decisively: 18x8 against 16x4 on the
 128x64 scanout, more columns than the shipped `font8x8` and twice the rows of anything 14 tall. The
 paragraph above about four rows not being a terminal applies to `gohufont-14` and not to this. That
 is a genuine tension and it is not resolved by the licence answer, because the licence answer only
-removes this particular font: **a 7x8 or 5x8 cell is what the scanout wants, and Spleen 5x8 is the
-candidate that offers it under a licence we can take.**
+removes this particular font: a 7x8 or 5x8 cell is what the scanout wants, and Spleen 5x8 is the
+candidate that offers it under a licence we can take.
 
 ### The rest of the era, and the one failure mode they share
 
 calef asked whether any other early machine had a font worth wanting. Four were checked, and the
 answer is the same for all but one, for a reason that is more useful than the individual verdicts:
-**a permissive notice on a retro-font repository usually covers the packaging and not the glyphs**,
+a permissive notice on a retro-font repository usually covers the packaging and not the glyphs,
 because the glyphs were somebody else's to begin with. Once that is the question you ask, the field
 empties fast.
 
@@ -370,42 +370,42 @@ empties fast.
 | Atari ST 8x16, `ntwk/atarist-font` | Atari, the TOS high-res font | BSD-3 over what its own README calls a rebranding | **excluded** |
 | VileR's Oldschool PC pack | various | CC BY-SA 4.0 | **excluded, share-alike** |
 
-**`htayj/DEC-Fonts` is the one that handles this correctly, and it is worth reading for that alone.**
+`htayj/DEC-Fonts` is the one that handles this correctly, and it is worth reading for that alone.
 Its `README.org` says the fonts "incorporate historical DEC VT220 glyph data from a ROM-derived
 image published by VT100.net" and then, in the same paragraph, that "The MIT grant covers only
 rights held by the repository author and does not relicense pre-existing material." That is the
 honest form of the sentence every other repository here leaves out. It also disqualifies the font,
 and the author evidently knew that and wrote it anyway.
 
-**`ntwk/atarist-font` is the same situation without the sentence.** Its `LICENSE` is a BSD-3-Clause
+`ntwk/atarist-font` is the same situation without the sentence. Its `LICENSE` is a BSD-3-Clause
 notice reading "Copyright 2015 ntwk", while its `README.md` describes the work as "a rebranding of
 the high-resolution system font originally featured on the Atari ST home computer" and credits the
 file it is based on to a third-party retro-fonts page. A notice cannot grant rights its author never
 held, so this is Fixedsys Excelsior again: a third party's summary of someone else's licence, which
 this file already refuses.
 
-**The BBC Micro is excluded twice over**, which is worth stating because the obvious source is the
+The BBC Micro is excluded twice over, which is worth stating because the obvious source is the
 trap. Linux carries the font at `lib/fonts/font_acorn_8x8.c` under the same `GPL-2.0` that already
 put `font_8x16.c` out, and copyleft on a table compiled into every binary is settled here. Every
 other copy found is an extraction from Acorn's MOS ROM with no licence attached, which is the Kaypro
 answer. There is no third source.
 
-**GlassTTY VT220 is the one clean licence in the table and still cannot be rendered here.** Viacheslav
+GlassTTY VT220 is the one clean licence in the table and still cannot be rendered here. Viacheslav
 Slavinsky's `LICENSE` opens "This is free and unencumbered software released into the public domain",
 and because it is his own redrawing rather than a ROM trace, that grant reaches the glyphs. But it
 ships as a TrueType outline, and turning an outline into an 8-pixel bitmap needs a rasteriser and a
-threshold, which is a **design decision rather than a conversion**: the specimen would then be a
+threshold, which is a design decision rather than a conversion: the specimen would then be a
 picture of our hinting rather than of Slavinsky's font. Rendering it honestly means a FreeType or
 FontForge dependency, and §46 says a dependency is a decision. It is left as a **proposed
 milestone** rather than done badly.
 
-**What the survey is actually evidence for.** The era's fonts are not available, and the two that
+What the survey is actually evidence for. The era's fonts are not available, and the two that
 are already in this comparison are the exception rather than the sample: `unscii` is public domain
-because its author redrew it, and `gohufont` is WTFPL because its author wrote it. **A font this
-project can use is one somebody made and gave away, not one a machine once displayed.** That is the
+because its author redrew it, and `gohufont` is WTFPL because its author wrote it. A font this
+project can use is one somebody made and gave away, not one a machine once displayed. That is the
 whole reason the shortlist looks the way it does, and it will not change by looking harder.
 
-**None of these needs a loader, a rasteriser, a filesystem or an allocator**, which is the property
+None of these needs a loader, a rasteriser, a filesystem or an allocator, which is the property
 that keeps them candidates at all. Anything that did would break the rendered picture as a pure
 function, and with it the three-party agreement that proves the text on the screen.
 
@@ -415,33 +415,33 @@ function, and with it the three-party agreement that proves the text on the scre
 no endpoint, makes no syscall, and has never heard of a framebuffer, exactly as `line_editor` does for
 the serial terminal ([line-discipline.md](line-discipline.md)).
 
-**What it implements is not a guess.** The escape sequences a display terminal must understand are
+What it implements is not a guess. The escape sequences a display terminal must understand are
 the ones the line discipline already emits (DECISIONS §21), and rather than assert that from a
-hand-written list that could drift, the crate's interoperability test **runs the real `line_editor`**
+hand-written list that could drift, the crate's interoperability test runs the real `line_editor`
 and feeds its echo stream to this parser: type a line, back up, insert, delete, kill, press Enter,
 press ^L, and the grid must show the line the discipline says it assembled. Two separately-correct
 components now fail together or not at all.
 
 On top of that: printable bytes with deferred wrap, `CR`, `LF` with scrolling, `BS`, `TAB`, `BEL`
-(ignored), `CSI A/B/C/D`, `CSI H`/`f`, `CSI J` and `CSI K` in all three modes, `CSI m` (reset, bold,
-reverse, the eight ANSI colours and the bright foregrounds), and `ESC c`. Anything else is swallowed
-whole.
+(ignored), `CSI A/B/C/D`, `CSI H`/`f`, `CSI J` and `CSI K` in all three modes, `CSI m`, and `ESC c`.
+Anything else is swallowed whole, including italic, blink and the colon forms (`38:2::r:g:b`).
+`CSI m` covers bold, dim, underline, reverse, concealed and crossed-out, and 16, 256 or 24-bit
+colour (grown 2026-09-26, which made a cell sixteen bytes).
 
 Three decisions inside it worth reading:
 
-- **Deferred wrap.** Writing into the last column leaves the cursor there and arms a pending wrap;
+- Deferred wrap. Writing into the last column leaves the cursor there and arms a pending wrap;
   the *next* printable does the wrap. Without it, a line that exactly fills the width scrolls the
   screen before anything asked it to, and a `CR` arriving right after the last character finds the
   cursor a row too low. That is the difference between a grid and a terminal.
-- **Bold is bright.** A bold weight needs a second font and in a five-column cell a bold face is a
-  smudge. Every
-  terminal since the DEC VT has answered SGR 1 by brightening, which is why the palette has eight
-  bright entries.
-- **The cursor is part of the picture**, drawn by inverting its cell rather than overlaid. That keeps
+- Bold is bright. A bold weight needs a second font and in a five-column cell a bold face is a
+  smudge. Every terminal since the DEC VT has answered SGR 1 by brightening. It is a flag resolved
+  when painting, so it brightens only the eight normal colours.
+- The cursor is part of the picture, drawn by inverting its cell rather than overlaid. That keeps
   the screen a pure function of the state: a test that predicts the screen predicts the cursor too,
   and a cursor left in the wrong place is a failure rather than a cosmetic difference nobody notices.
 
-**A bug the tests caught before anything reached a screen**, recorded because it is a real terminal
+A bug the tests caught before anything reached a screen, recorded because it is a real terminal
 bug and not a toy one: an OSC sequence (`ESC ]0;title BEL`, how every program sets a window title)
 printed the title onto the grid, because the parser had no string state. It has one now, and the
 test that found it feeds a title-setting sequence on purpose.
@@ -461,7 +461,7 @@ One binary, two wirings, chosen by `arg0`:
 | presents by | `gfx FLUSH(rect)` | `compose COMMIT` |
 | knows | no device, no physical address | no device, no neighbour, not even its own position |
 
-**That is `painter`'s authority in the first column and `window`'s in the second**, and it is the
+That is `painter`'s authority in the first column and `window`'s in the second, and it is the
 answer to the question this increment was asked to check: *did the framebuffer contract need
 changing to carry text?* No. Neither did the compositor's. Both carry pixels, and a terminal draws
 pixels; `gpu_driver` cannot tell `display_terminal` from the client that painted a test pattern, and `compositor` cannot
@@ -476,18 +476,18 @@ and two threads cannot share an address space), so telling them apart by endpoin
 They arrive on one endpoint and are told apart by opcode, which is what `line_editor` already does.
 
 The security consequence is stated rather than hidden: an application holding that endpoint could
-send `OP_BYTES` and forge a keystroke into **its own** terminal. It gains nothing (the bytes come
+send `OP_BYTES` and forge a keystroke into its own terminal. It gains nothing (the bytes come
 back to the grid it is already printing on), and the boundary that matters, one client's input not
 reaching another's, is the compositor's and is a capability there.
 
 ### The deadlock that shaped the input path
 
-A terminal that answered a keystroke by ringing the compositor's doorbell **deadlocks**, and it takes
+A terminal that answered a keystroke by ringing the compositor's doorbell deadlocks, and it takes
 two keystrokes in one drain to do it: the compositor is blocked in its `CALL` to the terminal while
 the terminal is blocked in its `CALL` to the compositor. That is DECISIONS §33's known cost of
 input-as-a-blocking-`CALL`, arriving in practice.
 
-It does not need to ring. The compositor rescans **every** client's control page on every `COMMIT`
+It does not need to ring. The compositor rescans every client's control page on every `COMMIT`
 from anyone, and the input source rings `COMMIT` itself after it fills the ring. So the frame that
 delivers a keystroke is the frame that shows it: the terminal paints, records its damage, bumps its
 sequence, and replies. Application output is different, because nobody else is going to ring for it,
@@ -500,24 +500,24 @@ to stall the compositor.
 ## Input: the ring is the authority, the doorbell is not
 
 `components/src/keyboard_driver.rs` is a confined userspace virtio-input driver. It holds the device, its interrupt,
-its own DMA page, the doorbell, and **the input ring's mapping**. It holds no client's endpoint and
+its own DMA page, the doorbell, and the input ring's mapping. It holds no client's endpoint and
 cannot name a client.
 
 That split is DECISIONS §33 seen from the producing side:
 
-- **The power to type is the ring's mapping**, which no client has. It is not the doorbell: every
+- The power to type is the ring's mapping, which no client has. It is not the doorbell: every
   client holds that, everything sent on it is content-free, and a client that rang it forever could
   not produce one character.
-- **The power to decide who receives is the compositor's**, expressed as which of the per-client
+- The power to decide who receives is the compositor's, expressed as which of the per-client
   input endpoints *it* holds it uses. The driver cannot influence it. A client receives a keystroke
-  because it **holds an input endpoint**, and a client granted none has an empty capability table slot and is
+  because it holds an input endpoint, and a client granted none has an empty capability table slot and is
   refused with `NoSuchSlot`, "there is nothing there".
 
 So focus never becomes ambient: there is no verb that grabs the keyboard, no message that names a
 recipient, and no page a client can write that would inject input. The parts that could be forged do
 not exist rather than being guarded.
 
-The keyboard rides **PCIe**, and here that is a choice rather than a constraint: both `virt` machines
+The keyboard rides PCIe, and here that is a choice rather than a constraint: both `virt` machines
 do offer a `virtio-keyboard-device` on the virtio-mmio bus. It rides PCIe so it lands in the same
 IOMMU domain the GPU does. A keyboard is the device whose DMA you would least like unconfined,
 because its buffers are where every keystroke lands.
@@ -525,37 +525,37 @@ because its buffers are where every keystroke lands.
 The scancode-to-byte mapping is `video_terminal::keymap`: a US layout's main block, shifted and unshifted, as a
 flat table plus one bit of state (shift is *held*, so it has to be remembered between events).
 Host-tested, because a keyboard layout is data and a wrong row is exactly what a table test catches.
-Two rules there earn their tests: a **release types nothing** (the first bug every evdev driver has
-is every character arriving twice), and **Enter sends CR, not LF**.
+Two rules there earn their tests: a release types nothing (the first bug every evdev driver has
+is every character arriving twice), and Enter sends CR, not LF.
 
 ## How text on a screen is proved
 
 This is the part that took the most care, because text is where "it looked right" is most tempting
 and least sufficient.
 
-**The picture is a value three parties compute without talking to each other.** The script is
+The picture is a value three parties compute without talking to each other. The script is
 `video_terminal::script`, a constant in the contract crate, the same move `graphics_protocol::pixel` and `compositor::SCENE`
 make:
 
-1. **The terminal** runs the engine over the bytes it was sent and paints what it says;
-2. **the kernel** runs the same engine over the same script and compares the framebuffer pixel for
+1. The terminal runs the engine over the bytes it was sent and paints what it says;
+2. the kernel runs the same engine over the same script and compares the framebuffer pixel for
    pixel through the direct map. It never asks the terminal anything;
-3. **the host** runs it a third time and compares QEMU's `screendump` against the same definition.
+3. the host runs it a third time and compares QEMU's `screendump` against the same definition.
 
 The third is not decoration. `-display none` means nothing in the guest can see the device's own
 surface, so a wrong pixel format or a wrong scanout rectangle would satisfy the first two. And a
 wrong format turns a *test pattern* into an odd-looking test pattern; it turns *text* into something
 nobody can read.
 
-**The host checker has its own negative control** (`cargo test -p xtask`), and its failure modes are
+The host checker has its own negative control (`cargo test -p xtask`), and its failure modes are
 the terminal's rather than the driver's or the compositor's. It must reject:
 
-- **the same screen with one letter changed** (`glyphs_ok` against `glyphs_0k`, an `o` for a zero,
+- the same screen with one letter changed (`glyphs_ok` against `glyphs_0k`, an `o` for a zero,
   the closest pair of glyphs in the font and therefore the hardest case). This is the assertion that
   makes the whole thing mean something: a checker that could not tell those apart would report
   "readable text reached the scanout" for a terminal that drew the wrong text;
-- **the typed input missing**, which is a screen that is correct as far as it goes;
-- **every rendition ignored**, which is every glyph in the right cell in the wrong colour, the
+- the typed input missing, which is a screen that is correct as far as it goes;
+- every rendition ignored, which is every glyph in the right cell in the wrong colour, the
   picture a terminal that swallowed SGR as an unknown sequence would draw;
 - a blank terminal, and the other two pictures on the same scanout.
 
@@ -565,7 +565,7 @@ and descenders plus an underscore (the glyph rows a font table truncated to seve
 
 ### Ordering, and what breaks it
 
-Three pictures now reach one scanout over one boot, and `cargo xtask` looks for them **in order**:
+Three pictures now reach one scanout over one boot, and `cargo xtask` looks for them in order:
 the composed screen, then the terminal's text, then rung one's pattern, which stays up until QEMU
 exits. Tests sort by name, so the order is arranged by naming:
 `a_backing_outside_the_grant_is_refused_by_the_iommu` (which resets the device) sorts before
@@ -575,14 +575,14 @@ anything; no dump matches and the scanout check fails loudly.
 
 ### The one place the host presses a key
 
-Nothing in the guest can press a key, so the **host** does: `cargo xtask` sends `sendkey` on the same
+Nothing in the guest can press a key, so the host does: `cargo xtask` sends `sendkey` on the same
 monitor connection the scanout check already holds open, every poll, from the start of the run. That
 needs no synchronization, because QEMU drops key events until a driver sets `DRIVER_OK`.
 `video_terminal::script::HOST_KEY` is the single definition of which key, so the side that presses and the side
 that asserts cannot drift.
 
-The keyboard test proves the path from a **physical key event to a terminal byte**; the compositor
-test proves the path from the **ring to a focused terminal's pixels**. The seam between them is the
+The keyboard test proves the path from a physical key event to a terminal byte; the compositor
+test proves the path from the ring to a focused terminal's pixels. The seam between them is the
 ring, which is exactly where §33 put the authority boundary. Naming the seam is better than one test
 that hides it.
 
@@ -601,22 +601,20 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
 
 - **Scrollback: BUILT 2026-08-26** (milestone 142 increment 2). A ring of `video_terminal::
   SCROLLBACK_ROWS` off-screen rows plus a viewport (`Vt::scroll_up`/`scroll_down`, `Vt::
-  view_offset`); new output snaps the view back to live, the standard convention. **Not wired to a
-  key**: nothing in the keymap or `display_terminal.rs` sends a scroll gesture yet, so the engine is
-  proven (host-tested) but not reachable from a real keyboard. That is the honest remainder, not the
-  ring-and-viewport work the roadmap named.
+  view_offset`); new output snaps the view back to live. Not wired to a key: the route needs a new
+  opcode, proposed in `design/roadmap/proposals/scrollback-from-the-keyboard.md`.
 - **UTF-8: BUILT 2026-08-26** (milestone 142 increment 2). The VT engine decodes UTF-8 in its ground
   state (a running `utf8_need`/`utf8_code` accumulator, invalid or truncated sequences drawing
   U+FFFD), and `bitmap_font::glyph`'s signature is `char`. The font's repertoire did not grow: a
   decoded non-ASCII `char` still draws the missing-glyph box, same as an unmapped byte always did.
-  What changed is that a multi-byte sequence now occupies **one** cell (one box) instead of one wrong
+  What changed is that a multi-byte sequence now occupies one cell (one box) instead of one wrong
   picture per encoded byte.
-- **No line editing in the display terminal.** It renders a stream and echoes keystrokes; it does not
+- No line editing in the display terminal. It renders a stream and echoes keystrokes; it does not
   serve `OP_READLINE`. A client that wants edited lines puts `line_editor` in front of it and prints the
   discipline's echo through `OP_WRITE`, which needs no new protocol at all, because `line_editor`'s echo
   is exactly a byte stream this engine parses. That is not a hope: the `video_terminal` crate proves it on the
   host by running both.
-- **A 132x43 grid, with no pixels left over** (grown 2026-08-26 from 18x8 to 182x90 at milestone
+- A 132x43 grid, with no pixels left over (grown 2026-08-26 from 18x8 to 182x90 at milestone
   142 increment 1 with the scanout at 1280x720, DECISIONS §102; retargeted 2026-08-27 to 132x43 at
   a 924x344 scanout, on review with calef: 182x90 was arithmetic against a *future* 14-pixel cell
   that never shipped in this increment, applied by mistake to the 7x8 cell that did, producing a
@@ -627,30 +625,30 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
   screen. (The surface itself, [`graphics_protocol::SURFACE_BYTES`], does carry about 2 KiB of
   unrelated padding past the last pixel, for frame-alignment reasons that have nothing to do with
   the character grid; see `graphics_protocol::WIDTH`'s doc comment.)
-- **The font's own weak glyphs, named where a reader meets them.** `M` and `W` are near vertical
+- The font's own weak glyphs, named where a reader meets them. `M` and `W` are near vertical
   mirrors, because five ink columns leaves one way to draw each; `&` is the busiest glyph in the set
   and reads as a knot at a glance; `%` fills its corners heavily enough to look bolder than its
   neighbours; and `_` does not join across cells, so a rule drawn out of underscores is dashed. The
   first and the last are the grid rather than the drawing (see above); the middle two are the
   drawing and could be improved by someone with a better eye.
-- **No box-drawing, no block glyphs, no line-drawing set.** The font covers printable ASCII and
+- No box-drawing, no block glyphs, no line-drawing set. The font covers printable ASCII and
   nothing else, so a program that wants a frame draws it out of `-` `|` `+`.
-- **No reflow on resize**, because nothing resizes. The roadmap named reflow; a fixed scene has
+- No reflow on resize, because nothing resizes. The roadmap named reflow; a fixed scene has
   nothing to reflow to.
-- **The keymap is a US layout's main block, plus the arrow cluster** (arrows added 2026-08-26,
-  milestone 142 increment 2: `CSI A/B/C/D`, the sequence `crates/line_editor` already understood on
-  its receiving side). Still no keypad, no function keys, no compose, no dead keys, no other layout.
-- **No bell**, visual or otherwise. `BEL` is consumed.
-- **No mouse.** `virtio-tablet-pci` presents the same PCI device id as the keyboard, which is
+- The keymap is a US layout's main block, plus the arrow and navigation clusters (2026-08-26
+  and 2026-09-26), with xterm's shift forms. Still no keypad, no function keys, no compose, no dead
+  keys, no other layout.
+- No bell, visual or otherwise. `BEL` is consumed.
+- No mouse. `virtio-tablet-pci` presents the same PCI device id as the keyboard, which is
   recorded in `crates/pci` so that a machine carrying both would be a known problem rather than a
   surprise. We attach only a keyboard.
-- **No key repeat of our own.** The device's repeats are honoured; nothing here generates them.
-- **The hand-drawn candidate is competent, not good.** `bench/font-options/hand-drawn-8x8.art` is
+- No key repeat of our own. The device's repeats are honoured; nothing here generates them.
+- The hand-drawn candidate is competent, not good. `bench/font-options/hand-drawn-8x8.art` is
   consistent (the tightest left sidebearing in the survey) and light, and three glyphs are weak
   enough to name where a reader meets them: `$` is mushy where the stem crosses the S, `&` reads as
   a blob, and the shoulder of `r` sits a pixel clear of its stem so the arm looks detached. It is a
   drawn candidate for comparison, not a proposal, and nothing in the tree uses it.
-- **The specimen tool clips wide glyphs rather than refusing them.** Both the `.hex` and `.bdf`
+- The specimen tool clips wide glyphs rather than refusing them. Both the `.hex` and `.bdf`
   readers keep the leftmost byte of a row, so a 16-pixel-wide glyph is shown as its left half, which
   looks like a clipped font instead of an error. The `.hex` height is taken as the commonest row
   count among the letters, because `unscii-8.hex` stores `U+0000` with sixteen rows in an eight-row
@@ -658,31 +656,31 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
   only: `SWIDTH`, `DWIDTH` and the property block are ignored, which is right for a fixed-pitch cell
   and wrong for anything else. Half-block output is only faithful in a terminal that draws
   `U+2580`/`U+2584` at full cell height; `--dots` has no such dependency and is the tie-breaker.
-- **A font narrower than the cell is drawn at its own advance, and that is a choice worth knowing.**
+- A font narrower than the cell is drawn at its own advance, and that is a choice worth knowing.
   Spleen 5x8 and Terminus 6x12 are narrower than eight pixels, and drawing them on an eight-pixel
   pitch makes them look loose in a way that is the tool's fault rather than the font's. The tool
-  takes the advance from the font's own bounding box. What it does **not** do is prove that
+  takes the advance from the font's own bounding box. What it does not do is prove that
   `crates/bitmap_font` would work at that width: `GLYPH_W` is a constant three parties read, and moving
   it is a change to the crate rather than to a table.
-- **The 8x16 authoring option is priced but not drawn.** There is a hand-drawn 8x8 to look at and no
+- The 8x16 authoring option is priced but not drawn. There is a hand-drawn 8x8 to look at and no
   hand-drawn 8x16, so the "author our own at twice the height" row in the survey is an estimate
   where the 8x8 row is a specimen.
 
 ## What adopting libghostty-vt would cost now
 
-The roadmap names **libghostty-vt** (Ghostty's extracted VT core: zero-dependency, no libc, no
+The roadmap names libghostty-vt (Ghostty's extracted VT core: zero-dependency, no libc, no
 allocations, a C ABI, written in Zig) as the strongest form of milestone 23's claim, and milestone 36
 built the C seam (DECISIONS §31, [c-seam.md](c-seam.md)) specifically to de-risk it. The Rust engine
-above is built, so the comparison can be made on facts instead of estimates. **This is a
-recommendation, not a decision.**
+above is built, so the comparison can be made on facts instead of estimates. This is a
+recommendation, not a decision.
 
-**What it would buy.** A vendor component in a language we do not use, capability-confined and
+What it would buy. A vendor component in a language we do not use, capability-confined and
 hot-swappable, is the thesis in its strongest available form: the more unverified the component, the
 more the confinement has to prove. And a real VT engine is *much* more complete than ours: scrollback,
 reflow on resize, UTF-8 and grapheme clustering, the DEC modes, mouse reporting, and a conformance
 history against `vttest` that we would otherwise be writing from scratch for years.
 
-**What it would cost, concretely, now that the seam and the Rust engine both exist.**
+What it would cost, concretely, now that the seam and the Rust engine both exist.
 
 1. **A Zig toolchain in the build**, for one component, pinned. Milestone 36 already accepted a
    `clang` in the build for C and priced that; Zig is a second one, and it is the cost that does not
@@ -692,19 +690,19 @@ history against `vttest` that we would otherwise be writing from scratch for yea
    perfectly (bytes in, grid out, no IO), which is the good news, and it is not an accident: it is
    the same sans-IO property `crates/video_terminal` has. So the port is a shim that feeds bytes and reads cells,
    not a rewrite of `display_terminal`.
-3. **The grid readback is the actual work.** Our engine gives `pixel(x, y)` as a pure function, which
+3. The grid readback is the actual work. Our engine gives `pixel(x, y)` as a pure function, which
    is what makes the three-witness proof possible. libghostty-vt's C ABI gives cells; the shim would
    have to walk them and the *expected-picture* definition would have to move to the Zig side or be
-   reimplemented against its cell layout. **The proof structure, not the rendering, is what would
-   have to be rebuilt.** That is the cost this increment discovered and could not have known before.
-4. **Their API is in flux**, so any adoption pins a version and takes the divergence-management
+   reimplemented against its cell layout. The proof structure, not the rendering, is what would
+   have to be rebuilt. That is the cost this increment discovered and could not have known before.
+4. Their API is in flux, so any adoption pins a version and takes the divergence-management
    discipline the vendored RedoxFS already has (DECISIONS §18's vendoring policy).
-5. **`crates/video_terminal` would not be deleted.** It is about 1,750 lines including its tests and its keymap (1,500 when this was written; it is a hedged magnitude, re-measured at each documentation sweep rather than gated, because a line count moves on every test anyone adds),
+5. `crates/video_terminal` would not be deleted. It is about 1,750 lines including its tests and its keymap (1,500 when this was written; it is a hedged magnitude, re-measured at each documentation sweep rather than gated, because a line count moves on every test anyone adds),
    and it is the thing that makes the host-side scanout check possible; keeping it as the reference
    implementation the foreign one is *checked against* is more valuable than either alone, and it is
    a better milestone-23 demonstration too (swap the engine, run the same suite, compare the grids).
 
-**The recommendation.** Adopt it as a *second* engine behind the same seam, not as a replacement, and
+The recommendation. Adopt it as a *second* engine behind the same seam, not as a replacement, and
 do it when there is a reason to want scrollback and UTF-8 rather than to want a Zig dependency. The
 milestone-23 claim is strongest when the two engines can be swapped under a suite that grades both,
 and that is only possible because the Rust one exists. If the answer is "not yet", nothing is lost:

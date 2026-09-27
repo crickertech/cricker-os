@@ -79,9 +79,11 @@ impl Style {
 
 /// A run of output that shares one terminal attribute.
 ///
-/// Only sequences `video_terminal` can act on are used for the things that matter (bold and the
-/// eight colours); [`Attr::Emph`] and [`Attr::Strike`] deliberately use sequences it drops, because
-/// they still show on the serial console's far end and the alternative was spending a colour.
+/// Every sequence here is one `video_terminal` draws: bold and the eight colours from the start,
+/// and since milestone 142 (a text display good enough that people use it instead of a GUI)'s
+/// 2026-09-26 pass the underline [`Attr::Emph`] uses and the strikethrough [`Attr::Strike`] uses,
+/// which it used to drop (they showed only on the serial console's far end, and the alternative had
+/// been spending a colour).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Attr {
     /// Body text.
@@ -108,8 +110,8 @@ impl Attr {
     /// The escape sequence that turns this attribute on, assuming a reset came first.
     ///
     /// Each is a single-parameter sequence on purpose: `video_terminal` drops any CSI carrying more
-    /// than four parameters, so a combined `\x1b[1;33m` would still work but a truecolour one would
-    /// not, and keeping every sequence to one parameter means the rule never has to be remembered.
+    /// than sixteen parameters (four until milestone 142's truecolour pass), and keeping every
+    /// sequence to one parameter means no terminal's limit ever has to be remembered.
     const fn sgr(self) -> &'static [u8] {
         match self {
             Attr::Plain => b"",
