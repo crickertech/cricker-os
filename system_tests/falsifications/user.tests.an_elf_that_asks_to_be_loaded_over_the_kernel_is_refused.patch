@@ -1,4 +1,4 @@
-Falsifies `kernel::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`.
+Falsifies `system_tests::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`.
 
 Architecture: aarch64
 

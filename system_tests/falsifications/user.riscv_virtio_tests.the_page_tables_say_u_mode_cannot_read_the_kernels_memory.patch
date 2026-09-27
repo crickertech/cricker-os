@@ -1,4 +1,4 @@
-Falsifies `kernel::user::riscv_virtio_tests::the_page_tables_say_u_mode_cannot_read_the_kernels_memory`.
+Falsifies `system_tests::user::riscv_virtio_tests::the_page_tables_say_u_mode_cannot_read_the_kernels_memory`.
 
 Architecture: riscv64
 
@@ -56,7 +56,7 @@ index 6f604918..b231496b 100644
 +++ b/kernel/src/arch/riscv64/mmu.rs
 @@ -761,7 +761,7 @@ fn translate_in_either_half(va: u64) -> Option<(u64, Flags)> {
  /// every kernel address by refusing to look, so the one assertion it exists for could not fail.
- #[cfg_attr(not(test), allow(dead_code))]
+ #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
  pub fn user_can_read(va: u64) -> bool {
 -    translate_in_either_half(va).is_some_and(|(_, f)| f.is_user_accessible())
 +    translate_in_either_half(va).is_some()

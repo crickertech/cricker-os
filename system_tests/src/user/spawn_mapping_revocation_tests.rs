@@ -90,7 +90,7 @@ const WIRED_VA: u64 = address_space_map::pair_page(0x0060_0000);
 /// the mapping a sweep can see). Either failing means this test proved nothing, which is why they
 /// say that rather than stating the claim a second time.
 ///
-/// Falsification: replayable `kernel/falsifications/user.spawn_mapping_revocation_tests.a_page_the_kernel_wired_is_unmapped_when_its_frame_is_revoked.patch`
+/// Falsification: replayable `system_tests/falsifications/user.spawn_mapping_revocation_tests.a_page_the_kernel_wired_is_unmapped_when_its_frame_is_revoked.patch`
 #[test_case]
 fn a_page_the_kernel_wired_is_unmapped_when_its_frame_is_revoked() {
     // Out of the frame allocator rather than out of a region, which is where every real

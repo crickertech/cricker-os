@@ -1,4 +1,4 @@
-Falsifies `kernel::user::c_seam_tests::a_c_out_of_bounds_write_faults_and_changes_nothing_outside_its_grant`.
+Falsifies `system_tests::user::c_seam_tests::a_c_out_of_bounds_write_faults_and_changes_nothing_outside_its_grant`.
 
 This is the worked example milestone 202's block names, and it is here rather than
 under a crate's `falsifications/` because the test is a `#[test_case]` that boots

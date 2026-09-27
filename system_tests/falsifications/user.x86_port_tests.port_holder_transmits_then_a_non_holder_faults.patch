@@ -1,4 +1,4 @@
-Falsifies `kernel::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults`.
+Falsifies `system_tests::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults`.
 
 Architecture: x86_64
 

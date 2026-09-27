@@ -157,7 +157,7 @@ fn of_kind(msgs: &[[u64; 5]; EXPECTED_REPORTS], kind: u64) -> impl Iterator<Item
 /// It is reported from inside the process on purpose: what matters is what the *holder* can do,
 /// and only the holder can ask.
 ///
-/// Falsification: replayable `kernel/falsifications/user.authority_tests.init_drops_its_construction_authority_and_cannot_build_again.patch`
+/// Falsification: replayable `system_tests/falsifications/user.authority_tests.init_drops_its_construction_authority_and_cannot_build_again.patch`
 #[test_case]
 fn init_drops_its_construction_authority_and_cannot_build_again() {
     let msgs = run_tree();

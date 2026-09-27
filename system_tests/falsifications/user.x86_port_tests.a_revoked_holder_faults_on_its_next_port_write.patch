@@ -1,4 +1,4 @@
-Falsifies `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write`.
+Falsifies `system_tests::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write`.
 
 Architecture: x86_64
 

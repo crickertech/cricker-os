@@ -1,4 +1,4 @@
-Falsifies `kernel::user::spawn_mapping_revocation_tests::a_page_the_kernel_wired_is_unmapped_when_its_frame_is_revoked`.
+Falsifies `system_tests::user::spawn_mapping_revocation_tests::a_page_the_kernel_wired_is_unmapped_when_its_frame_is_revoked`.
 
 Architecture: aarch64
 

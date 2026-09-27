@@ -168,7 +168,7 @@ fn a_shell_navigates_its_own_subtree_and_clamps_at_its_root() {
 /// alive at the same instant would prove no more than this does (they share one page with the
 /// FS server, so the harness runs them in turn).
 ///
-/// Falsification: replayable `kernel/falsifications/user.shell_navigation_tests.two_shells_with_different_roots_cannot_name_each_others_files.patch`
+/// Falsification: replayable `system_tests/falsifications/user.shell_navigation_tests.two_shells_with_different_roots_cannot_name_each_others_files.patch`
 #[test_case]
 fn two_shells_with_different_roots_cannot_name_each_others_files() {
     if fs_service::fs_server_image().is_none() {

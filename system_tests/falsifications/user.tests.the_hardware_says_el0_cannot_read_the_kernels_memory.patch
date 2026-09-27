@@ -1,4 +1,4 @@
-Falsifies `kernel::user::tests::the_hardware_says_el0_cannot_read_the_kernels_memory`.
+Falsifies `system_tests::user::tests::the_hardware_says_el0_cannot_read_the_kernels_memory`.
 
 Architecture: aarch64
 

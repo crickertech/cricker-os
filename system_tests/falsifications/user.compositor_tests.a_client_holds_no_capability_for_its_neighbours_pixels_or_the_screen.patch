@@ -1,4 +1,4 @@
-Falsifies `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen`.
+Falsifies `system_tests::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen`.
 
 Architecture: aarch64
 

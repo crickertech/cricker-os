@@ -1,4 +1,4 @@
-Falsifies `kernel::user::revocation_in_flight_tests::a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver`.
+Falsifies `system_tests::user::revocation_in_flight_tests::a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver`.
 
 Architecture: aarch64
 

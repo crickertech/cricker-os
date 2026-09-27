@@ -76,7 +76,7 @@ use crate::sched;
 /// park) and a premise check (the revoke really did reach the sender's table); either failing means
 /// this test proved nothing, which is why they say that rather than stating the claim a second time.
 ///
-/// Falsification: replayable `kernel/falsifications/user.revocation_in_flight_tests.a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver.patch`
+/// Falsification: replayable `system_tests/falsifications/user.revocation_in_flight_tests.a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver.patch`
 #[test_case]
 fn a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver() {
     static PARKED: AtomicBool = AtomicBool::new(false);
