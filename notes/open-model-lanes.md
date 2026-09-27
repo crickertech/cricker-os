@@ -189,9 +189,14 @@ it run the gate, did it read the exit code, and how many rounds did green take.
   gate is judged partly by the lane's own version of that gate. Such a result needs a reviewer.
   `Cargo.toml` and in-source `#[allow]` are outside the lock (lanes add dependencies), so the lock
   stops the failure measured, not a determined one.
-- Prompt caching is billed as a miss. Claude Code sends `cache_control` regardless of the
-  upstream; a gateway that does not implement it bills every turn uncached. §203's per-token
-  estimate assumed no caching, so it stands, but any quote at a cached rate is wrong.
+- Prompt caching misses on an unpinned route, and the cause is routing, not markers. *(Corrected
+  2026-09-27: this entry said caching was billed as a miss because the gateway drops
+  `cache_control`.)* LiteLLM does drop the markers, but OpenRouter's non-Alibaba providers cache
+  without them. Measured through the gateway on `open-lane-qwen`, three identical 36K-token turns:
+  pinned to one provider, turns 2 and 3 read 35,872 tokens from cache and cost a third as much;
+  unpinned, each turn landed cold. The spend log's `cost_usd` already reflects the discount. The
+  route pins are in the gateway's config, outside this tree. §203's (capacity is rented rather than
+  bought) uncached estimate stands as an upper bound.
 - The context window is guessed. For a model id Claude Code does not recognise it assumes 200K.
   Set `CLAUDE_CODE_MAX_CONTEXT_TOKENS` if the real window is smaller, or a run truncates mid-task.
 - `--bare` skips `AGENTS.md`, skills, hooks and plugins. Deliberate: the constitution is 924
