@@ -289,3 +289,150 @@ fn a_walk_through_a_confined_grant_is_priced() {
         );
     }
 }
+
+// ===========================================================================================
+// The same walk through a grant the FS server enforces itself (milestone 606 (a directory walk
+// costs what it does on Linux), calef's ruling D, 2026-09-27). No caretaker: the program holds
+// the FS server's endpoint with a badge the kernel bound to the subtree, and `subtree_scope`
+// decides what the badge reaches.
+// ===========================================================================================
+
+/// **The priced walk through a bound grant visits exactly what the caretaker grant visits.** The
+/// counts are the fixture's, so a bound grant that leaked a sibling into the walk, or hid part of
+/// the tree, fails here. The timings print beside the caretaker's for the comparison.
+#[test_case]
+fn a_walk_through_a_bound_grant_is_priced() {
+    use filesystem_protocol::dir;
+    use filesystem_protocol::fixture::walk as tree;
+    skip_without_the_walk!();
+    let Some(spawned) = fs_service::start_std_bound(
+        block_server_image(),
+        program("redoxfs_server").expect("no redoxfs_server program in the initrd archive"),
+        program("std_exerciser").expect("no std_exerciser program in the initrd archive"),
+        tree::ROOT,
+        dir::ENUMERATE | dir::READ | dir::DESCEND,
+    ) else {
+        crate::testing::skip!("no RedoxFS disk attached");
+    };
+    let mut got = [0u8; 2048];
+    let len = super::std_tests::drain_sink(spawned.report, &mut got, "std_exerciser (bound walk)");
+    assert!(
+        super::wait_for(|| !crate::sched::is_thread_present(spawned.thread)),
+        "std_exerciser never left the bound walk",
+    );
+    let text = core::str::from_utf8(&got[..len]).unwrap_or("<not utf-8>");
+    crate::println!("    the walk through a bound grant:\n{text}");
+    let mut want = Line {
+        buf: [0; 128],
+        len: 0,
+    };
+    core::fmt::Write::write_fmt(
+        &mut want,
+        format_args!(
+            "walk granted with enumerate\nwalk visited {} entries, {} files, {} bytes, {} components\n",
+            tree::WALK_ENTRIES,
+            tree::WALK_FILES,
+            tree::WALK_BYTES,
+            tree::WALK_COMPONENTS,
+        ),
+    )
+    .expect("the expected line fits");
+    let want = core::str::from_utf8(&want.buf[..want.len]).expect("ASCII");
+    assert!(
+        text.starts_with(want),
+        "the bound walk did not visit exactly the fixture: wanted it to begin {want:?}",
+    );
+    assert!(
+        spawned.release(),
+        "the FS server refused to take the bound grant back"
+    );
+}
+
+/// **A bound badge reaches its subtree and nothing else, and loses it on `UNBIND`.** Spoken for
+/// the badge by the kernel, so each refusal is the FS server's own and not a PAL's: a name outside
+/// the subtree is not there, a handle the kernel opened is not the badge's, the badge cannot bind,
+/// and after the grant is taken back even its own root is gone.
+#[test_case]
+fn a_bound_grant_reaches_nothing_outside_it() {
+    use filesystem_protocol::fixture::walk as tree;
+    use filesystem_protocol::{dir, fs};
+    skip_without_the_walk!();
+    let Some(grant) = fs_service::bind_subtree(
+        block_server_image(),
+        program("redoxfs_server").expect("no redoxfs_server program in the initrd archive"),
+        tree::ROOT,
+        dir::ENUMERATE | dir::READ | dir::DESCEND,
+    ) else {
+        crate::testing::skip!("no RedoxFS disk attached");
+    };
+    // A request's name is read from the window its badge names: the grant's own for the badge,
+    // window 0 for the kernel's unbadged calls.
+    let stage_in = |base: u64, name: &str| {
+        // SAFETY: a window frame the file service owns; no program holds either in this test,
+        // and the suite runs one test at a time.
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                name.as_ptr(),
+                crate::arch::mmu::phys_to_virt(base) as *mut u8,
+                name.len(),
+            );
+        }
+        name.len() as u64
+    };
+    let stage = |name: &str| stage_in(grant.phys, name);
+    let call = |w0: u64, w1: u64, badge: u64| {
+        crate::sched::ipc_call_badged(grant.file_ep, [w0, w1], badge)[0] as i64
+    };
+    let b = grant.window;
+
+    let inside = "narrow/n000";
+    let len = stage(inside);
+    let h = call(fs::req(fs::OPEN, fs::ROOT, len), dir::READ, b);
+    assert!(
+        h >= 0,
+        "a file inside the bound subtree would not open: {h}"
+    );
+    assert_eq!(call(fs::req(fs::CLOSE, h as u64, 0), 0, b), 0);
+
+    let len = stage(filesystem_protocol::fixture::MOTD_NAME);
+    assert_eq!(
+        call(fs::req(fs::OPEN, fs::ROOT, len), dir::READ, b),
+        -2,
+        "the image root's motd is not in the subtree, so it is not there (ENOENT)",
+    );
+    let len0 = stage_in(grant.shared, filesystem_protocol::fixture::MOTD_NAME);
+    let theirs = call(fs::req(fs::OPEN, fs::ROOT, len0), dir::READ, 0);
+    assert!(
+        theirs >= 0,
+        "the kernel's unbound call could not open motd: {theirs}"
+    );
+    assert_eq!(
+        call(fs::req(fs::FSTAT, theirs as u64, 0), 0, b),
+        -9,
+        "a handle the badge did not mint is not its to use (EBADF)",
+    );
+    let _ = call(fs::req(fs::CLOSE, theirs as u64, 0), 0, 0);
+    assert_eq!(
+        call(fs::req(fs::BIND, fs::ROOT, 0), b + 1, b),
+        -1,
+        "a bound badge cannot bind another (EPERM)",
+    );
+    assert_eq!(
+        call(fs::req(fs::CLOSE, fs::ROOT, 0), 0, b),
+        -22,
+        "a bound badge cannot close its grant's root (EINVAL)",
+    );
+
+    assert_eq!(
+        call(fs::req(fs::UNBIND, 0, 0), b, 0),
+        0,
+        "the kernel takes the grant back"
+    );
+    let len = stage(inside);
+    assert_eq!(
+        call(fs::req(fs::OPEN, fs::ROOT, len), dir::READ, b),
+        -9,
+        "after UNBIND the badge reaches nothing, not the whole image (EBADF)",
+    );
+    fs_service::release_window_after_test(b);
+}

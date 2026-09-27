@@ -240,6 +240,12 @@ fn claim_window() -> Option<(u64, u64)> {
     None
 }
 
+/// [`release_window`] for a test that bound a grant and holds no program (milestone 606).
+#[cfg(test)]
+pub fn release_window_after_test(w: u64) {
+    release_window(w);
+}
+
 /// **Return a window to the pool** (milestone 599), the take-back half of [`claim_window`]. The
 /// frame is not freed (it stays mapped in the FS server for the life of the service); it is zeroed
 /// so no client's staging survives into the next client that claims the slot, which is the same
@@ -1687,7 +1693,7 @@ pub fn start_std_full(
 ) -> Option<StdSpawn> {
     let (file_ep, file_shared, readiness) = ensure(blk_image, fs_server_image)?;
     let report = crate::sched::create_rendezvous();
-    let (heap, thread, _stack) = spawn_std(file_ep, file_shared, report, std_image);
+    let (heap, thread, _stack) = spawn_std(file_ep, 0, file_shared, report, std_image);
     Some(StdSpawn {
         readiness,
         report,
@@ -1754,13 +1760,150 @@ pub fn start_std_narrowed(
 ) -> Option<NarrowedStd> {
     let (narrow_ep, file_shared, report, caretaker) =
         narrow_dir_held(blk_image, fs_server_image, caretaker_image, name, rights)?;
-    let (heap, thread, stack) = spawn_std(narrow_ep, file_shared, report, std_image);
+    let (heap, thread, stack) = spawn_std(narrow_ep, 0, file_shared, report, std_image);
     Some(NarrowedStd {
         report,
         heap,
         thread,
         stack,
         caretaker,
+    })
+}
+
+/// What [`start_std_bound`] hands back: [`NarrowedStd`]'s shape, with the badge and window the
+/// grant holds in place of a caretaker.
+#[cfg_attr(not(test), allow(dead_code))]
+pub struct BoundStd {
+    pub report: RendezvousId,
+    pub heap: u64,
+    pub thread: crate::thread::ThreadId,
+    stack: [u64; STD_FS_STACK_PAGES as usize],
+    /// The FS server's endpoint, which the kernel calls to take the grant back.
+    file_ep: RendezvousId,
+    /// The client window, which is also the badge the grant is bound to, under §230 (badged
+    /// endpoint capabilities).
+    pub window: u64,
+    /// The region the report endpoint was carved from, so one reclaim returns it.
+    ep_region: u64,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl BoundStd {
+    /// **Give back everything, and take the grant back first.** `UNBIND` from the kernel's own
+    /// unbadged call closes every handle the badge minted and leaves the badge revoked; then the
+    /// window returns to the pool, and the heap, stack and endpoint come back as
+    /// [`NarrowedStd::release`] returns them. Returns whether the server accepted the `UNBIND`.
+    pub fn release(self) -> bool {
+        assert!(
+            !crate::sched::is_thread_present(self.thread),
+            "released a std program's memory while it was still running",
+        );
+        let unbound = crate::sched::ipc_call(
+            self.file_ep,
+            [
+                filesystem_protocol::fs::req(filesystem_protocol::fs::UNBIND, 0, 0),
+                self.window,
+            ],
+        )[0] == 0;
+        release_window(self.window);
+        let _ = crate::sched::reclaim_region(self.heap);
+        for phys in self.stack {
+            crate::memory::free(page_frames::PageFrame::from_addr(phys));
+        }
+        let _ = crate::sched::reclaim_region(self.ep_region);
+        unbound
+    }
+}
+
+/// **A std program holding one subtree, enforced by the FS server itself** (milestone 606 (a
+/// directory walk costs what it does on Linux), calef's ruling D, 2026-09-27): the same grant as
+/// [`start_std_narrowed`], with no caretaker in front.
+///
+/// The kernel claims a client window, opens `name` with `rights` under that window's badge, and
+/// `BIND`s the badge to the handle, so from then on a request carrying the badge sees the
+/// directory as its root and reaches only what it opens (`subtree_scope` decides both). The
+/// program then gets the FS server's endpoint with that badge on it, and the window mapped where
+/// the PAL expects its page. Only an eligible server takes `BIND`; `redoxfs_server` is the first.
+///
+/// Caretakers stay the default: the production choice between the two is the progenitor's, per
+/// mount, from what the filesystem's package declares. This is the kernel harness's route, for
+/// the tests and the bench boot.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn start_std_bound(
+    blk_image: &'static [u8],
+    fs_server_image: &'static [u8],
+    std_image: &'static [u8],
+    name: &'static str,
+    rights: u64,
+) -> Option<BoundStd> {
+    let grant = bind_subtree(blk_image, fs_server_image, name, rights)?;
+    let ep_region = crate::memory_region::create(1).expect("no endpoint region for a bound grant");
+    let report = crate::sched::create_rendezvous_from(ep_region).expect("no report endpoint");
+    let (heap, thread, stack) =
+        spawn_std(grant.file_ep, grant.window, grant.phys, report, std_image);
+    Some(BoundStd {
+        report,
+        heap,
+        thread,
+        stack,
+        file_ep: grant.file_ep,
+        window: grant.window,
+        ep_region,
+    })
+}
+
+/// A subtree bound to a client window's badge, before anyone holds it: the FS server's endpoint,
+/// the window (which is the badge), and the window's physical base.
+#[cfg_attr(not(test), allow(dead_code))]
+pub struct BoundGrant {
+    pub file_ep: RendezvousId,
+    pub window: u64,
+    pub phys: u64,
+    /// Window 0's base, the one an unbadged call stages its name in.
+    pub shared: u64,
+}
+
+/// **Bind `name` under the image root, with `rights`, to a fresh client window's badge** (ruling
+/// D). [`start_std_bound`]'s first half, and what a test uses to speak for the badge itself.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn bind_subtree(
+    blk_image: &'static [u8],
+    fs_server_image: &'static [u8],
+    name: &'static str,
+    rights: u64,
+) -> Option<BoundGrant> {
+    use filesystem_protocol::fs;
+    let (file_ep, shared, readiness) = ensure(blk_image, fs_server_image)?;
+    wait_for_service(readiness);
+    let (window, phys) = claim_window().expect("no free client window for a bound grant");
+    // The binder speaks on its own unbadged channel, as the progenitor would: window 0, badge 0.
+    // Never under the grant's badge, which may be a revoked one coming back from the pool (a
+    // revoked badge reaches nothing until it is bound again, `subtree_scope::Binding`).
+    // SAFETY: window 0's frame, which this module allocated and still owns, via the direct map;
+    // the suite runs one test at a time, so no other client is mid-request on it.
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            name.as_ptr(),
+            mmu::phys_to_virt(shared) as *mut u8,
+            name.len(),
+        );
+    }
+    let opened = crate::sched::ipc_call(
+        file_ep,
+        [fs::req(fs::OPENDIR, fs::ROOT, name.len() as u64), rights],
+    )[0] as i64;
+    assert!(
+        opened >= 0,
+        "the FS server would not open {name:?} to bind: {opened}"
+    );
+    let bound =
+        crate::sched::ipc_call(file_ep, [fs::req(fs::BIND, opened as u64, 0), window])[0] as i64;
+    assert_eq!(bound, 0, "the FS server refused to bind {name:?}");
+    Some(BoundGrant {
+        file_ep,
+        window,
+        phys,
+        shared,
     })
 }
 
@@ -1773,6 +1916,7 @@ pub fn start_std_narrowed(
 /// `std_exerciser` is spawned once and the ledger already carries it.
 fn spawn_std(
     file_ep: RendezvousId,
+    badge: u64,
     file_shared: u64,
     report: RendezvousId,
     std_image: &'static [u8],
@@ -1807,8 +1951,14 @@ fn spawn_std(
     let tid = crate::sched::spawn(move || {
         // The directory capability goes in at its named slot BEFORE `run` grants in order, so
         // `run`'s two grants land at 0 and 1 and slots 2 and 3 stay empty. See `grant_at`.
-        crate::sched::grant_at(FS_DIR_SLOT, rendezvous_cap(file_ep, Rights::WRITE))
-            .expect("the std fs slot was already occupied");
+        // A bound grant (milestone 606, ruling D) is the FS server's own endpoint carrying the
+        // badge the grant was bound to; every other spawn holds an unbadged one.
+        let dir = if badge == 0 {
+            rendezvous_cap(file_ep, Rights::WRITE)
+        } else {
+            rendezvous_cap_badged(file_ep, Rights::WRITE, badge)
+        };
+        crate::sched::grant_at(FS_DIR_SLOT, dir).expect("the std fs slot was already occupied");
         run(
             std_image,
             Spawn {
