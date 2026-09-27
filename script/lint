@@ -2709,6 +2709,11 @@ echo "==> the merge queue's admission predicate"
 #     concurrency group cancelled beside its same-second sibling; the self-test's fixtures are the
 #     ordinary supersede that must not be rerun and the attempt-2 run that must not be rerun again.
 "$(dirname "$0")/../helpers/cancelled-duplicate-selftest.sh"
+#     And `Blocked-by: #N` (2026-09-27): the parser (helpers/blocked-by.sh, one number or several
+#     on the line) and the draft-unblock decision it feeds (helpers/blocked-by-resolution.jq:
+#     unblocked, still waiting, closed unmerged, already labelled) are each fixtures-only, no `gh`.
+"$(dirname "$0")/../helpers/blocked-by-selftest.sh"
+"$(dirname "$0")/../helpers/blocked-by-resolution-selftest.sh"
 
 # 12. The CI-poll refusal hook (helpers/hooks/refuse-ci-polling, wired as a PreToolUse hook on Bash
 #     in .claude/settings.json). calef's 2026-09-26 ruling is that a lane never polls CI; this

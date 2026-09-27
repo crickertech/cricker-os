@@ -300,13 +300,141 @@ stale_drafts() {
 			| select((.commits | length) > 0)
 			| select((.commits[-1].committedDate | fromdateiso8601) < $cut)
 			| [.number, ("\($me): STALE DRAFT. #\(.number) has not committed in over " +
-			  "\($mins) minutes (\(.title[0:60])). If its lane is finished: gh pr ready \(.number)")]
+			  "\($mins) minutes (\(.title[0:60])). If its lane is finished: gh pr ready \(.number). " +
+			  "If it is waiting on another PR, add `Blocked-by: #N` to its body instead.")]
 			| @tsv
 		' 2>/dev/null |
 		while IFS="$(printf '\t')" read -r num msg; do
 			[ -z "$num" ] && continue
 			echo "$msg"
 			notify "$num" "merge-drain:stale-draft" "$msg"
+		done
+}
+
+# A paused DRAFT whose `Blocked-by:` line has resolved: the mechanism `stale_drafts` above cannot
+# be, because a draft that is genuinely waiting on another pull request should NOT be nagged with
+# "if its lane is finished, gh pr ready" every time it goes quiet for `STALE_DRAFT_MINUTES`.
+#
+# # Why this exists
+#
+# Draft #1289 was paused on 2026-09-25 waiting on #1288. #1288 merged an hour later. Nobody resumed
+# #1289 for two days, because the pause was recorded only in prose (a comment, a report) and
+# `stale_drafts` posts its one STALE DRAFT note and then goes quiet by design (`notify`'s marker
+# dedupes it). A mechanism that fires once and a fact that lives only in prose is exactly the shape
+# AGENTS.md's ladder warns about: "somebody will notice" is rung zero.
+#
+# So this is rung two instead: a draft that names `Blocked-by: #N[, #M ...]` in its own body gets a
+# label, `unblocked`, and one comment, the moment every listed pull request has merged or been
+# reported closed. Both are visible without opening the pull request: `gh pr list --label unblocked`
+# is the whole board, the same shape as `gh pr list --draft` and `gh pr list --label
+# needs-architect` already are.
+#
+# The decision itself (merged, still open, closed unmerged, or already labelled) is
+# helpers/blocked-by-resolution.jq, spliced in below the same way helpers/queue-eligible.jq is
+# elsewhere in this script; helpers/blocked-by-resolution-selftest.sh checks it against fixtures
+# without a `gh` call, and script/lint runs that selftest. The label and the marker comment are
+# this function's own job, because they need `gh` and the jq file must not.
+#
+# **A blocker CLOSED without merging is reported as such rather than folded into a plain
+# "unblocked"**, mirroring the admission hold above: it usually means the plan changed, and that is
+# a fact for a person to read rather than release silently.
+unblocked_drafts() {
+	gh pr list --repo "$REPO" --state open --json number,isDraft,title,body,labels 2>/dev/null |
+		jq -c --arg L "$UNBLOCKED_LABEL" '
+			.[]
+			| select(.isDraft == true)
+			| select(.body | test("(?i)blocked-by:"))
+			| {number, title, body, has_label: ((.labels | map(.name) | index($L)) != null)}
+		' 2>/dev/null |
+		while IFS= read -r pr; do
+			[ -n "$pr" ] || continue
+			num=$(printf '%s' "$pr" | jq -r '.number')
+			title=$(printf '%s' "$pr" | jq -r '.title')
+			body=$(printf '%s' "$pr" | jq -r '.body')
+			has_label=$(printf '%s' "$pr" | jq -r '.has_label')
+
+			blockers=$(nife_blocked_by "$body")
+			[ -n "$blockers" ] || continue
+
+			# One `gh pr view` per named blocker, building the fixture `blocked-by-resolution.jq`
+			# reads and the human-readable lines (with timestamps) the jq file deliberately does
+			# not carry, because its own selftest fixtures are state-only.
+			blockers_json='[]'
+			merged_line=""
+			closed_line=""
+			for b in $blockers; do
+				bjson=$(gh pr view "$b" --repo "$REPO" --json state,mergedAt 2>/dev/null)
+				bstate=$(printf '%s' "$bjson" | jq -r '.state // "OPEN"' 2>/dev/null)
+				[ -n "$bstate" ] || bstate="OPEN"
+				blockers_json=$(printf '%s' "$blockers_json" |
+					jq -c --argjson n "$b" --arg s "$bstate" '. + [{number: $n, state: $s}]')
+				case "$bstate" in
+				MERGED)
+					mergedat=$(printf '%s' "$bjson" | jq -r '.mergedAt // "an unknown time"' 2>/dev/null)
+					merged_line="${merged_line}#$b merged at $mergedat; "
+					;;
+				CLOSED)
+					closed_line="${closed_line}#$b "
+					;;
+				esac
+			done
+
+			result=$(jq -cn --argjson hl "$has_label" --argjson bl "$blockers_json" \
+					'{has_label: $hl, blockers: $bl}' |
+				jq -c "$(cat "$BLOCKED_BY_RESOLUTION_JQ")"'resolution' 2>/dev/null)
+			status=$(printf '%s' "$result" | jq -r '.status' 2>/dev/null)
+
+			case "$status" in
+			already-labelled | waiting | "")
+				continue
+				;;
+			closed-unmerged)
+				msg="merge-drain: UNBLOCKED. ${closed_line}closed unmerged; resume this lane and check whether the plan changed."
+				;;
+			unblocked)
+				msg="merge-drain: UNBLOCKED. ${merged_line}resume this lane."
+				;;
+			esac
+
+			echo "$ME: UNBLOCKED #$num ($title)"
+			notify "$num" "merge-drain:unblocked" "$msg"
+			gh pr edit "$num" --repo "$REPO" --add-label "$UNBLOCKED_LABEL" >/dev/null 2>&1
+		done
+}
+
+# The `unblocked` label removes itself the moment its own reason stops applying, the same shape as
+# `Blocked-by:` itself: nothing to remember, because a manual label that outlives its reason is a
+# false signal and this project has the receipts for that (see the comment above `blocked_by`,
+# now `nife_blocked_by` in helpers/blocked-by.sh). Its reason stops applying in exactly two ways:
+# a new commit lands (the lane resumed on its own before anyone read the comment), or the draft is
+# marked ready (it is not paused any more, it is asking to merge). Checked every pass rather than
+# left to the marker comment, because leaving a stale label costs nothing to detect and everything
+# to trust if it lingers on a draft that has clearly moved on.
+release_unblocked_labels() {
+	gh pr list --repo "$REPO" --state open --json number,isDraft,labels,commits 2>/dev/null |
+		jq -r --arg L "$UNBLOCKED_LABEL" '
+			.[]
+			| select((.labels | map(.name) | index($L)) != null)
+			| [.number, .isDraft, (.commits[-1].committedDate // "")]
+			| @tsv
+		' 2>/dev/null |
+		while IFS="$(printf '\t')" read -r num isdraft lastcommit; do
+			[ -n "$num" ] || continue
+			if [ "$isdraft" = "false" ]; then
+				gh pr edit "$num" --repo "$REPO" --remove-label "$UNBLOCKED_LABEL" >/dev/null 2>&1
+				continue
+			fi
+			[ -n "$lastcommit" ] || continue
+			labeled_at=$(gh api "repos/$REPO/issues/$num/timeline" --paginate 2>/dev/null |
+				jq -r --arg L "$UNBLOCKED_LABEL" '
+					[.[] | select(.event == "labeled" and .label.name == $L)] | last | .created_at // empty
+				' 2>/dev/null)
+			[ -n "$labeled_at" ] || continue
+			newer=$(jq -n --arg a "$lastcommit" --arg b "$labeled_at" \
+				'(($a | fromdateiso8601) > ($b | fromdateiso8601))' 2>/dev/null)
+			if [ "$newer" = "true" ]; then
+				gh pr edit "$num" --repo "$REPO" --remove-label "$UNBLOCKED_LABEL" >/dev/null 2>&1
+			fi
 		done
 }
 
@@ -338,11 +466,18 @@ stale_drafts() {
 #
 # The blocker being CLOSED rather than merged is reported loudly instead of silently released,
 # because that is an anomaly: it means the thing this was sequenced behind is not coming.
-blocked_by() {
-	# The first `Blocked-by: #N` in the body. Case-insensitive on the key, because a person typing
-	# it in a pull request body will not match a regex's idea of capitalisation.
-	printf '%s' "$1" | sed -n 's/.*[Bb]locked-by:[[:space:]]*#\([0-9][0-9]*\).*/\1/p' | head -1
-}
+# `nife_blocked_by`, the parser both this admission hold and the draft-unblock pass below use, and
+# `nife_check_branch_name_shape`'s sourced-not-run counterpart: pulled into its own file
+# 2026-09-27 so helpers/blocked-by-selftest.sh can check it without running this script's own
+# `pass` loop. See helpers/blocked-by.sh for the convention and why every number on the line
+# matters, not only the first.
+. "$(dirname "$0")/blocked-by.sh"
+
+# The label a paused DRAFT wears once every pull request its `Blocked-by:` line names has resolved,
+# and the marker `notify` uses so the comment that says so posts once. See `unblocked_drafts` below
+# and helpers/blocked-by-resolution.jq, the predicate that decides it.
+UNBLOCKED_LABEL="unblocked"
+BLOCKED_BY_RESOLUTION_JQ="$(dirname "$0")/blocked-by-resolution.jq"
 
 # **Enqueue what the platform promised to and did not** (2026-09-24). Auto-merge is GitHub's promise
 # to put a pull request into the queue when its checks go green. On 2026-09-24 #1202, #1200 and
@@ -461,6 +596,16 @@ pass() {
 	# enqueue is the one case the queue itself cannot see. See dequeue_held's own comment.
 	dequeue_held || true
 
+	# Same reasoning as `lane-claim-check.sh` above, and the same fix: these three read drafts
+	# rather than the eligible queue, so they must not sit behind the empty-queue return below.
+	# `stale_drafts` had exactly that blind spot until 2026-09-27, when it was moved here alongside
+	# the two new passes rather than left where a repository with nothing else open would silently
+	# stop reporting a paused draft too, which is precisely the shape this whole mechanism exists
+	# to fix.
+	stale_drafts
+	unblocked_drafts
+	release_unblocked_labels
+
 	q=$(queue)
 	n=$(printf '%s' "$q" | jq -r 'length' 2>/dev/null || echo 0)
 	if [ "$n" = "0" ] || [ -z "$n" ]; then
@@ -483,24 +628,37 @@ pass() {
 
 		# A declared ordering constraint, checked before anything else, because arming a pull
 		# request that is sequenced behind another wastes a group build and can evict it.
+		#
+		# Every number on the `Blocked-by:` line is checked, not only the first (2026-09-27; the
+		# BUGS note this fixed recorded that a pull request sequenced behind two others could only
+		# say so once). `still_open` holds this pull request until every one of them has resolved;
+		# `closed_unmerged` is reported even if some other blocker on the same line did merge,
+		# because a blocker that closed without merging is the anomaly and deserves a person's
+		# attention regardless of what the rest of the list did.
 		body=$(printf '%s' "$q" | jq -r --arg n "$num" '.[] | select(.number == ($n | tonumber)) | .body')
-		blocker=$(blocked_by "$body")
-		if [ -n "$blocker" ]; then
-			bstate=$(gh pr view "$blocker" --repo "$REPO" --json state -q .state 2>/dev/null)
-			case "$bstate" in
-			MERGED) ;;  # released, and nobody had to do anything
-			CLOSED)
-				msg="$ME: STALLED. #$num is blocked by #$blocker, which was CLOSED without merging ($title)"
+		blockers=$(nife_blocked_by "$body")
+		if [ -n "$blockers" ]; then
+			still_open=""
+			closed_unmerged=""
+			for blocker in $blockers; do
+				bstate=$(gh pr view "$blocker" --repo "$REPO" --json state -q .state 2>/dev/null)
+				case "$bstate" in
+				MERGED) ;;  # released, and nobody had to do anything
+				CLOSED) closed_unmerged="$closed_unmerged #$blocker" ;;
+				*) still_open="$still_open #$blocker" ;;
+				esac
+			done
+			if [ -n "$closed_unmerged" ]; then
+				msg="$ME: STALLED. #$num is blocked by$closed_unmerged, which closed without merging ($title)"
 				echo "$msg"
 				notify "$num" "merge-drain:blocker-closed" "$msg"
 				stalled=$((stalled + 1))
 				continue
-				;;
-			*)
-				echo "$ME: holding #$num until #$blocker merges ($title)"
+			fi
+			if [ -n "$still_open" ]; then
+				echo "$ME: holding #$num until$still_open merges ($title)"
 				continue
-				;;
-			esac
+			fi
 		fi
 
 		# A conflict is the one state that cannot be waited out: the queue will not resolve it and
@@ -668,7 +826,6 @@ pass() {
 	done
 
 	echo "$ME: $armed armed, $stalled stalled, of $n unheld"
-	stale_drafts
 
 	# Nothing left to do on a pass where everything open is stalled: the remaining work needs a
 	# person, and looping only re-prints the same lines.

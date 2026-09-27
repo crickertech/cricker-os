@@ -9,6 +9,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Selectors that can select nothing](../empty-selectors.md): gates that pass when their pattern matches nothing. Name provisional.
 - [What to do when `main` goes red](../main-is-red.md). Names provisional.
 - [The merge queue, and the three things that watch it](../merge-queue.md): the scripts that land, watch, and flag queue work. Names provisional.
+- [A paused draft names its blocker, and the drain reads it back](../blocked-by-drafts.md): `Blocked-by:` on a draft pull request, and the `unblocked` label. Name provisional.
 - [Working from a cloud session](../working-from-a-cloud-session.md): what past cloud sessions hit, how to set up, claim and gate in CI, and what needs patagonia. Name provisional.
 - [The automation's own identity](../automation-identity.md): the `smelter` GitHub App that replaces a personal token. Name provisional.
 - [Hardening the repository itself](../repo-hardening.md): the GitHub settings that cannot be committed.

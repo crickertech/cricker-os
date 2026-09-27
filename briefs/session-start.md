@@ -103,6 +103,18 @@ At most about five lanes work at once. The rest are PARKED: branch pushed, turn 
 failure, a rebase, or calef's ask. Mechanical lanes (rebases, recording rulings, queue cleanup)
 launch on Sonnet (Agent `model: "sonnet"`), per §202 (mechanical work goes to a cheaper model).
 
+**A lane parked waiting on another pull request, not on CI or on calef, says so where a machine can
+act on it.** Add `Blocked-by: #N[, #M ...]` to the draft's own body before ending the turn (a
+stacked branch, a shared file, a decision only that other pull request settles). Without it, the
+pause lives only in prose, and prose is not a mechanism: draft #1289 was paused on 2026-09-25
+waiting on #1288, #1288 merged an hour later, and nobody resumed #1289 for two days because nothing
+was watching the pause itself. `helpers/merge-drain.sh` labels a draft `unblocked` and comments once
+every listed pull request has merged or closed (`notes/blocked-by-drafts.md` has the mechanism,
+alongside `notes/merge-queue.md`'s older `Blocked-by:` section for a queued, non-draft pull
+request); a listed pull request closed without merging is called out rather than silently released,
+because it usually means the plan changed. The label removes itself on the next commit or on
+`ready_for_review`, so it never has to be remembered either.
+
 The watch list is what turns a WAITING line into something that actually wakes you: every run id a
 lane reports goes on it, because a lane nobody is watching for stops forever. Two provisional
 scripts under `helpers/` do the watching, and their names are not yet ratified. Append one line per
