@@ -244,7 +244,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 132 | DECIDED | [What `PageFrame::REVOKE` owes an overlapping run](132-overlapping-page-frame-runs.md) |
 | 133 | DECIDED | [Whether an idle core should drain its own inbox before parking](133-idle-core-self-rescue.md) |
 | 134 | AMENDED | [A harness carries a machine-replayable falsification record, or it is not evidence](134-harness-falsification-record.md) |
-| 135 | DECIDED | [Running GPL software is aggregation, the capability boundary is what makes it so, and packages are how it arrives](135-running-gpl-software.md) |
+| 135 | AMENDED | [Running GPL software is aggregation, the capability boundary is what makes it so, and packages are how it arrives](135-running-gpl-software.md) |
 | 136 | DECIDED | [A mature foreign implementation earns its place as an oracle, not as a dependency](136-foreign-implementation-as-oracle.md) |
 | 137 | PROPOSED | [A hardware TRNG with no published health-test claim](137-trng-health-tests.md) |
 | 138 | DECIDED | [How a saturated workload is made to hand threads across cores](138-cross-core-handoff-under-load.md) |
@@ -341,7 +341,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |
 | 233 | DECIDED | [`MemoryRegion::RETYPE` takes a page count](233-a-region-retypes-a-run-of-pages.md) |
 | 234 | DECIDED | [The prompt shows one tree, and other trees are mounted at names in it](234-the-prompt-shows-one-tree.md) |
-| 235 | DECIDED | [The OS is built and updated from packages, and the tree divides by what releases together](235-packages-build-the-os-and-the-tree-divides-by-release.md) |
+| 235 | AMENDED | [The OS is built and updated from packages, and the tree divides by what releases together](235-packages-build-the-os-and-the-tree-divides-by-release.md) |
 | 236 | DECIDED | [`OPEN`/`OPENDIR` take a relative path, and `OPEN`'s reply carries the size](236-open-opendir-relative-path-and-size-hint.md) |
 | 237 | DECIDED | [Subtree grants may skip the caretaker, per filesystem](237-subtree-grants-skip-the-caretaker-per-filesystem.md) |
 | 238 | DECIDED | [The system tests leave the kernel crate as a second image, and a new test defaults to userspace](238-system-tests-leave-the-kernel-crate.md) |

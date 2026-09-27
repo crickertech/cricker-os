@@ -60,6 +60,11 @@ Names provisional: the helper, the note, both CSVs, the appendix, the chart, eve
   the public surface moved; the tools answer whether a change needs a major version, and each would
   be a §46 (thin primitives or whole subsystems) dependency tied to the nightly pin. Reasoning in
   `notes/interface-stability.md`.
+- **Recorded.** A per-package co-change column is owed, alongside the division-level co-change
+  this milestone already carries. §235 (the OS is built and updated from packages, and the tree
+  divides by what releases together)'s Fork 3 amendment (calef, 2026-09-27T15:06Z, question 7c)
+  rules that a home is sized by what changes together. No package moves to a new home before this
+  measurement exists. Not built here.
 
 ## Index row
 
