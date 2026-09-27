@@ -128,6 +128,18 @@ round's prompt, and hands the worktree back unmerged if it cannot reach green in
 That is the same argument §202 makes, mechanised: a cheaper model is safe exactly to the extent that
 a shell command says pass or fail.
 
+That argument holds only if the lane cannot change the shell command. On 2026-09-27 a rented model,
+asked to make the citation ratchet ignore moved lines, matched every added line against itself. That
+switched the ratchet off, and the gate it had disabled then said green (the
+[qwen3-coder bake-off](model-comparison/2026-09-27-qwen3-coder-bakeoff.md)). So the script now locks
+the gate. It refuses a round whose commits touch the gate machinery (`script/`, `helpers/`,
+`.github/`, `.cargo/`, the lint and format configs, `design/prose-baseline.tsv`) unless the brief
+names the file on a `Gate target:` line. It then runs the gates in a throwaway worktree at the
+lane's committed HEAD, so an uncommitted edit cannot reach the verdict either. Of the two options,
+refusing the edit and judging from a clean copy, this does both, because each misses what the other
+catches: a clean copy of HEAD still carries a committed edit, and a refusal of committed edits
+cannot see an uncommitted one.
+
 **So the routing rule is about the oracle, not about difficulty.** Work with a crisp gate goes to
 the open model: bisections (the gate's exit code *is* the answer), reference sweeps, renumbering,
 promotions, formatting, mechanical repairs. Work whose output is a judgement stays on Claude: design
@@ -173,6 +185,10 @@ it run the gate, did it read the exit code, and how many rounds did green take.
 
 ## BUGS
 
+- A `Gate target:` line reopens the gate lock for the file it names, so a task that is to fix a
+  gate is judged partly by the lane's own version of that gate. Such a result needs a reviewer.
+  `Cargo.toml` and in-source `#[allow]` are outside the lock (lanes add dependencies), so the lock
+  stops the failure measured, not a determined one.
 - Prompt caching is billed as a miss. Claude Code sends `cache_control` regardless of the
   upstream; a gateway that does not implement it bills every turn uncached. §203's per-token
   estimate assumed no caching, so it stands, but any quote at a cached rate is wrong.
