@@ -1995,6 +1995,20 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         ) {
             failed.push(complaint);
         }
+        // **And its directory grants go through a bound badge** (milestone 606 (a directory walk
+        // costs what it does on Linux), calef's rulings D and T1 of 2026-09-27). Every leg's image carries `redoxfs_server`, whose bytes carry the
+        // subtree-grants note, so the progenitor must have read it; the `rm` lines below then run
+        // through the server's own narrowing rather than a caretaker. A progenitor that lost the
+        // note, or stopped reading it, says the negative sentence and fails here rather than
+        // passing quietly on the caretaker it falls back to.
+        if let Some(complaint) = boot_claim_complaint(
+            &after_hand_over(&transcript_now(&seen)),
+            "how it delivers a directory grant",
+            "directory grants get a bound badge",
+            "directory grants get a caretaker",
+        ) {
+            failed.push(complaint);
+        }
         // **And the progenitor has an entropy service, from the source this leg's machine has**
         // (milestone 595 (provisional)). The `uuid` and `std_exerciser` lines below would fail
         // without one, but as a refused draw several lines on, which says nothing about why. This
