@@ -63,9 +63,11 @@ calef ruled on #1387. Each option was prototyped and measured first; the note ha
 ## Follow-on
 
 - **Outstanding.** The progenitor's choice per mount, between a bound badge and a caretaker,
-  from what the filesystem's package declares. Checked 2026-09-27: package declarations are not
-  on `main` yet (#1396, then #1405 moves them to TOML), and the progenitor-stack lane is working
-  in the progenitor.
+  from what the filesystem's package declares. It waits on two answers that are calef's, written
+  up as PROPOSED in `notes/bound-grants-in-the-progenitor.md`: how the declaration reaches the
+  device (a format), and milestone 599 (a frame per filesystem client channel)'s open fork on the
+  progenitor's window pool. Checked 2026-09-27 by reading `crates/system_initializer`: it has no
+  window pool, no badge and no mount table.
 - **Recorded.** A cold walk on both sides, with Linux on ext4 over virtio rather than tmpfs, is a
   limitation in `notes/walk-cost.md`.
 
