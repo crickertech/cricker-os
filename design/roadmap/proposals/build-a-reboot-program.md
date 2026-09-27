@@ -30,8 +30,8 @@ mechanism is a separate finding for whoever picks this up.
   worked example has the full sequence.
 - Its badge is registered by whichever spawner starts it. If that spawner is the progenitor,
   §243's "What it costs" already prices the slot and names the blocker: the table is at 23 of 24
-  once §242 takes its own slot. A progenitor-spawned reboot program therefore waits on pull
-  request #1360 raising `CAPABILITY_TABLE_SLOTS` to 32.
+  once the system log service takes its own slot. A progenitor-spawned reboot program therefore
+  waits on pull request #1360 raising `CAPABILITY_TABLE_SLOTS` to 32.
 - The reboot mechanism needs its own finding: a spawner, and a trigger (a command, a timer, or
   both).
 
