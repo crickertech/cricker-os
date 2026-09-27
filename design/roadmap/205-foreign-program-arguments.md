@@ -61,8 +61,8 @@ line's words through `std::env::args()`, and nothing it hears is authority.
   no authority, so expanding one would grant names and nothing they name. Quoting passes it through.
 
 Proven by `script/swish-check` on every architecture. `std_exerciser one 'two words'` prints
-`args ["std_exerciser", "one", "two words"]`. `std_exerciser piped | wc` counts the piped
-transcript. `std_exerciser *.rs` is refused with nothing spawned. `caps std_exerciser` shows
+`args ["std_exerciser", "one", "two words"]`. `std_exerciser redirected > args.txt` takes the
+pipeline path, and `wc` counts what it wrote. `std_exerciser *.rs` is refused with nothing spawned. `caps std_exerciser` shows
 `cap 8  frame     args`. Host tests in `argument_protocol` show that every byte round-trips and
 that no damage to the header or a length yields a partial argv. `grant_plan`'s tests show that
 every word arrives unclassified, past the sixteen tokens `parse_run` keeps.
@@ -106,16 +106,24 @@ choice (how a single `std` directory slot holds words from several places).
   `ArgSpec::Words`. This milestone encodes it as `2`, provisionally. The image path does not yet
   read that value to build a `std` child with its words. Wiring it is the next piece
   of this milestone, and it is what lets an installed `rg` hear its pattern.
-- **Two `std` jobs typed back to back can race the reaper.** The job pool holds one `std` region
-  (`JOBS_BUDGET_PAGES` in `crates/system_initializer`), and it comes back only when
-  `job_undertaker` reaps the finished job. The shell prompts as soon as it has drained the output,
-  which can be before the reap. The next `std` line then answers "could not spawn (the progenitor
-  is out of memory)". Seen once in CI on riscv64 on 2026-09-27, when the pipeline line followed the
-  plain one; aarch64 passed the same lines in the same run. The reap race is inferred from that and
-  was not measured. `script/swish-check` now keeps the two lines apart. The fix is for the progenitor to
-  wait, bounded, for a reap when the pool is short. That wait is the clock-bounded one `reclaim`'s
-  BUGS already asks for. This predates milestone 205; any two `std` jobs hit it.
-- **Each spawn costs a scratch page or two in the progenitor**: one to read the shell's frame
+- **A pipeline with a `std` program at its head strands that program's region until reboot.**
+  The job pool is a stack: a region's pages go back only when it is the most recent carve
+  (`memory_regions`' `return_to_parent`). A pipeline carves its head first, and the head exits
+  and is reaped first, so its region is never the top when it goes. For a `std` head that is 384
+  pages, and the pool holds one `std` region, so after `std_exerciser | wc` no `std` job runs
+  again. Found by this milestone's CI on 2026-09-27, when a plain `std_exerciser` line after a
+  pipeline answered "could not spawn (the progenitor is out of memory)". It predates this
+  milestone, since a `std` head was already legal, and native heads strand 40 pages the same
+  way. Milestone 26 (object revocation) built the LIFO case and recorded non-LIFO return as
+  having "no reason to build one"; this is the reason. `script/swish-check` proves the pipeline
+  path with `std_exerciser redirected > args.txt`, a one-stage line, instead.
+- **A `std` job typed straight after another may race the reaper.** A region comes back when
+  `job_undertaker` reaps the job, and the shell prompts once it has drained the output, which can
+  come first. The first CI failure (riscv64, 2026-09-27, a pipeline typed right after a plain
+  `std_exerciser`) fits this, and aarch64 passed the same lines. Inferred, not measured. A bounded
+  wait in the progenitor when the pool is short would close it, the clock-bounded wait `reclaim`'s
+  BUGS in `crates/system_initializer` already asks for.
+- Each spawn costs a scratch page or two in the progenitor: one to read the shell's frame
   and one to fill the child's copy. They come from `supervision_protocol`'s never-reused
   scratch cursor, which milestone 206 (a program image has under 896 KiB)'s block records as unbounded and a draft pull request
   (#1384) proposes to bound.
@@ -130,7 +138,8 @@ choice (how a single `std` directory slot holds words from several places).
   `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md`. Nothing spells one yet,
   because nothing grants a word read-write before the designation half lands.
 - **Recorded.** Environment variables and exit codes for a foreign program, the `--mem`, `xargs` and image-path
-  gaps, and the scratch-page cost, in this block's `BUGS` above
+  gaps, a `std` pipeline head stranding its region, and the scratch-page cost, in this block's
+  `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
 
 ## Index row
