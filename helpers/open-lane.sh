@@ -60,6 +60,31 @@
 #   lane should be told what to do by its brief, and the constitution is 924 lines that a cheap
 #   model would spend its window on. It also means this lane does not inherit the rules, so the
 #   brief has to carry whatever it needs.
+# - **The gate lock covers the gate machinery, not every way to quiet a check.** A lane cannot
+#   change a verdict by editing `script/`, `helpers/`, `.github/`, `.cargo/`, the lint and format
+#   configs, or the prose baseline, but `Cargo.toml` is outside the set because lanes legitimately
+#   add dependencies, and a `#[allow]` in source silences clippy for one item. The lock stops the
+#   failure we measured (a lane disabling the check it was asked to fix), not a determined one.
+#   A `Gate target:` line reopens the hole for exactly the file it names; that is the price of
+#   letting a lane fix a gate at all.
+#
+# # THE GATE LOCK
+#
+# On 2026-09-27 a rented model, asked to make `script/citations --ratchet` ignore moved lines,
+# wrote a change that matched every added line against itself, so the ratchet passed everything,
+# including fresh unglossed citations, and the gate it had disabled then said green. So a lane's
+# work is judged in two steps, and neither trusts the lane's own tree:
+#
+# 1. **Refuse.** A committed change to a gate path (`GATE_PATHS` below) fails the round, unless the
+#    brief names that file on a line of its own, `Gate target: script/citations`, as the thing the
+#    task is to change. The lane is told which file it touched.
+# 2. **Judge from a clean copy.** The gates run in a throwaway worktree checked out at the lane's
+#    committed HEAD. Uncommitted edits, including an uncommitted edit to `script/lint`, cannot reach
+#    the verdict, and the gate machinery there is byte-for-byte the base commit's, apart from the
+#    files a brief named.
+#
+# A lane can still commit a wrong fix to a named target and pass with it. That is why a named
+# target is rare and a reviewer reads it; see notes/open-model-lanes.md.
 set -eu
 
 [ $# -ge 2 ] || { echo >&2 "usage: $0 <worktree> <brief-file> [max-rounds]"; exit 2; }
@@ -76,6 +101,13 @@ effort=${OPEN_LANE_EFFORT:-low}
 
 brief_text=$(cat "$brief")
 base_commit=$(cd "$worktree" && git rev-parse HEAD)
+
+# The gate machinery: everything `script/lint` and `script/citations` execute or read to decide.
+GATE_PATHS="script/ helpers/ .github/ .cargo/ clippy.toml deny.toml rustfmt.toml _typos.toml rust-toolchain.toml design/prose-baseline.tsv"
+gate_targets=$(sed -n 's/^Gate target:[[:space:]]*\([^[:space:]]*\).*$/\1/p' "$brief")
+judge=""
+cleanup() { [ -n "$judge" ] && git -C "$worktree" worktree remove --force "$judge" >/dev/null 2>&1; judge=""; }
+trap cleanup EXIT INT TERM
 
 # The failure text from the last round is appended to the prompt, so the model is told what the
 # gate said rather than asked to guess. This is the loop that makes a cheaper model usable.
@@ -122,13 +154,46 @@ believe there is nothing to do, say so explicitly rather than leaving the worktr
         round=$((round + 1))
         continue
     fi
-    if (cd "$worktree" && [ -z "$(git status --porcelain)" ]) || true; then :; fi
-    if (cd "$worktree" && script/lint >/tmp/open-lane-lint.$$ 2>&1 \
+    # The gate lock, step 1: refuse a committed change to the gate machinery the brief did not name.
+    touched=""
+    for path in $(git -C "$worktree" diff --name-only "$base_commit" HEAD); do
+        for gate in $GATE_PATHS; do
+            case "$path" in
+            "$gate"|"$gate"*) ;;
+            *) continue ;;
+            esac
+            named=no
+            for target in $gate_targets; do [ "$path" = "$target" ] && named=yes; done
+            [ "$named" = no ] && touched="$touched $path"
+        done
+    done
+    if [ -n "$touched" ]; then
+        feedback="
+
+## You changed the gate machinery, and the brief did not ask you to
+
+These files decide whether your work passes, so a change to them is refused rather than judged:
+$touched
+
+Revert them to the base commit ($base_commit) in a new commit and fix the task itself."
+        echo "==> open-lane: refused, gate machinery touched:$touched"
+        round=$((round + 1))
+        continue
+    fi
+
+    # The gate lock, step 2: judge the committed HEAD from a clean worktree, never the lane's own tree.
+    judge=$(mktemp -d "${TMPDIR:-/tmp}/open-lane-judge.XXXXXX")
+    rmdir "$judge"
+    git -C "$worktree" worktree add --quiet --detach "$judge" HEAD
+    if (cd "$judge" && CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$worktree/target}" \
+        script/lint >/tmp/open-lane-lint.$$ 2>&1 \
         && script/citations --ratchet >/tmp/open-lane-cit.$$ 2>&1); then
-        echo "==> open-lane: green after $round round(s)"
+        cleanup
+        echo "==> open-lane: green after $round round(s), judged at $(git -C "$worktree" rev-parse --short HEAD)"
         rm -f /tmp/open-lane-lint.$$ /tmp/open-lane-cit.$$
         exit 0
     fi
+    cleanup
 
     feedback="
 
