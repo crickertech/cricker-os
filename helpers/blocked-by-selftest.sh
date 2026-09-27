@@ -28,7 +28,7 @@ check "one number" \
 
 Blocked-by: #1352
 
-Stacked on #1352 (milestone 206); retarget to main when that lands." \
+Stacked on #1352; retarget to main when that lands." \
 	"1352"
 
 check "several numbers, comma separated" \
