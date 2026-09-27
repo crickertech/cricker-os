@@ -174,8 +174,8 @@ at all is the reversible one instead: a mark can still be added later without br
 that predates it, since no script yet depends on one.
 
 Considered and refused: M1, a prefix (`+file`); M2, a separate word; M3, a flag (`--rw`/`--new`);
-M4, a suffix (`file:rw`); a runtime prompt (a powerbox), refused for the same reason the y/n prompt
-above was, that it breaks scripts and pipelines with nobody there to answer it; and honouring the
-unvouched program's own note up to a ceiling set per session, which was already deferred to §220
-(signed builds: a vendor signs, a developer self-signs), itself PROPOSED. Until §220 is ruled, an
-unvouched note still grants nothing.
+M4, a suffix (`file:rw`). A runtime prompt (a powerbox) was refused for the same reason the y/n
+prompt above was: it breaks scripts and pipelines, with nobody there to answer it. So was
+honouring the unvouched program's own note up to a ceiling set per session, which was already
+deferred to §220 (signed builds: a vendor signs, a developer self-signs), itself PROPOSED. Until
+§220 is ruled, an unvouched note still grants nothing.
