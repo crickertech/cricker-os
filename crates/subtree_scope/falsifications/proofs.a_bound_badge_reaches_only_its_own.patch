@@ -1,0 +1,19 @@
+Falsifies `subtree_scope::proofs::a_bound_badge_reaches_only_its_own`.
+
+The defect: `admit` lets a bound badge use any open handle, not only the ones it minted.
+
+Expected to fail: the assertion that an admitted handle is the root or one the badge owns.
+
+diff --git a/crates/subtree_scope/src/lib.rs b/crates/subtree_scope/src/lib.rs
+index f5ee46265..d7cfd0bf1 100644
+--- a/crates/subtree_scope/src/lib.rs
++++ b/crates/subtree_scope/src/lib.rs
+@@ -204,7 +204,7 @@ pub fn admit(
+         Binding::Open => Ok(requested),
+         Binding::Revoked => Err(Refusal::NotYours),
+         Binding::Bound { root } if requested == ROOT => Ok(root),
+-        Binding::Bound { .. } if owner == Some(badge) => Ok(requested),
++        Binding::Bound { .. } if owner.is_some() => Ok(requested),
+         Binding::Bound { .. } => Err(Refusal::NotYours),
+     }
+ }

@@ -1,0 +1,13 @@
+# Name: the block lives in src/lib.rs, where `script/names` reads it.
+[package]
+name = "subtree_scope"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# The rights arithmetic a step narrows with. `no_std` and dependency-free.
+filesystem_protocol = { version = "0.1.0", path = "../filesystem_protocol" }
