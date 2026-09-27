@@ -1838,6 +1838,15 @@ struct WordsGrant {
 /// `START` words are zero, because a `std` program reads none.
 ///
 /// `Err(Some(sentence))` is a grant this shell cannot deliver, `Err(None)` its budget.
+///
+/// # BUGS
+///
+/// **The set's filter can be raced on a real boot.** The caretaker forwards a checked name through
+/// the file service's one shared frame, which this shell writes too while it drains a redirected
+/// job (`std_grep needle docs > out.txt`). A write landing between the caretaker's re-staging and
+/// the server's read opens a name the set never approved. `notes/a-set-grant-at-the-prompt.md`
+/// has the case, `notes/shared-page-audit.md` finding 1 the mechanism; milestone 599 (a frame per
+/// filesystem client channel)'s production pool closes it.
 fn words_grant(
     g: &GrantDir,
     grant: grant_plan::WordGrant,

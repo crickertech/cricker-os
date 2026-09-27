@@ -67,8 +67,8 @@
 //!
 //! **And a second time, later the same day**: `3` and `4` for the `WordGrant` a program that hears
 //! words declares (milestone 205's designation half), under the same ruling and before anything
-//! outside the tree had acted on it. `2` kept its meaning, read-only. Provisional until calef
-//! confirms the ruling covers this one too; the rule above holds from then on.
+//! outside the tree had acted on it. `2` kept its meaning, read-only. calef confirmed the ruling
+//! covers these on 2026-09-27 at 15:14Z (UTC), on #1402. The rule above holds from here on.
 //!
 //! # EXAMPLES
 //!

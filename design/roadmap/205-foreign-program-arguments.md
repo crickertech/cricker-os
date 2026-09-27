@@ -158,6 +158,14 @@ the planner's grant and the note's round trip.
   overflowed the 32 KiB stack (kernel `INIT_STACK_PAGES`); CI found it on 2026-09-27. Moving the
   grant's locals into `build_grant` left 112 bytes over main, which passes, but the margin was never
   measured. The next change to `spawn_service` can trip it again.
+- **A named word's filter can be raced on a real boot.** The prompt's `fs_nameset_caretaker`
+  forwards through the file service's one shared frame, which the shell also writes while it drains
+  a redirected job. So `std_grep needle docs > out.txt` can open a name the set never approved, if
+  a shell write lands between the caretaker's re-staging and the server's read. Reachable, not
+  observed. `notes/a-set-grant-at-the-prompt.md` has the case, and `notes/shared-page-audit.md`
+  finding 1 the mechanism, which it still calls unreachable: correcting that audit trips the prose
+  ratchet (108 bold spans, over its word baseline). Milestone 599 (a frame per
+  filesystem client channel)'s production pool closes it.
 - A word grant holds at most eight names, the name-set page's ceiling; a ninth is refused.
 - **A pipeline with a `std` program at its head strands that program's region until reboot.**
   The job pool is a stack: a region's pages go back only when it is the most recent carve
@@ -190,7 +198,14 @@ the planner's grant and the note's round trip.
   refused block, in `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md`.
 - **Decision.** Environment variables and exit codes for a foreign program, which §170 leaves open
   in `design/decisions/170-how-a-foreign-program-is-told-what-to-do.md`.
-- **Recorded.** The `--mem` and `xargs` gaps. Also a `std` pipeline head stranding its region, the 256 KiB image ceiling that
+- **Recorded.** The `--mem` and `xargs` gaps, in this block's `BUGS` above
+  (`design/roadmap/205-foreign-program-arguments.md`).
+- **Milestone 599.** A frame per filesystem client channel, whose production pool closes the race
+  in the nameset grant recorded in `BUGS` above.
+- **Recorded.** `notes/shared-page-audit.md` finding 1 still says the window is unreachable. This
+  block's `BUGS` says why it is not corrected there
+  (`design/roadmap/205-foreign-program-arguments.md`). Touching that audit trips the prose ratchet,
+  which needs an 82-span rewrite or an exception only calef can grant. Also a `std` pipeline head stranding its region, the 256 KiB image ceiling that
   keeps `rg` from running by path, and the scratch-page cost. All are in this block's `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
 
