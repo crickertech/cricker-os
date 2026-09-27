@@ -37,6 +37,8 @@ format: changing it is a new version word.
 56 bytes. `crates/manifest_note` is the only definition (AGENTS.md rule 7), with `encode` and
 `decode`; its module documentation has the same table.
 
+Amended in place on 2026-09-27 (UTC) on calef's ruling, before anything outside the tree had acted on version 1. `arg` also takes `2`, "words", for milestone 205 (how a foreign program is told what to do); the module's table is current.
+
 | offset | size | field | values |
 |---|---|---|---|
 | 0 | 4 | version | `1` |

@@ -30,7 +30,7 @@
 //! | offset | size | field | values |
 //! |---|---|---|---|
 //! | 0 | 4 | version | `1` |
-//! | 4 | 1 | `arg` | 0 forbidden, 1 required, 2 words (milestone 205, provisional) |
+//! | 4 | 1 | `arg` | 0 forbidden, 1 required, 2 words (the line is the argv, milestone 205) |
 //! | 5 | 1 | `mem` | 0 forbidden, 1 required |
 //! | 6 | 1 | `file` | 0 forbidden, 1 read-only, 2 read-write |
 //! | 7 | 1 | `dir` | 0 forbidden, 1 required |
@@ -59,6 +59,12 @@
 //! (`verification::a_decoded_manifest_encodes_back_to_its_bytes`), so there is no second spelling
 //! for one of them to read differently. A later version is a new version word, not a tolerated
 //! extension of this one.
+//!
+//! **Version 1 was amended once, in place**, on 2026-09-27 (UTC): the `arg` field gained `2` for
+//! milestone 205 (how a foreign program is told what to do)'s `ArgSpec::Words`, with no version
+//! bump, on calef's ruling ("I think an incompatible change is probably fine. It has just been a
+//! few hours."). Nothing outside this tree had acted on version 1 by then. The rule above holds
+//! from here on.
 //!
 //! # EXAMPLES
 //!
@@ -194,10 +200,9 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
     out[ARG] = match m.arg {
         ArgSpec::Forbidden => 0,
         ArgSpec::Required => 1,
-        // **Added by milestone 205 (how a foreign program is told what to do), provisionally**: a
-        // program whose line is its argv (§170 (how a foreign program is told what to do)). An
-        // additive value in a ratified encoding, so a reader that predates it refuses the note
-        // (`BadField(ARG)`) rather than misreading it; whether that wants a version bump is calef's.
+        // A program whose line is its argv (milestone 205 (how a foreign program is told what to
+        // do), §170 (how a foreign program is told what to do)). Added to version 1 in place on 2026-09-27; see the module's "one encoding"
+        // paragraph for calef's ruling.
         ArgSpec::Words => 2,
     };
     if let MemSpec::Required { min, max } = m.mem {
