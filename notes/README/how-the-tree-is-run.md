@@ -21,6 +21,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Counted claims](../counted-claims.md): numbers in prose that a gate re-derives. Name provisional.
 - [The register of measures](../register-of-measures.md): the numbers this kernel holds itself to. Name provisional.
 - [Project metrics: what moved, week by week](../project-metrics.md): weekly charts of the project's measures, from git history. Script and data names provisional.
+- [How stable the interface is](../interface-stability.md): what the interface is, the weekly counts of what broke and what grew, the proposed threshold, and what the counts cannot see. Names provisional.
 - [The violation ledger](../rule-violations.md): counting how often each written rule is broken. Name provisional.
 - [Load-sensitive assertions](../load-sensitive-assertions.md): the register of assertions that fail under host load, how to fix one, and each site's status. Appendix names provisional.
 - [The CI log baseline](../ci-log-baseline.md): which check failed each CI job, from expiring logs. Names provisional.

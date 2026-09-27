@@ -85,8 +85,10 @@ something derived beside it, so the two cannot drift apart.
 refreshes a pull request if anything changed, following `toolchain-bump.yml`, the closest existing
 shape.
 
-Coverage stays weekly, taken on Monday only. It is the one column that needs a build, and a daily
-build would be seven `script/coverage` runs for a column nobody reads more than once a week. So
+Coverage stays weekly, taken on Monday only. It needs a build, and a daily build would be seven
+`script/coverage` runs for a column nobody reads more than once a week. (The interface series,
+milestone 610 (the interface's stability is measured weekly), also builds, with `cargo doc`, and
+runs daily because two week-end trees cost seconds; its cells are carried the same way.) So
 `script/metrics` carries the cell forward on the other days rather than recomputing it. The row is
 keyed by ISO week regardless: the daily runs update the current week's row in place and add no
 rows between Mondays.

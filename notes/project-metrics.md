@@ -40,6 +40,7 @@ not a caption, it is a register entry.
 - [The prose budget](#the-prose-budget)
 - [The bold backlog](#the-bold-backlog)
 - [Benchmark drift since a fixed anchor](#benchmark-drift-since-a-fixed-anchor)
+- [Interface stability](#interface-stability)
 <!-- /toc -->
 
 ## Read this before you read a number
@@ -241,16 +242,25 @@ report](project-metrics/baseline-drift.md).
 2026W39: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.91%, x86_64 `spawn_reap` +8.09%; 15 rows past 5%.
 <!-- /baseline-drift -->
 
+## Interface stability
+
+![Breaking changes to the interface](project-metrics/interface-stability.svg)
+
+Public items removed or changed each week: [definitions](interface-stability.md),
+[per crate](project-metrics/interface-stability.md).
+
+<!-- interface-stability: script/metrics writes this -->
+interface, 2026W36 to 2026W39: 121 breaking changes (449 additions); 2 syscall numbers changed, 0 format bumps; 71% co-change.
+<!-- /interface-stability -->
+
 ## How it stays current
 
-`script/metrics --update` recomputes the current week's row and redraws the charts, and
-`.github/workflows/metrics.yml` runs it daily and opens or refreshes a pull request if anything
-changed. Coverage is taken on Mondays (UTC) only, because it is the one column that needs a build. The cost
-columns cannot be produced by any workflow, because they are read from session records that live on
-one laptop and never in git; `script/effort --snapshot` and `script/cadence-check` stand behind
-them, and neither invents a number for a week nobody captured. [How the series stays
+`.github/workflows/metrics.yml` runs `script/metrics --update` daily and opens or refreshes a pull
+request if anything changed. Two columns need a build: coverage, taken on Mondays (UTC), and the
+interface series, from `helpers/interface_stability.py`. The cost columns come from session records
+on one laptop, never from a workflow. [How the series stays
 current](register-of-measures/reading-the-weekly-series.md#how-the-series-stays-current) has the
-rest: the snapshot's `launchd` shape, why the file is idempotent, and which commit represents a week.
+rest.
 
 ## BUGS
 

@@ -165,6 +165,7 @@ from datetime import date, datetime, timedelta, timezone
 sys.dont_write_bytecode = True
 sys.path.insert(0, 'helpers')
 import baseline_drift                                                       # noqa: E402
+import interface_stability                                                  # noqa: E402
 import name_provenance                                                      # noqa: E402
 import prose_ratchet                                                        # noqa: E402
 import roadmap_block                                                        # noqa: E402
@@ -341,6 +342,11 @@ MEASURES = [
     # (must an icount baseline save record why it moved). See DRIFT_BEGIN below. File and column names provisional (that lane's).
     ('baseline-drift', [prefix + arch for arch in baseline_drift.ARCHES
                         for prefix in ('baseline_drift_max_pct_', 'baseline_drift_rows_over_5pct_')]),
+    # Milestone 610 (provisional): the interface's stability. `helpers/interface_stability.py`
+    # writes these cells, because they need `cargo doc`, which nothing in this script may run; this
+    # script only carries them (INTERFACE_FIELDS below) and draws them. File and column names
+    # provisional (that lane's, 2026-09-26).
+    ('interface-stability', interface_stability.FIELDS),
     # Milestone 519's cost columns. Three units on purpose, and no fourth column adding them up:
     # person-weeks for the comparison against the verification literature, tokens with a dated
     # price for the argument about the method, cash for calef's own budgeting. 519 refuses a single
@@ -383,6 +389,12 @@ def measure_path(name):
 # being true). Carrying it is what makes that correction survive: a hand-edited 0.4 for a week he
 # was away stays 0.4 through every later backfill, and nothing has to remember it was edited.
 CARRIED_FIELDS = ('coverage_lines_pct', 'coverage_min_file_pct', 'human_person_weeks')
+
+# Milestone 610's columns are carried for coverage's reason: they come from a build this script is
+# not allowed to run, so the only copy is the cell `helpers/interface_stability.py` wrote. A
+# `--backfill` here would otherwise erase the series it cannot restate.
+INTERFACE_FIELDS = tuple(interface_stability.FIELDS)
+CARRIED_FIELDS = CARRIED_FIELDS + INTERFACE_FIELDS
 
 # calef's standing datum, applied to a week that has no cell yet. See CARRIED_FIELDS.
 DEFAULT_PERSON_WEEKS = '1.0'
@@ -1289,6 +1301,51 @@ DRIFT_END = '<!-- /baseline-drift -->'
 DRIFT_REPORT = DATA_DIR / 'baseline-drift.md'
 
 
+# Milestone 610's generated line, the headline calef asked for, between these two markers. Four
+# weeks because one week is noise at this rate (2026W37 read 6 and 2026W38 read 47) and a month is
+# what a consumer of the interface would plan around.
+INTERFACE_BEGIN = '<!-- interface-stability: script/metrics writes this -->'
+INTERFACE_END = '<!-- /interface-stability -->'
+
+
+def interface_line(rows):
+    measured = [w for w in sorted(rows) if rows[w].get('interface_breaking', '') not in ('', None)]
+    if not measured:
+        return None
+    recent = measured[-4:]
+
+    def total(field):
+        return sum(int(rows[w].get(field) or 0) for w in recent)
+
+    commits = total('interface_contract_commits')
+    crossing = total('interface_contract_commits_crossing')
+    share = '; %d%% co-change' % round(100.0 * crossing / commits) if commits else ''
+    unmeasured = max(int(rows[w].get('interface_crates_unmeasured') or 0) for w in recent)
+    gap = '; %d crates unread' % unmeasured if unmeasured else ''
+    # Short on purpose: the page is a deck with a 3,000-word budget and 7 words of headroom when
+    # this panel arrived. Every column is in the CSV and the appendix.
+    return ('interface, %s to %s: %d breaking changes (%d additions); %d syscall numbers changed, '
+            '%d format bumps%s%s.'
+            % (recent[0], recent[-1], total('interface_breaking'), total('interface_additions'),
+               total('interface_syscall_changed'), total('interface_format_bumps'), share, gap))
+
+
+def write_interface_line(rows):
+    path = pathlib.Path(PAGE)
+    text = path.read_text()
+    if text.count(INTERFACE_BEGIN) != 1 or text.count(INTERFACE_END) != 1:
+        raise SystemExit('metrics: %s must carry exactly one %r and one %r'
+                         % (PAGE, INTERFACE_BEGIN, INTERFACE_END))
+    line = interface_line(rows)
+    if line is None:
+        return
+    before, rest = text.split(INTERFACE_BEGIN)
+    _old, after = rest.split(INTERFACE_END)
+    new = before + INTERFACE_BEGIN + '\n' + line + '\n' + INTERFACE_END + after
+    if new != text:
+        path.write_text(new)
+
+
 def write_drift_report():
     """The page's generated drift line and the appendix beside it, both from HEAD."""
     reports, stamp = baseline_drift.report('HEAD')
@@ -2002,6 +2059,12 @@ CHARTS = [
      'the tripwire is 10% per save, so this is what it cannot see',
      [(arch, 'baseline_drift_rows_over_5pct_' + arch) for arch in baseline_drift.ARCHES],
      1.0, None, 'baseline_drift_rows_over_5pct_aarch64'),
+    # Milestone 610 (provisional). Breaking changes only: a week's additions run to hundreds and
+    # would flatten the bars that matter, so they are on the generated line and in the CSV.
+    ('interface-stability.svg', 'Breaking changes to the interface',
+     'public items removed or changed in the contract and std ABI crates, a crate rename counted '
+     'once; rustdoc JSON, week against week',
+     [('breaking changes', 'interface_breaking')], 1.0, None, 'interface_breaking'),
 ]
 
 
@@ -2127,6 +2190,7 @@ def write_page_toc():
 # from 8 to 49 to 13 in three weeks cannot be read for direction by eye. It is drawn and never stored, like the fatal-risks chart's unclassified band:
 # it is arithmetic over a column already in the CSV, and a stored copy could disagree with it.
 TRENDS = {'velocity.svg': ('milestones_built_this_week', 10),
+          'interface-stability.svg': ('interface_breaking', 4),
           'pull-requests.svg': ('merged_pull_requests', 10)}
 
 
@@ -2149,6 +2213,7 @@ def draw_charts(rows):
     write_page_toc()
     write_bold_status(rows)
     write_drift_report()
+    write_interface_line(rows)
     retire = bold_retire_line(rows)
     if retire:
         print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
@@ -2291,6 +2356,7 @@ def main(argv):
                              fresh or held.get('coverage_lines_pct', ''),
                              held.get('human_person_weeks', ''),
                              fresh_min or held.get('coverage_min_file_pct', ''))
+        rows[week].update({f: held[f] for f in INTERFACE_FIELDS if held.get(f, '') != ''})
 
     # Derived last, from HEAD and from the committed cost records, for every week at once: see
     # `fill_derived`. It runs before `--check` compares, so a stale cell is a failure there rather

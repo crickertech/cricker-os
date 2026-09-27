@@ -2885,6 +2885,11 @@ python3 helpers/prose_ratchet.py --check
 # the weekly drift report is a record other people quote, so its sums are checked where a change to
 # them lands rather than on the morning the workflow publishes them.
 python3 helpers/baseline_drift.py --selftest >/dev/null
+# Milestone 610 (provisional): the interface stability series' classification (what is breaking,
+# what is an addition, what is a syscall or a format event, what counts as co-change), against
+# fixtures, with no git and no cargo. The weekly workflow is the only thing that runs the real
+# measurement, so a change to these rules is checked here, where it lands.
+python3 helpers/interface_stability.py --selftest >/dev/null
 
 # §88 (`needs-architect` as a required check, rather than as a script's restraint)'s diff-reading
 # half (.github/workflows/architect-label.yml, the general case of

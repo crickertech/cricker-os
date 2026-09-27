@@ -177,6 +177,7 @@ time.
 | coverage, and the lowest-covered file | the workspace aggregate, and the per-file minimum the floor acts on | [proofs and coverage](register-of-measures/code-proofs-and-coverage.md) |
 | the prose budget | words over the 3,000-word cap, and documents over it | [prose budget](register-of-measures/prose-budget.md) |
 | benchmark drift | icount rows more than 5% above a fixed anchor, per architecture; a report, not a gate | [the drift report](project-metrics/baseline-drift.md), generated |
+| interface stability | public items of the contract and std ABI crates removed or changed, and added; syscall renumbers and renames, format bumps and amendments, co-change | [how stable the interface is](interface-stability.md) |
 
 ## EXAMPLES
 
