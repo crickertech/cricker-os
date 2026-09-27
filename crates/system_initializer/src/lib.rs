@@ -1713,16 +1713,14 @@ pub fn boot(
         let care = care_elf.as_ref()?;
         let (lo, hi) = filesystem_protocol::grant::pack_name(sd.name.as_bytes());
         let spec = filesystem_protocol::grant::spec(sd.name.len(), sd.rights);
-        build_caretaker(
-            ut,
-            region,
-            care,
-            Fs {
-                ep: g.fs_ep,
-                page: g.fs_page,
-            },
-            (lo, hi, spec),
-        )
+        // Window 0's page, sliced out of the pool for the build and dropped after (milestone 599).
+        let zero = window_zero(Fs {
+            ep: g.fs_ep,
+            page: g.fs_page,
+        })?;
+        let built = build_caretaker(ut, region, care, zero, (lo, hi, spec));
+        cap_delete(zero.page);
+        built
     });
 
     // Slot 4 is the filesystem when this boot has one, which is the whole of what `>` and `<` need
@@ -1764,10 +1762,20 @@ pub fn boot(
     n_maps += 1;
     sh_maps[n_maps] = (LINE_VA, term_in, abi::address_space::MAP_RO); // completed lines
     n_maps += 1;
-    if with_fs {
-        sh_caps[n_caps] = (g.fs_ep, abi::rights::WRITE);
+    // **Window 0, not the pool** (milestone 599): the kernel's slot 6 names every client window
+    // as one run, so the shell maps a one-page slice of window 0, deleted once it is built.
+    let sh_window = if with_fs {
+        window_zero(Fs {
+            ep: g.fs_ep,
+            page: g.fs_page,
+        })
+    } else {
+        None
+    };
+    if let Some(zero) = sh_window {
+        sh_caps[n_caps] = (zero.ep, abi::rights::WRITE);
         n_caps += 1;
-        sh_maps[n_maps] = (SH_FS_VA, g.fs_page, abi::address_space::MAP_RW);
+        sh_maps[n_maps] = (SH_FS_VA, zero.page, abi::address_space::MAP_RW);
         n_maps += 1;
     }
     if let Some(ep) = second_dir_ep {
@@ -1808,6 +1816,9 @@ pub fn boot(
         },
     ));
     cap_delete(sh_budget); // our copy; the shell holds its own now
+    if let Some(zero) = sh_window {
+        cap_delete(zero.page); // the slice was only the means; the shell holds the mapping
+    }
     // `READ` and no `GRANT`, the clock's rights for the clock's reason: the shell can read the
     // configuration and can hand it to nothing it spawns, so which children see it is still decided
     // by their manifests. Placed before the shell starts, which is what makes its `_start` probe of
@@ -2021,7 +2032,13 @@ pub fn boot(
 
                 let idp_report = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
                 let idp_program = idp_elf.as_ref().expect("have_login_stack checked this");
-                let idp_child = must(build_child(
+                // **Window 0's page, mapped after the build rather than during it** (milestone
+                // 599). This is the table's peak (the login block), and a slice held across the
+                // build would be a twenty-fifth slot. So the space is built with the two pages the
+                // provisioner shares with this process, `req_frame` goes (its mapping stays, here
+                // and in the child), and only then is window 0 sliced, mapped and dropped: the
+                // slice spends the slot `req_frame` gave back.
+                let (idp_child, idp_aspace) = must(supervision_protocol::build_child_space(
                     ut,
                     ut,
                     idp_program,
@@ -2034,11 +2051,29 @@ pub fn boot(
                         maps: &[
                             (IDP_REQ_VA, req_frame, abi::address_space::MAP_RW),
                             (IDP_PROV_VA, prov_page, abi::address_space::MAP_RW),
-                            (IDP_FS_VA, g.fs_page, abi::address_space::MAP_RW),
                         ],
                         stack_pages: CHILD_STACK_PAGES,
                         ..ChildEndowment::new(Retention::Nothing)
                     },
+                ));
+                cap_delete(req_frame);
+                let idp_page = must(window_page(g.fs_page, 0).ok_or(()));
+                // SAFETY: the syscall; the kernel validates both capabilities and the address.
+                let mapped = unsafe {
+                    invoke(
+                        idp_aspace,
+                        abi::address_space::MAP_INTO,
+                        IDP_FS_VA,
+                        idp_page,
+                        abi::address_space::MAP_RW,
+                    )
+                } == 0;
+                cap_delete(idp_page);
+                must(mapped.then_some(()).ok_or(()));
+                must(supervision_protocol::configure_child(
+                    idp_child.tcb,
+                    idp_aspace,
+                    idp_program.entry(),
                 ));
                 must_ok(start_child(
                     idp_child,
@@ -2046,7 +2081,6 @@ pub fn boot(
                     login_password.len() as u64,
                     0,
                 ));
-                cap_delete(req_frame);
 
                 let (idp_code, _, _) = recv(idp_report);
                 cap_delete(idp_report);
@@ -2123,6 +2157,11 @@ pub fn boot(
                 let login_result = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
                 let login_ut = must(memory_region_split(ut, LOGIN_CONSTRUCTION_PAGES));
                 let login_program = login_elf.as_ref().expect("have_login_stack checked this");
+                // **Window 0's page, never the pool** (milestone 599). Login maps what it is handed
+                // into every session caretaker whole, so the pool here would be every client's
+                // window in every session. A transient slot during the login block, which is where
+                // this table's peak is: `script/swish-check` is what confirms it still fits.
+                let login_page = must(window_page(g.fs_page, 0).ok_or(()));
                 let login_child = must(build_child(
                     ut,
                     ut,
@@ -2143,7 +2182,7 @@ pub fn boot(
                             // for `login` refused this exact `SEND_CAP` when it asked for `READ`
                             // too, in total silence, the same way every other capacity mismatch in
                             // this function has.
-                            (g.fs_page, abi::rights::WRITE | abi::rights::GRANT),
+                            (login_page, abi::rights::WRITE | abi::rights::GRANT),
                             (login_ut, abi::rights::WRITE | abi::rights::GRANT),
                             (audit, abi::rights::WRITE),
                             (term_ep, abi::rights::WRITE | abi::rights::GRANT),
@@ -2191,6 +2230,7 @@ pub fn boot(
                     0,
                 ));
                 // login holds its own copies now; ours were only ever the means of wiring.
+                cap_delete(login_page);
                 cap_delete(login_request);
                 cap_delete(login_result);
                 cap_delete(verify);
@@ -2582,6 +2622,8 @@ fn spawn_service(
     } = c;
     // Whether the file page is mapped here yet, for the activation set (first image request).
     let mut fs_mapped = false;
+    // The next directory-granted job's window (milestone 599).
+    let mut windows = Windows::new();
     loop {
         let (w0, w1, w2) = recv(spawn_ep);
         // **An edit to the activation set, not a spawn** (milestone 198 rung 3a's installer). Asked
@@ -2865,10 +2907,19 @@ fn spawn_service(
             // the endpoint this returns. `None` means either that this is not a directory grant or
             // that the delivery failed, and `dir_failed` below is what keeps those apart: a grant
             // that could not be delivered must **not** spawn the program anyway.
+            // **The job's own window** (milestone 599): a page of it and the endpoint badged with
+            // it, which the caretaker calls with and both the caretaker and the job map. `None`
+            // for a job with no directory grant, and for a grant whose channel the kernel refused,
+            // which `narrowed` then turns into a refused spawn below.
+            let channel = if wiring.dir {
+                fs.and_then(|f| job_channel(f, &mut windows, own_ut, &mut fs_mapped))
+            } else {
+                None
+            };
             let narrowed = if wiring.dir {
-                match (region, fs, care_elf.as_ref(), grant) {
-                    (Some(r), Some(fs), Some(care), Some((care_words, _))) => {
-                        build_caretaker(own_ut, r, care, fs, care_words)
+                match (region, channel, care_elf.as_ref(), grant) {
+                    (Some(r), Some(ch), Some(care), Some((care_words, _))) => {
+                        build_caretaker(own_ut, r, care, ch, care_words)
                     }
                     _ => None,
                 }
@@ -3028,7 +3079,7 @@ fn spawn_service(
             // is parked inside its own call for the whole time the caretaker is using it.
             let dir_map = [(
                 FS_CLIENT_PAGE_VA,
-                fs.map_or(0, |f| f.page),
+                channel.map_or(0, |f| f.page),
                 abi::address_space::MAP_RW,
             )];
             // The region's own comment lives at the split above, which milestone 31 phase 3 moved
@@ -3071,7 +3122,7 @@ fn spawn_service(
                 (true, Some(r)) => Some(StdLayout::new(
                     r,
                     out,
-                    narrowed.map(|ep| (ep, fs.map_or(0, |f| f.page))),
+                    narrowed.map(|ep| (ep, channel.map_or(0, |f| f.page))),
                     wants_clock.then_some(clock_page),
                     wants_config.then_some(config_page),
                     entropy.filter(|_| wants_entropy),
@@ -3162,6 +3213,12 @@ fn spawn_service(
             // failed spawn does not cost this capability table a slot for the rest of the boot.
             if let Some(dir_ep) = narrowed {
                 cap_delete(dir_ep);
+            }
+            // The window's page and badged endpoint were only the means too: the caretaker and the
+            // job each hold their own mapping and copy (milestone 599).
+            if let Some(ch) = channel {
+                cap_delete(ch.page);
+                cap_delete(ch.ep);
             }
             // The child holds its own copy of the argv page's capability; ours was only the means.
             if let Some(page) = args_page {
@@ -3953,13 +4010,108 @@ use filesystem_protocol::{dir, fs as fs_op};
 /// One page, the unit the file service trades bytes in, and the most a generation may hold.
 const PAGE_BYTES: usize = spawnproto::IMAGE_PAGE as usize;
 
+// -------------------------------------------------------------------------------------------
+// The file service's client windows (milestone 599 (a frame per filesystem client channel),
+// calef's ruling of 2026-09-27, option 4 of notes/a-frame-per-filesystem-client-channel.md).
+// -------------------------------------------------------------------------------------------
+
+/// **One page of window `w` of the file service's pool**, as a capability in a fresh slot, or
+/// `None` if the kernel refused. The progenitor's `fs_page` names every window as one run (the
+/// kernel grants it that way at slot 6), so it can never be mapped into a client as it is: that
+/// would hand the client every other client's channel, the bug the pool exists to fix. What a
+/// client maps is a slice, made here, mapped with `MAP_INTO`, and deleted by the caller as soon as
+/// the build is done. One page, not the window's sixteen, because a client of this contract maps
+/// one page (`filesystem_protocol::fs::TRANSFER_PAGES` says a client maps what it uses).
+fn window_page(pool: u64, w: u64) -> Option<u64> {
+    let first = w * fs_op::TRANSFER_PAGES as u64;
+    // SAFETY: the syscall; the kernel validates the capability, the range and the right.
+    let slot = unsafe { invoke(pool, abi::page_frame::SLICE, first, 1, 0) };
+    (slot >= 0).then_some(slot as u64)
+}
+
+/// **The file service's endpoint badged with `w`**, which is how the server knows which window
+/// a request's bytes are in (§230 (badged endpoint capabilities)). `None` if the kernel refused.
+fn window_endpoint(ep: u64, w: u64) -> Option<u64> {
+    // SAFETY: as [`window_page`].
+    let slot = unsafe { invoke(ep, abi::rendezvous::BADGE, w, 0, 0) };
+    (slot >= 0).then_some(slot as u64)
+}
+
+/// **Window 0, the default channel**: the unbadged endpoint and one page of the first window. For
+/// the long-lived clients the boot builds once (the shell, `login`, the identity provisioner),
+/// which have always shared it with each other and with this process's own activation calls. The
+/// page is a fresh slice the caller deletes; the endpoint is the progenitor's own, not a copy.
+fn window_zero(fs: Fs) -> Option<Fs> {
+    Some(Fs {
+        ep: fs.ep,
+        page: window_page(fs.page, 0)?,
+    })
+}
+
+/// **Which window the next directory-granted job gets.** Windows `1..CLIENT_WINDOWS`, handed out
+/// round robin; window 0 is the boot's long-lived clients' (see [`window_zero`]).
+///
+/// # BUGS
+///
+/// - **A window is reused after `CLIENT_WINDOWS - 1` more granted jobs, whether or not its last
+///   holder has exited.** The progenitor is not told when a job dies (`job_undertaker` reaps, and
+///   nothing reports back here), so it cannot know which windows are free. With seven windows, an
+///   eighth directory-granted job running at once shares a window with the oldest, and those two
+///   are back in the shared-channel race this pool exists to close. A release at reap needs the
+///   undertaker to report the death to this process, which is a channel that does not exist.
+struct Windows {
+    next: u64,
+}
+
+impl Windows {
+    const fn new() -> Self {
+        Self { next: 1 }
+    }
+
+    fn take(&mut self) -> u64 {
+        let w = self.next;
+        self.next = if w + 1 < fs_op::CLIENT_WINDOWS as u64 {
+            w + 1
+        } else {
+            1
+        };
+        w
+    }
+}
+
+/// **A channel of its own for one job behind a directory grant**: the next window's page and the
+/// endpoint badged with it, both fresh slots the caller deletes once the job and its caretaker are
+/// built. The window's first page is zeroed first, through this process's own mapping of the pool
+/// (made once, [`FsCalls::map`]), so nothing the window's last job left there is visible to the
+/// next: the same "no stale RAM across a share" rule the kernel's own pool follows.
+fn job_channel(fs: Fs, windows: &mut Windows, own_ut: u64, mapped: &mut bool) -> Option<Fs> {
+    FsCalls::map(Some(fs), own_ut, mapped)?;
+    let w = windows.take();
+    // SAFETY: the pool is mapped read/write at ACTIVATION_FS_VA (`FsCalls::map`, whole run), and
+    // window `w`'s first page lies inside it; no client is using window `w` between two jobs.
+    unsafe {
+        core::ptr::write_bytes(
+            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            0,
+            PAGE_BYTES,
+        );
+    }
+    let page = window_page(fs.page, w)?;
+    let Some(ep) = window_endpoint(fs.ep, w) else {
+        cap_delete(page);
+        return None;
+    };
+    Some(Fs { ep, page })
+}
+
 /// **The progenitor's calls on the file service**, through the page it maps at
 /// [`ACTIVATION_FS_VA`]. Shared by [`vouched`], which reads the activation set, and [`activate`],
 /// which writes it (milestone 198 rung 3a).
 ///
-/// The page is the one the shell and every caretaker share with the server. That is sound for the
-/// reason `build_caretaker` gives: the shell is parked in its `RECV` on the result endpoint for the
-/// whole of a spawn or an activation, so nothing else is mid-request on it.
+/// What is mapped there is the whole client-window pool (milestone 599), and these calls use its
+/// first page, window 0, the one the shell shares. That is sound for the reason `build_caretaker`
+/// gives: the shell is parked in its `RECV` on the result endpoint for the whole of a spawn or an
+/// activation, so nothing else is mid-request on it. A job's caretaker has its own window now.
 struct FsCalls {
     ep: u64,
 }

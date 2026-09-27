@@ -1008,6 +1008,28 @@ pub mod page_frame {
     /// down and endowing its replacement, and the asymmetry is forced: the kernel mints a device
     /// capability once, at boot, so a symmetric revoke would strand the device forever.
     pub const REVOKE: u64 = 1;
+
+    /// `invoke(cap, SLICE, first, count, _)` -> the slot the new capability landed in, or a
+    /// negative [`crate::Error`]. The slot comes back in x0, the way [`super::rendezvous::BADGE`]
+    /// answers.
+    ///
+    /// **Derive a capability naming a sub-run of this one** (milestone 599 (a frame per filesystem
+    /// client channel), calef's ruling of 2026-09-27 on option 4; name and number provisional): the
+    /// `count` pages starting `first` pages into this capability's run, with this capability's
+    /// rights. It is how one holder of a pool hands a client exactly its window: slice window `w`,
+    /// `MAP_INTO` the client, delete the slice. §102 (a Frame names a run of pages) anticipated the
+    /// shape, "two capabilities: `Frame(phys, 401)` and `Frame(phys + 401 * 4096, 74)`"; this is the
+    /// method that makes the second from the first.
+    ///
+    /// - Needs `GRANT`. A slice is a new object as far as `REVOKE` is concerned: under §132
+    ///   (what `PageFrame::REVOKE` owes an overlapping run) revocation is scoped to the exact run, so
+    ///   revoking the source does not reach a slice. Minting a capability its source's revocation
+    ///   cannot reach is a delegation-class power, the same argument `BADGE` makes.
+    /// - Never wider: a slice names pages inside the source's run and carries the source's rights,
+    ///   which the holder narrows further as ever when it delegates.
+    /// - [`crate::Error::BadPointer`] for `count` of 0 or a range past the run's end: those pages are
+    ///   not memory the holder could have named.
+    pub const SLICE: u64 = 2;
 }
 
 /// Methods on a `PortRange` capability (milestone 299). **A range of x86 I/O ports a driver holds.**

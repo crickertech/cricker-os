@@ -28,21 +28,12 @@
 //!
 //! # BUGS
 //!
-//! **The real boot's progenitor still maps window 0 into every client it wires, so its clients
-//! share one window** (milestone 599 (a frame per filesystem client channel), the remaining piece). The server now keeps a window per
-//! client and reads window `badge` for each request (finding 1 of `notes/shared-page-audit.md` is
-//! closed *at this server*: a client wired with its own window and a badged endpoint is isolated,
-//! which `system_tests/src/user/fs_shared_page_tests.rs` proves with two live clients). But that per-window
-//! wiring lives in the kernel test harness (`fs_service`) so far. The production progenitor
-//! (`crates/system_initializer`) hands `BootEndowment::fs_page`, window 0, to the shell and every
-//! caretaker, so on a real boot they still share window 0 and the substitution finding 1 describes
-//! is still reachable the day two of them run at once (the set grant at the prompt). Closing it
-//! needs the progenitor to hand each client its own window and a badged endpoint, which has a design
-//! question of its own: the progenitor cannot hold a frame capability per window without blowing its
-//! 24-slot table (DECISIONS §102 (a Frame names a run of pages)), so it must address windows some other way. Until that lands,
-//! nothing in a boot path runs two FS clients concurrently, which is the property that keeps this
-//! from being live. See the milestone 599 block's Outstanding bullet and
-//! `notes/a-frame-per-filesystem-client-channel.md`.
+//! **Window 0 is still shared by the boot's long-lived clients** (milestone 599 (a frame per
+//! filesystem client channel)). A job behind a directory grant gets a window of its own from the
+//! progenitor's pool, and the server reads window `badge` for each request. The shell, `login`,
+//! the identity provisioner and the progenitor's own activation calls all use window 0, and are
+//! kept apart by being blocked, not by mapping: the progenitor calls only while the shell waits on
+//! it, and nothing connects to `login` in the shipped boot. See `notes/page-frame-slice.md`.
 
 #![no_std]
 #![no_main]

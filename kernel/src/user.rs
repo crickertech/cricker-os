@@ -2207,7 +2207,16 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
             assert_eq!(s5, 5);
             let s6 = crate::sched::thread_control_block_insert_cap(
                 tid,
-                crate::cap::page_frame_cap(file_shared, Rights::WRITE.union(Rights::GRANT)),
+                // **The whole client-window pool, one run** (milestone 599 (a frame per filesystem
+                // client channel), calef's option-4 ruling of 2026-09-27): every window, in the
+                // slot that held window 0's page. The progenitor never maps it into a client; it
+                // slices one window per client with `abi::page_frame::SLICE` and deletes the slice
+                // once the client is built.
+                crate::cap::page_frame_run_cap(
+                    file_shared,
+                    crate::cap::page_frame_run_len(fs_service::FILE_POOL_PAGES),
+                    Rights::WRITE.union(Rights::GRANT),
+                ),
                 Some(6),
             )
             .expect("insert the shared file page");

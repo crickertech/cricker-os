@@ -11,6 +11,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Memory regions: the kernel stops allocating](../memory-regions.md): processes spend pages from their own memory capability.
 - [A split refused for a full region table](../region-split-on-a-full-table.md): PROPOSED; why a refused split holds its parent forever, and the options.
 - [PageFrame capabilities](../frames.md): shared memory a process owns, maps and delegates.
+- [`PageFrame::SLICE`](../page-frame-slice.md): a capability naming part of a run, and the file service's window pool it serves.
 - [ASIDs: tagged address spaces](../address-space-identifiers.md): per-space TLB tags so context switches flush nothing.
 - [The RISC-V TLB shootdown](../riscv-tlb-shootdown.md): cross-hart ASID flush via SBI RFENCE, replacing full flushes.
 - [The x86_64 TLB shootdown](../x86-tlb-shootdown.md): cross-core TLB invalidation on x86, done by NMI.
