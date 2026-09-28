@@ -14,48 +14,50 @@
 <text class="mut" x="20" y="44" font-size="11">the direction is down; the ceiling is script/lint’s</text>
 <line class="grid" x1="64" y1="324.0" x2="650.0" y2="324.0" stroke-width="1"/>
 <text class="mut" x="56" y="327.0" font-size="10" text-anchor="end">0</text>
-<line class="grid" x1="64" y1="270.8" x2="650.0" y2="270.8" stroke-width="1"/>
-<text class="mut" x="56" y="273.8" font-size="10" text-anchor="end">50</text>
-<line class="grid" x1="64" y1="217.6" x2="650.0" y2="217.6" stroke-width="1"/>
-<text class="mut" x="56" y="220.6" font-size="10" text-anchor="end">100</text>
-<line class="grid" x1="64" y1="164.4" x2="650.0" y2="164.4" stroke-width="1"/>
-<text class="mut" x="56" y="167.4" font-size="10" text-anchor="end">150</text>
-<line class="grid" x1="64" y1="111.2" x2="650.0" y2="111.2" stroke-width="1"/>
-<text class="mut" x="56" y="114.2" font-size="10" text-anchor="end">200</text>
+<line class="grid" x1="64" y1="279.7" x2="650.0" y2="279.7" stroke-width="1"/>
+<text class="mut" x="56" y="282.7" font-size="10" text-anchor="end">25</text>
+<line class="grid" x1="64" y1="235.3" x2="650.0" y2="235.3" stroke-width="1"/>
+<text class="mut" x="56" y="238.3" font-size="10" text-anchor="end">50</text>
+<line class="grid" x1="64" y1="191.0" x2="650.0" y2="191.0" stroke-width="1"/>
+<text class="mut" x="56" y="194.0" font-size="10" text-anchor="end">75</text>
+<line class="grid" x1="64" y1="146.7" x2="650.0" y2="146.7" stroke-width="1"/>
+<text class="mut" x="56" y="149.7" font-size="10" text-anchor="end">100</text>
+<line class="grid" x1="64" y1="102.3" x2="650.0" y2="102.3" stroke-width="1"/>
+<text class="mut" x="56" y="105.3" font-size="10" text-anchor="end">125</text>
 <line class="grid" x1="64" y1="58.0" x2="650.0" y2="58.0" stroke-width="1"/>
-<text class="mut" x="56" y="61.0" font-size="10" text-anchor="end">250</text>
-<line x1="64" y1="230.4" x2="650.0" y2="230.4" stroke="#D55E00" stroke-width="1.5" stroke-dasharray="5 4"/>
-<text class="mut" x="656.0" y="233.4" font-size="10">ceiling 88</text>
-<path class="seg s0" d="M74.0,324.0 V69.4 Q74.0,65.4 78.0,65.4 H108.6 Q112.6,65.4 112.6,69.4 V324.0 Z"><title>2026W30, blocks per 10,000 lines: 243</title></path>
-<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W30</text>
-<text class="fg val" x="93.3" y="60.4" font-size="10" text-anchor="middle">243</text>
-<path class="seg s0" d="M132.6,324.0 V181.2 Q132.6,177.2 136.6,177.2 H167.2 Q171.2,177.2 171.2,181.2 V324.0 Z"><title>2026W31, blocks per 10,000 lines: 138</title></path>
-<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W31</text>
-<text class="fg val" x="151.9" y="172.2" font-size="10" text-anchor="middle">138</text>
-<path class="seg s0" d="M191.2,324.0 V199.3 Q191.2,195.3 195.2,195.3 H225.8 Q229.8,195.3 229.8,199.3 V324.0 Z"><title>2026W32, blocks per 10,000 lines: 121</title></path>
-<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W32</text>
-<text class="fg val" x="210.5" y="190.3" font-size="10" text-anchor="middle">121</text>
-<path class="seg s0" d="M249.8,324.0 V209.9 Q249.8,205.9 253.8,205.9 H284.4 Q288.4,205.9 288.4,209.9 V324.0 Z"><title>2026W33, blocks per 10,000 lines: 111</title></path>
-<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W33</text>
-<text class="fg val" x="269.1" y="200.9" font-size="10" text-anchor="middle">111</text>
-<path class="seg s0" d="M308.4,324.0 V229.0 Q308.4,225.0 312.4,225.0 H343.0 Q347.0,225.0 347.0,229.0 V324.0 Z"><title>2026W34, blocks per 10,000 lines: 93</title></path>
-<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W34</text>
-<text class="fg val" x="327.7" y="220.0" font-size="10" text-anchor="middle">93</text>
-<path class="seg s0" d="M367.0,324.0 V246.1 Q367.0,242.1 371.0,242.1 H401.6 Q405.6,242.1 405.6,246.1 V324.0 Z"><title>2026W35, blocks per 10,000 lines: 77</title></path>
-<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W35</text>
-<text class="fg val" x="386.3" y="237.1" font-size="10" text-anchor="middle">77</text>
-<path class="seg s0" d="M425.6,324.0 V246.1 Q425.6,242.1 429.6,242.1 H460.2 Q464.2,242.1 464.2,246.1 V324.0 Z"><title>2026W36, blocks per 10,000 lines: 77</title></path>
-<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W36</text>
-<text class="fg val" x="444.9" y="237.1" font-size="10" text-anchor="middle">77</text>
-<path class="seg s0" d="M484.2,324.0 V246.1 Q484.2,242.1 488.2,242.1 H518.8 Q522.8,242.1 522.8,246.1 V324.0 Z"><title>2026W37, blocks per 10,000 lines: 77</title></path>
-<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W37</text>
-<text class="fg val" x="503.5" y="237.1" font-size="10" text-anchor="middle">77</text>
-<path class="seg s0" d="M542.8,324.0 V248.2 Q542.8,244.2 546.8,244.2 H577.4 Q581.4,244.2 581.4,248.2 V324.0 Z"><title>2026W38, blocks per 10,000 lines: 75</title></path>
-<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W38</text>
-<text class="fg val" x="562.1" y="239.2" font-size="10" text-anchor="middle">75</text>
-<path class="seg s0" d="M601.4,324.0 V247.1 Q601.4,243.1 605.4,243.1 H636.0 Q640.0,243.1 640.0,247.1 V324.0 Z"><title>2026W39, blocks per 10,000 lines: 76</title></path>
-<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W39</text>
-<text class="fg val" x="620.7" y="238.1" font-size="10" text-anchor="middle">76</text>
+<text class="mut" x="56" y="61.0" font-size="10" text-anchor="end">150</text>
+<line x1="64" y1="167.9" x2="650.0" y2="167.9" stroke="#D55E00" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text class="mut" x="656.0" y="170.9" font-size="10">ceiling 88</text>
+<path class="seg s0" d="M74.0,324.0 V83.3 Q74.0,79.3 78.0,79.3 H108.6 Q112.6,79.3 112.6,83.3 V324.0 Z"><title>2026W31, blocks per 10,000 lines: 138</title></path>
+<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W31</text>
+<text class="fg val" x="93.3" y="74.3" font-size="10" text-anchor="middle">138</text>
+<path class="seg s0" d="M132.6,324.0 V113.4 Q132.6,109.4 136.6,109.4 H167.2 Q171.2,109.4 171.2,113.4 V324.0 Z"><title>2026W32, blocks per 10,000 lines: 121</title></path>
+<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W32</text>
+<text class="fg val" x="151.9" y="104.4" font-size="10" text-anchor="middle">121</text>
+<path class="seg s0" d="M191.2,324.0 V131.2 Q191.2,127.2 195.2,127.2 H225.8 Q229.8,127.2 229.8,131.2 V324.0 Z"><title>2026W33, blocks per 10,000 lines: 111</title></path>
+<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W33</text>
+<text class="fg val" x="210.5" y="122.2" font-size="10" text-anchor="middle">111</text>
+<path class="seg s0" d="M249.8,324.0 V163.1 Q249.8,159.1 253.8,159.1 H284.4 Q288.4,159.1 288.4,163.1 V324.0 Z"><title>2026W34, blocks per 10,000 lines: 93</title></path>
+<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W34</text>
+<text class="fg val" x="269.1" y="154.1" font-size="10" text-anchor="middle">93</text>
+<path class="seg s0" d="M308.4,324.0 V191.5 Q308.4,187.5 312.4,187.5 H343.0 Q347.0,187.5 347.0,191.5 V324.0 Z"><title>2026W35, blocks per 10,000 lines: 77</title></path>
+<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W35</text>
+<text class="fg val" x="327.7" y="182.5" font-size="10" text-anchor="middle">77</text>
+<path class="seg s0" d="M367.0,324.0 V191.5 Q367.0,187.5 371.0,187.5 H401.6 Q405.6,187.5 405.6,191.5 V324.0 Z"><title>2026W36, blocks per 10,000 lines: 77</title></path>
+<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W36</text>
+<text class="fg val" x="386.3" y="182.5" font-size="10" text-anchor="middle">77</text>
+<path class="seg s0" d="M425.6,324.0 V191.5 Q425.6,187.5 429.6,187.5 H460.2 Q464.2,187.5 464.2,191.5 V324.0 Z"><title>2026W37, blocks per 10,000 lines: 77</title></path>
+<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W37</text>
+<text class="fg val" x="444.9" y="182.5" font-size="10" text-anchor="middle">77</text>
+<path class="seg s0" d="M484.2,324.0 V195.0 Q484.2,191.0 488.2,191.0 H518.8 Q522.8,191.0 522.8,195.0 V324.0 Z"><title>2026W38, blocks per 10,000 lines: 75</title></path>
+<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W38</text>
+<text class="fg val" x="503.5" y="186.0" font-size="10" text-anchor="middle">75</text>
+<path class="seg s0" d="M542.8,324.0 V193.2 Q542.8,189.2 546.8,189.2 H577.4 Q581.4,189.2 581.4,193.2 V324.0 Z"><title>2026W39, blocks per 10,000 lines: 76</title></path>
+<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W39</text>
+<text class="fg val" x="562.1" y="184.2" font-size="10" text-anchor="middle">76</text>
+<path class="seg s0" d="M601.4,324.0 V193.2 Q601.4,189.2 605.4,189.2 H636.0 Q640.0,189.2 640.0,193.2 V324.0 Z"><title>2026W40, blocks per 10,000 lines: 76</title></path>
+<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W40</text>
+<text class="fg val" x="620.7" y="184.2" font-size="10" text-anchor="middle">76</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">blocks per 10,000</tspan><tspan x="689" dy="13">lines</tspan></text>
 </svg>

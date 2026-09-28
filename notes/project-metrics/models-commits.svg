@@ -22,67 +22,67 @@
 <text class="mut" x="56" y="127.5" font-size="10" text-anchor="end">1500</text>
 <line class="grid" x1="64" y1="58.0" x2="650.0" y2="58.0" stroke-width="1"/>
 <text class="mut" x="56" y="61.0" font-size="10" text-anchor="end">2000</text>
-<rect class="seg s4" x="74.0" y="308.6" width="38.7" height="15.4"><title>2026W30, other models: 116</title></rect>
-<rect class="seg s5" x="74.0" y="308.3" width="38.7" height="0.3"><title>2026W30, unattributed: 2</title></rect>
-<path class="seg s6" d="M74.0,308.3 V307.1 Q74.0,305.9 75.2,305.9 H111.4 Q112.6,305.9 112.6,307.1 V308.3 Z"><title>2026W30, before the convention: 18</title></path>
-<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W30</text>
-<text class="fg val" x="93.3" y="300.9" font-size="10" text-anchor="middle">136</text>
-<rect class="seg s0" x="132.6" y="278.6" width="38.7" height="45.4"><title>2026W31, Opus 5: 341</title></rect>
-<rect class="seg s3" x="132.6" y="268.7" width="38.7" height="10.0"><title>2026W31, Fable 5: 75</title></rect>
-<rect class="seg s4" x="132.6" y="256.3" width="38.7" height="12.4"><title>2026W31, other models: 93</title></rect>
-<rect class="seg s5" x="132.6" y="253.6" width="38.7" height="2.7"><title>2026W31, unattributed: 20</title></rect>
-<path class="seg s7" d="M132.6,253.6 V245.5 Q132.6,241.5 136.6,241.5 H167.2 Q171.2,241.5 171.2,245.5 V253.6 Z"><title>2026W31, merge (a pull request landing): 91</title></path>
-<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W31</text>
-<text class="fg val" x="151.9" y="236.5" font-size="10" text-anchor="middle">620</text>
-<rect class="seg s0" x="191.2" y="300.1" width="38.7" height="23.9"><title>2026W32, Opus 5: 180</title></rect>
-<rect class="seg s3" x="191.2" y="283.6" width="38.7" height="16.5"><title>2026W32, Fable 5: 124</title></rect>
-<rect class="seg s5" x="191.2" y="274.5" width="38.7" height="9.0"><title>2026W32, unattributed: 68</title></rect>
-<path class="seg s7" d="M191.2,274.5 V251.4 Q191.2,247.4 195.2,247.4 H225.8 Q229.8,247.4 229.8,251.4 V274.5 Z"><title>2026W32, merge (a pull request landing): 204</title></path>
-<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W32</text>
-<text class="fg val" x="210.5" y="242.4" font-size="10" text-anchor="middle">576</text>
-<rect class="seg s0" x="249.8" y="320.4" width="38.7" height="3.6"><title>2026W33, Opus 5: 27</title></rect>
-<rect class="seg s3" x="249.8" y="301.9" width="38.7" height="18.5"><title>2026W33, Fable 5: 139</title></rect>
-<rect class="seg s4" x="249.8" y="298.7" width="38.7" height="3.2"><title>2026W33, other models: 24</title></rect>
-<rect class="seg s5" x="249.8" y="288.5" width="38.7" height="10.2"><title>2026W33, unattributed: 77</title></rect>
-<path class="seg s7" d="M249.8,288.5 V261.8 Q249.8,257.8 253.8,257.8 H284.4 Q288.4,257.8 288.4,261.8 V288.5 Z"><title>2026W33, merge (a pull request landing): 231</title></path>
-<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W33</text>
-<text class="fg val" x="269.1" y="252.8" font-size="10" text-anchor="middle">498</text>
-<rect class="seg s0" x="308.4" y="309.8" width="38.7" height="14.2"><title>2026W34, Opus 5: 107</title></rect>
-<rect class="seg s2" x="308.4" y="306.7" width="38.7" height="3.1"><title>2026W34, Sonnet 5: 23</title></rect>
-<rect class="seg s5" x="308.4" y="267.5" width="38.7" height="39.2"><title>2026W34, unattributed: 295</title></rect>
-<path class="seg s7" d="M308.4,267.5 V238.9 Q308.4,234.9 312.4,234.9 H343.0 Q347.0,234.9 347.0,238.9 V267.5 Z"><title>2026W34, merge (a pull request landing): 245</title></path>
-<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W34</text>
-<text class="fg val" x="327.7" y="229.9" font-size="10" text-anchor="middle">670</text>
-<rect class="seg s0" x="367.0" y="320.3" width="38.7" height="3.7"><title>2026W35, Opus 5: 28</title></rect>
-<rect class="seg s2" x="367.0" y="296.7" width="38.7" height="23.5"><title>2026W35, Sonnet 5: 177</title></rect>
-<rect class="seg s5" x="367.0" y="277.2" width="38.7" height="19.6"><title>2026W35, unattributed: 147</title></rect>
-<path class="seg s7" d="M367.0,277.2 V253.7 Q367.0,249.7 371.0,249.7 H401.6 Q405.6,249.7 405.6,253.7 V277.2 Z"><title>2026W35, merge (a pull request landing): 207</title></path>
-<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W35</text>
-<text class="fg val" x="386.3" y="244.7" font-size="10" text-anchor="middle">559</text>
-<rect class="seg s0" x="425.6" y="276.1" width="38.7" height="47.9"><title>2026W36, Opus 5: 360</title></rect>
-<rect class="seg s5" x="425.6" y="262.4" width="38.7" height="13.7"><title>2026W36, unattributed: 103</title></rect>
-<path class="seg s7" d="M425.6,262.4 V229.8 Q425.6,225.8 429.6,225.8 H460.2 Q464.2,225.8 464.2,229.8 V262.4 Z"><title>2026W36, merge (a pull request landing): 275</title></path>
-<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W36</text>
-<text class="fg val" x="444.9" y="220.8" font-size="10" text-anchor="middle">738</text>
-<rect class="seg s0" x="484.2" y="305.8" width="38.7" height="18.2"><title>2026W37, Opus 5: 137</title></rect>
-<rect class="seg s5" x="484.2" y="303.7" width="38.7" height="2.1"><title>2026W37, unattributed: 16</title></rect>
-<path class="seg s7" d="M484.2,303.7 V294.5 Q484.2,290.5 488.2,290.5 H518.8 Q522.8,290.5 522.8,294.5 V303.7 Z"><title>2026W37, merge (a pull request landing): 99</title></path>
-<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W37</text>
-<text class="fg val" x="503.5" y="285.5" font-size="10" text-anchor="middle">252</text>
-<rect class="seg s0" x="542.8" y="246.6" width="38.7" height="77.4"><title>2026W38, Opus 5: 582</title></rect>
-<rect class="seg s4" x="542.8" y="242.7" width="38.7" height="3.9"><title>2026W38, other models: 29</title></rect>
-<rect class="seg s5" x="542.8" y="238.3" width="38.7" height="4.4"><title>2026W38, unattributed: 33</title></rect>
-<path class="seg s7" d="M542.8,238.3 V209.9 Q542.8,205.9 546.8,205.9 H577.4 Q581.4,205.9 581.4,209.9 V238.3 Z"><title>2026W38, merge (a pull request landing): 244</title></path>
-<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W38</text>
-<text class="fg val" x="562.1" y="200.9" font-size="10" text-anchor="middle">888</text>
-<rect class="seg s0" x="601.4" y="270.9" width="38.7" height="53.1"><title>2026W39, Opus 5: 399</title></rect>
-<rect class="seg s1" x="601.4" y="198.4" width="38.7" height="72.5"><title>2026W39, Opus 5.5: 545</title></rect>
-<rect class="seg s2" x="601.4" y="191.9" width="38.7" height="6.5"><title>2026W39, Sonnet 5: 49</title></rect>
-<rect class="seg s4" x="601.4" y="190.1" width="38.7" height="1.9"><title>2026W39, other models: 14</title></rect>
-<rect class="seg s5" x="601.4" y="166.0" width="38.7" height="24.1"><title>2026W39, unattributed: 181</title></rect>
-<path class="seg s7" d="M601.4,166.0 V122.1 Q601.4,118.1 605.4,118.1 H636.0 Q640.0,118.1 640.0,122.1 V166.0 Z"><title>2026W39, merge (a pull request landing): 360</title></path>
-<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W39</text>
-<text class="fg val" x="620.7" y="113.1" font-size="10" text-anchor="middle">1548</text>
+<rect class="seg s0" x="74.0" y="278.6" width="38.7" height="45.4"><title>2026W31, Opus 5: 341</title></rect>
+<rect class="seg s3" x="74.0" y="268.7" width="38.7" height="10.0"><title>2026W31, Fable 5: 75</title></rect>
+<rect class="seg s4" x="74.0" y="256.3" width="38.7" height="12.4"><title>2026W31, other models: 93</title></rect>
+<rect class="seg s5" x="74.0" y="253.6" width="38.7" height="2.7"><title>2026W31, unattributed: 20</title></rect>
+<path class="seg s6" d="M74.0,253.6 V245.5 Q74.0,241.5 78.0,241.5 H108.6 Q112.6,241.5 112.6,245.5 V253.6 Z"><title>2026W31, merge (a pull request landing): 91</title></path>
+<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W31</text>
+<text class="fg val" x="93.3" y="236.5" font-size="10" text-anchor="middle">620</text>
+<rect class="seg s0" x="132.6" y="300.1" width="38.7" height="23.9"><title>2026W32, Opus 5: 180</title></rect>
+<rect class="seg s3" x="132.6" y="283.6" width="38.7" height="16.5"><title>2026W32, Fable 5: 124</title></rect>
+<rect class="seg s5" x="132.6" y="274.5" width="38.7" height="9.0"><title>2026W32, unattributed: 68</title></rect>
+<path class="seg s6" d="M132.6,274.5 V251.4 Q132.6,247.4 136.6,247.4 H167.2 Q171.2,247.4 171.2,251.4 V274.5 Z"><title>2026W32, merge (a pull request landing): 204</title></path>
+<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W32</text>
+<text class="fg val" x="151.9" y="242.4" font-size="10" text-anchor="middle">576</text>
+<rect class="seg s0" x="191.2" y="320.4" width="38.7" height="3.6"><title>2026W33, Opus 5: 27</title></rect>
+<rect class="seg s3" x="191.2" y="301.9" width="38.7" height="18.5"><title>2026W33, Fable 5: 139</title></rect>
+<rect class="seg s4" x="191.2" y="298.7" width="38.7" height="3.2"><title>2026W33, other models: 24</title></rect>
+<rect class="seg s5" x="191.2" y="288.5" width="38.7" height="10.2"><title>2026W33, unattributed: 77</title></rect>
+<path class="seg s6" d="M191.2,288.5 V261.8 Q191.2,257.8 195.2,257.8 H225.8 Q229.8,257.8 229.8,261.8 V288.5 Z"><title>2026W33, merge (a pull request landing): 231</title></path>
+<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W33</text>
+<text class="fg val" x="210.5" y="252.8" font-size="10" text-anchor="middle">498</text>
+<rect class="seg s0" x="249.8" y="309.8" width="38.7" height="14.2"><title>2026W34, Opus 5: 107</title></rect>
+<rect class="seg s2" x="249.8" y="306.7" width="38.7" height="3.1"><title>2026W34, Sonnet 5: 23</title></rect>
+<rect class="seg s5" x="249.8" y="267.5" width="38.7" height="39.2"><title>2026W34, unattributed: 295</title></rect>
+<path class="seg s6" d="M249.8,267.5 V238.9 Q249.8,234.9 253.8,234.9 H284.4 Q288.4,234.9 288.4,238.9 V267.5 Z"><title>2026W34, merge (a pull request landing): 245</title></path>
+<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W34</text>
+<text class="fg val" x="269.1" y="229.9" font-size="10" text-anchor="middle">670</text>
+<rect class="seg s0" x="308.4" y="320.3" width="38.7" height="3.7"><title>2026W35, Opus 5: 28</title></rect>
+<rect class="seg s2" x="308.4" y="296.7" width="38.7" height="23.5"><title>2026W35, Sonnet 5: 177</title></rect>
+<rect class="seg s5" x="308.4" y="277.2" width="38.7" height="19.6"><title>2026W35, unattributed: 147</title></rect>
+<path class="seg s6" d="M308.4,277.2 V253.7 Q308.4,249.7 312.4,249.7 H343.0 Q347.0,249.7 347.0,253.7 V277.2 Z"><title>2026W35, merge (a pull request landing): 207</title></path>
+<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W35</text>
+<text class="fg val" x="327.7" y="244.7" font-size="10" text-anchor="middle">559</text>
+<rect class="seg s0" x="367.0" y="276.1" width="38.7" height="47.9"><title>2026W36, Opus 5: 360</title></rect>
+<rect class="seg s5" x="367.0" y="262.4" width="38.7" height="13.7"><title>2026W36, unattributed: 103</title></rect>
+<path class="seg s6" d="M367.0,262.4 V229.8 Q367.0,225.8 371.0,225.8 H401.6 Q405.6,225.8 405.6,229.8 V262.4 Z"><title>2026W36, merge (a pull request landing): 275</title></path>
+<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W36</text>
+<text class="fg val" x="386.3" y="220.8" font-size="10" text-anchor="middle">738</text>
+<rect class="seg s0" x="425.6" y="305.8" width="38.7" height="18.2"><title>2026W37, Opus 5: 137</title></rect>
+<rect class="seg s5" x="425.6" y="303.7" width="38.7" height="2.1"><title>2026W37, unattributed: 16</title></rect>
+<path class="seg s6" d="M425.6,303.7 V294.5 Q425.6,290.5 429.6,290.5 H460.2 Q464.2,290.5 464.2,294.5 V303.7 Z"><title>2026W37, merge (a pull request landing): 99</title></path>
+<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W37</text>
+<text class="fg val" x="444.9" y="285.5" font-size="10" text-anchor="middle">252</text>
+<rect class="seg s0" x="484.2" y="246.6" width="38.7" height="77.4"><title>2026W38, Opus 5: 582</title></rect>
+<rect class="seg s4" x="484.2" y="242.7" width="38.7" height="3.9"><title>2026W38, other models: 29</title></rect>
+<rect class="seg s5" x="484.2" y="238.3" width="38.7" height="4.4"><title>2026W38, unattributed: 33</title></rect>
+<path class="seg s6" d="M484.2,238.3 V209.9 Q484.2,205.9 488.2,205.9 H518.8 Q522.8,205.9 522.8,209.9 V238.3 Z"><title>2026W38, merge (a pull request landing): 244</title></path>
+<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W38</text>
+<text class="fg val" x="503.5" y="200.9" font-size="10" text-anchor="middle">888</text>
+<rect class="seg s0" x="542.8" y="270.9" width="38.7" height="53.1"><title>2026W39, Opus 5: 399</title></rect>
+<rect class="seg s1" x="542.8" y="192.3" width="38.7" height="78.6"><title>2026W39, Opus 5.5: 591</title></rect>
+<rect class="seg s2" x="542.8" y="183.3" width="38.7" height="9.0"><title>2026W39, Sonnet 5: 68</title></rect>
+<rect class="seg s4" x="542.8" y="181.4" width="38.7" height="1.9"><title>2026W39, other models: 14</title></rect>
+<rect class="seg s5" x="542.8" y="154.7" width="38.7" height="26.7"><title>2026W39, unattributed: 201</title></rect>
+<path class="seg s6" d="M542.8,154.7 V108.0 Q542.8,104.0 546.8,104.0 H577.4 Q581.4,104.0 581.4,108.0 V154.7 Z"><title>2026W39, merge (a pull request landing): 381</title></path>
+<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W39</text>
+<text class="fg val" x="562.1" y="99.0" font-size="10" text-anchor="middle">1654</text>
+<rect class="seg s2" x="601.4" y="323.5" width="38.7" height="0.5"><title>2026W40, Sonnet 5: 4</title></rect>
+<rect class="seg s5" x="601.4" y="323.3" width="38.7" height="0.1"><title>2026W40, unattributed: 1</title></rect>
+<path class="seg s6" d="M601.4,323.3 V323.0 Q601.4,322.7 601.7,322.7 H639.7 Q640.0,322.7 640.0,323.0 V323.3 Z"><title>2026W40, merge (a pull request landing): 5</title></path>
+<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W40</text>
+<text class="fg val" x="620.7" y="317.7" font-size="10" text-anchor="middle">10</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">Opus 5</tspan></text>
 <rect class="s1" x="672" y="83" width="11" height="11" rx="2"/>
@@ -96,7 +96,5 @@
 <rect class="s5" x="672" y="159" width="11" height="11" rx="2"/>
 <text class="fg" y="169" font-size="11"><tspan x="689" dy="0">unattributed</tspan></text>
 <rect class="s6" x="672" y="178" width="11" height="11" rx="2"/>
-<text class="fg" y="188" font-size="11"><tspan x="689" dy="0">before the convention</tspan></text>
-<rect class="s7" x="672" y="197" width="11" height="11" rx="2"/>
-<text class="fg" y="207" font-size="11"><tspan x="689" dy="0">merge (a pull request</tspan><tspan x="689" dy="13">landing)</tspan></text>
+<text class="fg" y="188" font-size="11"><tspan x="689" dy="0">merge (a pull request</tspan><tspan x="689" dy="13">landing)</tspan></text>
 </svg>
