@@ -219,8 +219,7 @@ client's last. The real boot hands all of it over, `login`'s budget sized by
 `login_protocol::durable::BUDGET_PAGES`.
 The [fork 8 appendix](../../notes/durable-delegation/which-programs-a-job-runs.md) has the costs.
 
-**Staying within 24 slots is unproven; CI falsifies it (2026-09-27).** The rederive test fails
-everywhere; the silent skip hides why, so the peak may exceed 24 (#1360, #1377).
+**Unproven: CI falsifies "within 24" (2026-09-27), peak over 24, #1360.**
 
 ## Forks this lane found, for an architect
 
