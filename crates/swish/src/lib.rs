@@ -338,11 +338,13 @@ pub fn expansion(
     spec: &RunSpec,
     expand: &mut dyn FnMut(&[u8]) -> Result<NameSet, Say>,
 ) -> Result<Expansion, Say> {
-    // **A program that hears words has nothing expanded** (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign program is told what to do)). Its
-    // words carry no authority, so a pattern would designate names and grant nothing they name;
-    // `grant_plan::argv` refuses an unquoted one instead, when the line is assembled.
-    if Prog::from_name(spec.prog).is_some_and(|p| p.manifest().arg == ArgSpec::Words) {
-        return Ok(Expansion::none());
+    // **A program that hears words has nothing expanded; its words are designated instead**
+    // (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign
+    // program is told what to do)). A pattern would designate names and grant nothing they name, so
+    // `grant_plan::check_words` refuses an unquoted one; a word that names something here is
+    // granted it, by [`designation`].
+    if let Some(ArgSpec::Words(grant)) = Prog::from_name(spec.prog).map(|p| p.manifest().arg) {
+        return designation(spec.line(), grant, expand);
     }
     for (i, token) in spec.positionals().iter().enumerate() {
         // **A quoted word designates itself** (milestone 67). This is the whole of what quoting
@@ -359,6 +361,84 @@ pub fn expansion(
         }
     }
     Ok(Expansion::none())
+}
+
+/// **Which of a line's words name something here** (milestone 205 (how a foreign program is told
+/// what to do), §170 clauses 2 to 5), for a program that hears words: the shell's half of the
+/// designation, which the planner turns into one directory grant at the current directory.
+///
+/// Every word after the program's name is asked, in `grant_plan::each_word`'s reading, so the
+/// words designated are the words the program hears. For each one:
+///
+/// - a word shaped like an option (`-i`, `--color=never`) designates nothing;
+/// - an absolute path or one that starts with `..` designates nothing, because the program's root
+///   is this directory and `std` refuses both before they reach the wire;
+/// - `.` (or `./`) designates this directory itself, which is calef's N1 ruling
+///   (2026-09-27T06:27Z): a line that names no file grants nothing, and `rg pattern .` is how a
+///   person says "here";
+/// - otherwise its first component is looked up here with `resolve`, the shell's directory read. A
+///   name that is here is designated. One that is not is inert bytes (a pattern, a count), unless
+///   the program may create ([`grant_plan::WordGrant::Create`]), which is §170's clause 3.
+///
+/// So `rg needle src/main.rs` designates `src`, and the program can read all of `src`, not only
+/// `main.rs`: the caretaker filters at this directory and nowhere below (see this crate's BUGS).
+/// And a pattern that happens to be a file's name is designated too, read-only.
+pub fn designation(
+    line: &[u8],
+    grant: grant_plan::WordGrant,
+    resolve: &mut dyn FnMut(&[u8]) -> Result<NameSet, Say>,
+) -> Result<Expansion, Say> {
+    let mut d = grant_plan::expand::Designation::none();
+    let mut first = true;
+    let mut said = Ok(());
+    let walked = grant_plan::each_word(line, &mut |w| {
+        if core::mem::take(&mut first) || w.first() == Some(&b'-') || said.is_err() {
+            return Ok(());
+        }
+        let mut rest = w;
+        while let Some(r) = rest.strip_prefix(b"./") {
+            rest = r;
+        }
+        if rest.is_empty() || rest == b"." {
+            d.here();
+            return Ok(());
+        }
+        let name = rest.split(|&b| b == b'/').next().unwrap_or(rest);
+        // A quoted word with a glob byte in it is bytes the program hears, never a pattern this
+        // shell expands: asking the directory for it would designate whatever it matched.
+        if rest.first() == Some(&b'/') || name == b".." || name.is_empty() || glob::has_magic(name)
+        {
+            return Ok(());
+        }
+        match resolve(name) {
+            Ok(set) => match set.iter().next() {
+                Some((found, is_dir)) => d.name(found, is_dir),
+                None => Ok(()),
+            },
+            Err(Say::Cannot(Refusal::NoMatch)) if grant == grant_plan::WordGrant::Create => {
+                d.name(name, false)
+            }
+            Err(Say::NoDirectory) => {
+                said = Err(Say::NoDirectory);
+                Ok(())
+            }
+            Err(Say::Failed(e)) => {
+                said = Err(Say::Failed(e));
+                Ok(())
+            }
+            // Not here, or not a name at all: inert bytes.
+            Err(_) => Ok(()),
+        }
+    });
+    match (walked, said) {
+        // A shell holding no directory designates nothing, and the planner grants nothing.
+        (_, Err(Say::NoDirectory)) => Ok(Expansion::designated(
+            grant_plan::expand::Designation::none(),
+        )),
+        (_, Err(s)) => Err(s),
+        (Err(r), _) => Err(Say::Cannot(r)),
+        (Ok(()), Ok(())) => Ok(Expansion::designated(d)),
+    }
 }
 
 /// Write a set as [`echo`] shows it and as [`write_preview`] previews it: the names, one space
@@ -1134,7 +1214,7 @@ fn write_note_asks(declared: Option<grant_plan::Manifest>, out: &mut dyn FnMut(&
     });
     let items: [(bool, &[u8]); 9] = [
         (m.arg == ArgSpec::Required, b"an argument"),
-        (m.arg == ArgSpec::Words, b"its words"),
+        (m.arg.hears_words(), b"its words"),
         (!matches!(m.mem, grant_plan::MemSpec::Forbidden), b"memory"),
         (m.clock, b"the clock"),
         (m.config, b"the configuration page"),
@@ -1576,17 +1656,42 @@ fn write_preview_rows(
         let mut buf = [0u8; nav::RENDER_MAX];
         let n = holdings.place(g.which, &g.dir).render(&mut buf);
         out(&buf[..n]);
-        out(b"  (the directory holding ");
-        // **The names, all of them, and this is the point of previewing a set at all.** `caps rm
-        // *.txt` prints exactly what `echo *.txt` prints, because both render the same expansion:
-        // the authority about to move is on the screen before anything moves it, which is a claim
-        // Unix cannot make about its own `rm`.
-        write_set(&g.names, out);
-        out(b")\n");
-        if g.subtree {
-            out(b"           ...and everything under it: -r grants the walk\n");
+        // **What a foreign program's words designated** (milestone 205): the names, or the whole
+        // directory for `.`, and what it may do with them, which is its manifest's word grant (the
+        // progenitor makes it read-only for bytes nobody vouched for, and says so in the manifest
+        // this preview was given).
+        if let grant_plan::ArgSpec::Words(w) = m.arg {
+            if g.names.is_empty() {
+                out(b"  (this directory itself)\n");
+            } else {
+                out(b"  (only ");
+                write_set(&g.names, out);
+                out(b" in it, named on the line)\n");
+            }
+            out(match w {
+                grant_plan::WordGrant::ReadOnly => {
+                    b"           ...read-only, and everything under what was named\n".as_slice()
+                }
+                grant_plan::WordGrant::ReadWrite => {
+                    b"           ...read and write, and everything under what was named\n"
+                }
+                grant_plan::WordGrant::Create => {
+                    b"           ...read, write and create what was named, and everything under it\n"
+                }
+            });
         } else {
-            out(b"           ...and nothing under it: no -r, so it cannot even look\n");
+            out(b"  (the directory holding ");
+            // **The names, all of them, and this is the point of previewing a set at all.** `caps rm
+            // *.txt` prints exactly what `echo *.txt` prints, because both render the same
+            // expansion: the authority about to move is on the screen before anything moves it,
+            // which is a claim Unix cannot make about its own `rm`.
+            write_set(&g.names, out);
+            out(b")\n");
+            if g.subtree {
+                out(b"           ...and everything under it: -r grants the walk\n");
+            } else {
+                out(b"           ...and nothing under it: no -r, so it cannot even look\n");
+            }
         }
     }
     // **The clock, which no token on the line designates.** It is the progenitor's to endow rather than the
@@ -1642,7 +1747,7 @@ fn write_preview_rows(
     // **The argv, which is bytes and not authority** (milestone 205, DECISIONS §170). Printed
     // because it is a capability the child holds, and worded so nobody reads it as more: a path
     // among these words reaches only what a directory row above already granted.
-    if m.arg == ArgSpec::Words {
+    if m.arg.hears_words() {
         cap(std_runtime_protocol::ARGS_SLOT, out);
         out(b"frame     args     read-only. the words on the line, as bytes; they\n");
         out(b"                              name things and grant none of them\n");
@@ -1798,7 +1903,7 @@ fn write_preview_rows(
     if m.arg == ArgSpec::Required {
         write_num(e.arg, out);
         out(b"\n");
-    } else if m.arg == ArgSpec::Words {
+    } else if m.arg.hears_words() {
         out(b"(the words on the line, at cap ");
         write_num(std_runtime_protocol::ARGS_SLOT, out);
         out(b")\n");
@@ -2509,6 +2614,57 @@ mod tests {
     }
 
     // ---- the outcome of a spawn ----
+
+    /// A directory holding `src/` and `notes.txt`, asked the way the shell asks: a literal word
+    /// matches itself or nothing.
+    fn here_holds(word: &[u8]) -> Result<NameSet, Say> {
+        match word {
+            b"src" => Ok(NameSet::one(b"src", true).unwrap()),
+            b"notes.txt" => Ok(NameSet::one(b"notes.txt", false).unwrap()),
+            _ => Err(Say::Cannot(Refusal::NoMatch)),
+        }
+    }
+
+    fn designated(line: &[u8], g: grant_plan::WordGrant) -> grant_plan::expand::Designation {
+        designation(line, g, &mut here_holds)
+            .unwrap()
+            .designation()
+            .unwrap()
+    }
+
+    /// **A word that names something here is designated, and nothing else is** (milestone 205,
+    /// §170 clause 2). The pattern `needle` names nothing, the option is the program's, `src/lib.rs`
+    /// designates its first component, and a repeated name is one grant.
+    #[test]
+    fn a_word_that_names_something_here_is_designated() {
+        let d = designated(
+            b"rg -i needle src/lib.rs notes.txt ./src",
+            grant_plan::WordGrant::ReadOnly,
+        );
+        let names: Vec<&[u8]> = d.names().iter().map(|(n, _)| n).collect();
+        assert_eq!(names, [&b"src"[..], b"notes.txt"]);
+        assert!(!d.is_here());
+    }
+
+    /// **A line that names nothing designates nothing** (calef's N1 ruling, 2026-09-27T06:27Z), and
+    /// `.` designates this directory itself. Absolute paths and `..` designate nothing.
+    #[test]
+    fn nothing_named_is_nothing_designated_and_dot_is_here() {
+        let ro = grant_plan::WordGrant::ReadOnly;
+        assert!(designated(b"rg needle", ro).is_empty());
+        assert!(designated(b"rg needle /etc ../up", ro).is_empty());
+        assert!(designated(b"rg needle .", ro).is_here());
+        // A quoted glob is bytes, never looked up.
+        assert!(designated(b"rg '*.txt'", ro).is_empty());
+    }
+
+    /// **Only a program that may create is granted a name that is not here yet** (§170 clause 3).
+    #[test]
+    fn a_name_not_here_is_designated_only_for_a_program_that_creates() {
+        assert!(designated(b"cc -o main", grant_plan::WordGrant::ReadWrite).is_empty());
+        let d = designated(b"cc -o main", grant_plan::WordGrant::Create);
+        assert!(d.names().contains(b"main"));
+    }
 
     fn endowment(prog: Prog) -> Endowment {
         Endowment {

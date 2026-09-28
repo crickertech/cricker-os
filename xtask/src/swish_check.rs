@@ -549,6 +549,34 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "installed/std-echo-large big",
         &["words [\"installed/std-echo-large\", \"big\"]"],
     ),
+    // **A foreign program's words designate what it may read, and nothing else** (milestone 205's
+    // designation half, §170 (how a foreign program is told what to do) clauses 2 to 5). In a
+    // directory of its own, `std_grep` (unvouched, so read-only) is granted `docs` because a word
+    // named it, and finds the needle there. With no word naming anything it is granted nothing
+    // (calef's N1 ruling, 2026-09-27T06:27Z), and its search of `.` fails loudly. Run by absolute
+    // path, because the shell stands in `hay`; `/` is this shell's own root.
+    line(0, "mkdir hay", &[]),
+    line(0, "cd hay", &[]),
+    line(0, "mkdir docs", &[]),
+    line(0, "cd docs", &[]),
+    line(0, "echo find the needle here > n.txt", &[]),
+    line(0, "cd ..", &[]),
+    line(
+        0,
+        "caps /installed/std-grep needle docs",
+        &["cap 4  endpoint  dir", "docs", "read-only"],
+    ),
+    line(
+        1,
+        "/installed/std-grep needle docs",
+        &["docs/n.txt:find the needle here"],
+    ),
+    line(
+        1,
+        "/installed/std-grep needle",
+        &["std_grep: .: no directory was granted to search"],
+    ),
+    line(0, "cd /", &[]),
     // **A note that asks more than its vouch allows is refused** (milestone 597, provisional).
     // `least_authority_demo`'s note declares an argument, which only a command line designates,
     // and unvouched bytes may hold only what the D2 ruling names. The shell binds the line
@@ -1708,7 +1736,8 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let skipped = |line: &str| {
         swish_check_omits(arch, line).is_some()
             || ((line.starts_with("std_exerciser")
-                || line.contains(crate::disk::INSTALLED_STD_ECHO))
+                || line.contains(crate::disk::INSTALLED_STD_ECHO)
+                || line.contains(crate::disk::INSTALLED_STD_GREP))
                 && !std_built)
     };
     eprintln!();

@@ -1821,13 +1821,11 @@ fn run(nav: &mut Nav, cmd: &[u8], spec: RunSpec) {
             // **A program that hears words gets the line as its argv** (milestone 205,
             // DECISIONS §170 (how a foreign program is told what to do)). Assembled here, where a refusal can still name the program, and
             // before anything is sent, so a line that does not fit spawns nothing.
-            _ if endow.prog.manifest().arg == grant_plan::ArgSpec::Words => {
-                match assemble_argv(spec.line(), 0) {
-                    Ok(a) => spawn(endow, Some(a)),
-                    Err(Some(r)) => refuse(spec, r),
-                    Err(None) => out_of_budget(),
-                }
-            }
+            _ if endow.prog.manifest().arg.hears_words() => match assemble_argv(spec.line(), 0) {
+                Ok(a) => spawn(endow, Some(a)),
+                Err(Some(r)) => refuse(spec, r),
+                Err(None) => out_of_budget(),
+            },
             _ => spawn(endow, None),
         },
     }
@@ -1835,8 +1833,13 @@ fn run(nav: &mut Nav, cmd: &[u8], spec: RunSpec) {
 
 /// **The window a line's argvs are written through** (milestone 205 (how a foreign program is told
 /// what to do), DECISIONS §170): one page per pipeline stage at the bottom of [`IMAGE_WINDOW`], below
-/// the image, so their page tables come from [`IMAGE_TABLE_PAGES`] as the image's do.
+/// the name sets and the image, so their page tables come from [`IMAGE_TABLE_PAGES`] as the image's
+/// do.
 const ARGV_VA: u64 = IMAGE_WINDOW;
+/// **And the window a stage's name set is written through** (milestone 205's designation half,
+/// `spawnproto::NAMESET_BIT`): one page per stage, above the argv pages and below [`IMAGE_VA`], so
+/// [`IMAGE_TABLE_PAGES`] pays for these tables too.
+const SET_VA: u64 = ARGV_VA + line::MAX_STAGES as u64 * spawnproto::IMAGE_PAGE;
 
 /// **One line's argv, written and waiting to be sent**: the one-page region it was carved from and
 /// the frame in it. The frame travels to the progenitor narrowed to `READ` (`spawnproto::ARGS_BIT`)
@@ -1855,22 +1858,7 @@ struct Argv {
 /// takes the prompt with it.
 fn assemble_argv(cmd: &[u8], stage: usize) -> Result<Argv, Option<Refusal>> {
     let va = ARGV_VA + stage as u64 * spawnproto::IMAGE_PAGE;
-    if !prime_image_window() {
-        return Err(None);
-    }
-    let staging = memory_region_split(1).ok_or(None)?;
-    let a = match u64::try_from(user_mode_runtime::retype_page_frame(staging)) {
-        Ok(frame) if map_window_frame(frame, va) => Argv { staging, frame },
-        Ok(frame) => {
-            cap_delete(frame);
-            release_region(staging);
-            return Err(None);
-        }
-        Err(_) => {
-            release_region(staging);
-            return Err(None);
-        }
-    };
+    let a = fresh_page(va).ok_or(None)?;
     // SAFETY: `va` is one page this shell just mapped read/write, fresh, and nothing else reaches
     // it until the frame is sent; the borrow ends before this function returns.
     let page = unsafe { &mut *(va as *mut [u8; spawnproto::IMAGE_PAGE as usize]) };
@@ -1880,6 +1868,134 @@ fn assemble_argv(cmd: &[u8], stage: usize) -> Result<Argv, Option<Refusal>> {
             release_argv(a, true);
             Err(Some(r))
         }
+    }
+}
+
+/// **A fresh one-page region and its frame, mapped read/write at `va`**, or `None` if this shell's
+/// budget cannot pay for it. What an argv and a name set are each written on.
+fn fresh_page(va: u64) -> Option<Argv> {
+    if !prime_image_window() {
+        return None;
+    }
+    let staging = memory_region_split(1)?;
+    match u64::try_from(user_mode_runtime::retype_page_frame(staging)) {
+        Ok(frame) if map_window_frame(frame, va) => Some(Argv { staging, frame }),
+        Ok(frame) => {
+            cap_delete(frame);
+            release_region(staging);
+            None
+        }
+        Err(_) => {
+            release_region(staging);
+            None
+        }
+    }
+}
+
+/// **A directory grant for a program that hears words, ready to send** (milestone 205, §170 clauses
+/// 2 to 5): the two `START` word triples every directory grant travels as, and, when the grant is a
+/// set of names rather than the whole directory, the page the set is written on.
+#[derive(Clone, Copy)]
+struct WordsGrant {
+    words: DirWords,
+    set: Option<Argv>,
+}
+
+/// **Turn a word designation into what the progenitor builds it from**, through set window `stage`.
+///
+/// The caretaker descends into the shell's current directory with the rights `grant` asks for
+/// (`WordGrant::rights`; the progenitor clamps them to the manifest it endows, so an unvouched
+/// program gets read-only whatever this says). Names: `fs_nameset_caretaker`, with the set on a
+/// page. The whole directory (`.`): `fs_subtree_caretaker`, no page. The confined program's own
+/// `START` words are zero, because a `std` program reads none.
+///
+/// `Err(Some(sentence))` is a grant this shell cannot deliver, `Err(None)` its budget.
+///
+/// # BUGS
+///
+/// **The set's filter can be raced on a real boot.** The caretaker forwards a checked name through
+/// the file service's one shared frame, which this shell writes too while it drains a redirected
+/// job (`std_grep needle docs > out.txt`). A write landing between the caretaker's re-staging and
+/// the server's read opens a name the set never approved. `notes/a-set-grant-at-the-prompt.md`
+/// has the case, `notes/shared-page-audit.md` finding 1 the mechanism; milestone 599 (a frame per
+/// filesystem client channel)'s production pool closes it.
+fn words_grant(
+    g: &GrantDir,
+    grant: grant_plan::WordGrant,
+    stage: usize,
+) -> Result<WordsGrant, Option<&'static [u8]>> {
+    if g.which != nav::Which::A {
+        return Err(Some(
+            b"  that directory is in a mounted tree, and the progenitor builds a caretaker\n  from the root tree; a grant there is not built\n",
+        ));
+    }
+    let dir = match g.dir.depth() {
+        1 => g.dir.component(0),
+        0 => {
+            return Err(Some(
+                b"  its words name things in the root of this shell's namespace, and a caretaker is\n  built by descending into a directory: `cd` into one first\n",
+            ));
+        }
+        _ => {
+            return Err(Some(
+                b"  this shell is standing more than one level down, and the progenitor builds one\n  caretaker per grant; a deeper grant is a chain of them, which is not built\n",
+            ));
+        }
+    };
+    if !filesystem_protocol::grant::fits(dir) {
+        return Err(Some(
+            b"  that name does not fit in a grant's two argument words\n",
+        ));
+    }
+    let (dir_lo, dir_hi) = filesystem_protocol::grant::pack_name(dir);
+    let words = DirWords {
+        caretaker: (
+            dir_lo,
+            dir_hi,
+            filesystem_protocol::grant::spec(dir.len(), grant.rights()),
+        ),
+        child: (0, 0, 0),
+    };
+    if g.names.is_empty() {
+        return Ok(WordsGrant { words, set: None });
+    }
+    let va = SET_VA + stage as u64 * spawnproto::IMAGE_PAGE;
+    let page = fresh_page(va).ok_or(None)?;
+    let mut list = [(&b""[..], false); filesystem_protocol::nameset::MAX_NAMES];
+    let mut n = 0;
+    for (name, is_dir) in g.names.iter() {
+        list[n] = (name, is_dir);
+        n += 1;
+    }
+    // SAFETY: `va` is one page this shell just mapped read/write, fresh, and nothing else reaches
+    // it until the frame is sent; the borrow ends before this function returns.
+    let out = unsafe { &mut *(va as *mut [u8; spawnproto::IMAGE_PAGE as usize]) };
+    match filesystem_protocol::nameset::encode(&list[..n], out) {
+        Some(_) => Ok(WordsGrant {
+            words,
+            set: Some(page),
+        }),
+        None => {
+            release_argv(page, true);
+            Err(Some(
+                b"  that is more names than one grant carries (at most 8)\n",
+            ))
+        }
+    }
+}
+
+/// Send a words grant's set page, `READ` only (`spawnproto::NAMESET_BIT`), after the argv's.
+fn send_set(w: &WordsGrant) {
+    if let Some(p) = w.set {
+        user_mode_runtime::send_cap(SPAWN, p.frame, abi::rights::READ, 0);
+        cap_delete(p.frame);
+    }
+}
+
+/// Give back a words grant's page, if it has one.
+fn release_words_grant(w: &WordsGrant, unsent: bool) {
+    if let Some(p) = w.set {
+        release_argv(p, unsent);
     }
 }
 
@@ -1897,12 +2013,12 @@ fn release_region(region: u64) {
 }
 
 /// **Where this shell writes what it sends the progenitor in frames**: the argv pages
-/// ([`ARGV_VA`]), then an image's frames ([`IMAGE_VA`], DECISIONS §219 option D).
+/// ([`ARGV_VA`]), the name-set pages ([`SET_VA`]), then an image's frames ([`IMAGE_VA`], DECISIONS §219 option D).
 const IMAGE_WINDOW: u64 = address_space_map::pair_page(0x0000_0000_0400_0000);
 
-/// **The window this shell writes an image's frames through**, above the argv pages. At most
+/// **The window this shell writes an image's frames through**, above the name-set pages. At most
 /// [`spawnproto::IMAGE_MAX_PAGES`] pages, which is 4 MiB and so crosses 2 MiB page-table spans.
-const IMAGE_VA: u64 = ARGV_VA + line::MAX_STAGES as u64 * spawnproto::IMAGE_PAGE;
+const IMAGE_VA: u64 = SET_VA + line::MAX_STAGES as u64 * spawnproto::IMAGE_PAGE;
 
 /// The first address past [`IMAGE_WINDOW`].
 const IMAGE_WINDOW_END: u64 = IMAGE_VA + spawnproto::IMAGE_MAX_PAGES * spawnproto::IMAGE_PAGE;
@@ -1945,11 +2061,6 @@ static IMAGE_TABLES: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU
 /// region is destroyed once the answer is in, which revokes the frames from both address spaces.
 /// See `spawnproto`'s BUGS for what this first cut does not do.
 fn run_image(nav: &mut Nav, spec: RunSpec) {
-    let expanded = match expansion(nav, &spec) {
-        Ok(e) => e,
-        Err(Say::Cannot(r)) => return refuse(spec, r),
-        Err(said) => return say(said),
-    };
     if nav.dir.is_none() {
         return say(Say::NoDirectory);
     }
@@ -1972,6 +2083,25 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
             grant_plan::ImageRefusal::NotCarried,
         ));
     }
+    // **Expanded, or designated, once the note says which** (milestone 205): bytes that hear words
+    // have their words designated rather than their patterns expanded, and only the note says
+    // whether these do.
+    let expanded = match m.arg {
+        grant_plan::ArgSpec::Words(grant) => {
+            swish::designation(spec.line(), grant, &mut |token| nav.expand(token))
+        }
+        _ => expansion(nav, &spec),
+    };
+    let expanded = match expanded {
+        Ok(e) => e,
+        Err(said) => {
+            nav.close(handle);
+            return match said {
+                Say::Cannot(r) => refuse(spec, r),
+                said => say(said),
+            };
+        }
+    };
     let e = match grant_plan::plan_against(&spec, grant_plan::IMAGE_ROW, m, holdings(nav), expanded)
     {
         Ok(e) => e,
@@ -2013,10 +2143,34 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     } else {
         None
     };
+    // **And what its words designated** (milestone 205's designation half), on a page carved
+    // after the argv's and still below staging.
+    let set_grant = match (e.dir, m.arg) {
+        (Some(g), grant_plan::ArgSpec::Words(grant)) => match words_grant(&g, grant, 0) {
+            Ok(w) => Some(w),
+            Err(why) => {
+                nav.close_in(t, handle);
+                if let Some(a) = argv {
+                    release_argv(a, true);
+                }
+                return match why {
+                    Some(sentence) => {
+                        refused();
+                        print(sentence);
+                    }
+                    None => out_of_budget(),
+                };
+            }
+        },
+        _ => None,
+    };
     let Some(staging) = memory_region_split(pages) else {
         nav.close_in(t, handle);
         if let Some(m) = mem_slot {
             cap_delete(m);
+        }
+        if let Some(w) = &set_grant {
+            release_words_grant(w, true);
         }
         if let Some(a) = argv {
             release_argv(a, true);
@@ -2032,16 +2186,26 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
             image: true,
             run_unvouched: holds_run_unvouched,
             args: argv.is_some(),
+            dir: set_grant.is_some(),
+            nameset: set_grant.is_some_and(|w| w.set.is_some()),
             ..spawnproto::Wiring::default()
         },
     );
     send(SPAWN, w0, w1, w2);
+    // The grant's data before the image's frames, the order the progenitor reads (`GRANT_WORDS`).
+    if let Some(DirWords { caretaker, child }) = set_grant.map(|w| w.words) {
+        send(SPAWN, caretaker.0, caretaker.1, caretaker.2);
+        send(SPAWN, child.0, child.1, child.2);
+    }
     let read_ok = send_frames(t.slot, handle, pages, staging);
     nav.close_in(t, handle);
     // The argv's frame follows the image's, before every other capability (`spawnproto::ARGS_BIT`).
     if let Some(a) = argv {
         user_mode_runtime::send_cap(SPAWN, a.frame, abi::rights::READ, 0);
         cap_delete(a.frame);
+    }
+    if let Some(w) = &set_grant {
+        send_set(w);
     }
     if let Some(slot) = mem_slot {
         delegate(slot, abi::rights::WRITE | abi::rights::GRANT);
@@ -2077,6 +2241,9 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     // revokes every mapping of them, ours and the progenitor's, and returns the pages.
     user_mode_runtime::destroy_region(staging);
     cap_delete(staging);
+    if let Some(w) = &set_grant {
+        release_words_grant(w, false);
+    }
     if let Some(a) = argv {
         release_argv(a, false);
     }
@@ -2376,6 +2543,7 @@ type StartWords = (u64, u64, u64);
 /// Named rather than a bare pair of tuples because the order is the wire's, and getting it backwards
 /// would start `rm` with a directory's name and a caretaker with a file's, which comes up serving a
 /// namespace nobody meant. `spawnproto::GRANT_WORDS` is the count on the other side.
+#[derive(Clone, Copy)]
 struct DirWords {
     /// The `fs_subtree_caretaker`'s: the granted directory, and the rights to ask for.
     caretaker: StartWords,
@@ -2503,9 +2671,29 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
     // for it. [`dir_grant`] is where the shape of the grant meets the shape of what can be
     // delivered, and it returns the words rather than sending them so a refusal happens here, with
     // nothing spawned.
-    let dir_words = match e.dir {
-        None => None,
-        Some(g) => match dir_grant(&g, e.flags) {
+    // **A program that hears words is granted what they designated** (milestone 205), as a name
+    // set or the whole directory, through `words_grant` rather than `rm`'s `dir_grant`.
+    let mut set_grant = None;
+    let dir_words = match (e.dir, e.prog.manifest().arg) {
+        (None, _) => None,
+        (Some(g), grant_plan::ArgSpec::Words(grant)) => match words_grant(&g, grant, 0) {
+            Ok(w) => {
+                set_grant = Some(w);
+                Some(w.words)
+            }
+            Err(why) => {
+                match why {
+                    Some(sentence) => {
+                        refused();
+                        print(sentence);
+                    }
+                    None => out_of_budget(),
+                }
+                give_back();
+                return;
+            }
+        },
+        (Some(g), _) => match dir_grant(&g, e.flags) {
             Ok(words) => Some(words),
             Err(sentence) => {
                 refused();
@@ -2523,6 +2711,9 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
             None => {
                 failed();
                 print(b"  this shell's memory budget is exhausted; nothing left to grant\n");
+                if let Some(w) = &set_grant {
+                    release_words_grant(w, true);
+                }
                 give_back();
                 return;
             }
@@ -2561,6 +2752,7 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
             image: false,
             run_unvouched: false,
             args: argv.is_some(),
+            nameset: set_grant.is_some_and(|w| w.set.is_some()),
         },
     );
     send(SPAWN, w0, w1, w2);
@@ -2580,6 +2772,10 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
         user_mode_runtime::send_cap(SPAWN, a.frame, abi::rights::READ, 0);
         cap_delete(a.frame);
     }
+    // The name set's frame follows the argv's (`spawnproto::NAMESET_BIT`).
+    if let Some(w) = &set_grant {
+        send_set(w);
+    }
 
     // If a budget rode along, delegate it now, narrowed to WRITE|GRANT so the progenitor can re-insert it into
     // the child (the progenitor narrows it again to WRITE there: the child spends it, it does not lend it).
@@ -2596,6 +2792,10 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
     } else {
         let answer = recv(RESULT).0;
         outcome(e, answer);
+    }
+    // The set's page was carved after the argv's, so it goes back first and each is the top.
+    if let Some(w) = &set_grant {
+        release_words_grant(w, false);
     }
     if let Some(a) = argv {
         release_argv(a, false);
@@ -2869,11 +3069,6 @@ fn image_line(tail: &[u8]) -> Option<RunSpec<'_>> {
 /// file's bytes as the progenitor will, look the digest up in the live generation, and say what
 /// would be granted, what the note asked for, and on whose word. Nothing is sent to the progenitor.
 fn caps_image(nav: &mut Nav, spec: RunSpec) {
-    let expanded = match expansion(nav, &spec) {
-        Ok(e) => e,
-        Err(Say::Cannot(r)) => return swish::write_refusal(&spec, r, &mut print),
-        Err(said) => return swish::write_say(said, &mut print),
-    };
     if nav.dir.is_none() {
         return say(Say::NoDirectory);
     }
@@ -2894,6 +3089,25 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
             grant_plan::ImageRefusal::NotCarried,
         ));
     }
+    // **Expanded, or designated, once the note says which** (milestone 205): bytes that hear words
+    // have their words designated rather than their patterns expanded, and only the note says
+    // whether these do.
+    let expanded = match m.arg {
+        grant_plan::ArgSpec::Words(grant) => {
+            swish::designation(spec.line(), grant, &mut |token| nav.expand(token))
+        }
+        _ => expansion(nav, &spec),
+    };
+    let expanded = match expanded {
+        Ok(e) => e,
+        Err(said) => {
+            nav.close(handle);
+            return match said {
+                Say::Cannot(r) => swish::write_refusal(&spec, r, &mut print),
+                said => swish::write_say(said, &mut print),
+            };
+        }
+    };
     let e = match grant_plan::plan_against(&spec, grant_plan::IMAGE_ROW, m, holdings(nav), expanded)
     {
         Ok(e) => e,
@@ -3321,41 +3535,58 @@ fn run_pipeline(
     // while it serves that stage's request, and a region given back sooner would unmap the page
     // under it.
     let mut argvs = [None::<Argv>; line::MAX_STAGES];
+    // **And every stage's words grant, the same way** (milestone 205's designation half): a stage
+    // that hears words is granted what they designated, on window `i`.
+    let mut sets = [None::<WordsGrant>; line::MAX_STAGES];
+    // Carved argv then set, stage by stage, so they go back in exactly the reverse order and each is
+    // the top of this shell's budget when it goes (a region returns its pages only then).
+    let give_back = |argvs: &[Option<Argv>], sets: &[Option<WordsGrant>], unsent: bool| {
+        for i in (0..argvs.len()).rev() {
+            if let Some(w) = &sets[i] {
+                release_words_grant(w, unsent);
+            }
+            if let Some(a) = argvs[i] {
+                release_argv(a, unsent);
+            }
+        }
+    };
     for i in 0..n {
         let Some(e) = plans[i].filter(|_| !(i == 0 && head_builtin)) else {
             continue;
         };
-        if e.prog.manifest().arg != grant_plan::ArgSpec::Words {
+        let grant_plan::ArgSpec::Words(grant) = e.prog.manifest().arg else {
             continue;
-        }
-        match assemble_argv(l.stages()[i], i) {
-            Ok(a) => argvs[i] = Some(a),
-            Err(why) => {
-                for a in argvs.iter().flatten() {
-                    release_argv(*a, true);
+        };
+        let assembled = assemble_argv(l.stages()[i], i)
+            .map_err(|why| why.map(|r| r.message().as_bytes()))
+            .and_then(|a| {
+                argvs[i] = Some(a);
+                match e.dir {
+                    Some(g) => words_grant(&g, grant, i).map(|w| {
+                        sets[i] = Some(w);
+                    }),
+                    None => Ok(()),
                 }
-                release_pipeline(region, &pipes[..minted]);
-                match why {
-                    Some(r) => {
-                        refused();
-                        print(b"  ");
-                        print(e.prog.name().as_bytes());
-                        print(b": ");
-                        print(r.message().as_bytes());
+            });
+        if let Err(why) = assembled {
+            give_back(&argvs, &sets, true);
+            release_pipeline(region, &pipes[..minted]);
+            match why {
+                Some(sentence) => {
+                    refused();
+                    print(b"  ");
+                    print(e.prog.name().as_bytes());
+                    print(b": ");
+                    print(sentence.trim_ascii_start());
+                    if sentence.last() != Some(&b'\n') {
                         print(b"\n");
                     }
-                    None => out_of_budget(),
                 }
-                return;
+                None => out_of_budget(),
             }
+            return;
         }
     }
-    // Sent frames' slots are gone by then; the regions are what is left to give back.
-    let give_back = |argvs: &[Option<Argv>]| {
-        for a in argvs.iter().flatten() {
-            release_argv(*a, false);
-        }
-    };
 
     // Left to right, which is the order that cannot deadlock: a producer blocks in its first `SEND`
     // until its reader exists, and its reader is the next thing this loop spawns.
@@ -3381,12 +3612,18 @@ fn run_pipeline(
             stage_diag,
             stage_screen,
             argvs[i],
+            sets[i],
         ) {
             // Stages after this one never sent their frames, so their slots go too.
             for a in argvs[i + 1..].iter().flatten() {
                 cap_delete(a.frame);
             }
-            give_back(&argvs);
+            for w in sets[i + 1..].iter().flatten() {
+                if let Some(p) = w.set {
+                    cap_delete(p.frame);
+                }
+            }
+            give_back(&argvs, &sets, false);
             release_pipeline(region, &pipes[..minted]);
             return;
         }
@@ -3431,7 +3668,7 @@ fn run_pipeline(
             None => drain_text(),
         },
     }
-    give_back(&argvs);
+    give_back(&argvs, &sets, false);
     release_pipeline(region, &pipes[..minted]);
 }
 
@@ -3842,6 +4079,7 @@ fn spawn_stage(
     diagnostics: Option<u64>,
     screen: Option<u64>,
     argv: Option<Argv>,
+    words: Option<WordsGrant>,
 ) -> bool {
     let mem_slot = if e.mem_pages > 0 {
         match memory_region_split(e.mem_pages) {
@@ -3851,6 +4089,9 @@ fn spawn_stage(
                 // caller's to give back.
                 if let Some(a) = argv {
                     cap_delete(a.frame);
+                }
+                if let Some(p) = words.and_then(|w| w.set) {
+                    cap_delete(p.frame);
                 }
                 failed();
                 print(b"  this shell's memory budget is exhausted; nothing left to grant\n");
@@ -3866,13 +4107,12 @@ fn spawn_stage(
         sink: sink.is_some(),
         source: source.is_some(),
         diagnostics: diagnostics.is_some(),
-        // **A stage of a pipeline is never directory-granted**, and it is the manifest that says so
-        // rather than a rule here: the one program with `DirSpec::Required` writes a byte stream and
-        // takes no input, so `rm x | wc` puts it at the head of a line this path runs. Delivering a
-        // grant here would mean a second copy of `dir_grant`'s refusals, so the honest answer is
-        // that it is not delivered and `spawn` is where a directory grant is met. See this file's
-        // `dir_grant` and notes/dir-capability.md's BUGS.
-        dir: false,
+        // **A stage is directory-granted only for words** (milestone 205): a program that hears
+        // words is granted what they designated, here as on a plain line. `rm`'s grant is still
+        // met only in `spawn`: the one program with `DirSpec::Required` writes a byte stream and
+        // takes no input, so `rm x | wc` puts it at the head, and delivering it here would be a
+        // second copy of `dir_grant`'s refusals. See notes/dir-capability.md's BUGS.
+        dir: words.is_some(),
         dir2: false,
         screen: screen.is_some(),
         // A pipeline stage is always a program the image names (§219 D's first cut runs an image
@@ -3880,14 +4120,23 @@ fn spawn_stage(
         image: false,
         run_unvouched: false,
         args: argv.is_some(),
+        nameset: words.is_some_and(|w| w.set.is_some()),
     };
     let (w0, w1, w2) = spawnproto::request(e.prog.id(), e.arg, e.mem_pages, wiring);
     send(SPAWN, w0, w1, w2);
-    // **The argv's frame before every other capability** (`spawnproto::ARGS_BIT`), as `spawn`
-    // sends it: a stage carries no directory grant and no image, so nothing comes before it.
+    // The words grant's two data messages first, as `spawn` sends a directory grant's.
+    if let Some(DirWords { caretaker, child }) = words.map(|w| w.words) {
+        send(SPAWN, caretaker.0, caretaker.1, caretaker.2);
+        send(SPAWN, child.0, child.1, child.2);
+    }
+    // **The argv's frame, then the name set's, before every other capability**
+    // (`spawnproto::ARGS_BIT`, `NAMESET_BIT`), as `spawn` sends them.
     if let Some(a) = argv {
         user_mode_runtime::send_cap(SPAWN, a.frame, abi::rights::READ, 0);
         cap_delete(a.frame);
+    }
+    if let Some(w) = &words {
+        send_set(w);
     }
     // In the protocol's order, which both sides read out of the same word. A `SEND_CAP` nobody
     // expects and a `RECV_CAP` nobody answers both deadlock, so the order is the contract.
@@ -3997,7 +4246,7 @@ const _: () = {
         (FS_VA, filesystem_protocol::PAGE as u64),
         (SH_CLOCK_VA, PAGE),
         (grant_plan::SHELL_CONFIG_VA, PAGE),
-        // The argv pages and the image window above them (DECISIONS §219 option D).
+        // The argv and name-set pages, and the image window above them (DECISIONS §219 option D).
         (IMAGE_WINDOW, IMAGE_WINDOW_END - IMAGE_WINDOW),
     ];
     let mut i = 0;
@@ -4102,6 +4351,7 @@ fn spawn_interruptible(e: Endowment) {
             run_unvouched: false,
             // No `std` manifest is interruptible, so no supervised job hears words.
             args: false,
+            nameset: false,
         },
     );
     send(SPAWN, w0, w1, w2);

@@ -1,10 +1,25 @@
 # A set grant at the prompt: how a matched pattern reaches the progenitor
 
-**Status: PROPOSED, not decided.** Written 2026-09-26 (UTC) by milestone 47 (navigation and
+**Status: DECIDED.** calef ruled on 2026-09-27 at 15:14Z (UTC), on #1402: option A as built by
+milestone 205 (how a foreign program is told what to do), which is this note's option 3 with the
+copy. The set travels as one read-only frame the shell owns (`spawnproto::NAMESET_BIT`, `1 << 43`,
+name still provisional), and the progenitor copies it into a page from the job's region before
+`fs_nameset_caretaker` maps it, so the shell's write access reaches nothing. The ruling's option B,
+this note's option 2 (the set as data words), lost because it would be a second way to move bytes
+to the progenitor, beside the frames `IMAGE_BIT` already uses. It landed before milestone 599 (a
+frame per filesystem client channel)'s production pool, so the race this note's costs section
+names is live at the prompt. The line is `std_grep needle docs > out.txt`: the shell, draining the
+job into `out.txt`, writes the file's bytes through the file service's one shared frame while the
+job's nameset caretaker forwards a checked name through it. A write landing between the caretaker's
+re-staging and the server's read opens a name the set never approved. Reachable, not observed;
+milestone 205's block records it, and 599's production pool closes it. What follows is the analysis
+as it was written.
+
+Written 2026-09-26 (UTC) by milestone 47 (navigation and
 naming)'s lane `milestone/47-navigation`. It answers the item milestone 47's block and milestone 109
 (`xargs`) both carry: "the shell cannot ask the progenitor to mint a per-batch caretaker." It is a
 change to `spawnproto`, which the shell and the progenitor both read, so it is an architect's call.
-Nothing here is built. The file name is provisional.
+The file name is provisional.
 
 ## The premise, checked, and it is wider than the record says
 

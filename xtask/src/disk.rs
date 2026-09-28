@@ -265,6 +265,10 @@ pub(crate) const INSTALLED_MALFORMED_NOTE: &str = "installed/malformed-note";
 /// Written only if `cargo xtask std-exerciser` built it, which `script/test` does; the gate skips
 /// its lines otherwise, as it skips `std_exerciser`'s. Provisional.
 pub(crate) const INSTALLED_STD_ECHO: &str = "installed/std-echo";
+/// **A `std` program that reads what its words name** (milestone 205's designation half):
+/// `std_grep`, from the same workspace, unvouched, so every word it is granted is read-only.
+/// Written only if it was built, as [`INSTALLED_STD_ECHO`] is. Provisional.
+pub(crate) const INSTALLED_STD_GREP: &str = "installed/std-grep";
 
 /// **`std_echo` as large as `ripgrep`** (milestone 595 (the shell runs a `std` program), 2026-09-27,
 /// provisional): its bytes followed by zeros to [`LARGE_IMAGE_BYTES`]. `rg` is never in CI (its
@@ -383,6 +387,12 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     ));
     let asks_an_argument = crate::inspect::read_stripped(&demo.display().to_string())
         .map_err(|e| format!("could not read {}: {e}", demo.display()))?;
+    let std_grep = crate::farm::std_grep_elf(&format!("{architecture}-unknown-nife"));
+    let std_grep = std_grep
+        .exists()
+        .then(|| crate::inspect::read_stripped(&std_grep.display().to_string()))
+        .transpose()
+        .map_err(|e| format!("could not read std_grep: {e}"))?;
     let std_echo = crate::farm::std_echo_elf(&format!("{architecture}-unknown-nife"));
     let std_echo = std_echo
         .exists()
@@ -447,6 +457,9 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
         let mut large = bytes.clone();
         large.resize(LARGE_IMAGE_BYTES.max(bytes.len()), 0);
         write(tree.join(INSTALLED_STD_ECHO_LARGE), &large)?;
+    }
+    if let Some(bytes) = &std_grep {
+        write(tree.join(INSTALLED_STD_GREP), bytes)?;
     }
     write(tree.join(DOWNLOADED_GREETING), &greeting)?;
     eprintln!(

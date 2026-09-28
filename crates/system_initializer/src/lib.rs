@@ -676,6 +676,10 @@ const CARETAKER_STACK_PAGES: u64 = 4;
 /// second VA would only be a second name for the same page.
 const FS_CLIENT_PAGE_VA: u64 = address_space_map::pair_page(0x0060_0000);
 
+/// Where `fs_nameset_caretaker` reads its name set, read-only (milestone 205). Must match that
+/// program's `SET_VA`, as [`FS_CLIENT_PAGE_VA`] matches its `PAGE_VA`.
+const NAMESET_PAGE_VA: u64 = address_space_map::pair_page(0x0070_0000);
+
 /// **One shell-boot second-directory caretaker's region** (milestone 154's "wiring a second
 /// grant into the real boot"). Sized for one caretaker alone, the way [`CARETAKER_STACK_PAGES`]
 /// already is: unlike [`DIR_JOB_REGION_PAGES`], nothing else is built out of this region, because
@@ -1068,6 +1072,11 @@ pub fn boot(
     // prompt says so, which costs `rm` and nothing else. A refusal by the measurement table costs
     // the same, because the progenitor treats what it cannot vouch for as what is not there.
     let care_elf = measured(&fs, table, "fs_subtree_caretaker").elf;
+    // **The nameset caretaker** (milestone 205 (how a foreign program is told what to do)'s
+    // designation half): what a program that hears words is granted when its words named some
+    // entries of the shell's directory and not the directory itself. A boot without it refuses such
+    // a grant rather than widening it to the subtree one.
+    let set_elf = measured(&fs, table, "fs_nameset_caretaker").elf;
     // **And the same bytes again, unparsed, because `login` needs them too** (milestone 233).
     //
     // That program builds one caretaker per authenticated session, so it needs an image to build
@@ -1718,7 +1727,7 @@ pub fn boot(
             ep: g.fs_ep,
             page: g.fs_page,
         })?;
-        let built = build_caretaker(ut, region, care, zero, (lo, hi, spec));
+        let built = build_caretaker(ut, region, care, zero, (lo, hi, spec), None);
         cap_delete(zero.page);
         built
     });
@@ -2456,8 +2465,19 @@ pub fn boot(
             run_unvouched,
         },
         &progs,
-        care_elf,
+        Caretakers {
+            subtree: care_elf,
+            nameset: set_elf,
+        },
     )
+}
+
+/// **The two caretakers a directory grant is built from**: `fs_subtree_caretaker` for a directory
+/// and everything under it, `fs_nameset_caretaker` for named entries of one directory (milestone
+/// 205). `None` when the archive did not carry it, or it did not measure. Name: provisional.
+struct Caretakers {
+    subtree: Option<elf::Elf<'static>>,
+    nameset: Option<elf::Elf<'static>>,
 }
 
 /// The archive entry a spawnable program is loaded from.
@@ -2602,7 +2622,7 @@ struct Fs {
 fn spawn_service(
     c: Channels,
     progs: &[Option<elf::Elf>; grant_plan::PROG_COUNT],
-    care_elf: Option<elf::Elf>,
+    care: Caretakers,
 ) -> ! {
     let Channels {
         spawn_ep,
@@ -2675,11 +2695,13 @@ fn spawn_service(
         // (how a foreign program is told what to do)). The note that says which is inside the
         // frames, which have not arrived, so the argv bit sizes the region and `endowed_image`
         // checks the note agrees (`grant_plan::image_can_carry` ties the two).
+        // A directory grant rides an image only for bytes that hear words (milestone 205): their
+        // `std` region is sized to hold the caretaker as well (`grant_plan::STD_REGION_PAGES`).
         //
         // **From the image pool, and as large as the image** (milestone 595): see
         // [`IMAGE_POOL_PAGES`] and `grant_plan::image_region_pages`.
-        let image_region = if wiring.image && !interruptible && !wiring.dir {
-            memory_region_split(
+        let image_region = if wiring.image && !interruptible && (!wiring.dir || wiring.args) {
+            split_job(
                 images_ut,
                 grant_plan::image_region_pages(
                     spawnproto::image_pages(spawnproto::image_len(w0)),
@@ -2691,7 +2713,6 @@ fn spawn_service(
                     JOB_REGION_PAGES,
                 ),
             )
-            .ok()
         } else {
             None
         };
@@ -2711,6 +2732,13 @@ fn spawn_service(
         // (milestone 205 (how a foreign program is told what to do), DECISIONS §170; `spawnproto::ARGS_BIT`). Taken on every request that
         // announced it, whatever program it turns out to be for, so both sides stay in lockstep.
         let args_seen = if wiring.args {
+            receive_args(spawn_ep, own_ut)
+        } else {
+            None
+        };
+        // **And the name set's frame, right after** (milestone 205, `spawnproto::NAMESET_BIT`),
+        // read the same way: mapped here, copied into the job's region below, never read again.
+        let set_seen = if wiring.nameset {
             receive_args(spawn_ep, own_ut)
         } else {
             None
@@ -2890,7 +2918,7 @@ fn spawn_service(
                 // Split before the frames were taken; see `image_region` above.
                 image_region
             } else {
-                memory_region_split(
+                split_job(
                     jobs_ut,
                     if std_layout {
                         grant_plan::STD_REGION_PAGES
@@ -2900,7 +2928,6 @@ fn spawn_service(
                         JOB_REGION_PAGES
                     },
                 )
-                .ok()
             };
 
             // **The caretaker, built before the program it serves**, because the program's slot 0 is
@@ -2917,9 +2944,9 @@ fn spawn_service(
                 None
             };
             let narrowed = if wiring.dir {
-                match (region, channel, care_elf.as_ref(), grant) {
-                    (Some(r), Some(ch), Some(care), Some((care_words, _))) => {
-                        build_caretaker(own_ut, r, care, ch, care_words)
+                match (region, channel, grant) {
+                    (Some(r), Some(ch), Some((care_words, _))) => {
+                        build_grant(own_ut, r, ch, &care, care_words, set_seen, manifest)
                     }
                     _ => None,
                 }
@@ -3394,6 +3421,64 @@ impl StdLayout {
     }
 }
 
+/// **Build the caretaker a directory grant is delivered by**, and hand back its endpoint.
+///
+/// `fs_subtree_caretaker` for a directory, or `fs_nameset_caretaker` with its name set on a page
+/// from the job's region when the shell sent one (milestone 205 (how a foreign program is told what
+/// to do)'s designation half, `spawnproto::NAMESET_BIT`). A set that arrives for a program that does
+/// not hear words is refused with the grant.
+///
+/// **A program that hears words gets the rights its endowed manifest allows, and no more** (§170
+/// clause 4): the shell asked with the rights of the note it read, and this clamps them to the
+/// manifest decided here, which for bytes nobody vouched for is read-only
+/// (`grant_plan::UNVOUCHED_STD_MANIFEST`).
+///
+/// **Out of line on purpose.** `spawn_service`'s frame is on the stack under every activation, and
+/// an install of `uptime` runs `package_archive`'s parser beneath it; in a debug build that path
+/// sat within about 400 bytes of the progenitor's 32 KiB stack (kernel `INIT_STACK_PAGES`) until
+/// these locals were moved here. CI found it on 2026-09-27 as a data abort one word below the
+/// stack's lowest page.
+#[inline(never)]
+fn build_grant(
+    own_ut: u64,
+    region: u64,
+    fs: Fs,
+    care: &Caretakers,
+    care_words: (u64, u64, u64),
+    set_seen: Option<u64>,
+    manifest: Option<grant_plan::Manifest>,
+) -> Option<u64> {
+    let words = match manifest.map(|m| m.arg) {
+        Some(grant_plan::ArgSpec::Words(g)) => {
+            use filesystem_protocol::grant as gr;
+            let rights = gr::spec_rights(care_words.2) & g.rights();
+            (
+                care_words.0,
+                care_words.1,
+                gr::spec(gr::spec_len(care_words.2), rights),
+            )
+        }
+        _ => care_words,
+    };
+    let hears_words = manifest.is_some_and(|m| m.arg.hears_words());
+    match set_seen {
+        None => care
+            .subtree
+            .as_ref()
+            .and_then(|e| build_caretaker(own_ut, region, e, fs, words, None)),
+        Some(theirs) if hears_words => {
+            let set = copy_args(own_ut, region, theirs)?;
+            let ep = care
+                .nameset
+                .as_ref()
+                .and_then(|e| build_caretaker(own_ut, region, e, fs, words, Some(set)));
+            cap_delete(set);
+            ep
+        }
+        Some(_) => None,
+    }
+}
+
 /// **Build a `fs_subtree_caretaker` for one directory grant and hand back the narrowed endpoint**
 /// (milestone 31 phase 3, DECISIONS §92).
 ///
@@ -3430,9 +3515,20 @@ fn build_caretaker(
     care: &elf::Elf,
     fs: Fs,
     care_words: (u64, u64, u64),
+    set: Option<u64>,
 ) -> Option<u64> {
     let narrow_ep = retype_obj(region, abi::objtype::RENDEZVOUS).ok()?;
     let ready = retype_obj(region, abi::objtype::RENDEZVOUS).ok()?;
+    // The shared page, and the name set read-only where `fs_nameset_caretaker` reads it (milestone
+    // 205), when there is one.
+    let maps = [
+        (FS_CLIENT_PAGE_VA, fs.page, abi::address_space::MAP_RW),
+        (
+            NAMESET_PAGE_VA,
+            set.unwrap_or(0),
+            abi::address_space::MAP_RO,
+        ),
+    ];
     // Its whole authority, and reading these three lines is reading it: the file service to
     // attenuate, the endpoint it will serve, and one place to say it is ready. No untyped, no clock,
     // no terminal, and nothing that could name another process.
@@ -3446,7 +3542,7 @@ fn build_caretaker(
                 (narrow_ep, abi::rights::READ),
                 (ready, abi::rights::WRITE),
             ],
-            maps: &[(FS_CLIENT_PAGE_VA, fs.page, abi::address_space::MAP_RW)],
+            maps: &maps[..if set.is_some() { 2 } else { 1 }],
             stack_pages: CARETAKER_STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
         },
@@ -3864,6 +3960,38 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
     Some(page)
 }
 
+/// **Carve `pages` from the job pool, waiting a bounded while for the reaper if it is short.**
+/// The image pool (milestone 595) is carved the same way, because an image's region is also a
+/// job's and comes back the same way.
+///
+/// A finished job's region comes back when `job_undertaker` reaps it, and that is after the shell
+/// has read the job's output and shown the next prompt. So a job typed straight after another can
+/// find the pool still holding the last one, and a `std` job, which needs the pool's one `std`-sized
+/// share (`JOBS_BUDGET_PAGES`), found it that way in CI on 2026-09-27: `/installed/std-grep needle`
+/// right after `/installed/std-grep needle docs` answered "could not spawn". Yielding lets the
+/// undertaker, which is runnable once the job has died, finish the reap.
+///
+/// **Kept on effort, and a foot gun.** Bounded by a count, not by the reap it waits for: whether
+/// [`JOB_WAIT_ATTEMPTS`] yields cover one reap depends on what else is runnable. We would not choose
+/// it if the proper fix cost the same. That fix has the undertaker tell the progenitor which job it
+/// reaped, a change the two agree on, proposed in
+/// `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`. A pool that is
+/// genuinely full still answers "out of memory", only later.
+fn split_job(pool: u64, pages: u64) -> Option<u64> {
+    for _ in 0..JOB_WAIT_ATTEMPTS {
+        if let Ok(r) = memory_region_split(pool, pages) {
+            return Some(r);
+        }
+        user_mode_runtime::yield_now();
+    }
+    memory_region_split(pool, pages).ok()
+}
+
+/// How many times [`split_job`] yields before it gives up. Generous next to [`RECLAIM_ATTEMPTS`],
+/// because what it waits on is another process's whole reap rather than one preemption. Name:
+/// provisional.
+const JOB_WAIT_ATTEMPTS: usize = 1024;
+
 /// **Take an image request's frames off the spawn endpoint and copy them into pages of our own.**
 /// Returns the staging region holding the copy, or `None` if it could not be staged.
 ///
@@ -3881,12 +4009,12 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
 /// staging page's own capability is deleted as soon as it is mapped: an image of any size costs one
 /// transient slot plus the staging region's.
 ///
-/// `stage` is false when the request cannot be built anyway (no region for the child, an
-/// interruptible or directory-granted image), and then this only drains.
+/// `stage` is false when the request cannot be built anyway (no region for the child, or an
+/// interruptible image), and then this only drains.
 fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bool) -> Option<u64> {
     let pages = spawnproto::image_pages(len);
     let staging = if stage && pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES {
-        memory_region_split(images_ut, pages).ok()
+        split_job(images_ut, pages)
     } else {
         None
     };
