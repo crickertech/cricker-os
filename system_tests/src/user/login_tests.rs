@@ -1509,6 +1509,19 @@ fn a_durable_session_is_re_derived_at_start_up_unless_suspended() {
         );
         r[1]
     };
+    // What the start-up pass's own `rederive` skipped and why (`login_protocol::REDERIVE_SKIPS`),
+    // read back for a failing assertion below to print: the "skipped, not failed" contract used to
+    // leave no reason anywhere a failure could show.
+    let rederive_skips = || {
+        sched::ipc_send(w.request, [login_protocol::rederive_skips_word(), 0, 0]);
+        let r = sched::ipc_recv(w.result);
+        assert_eq!(
+            r[0],
+            login_protocol::SKIP_COUNTS,
+            "REDERIVE_SKIPS was not answered SKIP_COUNTS"
+        );
+        login_protocol::durable::unpack_skip_counts(r[1])
+    };
 
     assert_eq!(
         suspend(),
@@ -1527,6 +1540,9 @@ fn a_durable_session_is_re_derived_at_start_up_unless_suspended() {
 
     fs_service::set_root_list(login_protocol::SUSPENDED_LIST, Some(b"corinne\n"));
     let ended = suspend();
+    // Read before the failure, not only on it: querying costs one exchange and the value must
+    // exist by the time `assert_eq!` might format it.
+    let skips = rederive_skips();
 
     fs_service::set_root_list(login_protocol::SUSPENDED_LIST, None);
     fs_service::set_root_list(schedule_store::MANIFEST_FILE_NAME, None);
@@ -1535,6 +1551,8 @@ fn a_durable_session_is_re_derived_at_start_up_unless_suspended() {
     assert_eq!(
         ended, 1,
         "no durable session was kept for corinne at start-up: the manifest, her stored schedule \
-         or the timetable's answer to it did not carry through `login`'s start-up pass",
+         or the timetable's answer to it did not carry through `login`'s start-up pass. \
+         rederive skip counts [table_full, identity, no_stored_schedule, budget_out_of_pages, \
+         session_build_failed] = {skips:?}",
     );
 }

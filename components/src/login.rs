@@ -979,6 +979,9 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
         None => None,
     };
     let mut durables = Durables::new();
+    // Why the start-up pass below skipped what it skipped (milestone 152, 2026-09-27): one count
+    // per `login_protocol::durable::RederiveSkip` reason, read back over `REDERIVE_SKIPS`.
+    let mut rederive_skips = [0u32; login_protocol::durable::REDERIVE_SKIP_REASONS];
     // Split once, here, and never anywhere else: [`CHANNEL_UT_PAGES`]' own doc explains why a
     // channel's region must come from a budget nothing else spends.
     let Ok(channel_ut) = memory_region_split(CONSTRUCTION_UT, CHANNEL_UT_PAGES) else {
@@ -997,7 +1000,7 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
     // code that opens one at a login. No session is live yet, so the file page is this process's
     // alone.
     if let (Some(images), Some(ut)) = (schedule, durable_ut) {
-        rederive(own_ut, images, ut, &mut durables);
+        rederive(own_ut, images, ut, &mut durables, &mut rederive_skips);
     }
 
     // How many logins this process has established, in order. The audit trail's sequence number,
@@ -1049,6 +1052,17 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
                 }
             }
             send(RESULT, login_protocol::APPLIED, ended, 0);
+            continue;
+        }
+        if op == login_protocol::REDERIVE_SKIPS {
+            // Unauthenticated, like `SUSPEND` and `LOGOUT`: see `login_protocol::REDERIVE_SKIPS`'s
+            // own doc for why this names no identity and costs nothing to keep in production.
+            send(
+                RESULT,
+                login_protocol::SKIP_COUNTS,
+                login_protocol::durable::pack_skip_counts(&rederive_skips),
+                0,
+            );
             continue;
         }
         if op != login_protocol::CONNECT {
@@ -1421,7 +1435,22 @@ impl Durables {
 /// process cannot be built. A stored document the timetable refuses ends its session again at
 /// once, and the manifest line stays, so the refusal is shown to its user at their next login,
 /// where the same document is restored with a client there to read the verdict.
-fn rederive(own_ut: u64, images: ScheduleImages<'_>, durable_ut: u64, durables: &mut Durables) {
+///
+/// `skips` counts each reason (`login_protocol::durable::RederiveSkip`), so the skip above stays
+/// silent to a caller but not to `REDERIVE_SKIPS`: the missing count this program's own module
+/// docs used to leave was the defect, not the skip.
+fn rederive(
+    own_ut: u64,
+    images: ScheduleImages<'_>,
+    durable_ut: u64,
+    durables: &mut Durables,
+    skips: &mut [u32; login_protocol::durable::REDERIVE_SKIP_REASONS],
+) {
+    use login_protocol::durable::RederiveSkip;
+    let mut record = |reason: RederiveSkip| {
+        let c = &mut skips[reason as usize];
+        *c = c.saturating_add(1);
+    };
     use filesystem_protocol::fs;
     let mut manifest = [0u8; login_protocol::PAGE];
     let Some(n) = read_file(
@@ -1448,23 +1477,28 @@ fn rederive(own_ut: u64, images: ScheduleImages<'_>, durable_ut: u64, durables: 
     .unwrap_or(0);
     for identity in login_protocol::durable::to_rederive(manifest.entries(), &suspended[..s]) {
         let Some(k) = durables.free() else {
+            record(RederiveSkip::TableFull);
             break;
         };
         // `Durable` keeps a name of at most `grant::MAX_NAME` bytes, the bound `mint` holds a login
         // to; the manifest's own bound is wider.
         if !filesystem_protocol::grant::fits(identity) || durables.find(identity).is_some() {
+            record(RederiveSkip::Identity);
             continue;
         }
         let mut doc = [0u8; login_protocol::PAGE];
         let len = read_stored_schedule(identity, &mut doc).unwrap_or(0);
         if len == 0 {
+            record(RederiveSkip::NoStoredSchedule);
             continue;
         }
         let Ok(budget) = memory_region_split(durable_ut, DURABLE_BUDGET_PAGES) else {
+            record(RederiveSkip::BudgetOutOfPages);
             break;
         };
         let Some(d) = Durable::open(own_ut, images, budget, identity, k) else {
             discard(budget);
+            record(RederiveSkip::SessionBuildFailed);
             continue;
         };
         if d.restore(&doc[..len]) {

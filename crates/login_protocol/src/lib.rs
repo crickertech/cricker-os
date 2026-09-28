@@ -208,6 +208,17 @@ pub const SCHEDULE: u64 = 7;
 /// session cannot write. Name and value: provisional, a wire item.
 pub const SUSPEND: u64 = 8;
 
+/// **Report why the start-up pass skipped what it skipped** (milestone 152, added 2026-09-27
+/// against CI's own falsification of the "skipped, not failed" contract in `rederive`'s doc: a
+/// skip that leaves no reason anywhere is the defect, not the skip). A bare word on the front door,
+/// like [`SUSPEND`], built with [`rederive_skips_word`]. Answers [`SKIP_COUNTS`] with
+/// [`durable::pack_skip_counts`]'s word on `RESULT`'s second word; the third is always 0, reserved.
+/// Unauthenticated, like [`SUSPEND`] and [`LOGOUT`]: it names no identity, only counts. A fielded
+/// system has little reason to ask this of its own boot, but the counters cost a saturating add
+/// each and are always kept, in production too, so nothing here is test-only. Name and value:
+/// provisional.
+pub const REDERIVE_SKIPS: u64 = 9;
+
 /// `send(REQUEST, connect_word(), 0, 0)`. The bare word [`CONNECT`] travels as; a client never calls
 /// [`place`] for this step, because there is no identity or secret to stage.
 pub fn connect_word() -> u64 {
@@ -217,6 +228,11 @@ pub fn connect_word() -> u64 {
 /// `send(REQUEST, suspend_word(), 0, 0)`. The bare word [`SUSPEND`] travels as.
 pub fn suspend_word() -> u64 {
     SUSPEND << credential_protocol::OP_SHIFT
+}
+
+/// `send(REQUEST, rederive_skips_word(), 0, 0)`. The bare word [`REDERIVE_SKIPS`] travels as.
+pub fn rederive_skips_word() -> u64 {
+    REDERIVE_SKIPS << credential_protocol::OP_SHIFT
 }
 
 /// `send(REQUEST, logout_word(), 0, 0)`. The bare word [`LOGOUT`] travels as, on the *front door*
@@ -387,6 +403,10 @@ pub const SUSPENDED: u64 = 7;
 /// **[`SUSPEND`]'s answer**, on the front door's `RESULT`; the second word is how many durable
 /// sessions were ended. Name and value: provisional.
 pub const APPLIED: u64 = 8;
+
+/// **[`REDERIVE_SKIPS`]'s answer**, on the front door's `RESULT`; the second word is
+/// [`durable::pack_skip_counts`]'s word. Name and value: provisional.
+pub const SKIP_COUNTS: u64 = 9;
 
 /// **The owner's list of suspended identities** (milestone 152, calef's §108 ruling of
 /// 2026-09-26), a file at the root of the file service in [`RUN_UNVOUCHED_LIST`]'s place and
@@ -639,6 +659,57 @@ pub mod durable {
             .filter(move |identity| !super::lists(suspended, identity))
     }
 
+    /// **Why the start-up pass skipped a manifest entry** (milestone 152, added 2026-09-27 against
+    /// CI's own falsification of `rederive`'s "skipped, not failed" contract with no reason
+    /// anywhere to read). One variant per `continue`/`break` site in `components/src/login.rs`'s
+    /// `rederive`. Provisional: this lane's, not an architect's.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    #[repr(u8)]
+    pub enum RederiveSkip {
+        /// No free slot: as many sessions are already kept as this process can hold.
+        TableFull = 0,
+        /// The name does not fit `filesystem_protocol::grant::MAX_NAME`, or this identity already
+        /// has a session kept.
+        Identity = 1,
+        /// The stored schedule is missing or empty: a stale manifest line.
+        NoStoredSchedule = 2,
+        /// Splitting the session's budget off `durable_ut` failed: out of pages.
+        BudgetOutOfPages = 3,
+        /// Opening the session process (its capability table, its timetable, or the wait for its
+        /// readiness word) failed.
+        SessionBuildFailed = 4,
+    }
+
+    /// How many [`RederiveSkip`] variants there are, and the length [`pack_skip_counts`] and
+    /// [`unpack_skip_counts`] agree on.
+    pub const REDERIVE_SKIP_REASONS: usize = 5;
+
+    /// **Pack one count per [`RederiveSkip`] reason into one word**, one byte each, saturating at
+    /// 255 (ample: `components/src/login.rs`'s `Durables` holds at most a handful of sessions and a boot's
+    /// manifest is not expected to grow past that). `counts[RederiveSkip::X as usize]` lands in
+    /// byte `X`. The whole word travels as `REDERIVE_SKIPS`'s `RESULT` second word.
+    pub const fn pack_skip_counts(counts: &[u32; REDERIVE_SKIP_REASONS]) -> u64 {
+        let mut word = 0u64;
+        let mut i = 0;
+        while i < REDERIVE_SKIP_REASONS {
+            let byte = if counts[i] > 255 { 255 } else { counts[i] };
+            word |= (byte as u64) << (i * 8);
+            i += 1;
+        }
+        word
+    }
+
+    /// The reverse of [`pack_skip_counts`], for a test to read the reply back.
+    pub const fn unpack_skip_counts(word: u64) -> [u32; REDERIVE_SKIP_REASONS] {
+        let mut counts = [0u32; REDERIVE_SKIP_REASONS];
+        let mut i = 0;
+        while i < REDERIVE_SKIP_REASONS {
+            counts[i] = ((word >> (i * 8)) & 0xff) as u32;
+            i += 1;
+        }
+        counts
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -682,6 +753,19 @@ pub mod durable {
             // A prefix is not a name, and a comment suspends nobody.
             assert!(to_rederive(&manifest, b"chr\n#corinne\n").eq(all.iter().copied()));
             assert_eq!(to_rederive(&[], b"chris\n").count(), 0);
+        }
+
+        /// **Skip counts round-trip through one word, and a wild count saturates rather than
+        /// overflows into its neighbour's byte.**
+        #[test]
+        fn skip_counts_round_trip_and_saturate() {
+            let counts = [1, 0, 3, 0, 2];
+            assert_eq!(unpack_skip_counts(pack_skip_counts(&counts)), counts);
+            let wild = [300, 0, 0, 0, 0];
+            let word = pack_skip_counts(&wild);
+            assert_eq!(unpack_skip_counts(word), [255, 0, 0, 0, 0]);
+            // A saturated first byte does not bleed into the second.
+            assert_eq!(word & 0xff00, 0);
         }
     }
 }
