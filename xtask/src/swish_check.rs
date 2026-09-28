@@ -1221,6 +1221,195 @@ impl GaugeFilter {
     }
 }
 
+/// One segment of a gauge sentence: literal text, or one of its numbers. A number is a wildcard
+/// (matched as "one or more digits") rather than a fixed value, because the value is not known
+/// ahead of time: [`degauge`] is asking "is a gauge here at all", not "is this exact gauge here".
+#[derive(Clone, Copy)]
+enum GaugeSeg {
+    Lit(&'static str),
+    Num,
+}
+
+/// Every sentence `kernel::progenitor_stack::announce` and `kernel::cap::announce_peak` can print,
+/// grepped from those two functions verbatim (2026-09-27). Longer variants first, so a `BELOW` or
+/// `ABOVE` sentence is matched whole rather than leaving its tail as unmatched noise once the
+/// shorter, common prefix has already been consumed. See [`degauge`].
+const GAUGE_TEMPLATES: &[&[GaugeSeg]] = &[
+    &[
+        GaugeSeg::Lit("  progenitor stack: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" bytes at peak, "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" spare, BELOW the "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit("-byte floor in kernel/src/progenitor_stack.rs"),
+    ],
+    &[
+        GaugeSeg::Lit("  progenitor stack: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" bytes at peak, "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" spare"),
+    ],
+    &[
+        GaugeSeg::Lit("  capability slots: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" at peak, ABOVE the "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" recorded in kernel/src/cap.rs"),
+    ],
+    &[
+        GaugeSeg::Lit("  capability slots: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" at peak"),
+    ],
+];
+
+/// Try `template` starting at `chars[start]`, tolerating intruder characters wedged between its
+/// own the way [`find_marker`] tolerates them in a flat needle, up to the same
+/// [`SWISH_CHECK_MARKER_SLACK`] budget. `None` if the template does not fit in the budget or runs
+/// off the end of `chars`. On success, returns where the match ended and, for every position from
+/// `start` to that end, whether it belongs to the gauge (`true`) or is an intruder byte that must
+/// be left alone (`false`).
+fn gauge_template_match(
+    chars: &[char],
+    start: usize,
+    template: &[GaugeSeg],
+) -> Option<(usize, Vec<bool>)> {
+    let mut mask = Vec::new();
+    let mut j = start;
+    let mut skipped = 0usize;
+    for seg in template {
+        match *seg {
+            GaugeSeg::Lit(word) => {
+                for want in word.chars() {
+                    loop {
+                        if j >= chars.len() {
+                            return None;
+                        }
+                        if chars[j] == want {
+                            mask.push(true);
+                            j += 1;
+                            break;
+                        }
+                        if skipped >= SWISH_CHECK_MARKER_SLACK {
+                            return None;
+                        }
+                        mask.push(false);
+                        skipped += 1;
+                        j += 1;
+                    }
+                }
+            }
+            GaugeSeg::Num => {
+                let mut got_digit = false;
+                loop {
+                    if j >= chars.len() {
+                        if got_digit {
+                            break;
+                        }
+                        return None;
+                    }
+                    if chars[j].is_ascii_digit() {
+                        mask.push(true);
+                        got_digit = true;
+                        j += 1;
+                    } else if got_digit {
+                        // The number ended: this character belongs to whatever comes next, not to
+                        // the digit run, so it is left for the following segment to see.
+                        break;
+                    } else if skipped >= SWISH_CHECK_MARKER_SLACK {
+                        return None;
+                    } else {
+                        mask.push(false);
+                        skipped += 1;
+                        j += 1;
+                    }
+                }
+            }
+        }
+    }
+    Some((j, mask))
+}
+
+/// Delete the best (fewest intruder characters) occurrence of any [`GAUGE_TEMPLATES`] template
+/// from `text`. `None` if no template appears at all within budget.
+fn strip_one_gauge(text: &str) -> Option<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut best: Option<(usize, usize, Vec<bool>, usize)> = None;
+    for template in GAUGE_TEMPLATES {
+        let GaugeSeg::Lit(first_word) = template[0] else {
+            unreachable!("every gauge template starts with a literal");
+        };
+        let first_char = first_word.chars().next().expect("non-empty literal");
+        for start in 0..chars.len() {
+            if chars[start] != first_char {
+                continue;
+            }
+            if let Some((end, mask)) = gauge_template_match(&chars, start, template) {
+                let skipped = mask.iter().filter(|kept| !**kept).count();
+                if best.as_ref().is_none_or(|(_, _, _, s)| skipped < *s) {
+                    best = Some((start, end, mask, skipped));
+                }
+            }
+        }
+    }
+    best.map(|(start, end, mask, _)| {
+        let mut out = String::with_capacity(text.len());
+        out.extend(&chars[..start]);
+        for (offset, keep) in mask.iter().enumerate() {
+            if !keep {
+                out.push(chars[start + offset]);
+            }
+        }
+        out.extend(&chars[end..]);
+        out
+    })
+}
+
+/// **Interim measure for §175 (where the kernel's own output goes once userspace owns the
+/// console), ruled 2026-09-27 to go through a ring a log service drains, and not yet built.**
+/// Takes a gauge's own characters out of a transcript
+/// even when a second writer spliced them in one at a time, rather than as the whole line
+/// [`GaugeFilter`] above assumes. That assumption held until #1371's CI run, where the
+/// progenitor-stack gauge landed character-by-character inside the shell's own echo of
+/// `package install`, producing `package   proinstgenitor sall tack: 31528 of 49152 bytes at
+/// peak, 17624 spare`: no contiguous `"progenitor stack:"` was ever there for `GaugeFilter` to
+/// find, `swish_check_leg`'s exact search for `"package install\n"` never matched either, and the
+/// run failed with "the prompt never echoed `package install`", a false report of a hung shell.
+/// The same race hit #1420 and is not particular to one command; anything typed while a gauge
+/// happens to print can be shuffled the same way.
+///
+/// Same asymmetry [`find_marker`] relies on: interleaving can destroy a known string, never
+/// manufacture one, so matching the gauge's own words (numbers as wildcards, since their values
+/// are not known ahead of time) has no false positives worth the name. Unlike `find_marker`, which
+/// only answers "is it there", this deletes just the matched characters and hands back everything
+/// else exactly where it was, because the caller needs the *rest* of the stream back in a shape its
+/// own exact-match waits can still recognise.
+///
+/// Remove once §175 is built: a kernel that no longer writes the UART directly once userspace owns
+/// it has nothing left here to splice.
+fn degauge(text: &str) -> String {
+    let mut out = text.to_string();
+    // Bounded rather than "until none found": a gate must not hang on a text that somehow keeps
+    // offering a match. A boot does not print more than a handful of gauge lines.
+    for _ in 0..64 {
+        match strip_one_gauge(&out) {
+            Some(next) => out = next,
+            None => break,
+        }
+    }
+    out
+}
+
 /// Which typed command a gauge removed at `at` belongs to: the last `$ ` line before it, skipping
 /// the bare prompt the gauge usually follows, since that prompt is the *next* command's.
 fn gauge_follows(transcript: &str, at: usize) -> &str {
@@ -1680,7 +1869,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let wait_after = |from: usize, needle: &str, secs: u64| -> bool {
         let deadline = Instant::now() + Duration::from_secs(secs);
         while Instant::now() < deadline {
-            if seen.lock().expect("transcript lock")[from..].contains(needle) {
+            // `degauge`: a gauge spliced character-by-character into the very bytes being waited
+            // for must not defeat an exact search the way it did in #1371 and #1420. See its doc.
+            if degauge(&seen.lock().expect("transcript lock")[from..]).contains(needle) {
                 return true;
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -2705,6 +2896,46 @@ $ outlaw
         let (out, gauges) = filtered(&["$ echo   pro", "gress\n"]);
         assert_eq!(out, "$ echo   progress\n");
         assert!(gauges.is_empty());
+    }
+
+    #[test]
+    fn degauge_recovers_a_command_echo_the_gauge_was_spliced_into() {
+        // #1371's CI failure, verbatim: the progenitor-stack gauge landed byte-by-byte inside the
+        // shell's echo of `package install`, so `GaugeFilter`'s whole-line assumption never fired
+        // and `wait_after`'s exact search for "package install\n" never matched anything. This is
+        // the interim fix: greedily matching the gauge's own words, numbers as wildcards, and
+        // deleting only the characters that matched.
+        let spliced =
+            "package   proinstgenitor sall tack: 31528 of 49152 bytes at peak, 17624 spare";
+        let cleaned = degauge(spliced);
+        assert!(
+            cleaned.contains("package install"),
+            "gauge was not cleanly separated from its echo: {cleaned:?}"
+        );
+        assert!(
+            !cleaned.contains("progenitor") && !cleaned.contains("stack:"),
+            "gauge text survived: {cleaned:?}"
+        );
+    }
+
+    #[test]
+    fn degauge_removes_a_gauge_that_arrives_whole_between_two_lines() {
+        // The ordinary case `GaugeFilter` already handles live in the reader thread; `degauge` is
+        // a second, independent pass applied only at match time, and must not mishandle the common
+        // shape while fixing the rare spliced one.
+        let text =
+            "$ echo hi\nhi\n  progenitor stack: 22880 of 32768 bytes at peak, 9888 spare\n$ wc\n";
+        let cleaned = degauge(text);
+        assert_eq!(cleaned, "$ echo hi\nhi\n\n$ wc\n");
+        assert!(cleaned.contains("$ wc\n"));
+    }
+
+    #[test]
+    fn degauge_takes_out_the_capability_slot_gauge_too() {
+        let text = "$   capability slots: 17 of 24 at peak\n$ caps\n";
+        let cleaned = degauge(text);
+        assert!(!cleaned.contains("capability slots"));
+        assert!(cleaned.contains("$ caps\n"));
     }
 
     #[test]
