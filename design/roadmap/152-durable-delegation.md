@@ -211,8 +211,8 @@ To calef's rulings on #1377. **Fork 6 C:** a durable job holds no report endpoin
 process places none; the timetable probes the slot and hands jobs what it holds
 (`timetable::Held::report`), and the plan lists no endpoint (`F_NO_REPORT`). **Fork 8 D:** a
 durable timetable holds no archive. It holds read-only caretakers for `activation/` and `packages/`
-over the file service's last window, reserved for `login` (milestone 599, a frame per filesystem
-client channel), since its user may hold window 0. It resolves each entry as the prompt resolves a
+over the file service's last window, reserved for `login` (milestone 599 (a frame per filesystem
+client channel)), since its user may hold window 0. It resolves each entry as the prompt resolves a
 bare name, and plans each fire against the current version's manifest (amended by calef on #1377).
 `login` gets `session` and `timetable` as two blobs, and builds the store caretakers first and the
 client's last. The real boot hands all of it over, `login`'s budget sized by
