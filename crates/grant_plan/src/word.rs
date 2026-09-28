@@ -9,7 +9,7 @@
 //! # Quoting delimits a word. It never rewrites one.
 //!
 //! Every token in this shell is a **slice of the line you typed**. Nothing is copied and nothing is
-//! reassembled, which is what lets a shell with no allocator hand a name straight to the grant
+//! reassembled, which is what lets a crate with no allocator hand a name straight to the grant
 //! planner, and it is why `line::split` can keep a stage's command text as a slice rather than
 //! rebuilding it (notes/pipes.md).
 //!

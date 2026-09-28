@@ -2306,7 +2306,7 @@ pub enum Refusal {
     RedirectMidPipeline,
     /// **A word after a redirection's name** (`< f wc`). The spelling this shell takes is `wc < f`.
     /// See notes/pipes.md: refusing the other order is what keeps a stage's text a slice of the
-    /// line in a shell with no allocator.
+    /// line, and `grant_plan` has no allocator.
     WordAfterRedirect,
     /// **A pipeline stage with no command in it** (`| wc`, `a |`).
     ///
@@ -2368,7 +2368,7 @@ pub enum Refusal {
     UnclosedQuote,
     /// **A quote that wraps part of a word** (`a"b"`, `'it''s'`). Every token here is a slice of
     /// the line you typed, so two quoted pieces cannot be joined into one word; the alternative is
-    /// a byte buffer this shell has no allocator for. Refused rather than misread, because both
+    /// a byte buffer, and `grant_plan` has no allocator. Refused rather than misread, because both
     /// readings (join them, or take the quotes literally) would be silently wrong. See [`word`].
     PartlyQuoted,
     /// **A connector with nothing on one side of it** (`&& date`, `date &&`). The mirror of

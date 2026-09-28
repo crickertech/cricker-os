@@ -124,7 +124,7 @@ impl Joint {
 
 /// A typed line cut into segments. The segments are **slices of the line**, so this borrows and
 /// allocates nothing, which is the same discipline [`grant_plan::line::Line`] keeps and for the
-/// same reason: this shell has no allocator.
+/// same reason: nothing here needs to copy a line, and `grant_plan` has no allocator.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Sequence<'a> {
     segments: [(Joint, &'a [u8]); MAX_SEGMENTS],

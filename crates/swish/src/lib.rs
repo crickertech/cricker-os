@@ -130,7 +130,25 @@ pub enum Say {
     /// [`nav::Refused`] and [`nav::BindRefused`] are separate types rather than one enum with two
     /// unrelated halves.
     CannotBind(nav::BindRefused),
+    /// **The shell's heap could not hold what the line needed**, so nothing ran. The heap is capped
+    /// at [`HEAP_MAX_BYTES`] and every allocation in the shell is fallible (calef's ruling, milestone
+    /// 47 (navigation and naming)): the boot shell is the owner's console, and running out of
+    /// memory there is a refusal with a sentence, never a panic.
+    HeapFull,
 }
+
+/// **The cap on the shell's heap**: 32 KiB, eight pages, mapped from the shell's budget all at once
+/// at `_start`, before anything else is carved from it (milestone 47 (navigation and naming),
+/// calef's ruling of 2026-09-26).
+///
+/// Why this number. The heap holds what a line needs for as long as the line runs: a pipeline's
+/// planned stages today, and later a name page for a set grant. Those are a few KiB, so 32 KiB is
+/// several times the largest line. The cap exists so that a leak exhausts the heap, which refuses
+/// the next line with [`Say::HeapFull`], long before it could reach the budget the shell builds its
+/// children from: eight pages, and a few more for their page tables, of the budget's 128.
+///
+/// Name: provisional, milestone 47's allocator lane, 2026-09-26.
+pub const HEAP_MAX_BYTES: u64 = 32 * 1024;
 
 /// **What a command did**, which is what `$?` reports and what `&&` reads (milestone 67,
 /// notes/swish-language.md).
@@ -206,10 +224,10 @@ impl Status {
 
     /// The number as bytes, which is `'static` because there are three of them.
     ///
-    /// That is not a micro-optimisation, it is what makes `$?` expressible at all in a shell with
-    /// no allocator: a substituted word has to be a slice with the line's lifetime, and a `'static`
-    /// slice unifies with any of them. A status with an unbounded range would need a buffer, and
-    /// there would be nowhere to put one.
+    /// That is not a micro-optimisation: a substituted word has to be a slice with the line's
+    /// lifetime, and a `'static` slice unifies with any of them. The shell has had a capped heap
+    /// since 2026-09-26, so a value that needs a buffer could now have one; what keeps it one word
+    /// is [`pieces`], not the absence of an allocator.
     pub fn digits(self) -> &'static [u8] {
         match self {
             Status::Ran => b"0",
@@ -377,6 +395,62 @@ pub fn echo(
     expand: &mut dyn FnMut(&[u8]) -> Result<NameSet, Say>,
     out: &mut dyn FnMut(&[u8]),
 ) -> Say {
+    let status_word = |w: &[u8]| (w == STATUS_WORD).then(|| status.digits());
+    let said = pieces(text, &status_word, &mut |piece| {
+        match piece {
+            Piece::Space(s) | Piece::Quoted(s) | Piece::Substituted(s) => out(s),
+            Piece::Word(w) => match is_pattern(w) {
+                Ok(false) => out(w),
+                Ok(true) => match expand(w) {
+                    Ok(set) => write_set(&set, out),
+                    // A pattern that matched nothing stops the line rather than printing itself.
+                    // That is the same answer `rm` gets, and it has to be: if `echo` printed the
+                    // pattern where `rm` refuses, the two would disagree about what the line
+                    // designates, which is the one thing this pairing exists to rule out.
+                    Err(s) => return Err(s),
+                },
+                Err(r) => return Err(Say::Cannot(r)),
+            },
+        }
+        Ok(())
+    });
+    match said {
+        Ok(()) => Say::Nothing,
+        Err(s) => s,
+    }
+}
+
+/// **One piece of a line, as the shell reads it for substitution** (milestone 47 (navigation and
+/// naming), §141 (application is grant)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Piece<'a> {
+    /// Whitespace between words, verbatim.
+    Space(&'a [u8]),
+    /// A quoted word's text, never expanded or substituted.
+    Quoted(&'a [u8]),
+    /// A word that `substitute` replaced. **Always one word**, whatever its bytes are.
+    Substituted(&'a [u8]),
+    /// A bare word nothing replaced.
+    Word(&'a [u8]),
+}
+
+/// **Split a line into words, then substitute, never the other way round.** This is the rule that
+/// keeps word splitting out of this shell (§141 (application is grant), "kill word splitting"): the
+/// line is split on the whitespace that was *typed*, and a word `substitute` replaces becomes one
+/// [`Piece::Substituted`] whatever it contains. A value with a space in it is never split into two
+/// words, because nothing here looks at a substituted value's bytes again.
+///
+/// Before the shell had an allocator this held because `$?` is one of three `'static` digits.
+/// Now that it has one, it holds because substitution has exactly this one seam, and
+/// `a_substituted_value_is_never_split` fails if it ever splits.
+///
+/// `each` may stop the line by returning an `Err`, which is returned. A word whose quotes do not
+/// make sense is refused as `Say::Cannot`.
+pub fn pieces<'a>(
+    text: &'a [u8],
+    substitute: &dyn Fn(&[u8]) -> Option<&'a [u8]>,
+    each: &mut dyn FnMut(Piece<'a>) -> Result<(), Say>,
+) -> Result<(), Say> {
     let mut i = 0;
     while i < text.len() {
         let space = i;
@@ -384,41 +458,25 @@ pub fn echo(
             i += 1;
         }
         if i > space {
-            out(&text[space..i]);
+            each(Piece::Space(&text[space..i]))?;
         }
         let word = i;
-        // A word ends at the first **bare** whitespace, so `echo "two  spaces"` is one word and
-        // keeps the spacing inside it.
+        // A word ends at the first bare whitespace, so `echo "two  spaces"` is one word and keeps
+        // the spacing inside it.
         i = grant_plan::word::span(text, i, &|b| b.is_ascii_whitespace());
         if i == word {
             continue;
         }
-        let token = match grant_plan::word::read(&text[word..i]) {
-            Ok(w) => w,
-            Err(r) => return Say::Cannot(r),
-        };
+        let token = grant_plan::word::read(&text[word..i]).map_err(Say::Cannot)?;
         if token.quoted {
-            out(token.text);
-            continue;
-        }
-        if token.text == STATUS_WORD {
-            out(status.digits());
-            continue;
-        }
-        match is_pattern(token.text) {
-            Ok(false) => out(token.text),
-            Ok(true) => match expand(token.text) {
-                Ok(set) => write_set(&set, out),
-                // A pattern that matched nothing stops the line rather than printing itself. That is
-                // the same answer `rm` gets, and it has to be: if `echo` printed the pattern where
-                // `rm` refuses, the two would disagree about what the line designates, which is the
-                // one thing this pairing exists to rule out.
-                Err(s) => return s,
-            },
-            Err(r) => return Say::Cannot(r),
+            each(Piece::Quoted(token.text))?;
+        } else if let Some(value) = substitute(token.text) {
+            each(Piece::Substituted(value))?;
+        } else {
+            each(Piece::Word(token.text))?;
         }
     }
-    Say::Nothing
+    Ok(())
 }
 
 // ---- batching at the bound (milestone 109) ----
@@ -776,6 +834,11 @@ pub fn write_say(s: Say, out: &mut dyn FnMut(&[u8])) {
             out(b"  ");
             out(r.message().as_bytes());
             out(b"\n");
+        }
+        Say::HeapFull => {
+            out(b"  this shell's heap is full (its cap is ");
+            write_num(HEAP_MAX_BYTES / 1024, out);
+            out(b" KiB), so the line did not run and nothing was spawned\n");
         }
     }
 }
@@ -1222,6 +1285,11 @@ pub fn write_holdings(
     out(b"    cap 3  untyped   ");
     write_num(budget_pages, out);
     out(b" pages  the memory it grants with --mem (initial)\n");
+    // **The heap is mapped from that budget**, first, so it is part of what this row counts
+    // rather than a capability beside it (milestone 47 (navigation and naming), calef's ruling).
+    out(b"           the first ");
+    write_num(HEAP_MAX_BYTES / 1024, out);
+    out(b" KiB of them, and their page tables, are the shell's own heap\n");
     match (&holdings.second, holdings.dir) {
         (Some(sd), _) => {
             // **Two rows, one tree**: the second capability is a row of its own, because it is one
@@ -1844,6 +1912,47 @@ mod tests {
     use grant_plan::nav::Cwd;
 
     use super::*;
+
+    /// **No word splitting, ever** (calef's ruling, 2026-09-26, with the allocator; §141
+    /// (application is grant)). A substituted value with spaces, a tab and a pattern character in
+    /// it stays exactly one word, and the words around it are the ones that were typed. This fails
+    /// if substitution ever moves before splitting, or if a substituted value is ever read as
+    /// words or as a pattern again.
+    #[test]
+    fn a_substituted_value_is_never_split() {
+        let value: &[u8] = b"two  words\tand *.txt";
+        let sub = |w: &[u8]| (w == b"$X").then_some(value);
+        let mut got = Vec::new();
+        pieces(b"a $X 'b c' $X", &sub, &mut |p| {
+            got.push(p);
+            Ok(())
+        })
+        .unwrap();
+        let words: Vec<Piece<'_>> = got
+            .iter()
+            .copied()
+            .filter(|p| !matches!(p, Piece::Space(_)))
+            .collect();
+        assert_eq!(
+            words,
+            [
+                Piece::Word(b"a"),
+                Piece::Substituted(value),
+                Piece::Quoted(b"b c"),
+                Piece::Substituted(value),
+            ]
+        );
+        // And through `echo`, the only caller today: `$?` is substituted, printed once, and a
+        // quoted `$?` is not.
+        let mut out = Vec::new();
+        echo(
+            b"$? '$?'",
+            Status::Refused,
+            &mut |_| panic!("nothing here is a pattern"),
+            &mut |b| out.extend_from_slice(b),
+        );
+        assert_eq!(out, b"2 $?");
+    }
     extern crate std;
     use std::string::String;
     use std::vec::Vec;
