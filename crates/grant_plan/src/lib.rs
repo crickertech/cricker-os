@@ -2662,6 +2662,16 @@ pub fn each_word(
         f(w.text)?;
     }
 }
+/// **Every word [`parse`] answers as a builtin**, for the shell's Tab completion (milestone 47
+/// (navigation and naming), DECISIONS §227 (how Tab reaches the shell)). A builtin added to
+/// `parse` and not here still works; it only is not offered on Tab. The test beside `parse` holds
+/// the other direction: everything listed here is a builtin.
+///
+/// Name: provisional (milestone 47, 2026-09-26).
+pub const BUILTINS: &[&[u8]] = &[
+    b"apropos", b"bind", b"caps", b"cd", b"echo", b"help", b"ls", b"mkdir", b"package", b"pwd",
+    b"time", b"touch", b"xargs",
+];
 
 /// Parse a whole command line into a [`Command`]. Pure and allocation-free.
 ///
@@ -3655,6 +3665,24 @@ mod tests {
     use expand::{Expander, MAX_NAMES};
 
     use super::*;
+
+    /// Every listed builtin is one `parse` answers as a builtin, and none is also a program, so
+    /// Tab never offers a word that would run something else.
+    #[test]
+    fn every_listed_builtin_is_a_builtin_and_no_program() {
+        for &b in BUILTINS {
+            assert!(
+                !matches!(parse(b), Command::Run(_)),
+                "{:?} is not a builtin",
+                b
+            );
+            assert!(Prog::from_name(b).is_none(), "{:?} is also a program", b);
+        }
+        assert!(
+            matches!(parse(b"wc"), Command::Run(_)),
+            "the control: a program runs"
+        );
+    }
 
     /// **The unvouched manifest is §219's ruling and nothing wider** (gate D2, calef 2026-09-26).
     /// The two read-only pages are allowed; the process domain, entropy and the network are not;

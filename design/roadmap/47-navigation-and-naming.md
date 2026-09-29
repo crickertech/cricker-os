@@ -24,17 +24,19 @@ Where this stands, 2026-09-26 (UTC), `milestone/47-navigation`. Every item below
 against the tree that day. One was built: `caps` prints the inert-configuration values a child
 will read, from the boot shell's own read-only view of the same frame (DECISIONS §111 (inert configuration is a validated page)'s preview;
 notes/env-config.md). One was settled elsewhere: the function-call syntax fork was refused by
-§141 (application is grant) on 2026-09-03. What is left is three architect's calls, each written
-up with its options, and none of them this lane's to answer:
+§141 (application is grant) on 2026-09-03. Completion was built the same day, once calef ruled
+§227 (how Tab reaches the shell) as option D: the shell edits its own line over raw mode, and Tab
+finishes a program or file name from its own authority (notes/shell-line-editing.md). The other
+two calls were ruled the same day and are work to build:
 
-- Completion: a resume message on the terminal wire. PROPOSED below, unchanged since
-  2026-08-26 and still with no `design/decisions/` entry.
 - A set grant at the prompt, which is what `xargs <program>` has been waiting on and, found
-  today, what refuses a plain `rm *.txt` over two files: `spawnproto` cannot carry a set. PROPOSED
-  in notes/a-set-grant-at-the-prompt.md.
+  today, what refuses a plain `rm *.txt` over two files: `spawnproto` cannot carry a set. Ruled
+  2b in §228 (how a set of matched names reaches the progenitor): a page the shell fills
+  (notes/a-set-grant-at-the-prompt.md).
 - `PATH` for installed programs: the manifest question that blocked it is answered by §208 and
-  §219, and what remains is how a bare name reaches an installed program. PROPOSED under "`PATH`,
-  sized" below.
+  §219, and what remains is how a bare name reaches an installed program. Ruled B2 in §229 (how a
+  bare name at the prompt reaches an installed program): the activation set, never an owner's
+  vouch.
 
 The secrets third moved out of this milestone: it is §41 (the endpoint is the broker)'s endpoint, milestone 65 (a secrets service)'s service and
 §165's open question, and no program on nife needs one (Follow-on, below).
@@ -1119,101 +1121,23 @@ Leaning toward the activation set, because it is "the program namespace is the e
 search at all: installing is what puts a name in it (§208). It is a name the shell and every script
 will depend on, so it is an architect's.
 
-## Completion: a concrete primitive, priced and not built (investigated further 2026-08-26, `milestone/47-remainder-round2`). **PROPOSED, not decided.**
+## Completion: built 2026-09-26 as §227 option D
 
-The 2026-08-26 lane found that Tab is swallowed at the line discipline
-(`crates/line_editor/src/lib.rs`, "Tab is ignored," confirmed again this round at the same line:
-Tab falls into the `_ => Event::None` catch-all for unhandled control bytes) and that reaching it
-needs a mid-line round trip the terminal-to-shell wire does not do. This lane specified the actual
-shape of that round trip, which the previous one correctly declined to invent, and it is small
-enough to describe precisely, but it is still a new wire message, so it is written up rather than
-built, on the same "move fast on what can be undone" ground `PATH`'s spawn-protocol half is.
+Two lanes on 2026-08-26 found that Tab is dropped by the terminal's line discipline, and priced a
+round trip on the terminal wire (a reply flag and a resume opcode) to reach the shell mid-line.
+That pricing is now DECISIONS §227 (how Tab reaches the shell), whose option D needed no wire at
+all: milestone 169 (`kilo`, the smallest real text editor)'s raw mode already existed. calef ruled D on 2026-09-26.
 
-First, the question this lane was asked to check: is milestone 151 (notification objects,
-wait-any) relevant here? No, and it is worth saying why, because the resemblance is only surface
-deep. Wait-any solves *multiplexing*: one process waiting on several independent sources at once
-(a job, `^C`, a domain event) without a dedicated thread per source. Completion is not that shape.
-The shell already has exactly one wait point in play here, the blocking `CALL` on
-`line_editor::proto::OP_READLINE`, and the problem is that this one channel's protocol only
-has one reply shape ("a line is ready"). Nothing about Tab needs the shell to watch a *second*
-source while it waits; it needs the *existing* source to be able to reply for a second reason.
-Milestone 151 is a red herring for this specific gap, whatever it turns out to be needed for
-elsewhere.
-
-The architecture that makes this a protocol question rather than a local one. `line_editor` (the
-userspace component, not just the crate) is a confined server between the UART and the shell; the
-shell's `CALL` on `OP_READLINE` blocks fully until the *one* reply, which today only ever means "a
-whole line, terminated by Enter, is ready." The engine underneath (`LineDisc::feed`) is sans-IO and
-already returns a small closed `Event` enum (`None`/`Line`/`Eof`/`Interrupt`) for exactly this
-reason: it does no IO and cannot itself decide what a Tab should turn into text, because "completion
-needs the command namespace, which is the application's knowledge, not the terminal's" (this
-crate's own module doc, written before this milestone existed, still correct). So the terminal
-cannot answer Tab locally either: doing so would need the terminal component itself to hold a
-copy of the shell's own directory capability (to filter candidates by what the shell can actually
-reach, "the completion menu is a rendering of your authority", this milestone's own glob section)
-which is a bigger, and wrong-shaped, change than the round trip it would be avoiding: it would make
-a component serving potentially more than one session capability-aware on the *session's* behalf,
-which is not this component's job today and would need its own design fork about per-session
-capability delegation into a server that currently holds none.
-
-The primitive, specified rather than merely gestured at:
-
-1. `Event::Tab` (provisional variant name), `LineDisc::feed`'s existing closed enum widened by
-   one, `Event::Interrupt`'s own shape: zero IPC cost, a local return value, mechanically the
-   smallest possible change and the only one of the four pieces below that is *not* a wire decision.
-   The buffer and cursor are left exactly as they are; nothing is consumed or echoed on Tab itself.
-2. A new reply flag on `OP_READLINE`'s existing reply word, `FLAG_EOF`/`FLAG_INTERRUPTED`'s own
-   shape (provisional: `FLAG_COMPLETE`): the terminal component replies to the shell's *current*
-   `CALL` early, before Enter, carrying the in-progress buffer's current bytes (already the
-   contract's own shape: "the bytes are in the client's input page") and this flag instead of a
-   finished line.
-3. A resume request, and this is the piece with no existing precedent to lean on, which is why
-   it is the load-bearing decision rather than the wiring. Today every `OP_READLINE` call starts a
-   *fresh* line (`ld.start_line`); nothing resumes one in progress. A completion round trip needs
-   the shell to hand back a (possibly modified) buffer and cursor position and have the terminal
-   splice it into the same in-progress line and keep editing from there, a new opcode
-   (provisional `OP_READLINE_RESUME`) or a resume bit on `OP_READLINE` itself, carrying the buffer
-   to resume from. `LineDisc` already retains state across separate calls from one session (history
-   browsing depends on this), so the engine-side change is small; the wire message that tells it
-   *when* to resume rather than start fresh is the new thing.
-4. The shell computes candidates using its own authority, not the terminal's, which is what
-   step 3 is for: on `FLAG_COMPLETE`, the shell (which already holds whatever directory capability
-   and program-name list it would grant a spawned child) matches the in-progress last word against
-   `Prog::name()` for a bare command position or against an `ENUMERATE` of its held directory for a
-   file position, exactly bounded the way globbing already is ("the expansion you see is the
-   grant"), and sends the resume request back with the completed text spliced in.
-
-Filename-and-program-name completion only, as the task's own instruction allows, is a real
-narrowing rather than a cop-out: it needs no new authority beyond what `echo *` and `caps
-<command>` already exercise (an `ENUMERATE` walk and the compiled program name list), and it avoids
-qualifiers, ambiguity/shadowing across multiple sources, and the general "what can I run" question
-`PATH`'s own four open questions already name as separately hard.
-
-Costed, the same shape as `PATH`'s table above:
-
-| Piece | New wire decision? | Size |
-|---|---|---|
-| `Event::Tab` | No (local to `line_editor`, the crate) | Trivial |
-| `FLAG_COMPLETE` reply | Yes, but `FLAG_EOF`'s own shape | Small |
-| Resume opcode/bit | **Yes, and no existing precedent to extend** | The real decision |
-| Shell-side candidate computation | No new capability, reuses `echo`/`caps`'s own bounds | Small once the above exist |
-
-Recommendation: written up, not built, for the same reason as `PATH`'s wire half. Three of the
-four pieces are small and two have direct precedent in this tree's own wire vocabulary
-(`FLAG_EOF`/`FLAG_INTERRUPTED`, `DIR_BIT`'s "expect more data" shape). The resume opcode does not:
-it is a new kind of request this protocol has never needed (continue an in-progress exchange rather
-than start one), and it is a wire message two programs (the terminal component and the shell) must
-agree on forever, `line_editor::proto`'s own module doc naming exactly this category the same way
-`spawnproto`'s does. Per the same "recommend on reversible forks; options on irreversible ones"
-limit, this earns options rather than a push: build it (the primitive above, filename-and-
-program-name only, is small enough for one lane) or leave it, since the previous lane's
-"no forcing customer" reasoning for `PATH` applies here too: nobody has been unable to use this
-shell for want of Tab, and a `Refused` at the prompt has always been the honest answer to a program
-this shell cannot yet run correctly. What tips it, if calef wants a lean rather than a coin flip: of
-this milestone's three open items, this is the one with the most direct precedent to build against
-(two of four pieces are shaped exactly like an existing flag) and the smallest blast radius (one
-crate, one component, one client), so it is the cheaper of the two remaining forks to resolve either
-way.
+So the shell turns raw mode on at the prompt and runs `line_editor::LineDisc` itself. Tab is
+`Event::Tab`, and `swish::complete` finishes the word from what the shell can name: a builtin or an
+image program in command position, and otherwise an entry of the directory the word leads into,
+listed with the same `ENUMERATE` `echo *` needs. `^C` at the prompt is a byte the shell's editor
+turns into a discarded line. A supervised job still takes `^C` through the terminal's count
+(§24 (interrupting the foreground process)), so the shell leaves raw mode just before it spawns one.
+Proven by host tests in `crates/line_editor` and `crates/swish`, and at a real prompt on all three
+architectures by `script/swish-check`, which types a Tab twice and a `^C` once. The binary cost and
+the per-keystroke cost are measured in notes/shell-line-editing.md, with its BUGS. fish's extras
+are proposals (Follow-on, below).
 
 ## `file:` and `run` are not earned, and come out (decided 2026-07-30)
 
@@ -1355,15 +1279,17 @@ estimates for unbuilt work are guesses on a scale calibrated from history, not m
   now. `crates/swish/src/lib.rs` prints a bound name's own row and writes it, with a test asserting
   `bind recent -> /logs/2026`. The block's own `bind` paragraph already says so; this sentence
   never got the correction.
-- **Outstanding.** An architect's call. Tab completion. `crates/line_editor` still carries only
-  `None`, `Line`, `Eof` and `Interrupt` as events and still documents that Tab is ignored; there is no `Event::Tab`, no
-  completion flag and no resume opcode anywhere in the crate. Checked 2026-09-03 and again
-  2026-09-26. The resume message is a wire decision; the proposal is "Completion: a concrete
-  primitive" above, and it still has no `design/decisions/` entry for the maintainer to mint.
-- **Outstanding.** An architect's call. `PATH`. The manifest half is answered by §208, §219 and
-  §197's ELF-note manifest (PR #1338, in flight), and an installed program runs by path. How a bare name
-  reaches one is PROPOSED under "The manifest question was answered elsewhere" above. Checked
-  2026-09-26.
+- **Done.** Tab completion, built 2026-09-26 under §227 option D: see "Completion: built
+  2026-09-26" above and notes/shell-line-editing.md.
+- **Proposed.** fish's extras, recorded rather than built: suggestions from history
+  (`design/roadmap/proposals/the-prompt-suggests-from-history.md`), colouring the first word by
+  whether it can run (`design/roadmap/proposals/the-prompt-colours-what-it-can-name.md`), a live
+  `^R` search (`design/roadmap/proposals/a-live-history-search-at-the-prompt.md`), and argument
+  completion from the manifest (`design/roadmap/proposals/argument-completion-reads-the-manifest.md`).
+- **Outstanding.** `PATH`, now buildable: calef ruled
+  `design/decisions/229-how-a-bare-name-reaches-an-installed-program.md` B2 on 2026-09-26. An
+  installed program still runs only by path, checked 2026-09-26. The lane must meet the two
+  checks on owner-vouch entries that §229 names.
 - **Milestone 65.** Environment's secrets third, moved rather than built. A secret here is an
   endpoint (§41), the service that holds one is milestone 65's (BUILT), and where a stored secret comes from is §165 (PROPOSED). §220
   (signed builds) met the one candidate customer, a signing key, on 2026-09-26 and recommended

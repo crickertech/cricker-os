@@ -342,3 +342,62 @@ fn op_write_ignores_raw_mode_and_op_readline_survives_a_round_trip() {
     );
     held.release_or_fail("raw_mode_service");
 }
+
+/// **What one keystroke costs when the application edits its own line** (DECISIONS §227 (how Tab
+/// reaches the shell) option D, milestone 47 (navigation and naming)): a measurement, printed as a
+/// `measure:` line, beside the one fact it asserts.
+///
+/// Cooked, a keystroke is one `OP_BYTES` from the input driver, and the terminal echoes it to the
+/// console itself. Raw, the same `OP_BYTES` is followed by the shell's `OP_READRAW` and an
+/// `OP_WRITE` of the echo, so the shell pays two more round trips per burst. Both loops run here
+/// from kernel threads against the real `line_editor` process, so the difference is the added
+/// round trips and the terminal's work on them, not the cost of an EL0 trap. Under TCG the
+/// absolute numbers are the emulator's; the ratio is the reading.
+///
+/// The assertion is the raw path's echo landing on the console: a client that edits its own line
+/// must still be seen typing.
+#[test_case]
+fn a_keystroke_edited_by_the_client_costs_two_more_round_trips() {
+    const N: u64 = 200;
+    let (w, held) = svc::start();
+
+    // Cooked: type a character and rub it out, so the line never fills.
+    let t0 = crate::arch::timer::now();
+    for i in 0..N {
+        send_bytes(w.term, if i % 2 == 0 { b"a" } else { &[0x7f] });
+    }
+    let cooked = crate::arch::timer::now() - t0;
+
+    rawmode(w.term, true);
+    let app_out = mmu::phys_to_virt(w.app_out_phys);
+    fill(w.console_phys, SENTINEL, 8);
+    let t0 = crate::arch::timer::now();
+    for _ in 0..N {
+        send_bytes(w.term, b"a");
+        let (n, bytes) = read_raw(w.term);
+        assert_eq!(n, 1);
+        // SAFETY: the app-output frame this test allocated; `line_editor` maps it read-only and
+        // reads it only inside the `OP_WRITE` below.
+        unsafe { core::ptr::write_volatile(app_out as *mut u8, bytes[0]) };
+        let w0 = line_editor::proto::req(line_editor::proto::OP_WRITE, 1);
+        let r = sched::ipc_call(w.term, [w0, 0]);
+        assert_eq!(r[0], 1, "OP_WRITE did not consume the echoed byte");
+    }
+    let raw = crate::arch::timer::now() - t0;
+    assert_eq!(
+        read(w.console_phys, 1)[0],
+        b'a',
+        "the client's echo never reached the console"
+    );
+    rawmode(w.term, false);
+
+    let hz = crate::arch::timer::frequency();
+    let ns = |ticks: u64| (ticks as u128 * 1_000_000_000 / hz.max(1) as u128 / N as u128) as u64;
+    crate::println!(
+        "measure: keystroke cooked {} ns, raw with client echo {} ns (per keystroke, {} each)",
+        ns(cooked),
+        ns(raw),
+        N
+    );
+    held.release_or_fail("raw_mode_service");
+}

@@ -25,11 +25,11 @@ was built rather than ported.
 
 A contract has a wire half and an IPC half, and they are independent.
 
-- **The wire half** is what the terminal echoes to the screen and what escape sequences it
+- The wire half is what the terminal echoes to the screen and what escape sequences it
   understands from the keyboard. A client never sees this. It is the agreement between the
   terminal and the *human* at the far end of the serial line, and it is documented in
   [line-discipline.md](line-discipline.md) with the engine that produces it.
-- **The IPC half** is the protocol on the endpoints: the opcodes, the flags, the shared pages.
+- The IPC half is the protocol on the endpoints: the opcodes, the flags, the shared pages.
   This is what a client and the drivers must speak, and it is the substance of this note. The
   framing constants live in `line_editor::proto` so the server, its clients, and the kernel-side
   tests share one definition.
@@ -76,8 +76,8 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
 - `OP_READLINE`: read one line. The low bits carry a prompt length; the prompt bytes sit at
   the start of the output page and the terminal paints them, followed by any type-ahead the user
   already entered. The reply comes when a completed line is ready: `r0` is its length (the bytes
-  are in the client's input page) and `r1` carries the flags below. **At most one read may be
-  outstanding per terminal.** A second `OP_READLINE` while one is parked is a protocol violation
+  are in the client's input page) and `r1` carries the flags below. At most one read may be
+  outstanding per terminal. A second `OP_READLINE` while one is parked is a protocol violation
   and is refused with `BAD_REQUEST`; the contract is one line reader per terminal, which is what
   a session is.
 
@@ -97,7 +97,7 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
   second contract.
 
   Register-only sidesteps it: `components/src/terminal_sink_caretaker.rs` turns the sink contract into terminal
-  output with **no page at all**, which is what let the terminal become a destination a program's
+  output with no page at all, which is what let the terminal become a destination a program's
   output slot can hold. Eight bytes rather than sixteen is this contract's request shape, not a
   choice: a served request arrives through `recv_cap` with the reply capability and two data words,
   which is why `OP_BYTES` carries eight too.
@@ -120,7 +120,7 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
   the line discipline would otherwise interpret, the two refusals, and a read parked before data
   arrives still being answered once it does.
 
-  **Only `line_editor` serves it.** `display_terminal` does not serve `OP_READLINE` either (see
+  Only `line_editor` serves it. `display_terminal` does not serve `OP_READLINE` either (see
   "For milestones 29 and 31" below); raw mode is a line-discipline opcode exactly like
   `OP_READLINE` is, and belongs nowhere else. A client behind the display terminal that wants raw
   keystrokes composes `line_editor` in front of it exactly as one wanting edited lines already does,
@@ -142,7 +142,7 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
 
 - `FLAG_EOF` (`1<<0`): end of input (`^D` on an empty line). The line length is 0.
 - `FLAG_INTERRUPTED` (`1<<1`): the read was interrupted (`^C`). The line length is 0. This is the
-  contract's `^C` hook for a job **blocked reading** (the shell at its prompt). A job that is
+  contract's `^C` hook for a job blocked reading (the shell at its prompt). A job that is
   running is reached through `OP_INTRCOUNT` and the two-tier routing instead (DECISIONS §24,
   built; design/interrupt-routing.md is the original proposal). One `^C` at the terminal does both:
   it fails any parked read and it bumps the count.
@@ -171,8 +171,8 @@ Owes:
 
 - Line discipline on input, by default. The program calls `OP_READLINE` and receives a finished
   line. All editing (cursor motion, backspace, kill and yank, history) happened on the far side of
-  the endpoint; the program never sees a keystroke, an escape sequence, or an echo. **Unless it
-  asked not to**: `OP_RAWMODE` (milestone 169) opts a program into exactly that, one keystroke at a
+  the endpoint; the program never sees a keystroke, an escape sequence, or an echo. Unless it
+  asked not to: `OP_RAWMODE` (milestone 169) opts a program into exactly that, one keystroke at a
   time through `OP_READRAW`, for the class of program (a screen editor) that needs to.
 - Newline translation on output. A program writes Unix `\n` and the terminal puts a carriage
   return on the serial wire. A program that wants raw control of the wire gets it: everything
@@ -187,7 +187,8 @@ Does not owe:
   terminal is wide will redraw incorrectly past the margin. `line_editor::LINE_MAX` keeps this rare;
   a full fix needs size negotiation the serial contract does not carry. Honest limit, recorded.
 - Tab completion. Completion needs the command namespace, which is the application's
-  knowledge, not the terminal's. Tab is ignored here and belongs to the shell (milestone 31).
+  knowledge, not the terminal's. Tab is ignored here. The shell completes by editing its own line
+  over raw mode (DECISIONS §227 (how Tab reaches the shell), [shell-line-editing.md](shell-line-editing.md)).
 - More than one concurrent reader. One session, one line reader (above).
 
 ## A known race, carried forward from milestone 10
@@ -209,12 +210,12 @@ input arrives. Noted, not papered over; see [shell.md](shell.md).
 
   Two things this note could not have predicted, both recorded in [glyphs.md](glyphs.md):
 
-  - **The display terminal does not serve `OP_READLINE`.** It renders a stream and echoes
+  - The display terminal does not serve `OP_READLINE`. It renders a stream and echoes
     keystrokes; it is not a line discipline. A client that wants edited lines composes `line_editor` in
-    front of it and prints the discipline's echo through `OP_WRITE`, which needs **no new protocol at
-    all**, because `line_editor`'s echo is exactly a byte stream the VT engine parses. That is not a
+    front of it and prints the discipline's echo through `OP_WRITE`, which needs no new protocol at
+    all, because `line_editor`'s echo is exactly a byte stream the VT engine parses. That is not a
     hope: `crates/video_terminal` proves it on the host by running both components against each other.
-  - **The one-endpoint consequence.** A terminal has two classes of sender (an application printing,
+  - The one-endpoint consequence. A terminal has two classes of sender (an application printing,
     an input source typing) and a process here has one wait point (DECISIONS §33), so both arrive on
     one endpoint and are told apart by opcode, exactly as `line_editor` does. The security consequence is
     stated rather than hidden: an application holding that endpoint could send `OP_BYTES` and forge a

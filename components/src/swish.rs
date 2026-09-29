@@ -1156,9 +1156,9 @@ fn print_num(v: u64) {
     swish::write_num(v, &mut print);
 }
 
-/// Read a command line: stage the prompt, CALL `OP_READLINE`, and block until the terminal has a
-/// line for us. The editing (cursor keys, history, backspace) happens entirely on the far side;
-/// we get the finished line in `LINE_VA` and its length and flags in the reply.
+/// Read a command line with the terminal's own editor: stage the prompt, CALL `OP_READLINE`, and
+/// block until the terminal has a line. Kept for a terminal that refuses raw mode, where the shell
+/// cannot edit its own line; [`edit_line`] is the path every real boot takes.
 fn read_line(prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
     stage(prompt, prompt.len());
     let (len, flags) = loop {
@@ -1174,6 +1174,205 @@ fn read_line(prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
         *b = LINE_WINDOW.r8(i as u64);
     }
     (len, flags)
+}
+
+// ---- the shell edits its own line (DECISIONS §227 (how Tab reaches the shell) option D) ----
+
+/// **The line editor, in this process** (milestone 47 (navigation and naming), §227 option D).
+/// The same sans-IO engine the terminal runs, fed from `OP_READRAW`, so a Tab reaches the process
+/// that holds the authority completion needs. A `static` for `line_editor`'s own reason: the
+/// engine is a few KiB and this shell's stack has run out before (notes/pipes.md).
+static mut EDITOR: line_editor::LineDisc = line_editor::LineDisc::new();
+
+/// Bytes a raw read delivered after the one that ended a line, kept for the next line. A paste of
+/// two lines arrives in one burst, and dropping the second would lose typed input.
+static mut AHEAD: ([u8; 8], usize, usize) = ([0; 8], 0, 0);
+
+/// **Whether the terminal is in raw mode on this shell's behalf.** On at the prompt and while a
+/// plain command runs, so keystrokes typed ahead wait in the terminal's raw queue for the next
+/// prompt. Off only while a supervised job is watched, because §24 (interrupting the foreground
+/// process) counts `^C` in the terminal's line discipline, which raw mode bypasses.
+static RAW: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// Ask the terminal for raw mode, or leave it. `false` when the terminal refused, which a terminal
+/// without raw mode does; the caller then reads lines the old way.
+fn set_raw(on: bool) -> bool {
+    let (r, _) = call(TERM, proto::req(proto::OP_RAWMODE, on as u64), 0);
+    let ok = r == 0;
+    RAW.store(on && ok, core::sync::atomic::Ordering::Relaxed);
+    ok
+}
+
+/// Leave raw mode before a supervised job, so its `^C` is counted where [`watch`] polls for it.
+/// Switching discards whatever was typed ahead into the raw queue, which is `OP_RAWMODE`'s contract.
+fn leave_raw() {
+    if RAW.load(core::sync::atomic::Ordering::Relaxed) {
+        set_raw(false);
+    }
+}
+
+/// **Echo, staged in the output page and sent with `OP_WRITE`.** The terminal translates `\n` to
+/// `\r\n` on output, and the engine already writes `\r\n`, so a `\r` right before a `\n` is dropped
+/// here rather than doubled there.
+struct Echo {
+    used: usize,
+}
+
+impl Echo {
+    fn flush(&mut self) {
+        if self.used > 0 {
+            call(TERM, proto::req(proto::OP_WRITE, self.used as u64), 0);
+            self.used = 0;
+        }
+    }
+}
+
+impl line_editor::Sink for Echo {
+    fn put(&mut self, bytes: &[u8]) {
+        for (i, &b) in bytes.iter().enumerate() {
+            if b == b'\r' && bytes.get(i + 1) == Some(&b'\n') {
+                continue;
+            }
+            if self.used == user_mode_runtime::mapped_window::PAGE as usize {
+                self.flush();
+            }
+            OUT_WINDOW.w8(self.used as u64, b);
+            self.used += 1;
+        }
+    }
+}
+
+/// **Read a command line, editing it here.** Same answer shape as [`read_line`]: the length and
+/// the `FLAG_EOF` / `FLAG_INTERRUPTED` a terminal would have replied with. `^C` arrives as a byte
+/// and the engine discards the line, exactly as the terminal's copy did.
+fn edit_line(nav: &mut Nav, prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
+    if !RAW.load(core::sync::atomic::Ordering::Relaxed) && !set_raw(true) {
+        return read_line(prompt, out);
+    }
+    let editor = &raw mut EDITOR;
+    let typed_ahead = &raw mut AHEAD;
+    // SAFETY: single-threaded EL0, and nothing else in this program names `EDITOR`, so this is
+    // the only reference to it while the line is read.
+    let disc = unsafe { &mut *editor };
+    // SAFETY: as above, for `AHEAD`.
+    let ahead = unsafe { &mut *typed_ahead };
+    let mut echo = Echo { used: 0 };
+    disc.start_line(prompt, &mut echo);
+    echo.flush();
+    loop {
+        if ahead.1 == ahead.2 {
+            let (n, packed) = call(TERM, proto::req(proto::OP_READRAW, 0), 0);
+            // The terminal is being replaced and handed this read back (FLAG_RETRY, milestone 23
+            // (a capability-routed component OS with live replacement)). The line lives in this
+            // process, so nothing was lost and nothing needs painting: ask again. A replacement
+            // that starts outside raw mode answers the next read `BAD_REQUEST`, handled below.
+            if proto::is_retry(n, packed) {
+                continue;
+            }
+            if n == proto::BAD_REQUEST {
+                // Something this shell ran left raw mode (a program that holds the terminal turns
+                // it off when it exits). Take it back, and paint the line again on a fresh row.
+                if !set_raw(true) {
+                    disc.abandon();
+                    return read_line(prompt, out);
+                }
+                continue;
+            }
+            *ahead = (packed.to_le_bytes(), 0, (n as usize).min(8));
+        }
+        while ahead.1 < ahead.2 {
+            let b = ahead.0[ahead.1];
+            ahead.1 += 1;
+            match disc.feed(b, &mut echo) {
+                line_editor::Event::Line => {
+                    echo.flush();
+                    let line = disc.line();
+                    let n = line.len().min(out.len());
+                    out[..n].copy_from_slice(&line[..n]);
+                    return (n, 0);
+                }
+                line_editor::Event::Eof => {
+                    echo.flush();
+                    return (0, proto::FLAG_EOF);
+                }
+                line_editor::Event::Interrupt => {
+                    echo.flush();
+                    return (0, proto::FLAG_INTERRUPTED);
+                }
+                line_editor::Event::Tab => complete_word(nav, disc, &mut echo),
+                line_editor::Event::None => {}
+            }
+        }
+        echo.flush();
+    }
+}
+
+/// **Tab**: finish the word under the cursor from what this shell can name (`swish::complete`).
+/// A program or builtin name in command position; otherwise an entry of the directory the word's
+/// lead names, read with the same `ENUMERATE` `ls` needs. No match rings the bell.
+fn complete_word(nav: &mut Nav, disc: &mut line_editor::LineDisc, echo: &mut Echo) {
+    use line_editor::Sink;
+    use swish::complete::{Answer, Completing, Lister, Matches};
+    let mut buf = [0u8; line_editor::LINE_MAX];
+    let (line, cur) = disc.pending();
+    let len = line.len();
+    buf[..len].copy_from_slice(line);
+    let line = &buf[..len];
+    // Offer every candidate to `each`, from the source the word's position names. `false` when
+    // there is nothing this shell can read there.
+    let source = |nav: &mut Nav, which: &Completing<'_>, each: &mut dyn FnMut(&[u8], bool)| {
+        match *which {
+            Completing::Command { .. } => {
+                for b in grant_plan::BUILTINS {
+                    each(b, false);
+                }
+                for p in grant_plan::Prog::ALL {
+                    each(p.name().as_bytes(), false);
+                }
+                true
+            }
+            Completing::Name { dir, .. } => {
+                // `ls docs` rather than `ls docs/`: the lead names a directory, and its trailing
+                // slash is the word's, not the path's. The root keeps its one slash.
+                let dir = match dir {
+                    [b'/'] => dir,
+                    [lead @ .., b'/'] => lead,
+                    _ => dir,
+                };
+                nav.ls(dir, each) == Say::Nothing
+            }
+            Completing::Nothing => false,
+        }
+    };
+    let which = swish::complete::completing(line, cur);
+    let prefix = match which {
+        Completing::Command { prefix } | Completing::Name { prefix, .. } => prefix,
+        Completing::Nothing => return echo.put(&[0x07]),
+    };
+    let mut m = Matches::new(prefix);
+    if !source(nav, &which, &mut |n, d| m.offer(n, d)) {
+        return echo.put(&[0x07]);
+    }
+    match m.answer() {
+        Answer::NoMatch => echo.put(&[0x07]),
+        Answer::Insert { text, finished } => {
+            disc.insert_text(text, echo);
+            if let Some(f) = finished {
+                disc.insert_text(&[f], echo);
+            }
+        }
+        Answer::List => {
+            let mut l = Lister::new();
+            let wants = Matches::new(prefix);
+            source(nav, &which, &mut |n, d| {
+                if wants.wants(n) {
+                    l.name(n, d, &mut |b| echo.put(b));
+                }
+            });
+            l.finish(&mut |b| echo.put(b));
+            disc.repaint(echo);
+        }
+    }
 }
 
 /// The interactive shell: a terminal at slot 0, a spawn channel, a result channel, a budget. It is
@@ -1459,7 +1658,7 @@ fn interactive(rights: u64) -> ! {
     };
     let mut line = [0u8; 128];
     loop {
-        let (n, flags) = read_line(b"$ ", &mut line);
+        let (n, flags) = edit_line(&mut nav, b"$ ", &mut line);
         if flags & proto::FLAG_INTERRUPTED != 0 {
             // ^C at the prompt: the terminal discarded the line. Account for this interrupt so it
             // does not leak into the next job's watch, then come back for the next line.
@@ -4354,6 +4553,12 @@ fn spawn_interruptible(e: Endowment) {
             nameset: false,
         },
     );
+    // **Out of raw mode before the job exists** (DECISIONS §227 (how Tab reaches the shell)
+    // option D). [`watch`] learns of `^C` from the terminal's count, and the terminal counts only
+    // in its line discipline. The watermark is taken after the switch, so a `^C` from here on is
+    // this job's, and one pressed at the prompt, which was a byte to [`edit_line`], never is.
+    leave_raw();
+    CONSUMED.store(intr_count(), core::sync::atomic::Ordering::Relaxed);
     send(SPAWN, w0, w1, w2);
     send_cap(job_ut);
     send_cap(job_fr);

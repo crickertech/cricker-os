@@ -120,8 +120,11 @@
 //!   always on and cannot block on a terminal that may not answer (a piped boot script never
 //!   would). A wrapped long line therefore redraws incorrectly past the margin. Recorded in
 //!   notes/terminal-contract.md as an honest limit; [`LINE_MAX`] keeps it rare.
-//! - **No tab completion.** Completion needs the command namespace, which is the application's
-//!   knowledge, not the terminal's. Tab is ignored.
+//! - **No tab completion here.** Completion needs the command namespace, which is the
+//!   application's knowledge, not the terminal's. The engine reports Tab as [`Event::Tab`] and
+//!   leaves the line alone; the terminal component ignores it. A program that runs this engine
+//!   in its own process over raw mode (the shell, DECISIONS §227 (how Tab reaches the shell)
+//!   option D) answers it with [`LineDisc::pending`] and [`LineDisc::insert_text`].
 //! - **No output-side state.** Application output passes through the component untouched except
 //!   for newline translation, which is [`expand_output`], a free function on purpose: output
 //!   processing shares no state with input editing (Unix tangles these; see notes/tcb.md's
@@ -337,6 +340,9 @@ pub enum Event {
     Eof,
     /// ^C: the line in progress was discarded.
     Interrupt,
+    /// Tab: nothing was echoed and the line is unchanged. Whoever runs the engine decides what a
+    /// Tab means, because completion needs a namespace the engine does not have (§227).
+    Tab,
 }
 
 /// The ANSI parser's state. `Esc` has seen 0x1b; `Csi` is inside `ESC [`, accumulating numeric
@@ -428,6 +434,31 @@ impl LineDisc {
         self.prompt_len = n;
     }
 
+    /// The line being edited and the cursor's position in it, for a caller answering
+    /// [`Event::Tab`]. Unlike [`LineDisc::line`], this is the line in progress, not a finished one.
+    pub fn pending(&self) -> (&[u8], usize) {
+        (&self.buf[..self.len], self.cur)
+    }
+
+    /// Insert `text` at the cursor as if it had been typed, echoing it. Printable bytes only; any
+    /// other byte is skipped rather than inserted, so a completion cannot smuggle a control
+    /// sequence into the line. What does not fit in [`LINE_MAX`] is refused with a bell.
+    pub fn insert_text(&mut self, text: &[u8], out: &mut impl Sink) {
+        for &b in text {
+            if (0x20..=0x7e).contains(&b) {
+                self.insert(b, out);
+            }
+        }
+    }
+
+    /// Paint the prompt and the line again on a fresh row, cursor where it was. For a caller that
+    /// printed something between two keystrokes, as a completion listing does.
+    pub fn repaint(&mut self, out: &mut impl Sink) {
+        out.put(&self.prompt[..self.prompt_len]);
+        out.put(&self.buf[..self.len]);
+        csi_left(out, self.len - self.cur);
+    }
+
     /// Begin a read: remember `prompt` (for repaints) and paint it, followed by whatever the
     /// user has already typed ahead. Called by the server when a READLINE request arrives.
     pub fn start_line(&mut self, prompt: &[u8], out: &mut impl Sink) {
@@ -499,6 +530,7 @@ impl LineDisc {
                 self.abandon();
                 Event::Interrupt
             }
+            b'\t' => Event::Tab,
             0x04 => {
                 if self.len == 0 {
                     Event::Eof
@@ -1362,6 +1394,44 @@ mod tests {
         assert_eq!(events, [Event::Line]);
         assert_eq!(d.line(), b"echo hi");
         assert_eq!(s.text(), "echo hi");
+    }
+
+    /// **Tab is reported and changes nothing** (§227 option D): no echo, no edit, and the line in
+    /// progress and its cursor are what [`LineDisc::pending`] says. A terminal that ignores the
+    /// event therefore behaves exactly as it did when Tab fell into the catch-all.
+    #[test]
+    fn tab_is_an_event_that_leaves_the_line_alone() {
+        let (mut d, mut s) = (LineDisc::new(), Screen::new());
+        feed_all(&mut d, &mut s, b"ls do\x1b[D");
+        let before = s.text();
+        assert_eq!(feed_all(&mut d, &mut s, b"\t"), [Event::Tab]);
+        assert_eq!(s.text(), before);
+        assert_eq!(d.pending(), (b"ls do".as_slice(), 4));
+    }
+
+    /// **A completion inserts at the cursor as typing would**, mid-line included, and cannot
+    /// smuggle a control byte into the line: an escape in the text is skipped, not inserted.
+    #[test]
+    fn inserted_text_lands_at_the_cursor_and_control_bytes_are_refused() {
+        let (mut d, mut s) = (LineDisc::new(), Screen::new());
+        feed_all(&mut d, &mut s, b"cat do x\x1b[D\x1b[D");
+        d.insert_text(b"cs/\x1b[2J", &mut s);
+        assert_eq!(s.text(), "cat docs/[2J x");
+        assert_eq!(d.pending().1, 12);
+        assert_eq!(feed_all(&mut d, &mut s, b"\r"), [Event::Line]);
+        assert_eq!(d.line(), b"cat docs/[2J x");
+    }
+
+    /// A repaint after a listing redraws the prompt and the line with the cursor where it was.
+    #[test]
+    fn repaint_restores_prompt_line_and_cursor() {
+        let (mut d, mut s) = (LineDisc::new(), Screen::new());
+        d.start_line(b"$ ", &mut s);
+        feed_all(&mut d, &mut s, b"ls a\x1b[D");
+        let mut fresh = Screen::new();
+        d.repaint(&mut fresh);
+        assert_eq!(fresh.text(), "$ ls a");
+        assert_eq!(fresh.col, 5);
     }
 
     /// Backspace erases from the screen as well as the buffer, including mid-line, where the
