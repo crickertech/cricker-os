@@ -56,7 +56,7 @@ one address space, safe because every binary is verified type-safe before it run
 
 **Those last two are foreclosed by DECISIONS §14 rather than by taste.** Both isolate only code the
 system itself compiled or verified. §14's demonstrator claim is a kernel that runs real workloads
-which were not written for it, and design/fatal-risks.md's first risk is exactly *"only software
+which were not written for it, and design/fatal-risks/README.md's first risk is exactly *"only software
 written for nife runs on nife"*, measured on 2026-08-31 with an **unmodified `ripgrep`**. An SFI or
 language-based nife would make that risk permanently red by construction, which is a stranger thing
 to ship than a kernel that needs an MMU.

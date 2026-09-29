@@ -70,7 +70,7 @@ workflow, no `script/ci-build` row, no ruleset entry.
   nothing in the mechanism tells the two cases apart today.
 
   **What does not reopen it: more evidence that survivors arrive on touched lines.** That is settled
-  at 629 against one, and `design/fatal-risks.md`'s risk 3 carries a green condition built on it
+  at 629 against one, and `design/fatal-risks/README.md`'s risk 3 carries a green condition built on it
   which was deliberately written so the verdict does not depend on this gate existing. The triage it
   asks for is measurable after the merge, weekly, without blocking anybody. **What this gate would
   change is when the triage happens, not whether.**

@@ -50,7 +50,7 @@ validation.
 ### A missing bar means the record did not exist, not that the number was zero
 
 Each of these arrived on a date, with nothing to restate before it: the roadmap, the decision
-statuses, the falsification records, `design/fatal-risks.md`, the naming provenance blocks and
+statuses, the falsification records, `design/fatal-risks/README.md`, the naming provenance blocks and
 `design/roadmap/proposals/`. The two newest series show it most sharply. Names have three empty
 weeks, because the convention that records a ratification was invented on 2026-08-04. Proposals
 have seven, because the directory was created on 2026-09-04. Neither is backfilled, and each
@@ -160,7 +160,7 @@ The biggest mover is `merged_pull_requests`: 17 to 108, all verified against `gi
 - `milestones_total` went 521 to 566 (`milestones_built` 232 to 246, `milestones_not_started` 198
   to 226). The backlog again grew faster than it drained.
 - `fatal_risks_tested` went 5 to 9 and `fatal_risks_untested` 4 to 0: all nine risks in
-  `design/fatal-risks.md` had a status line on record. Later the same day those two columns were
+  `design/fatal-risks/README.md` had a status line on record. Later the same day those two columns were
   replaced by `fatal_risks_run`, `fatal_risks_not_run` and `fatal_risks_cannot_run`. The reason is
   in "The nine things that would kill nife" in [records-by-status.md](records-by-status.md): a pair
   that reads nine and zero is a flat line.

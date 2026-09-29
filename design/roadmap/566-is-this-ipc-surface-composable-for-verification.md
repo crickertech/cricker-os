@@ -35,7 +35,7 @@ is almost impossible before anything is built, and it is what seL4's 20:1 proof-
 But the two positions have different consequences and this tree has never said which one it is in:
 
 - If the surface **is** composable, the harnesses are a foundation and the work is to connect them.
-- If it is **not**, then the proofs are a set of local facts, and `design/fatal-risks.md`'s risk 2
+- If it is **not**, then the proofs are a set of local facts, and `design/fatal-risks/README.md`'s risk 2
   (that the proofs prove trivia) is stronger than its current entry admits, because "no harness has
   caught a defect after the day it was written" would be joined by "and they do not add up either."
 

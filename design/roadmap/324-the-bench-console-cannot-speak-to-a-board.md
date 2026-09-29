@@ -58,7 +58,7 @@ one statement: **the bench console is a reader, for one board, that cannot tell 
 from a wedged one**, and every one of the three boards is a machine somebody currently has to walk
 to.
 
-That matters beyond tidiness because `design/fatal-risks.md`'s remaining experiments are
+That matters beyond tidiness because `design/fatal-risks/README.md`'s remaining experiments are
 hardware-gated in the sense that means *a person has to sit at the board*: milestones 16, 168 and 201
 all wait on hands rather than on hardware. A console that can drive a board is the difference between
 those being a bench session and being a job.

@@ -79,7 +79,7 @@ than failing, and the customer path is still vacant.
 
 Nothing here asks to be taken on trust, which is the point of publishing it:
 
-- **`design/fatal-risks.md`** lists nine claims that, if false, mean this project should stop, each
+- **`design/fatal-risks/README.md`** lists nine claims that, if false, mean this project should stop, each
   with the experiment that would settle it and the honest verdict so far. Two are amber. One already
   fired.
 - **`design/decisions/`** holds every architectural decision with its reasoning, **including the ones

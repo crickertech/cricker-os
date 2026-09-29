@@ -38,7 +38,7 @@ calef's own wording are in [design/tenets/three-principles.md](design/tenets/thr
 ### 1. The ranking function is the shortest path to a system a customer runs
 
 When two milestones are both ready, the one on the customer path goes first. As of 2026-08-30 that
-path is vacant, so the tie breaks toward [design/fatal-risks.md](design/fatal-risks.md), nine claims
+path is vacant, so the tie breaks toward [design/fatal-risks/README.md](design/fatal-risks/README.md), nine claims
 that, if false, mean the project should stop. A real workload with a real user outranks everything
 on that list the moment one exists. A first customer must be something nife can plausibly be
 adequate at within a milestone or two. Do not expose nife to a second customer before there is a

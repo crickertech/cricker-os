@@ -2183,7 +2183,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 311	295	context	at-creation	2026-09-17	2026-09-17	`components/src/builder.rs`, which calef retired on 2026-09-14 (M-295). One limitation still
 311	289	followon	at-creation	2026-09-17	2026-09-17	- **Done.** Two bullets in `design/roadmap/289-the-riscv-tour-earns-its-place.md`'s Follow-on were
 311	295	context	at-creation	2026-09-17	2026-09-17	them the moment its directory list stopped being wrong. Both cited a file M-295 deleted.
-311	92	context	at-creation	2026-09-17	2026-09-17	`.github/workflows/audit-cadence.yml` is M-92's tripwire and sits on `design/fatal-risks.md`
+311	92	context	at-creation	2026-09-17	2026-09-17	`.github/workflows/audit-cadence.yml` is M-92's tripwire and sits on `design/fatal-risks/README.md`
 311	175	context	at-creation	2026-09-17	2026-09-17	was real and four days old (M-175 split `user/` on 2026-09-13 and the next scheduled run
 311	295	context	at-creation	2026-09-17	2026-09-17	and found two dead citations to M-295's retired `builder` on its first run. Both audits are
 312	216	context	at-creation	2026-09-17	2026-09-17	`crates/board_console` arrived with M-216, opens a real serial port on the dev machine and
@@ -2214,10 +2214,10 @@ source	target	kind	discovery	blame_date	file_created	evidence
 317	227	context	at-creation	2026-09-17	2026-09-17	answering it on aarch64 is M-227.
 317	143	context	at-creation	2026-09-17	2026-09-17	exists, in the same `BUGS` section, pointing at M-143's hardware gate.
 317	143	context	at-creation	2026-09-17	2026-09-17	never get a second witness, since no silicon ships the ratified IOMMU (M-143), which
-318	261	context	at-creation	2026-09-17	2026-09-17	M-261's proof and `design/fatal-risks.md` risk 6's decisive experiment. It passed under
+318	261	context	at-creation	2026-09-17	2026-09-17	M-261's proof and `design/fatal-risks/README.md` risk 6's decisive experiment. It passed under
 318	261	context	at-creation	2026-09-17	2026-09-17	- **Recorded.** The bench procedure in M-261's handoff tells the operator to confirm the namespace reads
 318	261	context	at-creation	2026-09-17	2026-09-17	`a_confined_el0_process_serves_the_block_interface_end_to_end` is M-261's proof and fatal
-319	197	context	at-creation	2026-09-17	2026-09-17	`design/fatal-risks.md`'s risk 2 quotes M-197 on why `user/` deserved the prover: it *"holds
+319	197	context	at-creation	2026-09-17	2026-09-17	`design/fatal-risks/README.md`'s risk 2 quotes M-197 on why `user/` deserved the prover: it *"holds
 319	304	context	at-creation	2026-09-17	2026-09-17	flagged by M-304's lane as wanting a design decision and is untouched here. See the
 319	193	context	at-creation	2026-09-17	2026-09-17	`script/lint`'s "every crate with proof harnesses is in the verify table" gate (M-193's,
 319	304	context	at-creation	2026-09-17	2026-09-17	M-304's lane wanted is a smaller one than "how do we prove a volatile walk": it is whether
@@ -2646,7 +2646,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 385	64	context	later	2026-09-14	2026-09-19	| M-66's gap table | **yes**, `M-107` and `M-64`, inside the stale region | **yes** |
 385	7	context	later	2026-09-14	2026-09-19	| `notes/why-not-general-purpose.md` | **no.** It cited M-7 and S-4, S-5, S-10, S-11, and none of 30, 33, 57 or 121 | **no** |
 385	247	prerequisite	later	2026-09-14	2026-09-19	**What the other half wants is a sweep, not a gate**, and there is precedent: M-247 swept
-385	275	context	later	2026-09-14	2026-09-19	**The closest built relative is M-275** (a gate that diffs `design/fatal-risks.md` against the
+385	275	context	later	2026-09-14	2026-09-19	**The closest built relative is M-275** (a gate that diffs `design/fatal-risks/README.md` against the
 385	30	context	later	2026-09-14	2026-09-19	- **It cannot tell staleness from correctness.** A note saying *"M-30 built the net stack"*
 385	383	context	at-creation	2026-09-19	2026-09-19	backticked path that does not resolve passes every other gate: M-383,
 385	383	context	at-creation	2026-09-19	2026-09-19	`design/roadmap/383-a-backticked-path-that-does-not-resolve.md`, is the general fix, and it is
@@ -3179,7 +3179,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 493	168	context	at-creation	2026-09-19	2026-09-20	**In brief.** M-168's mix now covers AIM7's compute, user-memory, pipe, page-mapping and process-creation
 493	145	context	at-creation	2026-09-19	2026-09-20	because only QEMU attaches a controller (`notes/visionfive2.md`, the M-145 section). No SD
 493	168	context	at-creation	2026-09-19	2026-09-20	result** for this instrument (M-168's gate). It would be a job whose only output is fiction.
-493	168	context	at-creation	2026-09-19	2026-09-20	`design/fatal-risks.md`'s risk 4 is decided by M-168's sweep on radon. Two of the three jobs
+493	168	context	at-creation	2026-09-19	2026-09-20	`design/fatal-risks/README.md`'s risk 4 is decided by M-168's sweep on radon. Two of the three jobs
 493	168	context	at-creation	2026-09-19	2026-09-20	flat curve without it is still evidence**, weaker than a flat curve with it, and M-168's
 493	168	context	at-creation	2026-09-19	2026-09-20	- Nothing else. M-168's first bench evening runs the seven-job mix without a disk.
 493	168	context	at-creation	2026-09-20	2026-09-20	M-168's mix now covers AIM7's compute, user-memory, pipe, page-mapping and process-creation
@@ -3247,7 +3247,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 511	441	context	at-creation	2026-09-19	2026-09-20	`uefi_loader` gained aarch64 and riscv64 boot files in M-441 (the program that makes the
 511	157	context	at-creation	2026-09-19	2026-09-20	`simple-framebuffer` node M-157 will read from U-Boot, retiring the `ramfb`'s 1.9 MB of
 512	438	context	at-creation	2026-09-20	2026-09-20	not the moment to improve it. Found by M-438 (would a diff-scoped mutation check have caught), whose first measurement was a replay of the
-512	438	context	at-creation	2026-09-19	2026-09-20	**Gate: NONE.** It is a correction to one paragraph of `design/fatal-risks.md` and to M-438's
+512	438	context	at-creation	2026-09-19	2026-09-20	**Gate: NONE.** It is a correction to one paragraph of `design/fatal-risks/README.md` and to M-438's
 512	438	context	at-creation	2026-09-19	2026-09-20	are in M-438's block with the commands that produced them.
 512	319	context	at-creation	2026-09-19	2026-09-20	**77**, at 86.2% ... It is the crate M-319 proved on 2026-09-17: the proofs landed, the
 512	438	context	at-creation	2026-09-19	2026-09-20	Risk 3 stays amber either way. What changes is what would turn it green, and M-438 refused a
@@ -3297,7 +3297,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 518	532	context	at-creation	2026-09-21	2026-09-20	- **M-532.** M-532 (the mutation census should write its own row),
 518	532	context	at-creation	2026-09-21	2026-09-20	`design/roadmap/532-the-census-writes-its-own-row.md`: have `mutation.yml`
 518	326	context	at-creation	2026-09-20	2026-09-20	`notes/mutation-census.md`'s `BUGS`; the fix is M-326's part 4, held on purpose.
-518	512	context	at-creation	2026-09-20	2026-09-20	- **M-512.** The correction this lane's finding owes `design/fatal-risks.md` belongs with
+518	512	context	at-creation	2026-09-20	2026-09-20	- **M-512.** The correction this lane's finding owes `design/fatal-risks/README.md` belongs with
 519	127	context	at-creation	2026-09-21	2026-09-21	| Hardware | **$89.99** for argon, the Jetson TX1 | M-127 (the seL4 machine: a Jetson TX1)'s own record |
 521	447	context	at-creation	2026-09-21	2026-09-21	- M-447 (a thread's vector registers are its own)'s stack-frame regression, where a 544-byte
 521	191	context	at-creation	2026-09-21	2026-09-21	- **M-191 (did the proofs catch the bugs?)** is the retrospective-against-a-corpus shape, and
@@ -3346,7 +3346,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 531	191	context	at-creation	2026-09-21	2026-09-21	spot, which is what M-191's survivorship finding says about proofs and says equally here. It
 531	311	context	at-creation	2026-09-21	2026-09-21	as a case it cannot tell apart, and M-311 (the audit cadence tripwire, and the month of
 531	128	context	at-creation	2026-09-21	2026-09-21	mechanism is rung four until M-128 (the automation gets its own identity, and the agents get
-531	275	context	at-creation	2026-09-21	2026-09-21	that the arguments still hold. M-275 (a gate that diffs `design/fatal-risks.md` against the
+531	275	context	at-creation	2026-09-21	2026-09-21	that the arguments still hold. M-275 (a gate that diffs `design/fatal-risks/README.md` against the
 532	518	context	at-creation	2026-09-21	2026-09-21	**Status: NOT-STARTED.** *(Number provisional until the merge queue lands it.)* Promoted from the proposal `the-census-writes-its-own-row`, filed 2026-09-20, ...
 533	120	context	at-creation	2026-09-20	2026-09-21	experiment. M-120 (the rename: the OS becomes `nife`) moved the repository from the `calef`
 533	247	followon	at-creation	2026-09-20	2026-09-21	M-247 (follow-on work named by a finished milestone goes nowhere) has its own

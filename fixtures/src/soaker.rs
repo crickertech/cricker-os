@@ -1,6 +1,6 @@
 //! The soaker: the workload that does not stop (milestone 219).
 //!
-//! `design/fatal-risks.md`'s fifth entry ("it cannot be made reliable on multicore, and the bugs
+//! `design/fatal-risks/README.md`'s fifth entry ("it cannot be made reliable on multicore, and the bugs
 //! appear only on silicon") names its decisive experiment as sustained multi-core stress with the
 //! load-sensitive assertions live. Nothing in this tree could sustain anything: the boot tour ran
 //! its checks and the kernel halted. This is the thing that keeps running.

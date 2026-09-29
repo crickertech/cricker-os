@@ -434,7 +434,7 @@ pub fn take_fault() -> Option<Fault> {
 /// `kernel/src/arch/` stayed outside it, because Kani cannot model `asm!`. That is true of the
 /// directory and false of a quarter of its lines: this file contains no `asm!` at all, and the
 /// three functions above are integer arithmetic that decides which physical addresses a device may
-/// touch. `design/fatal-risks.md` risk 7 (the confinement claim is false) rests on them.
+/// touch. `design/fatal-risks/README.md` risk 7 (the confinement claim is false) rests on them.
 ///
 /// **The stubs, and they are the ones notes/kernel-proofs.md enumerates**, plus one this module
 /// adds:

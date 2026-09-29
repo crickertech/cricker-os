@@ -52,7 +52,7 @@ not a number: it varied 29.4% across boots of one image.
 
 On 2026-09-19 the instrument changed to the median of 21 repeats. It also gained a page-mapping job
 and a process-creation job. So the 2026-09-16 date is a date for a different instrument, and the row
-says so. The next radon evening re-dates it. `design/fatal-risks.md`'s risk 4 and
+says so. The next radon evening re-dates it. `design/fatal-risks/README.md`'s risk 4 and
 `design/decisions/96-process-kernel-or-event-kernel.md` are waiting for that result.
 
 ### The filesystem row

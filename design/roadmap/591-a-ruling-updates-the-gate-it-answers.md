@@ -13,7 +13,7 @@ too. Promoted from the proposal `a-ruling-updates-the-gate-it-answers`, filed 20
 trivial install that makes a second customer possible) still gated `DECISION`. Its last fork had
 been ruled a day earlier, by §208 (installing a package is granting it, and the activation set is
 versioned).
-`design/fatal-risks.md` risk 8 repeated the stale gate as the reason nobody can be asked to run
+`design/fatal-risks/README.md` risk 8 repeated the stale gate as the reason nobody can be asked to run
 nife. Built the same day as option 2 below. The proposal's analysis is kept, lightly cut; its gate
 line is gone because a BUILT block may not carry one.
 

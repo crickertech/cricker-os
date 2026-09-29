@@ -1,4 +1,4 @@
-//! **Fatal risk 6's bench boot** (milestone 261 (the NVMe driver leaves the kernel); design/fatal-risks.md risk 6,
+//! **Fatal risk 6's bench boot** (milestone 261 (the NVMe driver leaves the kernel); design/fatal-risks/README.md risk 6,
 //! notes/risk-6-bench-evening.md). Behind the `disk_throughput` feature, name provisional.
 //!
 //! The decisive experiment is "one real, non-virtio device on real silicon, confined, at

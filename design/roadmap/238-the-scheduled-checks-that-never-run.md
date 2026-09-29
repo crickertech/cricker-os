@@ -21,7 +21,7 @@ and their consequences are not the same size.
 **Four scheduled runs, four failures, zero reports**: 2026-08-10, -17, -24 and -31, verified against
 the API rather than inferred.
 
-`design/fatal-risks.md` risk 3 (the tests do not test anything, and the quality is illusory) reads
+`design/fatal-risks/README.md` risk 3 (the tests do not test anything, and the quality is illusory) reads
 **MEASURED, green**, on 92.4% of viable mutants killed, and closes:
 
 > **The remaining experiment is cheap:** re-run it and compare against `.cargo/mutants-baseline.txt`.
@@ -276,7 +276,7 @@ ship under a feedback loop that slow.
   mutant goes 1.4 GB to 15.8 GB in twenty seconds and takes the runner agent with it, inside the
   28-to-51-second per-mutant timeout that therefore cannot catch it.
 - **Done.** Re-read fatal risk 3 against the new number. calef ruled it on 2026-09-19 and
-  `design/fatal-risks.md` now reads **MEASURED, AMBER**. The 83.4% this bullet was written against
+  `design/fatal-risks/README.md` now reads **MEASURED, AMBER**. The 83.4% this bullet was written against
   turned out not to exist: the workflow this milestone repaired went on to complete all eight shards
   on 2026-09-14, and the census put the tree at 91.7% over 64 crates with the baseline's own 38 up
   from 92.4% to 93.6%. The amber half is the two findings a census can show and a sample cannot, and

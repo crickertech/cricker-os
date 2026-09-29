@@ -12,7 +12,7 @@ numbers cannot choose their own interpretation.
 
 ## What the evening is for, in one paragraph
 
-`design/fatal-risks.md` risk 6 asks whether a capability-confined userspace driver can drive real
+`design/fatal-risks/README.md` risk 6 asks whether a capability-confined userspace driver can drive real
 hardware at real speed. Its decisive experiment is one real, non-virtio device on real silicon,
 confined, at throughput. Milestone 261 built the driver: an EL0 process holding one page of the
 NVMe's BAR0 and a confined DMA window serves the block verbs. xenon has the device (a Micron 2450

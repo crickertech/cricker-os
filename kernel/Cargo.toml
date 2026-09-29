@@ -235,7 +235,7 @@ icount = ["bench"]
 # to be measured against. Name provisional. See kernel/src/arch/x86_64/tsc_probe.rs.
 tsc_probe = []
 # The soak boot (milestone 219): the tour does not halt, it builds a pool of user-mode IPC workers
-# and watches them forever, so `design/fatal-risks.md` risk 5's decisive experiment has something to
+# and watches them forever, so `design/fatal-risks/README.md` risk 5's decisive experiment has something to
 # run. Off by default; every ordinary boot still halts. See kernel/src/soak.rs and script/soak-test.
 #
 # Spelled `soak_test` since milestone 297 (`soak` becomes `soak-test`), calef's ruling of

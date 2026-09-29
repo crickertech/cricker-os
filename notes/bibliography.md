@@ -25,7 +25,7 @@ automated fetch was refused, the caveat lives in that note and is not repeated h
 
 ## The opposite bet: isolation from the language, not the hardware
 
-This is the counter-thesis, and `design/fatal-risks.md` risk 4 treats it as one rather than as
+This is the counter-thesis, and `design/fatal-risks/README.md` risk 4 treats it as one rather than as
 background reading: if a language-isolated crossing is as safe and cheaper, a capability crossing is
 a cost this project chose rather than inherited.
 

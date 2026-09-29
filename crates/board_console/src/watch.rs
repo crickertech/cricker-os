@@ -38,7 +38,7 @@ pub struct Policy {
     /// Stop early once the boot reaches this stage, if a stage was asked for.
     ///
     /// `None` means "watch for the whole duration", which is what sustained stress wants:
-    /// `design/fatal-risks.md`'s multicore entry needs a long look, not a boot check.
+    /// `design/fatal-risks/README.md`'s multicore entry needs a long look, not a boot check.
     pub until: Option<Stage>,
     /// Stop if the board falls silent for this long **after it has said something**.
     ///
@@ -689,7 +689,7 @@ mod tests {
         assert!(session.progress.is_relocated());
     }
 
-    /// Sustained watching, which is what `design/fatal-risks.md`'s multicore entry needs: no stage
+    /// Sustained watching, which is what `design/fatal-risks/README.md`'s multicore entry needs: no stage
     /// to wait for, so running the clock out is the plan rather than a disappointment.
     #[test]
     fn watching_for_a_duration_ends_successfully() {

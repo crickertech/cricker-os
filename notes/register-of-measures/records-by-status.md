@@ -4,7 +4,7 @@
 
 ## The nine things that would kill nife
 
-From `design/fatal-risks.md`, by Experiment status: the field calef ratified on 2026-09-23, with
+From `design/fatal-risks/README.md`, by Experiment status: the field calef ratified on 2026-09-23, with
 three values and no fourth. `RUN` means the experiment has been performed. `NOT-RUN` means it has
 not and could be. `CANNOT-RUN` means it cannot be performed at all. `script/fatal-risks` fails on any
 other word, so this can be charted as an enumeration rather than read out of a sentence.
