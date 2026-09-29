@@ -8,7 +8,7 @@ Sorted by breaking changes in the last four weeks (2026W37 to 2026W40), then by 
 
 | crate | breaking, 4 weeks | additions, 4 weeks | breaking | additions | commits | crossing another division |
 |---|---:|---:|---:|---:|---:|---:|
-| `grant_plan` | 40 | 165 | 78 | 791 | 113 | 95 (84%) |
+| `grant_plan` | 40 | 166 | 78 | 792 | 114 | 96 (84%) |
 | `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 30 | 23 (77%) |
 | `swap_protocol` | 7 | 23 | 8 | 113 | 33 | 32 (97%) |
 | `filesystem_protocol` | 5 | 47 | 37 | 447 | 93 | 86 (92%) |
@@ -20,6 +20,7 @@ Sorted by breaking changes in the last four weeks (2026W37 to 2026W40), then by 
 | `graphics_protocol` | 1 | 0 | 9 | 31 | 25 | 25 (100%) |
 | `socket_protocol` | 1 | 5 | 3 | 43 | 23 | 21 (91%) |
 | `byte_sink_protocol` | 1 | 0 | 2 | 38 | 22 | 22 (100%) |
+| `line_editor` | 1 | 62 | 2 | 107 | 23 | 21 (91%) |
 | `counter_frequency_protocol` | 1 | 3 | 1 | 15 | 12 | 10 (83%) |
 | `entropy_protocol` | 1 | 0 | 1 | 15 | 17 | 15 (88%) |
 | `environment_protocol` | 1 | 0 | 1 | 44 | 8 | 8 (100%) |
@@ -28,7 +29,6 @@ Sorted by breaking changes in the last four weeks (2026W37 to 2026W40), then by 
 | `abi` | 0 | 18 | 30 | 115 | 71 | 69 (97%) |
 | `compositor` | 0 | 0 | 4 | 92 | 23 | 19 (83%) |
 | `elf` | 0 | 4 | 3 | 53 | 38 | 31 (82%) |
-| `line_editor` | 0 | 58 | 1 | 103 | 22 | 20 (91%) |
 | `activation_set` | 0 | 34 | 0 | 34 | 9 | 9 (100%) |
 | `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
 | `boot_slot` | 0 | 48 | 0 | 48 | 8 | 4 (50%) |
@@ -41,8 +41,9 @@ Sorted by breaking changes in the last four weeks (2026W37 to 2026W40), then by 
 
 ## What broke in 2026W40
 
-Read at `a0014675a29d` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `ec21c5aebbd8` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `grant_plan`: changed `ArgSpec::Words`
 - `grant_plan`: changed `UNVOUCHED_STD_MANIFEST`
 - `grant_plan`: changed `spawnproto::Wiring`
+- `line_editor`: changed `Event`
