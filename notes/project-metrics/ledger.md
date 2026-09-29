@@ -61,6 +61,7 @@ the conversation that minted the milestone, and the tree disagreed.
 |---|---|---|---|---|
 | 2026-07-12 | (current) | Claude subscription, the inference this project runs on | 200.00 / month | calef, 2026-09-21 |
 | 2026-09-24 | (current) | GitHub Team plan, one seat: CI concurrency 20 → 60 jobs (Actions minutes stay free on a public repository) | 4.00 / month | calef, 2026-09-24 |
+| 2026-09-28 | (current) | z.ai coding plan subscription, the glm-5.3 maintainer sessions and glm-5.3-flash lanes | 80.00 / month | calef, 2026-09-29 |
 
 **The billing day is an assumption and it is the only one in this file.** No invoice is recorded
 anywhere in this tree, so `script/metrics` places each charge in the ISO week containing the monthly
@@ -74,6 +75,16 @@ in the other seven, and sums to $600 by 2026-09-21. Both numbers are correct and
 different questions. The column is the paid one because milestone 519's own table defines it that
 way, and because an accrual is derivable from this ledger by anyone who wants it while a payment is
 not derivable from an accrual.
+
+## Rented capacity
+
+§203 (capacity is rented rather than bought), in practice: credit bought from a metered provider
+and spent by the open-weight lanes and the model bake-offs. One row per purchase, hardware's
+shape.
+
+| date | item | price (USD) | source |
+|---|---|---|---|
+| 2026-09-27 | OpenRouter credit, the rented open-weight lanes and the bake-offs of 2026-09-26 to 27 | 115.31 | calef, 2026-09-29 |
 
 ## Retail rates per million tokens
 
