@@ -2007,7 +2007,14 @@ fn run(nav: &mut Nav, cmd: &[u8], spec: RunSpec) {
     // the same road its path does, so what it is granted and who vouched for it do not depend on
     // how it was named.
     match bare(nav, spec.prog) {
-        swish::bare::Bare::Installed(path) => {
+        swish::bare::Bare::Installed { path, notice } => {
+            // **The spawn line says both when a version set asked for a version that is not live**
+            // (milestone 614 (two installed versions of one program, each runnable, and a caller
+            // granted the one it needs), ruling 4): what runs, and what the set specified. A
+            // preview ([`caps`]) says nothing ran, so it prints no notice.
+            if let Some(notice) = notice {
+                swish::bare::write_divergence(spec.prog, &notice, &mut print);
+            }
             let mut by_path = spec;
             by_path.prog = path.as_bytes();
             return run_image(nav, by_path);
@@ -3280,7 +3287,7 @@ fn caps(nav: &mut Nav, tail: &[u8]) {
         // A bare word previews what running it would do (§229 (how a bare name at the prompt
         // reaches an installed program), B2), through the same resolution [`run`] uses.
         match bare(nav, spec.prog) {
-            swish::bare::Bare::Installed(path) => {
+            swish::bare::Bare::Installed { path, .. } => {
                 let mut by_path = spec;
                 by_path.prog = path.as_bytes();
                 return caps_image(nav, by_path);
@@ -3428,6 +3435,34 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
 /// `script/stack-frame-check` holds every frame to; [`RANKED`] is here for the same reason.
 static mut GENERATION_TABLE: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
 
+/// One page for the nearest version set, a static for [`GENERATION_TABLE`]'s reason. Provisional,
+/// like the file it holds.
+static mut VERSION_SET: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
+
+/// **The nearest version set at or above where this shell stands** (milestone 614 (two installed
+/// versions of one program, each runnable, and a caller granted the one it needs), ruling 4):
+/// `swish::versions::FILE` here, then in each parent up to the root, read with the directory
+/// handles this shell already holds. asdf walks the same way, on calef's usability ruling; the walk
+/// is over directories for one file name and not over program names, so §229 stands. `None` when
+/// there is none, or one that is not text, or one that fills a page.
+fn nearest_version_set(nav: &Nav) -> Option<&'static str> {
+    nav.dir?;
+    let (which, pos) = nav.holds.locate(&nav.holds.cwd);
+    let t = nav.tree(which);
+    // SAFETY: this shell is one thread and `VERSION_SET` is used here and nowhere else, so no
+    // other reference to it can exist while this one does; the returned borrow is dropped before
+    // the next read of the static, because [`bare`] resolves inside this one's scope.
+    let set = unsafe { &mut *core::ptr::addr_of_mut!(VERSION_SET) };
+    for level in (0..=pos.depth()).rev() {
+        if let Some(n) = read_named(nav, t, nav.at(level), swish::versions::FILE.as_bytes(), set)
+            && n < set.len()
+        {
+            return core::str::from_utf8(&set[..n]).ok();
+        }
+    }
+    None
+}
+
 /// **The live generation, if it lists `digest`, and whether the owner vouched for it**, looked up
 /// with the progenitor's own `activation_set::lookup_digest` in [`with_live_table`]'s read.
 fn live_generation_listing(nav: &Nav, digest: &measured_boot::Digest) -> Option<swish::Vouched> {
@@ -3484,13 +3519,21 @@ fn with_live_table<R>(nav: &Nav, f: impl FnOnce(&str, u32) -> Option<R>) -> Opti
 }
 
 /// **What a bare word names** (DECISIONS §229 (how a bare name at the prompt reaches an installed
-/// program), B2), from the image's programs and the live table. See `swish::bare`.
+/// program), B2), from the image's programs and the live table, refined by the nearest version set
+/// when it names the program (milestone 614, ruling 4). See `swish::bare`.
 fn bare(nav: &Nav, word: &[u8]) -> swish::bare::Bare {
     let image = grant_plan::Prog::from_name(word).is_some();
     with_live_table(nav, |text, _| {
-        Some(swish::bare::resolve(word, image, Some(text)))
+        // The set is consulted only for a name the table answers at all: it selects among
+        // installed versions, so for anything else it can only change nothing, and the reads are
+        // saved.
+        let set = core::str::from_utf8(word)
+            .ok()
+            .and_then(|name| activation_set::lookup(text, name).ok().flatten())
+            .and_then(|_| nearest_version_set(nav));
+        Some(swish::bare::resolve(word, image, Some(text), set))
     })
-    .unwrap_or_else(|| swish::bare::resolve(word, image, None))
+    .unwrap_or_else(|| swish::bare::resolve(word, image, None, None))
 }
 
 /// Open `name` under the directory handle `at` in tree `t`, read up to `out.len()` bytes of it (one `READ`,

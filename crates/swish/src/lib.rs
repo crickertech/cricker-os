@@ -88,6 +88,7 @@
 pub mod bare;
 pub mod complete;
 pub mod sequence;
+pub mod versions;
 
 use environment_protocol::ConfigPage;
 use filesystem_protocol::dir;
