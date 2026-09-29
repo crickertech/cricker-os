@@ -216,7 +216,9 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 /// **The numbers skip one** because the first boot vouched for a build as generation 4 and rolled
 /// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 5, and
 /// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 4: the vouch's generation,
-/// which lists `noteless` too.
+/// which lists `noteless` too. The extra generation ahead of it is milestone 614 (two installed
+/// versions of one program, each runnable, and a caller granted the one it needs)'s second
+/// version, installed before the vouch.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         1,

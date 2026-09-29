@@ -74,7 +74,8 @@ path = "src/noteless.rs"
 test = false
 bench = false
 
-# The second copy of the package (milestone 614, provisional name): `greeting`'s bytes with
+# The second copy of the package (milestone 614 (two installed versions of one program, each
+# runnable, and a caller granted the one it needs), provisional name): `greeting`'s bytes with
 # different content, so the package at 0.2.0 (`packages/greeting-0.2.0.recipe.toml`, whose `as`
 # key names the member `greeting`) has a digest of its own and two versions can be live at once.
 # Listed in `packaged_only` below, like both.

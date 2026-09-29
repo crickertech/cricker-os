@@ -528,7 +528,8 @@ file = "LICENSE-MIT"
         );
     }
 
-    /// **`as` renames a program member** (milestone 614): the ELF is resolved under its own name
+    /// **`as` renames a program member** (milestone 614 (two installed versions of one program,
+    /// each runnable, and a caller granted the one it needs)): the ELF is resolved under its own name
     /// and packaged under another, which is how `greeting` at 0.2.0 carries the second fixture's
     /// bytes under the member name `greeting`. A file member takes no `as`, because its `name` is
     /// already what the package calls it.

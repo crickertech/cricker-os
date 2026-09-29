@@ -1280,8 +1280,9 @@ pub fn write_activation(
             b"  refused: the image carries a program of that name; a new base updates it, not install"
         }
         // The candidates are named just below, read from the live table: the progenitor carries no
-        // text on this wire, and the shell can read what it is being told to name (milestone 614,
-        // ruling 5). Provisional wording.
+        // text on this wire, and the shell can read what it is being told to name (milestone
+        // 614 (two installed versions of one program, each runnable, and a caller granted the
+        // one it needs), ruling 5). Provisional wording.
         (S::Ambiguous, _) => {
             b"  refused: several versions of that program are live and one holds the default; name one with <program>@<version>"
         }
