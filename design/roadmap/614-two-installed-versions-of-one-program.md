@@ -27,8 +27,8 @@ is the table that says what may run:
 - Running by path is not a way round it. §219 (how the shell names an installed program to the
   spawner) sends bytes, and the progenitor runs them only if their digest is in the live
   generation (`activation_set::lookup_digest`). The old version's digest left the table when the new
-  one replaced it, so `packages/uptime/0.1.0/uptime` gets `SPAWN_UNVOUCHED` once 0.2.0 is installed, unless the session
-  holds the capability to run unvouched bytes, which is a developer's escape hatch and not an
+  one replaced it, so `packages/uptime/0.1.0/uptime` gets `SPAWN_UNVOUCHED` once 0.2.0 is installed. The one exception is a session
+  holding the capability to run unvouched bytes, a developer's escape hatch rather than an
   install.
 - §229 (a bare name reaches an installed program) resolves a bare word through one entry per name,
   with no search order, by calef's ruling. Pull request #1374 (milestone 47, a bare word runs an
@@ -44,32 +44,32 @@ nife's "framework" versions collide is in programs and the services they talk to
 
 Read 2026-09-27 from each project's own documentation, except where marked.
 
-- **Nix.** Every build lands at `/nix/store/<hash>-<name>-<version>`, so versions never collide. A
+- Nix. Every build lands at `/nix/store/<hash>-<name>-<version>`, so versions never collide. A
   profile generation is a tree of links into the store; the bare command is whatever the current
   generation links, and rollback swaps generations
   ([store paths](https://nix.dev/manual/nix/stable/store/store-path.html),
   [profiles](https://nix.dev/manual/nix/stable/package-management/profiles.html)). Guix is the same
   design (from memory). nife's versioned activation set is already Nix's generations; what it
   lacks is Nix's store, where many versions stay live.
-- **Homebrew.** Each version is a keg at `Cellar/<formula>/<version>`; `opt/<formula>` and `brew
+- Homebrew. Each version is a keg at `Cellar/<formula>/<version>`; `opt/<formula>` and `brew
   link` point at the active one. A second major version is a second formula, `python@3.12`, left
   unlinked and reached by its `opt/` path ([FAQ](https://docs.brew.sh/FAQ),
   [Formula Cookbook](https://docs.brew.sh/Formula-Cookbook)).
-- **Debian alternatives.** A generic name links through `/etc/alternatives/` to one registered
+- Debian alternatives. A generic name links through `/etc/alternatives/` to one registered
   alternative, highest priority wins unless an administrator sets one
   ([update-alternatives(1)](https://manpages.debian.org/bookworm/dpkg/update-alternatives.1.en.html)).
   Versioned package names such as `python3.11` beside `python3.12` carry the rest (from memory).
-- **Fuchsia.** A package is identified by the Merkle root of its metadata.
+- Fuchsia. A package is identified by the Merkle root of its metadata.
   `fuchsia-pkg://<repo>/<package>?hash=<root>#meta/<component>.cm` pins exact bytes; omit `hash`
   and the resolver picks the current revision
   ([packages](https://fuchsia.dev/fuchsia-src/concepts/packages/package),
   [component identifiers](https://fuchsia.dev/fuchsia-src/concepts/components/v2/identifiers)).
-- **asdf and rustup.** Versions install side by side behind a shim or proxy. asdf reads
+- asdf and rustup. Versions install side by side behind a shim or proxy. asdf reads
   `.tool-versions`, walking up from the working directory
   ([asdf](https://asdf-vm.com/manage/versions.html)). rustup takes `+toolchain`, then an
   environment variable, then a directory override, then `rust-toolchain.toml` walking up, then the
   default ([overrides](https://rust-lang.github.io/rustup/overrides.html)). Both are search orders.
-- **Capability routing.** A Genode child asks for its binary as a ROM session by label, and the
+- Capability routing. A Genode child asks for its binary as a ROM session by label, and the
   parent's `<route>` decides which file answers, per child, so two children asking for one name
   can get two files
   ([init](https://genode.org/documentation/genode-foundations/26.05/system_configuration/The_init_component.html)).
@@ -101,17 +101,17 @@ not on effort.
 
 None of these is decided here, and a building lane must not decide them.
 
-1. **How a version is named in a grant.** By its version string (`uptime/0.1.0`), by its digest
+1. How a version is named in a grant. By its version string (`uptime/0.1.0`), by its digest
    (Fuchsia's `?hash=`), or both, with the digest authoritative. A string is readable; a digest is
    what the progenitor already checks.
-2. **The on-disk and table format.** Does a generation line gain a version field, or does the table
+2. The on-disk and table format. Does a generation line gain a version field, or does the table
    key on digest with the name as a column? Either changes a format the progenitor and the host
    tool both read (§208's generation file), which is a wire decision.
-3. **Which version the bare word means**, and who changes it: the newest install, the first, or an
+3. Which version the bare word means, and who changes it: the newest install, the first, or an
    explicit `package default` step (name provisional). Today it is implicitly the last install.
-4. **What a per-project selection is called and what it holds.** A directory capability, a line in
+4. What a per-project selection is called and what it holds. A directory capability, a line in
    a recipe, or a session's grant. This is the one new name the milestone mints.
-5. **Remove and rollback semantics** when several versions are live: does `package remove uptime`
+5. Remove and rollback semantics when several versions are live: does `package remove uptime`
    take one version or all, and what a rollback restores.
 
 ## Dependencies
@@ -140,8 +140,8 @@ None of these is decided here, and a building lane must not decide them.
   name resolves to whichever version the ruled default names; removing one version leaves the
   other; a rollback restores the whole set, as `a_rollback_restores_the_whole_set` does today.
 - A `script/swish-check` transcript on aarch64, riscv64 and x86_64 per §19 (architectural parity is
-  a tenet): install two versions of one fixture, run each by path and by the ruled grant in one
-  session, and show the bare word running the default.
+  a tenet). It installs two versions of one fixture, runs each by path and by the ruled grant in
+  one session, and shows the bare word running the default.
 - The names and the format above ratified by an architect, recorded in `design/decisions/` by the
   integrator.
 
