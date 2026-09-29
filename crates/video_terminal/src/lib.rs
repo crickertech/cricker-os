@@ -188,7 +188,7 @@ pub const SCROLLBACK_CELLS: usize = MAX_COLS * SCROLLBACK_ROWS;
 /// Indices 0..8 are the normal colours in the usual ANSI order (black, red, green, yellow, blue,
 /// magenta, cyan, white) and 8..16 their bright forms. The values and the slot each one sits in are
 /// Ethan Schoonover's published table (github.com/altercation/solarized, README, "The Values", its
-/// `16/8 TERMCOL` column), chosen by calef in [§104] (the rich-text font is DejaVu Sans Mono, and the
+/// `16/8 TERMCOL` column), chosen by calef in [§104] (the rich-text font is `DejaVu Sans Mono`, and the
 /// palette is Solarized), which narrowed his first ask to canonical Solarized Dark rather than the
 /// "Higher Contrast" variant a 2011 gist published under that name.
 ///
