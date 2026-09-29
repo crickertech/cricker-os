@@ -784,7 +784,11 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // version, although the default pointer names 0.2.0. The set only selects among live versions;
     // a cloned repository can ask, and cannot run uninstalled bytes.
     line(0, "echo greeting 0.1.0 > versions", &[]),
-    line(1, "greeting", &["hello from a package this image never carried"]),
+    line(
+        1,
+        "greeting",
+        &["hello from a package this image never carried"],
+    ),
     // **The explicit ask** (ruling 4's other override): `program@version` answers its own row, and
     // is not reached by the image's claim on the bare name because it is not the bare name.
     line(

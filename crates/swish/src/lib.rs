@@ -964,9 +964,7 @@ pub fn write_help(out: &mut dyn FnMut(&[u8])) {
     );
     out(b"  package install <file>  install the program of a package this image vouches for\n");
     out(b"  package install <name>  fetch it from the package source and install it\n");
-    out(
-        b"  package remove <prog>   every live version of it goes; its bytes stay for rollback\n",
-    );
+    out(b"  package remove <prog>   every live version of it goes; its bytes stay for rollback\n");
     out(
         b"  package remove <prog>@<ver>   one version; refuses naming the rest if it held the default\n",
     );

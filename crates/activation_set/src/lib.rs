@@ -336,12 +336,11 @@ pub fn versions_of<'a>(
     table: &'a str,
     program: &str,
 ) -> impl Iterator<Item = Result<&'a str, Error>> {
-    entries(table)
-        .filter_map(move |entry| match entry {
-            Ok(e) if e.program == program && e.package != OWNER => Some(Ok(e.version)),
-            Ok(_) => None,
-            Err(e) => Some(Err(e)),
-        })
+    entries(table).filter_map(move |entry| match entry {
+        Ok(e) if e.program == program && e.package != OWNER => Some(Ok(e.version)),
+        Ok(_) => None,
+        Err(e) => Some(Err(e)),
+    })
 }
 
 /// The next generation: `table` with `entry` installed. Returns the length written to `out`.
@@ -911,11 +910,18 @@ mod tests {
         let table = store.table();
         assert_eq!(entries(table).count(), 3, "same digest, same row");
         assert_eq!(
-            lookup_version(table, "uptime", "0.1.0").unwrap().unwrap().digest,
+            lookup_version(table, "uptime", "0.1.0")
+                .unwrap()
+                .unwrap()
+                .digest,
             [1; 32],
             "the original row is untouched"
         );
-        assert!(lookup_version(table, "uptime", "0.1.0-rc1").unwrap().is_some());
+        assert!(
+            lookup_version(table, "uptime", "0.1.0-rc1")
+                .unwrap()
+                .is_some()
+        );
     }
 
     /// **The version-qualified removal, ruling 5**: removing one version leaves the other; removing

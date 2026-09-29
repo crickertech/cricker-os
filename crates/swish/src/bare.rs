@@ -179,7 +179,11 @@ pub fn resolve(word: &[u8], image: bool, table: Option<&str>, set: Option<&str>)
         && !version.is_empty()
     {
         let picked = table
-            .and_then(|t| activation_set::lookup_version(t, program, version).ok().flatten())
+            .and_then(|t| {
+                activation_set::lookup_version(t, program, version)
+                    .ok()
+                    .flatten()
+            })
             .and_then(|row| Path::of(row.package, row.version, row.program));
         return match picked {
             Some(path) => Bare::Installed { path, notice: None },
@@ -191,18 +195,10 @@ pub fn resolve(word: &[u8], image: bool, table: Option<&str>, set: Option<&str>)
         .zip(table)
         .and_then(|(name, table)| activation_set::lookup(table, name).ok().flatten());
     let Some(default) = default else {
-        return if image {
-            Bare::Image
-        } else {
-            Bare::Unknown
-        };
+        return if image { Bare::Image } else { Bare::Unknown };
     };
     let Some(path) = Path::of(default.package, default.version, default.program) else {
-        return if image {
-            Bare::Image
-        } else {
-            Bare::Unknown
-        };
+        return if image { Bare::Image } else { Bare::Unknown };
     };
     // The name is contested whatever the set says: both holders are refused, naming the installed
     // path.
@@ -217,7 +213,11 @@ pub fn resolve(word: &[u8], image: bool, table: Option<&str>, set: Option<&str>)
         && let Some(asked) = versions::entry(set, name)
     {
         let selected = table
-            .and_then(|t| activation_set::lookup_version(t, name, asked).ok().flatten())
+            .and_then(|t| {
+                activation_set::lookup_version(t, name, asked)
+                    .ok()
+                    .flatten()
+            })
             .and_then(|row| Path::of(row.package, row.version, row.program));
         return match selected {
             Some(path) => Bare::Installed { path, notice: None },
@@ -269,8 +269,7 @@ mod tests {
     /// version claiming the name.
     #[test]
     fn a_bare_word_has_one_meaning_or_is_refused() {
-        let Bare::Installed { path, notice: None } =
-            resolve(b"greeting", false, Some(TABLE), None)
+        let Bare::Installed { path, notice: None } = resolve(b"greeting", false, Some(TABLE), None)
         else {
             panic!("an installed name resolves")
         };
