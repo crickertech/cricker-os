@@ -30,7 +30,7 @@ $ gh issue comment 2402 -R model-checking/kani --body-file notes/kani-upstream/i
 
 Read at `de756c936`, not recalled:
 
-- **No DCO and no CLA.** No workflow checks `Signed-off-by` or a CLA. `CONTRIBUTING.md` and the pull
+- No DCO and no CLA. No workflow checks `Signed-off-by` or a CLA. `CONTRIBUTING.md` and the pull
   request template ask for one sentence in the body: "By submitting this pull request, I confirm
   that my contribution is made under the terms of the Apache 2.0 and MIT licenses." That sentence is
   the attestation. It is already the last line of the body, and it is calef's to make.
@@ -40,7 +40,7 @@ Read at `de756c936`, not recalled:
   It also asks that a new feature be reachable only behind `-Z`. An option behind `-Z
   unstable-options` is not a one-way door. The multi-target sysroot layout could be read as design,
   so the body offers to write an RFC if a reviewer asks for one.
-- **Kani's `AGENTS.md`** has guidance for AI assistants, so an agent-written pull request is
+- Kani's `AGENTS.md` has guidance for AI assistants, so an agent-written pull request is
   expected there. The body still says it was written by an agent under calef's direction, as nife's
   `**Lane:**` line does here.
 - Pull requests are squash-merged, so the branch is one commit.

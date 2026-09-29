@@ -11,7 +11,7 @@ CBMC does not care which machine it runs on; the machine model is data Kani writ
 - **`kani-compiler`**: a `riscv64` machine model (RISC-V psABI LP64D: unsigned `char`, signed 32-bit `wchar_t`, 128-bit `long double`, matching CBMC's `set_arch_spec_riscv64`), `riscv64-unknown-linux-gnu` in `check_target`, and the `riscv64gc` target features in `target_config`. Without `d` there, rustc warns on every crate that the LP64D ABI needs it, and says the warning will become an error.
 - **`kani-driver`**: `--target <TRIPLE>`, gated on `-Z unstable-options`, for both `kani` and `cargo kani`. It replaces `env!("TARGET")` in the cargo invocation, `cargo metadata --filter-platform`, the coverage paths and the single-file `rustc` call. When it is not given, nothing changes: the host triple is used exactly as before, and single-file runs do not pass `--target` to `rustc` at all. `--concrete-playback` with a non-host `--target` is rejected (the test runs on the host), and so is `verify-std --target` (its `no_core` library is host-only).
 - **Libraries for more than one target**: `cargo build-dev --lib-target <TRIPLE>` (repeatable) also builds the verification libraries for that triple into `target/kani/targets/<TRIPLE>/lib/`, which is a complete sysroot of its own. The host keeps `lib/` exactly as it is, so release bundles and `cargo kani setup` are unaffected. The driver looks for a non-host target's libraries there, and if they are missing it says which command builds them. The rustup target does not need to be installed, since `-Z build-std` builds from `rust-src`.
-- **Docs**: a page under Experimental features.
+- Docs: a page under Experimental features.
 
 ### Testing
 
