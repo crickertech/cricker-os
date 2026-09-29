@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-08-19
+built: 2026-09-29
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
@@ -13,12 +14,12 @@ Minted 2026-08-19 by calef, on seeing that the terminal's colours were
 chosen as a test instrument: *"can we have an option at some point to make it pretty and not just
 good for tests?"*
 
-The first piece is a check nobody has written, and it needs no decision.
+The first piece was a check nobody had written, and it needed no decision.
 
 In brief. The sixteen-colour palette in `crates/video_terminal` was picked so that a corrupted
-pixel is a detectably wrong colour rather than a different legal one. That is a good reason and it
-made the screen ugly. This milestone gets both, and the order matters: the gate comes first, and
-then the palette is free.
+pixel is a detectably wrong colour rather than a different legal one. That was a good reason and it
+made the screen ugly. Both halves are in the tree, in the order the finding demanded: the gate
+came first, and then the palette was free.
 
 ## The finding that makes this cheap
 
@@ -50,27 +51,41 @@ person would recognise.
 
 ## The order
 
-1. Write the check. Three assertions over `PALETTE`, host-tested, in the crate. It fails today,
-   which is the point: watch it fail before making it pass, per this tree's standard.
-2. Choose a palette that passes. An architect's call, because it is a thing a reader meets and
-   because the whole request is aesthetic. The check tells him which candidates are admissible; it
-   does not choose.
-3. Only then consider an "option". His word was *option*, which may mean a nicer default or may
-   mean a configurable palette. A configurable one is a different and larger thing: the palette is
-   currently a `const` three parties agree on, and making it runtime state means the kernel test and
-   the host scanout check have to learn which palette is active. **Do not build that without asking
-   which he meant.**
+1. Write the check. Done 2026-09-26, watched failing first. Aimed at the xterm palette that
+   shipped, the gate killed the build with the very panic it raises today ("PALETTE fails milestone
+   141's palette check"); the palette changed only after that was seen. It is `palette_faults`, a
+   `const fn` over `PALETTE`, host-tested against the xterm set kept as its known-bad witness, and
+   the gate is a `const` assertion: a palette that stops being a test instrument does not compile.
+2. Choose a palette that passes. The choice was calef's and was already made: §104 (the
+   rich-text font is DejaVu Sans Mono, and the palette is Solarized) ratified canonical Solarized
+   Dark on 2026-08-20, and predicted this gate's one complaint. Published Solarized fails property
+   1 on exactly one entry (base1 is `93,a1,a1`, a repeated channel), so entry 14 ships `0x93a1a0`,
+   one unit of blue down. A test holds the shipped table to the published one but for that unit,
+   and the nudge is recorded where a reader meets the palette, as §104 (the rich-text font is
+   DejaVu Sans Mono, and the palette is Solarized) asked.
+3. Only then consider an "option". Considered. The nicer-default reading is what shipped: the
+   default is Solarized. The configurable reading is runtime state three parties would have to
+   learn, and calef has not said which he meant, so it is deliberately unbuilt (see Follow-on).
 
 ## BUGS
 
-- The scanout check's own reasoning is tied to 128x64 ("pure primaries on a 128x64 surface make
-  a pretty screen and a bad test") and milestone 29 is moving the surface to 800x600. The argument
-  plausibly survives unchanged, and nobody has re-read it at the new size.
 - This block assumes the three properties above are the right ones. They are this tree's
   reconstruction of what the original comment was reaching for, not a specification anybody wrote
   down. A fourth failure mode nobody has named would not be caught by them.
-- **A palette that passes the gate can still be ugly**, and no gate can fix that. The check makes an
+- A palette that passes the gate can still be ugly, and no gate can fix that. The check makes an
   attractive palette *admissible*; it does not make one appear.
+
+## Follow-on
+
+- **Decision.** The nudge makes entry 14 `0x93a1a0` rather than Schoonover's `0x93a1a1`, and
+  whether a nudged palette is still the name "Solarized" is calef's question, held open where he
+  raised it: `design/decisions/104-the-font-and-the-palette.md`.
+- **Recorded.** Bold is bright, and Solarized's bright slots are greys, so bold green, yellow, blue
+  and cyan lose their hue. The limitation is in the PALETTE BUGS in `crates/video_terminal/src/lib.rs`,
+  and the options with a recommendation are in `notes/solarized-and-bold-is-bright.md`.
+- **Recorded.** A configurable palette was never built, on purpose: calef's word was "option", the
+  nicer-default reading is delivered, and the runtime-state reading waits on which he meant. The
+  order above holds the reasoning; nothing is proposed until he asks.
 
 ## Index row
 
