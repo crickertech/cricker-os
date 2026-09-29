@@ -74,6 +74,16 @@ path = "src/noteless.rs"
 test = false
 bench = false
 
+# The second copy of the package (milestone 614, provisional name): `greeting`'s bytes with
+# different content, so the package at 0.2.0 (`packages/greeting-0.2.0.recipe.toml`, whose `as`
+# key names the member `greeting`) has a digest of its own and two versions can be live at once.
+# Listed in `packaged_only` below, like both.
+[[bin]]
+name = "greeting_two"
+path = "src/greeting_two.rs"
+test = false
+bench = false
+
 # The interrupt_heeder (DECISIONS §24): a long-running job that heeds the cooperative ^C,
 # polling a shared flag between work units and exiting cleanly when the shell sets it. The
 # cooperative interrupt tier.
@@ -425,7 +435,7 @@ bench = false
 # be a `[[bin]]` above, and must not be a program the shell or the boot needs, and `xtask` refuses
 # the archive otherwise. Key name provisional.
 [package.metadata.nife]
-packaged_only = ["greeting", "noteless"]
+packaged_only = ["greeting", "noteless", "greeting_two"]
 
 [dependencies]
 # The user address-space map (milestone 206 (a program image has under 896 KiB)): every fixed window here is checked against its band.

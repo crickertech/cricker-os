@@ -208,12 +208,14 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 ///
 /// `greeting` rides along (milestone 198 rung 3a's fetch): it was installed as generation 2, it
 /// runs after the reboot, and removing `noteless` leaves it running, because a generation drops
-/// one program and not its neighbours. `noteless` took `uptime`'s place here when DECISIONS §229
-/// (calef, 2026-09-27) refused installing a package named after an image program.
+/// one program and not its neighbours. Its 0.2.0 rides beside it (milestone 614): generation 3,
+/// which lists both versions of `greeting` and `noteless`. `noteless` took `uptime`'s place here
+/// when DECISIONS §229 (calef, 2026-09-27) refused installing a package named after an image
+/// program.
 ///
-/// **The numbers skip one** because the first boot vouched for a build as generation 3 and rolled
-/// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 4, and
-/// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 3: the vouch's generation,
+/// **The numbers skip one** because the first boot vouched for a build as generation 4 and rolled
+/// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 5, and
+/// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 4: the vouch's generation,
 /// which lists `noteless` too.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
@@ -232,7 +234,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         0,
         "package remove noteless",
-        &["removed; generation 4 is live"],
+        &["removed; generation 5 is live"],
     ),
     // **Removed means unvouched, not unrunnable, for a session holding D2** (DECISIONS §219 gate
     // D2). Until D2 this line was a refusal. The boot prompt now holds the run-unvouched
@@ -262,7 +264,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         0,
         "package rollback",
-        &["rolled back; generation 3 is live"],
+        &["rolled back; generation 4 is live"],
     ),
     line(
         1,
@@ -748,6 +750,58 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps greeting",
         &["provenance: vouched by activation generation 2 (digest "],
     ),
+    // **Milestone 614: the second version installs beside the first** (rulings 2 and 3). Rows key
+    // on the digest, so installing over a live version appends and moves the default pointer
+    // instead of replacing. The package is `greeting` at 0.2.0, whose member is `greeting_two`'s
+    // bytes under the name `greeting` (`as` in the recipe), so its digest differs from 0.1.0's and
+    // the table holds both. The gate installs from the disk on all three legs; the image's
+    // catalogue carries the stem because every archive build builds every recipe for its
+    // architecture.
+    line(
+        0,
+        "package install downloads/greeting-0.2.0.nifepkg",
+        &["installed; generation 3 is live"],
+    ),
+    // **And the new version runs by its path**, printing its own line, which is how the transcript
+    // tells the two copies apart.
+    line(
+        1,
+        "packages/greeting/0.2.0/greeting",
+        &["hello from the second copy of the package"],
+    ),
+    // **And the old version still runs by its path, at two versions live.** This is the line the
+    // one-entry table made impossible: its digest left that table at the install above, and a
+    // digest not in the live generation is `SPAWN_UNVOUCHED`.
+    line(
+        1,
+        "packages/greeting/0.1.0/greeting",
+        &["hello from a package this image never carried"],
+    ),
+    // **The version set, the ruled selection** (ruling 4). The nearest `versions` file at or above
+    // the working directory (here the root's) says `greeting 0.1.0`, and the bare word runs that
+    // version, although the default pointer names 0.2.0. The set only selects among live versions;
+    // a cloned repository can ask, and cannot run uninstalled bytes.
+    line(0, "echo greeting 0.1.0 > versions", &[]),
+    line(1, "greeting", &["hello from a package this image never carried"]),
+    // **The explicit ask** (ruling 4's other override): `program@version` answers its own row, and
+    // is not reached by the image's claim on the bare name because it is not the bare name.
+    line(
+        1,
+        "greeting@0.1.0",
+        &["hello from a package this image never carried"],
+    ),
+    // **And the divergence notice**, the guard on the whole mechanism: the set now names a version
+    // nobody installed, so the default runs and the spawn line says both (`uptime 0.2.0 (repo
+    // specifies 0.1.0)` is the ruling's own example). Wording provisional.
+    line(0, "echo greeting 0.9.9 > versions", &[]),
+    line(
+        1,
+        "greeting",
+        &[
+            "greeting 0.2.0 (repo specifies 0.9.9)",
+            "hello from the second copy of the package",
+        ],
+    ),
     // **A name the image and a package both have** is refused at the prompt, naming both (§229
     // B2), but no line here can make one: install now refuses an image program's name (§229,
     // 2026-09-27), and only a later base adding a name a package holds can produce the pair.
@@ -771,12 +825,12 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "vouch installed/unvouched",
-        &["vouched; generation 3 is live"],
+        &["vouched; generation 4 is live"],
     ),
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: vouched by the owner in activation generation 3 (digest "],
+        &["provenance: vouched by the owner in activation generation 4 (digest "],
     ),
     // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
     // the name it was recorded under, so the bare word reaches nothing.
@@ -785,7 +839,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "package rollback",
-        &["rolled back; generation 2 is live"],
+        &["rolled back; generation 3 is live"],
     ),
     line(
         0,
@@ -3016,8 +3070,22 @@ $ outlaw
     /// and builds nothing. A bound from above only; a tag that is too low is the case no host test
     /// can see, and the transcript cannot either.
     /// Bare names this script installs before it types them (§229 (how a bare name at the prompt
-    /// reaches an installed program), B2), which run as programs without being the image's.
-    const INSTALLED_BY_THE_SCRIPT: [&str; 2] = ["greeting", "noteless"];
+    /// reaches an installed program), B2), which run as programs without being the image's, and
+    /// the version-qualified ask, which is not a bare name but resolves to one of these rows the
+    /// same way (milestone 614, ruling 4).
+    const INSTALLED_BY_THE_SCRIPT: [&str; 3] = ["greeting", "noteless", "greeting@0.1.0"];
+
+    /// **The second version's install line names the file the seed writes** (milestone 614), the
+    /// same pairing the two tests above hold for 0.1.0's lines.
+    #[test]
+    fn the_second_version_install_line_names_the_seeded_file() {
+        let line = format!("package install {}", crate::disk::DOWNLOADED_GREETING_0_2_0);
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
+        // No leg omits it: the disk carries it everywhere, and no leg fetches it.
+        for arch in ["aarch64", "riscv64", "x86_64"] {
+            assert!(swish_check_omits(arch, &line).is_none(), "{arch}");
+        }
+    }
 
     /// Feed `chunks` through a [`GaugeFilter`] and return what the checks would read, and the gauges.
     fn filtered(chunks: &[&str]) -> (String, Vec<(usize, String)>) {
