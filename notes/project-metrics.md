@@ -246,7 +246,7 @@ past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drif
 report](project-metrics/baseline-drift.md).
 
 <!-- baseline-drift: script/metrics writes this -->
-2026W40: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.92%, x86_64 `spawn_reap` +8.09%; 15 rows past 5%.
+2026W40: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.92%, x86_64 `spawn_reap` +8.09%; 14 rows past 5%.
 <!-- /baseline-drift -->
 
 ## Interface stability
@@ -257,7 +257,7 @@ Public items removed or changed each week: [definitions](interface-stability.md)
 [per crate](project-metrics/interface-stability.md).
 
 <!-- interface-stability: script/metrics writes this -->
-interface, 2026W37 to 2026W40: 99 breaking changes (637 additions); 0 syscall numbers changed, 0 format bumps; 75% co-change.
+interface, 2026W37 to 2026W40: 100 breaking changes (642 additions); 0 syscall numbers changed, 0 format bumps; 76% co-change.
 <!-- /interface-stability -->
 
 ## How it stays current
