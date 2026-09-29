@@ -188,7 +188,7 @@ pub const SCROLLBACK_CELLS: usize = MAX_COLS * SCROLLBACK_ROWS;
 /// Indices 0..8 are the normal colours in the usual ANSI order (black, red, green, yellow, blue,
 /// magenta, cyan, white) and 8..16 their bright forms. The values and the slot each one sits in are
 /// Ethan Schoonover's published table (github.com/altercation/solarized, README, "The Values", its
-/// `16/8 TERMCOL` column), chosen by calef in [§104] (the rich-text font is `DejaVu Sans Mono`, and the
+/// `16/8 TERMCOL` column), chosen by calef in §104 (the rich-text font is `DejaVu Sans Mono`, and the
 /// palette is Solarized), which narrowed his first ask to canonical Solarized Dark rather than the
 /// "Higher Contrast" variant a 2011 gist published under that name.
 ///
@@ -228,9 +228,9 @@ pub const SCROLLBACK_CELLS: usize = MAX_COLS * SCROLLBACK_ROWS;
 ///   a defect in either alone. The options and a recommendation are in
 ///   notes/solarized-and-bold-is-bright.md.
 /// - **The properties guard the sixteen, not every colour a cell can hold.** Once the terminal
-///   accepts 256-colour and 24-bit colour (milestone 142), a swapped channel can land on a legal
-///   colour outside this table. The pixel-exact scanout comparison was always the stronger check
-///   and carries that load.
+///   accepts 256-colour and 24-bit colour at milestone 142 (a text display good enough that people
+///   use it), a swapped channel can land on a legal colour outside this table. The pixel-exact
+///   scanout comparison was always the stronger check and carries that load.
 /// - **Changing one number may or may not leave this "Solarized"**, and [§104] names that as
 ///   calef's question. It is recorded here, where a reader meets the constant, so nobody reasons
 ///   from the belief that it is Schoonover's table untouched.

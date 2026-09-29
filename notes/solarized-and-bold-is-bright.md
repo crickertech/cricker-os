@@ -1,6 +1,6 @@
 # Bold is bright, and Solarized's bright slots are greys
 
-Written 2026-09-29 (UTC) by milestone 141's (a palette worth looking at) resumed lane. Name
+Written 2026-09-29 (UTC) by the resumed lane for milestone 141 (a palette worth looking at). Name
 provisional, this file's included; calef names things.
 
 This note is what the PALETTE BUGS entry in `crates/video_terminal/src/lib.rs` promises: the
