@@ -1329,13 +1329,14 @@ fn complete_word(nav: &mut Nav, disc: &mut line_editor::LineDisc, echo: &mut Ech
                 for p in grant_plan::Prog::ALL {
                     each(p.name().as_bytes(), false);
                 }
-                // And what the live activation set names by bare word (§229, B2): never an owner's
-                // vouch, which claims no name.
+                // And what the live activation set names by bare word (§229, B2): the default
+                // each name's pointer answers, never an owner's vouch, which claims no name, and
+                // never a version somebody else picked.
                 with_live_table(nav, |text, _| {
                     for entry in activation_set::entries(text).flatten() {
                         // Once per name: a name the image also has is already offered, and is
                         // refused when run.
-                        if activation_set::lookup_name(text, entry.program)
+                        if activation_set::lookup(text, entry.program)
                             .is_ok_and(|found| found == Some(entry))
                             && grant_plan::Prog::from_name(entry.program.as_bytes()).is_none()
                         {
@@ -2753,6 +2754,27 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
         _ => refused(),
     }
     swish::write_activation(verb, status, r1, &mut print);
+    // **Ruling 5's refusal names the candidates**, read from the live table: the wire carries a
+    // status and no text, and this shell reads the same generation the progenitor declined to pick
+    // from. A second read could see a newer table; what it names are still the live versions,
+    // which is the fact a person needs.
+    if status == S::Ambiguous
+        && let grant_plan::PackageVerb::Remove(name) = verb
+        && let Ok(program) = core::str::from_utf8(name)
+    {
+        with_live_table(nav, |text, _| {
+            print(b"  live versions of ");
+            print(name);
+            print(b":");
+            for found in activation_set::versions_of(text, program) {
+                let Ok(version) = found else { break };
+                print(b" ");
+                print(version.as_bytes());
+            }
+            print(b"\n");
+            Some(())
+        });
+    }
 }
 
 /// Print a refusal in the capability model's voice, which is [`swish::write_refusal`]'s job: the

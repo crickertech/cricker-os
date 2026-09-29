@@ -963,7 +963,12 @@ pub fn write_help(out: &mut dyn FnMut(&[u8])) {
     );
     out(b"  package install <file>  install the program of a package this image vouches for\n");
     out(b"  package install <name>  fetch it from the package source and install it\n");
-    out(b"  package remove <prog>   a new generation without it; its bytes stay for rollback\n");
+    out(
+        b"  package remove <prog>   every live version of it goes; its bytes stay for rollback\n",
+    );
+    out(
+        b"  package remove <prog>@<ver>   one version; refuses naming the rest if it held the default\n",
+    );
     out(b"  package rollback        make the generation before the live one live again\n");
     out(b"  vouch <file>            the owner vouches for these bytes; a rollback undoes it\n");
     out(b"  rm [-rfv] <path>        a PROGRAM, granted the directory holding what you name\n");
@@ -1272,6 +1277,12 @@ pub fn write_activation(
         }
         (S::ImageName, _) => {
             b"  refused: the image carries a program of that name; a new base updates it, not install"
+        }
+        // The candidates are named just below, read from the live table: the progenitor carries no
+        // text on this wire, and the shell can read what it is being told to name (milestone 614,
+        // ruling 5). Provisional wording.
+        (S::Ambiguous, _) => {
+            b"  refused: several versions of that program are live and one holds the default; name one with <program>@<version>"
         }
     };
     out(said);
@@ -2118,6 +2129,13 @@ mod tests {
             shown(|o| write_activation(V::Install(b"x"), S::ImageName, 0, o)),
             "  refused: the image carries a program of that name; a new base updates it, not \
              install; nothing is installed\n"
+        );
+        // Milestone 614, ruling 5: the refusal that may not pick a default, with the candidates
+        // named by the caller that reads the table (`components/src/swish.rs`).
+        assert_eq!(
+            shown(|o| write_activation(V::Remove(b"uptime"), S::Ambiguous, 3, o)),
+            "  refused: several versions of that program are live and one holds the default; \
+             name one with <program>@<version>; generation 3 is live\n"
         );
     }
 

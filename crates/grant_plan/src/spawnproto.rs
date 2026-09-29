@@ -300,7 +300,10 @@ pub enum Activation {
     /// generation, place its bytes where a person can run them, and make that generation live.
     Install = 1,
     /// Write a new generation without the named program and make it live. Its bytes stay on
-    /// disk, which is what lets a rollback bring it back.
+    /// disk, which is what lets a rollback bring it back. The name is a program's bare name,
+    /// which removes every live version of it and its default pointer, or `program@version`,
+    /// which removes one (milestone 614 (two installed versions of one program, each runnable,
+    /// and a caller granted the one it needs), ruling 5).
     Remove = 2,
     /// Make the generation numbered one below the live one live again. Nothing is rewritten.
     Rollback = 3,
@@ -408,6 +411,13 @@ pub enum ActivationStatus {
     /// updated through the boot slot, never by install. No generation was written. Provisional,
     /// like its number.
     ImageName = 12,
+    /// [`Activation::Remove`] named `program@version`, the version is the one holding the default
+    /// pointer, and more than one other version remains: no ordering among live versions exists to
+    /// pick a new default with (milestone 614 (two installed versions of one program, each
+    /// runnable, and a caller granted the one it needs), ruling 5). Nothing was written; the shell
+    /// names the candidates from the live table, which it reads itself. Provisional, like its
+    /// number.
+    Ambiguous = 13,
 }
 
 impl ActivationStatus {
@@ -427,6 +437,7 @@ impl ActivationStatus {
             10 => Self::NotExecutable,
             11 => Self::NameTaken,
             12 => Self::ImageName,
+            13 => Self::Ambiguous,
             _ => Self::Unknown,
         }
     }
@@ -860,6 +871,7 @@ mod tests {
             ActivationStatus::NotExecutable,
             ActivationStatus::NameTaken,
             ActivationStatus::ImageName,
+            ActivationStatus::Ambiguous,
         ] {
             let (w0, w1, _) = activation_reply(status, 7);
             assert_eq!(ActivationStatus::from_word(w0), status);
