@@ -226,7 +226,7 @@ pub const SCROLLBACK_CELLS: usize = MAX_COLS * SCROLLBACK_ROWS;
 ///   cyan paints `base01`, `base00`, `base0` or `base1`, so `ls --color`'s bold blue directories come
 ///   out as body-text grey. This is a consequence of this palette meeting [`Attr`]'s bold rule, not
 ///   a defect in either alone. The options and a recommendation are in
-///   notes/proposals/solarized-and-bold-is-bright.md.
+///   notes/solarized-and-bold-is-bright.md.
 /// - **The properties guard the sixteen, not every colour a cell can hold.** Once the terminal
 ///   accepts 256-colour and 24-bit colour (milestone 142), a swapped channel can land on a legal
 ///   colour outside this table. The pixel-exact scanout comparison was always the stronger check
