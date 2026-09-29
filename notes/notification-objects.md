@@ -125,8 +125,10 @@ is written beside the constant (`abi::notification::BOUND`) so the author of §2
 Is `SEND(1, ...)` a forged IRQ signal today? Not reachable today, and nothing stops it
 becoming reachable. An IRQ signal is `[1, 0, 0, 0, 0]` in the receiver's mailbox, the same `w0`
 a sender controls, so the encoding is forgeable in principle. It is not forgeable in practice,
-because every endpoint the kernel routes an interrupt to (`bind_irq`, fifteen call sites) is
-created for that purpose and never handed out as a `Rendezvous` capability. The driver reaches it
+because every endpoint the kernel routes an interrupt to (`bind_irq`, thirteen wiring call sites
+today, the soak's loop beside them; fifteen was written here at birth, and the count is re-derived
+in the 2026-09-29 documentation audit) is created for that purpose and never handed out as a
+`Rendezvous` capability. The driver reaches it
 only through `Irq::WAIT`, and an `Irq` capability has no send method. A grep for any
 `rendezvous_cap(` naming an interrupt endpoint finds none. Two caveats keep this from being a
 guarantee. First, it holds by wiring discipline, which is rung zero: nothing in the type system or
