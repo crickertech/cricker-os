@@ -276,6 +276,16 @@ for tgt in aarch64-unknown-none-softfloat riscv64imac-unknown-none-elf; do
     cargo clippy -p kernel --features watchdog_probe --target "$tgt" --all-targets -- -D warnings
 done
 
+# `--clippy`: stop after the last clippy pass. `.githooks/pre-push` calls this so the clippy gate
+# has exactly one copy, here, and the hook cannot drift from it. Added 2026-09-29 after lane
+# branches kept reaching CI with clippy failures a local gate would have caught (#1424's stale
+# lints; #1442, where a push left before lint was read): the cheap half of this script belongs
+# before the push, and everything after this point still runs in full here and in CI.
+if [ "${1:-}" = "--clippy" ]; then
+    echo "==> clippy-only mode (pre-push); the rest of lint still runs before any report or merge"
+    exit 0
+fi
+
 # Every `unsafe fn` states its contract in a `# Safety` section (milestone 112).
 #
 # **Read what this does and does not claim, because the milestone it comes from is about exactly
