@@ -7,7 +7,8 @@ ratified_by: calef
 
 # 243. Notices for people: programs publish, users curate, displays show
 
-*Section number provisional: §241 (threadbare) is claimed by #1421 and §242 by #1423, so this took
+*Section number provisional: §241 (threadbare) is claimed by #1421 and §242 (a system log) by
+#1423, so this took
 243 on 2026-09-27 (UTC) and may move at merge. The slug and every wire value and constant stay
 provisional; the name and the service, ratified below, do not.*
 
