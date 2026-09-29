@@ -31,7 +31,10 @@ pub(crate) fn icount() -> bool {
         None => ArchLegs::All,
         Some("aarch64") => ArchLegs::Aarch64,
         Some("riscv64") => ArchLegs::Riscv64,
-        // x86_64 has no icount leg: the instrument's boot needs a userspace this port cannot build.
+        // x86_64 has no icount leg: the instrument compares against a deadline the kernel re-armed,
+        // and this port's LAPIC timer is a periodic hardware reload (`bench_x86`'s doc). The
+        // userspace reason this line used to give stopped being true with milestone 161 (the x86-64
+        // kernel port); found stale by the 2026-09-29 documentation audit.
         Some(other) => {
             eprintln!("icount: --arch {other} is not an architecture (aarch64 or riscv64)");
             return false;
