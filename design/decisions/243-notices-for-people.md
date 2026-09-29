@@ -61,8 +61,8 @@ Ratified: N1. It parses without Unix exposure, which `design/naming.md` asks of 
 and its collision is a severity value rather than a second kind of object. This file uses "notice"
 throughout.
 
-Name: ratified 2026-09-27 (calef, pull request #1424, Q2). Refused `bulletin` (reads as a
-broadcast, which two of three examples are not), `memo` (reads informal).
+Name: ratified 2026-09-27 (calef, pull request #1424, Q2); why the runners-up lost is in the
+table above.
 
 ## What the tree has today
 
