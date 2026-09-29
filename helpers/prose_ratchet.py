@@ -37,7 +37,7 @@ and a `Reason:` so that an exception says out loud that it is one (AGENTS.md's l
     <!-- prose-budget: exception. ... Ratified by calef on 2026-09-24 ... Reason: ... -->
     <!-- writing-standards: exception. ... on 2026-09-24 ... Reason: ... -->
 
-`prose-budget` is the syntax `AGENTS.md` and `design/fatal-risks.md` already carried, provisionally,
+`prose-budget` is the syntax `AGENTS.md` and `design/fatal-risks/README.md` already carried, provisionally,
 when this was built, and it is honoured as written. `writing-standards` is its §213 twin and is
 provisional. An exception exempts its decision's measures entirely, which is what both decisions
 say it does ("passes only if it did not get worse, or carries a marked exception").
@@ -140,6 +140,11 @@ def count_masked(text):
 # was found this way, on 117's own sweep), and a literal match would miss exactly the case this
 # exists for.
 RENAME_PAIRS = (
+    # The fatal-risks move of 2026-09-29 (calef's ruling: the summary becomes the directory's
+    # README). Git pairs that rename only across the two commits that perform it, so the endpoint
+    # diff this module reads sees none, and the sweep rewrites the path in a hundred other
+    # documents. Masked like any mechanical rename: a repointed path is not a new sentence.
+    ("design/fatal-risks.md", "design/fatal-risks/README.md"),
     ("calef has not ratified the package name itself", "no architect has ratified the package name itself"),
     ("calef has not ratified this instance", "no architect has ratified this instance"),
     ("calef has not ratified any of them", "no architect has ratified any of them"),

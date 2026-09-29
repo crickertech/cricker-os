@@ -228,7 +228,7 @@ that must keep running on a battery, which is the system Tock is.
   drift is watchable. **The remaining half of the entry is still true**: the figures in this note are
   a snapshot, nothing regenerates them, and a reader should re-derive before quoting.
 - **"The trusted base is the kernel" is a claim about the design, not a measurement.** It assumes the
-  MMU and the capability table do what the code says, which is what `design/fatal-risks.md`'s risk 2
+  MMU and the capability table do what the code says, which is what `design/fatal-risks/README.md`'s risk 2
   (the proofs prove trivia) exists to interrogate, and that risk is AMBER. Most of `kernel/src/arch/`
   is behind `asm!` and MMIO, riscv64's included since milestone 589 (Kani can prove
   riscv64 from the hosts we already have).

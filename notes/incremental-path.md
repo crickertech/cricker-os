@@ -7,7 +7,7 @@ falsification list has nine entries should not be surprised by the tenth-looking
 
 **This note argues with a paper and concedes its premise.** The conclusion is not that Li et al. are
 wrong. It is that their path requires standing somewhere this project does not stand, and that the
-costs they name are already written down here, in `design/fatal-risks.md`, by people who had not
+costs they name are already written down here, in `design/fatal-risks/README.md`, by people who had not
 read them.
 
 ## What was read, and when
@@ -21,7 +21,7 @@ read them.
 | Corbet. *A process for handling Rust code in the core kernel.* LWN, 2025-03-27, `https://lwn.net/Articles/1015409/` | the maintainer-side process question | 2026-09-21 |
 | Edge. *Rust for filesystems.* LWN, 2024-06-21, `https://lwn.net/Articles/978738/` | the LSFMM+BPF 2024 session where filesystem maintainers answered | 2026-09-21 |
 | `https://api.github.com/repos/smiller123/bento` | the paper's own exemplar implementation | 2026-09-21, for `pushed_at` only |
-| `design/fatal-risks.md` at `b6d8fa2d` | this project's falsification list | 2026-09-21 |
+| `design/fatal-risks/README.md` at `b6d8fa2d` | this project's falsification list | 2026-09-21 |
 
 Everything quoted from the paper below is quoted from that PDF. The title on the PDF's own title
 line is *An Incremental Path Towards a **Safer** OS Kernel*; search results disagree and several say
@@ -194,7 +194,7 @@ once. A reader who takes the paper as a refutation of clean-slate work has read 
 a universal one.
 
 **2. The deficiencies the paper identifies are already on this project's own risk list, and they got
-there first.** This is the strongest thing this note can show, and it is checkable. `design/fatal-risks.md`
+there first.** This is the strongest thing this note can show, and it is checkable. `design/fatal-risks/README.md`
 was written on 2026-08-30 by people who had not read this paper; it is nine claims that, if false,
 mean the project should stop. Two of them are the paper's critique of the clean-slate path, in this
 project's own words.
@@ -227,7 +227,7 @@ take if he were Linux is going slowly in the one place it was most available.
 
 ## Why this is risk 8's counter-thesis and not risk 4's
 
-`design/fatal-risks.md` risk 4 already carries a published counter-thesis, and this is a different
+`design/fatal-risks/README.md` risk 4 already carries a published counter-thesis, and this is a different
 one. Conflating them would cost the file its precision, so the distinction is worth stating.
 
 **Risk 4 is "The architecture imposes a per-crossing cost that cannot be engineered away", and its
@@ -257,7 +257,7 @@ It does not recommend anything, and it is not a verdict on Rust-for-Linux, which
 with good people whose difficulty here is with a thirty-million-line C codebase and not with Rust.
 Nothing about nife's design changes because of this paper; DECISIONS §14 (a verified-Rust capability
 microkernel that runs real workloads) is untouched, and so is every technique. What changes is the
-framing a reader should bring to `design/fatal-risks.md` risks 1 and 8, which is that the objection
+framing a reader should bring to `design/fatal-risks/README.md` risks 1 and 8, which is that the objection
 behind them has a citation, a measurement, and a name.
 
 ## BUGS
@@ -273,7 +273,7 @@ behind them has a citation, a measurement, and a name.
   behind a retrofitted modular interface" rests on the published policy, the per-subsystem line
   counts, and the LWN coverage. A retrofit in progress somewhere that has not landed would not
   appear in any of those.
-- **`design/fatal-risks.md` is not edited by this note**, deliberately: a lane does not edit that
+- **`design/fatal-risks/README.md` is not edited by this note**, deliberately: a lane does not edit that
   file. The paragraph proposed for risk 8 is in this lane's report and in PR #1063, and until it is
   applied the connection above is asserted here and nowhere the reader of that file will meet it.
   That is rung four of AGENTS.md's ladder and it is known to be rung four.

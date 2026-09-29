@@ -211,7 +211,7 @@ This is the note's `BUGS` section.
   pull request for 55 survivors it did not write) recorded this on 2026-09-23, and the trap is also
   named in `script/mutation` beside the column. Read as a recent delta, it turns six weeks of growth
   into whatever days sit between the reader and the crate's last change. That happened once.
-  `design/fatal-risks.md`'s risk 3 blamed milestone 319 (the crate that parses firmware)'s pull
+  `design/fatal-risks/README.md`'s risk 3 blamed milestone 319 (the crate that parses firmware)'s pull
   request for `machine_discovery` going from 22 survivors to 77. Replaying `cargo mutants --in-diff`
   against that pull request found 4; the crate already carried 73 before it merged. Compare
   censuses with `script/mutation-census --compare` instead, which milestone 518 (a census that

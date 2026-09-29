@@ -26,7 +26,7 @@ thrown away. So until this page was written the tree had kept **one** per-crate 
 life, `.cargo/mutants-baseline.txt`, dated 2026-08-03, and every comparison anybody wanted to make
 had to be made against it whether or not it was the right comparand.
 
-That cost two wrong readings in one week, both on the same paragraph of `design/fatal-risks.md`:
+That cost two wrong readings in one week, both on the same paragraph of `design/fatal-risks/README.md`:
 
 1. **A crate was reported as having regressed in two days** when the column it was read out of was
    six weeks old. Milestone 438 (would a diff-scoped mutation check have caught the 55) measured it against historical trees and the arithmetic
@@ -118,7 +118,7 @@ says so instead of leaving a reader to infer it.
 
 ## The first finding: the fall did not happen
 
-`design/fatal-risks.md`'s risk 3 stands AMBER on a rate that fell a full point like-for-like between
+`design/fatal-risks/README.md`'s risk 3 stands AMBER on a rate that fell a full point like-for-like between
 two censuses five days apart. Recomputed from the artifacts of the same two runs:
 
 | | crates | viable | as risk 3 reports it | recomputed |

@@ -1,4 +1,4 @@
-//! **`ripgrep`, unmodified, from crates.io** (milestone 121; `design/fatal-risks.md` risk 1).
+//! **`ripgrep`, unmodified, from crates.io** (milestone 121; `design/fatal-risks/README.md` risk 1).
 //!
 //! Risk 1 is *"only software written for nife runs on nife"*, and it is the most dangerous of the
 //! nine because it is structural: optimization cannot fix "nothing runs here". `ripgrep` is the

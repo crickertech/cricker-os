@@ -20,7 +20,7 @@ is finding 3: the `paging` crate's `x86_64` decoder reported every user page as 
 kernel-executable, `notes/confinement-claims.md` said the hardware made it so, and the hardware
 does so only with `CR4.SMEP`, which nothing set. That is not a userspace escape (it needs a kernel
 bug first), but it is a sentence this tree published about its own confinement that the machine
-contradicted, which is exactly what `design/fatal-risks.md`'s risk 7 asks this cadence to find.
+contradicted, which is exactly what `design/fatal-risks/README.md`'s risk 7 asks this cadence to find.
 
 ## Why this ran, and why this lens
 
@@ -348,7 +348,7 @@ question with a finite answer per ISA; nothing here asked it of the DMA path or 
   twin `the_hardware_says_el0_cannot_read_the_kernels_memory`'s sibling on `x86_64`.
 - **Ring 0 provably cannot execute ring-3 pages, and SMAP with a number** (finding 6's proposal).
 - **The stack gate that fires only on a filtered run** (finding 7's proposal).
-- **DECISIONS §152's BUGS and `design/fatal-risks.md` risk 7 are the maintainer's to update** from
+- **DECISIONS §152's BUGS and `design/fatal-risks/README.md` risk 7 are the maintainer's to update** from
   this report: the single-core premise, and the sentence that one claim was false and fixed.
 - **The syscall surface** is the remaining untaken lens, and this audit deliberately read none of it
   beyond the four arms that carry a device object.

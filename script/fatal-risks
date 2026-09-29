@@ -1,10 +1,10 @@
 #!/bin/sh
 #
-# script/fatal-risks: does design/fatal-risks.md still agree with the records it cites?
+# script/fatal-risks: does design/fatal-risks/README.md still agree with the records it cites?
 #
 # PROVISIONAL NAME. See the `Name:` block at the end of this comment.
 #
-# `design/fatal-risks.md` is the falsification list: nine claims that, if false, mean the project
+# `design/fatal-risks/README.md` is the falsification list: nine claims that, if false, mean the project
 # should stop. Its own BUGS section has said since the day it was written that **nothing gates this
 # file**, and on 2026-09-10 a maintainer reading it against the tree found that warning firing four
 # separate ways in one pass. Milestone 275 is that finding turned into a check.
@@ -24,7 +24,7 @@
 #
 # **0. An entry's Experiment status is one of the three words calef ratified**, and the running
 #    order restates it in the same three. `RUN`, `NOT-RUN`, `CANNOT-RUN`, ratified 2026-09-23;
-#    `design/fatal-risks.md`'s own vocabulary section carries the argument, and this check is
+#    `design/fatal-risks/README.md`'s own vocabulary section carries the argument, and this check is
 #    numbered zero because every other check below reads the field it guards.
 #
 #    **It is the check this script was missing for its whole first fortnight.** Until 2026-09-23 the
@@ -96,7 +96,7 @@
 #
 # **And the tuning is asymmetric on purpose**, because the costs are. A false negative here is one
 # more thing a person has to notice, which is where this file already was. A false positive is worse
-# than the drift: `design/fatal-risks.md` is meant to be read and trusted, and a gate that reddens on
+# than the drift: `design/fatal-risks/README.md` is meant to be read and trusted, and a gate that reddens on
 # a status that moved harmlessly teaches the next lane to reach for an allow-list. So every check
 # above is anchored on an explicit marker the file already writes, and a citation with no marker
 # makes no claim and is not judged.
@@ -191,7 +191,7 @@
 # have: here the record IS a gate, because `RATIFIED` below is what check 0 enforces.
 #
 # **Experiment status** is ratified 2026-09-23 (calef, reading the proposal raised that day), as the
-# name of the one field every entry in `design/fatal-risks.md` carries, with exactly three values:
+# name of the one field every entry in `design/fatal-risks/README.md` carries, with exactly three values:
 # `RUN`, `NOT-RUN`, `CANNOT-RUN`. Refused `UNRUN` (it is an abbreviation where the other two values
 # are hyphenated phrases, and it reads as a word rather than as the negation of `RUN`), `UNTESTED`
 # (it says the thing was not tested, where the case it was minted for is that it CANNOT be, which is
@@ -217,7 +217,7 @@ import subprocess
 import sys
 
 root, mode = sys.argv[1], sys.argv[2]
-RISKS = "design/fatal-risks.md"
+RISKS = "design/fatal-risks/README.md"
 
 # A milestone status that means work happened, and one that means it is over. The split matters in
 # both directions: `NOT-STARTED` is the only token that can contradict "this ran", and BUILT/REMOVED
@@ -240,7 +240,7 @@ SECTION = re.compile(r"^## (?:(\d+)\. )?(.+)$", re.M)
 EXPERIMENT = re.compile(r"\*\*The [a-z ]*experiment\b([^*:]*)(?::\*\*|\*\*)", re.I)
 
 # The ratified field, and the three words it may carry. calef ruled on 2026-09-23; the argument is
-# in `design/fatal-risks.md`'s own vocabulary section, which is where a reader meets it.
+# in `design/fatal-risks/README.md`'s own vocabulary section, which is where a reader meets it.
 #
 # **The character class is `[A-Z][A-Z-]*` and the hyphen is the point.** It was `([A-Z]+)`, which
 # captured `NOT` out of risk 4's `**Status: NOT YET` and reported a word nobody had written. Two of
@@ -578,7 +578,7 @@ def git_touched(rel):
 
 
 # ---- the selftest ------------------------------------------------------------
-# One fixture per check, each a minimal `design/fatal-risks.md` and a minimal record set. Positive
+# One fixture per check, each a minimal `design/fatal-risks/README.md` and a minimal record set. Positive
 # fixtures must fire the named code; negative ones must fire nothing, and they pin the three
 # near-misses the real file produces today.
 #
@@ -683,7 +683,7 @@ if mode == "--check":
         print(f"fatal-risks: {msg}", file=sys.stderr)
     if problems:
         print("", file=sys.stderr)
-        print("design/fatal-risks.md is the list of claims that would stop this project, so it is "
+        print("design/fatal-risks/README.md is the list of claims that would stop this project, so it is "
               "read", file=sys.stderr)
         print("and trusted. Each finding names the two records that disagree; which one is wrong is "
               "the", file=sys.stderr)

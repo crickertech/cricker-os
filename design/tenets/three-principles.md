@@ -48,7 +48,7 @@ What that means concretely, and it is a reordering rather than a slogan:
   network protocol, crash consistency, and somebody's only copy. This principle said to rank by the
   shortest path to a customer, and the path chosen was one of the longest available. **A first
   customer should be something nife can plausibly be adequate at within a milestone or two.**
-- **While the path is vacant the tie breaks toward design/fatal-risks.md**, nine claims that, if
+- **While the path is vacant the tie breaks toward design/fatal-risks/README.md**, nine claims that, if
   false, mean the project should stop. It is a stand-in for a customer, not a replacement: a real
   workload with a real user outranks everything on it the moment one exists.
 - **And the path is vacant for a second reason, which is ours rather than the customer's** (calef,

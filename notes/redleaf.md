@@ -245,7 +245,7 @@ here]."*
 
 **Neither trust is free and this tree's version can come back red, which is the asymmetry worth
 recording.** nife's claim is DECISIONS §14 (a verified-Rust capability microkernel that runs real
-workloads), and `design/fatal-risks.md`'s risk 2 exists precisely to ask whether the proofs prove
+workloads), and `design/fatal-risks/README.md`'s risk 2 exists precisely to ask whether the proofs prove
 anything: its answer is AMBER, and milestone 191 (did the proofs catch the bugs?) found that *"no
 Kani harness in this tree has ever caught a defect after the day it was written"* because
 `cargo kani -p <crate>` never compiled the kernel. That is a worse-sounding sentence than anything in
@@ -279,7 +279,7 @@ it would be comparing against a system that does not exist.
 
 ## Bet two: the cost per crossing
 
-**This is where RedLeaf's numbers will be quoted against `design/fatal-risks.md`'s risk 4** (*"the
+**This is where RedLeaf's numbers will be quoted against `design/fatal-risks/README.md`'s risk 4** (*"the
 architecture imposes a per-crossing cost that cannot be engineered away"*), and against milestone 168
 (a multi-tasking workload benchmark) when it produces one. So the conditions matter more than the
 figures.
@@ -367,7 +367,7 @@ performance. However, we do not allow unsafe Rust inside RedLeaf domains."* **Th
 speedup, and refused it, because taking it would have cost them the isolation.** That is the bet
 being paid for, visible in a single sentence.
 
-**nife's version of this axis is `design/fatal-risks.md`'s risk 1, and it has been run.** Unmodified
+**nife's version of this axis is `design/fatal-risks/README.md`'s risk 1, and it has been run.** Unmodified
 `ripgrep` 14.1.1 from crates.io, forty transitive crates, zero patches, builds and runs on all three
 architectures (milestone 121 (`ripgrep` on nife: enumeration as a capability), and the three transcripts are byte
 for byte identical). DECISIONS §31 (the foreign-language seam) confines C that holds no capabilities and
@@ -495,7 +495,7 @@ moved since January 2022.
   establishes that the invariant is not *mechanically* enforced. It does not establish that any
   shipped domain violates it in a way that matters.
 - **The line counts are raw lines including comments and blanks**, on both sides. `notes/counted-claims.md`
-  and `design/fatal-risks.md` both record that `kernel/src` is 40% comment by measurement, so any
+  and `design/fatal-risks/README.md` both record that `kernel/src` is 40% comment by measurement, so any
   size comparison drawn between this tree and RedLeaf's 48,749 lines is invalid as written. It is
   included for order of magnitude only.
 - **The PLOS '21 reading of what Rust still lacks was not re-checked against current Rust.** "As of
