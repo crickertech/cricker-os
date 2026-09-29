@@ -771,13 +771,15 @@ if mode == "--ratchet":
             for old, new in sweep_pairs:
                 line = line.replace(new, old)
             return line
-        removed = collections.Counter(
-            unsweep(k) for k in removed for _ in range(removed[k]))
+    else:
+        def unsweep(line):
+            return line
     for path in sorted(added):
         now = (head_blob(path) or "").split("\n")
         kept = set()
         for n in sorted(added[path]):
             text = now[n - 1].strip() if n <= len(now) else ""
+            text = unsweep(text)
             if text and removed[text] > 0:
                 removed[text] -= 1
             else:
