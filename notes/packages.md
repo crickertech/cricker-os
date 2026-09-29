@@ -173,9 +173,12 @@ looks the digest up (`activation_set::lookup_digest`). A hit is built from the c
 its note. A miss runs only for a session presenting D2's capability, with its grants and two pages;
 otherwise it gets `SPAWN_UNVOUCHED`. D2 is [packages/running-unvouched.md](packages/running-unvouched.md).
 
-The digest is the member's, not the package's: the spawner is handed the executable, and the
-package's table of contents already carries each member's digest. The recipe's digest over the whole file (§195 (a reviewed recipe vouches for a package))
-is still what installing checks first; the activation table records the member's.
+The digest is the member's, since the spawner is handed the executable and the table of contents
+carries each member's digest. Installing still checks the recipe's digest over the whole file (§195
+(a reviewed recipe vouches for a package)) first.
+
+A bare word runs an installed program, never a vouch (§229 (how a bare name at the prompt reaches
+an installed program), B2; see `swish::bare`).
 
 ## Installing on the target
 
@@ -186,9 +189,11 @@ live generation:
 $ package install downloads/tampered.nifepkg
   refused: this image's catalogue does not vouch for those bytes; nothing is installed
 $ package install downloads/uptime.nifepkg
+  refused: the image carries a program of that name; a new base updates it, not install; nothing is installed
+$ package install downloads/noteless.nifepkg
   installed; generation 1 is live
-$ packages/uptime/0.1.0/uptime
-  up 00:00:06
+$ packages/noteless/0.1.0/noteless
+  noteless: installed, and carrying no manifest note
 $ installed/unvouched
   network: refused (no capability at slot 10)
   entropy: refused (no capability at slot 9)
@@ -199,20 +204,23 @@ $ installed/unvouched
 And on the next boot, from the same disk:
 
 ```
-$ packages/uptime/0.1.0/uptime
-  up 00:00:01
-$ package remove uptime
+$ packages/noteless/0.1.0/noteless
+  noteless: installed, and carrying no manifest note
+$ package remove noteless
   removed; generation 2 is live
-$ caps packages/uptime/0.1.0/uptime
-  packages/uptime/0.1.0/uptime would grant the new process, and nothing else:
+$ caps packages/noteless/0.1.0/noteless
+  packages/noteless/0.1.0/noteless would grant the new process, and nothing else:
     ...
     provenance: unvouched (digest ...)
     runs on this session's capability to run unvouched bytes (slot 22)
 $ package rollback
   rolled back; generation 1 is live
-$ packages/uptime/0.1.0/uptime
-  up 00:00:01
+$ packages/noteless/0.1.0/noteless
+  noteless: installed, and carrying no manifest note
 ```
+
+Install refuses an image program's name, as `uptime` shows, and a name another package provides
+(§229, amended 2026-09-27).
 
 The progenitor is the installer, not a program, for §208's own reason: the authority that
 decides which version is active should be the one that performs a swap, and §219 already made it
@@ -247,9 +255,6 @@ once on aarch64:
 - give the second boot a fresh disk, and every line after the reboot fails;
 - make `remove` rewrite the old table, and the removed program still runs;
 - make `rollback` stay on the live generation, and the last line is refused.
-
-A first tampered copy that only flipped a byte stayed refused with the catalogue check skipped:
-the program's own digest caught it.
 
 ## Fetching by name, and a program the image never carried
 
@@ -302,7 +307,7 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 - x86_64 fetches nothing: its QEMU runner attaches no `-netdev`. It installs `greeting` from the
   disk instead. Milestone 494 (a driver for the network card a PC actually has) is where x86
   networking starts.
-- `greeting` proves the path, not a useful program: it prints one line, with `uptime`'s manifest.
+- `greeting` and `noteless` (which has no manifest note) prove the path, not a useful program.
 - The package peer is a `guestfwd` process, not a server on a LAN. It speaks HTTP to the guest
   over slirp's forwarding, which is enough to prove the client and not enough to prove a real
   network card or a host elsewhere on a network (rung 3b).

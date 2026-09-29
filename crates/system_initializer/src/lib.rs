@@ -4658,7 +4658,8 @@ fn edit(
                 package: activation_set::OWNER,
                 digest: measured_boot::sha256(bytes),
             };
-            let n = match activation_set::with_entry(table, &entry, &mut new) {
+            // A vouch claims no name, so whether the image carries one does not matter to it.
+            let n = match activation_set::with_entry(table, &entry, false, &mut new) {
                 Ok(n) => n,
                 Err(activation_set::Error::BadName) => return (S::NotExecutable, live),
                 Err(_) => return (S::StoreFailed, live),
@@ -4725,8 +4726,19 @@ fn edit(
                 package: stem,
                 digest: got.digest,
             };
-            let Ok(n) = activation_set::with_entry(table, &entry, &mut new) else {
-                return (S::StoreFailed, live);
+            // **A bare name belongs to one package, and never to one the image carries** (DECISIONS
+            // §229 (how a bare name at the prompt reaches an installed program), B2 and calef's
+            // ruling of 2026-09-27). Either is refused here, after the bytes are placed under
+            // `packages/` (where they still run by path) and before any generation names them. A
+            // base program is updated through the boot slot under §235 (the OS is built and updated
+            // from packages), so the image refusal blocks no update. The prompt still refuses a
+            // name that is both, because a later base can add a name a package already holds.
+            let image = Prog::from_name(got.program.as_bytes()).is_some();
+            let n = match activation_set::with_entry(table, &entry, image, &mut new) {
+                Ok(n) => n,
+                Err(activation_set::Error::ImageName) => return (S::ImageName, live),
+                Err(activation_set::Error::Taken) => return (S::NameTaken, live),
+                Err(_) => return (S::StoreFailed, live),
             };
             let m = next();
             if !files.commit(act, m, Some(&new[..n])) {

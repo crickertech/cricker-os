@@ -207,15 +207,20 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 /// `caps` and the bytes still run; before D2 this script typed the refusal.
 ///
 /// `greeting` rides along (milestone 198 rung 3a's fetch): it was installed as generation 2, it
-/// runs after the reboot, and removing `uptime` leaves it running, because a generation drops one
-/// program and not its neighbours.
+/// runs after the reboot, and removing `noteless` leaves it running, because a generation drops
+/// one program and not its neighbours. `noteless` took `uptime`'s place here when DECISIONS §229
+/// (calef, 2026-09-27) refused installing a package named after an image program.
 ///
 /// **The numbers skip one** because the first boot vouched for a build as generation 3 and rolled
 /// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 4, and
 /// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 3: the vouch's generation,
-/// which lists `uptime` too.
+/// which lists `noteless` too.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     line(
         1,
         "packages/greeting/0.1.0/greeting",
@@ -226,7 +231,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     ),
     line(
         0,
-        "package remove uptime",
+        "package remove noteless",
         &["removed; generation 4 is live"],
     ),
     // **Removed means unvouched, not unrunnable, for a session holding D2** (DECISIONS §219 gate
@@ -235,13 +240,17 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     // the installed manifest; `caps` is what shows the vouch is gone.
     line(
         0,
-        "caps packages/uptime/0.1.0/uptime",
+        "caps packages/noteless/0.1.0/noteless",
         &[
             "provenance: unvouched (digest ",
             "runs on this session's capability to run unvouched bytes",
         ],
     ),
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     line(
         1,
         "packages/greeting/0.1.0/greeting",
@@ -255,7 +264,11 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
         "package rollback",
         &["rolled back; generation 3 is live"],
     ),
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
 ];
 
 /// The text this gate types and what each line must answer. `None` is a line whose answer is
@@ -504,28 +517,45 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "package install downloads/tampered.nifepkg",
         &["refused: this image's catalogue does not vouch for those bytes; nothing is installed"],
     ),
-    // The genuine package, whose digest the image's catalogue carries: the progenitor writes the
-    // program under `packages/<stem>/`, writes generation 1, and renames `current` onto it.
+    // **A package cannot take a name the image carries** (DECISIONS §229, calef's ruling of
+    // 2026-09-27). `uptime`'s package is genuine and catalogued, and the image carries `uptime`, so
+    // it is refused and nothing is written. Under §235 (the OS is built and updated from packages)
+    // a base program is updated through the boot slot, never by install, so this blocks no update.
     line(
         0,
         "package install downloads/uptime.nifepkg",
+        &[
+            "refused: the image carries a program of that name; a new base updates it, not \
+             install; nothing is installed",
+        ],
+    ),
+    // A genuine package the image lacks, whose digest the image's catalogue carries: the
+    // progenitor writes the program under `packages/<stem>/`, writes generation 1, and renames
+    // `current` onto it.
+    line(
+        0,
+        "package install downloads/noteless.nifepkg",
         &["installed; generation 1 is live"],
     ),
     // **And what it installed runs, by its bytes** (DECISIONS §219 (how the shell names an
     // installed program to the spawner) option D). A path, so the shell reads the file into frames
     // and the progenitor hashes its own copy and finds the digest in the generation just written.
-    // `up ` is the proof it ran: a refusal prints no such thing.
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    // Its line is the proof it ran: a refusal prints no such thing.
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     // **`caps` names who vouched** (§219: "or the source that vouched"): the digest the shell
     // hashed is in the generation the install just wrote.
     line(
         0,
-        "caps packages/uptime/0.1.0/uptime",
+        "caps packages/noteless/0.1.0/noteless",
         &[
             "provenance: vouched by activation generation 1 (digest ",
             // **No note, the default** (milestone 597 (a program carries its manifest in an ELF
-            // note), provisional): `uptime` carries no manifest note, so it is bound and endowed as
-            // `grant_plan::NO_NOTE_MANIFEST`, its output alone.
+            // note), provisional): `noteless` carries no manifest note, so it is bound and endowed
+            // as `grant_plan::NO_NOTE_MANIFEST`, its output alone.
             "it carries no manifest note, so it asks for its output and nothing else",
         ],
     ),
@@ -705,6 +735,29 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "its manifest note asks for: output bytes, the clock",
         ],
     ),
+    // **And by its bare name** (DECISIONS §229 (how a bare name at the prompt reaches an installed
+    // program), B2): the live generation's entry of that name, run down the same road as its path,
+    // so `caps` names the same generation.
+    line(
+        1,
+        "greeting",
+        &["hello from a package this image never carried"],
+    ),
+    line(
+        0,
+        "caps greeting",
+        &["provenance: vouched by activation generation 2 (digest "],
+    ),
+    // **A name the image and a package both have** is refused at the prompt, naming both (§229
+    // B2), but no line here can make one: install now refuses an image program's name (§229,
+    // 2026-09-27), and only a later base adding a name a package holds can produce the pair.
+    // `swish::bare`'s host tests prove the refusal; its BUGS say what is not gated.
+    // The bare name of what generation 1 installed, which is not the image's either.
+    line(
+        1,
+        "noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     // **The owner vouches for a local build** (DECISIONS §221 (the boot prompt is the owner's
     // console), ruling 1). `installed/unvouched` is the fresh build the D2 lines above ran on the
     // ruling's endowment (slots 0, 1 and 2). Vouching writes a generation that lists its digest,
@@ -725,6 +778,9 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps installed/unvouched",
         &["provenance: vouched by the owner in activation generation 3 (digest "],
     ),
+    // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
+    // the name it was recorded under, so the bare word reaches nothing.
+    line(0, "unvouched", &["no such program"]),
     line(1, crate::disk::INSTALLED_UNVOUCHED, &["slots held: 0 7 9"]),
     line(
         0,
@@ -2336,7 +2392,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     // time by overflowing it. The line must be there, and it must not say `BELOW`, which is the
     // kernel's word for a boot that left less than `kernel::progenitor_stack::HEADROOM_FLOOR` of
     // the stack unused. Every line is echoed with the prompt line it followed, which makes the
-    // transcript a per-command measurement: a line after `package install uptime` is that path.
+    // transcript a per-command measurement: a line after `package install greeting` is that path.
     let gauges: Vec<(String, &str)> = gauges
         .lock()
         .expect("gauge lock")
@@ -2930,11 +2986,25 @@ $ outlaw
         assert!(swish_check_omits("x86_64", &line).is_none());
     }
 
+    /// **And the line every leg installs from names the file the seed writes**, for the same reason
+    /// (milestone 47's bare-name lane, 2026-09-27).
+    #[test]
+    fn the_noteless_install_line_names_the_seeded_file() {
+        let line = format!("package install {}", crate::disk::DOWNLOADED_NOTELESS);
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
+        let refused = format!("package install {}", crate::disk::DOWNLOADED_PACKAGE);
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == refused));
+    }
+
     /// **A job count names a program** ([`Line`]'s doc): no line may claim more jobs than it has
     /// stages whose head is something the progenitor can build, a `grant_plan::Prog` or an
     /// installed package's path, after the `time` and `xargs` prefixes. A `caps` head is a preview
     /// and builds nothing. A bound from above only; a tag that is too low is the case no host test
     /// can see, and the transcript cannot either.
+    /// Bare names this script installs before it types them (§229 (how a bare name at the prompt
+    /// reaches an installed program), B2), which run as programs without being the image's.
+    const INSTALLED_BY_THE_SCRIPT: [&str; 2] = ["greeting", "noteless"];
+
     /// Feed `chunks` through a [`GaugeFilter`] and return what the checks would read, and the gauges.
     fn filtered(chunks: &[&str]) -> (String, Vec<(usize, String)>) {
         let mut f = GaugeFilter::default();
@@ -3057,7 +3127,9 @@ $ outlaw
                 // A token with a `/` in it runs a file's bytes (DECISIONS §219 D), which is the
                 // shell's own test (`components/src/swish.rs`, `run`).
                 .filter(|head| {
-                    head.contains('/') || grant_plan::Prog::ALL.iter().any(|p| p.name() == *head)
+                    head.contains('/')
+                        || grant_plan::Prog::ALL.iter().any(|p| p.name() == *head)
+                        || INSTALLED_BY_THE_SCRIPT.contains(head)
                 })
                 .count();
             assert!(

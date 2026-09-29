@@ -24,9 +24,18 @@ That is option B with a sub-rule, recorded here as B2:
 - An owner's `vouch ./x` grants permissions by digest, but never claims or replaces a bare name.
   The bare-name lookup ignores owner-vouch entries, so the system program keeps the name and a
   local build runs by path.
-- Both refusals in the recommendation below stand. At install, another package cannot take a name.
-  At the prompt, a name that is both an image program and a live entry is refused, naming both
-  paths.
+- Both refusals in the recommendation below stand. At install, two things are refused: a
+  program whose name another package already provides (the same package at another version is an
+  upgrade, and is kept), and a program whose name equals an image program's. At the prompt, a name
+  that is both an image program and a live entry is refused, naming both paths.
+
+calef, 2026-09-27 (UTC), answering PR #1374's `## What I need from you`, confirmed the second
+install refusal, which the first build of this ruling had left out: install refuses a package whose
+program name equals an image (base) program's name. §235 (the OS is built and updated from
+packages) updates a base program by writing base packages into the inactive boot slot, never through
+`package install`, so the refusal blocks no update path. The prompt refusal stays, because a later
+base can add a name a package already holds. Built as `activation_set::Error::ImageName` and
+`spawnproto::ActivationStatus::ImageName`, both provisional.
 
 ### Refused, with reasons
 

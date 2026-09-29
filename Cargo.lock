@@ -1012,6 +1012,7 @@ dependencies = [
 name = "swish"
 version = "0.1.0"
 dependencies = [
+ "activation_set",
  "documentation",
  "environment_protocol",
  "filesystem_protocol",

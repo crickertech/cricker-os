@@ -1329,6 +1329,21 @@ fn complete_word(nav: &mut Nav, disc: &mut line_editor::LineDisc, echo: &mut Ech
                 for p in grant_plan::Prog::ALL {
                     each(p.name().as_bytes(), false);
                 }
+                // And what the live activation set names by bare word (§229, B2): never an owner's
+                // vouch, which claims no name.
+                with_live_table(nav, |text, _| {
+                    for entry in activation_set::entries(text).flatten() {
+                        // Once per name: a name the image also has is already offered, and is
+                        // refused when run.
+                        if activation_set::lookup_name(text, entry.program)
+                            .is_ok_and(|found| found == Some(entry))
+                            && grant_plan::Prog::from_name(entry.program.as_bytes()).is_none()
+                        {
+                            each(entry.program.as_bytes(), false);
+                        }
+                    }
+                    Some(())
+                });
                 true
             }
             Completing::Name { dir, .. } => {
@@ -1985,6 +2000,22 @@ fn run(nav: &mut Nav, cmd: &[u8], spec: RunSpec) {
     // hands the progenitor as frames. `installed/uptime` and `./a.out` both land here.
     if spec.prog.contains(&b'/') {
         return run_image(nav, spec);
+    }
+    // **A bare word is the image's, an installed program's, or refused** (DECISIONS §229 (how a
+    // bare name at the prompt reaches an installed program), B2). An installed program runs down
+    // the same road its path does, so what it is granted and who vouched for it do not depend on
+    // how it was named.
+    match bare(nav, spec.prog) {
+        swish::bare::Bare::Installed(path) => {
+            let mut by_path = spec;
+            by_path.prog = path.as_bytes();
+            return run_image(nav, by_path);
+        }
+        swish::bare::Bare::Both(path) => {
+            refused();
+            return swish::bare::write_both(spec.prog, &path, &mut print);
+        }
+        swish::bare::Bare::Image | swish::bare::Bare::Unknown => {}
     }
     // **Expand first.** A pattern designates the names it matched, so the planner has to see the
     // set; and a pattern that matched nothing, or too much, is refused here with nothing spawned.
@@ -3220,8 +3251,23 @@ fn outcome(e: Endowment, answer: u64) {
 /// entire meaning is checkable without a machine to run it on. What is left here is the directory
 /// read a pattern needs and the terminal to print to.
 fn caps(nav: &mut Nav, tail: &[u8]) {
-    if let Some(spec) = image_line(tail) {
-        return caps_image(nav, spec);
+    if let Some(spec) = plain_line(tail) {
+        if spec.prog.contains(&b'/') {
+            return caps_image(nav, spec);
+        }
+        // A bare word previews what running it would do (§229 (how a bare name at the prompt
+        // reaches an installed program), B2), through the same resolution [`run`] uses.
+        match bare(nav, spec.prog) {
+            swish::bare::Bare::Installed(path) => {
+                let mut by_path = spec;
+                by_path.prog = path.as_bytes();
+                return caps_image(nav, by_path);
+            }
+            swish::bare::Bare::Both(path) => {
+                return swish::bare::write_both(spec.prog, &path, &mut print);
+            }
+            swish::bare::Bare::Image | swish::bare::Bare::Unknown => {}
+        }
     }
     let holdings = holdings(nav);
     // The clock row is a *slot number*, and it comes from what this shell was told rather than from
@@ -3247,9 +3293,10 @@ fn caps(nav: &mut Nav, tail: &[u8]) {
     );
 }
 
-/// **The line is a plain run of a file's bytes**: one stage, no operator, a program token with a
-/// `/` in it. The shape [`run`] hands to [`run_image`], so `caps` previews exactly what would run.
-fn image_line(tail: &[u8]) -> Option<RunSpec<'_>> {
+/// **The line is a plain run**: one stage, no operator. The shape [`run`] hands to [`run_image`]
+/// when its program token has a `/` in it or names an installed program, so `caps` previews
+/// exactly what would run.
+fn plain_line(tail: &[u8]) -> Option<RunSpec<'_>> {
     let l = line::split(grant_plan::trim(tail)).ok()?;
     let [stage] = l.stages() else {
         return None;
@@ -3258,7 +3305,7 @@ fn image_line(tail: &[u8]) -> Option<RunSpec<'_>> {
         return None;
     }
     match grant_plan::parse(stage) {
-        Command::Run(spec) if spec.prog.contains(&b'/') => Some(spec),
+        Command::Run(spec) => Some(spec),
         _ => None,
     }
 }
@@ -3359,13 +3406,26 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
 /// `script/stack-frame-check` holds every frame to; [`RANKED`] is here for the same reason.
 static mut GENERATION_TABLE: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
 
-/// **The live generation, if it lists `digest`, and whether the owner vouched for it**:
-/// `activation/current`, then the generation it
-/// names, read as the progenitor reads them (`crates/system_initializer`'s `FsCalls::live_generation`)
-/// and looked up with the same `activation_set::lookup_digest`. `None` on a miss and on every way
-/// of failing to read the table, which is the progenitor's rule too: a table that cannot be read
-/// vouches for nothing.
+/// **The live generation, if it lists `digest`, and whether the owner vouched for it**, looked up
+/// with the progenitor's own `activation_set::lookup_digest` in [`with_live_table`]'s read.
 fn live_generation_listing(nav: &Nav, digest: &measured_boot::Digest) -> Option<swish::Vouched> {
+    with_live_table(nav, |text, number| {
+        match activation_set::lookup_digest(text, digest) {
+            Ok(Some(entry)) => Some(swish::Vouched {
+                generation: number,
+                by_owner: entry.package == activation_set::OWNER,
+            }),
+            _ => None,
+        }
+    })
+}
+
+/// **Read the live generation and hand it to `f`**, with its number: `activation/current`, then the
+/// generation it names, read as the progenitor reads them (`crates/system_initializer`'s
+/// `FsCalls::live_generation`). `None` on every way of failing to read it, which is the
+/// progenitor's rule too: a table that cannot be read vouches for nothing and names nothing.
+fn with_live_table<R>(nav: &Nav, f: impl FnOnce(&str, u32) -> Option<R>) -> Option<R> {
+    nav.dir?;
     // The first tree's, whichever tree this shell stands in: the activation table is the system's.
     let t = nav.first();
     let act = nav.name_call_in(
@@ -3395,17 +3455,20 @@ fn live_generation_listing(nav: &Nav, digest: &measured_boot::Digest) -> Option<
         if n >= table.len() {
             return None;
         }
-        let text = core::str::from_utf8(&table[..n]).ok()?;
-        match activation_set::lookup_digest(text, digest) {
-            Ok(Some(entry)) => Some(swish::Vouched {
-                generation: number,
-                by_owner: entry.package == activation_set::OWNER,
-            }),
-            _ => None,
-        }
+        f(core::str::from_utf8(&table[..n]).ok()?, number)
     })();
     nav.close_in(t, act);
     found
+}
+
+/// **What a bare word names** (DECISIONS §229 (how a bare name at the prompt reaches an installed
+/// program), B2), from the image's programs and the live table. See `swish::bare`.
+fn bare(nav: &Nav, word: &[u8]) -> swish::bare::Bare {
+    let image = grant_plan::Prog::from_name(word).is_some();
+    with_live_table(nav, |text, _| {
+        Some(swish::bare::resolve(word, image, Some(text)))
+    })
+    .unwrap_or_else(|| swish::bare::resolve(word, image, None))
 }
 
 /// Open `name` under the directory handle `at` in tree `t`, read up to `out.len()` bytes of it (one `READ`,
@@ -3499,6 +3562,12 @@ fn pipeline(nav: &mut Nav, l: Line<'_>) {
     for (i, stage) in l.stages().iter().enumerate() {
         match grant_plan::parse(stage) {
             Command::Run(spec) => {
+                // A name the image and an installed package both have is refused wherever it
+                // stands (§229 (how a bare name at the prompt reaches an installed program), B2).
+                if let swish::bare::Bare::Both(path) = bare(nav, spec.prog) {
+                    refused();
+                    return swish::bare::write_both(spec.prog, &path, &mut print);
+                }
                 let expanded = match expansion(nav, &spec) {
                     Ok(e) => e,
                     Err(Say::Cannot(r)) => return refuse(spec, r),

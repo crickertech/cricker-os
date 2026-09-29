@@ -221,11 +221,21 @@ pub(crate) fn mkredoxfs() -> bool {
 /// rung 3a's installer): the file `package install` names, relative to the image root. The name
 /// is not the package's: the installer reads the stem out of the header, which is the point of
 /// this being a plain file a person pointed at. Provisional; standing in for a download.
+///
+/// It is `uptime`'s package, which the image also carries, so since DECISIONS §229 (calef,
+/// 2026-09-27) the gate types it to prove install refuses an image program's name;
+/// [`DOWNLOADED_NOTELESS`] is what it installs.
 pub(crate) const DOWNLOADED_PACKAGE: &str = "downloads/uptime.nifepkg";
 
 /// **The same package with one byte flipped halfway through**, which the image's catalogue must
 /// refuse before anything is written.
 pub(crate) const TAMPERED_PACKAGE: &str = "downloads/tampered.nifepkg";
+
+/// **`noteless`'s package, the one every leg installs from the disk** (milestone 47 (navigation and
+/// naming)'s bare-name lane). It took that job from [`DOWNLOADED_PACKAGE`] when DECISIONS §229
+/// (calef, 2026-09-27) refused a package named after an image program; `uptime`'s file stays, for
+/// the line proving that refusal. Provisional.
+pub(crate) const DOWNLOADED_NOTELESS: &str = "downloads/noteless.nifepkg";
 
 /// **`greeting`'s package, on the disk for the leg that cannot fetch it** (milestone 198 rung 3a):
 /// `x86_64` has no NIC, so its `script/swish-check` leg installs from here what the other two fetch.
@@ -410,25 +420,32 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
             greeting_built.display()
         )
     })?;
-    // **The claim the prompt cannot check: the image does not carry it.** `greeting` is no
-    // `grant_plan::Prog`, so its bare name is refused at the prompt whether or not the archive
-    // packs it, and only the archive can say. Read the archive this leg boots and refuse to seed
-    // if it has the program, since every greeting line after that would prove nothing.
+    let noteless_stem = format!("noteless-0.1.0-{architecture}");
+    let noteless_built = root.join(format!("target/packages/{noteless_stem}.nifepkg"));
+    let noteless = std::fs::read(&noteless_built).map_err(|e| {
+        format!(
+            "could not read {} (the archive build writes it): {e}",
+            noteless_built.display()
+        )
+    })?;
+    // **The claim the prompt cannot check: the image does not carry them.** Neither is a
+    // `grant_plan::Prog`, so the progenitor's image-name refusal (§229) cannot see them either way,
+    // and only the archive can say. Read the archive this leg boots and refuse to seed if it has
+    // either program, since every line about them after that would prove nothing.
     let archive = match architecture {
         "aarch64" => crate::archive::initrd_path(),
         "riscv64" => crate::archive::riscv_initrd_path(),
         _ => crate::archive::x86_initrd_path(),
     };
     let image = std::fs::read(&archive).map_err(|e| format!("could not read {archive}: {e}"))?;
-    let carried = nifefs::Fs::parse(&image)
-        .map_err(|e| format!("{archive} does not parse: {e:?}"))?
-        .read("greeting")
-        .is_some();
-    if carried {
-        return Err(format!(
-            "{archive} carries `greeting`, so installing it would prove nothing about a program \
-             the image lacks (is it still `packaged_only` in fixtures/Cargo.toml?)"
-        ));
+    let fs = nifefs::Fs::parse(&image).map_err(|e| format!("{archive} does not parse: {e:?}"))?;
+    for program in ["greeting", "noteless"] {
+        if fs.read(program).is_some() {
+            return Err(format!(
+                "{archive} carries `{program}`, so installing it would prove nothing about a \
+                 program the image lacks (is it still `packaged_only` in fixtures/Cargo.toml?)"
+            ));
+        }
     }
 
     let source = package_source_dir(architecture);
@@ -462,9 +479,11 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
         write(tree.join(INSTALLED_STD_GREP), bytes)?;
     }
     write(tree.join(DOWNLOADED_GREETING), &greeting)?;
+    write(tree.join(DOWNLOADED_NOTELESS), &noteless)?;
     eprintln!(
         "seed_installed ({architecture}): {stem} ({} bytes, digest {}) at {DOWNLOADED_PACKAGE}, \
-         a tampered copy, {greeting_stem} at {DOWNLOADED_GREETING}, and three unvouched programs; \
+         a tampered copy, {greeting_stem} at {DOWNLOADED_GREETING}, {noteless_stem} at \
+         {DOWNLOADED_NOTELESS}, and three unvouched programs; \
          no activation set. The package source at {} serves {greeting_stem} and a lying {stem}",
         package.len(),
         String::from_utf8_lossy(&measured_boot::hex(&package_archive::sha256(&package))),
