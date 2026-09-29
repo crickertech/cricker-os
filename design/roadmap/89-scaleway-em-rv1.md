@@ -24,7 +24,7 @@ that needs the machine.
 ## What this is for
 
 Fatal risk 9's implementation grain: a second machine of an architecture nife already boots
-([`design/fatal-risks.md`](../fatal-risks.md)). radon is a StarFive JH7110 with SiFive U74 cores.
+([`design/fatal-risks/README.md`](../fatal-risks.md)). radon is a StarFive JH7110 with SiFive U74 cores.
 The RV1 is a T-Head TH1520 with four C910 cores. A second JH7110 would share every assumption this
 tree could have made about one vendor's silicon; this machine shares almost none.
 

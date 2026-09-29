@@ -135,7 +135,7 @@ The other path to parallel cores, the aarch64 HVF leg, **does not run here**: QE
 227 and 317 own and that `script/ci-build` already skips out loud. That is somebody else's bug and
 was not worked around.
 
-So the honest statement is the one `design/fatal-risks.md` risk 2 predicts: **this is reachable only
+So the honest statement is the one `design/fatal-risks/README.md` risk 2 predicts: **this is reachable only
 on real silicon, or it is rarer than 28 runs**, and the instrument for reading it when it next
 happens is now in the tree rather than on a bench.
 
@@ -177,7 +177,7 @@ where it matters.
 
 **x86_64 running four real cores is new.** §153 flipped `NIFE_SMP` to 2 for the runner and this
 machine boots 4, and real cores at real speed is the condition under which this tree has
-historically found its scheduler bugs. `design/fatal-risks.md` risk 2 cites the VisionFive 2's
+historically found its scheduler bugs. `design/fatal-risks/README.md` risk 2 cites the VisionFive 2's
 undelivered-wake bug for exactly this: found on a bench, invisible in QEMU, and no proof was
 positioned to see it.
 

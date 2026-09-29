@@ -7,7 +7,7 @@ built: 2026-09-20
 
 *(Number provisional until the merge queue lands it.)* The record
 exists, it is backfilled to the first census this project ever completed, and the first question it
-was asked returned a finding: **the fall that `design/fatal-risks.md`'s risk 3 stands on did not
+was asked returned a finding: **the fall that `design/fatal-risks/README.md`'s risk 3 stands on did not
 happen.** It is an artifact of two rows computed two different ways.
 
 Built from artifacts GitHub still holds and from `.cargo/mutants-baseline.txt`; no mutation run was
@@ -15,7 +15,7 @@ needed and none was made, which is the point.
 
 ## Why
 
-`design/fatal-risks.md`'s risk 3 (the tests do not test anything, and the quality is illusory) went
+`design/fatal-risks/README.md`'s risk 3 (the tests do not test anything, and the quality is illusory) went
 AMBER on 2026-09-19 on the strength of a rate that fell between two whole-corpus censuses, and had
 to say in the same breath what it could not say:
 
@@ -102,7 +102,7 @@ kills: 91.7% to 93.7%. Whole corpus with timeouts as survivors: 89.5% to 91.4%. 
 to 563 in the same window. There is no reading of these artifacts in which the score went down.
 
 **This does not decide whether risk 3 is green**, and this lane does not touch
-`design/fatal-risks.md`. The entry's own better argument survives the arithmetic intact: milestone 85 (mutation testing over the host crates)'s rule
+`design/fatal-risks/README.md`. The entry's own better argument survives the arithmetic intact: milestone 85 (mutation testing over the host crates)'s rule
 is that every survivor is triaged into a test, an exclusion with a reason or a recorded gap, and 563
 of them are not. A verdict on a corrected rate is an architect's.
 
@@ -143,7 +143,7 @@ record here makes that rewrite safer by giving it something to be checked agains
 - **Recorded.** `script/mutation --report` prints `new` in the baseline column for `credentialer`,
   because `.cargo/mutants-baseline.txt` still spells it `cred`. Recorded in
   `notes/mutation-census.md`'s `BUGS`; the fix is milestone 326's part 4, held on purpose.
-- **Milestone 512.** The correction this lane's finding owes `design/fatal-risks.md` belongs with
+- **Milestone 512.** The correction this lane's finding owes `design/fatal-risks/README.md` belongs with
   the correction already proposed there, and both are an architect's to make; this lane edits
   neither.
 

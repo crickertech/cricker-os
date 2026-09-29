@@ -20,7 +20,7 @@ request #1193 keeps 581 and this block moved to 582.)*
 A file said `**Status: NOT YET`, the regex captured `NOT`, dropped `YET`, and the report printed a
 word nobody had written. That is §211 (what a fatal-risk verdict says, and what the chart can plot as a result)'s finding.
 
-`design/fatal-risks.md`'s risk 7 carried two status lines eighteen lines apart. The script takes the
+`design/fatal-risks/README.md`'s risk 7 carried two status lines eighteen lines apart. The script takes the
 first match per section, so `AUDITED` was invisible to every consumer for weeks.
 
 A schema removes that class. A tighter regex would have fixed the two instances. That is rung one of

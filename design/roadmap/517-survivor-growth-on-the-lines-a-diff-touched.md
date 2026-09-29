@@ -24,7 +24,7 @@ a measurement rather than a slogan.
 ## Nothing here is switched on
 
 No gate, no workflow, no `script/ci-build` row, no ruleset entry, no edit to
-`design/fatal-risks.md`, `.cargo/mutants.toml` or `notes/mutation-testing.md`. This block is three
+`design/fatal-risks/README.md`, `.cargo/mutants.toml` or `notes/mutation-testing.md`. This block is three
 numbers and a proposed wording. Milestone 479 (a blocking `--in-diff` mutation gate) carries the
 standing refusal and the condition that would change it; the last section is written for whoever
 answers that condition, and this lane does not answer it.
@@ -43,7 +43,7 @@ uploads one artifact per shard, each with `missed.txt` naming every survivor by
 `path:line:col: description`. The runs of
 [2026-09-14](https://github.com/crickertech/nife/actions/runs/34833498873) and
 [2026-09-19](https://github.com/crickertech/nife/actions/runs/35421192143) are both still
-downloadable. `design/fatal-risks.md`'s risk 3 says the 2026-09-14 census's per-crate numbers
+downloadable. `design/fatal-risks/README.md`'s risk 3 says the 2026-09-14 census's per-crate numbers
 "were never written into the tree", and that is true of the tree; the artifacts carry something
 stronger than per-crate numbers, one line per survivor, and have been sitting there the whole time. The 2026-09-14 run's 8 shards hold exactly **771** lines, the
 census's own number, at head `e25f519a`.
@@ -80,7 +80,7 @@ such pull request carries **6** survivors; the largest carries 79.
 | [#451](https://github.com/crickertech/nife/pull/451) | milestone 161 (the x86_64 kernel port), ACPI parsing included | 42 |
 
 **A whole new crate landing is what this instrument sees**, which is the same thing
-`design/fatal-risks.md`'s risk 3 already says from the corpus side when it reports that the
+`design/fatal-risks/README.md`'s risk 3 already says from the corpus side when it reports that the
 like-for-like gap is "exactly the 26 crates that did not exist at baseline". The two records agree,
 measured from opposite ends.
 
@@ -229,7 +229,7 @@ Nobody has priced the scaffolding half, which is the piece that would need a lan
 
 ## What the green condition should say
 
-**A proposal for calef, not an edit.** `design/fatal-risks.md` is his and this lane does not touch
+**A proposal for calef, not an edit.** `design/fatal-risks/README.md` is his and this lane does not touch
 it. The condition below is offered against the ruling of 2026-09-20 that the green condition should
 be inflow, with the corpus rate as a lagging indicator.
 
@@ -300,7 +300,7 @@ follow-on.
 - **Recorded.** It wants a lane, and the maintainer mints the number. Nothing keeps the census's
   per-survivor list in the tree. The workflow's artifacts expire, and every question in this block
   was answerable only because two runs' artifacts happened to still be downloadable.
-  `design/fatal-risks.md`'s risk 3 already calls the missing per-crate record "the first thing to
+  `design/fatal-risks/README.md`'s risk 3 already calls the missing per-crate record "the first thing to
   close".
 - **Recorded.** `compositor`'s `replace * with + in Rect::area`, a mutant caught on 2026-08-03 and
   surviving at the census on an untouched line. It belongs in `notes/mutation-testing.md`'s triage,

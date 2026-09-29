@@ -65,7 +65,7 @@ reason above.
 
 ## Why it matters for fatal risk 4
 
-`design/fatal-risks.md`'s risk 4 is decided by milestone 168's sweep on radon. Two of the three jobs
+`design/fatal-risks/README.md`'s risk 4 is decided by milestone 168's sweep on radon. Two of the three jobs
 that block deep in a kernel path (map and spawn) are now in the mix; the file job is the third. **A
 flat curve without it is still evidence**, weaker than a flat curve with it, and milestone 168's
 block says so where the verdict will be read. Nothing here blocks the first bench evening.

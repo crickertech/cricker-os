@@ -6,11 +6,11 @@ built: 2026-08-30
 # 191. Did the proofs catch the bugs? A retrospective of every real defect against the harness that should have found it
 
 Minted 2026-08-30 by calef, from the fatal-risk sweep
-(design/fatal-risks.md). Built the same day; `notes/proof-retrospective.md` is the study and pull
+(design/fatal-risks/README.md). Built the same day; `notes/proof-retrospective.md` is the study and pull
 request #589 is where it landed.
 
 **This block read `NOT-STARTED` for twelve days after that**, and it is milestone 275's first
-finding rather than a note somebody happened to make: `design/fatal-risks.md` recorded this
+finding rather than a note somebody happened to make: `design/fatal-risks/README.md` recorded this
 experiment as `RUN, 2026-08-30. AMBER` in two separate places while the roadmap recorded it as never
 begun, and nothing in the tree compared the two. The §76 defect class, in the one place no gate was
 looking. Corrected 2026-09-11 by the lane that built the gate that found it.
@@ -106,7 +106,7 @@ more than an expensive one that probably will not**, and this is the cheapest on
 
 ## Index row
 
-Minted by calef on 2026-08-30 from the fatal-risk sweep (design/fatal-risks.md), where it ranks
+Minted by calef on 2026-08-30 from the fatal-risk sweep (design/fatal-risks/README.md), where it ranks
 first: an afternoon, no hardware, aimed at half of DECISIONS §14's thesis. 112+ Kani harnesses
 exist and nothing asks whether they caught anything. Four fixed questions per defect over the
 tree's own recorded failures, plus a second pass over the harnesses asking which prove a property

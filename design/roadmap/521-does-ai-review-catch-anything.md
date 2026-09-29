@@ -98,7 +98,7 @@ about the ceiling rather than about the prompt.
 ## The honest prior, recorded in advance so the result can contradict it
 
 **The defects this tree actually found were found by running things**: a QEMU boot, a mutation sweep,
-a GDB backtrace, a bench on three harts. `design/fatal-risks.md`'s risk 2 already records the
+a GDB backtrace, a bench on three harts. `design/fatal-risks/README.md`'s risk 2 already records the
 strongest version of this, that no Kani harness has caught a defect after the day it was written.
 
 So the maintainer's prior is that review's plausible niche is the class the gates cannot see: a

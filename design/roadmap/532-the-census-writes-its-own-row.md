@@ -24,7 +24,7 @@ job is an architect's call, not a lane's.
 `script/mutation-census --add-run <id>` captures a finished census in one command. Nothing makes
 anybody run it. The failure this is trying to prevent has already happened four times: the weekly
 workflow ran, the per-crate numbers existed for the length of one step summary, and the tree kept
-nothing. `design/fatal-risks.md`'s risk 3 then had to record that it could not say which crates
+nothing. `design/fatal-risks/README.md`'s risk 3 then had to record that it could not say which crates
 caused a fall, because the numbers that would have said were gone.
 
 The backfill only worked because GitHub still held the artifacts. Its default retention is 90 days.

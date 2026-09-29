@@ -89,7 +89,7 @@ code was touched and a comment in a shared crate is code that was touched.
 - **`design/decisions/152-port-range-capability.md`'s third BUGS entry is now wrong** ("x86 runs a
   single core today") and this lane may not edit it. The two kernel comments that repeated it are
   corrected; the decision is the maintainer's.
-- **`design/fatal-risks.md` risk 7 does not yet carry this audit's answer** (one claim false as
+- **`design/fatal-risks/README.md` risk 7 does not yet carry this audit's answer** (one claim false as
   stated, fixed), for the same reason.
 - **The report reads no `arch/` assembly and none of the IPC model.** Its own scope section says
   what it excluded; the syscall surface is the remaining untaken lens.

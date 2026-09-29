@@ -20,7 +20,7 @@ the denominator under it.
 
 ## What the sweep found
 
-**The number, for `design/fatal-risks.md` risk 2: 11 of 146.** Not "11 harnesses that look
+**The number, for `design/fatal-risks/README.md` risk 2: 11 of 146.** Not "11 harnesses that look
 suspicious": for each of the eleven there is a patch in the tree, and the pre-211 phrasing was run
 against that patch and observed to stay **green** while the rewritten harness goes **red**. Both
 directions, every time, because a claim about a proof is not evidence about a proof.
@@ -147,7 +147,7 @@ implementation back at itself.
 
 ## Index row
 
-Scopes `design/fatal-risks.md` risk 2, are the proofs load-bearing. **146 harnesses read, 11
+Scopes `design/fatal-risks/README.md` risk 2, are the proofs load-bearing. **146 harnesses read, 11
 measured blind**, and measured is the word: for each one the pre-211 phrasing was run against a
 defect in the function it stated its property through and observed to stay green, while the
 rewrite goes red. All 11 rewritten, each carrying that patch as its §134 record; `script/falsifications` went 25 of 141 replayable to 33. Three kinds: the guard's own predicate,

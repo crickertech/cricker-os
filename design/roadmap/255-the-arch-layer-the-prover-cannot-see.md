@@ -5,7 +5,7 @@ built: 2026-09-04
 ---
 # 255. A quarter of `kernel/src/arch/` has no assembly in it, and none of it is proved
 
-Minted the same day by calef, from `design/fatal-risks.md` risk 2's
+Minted the same day by calef, from `design/fatal-risks/README.md` risk 2's
 remaining amber, and built in this branch; notes/kernel-proofs.md is the record.
 *(Number provisional until the merge queue lands it.)*
 
@@ -91,7 +91,7 @@ quarter of its lines. The largest asm-free files:
 
 ## Why these lines specifically
 
-**The three IOMMU drivers are 1,029 lines of confinement**, and `design/fatal-risks.md` risk 7 (the
+**The three IOMMU drivers are 1,029 lines of confinement**, and `design/fatal-risks/README.md` risk 7 (the
 confinement claim is false) rests on what they do. They build device tables and page tables, and they
 are the code that decides which physical addresses a device may touch. That is table arithmetic over
 integers, which is exactly what a bounded model checker is good at and what a boot test is bad at:

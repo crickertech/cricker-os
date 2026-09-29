@@ -72,12 +72,12 @@ bold is the writer's markup rather than the speaker's.
 
 A marked exception records the word count calef granted. Nothing compares that number with the
 file afterwards, and the 2026-09-24 documentation audit found both marked exceptions past it the
-same day they were granted. `design/fatal-risks.md` was granted 4,235 words and measured 4,440, after
+same day they were granted. `design/fatal-risks/README.md` was granted 4,235 words and measured 4,440, after
 a correction to risk 2 landed. `AGENTS.md`'s marker says 6,279 and the file measured 6,292. The gate
 should treat the marker's number as the file's baseline: growth past it fails like growth past any
 other baseline, and raising it is a new grant, which is an architect's.
 
-calef ruled the same day to cut `design/fatal-risks.md` back rather than raise its grant, and it is
+calef ruled the same day to cut `design/fatal-risks/README.md` back rather than raise its grant, and it is
 back at 4,235 words, within the grant, as of 2026-09-24. `AGENTS.md` was not part of that ruling.
 
 ## What was built, 2026-09-24
@@ -97,7 +97,7 @@ the manual. The baseline is `design/prose-baseline.tsv`, one row per document ov
 - The baseline only shrinks. Rows may not be added or raised against the merge base, and a row for
   a missing file fails. A rename carries its row. `--bank` lowers rows and never adds.
 - Exceptions. `<!-- prose-budget: exception. ... -->` is honoured as `AGENTS.md` and
-  `design/fatal-risks.md` already wrote it. `writing-standards` is its §213 twin and is provisional.
+  `design/fatal-risks/README.md` already wrote it. `writing-standards` is its §213 twin and is provisional.
   Each needs a date and a `Reason:`.
 - The orphan check. A file under `X/` must be linked from `X.md` or `X/README.md`. That README is
   the directory's provenance page and is exempt. A thematic
@@ -174,7 +174,7 @@ measured class so the next reader does not rediscover it one frozen document at 
   found; calef names it. Where the splitter departs from §213's, and why, is in the module's header.
 - **Done.** Built 2026-09-25: the marker-count check from the design note above. `granted_words()`
   reads the first number before `words` in a `prose-budget` marker as a whole-file `wc -w` ceiling.
-  It waited on `AGENTS.md`, which #1285 brought to its 6,097. `design/fatal-risks.md` had grown to
+  It waited on `AGENTS.md`, which #1285 brought to its 6,097. `design/fatal-risks/README.md` had grown to
   4,250 against its 4,235 through milestone 89 (Scaleway EM-RV1)'s table cell (#1278). Per calef's
   ruling of 2026-09-24 it was cut back rather than re-granted, and `main` then passed.
 - **Done.** Resolved 2026-09-25: every new decision failed this gate, because the generated index

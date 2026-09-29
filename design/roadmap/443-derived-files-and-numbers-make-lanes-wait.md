@@ -173,7 +173,7 @@ reported, and that the later lander takes the next free numbers instead of displ
   and the reason are in `script/lint` where the next person meets the check.
 - **Recorded.** Deleting a decision file, its index row and every citation to it in one commit is
   now invisible to `script/decisions`. Beside the check, and in `design/naming.md`.
-- **Decision.** Risk 9 in `design/fatal-risks.md` is dated 2026-09-17 and reasons from milestone
+- **Decision.** Risk 9 in `design/fatal-risks/README.md` is dated 2026-09-17 and reasons from milestone
   177, which turned BUILT on 2026-09-19. `script/fatal-risks --check` reports it now, and the
   pre-443 check produces the same finding byte for byte on a freshly regenerated index, so it was
   latent rather than new. Its home is the gate, which is red until it is answered, and the answer is

@@ -124,7 +124,7 @@ The disposition table still introduced itself as "one of eight dispositions" aft
 ### `script/fatal-risks`
 
 Check 6b asked whether a proposal cited by a risk entry had changed after the entry was last dated,
-using git rather than a recorded date because a proposal had no completion to record. `design/fatal-risks.md`
+using git rather than a recorded date because a proposal had no completion to record. `design/fatal-risks/README.md`
 cites no proposal today and can never cite one again, so 6b and its two fixtures
 (`proposal-moved`, and the `no-history` refusal that existed to keep 6b from passing vacuously in a
 shallow clone) are gone, along with the `last_touched` argument that fed only them. The
@@ -161,7 +161,7 @@ when it next runs, and nothing here touches the generated file.
   deliberately not fixed here, and minted as its own block under the convention this one finishes.
   Number provisional.
 - **Recorded.** *The question check 6b asked is still open and this block did not answer it.* A risk
-  entry in `design/fatal-risks.md` that cites a `NOT-STARTED` or `PARTIAL` milestone which changed
+  entry in `design/fatal-risks/README.md` that cites a `NOT-STARTED` or `PARTIAL` milestone which changed
   under it is invisible, because check 6a reads only the roadmap's recorded Built date and 6b, which
   read git, went with the directory it was scoped to. Recorded in `script/fatal-risks`' own header
   beside check 6, where the next person to touch that gate is already reading, with the reason it is

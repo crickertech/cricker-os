@@ -18,7 +18,7 @@ The walk was writable and testable without hardware and is built and gated under
 QEMU. What remains is a xenon boot: whether it finds the Micron is a question only that machine
 answers.
 
-**This is the one thing standing between `design/fatal-risks.md` risk 6 and its decisive
+**This is the one thing standing between `design/fatal-risks/README.md` risk 6 and its decisive
 experiment.** Everything else that experiment needs is built, tested and on `main`.
 
 ## What was wrong
