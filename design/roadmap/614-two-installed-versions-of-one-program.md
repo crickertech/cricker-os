@@ -5,7 +5,7 @@ milestone_dependencies: 198, 47
 decision_dependencies: 208, 219, 229, 241
 machine_requirements: none
 specific_machine: none
-needs_person: yes
+needs_person: no
 ---
 # 614. Two installed versions of one program, each runnable, and a caller granted the one it needs
 
@@ -97,22 +97,46 @@ paths. E alone cannot work, because the progenitor would refuse the old version'
 Would it still be chosen at equal cost? Yes. A is cheaper and is refused on what it does to names,
 not on effort.
 
-## Open questions for an architect
+## Rulings
 
-None of these is decided here, and a building lane must not decide them.
+All five questions below were ruled by calef on 2026-09-29 (UTC), in session with the maintainer;
+the reasoning is kept to one line each so a reader can check the rule against its reason.
 
-1. How a version is named in a grant. By its version string (`uptime/0.1.0`), by its digest
-   (Fuchsia's `?hash=`), or both, with the digest authoritative. A string is readable; a digest is
-   what the progenitor already checks.
-2. The on-disk and table format. Does a generation line gain a version field, or does the table
-   key on digest with the name as a column? Either changes a format the progenitor and the host
-   tool both read (§208's generation file), which is a wire decision.
-3. Which version the bare word means, and who changes it: the newest install, the first, or an
-   explicit `package default` step (name provisional). Today it is implicitly the last install.
-4. What a per-project selection is called and what it holds. A directory capability, a line in
-   a recipe, or a session's grant. This is the one new name the milestone mints.
-5. Remove and rollback semantics when several versions are live: does `package remove uptime`
-   take one version or all, and what a rollback restores.
+1. A grant names a version both ways, and the digest is authoritative. The version string is the
+   upstream developer's claim (they know they shipped 0.1.0); the digest is the packager's
+   attestation, minted when the package is built. The tree already has those roles: §195 (a reviewed
+   recipe vouches for a package) is the vouching, the archive carries the member digest, installing
+   verifies, the table enforces.
+   A string alone would let a rebuilt 0.1.0 masquerade; a digest alone would put digests in every
+   diagnostic.
+2. Rows key on the digest; `program`, `version` and `package` are label columns. A rebuild claiming
+   a version string already live is a second row, visible, never a silent replacement. The default
+   pointer lives inside the generation file, so a rollback restores the table and the default
+   together and `current` stays the one commit point. No architecture column: the digest is of
+   target-specific bytes, so builds for two ISAs never collide in one table. No install datetime:
+   the generation index is a total order with no clock in it, and `package` writes an install event
+   to §242 (a system log) for timeline reconstruction.
+3. The bare word means the newest install: every install of a program moves its default pointer.
+   This is today's implicit rule written down, so nothing a user does today changes meaning, and
+   §229 stands, one answer per name with no search order. A `package default` command, if ever
+   wanted, is a table edit that moves the pointer and needs no format change.
+4. The per-project selection is a directory capability named a version set (name provisional). Its
+   content is a committed file of `<program> <version>` lines: version strings, because people
+   write it, resolved to digests at activation through the live table, so enforcement stays
+   digest-authoritative (ruling 1 one layer down). The shell consults the nearest version set at or
+   above the working directory, asdf-style, on calef's usability ruling; a version set can only
+   select among installed versions, so a cloned repository can ask but cannot install or run
+   uninstalled bytes. Two guards: when the version that ran differs from the version the set
+   specifies, the spawn line says both (`uptime 0.2.0 (repo specifies 0.1.0)`); and an explicit
+   override exists, by path or by an explicit version-qualified ask. An installing dev tool is
+   follow-on work, not this milestone; the capability, the file and the tool are three provisional
+   names.
+5. `package remove uptime` removes every live version of the program and its pointer: the verb's
+   object is the program, and the version-qualified form removes one. Removing the version that
+   holds the pointer moves it to the sole remaining version, and refuses, naming the candidates,
+   when several remain, because no ordering among live versions exists to pick with. Rollback is
+   unchanged (§208): a generation is one snapshot of rows and pointer, and bytes are never deleted,
+   so what it restores is still on disk. Removal is not dependency-aware; see BUGS.
 
 ## Dependencies
 
@@ -139,6 +163,8 @@ None of these is decided here, and a building lane must not decide them.
 - Host tests in `activation_set`: installing 0.2.0 over 0.1.0 leaves both digests live; the bare
   name resolves to whichever version the ruled default names; removing one version leaves the
   other; a rollback restores the whole set, as `a_rollback_restores_the_whole_set` does today.
+- Bare removal: `package remove <program>` takes every live version and the pointer, with one
+  test at two versions live proving both rows go and a rollback brings both back.
 - A `script/swish-check` transcript on aarch64, riscv64 and x86_64 per §19 (architectural parity is
   a tenet). It installs two versions of one fixture, runs each by path and by the ruled grant in
   one session, and shows the bare word running the default.
@@ -151,6 +177,18 @@ None of these is decided here, and a building lane must not decide them.
   behind two projects). This milestone covers programs a spawner runs. A running service at two
   versions is the same table change plus two endpoints, and is left to the building lane to
   scope or split.
+- Removal is not dependency-aware (ruled 2026-09-29): nothing in the system records
+  package-to-package dependency, so `package remove` cannot warn about dependents. With no dynamic
+  loader, what looks like a dependency is a grant, and removing a package narrows what may be
+  spawned next without revoking anything already running. The trigger that makes the question real
+  is the services milestone above, where "who holds a grant from this" becomes askable; revisit
+  there.
+- No ban semantic is built (ruled 2026-09-29). The eventual shape is settled: a denial outranks a
+  row at the spawn check. It is not minted now because a ban needs an authority behind it (§220
+  (signed builds), or a package source worth revoking from). Its near-term trigger is the
+  version-set tool's installer meeting a version a user has decided is bad. The ruled format does
+  not preclude it: a denial can join as a third line kind beside rows and defaults, checked at the
+  same choke point.
 
 ## Index row
 
@@ -158,5 +196,6 @@ Two versions of one program cannot be installed together: the activation set hol
 program name, and the progenitor refuses bytes whose digest has left it, so an upgrade makes the
 old version unrunnable even by path. The recommendation is the Nix and Fuchsia table (every
 installed version stays live, identified by content) with the capability answer to selection: a
-caller is granted the version it needs, and the bare word keeps one default. How a version is
-named in a grant, the table format and the default rule are an architect's calls.
+caller is granted the version it needs, and the bare word keeps one default. Ruled 2026-09-29:
+both names with the digest authoritative, digest-keyed rows with the default pointer in the
+generation file, the bare word means the newest install, and the selection is a version set.
