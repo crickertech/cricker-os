@@ -2304,7 +2304,13 @@ pub fn install_for_test(program: &str, name: &str, version: &str, bytes: &[u8]) 
         digest: measured_boot::sha256(bytes),
     };
     let mut table = [0u8; 256];
-    let len = activation_set::with_entry("", &entry, &mut table).expect("one entry fits");
+    let len = activation_set::with_entry(
+        "",
+        &entry,
+        crate::user::program(program).is_some(),
+        &mut table,
+    )
+    .expect("one entry fits");
     let mut current = [0u8; 16];
     let current_len = activation_set::format_current(1, &mut current).expect("fits");
     let mut digits = [0u8; 10];
