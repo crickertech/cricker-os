@@ -156,7 +156,7 @@ took, its findings by disposition, and a link to the report. `script/audits` say
 is due, from the triggers `design/decisions/74-audit-cadence.md` decided, and a weekly workflow asks
 the same question so that auditing does not depend on anyone remembering to.
 
-**Seven** <!--count:security-audits--> security audits are on the record, and reading them first will
+**Eight** <!--count:security-audits--> security audits are on the record, and reading them first will
 save you time. Each took a lens the previous one did not, deliberately, because the value of an audit
 is the lens the last one lacked. (Documentation audits are in the same index and are not listed here;
 they read the tree for claims that had gone false, which is worth knowing if you find prose and code
