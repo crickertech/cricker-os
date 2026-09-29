@@ -1,13 +1,14 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-29
+promoted_from: smp-bringup-matrix
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# An SMP bring-up matrix, honestly scoped
+# 617. An SMP bring-up matrix, honestly scoped
 
 One, two, four and eight CPUs across the QEMU boot matrix's machine models, exercising bring-up
 and topology: `ap_boot.rs`, per-CPU structures, IPIs, and the placement of CPU-local state.
@@ -25,3 +26,10 @@ bring-up on any cell. No cell reports reliability.
 
 Gated on the multicore work's state: an eight-CPU matrix against a kernel whose multicore story is
 mid-flight produces noise, not signal. Dependencies: the QEMU boot matrix. Name provisional.
+
+## Index row
+
+One, two, four and eight CPUs across the matrix's machine models, exercising bring-up and topology
+rather than reliability. Each cell boots the suite or scope-notes the gap, and no cell claims what
+the soak curve on silicon is the instrument for. This catches configuration and bring-up defects
+while keeping the matrix from drifting into a multicore reliability claim.

@@ -1,15 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-29
+promoted_from: qemu-boot-matrix
 milestone_dependencies: none
 decision_dependencies: 19
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A QEMU boot matrix: machine models, memory sizes, and absent devices
+# 615. A QEMU boot matrix: machine models, memory sizes, and absent devices
 
-From a proposal calef received on 2026-09-29 (a QEMU virtual hardware compatibility lab), amended
+From calef's ask of 2026-09-29 (a QEMU virtual hardware compatibility lab), amended
 against what the tree already has. QEMU is already the pinned instrument (`.qemu-version`,
 `script/qemu-check`) and the CI suite's boot path, and §19 (architectural parity is a tenet)
 already gates the three architectures. What is missing is variation along three axes, and refusal
@@ -49,5 +50,13 @@ are that work's natural follow-on. Snapshot-based fault injection wants its own 
 fault injection is wanted; it fights the semihosting exit and the icount determinism conventions
 today.
 
-Name provisional. The device rows this matrix wants and the tree lacks drivers for are proposed
-beside it: USB keyboards, an e1000 NIC, and a parked virtio-scsi.
+Name provisional. The device rows this matrix wants and the tree lacks drivers for have their own
+milestones beside it: USB keyboards, an e1000 NIC, and a parked virtio-scsi.
+
+## Index row
+
+Every runner boots one machine shape today, so the suite proves the kernel on the configurations CI
+happens to use and on nothing else. This milestone varies machine model, memory size and device
+absence across the three architectures, and every cell either boots the suite or carries a scope
+note naming the gap. A kernel whose thesis is confinement must refuse loudly when optional hardware
+is missing, and this matrix is where that refusal is tested.
