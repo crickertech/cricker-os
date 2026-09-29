@@ -134,8 +134,9 @@ note says so.
 
 ## What was deliberately not examined
 
-- The worklist below its top three. Fifty more documents cite moved code, and reading them is the
-  next sweep's scope, not this one's. The procedure's own rule: four to six documents, read.
+- The worklist below its top three. The 502 documents beneath them cite moved code, and reading
+  them is the next sweep's scope, not this one's. The procedure's own rule: four to six documents,
+  read.
 - The six splits' content against their pre-split notes. Each split lane checked that itself; this
   sweep checked reachability, which is the 2026-09-24 audit's precedent.
 - `design/decisions/`. Out of a lane's edits, and excluded from the worklist for that reason.
@@ -149,7 +150,7 @@ note says so.
 - Finding 7's adjudication, the proposed milestone.
 - The bold backlog of finding 8: 634 documents in this sweep's scope that cannot be corrected
   without a de-bold pass, and five markers now carrying dated debt for exactly that.
-- The worklist's remainder: fifty documents with moved code under them, ranked and waiting.
+- The worklist's remainder: 502 documents with moved code under them, ranked and waiting.
 
 ## Process notes on the mechanism itself
 
