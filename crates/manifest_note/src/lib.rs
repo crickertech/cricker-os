@@ -458,6 +458,115 @@ macro_rules! carry {
     };
 }
 
+// -------------------------------------------------------------------------------------------
+// The second note type: a file server that enforces subtree grants itself (milestone 606 (a
+// directory walk costs what it does on Linux), calef's ruling T1 of 2026-09-27, 15:22Z on #1413).
+// -------------------------------------------------------------------------------------------
+
+/// **The note type that says a file server enforces subtree grants itself**: `2`. A server carries
+/// it when it resolves every path and every handle through a scope crate, and it is what the
+/// progenitor reads to choose a bound badge over a caretaker for that server's grants. Absent means
+/// "give its clients a caretaker", which is every server but an eligible one.
+///
+/// Name and number provisional (calef, 2026-09-27: "the note and field names stay provisional").
+pub const SUBTREE_GRANTS: u32 = 2;
+
+/// The version of the [`SUBTREE_GRANTS`] descriptor this crate writes and reads.
+pub const SUBTREE_GRANTS_VERSION: u32 = 1;
+
+/// How long a version 1 [`SUBTREE_GRANTS`] descriptor is: a version word, then a scope word.
+pub const SUBTREE_GRANTS_LEN: usize = 8;
+
+/// **Which scope crate a server enforces grants through.** One value today, so the word is room for
+/// a second rather than a flag that would need a second field.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Scope {
+    /// `crates/subtree_scope`, the one ruling D (2026-09-27) names.
+    SubtreeScope,
+}
+
+impl Scope {
+    const fn word(self) -> u32 {
+        match self {
+            Scope::SubtreeScope => 1,
+        }
+    }
+
+    /// The package declaration's spelling of this scope, the value of its `subtree_grants` field,
+    /// which `script/lint` checks against the note a server carries.
+    pub const fn declared(self) -> &'static str {
+        match self {
+            Scope::SubtreeScope => "subtree_scope",
+        }
+    }
+}
+
+/// **A [`SUBTREE_GRANTS`] descriptor, decoded**, or why not. One encoding for one scope, as
+/// [`decode`] enforces for a manifest: an unknown version or scope, or the wrong length, refuses.
+pub fn decode_subtree_grants(d: &[u8]) -> Result<Scope, Error> {
+    let version = d.get(..4).ok_or(Error::NoVersion)?;
+    if u32::from_le_bytes([version[0], version[1], version[2], version[3]])
+        != SUBTREE_GRANTS_VERSION
+    {
+        return Err(Error::UnknownVersion);
+    }
+    if d.len() != SUBTREE_GRANTS_LEN {
+        return Err(Error::WrongLength);
+    }
+    match u32::from_le_bytes([d[4], d[5], d[6], d[7]]) {
+        1 => Ok(Scope::SubtreeScope),
+        _ => Err(Error::BadField(4)),
+    }
+}
+
+/// How long a whole [`SUBTREE_GRANTS`] note is.
+pub const SUBTREE_GRANTS_NOTE_LEN: usize = HEADER_LEN + NAME_FIELD + SUBTREE_GRANTS_LEN;
+
+/// **A whole [`SUBTREE_GRANTS`] note**, what [`carry_subtree_grants!`] places. Provisional name.
+#[repr(C, align(4))]
+pub struct SubtreeGrantsNote(pub [u8; SUBTREE_GRANTS_NOTE_LEN]);
+
+impl SubtreeGrantsNote {
+    /// The note declaring `scope`.
+    pub const fn of(scope: Scope) -> Self {
+        let mut out = [0u8; SUBTREE_GRANTS_NOTE_LEN];
+        let namesz = ((OWNER.len() + 1) as u32).to_le_bytes();
+        let descsz = (SUBTREE_GRANTS_LEN as u32).to_le_bytes();
+        let kind = SUBTREE_GRANTS.to_le_bytes();
+        let version = SUBTREE_GRANTS_VERSION.to_le_bytes();
+        let word = scope.word().to_le_bytes();
+        let mut i = 0;
+        while i < 4 {
+            out[i] = namesz[i];
+            out[4 + i] = descsz[i];
+            out[8 + i] = kind[i];
+            out[HEADER_LEN + i] = OWNER[i];
+            out[HEADER_LEN + NAME_FIELD + i] = version[i];
+            out[HEADER_LEN + NAME_FIELD + 4 + i] = word[i];
+            i += 1;
+        }
+        Self(out)
+    }
+}
+
+/// **Declare that this file server enforces subtree grants through `scope`.** One line at module
+/// scope in the server's root, beside nothing else: a server carries no [`Manifest`]. It places one
+/// [`SubtreeGrantsNote`] in `.note.nife.manifest`, the same section and `PT_NOTE` a manifest uses.
+///
+/// Carrying it is a claim the progenitor acts on, so `script/lint` holds it to account: the crate
+/// must depend on `subtree_scope`, and its package declaration must say so too.
+///
+/// Name: provisional, milestone 606's lane, 2026-09-27.
+#[macro_export]
+macro_rules! carry_subtree_grants {
+    ($scope:expr) => {
+        #[used]
+        #[unsafe(link_section = ".note.nife.manifest")]
+        static NIFE_SUBTREE_GRANTS_NOTE: $crate::SubtreeGrantsNote =
+            $crate::SubtreeGrantsNote::of($scope);
+    };
+}
+
 #[cfg(kani)]
 mod verification {
     use super::*;
@@ -496,6 +605,30 @@ mod tests {
     use grant_plan::Prog;
 
     use super::*;
+
+    /// **The subtree-grants note round-trips, and one encoding is the only encoding** (milestone
+    /// 606, ruling T1): the note's own descriptor decodes to its scope, and a wrong version, scope
+    /// or length is refused rather than read as "eligible".
+    #[test]
+    fn a_subtree_grants_note_has_one_encoding() {
+        let note = SubtreeGrantsNote::of(Scope::SubtreeScope);
+        let desc = &note.0[HEADER_LEN + NAME_FIELD..];
+        assert_eq!(decode_subtree_grants(desc), Ok(Scope::SubtreeScope));
+        assert_eq!(
+            u32::from_le_bytes(note.0[8..12].try_into().unwrap()),
+            SUBTREE_GRANTS
+        );
+        let mut bad = [0u8; SUBTREE_GRANTS_LEN];
+        bad.copy_from_slice(desc);
+        bad[4] = 2;
+        assert_eq!(decode_subtree_grants(&bad), Err(Error::BadField(4)));
+        bad[4] = 1;
+        bad[0] = 2;
+        assert_eq!(decode_subtree_grants(&bad), Err(Error::UnknownVersion));
+        assert_eq!(decode_subtree_grants(&desc[..7]), Err(Error::WrongLength));
+        assert_eq!(decode_subtree_grants(&[1, 0]), Err(Error::NoVersion));
+        assert_eq!(Scope::SubtreeScope.declared(), "subtree_scope");
+    }
 
     /// Every manifest the tree compiles in has a spelling, and reads back as itself. A program
     /// added to `Prog` with a manifest this layout cannot carry fails here rather than in a build

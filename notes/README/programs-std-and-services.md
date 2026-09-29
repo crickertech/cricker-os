@@ -9,6 +9,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [`ripgrep` on nife](../ripgrep-on-nife.md): unmodified ripgrep builds and runs, and what stops it.
 - [What a directory walk costs](../walk-pricing.md): a walk split per component, per entry and per KiB, on nife and a host.
 - [A directory walk against Linux on the same machine](../walk-cost.md): release figures from milestone 606 (a directory walk costs what it does on Linux), what was fixed inside the contract, and the wire options that would close the rest.
+- [Bound grants in the progenitor](../bound-grants-in-the-progenitor.md): the last piece of ruling D, and the two answers it waits on.
 - [What one shim costs](../foreign-program-arguments.md): priced per program and as a library.
 - [A TLS crypto provider on nife](../cryptography-provider.md): building a `rustls` crypto provider for all three targets.
 - [The `thread::spawn` fork](../thread-spawn-fork.md): what a std thread would cost, and why declined.

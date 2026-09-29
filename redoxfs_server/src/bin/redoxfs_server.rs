@@ -38,6 +38,13 @@
 #![no_std]
 #![no_main]
 
+// **This server enforces subtree grants itself** (milestone 606 (a directory walk costs what it
+// does on Linux), calef's rulings D and T1 of 2026-09-27): every path goes through
+// `subtree_scope::walk` and every handle through `subtree_scope::admit`, in `redoxfs_server`'s
+// core. The note is what the progenitor reads to give this server's clients a bound badge instead of
+// a caretaker; `script/lint` checks it against the package declaration and the dependency.
+manifest_note::carry_subtree_grants!(manifest_note::Scope::SubtreeScope);
+
 extern crate alloc;
 
 use filesystem_protocol::{blk, fs, op, reply_err, xattr};

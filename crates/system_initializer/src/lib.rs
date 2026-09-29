@@ -1077,6 +1077,12 @@ pub fn boot(
     // entries of the shell's directory and not the directory itself. A boot without it refuses such
     // a grant rather than widening it to the subtree one.
     let set_elf = measured(&fs, table, "fs_nameset_caretaker").elf;
+    // **Whether the file server enforces subtree grants itself** (milestone 606 (a directory walk
+    // costs what it does on Linux), rulings D and T1
+    // of 2026-09-27): read from the note its own measured bytes carry, never assumed. `false` for
+    // bytes the table would not vouch for, for a server with no such note, and for a note that is
+    // there and unreadable, so every doubt ends in a caretaker, which is the default.
+    let fs_scoped = subtree_grants(measured(&fs, table, "redoxfs_server").elf.as_ref());
     // **And the same bytes again, unparsed, because `login` needs them too** (milestone 233).
     //
     // That program builds one caretaker per authenticated session, so it needs an image to build
@@ -2331,6 +2337,19 @@ pub fn boot(
             )
         },
     );
+    // **How directory grants will be delivered on this boot** (milestone 606, rulings D and T1),
+    // said once, so `script/swish-check` can hold the boot to it: a server whose own measured bytes
+    // carry the subtree-grants note gets bound badges, and every other boot keeps caretakers.
+    if with_fs {
+        announce(
+            term_ep,
+            if fs_scoped {
+                b"progenitor: the file server enforces subtree grants itself; directory grants get a bound badge\n"
+            } else {
+                b"progenitor: directory grants get a caretaker\n"
+            },
+        );
+    }
     // **The entropy service's own outcome** (DECISIONS §120's 2026-08-26 amendment), said here
     // rather than where it was decided: `entropy_ready` was set long before this process had a
     // terminal at all (the whole reason the build happens first, at the top of this function; see
@@ -2469,6 +2488,7 @@ pub fn boot(
             subtree: care_elf,
             nameset: set_elf,
         },
+        fs_scoped,
     )
 }
 
@@ -2623,6 +2643,7 @@ fn spawn_service(
     c: Channels,
     progs: &[Option<elf::Elf>; grant_plan::PROG_COUNT],
     care: Caretakers,
+    fs_scoped: bool,
 ) -> ! {
     let Channels {
         spawn_ep,
@@ -2938,12 +2959,27 @@ fn spawn_service(
             // it, which the caretaker calls with and both the caretaker and the job map. `None`
             // for a job with no directory grant, and for a grant whose channel the kernel refused,
             // which `narrowed` then turns into a refused spawn below.
-            let channel = if wiring.dir {
+            //
+            // **A bound badge when the server enforces grants itself, a caretaker otherwise**
+            // (milestone 606, rulings D and T1). The badge is bound to the grant's directory before
+            // the job holds anything, and any failure on the way falls back to the caretaker.
+            let bound = match (wiring.dir && fs_scoped, fs, grant) {
+                (true, Some(f), Some((care_words, _))) => {
+                    bound_channel(f, &mut windows, own_ut, &mut fs_mapped, care_words)
+                }
+                _ => None,
+            };
+            let channel = if bound.is_some() {
+                bound
+            } else if wiring.dir {
                 fs.and_then(|f| job_channel(f, &mut windows, own_ut, &mut fs_mapped))
             } else {
                 None
             };
-            let narrowed = if wiring.dir {
+            let narrowed = if let Some(b) = bound {
+                // The job holds the file server's own endpoint, badged and bound: no caretaker.
+                Some(b.ep)
+            } else if wiring.dir {
                 match (region, channel, grant) {
                     (Some(r), Some(ch), Some((care_words, _))) => {
                         build_grant(own_ut, r, ch, &care, care_words, set_seen, manifest)
@@ -3245,7 +3281,10 @@ fn spawn_service(
             // job each hold their own mapping and copy (milestone 599).
             if let Some(ch) = channel {
                 cap_delete(ch.page);
-                cap_delete(ch.ep);
+                // A bound channel's endpoint is `narrowed`, already deleted above.
+                if bound.is_none() {
+                    cap_delete(ch.ep);
+                }
             }
             // The child holds its own copy of the argv page's capability; ours was only the means.
             if let Some(page) = args_page {
@@ -4187,13 +4226,20 @@ fn window_zero(fs: Fs) -> Option<Fs> {
 ///   eighth directory-granted job running at once shares a window with the oldest, and those two
 ///   are back in the shared-channel race this pool exists to close. A release at reap needs the
 ///   undertaker to report the death to this process, which is a channel that does not exist.
+/// - **A bound window is taken back when it is reused, not when its job is reaped** (milestone 606,
+///   ruling D's default "UNBIND at reap"), for the same missing signal: `UNBIND` runs here, just
+///   before the window is handed out again. A job still running when its window comes round
+///   again loses its grant (every request answers `EBADF`) rather than sharing it, which is the
+///   safe direction. Lane 205's "job reaped" signal will move both to reap.
 struct Windows {
     next: u64,
+    /// Bit `w` set means window `w`'s badge is bound to a grant and must be unbound before reuse.
+    bound: u64,
 }
 
 impl Windows {
     const fn new() -> Self {
-        Self { next: 1 }
+        Self { next: 1, bound: 0 }
     }
 
     fn take(&mut self) -> u64 {
@@ -4207,14 +4253,85 @@ impl Windows {
     }
 }
 
+/// **Whether a file server's image says it enforces subtree grants itself** (milestone 606, ruling
+/// T1): it carries a `manifest_note::SUBTREE_GRANTS` note naming the one scope crate there is. No
+/// image, no note, or a note that does not decode all answer `false`.
+fn subtree_grants(server: Option<&elf::Elf<'_>>) -> bool {
+    let Some(server) = server else {
+        return false;
+    };
+    matches!(
+        server.note(manifest_note::OWNER, manifest_note::SUBTREE_GRANTS),
+        Ok(Some(d)) if manifest_note::decode_subtree_grants(d)
+            == Ok(manifest_note::Scope::SubtreeScope)
+    )
+}
+
+/// **A bound channel for one job behind a directory grant** (milestone 606, rulings D and T1): the
+/// next window, its badge bound by the file server to the directory the grant names, a page of the
+/// window, and the endpoint badged to match. What a caretaker would have done at its start, done
+/// once here instead: open the named directory asking for exactly the granted rights. The order is
+/// the safety property. A badge is the endpoint's whole authority until it is bound, so the job is
+/// handed nothing until `BIND` has answered. `None` for any failure, which the caller answers with
+/// a caretaker.
+fn bound_channel(
+    fs: Fs,
+    windows: &mut Windows,
+    own_ut: u64,
+    mapped: &mut bool,
+    (lo, hi, spec): (u64, u64, u64),
+) -> Option<Fs> {
+    let files = FsCalls::map(Some(fs), own_ut, mapped)?;
+    let mut buf = [0u8; filesystem_protocol::grant::MAX_NAME];
+    let n = filesystem_protocol::grant::unpack_name(
+        lo,
+        hi,
+        filesystem_protocol::grant::spec_len(spec),
+        &mut buf,
+    );
+    let name = core::str::from_utf8(&buf[..n]).ok()?;
+    let w = windows.take();
+    files.unbind(windows, w);
+    let handle = files.named(
+        fs_op::OPENDIR,
+        fs_op::ROOT,
+        name,
+        filesystem_protocol::grant::spec_rights(spec),
+    );
+    if handle < 0 {
+        return None;
+    }
+    if call(fs.ep, fs_op::req(fs_op::BIND, handle as u64, 0), w).0 != 0 {
+        files.close(handle);
+        return None;
+    }
+    windows.bound |= 1 << w;
+    // SAFETY: as [`job_channel`]'s zeroing: window `w`'s first page, inside the mapped pool.
+    unsafe {
+        core::ptr::write_bytes(
+            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            0,
+            PAGE_BYTES,
+        );
+    }
+    let page = window_page(fs.page, w)?;
+    let Some(ep) = window_endpoint(fs.ep, w) else {
+        cap_delete(page);
+        return None;
+    };
+    Some(Fs { ep, page })
+}
+
 /// **A channel of its own for one job behind a directory grant**: the next window's page and the
 /// endpoint badged with it, both fresh slots the caller deletes once the job and its caretaker are
 /// built. The window's first page is zeroed first, through this process's own mapping of the pool
 /// (made once, [`FsCalls::map`]), so nothing the window's last job left there is visible to the
 /// next: the same "no stale RAM across a share" rule the kernel's own pool follows.
 fn job_channel(fs: Fs, windows: &mut Windows, own_ut: u64, mapped: &mut bool) -> Option<Fs> {
-    FsCalls::map(Some(fs), own_ut, mapped)?;
+    let files = FsCalls::map(Some(fs), own_ut, mapped)?;
     let w = windows.take();
+    // A window last used by a bound grant goes back to being open before a caretaker uses it.
+    files.unbind(windows, w);
     // SAFETY: the pool is mapped read/write at ACTIVATION_FS_VA (`FsCalls::map`, whole run), and
     // window `w`'s first page lies inside it; no client is using window `w` between two jobs.
     unsafe {
@@ -4267,6 +4384,16 @@ impl FsCalls {
         // SAFETY: the page is mapped read/write (`map`) and `len` is at most a page.
         unsafe { core::ptr::copy_nonoverlapping(name.as_ptr(), Self::page(), len) };
         call(self.ep, fs_op::req(verb, handle, len as u64), w1).0 as i64
+    }
+
+    /// **Take window `w`'s grant back, if it has one** (milestone 606, ruling D): `UNBIND` closes
+    /// every handle the badge minted and leaves it revoked until it is bound again. A no-op for a
+    /// window that was never bound.
+    fn unbind(&self, windows: &mut Windows, w: u64) {
+        if windows.bound & (1 << w) != 0 {
+            call(self.ep, fs_op::req(fs_op::UNBIND, 0, 0), w);
+            windows.bound &= !(1 << w);
+        }
     }
 
     fn close(&self, handle: i64) {

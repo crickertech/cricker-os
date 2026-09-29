@@ -40,6 +40,10 @@ An unknown key is refused, so a misspelt one cannot read as an absent one.
        programs = ["ps"]            member programs; each claims its source file
        paths = ["patches/"]         member paths (the std overlay, a recipe, a `#[path]` module)
        depends = ["init"]           declared dependencies; their crates may be linked
+       subtree_grants = "subtree_scope"
+                                    this package's file server enforces subtree grants itself,
+                                    through the scope crate named (milestone 606 (a directory
+                                    walk costs what it does on Linux), ruling T1; provisional)
        [[exception]]                one recorded, dated link across a boundary the rules refuse:
        date = 2026-09-27            date, member, crate and reason, all required
        member = "kernel"
@@ -92,7 +96,11 @@ REPO = re.compile(r'^[a-z0-9][a-z0-9._/-]*$')
 HOME_KEYS = {'undecided': {'status', 'reason'}, 'provisional': {'status', 'repo'},
              'ratified': {'status', 'repo', 'date'}}
 PACKAGE_KEYS = {'name', 'kind', 'home', 'crates', 'interfaces', 'programs', 'paths', 'depends',
-                'exception'}
+                'exception', 'subtree_grants'}
+
+# The one scope crate ruling D names, and the macro a server carries its claim with (milestone 606).
+SUBTREE_SCOPE = 'subtree_scope'
+CARRY_SUBTREE_GRANTS = 'carry_subtree_grants!'
 EXCEPTION_KEYS = {'date', 'member', 'crate', 'reason'}
 
 
@@ -142,7 +150,8 @@ def _names(value, key, where, errors):
 def parse_package(stem, text):
     where = f'{PACKAGE_DIR}{stem}{PACKAGE_SUFFIX}'
     pkg = {'file': where, 'name': None, 'kind': None, 'home': None, 'crates': [],
-           'interfaces': set(), 'programs': [], 'paths': [], 'depends': [], 'exceptions': []}
+           'interfaces': set(), 'programs': [], 'paths': [], 'depends': [], 'exceptions': [],
+           'subtree_grants': None}
     table, errors = _load(text, where)
     if table is None:
         return pkg, errors
@@ -162,6 +171,11 @@ def parse_package(stem, text):
     pkg['interfaces'] = set(interfaces)
     for key in ('programs', 'paths', 'depends'):
         pkg[key] = _names(table.get(key), key, where, errors)
+    if 'subtree_grants' in table:
+        if table['subtree_grants'] != SUBTREE_SCOPE:
+            errors.append(f'{where}: subtree_grants names the scope crate, today only {SUBTREE_SCOPE}')
+        else:
+            pkg['subtree_grants'] = SUBTREE_SCOPE
     for number, x in enumerate(table.get('exception', []), 1):
         at = f'{where}: exception {number}'
         if not isinstance(x, dict) or set(x) != EXCEPTION_KEYS or not isinstance(x['date'], date):
@@ -417,6 +431,32 @@ def evaluate(tracked, texts):
             if k == 'base' and dk == 'optional':
                 errors.append(f'{pkg["file"]}: a base package depends on the optional package {d}')
 
+    # **A server's claim to enforce subtree grants itself, held to account** (milestone 606, calef's
+    # ruling T1 of 2026-09-27). The progenitor reads the claim from a note in the server's own ELF
+    # (`manifest_note::carry_subtree_grants!`) and gives that server's clients a bound badge instead
+    # of a caretaker, so a wrong claim is confinement lost. Three things must agree: a crate that
+    # carries the note depends on the scope crate, its package declares `subtree_grants`, and a
+    # package that declares it has a crate carrying the note. The macro's own definition, in
+    # `manifest_note`, is not a use of it.
+    carriers = set()
+    for c, info in crates.items():
+        prefix = info['dir'] + '/' if info['dir'] else None
+        for f, text in texts.items():
+            if prefix and f.startswith(prefix) and f.endswith('.rs') and \
+                    CARRY_SUBTREE_GRANTS + '(' in text:
+                carriers.add(c)
+    for c in sorted(carriers):
+        if SUBTREE_SCOPE not in {dep for _a, dep, _k in crates[c]['links']}:
+            errors.append(f'{c}: carries the subtree-grants note but does not depend on {SUBTREE_SCOPE}')
+        owner = crate_pkg.get(c)
+        if owner and packages[owner]['subtree_grants'] is None:
+            errors.append(f'{packages[owner]["file"]}: {c} carries the subtree-grants note, so this '
+                          f'package declares subtree_grants = "{SUBTREE_SCOPE}"')
+    for pkg in packages.values():
+        if pkg['subtree_grants'] and not any(crate_pkg.get(c) == pkg['name'] for c in carriers):
+            errors.append(f'{pkg["file"]}: declares subtree_grants, and no crate in it carries the '
+                          'note (`manifest_note::carry_subtree_grants!`)')
+
     # Where things live now: a package is still here while any path it claims is tracked here.
     in_repo = {owner for (owner, _h, _a) in file_home.values() if owner}
     path_status = {}
@@ -666,6 +706,15 @@ def selftest():
     # And a misspelt key is refused rather than read as absent.
     assert any('unknown key hme' in e for e in evaluate(*_fixture(
         lambda s, t, x: s['extra'].update(hme=s['extra'].pop('home'))))['errors'])
+    # A server carrying the subtree-grants note in a package that does not say so, and not linking
+    # the scope crate (milestone 606, ruling T1): both halves are caught.
+    plant = 'manifest_note::carry_subtree_grants!(S);\n'
+    planted(lambda s, t, x: x.update({'host/src/a.rs': plant}), 'does not depend on subtree_scope')
+    planted(lambda s, t, x: x.update({'host/src/a.rs': plant}),
+            'so this package declares subtree_grants = "subtree_scope"')
+    # A package declaring the claim with no crate in it that carries the note.
+    planted(lambda s, t, x: s['extra'].update(subtree_grants='subtree_scope'),
+            'no crate in it carries the note')
     print(f'packages: selftest passed ({planted_count} planted violations, each caught)')
 
 
