@@ -338,7 +338,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 ## BUGS
 
 - ~~Nothing gates this file.~~ Closed 2026-09-11 for the mechanical half by milestone 275 (a gate
-  that diffs `design/fatal-risks/README.md` against the roadmap it cites). `script/fatal-risks --check` runs
+  that diffs fatal risks against the roadmap it cites). `script/fatal-risks --check` runs
   in `script/lint` and compares what this file claims about a milestone or a decision against what
   the record holds. It found four live disagreements on its first run.
 

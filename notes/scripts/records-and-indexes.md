@@ -28,4 +28,4 @@ file to say once what a number cites. Each gloss is the record's own title.
 - milestone 117 (The stranger test: could someone build this and understand it without asking)
 - milestone 247 (Follow-on work named by a finished milestone goes nowhere, and this is the third time)
 - milestone 252 (A `PARTIAL` block claims work is remaining and nobody re-reads it)
-- milestone 275 (A gate that diffs `design/fatal-risks/README.md` against the roadmap it cites)
+- milestone 275 (A gate that diffs fatal risks against the roadmap it cites)
