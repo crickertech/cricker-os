@@ -1280,9 +1280,9 @@ pub fn write_activation(
             b"  refused: the image carries a program of that name; a new base updates it, not install"
         }
         // The candidates are named just below, read from the live table: the progenitor carries no
-        // text on this wire, and the shell can read what it is being told to name (milestone
-        // 614 (two installed versions of one program, each runnable, and a caller granted the
-        // one it needs), ruling 5). Provisional wording.
+        // text on this wire, and the shell can read what it is being told to name (milestone 614
+        // (two installed versions of one program, each runnable, and a caller granted the one it
+        // needs), ruling 5). Provisional wording.
         (S::Ambiguous, _) => {
             b"  refused: several versions of that program are live and one holds the default; name one with <program>@<version>"
         }
@@ -2132,8 +2132,8 @@ mod tests {
             "  refused: the image carries a program of that name; a new base updates it, not \
              install; nothing is installed\n"
         );
-        // Milestone 614, ruling 5: the refusal that may not pick a default, with the candidates
-        // named by the caller that reads the table (`components/src/swish.rs`).
+        // The refusal that may not pick a default, with the candidates named by the caller that
+        // reads the table (`components/src/swish.rs`).
         assert_eq!(
             shown(|o| write_activation(V::Remove(b"uptime"), S::Ambiguous, 3, o)),
             "  refused: several versions of that program are live and one holds the default; \
