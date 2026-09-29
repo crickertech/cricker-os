@@ -1,16 +1,17 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-29
+promoted_from: the-fence-inventory-is-readjudicated
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The fence inventory is re-adjudicated
+# 622. The fence inventory is re-adjudicated
 
 From the 2026-09-29 documentation audit, finding 7
-([names and numbers](../../audit-reports/2026-09-29-names-and-numbers.md)). `notes/memory-ordering.md`
+([names and numbers](../audit-reports/2026-09-29-names-and-numbers.md)). `notes/memory-ordering.md`
 says thirteen fences at its line 28, "all fourteen" at line 83 over a fifteen-row table, and
 "Twelve sites today" at line 227, while `script/lint` counts 19. Behind the stale numbers, the
 fences this window's milestones added are adjudicated nowhere a reader would meet them, and an
@@ -29,3 +30,10 @@ a check refuses the next drift. A reader meeting any fence in the source finds i
 in the inventory.
 
 Name provisional.
+
+## Index row
+
+The memory-ordering inventory's counts have drifted, and the fences this window added sit
+unadjudicated. This milestone re-derives the count, adjudicates every site the window added, and
+corrects the stale numbers. The note and the lint then agree by construction, or a check refuses
+the next drift.
