@@ -27,8 +27,8 @@ rewrote two subsystems inside their crates, which no count sees, and the worklis
 `kernel/src/user.rs` lost 1,168 lines to 476 new ones when milestone 609 (the system tests leave
 the kernel crate) moved the suite to `system_tests/`.
 
-The window also split six notes into main pages and appendices under §212 (a prose budget for every
-document): `net`, `stack`, `std`, `pipes`, `x86-port` and `model-comparison`, 48 new appendix
+The window also split six notes into main pages and appendices under §212 (a prose budget: 3,000 words of
+main body): `net`, `stack`, `std`, `pipes`, `x86-port` and `model-comparison`, 48 new appendix
 files and +6,621 lines. The worklist is blind to a moved document, its own recorded BUGS says, so
 the splits' inbound pointers were swept by hand, the method the 2026-09-24 sweep left behind. The
 window's readers also meet two brand-new notes, `notes/notification-objects.md` and
