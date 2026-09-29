@@ -1,5 +1,5 @@
 ---
-status: NOT-STARTED
+status: PARTIAL
 raised: 2026-09-27
 milestone_dependencies: 198, 47
 decision_dependencies: 208, 219, 229, 241
@@ -15,7 +15,23 @@ This is important to developers that might run different versions of their frame
 different packages have different dependencies on upgrading a dependency. We should mint a milestone
 to address that."* *(Number provisional until the merge queue lands it. Title and slug are drafts.)*
 
+Built 2026-09-29 (UTC) on `milestone/614-every-version-live`, against the five rulings below.
+`crates/activation_set` carries the ruled shape: rows `<digest> <program> <version> <package>`
+keyed on the digest, and the default pointer inside the generation file. Install appends and moves
+the pointer, so the bare word still means the newest install. Removal follows ruling 5: bare remove
+takes every live version and the pointer; `program@version` removes one, moving the pointer to the
+sole survivor and refusing, candidates named by the shell from the live table, when several remain.
+Rollback is unchanged. The shell resolves the bare word through the pointer, and consults the
+nearest `versions` file at or above the working directory (asdf-style; the file's and the module's
+names are provisional). It prints the divergence notice on the spawn line when what ran differs
+from what the set specifies, and takes `program@version` as an explicit ask. `script/swish-check`
+types it on all three architectures: the second version of `greeting` installs beside the first,
+each runs by path, the set selects 0.1.0 for the bare word, and a set naming an uninstalled
+version produces the notice.
+
 ## Why two versions cannot coexist today
+
+(The state that made the milestone, kept as minted; the paragraph above is what changed.)
 
 The bytes already can. Install writes a program to `packages/<name>/<version>/<program>`
 ([notes/packages.md](../../notes/packages.md)), and remove leaves them there. What cannot hold two
@@ -173,6 +189,16 @@ the reasoning is kept to one line each so a reader can check the rule against it
 
 ## BUGS
 
+- **Install writes no event to the system log.** Ruling 2's timeline reconstruction is served by
+  §242 (a system log), and its service is not built: nothing on the install path can append to it,
+  so the generation index remains the only install history. The trigger that makes the gap real is
+  §242's building lane landing the capability an install would hold; revisit there, and do not
+  build a second log to fill it.
+- **A remove operand shares the sixteen bytes a packed name carries** with its version
+  (`filesystem_protocol::grant::MAX_NAME`). A program whose name plus `@` plus the version exceeds
+  sixteen bytes cannot be removed by the qualified form; it is still removable bare, which
+  removes every version. Recorded 2026-09-29 when the qualified form was spelled. If a real
+  package hits it, the wire grows a second packed name rather than widening the first.
 - Services, not only programs, will want two versions at once (two versions of a file service
   behind two projects). This milestone covers programs a spawner runs. A running service at two
   versions is the same table change plus two endpoints, and is left to the building lane to
@@ -190,12 +216,26 @@ the reasoning is kept to one line each so a reader can check the rule against it
   not preclude it: a denial can join as a third line kind beside rows and defaults, checked at the
   same choke point.
 
+## Follow-on
+
+Added by the build lane, 2026-09-29.
+
+- **Outstanding.** The `script/swish-check` lines are typed on every leg and not yet proven by a
+  run: this lane never boots QEMU, and the transcript bullet of Done means holds only when a green
+  run names them. How checked: `script/swish-check` green on aarch64, riscv64 and x86_64 in CI.
+- **Outstanding.** Ratification: `swish::versions`, its `versions` file, the `program@version`
+  spelling, the `as` recipe key, `greeting_two`, the `default` line kind, `NO_VERSION`,
+  `without_version`, `versions_of`, `Ambiguous` and the divergence wording are provisional. The
+  names and the format await an architect through a `design/decisions/` section by the integrator
+  (Done means, last bullet).
+
 ## Index row
 
-Two versions of one program cannot be installed together: the activation set holds one entry per
-program name, and the progenitor refuses bytes whose digest has left it, so an upgrade makes the
-old version unrunnable even by path. The recommendation is the Nix and Fuchsia table (every
-installed version stays live, identified by content) with the capability answer to selection: a
-caller is granted the version it needs, and the bare word keeps one default. Ruled 2026-09-29:
+Two versions of one program could not be installed together: the activation set held one entry per
+program name, and the progenitor refused bytes whose digest had left it. An upgrade made the old
+version unrunnable even by path. Built 2026-09-29 as ruled (see the paragraph under the title):
+the Nix and Fuchsia table, every installed version live and identified by content. The selection
+is capability-shaped: a caller is granted the version it needs, and the bare word keeps one
+default. Ruled 2026-09-29:
 both names with the digest authoritative, digest-keyed rows with the default pointer in the
 generation file, the bare word means the newest install, and the selection is a version set.
