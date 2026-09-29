@@ -9,7 +9,7 @@ needs_person: no
 ---
 # A virtio-scsi driver, parked behind its trigger
 
-The block layer names NVMe (milestone 421, the block roster and an NVMe disk) and virtio-blk.
+The block layer names NVMe (milestone 421 (the block roster and an NVMe disk)) and virtio-blk.
 virtio-scsi would be a third way to say disk, and nothing in the tree, in QEMU's defaults, or in
 the physical lab's plans asks for it yet.
 

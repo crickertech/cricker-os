@@ -12,8 +12,8 @@ needs_person: no
 `net_stack` speaks virtio-net through the virtio service, both transports (mmio and PCI). That is
 every NIC the tree can name. e1000 is QEMU's default x86_64 NIC, a device whose shape virtio did
 not define, and the first test of whether the network stack's device seam is a seam at all: a
-second driver behind the roster shape the disks already have (milestone 421, the block roster and
-an NVMe disk).
+second driver behind the roster shape the disks already have (milestone 421 (the block roster and
+an NVMe disk)).
 
 ## Done means
 
