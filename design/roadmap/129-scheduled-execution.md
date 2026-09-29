@@ -15,7 +15,8 @@ themselves, and nothing else on the roadmap ran anything on a schedule. The inte
 narrowed archive, a backable `--mem` grant and runtime replacement under §222 (who holds a user's
 schedule) are built, and so are calendar entries (G5) on a granted clock. One image per entry was
 refused on 2026-09-26. The one thing left is connecting a real session, which waits on milestone
-152 (durable delegation). Checked on 2026-09-26.
+152 (durable delegation). Checked 2026-09-29: the store, `session_reviver` and the spawn contract
+are in the tree; the session process is not, and no other item is owed.
 
 The `REPLACE` handler and the spawn contract are built and tested with the
 kernel test as registrar. The real registrar is a user's durable session, and that type went with
@@ -126,7 +127,9 @@ Milestone 106 (a wait that ends on either the interrupt or the deadline) is gate
 
 - Connecting a real session: the durable session spawns its timetable, writes the store and sends
   `REPLACE`, and at boot `session_reviver` does the same from the stored file. Waits on milestone
-  152, whose session type does not exist yet.
+  152, whose session type does not exist yet. Re-checked 2026-09-29: `session_reviver` spawns no
+  timetable and sends no `REPLACE`, so the connection has nothing in the tree to attach to until
+  152's session lands.
 
 ## Scope note
 
@@ -147,8 +150,8 @@ the shipped document is a demonstration written to show every answer registratio
 
 - **Outstanding.** Connecting a real registrar: only `system_tests/src/user/timetable_tests.rs` writes a
   registration page, and no file under `components/` or `crates/` defines milestone 152's durable
-  session. The same session is what feeds `crates/schedule_store`'s file to a running timetable.
-  Checked 2026-09-26.
+  session.   The same session is what feeds `crates/schedule_store`'s file to a running timetable.
+  Checked 2026-09-29: both claims still hold.
 - **Refused.** One image per entry, by calef on 2026-09-26 ("Refuse it?", "Yes"): an image is code,
   not authority, so a helper per entry would buy nothing. The reason is
   `notes/scheduled-execution/one-image-per-entry.md`.
