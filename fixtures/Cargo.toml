@@ -85,9 +85,10 @@ bench = false
 
 # The interrupt_ignorer (DECISIONS §24): a runaway that ignores the interrupt; only the forcible
 # tier (the shell tearing its region down) ends it. The case the second ^C exists for.
-# The soaker (milestone 219): the workload that does not stop, so that `design/fatal-risks/README.md`'s
-# multicore entry has something to run its decisive experiment against. Cross-core IPC round trips
-# forever, publishing its progress in a page the kernel reads.
+# The soaker, milestone 219 (the boot tour ends and the kernel halts): the workload that does not
+# stop, so that `design/fatal-risks/README.md`'s multicore entry has something to run its decisive
+# experiment against. Cross-core IPC round trips forever, publishing its progress in a page the
+# kernel reads.
 [[bin]]
 name = "soaker"
 path = "src/soaker.rs"
