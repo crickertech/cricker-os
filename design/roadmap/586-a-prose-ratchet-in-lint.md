@@ -151,6 +151,20 @@ ratified. When it was armed, 9 of 20 open pull requests would have failed it.
 If the baseline file churns on every pull request, the ratchet costs more attention than it saves.
 Measuring that churn over the first week is part of the milestone.
 
+## Design note, 2026-09-29: a correction pays the same toll as a rewrite
+
+The bold touch rule (calef's 2026-09-26 ruling) asks 4 bold spans per 1,000 words of any document
+a change touches. Measured by the 2026-09-29 documentation audit: 864 documents stand over that
+density, 634 of them in `notes/` and `design/roadmap/`, so a one-line correction to any of them
+must first remove 25 to 82 bold spans. The audit met five such corrections and paid each with a
+marked `writing-standards` exception (the line `notes/timed-wait.md` set on 2026-09-26), naming
+the rewrite as the marker's debt. That includes `notes/documentation-audit.md`, the sweep
+procedure, which is itself over the density and so cannot record a lesson without the same marker.
+The bite on a document being condensed is the ruling's intent; the identical price on a correction
+of a false claim is a consequence nobody measured until now. Whether corrections get a carve-out,
+or the bold backlog gets a lane that retires these markers, is calef's call; this note records the
+measured class so the next reader does not rediscover it one frozen document at a time.
+
 ## Follow-on
 
 - **Outstanding.** Measure baseline churn over the first week, from 2026-09-24: how many merged pull
