@@ -50,7 +50,7 @@ Its volatile half reads raw pointers into the direct map, which Kani cannot foll
 finding where those two separate**, and that seam does not exist yet; proposing it is most of the
 job, and writing the harnesses is the smaller half that follows.
 
-**What it is worth.** `design/fatal-risks.md`'s risk 2 is that the proofs prove trivia while the
+**What it is worth.** `design/fatal-risks/README.md`'s risk 2 is that the proofs prove trivia while the
 real bugs live where Kani cannot reach. Firmware-supplied lengths and counts are the least trivial
 input this kernel takes, and milestone 87's first light on xenon already turned up one machine
 whose firmware map did not describe the MMIO hole. This is the risk-2 frontier with the door newly

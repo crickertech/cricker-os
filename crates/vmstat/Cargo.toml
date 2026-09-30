@@ -1,0 +1,11 @@
+[package]
+name = "vmstat"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+machine_statistics_protocol = { version = "0.1.0", path = "../machine_statistics_protocol" }

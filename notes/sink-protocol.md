@@ -1,4 +1,10 @@
 # The sink protocol: one way to write bytes somewhere
+<!-- writing-standards: exception. Marked 2026-09-29 (UTC) by the audit lane for the documentation
+audit of that date. Reason: the one correction below repoints a quotation that named
+notes/pipes.md for wording this note itself wrote, and bringing a 3,190-word note to 4 bold spans
+per 1,000 words is a rewrite for this note's owner, not something to hide inside a correction, the
+same line notes/timed-wait.md's marker takes. Remove this marker when that de-bold pass lands. -->
+
 
 *Milestone 50, the protocol lane. `crates/byte_sink_protocol`, `fixtures/src/sink.rs`, the std PAL's
 `sys/stdio/nife.rs`, and `abi::Error::Gone`.*
@@ -279,8 +285,7 @@ transcript, a pipe and a file and now a terminal, and the program holds one capa
   it works by handing the child a *different* endpoint rather than by intercepting this one.
 - **Building it found the progenitor's sixteen-slot capability table for the third time.** One more endpoint held across
   the shell's `build_child` made the boot print nothing at all, so the adapter is built **after the
-  shell**; see notes/pipes.md. It was written down as "built last", and merging milestone 22 proved
-  that half wrong: the progenitor now builds a `job_undertaker` after it and the capability table has room either way. The
+  shell** (order: notes/pipes/the-boot.md). "Built last" was this note's phrase; merging milestone 22 (trusted init) proved it wrong: the progenitor now builds a `job_undertaker` after it and the capability table has room either way. The
   real constraint was never the ordinal, it was the shell's build. Where the adapter does have to sit
   is **before the progenitor gives the construction budget away**, because it is a system component and that
   budget is what the system is built from; building it afterwards would spend the progenitor's scratch pool on

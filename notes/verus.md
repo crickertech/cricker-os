@@ -26,7 +26,7 @@ the discipline is the author's alone, which is why this table exists. Nothing he
 
 ## The premise this lane was given is out of date, and that is the first finding
 
-The brief quoted `design/fatal-risks.md` risk 2 (the proofs prove trivia, and the real bugs live
+The brief quoted `design/fatal-risks/README.md` risk 2 (the proofs prove trivia, and the real bugs live
 where Kani cannot reach):
 
 > **The cause is one line of `script/verify`'s own header**, verified rather than inferred:
@@ -609,7 +609,7 @@ verification results:: 1 verified, 0 errors
   asserts *"due to the lack of managed runtime, verified Rust code can be compiled and executed on
   bare metal"*, which is the authors' claim about their own x86_64 kernel, not a Verus project
   statement, and says nothing about a custom target JSON or `aarch64-unknown-none-softfloat`.
-- **`design/fatal-risks.md` risk 2 and `notes/proof-retrospective.md` both said `kernel/src` was
+- **`design/fatal-risks/README.md` risk 2 and `notes/proof-retrospective.md` both said `kernel/src` was
   unreachable by construction** when this was written, three weeks stale. Risk 2 now says it in the
   past tense, its reach corrected 2026-09-24; the retrospective is a dated record of 2026-08-30 and
   reads as one.

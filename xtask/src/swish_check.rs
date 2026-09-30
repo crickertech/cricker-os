@@ -445,7 +445,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // gate presses under `interrupt_heeder` and `interrupt_ignorer`.
     keys(0, "echo abandoned\x03", "echo abandoned^C", &[]),
     line(0, "echo kept", &["kept"]),
-    // **`ps`, at the real prompt** (milestone 126). The listing itself: a header, and at least the
+    // **`ps`, at the real prompt** (milestone 126 (the `procps` package)). The listing itself: a header, and at least the
     // row for `ps` itself, which is a member of the domain the progenitor spawned it into. Asserting the
     // header rather than a tid is deliberate: a tid is a generational name that moves with how many
     // jobs ran before it, and a gate that pinned one would be pinning the boot's history.
@@ -495,7 +495,17 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // The tids and the figures are deliberately not pinned. A tid is a generational name that moves
     // with the boot's history, and a CPU figure is a measurement of a real machine; a gate that
     // pinned either would be pinning this boot rather than the program.
-    line(1, "top", &["up ", "threads: ", "TID  STATE     TIME(ms)"]),
+    line(
+        1,
+        "top",
+        &[
+            "up ",
+            "threads: ",
+            "machine: ",
+            "% busy since boot",
+            "TID  STATE     TIME(ms)",
+        ],
+    ),
     // And the second stream is empty, the same trick the `pgrep 2>` line above uses: `top`
     // complains in exactly the cases `ps` does, so an empty second stream says none of them
     // happened and the table above it is the domain.
@@ -504,7 +514,47 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // The scope, printed before anything is spawned. `top` holds `ps`'s three capabilities and not
     // one more: the ranking costs no authority, because the CPU figures are a second walk of the
     // same endpoint under the same right.
-    line(0, "caps top", &["cap 7  endpoint  domain   ENUMERATE"]),
+    line(
+        0,
+        "caps top",
+        &[
+            "cap 7  endpoint  domain   ENUMERATE",
+            "cap 11 frame     machine  read-only",
+        ],
+    ),
+    // **`free`, `vmstat` and `slabtop`, at the real prompt** (milestone 126, DECISIONS §225 (`free`
+    // sees the machine and your share)). What each line proves is that a read reached the output:
+    // `Mem:` is the kernel's machine statistics page mapped into the child and recognized, `Yours:`
+    // is `MemoryRegion::USAGE` answering on the job budget's `ENUMERATE` view. No figure is pinned,
+    // since the free count is a measurement of this boot. The empty second streams say neither
+    // read was refused.
+    line(
+        1,
+        "free",
+        &["total        used        free", "Mem:  ", "Yours:"],
+    ),
+    line(1, "free 2> free.txt", &[]),
+    line(1, "wc < free.txt", &["0 0 0"]),
+    line(
+        0,
+        "caps free",
+        &[
+            "cap 11 frame     machine  read-only",
+            "cap 12 region    share    ENUMERATE",
+        ],
+    ),
+    line(
+        1,
+        "vmstat",
+        &["    r       free      total     in     cs busy  id"],
+    ),
+    line(1, "vmstat 2> vmstat.txt", &[]),
+    line(1, "wc < vmstat.txt", &["0 0 0"]),
+    // `slabtop`'s `threads` row is the proof that the kernel summed the budget's subtree: the budget
+    // itself holds no thread, every job region split from it holds at least one.
+    line(1, "slabtop", &["job budget: ", "SPENT ON", "threads"]),
+    line(1, "slabtop 2> slabtop.txt", &[]),
+    line(1, "wc < slabtop.txt", &["0 0 0"]),
     // **`uptime`, at the real prompt** (milestone 126). No domain, no clock: the manifest is
     // `least_authority_demo`'s, because `monotonic_nanos` is granted to every process unconditionally
     // (kernel/src/arch/*/timer.rs's exception to DECISIONS §10). A green line here proves the
@@ -573,7 +623,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 1  page      clock",
             "cap 2  page      config",
             "provenance: unvouched (digest ",
-            "runs on this session's capability to run unvouched bytes (slot 22)",
+            "runs on this session's capability to run unvouched bytes (slot 30)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
             // note grants nothing: the rows above are the ruling's three and no more.

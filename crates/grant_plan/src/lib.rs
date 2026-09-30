@@ -310,7 +310,7 @@ programs! {
         ///
         /// Name: provisional.
         Mdr { id: 7, name: "mdr" },
-        /// **List the processes in the supervision domain it was spawned into** (milestone 126,
+        /// **List the processes in the supervision domain it was spawned into** (milestone 126 (the `procps` package),
         /// `components/src/ps.rs`, notes/process-view.md).
         ///
         /// The reason [`Manifest::domain`] exists, and the same asymmetry [`Prog::Date`] made for the
@@ -428,16 +428,14 @@ programs! {
         /// **Rank the members of that same domain by the CPU time each has been scheduled for**
         /// (milestone 282 (a thread's CPU time, and the `top` it makes possible), `components/src/top.rs`, `crates/top`).
         ///
-        /// [`Prog::Ps`]'s manifest, field for field, and the second time this table has that to say
-        /// about a row. With [`Prog::Pgrep`] the sameness *was* the claim, because the finding
-        /// program must hold nothing the listing program lacks. Here it is a finding rather than a
-        /// claim, and a live one: milestone 281 (`watch` holds exactly what `ps` holds) deleted `watch` on the rule that **two
-        /// programs are two programs when they hold different authority**, and this row holds
-        /// `ps`'s. What differs is the question, not the endowment: `ps` answers what exists in the
-        /// kernel's slot order, this answers what is consuming in order of consumption, and it
-        /// opens with a summary line a listing has no use for. Whether that clears the bar is
-        /// calef's; `crates/top`'s module docs carry the argument both ways, and folding this into
-        /// `ps` as a flag stays a day's work.
+        /// [`Prog::Ps`]'s manifest plus one read-only page. Until milestone 126 (the `procps`
+        /// package) built the machine statistics page it was `ps`'s field for field, and milestone
+        /// 281 (`watch` holds exactly what `ps` holds)'s rule that **two programs are two programs
+        /// when they hold different authority** made whether it was a program at all a live
+        /// question. DECISIONS §225 (`free` sees the machine and your share) then put `tload`'s
+        /// question in this program's summary, which needs the page, so the endowments now differ
+        /// and the rule no longer argues for folding it into `ps`. Whether that settles it is
+        /// calef's; `crates/top`'s module docs carry the argument.
         ///
         /// `ArgSpec::Forbidden` rather than an optional count, because there is no such spec: a
         /// `top N` would have to make the argument `Required`, and a `top` that cannot be typed
@@ -488,6 +486,38 @@ programs! {
         /// A program that arrives by option D carries its own manifest, and this field is what
         /// that manifest will say.
         StdExerciser { id: 16, name: "std_exerciser" },
+        /// **How much memory the machine has, and how much of this prompt's budget is spent**
+        /// (milestone 126, DECISIONS §225 (`free` sees the machine and your share), `components/src/free.rs`, `crates/free`).
+        ///
+        /// Two grants, and they are the ruling's two lines. [`Manifest::machine`] is the machine
+        /// statistics page, which owner policy grants by default and can withhold; [`Manifest::share`]
+        /// is this prompt's job budget narrowed to `ENUMERATE`, which answers "yours". Neither can
+        /// change anything: the page is read-only and the budget view cannot spend.
+        ///
+        /// Name: provisional, milestone 126's `free` lane, 2026-09-26. Upstream `procps`'s, for the
+        /// program a reader types to ask this.
+        Free { id: 17, name: "free" },
+        /// **The machine's counters since boot**: run queue, memory, interrupts, context switches
+        /// and the busy/idle split (milestone 126, DECISIONS §225, `components/src/vmstat.rs`,
+        /// `crates/vmstat`).
+        ///
+        /// The machine statistics page and nothing else. Not `free`'s manifest, because it does not
+        /// hold the budget view: `vmstat` describes the machine and says nothing about "yours".
+        ///
+        /// Name: provisional, milestone 126's `free` lane, 2026-09-26. Upstream `procps`'s.
+        Vmstat { id: 18, name: "vmstat" },
+        /// **Where this prompt's job budget went, by kind of kernel object** (milestone 126,
+        /// DECISIONS §225, `components/src/slabtop.rs`, `crates/slabtop`).
+        ///
+        /// Upstream `slabtop` lists the kernel's slab caches. This kernel has none (milestone 14 (kernel objects from untyped)
+        /// removed its heap and slab); kernel objects are carved from regions their holders own,
+        /// so §225 turned the question into `MemoryRegion::USAGE` asked per object type. It holds
+        /// the budget view alone, which is why it is not `free`: it does not see the machine.
+        ///
+        /// Name: provisional, milestone 126's `free` lane, 2026-09-26, flagged harder than the other
+        /// two: the upstream name promises a kernel-wide cache view, and this is one budget's
+        /// breakdown.
+        Slabtop { id: 19, name: "slabtop" },
     }
 }
 
@@ -516,6 +546,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             Prog::MemoryGrantDepleter => Manifest {
@@ -537,6 +569,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // The two interrupt demonstrators. Both run until interrupted, take no argument and no
@@ -561,6 +595,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             Prog::InterruptIgnorer => Manifest {
@@ -578,6 +614,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // `date` declares an empty grant expression, and that is the interesting part: its
@@ -624,6 +662,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The first program endowed a directory**, and the first with options. It takes no
@@ -655,6 +695,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The consumer**, and the only program that declares an input. Everything else about
@@ -681,6 +723,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The viewer**, whose manifest is "a stream in, a stream out" like `wc`'s, and handed
@@ -708,6 +752,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **`ps`: a stream out, a domain in, and nothing else** (milestone 126).
@@ -738,6 +784,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **`pgrep`: `ps`'s manifest, field for field, and the sameness is the claim.**
@@ -771,14 +819,14 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
-            // **`top`: `ps`'s manifest a second time**, and here the sameness is a fact to
-            // weigh rather than a claim being made. `pgrep`'s identity with `ps` is the point of
-            // `pgrep`; this row's identity with `ps` is the open question about whether `top` is a
-            // program or a flag (see its `Prog` doc). What the manifest settles either way is that
-            // ranking costs no authority: the CPU figures are a second walk of the same endpoint
-            // under the same `ENUMERATE`, so nothing here is endowed that a `ps` was not.
+            // **`top`: `ps`'s manifest and the machine statistics page.** Ranking still costs no
+            // authority: the CPU figures are a second walk of the same endpoint under the same
+            // `ENUMERATE`. What costs a grant is the machine line under the summary, which is what
+            // became of `tload` (DECISIONS §225), and it is a read-only page.
             //
             // `clock: false` and it is worth a line, because a `top` looks like it needs one: the
             // uptime in its summary is the ambient monotonic counter every process already holds,
@@ -800,6 +848,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: true,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the inert-configuration page.** Same
@@ -820,6 +870,8 @@ impl Prog {
                 config: true,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **`least_authority_demo`'s manifest, not `date`'s.** `uptime` reads `user_mode_runtime::monotonic_nanos`,
@@ -843,6 +895,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the network** (milestone 590
@@ -866,6 +920,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: true,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **Declares nothing, deliberately**: `uptime`'s manifest, field for field. The program
@@ -885,6 +941,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the entropy service** (milestone 111).
@@ -916,6 +974,77 @@ impl Prog {
                 config: false,
                 entropy: true,
                 network: false,
+                machine: false,
+                share: false,
+                runtime: Runtime::Native,
+            },
+            // **`free`: the machine page and the budget view, and nothing that can act.** The
+            // two grants are §225's two lines, and both are views: `READ` on a page nobody but
+            // the kernel writes, and `ENUMERATE` on a budget, which cannot spend it.
+            Prog::Free => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::BytesAndDiagnostics {
+                    slot: DIAGNOSTICS_SLOT,
+                },
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: true,
+                share: true,
+                runtime: Runtime::Native,
+            },
+            // **`vmstat`: the machine page alone.** Its rates are per second since boot, and the
+            // seconds come from the ambient monotonic counter, `uptime`'s finding, so no clock.
+            Prog::Vmstat => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::BytesAndDiagnostics {
+                    slot: DIAGNOSTICS_SLOT,
+                },
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: true,
+                share: false,
+                runtime: Runtime::Native,
+            },
+            // **`slabtop`: the budget view alone**, which is the difference from `free`.
+            Prog::Slabtop => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::BytesAndDiagnostics {
+                    slot: DIAGNOSTICS_SLOT,
+                },
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: false,
+                share: true,
                 runtime: Runtime::Native,
             },
             Prog::StdExerciser => Manifest {
@@ -943,6 +1072,8 @@ impl Prog {
                 config: true,
                 entropy: true,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Std,
             },
         }
@@ -1333,6 +1464,21 @@ pub fn image_request_fits(m: &Manifest, arg: u64, mem_pages: u64, words: bool) -
     arg_ok && mem_ok
 }
 
+/// **Where a program that declares [`Manifest::machine`] finds the machine statistics page's
+/// capability** (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and
+/// your share)). Eleven, one past [`NETWORK_SLOT`], for that constant's reasons. The page itself is
+/// mapped at `machine_statistics_protocol::PAGE_VA`; the capability is here so `caps` has a slot to
+/// print and so the grant is visible in the table.
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const MACHINE_SLOT: u64 = 11;
+
+/// **Where a program that declares [`Manifest::share`] finds its `ENUMERATE` view of this prompt's
+/// job budget** (milestone 126, DECISIONS §225). Twelve, one past [`MACHINE_SLOT`].
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const SHARE_SLOT: u64 = 12;
+
 /// **What the progenitor endows a child whose bytes nobody vouched for**, when the caller presented
 /// the run-unvouched capability (DECISIONS §219 gate D2, ruled by calef 2026-09-26: *"Yes, allow
 /// the clock and config pages."*).
@@ -1364,6 +1510,8 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
     config: true,
     entropy: false,
     network: false,
+    machine: false,
+    share: false,
     runtime: Runtime::Native,
 };
 
@@ -1655,6 +1803,27 @@ pub struct Manifest {
     ///
     /// **Provisional field name.**
     pub network: bool,
+    /// **Endowed the machine statistics page** (milestone 126, DECISIONS §225 part 2;
+    /// `crates/machine_statistics_protocol`): a read-only mapping at that crate's `PAGE_VA`, and
+    /// the frame's capability at [`MACHINE_SLOT`] carrying `READ`.
+    ///
+    /// [`clock`](Manifest::clock)'s family again: how the box is doing is not something a command
+    /// line designates, so this tells the progenitor which children to endow and tells a person
+    /// reading `caps free` that the program sees the machine. §225 ruled it granted to every login
+    /// by default and withholdable by the owner. The page travels with the session: the shell
+    /// holds it at [`spawnproto::MACHINE_PAGE_SLOT`] and sends it with the request, so a session
+    /// the owner withheld it from (`system_initializer::GRANT_MACHINE_PAGE`) spawns programs that
+    /// print that they cannot see the machine rather than a machine of zero bytes.
+    ///
+    /// **Provisional field name.**
+    pub machine: bool,
+    /// **Endowed a view of this prompt's job budget, narrowed to `ENUMERATE`** (milestone 126,
+    /// DECISIONS §225 part 1), at [`SHARE_SLOT`]: the region every job this shell runs is carved
+    /// from, which `abi::memory_region::USAGE` can ask what was spent from and on what, and which
+    /// the holder cannot spend, split or destroy. `free`'s "yours" line and `slabtop`'s table.
+    ///
+    /// **Provisional field name.**
+    pub share: bool,
     /// **Which runtime contract the program was built against**, and so where it expects each
     /// capability to be (milestone 595 (provisional)). See [`Runtime`].
     ///
@@ -4414,6 +4583,8 @@ mod tests {
         config: false,
         entropy: false,
         network: false,
+        machine: false,
+        share: false,
         runtime: Runtime::Native,
     };
 
@@ -4442,6 +4613,8 @@ mod tests {
         config: false,
         entropy: false,
         network: false,
+        machine: false,
+        share: false,
         runtime: Runtime::Native,
     };
 
@@ -5408,6 +5581,8 @@ mod tests {
         config: false,
         entropy: false,
         network: false,
+        machine: false,
+        share: false,
         runtime: Runtime::Native,
     };
 

@@ -81,6 +81,9 @@
 //!         keyboard: 22,
 //!         keyboard_irq: 23,
 //!         keyboard_dma: 1, // this example's table starts at slot 2, so 0 and 1 are free
+//!         // The machine statistics page (milestone 126 (the `procps` package)): granted on
+//!         // every boot, so always this slot. The last free one in this example's table.
+//!         machine_page: 0,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -291,8 +294,8 @@
 //! answer is immediate; on a network with a virtio NIC and no DHCP server the boot would sit there
 //! with no console to say why. Nothing grants a NIC on real hardware today, so the case is
 //! unreached rather than closed. Taking the lease later, when the first declaring child is spawned,
-//! would unblock the boot and cost the report endpoint a permanent slot, and the table has one left
-//! (23 of 24, `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
+//! would unblock the boot and cost the report endpoint a permanent slot (the peak is 23 of 32,
+//! `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
 //!
 //! **And it keeps a writable view of the NIC's DMA page**, at `NET_DMA_PEEK_VA`, for the rng's
 //! reason (reading the physical base the kernel wrote there) and with its cost: there is no unmap.
@@ -305,10 +308,11 @@
 //! have, and `build_child` answering `Err(())` is a silent halt. Three of the four evenings this
 //! file has cost were that: once when the kernel grew two grants, once when a boot component was
 //! built one step too early, and once when a block that had never run before started running
-//! (milestone 230, below). The order below is load-bearing and the comments say where.
+//! (milestone 230 (`script/shell-check` is red on `main`), below). The order below is load-bearing and the comments say where.
 //!
-//! **The table was sixteen slots, then seventeen, and is twenty-four now**
-//! (`kernel::cap::CAPABILITY_TABLE_SLOTS`, raised by milestone 230 on 2026-09-02). Milestone 31
+//! **The table was sixteen slots, then seventeen, then twenty-four, and is thirty-two now**
+//! (`kernel::cap::CAPABILITY_TABLE_SLOTS`, raised to twenty-four by milestone 230 on 2026-09-02
+//! and to thirty-two by calef on 2026-09-27 for the machine statistics page's boot slot). Milestone 31
 //! phase 3 measured this process at nine capabilities at rest and fifteen at peak, one slot from
 //! the seventeen-slot wall, and that number described the boot as it then was: the login stack
 //! below did not exist yet. It does now, and with a virtio-rng attached (DECISIONS §120's
@@ -338,8 +342,11 @@
 //! **That twenty-second capability arrived, and so did a twenty-third.** Milestone 111 (a shell
 //! that can endow a child with entropy)'s entropy endpoint took the peak to twenty-two, and
 //! milestone 590's network-stack endpoint took it to **twenty-three of twenty-four** on a boot with a NIC (`kernel::cap::
-//! CAPABILITY_TABLE_PEAK_MEASURED` carries both). One slot is left, so the next permanent
-//! capability here should buy one back through the two candidates above before it is added.
+//! CAPABILITY_TABLE_PEAK_MEASURED` carries both). One slot was left, and the next permanent
+//! capability was to buy one back through the two candidates above. The raise to thirty-two
+//! (milestone 126 (the `procps` package)) leaves nine above the same peak; the machine statistics
+//! page it was raised for arrives at boot slot 23 and goes to the shell before the login block, so
+//! it is never held across the peak.
 //!
 //! Name: ratified 2026-08-04 (calef, milestone 96), and it is the ratification that raised
 //! milestone 115. Refused `system_builder` (milestone 63 had already refused it, for a reason still
@@ -527,6 +534,16 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, lane `milestone/595-x86-std`, 2026-09-26. `fs_ep`'s shape, one service over.
     pub entropy_ep: u64,
+    /// **The machine statistics page** (milestone 126, DECISIONS §225 (`free` sees the machine and your share) part 2): a `PageFrame`
+    /// capability with `READ | GRANT` to the frame the kernel keeps its machine-wide counters in
+    /// (`crates/machine_statistics_protocol`). Granted unconditionally, like
+    /// [`config_page`](BootEndowment::config_page), so its slot never moves. [`boot`] hands it to
+    /// the boot prompt's shell when [`GRANT_MACHINE_PAGE`] says the owner allows it, and keeps no
+    /// copy; the shell sends it back with the spawn request of a program that declares
+    /// [`grant_plan::Manifest::machine`] (`spawnproto::MACHINE_BIT`).
+    ///
+    /// Name: provisional, milestone 126's `free` lane, 2026-09-26.
+    pub machine_page: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -593,6 +610,20 @@ const CHILD_CLOCK_VA: u64 = address_space_map::pair_page(0x00c0_0000);
 /// numbers that happen not to need to agree.
 const CHILD_CONFIG_VA: u64 = address_space_map::pair_page(0x00e0_0000);
 
+/// **Whether the boot prompt's session is handed the machine statistics page** (milestone 126,
+/// DECISIONS §225 part 2). §225 ruled the page granted to every login by default and withholdable
+/// by the machine owner, and this is the owner's switch, in the one file the owner's other
+/// boot-time policy (the run-unvouched capability) already lives in. `false` and the shell never
+/// holds the page, so every `free` prints that it cannot see the machine and `vmstat` refuses,
+/// rather than either printing zeroes.
+///
+/// **An exception worth marking**: the page already travels with the session
+/// (`spawnproto::MACHINE_BIT`), so a per-login policy is `login` handing each session the page or
+/// not. Nothing hands it to `login` yet; this constant decides for the boot prompt alone.
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const GRANT_MACHINE_PAGE: bool = true;
+
 /// Where a supervised (interruptible) child maps its shared job frame (DECISIONS §24 (interrupting the foreground process)). A pair page
 /// on the address-space map; must match `interrupt_heeder.rs` and
 /// `interrupt_ignorer.rs`'s `JOB_PAGE_FRAME_VA`.
@@ -635,7 +666,13 @@ const _: () = assert!(INIT_OWN_PAGES >= 2 * supervision_protocol::SCRATCH_TABLE_
 /// so that is the whole difference. The "room to spare" was not there: the first `x86_64`
 /// `script/swish-check` after the map refused `mdr gate.txt`, whose debug image is 18 pages rather
 /// than `date`'s seven, and `x86_64` also pays three tables for its timebase page.
-const JOB_REGION_PAGES: u64 = 41;
+///
+/// **Forty-eight since milestone 126 (the `procps` package), and counted the same way.** `top`
+/// gained the machine statistics page, a pair page of its own, and on `x86_64` its debug image is
+/// nineteen pages; at forty-one the progenitor refused to build it ("could not spawn") in the
+/// `x86_64` leg of `script/swish-check`, and at forty-eight that leg passes every line. The pool is
+/// six of these, so the raise costs the job pool forty-two pages.
+const JOB_REGION_PAGES: u64 = 48;
 
 /// **One directory-granted job's region**: the program *and* the `fs_subtree_caretaker` that carries
 /// its grant, plus the two endpoints between them, all out of one carve.
@@ -1161,9 +1198,10 @@ pub fn boot(
     // `input`, and with a virtio keyboard there is none. Freeing it here, before entropy spends
     // anything, is what keeps the first build under the wall. The gpu's four and the keyboard's
     // three are kernel grants alive from spawn, four more than the three the kernel-built stack
-    // granted, so a boot with all four QEMU devices (gpu, keyboard, rng, NIC) starts holding twenty
-    // capabilities. Less these two, entropy's build (two endpoints, then an address space and one
-    // page or TCB at a time) peaks at twenty-two of twenty-four. That is counted from the code, not
+    // granted, so a boot with all four QEMU devices (gpu, keyboard, rng, NIC) starts holding
+    // twenty-one capabilities (twenty before milestone 126's machine statistics page, which is held
+    // until the shell is built). Less these two, entropy's build (two endpoints, then an address
+    // space and one page or TCB at a time) peaks at twenty-three of thirty-two. That is counted from the code, not
     // measured, and no gate boots all four devices; milestone 600's block records it. (The
     // kernel-built stack's own three were found to push this build past the wall by bisection.)
     //
@@ -1234,7 +1272,7 @@ pub fn boot(
     // manifest declares [`grant_plan::Manifest::entropy`] is endowed a `WRITE` view of this same
     // endpoint at spawn, so the progenitor is the only process that can hand a program at the prompt a
     // random source, exactly as it is the only one that can hand it a clock. That costs one
-    // permanent capability slot in a table milestone 230 measured at 21 of 24 at peak; milestone
+    // permanent capability slot in a table milestone 230 measured at 21 of 24 at peak (the table is 32 now); milestone
     // 231's `capability slots: N of M at peak` line is what says whether that is still true, and it
     // is printed by every boot.
     let mut entropy_client: Option<u64> = None;
@@ -1844,6 +1882,22 @@ pub fn boot(
         abi::rights::READ,
         grant_plan::SHELL_CONFIG_SLOT,
     ));
+    // **The machine statistics page goes to the session, and this process keeps no copy**
+    // (milestone 126, DECISIONS §225). Placed now, before the login block, because that block is
+    // this table's peak and a page held across it would spend the table's last slot
+    // (`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`). The shell hands it back with a spawn request
+    // only for a program that declares `machine` (`spawnproto::MACHINE_PAGE_SLOT`, `MACHINE_BIT`),
+    // so which programs see the machine is decided by what the session holds. `READ | GRANT`: it
+    // can delegate the page and cannot write it. [`GRANT_MACHINE_PAGE`] is the owner's switch.
+    if GRANT_MACHINE_PAGE {
+        must_ok(place_at(
+            shell.tcb,
+            g.machine_page,
+            abi::rights::READ | abi::rights::GRANT,
+            spawnproto::MACHINE_PAGE_SLOT,
+        ));
+    }
+    cap_delete(g.machine_page);
     // The caretaker's endpoint was only ever the means of wiring: the shell holds its own copy and
     // the caretaker holds the other end, the same disposal `spawn_service`'s dynamic directory
     // grants already give their own narrowed endpoint below.
@@ -2603,7 +2657,7 @@ struct Channels {
     /// run_unvouched` is followed by one `SEND` on it, which this process takes with a `RECV`;
     /// arriving is the proof, because nothing but a holder can send here.
     ///
-    /// One slot for the life of the boot, and the table had one left (23 of 24). It is retyped
+    /// One slot for the life of the boot, and the table had one left (23 of 24; 32 slots since 2026-09-27). It is retyped
     /// after `login`'s build, the peak, so it is not held across it; `script/swish-check`'s
     /// `capability slots:` line is what says whether that held.
     run_unvouched: u64,
@@ -2803,6 +2857,14 @@ fn spawn_service(
         } else {
             None
         };
+        // **The machine statistics page, when the session sent it** (milestone 126,
+        // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
+        // below once the child holds its own mapping and slot.
+        let machine_page = if wiring.machine {
+            opt_cap(recv_cap(spawn_ep).1)
+        } else {
+            None
+        };
         // **The run-unvouched capability, presented** (DECISIONS §219 gate D2): the last message
         // of any request that claimed it, taken whether or not this one turns out to need it, so
         // the caller's `SEND` is never left waiting. It arrived on the endpoint only a holder can
@@ -2885,6 +2947,10 @@ fn spawn_service(
         // And a fifth (milestone 590 (provisional)): a network is not something a command line
         // designates either.
         let wants_network = manifest.is_some_and(|m| m.network);
+        // And the two views milestone 126 added (DECISIONS §225): how the machine is doing, and
+        // what this prompt's job budget was spent on. Neither is something a line designates.
+        let wants_machine = manifest.is_some_and(|m| m.machine);
+        let wants_share = manifest.is_some_and(|m| m.share);
 
         if interruptible {
             // Build the whole child from the shell's job untyped, mapping the shared job frame; no
@@ -3095,7 +3161,7 @@ fn spawn_service(
             // collect a corpse, and only the viewer's own source code said it did not. A domain names
             // its members and does not act on them (calef, 2026-08-17); `capability::Rights::ENUMERATE`
             // is what makes that a property of the grant. notes/process-view.md carries the argument.
-            let mut placed_buf = [(0u64, 0u64, 0u64); 4];
+            let mut placed_buf = [(0u64, 0u64, 0u64); 6];
             let mut placed_n = 0usize;
             if let (Some(ep), Some(slot)) = (diagnostics.or(default_diag), diag_slot) {
                 placed_buf[placed_n] = (slot, ep, abi::rights::WRITE);
@@ -3131,11 +3197,22 @@ fn spawn_service(
                 placed_buf[placed_n] = (grant_plan::NETWORK_SLOT, ep, abi::rights::WRITE);
                 placed_n += 1;
             }
+            // **The fifth and sixth named slots** (milestone 126, DECISIONS §225). The machine page
+            // carries `READ` and is also mapped below; the job budget carries `ENUMERATE` alone,
+            // which answers `abi::memory_region::USAGE` and nothing that spends, splits or
+            // destroys. It is the same region this child was split from, so "yours" includes the
+            // program asking, the way `ps` lists itself.
+            if let (true, Some(page)) = (wants_machine, machine_page) {
+                placed_buf[placed_n] = (grant_plan::MACHINE_SLOT, page, abi::rights::READ);
+                placed_n += 1;
+            }
+            if wants_share {
+                placed_buf[placed_n] = (grant_plan::SHARE_SLOT, jobs_ut, abi::rights::ENUMERATE);
+                placed_n += 1;
+            }
             let placed: &[(u64, u64, u64)] = &placed_buf[..placed_n];
             let clock_map = [(CHILD_CLOCK_VA, clock_page, abi::address_space::MAP_RO)];
             let config_map = [(CHILD_CONFIG_VA, config_page, abi::address_space::MAP_RO)];
-            // Both pages, which only `grant_plan::UNVOUCHED_MANIFEST` declares (§219 gate D2).
-            let both_map = [clock_map[0], config_map[0]];
             // **The FS contract's shared page, for a program behind a directory grant.** The same
             // frame the caretaker maps and the same frame the FS server maps: one page for all three
             // parties, sound because every request on both hops is a blocking `CALL`, so the client
@@ -3150,24 +3227,34 @@ fn spawn_service(
             // out of that carve, and a single reclaim frees all of it; the clock frame and the FS
             // page are ours and are only *mapped* into the child, so they are untouched when the
             // region goes.
-            // **Two extra mappings at most, today.** A program that declared a directory grant AND a
-            // clock AND the config page would need three, and this chain only ever offers two; no
-            // manifest reaches that combination (the directory program, `rm`, declares neither
-            // clock nor config, and only `grant_plan::UNVOUCHED_MANIFEST` declares both clock and
-            // config, with no directory), so the gap is unreached rather than closed. The same ordered-slot debt `wants_clock`'s own
-            // comment above already names for `caps`, one structure over; see notes/pipes.md's
-            // `BUGS`.
-            let maps: &[(u64, u64, u64)] = if narrowed.is_some() {
-                &dir_map
-            } else if wants_clock && wants_config {
-                &both_map
-            } else if wants_clock {
-                &clock_map
-            } else if wants_config {
-                &config_map
-            } else {
-                &[]
-            };
+            // **Every mapping the manifest asked for, in one list** (milestone 126). This was a
+            // chain offering at most two extra mappings, whose comment recorded the three-mapping
+            // combination it could not express; the machine statistics page made a fourth kind of
+            // mapping, and a list closes that debt instead of adding a branch to it. Each entry is a
+            // page this progenitor holds and only maps, so the child's reclaim leaves them all alone.
+            let mut map_buf = [(0u64, 0u64, 0u64); 4];
+            let mut map_n = 0usize;
+            if narrowed.is_some() {
+                map_buf[map_n] = dir_map[0];
+                map_n += 1;
+            }
+            if wants_clock {
+                map_buf[map_n] = clock_map[0];
+                map_n += 1;
+            }
+            if wants_config {
+                map_buf[map_n] = config_map[0];
+                map_n += 1;
+            }
+            if let (true, Some(page)) = (wants_machine, machine_page) {
+                map_buf[map_n] = (
+                    machine_statistics_protocol::PAGE_VA,
+                    page,
+                    abi::address_space::MAP_RO,
+                );
+                map_n += 1;
+            }
+            let maps: &[(u64, u64, u64)] = &map_buf[..map_n];
             // **The std layout** (milestone 595 (provisional)): the same authorities, placed where
             // nife's `std` reads them instead of in order. Computed here, beside the native arrays it
             // replaces, so both shapes read from the one set of decisions above (which output, which
@@ -3333,9 +3420,18 @@ fn spawn_service(
         // mapped, the budget and the streams inserted), and the shell holds the originals it kept
         // (the job untyped for teardown, the pipe it minted). This keeps the progenitor's 16-slot capability table from
         // filling across a long session.
-        for s in [job_ut, job_fr, sink, source, diagnostics, screen, budget]
-            .into_iter()
-            .flatten()
+        for s in [
+            job_ut,
+            job_fr,
+            sink,
+            source,
+            diagnostics,
+            screen,
+            budget,
+            machine_page,
+        ]
+        .into_iter()
+        .flatten()
         {
             cap_delete(s);
         }

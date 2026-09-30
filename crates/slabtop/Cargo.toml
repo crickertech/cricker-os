@@ -1,0 +1,11 @@
+[package]
+name = "slabtop"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

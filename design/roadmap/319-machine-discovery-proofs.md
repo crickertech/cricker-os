@@ -22,7 +22,7 @@ aarch64.rs:0  acpi.rs:0  cpu_list.rs:0  framebuffer.rs:0  interrupt_id.rs:0
 lib.rs:0  plic.rs:0  riscv64.rs:0  x86_64.rs:0
 ```
 
-`design/fatal-risks.md`'s risk 2 quotes milestone 197 on why `user/` deserved the prover: it *"holds
+`design/fatal-risks/README.md`'s risk 2 quotes milestone 197 on why `user/` deserved the prover: it *"holds
 parsers over bytes this system did not produce"*, and the parsers lifted into crates under rule 7
 are *"every one already in `script/verify`'s table"*. This is the one that got lifted and then never
 proved. Its sibling `dtb` has four harnesses and one of them caught a real defect, `be32`'s
@@ -69,7 +69,7 @@ by comparing in `u64`, where the overflow and the comparison are both right at o
 expected `Some(u32::MAX * u32::MAX)` for a screen `u32::MAX` pixels wide with a stride of `u32::MAX`,
 and called it *"the honest answer"* on a 64-bit host. The test and the code agreed because both read
 the same saturating product. That is the clearest answer this lane has to why a crate with 41 tests
-wanted a prover, and it is exactly the failure `design/fatal-risks.md`'s risk 2 is about.
+wanted a prover, and it is exactly the failure `design/fatal-risks/README.md`'s risk 2 is about.
 
 None of the three defects is exotic and none was going to be found by a test. Every one of those 41
 tests builds the table `q35` produces, because that was the only machine there was. `q35`'s DMAR says

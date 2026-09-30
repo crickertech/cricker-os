@@ -8,7 +8,7 @@ promoted_from: the-unreachable-kernel-claim-is-three-weeks-stale
 
 Built 2026-09-25 (UTC) by the maintainer, under calef's ruling of that day
 recorded as §216 (fatal-risk facts are correctable, and verdicts are the architect's). Risk
-2's stale sentence and size are corrected in `design/fatal-risks.md`, its appendix
+2's stale sentence and size are corrected in `design/fatal-risks/README.md`, its appendix
 `design/fatal-risks/proofs-and-their-reach.md`, and `notes/proof-retrospective.md`, each correction
 dated and citing its source; PR #1276 had already corrected `script/verify`'s header. Risk 2's
 status and colour are unchanged, because §216 leaves them with calef. The line counts below are this
@@ -16,7 +16,7 @@ block's 2026-09-20 measurement; the corrections carry the 2026-09-25 re-measure 
 15,966 in files calling `asm!`, eight harnesses). *(Number provisional until the merge queue lands it.)* Promoted from the proposal `the-unreachable-kernel-claim-is-three-weeks-stale`, filed 2026-09-20, on calef's instruction of 2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own, unedited except for this paragraph and one bold lead-in the prose ratchet refused: the argument is its author's and promotion is not the moment to improve it. Raised by the `maintainer/verus-versus-kani` lane, which was briefed
 on the claim and found it expired before it found anything else.
 
-The gate was DECISION until §216 answered it on 2026-09-25. Its reasoning, as proposed: `design/fatal-risks.md` is an architect's file and risk 2's text is theirs to amend;
+The gate was DECISION until §216 answered it on 2026-09-25. Its reasoning, as proposed: `design/fatal-risks/README.md` is an architect's file and risk 2's text is theirs to amend;
 AGENTS.md puts the falsification list outside a lane's reach, and the edit to it by the lane for
 milestone 64 (enough `std` to run somebody else's crate) is recorded as an exception rather than a
 precedent. `notes/proof-retrospective.md` is an ordinary
@@ -25,7 +25,7 @@ the reader meets a tree that disagrees with itself.
 
 ## The claim
 
-`design/fatal-risks.md` risk 2 (the proofs prove trivia, and the real bugs live where Kani cannot
+`design/fatal-risks/README.md` risk 2 (the proofs prove trivia, and the real bugs live where Kani cannot
 reach), verbatim:
 
 > The cause is one line of `script/verify`'s own header, verified rather than inferred:

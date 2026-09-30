@@ -276,6 +276,45 @@ for tgt in aarch64-unknown-none-softfloat riscv64imac-unknown-none-elf; do
     cargo clippy -p kernel --features watchdog_probe --target "$tgt" --all-targets -- -D warnings
 done
 
+# The pre-push hook's contract with this script, checked (2026-09-29). `.githooks/pre-push` runs
+# `script/fmt --check` then `script/lint --clippy` before any push leaves a worktree, and every
+# part of that line can rot silently: a script the hook names can be renamed, and the hook's own
+# `[ -x ... ]` tolerance then exits 0 and the gate stops gating with no signal anywhere; or a flag
+# can drift out of this parser, and the hook falls through to this full run, slower and unnoticed.
+# This block sits before the `--clippy` exit on purpose, so the hook's own invocation proves the
+# contract at every push. It may look like it breaks old branches, whose trees lack the hook, but
+# a branch runs the lint it contains: only a tree with a current lint executes this, and a current
+# lint implies the hook. Deleting the hook is therefore a deliberate act that fails here until
+# this check goes with it, which is the sentence a pull request deleting a gate should have to
+# write.
+lint_root="$(git rev-parse --show-toplevel)"
+[ -x "$lint_root/.githooks/pre-push" ] || {
+    echo "lint: .githooks/pre-push is missing or not executable, so the pre-push gate is gone" >&2
+    exit 1
+}
+for hook_script in $(grep -oE 'script/[a-z0-9_-]+' "$lint_root/.githooks/pre-push" | sort -u); do
+    [ -x "$lint_root/$hook_script" ] || {
+        echo "lint: the pre-push hook calls $hook_script, which does not exist here; pushes would skip it silently" >&2
+        exit 1
+    }
+done
+for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pre-push" | grep -oE '\--[a-z-]+' | sort -u); do
+    grep -q -- "\"$hook_flag\"" "$0" || {
+        echo "lint: the pre-push hook passes $hook_flag to this script, which no longer knows it; the hook falls through to the full run unnoticed" >&2
+        exit 1
+    }
+done
+
+# `--clippy`: stop after the last clippy pass. `.githooks/pre-push` calls this so the clippy gate
+# has exactly one copy, here, and the hook cannot drift from it. Added 2026-09-29 after lane
+# branches kept reaching CI with clippy failures a local gate would have caught (#1424's stale
+# lints; #1442, where a push left before lint was read): the cheap half of this script belongs
+# before the push, and everything after this point still runs in full here and in CI.
+if [ "${1:-}" = "--clippy" ]; then
+    echo "==> clippy-only mode (pre-push); the rest of lint still runs before any report or merge"
+    exit 0
+fi
+
 # Every `unsafe fn` states its contract in a `# Safety` section (milestone 112).
 #
 # **Read what this does and does not claim, because the milestone it comes from is about exactly
@@ -3206,6 +3245,13 @@ PINNED = {
     # (milestone 601 (the region table prints its peak)); loom has nothing to interleave in a count.
     ("RegionTable", "len", "&self"),
     ("RegionTable", "is_empty", "&self"),
+    # Milestone 126 (the `procps` package): what a region was spent on, for `MemoryRegion::USAGE`
+    # (DECISIONS §225 (`free` sees the machine and your share)). It cannot be the read half of a
+    # reclaim: it reports counts no decision in the crate or the kernel reads, never whether a
+    # region is pinned, childless or claimable. The two enums are its selector.
+    ("-", "ObjectKind", "enum"),
+    ("-", "PageUse", "enum"),
+    ("RegionTable", "spent", "&self"),
     ("RegionTable", "insert_root", "&mut self"),
     ("RegionTable", "split", "&mut self"),
     ("RegionTable", "retype_page", "&mut self"),

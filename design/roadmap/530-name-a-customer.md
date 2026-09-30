@@ -25,7 +25,7 @@ this is the principle working rather than failing: a customer with a real deadli
 early, which is exactly what the principle exists to surface.
 
 **But a ranking function with nothing to rank stops ranking.** The tie now breaks toward
-`design/fatal-risks.md`, which the file itself calls a stand-in rather than a replacement. Ten weeks
+`design/fatal-risks/README.md`, which the file itself calls a stand-in rather than a replacement. Ten weeks
 on, the visible effect is real: this project is very good at the work that can be justified without a
 user, and the roadmap has grown to 515 milestones.
 
@@ -74,7 +74,7 @@ DECISIONS §157 (a trivial install is a web page, a USB drive and packages).
 
 **So the ranking function is not idling through neglect.** It is waiting on a gate calef already
 closed, and writing that down converts a gap into a gate: a reader who finds the customer path empty
-now finds the reason beside it, and `design/fatal-risks.md` doing the ranking meanwhile is the
+now finds the reason beside it, and `design/fatal-risks/README.md` doing the ranking meanwhile is the
 designed behaviour rather than a drift.
 
 **The candidate that came closest was refused for the reason that matters.** A measurement appliance

@@ -265,7 +265,7 @@ paths that get more expensive under load, which is the attribution a risk 4 verd
 **What it is for.** The five boots of 2026-09-16 established the curve's shape and showed that
 `tasks=4` was not yet a number. This evening produces the first sweep whose every point is a
 number, with the two jobs that block deepest in the kernel in the mix. **Its result is what
-`design/fatal-risks.md`'s risk 4 gets a verdict from**, so the procedure asks for more than the
+`design/fatal-risks/README.md`'s risk 4 gets a verdict from**, so the procedure asks for more than the
 last one did.
 
 Everything about the card, the console and U-Boot is `notes/bench-runbook.md`'s,
@@ -357,13 +357,13 @@ grep -ah '^job-mix-kind: tasks=1 ' jobmix-boot1.log     # and what they cost alo
 
 ### 7. What the answer means for risk 4
 
-| What the medians show | Reading for `design/fatal-risks.md` risk 4 |
+| What the medians show | Reading for `design/fatal-risks/README.md` risk 4 |
 |---|---|
 | rises to the core count, then flat or rising through 32, every point within 10% across boots | **no architectural per-crossing cost visible at this scale on this silicon**; the risk's decisive experiment ran and the defence held, within the caveats in the Warton section above |
 | a knee followed by a **decline**, repeatable across boots | a cost exists and grows with load; the `job-mix-kind:` lines say which path. Milestone 188 (the IPC fastpath) is the follow-on if it is `round_trip` |
 | points still wider than 10% across boots | not a verdict; record the spread and say which point failed |
 
-**Who writes the verdict.** The risk's entry in `design/fatal-risks.md` is edited from these numbers
+**Who writes the verdict.** The risk's entry in `design/fatal-risks/README.md` is edited from these numbers
 by whoever holds that file, not by a lane and not from QEMU.
 
 ### 8. Record it

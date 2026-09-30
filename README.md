@@ -108,7 +108,7 @@ today's definitions to old commits.
 
 - [notes/README.md](notes/README.md): every note, indexed by the question it answers.
 - [notes/reading-assembly.md](notes/reading-assembly.md) and [notes/registers.md](notes/registers.md): start here if the code looks like noise.
-- [design/fatal-risks.md](design/fatal-risks.md): the claims that, if false, mean the project should stop.
+- [design/fatal-risks/README.md](design/fatal-risks/README.md): the claims that, if false, mean the project should stop.
 - [design/journeys/](design/journeys/): end-to-end user stories and the milestones they need.
 
 ### Contribute

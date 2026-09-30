@@ -5,7 +5,7 @@ board, log in, land in `swish` on a terminal worth using, create and edit a file
 VisionFive 2, on the Dell OptiPlex 7050 Micro, and on the Jetson TX1.
 
 **This is not a follow-up to journey 1. It is the experiment journey 1 rehearses.**
-design/fatal-risks.md lists nine things that would kill this project if true, and this journey is the
+design/fatal-risks/README.md lists nine things that would kill this project if true, and this journey is the
 decisive test of two of them at once: risk 9 (the HAL is a fiction and each architecture costs a
 restructure) and most of risk 6 (a capability-confined driver cannot drive real hardware). Journey 1
 proves the software composes. Only this proves the system exists.

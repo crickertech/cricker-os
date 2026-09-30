@@ -176,7 +176,7 @@ edits are marked as such in it, and they are named in the Follow-on below.
   The four identical `DUE: documentation, security` runs between 2026-08-17 and 2026-09-07 are the
   worked example.
 - **Milestone 313.** The security audit both trigger sets said was due, overdue by 112 milestones
-  against a threshold of 15. It sits on `design/fatal-risks.md`'s risk 7 path. It was routed through
+  against a threshold of 15. It sits on `design/fatal-risks/README.md`'s risk 7 path. It was routed through
   a proposal rather than a lane brief because the lens was calef's call and 112 milestones is more
   tree than one lens can hold.
 - **Milestone 427.** The
@@ -193,7 +193,7 @@ edits are marked as such in it, and they are named in the Follow-on below.
 
 ## Index row
 
-`.github/workflows/audit-cadence.yml` is milestone 92's tripwire and sits on `design/fatal-risks.md`
+`.github/workflows/audit-cadence.yml` is milestone 92's tripwire and sits on `design/fatal-risks/README.md`
 risk 7's path; it had never once succeeded, and `script/cadence-check` reported it. The stale path
 was real and four days old (milestone 175 split `user/` on 2026-09-13 and the next scheduled run
 died on `user/Cargo.toml`), but reading the logs rather than the colours inverted the premise this

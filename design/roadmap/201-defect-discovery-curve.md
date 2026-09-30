@@ -9,7 +9,7 @@ needs_person: yes
 ---
 # 201. Is multicore reliability converging? A defect-discovery curve, not a stress run
 
-Minted 2026-08-31 by calef, scoping `design/fatal-risks.md`'s risk 5, which
+Minted 2026-08-31 by calef, scoping `design/fatal-risks/README.md`'s risk 5, which
 its own `BUGS` recorded as unowned. The part that needs no hardware is done (2026-09-24): the seeds
 are re-derived below and the curve has a home and a data format,
 [`notes/multicore-defect-curve.md`](../../notes/multicore-defect-curve.md). The run is what remains.
@@ -167,7 +167,7 @@ this risk names.
 
 ## Index row
 
-Scopes `design/fatal-risks.md`'s risk 5, which its own BUGS recorded as unowned. "Sustained
+Scopes `design/fatal-risks/README.md`'s risk 5, which its own BUGS recorded as unowned. "Sustained
 stress" is a plan, not a test: it can never come back green. Measuring defects found per hour can:
 a flattening curve is evidence, **a linear one is the red result**. **Its original three seeds were
 wrong** (found 2026-09-23): the VisionFive 2 reading was retracted 2026-08-15, before this milestone

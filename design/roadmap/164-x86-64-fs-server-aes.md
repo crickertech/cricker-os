@@ -115,7 +115,7 @@ kernel; what it still cannot do is find a disk, and that is one bounded piece of
 rather than an open-ended port.
 
 Any future x86_64 work needing `fs_server` is likewise no longer blocked on a dependency that will
-not compile, which is what fatal risk 9 (`design/fatal-risks.md`, "The HAL is a fiction, and an
+not compile, which is what fatal risk 9 (`design/fatal-risks/README.md`, "The HAL is a fiction, and an
 architecture costs a restructure rather than a port") named this as a piece of.
 
 ## BUGS

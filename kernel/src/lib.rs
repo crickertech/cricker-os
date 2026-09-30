@@ -61,6 +61,7 @@ mod iommu;
 #[cfg(any(test, feature = "ipc_stack_depth"))]
 mod ipc_stack_depth;
 mod kmem;
+mod machine_statistics;
 mod memory;
 mod panic;
 #[cfg(test)]
@@ -162,6 +163,9 @@ pub mod system_test_access {
     }
     pub mod memory {
         pub use crate::memory::*;
+    }
+    pub mod machine_statistics {
+        pub use crate::machine_statistics::*;
     }
     pub mod memory_region {
         pub use crate::memory_region::*;
@@ -1477,7 +1481,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // Read here, on the line after the `pcie` print, because the gap a bench session has been
         // timing by eye is exactly `pcie` to `hw entropy`: those two lines are adjacent in the
         // transcript, so the wall time between them is what a stopwatch at a serial console
-        // measures, and a person watching one resolves it to about a second. `design/fatal-risks.md`
+        // measures, and a person watching one resolves it to about a second. `design/fatal-risks/README.md`
         // risk 6's third part is *at real speed*, and a bytes-per-second figure worth quoting needs
         // the machine to time itself.
         //
@@ -1493,7 +1497,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         let entropy_step_start = arch::timer::now();
 
         // **A real, non-virtio device, driven by a confined userspace process** (milestone 159,
-        // design/roadmap/159-jh7110-trng-driver.md; fatal risk 6 in design/fatal-risks.md). The
+        // design/roadmap/159-jh7110-trng-driver.md; fatal risk 6 in design/fatal-risks/README.md). The
         // JH7110's TRNG is a register block on the `SoC`'s own fabric: no transport to negotiate,
         // no queue, no DMA. The kernel's whole part is the two lines below (ask the device tree
         // whether the device exists, then hand a userspace program one page of its registers and
