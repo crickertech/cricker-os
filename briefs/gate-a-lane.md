@@ -60,6 +60,25 @@ wrong or the check is being pedantic.
 One number glossed once per file covers every later bare mention of that number in the same file.
 You do not need to gloss every occurrence, only the first.
 
+## The follow-through contract: PENDING at dispatch, DONE when executed
+
+Gating a lane's work ends in a push, a ready flip and an auto-merge request, and on 2026-09-29
+four of those endings sat unexecuted for one to two hours each because they lived in the session's
+memory (see [notes/coe-2026-09-30-lane-follow-through.md](../notes/coe-2026-09-30-lane-follow-through.md)).
+The contract, binding from dispatch time:
+
+- **Every dispatch writes a PENDING file** beside its lane log, named for the lane, holding the
+  exact commands this brief's gates precede: the push (with `--force-with-lease` for a rebase),
+  `gh pr ready`, `gh pr merge --auto`. At dispatch time, not when the lane reports.
+- **Executing them flips it to DONE.** A PENDING file that exists is work owed. Answer no board
+  question while one sits unexecuted, unless you defer it out loud with a reason.
+- **Tail the log sixty seconds after dispatch.** A connection error or a permission rejection
+  means the lane never started: redispatch, and record the death in the PENDING file. A dead
+  dispatch looks identical to a busy one otherwise.
+- **Setup ends in dispatch.** Creating the worktree, claim commit and draft pull request is one
+  act that is not finished until the lane is running. A claim commit with no lane and no DONE
+  marker is a stalled claim; raise it, do not pass it.
+
 ## Heavy gates go to CI, not here
 
 Do not run `script/verify` or `script/test` (or anything else that starts QEMU) as part of this

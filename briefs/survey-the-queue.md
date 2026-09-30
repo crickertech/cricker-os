@@ -12,6 +12,10 @@ This is read-only and its whole output is your final message.
 - **Is it `BLOCKED` only by the `needs-architect` label**, which is a deliberate hold rather than a
   problem, and must be reported as such rather than as a failure.
 
+- **Is the session's own ledger clean**: every dispatched lane has either a DONE marker or a live
+  process, and no PENDING file sits unexecuted. A claim commit with no lane behind it is a stalled
+  claim, and this survey names it rather than passing it.
+
 ## The traps
 
 - **`BLOCKED` with no failing check usually means checks are still running.** Count the checks with
@@ -21,6 +25,10 @@ This is read-only and its whole output is your final message.
   `gh run list --event merge_group` before claiming anything is idle.
 - **A pull request absent from the default listing may have merged**, not vanished. Confirm with
   `--state all` before reporting it as gone.
+- **A lane log that ends in a connection error or a permission rejection is a dead dispatch, not
+  a running lane.** The dispatch looked successful and produced nothing. Redispatch it and count
+  the death, or hand it to whoever owns the dispatch
+  ([notes/coe-2026-09-30-lane-follow-through.md](../notes/coe-2026-09-30-lane-follow-through.md)).
 
 ## What to report
 
