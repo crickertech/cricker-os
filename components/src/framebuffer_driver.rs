@@ -52,7 +52,8 @@
 //!   store-heavy guest code runs ~3.8x slower per instruction than arithmetic
 //!   (`notes/benchmarks/icount-tick-scales.md`), is most of this copy's cost. A `u64` is the widest
 //!   store the `x86_64` target can legalise (`-mmx,-sse,+soft-float`), so the remaining levers are a
-//!   write-combining PAT entry (the kernel does not program one, milestone 243's `BUGS`) or a
+//!   write-combining PAT entry (the kernel does not program one, milestone 243 (a machine with no
+//!   serial port has no way to say anything)'s `BUGS`) or a
 //!   scroll-aware flush contract, both outside this driver. Not measured on silicon.
 //! - **One client, no arbitration.** Whoever holds the display endpoint draws; that is the
 //!   contract's rung-one shape and the compositor is what multiplexes it.

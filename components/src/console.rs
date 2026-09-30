@@ -36,8 +36,10 @@
 //! writes are staged into the out page and one `OP_WRITE` hands the whole batch to the terminal
 //! when the timer's deadline ends the next receive. The mechanism is the one this module's old
 //! `BUGS` entry said was missing: a notification bound to this thread (`recv_bound`, milestone
-//! 151) ending the one wait point on either a client's message or the deadline (milestone 106's
-//! `Timer::ARM`), plus a timer and notification slot beside the screen endpoint. Before it, every
+//! 151 (notification objects: async multiplexing without wait-any)) ending the one wait point on
+//! either a client's message or the deadline (milestone 106 (a wait that ends on either the
+//! interrupt or the deadline)'s `Timer::ARM`), plus a timer and notification slot beside the
+//! screen endpoint. Before it, every
 //! write blocked this one thread on a full paint+flush, which under QEMU's TCG was most of the
 //! `x86_64` swish leg's 321 s (`notes/benchmarks/icount-tick-scales.md`): the leg types a line, and
 //! the console painted it several times over, once per write, while the shell waited to be told its
@@ -171,8 +173,8 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
     };
     loop {
         // Block until a client hands us a length, or, when a batch is waiting on the screen,
-        // until the window's deadline ends the wait instead (milestone 151's bound receive; on a
-        // thread with nothing bound it is an ordinary receive, which is the fallback's path).
+        // until the window's deadline ends the wait instead (milestone 151 (notification objects)'s
+        // bound receive; on a thread with nothing bound it is an ordinary receive, which is the fallback's path).
         let len = match if screen {
             recv_bound(REQUEST)
         } else {

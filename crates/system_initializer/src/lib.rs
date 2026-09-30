@@ -1497,7 +1497,8 @@ pub fn boot(
         //
         // **The batching pair** (the paint lane, 2026-09-30): a notification and a timer, retyped
         // from this boot's own untyped, the notification bound to the console's thread before it
-        // starts (milestone 151's `BIND`: a spawner holds the child's `ThreadControlBlock` in
+        // starts (milestone 151 (notification objects: async multiplexing without wait-any)'s
+        // `BIND`: a spawner holds the child's `ThreadControlBlock` in
         // exactly this window, between `build_child` and `start_child`, and a running thread cannot
         // bind itself). This is what lets the console paint the screen once per window instead of
         // once per write (`components/src/console.rs`'s own module doc holds the why); the console
