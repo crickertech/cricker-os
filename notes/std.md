@@ -149,13 +149,11 @@ visible and self-healing at the next call. A lane whose build is already in flig
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
 **Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` was
-corrected in milestone 606 (a directory walk costs what it does on Linux), recorded in
-`xtask::std_exerciser`'s doc comment. The two
+corrected in milestone 606 (a directory walk costs what it does on Linux). The two
 Three sites of evidence landed in one evening (2026-09-30). Main-soak's `std-aborts` aborted on
 dep-info naming another worktree's farm. The 1377 lane built std from the unpatched sysroot twice
-under `CARGO_TARGET_DIR=$PWD/target`. One `rustc --print sysroot` in a fresh worktree resolved to
-another worktree's farm with nothing set (16:34 UTC, not reproduced since). That closed the
-argument for the `helpers/` scripts and `script/crypto-probes` too.
+under `CARGO_TARGET_DIR=$PWD/target`. A fresh worktree's `rustc --print sysroot` named
+another worktree's farm, nothing set (16:34 UTC; not reproduced since).
 A path this checkout computed and checked is the only selector with one owner.
 
 `std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
