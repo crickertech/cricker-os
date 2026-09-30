@@ -22,9 +22,10 @@ Three fixes, one per cost: the engine reports a scroll as movement and the paint
 already holds (`video_terminal::Damage`, `display_terminal`'s scroll fast path); `Aperture::copy_wide`
 stages pixel pairs into qword stores, 158,928 against 317,856 stores per full-surface flush, with a
 u64 the ceiling on a `-mmx,-sse` target; and the console batches screen writes into one paint per
-20 ms window over a bound notification (milestone 151) and a timer (milestone 106), so an ack
-promises the wire and the screen within one window. The console's ack meaning changed; the change
-is recorded in `components/src/console.rs`'s module doc rather than slipped in.
+20 ms window over a bound notification (milestone 151 (notification objects: async multiplexing
+without wait-any)) and a timer (milestone 106 (a wait that ends on either the interrupt or the
+deadline)), so an ack promises the wire and the screen within one window. The console's ack meaning
+changed; the change is recorded in `components/src/console.rs`'s module doc rather than slipped in.
 
 The proof owed, and not yet paid: the x86_64 leg's line-time distribution before and after
 (`NIFE_SHOW_LINE_TIMES` exists for exactly this), `SWISH_CHECK_X86_LINE_SECS` shrunk or deleted with
