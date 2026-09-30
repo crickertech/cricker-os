@@ -115,7 +115,8 @@ jobs:
       # #1416 was flagged for `dependency: xtask/Cargo.toml: toml`, a dependency #1405 added to
       # `main` after #1416 branched: the payload's cached `base.sha` still pointed one commit
       # behind #1405's own merge, so the diff read #1405's addition as though #1416 had made it.
-      # `ci.yml`'s six scope-check steps read the same field the same way and share the same
+      # `ci.yml`'s nine scope-check steps (four build jobs since the 2026-09-30 split, plus cpu
+      # matrix, watchdog, bench, fuzz, coverage) read the same field the same way and share the same
       # exposure; fixed there too, in the same pass, with the same script (see its own header).
       #
       # `helpers/scope-merge-base.sh` is the fix: it takes the merge base of HEAD against
