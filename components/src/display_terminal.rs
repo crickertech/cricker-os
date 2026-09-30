@@ -190,6 +190,44 @@ fn paint(
     (x0, y0, w, h)
 }
 
+/// **Move the picture up `px` pixel rows without rendering anything**: the pixel half of a scroll
+/// (`video_terminal::Damage`'s invariant; the paint lane, 2026-09-30).
+///
+/// Every unchanged row of a scrolled screen is pixels this process already holds, so re-rendering
+/// them through `Vt::pixel` (a divide, a cell fetch and a glyph lookup per pixel, times 317,856
+/// pixels on the 924x344 scanout) bought nothing, and under TCG, where the x86_64 swish leg paid
+/// ~3.5x per store, it was most of that leg's 321 s (`notes/benchmarks/icount-tick-scales.md`).
+/// A row-to-row move of words the surface already contains is the whole work.
+///
+/// **Qwords when the stride allows, words when it does not.** A `u64` store halves the store
+/// count, and both sides of every copy stay 8-aligned exactly when the stride is a multiple of
+/// eight (both offsets are whole rows down); a stride that is merely 4-aligned would ask for
+/// unaligned volatile `u64`s, so that case keeps `u32`s. The scanout's stride (3696) takes the
+/// wide path; an odd-cell window in [`MODE_WINDOW`] can land on the narrow one.
+fn scroll_surface(surface: &MappedWindow, stride: u32, w: u32, h: u32, px: u32) {
+    // Destination rows run top-down and are always above their sources, so nothing is overwritten
+    // before it is read: the same order `copy_within` uses for the cells this mirrors.
+    for y in 0..h - px {
+        let (dst, src) = (y as u64 * stride as u64, (y + px) as u64 * stride as u64);
+        if stride % 8 == 0 {
+            let qwords = w as u64 * 4 / 8;
+            for q in 0..qwords {
+                surface.w64(dst + q * 8, surface.r64(src + q * 8));
+            }
+            // A width that is not a whole number of qwords (an odd number of pixels) leaves one
+            // word on the end.
+            let tail = dst + qwords * 8;
+            if w % 2 == 1 {
+                surface.w32(tail, surface.r32(src + qwords * 8));
+            }
+        } else {
+            for x in 0..w as u64 {
+                surface.w32(dst + x * 4, surface.r32(src + x * 4));
+            }
+        }
+    }
+}
+
 /// A whole terminal's worth of state that the two wirings differ on. Small, and gathered here so the
 /// serving loop below reads the same in both.
 struct Wiring {
@@ -220,11 +258,21 @@ impl Wiring {
     /// its sequence, and rings `COMMIT`, which is the request `window` made. Neither contract needed
     /// a change to carry text, because both carry pixels.
     ///
+    /// **A scroll moves pixels instead of rendering them** (the paint lane, 2026-09-30). The
+    /// engine's damage carries how many rows scrolled; [`scroll_surface`] shifts the rows this
+    /// process already painted and only the reported rectangle is rendered. The rectangle handed
+    /// onward (`FLUSH`, the control page) is then the whole surface, because on the screen every
+    /// row did change: it moved.
+    ///
     /// `ring` is false for a keystroke: see the module note on the deadlock.
     fn present(&mut self, ring: bool) {
         let Some(damage) = term().take_damage() else {
             return;
         };
+        // For the control page in [`MODE_WINDOW`], a scroll is whole-grid damage in the old
+        // vocabulary: the compositor re-scans whatever rectangle is named, and after a move that
+        // rectangle has to be everything.
+        let cells = damage.repaint_rect(term().cols(), term().rows());
         // **The first frame paints the whole surface, not just the grid.**
         //
         // A 7-pixel cell does not divide a 128-pixel scanout, so a full-width terminal is 18
@@ -233,10 +281,7 @@ impl Wiring {
         // total function), but no cell ever *damages* them, so without this they would keep
         // whatever the frame held at boot: a strip of noise beside the text that looks like a
         // rendering bug for a day. The grid can never write there afterwards, so once is enough.
-        let (x, y, w, h) = if self.painted_all {
-            let (x, y, w, h) = damage.to_pixels();
-            paint(&self.window, x, y, w, h, self.stride)
-        } else {
+        let (x, y, w, h) = if !self.painted_all {
             self.painted_all = true;
             paint(
                 &self.window,
@@ -246,6 +291,21 @@ impl Wiring {
                 self.surface.1,
                 self.stride,
             )
+        } else if damage.scrolled > 0 {
+            scroll_surface(
+                &self.window,
+                self.stride,
+                self.surface.0,
+                self.surface.1,
+                damage.scrolled * bitmap_font::GLYPH_H,
+            );
+            let (x, y, w, h) = damage.rect.to_pixels();
+            paint(&self.window, x, y, w, h, self.stride);
+            // Every row on the screen moved, whatever was rendered.
+            (0, 0, self.surface.0, self.surface.1)
+        } else {
+            let (x, y, w, h) = damage.rect.to_pixels();
+            paint(&self.window, x, y, w, h, self.stride)
         };
 
         // The pixels must be visible to whoever reads them next: another address space, and through
@@ -278,8 +338,8 @@ impl Wiring {
             self.pending = None;
         }
         let d = match self.pending {
-            Some(p) => p.union(damage),
-            None => damage,
+            Some(p) => p.union(cells),
+            None => cells,
         };
         self.pending = Some(d);
         // The rectangle published is the one painted, which on the first frame is the whole
