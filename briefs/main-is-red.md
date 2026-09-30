@@ -24,10 +24,12 @@ teaches the next session to ignore the procedure.
   queue.
 
 And the fourth case, which is the opposite mistake: green does not mean healthy. `ci.yml` skips
-`build + test`'s steps for a commit that touches only `notes/`, `design/` or a root `*.md`, and the
-check still posts `success`. On 2026-09-23 that hid a broken `crates/documentation` test for hours.
-So if a lane reports a failure that CI says did not happen, believe the lane and reproduce locally
-(`cargo test -p documentation`) before concluding the trunk is fine.
+the four build jobs' steps (`test`, `swish-check`, `swish-check-graphical`, `boot-check`; one
+chained job until the 2026-09-30 split) for a commit that touches only `notes/`, `design/` or a
+root `*.md`, and the checks still post `success`. On 2026-09-23 that hid a broken
+`crates/documentation` test for hours. So if a lane reports a failure that CI says did not happen,
+believe the lane and reproduce locally (`cargo test -p documentation`) before concluding the trunk
+is fine.
 
 ## Know that a watcher will fight you, and check it first
 
