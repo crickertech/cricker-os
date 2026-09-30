@@ -96,7 +96,11 @@ const TIMETABLE_PAGE_VA: u64 = 0x0600_0000;
 /// `timetable::contract::STAGING_BYTES` buffer, 16 pages), its `timetable::contract::STACK_PAGES`
 /// stack and its tables. Measured against the aarch64 debug build on 2026-09-26 at 224 with room to
 /// spare, before the buffer; see this program's own test for what fails if it is short.
-const TIMETABLE_REGION_PAGES: u64 = 240;
+///
+/// **Raised 240 -> 256 on 2026-09-30** for the stack's 32 -> 48 (see `timetable::contract`), whose
+/// halves are both here: the region carries the stack it grew and the buffer beside it. The
+/// constraint below still holds with 128 to spare.
+const TIMETABLE_REGION_PAGES: u64 = 256;
 /// The budget the timetable fires jobs from: two 48-page instances and the loader's scratch.
 const JOB_BUDGET_PAGES: u64 = 128;
 // What this process splits must fit what `login` gives it, with the two endpoints' pages beside.

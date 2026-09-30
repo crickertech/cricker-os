@@ -86,7 +86,17 @@ pub const ARG_REGISTRATION_PAGE: usize = 2;
 
 /// Stack pages a timetable needs. Its working set is the plan, a kilobyte per entry, and a
 /// replacement holds two plans at once; eight pages died with a stack overflow in 2026-08.
-pub const STACK_PAGES: u64 = 32;
+///
+/// **Raised 32 -> 48 on 2026-09-30**, when the store-mode registration chain overflowed 32 pages on
+/// both ISAs after `main` grew `grant_plan`'s planning path underneath this branch (milestone 205's
+/// designate and stage planning). The debug-build frames, measured with `-Z emit-stack-sizes`:
+/// `replace_if_asked` 48.0 KiB, `Registry::register` 21.2 KiB, `_start` 20.0 KiB,
+/// `plan_against_with` 13.4 KiB, the resolve closures 11.2 and 10.0 KiB, `register_installed`
+/// 9.8 KiB, `admit_installed` 5.6 KiB, and the store's `resolve_installed` -> `load_current` ->
+/// `store::load` another 11.0 KiB, which chains to about 125 KiB against the 128 KiB 32 pages gave.
+/// 48 pages is that with roughly half again; the growth was `main`'s, not this crate's, and the
+/// bound is a size rather than an assertion, so raising it is the fix rather than a workaround.
+pub const STACK_PAGES: u64 = 48;
 
 /// Exit codes, the verdict word on [`OUT_SLOT`] or the page's exit word. A clean finish is `0`.
 ///

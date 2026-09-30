@@ -38,7 +38,7 @@
 //! **It wants a bigger stack than a small program does**, and a spawn site has to say so: a
 //! `grant_plan::Endowment` is about a kilobyte (mostly the name set a directory grant can carry) and
 //! the plan holds one per entry, so the working set is tens of kilobytes rather than hundreds of
-//! bytes. `system_tests/src/user/timetable_tests.rs` maps 32 pages and says why; eight died with a data
+//! bytes. `system_tests/src/user/timetable_tests.rs` maps 48 pages and says why; eight died with a data
 //! abort whose faulting address was the stack pointer, which is what a stack overflow looks like
 //! from the kernel side and reads like a wild pointer if you have not seen it before.
 //!
