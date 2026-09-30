@@ -58,6 +58,8 @@ calling `semihosting::exit` there panics forever. Milestone 81 (an HVF leg) meas
   The bump workflow rewrites only `# toolchain:` when an A/B of the two nightlies on one runner
   moves no row by 0.5%, and none by 2% since the last save. The stamp now means "last proven valid
   for".
+- A tick is not an instruction: `instructions = ticks * 1e9 / cntfrq` per leg, and raw ticks never
+  compare across architectures ([icount-tick-scales](benchmarks/icount-tick-scales.md)).
 - An unexplained movement is investigated, never re-saved away. The 2026-08-15 riscv64 `map_new`
   +15.6% was one command from being blessed into the floor. See the
   [`map_new` episode](benchmarks/riscv-map-new-and-the-rfence-probe.md).
@@ -284,6 +286,7 @@ The third column lists the dated entries each holds, so a citation of "notes/ben
 | [drift-decomposition](benchmarks/drift-decomposition.md) | the shipping-feature rule | milestone 300 (decompose the icount baseline drift) |
 | [baseline-save-audit](benchmarks/baseline-save-audit.md) | drift accumulates | 2026-09-15 audit |
 | [counter-frequency-and-calibration](benchmarks/counter-frequency-and-calibration.md) | rates come from the machine | 2026-09-21 (two) |
+| [icount-tick-scales](benchmarks/icount-tick-scales.md) | a tick is not an instruction | 2026-09-30 |
 | [rfence-self-row](benchmarks/rfence-self-row.md) | the open `rfence_self` row | 2026-09-21; 2026-09-23 |
 | [preemption-in-the-window](benchmarks/preemption-in-the-window.md) | the masked `map_new` window | 2026-09-21 (three) |
 

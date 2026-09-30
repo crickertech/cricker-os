@@ -10,6 +10,10 @@
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
 # PATH is not the pinned one, precisely because that is when a baseline comparison stops being
 # apples to apples.
+# A tick is not an instruction: one guest instruction is one virtual nanosecond under -icount
+# shift=0 and this counter ticks at its own rate (instructions = ticks * 1e9 / cntfrq), so raw
+# ticks do not compare across architectures; notes/benchmarks/icount-tick-scales.md holds the
+# per-architecture scales and the corrected cross-arch table.
              # Updating this file is a statement that a performance change is intended and
              # understood; do it in the commit that causes the change. Checked by --check, a coarse
              # 10% tripwire (icount counts drift across builds; see notes/benchmarks.md).
