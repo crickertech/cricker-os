@@ -69,7 +69,7 @@ pub enum Object {
     /// than arranged for them. The address is the identity: a process can never forge one, because
     /// the only ways to get a `PageFrame` are to retype it or be handed it, and both keep the object.
     ///
-    /// **`count` is the run's length in pages, at least 1** (DECISIONS §102, 2026-08-20): a `PageFrame`
+    /// **`count` is the run's length in pages, at least 1** (DECISIONS §102 (a Frame names a run of pages), 2026-08-20): a `PageFrame`
     /// names what the hardware names. A DMA region or a scanout is contiguous in physics, in the
     /// address space, and in the IOMMU domain that confines it, so one capability names the whole
     /// run instead of one per page: `PageFrame::MAP` maps all `count` pages with one call, and
@@ -183,13 +183,13 @@ pub type Cap = capability::Cap<Object>;
 // variant, `PageFrame` is that variant, and it grew by a word. Nothing measured it, so §102's own
 // figure went stale inside §102. That is what this assertion is for; it is the fact, not a target.
 //
-// Twenty-four slots is 768 bytes a capability table rather than 408, so the option §102 priced at
+// Thirty-two slots is 1,024 bytes a capability table, so the option §102 priced at
 // 12 KiB a thread for 512 slots would now be 16 KiB. The refusal does not change (the decision's
 // argument was never really about the bytes), but the number a future reader quotes should be the
 // one the compiler agrees with. Update these two and re-read §102 when they fire.
 //
-// **Sixteen when this note was written, seventeen after milestone 49, twenty-four now**
-// (milestone 230 raised it; see that constant's own doc, below). The count changed; the per-slot
+// **Sixteen when this note was written, seventeen after milestone 49 (users, login, and attribution), twenty-four after milestone
+// 230, thirty-two now** (see that constant's own doc, below). The count changed; the per-slot
 // arithmetic this note exists to pin did not.
 //
 // **And the other half of §102's arithmetic moved too**: `MAX_THREADS` was raised from 128 to 256
@@ -199,7 +199,7 @@ pub type Cap = capability::Cap<Object>;
 const _: () = assert!(core::mem::size_of::<Object>() == 24);
 const _: () = assert!(core::mem::size_of::<Cap>() == 32);
 
-/// A thread's capability table: 24 slots, fixed at the type (milestone 14 phase B.1). The size
+/// A thread's capability table: [`CAPABILITY_TABLE_SLOTS`] slots, fixed at the type (milestone 14 (kernel objects from untyped) phase B.1). The size
 /// was already the de-facto limit (`CapabilityTable::empty()` made 16); now it is part of the
 /// type and creating a capability table cannot allocate. Growing it is a one-number change here,
 /// paid in TCB size.
@@ -257,7 +257,33 @@ const _: () = assert!(core::mem::size_of::<Cap>() == 32);
 /// also holds the network stack's client endpoint for life, so the peak is 23. The next capability
 /// held across the login block meets the wall; this constant's first paragraph names the two
 /// honest candidates for buying one back first, and milestone 590's block proposes that as work.
-pub const CAPABILITY_TABLE_SLOTS: usize = 24;
+///
+/// **Raised 24 -> 32** (calef, 2026-09-27, UTC). The wall this doc predicted was met from a second
+/// direction before the peak reached it: milestone 126 (the `procps` package) needed a boot slot
+/// for the machine statistics page, and the GPU and keyboard grants of milestone 600 (the graphical terminal stack is built in userspace) had named every
+/// progenitor boot slot below the fault slot, some used only on some boots, so no slot was free on
+/// every boot. calef chose thirty-two over twenty-five so the next boot grant does not meet the
+/// same wall a week later. The cost is 256 bytes a thread, in a TCB page that had 2,944 idle
+/// (`crate::thread`'s page-fit assertion is the check), and no static memory at all. The fault
+/// slot, derived, moves from 23 to 31; the machine page takes 23. The headroom account is
+/// [`CAPABILITY_TABLE_PEAK_MEASURED`]'s.
+pub const CAPABILITY_TABLE_SLOTS: usize = 32;
+
+// **The free-slot word is a `u32`, so thirty-two is also the ceiling the type allows** (milestone
+// 126 (the `procps` package), calef's ruling on #1360, 2026-09-27, UTC). `capability::CapabilityTable`
+// asserts this for every size it is built at; it is repeated here because this line is where the
+// next raise will be typed, and the message should meet that person here rather than inside a
+// const evaluation in another crate. Raising past it is widening that word to a `u64`, which the
+// constant's doc on `capability::MAX_SLOTS` prices.
+const _: () = assert!(
+    CAPABILITY_TABLE_SLOTS <= capability::MAX_SLOTS,
+    "the capability table's free-slot bitmap is one u32; widen it before raising the slot count"
+);
+// And the word cost nothing: it sits in the four bytes of padding after `used` and `peak`, so the
+// table is 1,032 bytes with the bitmap and was 1,032 without it (32 slots of 32 bytes, two `u16`s,
+// rounded to eight). If this fires, the layout moved and `crate::thread`'s page-fit check is the
+// next thing to read.
+const _: () = assert!(core::mem::size_of::<CapabilityTable>() == 1032);
 pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_SLOTS>;
 
 /// **What a real interactive boot actually reaches**, and the number the three slots of headroom
@@ -306,6 +332,14 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// the endpoint does. Found the same way, by `script/swish-check` failing on this sentence on the
 /// first run after the wiring. **Still not raised**: twenty-four minus twenty-three is one, and
 /// the next permanent capability should buy a slot back rather than spend the last one.
+///
+/// **Still twenty-three at thirty-two slots** (2026-09-27, UTC), measured on `script/swish-check`'s
+/// aarch64 leg the day calef raised [`CAPABILITY_TABLE_SLOTS`] to thirty-two. The raise was for a
+/// *boot slot*, not for the peak: the machine statistics page arrives at slot 23 and the
+/// progenitor hands it to the shell before the login block, so it is never held across the peak.
+/// The headroom is now nine rather than one. That is room, and it is not a licence: the next
+/// capability held across the login block still spends one of the nine, and this record still
+/// fails `script/swish-check` the first boot that climbs past it.
 pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 23;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
@@ -531,10 +565,20 @@ pub fn memory_region_cap_rights(region: u64, rights: Rights) -> Cap {
 /// here (a `SPLIT` child inherits its parent's rights; `CAP_INSERT` narrows again), so `GRANT` never
 /// appears anywhere it was not present at the root. Contrast [`memory_region_cap`], the `WRITE`-only
 /// spend-only budget a leaf child receives.
+///
+/// **`ENUMERATE` too**, since milestone 126 (the `procps` package) and DECISIONS §225 (`free` sees the machine and your share) part 1.
+/// `MemoryRegion::USAGE` is the first method on this object that consults it, and it answers what
+/// the region was spent on and nothing more. It flows down every `SPLIT` with the rest, so the progenitor can hand a job budget's
+/// holder a view narrowed to `ENUMERATE` alone, which is `free`'s "yours" line. The audit §114 (`ENUMERATE` extends to the address-space object) asked
+/// for when `ENUMERATE` first reached the address-space object applies here the same way: a holder
+/// that could already spend, split and destroy the region learns nothing new by asking what it spent.
 pub fn memory_region_root_cap(region: u64) -> Cap {
     memory_region_cap_rights(
         region,
-        Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
+        Rights::READ
+            .union(Rights::WRITE)
+            .union(Rights::GRANT)
+            .union(Rights::ENUMERATE),
     )
 }
 

@@ -11,7 +11,7 @@ The two earlier documentation sweeps read names and numbers inside documents the
 against the tree. Neither read the files that point *into* a document.
 
 That gap mattered this week. On 2026-09-23 and 2026-09-24 eight documents were split into a short
-main page plus appendices under §212 (a prose budget): `design/fatal-risks.md`, `design/naming.md`,
+main page plus appendices under §212 (a prose budget): `design/fatal-risks/README.md`, `design/naming.md`,
 `notes/benchmarks.md`, `notes/load-sensitive-assertions.md`, `notes/mutation-testing.md`,
 `notes/stranger-test.md`, `notes/README.md` and `AGENTS.md`. The six with appendix directories are
 cited from 141, 142, 132, 70, 61 and 23 other files. A split moves sections and leaves every inbound
@@ -39,7 +39,7 @@ not look at them.
 - All 37 anchored links resolve.
 - No appendix of the eight documents is orphaned. Each is linked from its parent.
 - Five of the six appendix directories are within the cap. One file was over (finding 4).
-- `design/fatal-risks.md` "vocabulary section" citations still resolve: the section kept its place
+- `design/fatal-risks/README.md` "vocabulary section" citations still resolve: the section kept its place
   under a longer heading.
 - The notes index condensation broke nothing `script/lint` could see, and nothing this sweep found.
 
@@ -103,7 +103,7 @@ on added lines, with the measurement.
 
 ### 6. ACCEPTED: both marked prose-budget exceptions are past their granted counts
 
-`design/fatal-risks.md` was granted 4,235 words on 2026-09-24 and measures 4,440, after a correction
+`design/fatal-risks/README.md` was granted 4,235 words on 2026-09-24 and measures 4,440, after a correction
 to risk 2 landed the same day. `AGENTS.md`'s marker says 6,279 and the file measures 6,292. Raising
 a grant is calef's call and cutting a correction to fit would be worse, so nothing was changed. It
 is recorded in milestone 586 (a prose ratchet in lint)'s block, as a design note: the marker's

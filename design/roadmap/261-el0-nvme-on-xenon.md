@@ -66,7 +66,7 @@ between this tree and risk 6's decisive experiment rather than any missing hardw
   anyways."* So this is a seller's fresh image rather than anyone's data.
 - Cost: nothing, and one boot. No purchase, unlike milestone 87's requirements list.
 
-Done 2026-09-17, per `design/fatal-risks.md` risk 6. Corrected 2026-09-24: this line still read
+Done 2026-09-17, per `design/fatal-risks/README.md` risk 6. Corrected 2026-09-24: this line still read
 "not done" a week later.
 
 ## What a lane builds without any of that

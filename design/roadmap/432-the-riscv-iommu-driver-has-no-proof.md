@@ -98,7 +98,7 @@ its proposal's option 1 is what this milestone built:
   so only code that never calls through it is proved, and `script/lint` check 5b is its gate. Its
   BUGS section records what stays unreached: `init`, `cmd_push`, `take_fault`, the write order in
   `attach`, and the constants against the specification.
-- **Milestone 536.** `design/fatal-risks.md` risk 2's sentence about riscv64 reach is now narrower
+- **Milestone 536.** `design/fatal-risks/README.md` risk 2's sentence about riscv64 reach is now narrower
   than the record says, and that file is calef's. Milestone 536 (two records still say the prover
   cannot see `kernel/src`) already holds the correction of that record.
 

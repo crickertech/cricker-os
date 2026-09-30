@@ -50,7 +50,9 @@
 //! | 35 | 1 | `runtime` | 0 native, 1 std |
 //! | 36 | 1 | option count | at most `grant_plan::MAX_DECLARED_FLAGS` (16) |
 //! | 37 | 16 | option letters | the first *count* are the letters in bit order, the rest 0 |
-//! | 53 | 3 | zero | |
+//! | 53 | 1 | `machine` | 0 or 1 (milestone 126, the machine statistics page) |
+//! | 54 | 1 | `share` | 0 or 1 (milestone 126, a view of the job budget) |
+//! | 55 | 1 | zero | |
 //!
 //! **One manifest has exactly one encoding**, and [`decode`] enforces it: an unknown version, a
 //! value outside its field's range, a nonzero byte where the layout says zero, a descriptor shorter
@@ -69,6 +71,13 @@
 //! words declares (milestone 205's designation half), under the same ruling and before anything
 //! outside the tree had acted on it. `2` kept its meaning, read-only. calef confirmed the ruling
 //! covers these on 2026-09-27 at 15:14Z (UTC), on #1402. The rule above holds from here on.
+//!
+//! **And a third time, in place**, the same day: milestone 126 (the `procps` package) gave
+//! `grant_plan::Manifest` its `machine` and `share` fields after this layout was ratified, and
+//! they take bytes 53 and 54 of the tail. calef ruled on 2026-09-27 (UTC), on #1360, that this
+//! amends version 1 in place too, for the same reason as the `arg` amendment above: nothing outside
+//! the tree had acted on version 1. An old descriptor has zeros there and decodes unchanged, as a
+//! program declaring neither. One zero byte (55) remains, so the next field is likely version 2.
 //!
 //! # EXAMPLES
 //!
@@ -174,9 +183,11 @@ const NETWORK: usize = 34;
 const RUNTIME: usize = 35;
 const FLAG_COUNT: usize = 36;
 const FLAG_LETTERS: usize = 37;
-const TAIL: usize = FLAG_LETTERS + MAX_DECLARED_FLAGS;
+const MACHINE: usize = FLAG_LETTERS + MAX_DECLARED_FLAGS;
+const SHARE: usize = MACHINE + 1;
+const TAIL: usize = SHARE + 1;
 
-const _: () = assert!(TAIL + 3 == DESCRIPTOR_LEN);
+const _: () = assert!(TAIL + 1 == DESCRIPTOR_LEN);
 
 const fn put8(out: &mut [u8; DESCRIPTOR_LEN], at: usize, v: u64) {
     let b = v.to_le_bytes();
@@ -264,6 +275,8 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
     out[CONFIG] = m.config as u8;
     out[ENTROPY] = m.entropy as u8;
     out[NETWORK] = m.network as u8;
+    out[MACHINE] = m.machine as u8;
+    out[SHARE] = m.share as u8;
     out[RUNTIME] = match m.runtime {
         Runtime::Native => 0,
         Runtime::Std => 1,
@@ -403,6 +416,8 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
         config: flag(d, CONFIG)?,
         entropy: flag(d, ENTROPY)?,
         network: flag(d, NETWORK)?,
+        machine: flag(d, MACHINE)?,
+        share: flag(d, SHARE)?,
         runtime,
     })
 }

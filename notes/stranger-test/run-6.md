@@ -115,7 +115,7 @@ own debrief: `README.md`, `rust-toolchain.toml`, `.cargo/config.toml`, `notes/ad
 `notes/capabilities.md`, `CONTRIBUTING.md`, `design/roadmap/README.md` (part), `AGENTS.md` lines 1
 to 140, `notes/program-manifest.md`, `design/decisions/README.md` and
 `158-a-program-is-declared-once.md` (part), `AGENTS.md` again (lines 692 to 851), `design/naming.md`
-(part), `notes/grant-expression.md`, `design/fatal-risks.md`, then source. It went to item 7 of the
+(part), `notes/grant-expression.md`, `design/fatal-risks/README.md`, then source. It went to item 7 of the
 reading order fourth, because that is the page for its task, and used the order as an index, as run
 4 did. `AGENTS.md` was opened, unlike in run 5, and read in two slices.
 
@@ -152,7 +152,7 @@ B4 fails, with six entries:
 | # | result | where it came from |
 |---|---|---|
 | M1 | answered | `notes/capabilities.md`, quoted: the slot indexes a table the process cannot write, *"That is the entire security mechanism"*, no separate check |
-| M2 | absent, for the fourth run in six, and it said so | looked in `notes/capabilities.md`, `notes/grant-expression.md` and `design/fatal-risks.md`; inferred a userspace `net_stack` from test names and said it was inference. *"I never opened a notes/network.md or equivalent - if one exists, I didn't find it."* |
+| M2 | absent, for the fourth run in six, and it said so | looked in `notes/capabilities.md`, `notes/grant-expression.md` and `design/fatal-risks/README.md`; inferred a userspace `net_stack` from test names and said it was inference. *"I never opened a notes/network.md or equivalent - if one exists, I didn't find it."* |
 | M3 | answered | `AGENTS.md` rule 1, with the diff-across-every-file consequence, and `CONTRIBUTING.md`'s restatement |
 | M4 | answered | `design/roadmap/README.md`'s vocabulary table, and that the column is generated from each block and checked |
 | M5 | answered | `CONTRIBUTING.md` and `AGENTS.md` rule 7, and `design/naming.md`'s crate-and-program-share-a-name sentence |

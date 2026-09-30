@@ -86,7 +86,7 @@ echo "==> html: target/llvm-cov/html/index.html"
 # The floor is a floor, not a target: a file at 81% is not "done", and 100% is not the goal
 # (tests must prove something; see CLAUDE.md on filler tests). The gate exists to make a
 # regression loud, so the fix is a deliberate test or a deliberate, recorded exception here.
-floor=80
+floor=85
 # Where the per-file minimum is written for `script/metrics --coverage-min-from`. The aggregate a
 # reader sees on the dashboard cannot move when one file slides from 85% to 81%, so the chart used
 # to plot the comforting number while the gate read a different one. This file is what closes that.

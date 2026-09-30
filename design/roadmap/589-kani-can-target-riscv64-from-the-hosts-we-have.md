@@ -298,7 +298,7 @@ Warm: 45 s, 3 s of it proving. On patagonia a cold build took 244 to 621 s by lo
   2026-09-25 that #2402 is still open with no linked pull request.
 - **Done.** The stub half of containment landed as #1302. Its three riscv64 `satp` proofs run
   only in this job.
-- **Milestone 536.** `design/fatal-risks.md` risk 2 ("Only riscv64 is unreachable, and nobody here
+- **Milestone 536.** `design/fatal-risks/README.md` risk 2 ("Only riscv64 is unreachable, and nobody here
   can change that") and `design/fatal-risks/proofs-and-their-reach.md` say the same false sentence.
   Both are an architect's files; milestone 536 (two records still say the prover cannot see `kernel/src`) is the correction already in flight for that risk's text.
 - **Recorded.** `notes/kernel-proofs/riscv64-with-a-patched-kani.md`'s `BUGS`: the rebase per Kani release, the

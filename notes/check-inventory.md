@@ -195,7 +195,7 @@ Ranked by what a wrong answer costs.
 
 ### 1. The mutation workflow has never produced a result, and fatal risk 3 cites it as though it had
 
-`design/fatal-risks.md`'s third risk (the tests do not test anything, and the quality is illusory)
+`design/fatal-risks/README.md`'s third risk (the tests do not test anything, and the quality is illusory)
 stands at MEASURED, green, on a run from **2026-08-03**: 92.4% of viable mutants killed. Its closing
 line is *"the weekly workflow already publishes the report."*
 
@@ -307,7 +307,7 @@ verdict.
 
 ## What this says about fatal risk 3, without changing its status
 
-The status is `design/fatal-risks.md`'s question and calef's. Two facts belong in front of him
+The status is `design/fatal-risks/README.md`'s question and calef's. Two facts belong in front of him
 before he re-reads it.
 
 **The number is older than it looks and cannot currently be refreshed.** 92.4% was measured on

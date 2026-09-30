@@ -1,6 +1,6 @@
 # What nife claims a confined component cannot do, and which of those claims is tested
 
-Milestone 202, building `design/fatal-risks.md`'s risk 7. The enumeration is the first
+Milestone 202, building `design/fatal-risks/README.md`'s risk 7. The enumeration is the first
 deliverable and this note is it. What follows the table is what happened when each claim's test
 was broken on purpose.
 
@@ -60,7 +60,7 @@ themselves. The last column is this milestone's result.
 Added 2026-09-02 with DECISIONS 139 (how a saturated workload is made to hand threads across
 cores is a different section; this is 139, who may read the cycle counter and by what authority).
 The words `timing`, `side channel` and `covert` appeared zero times in this note, in
-`DECISIONS.md` and in `design/fatal-risks.md` before that decision, so nothing here was falsified
+`DECISIONS.md` and in `design/fatal-risks/README.md` before that decision, so nothing here was falsified
 by it; the absence was the finding. seL4 states its own position in one clause, that exporting the
 PMU to user level "opens the possibility of timing channels", and this tree intends to publish
 cycle-denominated numbers against seL4's while saying nothing.
@@ -508,7 +508,7 @@ directions. All of these fire as advertised.
 ## What attacking them found (risk 7's adversarial pass, 2026-09-21)
 
 Every pass before this one read the claims and asked whether each was tested. This one took the
-other posture `design/fatal-risks.md`'s risk 7 has asked for since it was written: assume a claim is
+other posture `design/fatal-risks/README.md`'s risk 7 has asked for since it was written: assume a claim is
 false and go looking for the case that makes it so. **One claim was false in the tree, on a path any
 two cooperating programs can take, and the tree had already written down the rule it broke.** The
 rest of this section is what was attacked and held, because a pass that reports only its hits is
@@ -634,7 +634,7 @@ capability would let it) answers. |
   confinement, read adversarially), and this row inherits it.
 - **The claims whose enforcement is a userspace program rather than the kernel.** The caretakers
   were read, not attacked from a hostile client. A hostile client is a fixture and a boot, and it is
-  the shape `design/fatal-risks.md` says wants outside eyes anyway.
+  the shape `design/fatal-risks/README.md` says wants outside eyes anyway.
 - **Anything needing hardware this project does not own.** MSI confinement stays exactly where
   milestone 317 (the interrupt-remapping flags, and where MSI confinement actually lives) left it.
 
@@ -658,7 +658,7 @@ capability would let it) answers. |
 - **This table is a floor and its own worst failure is invisible.** It cannot list the claim
   nobody made. Every row here was found by reading what this project already wrote, so the
   enumeration inherits exactly the blind spots the tests have. §31's `BUGS` and
-  `design/fatal-risks.md` both say the decisive experiment is adversarial and by somebody else;
+  `design/fatal-risks/README.md` both say the decisive experiment is adversarial and by somebody else;
   this is not that, and calef's position gates outside eyes behind milestone 198.
 - **A recorded falsification proves the harness catches *that* defect, not the class.** The
   `the_view_and_the_reap_have_the_same_scope` record carries a prediction that was measured

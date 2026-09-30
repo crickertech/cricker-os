@@ -230,7 +230,7 @@ same `DECISIONS §21` line-discipline contract that both the UART console and `d
 already speak identically.
 
 **The reasoning is about what journey 3 is for.** That journey exists to test two of the nine
-entries in design/fatal-risks.md: risk 9 (the HAL is a fiction and an architecture costs a
+entries in design/fatal-risks/README.md: risk 9 (the HAL is a fiction and an architecture costs a
 restructure) and most of risk 6 (a confined driver cannot drive real hardware). **A framebuffer on
 real silicon tests both of those. A keyboard adds almost nothing to the test.** It adds to the
 story, and the story matters, but not enough to spend months on a bus driver before the other seven

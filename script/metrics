@@ -842,7 +842,11 @@ def ledger():
         if not line.startswith('|'):
             continue
         cells = [c.strip() for c in line.strip().strip('|').split('|')]
-        if section == 'hardware' and len(cells) >= 3 and _LEDGER_DATE.match(cells[0]):
+        # `rented capacity` is hardware's shape one level over (§203 (capacity is rented rather
+        # than bought)): a dated one-time purchase, so it feeds `purchases` beside the boards
+        # rather than living in a section nothing reads.
+        if (section in ('hardware', 'rented capacity')
+                and len(cells) >= 3 and _LEDGER_DATE.match(cells[0])):
             price = _money(cells[2])
             if price is not None:
                 purchases.append((cells[0], price))

@@ -47,7 +47,7 @@ Full rows, with every flag and the history behind each: [records-and-indexes.md]
 | `script/roadmap` | Index the milestones; `--ready`, `--unclaimed`, `--outstanding`, `--proposed`. |
 | `script/journeys` | Progress against the end-to-end user journeys. |
 | `script/citations` | Does each `§N` or `milestone N` gloss match what it cites? `--ratchet` gates added lines. |
-| `script/fatal-risks` | Does `design/fatal-risks.md` agree with the records it cites? |
+| `script/fatal-risks` | Does `design/fatal-risks/README.md` agree with the records it cites? |
 | `script/catch-up` | What changed since you last looked. |
 | `script/apropos <word>` | Search every document in the repository. |
 | `script/names` | Who named this, when, and what was refused. |

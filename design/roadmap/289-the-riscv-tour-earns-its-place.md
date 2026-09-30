@@ -41,7 +41,7 @@ difference between the two successful captures"**: with an archive on the card, 
 
 **`script/soak --arch riscv64` and `script/job-mix --arch riscv64` both boot it with the archive.**
 Each builds `initrd_riscv()` (which packs `builder`) and runs the whole tour before the workload
-starts. The soak is `design/fatal-risks.md`'s fifth-entry rehearsal, which is the tie-breaker
+starts. The soak is `design/fatal-risks/README.md`'s fifth-entry rehearsal, which is the tie-breaker
 AGENTS.md names while the customer path is vacant.
 
 **The VisionFive 2 bring-up used the tour, with an initrd, and the builder step is what boot stages

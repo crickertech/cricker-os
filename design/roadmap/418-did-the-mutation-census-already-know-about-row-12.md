@@ -63,7 +63,7 @@ and they call for different work:
   own work.
 
 Either answer is worth more than the assumption, and the assumption a reader would make from
-`design/fatal-risks.md` today is the second.
+`design/fatal-risks/README.md` today is the second.
 
 ## What it would take
 
@@ -78,7 +78,7 @@ disagree, the disagreement is the finding.
 
 ## What is blocked until it is answered
 
-Nothing is blocked. What is at stake is whether `design/fatal-risks.md`'s risk 3 and risk 7 are
+Nothing is blocked. What is at stake is whether `design/fatal-risks/README.md`'s risk 3 and risk 7 are
 measuring overlapping ground or adjacent ground, which both entries currently assume without either
 having checked.
 

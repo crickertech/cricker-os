@@ -891,7 +891,7 @@ Facts documentation could not settle, each an explicit measurement, none guessed
    tour now prints last; `design/roadmap/159-jh7110-trng-driver.md` carries the ordered bench
    procedure and a table of what each of the five possible lines means. This is the first real,
    non-virtio device a confined userspace process on this project has been asked to drive, which
-   makes it `design/fatal-risks.md`'s risk 6 rather than a driver.
+   makes it `design/fatal-risks/README.md`'s risk 6 rather than a driver.
 10. **Whether this U-Boot can boot from a USB stick, and through UEFI** (added 2026-09-19, from
    DECISIONS §157: the customer's stick should be the bench's stick too). Nothing in the tree says,
    and the boot log is suggestive rather than decisive: U-Boot 2021.10's init lists `MMC` and `Net`

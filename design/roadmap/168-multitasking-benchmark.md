@@ -192,7 +192,7 @@ is the most repeatable point on the sweep at 2.7%.
 ## What changed on 2026-09-19: the two holes, closed without a board
 
 A lane on patagonia, with no hardware, closed the two things that stopped the five-boot result above
-carrying a verdict for `design/fatal-risks.md`'s risk 4. Neither changes what a bench evening does
+carrying a verdict for `design/fatal-risks/README.md`'s risk 4. Neither changes what a bench evening does
 beyond reading different lines; `notes/job-mix.md` has the rewritten procedure.
 
 ### The first hole: every point is the median of 21, not the best of 3

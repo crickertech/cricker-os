@@ -2,7 +2,7 @@
 
 *Name: `notes/project-metrics.md` is ratified (calef, 2026-09-02). He proposed it as
 `design/project-metrics.md` and moved it here on the argument that `design/` holds arguments
-(`fatal-risks.md`, the decisions, the roadmap) while `notes/` holds what was measured
+(`design/fatal-risks/README.md`, the decisions, the roadmap) while `notes/` holds what was measured
 (`benchmarks.md`, `mutation-testing.md`, `unsafe-obligations.md`). `script/metrics` and the
 directory `notes/project-metrics/` are **provisional**; naming is an architect's, and a lane ships a
 provisional name and says so.*
@@ -63,8 +63,8 @@ not a caption, it is a register entry.
 ![Fatal risks](project-metrics/fatal-risks.svg)
 
 From `design/fatal-risks/README.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
-calef ratified on 2026-09-23. It says whether an experiment happened, never what it found. Every
-bar from 2026W36 is nine, the risks in that week's file:
+calef ratified on 2026-09-23. It says whether an experiment happened, never what it found; the
+verdicts are prose in that file. Every bar from 2026W36 is nine, the risks in that week's file:
 where the field did not exist yet, or held a word with no meaning today, the risk is drawn as
 "unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
 on 2026-08-31 UTC.

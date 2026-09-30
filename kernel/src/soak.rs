@@ -1,6 +1,6 @@
 //! **The workload that does not stop, and the thing that watches it** (milestone 219).
 //!
-//! `design/fatal-risks.md`'s fifth entry says the concurrency may be wrong in ways QEMU cannot show
+//! `design/fatal-risks/README.md`'s fifth entry says the concurrency may be wrong in ways QEMU cannot show
 //! and that arrive one at a time, forever, and names its decisive experiment as sustained
 //! multi-core stress with the load-sensitive assertions live. Until this module existed there was
 //! nothing to sustain: the boot tour printed its last line and called `arch::halt()`, and a board
@@ -31,7 +31,7 @@
 //! `crossings` count froze at fifteen inside the first second and stayed there through two million
 //! round trips.
 //!
-//! That mattered because `design/fatal-risks.md`'s fifth entry has two halves and only one of them
+//! That mattered because `design/fatal-risks/README.md`'s fifth entry has two halves and only one of them
 //! was runnable. The half that was not is the one the risk's single observed defect lived on: a
 //! receiver made `Ready` with nothing delivered, on JH7110 silicon (radon, the board it was seen
 //! on), in `wake_load_aware`, reached from `sched::irq_notify`. Silicon is the load-bearing half:
@@ -1095,7 +1095,7 @@ fn watch(shared: u64, workers: usize, tids: &[u64; MAX_WORKERS], placed: &[u8; M
             Some(
                 "the wake gate refused a wake: a waker made a parked receiver Ready with nothing \
                   delivered (sched::wake_load_aware, the boot-8 gate). This is the defect \
-                  design/fatal-risks.md risk 5 is about.",
+                  design/fatal-risks/README.md risk 5 is about.",
             )
         } else if mismatches != 0 {
             Some(

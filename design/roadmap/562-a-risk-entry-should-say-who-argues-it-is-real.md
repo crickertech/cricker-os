@@ -18,7 +18,7 @@ describes are already written.
 
 ## What happened twice
 
-`design/fatal-risks.md` risk 4 (a per-crossing cost that cannot be engineered away) grew a paragraph
+`design/fatal-risks/README.md` risk 4 (a per-crossing cost that cannot be engineered away) grew a paragraph
 naming the published counter-thesis, quoting it, and saying what it would mean if it were right. Risk
 8 (nobody needs it) has now grown the same shape for a different argument. Risk 1 points at the same
 note.

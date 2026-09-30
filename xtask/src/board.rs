@@ -442,7 +442,7 @@ pub(crate) fn parse_duration(text: &str) -> Option<std::time::Duration> {
 /// The stage to wait for, or `none` to watch for the whole duration.
 ///
 /// `none` is not a formality: sustained watching with nothing to wait for is what
-/// `design/fatal-risks.md`'s multicore entry (risk 5) needs, and it is the case a boot check
+/// `design/fatal-risks/README.md`'s multicore entry (risk 5) needs, and it is the case a boot check
 /// cannot cover.
 ///
 /// **It takes a board** (milestone 324 part 3), because four of these words name rungs of a

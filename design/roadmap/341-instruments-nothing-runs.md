@@ -32,7 +32,7 @@ schedule.
 
 ## Why this matters
 
-`design/fatal-risks.md`'s first risk stands **GREEN on a hand-run instrument**. That is a claim the
+`design/fatal-risks/README.md`'s first risk stands **GREEN on a hand-run instrument**. That is a claim the
 project makes about whether it should continue, resting on somebody having typed a command once.
 Nothing re-runs it, nothing notices when it goes red, and the green will keep reading as current for
 as long as nobody looks. The other two are the same shape at lower stakes: `crate-probes` sits at 43
@@ -64,7 +64,7 @@ than prescribing CI.
 Milestone 232's audit found three instruments in this tree that render a verdict and that nothing
 ever calls: `script/interleaving-check` (26 loom harnesses, 12.4 seconds, green), `script/crate-probes`
 (about three minutes, 43 of 50 passing) and `script/rule-violations --check`. Each answers a real
-question and each answers it only when somebody remembers to type it. `design/fatal-risks.md`'s first
+question and each answers it only when somebody remembers to type it. `design/fatal-risks/README.md`'s first
 risk stands GREEN on a hand-run instrument, which is a claim about whether this project should
 continue resting on somebody having typed a command once; nothing re-runs it and nothing notices when
 it goes red. That is rung two of AGENTS.md's ladder going unclaimed while rung four holds a fatal

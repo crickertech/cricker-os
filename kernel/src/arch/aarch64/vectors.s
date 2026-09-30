@@ -353,7 +353,7 @@ exception_restore:
 // There is no "drop to EL0" instruction. There is only `eret`, which restores whatever
 // SPSR_EL1 says. So we do not need a new way down: we need a fake way back.
 //
-// This is the second time this project has pulled the same trick. `Thread::spawn` fakes a
+// This is the second time this project has pulled the same trick. `Thread::spawn_into` fakes a
 // `switch_to` frame so that the `ret` which RESUMES a thread also STARTS one
 // (notes/threads.md). Here we fake a TrapFrame so that the `eret` which RETURNS to
 // interrupted code also ENTERS userspace. Both times, the "start" path turned out to be the
