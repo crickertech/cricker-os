@@ -148,21 +148,20 @@ This does not make concurrent lanes safe, and must not be read that way. It make
 visible and self-healing at the next call. A lane whose build is already in flight when another
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
-**Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` has
-since the correction of milestone 606 (a directory walk costs what it does on Linux) (recorded in `xtask::std_exerciser`'s doc comment); the two
+**Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` was
+corrected in milestone 606 (a directory walk costs what it does on Linux), recorded in
+`xtask::std_exerciser`'s doc comment. The two
 The `helpers/` build scripts and `script/crypto-probes` joined after three sites of evidence
 landed in one evening (2026-09-30): main-soak's `std-aborts` aborting on dep-info naming another
 worktree's farm, the 1377 lane building std from the unpatched sysroot twice under
 `CARGO_TARGET_DIR=$PWD/target`, and one `rustc --print sysroot` in a fresh worktree resolving to
 another worktree's farm with no environment set (16:34 UTC; not reproduced in ten tries since).
-Name-based and file-based resolution both stay machine-global; a path this checkout computed and
-checked is the only selector with one owner.
+A path this checkout computed and checked is the only selector with one owner.
 
 `std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
-The export used to separate a build from its evidence: dep-info landed in the shared `target/`,
-the sweep judged the previous run's, and a wrong-sysroot build passed green. Both shapes were
-reproduced host-side on 2026-09-30: the stolen-link build passed silently under the export; the
-same build without it was caught, naming the foreign farm per file.
+The export used to separate a build from its evidence: dep-info landed in the shared `target/`
+and the sweep judged the previous run's, so a wrong-sysroot build passed green. Both shapes were
+reproduced host-side on 2026-09-30.
 
 ### The target specs
 
