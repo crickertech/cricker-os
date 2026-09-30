@@ -30,8 +30,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The documentation sweep](../documentation-audit.md): how to run a documentation sweep, and what counts.
 - [Prior art and reuse](../prior-art.md): where to look before building, and the build-versus-reuse rule.
 - [Handing a session over](../session-handoff.md): superseded 2026-07-29 restart point, kept as history.
-- [A correction of error: lane follow-through](../coe-2026-09-30-lane-follow-through.md): the
-  2026-09-29 session's unexecuted endings, and the PENDING-at-dispatch contract that replaced
-  remembering them.
+- [Corrections of error](../coes/README.md): the register of recorded errors and the mechanisms
+  that replaced them, one dated file each.
 - [Cobble, the mascot](../mascot.md): the project's mascot, drawn by Clay.
 - [The system tests and the kernel crate](../system-tests-and-the-kernel-crate.md): what the kernel linked for its tests, the gate that keeps them out, and where the tests go. Name provisional.
