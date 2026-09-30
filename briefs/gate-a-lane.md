@@ -64,7 +64,7 @@ You do not need to gloss every occurrence, only the first.
 
 Gating a lane's work ends in a push, a ready flip and an auto-merge request, and on 2026-09-29
 four of those endings sat unexecuted for one to two hours each because they lived in the session's
-memory (see [notes/coe-2026-09-30-lane-follow-through.md](../notes/coe-2026-09-30-lane-follow-through.md)).
+memory (see [notes/coes/2026-09-30-lane-follow-through.md](../notes/coes/2026-09-30-lane-follow-through.md)).
 The contract, binding from dispatch time:
 
 - Every dispatch writes a PENDING file beside its lane log, named for the lane, holding the

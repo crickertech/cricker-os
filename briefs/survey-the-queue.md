@@ -28,7 +28,7 @@ This is read-only and its whole output is your final message.
 - A lane log that ends in a connection error or a permission rejection is a dead dispatch, not
   a running lane. The dispatch looked successful and produced nothing. Redispatch it and count
   the death, or hand it to whoever owns the dispatch
-  ([notes/coe-2026-09-30-lane-follow-through.md](../notes/coe-2026-09-30-lane-follow-through.md)).
+  ([notes/coes/2026-09-30-lane-follow-through.md](../notes/coes/2026-09-30-lane-follow-through.md)).
 
 ## What to report
 
