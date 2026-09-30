@@ -26,21 +26,25 @@
 # interactive-boot entry point) has the measurement in its block, and why the slower boot was
 # chosen.
 #
-# `--graphical` (milestone 177, option A) boots the same `--features shell` kernel with a virtio-gpu
-# and a virtio-keyboard instead of the plain UART pair, and verifies it by reading the screen back
-# (a QEMU screendump decoded against the same 7x8 font the guest drew from) rather than by piping a
-# serial transcript: there is no UART client on that path to pipe. It proves a working, typeable
-# prompt reached the screen and a real keystroke round-tripped through `keyboard_driver`'s direct `CALL` to
-# `line_editor`; it does not run the full console leg's script (echo, redirects, `wc <`, ...), which
-# is real, scoped-out follow-on work. See `swish_check_leg_graphical`'s own doc in `xtask/src/swish_check.rs`.
+# `--graphical` (milestone 623 (provisional), reversing milestone 177's boot half) boots the same
+# `--features shell` kernel as every boot, the normal UART system, with a virtio-gpu and a
+# virtio-keyboard attached; the boot ignores the devices and the shell holds their grants. It then
+# types `screen` at the prompt and verifies the launched session by reading the screen back
+# (a QEMU screendump decoded against the same 7x8 font the guest drew from): the UART prompt
+# before the launch is the assertion that the boot stayed minimal, and the session's prompt on the
+# screen plus one keystroke round-tripped (through the session's `keyboard_driver` and line
+# discipline on this arm) is the assertion that the launch works. It does not run the full console
+# leg's script (echo, redirects, `wc <`, ...), which is real, scoped-out follow-on work. See
+# `swish_check_leg_graphical`'s own doc in `xtask/src/swish_check.rs`.
 #
-# `--graphical-serial` (milestone 192, option A) is the same boot with the keyboard left off, so the
-# keystroke source is the guest's own UART. That is the configuration all three target boards have:
-# argon, radon and xenon each have a serial line and none has a virtio-input device, so this is the
-# closest QEMU can stand to what a real board will do. Both legs make the same two assertions and
-# neither can tell which program typed, which is the property milestone 192's option A is finished
-# by. It is NOT a substitute for a bench run: QEMU has neither board's framebuffer handoff
-# (milestone 157) nor its real UART timing.
+# `--graphical-serial` (milestone 192, option A) is the same launch with the keyboard left off, so
+# the session's keystrokes are the guest's own UART, read raw from the boot's line discipline
+# (`OP_RAWMODE`/`OP_READRAW`, the shell's own §227 shape) and echoed by the session itself. That is
+# the configuration all three target boards have: argon, radon and xenon each have a serial line
+# and none has a virtio-input device, so this is the closest QEMU can stand to what a real board
+# will do. Both legs make the same two assertions and neither can tell which source the key came
+# from, which is the property milestone 192's option A is finished by. It is NOT a substitute for a
+# bench run: QEMU has neither board's framebuffer handoff (milestone 157) nor its real UART timing.
 #
 # This is the gate for `components/src/progenitor.rs`. Every other test that runs the shell has
 # the KERNEL play the first process, so a broken progenitor fails nothing; the interactive boot is the only thing that
@@ -96,11 +100,12 @@
 # peak: x86_64's input driver polls COM1 and yields, so the idle loop that prints the gauge never
 # runs again (milestone 182's BUGS). The leg says so beside the number.
 #
-# **The two graphical legs prove one key, not the script.** They are green since milestone 177 found
-# the hang that kept them red (the boot never received two drivers' one-time reports, so both
+# **The two graphical legs prove one key, not the script.** They are green since milestone 177
+# found the hang that kept them red (the boot never received two drivers' one-time reports, so both
 # drivers sat in a blocking SEND; notes/framebuffer-contract.md has the evidence), and they are the
-# `swish-check-graphical` row of `script/ci-build`. What they check is a prompt on the screen and one
-# typed key echoed beside it; nothing past that is asserted on the graphical path.
+# `swish-check-graphical` row of `script/ci-build`. What they check is the UART prompt of a normal
+# boot, the launched session's prompt on the screen, and one typed key echoed beside it; nothing
+# past that is asserted on the graphical path.
 #
 # Name: ratified 2026-09-23 (calef, replacing `shell-check`, which was provisional and introduced
 # 2026-08-02). It boots the kernel's `--features shell` configuration and types at the prompt, so it

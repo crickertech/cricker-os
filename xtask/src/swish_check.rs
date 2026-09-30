@@ -66,10 +66,11 @@ pub(crate) fn swish_check() -> bool {
             return false;
         }
     };
-    // `--graphical` (milestone 177, option A): the same two legs, with the GPU and the keyboard
-    // attached instead of the plain UART pair, verified by screendump rather than by transcript.
-    // See [`swish_check_leg_graphical`]'s own doc for why this needs a whole different verification
-    // shape rather than two env vars added to [`swish_check_leg`].
+    // `--graphical` (milestone 623 (provisional), reversing milestone 177's boot half): the same
+    // two legs, booted as the normal UART system with a GPU and keyboard attached, then `screen`
+    // is typed at the prompt and the launched session is verified by screendump rather than by
+    // transcript. See [`swish_check_leg_graphical`]'s own doc for why this needs a whole different
+    // verification shape rather than two env vars added to [`swish_check_leg`].
     // `--release` builds and boots the optimised kernel and programs, which is what a customer's
     // stick carries (`xtask stick` is release-only). Added for the progenitor stack's measurement
     // (milestone progenitor-stack (provisional)): the gauge's numbers differ by profile, and the
@@ -78,8 +79,8 @@ pub(crate) fn swish_check() -> bool {
         crate::RELEASE.store(true, std::sync::atomic::Ordering::Relaxed);
     }
     let graphical = std::env::args().any(|a| a == "--graphical");
-    // **Milestone 192's option A**: the same graphical boot with the *keyboard* left off, so the
-    // keystroke source is the board's own UART. See [`swish_check_leg_graphical`]'s own doc.
+    // **Milestone 192's option A**: the same launch with the *keyboard* left off, so the session's
+    // keystrokes are the board's own UART. See [`swish_check_leg_graphical`]'s own doc.
     let graphical_serial = std::env::args().any(|a| a == "--graphical-serial");
 
     // TCG only. This boot never exits (the shell loops on its prompt), so it is killed rather than
@@ -2743,60 +2744,72 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     false
 }
 
-/// **The graphical leg** (milestone 177, option A): the same `--features shell` boot, with a
-/// virtio-gpu attached instead of the plain UART pair, verified by reading the *screen* back
-/// rather than a serial transcript.
+/// **The graphical leg** (milestone 623 (provisional), reversing milestone 177's boot-half): the
+/// `--features shell` boot is now the **normal UART system on every boot** (DECISIONS §26's
+/// minimal shape), and graphics is *launched*: this leg types `screen` at the swish prompt and
+/// verifies what the launched session puts on the screen, read back with a `screendump` rather
+/// than a serial transcript.
+///
+/// # What the leg does, in order
+///
+/// 1. Boots the normal system with a virtio-gpu attached (plus, in the device arm, a virtio
+///    keyboard and the virtio-rng, exactly as before), **reading the UART transcript**: the
+///    swish prompt must appear on the serial console before anything is typed, which is the
+///    assertion that the boot stayed minimal. A boot that quietly rebuilt the graphical stack at
+///    boot time, the shape calef's 2026-09-30 ruling reverses, would print no UART prompt and
+///    this leg dies right here.
+/// 2. Types `screen` over the UART. The shell delegates the display devices it holds
+///    (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`, from `spawnproto::SHELL_GPU_SLOT` and its
+///    siblings), the progenitor builds the session's stack from them, and the session prints its
+///    own `$ ` prompt on the screen.
+/// 3. Presses one key and requires its echo on the screen: `sendkey` on the device arm, the same
+///    byte down the UART on the serial arm, which is now a real round trip through the boot's
+///    line discipline in raw mode and the session's own echo.
 ///
 /// # Two keystroke sources, one leg (milestone 192, option A)
 ///
 /// [`Keystrokes::Device`] attaches a virtio-keyboard and presses a key with the QEMU monitor's
-/// `sendkey`, which is milestone 177's shape. [`Keystrokes::Serial`] attaches **no** keyboard and
-/// types the same byte down the guest's UART, which is the configuration every one of the three
-/// target machines actually has: argon, radon and xenon all have a serial line and none has a
-/// virtio-input device.
+/// `sendkey`; the session's `keyboard_driver` feeds its line discipline. [`Keystrokes::Serial`]
+/// attaches **no** keyboard and types the same byte down the guest's UART, which is the
+/// configuration every one of the three target machines actually has: argon, radon and xenon all
+/// have a serial line and none has a virtio-input device. That arm is milestone 192's option A
+/// (serial input, screen output) at launch rather than at boot: the session reads the boot's own
+/// line discipline raw (`OP_RAWMODE`/`OP_READRAW`, the shell's own §227 shape) and paints the
+/// echo itself.
 ///
-/// **The same two assertions cover both**, and that they can is the claim. What reaches the screen
-/// is `line_editor`'s echo of one `OP_BYTES` `CALL` on one endpoint, and neither this leg nor
-/// anything past `line_editor`'s terminal endpoint in the guest can tell which program made that `CALL`. If a future change
-/// made the graphical stack depend on the keystroke's source, exactly one of these two runs would
-/// go red.
+/// **The same two assertions cover both**, and that they can is still the claim. What reaches the
+/// screen is the session's echo of one keystroke, and neither the screen nor the session can tell
+/// which source the byte arrived by. If a future change made the session depend on the
+/// keystroke's source, exactly one of these two runs would go red.
 ///
-/// # Why this cannot be [`swish_check_leg`] with two env vars added
+/// # The silent-failure property, and why any prompt at all is the proof
 ///
-/// [`swish_check_leg`]'s whole verification is a transcript piped over the UART: `console`/`input`
-/// are exactly the two programs the graphical boot does not spawn (design/roadmap/
-/// 177-graphical-interactive-boot.md's own finding), so there is no serial channel left to pipe.
-/// The only observable surface is what a person looking at the screen would see, which on this
-/// machine means a `screendump` over the QEMU monitor (`NIFE_GPU_MON`) and a real key press
-/// (`sendkey`) for the same reason `system_tests/src/user/display_tests.rs`'s own keyboard test needs the
-/// host to press one: nothing in the guest can.
+/// This leg's central assertion is unchanged in kind from milestone 177's: **a capability-slot
+/// collision anywhere in the session's build fails in total silence** (the shell's seven held
+/// grants, the progenitor receiving them, the four to five children built from one region, and
+/// the session program's own table are all slot-accounted, and the failure mode of every one of
+/// them is a process that never says anything), so *any* `$ ` prompt reaching the screen
+/// disproves one. The retarget adds two more silent surfaces to the count rather than removing
+/// any: the boot's own table now carries the device grants to the shell's build, and the shell's
+/// table carries them for the boot's life. Finding the session's prompt at all is the proof; the
+/// `swish-check` plain legs already prove the boot side.
 ///
 /// # Why this proves less than [`swish_check_leg`], and on purpose
 ///
-/// [`SWISH_CHECK_SCRIPT`] is many lines because it is the whole redirection/pipeline/glob/manual
-/// story, and every one of those checks a known **string**. There is no equivalent "the known
-/// picture" to check against here: the boot banner's exact wrapped, scrolled position in an 18x8
-/// grid is a function of wording nobody wants two copies of (one in `crates/system_initializer`,
-/// one in this gate), and predicting it exactly is real work for no claim this milestone needs to
-/// make. What this leg proves is the thing milestone 177 actually adds: the graphical stack wires
-/// up with no capability-slot collision (a collision fails the boot in total silence, so *any*
-/// prompt reaching the screen disproves one) and a real keystroke, through `keyboard_driver`'s new direct
-/// `CALL` to `line_editor` and back out through `display_terminal`, reaches the screen. Proving the
-/// rest of [`SWISH_CHECK_SCRIPT`] against a graphical prompt is real, scoped-out follow-on work,
-/// not a gap this leg pretends is closed.
+/// There is no "the known picture" to check against here, for 177's own reasons: predicting the
+/// boot banner's wrapped position in a small grid is real work for no claim this milestone needs
+/// to make. What this leg proves is the launch: the normal boot came up on the UART, the devices
+/// moved from the shell's slots into drivers without a collision, and one real keystroke crossed
+/// from its source to the screen. The old graphical *boot* legs are retired by this retarget:
+/// the boot they booted no longer exists, and their claim (the stack wires up) is subsumed here.
 ///
-/// It looks for `$ ` (the exact two bytes `swish` prints for every prompt, `proto`-unrelated to
-/// anything this leg computed in advance) anywhere in the decoded grid, not at a predicted row: a
-/// terminal this small scrolls before the banner finishes, and which row the prompt lands on is
-/// exactly the thing not worth predicting twice. Finding it at all is the proof that the progenitor built the
-/// console... no: that it built `line_editor`, `display_terminal` and the display driver, wired
-/// them to each other with no wrong slot, and that `swish` is alive and printing through them.
-/// Finding `$ a` after `sendkey "a"` is the proof that a keystroke makes the same round trip back:
-/// `keyboard_driver` (`MODE_DIRECT`) into `line_editor`, echoed out through `display_terminal`.
-/// Which keystroke source [`swish_check_leg_graphical`] wires up. See its doc; the fork is
-/// design/roadmap/192-keyboard-on-real-silicon.md's, and the guest's own copy of it is the
-/// `has_keyboard` branch in `crates/system_initializer` (milestone 600 (provisional) moved it out of
-/// the kernel).
+/// It looks for `$ ` anywhere in the decoded grid, not at a predicted row, for 177's own reason:
+/// which row the prompt lands on is exactly the thing not worth predicting twice. Finding `$ a`
+/// after the key press is the proof that the keystroke made the round trip back to the screen,
+/// through the session's discipline and `display_terminal` (device arm) or through the boot
+/// discipline's raw queue and the session's own echo (serial arm). Which keystroke source this
+/// leg wires up is `Keystrokes`; the guest's own copy of that choice is the `screen` program's
+/// `x0`, decided by whether the keyboard's three caps arrived.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Keystrokes {
     /// A virtio-input device, pressed with the monitor's `sendkey`. Milestone 177.
@@ -2807,7 +2820,8 @@ enum Keystrokes {
 }
 
 fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
-    use std::io::Write;
+    use std::io::{Read, Write};
+    use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
     let arch = if riscv { "riscv64" } else { "aarch64" };
@@ -2817,7 +2831,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     };
     eprintln!();
     eprintln!(
-        "--- swish-check ({arch}, graphical): boot `--features shell` with a GPU and {source} ---"
+        "--- swish-check ({arch}, graphical): boot the normal UART system with a GPU and {source}, then launch `screen` ---"
     );
 
     let target = if riscv { RISCV_TARGET } else { TARGET };
@@ -2859,37 +2873,31 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         },
     );
     cmd.env("NIFE_DISK", disk_path());
-    // **The serial arm attaches no virtio-rng**, and that is the point of it rather than an
-    // omission: `NIFE_RNG` is a QEMU-only stopgap (DECISIONS §120) and none of the three target
-    // machines has such a device, so an option-A leg standing in for a board should not have one
-    // either. The device arm keeps it, unchanged, because that is milestone 177's leg. (A trap in
-    // the progenitor whenever a virtio-rng was attached, recorded here on 2026-09-02, no longer
-    // reproduces: on 2026-09-19 both arms reached a prompt, the device arm with the RNG attached.)
+    // **The serial arm attaches no virtio-rng**, and that stays true through the retarget: the
+    // point of the arm is to stand in for a board, `NIFE_RNG` is a QEMU-only stopgap (DECISIONS
+    // §120) and none of the three target machines has such a device. The device arm keeps it,
+    // unchanged, because that is milestone 177's configuration. (A trap in the progenitor
+    // whenever a virtio-rng was attached, recorded on 2026-09-02, no longer reproduces: on
+    // 2026-09-19 both arms reached a prompt, the device arm with the RNG attached.)
     if keystrokes == Keystrokes::Device {
         cmd.env("NIFE_RNG", "1");
     }
-    // The flags [`swish_check_leg`] never sets: a virtio-gpu and (in the device arm) a
-    // virtio-keyboard, the same devices `cargo xtask test` already attaches, read by
-    // `helpers/qemu-runner-*.sh` exactly the way they always have been (milestone 177 (wire the graphical terminal stack into the real interactive boot) changed what
-    // *the progenitor* does with them existing, not how they get attached).
+    // The GPU (and, in the device arm, the keyboard) the launch needs, read by
+    // `helpers/qemu-runner-*.sh` exactly as always; what changed (milestone 623 (provisional))
+    // is only what the guest does with the devices existing: the boot ignores them and the shell
+    // holds their grants until this leg types `screen`.
     cmd.env("NIFE_GPU", "1");
     if keystrokes == Keystrokes::Device {
         cmd.env("NIFE_KEYBOARD", "1");
     }
     cmd.env("NIFE_GPU_MON", &sock);
-    // stdout is never read: the answer this leg checks is on the screen, not on the wire. Kernel
-    // boot messages before userspace exists still reach the host's own terminal, which is useful
-    // to a person reading a failure and touches nothing this leg checks.
-    //
-    // stdin is the keyboard in [`Keystrokes::Serial`] (the runner passes `-serial stdio`, so a
-    // byte written here arrives in the guest's UART receive FIFO and raises its interrupt) and is
-    // null otherwise, which is milestone 177's shape unchanged.
-    cmd.stdin(if keystrokes == Keystrokes::Serial {
-        std::process::Stdio::piped()
-    } else {
-        std::process::Stdio::null()
-    });
-    cmd.stdout(std::process::Stdio::null());
+    // **The transcript is read now, on both arms.** The whole first half of this leg's claim is
+    // that the normal UART system came up (the swish prompt on the serial console) before
+    // anything graphical was launched, so stdout is piped and read rather than discarded, and
+    // stdin is piped on the device arm too, because the launch command itself is typed over the
+    // UART whichever arm this is.
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
@@ -2898,6 +2906,60 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
             return false;
         }
     };
+    let mut stdin = child.stdin.take().expect("piped stdin");
+    let mut stdout = child.stdout.take().expect("piped stdout");
+    // A reader thread, for `swish_check_leg`'s own reason: every wait needs a deadline, and a
+    // boot that hangs is exactly the failure this gate is for.
+    let seen = Arc::new(Mutex::new(String::new()));
+    let collector = Arc::clone(&seen);
+    let reader = std::thread::spawn(move || {
+        let mut buf = [0u8; 1024];
+        while let Ok(n) = stdout.read(&mut buf) {
+            if n == 0 {
+                return;
+            }
+            let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
+            collector.lock().expect("transcript lock").push_str(&text);
+        }
+    });
+
+    // **Step 1: the normal system's prompt, on the UART.** The banner names the shell; the
+    // transcript ending in `$ ` is the "ready" this leg types at, `wait_for_prompt`'s own
+    // unambiguous end state. A boot that rebuilt the graphical stack at boot time would never
+    // print this, and the leg stops here rather than pretending the launch was what failed.
+    let deadline = Instant::now() + Duration::from_secs(SWISH_CHECK_BOOT_SECS);
+    let mut uart_prompt = false;
+    while Instant::now() < deadline && !uart_prompt {
+        if seen.lock().expect("transcript lock").ends_with("$ ") {
+            uart_prompt = true;
+        } else {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+    }
+    if !uart_prompt {
+        let _ = child.kill();
+        let _ = child.wait();
+        eprintln!(
+            "swish-check ({arch}, graphical): the normal UART system never reached a prompt \
+             within {SWISH_CHECK_BOOT_SECS}s, so there was no prompt to launch `screen` from; \
+             transcript so far: {:?}",
+            seen.lock().expect("transcript lock"),
+        );
+        return false;
+    }
+    eprintln!(
+        "swish-check ({arch}, graphical): the normal system is up; typing the launch command"
+    );
+
+    // **Step 2: launch.** `screen\n` over the UART, exactly as a person would. The prompt is out
+    // and nothing was echoed since it appeared, so the line is read by the prompt, not buffered
+    // ahead of it.
+    if let Err(e) = stdin.write_all(b"screen\n").and_then(|()| stdin.flush()) {
+        let _ = child.kill();
+        let _ = child.wait();
+        eprintln!("swish-check ({arch}, graphical): could not type the launch command: {e}");
+        return false;
+    }
 
     // `a`..`z`, `0`..`9`, space and `$`: every byte this leg's own checks look for, plus enough of
     // the alphabet that a decode failure names the wrong character instead of silently reading `?`
@@ -2907,6 +2969,10 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     alphabet.push(b' ');
     alphabet.push(b'$');
 
+    // **Step 3: the session's prompt, on the screen.** This is the silent-failure assertion: a
+    // collision anywhere from the shell's seven slots through the session build fails without a
+    // word, so any `$ ` decoded off the scanout at all disproves one. The deadline covers the
+    // session's whole build, not just its first paint.
     let shot = workspace_root().join(format!("target/gpu-swish-check-{arch}.ppm"));
     let deadline = Instant::now() + Duration::from_secs(SWISH_CHECK_BOOT_SECS);
     let mut prompt_row: Option<String> = None;
@@ -2923,13 +2989,14 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         let _ = child.kill();
         let _ = child.wait();
         eprintln!(
-            "swish-check ({arch}, graphical): no `$ ` prompt appeared on the scanout within \
-             {SWISH_CHECK_BOOT_SECS}s (see {})",
+            "swish-check ({arch}, graphical): `screen` was launched but no `$ ` prompt reached \
+             the scanout within {SWISH_CHECK_BOOT_SECS}s (see {}). A capability-slot collision \
+             fails in silence, so this is the leg's central assertion",
             shot.display(),
         );
         return false;
     };
-    eprintln!("swish-check ({arch}, graphical): prompt found: {before:?}");
+    eprintln!("swish-check ({arch}, graphical): session prompt found: {before:?}");
 
     // The one keystroke this leg types, the same key (and the same reason) the kernel test's own
     // keyboard test uses: `video_terminal::script::HOST_KEY` is the one definition of which key,
@@ -2940,12 +3007,6 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     match keystrokes {
         Keystrokes::Device => sendkey(&sock, video_terminal::script::HOST_KEY),
         Keystrokes::Serial => {
-            let Some(stdin) = child.stdin.as_mut() else {
-                let _ = child.kill();
-                let _ = child.wait();
-                eprintln!("swish-check ({arch}, graphical): the runner has no stdin to type into");
-                return false;
-            };
             if let Err(e) = stdin
                 .write_all(&[video_terminal::script::HOST_KEY_BYTE])
                 .and_then(|()| stdin.flush())
@@ -2974,33 +3035,40 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     let _ = child.kill();
     let _ = child.wait();
     let _ = std::fs::remove_file(&sock);
+    drop(stdin);
+    drop(reader);
 
     match typed_row {
         Some(after) => {
             let by = match keystrokes {
-                Keystrokes::Device => "`keyboard_driver`'s direct CALL to `line_editor`",
-                Keystrokes::Serial => "`input`'s CALL to `line_editor`, over the UART",
+                Keystrokes::Device => {
+                    "the session's `keyboard_driver`, through its line discipline"
+                }
+                Keystrokes::Serial => {
+                    "the boot's line discipline in raw mode, echoed by the session itself"
+                }
             };
             eprintln!(
-                "swish-check ({arch}, graphical): the prompt reached the screen through \
-                 `display_terminal`, and a key press reached it back through {by}: {after:?}"
+                "swish-check ({arch}, graphical): the session's prompt reached the screen, and a \
+                 key press reached it back through {by}: {after:?}"
             );
             true
         }
         None => {
             let blame = match keystrokes {
                 Keystrokes::Device => {
-                    "`keyboard_driver` came up but its CALL to `line_editor` is not reaching it, \
-                     or the host's `sendkey` is not reaching the device"
+                    "the session's `keyboard_driver` came up but its bytes are not reaching the \
+                     discipline, or the host's `sendkey` is not reaching the device"
                 }
                 Keystrokes::Serial => {
-                    "`input` came up but its CALL to `line_editor` is not reaching it, or the \
-                     byte written to the runner's stdin is not reaching the guest's UART"
+                    "the session is not reading the boot discipline raw, or the byte written to \
+                     the runner's stdin is not reaching the guest's UART"
                 }
             };
             eprintln!(
-                "swish-check ({arch}, graphical): the prompt appeared ({before:?}) but the key \
-                 press ({:?}) never echoed back within {SWISH_CHECK_LINE_SECS}s (see {}): {blame}",
+                "swish-check ({arch}, graphical): the session's prompt appeared ({before:?}) but \
+                 the key press ({:?}) never echoed back within {SWISH_CHECK_LINE_SECS}s (see {}): \
+                 {blame}",
                 video_terminal::script::HOST_KEY,
                 shot.display(),
             );
