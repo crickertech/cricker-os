@@ -63,8 +63,8 @@ not a caption, it is a register entry.
 ![Fatal risks](project-metrics/fatal-risks.svg)
 
 From `design/fatal-risks/README.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
-calef ratified on 2026-09-23. It says whether an experiment happened, never what it found; the
-verdicts are prose in that file. Every bar from 2026W36 is nine, the risks in that week's file:
+calef ratified on 2026-09-23. It says whether an experiment happened, never what it found. Every
+bar from 2026W36 is nine, the risks in that week's file:
 where the field did not exist yet, or held a word with no meaning today, the risk is drawn as
 "unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
 on 2026-08-31 UTC.
