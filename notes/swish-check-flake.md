@@ -21,7 +21,7 @@ unlucky?
   latest attempt, so a failure rerun green reads as success; `run_attempt` in the listing finds
   the reruns, and each prior attempt's failed jobs were read separately. The API throttled to 502
   zero times, so the sleep-and-retry path never fired.
-- Job and step conclusions for every run whose latest attempt failed (444 runs), then 15 job
+- Job and step conclusions for every run whose latest attempt failed (444 runs). Then 15 job
   logs, tail only: the two phenomenon attempts, the five 2026-09-29 evening failures, a spread of
   the 2026-09-26/27 block, and one each from 2026-09-28, 2026-09-25 and 2026-09-21. Check-run
   annotations carry no failure text (exit code only), so no cheaper classification exists.
