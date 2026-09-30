@@ -69,6 +69,9 @@ const LSR_TEMT: u8 = 0b0100_0000;
 // `reboot_soak_test`, and why the two methods below are not either.
 const LSR_DR: u8 = 0b0000_0001;
 // Interrupt Enable bit: Enable Received Data Available Interrupt (fires while the RX FIFO is nonempty).
+// x86_64 never arms it: the callers below are the riscv console paths (`console::rx_enable`), and
+// the x86 console adopts the default shape and stays polled.
+#[cfg_attr(target_arch = "x86_64", allow(dead_code))]
 const IER_ERBFI: u8 = 0b0000_0001;
 // Interrupt Enable bit: Enable Transmitter Holding Register Empty Interrupt. Asserts as soon as it is
 // set if LSR.THRE is already set, which on a polling console it always is. See `enable_tx_interrupt`.
@@ -221,6 +224,7 @@ impl<S: RegisterSpace> Ns16550<S> {
     /// Adopt the shape the device tree stated and re-run [`init`](Self::init) with it. Called by
     /// `console::configure_from_dtb` under the console lock, before the first `println!`, so no
     /// output is ever produced with a stale stride.
+    #[cfg_attr(target_arch = "x86_64", allow(dead_code))] // the device-tree bring-up that calls it is riscv's
     pub fn configure(&mut self, shape: Shape) {
         self.shape = shape;
         self.init();
@@ -378,6 +382,7 @@ impl<S: RegisterSpace> Ns16550<S> {
     /// Name: provisional, flagged 2026-09-25 by the lane that re-derived the x86 port
     /// falsifications (design/naming/boolean-predicates-worklist.md, "`rx` and `tx`"). calef asked
     /// what `rx` stands for in his #1255 review; recommended `enable_receive_interrupt`.
+    #[cfg_attr(target_arch = "x86_64", allow(dead_code))] // riscv's `console::rx_enable` is the caller; the x86 console stays polled
     pub fn enable_rx_interrupt(&self) {
         self.write(IER, IER_ERBFI);
     }

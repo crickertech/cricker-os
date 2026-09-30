@@ -632,7 +632,7 @@ pub fn gic_regions() -> Option<machine_discovery::gic::Gic> {
 
 /// The PLIC's register block (start, size), both **physical**, from the device tree. `None` on
 /// aarch64 or before `init`. RISC-V's `mmu::init` maps it device-typed, like the GIC.
-#[cfg_attr(target_arch = "aarch64", allow(dead_code))] // no PLIC on aarch64; the name is portable
+#[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))] // the PLIC is riscv's controller; x86 answers with its APIC
 pub fn plic_region() -> Option<(u64, u64)> {
     *PLIC_REGION.lock()
 }
@@ -694,6 +694,7 @@ pub fn record_pci_regions(ecam: (u64, u64), mem32: (u64, u64)) {
 /// when the machine has no SMMU (riscv, or aarch64 without `iommu=smmuv3`). Presence here is what
 /// gates the whole aarch64 IOMMU path: no node, no register reads, no faults on a machine that
 /// never had the device.
+#[cfg_attr(target_arch = "x86_64", allow(dead_code))] // VT-d init takes the DMAR's units, not one base (milestone 594)
 pub fn smmu_region() -> Option<(u64, u64)> {
     *SMMU_REGION.lock()
 }
