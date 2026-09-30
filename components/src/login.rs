@@ -2080,11 +2080,20 @@ fn mint(own_ut: u64, care: Option<&elf::Elf>, identity: &[u8]) -> Option<(u64, u
 
 /// **Reclaim a construction region, retrying while something in it can still run.**
 /// `crates/system_initializer::reclaim`'s own idiom, reused rather than re-derived: a `DESTROY` of a
-/// region holding a live thread is refused with §16's kill armed, and one preemption later the retry
-/// succeeds. Bounded for the same reason that one is: the only resident this ever waits on is a
-/// caretaker that has already exited or is parked on its own endpoint (never on a foreign one; see
-/// this program's module docs), so one preemption is enough, and a caller stuck here past a few
-/// dozen attempts has a different problem than this loop can fix.
+/// region holding a live thread is refused with §16's kill armed, and preemptions later the retry
+/// succeeds.
+///
+/// **The bound is 1024, not the 64 this used to share with `system_initializer`.** Until milestone
+/// 152 the only residents this waited on were caretakers that had already exited or were parked on
+/// their own endpoints (never on a foreign one; see this program's module docs), and one preemption
+/// was enough. [`Durable::retire`] added a third shape: the session region's two store caretakers
+/// being killed by §40's cascade as their supervisor's supervisor exits, an asynchronous teardown
+/// this process can only wait out. Measured 2026-09-30 on the riscv64 TCG leg: at 64 the wait gave
+/// up inside the race **4 boots in 4**, `discard` silently leaked the whole 784-page durable
+/// budget, and the next `SCHEDULE` login was answered `DENIED` for want of a split; at 1024 the
+/// same boot passed 7 in 7. A caller stuck past this many attempts still has a different problem
+/// than this loop can fix, which is the same sentence `components/src/session.rs`'s `ATTEMPTS`
+/// (1024, from `job_undertaker`) carries for the same wait.
 fn reclaim(region: u64) {
     for _ in 0..RECLAIM_ATTEMPTS {
         if memory_region_destroy(region) {
@@ -2094,8 +2103,9 @@ fn reclaim(region: u64) {
     }
 }
 
-/// How many times [`reclaim`] retries, matching `crates/system_initializer::RECLAIM_ATTEMPTS`.
-const RECLAIM_ATTEMPTS: usize = 64;
+/// How many times [`reclaim`] retries. Not `system_initializer`'s 64; see [`reclaim`] for the
+/// durable-retirement measurement that separates them.
+const RECLAIM_ATTEMPTS: usize = 1024;
 
 /// **Give a region back completely: the memory *and* this process's own capability-table slot.**
 ///
