@@ -22,6 +22,12 @@ name: merge drain
 #
 # BUGS
 #
+#   - **`pull_request:` triggers joined on 2026-09-30, day four of compromised throughput.** The
+#     cron fired three times in 24 hours (01:29, 07:05, 13:35) while ejections stranded green pull
+#     requests for hours between runs; the schedule's own BUGS entry below predicted it. A push or
+#     a ready-flip now runs one `--once` pass immediately, so the re-arm reacts in minutes to the
+#     events that create the need for it. The pass is cheap and idempotent; concurrency still
+#     collapses duplicates.
 #   - **`schedule:` is a floor, not a promise.** GitHub's shortest interval is five minutes, and
 #     scheduled runs are delayed under load and dropped entirely during peaks. A reader must not
 #     take the run list as a heartbeat: a gap means "no run", never "nothing to do", and the drain
@@ -40,6 +46,8 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+  pull_request:
+    types: [opened, ready_for_review, synchronize, reopened]
 
 # One drain, and the platform holds it rather than a person remembering. `cancel-in-progress: false`
 # because a pass that is part way through arming pull requests should finish; a queued duplicate is
