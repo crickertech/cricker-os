@@ -2293,32 +2293,35 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     }
     // **The graphical terminal stack's raw materials** (milestone 600 (provisional); milestone 177 (wire the graphical terminal stack into the real interactive boot)
     // built the stack itself here), when a virtio-gpu is attached: the gpu's confined transport,
-    // interrupt and DMA run, and the surface run inside it, in slots 17, 18, 19 and 12. The
-    // progenitor builds `gpu_driver` and `display_terminal` from these, exactly as it builds
-    // entropy from the rng's trio, and so it holds their endowments and is the supervisor they
-    // were born under, which is what swapping `display_terminal` live (milestone 23 (a capability-routed component OS with live replacement)) needs.
+    // interrupt and DMA run, and the surface run inside it, in slots 17, 18, 19 and 12. Nothing
+    // is built from them at boot (milestone 623 (provisional), calef's 2026-09-30 ruling: the
+    // boot stays the minimal UART system and graphics is launched from the swish prompt); the
+    // progenitor hands all seven to the shell, which holds them until a `screen` session's spawn
+    // hands them back for the drivers to be built from, exactly as it hands the machine
+    // statistics page to a session that may delegate it.
     //
-    // **Why this is no longer built here.** Milestone 177 spawned the stack kernel-side because a
-    // virtio-gpu "needed eleven capability-table slots, one `PageFrame` per DMA page". DECISIONS
-    // §102 (a Frame names a run of pages) had already given `PageFrame` a page count, and milestone 142 (a text display good enough that people use it instead of a GUI) made the gpu's region one
-    // run and one capability (`display_service::wire_device`), so the premise had expired: the gpu
-    // is four capabilities here, and the keyboard three.
+    // **Why the kernel grants rather than builds.** Milestone 177 spawned the stack kernel-side
+    // because a virtio-gpu "needed eleven capability-table slots, one `PageFrame` per DMA page".
+    // DECISIONS §102 (a Frame names a run of pages) had already given `PageFrame` a page count,
+    // and milestone 142 (a text display good enough that people use it instead of a GUI) made the gpu's
+    // region one run and one capability (`display_service::wire_device`), so the premise had
+    // expired: the gpu is four capabilities here, and the keyboard three.
     //
     // **Two frame capabilities over one region, deliberately.** The driver gets the whole run and
     // the terminal only the surface after its first page, which is the split
     // `display_service::start_terminal` already makes; nothing lets a holder narrow a run, so the
-    // kernel mints both. `None` with no GPU on the bus, or no `gpu_driver` or `display_terminal` in
-    // the archive: no device is wired for programs this boot could never run.
+    // kernel mints both. `None` with no GPU on the bus, or no `gpu_driver` or `display_terminal`
+    // in the archive: no device is wired for programs this boot could never run.
     let gpu = if program("gpu_driver").is_some() && program("display_terminal").is_some() {
         display_service::wire_device()
     } else {
         None
     };
-    // **And a virtio keyboard, when the graphical boot has one** (slots 20-22), the rng trio's
-    // shape exactly. `None` is milestone 192 (a keyboard on real silicon)'s option A, not an absence: the progenitor then builds
-    // the UART's `input` driver for the graphical terminal from slots 1 and 2, as it does on a
-    // plain boot. Wired only beside a GPU, because a keyboard with no screen has no terminal to
-    // type into on this boot.
+    // **And a virtio keyboard, when this boot has a gpu too** (slots 20-22), the rng trio's
+    // shape exactly. `None` is milestone 192 (a keyboard on real silicon)'s option A, not an
+    // absence: a `screen` session then takes its keystrokes from the boot's own UART line
+    // discipline, at launch rather than at boot. Wired only beside a GPU, because a keyboard
+    // with no screen has no terminal to type into on this boot.
     let keyboard = if gpu.is_some() && program("keyboard_driver").is_some() {
         keyboard_service::wire_device()
     } else {
@@ -2326,11 +2329,11 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     };
     if gpu.is_some() {
         crate::println!(
-            "  graphics  : a virtio-gpu and {}; the progenitor builds the terminal stack",
+            "  graphics  : a virtio-gpu and {}; the shell holds the grants, a `screen` launch builds from them",
             if keyboard.is_some() {
                 "a virtio keyboard"
             } else {
-                "no keyboard (the UART is the keystroke source)"
+                "no keyboard (a screen session's keystrokes come over the UART)"
             }
         );
     }
