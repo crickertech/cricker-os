@@ -20,9 +20,9 @@ nothing. calef asked for it on 2026-09-30.
 Two series, one mechanism:
 
 1. `public_names`, the stock: total public function and method names per week, split the way the
-   lines series splits (kernel crate versus the rest), so a discontinuity like milestone 609's
-   test-move (the system tests leave the kernel crate) is annotatable by the 623 (a bullet under
-   the chart explains a cliff) machinery rather than argued about.
+   lines series splits (kernel crate versus the rest), so a discontinuity like milestone 609 (the system tests
+   leave the kernel crate) is annotatable by the 623 (a bullet under the chart explains a cliff)
+   machinery rather than argued about.
 2. `provisional_names`, the worklist: how many of those names carry a provisional provenance
    block. This is the ratification queue with a number on it, measured weekly instead of
    remembered.
