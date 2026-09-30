@@ -632,9 +632,18 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// nothing. Added by arithmetic, not measured: 23482 + 144 = 23626. The next CI run should replace
 /// this with its reading.
 ///
+/// **`24_829` (2026-09-30): the first full measured run of the durable suite.** Every earlier run
+/// died in `login_tests` before the ledger (the `ImageName` panic, then the timetable's stack
+/// overflow, then a spent construction budget; the re-derive test alone reads **5426** frames
+/// against the 144 this account had guessed at by arithmetic). On top of that reading's
+/// replacement: +912 is `login_tests`' `CONSTRUCTION_PAGES` raise (2176 -> 3088, its own account
+/// there: fourteen permanent ordinary sessions and an in-flight teardown cycle) and +16 the
+/// timetable's region (32 -> 48 stack pages, `timetable::contract`'s own account). Measured on
+/// riscv64 `sifive-u54`, the lower ISA of the pair as usual.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 23_626;
+const SUITE_PAGE_FRAME_BUDGET: usize = 24_829;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///

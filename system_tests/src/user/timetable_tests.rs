@@ -619,7 +619,8 @@ fn await_reply(t: &Spawned, page: &[u8], seq: u64) {
 /// shape with the program renamed, because this fixture's timetable resolves its document in a
 /// narrowed **archive** and plans each line against `grant_plan`'s static manifest for a program it
 /// knows, and only image programs are known there. The store's own document names the suite's
-/// installed fixture (`scheduled_demo`, §229 keeps a package off an image program's name), which no
+/// installed fixture `scheduled_demo`, which §229 (how a bare name at the prompt reaches an
+/// installed program) keeps off an image program's name and no
 /// `grant_plan::Prog` knows, so a store-mode timetable plans it against the bytes' own manifest
 /// instead; that difference is Fork 8 D's, and it is why this control copies the shape rather than
 /// the very bytes. Provisional name.

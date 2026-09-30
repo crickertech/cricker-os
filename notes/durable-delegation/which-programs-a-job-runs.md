@@ -112,10 +112,11 @@ nothing from it, since the timetable endows a job only with what its entry grant
   word does. A version asking for more than the line grants does not fire. Nothing can tell the
   owner yet; `components/src/timetable.rs`'s BUGS names the system log (#1423) and notices (#1424).
 - The harness fixture first installed the demo under the image's own name,
-  `least_authority_demo`. That met §229's refusal of a package entry under a name the image
-  carries, ruled 2026-09-27 and landed on `main` while this branch sat, as `with_entry`'s
-  `ImageName` error, panicking the guest suite at its first login test and taking the inbound
-  check down with it (0 of 4, no listener ever ran). Found 2026-09-30 (UTC) reproducing the
-  rebase regression. The fixture now installs the same bytes as `scheduled_demo` (provisional), a
+  `least_authority_demo`. That ran into §229 (how a bare name at the prompt reaches an installed
+  program), which rules that a package cannot take an image program's name (calef, 2026-09-27; it
+  landed on `main` while this branch sat). `with_entry` answered `ImageName` and the expect behind
+  it panicked the guest suite at its first login test. The inbound check went down with it: 0 of 4,
+  no listener ever ran. Found 2026-09-30 (UTC) reproducing the rebase regression. The fixture now
+  installs the same bytes as `scheduled_demo` (provisional), a
   name no boot image packs; the image's own name stays legal where the archive path genuinely hands
   out image programs (`timetable_tests`' narrowed archive, the shipped `timetable.conf`).

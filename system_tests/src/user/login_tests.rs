@@ -90,7 +90,8 @@ const DURABLE_UT_PAGES: u64 = login_protocol::durable::BUDGET_PAGES;
 /// `activation/`. Written once per boot, before either `login` that opens a schedule starts.
 ///
 /// The bytes are `least_authority_demo`'s, out of the initrd, because the image is the only source
-/// this harness has; the **name is not the image's**, because §229 refuses a package entry under a
+/// this harness has; the **name is not the image's**, because §229 (how a bare name at the prompt
+/// reaches an installed program) refuses a package entry under a
 /// name the image carries, calef's ruling of 2026-09-27, and this image carries
 /// `least_authority_demo`. Installing under the image's own name panicked the whole guest suite at
 /// `with_entry`'s `ImageName` refusal the moment the rebase met that ruling, which is the inbound
