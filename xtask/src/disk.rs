@@ -245,9 +245,17 @@ pub(crate) const DOWNLOADED_GREETING: &str = "downloads/greeting.nifepkg";
 /// **`greeting` at 0.2.0, the second version, on the disk for every leg** (milestone 614 (two
 /// installed versions of one program, each runnable, and a caller granted the one it needs)): the
 /// recipe-built package whose member is `greeting_two`'s bytes under the name `greeting`, so its
-/// digest differs from 0.1.0's and the table can hold both. Provisional name (the file's and the
-/// constant's).
-pub(crate) const DOWNLOADED_GREETING_0_2_0: &str = "downloads/greeting-0.2.0.nifepkg";
+/// digest differs from 0.1.0's and the table can hold both. Provisional name (the constant's and
+/// the path's).
+///
+/// The version is a directory, not part of the file's name, because the shell can only type a
+/// component of at most sixteen bytes (`grant_plan`'s `MAX_NAME`, the width the grant wire
+/// packs): `greeting-0.2.0.nifepkg` is twenty-two, and CI's first run of the line answered `that
+/// is not a name: one component, at most 16 bytes`. This is the same wall the 614 block's BUGS
+/// records for a remove operand, met by a fixture rather than a package, and answered the same
+/// way: the name stays inside the sixteen bytes rather than the wire growing. The shape mirrors
+/// the install path (`packages/greeting/0.2.0/greeting`), where the version is a directory too.
+pub(crate) const DOWNLOADED_GREETING_0_2_0: &str = "downloads/0.2.0/greeting.nifepkg";
 
 /// **What the gate's package source serves this architecture** (milestone 198 rung 3a's fetch):
 /// `helpers/package-http-peer` reads `NIFE_PACKAGE_SOURCE`, and `script/swish-check` points it here,

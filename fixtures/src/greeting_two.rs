@@ -10,7 +10,7 @@
 //! copy ran, and its digest differs, so the table holds two rows for `greeting`.
 //!
 //! ```text
-//! $ package install downloads/greeting-0.2.0.nifepkg
+//! $ package install downloads/0.2.0/greeting.nifepkg
 //!   installed; generation 3 is live
 //! $ packages/greeting/0.2.0/greeting
 //! hello from the second copy of the package

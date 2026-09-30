@@ -761,7 +761,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // architecture.
     line(
         0,
-        "package install downloads/greeting-0.2.0.nifepkg",
+        "package install downloads/0.2.0/greeting.nifepkg",
         &["installed; generation 3 is live"],
     ),
     // **And the new version runs by its path**, printing its own line, which is how the transcript
