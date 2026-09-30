@@ -148,6 +148,26 @@ This does not make concurrent lanes safe, and must not be read that way. It make
 visible and self-healing at the next call. A lane whose build is already in flight when another
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
+**Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` has
+since milestone 606's correction (recorded in `xtask::std_exerciser`'s doc comment); the two
+`helpers/` build scripts and `script/crypto-probes` joined after three independent sites of
+evidence landed in one evening: main-soak's `std-aborts` aborting on dep-info that named another
+worktree's farm, the 1377 lane building std from the unpatched sysroot twice under
+`CARGO_TARGET_DIR=$PWD/target`, and one observation of plain `rustc --print sysroot` in a fresh
+worktree resolving to another worktree's farm with no environment variable set at all (16:34 UTC,
+2026-09-30; not reproducible in ten tries minutes later, with a concurrent lane live on the
+machine; recorded because it was observed, not because it is explained). Name-based and
+file-based toolchain resolution both remain machine-global contention surfaces; a path this
+checkout computed and checked is the only selector with one owner.
+
+`std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target`, printing the override when
+a lane's exported value would have redirected the build. That export used to separate a build from
+its evidence: the ELFs and dep-info landed in the workspace's shared `target/`, the sweep read the
+previous unredirected run's dep-info, and a wrong-sysroot build passed as green. Both shapes were
+reproduced host-side on 2026-09-30: a by-name build against a stolen link under the export passed
+`std-aborts` silently, and the same build without the redirect was caught loudly, naming the
+foreign farm per file.
+
 ### The target specs
 
 `targets/{aarch64,riscv64,x86_64}-unknown-nife.json`, built with `-Zbuild-std` and
@@ -280,11 +300,17 @@ One line each. The full entry, with its reasoning and history, is in
 - The `std-src` patches are string-anchored to the pinned nightly. A bump that reshapes a dispatcher
   fails with "anchor not found", which is the intended tripwire.
 - `nife-dev` is one name for the whole account. Relinking loudly makes a stolen link visible, and a
-  lane whose build is already in flight when another relinks still loses (above).
+  lane whose build is already in flight when another relinks still loses (above). Every build this
+  tree owns names the farm by path, so the name's remaining reach is a person typing `+nife-dev`.
 - `std-aborts` covers `sys/` only, and proves a body reachable, never a call. A stale or foreign
   build under `std_exerciser/target` can be reported as a source defect, or fail inside the unpatched
   std; the recovery for both is `rm -rf std_exerciser/target`
-  ([the std-aborts appendix](std/std-aborts.md#bugs)). The name `std-aborts` is provisional.
+  ([the std-aborts appendix](std/std-aborts.md#bugs)). An exported `CARGO_TARGET_DIR` used to blind
+  it entirely, judging the previous run's evidence while a wrong-sysroot build passed (the 1377
+  lane, twice, 2026-09-30); `std-exerciser` now pins and prints the override. A build run by hand
+  inside the repo without `RUSTUP_TOOLCHAIN` still resolves the unpatched sysroot through
+  `rust-toolchain.toml`, which is `script/crypto-probes`' documented trap. The name `std-aborts` is
+  provisional.
 
 ## Appendices
 
