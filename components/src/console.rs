@@ -39,7 +39,7 @@
 //! 151) ending the one wait point on either a client's message or the deadline (milestone 106's
 //! `Timer::ARM`), plus a timer and notification slot beside the screen endpoint. Before it, every
 //! write blocked this one thread on a full paint+flush, which under QEMU's TCG was most of the
-//! x86_64 swish leg's 321 s (`notes/benchmarks/icount-tick-scales.md`): the leg types a line, and
+//! `x86_64` swish leg's 321 s (`notes/benchmarks/icount-tick-scales.md`): the leg types a line, and
 //! the console painted it several times over, once per write, while the shell waited to be told its
 //! bytes went out. **An ack now promises the wire, and the screen within one window**, which is a
 //! contract change recorded here rather than slipped in: the old meaning ("out everywhere this

@@ -195,7 +195,7 @@ fn paint(
 ///
 /// Every unchanged row of a scrolled screen is pixels this process already holds, so re-rendering
 /// them through `Vt::pixel` (a divide, a cell fetch and a glyph lookup per pixel, times 317,856
-/// pixels on the 924x344 scanout) bought nothing, and under TCG, where the x86_64 swish leg paid
+/// pixels on the 924x344 scanout) bought nothing, and under TCG, where the `x86_64` swish leg paid
 /// ~3.5x per store, it was most of that leg's 321 s (`notes/benchmarks/icount-tick-scales.md`).
 /// A row-to-row move of words the surface already contains is the whole work.
 ///
@@ -209,7 +209,7 @@ fn scroll_surface(surface: &MappedWindow, stride: u32, w: u32, h: u32, px: u32) 
     // before it is read: the same order `copy_within` uses for the cells this mirrors.
     for y in 0..h - px {
         let (dst, src) = (y as u64 * stride as u64, (y + px) as u64 * stride as u64);
-        if stride % 8 == 0 {
+        if stride.is_multiple_of(8) {
             let qwords = w as u64 * 4 / 8;
             for q in 0..qwords {
                 surface.w64(dst + q * 8, surface.r64(src + q * 8));

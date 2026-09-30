@@ -100,7 +100,7 @@ pub const HOST_KEY_BYTE: u8 = b'a';
 ///
 /// Until the paint lane, no check that verified the terminal's *pixels* ever pushed a picture
 /// past its own height: every pixel-exact witness compared a screen that never scrolled, so the
-/// scroll path, the exact path the x86_64 swish leg spends most of its time in, had no
+/// scroll path, the exact path the `x86_64` swish leg spends most of its time in, had no
 /// end-to-end witness at all. This is the content that fixes that. Five rows are in use when the
 /// scroller starts, so 48 lines plus the 5-line tail below scroll a 43-row grid fifteen times.
 ///

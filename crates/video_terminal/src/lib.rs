@@ -692,7 +692,7 @@ impl CellRect {
 /// A scroll is not a change to any cell; it is a change to *where the cells are*. Reporting it as
 /// a whole-grid rectangle (which is what this engine did before the paint path learned to move
 /// pixels, 2026-09-30) forces every consumer to re-render a screen it already holds the pixels
-/// of, and on the x86_64 swish leg that re-render, per scrolled line, was most of 321 s
+/// of, and on the `x86_64` swish leg that re-render, per scrolled line, was most of 321 s
 /// (`notes/benchmarks/icount-tick-scales.md`, the swish-check row). So the report is two fields,
 /// with an invariant a painter can hang a fast path on:
 ///
@@ -2567,10 +2567,7 @@ mod tests {
 
         t.take_damage();
         t.feed(b"\x1b[1;3H");
-        let d = t
-            .damage()
-            .expect("moving the cursor must be damage")
-            .rect;
+        let d = t.damage().expect("moving the cursor must be damage").rect;
         assert!(
             d.col == 0 && d.cols >= 3,
             "both cells must be in the damage"

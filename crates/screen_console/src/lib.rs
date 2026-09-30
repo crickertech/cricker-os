@@ -311,8 +311,8 @@ impl Aperture {
     /// uncacheable (x86: no PAT programming yet), and under QEMU's TCG store-heavy guest code runs
     /// ~3.8x slower per instruction than arithmetic
     /// (`notes/benchmarks/icount-tick-scales.md`), which made the one-word-per-pixel copy most of
-    /// the x86_64 swish leg's 321 s. Pairing the pixels halves the store count and nothing else
-    /// changes. A `u64` is also the widest store this tree's x86_64 target can legalise: the
+    /// the `x86_64` swish leg's 321 s. Pairing the pixels halves the store count and nothing else
+    /// changes. A `u64` is also the widest store this tree's `x86_64` target can legalise: the
     /// kernel and initrd build for `x86_64-unknown-none`, whose spec is `-mmx,-sse,+soft-float`,
     /// so there is no vector store to reach for (`xtask/src/archive.rs` records the target).
     ///
@@ -324,6 +324,8 @@ impl Aperture {
     /// **The pair is byte-identical to two word stores on a little-endian machine**, which all
     /// three of this tree's targets are, and the host test that proves `copy_wide` equals `copy`
     /// pixel for pixel runs on one. `lo` is the earlier pixel.
+    #[allow(clippy::too_many_arguments)] // the argument list is the copy contract: a rectangle,
+    // the base's misalignment, a read, and the two store widths the caller's hardware offers
     pub fn copy_wide(
         &self,
         x: u32,
@@ -352,8 +354,13 @@ impl Aperture {
             // word stores alone.
             let run = line + x as usize * 4..line + (x + w) as usize * 4;
             let mis = misalign as usize;
-            let qw = if (mis + line) % 4 == 0 && run.len() >= 8 {
-                run.start + if (mis + run.start) % 8 == 0 { 0 } else { 4 }
+            let qw = if (mis + line).is_multiple_of(4) && run.len() >= 8 {
+                run.start
+                    + if (mis + run.start).is_multiple_of(8) {
+                        0
+                    } else {
+                        4
+                    }
             } else {
                 run.end
             };
