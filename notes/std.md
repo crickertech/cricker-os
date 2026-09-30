@@ -150,23 +150,19 @@ relinks still loses; the honest fix is a per-worktree toolchain name, which nobo
 
 **Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` has
 since the correction of milestone 606 (a directory walk costs what it does on Linux) (recorded in `xtask::std_exerciser`'s doc comment); the two
-`helpers/` build scripts and `script/crypto-probes` joined after three independent sites of
-evidence landed in one evening: main-soak's `std-aborts` aborting on dep-info that named another
+The `helpers/` build scripts and `script/crypto-probes` joined after three sites of evidence
+landed in one evening (2026-09-30): main-soak's `std-aborts` aborting on dep-info naming another
 worktree's farm, the 1377 lane building std from the unpatched sysroot twice under
-`CARGO_TARGET_DIR=$PWD/target`, and one observation of plain `rustc --print sysroot` in a fresh
-worktree resolving to another worktree's farm with no environment variable set at all (16:34 UTC,
-2026-09-30; not reproducible in ten tries minutes later, with a concurrent lane live on the
-machine; recorded because it was observed, not because it is explained). Name-based and
-file-based toolchain resolution both remain machine-global contention surfaces; a path this
-checkout computed and checked is the only selector with one owner.
+`CARGO_TARGET_DIR=$PWD/target`, and one `rustc --print sysroot` in a fresh worktree resolving to
+another worktree's farm with no environment set (16:34 UTC; not reproduced in ten tries since).
+Name-based and file-based resolution both stay machine-global; a path this checkout computed and
+checked is the only selector with one owner.
 
-`std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target`, printing the override when
-a lane's exported value would have redirected the build. That export used to separate a build from
-its evidence: the ELFs and dep-info landed in the workspace's shared `target/`, the sweep read the
-previous unredirected run's dep-info, and a wrong-sysroot build passed as green. Both shapes were
-reproduced host-side on 2026-09-30: a by-name build against a stolen link under the export passed
-`std-aborts` silently, and the same build without the redirect was caught loudly, naming the
-foreign farm per file.
+`std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
+The export used to separate a build from its evidence: dep-info landed in the shared `target/`,
+the sweep judged the previous run's, and a wrong-sysroot build passed green. Both shapes were
+reproduced host-side on 2026-09-30: the stolen-link build passed silently under the export; the
+same build without it was caught, naming the foreign farm per file.
 
 ### The target specs
 
