@@ -5,7 +5,7 @@
 ## 2026-09-30: the x86_64 "17x" was units; the kernel paths are within 7 percent
 
 The question that opened this, calef's on 2026-09-30: swish-check's x86_64 first boot spends 15 s per
-transcript line where aarch64 spends 0.2 s, CI's 38-minute job is 84 percent that leg, and the
+transcript line where aarch64 spends 0.2 s, and CI's 38-minute job is 84 percent that leg. The
 baselines appear to show x86_64 executing ~17x the guest instructions for the same work
 (`yield_switch` 1,124,419 against 19,300,949; `ipc_rtt` 1,034,642 against 17,254,582). The lane's
 brief was to attribute the 17x to paths. The premise fails first, and measurably: the harnesses are
@@ -69,10 +69,10 @@ the kernel paths.** Rows from this lane's own boots (same evening, one tree) giv
 `yield_switch` 9,296 against 9,930, ratio 1.068.
 
 The residual, attributed as far as it is measured. x86_64 runs 4 to 7 percent more instructions on
-the switch and IPC rows. One measured component: the x86_64 switch installs the incoming thread's
-port grant on every switch-in (`install_port_grant`, `kernel/src/sched.rs`, the mechanism of §152
-(the port-range capability: object and method semantics on the syscall surface)), and
-`tss_iomap_lazy_nop` prices that call at ~130 debug-build instructions. Two
+the switch and IPC rows. One measured component is the port-grant install: the x86_64 switch installs
+the incoming thread's port grant on every switch-in (`install_port_grant`, `kernel/src/sched.rs`;
+§152 (the port-range capability: object and method semantics on the syscall surface) is the
+mechanism). `tss_iomap_lazy_nop` prices that call at ~130 debug-build instructions. Two
 switch-ins per `yield_switch` iteration is ~260 instructions of the 655 gap; the port-grant field
 read under the lock and the arch's own switch code account for the rest at this build's debug cost.
 On `spawn_reap`, `map_new` and `coremark` x86_64 executes fewer instructions than aarch64; `coremark`
@@ -97,8 +97,8 @@ was derived.
 
 The expensive kind of code is stores. `tss_iomap_switch` and `tss_iomap_lazy_switch` retire nearly
 the same instruction count (24.62M against 24.36M) and the bitmap row takes 3.8x the host time (0.122
-s against 0.032 s): the 8,192-byte write per switch-in is 32 MiB of stores across the row. Store-heavy
-code through this TCG runs ~3.5x slower per instruction than arithmetic.
+s against 0.032 s): the 8,192-byte write per switch-in is 31 MiB of stores across the row. Store-heavy
+code through this TCG runs ~3.8x slower per instruction than arithmetic.
 
 The swish-check x86_64 leg is store-heavy by construction and is already attributed
 (`xtask/src/swish_check.rs`, the `SWISH_CHECK_X86_LINE_SECS` table). The console server blocks on
@@ -110,9 +110,11 @@ percent of CI are that path and the OVMF boot, not scheduler instructions.
 
 ### The two adjacent facts, and what they do not explain
 
-- `targets/x86_64-unknown-nife.json` builds userspace `-mmx,-sse,-sse2,-sse3,-ssse3,-sse4.1,
-  -sse4.2,-avx,-avx2,+soft-float`, and the kernel target carries the same constraint (`.cargo/config.toml`
-  says one target serves both; the `aes_force_soft` cfg exists because of it).
+- The x86_64 kernel and the initrd userspace build for one target, `x86_64-unknown-none`, whose spec
+  is `-mmx,-sse,+soft-float`; `xtask/src/archive.rs` records it (it is why `aes` cannot legalise, and
+  why `aes_force_soft` exists in `.cargo/config.toml`). The std-farm target `targets/x86_64-unknown-nife.json` carries the
+  full `-mmx,-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2,+soft-float`. Nothing on the leg has
+  a vector unit.
 - `switch_to` saves six callee-saved registers and the return address, 56 bytes, no FP state
   (`kernel/src/arch/x86_64/context.rs`). The FP half of a switch is `fp::hand_over`: two loads and a
   branch when neither thread is FP-live, the register-file machinery `#[cold]`
@@ -120,8 +122,9 @@ percent of CI are that path and the OVMF boot, not scheduler instructions.
   soft-float.
 
 Connection to the hot segments: none of the rows above is FP, and the kernel's copies are
-word-wide (the 8,192-byte TSS write is ~2,120 instructions, four bytes per store, not a byte-wise
-soft path), so soft-float inflates no number in the table. The XSAVE-aware-switch-plus-SSE candidate
+word-wide. The two 8,192-byte TSS writes per iteration are ~2,120 instructions together
+(`tss_iomap_switch` less `tss_iomap_lazy_nop`), eight bytes per store, not a byte-wise
+soft path, so soft-float inflates no number in the table. The XSAVE-aware-switch-plus-SSE candidate
 is not what the "17x" accused the kernel of. It is a lever for the swish screen copy (SSE stores
 would cut that copy's instruction and store count ~4x) and for userspace SIMD, and it lives on the
 console path, priced there (`design/roadmap/400-the-shell-on-the-firmware-screen.md` owns that
@@ -166,8 +169,8 @@ would re-save every floor to buy a number each `bench: cntfrq` line already impl
 
 - The wall-clock magnitudes were taken beside another lane's measurement run. Both legs ran under the
   same load, which is what the ratios rest on; the magnitudes are approximate.
-- The four-bytes-per-store reading of the TSS write is arithmetic from ticks (8,192 bytes, ~2,120
-  instructions), not disassembly.
+- The eight-bytes-per-store reading of the TSS write is arithmetic from ticks (two 8,192-byte writes
+  per iteration, ~2,120 instructions together), not disassembly.
 - 62.5 MHz, 10 MHz and ~1 GHz are this QEMU's (11.1.1, `virt`/`q35`) rates. A machine property can
   change any of them, which is why the method is recorded rather than the constants alone.
 - The swish leg's own wall numbers are quoted from `xtask/src/swish_check.rs`'s 2026-09-19 table, not
