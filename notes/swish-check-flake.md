@@ -133,8 +133,8 @@ answered.
 - **Raise QEMU `-m`.** Buys nothing: both signatures are bounded by the progenitor's internal pool
   and by a two-writer race, not by machine RAM. Not priced further.
 - **The root fixes, both already tracked.** The interleave class dies when the kernel stops writing
-  the UART once userspace owns it (DECISIONS §175 "where the kernel's own output goes once
-  userspace owns the console", ruled 2026-09-27, unbuilt; the degauge doc points there). The OOM
+  the UART once userspace owns it (DECISIONS §175 (where the kernel's own output goes once
+  userspace owns the console), ruled 2026-09-27, unbuilt; the degauge doc points there). The OOM
   race dies when the undertaker tells the progenitor a job's memory is back
   (`design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`). Both are architect
   territory, not this lane's.
