@@ -34,8 +34,8 @@ slipped in.
 
 The proof owed, and not yet paid: the x86_64 leg's line-time distribution before and after
 (`NIFE_SHOW_LINE_TIMES` exists for exactly this), `SWISH_CHECK_X86_LINE_SECS` shrunk or deleted with
-those numbers, and the parity cost on aarch64 and riscv64 stated (the paint path is shared; their
-boots also carry the batching). The lane cannot run QEMU; the maintainer gates the legs.
+those numbers, and the parity cost on aarch64 and riscv64 stated. The paint path is shared; the
+other legs' boots also carry the batching. The lane cannot run QEMU; the maintainer gates the legs.
 
 ## Index row
 
