@@ -64,7 +64,11 @@ Two lane hazards found while setting up, recorded because the next lane will hit
   2 echo-wait false reds, 1 progenitor out-of-memory, 1 std-program illegible-output failure.
 
 So the two phenomenon signatures are real, repeat across days, and are a minority of red runs at
-this step: most reds are real breakage arriving through the same step.
+this step: most reds are real breakage arriving through the same step. Both signatures are kin to
+the load-sensitive family
+([the register](load-sensitive-assertions.md)), with a difference worth naming: the host being
+slow is only the window-opener here, and each failure needs its own two-writer race or reap race
+to close inside it.
 
 ## Each signature, mechanically
 
