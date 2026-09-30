@@ -1,5 +1,8 @@
 # Corrections of error
 
+*Name: provisional. `coes` and this directory were minted by the maintainer session on 2026-09-30
+(UTC) for calef's commission; the abbreviation spells out above and is his to ratify or rename.*
+
 When the machine or a sweep overrules how the tree was being run, the correction is recorded
 here, one file per error, dated UTC. A correction states what happened, the impact, the root cause
 and the mechanism that replaces it; an error with no mechanism underneath it is a prediction of
