@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-26
 decided: 2026-09-27
 ratified_by: calef
@@ -10,6 +10,8 @@ ratified_by: calef
 *Section number provisional. §234 (the prompt shows one tree) was the highest on `main` when this
 branch was rebased on 2026-09-26, so this took 235 and may move at merge. The file name is a lane's
 coinage and provisional too.*
+
+*Amended 2026-09-27T15:06Z: Fork 3 gains a home-sizing rule, below.*
 
 Raised 2026-09-26 (UTC) by calef, who asked for milestone 607 (provisional number): nothing ties
 together how packages build and update the OS and how the monorepo splits into divisions. Written by
@@ -22,12 +24,9 @@ section holds the forks and does not restate the numbers beyond what a fork need
 calef ruled on every fork on 2026-09-27 (UTC), in the maintainer session, relayed in comments on
 pull request #1389. What is left open is a follow-on, not a fork.
 
-- Fork 2, the trust root: T4 with T2, an option added for the ruling and shown in Fork 2's table.
-  The loader hands over two digests, the progenitor's and the system manifest's. The kernel checks
-  only the progenitor. The progenitor checks the base set against the manifest digest. No table
-  and no signature code enter the kernel. Signatures stay where §220 put them, at install and
-  update, then pinned by digest. calef: *"T4 with T2."* The comparable shape is Fuchsia's: the
-  system image's Merkle root in the boot arguments, checked in userspace.
+- Fork 2, the trust root: T4 with T2, an option added for the ruling (mechanism in Fork 2's table,
+  below). calef: *"T4 with T2."* The comparable shape is Fuchsia's: the system image's Merkle root
+  in the boot arguments, checked in userspace.
 - Fork 1, the update unit: packages, as the direction. calef: *"I think the unit of update should
   be packages."*
 - Fork 1, the slot layout: U4, a full copy per slot, ruled 2026-09-27. calef: *"A shared store
@@ -36,8 +35,7 @@ pull request #1389. What is left open is a follow-on, not a fork.
 - Fork 4, the SDK: S2 now, S3 as the destination, ruled 2026-09-27. calef: *"confirm S2, with S3
   as the destination once the metrics show stability."* The S2 archive also carries C headers
   generated from the contracts and the prebuilt runtime library for C. S3 waits on the
-  interface-stability metrics of `milestone/610-interface-stability` (provisional number 610). S1
-  is not planned, because the `std` overlay cannot be a crate, so S1 would always need S2 anyway.
+  interface-stability metrics of `milestone/610-interface-stability` (provisional number 610).
 - The ABI revision is a field in the manifest note of milestone 597 (a program carries its
   manifest in an ELF note), not a separate note. calef: *"yes"*. Whoever builds it picks the
   encoding: the descriptor's reserved zero bytes, or a longer layout. Amending version 1 in place
@@ -109,8 +107,7 @@ booting system agree on.
 | U3. Two tiers (not taken) | U1 below the package manager, §208 activation above it | A tier line to maintain, and two rollback mechanisms. |
 
 Every option keeps 525's slots. U1 and U3 need no new boot format; U2 and U4 each need one. The
-ruling takes packages as the unit and U4 as the slot layout. U4 still lets bandwidth fall with the
-size of a change, since a package whose digest the running slot holds is copied locally.
+ruling takes packages as the unit and U4 as the slot layout, per the table above.
 
 The base image is the resolved lock of a dependency graph. Resolution happens at build time, not
 on the device, the way `Cargo.lock` and a Nix closure work and apt does not. Programs outside the
@@ -139,7 +136,7 @@ independent of the base set, though not of the progenitor.
 
 The names of divisions and repositories are calef's; those below are provisional. Seven candidates
 come out of the dependency graph: kernel, contracts, runtime, boot, services, fixtures and host.
-Proofs are not a division, because each proof lives beside its code in 28 places.
+Proofs are not a division: each lives beside its code in 28 places.
 
 | option | shape | what it costs |
 |---|---|---|
@@ -151,6 +148,20 @@ Proofs are not a division, because each proof lives beside its code in 28 places
 Two things stay single-tree under every option. One `script/test` proves every architecture (§19 (architectural parity is a tenet)),
 and the integration test suite needs every division at a known version to run. R1 keeps both. The
 end state has to rebuild them wherever the base's gate goes.
+
+### Amendment, 2026-09-27T15:06Z: how big a home is (question 7c)
+
+calef ruled, once R4 has packages leaving: **a home is sized by what changes together**, option C.
+A (one repository per package) is refused: it maximises two-PR commits wherever packages
+co-change. B (one repository per division) is refused too: a division comes from the dependency
+graph, not co-change ("The premise, checked" above measures 76% of contract commits crossing one).
+
+Milestone 610 (the interface's stability is measured weekly) gains a per-package co-change column
+beside the division figure it carries; packages that move together share a home. Measure first: no
+package moves before that column exists. R1 is unchanged.
+
+Every `.package.toml` file's provisional `home` field stays provisional. `packages/homes.toml`'s
+header cites this. The column is owed work against 610's own block, not built here.
 
 ## Fork 4: how a third party builds against the ABI
 
@@ -164,25 +175,19 @@ overlay, the target files and the linker script.
 | S2. One SDK archive per release (ruled, now) | Fuchsia's IDK and Genode's `api` archive: the crates and toolchain pieces in one file, used through `[patch]` or a path. | Nothing published to a registry. A bespoke install step for every third party. |
 | S3. An upstream Rust target (ruled, the destination) | The `std` overlay moves upstream as a tier 3 target. | Upstream review, and a claim that the ABI is stable enough for someone else's tree. Months, not a milestone. |
 
-Under the ruling, a program should carry the ABI revision it was built against, so the progenitor
-can refuse one it no longer supports. It is a field in milestone 597's manifest note (ruled; see
-Rulings so far).
+Under the ruling, a program carries the ABI revision it was built against, in milestone 597's
+manifest note, so the progenitor can refuse one it no longer supports.
 
 ## Recommendations on the reversible parts
 
 Sequencing is reversible, and so is the first step, because it lives on the host and leaves the
 machine in no form.
 
-First, three pieces that are right under every option:
-
-1. Build the image from packages (P1). `cargo xtask` turns each base program into a §197 package,
-   and the image is assembled from a declared set by digest. It changes no format on the device.
-2. Pull the integrator and the test harness out of the kernel crate (P2). Decided, and in a lane
-   (see Rulings so far).
-3. Cut the two contract-to-runtime edges (P3). Two crates, reversible.
-
-Then the ruled work: the SDK archive (P4), the update path (P5), the trust handoff (P6) and the
-package boundaries (P7).
+Three pieces are right under every option, and cost nothing on the device. P1 builds the image
+from packages. P2 pulls the integrator and the test harness out of the kernel crate; decided, in a
+lane. P3 cuts the two contract-to-runtime edges. Descriptions are in the table below. Then comes
+the ruled work: the SDK archive (P4), the update path (P5), the trust handoff (P6) and the package
+boundaries (P7).
 
 The proposals, none minted:
 
@@ -231,11 +236,11 @@ Milestone 39 and §151's order now have an answer: R1 now, every package out in 
 
 Open, and none of them a fork of this section:
 
-- How base services with no Linux counterpart are grouped: the progenitor, the file server, the
-  drivers. nife needs its own grouping here.
-- Package names, which are calef's under the naming rule.
-- The format of a package's in-tree definition, and of the home record for paths that are not
-  packages, which the lane `milestone/611-package-boundaries` proposes.
+- How base services with no Linux counterpart (the progenitor, the file server, drivers) are
+  grouped. nife needs its own grouping here.
+- Package names, calef's under the naming rule.
+- The format of a package's in-tree definition, and of the non-package home record, proposed by
+  `milestone/611-package-boundaries`.
 
 ## BUGS
 

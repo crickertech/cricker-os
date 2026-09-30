@@ -112,7 +112,7 @@ mode there rather than a new script, invoked from `script/lint` when a base comm
 silent when one is not. **It never fails a build**, for the reason above: it cannot tell a stale
 citation from a fine one, and a check that guesses at prose earns its own ignoring.
 
-**The closest built relative is milestone 275** (a gate that diffs `design/fatal-risks.md` against the
+**The closest built relative is milestone 275** (a gate that diffs `design/fatal-risks/README.md` against the
 roadmap it cites), which compares a status a file states about a milestone with the status the
 roadmap records. That is the same comparison in its strict form, scoped to one file whose claims carry
 a status word. This proposal is the loose form, over every note, and it lists rather than fails because

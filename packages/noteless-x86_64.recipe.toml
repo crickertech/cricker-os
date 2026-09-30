@@ -1,0 +1,12 @@
+# noteless, as a x86_64 package. The same package as `noteless.recipe`, which says why it exists.
+
+name = "noteless"
+version = "0.1.0"
+architecture = "x86_64"
+
+[[member]]
+program = "noteless"
+
+[[member]]
+name = "noteless.licence"
+file = "LICENSE-MIT"

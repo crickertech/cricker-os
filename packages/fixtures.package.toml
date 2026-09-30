@@ -22,5 +22,8 @@ paths = [
     "packages/greeting.recipe.toml",
     "packages/greeting-riscv64.recipe.toml",
     "packages/greeting-x86_64.recipe.toml",
+    "packages/noteless.recipe.toml",
+    "packages/noteless-riscv64.recipe.toml",
+    "packages/noteless-x86_64.recipe.toml",
 ]
 depends = ["init", "time", "timetable", "network", "host-tools"]

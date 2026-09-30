@@ -67,6 +67,9 @@ their own commit, leaves first. The plan is a proposal, linked below.
   package file and a line in notes/package-boundaries.md's BUGS.
 - **Done.** Pull request #1392 (the system tests leave the kernel) made four kernel links
   dev-dependencies; the gate failed their exceptions as stale and they were deleted.
+- **Proposed.** `design/roadmap/proposals/a-package-licence-derived-from-what-it-links.md`: a
+  per-program SPDX licence from linked crates, a lint against it, owed by §135 (running GPL
+  software is aggregation)'s amendment (calef, 2026-09-27T15:11Z). Not built here.
 
 ## Index row
 

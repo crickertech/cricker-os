@@ -244,7 +244,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 132 | DECIDED | [What `PageFrame::REVOKE` owes an overlapping run](132-overlapping-page-frame-runs.md) |
 | 133 | DECIDED | [Whether an idle core should drain its own inbox before parking](133-idle-core-self-rescue.md) |
 | 134 | AMENDED | [A harness carries a machine-replayable falsification record, or it is not evidence](134-harness-falsification-record.md) |
-| 135 | DECIDED | [Running GPL software is aggregation, the capability boundary is what makes it so, and packages are how it arrives](135-running-gpl-software.md) |
+| 135 | AMENDED | [Running GPL software is aggregation, the capability boundary is what makes it so, and packages are how it arrives](135-running-gpl-software.md) |
 | 136 | DECIDED | [A mature foreign implementation earns its place as an oracle, not as a dependency](136-foreign-implementation-as-oracle.md) |
 | 137 | PROPOSED | [A hardware TRNG with no published health-test claim](137-trng-health-tests.md) |
 | 138 | DECIDED | [How a saturated workload is made to hand threads across cores](138-cross-core-handoff-under-load.md) |
@@ -284,7 +284,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 172 | PROPOSED | [Whether a `credential_protocol` verify endpoint names the identity it asks about](172-credential-endpoint-per-resource.md) |
 | 173 | PROPOSED | [Narrowing the root of the shell's namespace: a verb on the wire, or a shallower root](173-narrowing-the-namespace-root.md) |
 | 174 | PROPOSED | [Which caller each of the three uncalled instruments gets](174-a-caller-for-the-three-uncalled-instruments.md) |
-| 175 | PROPOSED | [Where the kernel's own output goes once userspace owns the console](175-kernel-console-arbitration.md) |
+| 175 | DECIDED | [Where the kernel's own output goes once userspace owns the console](175-kernel-console-arbitration.md) |
 | 176 | PROPOSED | [Offering the two RedoxFS patches upstream, and under whose name](176-offering-the-redoxfs-patches-upstream.md) |
 | 177 | DECIDED | [Whether AGENTS.md quotes measured numbers at all](177-measured-numbers-in-the-front-door-file.md) |
 | 178 | PROPOSED | [Where the timer re-arm seam goes, and which miss behaviour the kernel tick is meant to have](178-timer-rearm-seam.md) |
@@ -336,17 +336,23 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 224 | DECIDED | [No `pwdx`: only the shell has a working directory, so there is nothing to report](224-no-pwdx.md) |
 | 225 | DECIDED | [`free` sees the machine and your share: a region method and a withholdable memory page](225-free-sees-the-machine-and-your-share.md) |
 | 226 | DECIDED | [`pidwait` takes tids and composes with `pgrep`, because a program does one thing](226-pidwait-takes-tids.md) |
+| 227 | DECIDED | [How Tab reaches the shell: the shell edits its own line, and the terminal wire does not change](227-the-shell-edits-its-own-line.md) |
+| 228 | DECIDED | [How a set of matched names reaches the progenitor: in a page the shell fills, copied and checked](228-how-a-set-of-names-reaches-the-progenitor.md) |
+| 229 | DECIDED | [How a bare name at the prompt reaches an installed program: the activation set, and never an owner's vouch](229-how-a-bare-name-reaches-an-installed-program.md) |
 | 230 | DECIDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
 | 231 | DECIDED | [A swap's warning to a dependent is advisory, and the supervisor never waits for it](231-a-dependents-warning-is-advisory.md) |
 | 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |
 | 233 | DECIDED | [`MemoryRegion::RETYPE` takes a page count](233-a-region-retypes-a-run-of-pages.md) |
 | 234 | DECIDED | [The prompt shows one tree, and other trees are mounted at names in it](234-the-prompt-shows-one-tree.md) |
-| 235 | DECIDED | [The OS is built and updated from packages, and the tree divides by what releases together](235-packages-build-the-os-and-the-tree-divides-by-release.md) |
+| 235 | AMENDED | [The OS is built and updated from packages, and the tree divides by what releases together](235-packages-build-the-os-and-the-tree-divides-by-release.md) |
 | 236 | DECIDED | [`OPEN`/`OPENDIR` take a relative path, and `OPEN`'s reply carries the size](236-open-opendir-relative-path-and-size-hint.md) |
 | 237 | DECIDED | [Subtree grants may skip the caretaker, per filesystem](237-subtree-grants-skip-the-caretaker-per-filesystem.md) |
 | 238 | DECIDED | [The system tests leave the kernel crate as a second image, and a new test defaults to userspace](238-system-tests-leave-the-kernel-crate.md) |
 | 239 | DECIDED | [Four package kinds, and TOML for package declarations and recipes](239-package-kinds-and-toml-declarations.md) |
 | 240 | DECIDED | [§46 (thin primitives or whole subsystems): `toml` in `xtask`](240-toml-in-xtask.md) |
+| 241 | DECIDED | [A threadbare base: the boot slot holds the kernel and what boots and repairs, and every other program is a package](241-a-threadbare-base.md) |
+| 242 | DECIDED | [A system log: one service that programs and the kernel append to](242-a-system-log.md) |
+| 243 | DECIDED | [Notices for people: programs publish, users curate, displays show](243-notices-for-people.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design

@@ -268,8 +268,8 @@ pub struct Expander<'a> {
 /// A name is stable under both removal and insertion, so the rule "the [`MAX_NAMES`] smallest
 /// matches strictly greater than this" terminates whether the command destroys what it was handed or
 /// leaves it alone. That is the case Unix never has to think about, because its `xargs` reads names
-/// out of a pipe that was materialized before the first child ran; a shell with no allocator cannot
-/// materialize anything.
+/// out of a pipe that was materialized before the first child ran. This shell does not materialize
+/// a match: its heap is capped at 32 KiB, far under a large directory's names.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Resume {
     #[default]
@@ -463,6 +463,72 @@ pub fn magic_component(token: &[u8]) -> Result<bool, Refusal> {
     })
 }
 
+/// **Which of a line's words name something here, for a program that hears words** (milestone
+/// 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign program is told
+/// what to do) clauses 2 to 5). The shell builds it before it plans, as it builds an
+/// [`Expansion`], because only the shell can ask the directory; the planner turns it into one
+/// [`crate::DirGrant`] at the shell's current directory.
+///
+/// Two shapes. **Names**: each word whose first component names an entry here, and for a program
+/// that may create ([`crate::WordGrant::Create`]) each word that names nothing yet. **Here**: a word
+/// that is `.`, which designates the current directory itself (calef's N1 ruling, 2026-09-27T06:27Z:
+/// "to search here you type `rg pattern .`"). Neither: the line designated nothing and grants
+/// nothing, which is N1 too.
+///
+/// Name: provisional (2026-09-27).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Designation {
+    names: NameSet,
+    here: bool,
+}
+
+impl Designation {
+    /// Nothing designated.
+    pub const fn none() -> Self {
+        Designation {
+            names: NameSet::empty(),
+            here: false,
+        }
+    }
+
+    /// Add a name found here, or one the program may create. A full set is
+    /// [`Refusal::TooManyNames`], and a name that cannot travel in a grant
+    /// [`Refusal::MatchNotNameable`], rather than a smaller grant than the line said.
+    pub fn name(&mut self, name: &[u8], is_dir: bool) -> Result<(), Refusal> {
+        if self.names.contains(name) {
+            return Ok(());
+        }
+        if Name::new(name).is_none() {
+            return Err(Refusal::MatchNotNameable);
+        }
+        if self.names.push(name, is_dir) {
+            Ok(())
+        } else {
+            Err(Refusal::TooManyNames)
+        }
+    }
+
+    /// A word named the current directory itself.
+    pub fn here(&mut self) {
+        self.here = true;
+    }
+
+    /// The names designated, if the directory itself was not.
+    pub fn names(&self) -> &NameSet {
+        &self.names
+    }
+
+    /// Whether the current directory itself was designated, which subsumes every name.
+    pub fn is_here(&self) -> bool {
+        self.here
+    }
+
+    /// Whether the line designated nothing.
+    pub fn is_empty(&self) -> bool {
+        !self.here && self.names.is_empty()
+    }
+}
+
 /// **What the shell expanded, handed to the planner.**
 ///
 /// The shell expands *before* it plans, which is also what Unix does, so there is no divergence to
@@ -474,6 +540,11 @@ pub fn magic_component(token: &[u8]) -> Result<bool, Refusal> {
 pub struct Expansion {
     at: Option<usize>,
     names: NameSet,
+    /// `Some(here)` when this is a [`Designation`] rather than an expansion, whose names are
+    /// `names`. One `NameSet` shared by both rather than a second one beside it, because an
+    /// `Expansion` is copied through the shell's deepest frames by value, and a second set there
+    /// overflowed its stack at `package install` (CI, 2026-09-27).
+    words: Option<bool>,
 }
 
 impl Expansion {
@@ -482,7 +553,27 @@ impl Expansion {
         Expansion {
             at: None,
             names: NameSet::empty(),
+            words: None,
         }
+    }
+
+    /// **What a line's words designate, for a program that hears words** (milestone 205 (how a
+    /// foreign program is told what to do)). No
+    /// positional is expanded on such a line, so this and [`Expansion::at`] never meet.
+    pub const fn designated(words: Designation) -> Self {
+        Expansion {
+            at: None,
+            names: words.names,
+            words: Some(words.here),
+        }
+    }
+
+    /// The designation, if the shell resolved the line's words.
+    pub fn designation(&self) -> Option<Designation> {
+        self.words.map(|here| Designation {
+            names: self.names,
+            here,
+        })
     }
 
     /// The positional at `index` was a pattern, and these are the names it matched.
@@ -490,6 +581,7 @@ impl Expansion {
         Expansion {
             at: Some(index),
             names,
+            words: None,
         }
     }
 

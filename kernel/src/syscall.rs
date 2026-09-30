@@ -160,8 +160,15 @@ pub fn invoke(
                 // This one line is what turns a dead pipe reader into something the producer can
                 // act on, which is why the ABI grew a variant rather than the sink protocol growing
                 // a heartbeat.
+                //
+                // **Or it was refused** (milestone 603 (provisional), DECISIONS §101 (notification objects) ruling B): the
+                // endpoint carries a hardware interrupt, whose driver reads `w0 = 1` as "the device
+                // fired", so no program may deposit anything there. `NotPermitted`, because it is
+                // the answer to an operation the capability names but may not perform, and it is
+                // asked only once the abort branch is taken, so a send that went through pays
+                // nothing for it.
                 if sched::take_ipc_aborted() {
-                    return Err(Error::Gone);
+                    return Err(aborted_send_error());
                 }
                 Ok(0)
             }
@@ -210,7 +217,9 @@ pub fn invoke(
                     badge, // the endpoint we send on may be badged (milestone 599 (a frame per filesystem client channel))
                 );
                 if sched::take_ipc_aborted() {
-                    return Err(Error::Gone); // endpoint revoked; the delegation did not happen
+                    // Revoked, or refused (§101 ruling B); either way the delegation did not happen
+                    // and the capability is still the sender's.
+                    return Err(aborted_send_error());
                 }
                 Ok(0)
             }
@@ -244,7 +253,7 @@ pub fn invoke(
                 }
                 let reply = sched::ipc_call_badged(ep, [a0, a1], badge);
                 if sched::take_ipc_aborted() {
-                    return Err(Error::Gone); // endpoint revoked; no call, no reply
+                    return Err(aborted_send_error()); // revoked or refused; no call, no reply
                 }
                 frame.set_arg(1, reply[1]); // r1; r0 returns in x0 below
                 Ok(reply[0] as i64)
@@ -267,7 +276,7 @@ pub fn invoke(
                 rendezvous_reap(ep, a0)
             }
 
-            // **Read one entry of the domain this endpoint supervises** (milestone 126). The view
+            // **Read one entry of the domain this endpoint supervises** (milestone 126 (the `procps` package)). The view
             // half of what REAP is the control half of, and scoped by the same relationship, so a
             // supervisor sees exactly the children whose deaths would arrive here.
             //
@@ -442,6 +451,11 @@ pub fn invoke(
                 }
                 memory_region_destroy(region)
             }
+            // What the region was spent on (milestone 126's `free`, DECISIONS §225 (`free` sees the machine and your share) part 1). Under
+            // `ENUMERATE` alone, `address_space::LIST`'s rule one object type over: learning what
+            // a budget went to is not the authority to spend it. An unknown record is refused
+            // before the region is looked up, `SURVEY`'s order.
+            abi::memory_region::USAGE => memory_region_usage(cap, region, a0),
             _ => Err(Error::BadMethod),
         },
 
@@ -462,6 +476,7 @@ pub fn invoke(
                 }
                 page_frame_revoke(phys, count.get())
             }
+            abi::page_frame::SLICE => page_frame_slice(cap.rights, phys, count, a0, a1),
             _ => Err(Error::BadMethod),
         },
 
@@ -524,6 +539,22 @@ pub fn invoke(
         // unchanged.
         #[cfg(target_arch = "x86_64")]
         Object::PortRange(base, count) => port_range_invoke(cap.rights, base, count, method),
+    }
+}
+
+/// **Which error an aborted `SEND`, `SEND_CAP` or `CALL` answers** (milestone 603 (provisional)).
+/// `NotPermitted` when the endpoint carries an interrupt and refused the deposit (DECISIONS §101,
+/// ruling B), `Gone` when it was stale or revoked. Out of line and `#[cold]`, because it runs only
+/// on an abort and the three arms that call it are on the IPC fastpath.
+///
+/// Name: provisional (milestone 603 (provisional)): calef names public items.
+#[cold]
+#[inline(never)]
+fn aborted_send_error() -> Error {
+    if sched::take_ipc_refused() {
+        Error::NotPermitted
+    } else {
+        Error::Gone
     }
 }
 
@@ -1218,6 +1249,33 @@ fn unmap_run_prefix(root: u64, phys: u64, va: u64, mapped: u64) {
     }
 }
 
+/// `PageFrame::SLICE` (milestone 599, calef's option-4 ruling of 2026-09-27): a capability naming
+/// the `len` pages `first` pages into this run, with the same rights. `abi::page_frame::SLICE` has
+/// the rules; `#[inline(never)]` for the reason `memory_region_map` gives, since slicing is
+/// spawn-time wiring and never a step of the IPC round trip.
+#[inline(never)]
+fn page_frame_slice(
+    rights: Rights,
+    phys: u64,
+    count: core::num::NonZeroU64,
+    first: u64,
+    len: u64,
+) -> Result<i64, Error> {
+    if !rights.allows(Rights::GRANT) {
+        return Err(Error::NotPermitted);
+    }
+    let (Some(end), Some(len)) = (first.checked_add(len), core::num::NonZeroU64::new(len)) else {
+        return Err(Error::BadPointer);
+    };
+    if end > count.get() {
+        return Err(Error::BadPointer);
+    }
+    let base = phys + first * page_frames::FRAME_SIZE;
+    let slot = sched::grant(crate::cap::page_frame_run_cap(base, len, rights))
+        .map_err(|_| Error::OutOfMemory)?;
+    Ok(slot as i64)
+}
+
 /// `PageFrame::REVOKE`: un-share the run of `count` frames starting at `phys` from every holder and
 /// delete every capability naming the run, including the caller's own. Does not reclaim the pages
 /// (untyped is spend-only); that is `MemoryRegion::DESTROY`. §13, §102.
@@ -1349,6 +1407,25 @@ fn rendezvous_reap(ep: crate::sched::RendezvousId, tid: u64) -> Result<i64, Erro
     Ok(0)
 }
 
+/// The body of `abi::memory_region::USAGE` (milestone 126 (the `procps` package), `free`),
+/// out of line and `#[inline(never)]` for [`address_space_list`]'s reason: `syscall_entry` is
+/// measured flat, and a method only `free`, `vmstat` and `slabtop` call must not grow every
+/// syscall's footprint. The first CI run with it inline measured `syscall_entry` 5.6% larger on
+/// riscv64 and 8.8% on `x86_64`, over the 5% bound.
+/// The rights check lives here too, `page_frame_map`'s shape, so the arm in `invoke` is one call.
+#[inline(never)]
+fn memory_region_usage(cap: crate::cap::Cap, region: u64, record: u64) -> Result<i64, Error> {
+    if !cap.rights.allows(Rights::ENUMERATE) {
+        return Err(Error::NotPermitted);
+    }
+    if !abi::usage::is_known(record) {
+        return Err(Error::BadMethod);
+    }
+    crate::memory_region::usage_record(region, record)
+        .map(|pages| pages as i64)
+        .ok_or(Error::Gone)
+}
+
 /// The body of `abi::address_space::LIST` (milestone 126's `pmap`, DECISIONS §114), pulled out of
 /// [`invoke`] and marked `#[inline(never)]` on purpose: `syscall_entry` is measured flat
 /// (`script/fastpath-footprint`), so a rare administrative loop inlined into the hot dispatcher
@@ -1472,6 +1549,91 @@ mod tests {
         // (which reaps the space itself) rather than through `destroy`.
         let _ = sched::delete_current_cap(space_slot);
         let _ = sched::delete_current_cap(frame_slot);
+        let _ = sched::reclaim_region(space_region);
+        crate::memory_region::destroy(frame_region);
+    }
+
+    /// **A slice maps only its window** (milestone 599, calef's option-4 ruling of 2026-09-27).
+    /// The progenitor's pool is one capability over every client's window; `SLICE` is what lets it
+    /// hand a client exactly one. Through the real handlers: slice page 2 of a four-page pool,
+    /// `MAP_INTO` a space with the slice, and the space holds that page and none of its
+    /// neighbours. Then the refusals: out of range, empty, and without `GRANT`.
+    #[test_case]
+    fn a_slice_maps_only_its_window() {
+        let mut trap = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
+        let space_region = crate::memory_region::create(16).expect("no space region");
+        let name = crate::user::user_address_space_create(space_region).expect("no address space");
+        let root = crate::user::user_address_space_root(name).expect("no root");
+        let space_slot = sched::grant(crate::cap::address_space_cap(name, Rights::ALL))
+            .expect("grant the address space");
+
+        let frame_region = crate::memory_region::create(4).expect("no frame region");
+        let region_slot =
+            sched::grant(crate::cap::memory_region_root_cap(frame_region)).expect("grant");
+        let pool = invoke(&mut trap, region_slot, abi::memory_region::RETYPE, 4, 0, 0)
+            .expect("a four-page pool") as u64;
+        let Object::PageFrame(base, _) = sched::current_cap(pool).expect("the pool").object else {
+            panic!("RETYPE must mint a PageFrame");
+        };
+
+        let slice = invoke(&mut trap, pool, abi::page_frame::SLICE, 2, 1, 0)
+            .expect("page 2 of four is inside the pool") as u64;
+        let cap = sched::current_cap(slice).expect("the slice");
+        assert_eq!(
+            cap.object,
+            Object::PageFrame(
+                base + 2 * paging::PAGE_SIZE,
+                crate::cap::page_frame_run_len(1)
+            ),
+            "a slice names exactly the pages asked for",
+        );
+
+        // Map the slice, then look at the window and both neighbours' would-be addresses.
+        let va = 0x40_0000u64;
+        invoke(
+            &mut trap,
+            space_slot,
+            abi::address_space::MAP_INTO,
+            va,
+            slice,
+            abi::address_space::MAP_RW,
+        )
+        .expect("the slice maps");
+        assert_eq!(
+            mmu::translate_at(root, va).map(|(phys, _)| phys),
+            Some(base + 2 * paging::PAGE_SIZE),
+            "the slice mapped its own page",
+        );
+        for off in [va - paging::PAGE_SIZE, va + paging::PAGE_SIZE] {
+            assert!(
+                mmu::translate_at(root, off).is_none(),
+                "a slice's mapping reached past its window",
+            );
+        }
+
+        // Refusals: past the end, empty, overflowing, and a source without GRANT.
+        for (first, len) in [(3, 2), (4, 1), (1, 0), (u64::MAX, 2)] {
+            assert_eq!(
+                invoke(&mut trap, pool, abi::page_frame::SLICE, first, len, 0),
+                Err(Error::BadPointer),
+                "slice ({first}, {len}) of a four-page pool",
+            );
+        }
+        let narrow = sched::grant(crate::cap::page_frame_run_cap(
+            base,
+            crate::cap::page_frame_run_len(4),
+            Rights::WRITE,
+        ))
+        .expect("a pool without GRANT");
+        assert_eq!(
+            invoke(&mut trap, narrow, abi::page_frame::SLICE, 0, 1, 0),
+            Err(Error::NotPermitted),
+            "slicing without GRANT",
+        );
+
+        for s in [space_slot, slice, narrow, pool, region_slot] {
+            let _ = sched::delete_current_cap(s);
+        }
         let _ = sched::reclaim_region(space_region);
         crate::memory_region::destroy(frame_region);
     }

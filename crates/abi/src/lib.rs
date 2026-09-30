@@ -147,7 +147,12 @@ pub type CapSlot = u64;
 /// have been built against a temporary value of 28 that a later cleanup reverted to 17. Same place
 /// as ever for the measurement and the account: the progenitor's boot peaks at 21 simultaneous slots, and
 /// three of the seven added here are headroom rather than need.
-pub const CAPABILITY_TABLE_SLOTS: u64 = 24;
+///
+/// **Raised 24 -> 32** (calef, 2026-09-27, UTC), when milestone 126 (the `procps` package) found
+/// every progenitor boot slot below the fault slot named by some boot's grant and needed one more
+/// for the machine statistics page. calef chose eight rather than one, so the next boot grant does
+/// not meet the same wall. [`fault::FAULT_EP_SLOT`] moves from 23 to 31 with it, since it is derived.
+pub const CAPABILITY_TABLE_SLOTS: u64 = 32;
 
 /// Methods on a `Console` capability. **Historical: no longer wired up.**
 ///
@@ -983,6 +988,62 @@ pub mod memory_region {
     /// tree to walk). `NotPermitted` while a live thread still occupies the region, or if it has
     /// been `SPLIT` into children (destroy the children first), or without `WRITE`.
     pub const DESTROY: u64 = 4;
+
+    /// `invoke(cap, USAGE, record, _, _)` -> pages. **How much of this region has been spent, and
+    /// on what** (milestone 126, DECISIONS §225 (`free` sees the machine and your share) part 1: `free`'s "yours" line, and `slabtop`
+    /// asked per object type). `record` is one of [`usage`](super::usage)'s selectors; the answer
+    /// is a page count in x0.
+    ///
+    /// Needs `ENUMERATE` and nothing else, the rule §114 (`ENUMERATE` extends to the address-space
+    /// object) set for `pmap`: a holder learns what the region is spent on without being able to
+    /// spend, split or destroy it. `BadMethod` for an unknown record, checked before the region is
+    /// looked up; `NoSuchSlot`-style staleness reads as [`crate::Error::Gone`] for a region already
+    /// reclaimed.
+    ///
+    /// Name and number ratified 2026-09-27 (calef, #1360's table).
+    pub const USAGE: u64 = 5;
+}
+
+/// **Which figure a [`memory_region::USAGE`] asks for** (milestone 126, DECISIONS §225). A selector
+/// on `SURVEY`'s shape, so a new figure is a new value here and an arm in the kernel.
+///
+/// Every answer is in pages. [`SIZE`](usage::SIZE), [`COMMITTED`](usage::COMMITTED) and
+/// [`CHILDREN`](usage::CHILDREN) describe this region alone. [`FRAMES`](usage::FRAMES) and the
+/// three object kinds count **the whole subtree**, this region and every live region split from
+/// it, because a budget's pages are mostly carved into child regions and the objects live in
+/// those. The counts are bump-only like a watermark: a torn-down object's page
+/// stays spent until its region is reclaimed, so they say where the budget went, not what is alive
+/// now.
+///
+/// # BUGS
+///
+/// - Notification and timer objects (`objtype::NOTIFICATION`, `objtype::TIMER`) landed after these
+///   records were ratified. Their pages are counted by the kernel and reported by no record, so the
+///   object rows under-count a region that holds either. A record for each is a new wire number,
+///   and so a question for calef rather than for the lane that noticed.
+///
+/// Names and numbers ratified 2026-09-27 (calef, #1360's table).
+pub mod usage {
+    /// Pages the region holds in total.
+    pub const SIZE: u64 = 0;
+    /// Pages spent so far: the watermark.
+    pub const COMMITTED: u64 = 1;
+    /// Plain pages over the subtree: mapped memory, page tables, image pages and revocation records.
+    pub const FRAMES: u64 = 2;
+    /// Pages retyped into rendezvous objects, over the subtree.
+    pub const RENDEZVOUS: u64 = 3;
+    /// Pages retyped into address-space roots, over the subtree.
+    pub const ADDRESS_SPACES: u64 = 4;
+    /// Pages retyped into thread control blocks, over the subtree.
+    pub const THREADS: u64 = 5;
+    /// Pages this region carved into child regions that are still live.
+    pub const CHILDREN: u64 = 6;
+
+    /// Whether this kernel answers a record, `survey::record::is_known`'s twin.
+    #[must_use]
+    pub const fn is_known(record: u64) -> bool {
+        record <= CHILDREN
+    }
 }
 
 /// Methods on a `PageFrame` capability. **A physical page a process holds, maps, and shares.**
@@ -1008,6 +1069,28 @@ pub mod page_frame {
     /// down and endowing its replacement, and the asymmetry is forced: the kernel mints a device
     /// capability once, at boot, so a symmetric revoke would strand the device forever.
     pub const REVOKE: u64 = 1;
+
+    /// `invoke(cap, SLICE, first, count, _)` -> the slot the new capability landed in, or a
+    /// negative [`crate::Error`]. The slot comes back in x0, the way [`super::rendezvous::BADGE`]
+    /// answers.
+    ///
+    /// **Derive a capability naming a sub-run of this one** (milestone 599 (a frame per filesystem
+    /// client channel), calef's ruling of 2026-09-27 on option 4; name and number provisional): the
+    /// `count` pages starting `first` pages into this capability's run, with this capability's
+    /// rights. It is how one holder of a pool hands a client exactly its window: slice window `w`,
+    /// `MAP_INTO` the client, delete the slice. §102 (a Frame names a run of pages) anticipated the
+    /// shape, "two capabilities: `Frame(phys, 401)` and `Frame(phys + 401 * 4096, 74)`"; this is the
+    /// method that makes the second from the first.
+    ///
+    /// - Needs `GRANT`. A slice is a new object as far as `REVOKE` is concerned: under §132
+    ///   (what `PageFrame::REVOKE` owes an overlapping run) revocation is scoped to the exact run, so
+    ///   revoking the source does not reach a slice. Minting a capability its source's revocation
+    ///   cannot reach is a delegation-class power, the same argument `BADGE` makes.
+    /// - Never wider: a slice names pages inside the source's run and carries the source's rights,
+    ///   which the holder narrows further as ever when it delegates.
+    /// - [`crate::Error::BadPointer`] for `count` of 0 or a range past the run's end: those pages are
+    ///   not memory the holder could have named.
+    pub const SLICE: u64 = 2;
 }
 
 /// Methods on a `PortRange` capability (milestone 299). **A range of x86 I/O ports a driver holds.**
@@ -1039,6 +1122,12 @@ pub enum Error {
 
     /// You hold the capability, but not with those rights. Rights only ever narrow on
     /// delegation, so somebody upstream chose this.
+    ///
+    /// **Or the object refuses the operation whatever the rights.** The one case today: a
+    /// [`rendezvous::SEND`], [`rendezvous::SEND_CAP`] or [`rendezvous::CALL`] naming an endpoint
+    /// that carries a hardware interrupt, which takes no message from any program (DECISIONS §101 (notification objects),
+    /// ruling B, 2026-09-26). Nothing is delivered, queued or delegated, and the caller does not
+    /// block.
     NotPermitted = -3,
 
     /// The pointer you passed is not memory **you** could have touched yourself.

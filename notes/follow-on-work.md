@@ -163,7 +163,7 @@ project makes rests on it or a record in the tree is now known to be wrong.
    NIC, the GPU, the keyboard and the RNG. Its measure is the 36 tests taking a "no RedoxFS disk
    attached" arm, and architectural parity is a gate in this tree rather than an aspiration. Named by
    milestones 215 and 176 independently, which is itself evidence.
-5. **The records that went stale when the number under them moved.** `design/fatal-risks.md` risk 3
+5. **The records that went stale when the number under them moved.** `design/fatal-risks/README.md` risk 3
    still reads MEASURED green on 92.4% mutation score against a published 83.4%, and AGENTS.md
    says `kernel/src` measures 40% comments against a measured 45.3%. Both are records this project
    asks strangers to trust.

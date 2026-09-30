@@ -13,7 +13,7 @@ It needed no board to build and no board to test (this block carried `Gate: NONE
 because a finished milestone gates nothing). QEMU runs it; a board is only where the answer becomes
 interesting, and no board has run it yet.
 
-**In brief.** `design/fatal-risks.md` risk 5 (it cannot be made reliable on multicore, and the bugs
+**In brief.** `design/fatal-risks/README.md` risk 5 (it cannot be made reliable on multicore, and the bugs
 appear only on silicon) names its decisive experiment as *sustained multi-core stress on the boards
 with the load-sensitive assertions live*. At the time this milestone was minted (2026-09-01) the risk
 was believed to have already fired once, on radon, with a receiver woken and nothing delivered on

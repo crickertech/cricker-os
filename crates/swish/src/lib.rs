@@ -85,6 +85,8 @@
 
 #![no_std]
 
+pub mod bare;
+pub mod complete;
 pub mod sequence;
 
 use environment_protocol::ConfigPage;
@@ -130,7 +132,25 @@ pub enum Say {
     /// [`nav::Refused`] and [`nav::BindRefused`] are separate types rather than one enum with two
     /// unrelated halves.
     CannotBind(nav::BindRefused),
+    /// **The shell's heap could not hold what the line needed**, so nothing ran. The heap is capped
+    /// at [`HEAP_MAX_BYTES`] and every allocation in the shell is fallible (calef's ruling, milestone
+    /// 47 (navigation and naming)): the boot shell is the owner's console, and running out of
+    /// memory there is a refusal with a sentence, never a panic.
+    HeapFull,
 }
+
+/// **The cap on the shell's heap**: 32 KiB, eight pages, mapped from the shell's budget all at once
+/// at `_start`, before anything else is carved from it (milestone 47 (navigation and naming),
+/// calef's ruling of 2026-09-26).
+///
+/// Why this number. The heap holds what a line needs for as long as the line runs: a pipeline's
+/// planned stages today, and later a name page for a set grant. Those are a few KiB, so 32 KiB is
+/// several times the largest line. The cap exists so that a leak exhausts the heap, which refuses
+/// the next line with [`Say::HeapFull`], long before it could reach the budget the shell builds its
+/// children from: eight pages, and a few more for their page tables, of the budget's 128.
+///
+/// Name: provisional, milestone 47's allocator lane, 2026-09-26.
+pub const HEAP_MAX_BYTES: u64 = 32 * 1024;
 
 /// **What a command did**, which is what `$?` reports and what `&&` reads (milestone 67,
 /// notes/swish-language.md).
@@ -206,10 +226,10 @@ impl Status {
 
     /// The number as bytes, which is `'static` because there are three of them.
     ///
-    /// That is not a micro-optimisation, it is what makes `$?` expressible at all in a shell with
-    /// no allocator: a substituted word has to be a slice with the line's lifetime, and a `'static`
-    /// slice unifies with any of them. A status with an unbounded range would need a buffer, and
-    /// there would be nowhere to put one.
+    /// That is not a micro-optimisation: a substituted word has to be a slice with the line's
+    /// lifetime, and a `'static` slice unifies with any of them. The shell has had a capped heap
+    /// since 2026-09-26, so a value that needs a buffer could now have one; what keeps it one word
+    /// is [`pieces`], not the absence of an allocator.
     pub fn digits(self) -> &'static [u8] {
         match self {
             Status::Ran => b"0",
@@ -320,11 +340,13 @@ pub fn expansion(
     spec: &RunSpec,
     expand: &mut dyn FnMut(&[u8]) -> Result<NameSet, Say>,
 ) -> Result<Expansion, Say> {
-    // **A program that hears words has nothing expanded** (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign program is told what to do)). Its
-    // words carry no authority, so a pattern would designate names and grant nothing they name;
-    // `grant_plan::argv` refuses an unquoted one instead, when the line is assembled.
-    if Prog::from_name(spec.prog).is_some_and(|p| p.manifest().arg == ArgSpec::Words) {
-        return Ok(Expansion::none());
+    // **A program that hears words has nothing expanded; its words are designated instead**
+    // (milestone 205 (how a foreign program is told what to do), DECISIONS §170 (how a foreign
+    // program is told what to do)). A pattern would designate names and grant nothing they name, so
+    // `grant_plan::check_words` refuses an unquoted one; a word that names something here is
+    // granted it, by [`designation`].
+    if let Some(ArgSpec::Words(grant)) = Prog::from_name(spec.prog).map(|p| p.manifest().arg) {
+        return designation(spec.line(), grant, expand);
     }
     for (i, token) in spec.positionals().iter().enumerate() {
         // **A quoted word designates itself** (milestone 67). This is the whole of what quoting
@@ -341,6 +363,84 @@ pub fn expansion(
         }
     }
     Ok(Expansion::none())
+}
+
+/// **Which of a line's words name something here** (milestone 205 (how a foreign program is told
+/// what to do), §170 clauses 2 to 5), for a program that hears words: the shell's half of the
+/// designation, which the planner turns into one directory grant at the current directory.
+///
+/// Every word after the program's name is asked, in `grant_plan::each_word`'s reading, so the
+/// words designated are the words the program hears. For each one:
+///
+/// - a word shaped like an option (`-i`, `--color=never`) designates nothing;
+/// - an absolute path or one that starts with `..` designates nothing, because the program's root
+///   is this directory and `std` refuses both before they reach the wire;
+/// - `.` (or `./`) designates this directory itself, which is calef's N1 ruling
+///   (2026-09-27T06:27Z): a line that names no file grants nothing, and `rg pattern .` is how a
+///   person says "here";
+/// - otherwise its first component is looked up here with `resolve`, the shell's directory read. A
+///   name that is here is designated. One that is not is inert bytes (a pattern, a count), unless
+///   the program may create ([`grant_plan::WordGrant::Create`]), which is §170's clause 3.
+///
+/// So `rg needle src/main.rs` designates `src`, and the program can read all of `src`, not only
+/// `main.rs`: the caretaker filters at this directory and nowhere below (see this crate's BUGS).
+/// And a pattern that happens to be a file's name is designated too, read-only.
+pub fn designation(
+    line: &[u8],
+    grant: grant_plan::WordGrant,
+    resolve: &mut dyn FnMut(&[u8]) -> Result<NameSet, Say>,
+) -> Result<Expansion, Say> {
+    let mut d = grant_plan::expand::Designation::none();
+    let mut first = true;
+    let mut said = Ok(());
+    let walked = grant_plan::each_word(line, &mut |w| {
+        if core::mem::take(&mut first) || w.first() == Some(&b'-') || said.is_err() {
+            return Ok(());
+        }
+        let mut rest = w;
+        while let Some(r) = rest.strip_prefix(b"./") {
+            rest = r;
+        }
+        if rest.is_empty() || rest == b"." {
+            d.here();
+            return Ok(());
+        }
+        let name = rest.split(|&b| b == b'/').next().unwrap_or(rest);
+        // A quoted word with a glob byte in it is bytes the program hears, never a pattern this
+        // shell expands: asking the directory for it would designate whatever it matched.
+        if rest.first() == Some(&b'/') || name == b".." || name.is_empty() || glob::has_magic(name)
+        {
+            return Ok(());
+        }
+        match resolve(name) {
+            Ok(set) => match set.iter().next() {
+                Some((found, is_dir)) => d.name(found, is_dir),
+                None => Ok(()),
+            },
+            Err(Say::Cannot(Refusal::NoMatch)) if grant == grant_plan::WordGrant::Create => {
+                d.name(name, false)
+            }
+            Err(Say::NoDirectory) => {
+                said = Err(Say::NoDirectory);
+                Ok(())
+            }
+            Err(Say::Failed(e)) => {
+                said = Err(Say::Failed(e));
+                Ok(())
+            }
+            // Not here, or not a name at all: inert bytes.
+            Err(_) => Ok(()),
+        }
+    });
+    match (walked, said) {
+        // A shell holding no directory designates nothing, and the planner grants nothing.
+        (_, Err(Say::NoDirectory)) => Ok(Expansion::designated(
+            grant_plan::expand::Designation::none(),
+        )),
+        (_, Err(s)) => Err(s),
+        (Err(r), _) => Err(Say::Cannot(r)),
+        (Ok(()), Ok(())) => Ok(Expansion::designated(d)),
+    }
 }
 
 /// Write a set as [`echo`] shows it and as [`write_preview`] previews it: the names, one space
@@ -377,6 +477,62 @@ pub fn echo(
     expand: &mut dyn FnMut(&[u8]) -> Result<NameSet, Say>,
     out: &mut dyn FnMut(&[u8]),
 ) -> Say {
+    let status_word = |w: &[u8]| (w == STATUS_WORD).then(|| status.digits());
+    let said = pieces(text, &status_word, &mut |piece| {
+        match piece {
+            Piece::Space(s) | Piece::Quoted(s) | Piece::Substituted(s) => out(s),
+            Piece::Word(w) => match is_pattern(w) {
+                Ok(false) => out(w),
+                Ok(true) => match expand(w) {
+                    Ok(set) => write_set(&set, out),
+                    // A pattern that matched nothing stops the line rather than printing itself.
+                    // That is the same answer `rm` gets, and it has to be: if `echo` printed the
+                    // pattern where `rm` refuses, the two would disagree about what the line
+                    // designates, which is the one thing this pairing exists to rule out.
+                    Err(s) => return Err(s),
+                },
+                Err(r) => return Err(Say::Cannot(r)),
+            },
+        }
+        Ok(())
+    });
+    match said {
+        Ok(()) => Say::Nothing,
+        Err(s) => s,
+    }
+}
+
+/// **One piece of a line, as the shell reads it for substitution** (milestone 47 (navigation and
+/// naming), §141 (application is grant)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Piece<'a> {
+    /// Whitespace between words, verbatim.
+    Space(&'a [u8]),
+    /// A quoted word's text, never expanded or substituted.
+    Quoted(&'a [u8]),
+    /// A word that `substitute` replaced. **Always one word**, whatever its bytes are.
+    Substituted(&'a [u8]),
+    /// A bare word nothing replaced.
+    Word(&'a [u8]),
+}
+
+/// **Split a line into words, then substitute, never the other way round.** This is the rule that
+/// keeps word splitting out of this shell (§141 (application is grant), "kill word splitting"): the
+/// line is split on the whitespace that was *typed*, and a word `substitute` replaces becomes one
+/// [`Piece::Substituted`] whatever it contains. A value with a space in it is never split into two
+/// words, because nothing here looks at a substituted value's bytes again.
+///
+/// Before the shell had an allocator this held because `$?` is one of three `'static` digits.
+/// Now that it has one, it holds because substitution has exactly this one seam, and
+/// `a_substituted_value_is_never_split` fails if it ever splits.
+///
+/// `each` may stop the line by returning an `Err`, which is returned. A word whose quotes do not
+/// make sense is refused as `Say::Cannot`.
+pub fn pieces<'a>(
+    text: &'a [u8],
+    substitute: &dyn Fn(&[u8]) -> Option<&'a [u8]>,
+    each: &mut dyn FnMut(Piece<'a>) -> Result<(), Say>,
+) -> Result<(), Say> {
     let mut i = 0;
     while i < text.len() {
         let space = i;
@@ -384,41 +540,25 @@ pub fn echo(
             i += 1;
         }
         if i > space {
-            out(&text[space..i]);
+            each(Piece::Space(&text[space..i]))?;
         }
         let word = i;
-        // A word ends at the first **bare** whitespace, so `echo "two  spaces"` is one word and
-        // keeps the spacing inside it.
+        // A word ends at the first bare whitespace, so `echo "two  spaces"` is one word and keeps
+        // the spacing inside it.
         i = grant_plan::word::span(text, i, &|b| b.is_ascii_whitespace());
         if i == word {
             continue;
         }
-        let token = match grant_plan::word::read(&text[word..i]) {
-            Ok(w) => w,
-            Err(r) => return Say::Cannot(r),
-        };
+        let token = grant_plan::word::read(&text[word..i]).map_err(Say::Cannot)?;
         if token.quoted {
-            out(token.text);
-            continue;
-        }
-        if token.text == STATUS_WORD {
-            out(status.digits());
-            continue;
-        }
-        match is_pattern(token.text) {
-            Ok(false) => out(token.text),
-            Ok(true) => match expand(token.text) {
-                Ok(set) => write_set(&set, out),
-                // A pattern that matched nothing stops the line rather than printing itself. That is
-                // the same answer `rm` gets, and it has to be: if `echo` printed the pattern where
-                // `rm` refuses, the two would disagree about what the line designates, which is the
-                // one thing this pairing exists to rule out.
-                Err(s) => return s,
-            },
-            Err(r) => return Say::Cannot(r),
+            each(Piece::Quoted(token.text))?;
+        } else if let Some(value) = substitute(token.text) {
+            each(Piece::Substituted(value))?;
+        } else {
+            each(Piece::Word(token.text))?;
         }
     }
-    Say::Nothing
+    Ok(())
 }
 
 // ---- batching at the bound (milestone 109) ----
@@ -777,6 +917,11 @@ pub fn write_say(s: Say, out: &mut dyn FnMut(&[u8])) {
             out(r.message().as_bytes());
             out(b"\n");
         }
+        Say::HeapFull => {
+            out(b"  this shell's heap is full (its cap is ");
+            write_num(HEAP_MAX_BYTES / 1024, out);
+            out(b" KiB), so the line did not run and nothing was spawned\n");
+        }
     }
 }
 
@@ -1071,7 +1216,7 @@ fn write_note_asks(declared: Option<grant_plan::Manifest>, out: &mut dyn FnMut(&
     });
     let items: [(bool, &[u8]); 9] = [
         (m.arg == ArgSpec::Required, b"an argument"),
-        (m.arg == ArgSpec::Words, b"its words"),
+        (m.arg.hears_words(), b"its words"),
         (!matches!(m.mem, grant_plan::MemSpec::Forbidden), b"memory"),
         (m.clock, b"the clock"),
         (m.config, b"the configuration page"),
@@ -1122,6 +1267,12 @@ pub fn write_activation(
         (S::NoNetwork, _) => b"  this boot has no network to fetch a package over",
         (S::FetchFailed, _) => b"  the package source did not send a whole package",
         (S::NotExecutable, _) => b"  refused: those bytes are not a program this machine runs",
+        (S::NameTaken, _) => {
+            b"  refused: another installed package already provides a program of that name"
+        }
+        (S::ImageName, _) => {
+            b"  refused: the image carries a program of that name; a new base updates it, not install"
+        }
     };
     out(said);
     if live == 0 {
@@ -1222,6 +1373,11 @@ pub fn write_holdings(
     out(b"    cap 3  untyped   ");
     write_num(budget_pages, out);
     out(b" pages  the memory it grants with --mem (initial)\n");
+    // **The heap is mapped from that budget**, first, so it is part of what this row counts
+    // rather than a capability beside it (milestone 47 (navigation and naming), calef's ruling).
+    out(b"           the first ");
+    write_num(HEAP_MAX_BYTES / 1024, out);
+    out(b" KiB of them, and their page tables, are the shell's own heap\n");
     match (&holdings.second, holdings.dir) {
         (Some(sd), _) => {
             // **Two rows, one tree**: the second capability is a row of its own, because it is one
@@ -1508,17 +1664,42 @@ fn write_preview_rows(
         let mut buf = [0u8; nav::RENDER_MAX];
         let n = holdings.place(g.which, &g.dir).render(&mut buf);
         out(&buf[..n]);
-        out(b"  (the directory holding ");
-        // **The names, all of them, and this is the point of previewing a set at all.** `caps rm
-        // *.txt` prints exactly what `echo *.txt` prints, because both render the same expansion:
-        // the authority about to move is on the screen before anything moves it, which is a claim
-        // Unix cannot make about its own `rm`.
-        write_set(&g.names, out);
-        out(b")\n");
-        if g.subtree {
-            out(b"           ...and everything under it: -r grants the walk\n");
+        // **What a foreign program's words designated** (milestone 205): the names, or the whole
+        // directory for `.`, and what it may do with them, which is its manifest's word grant (the
+        // progenitor makes it read-only for bytes nobody vouched for, and says so in the manifest
+        // this preview was given).
+        if let grant_plan::ArgSpec::Words(w) = m.arg {
+            if g.names.is_empty() {
+                out(b"  (this directory itself)\n");
+            } else {
+                out(b"  (only ");
+                write_set(&g.names, out);
+                out(b" in it, named on the line)\n");
+            }
+            out(match w {
+                grant_plan::WordGrant::ReadOnly => {
+                    b"           ...read-only, and everything under what was named\n".as_slice()
+                }
+                grant_plan::WordGrant::ReadWrite => {
+                    b"           ...read and write, and everything under what was named\n"
+                }
+                grant_plan::WordGrant::Create => {
+                    b"           ...read, write and create what was named, and everything under it\n"
+                }
+            });
         } else {
-            out(b"           ...and nothing under it: no -r, so it cannot even look\n");
+            out(b"  (the directory holding ");
+            // **The names, all of them, and this is the point of previewing a set at all.** `caps rm
+            // *.txt` prints exactly what `echo *.txt` prints, because both render the same
+            // expansion: the authority about to move is on the screen before anything moves it,
+            // which is a claim Unix cannot make about its own `rm`.
+            write_set(&g.names, out);
+            out(b")\n");
+            if g.subtree {
+                out(b"           ...and everything under it: -r grants the walk\n");
+            } else {
+                out(b"           ...and nothing under it: no -r, so it cannot even look\n");
+            }
         }
     }
     // **The clock, which no token on the line designates.** It is the progenitor's to endow rather than the
@@ -1574,7 +1755,7 @@ fn write_preview_rows(
     // **The argv, which is bytes and not authority** (milestone 205, DECISIONS §170). Printed
     // because it is a capability the child holds, and worded so nobody reads it as more: a path
     // among these words reaches only what a directory row above already granted.
-    if m.arg == ArgSpec::Words {
+    if m.arg.hears_words() {
         cap(std_runtime_protocol::ARGS_SLOT, out);
         out(b"frame     args     read-only. the words on the line, as bytes; they\n");
         out(b"                              name things and grant none of them\n");
@@ -1649,6 +1830,20 @@ fn write_preview_rows(
         // actually delivers is the honest half-step; scoping the cursor to the domain is a
         // milestone, and notes/process-view.md's `BUGS` carries the disposition.
         out(b"                              outside this domain but that it exists\n");
+    }
+    // **The machine, and this prompt's share of it** (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and your share)). Two rows
+    // because they are two grants and one can be held without the other: `vmstat` sees the machine
+    // and not the budget, `slabtop` the budget and not the machine, `free` both. The first says the
+    // owner's switch exists, because a person reading `caps free` on a machine whose owner withheld
+    // the page should learn why the program cannot see it.
+    if e.prog.manifest().machine {
+        out(b"    cap 11 frame     machine  read-only. memory, run queue, interrupts, context\n");
+        out(b"                              switches and busy time for the whole machine.\n");
+        out(b"                              granted by default; the machine's owner can withhold it\n");
+    }
+    if e.prog.manifest().share {
+        out(b"    cap 12 region    share    ENUMERATE. this shell's job budget: how much is spent\n");
+        out(b"                              and on what. it cannot spend, split or destroy it\n");
     }
     // **Where its output goes**, which is the demonstration milestone 50 owed: the destination is a
     // capability rather than an integer with a convention attached, so `caps` can name it. On Unix
@@ -1730,7 +1925,7 @@ fn write_preview_rows(
     if m.arg == ArgSpec::Required {
         write_num(e.arg, out);
         out(b"\n");
-    } else if m.arg == ArgSpec::Words {
+    } else if m.arg.hears_words() {
         out(b"(the words on the line, at cap ");
         write_num(std_runtime_protocol::ARGS_SLOT, out);
         out(b")\n");
@@ -1823,7 +2018,8 @@ mod tests {
         assert!(!held.contains("cap 10"), "an unvouched note grants nothing");
         assert!(held.contains("asks for: output bytes, the network"));
         assert!(held.contains("its note grants nothing"));
-        assert!(held.contains("slot 22"));
+        let slot = std::format!("slot {}", grant_plan::spawnproto::RUN_UNVOUCHED_SLOT);
+        assert!(held.contains(&slot), "{held}");
 
         let asks_arg = grant_plan::Prog::LeastAuthorityDemo.manifest();
         let exceeds = say(None, true, Some(asks_arg), b"bin/x 5");
@@ -1844,6 +2040,47 @@ mod tests {
     use grant_plan::nav::Cwd;
 
     use super::*;
+
+    /// **No word splitting, ever** (calef's ruling, 2026-09-26, with the allocator; §141
+    /// (application is grant)). A substituted value with spaces, a tab and a pattern character in
+    /// it stays exactly one word, and the words around it are the ones that were typed. This fails
+    /// if substitution ever moves before splitting, or if a substituted value is ever read as
+    /// words or as a pattern again.
+    #[test]
+    fn a_substituted_value_is_never_split() {
+        let value: &[u8] = b"two  words\tand *.txt";
+        let sub = |w: &[u8]| (w == b"$X").then_some(value);
+        let mut got = Vec::new();
+        pieces(b"a $X 'b c' $X", &sub, &mut |p| {
+            got.push(p);
+            Ok(())
+        })
+        .unwrap();
+        let words: Vec<Piece<'_>> = got
+            .iter()
+            .copied()
+            .filter(|p| !matches!(p, Piece::Space(_)))
+            .collect();
+        assert_eq!(
+            words,
+            [
+                Piece::Word(b"a"),
+                Piece::Substituted(value),
+                Piece::Quoted(b"b c"),
+                Piece::Substituted(value),
+            ]
+        );
+        // And through `echo`, the only caller today: `$?` is substituted, printed once, and a
+        // quoted `$?` is not.
+        let mut out = Vec::new();
+        echo(
+            b"$? '$?'",
+            Status::Refused,
+            &mut |_| panic!("nothing here is a pattern"),
+            &mut |b| out.extend_from_slice(b),
+        );
+        assert_eq!(out, b"2 $?");
+    }
     extern crate std;
     use std::string::String;
     use std::vec::Vec;
@@ -1889,6 +2126,13 @@ mod tests {
         assert_eq!(
             shown(|o| write_activation(V::Vouch(b"./a.out"), S::Done, 3, o)),
             "  vouched; generation 3 is live\n"
+        );
+        // §229 (how a bare name at the prompt reaches an installed program), 2026-09-27:
+        // `script/swish-check` asserts this sentence whole.
+        assert_eq!(
+            shown(|o| write_activation(V::Install(b"x"), S::ImageName, 0, o)),
+            "  refused: the image carries a program of that name; a new base updates it, not \
+             install; nothing is installed\n"
         );
     }
 
@@ -2400,6 +2644,57 @@ mod tests {
     }
 
     // ---- the outcome of a spawn ----
+
+    /// A directory holding `src/` and `notes.txt`, asked the way the shell asks: a literal word
+    /// matches itself or nothing.
+    fn here_holds(word: &[u8]) -> Result<NameSet, Say> {
+        match word {
+            b"src" => Ok(NameSet::one(b"src", true).unwrap()),
+            b"notes.txt" => Ok(NameSet::one(b"notes.txt", false).unwrap()),
+            _ => Err(Say::Cannot(Refusal::NoMatch)),
+        }
+    }
+
+    fn designated(line: &[u8], g: grant_plan::WordGrant) -> grant_plan::expand::Designation {
+        designation(line, g, &mut here_holds)
+            .unwrap()
+            .designation()
+            .unwrap()
+    }
+
+    /// **A word that names something here is designated, and nothing else is** (milestone 205,
+    /// §170 clause 2). The pattern `needle` names nothing, the option is the program's, `src/lib.rs`
+    /// designates its first component, and a repeated name is one grant.
+    #[test]
+    fn a_word_that_names_something_here_is_designated() {
+        let d = designated(
+            b"rg -i needle src/lib.rs notes.txt ./src",
+            grant_plan::WordGrant::ReadOnly,
+        );
+        let names: Vec<&[u8]> = d.names().iter().map(|(n, _)| n).collect();
+        assert_eq!(names, [&b"src"[..], b"notes.txt"]);
+        assert!(!d.is_here());
+    }
+
+    /// **A line that names nothing designates nothing** (calef's N1 ruling, 2026-09-27T06:27Z), and
+    /// `.` designates this directory itself. Absolute paths and `..` designate nothing.
+    #[test]
+    fn nothing_named_is_nothing_designated_and_dot_is_here() {
+        let ro = grant_plan::WordGrant::ReadOnly;
+        assert!(designated(b"rg needle", ro).is_empty());
+        assert!(designated(b"rg needle /etc ../up", ro).is_empty());
+        assert!(designated(b"rg needle .", ro).is_here());
+        // A quoted glob is bytes, never looked up.
+        assert!(designated(b"rg '*.txt'", ro).is_empty());
+    }
+
+    /// **Only a program that may create is granted a name that is not here yet** (§170 clause 3).
+    #[test]
+    fn a_name_not_here_is_designated_only_for_a_program_that_creates() {
+        assert!(designated(b"cc -o main", grant_plan::WordGrant::ReadWrite).is_empty());
+        let d = designated(b"cc -o main", grant_plan::WordGrant::Create);
+        assert!(d.names().contains(b"main"));
+    }
 
     fn endowment(prog: Prog) -> Endowment {
         Endowment {

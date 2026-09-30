@@ -318,7 +318,7 @@ pub struct SoakBeat {
     /// Round trips per second over the last interval.
     pub rate: u64,
     /// Cumulative refused wakes. Expected to be zero, and a nonzero value is the defect
-    /// `design/fatal-risks.md`'s multicore entry exists for.
+    /// `design/fatal-risks/README.md`'s multicore entry exists for.
     pub refused: u64,
     /// Cumulative wrong replies seen by callers. Expected to be zero.
     pub mismatches: u64,

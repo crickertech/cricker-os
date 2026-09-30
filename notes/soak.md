@@ -3,7 +3,7 @@
 *(Milestones 219 and 221. `kernel/src/soak.rs`, `fixtures/src/soaker.rs`, `crates/soak_page`,
 `script/soak-test`, and the `Stage::Soak` half of `crates/board_console`.)*
 
-`design/fatal-risks.md`'s fifth entry, *it cannot be made reliable on multicore, and the bugs appear
+`design/fatal-risks/README.md`'s fifth entry, *it cannot be made reliable on multicore, and the bugs appear
 only on silicon*, names its decisive experiment as sustained multi-core stress on the boards with
 the load-sensitive assertions live. Until this milestone the tree could not sustain anything: the
 boot tour ran its checks, printed its last line, and called `arch::halt()`. Captured on radon on
@@ -658,7 +658,7 @@ afterwards. One sentence: *this board did N cross-core IPC round trips and M cro
 handoffs over H hours without the wake gate refusing a wake, without a wrong reply, and without a
 worker stalling.* That is the first evidence this project will have had about the wake protocol on
 real silicon under sustained cross-core traffic, and it is a confidence rather than a verdict, which
-is what `design/fatal-risks.md` says about this whole class.
+is what `design/fatal-risks/README.md` says about this whole class.
 
 To confirm a build soaks at all without waiting: `script/board-console --for 3m --until soak`
 returns as soon as the workload announces itself.

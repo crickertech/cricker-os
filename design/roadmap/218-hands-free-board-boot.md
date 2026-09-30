@@ -74,7 +74,7 @@ boot page table. The manual path exists to control the DTB address exactly.
 ## Why this is worth a milestone rather than a note
 
 **It is the difference between a bench session and a test target.** A boot that needs a person at a
-keyboard cannot be repeated overnight, and `design/fatal-risks.md` risk 5 (it cannot be made
+keyboard cannot be repeated overnight, and `design/fatal-risks/README.md` risk 5 (it cannot be made
 reliable on multicore, and the bugs appear only on silicon) names *sustained* stress as its decisive
 experiment. Sustained is exactly what the manual path forecloses.
 
@@ -268,7 +268,7 @@ Everything above is reasoning. This is what settles it. Steps 1 and 2 need no bo
 - **Milestone 306.** The measurement this boot also carried, the hw-entropy rate, closing fatal risk
   6's third half.
 - **Recorded.** A hands-free boot is necessary for the sustained overnight runs
-  `design/fatal-risks.md` risk 5 names as its decisive experiment, and is nowhere near sufficient:
+  `design/fatal-risks/README.md` risk 5 names as its decisive experiment, and is nowhere near sufficient:
   power cycling is still manual by calef's own 2026-09-04 ruling in milestone 224, so a wedged board
   still ends a run. That limitation lives beside the decision, in milestone 224's block.
 

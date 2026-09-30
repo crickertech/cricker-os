@@ -30,7 +30,7 @@
 //! - **A redirection goes last in its stage.** `wc < report.txt` is the spelling; `< report.txt wc`
 //!   is [`Refusal::WordAfterRedirect`]. Bash accepts the second and nobody writes it, and refusing
 //!   it is what lets a stage's command text be a slice of the line rather than something
-//!   reassembled (this shell has no allocator).
+//!   reassembled (`grant_plan` has no allocator).
 //! - **Only the first stage takes input and only the last is redirected.** `a > f | b` names a
 //!   destination for `a` and then pipes `a` somewhere else, which is two answers to one question;
 //!   it is [`Refusal::RedirectMidPipeline`] rather than a silent precedence rule.

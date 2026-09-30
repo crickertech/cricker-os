@@ -492,7 +492,7 @@ impl Threads {
     }
 
     /// Every live TCB from slot `from` onward, with its slot index, for a **resumable** sweep
-    /// (`rendezvous::SURVEY`, milestone 126). The slot is the caller's cursor; see
+    /// (`rendezvous::SURVEY`, milestone 126 (the `procps` package)). The slot is the caller's cursor; see
     /// `generational_table::Table::iter_from` for why a position would not do.
     fn iter_from(&self, from: usize) -> impl Iterator<Item = (usize, &Thread)> + '_ {
         // SAFETY: as `iter_mut`, and shared rather than exclusive: each stored pointer is a
@@ -673,6 +673,46 @@ fn set_ipc_aborted(sched: &mut IpcTables, tid: ThreadId) {
     if let Some(t) = sched.threads.get_mut(tid) {
         t.handshake.abort();
     }
+}
+
+/// **Refuse the current thread's send, because the rendezvous carries an interrupt** (milestone 603
+/// (provisional), DECISIONS §101 ruling B). An abort, so the syscall layer's existing
+/// `take_ipc_aborted` branch is the only one the common path pays for, plus the reason, which only
+/// that branch reads ([`take_ipc_refused`]). The sender never parked, so the abort does not weaken
+/// the boot-8 gate for anything: it is taken immediately, as a stale endpoint's is.
+///
+/// `#[cold]` for [`set_ipc_aborted`]'s reason: no healthy IPC reaches it, and it is reached from
+/// three functions on `script/fastpath-footprint`'s closures.
+///
+/// Name: provisional (milestone 603 (provisional)): calef names public items.
+#[cold]
+#[inline(never)]
+fn set_ipc_refused(sched: &mut IpcTables, tid: ThreadId) {
+    if let Some(t) = sched.threads.get_mut(tid) {
+        t.handshake.abort();
+        t.ipc_refused = true;
+    }
+}
+
+/// **Read and clear why the current thread's aborted send was aborted**: `true` when the rendezvous
+/// carries an interrupt and refused it ([`set_ipc_refused`]), `false` when it was stale or revoked.
+/// Called by the syscall layer only after [`take_ipc_aborted`] returned `true`, so an IPC that was
+/// not aborted never pays for it.
+///
+/// Name: provisional (milestone 603 (provisional)): calef names public items.
+#[cold]
+#[inline(never)]
+pub fn take_ipc_refused() -> bool {
+    let mut guard = IPC_TABLES.lock();
+    let Some(sched) = guard.as_mut() else {
+        return false;
+    };
+    let tid = current_thread_id();
+    sched
+        .threads
+        .get_mut(tid)
+        .map(|t| core::mem::take(&mut t.ipc_refused))
+        .unwrap_or(false)
 }
 
 /// **Read and clear the current thread's IPC-aborted flag** (object revocation). The syscall layer
@@ -1364,6 +1404,11 @@ pub fn init() {
     // was invisible on the third.
     crate::arch::fp::init();
 
+    // **The machine statistics page, before the first thread** (milestone 126, DECISIONS §225 (`free` sees the machine and your share)),
+    // for `fp::init`'s reason: this is where threads begin, so it is where the counters that watch
+    // them begin, on all three architectures through the one function each boot path calls.
+    crate::machine_statistics::publish();
+
     let mut sched = IPC_TABLES.lock();
 
     // **Install the empty tables FIRST, then name the boot thread through them**, rather than
@@ -1408,18 +1453,21 @@ pub fn init() {
     // The idle thread. Its entire body is "wait for an interrupt, then let the scheduler look for
     // work." It is deliberately kept OUT of the ready queue (see cpu::PerCpu::idle): the scheduler picks it
     // only when nothing else is runnable, so it never steals a turn from real work.
-    let idle = Thread::spawn(|| run_idle()).expect("could not create the idle thread");
-
+    //
+    // Built on its own TCB page, as `spawn_on` builds every other kernel thread (milestone 124 (a
+    // thread is born where it lives: the spawn path's copies)), rather than as a value carried
+    // there: the by-value `Thread::spawn` this used held three `Thread`s in one frame in an
+    // unoptimised build, 4368 bytes once the capability table grew to 32 slots, over the 4096-byte
+    // guard page (milestone 126 (the `procps` package), 2026-09-27, UTC).
     let mut sched = IPC_TABLES.lock();
     let s = sched.as_mut().unwrap();
     let idle_id = s
         .threads
-        .insert_with(|tid| {
-            let mut idle = idle;
-            idle.id = tid;
-            idle
+        .insert_in_place(|tid, dst| {
+            // SAFETY: `dst` is the fresh, exclusively-ours TCB page `insert_in_place` claimed.
+            unsafe { Thread::spawn_into(|| run_idle(), tid, dst) }
         })
-        .expect("thread table full at boot");
+        .expect("could not create the idle thread (no kernel stack, no TCB page, or a full table)");
     drop(sched);
     // NOT pushed onto `ready`: the idle thread is a fallback, not a peer.
     cpu::current().idle.store(idle_id, Ordering::Relaxed);
@@ -1477,6 +1525,9 @@ pub const RESCHED_SGI: u32 = 0;
 /// handler's tail runs `schedule()` and picks them up. IRQ context, so interrupts are masked, which
 /// is what `with_runq` needs; we hold nothing else, so taking the inbox is rank-safe (§11).
 pub fn drain_inbox() {
+    // Every caller is a cross-core interrupt arm (one per architecture), so this is where the
+    // machine statistics page counts them (milestone 126).
+    crate::machine_statistics::interrupt();
     let mut moved = 0u64;
     let mut inbox = cpu::current().inbox.lock();
     while let Some(thread) = inbox.pop_front() {
@@ -1815,23 +1866,22 @@ pub fn spawn_with_quota<F: FnOnce() + Send + 'static>(
         }
     }
 
-    let Some(mut thread) = Thread::spawn(f) else {
-        // Out of kernel memory. Give the reserved slot back, since no thread will hold it.
-        budget.fetch_add(1, Ordering::Relaxed);
-        return None;
-    };
-    thread.quota = Some(QuotaToken::new(budget)); // returned to `budget` when the thread is reaped
+    // The reserved slot is held by this token from here on, so every early return below hands it
+    // back by dropping it, and a thread that is built carries it until it is reaped.
+    let token = QuotaToken::new(budget);
 
     let mut guard = IPC_TABLES.lock();
-    let Some(sched) = guard.as_mut() else {
-        return None; // no scheduler: `thread` drops here and its QuotaToken returns the slot
-    };
-    // A full table is the same outcome as out-of-memory: `insert_with` never calls the closure,
-    // `thread` drops uncalled, and its QuotaToken hands the reserved slot back.
-    let id = sched.threads.insert_with(|tid| {
-        thread.id = tid;
-        thread
+    let sched = guard.as_mut()?;
+    // Built in place on its TCB page rather than as a value (see `spawn_on`, milestone 124): the
+    // by-value path held three `Thread`s in one frame in an unoptimised build.
+    let id = sched.threads.insert_in_place(|tid, dst| {
+        // SAFETY: `dst` is the fresh, exclusively-ours TCB page `insert_in_place` claimed.
+        unsafe { Thread::spawn_into(f, tid, dst) }
     })?;
+    // `insert_in_place` just returned this id, so the thread is there.
+    if let Some(t) = sched.threads.get_mut(id) {
+        t.quota = Some(token); // returned to `budget` when the thread is reaped
+    }
     let ptr = thread_control_block_ptr(sched, id);
     // SAFETY: freshly inserted, Ready, on no queue; this core's queue, IPC_TABLES held, IRQs masked.
     cpu::current().with_runq(|q| unsafe { q.push_back(ptr) });
@@ -1950,6 +2000,12 @@ fn deliver_death(sched: &mut IpcTables, corpse: ThreadId, ep: RendezvousId, msg:
                 t.handshake.wait_on = Some(Wait::Rendezvous(ep, WaitRole::Sender));
             }
         }
+        // The supervision rendezvous carries an interrupt (§101 ruling B). Dropped, like a death
+        // to a rendezvous that is gone: its `w0` is `EVENT_FAULT` or `EVENT_EXIT`, and `EVENT_FAULT`
+        // is 1, which a driver would read as its interrupt. Reachable only by configuring an
+        // interrupt's endpoint as a fault endpoint, which needs a `Rendezvous` capability to it that
+        // no program is granted today.
+        inter_process_communication::Send::Refused => {}
     }
 }
 
@@ -1969,6 +2025,9 @@ pub fn on_tick() {
     // bounds-checked index and one relaxed increment, which is the whole of the accounting; see
     // [`CPU_TICKS`] for why the counter is an array beside the table rather than a field in it.
     charge_tick();
+    // **And the machine's own view of the same tick** (milestone 126, DECISIONS §225): busy or
+    // idle, and how many threads were waiting, for `vmstat` and `top`'s summary.
+    count_tick();
     // The corruption tripwire, when armed (the board tour's initrd-demo window). One relaxed
     // load when it is not, which is every other tick everywhere. IRQ context is safe for its
     // println: the console's IrqSafeMutex masks interrupts while held, so the interrupted
@@ -1997,6 +2056,17 @@ pub fn on_tick() {
     // down through `irq_notify`. It compiles to nothing anywhere else; see kernel/src/soak.rs.
     #[cfg(feature = "soak_test")]
     crate::soak::signal_waiters();
+}
+
+/// The machine statistics page's half of a tick, out of line because every architecture's
+/// exception dispatcher is in `script/fastpath-footprint`'s flat `syscall_entry` set and a tick is
+/// not a syscall. Lock-free, like `charge_tick`: the idle tid and the run-queue length are this
+/// core's own relaxed mirrors.
+#[inline(never)]
+fn count_tick() {
+    let here = cpu::current();
+    let idle = current_thread_id() == here.idle.load(Ordering::Relaxed);
+    crate::machine_statistics::tick(idle, here.runnable() as u64 + u64::from(!idle));
 }
 
 pub fn take_need_resched() -> bool {
@@ -2340,6 +2410,10 @@ pub fn schedule() {
         #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
         install_cycle_counter_grant(next_cycle_counter);
 
+        // Counted before the switch, for `vmstat`'s `cs` column (milestone 126): one load and one
+        // add on this core's own cache line of the machine statistics page.
+        crate::machine_statistics::context_switch();
+
         // And the register file the two threads are about to share a core over (milestone 447).
         // This is beside `switch_to` rather than inside it because the two save different
         // quantities for different reasons: `switch_to` saves what a *function call* may destroy,
@@ -2496,8 +2570,28 @@ static IRQ_ROUTES: [AtomicU64; MAX_INTID] = [const { AtomicU64::new(0) }; MAX_IN
 
 /// Route a hardware interrupt to an rendezvous. From now on, when `intid` fires, whoever is
 /// blocked on `ep` wakes; if nobody is, the signal is remembered so it is not lost.
+///
+/// **And from now on `ep` refuses every send** (DECISIONS §101 (notification objects), calef's
+/// ruling B, 2026-09-26). An interrupt reaches its driver as `w0 = 1`, which is also a word any
+/// sender can put in `w0`, so an endpoint that carried both could not tell a driver which one woke
+/// it. The refusal is the rendezvous's own (`Rendezvous::bind_to_interrupt`), so it holds for every
+/// endpoint bound here whoever created it: the fifteen the kernel creates for its drivers, which
+/// no program is ever granted, and the caller-supplied ones `soak::bind_tick_routes` binds, which
+/// is why this is done here rather than at each call site. `SEND`, `SEND_CAP` and `CALL` answer
+/// [`abi::Error::NotPermitted`]; see `set_ipc_refused`.
+///
+/// Marked before the route is published, so there is no instant at which the interrupt is live on
+/// an endpoint that still accepts a send. A stale `ep` is routed and not marked, exactly as before:
+/// `irq_notify` drops a signal to a name that does not resolve, and a name that does not resolve
+/// cannot be sent to either.
 pub fn bind_irq(intid: u32, ep: RendezvousId) {
     assert!((intid as usize) < MAX_INTID, "intid {intid} out of range");
+    {
+        let guard = IPC_TABLES.lock();
+        if let Some(rendezvous) = guard.as_ref().and_then(|sched| rendezvous_of(sched, ep)) {
+            rendezvous.bind_to_interrupt();
+        }
+    }
     // +1 so 0 keeps meaning "not routed". A name can never be u64::MAX (the registry mints
     // (generation << 32) | slot with slot < 256), so the increment cannot wrap.
     IRQ_ROUTES[intid as usize].store(ep + 1, Ordering::Release);
@@ -2525,6 +2619,8 @@ pub fn irq_route(intid: u32) -> Option<RendezvousId> {
 /// cannot have been holding, because `IrqSafeMutex` masks interrupts for exactly as long as it
 /// is held. See DECISIONS §9.
 pub fn irq_notify(ep: RendezvousId) {
+    // A device interrupt routed to a driver, counted for `vmstat`'s `in` column (milestone 126).
+    crate::machine_statistics::interrupt();
     // A device-IRQ wake is LOAD-AWARE (DECISIONS §28.2), unlike a rendezvous wake, which stays
     // local. If the woken driver lands on a *remote* core, `wake_load_aware` returns that core so we
     // can poke it after IPC_TABLES is released (the `place_on` discipline: push under the lock, SGI
@@ -2586,8 +2682,11 @@ fn try_create_rendezvous_from(region: u64) -> Result<RendezvousId, RendezvousFai
 
     // Rank: MEMORY_REGION (58) under IPC_TABLES (60) is a legal descent; the pin rides in the same lock
     // hold as the carve, so no destroy can race the page away (see retype_object_page).
-    let phys =
-        crate::memory_region::retype_object_page(region).ok_or(RendezvousFailure::RegionFull)?;
+    let phys = crate::memory_region::retype_object_page(
+        region,
+        crate::memory_region::ObjectKind::Rendezvous,
+    )
+    .ok_or(RendezvousFailure::RegionFull)?;
 
     // The page arrives zeroed, and an all-zero Rendezvous happens to be valid; write it explicitly
     // anyway, because "happens to be" is the kind of truth that stops being one silently.
@@ -2716,7 +2815,10 @@ pub fn create_notification_from(region: u64) -> Option<NotificationId> {
     if sched.notification_table.len() >= MAX_NOTIFICATIONS {
         return None;
     }
-    let phys = crate::memory_region::retype_object_page(region)?;
+    let phys = crate::memory_region::retype_object_page(
+        region,
+        crate::memory_region::ObjectKind::Notification,
+    )?;
     // SAFETY: fresh page, exclusively ours, direct-mapped.
     unsafe {
         (crate::arch::mmu::phys_to_virt(phys) as *mut NotificationPage).write(NotificationPage {
@@ -3081,7 +3183,8 @@ pub fn create_timer_from(region: u64) -> Option<TimerId> {
     if sched.timer_table.len() >= MAX_TIMERS {
         return None;
     }
-    let phys = crate::memory_region::retype_object_page(region)?;
+    let phys =
+        crate::memory_region::retype_object_page(region, crate::memory_region::ObjectKind::Timer)?;
     // SAFETY: fresh page, exclusively ours, direct-mapped.
     unsafe {
         (crate::arch::mmu::phys_to_virt(phys) as *mut TimerPage).write(TimerPage {
@@ -3375,6 +3478,11 @@ pub fn ipc_send(ep: RendezvousId, msg: [u64; 3]) {
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
                 true
             }
+            // The rendezvous carries an interrupt (§101 ruling B): nothing was delivered or queued.
+            inter_process_communication::Send::Refused => {
+                set_ipc_refused(sched, current);
+                false
+            }
         }
     };
 
@@ -3538,6 +3646,11 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
                 me.handshake.park(Wait::Rendezvous(ep, WaitRole::Sender)); // only a collecting receiver may wake us
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
                 true
+            }
+            // As in `ipc_send`. The capability stays with the sender: it was never moved.
+            inter_process_communication::Send::Refused => {
+                set_ipc_refused(sched, current);
+                false
             }
         }
     };
@@ -3729,6 +3842,12 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
                 me.mailbox = [msg[0], msg[1], 0, badge, 0];
                 me.outgoing_cap = Some(reply);
             }
+            // The rendezvous carries an interrupt (§101 ruling B). Return before parking: a caller
+            // whose request was refused has no reply coming, and would otherwise wait for ever.
+            inter_process_communication::Send::Refused => {
+                set_ipc_refused(sched, current);
+                return [0, 0, 0];
+            }
         }
         // Either way we block until the reply arrives. We are NOT queued as a receiver; the Reply
         // capability, which carries our tid, is the only thing that can wake us.
@@ -3861,9 +3980,9 @@ fn strand_reply_caller(sched: &mut IpcTables, caller: ThreadId) -> bool {
 /// **It reads the table once and then acts**, which is a measured shape rather than a stylistic
 /// one. The obvious loop re-resolves `tid` through the generational thread table on every slot,
 /// because [`strand_reply_caller`] takes `sched` mutably and deletes out of this very table as it
-/// goes; at 24 slots that is 24 generational lookups per departing thread, and `script/bench`
-/// priced it at about 830 icount ticks on every `spawn_reap` iteration. One lookup, a 192-byte
-/// array of victims in this function's own frame (it is `#[inline(never)]`, so the array is never
+/// goes; at 24 slots that was 24 generational lookups per departing thread, and `script/bench`
+/// priced it at about 830 icount ticks on every `spawn_reap` iteration. One lookup, an array of
+/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (256 bytes at 32 slots) in this function's own frame (it is `#[inline(never)]`, so the array is never
 /// on `reap_region_objects`'s), and the empty-table early-out cost nothing and gave it back.
 #[cold]
 #[inline(never)]
@@ -3901,7 +4020,7 @@ fn strand_callers_of(sched: &mut IpcTables, tid: ThreadId) {
 /// server.
 ///
 /// **Rescan rather than list**, which is the opposite choice from [`strand_callers_of`] above and
-/// the difference is the bound: that one lists because a capability table is 24 slots, 192 bytes,
+/// the difference is the bound: that one lists because a capability table is 32 slots, 256 bytes,
 /// and this one cannot because the bound here is `MAX_THREADS`, a kilobyte that grows every time
 /// the thread ceiling does. Both functions sit on the call chain through
 /// [`reap_region_objects`], the deepest frame in the kernel, whose own comment spends a paragraph
@@ -4255,7 +4374,8 @@ pub fn grant_at(slot: u64, cap: crate::cap::Cap) -> Result<u64, crate::cap::Erro
 /// Returns its `ThreadId` (what an `Object::ThreadControlBlock` capability carries) or `None` if the region is out of
 /// budget or the table is full.
 pub fn create_thread_control_block(region: u64) -> Option<ThreadId> {
-    let page = crate::memory_region::retype_object_page(region)?;
+    let page =
+        crate::memory_region::retype_object_page(region, crate::memory_region::ObjectKind::Thread)?;
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut()?;
     let name = sched.threads.insert_from_page(page, |tid| {

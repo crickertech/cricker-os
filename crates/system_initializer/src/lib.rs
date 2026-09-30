@@ -81,6 +81,9 @@
 //!         keyboard: 22,
 //!         keyboard_irq: 23,
 //!         keyboard_dma: 1, // this example's table starts at slot 2, so 0 and 1 are free
+//!         // The machine statistics page (milestone 126 (the `procps` package)): granted on
+//!         // every boot, so always this slot. The last free one in this example's table.
+//!         machine_page: 0,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -291,8 +294,8 @@
 //! answer is immediate; on a network with a virtio NIC and no DHCP server the boot would sit there
 //! with no console to say why. Nothing grants a NIC on real hardware today, so the case is
 //! unreached rather than closed. Taking the lease later, when the first declaring child is spawned,
-//! would unblock the boot and cost the report endpoint a permanent slot, and the table has one left
-//! (23 of 24, `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
+//! would unblock the boot and cost the report endpoint a permanent slot (the peak is 23 of 32,
+//! `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
 //!
 //! **And it keeps a writable view of the NIC's DMA page**, at `NET_DMA_PEEK_VA`, for the rng's
 //! reason (reading the physical base the kernel wrote there) and with its cost: there is no unmap.
@@ -305,10 +308,11 @@
 //! have, and `build_child` answering `Err(())` is a silent halt. Three of the four evenings this
 //! file has cost were that: once when the kernel grew two grants, once when a boot component was
 //! built one step too early, and once when a block that had never run before started running
-//! (milestone 230, below). The order below is load-bearing and the comments say where.
+//! (milestone 230 (`script/shell-check` is red on `main`), below). The order below is load-bearing and the comments say where.
 //!
-//! **The table was sixteen slots, then seventeen, and is twenty-four now**
-//! (`kernel::cap::CAPABILITY_TABLE_SLOTS`, raised by milestone 230 on 2026-09-02). Milestone 31
+//! **The table was sixteen slots, then seventeen, then twenty-four, and is thirty-two now**
+//! (`kernel::cap::CAPABILITY_TABLE_SLOTS`, raised to twenty-four by milestone 230 on 2026-09-02
+//! and to thirty-two by calef on 2026-09-27 for the machine statistics page's boot slot). Milestone 31
 //! phase 3 measured this process at nine capabilities at rest and fifteen at peak, one slot from
 //! the seventeen-slot wall, and that number described the boot as it then was: the login stack
 //! below did not exist yet. It does now, and with a virtio-rng attached (DECISIONS §120's
@@ -338,8 +342,11 @@
 //! **That twenty-second capability arrived, and so did a twenty-third.** Milestone 111 (a shell
 //! that can endow a child with entropy)'s entropy endpoint took the peak to twenty-two, and
 //! milestone 590's network-stack endpoint took it to **twenty-three of twenty-four** on a boot with a NIC (`kernel::cap::
-//! CAPABILITY_TABLE_PEAK_MEASURED` carries both). One slot is left, so the next permanent
-//! capability here should buy one back through the two candidates above before it is added.
+//! CAPABILITY_TABLE_PEAK_MEASURED` carries both). One slot was left, and the next permanent
+//! capability was to buy one back through the two candidates above. The raise to thirty-two
+//! (milestone 126 (the `procps` package)) leaves nine above the same peak; the machine statistics
+//! page it was raised for arrives at boot slot 23 and goes to the shell before the login block, so
+//! it is never held across the peak.
 //!
 //! Name: ratified 2026-08-04 (calef, milestone 96), and it is the ratification that raised
 //! milestone 115. Refused `system_builder` (milestone 63 had already refused it, for a reason still
@@ -527,6 +534,16 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, lane `milestone/595-x86-std`, 2026-09-26. `fs_ep`'s shape, one service over.
     pub entropy_ep: u64,
+    /// **The machine statistics page** (milestone 126, DECISIONS §225 (`free` sees the machine and your share) part 2): a `PageFrame`
+    /// capability with `READ | GRANT` to the frame the kernel keeps its machine-wide counters in
+    /// (`crates/machine_statistics_protocol`). Granted unconditionally, like
+    /// [`config_page`](BootEndowment::config_page), so its slot never moves. [`boot`] hands it to
+    /// the boot prompt's shell when [`GRANT_MACHINE_PAGE`] says the owner allows it, and keeps no
+    /// copy; the shell sends it back with the spawn request of a program that declares
+    /// [`grant_plan::Manifest::machine`] (`spawnproto::MACHINE_BIT`).
+    ///
+    /// Name: provisional, milestone 126's `free` lane, 2026-09-26.
+    pub machine_page: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -593,6 +610,20 @@ const CHILD_CLOCK_VA: u64 = address_space_map::pair_page(0x00c0_0000);
 /// numbers that happen not to need to agree.
 const CHILD_CONFIG_VA: u64 = address_space_map::pair_page(0x00e0_0000);
 
+/// **Whether the boot prompt's session is handed the machine statistics page** (milestone 126,
+/// DECISIONS §225 part 2). §225 ruled the page granted to every login by default and withholdable
+/// by the machine owner, and this is the owner's switch, in the one file the owner's other
+/// boot-time policy (the run-unvouched capability) already lives in. `false` and the shell never
+/// holds the page, so every `free` prints that it cannot see the machine and `vmstat` refuses,
+/// rather than either printing zeroes.
+///
+/// **An exception worth marking**: the page already travels with the session
+/// (`spawnproto::MACHINE_BIT`), so a per-login policy is `login` handing each session the page or
+/// not. Nothing hands it to `login` yet; this constant decides for the boot prompt alone.
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const GRANT_MACHINE_PAGE: bool = true;
+
 /// Where a supervised (interruptible) child maps its shared job frame (DECISIONS §24 (interrupting the foreground process)). A pair page
 /// on the address-space map; must match `interrupt_heeder.rs` and
 /// `interrupt_ignorer.rs`'s `JOB_PAGE_FRAME_VA`.
@@ -601,9 +632,9 @@ const CHILD_JOB_PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0030_0000);
 /// Pages of untyped split off our own budget and handed the shell (milestone 31), so the shell can
 /// in turn endow the programs it spawns (`run --mem N`) out of a budget that is genuinely *its own*.
 /// The shell shrinks this by N pages per grant; the pages a spawned child pins are not reclaimed in
-/// phase 1, so this is a session budget, not a renewable one. Must match swish.rs's
-/// `SH_BUDGET_PAGES`.
-const SH_BUDGET_PAGES: u64 = 128;
+/// phase 1, so this is a session budget, not a renewable one. The number is
+/// [`spawnproto::SHELL_BUDGET_PAGES`], which the shell reads too.
+const SH_BUDGET_PAGES: u64 = spawnproto::SHELL_BUDGET_PAGES;
 
 /// **What the progenitor keeps for itself after the boot servers are up** (milestone 22, the interactive
 /// increment). It pays for one thing: the page tables reaching the loader's scratch window, which
@@ -635,7 +666,13 @@ const _: () = assert!(INIT_OWN_PAGES >= 2 * supervision_protocol::SCRATCH_TABLE_
 /// so that is the whole difference. The "room to spare" was not there: the first `x86_64`
 /// `script/swish-check` after the map refused `mdr gate.txt`, whose debug image is 18 pages rather
 /// than `date`'s seven, and `x86_64` also pays three tables for its timebase page.
-const JOB_REGION_PAGES: u64 = 41;
+///
+/// **Forty-eight since milestone 126 (the `procps` package), and counted the same way.** `top`
+/// gained the machine statistics page, a pair page of its own, and on `x86_64` its debug image is
+/// nineteen pages; at forty-one the progenitor refused to build it ("could not spawn") in the
+/// `x86_64` leg of `script/swish-check`, and at forty-eight that leg passes every line. The pool is
+/// six of these, so the raise costs the job pool forty-two pages.
+const JOB_REGION_PAGES: u64 = 48;
 
 /// **One directory-granted job's region**: the program *and* the `fs_subtree_caretaker` that carries
 /// its grant, plus the two endpoints between them, all out of one carve.
@@ -676,6 +713,10 @@ const CARETAKER_STACK_PAGES: u64 = 4;
 /// second VA would only be a second name for the same page.
 const FS_CLIENT_PAGE_VA: u64 = address_space_map::pair_page(0x0060_0000);
 
+/// Where `fs_nameset_caretaker` reads its name set, read-only (milestone 205). Must match that
+/// program's `SET_VA`, as [`FS_CLIENT_PAGE_VA`] matches its `PAGE_VA`.
+const NAMESET_PAGE_VA: u64 = address_space_map::pair_page(0x0070_0000);
+
 /// **One shell-boot second-directory caretaker's region** (milestone 154's "wiring a second
 /// grant into the real boot"). Sized for one caretaker alone, the way [`CARETAKER_STACK_PAGES`]
 /// already is: unlike [`DIR_JOB_REGION_PAGES`], nothing else is built out of this region, because
@@ -697,16 +738,45 @@ const SECOND_DIR_CARETAKER_PAGES: u64 = JOB_REGION_PAGES;
 /// jobs, which is well past what the pool could hold without the regions coming back.
 pub const JOBS_BUDGET_PAGES: u64 = JOB_REGION_PAGES * 6 + grant_plan::STD_REGION_PAGES;
 
+/// **The image pool**: where a file run by its path, or a package being installed, is staged and
+/// built (milestone 595 (the shell runs a `std` program), 2026-09-27). Provisional name.
+///
+/// Room for the largest image twice (this process's own copy, which §219 has it hash, and the
+/// child's pages) and a `std` program's heap beside it: `grant_plan::image_region_pages` for a
+/// `std` image of [`spawnproto::IMAGE_MAX_PAGES`], plus its staging. About 9.5 MiB of the
+/// progenitor's 48.
+///
+/// **Apart from [`JOBS_BUDGET_PAGES`] on purpose.** That pool is small so that `script/swish-check`
+/// runs more jobs through it than it could hold without the regions coming back; folding 2,400
+/// pages into it would retire that ratchet without saying so. Named programs never carve from this
+/// one, and an image never carves from that one.
+///
+/// # BUGS
+///
+/// - **The image is held three times while a child is built**: the shell's frames, this copy, and
+///   the child's pages. Hashing each byte as it is copied into the child would drop this copy and
+///   halve the pool, but it means building the child from the caller's still-mapped frames, and
+///   the tree's one loader would have to learn to hash as it fills. That is more work than the copy,
+///   and the copy is why this pool is twice the image rather than once: a choice made on effort.
+/// - **Reserved, not borrowed.** These pages are set aside at boot whether or not an image ever
+///   runs, as the shell's matching staging pages are.
+pub const IMAGE_POOL_PAGES: u64 = grant_plan::image_region_pages(
+    spawnproto::IMAGE_MAX_PAGES,
+    grant_plan::Runtime::Std,
+    JOB_REGION_PAGES,
+) + spawnproto::IMAGE_MAX_PAGES;
+
 /// **Everything the job pool can have built at once fits in the loader's scratch window**, twice
 /// over (milestone 604 (provisional)). Every page the progenitor builds for a job is mapped once in
 /// its own scratch window and stays mapped until the job's region is destroyed, so the window must
 /// hold the whole pool at once, plus an image request's peek pages, beside the boot servers' pages,
 /// which are never given back. Half the window is left for those. They were not measured, and the
 /// sum of every program in the archive is under 2,400 pages of file, so half is generous; a pool
-/// grown past this (milestone 595's `rg` at the prompt will grow it) fails the build here rather
-/// than a spawn at run time.
+/// grown past this fails the build here rather than a spawn at run time. The image pool
+/// ([`IMAGE_POOL_PAGES`], milestone 595 (the shell runs a `std` program)) is built through the
+/// same window, so it counts too.
 const _: () = assert!(
-    JOBS_BUDGET_PAGES + spawnproto::IMAGE_MAX_PAGES
+    JOBS_BUDGET_PAGES + IMAGE_POOL_PAGES + spawnproto::IMAGE_MAX_PAGES
         <= supervision_protocol::SCRATCH_WINDOW_PAGES / 2
 );
 
@@ -1039,6 +1109,17 @@ pub fn boot(
     // prompt says so, which costs `rm` and nothing else. A refusal by the measurement table costs
     // the same, because the progenitor treats what it cannot vouch for as what is not there.
     let care_elf = measured(&fs, table, "fs_subtree_caretaker").elf;
+    // **The nameset caretaker** (milestone 205 (how a foreign program is told what to do)'s
+    // designation half): what a program that hears words is granted when its words named some
+    // entries of the shell's directory and not the directory itself. A boot without it refuses such
+    // a grant rather than widening it to the subtree one.
+    let set_elf = measured(&fs, table, "fs_nameset_caretaker").elf;
+    // **Whether the file server enforces subtree grants itself** (milestone 606 (a directory walk
+    // costs what it does on Linux), rulings D and T1
+    // of 2026-09-27): read from the note its own measured bytes carry, never assumed. `false` for
+    // bytes the table would not vouch for, for a server with no such note, and for a note that is
+    // there and unreadable, so every doubt ends in a caretaker, which is the default.
+    let fs_scoped = subtree_grants(measured(&fs, table, "redoxfs_server").elf.as_ref());
     // **And the same bytes again, unparsed, because `login` needs them too** (milestone 233).
     //
     // That program builds one caretaker per authenticated session, so it needs an image to build
@@ -1117,9 +1198,10 @@ pub fn boot(
     // `input`, and with a virtio keyboard there is none. Freeing it here, before entropy spends
     // anything, is what keeps the first build under the wall. The gpu's four and the keyboard's
     // three are kernel grants alive from spawn, four more than the three the kernel-built stack
-    // granted, so a boot with all four QEMU devices (gpu, keyboard, rng, NIC) starts holding twenty
-    // capabilities. Less these two, entropy's build (two endpoints, then an address space and one
-    // page or TCB at a time) peaks at twenty-two of twenty-four. That is counted from the code, not
+    // granted, so a boot with all four QEMU devices (gpu, keyboard, rng, NIC) starts holding
+    // twenty-one capabilities (twenty before milestone 126's machine statistics page, which is held
+    // until the shell is built). Less these two, entropy's build (two endpoints, then an address
+    // space and one page or TCB at a time) peaks at twenty-three of thirty-two. That is counted from the code, not
     // measured, and no gate boots all four devices; milestone 600's block records it. (The
     // kernel-built stack's own three were found to push this build past the wall by bisection.)
     //
@@ -1190,7 +1272,7 @@ pub fn boot(
     // manifest declares [`grant_plan::Manifest::entropy`] is endowed a `WRITE` view of this same
     // endpoint at spawn, so the progenitor is the only process that can hand a program at the prompt a
     // random source, exactly as it is the only one that can hand it a clock. That costs one
-    // permanent capability slot in a table milestone 230 measured at 21 of 24 at peak; milestone
+    // permanent capability slot in a table milestone 230 measured at 21 of 24 at peak (the table is 32 now); milestone
     // 231's `capability slots: N of M at peak` line is what says whether that is still true, and it
     // is printed by every boot.
     let mut entropy_client: Option<u64> = None;
@@ -1684,16 +1766,14 @@ pub fn boot(
         let care = care_elf.as_ref()?;
         let (lo, hi) = filesystem_protocol::grant::pack_name(sd.name.as_bytes());
         let spec = filesystem_protocol::grant::spec(sd.name.len(), sd.rights);
-        build_caretaker(
-            ut,
-            region,
-            care,
-            Fs {
-                ep: g.fs_ep,
-                page: g.fs_page,
-            },
-            (lo, hi, spec),
-        )
+        // Window 0's page, sliced out of the pool for the build and dropped after (milestone 599).
+        let zero = window_zero(Fs {
+            ep: g.fs_ep,
+            page: g.fs_page,
+        })?;
+        let built = build_caretaker(ut, region, care, zero, (lo, hi, spec), None);
+        cap_delete(zero.page);
+        built
     });
 
     // Slot 4 is the filesystem when this boot has one, which is the whole of what `>` and `<` need
@@ -1735,10 +1815,20 @@ pub fn boot(
     n_maps += 1;
     sh_maps[n_maps] = (LINE_VA, term_in, abi::address_space::MAP_RO); // completed lines
     n_maps += 1;
-    if with_fs {
-        sh_caps[n_caps] = (g.fs_ep, abi::rights::WRITE);
+    // **Window 0, not the pool** (milestone 599): the kernel's slot 6 names every client window
+    // as one run, so the shell maps a one-page slice of window 0, deleted once it is built.
+    let sh_window = if with_fs {
+        window_zero(Fs {
+            ep: g.fs_ep,
+            page: g.fs_page,
+        })
+    } else {
+        None
+    };
+    if let Some(zero) = sh_window {
+        sh_caps[n_caps] = (zero.ep, abi::rights::WRITE);
         n_caps += 1;
-        sh_maps[n_maps] = (SH_FS_VA, g.fs_page, abi::address_space::MAP_RW);
+        sh_maps[n_maps] = (SH_FS_VA, zero.page, abi::address_space::MAP_RW);
         n_maps += 1;
     }
     if let Some(ep) = second_dir_ep {
@@ -1779,6 +1869,9 @@ pub fn boot(
         },
     ));
     cap_delete(sh_budget); // our copy; the shell holds its own now
+    if let Some(zero) = sh_window {
+        cap_delete(zero.page); // the slice was only the means; the shell holds the mapping
+    }
     // `READ` and no `GRANT`, the clock's rights for the clock's reason: the shell can read the
     // configuration and can hand it to nothing it spawns, so which children see it is still decided
     // by their manifests. Placed before the shell starts, which is what makes its `_start` probe of
@@ -1789,6 +1882,22 @@ pub fn boot(
         abi::rights::READ,
         grant_plan::SHELL_CONFIG_SLOT,
     ));
+    // **The machine statistics page goes to the session, and this process keeps no copy**
+    // (milestone 126, DECISIONS §225). Placed now, before the login block, because that block is
+    // this table's peak and a page held across it would spend the table's last slot
+    // (`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`). The shell hands it back with a spawn request
+    // only for a program that declares `machine` (`spawnproto::MACHINE_PAGE_SLOT`, `MACHINE_BIT`),
+    // so which programs see the machine is decided by what the session holds. `READ | GRANT`: it
+    // can delegate the page and cannot write it. [`GRANT_MACHINE_PAGE`] is the owner's switch.
+    if GRANT_MACHINE_PAGE {
+        must_ok(place_at(
+            shell.tcb,
+            g.machine_page,
+            abi::rights::READ | abi::rights::GRANT,
+            spawnproto::MACHINE_PAGE_SLOT,
+        ));
+    }
+    cap_delete(g.machine_page);
     // The caretaker's endpoint was only ever the means of wiring: the shell holds its own copy and
     // the caretaker holds the other end, the same disposal `spawn_service`'s dynamic directory
     // grants already give their own narrowed endpoint below.
@@ -1992,7 +2101,13 @@ pub fn boot(
 
                 let idp_report = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
                 let idp_program = idp_elf.as_ref().expect("have_login_stack checked this");
-                let idp_child = must(build_child(
+                // **Window 0's page, mapped after the build rather than during it** (milestone
+                // 599). This is the table's peak (the login block), and a slice held across the
+                // build would be a twenty-fifth slot. So the space is built with the two pages the
+                // provisioner shares with this process, `req_frame` goes (its mapping stays, here
+                // and in the child), and only then is window 0 sliced, mapped and dropped: the
+                // slice spends the slot `req_frame` gave back.
+                let (idp_child, idp_aspace) = must(supervision_protocol::build_child_space(
                     ut,
                     ut,
                     idp_program,
@@ -2005,11 +2120,29 @@ pub fn boot(
                         maps: &[
                             (IDP_REQ_VA, req_frame, abi::address_space::MAP_RW),
                             (IDP_PROV_VA, prov_page, abi::address_space::MAP_RW),
-                            (IDP_FS_VA, g.fs_page, abi::address_space::MAP_RW),
                         ],
                         stack_pages: CHILD_STACK_PAGES,
                         ..ChildEndowment::new(Retention::Nothing)
                     },
+                ));
+                cap_delete(req_frame);
+                let idp_page = must(window_page(g.fs_page, 0).ok_or(()));
+                // SAFETY: the syscall; the kernel validates both capabilities and the address.
+                let mapped = unsafe {
+                    invoke(
+                        idp_aspace,
+                        abi::address_space::MAP_INTO,
+                        IDP_FS_VA,
+                        idp_page,
+                        abi::address_space::MAP_RW,
+                    )
+                } == 0;
+                cap_delete(idp_page);
+                must(mapped.then_some(()).ok_or(()));
+                must(supervision_protocol::configure_child(
+                    idp_child.tcb,
+                    idp_aspace,
+                    idp_program.entry(),
                 ));
                 must_ok(start_child(
                     idp_child,
@@ -2017,7 +2150,6 @@ pub fn boot(
                     login_password.len() as u64,
                     0,
                 ));
-                cap_delete(req_frame);
 
                 let (idp_code, _, _) = recv(idp_report);
                 cap_delete(idp_report);
@@ -2094,6 +2226,11 @@ pub fn boot(
                 let login_result = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
                 let login_ut = must(memory_region_split(ut, LOGIN_CONSTRUCTION_PAGES));
                 let login_program = login_elf.as_ref().expect("have_login_stack checked this");
+                // **Window 0's page, never the pool** (milestone 599). Login maps what it is handed
+                // into every session caretaker whole, so the pool here would be every client's
+                // window in every session. A transient slot during the login block, which is where
+                // this table's peak is: `script/swish-check` is what confirms it still fits.
+                let login_page = must(window_page(g.fs_page, 0).ok_or(()));
                 let login_child = must(build_child(
                     ut,
                     ut,
@@ -2114,7 +2251,7 @@ pub fn boot(
                             // for `login` refused this exact `SEND_CAP` when it asked for `READ`
                             // too, in total silence, the same way every other capacity mismatch in
                             // this function has.
-                            (g.fs_page, abi::rights::WRITE | abi::rights::GRANT),
+                            (login_page, abi::rights::WRITE | abi::rights::GRANT),
                             (login_ut, abi::rights::WRITE | abi::rights::GRANT),
                             (audit, abi::rights::WRITE),
                             (term_ep, abi::rights::WRITE | abi::rights::GRANT),
@@ -2162,6 +2299,7 @@ pub fn boot(
                     0,
                 ));
                 // login holds its own copies now; ours were only ever the means of wiring.
+                cap_delete(login_page);
                 cap_delete(login_request);
                 cap_delete(login_result);
                 cap_delete(verify);
@@ -2198,6 +2336,7 @@ pub fn boot(
 
     let own_ut = must(memory_region_split(ut, INIT_OWN_PAGES));
     let jobs_ut = must(memory_region_split(ut, JOBS_BUDGET_PAGES));
+    let images_ut = must(memory_region_split(ut, IMAGE_POOL_PAGES));
     // The shell's output page, in our own space, so we can say what just happened. This mapping is
     // permanent (there is no unmap, and `PageFrame::REVOKE` would take the page from the shell too); see
     // this module's BUGS.
@@ -2252,6 +2391,19 @@ pub fn boot(
             )
         },
     );
+    // **How directory grants will be delivered on this boot** (milestone 606, rulings D and T1),
+    // said once, so `script/swish-check` can hold the boot to it: a server whose own measured bytes
+    // carry the subtree-grants note gets bound badges, and every other boot keeps caretakers.
+    if with_fs {
+        announce(
+            term_ep,
+            if fs_scoped {
+                b"progenitor: the file server enforces subtree grants itself; directory grants get a bound badge\n"
+            } else {
+                b"progenitor: directory grants get a caretaker\n"
+            },
+        );
+    }
     // **The entropy service's own outcome** (DECISIONS §120's 2026-08-26 amendment), said here
     // rather than where it was decided: `entropy_ready` was set long before this process had a
     // terminal at all (the whole reason the build happens first, at the top of this function; see
@@ -2364,6 +2516,7 @@ pub fn boot(
             deaths,
             own_ut,
             jobs_ut,
+            images_ut,
             clock_page: g.clock_page,
             config_page: g.config_page,
             // The terminal's sink, if this initrd carried an adapter to serve it. This is what a
@@ -2385,8 +2538,20 @@ pub fn boot(
             run_unvouched,
         },
         &progs,
-        care_elf,
+        Caretakers {
+            subtree: care_elf,
+            nameset: set_elf,
+        },
+        fs_scoped,
     )
+}
+
+/// **The two caretakers a directory grant is built from**: `fs_subtree_caretaker` for a directory
+/// and everything under it, `fs_nameset_caretaker` for named entries of one directory (milestone
+/// 205). `None` when the archive did not carry it, or it did not measure. Name: provisional.
+struct Caretakers {
+    subtree: Option<elf::Elf<'static>>,
+    nameset: Option<elf::Elf<'static>>,
 }
 
 /// The archive entry a spawnable program is loaded from.
@@ -2435,6 +2600,8 @@ struct Channels {
     own_ut: u64,
     /// The job pool. One region per job, split off here and returned here when the job is reaped.
     jobs_ut: u64,
+    /// The image pool, [`IMAGE_POOL_PAGES`]: a file run by its path, and a package's staging.
+    images_ut: u64,
     /// READ on the wall clock, endowed to a child whose manifest declares one (DECISIONS §43).
     clock_page: u64,
     /// READ on the inert-configuration page, endowed to a child whose manifest declares
@@ -2490,7 +2657,7 @@ struct Channels {
     /// run_unvouched` is followed by one `SEND` on it, which this process takes with a `RECV`;
     /// arriving is the proof, because nothing but a holder can send here.
     ///
-    /// One slot for the life of the boot, and the table had one left (23 of 24). It is retyped
+    /// One slot for the life of the boot, and the table had one left (23 of 24; 32 slots since 2026-09-27). It is retyped
     /// after `login`'s build, the peak, so it is not held across it; `script/swish-check`'s
     /// `capability slots:` line is what says whether that held.
     run_unvouched: u64,
@@ -2529,7 +2696,8 @@ struct Fs {
 fn spawn_service(
     c: Channels,
     progs: &[Option<elf::Elf>; grant_plan::PROG_COUNT],
-    care_elf: Option<elf::Elf>,
+    care: Caretakers,
+    fs_scoped: bool,
 ) -> ! {
     let Channels {
         spawn_ep,
@@ -2537,6 +2705,7 @@ fn spawn_service(
         deaths,
         own_ut,
         jobs_ut,
+        images_ut,
         clock_page,
         config_page,
         term_sink,
@@ -2548,6 +2717,8 @@ fn spawn_service(
     } = c;
     // Whether the file page is mapped here yet, for the activation set (first image request).
     let mut fs_mapped = false;
+    // The next directory-granted job's window (milestone 599).
+    let mut windows = Windows::new();
     loop {
         let (w0, w1, w2) = recv(spawn_ep);
         // **An edit to the activation set, not a spawn** (milestone 198 rung 3a's installer). Asked
@@ -2559,7 +2730,7 @@ fn spawn_service(
                 &Activating {
                     spawn_ep,
                     own_ut,
-                    jobs_ut,
+                    images_ut,
                     fs,
                     catalogue,
                     network,
@@ -2599,16 +2770,24 @@ fn spawn_service(
         // (how a foreign program is told what to do)). The note that says which is inside the
         // frames, which have not arrived, so the argv bit sizes the region and `endowed_image`
         // checks the note agrees (`grant_plan::image_can_carry` ties the two).
-        let image_region = if wiring.image && !interruptible && !wiring.dir {
-            memory_region_split(
-                jobs_ut,
-                if wiring.args {
-                    grant_plan::STD_REGION_PAGES
-                } else {
-                    JOB_REGION_PAGES
-                },
+        // A directory grant rides an image only for bytes that hear words (milestone 205): their
+        // `std` region is sized to hold the caretaker as well (`grant_plan::STD_REGION_PAGES`).
+        //
+        // **From the image pool, and as large as the image** (milestone 595): see
+        // [`IMAGE_POOL_PAGES`] and `grant_plan::image_region_pages`.
+        let image_region = if wiring.image && !interruptible && (!wiring.dir || wiring.args) {
+            split_job(
+                images_ut,
+                grant_plan::image_region_pages(
+                    spawnproto::image_pages(spawnproto::image_len(w0)),
+                    if wiring.args {
+                        grant_plan::Runtime::Std
+                    } else {
+                        grant_plan::Runtime::Native
+                    },
+                    JOB_REGION_PAGES,
+                ),
             )
-            .ok()
         } else {
             None
         };
@@ -2617,7 +2796,7 @@ fn spawn_service(
                 spawn_ep,
                 spawnproto::image_len(w0),
                 own_ut,
-                jobs_ut,
+                images_ut,
                 image_region.is_some(),
             )
         } else {
@@ -2628,6 +2807,13 @@ fn spawn_service(
         // (milestone 205 (how a foreign program is told what to do), DECISIONS §170; `spawnproto::ARGS_BIT`). Taken on every request that
         // announced it, whatever program it turns out to be for, so both sides stay in lockstep.
         let args_seen = if wiring.args {
+            receive_args(spawn_ep, own_ut)
+        } else {
+            None
+        };
+        // **And the name set's frame, right after** (milestone 205, `spawnproto::NAMESET_BIT`),
+        // read the same way: mapped here, copied into the job's region below, never read again.
+        let set_seen = if wiring.nameset {
             receive_args(spawn_ep, own_ut)
         } else {
             None
@@ -2667,6 +2853,14 @@ fn spawn_service(
             None
         };
         let budget = if mem_pages > 0 {
+            opt_cap(recv_cap(spawn_ep).1)
+        } else {
+            None
+        };
+        // **The machine statistics page, when the session sent it** (milestone 126,
+        // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
+        // below once the child holds its own mapping and slot.
+        let machine_page = if wiring.machine {
             opt_cap(recv_cap(spawn_ep).1)
         } else {
             None
@@ -2753,6 +2947,10 @@ fn spawn_service(
         // And a fifth (milestone 590 (provisional)): a network is not something a command line
         // designates either.
         let wants_network = manifest.is_some_and(|m| m.network);
+        // And the two views milestone 126 added (DECISIONS §225): how the machine is doing, and
+        // what this prompt's job budget was spent on. Neither is something a line designates.
+        let wants_machine = manifest.is_some_and(|m| m.machine);
+        let wants_share = manifest.is_some_and(|m| m.share);
 
         if interruptible {
             // Build the whole child from the shell's job untyped, mapping the shared job frame; no
@@ -2807,7 +3005,7 @@ fn spawn_service(
                 // Split before the frames were taken; see `image_region` above.
                 image_region
             } else {
-                memory_region_split(
+                split_job(
                     jobs_ut,
                     if std_layout {
                         grant_plan::STD_REGION_PAGES
@@ -2817,17 +3015,40 @@ fn spawn_service(
                         JOB_REGION_PAGES
                     },
                 )
-                .ok()
             };
 
             // **The caretaker, built before the program it serves**, because the program's slot 0 is
             // the endpoint this returns. `None` means either that this is not a directory grant or
             // that the delivery failed, and `dir_failed` below is what keeps those apart: a grant
             // that could not be delivered must **not** spawn the program anyway.
-            let narrowed = if wiring.dir {
-                match (region, fs, care_elf.as_ref(), grant) {
-                    (Some(r), Some(fs), Some(care), Some((care_words, _))) => {
-                        build_caretaker(own_ut, r, care, fs, care_words)
+            // **The job's own window** (milestone 599): a page of it and the endpoint badged with
+            // it, which the caretaker calls with and both the caretaker and the job map. `None`
+            // for a job with no directory grant, and for a grant whose channel the kernel refused,
+            // which `narrowed` then turns into a refused spawn below.
+            //
+            // **A bound badge when the server enforces grants itself, a caretaker otherwise**
+            // (milestone 606, rulings D and T1). The badge is bound to the grant's directory before
+            // the job holds anything, and any failure on the way falls back to the caretaker.
+            let bound = match (wiring.dir && fs_scoped, fs, grant) {
+                (true, Some(f), Some((care_words, _))) => {
+                    bound_channel(f, &mut windows, own_ut, &mut fs_mapped, care_words)
+                }
+                _ => None,
+            };
+            let channel = if bound.is_some() {
+                bound
+            } else if wiring.dir {
+                fs.and_then(|f| job_channel(f, &mut windows, own_ut, &mut fs_mapped))
+            } else {
+                None
+            };
+            let narrowed = if let Some(b) = bound {
+                // The job holds the file server's own endpoint, badged and bound: no caretaker.
+                Some(b.ep)
+            } else if wiring.dir {
+                match (region, channel, grant) {
+                    (Some(r), Some(ch), Some((care_words, _))) => {
+                        build_grant(own_ut, r, ch, &care, care_words, set_seen, manifest)
                     }
                     _ => None,
                 }
@@ -2940,7 +3161,7 @@ fn spawn_service(
             // collect a corpse, and only the viewer's own source code said it did not. A domain names
             // its members and does not act on them (calef, 2026-08-17); `capability::Rights::ENUMERATE`
             // is what makes that a property of the grant. notes/process-view.md carries the argument.
-            let mut placed_buf = [(0u64, 0u64, 0u64); 4];
+            let mut placed_buf = [(0u64, 0u64, 0u64); 6];
             let mut placed_n = 0usize;
             if let (Some(ep), Some(slot)) = (diagnostics.or(default_diag), diag_slot) {
                 placed_buf[placed_n] = (slot, ep, abi::rights::WRITE);
@@ -2976,18 +3197,29 @@ fn spawn_service(
                 placed_buf[placed_n] = (grant_plan::NETWORK_SLOT, ep, abi::rights::WRITE);
                 placed_n += 1;
             }
+            // **The fifth and sixth named slots** (milestone 126, DECISIONS §225). The machine page
+            // carries `READ` and is also mapped below; the job budget carries `ENUMERATE` alone,
+            // which answers `abi::memory_region::USAGE` and nothing that spends, splits or
+            // destroys. It is the same region this child was split from, so "yours" includes the
+            // program asking, the way `ps` lists itself.
+            if let (true, Some(page)) = (wants_machine, machine_page) {
+                placed_buf[placed_n] = (grant_plan::MACHINE_SLOT, page, abi::rights::READ);
+                placed_n += 1;
+            }
+            if wants_share {
+                placed_buf[placed_n] = (grant_plan::SHARE_SLOT, jobs_ut, abi::rights::ENUMERATE);
+                placed_n += 1;
+            }
             let placed: &[(u64, u64, u64)] = &placed_buf[..placed_n];
             let clock_map = [(CHILD_CLOCK_VA, clock_page, abi::address_space::MAP_RO)];
             let config_map = [(CHILD_CONFIG_VA, config_page, abi::address_space::MAP_RO)];
-            // Both pages, which only `grant_plan::UNVOUCHED_MANIFEST` declares (§219 gate D2).
-            let both_map = [clock_map[0], config_map[0]];
             // **The FS contract's shared page, for a program behind a directory grant.** The same
             // frame the caretaker maps and the same frame the FS server maps: one page for all three
             // parties, sound because every request on both hops is a blocking `CALL`, so the client
             // is parked inside its own call for the whole time the caretaker is using it.
             let dir_map = [(
                 FS_CLIENT_PAGE_VA,
-                fs.map_or(0, |f| f.page),
+                channel.map_or(0, |f| f.page),
                 abi::address_space::MAP_RW,
             )];
             // The region's own comment lives at the split above, which milestone 31 phase 3 moved
@@ -2995,24 +3227,34 @@ fn spawn_service(
             // out of that carve, and a single reclaim frees all of it; the clock frame and the FS
             // page are ours and are only *mapped* into the child, so they are untouched when the
             // region goes.
-            // **Two extra mappings at most, today.** A program that declared a directory grant AND a
-            // clock AND the config page would need three, and this chain only ever offers two; no
-            // manifest reaches that combination (the directory program, `rm`, declares neither
-            // clock nor config, and only `grant_plan::UNVOUCHED_MANIFEST` declares both clock and
-            // config, with no directory), so the gap is unreached rather than closed. The same ordered-slot debt `wants_clock`'s own
-            // comment above already names for `caps`, one structure over; see notes/pipes.md's
-            // `BUGS`.
-            let maps: &[(u64, u64, u64)] = if narrowed.is_some() {
-                &dir_map
-            } else if wants_clock && wants_config {
-                &both_map
-            } else if wants_clock {
-                &clock_map
-            } else if wants_config {
-                &config_map
-            } else {
-                &[]
-            };
+            // **Every mapping the manifest asked for, in one list** (milestone 126). This was a
+            // chain offering at most two extra mappings, whose comment recorded the three-mapping
+            // combination it could not express; the machine statistics page made a fourth kind of
+            // mapping, and a list closes that debt instead of adding a branch to it. Each entry is a
+            // page this progenitor holds and only maps, so the child's reclaim leaves them all alone.
+            let mut map_buf = [(0u64, 0u64, 0u64); 4];
+            let mut map_n = 0usize;
+            if narrowed.is_some() {
+                map_buf[map_n] = dir_map[0];
+                map_n += 1;
+            }
+            if wants_clock {
+                map_buf[map_n] = clock_map[0];
+                map_n += 1;
+            }
+            if wants_config {
+                map_buf[map_n] = config_map[0];
+                map_n += 1;
+            }
+            if let (true, Some(page)) = (wants_machine, machine_page) {
+                map_buf[map_n] = (
+                    machine_statistics_protocol::PAGE_VA,
+                    page,
+                    abi::address_space::MAP_RO,
+                );
+                map_n += 1;
+            }
+            let maps: &[(u64, u64, u64)] = &map_buf[..map_n];
             // **The std layout** (milestone 595 (provisional)): the same authorities, placed where
             // nife's `std` reads them instead of in order. Computed here, beside the native arrays it
             // replaces, so both shapes read from the one set of decisions above (which output, which
@@ -3030,7 +3272,7 @@ fn spawn_service(
                 (true, Some(r)) => Some(StdLayout::new(
                     r,
                     out,
-                    narrowed.map(|ep| (ep, fs.map_or(0, |f| f.page))),
+                    narrowed.map(|ep| (ep, channel.map_or(0, |f| f.page))),
                     wants_clock.then_some(clock_page),
                     wants_config.then_some(config_page),
                     entropy.filter(|_| wants_entropy),
@@ -3122,6 +3364,15 @@ fn spawn_service(
             if let Some(dir_ep) = narrowed {
                 cap_delete(dir_ep);
             }
+            // The window's page and badged endpoint were only the means too: the caretaker and the
+            // job each hold their own mapping and copy (milestone 599).
+            if let Some(ch) = channel {
+                cap_delete(ch.page);
+                // A bound channel's endpoint is `narrowed`, already deleted above.
+                if bound.is_none() {
+                    cap_delete(ch.ep);
+                }
+            }
             // The child holds its own copy of the argv page's capability; ours was only the means.
             if let Some(page) = args_page {
                 cap_delete(page);
@@ -3169,9 +3420,18 @@ fn spawn_service(
         // mapped, the budget and the streams inserted), and the shell holds the originals it kept
         // (the job untyped for teardown, the pipe it minted). This keeps the progenitor's 16-slot capability table from
         // filling across a long session.
-        for s in [job_ut, job_fr, sink, source, diagnostics, screen, budget]
-            .into_iter()
-            .flatten()
+        for s in [
+            job_ut,
+            job_fr,
+            sink,
+            source,
+            diagnostics,
+            screen,
+            budget,
+            machine_page,
+        ]
+        .into_iter()
+        .flatten()
         {
             cap_delete(s);
         }
@@ -3296,6 +3556,64 @@ impl StdLayout {
     }
 }
 
+/// **Build the caretaker a directory grant is delivered by**, and hand back its endpoint.
+///
+/// `fs_subtree_caretaker` for a directory, or `fs_nameset_caretaker` with its name set on a page
+/// from the job's region when the shell sent one (milestone 205 (how a foreign program is told what
+/// to do)'s designation half, `spawnproto::NAMESET_BIT`). A set that arrives for a program that does
+/// not hear words is refused with the grant.
+///
+/// **A program that hears words gets the rights its endowed manifest allows, and no more** (§170
+/// clause 4): the shell asked with the rights of the note it read, and this clamps them to the
+/// manifest decided here, which for bytes nobody vouched for is read-only
+/// (`grant_plan::UNVOUCHED_STD_MANIFEST`).
+///
+/// **Out of line on purpose.** `spawn_service`'s frame is on the stack under every activation, and
+/// an install of `uptime` runs `package_archive`'s parser beneath it; in a debug build that path
+/// sat within about 400 bytes of the progenitor's 32 KiB stack (kernel `INIT_STACK_PAGES`) until
+/// these locals were moved here. CI found it on 2026-09-27 as a data abort one word below the
+/// stack's lowest page.
+#[inline(never)]
+fn build_grant(
+    own_ut: u64,
+    region: u64,
+    fs: Fs,
+    care: &Caretakers,
+    care_words: (u64, u64, u64),
+    set_seen: Option<u64>,
+    manifest: Option<grant_plan::Manifest>,
+) -> Option<u64> {
+    let words = match manifest.map(|m| m.arg) {
+        Some(grant_plan::ArgSpec::Words(g)) => {
+            use filesystem_protocol::grant as gr;
+            let rights = gr::spec_rights(care_words.2) & g.rights();
+            (
+                care_words.0,
+                care_words.1,
+                gr::spec(gr::spec_len(care_words.2), rights),
+            )
+        }
+        _ => care_words,
+    };
+    let hears_words = manifest.is_some_and(|m| m.arg.hears_words());
+    match set_seen {
+        None => care
+            .subtree
+            .as_ref()
+            .and_then(|e| build_caretaker(own_ut, region, e, fs, words, None)),
+        Some(theirs) if hears_words => {
+            let set = copy_args(own_ut, region, theirs)?;
+            let ep = care
+                .nameset
+                .as_ref()
+                .and_then(|e| build_caretaker(own_ut, region, e, fs, words, Some(set)));
+            cap_delete(set);
+            ep
+        }
+        Some(_) => None,
+    }
+}
+
 /// **Build a `fs_subtree_caretaker` for one directory grant and hand back the narrowed endpoint**
 /// (milestone 31 phase 3, DECISIONS §92).
 ///
@@ -3332,9 +3650,20 @@ fn build_caretaker(
     care: &elf::Elf,
     fs: Fs,
     care_words: (u64, u64, u64),
+    set: Option<u64>,
 ) -> Option<u64> {
     let narrow_ep = retype_obj(region, abi::objtype::RENDEZVOUS).ok()?;
     let ready = retype_obj(region, abi::objtype::RENDEZVOUS).ok()?;
+    // The shared page, and the name set read-only where `fs_nameset_caretaker` reads it (milestone
+    // 205), when there is one.
+    let maps = [
+        (FS_CLIENT_PAGE_VA, fs.page, abi::address_space::MAP_RW),
+        (
+            NAMESET_PAGE_VA,
+            set.unwrap_or(0),
+            abi::address_space::MAP_RO,
+        ),
+    ];
     // Its whole authority, and reading these three lines is reading it: the file service to
     // attenuate, the endpoint it will serve, and one place to say it is ready. No untyped, no clock,
     // no terminal, and nothing that could name another process.
@@ -3348,7 +3677,7 @@ fn build_caretaker(
                 (narrow_ep, abi::rights::READ),
                 (ready, abi::rights::WRITE),
             ],
-            maps: &[(FS_CLIENT_PAGE_VA, fs.page, abi::address_space::MAP_RW)],
+            maps: &maps[..if set.is_some() { 2 } else { 1 }],
             stack_pages: CARETAKER_STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
         },
@@ -3721,6 +4050,13 @@ const ACTIVATION_FS_VA: u64 = address_space_map::pair_page(0x0f40_0000);
 /// tables behind it come from `own_ut` and are reused.
 const IMAGE_STAGING_VA: u64 = address_space_map::pair_page(0x0f80_0000);
 
+// The largest image's copy stays inside the pair band, clear of the loader's scratch window at its
+// top (milestone 595 raised [`spawnproto::IMAGE_MAX_PAGES`] to 1024, which is 4 of the 8 MiB here).
+const _: () = assert!(
+    IMAGE_STAGING_VA + spawnproto::IMAGE_MAX_PAGES * spawnproto::IMAGE_PAGE
+        <= address_space_map::PAIR_PAGES.end
+);
+
 /// **Take the argv's frame off the spawn endpoint and map it where this process can read it**
 /// (milestone 205, DECISIONS §170; `spawnproto::ARGS_BIT`). Returns the address, or `None` if the
 /// caller sent no frame or it would not map. The capability goes at once, as an image frame's does
@@ -3759,6 +4095,38 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
     Some(page)
 }
 
+/// **Carve `pages` from the job pool, waiting a bounded while for the reaper if it is short.**
+/// The image pool (milestone 595) is carved the same way, because an image's region is also a
+/// job's and comes back the same way.
+///
+/// A finished job's region comes back when `job_undertaker` reaps it, and that is after the shell
+/// has read the job's output and shown the next prompt. So a job typed straight after another can
+/// find the pool still holding the last one, and a `std` job, which needs the pool's one `std`-sized
+/// share (`JOBS_BUDGET_PAGES`), found it that way in CI on 2026-09-27: `/installed/std-grep needle`
+/// right after `/installed/std-grep needle docs` answered "could not spawn". Yielding lets the
+/// undertaker, which is runnable once the job has died, finish the reap.
+///
+/// **Kept on effort, and a foot gun.** Bounded by a count, not by the reap it waits for: whether
+/// [`JOB_WAIT_ATTEMPTS`] yields cover one reap depends on what else is runnable. We would not choose
+/// it if the proper fix cost the same. That fix has the undertaker tell the progenitor which job it
+/// reaped, a change the two agree on, proposed in
+/// `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`. A pool that is
+/// genuinely full still answers "out of memory", only later.
+fn split_job(pool: u64, pages: u64) -> Option<u64> {
+    for _ in 0..JOB_WAIT_ATTEMPTS {
+        if let Ok(r) = memory_region_split(pool, pages) {
+            return Some(r);
+        }
+        user_mode_runtime::yield_now();
+    }
+    memory_region_split(pool, pages).ok()
+}
+
+/// How many times [`split_job`] yields before it gives up. Generous next to [`RECLAIM_ATTEMPTS`],
+/// because what it waits on is another process's whole reap rather than one preemption. Name:
+/// provisional.
+const JOB_WAIT_ATTEMPTS: usize = 1024;
+
 /// **Take an image request's frames off the spawn endpoint and copy them into pages of our own.**
 /// Returns the staging region holding the copy, or `None` if it could not be staged.
 ///
@@ -3776,12 +4144,12 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
 /// staging page's own capability is deleted as soon as it is mapped: an image of any size costs one
 /// transient slot plus the staging region's.
 ///
-/// `stage` is false when the request cannot be built anyway (no region for the child, an
-/// interruptible or directory-granted image), and then this only drains.
-fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, jobs_ut: u64, stage: bool) -> Option<u64> {
+/// `stage` is false when the request cannot be built anyway (no region for the child, or an
+/// interruptible image), and then this only drains.
+fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bool) -> Option<u64> {
     let pages = spawnproto::image_pages(len);
     let staging = if stage && pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES {
-        memory_region_split(jobs_ut, pages).ok()
+        split_job(images_ut, pages)
     } else {
         None
     };
@@ -3905,13 +4273,186 @@ use filesystem_protocol::{dir, fs as fs_op};
 /// One page, the unit the file service trades bytes in, and the most a generation may hold.
 const PAGE_BYTES: usize = spawnproto::IMAGE_PAGE as usize;
 
+// -------------------------------------------------------------------------------------------
+// The file service's client windows (milestone 599 (a frame per filesystem client channel),
+// calef's ruling of 2026-09-27, option 4 of notes/a-frame-per-filesystem-client-channel.md).
+// -------------------------------------------------------------------------------------------
+
+/// **One page of window `w` of the file service's pool**, as a capability in a fresh slot, or
+/// `None` if the kernel refused. The progenitor's `fs_page` names every window as one run (the
+/// kernel grants it that way at slot 6), so it can never be mapped into a client as it is: that
+/// would hand the client every other client's channel, the bug the pool exists to fix. What a
+/// client maps is a slice, made here, mapped with `MAP_INTO`, and deleted by the caller as soon as
+/// the build is done. One page, not the window's sixteen, because a client of this contract maps
+/// one page (`filesystem_protocol::fs::TRANSFER_PAGES` says a client maps what it uses).
+fn window_page(pool: u64, w: u64) -> Option<u64> {
+    let first = w * fs_op::TRANSFER_PAGES as u64;
+    // SAFETY: the syscall; the kernel validates the capability, the range and the right.
+    let slot = unsafe { invoke(pool, abi::page_frame::SLICE, first, 1, 0) };
+    (slot >= 0).then_some(slot as u64)
+}
+
+/// **The file service's endpoint badged with `w`**, which is how the server knows which window
+/// a request's bytes are in (§230 (badged endpoint capabilities)). `None` if the kernel refused.
+fn window_endpoint(ep: u64, w: u64) -> Option<u64> {
+    // SAFETY: as [`window_page`].
+    let slot = unsafe { invoke(ep, abi::rendezvous::BADGE, w, 0, 0) };
+    (slot >= 0).then_some(slot as u64)
+}
+
+/// **Window 0, the default channel**: the unbadged endpoint and one page of the first window. For
+/// the long-lived clients the boot builds once (the shell, `login`, the identity provisioner),
+/// which have always shared it with each other and with this process's own activation calls. The
+/// page is a fresh slice the caller deletes; the endpoint is the progenitor's own, not a copy.
+fn window_zero(fs: Fs) -> Option<Fs> {
+    Some(Fs {
+        ep: fs.ep,
+        page: window_page(fs.page, 0)?,
+    })
+}
+
+/// **Which window the next directory-granted job gets.** Windows `1..CLIENT_WINDOWS`, handed out
+/// round robin; window 0 is the boot's long-lived clients' (see [`window_zero`]).
+///
+/// # BUGS
+///
+/// - **A window is reused after `CLIENT_WINDOWS - 1` more granted jobs, whether or not its last
+///   holder has exited.** The progenitor is not told when a job dies (`job_undertaker` reaps, and
+///   nothing reports back here), so it cannot know which windows are free. With seven windows, an
+///   eighth directory-granted job running at once shares a window with the oldest, and those two
+///   are back in the shared-channel race this pool exists to close. A release at reap needs the
+///   undertaker to report the death to this process, which is a channel that does not exist.
+/// - **A bound window is taken back when it is reused, not when its job is reaped** (milestone 606,
+///   ruling D's default "UNBIND at reap"), for the same missing signal: `UNBIND` runs here, just
+///   before the window is handed out again. A job still running when its window comes round
+///   again loses its grant (every request answers `EBADF`) rather than sharing it, which is the
+///   safe direction. Lane 205's "job reaped" signal will move both to reap.
+struct Windows {
+    next: u64,
+    /// Bit `w` set means window `w`'s badge is bound to a grant and must be unbound before reuse.
+    bound: u64,
+}
+
+impl Windows {
+    const fn new() -> Self {
+        Self { next: 1, bound: 0 }
+    }
+
+    fn take(&mut self) -> u64 {
+        let w = self.next;
+        self.next = if w + 1 < fs_op::CLIENT_WINDOWS as u64 {
+            w + 1
+        } else {
+            1
+        };
+        w
+    }
+}
+
+/// **Whether a file server's image says it enforces subtree grants itself** (milestone 606, ruling
+/// T1): it carries a `manifest_note::SUBTREE_GRANTS` note naming the one scope crate there is. No
+/// image, no note, or a note that does not decode all answer `false`.
+fn subtree_grants(server: Option<&elf::Elf<'_>>) -> bool {
+    let Some(server) = server else {
+        return false;
+    };
+    matches!(
+        server.note(manifest_note::OWNER, manifest_note::SUBTREE_GRANTS),
+        Ok(Some(d)) if manifest_note::decode_subtree_grants(d)
+            == Ok(manifest_note::Scope::SubtreeScope)
+    )
+}
+
+/// **A bound channel for one job behind a directory grant** (milestone 606, rulings D and T1): the
+/// next window, its badge bound by the file server to the directory the grant names, a page of the
+/// window, and the endpoint badged to match. What a caretaker would have done at its start, done
+/// once here instead: open the named directory asking for exactly the granted rights. The order is
+/// the safety property. A badge is the endpoint's whole authority until it is bound, so the job is
+/// handed nothing until `BIND` has answered. `None` for any failure, which the caller answers with
+/// a caretaker.
+fn bound_channel(
+    fs: Fs,
+    windows: &mut Windows,
+    own_ut: u64,
+    mapped: &mut bool,
+    (lo, hi, spec): (u64, u64, u64),
+) -> Option<Fs> {
+    let files = FsCalls::map(Some(fs), own_ut, mapped)?;
+    let mut buf = [0u8; filesystem_protocol::grant::MAX_NAME];
+    let n = filesystem_protocol::grant::unpack_name(
+        lo,
+        hi,
+        filesystem_protocol::grant::spec_len(spec),
+        &mut buf,
+    );
+    let name = core::str::from_utf8(&buf[..n]).ok()?;
+    let w = windows.take();
+    files.unbind(windows, w);
+    let handle = files.named(
+        fs_op::OPENDIR,
+        fs_op::ROOT,
+        name,
+        filesystem_protocol::grant::spec_rights(spec),
+    );
+    if handle < 0 {
+        return None;
+    }
+    if call(fs.ep, fs_op::req(fs_op::BIND, handle as u64, 0), w).0 != 0 {
+        files.close(handle);
+        return None;
+    }
+    windows.bound |= 1 << w;
+    // SAFETY: as [`job_channel`]'s zeroing: window `w`'s first page, inside the mapped pool.
+    unsafe {
+        core::ptr::write_bytes(
+            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            0,
+            PAGE_BYTES,
+        );
+    }
+    let page = window_page(fs.page, w)?;
+    let Some(ep) = window_endpoint(fs.ep, w) else {
+        cap_delete(page);
+        return None;
+    };
+    Some(Fs { ep, page })
+}
+
+/// **A channel of its own for one job behind a directory grant**: the next window's page and the
+/// endpoint badged with it, both fresh slots the caller deletes once the job and its caretaker are
+/// built. The window's first page is zeroed first, through this process's own mapping of the pool
+/// (made once, [`FsCalls::map`]), so nothing the window's last job left there is visible to the
+/// next: the same "no stale RAM across a share" rule the kernel's own pool follows.
+fn job_channel(fs: Fs, windows: &mut Windows, own_ut: u64, mapped: &mut bool) -> Option<Fs> {
+    let files = FsCalls::map(Some(fs), own_ut, mapped)?;
+    let w = windows.take();
+    // A window last used by a bound grant goes back to being open before a caretaker uses it.
+    files.unbind(windows, w);
+    // SAFETY: the pool is mapped read/write at ACTIVATION_FS_VA (`FsCalls::map`, whole run), and
+    // window `w`'s first page lies inside it; no client is using window `w` between two jobs.
+    unsafe {
+        core::ptr::write_bytes(
+            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            0,
+            PAGE_BYTES,
+        );
+    }
+    let page = window_page(fs.page, w)?;
+    let Some(ep) = window_endpoint(fs.ep, w) else {
+        cap_delete(page);
+        return None;
+    };
+    Some(Fs { ep, page })
+}
+
 /// **The progenitor's calls on the file service**, through the page it maps at
 /// [`ACTIVATION_FS_VA`]. Shared by [`vouched`], which reads the activation set, and [`activate`],
 /// which writes it (milestone 198 rung 3a).
 ///
-/// The page is the one the shell and every caretaker share with the server. That is sound for the
-/// reason `build_caretaker` gives: the shell is parked in its `RECV` on the result endpoint for the
-/// whole of a spawn or an activation, so nothing else is mid-request on it.
+/// What is mapped there is the whole client-window pool (milestone 599), and these calls use its
+/// first page, window 0, the one the shell shares. That is sound for the reason `build_caretaker`
+/// gives: the shell is parked in its `RECV` on the result endpoint for the whole of a spawn or an
+/// activation, so nothing else is mid-request on it. A job's caretaker has its own window now.
 struct FsCalls {
     ep: u64,
 }
@@ -3939,6 +4480,16 @@ impl FsCalls {
         // SAFETY: the page is mapped read/write (`map`) and `len` is at most a page.
         unsafe { core::ptr::copy_nonoverlapping(name.as_ptr(), Self::page(), len) };
         call(self.ep, fs_op::req(verb, handle, len as u64), w1).0 as i64
+    }
+
+    /// **Take window `w`'s grant back, if it has one** (milestone 606, ruling D): `UNBIND` closes
+    /// every handle the badge minted and leaves it revoked until it is bound again. A no-op for a
+    /// window that was never bound.
+    fn unbind(&self, windows: &mut Windows, w: u64) {
+        if windows.bound & (1 << w) != 0 {
+            call(self.ep, fs_op::req(fs_op::UNBIND, 0, 0), w);
+            windows.bound &= !(1 << w);
+        }
     }
 
     fn close(&self, handle: i64) {
@@ -4121,7 +4672,8 @@ impl FsCalls {
 struct Activating {
     spawn_ep: u64,
     own_ut: u64,
-    jobs_ut: u64,
+    /// [`IMAGE_POOL_PAGES`]: a package is staged where an image is.
+    images_ut: u64,
     fs: Option<Fs>,
     catalogue: &'static str,
     /// The network stack's endpoint, for [`spawnproto::Activation::Fetch`]. `None` on a boot with
@@ -4166,7 +4718,7 @@ fn activate(
     // refusal never leaves words behind that the next request would read as its own.
     let staging = match verb {
         Some(Activation::Install | Activation::Vouch) => {
-            receive_image(a.spawn_ep, w0, a.own_ut, a.jobs_ut, true).map(|st| (st, w0))
+            receive_image(a.spawn_ep, w0, a.own_ut, a.images_ut, true).map(|st| (st, w0))
         }
         _ => None,
     };
@@ -4329,7 +4881,8 @@ fn edit(
                 package: activation_set::OWNER,
                 digest: measured_boot::sha256(bytes),
             };
-            let n = match activation_set::with_entry(table, &entry, &mut new) {
+            // A vouch claims no name, so whether the image carries one does not matter to it.
+            let n = match activation_set::with_entry(table, &entry, false, &mut new) {
                 Ok(n) => n,
                 Err(activation_set::Error::BadName) => return (S::NotExecutable, live),
                 Err(_) => return (S::StoreFailed, live),
@@ -4396,8 +4949,19 @@ fn edit(
                 package: stem,
                 digest: got.digest,
             };
-            let Ok(n) = activation_set::with_entry(table, &entry, &mut new) else {
-                return (S::StoreFailed, live);
+            // **A bare name belongs to one package, and never to one the image carries** (DECISIONS
+            // §229 (how a bare name at the prompt reaches an installed program), B2 and calef's
+            // ruling of 2026-09-27). Either is refused here, after the bytes are placed under
+            // `packages/` (where they still run by path) and before any generation names them. A
+            // base program is updated through the boot slot under §235 (the OS is built and updated
+            // from packages), so the image refusal blocks no update. The prompt still refuses a
+            // name that is both, because a later base can add a name a package already holds.
+            let image = Prog::from_name(got.program.as_bytes()).is_some();
+            let n = match activation_set::with_entry(table, &entry, image, &mut new) {
+                Ok(n) => n,
+                Err(activation_set::Error::ImageName) => return (S::ImageName, live),
+                Err(activation_set::Error::Taken) => return (S::NameTaken, live),
+                Err(_) => return (S::StoreFailed, live),
             };
             let m = next();
             if !files.commit(act, m, Some(&new[..n])) {
@@ -4469,7 +5033,7 @@ fn fetch(
         .ok_or(S::NoSuchPackage)?;
     let stack = a.network.ok_or(S::NoNetwork)?;
 
-    let region = memory_region_split(a.jobs_ut, 1).map_err(|()| S::FetchFailed)?;
+    let region = memory_region_split(a.images_ut, 1).map_err(|()| S::FetchFailed)?;
     *socket_region = Some(region);
     let page = retype_page_frame(region).map_err(|()| S::FetchFailed)?;
     // SAFETY: `invoke` is the syscall; the page is ours and fresh, the window is clear (see
@@ -4587,7 +5151,7 @@ fn receive_body(
 /// [`receive_image`] does for a caller's frames. The region, or `FetchFailed` with nothing held.
 fn stage_pages(a: &Activating, len: u64) -> Result<u64, spawnproto::ActivationStatus> {
     let pages = spawnproto::image_pages(len);
-    let st = memory_region_split(a.jobs_ut, pages)
+    let st = memory_region_split(a.images_ut, pages)
         .map_err(|()| spawnproto::ActivationStatus::FetchFailed)?;
     for i in 0..pages {
         let mapped = match retype_page_frame(st) {

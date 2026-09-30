@@ -634,6 +634,17 @@ mod survey_tests;
 #[cfg(test)]
 mod survey_record_tests;
 
+/// **An endpoint that carries an interrupt refuses every send** (milestone 603 (an interrupt's
+/// endpoint refuses every send), DECISIONS §101 (notification objects) ruling B). Driven through
+/// the real dispatcher (`syscall::invoke`) on the sending side and through `Irq::WAIT` on the
+/// driver's, because the ruling is about what a program can do at the boundary.
+///
+/// Cross-ISA, and it has to be: the refusal is `Rendezvous::send`'s and the error mapping is
+/// `syscall`'s, neither under `arch/`. The interrupt is delivered with `sched::irq_notify`, the
+/// function every ISA's handler calls, which keeps the test off each machine's interrupt wiring.
+#[cfg(test)]
+mod irq_send_refusal_tests;
+
 /// **What the CPU-time record's number means** (milestone 282 (a thread's CPU time, and the `top` it makes possible), DECISIONS §150 (how does a thread's CPU time reach userspace?)).
 ///
 /// `survey_record_tests` proves that a record can be asked for and that an unknown one is refused,
@@ -655,6 +666,13 @@ mod cpu_time_tests;
 /// the split is proved in both directions rather than asserted in prose.
 #[cfg(test)]
 mod pmap_tests;
+
+/// **`free`, `vmstat` and `slabtop`'s two sources** (milestone 126 (the `procps` package),
+/// DECISIONS §225 (`free` sees the machine and your share)): `MemoryRegion::USAGE` under
+/// `ENUMERATE` alone, refused to a spender and answering a viewer, and the machine statistics page
+/// recognized and moving. Arch-neutral, so every ISA runs it.
+#[cfg(test)]
+mod machine_statistics_tests;
 
 /// **Scheduled execution, where every entry is a grant** (milestone 129, notes/scheduled-execution.md).
 ///

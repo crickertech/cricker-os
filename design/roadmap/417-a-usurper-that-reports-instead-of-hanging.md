@@ -77,7 +77,7 @@ recommendation there is most of the decision already made.
 
 ## What is blocked until it is answered
 
-Row 26 of `notes/confinement-claims.md` stays `unfalsified`, and `design/fatal-risks.md`'s risk 7
+Row 26 of `notes/confinement-claims.md` stays `unfalsified`, and `design/fatal-risks/README.md`'s risk 7
 keeps one claim whose test has never been shown able to fail. Nothing else waits on this.
 
 ## Index row

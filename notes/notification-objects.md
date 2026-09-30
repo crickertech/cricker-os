@@ -125,8 +125,10 @@ is written beside the constant (`abi::notification::BOUND`) so the author of §2
 Is `SEND(1, ...)` a forged IRQ signal today? Not reachable today, and nothing stops it
 becoming reachable. An IRQ signal is `[1, 0, 0, 0, 0]` in the receiver's mailbox, the same `w0`
 a sender controls, so the encoding is forgeable in principle. It is not forgeable in practice,
-because every endpoint the kernel routes an interrupt to (`bind_irq`, fifteen call sites) is
-created for that purpose and never handed out as a `Rendezvous` capability. The driver reaches it
+because every endpoint the kernel routes an interrupt to (`bind_irq`, thirteen wiring call sites
+today, the soak's loop beside them) is created for that purpose and never handed out as a
+`Rendezvous` capability. Fifteen was written here at birth; the 2026-09-29 documentation audit
+re-derived the count. The driver reaches it
 only through `Irq::WAIT`, and an `Irq` capability has no send method. A grep for any
 `rendezvous_cap(` naming an interrupt endpoint finds none. Two caveats keep this from being a
 guarantee. First, it holds by wiring discipline, which is rung zero: nothing in the type system or
@@ -136,3 +138,19 @@ its caller supplies, in a `--features soak_test` build only; those are the soak'
 carry no senders today. Recorded as a `BUGS` entry in the block rather than fixed here, because the
 fix (make an interrupt endpoint unsendable, or move IRQ delivery onto notifications) is §101's
 "IRQ migration", which §101 explicitly left undecided.
+
+Closed on 2026-09-26. calef ruled the first fix (§101's second amendment), and milestone 603 (an
+interrupt's endpoint refuses every send) built it: `bind_irq` marks the endpoint, and a `SEND`,
+`SEND_CAP` or `CALL` to it answers `NotPermitted`. Moving interrupts onto notifications is
+decided driver by driver.
+
+## BUGS
+
+- The notification and timer registries are machine-wide (`MAX_NOTIFICATIONS` and `MAX_TIMERS`,
+  256 each, `kernel/src/sched.rs`), and a full registry answers every creator with one flat
+  `OutOfMemory`. A victim cannot tell a full registry from its own empty region. One domain
+  holding 256 pages of untyped can deny notification and timer creation to every other domain
+  for the rest of the boot. This copies the rendezvous registry's shape (`MAX_RENDEZVOUS`, 512,
+  which one test suite actually filled), and the recorded stance is to raise the bound when a
+  real workload refuses, not before. Recorded by the 2026-09-29 security audit, which weighed a
+  per-domain quota and left it unproposed: nothing multi-domain has asked for the objects yet.

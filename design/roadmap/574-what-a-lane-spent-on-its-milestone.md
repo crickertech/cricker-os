@@ -45,7 +45,7 @@ much to build and this much to prove" is. The same join is what would let the de
 milestone that carried a Kani harness cost more than one that did not, which is a claim this project
 makes and has never measured.
 
-And it is the input `design/fatal-risks.md`'s counter-theses need in the unit they are argued in.
+And it is the input `design/fatal-risks/README.md`'s counter-theses need in the unit they are argued in.
 
 ## What a lane would have to decide
 

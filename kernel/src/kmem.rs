@@ -104,7 +104,10 @@ pub fn page() -> Option<u64> {
         drop(pool);
         // Pin-and-carve, like every object page since 19a: this region hosts kernel objects for
         // the machine's lifetime, and nothing may ever destroy it.
-        let Some(phys) = crate::memory_region::retype_object_page(region) else {
+        let Some(phys) = crate::memory_region::retype_object_page(
+            region,
+            crate::memory_region::ObjectKind::KernelPool,
+        ) else {
             crate::println!(
                 "kmem: carve exhausted ({KERNEL_OBJ_PAGES} pages spent, none recycled); raise \
                  KERNEL_OBJ_PAGES"

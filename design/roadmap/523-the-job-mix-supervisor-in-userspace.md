@@ -271,7 +271,7 @@ refusal. Both halves of that are recorded where a reader meets them.
 ## What this lane did
 
 Investigation and records only. No code changed, no name was coined, `design/decisions/` and
-`design/fatal-risks.md` were not touched. Added: this block; the `sealed_pair` proposal; a `BUGS`
+`design/fatal-risks/README.md` were not touched. Added: this block; the `sealed_pair` proposal; a `BUGS`
 entry in `notes/job-mix.md` and one in `crates/sealed_pair` so the next bench evening does not spend
 an hour on a tool that cries wolf.
 

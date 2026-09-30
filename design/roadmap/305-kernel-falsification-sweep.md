@@ -10,7 +10,7 @@ merge queue lands it.)*
 
 ## The finding this started from is that the blocker had already been removed
 
-`design/fatal-risks.md`'s risk 7, the claim that the confinement claim is false, says in the entry a
+`design/fatal-risks/README.md`'s risk 7, the claim that the confinement claim is false, says in the entry a
 reader meets it in: *"Six kernel confinement rows still have no mechanism at all."*
 `notes/confinement-claims.md`'s `BUGS` explained why, and the explanation was **stale on the day it
 was read**:
@@ -208,7 +208,7 @@ keeps comparing two derivations of one fact; that check fired on the first run h
   when no RedoxFS disk or no device page is attached, and a skip means the falsification was never
   attempted. Calling it green would be the manufactured fact milestone 214's skip accounting exists
   to refuse.
-- **`design/fatal-risks.md`'s risk 7 still says "Six kernel confinement rows still have no mechanism
+- **`design/fatal-risks/README.md`'s risk 7 still says "Six kernel confinement rows still have no mechanism
   at all"**, and that sentence is now false. A lane may not edit `design/` outside its own roadmap
   block, so it is left for the integrator. Nothing gates it: `script/fatal-risks` checks a cited
   milestone's status against its block, and risk 7 cites neither 210 nor this one.
@@ -251,7 +251,7 @@ keeps comparing two derivations of one fact; that check fired on the first run h
   Fixed by `translate_in_either_half`; checked both ways on riscv64 (green with the fix, red at
   `riscv_virtio_tests.rs:142` under the patch).
 - **Recorded.** In this block's own `BUGS`, because there is nowhere nearer a reader:
-  `design/fatal-risks.md` risk 7 says "Six kernel confinement rows still have no mechanism at all",
+  `design/fatal-risks/README.md` risk 7 says "Six kernel confinement rows still have no mechanism at all",
   which is now false. A lane may not edit `design/` outside its own block and nothing gates that
   sentence (`script/fatal-risks` checks a cited milestone's status, and risk 7 cites neither 210 nor
   this one), so the edit is the integrator's and is named in the pull request too.

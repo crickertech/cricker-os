@@ -2,7 +2,7 @@
 
 *Name: `notes/project-metrics.md` is ratified (calef, 2026-09-02). He proposed it as
 `design/project-metrics.md` and moved it here on the argument that `design/` holds arguments
-(`fatal-risks.md`, the decisions, the roadmap) while `notes/` holds what was measured
+(`design/fatal-risks/README.md`, the decisions, the roadmap) while `notes/` holds what was measured
 (`benchmarks.md`, `mutation-testing.md`, `unsafe-obligations.md`). `script/metrics` and the
 directory `notes/project-metrics/` are **provisional**; naming is an architect's, and a lane ships a
 provisional name and says so.*
@@ -63,7 +63,7 @@ not a caption, it is a register entry.
 
 ![Fatal risks](project-metrics/fatal-risks.svg)
 
-From `design/fatal-risks.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
+From `design/fatal-risks/README.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
 calef ratified on 2026-09-23. It says whether an experiment happened, never what it found; the
 verdicts are prose in that file. Every bar from 2026W36 is nine, the risks in that week's file:
 where the field did not exist yet, or held a word with no meaning today, the risk is drawn as
@@ -226,7 +226,7 @@ pulled once both panels reach zero. Then `script/metrics` prints "the bold backl
 is zero; retire this chart" and writes it here:
 
 <!-- bold-backlog: script/metrics writes this -->
-2026W39: 15026 spans over, in 833 documents.
+2026W40: 14991 spans over, in 830 documents.
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.
@@ -246,7 +246,7 @@ past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drif
 report](project-metrics/baseline-drift.md).
 
 <!-- baseline-drift: script/metrics writes this -->
-2026W39: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.91%, x86_64 `spawn_reap` +8.09%; 15 rows past 5%.
+2026W40: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.92%, x86_64 `spawn_reap` +8.09%; 14 rows past 5%.
 <!-- /baseline-drift -->
 
 ## Interface stability
@@ -257,7 +257,7 @@ Public items removed or changed each week: [definitions](interface-stability.md)
 [per crate](project-metrics/interface-stability.md).
 
 <!-- interface-stability: script/metrics writes this -->
-interface, 2026W36 to 2026W39: 148 breaking changes (645 additions); 2 syscall numbers changed, 0 format bumps; 73% co-change.
+interface, 2026W37 to 2026W40: 100 breaking changes (642 additions); 0 syscall numbers changed, 0 format bumps; 76% co-change.
 <!-- /interface-stability -->
 
 ## How it stays current

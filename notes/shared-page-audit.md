@@ -1,5 +1,11 @@
 # Auditing the shared pages: time of check to time of use
 
+<!-- writing-standards: exception. Marked 2026-09-29 (UTC) by the audit lane for the documentation
+audit of that date. Reason: the one correction below stops finding 1(d) reading as though the
+window were still closed, and bringing a 6,457-word audit report to 4 bold spans per 1,000 words
+is a rewrite for this note's owner, not something to hide inside a correction, the same line
+notes/timed-wait.md's marker takes. Remove this marker when that de-bold pass lands. -->
+
 Done 2026-08-04, as the tree's **second** security audit. The first
 ([arch-audit.md](arch-audit.md)) read the hand-written architecture assembly and found three bugs in
 the class "state staged in single-copy hardware registers across more than one instruction." This
@@ -164,29 +170,30 @@ it never named and, if `A` is behind a caretaker, one outside the namespace that
 enforce. The same substitution works on `CREATE`, `UNLINK`, `RMDIR`, `MKDIR`, `OPENDIR` and both
 halves of `RENAME`, and on the *data* of a `WRITE`.
 
-**(d) Reachable? Not today, and the reason is the wiring rather than the check.** In the interactive
+**(d) Reachable? Not on 2026-08-04; reachable since 2026-09-27.** In the interactive
 boot three processes now map the file page, and the audit's first named event has happened:
 `crates/system_initializer` grants the shell `(SH_FS_VA, g.fs_page, MAP_RW)`, **keeps its own copy
 for the life of the boot** (milestone 31 phase 3, 2026-08-17), and maps it into both the
-`fs_subtree_caretaker` and the program behind a directory grant. What still closes the hole is that
+`fs_subtree_caretaker` and the program behind a directory grant. What still closed the hole then was that
 those three are never runnable at once on the same page: the shell is parked in `recv` on the
 spawned program's stream for the whole time that program exists, the program is inside a blocking
 `CALL` whenever the caretaker is forwarding, and the caretaker touches the page exactly once at
-startup and then only relays handles. **Init itself never writes it at all**, which is worth stating
-because it now holds the capability: it maps the frame into children and does not speak `filesystem_protocol`.
+startup and then only relays handles. **Init itself never writes it at all**, worth stating
+because it holds the capability: it maps the frame into children and does not speak `filesystem_protocol`.
 In the kernel test suite several caretaker chains do coexist on the one frame, but each is blocked on
 `recv_cap` between tests, and the confined clients `exit()` after reporting.
 
-**The remaining opening is a runnable third party, and one of the two originally named is now gone.**
+**The remaining opening is a runnable third party, and it opened on 2026-09-27.**
 This note used to say that the day init could build a caretaker per grant, "a runnable shell holding
 the page coexists with a caretaker chain using it". Init can, since 2026-08-17, and the coexistence
-is real while the *runnability* is not: `swish::spawn` blocks on the child's answer, so the shell has
-no instruction to execute between sending the request and reading the result. That is a property of
-one function rather than of the model, and it is the thing to check when the shell learns to run a
-job in the background. The second event is unchanged: a confined program granted an untyped budget
-could retype a second `Tcb` into its own address space and scribble the page from a helper thread
-while its main thread is parked in `CALL`; today's confined programs are granted two endpoints and no
-budget, so they cannot.
+became runnable with milestone 205 (how a foreign program is told what to do): the prompt builds an
+`fs_nameset_caretaker` on this one frame, and the shell writes through it while draining a redirected job (`std_grep needle docs > out.txt`). A write between the caretaker's
+re-staging and the server's read opens a name the set never approved. The case is
+`notes/a-set-grant-at-the-prompt.md`; milestone 599 (a frame per
+filesystem client channel)'s production pool closes it. The second event is unchanged: a confined
+program granted an untyped budget could retype a second `Tcb` into its own address space and
+scribble the page from a helper thread while its main thread is parked in `CALL`; today's confined
+programs are granted two endpoints and no budget, so they cannot.
 
 **Disposition: proposed as a milestone.** See "What wants a lane" below. The fix is a frame per
 client channel rather than a frame per service, which is a wiring change across `fs_service.rs` and

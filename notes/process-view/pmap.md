@@ -46,8 +46,9 @@ reason }`. There is no variant for an address space.
 The spawner of a prompt job is the progenitor (`crates/system_initializer`), not `swish`. The shell
 sends a spawn request and the progenitor calls `build_child`. So "the shell retains a view" means
 the progenitor retains one per live job and hands it over when asked. The progenitor's measured peak
-is 23 capabilities against `CAPABILITY_TABLE_SLOTS` of 24
-(`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`, 2026-09-24). One slot is left.
+is 23 capabilities against `CAPABILITY_TABLE_SLOTS` of 32
+(`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`). Nine slots are left since calef raised the table
+from 24 on 2026-09-27; when this was written there was one.
 
 ### The program and the kernel method already exist
 

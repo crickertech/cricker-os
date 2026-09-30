@@ -9,6 +9,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [`ripgrep` on nife](../ripgrep-on-nife.md): unmodified ripgrep builds and runs, and what stops it.
 - [What a directory walk costs](../walk-pricing.md): a walk split per component, per entry and per KiB, on nife and a host.
 - [A directory walk against Linux on the same machine](../walk-cost.md): release figures from milestone 606 (a directory walk costs what it does on Linux), what was fixed inside the contract, and the wire options that would close the rest.
+- [Bound grants in the progenitor](../bound-grants-in-the-progenitor.md): the last piece of ruling D, and the two answers it waits on.
 - [What one shim costs](../foreign-program-arguments.md): priced per program and as a library.
 - [A TLS crypto provider on nife](../cryptography-provider.md): building a `rustls` crypto provider for all three targets.
 - [The `thread::spawn` fork](../thread-spawn-fork.md): what a std thread would cost, and why declined.
@@ -26,6 +27,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Globbing, and the expansion you see is the grant](../glob-grant.md).
 - [A set grant at the prompt](../a-set-grant-at-the-prompt.md): PROPOSED.
 - [Navigating with no global namespace](../shell-navigation.md): `cd`, `pwd`, `ls`, `mkdir` and `rm` as capability builtins.
+- [The shell edits its own line](../shell-line-editing.md): raw mode, Tab completion, and `^C` at the prompt.
 - [A shell holding two trees](../two-trees.md): one tree with a second mounted in it, one resolver, and a handle sent on its own tree's endpoint.
 - [The inert-configuration page](../env-config.md): validated read-only `TZ`, `LANG` and `TERM` for programs.
 - [The documentation crate](../documentation.md): streaming markdown renderer, manual viewer and search index.

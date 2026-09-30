@@ -104,7 +104,7 @@ silent on the verdict it was written to let through.
 
 **A reported percentage must say what it is a percentage of.** The four workflow constructs above
 hide a zero in an exit status; a ratio hides one in a denominator, and the second is worse because
-the number is published, quoted and used to answer `design/fatal-risks.md`'s risk 2 (the proofs
+the number is published, quoted and used to answer `design/fatal-risks/README.md`'s risk 2 (the proofs
 prove trivia and the real bugs live where Kani cannot reach). `script/falsifications` reports 63 of
 180 harnesses, `script/metrics` carries several ratios of the same family, and none of them states
 the population it drew from or what it excluded.

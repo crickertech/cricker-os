@@ -120,7 +120,7 @@ harnesses replayable, 35%, plus a separate 15 of 16 kernel-test records. Three o
 lanes roughly double the first number. The first sweep that actually runs will be the first reading
 ever taken, against a record set that has changed more in one day than in the three weeks before it.
 
-**And the worst of it is what the mechanism is for.** `design/fatal-risks.md`'s risk 2 is that the
+**And the worst of it is what the mechanism is for.** `design/fatal-risks/README.md`'s risk 2 is that the
 proofs prove trivia and the real bugs live where Kani cannot reach. This sweep is part of how that
 risk is answered. The instrument built to ask whether our proofs are evidence was producing none
 itself, and saying so in green.
@@ -178,7 +178,7 @@ this document was being written**; that recurrence, not the `tee`, is the findin
   three x86_64 boot gates) put 338 new lines into `crates/machine_discovery/src/x86_64.rs` on
   2026-09-21 with no harness of their own and the number stayed clean; the milestone 319 (the crate
   that parses firmware had no proofs, and three of its first ones were false) lane on
-  pull request #1155 closed that one hole and the blind spot is still open. `design/fatal-risks.md`'s
+  pull request #1155 closed that one hole and the blind spot is still open. `design/fatal-risks/README.md`'s
   risk 2 is answered by this number.
 - **One found by this document's own pull request**, which is the strongest evidence in it that the
   shape is a habit rather than four coincidences. The workflow that labels a COE for

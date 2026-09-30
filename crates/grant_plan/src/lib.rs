@@ -310,7 +310,7 @@ programs! {
         ///
         /// Name: provisional.
         Mdr { id: 7, name: "mdr" },
-        /// **List the processes in the supervision domain it was spawned into** (milestone 126,
+        /// **List the processes in the supervision domain it was spawned into** (milestone 126 (the `procps` package),
         /// `components/src/ps.rs`, notes/process-view.md).
         ///
         /// The reason [`Manifest::domain`] exists, and the same asymmetry [`Prog::Date`] made for the
@@ -428,16 +428,14 @@ programs! {
         /// **Rank the members of that same domain by the CPU time each has been scheduled for**
         /// (milestone 282 (a thread's CPU time, and the `top` it makes possible), `components/src/top.rs`, `crates/top`).
         ///
-        /// [`Prog::Ps`]'s manifest, field for field, and the second time this table has that to say
-        /// about a row. With [`Prog::Pgrep`] the sameness *was* the claim, because the finding
-        /// program must hold nothing the listing program lacks. Here it is a finding rather than a
-        /// claim, and a live one: milestone 281 (`watch` holds exactly what `ps` holds) deleted `watch` on the rule that **two
-        /// programs are two programs when they hold different authority**, and this row holds
-        /// `ps`'s. What differs is the question, not the endowment: `ps` answers what exists in the
-        /// kernel's slot order, this answers what is consuming in order of consumption, and it
-        /// opens with a summary line a listing has no use for. Whether that clears the bar is
-        /// calef's; `crates/top`'s module docs carry the argument both ways, and folding this into
-        /// `ps` as a flag stays a day's work.
+        /// [`Prog::Ps`]'s manifest plus one read-only page. Until milestone 126 (the `procps`
+        /// package) built the machine statistics page it was `ps`'s field for field, and milestone
+        /// 281 (`watch` holds exactly what `ps` holds)'s rule that **two programs are two programs
+        /// when they hold different authority** made whether it was a program at all a live
+        /// question. DECISIONS §225 (`free` sees the machine and your share) then put `tload`'s
+        /// question in this program's summary, which needs the page, so the endowments now differ
+        /// and the rule no longer argues for folding it into `ps`. Whether that settles it is
+        /// calef's; `crates/top`'s module docs carry the argument.
         ///
         /// `ArgSpec::Forbidden` rather than an optional count, because there is no such spec: a
         /// `top N` would have to make the argument `Required`, and a `top` that cannot be typed
@@ -488,6 +486,38 @@ programs! {
         /// A program that arrives by option D carries its own manifest, and this field is what
         /// that manifest will say.
         StdExerciser { id: 16, name: "std_exerciser" },
+        /// **How much memory the machine has, and how much of this prompt's budget is spent**
+        /// (milestone 126, DECISIONS §225 (`free` sees the machine and your share), `components/src/free.rs`, `crates/free`).
+        ///
+        /// Two grants, and they are the ruling's two lines. [`Manifest::machine`] is the machine
+        /// statistics page, which owner policy grants by default and can withhold; [`Manifest::share`]
+        /// is this prompt's job budget narrowed to `ENUMERATE`, which answers "yours". Neither can
+        /// change anything: the page is read-only and the budget view cannot spend.
+        ///
+        /// Name: provisional, milestone 126's `free` lane, 2026-09-26. Upstream `procps`'s, for the
+        /// program a reader types to ask this.
+        Free { id: 17, name: "free" },
+        /// **The machine's counters since boot**: run queue, memory, interrupts, context switches
+        /// and the busy/idle split (milestone 126, DECISIONS §225, `components/src/vmstat.rs`,
+        /// `crates/vmstat`).
+        ///
+        /// The machine statistics page and nothing else. Not `free`'s manifest, because it does not
+        /// hold the budget view: `vmstat` describes the machine and says nothing about "yours".
+        ///
+        /// Name: provisional, milestone 126's `free` lane, 2026-09-26. Upstream `procps`'s.
+        Vmstat { id: 18, name: "vmstat" },
+        /// **Where this prompt's job budget went, by kind of kernel object** (milestone 126,
+        /// DECISIONS §225, `components/src/slabtop.rs`, `crates/slabtop`).
+        ///
+        /// Upstream `slabtop` lists the kernel's slab caches. This kernel has none (milestone 14 (kernel objects from untyped)
+        /// removed its heap and slab); kernel objects are carved from regions their holders own,
+        /// so §225 turned the question into `MemoryRegion::USAGE` asked per object type. It holds
+        /// the budget view alone, which is why it is not `free`: it does not see the machine.
+        ///
+        /// Name: provisional, milestone 126's `free` lane, 2026-09-26, flagged harder than the other
+        /// two: the upstream name promises a kernel-wide cache view, and this is one budget's
+        /// breakdown.
+        Slabtop { id: 19, name: "slabtop" },
     }
 }
 
@@ -516,6 +546,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             Prog::MemoryGrantDepleter => Manifest {
@@ -537,6 +569,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // The two interrupt demonstrators. Both run until interrupted, take no argument and no
@@ -561,6 +595,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             Prog::InterruptIgnorer => Manifest {
@@ -578,6 +614,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // `date` declares an empty grant expression, and that is the interesting part: its
@@ -624,6 +662,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The first program endowed a directory**, and the first with options. It takes no
@@ -655,6 +695,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The consumer**, and the only program that declares an input. Everything else about
@@ -681,6 +723,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The viewer**, whose manifest is "a stream in, a stream out" like `wc`'s, and handed
@@ -708,6 +752,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **`ps`: a stream out, a domain in, and nothing else** (milestone 126).
@@ -738,6 +784,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **`pgrep`: `ps`'s manifest, field for field, and the sameness is the claim.**
@@ -771,14 +819,14 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
-            // **`top`: `ps`'s manifest a second time**, and here the sameness is a fact to
-            // weigh rather than a claim being made. `pgrep`'s identity with `ps` is the point of
-            // `pgrep`; this row's identity with `ps` is the open question about whether `top` is a
-            // program or a flag (see its `Prog` doc). What the manifest settles either way is that
-            // ranking costs no authority: the CPU figures are a second walk of the same endpoint
-            // under the same `ENUMERATE`, so nothing here is endowed that a `ps` was not.
+            // **`top`: `ps`'s manifest and the machine statistics page.** Ranking still costs no
+            // authority: the CPU figures are a second walk of the same endpoint under the same
+            // `ENUMERATE`. What costs a grant is the machine line under the summary, which is what
+            // became of `tload` (DECISIONS §225), and it is a read-only page.
             //
             // `clock: false` and it is worth a line, because a `top` looks like it needs one: the
             // uptime in its summary is the ambient monotonic counter every process already holds,
@@ -800,6 +848,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: true,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the inert-configuration page.** Same
@@ -820,6 +870,8 @@ impl Prog {
                 config: true,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **`least_authority_demo`'s manifest, not `date`'s.** `uptime` reads `user_mode_runtime::monotonic_nanos`,
@@ -843,6 +895,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the network** (milestone 590
@@ -866,6 +920,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: true,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **Declares nothing, deliberately**: `uptime`'s manifest, field for field. The program
@@ -885,6 +941,8 @@ impl Prog {
                 config: false,
                 entropy: false,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the entropy service** (milestone 111).
@@ -916,13 +974,84 @@ impl Prog {
                 config: false,
                 entropy: true,
                 network: false,
+                machine: false,
+                share: false,
+                runtime: Runtime::Native,
+            },
+            // **`free`: the machine page and the budget view, and nothing that can act.** The
+            // two grants are §225's two lines, and both are views: `READ` on a page nobody but
+            // the kernel writes, and `ENUMERATE` on a budget, which cannot spend it.
+            Prog::Free => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::BytesAndDiagnostics {
+                    slot: DIAGNOSTICS_SLOT,
+                },
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: true,
+                share: true,
+                runtime: Runtime::Native,
+            },
+            // **`vmstat`: the machine page alone.** Its rates are per second since boot, and the
+            // seconds come from the ambient monotonic counter, `uptime`'s finding, so no clock.
+            Prog::Vmstat => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::BytesAndDiagnostics {
+                    slot: DIAGNOSTICS_SLOT,
+                },
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: true,
+                share: false,
+                runtime: Runtime::Native,
+            },
+            // **`slabtop`: the budget view alone**, which is the difference from `free`.
+            Prog::Slabtop => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::BytesAndDiagnostics {
+                    slot: DIAGNOSTICS_SLOT,
+                },
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: false,
+                share: true,
                 runtime: Runtime::Native,
             },
             Prog::StdExerciser => Manifest {
                 // **The line's words are its argv** (milestone 205, DECISIONS §170): `std_exerciser
                 // one 'two words'` prints what `std::env::args()` yielded, which is the transcript
                 // proving the page reaches `std`.
-                arg: ArgSpec::Words,
+                arg: ArgSpec::Words(WordGrant::ReadOnly),
                 mem: MemSpec::Forbidden,
                 file: FileSpec::Forbidden,
                 // No directory. §170 ruled that a word's bytes carry no authority and that the
@@ -943,6 +1072,8 @@ impl Prog {
                 config: true,
                 entropy: true,
                 network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Std,
             },
         }
@@ -1265,7 +1396,7 @@ pub fn image_can_carry(m: &Manifest) -> bool {
         && m.input == InputSpec::Forbidden
         && m.flags.letters().is_empty()
         && !m.interruptible
-        && std == (m.arg == ArgSpec::Words)
+        && std == (m.arg.hears_words())
         && (!std
             || (m.output == OutputSpec::Bytes
                 && m.mem == MemSpec::Forbidden
@@ -1278,7 +1409,7 @@ pub fn image_can_carry(m: &Manifest) -> bool {
 /// sets `spawnproto::ARGS_BIT`; the progenitor sizes the region from that bit and then checks its
 /// own reading of the note agrees ([`image_request_fits`]). Name: provisional.
 pub const fn image_hears_words(m: &Manifest) -> bool {
-    matches!(m.arg, ArgSpec::Words)
+    m.arg.hears_words()
 }
 
 /// **The manifest a file's bytes are bound and endowed with** (milestone 597, provisional), given
@@ -1333,6 +1464,21 @@ pub fn image_request_fits(m: &Manifest, arg: u64, mem_pages: u64, words: bool) -
     arg_ok && mem_ok
 }
 
+/// **Where a program that declares [`Manifest::machine`] finds the machine statistics page's
+/// capability** (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and
+/// your share)). Eleven, one past [`NETWORK_SLOT`], for that constant's reasons. The page itself is
+/// mapped at `machine_statistics_protocol::PAGE_VA`; the capability is here so `caps` has a slot to
+/// print and so the grant is visible in the table.
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const MACHINE_SLOT: u64 = 11;
+
+/// **Where a program that declares [`Manifest::share`] finds its `ENUMERATE` view of this prompt's
+/// job budget** (milestone 126, DECISIONS §225). Twelve, one past [`MACHINE_SLOT`].
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const SHARE_SLOT: u64 = 12;
+
 /// **What the progenitor endows a child whose bytes nobody vouched for**, when the caller presented
 /// the run-unvouched capability (DECISIONS §219 gate D2, ruled by calef 2026-09-26: *"Yes, allow
 /// the clock and config pages."*).
@@ -1364,6 +1510,8 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
     config: true,
     entropy: false,
     network: false,
+    machine: false,
+    share: false,
     runtime: Runtime::Native,
 };
 
@@ -1372,7 +1520,7 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
 /// configuration at slot 7), plus the line's words at slot 8, which §170 ruled carry no authority.
 /// No entropy, network or domain, whatever the note asks. Name: provisional.
 pub const UNVOUCHED_STD_MANIFEST: Manifest = Manifest {
-    arg: ArgSpec::Words,
+    arg: ArgSpec::Words(WordGrant::ReadOnly),
     runtime: Runtime::Std,
     ..UNVOUCHED_MANIFEST
 };
@@ -1394,7 +1542,62 @@ pub enum ArgSpec {
     ///
     /// Only a program on the `std` layout can read an argv ([`Runtime::Std`]); see [`argv`] for how
     /// the page is assembled. Name: provisional (2026-09-26).
-    Words,
+    ///
+    /// **A word that names something here is granted it, as the [`WordGrant`] says** (§170 clauses
+    /// 2 to 5, milestone 205's designation half): see [`expand::Designation`] for which words those are.
+    Words(WordGrant),
+}
+
+impl ArgSpec {
+    /// Whether the program hears the line as its argv ([`ArgSpec::Words`]).
+    pub const fn hears_words(&self) -> bool {
+        matches!(self, ArgSpec::Words(_))
+    }
+}
+
+/// **What a word that names an existing file is granted** (§170 (how a foreign program is told what
+/// to do) clause 2, and clause 3's create), declared by a program that hears words. The field §170
+/// calls the manifest's `words`, carried inside [`ArgSpec::Words`] so a program that hears no words
+/// cannot declare one.
+///
+/// Every variant grants the named names and nothing else in their directory, with the walk below a
+/// named directory (`filesystem_protocol`'s `DESCEND`), because a program handed `src` means to
+/// read what is in it. **An unvouched program gets [`WordGrant::ReadOnly`] whatever it declares**
+/// (clause 4): [`UNVOUCHED_STD_MANIFEST`] is read-only. A mark on a word that widens it is clause 4's
+/// other half, and its spelling is not ruled, so none is built.
+///
+/// §170's third shape, "the file's directory", is not a variant: a line says it by naming the
+/// directory, `.` included (calef's N1 ruling, 2026-09-27T06:27Z: `rg pattern .`).
+///
+/// Name: provisional (2026-09-27).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WordGrant {
+    /// Read, list and walk what was named. `rg`'s.
+    ReadOnly,
+    /// And write what was named.
+    ReadWrite,
+    /// And write it, and create a name that does not resolve yet (clause 3: `cc -o main`). A word
+    /// that names nothing is still designated, as a name the program may create.
+    Create,
+}
+
+impl WordGrant {
+    /// The rights a caretaker asks the file service for, as `filesystem_protocol::dir`'s bits. Spelled
+    /// as numbers here because this crate does not link the filesystem contract (see its
+    /// `Cargo.toml`); `word_rights_are_the_filesystem_contracts` pins them to its constants.
+    pub const fn rights(self) -> u64 {
+        const ENUMERATE: u64 = 1 << 0;
+        const READ: u64 = 1 << 1;
+        const WRITE: u64 = 1 << 2;
+        const CREATE: u64 = 1 << 3;
+        const DESCEND: u64 = 1 << 5;
+        let read = ENUMERATE | READ | DESCEND;
+        match self {
+            WordGrant::ReadOnly => read,
+            WordGrant::ReadWrite => read | WRITE,
+            WordGrant::Create => read | WRITE | CREATE,
+        }
+    }
 }
 
 /// A program's expectation about a memory grant (`--mem N`).
@@ -1600,6 +1803,27 @@ pub struct Manifest {
     ///
     /// **Provisional field name.**
     pub network: bool,
+    /// **Endowed the machine statistics page** (milestone 126, DECISIONS §225 part 2;
+    /// `crates/machine_statistics_protocol`): a read-only mapping at that crate's `PAGE_VA`, and
+    /// the frame's capability at [`MACHINE_SLOT`] carrying `READ`.
+    ///
+    /// [`clock`](Manifest::clock)'s family again: how the box is doing is not something a command
+    /// line designates, so this tells the progenitor which children to endow and tells a person
+    /// reading `caps free` that the program sees the machine. §225 ruled it granted to every login
+    /// by default and withholdable by the owner. The page travels with the session: the shell
+    /// holds it at [`spawnproto::MACHINE_PAGE_SLOT`] and sends it with the request, so a session
+    /// the owner withheld it from (`system_initializer::GRANT_MACHINE_PAGE`) spawns programs that
+    /// print that they cannot see the machine rather than a machine of zero bytes.
+    ///
+    /// **Provisional field name.**
+    pub machine: bool,
+    /// **Endowed a view of this prompt's job budget, narrowed to `ENUMERATE`** (milestone 126,
+    /// DECISIONS §225 part 1), at [`SHARE_SLOT`]: the region every job this shell runs is carved
+    /// from, which `abi::memory_region::USAGE` can ask what was spent from and on what, and which
+    /// the holder cannot spend, split or destroy. `free`'s "yours" line and `slabtop`'s table.
+    ///
+    /// **Provisional field name.**
+    pub share: bool,
     /// **Which runtime contract the program was built against**, and so where it expects each
     /// capability to be (milestone 595 (provisional)). See [`Runtime`].
     ///
@@ -1656,6 +1880,24 @@ pub enum Runtime {
 ///
 /// Name: provisional.
 pub const STD_REGION_PAGES: u64 = 256 + 128;
+
+/// **The region a file run by its path is built in**, in pages: what a named program of the same
+/// runtime gets ([`STD_REGION_PAGES`], or `native` for the progenitor's native job), plus the
+/// image's own pages (milestone 595 (the shell runs a `std` program), 2026-09-27).
+///
+/// A named program's region was sized around its image, and every one in the archive is small. A
+/// file is not: `rg`'s image is nearly twice a `std` region by itself, so a fixed size would either
+/// refuse it or leave it no heap. Adding the image keeps what a program has left after its build
+/// the same whichever way it arrived, at the price of counting a small image's pages twice.
+///
+/// Name: provisional.
+pub const fn image_region_pages(image_pages: u64, runtime: Runtime, native: u64) -> u64 {
+    image_pages
+        + match runtime {
+            Runtime::Std => STD_REGION_PAGES,
+            Runtime::Native => native,
+        }
+}
 
 /// A parsed command line. The shell dispatches on this; only [`Command::Run`] carries a grant
 /// expression that must be planned against a manifest.
@@ -2019,6 +2261,9 @@ pub struct DirGrant {
     /// The names in it the program is to act on: exactly one for a literal operand, the matched set
     /// for a pattern. Each is a single component, for [`FileGrant`]'s reason: a path was resolved
     /// into `dir` rather than passed on.
+    ///
+    /// **Empty means the whole directory**, and only a program that hears words gets that: its
+    /// line said `.` ([`expand::Designation::is_here`]). Every other grant carries at least one name.
     pub names: NameSet,
     /// The capability must reach **below** this directory (walk into it and list it), because the
     /// program was given the option its manifest declares for that. False means it may take names
@@ -2288,7 +2533,7 @@ pub enum Refusal {
     RedirectMidPipeline,
     /// **A word after a redirection's name** (`< f wc`). The spelling this shell takes is `wc < f`.
     /// See notes/pipes.md: refusing the other order is what keeps a stage's text a slice of the
-    /// line in a shell with no allocator.
+    /// line, and `grant_plan` has no allocator.
     WordAfterRedirect,
     /// **A pipeline stage with no command in it** (`| wc`, `a |`).
     ///
@@ -2350,7 +2595,7 @@ pub enum Refusal {
     UnclosedQuote,
     /// **A quote that wraps part of a word** (`a"b"`, `'it''s'`). Every token here is a slice of
     /// the line you typed, so two quoted pieces cannot be joined into one word; the alternative is
-    /// a byte buffer this shell has no allocator for. Refused rather than misread, because both
+    /// a byte buffer, and `grant_plan` has no allocator. Refused rather than misread, because both
     /// readings (join them, or take the quotes literally) would be silently wrong. See [`word`].
     PartlyQuoted,
     /// **A connector with nothing on one side of it** (`&& date`, `date &&`). The mirror of
@@ -2563,8 +2808,13 @@ pub fn check_words(line: &[u8]) -> Result<(), Refusal> {
 }
 
 /// Every word of `line`, quotes off, with an unquoted pattern refused. The one walk [`argv`] and
-/// [`check_words`] share, so the check and the page cannot disagree about what a word is.
-fn each_word(line: &[u8], f: &mut dyn FnMut(&[u8]) -> Result<(), Refusal>) -> Result<(), Refusal> {
+/// [`check_words`] share, so the check and the page cannot disagree about what a word is, and the
+/// shell's designation walks it too (milestone 205), so it designates from the same words the
+/// program hears. Name: provisional.
+pub fn each_word(
+    line: &[u8],
+    f: &mut dyn FnMut(&[u8]) -> Result<(), Refusal>,
+) -> Result<(), Refusal> {
     let mut rest = line;
     loop {
         let mut one = [&b""[..]; 1];
@@ -2581,6 +2831,16 @@ fn each_word(line: &[u8], f: &mut dyn FnMut(&[u8]) -> Result<(), Refusal>) -> Re
         f(w.text)?;
     }
 }
+/// **Every word [`parse`] answers as a builtin**, for the shell's Tab completion (milestone 47
+/// (navigation and naming), DECISIONS §227 (how Tab reaches the shell)). A builtin added to
+/// `parse` and not here still works; it only is not offered on Tab. The test beside `parse` holds
+/// the other direction: everything listed here is a builtin.
+///
+/// Name: provisional (milestone 47, 2026-09-26).
+pub const BUILTINS: &[&[u8]] = &[
+    b"apropos", b"bind", b"caps", b"cd", b"echo", b"help", b"ls", b"mkdir", b"package", b"pwd",
+    b"time", b"touch", b"xargs",
+];
 
 /// Parse a whole command line into a [`Command`]. Pure and allocation-free.
 ///
@@ -2953,7 +3213,7 @@ pub fn plan_against_with(
     //
     // **Not for a program that hears words** (§170): its line is its argv, a flag-shaped token is
     // one of its words, and the shell has no business refusing an option it never had to know.
-    let words = m.arg == ArgSpec::Words;
+    let words = m.arg.hears_words();
     if run.unexpected.is_some() && !words {
         return Err(Refusal::Unexpected);
     }
@@ -2992,7 +3252,7 @@ pub fn plan_against_with(
         ArgSpec::Forbidden => 0,
         // Every positional is a word of the argv the shell assembles at spawn ([`argv`]), so none
         // is left to place and none is unplaceable.
-        ArgSpec::Words => {
+        ArgSpec::Words(_) => {
             check_words(run.line)?;
             next = pos.len();
             0
@@ -3061,6 +3321,31 @@ pub fn plan_against_with(
                 subtree,
             })
         }
+    };
+
+    // **A program that hears words is granted what its words designate** (milestone 205, §170
+    // (how a foreign program is told what to do) clauses 2 to 5): one directory grant at the
+    // shell's current directory, filtered to the designated names, or the whole directory when a
+    // word was `.`. A line that designated nothing grants nothing (calef's N1 ruling,
+    // 2026-09-27T06:27Z). What the grant may do is the manifest's [`WordGrant`], which the shell
+    // turns into rights and the progenitor clamps to the manifest it endows.
+    let dir = match (m.arg, expanded.designation()) {
+        (ArgSpec::Words(_), Some(d)) if !d.is_empty() => {
+            if !holds.dir {
+                return Err(Refusal::NoSuchCapability(CapKind::File));
+            }
+            Some(DirGrant {
+                which: nav::Which::A,
+                dir: holds.cwd,
+                names: if d.is_here() {
+                    NameSet::empty()
+                } else {
+                    *d.names()
+                },
+                subtree: true,
+            })
+        }
+        _ => dir,
     };
 
     // **The input operand: `wc report.txt` is `wc < report.txt` with the operator left out.**
@@ -3550,6 +3835,24 @@ mod tests {
 
     use super::*;
 
+    /// Every listed builtin is one `parse` answers as a builtin, and none is also a program, so
+    /// Tab never offers a word that would run something else.
+    #[test]
+    fn every_listed_builtin_is_a_builtin_and_no_program() {
+        for &b in BUILTINS {
+            assert!(
+                !matches!(parse(b), Command::Run(_)),
+                "{:?} is not a builtin",
+                b
+            );
+            assert!(Prog::from_name(b).is_none(), "{:?} is also a program", b);
+        }
+        assert!(
+            matches!(parse(b"wc"), Command::Run(_)),
+            "the control: a program runs"
+        );
+    }
+
     /// **The unvouched manifest is §219's ruling and nothing wider** (gate D2, calef 2026-09-26).
     /// The two read-only pages are allowed; the process domain, entropy and the network are not;
     /// nothing a line could designate is accepted either, which is the no-note manifest's shape.
@@ -3724,7 +4027,7 @@ mod tests {
             ..ex
         }));
         assert!(!image_can_carry(&Manifest {
-            arg: ArgSpec::Words,
+            arg: ArgSpec::Words(WordGrant::ReadOnly),
             ..NO_NOTE_MANIFEST
         }));
     }
@@ -4275,6 +4578,8 @@ mod tests {
         config: false,
         entropy: false,
         network: false,
+        machine: false,
+        share: false,
         runtime: Runtime::Native,
     };
 
@@ -4303,6 +4608,8 @@ mod tests {
         config: false,
         entropy: false,
         network: false,
+        machine: false,
+        share: false,
         runtime: Runtime::Native,
     };
 
@@ -5269,6 +5576,8 @@ mod tests {
         config: false,
         entropy: false,
         network: false,
+        machine: false,
+        share: false,
         runtime: Runtime::Native,
     };
 
@@ -6067,7 +6376,7 @@ mod tests {
         let mut hearing = 0;
         for &p in Prog::ALL {
             let m = p.manifest();
-            if m.arg != ArgSpec::Words {
+            if !m.arg.hears_words() {
                 continue;
             }
             hearing += 1;
@@ -6150,6 +6459,84 @@ mod tests {
         assert_eq!(
             plan(&parse_run(b"std_exerciser *.rs"), WITH_DIR),
             Err(Refusal::PatternInArguments)
+        );
+    }
+
+    /// **The rights a word grant asks for are the filesystem contract's bits** (milestone 205).
+    /// `WordGrant::rights` spells them as numbers because this crate does not link the contract.
+    #[test]
+    fn word_rights_are_the_filesystem_contracts() {
+        use filesystem_protocol::dir;
+        let read = dir::ENUMERATE | dir::READ | dir::DESCEND;
+        assert_eq!(WordGrant::ReadOnly.rights(), read);
+        assert_eq!(WordGrant::ReadWrite.rights(), read | dir::WRITE);
+        assert_eq!(WordGrant::Create.rights(), read | dir::WRITE | dir::CREATE);
+    }
+
+    /// **What a line's words designate becomes one directory grant at the current directory**
+    /// (milestone 205, §170 clauses 2 and 5): the names for a line that named some, the whole
+    /// directory for `.`, and nothing for a line that named nothing (calef's N1 ruling,
+    /// 2026-09-27T06:27Z). A shell holding no directory cannot back a designation.
+    #[test]
+    fn a_designation_becomes_one_grant_at_the_current_directory() {
+        use expand::Designation;
+        let run = parse_run(b"std_exerciser needle src");
+        let mut d = Designation::none();
+        d.name(b"src", true).unwrap();
+        let e = super::plan_against(
+            &run,
+            Prog::StdExerciser,
+            Prog::StdExerciser.manifest(),
+            WITH_DIR,
+            Expansion::designated(d),
+        )
+        .unwrap();
+        let g = e.dir.expect("src was designated");
+        assert_eq!(g.dir, WITH_DIR.cwd);
+        assert_eq!(g.names.only(), Some(&b"src"[..]));
+        assert!(g.subtree);
+
+        let none = super::plan_against(
+            &parse_run(b"std_exerciser needle"),
+            Prog::StdExerciser,
+            Prog::StdExerciser.manifest(),
+            WITH_DIR,
+            Expansion::designated(Designation::none()),
+        )
+        .unwrap();
+        assert_eq!(
+            none.dir, None,
+            "N1: a line that names no file grants nothing"
+        );
+
+        let mut here = Designation::none();
+        here.here();
+        let e = super::plan_against(
+            &parse_run(b"std_exerciser needle ."),
+            Prog::StdExerciser,
+            Prog::StdExerciser.manifest(),
+            WITH_DIR,
+            Expansion::designated(here),
+        )
+        .unwrap();
+        assert!(
+            e.dir.expect("here").names.is_empty(),
+            "empty names: the whole directory"
+        );
+
+        let holds_none = Holdings {
+            dir: false,
+            ..WITH_DIR
+        };
+        assert_eq!(
+            super::plan_against(
+                &run,
+                Prog::StdExerciser,
+                Prog::StdExerciser.manifest(),
+                holds_none,
+                Expansion::designated(d)
+            ),
+            Err(Refusal::NoSuchCapability(CapKind::File))
         );
     }
 

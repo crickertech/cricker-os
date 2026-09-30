@@ -5,6 +5,13 @@ built: 2026-08-17
 ---
 # 124. A thread is born where it lives: the spawn path's copies
 
+
+<!-- writing-standards: exception. Marked 2026-09-29 (UTC) by the audit lane for the documentation
+audit of that date. Reason: this change repoints one citation at the appendix its section moved to
+in the 2026-09-24 split, and bringing this block to 4 bold spans per 1,000 words is a rewrite for
+whoever next owns it, not something to hide inside a pointer fix, the same line
+notes/timed-wait.md's marker takes. Remove this marker when that de-bold pass lands. -->
+
 Built 2026-08-14, reopened 2026-08-16 when the same banner came back on both
 ISAs, and **closed 2026-08-17 when the banner turned out not to be this milestone's bug at all**.
 Minted by calef out of the riscv64 stack overflow milestone 108 was held on. The hold turned out to
@@ -113,8 +120,9 @@ a spin loop: the fault appears on the first run with the delay in and does not a
 refusal in. Not committed; the mechanism is recorded instead, and closing the window properly is the
 handoff below.
 
-**Three pieces of evidence, and the first two were already in the tree.** The full account, with the
-arithmetic, is notes/stack.md, "a kernel stack freed under its owner".
+**Three pieces of evidence, and the first two were already in the tree.** The full account and
+arithmetic is notes/stack/kernel-stack-freed-under-its-owner.md (the section left `notes/stack.md`
+in the 2026-09-24 split).
 
 - **The fixed address is forced, not chosen.** aarch64's `SAVE_CONTEXT` walks `sp` down 272 bytes
   per level and stores upward in 16-byte steps, so the terminal store of a cascade lands on the

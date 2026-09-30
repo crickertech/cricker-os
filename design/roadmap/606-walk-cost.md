@@ -57,15 +57,18 @@ calef ruled on #1387. Each option was prototyped and measured first; the note ha
   subtree grant itself, keyed on the badge milestone 599 (a frame per filesystem client channel)
   added. Every path and handle goes through `crates/subtree_scope`, whose Kani harnesses prove it.
   0.347 to 0.355 ms, about 0.85x Linux. Caretakers stay the default.
+- T1 (15:22Z), built on `milestone/606-progenitor`: the server says it is eligible in a second ELF
+  note, and `script/lint` checks it against a package field. The progenitor gives a directory grant
+  a bound badge when the note is there and a caretaker otherwise.
 - E, not built and not asked: a 64 KiB channel for `std`, which `std_runtime_protocol` fixes at
   one page.
 
 ## Follow-on
 
-- **Outstanding.** The progenitor's choice per mount, between a bound badge and a caretaker,
-  from what the filesystem's package declares. Checked 2026-09-27: package declarations are not
-  on `main` yet (#1396, then #1405 moves them to TOML), and the progenitor-stack lane is working
-  in the progenitor.
+- **Outstanding.** `UNBIND` at reap rather than at window reuse, and window freeing at reap. Both
+  wait on lane 205's "job reaped" signal from the undertaker to the progenitor. Checked
+  2026-09-27: the progenitor is not told when a job dies (`Windows` in
+  `crates/system_initializer` records it).
 - **Recorded.** A cold walk on both sides, with Linux on ext4 over virtio rather than tmpfs, is a
   limitation in `notes/walk-cost.md`.
 

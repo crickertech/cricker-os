@@ -15,7 +15,7 @@ neither. Nineteen check names reach a pull request; eleven block. What it found,
 wrong answer costs:
 
 1. The mutation workflow has never once succeeded. Four scheduled runs since it was written
-   (2026-08-10, 08-17, 08-24, 08-31), every one red. `design/fatal-risks.md`'s third risk stands at
+   (2026-08-10, 08-17, 08-24, 08-31), every one red. `design/fatal-risks/README.md`'s third risk stands at
    MEASURED green on a 2026-08-03 number and closes by saying *"the weekly workflow already publishes
    the report."* It has published nothing, through 2,529 commits.
 2. Miri has been red for three weeks on a missing environment variable, not on undefined
@@ -46,7 +46,7 @@ with one qualification worth recording: two of the five findings are visible onl
 history and in nothing that lives in this tree, so the audit needed the API as much as the files.
 
 In brief. AGENTS.md's second principle says the method works because of the gates, the proofs and
-the review discipline. `design/fatal-risks.md` risk 3 (the tests do not test anything, and the
+the review discipline. `design/fatal-risks/README.md` risk 3 (the tests do not test anything, and the
 quality is illusory) stands at MEASURED, green, on 92.4% of viable mutants killed.
 
 Four findings on 2026-09-02 say that number is measuring somewhere the failures are not, and no
@@ -97,7 +97,7 @@ fifth and sixth. The deliverable is an inventory and the decisions it forces, no
 gates.
 
 **Not a rewrite of risk 3's status on one day's evidence.** Whether the mutation number should be
-re-read is `design/fatal-risks.md`'s question and it is an architect's. This milestone gives them
+re-read is `design/fatal-risks/README.md`'s question and it is an architect's. This milestone gives them
 the inventory to answer it with.
 
 ## BUGS
@@ -115,7 +115,7 @@ the inventory to answer it with.
 ## Follow-on
 
 - **Milestone 238.** The two scheduled workflows that have never once produced a result: the
-  mutation sweep, four red runs and zero reports while `design/fatal-risks.md` risk 3 stands green
+  mutation sweep, four red runs and zero reports while `design/fatal-risks/README.md` risk 3 stands green
   on a number it says the workflow is refreshing, and the Miri check, three weeks red on a missing
   `CARGO_MANIFEST_DIR` rather than on undefined behaviour. 238 was minted the same day from these
   two findings.
