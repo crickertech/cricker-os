@@ -58,10 +58,11 @@ Two lane hazards found while setting up, recorded because the next lane will hit
 - The 84 swish-named failures concentrate: 49 on 2026-09-26, 25 on 2026-09-27 (an incident block;
   sampled logs show kernel test panics, `sched.rs:2572`, `sched.rs:2636`, `virtio.rs:740`, not
   flakes), 5 on 2026-09-29, 3 on 2026-09-25, 2 on 2026-09-28.
-- Signatures in the 15 sampled logs: 7 real breakage (kernel test panics or in-flux code, including
-  one `fs_service.rs:2313` panic), 4 one-cluster package-source truncation ("the package source did
-  not send a whole package", 2026-09-29 22:00, correlating with the `614-every-version-live` work),
-  2 echo-wait false reds, 1 progenitor out-of-memory, 1 std-program illegible-output failure.
+- Signatures in the 15 sampled logs: 7 real breakage (kernel test panics or in-flux code,
+  including one `fs_service.rs:2313` panic) and 4 one-cluster package-source truncation ("the
+  package source did not send a whole package", 2026-09-29 22:00, correlating with the
+  `614-every-version-live` work). The rest: 2 echo-wait false reds, 1 progenitor out-of-memory,
+  1 std-program illegible-output failure.
 
 So the two phenomenon signatures are real, repeat across days, and are a minority of red runs at
 this step: most reds are real breakage arriving through the same step. Both signatures are kin to
