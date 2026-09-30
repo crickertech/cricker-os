@@ -39,3 +39,25 @@ if ! "$root/script/lint" --clippy >/dev/null 2>&1; then
     echo "  Bypass: git push --no-verify" >&2
     exit 1
 fi
+
+# The two prose gates joined on 2026-09-30, after #1456 reached CI failing only the citations
+# ratchet and cost a full queue cycle: CI's "clippy" job runs the whole lint suite, so a push whose
+# rust is clean but whose citations lack glosses reds a job named clippy and teaches nothing. Both
+# checks are pure Python and run in seconds. `script/citations --ratchet` judges the committed
+# tip, and the hook fires after a commit by construction, so the tip is what CI will judge.
+if [ -x "$root/script/citations" ]; then
+    if ! "$root/script/citations" --ratchet >/dev/null 2>&1; then
+        echo "pre-push: the citations ratchet failed on the committed tip; CI's clippy job runs it too." >&2
+        echo "  Fix:    script/citations --ratchet   (read the file and line it names, gloss the number there)" >&2
+        echo "  Bypass: git push --no-verify" >&2
+        exit 1
+    fi
+fi
+if [ -f "$root/helpers/prose_ratchet.py" ]; then
+    if ! python3 "$root/helpers/prose_ratchet.py" --check >/dev/null 2>&1; then
+        echo "pre-push: the prose ratchet failed; CI's clippy job runs it too." >&2
+        echo "  Fix:    python3 helpers/prose_ratchet.py --check   (split the sentence, cut bold or words)" >&2
+        echo "  Bypass: git push --no-verify" >&2
+        exit 1
+    fi
+fi
