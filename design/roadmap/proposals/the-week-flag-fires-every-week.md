@@ -9,7 +9,8 @@ needs_person: no
 ---
 # The week flag fires every week
 
-Raised by milestone 623's lane on 2026-09-29 (UTC), while building the flag calef commissioned.
+Raised on 2026-09-29 (UTC) by the lane building milestone 623 (bullet under the chart explains a
+cliff), while it built the flag calef commissioned.
 The threshold came from the proposal verbatim; the build measured what it does on real data, and
 the measurement belongs in front of whoever rules on the constant.
 

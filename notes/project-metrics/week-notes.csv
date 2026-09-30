@@ -1,5 +1,5 @@
 # week-notes.csv: one row per annotated week, the bullet script/metrics draws under the chart a
-# row explains (milestone 623, provisional).
+# row explains; milestone 623 (bullet under the chart explains a cliff), provisional.
 #
 # Append rule: add a row when a flagged week is read and explained, by hand or by a lane, as
 # `week,chart,note` with the chart the note explains named by its svg file (lines.svg) and the

@@ -79,7 +79,7 @@ Four pieces, one milestone.
   The bullet under the chart is the record; the digest is scaffolding for writing it.
 - `script/metrics --selftest` is not wired into `script/lint`, which was outside this lane's
   grant. Run it when touching the flag, the prune or the render.
-- Each rendered bullet must find its words inside the page's prose budget (§212), and this
+- Each rendered bullet must find its words inside the page's cap, §212 (a prose budget), and this
   milestone trimmed `notes/project-metrics.md` elsewhere to make room for the first one.
 
 ## Follow-on

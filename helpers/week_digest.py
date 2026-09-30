@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The week digest: the five files that moved a flagged series most, and the commits that moved
-them, between two weekly snapshot refs (milestone 623, provisional).
+them, between two weekly snapshot refs. Milestone 623 (bullet under the chart explains a cliff);
+provisional.
 
     python3 helpers/week_digest.py OLD NEW [SERIES ...]
 
