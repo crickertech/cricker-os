@@ -47,6 +47,20 @@
 //! [`MODE_SCREEN`] without the timer and notification slots still gets a working console: the
 //! first refused `ARM` drops it back to one paint per write, the old behavior exactly.
 //!
+//! # BUGS
+//!
+//! - **The batcher assumes the bind, and the bind cannot be probed from here.** The fallback
+//!   covers a missing or refused timer (`ARM` answers once, negatively, and the batcher turns
+//!   itself off), but a spawner that granted both slots and did not bind the notification to this
+//!   thread would leave deadlines signalling a word nobody delivers on receive: batches would then
+//!   flush only when the page filled. Today's only `MODE_SCREEN` spawner (`system_initializer`)
+//!   treats a refused bind as a refused boot, so the shape cannot arise from this tree; recorded
+//!   because "cannot arise" is a claim about spawners, not a mechanism.
+//! - **A screen terminal that stopped answering still stalls the console**, one window at a time:
+//!   the paint at the deadline is a synchronous `CALL`, and a terminal that never replied would
+//!   park this one thread there. The bytes reach the UART first, so a stalled screen still shows
+//!   the line that stalled it on the wire; the window bounds how much else lands in the same wait.
+//!
 //! Name: ratified 2026-07-30 (calef, DECISIONS §39), among the names recorded there as always
 //! right.
 
@@ -246,8 +260,13 @@ fn take_screen(shared: *const u8, len: u64, b: &mut ScreenBatch) {
     }
     if b.batching && !b.armed {
         // Arm the window. The deadline is in counter ticks (the counter every `now()` caller
-        // reads); `counter_ticks_for` rounds up so the window is never short.
-        let deadline = now() + abi::timer::counter_ticks_for(0, SCREEN_BATCH_NANOS, cntfrq());
+        // reads); `counter_ticks_for` rounds up so the window is never short, and the saturating
+        // add keeps a counter near `u64::MAX` from wrapping into a deadline already long past.
+        let deadline = now().saturating_add(abi::timer::counter_ticks_for(
+            0,
+            SCREEN_BATCH_NANOS,
+            cntfrq(),
+        ));
         if timer_arm(TIMER, deadline, NOTIFIED, 1) >= 0 {
             b.armed = true;
         } else {
