@@ -148,18 +148,16 @@ This does not make concurrent lanes safe, and must not be read that way. It make
 visible and self-healing at the next call. A lane whose build is already in flight when another
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
-**Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` was
-corrected in milestone 606 (a directory walk costs what it does on Linux). The two
-Three sites of evidence landed in one evening (2026-09-30). Main-soak's `std-aborts` aborted on
-dep-info naming another worktree's farm. The 1377 lane built std from the unpatched sysroot twice
-under `CARGO_TARGET_DIR=$PWD/target`. A fresh worktree's `rustc --print sysroot` named
-another worktree's farm, nothing set (16:34 UTC; not reproduced since).
-A path this checkout computed and checked is the only selector with one owner.
+**Since 2026-09-30, every build this tree owns names the farm by path.** Three sites of evidence
+landed in one evening (2026-09-30). Main-soak's `std-aborts` aborted on dep-info naming another
+worktree's farm. The 1377 lane built std from the unpatched sysroot twice under
+`CARGO_TARGET_DIR=$PWD/target`. `rustc --print sysroot` in a fresh worktree named another
+worktree's farm (16:34 UTC, not reproduced since). A path this checkout computed and checked is
+the only selector with one owner.
 
 `std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
-The export used to separate a build from its evidence: dep-info landed in the shared `target/`
-and the sweep judged the previous run's, so a wrong-sysroot build passed green. Both shapes were
-reproduced host-side on 2026-09-30.
+The export used to separate a build from its evidence: the sweep judged the previous run's
+dep-info, so a wrong-sysroot build passed green. Both shapes were reproduced host-side.
 
 ### The target specs
 
