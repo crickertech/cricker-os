@@ -32,3 +32,4 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Handing a session over](../session-handoff.md): superseded 2026-07-29 restart point, kept as history.
 - [Cobble, the mascot](../mascot.md): the project's mascot, drawn by Clay.
 - [The system tests and the kernel crate](../system-tests-and-the-kernel-crate.md): what the kernel linked for its tests, the gate that keeps them out, and where the tests go. Name provisional.
+- [The swish-check CI flake, measured](../swish-check-flake.md): two timing-race reds at one gate, counted over 30 days, explained mechanically. Name provisional.
