@@ -300,6 +300,86 @@ impl Aperture {
         }
         true
     }
+
+    /// **[`Self::copy`] with qword stores where the path permits them** (the paint lane,
+    /// 2026-09-30). `write64(offset, pair)` receives two already-staged pixels in one `u64` and is
+    /// called only at offsets where `(misalign + offset) % 8 == 0`; `write32` receives the head and
+    /// tail pixels a row's alignment leaves over, exactly as [`Self::copy`] would. Every other
+    /// word, including the byte order and the refusal stance, is [`Self::copy`]'s own.
+    ///
+    /// **Why the store width is the point.** The aperture a driver copies into is mapped
+    /// uncacheable (x86: no PAT programming yet), and under QEMU's TCG store-heavy guest code runs
+    /// ~3.8x slower per instruction than arithmetic
+    /// (`notes/benchmarks/icount-tick-scales.md`), which made the one-word-per-pixel copy most of
+    /// the x86_64 swish leg's 321 s. Pairing the pixels halves the store count and nothing else
+    /// changes. A `u64` is also the widest store this tree's x86_64 target can legalise: the
+    /// kernel and initrd build for `x86_64-unknown-none`, whose spec is `-mmx,-sse,+soft-float`,
+    /// so there is no vector store to reach for (`xtask/src/archive.rs` records the target).
+    ///
+    /// `misalign` is the aperture's own base misalignment in bytes: the offset of pixel (0, 0)
+    /// from an 8-aligned address, which only the driver that holds the mapping can know. With it,
+    /// every geometry still takes its widest path: a padded or odd stride merely earns head and
+    /// tail words on some rows.
+    ///
+    /// **The pair is byte-identical to two word stores on a little-endian machine**, which all
+    /// three of this tree's targets are, and the host test that proves `copy_wide` equals `copy`
+    /// pixel for pixel runs on one. `lo` is the earlier pixel.
+    pub fn copy_wide(
+        &self,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        misalign: u32,
+        read: impl Fn(u32, u32) -> u32,
+        mut write64: impl FnMut(usize, u64),
+        mut write32: impl FnMut(usize, u32),
+    ) -> bool {
+        let fits = |start: u32, len: u32, limit: u32| {
+            len > 0 && start.checked_add(len).is_some_and(|end| end <= limit)
+        };
+        if !fits(x, w, self.width) || !fits(y, h, self.height) {
+            return false;
+        }
+        for row in y..y + h {
+            let line = row as usize * self.stride as usize;
+            // The run's byte extent. A qword has two homes to satisfy at once: it must cover
+            // exactly two pixels (`at` a multiple of 4 from `line`), and the store must be
+            // 8-aligned where the pixels live (`(misalign + at) % 8 == 0`). Both are homes for
+            // `at = line + 4k` exactly when `(misalign + line) % 4 == 0`, and then k's parity is
+            // forced; a stride that is not itself 4-aligned (no framebuffer this tree has booted
+            // reports one, but `checked` does not refuse it) has no such `at`, and that row takes
+            // word stores alone.
+            let run = line + x as usize * 4..line + (x + w) as usize * 4;
+            let mis = misalign as usize;
+            let qw = if (mis + line) % 4 == 0 && run.len() >= 8 {
+                run.start + if (mis + run.start) % 8 == 0 { 0 } else { 4 }
+            } else {
+                run.end
+            };
+            // Head words up to the first aligned pair (at most one: `qw` is 0 or 4 past the
+            // start, or the whole run when the row has no aligned pair).
+            for at in (run.start..qw.min(run.end)).step_by(4) {
+                let col = x + (at - line) as u32 / 4;
+                write32(at, self.order.store(read(col, row)));
+            }
+            // Staged pairs: two reads from cacheable RAM, one qword store into the aperture.
+            let pairs = run.end.saturating_sub(qw) / 8;
+            for p in 0..pairs {
+                let at = qw + p * 8;
+                let col = x + (at - line) as u32 / 4;
+                let lo = self.order.store(read(col, row)) as u64;
+                let hi = self.order.store(read(col + 1, row)) as u64;
+                write64(at, lo | hi << 32);
+            }
+            // Tail words after the last whole pair.
+            for at in (qw + pairs * 8..run.end).step_by(4) {
+                let col = x + (at - line) as u32 / 4;
+                write32(at, self.order.store(read(col, row)));
+            }
+        }
+        true
+    }
 }
 
 /// A cursor on a screen, and the arithmetic that puts a byte under it.
@@ -867,6 +947,152 @@ mod tests {
         assert_eq!(Aperture::from_words(10 | 10 << 32, 39), None);
         assert_eq!(Aperture::from_words(10 | 10 << 32, 40 | 2 << 32), None);
         assert_eq!(Aperture::from_words(0, 40), None);
+    }
+
+    /// `copy_wide` lands the same bytes as `copy` for every base misalignment, on a stride with
+    /// padding that is not itself 8-aligned. This is the whole correctness claim of the wide path
+    /// (a pair is two word stores in one, on a little-endian machine), checked byte for byte
+    /// including the padding, which neither path may touch.
+    #[test]
+    fn the_wide_copy_lands_the_same_bytes_for_every_base_alignment() {
+        use super::Aperture;
+        // 10 pixels wide (40 bytes), rows of 44: padding of 4, and a stride that is 4 off 8, so
+        // some rows' qwords start at head words and stop at tails.
+        let found = Framebuffer {
+            base: 0,
+            width: 10,
+            height: 3,
+            stride: 44,
+            order: PixelOrder::Bgrx,
+        };
+        let aperture = Aperture::new(&found, 10, 3).expect("a real screen");
+        let (w, h) = aperture.size();
+        let surface = |x: u32, y: u32| (y << 12) | (x << 8) | 0x0f;
+        const SPAN: usize = 44 * 2 + 40;
+        let mut narrow = [0xa5u8; SPAN];
+        assert!(aperture.copy(0, 0, w, h, surface, |at, word| {
+            narrow[at..at + 4].copy_from_slice(&word.to_le_bytes());
+        }));
+        for misalign in 0..8u32 {
+            // RefCell because the two writer closures must share one buffer; a plain `&mut` split
+            // across them is what the borrow checker rightly refuses.
+            let wide = core::cell::RefCell::new([0xa5u8; SPAN]);
+            assert!(aperture.copy_wide(
+                0,
+                0,
+                w,
+                h,
+                misalign,
+                surface,
+                |at, pair| {
+                    wide.borrow_mut()[at..at + 8].copy_from_slice(&pair.to_le_bytes());
+                },
+                |at, word| {
+                    wide.borrow_mut()[at..at + 4].copy_from_slice(&word.to_le_bytes());
+                }
+            ));
+            assert_eq!(narrow, wide.into_inner(), "misalign {misalign}");
+        }
+    }
+
+    /// **What the wide path permits, as a store count.** The scanout's own geometry (924x344,
+    /// stride 3696, an even width on an 8-aligned stride) is the best case and the one the swish
+    /// leg pays: one qword store per pixel pair, no head or tail words, 158,928 stores for a
+    /// full-surface flush against 317,856 one-word stores. A run that starts misaligned earns at
+    /// most one head word and one tail word, never a narrower pair.
+    #[test]
+    fn the_wide_copy_uses_one_qword_per_pair_and_never_more_than_two_edge_words() {
+        use graphics_protocol as gfx;
+
+        use super::Aperture;
+        let found = Framebuffer {
+            base: 0,
+            width: gfx::WIDTH,
+            height: gfx::HEIGHT,
+            stride: gfx::STRIDE,
+            order: PixelOrder::Bgrx,
+        };
+        let aperture = Aperture::new(&found, gfx::WIDTH, gfx::HEIGHT).expect("the scanout");
+        let (w, h) = aperture.size();
+        let mut qwords = 0u32;
+        let mut words = 0u32;
+        assert!(aperture.copy_wide(
+            0,
+            0,
+            w,
+            h,
+            0,
+            |_, _| 0,
+            |_, _| qwords += 1,
+            |_, _| words += 1,
+        ));
+        assert_eq!(words, 0, "an even width on an aligned stride has no edges");
+        assert_eq!(
+            qwords,
+            (gfx::WIDTH / 2) * gfx::HEIGHT,
+            "one qword per pixel pair, whole surface"
+        );
+
+        // Five pixels on a 4-off stride, base misaligned by 4: one head word, two pairs, no tail.
+        let odd = Framebuffer {
+            base: 0,
+            width: 5,
+            height: 1,
+            stride: 24,
+            order: PixelOrder::Bgrx,
+        };
+        let aperture = Aperture::new(&odd, 5, 1).expect("a real screen");
+        let mut qwords = 0u32;
+        let mut words = 0u32;
+        assert!(aperture.copy_wide(
+            0,
+            0,
+            5,
+            1,
+            4,
+            |_, _| 0,
+            |_, _| qwords += 1,
+            |_, _| words += 1,
+        ));
+        assert_eq!((qwords, words), (2, 1), "head word, then whole pairs");
+    }
+
+    /// The two pixel orders survive the pairing: a qword's low half is the earlier pixel in the
+    /// screen's byte order, which is the half a big-endian packing or a swapped pair would get
+    /// wrong and a grey test pattern cannot see.
+    #[test]
+    fn a_staged_pair_keeps_the_earlier_pixel_low_in_the_screens_byte_order() {
+        use super::Aperture;
+        let found = Framebuffer {
+            base: 0,
+            width: 2,
+            height: 1,
+            stride: 8,
+            order: PixelOrder::Rgbx,
+        };
+        let aperture = Aperture::new(&found, 2, 1).expect("a real screen");
+        let mut seen = [0u8; 8];
+        assert!(aperture.copy_wide(
+            0,
+            0,
+            2,
+            1,
+            0,
+            |x, _| 0x0011_0000 | x,
+            |at, pair| {
+                seen.copy_from_slice(&pair.to_le_bytes());
+                assert_eq!(at, 0, "the pair sits at the run's start");
+            },
+            |_, _| panic!("two aligned pixels need no word store"),
+        ));
+        // Rgbx exchanges red and blue on the way in: pixel 0 (red set) stores as 0x0000_0011 and
+        // pixel 1 (red and blue set) as 0x0001_0011, little-endian bytes below. The low half of
+        // the qword is the earlier pixel.
+        assert_eq!(
+            seen,
+            [0x11, 0x00, 0x00, 0x00, 0x11, 0x00, 0x01, 0x00],
+            "low half is the earlier pixel, byte order applied per word"
+        );
     }
 
     /// Both `|`s in `to_words` survive being mutated to `^`, and this is why: each word packs a
