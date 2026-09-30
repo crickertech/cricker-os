@@ -151,9 +151,9 @@ answered.
 ## The truncation cluster, read out of the code (2026-09-30)
 
 The count above left the four truncation runs with no mechanism. A static lane (no QEMU, reading
-the tree and the CI logs) followed the sentence into the fetch path on milestone 614 (two installed
-versions of one program, each runnable, and a caller granted the one it needs)'s branch and
-answered it. Every date here is UTC.
+the tree and the CI logs) followed the sentence into the fetch path and answered it. The lane ran
+on the branch of milestone 614 (two installed versions of one program, each runnable, and a caller
+granted the one it needs). Every date here is UTC.
 
 **Where the sentence comes from.** `swish` renders `ActivationStatus::FetchFailed` as that one line
 (`write_activation`, crates/swish/src/lib.rs). Fourteen sites in the progenitor produce the status.
