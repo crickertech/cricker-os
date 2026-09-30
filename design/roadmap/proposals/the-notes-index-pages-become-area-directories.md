@@ -1,8 +1,13 @@
-# The notes index pages become area directories
-
+---
 status: PROPOSED
-raised: 2026-09-30 (UTC)
-proposer: the maintainer session; the diagnosis is calef's
+raised: 2026-09-30
+milestone_dependencies: none
+decision_dependencies: none
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
+# The notes index pages become area directories
 
 ## What is being decided
 
