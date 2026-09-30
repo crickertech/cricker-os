@@ -99,6 +99,13 @@ cd "$(dirname "$0")/.."
 #
 # `name|tier|command`. One row per check. The command is evaluated by `sh`, so a row may chain.
 #
+# The `swish-check` row chains `cargo xtask std-exerciser` because the check's boots carry the
+# exerciser's ELF only when it is built (xtask/src/swish_check.rs says why), and the monolithic
+# build+test job used to get it from `test` running first in the same runner. Split into one job
+# per check (2026-09-30), that ordering died and CI refused to skip the std line, correctly. The
+# dependency lives in the row now, where CI and a developer both meet it, instead of in a job's
+# position in a chain.
+#
 # Adding a check here is the whole of adding a check: the no-argument path picks it up if the tier
 # is `local`, `--list` prints it, and `ci.yml` names it in a job. Adding it to `ci.yml` WITHOUT a row
 # here is the defect this table exists to prevent.
@@ -110,7 +117,7 @@ image-permissions|local|script/image-permissions
 icount|local|script/icount
 build-is-reproducible|local|script/build-is-reproducible
 test|local|script/test
-swish-check|local|script/swish-check
+swish-check|local|cargo xtask std-exerciser && script/swish-check
 swish-check-graphical|local|script/swish-check --graphical && script/swish-check --graphical-serial
 boot-check|local|script/boot-check
 hvf|local|hvf_leg
