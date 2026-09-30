@@ -149,7 +149,7 @@ visible and self-healing at the next call. A lane whose build is already in flig
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
 **Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` has
-since milestone 606's correction (recorded in `xtask::std_exerciser`'s doc comment); the two
+since the correction of milestone 606 (a directory walk costs what it does on Linux) (recorded in `xtask::std_exerciser`'s doc comment); the two
 `helpers/` build scripts and `script/crypto-probes` joined after three independent sites of
 evidence landed in one evening: main-soak's `std-aborts` aborting on dep-info that named another
 worktree's farm, the 1377 lane building std from the unpatched sysroot twice under
