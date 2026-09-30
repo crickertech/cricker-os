@@ -545,6 +545,16 @@ path = "src/least_authority_demo.rs"
 test = false
 bench = false
 
+# `screen` (milestone 623 (provisional)): the program a person launches from the swish prompt to
+# get graphics, calef's 2026-09-30 ruling. Takes the screen and the keyboard through capabilities
+# the shell delegates at spawn; the display stack is built by the progenitor from those, the way a
+# directory grant's caretaker is. **Provisional name**, flagged in the program's own module docs.
+[[bin]]
+name = "screen"
+path = "src/screen.rs"
+test = false
+bench = false
+
 [lints]
 workspace = true
 
