@@ -151,11 +151,11 @@ relinks still loses; the honest fix is a per-worktree toolchain name, which nobo
 **Since 2026-09-30, every build this tree owns names the farm by path.** `std-exerciser` was
 corrected in milestone 606 (a directory walk costs what it does on Linux), recorded in
 `xtask::std_exerciser`'s doc comment. The two
-The `helpers/` build scripts and `script/crypto-probes` joined after three sites of evidence
-landed in one evening (2026-09-30): main-soak's `std-aborts` aborting on dep-info naming another
-worktree's farm, the 1377 lane building std from the unpatched sysroot twice under
-`CARGO_TARGET_DIR=$PWD/target`, and one `rustc --print sysroot` in a fresh worktree resolving to
-another worktree's farm with no environment set (16:34 UTC; not reproduced in ten tries since).
+Three sites of evidence landed in one evening (2026-09-30). Main-soak's `std-aborts` aborted on
+dep-info naming another worktree's farm. The 1377 lane built std from the unpatched sysroot twice
+under `CARGO_TARGET_DIR=$PWD/target`. One `rustc --print sysroot` in a fresh worktree resolved to
+another worktree's farm with nothing set (16:34 UTC, not reproduced since). That closed the
+argument for the `helpers/` scripts and `script/crypto-probes` too.
 A path this checkout computed and checked is the only selector with one owner.
 
 `std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
@@ -298,12 +298,9 @@ One line each. The full entry, with its reasoning and history, is in
   lane whose build is already in flight when another relinks still loses (above). The name's
   remaining reach is a person typing `+nife-dev`.
 - `std-aborts` covers `sys/` only, and proves a body reachable, never a call. A stale or foreign
-  build under `std_exerciser/target` can be reported as a source defect, or fail inside the
-  unpatched std; the recovery for both is `rm -rf std_exerciser/target`
-  ([the appendix](std/std-aborts.md#bugs)). An exported `CARGO_TARGET_DIR` used to blind the check
-  entirely; `std-exerciser` now pins and prints the override. A hand-run build inside the repo
-  still resolves the unpatched sysroot through `rust-toolchain.toml` (`script/crypto-probes`'
-  documented trap). The name `std-aborts` is provisional.
+  build under `std_exerciser/target` surfaces as a source defect or an abort in the unpatched std;
+  the recovery is `rm -rf std_exerciser/target` ([the appendix](std/std-aborts.md#bugs)). An
+  exported `CARGO_TARGET_DIR` used to blind the check; `std-exerciser` now pins and prints it.
 
 ## Appendices
 
