@@ -1,0 +1,13 @@
+# week-notes.csv: one row per annotated week, the bullet script/metrics draws under the chart a
+# row explains (milestone 623, provisional).
+#
+# Append rule: add a row when a flagged week is read and explained, by hand or by a lane, as
+# `week,chart,note` with the chart the note explains named by its svg file (lines.svg) and the
+# note one sentence a stranger can read under that chart. Never edit or regenerate a row that is
+# already here; a correction is a new sentence in the same row's note, or nothing.
+#
+# Prune rule: script/metrics --update drops any row whose week has aged out of the ten-week chart
+# window, without touching any other row. Nothing else may delete a row; the aging-out drop is
+# the whole point, because a bullet that outlives its graph explains nothing to anybody.
+week,chart,note
+2026W40,lines.svg,"the kernel code series fell 46,665 to 33,192 lines because milestone 609 (the system tests leave the kernel crate), pull request #1404, moved 66 test-only files unchanged into the system_tests crate; no code was deleted"
