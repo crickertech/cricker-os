@@ -20,6 +20,13 @@ Five instances in one session, across 2026-09-29 and 2026-09-30 (UTC):
    at spawn on an API connection failure and looked dispatched. A related death ended the #1360
    lane's first attempt on a permission wall the same way: dead, but indistinguishable from busy.
 
+   Extended 2026-09-30 (UTC), a sixth class found the same evening this record was written: work
+   whose mechanism existed and was silently taken away. A queue ejection cancels the auto-merge
+   request and tells nobody. Pull request #1377 ran 60 CI checks in 36 hours, 42 of them green,
+   and spent the rest cancelled or ejected while main moved under it; #1454 sat CLEAN, green and
+   auto-less needing one command; #1381 did the same. Green work outside the queue looks exactly
+   like stalled work until a person looks.
+
 The control: #1446's state flip needed zero maintainer attention, because a watcher script had
 been armed at dispatch time. The one case with a mechanism is the one case that worked.
 
@@ -53,6 +60,9 @@ where nobody is watching.
    that finishes with the dispatch itself. A claim commit with no lane and no DONE marker is a
    stalled claim, and a survey raises it by name rather than passing it.
 4. Armed watchers stay preferred for pull-request state changes, on the #1446 evidence.
+5. Queue ejections self-heal (rung 2, commissioned 2026-09-30, not yet built): the drain re-arms
+   auto-merge on any pull request that is green, CLEAN and auto-less, and says it did. Until it
+   exists, every ejection is a human eye or nothing.
 
 The rules live in [briefs/gate-a-lane.md](../../briefs/gate-a-lane.md) and
 [briefs/survey-the-queue.md](../../briefs/survey-the-queue.md), in tree, so the next session reads
@@ -71,3 +81,5 @@ claims, and a tail of every lane log. It ran because a human asked, not because 
 - Nothing yet fails a session that answers a board question while a PENDING file sits unexecuted.
   The briefs say so; a gate that reads the scratch directory would be the next rung if this fails
   again.
+- The re-arm half of mechanism 5 is owed. Until the drain learns it, the sixth class of ending
+  still needs the human eye this record exists to retire.
