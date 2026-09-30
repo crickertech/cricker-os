@@ -54,8 +54,8 @@ where nobody is watching.
    stalled claim, and a survey raises it by name rather than passing it.
 4. Armed watchers stay preferred for pull-request state changes, on the #1446 evidence.
 
-The rules live in [briefs/gate-a-lane.md](../briefs/gate-a-lane.md) and
-[briefs/survey-the-queue.md](../briefs/survey-the-queue.md), in tree, so the next session reads
+The rules live in [briefs/gate-a-lane.md](../../briefs/gate-a-lane.md) and
+[briefs/survey-the-queue.md](../../briefs/survey-the-queue.md), in tree, so the next session reads
 them rather than remembering them. The marker files are per session; the contract is not.
 
 ## EXAMPLES
