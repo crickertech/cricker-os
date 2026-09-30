@@ -518,6 +518,27 @@ programs! {
         /// two: the upstream name promises a kernel-wide cache view, and this is one budget's
         /// breakdown.
         Slabtop { id: 19, name: "slabtop" },
+        /// **Take the screen and the keyboard, and run a prompt on them** (milestone 623
+        /// (provisional), `components/src/screen.rs`; calef's 2026-09-30 ruling that graphics is
+        /// launched from the swish prompt rather than built at boot).
+        ///
+        /// The display stack a `screen` spawn builds is the progenitor's job, exactly as a
+        /// directory grant's caretaker is: the shell delegates the device capabilities it holds
+        /// (`spawnproto::Wiring::graphics`, from [`spawnproto::SHELL_GPU_SLOT`] and its siblings) and
+        /// the progenitor builds `gpu_driver`, `display_terminal`, the line discipline and, when
+        /// the keyboard's three came with them, `keyboard_driver`, then starts this program wired
+        /// to the lot. With no keyboard the session's keystrokes come from the boot's own line
+        /// discipline over the UART, which is milestone 192 (a keyboard on real silicon)'s option A
+        /// at launch rather than at boot.
+        ///
+        /// Declares nothing a line designates, which is what makes every operator on it a refusal:
+        /// `Words` output refuses `>` and the left of a `|` (a session is not a byte stream),
+        /// `InputSpec::Forbidden` refuses the right of one, and a screen session reached any way
+        /// but a plain line is a line this manifest turns away at the prompt.
+        ///
+        /// Name: provisional, milestone 623's lane, 2026-09-30. Chosen for what a person types to
+        /// get graphics; an architect may prefer another.
+        Screen { id: 20, name: "screen" },
     }
 }
 
@@ -1045,6 +1066,31 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: true,
+                runtime: Runtime::Native,
+            },
+            Prog::Screen => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                // A session reports one word when it ends (it ran, or it was interrupted); there is
+                // no byte stream to redirect, and `screen > out.txt` is refused for the same reason
+                // `least_authority_demo 9 > out.txt` is.
+                output: OutputSpec::Words,
+                input: InputSpec::Forbidden,
+                reports: true,
+                // Not the §24 supervised shape in this first cut: the session ends on its own
+                // (`^C` reaches it through its terminal, in either arm) rather than through a job
+                // frame the shell watches. Milestone 623's block records the cost.
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: false,
+                share: false,
                 runtime: Runtime::Native,
             },
             Prog::StdExerciser => Manifest {
