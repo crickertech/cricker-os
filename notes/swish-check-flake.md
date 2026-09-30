@@ -147,3 +147,71 @@ answered.
   runner speed; the local host cannot reproduce them in 20 legs and CI's slower runners can in one
   evening. If the flake needs one sentence: it is the gate meeting CI's machines, not a defect in
   what the gate measures.
+
+## The truncation cluster, read out of the code (2026-09-30)
+
+The count above left the four truncation runs with no mechanism. A static lane (no QEMU, reading
+the tree and the CI logs) followed the sentence into the fetch path on milestone 614's branch and
+answered it. Every date here is UTC.
+
+**Where the sentence comes from.** `swish` renders `ActivationStatus::FetchFailed` as that one line
+(`write_activation`, crates/swish/src/lib.rs). Fourteen sites in the progenitor produce the status.
+They cover the socket page's carve, retype and map; the open and the connect; the request
+write; the receive length; the head parser; the status check; the length bound; and the staging
+carve and map (`fetch`, `receive_body` and `stage_pages`, crates/system_initializer/src/lib.rs).
+One sentence answers for all fourteen, so a transcript cannot say which fired.
+
+**No partial-read defect exists in that path.** `receive_body` loops until `http_response` says the
+body is whole, folding every read through `Response::feed`, a byte-stream reader that holds only the
+head. A host test feeds one real response at every split length, and the fuzzer asserts on 46 million
+inputs that status, body and verdict never depend on where the reads fell
+(fuzz/fuzz_targets/http_response_feed.rs). No read assumes it fills anything: `OP_RECV` returns
+whatever smoltcp had buffered, at most the 2,048-byte socket buffer, and any length from one byte to
+`DATA_MAX` is accepted. The one length prefix, `Content-Length`, is parsed from the accumulated head
+only after the blank line, so a split head cannot misread it. The declaration bounds the staging
+carve, the copy, and completion itself: `Ok` only at exactly that many body bytes, more refused,
+zero or oversized refused before anything is carved.
+
+The timing bounds are real and were not hit. Each `OP_RECV` and the connect wait inside
+`service_until`'s 15 s bound (components/src/net_stack.rs), under the gate's 30 s per line. Both
+transcripts that kept their timings rule a timeout out more cheaply: the failing line is absent from
+the gate's own slowest-three (floors 1.0 s and 0.6 s) and the legs ran 26.3 s and 25.8 s in total.
+The refusal answered fast.
+
+What the six runs pin down. Runs 36635825171, 36635855388, 36637445269, 36637505183, 36662722651
+and 36667068219, 2026-09-29T21:49 through 2026-09-30T04:02, every one at `package install greeting`,
+always the second fetch of the boot. The first fetch, the lying `uptime`, had finished a whole
+exchange seconds earlier: its catalogue refusal needs the whole body and its digest. Two of the six
+were the merge queue of pr-1452 and pr-1443 together, so no pull request's diff is the trigger. The
+run before the cluster, 21:41, was green; the next failure on the branch, 15:56 on 2026-09-30, is a
+different signature (an inbound-prober leg).
+
+One premise corrected: the failure rolled no generation. A refused fetch writes nothing, so
+generation 1 stays live, and the off-by-one cascade arrives later, when the 0.2.0 disk install makes
+generation 2 where the transcript wants 3.
+
+Why the second fetch, from the code. Everything the guest feeds the second fetch is identical to
+the first. The ephemeral port rotates, so the second connection is a fresh 4-tuple
+(`PortAllocator`'s own reason: reusing a port whose slirp flow had not cleared stalls). The socket
+page's region and the staging region are destroyed in reverse carve order at request end, so the
+image pool returns to empty between commands. The destroy is a synchronous kernel call that revokes
+the shared page out of `net_stack` before it returns (kernel/src/memory_region.rs), so the next
+attach maps a clean page.
+
+What remains is the host side: slirp, forking `helpers/package-http-peer` per connection while the
+first connection's teardown is still settling. The tree has met this peer family twice, both
+recorded: the stale 4-tuple stall above, and the echo peer that blocks its next connection behind a
+half-closed predecessor (the reason `OP_CLOSE` drains the FIN handshake). A fast refusal on a
+back-to-back second connection is the same family's third face, at a speed only CI's runners have
+shown.
+
+Nothing in this tree distinguishes the fourteen sites today. One word per refusal in the answer, or
+a progenitor-side trace the shell's vocabulary leaves alone, would localize the next occurrence
+from its transcript. Priced, not enacted: the lane's brief was diagnosis.
+
+One asymmetry found on the way, recorded here because the fetch path has no BUGS of its own and
+notes/packages.md is at its prose cap. `fetch` carves its socket page and staging with one-shot
+`memory_region_split` calls. The disk-install path yield-retries the same pool through `split_job`,
+because CI once made it transiently short (2026-09-27, that function's own doc). The discipline is
+clean between commands, so this cannot explain the cluster; it is the one place the fetch path
+lacks the retry its sibling learned to need.

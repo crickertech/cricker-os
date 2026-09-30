@@ -215,6 +215,15 @@ the reasoning is kept to one line each so a reader can check the rule against it
   version-set tool's installer meeting a version a user has decided is bad. The ruled format does
   not preclude it: a denial can join as a third line kind beside rows and defaults, checked at the
   same choke point.
+- **The PR's CI legs met the second-fetch flake, not a 614 defect** (diagnosed 2026-09-30 UTC). Runs
+  36634645172 and its 04:02 rerun failed `swish-check` aarch64 at `package install greeting` with
+  "the package source did not send a whole package", cascading into this block's off-by-one
+  generation lines. Read out of the code: the fetch path is length-checked end to end, the refusal
+  was fast rather than a timeout, and the same evening's cluster hit another pull request's merge
+  queue. The mechanism, the proof and the run list are the truncation section of
+  [notes/swish-check-flake.md](../../notes/swish-check-flake.md). This milestone's transcript bullet
+  still wants its green legs; the cluster ended at 04:02 and the branch's one later failure is a
+  different signature.
 
 ## Follow-on
 
