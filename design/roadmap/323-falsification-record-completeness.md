@@ -58,7 +58,7 @@ itself and handed it over; §134's *"Harness" covers a kernel test too* section 
 different direction: milestone 313's security audit, 307's sweep of all 26 confinement rows, 318's
 NVMe work, 319's device-tree argument, and 247's original sweep. Read together they are one finding
 with five faces: **`script/falsifications` is the instrument this project uses to tell a test that
-can fail from a test that cannot, and the instrument has holes.** That is `design/fatal-risks.md`
+can fail from a test that cannot, and the instrument has holes.** That is `design/fatal-risks/README.md`
 risk 3's own subject, and risk 3 is the entry whose verdict is still calef's.
 
 Promoting them one at a time would produce five briefs, five lanes and five partial answers to a
@@ -213,7 +213,7 @@ tell a stale premise from a live one. It is rung three, written where the next p
 ## Index row
 
 `script/falsifications` is how this project distinguishes a test that can come back red from one
-that cannot, which `design/fatal-risks.md` risk 3 calls the difference between quality and the
+that cannot, which `design/fatal-risks/README.md` risk 3 calls the difference between quality and the
 illusion of it. Five lanes each tripped over a different hole in it between 2026-09-03 and
 2026-09-17: two sets of harnesses with no record at all, a record that names one architecture for a
 portable claim, a record that does not say which assertion it expects, and six kernel claims nothing

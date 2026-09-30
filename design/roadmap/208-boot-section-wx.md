@@ -117,7 +117,7 @@ actually have is the opposite one, a false *negative*: see BUGS.
 ## What this does and does not say about the confinement claims
 
 **It says the kernel image no longer contradicts them, and it says nothing about whether they hold.**
-The claims in `design/fatal-risks.md` are about what a confined component can reach at runtime, and
+The claims in `design/fatal-risks/README.md` are about what a confined component can reach at runtime, and
 they are enforced by the page tables and the capability system, neither of which this touches. The
 kernel already installed fine-grained W^X tables over its own image on all three architectures, so
 **the RWX segment was never actually mapped RWX at runtime**; the `PT_LOAD` was a claim in a file that

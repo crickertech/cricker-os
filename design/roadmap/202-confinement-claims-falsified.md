@@ -5,7 +5,7 @@ built: 2026-08-31
 ---
 # 202. Every confinement test is a ritual until somebody breaks the confinement and watches it fail
 
-Minted 2026-08-31 by calef, scoping `design/fatal-risks.md`'s risk 7,
+Minted 2026-08-31 by calef, scoping `design/fatal-risks/README.md`'s risk 7,
 which its own `BUGS` recorded as unowned and needing framing before a lane. *(Number provisional
 until the merge queue lands it.)*
 
@@ -157,7 +157,7 @@ prediction down is what made it checkable.
 - **Recorded.** `design/roadmap/202-confinement-claims-falsified.md`: a test can go red for the
   wrong reason, which fired twice on the day this was written, so each falsification has to name the
   assertion it expects to fail.
-- **Recorded.** `design/fatal-risks.md` keeps risk 7 open. The enumeration inherits the blind spots
+- **Recorded.** `design/fatal-risks/README.md` keeps risk 7 open. The enumeration inherits the blind spots
   of the tests it was read out of, and it cannot reach the claim nobody made, which is where real
   escapes live.
 - **Done.** The claim §219 (how the shell names an installed program to the spawner) owed this

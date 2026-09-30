@@ -182,50 +182,183 @@ pub const SCROLLBACK_CELLS: usize = MAX_COLS * SCROLLBACK_ROWS;
 // Colour.
 // ================================================================================================
 
-/// **The sixteen ANSI colours**, as `0x00RRGGBB` words in the surface's own pixel format.
+/// **The sixteen ANSI colours**, as `0x00RRGGBB` words in the surface's own pixel format: canonical
+/// Solarized Dark, with one entry moved by one unit.
 ///
 /// Indices 0..8 are the normal colours in the usual ANSI order (black, red, green, yellow, blue,
-/// magenta, cyan, white) and 8..16 their bright forms. The values are the widely used xterm set
-/// rather than pure primaries, because pure primaries on a 128x64 surface make a *pretty* screen and
-/// a bad test: two channels at 0 and one at 255 means half the failure modes (a swapped channel, a
-/// dropped shift) produce another legal colour. These have all three channels distinct in most
-/// entries.
+/// magenta, cyan, white) and 8..16 their bright forms. The values and the slot each one sits in are
+/// Ethan Schoonover's published table (github.com/altercation/solarized, README, "The Values", its
+/// `16/8 TERMCOL` column), chosen by calef in §104 (the rich-text font is `DejaVu Sans Mono`, and the
+/// palette is Solarized), which narrowed his first ask to canonical Solarized Dark rather than the
+/// "Higher Contrast" variant a 2011 gist published under that name.
+///
+/// **Solarized is not a conventional sixteen-colour table, and a reader should expect that.** Its
+/// bright half is mostly its greyscale ramp: 8 is `base03`, 10, 11, 12 and 14 are `base01`, `base00`,
+/// `base0` and `base1`, 9 is orange and 13 violet. Only the normal eight hold the six accent hues.
+/// Schoonover's own dark scheme draws body text in `base0` (12) on `base03` (8), which the defaults
+/// here do not yet do: see BUGS.
+///
+/// **Entry 14 is `0x93a1a0`, not Schoonover's `0x93a1a1`.** That one unit of blue is the only
+/// departure from the published table, and it is there so the palette passes the gate below:
+/// `93,a1,a1` repeats a channel, so a swapped green and blue would leave it unchanged. Measured
+/// 2026-09-26, the nudge is a CIE76 colour difference of 0.56, a quarter of the roughly 2.3 usually
+/// quoted as just noticeable; `0x93a1a2` ties it exactly, and the lower was taken so no channel
+/// rises. Every other entry passes as published. The test
+/// `the_palette_is_solarized_dark_but_for_one_unit` holds that this is the whole difference.
+///
+/// # The gate
+///
+/// This palette used to be the xterm set, chosen so a corrupted pixel would be a detectably wrong
+/// colour, and it failed every property that argument needs (measured 2026-08-19: all sixteen
+/// entries repeat a channel, eight pairs are channel permutations, all three channels saturate
+/// twice). The properties are now a compile-time check ([`PaletteFaults`], the `const` assertion
+/// below), so **any palette that compiles is as good a test instrument as the old one was meant to
+/// be**, and the choice among them is free to be about how it looks. Solarized is also better on the
+/// third property than the check requires: no channel of any entry is at `0xff`.
 ///
 /// # BUGS
 ///
-/// **That last sentence is false, measured 2026-08-19, and the argument above does not hold as
-/// written.** *No* entry has three distinct channel values: every one of the sixteen is built from
-/// at most two levels (`0xcd0000` is `cd,00,00`; `0xe5e5e5` is one level three times). And **eight
-/// pairs are related by a channel permutation**, so a swapped channel turns one legal palette colour
-/// into another legal palette colour, which is exactly the failure this palette claims to catch.
-/// `(1, 2)` is red and green: swap red and green and red becomes green, undetected.
+/// - **The defaults are still ANSI 7 on ANSI 0**, which in this palette is `base2` on `base02`: a
+///   pale cream on the dark highlight colour, not Solarized Dark's `base0` on `base03`. The fix is
+///   to point [`DEFAULT_FG`] and [`DEFAULT_BG`] at 12 and 8, and it waits on milestone 142's wider
+///   rendition, because a background index here is three bits and cannot name 8.
+/// - **Bold is bright, and Solarized's bright slots are greys.** SGR 1 on green, yellow, blue or
+///   cyan paints `base01`, `base00`, `base0` or `base1`, so `ls --color`'s bold blue directories come
+///   out as body-text grey. This is a consequence of this palette meeting [`Attr`]'s bold rule, not
+///   a defect in either alone. The options and a recommendation are in
+///   notes/solarized-and-bold-is-bright.md.
+/// - **The properties guard the sixteen, not every colour a cell can hold.** Once the terminal
+///   accepts 256-colour and 24-bit colour at milestone 142 (a text display good enough that people
+///   use it), a swapped channel can land on a legal colour outside this table. The pixel-exact
+///   scanout comparison was always the stronger check and carries that load.
+/// - **Changing one number may or may not leave this "Solarized"**, and [§104] names that as
+///   calef's question. It is recorded here, where a reader meets the constant, so nobody reasons
+///   from the belief that it is Schoonover's table untouched.
 ///
-/// The *shape* of the argument is right and the palette does not implement it. What it does buy is
-/// real but smaller: values at `0xcd` and `0xe5` rather than `0xff` mean a dropped shift or a
-/// saturating write lands off-palette. **Nothing gates any of this**, which is why a false claim sat
-/// in a comment; a check that every entry has three distinct channels, and that no two entries are
-/// permutations of each other, is a few lines and is milestone 141's first piece.
-///
-/// This matters beyond tidiness because the claim is what makes the palette ugly on purpose. See
-/// design/roadmap/141-a-palette-worth-looking-at.md.
+/// [§104]: ../../design/decisions/104-the-font-and-the-palette.md
 pub const PALETTE: [u32; 16] = [
-    0x0000_0000, // 0 black
-    0x00cd_0000, // 1 red
-    0x0000_cd00, // 2 green
-    0x00cd_cd00, // 3 yellow
-    0x0000_00ee, // 4 blue
-    0x00cd_00cd, // 5 magenta
-    0x0000_cdcd, // 6 cyan
-    0x00e5_e5e5, // 7 white
-    0x007f_7f7f, // 8 bright black (grey)
-    0x00ff_5c5c, // 9 bright red
-    0x0000_ff00, // 10 bright green
-    0x00ff_ff00, // 11 bright yellow
-    0x005c_5cff, // 12 bright blue
-    0x00ff_00ff, // 13 bright magenta
-    0x0000_ffff, // 14 bright cyan
-    0x00ff_ffff, // 15 bright white
+    0x0007_3642, // 0 black: base02
+    0x00dc_322f, // 1 red
+    0x0085_9900, // 2 green
+    0x00b5_8900, // 3 yellow
+    0x0026_8bd2, // 4 blue
+    0x00d3_3682, // 5 magenta
+    0x002a_a198, // 6 cyan
+    0x00ee_e8d5, // 7 white: base2
+    0x0000_2b36, // 8 bright black: base03
+    0x00cb_4b16, // 9 bright red: orange
+    0x0058_6e75, // 10 bright green: base01
+    0x0065_7b83, // 11 bright yellow: base00
+    0x0083_9496, // 12 bright blue: base0
+    0x006c_71c4, // 13 bright magenta: violet
+    0x0093_a1a0, // 14 bright cyan: base1, nudged from 0x93a1a1 (see above)
+    0x00fd_f6e3, // 15 bright white: base3
 ];
+
+// The gate: a palette that stops being a test instrument does not compile. See [`PaletteFaults`].
+const _: () = assert!(
+    matches!(
+        palette_faults(&PALETTE),
+        PaletteFaults {
+            repeated_channel: 0,
+            permuted_pairs: 0,
+            shared_saturation: 0
+        }
+    ),
+    "PALETTE fails milestone 141's palette check: see PaletteFaults"
+);
+
+/// **What makes a palette a test instrument**, one field per property milestone 141 (a palette
+/// worth looking at, and a gate that lets it be one) names. A corrupted pixel should be a
+/// detectably wrong colour rather than a different legal one, and each property closes one way it
+/// could be the second:
+///
+/// 1. `repeated_channel`: entries whose three channels are not all distinct, as a bit mask by
+///    index. Such an entry survives swapping its two equal channels, so a channel-order bug in the
+///    blit leaves it untouched.
+/// 2. `permuted_pairs`: pairs of entries related by a channel permutation (the identity included,
+///    so a duplicated entry counts). Swapping channels turns one legal colour into the other.
+/// 3. `shared_saturation`: channels (bit 0 red, 1 green, 2 blue) at `0xff` in more than one
+///    entry. A saturating write or a dropped shift tends to pin a channel at `0xff`, and a palette
+///    in which only one entry can be pinned there has few legal colours for that fault to land on.
+///
+/// These are this tree's reconstruction of what the palette's original comment was reaching for,
+/// not a specification anybody wrote down; a fourth failure mode nobody has named would pass them.
+/// See design/roadmap/141-a-palette-worth-looking-at.md.
+///
+/// Name: provisional (milestone 141's lane, 2026-09-26). Private to the crate: nothing outside
+/// needs it, and the gate is the `const` assertion beside [`PALETTE`], not a caller.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PaletteFaults {
+    repeated_channel: u16,
+    permuted_pairs: u8,
+    shared_saturation: u8,
+}
+
+impl PaletteFaults {
+    const NONE: PaletteFaults = PaletteFaults {
+        repeated_channel: 0,
+        permuted_pairs: 0,
+        shared_saturation: 0,
+    };
+}
+
+/// The three channels of a `0x00RRGGBB` word, sorted, so two colours that are channel
+/// permutations of each other compare equal. A three-element sorting network, because a `const fn`
+/// cannot call `sort`.
+const fn sorted_channels(c: u32) -> [u8; 3] {
+    let (mut a, mut b, mut d) = ((c >> 16) as u8, (c >> 8) as u8, c as u8);
+    if a > b {
+        (a, b) = (b, a);
+    }
+    if b > d {
+        (b, d) = (d, b);
+    }
+    if a > b {
+        (a, b) = (b, a);
+    }
+    [a, b, d]
+}
+
+/// **Check a palette against [`PaletteFaults`]'s three properties.** A `const fn`, so the gate on
+/// [`PALETTE`] is a compile error rather than a test someone has to run; the host tests exercise
+/// it against a palette known to fail, which is what makes a clean result mean something.
+///
+/// Name: provisional (milestone 141's lane, 2026-09-26).
+const fn palette_faults(p: &[u32; 16]) -> PaletteFaults {
+    let mut f = PaletteFaults::NONE;
+    let mut i = 0;
+    while i < 16 {
+        let [a, b, c] = sorted_channels(p[i]);
+        if a == b || b == c {
+            f.repeated_channel |= 1 << i;
+        }
+        let mut j = i + 1;
+        while j < 16 {
+            let (x, y) = (sorted_channels(p[i]), sorted_channels(p[j]));
+            if x[0] == y[0] && x[1] == y[1] && x[2] == y[2] {
+                f.permuted_pairs += 1;
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    let mut channel = 0;
+    while channel < 3 {
+        let (mut saturated, mut k) = (0, 0);
+        while k < 16 {
+            if (p[k] >> (8 * (2 - channel))) & 0xff == 0xff {
+                saturated += 1;
+            }
+            k += 1;
+        }
+        if saturated > 1 {
+            f.shared_saturation |= 1 << channel;
+        }
+        channel += 1;
+    }
+    f
+}
 
 /// The foreground a reset terminal writes with.
 pub const DEFAULT_FG: u8 = 7;
@@ -1458,6 +1591,151 @@ mod tests {
         let mut vt = Vt::new(cols, rows);
         vt.take_damage();
         vt
+    }
+
+    /// The xterm set this terminal shipped until milestone 141 replaced it, kept as the palette
+    /// check's known-bad witness.
+    const XTERM_PALETTE: [u32; 16] = [
+        0x0000_0000,
+        0x00cd_0000,
+        0x0000_cd00,
+        0x00cd_cd00,
+        0x0000_00ee,
+        0x00cd_00cd,
+        0x0000_cdcd,
+        0x00e5_e5e5,
+        0x007f_7f7f,
+        0x00ff_5c5c,
+        0x0000_ff00,
+        0x00ff_ff00,
+        0x005c_5cff,
+        0x00ff_00ff,
+        0x0000_ffff,
+        0x00ff_ffff,
+    ];
+
+    /// Solarized Dark exactly as Schoonover publishes it, in his `16/8 TERMCOL` slots
+    /// (github.com/altercation/solarized, README, "The Values", read 2026-09-26).
+    const SOLARIZED_DARK_AS_PUBLISHED: [u32; 16] = [
+        0x0007_3642,
+        0x00dc_322f,
+        0x0085_9900,
+        0x00b5_8900,
+        0x0026_8bd2,
+        0x00d3_3682,
+        0x002a_a198,
+        0x00ee_e8d5,
+        0x0000_2b36,
+        0x00cb_4b16,
+        0x0058_6e75,
+        0x0065_7b83,
+        0x0083_9496,
+        0x006c_71c4,
+        0x0093_a1a1,
+        0x00fd_f6e3,
+    ];
+
+    /// **The palette is Solarized Dark but for one unit of blue in entry 14**, and that unit is why
+    /// it passes. Published Solarized fails exactly one property on exactly one entry (`base1`,
+    /// `93,a1,a1`, repeats a channel); the shipped table differs from it in that entry alone, by one.
+    /// So a later edit that drifts another entry, or "restores" the published value, fails here
+    /// with the reason in front of it rather than as an unexplained compile error.
+    #[test]
+    fn the_palette_is_solarized_dark_but_for_one_unit() {
+        let published = palette_faults(&SOLARIZED_DARK_AS_PUBLISHED);
+        assert_eq!(
+            published,
+            PaletteFaults {
+                repeated_channel: 1 << 14,
+                ..PaletteFaults::NONE
+            },
+            "published Solarized Dark fails on base1 alone"
+        );
+        assert_eq!(palette_faults(&PALETTE), PaletteFaults::NONE);
+        for i in 0..16 {
+            if i == 14 {
+                assert_eq!(
+                    SOLARIZED_DARK_AS_PUBLISHED[i] - PALETTE[i],
+                    1,
+                    "one unit of blue"
+                );
+            } else {
+                assert_eq!(
+                    PALETTE[i], SOLARIZED_DARK_AS_PUBLISHED[i],
+                    "entry {i} is as published"
+                );
+            }
+        }
+    }
+
+    /// **The palette check fails on the palette it was written about**, which is what makes its
+    /// silence on any other palette evidence. That palette shipped until 2026-09-26 and is kept here
+    /// as the check's witness. These are the numbers milestone 141 measured by hand on
+    /// 2026-08-19: every one of the sixteen entries repeats a channel, eight pairs are channel
+    /// permutations (red `cd0000` and green `00cd00` first among them), and all three channels
+    /// saturate in more than one entry.
+    #[test]
+    fn the_palette_check_catches_every_fault_in_the_xterm_palette() {
+        let f = palette_faults(&XTERM_PALETTE);
+        assert_eq!(
+            f.repeated_channel, 0xffff,
+            "all sixteen entries repeat a channel"
+        );
+        assert_eq!(f.permuted_pairs, 8, "eight pairs are channel permutations");
+        assert_eq!(
+            f.shared_saturation, 0b111,
+            "red, green and blue each saturate twice"
+        );
+    }
+
+    /// **Each property fires alone**, so a check that had collapsed two of them into one condition
+    /// (or lost one outright) cannot hide behind a palette that fails all three at once. The base
+    /// is sixteen colours built to pass: distinct channels, no permutations, nothing at `0xff`.
+    #[test]
+    fn each_palette_property_fires_on_its_own_fault() {
+        let mut clean = [0u32; 16];
+        for (i, c) in clean.iter_mut().enumerate() {
+            let i = i as u32;
+            *c = (0x10 + i) << 16 | (0x40 + 2 * i) << 8 | (0x90 + 3 * i);
+        }
+        assert_eq!(
+            palette_faults(&clean),
+            PaletteFaults::NONE,
+            "the base must pass"
+        );
+
+        let mut repeated = clean;
+        repeated[5] = 0x0033_3380;
+        assert_eq!(palette_faults(&repeated).repeated_channel, 1 << 5);
+        assert_eq!(palette_faults(&repeated).permuted_pairs, 0);
+
+        let mut permuted = clean;
+        // clean[1]'s channels, rotated: (r, g, b) becomes (b, r, g).
+        permuted[9] = (clean[1] & 0xff) << 16 | (clean[1] >> 16) << 8 | (clean[1] >> 8 & 0xff);
+        assert_eq!(palette_faults(&permuted).permuted_pairs, 1);
+        assert_eq!(palette_faults(&permuted).repeated_channel, 0);
+
+        let mut duplicated = clean;
+        duplicated[15] = clean[0];
+        assert_eq!(
+            palette_faults(&duplicated).permuted_pairs,
+            1,
+            "identity is a permutation"
+        );
+
+        let mut saturated = clean;
+        saturated[3] = 0x0021_ff45;
+        assert_eq!(
+            palette_faults(&saturated),
+            PaletteFaults::NONE,
+            "one entry at 0xff is allowed"
+        );
+        saturated[11] = 0x0031_ff55;
+        assert_eq!(
+            palette_faults(&saturated).shared_saturation,
+            0b010,
+            "green, twice"
+        );
     }
 
     /// **A rendition names two palette entries, and reverse swaps which is ink.** Every other test

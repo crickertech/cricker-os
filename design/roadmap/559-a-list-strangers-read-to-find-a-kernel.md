@@ -64,7 +64,7 @@ The list's entries are short and factual, and its voice is not a pitch. A draft,
 
 **Three things it deliberately does not say.** No line count, because a number in somebody else's
 README goes stale and we cannot correct it there. No claim about verification, because 145 Kani
-harnesses are a fact about effort and `design/fatal-risks.md` risk 2 is honest that they have caught
+harnesses are a fact about effort and `design/fatal-risks/README.md` risk 2 is honest that they have caught
 nothing after the day they were written. And no comparison to seL4, because a comparative claim in a
 directory listing is the kind of thing that gets quoted without its caveats, which is precisely what
 the *facts that leave the machine* rule exists to prevent.

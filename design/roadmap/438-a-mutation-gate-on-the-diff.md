@@ -36,9 +36,9 @@ So the sentence this milestone was minted on, *"they did not accumulate, they ar
 request"*, is wrong. The survivors accumulated while the crate grew from the baseline's 212 mutants
 (2026-08-03) to 693, and the instrument only looked twice in that window. **This is a cadence
 finding wearing a rate finding's clothes**, and it is recorded here rather than quietly fixed because
-`design/fatal-risks.md`'s risk 3 rests on the attribution. The correction to that record is
+`design/fatal-risks/README.md`'s risk 3 rests on the attribution. The correction to that record is
 proposed in `design/roadmap/512-the-census-blamed-a-pull-request-that-added-four.md`; this
-lane does not edit `design/fatal-risks.md`.
+lane does not edit `design/fatal-risks/README.md`.
 
 **Where the 22 probably came from**, offered as the likely reading rather than as a measurement: the
 `(baseline missed)` column `script/mutation --report` prints is `.cargo/mutants-baseline.txt`, where
@@ -129,7 +129,7 @@ already required. Three things are:
    about proofs.
 3. **It is silent where the tree's risk is.** `kernel/**` and `components/**` are not in the
    corpus at all, so a kernel change passes by construction, and a rename across 70 files produces
-   nothing. `design/fatal-risks.md`'s risk 3 is a claim about the whole tree's derivative, and this
+   nothing. `design/fatal-risks/README.md`'s risk 3 is a claim about the whole tree's derivative, and this
    instrument can only see the part of the tree a host test can execute.
 
 **What would be a different question, and it is an architect's to ask rather than a lane's to
@@ -185,7 +185,7 @@ which is the irreversible half.
 ## Follow-on
 
 - **Milestone 512.** milestone 512 (the census blamed one pull request for), `design/roadmap/512-the-census-blamed-a-pull-request-that-added-four.md`, the
-  correction to `design/fatal-risks.md`'s risk 3, which this lane measured and does not own.
+  correction to `design/fatal-risks/README.md`'s risk 3, which this lane measured and does not own.
 - **Milestone 492.** milestone 492 (a const inside a proof module is), `design/roadmap/492-a-const-in-a-proof-module-escapes-its-exclusion.md`, the
   three mutants that sit inside `#[cfg(kani)]` modules and are not excluded, two of which are half of
   this milestone's own result.

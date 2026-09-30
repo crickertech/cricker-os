@@ -1,0 +1,12 @@
+[package]
+name = "free"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+machine_statistics_protocol = { version = "0.1.0", path = "../machine_statistics_protocol" }
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

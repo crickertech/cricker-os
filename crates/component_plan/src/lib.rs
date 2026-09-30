@@ -1612,8 +1612,10 @@ mod proofs {
 
     /// **A slot a supervisor could route, bounded to the capability table that exists.**
     ///
-    /// `abi::CAPABILITY_TABLE_SLOTS` is sixteen, so a slot number outside `0..16` is not a routing a supervisor
-    /// could make: the kernel refuses it. Bounding it here is not a weakening of the property, which
+    /// A slot number at or past `abi::CAPABILITY_TABLE_SLOTS` (thirty-two since 2026-09-27) is not
+    /// a routing a supervisor could make: the kernel refuses it. Raising the table from twenty-four
+    /// did not move these harnesses' times past their noise (measured by milestone 126 (the `procps` package), in
+    /// notes/process-view/the-machine-and-your-share.md). Bounding it here is not a weakening of the property, which
     /// is about *which* slot a need is wired to rather than how large the number is, and it is what
     /// makes these harnesses a viable gate: unbounded `u64` slots put the solver past seventy
     /// thousand verification conditions for a fact about copying two integers through.

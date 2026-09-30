@@ -19,7 +19,7 @@ One question, asked of every row: *when the claim is broken, which assertion fir
 reader would quote reachable at all?*
 
 The framing matters because `AGENTS.md`'s first principle says an experiment that can only confirm is
-not a test, and `design/fatal-risks.md`'s risk 7 is the claim that the property the whole system is
+not a test, and `design/fatal-risks/README.md`'s risk 7 is the claim that the property the whole system is
 built to provide does not hold. Risk 3's mutation census, which measures exactly this property, runs
 over host crates and cannot see kernel tests; nothing the project owns would have found 305's
 survivor, and nothing would have found this one.

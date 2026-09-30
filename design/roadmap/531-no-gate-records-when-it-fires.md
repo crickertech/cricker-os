@@ -13,7 +13,7 @@ needs_person: no
 *(Number provisional until the merge queue lands it.)* Promoted from the proposal `no-gate-records-when-it-fires`, filed 2026-09-21, on calef's instruction of 2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own, unedited except for this paragraph: the argument is its author's and promotion is not the moment to improve it. Raised by a research lane calef briefed to ask what gate practices
 this tree lacks, with the instruction that any gate must prove its worth, existing ones included.
 The lane read `script/lint`'s 47 named checks, the thirteen workflows, `notes/check-inventory.md`,
-`design/fatal-risks.md` and the failure records in `notes/`, and measured the git history for
+`design/fatal-risks/README.md` and the failure records in `notes/`, and measured the git history for
 evidence that each gate has caught a real defect. The 47 is derived rather than copied
 (`grep -c '^echo "==>' script/lint`), because the number written into `notes/check-inventory.md` has
 already gone stale once and that file says to derive it.
@@ -131,7 +131,7 @@ check in the Actions list already had commit evidence.
 
 **The newest gate has the highest rate.** `new citations say what they cite` was added 2026-09-19
 and has fired eight times in two days, which is the birth spike this tree's whole record predicts
-and the pattern `design/fatal-risks.md` records for proofs: a mechanism pays most on the day it is
+and the pattern `design/fatal-risks/README.md` records for proofs: a mechanism pays most on the day it is
 written.
 
 ### What could not be established
@@ -194,7 +194,7 @@ is an instrument, not a gate. What it would have prevented is the shape this who
 Milestone 191 (did the proofs catch the bugs? a retrospective of every real defect against the
 harness that should have found it) had to assemble an eighteen-row corpus by hand to establish that
 no Kani harness has ever caught a defect after the day it was written, and that finding is the single
-most load-bearing fact in `design/fatal-risks.md`.
+most load-bearing fact in `design/fatal-risks/README.md`.
 
 **The first draft claimed the equivalent fact about the lint checks was unobtainable. It is
 obtainable, it was obtained above, and the ledger is still worth building**, for three reasons that
@@ -418,9 +418,9 @@ thing it is about. That density is the practice working, not a backlog.
 
 The three that bound this proposal:
 
-- **A premise being overtaken.** `design/fatal-risks.md` states it best about itself: a green
+- **A premise being overtaken.** `design/fatal-risks/README.md` states it best about itself: a green
   `script/fatal-risks` means no status word contradicts the record it names, and is not a warrant
-  that the arguments still hold. Milestone 275 (a gate that diffs `design/fatal-risks.md` against the
+  that the arguments still hold. Milestone 275 (a gate that diffs `design/fatal-risks/README.md` against the
   roadmap it cites) closed the mechanical half and found four live disagreements on its first run;
   the larger half has no mechanism and this lane found no candidate for one. The alternative is the
   audit cadence, and the audit cadence is a tripwire whose red nobody acted on for five consecutive

@@ -75,7 +75,7 @@ SMP="${NIFE_SMP:-2}"
 # That matters because the failures worth finding on more than one core are the ones that need two
 # cores inside the same instant: a wake that is never delivered, a revocation that reaches one core's
 # state and not another's, a corpse that does not reach the queue the other core is reading. Under
-# round-robin those windows are narrow or absent, which is why `design/fatal-risks.md` risk 2 keeps
+# round-robin those windows are narrow or absent, which is why `design/fatal-risks/README.md` risk 2 keeps
 # having to say "found on a bench, invisible in QEMU".
 #
 # # BUGS

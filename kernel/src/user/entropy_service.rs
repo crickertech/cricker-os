@@ -325,7 +325,7 @@ pub fn jh7110_trng_device() -> Option<jh7110_entropy::Discovered> {
 /// `0x4000` and this maps `0x1000` of it, since `jh7110_entropy::regs` reaches only `0x68`: a driver
 /// that cannot name a register cannot touch it.
 ///
-/// **Fatal risk 6's experiment is exactly this shape** (`design/fatal-risks.md`): an unprivileged
+/// **Fatal risk 6's experiment is exactly this shape** (`design/fatal-risks/README.md`): an unprivileged
 /// userspace process, holding one device page and two endpoints, driving a real non-virtio device.
 /// Whether it does so at real speed is the part the bench measures, not the part this wires.
 fn start_jh7110(image: &'static [u8]) -> Option<Wiring> {

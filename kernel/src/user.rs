@@ -12,7 +12,7 @@
 //! [`TrapFrame`] with `SPSR = EL0t`, point `sp` at it, and fall into the `exception_restore`
 //! that milestone 2 already wrote.
 //!
-//! This is the second time the project has pulled exactly this trick. `Thread::spawn` fakes a
+//! This is the second time the project has pulled exactly this trick. `Thread::spawn_into` fakes a
 //! `switch_to` frame so that the `ret` which *resumes* a thread also *starts* one
 //! (notes/threads.md). Both times the "start" path turned out to be the "resume" path with a
 //! forged frame, and no new code at all.
@@ -455,7 +455,10 @@ static USER_SPACES: crate::sync::IrqSafeMutex<
 /// the space's table-and-record budget, exactly as for an exec-built space. `None` on an
 /// exhausted region, a full registry, or ASID exhaustion (unreachable; the type is honest).
 pub fn user_address_space_create(region: u64) -> Option<u64> {
-    let root = crate::memory_region::retype_object_page(region)?;
+    let root = crate::memory_region::retype_object_page(
+        region,
+        crate::memory_region::ObjectKind::AddressSpace,
+    )?;
     mmu::share_kernel_half(root); // RISC-V single-satp: the process root carries the kernel high half
 
     if !crate::revoke::register_space(root, region) {
@@ -1999,7 +2002,8 @@ pub fn riscv_uart_driver_demo(
 /// 50), the virtio-rng trio at 7-9, the graphical terminal stack at 10-12 and the virtio-net trio
 /// at 13-15 (milestone 590 (the booted system starts its network stack)) when each is present.
 /// That fills sixteen of the table's
-/// twenty-four slots at spawn, which is why the progenitor spends the net trio before anything else.
+/// thirty-two slots at spawn (the GPU and keyboard grants at 17-22 and the machine statistics page
+/// at 23 came later), which is why the progenitor spends the net trio before anything else.
 /// `components/src/progenitor.rs`'s single `GRANTS` table reads exactly this. Until milestone 166
 /// aarch64's boot carried two extra capabilities at slots 1 and 3 (a report endpoint and a test
 /// interrupt) that the interactive system never used, only because its loader was shared with
@@ -2330,6 +2334,25 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
             }
         );
     }
+    // **The machine statistics page** (slot 23, milestone 126 (the `procps` package), DECISIONS §225
+    // (`free` sees the machine and your share) part 2), the config page's shape: a frame the kernel
+    // keeps its machine-wide counters in, granted unconditionally so its slot never moves, and
+    // `READ | GRANT` so the progenitor can hand it to the boot shell and let nobody write it.
+    //
+    // Slot 23 because every slot below it is named by a grant some boot makes, and the page is
+    // granted on every boot. It was the kernel's fault slot until calef raised the table to 32 on
+    // 2026-09-27 for exactly this (`crate::cap::CAPABILITY_TABLE_SLOTS`). See
+    // `crate::machine_statistics`.
+    let s23 = crate::sched::thread_control_block_insert_cap(
+        tid,
+        crate::cap::page_frame_cap(
+            crate::machine_statistics::page_phys(),
+            Rights::READ.union(Rights::GRANT),
+        ),
+        Some(23),
+    )
+    .expect("insert the machine statistics page");
+    assert_eq!(s23, 23);
     // **Or a terminal on the screen the firmware left running** (the shell on the firmware screen,
     // milestone 198's rung 1b), when there is no GPU: slots 10 and 11, the terminal's endpoint and
     // its output page. (They were the graphical stack's slots too, until milestone 600

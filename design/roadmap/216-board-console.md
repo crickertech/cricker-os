@@ -77,7 +77,7 @@ a thing this repository knows how to open, so every `Gate: HARDWARE` milestone i
 means "the board is on the desk" needs a person at a terminal emulator, reading with their eyes.
 
 That is the binding constraint on the fatal risks rather than a convenience. Four of the five
-unrun entries in `design/fatal-risks.md` are hardware-gated, and risk 5 (it cannot be made reliable
+unrun entries in `design/fatal-risks/README.md` are hardware-gated, and risk 5 (it cannot be made reliable
 on multicore, and the bugs appear only on silicon) is the one this hurts most: its own decisive
 experiment is *sustained* stress with the load-sensitive assertions live, and its text is honest
 that the class "produces a confidence rather than a verdict". Sustained is exactly what a person at

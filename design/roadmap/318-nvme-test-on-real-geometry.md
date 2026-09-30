@@ -9,7 +9,7 @@ Built by a lane on `milestone/318-nvme-test-on-real-geometry`.
 *(Number provisional until the merge queue lands it.)*
 
 `kernel/src/user/non_volatile_memory_express_tests.rs::a_confined_el0_process_serves_the_block_interface_end_to_end` is
-milestone 261's proof and `design/fatal-risks.md` risk 6's decisive experiment. It passed under
+milestone 261's proof and `design/fatal-risks/README.md` risk 6's decisive experiment. It passed under
 QEMU and **four of its assertions would have failed on xenon's 256 GB Micron**, for reasons with
 nothing to do with confinement. All four now hold on any namespace, and nothing about what the test
 proves has been weakened to get there.
@@ -151,7 +151,7 @@ this tree does not have.
 
 ## Follow-on
 
-- **Recorded.** Milestone 261's block and `design/fatal-risks.md` risk 6 both describe the test as asserting the
+- **Recorded.** Milestone 261's block and `design/fatal-risks/README.md` risk 6 both describe the test as asserting the
   image's zeros and the 8 MiB size. Deliberately not edited from this lane (they are another
   milestone's account and a decisions-adjacent record); the maintainer reconciles.
 - **Milestone 323.**. This test carries no `Falsification:` record, so the two falsifications above live in this block rather than in

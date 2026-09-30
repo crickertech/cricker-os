@@ -6,18 +6,19 @@
 //! went wrong on the other. The table and the walk are `crates/ps`; the summary line is
 //! `crates/top`; what lives here is the syscalls and the two sinks.
 //!
-//! # It is `ps`'s authority, asking a different question
+//! # It is `ps`'s authority and one read-only page, asking a different question
 //!
-//! Three capabilities, and they are `ps`'s three, from the same named constants. Nothing here can
-//! name a process the prompt did not already put in its reach, and the CPU figures come from a
-//! second walk of the **same** endpoint under the **same** right, so a column that on Unix comes
-//! from reading an ambient `/proc` comes here from a capability somebody handed this program.
+//! `ps`'s three capabilities, from the same named constants, and the machine statistics page.
+//! Nothing here can name a process the prompt did not already put in its reach, and the CPU
+//! figures come from a second walk of the **same** endpoint under the **same** right, so a column
+//! that on Unix comes from reading an ambient `/proc` comes here from a capability somebody handed
+//! this program.
 //!
-//! What differs from `ps` is the question, not the endowment. `ps` answers *what exists*, in the
-//! kernel's own slot order. This answers *what is consuming*, most first, with a summary line
-//! saying how large the thing being ranked is. Milestone 281 (`watch` holds exactly what `ps` holds) deleted `watch` for holding `ps`'s
-//! authority while being `ps`'s own loop, and whether this program clears that bar or belongs in
-//! `ps` as a flag is an architect's; `crates/top`'s module docs carry the argument both ways.
+//! The page is milestone 126 (the `procps` package)'s addition: DECISIONS §225 (`free` sees the
+//! machine and your share) made `tload`'s question a line in this summary. Before it, this program
+//! held exactly `ps`'s authority, and milestone 281 (`watch` holds exactly what `ps` holds)'s rule
+//! made whether it was a program at all a live question. It holds more than `ps` now; whether that
+//! settles it is calef's.
 //!
 //! # Capability contract
 //!
@@ -26,6 +27,7 @@
 //! | 0 | the output sink, `WRITE` | where the summary and the table go |
 //! | 7 | the process domain, `ENUMERATE` | the supervision endpoint whose members it may **name** |
 //! | 8 | the diagnostics sink, `WRITE` | where a refusal goes, so `>` cannot swallow it |
+//! | 11 | the machine statistics page, `READ`, mapped read-only | the machine line under the summary, which is what became of `tload` (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and your share)) |
 //!
 //! No clock, and that is worth stating because a `top` looks like it needs one: the uptime in the
 //! summary is `user_mode_runtime::monotonic_nanos`, the ambient counter every process holds
@@ -48,6 +50,7 @@
 //! ```text
 //! $ top
 //! up 00:01:12, 3 threads: 1 running, 0 ready, 1 blocked, 1 dead
+//! machine: 2 runnable on 4 cores, 7% busy since boot
 //!          TID  STATE     TIME(ms)
 //!            9  running        310
 //! 4294967302  dead             150
@@ -134,6 +137,18 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
         top::write_summary(found.rows(), monotonic_nanos(), &mut |bytes| {
             write_on(REPORT, bytes);
         });
+        // What became of `tload` (milestone 126, DECISIONS §225): the machine's run queue and busy
+        // share, from the machine statistics page when the owner granted it.
+        let machine = if is_granted(grant_plan::MACHINE_SLOT) {
+            // SAFETY: granted only alongside a read-only mapping of the same frame at `PAGE_VA`,
+            // which lives as long as this process (`system_initializer`'s spawn service).
+            unsafe {
+                machine_statistics_protocol::Snapshot::read(machine_statistics_protocol::PAGE_VA)
+            }
+        } else {
+            None
+        };
+        top::write_machine_line(machine.as_ref(), &mut |bytes| write_on(REPORT, bytes));
     }
     found.write_report(&mut |bytes| write_on(REPORT, bytes));
     send(REPORT, byte_sink_protocol::eof(), 0, 0);

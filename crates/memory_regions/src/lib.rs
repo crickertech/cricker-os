@@ -60,7 +60,7 @@
 
 mod table;
 
-pub use table::{DestroyClaim, NO_PARENT, RegionTable};
+pub use table::{DestroyClaim, NO_PARENT, ObjectKind, PageUse, RegionTable};
 
 /// The result of carving `want` pages off a parent whose budget is `parent_pages` and whose spent
 /// watermark is `parent_watermark`. `Some(new_watermark)` on success (the caller carves the run

@@ -1,13 +1,14 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-29
+promoted_from: a-linux-persona-server
 milestone_dependencies: none
 decision_dependencies: 195, 197, 208, 220
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A Linux persona server, confined
+# 621. A Linux persona server, confined
 
 From calef's question on 2026-09-29, "could nife run podman?". The binary cannot, and this file
 records the thing worth building instead, in two rungs.
@@ -16,7 +17,7 @@ The big rung: a userspace server that implements the Linux syscall surface by tr
 nife capabilities, one instance per guest, itself spawned and confined like any other program.
 The guest's binaries run against the persona; the persona holds the guest's capabilities, pages
 and devices; the kernel never learns that Linux exists. The shape is gVisor's Sentry and WSL1's
-(from memory, not re-read for this proposal), with one advantage neither has: here the persona
+(from memory, not re-read for this milestone), with one advantage neither has: here the persona
 itself is confined by capability, and gVisor on Linux cannot confine itself.
 
 The small first rung: an OCI import shim. It translates an image's payload into a nife package.
@@ -41,6 +42,16 @@ without promising the compatibility half.
 Strategic, not next. The customer path is vacant, and fatal risk 8 (nobody needs it) is answered
 by a workload rather than by code. The predecessors are queued: the std port as the native
 software story, §220 (signed builds) as the trust an imported binary needs, and the packaging
-milestones as the distribution shape. This file records the decision and mints nothing.
+milestones as the distribution shape. This file records the decision and starts nothing ahead of
+them.
 
 Name provisional.
+
+## Index row
+
+A confined userspace server that implements the Linux syscall surface by translation onto nife
+capabilities, one instance per guest, so the kernel never learns that Linux exists. A first rung
+imports an OCI image's payload as an ordinary nife package, which makes the distribution half of
+the container story native without promising the compatibility half. This answers the question
+behind calef's ask, and it keeps the one advantage gVisor's Sentry cannot have: the persona itself
+is confined by capability.

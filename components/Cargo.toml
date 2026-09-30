@@ -438,7 +438,7 @@ path = "src/timetable.rs"
 test = false
 bench = false
 
-# `ps` (milestone 126): the process listing, over a supervision domain rather than over /proc. Its
+# `ps` (milestone 126 (the `procps` package)): the process listing, over a supervision domain rather than over /proc. Its
 # whole authority is one endpoint the progenitor endows and the command line cannot name; the listing itself
 # is crates/ps, host-tested. Portable, so both ISAs' archives carry it: the confinement claim is
 # about the capability model and would not be a claim if it held on one instruction set.
@@ -465,6 +465,28 @@ bench = false
 [[bin]]
 name = "top"
 path = "src/top.rs"
+test = false
+bench = false
+
+# `free`, `vmstat` and `slabtop` (milestone 126, DECISIONS §225 (`free` sees the machine and your
+# share)): the machine statistics page and a view of this prompt's job budget narrowed to
+# `ENUMERATE`, in the three combinations the three questions need. The formatting is crates/free,
+# crates/vmstat and crates/slabtop, host-tested; these are the reads and the sinks.
+[[bin]]
+name = "free"
+path = "src/free.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "vmstat"
+path = "src/vmstat.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "slabtop"
+path = "src/slabtop.rs"
 test = false
 bench = false
 
@@ -571,6 +593,10 @@ pgrep = { version = "0.1.0", path = "../crates/pgrep" }
 pmap = { version = "0.1.0", path = "../crates/pmap" }
 ps = { version = "0.1.0", path = "../crates/ps" }
 top = { version = "0.1.0", path = "../crates/top" }
+free = { version = "0.1.0", path = "../crates/free" }
+vmstat = { version = "0.1.0", path = "../crates/vmstat" }
+slabtop = { version = "0.1.0", path = "../crates/slabtop" }
+machine_statistics_protocol = { version = "0.1.0", path = "../crates/machine_statistics_protocol" }
 uptime = { version = "0.1.0", path = "../crates/uptime" }
 elf = { version = "0.1.0", path = "../crates/elf" }
 entropy_protocol = { version = "0.1.0", path = "../crates/entropy_protocol" }

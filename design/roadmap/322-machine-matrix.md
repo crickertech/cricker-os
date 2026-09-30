@@ -53,7 +53,7 @@ Each row earns its place by answering one of those differently from `virt`.
 **It is not a substitute for silicon, and nothing here should be read as one.** notes/cpu-models.md's
 `BUGS` is the standard: *"a narrower QEMU model is still QEMU"* and *"a green matrix is not a portable
 kernel. It is the absence of one specific class of failure."* Cache behaviour, real memory maps,
-errata and real firmware stay silicon's. **This entry used to claim `design/fatal-risks.md`'s risk 5
+errata and real firmware stay silicon's. **This entry used to claim `design/fatal-risks/README.md`'s risk 5
 had already fired there** (a VisionFive 2 reading of a receiver woken with nothing delivered, on
 three harts, that no emulator run had ever shown). **That reading is retracted**
 (`notes/visionfive2.md`'s fifth bench stop, 2026-08-15): the dumps were a completed tour's terminal

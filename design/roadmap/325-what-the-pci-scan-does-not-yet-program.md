@@ -22,7 +22,7 @@ while doing something else, and each correctly filed rather than widened. They s
 scan reads what the machine says and then does less with it than the machine allows**, and every one
 of them is invisible until a machine is bigger or stranger than QEMU's default.
 
-That is the shape `design/fatal-risks.md` risk 9 is about. Milestone 87's first light on xenon
+That is the shape `design/fatal-risks/README.md` risk 9 is about. Milestone 87's first light on xenon
 already produced one of this family (`AlreadyMapped`, because the firmware's map does not describe
 the MMIO hole), and it was machine-specific and fixed inside `arch/x86_64/mmu.rs`. These four are the
 ones found *before* the machine that punishes them.
@@ -59,5 +59,5 @@ different instance while doing something else: an unclaimed function behind the 
 request rather than confined once, a bridge window nothing programs, a BAR window sized by a constant
 instead of by the bus, and only the first IO APIC of a multi-socket machine kept. Every one is
 reachable from QEMU configurations this tree already runs, so none waits on hardware; they wait on
-somebody looking. This is `design/fatal-risks.md` risk 9's family, found before the machine that
+somebody looking. This is `design/fatal-risks/README.md` risk 9's family, found before the machine that
 would punish them rather than after.

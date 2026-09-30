@@ -462,6 +462,7 @@ static LARGEST_REFUSED: AtomicUsize = AtomicUsize::new(0);
 /// Record an allocation's outcome against [`FREE_LOW_WATER`] and [`REFUSED`]. Called with the
 /// allocator still held, so the reading is the one this allocation produced.
 fn note_allocation(allocator: &PageFrameAllocator<'static>, count: usize, granted: bool) {
+    publish_counts(allocator);
     let free = allocator.stats().free();
     if free < FREE_LOW_WATER.load(core::sync::atomic::Ordering::Relaxed) {
         FREE_LOW_WATER.store(free, core::sync::atomic::Ordering::Relaxed);
@@ -551,12 +552,19 @@ fn zero_frames(frame: PageFrame, count: usize) {
     }
 }
 
+/// **The free count, for the machine statistics page** (milestone 126 (the `procps` package),
+/// DECISIONS §225 (`free` sees the machine and your share)), written by whoever just changed it and
+/// under the same lock, so the page never shows a count the allocator never had.
+fn publish_counts(allocator: &PageFrameAllocator<'_>) {
+    let s = allocator.stats();
+    crate::machine_statistics::frames(s.total, s.free());
+}
+
 pub fn free(frame: PageFrame) {
-    ALLOCATOR
-        .lock()
-        .as_mut()
-        .expect("freeing a frame before memory::init")
-        .free(frame);
+    let mut guard = ALLOCATOR.lock();
+    let allocator = guard.as_mut().expect("freeing a frame before memory::init");
+    allocator.free(frame);
+    publish_counts(allocator);
 }
 
 pub fn stats() -> Option<Stats> {

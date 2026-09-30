@@ -130,7 +130,7 @@ switch_to:
 // in `x19` and the (monomorphized) function that knows how to call it comes in `x20`, and both
 // callee-saved registers, chosen precisely because `switch_to` restores them on the way in.
 // Two registers because the closure's concrete type was erased: the address alone says where,
-// the caller says how. See Thread::spawn (milestone 14 phase B.3).
+// the caller says how. See Thread::spawn_into (milestone 14 (kernel objects from untyped) phase B.3).
 .global thread_trampoline
 .type thread_trampoline, @function
 thread_trampoline:

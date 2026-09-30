@@ -92,6 +92,10 @@ members = [
     "crates/timetable",
     "crates/uptime",
     "crates/top",
+    "crates/machine_statistics_protocol",
+    "crates/free",
+    "crates/vmstat",
+    "crates/slabtop",
 ]
 
 # The vendored RedoxFS engine (vendor/redoxfs) and the host tool that wraps it (tools/redoxfs_host)

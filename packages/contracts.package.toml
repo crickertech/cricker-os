@@ -15,6 +15,7 @@ interfaces = [
     "counter_frequency_protocol",
     "credential_protocol",
     "current_cpu_protocol",
+    "machine_statistics_protocol",
     "entropy_protocol",
     "environment_protocol",
     "filesystem_protocol",

@@ -33,7 +33,7 @@ new survivor deserves to fail something.
   nothing. Deliberate until the weekly numbers prove stable enough to be worth blocking on.
 - **Milestone 238.** The weekly workflow this milestone shipped never once succeeded: four scheduled
   runs on 2026-08-10, -17, -24 and -31, four failures, zero reports, which left
-  `design/fatal-risks.md` risk 3 reading green on a number nothing was refreshing.
+  `design/fatal-risks/README.md` risk 3 reading green on a number nothing was refreshing.
 
 ## Index row
 

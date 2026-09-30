@@ -48,7 +48,7 @@ impl Context {
     /// The initial context for a brand-new **kernel** thread. `switch_to`'s first `ret` lands in
     /// `thread_trampoline`, which reads the closure pointer out of `x19` and the monomorphized
     /// caller out of `x20` (the closure's concrete type was erased, so the address says *where* and
-    /// the shim says *how*). See `Thread::spawn` and context.s.
+    /// the shim says *how*). See `Thread::spawn_into` and context.s.
     pub fn for_kernel_thread(closure_at: u64, call_shim: u64) -> Self {
         Context {
             x19: closure_at,

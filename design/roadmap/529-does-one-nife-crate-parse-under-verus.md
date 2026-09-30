@@ -11,7 +11,7 @@ needs_person: no
 # 529. Does one nife crate parse under Verus at all, and can a verified crate build for a bare-metal target?
 
 *(Number provisional until the merge queue lands it.)* Promoted from the proposal `does-one-nife-crate-parse-under-verus`, filed 2026-09-20, on calef's instruction of 2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own, unedited except for this paragraph: the argument is its author's and promotion is not the moment to improve it. Raised by the `maintainer/verus-versus-kani` lane while writing
-`notes/verus.md`, which priced Verus against Kani for `design/fatal-risks.md` risk 2 (the proofs
+`notes/verus.md`, which priced Verus against Kani for `design/fatal-risks/README.md` risk 2 (the proofs
 prove trivia, and the real bugs live where Kani cannot reach) and could not answer this.
 
 It needs no decision, because it decides nothing: it is a measurement, and its whole
@@ -74,7 +74,7 @@ The deliverable is two or three paragraphs appended to `notes/verus.md`, not a n
 ## Why not now
 
 It is off the customer path, which AGENTS.md says is vacant, and the tie there breaks toward
-`design/fatal-risks.md`. This is on that list only indirectly: risk 2's red half is about reach, and
+`design/fatal-risks/README.md`. This is on that list only indirectly: risk 2's red half is about reach, and
 `notes/verus.md`'s finding is that **Verus does not extend the reach**, so this experiment cannot turn
 risk 2 green. What it can do is close the one open question in a note that otherwise has to say "we
 did not try", which is worth a day and is not worth more.

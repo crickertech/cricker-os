@@ -27,33 +27,33 @@ Bought for this project, in the order it was bought.
 
 ### What is missing, named rather than estimated
 
-- **radon**, the StarFive VisionFive 2, is the second ISA's board and **no purchase record exists in
-  this tree.** `notes/riscv-port.md` says "a ~$70 StarFive VisionFive 2", which is a sentence about
+- radon, the StarFive VisionFive 2, is the second ISA's board and no purchase record exists in
+  this tree. `notes/riscv-port.md` says "a ~$70 StarFive VisionFive 2", which is a sentence about
   the market written before the board was chosen, not a receipt. The order date is not recorded
   either; the board arrived around 2026-08-21. This row is left out rather than filled with the $70,
   because a ledger that guesses is worth less than one with a hole in it. calef can close it in one
   line.
-- **The UART adapters and smart plugs on the bench rig** are unpriced for the same reason. Milestone
+- The UART adapters and smart plugs on the bench rig are unpriced for the same reason. Milestone
   87 prices a smart plug at "$15 and works on anything" as part of an argument for choosing one, not
   as a record of buying one.
-- **Everything before 2026-08-15.** The first five weeks of the project bought no hardware, which is
+- Everything before 2026-08-15. The first five weeks of the project bought no hardware, which is
   a fact rather than a gap: it ran entirely under QEMU on a machine calef already owned.
 
-**The machine this is built on is not in this ledger and should not be.** patagonia is calef's own
+The machine this is built on is not in this ledger and should not be. patagonia is calef's own
 Mac and predates the project; charging a laptop he already had to nife would be inventing a cost.
 The same goes for cordoba, which runs the family's backups and was never bought for this.
 
 ### A correction this ledger makes to milestone 519's own block
 
 Milestone 519 (what this project costs, tracked where it cannot rot) has a table saying "xenon was
-not bought for this project". **That is wrong**, and milestone 87's record is the reason: the
+not bought for this project". That is wrong, and milestone 87's record is the reason: the
 OptiPlex was selected on 2026-08-03 and bought on 2026-08-15 specifically as the dedicated bring-up
 machine for the third ISA target that DECISIONS §19 (architectural parity is a tenet; the targets
 are aarch64, riscv64, and x86_64) names, and its own block says it "completes when the machine has
-printed a byte over serial". It is as much
-a project purchase as argon is. Correcting it triples the recorded hardware figure, from $89.99 to
-$271.81, and it is recorded here rather than silently: the block's number was written from memory in
-the conversation that minted the milestone, and the tree disagreed.
+printed a byte over serial". It is as much a project purchase as argon is, and the block saying
+otherwise is wrong. Correcting it triples the recorded hardware figure, from $89.99 to $271.81, and
+it is recorded here rather than silently: the block's number was written from memory in the
+conversation that minted the milestone, and the tree disagreed.
 
 ## Subscriptions
 
@@ -61,24 +61,35 @@ the conversation that minted the milestone, and the tree disagreed.
 |---|---|---|---|---|
 | 2026-07-12 | (current) | Claude subscription, the inference this project runs on | 200.00 / month | calef, 2026-09-21 |
 | 2026-09-24 | (current) | GitHub Team plan, one seat: CI concurrency 20 → 60 jobs (Actions minutes stay free on a public repository) | 4.00 / month | calef, 2026-09-24 |
+| 2026-09-28 | (current) | z.ai coding plan subscription, the glm-5.3 maintainer sessions and glm-5.3-flash lanes | 80.00 / month | calef, 2026-09-29 |
 
-**The billing day is an assumption and it is the only one in this file.** No invoice is recorded
+The billing day is an assumption and it is the only one in this file. No invoice is recorded
 anywhere in this tree, so `script/metrics` places each charge in the ISO week containing the monthly
 anniversary of the start date: 2026-07-12, 2026-08-12, 2026-09-12, and so on. If the real billing
 day is different, at most one charge lands in a neighbouring week and the running total is unchanged.
 
-**Why `cash_spend` is lumpy, and why it disagrees with a figure you may have seen.** Milestone 519's
-block says "about $470 to date", which is 2.35 months of subscription **accrued** over the ten weeks
-since the first commit. `cash_spend` is what was **paid**, so it puts $200 in three weeks and nothing
+Why `cash_spend` is lumpy, and why it disagrees with a figure you may have seen. Milestone 519's
+block says "about $470 to date", which is 2.35 months of subscription accrued over the ten weeks
+since the first commit. `cash_spend` is what was paid, so it puts $200 in three weeks and nothing
 in the other seven, and sums to $600 by 2026-09-21. Both numbers are correct and they are answers to
 different questions. The column is the paid one because milestone 519's own table defines it that
 way, and because an accrual is derivable from this ledger by anyone who wants it while a payment is
 not derivable from an accrual.
 
+## Rented capacity
+
+§203 (capacity is rented rather than bought), in practice: credit bought from a metered provider
+and spent by the open-weight lanes and the model bake-offs. One row per purchase, hardware's
+shape.
+
+| date | item | price (USD) | source |
+|---|---|---|---|
+| 2026-09-27 | OpenRouter credit, the rented open-weight lanes and the bake-offs of 2026-09-26 to 27 | 115.31 | calef, 2026-09-29 |
+
 ## Retail rates per million tokens
 
-**This is a shadow price and nothing else.** This project pays a fixed monthly subscription, so the
-marginal cost of one more lane is **zero dollars**. These rates answer a different question, which is
+This is a shadow price and nothing else. This project pays a fixed monthly subscription, so the
+marginal cost of one more lane is zero dollars. These rates answer a different question, which is
 what somebody without that subscription would pay a vendor to reproduce the same work. Milestone 519
 says both figures are legitimate and that quoting one while implying the other is the dishonest
 version, so: the paid number is `cash_spend` above, the shadow number is this table times the token
@@ -95,18 +106,18 @@ Rates are list prices on the date recorded, in USD per million tokens.
 | 2026-09-21 | `claude-fable-5-1` | 10.00 | 12.50 | 20.00 | 0.25 | 50.00 | a, b |
 | 2026-09-21 | `claude-haiku-4-5-20251001` | 1.00 | 1.25 | 2.00 | 0.10 | 5.00 | a |
 
-**Source a**: the `claude-api` skill bundled with the agent harness (version 2.1.277), whose model
+Source a: the `claude-api` skill bundled with the agent harness (version 2.1.277), whose model
 table carries input and output prices and is itself dated 2026-06-24, and whose
 `shared/prompt-caching.md` gives the cache multipliers: a write is 1.25x input at the five-minute
 time-to-live and 2x at the one-hour one, and a read is 0.1x input. The four cache columns above are
 that arithmetic, written out so a reader does not have to redo it and so a future rate change is a
 new row rather than a new formula.
 
-**Source b**: the same file records `claude-fable-5-1` as the exception to the read multiplier, at
+Source b: the same file records `claude-fable-5-1` as the exception to the read multiplier, at
 0.025x rather than 0.1x. It is 0.3% of this project's tokens, so it changes no total that matters;
 it is written down because a rounded-off exception is how a table stops being checkable.
 
-**A model with no row here is priced at nothing and counted at nothing.** `<synthetic>` is the
+A model with no row here is priced at nothing and counted at nothing. `<synthetic>` is the
 harness's own label for a response it generated locally, with zero tokens on it, and it has no rate
 because no vendor billed for it. If a model appears in `effort.csv` with no row here,
 `script/metrics` leaves that week's blended rate blank rather than pricing part of the week, because

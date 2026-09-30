@@ -84,7 +84,7 @@ name: mutation testing
 #     it. A representative sample beats a complete answer about a fifth of the tree. Anyone
 #     reversing this should reverse it by fixing the allocation bound, not by going back to slices.
 #
-# The cost is not the missing weekly report. `design/fatal-risks.md`'s third risk stands at
+# The cost is not the missing weekly report. `design/fatal-risks/README.md`'s third risk stands at
 # MEASURED green on a 2026-08-03 number and closes by saying "the weekly workflow already publishes
 # the report", and that sentence is what makes a stale number acceptable. See
 # notes/check-inventory.md and notes/mutation-testing.md.

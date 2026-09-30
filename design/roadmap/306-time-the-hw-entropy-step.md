@@ -10,7 +10,7 @@ Promoted from `design/roadmap/306-time-the-hw-entropy-step.md`
 by the maintainer on 2026-09-16, the day its remaining half was satisfied: a proposal whose work is
 finished is not a proposal, and `script/roadmap` refuses a proposal file that does not say
 `PROPOSED`, which is what surfaced this. Written by milestone 159's third lane, from that
-milestone's own bench procedure. `design/fatal-risks.md` risk 6 carries the result and
+milestone's own bench procedure. `design/fatal-risks/README.md` risk 6 carries the result and
 `bench/radon-2026-09-16/tour-083200.log` is the transcript.
 *(Number provisional until the merge queue lands it.)*
 
@@ -35,7 +35,7 @@ but radon could do.
 **Everything below this line is the proposal as it was written on 2026-09-04**, kept as the account
 it is rather than rewritten into the past tense. Where it says the question is open, it was.
 
-**In brief.** `design/fatal-risks.md` risk 6 is *"a capability-confined userspace driver cannot
+**In brief.** `design/fatal-risks/README.md` risk 6 is *"a capability-confined userspace driver cannot
 drive real hardware at real speed"*. On 2026-09-04 its **confined** half and its **drives real
 hardware** half were both demonstrated on radon. **At real speed** is the remainder, and nothing in
 the tree can currently answer it, because the only clock available to a bench session is a person
@@ -154,26 +154,26 @@ The scan's own behaviour is a separate question and is milestone 392,
 ## Follow-on
 
 - **Done.** The measurement itself, on radon 2026-09-16, one boot, transcript
-  `bench/radon-2026-09-16/tour-083200.log`. `design/fatal-risks.md` risk 6's third bullet carries it.
+  `bench/radon-2026-09-16/tour-083200.log`. `design/fatal-risks/README.md` risk 6's third bullet carries it.
 - **Recorded.** The QEMU reference is not a denominator, and the limitation lives beside the table
   that prints it in this block's own "What QEMU measured" section: radon is thirty times faster than
   the emulated floor, so a number taken under TCG cannot bound a number taken on this silicon in
   either direction. Anyone reaching for that table to price a real device should read it as evidence
   that the path works, not as a cost.
 - **Recorded.** The like-for-like comparison against Linux's `jh7110-trng.c` on the same silicon is
-  unmeasured, and the limitation is beside the number in `design/fatal-risks.md` risk 6 and in the
+  unmeasured, and the limitation is beside the number in `design/fatal-risks/README.md` risk 6 and in the
   tour line itself. Linux's driver is interrupt-driven where this one polls, so the two have to be
   measured over the same thing before either number means anything about the other. This block
   deliberately does not claim it.
 - **Recorded.** That this number settles nothing about a larger device is a limitation recorded in
-  `design/fatal-risks.md` risk 6, where a reader meets the claim: a TRNG has no DMA, no interrupt in
+  `design/fatal-risks/README.md` risk 6, where a reader meets the claim: a TRNG has no DMA, no interrupt in
   this driver's path and one register window, so it is the smallest real device on the board. Risk
   6's decisive experiment is unchanged and is still an EL0 NVMe driver at throughput.
 
 ## Index row
 
 The riscv64 boot tour printed `pcie` and then `hw entropy` with nothing in between, so the last open
-half of `design/fatal-risks.md` risk 6 (*a capability-confined userspace driver cannot drive real
+half of `design/fatal-risks/README.md` risk 6 (*a capability-confined userspace driver cannot drive real
 hardware at real speed*) could only be resolved by a person with a stopwatch at a serial console,
 which answers "milliseconds or minutes" and nothing finer. This makes the step time itself and print
 three figures: the whole `pcie`-to-`hw entropy` gap, the bring-up alone, and the draws with a rate.

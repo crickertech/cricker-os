@@ -1,11 +1,18 @@
 #!/bin/sh
-# pre-push: the formatting gate, run where it is cheap.
+# pre-push: the formatting gate and the clippy gate, run where they are cheap.
 #
 # CI's rustfmt is one of seven required checks, and a lane that pushes unformatted code learns
 # that from a runner ten minutes later, then pushes again. Every lane on 2026-08-15 and -16 paid
 # that tax at least once, three of them on the same night, which is a gate teaching the wrong
 # lesson: "run CI to find out how to format". This runs the identical check in ~0.7 s before the
 # push leaves the machine.
+#
+# Clippy joined on 2026-09-29 (calef: "run the clippy gate before they push, since we see regular
+# failures of that gate"), for the same reason one level up: #1424 reached CI with stale lints and
+# #1442's push left before its lint was read, and both are a red runner teaching "run CI to find
+# out what clippy thinks". The hook runs `script/lint --clippy`, the identical clippy passes CI
+# runs, from this file's single copy; a cold target directory makes the first push slow and a warm
+# one makes it seconds, which is the price of the gate and cheaper than the queue's round trip.
 #
 # Installed by `script/setup` via core.hooksPath, so it covers every worktree sharing this .git
 # (which is how lanes work) rather than needing per-worktree installation.
@@ -20,6 +27,15 @@ root="$(git rev-parse --show-toplevel)"
 if ! "$root/script/fmt" --check >/dev/null 2>&1; then
     echo "pre-push: rustfmt would change files, and CI's rustfmt check will fail." >&2
     echo "  Fix:    script/fmt        (then commit and push again)" >&2
+    echo "  Bypass: git push --no-verify" >&2
+    exit 1
+fi
+
+# A `script/lint` that predates `--clippy` ignores the flag and runs in full, which is slower and
+# still correct; CI judges either way, as it did before 2026-09-29.
+if ! "$root/script/lint" --clippy >/dev/null 2>&1; then
+    echo "pre-push: clippy failed, and CI's clippy check will fail the same way." >&2
+    echo "  Fix:    script/lint --clippy   (read its output, fix, commit, push again)" >&2
     echo "  Bypass: git push --no-verify" >&2
     exit 1
 fi

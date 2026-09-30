@@ -232,7 +232,6 @@ design/decisions/README.md	-	-	70	-	-
 design/display-ladder.md	-	23	56	9	8
 design/driver-domains.md	-	-	46	13	5
 design/fat-binaries.md	-	-	-	18	11
-design/fatal-risks.md	-	-	42	17	2
 design/fatal-risks/somebody-elses-software.md	-	-	44	-	-
 design/haiku-bfs-and-packages.md	-	-	45	8	17
 design/init-and-granular-spawn.md	-	-	61	22	16

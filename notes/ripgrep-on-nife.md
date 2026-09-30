@@ -1,6 +1,6 @@
 # `ripgrep` on nife: what a stranger's program actually hits
 
-*(Milestone 121 (ripgrep), and `design/fatal-risks.md` risk 1's decisive experiment. Run 2026-08-31 on
+*(Milestone 121 (ripgrep), and `design/fatal-risks/README.md` risk 1's decisive experiment. Run 2026-08-31 on
 aarch64 and riscv64, QEMU virt, against `ripgrep` 14.1.1 from crates.io.)*
 
 Risk 1 says the platform *"can run hand-written Rust and nothing else, so every piece of software
@@ -96,7 +96,7 @@ See §4.
 
 ### 3. Where does it hit DECISIONS §105?
 
-It does not, and this is the most useful negative result here. The expectation in `fatal-risks.md`
+It does not, and this is the most useful negative result here. The expectation in `design/fatal-risks/README.md`
 was that `ripgrep` *"uses threads, so it runs straight into the one thing this project has decided not
 to build"*, and that a red result would be §105 Option A arriving with evidence.
 

@@ -106,7 +106,7 @@ Three rows need a sentence before anyone quotes them.
   benchmark, which resident dead code cannot cause. The control, milestone 370 (a layout control),
   was built on 2026-09-19 and has not been run.
 - The milestone 168 row's date belongs to an instrument that changed on 2026-09-19. Risk 4 in
-  `design/fatal-risks.md` and §96 (process kernel or event kernel) wait on the next radon evening.
+  `design/fatal-risks/README.md` and §96 (process kernel or event kernel) wait on the next radon evening.
 - The cross-OS row's date was recovered from git, not from a recorded run. It is the number a
   stranger quotes first, and it has not been re-taken.
 
@@ -163,7 +163,7 @@ time.
 
 | series | what it counts | argued in |
 |---|---|---|
-| fatal risks | the nine risks in `design/fatal-risks.md` by experiment status (`RUN`, `NOT-RUN`, `CANNOT-RUN`) | [records by status](register-of-measures/records-by-status.md) |
+| fatal risks | the nine risks in `design/fatal-risks/README.md` by experiment status (`RUN`, `NOT-RUN`, `CANNOT-RUN`) | [records by status](register-of-measures/records-by-status.md) |
 | Kani proof harnesses | harnesses, and how many carry a falsification record | [proofs and coverage](register-of-measures/code-proofs-and-coverage.md) |
 | unsafe outside `arch/` | blocks per 10,000 code lines, against the gated ceiling | [the unsafe series](register-of-measures/unsafe-series.md) |
 | unsafe by trust boundary | the same blocks split kernel, userspace, shared and boot chain | [the unsafe series](register-of-measures/unsafe-series.md) |
