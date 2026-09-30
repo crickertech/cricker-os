@@ -296,17 +296,15 @@ One line each. The full entry, with its reasoning and history, is in
 - The `std-src` patches are string-anchored to the pinned nightly. A bump that reshapes a dispatcher
   fails with "anchor not found", which is the intended tripwire.
 - `nife-dev` is one name for the whole account. Relinking loudly makes a stolen link visible, and a
-  lane whose build is already in flight when another relinks still loses (above). Every build this
-  tree owns names the farm by path, so the name's remaining reach is a person typing `+nife-dev`.
+  lane whose build is already in flight when another relinks still loses (above). The name's
+  remaining reach is a person typing `+nife-dev`.
 - `std-aborts` covers `sys/` only, and proves a body reachable, never a call. A stale or foreign
-  build under `std_exerciser/target` can be reported as a source defect, or fail inside the unpatched
-  std; the recovery for both is `rm -rf std_exerciser/target`
-  ([the std-aborts appendix](std/std-aborts.md#bugs)). An exported `CARGO_TARGET_DIR` used to blind
-  it entirely, judging the previous run's evidence while a wrong-sysroot build passed (the 1377
-  lane, twice, 2026-09-30); `std-exerciser` now pins and prints the override. A build run by hand
-  inside the repo without `RUSTUP_TOOLCHAIN` still resolves the unpatched sysroot through
-  `rust-toolchain.toml`, which is `script/crypto-probes`' documented trap. The name `std-aborts` is
-  provisional.
+  build under `std_exerciser/target` can be reported as a source defect, or fail inside the
+  unpatched std; the recovery for both is `rm -rf std_exerciser/target`
+  ([the appendix](std/std-aborts.md#bugs)). An exported `CARGO_TARGET_DIR` used to blind the check
+  entirely; `std-exerciser` now pins and prints the override. A hand-run build inside the repo
+  still resolves the unpatched sysroot through `rust-toolchain.toml` (`script/crypto-probes`'
+  documented trap). The name `std-aborts` is provisional.
 
 ## Appendices
 
