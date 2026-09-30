@@ -276,7 +276,7 @@ pub fn invoke(
                 rendezvous_reap(ep, a0)
             }
 
-            // **Read one entry of the domain this endpoint supervises** (milestone 126). The view
+            // **Read one entry of the domain this endpoint supervises** (milestone 126 (the `procps` package)). The view
             // half of what REAP is the control half of, and scoped by the same relationship, so a
             // supervisor sees exactly the children whose deaths would arrive here.
             //
@@ -451,6 +451,11 @@ pub fn invoke(
                 }
                 memory_region_destroy(region)
             }
+            // What the region was spent on (milestone 126's `free`, DECISIONS §225 (`free` sees the machine and your share) part 1). Under
+            // `ENUMERATE` alone, `address_space::LIST`'s rule one object type over: learning what
+            // a budget went to is not the authority to spend it. An unknown record is refused
+            // before the region is looked up, `SURVEY`'s order.
+            abi::memory_region::USAGE => memory_region_usage(cap, region, a0),
             _ => Err(Error::BadMethod),
         },
 
@@ -1400,6 +1405,25 @@ fn virtio_invoke(id: usize, method: u64, a0: u64, a1: u64) -> Result<i64, Error>
 fn rendezvous_reap(ep: crate::sched::RendezvousId, tid: u64) -> Result<i64, Error> {
     sched::reap_supervised(ep, tid)?;
     Ok(0)
+}
+
+/// The body of `abi::memory_region::USAGE` (milestone 126 (the `procps` package), `free`),
+/// out of line and `#[inline(never)]` for [`address_space_list`]'s reason: `syscall_entry` is
+/// measured flat, and a method only `free`, `vmstat` and `slabtop` call must not grow every
+/// syscall's footprint. The first CI run with it inline measured `syscall_entry` 5.6% larger on
+/// riscv64 and 8.8% on `x86_64`, over the 5% bound.
+/// The rights check lives here too, `page_frame_map`'s shape, so the arm in `invoke` is one call.
+#[inline(never)]
+fn memory_region_usage(cap: crate::cap::Cap, region: u64, record: u64) -> Result<i64, Error> {
+    if !cap.rights.allows(Rights::ENUMERATE) {
+        return Err(Error::NotPermitted);
+    }
+    if !abi::usage::is_known(record) {
+        return Err(Error::BadMethod);
+    }
+    crate::memory_region::usage_record(region, record)
+        .map(|pages| pages as i64)
+        .ok_or(Error::Gone)
 }
 
 /// The body of `abi::address_space::LIST` (milestone 126's `pmap`, DECISIONS §114), pulled out of

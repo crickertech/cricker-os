@@ -61,6 +61,7 @@ mod iommu;
 #[cfg(any(test, feature = "ipc_stack_depth"))]
 mod ipc_stack_depth;
 mod kmem;
+mod machine_statistics;
 mod memory;
 mod panic;
 #[cfg(test)]
@@ -162,6 +163,9 @@ pub mod system_test_access {
     }
     pub mod memory {
         pub use crate::memory::*;
+    }
+    pub mod machine_statistics {
+        pub use crate::machine_statistics::*;
     }
     pub mod memory_region {
         pub use crate::memory_region::*;
