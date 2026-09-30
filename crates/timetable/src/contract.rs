@@ -88,8 +88,9 @@ pub const ARG_REGISTRATION_PAGE: usize = 2;
 /// replacement holds two plans at once; eight pages died with a stack overflow in 2026-08.
 ///
 /// **Raised 32 -> 48 on 2026-09-30**, when the store-mode registration chain overflowed 32 pages on
-/// both ISAs after `main` grew `grant_plan`'s planning path underneath this branch (milestone 205's
-/// designate and stage planning). The debug-build frames, measured with `-Z emit-stack-sizes`:
+/// both ISAs after `main` grew `grant_plan`'s planning path underneath this branch (milestone 205
+/// (how a foreign program is told what to do)'s designate and stage planning). The debug-build
+/// frames, measured with `-Z emit-stack-sizes`:
 /// `replace_if_asked` 48.0 KiB, `Registry::register` 21.2 KiB, `_start` 20.0 KiB,
 /// `plan_against_with` 13.4 KiB, the resolve closures 11.2 and 10.0 KiB, `register_installed`
 /// 9.8 KiB, `admit_installed` 5.6 KiB, and the store's `resolve_installed` -> `load_current` ->
