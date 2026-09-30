@@ -18,12 +18,12 @@ unlucky?
 - The CI workflow (`ci.yml`) over 2026-08-30..2026-09-30, metadata only, from the Actions API. The
   filtered listing caps at 1000 rows per query, so the window was fetched per day and deduplicated
   by run id; 5380 unique runs, newest 2026-09-29T23:19Z. A run's conclusion reflects its
-  **latest attempt**, so a failure rerun green reads as success; `run_attempt` in the listing finds
+  latest attempt, so a failure rerun green reads as success; `run_attempt` in the listing finds
   the reruns, and each prior attempt's failed jobs were read separately. The API throttled to 502
   zero times, so the sleep-and-retry path never fired.
-- Job and step conclusions for every run whose latest attempt failed (444 runs), then **15 job
-  logs, tail only**: the two phenomenon attempts, the five 2026-09-29 evening failures, a spread of
-  the 2026-09-26/27 block, both 2026-09-28 failures, one 2026-09-25, one 2026-09-21. Check-run
+- Job and step conclusions for every run whose latest attempt failed (444 runs), then 15 job
+  logs, tail only: the two phenomenon attempts, the five 2026-09-29 evening failures, a spread of
+  the 2026-09-26/27 block, and one each from 2026-09-28, 2026-09-25 and 2026-09-21. Check-run
   annotations carry no failure text (exit code only), so no cheaper classification exists.
 - Local reproduction from the lane worktree: `helpers/qemu-bounded.sh` around every
   `script/swish-check --arch <arch>`, one QEMU at a time, 10 runs per architecture plus warm-ups,
@@ -34,7 +34,7 @@ Two lane hazards found while setting up, recorded because the next lane will hit
 - **`CARGO_TARGET_DIR` silently drops the file server from the archive.** `redoxfs_server_build`
   honors the variable but `redoxfs_server_elf` reads `redoxfs_server/target/<triple>/release/...`
   (xtask/src/disk.rs:104), so the packer cannot find the server and the boot runs with no
-  filesystem: the archive shrinks 101 programs to 99, the progenitor prints neither
+  filesystem. The archive shrinks 101 programs to 99, the progenitor prints neither
   directory-grant sentence, and the gate fails on the missing sentence rather than naming the
   cause. Symlink `redoxfs_server/target` at the same directory `CARGO_TARGET_DIR` names.
 - **A target dir shared across differently-based worktrees cross-compiles.** Stale rlib metadata
@@ -47,7 +47,7 @@ Two lane hazards found while setting up, recorded because the next lane will hit
 - 5380 CI runs in the window: 4278 green, 447 failed at latest attempt, 653 cancelled. Events:
   3399 pull_request, 1170 merge_group, 639 push, 172 workflow_dispatch.
 - 158 runs failed `build + test (host + QEMU)`. Of those, the gate's step
-  (`script/ci-build test swish-check swish-check-graphical   boot-check`, .github/workflows/ci.yml:403)
+  (`script/ci-build test swish-check swish-check-graphical boot-check`, .github/workflows/ci.yml:403)
   failed in 84, and its pre-rename `shell-check` spelling in 54 more (renamed 2026-09-23). Nineteen
   failed an older generic step name and are unclassified: no log budget was spent on them. With 16
   rerun-hidden failures found in prior attempts, 154 runs are known to have failed the gate's step
@@ -76,7 +76,7 @@ to close inside it.
 **The echo wait (signature of #1442).** Each typed line is waited for as an exact string,
 `wait_after(at, "{echoed}\n", 30s)` (xtask/src/swish_check.rs:2192; the 30s constant at :1217, boot
 120s at :1216, x86_64 90s at :1246). The failure is usually not slowness. Run 36622549563's
-transcript shows the kernel's progenitor-stack gauge spliced **inside** the echo itself:
+transcript shows the kernel's progenitor-stack gauge spliced inside the echo itself:
 
 ```
 $ packages/greeting/0  progenito.1.0/r stack: 27400 of 49152 bytes at peak, 21752 spare
@@ -96,7 +96,7 @@ answers with the `SPAWN_FAILED` sentinel (components/src/swish.rs:3053; the sent
 `u64::MAX`, crates/grant_plan/src/spawnproto.rs:633). A `std` program needs one contiguous
 384-page region (`STD_REGION_PAGES`, crates/grant_plan/src/lib.rs:1713) carved from a job pool of
 exactly six native regions plus one std region (crates/system_initializer/src/lib.rs:702).
-`split_job` waits for an in-flight reap by **yielding 1024 times**, and its own doc calls that
+`split_job` waits for an in-flight reap by yielding 1024 times, and its own doc calls that
 "kept on effort, and a foot gun", recording the same CI failure on 2026-09-27
 (system_initializer/src/lib.rs:4002-4032). Reclamation is asynchronous (`components/src/job_undertaker.rs`),
 and its BUGS note a mode where a parked fault-report SEND wedges the collecting loop entirely
@@ -128,14 +128,14 @@ answered.
 
 ## Remediation candidates, priced; none enacted
 
-- **Raise the echo wait (30s to 60s).** Fixes a mode absent from the sample (genuine slowness);
+- Raise the echo wait (30s to 60s). Fixes a mode absent from the sample (genuine slowness);
   the observed echo reds never see the string at all. Cost: a real hang reports twice as late.
   Not recommended on this data.
-- **Retry the failing leg once inside the gate.** Mechanizes what the constant doc already tells a
+- Retry the failing leg once inside the gate. Mechanizes what the constant doc already tells a
   person to do (swish_check.rs:1211-1212). Cures both signatures as observed (both rerun green).
   Cost: one extra leg of CI time only on red, and a deterministic interleave defect would surface
   as intermittent rather than red, trading loudness for throughput.
-- **Raise QEMU `-m`.** Buys nothing: both signatures are bounded by the progenitor's internal pool
+- Raise QEMU `-m`. Buys nothing: both signatures are bounded by the progenitor's internal pool
   and by a two-writer race, not by machine RAM. Not priced further.
 - **The root fixes, both already tracked.** The interleave class dies when the kernel stops writing
   the UART once userspace owns it (DECISIONS §175 (where the kernel's own output goes once
@@ -143,7 +143,7 @@ answered.
   race dies when the undertaker tells the progenitor a job's memory is back
   (`design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`). Both are architect
   territory, not this lane's.
-- **Runner variance as the finding.** Both confirmed signatures are races whose windows scale with
+- Runner variance as the finding. Both confirmed signatures are races whose windows scale with
   runner speed; the local host cannot reproduce them in 20 legs and CI's slower runners can in one
   evening. If the flake needs one sentence: it is the gate meeting CI's machines, not a defect in
   what the gate measures.
