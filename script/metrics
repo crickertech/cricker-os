@@ -1417,7 +1417,8 @@ def write_drift_report():
 
 
 # The ratified field and its three values, as `script/fatal-risks` gates them. calef ruled on
-# 2026-09-23 and `design/fatal-risks.md`'s vocabulary section carries the argument; the enumeration
+# 2026-09-23 and the vocabulary section of the fatal-risks summary (since 2026-09-29,
+# `design/fatal-risks/README.md`) carries the argument; the enumeration
 # is duplicated here rather than imported because `script/fatal-risks` is a shell wrapper around a
 # heredoc with nothing importable in it, and because this reader is asked about HISTORY, where the
 # words were different. A word that leaves the ratified set breaks the gate before it reaches here.
@@ -1470,7 +1471,12 @@ def fatal_risks(tree):
     """
     counts = {'fatal_risks_run': 0, 'fatal_risks_not_run': 0, 'fatal_risks_cannot_run': 0,
               'fatal_risks_total': 0}
-    text = tree.text.get('design/fatal-risks.md')
+    # The summary moved inside the directory as its README on 2026-09-29 (`45dfa3d77`, PR #1452),
+    # which deleted `design/fatal-risks.md`. The old path is tried FIRST on purpose, because a
+    # tree can hold both: from the directory's mint (2026-09-23) to the move, the `.md` was the
+    # nine-entry summary and the README a nine-line index, so reading the README first would count
+    # zero risks for those weeks. Trees after the move have only the README, and it is the summary.
+    text = tree.text.get('design/fatal-risks.md') or tree.text.get('design/fatal-risks/README.md')
     if not text:
         return counts
     parts = re.split(r'^## (\d+)\.', text, flags=re.M)
@@ -2029,8 +2035,8 @@ CHARTS = [
       ('boot chain (uefi_loader)', 'unsafe_trust_boot_chain'),
       ('unclassified', 'unsafe_trust_unclassified')], 1.0, None, None),
     ('fatal-risks.svg', 'The nine things that would kill nife, by Experiment status',
-     'design/fatal-risks.md; this says whether an experiment happened, never what it found. The '
-     'findings are in that file, in prose',
+     'design/fatal-risks/README.md; this says whether an experiment happened, never what it found. '
+     'The findings are in that file, in prose',
      [('RUN', 'fatal_risks_run'), ('NOT-RUN', 'fatal_risks_not_run'),
       ('CANNOT-RUN', 'fatal_risks_cannot_run'),
       ('unclassified', 'fatal_risks_unclassified')],
