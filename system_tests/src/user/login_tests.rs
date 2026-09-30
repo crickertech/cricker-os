@@ -64,7 +64,20 @@ use crate::sched;
 /// "logs back out before returning" shape, plus one refusal that never reaches `mint` at all
 /// (`NO_TERMINAL`, checked before authentication) and one bare front-door word: no new permanent
 /// charge.
-const CONSTRUCTION_PAGES: u64 = 2176;
+///
+/// **Raised 2176 -> 3088 for milestone 152's durable tests (2026-09-30).** The itemised minimum is
+/// now 160 + 16 * 64 (a caretaker region for every permanently-kept login, the four detaching
+/// durable clients' included) + 12 * 64 (the ordinary sessions' client budgets) = 1952, but the
+/// flat sum is not what the budget must hold: `caretaker_teardown`'s ten logout cycles and the
+/// refused logins' churn split and return **out of order**, and a split needs contiguous pages, so
+/// LIFO holes strand some of the slack (the same rule `DURABLE_UT_PAGES`'s own comment states for
+/// its budget). At 2688 the stranded holes caught up with the suite at its ~23rd login and the
+/// answer was `DENIED` on a correct password, which is what a spent construction budget looks like
+/// from outside (`mint`'s `None`, folded into `DENIED`); at 3088 the whole suite runs green and the
+/// kernel ledger reads 24829 kept (`kernel::testing::SUITE_PAGE_FRAME_BUDGET`'s own account). Every
+/// earlier full run died in `a_durable_session_is_re_derived_at_start_up_unless_suspended` before
+/// reaching any of this.
+const CONSTRUCTION_PAGES: u64 = 3088;
 
 /// **What `login` splits off its construction budget at start-up for durable sessions** (milestone
 /// 152): one durable session's budget, `login_protocol::durable::BUDGET_PAGES`, the constant `login`
