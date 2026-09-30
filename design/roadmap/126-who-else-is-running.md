@@ -61,6 +61,14 @@ The raise put the stack-frame and fastpath-footprint gates red. Kernel threads a
 place, and calef chose a free-slot bitmap for `CapabilityTable::insert` on #1360; that note
 has the before and after numbers.
 
+The sweep over that word changed the proofs' shape too. `delete_matching` walks the occupied
+mask, and a bit-scan's trip count is data-dependent, so under bounded unwinding the two table
+harnesses (`the_count_is_the_slots`, `the_free_mask_is_the_empty_slots`) never terminated: one
+CI shard spent its whole 45-minute cap on them twice, and a local run was past iteration 1669
+after four hours. Both now carry `#[kani::unwind(4)]`, N + 1 for their N = 3, with the
+soundness argument beside each attribute in `crates/capability/src/lib.rs`; the crate's
+14 harnesses prove in 17 s.
+
 ## Why this package, and why the package rather than the program
 
 What these programs want is enumeration of the process namespace, and enumeration is the authority

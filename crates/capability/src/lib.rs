@@ -678,8 +678,21 @@ mod verification {
     /// It covers the freeing side deliberately: `any_small_capability_table` builds through `put`,
     /// so growth is exercised on the way in, and both `delete` and `delete_matching` run here.
     ///
+    /// **Why this harness carries `#[kani::unwind(4)]`, and why 4 is sound** (milestone 126 (the
+    /// `procps` package), 2026-09-29, UTC). The free-slot word's sweep (`delete_matching`) walks the
+    /// occupied mask, and a bit-scan's trip count is data-dependent (one iteration per set bit,
+    /// lowest first), so symbolic execution cannot read it off an induction variable the way it
+    /// reads `0..N`: unbounded, Kani was still unwinding iteration 1669 on this three-slot table
+    /// when the CI shard hit its cap. The bound is N + 1 for this harness's N = 3: the builder and
+    /// the occupancy fold loop over `0..3` exactly, and the bit-scan clears one occupied bit per
+    /// iteration over a mask `occupied_mask()` restricts to the N bits that exist, so no loop in
+    /// here can run a fourth time. Kani's unwinding assertion fails if one could, which makes a
+    /// raise of `N` that outgrew the bound a verification failure rather than a proof that quietly
+    /// covers less.
+    ///
     /// Falsification: replayable `crates/capability/falsifications/verification.the_count_is_the_slots.patch`
     #[kani::proof]
+    #[kani::unwind(4)]
     fn the_count_is_the_slots() {
         fn occupied(cs: &CapabilityTable<u8, 3>) -> usize {
             (0..3).filter(|&i| cs.slot(i).is_some()).count()
@@ -718,8 +731,15 @@ mod verification {
     /// Bits at and above `N` must stay clear too, or a full table would not be a zero word and
     /// `insert` would hand out a slot that does not exist.
     ///
+    /// **Same bound and same argument as `the_count_is_the_slots`: `#[kani::unwind(4)]` is N + 1
+    /// for this harness's N = 3.** Every loop here is the builder's exact `0..3`, one of the two
+    /// `empties` folds over `0..3`, or the sweep's bit-scan, which `occupied_mask()` holds to the N
+    /// bits that exist and which clears one bit per iteration; nothing can iterate a fourth time,
+    /// and the unwinding assertion says so by failing if one ever could.
+    ///
     /// Falsification: replayable `crates/capability/falsifications/verification.the_free_mask_is_the_empty_slots.patch`
     #[kani::proof]
+    #[kani::unwind(4)]
     fn the_free_mask_is_the_empty_slots() {
         fn empties(cs: &CapabilityTable<u8, 3>) -> u32 {
             (0..3)
