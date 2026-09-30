@@ -54,7 +54,6 @@
 #                                  because every merge moves the current week's numbers.
 #   script/metrics --charts        regenerate the SVGs from the CSV without touching the CSV, and
 #                                  rewrite the table of contents on notes/project-metrics.md
-#   script/metrics --check-toc     non-zero if that table of contents does not match the page's
 #                                  chart headings. `script/lint` runs it; nothing about it moves
 #                                  with the week, unlike --check.
 #
@@ -175,11 +174,9 @@ import rust_source                                                          # no
 from rust_source import non_blank, strip_non_code                           # noqa: E402
 
 PAGE = 'notes/project-metrics.md'
-# The page's table of contents is written by this script between these two lines and nowhere else
-# (calef, 2026-09-24). A hand-kept one drifts the first time a panel is added, and panels are added
-# weekly; `script/lint` runs `--check-toc`, so a stale one fails a build rather than a reader.
-TOC_BEGIN = '<!-- toc: script/metrics writes this -->'
-TOC_END = '<!-- /toc -->'
+# The page carried a generated table of contents from 2026-09-24 until calef cut it on 2026-09-30:
+# the document no longer needs one, and a TOC that nobody needs is the one thing worse than a stale
+# one. The markers and the writer are gone; this note keeps the reason the absence is deliberate.
 DATA_DIR = pathlib.Path('notes/project-metrics')
 # The data files themselves are one per measure and are named by `MEASURES` below. There is no
 # single joined file; milestone 581 (one metrics file per measure) retired `weekly.csv`.
@@ -2202,42 +2199,6 @@ def github_anchor(heading):
     return kept.replace(' ', '-')
 
 
-def page_toc(text):
-    """One link per chart panel: a `## ` heading whose section holds an image from the data
-    directory. A heading with no chart under it is prose, not a panel, and is left out, so the list
-    is exactly what a reader scanning for a chart wants. A repeated heading gets GitHub's `-1`
-    suffix, which is why every heading is counted and not only the listed ones."""
-    lines, seen, current = [], {}, None
-    for line in text.split('\n'):
-        if line.startswith('## '):
-            title = line[3:].strip()
-            base = github_anchor(title)
-            n = seen.get(base, 0)
-            seen[base] = n + 1
-            current = (title, base if n == 0 else '%s-%d' % (base, n))
-        elif current and line.startswith('![') and '](project-metrics/' in line:
-            lines.append('- [%s](#%s)' % current)
-            current = None
-    return lines
-
-
-def render_page_toc(text):
-    if text.count(TOC_BEGIN) != 1 or text.count(TOC_END) != 1:
-        raise SystemExit('metrics: %s must carry exactly one %r and one %r'
-                         % (PAGE, TOC_BEGIN, TOC_END))
-    head, rest = text.split(TOC_BEGIN)
-    _old, tail = rest.split(TOC_END)
-    return head + TOC_BEGIN + '\n' + '\n'.join(page_toc(text)) + '\n' + TOC_END + tail
-
-
-def write_page_toc():
-    path = pathlib.Path(PAGE)
-    text = path.read_text()
-    new = render_page_toc(text)
-    if new != text:
-        path.write_text(new)
-
-
 # Trend lines, keyed by chart. calef asked on 2026-09-24 for a trailing ten-week mean on the
 # velocity chart and then the pull-request chart, one helper for both, because a flow that swings
 # from 8 to 49 to 13 in three weeks cannot be read for direction by eye. It is drawn and never stored, like the fatal-risks chart's unclassified band:
@@ -2263,7 +2224,6 @@ def trailing_mean(rows, weeks, field, span):
 
 
 def draw_charts(rows):
-    write_page_toc()
     write_bold_status(rows)
     write_drift_report()
     write_interface_line(rows)
@@ -2345,14 +2305,6 @@ def main(argv):
         return 0
 
     mode = args[0] if args else '--table'
-    if mode == '--check-toc':
-        text = pathlib.Path(PAGE).read_text()
-        if render_page_toc(text) != text:
-            print('metrics: the table of contents on %s is stale; run script/metrics --charts'
-                  % PAGE, file=sys.stderr)
-            return 1
-        print('metrics: %s lists all %d chart panels' % (PAGE, len(page_toc(text))))
-        return 0
     if mode not in ('--table', '--csv', '--backfill', '--update', '--check', '--charts'):
         raise SystemExit('metrics: unknown argument %s; see the comment at the top of this script'
                          % mode)

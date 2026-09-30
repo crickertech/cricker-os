@@ -19,31 +19,6 @@ each chart to the appendix that argues it. That register is the half of this pai
 change. Keep it that way: a caveat that cannot survive one line is
 not a caption, it is a register entry.
 
-<!-- toc: script/metrics writes this -->
-- [The nine things that would kill nife](#the-nine-things-that-would-kill-nife)
-- [Kani proof harnesses, and what can falsify them](#kani-proof-harnesses-and-what-can-falsify-them)
-- [unsafe blocks outside kernel/src/arch/](#unsafe-blocks-outside-kernelsrcarch)
-- [The same unsafe blocks, by trust boundary](#the-same-unsafe-blocks-by-trust-boundary)
-- [Milestones built each week](#milestones-built-each-week)
-- [Pull requests merged each week](#pull-requests-merged-each-week)
-- [Which model wrote it](#which-model-wrote-it)
-- [Lines touched, by the model that signed them](#lines-touched-by-the-model-that-signed-them)
-- [What this project costs](#what-this-project-costs)
-- [What a turn costs](#what-a-turn-costs)
-- [Architecture decisions by status](#architecture-decisions-by-status)
-- [Names by what the tree records about them](#names-by-what-the-tree-records-about-them)
-- [Milestones by status](#milestones-by-status)
-- [Rust in the tree](#rust-in-the-tree)
-- [BUGS sections](#bugs-sections)
-- [Coverage](#coverage)
-- [The lowest-covered file](#the-lowest-covered-file)
-- [The prose budget](#the-prose-budget)
-- [The bold backlog](#the-bold-backlog)
-- [Homes](#homes)
-- [Benchmark drift since a fixed anchor](#benchmark-drift-since-a-fixed-anchor)
-- [Interface stability](#interface-stability)
-<!-- /toc -->
-
 ## Read this before you read a number
 
 - Every row is a restatement, not a report. The series applies *today's* definitions to old
