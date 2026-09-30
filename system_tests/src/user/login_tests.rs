@@ -73,8 +73,15 @@ const DURABLE_UT_PAGES: u64 = login_protocol::durable::BUDGET_PAGES;
 
 /// **Install the one program the durable tests schedule**, as an installer would (milestone 152,
 /// Fork 8 ruled D by calef on 2026-09-27, on #1377): a scheduled job runs what the live activation
-/// generation names, so `least_authority_demo`'s bytes go to `packages/` and a generation naming
-/// them to `activation/`. Written once per boot, before either `login` that opens a schedule starts.
+/// generation names, so the demo's bytes go to `packages/` and a generation naming them to
+/// `activation/`. Written once per boot, before either `login` that opens a schedule starts.
+///
+/// The bytes are `least_authority_demo`'s, out of the initrd, because the image is the only source
+/// this harness has; the **name is not the image's**, because §229 refuses a package entry under a
+/// name the image carries, calef's ruling of 2026-09-27, and this image carries
+/// `least_authority_demo`. Installing under the image's own name panicked the whole guest suite at
+/// `with_entry`'s `ImageName` refusal the moment the rebase met that ruling, which is the inbound
+/// check regression this fixture's rename fixes. `scheduled_demo` is provisional.
 fn install_scheduled_program() {
     use core::sync::atomic::{AtomicBool, Ordering};
     static DONE: AtomicBool = AtomicBool::new(false);
@@ -82,7 +89,7 @@ fn install_scheduled_program() {
         return;
     }
     let bytes = program("least_authority_demo").expect("no least_authority_demo in the initrd");
-    fs_service::install_for_test("least_authority_demo", "demo", "0.1.0", bytes);
+    fs_service::install_for_test("scheduled_demo", "demo", "0.1.0", bytes);
 }
 
 /// `EEXIST`, matching `identity_provisioner.rs`'s own local constant: `fs_proto` does not re-export

@@ -250,8 +250,14 @@ pub mod fixture {
     /// One `at-boot` entry and one `every` entry, matching `timetable::parse`'s own document shape
     /// (`components/timetable.conf`'s own reference document is the model): enough to prove the format
     /// round-trips through a real read from the filesystem, not merely through `include_str!`.
-    pub const DEMO_SCHEDULE_DOC: &str =
-        "at-boot least_authority_demo 3\nevery 30s least_authority_demo 7\n";
+    ///
+    /// The commands name the suite's installed fixture program (provisional `scheduled_demo`,
+    /// `login_tests`'s `install_scheduled_program`), because a durable session's timetable resolves
+    /// them in the activation set, where §229 forbids a package from taking a name the image
+    /// carries. `timetable_tests`'s registrar control copies this document's shape with an image
+    /// program's name back in, because an archive-mode timetable plans against `grant_plan`'s
+    /// static manifests and knows only image programs; see its `STORED_SCHEDULE_CONTROL`.
+    pub const DEMO_SCHEDULE_DOC: &str = "at-boot scheduled_demo 3\nevery 30s scheduled_demo 7\n";
 }
 
 #[cfg(test)]

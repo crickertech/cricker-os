@@ -212,8 +212,9 @@ pub const OPEN_SCHEDULE: u64 = 8;
 /// exit word. Milestone 152. Provisional name.
 pub const EMPTY_SCHEDULE: u64 = 9;
 
-/// [`OPEN_SCHEDULE`]'s document: one entry the suite's schedule archive can back.
-const SCHEDULED: &[u8] = b"every 1s least_authority_demo 7\n";
+/// [`OPEN_SCHEDULE`]'s document: one entry the suite's installed fixture backs
+/// (`login_tests`'s `install_scheduled_program`, under its provisional name).
+const SCHEDULED: &[u8] = b"every 1s scheduled_demo 7\n";
 /// Where this program maps the registration page.
 const REGISTRATION_VA: u64 = 0x0000_0000_0300_0000;
 
