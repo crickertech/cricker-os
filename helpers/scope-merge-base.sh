@@ -14,9 +14,10 @@
 #
 # # Why this exists
 #
-# `.github/workflows/architect-label.yml` and six scope-check steps in `.github/workflows/ci.yml`
-# (build+test, cpu matrix, watchdog, bench, fuzz, coverage: each guarded by a step asking "does
-# this change need the thing this job builds") used to diff `github.event.pull_request.base.sha`
+# `.github/workflows/architect-label.yml` and nine scope-check steps in `.github/workflows/ci.yml`
+# (the four build jobs test, swish-check, swish-check-graphical and boot-check that the 2026-09-30
+# split minted, plus cpu matrix, watchdog, bench, fuzz, coverage: each guarded by a step asking
+# "does this change need the thing this job builds") used to diff `github.event.pull_request.base.sha`
 # (or, in ci.yml, `|| github.event.merge_group.base_sha`) straight against HEAD. That field is a
 # snapshot GitHub took when the pull request's base last changed FOR THIS PULL REQUEST (opened, or
 # last synchronized); it does not track the base branch's current tip, so it goes stale the moment
