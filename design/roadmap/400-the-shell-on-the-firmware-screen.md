@@ -234,6 +234,15 @@ scroll is a full-surface copy through an uncacheable mapping (BUGS).
   file. It turned 182's pull request red in CI on a slower runner, and 182 now carries a 90 s
   per-line bound for that leg, measured and recorded at `SWISH_CHECK_X86_LINE_SECS` in
   `xtask/src/main.rs`. A real PC pays native stores, not emulated ones; not measured on silicon.
+  **The paint lane (2026-09-30, PR #1471) took that measurement as its mandate and built the three
+  fixes the paragraph names**: the scroll that moves pixels instead of re-rendering them, qword
+  aperture stores, and the console's coalescing window (the notification-object retrofit this
+  bullet said was missing). The ack's meaning changed with it: the wire draws immediately, the
+  screen within one 20 ms window (`components/src/console.rs`'s module doc records the trade). The
+  90 s bound and this paragraph's wall-clock figures are the *before*; the lane's PR carries the
+  after once the legs have run, and this bullet stays as the record of what it cost before
+  anybody fixed it. The lane's own block, the provisional roadmap 623, carries the work's shape;
+  this bullet keeps only the before-measurement and the pointer.
 - Keystrokes are the serial line's. A PC with no serial port shows the prompt and cannot type at
   it until milestone 242.
 - **Whether the firmware left the screen in a mode the monitor is showing** is the firmware's choice
