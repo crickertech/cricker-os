@@ -270,24 +270,13 @@ pub unsafe fn init() {
     super::set_percpu(gs_base);
 }
 
-/// Point this CPU's ring-0 trap stack at `top`. Called whenever the thread that would take a trap
-/// from user mode changes, which on the other two architectures is `sscratch.kernel_sp` (RISC-V) or
-/// nothing at all (aarch64 banks `SP_EL1`).
-///
-/// **It sets two things, and that is the point.** x86 has two doors into the kernel from ring 3 and
-/// they find their stack differently: a trap reads `TSS.RSP0`, and `syscall` reads nothing at all,
-/// so the syscall entry path has to be told separately (`exceptions::set_syscall_kernel_stack`).
-/// Two writes behind one function is what stops the two ever naming different stacks; the wrong
-/// state is not representable rather than merely documented.
-pub fn set_kernel_stack(top: u64) {
-    let id = crate::cpu::id();
-    // SAFETY: writes this CPU's own TSS field, indexed by its own `cpu::id()`. The CPU reads it
-    // only on a privilege transition, which cannot happen while this runs with interrupts masked by
-    // the caller. `write_unaligned` because the TSS is `packed`: rsp0 sits at byte 4 and a plain
-    // store would assume alignment the layout does not promise.
-    unsafe { (&raw mut TSS[id].rsp0).write_unaligned(top) };
-    super::exceptions::set_syscall_kernel_stack(top);
-}
+// Point this CPU's ring-0 trap stack at `top`. DELETED 2026-09-30 by the CI-warnings lane:
+// swish-check's x86_64 leg warned `set_kernel_stack` (and the `exceptions::set_syscall_kernel_stack`
+// half it existed to keep in step) was never used in any configuration, because `isr_restore` in
+// trap.s writes `TSS.RSP0` and the syscall path's slot together on every return to ring 3. The
+// property this pair existed for, "a trap and a `syscall` cannot name different stacks", is held
+// by that one code path; on the other two architectures the same job is `sscratch.kernel_sp`
+// (RISC-V) or nothing at all (aarch64 banks `SP_EL1`).
 
 /// Point an IST slot (1-based, as the IDT encodes it) at `top`, on this core.
 ///
