@@ -2267,8 +2267,15 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         if let (true, Some((prev, typed))) = (failed.is_empty(), previous) {
             took.push((prev, typed.elapsed()));
         }
-        // Every line's time, in script order, beside the transcript when that was asked for.
-        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some() {
+        // Every line's time, in script order, when that was asked for. `NIFE_SHOW_LINE_TIMES`
+        // prints the table alone and `NIFE_SHOW_TRANSCRIPT` prints it beside the whole transcript
+        // (which is what a person reading a session wants and far too much text to diff a
+        // before/after measurement out of). The split exists for exactly that: the paint path's
+        // legs are priced by this table (`SWISH_CHECK_X86_LINE_SECS`'s own doc), and a lane that
+        // changes the paint path needs the table from two runs, not two transcripts.
+        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some()
+            || std::env::var_os("NIFE_SHOW_LINE_TIMES").is_some()
+        {
             for (l, d) in &took {
                 eprintln!("swish-check ({arch}): {:6.2}s  {l}", d.as_secs_f64());
             }
