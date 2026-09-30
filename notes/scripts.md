@@ -173,11 +173,11 @@ can inspect. It is rung four, recorded where somebody about to run a gate is alr
 
 Every job in `.github/workflows/ci.yml` names one check out of `script/ci-build`'s table
 (milestone 286): the format job runs `script/ci-build fmt`, the clippy job `script/ci-build lint`,
-the test job `script/ci-build test swish-check`, the bench job `script/ci-build bench` and
-`script/ci-build icount`, and so on down the file. So CI executes the same commands a developer
-does, out of the same list, and adding a job without adding its row is the defect that list exists
-to prevent. `verify.yml` is the exception and says so: Kani is sharded across jobs with its own
-scope predicate, and the table does not claim it.
+the suite job `script/ci-build test`, the swish job `script/ci-build swish-check`, the bench job
+`script/ci-build bench` and `script/ci-build icount`, and so on down the file. So CI executes the
+same commands a developer does, out of the same list, and adding a job without adding its row is
+the defect that list exists to prevent. `verify.yml` is the exception and says so: Kani is sharded
+across jobs with its own scope predicate, and the table does not claim it.
 
 Before that milestone the set was written down twice, here and in `script/gates`, and nothing
 compared them. All three of the places that explained the difference were stale by 2026-09-13:
