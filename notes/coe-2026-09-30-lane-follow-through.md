@@ -60,9 +60,9 @@ them rather than remembering them. The marker files are per session; the contrac
 
 ## EXAMPLES
 
-The five instances above are the examples, and the sweep that found them is the shape the mechanism
-replaces: `git worktree list` against running lanes, `gh pr list --draft` against dispatched claims,
-and a tail of every lane log, executed because a human asked instead of because a rule said so.
+The five instances above are the examples. The sweep that found them is the shape the mechanism
+replaces: `git worktree list` against running lanes, `gh pr list --draft` against dispatched
+claims, and a tail of every lane log. It ran because a human asked, not because a rule said so.
 
 ## BUGS
 
