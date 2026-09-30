@@ -47,18 +47,37 @@ form:
 
 The gloss sits in parentheses immediately after the number (one optional comma allowed between
 them), on the same line or wrapping onto one continuation line, never introduced with a colon or a
-dash and never left for a later sentence to explain. It has to be **grounded**: built substantially
+dash and never left for a later sentence to explain. It has to be grounded: built substantially
 from words in the target record's own first line (its H1) or body, not a paraphrase from memory. If
 you are not sure what a number's own first line says, look at
 `design/decisions/<N>-*.md` or `design/roadmap/<N>-*.md` and quote it, rather than guessing at what
 the citation is probably about.
 
-**When the ratchet fails, fix the prose, never the gate.** A failing citation means the sentence
+When the ratchet fails, fix the prose, never the gate. A failing citation means the sentence
 citing it does not say what the target is; write a gloss that does. It does not mean the number is
 wrong or the check is being pedantic.
 
 One number glossed once per file covers every later bare mention of that number in the same file.
 You do not need to gloss every occurrence, only the first.
+
+## The follow-through contract: PENDING at dispatch, DONE when executed
+
+Gating a lane's work ends in a push, a ready flip and an auto-merge request, and on 2026-09-29
+four of those endings sat unexecuted for one to two hours each because they lived in the session's
+memory (see [notes/coes/2026-09-30-lane-follow-through.md](../notes/coes/2026-09-30-lane-follow-through.md)).
+The contract, binding from dispatch time:
+
+- Every dispatch writes a PENDING file beside its lane log, named for the lane, holding the
+  exact commands this brief's gates precede: the push (with `--force-with-lease` for a rebase),
+  `gh pr ready`, `gh pr merge --auto`. At dispatch time, not when the lane reports.
+- Executing them flips it to DONE. A PENDING file that exists is work owed. Answer no board
+  question while one sits unexecuted, unless you defer it out loud with a reason.
+- Tail the log sixty seconds after dispatch. A connection error or a permission rejection
+  means the lane never started: redispatch, and record the death in the PENDING file. A dead
+  dispatch looks identical to a busy one otherwise.
+- Setup ends in dispatch. Creating the worktree, claim commit and draft pull request is one
+  act that is not finished until the lane is running. A claim commit with no lane and no DONE
+  marker is a stalled claim; raise it, do not pass it.
 
 ## Heavy gates go to CI, not here
 
@@ -75,7 +94,7 @@ anyway before you report):
 
     pgrep -l qemu
 
-**Before killing anything found this way, walk its parent chain up**, not just check that a process
+Before killing anything found this way, walk its parent chain up, not just check that a process
 exists:
 
     ps -o pid,ppid,command -p <pid>
@@ -90,7 +109,7 @@ names the actual holder faster than guessing from process names.
 
 `script/test` (which this brief does not run) and some of the cheap gates transitively touch
 `rustup toolchain link nife-dev`, which is one symlink for the whole user account, not one per
-worktree. **A lane that gates takes this link**, unavoidably; that is expected, not a bug in your
+worktree. A lane that gates takes this link, unavoidably; that is expected, not a bug in your
 run. Say in your final report that you gated, so the person merging your work knows to relink
 `nife-dev` from the main checkout afterward. Do not try to relink it yourself from a lane worktree.
 
@@ -159,10 +178,10 @@ A lane that hits the commit-first trap, and the fix:
 
 ## BUGS
 
-- **This brief does not run `script/test` or `script/verify`, on purpose**, and cannot tell you
+- This brief does not run `script/test` or `script/verify`, on purpose, and cannot tell you
   whether your change actually builds or boots. Green here is necessary, not sufficient;
   `briefs/gate-in-ci.md` is what proves the rest.
-- **The QEMU check is best-effort.** `pgrep -l qemu` matches both `qemu-system-aarch64` and
+- The QEMU check is best-effort. `pgrep -l qemu` matches both `qemu-system-aarch64` and
   `qemu-system-riscv64`; it will not catch an emulator started under a name this brief did not
   anticipate, and it says nothing about a leaked process on a machine other than the one you are
   running on (`cordoba`, a board rig).
