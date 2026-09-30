@@ -13,7 +13,7 @@ which is packages rather than programs we like. Re-swept and condensed 2026-09-2
 `milestone/126-procps`, which found three claims here stale and one premise false (see "Corrections,
 2026-09-26"). `free`, `vmstat` and `slabtop` built the same day by `milestone/126-free`. The
 three rows that could not be built without a ruling left the milestone that day: `pmap` from the
-prompt (pull request #1365), `pidwait`'s wait primitive, and `w`. Each is a proposal of its own.
+prompt (pull request #1365), `pidwait`'s wait primitive, and `w`.
 
 A program does one and only one thing (calef, 2026-09-26: *"One thing I like about unix is that a
 program does one and only one thing."*). It decided `pidwait`, and it is the test for every row this
@@ -27,8 +27,7 @@ run --rm ubuntu:24.04`, then `apt-get update`, `dpkg -L procps` and `dpkg -s pro
 live archive (`procps 2:4.0.4-4ubuntu3.2`, `arm64`, matching this project's `ubuntu-24.04-arm` CI
 runners). It installs eighteen names under `/usr/bin` and `/usr/sbin`. `pkill` is a symlink to
 `pgrep` and `snice` to `skill`; `pidwait` is a distinct binary; `sysctl` is under `/usr/sbin`. The
-package's own long description omits `pidwait`, which is how the first, memory-sourced table here
-came to miss it.
+package's long description omits `pidwait`, which is how the first table here missed it.
 
 | name | state | where the account lives |
 |---|---|---|
@@ -52,22 +51,18 @@ came to miss it.
 calef ratified the numbers and names this milestone minted on 2026-09-27 (UTC). Three moved at
 rebase because `main` had taken them: the machine page's progenitor boot slot from 17 to 23, the
 session's slot from 21 to 20, and `spawnproto::MACHINE_BIT` from bit 42 to bit 44. The boot slot
-needed the capability table raised from 24 slots to 32, which calef ruled the same day. The table
-of what moved and why, and the Kani timings that raise touched (the five `component_plan`
-harnesses, 13.3 s at 24 slots and 11.8 s at 32, one sample each), are in
+needed the capability table raised from 24 slots to 32, which calef ruled the same day. What
+moved and why, and the Kani timings the raise touched, are in
 `notes/process-view/the-machine-and-your-share.md`.
 
-The raise put the stack-frame and fastpath-footprint gates red. Kernel threads are now built in
-place, and calef chose a free-slot bitmap for `CapabilityTable::insert` on #1360; that note
-has the before and after numbers.
+The raise put the stack-frame and fastpath-footprint gates red; calef chose a free-slot bitmap for
+`CapabilityTable::insert` on #1360, and that note has the before and after numbers.
 
-The sweep over that word changed the proofs' shape too. `delete_matching` walks the occupied
-mask, and a bit-scan's trip count is data-dependent, so under bounded unwinding the two table
-harnesses (`the_count_is_the_slots`, `the_free_mask_is_the_empty_slots`) never terminated: one
-CI shard spent its whole 45-minute cap on them twice, and a local run was past iteration 1669
-after four hours. Both now carry `#[kani::unwind(4)]`, N + 1 for their N = 3, with the
-soundness argument beside each attribute in `crates/capability/src/lib.rs`; the crate's
-14 harnesses prove in 17 s.
+The sweep changed the proofs' shape. A bit-scan's trip count is data-dependent, so the two
+table harnesses never terminated under bounded unwinding: a CI shard spent its 45-minute cap on
+them twice, and a local run passed iteration 1669 after four hours. Both now carry
+`#[kani::unwind(4)]`; the soundness argument sits beside each attribute in
+`crates/capability/src/lib.rs`, and the crate's 14 harnesses prove in 17 s.
 
 ## Why this package, and why the package rather than the program
 
@@ -83,7 +78,7 @@ stopped wanting to. The reader already knows the Unix behaviour is wrong, so the
 setup.
 
 `procps` (upstream `procps-ng`) is Priority: important, so it is on essentially every Ubuntu
-install. Taking the package whole is the point. It is the unit the distribution ships, so it is the
+install. It is the unit the distribution ships, so it is the
 unit that tests whether the approach generalises; a port that picked the two programs with the
 tidiest capability story would prove nothing about typical software.
 
@@ -144,9 +139,8 @@ space from the registry `LIST` reads, so no live space anywhere can be viewed by
 
 `uptime` needed no capability, because `monotonic_nanos` is granted to every process by each
 architecture's timer `init`. That grant is a documented, deliberate exception to §10 (process model:
-capability-based, microkernel): a monotonic counter lets a program observe time and affect nothing.
-It is the one member of the statistics row that was pure wiring, and `crates/uptime` carries the
-argument.
+capability-based, microkernel): a monotonic counter lets a program observe time and affect nothing;
+the argument is in `crates/uptime`.
 
 `top` waited on per-thread CPU accounting that did not exist, dead or live. This block's 2026-08-26
 fork laid out three meanings of "CPU time"; calef chose scheduled on-CPU time, tick-sampled, as §150
