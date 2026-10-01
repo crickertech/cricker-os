@@ -8,8 +8,7 @@ directory `notes/project-metrics/` are **provisional**; naming is an architect's
 provisional name and says so.*
 
 One row per ISO week, computed by `script/metrics` from git history. The data is one CSV per
-measure in [`notes/project-metrics/`](project-metrics/), in the tree, versioned with the code it
-describes.
+measure in [`notes/project-metrics/`](project-metrics/), versioned with the code it describes.
 
 **This page is a deck** (calef, 2026-09-24). A chart is a heading, an image, and at most a line or
 two saying what it plots and what would otherwise be misread. Everything longer, the definitions,
@@ -64,8 +63,8 @@ not a caption, it is a register entry.
 ![Fatal risks](project-metrics/fatal-risks.svg)
 
 From `design/fatal-risks/README.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
-calef ratified on 2026-09-23. It says whether an experiment happened, never what it found; the
-verdicts are prose in that file. Every bar from 2026W36 is nine, the risks in that week's file:
+calef ratified on 2026-09-23. It says whether an experiment happened, never what it found. Every
+bar from 2026W36 is nine, the risks in that week's file:
 where the field did not exist yet, or held a word with no meaning today, the risk is drawn as
 "unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
 on 2026-08-31 UTC.
@@ -98,8 +97,7 @@ changed, so read the kernel and userspace bars in those weeks as undercounts of 
 ![Milestones built each week](project-metrics/velocity.svg)
 
 A flow: milestones whose `Built:` date falls in that week, read from today's tree for every week.
-It does not reconcile with the `Built` stock below, and that is the design; the gap is the lag
-between finishing a milestone and flipping its row.
+It does not reconcile with the `Built` stock below; BUGS says why.
 The line is the trailing ten-week mean, drawn rather than stored; it is dashed where fewer than ten
 weeks exist behind it, which until 2026W47 is the left of the chart.
 
@@ -173,6 +171,10 @@ watch is `NOT-STARTED`, which grows faster than the lanes drain it.
 ## Rust in the tree
 
 ![Rust in the tree, in thousands of lines](project-metrics/lines.svg)
+
+<!-- week-notes: script/metrics writes this -->
+- 2026W40: the kernel code series fell 46,665 to 33,192 lines because milestone 609 (the system tests leave the kernel crate), pull request #1404, moved 66 test-only files unchanged into the system_tests crate; no code was deleted
+<!-- /week-notes -->
 
 Every tracked `.rs` file outside `vendor/`, with `kernel/src` split from the rest, in thousands of
 lines. Lines are volume, not effort. A line with code and a trailing comment counts as code.
