@@ -35,13 +35,15 @@ OUT="$ROOT/target/cryptography-exerciser"
 # cargo proxy exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector. A
 # `rust-toolchain.toml` naming `nife-dev` is NOT an alternative here: milestone 442's lane measured
 # it getting `aarch64-unknown-nife` wrong on an aarch64 host while the other two stayed right, and
-# `script/crypto-probes`' header records the whole trap.
+# `script/crypto-probes`' header records the whole trap. And by path rather than by name
+# (2026-09-30): the name is account-wide and a concurrent lane steals it mid-run; `std-src` above
+# has just built "$ROOT/target/nife-farm", so the path is this checkout's own farm.
 (cd "$ROOT" && cargo xtask std-src)
 
 for TRIPLE in ${NIFE_CRYPTO_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x86_64-unknown-nife}; do
   (
     cd "$SRC"
-    RUSTUP_TOOLCHAIN=nife-dev cargo build --release \
+    RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" cargo build --release \
       -Zjson-target-spec \
       -Zbuild-std=core,alloc,std,panic_abort \
       -Zbuild-std-features=compiler-builtins-mem \
