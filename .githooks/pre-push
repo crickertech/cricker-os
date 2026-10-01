@@ -39,3 +39,16 @@ if ! "$root/script/lint" --clippy >/dev/null 2>&1; then
     echo "  Bypass: git push --no-verify" >&2
     exit 1
 fi
+
+# The baseline-vs-pin check, 2026-09-30, one PR after the prose gates: #1463's toolchain bump
+# pushed past an unread lint with the icount floors still naming the old nightly, and that
+# failure is about tree state rather than code shape, so no gate above this block can see it.
+# One Python file reading two text sources; `script/lint --baselines` is its one door.
+if [ -x "$root/script/lint" ] && grep -q -- '"--baselines"' "$root/script/lint" 2>/dev/null; then
+    if ! "$root/script/lint" --baselines >/dev/null 2>&1; then
+        echo "pre-push: the icount baselines do not name the pinned nightly; lint and CI fail it too." >&2
+        echo "  Fix:    script/lint --baselines   (it names the floor files and the restamp command)" >&2
+        echo "  Bypass: git push --no-verify" >&2
+        exit 1
+    fi
+fi

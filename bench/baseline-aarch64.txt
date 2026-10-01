@@ -1,15 +1,20 @@
-# toolchain: nightly-2026-09-29
+# toolchain: nightly-2026-09-30
 # qemu: 11.1.1
 # date: 2026-09-26
 # why: nightly-2026-09-26: measured on the bump branch (main at 50d32760a plus the pin) against the nightly-2026-09-25 floors, every row within 0.1% (largest map_el0 +0.06%, null_syscall +0.06%); this mixes the compiler with drift on main since the last save, not separated
 # why: 2026-09-27: restamped from nightly-2026-09-26 to nightly-2026-09-27 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: spawn_el0 +0.096%, sink_throughput -0.006%, map_new +0.006% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: spawn_el0 +0.096%, sink_throughput -0.006%, map_new +0.006%, ipc_rtt_el0 -0.005%
 # why: 2026-09-28: restamped from nightly-2026-09-27 to nightly-2026-09-28 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ctx_switch -0.040%, map_new +0.006%, ipc_rtt_el0 -0.004% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: spawn_el0 +0.096%, ctx_switch -0.040%, map_new +0.012%, ipc_rtt_el0 -0.009%, sink_throughput -0.007%
 # why: 2026-09-29: restamped from nightly-2026-09-28 to nightly-2026-09-29 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ipc_rtt_el0 -0.120%, map_new -0.006%, sink_throughput +0.001% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.129%, spawn_el0 +0.096%, ctx_switch -0.040%, map_new +0.006%, sink_throughput -0.006%
+# why: 2026-09-30: restamped from nightly-2026-09-29 to nightly-2026-09-30 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ipc_rtt_el0 -0.033%, map_new +0.006% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.162%, spawn_el0 +0.096%, ctx_switch -0.040%, map_new +0.012%, sink_throughput -0.006%
 # bench/baseline-aarch64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
 # PATH is not the pinned one, precisely because that is when a baseline comparison stops being
 # apples to apples.
+# A tick is not an instruction: one guest instruction is one virtual nanosecond under -icount
+# shift=0 and this counter ticks at its own rate (instructions = ticks * 1e9 / cntfrq), so raw
+# ticks do not compare across architectures; notes/benchmarks/icount-tick-scales.md holds the
+# per-architecture scales and the corrected cross-arch table.
              # Updating this file is a statement that a performance change is intended and
              # understood; do it in the commit that causes the change. Checked by --check, a coarse
              # 10% tripwire (icount counts drift across builds; see notes/benchmarks.md).

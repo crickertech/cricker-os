@@ -1466,8 +1466,29 @@ impl Dir {
     /// inventing one would be a fact the contract does not carry. `modified()` refuses for
     /// [`Mtime`]'s reason: a held directory is a handle, and `GETMTIME` asks by name. Its parent can
     /// answer for it (`std::fs::metadata` of the path it was opened by).
-    pub fn metadata(&self) -> io::Result<FileAttr> {
+    pub fn self_metadata(&self) -> io::Result<FileAttr> {
         Ok(FileAttr { size: 0, dir: true, mtime: Mtime::Unnamed })
+    }
+
+    /// A name's metadata relative to this directory, the dirfd shape upstream std grew on
+    /// 2026-09-30 (`Dir::metadata(path)` in `fs.rs` now reaches here). The same four messages
+    /// [`stat`] issues, walked from this handle rather than the root: the authority is identical
+    /// and only the starting point differs. An empty relative path is the directory itself, the
+    /// same placeholder [`self_metadata`] returns.
+    pub fn metadata(&self, path: &Path) -> io::Result<FileAttr> {
+        if !is_reachable() {
+            return Err(unsupported_err());
+        }
+        if count_names(path)? == 0 {
+            return Ok(FileAttr { size: 0, dir: true, mtime: Mtime::Unnamed });
+        }
+        stat_under(self.at.0, path)
+    }
+
+    /// `symlink_metadata` relative to this directory. No symlink crosses this contract, so
+    /// following one and not following one are the same thing, the same line [`lstat`] draws.
+    pub fn symlink_metadata(&self, path: &Path) -> io::Result<FileAttr> {
+        self.metadata(path)
     }
 
     /// `UNLINK` a name under this directory. A directory is refused (`IsADirectory`), the same line
@@ -1607,8 +1628,17 @@ pub fn stat(path: &Path) -> io::Result<FileAttr> {
     if count_names(path)? == 0 {
         return Ok(FileAttr { size: 0, dir: true, mtime: Mtime::Unnamed });
     }
+    stat_under(proto::ROOT, path)
+}
+
+/// The name-shaped stat against whichever directory handle the caller holds: the root endpoint for
+/// the free functions above, a [`Dir`]'s handle for the dirfd-shaped ones below. One mechanism,
+/// because upstream's `fstatat(dirfd, ...)` and `stat(path)` differ in exactly the starting handle
+/// and nothing else, and two copies of the four-message dance would be one too many places to
+/// learn that `EISDIR` is an answer.
+fn stat_under(at: u64, path: &Path) -> io::Result<FileAttr> {
     let mut p = page();
-    let (at, name) = walk(&mut p, proto::ROOT, path, fsproto::dir::READ)?;
+    let (at, name) = walk(&mut p, at, path, fsproto::dir::READ)?;
     p.put(name.as_bytes());
     let (size, dir) = match request(proto::req(proto::OPEN, at.0, name.len() as u64), 0) {
         Ok(handle) => {

@@ -37,19 +37,14 @@ CI runs all three `--check` legs on every pull request (`script/ci-build`'s `ben
 [`notes/bench-runbook.md`](bench-runbook.md) says which board to spend an evening on and in what
 order.
 
-The bench kernel never exits. It prints `bench: done` and parks in `wfi`, and xtask kills QEMU on the
-marker. Semihosting cannot be used: under HVF its `hlt` traps into the guest's own vectors, so a kernel
-calling `semihosting::exit` there panics forever. Milestone 81 (an HVF leg) measured that
-([`notes/hvf-leg.md`](hvf-leg.md)).
-
 ### The rules a baseline save follows
 
 - The tripwire is coarse on purpose: `max(base / 10, 64)` ticks. icount is exact per binary but drifts
   a few percent across builds as the compiler remakes inlining
   ([icount drift](benchmarks/icount-drift-and-provenance.md)).
-- Every leg boots one hart. Under `-icount` all vCPUs share one clock, and an idle hart's `wfi` jumps
-  it forward. The aarch64 bench measured four-hart noise until 2026-07-28, and x86_64 lost its pin
-  briefly on 2026-09-23.
+- Every leg boots one hart: under `-icount` all vCPUs share one clock, and an idle hart's `wfi` jumps
+  it forward. One hart is what every leg has measured since; x86_64 briefly lost the pin on
+  2026-09-23.
 - A save runs with the shipping feature set: measurement features off, shipping features on. `icount`
   is the one bench feature allowed, because it changes how time is observed and not what is measured.
 - Each baseline records its nightly (`# toolchain:`, checked by `script/lint`), the QEMU that ran
@@ -94,7 +89,7 @@ I/O bitmap), and on `--smp` only, `smp_*` and `fs_*`.
 ### Against Linux and macOS, on one core (HVF, release)
 
 Linux runs as a static musl `/init` under QEMU-HVF on the same M-series core, the same tier as nife.
-Native macOS is the bare-metal ceiling, not a competitor. The host side is `bench/host/`.
+Native macOS is the bare-metal ceiling. The host side is `bench/host/`.
 
 | metric | nife | date | Linux (HVF) | macOS (native) |
 |---|---|---|---|---|
@@ -105,12 +100,12 @@ Native macOS is the bare-metal ceiling, not a competitor. The host side is `benc
 | map mechanism only | ~92 ns (`map_el0`) | 2026-07-29 | n/a | n/a |
 | spawn, build to reap | ~4.4 us (`spawn_el0`) | 2026-07-29 | ~19.7 us (`fork`+`exit`) | ~291 us |
 
-The Linux and macOS columns were taken on 2026-07-25 (spawn on 2026-07-26). The nife column is the
-latest release reading of each row. The 2026-08-04 figures are a median of five boots.
+The Linux and macOS columns were taken on 2026-07-25 (spawn 2026-07-26); the nife column is the
+latest release reading of each row, and the 2026-08-04 figures are a median of five boots.
 
 nife wins four rows and ties one. The null syscall and the IPC round trip are about 5x faster than
 Linux at the same tier. Page provisioning is a three-way tie near 500 ns, because zeroing 4 KiB is
-bandwidth-bound on all three. The 92 ns mechanism is real, but it is not a page a program can use, so
+bandwidth-bound on all three. The 92 ns mechanism is real but not a page a program can use, so
 it stays out of the win column. [Cross-OS primitives](benchmarks/cross-os-primitives.md) has the
 methods and the debug-build history.
 
@@ -133,7 +128,8 @@ version of this comparison made, and the build recipe.
 
 Ticks per iteration from `bench/baseline-<arch>.txt`. Ticks are not comparable across architectures:
 aarch64 counts at 62.5 MHz (16 instructions a tick), riscv64 at 10 MHz (about 100), x86_64 at 1 GHz
-(one).
+(one). [Icount tick scales](benchmarks/icount-tick-scales.md) ground-truth measures them and
+corrects the cross-arch table.
 
 | bench | aarch64 | riscv64 | x86_64 |
 |---|---:|---:|---:|
@@ -149,7 +145,7 @@ aarch64 counts at 62.5 MHz (16 instructions a tick), riscv64 at 10 MHz (about 10
 | `ipc_rtt_el0` | 2,203 | 372 | |
 | `spawn_el0` | 13,721 | 2,167 | |
 
-The files are the source of truth; this table is a reading of them on 2026-09-24.
+The files are the source of truth, read here as of 2026-09-24.
 
 ### What a userspace server costs
 
@@ -162,8 +158,8 @@ derivation.
 ### Scaling across four harts (HVF, `--smp`)
 
 Independent compute scales 3.5x on four cores, 89% of the ceiling. Sixteen synchronous IPC pairs go
-backwards (0.18x). A pair split across cores wakes a vCPU the host has descheduled, and that cost is
-the hypervisor's. Real silicon is where the pipelines should scale.
+backwards (0.18x). A pair split across cores wakes a vCPU the host has descheduled, the
+hypervisor's cost. Real silicon is where pipelines should scale.
 [Per-core and multi-hart](benchmarks/per-core-and-multi-hart.md) has both workloads and why `--real`
 boots one hart.
 
@@ -224,8 +220,8 @@ icount models no caches, no TLB and no branch predictor. So:
 - A struct growing from 128 to 136 bytes moved every icount row by at most 0.12% while the footprint
   gate failed. Neither tripwire substitutes for the other.
 
-HVF sees real magnitudes on one machine only, with no PMU, a 41 ns counter grain, a desktop OS
-underneath, and an L1 large enough to hide any footprint effect. argon's PMU is where that changes.
+HVF sees real magnitudes on one machine only: no PMU, a 41 ns counter grain, a desktop OS
+underneath, an L1 large enough to hide any footprint effect. argon's PMU is where that changes.
 
 ## What is not apples to apples
 
@@ -284,6 +280,7 @@ The third column lists the dated entries each holds, so a citation of "notes/ben
 | [drift-decomposition](benchmarks/drift-decomposition.md) | the shipping-feature rule | milestone 300 (decompose the icount baseline drift) |
 | [baseline-save-audit](benchmarks/baseline-save-audit.md) | drift accumulates | 2026-09-15 audit |
 | [counter-frequency-and-calibration](benchmarks/counter-frequency-and-calibration.md) | rates come from the machine | 2026-09-21 (two) |
+| [icount-tick-scales](benchmarks/icount-tick-scales.md) | a tick is not an instruction | 2026-09-30 |
 | [rfence-self-row](benchmarks/rfence-self-row.md) | the open `rfence_self` row | 2026-09-21; 2026-09-23 |
 | [preemption-in-the-window](benchmarks/preemption-in-the-window.md) | the masked `map_new` window | 2026-09-21 (three) |
 
