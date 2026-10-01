@@ -951,7 +951,7 @@ mod tests {
         let screen = SCREEN.get_or_init(|| {
             let mut vt =
                 video_terminal::Vt::new(video_terminal::script::COLS, video_terminal::script::ROWS);
-            video_terminal::script::full_screen(&mut vt);
+            video_terminal::script::scrolled_full_screen(&mut vt, None);
             vt
         });
         let w = screen.pixel(x, y);
@@ -979,8 +979,10 @@ mod tests {
         // of glyphs in the font and therefore the hardest case, deliberately.
         let mut typo =
             video_terminal::Vt::new(video_terminal::script::COLS, video_terminal::script::ROWS);
-        typo.feed(video_terminal::script::GREETING_TYPO);
-        typo.feed(video_terminal::script::TYPED);
+        video_terminal::script::scrolled_full_screen(
+            &mut typo,
+            Some(video_terminal::script::SCROLL_LINES + 1),
+        );
         assert!(
             scanout_holds_the_terminals_text(&ppm(|x, y| {
                 let w = typo.pixel(x, y);
