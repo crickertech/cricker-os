@@ -186,6 +186,23 @@ jobs:
 
           notes/project-metrics.md says so on its face; this commit changes only its generated lines."
           git push --force origin "$branch"
+          # Milestone 623 (provisional): the week flag and its digest. The flag output is machine
+          # facing (week, series, move, note state) and the digest is log archaeology by a helper
+          # `script/metrics` itself never runs (it is a reader of blobs and series, not of diffs).
+          # Both land in the body so an annotator starts from data rather than from a hunch. A
+          # flag never blocks and never edits; the digest digests only the current week's biggest
+          # mover, because the threshold fires on most weeks (see 623's BUGS) and a body carrying
+          # ten weeks of digests would be noise no annotator reads.
+          flags="$(script/metrics --flags)"
+          week="$(date -u +%GW%V)"
+          digest=""
+          flagged="$(printf '%s\n' "$flags" | grep "^$week " || true)"
+          if [ -n "$flagged" ]; then
+            series="$(printf '%s\n' "$flagged" | awk '{print $2}')"
+            old="$(awk -F, -v w="$week" 'p && $1==w {print p; exit} {p=$2}' notes/project-metrics/weeks.csv)"
+            new="$(awk -F, -v w="$week" '$1==w {print $2; exit}' notes/project-metrics/weeks.csv)"
+            digest="$(python3 helpers/week_digest.py "$old" "$new" "$series" || true)"
+          fi
           title="metrics: record $week"
           body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
 
@@ -199,7 +216,27 @@ jobs:
           until somebody says otherwise.
 
           This branch is force-pushed on every run that changed something (daily, coverage refreshed
-          Mondays), so it proposes the newest row rather than accumulating one pull request per run."
+          Mondays), so it proposes the newest row rather than accumulating one pull request per run.
+
+          **Week flags (milestone 623, provisional).** Every charted week whose move in any series
+          exceeded a tenth of the prior week's value, biggest mover first. A flag never blocks and
+          never edits; a flagged week worth explaining gets a row in
+          \`notes/project-metrics/week-notes.csv\`, which \`script/metrics\` renders as a bullet
+          under the chart and drops when the week ages out of the window.
+
+          \`\`\`
+          $flags
+          \`\`\`"
+          if [ -n "$digest" ]; then
+            body="$body
+
+          **Digest, $week's biggest mover** (\`helpers/week_digest.py\`: the five files that moved
+          the series most, with the commits that moved them; churn, not net):
+
+          \`\`\`
+          $digest
+          \`\`\`"
+          fi
           existing="$(gh pr list --head "$branch" --state open --json number --jq '.[].number')"
           if [ -z "$existing" ]; then
             gh pr create --head "$branch" --base main --title "$title" --body "$body"

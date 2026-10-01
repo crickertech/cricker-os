@@ -354,7 +354,9 @@ write_probe() {
     # described at the top of this file: naming `nife-dev` in a toolchain FILE gets the
     # `aarch64-unknown-nife` build wrong on an aarch64 host, silently, while riscv64 and x86_64
     # stay right. `RUSTUP_TOOLCHAIN` in the environment is what works for all three, and it works
-    # only because `$WORK` is outside the repository.
+    # only because `$WORK` is outside the repository. Since 2026-09-30 it names the farm by PATH
+    # for the same reason `xtask::std_exerciser` does: the `nife-dev` name is account-wide, and a
+    # lane gating beside these probes would steal it mid-run.
     {
         echo 'use entropy_backend as _;'
         probe_main "$name"
@@ -427,7 +429,7 @@ for name in $want; do
         shared="$WORK/.target-$a"
         mkdir -p "$shared"
         log="$dir/build-$a.log"
-        if (cd "$dir" && RUSTUP_TOOLCHAIN=nife-dev CARGO_TARGET_DIR="$shared" cargo build --release \
+        if (cd "$dir" && RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" CARGO_TARGET_DIR="$shared" cargo build --release \
             -Zjson-target-spec \
             -Zbuild-std=core,alloc,std,panic_abort \
             -Zbuild-std-features=compiler-builtins-mem \
