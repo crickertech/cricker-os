@@ -148,6 +148,17 @@ This does not make concurrent lanes safe, and must not be read that way. It make
 visible and self-healing at the next call. A lane whose build is already in flight when another
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
+**Since 2026-09-30, every build this tree owns names the farm by path.** Three sites of evidence
+landed in one evening (2026-09-30). Main-soak's `std-aborts` aborted on dep-info naming another
+worktree's farm. The 1377 lane built the unpatched std twice under
+`CARGO_TARGET_DIR=$PWD/target`. `rustc --print sysroot` in a fresh worktree named another
+worktree's farm (16:34 UTC, not reproduced since). A path this checkout computed and checked is
+the only selector with one owner.
+
+`std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
+The export used to separate a build from its evidence: the sweep judged the previous run's
+dep-info, so a wrong-sysroot build passed green. Both shapes were reproduced host-side.
+
 ### The target specs
 
 `targets/{aarch64,riscv64,x86_64}-unknown-nife.json`, built with `-Zbuild-std` and
@@ -280,11 +291,12 @@ One line each. The full entry, with its reasoning and history, is in
 - The `std-src` patches are string-anchored to the pinned nightly. A bump that reshapes a dispatcher
   fails with "anchor not found", which is the intended tripwire.
 - `nife-dev` is one name for the whole account. Relinking loudly makes a stolen link visible, and a
-  lane whose build is already in flight when another relinks still loses (above).
+  lane whose build is already in flight when another relinks still loses (above). The name's
+  remaining reach is a person typing `+nife-dev`.
 - `std-aborts` covers `sys/` only, and proves a body reachable, never a call. A stale or foreign
-  build under `std_exerciser/target` can be reported as a source defect, or fail inside the unpatched
-  std; the recovery for both is `rm -rf std_exerciser/target`
-  ([the std-aborts appendix](std/std-aborts.md#bugs)). The name `std-aborts` is provisional.
+  build under `std_exerciser/target` surfaces as a defect or an abort in the unpatched std;
+  the recovery is `rm -rf std_exerciser/target` ([appendix](std/std-aborts.md#bugs)). An
+  exported `CARGO_TARGET_DIR` used to blind the check; `std-exerciser` now pins and prints it.
 
 ## Appendices
 
