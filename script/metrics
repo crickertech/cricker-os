@@ -1689,9 +1689,9 @@ def write_csvs(rendered):
 # again in both modes before it shipped. A ninth series is never a new hue; it folds into another.
 
 PALETTE_LIGHT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7',
-                 '#e34948']
+                 '#5a6b7d']
 PALETTE_DARK = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9',
-                '#e66767']
+                '#94a5b7']
 
 CHART_W, CHART_H = 860, 380
 # The charts show the most recent CHART_WEEKS weeks; the measure files keep every week, and a
