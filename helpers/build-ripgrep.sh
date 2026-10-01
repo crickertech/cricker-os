@@ -46,7 +46,11 @@ fi
 
 # The patched std lives in the `nife-dev` toolchain, which `xtask std-src` builds and links.
 # `RUSTUP_TOOLCHAIN` rather than `+nife-dev` for the reason `xtask::std_exerciser` records: the
-# cargo proxy exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector.
+# cargo proxy exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector. And by
+# path rather than by name (2026-09-30): `nife-dev` is one symlink for the whole user account,
+# so a lane gating beside this build can steal it mid-run and the name then resolves another
+# worktree's farm with no diagnostic. `std-src` above has just built "$ROOT/target/nife-farm",
+# so the path is the farm this checkout chose.
 (cd "$ROOT" && cargo xtask std-src)
 
 # `-Copt-level=s` and `-Cstrip=debuginfo` are not tuning: ripgrep's own release profile sets
@@ -67,7 +71,7 @@ mkdir -p "$OUT"
 
 for TRIPLE in ${NIFE_RIPGREP_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x86_64-unknown-nife}; do
   cd "$SRC"
-  RUSTUP_TOOLCHAIN=nife-dev \
+  RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" \
   RUSTFLAGS="-Clink-arg=-T$ROOT/crates/user_mode_runtime/link.ld -Clink-arg=-u_start -Clink-arg=--build-id=none -Cstrip=debuginfo -Copt-level=s" \
     cargo build --release \
       -Zjson-target-spec \
