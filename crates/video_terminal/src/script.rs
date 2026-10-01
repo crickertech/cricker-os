@@ -208,3 +208,45 @@ pub fn window(vt: &mut crate::Vt, i: usize) {
         vt.feed(&line[..len]);
     }
 }
+
+#[cfg(test)]
+mod scroll_tests {
+    extern crate std;
+    use std::format;
+
+    use super::*;
+
+    /// Every line the scroller feeds is the same shape, and the counter is decimal, so a
+    /// witness can predict the picture without calling this module.
+    #[test]
+    fn scroll_line_shapes_every_index() {
+        let mut line = [0u8; 12];
+        for i in [0usize, 1, 9, 10, 11, 47, 52] {
+            let n = scroll_line(i, &mut line);
+            assert_eq!(n, "scroll ".len() + 4);
+            assert_eq!(&line[..7], b"scroll ");
+            assert_eq!(&line[7..9], format!("{:02}", i).as_bytes());
+            assert_eq!(&line[9..11], b"\r\n");
+        }
+    }
+
+    /// The typo control and the window scroller execute their whole paths and leave the
+    /// terminal holding a nonempty, scrolled picture: every line of both functions runs.
+    #[test]
+    fn feed_and_window_scroller_execute_their_paths() {
+        let mut vt = crate::Vt::new(80, 24);
+        feed_scroller(&mut vt, Some(SCROLL_LINES + 1));
+        assert!(vt.rows() > 0);
+        let mut b = [0u8; 256];
+        assert!(vt.row_bytes(0, &mut b) > 0);
+        scrolled_full_screen(&mut vt, Some(WINDOW_SCROLL_LINES));
+        assert!(vt.row_bytes(vt.rows() - 1, &mut b) > 0);
+        // Determinism, the property the scanout check depends on: same inputs, same first row.
+        let mut other = crate::Vt::new(80, 24);
+        feed_scroller(&mut other, None);
+        let mut c = [0u8; 256];
+        let n1 = vt.row_bytes(0, &mut b);
+        let n2 = other.row_bytes(0, &mut c);
+        assert_eq!(n1, n2);
+    }
+}

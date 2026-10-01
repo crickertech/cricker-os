@@ -147,7 +147,15 @@ const TIMER: u64 = 4;
 /// resolution is the 10 ms tick, `abi::timer`), which is one to two frames at 60 Hz: a screen that
 /// lands within the window reads as instant to the person it is for, while every write a line
 /// generates (echo, output, prompt) folds into one paint instead of one paint per write.
+const SCREEN_BATCHING_ENABLED: bool = false;
 const SCREEN_BATCH_NANOS: u32 = 20_000_000;
+///
+/// **Off until the deadline path is root-caused, bisected `2026-09-30`.** The first bisect of the `x86_64`
+/// leg's wild-transfer kill (a user thread at an address one byte into an instruction, after a
+/// long multi-line answer) cleared with this flag false and the scroll and aperture fixes alone;
+/// with it true the kill reproduced within one boot. The suspects are the timer's deadline
+/// delivery and the notification that ends the bounded receive, not the staging math, which the
+/// green run exercised in full. Ship the 3.4x; the batcher's remaining win waits on the why.
 /// Where the page `display_terminal` reads an `OP_WRITE`'s bytes from is mapped, in [`MODE_SCREEN`]
 /// only. Must match `crates/system_initializer`'s `CON_SCREEN_OUT_VA`.
 const SCREEN_OUT_VA: u64 = address_space_map::pair_page(0x0068_0000);
@@ -169,7 +177,7 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
     let mut batch = ScreenBatch {
         pending: 0,
         armed: false,
-        batching: screen,
+        batching: screen && SCREEN_BATCHING_ENABLED,
     };
     loop {
         // Block until a client hands us a length, or, when a batch is waiting on the screen,
