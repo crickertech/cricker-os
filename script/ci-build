@@ -234,8 +234,19 @@ usage() {
 run_one() {
     echo
     echo "==> script/ci-build $1"
+    # One UTC line at each boundary, calef 2026-09-30, after a build+test step sat at 33+ minutes
+    # with every other job of the run done at 13: the split-or-not decision is being made from a
+    # week of these lines rather than one night's impression. Nothing parses them; they are for the
+    # person reading a job log. `date -u` because every date in this tree is UTC.
+    echo "ci-build: $1 begins $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     cmd="$(command_for "$1")" || { echo "script/ci-build: no such check '$1'" >&2; usage; exit 2; }
-    eval "$cmd"
+    if eval "$cmd"; then
+        echo "ci-build: $1 ends $(date -u +%Y-%m-%dT%H:%M:%SZ), exit 0"
+    else
+        status=$?
+        echo "ci-build: $1 ends $(date -u +%Y-%m-%dT%H:%M:%SZ), exit $status"
+        exit $status
+    fi
 }
 
 case "$1" in
