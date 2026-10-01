@@ -1,14 +1,14 @@
 ---
 status: IN-PROGRESS
 raised: 2026-09-30
-branch: milestone/paint-path
+branch: milestone/624-paint-path
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 623. The x86_64 paint path stops repainting the world
+# 624. The x86_64 paint path stops repainting the world
 
 Number provisional (the paint-path lane, 2026-09-30): minted by the integrator at merge like every
 global name. Raised from the icount attribution's finding
