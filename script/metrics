@@ -394,14 +394,12 @@ MEASURES = [
                       'unsafe_trust_userspace_density',
                       'unsafe_trust_shared', 'unsafe_trust_boot_chain',
                       'unsafe_trust_unclassified']),
-    ('fatal-risks', ['fatal_risks_run', 'fatal_risks_not_run', 'fatal_risks_cannot_run',
-                     'fatal_risks_total']),
-    # The verdict colours, beside the statuses above (the fatal-risk-colors-by-week proposal,
-    # 2026-09-29). Three count columns and no stored total: the total is `fatal_risks_total` one
-    # measure over, the same fact about the same file, and storing it twice would let the two
-    # charts disagree about how many risks a week had. File and column names provisional (that
-    # lane's).
-    ('fatal-risks-colors', ['fatal_risks_green', 'fatal_risks_amber', 'fatal_risks_red']),
+    # The verdict colours and the total they are drawn against (the fatal-risk-colors-by-week
+    # proposal, 2026-09-29). `fatal_risks_total` is every risk in that week's summary, not the sum of
+    # the three, so the chart's grey band is drawn from this file alone. File and column names
+    # provisional (that lane's).
+    ('fatal-risks-colors', ['fatal_risks_green', 'fatal_risks_amber', 'fatal_risks_red',
+                            'fatal_risks_total']),
     # Corrections of error and the action items they still owe (calef, reviewing #1513 on
     # 2026-10-03: "track open COE action items in the metrics so that we can drive the count
     # down"). A stock read from each week's tree by `coe_action_counts` below. File and column
@@ -1522,79 +1520,15 @@ def write_drift_report():
 # words were different. A word that leaves the ratified set breaks the gate before it reaches here.
 FATAL_RISK_STATUS = re.compile(r'^\*\*Experiment status: ([A-Z][A-Z-]*)\b', re.M)
 
-# Where a week's tree keeps the nine-entry summary, oldest spelling first; `fatal_risks` says why
-# the order matters. Both readers below go through it so they cannot disagree about a week.
+# Where a week's tree keeps the nine-entry summary, oldest spelling first. The old path is tried
+# FIRST on purpose, because a tree can hold both: from the directory's mint (2026-09-23) to the move
+# of the summary into it (2026-09-29, `45dfa3d77`, PR #1452), the `.md` was the nine-entry summary
+# and the README a nine-line index, so reading the README first would count zero risks.
 FATAL_RISKS_SUMMARY = ('design/fatal-risks.md', 'design/fatal-risks/README.md')
 
-# **What the five retired words meant, for reading past revisions only.** This is a translation
-# table over history, not a second vocabulary: nothing may be written in these words today, and
-# `script/fatal-risks` fails on any of them. They are here so the series says something true about
-# the weeks before the ruling instead of reporting a tree that had no field as a tree with nine
-# unanswered risks. `MEASURED` and `AUDITED` were always claims about how WELL an experiment was
-# done, and an experiment done well is one that ran.
+# The five retired status words (`Status: RUN`, and so on) head a line in weeks before the ruling;
+# `_summary_colours` anchors its colour search on them. Nothing may be written in them today.
 RETIRED_FATAL_RISK_STATUS = re.compile(r'^\*\*Status: ([A-Z]+)', re.M)
-RETIRED_MEANING = {'RUN': 'run', 'MEASURED': 'run', 'AUDITED': 'run',
-                   'UNRUN': 'not_run', 'NOT': 'not_run', 'UNTESTED': 'cannot_run'}
-
-
-def fatal_risks(tree):
-    """The nine claims that would kill nife, by ratified Experiment status.
-
-    **This replaces a tested/untested pair, and the refusal it replaces was right when it was
-    written.** That docstring said a verdict column "would be reading a sentence and guessing",
-    because three of the four statuses then written said GREEN or AMBER in capitals and risk 7's
-    said neither. Nothing about that reading has been overturned. What changed on 2026-09-23 is the
-    thing being read: calef ratified a closed field, `Experiment status`, with exactly three values,
-    and `script/fatal-risks` now fails on a fourth. So this parses an enumeration rather than a
-    sentence, which is a different act from the one that was refused.
-
-    **It is still not a verdict series, and that is deliberate.** What an experiment FOUND stays in
-    the file's prose, where `GREEN`, `AMBER`, `MEASURED` and `AUDITED` already are. A chart of
-    findings was the other half of the proposal raised on 2026-09-23; calef refused it then and
-    commissioned it on 2026-09-29, and it is `fatal_risks_colors` below, a separate series.
-
-    **Why the pair had to go.** All nine entries carried a status line by 2026-09-23, so
-    `fatal_risks_tested` sat at nine and `fatal_risks_untested` at zero and the chart was a flat
-    line carrying no information. The new series can move in both directions and has a third value
-    the old pair could not express, which is the one risk 8 needs: an experiment nobody may run is
-    not a kind of result.
-
-    **Weeks before the field existed are read through `RETIRED_MEANING`**, and a risk with no status
-    line at all counts in none of the three. That is the honest shape: an entry that said nothing
-    said nothing.
-
-    **`fatal_risks_total` is every risk in that week's file, not the sum of the three**, which is
-    `names()`' shape for the same problem. Without it the chart showed five, four and five risks in
-    2026W36 to 2026W38 and a reader took it for the count of risks, when all nine had been on `main`
-    since pull request #588 landed on 2026-08-31 UTC. Risks 4, 5, 8 and 9 had no status line then,
-    and risk 3 said `STALE` in 2026W37, a word `RETIRED_MEANING` does not translate because it said
-    the old result had expired rather than which of the three the risk was. The gap between the total
-    and the three columns is drawn as `unclassified` and not stored, as `names_no_block` is, because
-    it is not a value `Experiment status` can hold.
-    """
-    counts = {'fatal_risks_run': 0, 'fatal_risks_not_run': 0, 'fatal_risks_cannot_run': 0,
-              'fatal_risks_total': 0}
-    # The summary moved inside the directory as its README on 2026-09-29 (`45dfa3d77`, PR #1452),
-    # which deleted `design/fatal-risks.md`. The old path is tried FIRST on purpose, because a
-    # tree can hold both: from the directory's mint (2026-09-23) to the move, the `.md` was the
-    # nine-entry summary and the README a nine-line index, so reading the README first would count
-    # zero risks for those weeks. Trees after the move have only the README, and it is the summary.
-    text = next((tree.text.get(p) for p in FATAL_RISKS_SUMMARY if tree.text.get(p)), None)
-    if not text:
-        return counts
-    parts = re.split(r'^## (\d+)\.', text, flags=re.M)
-    for i in range(1, len(parts), 2):
-        body = parts[i + 1]
-        counts['fatal_risks_total'] += 1
-        m = FATAL_RISK_STATUS.search(body)
-        if m:
-            key = m.group(1).lower().replace('-', '_')
-        else:
-            old = RETIRED_FATAL_RISK_STATUS.search(body)
-            key = RETIRED_MEANING.get(old.group(1)) if old else None
-        if key and 'fatal_risks_' + key in counts:
-            counts['fatal_risks_' + key] += 1
-    return counts
 
 
 # The verdict colours, counted by week (the fatal-risk-colors-by-week proposal, 2026-09-29; file and
@@ -1639,8 +1573,8 @@ def fatal_risks_colors(tree):
 
     **Two sources, one vocabulary.** A tree from this milestone on carries the colour in each
     appendix's frontmatter, and the weekly row counts those words. An older tree is read through
-    `_summary_colours`, the same status-line walk `fatal_risks` above does, so the backfill reuses
-    that parse rather than deriving a second one.
+    `_summary_colours`, the status-line walk, so the backfill reads one parse
+    rather than deriving a second one.
 
     **Where both sources exist they must agree, and a disagreement fails the run** naming the risk.
     The frontmatter exists to be the machine-read surface of a verdict the README states in prose;
@@ -1649,9 +1583,10 @@ def fatal_risks_colors(tree):
     cross-check is the only thing that holds the new field to the old one, and it runs wherever the
     row is computed rather than only in a gate nobody has to run.
 
-    `none` (no verdict rendered) and a risk missing from the file both count in no column; the
-    chart's grey band is `fatal_risks_total` minus the three, the same arithmetic over a column the
-    status chart already stores, so the two charts cannot disagree about how many risks a week had.
+    `none` (no verdict rendered) and a risk missing from the file both count in no colour column;
+    the chart's grey band is `fatal_risks_total` minus the three. **`fatal_risks_total` is every
+    risk in that week's summary, not the sum of the three.** It is stored beside them so the chart
+    reads one file; it was kept in `fatal-risks.csv` until 2026-10-03 UTC.
     """
     from_frontmatter = {}
     for path, text in tree.text.items():
@@ -1684,6 +1619,7 @@ def fatal_risks_colors(tree):
     else:
         colours = prose
     counts = dict.fromkeys(('fatal_risks_' + c for c in FATAL_RISK_COLOURS), 0)
+    counts['fatal_risks_total'] = len(re.findall(r'^## \d+\.', summary or '', flags=re.M))
     for colour in colours.values():
         if colour in FATAL_RISK_COLOURS:
             counts['fatal_risks_' + colour] += 1
@@ -1747,7 +1683,7 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
         row[_col('names', status)] = nm[status]
     row['names_total'] = named
     for part in (proposals(tree), lines(tree), bugs(tree), harnesses(tree),
-                 unsafe_census(tree), unsafe_trust_census(tree), fatal_risks(tree),
+                 unsafe_census(tree), unsafe_trust_census(tree),
                  fatal_risks_colors(tree), coe_action_counts(tree), prose_budget(tree),
                  bold_backlog(tree), homes(tree)):
         row.update(part)
@@ -2186,8 +2122,8 @@ def _fold(kind):
 DERIVED = {
     'model_commits_other_shown': _fold('commits'),
     'model_lines_other_shown': _fold('lines'),
-    # The colours chart's grey band, over the stored `fatal_risks_total` (kept in `fatal-risks.csv`; the
-    # per-status chart was removed 2026-10-03 UTC): a risk with no verdict rendered, or a week whose colours the status-line backfill could not read, draws
+    # The colours chart's grey band, over the stored `fatal_risks_total` (in the same
+    # file as the three colours): a risk with no verdict rendered, or a week whose colours the status-line backfill could not read, draws
     # rather than vanishes, so a bar of four reads as four of nine and not as nine.
     'fatal_risks_colors_unclassified': lambda row: max(
         0.0, _cell(row, 'fatal_risks_total') - sum(_cell(row, 'fatal_risks_' + c)
