@@ -96,13 +96,11 @@ weeks exist behind it, which until 2026W47 is the left of the chart.
 The second flow, counted from `main`'s merge subjects rather than the GitHub API so that it
 backfills to the first commit. 2026W29 and 2026W30 are genuine zeros: the practice starts in
 2026W31.
-The line is the same trailing ten-week mean as the chart above, dashed where the window is short.
+The line is the same trailing mean as above.
 
-## Merge queue ejections each week
+## Merge queue ejections
 
-![Merge queue entries that left without merging, per cent](project-metrics/merge-queue.svg)
-
-Ejected over entered, from GitHub's merge-queue events. `helpers/merge_queue_share.py` says how.
+![Merge queue ejections](project-metrics/merge-queue.svg)
 
 ## Which model wrote it
 
