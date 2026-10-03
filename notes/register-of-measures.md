@@ -164,6 +164,7 @@ time.
 | series | what it counts | argued in |
 |---|---|---|
 | fatal risks | the nine risks in `design/fatal-risks/README.md` by experiment status (`RUN`, `NOT-RUN`, `CANNOT-RUN`) | [records by status](register-of-measures/records-by-status.md) |
+| fatal risk colours | the verdict word per risk, from appendix frontmatter | [fatal risk colours](register-of-measures/fatal-risk-colours.md) |
 | Kani proof harnesses | harnesses, and how many carry a falsification record | [proofs and coverage](register-of-measures/code-proofs-and-coverage.md) |
 | unsafe outside `arch/` | blocks per 10,000 code lines, against the gated ceiling | [the unsafe series](register-of-measures/unsafe-series.md) |
 | unsafe by trust boundary | the same blocks split kernel, userspace, shared and boot chain | [the unsafe series](register-of-measures/unsafe-series.md) |
@@ -264,6 +265,7 @@ provisional names.
 | [cache-experiments](register-of-measures/cache-experiments.md) | E1 to E4 and the per-IPC stack depth, reading by reading, and their BUGS |
 | [reading-the-weekly-series](register-of-measures/reading-the-weekly-series.md) | what a weekly row is and is not, how the series stays current, and the dated 2026W39 reading |
 | [records-by-status](register-of-measures/records-by-status.md) | fatal risks, decisions, names, proposals and milestones by status |
+| [fatal-risk-colours](register-of-measures/fatal-risk-colours.md) | verdict colours by week and the backfill's limits |
 | [unsafe-series](register-of-measures/unsafe-series.md) | the unsafe census by week and by trust boundary, and its BUGS |
 | [landed-each-week](register-of-measures/landed-each-week.md) | milestones built and pull requests merged each week, and the 2026-09-23 reconciliation |
 | [which-model-wrote-it](register-of-measures/which-model-wrote-it.md) | the commits-and-lines-by-model series: why the trailer, the checked three-way sum, and what it cannot say |

@@ -3,7 +3,7 @@
 use std::process::Command;
 
 use crate::host::{kernel_elf, llvm_tool, run, workspace_root};
-use crate::{RISCV_TARGET, RUNNER, X86_TARGET, build};
+use crate::{RISCV_TARGET, RUNNER, TARGET, X86_TARGET, build};
 
 /// Boot the kernel with QEMU frozen and a GDB stub listening.
 ///
@@ -127,6 +127,29 @@ pub(crate) fn image() -> bool {
 /// do NOT use the `rust-objdump` / `rust-objcopy` wrappers, because those require a
 /// separate `cargo install cargo-binutils` that nothing else in the project needs,
 /// and its absence produces a confusing "command not found" rather than a real error.
+/// The namespace `read_stripped` files a stripped copy under, from the triple in `path`.
+///
+/// Only a triple names an architecture or a std build; the checkout's own directory name is not
+/// evidence of anything, so no arm may match on a bare `nife`.
+fn strip_tag(path: &str) -> &'static str {
+    if path.contains(RISCV_TARGET) {
+        "riscv"
+    } else if path.contains(X86_TARGET) {
+        "x86"
+    } else if path.contains(TARGET) {
+        // Provisional name: the aarch64 bare-metal tag, so `host` means real host builds only.
+        "aarch64"
+    } else if path.contains("riscv64-unknown-nife") {
+        "std-riscv"
+    } else if path.contains("x86_64-unknown-nife") {
+        "std-x86"
+    } else if path.contains("aarch64-unknown-nife") {
+        "std"
+    } else {
+        "host"
+    }
+}
+
 /// **Read a program ELF for packing, with its debug information removed.**
 ///
 /// The initrd is *reserved RAM*: the frame allocator never owns those pages, so every byte in the
@@ -180,19 +203,12 @@ pub(crate) fn read_stripped(path: &str) -> std::io::Result<Vec<u8>> {
     // Sequentially that is harmless, because each call writes the file it then reads, but it is
     // the same shape of latent bug the paragraph above describes and it costs one arm to close.
     // A third `*-unknown-nife` arm joined at milestone 184, for the same reason as the second.
-    let tag = if path.contains(RISCV_TARGET) {
-        "riscv"
-    } else if path.contains(X86_TARGET) {
-        "x86"
-    } else if path.contains("riscv64-unknown-nife") {
-        "std-riscv"
-    } else if path.contains("x86_64-unknown-nife") {
-        "std-x86"
-    } else if path.contains("nife") {
-        "std"
-    } else {
-        "host"
-    };
+    //
+    // **The aarch64 std arm names its triple too, and a bare `contains("nife")` is the bug that
+    // replaced it.** Every checkout lives under a directory called `nife`, CI's included, so that
+    // substring matched the absolute path of every aarch64 bare-metal program and stripped it under
+    // the `std-` tag. See `strip_tag`.
+    let tag = strip_tag(path);
     let dst = out.join(format!("{tag}-{stem}"));
     // Fail before running the tool if the input is missing, so the caller's error message names the
     // binary it wanted rather than objcopy's exit status.
@@ -208,4 +224,29 @@ pub(crate) fn read_stripped(path: &str) -> std::io::Result<Vec<u8>> {
         )));
     }
     std::fs::read(&dst)
+}
+
+#[cfg(test)]
+mod strip_tag_tests {
+    use super::strip_tag;
+
+    const CHECKOUT: &str = "/home/runner/work/nife/nife";
+
+    #[test]
+    fn std_program_is_tagged_std() {
+        let p = format!("{CHECKOUT}/std_exerciser/target/aarch64-unknown-nife/release/x");
+        assert_eq!(strip_tag(&p), "std");
+    }
+
+    #[test]
+    fn bare_metal_program_gets_its_own_tag_despite_a_checkout_named_nife() {
+        let p = format!("{CHECKOUT}/target/aarch64-unknown-none-softfloat/release/init");
+        assert_eq!(strip_tag(&p), "aarch64");
+    }
+
+    #[test]
+    fn host_build_is_tagged_host() {
+        let p = format!("{CHECKOUT}/target/release/xtask");
+        assert_eq!(strip_tag(&p), "host");
+    }
 }

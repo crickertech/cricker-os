@@ -242,6 +242,21 @@ pub(crate) const DOWNLOADED_NOTELESS: &str = "downloads/noteless.nifepkg";
 /// Written on every leg, typed only on `x86_64` (`swish_check_omits`).
 pub(crate) const DOWNLOADED_GREETING: &str = "downloads/greeting.nifepkg";
 
+/// **`greeting` at 0.2.0, the second version, on the disk for every leg** (milestone 614 (two
+/// installed versions of one program, each runnable, and a caller granted the one it needs)): the
+/// recipe-built package whose member is `greeting_two`'s bytes under the name `greeting`, so its
+/// digest differs from 0.1.0's and the table can hold both. Provisional name (the constant's and
+/// the path's).
+///
+/// The version is a directory, not part of the file's name, because the shell can only type a
+/// component of at most sixteen bytes (`grant_plan`'s `MAX_NAME`, the width the grant wire
+/// packs): `greeting-0.2.0.nifepkg` is twenty-two, and CI's first run of the line answered `that
+/// is not a name: one component, at most 16 bytes`. This is the same wall the 614 block's BUGS
+/// records for a remove operand, met by a fixture rather than a package, and answered the same
+/// way: the name stays inside the sixteen bytes rather than the wire growing. The shape mirrors
+/// the install path (`packages/greeting/0.2.0/greeting`), where the version is a directory too.
+pub(crate) const DOWNLOADED_GREETING_0_2_0: &str = "downloads/0.2.0/greeting.nifepkg";
+
 /// **What the gate's package source serves this architecture** (milestone 198 rung 3a's fetch):
 /// `helpers/package-http-peer` reads `NIFE_PACKAGE_SOURCE`, and `script/swish-check` points it here,
 /// one directory per architecture so two legs never share one. It holds `greeting`'s package as the
@@ -428,6 +443,16 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
             noteless_built.display()
         )
     })?;
+    // The second version, whose member bytes differ from 0.1.0's (milestone 614): the row it
+    // makes is a second digest, which is the whole point.
+    let greeting_two_stem = format!("greeting-0.2.0-{architecture}");
+    let greeting_two_built = root.join(format!("target/packages/{greeting_two_stem}.nifepkg"));
+    let greeting_two = std::fs::read(&greeting_two_built).map_err(|e| {
+        format!(
+            "could not read {} (the archive build writes it): {e}",
+            greeting_two_built.display()
+        )
+    })?;
     // **The claim the prompt cannot check: the image does not carry them.** Neither is a
     // `grant_plan::Prog`, so the progenitor's image-name refusal (§229) cannot see them either way,
     // and only the archive can say. Read the archive this leg boots and refuse to seed if it has
@@ -480,11 +505,13 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     }
     write(tree.join(DOWNLOADED_GREETING), &greeting)?;
     write(tree.join(DOWNLOADED_NOTELESS), &noteless)?;
+    write(tree.join(DOWNLOADED_GREETING_0_2_0), &greeting_two)?;
     eprintln!(
         "seed_installed ({architecture}): {stem} ({} bytes, digest {}) at {DOWNLOADED_PACKAGE}, \
          a tampered copy, {greeting_stem} at {DOWNLOADED_GREETING}, {noteless_stem} at \
-         {DOWNLOADED_NOTELESS}, and three unvouched programs; \
-         no activation set. The package source at {} serves {greeting_stem} and a lying {stem}",
+         {DOWNLOADED_NOTELESS}, {greeting_two_stem} at {DOWNLOADED_GREETING_0_2_0}, and three \
+         unvouched programs; no activation set. The package source at {} serves {greeting_stem} \
+         and a lying {stem}",
         package.len(),
         String::from_utf8_lossy(&measured_boot::hex(&package_archive::sha256(&package))),
         source.display(),

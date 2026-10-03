@@ -40,7 +40,8 @@
 //! // Damage is in cells and is taken, not read: the caller repaints exactly what changed and the
 //! // record clears. That is the whole reason the engine reports a rectangle instead of "redraw".
 //! let dirty = vt.take_damage().expect("something changed");
-//! assert!(dirty.rows >= 2, "two rows were written to");
+//! assert!(dirty.rect.rows >= 2, "two rows were written to");
+//! assert_eq!(dirty.scrolled, 0, "nothing scrolled");
 //! assert_eq!(vt.take_damage(), None); // taken once
 //! ```
 //!
@@ -638,6 +639,15 @@ pub struct CellRect {
 }
 
 impl CellRect {
+    /// The empty rectangle: no cells, at the origin. What a report carries on its `rect` side
+    /// when everything that changed was movement ([`Damage`]'s own doc holds the invariant).
+    pub const EMPTY: CellRect = CellRect {
+        col: 0,
+        row: 0,
+        cols: 0,
+        rows: 0,
+    };
+
     const fn cell(col: u32, row: u32) -> CellRect {
         CellRect {
             col,
@@ -674,6 +684,61 @@ impl CellRect {
             self.cols * bitmap_font::GLYPH_W,
             self.rows * bitmap_font::GLYPH_H,
         )
+    }
+}
+
+/// **What changed since the last [`Vt::take_damage`]: cells that changed, and rows that moved.**
+///
+/// A scroll is not a change to any cell; it is a change to *where the cells are*. Reporting it as
+/// a whole-grid rectangle (which is what this engine did before the paint path learned to move
+/// pixels, 2026-09-30) forces every consumer to re-render a screen it already holds the pixels
+/// of, and on the `x86_64` swish leg that re-render, per scrolled line, was most of 321 s
+/// (`notes/benchmarks/icount-tick-scales.md`, the swish-check row). So the report is two fields,
+/// with an invariant a painter can hang a fast path on:
+///
+/// > Move your picture up `scrolled` cell rows, then render `rect`; the result is the grid.
+///
+/// A consumer that cannot move pixels (a test comparing a whole surface, a caller with no
+/// framebuffer) uses [`Damage::repaint_rect`], which folds the scroll back into the whole-grid
+/// box the old report gave.
+///
+/// Name: provisional (the paint-path lane, 2026-09-30). `Damage` rather than `CellDamage`
+/// because it is the one report this engine makes and the scroll half is not measured in cells
+/// anyone can point at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Damage {
+    /// How many cell rows the live grid scrolled up since the last take, always `< rows` (a
+    /// scroll that would report `rows` has replaced every row and is reported as a full
+    /// [`Damage::rect`] with `scrolled == 0` instead, so the two fields never double-count).
+    pub scrolled: u32,
+    /// The bounding box of cells whose **content** changed (not whose position moved), in the
+    /// grid *after* any scroll: the box to re-render once the rows have been moved. The blanked
+    /// bottom row a scroll opens is content change and is in here; the cursor's departure from
+    /// the row it was last reported drawn on is too.
+    pub rect: CellRect,
+}
+
+impl Damage {
+    /// A report in two halves, for callers building one by hand (the tests do; the engine builds
+    /// its own through [`Vt::take_damage`]).
+    pub const fn new(rect: CellRect, scrolled: u32) -> Damage {
+        Damage { scrolled, rect }
+    }
+
+    /// The box a consumer that **re-renders** must paint: `rect` when nothing scrolled, the
+    /// whole grid when anything did, because a scroll changes every displayed row. This is the
+    /// old whole-box meaning of [`Vt::damage`], kept for callers with no pixels to move.
+    pub const fn repaint_rect(self, cols: u32, rows: u32) -> CellRect {
+        if self.scrolled > 0 {
+            CellRect {
+                col: 0,
+                row: 0,
+                cols,
+                rows,
+            }
+        } else {
+            self.rect
+        }
     }
 }
 
@@ -765,6 +830,18 @@ pub struct Vt {
     /// nonzero.
     utf8_code: u32,
     dirty: Option<CellRect>,
+    /// How many cell rows the live grid scrolled up since the last [`Vt::take_damage`]. The scroll
+    /// half of [`Damage`]; see there for why a scroll is reported as movement rather than as a
+    /// whole-grid rectangle.
+    scrolled: u32,
+    /// Where the cursor was drawn in the picture the last [`Vt::take_damage`] reported, in
+    /// **current** coordinates: each scroll moves it up a row with the grid. This is what makes
+    /// the cursor honest under the scroll fast path, because the cursor is the one thing on the
+    /// screen whose pixels do not move with its cell: a scroll carries the *rendered* block up a
+    /// row while the cursor itself stays on the bottom row, so the row the block landed on has to
+    /// be re-rendered, and this field is how the engine knows which row that is. `None` when the
+    /// last reported picture drew no cursor (hidden, or never taken).
+    drawn: Option<(u32, u32)>,
 }
 
 impl Vt {
@@ -813,6 +890,8 @@ impl Vt {
                 cols,
                 rows,
             }),
+            scrolled: 0,
+            drawn: None,
         }
     }
 
@@ -864,6 +943,8 @@ impl Vt {
         self.ignore = false;
         self.utf8_need = 0;
         self.utf8_code = 0;
+        self.scrolled = 0;
+        self.drawn = None;
         self.damage_all();
     }
 
@@ -983,14 +1064,59 @@ impl Vt {
         }
     }
 
-    /// What has changed since the last [`Vt::take_damage`], in cells.
-    pub const fn damage(&self) -> Option<CellRect> {
-        self.dirty
+    /// What has changed since the last [`Vt::take_damage`]: the scroll half as well as the box.
+    /// `Some` whenever anything changed, **including a scroll that changed no cell**: a painter
+    /// polling this has to learn its picture moved, or the surface drifts a row behind the grid
+    /// forever.
+    pub const fn damage(&self) -> Option<Damage> {
+        match (self.dirty, self.scrolled) {
+            (None, 0) => None,
+            (Some(rect), scrolled) => Some(Damage { scrolled, rect }),
+            // A scroll that changed no cell still changed the picture: an empty `rect` and the
+            // movement on the other half of the report.
+            (None, scrolled) => Some(Damage {
+                scrolled,
+                rect: CellRect::EMPTY,
+            }),
+        }
     }
 
-    /// What has changed since the last call, in cells, clearing the record.
-    pub fn take_damage(&mut self) -> Option<CellRect> {
-        self.dirty.take()
+    /// **What changed since the last call, clearing the record.**
+    ///
+    /// The returned [`Damage`] carries the invariant a painter needs (move `scrolled` rows up,
+    /// render `rect`); its own doc says why a scroll is movement rather than a whole-grid box.
+    /// Taking the report also fixes the cursor into it: from this moment the engine knows where
+    /// the cursor was last drawn ([`Vt::drawn`]'s own doc says why that has to survive scrolls),
+    /// and the next report will name the row the old block has to be lifted from.
+    pub fn take_damage(&mut self) -> Option<Damage> {
+        // The cursor is part of the picture, so the report has to cover it moving, appearing or
+        // vanishing since the last take. `feed` already dirties the endpoints of every move it
+        // makes; this is the net that catches what a scroll carries sideways (a drawn cursor one
+        // row up, say), and only dirtying on a real difference is what keeps an engine at rest
+        // reporting `None`: a `BEL` must not become a one-cell flush.
+        let drawn_now = if self.cursor_visible {
+            Some((self.col, self.row))
+        } else {
+            None
+        };
+        if drawn_now != self.drawn {
+            if let Some((c, r)) = self.drawn {
+                self.damage_cell(c, r);
+            }
+            if let Some((c, r)) = drawn_now {
+                self.damage_cell(c, r);
+            }
+            self.drawn = drawn_now;
+        }
+        let scrolled = core::mem::take(&mut self.scrolled);
+        let rect = match self.dirty.take() {
+            Some(rect) => rect,
+            // A scroll with nothing to render (a bare LF over an already-blank bottom row, cursor
+            // hidden) is still a report: the painter's pixels moved.
+            None if scrolled > 0 => CellRect::EMPTY,
+            None => return None,
+        };
+        Some(Damage { scrolled, rect })
     }
 
     /// Copy row `row`'s characters into `out` as bytes, returning how many were written. For tests
@@ -1205,17 +1331,18 @@ impl Vt {
             return;
         }
         // Scroll: the row about to fall off the top goes to scrollback first (milestone 142
-        // increment 2), before the shift below overwrites it. Every row moves, so the whole grid is
-        // damage. Honest rather than clever; a real terminal with a scrolling accelerator still
-        // repaints the screen it exposes.
+        // increment 2), before the shift below overwrites it. The blanked bottom row is content
+        // change and is dirtied by `put` (which compares, so blanking an already-blank row is
+        // free); the movement itself is reported by `scroll_damage`, because a painter that can
+        // move pixels should not re-render a screen it already holds.
         let cols = self.cols as usize;
         self.push_scrollback_row(0);
         let used = cols * self.rows as usize;
         self.cells.copy_within(cols..used, 0);
-        for c in &mut self.cells[used - cols..used] {
-            *c = Cell::blank(self.attr);
+        for c in 0..self.cols {
+            self.put(c, self.rows - 1, Cell::blank(self.attr));
         }
-        self.damage_all();
+        self.scroll_damage();
     }
 
     /// Copy live row `row` into the scrollback ring's next slot, as the newest entry.
@@ -1522,6 +1649,31 @@ impl Vt {
             cols: self.cols,
             rows: self.rows,
         });
+        // A full box already says "repaint everything", so any scroll the same window accumulated
+        // is subsumed: reporting movement as well would only invite a painter to move rows it is
+        // about to overwrite. This is what keeps `Damage::scrolled < rows` true at every take.
+        self.scrolled = 0;
+    }
+
+    /// **A scroll's half of the damage report**: the grid moved up a row, which is neither a
+    /// changed cell nor a rectangle. See [`Damage`] for the invariant the painter hangs on this.
+    fn scroll_damage(&mut self) {
+        // The cursor the last report drew has just moved up a row with the pixels under it, while
+        // the cursor itself stayed on the bottom row: the row the rendered block landed on must be
+        // re-rendered, or a stale block rides up the screen one scroll at a time. This is the one
+        // bookkeeping a scroll needs beyond the counter, and it is why `drawn` is tracked at all.
+        if let Some((c, r)) = self.drawn {
+            self.drawn = if r > 0 { Some((c, r - 1)) } else { None };
+            if r > 0 {
+                self.damage_cell(c, r - 1);
+            }
+        }
+        self.scrolled += 1;
+        if self.scrolled >= self.rows {
+            // Everything on screen was replaced between takes (`rows` scrolls move the top row
+            // clean off), so the move conveys nothing: report the whole grid as content instead.
+            self.damage_all();
+        }
     }
 }
 
@@ -1968,9 +2120,12 @@ mod tests {
         assert_eq!(t.cursor(), (0, 2), "the cursor stays on the bottom row");
         t.feed(b"new\r\nend");
         assert_eq!(rows(&t), ["six ", "new ", "end "]);
-        // Scrolling is whole-screen damage, honestly reported.
+        // Printing plus the cursor between them already dirty the whole grid here, and the scroll
+        // is movement rather than change: the honest re-render box is still everything, but the
+        // report says how many rows moved rather than that every cell changed. Two scrolls
+        // happened (one before `six`'s line feed, one inside `new`'s).
         assert_eq!(
-            t.damage(),
+            t.damage().map(|d| d.repaint_rect(4, 3)),
             Some(CellRect {
                 col: 0,
                 row: 0,
@@ -1978,26 +2133,121 @@ mod tests {
                 rows: 3
             }),
         );
+        assert_eq!(t.damage().expect("the feeds above scrolled").scrolled, 2);
 
         // The same claim with nothing else in the frame. Above, the printing and the cursor
         // between them already dirty the whole grid, so a scroll that reported no damage at all
         // would still add up to the right rectangle. A bare LF on the bottom row moves every row
-        // and writes no cell, which is the only shape that can tell the two apart.
+        // and writes no new cell, which is the only shape that can tell a scroll from a change
+        // apart.
         let mut t = vt(4, 3);
         t.set_cursor_visible(false);
         t.feed(b"ab\r\ncd\r\nef");
         t.take_damage();
         t.feed(b"\r\n");
         assert_eq!(rows(&t), ["cd  ", "ef  ", "    "]);
+        // One row of movement. The only cells to re-render are the ones the bottom row's old
+        // content (`ef`) vacated when the scroll blanked it.
         assert_eq!(
-            t.take_damage(),
-            Some(CellRect {
+            t.take_damage().map(|d| (d.rect, d.scrolled)),
+            Some((
+                CellRect {
+                    col: 0,
+                    row: 2,
+                    cols: 2,
+                    rows: 1
+                },
+                1
+            )),
+        );
+
+        // And again, over a bottom row that is blank this time: pure movement, nothing to render.
+        t.feed(b"\r\n");
+        assert_eq!(rows(&t), ["ef  ", "    ", "    "]);
+        assert_eq!(t.take_damage(), Some(Damage::new(CellRect::EMPTY, 1)));
+
+        // The old whole-grid report is what a consumer that cannot move pixels must still paint,
+        // and `repaint_rect` is the one-call spelling of it.
+        assert_eq!(
+            Damage::new(CellRect::EMPTY, 1).repaint_rect(4, 3),
+            CellRect {
                 col: 0,
                 row: 0,
                 cols: 4,
                 rows: 3
-            }),
-            "a scroll moves every row, so the whole grid is damage",
+            },
+            "a scroll moves every row, so the repaint box is the whole grid",
+        );
+    }
+
+    /// A scroll's report carries movement, and a painter that moves pixels wants the two halves
+    /// separately: enough scrolls between takes replace the whole screen and are reported as
+    /// content again, and a scroll never re-renders a single unchanged row.
+    #[test]
+    fn scrolls_report_movement_and_cap_at_the_screen() {
+        let mut t = vt(4, 3);
+        t.set_cursor_visible(false);
+        t.feed(b"ab\r\ncd\r\nef");
+        t.take_damage();
+
+        // One scroll: `ef` moved from row 2 to row 1 without changing, and the only cells to
+        // render are the ones its old position vacated when the bottom row blanked.
+        t.feed(b"\r\n");
+        let d = t.take_damage().expect("the grid scrolled");
+        assert_eq!(d.scrolled, 1);
+        assert_eq!(
+            d.rect,
+            CellRect {
+                col: 0,
+                row: 2,
+                cols: 2,
+                rows: 1
+            },
+            "just the vacated bottom row"
+        );
+
+        // A second scroll over the now-blank bottom row: movement only, nothing to render.
+        t.feed(b"\r\n");
+        let d = t.take_damage().expect("the grid scrolled again");
+        assert_eq!(d.scrolled, 1);
+        assert_eq!(d.rect, CellRect::EMPTY, "the bottom row opened blank");
+
+        // Three scrolls between takes (one first, then two more) is every row of a three-row grid
+        // replaced, so the report gives up the movement and says content.
+        t.feed(b"\r\n");
+        t.feed(b"\r\n\r\n");
+        let d = t.take_damage().expect("the grid scrolled");
+        assert_eq!(d.scrolled, 0, "a full replacement is content, not movement");
+        assert_eq!(
+            d.rect,
+            CellRect {
+                col: 0,
+                row: 0,
+                cols: 4,
+                rows: 3
+            }
+        );
+    }
+
+    /// The cursor is drawn onto its cell rather than being part of it, so a scroll carries the
+    /// **rendered** block up a row while the cursor itself stays on the bottom row. The report has
+    /// to name the row the block landed on, or a painter that moves pixels leaves a trail of
+    /// stale blocks climbing the screen.
+    #[test]
+    fn a_scroll_reports_the_row_the_drawn_cursor_lands_on() {
+        let mut t = vt(4, 4);
+        t.feed(b"ab\r\ncd\r\nef\r\ngh"); // the cursor is on gh, row 3
+        t.take_damage(); // the picture is taken with the block on (0, 3)
+
+        t.feed(b"\r\n"); // scroll: the block's pixels move to row 2, the cursor stays at row 3
+        assert_eq!(rows(&t), ["cd  ", "ef  ", "gh  ", "    "]);
+        let d = t.take_damage().expect("the scroll is damage");
+        assert_eq!(d.scrolled, 1);
+        let (x, y, w, h) = d.rect.to_pixels();
+        assert!(
+            y <= 2 * bitmap_font::GLYPH_H && y + h >= 3 * bitmap_font::GLYPH_H,
+            "the rect must cover the row the drawn block landed on (row 2), not just the bottom: \
+             {w}x{h} at ({x},{y})"
         );
     }
 
@@ -2317,7 +2567,7 @@ mod tests {
 
         t.take_damage();
         t.feed(b"\x1b[1;3H");
-        let d = t.damage().expect("moving the cursor must be damage");
+        let d = t.damage().expect("moving the cursor must be damage").rect;
         assert!(
             d.col == 0 && d.cols >= 3,
             "both cells must be in the damage"
@@ -2343,7 +2593,7 @@ mod tests {
 
         t.feed(b"\x1b[2;3Hab");
         assert_eq!(
-            t.take_damage(),
+            t.take_damage().map(|d| d.rect),
             Some(CellRect {
                 col: 2,
                 row: 1,
@@ -2357,7 +2607,7 @@ mod tests {
         assert_eq!(t.damage(), None, "rewriting identical cells is not damage");
 
         t.feed(b"\x1b[1;1HZ\x1b[4;8HY");
-        let d = t.take_damage().unwrap();
+        let d = t.take_damage().unwrap().rect;
         assert_eq!(
             (d.col, d.row, d.cols, d.rows),
             (0, 0, 8, 4),
@@ -2560,13 +2810,16 @@ mod tests {
             assert_eq!(&buf[..n], b"   ", "row {r} carried old content forward");
         }
         assert_eq!(
-            t.take_damage(),
-            Some(CellRect {
-                col: 0,
-                row: 0,
-                cols: 3,
-                rows: 5
-            }),
+            t.take_damage().map(|d| (d.rect, d.scrolled)),
+            Some((
+                CellRect {
+                    col: 0,
+                    row: 0,
+                    cols: 3,
+                    rows: 5
+                },
+                0
+            )),
             "a retarget is damage across the whole new grid",
         );
         assert_eq!(
@@ -2729,5 +2982,76 @@ mod tests {
         );
         t.damage_cell(1, t.rows());
         assert_eq!(t.damage(), None);
+    }
+
+    /// **A painter that moves pixels and renders only the reported box ends on the same picture
+    /// as one that renders every pixel.** This is the invariant `Damage` states, checked as a
+    /// model of `display_terminal`'s present (move `scrolled` glyph rows up across the whole
+    /// surface, then render `rect`), fed the firmware-screen test's own script one write at a
+    /// time, on a surface taller than the grid the way a real scanout leaves a strip below it.
+    #[test]
+    fn moving_pixels_and_rendering_the_damage_reproduces_the_whole_picture() {
+        // One present per write (the console unbatched), and several writes per present (a
+        // batch window, or a terminal that drained more than one request before presenting).
+        moving_pixels_with_k::<1>();
+        moving_pixels_with_k::<2>();
+        moving_pixels_with_k::<3>();
+        moving_pixels_with_k::<7>();
+    }
+    fn moving_pixels_with_k<const K: usize>() {
+        use bitmap_font::{GLYPH_H, GLYPH_W};
+        let (cols, rows) = (3, 5);
+        let (sw, sh) = (cols * GLYPH_W + 2, rows * GLYPH_H + 3);
+        let mut t = Vt::new(cols, rows);
+        let mut surface = std::vec![0u32; (sw * sh) as usize];
+        let render = |t: &Vt, s: &mut [u32], x0: u32, y0: u32, w: u32, h: u32| {
+            for y in y0..y0 + h {
+                for x in x0..x0 + w {
+                    s[(y * sw + x) as usize] = t.pixel(x, y);
+                }
+            }
+        };
+        let mut first = true;
+        let mut present = |t: &mut Vt, s: &mut [u32]| {
+            let Some(d) = t.take_damage() else { return };
+            if first {
+                first = false;
+                render(t, s, 0, 0, sw, sh);
+                return;
+            }
+            let px = d.scrolled * GLYPH_H;
+            if px > 0 {
+                for y in 0..sh - px {
+                    for x in 0..sw {
+                        s[(y * sw + x) as usize] = s[((y + px) * sw + x) as usize];
+                    }
+                }
+            }
+            let (x, y, w, h) = d.rect.to_pixels();
+            render(t, s, x, y, w, h);
+        };
+        present(&mut t, &mut surface);
+        let mut writes: std::vec::Vec<std::vec::Vec<u8>> = std::vec![
+            b"\x1b[41m \x1b[44m \x1b[0m\r\n".to_vec(),
+            script::GREETING.to_vec(),
+        ];
+        script::write_scroller(|bytes| writes.push(bytes.to_vec()));
+        for (n, w) in writes.iter().enumerate() {
+            t.feed(w);
+            if n % K != K - 1 && n != writes.len() - 1 {
+                continue;
+            }
+            present(&mut t, &mut surface);
+            for y in 0..rows * GLYPH_H {
+                for x in 0..sw {
+                    assert_eq!(
+                        surface[(y * sw + x) as usize],
+                        t.pixel(x, y),
+                        "after write {n} ({:?}) the moved picture is wrong at ({x},{y})",
+                        core::str::from_utf8(w).unwrap_or("?"),
+                    );
+                }
+            }
+        }
     }
 }

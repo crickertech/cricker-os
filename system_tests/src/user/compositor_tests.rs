@@ -575,6 +575,19 @@ fn focus_routes_a_keystroke_to_one_terminals_grid_and_not_its_neighbours() {
     );
     w.type_bytes(video_terminal::script::WINDOW_TYPED[1]);
 
+    // **Scroll both windows** (the paint path, 2026-09-30). A window-mode scroll publishes
+    // whole-window damage and moves the terminal's own pixels; until this, that path had never
+    // run under this file's pixel comparison, because nothing here ever pushed a window past its
+    // own height. One write per line, so each present scrolls once, and the oracle (`window`
+    // above) feeds the same lines.
+    for (i, c) in clients.iter().enumerate() {
+        for n in 0..video_terminal::script::WINDOW_SCROLL_LINES {
+            let mut line = [0u8; 8];
+            let len = video_terminal::script::window_scroll_line(i, n, &mut line);
+            c.as_ref().unwrap().print(&line[..len]);
+        }
+    }
+
     // The picture. Every pixel of the composed screen, against the two engines the kernel ran
     // itself: window content from `video_terminal`, placement and stacking from `compositor`.
     for y in 0..compositor::SCREEN_H {

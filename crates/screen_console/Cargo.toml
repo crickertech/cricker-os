@@ -27,3 +27,9 @@ bitmap_font = { version = "0.1.0", path = "../bitmap_font" }
 # that the thing the loader measured and the thing this paints into are one type rather than two
 # with a copy between them.
 machine_discovery = { version = "0.1.0", path = "../machine_discovery" }
+
+[dev-dependencies]
+# The scanout's geometry, in the wide-copy store-count test only: the 924x344 surface and its
+# stride are the framebuffer contract's own numbers, and a test that hardcoded them would keep
+# passing when the contract changed. No build dependency; `Aperture` itself knows no scanout.
+graphics_protocol = { version = "0.1.0", path = "../graphics_protocol" }
