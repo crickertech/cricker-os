@@ -1942,6 +1942,26 @@ fn swish_check_leg(arch: &str) -> bool {
         && swish_check_boot(arch, SWISH_CHECK_AFTER_REBOOT, false)
 }
 
+/// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
+/// `/dev/kvm` this process can open for writing, which is what QEMU's `-accel kvm` needs. Asked of
+/// the device rather than of an environment variable, so a developer's exported `NIFE_ACCEL` cannot
+/// change what this gate boots (`swish_check` clears it for that reason).
+///
+/// Only the `x86_64` leg asks. The aarch64 and riscv64 legs stay on TCG on purpose: on CI's arm64
+/// runner, TCG is what puts their kernels in front of a weakly ordered host (ci.yml's header), and
+/// KVM there would trade that for speed the two legs do not need (0.2 s a line). The `x86_64` guest
+/// is TSO under either, so KVM gives up no ordering the leg was ever shown. Milestone 628
+/// (provisional) measured what it buys; notes/benchmarks/swish-check-x86-leg.md. The name is
+/// provisional.
+fn kvm_is_usable() -> bool {
+    cfg!(all(target_os = "linux", target_arch = "x86_64"))
+        && std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/kvm")
+            .is_ok()
+}
+
 /// **One boot of [`swish_check_leg`]**: build (when `fresh`), boot, type `script`, read the answers.
 /// `fresh` is false for the second boot, which runs against the disk the first one left behind and
 /// builds nothing, because what it proves is that the disk is the only thing carried across
@@ -1953,6 +1973,8 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 
     let riscv = arch == "riscv64";
     let x86 = arch == "x86_64";
+    // KVM when this host can give it, and only to the x86_64 leg: see [`kvm_is_usable`].
+    let kvm = x86 && kvm_is_usable();
     // **`std_exerciser` is in this boot's archive only if it was built** (milestone 595
     // (provisional)): `cargo xtask std-exerciser` compiles it against the `nife-dev` toolchain, which
     // `script/test` runs and a bare `script/swish-check` does not. Without it the progenitor has no
@@ -1984,7 +2006,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     eprintln!();
     eprintln!(
         "--- swish-check ({arch}): boot {} and type at the prompt ---",
-        if x86 {
+        if kvm {
+            "the UEFI image under OVMF, on KVM"
+        } else if x86 {
             "the UEFI image under OVMF"
         } else {
             "`--features shell`"
@@ -2038,6 +2062,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
                 .to_string(),
         );
         c.env_remove("NIFE_NVME");
+        if kvm {
+            c.env("NIFE_ACCEL", "kvm");
+        }
         // The RedoxFS disk, which `>`, `<`, `ls` and `rm` need; opt-in on this runner, and its
         // header says why.
         c.env("NIFE_UEFI_REDOXFS", "1");
@@ -2287,7 +2314,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         }
         // **How long each line took**, typed to prompt-back, so every run reports its own margin
         // against the per-line bound rather than leaving it to be guessed after a red one.
-        let line_secs = if x86 {
+        let line_secs = if x86 && !kvm {
             SWISH_CHECK_X86_LINE_SECS
         } else {
             SWISH_CHECK_LINE_SECS
