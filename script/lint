@@ -287,7 +287,7 @@ for tgt in aarch64-unknown-none-softfloat riscv64imac-unknown-none-elf; do
 done
 
 # The pre-push hook's contract with this script, checked (2026-09-29). `.githooks/pre-push` runs
-# `script/fmt --check` then `script/lint --clippy` before any push leaves a worktree, and every
+# `script/fmt --check` then `script/lint` (all of it since milestone 630 (a merge-queue ejection is caught before the queue)) before any push leaves a worktree, and every
 # part of that line can rot silently: a script the hook names can be renamed, and the hook's own
 # `[ -x ... ]` tolerance then exits 0 and the gate stops gating with no signal anywhere; or a flag
 # can drift out of this parser, and the hook falls through to this full run, slower and unnoticed.
@@ -315,8 +315,9 @@ for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pr
     }
 done
 
-# `--clippy`: stop after the last clippy pass. `.githooks/pre-push` calls this so the clippy gate
-# has exactly one copy, here, and the hook cannot drift from it. Added 2026-09-29 after lane
+# `--clippy`: stop after the last clippy pass. `.githooks/pre-push` called this so the clippy gate
+# had exactly one copy, here, until milestone 630 measured the rest of lint at about 29 s more and
+# made the hook run all of it; the flag stays for a person who wants the clippy half alone. Added 2026-09-29 after lane
 # branches kept reaching CI with clippy failures a local gate would have caught (#1424's stale
 # lints; #1442, where a push left before lint was read): the cheap half of this script belongs
 # before the push, and everything after this point still runs in full here and in CI.

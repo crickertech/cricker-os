@@ -1,5 +1,5 @@
 #!/bin/sh
-# pre-push: the formatting gate and the clippy gate, run where they are cheap.
+# pre-push: the formatting gate, the whole lint, and the ready-status check, run where they are cheap.
 #
 # CI's rustfmt is one of seven required checks, and a lane that pushes unformatted code learns
 # that from a runner ten minutes later, then pushes again. Every lane on 2026-08-15 and -16 paid
@@ -10,9 +10,8 @@
 # Clippy joined on 2026-09-29 (calef: "run the clippy gate before they push, since we see regular
 # failures of that gate"), for the same reason one level up: #1424 reached CI with stale lints and
 # #1442's push left before its lint was read, and both are a red runner teaching "run CI to find
-# out what clippy thinks". The hook runs `script/lint --clippy`, the identical clippy passes CI
-# runs, from this file's single copy; a cold target directory makes the first push slow and a warm
-# one makes it seconds, which is the price of the gate and cheaper than the queue's round trip.
+# out what clippy thinks". The hook ran `script/lint --clippy`, the identical clippy passes CI
+# runs, until milestone 630 (a merge-queue ejection is caught before the queue) widened it to all of lint (below).
 #
 # Installed by `script/setup` via core.hooksPath, so it covers every worktree sharing this .git
 # (which is how lanes work) rather than needing per-worktree installation.
@@ -31,46 +30,57 @@ if ! "$root/script/fmt" --check >/dev/null 2>&1; then
     exit 1
 fi
 
-# A `script/lint` that predates `--clippy` ignores the flag and runs in full, which is slower and
-# still correct; CI judges either way, as it did before 2026-09-29.
-if ! "$root/script/lint" --clippy >/dev/null 2>&1; then
-    echo "pre-push: clippy failed, and CI's clippy check will fail the same way." >&2
-    echo "  Fix:    script/lint --clippy   (read its output, fix, commit, push again)" >&2
+# **The whole of `script/lint`, not `--clippy` and three hand-picked gates** (milestone 630,
+# 2026-10-03). The hook grew one gate per incident: clippy (#1424, #1442), then the two prose
+# ratchets (#1456), then the baselines check (#1463), each added after a full queue cycle was lost
+# to it, and each new lint check was outside the hook until it, too, cost a cycle. Measured on
+# patagonia (M-series, warm target directory, three runs each, wall clock, with two other lanes'
+# QEMU running beside it, so these are a busy machine's numbers):
+#
+#     script/lint --clippy    27.36  32.90  26.71 s   (median 27.4)
+#     script/lint             56.48  55.20  56.65 s   (median 56.5)
+#
+# The rest of lint adds about 29 s, and the three gates it replaces here cost about 6 of those
+# already, so the hook gets about 22 s slower and stops having a list that lags the incidents. No
+# single check after clippy is over 3.5 s (spelling 3.4, prose ratchet 3.0, counted claims 2.6,
+# citations 2.6), so no fast/slow split was worth its second list. The numbers are in
+# notes/scripts.md. A cold target directory makes the first push of a worktree slow either way;
+# that was already true of `--clippy`.
+#
+# A `script/lint` reached through an old branch runs whatever that branch's lint is, which is the
+# point: the push is judged by the tree being pushed.
+out="$(mktemp "${TMPDIR:-/tmp}/nife-pre-push.XXXXXX")"
+if ! "$root/script/lint" >"$out" 2>&1; then
+    echo "pre-push: script/lint failed, and CI's clippy job (which runs all of it) will fail the same way." >&2
+    tail -n 15 "$out" | sed 's/^/  | /' >&2
+    echo "  Fix:    script/lint   (read its output, fix, commit, push again)" >&2
     echo "  Bypass: git push --no-verify" >&2
+    rm -f "$out"
     exit 1
 fi
+rm -f "$out"
 
-# The two prose gates joined on 2026-09-30, after #1456 reached CI failing only the citations
-# ratchet and cost a full queue cycle: CI's "clippy" job runs the whole lint suite, so a push whose
-# rust is clean but whose citations lack glosses reds a job named clippy and teaches nothing. Both
-# checks are pure Python and run in seconds. `script/citations --ratchet` judges the committed
-# tip, and the hook fires after a commit by construction, so the tip is what CI will judge.
-if [ -x "$root/script/citations" ]; then
-    if ! "$root/script/citations" --ratchet >/dev/null 2>&1; then
-        echo "pre-push: the citations ratchet failed on the committed tip; CI's clippy job runs it too." >&2
-        echo "  Fix:    script/citations --ratchet   (read the file and line it names, gloss the number there)" >&2
-        echo "  Bypass: git push --no-verify" >&2
-        exit 1
-    fi
-fi
-if [ -f "$root/helpers/prose_ratchet.py" ]; then
-    if ! python3 "$root/helpers/prose_ratchet.py" --check >/dev/null 2>&1; then
-        echo "pre-push: the prose ratchet failed; CI's clippy job runs it too." >&2
-        echo "  Fix:    python3 helpers/prose_ratchet.py --check   (split the sentence, cut bold or words)" >&2
-        echo "  Bypass: git push --no-verify" >&2
-        exit 1
-    fi
-fi
-
-# The baseline-vs-pin check, 2026-09-30, one PR after the prose gates: #1463's toolchain bump
-# pushed past an unread lint with the icount floors still naming the old nightly, and that
-# failure is about tree state rather than code shape, so no gate above this block can see it.
-# One Python file reading two text sources; `script/lint --baselines` is its one door.
-if [ -x "$root/script/lint" ] && grep -q -- '"--baselines"' "$root/script/lint" 2>/dev/null; then
-    if ! "$root/script/lint" --baselines >/dev/null 2>&1; then
-        echo "pre-push: the icount baselines do not name the pinned nightly; lint and CI fail it too." >&2
-        echo "  Fix:    script/lint --baselines   (it names the floor files and the restamp command)" >&2
-        echo "  Bypass: git push --no-verify" >&2
-        exit 1
-    fi
+# **A ready pull request may not carry an IN-PROGRESS block on its own branch** (milestone 630).
+# The same question `.github/workflows/ready-status.yml` asks on `pull_request`, asked here for a
+# push to a branch whose pull request is already ready, so the answer comes before the push rather
+# than a runner later. The merge group's roadmap check fails on exactly this 20 to 38 minutes into
+# a queue attempt, and the ejection cancels auto-merge (#1473, 2026-10-03).
+#
+# The branch is the one being pushed, from stdin (`<local ref> <sha> <remote ref> <sha>`), not
+# HEAD's. It needs `gh` and the network; with neither, or with no pull request, or a draft, it
+# skips silently, because a draft's block is honest to say IN-PROGRESS and CI asks again anyway.
+# The block is read from the working tree, as lint's is.
+if [ -x "$root/script/roadmap" ] && grep -q -- '"--ready-branch"' "$root/script/roadmap" 2>/dev/null &&
+    command -v gh >/dev/null 2>&1; then
+    while read -r _ _ remote_ref _; do
+        case "$remote_ref" in refs/heads/*) ;; *) continue ;; esac
+        branch="${remote_ref#refs/heads/}"
+        draft="$(gh pr view "$branch" --json isDraft -q .isDraft 2>/dev/null || true)"
+        [ "$draft" = "false" ] || continue
+        if ! "$root/script/roadmap" --ready-branch "$branch"; then
+            echo "pre-push: the pull request for $branch is ready, and its block above still reads IN-PROGRESS." >&2
+            echo "  Bypass: git push --no-verify" >&2
+            exit 1
+        fi
+    done
 fi
