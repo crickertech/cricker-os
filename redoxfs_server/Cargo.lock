@@ -548,7 +548,6 @@ dependencies = [
 name = "redoxfs_server"
 version = "0.1.0"
 dependencies = [
- "abi",
  "address_space_map",
  "entropy_protocol",
  "filesystem_protocol",

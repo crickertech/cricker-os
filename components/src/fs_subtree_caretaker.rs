@@ -70,7 +70,7 @@
 
 use filesystem_protocol::{fs, grant, op, reply_err, reply_errno, verb};
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, exit, recv_cap, send};
+use user_mode_runtime::{Reply, call, exit, recv_request, send};
 
 /// The FS-service endpoint: the directory capability this process attenuates.
 const FS: u64 = 0;
@@ -120,8 +120,8 @@ fn forward(w0: u64, w1: u64) -> i64 {
 }
 
 /// Answer the blocked caller through the one-shot Reply the kernel minted.
-fn reply(slot: u64, r0: i64, r1: u64) {
-    user_mode_runtime::reply(slot, r0 as u64, r1);
+fn reply(to: Reply, r0: i64, r1: u64) {
+    user_mode_runtime::reply(to, r0 as u64, r1);
 }
 
 /// The client's handle namespace: `table[i]` is the FS server's handle for the client's handle `i`,
@@ -172,7 +172,14 @@ fn serve(dir: u64) -> ! {
     table.0[0] = Some(dir);
 
     loop {
-        let (w0, reply_slot, w1) = recv_cap(CLIENT);
+        // A CALL-only contract: a plain SEND or a client's SEND_CAP has nobody waiting, so it does
+        // no work here, and a delegated capability is deleted rather than answered into (milestone
+        // 706 (a CALL server can tell a Reply from a delegation)).
+        let req = recv_request(CLIENT);
+        let (w0, w1) = (req.w0, req.w1);
+        let Some(reply_slot) = req.delivered.into_reply() else {
+            continue;
+        };
         let len = fs::req_len(w0).min(PAGE) as u64;
         let code = op(w0);
         let Some(server_handle) = table.get(fs::req_handle(w0)) else {

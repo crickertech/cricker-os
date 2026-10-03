@@ -51,7 +51,7 @@ use filesystem_protocol::{blk, fs, op, reply_err, xattr};
 use redoxfs::Disk;
 use redoxfs_server::{CachedDisk, Server};
 use syscall::error::{EINVAL, EIO, Error, Result};
-use user_mode_runtime::{call, invoke, recv_cap_badged, send};
+use user_mode_runtime::{Reply, call, recv_request, send};
 
 /// Capability table slots, by convention with the kernel-side wiring (`kernel/src/user/fs_service.rs`).
 const MEMORY_REGION: u64 = 0;
@@ -396,10 +396,14 @@ fn window_base(badge: u64) -> u64 {
     FILE_PAGE + w * fs::TRANSFER_MAX as u64
 }
 
-/// Answer a caller through its one-shot Reply capability (slot `reply`), then return to serving.
-fn reply(reply_slot: u64, r0: i64, r1: u64) {
-    // SAFETY: the kernel minted this Reply naming the blocked caller; REPLY consumes it.
-    unsafe { invoke(reply_slot, abi::reply::REPLY, r0 as u64, r1, 0) };
+/// Answer a caller through its one-shot Reply capability, then return to serving. `None` is a
+/// request nobody is waiting on (a plain `SEND`, or a `SEND_CAP` whose capability
+/// `recv_request` deleted), which gets no answer (milestone 706 (a `CALL` server can tell a Reply
+/// from a delegation)).
+fn reply(to: Option<Reply>, r0: i64, r1: u64) {
+    if let Some(to) = to {
+        user_mode_runtime::reply(to, r0 as u64, r1);
+    }
 }
 
 /// The serve loop. Blocks on the file-service endpoint, dispatches one request, replies, repeats.
@@ -420,7 +424,13 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         // badged capability arrived here as badge 0, the unbound value, and was admitted against
         // another client's window and outside its own scope (with no Reply to answer). It now
         // arrives as itself. `system_log_tests` pins the kernel half.
-        let (w0, reply_slot, w1, badge) = recv_cap_badged(FILE);
+        //
+        // **The Reply is typed by the kernel's `x4`** (milestone 706, DECISIONS §245 (a `CALL`
+        // server tells a Reply from a delegation)): a client that `SEND_CAP`s a capability here
+        // gets it deleted, never answered into.
+        let req = recv_request(FILE);
+        let (w0, w1, badge) = (req.w0, req.w1, req.badge);
+        let reply_slot = req.delivered.into_reply();
         let win = window_base(badge);
         let code = op(w0);
         // **A bound badge's handles go through `subtree_scope`** (milestone 606 (a directory walk

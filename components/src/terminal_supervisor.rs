@@ -46,7 +46,7 @@ use component_plan::Provisions;
 use line_editor::component::{self, supervisor as s};
 use line_editor::proto;
 use supervision_protocol::{ChildEndowment, Retention};
-use user_mode_runtime::{cap_delete, recv, recv_cap, recv_fault, reply, send};
+use user_mode_runtime::{cap_delete, recv, recv_fault, recv_request, reply, send};
 
 const MODE_DISPLAY: u64 = 1;
 
@@ -121,10 +121,13 @@ pub extern "C" fn _start(mode: u64, elf_len: u64, swap: u64) -> ! {
     }
 
     loop {
-        let (verb, caller, _) = recv_cap(swap);
-        if caller == abi::rendezvous::NO_CAP {
+        let req = recv_request(swap);
+        let verb = req.w0;
+        // Only a CALL is answered; a delegation is deleted (milestone 706 (a `CALL` server can tell
+        // a Reply from a delegation)).
+        let Some(caller) = req.delivered.into_reply() else {
             continue;
-        }
+        };
         if verb == s::STOP {
             let (q, _) = user_mode_runtime::call(s::TERMINAL, proto::req(proto::OP_QUIESCE, 0), 0);
             if q != proto::QUIESCED {

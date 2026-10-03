@@ -952,8 +952,14 @@ fn hung(fs: &nifefs::Fs, w: &Wiring) -> ! {
     // and holding it is the only handle anything in this system has on a wedged process.
     // ------------------------------------------------------------------------------------------
 
-    let (kind, release, served) = user_mode_runtime::recv_cap(w.note);
-    if kind != swap_protocol::NOTE_WEDGED || release == abi::rendezvous::NO_CAP {
+    let req = user_mode_runtime::recv_request(w.note);
+    let (kind, served) = (req.w0, req.w1);
+    // The incumbent's CALL, and nothing else: a delegation here is not the handle (milestone 706 (a
+    // `CALL` server can tell a Reply from a delegation)).
+    let Some(release) = req.delivered.into_reply() else {
+        bail(81)
+    };
+    if kind != swap_protocol::NOTE_WEDGED {
         bail(81)
     }
     send(REPORT, swap_protocol::RPT_WEDGED, swap_protocol::V1, served);
