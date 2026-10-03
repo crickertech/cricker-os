@@ -44,6 +44,12 @@ where the field did not exist yet, or held a word with no meaning today, the ris
 "unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
 on 2026-08-31 UTC.
 
+## The nine, by colour
+
+![colours](project-metrics/fatal-risks-colors.svg)
+
+Grey is no verdict yet.
+
 ## Kani proof harnesses, and what can falsify them
 
 ![Kani proof harnesses](project-metrics/harnesses.svg)

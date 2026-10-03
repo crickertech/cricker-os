@@ -1,3 +1,8 @@
+---
+risk: 7
+color: none
+updated: 2026-08-31
+---
 # Appendix to risk 7: The confinement claim is false
 
 *An appendix to [`README.md`](README.md)'s risk 7. That entry is the claim of
