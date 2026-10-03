@@ -310,6 +310,11 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // on Unix the same command is a shell that appears to hang. So the line above granted
     // something, rather than falling back on a default.
     line(0, "wc", &["name a file"]),
+    // Milestone 632 (graphics on demand)'s refusal, on every ISA: these legs attach no gpu, so the
+    // shell holds no display and `screen` is refused at the prompt with a sentence rather than
+    // spawned into nothing. It is the half of the milestone x86_64 can prove (no virtio-gpu is
+    // wired there); the launch itself is `swish_check_leg_graphical`'s.
+    line(0, "screen", &["no display on this boot"]),
     // And `caps` says which file and how, which is the honest half: the shell reads it and streams
     // it in, so what the child holds is an endpoint and not a capability naming the disk.
     line(0, "caps wc gate.txt", &["input    gate.txt"]),
