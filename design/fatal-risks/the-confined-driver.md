@@ -1,3 +1,8 @@
+---
+risk: 6
+color: none
+updated: 2026-08-31
+---
 # Appendix to risk 6: A capability-confined userspace driver cannot drive real hardware at real speed
 
 *An appendix to [`README.md`](README.md)'s risk 6. That entry is the claim of

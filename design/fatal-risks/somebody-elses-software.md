@@ -1,3 +1,8 @@
+---
+risk: 1
+color: green
+updated: 2026-08-31
+---
 # Appendix to risk 1: Only software written for nife runs on nife
 
 *An appendix to [`README.md`](README.md)'s risk 1. That entry is the claim of

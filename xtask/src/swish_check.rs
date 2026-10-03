@@ -208,13 +208,17 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 ///
 /// `greeting` rides along (milestone 198 rung 3a's fetch): it was installed as generation 2, it
 /// runs after the reboot, and removing `noteless` leaves it running, because a generation drops
-/// one program and not its neighbours. `noteless` took `uptime`'s place here when DECISIONS §229
-/// (calef, 2026-09-27) refused installing a package named after an image program.
+/// one program and not its neighbours. Its 0.2.0 rides beside it (milestone 614): generation 3,
+/// which lists both versions of `greeting` and `noteless`. `noteless` took `uptime`'s place here
+/// when DECISIONS §229 (calef, 2026-09-27) refused installing a package named after an image
+/// program.
 ///
-/// **The numbers skip one** because the first boot vouched for a build as generation 3 and rolled
-/// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 4, and
-/// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 3: the vouch's generation,
-/// which lists `noteless` too.
+/// **The numbers skip one** because the first boot vouched for a build as generation 4 and rolled
+/// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 5, and
+/// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 4: the vouch's generation,
+/// which lists `noteless` too. The extra generation ahead of it is milestone 614 (two installed
+/// versions of one program, each runnable, and a caller granted the one it needs)'s second
+/// version, installed before the vouch.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         1,
@@ -232,7 +236,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         0,
         "package remove noteless",
-        &["removed; generation 4 is live"],
+        &["removed; generation 5 is live"],
     ),
     // **Removed means unvouched, not unrunnable, for a session holding D2** (DECISIONS §219 gate
     // D2). Until D2 this line was a refusal. The boot prompt now holds the run-unvouched
@@ -262,7 +266,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         0,
         "package rollback",
-        &["rolled back; generation 3 is live"],
+        &["rolled back; generation 4 is live"],
     ),
     line(
         1,
@@ -749,9 +753,24 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // **Fetched over the booted system's network and installed** (rung 3a's first gap): the
     // progenitor finds `greeting`'s stem in the catalogue, fetches it from the gate's package
     // source through the stack it built at boot, and installs what arrived as it installs a file.
+    // **Two versions catalogued, so a bare name is refused** (milestone 614 (two installed
+    // versions of one program, each runnable, and a caller granted the one it needs)). The image
+    // vouches for `greeting` at 0.1.0 and at 0.2.0 (every archive build builds every recipe), and
+    // nothing orders versions, so a bare fetch names no one package. Before this refusal the first
+    // catalogue line won, which recipe filenames ordered as 0.2.0; the source serves only 0.1.0,
+    // and every leg that fetched answered "the package source did not send a whole package". The
+    // catalogue refuses before the network is asked, so x86_64 types this too.
     line(
         0,
         "package install greeting",
+        &[
+            "refused: this image's catalogue vouches for several versions of that package; \
+             name one with <package>@<version>; generation 1 is live",
+        ],
+    ),
+    line(
+        0,
+        "package install greeting@0.1.0",
         &["fetched and installed; generation 2 is live"],
     ),
     // x86_64 has no NIC, so it installs the same package from the disk instead; the two legs that
@@ -798,6 +817,62 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps greeting",
         &["provenance: vouched by activation generation 2 (digest "],
     ),
+    // **Milestone 614: the second version installs beside the first** (rulings 2 and 3). Rows key
+    // on the digest, so installing over a live version appends and moves the default pointer
+    // instead of replacing. The package is `greeting` at 0.2.0, whose member is `greeting_two`'s
+    // bytes under the name `greeting` (`as` in the recipe), so its digest differs from 0.1.0's and
+    // the table holds both. The gate installs from the disk on all three legs; the image's
+    // catalogue carries the stem because every archive build builds every recipe for its
+    // architecture.
+    line(
+        0,
+        "package install downloads/0.2.0/greeting.nifepkg",
+        &["installed; generation 3 is live"],
+    ),
+    // **And the new version runs by its path**, printing its own line, which is how the transcript
+    // tells the two copies apart.
+    line(
+        1,
+        "packages/greeting/0.2.0/greeting",
+        &["hello from the second copy of the package"],
+    ),
+    // **And the old version still runs by its path, at two versions live.** This is the line the
+    // one-entry table made impossible: its digest left that table at the install above, and a
+    // digest not in the live generation is `SPAWN_UNVOUCHED`.
+    line(
+        1,
+        "packages/greeting/0.1.0/greeting",
+        &["hello from a package this image never carried"],
+    ),
+    // **The version set, the ruled selection** (ruling 4). The nearest `versions` file at or above
+    // the working directory (here the root's) says `greeting 0.1.0`, and the bare word runs that
+    // version, although the default pointer names 0.2.0. The set only selects among live versions;
+    // a cloned repository can ask, and cannot run uninstalled bytes.
+    line(0, "echo greeting 0.1.0 > versions", &[]),
+    line(
+        1,
+        "greeting",
+        &["hello from a package this image never carried"],
+    ),
+    // **The explicit ask** (ruling 4's other override): `program@version` answers its own row, and
+    // is not reached by the image's claim on the bare name because it is not the bare name.
+    line(
+        1,
+        "greeting@0.1.0",
+        &["hello from a package this image never carried"],
+    ),
+    // **And the divergence notice**, the guard on the whole mechanism: the set now names a version
+    // nobody installed, so the default runs and the spawn line says both (`uptime 0.2.0 (repo
+    // specifies 0.1.0)` is the ruling's own example). Wording provisional.
+    line(0, "echo greeting 0.9.9 > versions", &[]),
+    line(
+        1,
+        "greeting",
+        &[
+            "greeting 0.2.0 (repo specifies 0.9.9)",
+            "hello from the second copy of the package",
+        ],
+    ),
     // **A name the image and a package both have** is refused at the prompt, naming both (§229
     // B2), but no line here can make one: install now refuses an image program's name (§229,
     // 2026-09-27), and only a later base adding a name a package holds can produce the pair.
@@ -821,12 +896,12 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "vouch installed/unvouched",
-        &["vouched; generation 3 is live"],
+        &["vouched; generation 4 is live"],
     ),
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: vouched by the owner in activation generation 3 (digest "],
+        &["provenance: vouched by the owner in activation generation 4 (digest "],
     ),
     // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
     // the name it was recorded under, so the bare word reaches nothing.
@@ -835,7 +910,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "package rollback",
-        &["rolled back; generation 2 is live"],
+        &["rolled back; generation 3 is live"],
     ),
     line(
         0,
@@ -1228,13 +1303,14 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
         // The preview and the witness stay: neither needs a device, and the witness's refusal is
         // the same on a boot with no stack as on one that has a stack and did not endow it.
         // And the package source is reached over that network (milestone 198 rung 3a's fetch).
-        // `package install nosuch` stays: the catalogue refuses it before the network is asked.
-        "network_echo_client --mem 4" | "package install uptime" | "package install greeting" => {
-            Some(
-                "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
+        // `package install nosuch` stays: the catalogue refuses it before the network is asked,
+        // and so does the bare `package install greeting` (two versions catalogued).
+        "network_echo_client --mem 4"
+        | "package install uptime"
+        | "package install greeting@0.1.0" => Some(
+            "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
                  found on virtio-mmio only, and the x86_64 runner attaches none)",
-            )
-        }
+        ),
         _ => None,
     }
 }
@@ -1293,6 +1369,19 @@ const SWISH_CHECK_LINE_SECS: u64 = 30;
 /// milliseconds per scroll rather than seconds and is not measured on silicon
 /// (`framebuffer_driver`'s BUGS). Milestone 400's BUGS records the design half: the console
 /// blocks on the screen.
+///
+/// **After milestone 624 (the paint path), 2026-10-03 UTC, and why the bound stayed.** Same
+/// machine, same day, the script grown to 128 lines on the first boot:
+///
+/// | tree | lines | total | per line | slowest line |
+/// |---|---|---|---|---|
+/// | `main` at 4db8c13bf | 119 | 753.5 s | 6.3 s | `caps std_exerciser` 27.5 s |
+/// | milestone 624 at 4124d6390 | 128 | 665.6 s | 5.2 s | `caps /installed/std-grep needle docs` 22.9 s |
+///
+/// Median line 3.1 s, 90th percentile 10.9 s (624, 136 timed lines over both boots). Both runs
+/// shared patagonia with another session's `x86_64` leg, so read the ratio, not the seconds. The
+/// rule that set 90 s (2x the slowest local line at CI's worst 1.8x ratio) now gives 82 s, which
+/// is not worth the risk of a red leg, so the bound stays at 90 s until the remaining gap closes.
 const SWISH_CHECK_X86_LINE_SECS: u64 = 90;
 
 /// How many foreign characters [`find_marker`] will step over inside one marker before it gives up.
@@ -2267,8 +2356,15 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         if let (true, Some((prev, typed))) = (failed.is_empty(), previous) {
             took.push((prev, typed.elapsed()));
         }
-        // Every line's time, in script order, beside the transcript when that was asked for.
-        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some() {
+        // Every line's time, in script order, when that was asked for. `NIFE_SHOW_LINE_TIMES`
+        // prints the table alone and `NIFE_SHOW_TRANSCRIPT` prints it beside the whole transcript
+        // (which is what a person reading a session wants and far too much text to diff a
+        // before/after measurement out of). The split exists for exactly that: the paint path's
+        // legs are priced by this table (`SWISH_CHECK_X86_LINE_SECS`'s own doc), and a lane that
+        // changes the paint path needs the table from two runs, not two transcripts.
+        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some()
+            || std::env::var_os("NIFE_SHOW_LINE_TIMES").is_some()
+        {
             for (l, d) in &took {
                 eprintln!("swish-check ({arch}): {:6.2}s  {l}", d.as_secs_f64());
             }
@@ -3066,8 +3162,22 @@ $ outlaw
     /// and builds nothing. A bound from above only; a tag that is too low is the case no host test
     /// can see, and the transcript cannot either.
     /// Bare names this script installs before it types them (§229 (how a bare name at the prompt
-    /// reaches an installed program), B2), which run as programs without being the image's.
-    const INSTALLED_BY_THE_SCRIPT: [&str; 2] = ["greeting", "noteless"];
+    /// reaches an installed program), B2), which run as programs without being the image's, and
+    /// the version-qualified ask, which is not a bare name but resolves to one of these rows the
+    /// same way (milestone 614, ruling 4).
+    const INSTALLED_BY_THE_SCRIPT: [&str; 3] = ["greeting", "noteless", "greeting@0.1.0"];
+
+    /// **The second version's install line names the file the seed writes** (milestone 614), the
+    /// same pairing the two tests above hold for 0.1.0's lines.
+    #[test]
+    fn the_second_version_install_line_names_the_seeded_file() {
+        let line = format!("package install {}", crate::disk::DOWNLOADED_GREETING_0_2_0);
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
+        // No leg omits it: the disk carries it everywhere, and no leg fetches it.
+        for arch in ["aarch64", "riscv64", "x86_64"] {
+            assert!(swish_check_omits(arch, &line).is_none(), "{arch}");
+        }
+    }
 
     /// Feed `chunks` through a [`GaugeFilter`] and return what the checks would read, and the gauges.
     fn filtered(chunks: &[&str]) -> (String, Vec<(usize, String)>) {

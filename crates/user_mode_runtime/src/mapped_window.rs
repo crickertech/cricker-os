@@ -139,6 +139,16 @@ impl MappedWindow {
     pub fn w32(&self, off: u64, v: u32) {
         self.write(off, v);
     }
+    /// Read a `u64` at `off`. The caller keeps the offset 8-aligned: this is a volatile read of a
+    /// pointer whose alignment the type does not check, and the bulk-copy callers (the terminal's
+    /// scroll, the framebuffer's flush) arrange alignment by construction instead.
+    pub fn r64(&self, off: u64) -> u64 {
+        self.read(off)
+    }
+    /// Write a `u64` at `off`. See [`r64`](Self::r64) for the alignment the caller owes.
+    pub fn w64(&self, off: u64, v: u64) {
+        self.write(off, v);
+    }
 
     /// The whole window as an ordinary byte slice, for a caller that hands it wholesale to a
     /// parsing or serialization routine rather than reading or writing individual fields (round 6:

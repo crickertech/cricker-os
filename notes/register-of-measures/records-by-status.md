@@ -9,10 +9,11 @@ three values and no fourth. `RUN` means the experiment has been performed. `NOT-
 not and could be. `CANNOT-RUN` means it cannot be performed at all. `script/fatal-risks` fails on any
 other word, so this can be charted as an enumeration rather than read out of a sentence.
 
-The field says whether an experiment happened. It never says what it found. That is the half of the
-2026-09-23 proposal calef did not take, and leaving it out is deliberate rather than pending.
-`GREEN`, `AMBER`, `MEASURED` and `AUDITED` are in the file, in prose, beside the argument that earns
-them; a colour band on a chart would be a worse version of a paragraph.
+The field says whether an experiment happened. It never says what it found. That half of the
+2026-09-23 proposal was refused on 2026-09-23 and commissioned on 2026-09-29; the appendix beside
+this one argues it. `GREEN`, `AMBER`, `MEASURED` and `AUDITED` are in the file, in prose, beside
+the argument that earns them; the colours chart counts the first two as words, and the rest stay
+prose.
 
 `CANNOT-RUN` is the one value that carries a judgement anyway, and it is the file's own. Risk 8
 cannot be observed until milestone 198 (a package manager, and the trivial install that makes a

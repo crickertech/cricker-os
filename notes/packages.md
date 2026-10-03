@@ -150,10 +150,10 @@ same test as a twin in `system_tests/src/user/riscv_virtio_tests.rs`.
 ### The versioned table, as logic
 
 `crates/activation_set` (provisional name) is §208's second clause as a pure, host-tested crate: a
-generation is a text file of `<program> <package> <digest>` lines that is never rewritten, a
-one-line `current` names the live one, and install, upgrade and remove each produce the next
-generation. Its test `a_rollback_restores_the_whole_set` is the property calef asked for by name.
-The progenitor reads and writes it on the target (below).
+generation is a text file of digest-keyed rows, `<digest> <program> <version> <package>`, and
+`default` pointer lines, never rewritten; a one-line `current` names the live one, and install,
+upgrade and remove each produce the next generation. Its test `a_rollback_restores_the_whole_set`
+is the property calef asked for by name. The progenitor reads and writes it on the target (below).
 
 ## Running what was installed, by its bytes
 

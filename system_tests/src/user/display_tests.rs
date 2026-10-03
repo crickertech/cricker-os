@@ -389,6 +389,30 @@ fn a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_scanout() {
         "the one-letter typo produces an identical picture: the negative control is inert",
     );
 
+    // **Scroll the screen** (the paint path, 2026-09-30). Until this, no pixel check ever pushed
+    // the picture past the grid's own height, so the terminal's scroll path, the path the x86_64
+    // swish leg spends most of its wall clock in (`notes/benchmarks/icount-tick-scales.md`), had
+    // no end-to-end witness: a scroll that painted garbage would have passed every check in this
+    // file. The fast path moves pixel rows instead of re-rendering them, so this comparison,
+    // against the same engine run here, is the witness that a moved picture is the right picture.
+    //
+    // One `OP_WRITE` per line, so every present scrolls once; then the tail, several lines in one
+    // write, so one present carries several scrolls. Both shapes reach `assert_screen_is` below
+    // through the same pixels.
+    video_terminal::script::write_scroller(|bytes| w.print(bytes));
+    video_terminal::script::feed_scroller(expect, None);
+    w.assert_screen_is(expect, "after the scroller");
+
+    // The scrolled comparison needs its own teeth: one digit of one scroller line off must fail
+    // it, or it proves nothing about scrolls specifically (a checker keyed on "the bottom rows
+    // hold text" would pass a picture scrolled by the wrong number of rows).
+    video_terminal::script::feed_scroller(typo, Some(20));
+    assert!(
+        (0..gfx::HEIGHT).any(|y| (0..gfx::WIDTH).any(|x| typo.pixel(x, y) != expect.pixel(x, y))),
+        "the one-digit scroller typo produces an identical scrolled picture: the negative \
+         control is inert",
+    );
+
     // **Hold the picture up for the host.** `cargo xtask` polls QEMU's monitor while this suite
     // runs, and the next test puts rung one's pattern on the same scanout. Three seconds is an
     // order of magnitude more than the poll needs, and if the host never sees it the run fails at
@@ -593,6 +617,12 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     const TEXT: &[u8] = b"\x1b[41m \x1b[44m \x1b[0m\r\n";
     w.print(TEXT);
     w.print(video_terminal::script::GREETING);
+    // **And past the grid's own height** (the paint path, 2026-09-30): a scroll makes the
+    // terminal present the whole covered part through this driver, whose 148-byte stride puts
+    // every other row off qword alignment, which is the geometry the wide-copy path in the flush
+    // has to survive. One write per line (each present scrolls once), then the tail (several
+    // scrolls in one present), the same writes the full-scanout witness sends.
+    video_terminal::script::write_scroller(|bytes| w.print(bytes));
 
     static mut EXPECT: video_terminal::Vt =
         video_terminal::Vt::new(video_terminal::script::COLS, video_terminal::script::ROWS);
@@ -602,6 +632,7 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     expect.reset_to(cols, rows);
     expect.feed(TEXT);
     expect.feed(video_terminal::script::GREETING);
+    video_terminal::script::feed_scroller(expect, None);
 
     let read = |offset: usize| {
         // SAFETY: inside the pretend screen allocated above; the offsets below stay in it.
