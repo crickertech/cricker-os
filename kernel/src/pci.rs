@@ -1084,7 +1084,7 @@ mod tests {
     /// The bug this pins is the one xenon exposed: the kernel mapped one megabyte of configuration
     /// space, enumerated bus 0, and reported a machine whose NVMe was behind a root port as having
     /// no NVMe at all. What made it expensive to find is that nothing failed. `non_volatile_memory_express_tests`
-    /// **skipped**, with QEMU's explanation ("NIFE_NVME not set on this leg?") for an absence that
+    /// **skipped**, with QEMU's explanation ("`NIFE_NVME` not set on this leg?") for an absence that
     /// had an entirely different cause, and a skip reads like a fact about the run.
     ///
     /// So this test asserts the whole chain rather than the endpoint: the survey recorded more than
