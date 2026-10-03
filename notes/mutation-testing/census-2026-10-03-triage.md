@@ -117,7 +117,7 @@ would tell them apart, and no caller builds one.
 recorded 17 equivalents and 30 deferrals for this crate. Eighteen of the 30 deferrals were
 reachable with a fixture, and so were 14 survivors in the table fold that ledger never listed.
 
-The new tests are in `crates/documentation/tests/render.rs`, under the milestone 637 headings.
+The new tests are in `crates/documentation/tests/render.rs`, under the survivor-triage headings.
 
 ### Killed (32)
 

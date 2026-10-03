@@ -974,7 +974,7 @@ fn a_code_span_hands_back_the_line_past_its_closing_backtick() {
     assert_eq!(plain("a `code` b\n", 40), "  a code b\n");
 }
 
-// ---- milestone 637: the last column's fold, and the table arena's edges -----------------------
+// ---- survivor triage of the 2026-10-03 census: the last column's fold, and the table arena's edges -----------------------
 //
 // The fold that keeps a ninth cell from being dropped (see `a_table_of_twelve_columns_keeps_every_
 // character`) strips trailing blanks, then one closing pipe unless a backslash escapes it. Each of
@@ -1046,7 +1046,7 @@ fn a_row_that_exactly_fills_the_text_arena_is_still_one_chunk() {
     );
 }
 
-// ---- milestone 637: the inline scanner's depth bound and its last-byte reads --------------------
+// ---- survivor triage of the 2026-10-03 census: the inline scanner's depth bound and its last-byte reads --------------------
 //
 // The scanner reads one byte ahead of a marker, and the line buffer behind the live line holds the
 // previous, longer line. A read one byte too far therefore does not fail on its own; it fails when
