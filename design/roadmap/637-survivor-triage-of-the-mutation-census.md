@@ -1,7 +1,6 @@
 ---
-status: IN-PROGRESS
+status: PARTIAL
 raised: 2026-09-24
-branch: milestone/637-survivor-triage-4
 promoted_from: triage-the-crates-the-2026-09-21-census-measured-first
 milestone_dependencies: none
 decision_dependencies: none
@@ -15,7 +14,7 @@ Promoted 2026-10-03 (UTC); the number is provisional until the integrator confir
 
 Newest census: mutation run 37108924347 (2026-10-03), 85 crates, 14,853 mutants, 1,004 missed, 92.7% killed. Its missed list is the work list; the 2026-09-21 table below is the order.
 
-Third batch landed 2026-10-03 (UTC); the lane continues on `milestone/637-survivor-triage-4`. Running tally of the 1,004 (killed by a new test, recorded equivalent, recorded gap, remaining): 393, 226, 13, 372. Crates done so far, in the proposal's order: `component_plan`, `ps`, `pgrep`, `pmap`, `firmware_configuration`, `sealed_pair`, `loaded_image_check`, `uptime`, `globally_unique_identifier_partition_table`, `entropy_protocol`, `socket_protocol` and `uefi_loader`. `documentation`, `filesystem_protocol`, `timetable`, `video_terminal`, `machine_discovery`, `grant_plan`, `paging`, `walk_pricing` and `system_log` are done in the second batch, then come the crates the earlier appendices already ledger. The accounting is in [census-2026-10-03-triage](../../notes/mutation-testing/census-2026-10-03-triage.md).
+Fourth batch landed 2026-10-03 (UTC); the lane continues on the next batch's branch. Running tally of the 1,004 (killed by a new test, recorded equivalent, recorded gap, remaining): 393, 226, 13, 372. Crates done so far, in the proposal's order: `component_plan`, `ps`, `pgrep`, `pmap`, `firmware_configuration`, `sealed_pair`, `loaded_image_check`, `uptime`, `globally_unique_identifier_partition_table`, `entropy_protocol`, `socket_protocol` and `uefi_loader`. `documentation`, `filesystem_protocol`, `timetable`, `video_terminal`, `machine_discovery`, `grant_plan`, `paging`, `walk_pricing` and `system_log` are done in the second batch, then come the crates the earlier appendices already ledger. The accounting is in [census-2026-10-03-triage](../../notes/mutation-testing/census-2026-10-03-triage.md).
 
 Raised by the lane that condensed `notes/mutation-testing.md`
 (#1209), while recording the 2026-09-21 census, whose run no one had captured.
@@ -76,6 +75,7 @@ table links.
 
 ## Follow-on
 
+- **Outstanding.** 372 of the 1,004 survivors in run 37108924347 are untriaged, headed by `swish` (32) and `line_editor` (24). Checked against the run's `missed.txt` on 2026-10-03 (UTC).
 - **Proposed.** `design/roadmap/proposals/the-inline-scanner-reads-from-a-slice-that-ends-with-its-range.md` makes the eight `documentation` over-read equivalents unrepresentable.
 - **Recorded.** The `output_len` and `CMDLINE_LEN` bounds are generous by design, so 12 survivors in `uefi_loader` stay as gaps, in `notes/mutation-testing/census-2026-10-03-triage.md`.
 
