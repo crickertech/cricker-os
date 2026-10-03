@@ -219,12 +219,12 @@ which is the same luck that found the three redone patches above and is not a me
   logging can no longer dirty the tree it is about to patch. Carried by pull request #1156, commit
   `401203294`, on branch `falsify/the-single-harness-crates`; that pull request owns
   `.github/workflows/falsifications.yml` and this record deliberately does not touch it.
-- **Proposed.** `design/roadmap/proposals/a-gate-is-not-evidence-until-it-has-failed.md`: a
+- **Milestone 640.** Milestone 640 (a gate is not evidence until somebody has watched it fail). `design/roadmap/640-a-gate-is-not-evidence-until-it-has-failed.md`: a
   workflow that gates something is not deployed until it has been observed failing
   on purpose, once, and the record of that observation lives with it, the way §134's falsification
   patch lives beside its harness. It may fold into the denominator proposal below rather than
   standing alone; that is calef's call.
-- **Proposed.** `design/roadmap/proposals/a-mechanism-reports-its-denominator.md`:
+- **Milestone 641.** Milestone 641 (a mechanism that reports clean says over how many units, and zero is loud). `design/roadmap/641-a-mechanism-reports-its-denominator.md`:
   survey the 5 `continue-on-error: true` steps and 19 `|| true` constructs across the 14 workflows,
   decide for each whether it suppresses a verdict or an outcome, and give every job that publishes a
   report a denominator it must assert is non-zero. It is the workflow-level counterpart of what

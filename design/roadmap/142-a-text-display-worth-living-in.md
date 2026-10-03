@@ -76,7 +76,7 @@ built:
 - Scrollback from the keyboard is PROPOSED, not the small follow-up this block called it. In the
   boot a person uses, `line_editor` sits in front of `display_terminal`, so the component holding
   the history never sees a keystroke. The route needs a new opcode, and
-  `design/roadmap/proposals/scrollback-from-the-keyboard.md` weighs four. It edits the two programs
+  `design/roadmap/668-scrollback-from-the-keyboard.md` weighs four. It edits the two programs
   milestone 23 (a capability-routed component OS with live replacement) is building live
   replacement for, so it should follow that lane.
 - Increment 4 stays NOT-STARTED on purpose. Blending in linear light has no consumer until the
@@ -681,8 +681,8 @@ Eventually his and blocking nothing:
   referee poll in `xtask/src/main.rs` records the 39x growth, that both suites still finish in
   normal time, and calef's call to leave the 100 ms cadence alone until something is measurably
   slow.
-- **Proposed.** Scrollback is still not reachable from a keyboard, and it needs an architect: the
-  route has a new opcode in it. `design/roadmap/proposals/scrollback-from-the-keyboard.md` has the
+- **Milestone 668.** Milestone 668 (scrollback from the keyboard: shift and page up scrolls the display terminal's history). Scrollback is still not reachable from a keyboard, and it needs an architect: the
+  route has a new opcode in it. `design/roadmap/668-scrollback-from-the-keyboard.md` has the
   work, the four options and the recommendation. The keys (`CSI 5;2~`, `CSI 6;2~`) are sent since
   2026-09-26.
 - **Outstanding.** Increment three has not started: nothing in `Cargo.lock` mentions a TrueType

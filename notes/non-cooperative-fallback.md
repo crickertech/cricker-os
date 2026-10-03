@@ -95,7 +95,7 @@ not need.
 
 **Rule that a dependent's warning is advisory and must never block the supervisor: signal it through
 a bound notification plus a state page, and swap without waiting for an answer.** Build it after
-milestone 151. Tracked as `design/roadmap/proposals/warn-a-dependent-without-blocking.md`. Until then, record the stranded-operator defect as a known limit and do not build a
+milestone 151. Tracked as `design/roadmap/682-warn-a-dependent-without-blocking.md`. Until then, record the stranded-operator defect as a known limit and do not build a
 workaround (E).
 
 What is blocked until this is answered: nothing in milestone 23 beyond the one `Outstanding`

@@ -3,7 +3,7 @@ status: PARTIAL
 raised: 2026-09-19
 promoted_from: the-installer-a-stick-runs-to-put-itself-on-the-disk
 milestone_dependencies: 261
-decision_dependencies: unwritten
+decision_dependencies: 244
 machine_requirements: x86_64 UEFI silicon with an NVMe drive
 specific_machine: none
 needs_person: yes
@@ -191,8 +191,7 @@ PC once rung 1 has one.
 - **Outstanding.** Exit criterion 2, xenon: milestone 261's disk wipe is calef's, then one bench
   boot. Checked 2026-10-03: 261 is PARTIAL and nothing in `bench/` records an install.
 - **Outstanding.** Exit criterion 3, a fleet machine that is not xenon, from milestone 243 (a machine with no serial port has no way to say anything)'s fleet.
-- **Outstanding.** The layout ruling above. `decision_dependencies` stays `unwritten` until the
-  maintainer mints its section; a lane does not write `design/decisions/`.
+- **Decision.** Ruled 2026-10-03 in `design/decisions/244-the-installed-disk-has-four-partitions.md`: the layout above stands, and slots stay at 64 MiB. Two conditions remain with another lane: the installer installs a release image, and CI gates the release image at 16 MiB.
 - **Milestone 560.** `BOOTRISCV64.EFI` is not an 8.3 name, so riscv64 cannot be installed.
 - **Milestone 568.** `/chosen` has one initrd slot, so aarch64 and riscv64
   have no installer.
@@ -200,8 +199,8 @@ PC once rung 1 has one.
 - **Milestone 570.** Open as milestone 570 (the install offer should say what is already on the disk).
 - **Milestone 572.** Open as milestone 572 (there is no way back from the stick: an installed disk is
   never offered an install again).
-- **Proposed.** Nothing runs these three gates on any schedule:
-  `design/roadmap/proposals/the-install-gates-run-nowhere.md`.
+- **Milestone 712.** Milestone 712 (the install gates run nowhere, so rung 2a can rot without anybody hearing). Nothing runs these three gates on any schedule:
+  `design/roadmap/712-the-install-gates-run-nowhere.md`.
 
 ## Index row
 

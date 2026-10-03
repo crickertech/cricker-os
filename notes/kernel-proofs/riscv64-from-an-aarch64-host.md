@@ -3,7 +3,7 @@
 An appendix to [notes/kernel-proofs.md](../kernel-proofs.md), which links here from its stub-list
 item 8. It is milestone 432 (the RISC-V IOMMU driver has no counterpart to the SMMU's proofs), built
 as option 1 of
-[the proposal that measured it](../../design/roadmap/proposals/riscv64-code-the-prover-can-already-compile.md).
+[the proposal that measured it](../../design/roadmap/650-riscv64-code-the-prover-can-already-compile.md).
 
 *Name provisional: notes are an interface and their names are calef's call.*
 

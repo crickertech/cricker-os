@@ -66,8 +66,8 @@ Reversible by moving one line back; nothing else depends on which table it is in
 - **Recorded.** The bench build's `memory_corruption_canary_gate` warning, as a `BUGS` entry beside
   the dependency in `kernel/Cargo.toml`, marked as a deliberate exception.
 - **Refused.** A default `corruption_canary` feature, for the reason above.
-- **Proposed.** The same lint on `user_mode_runtime` and `redoxfs_server`, outside this
-  milestone's scope, in `design/roadmap/proposals/the-rest-of-the-tree-declares-dependencies-where-used.md`.
+- **Milestone 713.** Milestone 713 (the rest of the tree declares its dependencies where they are used). The same lint on `user_mode_runtime` and `redoxfs_server`, outside this
+  milestone's scope, in `design/roadmap/713-the-rest-of-the-tree-declares-dependencies-where-used.md`.
 
 ## Index row
 

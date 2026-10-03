@@ -223,7 +223,7 @@ notes/board-reboot.md.
   one bench reset.
 - **Milestone 593.** A watchdog for a wedged kernel, milestone 593 (a wedged kernel resets itself):
   `design/roadmap/593-a-wedged-kernel-resets-itself.md`.
-- **Proposed.** xenon's possible AMT: `design/roadmap/proposals/xenon-may-carry-amt.md`.
+- **Milestone 653.** Milestone 653 (xenon may carry Intel AMT, which would power-cycle it and give it a console with nobody at the desk). xenon's possible AMT: `design/roadmap/653-xenon-may-carry-amt.md`.
 
 - **Milestone 324.** *The watcher reads a board and never speaks to it, so stopping a reboot loop needs a
   person at the keyboard.* `script/board-console` holds the port and cannot send the byte that is

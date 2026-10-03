@@ -83,10 +83,10 @@ binary in the `std_exerciser` workspace, with a provisional name.
 Clauses 2 to 5: a word that names something here is granted it. calef ruled two questions first.
 
 - N1, at 2026-09-27T06:27Z, on
-  [`proposals/designating-a-foreign-programs-words.md`](proposals/designating-a-foreign-programs-words.md):
+  [`665-designating-a-foreign-programs-words.md`](665-designating-a-foreign-programs-words.md):
   a line that names no file grants nothing. To search here, a person types `rg pattern .`.
 - No mark, at 06:35Z, option 1 on
-  [`proposals/the-mark-on-a-foreign-programs-word.md`](proposals/the-mark-on-a-foreign-programs-word.md).
+  [`675-the-mark-on-a-foreign-programs-word.md`](675-the-mark-on-a-foreign-programs-word.md).
   An unvouched program gets every named word read-only, plus `>` for its output. To widen that, a
   person installs (vouches for) the program, and its manifest applies. There is no mark to spell.
 
@@ -115,7 +115,7 @@ the planner's grant and the note's round trip.
 ## What stays open
 
 - The layout: where the page sits, `argv[0]`, bytes rather than UTF-8, the 4,080-byte ceiling.
-  Built as [`proposals/the-argument-page-layout.md`](proposals/the-argument-page-layout.md)
+  Built as [`672-the-argument-page-layout.md`](672-the-argument-page-layout.md)
   proposes, and provisional until a ruling.
 - Environment variables and exit codes for a foreign program, which §170 does not rule.
 
@@ -185,7 +185,7 @@ the planner's grant and the note's round trip.
   `crates/system_initializer` yields up to 1,024 times before it gives up. That is a timing guess,
   and whether it covers one reap depends on what else is runnable. We would not choose it if the
   proper fix cost the same; the proper fix is a wire change, proposed in
-  `proposals/a-job-is-finished-when-its-memory-is-back.md`.
+  `685-a-job-is-finished-when-its-memory-is-back.md`.
 - Each spawn costs a scratch page or two in the progenitor: one to read the shell's frame
   and one to fill the child's copy. They come from `supervision_protocol`'s scratch
   window, which milestone 604 (the builder's scratch cursor is bounded) made wrap, so a reaped
@@ -194,16 +194,16 @@ the planner's grant and the note's round trip.
 ## Follow-on
 
 - **Done.** Clauses 2 to 5, carried by this block's designation build; the proposal is kept only
-  until the integrator retires it, `design/roadmap/proposals/designating-a-foreign-programs-words.md`.
-- **Proposed.** The page's layout, in `design/roadmap/proposals/the-argument-page-layout.md`.
-- **Proposed.** The mark, refused by calef at 2026-09-27T06:35Z and awaiting promotion as a
-  refused block, in `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md`.
+  until the integrator retires it, `design/roadmap/665-designating-a-foreign-programs-words.md`.
+- **Milestone 672.** Milestone 672 (the argument page's layout). The page's layout, in `design/roadmap/672-the-argument-page-layout.md`.
+- **Milestone 675.** Milestone 675 (the mark on a foreign program's word). The mark, refused by calef at 2026-09-27T06:35Z and awaiting promotion as a
+  refused block, in `design/roadmap/675-the-mark-on-a-foreign-programs-word.md`.
 - **Decision.** Environment variables and exit codes for a foreign program, which §170 leaves open
   in `design/decisions/170-how-a-foreign-program-is-told-what-to-do.md`.
 - **Recorded.** The `--mem` and `xargs` gaps, in this block's `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
-- **Proposed.** A job counts as finished only when its memory is back, replacing the retry, in
-  `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`.
+- **Milestone 685.** Milestone 685 (a job is finished when its memory is back). A job counts as finished only when its memory is back, replacing the retry, in
+  `design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md`.
 - **Milestone 599.** A frame per filesystem client channel, whose production pool closes the race
   in the nameset grant recorded in `BUGS` above.
 - **Recorded.** `notes/shared-page-audit.md` finding 1 still says the window is unreachable. This

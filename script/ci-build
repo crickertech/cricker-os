@@ -130,6 +130,7 @@ swish-check-graphical|local|script/swish-check --graphical && script/swish-check
 boot-check|local|script/boot-check
 hvf|local|hvf_leg
 fastpath-footprint|ci|script/fastpath-footprint
+boot-file-size|ci|script/boot-file-size
 stack-frame-check|ci|script/stack-frame-check
 stack-depth-check|ci|script/stack-depth-check
 supply-chain|ci|script/supply-chain
@@ -146,6 +147,8 @@ TABLE
 #
 #   fastpath-footprint  builds two RELEASE kernels, which no other check builds, so there is
 #                       nothing warm to share and a developer would wait for a cold build.
+#   boot-file-size      builds the release x86_64 UEFI image (a release kernel and archive, which
+#                       only `stick` and `install-boot` build otherwise) to budget its size.
 #   stack-frame-check   builds the kernel test binary twice; `-Z emit-stack-sizes` changes the
 #                       build, so the artifacts the `test` check just made cannot be reused.
 #   stack-depth-check   the same build as the row above, sharing its artifacts.

@@ -132,6 +132,62 @@ pub const fn refusal(error: elf::Error) -> &'static str {
     }
 }
 
+/// **Does this ELF still carry DWARF?** True if any section is named `.debug_*`, and also true when
+/// the section table cannot be read, because "could not prove it stripped" must not read as
+/// "stripped".
+///
+/// This is what makes a debug image unable to be installed (calef's ruling of 2026-10-03 UTC on
+/// the install boot slots: a slot holds a release image). The loader refuses to hand the installer
+/// its own file when this is true, so the stick of a debug build offers no install at all. A debug
+/// kernel is about 7.5 MB of which 5.8 MB is DWARF, and a slot is a fixed 64 MiB (`BOOT_FILE_MAX`).
+///
+/// `crates/elf` reads program headers only, so this reads the section headers itself: ELF64,
+/// little-endian, the only kind any target here produces. `--strip-debug` (what
+/// `cargo xtask`'s release path applies to the kernel before the loader embeds it) removes every
+/// `.debug_*` section and leaves the symbol table.
+pub fn carries_debug_info(elf: &[u8]) -> bool {
+    fn u16_at(b: &[u8], at: usize) -> Option<usize> {
+        Some(u16::from_le_bytes(b.get(at..at.checked_add(2)?)?.try_into().ok()?) as usize)
+    }
+    fn u32_at(b: &[u8], at: usize) -> Option<usize> {
+        Some(u32::from_le_bytes(b.get(at..at.checked_add(4)?)?.try_into().ok()?) as usize)
+    }
+    fn u64_at(b: &[u8], at: usize) -> Option<usize> {
+        usize::try_from(u64::from_le_bytes(
+            b.get(at..at.checked_add(8)?)?.try_into().ok()?,
+        ))
+        .ok()
+    }
+    fn scan(elf: &[u8]) -> Option<bool> {
+        let shoff = u64_at(elf, 0x28)?;
+        let entsize = u16_at(elf, 0x3a)?;
+        let count = u16_at(elf, 0x3c)?;
+        let names = u16_at(elf, 0x3e)?;
+        if count == 0 {
+            return Some(false);
+        }
+        if entsize < 0x28 || names >= count {
+            return None;
+        }
+        let header = |i: usize| shoff.checked_add(i.checked_mul(entsize)?);
+        if elf.len() < header(count)? {
+            return None;
+        }
+        let strtab_at = header(names)?;
+        let strtab_off = u64_at(elf, strtab_at.checked_add(0x18)?)?;
+        let strtab_len = u64_at(elf, strtab_at.checked_add(0x20)?)?;
+        let strtab = elf.get(strtab_off..strtab_off.checked_add(strtab_len)?)?;
+        for i in 0..count {
+            let name = u32_at(elf, header(i)?)?;
+            if strtab.get(name..)?.starts_with(b".debug_") {
+                return Some(true);
+            }
+        }
+        Some(false)
+    }
+    scan(elf).unwrap_or(true)
+}
+
 /// Parse and validate the embedded kernel, with this loader's wording on a refusal.
 pub fn parse(bytes: &[u8]) -> Result<Elf<'_>, &'static str> {
     Elf::parse(bytes).map_err(refusal)
@@ -407,5 +463,68 @@ mod tests {
         };
         assert_eq!(sentence(&bytes), refusal(elf::Error::WritableAndExecutable));
         assert_eq!(sentence(&[]), refusal(elf::Error::TooSmall));
+    }
+
+    /// A minimal ELF64 with a section table: a null section, the string table, and one named
+    /// section per entry of `names`.
+    fn with_sections(names: &[&str]) -> std::vec::Vec<u8> {
+        let mut strtab = std::vec![0u8];
+        let mut offsets = std::vec![];
+        for n in names {
+            offsets.push(strtab.len() as u32);
+            strtab.extend_from_slice(n.as_bytes());
+            strtab.push(0);
+        }
+        let shstr_name = strtab.len() as u32;
+        strtab.extend_from_slice(b".shstrtab\0");
+        let shoff = 64 + strtab.len();
+        let count = names.len() + 2;
+        let mut out = std::vec![0u8; 64];
+        out[0x28..0x30].copy_from_slice(&(shoff as u64).to_le_bytes());
+        out[0x3a..0x3c].copy_from_slice(&64u16.to_le_bytes());
+        out[0x3c..0x3e].copy_from_slice(&(count as u16).to_le_bytes());
+        out[0x3e..0x40].copy_from_slice(&1u16.to_le_bytes());
+        out.extend_from_slice(&strtab);
+        let mut header = |name: u32, off: u64, len: u64| {
+            let mut h = [0u8; 64];
+            h[0..4].copy_from_slice(&name.to_le_bytes());
+            h[0x18..0x20].copy_from_slice(&off.to_le_bytes());
+            h[0x20..0x28].copy_from_slice(&len.to_le_bytes());
+            out.extend_from_slice(&h);
+        };
+        header(0, 0, 0);
+        header(shstr_name, 64, strtab.len() as u64);
+        for o in offsets {
+            header(o, 0, 0);
+        }
+        out
+    }
+
+    #[test]
+    fn a_kernel_with_dwarf_sections_is_a_debug_image() {
+        assert!(carries_debug_info(&with_sections(&[
+            ".text",
+            ".debug_info"
+        ])));
+        assert!(carries_debug_info(&with_sections(&[".debug_line"])));
+    }
+
+    #[test]
+    fn a_stripped_kernel_is_not() {
+        assert!(!carries_debug_info(&with_sections(&[
+            ".text", ".rodata", ".symtab"
+        ])));
+        // A section that merely mentions the word later in its name is not DWARF.
+        assert!(!carries_debug_info(&with_sections(&[".not.debug_x"])));
+        // No section table at all.
+        assert!(!carries_debug_info(&[0u8; 64]));
+    }
+
+    #[test]
+    fn a_section_table_that_cannot_be_read_does_not_count_as_stripped() {
+        let mut image = with_sections(&[".text"]);
+        image.truncate(image.len() - 40);
+        assert!(carries_debug_info(&image));
+        assert!(carries_debug_info(&[]));
     }
 }
