@@ -50,8 +50,8 @@ each is recorded:
   it, and `kernel/src/interrupt_stack.rs`'s BUGS entry says an overflow whose first fault is the
   vector's own frame store "still cascades" on the ports that have the interrupt stack.
 
-Both ports eventually print. x86_64 resets. That is the parity gap this closes (DECISIONS §19,
-architectural parity is a tenet).
+Both ports eventually print. x86_64 resets. That is the parity gap this closes (§19
+(architectural parity is a tenet)).
 
 ## Proposal
 
