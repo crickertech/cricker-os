@@ -49,6 +49,12 @@ clippy takes over 3.5 s (spelling 3.4, prose ratchet 3.0, counted claims 2.6, ci
 was no slow tail to leave to CI, so the hook runs the whole thing. Its first push in this lane
 refused a citation to an unmerged milestone that CI would have failed.
 
+The wider run found one defect too. git exports GIT_DIR to a hook, and
+`helpers/scope-merge-base-selftest.sh` builds a throwaway repository with it still set. Its
+`git init` and `git config` wrote `core.bare = true` and a fake identity into the shared
+`.git/config` before it failed. Both were restored by hand, no commit carried the identity, and
+the hook and the selftest now clear git's environment first.
+
 ## After the queue: the drain
 
 `helpers/merge-drain.sh` reads every open pull request's last `RemovedFromMergeQueueEvent` and last

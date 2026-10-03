@@ -36,7 +36,9 @@ Each piece is described, with its measurements and its falsification, in
 2. The pre-push hook runs all of lint. Measured warm, three runs each, `script/lint --clippy`
    took a median 27.4 s and `script/lint` 56.5 s. No check after clippy is over 3.5 s, so the
    hook runs the whole thing in place of `--clippy` and three hand-picked gates. It also runs
-   `--ready-branch` when the pushed branch's pull request is ready.
+   `--ready-branch` when the pushed branch's pull request is ready. Its first full run found that
+   a hook inherits GIT_DIR, which let a selftest write into the shared `.git/config`; the hook
+   and the selftest now clear it.
 3. Recovered after. `helpers/merge-drain.sh` reads each open pull request's last queue removal
    and enqueue, and `helpers/queue-ejected.jq` decides, with fixtures under `script/lint`. One
    comment per ejection names the reason and the group's unsuccessful runs. A head whose group run
