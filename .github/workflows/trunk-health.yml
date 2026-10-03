@@ -73,6 +73,17 @@ jobs:
       # the drain's checkout.
       - uses: actions/checkout@v7
 
+      # **Says so when the merge queue ejects more than a fifth of what enters it** (milestone 724
+      # (the merge queue reports its ejection share and its time to merge), provisional), for the
+      # last two UTC days. A warning rather than a failure, for the dead-cadence reason in the step below: it is a
+      # standing condition over a day, and failing every five minutes would drown the red-trunk
+      # signal. `continue-on-error` so a GraphQL failure cannot turn the watcher red.
+      - name: merge queue ejection share
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: python3 helpers/merge_queue_share.py report
+
       - name: one pass
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}

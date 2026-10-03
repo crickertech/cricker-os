@@ -205,6 +205,10 @@ DATA_DIR = pathlib.Path('notes/project-metrics')
 # snapshots of a tree, and reading them late is not a revision of history.
 EFFORT_PATH = DATA_DIR / 'effort.csv'
 LEDGER_PATH = DATA_DIR / 'ledger.md'
+# Milestone 724 (the merge queue reports its ejection share and its time to merge): the daily record
+# `helpers/merge_queue_share.py update` writes from GitHub's merge-queue events. Read from the working
+# tree like `effort.csv`, and for its reason: a committed record of a fact git cannot reproduce.
+QUEUE_PATH = DATA_DIR / 'merge-queue-daily.csv'
 # The week notes (milestone 623, provisional): hand-appended rows, pruned by this script when a
 # week ages out of the chart window, rendered as bullets under the chart a row names. Like the two
 # above rather than like the measure files: it is a record of an explanation, not a series
@@ -334,6 +338,9 @@ MEASURES = [
      + ['milestones_total', 'proposals_unnumbered']),
     ('velocity', ['milestones_built_this_week']),
     ('pull-requests', ['merged_pull_requests']),
+    # The merge queue's weekly entries and ejections, summed from `merge-queue-daily.csv` (milestone
+    # 724). A week with no daily rows is left empty, never zero: the record starts on 2026-09-14.
+    ('merge-queue', ['queue_entries', 'queue_ejected', 'queue_ejection_pct']),
     # The model-attribution columns (file name `models.csv`; Name: ratified 2026-09-24 (calef, in session, when asked to ratify the two metrics files the split produced; nothing refused)). Commits
     # and lines are one measure and one file rather than two, because a single pass over the same
     # git log produces both and a week that has one always has the other. The two charts it feeds
@@ -927,6 +934,22 @@ def cash_by_week(through):
         key = week_of_date(when)
         out[key] = out.get(key, 0.0) + amount
     return out
+
+
+def queue_by_week():
+    """{ISO week: {entries, ejected}} summed from `merge-queue-daily.csv`, or {} without the file.
+
+    Summed rather than averaged, so the weekly share is ejections over entries across the week and
+    not a mean of daily percentages, which would weight a quiet Sunday like a busy Tuesday. The
+    median hours to merge stays in the daily file: a median of daily medians is not a median."""
+    if not QUEUE_PATH.exists():
+        return {}
+    weeks = {}
+    for row in csv.DictReader(QUEUE_PATH.read_text().splitlines()):
+        held = weeks.setdefault(week_of_date(row['day']), {'entries': 0, 'ejected': 0})
+        held['entries'] += int(row['entries'] or 0)
+        held['ejected'] += int(row['ejected'] or 0)
+    return weeks
 
 
 def effort_by_week():
@@ -2243,6 +2266,10 @@ CHARTS = [
     ('pull-requests.svg', 'Pull requests merged each week',
      'first-parent merge commits on main; a milestone is one of these, and most of these are not',
      [('merged that week', 'merged_pull_requests')], 1.0, None, None),
+    ('merge-queue.svg', 'Merge queue entries that left without merging, per cent',
+     'ejected over entered, summed across the week from GitHub\u2019s merge-queue events; the line '
+     'is where trunk-health starts to say so',
+     [('ejected share', 'queue_ejection_pct')], 1.0, (20, 'reported above'), 'queue_ejection_pct'),
     ('models-commits.svg', 'Commits each week, by the model that signed them',
      'from the Co-Authored-By trailer; attributed + unattributed + merge is every commit that '
      'week, and a merge is a pull request landing rather than a piece of writing',
@@ -2537,9 +2564,17 @@ def fill_derived(rows, rev):
     models = models_by_week(rev)
     effort = effort_by_week()
     cash = cash_by_week(date.today())
+    queue = queue_by_week()
     for week, row in rows.items():
         row['milestones_built_this_week'] = built.get(week, 0)
         row['merged_pull_requests'] = merged.get(week, 0)
+        # Empty for a week the daily record does not cover, for the cost columns' reason: a zero
+        # would read as a week the queue ejected nothing, which nobody measured.
+        held_queue = queue.get(week)
+        row['queue_entries'] = '' if held_queue is None else held_queue['entries']
+        row['queue_ejected'] = '' if held_queue is None else held_queue['ejected']
+        row['queue_ejection_pct'] = ('' if not held_queue or not held_queue['entries']
+                                     else '%.1f' % (100.0 * held_queue['ejected'] / held_queue['entries']))
         row.update(models.get(week, {}))
         held = effort.get(week) or {}
         tokens, hours = held.get('tokens'), held.get('hours')
