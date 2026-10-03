@@ -5,7 +5,7 @@ milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
-needs_person: no
+needs_person: yes
 ---
 # 128. The automation gets its own identity, and the agents get their own voice
 
@@ -15,17 +15,18 @@ touches the block only to correct a stale claim (that the COE labeller had never
 bold spans are `## Follow-on` markers `script/roadmap` reads (the measured class is recorded in
 design/roadmap/586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
 
-Partial as of 2026-09-23: steps 3 and 5 are built and step 4 is deliberately not done.
-`toolchain-bump.yml` now tries an App installation token first, falls through to the PAT, then to
-`github.token`, and prints which rung it took; `notes/automation-identity.md` is the procedure for
-steps 1 and 2, which need owner rights on `crickertech` and are calef's to run. Nothing changes
-about how the job behaves until the two secrets exist. Minted 2026-08-15 at calef's request, the same day he set
+Partial as of 2026-10-03 (UTC): steps 1, 2, 3, 5 and 6 are built, and step 4 (deleting the PAT
+secret and revoking the PAT) is calef's to run. The App exists and is installed: scheduled
+workflows author as `nife-smelter[bot]`, and the toolchain-bump pull requests since at least
+2026-09-28 (#1436, #1439, #1523) carry that author. `toolchain-bump.yml` tries an App installation
+token first, falls through to the PAT, then to `github.token`, and prints which rung it took.
+`TOOLCHAIN_BUMP_PAT` is still the only repository secret `gh secret list` shows (the App secrets
+may be set at the organization level, which that token cannot read). Minted 2026-08-15 at calef's request, the same day he set
 `TOOLCHAIN_BUMP_PAT` on the transferred repository and asked what other developers would need
 (answer: nothing, and that answer is what surfaced this).
 
-Nothing blocks a start; the app creation is calef's to perform, like milestone
-120's organization was, because it needs owner rights on `crickertech`. What makes this a later
-milestone rather than this week's is honest priority, recorded below.
+What is left is calef's alone, because deleting a secret and revoking a personal token need his
+account (and, if the App secrets are organization-level, his owner rights on `nifeos`).
 
 **In brief.** The toolchain-bump workflow authenticates as a fine-grained personal access token
 (PAT) on calef's account, because a PR opened by the ephemeral `GITHUB_TOKEN` triggers no CI
@@ -169,14 +170,15 @@ expiry from an outage into a fifteen-minute procedure someone can run without re
 
 ## Follow-on
 
-- **Outstanding.** Steps 1 and 2: creating the App under `crickertech` and storing
-  `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY`. Owner rights on the organization are required, so
-  no lane can do it. Checked 2026-09-23 by `gh secret list`, which shows `TOOLCHAIN_BUMP_PAT` and
-  neither App secret. `notes/automation-identity.md` is the procedure.
+- **Done.** Steps 1 and 2: the App `smelter` exists under the organization and is installed on
+  `nife` (the organization was `crickertech` when this block was written and is `nifeos` now).
+  Evidence, 2026-10-03: pull request #1523, opened by the toolchain-bump workflow, is authored by
+  `nife-smelter[bot]`, and so are #1436 and #1439. `notes/automation-identity.md` was the procedure.
 
-- **Outstanding.** Step 4: deleting the PAT secret and revoking the PAT. Blocked on the above and
-  deliberately sequenced after a run has been observed taking the App rung, because revoking a
-  credential a scheduled job may still reach for turns a preparation into an outage. The order and
+- **Outstanding.** Step 4: deleting the PAT secret and revoking the PAT. Blocked on calef, whose
+  account holds both. The sequencing condition, a run observed taking the App rung, is met (the
+  bump pull requests above); read the run's `identity:` line once more before revoking, because
+  revoking a credential a scheduled job may still reach for turns a preparation into an outage. The order and
   the reason are in `notes/automation-identity.md`.
 
 - **Done.** The App's display name is **`smelter`**, ratified 2026-09-23 by calef, with

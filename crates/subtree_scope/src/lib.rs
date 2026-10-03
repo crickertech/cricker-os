@@ -209,9 +209,11 @@ pub fn admit(
     }
 }
 
-/// **Every badge's binding**, for a server with `B` client windows. Badge `b` is index `b`; a badge
-/// at or past `B` is treated as the unbadged value, which is what the server already does with such
-/// a badge's window (§230).
+/// **Every badge's binding**, for a server with `B` client windows. Badge `b` is index `b`. A
+/// nonzero badge at or past `B` is one the server has no window for, and it is [`Binding::Revoked`]:
+/// it reaches nothing (calef's ruling, 2026-10-03, recorded as an amendment to §230). Only badge 0
+/// is the unbadged value, so a boundary that does not know a badge refuses it rather than handing
+/// it the whole endpoint.
 #[derive(Clone, Copy, Debug)]
 pub struct Bindings<const B: usize> {
     state: [Binding; B],
@@ -231,6 +233,8 @@ impl<const B: usize> Bindings<B> {
         }
     }
 
+    /// The table slot for `badge`. A badge past `B` folds to 0, which [`Bindings::bind`] and
+    /// [`Bindings::unbind`] both refuse, so it can change nothing; [`Bindings::of`] answers for it.
     fn index(badge: u64) -> usize {
         if (badge as usize) < B {
             badge as usize
@@ -239,8 +243,12 @@ impl<const B: usize> Bindings<B> {
         }
     }
 
-    /// What `badge` is. Badge 0, and any badge past `B`, is always [`Binding::Open`].
+    /// What `badge` is. Badge 0 is always [`Binding::Open`]; a nonzero badge at or past `B` is
+    /// always [`Binding::Revoked`].
     pub fn of(&self, badge: u64) -> Binding {
+        if badge != 0 && badge >= B as u64 {
+            return Binding::Revoked;
+        }
         match Self::index(badge) {
             0 => Binding::Open,
             i => self.state[i],
@@ -409,6 +417,29 @@ mod proofs {
         }
         assert_eq!(t.of(0), Binding::Open, "the unbadged value was bound");
     }
+
+    /// **A badge the table has no slot for is never open, whatever has been bound** (calef's
+    /// ruling of 2026-10-03). Only badge 0 is the unbadged value; a nonzero badge at or past
+    /// `B` reaches nothing, and no binding or unbinding changes that.
+    /// Falsification: replayable `crates/subtree_scope/falsifications/proofs.a_badge_with_no_window_is_never_open.patch`
+    #[kani::proof]
+    fn a_badge_with_no_window_is_never_open() {
+        let mut t = Bindings::<PROOF_BADGES>::new();
+        let caller: u64 = kani::any();
+        let badge: u64 = kani::any();
+        let _ = if kani::any() {
+            t.bind(caller, badge, kani::any()).is_ok()
+        } else {
+            t.unbind(caller, badge).is_ok()
+        };
+        let past: u64 = kani::any();
+        kani::assume(past >= PROOF_BADGES as u64);
+        assert!(
+            t.of(past) != Binding::Open,
+            "a badge past the table was open"
+        );
+        assert_eq!(t.of(0), Binding::Open, "the unbadged value changed");
+    }
 }
 
 #[cfg(test)]
@@ -489,6 +520,27 @@ mod tests {
             t.of(2),
             Binding::Bound { root: 42 },
             "a revoked badge may be bound anew"
+        );
+    }
+
+    #[test]
+    fn a_nonzero_badge_past_the_table_reaches_nothing() {
+        let mut t = Bindings::<4>::new();
+        for badge in [4u64, 5, 1 << 40, u64::MAX] {
+            assert_eq!(t.of(badge), Binding::Revoked, "{badge}");
+            assert_eq!(admit(t.of(badge), badge, 7, None), Err(Refusal::NotYours));
+            assert_eq!(Refusal::NotYours.errno(), 9, "EBADF");
+            assert_eq!(t.bind(badge, 1, 40), Err(Refusal::Refused), "as a caller");
+            assert_eq!(t.bind(0, badge, 40), Err(Refusal::Refused), "as a target");
+            assert_eq!(t.unbind(0, badge), Err(Refusal::Refused));
+        }
+        assert_eq!(t.of(0), Binding::Open, "badge 0 stays the caretaker's");
+        assert_eq!(admit(t.of(0), 0, 7, None), Ok(7));
+        t.bind(0, 3, 40).unwrap();
+        assert_eq!(
+            t.of(3),
+            Binding::Bound { root: 40 },
+            "the last in-table badge"
         );
     }
 

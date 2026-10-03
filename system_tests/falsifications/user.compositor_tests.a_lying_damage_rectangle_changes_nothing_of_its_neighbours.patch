@@ -1,0 +1,30 @@
+Falsifies `system_tests::user::compositor_tests::a_lying_damage_rectangle_changes_nothing_of_its_neighbours`.
+
+Architecture: aarch64
+
+The defect: the compositor writes the commit's `STATUS` word into the **last** client's control page
+instead of the committing client's. A confused deputy of the smallest kind: the address the
+compositor writes is no longer a function of whose frame it is serving, and a client that lies about
+its rectangle gets the compositor to write `STATUS_CLIPPED` into a neighbour's memory.
+
+Expected to fail: `assert_eq!(w.client_control_words(VICTIM), ctl, "a neighbour's lying rectangle
+changed the victim's control page ...")`. Measured 2026-10-03 (UTC): red, the victim's `STATUS`
+word (index 5) reads 1 where it read 0.
+
+The victim's pixel digest stays equal under this patch, which is why the witness is the whole
+control page and not only the surface: the compositor writes only control pages, so that is where
+this class of defect lands. The surface assertion beside it is the half this patch does not reach.
+
+diff --git a/components/src/compositor.rs b/components/src/compositor.rs
+index df649fdf2..6986f4208 100644
+--- a/components/src/compositor.rs
++++ b/components/src/compositor.rs
+@@ -296,7 +296,7 @@ fn serve_frame(
+         );
+         let inside = asked.intersect(&SCENE[i].bounds());
+         wr32(
+-            c + ctl::STATUS,
++            ctl_va(n - 1) + ctl::STATUS,
+             if inside == asked {
+                 ctl::STATUS_OK
+             } else {

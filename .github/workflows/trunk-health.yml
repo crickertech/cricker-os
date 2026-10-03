@@ -45,6 +45,10 @@ concurrency:
 
 permissions:
   contents: read
+  # `actions: read` lets the stopped-watcher check read workflow state with this token, and
+  # `issues: write` is its fallback for opening the issue (milestone 723).
+  actions: read
+  issues: write
 
 jobs:
   trunk:
@@ -107,3 +111,18 @@ jobs:
             echo "::warning::a scheduled workflow has stopped producing results (script/cadence-check)"
             ;;
           esac
+
+      # **Reports a stopped merge watcher** (milestone 723 (a stopped merge watcher is reported within
+      # three of its own intervals), provisional). Each of the two watchers runs this, so a stopped
+      # one is reported by the other, and a running one closes its own issue. It opens the issue as
+      # the App when the App may, and as `github-actions[bot]` when it may not
+      # (`WATCHER_FALLBACK_TOKEN`); the log says which. `continue-on-error` because a reporting
+      # failure must not turn the watcher red, but it prints a warning so it is not silent.
+      - name: report a stopped merge watcher
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          WATCHER_READ_TOKEN: ${{ github.token }}
+          WATCHER_FALLBACK_TOKEN: ${{ github.token }}
+        run: python3 helpers/watcher_watch.py sync || echo "::warning::watcher_watch.py sync failed; a stopped watcher may be unreported"
