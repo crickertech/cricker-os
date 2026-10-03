@@ -119,6 +119,9 @@ reachable with a fixture, and so were 14 survivors in the table fold that ledger
 
 The new tests are in `crates/documentation/tests/render.rs`, under the survivor-triage headings.
 
+The full sweep afterwards, 2026-10-03: 1,089 mutants, 949 caught, 66 timeouts, 41 unviable and 33
+missed, the 33 equivalents below. That is 96.9% killed, from 93.8% in the census run.
+
 ### Killed (32)
 
 - The table's last-column fold (`take_table_row`, 16). Blanks after the closing pipe, a tab among
@@ -166,7 +169,9 @@ could not kill and could argue away.
 
 ### What the equivalents say about the code
 
-The `inline` equivalents are one shape, a lookahead guarded only by what follows it. Four of them
+The `inline` equivalents are one shape, a lookahead guarded only by what follows it. Eight of them
 disappear if the scanner takes its lookahead from a slice that stops at the range's end, which makes
 the over-read unrepresentable and not merely harmless. That is the top rung of the ladder in
-`CLAUDE.md`; it is not done here, because it touches every branch of a renderer that 71 tests pin.
+`CLAUDE.md`. It is filed as the proposal
+[the-inline-scanner-reads-from-a-slice-that-ends-with-its-range](../../design/roadmap/proposals/the-inline-scanner-reads-from-a-slice-that-ends-with-its-range.md)
+and not done here, because it touches every branch of a renderer that 71 tests pin.
