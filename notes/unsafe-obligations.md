@@ -171,8 +171,7 @@ cargo clippy --workspace --exclude kernel --exclude user --exclude user_mode_run
 `--cfg kani` alone does not compile: the harnesses are written against Kani's intrinsics, and
 without the crate that provides them rustc stops at `use of unresolved module or unlinked crate
 kani`. `helpers/kani-lint-shim/` is that crate, built by `script/lint` with two plain `rustc`
-invocations before the pass runs. The surface is small, which makes this cheap: across 29 packages <!--count:harness-crates--> (the harness count is generated, in
-`notes/project-metrics.md`) the tree uses exactly **five** Kani items, `any`, `proof`,
+invocations before the pass runs. The surface is small, which makes this cheap: across 29 packages <!--count:harness-crates--> the tree uses exactly **five** Kani items, `any`, `proof`,
 `assume`, `unwind` and `cover!`, and no `Arbitrary` derive, no contracts, no
 `any_where`. A sixth, `stub`, appears only in `kernel`, which this pass excludes, so the shim
 lacks it. Those five items are what the shim has to cover, and they do not move when a harness is
@@ -944,8 +943,7 @@ Fixing that one line does not make the next one visible.
 
 The `# Safety` count moves with the tree and must be taken from the merged tree. 51 declarations
 and 12 trait-impl methods were measured on milestone 112's branch on 2026-08-04. Two concurrent lanes
-adding unsafe code would both report honest numbers that disagree, which is the failure the Kani harness count
-used to have, before it left the prose.
+adding unsafe code would both report honest numbers that disagree, which is what the Kani harness count did.
 
 The riscv64 `user` gap noted at the top of this file is still open. `script/lint` compiles
 `user` and `user_mode_runtime` for aarch64 only, so nine of the fourteen sites in the handoff table above are

@@ -16,7 +16,7 @@ Promotes the proposal of the same name once #1564 merges (the check below refuse
 
 Two rules, one principle: a branch commits no fact that only the merged tree can make true.
 
-1. **A branch promotes only a proposal it held.** `script/roadmap --check` (so `script/lint` and CI's `clippy` job, on the pull request, before the queue) fails a numbered block the branch adds that says `promoted_from: X` when `X` is neither in `design/roadmap/proposals/` at the branch's merge base with `origin/main` nor added by the branch's own commits. The message says to wait for the pull request holding the proposal to merge, then merge `origin/main` and `git rm` it. Fixtures in `script/roadmap --selftest`.
+1. **A branch promotes only a proposal it held.** `script/roadmap --check` (so `script/lint` and CI's `clippy` job, on the pull request, before the queue) fails a numbered block the branch adds with `promoted_from: X` when `X` is neither in `design/roadmap/proposals/` at the branch's merge base with `origin/main` nor added by the branch's own commits. The message says to wait for the pull request holding the proposal to merge. Then merge `origin/main` and `git rm` it. Fixtures in `script/roadmap --selftest`.
 2. **The Kani harness count leaves the prose.** The hand-typed `<!--count:kani-harnesses-->` markers in `notes/unsafe-obligations.md` and `notes/verification.md` are gone, so a merge that adds a harness no longer conflicts there or fails the counted-claims check on the merged tree. The generated figure is the chart in `notes/project-metrics.md` (`project-metrics/harnesses.csv`). The `kani-harnesses` derivation stays: `notes/fuzzing.md` keeps a `count-at-least` floor on it.
 
 ## Follow-on
@@ -26,4 +26,4 @@ Two rules, one principle: a branch commits no fact that only the merged tree can
 
 ## Index row
 
-A branch may promote only a proposal it held, enforced in `script/roadmap --check`, and the Kani harness count no longer lives in two notes' prose, so neither fails on the merged tree after passing on the branch.
+A branch may promote only a proposal it held, enforced in `script/roadmap --check`. The Kani harness count no longer lives in two notes' prose. Neither can pass on the branch and fail on the merged tree.
