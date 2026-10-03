@@ -14,8 +14,8 @@ The action items are one `## Action items` section, a bullet each, opening with 
 vocabulary: `**Milestone N.**`, `**Proposed.**` naming its file, `**Decision.**` naming its file,
 or `**Done.**`, `**Recorded.**` or `**Refused.**` with what carried it. `**None.**` is refused,
 since an error with no mechanism under it is a prediction of its own recurrence.
-`script/roadmap --check` fails an item that resolves to nothing, `script/roadmap --coe-actions`
-lists the open ones, and `script/metrics` charts the open count each week so it can be driven down
+`script/roadmap --check` fails an item that resolves to nothing, and `--coe-actions` lists the
+open ones. `script/metrics` charts the open count each week so it can be driven down
 (helpers/coe_actions.py, calef's review of #1513). An item is open while the milestone, proposal or
 decision it names is not done.
 
@@ -27,6 +27,5 @@ Part of the [notes index](../README.md), which says how to add a line.
   unexecuted maintainer endings in one session, and the PENDING-at-dispatch contract that replaced
   remembering them.
 - [2026-10-03: the merge rate fell](2026-10-03-the-merge-rate.md): a CI job that doubled and a
-  queue that ejected 43% of its entries slowed every merge for a week, then a weekly usage limit
-  stopped the work; about 190 merges
-  deferred in five days, and nothing read either signal.
+  queue that ejected 43% of its entries slowed every merge for a week. Then a weekly usage limit
+  stopped the work, about 190 merges were deferred, and nothing read either signal.
