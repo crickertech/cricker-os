@@ -205,26 +205,26 @@ The 41 equivalents are three shapes.
 
 93 missed: 79 killed, 14 equivalent. The sweep afterwards reports 14 missed.
 
-The oracle table has no interval rule and no range with an hourly step, so most kills are the rules
-the oracle never reached:
+The oracle table has no interval rule and no range with an hourly step. Most kills are the rules it
+never reached. Counts per group are approximate; the total of 79 is exact.
 
-- Interval phase (`in_phase`, 6 mutants): a line counted from `starting` in days, in weeks that begin
-  on Monday, or in months. Each test picks a start whose day or week number is not a multiple of the
-  interval, and the weekly ones use 3 and 7 as well as 2, because a sum, a difference and a scaled
+- Interval phase (`in_phase`). A line counted from `starting` in days, in weeks that begin on
+  Monday, or in months. Each test picks a start whose day or week number is not a multiple of the
+  interval. The weekly ones use 3 and 7 as well as 2, because a sum, a difference and a scaled
   count agree for 2.
-- `range`'s edges (21): an hour that starts and ends together, a step that stops at the end and does
-  not run to midnight, a range from midnight with no earlier hour to name, the last time reached
-  named from either side of the start minute, and a span that is not a whole number of steps.
-- The grammar's words (21): the day and month names the oracle never used (`wed`, `sun`, `feb`,
-  `may` to `sep`, `nov`, `dec`), `1st`, `3rd` and `4th`, `expect`'s guard, and `first weekday` as
-  an RRULE.
-- Digits and widths (13): `+9` (which Rust parses as 9), `by 00060m`, `by 0m` (which would divide by
+- `range`'s edges. An hour that starts and ends together. A step that stops at the end and does not
+  run to midnight. A range from midnight with no earlier hour to name. The last time reached,
+  named from either side of the start minute. A span that is not a whole number of steps.
+- The grammar's words. The day and month names the oracle never used (`wed`, `sun`, `feb`, `may`
+  to `sep`, `nov`, `dec`), `1st`, `3rd` and `4th`, `expect`'s guard, and `first weekday` as an
+  RRULE.
+- Digits and widths. `+9` (which Rust parses as 9), `by 00060m`, `by 0m` (which would divide by
   zero), `24:00`, `12:60`, a one-digit hour, and each of the three date fields. A line that starts
   and ends the same day is accepted.
-- `through` is inclusive (3), `HORIZON_DAYS` holds a 99-month gap, and `next_time` ignores hour bits
+- `through` is inclusive, `HORIZON_DAYS` holds a 99-month gap, and `next_time` ignores hour bits
   past 23.
-- Registration and the scheduler (15): `last_reachable`, `held`, the verdict word's second kept bit,
-  a third identical line against two identical old ones (a second `lent` bit), an installed
+- Registration and the scheduler. `last_reachable`, `held`, the verdict word's second kept bit, a
+  third identical line against two identical old ones (a second `lent` bit), an installed
   calendar line before and after the clock, an installed file operand, and the page layout's sums.
 
 The 14 equivalents:
