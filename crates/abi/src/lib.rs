@@ -226,7 +226,10 @@ pub mod rendezvous {
     /// by the kernel; x1 is where. This is also how a server receives a [`CALL`]: the slot in x1
     /// holds a one-shot [`crate::reply`] capability naming the caller. **x3 is the badge on the
     /// endpoint capability the sender invoked** ([`BADGE`]), or 0 when it was unbadged, which is how
-    /// a server serving many clients on one endpoint tells them apart. Needs `READ`.
+    /// a server serving many clients on one endpoint tells them apart. **x4 is
+    /// [`REPLY_DELIVERED`] when x1 holds a `CALL`'s Reply** (milestone 706), `notification::BOUND`
+    /// when a bound notification ended the receive, and `0` otherwise; x4 is written only by the
+    /// kernel. Needs `READ`.
     ///
     /// # BUGS
     ///
@@ -247,16 +250,21 @@ pub mod rendezvous {
     /// way; every one uses `RECV` through `user_mode_runtime::recv_fault`. Recorded by the
     /// 2026-10-03 security audit so the next supervisor written against `RECV_CAP` learns it here.
     ///
-    /// **A real capability passes the `NO_CAP` guard, and a `CALL` server cannot tell it from a
-    /// Reply.** Any client with `WRITE` on the endpoint and `GRANT` on a capability of its own can
-    /// [`SEND_CAP`] it here; `x1` is then a real slot, and a server that invokes
+    /// **A real capability passes the `NO_CAP` guard, and a `CALL` server used to have no way to
+    /// tell it from a Reply.** Any client with `WRITE` on the endpoint and `GRANT` on a capability
+    /// of its own can [`SEND_CAP`] it here; `x1` is then a real slot, and a server that invokes
     /// [`crate::reply::REPLY`] on it runs method `0` of whatever object it is: `SEND` on a
     /// rendezvous the client never receives on parks the server for the life of the machine, and
     /// every delivery that is not a Reply leaves its slot behind, since only a Reply is one-shot.
-    /// No method here says what kind of object a slot holds. Found by the 2026-10-03 security
-    /// audit's follow-up reading milestone 634's own scope note; the fix is on this surface (a
-    /// kernel-written tag in `x4`, or an endpoint that refuses delegation), proposed in
-    /// `design/roadmap/706-a-call-server-can-tell-a-reply-from-a-delegation.md` for calef.
+    /// Found by the 2026-10-03 security audit's follow-up; **fixed by milestone 706, DECISIONS §245
+    /// (a `CALL` server tells a Reply from a delegation)**: the kernel writes [`REPLY_DELIVERED`]
+    /// in `x4` when, and only when, `x1` is a `CALL`'s Reply, and every `CALL` server in the tree
+    /// receives through `user_mode_runtime::recv_request`, whose typed Reply is the only thing
+    /// `user_mode_runtime::reply` accepts, and which deletes a delegation the server did not ask
+    /// for. **What is still open:** the check lives in the server, so a server that reads `x1` raw
+    /// (its own `invoke`, outside the runtime) is as exposed as before. The rung-one answer, an
+    /// endpoint that refuses `SEND_CAP` outright, is the milestone's recorded follow-on (option 2
+    /// in its block).
     pub const RECV_CAP: u64 = 3;
 
     /// `invoke(cap, CALL, w0, w1, _)` -> r0, with r1 in x1. **Send two words and block until
@@ -380,6 +388,31 @@ pub mod rendezvous {
 
     /// The x1 value from [`RECV_CAP`] when the message carried no capability.
     pub const NO_CAP: u64 = u64::MAX;
+
+    /// **The tag on a receive that delivered a `CALL`'s Reply** (milestone 706 (a `CALL` server
+    /// can tell a Reply from a delegation), DECISIONS §245; name provisional).
+    ///
+    /// [`RECV_CAP`] returns this in `x4` exactly when the kernel installed the one-shot
+    /// [`crate::reply`] capability it minted for a [`CALL`], and `x1` is the slot it landed in.
+    /// `x4` is written only by the kernel, so no sender can forge it: a [`SEND_CAP`] delegation, a
+    /// plain [`SEND`], an interrupt signal and a §26 death message all leave it `0`, and a bound
+    /// notification leaves [`notification::BOUND`](crate::notification::BOUND). A `CALL` whose
+    /// Reply could not be installed (the receiver's table was full) arrives with `x1 ==`
+    /// [`NO_CAP`] and `x4 == 0`, because there is no Reply to name.
+    ///
+    /// **Test this, never `x1 != NO_CAP`, before answering.** A delegation passes the `NO_CAP`
+    /// guard; only this says the slot holds a Reply. `user_mode_runtime::recv_request` reads it and
+    /// returns a typed Reply, which is the only thing `user_mode_runtime::reply` accepts.
+    ///
+    /// Ruled by calef on 2026-10-03 (UTC): "Option 1 with the typed runtime helper."
+    pub const REPLY_DELIVERED: u64 = 1;
+
+    // `x4` carries both tags, so they must differ from each other and from the untagged `0`.
+    const _: () = assert!(
+        REPLY_DELIVERED != 0
+            && REPLY_DELIVERED != super::notification::BOUND
+            && super::notification::BOUND != 0
+    );
 }
 
 /// What [`rendezvous::SURVEY`] reports about a thread in the domain: the cursor sentinel, and the

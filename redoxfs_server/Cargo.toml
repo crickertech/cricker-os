@@ -78,7 +78,7 @@ hosttest = ["redoxfs/std", "redox_syscall/std"]
 # The EL0 binary's world: the userspace runtime and the ABI constants. Enabled only for the target
 # build, which also drops the default (`--no-default-features --features el0`), so the pure no_std
 # core is what links into the kernel image.
-el0 = ["dep:user_mode_runtime", "dep:abi"]
+el0 = ["dep:user_mode_runtime"]
 
 # The initrd carries this binary's ELF, so keep it small and deterministic (the same knobs
 # std_exerciser uses). Only the target build uses the release profile; host tests use dev and unwind.
@@ -121,10 +121,10 @@ globally_unique_identifier_partition_table = { version = "0.1.0", path = "../cra
 # never from inside the engine.
 entropy_protocol = { version = "0.1.0", path = "../crates/entropy_protocol" }
 
-# EL0-only, optional (behind `el0`): the syscall runtime and the ABI numbers. Neither compiles for
-# the host, so they are absent from the host test build.
+# EL0-only, optional (behind `el0`): the syscall runtime. It does not compile for the host, so it is
+# absent from the host test build. (`abi` went with milestone 706 (a `CALL` server can tell a Reply
+# from a delegation): the server's one raw `REPLY` became `user_mode_runtime::reply`.)
 user_mode_runtime = { version = "0.1.0", path = "../crates/user_mode_runtime", optional = true }
-abi = { version = "0.1.0", path = "../crates/abi", optional = true }
 
 # cargo-machete (script/lint) reports `redox_syscall` unused here and is wrong: the crate's LIB name
 # is `syscall`, so every real use reads `use syscall::error::...` and a name-based scan cannot see

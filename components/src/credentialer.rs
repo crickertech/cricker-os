@@ -140,7 +140,7 @@ use alloc::vec::Vec;
 use credential_protocol as proto;
 use credentialer::{Block, Cost, Store, Verdict};
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, cap_delete, exit, recv_cap, reply, send};
+use user_mode_runtime::{call, cap_delete, exit, recv_request, reply, send};
 
 /// The provision endpoint (slot 0): RECV, and only until the seal.
 const PROV: u64 = 0;
@@ -239,12 +239,15 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 /// **Phase one.** Write the store, then destroy the ability to write the store.
 fn provision(store: &mut Store<CAPACITY>, scratch: &mut [Block]) {
     loop {
-        let (w0, cap, w1) = recv_cap(PROV);
-        if cap == abi::rendezvous::NO_CAP {
-            // A plain SEND on a CALL-only contract: nobody is waiting for an answer, so there is
-            // nothing to reply into. Drop it rather than replying into a slot we do not hold.
+        let req = recv_request(PROV);
+        let (w0, w1) = (req.w0, req.w1);
+        let Some(cap) = req.delivered.into_reply() else {
+            // A plain SEND, or a SEND_CAP, on a CALL-only contract: nobody is waiting for an
+            // answer, so there is nothing to reply into. Drop it (a delegation's slot is deleted,
+            // milestone 706 (a `CALL` server can tell a Reply from a delegation)) rather than
+            // replying into a slot that is not a Reply.
             continue;
-        }
+        };
         match proto::op(w0) {
             proto::provision::PUT => {
                 let verdict = put(store, scratch, w0, w1);
@@ -297,10 +300,11 @@ fn put(store: &mut Store<CAPACITY>, scratch: &mut [Block], w0: u64, _w1: u64) ->
 /// **Phase two.** One endpoint, one question, forever.
 fn serve(store: &Store<CAPACITY>, scratch: &mut [Block]) -> ! {
     loop {
-        let (w0, cap, _) = recv_cap(VERIFY);
-        if cap == abi::rendezvous::NO_CAP {
+        let req = recv_request(VERIFY);
+        let w0 = req.w0;
+        let Some(cap) = req.delivered.into_reply() else {
             continue;
-        }
+        };
         let verdict = match proto::op(w0) {
             proto::verify::VERIFY => answer(store, scratch, w0),
             // Every other opcode, including the provisioning ones. A client that tries `PUT` here
