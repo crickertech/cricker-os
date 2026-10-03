@@ -3,7 +3,7 @@
 # Selftest for helpers/empty-diff-check.sh, run by script/lint. Builds throwaway repositories, so it
 # needs no tree and no network. Each case is a merge commit made with --no-ff, the shape the merge
 # queue produces, checked as BASE=first parent, TIP=merge. The failing cases are the point: a green
-# run of the check alone looks the same as a check that cannot fire (milestone 625, a pull request that changes nothing does not merge; see
+# run of the check alone looks the same as a check that cannot fire (milestone 625 (a pull request that changes nothing does not merge); see
 # design/roadmap/proposals/a-gate-is-not-evidence-until-it-has-failed.md).
 
 set -eu

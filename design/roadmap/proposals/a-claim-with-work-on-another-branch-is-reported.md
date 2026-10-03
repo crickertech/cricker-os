@@ -9,7 +9,7 @@ needs_person: no
 ---
 # A claim with its work on another branch is reported
 
-Raised 2026-10-02 by the lane that built the empty-diff check (milestone 625, provisional number).
+Raised 2026-10-02 by the lane that built the empty-diff check (milestone 625 (a pull request that changes nothing does not merge), provisional number).
 #1460 claimed under `lane/fatal-risk-colors` while the work was pushed to
 `milestone/fatal-risk-colors`, a branch that descends from the claim commit. The draft never moved.
 

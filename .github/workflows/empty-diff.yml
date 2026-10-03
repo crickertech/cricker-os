@@ -1,8 +1,7 @@
 name: empty diff
 
 # **Fails a pull request, and a merge-queue entry, that changes no file.** Milestone 625 (a pull request that changes nothing
-# does not merge), number provisional: #1460 merged on 2026-09-30 carrying only its empty `claim:` commit (§90, the claim is a
-# draft pull request) while the finished work sat on another branch for three days. Every other gate
+# does not merge), number provisional: #1460 merged on 2026-09-30 carrying only its empty `claim:` commit §90 (the claim is a draft pull request; the status flip is a gate) while the finished work sat on another branch for three days. Every other gate
 # here asks a question about content, an empty diff has none, and so each of them passed. The
 # argument and the refused options are in design/roadmap/625-*.md.
 #
