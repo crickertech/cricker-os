@@ -93,14 +93,16 @@ weeks exist behind it, which until 2026W47 is the left of the chart.
 
 ![Pull requests merged each week](project-metrics/pull-requests.svg)
 
-The second flow, counted from `main`'s merge subjects rather than the GitHub API so that it
-backfills to the first commit. 2026W29 and 2026W30 are genuine zeros: the practice starts in
+The second flow, counted from `main`'s merge subjects, not the API, so it
+backfills to the first commit. 2026W29 and 2026W30 are zeros: the practice starts in
 2026W31.
-The line is the same trailing mean as above.
+The line is the same trailing mean.
 
 ## Merge queue ejections
 
 ![Merge queue ejections](project-metrics/merge-queue.svg)
+
+Queue began 2026-08-15; W31 and W32 predate it.
 
 ## Which model wrote it
 
