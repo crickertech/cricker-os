@@ -78,6 +78,8 @@ fn start() -> Option<non_volatile_memory_express_service::Wiring> {
 /// idempotent state to share between cases (a second wiring would reset the controller and
 /// recreate the queues under the first), so the sequence lives in one place with the ordering
 /// visible.
+///
+/// Falsification: replayable `system_tests/falsifications/user.non_volatile_memory_express_tests.a_confined_el0_process_serves_the_block_interface_end_to_end.patch`
 #[test_case]
 fn a_confined_el0_process_serves_the_block_interface_end_to_end() {
     let Some(disk) = start() else {
