@@ -111,3 +111,32 @@ The 10 equivalents are all `|` as `^` where the two operands share no bit:
 - `Bdf::ecam_offset` and `Bdf::requester_id` (two each). The fields are `u8`, so a device number
   above 31 or a function above 7 would overlap its neighbour, but no enumeration produces one. A
   test would pin what the function does with an invalid address, which nobody wants to rely on.
+
+## manifest_note
+
+17 missed: 9 killed, 8 equivalent. The sweep afterwards reports 8 missed.
+
+- Every value of every enumerated field round-trips, one field at a time: the argument kinds, the
+  file, directory and output kinds. An arm of `decode` for a value no round trip named was an arm
+  nobody would notice losing. The second stream's slot is checked by a `should_panic` test.
+- The boundaries: a descriptor of four bytes is the wrong length and not "no version", sixteen
+  options and an empty memory range are accepted, and the last byte of the layout is checked.
+- A subtree option must be a declared letter, including when it is the only letter (the `!=`
+  mutant passes for every program that declares two).
+- The subtree-grants note's header says the owner is 5 bytes with its NUL.
+
+The 8 equivalents:
+
+- `Note::of` and `SubtreeGrantsNote::of`, six `+` as `-` in the byte-copy loops. `out[4 - i]` writes
+  the same bytes as `out[4 + i]` because every word is below 256: the other three bytes are zero and
+  land on bytes that are zero already. They would differ the day a descriptor length or a type
+  passes 255.
+- `Scope::word` returning 1. There is one scope and its word is 1.
+- `decode`'s `DESCRIPTOR_LEN - TAIL` as `/`. The tail is the last byte, so 56 minus 55 and 56 over
+  55 are both 1.
+
+## Tally after batch 5
+
+Of the 1,004: 475 killed, 254 equivalent, 17 recorded gaps, 258 remaining. The next crates, by
+survivor count, are `file_allocation_table` (15), `system_log_protocol` (14), `login_protocol` (14),
+`compositor` (14) and `argument_protocol` (13).
