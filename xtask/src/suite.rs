@@ -1019,6 +1019,21 @@ pub(crate) fn kernel_test_elf(package: &str, target: &str, who: &str) -> Option<
 /// weekly job had been red on an unrelated failure ever since, so its cost was only discovered when
 /// milestone 238 cleared the failure in front of it.
 ///
+/// **`stick_maker` is excluded for `board_console`'s reason** (milestone 636 (the scheduled
+/// workflows are failing), 2026-10-03 UTC). Its `cli` and `linux` tests build and remove trees under
+/// the temp dir, and isolation refuses the first `statx`: "unsupported operation: `statx` not
+/// available when isolation is enabled", which failed the weekly run on 2026-09-21 and again on a
+/// 2026-10-03 dispatch (run 37109746541) once the crate in front of it was repaired. That is the
+/// harness refusing I/O, not a finding. Its only `unsafe` is FFI in `src/host/` (`geteuid`, four
+/// `kernel32` calls), which Miri cannot execute either, so nothing Miri checks is lost; its one
+/// dependency, `measured_boot`, stays in the run on its own tests.
+///
+/// **`walk_pricing` is out for the same reason, found the same day.** It is "ordinary `std::fs`
+/// code" by its own header, with no `unsafe`, and three of its four tests stage a tree under the
+/// temp dir, where isolation refuses `lstat`; the fourth fits a line. It is also a timing
+/// instrument, and a wall-clock price under the interpreter measures Miri. Its tree comes from
+/// `filesystem_protocol::fixture`, which stays in the run.
+///
 /// **"Miri-clean" means the sampled paths.** An interpreter runs roughly a thousand times slower
 /// than the silicon, so the exhaustive suites gate themselves down under `cfg(miri)`: `network_time_protocol`
 /// strides its 10^9-value sweep, `globally_unique_identifier_partition_table` skips its 460k-parse
@@ -1030,8 +1045,9 @@ pub(crate) fn kernel_test_elf(package: &str, target: &str, who: &str) -> Option<
 /// The two out-of-workspace test surfaces stay out deliberately: `tools/redoxfs_host` and
 /// `redoxfs_server` spend their runtime inside the vendored RedoxFS engine, and a finding in vendored
 /// code lands in the vendor pin, not in a crate this tree can fix (vendor/README.md). Extra args
-/// are forwarded to `cargo miri test`, so `cargo xtask undefined-behavior-check -p
-/// globally_unique_identifier_partition_table` narrows the run.
+/// are forwarded to `cargo miri test`, but they do **not** narrow it: `-p` beside `--workspace`
+/// still ran the whole workspace when milestone 636 tried it on 2026-10-03. To check one crate,
+/// run `cargo miri test -p <crate>` directly.
 pub(crate) fn undefined_behavior_check() -> bool {
     eprintln!("--- host tests under Miri (aliasing, provenance, uninitialized reads) ---");
     let mut args = vec![
@@ -1052,6 +1068,10 @@ pub(crate) fn undefined_behavior_check() -> bool {
         "xtask",
         "--exclude",
         "board_console",
+        "--exclude",
+        "stick_maker",
+        "--exclude",
+        "walk_pricing",
     ];
     let extra: Vec<String> = std::env::args().skip(2).collect();
     args.extend(extra.iter().map(String::as_str));

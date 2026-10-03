@@ -2766,6 +2766,20 @@ def main(argv):
         return 0
 
     mode = args[0] if args else '--table'
+    # `--selftest` and `--flags` were dropped by the merge of #1455 (2026-10-01), whose conflict
+    # resolution cut the `--check-toc` branch beside them and took these two with it. The weekly
+    # workflow calls `--flags` to write its pull request body, so every run from 2026-10-01 pushed
+    # the week's branch and then failed (milestone 636 (the scheduled workflows are failing)).
+    if mode == '--selftest':
+        return selftest()
+    if mode == '--flags':
+        rows = fill_derived(read_csv(), git('rev-parse', 'HEAD').decode().strip())
+        lines = flag_lines(rows)
+        for line in lines:
+            print(line)
+        if not lines:
+            print('no charted week moved more than a tenth')
+        return 0
     if mode not in ('--table', '--csv', '--backfill', '--update', '--check', '--charts'):
         raise SystemExit('metrics: unknown argument %s; see the comment at the top of this script'
                          % mode)
