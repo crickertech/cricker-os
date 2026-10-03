@@ -232,7 +232,10 @@ tested.
 **The experiment:** milestone 202 (every confinement test is a ritual until somebody breaks the
 confinement and watches it fail).
 
-**Experiment status: RUN, 2026-08-31.** 26 claims
+**Experiment status: RUN, 2026-08-31.** AMBER (calef, 2026-10-03, #1495). In-house passes found and
+fixed real defects (tests that could not fail, three times; claims false in audit 313 and on
+2026-09-21) and found no escape on a component's own authority, and the outsider half is unrun. What
+moves it is the adversarial review of milestone 633 (an outside agent attacks the confinement claim). 26 claims
 enumerated at that date (the table now has 30 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
 three of them stated nowhere, and 25 harnesses carried a replayable falsification, up
 from 6 ([`notes/confinement-claims.md`](../../notes/confinement-claims.md); PR #614). The finding is
@@ -341,7 +344,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | 6 | 4, performance | the multi-tasking workload number, from the 2026-09-19 instrument | milestone 168 | one radon bench evening |
 | 7 | 9 and 6 together | journey 3, end to end on three boards | journey 3 | months, and it is the capstone |
 | -- | 5, multicore | **RUN on radon, 2026-09-25:** 8 hours clean, 4.1 million crossings. A linear defect-discovery curve is the red result | milestone 201 (is multicore reliability converging) | weeks, hardware |
-| ~~7~~ | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17.** A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed | milestones 202, 305, 313 | done; the outsider half remains |
+| -- | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17: amber** (calef, 2026-10-03). A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed. The outsider half remains | milestone 633 (an outside agent attacks the confinement claim); 202, 305 and 313 done | one agent run, token cost uncosted |
 | -- | 8, nobody needs it | **CANNOT-RUN, 2026-09-23.** No experiment, and none available: milestone 576 (how many systems are out there, and what do they run) is behind milestone 198 (a package manager, and the trivial install that makes a second customer possible) | milestone 576 | blocked, not costed |
 
 ## BUGS
