@@ -58,6 +58,17 @@
 //!
 //! # BUGS
 //!
+//! **A program's answer word on the result endpoint is the program's own claim.** A child whose
+//! slot 0 was not redirected holds `result_ep` with `WRITE` (the spawn service's default in
+//! `crates/system_initializer`), the same endpoint the spawn service's `SPAWN_FAILED`, the
+//! `job_undertaker`'s `JOB_FAULTED` and this shell's `RESULT` reads share. The reads here take
+//! three words and test `w0`, so a child can send `SPAWN_FAILED` or a wrong exit status about
+//! itself; it cannot speak for another job, because the wait is one job at a time. Since
+//! milestone 613 (a system log service) every `RECV` returns the sender's badge in `x3`, so a
+//! badged copy per sender would let this shell tell the spawn service from a child at no new
+//! authority. Recorded by the 2026-10-03 security audit, which met it beside its scope; a lie about
+//! one's own exit status is the lowest-value thing a confined program can forge here.
+//!
 //! **A spawned command that faults no longer hangs the prompt, and here is what it costs**
 //! (milestone 235, design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). This shell waits
 //! on the job's result endpoint and a thread the kernel killed never sends on it, so until
