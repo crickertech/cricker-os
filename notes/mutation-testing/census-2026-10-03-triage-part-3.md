@@ -98,6 +98,8 @@ timings is called the median, and a test can only assert it on a clock it contro
 - `Assembler` (2) and `json` (2). The writer cut is the least recently heard from, an idle slot
   is taken without an empty cut line, and `\n` and `\r` use their short escapes.
 
-The 4 equivalents: `Ring`'s three `% RING_BYTES` as `+` (the head and the read position grow past
-the buffer, but every access wraps again, so the bytes read are the same), and `control`'s
-`arg < 2` as `<=` on `OP_NAME` (the registry refuses the third name chunk itself).
+The 4 equivalents:
+
+- `Ring`'s three `% RING_BYTES` as `+`. The head and the read position grow past the buffer, but every
+  access wraps again, so the bytes read are the same.
+- `control`'s `arg < 2` as `<=` on `OP_NAME`. The registry refuses the third name chunk itself.
