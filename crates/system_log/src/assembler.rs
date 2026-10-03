@@ -184,4 +184,31 @@ mod tests {
         assert_eq!(k, 3);
         assert_eq!(lines, [*b"ab", *b"cd", *b"ef"]);
     }
+
+    /// The writer evicted is the least recently heard from, not the first slot: a writer that spoke
+    /// again after the others is safe, and the quietest one after it is cut.
+    #[test]
+    fn the_writer_cut_is_the_least_recently_heard_from() {
+        let mut a = Assembler::new();
+        for badge in 1..=SLOTS as u64 {
+            a.push(badge, b"partial", None, |_| {});
+        }
+        a.push(1, b"+", None, |_| {});
+        let mut cut = None;
+        a.push(99, b"new", None, |l| cut = Some(l.badge));
+        assert_eq!(cut, Some(2));
+    }
+
+    /// A slot whose writer is between lines has nothing to cut, so a ninth writer takes it without
+    /// emitting an empty cut line.
+    #[test]
+    fn an_idle_slot_is_taken_without_a_cut_line() {
+        let mut a = Assembler::new();
+        for badge in 1..=SLOTS as u64 {
+            a.push(badge, b"done\n", None, |_| {});
+        }
+        let mut emitted = 0;
+        a.push(99, b"new", None, |_| emitted += 1);
+        assert_eq!(emitted, 0);
+    }
 }
