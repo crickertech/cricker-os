@@ -1352,8 +1352,16 @@ pub fn write_outcome(e: &Endowment, answer: u64, out: &mut dyn FnMut(&[u8])) {
             write_num(e.mem_pages, out);
             out(b"-page budget you granted (the rest paid for its page tables)\n");
         }
+        // Milestone 632 (graphics on demand): the session's one word says it ended. It is always 0
+        // today (`components/src/graphical_terminal.rs`'s `end`), and the number is printed anyway
+        // so a future status has somewhere to show rather than a sentence that lies about it.
+        Prog::GraphicalTerminal => {
+            out(b"  the graphical terminal session ended, status ");
+            write_num(answer, out);
+            out(b"\n");
+        }
         // **Every other program answers somewhere else, so there is nothing to render here.** Only a
-        // program whose manifest says `OutputSpec::Words` answers in a register, and those two are
+        // program whose manifest says `OutputSpec::Words` answers in a register, and those are
         // the arms above. Supervised jobs report through the job frame and the interruptible path;
         // byte-stream programs (`date`, `wc`, `ps`, ...) are drained by the byte-stream reader
         // before this is reached.
