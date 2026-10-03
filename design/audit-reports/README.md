@@ -226,8 +226,14 @@ index that took every file called an audit would report a coverage it does not h
    one:
    - **fixed**, in the audit lane itself, for anything trivial enough to fix while you are there;
    - **minted as a milestone**, where the report proposes it and the integrator mints the number at
-     merge, with severity and rationale in the block. That is how milestone 90 was born from
-     milestone 84's finding;
+     merge, with severity and rationale in the block. That is how milestone 90 (a guard page under the per-CPU secondary stacks) was born from
+     milestone 84 (stack high-water)'s finding. **A minted finding that bears on a fatal risk** (for a security audit,
+     usually risk 7, confinement) is also cited from that risk's entry in
+     [design/fatal-risks/](../fatal-risks/README.md). The integrator adds the citation at merge,
+     because a lane does not edit that directory. Fatal risks are what the project launches from
+     (calef, 2026-10-03), and `script/fatal-risks` checks that each cited path exists and that no
+     cited proposal changed after the entry's last stated date; a finding left only in the
+     proposals directory is never looked at again;
    - **recorded-accepted**, with the reason, in the report *and* in the affected doc's `BUGS`
      section wherever a reader would meet the risk.
 
