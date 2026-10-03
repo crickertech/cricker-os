@@ -668,10 +668,11 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
 
 ## What adopting libghostty-vt would cost now
 
-The roadmap names libghostty-vt (Ghostty's extracted VT core: zero-dependency, no libc, no
-allocations, a C ABI, written in Zig) as the strongest form of milestone 23's claim, and milestone 36
-built the C seam (DECISIONS §31, [c-seam.md](c-seam.md)) specifically to de-risk it. The Rust engine
-above is built, so the comparison can be made on facts instead of estimates. This is a
+The roadmap names libghostty-vt (Ghostty's extracted VT core: no libc, a C ABI, written in Zig; it
+needs a supplied allocator, corrected 2026-10-03 UTC per [the proposal](../design/roadmap/proposals/the-graphical-terminal-runs-full-screen-programs.md)) as the strongest form of
+milestone 23 (a capability-routed component OS with live replacement)'s claim, and milestone 36 (a
+foreign-language component, seam first) built the C seam (DECISIONS §31 (the foreign-language seam), [c-seam.md](c-seam.md)) to
+de-risk it. The Rust engine is built, so the comparison rests on facts. This is a
 recommendation, not a decision.
 
 What it would buy. A vendor component in a language we do not use, capability-confined and
@@ -687,14 +688,14 @@ What it would cost, concretely, now that the seam and the Rust engine both exist
    go away.
 2. **The seam is proved but the shape is not free.** §31's C seam holds *no capabilities and makes no
    syscalls*: the Rust shim holds everything and passes buffers. A VT engine fits that shape almost
-   perfectly (bytes in, grid out, no IO), which is the good news, and it is not an accident: it is
-   the same sans-IO property `crates/video_terminal` has. So the port is a shim that feeds bytes and reads cells,
+   perfectly (bytes in, grid out, no IO), the same sans-IO property
+   `crates/video_terminal` has. So the port is a shim that feeds bytes and reads cells,
    not a rewrite of `display_terminal`.
 3. The grid readback is the actual work. Our engine gives `pixel(x, y)` as a pure function, which
    is what makes the three-witness proof possible. libghostty-vt's C ABI gives cells; the shim would
    have to walk them and the *expected-picture* definition would have to move to the Zig side or be
    reimplemented against its cell layout. The proof structure, not the rendering, is what would
-   have to be rebuilt. That is the cost this increment discovered and could not have known before.
+   have to be rebuilt.
 4. Their API is in flux, so any adoption pins a version and takes the divergence-management
    discipline the vendored RedoxFS already has (DECISIONS §18's vendoring policy).
 5. `crates/video_terminal` would not be deleted. It is about 1,750 lines including its tests and its keymap (1,500 when this was written; it is a hedged magnitude, re-measured at each documentation sweep rather than gated, because a line count moves on every test anyone adds),
