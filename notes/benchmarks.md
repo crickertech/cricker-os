@@ -283,6 +283,7 @@ The third column lists the dated entries each holds, so a citation of "notes/ben
 | [icount-tick-scales](benchmarks/icount-tick-scales.md) | a tick is not an instruction | 2026-09-30 |
 | [rfence-self-row](benchmarks/rfence-self-row.md) | the open `rfence_self` row | 2026-09-21; 2026-09-23 |
 | [preemption-in-the-window](benchmarks/preemption-in-the-window.md) | the masked `map_new` window | 2026-09-21 (three) |
+| [drift-since-the-2026-09-26-floors](benchmarks/drift-since-the-2026-09-26-floors.md) | drift on `main` on all three ISAs | 2026-10-02 |
 
 ## BUGS
 
