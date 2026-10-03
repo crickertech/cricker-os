@@ -23,8 +23,9 @@ it, once per new peak:
   progenitor stack: 32440 of 49152 bytes at peak, 16712 spare
 ```
 
-On `x86_64` the idle loop stops running at the hand-over, because the input driver polls and yields,
-so there the yield syscall looks instead, one yield in 256.
+Every architecture speaks from the idle loop. `x86_64` spoke from the yield syscall, one yield in
+256, until milestone 505 (an x86_64 input driver that never lets the core idle): its input driver
+polled and yielded, so the idle loop stopped running at the hand-over.
 
 The kernel reads the stack, not the progenitor. That keeps the instrument out of
 `crates/system_initializer`, which four lanes were editing when this was built, and it means a

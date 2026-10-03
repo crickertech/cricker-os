@@ -36,7 +36,8 @@ swish-check run actually hits:
   and riscv64, on every reschedule with nothing to run. On x86_64 it triggers from `on_yield`,
   throttled to one look per 256 yields (`kernel/src/progenitor_stack.rs:150-160`), specifically
   because doing it every yield "would print more lines on a multi-core machine, where a kernel line
-  and a userspace one can shuffle byte by byte".
+  and a userspace one can shuffle byte by byte". `on_yield` is gone since milestone 505 (an x86_64
+  input driver that never lets the core idle). x86_64 reports from the idle loop too.
 
 A captured aarch64 swish-check transcript (CI run 36329333745, 2026-09-27, the aarch64 leg) has six
 of these lines in a 111-line, 17.6-second transcript. Several land right after a `$ ` prompt and
