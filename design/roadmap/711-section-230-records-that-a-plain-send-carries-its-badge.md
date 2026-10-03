@@ -1,16 +1,12 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-10-03
+built: 2026-10-03
 promoted_from: section-230-records-that-a-plain-send-carries-its-badge
-milestone_dependencies: none
-decision_dependencies: unwritten
-machine_requirements: none
-specific_machine: none
-needs_person: no
 ---
 # 711. §230 records that a plain `SEND` carries its capability's badge
 
-Promoted from `design/roadmap/proposals/section-230-records-that-a-plain-send-carries-its-badge.md` on 2026-10-03 (UTC). The number 711 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+Promoted from `design/roadmap/proposals/section-230-records-that-a-plain-send-carries-its-badge.md` on 2026-10-03 (UTC). The number 711 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-10-03: the amendment to DECISIONS §230 landed in PR #1524 (merged 2026-10-03T17:04Z). *(Title and slug are drafts.)*
 
 <!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
@@ -66,6 +62,10 @@ already on `main`. What is missing is the record a future reader of §230 would 
 Nothing in code. What is at risk is the next lane that reads §230's table, sees `SEND` without a
 badge, and writes a server that treats a non-zero `x3` on `RECV` as a fault message or a
 corruption, as the pre-613 contract allowed.
+
+## Follow-on
+
+- **Done.** The amendment to DECISIONS §230 (badged endpoint capabilities) recording the badge on a plain `SEND`, landed in PR #1524.
 
 ## Index row
 
