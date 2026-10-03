@@ -7,7 +7,7 @@
 name = "init"
 kind = "base"
 home = { repo = "init", status = "provisional" }
-crates = ["components", "system_initializer"]
+crates = ["components", "system_initializer", "system_log"]
 programs = [
     "progenitor",
     "root_supervisor",
@@ -16,6 +16,7 @@ programs = [
     "job_undertaker",
     "broker",
     "swapper",
+    "system_log",
 ]
 depends = ["timetable"]
 

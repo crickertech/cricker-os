@@ -188,9 +188,17 @@ pub mod rendezvous {
     pub const SEND: u64 = 0;
 
     /// `invoke(cap, RECV, _, _, _)` -> w0, with w1 in x1 and w2 in x2. **Blocks until a message
-    /// arrives.** `x3` and `x4` are written only by the kernel: `0` for an ordinary message, the
-    /// fault address and a reserved `0` for a §26 death message, and [`notification::BOUND`](crate::notification::BOUND)
-    /// in `x4` when a bound notification ended the receive (milestone 151 (notification objects)).
+    /// arrives.** `x3` and `x4` are written only by the kernel: for an ordinary message `x3` is the
+    /// badge on the endpoint capability the sender invoked ([`BADGE`], `0` when unbadged) and `x4`
+    /// is `0`; the fault address and a reserved `0` for a §26 death message; and
+    /// [`notification::BOUND`](crate::notification::BOUND) in `x4` when a bound notification ended
+    /// the receive (milestone 151 (notification objects)).
+    ///
+    /// The badge in `x3` is milestone 613 (a system log service: the in-memory half)'s amendment
+    /// to §230 (badged endpoint capabilities), which delivered it on [`RECV_CAP`] only: the log
+    /// stamps a byte-sink writer from its badge, and a byte-sink writer `SEND`s. Before it, `x3` was
+    /// always `0` for an ordinary message. A death message is told apart by its first word, as
+    /// before; nothing reads `x3` before checking that.
     ///
     /// # BUGS
     ///
@@ -219,6 +227,17 @@ pub mod rendezvous {
     /// holds a one-shot [`crate::reply`] capability naming the caller. **x3 is the badge on the
     /// endpoint capability the sender invoked** ([`BADGE`]), or 0 when it was unbadged, which is how
     /// a server serving many clients on one endpoint tells them apart. Needs `READ`.
+    ///
+    /// # BUGS
+    ///
+    /// **A plain `SEND` received here fills `x1` differently depending on who arrived first.** If
+    /// the sender was parked, `x1` is [`NO_CAP`] and `x2` its second word; if this receiver was
+    /// parked, the sender drops its three words straight into the mailbox, so `x1` is the sender's
+    /// second word and `x2` its third. A `CALL` server that reads `x1` as a Reply slot can
+    /// therefore be handed a sender-chosen number as a slot. `x0` and `x3` (the badge) are right
+    /// on both paths. Found by milestone 613 (a system log service: the in-memory half)'s audit
+    /// of `RECV` consumers, 2026-10-03 UTC, and not fixed there: the fix is for `ipc_send` to know
+    /// which receive it is completing, which touches the IPC fastpath and wants its own lane.
     pub const RECV_CAP: u64 = 3;
 
     /// `invoke(cap, CALL, w0, w1, _)` -> r0, with r1 in x1. **Send two words and block until

@@ -413,6 +413,13 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         // are in, which is the whole of how two clients are now kept apart: `win` is the base of
         // that client's own window, and every `file_page` below reads and writes it rather than one
         // frame shared with every client.
+        //
+        // **A plain `SEND` carries its badge too** (milestone 613 (a system log service: the
+        // in-memory half), calef's ruling of 2026-10-03 UTC on #1494, amending §230 (badged
+        // endpoint capabilities)). Before it, a client that `SEND`s rather than `CALL`s through its
+        // badged capability arrived here as badge 0, the unbound value, and was admitted against
+        // another client's window and outside its own scope (with no Reply to answer). It now
+        // arrives as itself. `system_log_tests` pins the kernel half.
         let (w0, reply_slot, w1, badge) = recv_cap_badged(FILE);
         let win = window_base(badge);
         let code = op(w0);
