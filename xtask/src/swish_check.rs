@@ -8,7 +8,7 @@ use std::process::Command;
 
 use crate::archive::{initrd_path, initrd_riscv, riscv_initrd_path};
 use crate::disk::{disk_path, mkdisk, mkredoxfs, redoxfs_server_build};
-use crate::host::{flag_value, run, workspace_root};
+use crate::host::{flag_value, workspace_root};
 use crate::scanout::{gpu_mon_socket, scanout_rows, screendump, sendkey};
 use crate::suite::ArchLegs;
 use crate::uefi::{esp_dir, uefi_image, uefi_image_with};
@@ -124,11 +124,16 @@ pub(crate) fn swish_check() -> bool {
             return false;
         }
     };
-    // `--graphical` (milestone 632 (provisional), reversing milestone 177 (wire the graphical terminal stack into the real interactive boot)'s boot half): the same
-    // two legs, booted as the normal UART system with a GPU and keyboard attached, then `graphical_terminal`
-    // is typed at the prompt and the launched session is verified by screendump rather than by
-    // transcript. See [`swish_check_leg_graphical`]'s own doc for why this needs a whole different
-    // verification shape rather than two env vars added to [`swish_check_leg`].
+    // **The two graphical flags are gone, and saying so beats ignoring them** (2026-10-03 UTC):
+    // every flag here is read with `any`, so a stale `--graphical` in somebody's muscle memory or a
+    // script would otherwise run the plain legs and print green for a boot it never made.
+    if std::env::args().any(|a| a == "--graphical" || a == "--graphical-serial") {
+        eprintln!(
+            "swish-check: --graphical and --graphical-serial no longer exist; the aarch64 and riscv64 \
+             legs launch `graphical_terminal` themselves (see `swish_check_leg`)"
+        );
+        return false;
+    }
     // `--release` builds and boots the optimised kernel and programs, which is what a customer's
     // stick carries (`xtask stick` is release-only). Added for the progenitor stack's measurement
     // (milestone progenitor-stack (provisional)): the gauge's numbers differ by profile, and the
@@ -136,42 +141,14 @@ pub(crate) fn swish_check() -> bool {
     if std::env::args().any(|a| a == "--release") {
         crate::RELEASE.store(true, std::sync::atomic::Ordering::Relaxed);
     }
-    let graphical = std::env::args().any(|a| a == "--graphical");
-    // **Milestone 192's option A**: the same launch with the *keyboard* left off, so the session's
-    // keystrokes are the board's own UART. See [`swish_check_leg_graphical`]'s own doc.
-    let graphical_serial = std::env::args().any(|a| a == "--graphical-serial");
-
     // TCG only. This boot never exits (the shell loops on its prompt), so it is killed rather than
     // waited on, and there is nothing HVF would buy a gate that spends its time in QEMU's serial.
     // SAFETY: `set_var`/`remove_var` became unsafe in edition 2024 because they race other
     // threads. xtask is single-threaded here: this runs on the main thread before the child
     // that reads it is spawned, and the only thread xtask ever starts (the transcript reader
-    // in swish_check_leg, or the graphical leg's own polling loop) copies pipe bytes or polls a
-    // socket and never touches the environment.
+    // in swish_check_boot) copies pipe bytes or polls a socket and never touches the
+    // environment.
     unsafe { std::env::remove_var("NIFE_ACCEL") };
-    if graphical || graphical_serial {
-        // No x86_64 graphical leg: milestone 192 (a keyboard on real silicon)'s x86 half is not built, and the screen x86_64
-        // does have (the firmware's, milestone 400) is read by `cargo xtask uefi-boot` instead.
-        if legs == ArchLegs::X86_64 {
-            eprintln!(
-                "swish-check: there is no graphical leg on x86_64; `cargo xtask uefi-boot` reads \
-                 the shell off the firmware's screen"
-            );
-            return false;
-        }
-        let keystrokes = if graphical_serial {
-            Keystrokes::Serial
-        } else {
-            Keystrokes::Device
-        };
-        if legs.aarch64() && !swish_check_leg_graphical(false, keystrokes) {
-            return false;
-        }
-        if legs.riscv64() && !swish_check_leg_graphical(true, keystrokes) {
-            return false;
-        }
-        return true;
-    }
     if legs.aarch64() && !swish_check_leg("aarch64") {
         return false;
     }
@@ -371,7 +348,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // Milestone 632 (graphics on demand)'s refusal, on every ISA: these legs attach no gpu, so the
     // shell holds no display and `graphical_terminal` is refused at the prompt with a sentence rather than
     // spawned into nothing. It is the half of the milestone x86_64 can prove (no virtio-gpu is
-    // wired there); the launch itself is `swish_check_leg_graphical`'s.
+    // wired there); the launch itself is `launch_graphical_terminal`'s, on a later boot of the same leg.
     line(0, "graphical_terminal", &["no display on this boot"]),
     // And `caps` says which file and how, which is the honest half: the shell reads it and streams
     // it in, so what the child holds is an endpoint and not a capability naming the disk.
@@ -2076,8 +2053,27 @@ fn boot_claim_complaint(
 ///   The leg asserts the progenitor said so, because a boot that silently fell back to no entropy
 ///   would otherwise surface only as the `uuid` lines failing.
 fn swish_check_leg(arch: &str) -> bool {
-    swish_check_boot(arch, SWISH_CHECK_SCRIPT, true)
-        && (probe() == Probe::Panic || swish_check_boot(arch, SWISH_CHECK_AFTER_REBOOT, false))
+    // **Where the graphical launch rides** (2026-10-03 UTC, calef's ruling folding the
+    // `swish-check-graphical` job in; milestone 632 (provisional)). `graphical_terminal` is a
+    // plain spawn the shell waits on, so a launch ends the boot it is typed into. The first boot
+    // therefore stays GPU-less, which is what lets its `graphical_terminal` line require the
+    // refusal sentence on every ISA at no extra boot. The second boot (after the reboot) attaches a
+    // gpu and no keyboard and launches at the end of its short script: the keystrokes are the
+    // guest's UART, the configuration all three target boards have. A third, scriptless boot
+    // attaches a gpu and a keyboard for the other arm. aarch64 and riscv64 only: x86_64 has no
+    // virtio-gpu in its runner (`design/roadmap/632-*.md`'s BUGS has what it would take).
+    let graphical = arch != "x86_64";
+    swish_check_boot(arch, SWISH_CHECK_SCRIPT, true, None)
+        && (probe() == Probe::Panic
+            || swish_check_boot(
+                arch,
+                SWISH_CHECK_AFTER_REBOOT,
+                false,
+                graphical.then_some(Keystrokes::Serial),
+            ))
+        && (probe() == Probe::Panic
+            || !graphical
+            || swish_check_boot(arch, &[], false, Some(Keystrokes::Device)))
 }
 
 /// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
@@ -2104,7 +2100,16 @@ fn kvm_is_usable() -> bool {
 /// `fresh` is false for the second boot, which runs against the disk the first one left behind and
 /// builds nothing, because what it proves is that the disk is the only thing carried across
 /// (milestone 198 (a package manager) rung 3a: an installed package survives a reboot).
-fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
+///
+/// `graphics` attaches a virtio-gpu (and, for [`Keystrokes::Device`], a virtio keyboard) and, once
+/// `script` is done and the prompt is back, types `graphical_terminal` and reads the screen
+/// ([`launch_graphical_terminal`]). `None` attaches no gpu, which is what the refusal line needs.
+fn swish_check_boot(
+    arch: &str,
+    script: &[Line],
+    fresh: bool,
+    graphics: Option<Keystrokes>,
+) -> bool {
     use std::io::{Read, Write};
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
@@ -2248,11 +2253,30 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     // `Command` directly (see `NIFE_INITRD`/`NIFE_DISK` just above) rather than spawning through
     // the global-env-inheriting path `test()` uses.
     cmd.env("NIFE_RNG", "1");
+    // **The gpu, and the keyboard on the device arm** (milestone 632 (provisional)): read by
+    // `helpers/qemu-runner-*.sh`. The boot ignores the devices and the shell holds their grants
+    // until the launch line is typed. The monitor socket is what `screendump` reads.
+    let gpu_sock = gpu_mon_socket(&format!("{arch}-swish-check"));
+    if graphics.is_some() {
+        let _ = std::fs::remove_file(&gpu_sock);
+        cmd.env("NIFE_GPU", "1");
+        cmd.env("NIFE_GPU_MON", &gpu_sock);
+        if graphics == Some(Keystrokes::Device) {
+            cmd.env("NIFE_KEYBOARD", "1");
+        }
+    }
     // **And a NIC** (milestone 590 (provisional)), on the two legs whose runner can attach one:
     // the progenitor builds `net_stack` from it, and `network_echo_client` reaches the runners'
     // echo peer through that. The runner attaches two (an mmio NIC and a PCIe one behind the
     // IOMMU); the kernel grants the progenitor the mmio one and the other sits unclaimed.
-    if !x86 {
+    //
+    // **Not on the scriptless keyboard boot**: it types nothing that reaches the network, and a
+    // boot with a gpu, a keyboard, a virtio-rng and the NIC all attached peaks at 30 of 32
+    // capability slots against the 28 `kernel/src/cap.rs` records (measured 2026-10-03 UTC, the
+    // fold's first run), a configuration no gate booted before the fold. Dropping the NIC keeps
+    // this boot the one milestone 632 measured (gpu, keyboard, rng: 28); the 30 is recorded in
+    // milestone 632's BUGS rather than hidden by raising the constant in a lane about CI.
+    if !x86 && graphics != Some(Keystrokes::Device) {
         cmd.env("NIFE_NET", "1");
         // **What the package source serves this leg** (milestone 198 rung 3a's fetch). The runner
         // starts `helpers/package-http-peer` once per connection, and it inherits this through
@@ -2609,6 +2633,16 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
                 .collect::<Vec<_>>()
                 .join(", "),
         );
+        // The launch ends the boot (the shell waits on the session), so it is the last thing typed.
+        if failed.is_empty()
+            && probe() != Probe::Panic
+            && let Some(keystrokes) = graphics
+        {
+            match launch_graphical_terminal(arch, keystrokes, &mut stdin, &seen, &gpu_sock) {
+                Ok(said) => eprintln!("{said}"),
+                Err(why) => failed.push(why),
+            }
+        }
     }
 
     let whole = raw.lock().expect("transcript lock").clone();
@@ -2849,12 +2883,27 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     }
     let _ = child.wait();
     let _ = reader.join();
+    if graphics.is_some() {
+        let _ = std::fs::remove_file(&gpu_sock);
+    }
 
+    if failed.is_empty() && !fresh && script.is_empty() {
+        eprintln!(
+            "swish-check ({arch}): rebooted against the same disk with a gpu and a keyboard and \
+             launched `graphical_terminal` from the prompt"
+        );
+        return true;
+    }
     if failed.is_empty() && !fresh {
         eprintln!(
             "swish-check ({arch}): rebooted against the same disk, ran the two packages installed \
              before the reboot, removed one and saw its vouch gone while the other still ran, \
-             rolled back, and ran it again"
+             rolled back, and ran it again{}",
+            if graphics.is_some() {
+                ", then launched `graphical_terminal` from the prompt with a gpu and no keyboard"
+            } else {
+                ""
+            }
         );
         return true;
     }
@@ -2925,29 +2974,31 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     false
 }
 
-/// **The graphical leg** (milestone 632 (provisional), reversing milestone 177's boot-half): the
+/// **The graphical launch, folded into the plain legs' boots** (2026-10-03 UTC, calef's ruling; it was
+/// `swish_check_leg_graphical` and the `--graphical` and `--graphical-serial` flags, and a CI job
+/// of its own, until then). Milestone 632 (provisional), reversing milestone 177 (wire the graphical terminal stack into the real interactive boot)'s boot-half: the
 /// `--features shell` boot is now the **normal UART system on every boot** (the minimal shape
 /// of DECISIONS §26 (the fault endpoint: thread death becomes a message a supervisor holds)), and graphics is *launched*: this leg types `graphical_terminal` at the swish prompt and
 /// verifies what the launched session puts on the screen, read back with a `screendump` rather
 /// than a serial transcript.
 ///
-/// # What the leg does, in order
+/// # What the check does, in order
 ///
-/// 1. Boots the normal system with a virtio-gpu attached (plus, in the device arm, a virtio
-///    keyboard and the virtio-rng, exactly as before), **reading the UART transcript**: the
-///    swish prompt must appear on the serial console before anything is typed, which is the
-///    assertion that the boot stayed minimal. A boot that quietly rebuilt the graphical stack at
-///    boot time, the shape calef's 2026-09-30 ruling reverses, would print no UART prompt and
-///    this leg dies right here.
-/// 2. Types `graphical_terminal` over the UART. The shell delegates the display devices it holds
-///    (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`, from `spawnproto::SHELL_GPU_SLOT` and its
-///    siblings), the progenitor builds the session's stack from them, and the session prints its
-///    own `$ ` prompt on the screen.
-/// 3. Presses one key and requires its echo on the screen: `sendkey` on the device arm, the same
-///    byte down the UART on the serial arm, which is now a real round trip through the boot's
-///    line discipline in raw mode and the session's own echo.
+/// 1. [`swish_check_boot`] boots the normal system with a virtio-gpu attached (see
+///    [`swish_check_leg`] for which of a leg's boots), reading the UART transcript: the swish
+///    prompt must appear on the serial console before anything is typed, which is the assertion
+///    that the boot stayed minimal. A boot that quietly rebuilt the graphical stack at boot time,
+///    the shape calef's 2026-09-30 ruling reverses, would print no UART prompt and the boot fails
+///    right there.
+/// 2. [`launch_graphical_terminal`] types `graphical_terminal` over the UART. The shell delegates
+///    the display devices it holds (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`, from
+///    `spawnproto::SHELL_GPU_SLOT` and its siblings), the progenitor builds the session's stack
+///    from them, and the session prints its own `$ ` prompt on the screen.
+/// 3. It presses one key and requires its echo on the screen: `sendkey` on the device arm, the same
+///    byte down the UART on the serial arm, which is a real round trip through the boot's line
+///    discipline in raw mode and the session's own echo.
 ///
-/// # Two keystroke sources, one leg (milestone 192, option A)
+/// # Two keystroke sources, one check (milestone 192 (a keyboard on real silicon), option A)
 ///
 /// [`Keystrokes::Device`] attaches a virtio-keyboard and presses a key with the QEMU monitor's
 /// `sendkey`; the session's `keyboard_driver` feeds its line discipline. [`Keystrokes::Serial`]
@@ -3000,176 +3051,48 @@ enum Keystrokes {
     Serial,
 }
 
-fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
-    use std::io::{Read, Write};
-    use std::sync::{Arc, Mutex};
+/// **Launch `graphical_terminal` from the prompt a boot is sitting at, and read the screen**
+/// (the second and third steps of [`Keystrokes`]'s doc). Called by [`swish_check_boot`] once its
+/// script has finished and the prompt is back, on a boot that has a virtio-gpu attached; `sock` is
+/// that gpu's monitor socket, which `screendump` reads. `Ok` carries the sentence to print.
+fn launch_graphical_terminal(
+    arch: &str,
+    keystrokes: Keystrokes,
+    stdin: &mut std::process::ChildStdin,
+    seen: &std::sync::Arc<std::sync::Mutex<String>>,
+    sock: &str,
+) -> Result<String, String> {
+    use std::io::Write;
     use std::time::{Duration, Instant};
 
-    let arch = if riscv { "riscv64" } else { "aarch64" };
-    let source = match keystrokes {
-        Keystrokes::Device => "a keyboard",
-        Keystrokes::Serial => "no keyboard, keystrokes over the UART",
-    };
-    eprintln!();
-    eprintln!(
-        "--- swish-check ({arch}, graphical): boot the normal UART system with a GPU and {source}, then launch `graphical_terminal` ---"
-    );
-
-    let target = if riscv { RISCV_TARGET } else { TARGET };
-    let built = if riscv {
-        redoxfs_server_build(RISCV_TARGET) && mkdisk() && mkredoxfs() && initrd_riscv()
-    } else {
-        redoxfs_server_build(TARGET) && mkredoxfs() && mkdisk() && user()
-    } && run(
-        "cargo",
-        &[
-            "build",
-            "-p",
-            "kernel",
-            "--features",
-            "shell",
-            "--target",
-            target,
-        ],
-    );
-    if !built {
-        return false;
-    }
-
-    let sock = gpu_mon_socket(&format!("{arch}-swish-check"));
-    let _ = std::fs::remove_file(&sock);
-
-    let mut cmd = Command::new(if riscv {
-        "helpers/qemu-runner-riscv64.sh"
-    } else {
-        RUNNER
-    });
-    cmd.arg(format!("target/{target}/{}/kernel", profile_dir()));
-    cmd.env(
-        "NIFE_INITRD",
-        if riscv {
-            riscv_initrd_path()
-        } else {
-            initrd_path()
-        },
-    );
-    cmd.env("NIFE_DISK", disk_path());
-    // **The serial arm attaches no virtio-rng**, and that stays true through the retarget: the
-    // point of the arm is to stand in for a board, `NIFE_RNG` is a QEMU-only stopgap (DECISIONS
-    // §120) and none of the three target machines has such a device. The device arm keeps it,
-    // unchanged, because that is milestone 177's configuration. (A trap in the progenitor
-    // whenever a virtio-rng was attached, recorded on 2026-09-02, no longer reproduces: on
-    // 2026-09-19 both arms reached a prompt, the device arm with the RNG attached.)
-    if keystrokes == Keystrokes::Device {
-        cmd.env("NIFE_RNG", "1");
-    }
-    // The GPU (and, in the device arm, the keyboard) the launch needs, read by
-    // `helpers/qemu-runner-*.sh` exactly as always; what changed (milestone 632 (provisional))
-    // is only what the guest does with the devices existing: the boot ignores them and the shell
-    // holds their grants until this leg types `graphical_terminal`.
-    cmd.env("NIFE_GPU", "1");
-    if keystrokes == Keystrokes::Device {
-        cmd.env("NIFE_KEYBOARD", "1");
-    }
-    cmd.env("NIFE_GPU_MON", &sock);
-    // **The transcript is read now, on both arms.** The whole first half of this leg's claim is
-    // that the normal UART system came up (the swish prompt on the serial console) before
-    // anything graphical was launched, so stdout is piped and read rather than discarded, and
-    // stdin is piped on the device arm too, because the launch command itself is typed over the
-    // UART whichever arm this is.
-    cmd.stdin(std::process::Stdio::piped());
-    cmd.stdout(std::process::Stdio::piped());
-
-    let mut child = match cmd.spawn() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("swish-check (graphical): failed to start the runner: {e}");
-            return false;
-        }
-    };
-    let mut stdin = child.stdin.take().expect("piped stdin");
-    let mut stdout = child.stdout.take().expect("piped stdout");
-    // A reader thread, for `swish_check_leg`'s own reason: every wait needs a deadline, and a
-    // boot that hangs is exactly the failure this gate is for. The kernel's progenitor stack gauge
-    // is taken out through [`GaugeFilter`], as the plain legs take it: it lands right after the
-    // first `$ ` and hid that prompt from the wait below (CI, 2026-10-03, run 37095306042).
-    let seen = Arc::new(Mutex::new(String::new()));
-    let collector = Arc::clone(&seen);
-    let reader = std::thread::spawn(move || {
-        let mut filter = GaugeFilter::default();
-        let mut gauges = Vec::new();
-        let mut buf = [0u8; 1024];
-        while let Ok(n) = stdout.read(&mut buf) {
-            if n == 0 {
-                return;
-            }
-            let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
-            let mut out = collector.lock().expect("transcript lock");
-            filter.feed(&text, &mut out, &mut gauges);
-        }
-    });
-
-    // **Step 1: the normal system's prompt, on the UART.** The banner names the shell; the
-    // transcript ending in `$ ` is the "ready" this leg types at, `wait_for_prompt`'s own
-    // unambiguous end state. A boot that rebuilt the graphical stack at boot time would never
-    // print this, and the leg stops here rather than pretending the launch was what failed.
-    let deadline = Instant::now() + Duration::from_secs(SWISH_CHECK_BOOT_SECS);
-    let mut uart_prompt = false;
-    while Instant::now() < deadline && !uart_prompt {
-        if seen.lock().expect("transcript lock").ends_with("$ ") {
-            uart_prompt = true;
-        } else {
-            std::thread::sleep(Duration::from_millis(200));
-        }
-    }
-    if !uart_prompt {
-        let _ = child.kill();
-        let _ = child.wait();
-        eprintln!(
-            "swish-check ({arch}, graphical): the normal UART system never reached a prompt \
-             within {SWISH_CHECK_BOOT_SECS}s, so there was no prompt to launch `graphical_terminal` from; \
-             transcript so far: {:?}",
-            seen.lock().expect("transcript lock"),
-        );
-        return false;
-    }
-    eprintln!(
-        "swish-check ({arch}, graphical): the normal system is up; typing the launch command"
-    );
-
-    // **Step 2: launch.** `graphical_terminal\n` over the UART, exactly as a person would. The prompt is out
-    // and nothing was echoed since it appeared, so the line is read by the prompt, not buffered
-    // ahead of it.
-    if let Err(e) = stdin
+    // **Launch.** `graphical_terminal\n` over the UART, exactly as a person would. The prompt is
+    // out and nothing was echoed since it appeared, so the line is read by the prompt, not
+    // buffered ahead of it.
+    stdin
         .write_all(b"graphical_terminal\n")
         .and_then(|()| stdin.flush())
-    {
-        let _ = child.kill();
-        let _ = child.wait();
-        eprintln!("swish-check ({arch}, graphical): could not type the launch command: {e}");
-        return false;
-    }
+        .map_err(|e| format!("could not type the launch command: {e}"))?;
     // Where the UART transcript stood at the launch, so a launch that fails can say what the shell
     // and the progenitor printed after it rather than only that the screen stayed dark.
     let launched_at = seen.lock().expect("transcript lock").len();
 
-    // `a`..`z`, `0`..`9`, space and `$`: every byte this leg's own checks look for, plus enough of
+    // `a`..`z`, `0`..`9`, space and `$`: every byte this check's own reads look for, plus enough of
     // the alphabet that a decode failure names the wrong character instead of silently reading `?`
-    // for one this leg simply never bothered to include.
+    // for one this check simply never bothered to include.
     let mut alphabet: Vec<u8> = (b'a'..=b'z').collect();
     alphabet.extend(b'0'..=b'9');
     alphabet.push(b' ');
     alphabet.push(b'$');
 
-    // **Step 3: the session's prompt, on the screen.** This is the silent-failure assertion: a
-    // collision anywhere from the shell's seven slots through the session build fails without a
-    // word, so any `$ ` decoded off the scanout at all disproves one. The deadline covers the
-    // session's whole build, not just its first paint.
+    // **The session's prompt, on the screen.** This is the silent-failure assertion: a collision
+    // anywhere from the shell's seven slots through the session build fails without a word, so any
+    // `$ ` decoded off the scanout at all disproves one. The deadline covers the session's whole
+    // build, not just its first paint.
     let shot = workspace_root().join(format!("target/gpu-swish-check-{arch}.ppm"));
     let deadline = Instant::now() + Duration::from_secs(SWISH_CHECK_BOOT_SECS);
     let mut prompt_row: Option<String> = None;
     while Instant::now() < deadline && prompt_row.is_none() {
-        if screendump(&sock, &shot)
+        if screendump(sock, &shot)
             && let Ok(bytes) = std::fs::read(&shot)
             && let Ok(rows) = scanout_rows(&bytes, &alphabet)
         {
@@ -3178,46 +3101,35 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         std::thread::sleep(Duration::from_millis(200));
     }
     let Some(before) = prompt_row else {
-        let _ = child.kill();
-        let _ = child.wait();
-        eprintln!(
-            "swish-check ({arch}, graphical): `graphical_terminal` was launched but no `$ ` prompt reached \
-             the scanout within {SWISH_CHECK_BOOT_SECS}s (see {}). A capability-slot collision \
-             fails in silence, so this is the leg's central assertion. The UART after the \
-             launch: {:?}",
+        return Err(format!(
+            "`graphical_terminal` was launched but no `$ ` prompt reached the scanout within \
+             {SWISH_CHECK_BOOT_SECS}s (see {}). A capability-slot collision fails in silence, so \
+             this is the check's central assertion. The UART after the launch: {:?}",
             shot.display(),
             &seen.lock().expect("transcript lock")[launched_at..],
-        );
-        return false;
+        ));
     };
     eprintln!("swish-check ({arch}, graphical): session prompt found: {before:?}");
 
-    // The one keystroke this leg types, the same key (and the same reason) the kernel test's own
-    // keyboard test uses: `video_terminal::script::HOST_KEY` is the one definition of which key,
-    // so a driver that mapped the evdev code wrong fails in exactly one place instead of two. The
-    // serial arm sends the same key as the byte it already is, since a UART carries no scancode
-    // for a keymap to get wrong; `HOST_KEY_BYTE` is that byte, defined beside `HOST_KEY` so the
-    // two spellings of one key cannot drift.
+    // The one keystroke, the same key (and the same reason) the kernel test's own keyboard test
+    // uses: `video_terminal::script::HOST_KEY` is the one definition of which key, so a driver
+    // that mapped the evdev code wrong fails in exactly one place instead of two. The serial arm
+    // sends the same key as the byte it already is, since a UART carries no scancode for a keymap
+    // to get wrong; `HOST_KEY_BYTE` is that byte, defined beside `HOST_KEY` so the two spellings
+    // of one key cannot drift.
     match keystrokes {
-        Keystrokes::Device => sendkey(&sock, video_terminal::script::HOST_KEY),
-        Keystrokes::Serial => {
-            if let Err(e) = stdin
-                .write_all(&[video_terminal::script::HOST_KEY_BYTE])
-                .and_then(|()| stdin.flush())
-            {
-                let _ = child.kill();
-                let _ = child.wait();
-                eprintln!("swish-check ({arch}, graphical): could not type into the UART: {e}");
-                return false;
-            }
-        }
+        Keystrokes::Device => sendkey(sock, video_terminal::script::HOST_KEY),
+        Keystrokes::Serial => stdin
+            .write_all(&[video_terminal::script::HOST_KEY_BYTE])
+            .and_then(|()| stdin.flush())
+            .map_err(|e| format!("could not type into the UART: {e}"))?,
     }
 
     let want = format!("$ {}", video_terminal::script::HOST_KEY);
     let deadline = Instant::now() + Duration::from_secs(SWISH_CHECK_LINE_SECS);
     let mut typed_row: Option<String> = None;
     while Instant::now() < deadline && typed_row.is_none() {
-        if screendump(&sock, &shot)
+        if screendump(sock, &shot)
             && let Ok(bytes) = std::fs::read(&shot)
             && let Ok(rows) = scanout_rows(&bytes, &alphabet)
         {
@@ -3225,12 +3137,6 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         }
         std::thread::sleep(Duration::from_millis(200));
     }
-
-    let _ = child.kill();
-    let _ = child.wait();
-    let _ = std::fs::remove_file(&sock);
-    drop(stdin);
-    drop(reader);
 
     match typed_row {
         Some(after) => {
@@ -3242,11 +3148,10 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
                     "the boot's line discipline in raw mode, echoed by the session itself"
                 }
             };
-            eprintln!(
+            Ok(format!(
                 "swish-check ({arch}, graphical): the session's prompt reached the screen, and a \
                  key press reached it back through {by}: {after:?}"
-            );
-            true
+            ))
         }
         None => {
             let blame = match keystrokes {
@@ -3259,14 +3164,12 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
                      the runner's stdin is not reaching the guest's UART"
                 }
             };
-            eprintln!(
-                "swish-check ({arch}, graphical): the session's prompt appeared ({before:?}) but \
-                 the key press ({:?}) never echoed back within {SWISH_CHECK_LINE_SECS}s (see {}): \
-                 {blame}",
+            Err(format!(
+                "the session's prompt appeared ({before:?}) but the key press ({:?}) never echoed \
+                 back within {SWISH_CHECK_LINE_SECS}s (see {}): {blame}",
                 video_terminal::script::HOST_KEY,
                 shot.display(),
-            );
-            false
+            ))
         }
     }
 }

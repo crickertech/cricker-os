@@ -46,7 +46,7 @@ the first row with four jobs pending calef's ruleset edit; later checks have no 
 
 | check name | workflow | trigger | blocks | result 2026-09-03 |
 |---|---|---|---|---|
-| `test`, `swish-check`, `swish-check-graphical`, `boot-check` | ci | PR, merge queue, push | pending | new |
+| `test`, `swish-check`, `boot-check` | ci | PR, merge queue, push | pending | new |
 | `rustfmt` | ci | PR, merge queue, push | **yes** | green |
 | `clippy` | ci | PR, merge queue, push | **yes** | green |
 | `cpu matrix (riscv64 across QEMU CPU models)` | ci | PR, merge queue, push | **yes** | green |

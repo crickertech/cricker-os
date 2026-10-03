@@ -115,16 +115,19 @@ reaches the line discipline through a capability naming one endpoint.
 
 ## What is proven, and where
 
-In QEMU, on both architectures (`script/swish-check --graphical-serial`, and directly): a boot
+In QEMU, on both architectures (`script/swish-check`, folded in 2026-10-03 UTC): a boot
 with a virtio-gpu and no keyboard brings up the GPU driver and the display terminal (both
 asserted before anything else happens), chooses the UART, spawns `input` against `line_editor`'s
 endpoint, and prints `keystrokes: Serial (graphical boot)`. aarch64 and riscv64 both reach that
-line. On x86_64 the serial source refuses itself (`machine_has_no_device_page_for_the_console`).
-Under DECISIONS §121 (what a device capability is when the device has no page) the console UART is
-permanently kernel-resident, so there is no page for a device capability to be a mapping of. The
-whole graphical stack reports absent, and the boot falls back exactly as it does with no GPU. That is a scope note, not a parity gap in this milestone's
-sense: x86_64 has no interactive boot at all yet (milestone 182 (x86_64's own interactive-boot
-entry point)). DECISIONS §121 closed the question of a userspace serial console there permanently.
+line. On x86_64 the serial source refused itself (`machine_has_no_device_page_for_the_console`),
+and the whole graphical stack reported absent.
+
+*Corrected 2026-10-03 (UTC): that refusal belonged to the retired kernel-side
+`boot_graphical_terminal`. A `graphical_terminal` session reads the boot's line discipline raw, and
+on x86_64 that is fed by `input` over a COM1 `PortRange` (milestones 299 and 505), so the serial
+source needs no new driver. x86_64 also has an interactive boot, `swish-check-x86_64` in CI. It lacks
+a virtio-gpu in its runners (milestone 270 (wire `virtio-gpu-pci` and `virtio-input` into the x86_64
+test runner)), and milestone 632's BUGS lists what a graphical leg needs.*
 
 *Corrected 2026-10-03: this paragraph said a keystroke could not reach the screen, blocked by
 milestone 177's second-`FLUSH` hang. That hang was root-caused 2026-09-19, and both legs have been
