@@ -150,7 +150,9 @@ pub fn invoke(
                 // The three words are already in registers. **Nothing is read from user memory**,
                 // so there is no pointer to validate and no confused-deputy question to ask. That
                 // is the fastpath, and it is why IPC carries control and not bulk data (§10).
-                sched::ipc_send(ep, [a0, a1, a2]);
+                // The badge rides in word 3 (milestone 613 (a system log service), provisional):
+                // a byte-sink writer's identity is its capability's badge, never its own claim.
+                sched::ipc_send_badged(ep, [a0, a1, a2], badge);
                 // If the endpoint was revoked (stale, or reclaimed while we blocked), the send never
                 // happened: report it rather than a silent success. Object revocation, notes/.
                 //

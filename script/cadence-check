@@ -130,7 +130,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-REPO="crickertech/nife"
+REPO="nifeos/nife"
 
 # Overridable so the two interesting branches can actually be exercised: at 15 days everything in
 # this tree is either plainly live or plainly dead, and the interesting case (a workflow whose cron

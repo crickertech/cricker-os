@@ -239,7 +239,7 @@ is stated more fully in `script/lint`'s own comment and in `notes/citations.md`.
 > periodic cleanup.
 
 **Mechanism: `delete_branch_on_merge` is `true` on this repository.** Verified live:
-`gh api repos/crickertech/nife --jq .delete_branch_on_merge` returns `true`. The platform deletes
+`gh api repos/nifeos/nife --jq .delete_branch_on_merge` returns `true`. The platform deletes
 the branch, so the rule is rung one and cannot be violated by forgetting.
 
 **The paragraph that follows must stay, and the integrator must reword its opening.** Lines 549-553

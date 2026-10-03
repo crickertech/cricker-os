@@ -173,3 +173,59 @@ fn a_server_that_deletes_the_received_slot_deletes_nothing_of_its_own() {
         crate::memory_region::destroy(region);
     }
 }
+
+/// **A `SEND_CAP` aborted by its rendezvous's teardown stages nothing for a later plain `SEND`**
+/// (the 2026-10-03 security audit's follow-up, item (c)). A sender parked in `SEND_CAP` keeps its
+/// delegation in `Thread::outgoing_cap` until a receiver takes it. `reclaim_region` drains the
+/// rendezvous and wakes the sender aborted; before the fix in `set_ipc_aborted` the capability
+/// stayed staged, and the sender's next plain `SEND`, parked on an unrelated rendezvous, handed it
+/// to whoever `RECV_CAP`ed there: a delegation made to one endpoint, delivered to another.
+#[test_case]
+fn a_send_cap_aborted_by_teardown_stages_nothing_for_a_later_plain_send() {
+    static PARKED_ON_DOOMED: AtomicBool = AtomicBool::new(false);
+    static ABORTED: AtomicBool = AtomicBool::new(false);
+    static DONE: AtomicBool = AtomicBool::new(false);
+
+    let doomed = crate::memory_region::create(4).expect("no doomed region");
+    let doomed_ep = sched::create_rendezvous_from(doomed).expect("no doomed rendezvous");
+    let region = crate::memory_region::create(4).expect("no region");
+    let other_ep = sched::create_rendezvous_from(region).expect("no other rendezvous");
+    // Any capability will do as the delegation; what matters is that it must not arrive at
+    // `other_ep`.
+    let delegated = rendezvous_cap(other_ep, Rights::WRITE);
+
+    sched::spawn(move || {
+        PARKED_ON_DOOMED.store(true, Ordering::SeqCst);
+        sched::ipc_send_cap(doomed_ep, 1, delegated, 0);
+        // The teardown below wakes us aborted; a syscall would read and clear the flag here.
+        let _ = sched::take_ipc_aborted();
+        ABORTED.store(true, Ordering::SeqCst);
+        sched::ipc_send(other_ep, [2, CHOSEN, 0]);
+        DONE.store(true, Ordering::SeqCst);
+    })
+    .expect("no sender thread");
+    assert!(
+        wait_for(|| PARKED_ON_DOOMED.load(Ordering::SeqCst)
+            && sched::rendezvous_waiting_senders(doomed_ep) == 1),
+        "the sender never parked in SEND_CAP on the doomed rendezvous",
+    );
+    sched::reclaim_region(doomed).expect("the doomed region did not reclaim");
+    assert!(
+        wait_for(
+            || ABORTED.load(Ordering::SeqCst) && sched::rendezvous_waiting_senders(other_ep) == 1
+        ),
+        "the sender never came back aborted and parked its plain SEND on the other rendezvous",
+    );
+    let [w0, x1, ..] = sched::ipc_recv_cap(other_ep);
+    assert_eq!(w0, 2, "the plain SEND's first word did not arrive");
+    assert_eq!(
+        x1,
+        abi::rendezvous::NO_CAP,
+        "a plain SEND after an aborted SEND_CAP delivered the stale delegation at slot {x1}",
+    );
+    assert!(
+        wait_for(|| DONE.load(Ordering::SeqCst)),
+        "the sender never finished"
+    );
+    crate::memory_region::destroy(region);
+}

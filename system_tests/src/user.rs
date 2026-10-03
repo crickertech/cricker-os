@@ -865,6 +865,15 @@ mod language_tests;
 #[cfg(all(test, initrd))]
 mod sink_tests;
 
+/// **The system log service** (milestone 613 (a system log service: the in-memory half), for §242
+/// (a system log)): two differently badged writers and two readers, and the attribution each reader
+/// sees comes from the badge, never from the writer.
+///
+/// Runs on all three ISAs (§19 (architectural parity is a tenet)): the service is one portable
+/// binary, and the claim is about badges and a ring, not about an instruction set.
+#[cfg(all(test, initrd))]
+mod system_log_tests;
+
 /// **`OP_RAWMODE` and `OP_READRAW`, proved against a real `line_editor`** (milestone 169): echo
 /// suppression, literal (uninterpreted) delivery of what the line discipline would otherwise
 /// consume as an editing command, the two input models refusing each other, and a read parked
@@ -932,6 +941,11 @@ mod thread_leak_police;
 /// each architecture.
 #[cfg(test)]
 mod recv_cap_attack_tests;
+// Each module carries its own `cfg(test)`: milestone 634 (a plain SEND received by RECV_CAP never
+// hands the receiver a sender-chosen slot) inserted the line above between the attribute and
+// `revocation_in_flight_tests`, and the attribute silently moved with it. The
+// "tests the suite cannot see" check in `script/lint` now refuses a bare `mod` here.
+#[cfg(test)]
 mod revocation_in_flight_tests;
 
 /// **A userspace builder keeps building past its scratch window** (milestone 604 (provisional),

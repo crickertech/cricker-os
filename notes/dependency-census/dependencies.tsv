@@ -1989,7 +1989,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 282	126	context	at-creation	2026-09-13	2026-09-13	**Status: NOT-STARTED.** Minted 2026-09-13, when calef ruled M-126's eighteen-day-old fork.
 282	126	context	at-creation	2026-09-14	2026-09-13	Minted 2026-09-13 when calef ruled M-126's eighteen-day-old fork; the decision is S-150.
 283	264	context	at-creation	2026-09-13	2026-09-13	`//! **Name: ratified 2026-09-08 (calef, M-264).**` and the parse is
-283	264	followon	at-creation	2026-09-13	2026-09-13	The two records were fixed by [M-264's follow-up](https://github.com/crickertech/nife/pull/825).
+283	264	followon	at-creation	2026-09-13	2026-09-13	The two records were fixed by [M-264's follow-up](https://github.com/nifeos/nife/pull/825).
 283	276	context	at-creation	2026-09-13	2026-09-13	That file's line 24 begins a paragraph `Name: provisional, minted by M-276's lane on
 283	115	context	at-creation	2026-09-13	2026-09-13	That is a real provenance record, written at the thing exactly as M-115 asks, for
 283	433	context	later	2026-09-19	2026-09-13	"widen". Numbered on 2026-09-19 by M-433's drain of the pile.
@@ -2991,7 +2991,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 438	512	context	at-creation	2026-09-20	2026-09-19	proposed in `design/roadmap/512-the-census-blamed-a-pull-request-that-added-four.md`; this
 438	326	context	at-creation	2026-09-19	2026-09-19	**The second pair is a defect in the instrument**, the same family as M-326's `proofs.rs`
 438	492	context	at-creation	2026-09-20	2026-09-19	in `design/roadmap/492-a-const-in-a-proof-module-escapes-its-exclusion.md`.
-438	319	context	at-creation	2026-09-19	2026-09-19	[#927](https://github.com/crickertech/nife/pull/927) (merge `aa6a50b`, M-319, 2026-09-17), in
+438	319	context	at-creation	2026-09-19	2026-09-19	[#927](https://github.com/nifeos/nife/pull/927) (merge `aa6a50b`, M-319, 2026-09-17), in
 438	340	context	at-creation	2026-09-19	2026-09-19	grows silently"*; `image-permissions` is the seventh check sitting in that state and M-340 is
 438	512	context	at-creation	2026-09-20	2026-09-19	- **M-512.** M-512 (the census blamed one pull request for), `design/roadmap/512-the-census-blamed-a-pull-request-that-added-four.md`, ...
 438	492	context	at-creation	2026-09-20	2026-09-19	- **M-492.** M-492 (a const inside a proof module is), `design/roadmap/492-a-const-in-a-proof-module-escapes-its-exclusion.md`, the
@@ -3278,9 +3278,9 @@ source	target	kind	discovery	blame_date	file_created	evidence
 517	438	context	at-creation	2026-09-20	2026-09-20	number M-438 (would a diff-scoped mutation check have caught the 55) named as his to ask
 517	479	context	at-creation	2026-09-20	2026-09-20	numbers and a proposed wording. M-479 (a blocking `--in-diff` mutation gate) carries the
 517	438	context	at-creation	2026-09-20	2026-09-20	M-438's own `BUGS` said the experiment needed pull requests its clone did not contain, and
-517	142	context	at-creation	2026-09-20	2026-09-20	| [#545](https://github.com/crickertech/nife/pull/545) | M-142 (a text display good enough that people use it instead of a GUI), with UTF-8 decoding ...
-517	129	context	at-creation	2026-09-20	2026-09-20	| [#326](https://github.com/crickertech/nife/pull/326) | M-129 (scheduled execution: a cron whose every entry is a grant), the `timetable` crate | 48 ...
-517	161	context	at-creation	2026-09-20	2026-09-20	| [#451](https://github.com/crickertech/nife/pull/451) | M-161 (the x86_64 kernel port), ACPI parsing included | 42 |
+517	142	context	at-creation	2026-09-20	2026-09-20	| [#545](https://github.com/nifeos/nife/pull/545) | M-142 (a text display good enough that people use it instead of a GUI), with UTF-8 decoding ...
+517	129	context	at-creation	2026-09-20	2026-09-20	| [#326](https://github.com/nifeos/nife/pull/326) | M-129 (scheduled execution: a cron whose every entry is a grant), the `timetable` crate | 48 ...
+517	161	context	at-creation	2026-09-20	2026-09-20	| [#451](https://github.com/nifeos/nife/pull/451) | M-161 (the x86_64 kernel port), ACPI parsing included | 42 |
 517	438	context	at-creation	2026-09-20	2026-09-20	the commit, tool pinned at 27.1.0, the same shape M-438 used. The question is not how many
 517	231	context	at-creation	2026-09-20	2026-09-20	| M-231 (nothing counts how many capability slots a boot actually uses) | `34b52ac3` | 5 | **5** (of 22) | 32 in 18s |
 517	438	context	at-creation	2026-09-20	2026-09-20	This is M-438's third objection and the one that decides whether an inflow gate can carry

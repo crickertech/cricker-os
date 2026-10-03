@@ -56,6 +56,9 @@ abi = { version = "0.1.0", path = "../crates/abi" }
 bitmap_font = { version = "0.1.0", path = "../crates/bitmap_font" }
 block_roster = { version = "0.1.0", path = "../crates/block_roster" }
 byte_sink_protocol = { version = "0.1.0", path = "../crates/byte_sink_protocol" }
+# The system log's wire contracts (milestone 613 (a system log service: the in-memory half)): the
+# suite plays the spawner and a reader, so it links the words they agree on rather than copies.
+system_log_protocol = { version = "0.1.0", path = "../crates/system_log_protocol" }
 calendar = { version = "0.1.0", path = "../crates/calendar" }
 capability_witness_protocol = { version = "0.1.0", path = "../crates/capability_witness_protocol" }
 clock_protocol = { version = "0.1.0", path = "../crates/clock_protocol" }

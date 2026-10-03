@@ -178,5 +178,16 @@ where CBMC interprets C, and none of these harnesses reaches a C model that read
 is a gap waiting to bite, not a hole: a later harness that reaches such a model could verify
 differently, and nothing would say so. It moves neither half of the amber, survivorship or reach,
 since no verdict changed; calef ruled on 2026-10-03 (UTC) that risk 2 stays AMBER. The gate and the
-fix are the proposal
-[riscv64 proofs check against the riscv64 model](../roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md).
+fix are milestone 635
+(riscv64 proofs check against the riscv64 model); see [its block](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
+
+*(Observed 2026-10-03 under §216 (fatal-risk facts are correctable, and verdicts are the
+architect's), by milestone 635's gate: the CI sentence above was reasoned, and it held.)* In
+`verify` run 37108539047, job `prove the kernel on riscv64` on `ubuntu-24.04-arm`, every one of the
+seven linked binaries read `arch` `"arm64"` and `os` `"linux"`. aarch64 Linux shares riscv64's
+unsigned `char` and 128-bit `long double`, so in CI `arch` was the only field Kani wrote that the
+link changed; the two C-visible differences measured on patagonia do not occur there. The fix in
+the same milestone links `kani_lib.c` precompiled and last, and `script/verify-riscv64` now fails
+unless every field Kani wrote survives into every linked binary. `os` is not one of them, since
+Kani's model does not carry it, so the linked binary still names the host's OS. The colour is
+untouched.

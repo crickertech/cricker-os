@@ -44,4 +44,5 @@ interfaces = [
     "block_roster",
     "address_space_map",
     "argument_protocol",
+    "system_log_protocol",
 ]

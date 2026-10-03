@@ -108,7 +108,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-REPO="crickertech/nife"
+REPO="nifeos/nife"
 GRACE_MINUTES=${GRACE_MINUTES:-15}
 GRACE_HOURS=${GRACE_HOURS:-24}
 

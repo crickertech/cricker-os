@@ -115,9 +115,10 @@ ruling; it said "the red half is structural", naming a crate boundary milestone 
 `kernel/src` within reach of the prover) removed on 2026-08-30
 ([`notes/proof-retrospective.md`](../../notes/proof-retrospective.md); PR #589). Dated 2026-10-03
 (§216, from #1286): the riscv64 kernel harnesses are checked against the host's machine model
-(`arm64`/`macos` on patagonia; `arm64`/`linux` expected in CI, unverified). All seven gave identical
-verdicts and SAT counts under both models, so this is a gap waiting to bite, not a hole. The fix
-and its gate are a [proposal](../roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md).
+(`arm64`/`macos` on patagonia; `arm64`/`linux` in CI, observed 2026-10-03 by run 37108539047). All
+seven gave identical verdicts and SAT counts under both models, so this is a gap waiting to bite,
+not a hole. The fix and its gate are milestone 635
+(riscv64 proofs check against the riscv64 model); see [its block](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
 
 The first x86_64 proof went red on a latent defect, the first of the class this risk asks about. The
 claim: proofs over the pure crates and slices of a mostly unverified kernel. [Appendix](proofs-and-their-reach.md).
@@ -272,6 +273,19 @@ behind milestone 198 (a package manager, and the trivial install that makes a se
 possible), by calef's no-third-parties position. Nothing here says the confinement holds. What it
 supports is that these named claims are tested, and each shown to fail when broken.
 [Appendix](the-confinement-claims.md).
+
+Open security findings that bear on it, each a proposal and none yet built:
+
+- [The confinement table lists the unvouched child](../roadmap/proposals/the-confinement-table-lists-the-unvouched-child.md):
+  a claim tested and falsified by hand three times, with no row in the table. Severity not recorded.
+- [Reset unowned PCI functions before the IOMMU enables](../roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md):
+  Bus Master Enable is already set on functions the kernel never owns, so DMA can outlive the
+  confinement. Severity not recorded; an architect's call.
+- [Every client of a network stack shares its socket numbers](../roadmap/proposals/every-client-of-a-network-stack-shares-its-socket-numbers.md):
+  one holder of the network capability can read and close another's sockets. Severity not
+  recorded; the fix changes a wire format.
+- [The sibling RECV_CAP paths get a receiver-first test](../roadmap/proposals/the-sibling-recv-cap-paths-get-a-receiver-first-test.md):
+  two paths now correct by reading, unmeasured. Severity not recorded.
 
 ## 8. Nobody needs it
 

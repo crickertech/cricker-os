@@ -155,6 +155,15 @@ RENAME_PAIRS = (
     ("calef names", "an architect names"),
     ("Calef's", "An architect's"),
     ("calef's", "an architect's"),
+    # The GitHub organization rename of 2026-10-03 (crickertech to nifeos): links, `gh` paths and
+    # repo slugs in hundreds of dated records. Not a new sentence, so not a touch. The bare org
+    # name is deliberately not a pair: prose that names it is a human edit.
+    ("github.com/crickertech", "github.com/nifeos"),
+    ("crickertech/nife", "nifeos/nife"),
+    ("crickertech/basalt", "nifeos/basalt"),
+    ("repos/crickertech", "repos/nifeos"),
+    ("orgs/crickertech", "orgs/nifeos"),
+    ("organizations/crickertech", "organizations/nifeos"),
     # The bare form last: every longer phrase above is tried first, so by the time this one
     # runs, an "an architect" left in the text is not part of one of them, whichever case
     # sentence position gave it.
@@ -188,7 +197,11 @@ def _flat(text):
 # Appendices are added to it, because §212 puts them "under the same cap" and the graph's own
 # docstring already said it intended to count them. Before this module the graph's scope could not
 # see a single appendix: `notes/benchmarks/` and `design/fatal-risks/` sit one directory down.
-PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'notes/', 'briefs/')
+#
+# `notes/coes/` is named outright (2026-10-03, UTC): a correction-of-error record is a document in
+# its own right with no `notes/coes.md` parent, so the appendix rule never reached it and a 3,291-word
+# COE passed lint.
+PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'notes/', 'notes/coes/', 'briefs/')
 PROSE_ROOT_FILES = ('AGENTS.md',)
 PROSE_CAP = 3000
 

@@ -122,7 +122,7 @@ What a viewer learns about threads it cannot name is findings 9 and 10.
 ### 1. FIXED: the drain merged any green pull request from anyone, unread
 
 `helpers/merge-drain.sh`'s `queue()` selected on `isDraft == false` and `baseRefName == "main"`
-and nothing else. The `main` ruleset (`gh api repos/crickertech/nife/rules/branches/main`) has
+and nothing else. The `main` ruleset (`gh api repos/nifeos/nife/rules/branches/main`) has
 `required_approving_review_count: 0`; the repository is public with forking on. A fork's pull
 request, once its checks passed, was armed by the App and merged by the queue. Its checks pass
 automatically for anyone who is not a first-time contributor, and the drain is what makes a

@@ -229,7 +229,7 @@ cuts both ways here, and the honest statement is that the aarch64 and riscv64 ho
   when 277 itself was promoted.
 - **Recorded.** A second proposal describing this same defect,
   `host-tests-that-assume-the-host-is-aarch64.md`, was written 2026-09-13 by a lane that could not
-  see the first and **lands with [#847](https://github.com/crickertech/nife/pull/847)**. It was not
+  see the first and **lands with [#847](https://github.com/nifeos/nife/pull/847)**. It was not
   on this lane's base, so it could not be retired here, and this bullet is the record of that:
   whoever merges second deletes the file. A proposal whose work has landed is a second reading of
   the tree that disagrees with it. That two lanes filed the same proposal eight days apart is itself

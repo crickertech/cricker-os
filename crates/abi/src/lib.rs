@@ -188,9 +188,17 @@ pub mod rendezvous {
     pub const SEND: u64 = 0;
 
     /// `invoke(cap, RECV, _, _, _)` -> w0, with w1 in x1 and w2 in x2. **Blocks until a message
-    /// arrives.** `x3` and `x4` are written only by the kernel: `0` for an ordinary message, the
-    /// fault address and a reserved `0` for a §26 death message, and [`notification::BOUND`](crate::notification::BOUND)
-    /// in `x4` when a bound notification ended the receive (milestone 151 (notification objects)).
+    /// arrives.** `x3` and `x4` are written only by the kernel: for an ordinary message `x3` is the
+    /// badge on the endpoint capability the sender invoked ([`BADGE`], `0` when unbadged) and `x4`
+    /// is `0`; the fault address and a reserved `0` for a §26 death message; and
+    /// [`notification::BOUND`](crate::notification::BOUND) in `x4` when a bound notification ended
+    /// the receive (milestone 151 (notification objects)).
+    ///
+    /// The badge in `x3` is milestone 613 (a system log service: the in-memory half)'s amendment
+    /// to §230 (badged endpoint capabilities), which delivered it on [`RECV_CAP`] only: the log
+    /// stamps a byte-sink writer from its badge, and a byte-sink writer `SEND`s. Before it, `x3` was
+    /// always `0` for an ordinary message. A death message is told apart by its first word, as
+    /// before; nothing reads `x3` before checking that.
     ///
     /// # BUGS
     ///
@@ -219,6 +227,36 @@ pub mod rendezvous {
     /// holds a one-shot [`crate::reply`] capability naming the caller. **x3 is the badge on the
     /// endpoint capability the sender invoked** ([`BADGE`]), or 0 when it was unbadged, which is how
     /// a server serving many clients on one endpoint tells them apart. Needs `READ`.
+    ///
+    /// # BUGS
+    ///
+    /// **A plain `SEND` received here used to fill `x1` differently depending on who arrived
+    /// first**, and on the receiver-first order `x1` was the sender's second word, a number the
+    /// sender chose where a `CALL` server reads a Reply slot. Found by milestone 613 (a system log
+    /// service: the in-memory half)'s audit of `RECV` consumers, 2026-10-03 UTC; **fixed the same
+    /// day by milestone 634 (a plain SEND received by `RECV_CAP` never hands the receiver a
+    /// sender-chosen slot)**: the receive side returns [`NO_CAP`] in `x1` unless a capability was
+    /// installed for this delivery, on both orders. (This entry said "not fixed" until the
+    /// 2026-10-03 security audit found the fix had landed without the record moving.)
+    ///
+    /// **A §26 death message read here loses the faulting `pc`.** The kernel's five words are
+    /// `(event, tid, pc, addr, 0)`, and this method, having no capability to deliver, returns
+    /// `(event, NO_CAP, tid, addr, 0)`: `x1` is `NO_CAP`, `x2` is the dead thread's id, and `pc` is
+    /// not returned. The same on both arrival orders since milestone 634; before it, the
+    /// receiver-first order returned `tid` in `x1`. No supervisor in the tree receives deaths this
+    /// way; every one uses `RECV` through `user_mode_runtime::recv_fault`. Recorded by the
+    /// 2026-10-03 security audit so the next supervisor written against `RECV_CAP` learns it here.
+    ///
+    /// **A real capability passes the `NO_CAP` guard, and a `CALL` server cannot tell it from a
+    /// Reply.** Any client with `WRITE` on the endpoint and `GRANT` on a capability of its own can
+    /// [`SEND_CAP`] it here; `x1` is then a real slot, and a server that invokes
+    /// [`crate::reply::REPLY`] on it runs method `0` of whatever object it is: `SEND` on a
+    /// rendezvous the client never receives on parks the server for the life of the machine, and
+    /// every delivery that is not a Reply leaves its slot behind, since only a Reply is one-shot.
+    /// No method here says what kind of object a slot holds. Found by the 2026-10-03 security
+    /// audit's follow-up reading milestone 634's own scope note; the fix is on this surface (a
+    /// kernel-written tag in `x4`, or an endpoint that refuses delegation), proposed in
+    /// `design/roadmap/proposals/a-call-server-can-tell-a-reply-from-a-delegation.md` for calef.
     pub const RECV_CAP: u64 = 3;
 
     /// `invoke(cap, CALL, w0, w1, _)` -> r0, with r1 in x1. **Send two words and block until
@@ -1001,6 +1039,20 @@ pub mod memory_region {
     /// reclaimed.
     ///
     /// Name and number ratified 2026-09-27 (calef, #1360's table).
+    ///
+    /// # BUGS
+    ///
+    /// **Every subtree record walks the whole region table under the region lock, with interrupts
+    /// masked.** [`FRAMES`](super::usage::FRAMES) and the three object records sum every live
+    /// region that descends from this one, and the table (`kernel/src/memory_region.rs`
+    /// `MAX_REGIONS`, 256) is machine-wide, so one call costs every region's parent chain. Measured
+    /// on the host by the 2026-10-03 security audit: 8 ns for a root with eight children, 42 µs for
+    /// a root over the deepest chain the table can hold (256 regions, each split from the last) and
+    /// 62 µs for that chain's leaf, which rejects every candidate after a full walk. A holder of
+    /// `ENUMERATE` on any region can repeat it, so this is a bounded interrupt-latency cost a
+    /// hostile process can impose, of the same shape as the region reclaim scans and the registry
+    /// bounds the 2026-09-29 audit accepted. Accepted: nothing multi-domain splits that deep, and
+    /// the bound is `MAX_REGIONS`, not the caller's choice.
     pub const USAGE: u64 = 5;
 }
 

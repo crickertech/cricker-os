@@ -110,7 +110,7 @@ cd "$(dirname "$0")/.."
 # rehearsed against this repository without touching real pull requests and real group builds.
 # `QUEUE_HOLD_REPO=<scratch repo> helpers/queue-hold.sh hold 1` runs the whole thing end to end
 # somewhere nothing is lost. Not a knob for ordinary use; see notes/main-is-red.md for the rehearsal.
-REPO="${QUEUE_HOLD_REPO:-crickertech/nife}"
+REPO="${QUEUE_HOLD_REPO:-nifeos/nife}"
 HELD_LABEL="held-for-red-trunk"
 ARCHITECT_LABEL="needs-architect"
 LABEL_COLOR="b60205"

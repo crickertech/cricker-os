@@ -672,6 +672,15 @@ fn rendezvous_of(sched: &IpcTables, ep: RendezvousId) -> Option<&'static mut Ren
 fn set_ipc_aborted(sched: &mut IpcTables, tid: ThreadId) {
     if let Some(t) = sched.threads.get_mut(tid) {
         t.handshake.abort();
+        // **The capability staged for the aborted send goes with it** (the 2026-10-03 security
+        // audit's follow-up). A `SEND_CAP` or `CALL` that parked put its delegation, or the Reply
+        // the kernel minted, in `outgoing_cap` for the receiver to take. An abort means no receiver
+        // ever will: the rendezvous is gone. Left in place, the next plain `SEND` this thread
+        // parked on a *different* rendezvous would hand that capability to whoever `RECV_CAP`s
+        // there, a delegation the sender made to one endpoint delivered to another. The sender
+        // still holds its own copy (`SEND_CAP` narrows a copy, it never moves the source), so
+        // nothing is lost by dropping this one.
+        t.outgoing_cap = None;
     }
 }
 
@@ -2057,6 +2066,14 @@ pub fn on_tick() {
     // down through `irq_notify`. It compiles to nothing anywhere else; see kernel/src/soak.rs.
     #[cfg(feature = "soak_test")]
     crate::soak::signal_waiters();
+
+    // **A kernel line held for the log service, signalled from a context that holds no lock**
+    // (milestone 342 (the kernel and the `console` server drive one UART from two address
+    // spaces)). One relaxed load when nothing is held, which is almost every tick. The print that
+    // held it could not signal: it may have been printing under `IPC_TABLES`. See `kernel_log`.
+    crate::kernel_log::signal_if_safe();
+    #[cfg(feature = "console_flood")]
+    crate::kernel_log::flood_tick();
 }
 
 /// The machine statistics page's half of a tick, out of line because every architecture's
@@ -3423,12 +3440,21 @@ fn wake(sched: &mut IpcTables, tid: ThreadId) {
     }
 }
 
-/// Widen an ordinary three-word IPC message into the five-word mailbox. Words 3 and 4 are zero;
-/// only a fault/exit message (DECISIONS §26) ever fills them, and a `RECV` hands all five back, so
-/// an ordinary receiver simply never reads the top two. Keeping the mailbox one width means the
-/// fault path reuses the same rendezvous machinery rather than growing a parallel one.
-fn wide(m: [u64; 3]) -> [u64; 5] {
-    [m[0], m[1], m[2], 0, 0]
+/// Widen an ordinary three-word IPC message into the five-word mailbox. Word 3 is the badge on the
+/// endpoint capability the sender invoked (0 when unbadged), and word 4 is zero; only a fault/exit
+/// message (DECISIONS §26) puts anything else in the top two, and a `RECV` hands all five back.
+/// Keeping the mailbox one width means the fault path reuses the same rendezvous machinery rather
+/// than growing a parallel one.
+///
+/// **Why a plain `SEND` carries its badge** (milestone 613 (a system log service), provisional):
+/// §230 (badged endpoint capabilities) delivered a badge on `CALL` and `SEND_CAP` only, because its
+/// one customer, the file server, is a `CALL` protocol. §242 (a system log) stamps every record
+/// from the writer's badge, and a log writer speaks the byte sink, which is a plain `SEND`; without
+/// this word the badge a spawner minted would be silently dropped on exactly the path it was
+/// minted for. The store is the one `wide` already made (a zero became the badge), the same
+/// no-extra-instruction argument `ipc_send_cap`'s word 3 makes.
+fn wide(m: [u64; 3], badge: u64) -> [u64; 5] {
+    [m[0], m[1], m[2], badge, 0]
 }
 
 /// **Send three words to an rendezvous, blocking until a receiver takes them.**
@@ -3443,12 +3469,21 @@ fn wide(m: [u64; 3]) -> [u64; 5] {
 ///
 /// Callable by a kernel thread directly (this function) or by a user thread through the `SEND`
 /// method on an rendezvous capability (see syscall.rs). Same code underneath.
+#[inline(always)]
 pub fn ipc_send(ep: RendezvousId, msg: [u64; 3]) {
+    ipc_send_badged(ep, msg, 0);
+}
+
+/// [`ipc_send`] through a badged endpoint capability: the receiver's `RECV` sees `badge` in word 3
+/// (milestone 613 (a system log service), provisional; see [`wide`] for why a plain send carries
+/// it). The syscall layer passes the badge of the capability the sender invoked, so it is the
+/// kernel's word and never the sender's. [`ipc_call_badged`] is the same split for `CALL`.
+pub fn ipc_send_badged(ep: RendezvousId, msg: [u64; 3], badge: u64) {
     // E3's footprint-perturbation experiment (milestone 134): reachable but never taken; see
     // `crate::fastpath_pad` for what this is and why it costs nothing when the feature is off.
     #[cfg(feature = "fastpath_pad")]
     crate::fastpath_pad::maybe_pad();
-    let msg = wide(msg);
+    let msg = wide(msg, badge);
     let block = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");

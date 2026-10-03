@@ -1,0 +1,17 @@
+[package]
+name = "system_log_protocol"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# The system log's wire contracts (milestone 613 (a system log service: the in-memory half), for
+# §242 (a system log)): the F3 record a kernel ring and the service agree on, the control words a
+# spawner registers a badge with, and the read window a reader and the service share. Pure logic,
+# no_std, dependency-free, because the kernel's ring (milestone 342 (the kernel and the `console`
+# server drive one UART from two address spaces)) and the service must link one definition. Name
+# provisional.
+
+[lints]
+workspace = true
+
+[dependencies]

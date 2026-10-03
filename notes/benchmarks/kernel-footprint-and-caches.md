@@ -167,3 +167,10 @@ figures. The stored baselines in `bench/fastpath-*.txt` (7,028 / 5,936 / 8,122 f
 and x86_64) are the milestone 188 (the IPC fastpath) readings and sit slightly below them.
 `script/fastpath-footprint` prints both ratios on every run; the
 [gate appendix](fastpath-footprint-gate.md) has the output and the reason.
+
+Whether 4 KiB is the right number is a measurement nobody has taken. calef ruled on 2026-09-21 that
+the target is reported and not gated, and that the question waits on milestone 370 (a layout
+control). 370 is built, and it is not enough: its padding is never executed. The experiment that
+would settle it on radon, with layout held fixed and a decision rule written first, is E5 in
+[`notes/footprint-perturbation/executed-footprint.md`](../footprint-perturbation/executed-footprint.md).
+It needs a build lane before it needs an evening.

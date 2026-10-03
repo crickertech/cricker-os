@@ -85,6 +85,12 @@
 //!         // The machine statistics page (milestone 126 (the `procps` package)): granted on
 //!         // every boot, so always this slot. The last free one in this example's table.
 //!         machine_page: 0,
+//!         // The kernel's ring, its cursor page and its notification (milestone 342 (the kernel
+//!         // and the `console` server drive one UART from two address spaces)): past the end of
+//!         // this example's table, as on the real one.
+//!         kernel_ring: 24,
+//!         kernel_ring_cursor: 25,
+//!         kernel_ring_notification: 26,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -273,11 +279,14 @@
 //! program is loaded. Nothing re-measures a running process, and nothing measures the pages the progenitor
 //! wrote into a child after `build_child` copied them.
 //!
-//! The return of pages is **LIFO** (§16, `crates/regions`): a job region that is not at the top of
-//! the budget's watermark when it is reclaimed returns nothing, and its run is a hole until this
-//! process dies, which it never does. Sequential commands at a prompt are exactly LIFO and recover
-//! fully; two jobs alive at once (a pipeline stage that outlives its producer) permanently costs one
-//! region. A long enough session of concurrent pipelines still ends at "could not spawn".
+//! The return of pages is **LIFO** (§16 (object revocation), `crates/memory_regions`): a job region that is not at the
+//! top of the budget's watermark when it is reclaimed returns nothing at once, and its run is a hole
+//! until no job above it is live, when the kernel reclaims it with the last of them. Until
+//! 2026-10-03 (UTC) the hole lasted until this process died, which it never does, so every pipeline
+//! (whose producer ends first) and every job carved before the reaper reached its predecessor cost
+//! the pool a region for good. On CI's riscv64 runner that ran a `std` job's 384 pages out before
+//! the swish-check session ended (`notes/swish-check-flake.md`). What remains: a hole under a job
+//! that stays live is not reusable while it does, because a carve still only bumps.
 //!
 //! **A `graphical_terminal` session's size is measured, after the count was wrong** (milestone 632
 //! (provisional)). [`GRAPHICAL_TERMINAL_SESSION_PAGES`] was first bounded from the constants at 464,
@@ -567,6 +576,18 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, milestone 126's `free` lane, 2026-09-26.
     pub machine_page: u64,
+    /// **The kernel's ring** (milestone 342 (the kernel and the `console` server drive one UART
+    /// from two address spaces), calef's ruling F): a `READ | GRANT` capability to the run of
+    /// frames the kernel writes its lines into (`system_log_protocol::kernel_ring`). [`boot`] maps
+    /// it read-only into the system log service and keeps no copy. Empty on a boot whose kernel
+    /// could not allocate it. Name: provisional, milestone 342's lane, 2026-10-03.
+    pub kernel_ring: u64,
+    /// The kernel ring's cursor page, `READ | WRITE | GRANT`: mapped read-write into the log
+    /// service, which writes how far it has read. Name: provisional, as above.
+    pub kernel_ring_cursor: u64,
+    /// The notification the kernel signals when it appends to its ring, `READ | WRITE | GRANT`:
+    /// bound to the log service's thread before it starts. Name: provisional, as above.
+    pub kernel_ring_notification: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -868,7 +889,7 @@ const NET_STACK_ROLE_SERVER: u64 = 0;
 /// [`RNG_MODE_VIRTIO`]'s own reasoning, one program over. The pre-milestone-177 wiring: prints
 /// through the console's bespoke two-endpoint protocol.
 const LINE_EDITOR_MODE_CONSOLE: u64 = 0;
-/// `line_editor.rs`'s own `MODE_DISPLAY`: milestone 177's wiring, prints through
+/// `line_editor.rs`'s own `MODE_DISPLAY`: the `graphical_terminal` session's wiring, prints through
 /// `display_terminal`'s `OP_WRITE`/one-`CALL` contract instead.
 const LINE_EDITOR_MODE_DISPLAY: u64 = 1;
 
@@ -880,6 +901,13 @@ const CON_SCREEN_OUT_VA: u64 = address_space_map::pair_page(0x0068_0000);
 /// `console.rs`'s own `MODE_SCREEN`: [`LINE_EDITOR_MODE_CONSOLE`]'s reasoning, one program over.
 /// `0`, what every other boot passes, is the UART alone.
 const CONSOLE_MODE_SCREEN: u64 = 1;
+/// **`system_log`'s `arg0` asking for the kernel's ring** (milestone 342). Must match
+/// `components/src/system_log.rs`'s `MODE_KERNEL`.
+const LOG_MODE_KERNEL: u64 = 1;
+/// Where `system_log` finds the kernel's ring, read-only. Must match its `RING_VA`.
+const LOG_RING_VA: u64 = address_space_map::pair_page(0x0070_0000);
+/// Where `system_log` finds the kernel ring's cursor page. Must match its `CURSOR_VA`.
+const LOG_CURSOR_VA: u64 = address_space_map::pair_page(0x0080_0000);
 /// A child's capability grants and page mappings, the two slices a `ChildEndowment` takes as `caps`
 /// and `maps`. Named so the `x86_64`-vs-others split of the console and input endowments (a port
 /// capability held rather than a page mapped, milestone 299) is a one-line `let` per branch without
@@ -1073,6 +1101,9 @@ pub fn boot(
         .unwrap_or("");
 
     let con_elf = measured(&fs, table, "console");
+    // **The system log service** (milestone 342): optional, like the sink adapter below. A boot
+    // without it, or whose kernel granted no ring, keeps the kernel printing for itself.
+    let log_elf = measured(&fs, table, "system_log").elf;
     let in_elf = measured(&fs, table, "input");
     let td_elf = measured(&fs, table, "line_editor");
     // **The terminal's supervisor** (milestone 23 (a capability-routed component OS with live
@@ -1578,6 +1609,61 @@ pub fn boot(
             cap_delete(con_batch.0);
             cap_delete(con_batch.1);
         }
+
+        // 1b. **The system log service, draining the kernel's ring into the console** (milestone
+        // 342 (the kernel and the `console` server drive one UART from two address spaces), §175
+        // (where the kernel's own output goes)'s ruling B). Built right after the console, because
+        // until it attaches the kernel still prints for itself and can splice with the console's
+        // bytes; this keeps that window to the build of one program. It holds the ring read-only,
+        // the cursor page, the ring's notification bound to its thread, a timer, and `WRITE` on the
+        // console's request endpoint, through which it sends kernel lines the console writes only
+        // at a line start.
+        if let Some(log_program) = log_elf.as_ref()
+            && is_granted(g.kernel_ring)
+            && is_granted(g.kernel_ring_cursor)
+            && is_granted(g.kernel_ring_notification)
+        {
+            let intake = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
+            let timer = must(retype_obj(ut, abi::objtype::TIMER));
+            let log = must(build_child(
+                ut,
+                ut,
+                log_program,
+                &ChildEndowment {
+                    caps: &[
+                        (intake, abi::rights::READ),
+                        (
+                            g.kernel_ring_notification,
+                            abi::rights::READ | abi::rights::WRITE,
+                        ),
+                        (timer, abi::rights::WRITE),
+                        (request, abi::rights::WRITE),
+                    ],
+                    maps: &[
+                        (LOG_RING_VA, g.kernel_ring, abi::address_space::MAP_RO),
+                        (
+                            LOG_CURSOR_VA,
+                            g.kernel_ring_cursor,
+                            abi::address_space::MAP_RW,
+                        ),
+                    ],
+                    stack_pages: CHILD_STACK_PAGES,
+                    ..ChildEndowment::new(Retention::Nothing)
+                },
+            ));
+            // In the window between build and start, as the console's batching notification is.
+            must_ok(user_mode_runtime::notification_bind(g.kernel_ring_notification, log.tcb) >= 0);
+            must_ok(start_child(log, LOG_MODE_KERNEL, 0, 0));
+            // Nothing at this boot registers a log writer yet, so the unbadged intake is not kept
+            // (the service's own BUGS records it), and the timer is the service's alone.
+            cap_delete(intake);
+            cap_delete(timer);
+        }
+        // Ours no further either way: the service holds its own, and a boot that did not start one
+        // must not carry them across the login block's peak.
+        cap_delete(g.kernel_ring);
+        cap_delete(g.kernel_ring_cursor);
+        cap_delete(g.kernel_ring_notification);
 
         // 2. The line discipline: serves the terminal endpoint, prints through the console. It is
         // the console's only client; everyone else prints through it. `LINE_EDITOR_MODE_CONSOLE`
@@ -4412,7 +4498,7 @@ fn graphical_terminal_session_children(
 
     // --- the keystroke source, and it decides the program's arm. With a keyboard (its three
     // caps came with the gpu's four): the session's own discipline, `terminal_supervisor`
-    // building `line_editor` in `MODE_DISPLAY` exactly as the boot's does, with `keyboard_driver`
+    // building `line_editor` in `MODE_DISPLAY`, with `keyboard_driver`
     // `CALL`ing it in `MODE_DIRECT`. Without one: no discipline and no driver, and the program
     // reads the boot's own discipline raw, over the UART, echoing to the screen itself.
     // `components/src/graphical_terminal.rs`'s slots 0-2 and its `x0` are the contract. ---

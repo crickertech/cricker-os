@@ -13,7 +13,7 @@ a dependent is advisory) gives. The file name is provisional too.*
 Raised 2026-09-26 by the lane for milestone 154 (a process that holds two directory capabilities)
 ([block](../roadmap/154-multi-directory-namespace.md)), as the last question between a two-tree shell and a
 live interactive one. The resolver, the witness and the transport options are in
-[`notes/two-trees.md`](https://github.com/crickertech/nife/blob/milestone/154-two-directories/notes/two-trees.md), which lands with #1346 and is not on `main` yet.
+[`notes/two-trees.md`](https://github.com/nifeos/nife/blob/milestone/154-two-directories/notes/two-trees.md), which lands with #1346 and is not on `main` yet.
 
 ## The ruling
 

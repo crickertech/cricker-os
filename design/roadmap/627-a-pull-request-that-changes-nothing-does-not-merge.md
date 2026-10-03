@@ -24,7 +24,7 @@ branch for three days.
 
 ## What happened, from the timeline
 
-Read from `gh api repos/crickertech/nife/issues/1460/timeline`, not recalled.
+Read from `gh api repos/nifeos/nife/issues/1460/timeline`, not recalled.
 
 - 2026-09-30 05:36 UTC: the claim commit is pushed on `lane/fatal-risk-colors` and the
   draft opens. Its one commit, empty, is the whole pull request.

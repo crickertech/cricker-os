@@ -22,7 +22,7 @@ did not hold.
 ## Reporting
 
 **Use GitHub's private vulnerability reporting**: the [Security
-tab](https://github.com/crickertech/nife/security) of this repository, "Report a vulnerability".
+tab](https://github.com/nifeos/nife/security) of this repository, "Report a vulnerability".
 That opens a private advisory only you and the maintainer can see, with a place to attach a fix.
 
 If that is unavailable, email **chris@crickertech.com** with `nife security` in the subject.
@@ -156,7 +156,7 @@ took, its findings by disposition, and a link to the report. `script/audits` say
 is due, from the triggers `design/decisions/74-audit-cadence.md` decided, and a weekly workflow asks
 the same question so that auditing does not depend on anyone remembering to.
 
-**Eight** <!--count:security-audits--> security audits are on the record, and reading them first will
+**Nine** <!--count:security-audits--> security audits are on the record, and reading them first will
 save you time. Each took a lens the previous one did not, deliberately, because the value of an audit
 is the lens the last one lacked. (Documentation audits are in the same index and are not listed here;
 they read the tree for claims that had gone false, which is worth knowing if you find prose and code
@@ -206,6 +206,22 @@ disagreeing.)
   secrets. Closed in the script; the ruleset is a proposal. In the kernel, a port take-back on
   `x86_64` reset the invoker's own bitmap (fails closed, fixed), the SVE/SME and V enables are now
   closed beside the FP one, and a device tree's `totalsize` is bounded before it becomes a slice.
+- **design/audit-reports/2026-09-29-syscall-surface-whole.md**: the `invoke` surface entire, read
+  from inside a confined process: the two object types, the rendezvous method and the wake tag the
+  window added, beside the older seams. Nothing lets a confined process take authority it was not
+  granted; three recorded risks confirmed where they are stated.
+- **design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md**: the window's
+  eight new ABI constants (`MemoryRegion::USAGE` and its seven selectors), the one that changed
+  (the capability table grew to 32) and the thirteen components, each read for what it holds
+  against what it uses. **The finding to carry off is a grant, not a kernel defect**: a graphical
+  terminal session on the no-keyboard arm holds the boot line discipline's whole endpoint, and the
+  discipline does not ask who is holding it, so a compromised session can queue the boot shell's
+  next command line. Also: the plain-`SEND` badge is on the wire but not in §230 (badged endpoint
+  capabilities), and a `RECV_CAP`
+  entry in `crates/abi` still said a fixed escape was open. Its follow-up added two more worth
+  knowing: the boot shell keeps the seven display capabilities with `GRANT` for its whole life,
+  and a real capability delegated to a `CALL` server passes the `NO_CAP` guard, so any client can
+  park `net_stack` or the compositor in `SEND` forever (recorded, proposed, calef's call).
 
 The machine-checked half is `script/verify` (Kani harnesses over the capability model, IPC, the MMU
 invariants, the DMA validator). notes/verification.md states what each proof covers and, more

@@ -58,7 +58,7 @@ cannot do.
 ## Getting it building
 
 ```sh
-git clone https://github.com/crickertech/nife
+git clone https://github.com/nifeos/nife
 cd nife
 script/setup     # installs the pinned Rust toolchain, QEMU, python3 and gh, then builds
 script/test      # host crates, then the kernel under QEMU on all three ISAs

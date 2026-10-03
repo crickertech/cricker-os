@@ -78,6 +78,13 @@
 # this script, it has consequences well past this gate (anything reading a board's serial log), and
 # it is proposed as its own milestone in `design/roadmap/230-shell-check-is-red.md`.
 #
+# **Narrowed by milestone 342 (the kernel and the `console` server drive one UART from two address
+# spaces), 2026-10-03.** Once the system log service attaches, the kernel's lines reach the UART
+# through it and the console, which writes them only at a line start; `--flood` proves it (every
+# flood line whole on both QEMU legs). What still splices: the kernel's lines between the console
+# starting and the service attaching, a stalled service's counted fallback, and a panic, all
+# three on purpose (`kernel/src/kernel_log.rs`'s BUGS).
+#
 # What this script does about it: the two boot-line checks put their teeth on the sentence the progenitor
 # prints when the answer is NO, searched exactly, because interleaving can destroy a string and
 # cannot create one. A line that cannot be read at all is reported rather than failed, but only when

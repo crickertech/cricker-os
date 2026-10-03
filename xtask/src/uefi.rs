@@ -81,7 +81,7 @@ pub(crate) fn uefi_image_command() -> bool {
     }
 }
 
-fn uefi_image_with(features: Option<&str>) -> bool {
+pub(crate) fn uefi_image_with(features: Option<&str>) -> bool {
     let Some(kernel) = uefi_kernel(features) else {
         return false;
     };

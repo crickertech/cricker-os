@@ -104,7 +104,8 @@ pub enum DestroyOutcome {
     FreeToGlobal,
     /// A **child** region: return its pages to the parent, never to the allocator. `unbump` is how
     /// many pages to give back to the parent's watermark: the child's page count when it sits at the
-    /// top (LIFO, the run is re-splittable), or `0` when it does not (a hole until the parent dies).
+    /// top (LIFO, the run is re-splittable), or `0` when it does not (a hole, until
+    /// [`coalesced_watermark`] reclaims it once nothing above it is held).
     ReturnToParent {
         /// How many pages to give back to the parent's watermark.
         unbump: u64,
@@ -130,6 +131,23 @@ pub fn destroy_outcome(
     DestroyOutcome::ReturnToParent {
         unbump: if is_lifo_top { child_pages } else { 0 },
     }
+}
+
+/// **The parent's watermark after a child's return, holes reclaimed** (2026-10-03, UTC; name
+/// provisional). `watermark` is the parent's after the LIFO un-bump, `retyped_to` how far its own
+/// retypes reached, `live_to` where its highest live child ends (`0` for none), and `quiescent`
+/// whether every child the parent counts is live, so none is claimed and still being revoked.
+///
+/// Quiescent, the watermark drops to the higher of the two floors, because every page above both
+/// was a child's and that child is gone. Otherwise it stays: an in-flight sibling's pages sit
+/// somewhere under the watermark, nothing here knows where, and carving them again before their
+/// revoke finishes is the use-after-free. Never above `watermark`, so a floor that somehow
+/// exceeded it cannot hand out budget the parent never had.
+pub fn coalesced_watermark(watermark: u64, retyped_to: u64, live_to: u64, quiescent: bool) -> u64 {
+    if !quiescent {
+        return watermark;
+    }
+    retyped_to.max(live_to).min(watermark)
 }
 
 #[cfg(kani)]
@@ -241,6 +259,34 @@ mod proofs {
                 }
                 _ => panic!("a child must not free to the allocator"),
             }
+        }
+    }
+
+    /// **Reclaiming holes never lowers the watermark under anything still held, and never raises
+    /// it.** Under it stay the region's own retypes and every live child; an in-flight sibling
+    /// (not quiescent) leaves it where the LIFO rule put it. Together with
+    /// `split_stays_within_budget_and_progresses`, that is why a page carved after a reclaim is one
+    /// nothing else holds.
+    /// Falsification: replayable `crates/memory_regions/falsifications/proofs.coalescing_never_reclaims_a_held_page.patch`
+    #[kani::proof]
+    fn coalescing_never_reclaims_a_held_page() {
+        let watermark: u64 = kani::any();
+        let retyped_to: u64 = kani::any();
+        let live_to: u64 = kani::any();
+        let quiescent: bool = kani::any();
+        // What the table guarantees: both floors are pages under the watermark.
+        kani::assume(retyped_to <= watermark && live_to <= watermark);
+
+        let after = coalesced_watermark(watermark, retyped_to, live_to, quiescent);
+
+        assert!(after <= watermark, "reclaiming must never mint budget");
+        assert!(after >= retyped_to, "the region's own retypes stay spent");
+        assert!(after >= live_to, "a live child's pages stay spent");
+        if !quiescent {
+            assert!(
+                after == watermark,
+                "an in-flight sibling blocks the reclaim"
+            );
         }
     }
 }

@@ -774,7 +774,8 @@ const CHANNEL_REGION_PAGES: u64 = 8;
 /// same rule this program's module docs already name for the logout ticket's own destroy order.
 /// `MemoryRegion::DESTROY` returns a child's pages to its parent's watermark **only when the child
 /// sits at the top of it**; a child freed out of order leaves a hole that does not come back until
-/// the parent itself is destroyed. A channel is minted before the login it carries and destroyed
+/// no child above it is live (until 2026-10-03 UTC, not until the parent itself was destroyed;
+/// `RegionTable::return_to_parent` has the change). A channel is minted before the login it carries and destroyed
 /// after it, so a channel region split from [`CONSTRUCTION_UT`] is *never* the top when it is
 /// destroyed: the caretaker region and the client budget that login minted sit above it, and both
 /// outlive it whenever the client stays logged in. Every connect therefore stranded
