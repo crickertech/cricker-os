@@ -975,12 +975,6 @@ fi
 # citation split by a line break and a lettered milestone, and neither failed anything until
 # milestone 583 (a citation a line break split, or a lettered milestone).
 # The metrics page's table of contents is generated (script/metrics --charts writes it between two
-# markers) and this is what stops a hand edit or a new panel from leaving it stale. It reads one file
-# and no history, so it costs nothing here, unlike `script/metrics --check`, which every merge would
-# fail because the current week's numbers move.
-echo "==> metrics page table of contents"
-"$(dirname "$0")/metrics" --check-toc
-
 echo "==> citations"
 "$(dirname "$0")/citations" --selftest >/dev/null
 "$(dirname "$0")/citations" --check

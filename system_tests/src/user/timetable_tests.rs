@@ -1,5 +1,5 @@
 use super::*;
-use crate::cap::{Rights, memory_region_root_cap, rendezvous_cap};
+use crate::cap::{Rights, memory_region_root_cap, page_frame_cap, rendezvous_cap};
 use crate::sched::RendezvousId;
 
 /// The timetable's budget. Every scheduled instance is 48 pages of it (`INSTANCE_PAGES` in
@@ -116,7 +116,7 @@ fn narrowed_archive(programs: &[&'static str]) -> &'static [u8] {
 /// below, which is the same list `components/src/timetable.rs`'s header states and the reason a scheduled
 /// `date` in the shipped document is refused.
 fn spawn_timetable(fires: u64) -> Spawned {
-    spawn_timetable_with(&PLANNED_PROGRAMS, fires, false, false)
+    spawn_timetable_with(&PLANNED_PROGRAMS, fires, false, false, false)
 }
 
 /// **One spawned timetable**: the endpoints it is wired to, the registration page when it has one,
@@ -130,6 +130,8 @@ struct Spawned {
     exit_word: Option<&'static core::sync::atomic::AtomicU64>,
     budget: u64,
     tcb_region: u64,
+    /// The clock page's frame, when the spawn granted one: the kernel's handle for publishing to it.
+    clock: Option<u64>,
 }
 
 impl Spawned {
@@ -204,6 +206,7 @@ fn spawn_timetable_with(
     fires: u64,
     registration: bool,
     run_unvouched: bool,
+    clock: bool,
 ) -> Spawned {
     // **Not the initrd.** The archive this process is handed holds exactly the programs its own
     // document will ever build; see [`narrowed_archive`] for why the spawn site is the only place
@@ -253,6 +256,24 @@ fn spawn_timetable_with(
             .map_new(REGISTRATION_VA, Flags::user_data())
             .expect("could not map the registration page")
     });
+    // The clock page, when granted: a fresh frame the kernel initialises as UNKNOWN and publishes to
+    // later, mapped read-only where `timetable::contract` says, exactly as `date`'s tests do.
+    let clock_phys = clock.then(|| {
+        let phys = crate::memory::alloc_zeroed()
+            .expect("no frame for a clock page")
+            .addr();
+        // SAFETY: a frame this test just allocated, named through the direct map.
+        unsafe { clock_protocol::ClockPage::new(mmu::phys_to_virt(phys)) }.init();
+        space
+            .map_physical(
+                timetable::contract::CLOCK_VA,
+                phys,
+                Flags::user_rodata(),
+                crate::revoke::PageMapSource::Capability(phys),
+            )
+            .expect("could not map the clock page");
+        phys
+    });
     let aspace = readopt_user_address_space(space).expect("register the timetable aspace");
 
     let out = crate::sched::create_rendezvous();
@@ -295,6 +316,15 @@ fn spawn_timetable_with(
     .expect("insert deaths");
     assert_eq!(s, 3, "the supervision endpoint must land in slot 3");
 
+    if let Some(phys) = clock_phys {
+        // `READ` to read it and `GRANT` to hand it to a job whose manifest declares a clock.
+        crate::sched::thread_control_block_insert_cap(
+            tid,
+            page_frame_cap(phys, Rights::READ.union(Rights::GRANT)),
+            Some(timetable::contract::CLOCK_SLOT),
+        )
+        .expect("insert the clock page");
+    }
     if run_unvouched {
         // Any endpoint will do: what the timetable checks is whether the slot is occupied, exactly
         // as `swish` probes it, because the capability's meaning is the slot it is placed in.
@@ -327,6 +357,7 @@ fn spawn_timetable_with(
         exit_word,
         budget,
         tcb_region: thread_control_block_region,
+        clock: clock_phys,
     }
 }
 
@@ -639,7 +670,7 @@ fn await_reply(t: &Spawned, page: &[u8], seq: u64) {
 #[test_case]
 fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_nothing() {
     use timetable::registration as r;
-    let mut t = spawn_timetable_with(&["least_authority_demo"], 0, true, false);
+    let mut t = spawn_timetable_with(&["least_authority_demo"], 0, true, false, false);
     let page = t.page.take().expect("a registrar-mode spawn maps a page");
 
     // ---- 1. the stored schedule, unedited ----
@@ -780,7 +811,7 @@ fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_noth
 /// would otherwise fire, so an absent refusal fails on the verdict rather than passing quietly.
 #[test_case]
 fn a_timetable_holding_the_run_unvouched_capability_schedules_nothing() {
-    let t = spawn_timetable_with(&PLANNED_PROGRAMS, FIRES, false, true);
+    let t = spawn_timetable_with(&PLANNED_PROGRAMS, FIRES, false, true, false);
     let out = t.out;
     let mut buf = [0u8; 256];
     let n = line(out, &mut buf).expect("the timetable must say why it refuses");
@@ -791,5 +822,115 @@ fn a_timetable_holding_the_run_unvouched_capability_schedules_nothing() {
     );
     assert!(line(out, &mut buf).is_none(), "and nothing after it");
     assert_eq!(crate::sched::ipc_recv(out)[0], 0xE304, "E_UNVOUCHED");
+    t.reclaim();
+}
+
+/// 2026-10-06, a Tuesday, as a day number.
+const TUESDAY: u64 = 20_732;
+
+/// **Publish a wall time to a spawned timetable's clock page**, as the clock service would: the
+/// offset from the counter that makes the page read `hh:mm:ss` on [`TUESDAY`]. `set` publishes as an
+/// operator's `SET`, otherwise as an accepted `SYNCED` proposal. Each call is a new generation.
+fn publish(t: &Spawned, set: bool, hh: u64, mm: u64, ss: u64) {
+    let phys = t.clock.expect("a clock-granted spawn");
+    let wall = ((TUESDAY * 86_400) + hh * 3600 + mm * 60 + ss) * clock_protocol::NANOS_PER_SEC;
+    let state = if set {
+        clock_protocol::state::SET
+    } else {
+        clock_protocol::state::SYNCED
+    };
+    // SAFETY: the frame `spawn_timetable_with` allocated for this test, through the direct map.
+    let page = unsafe { clock_protocol::ClockPage::new(mmu::phys_to_virt(phys)) };
+    page.publish(
+        state,
+        clock_protocol::offset_for(wall, super::clock_service::monotonic_nanos()),
+    );
+}
+
+/// **A calendar entry keeps a time of day by a clock it was granted, and a step moves it by S3**
+/// (milestone 129, G5 as ruled with its step rule; notes/scheduled-execution/calendar-grammar-g5.md).
+///
+/// The timetable is granted the clock page at `timetable::contract::CLOCK_SLOT`, starting UNKNOWN,
+/// and the test is both its registrar and its clock. Counted, never timed: every assertion is the
+/// identity of the next report, so a line that fired while the clock was unknown, or fired twice
+/// after a backward step, puts a report where the next assertion expects another one.
+///
+/// 1. Registered while the clock is unknown: two calendar lines, admitted, and dormant.
+/// 2. The clock becomes known at 01:59:55 and runs on: the 02:00 line fires when it gets there.
+/// 3. A `SYNCED` step back to 01:30 fires nothing, then forward to 03:05: only the 03:00 line fires,
+///    once, for a step that covered it. It is `date`, which gets the clock page too and prints the
+///    day the page says.
+/// 4. An operator `SET` back to 01:59:55 clears the stamps, so 02:00 fires again when the clock
+///    reaches it.
+/// 5. An empty document ends the timetable.
+///
+/// Each step publishes at most once before the test waits on a report, except step 3's pair, whose
+/// answer is the same whether or not the timetable saw the first of the two: the stamp from step 2
+/// is what keeps 02:00 from firing, and it holds across either generation. That is deliberate:
+/// nothing tells the test when the timetable has read the page, so no assertion may depend on it.
+#[test_case]
+fn a_calendar_entry_keeps_time_by_its_granted_clock_and_a_step_moves_it_by_s3() {
+    use timetable::registration as r;
+    let mut t = spawn_timetable_with(&["least_authority_demo", "date"], 0, true, false, true);
+    let page = t.page.take().expect("a registrar-mode spawn maps a page");
+
+    // ---- 1. registered with the clock unknown ----
+    send_replace(
+        page,
+        1,
+        b"every day at 02:00 least_authority_demo 3\nevery day at 03:00 date\n",
+    );
+    await_reply(&t, page, 1);
+    let (status, _, verdicts, plan) = read_reply(page, 1);
+    assert_eq!(status, r::STATUS_REPLACED);
+    assert_eq!(
+        r::verdict_of(verdicts, 0),
+        r::KIND_FIRES,
+        "a clock-granted timetable admits it"
+    );
+    assert_eq!(
+        r::verdict_of(verdicts, 1),
+        r::KIND_FIRES,
+        "and endows `date` with the clock"
+    );
+    assert!(
+        core::str::from_utf8(plan)
+            .unwrap()
+            .contains("FREQ=DAILY;BYHOUR=2;BYMINUTE=0 (UTC)"),
+        "the plan names the line as the RRULE it is",
+    );
+
+    // ---- 2. known at 01:59:55, and the clock runs on to 02:00 ----
+    publish(&t, false, 1, 59, 55);
+    assert_eq!(report(&t), 9, "02:00 fires when the clock reaches it");
+
+    // ---- 3. back to 01:30, then forward to 03:05 ----
+    publish(&t, false, 1, 30, 0);
+    publish(&t, false, 3, 5, 0);
+    let mut buf = [0u8; 256];
+    let n = line(t.reports, &mut buf).expect("the scheduled `date` said nothing");
+    let said = core::str::from_utf8(&buf[..n]).expect("date printed non-UTF-8");
+    assert!(
+        said.contains("2026-10-06") && said.contains("03:05"),
+        "the scheduled `date` read the clock page it was endowed with: {said}",
+    );
+    assert!(line(t.reports, &mut buf).is_none(), "and ended its stream");
+
+    // ---- 4. an operator SET back before 02:00 ----
+    publish(&t, true, 1, 59, 55);
+    assert_eq!(
+        report(&t),
+        9,
+        "a SET cleared the stamp, so 02:00 fires again as the clock reaches it"
+    );
+
+    // ---- 5. empty ----
+    send_replace(page, 2, b"");
+    await_reply(&t, page, 2);
+    assert_eq!(read_reply(page, 2).0, r::STATUS_EMPTIED);
+    while exited(&t).is_none() {
+        crate::sched::yield_now();
+    }
+    assert_eq!(exited(&t), Some(0));
     t.reclaim();
 }

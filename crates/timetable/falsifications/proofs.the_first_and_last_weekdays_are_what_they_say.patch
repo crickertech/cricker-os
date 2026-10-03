@@ -1,0 +1,19 @@
+Falsifies `timetable::proofs::the_first_and_last_weekdays_are_what_they_say`.
+
+The defect: a Friday two days before the month's end is not recognised as its last weekday, which is the month that ends on a Sunday.
+
+Expected to fail: the `LastWeekday` `assert_eq!`, at a Friday with a Sunday as the last day.
+
+diff --git a/crates/timetable/src/recurrence.rs b/crates/timetable/src/recurrence.rs
+index e0cdeb116..0d06e4dd5 100644
+--- a/crates/timetable/src/recurrence.rs
++++ b/crates/timetable/src/recurrence.rs
+@@ -196,7 +196,7 @@ pub fn month_day_matches(on: MonthDay, dom: u8, dow: u8, month_len: u8) -> bool
+         // after a Saturday or a Sunday. So: a weekday, and no weekday before it in the month.
+         MonthDay::FirstWeekday => dow < 5 && (dom == 1 || (dom <= 3 && dow == 0)),
+         MonthDay::LastWeekday => {
+-            dow < 5 && (dom == month_len || (dom + 2 >= month_len && dow == 4))
++            dow < 5 && (dom == month_len || (dom + 1 >= month_len && dow == 4))
+         }
+         MonthDay::Nth(n, want) => {
+             dow == want

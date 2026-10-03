@@ -311,7 +311,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 199 | DECIDED | [The screen check asks instead of sampling](199-the-screen-check-asks-instead-of-sampling.md) |
 | 200 | DECIDED | [Two crates the documentation system refused, and why each loses on its own terms](200-two-crates-the-documentation-system-refused.md) |
 | 201 | DECIDED | [One roadmap until a citation has to cross, and the blocked side declares the dependency](201-one-roadmap-until-a-citation-has-to-cross.md) |
-| 202 | DECIDED | [Mechanical work goes to a cheaper model, and the gates are why that is safe](202-mechanical-work-goes-to-a-cheaper-model.md) |
+| 202 | AMENDED | [Mechanical work goes to a cheaper model, and the gates are why that is safe](202-mechanical-work-goes-to-a-cheaper-model.md) |
 | 203 | AMENDED | [Capacity is rented rather than bought, and what each of the three benches is still for](203-capacity-is-rented-not-bought.md) |
 | 204 | DECIDED | [How userspace asks where a thread runs](204-how-userspace-asks-where-a-thread-runs.md) |
 | 205 | DECIDED | [The subscription stays, and rented models fill the mechanical tail](205-the-subscription-stays-and-renting-fills-the-tail.md) |
