@@ -241,3 +241,81 @@ fn two_badged_writers_are_attributed_by_the_badge_and_a_per_user_read_filters() 
         crate::memory::free(w);
     }
 }
+
+/// Drain one `sink_transcript_writer` run on `ep`, alternating `RECV_CAP` and `RECV` so both of
+/// the receives a server might use are asked, and return the badge every message arrived with
+/// (asserting it is the same on each). Ends at the writer's end of stream.
+fn badge_of_every_message(ep: RendezvousId) -> u64 {
+    let mut seen = None;
+    let mut bytes = 0;
+    for i in 0.. {
+        let m = if i % 2 == 0 {
+            let m = crate::sched::ipc_recv_cap(ep);
+            // Only x0 and x3 are read here. Which word lands in x1 for a plain SEND depends on
+            // who reached the rendezvous first (`abi::rendezvous::RECV_CAP`'s BUGS), so a test
+            // that asserted it would be asserting the scheduler's order.
+            [m[0], 0, 0, m[3]]
+        } else {
+            let m = crate::sched::ipc_recv(ep);
+            [m[0], m[1], m[2], m[3]]
+        };
+        assert!(
+            seen.is_none() || seen == Some(m[3]),
+            "the badge changed between messages"
+        );
+        seen = Some(m[3]);
+        if m[0] == byte_sink_protocol::eof() {
+            break;
+        }
+        bytes += byte_sink_protocol::len(m[0]);
+    }
+    assert_eq!(bytes, fixture::TRANSCRIPT.len());
+    seen.unwrap()
+}
+
+/// **A plain `SEND` arrives with the badge of the capability it went through, on `RECV` and on
+/// `RECV_CAP`, and an unbadged one still arrives with 0** (calef's ruling on #1494, 2026-10-03
+/// UTC, amending §230 (badged endpoint capabilities)).
+///
+/// The consumer whose behaviour this changes is `redoxfs_server`, which reads `RECV_CAP`'s badge to
+/// pick a client's window and scope. Before the change, a client that `SEND`s rather than `CALL`s
+/// through its badged capability arrived as badge 0, the unscoped value; now it arrives as itself.
+/// The second half pins the value every unbadged sender in the tree still relies on.
+#[test_case]
+fn a_plain_send_arrives_with_its_capabilitys_badge_on_recv_and_recv_cap() {
+    let writer =
+        program("sink_transcript_writer").expect("no sink_transcript_writer in the initrd archive");
+    let region = crate::memory_region::create(2).expect("no region for the test's endpoints");
+    let ep = crate::sched::create_rendezvous_from(region).expect("no rendezvous");
+    let report = crate::sched::create_rendezvous_from(region).expect("no rendezvous");
+
+    spawn_writer(writer, ep, 0x5a5a, report);
+    assert_eq!(badge_of_every_message(ep), 0x5a5a);
+    let [class, ..] = crate::sched::ipc_recv(report);
+    assert_eq!(class, fixture::code(byte_sink_protocol::Sent::Ok));
+
+    crate::sched::spawn(move || {
+        run(
+            writer,
+            Spawn {
+                arg0: 1,
+                arg1: 0,
+                arg2: 0,
+                grants: &[
+                    rendezvous_cap(ep, Rights::WRITE),     // slot 0: unbadged
+                    rendezvous_cap(report, Rights::WRITE), // slot 1
+                ],
+                maps: &[],
+            },
+        )
+    })
+    .expect("could not spawn the unbadged writer");
+    assert_eq!(badge_of_every_message(ep), 0);
+    let [class, ..] = crate::sched::ipc_recv(report);
+    assert_eq!(class, fixture::code(byte_sink_protocol::Sent::Ok));
+
+    assert!(
+        wait_for(|| crate::sched::reclaim_region(region).is_ok()),
+        "the test's region would not reclaim"
+    );
+}
