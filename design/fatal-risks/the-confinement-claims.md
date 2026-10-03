@@ -121,6 +121,35 @@ above, which is the one that matters: the attacking was still us attacking our o
 we closed ourselves, found by our own test, is the same category of evidence as the audit that found
 it, and this entry's verdict rests on that category rather than on any single hole.
 
+### Added 2026-10-03 (§216, from #1494 and milestone 634): the RECV_CAP plain-SEND findings
+
+PR #1494's audit of this kernel's `RECV` consumers, run for calef's ruling that a plain `SEND`
+carries its capability's badge, found two confinement defects on `main`. Both were confirmed under
+QEMU on aarch64 on 2026-10-03 before any fix, which is the category of evidence this entry rests on
+and still us attacking our own system.
+
+The first is live on `main` as this is written. `redoxfs_server` reads a client's badge to pick its
+window and subtree scope, but the `SEND` syscall carries no badge: a client that `SEND`s on its
+per-window badged `FILE` capability instead of `CALL`ing arrives as badge 0, the unbound value,
+which `subtree_scope::Bindings::of(0)` reads as `Open`. So a bound client could act outside its own
+subtree and with another client's window, and without a reply. A `CALL` on a badged endpoint
+delivered badge `0x5a5a`; a plain `SEND` on the same endpoint delivered `0`. It is closed by the
+plain-SEND badge, calef's ruling on #1494: once a plain `SEND` carries its capability's badge the
+client arrives bound and the scope holds, pinned by a test on all three ISAs
+(`a_plain_send_arrives_with_its_capabilitys_badge_on_recv_and_recv_cap`). Until #1494 lands this is
+an open defect on `main`.
+
+The second is the arrival-order half, fixed by milestone 634 (a plain SEND received by RECV_CAP
+never hands the receiver a sender-chosen slot). On the receiver-first order a plain `SEND`'s second
+word reached `RECV_CAP`'s `x1`, where a `CALL` server reads a reply slot, so a client could hand a
+server a slot number of its own choosing; the audit found no consumer that checks the kind of object
+in a received slot. It was an ESCAPE: a `net_stack`-shaped server deleted its own capability at the
+attacker-chosen slot (`x1` delivered = 7, chosen = 7, the victim did not survive), a near miss on
+the sender-first order (`x1 = NO_CAP`). The kernel now writes `NO_CAP` unless a capability was
+installed, with a falsification red first on all three ISAs.
+[milestone 634](../roadmap/634-a-plain-send-received-by-recv-cap-never-hands-the-receiver-a-sender-chosen-slot.md)
+has the evidence and the two options weighed.
+
 And the audit produced a third instance of this file's recurring shape. Milestone 299 (the serial
 console becomes a userspace driver)'s two port tests could not fail in the direction they exist for:
 a wrongly permitted `out` was followed by a `SEND` nobody received, so the run hung instead of going
