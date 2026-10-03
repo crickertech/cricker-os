@@ -2186,11 +2186,8 @@ def _fold(kind):
 DERIVED = {
     'model_commits_other_shown': _fold('commits'),
     'model_lines_other_shown': _fold('lines'),
-    'fatal_risks_unclassified': lambda row: max(
-        0.0, _cell(row, 'fatal_risks_total') - sum(_cell(row, 'fatal_risks_' + s)
-                                                   for s in ('run', 'not_run', 'cannot_run'))),
-    # The colours chart's grey band, over the SAME stored total as the line above: a risk with no
-    # verdict rendered, or a week whose colours the status-line backfill could not read, draws
+    # The colours chart's grey band, over the stored `fatal_risks_total` (kept in `fatal-risks.csv`; the
+    # per-status chart was removed 2026-10-03 UTC): a risk with no verdict rendered, or a week whose colours the status-line backfill could not read, draws
     # rather than vanishes, so a bar of four reads as four of nine and not as nine.
     'fatal_risks_colors_unclassified': lambda row: max(
         0.0, _cell(row, 'fatal_risks_total') - sum(_cell(row, 'fatal_risks_' + c)
@@ -2269,13 +2266,6 @@ CHARTS = [
       ('shared (both, unresolved)', 'unsafe_trust_shared'),
       ('boot chain (uefi_loader)', 'unsafe_trust_boot_chain'),
       ('unclassified', 'unsafe_trust_unclassified')], 1.0, None, None),
-    ('fatal-risks.svg', 'The nine things that would kill nife, by Experiment status',
-     'design/fatal-risks/README.md; this says whether an experiment happened, never what it found. '
-     'The findings are in that file, in prose',
-     [('RUN', 'fatal_risks_run'), ('NOT-RUN', 'fatal_risks_not_run'),
-      ('CANNOT-RUN', 'fatal_risks_cannot_run'),
-      ('unclassified', 'fatal_risks_unclassified')],
-     1.0, None, None),
     # The verdict colours, stacked green then amber then red in their own hues (the
     # fatal-risk-colors-by-week proposal, 2026-09-29; chart name provisional). Grey is a risk with
     # no verdict rendered: five of nine today, which is the number a bar of four has to be read

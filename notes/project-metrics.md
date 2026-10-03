@@ -35,18 +35,7 @@ not a caption, it is a register entry.
 
 ## The nine things that would kill nife
 
-![Fatal risks](project-metrics/fatal-risks.svg)
-
-From `design/fatal-risks/README.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
-calef ratified on 2026-09-23. It says whether an experiment happened, never what it found. Every
-bar from 2026W36 is nine, the risks in that week's file:
-where the field did not exist yet, or held a word with no meaning today, the risk is drawn as
-"unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
-on 2026-08-31 UTC.
-
-## The nine, by colour
-
-![colours](project-metrics/fatal-risks-colors.svg)
+![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
 
 Grey is no verdict yet.
 
@@ -246,7 +235,7 @@ past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drif
 report](project-metrics/baseline-drift.md).
 
 <!-- baseline-drift: script/metrics writes this -->
-2026W40: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.92%, x86_64 `spawn_reap` +8.09%; 14 rows past 5%.
+2026W40: aarch64 `spawn_reap` +26.41%, riscv64 `spawn_reap` +22.67%, x86_64 `spawn_reap` +10.54%; 25 rows past 5%.
 <!-- /baseline-drift -->
 
 ## Interface stability
@@ -343,7 +332,7 @@ rest.
   argued: [what this project costs, *Known limitations*](register-of-measures/project-cost.md#known-limitations).
 - Four series were restated on 2026-09-24, and an older screenshot will disagree with each.
   Opus 5.5 got its own column (`opus_5_5`), so this week's commits left *other models*, and Opus 4.8
-  now draws inside that band because the palette has eight hues. The fatal-risks chart gained
+  now draws inside that band because the palette has eight hues. The fatal-risks chart (since removed in favour of the colours chart) gained
   `fatal_risks_total` and an *unclassified* band, so 2026W36 to 2026W38 read nine rather than five,
   four and five. The coverage floor and the prose budget were backfilled from each week's own tree.
 - The prose budget will be restated again when milestone 586 (a prose ratchet in lint) lands,
