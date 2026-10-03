@@ -34,10 +34,11 @@ The attribute bit positions and the slot header's bytes are ratified with it.
 **2. Slots stay at 64 MiB.** The appendix projected a full slot in about 120 days from a
 15,555,072-byte `BOOTX64.EFI`. A measurement on 2026-10-03 overturned the premise: that file was a
 debug build, a 7.5 MB unstripped kernel (about 5.8 MB of it debug info) plus a 7.9 MB archive of
-opt-level-0 programs. A release, stripped image is about 4.5 MB (an estimate). A boot-only
-image is about 1.7 MB (an estimate). A 64 MiB slot holds about 14 release images. The 120-day figure
-was extrapolated from debug builds and is withdrawn. The estimates stay estimates until the gate
-below records a measured release size.
+opt-level-0 programs. A release, stripped image measures 4,640,256 bytes (loader 42,672, stripped
+kernel 662,864, archive 3,934,720; PR #1520, 2026-10-03), which the pre-measurement estimate of about 4.5 MB
+had put close. A boot-only image is about 1.7 MB, still an estimate: #1520 measured the full release
+image and not a boot-only one. A 64 MiB slot holds about 14 release images. The 120-day figure
+was extrapolated from debug builds and is withdrawn.
 
 3. Two conditions come with the ruling. Both are being built by another lane; this section
 names them as conditions, not as done.
@@ -46,7 +47,11 @@ names them as conditions, not as done.
 - (b) CI gates the release `BOOTX64.EFI` at a 16 MiB size budget, a quarter of a slot. Raising the
   budget takes a committed ratchet with a stated reason.
 
-Until both land, the 64 MiB ruling rests on an estimate.
+Both landed in #1520 (merged 2026-10-03): `stick`, `install-boot`, `rollback-boot` and `confirm-boot`
+build release and the loader refuses to install a debug image (a), and `script/boot-file-size` (CI job
+`boot-file-size`) warns over 12 MiB and fails over 16 MiB (b). Its ratchet file
+`bench/boot-file-size-x86_64.txt` needs a `why:` and may not exceed the slot size. The 4,640,256-byte measurement
+above includes `mkfs` and the FS server, which #1520 found the stick's x86_64 payload had not built.
 
 ## What this closes
 
@@ -64,5 +69,5 @@ front of them, so the size budget is what keeps 64 MiB honest.
 
 ## BUGS
 
-- The release and boot-only sizes above are estimates, and the 16 MiB budget does not exist until
-  condition (b) merges.
+- The boot-only size above (about 1.7 MB) is an estimate; nothing measures a boot-only image.
+  The release size is measured, and the 16 MiB budget exists (#1520).

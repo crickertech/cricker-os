@@ -229,3 +229,78 @@ fn a_send_cap_aborted_by_teardown_stages_nothing_for_a_later_plain_send() {
     );
     crate::memory_region::destroy(region);
 }
+
+/// **A `SEND_CAP` collected by a plain `RECV` stages nothing for a later plain `SEND`** (milestone
+/// 633 (an outside agent attacks the confinement claim), fatal risk 7's first outsider pass,
+/// 2026-10-03 UTC). The non-abort sibling of
+/// `a_send_cap_aborted_by_teardown_stages_nothing_for_a_later_plain_send`.
+///
+/// There, teardown wakes the parked `SEND_CAP` sender *aborted*, and `set_ipc_aborted` clears its
+/// staged delegation. Here the sender is woken by a plain `RECV` that *successfully* collects it
+/// (`ipc_recv`'s `!leave_blocked` branch). That path does not go through `set_ipc_aborted`, so
+/// before this lane's fix the delegation stayed in `Thread::outgoing_cap`, and the sender's next
+/// plain `SEND`, parked on an unrelated rendezvous, handed it to whoever `RECV_CAP`ed there: a
+/// delegation made to one endpoint, delivered to another.
+///
+/// **Milestone 634's `cap_delivered` guard does not catch this.** That guard covers the order where
+/// the *receiver* parks first (`ipc_recv_cap`'s blocked path reads `cap_delivered`); this escape
+/// takes `outgoing_cap` on the order where the *sender* parks first (`ipc_recv_cap`'s immediate
+/// `FromSender` path, which calls `outgoing_cap.take()` unconditionally). A plain `SEND` cannot set
+/// `cap_delivered`, so the leak is the stale `outgoing_cap`, not the mailbox slot 634 fixed.
+///
+/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send.patch`
+#[test_case]
+fn a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send() {
+    static PARKED_ON_FIRST: AtomicBool = AtomicBool::new(false);
+    static DONE: AtomicBool = AtomicBool::new(false);
+
+    let first = crate::memory_region::create(4).expect("no first region");
+    let first_ep = sched::create_rendezvous_from(first).expect("no first rendezvous");
+    let region = crate::memory_region::create(4).expect("no region");
+    let other_ep = sched::create_rendezvous_from(region).expect("no other rendezvous");
+    // Any capability will do as the delegation; what matters is that it must not arrive at
+    // `other_ep`, where the sender only does a plain `SEND`.
+    let delegated = rendezvous_cap(other_ep, Rights::WRITE);
+
+    sched::spawn(move || {
+        PARKED_ON_FIRST.store(true, Ordering::SeqCst);
+        // Parks as a SEND_CAP sender on first_ep; the plain RECV below collects it and delivers no
+        // capability, completing the rendezvous without an abort.
+        sched::ipc_send_cap(first_ep, 1, delegated, 0);
+        // Then a plain SEND on an unrelated rendezvous. If the delegation stayed staged, this hands
+        // it to the RECV_CAP below.
+        sched::ipc_send(other_ep, [2, CHOSEN, 0]);
+        DONE.store(true, Ordering::SeqCst);
+    })
+    .expect("no sender thread");
+    assert!(
+        wait_for(|| PARKED_ON_FIRST.load(Ordering::SeqCst)
+            && sched::rendezvous_waiting_senders(first_ep) == 1),
+        "the sender never parked in SEND_CAP on the first rendezvous",
+    );
+    // Plain RECV: takes the data word, no capability, and wakes the sender through the successful
+    // path (not set_ipc_aborted). This is the vacuity guard's premise: a SEND_CAP really was in
+    // flight and was collected by a receiver that cannot hold a capability.
+    let [w0, ..] = sched::ipc_recv(first_ep);
+    assert_eq!(
+        w0, 1,
+        "the SEND_CAP's data word did not arrive at the plain RECV, so nothing was collected",
+    );
+    assert!(
+        wait_for(|| sched::rendezvous_waiting_senders(other_ep) == 1),
+        "the sender never parked its plain SEND on the other rendezvous",
+    );
+    let [w0, x1, ..] = sched::ipc_recv_cap(other_ep);
+    assert_eq!(w0, 2, "the plain SEND's first word did not arrive");
+    assert_eq!(
+        x1,
+        abi::rendezvous::NO_CAP,
+        "a plain SEND after a plain-RECV-collected SEND_CAP delivered the stale delegation at slot \
+         {x1}, a capability granted to one endpoint reaching a receiver on another",
+    );
+    assert!(
+        wait_for(|| DONE.load(Ordering::SeqCst)),
+        "the sender never finished"
+    );
+    crate::memory_region::destroy(region);
+}

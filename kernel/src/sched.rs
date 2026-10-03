@@ -3593,6 +3593,20 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
                     ) || sched.threads.get(sender).unwrap().handshake.state
                         == State::Dead;
                     if !leave_blocked {
+                        // **A plain RECV collected this sender, and a plain RECV delivers no
+                        // capability** (milestone 633 (an outside agent attacks the confinement
+                        // claim), fatal risk 7's outsider pass, 2026-10-03
+                        // UTC). A `SEND_CAP` sender parked its delegation in `outgoing_cap` for a
+                        // receiver to take; this receiver did not take it, and the rendezvous is now
+                        // complete. Left in place, the delegation would ride the sender's next plain
+                        // `SEND` on a *different* rendezvous and reach whoever `RECV_CAP`s there, a
+                        // delegation made to one endpoint delivered to another. This is the exact
+                        // hazard `set_ipc_aborted` closes on the teardown path; the successful-collect
+                        // path does not go through it, so it is closed here too. The sender still
+                        // holds its own copy (`SEND_CAP` narrows a copy, never moving the source), so
+                        // dropping this one loses nothing, which is `ipc_send_cap`'s documented
+                        // cap-table-full semantics: the data word arrives and the capability is dropped.
+                        sched.threads.get_mut(sender).unwrap().outgoing_cap = None;
                         // Collected: the sender's rendezvous is complete, which is what lets its
                         // wake through the boot-8 gate.
                         sched.threads.get_mut(sender).unwrap().handshake.serve();
