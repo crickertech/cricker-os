@@ -252,6 +252,84 @@ mod scroll_tests {
         }
     }
 
+    fn screen(vt: &crate::Vt) -> std::vec::Vec<std::vec::Vec<u8>> {
+        (0..vt.rows())
+            .map(|r| {
+                let mut b = [0u8; 256];
+                let n = vt.row_bytes(r, &mut b);
+                b[..n].to_vec()
+            })
+            .collect()
+    }
+
+    /// The writes a driver sends are one per line and then one tail, and together they are the
+    /// bytes the oracle is fed, so the two cannot drift apart again.
+    #[test]
+    fn the_scroller_is_written_one_line_at_a_time_and_then_a_tail() {
+        let mut writes: std::vec::Vec<std::vec::Vec<u8>> = std::vec::Vec::new();
+        write_scroller(|b| writes.push(b.to_vec()));
+        assert_eq!(writes.len(), SCROLL_LINES + 1);
+        assert_eq!(writes[0], b"scroll 00\r\n");
+        assert_eq!(writes[SCROLL_LINES - 1], b"scroll 47\r\n");
+        let mut tail = std::vec::Vec::new();
+        for i in 0..SCROLL_TAIL_LINES {
+            tail.extend_from_slice(format!("scroll {:02}\r\n", SCROLL_LINES + i).as_bytes());
+        }
+        assert_eq!(writes[SCROLL_LINES], tail);
+        let mut wire = crate::Vt::new(40, 10);
+        for w in &writes {
+            wire.feed(w);
+        }
+        let mut oracle = crate::Vt::new(40, 10);
+        feed_scroller(&mut oracle, None);
+        assert_eq!(screen(&wire), screen(&oracle));
+    }
+
+    /// The oracle feeds every line, and the negative control mangles exactly the one it is told to.
+    #[test]
+    fn the_oracle_feeds_every_line_and_mangles_only_the_chosen_one() {
+        let total = SCROLL_LINES + SCROLL_TAIL_LINES;
+        let mut by_hand = crate::Vt::new(40, 10);
+        for i in 0..total {
+            by_hand.feed(format!("scroll {i:02}\r\n").as_bytes());
+        }
+        let mut oracle = crate::Vt::new(40, 10);
+        feed_scroller(&mut oracle, None);
+        assert_eq!(screen(&oracle), screen(&by_hand));
+
+        let mut typo = crate::Vt::new(40, 10);
+        feed_scroller(&mut typo, Some(total - 2));
+        let mut by_hand = crate::Vt::new(40, 10);
+        for i in 0..total {
+            let line = if i == total - 2 {
+                "scroll 99\r\n".into()
+            } else {
+                format!("scroll {i:02}\r\n")
+            };
+            by_hand.feed(line.as_bytes());
+        }
+        assert_eq!(screen(&typo), screen(&by_hand));
+        assert_ne!(screen(&typo), screen(&oracle));
+        // The full-screen picture is the greeting and the typing, then the scroller.
+        let mut whole = crate::Vt::new(40, 10);
+        scrolled_full_screen(&mut whole, None);
+        let mut parts = crate::Vt::new(40, 10);
+        full_screen(&mut parts);
+        feed_scroller(&mut parts, None);
+        assert_eq!(screen(&whole), screen(&parts));
+    }
+
+    #[test]
+    fn a_window_line_names_its_window_and_its_count() {
+        let mut out = [0u8; 8];
+        assert_eq!(window_scroll_line(3, 47, &mut out), 7);
+        assert_eq!(&out[..7], b"w3-47\r\n");
+        assert_eq!(window_scroll_line(2, 5, &mut out), 7);
+        assert_eq!(&out[..7], b"w2-05\r\n");
+        assert_eq!(window_scroll_line(0, 123, &mut out), 7);
+        assert_eq!(&out[..7], b"w0-23\r\n");
+    }
+
     /// The typo control and the window scroller execute their whole paths and leave the
     /// terminal holding a nonempty, scrolled picture: every line of both functions runs.
     #[test]

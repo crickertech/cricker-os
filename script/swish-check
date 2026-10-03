@@ -103,10 +103,6 @@
 # every boot went unnoticed through passing runs (`components/src/login.rs`'s own BUGS). That assertion is
 # the obvious next ratchet and belongs with the fix for it.
 #
-# **The x86_64 leg's capability-slot gauge is stale.** It prints the mark at the hand-over, not the
-# peak: x86_64's input driver polls COM1 and yields, so the idle loop that prints the gauge never
-# runs again (milestone 182's BUGS). The leg says so beside the number.
-#
 # **The two graphical legs prove one key, not the script.** They are green since milestone 177
 # found the hang that kept them red (the boot never received two drivers' one-time reports, so both
 # drivers sat in a blocking SEND; notes/framebuffer-contract.md has the evidence), and they are the

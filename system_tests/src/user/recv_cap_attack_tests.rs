@@ -304,3 +304,167 @@ fn a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send() 
     );
     crate::memory_region::destroy(region);
 }
+
+/// How many slots of the running thread's capability table hold something.
+fn held() -> usize {
+    (0..crate::cap::CAPABILITY_TABLE_SLOTS as u64)
+        .filter(|&slot| sched::current_cap(slot).is_ok())
+        .count()
+}
+
+/// **A `CALL` server told by `x4` answers its caller and keeps nothing a delegation left behind**
+/// (milestone 706 (a `CALL` server can tell a Reply from a delegation), DECISIONS §245 (a `CALL`
+/// server tells a Reply from a delegation), fatal risk 7's confinement claim).
+///
+/// The attack: a client `SEND_CAP`s a rendezvous nobody receives on to a `CALL` server. Before 706
+/// `x1` was a real slot either way, so a server that answered it ran `SEND` on that rendezvous and
+/// parked for the life of the machine, and a server that did not answer kept the slot. The server
+/// here is written the way `user_mode_runtime::recv_request` reads a receive: `x4 ==
+/// REPLY_DELIVERED` is a Reply to answer, and any other real slot is a delegation to delete. It
+/// takes the delegation and then a real `CALL`, on both arrival orders, and must answer the caller
+/// and end holding exactly what it held before.
+///
+/// **What this tests is the tag, not the hang.** A server that invokes `REPLY` on the delegation
+/// does park for good, but a test that demonstrated it would need to end a thread blocked in
+/// `SEND`, which needs the timed receive milestone 417 (a usurper that reports instead of hanging)
+/// waits on; and the hang was never in doubt, since it is method `0` on a rendezvous. What 706 adds
+/// is that the kernel says which slot is the Reply, so that is what is asserted: without the tag
+/// the server cannot tell the two apart, deletes the Reply as a delegation, and its caller is never
+/// answered.
+///
+/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders.patch`
+#[test_case]
+fn a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders() {
+    const DELEGATION: u64 = 1;
+    const REQUEST: u64 = 2;
+    const ANSWER: u64 = 0x706;
+
+    for server_first in [true, false] {
+        static RECEIVED: AtomicU64 = AtomicU64::new(0);
+        static SERVER_DONE: AtomicBool = AtomicBool::new(false);
+        static HELD_BEFORE: AtomicU64 = AtomicU64::new(0);
+        static HELD_AFTER: AtomicU64 = AtomicU64::new(0);
+        static DELEGATION_X4: AtomicU64 = AtomicU64::new(u64::MAX);
+        static CALL_X4: AtomicU64 = AtomicU64::new(u64::MAX);
+        static CALL_ANSWER: AtomicU64 = AtomicU64::new(0);
+        static CALL_DONE: AtomicBool = AtomicBool::new(false);
+        static DELEGATION_SENT: AtomicBool = AtomicBool::new(false);
+        RECEIVED.store(0, Ordering::SeqCst);
+        SERVER_DONE.store(false, Ordering::SeqCst);
+        DELEGATION_X4.store(u64::MAX, Ordering::SeqCst);
+        CALL_X4.store(u64::MAX, Ordering::SeqCst);
+        CALL_ANSWER.store(0, Ordering::SeqCst);
+        CALL_DONE.store(false, Ordering::SeqCst);
+        DELEGATION_SENT.store(false, Ordering::SeqCst);
+
+        let region = crate::memory_region::create(4).expect("no region");
+        let ep = sched::create_rendezvous_from(region).expect("no rendezvous");
+        // The attacker's delegation: a rendezvous nobody ever receives on, so a `REPLY` (method 0,
+        // `SEND` on a rendezvous) through it would never return.
+        let dead_end = sched::create_rendezvous_from(region).expect("no dead-end rendezvous");
+        let delegated = rendezvous_cap(dead_end, Rights::WRITE);
+
+        let server = move || {
+            HELD_BEFORE.store(held() as u64, Ordering::SeqCst);
+            for _ in 0..2 {
+                let [w0, x1, _w1, _badge, x4] = sched::ipc_recv_cap(ep);
+                if w0 == DELEGATION {
+                    DELEGATION_X4.store(x4, Ordering::SeqCst);
+                } else {
+                    CALL_X4.store(x4, Ordering::SeqCst);
+                }
+                RECEIVED.fetch_add(1, Ordering::SeqCst);
+                if x4 == abi::rendezvous::REPLY_DELIVERED {
+                    // The tag's claim, checked against the table: the slot is a Reply.
+                    if let Ok(crate::cap::Cap {
+                        object: crate::cap::Object::Reply(caller),
+                        ..
+                    }) = sched::current_cap(x1)
+                    {
+                        sched::ipc_reply(caller, [ANSWER, 0]);
+                    }
+                    let _ = sched::delete_current_cap(x1);
+                } else if x1 != abi::rendezvous::NO_CAP {
+                    let _ = sched::delete_current_cap(x1); // `Delivered::into_reply`'s delete
+                }
+            }
+            HELD_AFTER.store(held() as u64, Ordering::SeqCst);
+            SERVER_DONE.store(true, Ordering::SeqCst);
+        };
+        let caller = move || {
+            let [r0, ..] = sched::ipc_call(ep, [REQUEST, 0]);
+            CALL_ANSWER.store(r0, Ordering::SeqCst);
+            CALL_DONE.store(true, Ordering::SeqCst);
+        };
+        let attacker = move || {
+            DELEGATION_SENT.store(true, Ordering::SeqCst);
+            sched::ipc_send_cap(ep, DELEGATION, delegated, 0);
+        };
+
+        if server_first {
+            // The server parks, and each message reaches it through the sender's own delivery
+            // (`ipc_send_cap`'s and `ipc_call_badged`'s rendezvous arms).
+            sched::spawn(server).expect("no server thread");
+            assert!(
+                wait_for(|| sched::rendezvous_waiting_receivers(ep) == 1),
+                "the server never parked in RECV_CAP (server first)",
+            );
+            sched::spawn(attacker).expect("no attacker thread");
+            assert!(
+                wait_for(|| RECEIVED.load(Ordering::SeqCst) == 1
+                    && sched::rendezvous_waiting_receivers(ep) == 1),
+                "the server never took the delegation and parked again (server first)",
+            );
+            sched::spawn(caller).expect("no caller thread");
+        } else {
+            // Both clients park first, and the server collects them (`ipc_recv_cap`'s
+            // `FromSender` arm), the delegation ahead of the call.
+            sched::spawn(attacker).expect("no attacker thread");
+            assert!(
+                wait_for(|| DELEGATION_SENT.load(Ordering::SeqCst)
+                    && sched::rendezvous_waiting_senders(ep) == 1),
+                "the attacker never parked in SEND_CAP (clients first)",
+            );
+            sched::spawn(caller).expect("no caller thread");
+            assert!(
+                wait_for(|| sched::rendezvous_waiting_senders(ep) == 2),
+                "the caller never parked behind the attacker (clients first)",
+            );
+            sched::spawn(server).expect("no server thread");
+        }
+
+        assert!(
+            wait_for(|| SERVER_DONE.load(Ordering::SeqCst)),
+            "the server never took both messages (server_first = {server_first}); one of them \
+             parked it, which is the hang 706 closes",
+        );
+        assert!(
+            wait_for(|| CALL_DONE.load(Ordering::SeqCst)),
+            "the caller was never answered (server_first = {server_first}): the server could not \
+             tell its Reply from the delegation (x4 = {:#x} on the CALL), so it deleted the Reply",
+            CALL_X4.load(Ordering::SeqCst),
+        );
+        assert_eq!(
+            CALL_ANSWER.load(Ordering::SeqCst),
+            ANSWER,
+            "the caller woke with something other than the server's answer",
+        );
+        assert_eq!(
+            CALL_X4.load(Ordering::SeqCst),
+            abi::rendezvous::REPLY_DELIVERED,
+            "a CALL's delivery did not carry REPLY_DELIVERED in x4 (server_first = {server_first})",
+        );
+        assert_eq!(
+            DELEGATION_X4.load(Ordering::SeqCst),
+            0,
+            "a SEND_CAP delegation arrived tagged as a Reply (server_first = {server_first})",
+        );
+        assert_eq!(
+            HELD_AFTER.load(Ordering::SeqCst),
+            HELD_BEFORE.load(Ordering::SeqCst),
+            "the server ended holding a slot it did not hold before (server_first = \
+             {server_first}): a delivery was kept rather than answered or deleted",
+        );
+        crate::memory_region::destroy(region);
+    }
+}

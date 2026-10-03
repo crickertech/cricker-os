@@ -45,6 +45,10 @@ concurrency:
 
 permissions:
   contents: read
+  # `actions: read` lets the stopped-watcher check read workflow state with this token, and
+  # `issues: write` is its fallback for opening the issue (milestone 723).
+  actions: read
+  issues: write
 
 jobs:
   trunk:
@@ -73,6 +77,17 @@ jobs:
       # the drain's checkout.
       - uses: actions/checkout@v7
 
+      # **Says so when the merge queue ejects more than a fifth of what enters it** (milestone 724
+      # (the merge queue reports its ejection share and its time to merge), provisional), for the
+      # last two UTC days. A warning rather than a failure, for the dead-cadence reason in the step below: it is a
+      # standing condition over a day, and failing every five minutes would drown the red-trunk
+      # signal. `continue-on-error` so a GraphQL failure cannot turn the watcher red.
+      - name: merge queue ejection share
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: python3 helpers/merge_queue_share.py report
+
       - name: one pass
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
@@ -96,3 +111,18 @@ jobs:
             echo "::warning::a scheduled workflow has stopped producing results (script/cadence-check)"
             ;;
           esac
+
+      # **Reports a stopped merge watcher** (milestone 723 (a stopped merge watcher is reported within
+      # three of its own intervals), provisional). Each of the two watchers runs this, so a stopped
+      # one is reported by the other, and a running one closes its own issue. It opens the issue as
+      # the App when the App may, and as `github-actions[bot]` when it may not
+      # (`WATCHER_FALLBACK_TOKEN`); the log says which. `continue-on-error` because a reporting
+      # failure must not turn the watcher red, but it prints a warning so it is not silent.
+      - name: report a stopped merge watcher
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          WATCHER_READ_TOKEN: ${{ github.token }}
+          WATCHER_FALLBACK_TOKEN: ${{ github.token }}
+        run: python3 helpers/watcher_watch.py sync || echo "::warning::watcher_watch.py sync failed; a stopped watcher may be unreported"

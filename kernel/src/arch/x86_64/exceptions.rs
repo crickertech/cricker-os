@@ -829,30 +829,27 @@ pub unsafe extern "C" fn x86_trap_body(frame: *mut TrapFrame) -> bool {
         }
         // A device line, routed by the IO APIC's redirection table onto a vector this kernel chose
         // (irq::GSI_VECTOR_BASE plus the line's redirection index; milestone 308, and it was plus
-        // the GSI until then).
+        // the GSI until then), **and it becomes a driver's message** (milestone 505 (an x86_64
+        // input driver that never lets the core idle)), as on the other two architectures.
         //
-        // # BUGS
-        // **An IO APIC line cannot yet become a message here**, unlike on the other two
-        // architectures, and the missing piece is an inversion rather than a mechanism: the arms
-        // above show the delivery works, and what a *line* needs is a vector -> intid map so
-        // `sched::irq_route` can be asked. Subtraction recovers the **redirection index**, and the
-        // GSI is then that plus the owning IO APIC's global interrupt base, which
-        // `irq::redirection_index` reads and nothing here inverts. That extra step is milestone
-        // 308's and it changes nothing in practice, because the base is zero on every machine this
-        // kernel boots; the step that was already missing is the one that matters. A *legacy IRQ*
-        // (which is what `irq::enable` takes, and so what a driver would have bound) is not
-        // recoverable at all: GSI 0 is the 8259 cascade and has no legacy owner, so an inversion
-        // that fell back to the GSI would answer 0 for both it and the PIT's IRQ 0.
+        // `irq::intid_of_vector` turns the vector back into the intid that armed it, which is the
+        // number a driver bound; subtraction alone gives the redirection index, and an index is not
+        // a legacy IRQ (that function's table has why). COM1's receive line, legacy IRQ 4, is the
+        // line this was built for: the input driver waits on it rather than polling the port.
         //
-        // **Still nothing needs it, which milestone 308 re-checked rather than assumed**: a PCI
-        // function reaches its driver by MSI-X on this architecture (milestone 215) and takes the
-        // arm above, and the console UART's line is the only other candidate. Making `gsi_vector`
-        // fallible added no caller here, because this arm never calls it.
+        // `irq::disable` holds a level-triggered line off until the driver's ACK re-arms it
+        // (`irq::enable`); an edge-triggered line, COM1's among them, is left live, because an IO
+        // APIC drops an edge that arrives while its entry is masked. A line nothing has bound (the
+        // tour's PIT) is counted and acknowledged, as every device vector was before.
         v if super::irq::is_device_vector(v) => {
-            // [`DEVICE_IRQS`] only: a line outside the CPU reached it, which is what that counter
-            // claims, but the BUGS note above is exactly that nothing here can route it to a
-            // driver. Counting it as routed said the opposite.
             DEVICE_IRQS.fetch_add(1, Ordering::Relaxed);
+            let routed = super::irq::intid_of_vector(v)
+                .and_then(|intid| crate::sched::irq_route(intid).map(|ep| (intid, ep)));
+            if let Some((intid, ep)) = routed {
+                ROUTED_IRQS.fetch_add(1, Ordering::Relaxed);
+                super::irq::disable(intid);
+                crate::sched::irq_notify(ep);
+            }
             super::irq::end_of_interrupt();
             true
         }

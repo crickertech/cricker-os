@@ -64,7 +64,7 @@ Full rows, with every flag and the history behind each: [process-measures.md](sc
 | `script/cadence-check` | Which scheduled workflows have stopped producing a result? |
 | `script/redo-rate` | How often delegated work has to be done again. |
 | `script/nanny` | Work the merge queue by delegating the rebases. |
-| `script/effort` | Machine effort spent per ISO week. |
+| `script/effort` | Machine effort spent per ISO week, from Claude Code and opencode records; `--attribute` records which unsigned commits an opencode session made. |
 | `script/stranger-test` | Hand the repository to a fresh process and record what it could not work out. |
 
 ### Boards and boot checks
@@ -110,7 +110,7 @@ Full rows, with every flag and the history behind each: [analysis-and-supply-cha
 | `script/stack-depth-check` | How deep a kernel thread stack can get, by walking the call graph. |
 | `script/build-is-reproducible` | The same commit builds the same bytes, from any path. |
 | `script/fastpath-footprint` | An upper bound on the IPC fastpath's instruction footprint. |
-| `script/boot-file-size` | The release `BOOTX64.EFI` against a 16 MiB budget, a quarter of the 64 MiB install slot; prints the loader, kernel and archive breakdown. |
+| `script/boot-file-size-check` | The release `BOOTX64.EFI` against a 16 MiB budget, a quarter of the 64 MiB install slot; prints the loader, kernel and archive breakdown. |
 | `script/image-permissions` | The shipped kernel images obey W^X. |
 | `script/crate-probes` | Build fifty crates.io crates against the patched `std`. |
 | `script/crypto-probes` | Which TLS crypto providers build for nife's targets. |

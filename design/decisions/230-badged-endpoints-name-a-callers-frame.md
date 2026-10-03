@@ -117,3 +117,15 @@ No new method, number or refusal. A server written against the text above this a
 treats a non-zero `x3` on `RECV` as a fault or as corruption is wrong since 2026-10-03. The test is
 `a_plain_send_arrives_with_its_capabilitys_badge_on_recv_and_recv_cap`, and `abi::rendezvous::RECV`'s
 doc carries the same contract.
+
+## Amendment (milestone 726, 2026-10-03): a server's window lookup refuses a nonzero badge it has no window for
+
+Recorded by the maintainer's delegate, as the maintainer authorized. The ruling is calef's, on 2026-10-03 (UTC), option 1 of the proposal that became milestone 726 (an unknown badge fails closed in subtree_scope): *"Fail closed in the crate."*
+
+- A badge is the index of a client's staging window, so a server that has `B` windows has no window for a nonzero badge at or past `B`. Such a badge reaches nothing. In `crates/subtree_scope`, `Bindings::<B>::of` returns `Binding::Revoked` for it, and the server answers `EBADF`. Before this, it was folded onto badge 0 and carried the whole endpoint's authority.
+- Badge 0 stays the caretaker's whole authority. It is the unbadged value, it is never bound, and nothing here narrows it.
+- The kernel's `BADGE` method is unchanged: it still puts no ceiling on a badge, because the kernel cannot know any server's `B`. The refusal is the server's, where the window count is known.
+- The proof is `a_badge_with_no_window_is_never_open`, with a replayable falsification beside it. The server's own test is `a_badge_with_no_window_is_refused`.
+
+No new method, number or wire format. A spawner that mints a badge past a server's pool now hands its child a capability that is refused, where it used to hand it everything.
+

@@ -1458,6 +1458,79 @@ const SWISH_CHECK_LINE_SECS: u64 = 30;
 /// CI's slowest.
 const SWISH_CHECK_X86_LINE_SECS: u64 = 45;
 
+/// **What one leg's median line costs when it is healthy, per architecture and accelerator**
+/// (milestone 722 (swish-check fails a leg that costs five times the others per line),
+/// provisional): the committed baseline [`leg_cost_verdict`] compares a leg against.
+///
+/// Seconds a line, taken from CI's `swish-check` jobs on 2026-10-03 UTC (runs 37141733965 and
+/// 37141058488), as the job printed the mean before this check reported a median. A median sits at
+/// or under the mean, so these are loose, and loose is the right side to err on for a tripwire.
+///
+/// | leg | accelerator | source | seconds a line |
+/// |---|---|---|---|
+/// | aarch64 | TCG | CI arm64, 145 lines in 27.5 s | 0.20 |
+/// | riscv64 | TCG | CI arm64, 145 lines in 30.7 s | 0.21 |
+/// | x86_64 | KVM | CI x86_64, 142 lines in 36.8 s | 0.26 |
+/// | x86_64 | TCG | CI arm64, 128 lines in 364.5 s (milestone 628's note) | 2.85 |
+///
+/// **Why against its own history and not against the other legs.** The proposal asked for five
+/// times the median of the legs that share an accelerator. In CI no two legs share KVM, and the
+/// legs that share TCG are not alike: `x86_64` under TCG costs about fourteen times aarch64 under
+/// TCG, legitimately, because every screen store is emulated (the table above
+/// [`SWISH_CHECK_X86_LINE_SECS`]). A peer rule would fail that leg on every Mac. So a leg is held to
+/// its own row, and a leg with no row is reported and not failed.
+///
+/// **What it catches and what it does not.** The defect this exists for, a runnable boot thread
+/// halting until the next 10 ms tick (milestone 628), ran the KVM leg at 7.7 s a line against a
+/// 0.26 baseline, about 30 times, and fails here. The same defect under TCG was a factor of 2.7
+/// against its row and passes, because 45 s a line is the per-line bound's job there. A host far
+/// slower than CI's arm64 runner would also fail; the answer is a measurement and a new row.
+const LEG_COST_BASELINE: &[(&str, &str, f64)] = &[
+    ("aarch64", "tcg", 0.20),
+    ("riscv64", "tcg", 0.21),
+    ("x86_64", "kvm", 0.26),
+    ("x86_64", "tcg", 2.85),
+];
+
+/// How many times its own baseline a leg's median line may cost before the leg fails.
+const LEG_COST_FACTOR: f64 = 5.0;
+
+/// A boot that typed fewer lines than this reports its median and is not judged: the second boot's
+/// eight lines are mostly a fixed cost of reaching a prompt, and eight samples is one slow line from
+/// any median at all.
+const LEG_COST_MIN_LINES: usize = 20;
+
+/// The leg's median seconds a line, its baseline row if it has one, and whether it is over.
+#[derive(Debug, PartialEq)]
+struct LegCost {
+    median: f64,
+    baseline: Option<f64>,
+    over: bool,
+}
+
+/// Judge one boot's per-line times against [`LEG_COST_BASELINE`]. Pure, so the rule is tested on
+/// the host without a boot. `accel` is `"kvm"` or `"tcg"`.
+fn leg_cost_verdict(arch: &str, accel: &str, secs: &[f64]) -> LegCost {
+    let mut sorted = secs.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).expect("a duration is a number"));
+    let median = match sorted.len() {
+        0 => 0.0,
+        n if n % 2 == 1 => sorted[n / 2],
+        n => (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0,
+    };
+    let baseline = LEG_COST_BASELINE
+        .iter()
+        .find(|(a, x, _)| *a == arch && *x == accel)
+        .map(|(_, _, s)| *s);
+    let over =
+        secs.len() >= LEG_COST_MIN_LINES && baseline.is_some_and(|b| median > b * LEG_COST_FACTOR);
+    LegCost {
+        median,
+        baseline,
+        over,
+    }
+}
+
 /// How many foreign characters [`find_marker`] will step over inside one marker before it gives up.
 ///
 /// The intruder is one kernel fault report, three lines and about 150 characters. 400 is that with
@@ -2596,6 +2669,34 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
                 eprintln!("swish-check ({arch}): {:6.2}s  {l}", d.as_secs_f64());
             }
         }
+        // **The leg's median line against its own baseline** (milestone 722): a cost defect
+        // shows as a leg far off its own history, which a per-line bound sized to hide a real hang
+        // cannot see. See [`LEG_COST_BASELINE`] for why this is not a comparison between legs.
+        let accel = if kvm { "kvm" } else { "tcg" };
+        let secs: Vec<f64> = took.iter().map(|(_, d)| d.as_secs_f64()).collect();
+        let cost = leg_cost_verdict(arch, accel, &secs);
+        eprintln!(
+            "swish-check ({arch}): median {:.2}s a line under {accel}{}",
+            cost.median,
+            match cost.baseline {
+                Some(b) => format!(
+                    ", baseline {b:.2}s, limit {:.2}s ({LEG_COST_FACTOR}x)",
+                    b * LEG_COST_FACTOR
+                ),
+                None => ", no baseline row".to_string(),
+            }
+        );
+        if cost.over {
+            failed.push(format!(
+                "{arch} under {accel} costs a median {:.2}s a line, over {LEG_COST_FACTOR}x its \
+                 baseline {:.2}s. A leg this far off its own history is a cost defect rather than \
+                 a hang (milestone 628 was a runnable boot thread halting until the next tick; \
+                 notes/benchmarks/swish-check-x86-leg.md). If this host is simply slower, measure \
+                 it and add a row to `LEG_COST_BASELINE` with the source.",
+                cost.median,
+                cost.baseline.unwrap_or(0.0)
+            ));
+        }
         took.sort_by_key(|t| std::cmp::Reverse(t.1));
         let total: Duration = took.iter().map(|(_, d)| *d).sum();
         eprintln!(
@@ -2746,20 +2847,6 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     {
         Some(line) => {
             eprintln!("swish-check ({arch}):{}", line.trim_end());
-            // **On x86_64 this line is stale, and says so** (milestone 182). The gauge is printed
-            // from the scheduler's idle loop, and x86_64's input driver polls COM1 and yields
-            // rather than blocking (milestone 299), so once it starts the run queue is never empty
-            // and the idle loop never runs again. What prints is the mark at the hand-over, before
-            // the progenitor has built anything. A temporary instrument on 2026-09-19 read 17 of
-            // 24 at this leg's peak; milestone 182's BUGS has it. The `ABOVE` check below cannot
-            // fire here for the same reason, which is a gate that cannot fail, stated rather than
-            // hidden.
-            if x86 {
-                eprintln!(
-                    "swish-check (x86_64): that gauge is the mark at the hand-over, not the peak: \
-                     the idle loop that prints it never runs again while the input driver polls"
-                );
-            }
             if line.contains("ABOVE") {
                 failed.push(format!(
                     "this boot used more capability slots than the tree records: {:?}. The \
@@ -2806,7 +2893,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     if gauges.is_empty() {
         failed.push(format!(
             "the boot never printed {:?}. The kernel says this from the scheduler's idle loop, and \
-             from the yield syscall on x86_64 (kernel::progenitor_stack); a gauge that stopped \
+             on every architecture (kernel::progenitor_stack); a gauge that stopped \
              printing is how the stack got raised three times by overflowing it.",
             GaugeFilter::NEEDLE.trim()
         ));
@@ -3313,6 +3400,46 @@ fn swish_check_answer<'a>(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_leg_thirty_times_its_baseline_fails_and_one_at_twice_it_does_not() {
+        // Milestone 628's defect under KVM: 7.7 s a line against 0.26 s.
+        let slow = vec![7.7; 128];
+        let v = super::leg_cost_verdict("x86_64", "kvm", &slow);
+        assert!(v.over, "{v:?}");
+        let ok = vec![0.52; 128];
+        assert!(!super::leg_cost_verdict("x86_64", "kvm", &ok).over);
+    }
+
+    #[test]
+    fn the_median_ignores_the_one_slow_line_the_mean_would_not() {
+        // `interrupt_ignorer` costs 7 s on every leg and is no defect: one outlier in 142.
+        let mut secs = vec![0.2; 141];
+        secs.push(7.0);
+        let v = super::leg_cost_verdict("x86_64", "kvm", &secs);
+        assert_eq!(v.median, 0.2);
+        assert!(!v.over);
+    }
+
+    #[test]
+    fn a_boot_of_few_lines_and_a_leg_with_no_row_are_reported_not_judged() {
+        assert!(!super::leg_cost_verdict("aarch64", "tcg", &[9.0; 8]).over);
+        let v = super::leg_cost_verdict("aarch64", "kvm", &[9.0; 100]);
+        assert_eq!((v.baseline, v.over), (None, false));
+    }
+
+    #[test]
+    fn x86_under_tcg_is_held_to_its_own_row_and_not_to_aarch64s() {
+        // 2.85 s a line is fourteen times aarch64's and is this leg's healthy cost under TCG.
+        assert!(!super::leg_cost_verdict("x86_64", "tcg", &[2.85; 128]).over);
+        assert!(super::leg_cost_verdict("x86_64", "tcg", &[15.0; 128]).over);
+    }
+
+    #[test]
+    fn an_even_count_takes_the_mean_of_the_middle_two() {
+        let v = super::leg_cost_verdict("aarch64", "tcg", &[0.1, 0.1, 0.3, 0.3]);
+        assert!((v.median - 0.2).abs() < 1e-9);
+    }
 
     #[test]
     fn the_job_pool_check_reads_free_as_ci_printed_it() {

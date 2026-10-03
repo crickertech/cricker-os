@@ -46,7 +46,7 @@
 use compositor::proto::{ctl, wlist};
 use compositor::status;
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, exit, invoke, map_page_frame, recv_cap, reply, send};
+use user_mode_runtime::{call, exit, invoke, map_page_frame, recv_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/compositor_service.rs`.
 const REPORT: u64 = 0;
@@ -90,6 +90,27 @@ const ROLE_PROBE_SCREEN: u64 = 1 << 3;
 const ROLE_CAPTURE: u64 = 1 << 4;
 const ROLE_VICTIM: u64 = 1 << 5;
 const ROLE_SMALL_DAMAGE: u64 = 1 << 6;
+/// With [`ROLE_PROBE_NEIGHBOUR`]: **read** the address instead of writing it (milestone 719 (compositor confinement claim 25)). A write
+/// to a read-only page faults at the same address a write to an unmapped one does, so a
+/// write-only probe cannot tell "not mapped" from "mapped read-only", and a read-only exposure of a
+/// neighbour's pixels is the confidentiality breach.
+const ROLE_PROBE_READ: u64 = 1 << 7;
+/// Commit every damage rectangle in [`LIES`] (milestone 719), the compositor's one untrusted input.
+const ROLE_LIE_DAMAGE: u64 = 1 << 8;
+
+/// Damage rectangles no honest client sends: extreme origins and extents, including the pairs whose
+/// `x + w` leaves `i32`. `(x, y, w, h)` as the control page carries them.
+const LIES: [(i32, i32, u32, u32); 9] = [
+    (i32::MAX, 0, 1, 1),
+    (0, i32::MAX, 1, 1),
+    (i32::MIN, i32::MIN, u32::MAX, u32::MAX),
+    (-5, -5, 0x8000_0000, 0x8000_0000),
+    (1, 1, 0x7fff_ffff, 0x7fff_ffff),
+    (0, 0, u32::MAX, u32::MAX),
+    (i32::MAX, i32::MAX, u32::MAX, u32::MAX),
+    (0, 0, 0, 0),
+    (-1, -1, 3, 3),
+];
 
 /// What a refusal report is about, in the second word of [`status::WIN_REFUSED`].
 const WHAT_INPUT: u64 = 1;
@@ -296,19 +317,35 @@ pub extern "C" fn _start(role: u64, neighbour_va: u64, _arg2: u64) -> ! {
 
     // --- The probes that are expected to be fatal. Reported first, so a test knows the attempt
     // happened even though nothing can report afterwards. ---
+    if role & ROLE_LIE_DAMAGE != 0 {
+        for &(x, y, w, h) in LIES.iter() {
+            commit(&mut seq, compositor::Rect::new(x, y, w, h));
+        }
+        send(REPORT, status::WIN_LIED, LIES.len() as u64, 0);
+    }
+
     if role & ROLE_PROBE_NEIGHBOUR != 0 {
         send(REPORT, status::WIN_PROBING, neighbour_va, 0);
         // SAFETY: deliberately not safe. This is the milestone's central claim under test: the
         // address is where a neighbour's pixels physically are, one page past our own grant, and it is
         // not mapped here. The store must fault. If it does not, the report below fires and the test
-        // fails loudly rather than passing quietly.
-        unsafe { core::ptr::write_volatile(neighbour_va as *mut u32, 0xBAD0_BAD0) };
+        // fails loudly rather than passing quietly. With [`ROLE_PROBE_READ`] the access is a load
+        // instead, which is the half a read-only mapping would not stop.
+        if role & ROLE_PROBE_READ == 0 {
+            // SAFETY: deliberately not safe; see above. The store must fault.
+            unsafe { core::ptr::write_volatile(neighbour_va as *mut u32, 0xBAD0_BAD0) };
+        }
         // SAFETY: as above; only reached if the write did not fault, which is a broken system.
         let seen = unsafe { core::ptr::read_volatile(neighbour_va as *const u32) };
         send(REPORT, status::WIN_ESCAPED, neighbour_va, seen as u64);
     }
 
     if role & ROLE_PROBE_SCREEN != 0 {
+        // Ask for the screen the way a capture client would (milestone 719). With nothing granted at
+        // `SCREEN_FRAME` this is refused and the read below faults on an unmapped address; if the
+        // spawner leaked the capability it succeeds and the read below returns a pixel, which is the
+        // only way the test can see a grant, since a grant alone maps nothing.
+        let _ = map_page_frame(SCREEN_FRAME, SCREEN_VA, false, BUDGET);
         send(REPORT, status::WIN_PROBING, SCREEN_VA, 0);
         // SAFETY: deliberately not safe. We painted into this screen and we are not mapped to read it.
         let seen = unsafe { core::ptr::read_volatile(SCREEN_VA as *const u32) };
@@ -329,10 +366,13 @@ pub extern "C" fn _start(role: u64, neighbour_va: u64, _arg2: u64) -> ! {
         // capability cannot be sent one, however the compositor feels about it.
         let mut count = 0u64;
         loop {
-            let (w0, reply_slot, bytes) = recv_cap(INPUT);
+            let req = recv_request(INPUT);
+            let (w0, bytes) = (req.w0, req.w1);
             // Answer first: the compositor is blocked in CALL, the terminal contract's driver-half
             // rendezvous, and it is the flow control for a fast source.
-            reply(reply_slot, 0, 0);
+            if let Some(to) = req.delivered.into_reply() {
+                reply(to, 0, 0);
+            }
             // Clamp to the eight bytes one word carries. `proto::len` is a full 32-bit field, so
             // an unclamped count shifts past 63 at `k == 8` and spins up to 2^32 times.
             // `display_terminal.rs` and `line_editor.rs` both clamp here; this was the one that

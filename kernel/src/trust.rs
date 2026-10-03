@@ -74,7 +74,10 @@ pub fn require(name: &str, bytes: &[u8]) {
             );
             crate::println!("    build's measurement step, so it can vouch for nothing.");
             crate::println!("  halting rather than handing the archive to the progenitor.");
-            crate::arch::halt();
+            // "Halting" is the boot's: the boot thread leaves the scheduler rather than parking on
+            // its run queue, and nothing after this line runs (milestone 720 (provisional); see
+            // `arch::HaltReason`). Every refusal below ends the same way.
+            crate::sched::exit();
         }
         Err(measured_boot::VerifyError::Mismatch) => {
             crate::println!();
@@ -86,7 +89,7 @@ pub fn require(name: &str, bytes: &[u8]) {
             }
             crate::println!("    measured sha256 {}", Hex(&measured));
             crate::println!("  halting rather than handing the archive to the progenitor.");
-            crate::arch::halt();
+            crate::sched::exit();
         }
     }
 }
@@ -121,7 +124,7 @@ pub fn require_program_measurements(fs: &nifefs::Fs<'_>) {
                 "    the progenitor could not vouch for anything it loads, so it is not started."
             );
             crate::println!("  halting rather than entering a progenitor that measures nothing.");
-            crate::arch::halt();
+            crate::sched::exit();
         }
     }
 }
@@ -176,7 +179,7 @@ pub fn require_program(name: &str) -> Option<&'static [u8]> {
                 "  MEASURED BOOT REFUSED: the archive's measurement table has no entry for '{name}'"
             );
             crate::println!("  halting rather than entering a program nothing vouches for.");
-            crate::arch::halt();
+            crate::sched::exit();
         }
         Err(measured_boot::VerifyError::Mismatch) => {
             crate::println!();
@@ -185,7 +188,7 @@ pub fn require_program(name: &str) -> Option<&'static [u8]> {
             );
             crate::println!("    measured sha256 {}", Hex(&measured_boot::sha256(bytes)));
             crate::println!("  halting rather than entering a program nothing vouches for.");
-            crate::arch::halt();
+            crate::sched::exit();
         }
     }
 }

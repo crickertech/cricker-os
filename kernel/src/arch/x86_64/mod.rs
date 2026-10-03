@@ -535,7 +535,9 @@ fn close_performance_counters_to_ring3() {
 /// Stop this CPU forever, cheaply. `hlt` parks it until an interrupt; with interrupts masked and
 /// nothing left to wake it, that is the rest of time at zero host CPU. The same discipline as the
 /// other two architectures' `wfi`. See CLAUDE.md, "Never leave QEMU running".
-pub fn halt() -> ! {
+/// Takes a [`super::HaltReason`], whose constructors are the list of who may stop a core for good;
+/// a thread whose work is done leaves with `sched::exit` instead (milestone 720 (provisional)).
+pub fn halt(_: super::HaltReason) -> ! {
     loop {
         instructions::hlt();
     }

@@ -75,7 +75,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{call, now, recv, recv_cap, reply, send, yield_now};
+use user_mode_runtime::{call, now, recv, recv_request, reply, send, yield_now};
 
 /// The working set the [`job_mix::TOUCH`] job walks: this task's own memory, sized in
 /// `crates/job_mix` against the smallest L1d this project targets.
@@ -352,8 +352,10 @@ fn run_job(job: u8, seed: u64, code_frame: u64) -> Result<(u64, u64), Refused> {
 pub extern "C" fn _start(role: u64, index: u64, seed: u64) -> ! {
     if role == job_mix::ROLE_ECHO {
         loop {
-            let (_op, reply_slot, arg) = recv_cap(job_mix::SLOT_SERVE);
-            reply(reply_slot, arg, 0);
+            let req = recv_request(job_mix::SLOT_SERVE);
+            if let Some(to) = req.delivered.into_reply() {
+                reply(to, req.w1, 0);
+            }
         }
     }
 

@@ -973,4 +973,26 @@ mod tests {
         let listing: [(&[u8], bool); 3] = [(b"a.txt", false), (b"a.txt", false), (b"b.txt", false)];
         assert_eq!(expand(b"*.txt", &listing).unwrap().len(), 2);
     }
+
+    /// A batch keeps each name's entry type with the name when it slides a larger one up to make
+    /// room, so a directory that sorts into the middle is still a directory.
+    #[test]
+    fn a_name_sorted_into_the_middle_keeps_its_own_entry_type() {
+        let listing: [(&[u8], bool); 3] =
+            [(b"b3.txt", true), (b"b1.txt", false), (b"b2.txt", true)];
+        let b = batch(b"b*.txt", Resume::Start, &listing).unwrap();
+        let mut it = b.names.iter();
+        assert_eq!(it.next(), Some((&b"b1.txt"[..], false)));
+        assert_eq!(it.next(), Some((&b"b2.txt"[..], true)));
+        assert_eq!(it.next(), Some((&b"b3.txt"[..], true)));
+    }
+
+    #[test]
+    fn an_empty_set_has_no_last_name_and_here_is_remembered() {
+        assert_eq!(NameSet::empty().last(), None);
+        let mut d = Designation::none();
+        assert!(!d.is_here());
+        d.here();
+        assert!(d.is_here());
+    }
 }

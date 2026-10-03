@@ -75,7 +75,7 @@
 use abi::irq;
 use filesystem_protocol::blk;
 use user_mode_runtime::virtio::virtio_ring_barrier;
-use user_mode_runtime::{exit, invoke, send};
+use user_mode_runtime::{exit, invoke, recv_request, reply, send};
 
 // The kernel maps the DMA page at this fixed VA (must match kernel/src/user/virtio_service.rs).
 // The device REGISTERS are NOT mapped: we drive the device through a `Virtio` capability (slot 2),
@@ -1046,8 +1046,13 @@ pub fn run_blk_server(direct_memory_access_phys: u64) -> ! {
     // client can tell a real round trip from a constant yes: see `filesystem_protocol::blk::FLUSH`.
     let mut flushes: i64 = 0;
     loop {
-        // RECV_CAP: (first word, the Reply cap's slot, second word = the starting block index).
-        let (w0, reply, block) = user_mode_runtime::recv_cap(BLK_REQ);
+        // RECV_CAP: (first word, the Reply, second word = the starting block index). The Reply is
+        // typed by the kernel's `x4` (milestone 706 (a `CALL` server can tell a Reply from a
+        // delegation)): a SEND_CAP's capability is deleted, and a request with no Reply is served
+        // with nobody to answer, as before.
+        let req = recv_request(BLK_REQ);
+        let (w0, block) = (req.w0, req.w1);
+        let to = req.delivered.into_reply();
         // **Clamp, the same defence the file channel's server-side clamp is** (milestone 138 step
         // 4, mirroring step 3's `fs_service.rs` clamp): every caller today sends at most
         // `blk::TRANSFER_BLOCKS` (the field cannot encode more), but a request is never trusted to
@@ -1079,8 +1084,10 @@ pub fn run_blk_server(direct_memory_access_phys: u64) -> ! {
             }
             _ => -22, // EINVAL: an opcode this server does not implement
         };
-        // Answer through the one-shot Reply. SAFETY: `svc`; the kernel validated and consumes it.
-        unsafe { invoke(reply, abi::reply::REPLY, r0 as u64, 0, 0) };
+        // Answer through the one-shot Reply, which the kernel consumes.
+        if let Some(to) = to {
+            reply(to, r0 as u64, 0);
+        }
     }
 }
 

@@ -113,7 +113,7 @@
 #![no_main]
 
 use user_mode_runtime::mapped_window::{self, MappedWindow};
-use user_mode_runtime::{call, irq_wait, recv_cap, reply};
+use user_mode_runtime::{call, irq_wait, recv_request, reply};
 
 /// The one capability a soaker holds: the request endpoint, in slot 0.
 const ENDPOINT: u64 = 0;
@@ -192,13 +192,13 @@ pub extern "C" fn _start(role: u64, index: u64, seed: u64) -> ! {
                 core::hint::spin_loop();
             }
         } else if role == ROLE_RESPONDER {
-            // `recv_cap`, not `recv`: a CALL arrives with a reply capability, and answering it is
-            // what completes the caller's parked rendezvous. A responder that used `recv` would
-            // leave every caller blocked forever, which is a hang this workload would then report
-            // as a finding about the kernel.
-            let (word, reply_slot, _) = recv_cap(ENDPOINT);
-            if reply_slot != abi::rendezvous::NO_CAP {
-                reply(reply_slot, soak_page::answer(word), 0);
+            // `recv_request` (a `RECV_CAP`), not `recv`: a CALL arrives with a reply capability,
+            // and answering it is what completes the caller's parked rendezvous. A responder that
+            // used `recv` would leave every caller blocked forever, which is a hang this workload
+            // would then report as a finding about the kernel.
+            let req = recv_request(ENDPOINT);
+            if let Some(to) = req.delivered.into_reply() {
+                reply(to, soak_page::answer(req.w0), 0);
             } else {
                 // Nobody to answer. Counted as a mismatch rather than ignored: a CALL that arrived
                 // without its reply capability is exactly the shape of defect this workload is

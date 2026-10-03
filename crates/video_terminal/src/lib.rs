@@ -1727,6 +1727,107 @@ mod tests {
             .collect()
     }
 
+    // ---- survivor triage of the 2026-10-03 census ---------------------------------------------
+
+    /// Every rendition flag reads back as set, and as unset on a plain cell, through its own
+    /// predicate. Setting one twice leaves it set: it is an OR, not a toggle.
+    #[test]
+    fn each_flag_reads_back_through_its_own_predicate() {
+        let plain = Attr::DEFAULT;
+        for set in [
+            plain.with(BOLD, true),
+            plain.with(DIM, true),
+            plain.with(REVERSE, true),
+            plain.with(INVISIBLE, true),
+        ] {
+            assert_eq!(
+                [
+                    set.is_bold(),
+                    set.is_dim(),
+                    set.reverse(),
+                    set.is_invisible()
+                ]
+                .iter()
+                .filter(|&&f| f)
+                .count(),
+                1,
+                "exactly the flag that was set"
+            );
+        }
+        assert!(!plain.is_bold() && !plain.is_dim() && !plain.reverse() && !plain.is_invisible());
+        assert!(plain.with(BOLD, true).with(BOLD, true).is_bold());
+    }
+
+    /// `ESC [ 2 m` is dim, and nothing else in that sequence is.
+    #[test]
+    fn sgr_2_is_dim() {
+        let mut vt = Vt::new(10, 3);
+        vt.feed(b"\x1b[2mA\x1b[0mB");
+        assert!(vt.cell(0, 0).attr.is_dim());
+        assert!(!vt.cell(1, 0).attr.is_dim());
+        vt.feed(b"\x1b[1m\x1b[1mC");
+        assert!(vt.cell(2, 0).attr.is_bold());
+    }
+
+    /// Bold brightens the eight normal foregrounds and no other colour. Index 8 is already the
+    /// bright half, and adding 8 to it would reach into the colour cube.
+    #[test]
+    fn bold_brightens_the_first_eight_colours_and_stops() {
+        let bg = Colour::Indexed(0);
+        let seven = Attr::new(Colour::Indexed(7), bg).with(BOLD, true);
+        assert_eq!(seven.colours().0, Colour::Indexed(15).resolve());
+        let eight = Attr::new(Colour::Indexed(8), bg).with(BOLD, true);
+        assert_eq!(eight.colours().0, Colour::Indexed(8).resolve());
+    }
+
+    /// Dim is the midpoint of foreground and background, channel by channel, so two unequal
+    /// colours land on the average of each channel and not on a mix of channels.
+    #[test]
+    fn dim_averages_each_channel() {
+        assert_eq!(midpoint(0x11_22_33, 0x33_44_55), 0x22_33_44);
+        assert_eq!(midpoint(0xff_00_80, 0x00_ff_80), 0x7f_7f_80);
+    }
+
+    /// An underline is drawn on the last glyph row of the cell, which is a pixel a blank cell
+    /// otherwise leaves in the background colour.
+    #[test]
+    fn an_underline_is_the_last_row_of_the_cell() {
+        let mut vt = Vt::new(10, 3);
+        vt.feed(b"\x1b[4m ");
+        let (fg, bg) = vt.cell(0, 0).attr.colours();
+        let last = bitmap_font::GLYPH_H - 1;
+        assert_eq!(vt.pixel(0, last), fg);
+        assert_eq!(vt.pixel(0, last - 1), bg);
+        assert_eq!(vt.pixel(0, 0), bg);
+    }
+
+    /// A report with nothing scrolled repaints what changed, not the whole grid.
+    #[test]
+    fn an_unscrolled_report_repaints_its_own_rectangle() {
+        let rect = CellRect {
+            col: 2,
+            row: 1,
+            cols: 3,
+            rows: 1,
+        };
+        assert_eq!(Damage { scrolled: 0, rect }.repaint_rect(80, 24), rect);
+        let all = Damage { scrolled: 1, rect }.repaint_rect(80, 24);
+        assert_eq!((all.col, all.row, all.cols, all.rows), (0, 0, 80, 24));
+    }
+
+    /// A scroll lifts the old cursor block with the row it sat on: the drawn position moves up with
+    /// the pixels, so the report's box reaches one row above the cursor.
+    #[test]
+    fn a_scroll_reports_the_row_the_old_cursor_block_moved_to() {
+        let mut vt = Vt::new(10, 3);
+        vt.feed(b"\n\nabc");
+        vt.take_damage();
+        vt.feed(b"\n");
+        let d = vt.take_damage().expect("a scroll is a report");
+        assert_eq!(d.scrolled, 1);
+        assert_eq!((d.rect.row, d.rect.rows), (1, 2), "{:?}", d.rect);
+    }
+
     /// A plain rendition in two indexed colours.
     fn attr(fg: u8, bg: u8) -> Attr {
         Attr::new(Colour::Indexed(fg), Colour::Indexed(bg))

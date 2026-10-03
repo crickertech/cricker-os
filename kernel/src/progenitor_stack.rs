@@ -25,7 +25,7 @@
 //!
 //! # When it speaks
 //!
-//! From the scheduler's idle loop (and `x86_64`'s yield syscall, `on_yield`), beside the
+//! From the scheduler's idle loop, beside the
 //! capability-slot gauge of milestone 231 (nothing counts how many capability slots a boot actually
 //! uses), and coalesced the same way: it waits until the mark has not moved for [`STABLE_PASSES_NEEDED`] idle passes,
 //! and it never prints the same number twice. So a boot prints one line after the progenitor
@@ -35,10 +35,6 @@
 //!
 //! # BUGS
 //!
-//! - **`x86_64` speaks from the yield syscall instead**, `on_yield`, because its idle loop stops at
-//!   the hand-over. The capability-slot gauge has the same gap and does not have this fix; it
-//!   could share the trigger, which would make that gauge's `x86_64` line a peak rather than the
-//!   mark at the hand-over, and it is left for that gauge's owner rather than changed here.
 //! - **A watermark sees exercised paths only.** A spawn of a program `swish-check` never types
 //!   goes as deep as it goes, unmeasured. Milestone 84's BUGS has the general form.
 //! - **Name provisional**: the module and its two functions (this lane, not ratified).
@@ -134,35 +130,6 @@ pub fn report_peak() {
     }
     announce(used);
 }
-
-/// **`x86_64`'s trigger**, called from the yield syscall there, because that leg's idle loop stops
-/// running at the hand-over: the input driver polls COM1 and yields (milestone 299 (the x86 port-range capability: the
-/// serial console becomes a userspace driver)), so the run
-/// queue is never empty again. Every yield is a thread saying it has nothing to do, which is the
-/// idle loop's reason to report, from userspace.
-///
-/// One yield in [`YIELDS_PER_LOOK`] looks, because the driver yields in a tight loop and a look
-/// scans the headroom (about two thousand words today). Throttling cannot make the peak wrong,
-/// since the paint keeps it; it only makes the line later.
-///
-/// Only on `x86_64`: on aarch64 and riscv64 the idle loop already runs between commands, and a
-/// second trigger there would print more lines on a multi-core machine, where a kernel line and a
-/// userspace one can shuffle byte by byte (`script/swish-check`'s `boot_claim` has that story).
-#[cfg(target_arch = "x86_64")]
-pub fn on_yield() {
-    static YIELDS: AtomicU64 = AtomicU64::new(0);
-    if YIELDS
-        .fetch_add(1, Ordering::Relaxed)
-        .is_multiple_of(YIELDS_PER_LOOK)
-    {
-        report_peak();
-    }
-}
-
-/// How many yields `on_yield` lets pass between looks. A power of two picked to make a look
-/// rare against a polling loop; nothing depends on its exact value.
-#[cfg(target_arch = "x86_64")]
-const YIELDS_PER_LOOK: u64 = 256;
 
 /// The sentence `script/swish-check` reads. Its prefix is `xtask`'s `PROGENITOR_STACK_GAUGE`.
 fn announce(used: u64) {

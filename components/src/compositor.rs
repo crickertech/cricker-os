@@ -49,7 +49,7 @@
 use compositor::proto::{ctl, ring, wlist};
 use compositor::{Rect, SCENE};
 use graphics_protocol as gfx;
-use user_mode_runtime::{call, map_page_frame, recv_cap, reply, send};
+use user_mode_runtime::{call, map_page_frame, recv_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/compositor_service.rs`.
 const REPORT: u64 = 0;
@@ -359,10 +359,14 @@ pub extern "C" fn _start(windows: u64, focusable: u64, _arg2: u64) -> ! {
 
     loop {
         // One wait point, and everything arrives here: a client's HELLO or COMMIT, and the input
-        // source's ring. `recv_cap`'s second value is the kernel-minted one-shot Reply naming the
-        // caller, which is how a reply reaches whoever rang without this program ever knowing who
-        // that was.
-        let (w0, reply_slot, _) = recv_cap(DOORBELL);
+        // source's ring. `recv_request`'s `delivered` is the kernel-minted one-shot Reply naming
+        // the caller, which is how a reply reaches whoever rang without this program ever knowing
+        // who that was. Anything else (a client's SEND_CAP; milestone 706 (a `CALL` server can tell
+        // a Reply from a delegation)) gets no reply, and a delegated capability is deleted rather
+        // than answered into.
+        let req = recv_request(DOORBELL);
+        let w0 = req.w0;
+        let reply_slot = req.delivered.into_reply();
         let r0: i64 = match compositor::proto::op(w0) {
             compositor::proto::HELLO => 0,
             compositor::proto::COMMIT => {
@@ -371,7 +375,9 @@ pub extern "C" fn _start(windows: u64, focusable: u64, _arg2: u64) -> ! {
             }
             _ => compositor::proto::EBADOP,
         };
-        reply(reply_slot, r0 as u64, 0);
+        if let Some(to) = reply_slot {
+            reply(to, r0 as u64, 0);
+        }
     }
 }
 

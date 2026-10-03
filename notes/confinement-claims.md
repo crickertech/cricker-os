@@ -11,7 +11,7 @@ the assertion is decorative. Milestone 194 built the mechanism that tells those 
 harness (`Falsification:`, `script/falsifications`, a recorded patch that must turn one harness
 red). This milestone points it at the security claims.
 
-**Nothing here supports "the confinement holds."** What it supports is narrower and is the
+Nothing here supports "the confinement holds." What it supports is narrower and is the
 sentence to quote instead: *these named claims are tested, and each test has been shown to fail
 when the claim is broken.* It cannot reach a claim nobody made, and that is where real escapes
 live.
@@ -33,7 +33,7 @@ themselves. The last column is this milestone's result.
 | 8 | A process view shows exactly the rendezvous's own children | milestone 126 | `capability::a_survey_shows_exactly_the_endpoints_own_children` | **yes** |
 | 9 | What a supervisor may see and what it may reap are one domain | milestone 126 | `capability::the_view_and_the_reap_have_the_same_scope` | **yes** |
 | 10 | A user virtual address is in the low half and page-aligned, on every ISA | §19 | `paging::{aarch64,sv39,x86_64}::the_user_va_gate_admits_only_the_aligned_low_half` | **yes, three times** |
-| 11 | No page is both writable and executable | §19 | `paging::x86_64::no_encoded_leaf_is_both_writable_and_executable` | **yes** |
+| 11 | No page is both writable and executable | §19 (architectural parity is a tenet) | `paging::{aarch64,sv39,x86_64}::no_encoded_leaf_is_both_writable_and_executable` | **yes, three times** |
 | 12 | An IOMMU entry sets no bit the hardware treats as reserved | §20 | `paging::x86_64::no_vtd_entry_ever_sets_a_reserved_bit` | **yes, since 2026-09-16, and see below** |
 | 13 | A device cannot touch memory outside its driver's granted region | §20 (IOMMU-backed DMA isolation) | `direct_memory_access_validator::in_region_is_sound`, `an_accepted_descriptor_is_confined`, `validate_and_shadow_confines_every_chain` | **yes, three** |
 | 14 | A driver cannot send its device to descriptors nothing validated | §20 | `direct_memory_access_validator::an_accepted_descriptor_is_confined` (the indirect refusal) | **yes** |
@@ -47,7 +47,7 @@ themselves. The last column is this milestone's result.
 | 22 | An ELF cannot ask to be loaded over the kernel, or for a writable executable page | §15 | `kernel::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`, `..._for_a_writable_executable_page_is_refused` | **yes, two** |
 | 23 | The progenitor cannot rebuild after dropping its construction authority | §26 | `kernel::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again` | **yes, and see below** |
 | 24 | Two shells with different roots cannot name each other's files | §50 | `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files` | **yes, and see below** |
-| 25 | A client cannot reach its neighbour's pixels or read the screen | §66 | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` | **yes, one of its four** |
+| 25 | A client cannot reach its neighbour's pixels or read the screen | §33 (the compositor's authority is memory, not messages) | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` and five more in [compositor-claim-25.md](compositor-claim-25.md) | **yes, six patches, aarch64** |
 | 26 | A client of a rendezvous cannot become its server | §41 | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server` | **no, and see below** |
 | 27 | A thread holding no port capability cannot touch a port, and a holder's ports do not leak across a context switch (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults` | **yes, milestone 313, and see below** |
 | 28 | A revoked port holder faults on its next `in`/`out` (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write` | **yes, milestone 313** |
@@ -56,7 +56,7 @@ themselves. The last column is this milestone's result.
 
 ## Five claims that are stated nowhere, which is what step 1 was for
 
-**A confined component's *timing* is not confined.**
+A confined component's *timing* is not confined.
 Added 2026-09-02 with DECISIONS 139 (how a saturated workload is made to hand threads across
 cores is a different section; this is 139, who may read the cycle counter and by what authority).
 The words `timing`, `side channel` and `covert` appeared zero times in this note, in
@@ -65,28 +65,28 @@ by it; the absence was the finding. seL4 states its own position in one clause, 
 PMU to user level "opens the possibility of timing channels", and this tree intends to publish
 cycle-denominated numbers against seL4's while saying nothing.
 
-**The reason it cannot be claimed is measured rather than assumed.** Two threads and a shared word
+The reason it cannot be claimed is measured rather than assumed. Two threads and a shared word
 reconstruct a fine clock with no privileged instruction: 6.8 ns of usable resolution on cordoba
 under load, matching Schwarz et al. (FC 2017). That holds on all three architectures, so gating a
 cycle counter cannot deliver timing isolation on any of them. What the grant in DECISIONS 139
-buys is **accountable authority**: the cheap accurate path is granted rather than ambient, and the
+buys is accountable authority: the cheap accurate path is granted rather than ambient, and the
 kernel knows which threads hold it. It belongs in this section so nobody reads the capability rows
 as covering timing.
 
 
-**A confined device's *values* are not confined, only its *reach*.**
+A confined device's *values* are not confined, only its *reach*.
 `notes/untrusted-input-audit.md` says this in its own words ("the IOMMU confines placement, not
 values") and no test asserts it, because it is a limit rather than a guarantee. It belongs in
-this table as a claim the system does **not** make, so that nobody reads row 13 as covering it.
+this table as a claim the system does not make, so that nobody reads row 13 as covering it.
 The audit's finding 1 is the live consequence: the NVMe driver panics on a device-written index
 it does not check, which the IOMMU cannot prevent and does not claim to.
 
-**A `SURVEY` cursor counts threads the viewer cannot name.**
+A `SURVEY` cursor counts threads the viewer cannot name.
 `kernel::user::survey_tests::the_survey_cursor_counts_threads_the_viewer_cannot_name` is a test
 that *states a limit*, found by a 2026-08-17 audit. Row 8's claim is about which threads are
 shown; nothing claims the count is confined, and one is not.
 
-**A confined component's *interrupt target* is not confined, and nothing here has ever asked.**
+A confined component's *interrupt target* is not confined, and nothing here has ever asked.
 Added 2026-09-03 by DECISIONS §86's research pass, which went looking for what a userspace NVMe
 driver would need and found this underneath every option it was pricing. An MSI or MSI-X message is
 a memory write to an architecturally special address, so an IOMMU doing DMA remapping alone does not
@@ -94,7 +94,7 @@ confine it: a component that can write a device's MSI-X table can aim an interru
 was never given. Linux refuses to hand a device to an untrusted userspace driver on a machine
 without interrupt remapping for this reason, and names its escape hatch `allow_unsafe_interrupts`.
 
-**The absence is the finding, and it is three-deep.** Row 12 and row 13 are about where a device may
+The absence is the finding, and it is three-deep. Row 12 and row 13 are about where a device may
 *read and write*, and neither covers where it may *interrupt*. When this was written, no boot this
 tree runs could exercise the question even if a claim existed: `helpers/qemu-runner-x86_64.sh`
 attached `-device intel-iommu` with no `intremap=on`, and `helpers/qemu-runner-aarch64.sh` used
@@ -106,22 +106,22 @@ near it.
 2026-09-17). The x86_64 sentence above is a true reading of the runner script and a wrong
 conclusion, reached without booting it. QEMU's `intremap` property is tri-state and defaults to
 `auto`, which resolves ON when there is no in-kernel irqchip, so on patagonia `ECAP.IR` reads
-**set** on the default machine (`ECAP = 0xf00f4a`) and clear only under an explicit `intremap=off`
-(`0xf42`). **Interrupt remapping has been offered in every x86_64 boot this tree has ever run**,
+set on the default machine (`ECAP = 0xf00f4a`) and clear only under an explicit `intremap=off`
+(`0xf42`). Interrupt remapping has been offered in every x86_64 boot this tree has ever run,
 and nothing read the bit, so nobody noticed. The guest now reports it,
 `NIFE_INTREMAP=off` is the flag that reaches the machine without it, and one test asserts
 `GSTS.IRES` stays clear whatever `ECAP.IR` says. `design/decisions/86-el0-nvme-driver.md` still
 carries the uncorrected sentence; a lane may not edit that file, so it is flagged rather than
 fixed.
 
-**The second is measured, and it holds.** aarch64 is **not** one flag away: `gic-version=3` gives
+The second is measured, and it holds. aarch64 is not one flag away: `gic-version=3` gives
 QEMU's `virt` an ITS, and it also
 moves `reg[1]` from the CPU interface to the redistributor, which `memory::init`'s `intc@`
 name-prefix match hands to a GICv2 driver without ever reading `compatible`. The measured result is
 a boot that says `GICv2` while printing a redistributor base, with zero timer ticks. That is
 milestone 227's bill; see design/roadmap/317-interrupt-remapping-flags.md.
 
-**And there is a third architecture the paragraph above never mentions, which is the sharpest part.**
+And there is a third architecture the paragraph above never mentions, which is the sharpest part.
 riscv64 was not surveyed, and it is the one where the mechanism is closest to hand: the RISC-V IOMMU
 puts MSI confinement *inside the device context this kernel already writes on every attach*. Measured
 from a boot, `CAPS = 0x78c2cf4f10` has `MSI_FLAT` set, so every context is the extended 64-byte
@@ -130,14 +130,14 @@ and none is available. It is also the only one of the three that can never get a
 silicon ships the ratified RISC-V IOMMU (milestone 143), which inverts x86_64, where xenon is
 waiting.
 
-**So MSI confinement lives in three different places and none of the three is exercised**: a separate
+So MSI confinement lives in three different places and none of the three is exercised: a separate
 IOMMU feature on x86_64, a separate device (the GICv3 ITS) on aarch64, one mode field on riscv64.
 Each machine description now reports its own position, which is what makes this checkable at all.
 
-**The claim itself stays stated nowhere.** Nothing writes an `IRTE`, nothing programs an MSI page
+The claim itself stays stated nowhere. Nothing writes an `IRTE`, nothing programs an MSI page
 table, and nothing forges an MSI to see where it lands.
 
-**It is latent rather than false**, and it stays latent exactly as long as every component that can
+It is latent rather than false, and it stays latent exactly as long as every component that can
 reach a BAR is the kernel. It goes live the first time a driver leaves the kernel and wants
 interrupts instead of polling, which is what §86 decides. Whatever §86 settles has to say who owns
 the page holding the MSI-X table; the cheap first move was two runner flags, and milestone 317 took
@@ -149,11 +149,11 @@ block has the three invocations.) The hazard is the one milestone
 §31's headline assertion: green after turning the flags on proves nothing by itself, and the
 falsification has to be a driver aiming an interrupt where it was not given one, coming back red.
 
-**The progenitor's bytes are unsigned.**
+The progenitor's bytes are unsigned.
 §14 says so plainly in its own honest caveat and it is not in the table because it is not a
 confinement claim; it is the reason the confinement has an unverified component inside it.
 
-**The kernel cannot execute a confined component's code.**
+The kernel cannot execute a confined component's code.
 Added 2026-09-17 by milestone 313's audit, which found it stated nowhere and true on one
 architecture only by accident. No row above says it and no test asks. On aarch64 it is `PXN`, which
 the encoder sets on every user page; on riscv64 it is the hardware, which refuses a supervisor
@@ -162,7 +162,7 @@ set until that audit, so a user code page with `XD` clear was executable at ring
 `crates/paging`'s decoder reported. It is not a userspace escape on its own (a kernel control-flow
 bug has to come first), which is why it belongs in this section rather than in the table: it is
 the thing that turns any such bug into a full one. `arch::x86_64::init` now sets the bit on every
-core whose CPUID offers it and prints a line either way. **There is still no test**, because a
+core whose CPUID offers it and prints a line either way. There is still no test, because a
 falsification would need ring 0 to survive its own page fault, and `SMAP` (its sibling, per-access
 and not free) stays off with the reason `mmu::permit_kernel_access_to_user_pages` records; both are
 milestone 424 (design/roadmap/424-a-ring-0-that-provably-cannot-execute-ring-3-pages.md).
@@ -176,7 +176,7 @@ Three results are worth more than the count.
 **Milestone 305 added the kernel half** (2026-09-16), which milestone 202 could not: ten kernel
 `#[test_case]`s now carry a record and `--sweep` replays each by booting one architecture. Its own
 results are in the section after this one. Read them first if you only read one: the headline is a
-confinement test that **stayed green under a patch that broke the thing it claims**, and had been
+confinement test that stayed green under a patch that broke the thing it claims, and had been
 unable to fail since milestone 41.
 
 ### §31's headline sentence is not what catches a broken confinement
@@ -239,23 +239,23 @@ more than that count.
 Row 21's RISC-V twin, `the_page_tables_say_u_mode_cannot_read_the_kernels_memory`, is the one place
 this milestone found the thing it was looking for. The patch removes the `U`-bit check from
 `mmu::user_can_read` outright, which is as complete a break of that test's stated property as can be
-written, and the first sweep reported **SURVIVOR**: the test ran, and passed.
+written, and the first sweep reported SURVIVOR: the test ran, and passed.
 
 The reason was not a weak defect. `user_can_read` walked through `translate_user`, and
-`translate_at` builds its `Mapper` with `Half::Low`, **always**, so the high-half kernel address the
+`translate_at` builds its `Mapper` with `Half::Low`, always, so the high-half kernel address the
 test asks about came back `None` before any leaf was read. The headline assertion, `assert!(
 !mmu::user_can_read(kernel_va), "the page tables say U-mode could read the kernel's own memory")`,
 answered "no" by refusing to look. It could not fail, and the test's own doc comment calls that walk
 "the thing under test" and calls the `U` bit RISC-V's single line of defence.
 
-**The tree had already written the cause down and nothing connected it.**
+The tree had already written the cause down and nothing connected it.
 `is_mapped_in_current_space`, forty lines away in the same file, exists for exactly this case and
 says so in its doc comment: *"a user thread reaching for the kernel's memory names a high-half
 address ... `translate_user` alone would say 'not mapped' for it and turn the most interesting case
 into the wrong answer."* `user_can_read` went on calling `translate_user`.
 
 Milestone 305 fixed it (`translate_in_either_half`) and the patch is recorded against the fixed
-function, so the row is evidence now rather than ritual. **Two things follow.** A green confinement
+function, so the row is evidence now rather than ritual. Two things follow. A green confinement
 test is consistent with the assertion being unable to fail, which is this note's opening sentence
 arriving from a direction nobody had checked. And **the only instrument that could find it was a
 falsification**: every gate in this tree was green throughout, because a vacuous assertion is a
@@ -271,7 +271,7 @@ structural rather than incidental.**
 the per-shell bitmap equalities in `assert_report`, and once as the crossing, `assert_eq!((a &
 nb::REACHED_SECRET, b & nb::REACHED_INNER), (0, 0), "a shell named a file in the other shell's
 root")`. The second is the sentence the milestone makes and the one a reader would quote. It sits
-**below** both per-shell checks, and **it cannot run**: any defect that causes a crossing sets a
+below both per-shell checks, and it cannot run: any defect that causes a crossing sets a
 forbidden bit in one of the reports, and `assert_report`'s first direction catches that one call
 earlier. No patch tried in milestone 305 made the crossing fire, and none can.
 
@@ -282,7 +282,7 @@ reading "livelock". Two instances found the same way promotes it from an anecdot
 thing to look for: **in a test that states its property twice, the readable statement is usually the
 unreachable one.**
 
-**And row 24's own record is weaker than the row looks**, which the patch says where a reader meets
+And row 24's own record is weaker than the row looks, which the patch says where a reader meets
 it. The recorded defect (the caretaker serving the filesystem root instead of its narrowed handle)
 turns the test red through `assert_report`'s *second* direction, the vacuity guard: the shell could
 no longer reach its own files, so every refusal it reported would have proved nothing. Nothing
@@ -291,13 +291,13 @@ crossed. It proves the test is wired to the real root handle; it does not demons
 ### Row 21's "on every ISA" is not evidenced the same way on every ISA
 
 The aarch64 falsifications map the kernel's own memory EL0-readable, one flag at one call site, and
-the tests watch the hardware refuse. **That defect cannot be booted on RISC-V.** `crates/paging`'s
+the tests watch the hardware refuse. That defect cannot be booted on RISC-V. `crates/paging`'s
 Sv39 encoder turns `CAP_USER` into the `U` bit, and S-mode access to a `U` page faults unless
 `sstatus.SUM` is set, which this kernel sets only inside a test helper. A kernel that marked its own
 `.rodata` user-readable there would not be a kernel userspace can read; it would be a kernel that
 cannot read itself, dead before the first test. So the RISC-V evidence is against the software walk
 instead, and the row's three "yes"es are not three of the same thing. DECISIONS §19 makes parity a
-gate for the **capability**; this is a gap in the **evidence**.
+gate for the capability; this is a gap in the evidence.
 
 **And the `x86_64` leg has no evidence at all** (milestone 313's audit, 2026-09-17).
 `a_user_program_cannot_read_a_kernel_address` runs on aarch64 and `x86_64`, and its record declares
@@ -318,7 +318,7 @@ aarch64 twice and riscv64 once. The mechanism change is proposed in
 patch was written and run on 2026-09-16, and the result was **a 60-second watchdog reading "no
 progress ... a lost-wakeup hang"**, with a thread dump and not one word about impersonation.
 
-The reason is structural. `RECV_CAP` is a **blocking** receive. An attacker the kernel fails to
+The reason is structural. `RECV_CAP` is a blocking receive. An attacker the kernel fails to
 refuse does not come back and report an escape; it takes the message the honest server was waiting
 for, or parks on the rendezvous, and the run deadlocks. So the assertion that states the claim is
 reachable only when the kernel *does* refuse, and the case it is written about cannot reach it.
@@ -356,14 +356,14 @@ look like is what makes the rest worth reading.
 
 | Verdict | Rows | Count |
 |---|---|---|
-| **Fires as advertised** | 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 16, 18, 19, 21, 22, 23, 25 | 17 |
-| **The quotable assertion cannot run** | 4, 13, 14, 15, 20, 24 | 6 |
-| **Answered by refusing to look** | 12 | 1 |
+| Fires as advertised | 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 16, 18, 19, 21, 22, 23, 25 | 17 |
+| The quotable assertion cannot run | 4, 13, 14, 15, 20, 24 | 6 |
+| Answered by refusing to look | 12 | 1 |
 | Deliberately `unfalsified`, so neither | 17, 26 | 2 |
 
 Two of the seventeen carry an unreachable restatement *below* a headline that does fire, which is
 the same shape doing less damage: row 18's `& GRANT == 0` and row 25's two
-`rendezvous_waiting_senders` checks. They are counted where their headline is and described below.
+`rendezvous_waiting_senders` checks.
 
 Row-by-row notes on the seventeen, so a reader can tell which fact is which rather than inferring it
 from a count: rows 1, 3, 5, 6, 8, 10, 11 and 16 state their property independently of the code under
@@ -380,7 +380,7 @@ tests, and 23's evidence is about the test rather than the kernel for the reason
 
 `paging::x86_64::no_vtd_entry_ever_sets_a_reserved_bit` is row 12's whole evidence: §20's claim that
 an IOMMU entry sets no bit the hardware treats as reserved. It stated all three of its assertions,
-**and its `kani::assume`**, through `VTD_ADDR_MASK`, `VTD_R` and `VTD_W`. Those are the three
+and its `kani::assume`, through `VTD_ADDR_MASK`, `VTD_R` and `VTD_W`. Those are the three
 constants `Vtd::leaf_entry` builds its result out of:
 
 ```rust
@@ -388,11 +388,11 @@ fn leaf_entry(pa: u64, flags: Flags) -> u64 { (pa & VTD_ADDR_MASK) | bits }   //
 assert_eq!(leaf & !(VTD_ADDR_MASK | VTD_R | VTD_W), 0);
 ```
 
-`(pa & M) | bits` sets no bit outside `M | VTD_R | VTD_W` **for every value of M**, and the assume
+`(pa & M) | bits` sets no bit outside `M | VTD_R | VTD_W` for every value of M, and the assume
 admitted exactly the addresses `M` allowed, so widening the mask moved the encoder, the input space
 and the assertion in lockstep. The address half of the claim was a tautology.
 
-**Measured, and this is the part that makes it a finding rather than an argument.** With
+Measured, and this is the part that makes it a finding rather than an argument. With
 `VTD_ADDR_MASK` widened to bits 62:12, a range a VT-d second-level entry really does reserve
 (patagonia, 2026-09-16, kani 0.67.0):
 
@@ -408,7 +408,7 @@ could plausibly change. And the consequence is not cosmetic: QEMU's model and re
 transaction over a reserved bit rather than ignoring it, so the failure mode is an IOMMU whose every
 translation fails, presenting as broken hardware rather than as a bad table.
 
-**The tree had already recorded the opposite, in writing, forty lines up.** The comment on
+The tree had already recorded the opposite, in writing, forty lines up. The comment on
 `the_leaf_keeps_address_and_permissions_apart` explains this exact trap correctly and then says
 *"`no_vtd_entry_ever_sets_a_reserved_bit` in this crate already works this way; this is the same move
 on the portable leaf."* It did not work that way. A lane that had just avoided the trap cited, as its
@@ -419,7 +419,7 @@ Fixed here: the permitted bits are a literal (`VTD_PERMITTED_BITS`, `cfg`-gated 
 configurations so no implementation can reach it and reintroduce the coupling), and the assume is
 gone, because masking the address down is `leaf_entry`'s own job and a claim about what it does with
 an arbitrary address may not assume the address is already in range. The host twin
-`a_vtd_leaf_sets_no_bit_outside_read_write_and_address` was blind for a **second, independent**
+`a_vtd_leaf_sets_no_bit_outside_read_write_and_address` was blind for a second, independent
 reason on top of the first, and it is worth naming because a literal alone would not have fixed it:
 its one concrete address `0x10_0000` has no bits above 51, so the encoder's masking was never
 exercised and a wider mask changed nothing it could observe. It now runs three addresses and catches
@@ -431,21 +431,21 @@ Milestone 305 promoted "in a test that states its property twice, the readable s
 the unreachable one" from an anecdote about §31 to a thing to look for. It looks for well. Eight rows
 carry an assertion that states the claim in the claim's own vocabulary and cannot run:
 
-- **Row 13.** `in_region_is_sound` ended with `assert!(addr >= base && end <= limit)`, carrying the
+- Row 13. `in_region_is_sound` ended with `assert!(addr >= base && end <= limit)`, carrying the
   comment *"no byte the device would touch lies outside the granted region"*, directly below the two
   assertions it is the conjunction of. Removed in 307; the sentence moved onto the live pair.
-- **Row 14.** `an_accepted_descriptor_is_confined` kept `assert!(!d.is_indirect())` and
+- Row 14. `an_accepted_descriptor_is_confined` kept `assert!(!d.is_indirect())` and
   `assert!(is_in_region(base, size, d.addr, d.buf_len()))` **below** the assertions of milestone 211
   (a harness that states its property through the function under test) that replaced them. Inside
   `if check_descriptor(..)` those are the same two calls with the same arguments the guard returns
   false on, so neither can fail. 211 added the working phrasing and left the blind one underneath
   holding both readable messages. Removed in 307.
-- **Row 18.** The inversion described in the section above.
-- **Row 4.** `a_deleted_capability_stays_deleted`'s `get`/`delete` re-use refusals sit below the
+- Row 18. The inversion described in the section above.
+- Row 4. `a_deleted_capability_stays_deleted`'s `get`/`delete` re-use refusals sit below the
   storage check `assert!(cs.slots[slot].is_none())`, which catches the same defect one line earlier.
   Benign and already named in an in-code comment; left alone, because the accessors are the claim's
   vocabulary and the storage line is its mechanism, and here that costs nothing.
-- **Row 15.** `an_oversized_batch_is_refused`'s single `assert!(!ok)` is never reached; the panicking
+- Row 15. `an_oversized_batch_is_refused`'s single `assert!(!ok)` is never reached; the panicking
   closures are the mechanism. Its own patch says so. Left alone for the same reason.
 - **Row 20.** §31's headline, and 307 sharpens what 305 recorded. `assert_eq!(v[2], CONFINED)` is not
   simply unreachable: it is reachable **only through the two bits that are not the confinement
@@ -454,14 +454,13 @@ carry an assertion that states the claim in the claim's own vocabulary and canno
   `WITNESS_FAR_INTACT` means the store landed instead of faulting, so no death is reported and the
   run stalls at `wait_for_report`. The assertion that prints *"read-only witness intact"* can fire
   for everything except a broken witness.
-- **Row 24.** 305 recorded the relative-path crossing as unreachable. **It is the same for the
+- Row 24. 305 recorded the relative-path crossing as unreachable. **It is the same for the
   absolute-path crossing twenty lines further down**, and for all four `assert_ne!` lines beside the
   two: every one of them restates a bit `assert_report` has already checked in one direction or the
   other. Six assertions, all of them the readable half, none of them able to run.
-- **Row 25.** The two `assert_eq!(sched::rendezvous_waiting_senders(..), 0)` lines, whose messages
+- Row 25. The two `assert_eq!(sched::rendezvous_waiting_senders(..), 0)` lines, whose messages
   read *"the write did not fault"* and *"a client read a pixel of the screen it holds no mapping
-  of"*, sit below a `wait_for` on the fault counter that catches exactly that defect two seconds
-  earlier. The quotable assertion for row 25 is the fault wait itself, and that one fires.
+  of"*, sit below a `wait_for` on the fault counter that catches that defect first. The fault wait fires.
 
 ### Two limits the sweep found that are not assertion order
 
@@ -469,7 +468,7 @@ carry an assertion that states the claim in the claim's own vocabulary and canno
 the only place.** `a_read_only_segment_is_mapped_read_only` asserts
 `!flags.is_kernel_executable()` on a user `.rodata` page. On aarch64 that is a live check: `PXN` is
 a bit independent of `AP_USER`, and a kernel-executable user page is a real hazard the
-`Flags::user_code` doc calls out by name. On **riscv64 and x86_64 it cannot fail**, because both
+`Flags::user_code` doc calls out by name. On riscv64 and x86_64 it cannot fail, because both
 decoders reach `CAP_KERNEL_EXEC` only through an `else` branch that requires the user bit clear
 (`sv39.rs` `leaf_flags`, `x86_64.rs` `leaf_flags`), and the assertion two lines up has already
 established the page is user-accessible. ~~The decoders are faithful: on those two ISAs the hardware
@@ -484,7 +483,7 @@ structural point survives with that caveat: the assertion still cannot fail on t
 what is wrong is reading one portable test as three ISAs' worth of evidence. Same distinction 305
 drew for row 21: a gap in the evidence, not in the capability.
 
-**Row 19's attackers cannot tell a refusal from a probe that was never sent.** `fs_test_client`'s
+Row 19's attackers cannot tell a refusal from a probe that was never sent. `fs_test_client`'s
 `dir_attacker` sets `REACHED_PARENT` and its siblings only on *success*, so a fixture that stopped
 attempting the parent open would report a clean verdict and the test would pass. `OPENED_ITS_OWN`
 and `GRANTED_ACCESS_FAILED` guard the other direction (a capability that reaches nothing is
@@ -516,12 +515,12 @@ indistinguishable from one that stopped early.
 
 ### A capability revoked while it is in flight was delivered anyway
 
-**The attack.** Ask where a capability can live that is not a capability-table slot, because every
+The attack. Ask where a capability can live that is not a capability-table slot, because every
 revocation sweep in the kernel walks tables. There is exactly one such place and it is not obscure:
 `Thread::outgoing_cap`, the hand-off slot `sched::ipc_send_cap` writes when a `SEND_CAP` finds no
 receiver waiting, and `sched::ipc_recv_cap` takes when one arrives.
 
-**It was false.** A sender parks `PageFrame(p, 1)` there and blocks. `PageFrame::REVOKE` then runs
+It was false. A sender parks `PageFrame(p, 1)` there and blocks. `PageFrame::REVOKE` then runs
 over that frame: `sched::delete_page_frame_caps_where` deletes the capability from every table
 including the sender's own, and `revoke::unmap_under_object` unmaps every page the log records. The
 hand-off slot is read by neither. The next `RECV_CAP` files the surviving capability in the
@@ -530,7 +529,7 @@ argued: `kernel::user::revocation_in_flight_tests::
 a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` went red on the tree as it
 stood, on aarch64, with its vacuity guard and its premise check both green first.
 
-**`MemoryRegion::DESTROY` is the sharper case.** `revoke::revoke_region` sweeps capabilities by
+`MemoryRegion::DESTROY` is the sharper case. `revoke::revoke_region` sweeps capabilities by
 overlap precisely so that "no capability still names a page this allocator is about to hand out" is
 true before the region's pages go back, which is the hole the review in milestone 142 (a text display good enough that people use it
 instead of a GUI) found and closed.
@@ -538,7 +537,7 @@ An in-flight capability reopens it: the use-after-free DECISIONS §13 (capabilit
 untyped reclamation) exists to prevent, through the one slot nobody
 swept.
 
-**The tree had written the rule down, once, for a different object.**
+The tree had written the rule down, once, for a different object.
 `sched::delete_reply_caps_naming` sweeps `outgoing_cap` beside the tables and its doc comment says
 why in exactly the words this defect needed: *"`outgoing_cap` goes too, and it is the half a second
 copy would forget ... a live `Reply` in a hand-off slot is the same forgery one step earlier."* The
@@ -548,7 +547,7 @@ the one harness still caught in it. **The failure is not that nobody knew; it is
 in a doc comment on one call site**, which is AGENTS.md's ladder rung four wearing the clothes of a
 design.
 
-**Fixed here**, in the three sweeps that lacked it (`delete_page_frame_caps_where`, which is both
+Fixed here, in the three sweeps that lacked it (`delete_page_frame_caps_where`, which is both
 `PageFrame` policies; `delete_device_frame_caps_from_others`; and `x86_64`'s
 `delete_port_range_caps_impl`), by dropping the parked capability. Dropping rather than failing the
 send is the behaviour `ipc_send_cap` already documents for the other way a hand-off comes up empty,
@@ -556,7 +555,7 @@ a receiver whose table is full: the data word still arrives and the receiver see
 error reaches userspace, so nothing about the syscall surface moves. The falsification is recorded
 and replayed red.
 
-**What it does not settle.** Only the `PageFrame` sweep is driven by a test; the other two carry the
+What it does not settle. Only the `PageFrame` sweep is driven by a test; the other two carry the
 same two lines and nothing exercises them through a parked hand-off, so read those as reasoned from
 the code. And the test stops at delivery rather than at exploitation: it proves the receiver holds a
 capability naming the revoked run, not that it then read a page somebody else owns.
@@ -569,7 +568,7 @@ registers, a `Spawn::maps` entry, a `DeviceRun`, the initrd, the `x86_64` timeba
 `DeviceFrame::REVOKE`, `PageFrame::REVOKE` and `MemoryRegion::DESTROY`: the capability went and the
 mapping stayed, which is a take-back doing half its job.
 
-**This was first recorded here as latent, and that was wrong.** The paragraph this replaces said
+This was first recorded here as latent, and that was wrong. The paragraph this replaces said
 nothing reached it, on the grounds that every `map_physical` call site is boot wiring and a driver a
 userspace supervisor builds takes `MAP_INTO`, which records. Both halves of that are true and the
 conclusion does not follow, because it asks only where the *mapping* comes from and never asks
@@ -581,7 +580,7 @@ two halves are wired by different modules, which is why nobody had put them side
 progenitor may make: it deleted every capability naming the run and unmapped every mapping recorded
 under it, and the FS server kept its writable mapping of a page the progenitor had just un-shared.
 
-**Fixed, by making the record a required argument rather than a call to remember.** `map_physical`
+Fixed, by making the record a required argument rather than a call to remember. `map_physical`
 now takes `revoke::PageMapSource` and records, exactly as `record_mapping` has required an answer
 since §132 (what `PageFrame::REVOKE` owes an overlapping run); it was the one mapping site
 in the kernel that never had to answer, because it never recorded. Every kernel-wiring caller passes
@@ -591,7 +590,7 @@ the one caller with nothing extra to remember. Nothing about the syscall surface
 `kernel::user::spawn_mapping_revocation_tests::a_page_the_kernel_wired_is_unmapped_when_its_frame_is_revoked`
 is the falsification, replayed red on aarch64 with its vacuity guard and premise check green first.
 
-**What it costs, since a record is not free and these are boot paths.** One `LogEntry` per mapping,
+What it costs, since a record is not free and these are boot paths. One `LogEntry` per mapping,
 170 to a page, paid out of the mapped space's own backing region. Every caller but one maps a
 handful of pages; the exception is the initrd read-only window, 2837 pages on aarch64 today, which
 is 17 log pages per space that maps it. The suite was green before those budgets were widened, which
@@ -599,7 +598,7 @@ means the existing slack absorbed it with roughly 8% to spare, which is the reas
 explicit (`revoke::log_pages_for`) rather than a reason it did not need to be: the archive grows
 every milestone and the first budget to blow would have done it on an unrelated change.
 
-**What it does not settle.** The test drives the `PageFrame` sweep. `revoke_device_from_others` and
+What it does not settle. The test drives the `PageFrame` sweep. `revoke_device_from_others` and
 `revoke_region` read the same log and are fixed by the same record, but nothing drives a wired
 mapping through either, so read those as reasoned from the code. `revoke_region`'s limb is the
 narrower one and worth stating as a genuine "narrower than recorded": no `map_physical` call site in
@@ -626,16 +625,16 @@ capability would let it) answers. |
 
 ### What this pass could not reach
 
-- **The falsification for the finding above is aarch64's**, which is the architecture it was
-  replayed on. The **test** runs green on all three (aarch64, riscv64 and `x86_64`, 2026-09-21), and
+- The falsification for the finding above is aarch64's, which is the architecture it was
+  replayed on. The test runs green on all three (aarch64, riscv64 and `x86_64`, 2026-09-21), and
   nothing in `outgoing_cap`, the sweeps or the rendezvous is architecture-specific, so the parity
   gate is met. What is aarch64-only is the recorded evidence that the test can fail, which is the
   distinction drawn by milestone 313 (the security audit that was due since August: userspace
   confinement, read adversarially), and this row inherits it.
-- **The claims whose enforcement is a userspace program rather than the kernel.** The caretakers
+- The claims whose enforcement is a userspace program rather than the kernel. The caretakers
   were read, not attacked from a hostile client. A hostile client is a fixture and a boot, and it is
   the shape `design/fatal-risks/README.md` says wants outside eyes anyway.
-- **Anything needing hardware this project does not own.** MSI confinement stays exactly where
+- Anything needing hardware this project does not own. MSI confinement stays exactly where
   milestone 317 (the interrupt-remapping flags, and where MSI confinement actually lives) left it.
 
 ## BUGS
@@ -655,12 +654,12 @@ capability would let it) answers. |
   by a full `--sweep`, which nobody runs per commit, and only on the architecture its patch names.
   Both limits are in `script/falsifications`' own `BUGS`. Read the "Falsified" column accordingly: a
   **yes** on a kernel row is a machine-replayable fact that nothing replays on a schedule.
-- **This table is a floor and its own worst failure is invisible.** It cannot list the claim
+- This table is a floor and its own worst failure is invisible. It cannot list the claim
   nobody made. Every row here was found by reading what this project already wrote, so the
   enumeration inherits exactly the blind spots the tests have. §31's `BUGS` and
   `design/fatal-risks/README.md` both say the decisive experiment is adversarial and by somebody else;
   this is not that, and calef's position gates outside eyes behind milestone 198.
-- **A recorded falsification proves the harness catches *that* defect, not the class.** The
+- A recorded falsification proves the harness catches *that* defect, not the class. The
   `the_view_and_the_reap_have_the_same_scope` record carries a prediction that was measured
   false: its defect was claimed to be caught by that harness alone and it also reaches
   `reap_is_permitted_only_to_the_supervising_rendezvous`. Both the prediction and its correction
@@ -679,7 +678,7 @@ capability would let it) answers. |
   nothing but a line. Where 307 did remove such a line (rows 13, 14, 18) it was because the assertion
   was a *restatement of the guard itself*, so no defect anywhere can separate them. The distinction
   is worth keeping: one is redundancy, the other is decoration.
-- **The sweep read every assertion and broke exactly one.** Reading is how all nine unreachable
+- The sweep read every assertion and broke exactly one. Reading is how all nine unreachable
   assertions were found and it is cheap; breaking is the only thing that can find a survivor and it
   costs a solver run or a boot per defect. Row 12 was broken because the reading predicted a
   tautology and a prediction about a proof is worth confirming. The other 25 rows' verdicts are
@@ -691,7 +690,7 @@ capability would let it) answers. |
   was followed by a `SEND` nobody received, so the escape hung the run: row 26's shape, one object
   over), and a third property, self-deletion, false in the tree. The fixtures were reshaped so an
   escape exits and arrives as `EVENT_EXIT` where the test wants `EVENT_FAULT`, and all three rows
-  carry a record replayed on `x86_64`. Row 27's record also names the defect that did **not** fire,
+  carry a record replayed on `x86_64`. Row 27's record also names the defect that did not fire,
   because the hand-off is protected twice (the bitmap bits and the `iomap_base` word) and only a
   defect that defeats both turns the test red. The audit is
   [design/audit-reports/2026-09-17-userspace-confinement.md](../design/audit-reports/2026-09-17-userspace-confinement.md).

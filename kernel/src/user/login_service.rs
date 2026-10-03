@@ -171,8 +171,9 @@ fn map_blob(space: &mut AddressSpace, base: u64, bytes: &[u8]) {
     }
 }
 
-/// **Wire and spawn the login service.** It parses the initrd for `fs_subtree_caretaker`'s own
-/// bytes and then blocks on [`Wiring::request`].
+/// **Wire and spawn the login service, and return once its start-up pass is over.** It parses the
+/// initrd for `fs_subtree_caretaker`'s own bytes, re-derives what the durable-session manifest
+/// names, and then blocks on [`Wiring::request`].
 ///
 /// `verify` is the credential service's verify endpoint (milestone 56), already sealed: login never
 /// provisions it and never could. `verify_page_frame` is the exact physical frame that instance maps at
@@ -381,6 +382,24 @@ pub fn start(
         ],
     )
     .expect("start");
+
+    // **Returned only once `login`'s start-up pass is over**, so no caller holds a `Wiring` to a
+    // `login` that is still re-deriving. That pass reads the manifest, the suspended list and each
+    // stored schedule through `fs_page_frame`, the one page every direct client of the file
+    // service writes its names into, and `login.rs` takes it as "this process's alone" because no
+    // session is live yet. A caller that went on to write that page itself (`fs_service`'s
+    // `set_home_file` and `set_root_list`, `login_tests`' `ensure_home_subtree`) raced it: the
+    // durable start-up test failed twice on 2026-10-03 with corinne's subtree not found (`-2`, on
+    // sifive-u54) and her stored schedule not found (on thead-c906), so not one CPU model's fault.
+    // `REDERIVE_SKIPS` is the one front-door word with no side effect, and `login` receives
+    // nothing on the front door until the pass has run.
+    sched::ipc_send(request, [login_protocol::rederive_skips_word(), 0, 0]);
+    let r = sched::ipc_recv(result);
+    assert_eq!(
+        r[0],
+        login_protocol::SKIP_COUNTS,
+        "login did not answer REDERIVE_SKIPS at the end of its start-up pass",
+    );
 
     Wiring {
         request,
