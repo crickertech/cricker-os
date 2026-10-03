@@ -58,7 +58,7 @@ it is the entry that would satisfy the precondition above and could be added bes
 
 The list's entries are short and factual, and its voice is not a pitch. A draft, to be argued with:
 
-> `* [nife](https://github.com/crickertech/nife) - Capability microkernel in Rust for aarch64,
+> `* [nife](https://github.com/nifeos/nife) - Capability microkernel in Rust for aarch64,
 >   riscv64 and x86_64, where every driver, filesystem and network stack is a confined userspace
 >   process`
 

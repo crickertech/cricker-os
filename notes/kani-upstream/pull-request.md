@@ -32,6 +32,6 @@ CBMC does not care which machine it runs on; the machine model is data Kani writ
 
 ### Disclosure
 
-This change was written by an AI coding agent (Claude Code) working under my direction, for [nife](https://github.com/crickertech/nife), a capability microkernel that uses Kani for its kernel proofs. I'm responsible for it and will follow up on review.
+This change was written by an AI coding agent (Claude Code) working under my direction, for [nife](https://github.com/nifeos/nife), a capability microkernel that uses Kani for its kernel proofs. I'm responsible for it and will follow up on review.
 
 By submitting this pull request, I confirm that my contribution is made under the terms of the Apache 2.0 and MIT licenses.

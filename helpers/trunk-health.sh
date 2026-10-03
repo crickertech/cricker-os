@@ -103,7 +103,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-REPO="crickertech/nife"
+REPO="nifeos/nife"
 once=""
 [ "$1" = "--once" ] && once=1
 

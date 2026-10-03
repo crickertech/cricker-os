@@ -99,7 +99,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-REPO=crickertech/nife
+REPO=nifeos/nife
 CSV=notes/project-metrics/ci-log-baseline.csv
 CACHE=target/ci-log-baseline-cache
 mkdir -p "$CACHE"

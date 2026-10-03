@@ -96,7 +96,7 @@ holding.
   secrets on `automation`, then deletes the organisation-level copies. Until then option 3 is inert:
   an org secret reaches every job regardless of environment. After it, a dispatch of each of the
   three workflows confirms the jobs still mint the token. Checked 2026-09-24: the environment's
-  secrets endpoint (`gh api repos/crickertech/nife/environments/automation/secrets`) lists none.
+  secrets endpoint (`gh api repos/nifeos/nife/environments/automation/secrets`) lists none.
 - **Outstanding.** Option 1, a required approving review the App would give. Not ruled; its cost is
   as written under Options. Checked 2026-09-24: the `main` ruleset's `pull_request` rule still
   reads `required_approving_review_count: 0`.

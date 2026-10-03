@@ -128,7 +128,7 @@ conveying. So:
 > **No artifact this project conveys carries copyleft until packages exist to carry it. What a build
 > produces on a developer's own machine is unconstrained.**
 
-**2. Fetch GPL source, do not vendor it.** `crickertech/nife` is public, so **source is already
+**2. Fetch GPL source, do not vendor it.** `nifeos/nife` is public, so **source is already
 conveyed**, which is the permissive case and imposes essentially nothing. But vendoring would put
 copyleft in the tree itself, which costs a claim this project otherwise gets to make cleanly and
 grows the repository for no gain. A recipe that fetches upstream at build time keeps both. Note that

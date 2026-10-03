@@ -74,7 +74,7 @@ STATUS_PATH = os.path.join(root, "vendor", "upstream-status.md")
 
 # A courtesy rather than a requirement: crates.io asks that automated clients identify themselves,
 # and an anonymous poller is the kind of thing a registry blocks first when it needs to.
-AGENT = "nife-vendor-watch (https://github.com/crickertech/nife)"
+AGENT = "nife-vendor-watch (https://github.com/nifeos/nife)"
 
 TRANSIENT, PERMANENT = "transient", "permanent"
 

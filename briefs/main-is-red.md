@@ -100,7 +100,7 @@ the drain would have done on its next pass anyway.
 
 The label is the whole recovery record; nothing else was kept, and nothing expires it.
 
-1. `gh pr list --repo crickertech/nife --label held-for-red-trunk` is the held set, whoever made it.
+1. `gh pr list --repo nifeos/nife --label held-for-red-trunk` is the held set, whoever made it.
 2. `helpers/trunk-health.sh --once`. If `main` is green, the fix landed and the hold was simply never
    given back: run `helpers/queue-hold.sh release`.
 3. Check the drain is enabled: `gh workflow view "merge drain"` reads `active`. A session that
