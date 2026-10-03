@@ -200,3 +200,15 @@ what the row above shows costs eight months. And §31's assertion-order hazard h
 independent instance: row 24's quotable crossing assertion sits below two per-shell bitmap
 equalities that catch any crossing one call earlier, so it cannot run. Two instances found the same
 way in one sweep is a reason to expect more.
+
+### The first outsider pass (2026-10-03, milestone 633)
+
+Milestone 633 (An outside agent attacks the confinement claim) ran an adversarial review, by PR #1525,
+with a different model, attacking the thirty claims in `notes/confinement-claims.md`. One escape
+was found and fixed: a plain `RECV` collecting a `SEND_CAP` sender left the sender's `outgoing_cap`
+staged, and the sender's next plain `SEND` delivered it to a `RECV_CAP` receiver on another endpoint.
+A capability granted to one endpoint reached a receiver on a different one, which is a process
+reaching an object it was not granted. Fixed in `sched::ipc_recv` with a test and a replayable
+falsification. The same class as #1494 and milestone 634, reached by a third mechanism (the
+successful-collect path, not an abort and not the mailbox slot). Every other claim it reached held, by reading and by host or kernel proof where cheap. Two were not attacked: row 25 (enforced by the compositor, not the kernel) and row 26 (an escape would hang the test rather than fail it, so it waits on milestone 417 (a usurper that reports instead of hanging)). Row 11 is proved on `x86_64` only; the aarch64 and riscv64 proofs are open work. This does not support green;
+the human-outsider half remains behind milestone 198.
