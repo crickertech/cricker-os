@@ -20,11 +20,11 @@ The work: `script/effort` reads opencode's session database for this project's s
 
 Built: `script/effort` reads opencode's database (`--selftest` pins the shape), `--attribute` writes `notes/project-metrics/commit-models.csv`, `script/metrics` reads it, and 2026W40 is backfilled. The z.ai window now reads 3,874 `glm-5.3` and 632 `glm-5.3-flash` requests, and 152 commits are attributed to them. What stays unattributed is stated by `--attribute` on every run, by week.
 
-Left, and why it is not built here:
+## Follow-on
 
-- **An `AGENTS.md` instruction that every commit signs the model that wrote it**, including under opencode, which reads that file. A developer lane does not edit `AGENTS.md`, so the maintainer owns this line.
-- **A commit hook that refuses an agent commit with no trailer.** A hook cannot tell an agent from calef, so it needs a signal that this commit is an agent's. That is a design fork, not a build.
-- **The cost columns for GLM.** The ledger carries a flat z.ai subscription and no per-token rate, so a week with GLM tokens has a blank blended rate. That is the honest reading until a rate is recorded.
+- **Outstanding.** An `AGENTS.md` instruction that every commit signs the model that wrote it, including under opencode, which reads that file. Checked 2026-10-03: `grep -in co-authored AGENTS.md` finds nothing. A developer lane does not edit `AGENTS.md`, so the maintainer owns the line.
+- **Outstanding.** A commit hook that refuses an agent commit with no trailer. A hook cannot tell an agent from calef, so it needs a signal that a commit is an agent's. That is a design fork. Checked 2026-10-03: `.githooks/` holds only `pre-push`.
+- **Outstanding.** A per-token rate for GLM in the ledger. It carries the flat z.ai subscription and no per-token rate, so a week with GLM tokens has a blank blended rate in `cost.csv`. Checked 2026-10-03 against `ledger.md`.
 
 ## Index row
 
