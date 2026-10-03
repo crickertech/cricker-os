@@ -341,7 +341,7 @@ size = {s: last.get(s, start[s]) - start[s] + 4 for s in start}
 # hand-written fastpath would be trying to skip.
 SHAPES = [
     ("ipc_send_recv",
-     re.compile(r"kernel5sched(8ipc_send|8ipc_recv|8schedule|13finish_switch|11current_cap)")),
+     re.compile(r"kernel5sched(8ipc_send|15ipc_send_badged|8ipc_recv|8schedule|13finish_switch|11current_cap)")),
     ("ipc_call_reply",
      re.compile(r"kernel5sched(8ipc_call|15ipc_call_badged|12ipc_recv_cap|9ipc_reply|8schedule|13finish_switch|11current_cap)")),
 ]
@@ -351,6 +351,12 @@ SHAPES = [
 # release build. Without this root the closure silently lost the whole CALL body and reported an
 # 18-30% "shrink" on every ISA; a root list that does not follow a rename measures less than the
 # path the system runs, which is the failure this gate exists to rule out.
+#
+# **`ipc_send_badged` is a root for the same reason, one shape over** (milestone 613 (a system log
+# service: the in-memory half), 2026-10-03). A plain `SEND` now carries its badge, so the syscall
+# dispatches to `ipc_send_badged` and `ipc_send` is the inlined badge-0 wrapper. The first CI run
+# without this root reported `ipc_send_recv` shrinking 16-18% on all three ISAs: the same rename
+# blindness, caught by the same 5% band.
 
 # **Cold, so excluded from the closure.** Two families, for two different reasons.
 #

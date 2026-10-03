@@ -355,6 +355,17 @@ pub fn recv(slot: u64) -> (u64, u64, u64) {
     (w0, w1, w2)
 }
 
+/// [`recv`], also returning the **sender's badge** in the fourth position: `(w0, w1, w2, badge)`.
+/// The badge is the value stamped on the endpoint capability the sender invoked
+/// (`abi::rendezvous::BADGE`), or 0 when it was unbadged. The `RECV` twin of [`recv_cap_badged`],
+/// for a server whose clients `SEND` rather than `CALL`: the system log stamps a byte-sink writer
+/// this way (milestone 613 (a system log service), provisional; the name is provisional too).
+pub fn recv_badged(slot: u64) -> (u64, u64, u64, u64) {
+    // SAFETY: forwarded from `invoke5`'s contract; RECV writes the badge into the fourth word.
+    let (w0, w1, w2, w3, _) = unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) };
+    (w0, w1, w2, w3)
+}
+
 /// `RECV` **all five words** on the endpoint capability in `slot`: `(w0, w1, w2, w3, w4)`.
 ///
 /// The same `RECV` [`recv`] makes, read to its full width. `RECV` has returned five registers since

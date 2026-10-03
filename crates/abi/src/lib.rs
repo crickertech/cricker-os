@@ -188,9 +188,17 @@ pub mod rendezvous {
     pub const SEND: u64 = 0;
 
     /// `invoke(cap, RECV, _, _, _)` -> w0, with w1 in x1 and w2 in x2. **Blocks until a message
-    /// arrives.** `x3` and `x4` are written only by the kernel: `0` for an ordinary message, the
-    /// fault address and a reserved `0` for a §26 death message, and [`notification::BOUND`](crate::notification::BOUND)
-    /// in `x4` when a bound notification ended the receive (milestone 151 (notification objects)).
+    /// arrives.** `x3` and `x4` are written only by the kernel: for an ordinary message `x3` is the
+    /// badge on the endpoint capability the sender invoked ([`BADGE`], `0` when unbadged) and `x4`
+    /// is `0`; the fault address and a reserved `0` for a §26 death message; and
+    /// [`notification::BOUND`](crate::notification::BOUND) in `x4` when a bound notification ended
+    /// the receive (milestone 151 (notification objects)).
+    ///
+    /// The badge in `x3` is milestone 613 (a system log service: the in-memory half)'s amendment
+    /// to §230 (badged endpoint capabilities), which delivered it on [`RECV_CAP`] only: the log
+    /// stamps a byte-sink writer from its badge, and a byte-sink writer `SEND`s. Before it, `x3` was
+    /// always `0` for an ordinary message. A death message is told apart by its first word, as
+    /// before; nothing reads `x3` before checking that.
     ///
     /// # BUGS
     ///
