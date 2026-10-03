@@ -14,6 +14,21 @@ happens to notice, and that is precisely the arrangement this project has alread
 for hours, `main` went red with nobody assigned, and merging one pull request staled eight others
 that nothing picked back up.
 
+## 0. Is the week's budget burning faster than the week
+
+Write one line before anything else: the share of the weekly usage allowance used, against the
+share of the week elapsed. The window opens when the last limit message said it resets (5pm
+Pacific on 2026-10-02). The used figure is in Claude Code's `/usage` and on claude.ai's usage
+settings page, which only the person at the keyboard can read, so a session that cannot see it asks
+once. Used ahead of elapsed by more than ten points means fewer lanes, cheaper models, or a planned
+z.ai bridge (see the ledger), decided now rather than at the limit.
+
+Claude Code warns on its own, within a five-hour window and as the weekly limit nears, but both
+warnings come when most of the week is spent. This line exists to be earlier than they are. It is a
+rung-4 exception, and a foot gun: the meter is outside the tree, and nothing fails when the line is
+skipped. On 2026-09-28 the week's allowance ran out two and a half days in, and the merge rate fell
+for five days ([the correction](../notes/coes/2026-10-03-the-merge-rate.md)).
+
 ## 1. Are the watchers alive
 
 Two of the three moved into GitHub Actions on 2026-09-24 and run as `nife-smelter[bot]`, so what
