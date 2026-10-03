@@ -98,9 +98,6 @@ scheduled workflow runs only from `main`, so the first real comment comes after 
 
 ## BUGS
 
-- `ready status` is not a required check, so it informs rather than blocks a pull request armed
-  by hand. The drain will not arm one with a failing check, which covers the normal path. Adding
-  `ready status (no IN-PROGRESS block on a ready branch)` to the `main` ruleset is calef's.
 - The hold needs `nife-smelter` to apply a label it may have to create. The App holds Contents and
   Pull requests write. Labelling a pull request needs only the second; creating the label may
   need Issues. If it fails, the drain prints `STALLED. #N could not be labelled` and re-arms the
