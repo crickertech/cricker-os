@@ -125,25 +125,33 @@ enum Painter {
 struct KernelConsole {
     uart: ConsoleUart,
     screen: Option<Screen>,
+    /// The line being assembled for the kernel's ring (milestone 342 (the kernel and the
+    /// `console` server drive one UART from two address spaces)): see [`crate::kernel_log`].
+    line: crate::kernel_log::Line,
+}
+
+/// Write `s` to the UART and, while the kernel paints it, the screen.
+fn write_wire(uart: &mut ConsoleUart, screen: &mut Option<Screen>, s: &str) -> core::fmt::Result {
+    uart.write_str(s)?;
+    if let Some(screen) = screen.as_mut()
+        && screen.painter == Painter::Kernel
+    {
+        // SAFETY: `pixels` is the direct-map address of a framebuffer whose physical range was
+        // validated by `machine_discovery::framebuffer::Framebuffer::span` before it was
+        // recorded, and which `arch::mmu::map_everything` maps for the life of the kernel.
+        // `len` is that same span. Nothing else writes to it while the painter is the kernel:
+        // the one userspace process that ever paints it is spawned only after
+        // [`yield_screen`] has moved the painter off this arm.
+        let bytes =
+            unsafe { core::slice::from_raw_parts_mut(screen.pixels as *mut u8, screen.len) };
+        screen.console.write(bytes, s);
+    }
+    Ok(())
 }
 
 impl core::fmt::Write for KernelConsole {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        self.uart.write_str(s)?;
-        if let Some(screen) = self.screen.as_mut()
-            && screen.painter == Painter::Kernel
-        {
-            // SAFETY: `pixels` is the direct-map address of a framebuffer whose physical range was
-            // validated by `machine_discovery::framebuffer::Framebuffer::span` before it was
-            // recorded, and which `arch::mmu::map_everything` maps for the life of the kernel.
-            // `len` is that same span. Nothing else writes to it while the painter is the kernel:
-            // the one userspace process that ever paints it is spawned only after
-            // [`yield_screen`] has moved the painter off this arm.
-            let bytes =
-                unsafe { core::slice::from_raw_parts_mut(screen.pixels as *mut u8, screen.len) };
-            screen.console.write(bytes, s);
-        }
-        Ok(())
+        write_wire(&mut self.uart, &mut self.screen, s)
     }
 }
 
@@ -166,6 +174,7 @@ static CONSOLE: IrqSafeMutex<KernelConsole> = IrqSafeMutex::new(
         // `unsafe` did not change.
         uart: unsafe { ConsoleUart::new(UART_BASE) },
         screen: None,
+        line: crate::kernel_log::Line::new(),
     },
 );
 
@@ -689,6 +698,20 @@ pub unsafe fn force_unlock() {
     unsafe { CONSOLE.force_unlock() }
 }
 
+/// **The panic's escape from the ring** (milestone 342, §175 (where the kernel's own output
+/// goes)'s "a panic writes the UART
+/// directly"). Every later line goes straight to the UART, and the lines a drainer had not yet
+/// printed go first, so the panic message is never the only thing a reader sees of what led to it.
+/// Call after [`force_unlock`].
+pub fn enter_panic() {
+    let mut guard = CONSOLE.lock();
+    let con = &mut *guard;
+    let (line, mut wire) = con.split();
+    crate::kernel_log::enter_panic(line, |s| {
+        let _ = CountedWrites(&mut wire).write_str(s);
+    });
+}
+
 /// **Bytes handed to the console transmitter since boot** (first-silicon diagnostics, 2026-08-15).
 ///
 /// Counted after each `write_str` completes, so a count here means the driver's bounded world has
@@ -716,10 +739,49 @@ pub fn tx_bytes() -> u64 {
     TX_BYTES.load(core::sync::atomic::Ordering::Relaxed)
 }
 
-/// The counting shim between `write_fmt` and the driver: forwards each fragment, then counts it.
-struct CountedWrites<'a>(&'a mut KernelConsole);
+/// The UART and the kernel's screen, without the line being assembled: what a routed byte is
+/// written to.
+struct Wire<'a> {
+    uart: &'a mut ConsoleUart,
+    screen: &'a mut Option<Screen>,
+}
 
-impl core::fmt::Write for CountedWrites<'_> {
+impl KernelConsole {
+    fn split(&mut self) -> (&mut crate::kernel_log::Line, Wire<'_>) {
+        (
+            &mut self.line,
+            Wire {
+                uart: &mut self.uart,
+                screen: &mut self.screen,
+            },
+        )
+    }
+}
+
+impl core::fmt::Write for Wire<'_> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        write_wire(self.uart, self.screen, s)
+    }
+}
+
+/// **Route each fragment through the kernel's ring** (milestone 342): [`crate::kernel_log::route`]
+/// decides whether it reaches the UART now, later, or by way of the log service.
+struct Routed<'a>(&'a mut KernelConsole);
+
+impl core::fmt::Write for Routed<'_> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let (line, mut wire) = self.0.split();
+        crate::kernel_log::route(line, s, |piece| {
+            let _ = CountedWrites(&mut wire).write_str(piece);
+        });
+        Ok(())
+    }
+}
+
+/// The counting shim between `write_fmt` and the driver: forwards each fragment, then counts it.
+struct CountedWrites<'a, 'b>(&'a mut Wire<'b>);
+
+impl core::fmt::Write for CountedWrites<'_, '_> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.0.write_str(s)?;
         TX_BYTES.fetch_add(s.len() as u64, core::sync::atomic::Ordering::Relaxed);
@@ -739,7 +801,10 @@ pub fn _print(args: core::fmt::Arguments) {
     #[cfg(any(test, feature = "system_tests"))]
     crate::testing::note_progress();
     // Writing to a UART cannot fail in any way we can act on, so drop the Result.
-    let _ = CountedWrites(&mut CONSOLE.lock()).write_fmt(args);
+    let _ = Routed(&mut CONSOLE.lock()).write_fmt(args);
+    // The lock is released: a line held for the drainer can be signalled now, if this core holds
+    // nothing else (`kernel_log`'s module doc says why it cannot be done under the lock).
+    crate::kernel_log::signal_if_safe();
 }
 
 /// Write formatted text to the kernel console, `core::fmt` syntax, no newline.

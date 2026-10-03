@@ -2057,6 +2057,14 @@ pub fn on_tick() {
     // down through `irq_notify`. It compiles to nothing anywhere else; see kernel/src/soak.rs.
     #[cfg(feature = "soak_test")]
     crate::soak::signal_waiters();
+
+    // **A kernel line held for the log service, signalled from a context that holds no lock**
+    // (milestone 342 (the kernel and the `console` server drive one UART from two address
+    // spaces)). One relaxed load when nothing is held, which is almost every tick. The print that
+    // held it could not signal: it may have been printing under `IPC_TABLES`. See `kernel_log`.
+    crate::kernel_log::signal_if_safe();
+    #[cfg(feature = "console_flood")]
+    crate::kernel_log::flood_tick();
 }
 
 /// The machine statistics page's half of a tick, out of line because every architecture's
