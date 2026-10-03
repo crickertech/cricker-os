@@ -32,6 +32,14 @@ wrapper, which is where the "optimisation" would be written: the switch path is 
 passes `None` for a thread that simply holds nothing. Putting it in the shared body instead would
 also disable the revoke and self-delete resets, a wider defect that proves less about this test.
 
+Replayed 2026-10-03 (UTC), and the red is narrower than the prose above implies. `cargo xtask test
+--arch x86_64 --test port_holder_transmits_then_a_non_holder_faults` boots the image twice. Under
+the defect the direct-boot leg stays green (`test result: ok. 1 passed`) and the red comes only
+from the real-firmware leg (QEMU q35 with OVMF), at `system_tests/src/user/x86_port_tests.rs:221`.
+So this record is evidence for the test on that leg only. Why the direct boot does not see the
+inherited grant is not known; `script/falsifications` counts a test selected once per boot as one
+test since milestone 323 (the falsification record is incomplete in five ways), so this record is swept as `red` rather than `stale`.
+
 diff --git a/kernel/src/arch/x86_64/segments.rs b/kernel/src/arch/x86_64/segments.rs
 index efa61fbd7..dc9c76de7 100644
 --- a/kernel/src/arch/x86_64/segments.rs
