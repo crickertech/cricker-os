@@ -3,8 +3,8 @@ use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use compositor::proto::wlist;
 use compositor::{Rect, SCENE, status};
 use compositor_service::{
-    ROLE_CAPTURE, ROLE_INPUT, ROLE_PROBE_INPUT, ROLE_PROBE_NEIGHBOUR, ROLE_PROBE_SCREEN,
-    ROLE_SMALL_DAMAGE, ROLE_VICTIM, Wiring,
+    ROLE_CAPTURE, ROLE_INPUT, ROLE_LIE_DAMAGE, ROLE_PROBE_INPUT, ROLE_PROBE_NEIGHBOUR,
+    ROLE_PROBE_READ, ROLE_PROBE_SCREEN, ROLE_SMALL_DAMAGE, ROLE_VICTIM, Wiring,
 };
 
 use super::*;
@@ -302,6 +302,260 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
         sched::rendezvous_waiting_senders(w.client_report[PEEPER]),
         0,
         "a client read a pixel of the screen it holds no mapping of (WIN_ESCAPED)",
+    );
+}
+
+// ================================================================================================
+// Confinement claim 25, attacked part by part (milestone 719 (compositor confinement claim 25)).
+//
+// The test above proves four things in one body and a patch recorded against it reaches one of them:
+// the others sit behind the fault wait (the digests), behind a probe that cannot see a read-only
+// exposure (the neighbour's pixels, as a confidentiality claim), or behind an address the fixture
+// never maps (the screen). Each part below is its own test so each can carry its own replayable
+// falsification; `notes/confinement-claims.md` row 25 says which patch reaches which.
+// ================================================================================================
+
+/// Receive the next report on `ep`, but bounded: a client whose `CALL` the compositor never answers
+/// leaves its next report unsent, and an unbounded `ipc_recv` there is a 60 second watchdog and a
+/// diagnostic that says nothing about a compositor.
+fn recv_within_bound(ep: sched::RendezvousId, what: &str) -> [u64; 5] {
+    let arrived = (0..5).any(|_| wait_for(|| sched::rendezvous_waiting_senders(ep) > 0));
+    assert!(arrived, "{what}");
+    sched::ipc_recv(ep)
+}
+
+/// **Part 1 of claim 25: a client that was granted no input endpoint finds nothing in that slot.**
+///
+/// A non-focusable client holds two capabilities and slot 2 is empty because the spawner left it
+/// empty. Asking to receive there is `NoSuchSlot`, "there is nothing there", and not a refusal from a
+/// server that checked a list. The compositor holds a `WRITE` capability for every focusable client's
+/// input endpoint and uses exactly one at a time; this is what keeps a client that was never given
+/// one from being the receiving end of anything.
+///
+/// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_client_with_no_input_grant_finds_nothing_in_the_input_slot.patch`
+#[test_case]
+fn a_client_with_no_input_grant_finds_nothing_in_the_input_slot() {
+    let (display, screen) = kernel_display();
+    let w = compositor_service::start(1, 0, display, screen);
+    wait_for_compositor(&w);
+
+    w.spawn_client(0, ROLE_PROBE_INPUT);
+    let [tag, errno, ..] = sched::ipc_recv(w.client_report[0]);
+    assert_eq!(
+        tag,
+        status::WIN_REFUSED,
+        "the client skipped its input probe"
+    );
+    assert_eq!(
+        errno as i64,
+        abi::Error::NoSuchSlot as i64,
+        "a non-focusable client's input slot must be empty (NoSuchSlot, -1); {} means something \
+         was granted there",
+        errno as i64,
+    );
+    expect_painted(&w, 0);
+}
+
+/// **Part 2 of claim 25: no page of a neighbour's is readable, whichever page and whichever way.**
+///
+/// The original test's probe is one **write** at the neighbour's first pixel page. That cannot tell
+/// "not mapped" from "mapped read-only" (both fault at the same address), so a spawner that exposed
+/// the neighbour's pixels read-only would leave it green while every pixel leaked. This attacker
+/// **reads**, at the neighbour's control page, its first pixel page and its last, one fresh attacker
+/// each because the first fault is fatal. The contiguous allocation is asserted, so each address is
+/// the victim's own frame and a probe cannot degenerate into poking an empty hole, and the fault must
+/// be at exactly the address it was handed.
+///
+/// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_client_cannot_read_any_page_of_its_neighbours_it_can_name.patch`
+#[test_case]
+fn a_client_cannot_read_any_page_of_its_neighbours_it_can_name() {
+    const ATTACKER: usize = 0;
+    const VICTIM: usize = 1;
+
+    let (display, screen) = kernel_display();
+    let w = compositor_service::start(2, 0, display, screen);
+    wait_for_compositor(&w);
+
+    w.spawn_client(VICTIM, ROLE_VICTIM);
+    let (victim, victim_slot, reported) = take_call(w.client_report[VICTIM], status::WIN_PAINTED);
+    assert_eq!(reported, compositor::expected_window_checksum(VICTIM));
+    let before = w.client_surface_digest(VICTIM);
+
+    // Page k past the end of the attacker's own surface is the victim's frame k: its control page,
+    // then its two pixel frames. Asserted, not assumed.
+    let own_frames = compositor::SCENE[ATTACKER].page_frames() as u64;
+    assert_eq!(
+        w.client[VICTIM],
+        w.client[ATTACKER] + (1 + own_frames) * FRAME_SIZE,
+        "the clients are not adjacent, so these probes would prove nothing about a neighbour",
+    );
+    assert_eq!(
+        compositor::SCENE[VICTIM].page_frames(),
+        2,
+        "the probe table assumes two frames"
+    );
+    let past_own_surface = w.neighbour_probe_va(ATTACKER) - FRAME_SIZE;
+
+    for (name, k) in [
+        ("control page", 0u64),
+        ("first pixel page", 1),
+        ("last pixel page", 2),
+    ] {
+        let va = past_own_surface + k * FRAME_SIZE;
+        let faults = USER_FAULTS.load(Ordering::Relaxed);
+        w.spawn_client_probing(ATTACKER, ROLE_PROBE_NEIGHBOUR | ROLE_PROBE_READ, va);
+        expect_painted(&w, ATTACKER);
+        let [tag, probe_va, ..] = sched::ipc_recv(w.client_report[ATTACKER]);
+        assert_eq!(
+            tag,
+            status::WIN_PROBING,
+            "the attacker never reached its {name} probe"
+        );
+        assert_eq!(probe_va, va);
+        assert!(
+            wait_for(|| USER_FAULTS.load(Ordering::Relaxed) > faults),
+            "a client READ its neighbour's {name} at {va:#x} and was NOT stopped",
+        );
+        assert_eq!(
+            crate::arch::exceptions::last_user_fault().map(|(_, addr)| addr),
+            Some(va),
+            "something faulted, but not at the neighbour's {name}",
+        );
+    }
+
+    assert_eq!(
+        w.client_surface_digest(VICTIM),
+        before,
+        "the victim's pixels changed"
+    );
+    release(victim, victim_slot);
+    let [tag, after, ..] = sched::ipc_recv(w.client_report[VICTIM]);
+    assert_eq!(tag, status::WIN_INTACT);
+    assert_eq!(after, before);
+}
+
+/// Spawn a victim in window 1 and park it, then let a liar in window 0 commit every rectangle in the
+/// fixture's table of lies. Returns the wiring, the victim's `(caller, slot)` and its surface digest
+/// and control page as the kernel saw them **before** the liar ran. Panics, naming the compositor,
+/// if the liar's commits stop being answered.
+fn lie_to_the_compositor() -> (Wiring, (u64, u64), u64, [u32; 12]) {
+    const LIAR: usize = 0;
+    const VICTIM: usize = 1;
+
+    let (display, screen) = kernel_display();
+    let w = compositor_service::start(2, 0, display, screen);
+    wait_for_compositor(&w);
+
+    w.spawn_client(VICTIM, ROLE_VICTIM);
+    let (victim, victim_slot, reported) = take_call(w.client_report[VICTIM], status::WIN_PAINTED);
+    assert_eq!(reported, compositor::expected_window_checksum(VICTIM));
+    let digest = w.client_surface_digest(VICTIM);
+    let ctl = w.client_control_words(VICTIM);
+
+    w.spawn_client(LIAR, ROLE_LIE_DAMAGE);
+    expect_painted(&w, LIAR);
+    let [tag, lies, ..] = recv_within_bound(
+        w.client_report[LIAR],
+        "the compositor stopped answering a client that committed a rectangle with extreme \
+         coordinates: one client took the one doorbell every client shares down with it",
+    );
+    assert_eq!(
+        tag,
+        status::WIN_LIED,
+        "the liar reported {tag:#x} instead of finishing its lies: 0xdead000000000004 is a commit \
+         the compositor answered with an error, which is what a compositor that panicked on a \
+         client's rectangle leaves behind (any other 0xDEAD_.. word's low byte names the step, see \
+         fixtures/src/window.rs)",
+    );
+    assert_eq!(lies, 9, "the liar did not commit its whole table");
+    (w, (victim, victim_slot), digest, ctl)
+}
+
+/// **Part 3 of claim 25: nothing a client writes in its own control page changes a neighbour's.**
+///
+/// The original test's witness digests sit behind its fault wait, so they can only fire if that wait
+/// already has. This reaches them without a fault: the one untrusted input the compositor reads, a
+/// client's damage rectangle, is set to nine lies, and the **victim's surface and its whole control
+/// page** are compared before and after, by the kernel through the direct map and by the victim
+/// itself. The compositor has write access to every client's memory (it publishes each control page
+/// and writes `STATUS` and `ACKED` back), so the claim here is that the *address* it writes is never
+/// a function of what a client said; the control page is in the witness because that is where a
+/// confused deputy would aim.
+///
+/// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_lying_damage_rectangle_changes_nothing_of_its_neighbours.patch`
+#[test_case]
+fn a_lying_damage_rectangle_changes_nothing_of_its_neighbours() {
+    const VICTIM: usize = 1;
+    let (w, (victim, victim_slot), digest, ctl) = lie_to_the_compositor();
+
+    assert_eq!(
+        w.client_surface_digest(VICTIM),
+        digest,
+        "a neighbour's lying rectangle changed the victim's pixels",
+    );
+    assert_eq!(
+        w.client_control_words(VICTIM),
+        ctl,
+        "a neighbour's lying rectangle changed the victim's control page (the compositor wrote \
+         into a client it was not answering)",
+    );
+    release(victim, victim_slot);
+    let [tag, after, was, ..] = sched::ipc_recv(w.client_report[VICTIM]);
+    assert_eq!(tag, status::WIN_INTACT);
+    assert_eq!(was, digest);
+    assert_eq!(
+        after, digest,
+        "the victim's own read-back of its surface changed"
+    );
+}
+
+/// **Part 3, the other half: a lying rectangle neither stops the compositor nor repaints the screen
+/// wrong.**
+///
+/// The same nine lies, now watched from the screen. Every `CALL` is answered (the liar reports only
+/// after the ninth), and the composed screen is exactly the picture the contract gives two committed
+/// windows, so a rectangle cannot deface a neighbour's region or the background. Before milestone
+/// 719 the first lie, `x = i32::MAX, w = 1`, overflowed `Rect::right` and panicked the compositor in
+/// a debug build, which wedged every client behind the shared doorbell.
+///
+/// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_lying_damage_rectangle_cannot_stop_the_compositor_or_misdraw_the_screen.patch`
+#[test_case]
+fn a_lying_damage_rectangle_cannot_stop_the_compositor_or_misdraw_the_screen() {
+    let (w, (victim, victim_slot), ..) = lie_to_the_compositor();
+    assert_screen_is(&w, 2);
+    release(victim, victim_slot);
+}
+
+/// **Part 4 of claim 25: a client the spawner granted no screen capability cannot map it, so cannot
+/// read it.**
+///
+/// The original test reads `SCREEN_VA` from a client that never tries to map the screen, so a
+/// spawner that leaked the screen capability to every client would leave it green: a grant alone maps
+/// nothing. This attacker asks for the mapping exactly as a capture client does, and then reads. With
+/// nothing granted the map is refused and the read faults at the unmapped address; with the screen
+/// leaked read-only the map succeeds, the read returns a pixel, and the fault wait fails.
+///
+/// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_client_granted_no_screen_capability_cannot_map_or_read_the_screen.patch`
+#[test_case]
+fn a_client_granted_no_screen_capability_cannot_map_or_read_the_screen() {
+    let (display, screen) = kernel_display();
+    let w = compositor_service::start(1, 0, display, screen);
+    wait_for_compositor(&w);
+
+    let faults = USER_FAULTS.load(Ordering::Relaxed);
+    w.spawn_client(0, ROLE_PROBE_SCREEN);
+    expect_painted(&w, 0);
+    let [tag, screen_va, ..] = sched::ipc_recv(w.client_report[0]);
+    assert_eq!(tag, status::WIN_PROBING);
+    assert!(
+        wait_for(|| USER_FAULTS.load(Ordering::Relaxed) > faults),
+        "a client with no screen grant mapped and read the composed screen at {screen_va:#x}: the \
+         capability was leaked to a window client",
+    );
+    assert_eq!(
+        crate::arch::exceptions::last_user_fault().map(|(_, addr)| addr),
+        Some(screen_va),
+        "something faulted, but not at the composed screen's address",
     );
 }
 

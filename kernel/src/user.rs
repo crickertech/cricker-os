@@ -2127,8 +2127,10 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     crate::sched::bind_irq(uart_irq, irq_ep);
     // aarch64's GIC has no boot-hart-lottery hazard, so its UART line is enabled here, the same
     // place and way the old `spawn_progenitor` armed it. riscv64 must wait until the driver is
-    // running (the arming block after the start below); `x86_64` arms nothing (DECISIONS §149).
-    #[cfg(target_arch = "aarch64")]
+    // running (the arming block after the start below). `x86_64` arms COM1's IRQ 4 here too, since
+    // milestone 505 (an x86_64 input driver that never lets the core idle): the IO APIC entry goes
+    // live now, and nothing raises the line until the input driver sets the 16550's receive enable.
+    #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
     crate::arch::irq::enable(uart_irq);
     let build_region =
         crate::memory_region::create(12288).expect("no building budget for the progenitor");

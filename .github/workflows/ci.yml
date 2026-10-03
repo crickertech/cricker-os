@@ -1048,7 +1048,7 @@ jobs:
       # parallel, so it costs no wall clock against the 30-minute Kani job.
       - run: script/ci-build fastpath-footprint
 
-  boot-file-size:
+  boot-file-size-check:
     name: boot file size (the release BOOTX64.EFI against its slot budget)
     runs-on: ubuntu-24.04
     needs: gate
@@ -1065,7 +1065,7 @@ jobs:
         run: |
           rustup target add x86_64-unknown-none x86_64-unknown-uefi
           rustup component add llvm-tools
-      - run: script/ci-build boot-file-size
+      - run: script/ci-build boot-file-size-check
 
   build-is-reproducible:
     name: reproducible build (the same commit builds the same bytes)

@@ -141,6 +141,18 @@ jobs:
         continue-on-error: true
         run: python3 helpers/interface_stability.py --update
 
+      # The merge queue's daily record (milestone 724 (the merge queue reports its ejection share and
+      # its time to merge), provisional): GitHub's queue events are not in git, so they are fetched
+      # here and committed as `merge-queue-daily.csv`, which `script/metrics` then sums by week.
+      # `continue-on-error` for coverage's reason: a fetch failure is an instrument problem, and the
+      # other columns should still be recorded. The step rewrites the last eight days and keeps older
+      # ones, so a missed run heals on the next.
+      - name: Fetch the merge queue's daily record
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 helpers/merge_queue_share.py update
+
       - name: Recompute this week's row and redraw the charts
         run: |
           set -e

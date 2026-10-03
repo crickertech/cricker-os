@@ -782,10 +782,11 @@ pub fn uart_irq() -> Option<u32> {
 
 /// **Record the console UART's interrupt line directly**, for a machine with no device tree to
 /// read it from. `x86_64`'s counterpart of `init`'s [`machine_discovery::interrupt_id::of_node`]
-/// call: ACPI's ISA IRQ table (`Acpi::isa_irqs`) already resolves COM1's legacy line (ISA IRQ 4)
-/// through any MADT override, so `main.rs` supplies it directly and fills the same static every
-/// consumer already reads (`user::uart_irq_and_source`). The x86 console is polled today, so
-/// nothing calls that consumer yet; this fills the seam so the answer is real once something does.
+/// call. It takes COM1's **legacy** line, ISA IRQ 4, because that is what an intid is on `x86_64`;
+/// `arch::irq::enable` resolves it through any MADT override when the line is armed. It fills the
+/// same static every consumer already reads (`user::uart_irq_and_source`), which the input driver's
+/// `Irq` capability is minted from since milestone 505 (an x86_64 input driver that never lets the
+/// core idle).
 ///
 /// Its only caller is `x86_64`'s boot tour; the other two architectures fill the same static from
 /// their device tree inside `init` instead.

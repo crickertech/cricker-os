@@ -109,3 +109,6 @@ spend their time on the same thing. Not measured further, because the fix remove
 - The input driver still polls. With the boot thread gone the core still never idles at a
   prompt, because the input driver yields forever. Interrupt-driven COM1 input is the named
   follow-up in `components/src/input.rs`.
+- The aarch64 and riscv64 boots also end in `arch::halt()` on the boot thread
+  (`kernel/src/lib.rs`), and nothing here shows whether they pay the same ticks. Their legs cost
+  0.2 s a line, so the cost, if any, is small; not measured.

@@ -54,9 +54,12 @@
 # for "has upstream moved" that answers up to a month late is worse than one that answers up to a
 # week late, whatever the threshold here says. **So the invariant holds again by agreement rather
 # than by construction**, and the next monthly or quarterly workflow anyone adds will reproduce the
-# false positive. The durable fix is to derive each workflow's expected interval from its own cron,
-# which this script already reads; that is deliberately not done here, and this paragraph is the
-# record of why it is owed.
+# false positive. The durable fix is to derive each workflow's expected interval from its own cron.
+# Milestone 723 (a stopped merge watcher is reported within three of its own intervals) did that for
+# the two merge watchers only, in `helpers/watcher_watch.py`, and they are checked there and no
+# longer here: a disabled or silent drain is reported at once, as a row below and as an issue. The
+# 15-day rule above still holds for every other workflow, which is the scheduled-workflows
+# milestone's to change (#1511, not yet merged), so the monthly false positive is still owed there.
 #
 # **A workflow too young to have fired yet is not dead**, which is a distinction this got wrong on
 # its first draft. `falsifications.yml` and `metrics.yml` both carry a Monday cron and both had zero
@@ -218,7 +221,7 @@ created=$(gh api "repos/$REPO/actions/workflows?per_page=100" \
 # whose cron was deleted stops being expected the moment the deletion lands. `on:`-block indentation
 # is two spaces in every file here; anything else is a formatting change this should notice loudly
 # rather than silently skip, which is why the grep is anchored.
-scheduled=$(grep -l '^  schedule:$' .github/workflows/*.yml | sort)
+scheduled=$(grep -l '^  schedule:$' .github/workflows/*.yml | grep -v -e '/merge-drain\.yml$' -e '/trunk-health\.yml$' | sort)
 [ -n "$scheduled" ] || { echo "script/cadence-check: no scheduled workflows found" >&2; exit 2; }
 
 oldest=$(printf '%s\n' "$runs" | cut -f3 | sort | head -1)
@@ -258,6 +261,16 @@ for file in $scheduled; do
 	*) [ -n "$quiet" ] || printf '%-32s %-24s %s\n' "$name" "${last_ok:-never}" "$verdict" ;;
 	esac
 done
+
+# The merge watchers, with their own rule (milestone 723): state and silence, from their own cron.
+# Exit 2 from it means it could not ask, which is not a dead watcher, so only 1 counts.
+watch_rc=0
+if [ -n "$quiet" ]; then
+	python3 helpers/watcher_watch.py check --quiet || watch_rc=$?
+else
+	python3 helpers/watcher_watch.py check || watch_rc=$?
+fi
+[ "$watch_rc" -ne 1 ] || dead=$((dead + 1))
 
 if [ "$dead" -gt 0 ]; then
 	[ -n "$quiet" ] || echo

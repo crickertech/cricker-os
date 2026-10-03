@@ -16,7 +16,8 @@
 //!
 //! Built: the local APIC (enable, EOI, the timer's LVT), masking the legacy 8259 PICs, the
 //! calibration counter `timer.rs` needs, **the IO APIC's redirection table**, so a real device
-//! line reaches the kernel on a vector this module chose, **MSI vector allocation**
+//! line reaches the kernel on a vector this module chose (and, since milestone 505, a userspace
+//! driver that bound it), **MSI vector allocation**
 //! ([`alloc_msi_vector`], milestone 215), which is how a PCI function's interrupt reaches a
 //! userspace driver here, and **INIT-SIPI-SIPI** ([`send_init`],
 //! [`send_startup`]), which is what starts a second logical CPU (milestone 161's SMP item; see
@@ -50,17 +51,20 @@
 //! - **One IO APIC, and only the boot CPU.** A machine with several IO APICs divides the global
 //!   interrupt space between them by `gsi_base`; this takes the first the MADT lists and refuses a
 //!   GSI outside its range rather than looking for a second. Every redirection entry is programmed
-//!   in physical destination mode at the boot CPU's local APIC id, so nothing is distributed and
-//!   nothing is affine to a CPU that does not exist yet.
+//!   in physical destination mode at the local APIC id of the core that called [`enable`], so
+//!   nothing is distributed. That was always the boot CPU until milestone 505 (an x86_64 input
+//!   driver that never lets the core idle): a driver's `Irq::ACK` calls `enable`, so COM1's line now
+//!   follows whichever core the input driver last acknowledged from. Any core's handler routes it.
 //! - **The redirection table is written through the boot map's cacheable alias** when the tour
 //!   arms a line before `mmu::init` runs, the same as the local APIC's registers already are. It
 //!   works on QEMU and on real hardware (the MMIO hole is uncacheable by MTRR whatever the page
 //!   tables say), but it is a mapping this code does not control. After `mmu::init` the page is
 //!   device-typed by name; see `arch/x86_64/mmu.rs`.
 //! - **Nothing masks a routed line on the way out.** A GSI armed by [`enable`] stays armed until
-//!   something calls [`mask_gsi`]; there is no owner registry and no revocation, because there is
-//!   no driver on this architecture that owns an IO APIC line (a PCI function reaches its driver
-//!   by MSI-X instead, and an MSI has no line to mask).
+//!   something calls [`mask_gsi`], and revoking a driver's `Irq` capability does not. Since
+//!   milestone 505 (an x86_64 input driver that never lets the core idle) one driver owns an IO
+//!   APIC line, the input driver on COM1's IRQ 4; if it dies, the line stays armed and its
+//!   interrupts reach a rendezvous nobody waits on, which counts them and wakes nothing.
 //! - **An MSI vector is never handed back.** [`alloc_msi_vector`] is a bump counter, so a device
 //!   brought up twice (which the test suite does) consumes two of the sixty-three in the band. It
 //!   has not run out, and a free list with no free path would be machinery nothing calls; the
@@ -528,6 +532,21 @@ static IO_APIC_GSI_BASE: AtomicU32 = AtomicU32::new(0);
 /// How many redirection entries it has, read from its version register. Zero until then.
 static IO_APIC_ENTRIES: AtomicU32 = AtomicU32::new(0);
 
+/// **Which intid armed each redirection entry** (milestone 505 (an x86_64 input driver that never
+/// lets the core idle)), so the trap handler can turn the vector it took back into the number a
+/// driver bound. [`NO_OWNER`] until [`enable`] arms the entry.
+///
+/// A table rather than arithmetic, because the arithmetic has no unique answer: the vector gives the
+/// redirection index and so the GSI, but a GSI is not a legacy IRQ. The MADT's overrides can send two
+/// legacy numbers to one GSI (IRQ 0 and IRQ 2 both resolve to GSI 2 on most PCs), and GSI 0 has no
+/// legacy owner at all. The intid that armed the line is the one a driver bound, which is the
+/// question the handler asks. Written by `enable`, read in interrupt context, so atomics and no lock.
+static GSI_OWNER: [AtomicU32; MAX_REDIRECTION_ENTRIES as usize] =
+    [const { AtomicU32::new(NO_OWNER) }; MAX_REDIRECTION_ENTRIES as usize];
+
+/// The value in [`GSI_OWNER`] that means "nothing armed this entry".
+const NO_OWNER: u32 = u32::MAX;
+
 /// **The sixteen legacy ISA IRQs as the MADT resolved them**, packed one to a word so the table can
 /// live in a static without a lock: the GSI in bits 15:0, "active low" in bit 16, "level triggered"
 /// in bit 17. [`NO_ROUTING`] means [`record_isa_routing`] has not run.
@@ -853,6 +872,9 @@ pub fn enable(intid: u32) {
             IO_APIC_ENTRIES.load(Ordering::Relaxed),
         )
     };
+    if let Some(index) = redirection_index(routing.gsi) {
+        GSI_OWNER[index as usize].store(intid, Ordering::Relaxed);
+    }
     route_gsi(
         routing.gsi,
         vector,
@@ -860,6 +882,45 @@ pub fn enable(intid: u32) {
         routing.level_triggered,
         local_apic_id(),
     );
+}
+
+/// **The intid whose line raised `vector`**, or `None` when `vector` is not an IO APIC vector or
+/// nothing armed its entry (milestone 505 (an x86_64 input driver that never lets the core idle)).
+/// The inversion of [`enable`], read from [`GSI_OWNER`]; that table's doc has why it is not
+/// arithmetic.
+///
+/// Name: provisional (milestone 505's lane); calef names public functions.
+pub fn intid_of_vector(vector: u64) -> Option<u32> {
+    if !is_device_vector(vector) {
+        return None;
+    }
+    let index = (vector - GSI_VECTOR_BASE as u64) as usize;
+    match GSI_OWNER.get(index)?.load(Ordering::Relaxed) {
+        NO_OWNER => None,
+        intid => Some(intid),
+    }
+}
+
+/// **Hold a routed line off until its driver ACKs**: the trap handler's act for a line it hands to
+/// a userspace driver, undone by [`enable`] when the driver ACKs. aarch64's `irq::disable` is the
+/// same step.
+///
+/// **A level-triggered line is masked; an edge-triggered one is left live**, and the difference is
+/// the IO APIC's rather than a choice. A GIC keeps an interrupt pending while it is disabled. An IO
+/// APIC does not: an edge that arrives on a masked entry is dropped. COM1's IRQ 4 is edge-triggered
+/// on every PC, and a 16550 holds its line high until the driver drains it, so masking it would turn
+/// a byte that arrives between the driver's last read and its ACK into an input that never wakes
+/// anything again: the line is already high when the entry is unmasked, so no new edge comes.
+/// Left live, that byte raises a fresh edge after the drain, and the rendezvous counts it.
+///
+/// Name: recorded (aarch64's `arch::irq::disable`): the arch contract's name for the same step, which
+/// is why it is not named for the edge/level split. Provisional on this architecture (milestone 505's
+/// lane).
+pub fn disable(intid: u32) {
+    let routing = isa_routing(intid);
+    if routing.level_triggered {
+        mask_gsi(routing.gsi);
+    }
 }
 
 /// **Does this intid name a local APIC source rather than a controller input?** See [`enable`].

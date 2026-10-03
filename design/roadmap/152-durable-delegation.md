@@ -1,31 +1,19 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-08-22
-milestone_dependencies: none
-decision_dependencies: none
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-10-03
 ---
 # 152. Durable delegation: authority that outlives the session that requested it
 
-Updated 2026-09-27 (UTC). Minted 2026-08-22, from a milestone 129 (scheduled execution) discussion: calef
+Updated 2026-10-03 (UTC). Minted 2026-08-22, from a milestone 129 (scheduled execution) discussion: calef
 wants nife to support multiple users, and wants the jobs a user schedules to carry capabilities that
-reflect that user's own authority. Working through what that requires surfaced a gap this tree has
+reflect that user's own authority. Working through what that requires surfaced a gap this tree had
 not needed to close before, and #387 (milestone 129's `--mem` grant, held pending this) is where it
-was found. The design below was worked out the same day, in conversation; three of its four design
-pieces are now built and tested (the durable session itself, the on-disk schedule store, and
-boot-time re-derivation; see "What was built" below, both entries), and moved from `NOT-STARTED`
-because the milestone is no longer nothing but a design: what remains is wiring a real registrar
-against the pieces already proven (#387), which is real, separate work rather than a detail of what
-is already built.
-
-The gate on milestone 49 cleared 2026-08-27: milestone 49 (users, login, and attribution) reached BUILT, so
-the real identity this milestone's design needed to attach to now exists. The design fork itself
-(what durably represents a user) was already answered below; what remains is wiring a real
-registrar against the pieces already proven (#387), which is real, separate work and not a further
-decision of this milestone's own -- see "What was built" and the BUGS entry below for exactly what
-that is. Not attempted by this update: milestone 49's own lane was scoped to milestone 49 alone.
+was found. All four design pieces are built and tested (the durable session, the on-disk schedule
+store, boot-time re-derivation in `login`, and the real registrar), each under "What was built"
+below. Flipped to `BUILT` on 2026-10-03 after a re-check against the tree: the two residues it
+carried, a real-boot gate that types `SCHEDULE` and a place for a durable job to write, are
+routed in `## Follow-on` (a proposal and milestone 687) rather than held open here.
 
 ## In brief
 
@@ -260,8 +248,10 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 - **Done.** Registration persists: the client writes the identity's schedule file before it
   replaces, `login` keeps the manifest, and `login`'s start-up pass opens real sessions from both
   (2026-09-26 and 2026-09-27).
-- **Done.** The real boot hands `login` what Fork 8 D needs, 2026-09-27. No gate types
-  `SCHEDULE` on the real boot yet: `script/swish-check` has no login.
+- **Done.** The real boot hands `login` what Fork 8 D needs, 2026-09-27.
+- **Proposed.** A gate that types `SCHEDULE` on the real boot: `script/swish-check` has no login
+  client, so only the kernel suite's `login_tests` run it. Rechecked 2026-10-03. See
+  `design/roadmap/proposals/a-real-boot-gate-that-types-schedule.md`.
 - **Refused.** Per-login narrowing of the directory capability was deliberately not taken, because
   the adapter it applied to was deleted: the SMB implementation went on 2026-08-30, calef's call,
   after journey 2 was retired.
@@ -272,8 +262,9 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
   its whole life anyway. Fork 4, closed 2026-09-27.
 - **Done.** `LOGIN_CONSTRUCTION_PAGES` holds a durable budget, derived from
   `login_protocol::durable::BUDGET_PAGES` (2026-09-27).
-- **Recorded.** A durable job has nowhere to write yet: its timetable holds no directory to back an
-  entry's grant, so such a line is planned unbacked. The system log of #1423 is the likely grant.
+- **Milestone 687.** A durable job has nowhere to write yet: its timetable holds no directory to
+  back an entry's grant, so such a line is planned unbacked. Milestone 687 (the system log persists
+  through RedoxFS: what a directory grant has to answer) is the likely grant.
   `components/src/timetable.rs`'s BUGS has the store-mode limits.
 - **Recorded.** No liveness watchdog for the start-up pass. It is bounded instead: each re-derived
   session waits at most `END_WAIT_SECS` for its timetable, before the front door opens.

@@ -69,6 +69,8 @@ permissions:
   # read nowhere else, so the rerun shows as `github-actions[bot]` while the log line, which is
   # what the record counts, carries the drain's own instance tag.
   actions: write
+  # `issues: write` is for `helpers/watcher_watch.py sync`'s fallback token (milestone 723).
+  issues: write
 
 jobs:
   drain:
@@ -113,3 +115,18 @@ jobs:
           MERGE_DRAIN_INSTANCE: actions:${{ github.run_id }}
           MERGE_DRAIN_RERUN_TOKEN: ${{ github.token }}
         run: helpers/merge-drain.sh --once
+
+      # **Reports a stopped merge watcher** (milestone 723 (a stopped merge watcher is reported within
+      # three of its own intervals), provisional). Each of the two watchers runs this, so a stopped
+      # one is reported by the other, and a running one closes its own issue. It opens the issue as
+      # the App when the App may, and as `github-actions[bot]` when it may not
+      # (`WATCHER_FALLBACK_TOKEN`); the log says which. `continue-on-error` because a reporting
+      # failure must not turn the drain red, but it prints a warning so it is not silent.
+      - name: report a stopped merge watcher
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          WATCHER_READ_TOKEN: ${{ github.token }}
+          WATCHER_FALLBACK_TOKEN: ${{ github.token }}
+        run: python3 helpers/watcher_watch.py sync || echo "::warning::watcher_watch.py sync failed; a stopped watcher may be unreported"
