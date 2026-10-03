@@ -38,7 +38,8 @@ What the field backfill did instead was measured 2026-10-02 from the frontmatter
 PARTIAL, NOT-STARTED and PROPOSED block carries the five fields, and 7 of 279 BUILT blocks do. Of the
 38 blocks that name a milestone dependency, one is BUILT. The census's 128 prerequisite edges
 (`notes/dependency-census/dependencies.tsv`) appear in a field 4 times. So the graph a script can walk
-today is mostly forward guesses, and the edges hindsight already found are not in it.
+today is mostly forward guesses, and the edges hindsight already found are not in it. The work to put
+them there is `design/roadmap/proposals/backfill-the-census-edges-into-finished-blocks.md`.
 
 The amendment's original refutation test is not carried over. It said that if prerequisites were a
 small minority of references, this section was wrong; the census found 3.8% and the section was
@@ -102,13 +103,22 @@ undone* line.
 ## The fields
 
 Every milestone block carries all five. A missing field is a defect rather than an assertion, so
-`none` is written out and silence never means anything.
+`none` is written out and silence never means anything. Since milestone 596 (the roadmap blocks get
+frontmatter too) they are frontmatter, and this is milestone 101 (the L4 calibration, read from the
+IPC number that pays for the trap)'s, as it stands on 2026-10-02:
 
-    **Milestone dependencies:** 527, 543
-    **Decision dependencies:** §92 (a caretaker is supervised by the client it serves), §150 (how does a thread's CPU time reach userspace?)
-    **Machine requirements:** riscv64 silicon; PMU cycle counter
-    **Specific machine:** none
-    **Needs a person:** no
+    ---
+    status: PARTIAL
+    raised: 2026-08-04
+    milestone_dependencies: 74
+    decision_dependencies: none
+    machine_requirements: riscv64 silicon; PMU cycle counter
+    specific_machine: none
+    needs_person: yes
+    ---
+
+*Amended 2026-10-02: this example was the bold-label prose form the section first proposed. The
+fields and their meanings are unchanged; only the spelling moved, with 596.*
 
 The first two are the graph. The last three are the machine model below.
 
@@ -132,10 +142,10 @@ the requirement itself, and §203 already priced a Scaleway RV1 that satisfies t
 requirement on different silicon. Naming the host forecloses that substitution in prose nobody
 re-reads.
 
-`**Specific machine:**` therefore takes a host and a reason, and having to write the reason is
+`specific_machine` therefore takes a host and a reason, and having to write the reason is
 the point: it is the expensive case, and an unreasoned entry is the failure mode.
 
-`**Needs a person:**` is the field that earns this section. It makes one query possible that
+`needs_person` is the field that earns this section. It makes one query possible that
 cannot be asked today and that §203 explicitly left open: *which milestones would rented metal
 unblock, and how many bench-hours would it buy back.* That is the number that should decide §203's
 undecided spend split between inference, runners and bare metal.
