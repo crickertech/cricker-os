@@ -232,8 +232,8 @@ jobs:
       #      it have to be kicked by hand (close and reopen it). This fallback is deliberate.
       #
       # **`TOOLCHAIN_BUMP_PAT`, a personal access token on calef's account that used to sit between
-      # these two, was retired 2026-10-03 UTC, pending revocation by calef.** Nothing reads the
-      # secret any more.
+      # these two, was retired 2026-10-03 UTC and then deleted, secret and token both.** Nothing reads
+      # it any more.
       #
       # The "Say which identity" step below prints which rung this run took, because the two are
       # otherwise indistinguishable in the log.
