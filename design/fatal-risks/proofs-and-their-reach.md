@@ -159,3 +159,24 @@ So a standing proof now covers the case. But no machine here can execute the pat
 `kernel/src/arch/x86_64/irq.rs`'s module `BUGS` records where a reader meets the feature. A proof
 that catches a regression on hardware nobody owns is still the honest shape of what this risk asks
 about.
+
+### Added 2026-10-03 (§216, from #1286): riscv64 proofs are checked against the host's model
+
+The riscv64 `kernel` row that milestone 589 (Kani can prove riscv64 from the hosts we already
+have) made provable is checked by CBMC against the host's machine model, not riscv64's. Our
+patched Kani links `kani_lib.c` as C source after the Rust symbol table, and `goto-cc` compiles it
+with the host's configuration, which replaces the `__CPROVER_architecture_*` symbols Kani wrote.
+Measured on patagonia on 2026-10-03: the linked model reads `arm64` and `macos`, with signed `char`
+and a 64-bit `long double`, where riscv64 has unsigned `char` and a 128-bit one. Pointer and
+integer widths and endianness agree. In CI, on the `ubuntu-24.04-arm` runner, the same link order
+should give `arm64` and `linux`; that is reasoned, not observed.
+
+It changes no verdict today. All seven harnesses were rerun with `kani_lib.c` linked last as a
+precompiled object, which gives the riscv64 model. For each one, the checks, their statuses and the
+SAT variable and clause counts were identical under both models. The differing fields only matter
+where CBMC interprets C, and none of these harnesses reaches a C model that reads them. So this
+is a gap waiting to bite, not a hole: a later harness that reaches such a model could verify
+differently, and nothing would say so. It moves neither half of the amber, survivorship or reach,
+since no verdict changed; calef ruled on 2026-10-03 (UTC) that risk 2 stays AMBER. The gate and the
+fix are the proposal
+[riscv64 proofs check against the riscv64 model](../roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md).

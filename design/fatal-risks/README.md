@@ -105,7 +105,7 @@ that does not matter.
 **The experiment:** milestone 191 (did the proofs catch the bugs?), against this project's own defect
 history, plus a reverse pass asking which harnesses prove a property that could plausibly be false.
 
-**Experiment status: RUN, 2026-08-30.** AMBER. The red half is that no standing proof has caught a
+**Experiment status: RUN, 2026-08-30, re-read 2026-10-03.** AMBER (calef, 2026-10-03, #1286). The red half is that no standing proof has caught a
 regression: every defect a proof caught was caught while its harness was being written (rule 1's
 survivorship asymmetry). The second reason is reach. Eight harnesses prove kernel
 code on all three architectures; none passes `asm!`, fixed-address MMIO or an `arch/` subtree its
@@ -113,7 +113,11 @@ host skips. Files with `asm!` hold 15,966 of `kernel/src`'s 86,528 lines, about 
 ([`notes/kernel-proofs.md`](../../notes/kernel-proofs.md)). Reworded 2026-09-25 on the architect's
 ruling; it said "the red half is structural", naming a crate boundary milestone 193 (put
 `kernel/src` within reach of the prover) removed on 2026-08-30
-([`notes/proof-retrospective.md`](../../notes/proof-retrospective.md); PR #589).
+([`notes/proof-retrospective.md`](../../notes/proof-retrospective.md); PR #589). Dated 2026-10-03
+(§216, from #1286): the riscv64 kernel harnesses are checked against the host's machine model
+(`arm64`/`macos` on patagonia; `arm64`/`linux` expected in CI, unverified). All seven gave identical
+verdicts and SAT counts under both models, so this is a gap waiting to bite, not a hole. The fix
+and its gate are a [proposal](../roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md).
 
 The first x86_64 proof went red on a latent defect, the first of the class this risk asks about. The
 claim: proofs over the pure crates and slices of a mostly unverified kernel. [Appendix](proofs-and-their-reach.md).
