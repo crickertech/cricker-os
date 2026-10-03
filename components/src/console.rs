@@ -264,7 +264,10 @@ fn take_screen(shared: *const u8, len: u64, b: &mut ScreenBatch) {
         }
     }
     b.pending += len;
-    if b.pending >= PAGE {
+    if !b.batching || b.pending >= PAGE {
+        // No batching (the flag, or a refused `ARM` turned it off mid-run): one paint per
+        // write, the behavior this console had before any of this. Staging without this was
+        // kilobyte-cadence screen updates, found as stale rows in the firmware-screen test.
         paint_screen(b);
         return;
     }
