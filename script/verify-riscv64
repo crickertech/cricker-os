@@ -163,4 +163,68 @@ if [ ! -d "$out" ] || [ -z "$(find "$out" -newer "$marker" -name '*.symtab.out' 
 	echo "verify-riscv64: no riscv64 goto output under $out from this run; the proofs above were not riscv64's" >&2
 	exit 1
 fi
+
+# **And CBMC must have checked them against riscv64's machine model, not the host's.** From
+# milestone 635 (riscv64 proofs check against the riscv64 model). Kani writes the target's model into each
+# harness's `.symtab.out` as `__CPROVER_architecture_*` symbols, and links that into the `.out`
+# CBMC checks. When `goto-cc` links goto binaries the first input's symbols win, but a C source in
+# the same invocation is compiled with goto-cc's own (host) configuration and overwrites them, and
+# stock Kani 0.67.0 passes `kani_lib.c` that way. CBMC then loads its C library for the host, and
+# where CBMC interprets C (that library, `kani_lib.c`, an `extern "C"` model) the host's `char`
+# signedness and `long double` width apply. The carried patch links `kani_lib.c` precompiled and
+# last, and this check is what says it worked.
+#
+# Every field Kani wrote must survive into every linked `.out` this run produced, compared value for
+# value, so nothing here hard-codes riscv64's widths; `arch` must also read "riscv64", which is the
+# one fact this script knows independently. A field only the link added (`os`, which Kani's model
+# does not carry) is printed, not judged. The whole table is printed before any verdict, so a red run
+# still records what the model was.
+gi="$cbmc_bin/goto-instrument"
+export LC_ALL=C # sort, join and comm must agree on one collation
+arch_model() {
+	# `name=value`, sorted, with the `(__CPROVER_integer)` cast the linker adds stripped so that a
+	# written value and a linked one compare as text.
+	"$gi" --show-symbol-table "$1" | awk '
+		/^Symbol\.\.\.\.\.\.: __CPROVER_architecture_[A-Za-z_]+$/ { n = substr($0, 15); next }
+		/^Value\.\.\.\.\.\.\.: / && n != "" { print n "=" substr($0, 15); n = ""; next }
+		/^$/ { n = "" }' |
+		sed -e 's/^__CPROVER_architecture_//' -e 's/=(__CPROVER_integer)/=/' | sort
+}
+model_dir="$(mktemp -d)"
+trap 'rm -f "$marker"; rm -rf "$model_dir"' EXIT
+linked=0
+wrong=0
+shown=false
+find "$out" -newer "$marker" -name '*.symtab.out' >"$model_dir/symtabs"
+while IFS= read -r symtab; do
+	goto="${symtab%.symtab.out}.out"
+	[ -f "$goto" ] || continue
+	linked=$((linked + 1))
+	harness="$(basename "$goto" .out | sed 's/^.*proofs[0-9]*//')"
+	arch_model "$symtab" >"$model_dir/written"
+	arch_model "$goto" >"$model_dir/linked"
+	if ! $shown; then
+		echo "==> the machine model CBMC checked, from $(basename "$goto"); written by Kani -> linked:"
+		join -t= -a1 -a2 -e '(absent)' -o 0,1.2,2.2 "$model_dir/written" "$model_dir/linked" |
+			awk -F= '{ note = ($2 == $3) ? "" : ($2 == "(absent)") ? "   (added by the link; not judged)" : "   DIFFERS"
+				printf "    %-22s %-14s -> %s%s\n", $1, $2, $3, note }'
+		shown=true
+	fi
+	# A written field that is missing or changed after the link.
+	lost="$(comm -23 "$model_dir/written" "$model_dir/linked" | tr '\n' ' ')"
+	arch="$(sed -n 's/^arch=//p' "$model_dir/linked")"
+	if [ -n "$lost" ] || [ "$arch" != '"riscv64"' ]; then
+		wrong=$((wrong + 1))
+		echo "    $harness: linked arch $arch; written fields lost or changed: ${lost:-none}"
+	fi
+done <"$model_dir/symtabs"
+if [ "$linked" -eq 0 ]; then
+	echo "verify-riscv64: no linked .out beside a .symtab.out under $out from this run; cannot read the model CBMC checked" >&2
+	exit 1
+fi
+if [ "$wrong" -ne 0 ]; then
+	echo "verify-riscv64: $wrong of $linked linked harnesses were checked against a model other than the one Kani wrote for $target (see notes/kani-upstream.md)" >&2
+	exit 1
+fi
+echo "==> all $linked linked harnesses carry the riscv64 machine model Kani wrote"
 echo "==> the kernel proved for $target"

@@ -40,8 +40,10 @@
 //!   code no test exercises.
 //! - **It proves nothing about a real firmware.** OVMF is one implementation and a generous one.
 //!   Rung 2b is the bench half and belongs to somebody with xenon in front of them.
-//! - **The two boots take several minutes under TCG**, most of it the ten-megabyte copy at one
-//!   4096-byte request per round trip. It is not in `script/test`'s default legs for that reason.
+//! - **It runs nowhere on its own.** It was left out of `script/test`'s default legs because the
+//!   two boots were said to take several minutes under TCG. Measured 2026-10-03 on an Apple M-series
+//!   host, warm: 42.5 seconds for the whole gate. Nothing schedules it either, so a break is found
+//!   by whoever next runs it by hand: `design/roadmap/proposals/the-install-gates-run-nowhere.md`.
 //! - **A failure leaves the NVMe image behind**, on purpose: it is the evidence, and
 //!   `hdiutil attach -imagekey diskimage-class=CRawDiskImage` on the partition reads the EFI system
 //!   partition it wrote.
