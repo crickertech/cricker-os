@@ -432,6 +432,23 @@ mod tests {
         String::from_utf8(v).unwrap()
     }
 
+    /// The raw mask is the bit of each named state, which is what a spawner puts in a register, and
+    /// a state code outside the mask's width selects nothing instead of wrapping a shift.
+    #[test]
+    fn the_mask_is_the_named_bits_and_a_wild_code_selects_nothing() {
+        assert_eq!(Selector::from_pattern(b"dead").mask(), state::DEAD);
+        assert_eq!(
+            Selector::from_pattern(b"ready").mask(),
+            1 << abi::survey::READY
+        );
+        assert_eq!(Selector::from_pattern(b"*").mask(), state::EVERY);
+        assert_eq!(Selector::from_pattern(b"nothing like it").mask(), 0);
+        let all = Selector::of(u64::MAX);
+        assert!(all.selects(abi::survey::DEAD));
+        assert!(!all.selects(64), "bit 64 does not exist in a u64 mask");
+        assert!(!all.selects(u64::MAX));
+    }
+
     const MIXED: &[(u64, u64)] = &[
         (3, abi::survey::RUNNING),
         (5, abi::survey::BLOCKED),
