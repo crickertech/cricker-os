@@ -49,6 +49,13 @@
 #   script/metrics --csv           print the current commit's row as one CSV line
 #   script/metrics --backfill      rewrite every week's row from git history, then the charts
 #   script/metrics --update        recompute THIS week's row in place, then the charts
+#   script/metrics --backfill-measure NAME
+#                                  recompute one measure's columns for every week, each from that
+#                                  week's own commit, and rewrite only that measure's file and the
+#                                  charts. For a measure added after its history began: `--update`
+#                                  fills only the current week, and `--backfill` restates every
+#                                  other measure too. First used for `coe-actions` (calef's
+#                                  condition on #1513, 2026-10-03).
 #   script/metrics --check         non-zero if --update would change anything, a missing week
 #                                  included. NOTHING RUNS IT: it cannot gate a pull request,
 #                                  because every merge moves the current week's numbers.
@@ -2611,17 +2618,22 @@ def trailing_mean(rows, weeks, field, span):
     return out
 
 
-def draw_charts(rows):
-    write_bold_status(rows)
-    write_drift_report()
-    write_interface_line(rows)
-    write_week_notes_bullets()
-    retire = bold_retire_line(rows)
-    if retire:
-        print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
+def draw_charts(rows, only=None):
+    """Every chart and the generated lines on the page, or with `only` (a set of column names)
+    just the charts that plot one of them and nothing on the page."""
+    if only is None:
+        write_bold_status(rows)
+        write_drift_report()
+        write_interface_line(rows)
+        write_week_notes_bullets()
+        retire = bold_retire_line(rows)
+        if retire:
+            print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
     weeks = sorted(rows)[-CHART_WEEKS:]
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     for name, title, subtitle, columns, scale, ceiling, absent_field, *rest in CHARTS:
+        if only is not None and not only & {column for _label, column in columns}:
+            continue
         hues = rest[0] if rest else None
         series = series_of(rows, weeks, columns, scale, hues)
         if not series:
@@ -2815,6 +2827,27 @@ def main(argv):
         if not lines:
             print('no charted week moved more than a tenth')
         return 0
+    if mode == '--backfill-measure':
+        # One measure's columns, every week, from that week's commit; nothing else in any row
+        # moves. row_for computes the whole row, which costs a backfill's time and keeps the
+        # derivation the one --update uses, rather than a second path per measure that could drift.
+        if len(args) != 2 or args[1] not in dict(MEASURES):
+            raise SystemExit('metrics: --backfill-measure takes one measure name: %s'
+                             % ', '.join(name for name, _columns in MEASURES))
+        name, columns = args[1], dict(MEASURES)[args[1]]
+        rows = read_csv()
+        for week, rev in week_commits().items():
+            if week not in rows:
+                continue
+            fresh = row_for(rev, week)
+            for column in columns:
+                rows[week][column] = fresh.get(column, '')
+        path = measure_path(name)
+        write_csvs({path: render_csvs(rows)[path]})
+        draw_charts(rows, only=set(columns))
+        print('metrics: %s rewritten for %d weeks, its charts redrawn' % (path, len(rows)))
+        return 0
+
     if mode not in ('--table', '--csv', '--backfill', '--update', '--check', '--charts'):
         raise SystemExit('metrics: unknown argument %s; see the comment at the top of this script'
                          % mode)

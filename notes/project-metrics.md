@@ -54,8 +54,11 @@ Grey is no verdict yet.
 
 ![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
 
-Each bullet under a correction's `## Action items` (notes/coes/), open while the milestone, proposal
-or decision it names is not done. The direction is down; `script/roadmap --coe-actions` lists them.
+Each bullet under a correction's `## Action items`, open while the milestone, proposal or decision
+it names is not done. The direction is down; `script/roadmap --coe-actions` lists them. Every week is
+read from that week's own commit (`script/metrics --backfill-measure coe-actions`, 2026-10-03), so
+2026W39 is the first correction, in `notes/corrections/`, counted as written then. It already used
+the counted form; no week needed a guess, and weeks before it have no correction and no bar.
 
 ## Kani proof harnesses, and what can falsify them
 

@@ -34,8 +34,11 @@ file (calef, 2026-09-18) and the promoting lane cannot be expected to know which
 it. The gate stays exact anyway: a `Proposed.` file that is gone and that no block was promoted from
 is a failure.
 
-**What a correction is**: every `notes/coes/*.md` except the README. Each has exactly one
-`## Action items` section.
+**What a correction is**: every `notes/coes/*.md` except the README, and the same in the two places
+corrections lived before that directory: `notes/corrections/` (the first, 2026-09-23) and a
+`notes/coe-<date>-<slug>.md` file at the top of `notes/` (2026-09-29, a day). Each has exactly one
+`## Action items` section. The older places are read so that `script/metrics` can count past weeks
+from the tree as it stood, and so that a correction still filed there is gated like the rest.
 
 Name: provisional, minted by the lane revising #1513 on 2026-10-03 (UTC). A shared python module
 under `helpers/`, which `script/names` puts out of its own scope, so this paragraph is the record.
@@ -57,6 +60,9 @@ import roadmap_block
 
 ACTIONS_HEADING = "## Action items"
 DIRECTORY = "notes/coes"
+# Where corrections lived before DIRECTORY, oldest first; see the docstring.
+OLDER_DIRECTORIES = ("notes/corrections",)
+_OLDER_FILE = re.compile(r"^notes/coe-\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$")
 EXEMPT = ("README.md",)
 PROPOSALS = "design/roadmap/proposals/"
 DECISIONS = "design/decisions/"
@@ -74,7 +80,10 @@ _TICKED = re.compile(r"`([^`]+)`")
 def is_record(path):
     """True for a correction's own file, which is every markdown file in the directory but its README."""
     directory, _slash, name = path.rpartition("/")
-    return directory == DIRECTORY and name.endswith(".md") and name not in EXEMPT
+    if _OLDER_FILE.match(path):
+        return True
+    return (directory in (DIRECTORY,) + OLDER_DIRECTORIES and name.endswith(".md")
+            and name not in EXEMPT)
 
 
 def _status(text):

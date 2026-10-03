@@ -1316,10 +1316,11 @@ for mid, fname in sorted(ids.items()):
 import coe_actions                                                          # noqa: E402
 
 _coe_texts = {}
-for _dir in ("design/roadmap", "design/decisions", coe_actions.DIRECTORY):
+for _dir in ("design/roadmap", "design/decisions", coe_actions.DIRECTORY,
+             *coe_actions.OLDER_DIRECTORIES, "notes"):
     _full = os.path.join(root, _dir)
     for _name in sorted(os.listdir(_full)) if os.path.isdir(_full) else []:
-        if _name.endswith(".md"):
+        if _name.endswith(".md") and (_dir != "notes" or coe_actions.is_record(f"notes/{_name}")):
             with open(os.path.join(_full, _name)) as _f:
                 _coe_texts[f"{_dir}/{_name}"] = _f.read()
 coe_counts, _coe_problems = coe_actions.evaluate(
