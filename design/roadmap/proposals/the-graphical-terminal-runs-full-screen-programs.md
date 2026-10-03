@@ -17,7 +17,7 @@ with it. Every claim below was checked in the tree or upstream on 2026-10-02 (UT
 is marked as such.
 
 The engine choice is a dependency decision (§46 (thin primitives or whole subsystems; we write everything in between)), so section 4 gives options and
-no recommendation.
+no recommendation (A to E; E was added at calef's request on 2026-10-03 UTC).
 
 ## 1. The gap, and the goal
 
@@ -258,6 +258,47 @@ recommends keeping `video_terminal` as the reference the foreign engine is check
 7. For A then B, yes at equal cost, because the first step delivers the measure. For B then A, the
    ordering is effort-neutral and I would not choose it.
 
+### E. Replace `video_terminal` with libghostty-vt
+
+B without keeping A's engine: libghostty-vt becomes the only VT engine behind `display_terminal`, and
+`video_terminal` is retired (or kept only as a host-side test fixture). Facts about the library are
+those in B; this entry is about what losing the second engine costs and buys.
+
+- *Against.*
+  - `video_terminal`'s `pixel(x, y)` carries the three-witness check: the component draws, the kernel
+    test predicts, and xtask grades the scanout. libghostty-vt gives cells, so the check has to be
+    rebuilt on cells with a small renderer we own.
+  - Losing the second engine loses differential testing. §37 (text as a value) and `notes/glyphs.md`
+    call that comparison the stronger milestone 23 (a capability-routed component OS with live
+    replacement) demonstration.
+  - As the only engine, every upstream API break ("definitely going to change") breaks the display
+    path. That path then needs the Zig toolchain and a supplied allocator just to work.
+- *For.*
+  - No 500 to 900 lines of our own engine code to keep up.
+  - No double maintenance, and no triage of disagreements between two engines.
+  - Immediate completeness: DEC modes, resize, grapheme clustering, mouse, and a `vttest` history
+    (claimed in `notes/glyphs.md`, not verified here).
+- *What would make E more attractive.* An upstream API declared stable.
+
+1. Considered instead: A (keeps the second engine, costs the lines), B and D (keep both engines).
+2. to 4. See the shared answers.
+5. Cost: B's toolchain, vendoring and allocator costs, plus the cell-based check, minus the engine
+   lines of A. Not measured beyond what B records.
+6. Harder to reverse than B: once `video_terminal` is gone, bringing it back is a rewrite, and the
+   display path depends on a library whose API is declared unstable.
+7. Not decided here. At equal cost I would still keep two engines, because the differential check is
+   the claim; E wins only if that claim is not worth the second engine's upkeep.
+
+## Ruling
+
+calef, 2026-10-03 UTC: "not yet". The display paths sit largely unused (the 2026-09-30 ruling) and
+nothing is blocked, so the engine choice waits. The proposal stays `PROPOSED` and nothing is built.
+
+Revisit when either of these happens:
+
+- someone needs a full-screen program at a display path, or
+- libghostty-vt stabilises its C API.
+
 ## 5. Priority, and whether the serial console has the same gap
 
 calef ruled on 2026-09-30 that graphics is not at boot and "will sit there largely unused for some
@@ -298,7 +339,7 @@ could not verify that a program launched from `screen` reaches `display_terminal
 - Milestone 29 (the display terminal) and milestone 142 (a text display good enough that people use
   it instead of a GUI) are the blocks this touches. 142's remaining increments are about glyph
   quality and do not collide with the engine's state work.
-- Blocked until answered: option B and D cannot start. Option A needs no ruling and could start
+- Blocked until the choice is made again: options B, D and E cannot start. Option A needs no ruling and could start
   now, but A is also step one of D, so starting it quietly would pick D's first half.
 - A program to measure against (a port of `less`, `vim` or procps `top`) is milestone 198's road and
   not this one's. The host-harness measure does not need one.
