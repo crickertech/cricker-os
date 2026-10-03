@@ -200,3 +200,48 @@ The 41 equivalents are three shapes.
 - The `while i < TABLE.len()` in a `const _` assertion (2): the loop is the compile-time check that
   the table is in opcode order. A mutant of it only disables the check, and a build that still
   passes is the output.
+
+## timetable
+
+93 missed: 79 killed, 14 equivalent. The sweep afterwards reports 14 missed.
+
+The oracle table has no interval rule and no range with an hourly step, so most kills are the rules
+the oracle never reached:
+
+- Interval phase (`in_phase`, 6 mutants): a line counted from `starting` in days, in weeks that begin
+  on Monday, or in months. Each test picks a start whose day or week number is not a multiple of the
+  interval, and the weekly ones use 3 and 7 as well as 2, because a sum, a difference and a scaled
+  count agree for 2.
+- `range`'s edges (21): an hour that starts and ends together, a step that stops at the end and does
+  not run to midnight, a range from midnight with no earlier hour to name, the last time reached
+  named from either side of the start minute, and a span that is not a whole number of steps.
+- The grammar's words (21): the day and month names the oracle never used (`wed`, `sun`, `feb`,
+  `may` to `sep`, `nov`, `dec`), `1st`, `3rd` and `4th`, `expect`'s guard, and `first weekday` as
+  an RRULE.
+- Digits and widths (13): `+9` (which Rust parses as 9), `by 00060m`, `by 0m` (which would divide by
+  zero), `24:00`, `12:60`, a one-digit hour, and each of the three date fields. A line that starts
+  and ends the same day is accepted.
+- `through` is inclusive (3), `HORIZON_DAYS` holds a 99-month gap, and `next_time` ignores hour bits
+  past 23.
+- Registration and the scheduler (15): `last_reachable`, `held`, the verdict word's second kept bit,
+  a third identical line against two identical old ones (a second `lent` bit), an installed
+  calendar line before and after the clock, an installed file operand, and the page layout's sums.
+
+The 14 equivalents:
+
+- `|` as `^` (3 in `registration`): `seq << 8` beside a byte, a kind beside a shifted code, a kept
+  bit beside both. Each pair has disjoint bits.
+- `next_time`'s start hour `after < 0` (3): the loop skips an hour whose floor is 59 or more anyway,
+  so starting at hour 0 changes the work and not the answer.
+- `next`'s horizon (2): `d + HORIZON_DAYS` as `d * HORIZON_DAYS` and `99 * 31 + 62` as `99 * 31 * 62`
+  only make the search longer. A rule that matches nothing is answered `None` either way, only
+  later.
+- `range`'s `step < 60` as `<=` (1): a 60-minute step through the first branch builds the same masks
+  and the same payload as the second.
+- `range`'s `h < 24` (1): `h <= eh` has already failed, because `eh` is at most 23.
+- `month_day_matches`'s `n > 0` (1) and `write_rrule`'s `n < 0` (1): `Nth(0, ..)` is not a value the
+  grammar produces, and 1 to 4 and -1 are the only others.
+- `due`'s `r.wall_next == SPENT` (1): redundant with `w < wall_next` unless the clock reads
+  `i64::MAX` minutes.
+- `unbacked`'s third clause, `Diagnostics::File` (1): `plan` passes no operators, so it cannot
+  arrive today. The comment above it says it is there for the day that changes.

@@ -179,3 +179,69 @@ pub fn stage(page: &mut [u8], doc: &[u8]) -> Option<()> {
     page[BODY..BODY + doc.len()].copy_from_slice(doc);
     Some(())
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+
+    use super::*;
+    use crate::contract::STAGING_BYTES;
+    use crate::{Admission, Unbacked};
+
+    #[test]
+    fn a_request_word_carries_an_operation_and_a_sequence_that_come_back_out() {
+        let w = request(7, 0x1234);
+        assert_eq!(w, 0x1234_07);
+        assert_eq!(operation(w), 7);
+        assert_eq!(sequence(w), 0x1234);
+        // Only the low byte is the operation, and a wider one does not leak into the sequence.
+        assert_eq!(operation(request(0x1ff, 1)), 0xff);
+        assert_eq!(sequence(request(0x1ff, 1)), 1);
+    }
+
+    #[test]
+    fn each_missing_authority_has_its_own_three_bit_code() {
+        let all = [
+            (Unbacked::File, 0),
+            (Unbacked::Directory, 1),
+            (Unbacked::Clock, 2),
+            (Unbacked::Domain, 3),
+            (Unbacked::Interrupt, 4),
+            (Unbacked::Memory, 5),
+            (Unbacked::WallClock, 6),
+        ];
+        for (u, code) in all {
+            assert_eq!(unbacked_code(u), code, "{u:?}");
+            assert_eq!(
+                verdict(&Admission::Unbacked(u), false),
+                KIND_UNBACKED | (code << 2)
+            );
+        }
+    }
+
+    #[test]
+    fn the_page_layout_adds_up() {
+        assert_eq!(EXITED, 0x8000_0000_0000_0000);
+        assert_eq!(BODY_MAX + BODY, PAGE_BYTES);
+        assert_eq!(STAGING_BYTES, 131_072);
+    }
+
+    #[test]
+    fn a_document_is_staged_into_a_page_exactly_as_big_as_the_page() {
+        let doc = [b'x'; 5];
+        let mut page = std::vec![0u8; PAGE_BYTES];
+        assert_eq!(stage(&mut page, &doc), Some(()));
+        assert_eq!(&page[BODY..BODY + 5], &doc);
+        assert_eq!(&page[LEN..LEN + 8], &5u64.to_le_bytes());
+        // A page larger than the contract is as good as one of exactly its size; a smaller one is
+        // refused, and so is a document one byte too long.
+        let mut big = std::vec![0u8; PAGE_BYTES + 16];
+        assert_eq!(stage(&mut big, &doc), Some(()));
+        let mut small = std::vec![0u8; PAGE_BYTES - 1];
+        assert_eq!(stage(&mut small, &doc), None);
+        let long = std::vec![b'y'; BODY_MAX + 1];
+        assert_eq!(stage(&mut page, &long), None);
+        let fits = std::vec![b'y'; BODY_MAX];
+        assert_eq!(stage(&mut page, &fits), Some(()));
+    }
+}

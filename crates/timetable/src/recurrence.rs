@@ -1030,4 +1030,228 @@ mod tests {
         let last_jan = |d: u8| month_day_matches(MonthDay::LastWeekday, d, (d + 3) % 7, 31);
         assert!(last_jan(29) && !last_jan(30) && !last_jan(31));
     }
+
+    // ---- survivor triage of the 2026-10-03 census ---------------------------------------------
+
+    /// Every day and month name is the one it says. Only some had a line in the oracle table, so a
+    /// deleted arm for `wed`, `sun`, `feb`, `may`, `jun`, `aug`, `sep`, `nov` or `dec` was a grammar
+    /// that refused a word it advertises.
+    #[test]
+    fn every_day_and_month_name_is_the_one_it_says() {
+        let days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+        for (i, d) in days.iter().enumerate() {
+            let line = ["every week on ", d, " at 09:00"].concat();
+            assert_eq!(rule(&line).weekdays, 1 << i, "{d}");
+        }
+        let months = [
+            "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+        ];
+        for (i, m) in months.iter().enumerate() {
+            let line = ["every day in ", m, " at 09:00"].concat();
+            assert_eq!(rule(&line).months, 1 << i, "{m}");
+        }
+        for (word, n) in [("1st", 1), ("2nd", 2), ("3rd", 3), ("4th", 4), ("last", -1)] {
+            let line = ["every month on ", word, " wed at 09:00"].concat();
+            assert_eq!(rule(&line).on, MonthDay::Nth(n, 2), "{word}");
+        }
+    }
+
+    /// Each refusal explains itself in words of its own.
+    #[test]
+    fn no_two_refusals_say_the_same_thing() {
+        let all = [
+            Refusal::Malformed,
+            Refusal::DayPast28,
+            Refusal::FifthWeekday,
+            Refusal::BadCount,
+            Refusal::SpelledInterval,
+            Refusal::CountWithIn,
+            Refusal::CountWithoutStarting,
+            Refusal::StartingOffRule,
+            Refusal::ThroughBeforeStarting,
+            Refusal::MixedMinutes,
+            Refusal::StepDoesNotDivide,
+            Refusal::InexactRange(None),
+        ];
+        for (i, a) in all.iter().enumerate() {
+            assert!(!a.message().is_empty(), "{a:?}");
+            for b in &all[i + 1..] {
+                assert_ne!(a.message(), b.message());
+            }
+        }
+    }
+
+    /// Numbers and times are digits and nothing else. `+9` parses as 9 in Rust, and a width of five
+    /// is not a minute count, so both have to be turned away by the grammar and not by luck.
+    #[test]
+    fn a_time_or_date_is_exactly_its_digits() {
+        for line in [
+            "every day at +9:00",
+            "every day at 9:00",
+            "every day at 09:0",
+            "every day at 24:00",
+            "every day at 12:60",
+            "every day from 09:00 to 17:00 by 00060m",
+            "every day from 09:00 to 17:00 by 0m",
+            "every day starting 2026-10-1 at 08:00",
+            "every day starting 26-10-01 at 08:00",
+            "every day starting 2026-1-01 at 08:00",
+            "every day starting 2026-10-01-05 at 08:00",
+            "every day from 09:00 until 17:00 by 15m",
+            "every day from 09:00 to 17:00 per 15m",
+        ] {
+            assert_eq!(refusal(line), Refusal::Malformed, "{line}");
+        }
+        // And the last edge of each is still a time: 23:59, and a line that starts the day it ends.
+        assert!(rule("every day at 23:59").hours == 1 << 23);
+        rule("every day starting 2026-10-06 through 2026-10-06 at 08:00");
+    }
+
+    #[test]
+    fn the_first_weekday_prints_as_its_rrule() {
+        let mut out = [0u8; 120];
+        let mut n = 0;
+        write_rrule(
+            &rule("every month on first weekday at 08:00"),
+            &mut |b: &[u8]| {
+                out[n..n + b.len()].copy_from_slice(b);
+                n += b.len();
+            },
+        );
+        assert_eq!(
+            core::str::from_utf8(&out[..n]).unwrap(),
+            "FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=1;BYHOUR=8;BYMINUTE=0"
+        );
+    }
+
+    /// `through` names a day that still counts, and the first rule's day-level predicate agrees with
+    /// the answer `next` gives at the edge.
+    #[test]
+    fn the_through_day_itself_still_fires() {
+        let r = rule("every day through 2026-10-06 at 08:00");
+        assert!(day_matches(&r, date("2026-10-06").unwrap()));
+        assert!(!day_matches(&r, date("2026-10-07").unwrap()));
+        assert_eq!(
+            next(&r, minute("2026-10-05T09:00")),
+            Some(minute("2026-10-06T08:00"))
+        );
+        assert_eq!(next(&r, minute("2026-10-06T08:00")), None);
+    }
+
+    /// A Saturday is never the last weekday, even when it is the last day of the month.
+    #[test]
+    fn the_last_weekday_is_never_a_saturday() {
+        assert!(!month_day_matches(MonthDay::LastWeekday, 31, 5, 31));
+        assert!(month_day_matches(MonthDay::LastWeekday, 31, 4, 31));
+    }
+
+    /// **INTERVAL rules count from `starting`, in whole days, weeks that begin on Monday, or
+    /// months.** The oracle table has no interval rule at all, so the phase arithmetic was never
+    /// run against an answer.
+    #[test]
+    fn an_interval_counts_from_its_start_in_the_unit_it_names() {
+        let at = |line: &str, after: &str| next(&rule(line), minute(after)).map(|m| m);
+        // A start whose day number is not a multiple of the interval, so a phase counted from the
+        // epoch instead of from `starting` would disagree.
+        let daily = "every 3 days starting 2026-10-02 at 04:00";
+        assert_eq!(
+            at(daily, "2026-10-02T04:00"),
+            Some(minute("2026-10-05T04:00"))
+        );
+        assert_eq!(
+            at(daily, "2026-10-05T04:00"),
+            Some(minute("2026-10-08T04:00"))
+        );
+        // Fridays too, so a week is named by its Monday and not by the day that asked.
+        let weekly = "every 2 weeks on mon,fri starting 2026-10-05 at 08:00";
+        assert_eq!(
+            at(weekly, "2026-10-05T08:00"),
+            Some(minute("2026-10-09T08:00"))
+        );
+        assert_eq!(
+            at(weekly, "2026-10-09T08:00"),
+            Some(minute("2026-10-19T08:00"))
+        );
+        assert_eq!(
+            at(weekly, "2026-10-19T08:00"),
+            Some(minute("2026-10-23T08:00"))
+        );
+        // Intervals of 3 and 7 weeks, where a week count scaled instead of divided, or added to the
+        // start's instead of taken from it, comes out the same as the right one for 2.
+        let three = "every 3 weeks on mon starting 2026-10-12 at 08:00";
+        assert_eq!(
+            at(three, "2026-10-12T08:00"),
+            Some(minute("2026-11-02T08:00"))
+        );
+        let seven = "every 7 weeks on mon starting 2026-10-05 at 08:00";
+        assert_eq!(
+            at(seven, "2026-10-05T08:00"),
+            Some(minute("2026-11-23T08:00"))
+        );
+        // A start on a Wednesday: Monday the 12th is in the NEXT week, so it is skipped.
+        let mid = "every 2 weeks on wed,mon starting 2026-10-07 at 08:00";
+        assert_eq!(
+            at(mid, "2026-10-07T08:00"),
+            Some(minute("2026-10-19T08:00"))
+        );
+        // Months across a year end.
+        let monthly = "every 3 months on 15 starting 2026-11-15 at 09:00";
+        assert_eq!(
+            at(monthly, "2026-11-15T09:00"),
+            Some(minute("2027-02-15T09:00"))
+        );
+        assert_eq!(
+            at(monthly, "2027-02-15T09:00"),
+            Some(minute("2027-05-15T09:00"))
+        );
+    }
+
+    /// The longest gap an accepted rule can have is 99 months, and it is still found.
+    #[test]
+    fn a_ninety_nine_month_gap_is_inside_the_horizon() {
+        let r = rule("every 99 months on 15 starting 2026-10-15 at 09:00");
+        let got = next(&r, minute("2026-10-15T09:00")).expect("inside the horizon");
+        assert_eq!(got, minute("2035-01-15T09:00"));
+    }
+
+    /// Hours past 23 are not hours, whatever else the mask holds.
+    #[test]
+    fn a_mask_bit_past_the_day_names_no_time() {
+        assert_eq!(next_time(1 << 24 | 1 << 31, 1, -1), None);
+        assert_eq!(next_time(1 << 23, 1, -1), Some(23 * 60));
+    }
+
+    /// The edges of `range`, in both of its branches, each chosen so that the neighbouring
+    /// comparison would answer differently.
+    #[test]
+    fn a_range_is_exact_at_its_edges() {
+        // An hour that starts and ends in the same hour is a range.
+        assert_eq!(
+            range(9 * 60, 9 * 60 + 45, 15),
+            Ok((1 << 9, 1 | 1 << 15 | 1 << 30 | 1 << 45))
+        );
+        assert_eq!(range(9 * 60, 9 * 60, 120), Ok((1 << 9, 1)));
+        // Hourly steps stop at the end, and do not run on to the end of the day.
+        assert_eq!(
+            range(9 * 60, 17 * 60, 120),
+            Ok((1 << 9 | 1 << 11 | 1 << 13 | 1 << 15 | 1 << 17, 1))
+        );
+        // Midnight to ten past, by quarters: no earlier hour exists to name as the last.
+        assert_eq!(range(0, 10, 15), Err(Refusal::InexactRange(None)));
+        // The last time reached is named, from either side of the start minute.
+        assert_eq!(
+            range(9 * 60, 17 * 60 + 30, 120),
+            Err(Refusal::InexactRange(Some(17 * 60)))
+        );
+        assert_eq!(
+            range(9 * 60 + 30, 17 * 60 + 10, 120),
+            Err(Refusal::InexactRange(Some(15 * 60 + 30)))
+        );
+        // A span that is not a whole number of steps, however it is measured.
+        assert_eq!(
+            range(9 * 60, 18 * 60, 120),
+            Err(Refusal::InexactRange(Some(17 * 60)))
+        );
+        assert_eq!(range(60, 7 * 60, 180), Ok((1 << 1 | 1 << 4 | 1 << 7, 1)));
+    }
 }
