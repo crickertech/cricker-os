@@ -20,6 +20,9 @@ It is on the syscall surface, so it is calef's call; this file is the options wi
 It is also an input to fatal risk 7 (the confinement claim), and this proposal does not touch
 `design/fatal-risks/`.
 
+**Ruled by calef, 2026-10-03 (UTC): "Option 1 with the typed runtime helper."** Built on
+`milestone/706-reply-or-delegation`.
+
 ## The gap milestone 634 left, by its own account
 
 Milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)
