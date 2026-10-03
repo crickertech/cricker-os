@@ -77,22 +77,32 @@ from that file and from the linked `.out` with `goto-instrument --show-symbol-ta
 allowed. It fails loudly if no `.symtab.out` exists or one has no such symbols, so it cannot pass
 vacuously. No host values are written into it.
 
-It proves it can fail, on this Mac:
+It proves it can fail, on two hosts:
 
-| build | result |
-|---|---|
-| upstream `main`, no hunk | **red**, compiletest exit 1: `__CPROVER_architecture_char_is_unsigned 1` written, `0` linked |
-| link hunk only | **green**, compiletest exit 0, 1 passed (`char_is_unsigned` 1 in both files) |
-| link hunk and model line, the patch as saved | **green**, exit 0 (`char_is_unsigned` 0 in both files) |
+| host | build | result |
+|---|---|---|
+| patagonia (macOS arm64) | upstream `main`, no hunk | **red**, compiletest exit 1: `__CPROVER_architecture_char_is_unsigned 1` written, `0` linked |
+| patagonia | link hunk only | **green**, exit 0 (`char_is_unsigned` 1 in both files) |
+| patagonia | link hunk and model line, the patch as saved | **green**, exit 0 (`char_is_unsigned` 0 in both files) |
+| arm64 Ubuntu 24.04 container | (a) the patch as saved | **green**, exit 0 (`char_is_unsigned` 1, `wchar_t_is_unsigned` 1 in both files) |
+| arm64 Ubuntu 24.04 container | (b) the patch with only the link hunk reverted | **red**, exit 1: `__CPROVER_architecture_wchar_t_is_unsigned 1` written, `0` linked |
+| arm64 Ubuntu 24.04 container | (c) upstream `main` plus only the test | **red**, exit 1: the same `wchar_t_is_unsigned` 1 written, 0 linked |
+
+The container ran natively on patagonia (podman, `--platform linux/arm64`, `ubuntu:24.04`, the
+image Kani's `ubuntu-24.04-arm` runner matches). Dependencies were installed the way Kani's
+`scripts/setup/ubuntu/install_deps.sh` does, with two differences. CBMC 6.11.0 came from its
+`ubuntu-24.04-arm64` release `.deb` (Kani's `install_cbmc.sh` builds it from source on arm64). And
+`time` and `jq`, which GitHub's runner images carry, were added by hand. Toolchain,
+kissat 4.0.1 and cvc5 1.3.0 came from Kani's own scripts. `cargo build-dev -- -j 3` exited 0 in 150 s with the patch.
 
 With the model line, the red row on this Mac would have nothing to show, since Kani and `goto-cc`
 would then agree here. The test still guards aarch64 Linux (`wchar_t_is_unsigned`) and any model
 field that later diverges from a host's.
 
 Kani's CI runs its regression on `macos-15-intel`, `ubuntu-22.04`, `ubuntu-24.04`, `macos-14` and
-`ubuntu-24.04-arm` (`.github/workflows/kani.yml`). By the table under "What changes for each host",
-the test without the hunk would be red on `macos-14` and `ubuntu-24.04-arm` and green on the other
-three. That is inferred, not run: I have no Linux Kani build.
+`ubuntu-24.04-arm` (`.github/workflows/kani.yml`). Without the link hunk the test was observed red
+on macOS arm64 and arm64 Linux. On the two x86_64 hosts it should be green either way; that is
+inferred from the `goto-cc` measurements below, not run.
 
 ## Runs on patagonia, 2026-10-03 (UTC)
 
@@ -123,8 +133,15 @@ The saved patch is the second build below. The model line in it is byte-for-byte
 | `cargo-kani` | 0 | 71 passed |
 | `git status` after the suites | | only the commit's own files; no `.kani_lib.o` left behind |
 
-Not run: x86_64 Linux and aarch64 Linux suites (no such Kani host; cordoba belongs to another
-agent), `coverage`, `cargo-coverage`, `std-checks`, firecracker.
+In the arm64 Ubuntu container, with the patch as saved, `script-based-pre` gave 87 passed, 4
+failed, 1 ignored (exit 1, 838 s). Each failure was the environment, and each passed rerun alone
+(exit 0). `cbmc_truncated_results` and `compiler_defaults` needed `jq`. `playback_expected` (CBMC
+out of memory) and `std_codegen` (SIGKILL compiling std) ran short of the 6 GiB VM under parallel
+tests; `std_codegen` passed with `CARGO_BUILD_JOBS=1`.
+`target_riscv64` is #4913's test and does not exist on upstream `main`, so it was not run here.
+
+Not run: x86_64 Linux at all (cordoba belongs to another agent), the other suites on arm64 Linux,
+`coverage`, `cargo-coverage`, `std-checks`, firecracker.
 
 ## What changes for each host
 
@@ -135,7 +152,7 @@ what the linked `.out` carried before this change. Every other field Kani writes
 |---|---|---|---|---|---|
 | aarch64 macOS | `char_is_unsigned = 0` | 1 | 0 | 0: Apple clang leaves `__CHAR_UNSIGNED__` undefined, Rust's `c_char` is `i8`, CBMC's own `config.cpp` says signed for `macos`/`arm64` | Kani run, `.symtab.out` and `.out` |
 | x86_64 macOS | none | none | none | | proxy: `goto-cc -arch x86_64` on this Mac against Kani's x86_64 model in source |
-| aarch64 Linux | `wchar_t_is_unsigned = 0` | 1 | 1 | 1: gcc 13.3 on Ubuntu 24.04 arm64 gives `__WCHAR_TYPE__ unsigned int` | CBMC 6.11.0 `.deb` in an arm64 Ubuntu container; Kani's side from source |
+| aarch64 Linux | `wchar_t_is_unsigned = 0` | 1 | 1 | 1: gcc 13.3 on Ubuntu 24.04 arm64 gives `__WCHAR_TYPE__ unsigned int` | Kani run in an arm64 Ubuntu 24.04 container, `.symtab.out` and `.out` |
 | x86_64 Linux | none | none | none | | CBMC 6.11.0 `.deb` in an amd64 Ubuntu container (emulated); agrees with tautschnig's #4913 measurement |
 
 The link hunk alone corrects aarch64 Linux and, on Apple Silicon, swaps a right value for a wrong
@@ -237,11 +254,13 @@ Title: Keep Kani's machine model through the link, and make it right for Apple a
 >
 > **Testing.** A new script-based test, `linked_machine_model`, compares every
 > `__CPROVER_architecture_*` field in each harness's `.symtab.out` with the linked `.out`. It hard
-> codes no values. On an Apple Silicon Mac it failed on `main` and passes with this PR; by the list
-> above it should also fail on `main` on aarch64 Linux, which I could not run. On that Mac, with
-> this PR, `kani`, `expected`, `ui`, `script-based-pre` and `cargo-kani` pass, and so do
-> `kani-fmt.sh --check` and clippy with `-D warnings` on `kani-driver`. I have not run the suites on
-> Linux.
+> codes no values. It fails on `main` and passes with this PR on an Apple Silicon Mac (on
+> `char_is_unsigned`) and in an arm64 Ubuntu 24.04 container (on `wchar_t_is_unsigned`). On
+> arm64 Linux it also fails with the model change but without the link change. On the Mac, with this
+> PR, `kani`, `expected`, `ui`, `script-based-pre` and `cargo-kani` pass, and so do
+> `kani-fmt.sh --check` and clippy with `-D warnings` on `kani-driver`. In the arm64 Linux
+> container, `script-based-pre` passes (four tests needed `jq` or less parallelism there and passed
+> on rerun). I have not run anything on x86_64 Linux.
 >
 > By submitting this pull request, I confirm that my contribution is made under the terms of the
 > Apache 2.0 and MIT licenses.
@@ -259,5 +278,4 @@ ABI page (cited, not read here) and x86_64 macOS (measured by proxy).
       CBMC's `config.cpp` comment and Kani's own source, not read here. Open it once.
 - [ ] "x86_64 macOS: no field differed" rests on `goto-cc -arch x86_64` on an arm64 Mac, not on an
       Intel Mac. Kani's `macos-15-intel` CI job is the real check.
-- [ ] aarch64 Linux is measured for `goto-cc` and read from source for Kani; no Linux Kani run.
 - [ ] The body says "I". Every run in it was made by an agent on patagonia, as recorded here.
