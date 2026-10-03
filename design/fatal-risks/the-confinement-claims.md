@@ -212,3 +212,11 @@ reaching an object it was not granted. Fixed in `sched::ipc_recv` with a test an
 falsification. The same class as #1494 and milestone 634, reached by a third mechanism (the
 successful-collect path, not an abort and not the mailbox slot). Every other claim it reached held, by reading and by host or kernel proof where cheap. Two were not attacked: row 25 (enforced by the compositor, not the kernel) and row 26 (an escape would hang the test rather than fail it, so it waits on milestone 417 (a usurper that reports instead of hanging)). Row 11 is proved on `x86_64` only; the aarch64 and riscv64 proofs are open work. This does not support green;
 the human-outsider half remains behind milestone 198.
+
+### Added 2026-10-03: rows 28 and 29 replayed on both `x86_64` boots
+
+The records for row 28 (`a_revoked_holder_faults_on_its_next_port_write`) and row 29
+(`a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write`) were replayed on 2026-10-03
+(UTC) on the direct boot (two cores) and the OVMF boot (one core), and each failed on both at
+`system_tests/src/user/x86_port_tests.rs` (`left: 2`, `right: 1`); each passed on both boots with the
+patch removed.
