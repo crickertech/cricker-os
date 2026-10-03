@@ -91,6 +91,18 @@ backfills to the first commit. 2026W29 and 2026W30 are genuine zeros: the practi
 2026W31.
 The line is the same trailing ten-week mean as the chart above, dashed where the window is short.
 
+## Merge queue ejections each week
+
+![Merge queue entries that left without merging, per cent](project-metrics/merge-queue.svg)
+
+The share of merge-queue entries that left without merging, ejected over entered, summed across
+each week. It comes from GitHub's merge-queue events, which git does not hold, so
+`helpers/merge_queue_share.py` fetches them into `project-metrics/merge-queue-daily.csv` (with the
+median hours from opening to merge, per day) and `script/metrics` sums that file. The record starts
+on 2026-09-14, and earlier weeks are absent, not zero. The first three weeks read 16%, 41% and 26%.
+`trunk-health` warns on any day over 20%, the dashed line, and the daily file shows the worst day:
+81 of 93 entries on 2026-09-22.
+
 ## Which model wrote it
 
 ![Commits each week, by the model that signed them](project-metrics/models-commits.svg)
