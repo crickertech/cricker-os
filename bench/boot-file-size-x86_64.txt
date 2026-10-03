@@ -1,0 +1,20 @@
+# bench/boot-file-size-x86_64.txt: the release BOOTX64.EFI against its size budget.
+# Read by script/boot-file-size; see its header for the rule. The default budget is 16 MiB, a
+# quarter of the 64 MiB install boot slot (BOOT_FILE_MAX in uefi_loader/src/main.rs), and the file
+# warns at 12 MiB. calef ruled the 64 MiB slot on 2026-10-03 UTC, "with both fixes".
+#
+# To raise the budget, add these two lines. A budget with no `why:` is refused, and so is one above
+# BOOT_FILE_MAX:
+#   budget_bytes: <N>
+#   why: <the reason, one line>
+#
+# The lines below are the last measurement, for a reader. They gate nothing.
+# Measured 2026-10-03 UTC on nightly-2026-10-02, `cargo xtask uefi-image --release`
+# (the archive includes mkfs and the FS server, as an install image does):
+recorded_on: 2026-10-03
+recorded_bytes: 4640256
+recorded_loader_bytes: 42672
+recorded_kernel_bytes: 662864
+recorded_archive_bytes: 3934720
+# For comparison, the debug image of the same tree was 15555072 bytes (milestone 515 (the installer: a stick that puts itself on the machine's
+# disk), 2026-10-03): a 7.5 MB kernel, 5.8 MB of it DWARF, and 7.9 MB of opt-level-0 programs.
