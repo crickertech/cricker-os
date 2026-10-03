@@ -446,8 +446,9 @@ pub enum ActivationStatus {
     /// pointer, and more than one other version remains: no ordering among live versions exists to
     /// pick a new default with (milestone 614 (two installed versions of one program, each
     /// runnable, and a caller granted the one it needs), ruling 5). Nothing was written; the shell
-    /// names the candidates from the live table, which it reads itself. Provisional, like its
-    /// number.
+    /// names the candidates from the live table, which it reads itself. Also
+    /// [`Activation::Fetch`] of a bare name the image's catalogue vouches for at more than one
+    /// version: `name@version` picks one, and nothing was fetched. Provisional, like its number.
     Ambiguous = 13,
 }
 

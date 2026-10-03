@@ -5048,10 +5048,15 @@ fn fetch(
     use socket_protocol::*;
     use spawnproto::ActivationStatus as S;
 
-    let stem = core::str::from_utf8(name)
-        .ok()
-        .and_then(|name| package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE))
-        .ok_or(S::NoSuchPackage)?;
+    // A bare name the catalogue vouches for at several versions is refused here, before the
+    // network, like a name it vouches for at none: `name@version` picks one (milestone 614).
+    let name = core::str::from_utf8(name).map_err(|_| S::NoSuchPackage)?;
+    let stem = package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE).map_err(
+        |miss| match miss {
+            package_archive::StemMiss::NoSuchPackage => S::NoSuchPackage,
+            package_archive::StemMiss::SeveralVersions => S::Ambiguous,
+        },
+    )?;
     let stack = a.network.ok_or(S::NoNetwork)?;
 
     let region = memory_region_split(a.images_ut, 1).map_err(|()| S::FetchFailed)?;

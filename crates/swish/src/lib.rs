@@ -1281,6 +1281,11 @@ pub fn write_activation(
         // text on this wire, and the shell can read what it is being told to name (milestone 614
         // (two installed versions of one program, each runnable, and a caller granted the one it
         // needs), ruling 5). Provisional wording.
+        // A fetch's ambiguity is the catalogue's, not the live table's (milestone 614).
+        // Provisional wording.
+        (S::Ambiguous, V::Fetch(_)) => {
+            b"  refused: this image's catalogue vouches for several versions of that package; name one with <package>@<version>"
+        }
         (S::Ambiguous, _) => {
             b"  refused: several versions of that program are live and one holds the default; name one with <program>@<version>"
         }
@@ -2151,6 +2156,12 @@ mod tests {
             shown(|o| write_activation(V::Remove(b"uptime"), S::Ambiguous, 3, o)),
             "  refused: several versions of that program are live and one holds the default; \
              name one with <program>@<version>; generation 3 is live\n"
+        );
+        // A fetch's ambiguity is the catalogue's (milestone 614); `script/swish-check` asserts it.
+        assert_eq!(
+            shown(|o| write_activation(V::Fetch(b"greeting"), S::Ambiguous, 1, o)),
+            "  refused: this image's catalogue vouches for several versions of that package; \
+             name one with <package>@<version>; generation 1 is live\n"
         );
     }
 

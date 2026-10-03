@@ -477,32 +477,69 @@ pub fn installable<'a>(catalogue: &str, bytes: &'a [u8]) -> Result<Installable<'
 }
 
 /// **The catalogue's stem for a package asked for by name** (milestone 198 (a package manager)
-/// rung 3a's fetch): the first line whose stem is `<name>-<version>-<architecture>`, for a version
-/// with no hyphen in it. `None` when the image vouches for no package of that name on this
-/// architecture, which is the refusal a fetch gives before it opens a connection.
+/// rung 3a's fetch): the line whose stem is `<name>-<version>-<architecture>`, for a version with
+/// no hyphen in it. [`StemMiss::NoSuchPackage`] when the image vouches for no package of that name
+/// on this architecture, which is the refusal a fetch gives before it opens a connection.
+///
+/// **`name@version` asks for one version; a bare name must mean exactly one** (milestone 614 (two
+/// installed versions of one program, each runnable, and a caller granted the one it needs)). The
+/// qualified spelling is ruling 5's, given for `package remove`, used here for the same reason: a
+/// word with `@` in it is never a package name. A bare name the catalogue vouches for at two
+/// versions is [`StemMiss::SeveralVersions`]. Before this, the first matching line won, so which
+/// version a bare fetch asked for was decided by the order recipe *filenames* sort in
+/// (`greeting-0.2.0.recipe.toml` before `greeting.recipe.toml`, because `-` sorts before `.`),
+/// and the source, serving only 0.1.0, answered 404. Refusing is the reversible answer: ruling 3
+/// says a bare *run* means the newest install, and nothing here orders versions to say which
+/// catalogued one is newest.
 ///
 /// The catalogue is the image's own ([`CATALOGUE`]), so the answer is what the image vouches for
 /// and never what a package source offers. A name with a hyphen in it is looked up the same way;
 /// a *version* with one cannot be told from the name before it and is not matched.
-///
-/// # BUGS
-///
-/// The first matching line wins. The producer writes one line per stem, but two versions of one
-/// package would be two stems, and nothing here orders versions.
-pub fn catalogued_stem<'c>(catalogue: &'c str, name: &str, architecture: &str) -> Option<&'c str> {
-    if name.is_empty() {
-        return None;
+pub fn catalogued_stem<'c>(
+    catalogue: &'c str,
+    name: &str,
+    architecture: &str,
+) -> Result<&'c str, StemMiss> {
+    let (name, wanted) = match name.split_once('@') {
+        Some((name, version)) => (name, Some(version)),
+        None => (name, None),
+    };
+    if name.is_empty() || wanted == Some("") {
+        return Err(StemMiss::NoSuchPackage);
     }
-    measured_boot::manifest_entries(catalogue)
+    let mut found: Option<&'c str> = None;
+    for stem in measured_boot::manifest_entries(catalogue)
         .flatten()
         .map(|(stem, _)| stem)
-        .find(|stem| {
-            stem.strip_suffix(architecture)
-                .and_then(|s| s.strip_suffix('-'))
-                .and_then(|s| s.strip_prefix(name))
-                .and_then(|s| s.strip_prefix('-'))
-                .is_some_and(|version| !version.is_empty() && !version.contains('-'))
-        })
+    {
+        let version = stem
+            .strip_suffix(architecture)
+            .and_then(|s| s.strip_suffix('-'))
+            .and_then(|s| s.strip_prefix(name))
+            .and_then(|s| s.strip_prefix('-'))
+            .filter(|version| !version.is_empty() && !version.contains('-'));
+        let Some(version) = version else { continue };
+        if wanted.is_some_and(|wanted| wanted != version) {
+            continue;
+        }
+        match found {
+            // The same stem twice is one package written twice, not two versions.
+            Some(earlier) if earlier != stem => return Err(StemMiss::SeveralVersions),
+            _ => found = Some(stem),
+        }
+    }
+    found.ok_or(StemMiss::NoSuchPackage)
+}
+
+/// Why [`catalogued_stem`] found no one stem. Provisional names (2026-10-02, milestone 614's
+/// lane).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StemMiss {
+    /// No line names a package of that name (at that version, if one was asked for) on this
+    /// architecture.
+    NoSuchPackage,
+    /// A bare name, and the catalogue vouches for more than one version of it.
+    SeveralVersions,
 }
 
 /// **[`installable`], for bytes fetched by name**: the package must also be the one whose stem was
@@ -852,16 +889,58 @@ mod tests {
         );
         assert_eq!(
             catalogued_stem(&catalogue, "greeting", "aarch64"),
-            Some("greeting-0.1.0-aarch64")
+            Ok("greeting-0.1.0-aarch64")
         );
         assert_eq!(
             catalogued_stem(&catalogue, "uptime", "aarch64"),
-            Some("uptime-0.1.0-aarch64")
+            Ok("uptime-0.1.0-aarch64")
         );
-        assert_eq!(catalogued_stem(&catalogue, "uptime", "riscv64"), None);
-        assert_eq!(catalogued_stem(&catalogue, "greet", "aarch64"), None);
-        assert_eq!(catalogued_stem(&catalogue, "", "aarch64"), None);
-        assert_eq!(catalogued_stem(&catalogue, "nosuch", "aarch64"), None);
+        let none = Err(StemMiss::NoSuchPackage);
+        assert_eq!(catalogued_stem(&catalogue, "uptime", "riscv64"), none);
+        assert_eq!(catalogued_stem(&catalogue, "greet", "aarch64"), none);
+        assert_eq!(catalogued_stem(&catalogue, "", "aarch64"), none);
+        assert_eq!(catalogued_stem(&catalogue, "nosuch", "aarch64"), none);
+    }
+
+    /// **Two catalogued versions: a bare name is refused, and `name@version` picks one**
+    /// (milestone 614). The 0.2.0 line comes first, as it does in the image's own catalogue,
+    /// because its recipe's filename sorts first; the order must not decide what is fetched.
+    #[test]
+    fn a_bare_name_with_two_catalogued_versions_is_refused_and_a_qualified_one_is_not() {
+        let d = "0".repeat(64);
+        let catalogue = std::format!(
+            "greeting-0.2.0-aarch64 {d}\ngreeting-0.1.0-aarch64 {d}\ngreeting-0.1.0-riscv64 {d}\n"
+        );
+        assert_eq!(
+            catalogued_stem(&catalogue, "greeting", "aarch64"),
+            Err(StemMiss::SeveralVersions)
+        );
+        assert_eq!(
+            catalogued_stem(&catalogue, "greeting@0.1.0", "aarch64"),
+            Ok("greeting-0.1.0-aarch64")
+        );
+        assert_eq!(
+            catalogued_stem(&catalogue, "greeting@0.2.0", "aarch64"),
+            Ok("greeting-0.2.0-aarch64")
+        );
+        // One version on this architecture is not ambiguous, whatever another one carries.
+        assert_eq!(
+            catalogued_stem(&catalogue, "greeting", "riscv64"),
+            Ok("greeting-0.1.0-riscv64")
+        );
+        let none = Err(StemMiss::NoSuchPackage);
+        assert_eq!(
+            catalogued_stem(&catalogue, "greeting@0.3.0", "aarch64"),
+            none
+        );
+        assert_eq!(catalogued_stem(&catalogue, "greeting@", "aarch64"), none);
+        assert_eq!(catalogued_stem(&catalogue, "@0.1.0", "aarch64"), none);
+        // A line written twice is one package.
+        let twice = std::format!("greeting-0.1.0-aarch64 {d}\ngreeting-0.1.0-aarch64 {d}\n");
+        assert_eq!(
+            catalogued_stem(&twice, "greeting", "aarch64"),
+            Ok("greeting-0.1.0-aarch64")
+        );
     }
 
     /// **Bytes fetched by name must be the package asked for**, even when the catalogue vouches

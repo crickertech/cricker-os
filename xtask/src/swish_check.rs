@@ -753,9 +753,24 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // **Fetched over the booted system's network and installed** (rung 3a's first gap): the
     // progenitor finds `greeting`'s stem in the catalogue, fetches it from the gate's package
     // source through the stack it built at boot, and installs what arrived as it installs a file.
+    // **Two versions catalogued, so a bare name is refused** (milestone 614 (two installed
+    // versions of one program, each runnable, and a caller granted the one it needs)). The image
+    // vouches for `greeting` at 0.1.0 and at 0.2.0 (every archive build builds every recipe), and
+    // nothing orders versions, so a bare fetch names no one package. Before this refusal the first
+    // catalogue line won, which recipe filenames ordered as 0.2.0; the source serves only 0.1.0,
+    // and every leg that fetched answered "the package source did not send a whole package". The
+    // catalogue refuses before the network is asked, so x86_64 types this too.
     line(
         0,
         "package install greeting",
+        &[
+            "refused: this image's catalogue vouches for several versions of that package; \
+             name one with <package>@<version>; generation 1 is live",
+        ],
+    ),
+    line(
+        0,
+        "package install greeting@0.1.0",
         &["fetched and installed; generation 2 is live"],
     ),
     // x86_64 has no NIC, so it installs the same package from the disk instead; the two legs that
@@ -1288,13 +1303,14 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
         // The preview and the witness stay: neither needs a device, and the witness's refusal is
         // the same on a boot with no stack as on one that has a stack and did not endow it.
         // And the package source is reached over that network (milestone 198 rung 3a's fetch).
-        // `package install nosuch` stays: the catalogue refuses it before the network is asked.
-        "network_echo_client --mem 4" | "package install uptime" | "package install greeting" => {
-            Some(
-                "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
+        // `package install nosuch` stays: the catalogue refuses it before the network is asked,
+        // and so does the bare `package install greeting` (two versions catalogued).
+        "network_echo_client --mem 4"
+        | "package install uptime"
+        | "package install greeting@0.1.0" => Some(
+            "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
                  found on virtio-mmio only, and the x86_64 runner attaches none)",
-            )
-        }
+        ),
         _ => None,
     }
 }
