@@ -1,13 +1,20 @@
 ---
-status: PROPOSED
+status: PARTIAL
 raised: 2026-09-24
+promoted_from: triage-the-crates-the-2026-09-21-census-measured-first
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Triage the crates the 2026-09-21 mutation census measured for the first time
+# 637. Triage the crates the 2026-09-21 mutation census measured for the first time
+
+Promoted 2026-10-03 (UTC); the number is provisional until the integrator confirms it at merge, and the lane is `milestone/637-survivor-triage`. *(Title and slug are drafts.)* Fatal risk 3 (the tests do not test anything) is what this serves.
+
+Newest census: mutation run 37108924347 (2026-10-03), 85 crates, 14,853 mutants, 1,004 missed, 92.7% killed. Its missed list is the work list; the 2026-09-21 table below is the order.
+
+First batch landed 2026-10-03 (UTC); the lane continues on `milestone/637-survivor-triage-2`. Running tally of the 1,004 (killed by a new test, recorded equivalent, recorded gap, remaining): 43, 24, 12, 925. Crates done so far, in the proposal's order: `component_plan`, `ps`, `pgrep`, `pmap`, `firmware_configuration`, `sealed_pair`, `loaded_image_check`, `uptime`, `globally_unique_identifier_partition_table`, `entropy_protocol`, `socket_protocol` and `uefi_loader`. `documentation` is the next batch, then the crates the earlier appendices already ledger. The accounting is in [census-2026-10-03-triage](../../notes/mutation-testing/census-2026-10-03-triage.md).
 
 Raised by the lane that condensed `notes/mutation-testing.md`
 (#1209), while recording the 2026-09-21 census, whose run no one had captured.
@@ -65,3 +72,12 @@ a target, with `cargo mutants --list -p <crate>` and the crate's `Cargo.toml`.
 
 Every crate in the update's table is triaged, with its accounting in an appendix the main page's
 table links.
+
+## Follow-on
+
+- **Outstanding.** 925 of the 1,004 survivors in run 37108924347 are untriaged, headed by `documentation`, whose work is done on a branch and not yet landed. Checked against the run's `missed.txt` on 2026-10-03 (UTC).
+- **Recorded.** The `output_len` and `CMDLINE_LEN` bounds are generous by design, so 12 survivors in `uefi_loader` stay as gaps, in `notes/mutation-testing/census-2026-10-03-triage.md`.
+
+## Index row
+
+Every survivor in the weekly mutation census becomes a test that was seen to fail under the mutation, or a recorded equivalence with its reason, so the 92.7% killed figure stops being a number nobody has read behind. It serves fatal risk 3.
