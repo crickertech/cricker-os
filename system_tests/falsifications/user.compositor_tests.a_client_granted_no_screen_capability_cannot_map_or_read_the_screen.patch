@@ -1,0 +1,28 @@
+Falsifies `system_tests::user::compositor_tests::a_client_granted_no_screen_capability_cannot_map_or_read_the_screen`.
+
+Architecture: aarch64
+
+The defect: the spawner grants the screen `PageFrame` (read-only) and its map budget to a window
+client that is not a capture client, the way it does for `ROLE_CAPTURE`. The client's code is
+unchanged and the grant alone maps nothing, so a probe that merely read `SCREEN_VA` would still
+fault and stay green; this test's client asks for the mapping first, as a capture client does.
+
+Expected to fail: `assert!(wait_for(|| USER_FAULTS ... > faults), "a client with no screen grant
+mapped and read the composed screen at ...")`. Measured 2026-10-03 (UTC): red.
+
+**The original test's screen probe does not reach this patch**: its peeper never calls the map, so
+a screen capability leaked to every client left its fault wait satisfied.
+
+diff --git a/kernel/src/user/compositor_service.rs b/kernel/src/user/compositor_service.rs
+index 60fa5b67a..451f66b38 100644
+--- a/kernel/src/user/compositor_service.rs
++++ b/kernel/src/user/compositor_service.rs
+@@ -291,7 +291,7 @@ impl Wiring {
+         // screen may not draw on it. `Rights::READ` alone (no `WRITE`) is the difference between a
+         // screenshot tool and a second compositor; `fixtures/src/window.rs`'s own `ROLE_CAPTURE` block
+         // proves the write half faults.
+-        let capture_budget = if role & ROLE_CAPTURE != 0 {
++        let capture_budget = if role & (ROLE_CAPTURE | ROLE_PROBE_SCREEN) != 0 {
+             Some(
+                 crate::memory_region::create(MAP_BUDGET_PAGES)
+                     .expect("no map budget for a capture client"),

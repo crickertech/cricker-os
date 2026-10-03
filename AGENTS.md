@@ -1,17 +1,15 @@
 # Working on nife
 
-<!-- prose-budget: exception. 6,085 words (wc -w, this marker included) against a 3,000-word cap.
+<!-- prose-budget: exception. 6,095 words (wc -w, this marker included) against a 3,000-word cap.
      Ratified by calef on 2026-09-24 (UTC) at 5,873 words; later rulings moved it here, and git log
-     has each step. Reason: this file is nothing but rules, every reason having moved to
-     design/tenets/, and the imperatives alone do not fit the cap; rules were not cut to make them
-     fit. Marker syntax is PROVISIONAL until the prose-budget gate exists. -->
+     has each step; calef ratified the commit-trailer rule on 2026-10-03 (UTC). Reason: this file is
+     nothing but rules, every reason having moved to design/tenets/, and the imperatives alone do
+     not fit the cap; rules were not cut to make them fit. Marker syntax is PROVISIONAL until the prose-budget gate exists. -->
 
 *Two renames and one pivot sit behind the old names a reader will meet in older records:
 [design/tenets/project-history.md](design/tenets/project-history.md). Every reason, measurement and
 anecdote behind a rule here lives in [design/tenets/](design/tenets/), linked from the rule it
-explains. This file is a **ratified exception to the 3,000-word prose budget**, at 6,085 words
-(calef, 2026-09-24, UTC), because what is left after that move is rules, and rules were not cut to
-fit a cap.*
+explains. The word-budget exception is ratified in the marker above.*
 
 ## What this project is
 
@@ -497,6 +495,8 @@ commit that explains it.
   survives a dead session, a killed process and a laptop that will not wake, and nothing else does.
   Uncommitted work in a lane worktree is the one thing no part of this system protects.
 - Before reporting, squash the checkpoints into the purposes and force-push.
+- Every commit an agent writes ends with a `Co-Authored-By:` trailer naming its model, such as
+  `Co-Authored-By: GLM 5.3 <noreply@z.ai>`, whatever the vendor or tool; `script/metrics` reads it.
 - Squash against the base commit you branched from, never against `origin/main`. Agent worktrees
   share one `.git`, so `origin/main` moves under a lane while it works, and `git reset --soft
   origin/main` has silently staged four other lanes' files as one lane's own. Record the base SHA

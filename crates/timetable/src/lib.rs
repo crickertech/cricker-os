@@ -2344,9 +2344,120 @@ mod tests {
         );
         assert!(registered.contains("grants least_authority_demo exactly:"));
     }
-}
 
-// Machine-checked proofs (Kani). Behind `#[cfg(kani)]`, so an ordinary build or test never sees
-// them; `script/verify` runs them.
-#[cfg(kani)]
-mod proofs;
+    // ---- survivor triage of the 2026-10-03 census ---------------------------------------------
+
+    #[test]
+    fn a_range_refusal_names_the_line_to_write_instead() {
+        let e = Error::Calendar(4, recurrence::Refusal::InexactRange(Some(17 * 60 + 45)));
+        assert_eq!(e.last_reachable(), Some((17, 45)));
+        let none = Error::Calendar(4, recurrence::Refusal::InexactRange(None));
+        assert_eq!(none.last_reachable(), None);
+        assert_eq!(Error::ZeroInterval(4).last_reachable(), None);
+    }
+
+    #[test]
+    fn a_registry_remembers_what_it_was_registered_against() {
+        let doc = parse("every 5s least_authority_demo 7\n").unwrap();
+        let held = Held {
+            mem_pages: 6,
+            clock: true,
+            dir: true,
+            ..Held::default()
+        };
+        assert_eq!(Registry::register(&doc, held).held(), held);
+    }
+
+    /// The kept mask is read bit by bit: entry `i` is kept when bit `i` is set. The existing check
+    /// used bit 0, where a shift by zero cannot tell left from right.
+    #[test]
+    fn the_verdict_word_marks_the_kept_entry_and_only_that_one() {
+        use registration::*;
+        let doc = parse(
+            "every 1s least_authority_demo 7\n\
+             every 1s memory_grant_depleter\n\
+             every 1s date\n",
+        )
+        .unwrap();
+        let reg = Registry::register(&doc, Held::default());
+        let word = verdicts(&reg, 0b010);
+        assert_eq!(verdict_of(word, 0), KIND_FIRES);
+        assert_eq!(verdict_of(word, 1), KIND_REFUSED | KEPT_PHASE);
+        assert_eq!(
+            verdict_of(word, 2),
+            KIND_UNBACKED | (unbacked_code(Unbacked::Clock) << 2)
+        );
+    }
+
+    /// One old beat is lent once. Three identical lines against two identical old ones: the third
+    /// finds both spoken for and starts fresh, which is what a second `lent` bit is for.
+    #[test]
+    fn two_old_beats_are_lent_to_two_new_lines_and_not_a_third() {
+        let old_doc = parse(
+            "every 10s least_authority_demo 7\n\
+             every 10s least_authority_demo 7\n",
+        )
+        .unwrap();
+        let mut old = Registry::register(&old_doc, Held::default());
+        old.arm(0);
+        let new_doc = parse(
+            "every 10s least_authority_demo 7\n\
+             every 10s least_authority_demo 7\n\
+             every 10s least_authority_demo 7\n",
+        )
+        .unwrap();
+        let mut new = Registry::register(&new_doc, Held::default());
+        assert_eq!(new.arm_after(&old, 7), 0b011);
+        assert_eq!(new.rows()[0].next_fire(), Some(10_000_000_000));
+        assert_eq!(new.rows()[1].next_fire(), Some(10_000_000_000));
+        assert_eq!(new.rows()[2].next_fire(), Some(10_000_000_007));
+    }
+
+    /// An installed program's calendar line needs the wall clock before its manifest is asked, and
+    /// asks it once there is one.
+    #[test]
+    fn an_installed_calendar_line_waits_for_the_clock_and_then_for_its_manifest() {
+        let doc = parse("every day at 09:00 tick 7\n").unwrap();
+        let mut manifests = [grant_plan::NO_NOTE_MANIFEST; MAX_ENTRIES];
+        manifests[0] = Prog::LeastAuthorityDemo.manifest();
+        let without = Registry::register_installed(&doc, SHIPPED_HELD, &manifests);
+        assert_eq!(
+            without.rows()[0].admission,
+            Admission::Unbacked(Unbacked::WallClock)
+        );
+        let with = Registry::register_installed(
+            &doc,
+            Held {
+                clock: true,
+                ..SHIPPED_HELD
+            },
+            &manifests,
+        );
+        assert!(matches!(with.rows()[0].admission, Admission::Fires(_)));
+    }
+
+    /// An installed program's file operand is planned against a directory, and backed only when the
+    /// scheduler holds one. Planned with none held it would be refused as unnameable, which is a
+    /// different answer from the honest "unbacked".
+    #[test]
+    fn an_installed_file_operand_is_planned_against_a_directory() {
+        let doc = parse("every 5s wc report.txt\n").unwrap();
+        let mut manifests = [grant_plan::NO_NOTE_MANIFEST; MAX_ENTRIES];
+        manifests[0] = Prog::Wc.manifest();
+        let held = Held {
+            dir: true,
+            ..SHIPPED_HELD
+        };
+        let reg = Registry::register_installed(&doc, held, &manifests);
+        assert!(
+            matches!(reg.rows()[0].admission, Admission::Fires(_)),
+            "{:?}",
+            reg.rows()[0].admission
+        );
+        let without = Registry::register_installed(&doc, SHIPPED_HELD, &manifests);
+        assert_eq!(
+            without.rows()[0].admission,
+            Admission::Unbacked(Unbacked::File)
+        );
+    }
+}

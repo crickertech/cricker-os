@@ -1,11 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-07-31
-milestone_dependencies: none
-decision_dependencies: none
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-10-03
 ---
 # 47. Navigation and naming: `cd`, `pwd`, `ls`, `mkdir`, `rm`, paths, and environment
 
@@ -20,23 +16,23 @@ sequencing was to let milestone 64 measure first so a real crate's demands could
 scope. That measurement has landed and it did its job, so the gate it was waiting for is
 discharged rather than merely aged.
 
-Where this stands, 2026-09-26 (UTC), `milestone/47-navigation`. Every item below was checked
-against the tree that day. One was built: `caps` prints the inert-configuration values a child
-will read, from the boot shell's own read-only view of the same frame (DECISIONS §111 (inert configuration is a validated page)'s preview;
-notes/env-config.md). One was settled elsewhere: the function-call syntax fork was refused by
-§141 (application is grant) on 2026-09-03. Completion was built the same day, once calef ruled
-§227 (how Tab reaches the shell) as option D: the shell edits its own line over raw mode, and Tab
-finishes a program or file name from its own authority (notes/shell-line-editing.md). The other
-two calls were ruled the same day and are work to build:
+Where this stands, 2026-10-03 (UTC): every item below is Done, refused or routed to a numbered
+milestone, so the block is `BUILT`. Re-checked against the tree that day. The last open item, the
+set grant at the prompt, was built after the 2026-09-26 check: calef ruled it 2b in §228 (how a set
+of matched names reaches the progenitor) and then option A on 2026-09-27
+(notes/a-set-grant-at-the-prompt.md), and milestone 205 (how a foreign program is told what to do)
+built it. `spawnproto::NAMESET_BIT` is sent by `components/src/swish.rs` and read by
+`crates/system_initializer`, which builds `components/src/fs_nameset_caretaker.rs`. The race the
+note records is closed by milestone 599 (a frame per filesystem client channel).
 
-- A set grant at the prompt, which is what `xargs <program>` has been waiting on and, found
-  today, what refuses a plain `rm *.txt` over two files: `spawnproto` cannot carry a set. Ruled
-  2b in §228 (how a set of matched names reaches the progenitor): a page the shell fills
-  (notes/a-set-grant-at-the-prompt.md).
-- `PATH` for installed programs: the manifest question that blocked it is answered by §208 and
-  §219, and what remains is how a bare name reaches an installed program. Ruled B2 in §229 (how a
-  bare name at the prompt reaches an installed program): the activation set, never an owner's
-  vouch. Built 2026-09-26 (`swish::bare`, notes/packages.md).
+Built 2026-09-26: `caps` prints the inert-configuration values a child will read, from the boot
+shell's own read-only view of the same frame (DECISIONS §111 (inert configuration is a validated
+page)'s preview; notes/env-config.md). Completion, once calef ruled §227 (how Tab reaches the
+shell) as option D: the shell edits its own line over raw mode, and Tab finishes a program or file
+name from its own authority (notes/shell-line-editing.md). `PATH` for installed programs, ruled B2
+in §229 (how a bare name at the prompt reaches an installed program): the activation set, never an
+owner's vouch (`swish::bare`, notes/packages.md). The function-call syntax fork was refused by §141
+(application is grant) on 2026-09-03.
 
 The secrets third moved out of this milestone: it is §41 (the endpoint is the broker)'s endpoint, milestone 65 (a secrets service)'s service and
 §165's open question, and no program on nife needs one (Follow-on, below).
@@ -126,7 +122,7 @@ ladder). See the `touch` section below and notes/touch.md.
 files a *directory or file position* under a name, which is the whole of what `HOME` ever was (a
 directory capability wearing a string costume) and nothing consumes it specially yet, no `cd` with
 no args reads a bind the way Unix reads `$HOME`. `PATH` is the harder half of "names" and stays open
-for the deeper reason below. What remains is in "Where this stands, 2026-09-26" at the top.
+for the deeper reason below. What remained is recorded under "Where this stands" at the top.
 `ln`'s symlink half is retired rather than unbuilt: DECISIONS §50 (namespace composition) already settled that symlinks-as-stored-paths are superseded by `bind`, not built beside it, so
 `bind` landing is that half landing. Hard links stay declined for want of a customer (DECISIONS
 §110).
@@ -173,7 +169,7 @@ name one directory entry outside the set and gets `ENOENT`. Witnessed from the h
 which has said "Built 2026-07-31" the whole time, and the sections below at "Built 2026-07-31: the
 matcher, then the grant", which contradicted the sentence from inside this same file.
 
-Still to do: see "Where this stands, 2026-09-26" at the top of this block, which replaced a
+Still to do: see "Where this stands" at the top of this block, which replaced a
 longer list here that had drifted from the sections below it. The `std` PAL's `rename`, `unlink`
 and `rmdir` were bound by milestone 64 (enough `std` to run somebody else's crate) on 2026-08-04 (pull request #113); they answer `Unsupported`
 only when the process holds no filesystem capability at all.
@@ -1308,12 +1304,10 @@ estimates for unbuilt work are guesses on a scale calibrated from history, not m
 - **Milestone 154.** `bind` in a two-grant shell stays host-tested only. Both real entry points
   still pass no second directory (`components/src/swish.rs`, `user/src/system_initializer.rs`), and
   `crates/system_initializer` calls the path unverified against a real boot.
-- **Outstanding.** An architect's call. The delegation chain `xargs` needs, and it is wider than
-  `xargs`: `spawnproto` cannot carry a set of names, so the progenitor builds only the one-name
-  subtree caretaker and every pattern matching two or more names is refused at a real prompt,
-  `rm *.txt` included. The options, the costs and a prerequisite that was never given a milestone
-  (the shared-page audit's frame per client channel) are in notes/a-set-grant-at-the-prompt.md,
-  PROPOSED. Checked 2026-09-26.
+- **Done.** The set grant at the prompt: ruled 2b in §228 and option A by calef on 2026-09-27
+  (notes/a-set-grant-at-the-prompt.md), built by milestone 205. A pattern matching two or more
+  names reaches the progenitor as one read-only frame (`spawnproto::NAMESET_BIT`) and the
+  progenitor builds `fs_nameset_caretaker` over a copy of it. Verified 2026-10-03.
 - **Refused.** The two symlink questions this block leaves open, what a stored `..` means to a
   shallower holder and the `rm -r link/` trailing slash, are moot:
   `design/decisions/50-namespace-composition.md` chose composition over stored paths, so there is

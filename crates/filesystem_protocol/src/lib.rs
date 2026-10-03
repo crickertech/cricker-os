@@ -5622,4 +5622,82 @@ mod tests {
         assert_eq!(fs::req_len(w0), fs::TRANSFER_MAX);
         assert_eq!(op(w0), fs::WRITE);
     }
+
+    // ---- survivor triage of the 2026-10-03 census: the shared fixture's arithmetic ---------------
+
+    /// A sized file's bytes are printable letters cycling through the alphabet, with a newline in
+    /// every 64th place. The host check and the guest agree on them without a file, so the pattern
+    /// is an interface.
+    #[test]
+    fn a_sized_file_cycles_the_alphabet_and_breaks_every_sixty_four() {
+        use fixture::walk::sized_byte;
+        assert_eq!(sized_byte(0), b'a');
+        assert_eq!(sized_byte(25), b'z');
+        assert_eq!(sized_byte(26), b'a');
+        assert_eq!(sized_byte(62), b'k');
+        assert_eq!(sized_byte(63), b'\n');
+        assert_eq!(sized_byte(64), b'm');
+        assert_eq!(sized_byte(127), b'\n');
+    }
+
+    /// The wide directory's names are `n` and three decimal digits, so 128 of them sort and list in
+    /// numeric order and none collides.
+    #[test]
+    fn the_wide_directory_names_are_n_and_three_digits() {
+        use fixture::walk::wide_name;
+        assert_eq!(&wide_name(0), b"n000");
+        assert_eq!(&wide_name(7), b"n007");
+        assert_eq!(&wide_name(45), b"n045");
+        assert_eq!(&wide_name(123), b"n123");
+        assert_eq!(&wide_name(987), b"n987");
+    }
+
+    /// What a full walk of the priced tree must find, derived by hand from the shape: four region
+    /// directories and eight chain levels below the first make 12 directories; nine chain files, 128
+    /// wide, one narrow and three sized make 141 files. The programs assert their counts against
+    /// these, so a wrong constant here makes the walk fail on the wrong thing.
+    #[test]
+    fn the_walk_totals_are_what_the_shape_adds_up_to() {
+        use fixture::walk::*;
+        assert_eq!(WALK_DIRS, 12);
+        assert_eq!(WALK_FILES, 141);
+        assert_eq!(WALK_ENTRIES, 153);
+        // 138 small files of 16 bytes, plus 4 KiB, 64 KiB and 256 KiB.
+        assert_eq!(WALK_BYTES, 138 * 16 + 4096 + 65_536 + 262_144);
+        // Four regions at depth 1; chain levels 0..=7 hold two entries at depth i + 2 (2 * (2 + ... + 9)
+        // = 88) and the last holds one at depth 10; 132 files at depth 2 in the other regions.
+        assert_eq!(WALK_COMPONENTS, 4 + 88 + 10 + 2 * 132);
+    }
+
+    /// The two-trees report is a bitmap the kernel test compares as an exact set, so every flag has
+    /// to be its own single bit. A flag shifted to nothing would be absent from every run and the
+    /// set could still match.
+    #[test]
+    fn every_two_trees_flag_is_its_own_single_bit() {
+        use fixture::twotrees::*;
+        let flags = [
+            PWD_STARTS_AT_ROOT,
+            LISTED_ROOT,
+            MOVED_INTO_MOUNT,
+            LISTED_MOUNT,
+            OPENED_RELATIVE_IN_MOUNT,
+            OPENED_ROOT_FROM_MOUNT,
+            UP_FROM_MOUNT_IS_PARENT,
+            ROOT_CLAMPED,
+            REDIRECTED_FROM_MOUNT,
+            HOME_IS_ROOT,
+            BOUND_INTO_MOUNT,
+            RM_IN_MOUNT_REFUSED,
+            MOVED_ON_REFUSAL,
+            CLIMBED_OUT,
+            REACHED_ACROSS,
+            TWO_TREES_FAILED,
+        ];
+        let mut seen = 0u64;
+        for f in flags {
+            assert_eq!(f.count_ones(), 1, "{f:#x} is not one bit");
+            assert_eq!(seen & f, 0, "{f:#x} is used twice");
+            seen |= f;
+        }
+    }
 }

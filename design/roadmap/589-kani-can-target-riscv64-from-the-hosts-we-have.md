@@ -17,7 +17,7 @@ calef ruled on it 2026-09-25 (UTC): option 1 adopted, recorded as
 The carried half is built: [`patches/kani-0.67.0-riscv64-target.patch`](../../patches/kani-0.67.0-riscv64-target.patch)
 and the `prove the kernel on riscv64` job (name provisional) in `.github/workflows/verify.yml`, which
 builds the patched Kani on the arm64 runner and runs `script/verify --only kernel` for
-`riscv64gc-unknown-linux-gnu`. The upstream half is another lane's; see `## Follow-on`. The text
+`riscv64gc-unknown-linux-gnu`. The upstream half is model-checking/kani#4913; see `## Follow-on`. The text
 below is the proposal's own, except for this paragraph, the gate, the `## Built` and `## Follow-on`
 sections, and cuts at promotion to meet §212 (a prose budget) and §213 (writing standards). As filed: raised by the research lane `lane/kani-riscv64-host` (pull request
 #1280). calef asked whether Kani could be fixed for riscv64, perhaps with `radon` as a native host
@@ -293,9 +293,10 @@ Warm: 45 s, 3 s of it proving. On patagonia a cold build took 244 to 621 s by lo
 
 ## Follow-on
 
-- **Outstanding.** The upstream half: the same change as a `-Z` flag against
-  model-checking/kani#2402, with a multi-target sysroot. A separate lane holds it; checked
-  2026-09-25 that #2402 is still open with no linked pull request.
+- **Outstanding.** The upstream half is [kani#4913](https://github.com/model-checking/kani/pull/4913),
+  a draft since 2026-09-30 (UTC), whose CI awaits a maintainer's approval.
+  `notes/kani-upstream/pr-4913-before-ready.md` holds a retest, a patch, body edits and calef's
+  checklist, all unposted. Then review, the `kani_lib.c` follow-up, and dropping our patch.
 - **Done.** The stub half of containment landed as #1302. Its three riscv64 `satp` proofs run
   only in this job.
 - **Milestone 536.** `design/fatal-risks/README.md` risk 2 ("Only riscv64 is unreachable, and nobody here
@@ -307,4 +308,4 @@ Warm: 45 s, 3 s of it proving. On patagonia a cold build took 244 to 621 s by lo
 
 ## Index row
 
-Kani compiled only for its own host, so no job anywhere compiled a line of `kernel/src/arch/riscv64/`. A carried fifty-line patch to Kani 0.67.0 gives it a riscv64 target instead of needing a riscv64 machine, and a new CI job proves the kernel row for riscv64 on the arm64 runner. What the prover can reach there is still bounded by `asm!`, MMIO and the `.s` files; the upstream flag is another lane's.
+Kani compiled only for its own host, so no job anywhere compiled a line of `kernel/src/arch/riscv64/`. A carried fifty-line patch to Kani 0.67.0 gives it a riscv64 target instead of needing a riscv64 machine, and a new CI job proves the kernel row for riscv64 on the arm64 runner. What the prover can reach there is still bounded by `asm!`, MMIO and the `.s` files; the upstream flag is model-checking/kani#4913, in review.

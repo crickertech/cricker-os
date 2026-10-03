@@ -386,7 +386,8 @@ unsafe fn file_page(base: u64, len: usize) -> &'static mut [u8] {
 /// badge at or past [`fs::CLIENT_WINDOWS`] would point outside the mapped region, so it is clamped
 /// to window 0 rather than trusted: the kernel only ever delivers a badge this server's own wiring
 /// stamped, so an out-of-range one is a wiring bug, and folding it onto window 0 fails loudly (two
-/// clients would then collide and the witness would catch it) rather than reading unmapped memory.
+/// clients would then collide and the witness would catch it) rather than reading unmapped memory. `admit` refuses such a badge before any verb reads the
+/// window (milestone 726 (an unknown badge fails closed in subtree_scope)), so the clamp is only the second line.
 fn window_base(badge: u64) -> u64 {
     let w = if (badge as usize) < fs::CLIENT_WINDOWS {
         badge

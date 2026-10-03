@@ -2292,6 +2292,26 @@ mod tests {
         );
     }
 
+    /// **A badge the server has no window for reaches nothing** (milestone 726 (an unknown badge fails closed in subtree_scope), calef's ruling of
+    /// 2026-10-03). A nonzero badge at or past `CLIENT_WINDOWS` used to fold onto badge 0 and carry
+    /// the endpoint's whole authority; now `admit` refuses it `EBADF`, and badge 0 stays open.
+    #[test]
+    fn a_badge_with_no_window_is_refused() {
+        let mut srv = server_with_tree();
+        let outside = srv.open_file("motd").unwrap();
+        let windows = filesystem_protocol::fs::CLIENT_WINDOWS as u64;
+        for badge in [windows, windows + 1, u64::MAX] {
+            assert_eq!(
+                srv.admit(badge, outside as u64).err().map(|e| e.errno),
+                Some(EBADF),
+                "badge {badge}"
+            );
+            assert!(srv.scoped(badge));
+        }
+        assert_eq!(srv.admit(0, outside as u64).unwrap(), outside);
+        assert_eq!(srv.admit(windows - 1, outside as u64).unwrap(), outside);
+    }
+
     /// **A bound badge sees its grant as its root and reaches only what it minted** (milestone 606,
     /// ruling D). The dispatch in the EL0 binary is `admit` on every request and `claim` on every
     /// handle a verb hands back; this drives the same two calls.
