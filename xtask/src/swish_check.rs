@@ -1435,6 +1435,20 @@ const KERNEL_FAULT_TOKENS: [&str; 6] = [
 /// last one it sees and fails if the kernel flagged it as past the recorded peak.
 const SLOT_GAUGE: &str = "capability slots:";
 
+/// **Whether a transcript ends at a prompt, a slot gauge after it allowed.** The kernel's
+/// [`SLOT_GAUGE`] line can land right after the first `$ ` (the graphical leg's serial arm on
+/// aarch64, 2026-10-03), and [`GaugeFilter`] removes only the stack gauge. The graphical leg types
+/// one line at that prompt and reads its result off the screen, so a whole gauge line after the
+/// `$ ` changes nothing it checks; anything else after it is not a prompt.
+fn at_prompt_past_slot_gauge(t: &str) -> bool {
+    let Some(at) = t.rfind("$ ") else {
+        return false;
+    };
+    let rest = &t[at + 2..];
+    rest.is_empty()
+        || (rest.ends_with('\n') && rest.lines().all(|l| l.trim_start().starts_with(SLOT_GAUGE)))
+}
+
 /// **Takes the kernel's progenitor stack gauge out of the transcript as it arrives**, and keeps it.
 ///
 /// The gauge (`kernel::progenitor_stack`) speaks from the idle loop once the stack's mark has been
@@ -2941,7 +2955,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     let deadline = Instant::now() + Duration::from_secs(SWISH_CHECK_BOOT_SECS);
     let mut uart_prompt = false;
     while Instant::now() < deadline && !uart_prompt {
-        if seen.lock().expect("transcript lock").ends_with("$ ") {
+        if at_prompt_past_slot_gauge(&seen.lock().expect("transcript lock")) {
             uart_prompt = true;
         } else {
             std::thread::sleep(Duration::from_millis(200));
@@ -2974,6 +2988,9 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         eprintln!("swish-check ({arch}, graphical): could not type the launch command: {e}");
         return false;
     }
+    // Where the UART transcript stood at the launch, so a launch that fails can say what the shell
+    // and the progenitor printed after it rather than only that the screen stayed dark.
+    let launched_at = seen.lock().expect("transcript lock").len();
 
     // `a`..`z`, `0`..`9`, space and `$`: every byte this leg's own checks look for, plus enough of
     // the alphabet that a decode failure names the wrong character instead of silently reading `?`
@@ -3005,8 +3022,10 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         eprintln!(
             "swish-check ({arch}, graphical): `graphical_terminal` was launched but no `$ ` prompt reached \
              the scanout within {SWISH_CHECK_BOOT_SECS}s (see {}). A capability-slot collision \
-             fails in silence, so this is the leg's central assertion",
+             fails in silence, so this is the leg's central assertion. The UART after the \
+             launch: {:?}",
             shot.display(),
+            &seen.lock().expect("transcript lock")[launched_at..],
         );
         return false;
     };
@@ -3119,6 +3138,17 @@ fn swish_check_answer<'a>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_slot_gauge_after_the_prompt_is_still_the_prompt() {
+        assert!(at_prompt_past_slot_gauge("banner\n$ "));
+        assert!(at_prompt_past_slot_gauge(
+            "$   capability slots: 22 of 32 at peak\n"
+        ));
+        assert!(!at_prompt_past_slot_gauge("$   capability slots: 22 of 32"));
+        assert!(!at_prompt_past_slot_gauge("$ wc\n1 2 3\n"));
+        assert!(!at_prompt_past_slot_gauge("booting\n"));
+    }
+
     use super::*;
 
     /// **The transcript milestone 230's first CI step produced**, copied out of run 33702132439
