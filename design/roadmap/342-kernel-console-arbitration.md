@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-09-03
+built: 2026-10-03
 milestone_dependencies: 613
 decision_dependencies: 175
 machine_requirements: none
@@ -77,6 +78,52 @@ streams interleave at byte granularity. Deciding this means saying where kernel 
 second port, a buffer the server drains, a claim the server takes and the kernel respects except in
 a panic, or something else.
 
+## Ruled F, and built, 2026-10-03 (UTC)
+
+calef ruled F on pull request #1498: a read-only frame, a cursor page and an append notification,
+with a counted UART fallback when there is no drainer or it lags. Built on lane
+`milestone/342-kernel-console-arbitration`. The names are provisional: `kernel_log`,
+`kernel_ring`, `console::Inserter`, and the probe features and flags.
+
+- **The kernel** (`kernel/src/kernel_log.rs`). Every line becomes an F3 record in a 16 KiB ring of
+  63 fixed slots, each slot a seqlock. Until a drainer attaches, lines also go straight to the
+  UART, as before. Once one attaches and keeps up, they wait in the ring and the kernel signals
+  it, deferred to a point that holds no lock, because the console lock is the leaf of the lock
+  order. If the drainer falls half a ring behind, or leaves a line unread for 500 ms, the kernel
+  prints the unread lines and the new one itself, flags them `DIRECT` and counts them. A panic
+  does the same flush, then holds nothing back.
+- The boot: the kernel grants the ring, the cursor page and the notification at progenitor
+  slots 24 to 26. The progenitor starts `system_log` right after the console, binds the
+  notification to its thread, and drops its own copies. Every boot builds the console since
+  milestone 632 (provisional), so every boot starts it.
+- **The log service** drains the ring into its log under the program name `kernel` and forwards
+  each line the kernel did not print itself.
+- **The console** (`system_log_protocol::console::Inserter`) writes a forwarded kernel line only
+  at the start of a terminal line. Mid-line it waits for the next newline, or for the service's
+  flush 250 ms later, which puts the line on its own line and redraws the partial line beneath.
+
+### Proof
+
+- Two system tests, green on aarch64, riscv64 and x86_64. The first holds a line for a caught-up
+  drainer (`tx_bytes` does not move), lets the drainer stall, then sees both lines printed, flagged
+  `DIRECT` and counted twice. The second sees a panic print the held line, with the next line
+  direct.
+- Host tests for the ring's round trip and torn-read detection, and for the inserter.
+- `script/swish-check --flood` makes the kernel print a line every 100 ms through the whole
+  session. With the service attached, every flood line arrived whole and the gate stayed green:
+  254 on aarch64, 263 on riscv64 and 180 on x86_64, 0 spliced. x86_64
+  floods once a second rather than ten times: its TCG leg runs about thirty times slower, and at
+  ten a second the service fell behind and the counted fallback spliced 29 of 6,990, which is the
+  fallback working as ruled.
+- The detached control (`--flood-detached`, the kernel printing for itself as before) spliced 83
+  lines on aarch64 and 11 on riscv64, and failed the gate both times.
+- `--panic-probe` panics on the thirtieth flood line with the service attached. The panic reached
+  the UART on all three, after 30 whole flood lines.
+- Plain `script/swish-check` passed on aarch64 and riscv64, and every flood leg ran the whole
+  script green, x86_64's included.
+- `notes/swish-check-flake.md` records the base rate this fixes: 3 of 29 merge-group jobs on
+  2026-10-03.
+
 ## Why this matters
 
 It corrupts every bench session on argon, radon and xenon. A serial log is the only thing those
@@ -104,6 +151,20 @@ where the kernel's own output goes once userspace owns the console. Today the ke
 `console` server drive the same UART from two address spaces with nothing arbitrating, so the
 streams interleave at byte granularity. It corrupts every bench session on argon, radon and xenon,
 and 243's BUGS points at a home that does not exist."*
+
+## Follow-on
+
+- **Recorded.** `kernel/src/kernel_log.rs`: a line held just before the drainer dies waits for the
+  next kernel line or a panic, a fallback can print a line twice, and the boot window before the
+  service attaches still splices.
+- **Recorded.** `system_log_protocol::kernel_ring` in `crates/system_log_protocol/src/lib.rs`: 63
+  records, not the 180 lines §242 (a system log) sized 16 KiB for.
+- **Recorded.** `components/src/system_log.rs`: at boot it serves only the kernel (no writer badges,
+  no readers).
+- **Recorded.** `components/src/console.rs`: a redraw replays bytes rather than the line editor's
+  state.
+- **Decision.** `design/decisions/175-kernel-console-arbitration.md` owes the ruling F line, and
+  §242's Question 3 the drain shape, for the integrator to mint.
 
 ## Index row
 
