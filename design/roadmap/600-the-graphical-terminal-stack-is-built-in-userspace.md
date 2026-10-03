@@ -66,8 +66,8 @@ is how it already built `entropy` and `net_stack`.
 
 calef's 2026-09-30 ruling (milestone
 [632](632-graphics-on-demand-screen-launched-from-the-prompt.md)) moved where this stack is built.
-No boot builds it any more. `build_graphical_stack`, rewritten as `build_screen_session`, runs in
-the spawn service when a `screen` session is launched from the swish prompt. Everything this
+No boot builds it any more. `build_graphical_stack`, rewritten as `build_graphical_terminal_session`, runs in
+the spawn service when a `graphical_terminal` session is launched from the swish prompt. Everything this
 milestone decided survives. The kernel grants the devices rather than building them, and the slots
 are the same. So are the DMA-base-in-the-first-page convention and the measured programs. The
 one-time reports (`UP`, `TERM_UP`, `FLUSHED`, `KEYBOARD_UP`) are still taken in the order the drivers
@@ -135,4 +135,4 @@ The progenitor builds `gpu_driver`, `display_terminal` and `keyboard_driver` fro
 where the kernel used to build all three, now that a gpu's DMA region is one capability. Proven by
 both graphical `swish-check` legs on aarch64 and riscv64; x86_64 has no virtio-gpu.
 *2026-09-30, milestone 632 (graphics on demand): no boot builds anything graphical now. The same
-builder runs at a `screen` launch, from the same grants, and the legs prove it there.*
+builder runs at a `graphical_terminal` launch, from the same grants, and the legs prove it there.*

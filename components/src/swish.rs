@@ -282,10 +282,10 @@ fn delegate_machine_page(wired: bool) {
 
 /// **Whether this session holds the display devices** (milestone 632 (provisional), graphics
 /// launched from the prompt): the gpu's four at [`spawnproto::SHELL_GPU_SLOT`] and its siblings,
-/// placed there by the progenitor at boot and ours to delegate until a `screen` session takes
+/// placed there by the progenitor at boot and ours to delegate until a `graphical_terminal` session takes
 /// them. Probed once at [`_start`], for [`HOLDS_MACHINE_PAGE`]'s reasons. A boot with no gpu, a
 /// `login` session the progenitor built without them, and every witness wiring hold none, and
-/// `screen` at those prompts is refused with a sentence rather than spawned empty-handed.
+/// `graphical_terminal` at those prompts is refused with a sentence rather than spawned empty-handed.
 static HOLDS_DISPLAY: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
 /// **Whether a virtio keyboard's three came with the gpu's four**: the transport at
@@ -294,13 +294,14 @@ static HOLDS_DISPLAY: core::sync::atomic::AtomicBool = core::sync::atomic::Atomi
 /// is every real board's configuration.
 static HOLDS_KEYBOARD: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
-/// **Whether a spawn of `e` launches the screen session, and this session holds the devices for
-/// it**: the program is `screen` and [`HOLDS_DISPLAY`] is true. The devices are not something the
+/// **Whether a spawn of `e` launches the graphical terminal session, and this session holds the devices for
+/// it**: the program is `graphical_terminal` and [`HOLDS_DISPLAY`] is true. The devices are not something the
 /// command line designates and no manifest declares them, which is the machine page's own
 /// reasoning one authority over; what differs is that the caps travel from *this session's*
 /// slots, because the user at this prompt is who delegates them.
 fn display_wiring(e: &Endowment) -> bool {
-    e.prog == grant_plan::Prog::Screen && HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
+    e.prog == grant_plan::Prog::GraphicalTerminal
+        && HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
 }
 
 /// **Delegate the display capabilities, in the wire's fixed order** (milestone 632 (provisional)):
@@ -3146,15 +3147,15 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
         None
     };
 
-    // **A `screen` this session cannot launch stops here, loudly** (milestone 632 (provisional)),
+    // **A `graphical_terminal` this session cannot launch stops here, loudly** (milestone 632 (provisional)),
     // for the file-grant block's own reason: authority the user asked for must never quietly
     // evaporate, and a session spawned with no display behind it would be exactly that. The
     // witness wirings and every `login` session hold none, and so does a boot with no gpu.
-    if e.prog == grant_plan::Prog::Screen
+    if e.prog == grant_plan::Prog::GraphicalTerminal
         && !HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
     {
         refused();
-        print(b"  no display on this boot; there is nothing to launch a screen session from\n");
+        print(b"  no display on this boot; there is nothing to launch a graphical terminal session from\n");
         if let Some(w) = &set_grant {
             release_words_grant(w, true);
         }
@@ -3194,8 +3195,8 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
             args: argv.is_some(),
             nameset: set_grant.is_some_and(|w| w.set.is_some()),
             machine: machine_wiring(&e),
-            // **The display devices, for a `screen` session** (milestone 632 (provisional)): set
-            // only on a plain line, which is the only line `screen`'s manifest can reach this
+            // **The display devices, for a `graphical_terminal` session** (milestone 632 (provisional)): set
+            // only on a plain line, which is the only line `graphical_terminal`'s manifest can reach this
             // path on (`Words` output refuses `>` and a pipe's left, `InputSpec::Forbidden` its
             // right), so a stage never promises devices.
             graphics: display_wiring(&e),
@@ -4649,7 +4650,7 @@ fn spawn_stage(
         args: argv.is_some(),
         nameset: words.is_some_and(|w| w.set.is_some()),
         machine: machine_wiring(&e),
-        // **A stage never promises devices** (milestone 632 (provisional)): `screen`'s manifest
+        // **A stage never promises devices** (milestone 632 (provisional)): `graphical_terminal`'s manifest
         // refuses every operator that builds a stage (`Words` output refuses `>` and a pipe's
         // left, `InputSpec::Forbidden` its right), so this is false by construction rather than
         // by decision, and says so for the reader checking the wire.
@@ -4890,7 +4891,7 @@ fn spawn_interruptible(e: Endowment) {
             // An interruptible child is built with no capabilities at all (it reports through the
             // job frame), so there is nowhere to put the machine page.
             machine: false,
-            // And nowhere to put display devices either, for that same reason; a `screen`
+            // And nowhere to put display devices either, for that same reason; a `graphical_terminal`
             // session is a plain spawn, never a supervised job.
             graphics: false,
             keyboard: false,

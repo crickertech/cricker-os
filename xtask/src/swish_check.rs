@@ -67,7 +67,7 @@ pub(crate) fn swish_check() -> bool {
         }
     };
     // `--graphical` (milestone 632 (provisional), reversing milestone 177 (wire the graphical terminal stack into the real interactive boot)'s boot half): the same
-    // two legs, booted as the normal UART system with a GPU and keyboard attached, then `screen`
+    // two legs, booted as the normal UART system with a GPU and keyboard attached, then `graphical_terminal`
     // is typed at the prompt and the launched session is verified by screendump rather than by
     // transcript. See [`swish_check_leg_graphical`]'s own doc for why this needs a whole different
     // verification shape rather than two env vars added to [`swish_check_leg`].
@@ -311,10 +311,10 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // something, rather than falling back on a default.
     line(0, "wc", &["name a file"]),
     // Milestone 632 (graphics on demand)'s refusal, on every ISA: these legs attach no gpu, so the
-    // shell holds no display and `screen` is refused at the prompt with a sentence rather than
+    // shell holds no display and `graphical_terminal` is refused at the prompt with a sentence rather than
     // spawned into nothing. It is the half of the milestone x86_64 can prove (no virtio-gpu is
     // wired there); the launch itself is `swish_check_leg_graphical`'s.
-    line(0, "screen", &["no display on this boot"]),
+    line(0, "graphical_terminal", &["no display on this boot"]),
     // And `caps` says which file and how, which is the honest half: the shell reads it and streams
     // it in, so what the child holds is an endpoint and not a capability naming the disk.
     line(0, "caps wc gate.txt", &["input    gate.txt"]),
@@ -2752,7 +2752,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 
 /// **The graphical leg** (milestone 632 (provisional), reversing milestone 177's boot-half): the
 /// `--features shell` boot is now the **normal UART system on every boot** (the minimal shape
-/// of DECISIONS §26 (the fault endpoint: thread death becomes a message a supervisor holds)), and graphics is *launched*: this leg types `screen` at the swish prompt and
+/// of DECISIONS §26 (the fault endpoint: thread death becomes a message a supervisor holds)), and graphics is *launched*: this leg types `graphical_terminal` at the swish prompt and
 /// verifies what the launched session puts on the screen, read back with a `screendump` rather
 /// than a serial transcript.
 ///
@@ -2764,7 +2764,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 ///    assertion that the boot stayed minimal. A boot that quietly rebuilt the graphical stack at
 ///    boot time, the shape calef's 2026-09-30 ruling reverses, would print no UART prompt and
 ///    this leg dies right here.
-/// 2. Types `screen` over the UART. The shell delegates the display devices it holds
+/// 2. Types `graphical_terminal` over the UART. The shell delegates the display devices it holds
 ///    (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`, from `spawnproto::SHELL_GPU_SLOT` and its
 ///    siblings), the progenitor builds the session's stack from them, and the session prints its
 ///    own `$ ` prompt on the screen.
@@ -2814,7 +2814,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 /// after the key press is the proof that the keystroke made the round trip back to the screen,
 /// through the session's discipline and `display_terminal` (device arm) or through the boot
 /// discipline's raw queue and the session's own echo (serial arm). Which keystroke source this
-/// leg wires up is `Keystrokes`; the guest's own copy of that choice is the `screen` program's
+/// leg wires up is `Keystrokes`; the guest's own copy of that choice is the `graphical_terminal` program's
 /// `x0`, decided by whether the keyboard's three caps arrived.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Keystrokes {
@@ -2837,7 +2837,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     };
     eprintln!();
     eprintln!(
-        "--- swish-check ({arch}, graphical): boot the normal UART system with a GPU and {source}, then launch `screen` ---"
+        "--- swish-check ({arch}, graphical): boot the normal UART system with a GPU and {source}, then launch `graphical_terminal` ---"
     );
 
     let target = if riscv { RISCV_TARGET } else { TARGET };
@@ -2891,7 +2891,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     // The GPU (and, in the device arm, the keyboard) the launch needs, read by
     // `helpers/qemu-runner-*.sh` exactly as always; what changed (milestone 632 (provisional))
     // is only what the guest does with the devices existing: the boot ignores them and the shell
-    // holds their grants until this leg types `screen`.
+    // holds their grants until this leg types `graphical_terminal`.
     cmd.env("NIFE_GPU", "1");
     if keystrokes == Keystrokes::Device {
         cmd.env("NIFE_KEYBOARD", "1");
@@ -2947,7 +2947,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         let _ = child.wait();
         eprintln!(
             "swish-check ({arch}, graphical): the normal UART system never reached a prompt \
-             within {SWISH_CHECK_BOOT_SECS}s, so there was no prompt to launch `screen` from; \
+             within {SWISH_CHECK_BOOT_SECS}s, so there was no prompt to launch `graphical_terminal` from; \
              transcript so far: {:?}",
             seen.lock().expect("transcript lock"),
         );
@@ -2957,10 +2957,13 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         "swish-check ({arch}, graphical): the normal system is up; typing the launch command"
     );
 
-    // **Step 2: launch.** `screen\n` over the UART, exactly as a person would. The prompt is out
+    // **Step 2: launch.** `graphical_terminal\n` over the UART, exactly as a person would. The prompt is out
     // and nothing was echoed since it appeared, so the line is read by the prompt, not buffered
     // ahead of it.
-    if let Err(e) = stdin.write_all(b"screen\n").and_then(|()| stdin.flush()) {
+    if let Err(e) = stdin
+        .write_all(b"graphical_terminal\n")
+        .and_then(|()| stdin.flush())
+    {
         let _ = child.kill();
         let _ = child.wait();
         eprintln!("swish-check ({arch}, graphical): could not type the launch command: {e}");
@@ -2995,7 +2998,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         let _ = child.kill();
         let _ = child.wait();
         eprintln!(
-            "swish-check ({arch}, graphical): `screen` was launched but no `$ ` prompt reached \
+            "swish-check ({arch}, graphical): `graphical_terminal` was launched but no `$ ` prompt reached \
              the scanout within {SWISH_CHECK_BOOT_SECS}s (see {}). A capability-slot collision \
              fails in silence, so this is the leg's central assertion",
             shot.display(),

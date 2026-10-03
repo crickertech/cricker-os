@@ -519,10 +519,10 @@ programs! {
         /// breakdown.
         Slabtop { id: 19, name: "slabtop" },
         /// **Take the screen and the keyboard, and run a prompt on them** (milestone 632
-        /// (provisional), `components/src/screen.rs`; calef's 2026-09-30 ruling that graphics is
+        /// (provisional), `components/src/graphical_terminal.rs`; calef's 2026-09-30 ruling that graphics is
         /// launched from the swish prompt rather than built at boot).
         ///
-        /// The display stack a `screen` spawn builds is the progenitor's job, exactly as a
+        /// The display stack a `graphical_terminal` spawn builds is the progenitor's job, exactly as a
         /// directory grant's caretaker is: the shell delegates the device capabilities it holds
         /// (`spawnproto::Wiring::graphics`, from [`spawnproto::SHELL_GPU_SLOT`] and its siblings) and
         /// the progenitor builds `gpu_driver`, `display_terminal`, the line discipline and, when
@@ -533,12 +533,17 @@ programs! {
         ///
         /// Declares nothing a line designates, which is what makes every operator on it a refusal:
         /// `Words` output refuses `>` and the left of a `|` (a session is not a byte stream),
-        /// `InputSpec::Forbidden` refuses the right of one, and a screen session reached any way
+        /// `InputSpec::Forbidden` refuses the right of one, and a graphical terminal session reached any way
         /// but a plain line is a line this manifest turns away at the prompt.
         ///
-        /// Name: provisional, milestone 632's lane, 2026-09-30. Chosen for what a person types to
-        /// get graphics; an architect may prefer another.
-        Screen { id: 20, name: "screen" },
+        /// Name: ratified 2026-10-03 (calef, #1493). Refused `screen` (clashes with `SCREEN_BIT`,
+        /// the screen-narrowed tail of §106 (an unredirected tail stage's output goes to the
+        /// screen, not the shell), and with GNU screen), `gate` (the tree's word for a check that
+        /// fails loudly, about 3,700 uses, and the x86 IDT's interrupt gate), `display_session` and
+        /// `display_console` (`console` is the UART server). It names the whole stack
+        /// (`gpu_driver`, `display_terminal` and the keyboard), so it survives any later change of
+        /// VT engine behind `display_terminal`.
+        GraphicalTerminal { id: 20, name: "graphical_terminal" },
     }
 }
 
@@ -1068,14 +1073,14 @@ impl Prog {
                 share: true,
                 runtime: Runtime::Native,
             },
-            Prog::Screen => Manifest {
+            Prog::GraphicalTerminal => Manifest {
                 arg: ArgSpec::Forbidden,
                 mem: MemSpec::Forbidden,
                 file: FileSpec::Forbidden,
                 dir: DirSpec::Forbidden,
                 flags: NO_FLAGS,
                 // A session reports one word when it ends (it ran, or it was interrupted); there is
-                // no byte stream to redirect, and `screen > out.txt` is refused for the same reason
+                // no byte stream to redirect, and `graphical_terminal > out.txt` is refused for the same reason
                 // `least_authority_demo 9 > out.txt` is.
                 output: OutputSpec::Words,
                 input: InputSpec::Forbidden,

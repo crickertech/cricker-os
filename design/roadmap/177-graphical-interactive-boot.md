@@ -240,9 +240,9 @@ key, not `SWISH_CHECK_SCRIPT`; that limit is recorded in the leg's own doc.
 
 calef, 2026-09-30: *"I don't want graphics at boot and won't for a long time."* Every
 `--features shell` boot is the minimal UART system again. The shell holds the device grants until a
-person launches `screen` from the prompt, and [milestone 632 (graphics on demand)](632-graphics-on-demand-screen-launched-from-the-prompt.md) builds the stack at that launch. The input-routing
+person launches `graphical_terminal` from the prompt, and [milestone 632 (graphics on demand)](632-graphics-on-demand-screen-launched-from-the-prompt.md) builds the stack at that launch. The input-routing
 decision (option A) survives unchanged inside the session, and so does the second-flush lesson:
-`build_screen_session` takes the drivers' one-time reports in the order they send them. The legs
+`build_graphical_terminal_session` takes the drivers' one-time reports in the order they send them. The legs
 keep their names, retargeted from "the boot brings up the stack" to "the launch does".
 
 ## Follow-on

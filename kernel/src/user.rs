@@ -2296,7 +2296,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     // interrupt and DMA run, and the surface run inside it, in slots 17, 18, 19 and 12. Nothing
     // is built from them at boot (milestone 632 (provisional), calef's 2026-09-30 ruling: the
     // boot stays the minimal UART system and graphics is launched from the swish prompt); the
-    // progenitor hands all seven to the shell, which holds them until a `screen` session's spawn
+    // progenitor hands all seven to the shell, which holds them until a `graphical_terminal` session's spawn
     // hands them back for the drivers to be built from, exactly as it hands the machine
     // statistics page to a session that may delegate it.
     //
@@ -2319,7 +2319,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     };
     // **And a virtio keyboard, when this boot has a gpu too** (slots 20-22), the rng trio's
     // shape exactly. `None` is milestone 192 (a keyboard on real silicon)'s option A, not an
-    // absence: a `screen` session then takes its keystrokes from the boot's own UART line
+    // absence: a `graphical_terminal` session then takes its keystrokes from the boot's own UART line
     // discipline, at launch rather than at boot. Wired only beside a GPU, because a keyboard
     // with no screen has no terminal to type into on this boot.
     let keyboard = if gpu.is_some() && program("keyboard_driver").is_some() {
@@ -2329,11 +2329,11 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     };
     if gpu.is_some() {
         crate::println!(
-            "  graphics  : a virtio-gpu and {}; the shell holds the grants, a `screen` launch builds from them",
+            "  graphics  : a virtio-gpu and {}; the shell holds the grants, a `graphical_terminal` launch builds from them",
             if keyboard.is_some() {
                 "a virtio keyboard"
             } else {
-                "no keyboard (a screen session's keystrokes come over the UART)"
+                "no keyboard (a graphical terminal session's keystrokes come over the UART)"
             }
         );
     }

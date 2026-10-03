@@ -95,7 +95,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `timetable` | base | crates: `schedule_store`, `timetable`; programs: `timetable`; paths: `components/timetable.conf` | interfaces only | `timetable` (provisional) |
 | `util-linux` | base | programs: `disk_partitioner`, `disk_surveyor`, `uuid` | interfaces only | `util-linux` (provisional) |
 | `demos` | optional | programs: `least_authority_demo` | interfaces only | `demos` (provisional) |
-| `display` | optional | crates: `compositor*`, `video_terminal`; programs: `compositor`, `display_terminal`, `framebuffer_driver`, `gpu_driver`, `keyboard_driver`, `screen` | interfaces only | `display` (provisional) |
+| `display` | optional | crates: `compositor*`, `video_terminal`; programs: `compositor`, `display_terminal`, `framebuffer_driver`, `gpu_driver`, `graphical_terminal`, `keyboard_driver` | interfaces only | `display` (provisional) |
 | `installer` | optional | programs: `installer` | interfaces only | `installer` (provisional) |
 | `redoxfs` | optional | crates: `redoxfs`, `redoxfs_host`, `redoxfs_server`; programs: `mkfs`, `redoxfs`, `redoxfs-ar`, `redoxfs-clone`, `redoxfs-mkfs`, `redoxfs-resize`, `redoxfs_host`, `redoxfs_server`, `second_mount`; paths: `vendor/redoxfs.divergence.patch`, `vendor/redoxfs.pin` | interfaces only | undecided: the server and host tool are ours and the library is Redox's; whether the port goes upstream is open |
 | `rmle` | optional | programs: `rmle` | interfaces only | `rmle` (provisional) |

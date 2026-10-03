@@ -29,7 +29,7 @@
 # `--graphical` (milestone 632 (provisional), reversing milestone 177 (wire the graphical terminal stack into the real interactive boot)'s boot half) boots the same
 # `--features shell` kernel as every boot, the normal UART system, with a virtio-gpu and a
 # virtio-keyboard attached; the boot ignores the devices and the shell holds their grants. It then
-# types `screen` at the prompt and verifies the launched session by reading the screen back
+# types `graphical_terminal` at the prompt and verifies the launched session by reading the screen back
 # (a QEMU screendump decoded against the same 7x8 font the guest drew from): the UART prompt
 # before the launch is the assertion that the boot stayed minimal, and the session's prompt on the
 # screen plus one keystroke round-tripped (through the session's `keyboard_driver` and line

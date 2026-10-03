@@ -263,7 +263,7 @@ fatal-risk list that months of driver work is a reasonable thing to spend.
   board's UART, and nobody can until milestone 157 lands.
 - *Corrected 2026-10-03 (this bullet said both graphical legs were red).* They are green in CI
   since milestone 177's 2026-09-19 root cause. Since milestone 632 (graphics on demand) they launch
-  `screen` from the normal UART boot, so they prove option A at launch rather than at boot.
+  `graphical_terminal` from the normal UART boot, so they prove option A at launch rather than at boot.
 ## Follow-on
 
 - **Milestone 242.** Option B, the xHCI driver, USB core and HID keyboard, plus the scoping pass
@@ -302,5 +302,5 @@ OptiPlex has no PS/2 port. Option A's wiring built 2026-09-02: the graphical boo
 source is now one choice in `kernel::user::boot_graphical_terminal` (a virtio keyboard when the
 bus has one, the board's own UART when it does not), `crates/system_initializer` needed no line
 changed, and option B is a third arm of that `match`. *2026-09-30: the choice moved to the launch
-of a `screen` session (milestone 632); a session without a keyboard reads the boot's UART raw.* The
+of a `graphical_terminal` session (milestone 632); a session without a keyboard reads the boot's UART raw.* The
 board half waits on milestone 157.

@@ -290,23 +290,24 @@ const MACHINE_BIT: u64 = 1 << 44;
 /// the completion interrupt, the whole DMA run and the surface run, in that order, each narrowed
 /// to what the boot endowment carries. They come from the session's own slots
 /// ([`SHELL_GPU_SLOT`] and its siblings), which the progenitor fills at boot, so what reaches the
-/// screen session is what the user at the prompt delegated: the model's own shape, the machine
+/// graphical terminal session is what the user at the prompt delegated: the model's own shape, the machine
 /// page's own precedent one authority over.
 ///
-/// Meaningful only for a `screen` request, and the progenitor refuses any other program that sets
+/// Meaningful only for a `graphical_terminal` request, and the progenitor refuses any other program that sets
 /// it rather than endowing caps a program never declared.
 ///
-/// Name: provisional, like the milestone's.
+/// Name: ratified 2026-10-03 (calef, #1493). Refused one device-bundle bit covering both (it adds a
+/// second way of saying what a request carries).
 const GRAPHICS_BIT: u64 = 1 << 45;
 
 /// **A virtio keyboard's three capabilities follow** (milestone 632 (provisional)): the transport,
 /// the event interrupt and the DMA page, in that order. **Meaningless unless [`GRAPHICS_BIT`] is
 /// also set**, the same pair-shape [`DIR2_BIT`] already records: a keyboard with no screen has no
-/// terminal to type into on this boot. When it is absent the screen session takes its keystrokes
+/// terminal to type into on this boot. When it is absent the graphical terminal session takes its keystrokes
 /// from the boot's own line discipline over the UART, which is milestone 192 (a keyboard on real
 /// silicon)'s option A, decided, at launch rather than at boot.
 ///
-/// Name: provisional.
+/// Name: ratified 2026-10-03 (calef, #1493), with bit 46 and its meaning only with bit 45.
 const KEYBOARD_BIT: u64 = 1 << 46;
 
 /// **Where a session holds the machine statistics page** (milestone 126, DECISIONS §225): `READ |
@@ -333,7 +334,8 @@ pub const MACHINE_PAGE_SLOT: u64 = 20;
 /// allocates into. One block of seven, contiguous, so the relation to the two slots that fence it
 /// reads as two assertions rather than seven.
 ///
-/// Name: provisional, like the milestone's.
+/// Name: ratified 2026-10-03 (calef, #1493), with slots 22 to 28 and the delegation order (after the
+/// `--mem` untyped, before the machine statistics page).
 pub const SHELL_GPU_SLOT: u64 = 22;
 
 // The seven graphical slots are one contiguous block fenced by two named ones, and these two
@@ -625,7 +627,7 @@ pub struct Wiring {
     /// **The machine statistics page follows as the last delegated capability** (milestone 126).
     /// See [`MACHINE_BIT`].
     pub machine: bool,
-    /// **The gpu's four capabilities follow, and the screen session is to be built from them**
+    /// **The gpu's four capabilities follow, and the graphical terminal session is to be built from them**
     /// (milestone 632 (provisional)). See [`GRAPHICS_BIT`].
     pub graphics: bool,
     /// **A virtio keyboard's three follow beside the gpu's four** (milestone 632 (provisional)).

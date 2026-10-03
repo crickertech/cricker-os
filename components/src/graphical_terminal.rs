@@ -1,4 +1,4 @@
-//! **The screen session: a prompt on the display, launched from the swish prompt**
+//! **The graphical terminal: a prompt on the display, launched from the swish prompt**
 //! (milestone 632 (provisional), calef's 2026-09-30 ruling: *"I don't want graphics at boot and
 //! won't for a long time. Change to launching a program from the swish prompt to get graphics;
 //! graphics is going to sit there largely unused for some time."*).
@@ -54,7 +54,12 @@
 //! takes raw back at its next prompt, which costs that one round trip after every session. A
 //! session the kernel killed skips even that, and the same recovery covers it.
 //!
-//! Name: provisional, milestone 632's lane, 2026-09-30, screen-shaped but not ratified.
+//! Name: ratified 2026-10-03 (calef, #1493). Refused `screen` (clashes with `SCREEN_BIT`, the
+//! screen-narrowed tail of §106 (an unredirected tail stage's output goes to the screen, not the
+//! shell), and with GNU screen), `gate` (the tree's word for a check that fails loudly, about 3,700
+//! uses, and the x86 IDT's interrupt gate), `display_session` and `display_console` (`console` is
+//! the UART server). It names the whole stack (`gpu_driver`, `display_terminal` and the keyboard),
+//! so it survives any later change of VT engine behind `display_terminal`.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68 (code-quality gates: one lint policy)'s ratchet tracks

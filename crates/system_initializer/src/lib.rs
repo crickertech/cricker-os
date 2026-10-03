@@ -115,7 +115,7 @@
 //! when a GPU is attached, the gpu's transport, interrupt, DMA run and surface run, plus a virtio
 //! keyboard's three when there is one (milestone 600 (provisional) moved these out of the kernel).
 //! The gpu's and the keyboard's go no further than the shell (milestone 632 (provisional)), which
-//! holds them until a person at the prompt delegates them into a `screen` session; from those,
+//! holds them until a person at the prompt delegates them into a `graphical_terminal` session; from those,
 //! and nothing else, [`boot`] builds the whole interactive system out of its own budget:
 //!
 //! 1. **output**: the **console** server, reading text from a shared page and writing it to the
@@ -127,7 +127,7 @@
 //!    then writes every byte to that terminal too, so the UART and the screen say the same thing.
 //! 2. **keystrokes**: the **input** driver, waiting on the UART receive interrupt and forwarding
 //!    bytes. The virtio keyboard's grants, when a boot has them, ride this endowment out to the
-//!    shell ([`BootEndowment::keyboard`]) and reach a driver only inside a `screen` session the
+//!    shell ([`BootEndowment::keyboard`]) and reach a driver only inside a `graphical_terminal` session the
 //!    user launches, never the boot itself.
 //! 3. the **line discipline** (`line_editor`, milestone 28): editing, echo, history, between
 //!    whichever pair of the above this boot has. The same server either way; only its output-side
@@ -279,8 +279,8 @@
 //! fully; two jobs alive at once (a pipeline stage that outlives its producer) permanently costs one
 //! region. A long enough session of concurrent pipelines still ends at "could not spawn".
 //!
-//! **A `screen` session's size is counted, not measured** (milestone 632 (provisional)).
-//! [`SCREEN_SESSION_PAGES`] is bounded from the constants, and the bound's honesty is the
+//! **A `graphical_terminal` session's size is counted, not measured** (milestone 632 (provisional)).
+//! [`GRAPHICAL_TERMINAL_SESSION_PAGES`] is bounded from the constants, and the bound's honesty is the
 //! `swish-check --graphical` leg's to check: a count too small is a launch that fails every time
 //! with `could not spawn` (the builder refuses rather than traps), and a count too large spends the
 //! pool's headroom for nothing. While a session runs, its 464-page region is one of the pool's 672,
@@ -492,7 +492,7 @@ pub struct BootEndowment {
     /// **The gpu's scanout, when this boot has a virtio-gpu** (milestone 600 (provisional)): one
     /// `PageFrame` capability naming the surface run, `READ | WRITE | GRANT`, which [`boot`]
     /// places in the shell (with the gpu's other three) for the user at the prompt to delegate
-    /// into a `screen` session (milestone 632 (provisional)); the session's `display_terminal` is
+    /// into a `graphical_terminal` session (milestone 632 (provisional)); the session's `display_terminal` is
     /// built on it. It is the tail of [`gpu_dma`](BootEndowment::gpu_dma)'s run, minted separately
     /// by the kernel because nothing lets a holder narrow a run, and the terminal must not reach
     /// the driver's rings in the first page. Absent with no GPU, like the rest of the gpu's four.
@@ -502,7 +502,7 @@ pub struct BootEndowment {
     /// [`virtio_rng`](BootEndowment::virtio_rng) trio's shape plus
     /// [`gpu_surface`](BootEndowment::gpu_surface). Nothing is built from it at boot (milestone
     /// 632 (provisional), calef's 2026-09-30 ruling: the boot stays the minimal UART system);
-    /// [`boot`] places it and its three siblings in the shell, which holds them until a `screen`
+    /// [`boot`] places it and its three siblings in the shell, which holds them until a `graphical_terminal`
     /// session's spawn hands them back for the drivers to be built from. **Absent** with no GPU
     /// on the bus, or no `gpu_driver` or `display_terminal` in the archive; [`boot`] probes for
     /// it. `kernel::user::boot_progenitor` says why these are granted rather than built.
@@ -517,7 +517,7 @@ pub struct BootEndowment {
     /// **A virtio keyboard, when this boot has a gpu too** (milestone 600 (provisional)): the
     /// confined transport, `WRITE | GRANT`, the [`virtio_rng`](BootEndowment::virtio_rng) trio's
     /// shape. Not built from at boot; placed in the shell beside the gpu's four (milestone 632
-    /// (provisional)), and a `screen` session's `keyboard_driver` is built from it when the user
+    /// (provisional)), and a `graphical_terminal` session's `keyboard_driver` is built from it when the user
     /// delegates it at spawn. **Absent** on a boot with no keyboard, which is milestone 192's
     /// option A and every real board: a session then takes its keystrokes from the boot's own line
     /// discipline over the UART. Only ever granted beside [`gpu`](BootEndowment::gpu).
@@ -1226,18 +1226,18 @@ pub fn boot(
     }
 
     // **The display devices, when the kernel granted a virtio-gpu and the archive carries the
-    // programs a `screen` session is built from** (milestone 632 (provisional), calef's 2026-09-30
+    // programs a `graphical_terminal` session is built from** (milestone 632 (provisional), calef's 2026-09-30
     // ruling: *"I don't want graphics at boot and won't for a long time"*. The boot below this
     // comment is the same minimal UART system on every boot; a gpu on the bus changes only *who
     // holds the grants*, and the answer is the shell, which holds them until a person at the
-    // prompt delegates them into a `screen` session). The gpu's four grants are probed the way the
+    // prompt delegates them into a `graphical_terminal` session). The gpu's four grants are probed the way the
     // virtio-rng trio is (`is_granted`, since there is no fourth `START` word to be told with) and
     // come together or not at all; a grant this process can neither build a session from nor hand
     // to the shell is released at once rather than carried, the posture every kernel grant here
     // already takes.
     //
     // **The keyboard is optional inside a session-bearing boot**, and its absence is milestone
-    // 192's option A rather than a failure: a `screen` session then takes its keystrokes from the
+    // 192's option A rather than a failure: a `graphical_terminal` session then takes its keystrokes from the
     // boot's own line discipline over the UART, at launch rather than at boot.
     //
     // **The UART is never freed early.** There is no graphical boot to leave the console with
@@ -1245,7 +1245,7 @@ pub fn boot(
     // input driver is built. Seven grants is the most any boot hands the shell here, and they are
     // placed below (at the shell's build, before the login block's peak) rather than carried past
     // it.
-    let screen_caps = screen_grants(&fs, table, g);
+    let graphical_terminal_caps = graphical_terminal_grants(&fs, table, g);
     // **A terminal on the firmware's screen beside the serial console** (the shell on the firmware
     // screen, milestone 198's rung 1b): the kernel grants `disp_term_ep`/`disp_term_page` alone
     // when it put a terminal on the firmware's framebuffer (`kernel::user::boot_screen_terminal`),
@@ -1450,7 +1450,7 @@ pub fn boot(
     // Vouched above, so these are the measured bytes.
     let td_bytes = fs.read("line_editor").unwrap_or(&[]);
 
-    // `screen_grants` ran at the top of this function, before the entropy block: the devices'
+    // `graphical_terminal_grants` ran at the top of this function, before the entropy block: the devices'
     // caps sit in their kernel-granted slots until the shell's build places them, and nothing
     // graphical is built here on any boot (milestone 632 (provisional)).
 
@@ -1468,7 +1468,7 @@ pub fn boot(
     // Every boot builds the console pair, including one with a gpu attached: the display devices
     // change nothing here (milestone 632 (provisional)), so what follows is the pre-177 shape,
     // unconditional again. `line_editor` runs `MODE_CONSOLE`, the UART is the terminal, and the
-    // graphical stack, when a person asks for one, is built by the spawn service inside a `screen`
+    // graphical stack, when a person asks for one, is built by the spawn service inside a `graphical_terminal`
     // session from caps the shell holds.
     {
         let request = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
@@ -1658,7 +1658,7 @@ pub fn boot(
     };
 
     // 3. The keystroke source: the input driver, waiting on the UART receive interrupt and
-    // forwarding raw bytes to the terminal, in the same `OP_BYTES` framing a `screen` session's
+    // forwarding raw bytes to the terminal, in the same `OP_BYTES` framing a `graphical_terminal` session's
     // `keyboard_driver` uses (milestone 192's "one place decides where a keystroke comes from").
     // The one keystroke source any boot builds: a virtio keyboard's driver is built inside a
     // session the user launched, never here (milestone 632 (provisional)), and nothing downstream
@@ -1920,12 +1920,12 @@ pub fn boot(
     // (provisional), calef's 2026-09-30 ruling): the boot stays the minimal UART system, and the
     // gpu's four grants, plus the keyboard's three when a virtio keyboard came with them, are the
     // session's to delegate, held at [`spawnproto::SHELL_GPU_SLOT`] and its siblings until a
-    // `screen` request sends them back. Placed here, beside the machine page and for its reason
+    // `graphical_terminal` request sends them back. Placed here, beside the machine page and for its reason
     // (the login block below is this table's peak, and seven caps held across it would be seven
     // slots the peak does not have), and placed rather than `caps`-listed because the named slots
     // are the point: the shell probes fixed numbers, which a moving list would not give it.
-    // [`screen_caps`](fn@screen_grants) already deleted anything the shell is not getting.
-    if screen_caps.held {
+    // [`graphical_terminal_caps`](fn@graphical_terminal_grants) already deleted anything the shell is not getting.
+    if graphical_terminal_caps.held {
         let slots = [
             (g.gpu, abi::rights::WRITE | abi::rights::GRANT),
             (g.gpu_irq, abi::rights::READ | abi::rights::GRANT),
@@ -1945,7 +1945,7 @@ pub fn boot(
             ),
         ];
         for (i, (cap, rights)) in slots.iter().enumerate() {
-            if screen_caps.keyboard || i < 4 {
+            if graphical_terminal_caps.keyboard || i < 4 {
                 must_ok(place_at(
                     shell.tcb,
                     *cap,
@@ -2559,7 +2559,7 @@ pub fn boot(
         announce(term_ep, &buf[..n]);
     }
     // **`term_ep` stays past this point now, and `term_out` does not** (milestone 632
-    // (provisional)). A `screen` session launched with no virtio keyboard takes its keystrokes
+    // (provisional)). A `graphical_terminal` session launched with no virtio keyboard takes its keystrokes
     // from the boot's own line discipline, in raw mode, and the only process that can grant a
     // session that endpoint is this one: the shell's copy carries no `GRANT` (deliberately, so
     // nothing at the prompt can hand the terminal, which also carries `OP_READLINE`, to any
@@ -2622,14 +2622,14 @@ pub fn boot(
             network: network.map(|(stack, _)| stack),
             catalogue,
             run_unvouched,
-            // **The boot line discipline's endpoint, for a `screen` session's UART arm** (milestone
+            // **The boot line discipline's endpoint, for a `graphical_terminal` session's UART arm** (milestone
             // 632 (provisional)); see the comment where `term_out` alone is deleted for why this
             // stays ours. Unused, and unheld, on every boot that builds no session.
             boot_terminal: term_ep,
-            // **The `screen` session's measured images and the boot's verdict on the devices**
+            // **The `graphical_terminal` session's measured images and the boot's verdict on the devices**
             // (milestone 632 (provisional)). `held` is false, and the caps are long deleted, on
-            // every boot with no gpu; a `screen` request on such a boot is refused below.
-            screen: screen_caps,
+            // every boot with no gpu; a `graphical_terminal` request on such a boot is refused below.
+            screen: graphical_terminal_caps,
         },
         &progs,
         Caretakers {
@@ -2763,16 +2763,16 @@ struct Channels {
     /// `capability slots:` line is what says whether that held.
     run_unvouched: u64,
     /// **The boot line discipline's endpoint, `WRITE | GRANT`** (milestone 632 (provisional)):
-    /// held for one delivery, a `screen` session launched with no virtio keyboard, whose program
+    /// held for one delivery, a `graphical_terminal` session launched with no virtio keyboard, whose program
     /// reads the boot discipline raw over the UART and echoes to its own screen. Never received
     /// on; the file service pair's shape, and the comment at `term_out`'s delete records why the
     /// shell could not hold this instead. Unused on every boot that launches no such session.
     boot_terminal: u64,
     /// **The display devices' verdict and the session's measured images** (milestone 632
     /// (provisional)): `held` is false on every boot whose shell got no gpu grants, and then a
-    /// `screen` request is refused below. The shell, not this process, holds the caps between
+    /// `graphical_terminal` request is refused below. The shell, not this process, holds the caps between
     /// boot and launch.
-    screen: ScreenCaps,
+    screen: GraphicalTerminalCaps,
 }
 
 /// The file service, as the progenitor holds it for the life of the boot.
@@ -2828,7 +2828,7 @@ fn spawn_service(
         catalogue,
         run_unvouched,
         boot_terminal,
-        screen: screen_caps,
+        screen: graphical_terminal_caps,
     } = c;
     // Whether the file page is mapped here yet, for the activation set (first image request).
     let mut fs_mapped = false;
@@ -2976,7 +2976,7 @@ fn spawn_service(
         // `spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`): the gpu's four in the fixed order the wire
         // names, then the keyboard's three. Taken on any request that announced them, whatever
         // program it turns out to be for, so both sides stay in lockstep; a request that set the
-        // bits for anything but a `screen` spawn has them deleted and is refused below, because
+        // bits for anything but a `graphical_terminal` spawn has them deleted and is refused below, because
         // endowing devices a program never declared is the one trade this model refuses. A
         // promised cap that did not arrive (a broken caller, not a broken spawn) is treated the
         // same way: what did arrive is deleted, and the spawn is refused.
@@ -3034,11 +3034,11 @@ fn spawn_service(
             true
         };
 
-        // **A `screen` spawn** (milestone 632 (provisional)): graphics is launched from the prompt,
+        // **A `graphical_terminal` spawn** (milestone 632 (provisional)): graphics is launched from the prompt,
         // and this is the launch. The request must be the program and the caps together (`Prog::
-        // Screen` *and* [`spawnproto::Wiring::graphics`], with [`spawnproto::Wiring::keyboard`]
+        // GraphicalTerminal` *and* [`spawnproto::Wiring::graphics`], with [`spawnproto::Wiring::keyboard`]
         // exactly when this boot's verdict says the shell holds a keyboard); anything else, a
-        // screen named with no caps behind it or caps that came for another program, is deleted and
+        // graphical_terminal named with no caps behind it or caps that came for another program, is deleted and
         // refused rather than half-endowed. The stack this builds from them is milestone 600
         // (provisional)'s, moved from the boot into this branch: the session's children are born
         // from one region and the session program is born supervised on `deaths`, so its one reap,
@@ -3046,19 +3046,19 @@ fn spawn_service(
         //
         // **A session that does not come up is a refused spawn**, not a trap: the shell says
         // "could not spawn", the prompt continues, and the builder reclaims the region itself
-        // (`build_screen_session` owns that disposal). The boot version of this builder trapped
+        // (`build_graphical_terminal_session` owns that disposal). The boot version of this builder trapped
         // because a boot that cannot come up is a dead machine; a launch that cannot is just a
         // command that failed.
-        if wiring.graphics || prog == Some(Prog::Screen) {
+        if wiring.graphics || prog == Some(Prog::GraphicalTerminal) {
             let refuse = |received: &mut [u64; 7], n: &mut usize| {
                 drop_devices(received, n);
                 send(result_ep, spawnproto::SPAWN_FAILED, 0, 0);
             };
-            if prog != Some(Prog::Screen)
+            if prog != Some(Prog::GraphicalTerminal)
                 || !wiring.graphics
                 || !devices_whole
-                || !screen_caps.held
-                || wiring.keyboard != screen_caps.keyboard
+                || !graphical_terminal_caps.held
+                || wiring.keyboard != graphical_terminal_caps.keyboard
             {
                 refuse(&mut received, &mut n_received);
                 if let Some(b) = budget {
@@ -3070,8 +3070,8 @@ fn spawn_service(
                 continue;
             }
             let built = match (
-                progs[Prog::Screen.id() as usize].as_ref(),
-                split_job(jobs_ut, SCREEN_SESSION_PAGES),
+                progs[Prog::GraphicalTerminal.id() as usize].as_ref(),
+                split_job(jobs_ut, GRAPHICAL_TERMINAL_SESSION_PAGES),
             ) {
                 (Some(elf), Some(region)) => {
                     let gpu = [
@@ -3085,8 +3085,8 @@ fn spawn_service(
                     // `devices_whole` made every `unwrap_or` unreachable; `unwrap_or(0)` rather
                     // than `unwrap` so a lying caller's refusal above stays the only path that
                     // could ever have fired one.
-                    build_screen_session(
-                        &ScreenLaunch {
+                    build_graphical_terminal_session(
+                        &GraphicalTerminalLaunch {
                             own_ut,
                             region,
                             deaths,
@@ -3096,14 +3096,14 @@ fn spawn_service(
                             kbd: kbd.as_ref(),
                             program: elf,
                         },
-                        &screen_caps,
+                        &graphical_terminal_caps,
                         &discipline,
                     )
                 }
                 _ => Err(()),
             };
             // Anything this request carried that the session did not consume: the `--mem` budget
-            // and machine page a `screen` manifest forbids but a caller could still have set, and
+            // and machine page a `graphical_terminal` manifest forbids but a caller could still have set, and
             // nothing else, because the devices went into the drivers.
             if let Some(b) = budget {
                 cap_delete(b);
@@ -4067,7 +4067,7 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
     (stack, lease)
 }
 
-/// **What a `screen` session is made of, measured, and whether the shell gets the devices**:
+/// **What a `graphical_terminal` session is made of, measured, and whether the shell gets the devices**:
 /// [`boot`]'s verdict (milestone 632 (provisional)). `held` means the kernel granted a gpu and
 /// the table vouches for both `gpu_driver` and `display_terminal`, so the shell will be given the
 /// gpu's four (and the keyboard's three when `keyboard` is also true, which additionally needs its
@@ -4079,7 +4079,11 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
 /// Never inlined, so the verdict's temporaries stay out of [`boot`]'s frame (see the comment where
 /// `boot` calls this).
 #[inline(never)]
-fn screen_grants(fs: &nifefs::Fs<'static>, table: &str, g: &BootEndowment) -> ScreenCaps {
+fn graphical_terminal_grants(
+    fs: &nifefs::Fs<'static>,
+    table: &str,
+    g: &BootEndowment,
+) -> GraphicalTerminalCaps {
     let driver = measured(fs, table, "gpu_driver").elf;
     let terminal = measured(fs, table, "display_terminal").elf;
     let held = is_granted(g.gpu) && driver.is_some() && terminal.is_some();
@@ -4095,7 +4099,7 @@ fn screen_grants(fs: &nifefs::Fs<'static>, table: &str, g: &BootEndowment) -> Sc
             cap_delete(c);
         }
     }
-    ScreenCaps {
+    GraphicalTerminalCaps {
         held,
         keyboard,
         driver,
@@ -4104,11 +4108,11 @@ fn screen_grants(fs: &nifefs::Fs<'static>, table: &str, g: &BootEndowment) -> Sc
     }
 }
 
-/// The spawn service's half of [`screen_grants`]' verdict: whether this boot's shell holds the
+/// The spawn service's half of [`graphical_terminal_grants`]' verdict: whether this boot's shell holds the
 /// display devices, and the measured images a session is built from. `held` false means no
 /// session can be launched (the caps were deleted at boot, the shell probes empty slots, and a
-/// `screen` request is refused by the shell before it is sent).
-struct ScreenCaps {
+/// `graphical_terminal` request is refused by the shell before it is sent).
+struct GraphicalTerminalCaps {
     held: bool,
     keyboard: bool,
     driver: Option<elf::Elf<'static>>,
@@ -4139,19 +4143,19 @@ const KBD_DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
 /// compositor's ring and doorbell (milestone 177). [`RNG_MODE_VIRTIO`]'s reasoning.
 const KBD_MODE_DIRECT: u64 = 1;
 
-/// Where a `screen` session's program writes its screen text and reads its lines.
-/// `components/src/screen.rs`'s own constants; the same band the boot's shell writes into, so a
+/// Where a `graphical_terminal` session's program writes its screen text and reads its lines.
+/// `components/src/graphical_terminal.rs`'s own constants; the same band the boot's shell writes into, so a
 /// reader of the wiring meets one convention per role rather than one per program.
 const SCREEN_OUT_VA: u64 = address_space_map::pair_page(0x0000_0000_00a0_0000);
 const SCREEN_IN_VA: u64 = address_space_map::pair_page(0x0000_0000_00a1_0000);
 
-/// **One `screen` session's region, in pages** (milestone 632 (provisional)): everything the
+/// **One `graphical_terminal` session's region, in pages** (milestone 632 (provisional)): everything the
 /// session is made of, so the session job's one reap ends the drivers with it, DECISIONS §92's
 /// shape. Bounded from the constants rather than measured, which is the BUGS entry this comment
 /// owes:
 ///
 /// - four program-shaped children (`gpu_driver`, `display_terminal`, `keyboard_driver` on the arm
-///   that builds it, and the `screen` program itself): [`JOB_REGION_PAGES`] bounds each, being
+///   that builds it, and the `graphical_terminal` program itself): [`JOB_REGION_PAGES`] bounds each, being
 ///   sized for exactly one archived program's image, twelve stack pages, TCB, address space and
 ///   tables;
 /// - the discipline: the supervisor, bounded by [`JOB_REGION_PAGES`] as above, plus the
@@ -4168,7 +4172,7 @@ const SCREEN_IN_VA: u64 = address_space_map::pair_page(0x0000_0000_00a1_0000);
 /// jobs still spawn from what is left, and a `std` job or a second session is refused, which the
 /// shell reports as `could not spawn`. Counted from the constants, not measured; the leg that
 /// gates this milestone is what says the count holds.
-const SCREEN_SESSION_PAGES: u64 = 464;
+const GRAPHICAL_TERMINAL_SESSION_PAGES: u64 = 464;
 
 /// Drop every capability named, freeing the slots. A builder's means, spent once the children
 /// hold their own narrowed copies: on the success path after the last build, and on every
@@ -4181,14 +4185,14 @@ fn drop_caps(caps: &[u64]) {
     }
 }
 
-/// One `screen` launch's everything: the resources the session is built from and with. A record
-/// rather than a parameter list, because [`build_screen_session`] and its builder take the same
+/// One `graphical_terminal` launch's everything: the resources the session is built from and with. A record
+/// rather than a parameter list, because [`build_graphical_terminal_session`] and its builder take the same
 /// ten facts twice, and a reader holding either call site should not have to count positions.
-struct ScreenLaunch<'a> {
+struct GraphicalTerminalLaunch<'a> {
     /// The spawn service's own untyped: the loader's scratch tables for every build come from
     /// here, everything the children are made of from [`Self::region`].
     own_ut: u64,
-    /// The session's job region, split by the caller. [`build_screen_session`] owns its disposal.
+    /// The session's job region, split by the caller. [`build_graphical_terminal_session`] owns its disposal.
     region: u64,
     /// The supervision endpoint every job is born under. The session program's fault slot, so its
     /// one reap sweeps the drivers with it.
@@ -4202,11 +4206,11 @@ struct ScreenLaunch<'a> {
     gpu: &'a [u64; 4],
     /// The keyboard's three, when the launch announced them.
     kbd: Option<&'a [u64; 3]>,
-    /// The `screen` program itself, measured.
+    /// The `graphical_terminal` program itself, measured.
     program: &'a elf::Elf<'a>,
 }
 
-/// **Build a whole `screen` session and start it** (milestone 632 (provisional)): `gpu_driver`
+/// **Build a whole `graphical_terminal` session and start it** (milestone 632 (provisional)): `gpu_driver`
 /// and `display_terminal` on the gpu's four delegated capabilities, then either the session's own
 /// line discipline with `keyboard_driver` behind it (the device arm, `kbd` is `Some`) or nothing
 /// but the screen, with the boot line discipline's endpoint handed to the program for raw reads
@@ -4242,8 +4246,12 @@ struct ScreenLaunch<'a> {
 /// Never inlined, so neither its locals nor the parsed images sit in [`boot`]'s frame, which
 /// lives as long as the spawn service does.
 #[inline(never)]
-fn build_screen_session(l: &ScreenLaunch, s: &ScreenCaps, d: &SessionDiscipline) -> Result<(), ()> {
-    let built = screen_session_children(l, s, d);
+fn build_graphical_terminal_session(
+    l: &GraphicalTerminalLaunch,
+    s: &GraphicalTerminalCaps,
+    d: &SessionDiscipline,
+) -> Result<(), ()> {
+    let built = graphical_terminal_session_children(l, s, d);
     // The region cap was only ever the means of building. A session that came up is collected
     // by its job's reap; one that did not is reclaimed here rather than left for a death that
     // will never come, the same disposal the ordinary path gives a failed spawn. Bounded and
@@ -4256,15 +4264,15 @@ fn build_screen_session(l: &ScreenLaunch, s: &ScreenCaps, d: &SessionDiscipline)
     built
 }
 
-/// [`build_screen_session`]'s build, separated from it so the region's disposal is written once
+/// [`build_graphical_terminal_session`]'s build, separated from it so the region's disposal is written once
 /// rather than at every failure site. Never inlined, for the wrapper's own reason.
 #[inline(never)]
-fn screen_session_children(
-    l: &ScreenLaunch,
-    s: &ScreenCaps,
+fn graphical_terminal_session_children(
+    l: &GraphicalTerminalLaunch,
+    s: &GraphicalTerminalCaps,
     d: &SessionDiscipline,
 ) -> Result<(), ()> {
-    let ScreenLaunch {
+    let GraphicalTerminalLaunch {
         own_ut,
         region,
         deaths,
@@ -4402,7 +4410,7 @@ fn screen_session_children(
     // building `line_editor` in `MODE_DISPLAY` exactly as the boot's does, with `keyboard_driver`
     // `CALL`ing it in `MODE_DIRECT`. Without one: no discipline and no driver, and the program
     // reads the boot's own discipline raw, over the UART, echoing to the screen itself.
-    // `components/src/screen.rs`'s slots 0-2 and its `x0` are the contract. ---
+    // `components/src/graphical_terminal.rs`'s slots 0-2 and its `x0` are the contract. ---
     let (arm, keys_ep, out_page, in_page, write_ep) = match kbd {
         Some(k) => {
             let Some(session_term) = retype_obj(region, abi::objtype::RENDEZVOUS).ok() else {
@@ -5785,7 +5793,7 @@ fn announce(term_ep: u64, text: &[u8]) {
 /// supervisor to swap. `terminal_supervisor`'s `BUGS`.
 /// `ut` is where the loader's own scratch tables come from; `budget` is the region the
 /// supervisor's map budget is split from. The same region at boot (the root, before the giveaway),
-/// two different ones inside a `screen` session (milestone 632 (provisional): `own_ut` for the
+/// two different ones inside a `graphical_terminal` session (milestone 632 (provisional): `own_ut` for the
 /// tables, the session's job region for everything the supervisor is made of, so its reclaim
 /// returns it).
 fn build_terminal(
