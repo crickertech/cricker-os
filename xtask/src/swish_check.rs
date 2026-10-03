@@ -2915,17 +2915,22 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     let mut stdin = child.stdin.take().expect("piped stdin");
     let mut stdout = child.stdout.take().expect("piped stdout");
     // A reader thread, for `swish_check_leg`'s own reason: every wait needs a deadline, and a
-    // boot that hangs is exactly the failure this gate is for.
+    // boot that hangs is exactly the failure this gate is for. The kernel's progenitor stack gauge
+    // is taken out through [`GaugeFilter`], as the plain legs take it: it lands right after the
+    // first `$ ` and hid that prompt from the wait below (CI, 2026-10-03, run 37095306042).
     let seen = Arc::new(Mutex::new(String::new()));
     let collector = Arc::clone(&seen);
     let reader = std::thread::spawn(move || {
+        let mut filter = GaugeFilter::default();
+        let mut gauges = Vec::new();
         let mut buf = [0u8; 1024];
         while let Ok(n) = stdout.read(&mut buf) {
             if n == 0 {
                 return;
             }
             let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
-            collector.lock().expect("transcript lock").push_str(&text);
+            let mut out = collector.lock().expect("transcript lock");
+            filter.feed(&text, &mut out, &mut gauges);
         }
     });
 
