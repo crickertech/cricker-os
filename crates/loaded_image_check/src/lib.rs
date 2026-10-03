@@ -125,6 +125,12 @@ mod tests {
     #[test]
     fn a_correctly_loaded_image_passes_every_check() {
         super::verify(|| unreachable!("a host binary failed this crate's own image check"));
+        // `verify` writes `.bss` to prove it is writable, and it is the only thing here that can
+        // be seen from outside: a `verify` that did nothing would pass the line above. This test
+        // is the one caller in this binary, so the marker is not raced.
+        // SAFETY: single caller, reading a static this crate owns.
+        let marker = unsafe { core::ptr::read_volatile(&raw const super::BSS_MARKER) };
+        assert_eq!(marker, 1, "verify did not run its checks");
     }
 
     /// The recursion really recurses: eight frames deep, and the answer depends on the deepest.

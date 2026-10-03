@@ -304,6 +304,39 @@ mod tests {
         String::from_utf8(v).unwrap()
     }
 
+    /// Every kind has its three letters, and the one with no test of its own (`MAP_RO`) cannot be
+    /// deleted into `???`.
+    #[test]
+    fn every_kind_has_its_permission_letters() {
+        assert_eq!(kind_name(abi::address_space::MAP_RO), "r--");
+        assert_eq!(kind_name(abi::address_space::MAP_RW), "rw-");
+        assert_eq!(kind_name(abi::address_space::MAP_CODE), "r-x");
+        assert_eq!(kind_name(u64::MAX), "???");
+    }
+
+    /// Each refusal is explained in its own words, not folded into the generic last line.
+    #[test]
+    fn each_refusal_is_explained_in_its_own_words() {
+        let say = |e: abi::Error| refusal(e as i64);
+        assert!(say(abi::Error::NoSuchSlot).contains("holds no address-space capability"));
+        assert!(say(abi::Error::WrongObject).contains("not an address space"));
+        assert!(say(abi::Error::NotPermitted).contains("no ENUMERATE"));
+        assert!(say(abi::Error::Gone).contains("destroyed"));
+        assert!(refusal(0).contains("could not be read"));
+    }
+
+    /// The address column is right-aligned in fourteen columns, and an address of zero keeps its
+    /// one digit rather than stripping all of them.
+    #[test]
+    fn an_address_is_aligned_and_zero_keeps_a_digit() {
+        let va = |v| shown(|o| write_va(v, o));
+        assert_eq!(va(0), "           0x0");
+        assert_eq!(va(0x40_0000), "      0x400000");
+        assert_eq!(va(0x1234), "        0x1234");
+        assert_eq!(va(0xffff_ffff_ffff), "0xffffffffffff");
+        assert_eq!(va(u64::MAX), "0xffffffffffffffff");
+    }
+
     #[test]
     fn a_space_walks_to_its_end() {
         let mut rows = [Row::default(); MAX_ROWS];

@@ -171,6 +171,21 @@ impl Writer {
 mod tests {
     use super::*;
 
+    /// The cursor drops what does not fit rather than writing past its buffer. `format` never gets
+    /// there (its longest line is 29 of 40 bytes), so only the writer itself can be asked.
+    #[test]
+    fn the_writer_stops_at_the_end_of_its_buffer() {
+        let mut w = Writer {
+            buf: [0u8; MAX_LEN],
+            len: 0,
+        };
+        w.push_bytes(&[b'x'; MAX_LEN + 5]);
+        assert_eq!(w.len, MAX_LEN);
+        w.push_bytes(b"y");
+        assert_eq!(w.len, MAX_LEN);
+        assert!(w.buf.iter().all(|&b| b == b'x'));
+    }
+
     #[test]
     fn zero_is_up_zero() {
         assert_eq!(format(0).as_bytes(), b"up 00:00:00\n");
