@@ -54,12 +54,12 @@ green was the *checked nothing* case.
 
 ## The options
 
-- **A. A required check on `pull_request` and `merge_group` (recommended).** Fails when the entry
+- A. A required check on `pull_request` and `merge_group` (recommended). Fails when the entry
   changes no file.
-- **B. A check in `script/lint`.** Refused. Lint reads the tree, and a tree can be correct while its
+- B. A check in `script/lint`. Refused. Lint reads the tree, and a tree can be correct while its
   pull request is empty. It also runs from the lane's worktree before the lane has pushed anything,
   so it would fire on the claim commit every lane makes first on purpose.
-- **C. Teach `merge-drain` and `queue-eligible.jq` to refuse enqueue.** Refused. It covers only what
+- C. Teach `merge-drain` and `queue-eligible.jq` to refuse enqueue. Refused. It covers only what
   the drain enqueues; #1460 went in by hand, and the manual path is the one that failed.
 - D. Extend `lane-claim-check.sh` to flag a work branch descending from a claim whose pull request
   has not moved. Worth doing, but it is a report (rung 4) and finds the stranded work after the
@@ -147,12 +147,12 @@ Nothing. The ruleset change is calef's. The workflow can land first as a reporti
 
 ## Follow-on
 
-- Outstanding. Adding the check's job name to the `main` ruleset's required checks, which only
+- **Outstanding.** Adding the check's job name to the `main` ruleset's required checks, which only
   calef can do; checked 2026-10-02 by reading the ruleset's required contexts through the API, where
   it is absent. Until then the check reports and does not gate.
-- Outstanding. The live falsification: a throwaway draft pull request whose red run is linked
+- **Outstanding.** The live falsification: a throwaway draft pull request whose red run is linked
   in `.github/workflows/empty-diff.yml`'s header. Not yet linked there.
-- Proposed. `design/roadmap/proposals/a-claim-with-work-on-another-branch-is-reported.md` is the
+- **Proposed.** `design/roadmap/proposals/a-claim-with-work-on-another-branch-is-reported.md` is the
   `lane-claim-check.sh` companion (option D above). It is written here so it has a home.
 
 ## Index row
