@@ -531,8 +531,10 @@ pub fn catalogued_stem<'c>(
     found.ok_or(StemMiss::NoSuchPackage)
 }
 
-/// Why [`catalogued_stem`] found no one stem. Provisional names (2026-10-02, milestone 614's
-/// lane).
+/// Why [`catalogued_stem`] found no one stem.
+///
+/// Name: provisional, milestone 614 (two installed versions of one program, each runnable)'s lane,
+/// 2026-10-02. Not covered by calef's 2026-10-03 ruling on #1443.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StemMiss {
     /// No line names a package of that name (at that version, if one was asked for) on this

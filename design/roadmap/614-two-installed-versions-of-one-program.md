@@ -236,10 +236,13 @@ Added by the build lane, 2026-09-29.
   run names them. How checked: `script/swish-check` green on aarch64, riscv64 and x86_64 in CI.
 - **Outstanding.** Ratification: `swish::versions`, its `versions` file, the `program@version`
   spelling, the `as` recipe key, `greeting_two`, the `default` line kind, `NO_VERSION`,
-  `without_version`, `versions_of`, `Ambiguous`, `StemMiss`, the `package install
-  <package>@<version>` spelling and the divergence wording are provisional. The
-  names and the format await an architect through a `design/decisions/` section by the integrator
-  (Done means, last bullet).
+  `without_version`, `versions_of`, `Ambiguous`, `StemMiss` and the divergence wording are
+  provisional. The names and the format await an architect through a `design/decisions/` section
+  by the integrator (Done means, last bullet).
+- **Done.** Carried by pull request #1443, in a comment of 2026-10-03 00:24 UTC. The
+  `package install <package>@<version>` spelling: ratified 2026-10-03 (calef), the same `@` as
+  `remove`. Refusing a bare `package install <name>` that matches more than one catalogued version
+  as ambiguous: accepted 2026-10-03 (calef). `StemMiss` was not covered and stays provisional.
 
 ## Index row
 
