@@ -1,11 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-08-15
-milestone_dependencies: 152
-decision_dependencies: none
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-10-03
 ---
 # 129. Scheduled execution: a cron whose every entry is a grant
 
@@ -14,13 +10,12 @@ schedule (snapshot thinning, scrub passes, log rotation) even though the Mac ini
 themselves, and nothing else on the roadmap ran anything on a schedule. The interval scheduler, a
 narrowed archive, a backable `--mem` grant and runtime replacement under §222 (who holds a user's
 schedule) are built, and so are calendar entries (G5) on a granted clock. One image per entry was
-refused on 2026-09-26. The one thing left is connecting a real session, which waits on milestone
-152 (durable delegation). Checked 2026-09-29: the store, `session_reviver` and the spawn contract
-are in the tree; the session process is not, and no other item is owed.
+refused on 2026-09-26. The last item, connecting a real session, was built by milestone
+152 (durable delegation): `components/src/session.rs` builds the timetable and `components/src/login.rs`
+sends `REPLACE` (verified 2026-10-03, UTC).
 
-The `REPLACE` handler and the spawn contract are built and tested with the
-kernel test as registrar. The real registrar is a user's durable session, and that type went with
-`smb_server` on 2026-08-30; the lane for milestone 152 (durable delegation) is building it against `timetable::contract`.
+The `REPLACE` handler and the spawn contract are built and tested, with the kernel test as
+registrar and with a real user's durable session as registrar since milestone 152 (durable delegation).
 
 ## In brief
 
@@ -89,7 +84,7 @@ such as `wc report.txt`. Host test:
   ends the process, since an idle timetable would hold its session up under §16 (object
   revocation). A timetable handed the run-unvouched capability runs nothing, so no job can hold it,
   which is what lets §220 (signed builds, and trusting a key is scoped) reach scheduled work.
-- `system_tests/src/user/timetable_tests.rs` is the registrar until milestone 152 rebuilds the session. It
+- `system_tests/src/user/timetable_tests.rs` was the registrar until milestone 152 built the session. It
   sends `schedule_store::fixture::DEMO_SCHEDULE_DOC`, the bytes the store test writes to disk, then
   a document that does not parse, an edit and an empty document. A second test hands the timetable
   the run-unvouched capability and asserts it refuses. Both run on all three architectures.
@@ -123,13 +118,12 @@ the instant a timed wait would block until, so the loop changes by one line when
 Milestone 106 (a wait that ends on either the interrupt or the deadline) is gated on milestone 263
 (can a userspace process hold a timer).
 
-## What is left
+## What was left, and is now built
 
-- Connecting a real session: the durable session spawns its timetable, writes the store and sends
-  `REPLACE`, and at boot `session_reviver` does the same from the stored file. Waits on milestone
-  152, whose session type does not exist yet. Re-checked 2026-09-29: `session_reviver` spawns no
-  timetable and sends no `REPLACE`, so the connection has nothing in the tree to attach to until
-  152's session lands.
+Connecting a real session. `components/src/session.rs` (milestone 152) spawns the timetable to
+`timetable::contract`, `login` writes the store and sends `REPLACE` (`components/src/login.rs`),
+and the boot-time pass lives in `login` too (`session_reviver` is retired). The kernel test
+`a_users_schedule_outlives_their_login_and_ends_when_they_empty_it` runs it on all three ISAs.
 
 ## Scope note
 
@@ -148,10 +142,11 @@ the shipped document is a demonstration written to show every answer registratio
 
 ## Follow-on
 
-- **Outstanding.** Connecting a real registrar: only `system_tests/src/user/timetable_tests.rs` writes a
-  registration page, and no file under `components/` or `crates/` defines milestone 152's durable
-  session.   The same session is what feeds `crates/schedule_store`'s file to a running timetable.
-  Checked 2026-09-29: both claims still hold.
+- **Done.** Connecting a real registrar: milestone 152's durable session
+  (`components/src/session.rs`) spawns the timetable and `components/src/login.rs` sends `REPLACE`
+  and feeds it `crates/schedule_store`'s file, 2026-09-26 and 2026-09-27. Verified 2026-10-03.
+- **Recorded.** A durable timetable holds no clock, so a calendar line in a durable schedule is
+  `Unbacked::WallClock` and never fires; recorded in `components/src/session.rs`'s BUGS.
 - **Refused.** One image per entry, by calef on 2026-09-26 ("Refuse it?", "Yes"): an image is code,
   not authority, so a helper per entry would buy nothing. The reason is
   `notes/scheduled-execution/one-image-per-entry.md`.
@@ -164,7 +159,7 @@ the shipped document is a demonstration written to show every answer registratio
 - **Done.** Persistence as a store was built by milestone 152: `crates/schedule_store`, per §122 (the on-disk, per-user schedule store) and §125 (which identities
   have pending work), and `components/src/session_reviver.rs`, per §123 (boot-time re-derivation).
 - **Done.** The lifted-session obstacle went with `smb_server` on 2026-08-30, so no private type has
-  to be moved into a crate. The session now has to be rebuilt rather than lifted, which is 152's.
+  to be moved into a crate. The session was rebuilt rather than lifted, by 152.
 - **Done.** A designation the scheduler cannot back reports `Unbacked`, carried by
   `crates/timetable/src/lib.rs` on 2026-09-26, closing milestone 326's recorded finding.
 - **Recorded.** The compiled-in document without a registrar, recorded in `components/src/timetable.rs`.
@@ -179,5 +174,4 @@ and the capability shape inverts it: an entry is a grant expression plus a sched
 registration like a command line at the prompt. Built: the interval scheduler with four registration
 answers (2026-08-18), the archive narrowed to the plan (2026-08-18), a backable `--mem` grant
 (2026-08-22), and, on 2026-09-26, designations reported as unbacked, whole-document replacement
-under §222, and calendar entries (G5) on a granted clock. One image per entry was refused. Remaining:
-connecting a real session, which waits on milestone 152.
+under §222, and calendar entries (G5) on a granted clock. One image per entry was refused. Built 2026-10-03: the real session, from milestone 152.

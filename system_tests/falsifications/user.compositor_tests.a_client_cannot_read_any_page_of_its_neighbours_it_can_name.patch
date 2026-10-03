@@ -1,0 +1,31 @@
+Falsifies `system_tests::user::compositor_tests::a_client_cannot_read_any_page_of_its_neighbours_it_can_name`.
+
+Architecture: aarch64
+
+The defect: the spawner maps the neighbour's first pixel frame **read-only** into the client, at
+the exact address the attacker is handed. Nothing writable moved, so the client still cannot
+deface its neighbour, and everything it can see of the neighbour leaks.
+
+Expected to fail: `assert!(wait_for(|| USER_FAULTS ... > faults), "a client READ its neighbour's
+first pixel page at ... and was NOT stopped")`. Measured 2026-10-03 (UTC): red at the first pixel
+page, after the control-page probe has passed.
+
+**Measured on the same patch: the original test,
+`a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen`, stays green.** Its probe is a
+write, a write to a read-only page faults at the same address a write to an unmapped one does, and
+the digests behind it only change if a write lands. That is the hole this test closes: the claim's
+confidentiality half had no probe that could see a read-only exposure.
+
+diff --git a/kernel/src/user/compositor_service.rs b/kernel/src/user/compositor_service.rs
+index 90e60959c..27945b799 100644
+--- a/kernel/src/user/compositor_service.rs
++++ b/kernel/src/user/compositor_service.rs
+@@ -253,2 +253,8 @@ impl Wiring {
+         }
++        maps[m] = Mapping {
++            va: SURFACE_VA + (frames + 1) * FRAME_SIZE,
++            phys: self.client[i] + (frames + 2) * FRAME_SIZE,
++            flags: Flags::user_rodata(),
++        };
++        m += 1;
+         // The window-list mapping stays a `Spawn::maps` entry (one page, unaffected by the

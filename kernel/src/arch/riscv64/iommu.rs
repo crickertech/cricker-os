@@ -49,7 +49,7 @@
 //! - **Untestable on the silicon this project owns, which inverts `x86_64`'s position.** The
 //!   comment below on `CAP_MSI_FLAT` notes that real silicon without MSI support reports
 //!   otherwise, and that branch has run zero times: no board shipping the ratified RISC-V IOMMU
-//!   exists (milestone 143), and radon (the `VisionFive` 2) has no IOMMU at all. So this
+//!   exists, milestone 143 (silicon IOMMU), and the JH7110 (radon, the `VisionFive` 2) has no IOMMU at all. So this
 //!   architecture is confined in the emulated case and has no second witness, where `x86_64` has
 //!   xenon waiting to provide one.
 

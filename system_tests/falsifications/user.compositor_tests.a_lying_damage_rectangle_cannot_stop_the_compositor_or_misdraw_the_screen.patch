@@ -1,0 +1,36 @@
+Falsifies `system_tests::user::compositor_tests::a_lying_damage_rectangle_cannot_stop_the_compositor_or_misdraw_the_screen`.
+
+Architecture: aarch64
+
+The defect: `Rect::right` and `Rect::bottom` go back to plain `x + w as i32`, the arithmetic they had
+until milestone 719 (compositor confinement claim 25). The first rectangle in the attacker's table, `(i32::MAX, 0, 1, 1)`, overflows
+it, and the compositor, built with overflow checks like every debug binary here, panics.
+
+Expected to fail: the attacker's `commit` is answered with an error instead of `0` when the
+compositor dies, so it reports `0xDEAD_...04` (`E_COMMIT`) and the test's `assert_eq!(tag,
+status::WIN_LIED, ...)` fires. Measured 2026-10-03 (UTC): red, `the liar reported
+0xdead000000000004`. The `assert_screen_is` below it is not reached.
+
+This is availability, not the claim's sentence: the client reached no pixel. It is in this test
+because one doorbell serves every client, so a client that could kill the compositor could blank
+every neighbour's window, and a screen that stops being composed is the same observable.
+
+diff --git a/crates/compositor/src/lib.rs b/crates/compositor/src/lib.rs
+index fbab6acff..78857c88e 100644
+--- a/crates/compositor/src/lib.rs
++++ b/crates/compositor/src/lib.rs
+@@ -212,12 +212,12 @@ impl Rect {
+     /// wraps. Saturating keeps the sum on the number line, so every caller's clip sees a rectangle
+     /// that really is as wide as the client claimed rather than one the wrap folded back.
+     pub const fn right(&self) -> i32 {
+-        self.x.saturating_add(Self::extent(self.w))
++        self.x + self.w as i32
+     }
+ 
+     /// The first row past the rectangle. See [`right`](Self::right).
+     pub const fn bottom(&self) -> i32 {
+-        self.y.saturating_add(Self::extent(self.h))
++        self.y + self.h as i32
+     }
+ 
+     /// An unsigned extent as the signed number it is added to an origin as, clamped rather than
