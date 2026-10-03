@@ -91,6 +91,8 @@ members = [
     "crates/swish",
     "crates/timetable",
     "crates/uptime",
+    "crates/system_log",
+    "crates/system_log_protocol",
     "crates/top",
     "crates/machine_statistics_protocol",
     "crates/free",

@@ -215,6 +215,53 @@ pub fn pack(bytes: &[u8]) -> (u64, u64, u64, usize) {
     )
 }
 
+/// **Where a bytes message's severity rides**: bits 39:32 of the first word, which the framing left
+/// unused (the count is bits 31:0 and the opcode bits 63:56).
+///
+/// §242 (a system log) amended this contract here rather than giving a log writer a
+/// framing of its own, so the one sink shape stays one shape: a terminal, a pipe and a file read
+/// the count through [`len`] and never see these bits, and only the system log looks. The field
+/// holds the syslog level **plus one** (RFC 5424's eight levels, 0 emergency to 7 debug), so that 0
+/// keeps meaning what every writer that predates this already sends: *not set*. A sink that cares
+/// infers a level from the stream instead (diagnostics warns, ordinary output informs, §242).
+///
+/// The width (eight bits for a three-bit level) and the plus-one encoding are milestone 613 (a
+/// system log service)'s, and provisional: §242 ruled the bits, not their layout.
+pub const SEVERITY_SHIFT: u32 = 32;
+
+/// **Where a bytes message's body kind rides**: bits 47:40 of the first word. §242's F3 record
+/// carries a body-kind byte so a later structured body (F2's key/value arguments) arrives as a new
+/// kind rather than a new framing; [`KIND_TEXT`] is the only kind today. Bits 55:48 stay zero.
+pub const KIND_SHIFT: u32 = 40;
+
+/// The one body kind that exists: UTF-8 text, which is what every writer already sends, and 0 for
+/// the reason [`OP_BYTES`] is 0: the wire was already saying it.
+pub const KIND_TEXT: u8 = 0;
+
+/// The syslog level a bytes message's first word carries, or `None` when the writer did not set
+/// one (see [`SEVERITY_SHIFT`]). A field value past 8 is not a level and also reads as `None`: the
+/// sink infers rather than trusting a number it cannot name.
+pub const fn severity(w0: u64) -> Option<u8> {
+    let field = ((w0 >> SEVERITY_SHIFT) & 0xff) as u8;
+    if field == 0 || field > 8 {
+        None
+    } else {
+        Some(field - 1)
+    }
+}
+
+/// `w0` with its severity set to syslog `level` (0 to 7; a larger value is clamped to 7, debug, the
+/// least alarming reading of a level nobody defined).
+pub const fn with_severity(w0: u64, level: u8) -> u64 {
+    let level = if level > 7 { 7 } else { level };
+    (w0 & !(0xff << SEVERITY_SHIFT)) | (((level as u64) + 1) << SEVERITY_SHIFT)
+}
+
+/// The body kind a bytes message's first word carries (see [`KIND_SHIFT`]).
+pub const fn kind(w0: u64) -> u8 {
+    ((w0 >> KIND_SHIFT) & 0xff) as u8
+}
+
 /// What one received message was.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Msg {
@@ -360,6 +407,27 @@ mod tests {
     fn a_bytes_messages_first_word_is_its_length() {
         let (w0, _, _, _) = pack(b"nife");
         assert_eq!(w0, 4);
+    }
+
+    /// The severity bits ride beside the count without disturbing it: every sink that reads only
+    /// [`len`] and [`op`] (a terminal, a pipe, a file) decodes a severity-carrying message exactly
+    /// as it decoded one without, and a writer that never set a level reads as "not set", never as
+    /// level 0, which is emergency.
+    #[test]
+    fn severity_rides_beside_the_count_and_unset_is_not_emergency() {
+        let (w0, w1, w2, _) = pack(b"disk full");
+        assert_eq!(severity(w0), None);
+        let marked = with_severity(w0, 3);
+        assert_eq!(severity(marked), Some(3));
+        assert_eq!(len(marked), 9);
+        assert_eq!(op(marked), OP_BYTES);
+        assert_eq!(kind(marked), KIND_TEXT);
+        let mut out = [0u8; INLINE_MAX];
+        assert_eq!(unpack(marked, w1, w2, &mut out), Msg::Bytes(9));
+        assert_eq!(&out[..9], b"disk full");
+        assert_eq!(severity(with_severity(w0, 0)), Some(0));
+        assert_eq!(severity(with_severity(w0, 200)), Some(7));
+        assert_eq!(severity(w0 | (9 << SEVERITY_SHIFT)), None);
     }
 
     /// EOF is distinguishable from every byte count, including zero, which is the property that

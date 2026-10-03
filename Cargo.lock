@@ -233,6 +233,8 @@ dependencies = [
  "swap_protocol",
  "swish",
  "system_initializer",
+ "system_log",
+ "system_log_protocol",
  "timetable",
  "tock-registers",
  "top",
@@ -1105,6 +1107,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "system_log"
+version = "0.1.0"
+dependencies = [
+ "byte_sink_protocol",
+ "system_log_protocol",
+]
+
+[[package]]
+name = "system_log_protocol"
+version = "0.1.0"
+
+[[package]]
 name = "system_tests"
 version = "0.1.0"
 dependencies = [
@@ -1145,6 +1159,7 @@ dependencies = [
  "socket_protocol",
  "spin",
  "std_runtime_protocol",
+ "system_log_protocol",
  "timetable",
  "video_terminal",
 ]
