@@ -349,16 +349,14 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// Found by `script/swish-check`'s aarch64 leg failing on this sentence, in CI and again locally.
 /// Headroom is eight.
 ///
-/// **Twenty-six on a boot with a gpu and a keyboard** (2026-10-03, UTC, milestone 632 (graphics
-/// on demand)). The boot no longer builds the display stack and deletes the device grants mid-boot;
-/// it carries them until it hands them to the shell, and the peak rose by three. Which three
-/// is not yet traced.
-/// Measured by CI's aarch64 `swish-check --graphical` leg (run 37095306042), whose kernel said
-/// `26 of 32 at peak, ABOVE the 23 recorded`. A boot without a gpu still peaks at twenty-three.
-/// **Twenty-eight at a launch** (same day, local aarch64 `--graphical` leg): building a session
-/// in the spawn service reached `28 of 32 at peak`, after the boot's own twenty-six. The record is
-/// the highest a real system reaches, so it is twenty-eight. The costs: a plain boot now has five
-/// slots of slack before this fires, and the headroom is four.
+/// **Twenty-eight with a gpu and a keyboard** (2026-10-03, UTC, milestone 632 (graphics on
+/// demand)). The boot no longer builds the display stack and deletes the device grants mid-boot; it
+/// carries them until it hands them to the shell. Measured on both `swish-check --graphical` arms,
+/// aarch64 and riscv64, on a tree with the twenty-four above: the keyboard arm's boot peaks at 26
+/// and a `graphical_terminal` launch, built in the spawn service, at 28; the serial arm (gpu, no
+/// keyboard) stays at 24. Which grants sit on the peak is not traced. The record is the highest a
+/// real system reaches, so it is twenty-eight. The costs: a boot with no gpu has four slots of
+/// slack before this fires, and the headroom is four.
 pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 28;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.

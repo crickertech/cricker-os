@@ -85,9 +85,10 @@ and type `graphical_terminal` too, requiring the refusal sentence.
 - The boot now carries the seven device grants from kernel spawn until the shell's build. The
   previous shape deleted them mid-boot. With a gpu, a keyboard, a virtio-rng and a NIC attached,
   that resting baseline is counted from the code, not measured. No gate boots all four devices.
-- A boot with a gpu and a keyboard peaks at 26 capability slots, not 23, and a launch at 28
-  (2026-10-03), so `CAPABILITY_TABLE_PEAK_MEASURED` is raised to 28. A plain boot now has five
-  slots of slack before that record fires. Which grants are held across the peak is not traced.
+- A boot with a gpu and a keyboard peaks at 26 capability slots and a launch at 28 (2026-10-03,
+  aarch64 and riscv64), so `CAPABILITY_TABLE_PEAK_MEASURED` is raised to 28. A boot with no gpu
+  peaks at 24, so it has four slots of slack before that record fires. Which grants sit on the
+  peak is not traced.
 - x86_64 has no `graphical_terminal` session. No virtio-gpu is wired there, the verdict answers empty, and
   `graphical_terminal` is refused with the sentence, which the plain swish-check legs assert on all three ISAs.
   The plan for the launch itself is milestone 270 (wire `virtio-gpu-pci` and `virtio-input` into the

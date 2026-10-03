@@ -1435,20 +1435,6 @@ const KERNEL_FAULT_TOKENS: [&str; 6] = [
 /// last one it sees and fails if the kernel flagged it as past the recorded peak.
 const SLOT_GAUGE: &str = "capability slots:";
 
-/// **Whether a transcript ends at a prompt, a slot gauge after it allowed.** The kernel's
-/// [`SLOT_GAUGE`] line can land right after the first `$ ` (the graphical leg's serial arm on
-/// aarch64, 2026-10-03), and [`GaugeFilter`] removes only the stack gauge. The graphical leg types
-/// one line at that prompt and reads its result off the screen, so a whole gauge line after the
-/// `$ ` changes nothing it checks; anything else after it is not a prompt.
-fn at_prompt_past_slot_gauge(t: &str) -> bool {
-    let Some(at) = t.rfind("$ ") else {
-        return false;
-    };
-    let rest = &t[at + 2..];
-    rest.is_empty()
-        || (rest.ends_with('\n') && rest.lines().all(|l| l.trim_start().starts_with(SLOT_GAUGE)))
-}
-
 /// **Takes the kernel's progenitor stack gauge out of the transcript as it arrives**, and keeps it.
 ///
 /// The gauge (`kernel::progenitor_stack`) speaks from the idle loop once the stack's mark has been
@@ -2955,7 +2941,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
     let deadline = Instant::now() + Duration::from_secs(SWISH_CHECK_BOOT_SECS);
     let mut uart_prompt = false;
     while Instant::now() < deadline && !uart_prompt {
-        if at_prompt_past_slot_gauge(&seen.lock().expect("transcript lock")) {
+        if seen.lock().expect("transcript lock").ends_with("$ ") {
             uart_prompt = true;
         } else {
             std::thread::sleep(Duration::from_millis(200));
@@ -3138,16 +3124,6 @@ fn swish_check_answer<'a>(
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn a_slot_gauge_after_the_prompt_is_still_the_prompt() {
-        assert!(at_prompt_past_slot_gauge("banner\n$ "));
-        assert!(at_prompt_past_slot_gauge(
-            "$   capability slots: 22 of 32 at peak\n"
-        ));
-        assert!(!at_prompt_past_slot_gauge("$   capability slots: 22 of 32"));
-        assert!(!at_prompt_past_slot_gauge("$ wc\n1 2 3\n"));
-        assert!(!at_prompt_past_slot_gauge("booting\n"));
-    }
 
     use super::*;
 
