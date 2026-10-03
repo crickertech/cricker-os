@@ -59,7 +59,9 @@ reached it and every day from 09-22 to 09-26 did.
   nothing since a queue event inside the window would be missed if that premise ever fails.
 - A pull request with more than `TIMELINE_CAP` queue events has its newest `TIMELINE_CAP` read, which
   covers any recent window; the helper says so on stderr in the rare case the window reaches the oldest
-  event read. Three pull requests from September have more than 100 (the most is 119).
+  event read. Truncation is decided by `hasPreviousPage`, not `totalCount`, which overcounts the
+  filtered types (2026-10-03: #1377, #1062, #970 and #546 read 101 to 119 and returned 2, 86, 8 and
+  74 nodes, none truncated).
 - `report` re-announces every time `trunk-health` runs, for the reason trunk-health.yml's BUGS gives
   for a red trunk: a scheduled run has no memory. A bad day is a warning on every run until the day
   rolls over.
@@ -91,7 +93,7 @@ query($cursor: String) {
       nodes {
         number createdAt mergedAt updatedAt
         timelineItems(last: %d, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
-          totalCount
+          pageInfo { hasPreviousPage }
           nodes {
             __typename
             ... on AddedToMergeQueueEvent { createdAt }
@@ -206,11 +208,13 @@ def fetch(since):
             # `last:` reads the newest events, which are the ones inside a recent window. It
             # undercounts only when the oldest event it got is itself inside the window, so there
             # may be more in the window than were read.
-            if (pr["timelineItems"]["totalCount"] > TIMELINE_CAP and nodes
+            # Truncation is read from `hasPreviousPage`, never from `totalCount`: `totalCount`
+            # overcounts the filtered item types (#1062 read 101 to 119 and returned 86 nodes).
+            if (pr["timelineItems"]["pageInfo"]["hasPreviousPage"] and nodes
                     and day_of(nodes[0]["createdAt"]) >= since):
-                print("merge_queue_share: #%d has %d queue events and the oldest one read is inside "
-                      "the window; its days are undercounted"
-                      % (pr["number"], pr["timelineItems"]["totalCount"]), file=sys.stderr)
+                print("merge_queue_share: #%d has more than %d queue events and the oldest one read "
+                      "is inside the window; its days are undercounted" % (pr["number"], TIMELINE_CAP),
+                      file=sys.stderr)
             prs.append(pr)
         if stop or not data["pageInfo"]["hasNextPage"]:
             return prs
@@ -270,7 +274,7 @@ def selftest():
             nodes.append({"__typename": "AddedToMergeQueueEvent", "createdAt": ts} if kind == "add" else
                          {"__typename": "RemovedFromMergeQueueEvent", "createdAt": ts, "reason": kind})
         return {"number": 1, "createdAt": created, "mergedAt": merged, "updatedAt": merged or created,
-                "timelineItems": {"totalCount": len(nodes), "nodes": nodes}}
+                "timelineItems": {"pageInfo": {"hasPreviousPage": False}, "nodes": nodes}}
 
     # One pull request ejected twice then merged: three entries, two ejections, one merge.
     a = pr("2026-09-22T00:00:00Z", "2026-09-22T05:00:00Z",
