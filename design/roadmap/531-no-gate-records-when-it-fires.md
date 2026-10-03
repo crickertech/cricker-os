@@ -57,7 +57,7 @@ is worth more than an addition without one.
   `falsifications --check` 0.61 s. The ten clippy passes are the other 80 seconds.
 - **The GitHub Actions failure record, mined.** This was added after a first draft of this proposal
   claimed the record did not exist; see the correction below. `gh api
-  'repos/crickertech/nife/actions/runs?status=failure' --paginate`, then `/jobs` for each run, then
+  'repos/nifeos/nife/actions/runs?status=failure' --paginate`, then `/jobs` for each run, then
   `/logs` for each failed `clippy` and `bench` job.
 - **The live state of the machine**, because two candidates are about state no file describes.
 

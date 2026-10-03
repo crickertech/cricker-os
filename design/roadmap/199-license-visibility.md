@@ -16,7 +16,7 @@ provisional until the merge queue lands it.)*
 The terms are already ratified by DECISIONS §87; what is missing is that one tool
 cannot see them, and finding the fix needs only a look at what GitHub renders.
 
-**In brief.** `gh repo view crickertech/nife --json licenseInfo` returns **none**. The tree carries
+**In brief.** `gh repo view nifeos/nife --json licenseInfo` returns **none**. The tree carries
 `LICENSE-MIT`, `LICENSE-APACHE` and `license = "MIT OR Apache-2.0"` in the workspace manifest, and
 DECISIONS §87 (MIT OR Apache-2.0, and why the GPL's lesson does not transfer) ratifies the choice.
 GitHub's licence detector does not recognise the dual-file Rust convention, so **a stranger opening

@@ -109,9 +109,9 @@ sentence is *"Organizations that use GitHub Enterprise Cloud can interact with t
 the GraphQL API and REST API."* Measured on this organization:
 
 ```console
-$ gh api /orgs/crickertech -q .plan
+$ gh api /orgs/nifeos -q .plan
 {"filled_seats":1,"name":"free","private_repos":10000,"seats":0,"space":976562499}
-$ gh api /orgs/crickertech/audit-log -X GET
+$ gh api /orgs/nifeos/audit-log -X GET
 {"message":"Not Found", ..., "status":"404"}
 ```
 

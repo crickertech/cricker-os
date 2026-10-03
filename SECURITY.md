@@ -22,7 +22,7 @@ did not hold.
 ## Reporting
 
 **Use GitHub's private vulnerability reporting**: the [Security
-tab](https://github.com/crickertech/nife/security) of this repository, "Report a vulnerability".
+tab](https://github.com/nifeos/nife/security) of this repository, "Report a vulnerability".
 That opens a private advisory only you and the maintainer can see, with a place to attach a fix.
 
 If that is unavailable, email **chris@crickertech.com** with `nife security` in the subject.

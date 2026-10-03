@@ -223,7 +223,7 @@ Measured 2026-09-24 in a throwaway workflow, under a token minted from the `nife
 against a throwaway pull request that was closed and deleted the same minute:
 
 ```console
-$ gh pr merge 1176 --repo crickertech/nife --auto --merge
+$ gh pr merge 1176 --repo nifeos/nife --auto --merge
 ! The merge strategy for main is set by the merge queue      # exit 0, armed
 $ gh api graphql -f query='mutation{enablePullRequestAutoMerge(input:{pullRequestId:"...",mergeMethod:MERGE}){clientMutationId}}'
 {"data":{"enablePullRequestAutoMerge":{"clientMutationId":null}}}
@@ -475,7 +475,7 @@ with every earlier entry of its batch already beneath it, so an exact-SHA lookup
 tested" without inferring anything about neighbours.
 
 ```console
-$ gh api "repos/crickertech/nife/actions/workflows/ci.yml/runs?event=merge_group&head_sha=47c3a3c9d01e96c8d007a4b41ff9d2adc8858f10&status=success&per_page=1" \
+$ gh api "repos/nifeos/nife/actions/workflows/ci.yml/runs?event=merge_group&head_sha=47c3a3c9d01e96c8d007a4b41ff9d2adc8858f10&status=success&per_page=1" \
     --jq '.workflow_runs[0].id'
 36025842548
 ```
@@ -808,7 +808,7 @@ that needs distinct GitHub identities rather than a better log; the proposal is
 
   ```sh
   sha=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
-  gh api "repos/crickertech/nife/actions/runs?head_sha=$sha&event=pull_request&per_page=100" --jq '
+  gh api "repos/nifeos/nife/actions/runs?head_sha=$sha&event=pull_request&per_page=100" --jq '
     .workflow_runs | group_by(.name)[] | sort_by(.id) as $r | ($r | last) as $n
     | select($n.conclusion == "cancelled")
     | select([$r[] | select(.id != $n.id and .created_at == $n.created_at

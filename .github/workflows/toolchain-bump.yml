@@ -225,7 +225,7 @@ jobs:
       # identities are tried, in this order, and the order is the whole of
       # milestone 128 (the automation gets its own identity):
       #
-      #   1. **An installation token from the `crickertech`-owned GitHub App**, minted fresh by the
+      #   1. **An installation token from the `nifeos`-owned GitHub App**, minted fresh by the
       #      step below on every run. Nothing about it is stored, so nothing about it expires, and
       #      it belongs to the organization rather than to a person. This is the intended identity.
       #   2. **`TOOLCHAIN_BUMP_PAT`**, a fine-grained personal access token on calef's account with
@@ -292,7 +292,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.TOOLCHAIN_BUMP_PAT || github.token }}
         run: |
           if [ -n "$APP_TOKEN" ]; then
-            echo "identity: the crickertech automation App (installation token, minted this run)"
+            echo "identity: the nifeos automation App (installation token, minted this run)"
           elif [ -n "$PAT" ]; then
             echo "identity: TOOLCHAIN_BUMP_PAT (a personal access token on one person's account)"
             echo "  This is the pre-milestone-128 path. It works, and it expires on a timer nobody"

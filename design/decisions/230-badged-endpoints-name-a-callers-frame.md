@@ -16,7 +16,7 @@ Raised 2026-09-26 by lane `milestone/fs-client-page` (pull request #1358), for i
 frame per filesystem client channel. That milestone is provisionally numbered 599 and its block is
 not yet on `main`. The fork, its premise check, the analogous cases in the tree and the cost figures
 are in `notes/a-frame-per-filesystem-client-channel.md`, which lands with that lane's [pull
-request](https://github.com/crickertech/nife/pull/1358). It is not linked relatively because it is
+request](https://github.com/nifeos/nife/pull/1358). It is not linked relatively because it is
 not on `main` yet; whoever lands the second of the two can make it a relative link. This section
 records the ruling and does not restate the note.
 

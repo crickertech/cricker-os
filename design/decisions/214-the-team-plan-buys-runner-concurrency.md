@@ -23,7 +23,7 @@ runner jobs, so the runner pool is the shared ceiling.
 
 All of these were re-read from GitHub at 18:50 UTC on 2026-09-24.
 
-- `gh api orgs/crickertech -q .plan` reads `team`, with 1 seat and 1 filled.
+- `gh api orgs/nifeos -q .plan` reads `team`, with 1 seat and 1 filled.
 - The last pull request to merge before that time was #1202, at 16:51:21 UTC. Nothing merged for
   the following two hours.
 - At 18:50 UTC, 14 workflow runs were queued and 7 in progress. A higher peak earlier in the day
@@ -46,11 +46,11 @@ GitHub's [limits reference](https://docs.github.com/en/actions/reference/limits)
 hosted runners 20 concurrent jobs on Free and 60 on Team. That tripling is the whole purchase.
 
 Minutes were already free. The September usage summary
-(`gh api /organizations/crickertech/settings/billing/usage/summary`) shows 147,712 Linux arm64
+(`gh api /organizations/nifeos/settings/billing/usage/summary`) shows 147,712 Linux arm64
 minutes, a gross $738.56, all discounted to $0 because the repository is public. The other SKUs
 (Linux x64, Windows, storage) are also discounted to $0.
 
-Every metered product is capped at zero. `gh api /organizations/crickertech/settings/billing/budgets`
+Every metered product is capped at zero. `gh api /organizations/nifeos/settings/billing/budgets`
 shows $0 budgets for Actions, Packages, Codespaces and Git LFS, each set to stop usage at the cap.
 So the seat is the only cash this adds.
 
