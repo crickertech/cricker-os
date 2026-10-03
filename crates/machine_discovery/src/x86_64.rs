@@ -1038,4 +1038,17 @@ mod tests {
         let b = module_bytes::<MODULE_ENTRY_LEN>(&[(0x1000, u64::MAX, 0)]);
         assert_eq!(module(&b, 0).unwrap().end(), u64::MAX);
     }
+
+    /// RDSEED is reported only when the bit is set. A leaf that is there and says no is not a yes,
+    /// and a union of a set with itself does not clear it.
+    #[test]
+    fn rdseed_needs_its_own_bit_and_a_union_is_an_or() {
+        let mut w = CpuidWords::default();
+        w.leaf0[0] = 7;
+        assert!(!Isa::decode(&w).features.contains(RDSEED));
+        w.leaf7_0[1] = 1 << 18;
+        assert!(Isa::decode(&w).features.contains(RDSEED));
+        assert_eq!(NX.union(NX), NX);
+        assert!(NX.union(SYSCALL).contains(NX) && NX.union(SYSCALL).contains(SYSCALL));
+    }
 }

@@ -445,4 +445,109 @@ mod tests {
         let xs = [0.0, 1.0, 2.0, 3.0];
         assert!((slope(&xs, &[5.0, 7.0, 9.0, 11.0]) - 2.0).abs() < 1e-9);
     }
+
+    // ---- survivor triage of the 2026-10-03 census ---------------------------------------------
+
+    #[test]
+    fn a_split_totals_its_four_parts() {
+        let s = Split {
+            list: 1,
+            open: 2,
+            read: 4,
+            close: 8,
+        };
+        assert_eq!(s.total(), 15);
+    }
+
+    /// The first line is the one a gate asserts on, so its words and order are fixed.
+    #[test]
+    fn the_totals_line_is_the_four_counts_in_order() {
+        let t = Totals {
+            entries: 1,
+            files: 2,
+            bytes: 3,
+            components: 4,
+        };
+        assert_eq!(
+            totals_line(&t),
+            "walk visited 1 entries, 2 files, 3 bytes, 4 components"
+        );
+    }
+
+    fn price_with(list_narrow: u64, list_wide: u64, read_small: u64, read_large: u64) -> Price {
+        Price {
+            totals: Totals::default(),
+            by_depth: Vec::new(),
+            per_component: 0.0,
+            list_narrow,
+            list_wide,
+            read_small,
+            read_large,
+            whole: 0,
+            whole_min: 0,
+            whole_max: 0,
+            split: Split::default(),
+        }
+    }
+
+    /// The per-entry and per-KiB figures are differences of two timings over the difference in what
+    /// they measured: 127 more entries, and 252 more KiB (the largest sized file less the smallest).
+    #[test]
+    fn a_price_per_entry_and_per_kib_divide_the_difference_by_what_differs() {
+        let kib = (tree::SIZE_FILES[2].1 - tree::SIZE_FILES[0].1) / 1024;
+        let p = price_with(
+            100,
+            100 + 7 * (tree::WIDE_COUNT as u64 - 1),
+            50,
+            50 + 3 * kib as u64,
+        );
+        assert!((p.per_entry() - 7.0).abs() < 1e-9, "{}", p.per_entry());
+        assert!((p.per_kib() - 3.0).abs() < 1e-9, "{}", p.per_kib());
+    }
+
+    /// `median_ns` runs its closure once untimed and then `REPS` times, and answers what the middle
+    /// run took.
+    #[test]
+    fn the_median_is_of_timed_runs_after_one_that_is_not() {
+        let mut calls = 0;
+        let ns = median_ns(|| {
+            calls += 1;
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(calls, REPS + 1);
+        assert!(ns >= 2_000_000, "{ns} ns for a 2 ms sleep");
+        assert!(median_ns(|| Err(io::Error::other("x"))).is_err());
+    }
+
+    /// Every level of the chain is read. A tree missing its deepest file is a pricing error and not
+    /// a shallower chain read over again.
+    #[test]
+    fn pricing_reads_every_level_of_the_chain() {
+        let root = scratch("deepest");
+        stage(&root).expect("stage the tree");
+        let mut deepest = root.join(tree::CHAIN);
+        for _ in 0..tree::DEPTH {
+            deepest = deepest.join(tree::LEVEL);
+        }
+        fs::remove_file(deepest.join(tree::LEVEL_FILE)).expect("the deepest file exists");
+        assert!(price(&root).is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A split walk accumulates time into every part it times: more than one file and more than
+    /// one directory, so an accumulator that restarted from zero would show as nothing.
+    #[test]
+    fn a_split_walk_accumulates_open_and_close_time_over_all_its_files() {
+        let root = scratch("split");
+        stage(&root).expect("stage the tree");
+        let mut s = Split::default();
+        walk_split(&root, 0, &mut Totals::default(), &mut s).expect("walk");
+        assert!(
+            s.list > 0 && s.open > 0 && s.read > 0 && s.close > 0,
+            "{s:?}"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
 }
