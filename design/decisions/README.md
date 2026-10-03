@@ -316,7 +316,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 204 | DECIDED | [How userspace asks where a thread runs](204-how-userspace-asks-where-a-thread-runs.md) |
 | 205 | DECIDED | [The subscription stays, and rented models fill the mechanical tail](205-the-subscription-stays-and-renting-fills-the-tail.md) |
 | 206 | PROPOSED | [Filing a lane's findings is a step, not a duty somebody remembers](206-filing-a-lanes-findings-is-a-step-not-a-duty.md) |
-| 207 | DECIDED | [The roadmap is a graph, and the block says so in fields a script can walk](207-the-roadmap-is-a-graph-and-says-so.md) |
+| 207 | AMENDED | [The roadmap is a graph, and the block says so in fields a script can walk](207-the-roadmap-is-a-graph-and-says-so.md) |
 | 208 | DECIDED | [Installing a package is granting it, and the activation set is versioned](208-installing-is-granting.md) |
 | 209 | DECIDED | [State handoff is an opaque blob over a granted frame, and it is optional](209-state-handoff-is-an-opaque-blob-and-it-is-optional.md) |
 | 210 | DECIDED | [A correction of error, and its action items are decisions, proposals or milestones](210-a-correction-names-its-action.md) |
