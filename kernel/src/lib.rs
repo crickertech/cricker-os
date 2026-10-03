@@ -448,15 +448,16 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // every core the MADT lists, boot core included, at the slot its own local APIC id names.
         smp::seat_cpus_from_acpi(&acpi.cpus[..acpi.cpu_count]);
 
-        // COM1's interrupt line, from ACPI's ISA IRQ table (milestone 176). `isa_irqs[4]` is the
-        // legacy UART line, resolved through any MADT override the same way the PIT's IRQ 0 is
-        // below; a machine with no override leaves it at the ISA default (gsi 4), which is what
-        // `user::UART_RX_INTID` already assumes. `Acpi::isa_irqs` is never absent (it is not an
-        // `Option`, unlike the fields around it), so this is unconditional, filling the same
-        // static `memory::uart_irq()` the other two architectures fill from their device tree.
-        // The x86 console is polled, so nothing reads this yet; recording it means a future
-        // interrupt-driven driver, or a test, finds a real answer instead of `None`.
-        memory::record_uart_irq(acpi.isa_irqs[4].gsi);
+        // COM1's interrupt line (milestone 176 (the x86_64 discovery seam's wide half: COM1's IRQ
+        // and a CMOS RTC)), filling the same static `memory::uart_irq()` the
+        // other two architectures fill from their device tree. **It is the legacy number, 4, and
+        // not the GSI it resolves to**, because an intid on this architecture is a legacy IRQ:
+        // `arch::irq::enable` resolves it through the MADT's overrides (`isa_irqs`, recorded above)
+        // when it arms the line. Recording the GSI here was harmless while nothing armed it, since
+        // the two agree on every machine without an override; since milestone 505 (an x86_64 input
+        // driver that never lets the core idle) the input driver waits on it, and a machine that
+        // overrides IRQ 4 would have had its GSI resolved a second time as though it were legacy.
+        memory::record_uart_irq(user::UART_RX_INTID);
 
         // VT-d's register window, recorded now (before `arch::mmu::init()` a few lines down)
         // rather than where it is actually brought up. `mmu::map_everything` reads
@@ -973,8 +974,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             // (provisional), measured 2026-10-03). It used to `arch::halt()` here, which is `hlt` in
             // a loop on a thread that is still runnable: every time round-robin reached it, the core
             // stopped until the next tick, up to 10 ms, with the shell, the console and the input
-            // driver all ready behind it. x86_64's input driver polls and yields (no COM1 interrupt
-            // reaches userspace yet), so the rotation reached it constantly, and the swish-check leg
+            // driver all ready behind it. x86_64's input driver polled and yielded then (no COM1
+            // interrupt reached userspace until milestone 505), so the rotation reached it constantly, and the swish-check leg
             // paid about three seconds a line in ticks: 488 s for 118 lines under TCG on patagonia,
             // 126 s after this line, and the second boot's eight lines went from 23.8 s to 0.9 s.
             // `exit` marks it Finished and the idle thread, which halts only when nothing else can
