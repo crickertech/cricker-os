@@ -33,18 +33,16 @@ not a caption, it is a register entry.
 - A milestone is not a fixed unit and a pull request is not a unit of value. Read the shape, not
   the height.
 
-## The nine things that would kill nife
-
-![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
-
-Grey is no verdict yet.
-
 ## Action items the corrections of error still owe
 
 ![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
 
 Open while what an item names is not done; the direction is down (`script/roadmap --coe-actions`).
 Each week is read from its own commit, so 2026W39 is the first correction, already in this form.
+
+## The nine things that would kill nife
+
+![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
 
 ## Kani proof harnesses, and what can falsify them
 
