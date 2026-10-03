@@ -1,9 +1,9 @@
 //! **The screen session: a prompt on the display, launched from the swish prompt**
-//! (milestone 623 (provisional), calef's 2026-09-30 ruling: *"I don't want graphics at boot and
+//! (milestone 632 (provisional), calef's 2026-09-30 ruling: *"I don't want graphics at boot and
 //! won't for a long time. Change to launching a program from the swish prompt to get graphics;
 //! graphics is going to sit there largely unused for some time."*).
 //!
-//! The boot this program runs on is the plain UART system DECISIONS §26 records, unchanged. The
+//! The boot this program runs on is the plain UART system §26 (the fault endpoint: thread death becomes a message a supervisor holds) records, unchanged. The
 //! person at that prompt delegated the display devices by typing this program's name, and the
 //! progenitor built the stack from what the shell delegated: `gpu_driver`, `display_terminal`,
 //! and either the session's own line discipline with `keyboard_driver` behind it (a virtio
@@ -23,7 +23,7 @@
 //!            this program ──OP_WRITE──► display_terminal ──► screen
 //! ```
 //!
-//! Arm 1 is the shell's own §227 shape: raw mode on the boot discipline, register-only reads,
+//! Arm 1 is the shell's own §227 (how Tab reaches the shell: the shell edits its own line) shape: raw mode on the boot discipline, register-only reads,
 //! echo painted by the reader. The discipline's echo goes to the UART console it was built
 //! against, so on this arm the screen's echo is this program's to do, byte for byte as the bytes
 //! arrive, which is why `$ a` reaches the screen the moment the key is pressed rather than when
@@ -54,11 +54,11 @@
 //! takes raw back at its next prompt, which costs that one round trip after every session. A
 //! session the kernel killed skips even that, and the same recovery covers it.
 //!
-//! Name: provisional, milestone 623's lane, 2026-09-30, screen-shaped but not ratified.
+//! Name: provisional, milestone 632's lane, 2026-09-30, screen-shaped but not ratified.
 
 #![no_std]
-// Program entry points, not the crates/ library surface milestone 68's ratchet tracks
-// (DECISIONS §107): each `[[bin]]` is its own crate root with one `_start`, and 58 of them
+// Program entry points, not the crates/ library surface milestone 68 (code-quality gates: one lint policy)'s ratchet tracks
+// (§107 (`missing_docs` moves to the workspace lints, opt-out rather than opt-in)): each `[[bin]]` is its own crate root with one `_start`, and 58 of them
 // documenting an OS-facing ABI entry point is not what the lint is for.
 #![allow(missing_docs)]
 #![no_main]
@@ -134,7 +134,7 @@ pub extern "C" fn _start(arm: u64, _a1: u64, _a2: u64) -> ! {
 }
 
 /// **Arm 0: a keyboard came with the gpu, so a line discipline did too.** The discipline does
-/// the terminal's whole job, cooked `OP_READLINE` (milestone 28's original contract): it paints
+/// the terminal's whole job, cooked `OP_READLINE` (milestone 28 (a solid terminal: the line discipline as a component)'s original contract): it paints
 /// the prompt, echoes each keystroke, moves on enter, and hands this program the completed line,
 /// so this arm's loop is a prompt delivered, a line read, and nothing painted by the program
 /// itself. `quit` and `^C`/EOF (the discipline's flags) are the two ways out.

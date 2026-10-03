@@ -94,11 +94,11 @@ and only `line_editor` answers that opcode; `display_terminal`'s own module doc 
 is not a line discipline and expects `line_editor` in front of it. So `line_editor` has to stay in
 the graphical stack. Two problems:
 
-1. **Output.** `console.rs` speaks a bespoke two-endpoint request/reply protocol plus a shared
+1. Output. `console.rs` speaks a bespoke two-endpoint request/reply protocol plus a shared
    page; `display_terminal` speaks `line_editor::proto`'s `OP_WRITE`/`OP_BYTES` over one `CALL`
    endpoint. `line_editor` needs a code change (or a second output path) to print through
    `display_terminal` instead of `console`.
-2. **Input, the harder one.** `kbd.rs` (the only proven virtio-keyboard driver) speaks only the
+2. Input, the harder one. `kbd.rs` (the only proven virtio-keyboard driver) speaks only the
    compositor's ring-and-doorbell protocol. This is not an accident of what has been built so far;
    it is DECISIONS §33's own security property, stated in `kbd.rs`'s own module doc: the driver
    "cannot name a client at all," and holds no client's endpoint, precisely so a compromised or
@@ -108,11 +108,11 @@ the graphical stack. Two problems:
    nothing onward. So there is no route from a real keystroke to `line_editor` in the
    compositor-mediated model as it exists today, by design rather than by gap.
 
-**Whether the compositor belongs in this path at all, checked directly rather than assumed**
+Whether the compositor belongs in this path at all, checked directly rather than assumed
 (calef, 2026-08-27: *"I'm concerned we're leveraging the compositor because we started a GUI and
 then paused."*). The concern is correct and sharpens the fork below. `kbd`'s inability to name a
 client is not a general security property of keyboard drivers; it is the specific answer to a
-**multi-client** problem, "which of several competing windows should this keystroke reach," stated
+multi-client problem, "which of several competing windows should this keystroke reach," stated
 in DECISIONS §33's own reasoning. A single-terminal boot has exactly one possible destination for
 every keystroke, always: there is no second window to misdirect to, so the problem the compositor's
 focus arbitration solves does not exist in this journey's actual scope. `display_terminal`'s
@@ -120,40 +120,40 @@ focus arbitration solves does not exist in this journey's actual scope. `display
 GPU ownership, because a single terminal does not need multiplexing); the options below differ on
 whether the input side follows that same logic or not.
 
-Three shapes, priced. **Decided 2026-08-27, calef: A.**
+Three shapes, priced. Decided 2026-08-27, calef: A.
 
-- **A. Give `kbd` a second delivery mode**: `CALL` `line_editor`'s endpoint directly, fixed at
+- A. Give `kbd` a second delivery mode: `CALL` `line_editor`'s endpoint directly, fixed at
   spawn, for the boot's own single-terminal case, the same shape `display_terminal`'s own
-  `MODE_DISPLAY`/`MODE_WINDOW` split already uses. **Not a security exception to DECISIONS §33**,
+  `MODE_DISPLAY`/`MODE_WINDOW` split already uses. Not a security exception to DECISIONS §33 (the compositor's authority is memory, not messages),
   on the reasoning above: it is this codebase's own standing pattern (`AGENTS.md` rule 2, "a driver
   takes what it needs, passed in") applied consistently, and it is *narrower* authority than the
   compositor-mediated model, not looser, because `kbd` would hold exactly one fixed capability
   instead of "whichever client the compositor currently focuses." Cheapest change, and the one that
   matches what this journey's scope actually needs.
-- **B. Make `line_editor` itself a compositor-window-shaped client** (hold a control page and
+- B. Make `line_editor` itself a compositor-window-shaped client (hold a control page and
   doorbell, receive `OP_BYTES` from the compositor as the focused client, forward rendered output to
   `display_terminal` via `OP_WRITE`). Buys the compositor's real value, multi-window/multi-login
   arbitration, before this journey needs it (milestone 49's login wiring is still single-session
   today). Real new work for a problem not yet in scope: a second blocking endpoint on a process, in
   a system DECISIONS §33 already found has exactly one blocking wait point per process.
-- **C. Have `display_terminal` relay** (already the compositor's focused client, already receives
+- C. Have `display_terminal` relay (already the compositor's focused client, already receives
   `OP_BYTES`; forward to `line_editor` instead of only feeding its own renderer). Raised in the same
   conversation as an alternative to A/B before the reframing above; superseded by it, since C keeps
   the compositor load-bearing for input in exactly the case that does not need multiplexing at all,
   the pattern the reframing names as the thing to be wary of. Kept here rather than deleted so the
   reasoning that ruled it out stays visible.
 
-**Decided: A** (calef, 2026-08-27, "Go with option A, build it"). Not merely cheapest; per the
+Decided: A (calef, 2026-08-27, "Go with option A, build it"). Not merely cheapest; per the
 reframing above it is the design this journey's actual scope calls for, and B's real benefit
 (multi-window arbitration) is not yet needed by anything in this tree. B remains buildable later,
 additively, whenever a second concurrent session actually needs the keyboard; A does not foreclose
 it.
 
-**Finding 3 corrects this doc's own sequencing claim.** The original text (below, in "what this
+Finding 3 corrects this doc's own sequencing claim. The original text (below, in "what this
 unblocks") said piece 3 (x86_64's entry point) is provable against the plain `console`/`input` pair
 independent of pieces 1-2. Checked against
 [DECISIONS §121](../decisions/121-port-io-capability.md) (ratified permanently 2026-08-25) and
-found false: x86_64's UART console is **permanently kernel-resident**, a closed question rather
+found false: x86_64's UART console is permanently kernel-resident, a closed question rather
 than an unbuilt feature ("this is not an interim stance to be revisited on a schedule"). x86_64 has
 no working userspace console at all, on either side of this milestone; its only possible route to
 an interactive shell is through the graphical stack, which means piece 3 depends on finding 2's
@@ -201,12 +201,12 @@ permanently kernel-resident), so its only possible route is through the graphica
 milestone builds.
 ## The second flush, root-caused (2026-09-19)
 
-**What was recorded, and why it was wrong.** The 2026-08-27 lane saw `display_terminal` blocked in
+What was recorded, and why it was wrong. The 2026-08-27 lane saw `display_terminal` blocked in
 `CALL` to the driver with nothing receiving, and wrote down the best-supported guess: the driver
 stuck on its own completion interrupt. Milestone 400's `framebuffer_driver` then served the same
 contract to the same terminal with no interrupt at all, and that looked like confirmation.
 
-**What the boot was doing, read from a thread dump rather than inferred.** `gpu_driver` sends
+What the boot was doing, read from a thread dump rather than inferred. `gpu_driver` sends
 `graphics_protocol::status::FLUSHED` once, after replying to its first flush, and `SEND` blocks until
 received. The terminal's first flush is its blank grid, painted *before* it sends `TERM_UP`, and
 `kernel::user::boot_graphical_terminal` took `UP` and `TERM_UP` and nothing else. So the driver
@@ -218,23 +218,32 @@ the driver was back in `RECV` and the terminal's flush had been served.
 `notes/framebuffer-contract.md`'s BUGS has the dump verbatim. `framebuffer_driver` works because it
 sends no `FLUSHED`, not because it has no interrupt.
 
-**The keyboard had the same bug one step later.** `keyboard_driver` sends `KEYBOARD_UP` before its
+The keyboard had the same bug one step later. `keyboard_driver` sends `KEYBOARD_UP` before its
 first `WAIT`, and the boot dropped the report endpoint `keyboard_service::start_direct` returned.
 With the display fixed, the prompt appeared and `sendkey` still never echoed.
 
-**The fix, at each cause.** The boot receives `FLUSHED` after `TERM_UP` and asserts it.
+The fix, at each cause. The boot receives `FLUSHED` after `TERM_UP` and asserts it.
 `keyboard_service::start_direct` receives `KEYBOARD_UP` itself and no longer returns the endpoint, so
 no caller can drop it (rung one: there is nothing left to forget). The GPU side stays at rung three,
 on purpose and marked as a foot gun at `display_service::start_terminal`, at `FLUSHED`'s own
 definition and at the driver's `send`: the three test spawners read the digest `FLUSHED` carries, so
 the wiring function cannot swallow it for them. No wire change, no new barrier, no driver change.
 
-**What the leg proves, and its cost.** `script/ci-build`'s `swish-check-graphical` row runs
+What the leg proves, and its cost. `script/ci-build`'s `swish-check-graphical` row runs
 `--graphical` (a virtio keyboard, `sendkey`) and `--graphical-serial` (no keyboard, the byte typed
 down the UART) on both architectures: a `$ ` prompt decoded off a `screendump`, then `$ a` after one
 key. 47 seconds for all four boots against a warm target directory on the dev Mac, appended to CI's
 `build + test` job beside `swish-check`, whose `--features shell` kernels it reuses. It proves one
 key, not `SWISH_CHECK_SCRIPT`; that limit is recorded in the leg's own doc.
+
+## The boot half, reversed (2026-09-30)
+
+calef, 2026-09-30: *"I don't want graphics at boot and won't for a long time."* Every
+`--features shell` boot is the minimal UART system again. The shell holds the device grants until a
+person launches `screen` from the prompt, and [milestone 632 (graphics on demand)](632-graphics-on-demand-screen-launched-from-the-prompt.md) builds the stack at that launch. The input-routing
+decision (option A) survives unchanged inside the session, and so does the second-flush lesson:
+`build_screen_session` takes the drivers' one-time reports in the order they send them. The legs
+keep their names, retargeted from "the boot brings up the stack" to "the launch does".
 
 ## Follow-on
 
@@ -264,4 +273,5 @@ board's UART) wired kernel-side straight to `line_editor`, with no compositor in
 reaches the screen and a typed key echoes on aarch64 and riscv64, proven in CI by
 `script/swish-check --graphical` and `--graphical-serial`. The three-week hang that blocked it was the
 boot never receiving two drivers' one-time status reports, not the GPU's interrupt handling. x86_64's
-own entry point split off as milestone 182.
+own entry point split off as milestone 182 (x86_64's own interactive-boot entry point). *Reversed in part 2026-09-30 by milestone 632: the stack
+is built at a launch from the prompt, not at boot.*

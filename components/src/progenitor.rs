@@ -89,7 +89,7 @@ const GRANTS: BootEndowment = BootEndowment {
     entropy_ep: 16,
     // The graphical terminal stack's raw materials (milestone 600 (provisional)): a virtio-gpu's
     // transport, interrupt and DMA run, then a virtio keyboard's trio. Nothing is built from
-    // these at boot (milestone 623 (provisional), calef's 2026-09-30 ruling): the boot is the
+    // these at boot (milestone 632 (provisional), calef's 2026-09-30 ruling): the boot is the
     // minimal UART system, and `boot` places these in the shell, which holds them until a
     // `screen` session's spawn sends them back for the drivers to be built from. Empty with no
     // GPU; the keyboard's three are empty when a session's keystrokes would come from the UART,

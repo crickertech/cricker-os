@@ -2294,7 +2294,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     // **The graphical terminal stack's raw materials** (milestone 600 (provisional); milestone 177 (wire the graphical terminal stack into the real interactive boot)
     // built the stack itself here), when a virtio-gpu is attached: the gpu's confined transport,
     // interrupt and DMA run, and the surface run inside it, in slots 17, 18, 19 and 12. Nothing
-    // is built from them at boot (milestone 623 (provisional), calef's 2026-09-30 ruling: the
+    // is built from them at boot (milestone 632 (provisional), calef's 2026-09-30 ruling: the
     // boot stays the minimal UART system and graphics is launched from the swish prompt); the
     // progenitor hands all seven to the shell, which holds them until a `screen` session's spawn
     // hands them back for the drivers to be built from, exactly as it hands the machine

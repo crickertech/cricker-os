@@ -26,7 +26,7 @@
 # interactive-boot entry point) has the measurement in its block, and why the slower boot was
 # chosen.
 #
-# `--graphical` (milestone 623 (provisional), reversing milestone 177's boot half) boots the same
+# `--graphical` (milestone 632 (provisional), reversing milestone 177 (wire the graphical terminal stack into the real interactive boot)'s boot half) boots the same
 # `--features shell` kernel as every boot, the normal UART system, with a virtio-gpu and a
 # virtio-keyboard attached; the boot ignores the devices and the shell holds their grants. It then
 # types `screen` at the prompt and verifies the launched session by reading the screen back
@@ -37,14 +37,14 @@
 # leg's script (echo, redirects, `wc <`, ...), which is real, scoped-out follow-on work. See
 # `swish_check_leg_graphical`'s own doc in `xtask/src/swish_check.rs`.
 #
-# `--graphical-serial` (milestone 192, option A) is the same launch with the keyboard left off, so
+# `--graphical-serial` (milestone 192 (a keyboard on real silicon), option A) is the same launch with the keyboard left off, so
 # the session's keystrokes are the guest's own UART, read raw from the boot's line discipline
-# (`OP_RAWMODE`/`OP_READRAW`, the shell's own §227 shape) and echoed by the session itself. That is
+# (`OP_RAWMODE`/`OP_READRAW`, the shell's own §227 (how Tab reaches the shell: the shell edits its own line) shape) and echoed by the session itself. That is
 # the configuration all three target boards have: argon, radon and xenon each have a serial line
 # and none has a virtio-input device, so this is the closest QEMU can stand to what a real board
 # will do. Both legs make the same two assertions and neither can tell which source the key came
 # from, which is the property milestone 192's option A is finished by. It is NOT a substitute for a
-# bench run: QEMU has neither board's framebuffer handoff (milestone 157) nor its real UART timing.
+# bench run: QEMU has neither board's framebuffer handoff (milestone 157 (U-Boot's simple-framebuffer handoff)) nor its real UART timing.
 #
 # This is the gate for `components/src/progenitor.rs`. Every other test that runs the shell has
 # the KERNEL play the first process, so a broken progenitor fails nothing; the interactive boot is the only thing that

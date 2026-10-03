@@ -25,7 +25,7 @@
 //!    job's pair (untyped, frame), then the **sink** (milestone 50), then the **source**, then the
 //!    **diagnostic endpoint** (DECISIONS §67), then the **screen-narrowed tail's completion
 //!    endpoint** (DECISIONS §106), then the `--mem` untyped, then the **gpu's four** and the
-//!    **keyboard's three** (milestone 623 (provisional), graphics launched from the prompt), then
+//!    **keyboard's three** (milestone 632 (provisional), graphics launched from the prompt), then
 //!    the **machine statistics page**, last. Order rather than tags, because both sides read the
 //!    same [`Wiring`] out of the same word and a promise nobody receives would deadlock both.
 //!
@@ -285,7 +285,7 @@ const ARGS_BIT: u64 = 1 << 42;
 /// Name: ratified 2026-09-27 (calef, #1360's table).
 const MACHINE_BIT: u64 = 1 << 44;
 
-/// **The gpu's four capabilities follow** (milestone 623 (provisional), calef's 2026-09-30 ruling
+/// **The gpu's four capabilities follow** (milestone 632 (provisional), calef's 2026-09-30 ruling
 /// that graphics is launched from the prompt rather than built at boot): the confined transport,
 /// the completion interrupt, the whole DMA run and the surface run, in that order, each narrowed
 /// to what the boot endowment carries. They come from the session's own slots
@@ -299,7 +299,7 @@ const MACHINE_BIT: u64 = 1 << 44;
 /// Name: provisional, like the milestone's.
 const GRAPHICS_BIT: u64 = 1 << 45;
 
-/// **A virtio keyboard's three capabilities follow** (milestone 623 (provisional)): the transport,
+/// **A virtio keyboard's three capabilities follow** (milestone 632 (provisional)): the transport,
 /// the event interrupt and the DMA page, in that order. **Meaningless unless [`GRAPHICS_BIT`] is
 /// also set**, the same pair-shape [`DIR2_BIT`] already records: a keyboard with no screen has no
 /// terminal to type into on this boot. When it is absent the screen session takes its keystrokes
@@ -319,7 +319,7 @@ const KEYBOARD_BIT: u64 = 1 << 46;
 /// Name: ratified 2026-09-27 (calef, #1360's table).
 pub const MACHINE_PAGE_SLOT: u64 = 20;
 
-/// **Where a session holds the gpu's confined transport** (milestone 623 (provisional)), with its
+/// **Where a session holds the gpu's confined transport** (milestone 632 (provisional)), with its
 /// three siblings beside it: the completion interrupt at 23, the DMA run at 24, the surface run at
 /// 25, and, when a virtio keyboard exists, its transport at 26, event interrupt at 27 and DMA page
 /// at 28. `WRITE | GRANT` on the transport, `READ | GRANT` on each interrupt, `READ | WRITE |
@@ -626,9 +626,9 @@ pub struct Wiring {
     /// See [`MACHINE_BIT`].
     pub machine: bool,
     /// **The gpu's four capabilities follow, and the screen session is to be built from them**
-    /// (milestone 623 (provisional)). See [`GRAPHICS_BIT`].
+    /// (milestone 632 (provisional)). See [`GRAPHICS_BIT`].
     pub graphics: bool,
-    /// **A virtio keyboard's three follow beside the gpu's four** (milestone 623 (provisional)).
+    /// **A virtio keyboard's three follow beside the gpu's four** (milestone 632 (provisional)).
     /// See [`KEYBOARD_BIT`]; meaningless unless `graphics` is also set.
     pub keyboard: bool,
 }
@@ -860,7 +860,7 @@ mod tests {
     /// capability shell) phase 3's fifth, DECISIONS §106 (the `terminal_sink_caretaker` narrowing)'s
     /// sixth, milestone 154 (a process that holds two directory capabilities)'s seventh, §219's
     /// image and its gate D2, §170's argv and name set, milestone 126's machine page, and
-    /// milestone 623 (provisional)'s gpu and keyboard). They
+    /// milestone 632 (provisional)'s gpu and keyboard). They
     /// share one word, and what the progenitor reads
     /// next off the endpoint depends on all of them, so a bit that bled into another would make the
     /// progenitor take a capability for a data word (or the reverse) and hang rather than fail.

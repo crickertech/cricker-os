@@ -280,7 +280,7 @@ fn delegate_machine_page(wired: bool) {
     }
 }
 
-/// **Whether this session holds the display devices** (milestone 623 (provisional), graphics
+/// **Whether this session holds the display devices** (milestone 632 (provisional), graphics
 /// launched from the prompt): the gpu's four at [`spawnproto::SHELL_GPU_SLOT`] and its siblings,
 /// placed there by the progenitor at boot and ours to delegate until a `screen` session takes
 /// them. Probed once at [`_start`], for [`HOLDS_MACHINE_PAGE`]'s reasons. A boot with no gpu, a
@@ -290,7 +290,7 @@ static HOLDS_DISPLAY: core::sync::atomic::AtomicBool = core::sync::atomic::Atomi
 
 /// **Whether a virtio keyboard's three came with the gpu's four**: the transport at
 /// [`spawnproto::SHELL_GPU_SLOT`] + 4. A session launched without them takes its keystrokes from
-/// this prompt's own line discipline over the UART (milestone 192's option A, at launch), which
+/// this prompt's own line discipline over the UART (milestone 192 (a keyboard on real silicon)'s option A, at launch), which
 /// is every real board's configuration.
 static HOLDS_KEYBOARD: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
@@ -303,7 +303,7 @@ fn display_wiring(e: &Endowment) -> bool {
     e.prog == grant_plan::Prog::Screen && HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
 }
 
-/// **Delegate the display capabilities, in the wire's fixed order** (milestone 623 (provisional)):
+/// **Delegate the display capabilities, in the wire's fixed order** (milestone 632 (provisional)):
 /// the gpu's four, then the keyboard's three when this session holds them, each narrowed to the
 /// rights the boot endowment carried for it. We keep our own copies, the machine page's own
 /// posture, so the session can be run again once it ends.
@@ -3146,7 +3146,7 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
         None
     };
 
-    // **A `screen` this session cannot launch stops here, loudly** (milestone 623 (provisional)),
+    // **A `screen` this session cannot launch stops here, loudly** (milestone 632 (provisional)),
     // for the file-grant block's own reason: authority the user asked for must never quietly
     // evaporate, and a session spawned with no display behind it would be exactly that. The
     // witness wirings and every `login` session hold none, and so does a boot with no gpu.
@@ -3194,7 +3194,7 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
             args: argv.is_some(),
             nameset: set_grant.is_some_and(|w| w.set.is_some()),
             machine: machine_wiring(&e),
-            // **The display devices, for a `screen` session** (milestone 623 (provisional)): set
+            // **The display devices, for a `screen` session** (milestone 632 (provisional)): set
             // only on a plain line, which is the only line `screen`'s manifest can reach this
             // path on (`Words` output refuses `>` and a pipe's left, `InputSpec::Forbidden` its
             // right), so a stage never promises devices.
@@ -4649,7 +4649,7 @@ fn spawn_stage(
         args: argv.is_some(),
         nameset: words.is_some_and(|w| w.set.is_some()),
         machine: machine_wiring(&e),
-        // **A stage never promises devices** (milestone 623 (provisional)): `screen`'s manifest
+        // **A stage never promises devices** (milestone 632 (provisional)): `screen`'s manifest
         // refuses every operator that builds a stage (`Words` output refuses `>` and a pipe's
         // left, `InputSpec::Forbidden` its right), so this is false by construction rather than
         // by decision, and says so for the reader checking the wire.

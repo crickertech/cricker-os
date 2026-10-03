@@ -255,7 +255,7 @@ programs! {
         /// number it reports is the authority the command line handed it.
         MemoryGrantDepleter { id: 1, name: "memory_grant_depleter" },
         /// A long-running job that *heeds* the cooperative interrupt: it works forever, polling its
-        /// interrupt flag between work units, and on `^C` cleans up and exits (DECISIONS §24). The
+        /// interrupt flag between work units, and on `^C` cleans up and exits (DECISIONS §24 (interrupting the foreground process, two-tier and shell-held)). The
         /// cooperative tier made visible: the first `^C` stops it gracefully.
         InterruptHeeder { id: 2, name: "interrupt_heeder" },
         /// A runaway that ignores the interrupt entirely: a tight loop that never checks its flag. Only
@@ -518,7 +518,7 @@ programs! {
         /// two: the upstream name promises a kernel-wide cache view, and this is one budget's
         /// breakdown.
         Slabtop { id: 19, name: "slabtop" },
-        /// **Take the screen and the keyboard, and run a prompt on them** (milestone 623
+        /// **Take the screen and the keyboard, and run a prompt on them** (milestone 632
         /// (provisional), `components/src/screen.rs`; calef's 2026-09-30 ruling that graphics is
         /// launched from the swish prompt rather than built at boot).
         ///
@@ -536,7 +536,7 @@ programs! {
         /// `InputSpec::Forbidden` refuses the right of one, and a screen session reached any way
         /// but a plain line is a line this manifest turns away at the prompt.
         ///
-        /// Name: provisional, milestone 623's lane, 2026-09-30. Chosen for what a person types to
+        /// Name: provisional, milestone 632's lane, 2026-09-30. Chosen for what a person types to
         /// get graphics; an architect may prefer another.
         Screen { id: 20, name: "screen" },
     }
@@ -1082,7 +1082,7 @@ impl Prog {
                 reports: true,
                 // Not the §24 supervised shape in this first cut: the session ends on its own
                 // (`^C` reaches it through its terminal, in either arm) rather than through a job
-                // frame the shell watches. Milestone 623's block records the cost.
+                // frame the shell watches. Milestone 632's block records the cost.
                 interruptible: false,
                 clock: false,
                 domain: false,

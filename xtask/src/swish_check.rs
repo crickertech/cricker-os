@@ -66,7 +66,7 @@ pub(crate) fn swish_check() -> bool {
             return false;
         }
     };
-    // `--graphical` (milestone 623 (provisional), reversing milestone 177's boot half): the same
+    // `--graphical` (milestone 632 (provisional), reversing milestone 177 (wire the graphical terminal stack into the real interactive boot)'s boot half): the same
     // two legs, booted as the normal UART system with a GPU and keyboard attached, then `screen`
     // is typed at the prompt and the launched session is verified by screendump rather than by
     // transcript. See [`swish_check_leg_graphical`]'s own doc for why this needs a whole different
@@ -92,7 +92,7 @@ pub(crate) fn swish_check() -> bool {
     // socket and never touches the environment.
     unsafe { std::env::remove_var("NIFE_ACCEL") };
     if graphical || graphical_serial {
-        // No x86_64 graphical leg: milestone 192's x86 half is not built, and the screen x86_64
+        // No x86_64 graphical leg: milestone 192 (a keyboard on real silicon)'s x86 half is not built, and the screen x86_64
         // does have (the firmware's, milestone 400) is read by `cargo xtask uefi-boot` instead.
         if legs == ArchLegs::X86_64 {
             eprintln!(
@@ -1968,7 +1968,8 @@ fn boot_claim_complaint(
 /// Three `x86_64` differences, each forced by the machine rather than chosen:
 ///
 /// - **The default kernel, not `--features shell`.** `x86_64` has no early hand-over: every boot
-///   runs the tour and then hands over (milestone 268), and `uefi_image` builds exactly that.
+///   runs the tour and then hands over (milestone 268 (every architecture boots the same way)),
+///   and `uefi_image` builds exactly that.
 /// - **The kernel's hand-over report lands after the prompt.** `x86_hand_over` watches the
 ///   progenitor for ten seconds and then prints two lines, so the transcript does not end in `$ `
 ///   until something is typed. The leg waits for that report and then presses Enter once, so the
@@ -2132,7 +2133,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         c
     };
     cmd.env("NIFE_DISK", disk_path());
-    // A virtio-rng device (DECISIONS §120's 2026-08-26 amendment: "grant the QEMU-only virtio-rng
+    // A virtio-rng device (DECISIONS §120 (a QEMU-only virtio-rng stopgap for the interactive boot)'s 2026-08-26 amendment: "grant the QEMU-only virtio-rng
     // stopgap"), unlike the GPU/keyboard/NVMe flags above `test()` sets: this is the interactive
     // boot itself, not the bench boot sharing its runner, so there is no icount-drift reason to
     // keep it test-leg only, and the whole point of the amendment is that this boot should have
@@ -2744,9 +2745,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     false
 }
 
-/// **The graphical leg** (milestone 623 (provisional), reversing milestone 177's boot-half): the
-/// `--features shell` boot is now the **normal UART system on every boot** (DECISIONS §26's
-/// minimal shape), and graphics is *launched*: this leg types `screen` at the swish prompt and
+/// **The graphical leg** (milestone 632 (provisional), reversing milestone 177's boot-half): the
+/// `--features shell` boot is now the **normal UART system on every boot** (the minimal shape
+/// of DECISIONS §26 (the fault endpoint: thread death becomes a message a supervisor holds)), and graphics is *launched*: this leg types `screen` at the swish prompt and
 /// verifies what the launched session puts on the screen, read back with a `screendump` rather
 /// than a serial transcript.
 ///
@@ -2883,7 +2884,7 @@ fn swish_check_leg_graphical(riscv: bool, keystrokes: Keystrokes) -> bool {
         cmd.env("NIFE_RNG", "1");
     }
     // The GPU (and, in the device arm, the keyboard) the launch needs, read by
-    // `helpers/qemu-runner-*.sh` exactly as always; what changed (milestone 623 (provisional))
+    // `helpers/qemu-runner-*.sh` exactly as always; what changed (milestone 632 (provisional))
     // is only what the guest does with the devices existing: the boot ignores them and the shell
     // holds their grants until this leg types `screen`.
     cmd.env("NIFE_GPU", "1");
