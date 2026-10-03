@@ -95,6 +95,108 @@ pub const HOST_KEY: &str = "a";
 /// [`crate::keymap`]. Unshifted, so this is the plain letter.
 pub const HOST_KEY_BYTE: u8 = b'a';
 
+/// **How many scroller lines the full-scanout script feeds after the greeting and the typing**
+/// (the paint path, 2026-09-30).
+///
+/// Until the paint lane, no check that verified the terminal's *pixels* ever pushed a picture
+/// past its own height: every pixel-exact witness compared a screen that never scrolled, so the
+/// scroll path, the exact path the `x86_64` swish leg spends most of its time in, had no
+/// end-to-end witness at all. This is the content that fixes that. Five rows are in use when the
+/// scroller starts, so 48 lines plus the 5-line tail below scroll a 43-row grid fifteen times.
+///
+/// The driver side feeds them **one `OP_WRITE` per line**, so every present moves the surface one
+/// row: the per-scroll path. The oracle does not care about write boundaries (the engine is a
+/// byte stream), which is what lets the tail below exercise several scrolls arriving in one
+/// present without a second oracle.
+pub const SCROLL_LINES: usize = 48;
+
+/// **How many more lines arrive in one write**, after the per-line ones: five scrolls inside a
+/// single present, the shape a program printing a paragraph produces. See [`SCROLL_LINES`].
+pub const SCROLL_TAIL_LINES: usize = 5;
+
+/// One scroller line, `scroll NN\r\n` with `NN` zero-padded: written into `out`, returning its
+/// length. The number is the line's own index, so a picture scrolled by the wrong number of rows
+/// disagrees with the oracle at every cell that faces the wrong number, which is the failure this
+/// content exists to catch.
+pub fn scroll_line(i: usize, out: &mut [u8]) -> usize {
+    const HEAD: &[u8] = b"scroll ";
+    out[..HEAD.len()].copy_from_slice(HEAD);
+    out[HEAD.len()] = b'0' + (i / 10 % 10) as u8;
+    out[HEAD.len() + 1] = b'0' + (i % 10) as u8;
+    out[HEAD.len() + 2..HEAD.len() + 4].copy_from_slice(b"\r\n");
+    HEAD.len() + 4
+}
+
+/// **Hand the scroller to `write` in the writes a driver side sends**: [`SCROLL_LINES`] writes of
+/// one line each, then one write carrying the [`SCROLL_TAIL_LINES`]-line tail. The byte stream is
+/// exactly what [`feed_scroller`] feeds the oracle with `typo_line: None`.
+///
+/// One function rather than a loop at each call site because the call sites drifted: the tail
+/// was added to the oracle and to one witness, and the firmware-screen witness kept writing only
+/// the per-line half, so its oracle ended five scrolls ahead of its screen (the paint lane,
+/// 2026-10-02). Name: provisional, the paint lane's.
+pub fn write_scroller(mut write: impl FnMut(&[u8])) {
+    for i in 0..SCROLL_LINES {
+        let mut line = [0u8; 12];
+        let n = scroll_line(i, &mut line);
+        write(&line[..n]);
+    }
+    let mut tail = [0u8; 12 * SCROLL_TAIL_LINES];
+    let mut used = 0;
+    for i in 0..SCROLL_TAIL_LINES {
+        used += scroll_line(SCROLL_LINES + i, &mut tail[used..]);
+    }
+    write(&tail[..used]);
+}
+
+/// Feed the whole scroller ([`SCROLL_LINES`] lines then [`SCROLL_TAIL_LINES`] more) into `vt`.
+///
+/// `typo_line` mangles one line's counter (`99` in place of its own number), for the negative
+/// control: a scrolled picture that is one digit off must fail the comparison, or the comparison
+/// proves nothing about scrolls specifically.
+pub fn feed_scroller(vt: &mut crate::Vt, typo_line: Option<usize>) {
+    for i in 0..SCROLL_LINES + SCROLL_TAIL_LINES {
+        let mut line = [0u8; 12];
+        let n = match typo_line {
+            Some(t) if t == i => {
+                const MANGLED: &[u8] = b"scroll 99\r\n";
+                line[..MANGLED.len()].copy_from_slice(MANGLED);
+                MANGLED.len()
+            }
+            _ => scroll_line(i, &mut line),
+        };
+        vt.feed(&line[..n]);
+    }
+}
+
+/// **Feed the greeting, the typing and the scroller into `vt`**: the full-scanout wiring's final
+/// picture. See [`full_screen`] (which this builds on) for why it takes `&mut Vt` rather than
+/// returning one, and [`SCROLL_LINES`] for why the scroller is here at all.
+pub fn scrolled_full_screen(vt: &mut crate::Vt, typo_line: Option<usize>) {
+    full_screen(vt);
+    feed_scroller(vt, typo_line);
+}
+
+/// **How many lines each compositor window prints past its own height** (the paint path,
+/// 2026-09-30): seven, which scrolls the 4-row window five times and the 3-row window six. See
+/// [`SCROLL_LINES`], the full-scanout twin, for why windows need their own scroller at all: until
+/// this, the [`MODE_WINDOW`](crate::status::MODE_WINDOW) present path (a scroll publishes
+/// whole-window damage to the compositor) had never run once.
+pub const WINDOW_SCROLL_LINES: usize = 7;
+
+/// One window's scroller line, `wN-MM\r\n` with `MM` zero-padded, written into `out`. The window's
+/// own digit leads, so two windows scrolling the same count still disagree pixel for pixel and
+/// the focus test's routing check keeps its teeth in the scrolled picture.
+pub fn window_scroll_line(window: usize, i: usize, out: &mut [u8]) -> usize {
+    out[0] = b'w';
+    out[1] = b'0' + window as u8;
+    out[2] = b'-';
+    out[3] = b'0' + (i / 10 % 10) as u8;
+    out[4] = b'0' + (i % 10) as u8;
+    out[5..7].copy_from_slice(b"\r\n");
+    7
+}
+
 /// **Feed the greeting, then the typing, into `vt`**: what a full-scanout wiring shows after the
 /// whole script. The caller constructs `vt` (typically `Vt::new(COLS, ROWS)`, compile-time
 /// constants, so a `static` costs nothing at runtime) rather than this function returning one.
@@ -110,12 +212,63 @@ pub fn full_screen(vt: &mut crate::Vt) {
     vt.feed(TYPED);
 }
 
-/// **Feed window `i`'s banner and its typed text into `vt`**: what its terminal shows in the
-/// compositor test. `vt` must already be at the right geometry (`Vt::reset_to(cols, rows)`, since a
-/// window's size is not known until runtime, unlike [`full_screen`]'s fixed one); this only feeds
-/// the script, for [`full_screen`]'s own reason (a `Vt`-by-value return is no longer a cheap thing
-/// to hand back).
+/// **Feed window `i`'s banner, its typed text and its scroller into `vt`**: what its terminal
+/// shows in the compositor test. `vt` must already be at the right geometry (`Vt::reset_to(cols,
+/// rows)`, since a window's size is not known until runtime, unlike [`full_screen`]'s fixed one);
+/// this only feeds the script, for [`full_screen`]'s own reason (a `Vt`-by-value return is no
+/// longer a cheap thing to hand back).
+///
+/// **The scroller is part of the window script since the paint path (2026-09-30)**: the compositor
+/// test drives each real terminal with the same lines, one `OP_WRITE` each, so the window-mode
+/// present path runs its scroll fast path under a pixel-exact witness.
 pub fn window(vt: &mut crate::Vt, i: usize) {
     vt.feed(WINDOW_BANNER[i]);
     vt.feed(WINDOW_TYPED[i]);
+    let mut line = [0u8; 8];
+    for n in 0..WINDOW_SCROLL_LINES {
+        let len = window_scroll_line(i, n, &mut line);
+        vt.feed(&line[..len]);
+    }
+}
+
+#[cfg(test)]
+mod scroll_tests {
+    extern crate std;
+    use std::format;
+
+    use super::*;
+
+    /// Every line the scroller feeds is the same shape, and the counter is decimal, so a
+    /// witness can predict the picture without calling this module.
+    #[test]
+    fn scroll_line_shapes_every_index() {
+        let mut line = [0u8; 12];
+        for i in [0usize, 1, 9, 10, 11, 47, 52] {
+            let n = scroll_line(i, &mut line);
+            assert_eq!(n, "scroll ".len() + 4);
+            assert_eq!(&line[..7], b"scroll ");
+            assert_eq!(&line[7..9], format!("{:02}", i).as_bytes());
+            assert_eq!(&line[9..11], b"\r\n");
+        }
+    }
+
+    /// The typo control and the window scroller execute their whole paths and leave the
+    /// terminal holding a nonempty, scrolled picture: every line of both functions runs.
+    #[test]
+    fn feed_and_window_scroller_execute_their_paths() {
+        let mut vt = crate::Vt::new(80, 24);
+        feed_scroller(&mut vt, Some(SCROLL_LINES + 1));
+        assert!(vt.rows() > 0);
+        let mut b = [0u8; 256];
+        assert!(vt.row_bytes(0, &mut b) > 0);
+        scrolled_full_screen(&mut vt, Some(WINDOW_SCROLL_LINES));
+        assert!(vt.row_bytes(vt.rows() - 1, &mut b) > 0);
+        // Determinism, the property the scanout check depends on: same inputs, same first row.
+        let mut other = crate::Vt::new(80, 24);
+        feed_scroller(&mut other, None);
+        let mut c = [0u8; 256];
+        let n1 = vt.row_bytes(0, &mut b);
+        let n2 = other.row_bytes(0, &mut c);
+        assert_eq!(n1, n2);
+    }
 }

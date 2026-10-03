@@ -1369,6 +1369,19 @@ const SWISH_CHECK_LINE_SECS: u64 = 30;
 /// milliseconds per scroll rather than seconds and is not measured on silicon
 /// (`framebuffer_driver`'s BUGS). Milestone 400's BUGS records the design half: the console
 /// blocks on the screen.
+///
+/// **After milestone 624 (the paint path), 2026-10-03 UTC, and why the bound stayed.** Same
+/// machine, same day, the script grown to 128 lines on the first boot:
+///
+/// | tree | lines | total | per line | slowest line |
+/// |---|---|---|---|---|
+/// | `main` at 4db8c13bf | 119 | 753.5 s | 6.3 s | `caps std_exerciser` 27.5 s |
+/// | milestone 624 at 4124d6390 | 128 | 665.6 s | 5.2 s | `caps /installed/std-grep needle docs` 22.9 s |
+///
+/// Median line 3.1 s, 90th percentile 10.9 s (624, 136 timed lines over both boots). Both runs
+/// shared patagonia with another session's `x86_64` leg, so read the ratio, not the seconds. The
+/// rule that set 90 s (2x the slowest local line at CI's worst 1.8x ratio) now gives 82 s, which
+/// is not worth the risk of a red leg, so the bound stays at 90 s until the remaining gap closes.
 const SWISH_CHECK_X86_LINE_SECS: u64 = 90;
 
 /// How many foreign characters [`find_marker`] will step over inside one marker before it gives up.
@@ -2343,8 +2356,15 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         if let (true, Some((prev, typed))) = (failed.is_empty(), previous) {
             took.push((prev, typed.elapsed()));
         }
-        // Every line's time, in script order, beside the transcript when that was asked for.
-        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some() {
+        // Every line's time, in script order, when that was asked for. `NIFE_SHOW_LINE_TIMES`
+        // prints the table alone and `NIFE_SHOW_TRANSCRIPT` prints it beside the whole transcript
+        // (which is what a person reading a session wants and far too much text to diff a
+        // before/after measurement out of). The split exists for exactly that: the paint path's
+        // legs are priced by this table (`SWISH_CHECK_X86_LINE_SECS`'s own doc), and a lane that
+        // changes the paint path needs the table from two runs, not two transcripts.
+        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some()
+            || std::env::var_os("NIFE_SHOW_LINE_TIMES").is_some()
+        {
             for (l, d) in &took {
                 eprintln!("swish-check ({arch}): {:6.2}s  {l}", d.as_secs_f64());
             }

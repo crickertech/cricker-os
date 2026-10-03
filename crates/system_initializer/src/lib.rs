@@ -1488,12 +1488,29 @@ pub fn boot(
         // to hold it.
         //
         // **And a screen beside the UART, when the kernel wired one** (`has_screen`, above): the
-        // terminal's endpoint lands in the console's slot 2, ahead of x86's port range (which the
-        // console holds but never names by slot), and the page that terminal reads is mapped at
-        // `CON_SCREEN_OUT_VA`. Arrays with a count rather than one slice literal per case, because
-        // the screen is a runtime fact and the port range a compile-time one, and four literals
-        // would be four places to get the slot order wrong.
-        let mut con_caps = [(0, 0); 4];
+        // terminal's endpoint lands in the console's slot 2, ahead of the batching pair (slots 3
+        // and 4) and x86's port range (which lands after them; the console holds it but never
+        // names it by slot), and the page that terminal reads is mapped at `CON_SCREEN_OUT_VA`.
+        // Arrays with a count rather than one slice literal per case, because the screen is a
+        // runtime fact and the port range a compile-time one, and five literals would be five
+        // places to get the slot order wrong.
+        //
+        // **The batching pair** (the paint lane, 2026-09-30): a notification and a timer, retyped
+        // from this boot's own untyped, the notification bound to the console's thread before it
+        // starts (milestone 151 (notification objects: async multiplexing without wait-any)'s
+        // `BIND`: a spawner holds the child's `ThreadControlBlock` in
+        // exactly this window, between `build_child` and `start_child`, and a running thread cannot
+        // bind itself). This is what lets the console paint the screen once per window instead of
+        // once per write (`components/src/console.rs`'s own module doc holds the why); the console
+        // degrades to one paint per write if this pair is ever missing, so the wiring is the
+        // accelerator rather than a precondition.
+        let mut con_batch = (0, 0);
+        if has_screen {
+            let notified = must(retype_obj(ut, abi::objtype::NOTIFICATION));
+            let timer = must(retype_obj(ut, abi::objtype::TIMER));
+            con_batch = (notified, timer);
+        }
+        let mut con_caps = [(0, 0); 6];
         let mut con_maps = [(0, 0, 0); 3];
         let (mut ncaps, mut nmaps) = (0, 0);
         for cap in [(request, abi::rights::READ), (reply, abi::rights::WRITE)] {
@@ -1504,6 +1521,12 @@ pub fn boot(
         nmaps += 1;
         if has_screen {
             con_caps[ncaps] = (g.disp_term_ep, abi::rights::WRITE);
+            ncaps += 1;
+            // `READ | WRITE` on the notification: WAIT/POLL and the SIGNAL an armed timer makes of
+            // it. `WRITE` on the timer: ARM and CANCEL.
+            con_caps[ncaps] = (con_batch.0, abi::rights::READ | abi::rights::WRITE);
+            ncaps += 1;
+            con_caps[ncaps] = (con_batch.1, abi::rights::WRITE);
             ncaps += 1;
             con_maps[nmaps] = (
                 CON_SCREEN_OUT_VA,
@@ -1534,6 +1557,11 @@ pub fn boot(
                 ..ChildEndowment::new(Retention::Nothing)
             },
         ));
+        // The bind belongs in the window between build and start: after `start_child` the retention
+        // below has deleted our `ThreadControlBlock`, and before `build_child` there is no thread.
+        if has_screen {
+            must_ok(user_mode_runtime::notification_bind(con_batch.0, con.tcb) >= 0);
+        }
         must_ok(start_child(
             con,
             if has_screen { CONSOLE_MODE_SCREEN } else { 0 },
@@ -1543,10 +1571,13 @@ pub fn boot(
         // The console holds its own narrowed copies of the terminal's endpoint and page now, and
         // nothing else in this boot prints to that terminal directly: everyone prints through the
         // console. Freed here rather than with `request`/`reply` below for the sixteen-slot reason
-        // this function's every early free gives.
+        // this function's every early free gives, and the batch pair goes with them: the binding
+        // lives in the objects, not in our copies of them.
         if has_screen {
             cap_delete(g.disp_term_ep);
             cap_delete(g.disp_term_page);
+            cap_delete(con_batch.0);
+            cap_delete(con_batch.1);
         }
 
         // 2. The line discipline: serves the terminal endpoint, prints through the console. It is
