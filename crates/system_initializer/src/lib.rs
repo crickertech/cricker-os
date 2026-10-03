@@ -868,7 +868,7 @@ const NET_STACK_ROLE_SERVER: u64 = 0;
 /// [`RNG_MODE_VIRTIO`]'s own reasoning, one program over. The pre-milestone-177 wiring: prints
 /// through the console's bespoke two-endpoint protocol.
 const LINE_EDITOR_MODE_CONSOLE: u64 = 0;
-/// `line_editor.rs`'s own `MODE_DISPLAY`: milestone 177's wiring, prints through
+/// `line_editor.rs`'s own `MODE_DISPLAY`: the `graphical_terminal` session's wiring, prints through
 /// `display_terminal`'s `OP_WRITE`/one-`CALL` contract instead.
 const LINE_EDITOR_MODE_DISPLAY: u64 = 1;
 
@@ -4412,7 +4412,7 @@ fn graphical_terminal_session_children(
 
     // --- the keystroke source, and it decides the program's arm. With a keyboard (its three
     // caps came with the gpu's four): the session's own discipline, `terminal_supervisor`
-    // building `line_editor` in `MODE_DISPLAY` exactly as the boot's does, with `keyboard_driver`
+    // building `line_editor` in `MODE_DISPLAY`, with `keyboard_driver`
     // `CALL`ing it in `MODE_DIRECT`. Without one: no discipline and no driver, and the program
     // reads the boot's own discipline raw, over the UART, echoing to the screen itself.
     // `components/src/graphical_terminal.rs`'s slots 0-2 and its `x0` are the contract. ---
