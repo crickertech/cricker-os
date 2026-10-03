@@ -46,6 +46,9 @@
 //!
 //! [[member]]                   # members in order: the package's bytes depend on it
 //! program = "uptime"           # a built ELF for that architecture, resolved from target/
+//! as = "uptime"                # optional: the member's name in the package, when the ELF it
+//!                              # packs is built under another name (milestone 614's 0.2.0
+//!                              # fixture, which packs `greeting_two` as `greeting`)
 //!
 //! [[member]]
 //! name = "uptime.licence"      # any file, by a path relative to the repository root
@@ -401,20 +404,27 @@ fn parse_recipe(text: &str) -> Result<Recipe, String> {
         };
         let field = |key: &str| entry.get(key).and_then(toml::Value::as_str);
         for key in entry.keys() {
-            if !["program", "name", "file"].contains(&key.as_str()) {
+            if !["program", "name", "file", "as"].contains(&key.as_str()) {
                 return Err(format!("member {number}: unknown key {key}"));
             }
         }
-        match (field("program"), field("name"), field("file")) {
-            (Some(program), None, None) => {
-                members.push((program.to_string(), Source::Program(program.to_string())));
+        if field("as").is_some_and(str::is_empty) {
+            return Err(format!("member {number}: `as` is a non-empty name"));
+        }
+        match (field("program"), field("as"), field("name"), field("file")) {
+            (Some(program), as_name, None, None) => {
+                // `as` renames the member: the ELF is built under one name and packaged under
+                // another, which is how `greeting` at 0.2.0 packs the second fixture's bytes.
+                let named = as_name.unwrap_or(program);
+                members.push((named.to_string(), Source::Program(program.to_string())));
             }
-            (None, Some(member), Some(path)) => {
+            (None, None, Some(member), Some(path)) => {
                 members.push((member.to_string(), Source::File(path.to_string())));
             }
             _ => {
                 return Err(format!(
-                    "member {number} is either `program` alone or `name` with `file`"
+                    "member {number} is either `program` alone (optionally `as` a member name) \
+                     or `name` with `file`"
                 ));
             }
         }
@@ -509,11 +519,55 @@ file = "LICENSE-MIT"
         );
         assert_eq!(
             parse_recipe(&RECIPE.replace("file = \"LICENSE-MIT\"", "")).unwrap_err(),
-            "member 2 is either `program` alone or `name` with `file`"
+            "member 2 is either `program` alone (optionally `as` a member name) or `name` with \
+             `file`"
         );
         assert_eq!(
             parse_recipe("name = \"\"\n").unwrap_err(),
             "name is a non-empty string"
+        );
+    }
+
+    /// **`as` renames a program member** (milestone 614 (two installed versions of one program,
+    /// each runnable, and a caller granted the one it needs)): the ELF is resolved under its own name
+    /// and packaged under another, which is how `greeting` at 0.2.0 carries the second fixture's
+    /// bytes under the member name `greeting`. A file member takes no `as`, because its `name` is
+    /// already what the package calls it.
+    #[test]
+    fn a_program_member_can_be_packaged_under_another_name() {
+        let text = "\
+name = \"greeting\"
+version = \"0.2.0\"
+architecture = \"aarch64\"
+
+[[member]]
+program = \"greeting_two\"
+as = \"greeting\"
+";
+        let recipe = parse_recipe(text).unwrap();
+        assert_eq!(
+            recipe.members,
+            vec![(
+                "greeting".to_string(),
+                Source::Program("greeting_two".to_string())
+            )]
+        );
+        let plain = text.replace("as = \"greeting\"\n", "");
+        assert_eq!(
+            parse_recipe(&plain).unwrap().members,
+            vec![(
+                "greeting_two".to_string(),
+                Source::Program("greeting_two".to_string())
+            )]
+        );
+        assert_eq!(
+            parse_recipe(
+                "name = \"x\"\nversion = \"1\"\narchitecture = \"aarch64\"\n\n[[member]]\nname \
+                 = \"x\"\nfile = \"LICENSE-MIT\"\nas = \"y\"\n"
+            )
+            .unwrap_err(),
+            "member 1 is either `program` alone (optionally `as` a member name) or `name` with \
+             `file`"
         );
     }
 

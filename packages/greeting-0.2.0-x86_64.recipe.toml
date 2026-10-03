@@ -1,0 +1,10 @@
+# greeting at 0.2.0, as a x86_64 package. The same package as
+# `greeting-0.2.0.recipe`, which says why it exists.
+
+name = "greeting"
+version = "0.2.0"
+architecture = "x86_64"
+
+[[member]]
+program = "greeting_two"
+as = "greeting"

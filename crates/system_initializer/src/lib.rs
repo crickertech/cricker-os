@@ -4848,12 +4848,23 @@ fn edit(
             (S::Done, back)
         }
         Activation::Remove => {
-            let Ok(program) = core::str::from_utf8(named) else {
+            let Ok(operand) = core::str::from_utf8(named) else {
                 return (S::NotInstalled, live);
             };
-            let n = match activation_set::without_entry(table, program, &mut new) {
+            // **The verb's object is a program or a program at a version** (milestone 614 (two
+            // installed versions of one program, each runnable, and a caller granted the one it
+            // needs), ruling 5). `@` is the qualified form's separator and is reserved for it: a
+            // word with one is never a program name, so the two cannot be mistaken for each other.
+            let removed = match operand.split_once('@') {
+                Some((program, version)) if !program.is_empty() && !version.is_empty() => {
+                    activation_set::without_version(table, program, version, &mut new)
+                }
+                _ => activation_set::without_entry(table, operand, &mut new),
+            };
+            let n = match removed {
                 Ok(n) => n,
                 Err(activation_set::Error::NotInstalled) => return (S::NotInstalled, live),
+                Err(activation_set::Error::Ambiguous) => return (S::Ambiguous, live),
                 Err(_) => return (S::StoreFailed, live),
             };
             let m = next();
@@ -4878,6 +4889,10 @@ fn edit(
             }
             let entry = activation_set::Entry {
                 program,
+                // **A vouch claims no version**: the owner vouches for bytes (DECISIONS §221
+                // (the boot prompt is the owner's console), ruling 1), so the version column
+                // carries `activation_set::NO_VERSION` and no pointer names the row.
+                version: activation_set::NO_VERSION,
                 package: activation_set::OWNER,
                 digest: measured_boot::sha256(bytes),
             };
@@ -4908,11 +4923,9 @@ fn edit(
                 Err(package_archive::Refusal::NoProgram) => return (S::NoProgram, live),
                 Err(_) => return (S::NotCatalogued, live),
             };
-            let mut stem = [0u8; package_archive::STEM_LEN];
             let Ok(package) = package_archive::Package::parse(bytes) else {
                 return (S::NotCatalogued, live);
             };
-            let stem = package.stem(&mut stem);
             // The program's bytes, where a person can run them (DECISIONS §219 option D hashes
             // whatever they run, so where they live is a convenience, not a trust decision).
             let packages = files.directory(fs_op::ROOT, activation_set::PACKAGES);
@@ -4921,7 +4934,8 @@ fn edit(
             }
             // `packages/<name>/<version>/<program>`: one component per field, because a prompt
             // component is at most sixteen bytes and a stem is longer. The architecture is this
-            // machine's, and the stem the generation records still names it.
+            // machine's; the generation's row does not carry it, because the digest is of
+            // target-specific bytes and two ISAs never collide in one table.
             let name = files.directory(packages as u64, package.name());
             let version = if name >= 0 {
                 files.directory(name as u64, package.version())
@@ -4946,7 +4960,14 @@ fn edit(
             }
             let entry = activation_set::Entry {
                 program: got.program,
-                package: stem,
+                // **The row is digest-keyed; name and version are label columns** (milestone 614
+                // (two installed versions of one program, each runnable, and a caller granted the
+                // one it needs), ruling 2). The version is the upstream developer's claim as the
+                // package header carries it; the package column is the package's name, the
+                // stem's first field, because the version now has a column of its own and no row
+                // carries the architecture.
+                version: package.version(),
+                package: package.name(),
                 digest: got.digest,
             };
             // **A bare name belongs to one package, and never to one the image carries** (DECISIONS
@@ -5027,10 +5048,15 @@ fn fetch(
     use socket_protocol::*;
     use spawnproto::ActivationStatus as S;
 
-    let stem = core::str::from_utf8(name)
-        .ok()
-        .and_then(|name| package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE))
-        .ok_or(S::NoSuchPackage)?;
+    // A bare name the catalogue vouches for at several versions is refused here, before the
+    // network, like a name it vouches for at none: `name@version` picks one (milestone 614).
+    let name = core::str::from_utf8(name).map_err(|_| S::NoSuchPackage)?;
+    let stem = package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE).map_err(
+        |miss| match miss {
+            package_archive::StemMiss::NoSuchPackage => S::NoSuchPackage,
+            package_archive::StemMiss::SeveralVersions => S::Ambiguous,
+        },
+    )?;
     let stack = a.network.ok_or(S::NoNetwork)?;
 
     let region = memory_region_split(a.images_ut, 1).map_err(|()| S::FetchFailed)?;

@@ -1,0 +1,17 @@
+# greeting at 0.2.0, as a package: the second version, live beside 0.1.0.
+#
+# Milestone 614 (two installed versions of one program, each runnable, and a caller granted the one
+# it needs) is the reason this recipe exists: rows key on the digest, so the member bytes must
+# differ from 0.1.0's for the table to hold two rows, and `greeting_two` is that difference, packed
+# under the member name `greeting` by the `as` key so the package's program is still `greeting` and
+# its path is still `packages/greeting/0.2.0/greeting`. `script/swish-check` installs it from the
+# disk on all three architectures. The digest line is absent for the reason `uptime.recipe` gives.
+# Name: provisional 2026-09-29 (the recipe, the `as` key and the fixture's name).
+
+name = "greeting"
+version = "0.2.0"
+architecture = "aarch64"
+
+[[member]]
+program = "greeting_two"
+as = "greeting"

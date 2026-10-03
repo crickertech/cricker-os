@@ -2952,7 +2952,11 @@ pub enum PackageVerb<'a> {
     /// At most sixteen bytes, for [`PackageVerb::Remove`]'s reason. A package file in the
     /// current directory is `./<file>`.
     Fetch(&'a [u8]),
-    /// `package remove <program>`: the name an installed program is recorded under.
+    /// `package remove <program>`: every live version of the program goes, and its default pointer
+    /// with them. `package remove <program>@<version>` removes one (milestone 614 (two installed
+    /// versions of one program, each runnable, and a caller granted the one it needs), ruling 5);
+    /// the `@` and the version share the operand's sixteen bytes with the name. Provisional
+    /// spelling.
     Remove(&'a [u8]),
     /// `package rollback`: the generation below the live one becomes live.
     Rollback,
@@ -2965,8 +2969,9 @@ pub enum PackageVerb<'a> {
 }
 
 /// Classify [`Command::Package`]'s tail. One operand for `install` and `remove`, none for
-/// `rollback`, and a name to remove must fit the sixteen bytes a packed name carries
-/// (`filesystem_protocol::grant::MAX_NAME`), which `activation_set` programs always do.
+/// `rollback`, and a remove operand (`program`, or `program@version`) must fit the sixteen bytes a
+/// packed name carries (`filesystem_protocol::grant::MAX_NAME`), which `activation_set` programs
+/// and their versions do.
 pub fn package_verb(tail: &[u8]) -> PackageVerb<'_> {
     let (verb, rest) = split_first_word(trim(tail));
     let operand = trim(rest);
