@@ -130,13 +130,13 @@ five ways, and each was found by a different lane)'s and is not re-raised here.
 | 8 | Looked for a survey entry outside the invoked rendezvous's domain | host proof, every ISA | held |
 | 9 | Looked for a divergence between the view predicate and the reap predicate | host proof, every ISA | held |
 | 10 | Checked each encoder's user-VA gate for the low half and alignment | three host proofs, one per ISA | held on all three |
-| 11 | Checked which encoder is proved W^X | host proof on `x86_64` only | held where proved; no aarch64 or riscv64 harness states the claim |
+| 11 | Checked which encoder is proved W^X | host proof on `x86_64` only | held where proved; no aarch64 or riscv64 harness states the claim, so proposed as [no page is both writable and executable, proved on every ISA](proposals/no-page-is-both-writable-and-executable-on-every-isa.md) |
 | 12 | Read the VT-d entry encoder for reserved bits | host proof, `x86_64` by subject | held |
 | 13 | Looked for a descriptor the shadow copies from outside the region | host proofs, every ISA | held |
 | 14 | Looked for an indirect descriptor reaching the shadow | host proof, every ISA | held |
 | 15 | Looked for an unbounded or out-of-ring walk | host proofs, every ISA | held |
 | 16 | Looked for two queues sharing a ring block | host proof, every ISA | held |
-| 17 | Asked whether a post-validation write can reach the device: it writes the driver's copy, the device reads the shadow | structural, every ISA | held; stays unfalsifiable as written |
+| 17 | Asked whether a post-validation write can reach the device: it writes the driver's copy, the device reads the shadow | structural, every ISA | held; `unfalsified` on purpose, the structural disposition `notes/confinement-claims.md` records (two disjoint arrays in the harness), not open work |
 | 18 | Looked for a plan whose rights word is not the declared direction's | host proof, every ISA | held |
 | 19 | Read `subtree_scope::walk`, `admit` and `Bindings` for a way up or sideways | host proofs; `dir_capability_tests` runs on all three, recorded on aarch64 | held |
 | 20 | Read the C seam's grant mapping for an out-of-grant page | kernel test on all three, falsified by hand | held |
@@ -144,8 +144,8 @@ five ways, and each was found by a different lane)'s and is not re-raised here.
 | 22 | Checked the per-page low-half refusal in `map_segments` | both tests run on all three, recorded on aarch64 | held |
 | 23 | Looked for a construction path left after the drop | kernel test on all three, recorded on aarch64 | held |
 | 24 | Same read as row 19, at the shell | kernel test on all three, recorded on aarch64 | held |
-| 25 | Not attacked: the compositor is a userspace server, the class the 2026-09-21 pass also could not reach | kernel test on all three, recorded on aarch64 | not attacked |
-| 26 | Not attacked: a real escape hangs the run, and the fix is a timed receive on the syscall surface | kernel test on all three | not attacked; stays unfalsifiable as written |
+| 25 | Not attacked: the compositor is a userspace server, the class the 2026-09-21 pass also could not reach and the human outsider behind milestone 198 is for | kernel test on all three, recorded on aarch64 | not attacked; owned by milestone 198 |
+| 26 | Not attacked: a real escape hangs the run, and the fix is a timed receive on the syscall surface | kernel test on all three | not attacked; stays unfalsifiable as written, owned by milestone 417 (a usurper that reports instead of hanging) |
 | 27 | Read the TSS I/O bitmap, IOPL and the single switch site | `x86_64` by subject | held; every gap fails closed |
 | 28 | Read the revoke sweep and the NMI broadcast to other cores | `x86_64` by subject | held |
 | 29 | Read `delete_current_cap`'s local bitmap clear | `x86_64` by subject | held |
