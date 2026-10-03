@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: IN-PROGRESS
 raised: 2026-09-24
+branch: milestone/637-survivor-triage-3
 promoted_from: triage-the-crates-the-2026-09-21-census-measured-first
 milestone_dependencies: none
 decision_dependencies: none
@@ -75,7 +76,6 @@ table links.
 
 ## Follow-on
 
-- **Outstanding.** 652 of the 1,004 survivors in run 37108924347 are untriaged, headed by `video_terminal` (64) and `machine_discovery` (52). Checked against the run's `missed.txt` on 2026-10-03 (UTC).
 - **Proposed.** `design/roadmap/proposals/the-inline-scanner-reads-from-a-slice-that-ends-with-its-range.md` makes the eight `documentation` over-read equivalents unrepresentable.
 - **Recorded.** The `output_len` and `CMDLINE_LEN` bounds are generous by design, so 12 survivors in `uefi_loader` stay as gaps, in `notes/mutation-testing/census-2026-10-03-triage.md`.
 
