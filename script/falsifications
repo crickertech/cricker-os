@@ -164,13 +164,17 @@
 #   eight minutes on every pull request that touches `kernel/`. So a kernel-test falsification is
 #   re-checked by a full `--sweep` and by nothing else, which means it can rot between sweeps exactly
 #   the way a Kani record cannot.
-# - **A kernel record is swept on ONE architecture, the one its patch names.** `Architecture:` in the
-#   patch head (default `aarch64`) picks the leg, because a defect is not always expressible on all
-#   three: `crates/paging`'s `U` bit marks a page user-accessible on RISC-V, and a kernel page marked
-#   `U` faults the kernel itself with `sstatus.SUM` clear, so "the kernel maps its own memory
-#   user-readable" cannot be booted there at all. DECISIONS §19 makes parity a gate for the
-#   *capability*; this is a gap in the *evidence*, and notes/confinement-claims.md names which rows
-#   it affects.
+# - **A kernel record is swept on the architectures its patch names** (milestone 323 (the falsification record is incomplete in five ways)).
+#   `Architecture:` in the patch head (default `aarch64`) picks the legs, and takes a comma list
+#   (`Architecture: aarch64, riscv64, x86_64`): each leg is its own boot and each must come back red,
+#   so one patch carries a hunk per ISA's own file and a hunk for an ISA not being booted is dead text
+#   to that boot. It stays one record per test because the patch path is the test's name. A defect is
+#   not always expressible on every ISA: `crates/paging`'s `U` bit marks a page user-accessible on
+#   RISC-V, and a kernel page marked `U` faults the kernel itself with `sstatus.SUM` clear, so "the
+#   kernel maps its own memory user-readable" cannot be booted there at all, and the record for that
+#   claim names two legs and not three. DECISIONS §19 (architectural parity is a tenet) makes parity
+#   a gate for the *capability*; a record naming fewer legs than the test runs on is a gap in the
+#   *evidence*, and notes/confinement-claims.md names which rows it affects.
 # - **A kernel record's red is checked for shape, not for the assertion it names.** The sweep
 #   requires the kernel to have booted and selected exactly one test (`running 1 of N`) before it
 #   will call a non-zero exit red, which is what keeps a patch that does not compile, or a boot that
@@ -276,7 +280,10 @@ TEST_CASE = re.compile(r"^#\[test_case\]")
 
 # `Architecture: riscv64` in a kernel patch's prose head: which leg the sweep boots. Default
 # `aarch64`. See this script's BUGS on why a kernel record is swept on one architecture.
-ARCH_DECL = re.compile(r"^Architecture:\s*(\w+)\s*$", re.M)
+# A comma list (`Architecture: aarch64, x86_64`) names every leg the record is replayed on, and the
+# patch then carries one hunk per ISA's own file (milestone 323 part 3). The legs are independent
+# boots and every one must come back red.
+ARCH_DECL = re.compile(r"^Architecture:\s*(\w+(?:\s*,\s*\w+)*)\s*$", re.M)
 ARCHES = ("aarch64", "riscv64", "x86_64")
 
 MOD_OPEN = re.compile(r"^(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*\{")
@@ -659,7 +666,12 @@ class KernelTest(Harness):
 
     @property
     def architecture(self):
-        """Which leg the sweep boots, from `Architecture:` in the patch's prose head.
+        """The record's legs as one printable string: `aarch64`, or `aarch64, x86_64`."""
+        return ", ".join(self.architectures)
+
+    @property
+    def architectures(self):
+        """Which legs the sweep boots, from `Architecture:` in the patch's prose head.
 
         Defaulted rather than required, because `aarch64` is what every one of these was written
         against and a record that says nothing is saying that. A spelling that is not one of the
@@ -668,12 +680,12 @@ class KernelTest(Harness):
         """
         path = self.patch
         if not path or not os.path.exists(os.path.join(root, path)):
-            return "aarch64"
+            return ["aarch64"]
         body = open(os.path.join(root, path), errors="replace").read()
         hit = ARCH_DECL.search(body.split("diff --git")[0])
-        return hit.group(1) if hit else "aarch64"
+        return [a.strip() for a in hit.group(1).split(",")] if hit else ["aarch64"]
 
-    def replay_argv(self):
+    def replay_argv(self, arch):
         """What runs this ONE test and nothing else: milestone 210's filter, on one architecture.
 
         The filter is the bare function name rather than the qualified path. Both work (the runner
@@ -681,7 +693,7 @@ class KernelTest(Harness):
         which matters because this string is also the command a person re-runs by hand after the
         sweep reports a survivor.
         """
-        return ["cargo", "xtask", "test", "--arch", self.architecture, "--test", self.name]
+        return ["cargo", "xtask", "test", "--arch", arch, "--test", self.name]
 
 
 def patch_files(pkgs):
@@ -770,7 +782,7 @@ def check(hs, pkgs, kts=()):
             lambda q: subprocess.run(["git", "-C", root, "apply", "--check", os.path.join(root, q)],
                                      capture_output=True, text=True), wanted)))
     for t in kts:
-        if t.state == "replayable" and t.patch and t.architecture not in ARCHES:
+        if t.state == "replayable" and t.patch and not all(a in ARCHES for a in t.architectures):
             problems.append("%s:%d: `%s` declares `Architecture: %s`; the three are %s"
                             % (t.rel, t.line, t.patch, t.architecture, ", ".join(ARCHES)))
     hs = list(hs) + list(kts)
@@ -898,7 +910,7 @@ def table(hs, pkgs, kts=()):
     # at different cadences and a reader should be told which they are looking at.
     if kts:
         print("")
-        print("%d kernel test(s) carry a falsification record, swept by booting one architecture:"
+        print("%d kernel test(s) carry a falsification record, swept by booting the architectures each names:"
               % len(kts))
         kwidth = max(len(t.name) for t in kts)
         for t in kts:
@@ -1034,6 +1046,23 @@ def replay_kani(h):
 
 
 def replay_kernel_test(t):
+    """Replay a kernel record on every leg it names, and require red on each (milestone 323 part 3).
+
+    The legs are independent boots of one patch whose hunks live in each ISA's own file, so a hunk
+    for an ISA that is not being booted is dead text to that boot. The first leg that is not red
+    decides the verdict, with its architecture named, because a record that is red on one ISA and
+    green on another is evidence for the first and a survivor on the second.
+    """
+    reds = []
+    for arch in t.architectures:
+        verdict, detail = replay_kernel_test_on(t, arch)
+        if verdict != "red":
+            return verdict, "%s (on %s)" % (detail, arch)
+        reds.append(detail)
+    return "red", "\n    ".join(reds)
+
+
+def replay_kernel_test_on(t, arch):
     """Boot one architecture, run one kernel test against the applied patch (milestone 305).
 
     **A non-zero exit is not enough to call this red**, and that is the whole of the care here. A
@@ -1052,7 +1081,7 @@ def replay_kernel_test(t):
     assertion the patch's prose predicts. The panic line is returned so a reader can judge, which is
     rung three rather than rung two, and this script's BUGS says so.
     """
-    rc, out, _, hung = run_bounded(t.replay_argv(), LIMIT_KERNEL_TEST)
+    rc, out, _, hung = run_bounded(t.replay_argv(arch), LIMIT_KERNEL_TEST)
     if hung:
         return timed_out(LIMIT_KERNEL_TEST, "the build and boot")
     # One `running K of N` line per test image: a leg boots the kernel's own unit-test image and
@@ -1064,9 +1093,17 @@ def replay_kernel_test(t):
         last = [l for l in out.strip().splitlines() if l.strip()]
         return "error", ("the kernel never reached its test runner on %s (exit %d): the patch may "
                          "not compile, or the boot died.%s"
-                         % (t.architecture, rc,
+                         % (arch, rc,
                             ("\n    " + last[-1]) if last else ""))
-    total = sum(int(m.group(1)) for m in runs)
+    # The x86_64 leg boots the same images twice (QEMU's direct boot, then real firmware), so one
+    # test legitimately prints `running 1 of N` once per boot. What must be one is the number of
+    # DISTINCT tests selected, and no single boot may select more than one. Summing the selections
+    # called `port_holder_transmits_then_a_non_holder_faults` "2 tests" on 2026-10-03 and read a
+    # record that is red only under real firmware as stale (milestone 323).
+    names = set(re.findall(r"^test (\S+) \.\.\.", out, re.M))
+    total = len(names) if names else sum(int(m.group(1)) for m in runs)
+    if any(int(m.group(1)) > 1 for m in runs):
+        total = max(total, 2)
     if total != 1:
         return "error", ("`--test %s` selected %d tests, not 1: a red would not be about this one"
                          % (t.name, total))
@@ -1076,7 +1113,7 @@ def replay_kernel_test(t):
     if result is not None and "skipped" in result.group(0):
         return "error", ("the test SKIPPED on %s (%s): its fixture was not attached to this boot, "
                          "so the falsification was never attempted"
-                         % (t.architecture, result.group(0).strip()))
+                         % (arch, result.group(0).strip()))
     if rc == 0:
         return "survivor", "it ran, it passed, and the defect is still in the tree under the patch"
     # The panic's location AND its message, which is what a reader needs to tell a claim-shaped red
@@ -1086,7 +1123,7 @@ def replay_kernel_test(t):
     hit = re.search(r"^.*panicked at.*$", out, re.M)
     if hit is None:
         return "red", ("exit %d on %s, with no panic line in the transcript: read it before "
-                       "believing this" % (rc, t.architecture))
+                       "believing this" % (rc, arch))
     # The assertion's own sentence follows the location on the next lines, and so, eventually, does
     # cargo's own chatter, because this runs a build and a boot down one pipe. Stop at the first
     # line that is plainly the toolchain talking rather than the kernel.
@@ -1097,7 +1134,7 @@ def replay_kernel_test(t):
         if not s or re.match(r"^(warning|error|note|help|\||=|-->|\^)", s):
             break
         body.append(s)
-    return "red", "the test caught it on %s\n      %s" % (t.architecture, "\n      ".join(body))
+    return "red", "the test caught it on %s\n      %s" % (arch, "\n      ".join(body))
 
 
 def sweep(hs, only=None):
@@ -1248,7 +1285,7 @@ if mode == "--check":
     print("  %d harnesses in %d packages, every one carrying a Falsification: block (%d replayable)"
           % (len(hs), len({h.package for h in hs}), n))
     if kts:
-        print("  %d kernel test(s) carry a record (%d replayable), swept by booting one architecture"
+        print("  %d kernel test(s) carry a record (%d replayable), swept by booting the architectures each names"
               % (len(kts), sum(1 for t in kts if t.state == "replayable")))
     for p, _ in gaps:
         print("  %s falsifies something that is not a Kani harness; nothing sweeps it" % p)
