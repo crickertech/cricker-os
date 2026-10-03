@@ -245,3 +245,57 @@ The 14 equivalents:
   `i64::MAX` minutes.
 - `unbacked`'s third clause, `Diagnostics::File` (1): `plan` passes no operators, so it cannot
   arrive today. The comment above it says it is there for the day that changes.
+
+## video_terminal
+
+64 missed: 37 killed, 27 equivalent. The sweep afterwards reports 27 missed.
+
+- `script.rs` (25, all killed). Its scroller and window-line functions were exercised and never
+  compared. The tests feed the driver's writes and the oracle's bytes into two terminals and compare
+  every row, mangle exactly one line, and check `window_scroll_line`'s bytes at three counts.
+- `Attr` (12, killed). Each flag's predicate, SGR 2, setting a flag twice, bold stopping at colour 7
+  (index 8 is already bright), the dim midpoint, and the underline on the last glyph row.
+- `Damage::repaint_rect` with nothing scrolled (1, killed).
+
+The 27 equivalents are the shapes the earlier ledger already names.
+
+- `|` as `^` or `1 << 0` as `1 >> 0` (16): the channel packs in `Colour::resolve` and `midpoint`, `utf8_code`'s
+  continuation bits, `BOLD`, and `sorted_channels`' three compare-and-swaps, where an equal pair swaps to
+  itself.
+- `CellRect::union`'s four comparisons (4): a tie picks the same value from either side.
+- `clamp_cols` and `clamp_rows` at the maximum (2): the clamp returns the maximum either way.
+- `push_scrollback_row`'s `row * cols` (1): `row` is always 0 at its one call site.
+- The `0x20..=0x2f | 0x3c..=0x3f` arm (1), `erase_display`'s `to > from` (1), `extended_colour`'s
+  `i < n` (1), and `pixel`'s `col < cols` (1): each is subsumed by the check beside it.
+- `scroll_damage`'s `r > 0` guard and its `r - 1` cell (3): `take_damage` damages the same cell
+  from the drawn position, and the box is a bounding box.
+
+## machine_discovery
+
+52 missed: 29 killed, 23 equivalent. The sweep afterwards reports 23 missed.
+
+- DMAR (15). A structure of the minimum length 4 is skipped and the walk goes on. One that overruns
+  the table ends it. A DRHD or RMRR shorter than its fixed part is ignored, and a scope keeps its
+  start bus and every hop at depths 1 to 4. A scope with no hops or with five is marked and the
+  list continues. A path is bounded on both sides.
+- MADT (5). A GICC, distributor or redistributor that stops after its header is `Other`, and the
+  GICC's enabled and online-capable bits are read separately.
+- FADT (6). The ARM boot flags and the reset register are read from the offsets ACPI states less
+  the 36-byte header, PSCI and HVC are separate bits, and the reset register is read whole.
+- x86_64 (2). RDSEED needs its own bit, and a union of a set with itself does not clear it.
+- GTDT (1). `GTDT_ACTIVE_LOW` is bit 1.
+
+The 23 equivalents:
+
+- Constant tables (6): the `while` loops of `aarch64`'s duplicate-code check and `riscv64`'s. Each is a
+  compile-time assertion, and a mutant of it only disables the check.
+- `1 << 0` and `|` against `^` on disjoint fields (9): the flag constants, `PixelOrder::store`'s
+  channels, `parse_hex`'s nibble, `eid`'s byte, and `pmu_event`'s type and code.
+- Guards that cannot differ on a 64-bit host, or on the value at hand (6).
+  - `Framebuffer`'s `bytes <= usize::MAX` is always true on a 64-bit host.
+  - `is_well_formed`'s `limit > base` fails the 4 KiB size test beside it at equality.
+  - `read_scope_list`'s `len - 6` has the parity of `len + 6`.
+  - `plic`'s `n < MAX_CONTEXT_HARTS`: the cpu list holds that many at most.
+  - Two `<` against `<=` on equal values in `riscv64::Isa::from_device_tree`.
+- Inside `#[cfg(kani)]` (2): `x86_64`'s `N`, in a proof module that has no function name for
+  `exclude_re` to match.
