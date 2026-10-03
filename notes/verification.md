@@ -703,7 +703,7 @@ walked `crates/` and so excluded `kernel` and `user`, both of which are rows in 
 measurement, because a wall clock is not a thing a gate can cheaply re-derive. See
 notes/counted-claims.md.)
 
-**BUGS: the harness count is typed by hand and collides on every merge from `main`** (recorded 2026-10-02, milestone 129's lane).
+**BUGS: the harness count is typed by hand and collides on every merge from `main`** (recorded 2026-10-02, the lane for milestone 129 (scheduled execution: a cron whose every entry is a grant)).
 The gate checks that the number is right, but nothing writes it. The count appears three times, here and twice in
 `notes/unsafe-obligations.md`, so two branches that each add a harness both edit the same lines, and the
 second to merge hits a conflict; resolving it by keeping either side then fails `script/lint` until someone types the
