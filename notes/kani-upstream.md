@@ -134,9 +134,12 @@ Kani in CI, and the gap ends when the patch is dropped for an upstream release.
 
 The pull request is open and the review is answered in code. Waiting on calef:
 
-1. Replies to tautschnig on #4913, drafted in the lane's report, including whether the
-   `kani_lib.c` link fix goes in this pull request or a follow-up.
-2. The "Something I noticed" paragraph in the pull request body still gives the old cause.
+1. The `kani_lib.c` link fix, promised on #4913 as a follow-up pull request. It is the proposed
+   milestone [riscv64 proofs check against the riscv64
+   model](../design/roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md). Its first
+   finding: nife's riscv64 kernel proofs are linked against the host's model today, with no verdict
+   changed for the seven harnesses that exist.
+2. The pull request body's "Something I noticed" paragraph, if it still gives the old cause.
 3. Still open from before: the `coverage` suite was not rerun. `verify_std_cmd`, undiagnosed in
    September, passed on 2026-10-03 (UTC), so that failure was the loaded machine or a baseline
    since fixed.
