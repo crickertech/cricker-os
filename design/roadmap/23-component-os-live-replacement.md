@@ -127,8 +127,11 @@ warning is a `CALL`. notes/non-cooperative-fallback.md.
 - **Recorded.** A manifest is compiled in rather than shipped beside a binary. The ELF-note manifest
   work, milestone 597 (a program carries its manifest in an ELF note), carries a program's grant
   manifest rather than a component's declaration; notes/component-manifest.md's `BUGS` carries the history.
-- **Milestone 106.** How a supervisor notices a hang is the timed wait,
-  `design/roadmap/106-deadline-wait.md`, NOT-STARTED and behind milestone 263 (can a userspace process hold a timer, on all three architectures?).
+- **Done.** The timed wait a supervisor needs to notice a hang exists: milestone 106 (a wait that
+  ends on either the interrupt or the deadline) is BUILT 2026-09-26. Milestone 263 (can a userspace process hold a timer, on all
+  three architectures) was RECORDED rather than a blocker. No swap supervisor uses it yet:
+  `components/src/swapper.rs` and `terminal_supervisor.rs` hold no deadline wait (checked
+  2026-10-03), which is part of the Outstanding item below.
 - **Outstanding.** What may be done to a component that never cooperates has no answer.
   notes/hung-component.md's finding stands: the stronger right is not merely large but insufficient,
   since a permanently blocked thread never reaches the scheduler to spend the kill a destroy arms.

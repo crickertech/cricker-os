@@ -59,8 +59,8 @@ shrinks with it. Not wired to a key: the scrollback engine is built and host-tes
 sends `Vt::scroll_up`/`scroll_down` from a keystroke yet, which is a small, separate follow-up
 rather than a gap in the engine itself.
 
-2026-09-26, the unblocked remainder (lane `milestone/142-text-display`). §166 is still `PROPOSED`
-and milestone 141 is NOT-STARTED, so increments 3 and 6 stay blocked. What needed neither was
+2026-09-26, the unblocked remainder (lane `milestone/142-text-display`). §166 was still `PROPOSED`
+and milestone 141 was NOT-STARTED, so increments 3 and 6 stayed blocked (141 landed 2026-09-29). What needed neither was
 built:
 
 - Increment 5 is PARTIAL: everything but the faces. A rendition is two `video_terminal::Colour`s
@@ -83,9 +83,10 @@ built:
   atlas produces coverage values. Dim is not one: the linear-light midpoint of white and black is
   sRGB 188, which reads as barely dimmed, so dim stays an sRGB midpoint.
 
-Increments three and six remain NOT-STARTED. Increment 3 is blocked on §166 (the rasteriser
-dependency, and whether the glyph atlas ships one face or four), and increment 6 on milestone 141's
-palette check. See "What is calef's, separated from what is blocking" below.
+Increment 3 remains NOT-STARTED, blocked on §166 (the rasteriser
+dependency, and whether the glyph atlas ships one face or four). Increment 6, the palette, is built
+(checked 2026-10-03, UTC): milestone 141 (a palette worth looking at) is BUILT and
+`crates/video_terminal/src/lib.rs` holds Solarized Dark with entry 14 moved one unit.
 
 In brief, as written at minting (2026-08-20; the status notes above say what has moved since).
 The terminal is 18 columns by 8 rows of a hand-drawn 7x8 bitmap on a 128x64 screen. The ask is a
@@ -585,7 +586,7 @@ are the larger half of "would use it outside a GUI".
    styles; ship the bold, italic and bold-italic faces the widened `Attr` can now name. Retires
    *bold is bright*. The widening and truecolour are built (2026-09-26, see the status note above);
    the faces wait on §166, and *bold is bright* stands until they land.
-6. The palette, once milestone 141's gate exists to say which are admissible.
+6. The palette. Built: milestone 141's gate exists and the Solarized Dark table passes it.
 
 A seventh, listed and not recommended: a glyph service. A component holding the font files and
 serving rendered glyphs, so a program that draws text needs no filesystem authority and no
@@ -602,10 +603,7 @@ Blocking increment three, and only three:
   choice is looking at them, which is how §100 was made and is the only way to make it.
 - Whether four faces or one. Shipping regular alone is a smaller table and a poorer "rich".
 
-Blocking increment six:
-
-- **Which palette**, after milestone 141 lands its check. Solarized Dark Higher Contrast is his
-  proposal and the finding above is what he needs before confirming it.
+Increment six is built: §104 ruled canonical Solarized Dark.
 
 Eventually his and blocking nothing:
 
@@ -696,8 +694,9 @@ Eventually his and blocking nothing:
 - **Outstanding.** Whether the atlas ships one face or four is unanswered. §104 chose the family
   and says nothing about faces, and no other file under `design/decisions/` names the question.
   Checked 2026-09-03.
-- **Milestone 141.** The palette increment still waits on the property check that says which
-  palettes are admissible, and the one-unit nudge §104 flags is unimplemented and unlocated.
+- **Done.** The palette increment: milestone 141 is BUILT 2026-09-29,
+  and the one-unit nudge §104 flagged is in `crates/video_terminal/src/lib.rs` (entry 14, `0x93a1a0`).
+  Whether a nudged palette is still called Solarized is calef's (141's block).
 - **Outstanding.** No rasteriser has been run on either target. The determinism numbers are all
   host measurements and there is no rasteriser crate in the tree, so there is nothing to run on
   aarch64 or riscv64, which is what §46's first rule would want before the dependency is taken.

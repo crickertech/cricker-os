@@ -10,9 +10,9 @@ needs_person: no
 # 207. The four things GitHub asks for, and which of them this project actually wants
 
 Minted 2026-08-31 by calef, from GitHub's Community Standards checklist. The
-pull request template and the issue templates shipped the same day; the code of conduct and the
-content-reports setting are calef's and remain open. *(Number provisional until the merge queue
-lands it.)*
+pull request template and the issue templates shipped the same day, and the code of conduct and
+the content-reports setting were delivered within the week (see `## Follow-on`). One item is left:
+a gate that checks the issue forms render. *(Number provisional until the merge queue lands it.)*
 
 This carried `DECISION` until 2026-09-19 and both things it named had been done
 for weeks, which is recorded here rather than silently fixed. The gate said two policy questions
@@ -152,7 +152,8 @@ project has no third-party contributors.
 - **Done.** Choosing the Covenant version was the work this block said it was, and it was done in
   the same commit: 2.1, three routing forms and a chooser config under `.github/ISSUE_TEMPLATE/`,
   and `.github/pull_request_template.md`.
-- **Outstanding.** Nothing verifies the issue forms render. None of the workflows under
+- **Outstanding.** Nothing verifies the issue forms render, and nothing blocks writing the gate (no
+  decision, person or hardware): it is a lane's work. None of the workflows under
   `.github/workflows/` reads `.github/ISSUE_TEMPLATE/` and no gate under `script/` parses the YAML,
   so a schema mistake surfaces as a broken chooser rather than as a red check. Checked 2026-09-03.
 - **Recorded.** The three routing forms are more work to fill in than an issue elsewhere would be,
@@ -163,12 +164,10 @@ project has no third-party contributors.
 
 Minted by calef on 2026-08-31 from GitHub's Community Standards checklist. Measured: `README`, `CONTRIBUTING` and `LICENSE` present; `CODE_OF_CONDUCT`, issue template and pull request template
 missing. The PR template is the one with a mechanism behind it, making AGENTS.md's required lane
-line a default rather than a thing to remember. The issue template is premature because **issues
-are disabled**, and whether they are a channel at all has never been decided. A code of conduct is
-a commitment rather than a file, and needs an enforcement contact. Content reports are a setting,
-not a file. **Shipped 2026-08-31**: the pull request template, and issue templates that route (a
-bug report asking for the sha, the ISA and how it was run; a feature request that says the outcome
-is a roadmap block; a design argument that says the outcome is a decisions file; a vulnerability
-as a contact link so it is visible before the wrong thing is opened). Blank issues off. The
-premise that issues were premature expired the day it was written, because calef enabled them. **Open**: the code of conduct, which needs an enforcement contact and is a commitment rather than
-a file, and the content-reports setting, which no pull request can deliver.
+line a default rather than a thing to remember. Shipped by 2026-09-03: the pull request template and three routing issue forms. They are a bug
+report asking for the sha, the ISA and how it was run, a feature request whose outcome is a roadmap
+block, and a design argument whose outcome is a decisions file. Also shipped: a vulnerability
+contact link, blank issues off, `CODE_OF_CONDUCT.md` with a named enforcement contact, and the
+content-reports setting. Issues were never premature, because calef enabled them on 2026-08-31.
+Open: nothing checks that the issue forms render, a gate that needs no decision, no person and no
+hardware.
