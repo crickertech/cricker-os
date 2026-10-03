@@ -8,3 +8,6 @@ the note that argues them. The review of the opened pull request is
 [pr-4913-review.md](pr-4913-review.md) (2026-09-30, UTC).
 The follow-up promised on #4913, linking `kani_lib.c` as a precompiled object, is drafted in
 [kani-lib-link-order.md](kani-lib-link-order.md) (2026-10-03, UTC; not posted).
+What is left before #4913 leaves draft, with a patch for its remaining review findings, edits to its
+posted body and a checklist for calef, is [pr-4913-before-ready.md](pr-4913-before-ready.md)
+(2026-10-03, UTC; not posted).

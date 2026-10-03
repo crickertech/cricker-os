@@ -171,8 +171,8 @@ five ways, and each was found by a different lane)'s and is not re-raised here.
   spawner's badge allocation staying inside `B`. It is tied to the §230 (badged endpoint
   capabilities) window model, so tightening
   it to fail closed for an unknown nonzero badge is a §230 question for an architect rather than a
-  lane's fix. Proposed, with options and a recommendation, in
-  [an unknown badge fails closed in subtree_scope](proposals/an-unknown-badge-fails-closed-in-subtree-scope.md).
+  lane's fix. Ruled by calef 2026-10-03 (UTC) and built as
+  milestone 726 (an unknown badge fails closed in subtree_scope), `design/roadmap/726-an-unknown-badge-fails-closed-in-subtree-scope.md`.
   A hardening candidate, not an escape.
 - **Rows 17 and 26 stay unfalsifiable as written**, for the reasons the notes already give. Row 17
   needs a real device re-read. Row 26 needs a non-blocking or timed receive (the syscall surface, so

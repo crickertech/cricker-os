@@ -47,7 +47,7 @@ themselves. The last column is this milestone's result.
 | 22 | An ELF cannot ask to be loaded over the kernel, or for a writable executable page | §15 | `kernel::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`, `..._for_a_writable_executable_page_is_refused` | **yes, two** |
 | 23 | The progenitor cannot rebuild after dropping its construction authority | §26 | `kernel::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again` | **yes, and see below** |
 | 24 | Two shells with different roots cannot name each other's files | §50 | `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files` | **yes, and see below** |
-| 25 | A client cannot reach its neighbour's pixels or read the screen | §66 | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` | **yes, one of its four** |
+| 25 | A client cannot reach its neighbour's pixels or read the screen | §33 (the compositor's authority is memory, not messages) | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` and five more in [compositor-claim-25.md](compositor-claim-25.md) | **yes, six patches, aarch64** |
 | 26 | A client of a rendezvous cannot become its server | §41 | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server` | **no, and see below** |
 | 27 | A thread holding no port capability cannot touch a port, and a holder's ports do not leak across a context switch (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults` | **yes, milestone 313, and see below** |
 | 28 | A revoked port holder faults on its next `in`/`out` (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write` | **yes, milestone 313** |
@@ -454,14 +454,13 @@ carry an assertion that states the claim in the claim's own vocabulary and canno
   `WITNESS_FAR_INTACT` means the store landed instead of faulting, so no death is reported and the
   run stalls at `wait_for_report`. The assertion that prints *"read-only witness intact"* can fire
   for everything except a broken witness.
-- **Row 24.** 305 recorded the relative-path crossing as unreachable. **It is the same for the
+- Row 24. 305 recorded the relative-path crossing as unreachable. **It is the same for the
   absolute-path crossing twenty lines further down**, and for all four `assert_ne!` lines beside the
   two: every one of them restates a bit `assert_report` has already checked in one direction or the
   other. Six assertions, all of them the readable half, none of them able to run.
 - Row 25. The two `assert_eq!(sched::rendezvous_waiting_senders(..), 0)` lines, whose messages
   read *"the write did not fault"* and *"a client read a pixel of the screen it holds no mapping
-  of"*, sit below a `wait_for` on the fault counter that catches exactly that defect two seconds
-  earlier. The quotable assertion for row 25 is the fault wait itself, and that one fires.
+  of"*, sit below a `wait_for` on the fault counter that catches that defect first. The fault wait fires.
 
 ### Two limits the sweep found that are not assertion order
 
@@ -654,13 +653,13 @@ capability would let it) answers. |
   it on every pull request that can reach it. A kernel record costs a boot, so it is re-checked only
   by a full `--sweep`, which nobody runs per commit, and only on the architecture its patch names.
   Both limits are in `script/falsifications`' own `BUGS`. Read the "Falsified" column accordingly: a
-  yes on a kernel row is a machine-replayable fact that nothing replays on a schedule.
+  **yes** on a kernel row is a machine-replayable fact that nothing replays on a schedule.
 - This table is a floor and its own worst failure is invisible. It cannot list the claim
   nobody made. Every row here was found by reading what this project already wrote, so the
   enumeration inherits exactly the blind spots the tests have. §31's `BUGS` and
   `design/fatal-risks/README.md` both say the decisive experiment is adversarial and by somebody else;
   this is not that, and calef's position gates outside eyes behind milestone 198.
-- **A recorded falsification proves the harness catches *that* defect, not the class.** The
+- A recorded falsification proves the harness catches *that* defect, not the class. The
   `the_view_and_the_reap_have_the_same_scope` record carries a prediction that was measured
   false: its defect was claimed to be caught by that harness alone and it also reaches
   `reap_is_permitted_only_to_the_supervising_rendezvous`. Both the prediction and its correction
