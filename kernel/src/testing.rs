@@ -641,9 +641,17 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// timetable's region (32 -> 48 stack pages, `timetable::contract`'s own account). Measured on
 /// riscv64 `sifive-u54`, the lower ISA of the pair as usual.
 ///
+/// **`24_861` (2026-10-02, UTC): the timetable's staging buffer doubled to 128 KiB.** Store mode
+/// refused `least_authority_demo` on aarch64 (71,664 bytes against 64 KiB; riscv64's is 12,184),
+/// which is why the re-derive test failed there and not on riscv64. The buffer is `.bss` in the
+/// timetable's region, so `login_protocol::durable::SESSION_BUDGET_PAGES` rose 400 -> 416, and two
+/// `login`s the suite never tears down each carry one durable budget: +32. Added by arithmetic for
+/// riscv64: 24829 + 32. A full local aarch64 `script/test` after the change read **24715**, the
+/// re-derive test **5412** of it, so aarch64 is the lower of the pair this time.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 24_829;
+const SUITE_PAGE_FRAME_BUDGET: usize = 24_861;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///

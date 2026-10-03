@@ -197,7 +197,7 @@
 //!   grants, and a store-mode timetable holds no directory to narrow into a grant, so a line that
 //!   designates a file or directory is planned unbacked. The system log proposed on #1423 is the
 //!   intended grant: an entry would grant "append to the log".
-//! - **Store mode loads programs of up to `timetable::contract::STAGING_BYTES`** (64 KiB) and
+//! - **Store mode loads programs of up to `timetable::contract::STAGING_BYTES`** (128 KiB) and
 //!   refuses a document naming a larger one, the same way it refuses one naming a program that is
 //!   not installed (`registration::STATUS_NO_IMAGE`). The page does not say which of those it was.
 //! - **With a registrar, a fire failure is only an exit code.** "The budget cannot back one

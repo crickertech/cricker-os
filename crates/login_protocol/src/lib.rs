@@ -601,9 +601,11 @@ pub mod durable {
     /// caretaker's region. Measured for the process on aarch64's debug build on 2026-09-26 at 192
     /// with room to spare. Provisional.
     pub const SESSION_REGION_PAGES: u64 = 192 + 2 * 64;
-    /// **What a durable session process builds its timetable from**: the timetable's region (240)
-    /// and its jobs' budget (128), with room for two endpoints. Provisional.
-    pub const SESSION_BUDGET_PAGES: u64 = 400;
+    /// **What a durable session process builds its timetable from**: the timetable's region (272,
+    /// `session.rs`'s `TIMETABLE_REGION_PAGES`) and its jobs' budget (128), with room for two
+    /// endpoints. 400 -> 416 on 2026-10-02 (UTC), for the timetable's staging buffer growing to
+    /// 128 KiB. Provisional.
+    pub const SESSION_BUDGET_PAGES: u64 = 416;
     /// **One durable session's whole budget**: the client's own, the session process's region, and
     /// what it builds from. `login` splits this many pages per durable session, and its spawner
     /// sizes `login`'s construction budget with it. Provisional.
