@@ -3652,6 +3652,21 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
 /// `abi::rendezvous::NO_CAP`; kept here too so the scheduler names it without reaching into the ABI.
 const NO_CAP: u64 = u64::MAX;
 
+/// **The `x4` a receive returns for a `CALL` whose Reply landed at `slot`** (milestone 706 (a
+/// `CALL` server can tell a Reply from a delegation), DECISIONS §245 (a `CALL` server tells a Reply
+/// from a delegation)): `abi::rendezvous::REPLY_DELIVERED` when the Reply was installed, `0` when
+/// the receiver's table was full and there is no Reply to name. Written only on the two paths a
+/// `CALL` reaches a receiver (`ipc_call_badged`'s rendezvous and `ipc_recv_cap`'s collect of a
+/// parked caller), so a `SEND_CAP` delegation, which reaches the same `x1`, never carries it.
+#[inline(always)]
+fn reply_tag(slot: u64) -> u64 {
+    if slot == NO_CAP {
+        0
+    } else {
+        abi::rendezvous::REPLY_DELIVERED
+    }
+}
+
 /// **Delegate a capability plus one data word to an rendezvous.** The sender's half of a
 /// capability-carrying rendezvous, mirroring [`ipc_send`]. The one thing it adds: at the moment
 /// sender and receiver meet, `cap` moves out of the sender and into the receiver's capability table.
@@ -3778,8 +3793,10 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
                     }
                     // x0 = word0, x1 = the delivered slot, x2 = word1 (a CALL's second word; 0 for a plain
                     // SEND_CAP, whose sender parked mailbox[1] = 0), x3 = the sender's badge (msg[3],
-                    // milestone 599), x4 = 0: not a bound delivery (milestone 151).
-                    Some([msg[0], slot, msg[1], msg[3], 0])
+                    // milestone 599), x4 = REPLY_DELIVERED iff x1 is this caller's Reply (milestone
+                    // 706), else 0. Never BOUND: that is the arm above.
+                    let tag = if is_reply { reply_tag(slot) } else { 0 };
+                    Some([msg[0], slot, msg[1], msg[3], tag])
                 }
                 inter_process_communication::Recv::Blocked => {
                     let me = sched.threads.get_mut(current).unwrap();
@@ -3807,8 +3824,9 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
             );
             // The whole mailbox: RECV_CAP's three words, the sender's badge at m[3] (milestone 599),
             // and `w4`, which is `abi::notification::BOUND` when the bound notification ended this
-            // receive and `0` for every delivery a sender or the kernel's death path makes
-            // (milestone 151).
+            // receive, `abi::rendezvous::REPLY_DELIVERED` when a CALL's Reply was installed
+            // (milestone 706, written by `ipc_call_badged`), and `0` for every other delivery a
+            // sender or the kernel's death path makes (milestone 151).
             // **x1 is NO_CAP unless a capability was installed for this delivery** (milestone 634,
             // fatal risk 7). A plain SEND that reached us parked drops its three words straight into
             // the mailbox, so m[1] is the sender's chosen word; returning it would hand a sender a
@@ -3897,7 +3915,9 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
                 let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
                 // Word 3 is the caller's badge (milestone 599): the same store as before with a
                 // value instead of a zero, so the server's RECV_CAP surfaces which client called.
-                r.mailbox = [msg[0], slot, msg[1], badge, 0];
+                // Word 4 says x1 is a Reply (milestone 706), which only this path and the collect
+                // in `ipc_recv_cap` may say; a SEND_CAP's delivery leaves it 0.
+                r.mailbox = [msg[0], slot, msg[1], badge, reply_tag(slot)];
                 // A Reply capability was installed, so RECV_CAP's x1 is a real slot (milestone 634).
                 r.cap_delivered = true;
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate

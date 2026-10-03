@@ -914,10 +914,13 @@ pub fn serve_with_state(
     loop {
         let mut since = 0u64;
         loop {
-            let (op, slot, arg) = user_mode_runtime::recv_cap(SVC);
-            if slot == abi::rendezvous::NO_CAP {
+            let req = user_mode_runtime::recv_request(SVC);
+            let (op, arg) = (req.w0, req.w1);
+            // Only a CALL is answered; a SEND_CAP's capability is deleted (milestone 706 (a `CALL`
+            // server can tell a Reply from a delegation)).
+            let Some(slot) = req.delivered.into_reply() else {
                 continue;
-            }
+            };
             match op {
                 OP_PUT => {
                     log_put(log_base + arg, version);
@@ -990,10 +993,13 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
 
     let mut served = 0u64;
     loop {
-        let (op, slot, arg) = user_mode_runtime::recv_cap(SVC);
-        if slot == abi::rendezvous::NO_CAP {
-            continue; // a plain SEND slipped in; the contract says CALL, and there is nobody to answer
-        }
+        let req = user_mode_runtime::recv_request(SVC);
+        let (op, arg) = (req.w0, req.w1);
+        // A plain SEND or a SEND_CAP slipped in; the contract says CALL, and there is nobody to
+        // answer. A delegated capability is deleted rather than answered into (milestone 706).
+        let Some(slot) = req.delivered.into_reply() else {
+            continue;
+        };
         match op {
             // **Stop answering, without dying** (milestone 23's third residual,
             // notes/hung-component.md). Everything a supervisor in this tree can notice is a

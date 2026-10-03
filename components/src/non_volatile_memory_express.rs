@@ -138,11 +138,10 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use abi::rendezvous;
 use filesystem_protocol::blk;
 use non_volatile_memory_express::{Command, Completion, CqState, Doorbell, Handoff, SqState};
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{exit, recv_cap, reply, send};
+use user_mode_runtime::{exit, recv_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/non_volatile_memory_express_service.rs`.
 const REQ: u64 = 0;
@@ -381,11 +380,14 @@ pub extern "C" fn _start(arg0: u64, arg1: u64, arg2: u64) -> ! {
 /// which kind of disk is underneath.
 fn serve(mut plane: Plane) -> ! {
     loop {
-        let (w0, reply_cap, block) = recv_cap(REQ);
-        if reply_cap == rendezvous::NO_CAP {
-            // A plain SEND on a CALL-only contract: nothing to answer.
+        let req = recv_request(REQ);
+        let (w0, block) = (req.w0, req.w1);
+        let Some(reply_cap) = req.delivered.into_reply() else {
+            // A plain SEND or a SEND_CAP on a CALL-only contract: nothing to answer, and a
+            // delegation is deleted rather than answered into (milestone 706 (a `CALL` server can
+            // tell a Reply from a delegation)).
             continue;
-        }
+        };
         // **Clamp**, the defence the virtio block server states at the same line: every caller
         // today sends at most `TRANSFER_BLOCKS` because the field cannot encode more, and a
         // request is never trusted to stay inside the region it shares just because the packing

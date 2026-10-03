@@ -2461,3 +2461,8 @@ mod tests {
         );
     }
 }
+
+// Machine-checked proofs (Kani). Behind `#[cfg(kani)]`, so an ordinary build or test never sees
+// them; `script/verify` runs them.
+#[cfg(kani)]
+mod proofs;

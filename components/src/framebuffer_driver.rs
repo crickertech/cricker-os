@@ -75,7 +75,7 @@
 use graphics_protocol as gfx;
 use screen_console::Aperture;
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{exit, recv_cap, reply, send};
+use user_mode_runtime::{exit, recv_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/display_service.rs`.
 const REPORT: u64 = 0;
@@ -138,7 +138,11 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
     );
 
     loop {
-        let (w0, reply_slot, _) = recv_cap(DISPLAY);
+        // A CALL's Reply, or nothing to answer (milestone 706 (a `CALL` server can tell a Reply
+        // from a delegation)): a client's SEND_CAP is deleted rather than answered into.
+        let req = recv_request(DISPLAY);
+        let w0 = req.w0;
+        let reply_slot = req.delivered.into_reply();
         let (r0, r1): (i64, u64) = match gfx::op(w0) {
             // The runtime half of the geometry contract: the part of the screen the surface
             // covers, which is what a client should lay its grid out over. It is never larger
@@ -166,7 +170,9 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
             }
             _ => (gfx::EINVAL, 0),
         };
-        reply(reply_slot, r0 as u64, r1);
+        if let Some(to) = reply_slot {
+            reply(to, r0 as u64, r1);
+        }
     }
 }
 

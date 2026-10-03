@@ -69,7 +69,7 @@ use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::virtio::{
     virtio_notify, virtio_read_reg, virtio_ring_barrier, virtio_setup_queue, virtio_write_reg,
 };
-use user_mode_runtime::{exit, irq_ack, irq_wait, recv_cap, reply, send};
+use user_mode_runtime::{exit, irq_ack, irq_wait, recv_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/display_service.rs`.
 const REPORT: u64 = 0;
@@ -565,10 +565,14 @@ pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
     loop {
         // The opcode AND the damage rectangle both ride in the first word (`gfx::req` packs the
         // rectangle into its low 56 bits), so a flush is one message with no second word to keep in
-        // step. `recv_cap`'s third value is the caller's second word, which this contract does not
+        // step. The request's `w1` is the caller's second word, which this contract does not
         // use; reading the rectangle out of it instead of out of `w0` was the first bug this test
         // caught, and it presented as a flush refused for an empty rectangle.
-        let (w0, reply_slot, _) = recv_cap(DISPLAY);
+        // A CALL's Reply, or nothing to answer: a client's SEND_CAP is deleted rather than
+        // answered into (milestone 706 (a CALL server can tell a Reply from a delegation)).
+        let req = recv_request(DISPLAY);
+        let w0 = req.w0;
+        let reply_slot = req.delivered.into_reply();
         let r0: i64 = match gfx::op(w0) {
             gfx::display::INFO => {
                 // The runtime half of the geometry contract. The reply's second word carries it, so
@@ -585,7 +589,9 @@ pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
             gfx::display::INFO => gfx::WIDTH as u64 | ((gfx::HEIGHT as u64) << 32),
             _ => 0,
         };
-        reply(reply_slot, r0 as u64, r1);
+        if let Some(to) = reply_slot {
+            reply(to, r0 as u64, r1);
+        }
 
         // **The driver-side witness**, once, after the first successful flush. The digest is taken
         // in this address space, from our own mapping of the surface, after the device reported the

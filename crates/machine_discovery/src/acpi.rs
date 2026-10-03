@@ -2829,4 +2829,159 @@ mod tests {
         body[DMAR_FIXED_LEN + 5] = 0xf3; // bits 7:4 are reserved and ignored
         assert_eq!(DmarUnits::parse(&body).units()[0].register_size, 8 * 4096);
     }
+
+    // ---- survivor triage of the 2026-10-03 census ---------------------------------------------
+
+    /// A structure of the smallest legal length (4: a type and a length) is skipped, and what comes
+    /// after it is still read. A structure that claims more bytes than the table has ends the walk
+    /// instead of slicing past it.
+    #[test]
+    fn dmar_walks_past_a_four_byte_structure_and_stops_at_one_that_overruns() {
+        let tiny = [5u8, 0, 4, 0];
+        let body = dmar(&[tiny.to_vec(), drhd(1, 0xfed9_1000, &[])]);
+        let u = DmarUnits::parse(&body);
+        assert_eq!(u.units().len(), 1);
+        assert_eq!(u.units()[0].register_base, 0xfed9_1000);
+
+        let mut body = dmar(&[drhd(1, 0xfed9_1000, &[])]);
+        body.extend_from_slice(&[5, 0, 100, 0]);
+        let u = DmarUnits::parse(&body);
+        assert_eq!(u.units().len(), 1);
+    }
+
+    /// A DRHD or RMRR too short to hold its fixed part is not read as one. Reading it would index
+    /// past what the table gave.
+    #[test]
+    fn a_dmar_structure_shorter_than_its_fixed_part_is_ignored() {
+        let body = dmar(&[
+            [0u8, 0, 4, 0].to_vec(),
+            [1u8, 0, 4, 0].to_vec(),
+            drhd(1, 0xfed9_1000, &[]),
+        ]);
+        let u = DmarUnits::parse(&body);
+        assert_eq!(u.units().len(), 1);
+        assert_eq!(u.reserved_regions().len(), 0);
+    }
+
+    /// The same for the MADT's three ARM kinds: a GICC, a distributor and a redistributor that stop
+    /// after their header come back as `Other`.
+    #[test]
+    fn a_short_arm_madt_entry_is_other_and_not_read() {
+        for kind in [11u8, 12, 14] {
+            let mut body = std::vec![0u8; MADT_FIXED_LEN];
+            body.extend_from_slice(&[kind, 4, 0, 0]);
+            let got: std::vec::Vec<_> = madt_entries(&body).collect();
+            assert_eq!(got, std::vec![MadtEntry::Other(kind)], "kind {kind}");
+        }
+    }
+
+    /// A GICC's flags word: bit 0 is enabled and bit 1 is online-capable, and each is its own.
+    #[test]
+    fn a_gicc_reads_enabled_and_online_capable_separately() {
+        let mut body = std::vec![0u8; MADT_FIXED_LEN];
+        let mut e = std::vec![0u8; 16];
+        e[0] = 11;
+        e[1] = 16;
+        e[12] = 2;
+        body.extend_from_slice(&e);
+        match madt_entries(&body).next() {
+            Some(MadtEntry::GenericInterruptController {
+                enabled,
+                online_capable,
+                ..
+            }) => assert!(!enabled && online_capable),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// A scope's path is bounded on both sides: none is nothing, four is the longest, and what
+    /// `parse` records and `resolve` reads agree on where the limit is.
+    #[test]
+    fn a_scope_path_resolves_up_to_its_limit_and_no_further() {
+        let mut s = DeviceScope {
+            start_bus: 3,
+            ..DeviceScope::default()
+        };
+        let direct = &mut |bus: u8, _: u8, _: u8| Some((bus + 1, 0));
+        assert_eq!(s.resolve(direct), None, "an empty path names nothing");
+        s.path_len = MAX_SCOPE_PATH as u8;
+        for (i, hop) in s.path.iter_mut().enumerate() {
+            *hop = (i as u8, 0);
+        }
+        // Three bridges are crossed (3 -> 4 -> 5 -> 6) and the last hop is the device on bus 6.
+        assert_eq!(s.resolve(direct), Some((6, MAX_SCOPE_PATH as u8 - 1, 0)));
+        s.path_len = MAX_SCOPE_PATH as u8 + 1;
+        assert_eq!(s.resolve(direct), None);
+    }
+
+    /// A scope list is read hop by hop and keeps everything it was given: the starting bus, the
+    /// path at every depth, and a path exactly as long as the limit.
+    #[test]
+    fn a_scope_keeps_its_start_bus_and_every_hop() {
+        let path = [(0x1d, 3), (5, 7), (9, 11), (13, 15)];
+        let u = DmarUnits::parse(&dmar(&[drhd(
+            1,
+            0xfed9_1000,
+            &[&scope(SCOPE_PCI_ENDPOINT, 0x09, &path)],
+        )]));
+        assert!(!u.truncated);
+        assert_eq!(u.scope_count, 1);
+        assert_eq!(u.scopes[0].start_bus, 0x09);
+        assert_eq!(u.scopes[0].path_len as usize, MAX_SCOPE_PATH);
+        assert_eq!(u.scopes[0].path, path);
+    }
+
+    /// A scope with no hops, or with one more than the limit, is marked and not recorded, and the
+    /// entries after it are still read.
+    #[test]
+    fn a_scope_with_no_hops_or_too_many_is_marked_and_the_list_goes_on() {
+        let good = scope(SCOPE_PCI_ENDPOINT, 0, &[(2, 0)]);
+        for bad in [
+            scope(SCOPE_PCI_ENDPOINT, 0, &[]),
+            scope(
+                SCOPE_PCI_ENDPOINT,
+                0,
+                &[(1, 0), (2, 0), (3, 0), (4, 0), (5, 0)],
+            ),
+        ] {
+            let u = DmarUnits::parse(&dmar(&[drhd(1, 0xfed9_1000, &[&bad, &good])]));
+            assert!(u.truncated);
+            assert_eq!(u.scope_count, 1, "only the good one is kept");
+            assert_eq!(u.scopes[0].path[0], (2, 0));
+        }
+    }
+
+    /// The FADT's ARM boot flags and its reset register sit at the offsets ACPI states (129, 112,
+    /// 116 and 128), less the 36-byte header the body does not carry. PSCI and HVC are separate bits.
+    #[test]
+    fn the_fadt_fields_are_read_from_the_offsets_acpi_states() {
+        let mut body = std::vec![0u8; 129 - SDT_HEADER_LEN + 2];
+        body[129 - SDT_HEADER_LEN] = 0b10;
+        let boot = parse_arm_boot(&body).unwrap();
+        assert!(!boot.psci && boot.hvc, "flags 0b10 is HVC without PSCI");
+        body[129 - SDT_HEADER_LEN] = 0b01;
+        let boot = parse_arm_boot(&body).unwrap();
+        assert!(boot.psci && !boot.hvc);
+
+        let mut fadt = std::vec![0u8; 129 - SDT_HEADER_LEN];
+        let flags = 112 - SDT_HEADER_LEN;
+        fadt[flags..flags + 4].copy_from_slice(&(1u32 << 10).to_le_bytes());
+        let reg = 116 - SDT_HEADER_LEN;
+        fadt[reg] = 1;
+        fadt[reg + 1] = 8;
+        fadt[reg + 4..reg + 12].copy_from_slice(&0xcf9u64.to_le_bytes());
+        fadt[128 - SDT_HEADER_LEN] = 0x06;
+        let r = parse_fadt_reset(&fadt).expect("RESET_REG_SUP is set");
+        assert_eq!(
+            (r.space, r.bit_width, r.address, r.value),
+            (ResetSpace::Io, 8, 0xcf9, 0x06)
+        );
+    }
+
+    /// The GTDT interrupt flags are the bits ACPI numbers: bit 0 edge, bit 1 active low.
+    #[test]
+    fn the_gtdt_flag_bits_are_the_ones_acpi_numbers() {
+        assert_eq!(GTDT_EDGE_TRIGGERED, 0b01);
+        assert_eq!(GTDT_ACTIVE_LOW, 0b10);
+    }
 }

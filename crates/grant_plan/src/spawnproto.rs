@@ -1013,4 +1013,29 @@ mod tests {
         assert!(w.dir);
         assert!(w.dir2);
     }
+
+    /// The replies a spawn can make are one family near the top of the word, each its own value,
+    /// and none of them is a thing a child could report as its own result.
+    #[test]
+    fn the_spawn_sentinels_are_distinct_values_at_the_top_of_the_word() {
+        let all = [
+            SPAWN_FAILED,
+            JOB_FAULTED,
+            SPAWN_UNVOUCHED,
+            SPAWN_REFUSED_BY_MANIFEST,
+        ];
+        for (i, a) in all.iter().enumerate() {
+            assert!(*a > u64::MAX - 8, "{a:#x}");
+            for b in &all[i + 1..] {
+                assert_ne!(a, b);
+            }
+        }
+        assert_eq!(SPAWN_OK, 0);
+    }
+
+    /// The shell's budget is its own 128 pages and one image's staging frames.
+    #[test]
+    fn the_shell_budget_is_its_windows_and_one_staged_image() {
+        assert_eq!(SHELL_BUDGET_PAGES, 128 + IMAGE_MAX_PAGES);
+    }
 }

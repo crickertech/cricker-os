@@ -61,7 +61,6 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use abi::rendezvous;
 use network_time_protocol::{Packet, Short, Timestamp, leap, mode};
 // The socket contract, verbatim from the file `net_stack` compiles, so this server and the client
 // cannot drift from the real server's idea of the wire format. The TCP half is dead here and is
@@ -70,7 +69,7 @@ use network_time_protocol::{Packet, Short, Timestamp, leap, mode};
 #[allow(dead_code)]
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{cap_delete, map_page_frame, recv_cap, reply, send};
+use user_mode_runtime::{Delivered, cap_delete, map_page_frame, recv_request, reply, send};
 
 // =================================================================================================
 // The slots, and the one word this program reports.
@@ -132,14 +131,24 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
     let mut reported = false;
 
     loop {
-        let (w0, cap, w1) = recv_cap(STACK);
-        match req_op(w0) {
+        let req = recv_request(STACK);
+        let (w0, w1) = (req.w0, req.w1);
+        // net_stack's own split (milestone 706 (a `CALL` server can tell a Reply from a
+        // delegation)): ATTACH takes a delegation, every other op a Reply.
+        let cap = match req.delivered {
             // A SEND_CAP: the client's shared frame, which we map for ourselves and then drop the
             // capability for, because the mapping outlives it. No reply; nobody is waiting.
-            OP_ATTACH_PAGE_FRAME => {
-                map_page_frame(cap, PAGE_FRAME_VA, true, MEMORY_REGION);
-                cap_delete(cap);
+            Delivered::Delegation(frame) if req_op(w0) == OP_ATTACH_PAGE_FRAME => {
+                map_page_frame(frame, PAGE_FRAME_VA, true, MEMORY_REGION);
+                cap_delete(frame);
+                continue;
             }
+            other => other.into_reply(),
+        };
+        let Some(cap) = cap else {
+            continue;
+        };
+        match req_op(w0) {
             OP_OPEN_UDP | OP_OPEN_TCP => {
                 reply(cap, REP_OK, 0);
             }
@@ -173,9 +182,7 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
                 reply(cap, REP_OK, 0);
             }
             _ => {
-                if cap != rendezvous::NO_CAP {
-                    reply(cap, REP_ERR, 0);
-                }
+                reply(cap, REP_ERR, 0);
             }
         }
     }
