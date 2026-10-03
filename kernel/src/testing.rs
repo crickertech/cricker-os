@@ -589,7 +589,7 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// scanout` 594 against 505 (one). That is 267 of the suite's 273-frame rise (22367 to 22640); the
 /// rest is one or two frames scattered across tests that do not touch a terminal. riscv64 rose by
 /// the same amount, 22226 to 22502. It is a design cost of the wider cell rather than a leak: those
-/// terminals are left running the way the graphical boot leaves its own. Measured against that
+/// terminals are left running the way a `graphical_terminal` session leaves its own. Measured against that
 /// branch's own base rather than the merged tree: 22640 + 32 = 22672.
 ///
 /// **Reconciled on the merge, 2026-09-26.** Milestone 142's branch and milestone 599's file-service
