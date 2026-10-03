@@ -44,8 +44,6 @@ Each week is read from its own commit, so 2026W39 is the first correction, alrea
 
 ![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
 
-Grey is no verdict yet.
-
 ## Kani proof harnesses, and what can falsify them
 
 ![Kani proof harnesses](project-metrics/harnesses.svg)
