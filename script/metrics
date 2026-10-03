@@ -1581,7 +1581,10 @@ def fatal_risks_colors(tree):
     prose = _summary_colours(summary) if summary else {}
     if from_frontmatter:
         for risk in sorted(from_frontmatter):
-            if risk in prose and from_frontmatter[risk] != prose[risk]:
+            # A status line with no colour word reads as None, and `none` is the frontmatter's
+            # spelling of that same state, so the two compare equal rather than failing every risk
+            # without a verdict.
+            if risk in prose and from_frontmatter[risk] != (prose[risk] or 'none'):
                 raise SystemExit('metrics: risk %d\'s appendix frontmatter says %s and the '
                                  'summary\'s status line says %s; the frontmatter is the '
                                  'machine-read surface of that line, so one of them is wrong'
