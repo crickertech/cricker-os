@@ -77,8 +77,8 @@ jobs:
       # never ran would show a green nothing instead.
       #
       # The identity is the nifeos automation App's installation token, minted fresh each run
-      # (milestone 128). The personal access token this job used before was retired 2026-10-03 UTC,
-      # pending revocation by calef.
+      # (milestone 128, the automation gets its own identity). The personal access token this job
+      # used before was retired 2026-10-03 UTC, pending revocation by calef.
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:

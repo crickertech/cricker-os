@@ -222,7 +222,7 @@ jobs:
       # silently every day.
       #
       # The fix is to act as an identity that is not the ephemeral `GITHUB_TOKEN`. Two such
-      # identities are tried, in this order (milestone 128, the automation gets its own identity):
+      # identities are tried, in this order, per milestone 128 (the automation gets its own identity):
       #
       #   1. **An installation token from the `nifeos`-owned GitHub App**, minted fresh by the
       #      step below on every run. Nothing about it is stored, so nothing about it expires, and
