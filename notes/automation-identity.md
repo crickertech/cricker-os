@@ -219,7 +219,7 @@ Once, by an owner of the `nifeos` organization.
     not visible to the job: check the names, and check that the organization secrets list `nife`
     among the repositories that may read them.
 
-12. **Done 2026-10-03 UTC in the workflows.** `toolchain-bump.yml`, `metrics.yml` and
+12. Done 2026-10-03 UTC in the workflows. `toolchain-bump.yml`, `metrics.yml` and
     `vendor-watch.yml` no longer read `TOOLCHAIN_BUMP_PAT`. What remains is calef's: delete the
     secret, then revoke the PAT itself, in that order:
 
