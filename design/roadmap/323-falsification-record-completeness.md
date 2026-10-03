@@ -119,7 +119,10 @@ question that wants one.
    the sweep summed the selections, so a record red only under firmware read as stale; it now counts
    distinct tests. And `port_holder_transmits_then_a_non_holder_faults` is exactly that record: its defect stays
    green on the direct boot and goes red only under real firmware, at `x86_port_tests.rs:221`. The
-   patch now says so.
+   patch now says so. The cause, measured 2026-10-03 by lane `x86-port-falsification-split`: the
+   direct boot runs two cores, the per-core TSS bitmap kept the holder's grant on cpu 0, and the
+   non-holder ran on cpu 1. The test now puts its non-holder's `out` on the holder's core and the
+   record is red on both boots (`x86_port_tests.rs:270`).
 
 4. A record does not say which assertion it expects to fire, so a patch that turns a test red for
    the wrong reason is indistinguishable from one that works. Milestone 307 swept all 26 rows of
