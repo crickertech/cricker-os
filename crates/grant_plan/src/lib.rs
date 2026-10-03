@@ -6773,4 +6773,124 @@ mod tests {
         // And a first ^C after a long quiet run is still cooperative.
         assert_eq!(e.on_interrupt(), Action::Cooperative);
     }
+
+    // ---- survivor triage of the 2026-10-03 census ---------------------------------------------
+
+    /// The const-evaluated checks the program table leans on, run on the cases they exist to refuse.
+    #[test]
+    fn duplicate_ids_and_names_are_found_wherever_they_sit() {
+        assert!(all_distinct_ids(&[]) && all_distinct_ids(&[7]) && all_distinct_ids(&[1, 2, 3]));
+        assert!(!all_distinct_ids(&[1, 1]));
+        assert!(!all_distinct_ids(&[1, 2, 1]));
+        assert!(!all_distinct_ids(&[1, 2, 3, 3]));
+        assert!(all_distinct_names(&["a", "b", "ab"]));
+        assert!(!all_distinct_names(&["a", "a"]));
+        assert!(!all_distinct_names(&["a", "b", "a"]));
+        assert!(!all_distinct_names(&["a", "b", "c", "c"]));
+    }
+
+    #[test]
+    fn same_bytes_is_equality_of_length_and_every_byte() {
+        assert!(same_bytes(b"", b""));
+        assert!(same_bytes(b"ab", b"ab"));
+        assert!(!same_bytes(b"ab", b"ac"));
+        assert!(!same_bytes(b"ab", b"abc"));
+        assert!(!same_bytes(b"abc", b"ab"));
+        assert!(!same_bytes(b"ba", b"aa"));
+    }
+
+    /// An option set is at most sixteen distinct letters or digits, and sixteen is allowed.
+    #[test]
+    fn an_option_set_may_hold_exactly_its_maximum_and_no_repeat() {
+        let sixteen = b"abcdefghijklmnop";
+        assert_eq!(sixteen.len(), MAX_DECLARED_FLAGS);
+        assert!(Flags::try_new(sixteen).is_some());
+        assert!(Flags::try_new(b"abcdefghijklmnopq").is_none());
+        assert!(Flags::try_new(b"aa").is_none());
+        assert!(Flags::try_new(b"aba").is_none());
+        assert!(Flags::try_new(b"ab").is_some());
+        assert!(Flags::try_new(b"a-").is_none());
+    }
+
+    /// What an image can carry in the `std` layout: bytes out, nothing a `std` layout cannot hold.
+    /// Each variant takes away one allowance and is refused for that alone.
+    #[test]
+    fn a_std_image_is_refused_for_each_thing_its_layout_cannot_hold() {
+        let ok = Manifest {
+            output: OutputSpec::Bytes,
+            ..UNVOUCHED_STD_MANIFEST
+        };
+        assert!(image_can_carry(&ok), "the baseline must be carriable");
+        assert!(!image_can_carry(&Manifest {
+            output: OutputSpec::Words,
+            ..ok
+        }));
+        assert!(!image_can_carry(&Manifest {
+            mem: Prog::MemoryGrantDepleter.manifest().mem,
+            ..ok
+        }));
+        assert!(!image_can_carry(&Manifest { domain: true, ..ok }));
+        assert!(!image_can_carry(&Manifest {
+            network: true,
+            ..ok
+        }));
+    }
+
+    /// The `std` unvouched manifest is in the `std` layout, which is what makes it that manifest.
+    #[test]
+    fn the_std_unvouched_manifest_is_a_std_manifest() {
+        assert_eq!(UNVOUCHED_STD_MANIFEST.runtime, Runtime::Std);
+        assert_eq!(UNVOUCHED_MANIFEST.runtime, Runtime::Native);
+    }
+
+    /// A file's region is the image's own pages and the runtime's region, added.
+    #[test]
+    fn an_image_region_is_its_pages_plus_its_runtimes() {
+        assert_eq!(STD_REGION_PAGES, 384);
+        assert_eq!(image_region_pages(10, Runtime::Std, 99), 10 + 384);
+        assert_eq!(image_region_pages(10, Runtime::Native, 99), 10 + 99);
+        assert_eq!(image_region_pages(0, Runtime::Native, 0), 0);
+    }
+
+    #[test]
+    fn a_quoted_word_is_known_by_its_position_and_the_last_slot_is_readable() {
+        let spec = parse_run(b"rm \"a\" b c d");
+        assert!(spec.is_quoted(0));
+        assert!(!spec.is_quoted(1));
+        assert!(
+            !spec.is_quoted(MAX_POSITIONALS),
+            "past the end was not quoted"
+        );
+    }
+
+    #[test]
+    fn a_second_tree_remembers_where_it_is_mounted() {
+        let mut at = nav::Cwd::root();
+        assert!(at.descend(b"second"));
+        let second = SecondDir::mounted_at(at).expect("not the root");
+        assert_eq!(second.mount(), at);
+        assert!(SecondDir::mounted_at(nav::Cwd::root()).is_none());
+    }
+
+    /// A line of words is taken while the page holds it. Each word costs its bytes and a four-byte
+    /// prefix, so the line that fills the page exactly is taken and one byte more is not.
+    #[test]
+    fn a_line_that_exactly_fills_the_argument_page_is_taken() {
+        let cap = argument_protocol::CAPACITY;
+        let word = |n: usize| {
+            let mut line = [b'a'; 8192];
+            line[..n].fill(b'a');
+            line
+        };
+        let exact = word(cap - 4);
+        assert_eq!(check_words(&exact[..cap - 4]), Ok(()));
+        assert_eq!(
+            check_words(&exact[..cap - 3]),
+            Err(Refusal::ArgumentsTooLong)
+        );
+        // The cost is bytes plus four, not four times the bytes: two 1,100-byte words fit.
+        let mut two = [b'a'; 2201];
+        two[1100] = b' ';
+        assert_eq!(check_words(&two), Ok(()));
+    }
 }

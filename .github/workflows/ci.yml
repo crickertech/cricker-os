@@ -160,6 +160,14 @@ concurrency:
 # (instruction counts to one tick, identical footprint and frame output, the same 3,067 host tests).
 # Caches cannot cross: `Swatinem/rust-cache` keys on the host, and the QEMU cache key carries
 # `runner.arch`.
+# **Every job below has a wall-time budget of 20 minutes** (milestone 721 (each merge-group CI job
+# has a 20-minute budget), provisional; calef ruled
+# the number 2026-10-03 UTC). The first step records the start and the last, `if: always()`, runs
+# `helpers/job-budget.py check`, which warns at 15 minutes and fails above 20 unless
+# `.github/ci-job-budgets` raises that job's budget with a reason. `timeout-minutes` is at most the
+# budget plus five. The reason is 2026-09-30: the long job sat at its 45-minute bound 29 times and
+# only notes landed for 18 hours, because raising a bound was one line that cost nothing.
+# `script/lint` fails a job added without the two steps.
 jobs:
   # **The live draft state, read once, because the event payload's copy is a snapshot that has been
   # wrong.** Every job below used to test `github.event.pull_request.draft` straight out of the
@@ -230,6 +238,7 @@ jobs:
       pull-requests: read
     outputs:
       run: ${{ steps.state.outputs.run }}
+    timeout-minutes: 25
     steps:
       - id: state
         env:
@@ -280,8 +289,13 @@ jobs:
     # OVMF, and that leg is another job now), so a warm run is bounded by that figure; a cold QEMU
     # build can add 10-20 minutes on top; 45 is the chained job's own bound, kept rather than
     # shrunk with the workload.
-    timeout-minutes: 45
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -393,6 +407,9 @@ jobs:
       # behind it in one runner; the three jobs below carry them, each for its own recorded reasons.
       - run: script/ci-build test
         if: steps.scope.outputs.needed == 'true'
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   swish-check:
     # **The job keeps its name, "three architectures", while it runs two**, because the name is a
@@ -413,15 +430,22 @@ jobs:
     # 60 is not yet lowered, because a cold QEMU build is still the honest worst and one run on the
     # new shape is not a measurement of it.
     #
-    # **Unchanged by the graphical fold** (2026-10-03 UTC, the `swish-check-graphical` job's boots
-    # moved in here): each leg now boots three times, not two, and the added boots are the ones that
-    # job ran. Measured against a warm target on the dev Mac, both legs before the fold plus the
-    # graphical job's four boots were 199 s including builds, and after it 171 s (aarch64 65 s and
-    # riscv64 106 s, one run each, riscv64 noisy). At the 1.5x to 1.8x the flake census measured for
-    # CI's runner, the fold adds about one minute of boots to this job and removes a whole job's
-    # build, so the honest worst of about 50 minutes is about 51 and 60 still sits above it.
-    timeout-minutes: 60
+    #
+    # **The graphical fold changes no bound** (2026-10-03 UTC, the `swish-check-graphical` job's
+    # boots moved in here): each leg now boots three times, not two, and the added boots are the
+    # ones that job ran. Measured against a warm target on the dev Mac, both legs before the fold
+    # plus the graphical job's four boots were 199 s including builds, and after it 171 s (aarch64
+    # 65 s and riscv64 106 s, one run each, riscv64 noisy). At the 1.5x to 1.8x the flake census
+    # measured for CI's runner, the fold adds about one minute of boots to this job and removes a
+    # whole job's build. That fits the 20-minute budget with room, so it takes no line in
+    # `.github/ci-job-budgets`.
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -524,6 +548,9 @@ jobs:
       # granularity. Local-only would have kept it invisible.
       - run: script/ci-build swish-check-aarch64-riscv64
         if: steps.scope.outputs.needed == 'true'
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   # **The x86_64 leg of the interactive-shell check, on an x86_64 runner, under KVM** (milestone
   # 628 (provisional); the job id and name are provisional). On the arm64 runner this leg ran the
@@ -547,8 +574,13 @@ jobs:
     # add 10-20, and the leg itself is measured in the note above. Kept at the arm64 job's 60 so a
     # run that falls back to TCG (no /dev/kvm on some future image) still finishes and says so
     # rather than being cancelled mid-leg.
-    timeout-minutes: 60
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -637,6 +669,9 @@ jobs:
 
       - run: script/ci-build swish-check-x86_64
         if: steps.scope.outputs.needed == 'true'
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   boot-check:
     name: boot-check (the default kernels' interactive boot)
@@ -648,8 +683,13 @@ jobs:
     # honest run. Derivation: three debug boots are about a minute against a warm target, so the
     # honest cost is the setup, about ten minutes of build plus 10-20 for a cold QEMU build, near
     # 32 at worst. 45 is the chained job's bound kept for headroom beyond that.
-    timeout-minutes: 45
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -733,6 +773,9 @@ jobs:
       # because nothing read the channel it was supposed to appear on.
       - run: script/ci-build boot-check
         if: steps.scope.outputs.needed == 'true'
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   cpu-matrix:
     name: cpu matrix (riscv64 across QEMU CPU models)
@@ -741,8 +784,13 @@ jobs:
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     # Five QEMU boots plus a std-farm build. Generous because a hung guest must fail loudly rather
     # than sit on the runner's 6-hour default, the same reason the test job has one.
-    timeout-minutes: 45
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -821,6 +869,9 @@ jobs:
         with:
           name: cpu-matrix-logs
           path: target/cpu-matrix/
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   watchdog:
     name: watchdog (x86_64 TCO reset under q35)
@@ -828,8 +879,13 @@ jobs:
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     # Two soaks that wait on the wall clock (about six minutes together) plus two kernel builds.
-    timeout-minutes: 30
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -887,24 +943,42 @@ jobs:
         with:
           name: watchdog-logs
           path: target/soak-test-*.log
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   fmt:
     name: rustfmt
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       - name: Install rustfmt (pinned nightly)
         run: rustup toolchain install nightly --profile minimal --component rustfmt
       - run: script/ci-build fmt
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   clippy:
     name: clippy
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # `script/lint` runs `script/roadmap --check`, whose merged-branch check reads
@@ -941,13 +1015,22 @@ jobs:
           command -v cargo-machete >/dev/null || cargo install cargo-machete --locked
           command -v typos        >/dev/null || cargo install typos-cli     --locked
       - run: script/ci-build lint
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   fastpath-footprint:
     name: fastpath footprint (the IPC path must stay L1i-sized)
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       # Every bare-metal target, because this gates every one of them.
       # §19 (architectural parity is a tenet): a fastpath that fits on one ISA and not another is
@@ -964,6 +1047,9 @@ jobs:
       # RELEASE kernel, and no other job builds one, so there is nothing to share. Jobs run in
       # parallel, so it costs no wall clock against the 30-minute Kani job.
       - run: script/ci-build fastpath-footprint
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   boot-file-size-check:
     name: boot file size (the release BOOTX64.EFI against its slot budget)
@@ -972,6 +1058,8 @@ jobs:
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     timeout-minutes: 20
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       # A release x86_64 kernel and archive, and the UEFI loader, which is the image an install
       # writes into a 64 MiB boot slot (calef, 2026-10-03 UTC). Measured 28 seconds warm on the dev
@@ -983,6 +1071,9 @@ jobs:
           rustup target add x86_64-unknown-none x86_64-unknown-uefi
           rustup component add llvm-tools
       - run: script/ci-build boot-file-size-check
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   build-is-reproducible:
     name: reproducible build (the same commit builds the same bytes)
@@ -996,6 +1087,8 @@ jobs:
     # runner's 6-hour default.
     timeout-minutes: 15
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       - name: Install the bare-metal target
         run: rustup target add aarch64-unknown-none-softfloat
@@ -1007,13 +1100,22 @@ jobs:
       # It builds `git archive HEAD` twice at two different paths rather than reusing the checkout,
       # which is why it does not need `fetch-depth: 0`: one commit is all it reads.
       - run: script/ci-build build-is-reproducible
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   image-permissions:
     name: image permissions (no kernel image ships a writable-executable segment)
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       # All three bare-metal targets, because this gates all three (§19, architectural parity is a
       # tenet: an image that obeys W^X on one ISA and not another is exactly the asymmetry that rule
@@ -1033,13 +1135,22 @@ jobs:
       # setting rather than a file in this tree, so today a red run here is visible and does not block
       # a merge. Making it required is calef's, and is one checkbox.
       - run: script/ci-build image-permissions
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   stack-frame-check:
     name: stack frames (no frame over a third of a thread stack)
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       # Two of the three bare-metal targets, and this one is a decision rather than a stale list:
       # `script/stack-frame-check` holds x86_64 out of its DEFAULT set, reachable through `--arch`,
@@ -1054,6 +1165,9 @@ jobs:
           rustup toolchain install nightly --profile minimal --component llvm-tools
           rustup target add --toolchain nightly aarch64-unknown-none-softfloat
           rustup target add --toolchain nightly riscv64imac-unknown-none-elf
+          # `script/stack-depth-check` gates every bare-metal target in rust-toolchain.toml, so
+          # this job needs all three even though `stack-frame-check` below defaults to two.
+          rustup target add --toolchain nightly x86_64-unknown-none
       - uses: Swatinem/rust-cache@v2
       # Its own job rather than a step in `clippy`: it builds the kernel test binary twice (the flag
       # changes the build, so CI's existing kernel artifacts cannot be reused), and jobs run in
@@ -1072,14 +1186,22 @@ jobs:
       # and understates it further now. Left alone on purpose: the name is what branch protection
       # matches on, so renaming it is a merge-queue change rather than a wording one.
       - run: script/ci-build stack-depth-check
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   bench:
     name: bench (icount regression tripwire)
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
-    timeout-minutes: 45
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -1172,6 +1294,9 @@ jobs:
       # instrument in the local set, and nothing compared the claim against the script.
       - run: script/ci-build icount
         if: steps.scope.outputs.needed == 'true'
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   supply-chain:
     name: supply chain (advisories, licences, vendored integrity)
@@ -1184,6 +1309,8 @@ jobs:
     # the workflow-level grant look like a default rather than the decision it is.
     timeout-minutes: 20
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       # A prebuilt binary rather than `cargo install`, the same trade the coverage job makes: this
       # job compiles nothing of ours, so it has no business compiling a tool either. The version
@@ -1205,6 +1332,9 @@ jobs:
           key: nife-vendor-${{ hashFiles('vendor/*.pin') }}
       - uses: Swatinem/rust-cache@v2
       - run: script/ci-build supply-chain
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   fuzz:
     name: fuzz (parsers, 60s per target)
@@ -1213,8 +1343,13 @@ jobs:
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     # Build, then six one-minute runs. Generous against a cold `-Zbuild-std`, which compiles the
     # standard library with the sanitizer on the first run of the day.
-    timeout-minutes: 30
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -1288,13 +1423,22 @@ jobs:
       # directories, which is the same starting point a developer gets.
       - run: script/ci-build fuzz
         if: steps.scope.outputs.needed == 'true'
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   coverage:
     name: coverage (host crates)
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
+    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
+    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
+    timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           # Needs history to diff against the base for the scope check below.
@@ -1353,3 +1497,6 @@ jobs:
         with:
           name: coverage-report
           path: target/llvm-cov/
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"

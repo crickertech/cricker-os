@@ -70,7 +70,7 @@ use compositor::proto::ctl;
 use graphics_protocol as gfx;
 use line_editor::proto;
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, recv_cap, reply, send};
+use user_mode_runtime::{call, recv_request, reply, send};
 use video_terminal::status::{MODE_DISPLAY, MODE_WINDOW};
 
 /// Capability slots, by convention with `kernel/src/user/display_service.rs` and
@@ -490,7 +490,12 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
         // The one wait point. An application's `OP_WRITE` and an input source's `OP_BYTES` both
         // arrive here and are told apart by opcode, because there is no wait-any to tell them apart
         // by endpoint (DECISIONS §33).
-        let (w0, reply_slot, w1) = recv_cap(TERM);
+        //
+        // A CALL's Reply, or nothing to answer (milestone 706 (a `CALL` server can tell a Reply
+        // from a delegation)): a SEND_CAP is deleted rather than answered into.
+        let req = recv_request(TERM);
+        let (w0, w1) = (req.w0, req.w1);
+        let reply_slot = req.delivered.into_reply();
         let mut r0: u64 = 0;
         match proto::op(w0) {
             // The application half: print `len` bytes from the shared output page. The terminal
@@ -529,7 +534,9 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
             // notes/glyphs.md rather than half-implemented.
             _ => r0 = proto::BAD_REQUEST,
         }
-        reply(reply_slot, r0, 0);
+        if let Some(to) = reply_slot {
+            reply(to, r0, 0);
+        }
     }
 }
 

@@ -275,6 +275,16 @@ the endpoint capability's badge, so a bound `redoxfs_server` client that `SEND`s
 sender-chosen slot on one arrival order, a `net_stack`-shaped escape (fixed by milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)). The
 appendix has both. Milestone 633 (An outside agent attacks the confinement claim) found a third route to the same RECV-path escape, by PR #1525: a plain `RECV` collecting a `SEND_CAP` sender left the sender's `outgoing_cap` staged, so the sender's next plain `SEND` delivered the capability to a `RECV_CAP` receiver on another endpoint. Fixed in `sched::ipc_recv` with a test and a replayable falsification. Same class as #1494 and milestone 634. The first outsider pass on 2026-10-03 found nothing else on the claims it reached; rows 25 and 26 were not attacked and row 11 is proved on `x86_64` only. This does not support green, and the human-outsider half remains behind milestone 198. Dated 2026-10-03: the same pass recorded that `subtree_scope::Bindings::of` mapped a nonzero badge at or past its table size to the whole endpoint's authority, not reachable by a confined client because `BADGE` refuses an already-badged source; calef ruled it should refuse, and milestone 726 (an unknown badge fails closed in subtree_scope) makes it so, with a Kani harness and a replayable falsification, and the harness fails when the old arm is restored.
 
+Dated 2026-10-03 (§216, milestone 706 (a `CALL` server can tell a Reply from a delegation)): the
+2026-10-03 audit's finding 11 is built, on calef's ruling of the same day. A client could `SEND_CAP`
+a real capability where a `CALL` server expected a Reply, so the server's `reply` blocked on it or
+leaked a slot of 32: a denial of service, not an escape, severity medium. `RECV_CAP` now tags a
+`CALL`'s Reply in `x4` (DECISIONS §245 (a `CALL` server tells a Reply from a delegation)), and every
+`CALL` server in the tree receives through a runtime helper whose typed Reply is the only thing
+`reply` accepts. One test, with a replayable falsification replayed red on aarch64, covers the tag
+on both arrival orders. It tests the tag, not the hang. A server that reads `x1` raw, outside the
+runtime, is still exposed.
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
@@ -299,10 +309,6 @@ Open security findings that bear on it, each a proposal and none yet built:
   compromised session can queue a command line the boot shell runs with its own authority. A
   userspace grant wider than its use, not a kernel escape; read, not demonstrated. Severity
   medium (2026-10-03 audit, finding 2).
-- [A `CALL` server can tell a Reply from a delegation](../roadmap/706-a-call-server-can-tell-a-reply-from-a-delegation.md):
-  any client can `SEND_CAP` a real capability where a server expects a Reply, so the server's
-  `reply` blocks on it or leaks a slot of 32: a denial of service on any `CALL` server, not an
-  escape. On the syscall surface, so calef's call. Severity medium (2026-10-03 audit, finding 11).
 - [The spawn service holds the display grants, and the shell holds none](../roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
   the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
   and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium
@@ -371,6 +377,11 @@ on 2026-09-23 by milestone 186 (derive the architecture list, and close what it 
 functions that compiled, shipped and did nothing on the architecture nobody had run them on. And
 parity multiplies every other risk here. If the project ever needs to buy time, dropping to two
 architectures is the largest single lever available, and it should be a decision rather than a drift.
+Correction, 2026-10-03: the closure above was not complete on 2026-09-23. Milestone 186 finished that
+day's open item, so `script/stack-depth-check` now gates x86_64 from a list it reads out of the
+toolchain pin, and found no offender. It does not change the verdict: the risk is about restructure
+cost and a third architecture's gates, and the silent-gap class stays open wherever a new gate spells
+its own list.
 [Appendix](the-hal-and-the-next-machine.md).
 
 ## The running order

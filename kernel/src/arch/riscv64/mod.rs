@@ -335,7 +335,9 @@ pub fn init() {
 /// Stop this hart forever, cheaply. `wfi` parks the hart until an interrupt; with nothing left to
 /// wake it, that is the rest of time at zero host CPU. The same discipline as aarch64: `wfi`, never
 /// a spin. See CLAUDE.md, "Never leave QEMU running".
-pub fn halt() -> ! {
+/// Takes a [`super::HaltReason`], whose constructors are the list of who may stop a core for good;
+/// a thread whose work is done leaves with `sched::exit` instead (milestone 720 (provisional)).
+pub fn halt(_: super::HaltReason) -> ! {
     loop {
         instructions::wfi();
     }

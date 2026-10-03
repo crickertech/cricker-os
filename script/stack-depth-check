@@ -52,7 +52,7 @@
 #
 # EXAMPLES
 #
-#     script/stack-depth-check                  # gate both architectures, the default
+#     script/stack-depth-check                  # gate every bare-metal architecture the pin declares
 #     script/stack-depth-check --arch riscv64   # one architecture
 #     script/stack-depth-check --report         # print the deepest chain per root, gate nothing
 #
@@ -80,21 +80,23 @@
 #   - **It builds the kernel test binary itself**, because the measurement needs
 #     `-Z emit-stack-sizes` and that flag changes the build. One extra kernel build per arch, and
 #     the test binary is the right one: half the spawn paths and every test body are `cfg(test)`.
-#   - **It gates two of the three supported architectures.** `arches` below is `aarch64 riscv64`
-#     and the `case` exits 2 on anything else, so x86_64 is not measured. That is an omission
-#     rather than a decision: this gate was written 2026-08-16, x86_64 became a `script/test`
-#     target on 2026-08-24, and nobody widened the list. The premise holds there (that arch tree
-#     has an `exceptions.rs` and a `trap.s`, so there is a trap-frame size and a dispatch symbol
-#     to name), so closing it is real work rather than one word: the `TRAP_FRAME`, `DISPATCH` and
-#     `BODY` tables below each need an x86_64 row, measured against `size_of::<TrapFrame>()` and
-#     the symbol names that arch actually uses. Widening it may also newly fail on a real
-#     offender, so it wants its own commit and its own green run. See
-#     notes/architecture-list-sweep.md, which found nine siblings of this in one sweep.
-#     **Still open after milestone 186 (derive the architecture list), deliberately**: that
-#     milestone closed seven of the sweep's eleven and stopped here rather than guessing at a
-#     trap-frame size it had not measured. It is the last phase-3 item on 186's block, and what the
-#     widening finds is somebody else's lane by that block's own scope note, the way
-#     `script/stack-frame-check`'s 12,504-byte `iommu::init` was.
+#   - **It gates all three supported architectures, and x86_64's rows were measured, not guessed.**
+#     Milestone 186 (derive the architecture list, and close what it does not reach) widened it
+#     (2026-10-03): `TRAP_FRAME` 176 is `size_of::<TrapFrame>()` (22 quadwords, asserted in
+#     x86_64/exceptions.rs and reserved by trap.s); `DISPATCH` and `BODY` are `x86_trap_dispatch`
+#     and `x86_trap_body`, which the built test images contain; and a user thread's trap takes the
+#     larger of that dispatcher and `x86_syscall_handler`, because `syscall` enters there and
+#     never touches the dispatcher. x86_64 frames get 8 bytes added for the return address `call`
+#     pushes, which `-Z emit-stack-sizes` leaves out (checked against `x86_trap_dispatch`: `subq
+#     $0x68, %rsp` and a recorded size of 104). The first run found no offender: the deepest
+#     thread chain was 9224 bytes (kernel image) and 12280 (system tests) of 24576,
+#     `iommu::init`'s 12,504-byte frame is not reachable from a thread entry point, and the
+#     interrupt stack carries 4544 of 16384. **x86_64 disassembly is AT&T syntax** and the walker
+#     reads `call`/`callq` and `jmp`/`jmpq`; `jmpq *` (jump tables as well as tail calls through a
+#     register) counts as an indirect site, so its indirect-site total is much larger than the
+#     other two's and means less. The list is derived from rust-toolchain.toml's `targets` (OS
+#     `none`), so a fourth architecture fails the gate with "no TRAP_FRAME, DISPATCH and BODY
+#     rows" until it has them, rather than being skipped.
 #   - The ceiling is shared with the watermark's thread row deliberately (14336 of 16384), so the
 #     two instruments fail at the same place from opposite directions. A trip is not automatically
 #     a bug: read the chain it prints, and if the growth is honest, raise both numbers together.
@@ -102,7 +104,24 @@
 set -e
 cd "$(dirname "$0")/.."
 
-arches="aarch64 riscv64"
+# **The architecture list is derived, not spelled** (milestone 186): every bare-metal target the pin
+# in `rust-toolchain.toml` declares (OS field `none`, so `x86_64-unknown-uefi` is out), named by the
+# architecture its triple begins with. `script/toolchain-bump` reads the same array the same way. A
+# fourth architecture joins this gate the day it joins the pin, and until somebody gives it rows in
+# the three tables in the Python below the gate fails loudly on it rather than skipping it.
+arch_of() {
+    case "$1" in
+        riscv64*) echo riscv64 ;;
+        *) echo "${1%%-*}" ;;
+    esac
+}
+targets=""
+arches=""
+for t in $(awk -F'"' '/^targets *=/ {for (i = 2; i < NF; i += 2) printf "%s ", $i}' rust-toolchain.toml); do
+    case "$t" in
+        *-none*) targets="$targets $t"; arches="$arches $(arch_of "$t")" ;;
+    esac
+done
 report_only=""
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -116,10 +135,20 @@ done
 status=0
 # shellcheck disable=SC2086  # $arches is a deliberate space-separated list; POSIX sh has no arrays
 for arch in $arches; do
+    target=""
+    for t in $targets; do
+        [ "$(arch_of "$t")" = "$arch" ] && target="$t"
+    done
+    if [ -z "$target" ]; then
+        echo "script/stack-depth-check: no bare-metal target for arch $arch in rust-toolchain.toml" >&2
+        exit 2
+    fi
+    # RUSTFLAGS replaces .cargo/config.toml's [target.*.rustflags] rather than adding to it, and
+    # x86_64-unknown-none carries `-C relocation-model=static` there; dropping it breaks the link.
+    # See script/stack-frame-check, which found this first.
     case "$arch" in
-        aarch64) target=aarch64-unknown-none-softfloat ;;
-        riscv64) target=riscv64imac-unknown-none-elf ;;
-        *) echo "script/stack-depth-check: no target for arch $arch" >&2; exit 2 ;;
+        x86_64) stack_size_rustflags="-Z emit-stack-sizes -C relocation-model=static" ;;
+        *) stack_size_rustflags="-Z emit-stack-sizes" ;;
     esac
 
     # Both test images (milestone 609 (the system tests leave the kernel crate)): the kernel's unit
@@ -127,7 +156,7 @@ for arch in $arches; do
     # test-only code the other lacks. Both contain the kernel itself.
     for pkg in kernel system_tests; do
     echo "==> $arch: building the $pkg test image with stack-size metadata"
-    artifact=$(RUSTFLAGS="-Z emit-stack-sizes" \
+    artifact=$(RUSTFLAGS="$stack_size_rustflags" \
         cargo test -p "$pkg" --target "$target" --no-run 2>&1 \
         | grep -oE "\(target/[^)]*\)" | tr -d '()' | tail -1)
 
@@ -173,12 +202,16 @@ INTERRUPT_WARN_AT = 8192
 # The trap frame the vector builds before any Rust runs, so an interrupted thread's total is its own
 # chain plus this plus the handler's. Contracts with vectors.s (272) and trap.s (288), both asserted
 # against `size_of::<TrapFrame>()` in their arch's exceptions.rs.
-TRAP_FRAME = {"aarch64": 272, "riscv64": 288}
+# x86_64's is 176 (22 quadwords: fifteen GPRs, vector, error code, and the CPU's five-word
+# rip/cs/rflags/rsp/ss), asserted against `size_of::<TrapFrame>()` in x86_64/exceptions.rs and
+# reserved by the `lea rax, [rsp + 176]` in trap.s's `isr_common`.
+TRAP_FRAME = {"aarch64": 272, "riscv64": 288, "x86_64": 176}
 
 # Where a kernel thread stack starts carrying frames. `thread_entry` is a kernel thread's first Rust
 # frame (context.s's thread_trampoline calls it), `user_thread_entry` is the EL0 mirror, and the
 # arch dispatcher is every trap taken while running on this stack.
-DISPATCH = {"aarch64": "exception_dispatch", "riscv64": "riscv_trap_dispatch"}
+DISPATCH = {"aarch64": "exception_dispatch", "riscv64": "riscv_trap_dispatch",
+            "x86_64": "x86_trap_dispatch"}
 
 # **The trap path is two halves since milestone 124, and which half you are on decides which stack
 # you are on.** `DISPATCH` is the outer half, which always runs on the stack the trap interrupted:
@@ -187,9 +220,23 @@ DISPATCH = {"aarch64": "exception_dispatch", "riscv64": "riscv_trap_dispatch"}
 # trampoline between them (`dispatch_on_interrupt_stack`) has an edge in the disassembly and no
 # frame of its own, so the walker would happily charge the body to the thread stack; cutting that
 # edge is what models the switch. See kernel/src/interrupt_stack.rs.
-BODY = {"aarch64": "exception_body", "riscv64": "riscv_trap_body"}
+BODY = {"aarch64": "exception_body", "riscv64": "riscv_trap_body", "x86_64": "x86_trap_body"}
 ARCH = os.environ["ARCH"]
-ROOTS = ["thread_entry", "user_thread_entry", DISPATCH[ARCH], BODY[ARCH]]
+if ARCH not in TRAP_FRAME or ARCH not in DISPATCH or ARCH not in BODY:
+    print(f"script/stack-depth-check: {ARCH} is in rust-toolchain.toml but has no TRAP_FRAME, "
+          f"DISPATCH and BODY rows. Measure them (see this file's header) and add them.",
+          file=sys.stderr)
+    sys.exit(1)
+# x86_64's `call` pushes a return address that `-Z emit-stack-sizes` does not include in a frame
+# (aarch64 and riscv64 spill the link register inside the frame, so theirs is counted already).
+RETADDR = 8 if ARCH == "x86_64" else 0
+# x86_64 alone has a second way in from ring 3: `syscall` lands in `x86_syscall_entry`, which builds
+# the same TrapFrame and calls `x86_syscall_handler` straight into `syscall::dispatch`, never
+# touching `x86_trap_dispatch`. The other two ISAs' `svc` and `ecall` arrive through their one
+# dispatcher, so for them the DISPATCH row already covers the syscall arm. A user thread's trap is
+# therefore the larger of the two roots on x86_64.
+ENTRY_EXTRA = {"x86_64": ["x86_syscall_handler"]}.get(ARCH, [])
+ROOTS = ["thread_entry", "user_thread_entry", DISPATCH[ARCH], BODY[ARCH]] + ENTRY_EXTRA
 
 
 def uleb(buf, i):
@@ -233,7 +280,7 @@ for line in open(os.environ["DIS"]):
         addr = int(m.group(1), 16)
         cur = name
         addr2name[addr] = name
-        frames[name] = max(fsize.get(addr, 0), frames.get(name, 0))
+        frames[name] = max(fsize[addr] + RETADDR if addr in fsize else 0, frames.get(name, 0))
         continue
     m = INSN.match(line)
     if not m or cur is None:
@@ -251,6 +298,18 @@ for line in open(os.environ["DIS"]):
             indirect[cur] += 1
         elif op == "b" and tgt and tgt != cur:
             tails[cur].add(tgt)
+    elif ARCH == "x86_64":
+        # AT&T syntax from llvm-objdump: `callq 0x... <sym>`, `jmp 0x... <sym>`, `callq *%rax`.
+        if op in ("call", "callq"):
+            if tgt:
+                edges[cur].add(tgt)
+            else:
+                indirect[cur] += 1
+        elif op in ("jmp", "jmpq"):
+            if tgt and tgt != cur:
+                tails[cur].add(tgt)
+            elif not tgt:
+                indirect[cur] += 1
     else:
         if op == "jal" and tgt:
             (edges if re.search(r"jal\s+ra,", text) or re.match(r"jal\s+0x", text) else tails)[cur].add(tgt)
@@ -365,7 +424,7 @@ interrupted = results["thread_entry"][0] + tf + nested
 # syscall arm included, body and all: a trap from user mode does NOT switch stacks, because the
 # syscall it is probably taking may block and a per-core stack cannot hold a blocked thread's
 # frames. Traps do not nest on top of that: both ISAs keep interrupts masked for the whole handler.
-trapped = tf + results[DISPATCH[ARCH]][0]
+trapped = tf + max(results[r][0] for r in [DISPATCH[ARCH]] + ENTRY_EXTRA)
 worst = max(interrupted, trapped, results["thread_entry"][0])
 
 # **What the interrupt stack itself carries**, and the reason this gate now has two ceilings. Only

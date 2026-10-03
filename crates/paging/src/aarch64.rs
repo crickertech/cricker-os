@@ -353,6 +353,36 @@ mod verification {
         }
     }
 
+    /// **No encoded leaf is both writable and executable**, over every constructor. A leaf that is not read-only (`AP[2]`, bit 7, clear) is writable at some level, and
+    /// must then carry both `PXN` (bit 53) and `UXN` (bit 54), so no privilege can fetch from it.
+    ///
+    /// Stated in raw bits written as literals, never through `leaf_flags` or this file's own
+    /// constants: a decoder or a constant that moved with the encoder would otherwise hide the
+    /// defect (the trap `the_leaf_keeps_address_and_permissions_apart` records). Milestone 718
+    /// (provisional) added it so §19 (architectural parity is a tenet) gate hold: this claim is proved on all three ISAs.
+    /// Falsification: replayable `crates/paging/falsifications/aarch64.verification.no_encoded_leaf_is_both_writable_and_executable.patch`
+    #[kani::proof]
+    fn no_encoded_leaf_is_both_writable_and_executable() {
+        let pa: u64 = kani::any();
+        kani::assume(pa & !ADDR_MASK == 0);
+
+        let all = [
+            Flags::kernel_code(),
+            Flags::kernel_rodata(),
+            Flags::kernel_data(),
+            Flags::device(),
+            Flags::user_code(),
+            Flags::user_rodata(),
+            Flags::user_data(),
+            Flags::user_device(),
+        ];
+        let i: usize = kani::any();
+        kani::assume(i < all.len());
+
+        let leaf = Aarch64::leaf_entry(pa, all[i]);
+        assert!(leaf & (1 << 7) != 0 || (leaf & (1 << 53) != 0 && leaf & (1 << 54) != 0));
+    }
+
     /// **A block descriptor keeps the address and the permissions apart and is typed as a block**,
     /// for every physical address and every `Flags` constructor, at both block sizes. Literals for
     /// every bit position: bits [1:0] are `0b01` (valid, not a table), the address is [47:21] for

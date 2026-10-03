@@ -549,6 +549,18 @@ mod tests {
         assert!(!Vtd::is_block(Vtd::leaf_entry(0x10_0000, data)));
         assert!(!Vtd::is_block(Vtd::table_entry(0x10_0000)));
     }
+
+    /// A leaf with no software kernel-exec bit is not kernel code, however its other bits sit. The
+    /// bit is the only thing that says a supervisor page is executable.
+    #[test]
+    fn a_kernel_leaf_without_the_exec_bit_is_not_executable() {
+        assert_eq!(Ia32e::leaf_flags(P | RW | G), Flags::kernel_data());
+        assert_eq!(Ia32e::leaf_flags(P | G), Flags::kernel_rodata());
+        assert_eq!(
+            Ia32e::leaf_flags(P | G | SW_KERNEL_EXEC),
+            Flags::kernel_code()
+        );
+    }
 }
 
 /// Machine-checked proofs of the `x86_64` format, mirroring the other two modules'. The shared

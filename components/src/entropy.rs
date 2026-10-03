@@ -126,13 +126,12 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use abi::rendezvous;
 use entropy_protocol as proto;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::virtio::{
     virtio_notify, virtio_read_reg, virtio_ring_barrier, virtio_setup_queue, virtio_write_reg,
 };
-use user_mode_runtime::{exit, irq_ack, irq_wait, recv_cap, reply, send};
+use user_mode_runtime::{exit, irq_ack, irq_wait, recv_request, reply, send};
 
 /// Capability slots for the virtio backend, by convention with `kernel/src/user/entropy_service.rs`.
 const REQ: u64 = 0;
@@ -479,13 +478,16 @@ pub extern "C" fn _start(mode: u64, direct_memory_access_phys: u64, _arg2: u64) 
 /// The serve loop: one endpoint, one wait point, forever.
 fn serve(mut pool: Pool, refuse: bool) -> ! {
     loop {
-        let (w0, cap, _) = recv_cap(REQ);
-        if cap == rendezvous::NO_CAP {
-            // A plain SEND on a CALL-only contract. Nobody is waiting for an answer, so there is
-            // nothing to do and nothing to report; drop it rather than replying into a slot we do
-            // not hold. (The clock service answers the same way for the same reason.)
+        let req = recv_request(REQ);
+        let w0 = req.w0;
+        let Some(cap) = req.delivered.into_reply() else {
+            // A plain SEND, or a SEND_CAP, on a CALL-only contract. Nobody is waiting for an
+            // answer, so there is nothing to do and nothing to report; drop it (a delegation's slot
+            // is deleted, milestone 706 (a `CALL` server can tell a Reply from a delegation))
+            // rather than replying into a slot that is not a Reply. (The clock service answers the
+            // same way for the same reason.)
             continue;
-        }
+        };
         let (count, word) = match proto::op(w0) {
             // `refuse` is a device this service condemned at bring-up for answering with zeros. It
             // is answered the way a dry device is: `NO_ENTROPY` already means the one thing a
@@ -619,11 +621,12 @@ fn serve_instruction() -> ! {
     // `entropy_protocol`'s `BUGS` carries the number.
     let refuse = report == proto::bringup_failure(proto::STEP_FIRST_ALL_ZERO);
     loop {
-        let (w0, cap, _) = recv_cap(I_REQ);
-        if cap == rendezvous::NO_CAP {
+        let req = recv_request(I_REQ);
+        let w0 = req.w0;
+        let Some(cap) = req.delivered.into_reply() else {
             // Same reasoning as `serve`'s identical line: nobody is waiting for an answer.
             continue;
-        }
+        };
         let (count, word) = match proto::op(w0) {
             proto::GET if !refuse => match instr::draw() {
                 Some(bytes) => (proto::want(w0), u64::from_le_bytes(bytes)),

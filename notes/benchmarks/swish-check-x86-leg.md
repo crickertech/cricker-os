@@ -31,9 +31,11 @@ reaches userspace yet; `components/src/input.rs`), so the rotation reached the b
 constantly. The fix is that thread calling `sched::exit()` instead; the idle thread, which halts
 only when nothing else can run, takes the core.
 
-Why aarch64 and riscv64 never showed it is not measured. Their boot paths also end in
-`arch::halt()`, but their input is interrupt-driven, so no thread keeps the rotation turning while
-the shell waits. That is an inference from the code, not a measurement.
+Why aarch64 and riscv64 never showed it was an inference until milestone 720 (the boot thread
+cannot halt while it is runnable). Their boot paths also ended in `arch::halt()`, but their input
+is interrupt-driven, so no thread keeps the rotation turning while the shell waits. Milestone 720
+(number provisional) ended both in `sched::exit()`, made `arch::halt` take a token an ordinary boot
+cannot make, and measured both legs before and after; its roadmap block has the numbers.
 
 ## Per-line seconds, one change at a time (patagonia, TCG, local)
 
@@ -101,9 +103,20 @@ the ticks it removes, not by its instructions. So 624's saving on CI (1942 s to 
 patagonia (6.3 s to 5.2 s a line, the 624 lane's figures) need not agree: the two hosts did not
 spend their time on the same thing. Not measured further, because the fix removes the ticks.
 
+## A gate for the next one
+
+Milestone 722 (swish-check fails a leg that costs five times the others per line), provisional,
+adds one. Nothing gated the cost of a leg for the two weeks the defect lasted, because the per-line bound is
+sized to catch a hang and the job's wall time moves whenever a line is added. Each boot of 20 lines
+or more now prints its median seconds a line beside its baseline, and fails above five times that
+baseline (`LEG_COST_BASELINE` in `xtask/src/swish_check.rs`, with the CI runs each row came from). The
+defect here was about 30 times its KVM row, so it fails; it was 2.7 times its TCG row, so under TCG
+it would still pass. The rule compares a leg to its own history rather than to the other legs,
+because x86_64 under TCG is legitimately fourteen times aarch64 under TCG.
+
 ## BUGS
 
 - One run per row. The local table is single runs on a laptop that other lanes share.
-- The aarch64 and riscv64 boots also end in `arch::halt()` on the boot thread
-  (`kernel/src/lib.rs`), and nothing here shows whether they pay the same ticks. Their legs cost
-  0.2 s a line, so the cost, if any, is small; not measured.
+- The input driver still polls. With the boot thread gone the core still never idles at a
+  prompt, because the input driver yields forever. Interrupt-driven COM1 input is the named
+  follow-up in `components/src/input.rs`.

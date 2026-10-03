@@ -58,7 +58,7 @@
 #![no_main]
 
 use clock_protocol::{ClockPage, policy, propose, rtc, state, status};
-use user_mode_runtime::{cntfrq, now, recv_cap, reply, send};
+use user_mode_runtime::{cntfrq, now, recv_request, reply, send};
 
 /// The propose endpoint (slot 0): the service RECVs proposals on it. Everything that arrives here
 /// is a request, never a command.
@@ -107,13 +107,15 @@ pub extern "C" fn _start(rtc_kind: u64, rtc_seed: u64, _a2: u64) -> ! {
 /// The serve loop: one endpoint, one wait point, forever.
 fn serve(page: ClockPage) -> ! {
     loop {
-        let (w0, cap, w1) = recv_cap(PROPOSE_EP);
-        if cap == abi::rendezvous::NO_CAP {
-            // A plain SEND on a CALL-only contract. Nobody is waiting for an answer, so there is
-            // nothing to do and nothing to report; drop it rather than replying into a slot we do
-            // not hold.
+        let req = recv_request(PROPOSE_EP);
+        let (w0, w1) = (req.w0, req.w1);
+        let Some(cap) = req.delivered.into_reply() else {
+            // A plain SEND, or a SEND_CAP, on a CALL-only contract. Nobody is waiting for an
+            // answer, so there is nothing to do and nothing to report; drop it (a delegation's slot
+            // is deleted by `into_reply`, milestone 706 (a `CALL` server can tell a Reply from a
+            // delegation)) rather than replying into a slot that is not a Reply.
             continue;
-        }
+        };
         match propose::op(w0) {
             propose::PROPOSE => {
                 let r = page.read();

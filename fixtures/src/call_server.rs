@@ -25,18 +25,28 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{exit, recv_cap, reply, send};
+use user_mode_runtime::{exit, invoke, recv_request, reply, send};
 
 const ENDPOINT: u64 = 0;
 const REPORT: u64 = 1;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
-    let (w0, reply_slot, w1) = recv_cap(ENDPOINT);
+    let req = recv_request(ENDPOINT);
+    let (w0, w1) = (req.w0, req.w1);
+    // The kernel tagged this delivery as a CALL's Reply (milestone 706 (a `CALL` server can tell a
+    // Reply from a delegation)), or this is no CALL.
+    let to = req.delivered.into_reply();
+    check(to.is_some());
+    let Some(to) = to else { exit() };
+    let slot = to.slot();
     // Answer the caller: w0 + w1. This consumes the one-shot reply capability.
-    check(reply(reply_slot, w0 + w1, 0) == 0);
-    // A second reply on the same slot must fail: the cap was consumed on first use.
-    let second = reply(reply_slot, 0xBAD, 0);
+    check(reply(to, w0 + w1, 0) == 0);
+    // A second reply on the same slot must fail: the cap was consumed on first use. Raw, because
+    // the typed `reply` already consumed its `Reply`, which is the point being tested one level
+    // down: the kernel refuses it too.
+    // SAFETY: `svc`/`ecall`; the kernel validates the slot, which is now empty.
+    let second = unsafe { invoke(slot, abi::reply::REPLY, 0xBAD, 0, 0) };
     send(REPORT, if second < 0 { 1 } else { 0 }, 0, 0); // 1 = refused (one-shot held), 0 = a hole
     exit()
 }

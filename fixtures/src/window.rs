@@ -46,7 +46,7 @@
 use compositor::proto::{ctl, wlist};
 use compositor::status;
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, exit, invoke, map_page_frame, recv_cap, reply, send};
+use user_mode_runtime::{call, exit, invoke, map_page_frame, recv_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/compositor_service.rs`.
 const REPORT: u64 = 0;
@@ -366,10 +366,13 @@ pub extern "C" fn _start(role: u64, neighbour_va: u64, _arg2: u64) -> ! {
         // capability cannot be sent one, however the compositor feels about it.
         let mut count = 0u64;
         loop {
-            let (w0, reply_slot, bytes) = recv_cap(INPUT);
+            let req = recv_request(INPUT);
+            let (w0, bytes) = (req.w0, req.w1);
             // Answer first: the compositor is blocked in CALL, the terminal contract's driver-half
             // rendezvous, and it is the flow control for a fast source.
-            reply(reply_slot, 0, 0);
+            if let Some(to) = req.delivered.into_reply() {
+                reply(to, 0, 0);
+            }
             // Clamp to the eight bytes one word carries. `proto::len` is a full 32-bit field, so
             // an unclamped count shifts past 63 at `k == 8` and spins up to 2^32 times.
             // `display_terminal.rs` and `line_editor.rs` both clamp here; this was the one that
