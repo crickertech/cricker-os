@@ -367,21 +367,21 @@ impl Aperture {
             // Head words up to the first aligned pair (at most one: `qw` is 0 or 4 past the
             // start, or the whole run when the row has no aligned pair).
             for at in (run.start..qw.min(run.end)).step_by(4) {
-                let col = x + (at - line) as u32 / 4;
+                let col = (at - line) as u32 / 4;
                 write32(at, self.order.store(read(col, row)));
             }
             // Staged pairs: two reads from cacheable RAM, one qword store into the aperture.
             let pairs = run.end.saturating_sub(qw) / 8;
             for p in 0..pairs {
                 let at = qw + p * 8;
-                let col = x + (at - line) as u32 / 4;
+                let col = (at - line) as u32 / 4;
                 let lo = self.order.store(read(col, row)) as u64;
                 let hi = self.order.store(read(col + 1, row)) as u64;
                 write64(at, lo | hi << 32);
             }
             // Tail words after the last whole pair.
             for at in (qw + pairs * 8..run.end).step_by(4) {
-                let col = x + (at - line) as u32 / 4;
+                let col = (at - line) as u32 / 4;
                 write32(at, self.order.store(read(col, row)));
             }
         }
@@ -961,7 +961,7 @@ mod tests {
     /// (a pair is two word stores in one, on a little-endian machine), checked byte for byte
     /// including the padding, which neither path may touch.
     #[test]
-    fn the_wide_copy_lands_the_same_bytes_for_every_base_alignment() {
+    fn the_wide_copy_lands_the_same_bytes_for_every_rectangle_and_base_alignment() {
         use super::Aperture;
         // 10 pixels wide (40 bytes), rows of 44: padding of 4, and a stride that is 4 off 8, so
         // some rows' qwords start at head words and stop at tails.
@@ -974,31 +974,48 @@ mod tests {
         };
         let aperture = Aperture::new(&found, 10, 3).expect("a real screen");
         let (w, h) = aperture.size();
-        let surface = |x: u32, y: u32| (y << 12) | (x << 8) | 0x0f;
+        // The surface refuses a read outside it, as `MappedWindow` does in the driver: a column
+        // counted from the wrong origin is a panic here, not a quietly wrong pixel.
+        let surface = |x: u32, y: u32| {
+            assert!(x < w && y < h, "read ({x},{y}) outside the {w}x{h} surface");
+            (y << 12) | (x << 8) | 0x0f
+        };
         const SPAN: usize = 44 * 2 + 40;
-        let mut narrow = [0xa5u8; SPAN];
-        assert!(aperture.copy(0, 0, w, h, surface, |at, word| {
-            narrow[at..at + 4].copy_from_slice(&word.to_le_bytes());
-        }));
-        for misalign in 0..8u32 {
-            // RefCell because the two writer closures must share one buffer; a plain `&mut` split
-            // across them is what the borrow checker rightly refuses.
-            let wide = core::cell::RefCell::new([0xa5u8; SPAN]);
-            assert!(aperture.copy_wide(
-                0,
-                0,
-                w,
-                h,
-                misalign,
-                surface,
-                |at, pair| {
-                    wide.borrow_mut()[at..at + 8].copy_from_slice(&pair.to_le_bytes());
-                },
-                |at, word| {
-                    wide.borrow_mut()[at..at + 4].copy_from_slice(&word.to_le_bytes());
+        // **Every rectangle, not only the whole one.** A run that starts at `x > 0` is what a
+        // cell's damage flushes; until 2026-10-02 every case here started at column 0, which is
+        // the one origin where counting `x` twice (the run's offset already holds it) is
+        // harmless. The driver read past the surface on the x86_64 swish leg instead.
+        for (x, y) in (0..w).flat_map(|x| (0..h).map(move |y| (x, y))) {
+            for (rw, rh) in (1..=w - x).flat_map(|rw| (1..=h - y).map(move |rh| (rw, rh))) {
+                let mut narrow = [0xa5u8; SPAN];
+                assert!(aperture.copy(x, y, rw, rh, surface, |at, word| {
+                    narrow[at..at + 4].copy_from_slice(&word.to_le_bytes());
+                }));
+                for misalign in 0..8u32 {
+                    // RefCell because the two writer closures must share one buffer; a plain
+                    // `&mut` split across them is what the borrow checker rightly refuses.
+                    let wide = core::cell::RefCell::new([0xa5u8; SPAN]);
+                    assert!(aperture.copy_wide(
+                        x,
+                        y,
+                        rw,
+                        rh,
+                        misalign,
+                        surface,
+                        |at, pair| {
+                            wide.borrow_mut()[at..at + 8].copy_from_slice(&pair.to_le_bytes());
+                        },
+                        |at, word| {
+                            wide.borrow_mut()[at..at + 4].copy_from_slice(&word.to_le_bytes());
+                        }
+                    ));
+                    assert_eq!(
+                        narrow,
+                        wide.into_inner(),
+                        "({x},{y}) {rw}x{rh}, misalign {misalign}"
+                    );
                 }
-            ));
-            assert_eq!(narrow, wide.into_inner(), "misalign {misalign}");
+            }
         }
     }
 
