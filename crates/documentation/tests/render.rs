@@ -973,3 +973,75 @@ fn a_code_span_hands_back_the_line_past_its_closing_backtick() {
     // which a `contains` check cannot see.
     assert_eq!(plain("a `code` b\n", 40), "  a code b\n");
 }
+
+// ---- milestone 637: the last column's fold, and the table arena's edges -----------------------
+//
+// The fold that keeps a ninth cell from being dropped (see `a_table_of_twelve_columns_keeps_every_
+// character`) strips trailing blanks, then one closing pipe unless a backslash escapes it. Each of
+// those three steps was tested only on a clean row.
+
+const NINE: &str = "|-|-|-|-|-|-|-|-|-|\n";
+
+#[test]
+fn a_folded_row_with_trailing_blanks_still_loses_its_closing_pipe() {
+    // Blanks after the closing pipe are part of the line, so the pipe is not the last byte. A fold
+    // that stops looking at the end of the line prints it, and a tab is blank too.
+    let src = format!(
+        "| a | b | c | d | e | f | g | h | i |\n{NINE}| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | \t \n"
+    );
+    let out = plain(&src, 200);
+    assert_eq!(
+        out.lines().last().unwrap(),
+        "  1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9"
+    );
+}
+
+#[test]
+fn a_folded_row_keeps_an_escaped_closing_pipe_as_text() {
+    // `\|` is a pipe in the cell, not the row's end, and the backslash is not text. The last cell
+    // here is `i |`, so the pipe stays and the row has no closing pipe of its own.
+    let src = format!(
+        "| a | b | c | d | e | f | g | h | i |\n{NINE}| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 \\|\n"
+    );
+    let out = plain(&src, 200);
+    assert_eq!(
+        out.lines().last().unwrap(),
+        "  1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |"
+    );
+}
+
+#[test]
+fn a_cell_that_ends_in_a_backslash_is_not_read_past_its_end() {
+    // The escape check looks one byte ahead of the backslash. At the end of a cell there is nothing
+    // there, and the lookahead has to say so rather than read the next cell's pipe or the buffer.
+    assert_eq!(
+        plain("| a\\ | b |\n|---|---|\n| x\\ | y\\ |\n", 40),
+        "  a\\ | b \n  ---+---\n  x\\ | y\\\n"
+    );
+}
+
+#[test]
+fn a_row_that_exactly_fills_the_text_arena_is_still_one_chunk() {
+    // The arena holds `TABLE_TEXT` bytes of cell text and a row is admitted while `used + row <=
+    // TABLE_TEXT`; the row that lands on the limit exactly belongs to the chunk, and the one after
+    // it does not. Four rows of 2,046 bytes (a 2,048-byte line is the longest the renderer keeps)
+    // leave 8 bytes, which is what the indented last row measures to. One byte more and it is a
+    // chunk of its own, so the two cases differ by whether every line is one width.
+    let long = format!("|{}|\n", "a".repeat(2046));
+    let delim = "|-|\n";
+    let head = format!("{long}{delim}{long}{long}{long}");
+    let exact = plain(&format!("{head}  |bbbbbb|\n"), 10_000);
+    let widths: Vec<usize> = exact.lines().map(str::len).collect();
+    assert_eq!(widths.len(), 6, "four rows, a rule and the last row");
+    assert!(
+        widths.iter().all(|&w| w == widths[0]),
+        "the exact fit was split: {widths:?}"
+    );
+    let over = plain(&format!("{head}  |bbbbbbb|\n"), 10_000);
+    let widths: Vec<usize> = over.lines().map(str::len).collect();
+    assert_ne!(
+        widths.last(),
+        widths.first(),
+        "a row one byte over the arena stayed in the chunk"
+    );
+}
