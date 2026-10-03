@@ -87,7 +87,7 @@
 //!   than producing a list that reads back wrong.
 
 use crate::ffi::{OsStr, OsString};
-use crate::path::{self, PathBuf};
+use crate::path::{self, Path, PathBuf};
 use crate::sys::pal::unsupported;
 use crate::{fmt, io};
 
@@ -143,24 +143,28 @@ pub fn temp_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// The iterator over a `PATH`-shaped list. A borrowed byte slice and a cursor: nothing about
-/// splitting a list on a separator is platform-specific, which is why the old `panic!` was
-/// indefensible rather than merely unimplemented.
-pub struct SplitPaths<'a> {
+/// The iterator over a `PATH`-shaped list, borrowing each entry from the list itself. A byte slice
+/// and a cursor: nothing about splitting a list on a separator is platform-specific, which is why
+/// the old `panic!` was indefensible rather than merely unimplemented.
+///
+/// `env::split_paths_ref` (rust-lang/rust#158936) returns `None` on platforms whose list syntax
+/// needs unescaping, which forces an allocation. Ours has no escaping, so it answers `Some` the way
+/// Unix does, and [`SplitPaths`] is this iterator plus a copy, so there is one splitting loop.
+pub struct SplitPathsRef<'a> {
     /// The bytes not yet yielded, or `None` once the last entry has been. `Some(b"")` and `None`
     /// are different states on purpose: `"a:"` has a trailing empty entry and `""` has one entry,
     /// which is what every Unix does and what `join_paths` round-trips against.
     rest: Option<&'a [u8]>,
 }
 
-pub fn split_paths(unparsed: &OsStr) -> SplitPaths<'_> {
-    SplitPaths { rest: Some(unparsed.as_encoded_bytes()) }
+pub fn split_paths_ref(unparsed: &OsStr) -> Option<SplitPathsRef<'_>> {
+    Some(SplitPathsRef { rest: Some(unparsed.as_encoded_bytes()) })
 }
 
-impl<'a> Iterator for SplitPaths<'a> {
-    type Item = PathBuf;
+impl<'a> Iterator for SplitPathsRef<'a> {
+    type Item = &'a Path;
 
-    fn next(&mut self) -> Option<PathBuf> {
+    fn next(&mut self) -> Option<&'a Path> {
         let rest = self.rest?;
         let (head, tail) = match rest.iter().position(|&b| b == PATH_SEPARATOR) {
             Some(i) => (&rest[..i], Some(&rest[i + 1..])),
@@ -171,8 +175,22 @@ impl<'a> Iterator for SplitPaths<'a> {
         // `as_encoded_bytes` and to be split on a boundary its encoding permits. Both hold: the
         // slice is a subslice of one such buffer, and the only place it is cut is at an ASCII
         // `:`, which is a character boundary in every encoding `OsStr` uses.
-        let head = unsafe { OsStr::from_encoded_bytes_unchecked(head) };
-        Some(PathBuf::from(head.to_os_string()))
+        Some(Path::new(unsafe { OsStr::from_encoded_bytes_unchecked(head) }))
+    }
+}
+
+/// [`SplitPathsRef`] with each entry copied out, for the stable `env::split_paths`.
+pub struct SplitPaths<'a>(SplitPathsRef<'a>);
+
+pub fn split_paths(unparsed: &OsStr) -> SplitPaths<'_> {
+    SplitPaths(SplitPathsRef { rest: Some(unparsed.as_encoded_bytes()) })
+}
+
+impl<'a> Iterator for SplitPaths<'a> {
+    type Item = PathBuf;
+
+    fn next(&mut self) -> Option<PathBuf> {
+        self.0.next().map(Path::to_path_buf)
     }
 }
 
