@@ -1,6 +1,6 @@
 # Interrupts: the GIC and the timer
 
-Milestone 5. The kernel is now preemptible: a timer interrupt can land between any two
+Milestone 5 (the GIC and the timer: the kernel is preemptible). A timer interrupt can land between any two
 instructions.
 
 Which means every piece of the locking discipline we wrote in
@@ -633,19 +633,19 @@ Measured on the machines this project runs, not asserted:
 
 | | where MSI remapping lives | state here |
 |---|---|---|
-| `x86_64` | a separate IOMMU feature, `intremap=on` | off in every boot; the runner sets `-device intel-iommu` without it |
-| `aarch64` | a separate *device*, the GICv3 ITS | absent: the TCG runner uses `gic-version=2`, which has none, and milestone 227's GICv3 driver does not drive the ITS a `gic-version=3` machine offers |
+| `x86_64` | VT-d interrupt remapping | offered, never enabled: `ECAP.IR` reads set and `arch/x86_64/iommu.rs` never writes `GCMD.IRE` (`notes/confinement-claims.md`) |
+| `aarch64` | a separate *device*, the GICv3 ITS | absent: the TCG runner uses `gic-version=2`, which has none, and milestone 227 (a GICv3 driver) does not drive the ITS a `gic-version=3` machine offers |
 | `riscv64` | inside the IOMMU's own device context (`CAP_MSI_FLAT`, widening it 32 → 64 bytes) | already driven, `arch/riscv64/iommu.rs` handles both formats |
 
 So on two of three architectures an IRQ-driven EL0 driver would not be confined, whatever the
-IOMMU does for DMA. That is why milestone 159's TRNG driver polls and why milestone 261's NVMe
-server polls: in 261's lane's words, *"polling keeps `Object::Irq` off the grant list, which is less
+IOMMU does for DMA (on x86_64, ours). That is why milestone 159 (a real hardware entropy source) polls and why milestone 261 (the NVMe driver leaves the kernel)
+does: in 261's lane's words, *"polling keeps `Object::Irq` off the grant list, which is less
 authority."* **A confinement choice wearing a performance choice's clothes**, and worth saying out
 loud because the next person meeting a polled driver will reasonably read it as a shortcut.
 
 ## What is not in question
 
-An interrupt is already a capability here. `Object::Irq(u32)` has existed since milestone 9: the
+An interrupt is already a capability here. `Object::Irq(u32)` has existed since milestone 9 (an interrupt becomes a message): the
 kernel masks the line, `READ` lets the holder `WAIT` and `ACK`, and everything that knows what the
 *device* is lives in the userspace driver. That is seL4's `IRQHandler` shape, and
 [DECISIONS §101](../design/decisions/101-notification-objects.md) already specifies `bind_irq(intid,
@@ -662,12 +662,7 @@ reason is the one `design/fatal-risks/README.md`'s own rule 1 gives: nothing is 
 drivers poll, and **there was no experiment behind it**. A decision with no experiment is a worry
 rather than a choice.
 
-A lane is building the experiment as this is written: making interrupt remapping reachable on the
-machines this project runs, so the question becomes live and cheap rather than argued. (Its
-milestone number is deliberately not cited here, because the block had not merged when this was
-written and `script/lint` refuses a citation to a block that does not exist, which is the gate doing
-its job.) When it is, the options are
-roughly: EL0 drivers get `Irq` for line-based interrupts only and MSI-X stays kernel-owned; or
+Milestone 317 (the interrupt-remapping flags) made the question live. The options are: EL0 drivers get `Irq` for line-based interrupts only and MSI-X stays kernel-owned; or
 remapping is turned on and a driver may own its table because the platform confines it; or it is
 allowed unconfined and said so, which is Linux's `allow_unsafe_interrupts` and is a claim this tree
 should not make quietly.
