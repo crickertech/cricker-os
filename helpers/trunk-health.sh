@@ -21,7 +21,7 @@
 # **falsified and is corrected here rather than deleted**, because the correction is the lesson. CI
 # does run on every push to `main` and has all along; what was wrong is the step after it, which is
 # this script's own: that a green CI conclusion means a healthy tree. It does not. `ci.yml` skips
-# the steps of the four build jobs (`test`, `swish-check`, `swish-check-graphical`, `boot-check`)
+# the steps of the build jobs (`test`, `swish-check`, `boot-check`, and `swish-check-graphical` until its 2026-10-03 fold into `swish-check`)
 # when every changed path matches `notes/`, `design/` or a root `*.md`, so a
 # documentation-only commit posts a green required check having built and run nothing. That is a
 # sound rule for a kernel and a false one for `crates/documentation`, whose tests RENDER those very

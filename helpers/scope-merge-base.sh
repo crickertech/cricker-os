@@ -16,7 +16,7 @@
 #
 # `.github/workflows/architect-label.yml` and nine scope-check steps in `.github/workflows/ci.yml`
 # (the four build jobs test, swish-check, swish-check-graphical and boot-check that the 2026-09-30
-# split minted, plus cpu matrix, watchdog, bench, fuzz, coverage: each guarded by a step asking
+# split minted, the third since folded into swish-check on 2026-10-03, plus cpu matrix, watchdog, bench, fuzz, coverage: each guarded by a step asking
 # "does this change need the thing this job builds") used to diff `github.event.pull_request.base.sha`
 # (or, in ci.yml, `|| github.event.merge_group.base_sha`) straight against HEAD. That field is a
 # snapshot GitHub took when the pull request's base last changed FOR THIS PULL REQUEST (opened, or

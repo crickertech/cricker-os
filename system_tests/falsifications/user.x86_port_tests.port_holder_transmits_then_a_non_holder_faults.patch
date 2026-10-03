@@ -22,8 +22,9 @@ The hand-off is protected twice, and the early return is the defect that defeats
 
 Expected to fail: `assert_eq!(msg[0], EVENT_FAULT, "a non-holder's `out` must fault, not be
 permitted")`, holding `EVENT_EXIT` (2) where it wanted `EVENT_FAULT` (1): the non-holder's `out`
-is permitted, it exits, and the supervisor's message is a clean exit. The holder's half of the test
-(its word arrives) is unaffected by the patch and passes first.
+is permitted on the core the holder ran on, it exits, and the supervisor's message is a clean exit.
+The holder's half of the test (its word arrives, with its core) is unaffected by the patch and
+passes first.
 
 Regenerated 2026-09-25 (UTC) against 53cb6d620, which landed
 milestone 315 (a port revoke that reaches every core). That commit split `set_port_range_grant` into a switch-path wrapper and
@@ -31,6 +32,27 @@ milestone 315 (a port revoke that reaches every core). That commit split `set_po
 wrapper, which is where the "optimisation" would be written: the switch path is the only caller that
 passes `None` for a thread that simply holds nothing. Putting it in the shared body instead would
 also disable the revoke and self-delete resets, a wider defect that proves less about this test.
+
+Replayed 2026-10-03 (UTC) by milestone 323 (the falsification record is incomplete in five ways),
+and the red was narrower than the prose above implied.
+`cargo xtask test --arch x86_64 --test port_holder_transmits_then_a_non_holder_faults` boots the
+image twice. Under the defect the direct-boot leg stayed green (`test result: ok. 1 passed`) and
+the red came only from the real-firmware leg (QEMU q35 with OVMF).
+
+Why, measured the same day (lane `x86-port-falsification-split`): the direct boot runs the suite
+at `NIFE_SMP=2` (`helpers/qemu-runner-x86_64.sh`, since 2026-09-23) and the real-firmware suite at
+one core (`helpers/qemu-uefi-x86_64.sh` defaults to 1). The TSS bitmap is per core, and placement
+(§28 (SMP placement: two random choices at spawn)) put the holder on cpu 0 and the non-holder on cpu 1.
+Instrumented, under this defect: after the holder exited, cpu 0's installed grant was `(0x3F8, 8)`
+and cpu 1's was `None`; the non-holder ran on cpu 1 and faulted there, so the test passed without
+testing the hand-off. On the firmware leg both children were on cpu 0 and the non-holder exited.
+
+The test now reads each child's core from the current-CPU page. The holder reports the core its
+`out` ran on; the non-holder executes its `out` only on that core and otherwise faults at a
+different pc, which the test retries (up to 64 tries; a miss is a loud failure). Replayed again
+after that change: red on both legs at `system_tests/src/user/x86_port_tests.rs:270`, the
+`EVENT_FAULT` assertion holding `EVENT_EXIT` (2). The direct boot reached the holder's core on try
+4, the firmware boot on try 1.
 
 diff --git a/kernel/src/arch/x86_64/segments.rs b/kernel/src/arch/x86_64/segments.rs
 index efa61fbd7..dc9c76de7 100644

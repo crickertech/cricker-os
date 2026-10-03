@@ -213,6 +213,19 @@ falsification. The same class as #1494 and milestone 634, reached by a third mec
 successful-collect path, not an abort and not the mailbox slot). Every other claim it reached held, by reading and by host or kernel proof where cheap. Two were not attacked in that pass: row 25 (enforced by the compositor, not the kernel; milestone 719 (Compositor confinement claim 25 is attacked part by part) in PR #1536 attacked it part by part on aarch64 afterwards, 2026-10-03) and row 26 (an escape would hang the test rather than fail it, so it waits on milestone 417 (a usurper that reports instead of hanging)). Row 11 was proved on `x86_64` only in that pass; milestone 718 (No page is both writable and executable, proved on every ISA) in PR #1534 has since proved it on aarch64, riscv64 and x86_64, 2026-10-03. This does not support green;
 the human-outsider half remains behind milestone 198.
 
+### Added 2026-10-03: row 27's hand-off was tested on one of the two `x86_64` boots
+
+From 2026-09-23 to 2026-10-03 (UTC), `port_holder_transmits_then_a_non_holder_faults` (row 27 of
+`notes/confinement-claims.md`) did not test the port hand-off on the direct `x86_64` boot. That boot
+runs the suite on two cores and the real-firmware boot on one. The TSS port bitmap is per core, and
+the test did not check that its holder and non-holder ran on the same core. Under the record's
+defect, the holder's grant was left on cpu 0 and the non-holder was placed on cpu 1, faulted there,
+and the test passed. Only the real-firmware boot went red. Milestone 323 (the falsification record is
+incomplete in five ways)'s replay found the green,
+and lane `x86-port-falsification-split` instrumented the cause. The test now reads each child's core
+from the current-CPU page and runs the non-holder's `out` only on the holder's core. The record is
+red on both boots, at `x86_port_tests.rs:270`.
+
 ### Added 2026-10-03: rows 28 and 29 replayed on both `x86_64` boots
 
 The records for row 28 (`a_revoked_holder_faults_on_its_next_port_write`) and row 29

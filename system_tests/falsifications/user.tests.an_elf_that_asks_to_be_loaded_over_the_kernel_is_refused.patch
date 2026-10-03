@@ -1,6 +1,6 @@
 Falsifies `system_tests::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`.
 
-Architecture: aarch64
+Architecture: aarch64, riscv64, x86_64
 
 The defect is the removal of the half check in `paging::Mapper::map`, which is the guard the
 test's own doc comment says it is testing: the refusal is "by construction, not by a check we
@@ -22,6 +22,8 @@ more. The loader reaches this through `map`.
 **This is the clean case for the §31 shape**: the assertion that fires is the assertion the
 claim is stated in, with nothing upstream. A load that succeeds returns `Ok`, `err()` is
 `None`, and the equality is the first thing that looks.
+
+Replayed on all three ISAs. The hunk is portable code, so one patch serves every leg. On 2026-10-03 (UTC), `cargo xtask test --arch riscv64 --test an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused` and the same with `--arch x86_64` both came back red at `system_tests/src/user/tests.rs:415`, the assertion this record predicts, which is where aarch64 was already red.
 
 diff --git a/crates/paging/src/lib.rs b/crates/paging/src/lib.rs
 index 903a72a4..de4c383c 100644

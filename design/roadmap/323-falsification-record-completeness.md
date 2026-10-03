@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-03
+built: 2026-10-03
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
@@ -14,51 +15,50 @@ five proposals, written by five lanes between 2026-09-03 and 2026-09-17, are all
 record. *(Number provisional until the merge queue lands it.)*
 
 It was `DECISION` on parts 4 and 5 when this block was minted. Both were reviewed
-with calef on 2026-09-18 and 2026-09-19, and **both turned out to be already answered by the tree**,
+with calef on 2026-09-18 and 2026-09-19, and both turned out to be already answered by the tree,
 which is the finding at the bottom of this block rather than a footnote to it. A lane can take every
 part today.
 
-**Taken 2026-09-23, and three of five closed.** Parts 1 and 5 are built by this lane; part 4 was
-already closed, by calef, before this lane started, and stayed closed on re-check. Parts 2 and 3
-are real and still open, and neither closes from a laptop: part 2 needs an NVMe controller
-attached to a boot, part 3 needs an `x86_64` boot to replay a new record against. See
-`## Follow-on`.
+Taken 2026-09-23, and three of five closed. Parts 1 and 5 were built by that lane and part 4 had
+been closed by calef before it started. Parts 2 and 3 needed a QEMU boot and were closed on
+2026-10-03 (UTC) by the lane on `milestone/323-falsification-gaps`, which also replayed the
+aarch64-only records for confinement rows 22, 23, 24 and 30. All five parts are built.
 
-**Part 4 was decided on 2026-09-18**, and it was a ratification rather than a minting. calef ratified
+Part 4 was decided on 2026-09-18, and it was a ratification rather than a minting. calef ratified
 `Expected to fail:` as the line a record carries, in
 [§134](../decisions/134-harness-falsification-record.md)'s own spellings section. This block filed it
 as *"what to call a new field"* on the proposal's observation that four patches already did it in
-prose; counted on the day, **all 66 falsification records carried the line and 65 spelled it exactly
-that way**. The one outlier (`Expected red`, in `crates/nifefs`) was corrected in the same change, so
+prose; counted on the day, all 66 falsification records carried the line and 65 spelled it exactly
+that way. The one outlier (`Expected red`, in `crates/nifefs`) was corrected in the same change, so
 the convention the gate will read is uniform across all 66.
 
-**Part 5 was decided on 2026-09-19, and the answer was neither of the two offered.** It asked whether
+Part 5 was decided on 2026-09-19, and the answer was neither of the two offered. It asked whether
 `kernel/falsifications/` is an exception to §134's per-crate rule or a mistake. Both halves of the
 premise were false, and both had been closed before this block promoted the proposal:
 
-- **The path was settled on 2026-09-01.** §134 carries a paragraph headed *"Clarified 2026-09-01: the
+- The path was settled on 2026-09-01. §134 (a harness carries a machine-replayable falsification record) carries a paragraph headed *"Clarified 2026-09-01: the
   path is beside the package, not under `crates/`"*, which names `kernel/falsifications/` as
   conforming. There is no per-crate rule to be an exception to. Counted on 2026-09-19, twelve
   packages carry a `falsifications/` directory (ten under `crates/`, plus `kernel/` and
   `components/`) and every one obeys `<package>/falsifications/<module.path>.<harness_fn>.patch` with
   no special case.
-- **The replay was built on 2026-09-16.** The part says six kernel claims have records nothing can
+- The replay was built on 2026-09-16. The part says six kernel claims have records nothing can
   replay. Milestone 305 added a `KernelTest` class to `script/falsifications` on top of milestone
   210's `cargo xtask test --test <substring>`, and `notes/confinement-claims.md` struck the `BUGS`
-  bullet that said the mechanism did not exist. Measured on 2026-09-19: **14 kernel tests carry a
-  record and 13 are replayable.** The fourteenth is `unfalsified` on purpose, because a real escape
+  bullet that said the mechanism did not exist. Measured on 2026-09-19: 14 kernel tests carry a
+  record and 13 are replayable. The fourteenth is `unfalsified` on purpose, because a real escape
   there hangs the run instead of failing the test.
 
-**calef widened §134's wording on 2026-09-19** rather than leaving the one thing part 5 did surface,
+calef widened §134's wording on 2026-09-19 rather than leaving the one thing part 5 did surface,
 which was vocabulary rather than design: the section said "harness" throughout while the mechanism
 had covered kernel `#[test_case]`s since 305. `script/falsifications` had flagged that gap against
 itself and handed it over; §134's *"Harness" covers a kernel test too* section is the answer.
 
-**Why a cluster and not five proposals.** Each was filed by the lane that tripped over it, from a
+Why a cluster and not five proposals. Each was filed by the lane that tripped over it, from a
 different direction: milestone 313's security audit, 307's sweep of all 26 confinement rows, 318's
 NVMe work, 319's device-tree argument, and 247's original sweep. Read together they are one finding
-with five faces: **`script/falsifications` is the instrument this project uses to tell a test that
-can fail from a test that cannot, and the instrument has holes.** That is `design/fatal-risks/README.md`
+with five faces: `script/falsifications` is the instrument this project uses to tell a test that
+can fail from a test that cannot, and the instrument has holes. That is `design/fatal-risks/README.md`
 risk 3's own subject, and risk 3 is the entry whose verdict is still calef's.
 
 Promoting them one at a time would produce five briefs, five lanes and five partial answers to a
@@ -66,11 +66,11 @@ question that wants one.
 
 ## The five parts, each with the proposal that found it and what it claims
 
-1. **The device-tree parser's four harnesses are unfalsified.** `crates/device_tree_blob` carries `be32_is_total`,
+1. The device-tree parser's four harnesses are unfalsified. `crates/device_tree_blob` carries `be32_is_total`,
    `be64_is_total`, `be32_reads_big_endian_when_in_bounds` and `align4_rounds_up_to_a_multiple_of_four`,
    and none has a record. Four patches against code that already exists. Found by milestone 319.
 
-   **Closed 2026-09-23.** Still true when re-checked: all four carried `Falsification: unfalsified`.
+   Closed 2026-09-23. Still true when re-checked: all four carried `Falsification: unfalsified`.
    Four patches now exist, one per harness (`crates/device_tree_blob/falsifications/`), each
    falsified by hand before being recorded: `be32_is_total` and `be64_is_total` revert their
    `checked_add` to a bare add, reopening the near-`usize::MAX` overflow panic the hardening
@@ -79,40 +79,56 @@ question that wants one.
    multiple-of-four property and breaks `a >= n`. `script/falsifications --sweep device_tree_blob`:
    4 swept, 0 survivors, 0 stale.
 
-2. **The NVMe end-to-end test has none either**, and milestone 318 (the NVMe boot test on real
+2. The NVMe end-to-end test has none either, and milestone 318 (the NVMe boot test on real
    geometry) falsified it by hand with nowhere to put the evidence. What is owed is a cost
    judgement, not a decision: a fifteenth kernel record lengthens the sweep for every lane, and
    this one needs an NVMe controller attached. Found by that milestone's lane.
 
-   **Still open, and not closable from here.** Re-checked 2026-09-23:
-   `kernel::user::non_volatile_memory_express_tests::a_confined_el0_process_serves_the_block_interface_end_to_end`
-   still carries no `Falsification:` block. Milestone 318 already did the hard part, its two
-   falsifications are recorded in that milestone's own block rather than replayed by anything, and
-   turning either into a real `kernel/falsifications/` record means booting with `NIFE_NVME` set
-   and confirming red under `script/falsifications --sweep`, which starts QEMU with an attached
-   NVMe controller. Out of reach under this lane's no-QEMU constraint; see `## Follow-on`.
+   Closed 2026-10-03 (UTC). `cargo xtask test` attaches the NVMe controller on every test leg, so
+   no extra setup was needed to replay. The record is
+   `system_tests/falsifications/user.non_volatile_memory_express_tests.a_confined_el0_process_serves_the_block_interface_end_to_end.patch`.
+   Its defect is in the code under test, which the two hand falsifications of milestone 318 (the NVMe
+   boot test on real geometry) were not: `Handoff::transfer_command` sends a filesystem block
+   number as an LBA (`let slba = block;`), the factor-of-8 confusion the test's block 37 exists to
+   catch. Replayed on aarch64 with `cargo xtask test --arch aarch64 --test
+   a_confined_el0_process_serves_the_block_interface_end_to_end`: red at
+   `non_volatile_memory_express_tests.rs:151`, "byte 512 of block 37 came back wrong", exactly the
+   assertion the patch predicts. `script/falsifications --sweep system_tests` then swept it red in
+   21.8 s.
 
-3. **A record names one architecture, so a portable claim is evidenced on one leg.** Milestone 313's
-   finding 5. Two spellings fit the existing convention and either would do. Milestone 313's finding 5.
+3. A record names one architecture, so a portable claim is evidenced on one leg. Found by milestone 313 (the security audit that was due since August: userspace confinement, read adversarially), as its finding 5. Two spellings fit the existing convention and either would do.
 
-   **Still open, and not closable from here.** Re-checked 2026-09-23 against
-   `notes/confinement-claims.md`'s "Row 21's 'on every ISA' is not evidenced the same way on every
-   ISA" section: `kernel::user::tests::a_user_program_cannot_read_a_kernel_address` compiles and
-   runs on all three ISAs, and its record
-   (`kernel/falsifications/user.tests.a_user_program_cannot_read_a_kernel_address.patch`) is
-   honest that it is aarch64-only, both in its `Architecture:` field and in its own closing
-   paragraph, which already names the `x86_64` gap and points at this row. What would close it is
-   an `x86_64`-specific defect (the aarch64 patch's own hunk is against
-   `arch/aarch64/mmu.rs` and cannot apply on another ISA) plus a boot on `x86_64` to confirm it
-   red, which is the same no-QEMU wall as part 2. Recording an unverified `replayable` state
-   without that boot would be exactly the manufactured evidence this whole record exists to
-   refuse, so nothing is added here beyond confirming the gap is real and unchanged.
+   Closed 2026-10-03 (UTC). The aarch64 defect has an exact `x86_64` twin: `arch/x86_64/mmu.rs`
+   maps `.rodata` with `Flags::kernel_rodata()`, and `Flags::user_rodata()` there writes the `U/S`
+   bit while `CR4.SMAP` stays off. One record cannot name two files, so `script/falsifications`
+   now accepts `Architecture: aarch64, x86_64` and replays the patch on each leg, requiring red on
+   every one; a hunk for an ISA that is not booted is dead text to that boot. Row 21's patch carries
+   both hunks. Replayed: red at `system_tests/src/user/tests.rs:257` on aarch64 and on `x86_64`
+   ("the user program read a kernel address and was NOT stopped"). riscv64 stays out because the
+   defect cannot be booted there (a `U` kernel page faults the kernel, see the row 21 section of
+   `notes/confinement-claims.md`), and its evidence is the software walk.
 
-4. **A record does not say which assertion it expects to fire**, so a patch that turns a test red for
+   The same sweep covered the other rows reported as aarch64-only. Rows 22 (both tests), 23, 24 and 30
+   have portable hunks, so their records now name all three ISAs, each replayed red on riscv64 and
+   `x86_64` at the assertion the record predicts. Row 19 was reported the same way and is not: its
+   two Kani harnesses are ISA-neutral, and `a_grandchild_is_bounded_by_the_root` was `unfalsified`
+   while its sibling's patch already described the defect, so it now has a `replayable` record (3
+   swept, 0 survivors). Its four `dir_capability_tests` kernel tests carry no record; see `## Follow-on`.
+
+   Two things the replays found. The `x86_64` leg boots twice (direct, then real firmware) and
+   the sweep summed the selections, so a record red only under firmware read as stale; it now counts
+   distinct tests. And `port_holder_transmits_then_a_non_holder_faults` is exactly that record: its defect stays
+   green on the direct boot and goes red only under real firmware, at `x86_port_tests.rs:221`. The
+   patch now says so. The cause, measured 2026-10-03 by lane `x86-port-falsification-split`: the
+   direct boot runs two cores, the per-core TSS bitmap kept the holder's grant on cpu 0, and the
+   non-holder ran on cpu 1. The test now puts its non-holder's `out` on the holder's core and the
+   record is red on both boots (`x86_port_tests.rs:270`).
+
+4. A record does not say which assertion it expects to fire, so a patch that turns a test red for
    the wrong reason is indistinguishable from one that works. Milestone 307 swept all 26 rows of
    `notes/confinement-claims.md` asking exactly this. Found by milestone 307.
 
-   **Already closed, and stayed closed.** calef ratified `Expected to fail:` on 2026-09-18 (see
+   Already closed, and stayed closed. calef ratified `Expected to fail:` on 2026-09-18 (see
    `## What it is` above). Re-checked 2026-09-23 against the tree as it now stands: 73 of 74
    falsification patches carry the line (up from the 66 counted at ratification, as later lanes
    added records); the 74th
@@ -121,9 +137,9 @@ question that wants one.
    ..."), which satisfies `script/falsifications --check`'s actual rule (a non-empty prose head)
    without literally opening `Expected to fail:`. Nothing to do.
 
-5. **Prose that still describes the mechanism as it was before milestone 305 built the kernel
-   replay.** The part as filed (six kernel claims nothing can replay, found by milestone 247's sweep
-   from milestone 210's block) was closed on 2026-09-16; what survives is rot around it, and it is a
+5. Prose that still describes the mechanism as it was before milestone 305 (the six kernel confinement rows get a falsification a machine can replay) built the kernel
+   replay. The part as filed said six kernel claims had records nothing could replay. The sweep of milestone 247 (follow-on work named by a finished milestone goes nowhere, and this is the third time)
+   found it, from the block of milestone 210 (no kernel test can be run by name, so one falsification costs a whole suite). It was closed on 2026-09-16; what survives is rot around it, and it is a
    lane's afternoon rather than a design question. Two instances are known and a sweep should look
    for more. The patch
    `components/falsifications/proofs.push_never_writes_past_the_buffer_it_was_given.patch` tells its
@@ -135,7 +151,7 @@ question that wants one.
    `notes/confinement-claims.md` went a fortnight saying a primitive did not exist that had already
    shipped.
 
-   **Closed 2026-09-23, and the grep found two more of the same shape.** The named patch's stale
+   Closed 2026-09-23, and the grep found two more of the same shape. The named patch's stale
    paragraph is struck and corrected in place. Milestone 212 (script/falsifications walks crates/
    only, so the ratio it prints is not the tree's), closed 2026-09-01, moved the scope to `cargo
    metadata`. Milestone 175 (split user/: components/ for services, fixtures/ for test and
@@ -150,11 +166,11 @@ question that wants one.
 
 ## What it is not
 
-**Not a rewrite of `script/falsifications`.** Parts 1, 2 and 3 are records the tree does not have,
+Not a rewrite of `script/falsifications`. Parts 1, 2 and 3 are records the tree does not have,
 part 4 adds one line the sweep may read, and part 5 is stale prose. Nothing here changes how the
 sweep works.
 
-**Not a claim that the instrument is broken.** It works: milestone 202 enumerated 26 confinement
+Not a claim that the instrument is broken. It works: milestone 202 (every confinement test is a ritual until somebody breaks it) enumerated 26 confinement
 claims with 25 replayable falsifications, and milestone 305 used it to find a confinement test that
 could not fail. This is about the edges it does not reach yet, which is why every part was found by
 a lane doing something else.
@@ -163,21 +179,21 @@ a lane doing something else.
 
 Both parts filed as calef's were already answered by the tree, and neither lane could have known.
 
-Part 5's proposal was written on **2026-09-03**. The path question it raised had been settled on
-**2026-09-01**, two days earlier, in a paragraph its author had no reason to re-read. The replay it
-asked for was built on **2026-09-16** by milestone 305, thirteen days later. The proposal was
-promoted into this block on **2026-09-18**, two days after that, by a maintainer who did not re-check
+Part 5's proposal was written on 2026-09-03. The path question it raised had been settled on
+2026-09-01, two days earlier, in a paragraph its author had no reason to re-read. The replay it
+asked for was built on 2026-09-16 by milestone 305, thirteen days later. The proposal was
+promoted into this block on 2026-09-18, two days after that, by a maintainer who did not re-check
 its premise against the tree. Part 4 has the same shape with a smaller gap: it reported *"four
 patches in the tree already solve this in prose"*, which was a sample of 66.
 
-**A proposal's premise decays while the proposal sits, and promotion is where that is cheapest to
-catch.** Filing is the wrong moment, since the lane is looking at one thing and the tree moves
+A proposal's premise decays while the proposal sits, and promotion is where that is cheapest to
+catch. Filing is the wrong moment, since the lane is looking at one thing and the tree moves
 underneath it afterwards. Reading the brief is too late, because by then a lane has been spent. The
 promotion step already reads every proposal in the cluster and already costs the maintainer's
 attention, so re-running the proposal's own claims there is the smallest addition that would have
 caught both of these.
 
-**This is deliberately not a gate**, for the reason §134's own `BUGS` gives about prose: no check can
+This is deliberately not a gate, for the reason §134's own `BUGS` gives about prose: no check can
 tell a stale premise from a live one. It is rung three, written where the next promotion happens.
 
 ## Follow-on
@@ -185,30 +201,24 @@ tell a stale premise from a live one. It is rung three, written where the next p
 - **Done.** Part 1. `crates/device_tree_blob`'s four harnesses each carry a `replayable` record,
   falsified by hand before being written down. `script/falsifications --sweep device_tree_blob`:
   4 swept, 0 survivors, 0 stale. Checked 2026-09-23.
-- **Outstanding.** Part 2. The NVMe end-to-end test still carries no `Falsification:` block.
-  Turning milestone 318's two hand falsifications into a replayable `kernel/falsifications/`
-  record needs a boot with `NIFE_NVME` set (an NVMe controller attached) and is a cost judgement
-  as the part itself says: a fifteenth kernel record lengthens `script/falsifications --sweep`
-  for every lane that runs it. Not closable without hardware or a QEMU boot this lane was told
-  not to start. Checked 2026-09-23.
-- **Outstanding.** Part 3. Row 21's `x86_64` leg of `notes/confinement-claims.md` still has no
-  falsification evidence; `a_user_program_cannot_read_a_kernel_address` runs on `x86_64` but its
-  one existing record names `aarch64` only, honestly, because the aarch64 defect (a one-line
-  `Flags::user_rodata()` swap in `arch/aarch64/mmu.rs`) has no `x86_64` file to apply against.
-  Closing it needs an `x86_64`-specific defect and an `x86_64` boot to confirm it red under
-  `script/falsifications --sweep`, the same no-QEMU wall as part 2. Recording an unverified
-  `replayable` state without running it would be the manufactured evidence this record exists to
-  refuse, so this is left open rather than guessed at. Checked 2026-09-23.
-- **Done.** Part 4. `Expected to fail:` was ratified by calef on 2026-09-18, before this lane
+- **Done.** Part 2, in `system_tests/falsifications/` on branch `milestone/323-falsification-gaps`:
+  the NVMe end-to-end test carries a `replayable` record, red on aarch64 at
+  `non_volatile_memory_express_tests.rs:151`. Checked 2026-10-03.
+- **Done.** Part 3, same branch: `script/falsifications` takes a comma list in `Architecture:`,
+  row 21 is red on aarch64 and `x86_64`, and rows 22, 23, 24 and 30 are red on all three ISAs.
+  A sweep of `system_tests` on 2026-10-03 reported 18 swept, 0 survivors. Checked 2026-10-03.
+- **Done.** Part 4. `Expected to fail:` was ratified by calef on 2026-09-18, before the first lane
   started, and held on re-check: 73 of 74 records carry the exact line, and the 74th carries the
-  same sentence in different words, which is what the actual gate (a non-empty prose head) asks
-  for. Checked 2026-09-23.
+  same sentence in different words, which is what the gate (a non-empty prose head) asks for.
+  Checked 2026-09-23.
 - **Done.** Part 5. The named patch's stale "no script will apply it" paragraph is corrected in
-  place, and a grep for its exact phrasing found two more unstruck instances of the same shape
-  (a `BUGS` entry describing a limitation milestone 212 already closed): one in
-  `design/roadmap/197-user-and-xtask-proofs.md`, one in `notes/user-proofs.md`. A third, smaller
-  staleness in the same roadmap block (a falsification patch's location given as
-  `user/falsifications/`, stale since milestone 175) is also corrected. Checked 2026-09-23.
+  place, and a grep for its phrasing found two more unstruck instances: one in
+  `design/roadmap/197-user-and-xtask-proofs.md`, one in `notes/user-proofs.md`. A third, in the same
+  roadmap block (a patch location stale since milestone 175), is also corrected. Checked 2026-09-23.
+- **Recorded.** Row 19's four `kernel::user::dir_capability_tests` tests carry no falsification
+  record. The `attenuate` defect turns the read-only one red on aarch64 only through a vacuity
+  guard at line 974 of `kernel/src/user/fs_service.rs`, so it would show the test is wired and not that a
+  widened capability is refused. Written where a reader meets it, in `notes/confinement-claims.md`.
 
 ## Index row
 
@@ -219,8 +229,8 @@ illusion of it. Five lanes each tripped over a different hole in it between 2026
 portable claim, a record that does not say which assertion it expects, and six kernel claims nothing
 could replay. The last two were filed as calef's and both turned out already answered by the tree,
 which is this block's second finding: a proposal's premise decays while it sits in the pile.
-**Taken 2026-09-23: three of five closed.** `device_tree_blob`'s four harnesses are falsified and
-recorded (part 1); the stale mechanism prose is corrected, with two more unstruck instances of the
-same shape found by grepping (part 5); `Expected to fail:` was already closed by calef before this
-lane (part 4). The NVMe test (part 2) and row 21's `x86_64` leg (part 3) are real and unchanged,
-and neither closes without a QEMU boot this lane was told not to start; see `## Follow-on`.
+Taken 2026-09-23: three of five closed. `device_tree_blob`'s four harnesses are falsified and
+recorded (part 1); the stale mechanism prose is corrected (part 5); `Expected to fail:` was already
+closed by calef (part 4). On 2026-10-03 (UTC) the NVMe test got a replayable record red on aarch64
+(part 2), and confinement row 21 got an `x86_64` leg, with rows 22, 23, 24 and 30 replayed red on
+riscv64 and `x86_64` (part 3). All five are built.

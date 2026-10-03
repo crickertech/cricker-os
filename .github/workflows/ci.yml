@@ -81,6 +81,13 @@ concurrency:
 # milestone 62. Adding a job here without adding its row there is the defect the table exists to
 # prevent. `script/ci-build --list` prints it. See notes/scripts.md.
 #
+# **The `swish-check-graphical` job was folded into `swish-check` on 2026-10-03** (calef's ruling,
+# milestone 632 (graphics on demand) being what made it possible): since 632 the graphical legs
+# boot the same plain serial system as swish-check, and differ only by a virtio-gpu, typing
+# `graphical_terminal` and reading the screen. A job of its own cost a runner and about ten minutes
+# of build on every pull request and merge group for about a minute of boots. Its required-check
+# name must leave the ruleset when this lands; calef's.
+#
 # **Until 2026-09-30 one job stood against that rule by naming four checks** in one runner: `test`,
 # `swish-check`, `swish-check-graphical` and `boot-check` chained behind a single build (#1468,
 # approved by calef the same day). The chaining was measured arithmetic before it was a defect:
@@ -422,6 +429,16 @@ jobs:
     # (provisional) the leg runs in `swish-check-x86_64` and this job's two legs are about a minute;
     # 60 is not yet lowered, because a cold QEMU build is still the honest worst and one run on the
     # new shape is not a measurement of it.
+    #
+    #
+    # **The graphical fold changes no bound** (2026-10-03 UTC, the `swish-check-graphical` job's
+    # boots moved in here): each leg now boots three times, not two, and the added boots are the
+    # ones that job ran. Measured against a warm target on the dev Mac, both legs before the fold
+    # plus the graphical job's four boots were 199 s including builds, and after it 171 s (aarch64
+    # 65 s and riscv64 106 s, one run each, riscv64 noisy). At the 1.5x to 1.8x the flake census
+    # measured for CI's runner, the fold adds about one minute of boots to this job and removes a
+    # whole job's build. That fits the 20-minute budget with room, so it takes no line in
+    # `.github/ci-job-budgets`.
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -651,112 +668,6 @@ jobs:
           ls -l /dev/kvm
 
       - run: script/ci-build swish-check-x86_64
-        if: steps.scope.outputs.needed == 'true'
-      - name: Check the job's wall time against its budget
-        if: always()
-        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
-
-  swish-check-graphical:
-    name: swish-check-graphical (the shell on the graphical console)
-    runs-on: ubuntu-24.04-arm
-    needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
-    # A hung kernel means QEMU never exits and the runner would block until the 6-hour default.
-    # Fail loudly instead. The bound is a hang detector, not a budget, so it sits well above an
-    # honest run. Derivation: the four boots are about 48 seconds against a warm target
-    # (2026-09-19, dev Mac; the flake census measured CI's runner 1.5x to 1.8x slower). The honest
-    # cost is the setup, about ten minutes of build plus 10-20 for a cold QEMU build, near 32 at
-    # worst. 45 is the chained job's bound kept for headroom, and this leg has eaten a bound
-    # before: #1340's six new prompt lines were cancelled at 30 in the last graphical leg with
-    # every check before it green.
-    # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
-    # UTC). Any derivation above that argues for a longer bound predates it and describes a job
-    # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
-    timeout-minutes: 25
-    steps:
-      - name: Start the job wall-time clock
-        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          # Needs history to diff against the base for the scope check below.
-          fetch-depth: 0
-
-      # The same predicate the suite job, `cpu-matrix` and `verify` use, for the same reason: a
-      # change to a markdown file cannot alter what the shell reads back off a graphical console.
-      # Steps are guarded rather than the job, so a doc-only run reports green instead of gambling
-      # on how a skipped required check is treated. The predicate is deliberately identical rather
-      # than tuned narrower, for the reason `cpu-matrix` gives: one rule that is easy to believe
-      # beats two that have to be kept in agreement.
-      - name: Does this change need the build?
-        id: scope
-        run: |
-          # `helpers/scope-merge-base.sh` (its own header has the full story): a raw
-          # `pull_request.base.sha` is a snapshot from when THIS pull request's base last changed,
-          # not the base branch's current tip, so it goes stale the moment an unrelated pull
-          # request merges into the base branch without a push to this one. The script takes the
-          # merge base of HEAD against `origin/<base-ref>` instead, the base branch's actual
-          # current tip (already fetched fresh by this job's own `fetch-depth: 0` checkout above),
-          # falling back to the payload sha (still `|| merge_group.base_sha` for that event, whose
-          # own base is short-lived enough that this staleness is not its risk) only if the local
-          # ref cannot be resolved. Every one of this workflow's other eight scope-check steps uses
-          # the identical call, for the identical reason.
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; nothing a build or a boot can catch"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
-      # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
-      # (milestone 16b) arrived later, so the runner's packaged QEMU cannot boot the riscv leg at all.
-      # apt cannot fix it: it already installs the newest package for the release, and there is no
-      # newer Ubuntu runner image. The version is pinned in .qemu-version so CI and the developer
-      # machine emulate on the same thing, which matters for a project whose benchmarks are instruction
-      # counts. Cold builds take ~10-20 min; every run after that is a cache hit. Restored BEFORE
-      # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
-      # PATH, which is how the built one wins.
-      - name: Cache QEMU
-        if: steps.scope.outputs.needed == 'true'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/nife-qemu
-          key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
-      - name: Build QEMU if the cache missed
-        if: steps.scope.outputs.needed == 'true'
-        run: script/ci-qemu
-      - name: Put it on PATH
-        if: steps.scope.outputs.needed == 'true'
-        run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
-
-      # **The provisioning step is explicit** (milestone 286), the same shape the `bench` and `cpu
-      # matrix` jobs have always had. `script/ci-build` bootstraps only on its no-argument path,
-      # which is the command a developer runs before pushing; a job that names checks has already
-      # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
-      # drag an apt install of QEMU onto the rustfmt runner.
-      - run: script/bootstrap
-        if: steps.scope.outputs.needed == 'true'
-
-      # `swish-check-graphical` (milestone 177 (wire the graphical terminal stack into the real
-      # interactive boot)), its own job since the 2026-09-30 split (#1468) and before that a rider
-      # on the suite job. It boots the same `--features shell` kernels the swish-check job builds,
-      # with a virtio-gpu attached. Since milestone 632 (graphics on demand) the boot is the plain
-      # UART system: each leg types `graphical_terminal` at the serial prompt and reads the
-      # session's prompt and one typed key back off the screen. Four boots in all, a keyboard and
-      # the UART as the keystroke source on both architectures.
-      - run: script/ci-build swish-check-graphical
         if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()

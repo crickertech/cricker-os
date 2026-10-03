@@ -290,7 +290,7 @@
 //!
 //! **A `graphical_terminal` session's size is measured, after the count was wrong** (milestone 632
 //! (provisional)). [`GRAPHICAL_TERMINAL_SESSION_PAGES`] was first bounded from the constants at 464,
-//! and the `swish-check --graphical` leg proved that too small: every launch failed with `could not
+//! and the `swish-check` graphical launch proved that too small: every launch failed with `could not
 //! spawn` (the builder refuses rather than traps). Its doc holds the bisection. While a session
 //! runs, its 528-page region is one of the pool's 672,
 //! so a `std` job and a second session are refused until it ends, which the shell also reports as
@@ -4254,7 +4254,7 @@ const SCREEN_IN_VA: u64 = address_space_map::pair_page(0x0000_0000_00a1_0000);
 /// - the endpoints and pair pages this wiring retypes: nine at the most.
 ///
 /// That sums to four hundred fifty-seven, and the count was wrong. **Measured 2026-10-03 (UTC)**
-/// by bisecting this constant under `script/swish-check --graphical`, keyboard arm: aarch64
+/// by bisecting this constant under `script/swish-check`'s graphical launch (then `--graphical`), keyboard arm: aarch64
 /// needs 490 to 493 pages and riscv64 494 to 495. At the counted 464 the session's last child
 /// (`keyboard_driver`, or at 481-489 the session program itself) could not be built, the launch
 /// answered `could not spawn`, and CI's graphical leg failed. Five hundred twenty-eight is the
@@ -4316,7 +4316,7 @@ struct GraphicalTerminalLaunch<'a> {
 /// `UP`, `TERM_UP`, the driver's one `FLUSHED`, and `KEYBOARD_UP`. The middle two of those are
 /// the three-week hang of milestone 177's whole second flush: a report nobody receives parks its
 /// sender for ever and the failure is total silence, which is exactly the property
-/// `script/swish-check --graphical` exists to catch, now at launch rather than at boot.
+/// `script/swish-check`'s graphical launches exist to catch, now at launch rather than at boot.
 ///
 /// Everything is carved from `region` (the session's job region) except the loader's own scratch
 /// tables (`own_ut`). **The session program is born supervised on `deaths`, exactly as any job

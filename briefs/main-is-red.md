@@ -24,7 +24,7 @@ teaches the next session to ignore the procedure.
   queue.
 
 And the fourth case, which is the opposite mistake: green does not mean healthy. `ci.yml` skips
-the four build jobs' steps (`test`, `swish-check`, `swish-check-graphical`, `boot-check`; one
+the build jobs' steps (`test`, `swish-check`, `boot-check`, and `swish-check-graphical` until its 2026-10-03 fold into `swish-check`; one
 chained job until the 2026-09-30 split) for a commit that touches only `notes/`, `design/` or a
 root `*.md`, and the checks still post `success`. On 2026-09-23 that hid a broken
 `crates/documentation` test for hours. So if a lane reports a failure that CI says did not happen,

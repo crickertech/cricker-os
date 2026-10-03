@@ -1,6 +1,6 @@
 Falsifies `system_tests::user::revocation_in_flight_tests::a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver`.
 
-Architecture: aarch64
+Architecture: aarch64, riscv64, x86_64
 
 The defect is the tree as it stood until 2026-09-21: the patch removes the three lines this lane
 added to `sched::delete_page_frame_caps_where`, which is the whole of the fix for the `PageFrame`
@@ -23,17 +23,15 @@ says a capability really was in flight; the premise check (`!SENDER_STILL_HELD`)
 really did reach the one holder a table sweep can see. A revoke that did nothing at all would fail
 the second one with a message saying the test proved nothing.
 
-**Read the architecture line the way the audit in milestone 313 (the security audit that was due
-since August: userspace confinement, read adversarially) taught.** `script/falsifications` replays
-a kernel record on the one architecture its patch names, and nothing here is architecture-specific:
-`outgoing_cap`, the sweeps and the rendezvous are portable scheduler code. The record is aarch64's
-because that is where it was replayed, not because the defect is.
+**Nothing here is architecture-specific.** `outgoing_cap`, the sweeps and the rendezvous are portable scheduler code, which is why the record names all three ISAs. It was aarch64's alone until milestone 323 (the falsification record is incomplete in five ways) replayed it on the other two.
 
 **Two sibling sweeps carry the same fix and no record.**
 `sched::delete_device_frame_caps_from_others` and `sched::delete_port_range_caps_impl` (`x86_64`
 only) each gained the same two lines, and no test drives either through a parked hand-off. They are
 reasoned from the code, which is the grade `notes/confinement-claims.md` already asks a reader to
 apply to an unmeasured verdict.
+
+Replayed on all three ISAs. The hunk is portable code, so one patch serves every leg. On 2026-10-03 (UTC), `cargo xtask test --arch riscv64 --test a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` and the same with `--arch x86_64` both came back red at `system_tests/src/user/revocation_in_flight_tests.rs:134`, the assertion this record predicts, which is where aarch64 was already red.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
 --- a/kernel/src/sched.rs

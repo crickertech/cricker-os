@@ -330,8 +330,7 @@ this milestone does not build.
   measured in CI by this pull request's first green run.
 - **Milestone 268.** Its x86_64 top rung is reachable and gated by this leg; 268's own
   `boot-check`-asserts-the-prompt item is 268's.
-- **Milestone 192.** No x86_64 graphical leg; `--graphical --arch x86_64` refuses and points at
-  `cargo xtask uefi-boot`, which reads the shell off the firmware screen (milestone 400).
+- **Milestone 192.** Milestone 192 (a keyboard on real silicon) has no x86_64 graphical leg; 632 lists its needs.
 
 ## Index row
 
