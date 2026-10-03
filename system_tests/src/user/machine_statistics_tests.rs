@@ -119,6 +119,12 @@ fn the_machine_statistics_page_is_published_and_its_counters_move() {
         "the suite has switched threads many times and the page counted none"
     );
 
+    // **Wait for both the tick and its interrupt, not the tick alone.** A tick adds to its busy or
+    // idle word and then to its interrupt word, two relaxed adds on another core that this read can
+    // land between. Breaking on the tick word alone and then asserting the interrupt word is a
+    // race, and it failed on x86_64 in run 37089625155 (#1486's group, base d6a902a9b) with "the
+    // tick was not counted as an interrupt". So the loop waits on the whole claim, bounded by 50
+    // ticks of progress, and only a counter that never moves fails.
     let ticks = |s: &machine_statistics_protocol::Snapshot| s.busy_ticks() + s.idle_ticks();
     let start = ticks(&before);
     let mut now = before;
@@ -126,7 +132,8 @@ fn the_machine_statistics_page_is_published_and_its_counters_move() {
         sched::yield_now();
         // SAFETY: as above.
         now = unsafe { machine_statistics_protocol::Snapshot::read(va) }.unwrap();
-        if ticks(&now) > start {
+        let moved = ticks(&now) > start && now.interrupts() > before.interrupts();
+        if moved || ticks(&now) > start + 50 {
             break;
         }
     }
