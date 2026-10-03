@@ -195,8 +195,7 @@ Two, and neither is a person forgetting.
 
 1. CI wall time and the queue's ejection share are measured by nothing, and the one bound on either
    was ours to move. No script or watcher reads them;
-   [ci-queue-remeasure](../../design/roadmap/proposals/ci-queue-remeasure.md) (09-24) measures queue
-   waits. So a job that doubled in one merge stayed doubled, an ejection share that went from one in
+   milestone 648 (re-measure CI queue waits by runner label) measures waits only. So a job that doubled in one merge stayed doubled, an ejection share that went from one in
    twelve to nearly half read as a busy week, and when the job hit its bound, the bound moved.
 2. The token budget's burn-rate signal arrives too late to change a week's pace, and the tree's own
    effort measure counts one vendor, so even after the fact a bridged week reads as idle.
