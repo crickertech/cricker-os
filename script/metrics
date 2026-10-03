@@ -54,9 +54,15 @@
 #                                  because every merge moves the current week's numbers.
 #   script/metrics --charts        regenerate the SVGs from the CSV without touching the CSV, and
 #                                  rewrite the table of contents on notes/project-metrics.md
-#   script/metrics --check-toc     non-zero if that table of contents does not match the page's
 #                                  chart headings. `script/lint` runs it; nothing about it moves
 #                                  with the week, unlike --check.
+#   script/metrics --flags         one line per flagged week in the chart window (milestone 623,
+#                                  provisional): the week, its biggest mover, and whether a week
+#                                  note exists. Machine-facing; the weekly workflow embeds it in
+#                                  the pull request body. A flag never blocks and never edits.
+#   script/metrics --selftest      fixtures for the flag, the prune and the week-note render
+#                                  (milestone 623). Deliberately not in script/lint; run it when
+#                                  touching those, like helpers/qemu-bounded-selftest.sh.
 #
 #   --coverage-min-from <floor.txt>
 #                                  fill the CURRENT week's MINIMUM per-file coverage cell from the
@@ -146,11 +152,13 @@ set -e
 cd "$(dirname "$0")/.."
 
 exec python3 - "$@" <<'PYEOF'
+import csv
 import math
 import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import date, datetime, timedelta, timezone
 
 # The derivations this script shares with `script/lint`, in one place rather than copied into both
@@ -175,11 +183,9 @@ import rust_source                                                          # no
 from rust_source import non_blank, strip_non_code                           # noqa: E402
 
 PAGE = 'notes/project-metrics.md'
-# The page's table of contents is written by this script between these two lines and nowhere else
-# (calef, 2026-09-24). A hand-kept one drifts the first time a panel is added, and panels are added
-# weekly; `script/lint` runs `--check-toc`, so a stale one fails a build rather than a reader.
-TOC_BEGIN = '<!-- toc: script/metrics writes this -->'
-TOC_END = '<!-- /toc -->'
+# The page carried a generated table of contents from 2026-09-24 until calef cut it on 2026-09-30:
+# the document no longer needs one, and a TOC that nobody needs is the one thing worse than a stale
+# one. The markers and the writer are gone; this note keeps the reason the absence is deliberate.
 DATA_DIR = pathlib.Path('notes/project-metrics')
 # The data files themselves are one per measure and are named by `MEASURES` below. There is no
 # single joined file; milestone 581 (one metrics file per measure) retired `weekly.csv`.
@@ -191,6 +197,11 @@ DATA_DIR = pathlib.Path('notes/project-metrics')
 # snapshots of a tree, and reading them late is not a revision of history.
 EFFORT_PATH = DATA_DIR / 'effort.csv'
 LEDGER_PATH = DATA_DIR / 'ledger.md'
+# The week notes (milestone 623, provisional): hand-appended rows, pruned by this script when a
+# week ages out of the chart window, rendered as bullets under the chart a row names. Like the two
+# above rather than like the measure files: it is a record of an explanation, not a series
+# restated from git, so nothing here may rewrite a row that is already in it.
+WEEK_NOTES_PATH = DATA_DIR / 'week-notes.csv'
 
 # **This list is the roadmap's status vocabulary and it has to stay all of it**, because a status
 # missing here is counted as nothing: `milestones()` below keys on this dict and skips a row whose
@@ -1407,7 +1418,8 @@ def write_drift_report():
 
 
 # The ratified field and its three values, as `script/fatal-risks` gates them. calef ruled on
-# 2026-09-23 and `design/fatal-risks.md`'s vocabulary section carries the argument; the enumeration
+# 2026-09-23 and the vocabulary section of the fatal-risks summary (since 2026-09-29,
+# `design/fatal-risks/README.md`) carries the argument; the enumeration
 # is duplicated here rather than imported because `script/fatal-risks` is a shell wrapper around a
 # heredoc with nothing importable in it, and because this reader is asked about HISTORY, where the
 # words were different. A word that leaves the ratified set breaks the gate before it reaches here.
@@ -1460,7 +1472,12 @@ def fatal_risks(tree):
     """
     counts = {'fatal_risks_run': 0, 'fatal_risks_not_run': 0, 'fatal_risks_cannot_run': 0,
               'fatal_risks_total': 0}
-    text = tree.text.get('design/fatal-risks.md')
+    # The summary moved inside the directory as its README on 2026-09-29 (`45dfa3d77`, PR #1452),
+    # which deleted `design/fatal-risks.md`. The old path is tried FIRST on purpose, because a
+    # tree can hold both: from the directory's mint (2026-09-23) to the move, the `.md` was the
+    # nine-entry summary and the README a nine-line index, so reading the README first would count
+    # zero risks for those weeks. Trees after the move have only the README, and it is the summary.
+    text = tree.text.get('design/fatal-risks.md') or tree.text.get('design/fatal-risks/README.md')
     if not text:
         return counts
     parts = re.split(r'^## (\d+)\.', text, flags=re.M)
@@ -1669,9 +1686,9 @@ def write_csvs(rendered):
 # again in both modes before it shipped. A ninth series is never a new hue; it folds into another.
 
 PALETTE_LIGHT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7',
-                 '#e34948']
+                 '#5a6b7d']
 PALETTE_DARK = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9',
-                '#e66767']
+                '#94a5b7']
 
 CHART_W, CHART_H = 860, 380
 # The charts show the most recent CHART_WEEKS weeks; the measure files keep every week, and a
@@ -2019,8 +2036,8 @@ CHARTS = [
       ('boot chain (uefi_loader)', 'unsafe_trust_boot_chain'),
       ('unclassified', 'unsafe_trust_unclassified')], 1.0, None, None),
     ('fatal-risks.svg', 'The nine things that would kill nife, by Experiment status',
-     'design/fatal-risks.md; this says whether an experiment happened, never what it found. The '
-     'findings are in that file, in prose',
+     'design/fatal-risks/README.md; this says whether an experiment happened, never what it found. '
+     'The findings are in that file, in prose',
      [('RUN', 'fatal_risks_run'), ('NOT-RUN', 'fatal_risks_not_run'),
       ('CANNOT-RUN', 'fatal_risks_cannot_run'),
       ('unclassified', 'fatal_risks_unclassified')],
@@ -2121,6 +2138,186 @@ CHARTS = [
 ]
 
 
+# ---------------------------------------------------------------------------------------------
+# Milestone 623 (provisional): the week note. A cliff in a chart reads as a defect in an
+# instrument until somebody says otherwise, and calef's ask was a mechanism that says it under the
+# chart, by week, and forgets it when the week leaves the window. Three moving parts live here:
+# the flag, the prune and the render. The digest is NOT here, on purpose: it is `git log`
+# archaeology between two snapshot refs, `helpers/week_digest.py`, a separate process, because
+# this script is a reader of blobs and series and the digest is a walk over a diff.
+#
+# **The flag's threshold is a heuristic and it says so where it fires.** One tenth of the prior
+# week's value, carried verbatim from the proposal; measured over the first ten charted weeks it
+# flags every week on this tree's counts. The measurement and the options for the constant are in
+# `design/roadmap/proposals/the-week-flag-fires-every-week.md`, awaiting an architect. The flag
+# never blocks and never edits, so the noise costs a line in a log and nothing else.
+FLAG_ONE_OF = 10.0
+
+def read_week_notes(path=WEEK_NOTES_PATH):
+    """{week: [(chart svg name, note), ...]} from week-notes.csv, in file order.
+
+    `#` lines and the `week,chart,note` header are not data. A note may hold commas and quotes,
+    so each line goes through the csv reader rather than a split; the writer that prunes is
+    line-wise, so what a hand wrote is what the file keeps.
+    """
+    notes = {}
+    if not path.exists():
+        return notes
+    for line in path.read_text().split('\n'):
+        if not line.strip() or line.startswith('#'):
+            continue
+        for week, chart, note in csv.reader([line]):
+            if week in ('', WEEK) or not note.strip():
+                continue
+            notes.setdefault(week, []).append((chart, note.strip()))
+    return notes
+
+
+def charted_columns():
+    """(label, field) for every series the charts draw, stored and derived alike.
+
+    The flag must see what the reader sees, so this walks CHARTS rather than MEASURES: a derived
+    band (`names_no_block`) is a cliff on the page exactly as a stored column is.
+    """
+    return [(label, field)
+            for _name, _title, _sub, columns, _scale, _ceiling, _absent in CHARTS
+            for label, field in columns]
+
+
+def flagged_weeks(rows):
+    """{week: [(field, prior, now), ...]}, biggest absolute move first, charted weeks only.
+
+    A week flags when its move in any charted series exceeds one tenth of the prior week's value
+    (FLAG_ONE_OF); the prior week is the one before it in the series, which reaches back past the
+    window's left edge exactly as `trailing_mean` does. A series born that week does not flag,
+    because there is no prior value to move from; a measured zero that moves does, because zero
+    was a reading. A week whose cell is absent was not measured, and does not flag either.
+
+    The list is ordered by the size of the move, not its ratio, because the chart draws absolute
+    values: a cliff the eye sees is a band that grew or shrank by a lot, and a ratio ordering
+    would put every 0-to-3 debut above a 29% fall in a 46,000-line series.
+    """
+    every = sorted(rows)
+    flags = {}
+    for week in every[-CHART_WEEKS:]:
+        i = every.index(week)
+        if i == 0:
+            continue
+        before = every[i - 1]
+        moved = []
+        for label, field in charted_columns():
+            derive = DERIVED.get(field)
+            if derive is not None:
+                prior, now = derive(rows[before]), derive(rows[week])
+            else:
+                a, b = rows[before].get(field, ''), rows[week].get(field, '')
+                if a in ('', None) or b in ('', None):
+                    continue
+                prior, now = float(a), float(b)
+            if abs(now - prior) > abs(prior) / FLAG_ONE_OF:
+                moved.append((abs(now - prior), field, prior, now, label))
+        if moved:
+            moved.sort(key=lambda m: -m[0])
+            flags[week] = [(field, prior, now) for _m, field, prior, now, _l in moved]
+    return flags
+
+
+def flag_lines(rows, notes=None):
+    """One line per flagged week, `<week> <field> <prior>-><now> [+N more]; annotated|no week note`.
+
+    Machine-facing: the weekly workflow reads this for its pull request body (field 1 the week,
+    field 2 the series), and `--update` prints the unannotated ones as the weekly report.
+    """
+    if notes is None:
+        notes = read_week_notes()
+    out = []
+    for week, moved in sorted(flagged_weeks(rows).items()):
+        field, prior, now = moved[0]
+        more = '' if len(moved) == 1 else ' (+%d more series)' % (len(moved) - 1)
+        state = 'annotated' if week in notes else 'no week note'
+        out.append('%s %s %g->%g%s; %s' % (week, field, prior, now, more, state))
+    return out
+
+
+def report_flags(rows):
+    """The weekly report's one line per flagged week that carries no note (milestone 623).
+
+    Printed by the modes that write the series, so the run that notices a cliff is the run that
+    says so. It is a report and only a report: nothing downstream reads it, on purpose.
+    """
+    for line in flag_lines(rows):
+        if line.endswith('no week note'):
+            print('metrics: %s flagged and unannotated; explain it or age it out in '
+                  'notes/project-metrics/week-notes.csv' % line.split(';')[0])
+
+
+def prune_week_notes(keep_from, path=WEEK_NOTES_PATH):
+    """Drop rows whose week falls before `keep_from`, keeping every other line's bytes.
+
+    The aging-out rule: a bullet that outlives its graph explains nothing to anybody. Line-wise
+    on purpose, so a rewrite that drops nothing writes nothing and a hand-formatted note is never
+    requoted or rewrapped by the machinery that deletes its neighbours.
+    """
+    if not path.exists():
+        return 0
+    out, dropped = [], 0
+    for line in path.read_text().split('\n'):
+        if line.strip() and not line.startswith('#'):
+            row = next(csv.reader([line]), [])
+            if row and row[0] != WEEK and row[0] < keep_from:
+                dropped += 1
+                continue
+        out.append(line)
+    if dropped:
+        path.write_text('\n'.join(out))
+    return dropped
+
+
+_CHART_IMAGE = re.compile(r'^!\[[^\]]*\]\(project-metrics/([a-z0-9-]+\.svg)\)$')
+WEEK_NOTE_BEGIN = '<!-- week-notes: script/metrics writes this -->'
+WEEK_NOTE_END = '<!-- /week-notes -->'
+
+
+def write_week_notes_bullets(notes=None, page=PAGE):
+    """One bullet per note, under the chart image the note names, in week order, between markers.
+
+    The block sits directly after the image (calef ruled bullets under the graph, not markers in
+    the SVG), so a reader meeting a cliff meets its explanation without scrolling. Rendering is
+    idempotent and self-replacing: a chart whose notes have aged out loses its block, and a chart
+    that never had one is untouched.
+    """
+    if notes is None:
+        notes = read_week_notes()
+    by_chart = {}
+    for week in sorted(notes):
+        for chart, note in notes[week]:
+            by_chart.setdefault(chart, []).append('- %s: %s' % (week, note))
+    path = pathlib.Path(page)
+    text = path.read_text()
+    lines = text.split('\n')
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        i += 1
+        image = _CHART_IMAGE.match(line)
+        if not image:
+            continue
+        if i < len(lines) and lines[i] == '':
+            out.append('')
+            i += 1
+        if i < len(lines) and lines[i] == WEEK_NOTE_BEGIN and WEEK_NOTE_END in lines[i:]:
+            i = lines.index(WEEK_NOTE_END, i) + 1
+            if i < len(lines) and lines[i] == '':
+                i += 1
+        block = by_chart.get(image.group(1))
+        if block:
+            out.extend([WEEK_NOTE_BEGIN] + block + [WEEK_NOTE_END, ''])
+    new = '\n'.join(out)
+    if new != text:
+        path.write_text(new)
+
+
 def fill_derived(rows, rev):
     """Set every column that is read once for all weeks rather than per revision.
 
@@ -2202,42 +2399,6 @@ def github_anchor(heading):
     return kept.replace(' ', '-')
 
 
-def page_toc(text):
-    """One link per chart panel: a `## ` heading whose section holds an image from the data
-    directory. A heading with no chart under it is prose, not a panel, and is left out, so the list
-    is exactly what a reader scanning for a chart wants. A repeated heading gets GitHub's `-1`
-    suffix, which is why every heading is counted and not only the listed ones."""
-    lines, seen, current = [], {}, None
-    for line in text.split('\n'):
-        if line.startswith('## '):
-            title = line[3:].strip()
-            base = github_anchor(title)
-            n = seen.get(base, 0)
-            seen[base] = n + 1
-            current = (title, base if n == 0 else '%s-%d' % (base, n))
-        elif current and line.startswith('![') and '](project-metrics/' in line:
-            lines.append('- [%s](#%s)' % current)
-            current = None
-    return lines
-
-
-def render_page_toc(text):
-    if text.count(TOC_BEGIN) != 1 or text.count(TOC_END) != 1:
-        raise SystemExit('metrics: %s must carry exactly one %r and one %r'
-                         % (PAGE, TOC_BEGIN, TOC_END))
-    head, rest = text.split(TOC_BEGIN)
-    _old, tail = rest.split(TOC_END)
-    return head + TOC_BEGIN + '\n' + '\n'.join(page_toc(text)) + '\n' + TOC_END + tail
-
-
-def write_page_toc():
-    path = pathlib.Path(PAGE)
-    text = path.read_text()
-    new = render_page_toc(text)
-    if new != text:
-        path.write_text(new)
-
-
 # Trend lines, keyed by chart. calef asked on 2026-09-24 for a trailing ten-week mean on the
 # velocity chart and then the pull-request chart, one helper for both, because a flow that swings
 # from 8 to 49 to 13 in three weeks cannot be read for direction by eye. It is drawn and never stored, like the fatal-risks chart's unclassified band:
@@ -2263,10 +2424,10 @@ def trailing_mean(rows, weeks, field, span):
 
 
 def draw_charts(rows):
-    write_page_toc()
     write_bold_status(rows)
     write_drift_report()
     write_interface_line(rows)
+    write_week_notes_bullets()
     retire = bold_retire_line(rows)
     if retire:
         print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
@@ -2294,6 +2455,112 @@ def print_table(row):
     width = max(len(f) for f in FIELDS)
     for field in FIELDS:
         print('%-*s  %s' % (width, field, row.get(field, '')))
+
+
+# ---------------------------------------------------------------------------------------------
+# The selftest (milestone 623). The flag, the prune and the render are three ways a wrong reader
+# would mislead: a threshold off by an inequality, a prune that requotes what it kept, a render
+# that loses the page around its own output. Each case below is one of those, fixture-built, no
+# git and no real file written. Deliberately not in `script/lint`: run it when touching those.
+
+def selftest():
+    rows = {}
+    chain = [('2026W01', {'kernel_code_lines': '100'}),
+             ('2026W02', {'kernel_code_lines': '90'}),
+             ('2026W03', {'kernel_code_lines': '50'}),
+             ('2026W04', {'kernel_code_lines': '0'}),
+             ('2026W05', {'kernel_code_lines': '5'}),
+             ('2026W06', {'kernel_code_lines': '5'}),
+             ('2026W07', {'kernel_code_lines': '5', 'bugs_rust': '3'}),
+             ('2026W08', {'kernel_code_lines': '5', 'bugs_rust': '3', 'names_total': '10'}),
+             ('2026W09', {'kernel_code_lines': '5', 'bugs_rust': '3', 'names_total': '30',
+                          'names_ratified': '10'}),
+             ('2026W10', {'kernel_code_lines': '4', 'bugs_rust': '0', 'names_total': '30',
+                          'names_ratified': '10'}),
+             ('2026W11', {'kernel_code_lines': '4', 'bugs_rust': '', 'names_total': '36',
+                          'names_ratified': '10'})]
+    for week, cells in chain:
+        rows[week] = dict({WEEK: week}, **cells)
+    flags = flagged_weeks(rows)
+    lines = flag_lines(rows, notes={})
+    by_week = {line.split(' ', 1)[0]: line for line in lines}
+
+    notes_file = None
+    page_file = None
+    original_page = None
+    with tempfile.TemporaryDirectory() as tmp:
+        notes_file = pathlib.Path(tmp) / 'week-notes.csv'
+        notes_file.write_text(
+            '# the append rule and the prune rule, in prose a reader meets first\n'
+            '# a second comment line the prune must keep byte for byte\n'
+            'week,chart,note\n'
+            '2026W30,lines.svg,"aged out"\n'
+            '2026W31,lines.svg,"stays, with its comma"\n'
+            '2026W40,lines.svg,"the kernel cliff"\n')
+        kept_before = notes_file.read_text().split('\n')
+        dropped = prune_week_notes('2026W31', notes_file)
+        kept_after = notes_file.read_text().split('\n')
+
+        page_file = pathlib.Path(tmp) / 'page.md'
+        original_page = (
+            '# page\n'
+            '\n'
+            '![Rust](project-metrics/lines.svg)\n'
+            '\n'
+            'caption one\n'
+            '\n'
+            '![Bugs](project-metrics/bugs.svg)\n'
+            '\n'
+            'caption two\n')
+        page_file.write_text(original_page)
+        notes = {'2026W39': [('lines.svg', 'note a')],
+                 '2026W40': [('lines.svg', 'note b')]}
+        write_week_notes_bullets(notes, page_file)
+        once = page_file.read_text()
+        write_week_notes_bullets(notes, page_file)
+        twice = page_file.read_text()
+        write_week_notes_bullets({}, page_file)
+        gone = page_file.read_text()
+
+    cases = [
+        ('a move over a tenth flags, falling',
+         [f for f, _p, _n in flags['2026W03']], ['kernel_code_lines']),
+        ('a move of exactly one tenth does not flag', '2026W02' in flags, False),
+        ('a fall to a measured zero flags', flags['2026W04'], [('kernel_code_lines', 50.0, 0.0)]),
+        ('a rise from a measured zero flags', flags['2026W05'], [('kernel_code_lines', 0.0, 5.0)]),
+        ('an unchanged week does not flag', '2026W06' in flags, False),
+        ('a series born that week does not flag', '2026W07' in flags, False),
+        ('a derived band flags through the same rule', flags['2026W08'],
+         [('names_no_block', 0.0, 10.0)]),
+        ('the biggest relative mover is named first',
+         [f for f, _p, _n in flags['2026W10']], ['bugs_rust', 'kernel_code_lines']),
+        ('an absent current cell does not flag that series',
+         'bugs_rust' in [f for f, _p, _n in flags['2026W11']], False),
+        ('the week before the window is a prior, never a flag', '2026W01' in flags, False),
+        ('a flag line names week, series, move and state', by_week['2026W03'],
+         '2026W03 kernel_code_lines 90->50; no week note'),
+        ('an annotated week says so in the same line',
+         flag_lines(rows, notes={'2026W03': [('lines.svg', 'n')]})[0],
+         '2026W03 kernel_code_lines 90->50; annotated'),
+        ('further movers are counted, not listed', by_week['2026W10'],
+         '2026W10 bugs_rust 3->0 (+1 more series); no week note'),
+        ('the prune drops only the aged row', dropped, 1),
+        ('the prune keeps every other line byte for byte',
+         kept_after, [l for l in kept_before if l != '2026W30,lines.svg,"aged out"']),
+        ('a bullet renders under the chart it names, in week order',
+         ('\n'.join(once.split('\n')[4:8])),
+         '\n'.join([WEEK_NOTE_BEGIN, '- 2026W39: note a', '- 2026W40: note b',
+                    WEEK_NOTE_END])),
+        ('rendering twice writes the same bytes', twice, once),
+        ('a chart with no notes left is back to its original bytes', gone, original_page),
+    ]
+    failed = [(name, got, want) for name, got, want in cases if got != want]
+    for name, got, want in failed:
+        print('metrics selftest: %s\n  got  %r\n  want %r' % (name, got, want), file=sys.stderr)
+    if failed:
+        return 1
+    print('metrics selftest: %d cases pass' % len(cases))
+    return 0
 
 
 def main(argv):
@@ -2345,14 +2612,6 @@ def main(argv):
         return 0
 
     mode = args[0] if args else '--table'
-    if mode == '--check-toc':
-        text = pathlib.Path(PAGE).read_text()
-        if render_page_toc(text) != text:
-            print('metrics: the table of contents on %s is stale; run script/metrics --charts'
-                  % PAGE, file=sys.stderr)
-            return 1
-        print('metrics: %s lists all %d chart panels' % (PAGE, len(page_toc(text))))
-        return 0
     if mode not in ('--table', '--csv', '--backfill', '--update', '--check', '--charts'):
         raise SystemExit('metrics: unknown argument %s; see the comment at the top of this script'
                          % mode)
@@ -2430,7 +2689,16 @@ def main(argv):
         return 0
 
     write_csvs(rendered)
+    # Milestone 623's aging-out rule runs here, before the charts are drawn, so the bullet a
+    # pruned row was rendering disappears in the same run that dropped it. `--check` compares the
+    # measure files only; the week notes are a hand record, and their prune is a side effect of
+    # the run rather than something the staleness check can see.
+    window = sorted(rows)[-CHART_WEEKS:]
+    dropped = prune_week_notes(window[0])
+    if dropped:
+        print('metrics: pruned %d week-note row(s) whose week left the chart window' % dropped)
     draw_charts(rows)
+    report_flags(rows)
     print('metrics: %d weeks across %d measure files in %s/, charts in the same directory'
           % (len(rows), len(rendered), DATA_DIR))
     return 0

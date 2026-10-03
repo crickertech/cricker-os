@@ -37,6 +37,16 @@ cd "$(dirname "$0")/.."
 #
 # The "host pass excludes exactly the bare-metal crates" gate below derives this set rather than
 # trusting this line.
+# `--baselines`: only the icount-baseline-vs-pin check. `.githooks/pre-push` calls this beside
+# `--clippy` because the two are the cheap gates a push can break: code shape, and pin state.
+# Added 2026-09-30 after #1463's toolchain bump pushed past an unread lint with the floors
+# unstamped: a failure no rust-level hook could ever see.
+if [ "${1:-}" = "--baselines" ]; then
+    echo "==> baselines-only mode (pre-push); the rest of lint still runs before any report or merge"
+    python3 "$(dirname "$0")/../helpers/lint_icount_baselines.py" || exit 1
+    exit 0
+fi
+
 echo "==> clippy: host crates + xtask"
 cargo clippy --workspace --exclude kernel --exclude system_tests --exclude components --exclude fixtures --exclude user_mode_runtime \
     --exclude swap_protocol --exclude virtio --exclude supervision_protocol --exclude system_initializer \
@@ -965,12 +975,6 @@ fi
 # citation split by a line break and a lettered milestone, and neither failed anything until
 # milestone 583 (a citation a line break split, or a lettered milestone).
 # The metrics page's table of contents is generated (script/metrics --charts writes it between two
-# markers) and this is what stops a hand edit or a new panel from leaving it stale. It reads one file
-# and no history, so it costs nothing here, unlike `script/metrics --check`, which every merge would
-# fail because the current week's numbers move.
-echo "==> metrics page table of contents"
-"$(dirname "$0")/metrics" --check-toc
-
 echo "==> citations"
 "$(dirname "$0")/citations" --selftest >/dev/null
 "$(dirname "$0")/citations" --check
@@ -1540,73 +1544,7 @@ QEMUEOF
 # this check running unexempted on the bump's pull request. A green lint bought with this variable
 # means nothing.
 echo "==> the icount baselines name the pinned nightly"
-python3 - <<'TOOLCHAINEOF' || exit 1
-import os
-import pathlib
-import re
-import sys
-
-if os.environ.get("NIFE_BUMP_IN_PROGRESS"):
-    print("the icount baselines name the pinned nightly: SKIPPED (NIFE_BUMP_IN_PROGRESS; "
-          "script/toolchain-bump is mid-bump, and CI on its pull request is the real gate)")
-    sys.exit(0)
-
-pin = None
-for line in pathlib.Path("rust-toolchain.toml").read_text().splitlines():
-    if line.lstrip().startswith("channel"):
-        m = re.search(r'"([^"]+)"', line)
-        if m:
-            pin = m.group(1)
-        break
-if pin is None:
-    print("lint: rust-toolchain.toml has no channel line to check the baselines against", file=sys.stderr)
-    sys.exit(1)
-
-STAMP = re.compile(r"^#\s*toolchain:\s*(\S+)\s*$")
-bad, checked = [], 0
-for path in sorted(pathlib.Path("bench").glob("baseline-*.txt")):
-    checked += 1
-    got = None
-    for line in path.read_text().splitlines():
-        m = STAMP.match(line)
-        if m:
-            got = m.group(1)
-            break
-    if got is None:
-        bad.append(f"{path.as_posix()}: no '# toolchain: <channel>' line")
-    elif got != pin:
-        bad.append(f"{path.as_posix()}: recorded against {got}, but rust-toolchain.toml pins {pin}")
-
-if bad:
-    print("lint: the icount baselines do not name the pinned nightly:", file=sys.stderr)
-    for b in bad:
-        print(f"        {b}", file=sys.stderr)
-    print(f"""
-A compiler bump changes the instruction sequences these floors count, so the
-numbers are revalued by a change no commit in this branch is responsible for.
-The bump workflow's restamp job carries a floor across when it proves the
-compiler moved no row by 0.5% or more (its table is in the pull request body).
-Every floor named above is one it could not carry. Re-record it HERE, in the
-branch that raises the pin, so the delta is seen by the person causing it:
-
-    script/bench --save --why "nightly-<date>: <what the new compiler moved>"
-    script/bench --riscv --save --why "..."
-    script/bench --x86 --save --why "..."
-
---why is not optional: a floor records the reason it holds its value, beside the
-number, because a commit message is read once on the day it is written (milestone
-302). Say the same thing in the commit message. If a floor moved a lot, that is the
-gate working: a nightly can make this kernel genuinely slower, and re-recording
-without reading the delta is the one outcome this refuses to automate.""", file=sys.stderr)
-    sys.exit(1)
-
-# An empty glob here would print "0 file(s)" and pass (milestone 401): the selector is
-# `bench/baseline-*.txt`, and renaming those files is a thing a benchmark milestone does.
-if checked == 0:
-    sys.exit("lint: bench/baseline-*.txt matched no file, so the toolchain-stamp check "
-             "judged nothing. The baseline file naming moved; move the glob with it.")
-print(f"the icount baselines name the pinned nightly: {checked} file(s) at {pin}")
-TOOLCHAINEOF
+python3 "$(dirname "$0")/../helpers/lint_icount_baselines.py" || exit 1
 
 # Counted claims (milestone 125). DECISIONS §39 says a name is a claim; so is a number, and a number
 # is the kind of claim a machine can check, which is what makes this a gate rather than an audit.
@@ -3038,7 +2976,7 @@ python3 helpers/interface_stability.py --selftest >/dev/null
 echo "==> the architect-label diff rules"
 python3 helpers/architect-label-rules.py --selftest >/dev/null
 
-# The base-resolution half of the same check, shared with ci.yml's six scope-check steps:
+# The base-resolution half of the same check, shared with ci.yml's nine scope-check steps:
 # helpers/scope-merge-base.sh takes the merge base of HEAD against the base branch's CURRENT tip
 # rather than trusting the event payload's own base.sha, which goes stale the moment an unrelated
 # pull request merges into the base branch without a push to this one (#1416's false `dependency`
