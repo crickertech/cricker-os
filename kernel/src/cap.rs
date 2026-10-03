@@ -351,13 +351,26 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 ///
 /// **Twenty-eight with a gpu and a keyboard** (2026-10-03, UTC, milestone 632 (graphics on
 /// demand)). The boot no longer builds the display stack and deletes the device grants mid-boot; it
-/// carries them until it hands them to the shell. Measured on both `swish-check --graphical` arms,
+/// carries them until it hands them to the shell. Measured on both `swish-check` graphical arms (then `--graphical`),
 /// aarch64 and riscv64, on a tree with the twenty-four above: the keyboard arm's boot peaks at 26
 /// and a `graphical_terminal` launch, built in the spawn service, at 28; the serial arm (gpu, no
 /// keyboard) stays at 24. Which grants sit on the peak is not traced. The record is the highest a
 /// real system reaches, so it is twenty-eight. The costs: a boot with no gpu has four slots of
 /// slack before this fires, and the headroom is four.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 28;
+///
+/// **Thirty with a gpu and a keyboard, a correction** (2026-10-03, UTC, the lane that folded the
+/// `swish-check-graphical` job into `swish-check`). The paragraph above was right when it was
+/// measured and stale by the time it landed: the `--graphical` legs never read this gauge, so
+/// nothing fired when the tree moved. Folded into `script/swish-check`, whose gauge check does
+/// fire, the keyboard arm's `graphical_terminal` launch peaks at **30** on aarch64 and riscv64
+/// alike (the configuration is the old device arm's: gpu, keyboard, virtio-rng, the disk; the NIC
+/// is left off that boot, and with it on the same boot also reads 30). The serial arm (gpu, no
+/// keyboard, with the NIC and virtio-rng the plain legs attach) peaks at 27, and a boot with no
+/// gpu stays at 24. Which grants sit on the two extra slots is not traced. **The headroom is
+/// two**: the next capability held across a launch buys a slot back or raises
+/// [`CAPABILITY_TABLE_SLOTS`], and that is a decision for whoever adds it, with this paragraph in
+/// front of them.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 30;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);

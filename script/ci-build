@@ -126,7 +126,6 @@ test|local|script/test
 swish-check|local|cargo xtask std-exerciser && script/swish-check
 swish-check-aarch64-riscv64|ci|cargo xtask std-exerciser && script/swish-check --arch aarch64 && script/swish-check --arch riscv64
 swish-check-x86_64|ci|cargo xtask std-exerciser && script/swish-check --arch x86_64
-swish-check-graphical|local|script/swish-check --graphical && script/swish-check --graphical-serial
 boot-check|local|script/boot-check
 hvf|local|hvf_leg
 fastpath-footprint|ci|script/fastpath-footprint

@@ -47,7 +47,7 @@ Two lane hazards found while setting up, recorded because the next lane will hit
 - 5380 CI runs in the window: 4278 green, 447 failed at latest attempt, 653 cancelled. Events:
   3399 pull_request, 1170 merge_group, 639 push, 172 workflow_dispatch.
 - 158 runs failed `build + test (host + QEMU)`. Of those, the gate's step
-  (`script/ci-build test swish-check swish-check-graphical boot-check`, .github/workflows/ci.yml:403)
+  (`script/ci-build test swish-check swish-check-graphical boot-check` (the graphical row was folded into swish-check on 2026-10-03), .github/workflows/ci.yml:403)
   failed in 84, and its pre-rename `shell-check` spelling in 54 more (renamed 2026-09-23). Nineteen
   failed an older generic step name and are unclassified: no log budget was spent on them. With 16
   rerun-hidden failures found in prior attempts, 154 runs are known to have failed the gate's step

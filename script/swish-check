@@ -3,8 +3,6 @@
 #
 #   script/swish-check                     all three architectures
 #   script/swish-check --arch aarch64      one leg (aarch64, riscv64 or x86_64)
-#   script/swish-check --graphical         aarch64 and riscv64, GPU and keyboard attached
-#   script/swish-check --graphical-serial  aarch64 and riscv64, GPU only, typing over the UART
 #   script/swish-check --release           the optimised build a stick carries (not in CI; x86_64 untried)
 #
 # **It also gates the progenitor's stack** (milestone progenitor-stack (provisional)): the kernel
@@ -26,25 +24,37 @@
 # interactive-boot entry point) has the measurement in its block, and why the slower boot was
 # chosen.
 #
-# `--graphical` (milestone 632 (provisional), reversing milestone 177 (wire the graphical terminal stack into the real interactive boot)'s boot half) boots the same
-# `--features shell` kernel as every boot, the normal UART system, with a virtio-gpu and a
-# virtio-keyboard attached; the boot ignores the devices and the shell holds their grants. It then
-# types `graphical_terminal` at the prompt and verifies the launched session by reading the screen back
-# (a QEMU screendump decoded against the same 7x8 font the guest drew from): the UART prompt
-# before the launch is the assertion that the boot stayed minimal, and the session's prompt on the
-# screen plus one keystroke round-tripped (through the session's `keyboard_driver` and line
-# discipline on this arm) is the assertion that the launch works. It does not run the full console
-# leg's script (echo, redirects, `wc <`, ...), which is real, scoped-out follow-on work. See
-# `swish_check_leg_graphical`'s own doc in `xtask/src/swish_check.rs`.
+# **The aarch64 and riscv64 legs launch the graphical terminal too** (2026-10-03 UTC, calef's
+# ruling; until then `--graphical` and `--graphical-serial` were two more flags and
+# `swish-check-graphical` was a CI job of its own, which cost a runner and about ten minutes of
+# build for about a minute of boots; the flags are gone and refuse themselves if typed). Milestone
+# 632 (graphics on demand, provisional), reversing milestone 177 (wire the graphical terminal
+# stack into the real interactive boot)'s boot half, made the graphical boot the same `--features
+# shell` UART system as every other boot, so the only differences are a virtio-gpu, typing
+# `graphical_terminal` at the prompt, and reading the screen back (a QEMU screendump decoded
+# against the same 7x8 font the guest drew from). A launch ends the boot it is typed into (the
+# shell waits on the session), so each leg is three boots:
 #
-# `--graphical-serial` (milestone 192 (a keyboard on real silicon), option A) is the same launch with the keyboard left off, so
-# the session's keystrokes are the guest's own UART, read raw from the boot's line discipline
-# (`OP_RAWMODE`/`OP_READRAW`, the shell's own §227 (how Tab reaches the shell: the shell edits its own line) shape) and echoed by the session itself. That is
-# the configuration all three target boards have: argon, radon and xenon each have a serial line
-# and none has a virtio-input device, so this is the closest QEMU can stand to what a real board
-# will do. Both legs make the same two assertions and neither can tell which source the key came
-# from, which is the property milestone 192's option A is finished by. It is NOT a substitute for a
-# bench run: QEMU has neither board's framebuffer handoff (milestone 157 (U-Boot's simple-framebuffer handoff)) nor its real UART timing.
+#   1. The full script, **no gpu**: its `graphical_terminal` line requires the refusal sentence,
+#      which is the headless half of milestone 632 (graphics on demand)'s claim, on all three ISAs, at no extra boot.
+#   2. After the reboot: the short script, then a gpu and **no keyboard**, and `graphical_terminal`.
+#      The session's keystrokes are the guest's own UART, read raw from the boot's line discipline
+#      (`OP_RAWMODE`/`OP_READRAW`, the shell's own section 227 shape) and echoed by the session
+#      (milestone 192 (a keyboard on real silicon), option A). That is the configuration all three
+#      target boards have: argon, radon and xenon each have a serial line and none has a
+#      virtio-input device. It is NOT a substitute for a bench run: QEMU has neither board's
+#      framebuffer handoff (milestone 157 (U-Boot's simple-framebuffer handoff)) nor its real UART
+#      timing.
+#   3. A scriptless boot with a gpu **and a keyboard**, a key pressed with the monitor's `sendkey`
+#      through the session's `keyboard_driver`. It leaves the NIC off: with every device attached a
+#      launch peaks at 30 of 32 capability slots (`kernel/src/cap.rs`), a boot nothing else makes.
+#
+# Both launches make the same two assertions, the session's `$ ` prompt on the screen and one key
+# echoed beside it, and neither can tell which source the key came from, which is the property
+# milestone 192's option A is finished by. They are the legs' full claim on the graphical path:
+# nothing past one key is asserted there. See `launch_graphical_terminal`'s doc in
+# `xtask/src/swish_check.rs`. **x86_64 has no graphical boot** (its runner attaches no virtio-gpu;
+# milestone 632's BUGS has what it would take) and stays on the refusal.
 #
 # This is the gate for `components/src/progenitor.rs`. Every other test that runs the shell has
 # the KERNEL play the first process, so a broken progenitor fails nothing; the interactive boot is the only thing that
@@ -52,7 +62,7 @@
 # bugs that way and all three printed nothing at all. See notes/pipes.md.
 #
 # It is not part of script/test, because it builds a second kernel (`--features shell`) and boots it
-# twice. It IS a `local` row in `script/ci-build`'s table (since milestone 230; that table was two
+# three times per ISA. It IS a `local` row in `script/ci-build`'s table (since milestone 230 (`script/shell-check` is red on `main`); that table was two
 # lists until milestone 286), and the reason is what happened while nothing ran it: it went red on
 # `main` on both architectures on 2026-08-28 and stayed red for five days, through every green
 # check. A gate that exists, fails, and tells nobody is worse than no gate, and this one guards the
@@ -103,12 +113,12 @@
 # every boot went unnoticed through passing runs (`components/src/login.rs`'s own BUGS). That assertion is
 # the obvious next ratchet and belongs with the fix for it.
 #
-# **The two graphical legs prove one key, not the script.** They are green since milestone 177
+# **The two graphical launches prove one key, not the script.** They are green since milestone 177
 # found the hang that kept them red (the boot never received two drivers' one-time reports, so both
-# drivers sat in a blocking SEND; notes/framebuffer-contract.md has the evidence), and they are the
-# `swish-check-graphical` row of `script/ci-build`. What they check is the UART prompt of a normal
-# boot, the launched session's prompt on the screen, and one typed key echoed beside it; nothing
-# past that is asserted on the graphical path.
+# drivers sat in a blocking SEND; notes/framebuffer-contract.md has the evidence). What they check is
+# the launched session's prompt on the screen and one typed key echoed beside it; nothing past that
+# is asserted on the graphical path. Folding them in made the plain legs' gauges read them, which is
+# how the capability-slot record turned out to be two short (`kernel/src/cap.rs`).
 #
 # Name: ratified 2026-09-23 (calef, replacing `shell-check`, which was provisional and introduced
 # 2026-08-02). It boots the kernel's `--features shell` configuration and types at the prompt, so it
