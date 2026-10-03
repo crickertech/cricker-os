@@ -136,7 +136,7 @@ The pull request is open and the review is answered in code. Waiting on calef:
 
 1. The `kani_lib.c` link fix, promised on #4913 as a follow-up pull request. It is the proposed
    milestone [riscv64 proofs check against the riscv64
-   model](../design/roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md). Its first
+   model](../design/roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md). Its first
    finding: nife's riscv64 kernel proofs are linked against the host's model today, with no verdict
    changed for the seven harnesses that exist.
 2. The pull request body's "Something I noticed" paragraph, if it still gives the old cause.

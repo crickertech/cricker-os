@@ -117,7 +117,7 @@ ruling; it said "the red half is structural", naming a crate boundary milestone 
 (§216, from #1286): the riscv64 kernel harnesses are checked against the host's machine model
 (`arm64`/`macos` on patagonia; `arm64`/`linux` expected in CI, unverified). All seven gave identical
 verdicts and SAT counts under both models, so this is a gap waiting to bite, not a hole. The fix
-and its gate are a [proposal](../roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md).
+and its gate are a [proposal](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
 
 The first x86_64 proof went red on a latent defect, the first of the class this risk asks about. The
 claim: proofs over the pure crates and slices of a mostly unverified kernel. [Appendix](proofs-and-their-reach.md).

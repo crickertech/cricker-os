@@ -179,4 +179,4 @@ is a gap waiting to bite, not a hole: a later harness that reaches such a model 
 differently, and nothing would say so. It moves neither half of the amber, survivorship or reach,
 since no verdict changed; calef ruled on 2026-10-03 (UTC) that risk 2 stays AMBER. The gate and the
 fix are the proposal
-[riscv64 proofs check against the riscv64 model](../roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md).
+[riscv64 proofs check against the riscv64 model](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
