@@ -8,46 +8,48 @@ Sorted by breaking changes in the last four weeks (2026W37 to 2026W40), then by 
 
 | crate | breaking, 4 weeks | additions, 4 weeks | breaking | additions | commits | crossing another division |
 |---|---:|---:|---:|---:|---:|---:|
-| `grant_plan` | 46 | 177 | 84 | 803 | 118 | 100 (85%) |
-| `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 30 | 23 (77%) |
-| `swap_protocol` | 7 | 23 | 8 | 113 | 33 | 32 (97%) |
-| `filesystem_protocol` | 5 | 47 | 37 | 447 | 93 | 86 (92%) |
+| `grant_plan` | 47 | 194 | 85 | 820 | 125 | 106 (85%) |
+| `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 31 | 24 (77%) |
+| `swap_protocol` | 7 | 23 | 8 | 113 | 34 | 33 (97%) |
+| `filesystem_protocol` | 5 | 47 | 37 | 447 | 94 | 86 (91%) |
+| `activation_set` | 3 | 52 | 3 | 52 | 14 | 14 (100%) |
 | `clock_protocol` | 3 | 2 | 3 | 52 | 26 | 24 (92%) |
-| `component_plan` | 3 | 14 | 3 | 126 | 18 | 15 (83%) |
-| `abi` | 2 | 27 | 32 | 124 | 73 | 71 (97%) |
+| `component_plan` | 3 | 14 | 3 | 126 | 19 | 15 (79%) |
+| `abi` | 2 | 28 | 32 | 125 | 79 | 77 (97%) |
 | `credential_protocol` | 2 | 10 | 28 | 65 | 29 | 26 (90%) |
 | `supervision_protocol` | 2 | 4 | 22 | 64 | 43 | 39 (91%) |
 | `nifefs` | 2 | 0 | 7 | 41 | 37 | 26 (70%) |
-| `activation_set` | 2 | 38 | 2 | 38 | 11 | 11 (100%) |
-| `graphics_protocol` | 1 | 0 | 9 | 31 | 25 | 25 (100%) |
+| `graphics_protocol` | 1 | 0 | 9 | 31 | 26 | 26 (100%) |
 | `socket_protocol` | 1 | 5 | 3 | 43 | 23 | 21 (91%) |
-| `byte_sink_protocol` | 1 | 0 | 2 | 38 | 22 | 22 (100%) |
+| `byte_sink_protocol` | 1 | 6 | 2 | 44 | 23 | 23 (100%) |
 | `line_editor` | 1 | 62 | 2 | 107 | 23 | 21 (91%) |
 | `counter_frequency_protocol` | 1 | 3 | 1 | 15 | 12 | 10 (83%) |
 | `entropy_protocol` | 1 | 0 | 1 | 15 | 17 | 15 (88%) |
 | `environment_protocol` | 1 | 0 | 1 | 44 | 8 | 8 (100%) |
-| `login_protocol` | 1 | 3 | 1 | 18 | 20 | 20 (100%) |
+| `login_protocol` | 1 | 55 | 1 | 70 | 25 | 25 (100%) |
+| `package_archive` | 1 | 97 | 1 | 97 | 12 | 8 (67%) |
 | `user_mode_heap` | 1 | 0 | 1 | 11 | 0 | 0 |
-| `compositor` | 0 | 0 | 4 | 92 | 23 | 19 (83%) |
+| `compositor` | 0 | 1 | 4 | 93 | 26 | 21 (81%) |
 | `elf` | 0 | 4 | 3 | 53 | 38 | 31 (82%) |
 | `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
 | `boot_slot` | 0 | 48 | 0 | 48 | 8 | 4 (50%) |
 | `capability_witness_protocol` | 0 | 3 | 0 | 3 | 9 | 7 (78%) |
-| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 3 | 2 (67%) |
+| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 4 | 2 (50%) |
 | `manifest_note` | 0 | 40 | 0 | 40 | 7 | 5 (71%) |
 | `measured_boot` | 0 | 0 | 0 | 41 | 19 | 15 (79%) |
-| `package_archive` | 0 | 88 | 0 | 88 | 10 | 7 (70%) |
 | `std_runtime_protocol` | 0 | 17 | 0 | 17 | 5 | 4 (80%) |
 
 ## What broke in 2026W40
 
-Read at `582603ca23b8` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `e8a65d6032ec` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 - `abi`: syscall changed, method or encoding `fault::FAULT_EP_SLOT`
+- `activation_set`: changed `Entry`
 - `activation_set`: changed `Error`
 - `activation_set`: changed `with_entry`
 - `grant_plan`: changed `ArgSpec::Words`
+- `grant_plan`: changed `Command`
 - `grant_plan`: changed `Manifest`
 - `grant_plan`: changed `PROG_COUNT`
 - `grant_plan`: changed `Prog`
@@ -57,3 +59,4 @@ Read at `582603ca23b8` against the week before. Each line is one removed or chan
 - `grant_plan`: changed `spawnproto::RUN_UNVOUCHED_SLOT`
 - `grant_plan`: changed `spawnproto::Wiring`
 - `line_editor`: changed `Event`
+- `package_archive`: changed `catalogued_stem`
