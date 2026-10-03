@@ -1,10 +1,11 @@
 # Kani proofs, deliberately in their OWN workflow rather than as a job in ci.yml.
 #
 # Not organisation: GitHub will not let you re-run a failed job while any job in the SAME workflow is
-# still running. Kani takes ~47 minutes and `build + test` takes ~3, so a flaky `build + test` could
-# not be retried until Kani finished, and on 2026-08-03 that turned several three-minute retries into
-# forty-minute waits. Splitting the slowest job out means every other job can be retried the moment it
-# fails.
+# still running. Kani takes ~47 minutes and the checks outside it are minutes each, so a flaky one
+# could not be retried until Kani finished, and on 2026-08-03 that turned several three-minute retries
+# into forty-minute waits. Splitting the slowest job out means every other job can be retried the
+# moment it fails. (The ~3-minute `build + test` this argument was measured against is now four
+# jobs, split 2026-09-30, of which the slowest ends near twenty minutes.)
 #
 # The check NAME is unchanged (`verify (Kani proofs)`), because that is the string the repository
 # ruleset requires. Moving a job between workflows keeps its name, so the required check keeps

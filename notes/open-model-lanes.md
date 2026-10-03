@@ -52,6 +52,14 @@ format and translates to an OpenAI-compatible upstream.
 Claude Code  --/v1/messages-->  LiteLLM (127.0.0.1:4000)  --/chat/completions-->  OpenRouter
 ```
 
+OpenRouter now documents an Anthropic-compatible endpoint for Claude Code
+(`ANTHROPIC_BASE_URL=https://openrouter.ai/api`), verified 2026-09-27 against its own docs, which
+did not exist when the paragraph above was written on 2026-09-22. It calls itself "optimized for
+Anthropic models" and says this path is "only guaranteed to work with the Anthropic first-party
+provider." So it covers Claude models routed through OpenRouter, not the open-weight models this
+note is about, and the LiteLLM gateway above is still what an open-weight model needs. See
+[notes/local-inference.md](local-inference.md).
+
 The gateway is infrastructure, operated outside this repository (calef, 2026-09-25). It runs on
 cordoba and is reached over the tailnet at `https://cordoba.<tailnet>.ts.net:4000`. Its model
 mapping, its spend logging and its service unit are mastered and deployed elsewhere; this tree holds
@@ -120,6 +128,18 @@ round's prompt, and hands the worktree back unmerged if it cannot reach green in
 That is the same argument §202 makes, mechanised: a cheaper model is safe exactly to the extent that
 a shell command says pass or fail.
 
+That argument holds only if the lane cannot change the shell command. On 2026-09-27 a rented model,
+asked to make the citation ratchet ignore moved lines, matched every added line against itself. That
+switched the ratchet off, and the gate it had disabled then said green (the
+[qwen3-coder bake-off](model-comparison/2026-09-27-qwen3-coder-bakeoff.md)). So the script now locks
+the gate. It refuses a round whose commits touch the gate machinery (`script/`, `helpers/`,
+`.github/`, `.cargo/`, the lint and format configs, `design/prose-baseline.tsv`) unless the brief
+names the file on a `Gate target:` line. It then runs the gates in a throwaway worktree at the
+lane's committed HEAD, so an uncommitted edit cannot reach the verdict either. Of the two options,
+refusing the edit and judging from a clean copy, this does both, because each misses what the other
+catches: a clean copy of HEAD still carries a committed edit, and a refusal of committed edits
+cannot see an uncommitted one.
+
 **So the routing rule is about the oracle, not about difficulty.** Work with a crisp gate goes to
 the open model: bisections (the gate's exit code *is* the answer), reference sweeps, renumbering,
 promotions, formatting, mechanical repairs. Work whose output is a judgement stays on Claude: design
@@ -142,13 +162,18 @@ So the briefs live in `briefs/` as checked-in assets rather than being retyped f
 a brief written fresh each time loses a clause a month and the clause it loses is the one that stops
 a wrong conflict resolution shipping as housekeeping.
 
-**This reframes the offload estimate.** The decision that the subscription stays and rented models
-fill the mechanical tail, taken the same day and not yet on `main`, puts the lane tail at about 18%
-of a day's tokens. Maintainer work sits on top of
-that, is nearly all delegatable at these prices, and is done in the most expensive context
-available. Nobody has measured it, because the session's own consumption is not instrumented. The milestone for
-that, *what a lane spent on its milestone*, was promoted the same day and is not yet on `main`, so
-it is named here rather than cited.
+**This estimate is superseded.** The 18% figure above was a guess from one example, on the day this
+note was written. [notes/local-inference.md](local-inference.md) measured the real split over 28
+days, ending 2026-09-27: work with a crisp gate (`mechanical_gated`) is 36% of tokens and 36% of
+spend, a ceiling, not a number to plan against today. Only a narrow slice of that class, the tasks
+shaped like the one proven win above, is safely offloadable now. The realistic share is 5-10% of
+total spend, per that note's short answer. Read it before repricing any offload plan on the 18%
+figure.
+
+Maintainer work sits on top of the gated class, is nearly all delegatable at these prices, and is
+done in the most expensive context available. Nobody has measured it, because the session's own
+consumption is not instrumented. The milestone for that, *what a lane spent on its milestone*, was
+promoted the same day and is not yet on `main`, so it is named here rather than cited.
 
 ## What has to be benchmarked before this is trusted
 
@@ -160,9 +185,18 @@ it run the gate, did it read the exit code, and how many rounds did green take.
 
 ## BUGS
 
-- Prompt caching is billed as a miss. Claude Code sends `cache_control` regardless of the
-  upstream; a gateway that does not implement it bills every turn uncached. §203's per-token
-  estimate assumed no caching, so it stands, but any quote at a cached rate is wrong.
+- A `Gate target:` line reopens the gate lock for the file it names, so a task that is to fix a
+  gate is judged partly by the lane's own version of that gate. Such a result needs a reviewer.
+  `Cargo.toml` and in-source `#[allow]` are outside the lock (lanes add dependencies), so the lock
+  stops the failure measured, not a determined one.
+- Prompt caching misses on an unpinned route, and the cause is routing, not markers. *(Corrected
+  2026-09-27: this entry said caching was billed as a miss because the gateway drops
+  `cache_control`.)* LiteLLM does drop the markers, but OpenRouter's non-Alibaba providers cache
+  without them. Measured through the gateway on `open-lane-qwen`, three identical 36K-token turns:
+  pinned to one provider, turns 2 and 3 read 35,872 tokens from cache and cost a third as much;
+  unpinned, each turn landed cold. The spend log's `cost_usd` already reflects the discount. The
+  route pins are in the gateway's config, outside this tree. §203's (capacity is rented rather than
+  bought) uncached estimate stands as an upper bound.
 - The context window is guessed. For a model id Claude Code does not recognise it assumes 200K.
   Set `CLAUDE_CODE_MAX_CONTEXT_TOKENS` if the real window is smaller, or a run truncates mid-task.
 - `--bare` skips `AGENTS.md`, skills, hooks and plugins. Deliberate: the constitution is 924

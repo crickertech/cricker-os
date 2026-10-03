@@ -2,14 +2,13 @@
 
 *Name: `notes/project-metrics.md` is ratified (calef, 2026-09-02). He proposed it as
 `design/project-metrics.md` and moved it here on the argument that `design/` holds arguments
-(`fatal-risks.md`, the decisions, the roadmap) while `notes/` holds what was measured
+(`design/fatal-risks/README.md`, the decisions, the roadmap) while `notes/` holds what was measured
 (`benchmarks.md`, `mutation-testing.md`, `unsafe-obligations.md`). `script/metrics` and the
 directory `notes/project-metrics/` are **provisional**; naming is an architect's, and a lane ships a
 provisional name and says so.*
 
 One row per ISO week, computed by `script/metrics` from git history. The data is one CSV per
-measure in [`notes/project-metrics/`](project-metrics/), in the tree, versioned with the code it
-describes.
+measure in [`notes/project-metrics/`](project-metrics/), versioned with the code it describes.
 
 **This page is a deck** (calef, 2026-09-24). A chart is a heading, an image, and at most a line or
 two saying what it plots and what would otherwise be misread. Everything longer, the definitions,
@@ -18,31 +17,6 @@ the arguments behind a measure, the deadlines, the reconciliations and the dated
 each chart to the appendix that argues it. That register is the half of this pair that does not
 change. Keep it that way: a caveat that cannot survive one line is
 not a caption, it is a register entry.
-
-<!-- toc: script/metrics writes this -->
-- [The nine things that would kill nife](#the-nine-things-that-would-kill-nife)
-- [Kani proof harnesses, and what can falsify them](#kani-proof-harnesses-and-what-can-falsify-them)
-- [unsafe blocks outside kernel/src/arch/](#unsafe-blocks-outside-kernelsrcarch)
-- [The same unsafe blocks, by trust boundary](#the-same-unsafe-blocks-by-trust-boundary)
-- [Milestones built each week](#milestones-built-each-week)
-- [Pull requests merged each week](#pull-requests-merged-each-week)
-- [Which model wrote it](#which-model-wrote-it)
-- [Lines touched, by the model that signed them](#lines-touched-by-the-model-that-signed-them)
-- [What this project costs](#what-this-project-costs)
-- [What a turn costs](#what-a-turn-costs)
-- [Architecture decisions by status](#architecture-decisions-by-status)
-- [Names by what the tree records about them](#names-by-what-the-tree-records-about-them)
-- [Milestones by status](#milestones-by-status)
-- [Rust in the tree](#rust-in-the-tree)
-- [BUGS sections](#bugs-sections)
-- [Coverage](#coverage)
-- [The lowest-covered file](#the-lowest-covered-file)
-- [The prose budget](#the-prose-budget)
-- [The bold backlog](#the-bold-backlog)
-- [Homes](#homes)
-- [Benchmark drift since a fixed anchor](#benchmark-drift-since-a-fixed-anchor)
-- [Interface stability](#interface-stability)
-<!-- /toc -->
 
 ## Read this before you read a number
 
@@ -63,9 +37,9 @@ not a caption, it is a register entry.
 
 ![Fatal risks](project-metrics/fatal-risks.svg)
 
-From `design/fatal-risks.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
-calef ratified on 2026-09-23. It says whether an experiment happened, never what it found; the
-verdicts are prose in that file. Every bar from 2026W36 is nine, the risks in that week's file:
+From `design/fatal-risks/README.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
+calef ratified on 2026-09-23. It says whether an experiment happened, never what it found. Every
+bar from 2026W36 is nine, the risks in that week's file:
 where the field did not exist yet, or held a word with no meaning today, the risk is drawn as
 "unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
 on 2026-08-31 UTC.
@@ -98,8 +72,7 @@ changed, so read the kernel and userspace bars in those weeks as undercounts of 
 ![Milestones built each week](project-metrics/velocity.svg)
 
 A flow: milestones whose `Built:` date falls in that week, read from today's tree for every week.
-It does not reconcile with the `Built` stock below, and that is the design; the gap is the lag
-between finishing a milestone and flipping its row.
+It does not reconcile with the `Built` stock below; BUGS says why.
 The line is the trailing ten-week mean, drawn rather than stored; it is dashed where fewer than ten
 weeks exist behind it, which until 2026W47 is the left of the chart.
 
@@ -174,6 +147,10 @@ watch is `NOT-STARTED`, which grows faster than the lanes drain it.
 
 ![Rust in the tree, in thousands of lines](project-metrics/lines.svg)
 
+<!-- week-notes: script/metrics writes this -->
+- 2026W40: the kernel code series fell 46,665 to 33,192 lines because milestone 609 (the system tests leave the kernel crate), pull request #1404, moved 66 test-only files unchanged into the system_tests crate; no code was deleted
+<!-- /week-notes -->
+
 Every tracked `.rs` file outside `vendor/`, with `kernel/src` split from the rest, in thousands of
 lines. Lines are volume, not effort. A line with code and a trailing comment counts as code.
 
@@ -226,7 +203,7 @@ pulled once both panels reach zero. Then `script/metrics` prints "the bold backl
 is zero; retire this chart" and writes it here:
 
 <!-- bold-backlog: script/metrics writes this -->
-2026W39: 15026 spans over, in 833 documents.
+2026W40: 14938 spans over, in 826 documents.
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.
@@ -246,7 +223,7 @@ past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drif
 report](project-metrics/baseline-drift.md).
 
 <!-- baseline-drift: script/metrics writes this -->
-2026W39: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.91%, x86_64 `spawn_reap` +8.09%; 15 rows past 5%.
+2026W40: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.92%, x86_64 `spawn_reap` +8.09%; 14 rows past 5%.
 <!-- /baseline-drift -->
 
 ## Interface stability
@@ -257,7 +234,7 @@ Public items removed or changed each week: [definitions](interface-stability.md)
 [per crate](project-metrics/interface-stability.md).
 
 <!-- interface-stability: script/metrics writes this -->
-interface, 2026W36 to 2026W39: 148 breaking changes (645 additions); 2 syscall numbers changed, 0 format bumps; 73% co-change.
+interface, 2026W37 to 2026W40: 110 breaking changes (684 additions); 2 syscall numbers changed, 0 format bumps; 76% co-change.
 <!-- /interface-stability -->
 
 ## How it stays current

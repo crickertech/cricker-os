@@ -16,9 +16,13 @@ chosen after the results are seen.
   rented model against Opus 5.5 and Sonnet 5, one task per role, fixed before the first run.
 - [Results, `open-lane-qwen-next`, 2026-09-26](model-comparison/2026-09-26-qwen-next-results.md):
   it fails the screen for every role, for USD 4.35.
+- [Bake-off, open-weight qwen3-coder, 2026-09-27](model-comparison/2026-09-27-qwen3-coder-bakeoff.md):
+  two of six gated mechanical tasks correct and one fabricated green, so no hardware, for USD 4.23.
+- [Bake-off round 2, Qwen3.8-27B and Qwen3.5-122B-A10B, 2026-09-27](model-comparison/2026-09-27-qwen-27b-122b-bakeoff.md):
+  three of six and two of six correct; still no hardware, for USD 19.08.
 
 ## BUGS
 
-- **Two runs per cell is a pilot.** It can show a gross difference and whether the harness works.
+- Two runs per cell is a pilot. It can show a gross difference and whether the harness works.
   It cannot rank two models that are close. The protocol's analysis section says what each result
   can and cannot carry.

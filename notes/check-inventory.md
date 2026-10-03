@@ -1,10 +1,10 @@
 # Every check in this repository: does anything run it, does it block, and what does green mean
 
 Milestone 232 (audit every check against two questions: does anything run it, and does it block).
-Measured on **2026-09-03** against `a0059022`, on patagonia and against the live repository
+Measured on 2026-09-03 against `a0059022`, on patagonia and against the live repository
 settings. Every number below was taken by running the thing or by reading the API, not recalled.
 
-**Why an inventory and not a sweep of new gates.** Four findings on 2026-09-02 each showed this
+Why an inventory and not a sweep of new gates. Four findings on 2026-09-02 each showed this
 tree's verification reporting something that was not true, and no two were the same defect:
 milestone 214 (a test that prints "skipping" and returns is counted as passed), milestone 222 (the
 one command a person runs before pushing has a leg that fails instead of skipping), milestone 230
@@ -32,21 +32,21 @@ history and in nothing that lives in this tree.
 
 ## The three questions, and which one has teeth
 
-1. **Does anything run it?** An entry point nothing calls has whatever result somebody last saw.
-2. **Does it block?** CI runs nineteen checks on a pull request and the `main` ruleset requires
+1. Does anything run it? An entry point nothing calls has whatever result somebody last saw.
+2. Does it block? CI runs nineteen checks on a pull request and the `main` ruleset requires
    eleven. The other eight are worth deciding rather than inheriting.
-3. **What does a green result actually assert?** This is the one an inventory cannot answer by
+3. What does a green result actually assert? This is the one an inventory cannot answer by
    listing. `script/swish-check` was green while `login` was dead on every boot; that check ran and
    would have blocked, and its passing simply meant less than its name.
 
 ## A. The workflow jobs
 
-Nineteen check names reach a pull request. "Blocks" means the name is in ruleset 19596094's
-`required_status_checks`.
+Nineteen check names reached a pull request then. The 2026-09-30 split (#1468) replaced
+the first row with four jobs pending calef's ruleset edit; later checks have no rows yet. "Blocks" means in ruleset 19596094's `required_status_checks`.
 
 | check name | workflow | trigger | blocks | result 2026-09-03 |
 |---|---|---|---|---|
-| `build + test (host + QEMU)` | ci | PR, merge queue, push | **yes** | green |
+| `test`, `swish-check`, `swish-check-graphical`, `boot-check` | ci | PR, merge queue, push | pending | new |
 | `rustfmt` | ci | PR, merge queue, push | **yes** | green |
 | `clippy` | ci | PR, merge queue, push | **yes** | green |
 | `cpu matrix (riscv64 across QEMU CPU models)` | ci | PR, merge queue, push | **yes** | green |
@@ -69,9 +69,8 @@ are aggregated by `verify (Kani proofs)`, which is required and which fails unle
 and every shard reported `success` or `skipped`; requiring the shards as well would add names to
 keep in sync and catch nothing. `draft gate` produces an output rather than a verdict.
 
-The scheduled workflows, which nothing blocks by construction. **`script/cadence-check` (milestone
-238) now derives this column** rather than leaving it to whoever next opens the Actions tab; the
-table stays because it also says what each workflow is for, which no API can:
+The scheduled workflows, which nothing blocks by construction. `script/cadence-check` (milestone
+238) now derives this column rather than leaving it to the Actions tab; the table stays because it also says what each workflow is for, which no API can:
 
 | workflow | cadence | last result | what it is for |
 |---|---|---|---|
@@ -100,8 +99,8 @@ into `script/ci-build`'s table; the measurements are still 2026-09-03's, taken u
 |---|---|---|---|
 | `fmt --check` | `ci-build` (`local`), ci `rustfmt`, the `pre-push` hook | yes | green |
 | `lint` | `ci-build` (`local`), ci `clippy` | yes | green |
-| `test` | `ci-build` (`local`), ci `build + test`, `toolchain-drift` | yes | green |
-| `swish-check` | `ci-build` (`local`), ci `build + test` (same job) | yes, inside `build + test` | green |
+| `test` | `ci-build` (`local`), ci `test`, `toolchain-drift` | yes | green |
+| `swish-check` | `ci-build` (`local`), ci `swish-check` | yes | green |
 | `icount` | `ci-build` (`local`), ci `bench` | yes | green |
 | `image-permissions` | `ci-build` (`local`), ci `image permissions` | **no** | green |
 | `bench --check` | ci `bench` | yes | green |
@@ -140,7 +139,7 @@ into `script/ci-build`'s table; the measurements are still 2026-09-03's, taken u
 | `journeys` | **nothing** | no | report only, cannot fail |
 | `apropos`, `catch-up` | **nothing** | no | tools, no verdict |
 
-`script/lint` is one required check carrying **42 sub-checks** (ten clippy passes and 32 others;
+`script/lint` is one required check carrying 42 sub-checks (ten clippy passes and 32 others;
 the list is its own `==>` lines, and `grep -c '^echo "==>' script/lint` is the derivation, since the
 number written here has already been stale once). They all block, because it exits on the first
 failure. That
@@ -165,12 +164,12 @@ An inventory that stopped at `script/` and `.github/` would miss the two mechani
 Six checks pass for reasons narrower than their names. Every one of these is already recorded
 somewhere in the tree; collecting them is the point.
 
-- **`build + test (host + QEMU)`, `cpu matrix`, `bench`, `fuzz` and `coverage` are green-by-skip on
-  a documentation-only change.** Each guards its *steps* on the same predicate
+- **The four build jobs, `cpu matrix`, `bench`, `fuzz` and `coverage` are green-by-skip on a
+  documentation-only change.** Each guards its *steps* on the same predicate
   (`^(notes/|design/|[A-Z_]+\.md$)`) while the job still runs, deliberately, because a required
-  check that never reports jams the queue forever. A pull request touching only `notes/` and
-  `design/` therefore collects five green required checks that executed nothing. That is correct
-  behaviour and it is worth knowing when reading a green tree.
+  check that never reports jams the queue forever. A docs-only pull request collects eight green
+  required checks, only `test`'s corpus step executing anything (the #1168 fix). Correct
+  behaviour, worth knowing.
 - **`verify (Kani proofs)` is also green when `verify scope` says nothing can reach a proof.** The
   aggregator treats `skipped` as passing on purpose. The proofs' coverage therefore depends on
   `script/verify --affected-since` being right about what a change reaches, and that predicate is
@@ -195,8 +194,8 @@ Ranked by what a wrong answer costs.
 
 ### 1. The mutation workflow has never produced a result, and fatal risk 3 cites it as though it had
 
-`design/fatal-risks.md`'s third risk (the tests do not test anything, and the quality is illusory)
-stands at MEASURED, green, on a run from **2026-08-03**: 92.4% of viable mutants killed. Its closing
+`design/fatal-risks/README.md`'s third risk (the tests do not test anything, and the quality is illusory)
+stands at MEASURED, green, on a run from 2026-08-03: 92.4% of viable mutants killed. Its closing
 line is *"the weekly workflow already publishes the report."*
 
 It has published nothing. Four scheduled runs (2026-08-10, 08-17, 08-24, 08-31), zero successes, at
@@ -225,7 +224,8 @@ reading it. The candidate fix is one flag, `MIRIFLAGS=-Zmiri-env-forward=CARGO_M
 Miri's own message suggests; it is not applied here because that is a change to a check rather than
 an audit of one.
 
-**It was not one flag, and the correction is worth keeping** (milestone 238, 2026-09-03). The flag
+It was not one flag, and the correction is worth keeping (milestone 238 (two scheduled checks never once
+succeeded), 2026-09-03). The flag
 works and reveals a second wall: the same test calls `read_dir`, which Miri's isolation refuses.
 Behind *that* sat five `board_console` tests doing host I/O, invisible until the first two were
 cleared because `cargo miri test` stops at the first failure. Three layers, each hiding the next.
@@ -235,9 +235,9 @@ count of causes.
 
 ### 3. `re-falsify the harnesses this change can reach` does not block, and something walked through the hole
 
-`verify.yml`'s `falsify` job carries a comment saying it is **not** a required check deliberately, so
+`verify.yml`'s `falsify` job carries a comment saying it is not a required check deliberately, so
 that it can fail loudly without being one more name to keep in sync. On 2026-09-03 PR #663
-(milestones 231 and 233) merged with that check **red** while all eleven required checks were green,
+(milestones 231 and 233) merged with that check red while all eleven required checks were green,
 and `main` carried two stale falsification patches until a follow-up landed.
 
 The deliberate reasoning is sound about ruleset maintenance and wrong about what the check is. A
@@ -251,13 +251,13 @@ the commit.
   workflow and in no gate. It is the only thing in this tree that can falsify a violation of
   AGENTS.md's fourth rule, assume weak memory ordering. Its header says it is out of `script/test`
   and the set a developer runs "for the same reason as `script/undefined-behavior-check`", and that analogy is
-  broken: the sibling it names has a weekly workflow and this has nothing. **Measured today: 12.4
-  seconds wall clock, 30 crates compiled, all 26 harnesses green**, including the falsification
+  broken: the sibling it names has a weekly workflow and this has nothing. Measured today: 12.4
+  seconds wall clock, 30 crates compiled, all 26 harnesses green, including the falsification
   witness that passes only when loom finds the pre-fix double free.
 - **`script/crate-probes`** is the instrument behind fatal risk 1 (only software written for nife
   runs on nife), which is recorded GREEN. Its own `BUGS` explains why it is not a CI gate: it needs
-  the network and it takes the account-wide `nife-dev` toolchain link. **Measured today: 43 of 50
-  built, 7 failed, in about 3 minutes including the std farm refresh.** The recorded 43/7 split in
+  the network and it takes the account-wide `nife-dev` toolchain link. Measured today: 43 of 50
+  built, 7 failed, in about 3 minutes including the std farm refresh. The recorded 43/7 split in
   `notes/crates-io-on-nife.md` still holds, and the seven failures are the same seven
   (`zip`, `ring`, `gix-config`, `gix`, `tar`, `diesel`, `rocket`). This is the one place the audit
   found the record already true.
@@ -307,17 +307,17 @@ verdict.
 
 ## What this says about fatal risk 3, without changing its status
 
-The status is `design/fatal-risks.md`'s question and calef's. Two facts belong in front of him
+The status is `design/fatal-risks/README.md`'s question and calef's. Two facts belong in front of him
 before he re-reads it.
 
 **The number is older than it looks and cannot currently be refreshed.** 92.4% was measured on
-2026-08-03. **2,529 commits** have landed since, and the roadmap has gone from that month's count to 130 milestones marked BUILT. The block says the
+2026-08-03. 2,529 commits have landed since, and the roadmap has gone from that month's count to 130 milestones marked BUILT. The block says the
 remaining experiment is cheap, "re-run it and compare against `.cargo/mutants-baseline.txt`", and
 that is still true on a developer machine; it is not true in CI, where the mechanism has failed
 every attempt.
 
-**The sentence "the weekly workflow already publishes the report" is false and has been since the
-workflow was written.** That is the load-bearing clause: it is what makes a stale number acceptable,
+The sentence "the weekly workflow already publishes the report" is false and has been since the
+workflow was written. That is the load-bearing clause: it is what makes a stale number acceptable,
 because a refresh is supposed to be arriving on its own. Nothing is arriving.
 
 None of this says the 92.4% was wrong when it was taken. It says the tree has no current measurement
@@ -325,7 +325,7 @@ and no working mechanism for taking one, which is a different claim from the ris
 
 ## BUGS
 
-- ~~**This is a snapshot with no mechanism behind it.**~~ **Half-answered by milestone 238.**
+- ~~This is a snapshot with no mechanism behind it.~~ Half-answered by milestone 238.
   `script/cadence-check` reports any scheduled workflow with no successful scheduled run in 15 days,
   and `helpers/trunk-health.sh` runs it. The shape this bullet proposed, a scheduled job reading run
   history, was refused for the reason the bullet itself was circling: a cron that watches crons dies
@@ -333,19 +333,19 @@ and no working mechanism for taking one, which is a different claim from the ris
   lapse and does not block a lane. Still a snapshot in the other direction: it answers "has this
   workflow produced a result", never "does its green mean anything", which is the question the rest
   of this document asks and which nothing automates.
-- **The third question was answered by reading, not by a method.** Six checks are listed above whose
+- The third question was answered by reading, not by a method. Six checks are listed above whose
   green means less than their name, and they were found by opening each file and asking. There is no
   reason to believe six is the whole set. Milestone 233's `login` was found by somebody asking what a
   passing check proved, and that remains the only known way to find the next one.
-- ~~**The mutation failure is described, not diagnosed.**~~ **Diagnosed by milestone 238 on
-  2026-09-03**, and both guesses in the original sentence were wrong. `--shard 4/4` is an argument
+- ~~The mutation failure is described, not diagnosed.~~ Diagnosed by milestone 238 on
+  2026-09-03, and both guesses in the original sentence were wrong. `--shard 4/4` is an argument
   error, because cargo-mutants counts shards from zero, so shard 4 never ran a mutant and shard 0
   never ran at all. The other deaths are runner eviction and specifically *not* a memory kill: a
   resource trace added to the job shows 10 to 15 GB of memory available and 107 GB of disk free at
   the last sample before each termination. See notes/mutation-testing.md and the workflow header.
   The reading that survives is the one this note made about the *category*: a scheduled check that
   fails silently. That is why `script/cadence-check` exists.
-- **The `result 2026-09-03` column for the required checks is read from `main`'s last run**, not from
+- The `result 2026-09-03` column for the required checks is read from `main`'s last run, not from
   a run of this branch. A check green on `main` this morning is not a promise about tonight.
-- **`script/toolchain-bump`'s status is unknown and was not measured.** Running it would raise the
+- `script/toolchain-bump`'s status is unknown and was not measured. Running it would raise the
   pin in the working tree, which is not something an audit should do.

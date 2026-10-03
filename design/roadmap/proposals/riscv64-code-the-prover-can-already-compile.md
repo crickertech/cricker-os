@@ -10,13 +10,13 @@ needs_person: no
 # Some of `arch/riscv64/` compiles under Kani on an aarch64 host today, and the tree says none can
 
 Raised by the lane `lane/price-kani-kernel-reach` (pull request
-#1276), briefed to price closing `design/fatal-risks.md` risk 2 (the proofs prove trivia) on the
+#1276), briefed to price closing `design/fatal-risks/README.md` risk 2 (the proofs prove trivia) on the
 premise that `cargo kani` has never compiled the kernel. The premise was false, and the measurement
 that replaced it found a wall that is lower than the tree records. *(Slug provisional; naming is
 calef's.)*
 
 Option 1 below is reversible code and one harness. Risk 2's colour is not asked
-about here: that is `design/fatal-risks.md`, calef's file, and milestone 536 (two records still say
+about here: that is `design/fatal-risks/README.md`, calef's file, and milestone 536 (two records still say
 the prover cannot see `kernel/src`) already holds that decision.
 
 ## The premise, checked first
@@ -35,7 +35,7 @@ Complete - 4 successfully verified harnesses, 0 failures, 4 total.
 
 No compile failure to classify. The sentence the brief inherited is `script/verify`'s own header,
 which still said *"never compiles the kernel"*; this lane corrected that line (it is a script
-comment, not a record), and milestone 536 owns the copies in `design/fatal-risks.md`, its appendix
+comment, not a record), and milestone 536 owns the copies in `design/fatal-risks/README.md`, its appendix
 and `notes/proof-retrospective.md`.
 
 So what keeps risk 2 amber today is two things, per its own 2026-09-24 correction: **`arch/riscv64/`

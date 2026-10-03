@@ -658,7 +658,7 @@ can only wait and acknowledge; there is no way to aim it. MSI-X is the case it d
 ## The open question, and why it is deliberately not a decision yet
 
 **Who owns the page holding the MSI-X table?** calef declined to mint that on 2026-09-17, and the
-reason is the one `design/fatal-risks.md`'s own rule 1 gives: nothing is blocked on it, both EL0
+reason is the one `design/fatal-risks/README.md`'s own rule 1 gives: nothing is blocked on it, both EL0
 drivers poll, and **there was no experiment behind it**. A decision with no experiment is a worry
 rather than a choice.
 

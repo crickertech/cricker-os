@@ -132,6 +132,8 @@ malformed it.
 | 2026-09-17 | security | Userspace confinement, read adversarially: the device and port authority minted since the last audit, the claims milestone 307 marked unreachable, and the two machine classes (radon, xenon) that booted real silicon in the window | fixed 3, minted 3, accepted 1 | [Userspace confinement](2026-09-17-userspace-confinement.md) |
 | 2026-09-24 | documentation | Split documents read from the inbound side: every citation into the day's eight split documents, every anchor, every appendix's parent link, and every phrase quoted after a path | fixed 4, minted 1, accepted 3 | [Split documents, read from the inbound side](2026-09-24-split-documents-read-from-the-inbound-side.md) |
 | 2026-09-24 | security | New trust boundaries, read where the week's change concentrated: the automation that merges, the bytes a file supplies, and the state a core carries for a thread | fixed 5, minted 1, accepted 5 | [New trust boundaries](2026-09-24-new-trust-boundaries.md) |
+| 2026-09-29 | documentation | Names and numbers a reader would act on, in the worklist's top three, the inbound side of the six notes the window split, and the window's two new notes read against the kernel | fixed 6, minted 1, accepted 1 | [Names and numbers the window moved past](2026-09-29-names-and-numbers.md) |
+| 2026-09-29 | security | The syscall surface as a whole, read as a confined process trying to widen: the two object types, the rendezvous method and the wake tag the window added, line by line, beside the older seams | fixed 0, minted 0, accepted 3 | [The syscall surface as a whole](2026-09-29-syscall-surface-whole.md) |
 
 ## What the tree looked like when each ran
 
@@ -167,6 +169,8 @@ must not err in. So the count spans both, and it stays continuous across the spl
 | 2026-09-17 | security | 190 | 155 | 52 | 108 |
 | 2026-09-24 | documentation | 252 | 169 | 56 | 172 |
 | 2026-09-24 | security | 251 | 169 | 56 | 172 |
+| 2026-09-29 | documentation | 276 | 184 | 68 | 181 |
+| 2026-09-29 | security | 276 | 184 | 68 | 181 |
 
 The two `-` cells are honest rather than lazy: the roadmap was a single file with no status column
 until milestone 76 (split the roadmap: `design/roadmap/README.md` as index, one file per milestone) split it into `design/roadmap/` on 2026-08-03, and milestones 1 to 11 were

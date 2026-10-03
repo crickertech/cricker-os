@@ -14,7 +14,15 @@ Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 prompt hears its line as bytes. This is clauses 2 to 5, which turn the words that name something
 into a grant. The slug and every name below are a lane's coinage.
 
-## The one question that is calef's
+## Ruled and built
+
+calef ruled on 2026-09-27 at 06:27Z (UTC): "N1". A line that names no file grants nothing, and to
+search here a person types `rg pattern .`. He ruled the mark at 06:35Z: there is none
+([`the-mark-on-a-foreign-programs-word.md`](the-mark-on-a-foreign-programs-word.md)). Milestone 205
+built the mechanism below the same day (#1402); its block records what was built and what differs.
+This file stays until an integrator retires it.
+
+## The one question that was calef's
 
 **What does a line with no word naming a file grant?** `rg pattern` names nothing. With nothing
 granted, `ripgrep` searches `.`, finds no directory, and says so.
@@ -25,8 +33,8 @@ granted, `ripgrep` searches `.`, finds no directory, and says so.
 | **N2** | the shell's current directory, read-only | What a person expects. It is a grant no word on the line designated, which is the first time the prompt would move authority nobody typed. `caps` would print it, as it prints the clock. |
 
 **Recommendation: N1**, because designation is authorization everywhere else in this shell (`rm`,
-`wc`, globbing) and N2 would be the one exception. N2 is reversible later; N1 is not a trap. This is
-a policy default, so it waits for calef. Nothing else below does.
+`wc`, globbing) and N2 would be the one exception. N2 is reversible later; N1 is not a trap. calef
+chose N1.
 
 ## The mechanism, which is reversible and which the lane would build
 

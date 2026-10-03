@@ -149,6 +149,9 @@ pub(crate) fn swish_check() -> bool {
 /// job that nobody counted; the host test `a_job_count_names_a_program` bounds a tag from above.
 pub(crate) struct Line {
     pub(crate) typed: &'static str,
+    /// What the prompt shows once `typed` has been edited: the same text for a plain line, and
+    /// the finished word for one with a Tab in it, or `^C` for one abandoned (see [`keys`]).
+    pub(crate) echoed: &'static str,
     pub(crate) jobs: u8,
     pub(crate) answer: &'static [&'static str],
 }
@@ -166,9 +169,33 @@ const JOB_DID_NOT_RUN: [&str; 2] = [
 const fn line(jobs: u8, typed: &'static str, answer: &'static [&'static str]) -> Line {
     Line {
         typed,
+        echoed: typed,
         jobs,
         answer,
     }
+}
+
+/// **A line typed with editing keys in it** (milestone 47 (navigation and naming), DECISIONS §227
+/// (how Tab reaches the shell)): `typed` goes to the UART byte for byte, and `echoed` is what the
+/// prompt then shows. A line ending in `^C` (`\x03`) is sent with no Enter, and must answer
+/// nothing, because the shell discarded it. The name is provisional.
+const fn keys(
+    jobs: u8,
+    typed: &'static str,
+    echoed: &'static str,
+    answer: &'static [&'static str],
+) -> Line {
+    Line {
+        typed,
+        echoed,
+        jobs,
+        answer,
+    }
+}
+
+/// Whether a scripted line is abandoned with `^C` rather than run.
+fn interrupted_at_prompt(typed: &str) -> bool {
+    typed.ends_with('\x03')
 }
 
 /// **What the second boot types** (milestone 198 (a package manager) rung 3a): the installed
@@ -180,15 +207,20 @@ const fn line(jobs: u8, typed: &'static str, answer: &'static [&'static str]) ->
 /// `caps` and the bytes still run; before D2 this script typed the refusal.
 ///
 /// `greeting` rides along (milestone 198 rung 3a's fetch): it was installed as generation 2, it
-/// runs after the reboot, and removing `uptime` leaves it running, because a generation drops one
-/// program and not its neighbours.
+/// runs after the reboot, and removing `noteless` leaves it running, because a generation drops
+/// one program and not its neighbours. `noteless` took `uptime`'s place here when DECISIONS §229
+/// (calef, 2026-09-27) refused installing a package named after an image program.
 ///
 /// **The numbers skip one** because the first boot vouched for a build as generation 3 and rolled
 /// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 4, and
 /// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 3: the vouch's generation,
-/// which lists `uptime` too.
+/// which lists `noteless` too.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     line(
         1,
         "packages/greeting/0.1.0/greeting",
@@ -199,7 +231,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     ),
     line(
         0,
-        "package remove uptime",
+        "package remove noteless",
         &["removed; generation 4 is live"],
     ),
     // **Removed means unvouched, not unrunnable, for a session holding D2** (DECISIONS §219 gate
@@ -208,13 +240,17 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     // the installed manifest; `caps` is what shows the vouch is gone.
     line(
         0,
-        "caps packages/uptime/0.1.0/uptime",
+        "caps packages/noteless/0.1.0/noteless",
         &[
             "provenance: unvouched (digest ",
             "runs on this session's capability to run unvouched bytes",
         ],
     ),
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     line(
         1,
         "packages/greeting/0.1.0/greeting",
@@ -228,7 +264,11 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
         "package rollback",
         &["rolled back; generation 3 is live"],
     ),
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
 ];
 
 /// The text this gate types and what each line must answer. `None` is a line whose answer is
@@ -382,7 +422,26 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "TERM=dumb",
         ],
     ),
-    // **`ps`, at the real prompt** (milestone 126). The listing itself: a header, and at least the
+    // **The shell edits its own line** (milestone 47 (navigation and naming), DECISIONS §227 (how
+    // Tab reaches the shell) option D). Tab in command position finishes a program name from the
+    // names the image carries, and the finished line runs; Tab after it finishes a file name from
+    // the directory the word leads into, read with the shell's own `ENUMERATE`. Each fails if the
+    // shell is not in raw mode (the terminal would drop the Tab and the echo would not match), if
+    // the completion inserted the wrong text, or if the completed line did not run.
+    keys(1, "printe\t", "printenv ", &["TZ=UTC"]),
+    keys(
+        0,
+        "caps wc doc/kernel/ipc-nam\t",
+        "caps wc doc/kernel/ipc-naming.md ",
+        &["input    ipc-naming.md"],
+    ),
+    // **`^C` at the prompt is a byte now**, and the shell's editor discards the line: this one must
+    // answer nothing (the check is `interrupted_at_prompt`'s), and the prompt must come back for the
+    // next. The supervised jobs below still take `^C` through the terminal's count, which this
+    // gate presses under `interrupt_heeder` and `interrupt_ignorer`.
+    keys(0, "echo abandoned\x03", "echo abandoned^C", &[]),
+    line(0, "echo kept", &["kept"]),
+    // **`ps`, at the real prompt** (milestone 126 (the `procps` package)). The listing itself: a header, and at least the
     // row for `ps` itself, which is a member of the domain the progenitor spawned it into. Asserting the
     // header rather than a tid is deliberate: a tid is a generational name that moves with how many
     // jobs ran before it, and a gate that pinned one would be pinning the boot's history.
@@ -432,7 +491,17 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // The tids and the figures are deliberately not pinned. A tid is a generational name that moves
     // with the boot's history, and a CPU figure is a measurement of a real machine; a gate that
     // pinned either would be pinning this boot rather than the program.
-    line(1, "top", &["up ", "threads: ", "TID  STATE     TIME(ms)"]),
+    line(
+        1,
+        "top",
+        &[
+            "up ",
+            "threads: ",
+            "machine: ",
+            "% busy since boot",
+            "TID  STATE     TIME(ms)",
+        ],
+    ),
     // And the second stream is empty, the same trick the `pgrep 2>` line above uses: `top`
     // complains in exactly the cases `ps` does, so an empty second stream says none of them
     // happened and the table above it is the domain.
@@ -441,7 +510,47 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // The scope, printed before anything is spawned. `top` holds `ps`'s three capabilities and not
     // one more: the ranking costs no authority, because the CPU figures are a second walk of the
     // same endpoint under the same right.
-    line(0, "caps top", &["cap 7  endpoint  domain   ENUMERATE"]),
+    line(
+        0,
+        "caps top",
+        &[
+            "cap 7  endpoint  domain   ENUMERATE",
+            "cap 11 frame     machine  read-only",
+        ],
+    ),
+    // **`free`, `vmstat` and `slabtop`, at the real prompt** (milestone 126, DECISIONS §225 (`free`
+    // sees the machine and your share)). What each line proves is that a read reached the output:
+    // `Mem:` is the kernel's machine statistics page mapped into the child and recognized, `Yours:`
+    // is `MemoryRegion::USAGE` answering on the job budget's `ENUMERATE` view. No figure is pinned,
+    // since the free count is a measurement of this boot. The empty second streams say neither
+    // read was refused.
+    line(
+        1,
+        "free",
+        &["total        used        free", "Mem:  ", "Yours:"],
+    ),
+    line(1, "free 2> free.txt", &[]),
+    line(1, "wc < free.txt", &["0 0 0"]),
+    line(
+        0,
+        "caps free",
+        &[
+            "cap 11 frame     machine  read-only",
+            "cap 12 region    share    ENUMERATE",
+        ],
+    ),
+    line(
+        1,
+        "vmstat",
+        &["    r       free      total     in     cs busy  id"],
+    ),
+    line(1, "vmstat 2> vmstat.txt", &[]),
+    line(1, "wc < vmstat.txt", &["0 0 0"]),
+    // `slabtop`'s `threads` row is the proof that the kernel summed the budget's subtree: the budget
+    // itself holds no thread, every job region split from it holds at least one.
+    line(1, "slabtop", &["job budget: ", "SPENT ON", "threads"]),
+    line(1, "slabtop 2> slabtop.txt", &[]),
+    line(1, "wc < slabtop.txt", &["0 0 0"]),
     // **`uptime`, at the real prompt** (milestone 126). No domain, no clock: the manifest is
     // `least_authority_demo`'s, because `monotonic_nanos` is granted to every process unconditionally
     // (kernel/src/arch/*/timer.rs's exception to DECISIONS §10). A green line here proves the
@@ -458,28 +567,45 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "package install downloads/tampered.nifepkg",
         &["refused: this image's catalogue does not vouch for those bytes; nothing is installed"],
     ),
-    // The genuine package, whose digest the image's catalogue carries: the progenitor writes the
-    // program under `packages/<stem>/`, writes generation 1, and renames `current` onto it.
+    // **A package cannot take a name the image carries** (DECISIONS §229, calef's ruling of
+    // 2026-09-27). `uptime`'s package is genuine and catalogued, and the image carries `uptime`, so
+    // it is refused and nothing is written. Under §235 (the OS is built and updated from packages)
+    // a base program is updated through the boot slot, never by install, so this blocks no update.
     line(
         0,
         "package install downloads/uptime.nifepkg",
+        &[
+            "refused: the image carries a program of that name; a new base updates it, not \
+             install; nothing is installed",
+        ],
+    ),
+    // A genuine package the image lacks, whose digest the image's catalogue carries: the
+    // progenitor writes the program under `packages/<stem>/`, writes generation 1, and renames
+    // `current` onto it.
+    line(
+        0,
+        "package install downloads/noteless.nifepkg",
         &["installed; generation 1 is live"],
     ),
     // **And what it installed runs, by its bytes** (DECISIONS §219 (how the shell names an
     // installed program to the spawner) option D). A path, so the shell reads the file into frames
     // and the progenitor hashes its own copy and finds the digest in the generation just written.
-    // `up ` is the proof it ran: a refusal prints no such thing.
-    line(1, "packages/uptime/0.1.0/uptime", &["up "]),
+    // Its line is the proof it ran: a refusal prints no such thing.
+    line(
+        1,
+        "packages/noteless/0.1.0/noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     // **`caps` names who vouched** (§219: "or the source that vouched"): the digest the shell
     // hashed is in the generation the install just wrote.
     line(
         0,
-        "caps packages/uptime/0.1.0/uptime",
+        "caps packages/noteless/0.1.0/noteless",
         &[
             "provenance: vouched by activation generation 1 (digest ",
             // **No note, the default** (milestone 597 (a program carries its manifest in an ELF
-            // note), provisional): `uptime` carries no manifest note, so it is bound and endowed as
-            // `grant_plan::NO_NOTE_MANIFEST`, its output alone.
+            // note), provisional): `noteless` carries no manifest note, so it is bound and endowed
+            // as `grant_plan::NO_NOTE_MANIFEST`, its output alone.
             "it carries no manifest note, so it asks for its output and nothing else",
         ],
     ),
@@ -493,7 +619,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 1  page      clock",
             "cap 2  page      config",
             "provenance: unvouched (digest ",
-            "runs on this session's capability to run unvouched bytes (slot 22)",
+            "runs on this session's capability to run unvouched bytes (slot 30)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
             // note grants nothing: the rows above are the ruling's three and no more.
@@ -539,6 +665,44 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "installed/std-echo one 'two words'",
         &["words [\"installed/std-echo\", \"one\", \"two words\"]"],
     ),
+    // **An image the size of `rg` runs from the prompt** (milestone 595 (the shell runs a `std`
+    // program)). `crate::disk::INSTALLED_STD_ECHO_LARGE` is `std_echo` padded to 768 pages, twelve
+    // times the cap this path had, so the shell staged it across two 2 MiB page-table spans, the
+    // progenitor copied and hashed all of it in its image pool, and built it in a region sized from
+    // its length. Before, the shell refused it as "larger than an image may be".
+    line(
+        1,
+        "installed/std-echo-large big",
+        &["words [\"installed/std-echo-large\", \"big\"]"],
+    ),
+    // **A foreign program's words designate what it may read, and nothing else** (milestone 205's
+    // designation half, §170 (how a foreign program is told what to do) clauses 2 to 5). In a
+    // directory of its own, `std_grep` (unvouched, so read-only) is granted `docs` because a word
+    // named it, and finds the needle there. With no word naming anything it is granted nothing
+    // (calef's N1 ruling, 2026-09-27T06:27Z), and its search of `.` fails loudly. Run by absolute
+    // path, because the shell stands in `hay`; `/` is this shell's own root.
+    line(0, "mkdir hay", &[]),
+    line(0, "cd hay", &[]),
+    line(0, "mkdir docs", &[]),
+    line(0, "cd docs", &[]),
+    line(0, "echo find the needle here > n.txt", &[]),
+    line(0, "cd ..", &[]),
+    line(
+        0,
+        "caps /installed/std-grep needle docs",
+        &["cap 4  endpoint  dir", "docs", "read-only"],
+    ),
+    line(
+        1,
+        "/installed/std-grep needle docs",
+        &["docs/n.txt:find the needle here"],
+    ),
+    line(
+        1,
+        "/installed/std-grep needle",
+        &["std_grep: .: no directory was granted to search"],
+    ),
+    line(0, "cd /", &[]),
     // **A note that asks more than its vouch allows is refused** (milestone 597, provisional).
     // `least_authority_demo`'s note declares an argument, which only a command line designates,
     // and unvouched bytes may hold only what the D2 ruling names. The shell binds the line
@@ -621,6 +785,29 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "its manifest note asks for: output bytes, the clock",
         ],
     ),
+    // **And by its bare name** (DECISIONS §229 (how a bare name at the prompt reaches an installed
+    // program), B2): the live generation's entry of that name, run down the same road as its path,
+    // so `caps` names the same generation.
+    line(
+        1,
+        "greeting",
+        &["hello from a package this image never carried"],
+    ),
+    line(
+        0,
+        "caps greeting",
+        &["provenance: vouched by activation generation 2 (digest "],
+    ),
+    // **A name the image and a package both have** is refused at the prompt, naming both (§229
+    // B2), but no line here can make one: install now refuses an image program's name (§229,
+    // 2026-09-27), and only a later base adding a name a package holds can produce the pair.
+    // `swish::bare`'s host tests prove the refusal; its BUGS say what is not gated.
+    // The bare name of what generation 1 installed, which is not the image's either.
+    line(
+        1,
+        "noteless",
+        &["noteless: installed, and carrying no manifest note"],
+    ),
     // **The owner vouches for a local build** (DECISIONS §221 (the boot prompt is the owner's
     // console), ruling 1). `installed/unvouched` is the fresh build the D2 lines above ran on the
     // ruling's endowment (slots 0, 1 and 2). Vouching writes a generation that lists its digest,
@@ -641,6 +828,9 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps installed/unvouched",
         &["provenance: vouched by the owner in activation generation 3 (digest "],
     ),
+    // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
+    // the name it was recorded under, so the bare word reaches nothing.
+    line(0, "unvouched", &["no such program"]),
     line(1, crate::disk::INSTALLED_UNVOUCHED, &["slots held: 0 7 9"]),
     line(
         0,
@@ -1211,6 +1401,195 @@ impl GaugeFilter {
     }
 }
 
+/// One segment of a gauge sentence: literal text, or one of its numbers. A number is a wildcard
+/// (matched as "one or more digits") rather than a fixed value, because the value is not known
+/// ahead of time: [`degauge`] is asking "is a gauge here at all", not "is this exact gauge here".
+#[derive(Clone, Copy)]
+enum GaugeSeg {
+    Lit(&'static str),
+    Num,
+}
+
+/// Every sentence `kernel::progenitor_stack::announce` and `kernel::cap::announce_peak` can print,
+/// grepped from those two functions verbatim (2026-09-27). Longer variants first, so a `BELOW` or
+/// `ABOVE` sentence is matched whole rather than leaving its tail as unmatched noise once the
+/// shorter, common prefix has already been consumed. See [`degauge`].
+const GAUGE_TEMPLATES: &[&[GaugeSeg]] = &[
+    &[
+        GaugeSeg::Lit("  progenitor stack: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" bytes at peak, "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" spare, BELOW the "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit("-byte floor in kernel/src/progenitor_stack.rs"),
+    ],
+    &[
+        GaugeSeg::Lit("  progenitor stack: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" bytes at peak, "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" spare"),
+    ],
+    &[
+        GaugeSeg::Lit("  capability slots: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" at peak, ABOVE the "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" recorded in kernel/src/cap.rs"),
+    ],
+    &[
+        GaugeSeg::Lit("  capability slots: "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" of "),
+        GaugeSeg::Num,
+        GaugeSeg::Lit(" at peak"),
+    ],
+];
+
+/// Try `template` starting at `chars[start]`, tolerating intruder characters wedged between its
+/// own the way [`find_marker`] tolerates them in a flat needle, up to the same
+/// [`SWISH_CHECK_MARKER_SLACK`] budget. `None` if the template does not fit in the budget or runs
+/// off the end of `chars`. On success, returns where the match ended and, for every position from
+/// `start` to that end, whether it belongs to the gauge (`true`) or is an intruder byte that must
+/// be left alone (`false`).
+fn gauge_template_match(
+    chars: &[char],
+    start: usize,
+    template: &[GaugeSeg],
+) -> Option<(usize, Vec<bool>)> {
+    let mut mask = Vec::new();
+    let mut j = start;
+    let mut skipped = 0usize;
+    for seg in template {
+        match *seg {
+            GaugeSeg::Lit(word) => {
+                for want in word.chars() {
+                    loop {
+                        if j >= chars.len() {
+                            return None;
+                        }
+                        if chars[j] == want {
+                            mask.push(true);
+                            j += 1;
+                            break;
+                        }
+                        if skipped >= SWISH_CHECK_MARKER_SLACK {
+                            return None;
+                        }
+                        mask.push(false);
+                        skipped += 1;
+                        j += 1;
+                    }
+                }
+            }
+            GaugeSeg::Num => {
+                let mut got_digit = false;
+                loop {
+                    if j >= chars.len() {
+                        if got_digit {
+                            break;
+                        }
+                        return None;
+                    }
+                    if chars[j].is_ascii_digit() {
+                        mask.push(true);
+                        got_digit = true;
+                        j += 1;
+                    } else if got_digit {
+                        // The number ended: this character belongs to whatever comes next, not to
+                        // the digit run, so it is left for the following segment to see.
+                        break;
+                    } else if skipped >= SWISH_CHECK_MARKER_SLACK {
+                        return None;
+                    } else {
+                        mask.push(false);
+                        skipped += 1;
+                        j += 1;
+                    }
+                }
+            }
+        }
+    }
+    Some((j, mask))
+}
+
+/// Delete the best (fewest intruder characters) occurrence of any [`GAUGE_TEMPLATES`] template
+/// from `text`. `None` if no template appears at all within budget.
+fn strip_one_gauge(text: &str) -> Option<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut best: Option<(usize, usize, Vec<bool>, usize)> = None;
+    for template in GAUGE_TEMPLATES {
+        let GaugeSeg::Lit(first_word) = template[0] else {
+            unreachable!("every gauge template starts with a literal");
+        };
+        let first_char = first_word.chars().next().expect("non-empty literal");
+        for start in 0..chars.len() {
+            if chars[start] != first_char {
+                continue;
+            }
+            if let Some((end, mask)) = gauge_template_match(&chars, start, template) {
+                let skipped = mask.iter().filter(|kept| !**kept).count();
+                if best.as_ref().is_none_or(|(_, _, _, s)| skipped < *s) {
+                    best = Some((start, end, mask, skipped));
+                }
+            }
+        }
+    }
+    best.map(|(start, end, mask, _)| {
+        let mut out = String::with_capacity(text.len());
+        out.extend(&chars[..start]);
+        for (offset, keep) in mask.iter().enumerate() {
+            if !keep {
+                out.push(chars[start + offset]);
+            }
+        }
+        out.extend(&chars[end..]);
+        out
+    })
+}
+
+/// **Interim measure for §175 (where the kernel's own output goes once userspace owns the
+/// console), ruled 2026-09-27 to go through a ring a log service drains, and not yet built.**
+/// Takes a gauge's own characters out of a transcript
+/// even when a second writer spliced them in one at a time, rather than as the whole line
+/// [`GaugeFilter`] above assumes. That assumption held until #1371's CI run, where the
+/// progenitor-stack gauge landed character-by-character inside the shell's own echo of
+/// `package install`, producing `package   proinstgenitor sall tack: 31528 of 49152 bytes at
+/// peak, 17624 spare`: no contiguous `"progenitor stack:"` was ever there for `GaugeFilter` to
+/// find, `swish_check_leg`'s exact search for `"package install\n"` never matched either, and the
+/// run failed with "the prompt never echoed `package install`", a false report of a hung shell.
+/// The same race hit #1420 and is not particular to one command; anything typed while a gauge
+/// happens to print can be shuffled the same way.
+///
+/// Same asymmetry [`find_marker`] relies on: interleaving can destroy a known string, never
+/// manufacture one, so matching the gauge's own words (numbers as wildcards, since their values
+/// are not known ahead of time) has no false positives worth the name. Unlike `find_marker`, which
+/// only answers "is it there", this deletes just the matched characters and hands back everything
+/// else exactly where it was, because the caller needs the *rest* of the stream back in a shape its
+/// own exact-match waits can still recognise.
+///
+/// Remove once §175 is built: a kernel that no longer writes the UART directly once userspace owns
+/// it has nothing left here to splice.
+fn degauge(text: &str) -> String {
+    let mut out = text.to_string();
+    // Bounded rather than "until none found": a gate must not hang on a text that somehow keeps
+    // offering a match. A boot does not print more than a handful of gauge lines.
+    for _ in 0..64 {
+        match strip_one_gauge(&out) {
+            Some(next) => out = next,
+            None => break,
+        }
+    }
+    out
+}
+
 /// Which typed command a gauge removed at `at` belongs to: the last `$ ` line before it, skipping
 /// the bare prompt the gauge usually follows, since that prompt is the *next* command's.
 fn gauge_follows(transcript: &str, at: usize) -> &str {
@@ -1509,7 +1888,8 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let skipped = |line: &str| {
         swish_check_omits(arch, line).is_some()
             || ((line.starts_with("std_exerciser")
-                || line.contains(crate::disk::INSTALLED_STD_ECHO))
+                || line.contains(crate::disk::INSTALLED_STD_ECHO)
+                || line.contains(crate::disk::INSTALLED_STD_GREP))
                 && !std_built)
     };
     eprintln!();
@@ -1670,7 +2050,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let wait_after = |from: usize, needle: &str, secs: u64| -> bool {
         let deadline = Instant::now() + Duration::from_secs(secs);
         while Instant::now() < deadline {
-            if seen.lock().expect("transcript lock")[from..].contains(needle) {
+            // `degauge`: a gauge spliced character-by-character into the very bytes being waited
+            // for must not defeat an exact search the way it did in #1371 and #1420. See its doc.
+            if degauge(&seen.lock().expect("transcript lock")[from..]).contains(needle) {
                 return true;
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -1765,6 +2147,20 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         ) {
             failed.push(complaint);
         }
+        // **And its directory grants go through a bound badge** (milestone 606 (a directory walk
+        // costs what it does on Linux), calef's rulings D and T1 of 2026-09-27). Every leg's image carries `redoxfs_server`, whose bytes carry the
+        // subtree-grants note, so the progenitor must have read it; the `rm` lines below then run
+        // through the server's own narrowing rather than a caretaker. A progenitor that lost the
+        // note, or stopped reading it, says the negative sentence and fails here rather than
+        // passing quietly on the caretaker it falls back to.
+        if let Some(complaint) = boot_claim_complaint(
+            &after_hand_over(&transcript_now(&seen)),
+            "how it delivers a directory grant",
+            "directory grants get a bound badge",
+            "directory grants get a caretaker",
+        ) {
+            failed.push(complaint);
+        }
         // **And the progenitor has an entropy service, from the source this leg's machine has**
         // (milestone 595 (provisional)). The `uuid` and `std_exerciser` lines below would fail
         // without one, but as a refused draw several lines on, which says nothing about why. This
@@ -1809,7 +2205,12 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         };
         let mut took: Vec<(&str, Duration)> = Vec::new();
         let mut previous: Option<(&str, Instant)> = None;
-        for &Line { typed: line, .. } in script {
+        for &Line {
+            typed: line,
+            echoed,
+            ..
+        } in script
+        {
             if !ready {
                 break;
             }
@@ -1827,12 +2228,19 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
             }
             previous = Some((line, Instant::now()));
             let at = mark();
-            if writeln!(stdin, "{line}").is_err() || stdin.flush().is_err() {
-                failed.push(format!("could not type `{line}` at the prompt"));
+            // A line abandoned with `^C` is sent without Enter: the shell has already discarded
+            // it and painted a fresh prompt, which the next line's wait reads.
+            let enter = if interrupted_at_prompt(line) {
+                ""
+            } else {
+                "\n"
+            };
+            if write!(stdin, "{line}{enter}").is_err() || stdin.flush().is_err() {
+                failed.push(format!("could not type `{line:?}` at the prompt"));
                 break;
             }
-            if !wait_after(at, &format!("{line}\n"), line_secs) {
-                failed.push(format!("the prompt never echoed `{line}`"));
+            if !wait_after(at, &format!("{echoed}\n"), line_secs) {
+                failed.push(format!("the prompt never echoed `{echoed}` for {line:?}"));
                 break;
             }
             if SWISH_CHECK_INTERRUPTED.contains(&line) {
@@ -1899,17 +2307,28 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         // truncated.
         let mut cursor = 0usize;
         for &Line {
-            typed: line,
+            typed,
+            echoed: line,
             jobs,
             answer: want,
         } in script
         {
-            if skipped(line) {
+            if skipped(typed) {
                 continue;
             }
             match swish_check_answer(&transcript, cursor, line) {
                 Some((answer, next)) => {
                     cursor = next;
+                    // **A line abandoned with `^C` ran nothing** (DECISIONS §227 option D): the
+                    // shell edits its own line now, so `^C` at the prompt is a byte its editor
+                    // turns into a discard. Anything between the echo and the next prompt means
+                    // the line ran anyway.
+                    if interrupted_at_prompt(typed) && !answer.trim().is_empty() {
+                        failed.push(format!(
+                            "{typed:?} was abandoned with ^C and still answered {:?}",
+                            answer.trim()
+                        ));
+                    }
                     // **Every wanted phrase, not the first**, because one answer can carry several
                     // independent claims and checking one of them makes the rest decoration. `caps`
                     // is the case that forced it: it prints the shell's whole endowment, and a gate
@@ -2037,7 +2456,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     // time by overflowing it. The line must be there, and it must not say `BELOW`, which is the
     // kernel's word for a boot that left less than `kernel::progenitor_stack::HEADROOM_FLOOR` of
     // the stack unused. Every line is echoed with the prompt line it followed, which makes the
-    // transcript a per-command measurement: a line after `package install uptime` is that path.
+    // transcript a per-command measurement: a line after `package install greeting` is that path.
     let gauges: Vec<(String, &str)> = gauges
         .lock()
         .expect("gauge lock")
@@ -2631,11 +3050,25 @@ $ outlaw
         assert!(swish_check_omits("x86_64", &line).is_none());
     }
 
+    /// **And the line every leg installs from names the file the seed writes**, for the same reason
+    /// (milestone 47's bare-name lane, 2026-09-27).
+    #[test]
+    fn the_noteless_install_line_names_the_seeded_file() {
+        let line = format!("package install {}", crate::disk::DOWNLOADED_NOTELESS);
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
+        let refused = format!("package install {}", crate::disk::DOWNLOADED_PACKAGE);
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == refused));
+    }
+
     /// **A job count names a program** ([`Line`]'s doc): no line may claim more jobs than it has
     /// stages whose head is something the progenitor can build, a `grant_plan::Prog` or an
     /// installed package's path, after the `time` and `xargs` prefixes. A `caps` head is a preview
     /// and builds nothing. A bound from above only; a tag that is too low is the case no host test
     /// can see, and the transcript cannot either.
+    /// Bare names this script installs before it types them (§229 (how a bare name at the prompt
+    /// reaches an installed program), B2), which run as programs without being the image's.
+    const INSTALLED_BY_THE_SCRIPT: [&str; 2] = ["greeting", "noteless"];
+
     /// Feed `chunks` through a [`GaugeFilter`] and return what the checks would read, and the gauges.
     fn filtered(chunks: &[&str]) -> (String, Vec<(usize, String)>) {
         let mut f = GaugeFilter::default();
@@ -2698,6 +3131,46 @@ $ outlaw
     }
 
     #[test]
+    fn degauge_recovers_a_command_echo_the_gauge_was_spliced_into() {
+        // #1371's CI failure, verbatim: the progenitor-stack gauge landed byte-by-byte inside the
+        // shell's echo of `package install`, so `GaugeFilter`'s whole-line assumption never fired
+        // and `wait_after`'s exact search for "package install\n" never matched anything. This is
+        // the interim fix: greedily matching the gauge's own words, numbers as wildcards, and
+        // deleting only the characters that matched.
+        let spliced =
+            "package   proinstgenitor sall tack: 31528 of 49152 bytes at peak, 17624 spare";
+        let cleaned = degauge(spliced);
+        assert!(
+            cleaned.contains("package install"),
+            "gauge was not cleanly separated from its echo: {cleaned:?}"
+        );
+        assert!(
+            !cleaned.contains("progenitor") && !cleaned.contains("stack:"),
+            "gauge text survived: {cleaned:?}"
+        );
+    }
+
+    #[test]
+    fn degauge_removes_a_gauge_that_arrives_whole_between_two_lines() {
+        // The ordinary case `GaugeFilter` already handles live in the reader thread; `degauge` is
+        // a second, independent pass applied only at match time, and must not mishandle the common
+        // shape while fixing the rare spliced one.
+        let text =
+            "$ echo hi\nhi\n  progenitor stack: 22880 of 32768 bytes at peak, 9888 spare\n$ wc\n";
+        let cleaned = degauge(text);
+        assert_eq!(cleaned, "$ echo hi\nhi\n\n$ wc\n");
+        assert!(cleaned.contains("$ wc\n"));
+    }
+
+    #[test]
+    fn degauge_takes_out_the_capability_slot_gauge_too() {
+        let text = "$   capability slots: 17 of 24 at peak\n$ caps\n";
+        let cleaned = degauge(text);
+        assert!(!cleaned.contains("capability slots"));
+        assert!(cleaned.contains("$ caps\n"));
+    }
+
+    #[test]
     fn a_gauge_is_billed_to_the_command_whose_prompt_it_followed() {
         let t = "banner\n$ package install greeting\ninstalled\n$ ";
         assert_eq!(gauge_follows(t, t.len()), "package install greeting");
@@ -2708,7 +3181,7 @@ $ outlaw
     fn a_job_count_names_a_program() {
         for l in SWISH_CHECK_SCRIPT.iter().chain(SWISH_CHECK_AFTER_REBOOT) {
             let heads = l
-                .typed
+                .echoed
                 .split(['|', '&', ';'])
                 .filter_map(|stage| {
                     stage
@@ -2718,13 +3191,15 @@ $ outlaw
                 // A token with a `/` in it runs a file's bytes (DECISIONS §219 D), which is the
                 // shell's own test (`components/src/swish.rs`, `run`).
                 .filter(|head| {
-                    head.contains('/') || grant_plan::Prog::ALL.iter().any(|p| p.name() == *head)
+                    head.contains('/')
+                        || grant_plan::Prog::ALL.iter().any(|p| p.name() == *head)
+                        || INSTALLED_BY_THE_SCRIPT.contains(head)
                 })
                 .count();
             assert!(
                 usize::from(l.jobs) <= heads,
                 "`{}` claims {} job(s) and has {heads} stage(s) headed by a program",
-                l.typed,
+                l.echoed,
                 l.jobs
             );
         }

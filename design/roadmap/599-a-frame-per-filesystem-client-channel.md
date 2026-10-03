@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-26
+built: 2026-09-27
 promoted_from: a-frame-per-filesystem-client-channel
 milestone_dependencies: none
 decision_dependencies: unwritten
@@ -60,20 +61,24 @@ calef ruled option A: a server tells its clients apart by a badge the kernel del
   different frames; its assertion flipped from substitution to isolation. It exercises both shapes:
   the victim mints its own badge, and the attacker is handed a pre-badged endpoint.
 
-## What is left
+## What is built (2026-09-27, the production pool)
 
-- **The production progenitor's pool.** `crates/system_initializer` still hands every client
-  `BootEndowment::fs_page`, window 0, so the shell and its caretakers share one window on a real
-  boot. The fix is proven in the harness but not yet wired into the progenitor, and this is the piece
-  the set grant at the prompt actually needs. It carries a design question of its own. The progenitor
-  cannot hold a frame capability per window without blowing its 24-slot capability table
-  (DECISIONS §102 (a Frame names a run of pages), which calef has ruled on before). So how it addresses K windows wants deciding
-  first. Six options are priced in `notes/a-frame-per-filesystem-client-channel.md`, under "The
-  progenitor's pool: the fork". The short answer: one run capability covers the pool, so the slot
-  problem goes away, but handing a client only its window still needs one new operation (a
-  `PageFrame` slice or a `MAP_INTO` offset), and that is calef's call. It is gated
-  by `script/swish-check` (which boots the real progenitor), not `script/test`, so it is a separate,
-  carefully validated piece rather than more of this one.
+calef ruled option 4 of the pool's fork on #1413 (2026-09-27 15:29Z): one run capability over the
+windows, and a new `PageFrame` method that derives a capability naming part of it.
+`notes/page-frame-slice.md` is the method's semantics write-up, in the shape of §102
+(a Frame names a run of pages).
+
+- `abi::page_frame::SLICE` (method 2, provisional), GRANT-gated, on all three architectures (it is
+  portable kernel code). `kernel::syscall::tests::a_slice_maps_only_its_window` proves that a slice
+  maps its window and neither neighbour.
+- `fs_service` allocates the windows as one contiguous run, and the progenitor's slot 6 names the
+  whole run.
+- The progenitor gives each job behind a directory grant its own window, sliced for the job and its
+  caretaker, with the file service's endpoint badged to match. The window is zeroed before reuse.
+  The shell, `login`, the identity provisioner and its own activation calls stay on window 0.
+- `script/swish-check` passes on all three architectures and reads 23 of 24 capability slots at
+  peak on aarch64 and riscv64, as before (x86_64's gauge reads the hand-over mark, not the peak). The provisioner's slice
+  is made after its address space is built, which is what keeps the table's peak where it was.
 
 ## What it costs
 
@@ -90,21 +95,16 @@ prerequisite. A ruling on option A would also decide option 1 of the proposal
 
 ## Follow-on
 
-- **Done.** The kernel badge mechanism (`BADGE`, the badge on `RECV_CAP`), the file server's K
-  windows, the kernel-harness window pool, and the witness that proves isolation on all three
-  architectures. See "What is built".
-- **Recorded.** The residue is in `redoxfs_server`'s module `BUGS`: the production progenitor still
-  hands its clients window 0, so on a real boot they share one window until the progenitor pool
-  lands.
-- **Decision.** calef ruled option A (badged endpoint capabilities) on 2026-09-26; a maintainer is
-  recording it under `design/decisions/`. The syscall-surface fork is answered.
-- **Outstanding.** The production progenitor's per-client pool (see "What is left"), with its own
-  design question (how the progenitor addresses K windows within its 24-slot table, §102) and its
-  own gate (`script/swish-check`). Checked 2026-09-26: the harness proves the mechanism; this is the
-  boot-path application of it, which the set grant at the prompt needs.
+- **Done.** The kernel badge mechanism, the file server's windows, the kernel-harness pool, the
+  witness, and the production pool. See both "What is built" sections.
+- **Recorded.** A slice escapes its source's revocation (the shared-base, different-length
+  case of §132 (what `PageFrame::REVOKE` owes an overlapping run)); nothing revokes the pool, so it is a limitation, recorded in `notes/page-frame-slice.md`.
+- **Recorded.** The progenitor reuses a window after seven more granted jobs whether or not its last
+  holder exited, because it is not told when a job dies: `Windows` in `crates/system_initializer`.
+- **Decision.** calef ruled option A (badged endpoints) on 2026-09-26 and option 4 (the pool) on
+  2026-09-27; the maintainer mints both records under `design/decisions/`.
 
 ## Index row
 
-The file service shares one read-write staging channel with every client, so clients are kept
-apart by scheduling rather than by mapping. A per-client frame needs the server to know its caller,
-which is a kernel or protocol fork for calef.
+Every file-service client gets a staging window of its own, and the server tells them apart by a
+badge on the endpoint; the progenitor slices each client's window out of one pool capability.

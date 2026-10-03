@@ -37,7 +37,7 @@ format: changing it is a new version word.
 56 bytes. `crates/manifest_note` is the only definition (AGENTS.md rule 7), with `encode` and
 `decode`; its module documentation has the same table.
 
-Amended in place on 2026-09-27 (UTC) on calef's ruling, before anything outside the tree had acted on version 1. `arg` also takes `2`, "words", for milestone 205 (how a foreign program is told what to do); the module's table is current.
+Amended in place on 2026-09-27 (UTC) on calef's ruling, before anything outside the tree had acted on version 1. `arg` also takes `2`, "words", for milestone 205 (how a foreign program is told what to do). The same day, and the same ruling (on #1360), `machine` and `share` amend version 1 in place too, for milestone 126 (the `procps` package): one zero byte (55) remains, so the next field is likely version 2. The module's table is current.
 
 | offset | size | field | values |
 |---|---|---|---|
@@ -56,7 +56,9 @@ Amended in place on 2026-09-27 (UTC) on calef's ruling, before anything outside 
 | 35 | 1 | `runtime` | 0 native, 1 std |
 | 36 | 1 | option count | at most 16 |
 | 37 | 16 | option letters | the first *count*, in bit order; the rest 0 |
-| 53 | 3 | zero | |
+| 53 | 1 | `machine` | 0 or 1 (milestone 126, the machine statistics page) |
+| 54 | 1 | `share` | 0 or 1 (milestone 126, a view of the job budget) |
+| 55 | 1 | zero | |
 
 One manifest has one encoding. `decode` refuses an unknown version, any length but 56, a value
 outside its field's range, and a nonzero byte where the layout says zero. The Kani harness

@@ -170,3 +170,9 @@ week,crate,breaking,additions,commits,commits_crossing
 2026W39,std_runtime_protocol,0,17,5,4
 2026W39,supervision_protocol,1,4,6,6
 2026W39,swap_protocol,6,23,6,5
+2026W40,abi,2,9,2,2
+2026W40,activation_set,2,4,2,2
+2026W40,component_plan,0,0,1,1
+2026W40,grant_plan,9,41,5,5
+2026W40,line_editor,1,4,1,1
+2026W40,manifest_note,0,18,3,2

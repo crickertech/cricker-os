@@ -53,6 +53,12 @@ pub(crate) fn std_echo_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!("std_exerciser/target/{triple}/release/std_echo"))
 }
 
+/// **`std_grep`**, the workspace's third binary (milestone 205's designation half), put on the disk
+/// to be run by path.
+pub(crate) fn std_grep_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!("std_exerciser/target/{triple}/release/std_grep"))
+}
+
 /// **Unmodified `ripgrep` from crates.io, if somebody built it** (milestone 121).
 ///
 /// `helpers/build-ripgrep.sh` puts it here. Nothing in this build produces it, and that is the
@@ -722,6 +728,38 @@ fn std_patch_dispatch() -> bool {
     )
 }
 
+/// The `CARGO_TARGET_DIR` the `std_exerciser` build runs under, and the note to print when an
+/// exported value had to be overridden to get it there.
+///
+/// Everything that consumes this build looks under `std_exerciser/target` and nowhere else:
+/// [`std_exerciser_elf`], [`std_echo_elf`], [`std_grep_elf`], and the dep-info [`std_aborts`]
+/// reads. An inherited `CARGO_TARGET_DIR` (AGENTS.md tells every lane to export one for its
+/// gates) moves the build while leaving every one of those readers behind, so the sweep judges
+/// the last unredirected run's evidence and the initrd packs its ELFs. That is not hypothetical:
+/// on 2026-09-30 the 1377 lane built std from a sysroot this worktree never chose under exactly
+/// that export, twice, and `std-aborts` reported "all accounted for" over stale evidence both
+/// times. Pinning makes the wrong state unrepresentable; printing the override keeps the
+/// correction from being one more thing that happened silently.
+///
+/// Name: provisional, minted 2026-09-30 by the sysroot-theft lane.
+fn exerciser_target_dir(inherited: Option<&str>) -> (PathBuf, Vec<String>) {
+    let pinned = workspace_root().join("std_exerciser/target");
+    let canon = |p: PathBuf| std::fs::canonicalize(&p).unwrap_or(p);
+    if let Some(exported) = inherited.map(PathBuf::from).map(canon)
+        && exported != canon(pinned.clone())
+    {
+        let note = format!(
+            "pinning CARGO_TARGET_DIR to {}; the caller exported {}, which would have put \
+             the build and its dep-info where std-aborts never reads (the 1377 silent pass, \
+             2026-09-30; see notes/std.md's BUGS)",
+            pinned.display(),
+            exported.display()
+        );
+        return (pinned, vec![note]);
+    }
+    (pinned, Vec::new())
+}
+
 /// **Build the `std_exerciser` program for every custom target** (milestone 27; `x86_64` since 184), via -Zbuild-std against
 /// the patched `nife-dev` toolchain. panic=abort and singlethread come from the target specs;
 /// `compiler-builtins-mem` supplies memcpy/memset for the bare target.
@@ -736,16 +774,35 @@ fn std_patch_dispatch() -> bool {
 /// farm, another lane's gate relinked it to theirs a moment later, and this build compiled an
 /// unpatched std and failed three times running. rustup accepts a toolchain path in
 /// `RUSTUP_TOOLCHAIN`, so the build now uses the farm it just checked and cannot be pointed
-/// elsewhere. The link is still made, for `helpers/` scripts and people who type `+nife-dev`.
+/// elsewhere. The link is still made, for people who type `+nife-dev`; the `helpers/` builds
+/// name the farm by path too, since 2026-09-30, for this same reason.
+///
+/// **The build is pinned to `std_exerciser/target` by `CARGO_TARGET_DIR`** (the sysroot-theft
+/// fix, 2026-09-30). `Command` inherits the environment, and AGENTS.md tells every lane to gate
+/// with `CARGO_TARGET_DIR=$PWD/target` exported, so the cargo child obeyed it: the build landed
+/// in the workspace's shared `target/`, dep-info and ELFs with it, while [`std_aborts`] and the
+/// initrd's ELF paths read `std_exerciser/target`. The sweep then judged the previous
+/// unredirected run's evidence, and a build that had resolved a foreign or unpatched sysroot
+/// passed as green; the 1377 lane had exactly that, twice. [`exerciser_target_dir`] pins, and
+/// names the override out loud rather than absorbing it silently.
 pub(crate) fn std_exerciser() -> bool {
     if !std_src() {
         return false;
     }
     let manifest = s(workspace_root().join("std_exerciser/Cargo.toml"));
+    // Pin where the build and its evidence land before the first child runs, so the ELFs the
+    // initrd packs, the dep-info the sweep reads, and this build cannot be separated by an
+    // exported variable they never agreed to.
+    let inherited_target_dir = std::env::var("CARGO_TARGET_DIR").ok();
+    let (target_dir, notes) = exerciser_target_dir(inherited_target_dir.as_deref());
+    for note in &notes {
+        eprintln!("std-exerciser: {note}");
+    }
     for triple in STD_TARGETS {
         let spec = s(workspace_root().join(format!("targets/{triple}.json")));
         let ok = Command::new("cargo")
             .env("RUSTUP_TOOLCHAIN", farm_dir())
+            .env("CARGO_TARGET_DIR", &target_dir)
             .args([
                 "build",
                 "--release",
@@ -1146,6 +1203,31 @@ fn std_relative(p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The exerciser build's target dir is pinned, and an export that would move it is named
+    /// rather than obeyed or ignored. An export that already equals the pin is the no-op case:
+    /// announcing a "correction" that changes nothing would train readers to skim past the real
+    /// one.
+    #[test]
+    fn the_exerciser_target_dir_is_pinned_and_an_override_is_named() {
+        let (pinned, notes) = exerciser_target_dir(None);
+        assert!(notes.is_empty(), "nothing exported, nothing to correct");
+        assert!(pinned.ends_with("std_exerciser/target"));
+
+        let (_, notes) = exerciser_target_dir(Some(&pinned.display().to_string()));
+        assert!(
+            notes.is_empty(),
+            "an export equal to the pin is already right"
+        );
+
+        let (still, notes) = exerciser_target_dir(Some("/nonexistent/elsewhere/target"));
+        assert_eq!(still, pinned, "the pin does not follow the export");
+        assert_eq!(notes.len(), 1);
+        assert!(
+            notes[0].contains("/nonexistent/elsewhere/target"),
+            "the note names what it overrode"
+        );
+    }
 
     /// The copy into the patched std sysroot must drop a `# Examples` section and keep everything
     /// else, including the `text` diagrams the protocol crates lead with. The two cases worth

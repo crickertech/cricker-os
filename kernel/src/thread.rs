@@ -487,6 +487,14 @@ pub struct Thread {
     /// and inserts it into its own capability table. `None` for every ordinary send. See sched.rs.
     pub outgoing_cap: Option<crate::cap::Cap>,
 
+    /// **Why the last aborted send was aborted, when the reason was a refusal** (milestone 603
+    /// (provisional), DECISIONS §101 (notification objects) ruling B). Set beside `handshake.abort()` when a `SEND`,
+    /// `SEND_CAP` or `CALL` named a rendezvous that carries an interrupt, and read-and-cleared by
+    /// the syscall layer only after `take_ipc_aborted` has already said `true`. So an IPC that was
+    /// not aborted never reads it, which is what keeps the refusal off the fastpath: the syscall
+    /// layer's common case is the one branch it already had.
+    pub ipc_refused: bool,
+
     /// **The intrusive queue link** (milestone 14 phases A.2/A.3; notes/intrusive-queues.md).
     /// When this thread is on a run queue, a migration inbox, or an endpoint wait queue, this
     /// points at the next thread in it; `None` otherwise. One link, so a thread can be on at most
@@ -693,6 +701,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -730,6 +739,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -748,7 +758,7 @@ impl Thread {
 
     /// A new thread, ready to run `f` the first time it is scheduled.
     ///
-    /// **The closure lives on the new thread's own stack** (milestone 14 phase B.3): `spawn` is
+    /// **The closure lives on the new thread's own stack** (milestone 14 (kernel objects from untyped) phase B.3): `spawn_into` is
     /// generic, so `f` is moved at its concrete type into the top of the fresh stack, above the
     /// faked switch frame. No heap, no vtable: `x19` carries the closure's address and `x20` a
     /// monomorphized [`call_closure::<F>`] that knows how to call it. The old shape boxed the
@@ -825,6 +835,36 @@ impl Thread {
             context.write(Context::for_kernel_thread(closure_at, call_shim));
         }
 
+        // SAFETY: the caller's contract, passed on unchanged: `dst` is writable, aligned, and holds
+        // no live Thread.
+        unsafe { Self::write_kernel_thread(dst, id, context, stack) };
+        true
+    }
+
+    /// **The struct literal, in one frame for every closure type rather than one per closure type**
+    /// (milestone 126 (the `procps` package), 2026-09-27, UTC). An unoptimised build materialises the `Thread` (and the
+    /// `CapabilityTable::new()` inside it) as stack temporaries before copying them to `dst`, so
+    /// wherever this literal sits, its frame carries roughly two `Thread`s. Inside the generic
+    /// [`spawn_into`](Self::spawn_into) that cost was paid by *every* monomorphization, on top of
+    /// that closure's own capture, and raising `crate::cap::CAPABILITY_TABLE_SLOTS` from 24 to 32
+    /// put two of them over the 4096-byte guard page (`script/stack-frame-check`:
+    /// `spawn_into::<fs_service::spawn_fs_server>` at 4112). Here, non-generic and never inlined,
+    /// the temporaries exist once, in a frame that holds nothing else.
+    ///
+    /// It stays a struct literal on purpose: the compiler checks it for completeness, which the
+    /// field-by-field alternative milestone 447 refused would give up.
+    ///
+    /// # Safety
+    ///
+    /// As [`spawn_into`](Self::spawn_into): `dst` is writable, aligned for `Thread`, and holds no
+    /// live `Thread`.
+    #[inline(never)]
+    unsafe fn write_kernel_thread(
+        dst: *mut Thread,
+        id: ThreadId,
+        context: *mut Context,
+        stack: KernelStack,
+    ) {
         // SAFETY: the caller's contract: `dst` is writable, aligned, and holds no live Thread.
         unsafe {
             dst.write(Thread {
@@ -841,6 +881,7 @@ impl Thread {
                 mailbox: [0; 5],
                 quota: None,
                 outgoing_cap: None,
+                ipc_refused: false,
                 next: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
                 start_args: [0; 3],
@@ -856,22 +897,6 @@ impl Thread {
                 port_range_grant: None,
             });
         }
-        true
-    }
-
-    /// The by-value form, for the callers that have nowhere to write into yet.
-    ///
-    /// `sched::init`'s idle thread and `spawn_blocked` still take this path; they hold no TCB page
-    /// at the point they build. It costs the copies `spawn_into` exists to avoid, which is why
-    /// `spawn_on` does not use it (milestone 124).
-    pub fn spawn<F: FnOnce() + Send + 'static>(f: F) -> Option<Self> {
-        let mut slot: core::mem::MaybeUninit<Thread> = core::mem::MaybeUninit::uninit();
-        // SAFETY: `slot` is writable, aligned and holds no live Thread.
-        if !unsafe { Self::spawn_into(f, UNNAMED, slot.as_mut_ptr()) } {
-            return None;
-        }
-        // SAFETY: `spawn_into` returned true, so it initialised every field.
-        Some(unsafe { slot.assume_init() })
     }
 
     /// **A TCB object, retyped but not started** (milestone 19c.3). No stack, no saved context,
@@ -892,6 +917,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            ipc_refused: false,
             next: None,
             entry: (0, 0),
             start_args: [0; 3],
@@ -942,12 +968,12 @@ extern "C" fn user_thread_entry(entry: u64, user_sp: u64, arg0: u64, arg1: u64, 
 
 /// The monomorphized bridge between "an address on a stack" and "a closure of type `F`".
 ///
-/// `Thread::spawn` erases the closure's type when it parks it on the new stack; this function,
+/// `Thread::spawn_into` erases the closure's type when it parks it on the new stack; this function,
 /// instantiated per closure type and passed through `x20`, is where the type comes back. It
 /// moves the closure out of its stack slot and calls it; the captures drop normally when the
 /// call returns.
 extern "C" fn call_closure<F: FnOnce()>(closure: *mut ()) {
-    // SAFETY: `closure` is the `F` that `Thread::spawn` placed on this very stack, and this is
+    // SAFETY: `closure` is the `F` that `Thread::spawn_into` placed on this very stack, and this is
     // the single read of it: the slot is dead bytes afterward, above `sp`, touched by nobody.
     let f = unsafe { closure.cast::<F>().read() };
     f();

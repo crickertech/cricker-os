@@ -9,11 +9,11 @@ ratified_by: calef
 
 The cap is 3,000 words of main body, ratified by calef on 2026-09-23
 (UTC). That answers question 1 below and nothing else. Raised by him the same day, after a
-maintainer session spent most of a context window reading one document, `design/fatal-risks.md`, at
+maintainer session spent most of a context window reading one document, `design/fatal-risks/README.md`, at
 17,742 words.
 
 Appendix siting is ratified too, by calef on 2026-09-23 (UTC), answering question 3. The default
-is a parent-named sibling directory: `design/fatal-risks.md` beside `design/fatal-risks/*.md`.
+is a parent-named sibling directory: `design/fatal-risks/README.md` beside `design/fatal-risks/*.md`.
 A thematic directory is a permitted exception when the appendices are independently citable,
 which is why `AGENTS.md`'s tenets live in `design/tenets/` rather than in `AGENTS/`. Content that is
 a document in its own right is neither, and stays a peer document in the same directory, which is
@@ -37,7 +37,7 @@ The ratchet is what the recommendation below describes. A document already over 
 grow. A document under it may not cross. A new document, or one rewritten wholesale, meets the cap
 outright. An exception is marked in the document itself and carries its reason, which is the rung the
 ladder permits when the higher one costs more than the failure does. calef granted
-`design/fatal-risks.md` a marked exception on 2026-09-24 (UTC) at 4,235 words against the cap, the
+`design/fatal-risks/README.md` a marked exception on 2026-09-24 (UTC) at 4,235 words against the cap, the
 first exception granted under this section, and the marker lives in that file with its reason.
 On 2026-09-25 (UTC) calef granted two more, and ruled that neither block is split:
 [`design/roadmap/47-navigation-and-naming.md`](../roadmap/47-navigation-and-naming.md) at 17,386
@@ -62,7 +62,7 @@ tree is paying the debt down, the second says whether the ratchet is holding. Bo
 
 What this section does not yet decide: whether the cap applies to every document or to a class of
 them (question 2, where the recommendation below argues for every document, and where the two marked
-exceptions to date, `AGENTS.md` at 5,873 words of imperatives and `design/fatal-risks.md` at 4,235
+exceptions to date, `AGENTS.md` at 5,873 words of imperatives and `design/fatal-risks/README.md` at 4,235
 (it was 4,176 when this section was first written, and grew during the density pass),
 are the evidence either way). *(Section number 212 was minted at merge on 2026-09-24.)*
 
@@ -121,7 +121,7 @@ at it:
 | [`notes/README.md`](../../notes/README.md) | 22,489 | 138 |
 | [`design/naming.md`](../naming.md) | 19,947 | 127 |
 | [`notes/stranger-test.md`](../../notes/stranger-test.md) | 18,775 | 36 |
-| [`design/fatal-risks.md`](../fatal-risks.md) | 17,742 | 120 |
+| [`design/fatal-risks/README.md`](../fatal-risks/README.md) | 17,742 | 120 |
 | [`design/roadmap/47-navigation-and-naming.md`](../roadmap/47-navigation-and-naming.md) | 17,315 | 6 |
 | [`notes/x86-port.md`](../../notes/x86-port.md) | 14,938 | 67 |
 | [`notes/pipes.md`](../../notes/pipes.md) | 14,372 | 119 |
@@ -213,7 +213,7 @@ remains, and that number decides whether the ratchet stays.
 ## Migration, ranked by words times citing files
 
 First cut, in order: [`notes/benchmarks.md`](../../notes/benchmarks.md),
-[`notes/README.md`](../../notes/README.md), [`design/fatal-risks.md`](../fatal-risks.md),
+[`notes/README.md`](../../notes/README.md), [`design/fatal-risks/README.md`](../fatal-risks/README.md),
 [`design/naming.md`](../naming.md).
 
 **And the counter-case, which is half the point.**
@@ -225,7 +225,7 @@ be spent where nobody arrives.
 
 ## What is blocked until this is answered
 
-`design/fatal-risks.md` is being condensed on branch `maintainer/fatal-risks-condensed` against a
+`design/fatal-risks/README.md` is being condensed on branch `maintainer/fatal-risks-condensed` against a
 3,000-word body plus appendices, so that lane is this convention's first instance and a different
 ratified number means redoing it. Nothing else is blocked.
 

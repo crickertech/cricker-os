@@ -68,7 +68,7 @@ in it.
    honest answer.
 
 **And the one thing this part was told to look for, which it did not find.** The block ordered
-`timetable` second because it holds `next_after`, the property `design/fatal-risks.md`'s risk 2 calls
+`timetable` second because it holds `next_after`, the property `design/fatal-risks/README.md`'s risk 2 calls
 its strongest counterfactual. **No survivor touched `next_after`**, or the phase arithmetic, or the
 firing decision; every mutant in them was caught before this lane changed anything. That is evidence
 against risk 2 in the place this roadmap thought it most likely, and it is worth as much as a finding
@@ -89,7 +89,7 @@ explained the two crates whose broken suites made a fall look real. Only 85 ever
 in August. So the tree has an excellent instrument, a working cadence, and nobody pointed at the
 number it produces.
 
-That is what holds `design/fatal-risks.md`'s risk 3 at **AMBER** rather than green, on calef's
+That is what holds `design/fatal-risks/README.md`'s risk 3 at **AMBER** rather than green, on calef's
 reading of 2026-09-19. Milestone 85's rule is that **every survivor becomes a test, an exclusion with
 a reason, or a recorded gap**. It held for the baseline's 391. The census of 2026-09-14 produced
 **771**, and none of them has been looked at.
@@ -185,7 +185,7 @@ Projected, not measured: corpus 92.4% to 95.9%, like-for-like 96.1% to 96.3%. Th
    test green. `memory_regions` and `elf` are next, as the two that fell from a perfect score.
 
 2. **`timetable`'s 48 survivors, and not because of its rate.** At 73.6% it is not the tree's worst
-   crate, but it holds `next_after`, the property `design/fatal-risks.md`'s risk 2 names as its
+   crate, but it holds `next_after`, the property `design/fatal-risks/README.md`'s risk 2 names as its
    strongest counterfactual: the milestone 6 timer drift, proved in this tree over code the timer
    does not call. **48 survivors in a crate carrying a proof is the exact shape risk 2 is about**, and
    it is the one place on this list where a survivor might be evidence for a fatal risk rather than
@@ -330,7 +330,7 @@ Parts 1 and 2 only. Each of these was checked against the tree on 2026-09-19, on
   error" kills half of even those. The note has the argument.
 ## Index row
 
-`design/fatal-risks.md`'s risk 3 is AMBER rather than green because 771 survivors from the
+`design/fatal-risks/README.md`'s risk 3 is AMBER rather than green because 771 survivors from the
 2026-09-14 mutation census have never been looked at, and milestone 85's rule is that every one
 becomes a test, an exclusion with a reason, or a recorded gap. Four milestones touch mutation
 testing and three are repairs to the instrument; only 85 ever turned a score, in August. The order

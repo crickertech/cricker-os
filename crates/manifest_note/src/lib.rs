@@ -30,7 +30,7 @@
 //! | offset | size | field | values |
 //! |---|---|---|---|
 //! | 0 | 4 | version | `1` |
-//! | 4 | 1 | `arg` | 0 forbidden, 1 required, 2 words (the line is the argv, milestone 205) |
+//! | 4 | 1 | `arg` | 0 forbidden, 1 required; hears words (milestone 205): 2 read-only, 3 read-write, 4 create |
 //! | 5 | 1 | `mem` | 0 forbidden, 1 required |
 //! | 6 | 1 | `file` | 0 forbidden, 1 read-only, 2 read-write |
 //! | 7 | 1 | `dir` | 0 forbidden, 1 required |
@@ -50,7 +50,9 @@
 //! | 35 | 1 | `runtime` | 0 native, 1 std |
 //! | 36 | 1 | option count | at most `grant_plan::MAX_DECLARED_FLAGS` (16) |
 //! | 37 | 16 | option letters | the first *count* are the letters in bit order, the rest 0 |
-//! | 53 | 3 | zero | |
+//! | 53 | 1 | `machine` | 0 or 1 (milestone 126, the machine statistics page) |
+//! | 54 | 1 | `share` | 0 or 1 (milestone 126, a view of the job budget) |
+//! | 55 | 1 | zero | |
 //!
 //! **One manifest has exactly one encoding**, and [`decode`] enforces it: an unknown version, a
 //! value outside its field's range, a nonzero byte where the layout says zero, a descriptor shorter
@@ -63,8 +65,19 @@
 //! **Version 1 was amended once, in place**, on 2026-09-27 (UTC): the `arg` field gained `2` for
 //! milestone 205 (how a foreign program is told what to do)'s `ArgSpec::Words`, with no version
 //! bump, on calef's ruling ("I think an incompatible change is probably fine. It has just been a
-//! few hours."). Nothing outside this tree had acted on version 1 by then. The rule above holds
-//! from here on.
+//! few hours."). Nothing outside this tree had acted on version 1 by then.
+//!
+//! **And a second time, later the same day**: `3` and `4` for the `WordGrant` a program that hears
+//! words declares (milestone 205's designation half), under the same ruling and before anything
+//! outside the tree had acted on it. `2` kept its meaning, read-only. calef confirmed the ruling
+//! covers these on 2026-09-27 at 15:14Z (UTC), on #1402. The rule above holds from here on.
+//!
+//! **And a third time, in place**, the same day: milestone 126 (the `procps` package) gave
+//! `grant_plan::Manifest` its `machine` and `share` fields after this layout was ratified, and
+//! they take bytes 53 and 54 of the tail. calef ruled on 2026-09-27 (UTC), on #1360, that this
+//! amends version 1 in place too, for the same reason as the `arg` amendment above: nothing outside
+//! the tree had acted on version 1. An old descriptor has zeros there and decodes unchanged, as a
+//! program declaring neither. One zero byte (55) remains, so the next field is likely version 2.
 //!
 //! # EXAMPLES
 //!
@@ -100,7 +113,7 @@
 
 use grant_plan::{
     ArgSpec, DIAGNOSTICS_SLOT, DirSpec, FileSpec, Flags, InputSpec, MAX_DECLARED_FLAGS, Manifest,
-    MemSpec, OutputSpec, Runtime,
+    MemSpec, OutputSpec, Runtime, WordGrant,
 };
 
 /// **The note's owner string**, without its NUL: the project's name, lowercase as
@@ -170,9 +183,11 @@ const NETWORK: usize = 34;
 const RUNTIME: usize = 35;
 const FLAG_COUNT: usize = 36;
 const FLAG_LETTERS: usize = 37;
-const TAIL: usize = FLAG_LETTERS + MAX_DECLARED_FLAGS;
+const MACHINE: usize = FLAG_LETTERS + MAX_DECLARED_FLAGS;
+const SHARE: usize = MACHINE + 1;
+const TAIL: usize = SHARE + 1;
 
-const _: () = assert!(TAIL + 3 == DESCRIPTOR_LEN);
+const _: () = assert!(TAIL + 1 == DESCRIPTOR_LEN);
 
 const fn put8(out: &mut [u8; DESCRIPTOR_LEN], at: usize, v: u64) {
     let b = v.to_le_bytes();
@@ -203,7 +218,9 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
         // A program whose line is its argv (milestone 205 (how a foreign program is told what to
         // do), §170 (how a foreign program is told what to do)). Added to version 1 in place on 2026-09-27; see the module's "one encoding"
         // paragraph for calef's ruling.
-        ArgSpec::Words => 2,
+        ArgSpec::Words(WordGrant::ReadOnly) => 2,
+        ArgSpec::Words(WordGrant::ReadWrite) => 3,
+        ArgSpec::Words(WordGrant::Create) => 4,
     };
     if let MemSpec::Required { min, max } = m.mem {
         out[MEM] = 1;
@@ -258,6 +275,8 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
     out[CONFIG] = m.config as u8;
     out[ENTROPY] = m.entropy as u8;
     out[NETWORK] = m.network as u8;
+    out[MACHINE] = m.machine as u8;
+    out[SHARE] = m.share as u8;
     out[RUNTIME] = match m.runtime {
         Runtime::Native => 0,
         Runtime::Std => 1,
@@ -311,7 +330,9 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
     let arg = match d[ARG] {
         0 => ArgSpec::Forbidden,
         1 => ArgSpec::Required,
-        2 => ArgSpec::Words,
+        2 => ArgSpec::Words(WordGrant::ReadOnly),
+        3 => ArgSpec::Words(WordGrant::ReadWrite),
+        4 => ArgSpec::Words(WordGrant::Create),
         _ => return Err(Error::BadField(ARG)),
     };
     let mem = match d[MEM] {
@@ -395,6 +416,8 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
         config: flag(d, CONFIG)?,
         entropy: flag(d, ENTROPY)?,
         network: flag(d, NETWORK)?,
+        machine: flag(d, MACHINE)?,
+        share: flag(d, SHARE)?,
         runtime,
     })
 }
@@ -450,6 +473,115 @@ macro_rules! carry {
     };
 }
 
+// -------------------------------------------------------------------------------------------
+// The second note type: a file server that enforces subtree grants itself (milestone 606 (a
+// directory walk costs what it does on Linux), calef's ruling T1 of 2026-09-27, 15:22Z on #1413).
+// -------------------------------------------------------------------------------------------
+
+/// **The note type that says a file server enforces subtree grants itself**: `2`. A server carries
+/// it when it resolves every path and every handle through a scope crate, and it is what the
+/// progenitor reads to choose a bound badge over a caretaker for that server's grants. Absent means
+/// "give its clients a caretaker", which is every server but an eligible one.
+///
+/// Name and number provisional (calef, 2026-09-27: "the note and field names stay provisional").
+pub const SUBTREE_GRANTS: u32 = 2;
+
+/// The version of the [`SUBTREE_GRANTS`] descriptor this crate writes and reads.
+pub const SUBTREE_GRANTS_VERSION: u32 = 1;
+
+/// How long a version 1 [`SUBTREE_GRANTS`] descriptor is: a version word, then a scope word.
+pub const SUBTREE_GRANTS_LEN: usize = 8;
+
+/// **Which scope crate a server enforces grants through.** One value today, so the word is room for
+/// a second rather than a flag that would need a second field.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Scope {
+    /// `crates/subtree_scope`, the one ruling D (2026-09-27) names.
+    SubtreeScope,
+}
+
+impl Scope {
+    const fn word(self) -> u32 {
+        match self {
+            Scope::SubtreeScope => 1,
+        }
+    }
+
+    /// The package declaration's spelling of this scope, the value of its `subtree_grants` field,
+    /// which `script/lint` checks against the note a server carries.
+    pub const fn declared(self) -> &'static str {
+        match self {
+            Scope::SubtreeScope => "subtree_scope",
+        }
+    }
+}
+
+/// **A [`SUBTREE_GRANTS`] descriptor, decoded**, or why not. One encoding for one scope, as
+/// [`decode`] enforces for a manifest: an unknown version or scope, or the wrong length, refuses.
+pub fn decode_subtree_grants(d: &[u8]) -> Result<Scope, Error> {
+    let version = d.get(..4).ok_or(Error::NoVersion)?;
+    if u32::from_le_bytes([version[0], version[1], version[2], version[3]])
+        != SUBTREE_GRANTS_VERSION
+    {
+        return Err(Error::UnknownVersion);
+    }
+    if d.len() != SUBTREE_GRANTS_LEN {
+        return Err(Error::WrongLength);
+    }
+    match u32::from_le_bytes([d[4], d[5], d[6], d[7]]) {
+        1 => Ok(Scope::SubtreeScope),
+        _ => Err(Error::BadField(4)),
+    }
+}
+
+/// How long a whole [`SUBTREE_GRANTS`] note is.
+pub const SUBTREE_GRANTS_NOTE_LEN: usize = HEADER_LEN + NAME_FIELD + SUBTREE_GRANTS_LEN;
+
+/// **A whole [`SUBTREE_GRANTS`] note**, what [`carry_subtree_grants!`] places. Provisional name.
+#[repr(C, align(4))]
+pub struct SubtreeGrantsNote(pub [u8; SUBTREE_GRANTS_NOTE_LEN]);
+
+impl SubtreeGrantsNote {
+    /// The note declaring `scope`.
+    pub const fn of(scope: Scope) -> Self {
+        let mut out = [0u8; SUBTREE_GRANTS_NOTE_LEN];
+        let namesz = ((OWNER.len() + 1) as u32).to_le_bytes();
+        let descsz = (SUBTREE_GRANTS_LEN as u32).to_le_bytes();
+        let kind = SUBTREE_GRANTS.to_le_bytes();
+        let version = SUBTREE_GRANTS_VERSION.to_le_bytes();
+        let word = scope.word().to_le_bytes();
+        let mut i = 0;
+        while i < 4 {
+            out[i] = namesz[i];
+            out[4 + i] = descsz[i];
+            out[8 + i] = kind[i];
+            out[HEADER_LEN + i] = OWNER[i];
+            out[HEADER_LEN + NAME_FIELD + i] = version[i];
+            out[HEADER_LEN + NAME_FIELD + 4 + i] = word[i];
+            i += 1;
+        }
+        Self(out)
+    }
+}
+
+/// **Declare that this file server enforces subtree grants through `scope`.** One line at module
+/// scope in the server's root, beside nothing else: a server carries no [`Manifest`]. It places one
+/// [`SubtreeGrantsNote`] in `.note.nife.manifest`, the same section and `PT_NOTE` a manifest uses.
+///
+/// Carrying it is a claim the progenitor acts on, so `script/lint` holds it to account: the crate
+/// must depend on `subtree_scope`, and its package declaration must say so too.
+///
+/// Name: provisional, milestone 606's lane, 2026-09-27.
+#[macro_export]
+macro_rules! carry_subtree_grants {
+    ($scope:expr) => {
+        #[used]
+        #[unsafe(link_section = ".note.nife.manifest")]
+        static NIFE_SUBTREE_GRANTS_NOTE: $crate::SubtreeGrantsNote =
+            $crate::SubtreeGrantsNote::of($scope);
+    };
+}
+
 #[cfg(kani)]
 mod verification {
     use super::*;
@@ -489,6 +621,30 @@ mod tests {
 
     use super::*;
 
+    /// **The subtree-grants note round-trips, and one encoding is the only encoding** (milestone
+    /// 606, ruling T1): the note's own descriptor decodes to its scope, and a wrong version, scope
+    /// or length is refused rather than read as "eligible".
+    #[test]
+    fn a_subtree_grants_note_has_one_encoding() {
+        let note = SubtreeGrantsNote::of(Scope::SubtreeScope);
+        let desc = &note.0[HEADER_LEN + NAME_FIELD..];
+        assert_eq!(decode_subtree_grants(desc), Ok(Scope::SubtreeScope));
+        assert_eq!(
+            u32::from_le_bytes(note.0[8..12].try_into().unwrap()),
+            SUBTREE_GRANTS
+        );
+        let mut bad = [0u8; SUBTREE_GRANTS_LEN];
+        bad.copy_from_slice(desc);
+        bad[4] = 2;
+        assert_eq!(decode_subtree_grants(&bad), Err(Error::BadField(4)));
+        bad[4] = 1;
+        bad[0] = 2;
+        assert_eq!(decode_subtree_grants(&bad), Err(Error::UnknownVersion));
+        assert_eq!(decode_subtree_grants(&desc[..7]), Err(Error::WrongLength));
+        assert_eq!(decode_subtree_grants(&[1, 0]), Err(Error::NoVersion));
+        assert_eq!(Scope::SubtreeScope.declared(), "subtree_scope");
+    }
+
     /// Every manifest the tree compiles in has a spelling, and reads back as itself. A program
     /// added to `Prog` with a manifest this layout cannot carry fails here rather than in a build
     /// that tries to carry it.
@@ -500,6 +656,14 @@ mod tests {
         }
         let m = grant_plan::UNVOUCHED_MANIFEST;
         assert_eq!(decode(&encode(&m)), Ok(m));
+        // Each word grant a program that hears words may declare (milestone 205).
+        for g in [WordGrant::ReadOnly, WordGrant::ReadWrite, WordGrant::Create] {
+            let m = Manifest {
+                arg: ArgSpec::Words(g),
+                ..grant_plan::UNVOUCHED_STD_MANIFEST
+            };
+            assert_eq!(decode(&encode(&m)), Ok(m), "{g:?}");
+        }
     }
 
     #[test]

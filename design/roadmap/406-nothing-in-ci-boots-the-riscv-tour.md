@@ -68,7 +68,7 @@ the hardware-entropy step's line, and the final banner. Some of what they demons
 independently by the riscv64 kernel suite, which is why this is a gap rather than a hole; what is not
 covered is the **boot as a sequence**, which is exactly what a board produces and what
 `crates/board_console` was written to read. They are checked today by a person remembering to type
-`script/soak-test`, which is AGENTS.md's rung four holding a claim `design/fatal-risks.md` cites.
+`script/soak-test`, which is AGENTS.md's rung four holding a claim `design/fatal-risks/README.md` cites.
 
 ## Why this is worth a milestone rather than a patch
 

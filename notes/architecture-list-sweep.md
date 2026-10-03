@@ -1,5 +1,11 @@
 # Every place in the tree that enumerates architectures, and whether the list is complete
 
+<!-- writing-standards: exception. Marked 2026-09-29 (UTC) by the audit lane for the documentation
+audit of that date. Reason: the one correction below closes a recorded-gap row that closed without
+the row knowing, and bringing a 6,200-word sweep to 4 bold spans per 1,000 words is a rewrite for
+this note's owner, not something to hide inside a correction, the same line
+notes/timed-wait.md's marker takes. Remove this marker when that de-bold pass lands. -->
+
 Swept 2026-08-27, prompted by one instance. `script/stack-frame-check` line 59 read
 `arches="aarch64 riscv64"` and exited 2 on anything else. That gate was written 2026-08-14, when
 there were two architectures; x86_64 became a `script/test` target on 2026-08-24 (commit
@@ -206,7 +212,7 @@ Listed so the next reader does not count them twice.
 |---|---|---|
 | ~~`xtask/src/main.rs` `STD_TARGETS: [&str; 2]`, and `targets/` holding two `.json` specs~~ | ~~`x86_64-unknown-nife`~~ | **Closed** by milestone 184 (extend the `std` port to x86_64): `STD_TARGETS` has three entries and `targets/` three specs |
 | `xtask/src/suite.rs`, the vendored RedoxFS build loop `for target in [TARGET, RISCV_TARGET]` | x86_64 | milestone 164 (x86_64 userspace can't build `aes`). The reason is written at `initrd_x86` and at `fs_service.rs`'s `NO_FS_SERVER`, **not at the loop itself**, which is the one weakness in an otherwise clean record |
-| `xtask/src/swish_check.rs` `swish_check`, which refuses `--arch x86_64` | an x86_64 shell leg | Inline at the match arm: nothing boots x86_64 straight to an interactive prompt, scoped under milestone 177 (wire the graphical terminal stack into the real interactive boot) |
+| ~~`xtask/src/swish_check.rs` `swish_check`, refusing `--arch x86_64`~~ | ~~an x86_64 leg~~ | **Closed**: the leg runs (`swish_check.rs:59`), milestone 182 (x86-64's own interactive-boot entry point) built it, and milestone 177 (wire the graphical terminal stack into the real interactive boot) is BUILT |
 | `xtask/src/icount.rs` `icount`, which refuses `--arch x86_64` | an x86_64 icount leg | The real reason is at `bench_x86`'s doc comment (the LAPIC timer is a periodic hardware reload with no re-armed deadline to compare against). **The inline comment at the match arm gives a different and now-stale reason** ("needs a userspace this port cannot build"), which stopped being true when milestone 161 item 4 landed. Worth a one-line correction by whoever next touches it |
 | `script/lint`, the boot-mode feature loops `for tgt in aarch64... riscv64...` | x86_64 | Thirty lines above the loop, naming each narrowing, why it is a scope gap rather than an oversight, what is still covered, and **the trigger that retires the suppression**. This is the model |
 | `kernel/src/user/fs_service.rs` `NO_FS_SERVER`, `NO_MKFS`; `clock_service.rs` `NO_RTC`; `user.rs` `NO_UART_PAGE`; `std_service.rs` `NO_STD_EXERCISER` | per-test x86_64 coverage | The `skip!()` mechanism, whose whole design is that a skipped fixture prints why |

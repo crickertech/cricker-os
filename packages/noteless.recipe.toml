@@ -1,0 +1,17 @@
+# noteless, as a package: a program no boot image carries, with no manifest note.
+#
+# `fixtures/Cargo.toml` lists `noteless` as `packaged_only`. `script/swish-check` installs it from
+# the disk, runs it, removes it and rolls back, which `uptime`'s package did until DECISIONS §229
+# (calef, 2026-09-27) refused installing a package named after an image program. The digest line is
+# absent for the reason `uptime.recipe` gives. Name: provisional 2026-09-27.
+
+name = "noteless"
+version = "0.1.0"
+architecture = "aarch64"
+
+[[member]]
+program = "noteless"
+
+[[member]]
+name = "noteless.licence"
+file = "LICENSE-MIT"

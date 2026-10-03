@@ -85,6 +85,7 @@ machine_discovery = { version = "0.1.0", path = "../crates/machine_discovery" }
 measured_boot = { version = "0.1.0", path = "../crates/measured_boot" }
 nifefs = { version = "0.1.0", path = "../crates/nifefs" }
 page_frames = { version = "0.1.0", path = "../crates/page_frames" }
+machine_statistics_protocol = { version = "0.1.0", path = "../crates/machine_statistics_protocol" }
 paging = { version = "0.1.0", path = "../crates/paging" }
 socket_protocol = { version = "0.1.0", path = "../crates/socket_protocol" }
 spin = { version = "0.12", default-features = false, features = ["spin_mutex"] }

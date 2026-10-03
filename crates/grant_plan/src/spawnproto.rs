@@ -83,8 +83,9 @@
 //!   [`SPAWN_REFUSED_BY_MANIFEST`] ([`crate::image_request_fits`]), never half-honoured.
 //! - **Only a plain line runs an image.** A path in a pipeline or behind a redirection reaches
 //!   the planner as a program name and is refused as "no such program", which is true of the name
-//!   and says nothing about the bytes. Nothing sets the bit alongside `interruptible` or `dir`, and
-//!   the progenitor refuses an interruptible image request if one arrives.
+//!   and says nothing about the bytes. Nothing sets the bit alongside `interruptible`, and the
+//!   progenitor refuses an interruptible image request if one arrives. `dir` rides an image only for
+//!   bytes that hear words (milestone 205), whose `std` region holds the caretaker too.
 //! - **Every activation verb is open to whoever holds the spawn endpoint**, including
 //!   [`Activation::Vouch`], which vouches for any bytes at all. That is the owner's authority by
 //!   DECISIONS §221 (the boot prompt is the owner's console), and it is safe only because the boot
@@ -262,20 +263,65 @@ const RUN_UNVOUCHED_BIT: u64 = 1 << 41;
 ///
 /// Name: provisional (milestone 205, 2026-09-26).
 const ARGS_BIT: u64 = 1 << 42;
+/// **The machine statistics page follows as one `SEND_CAP`, after every other delegated
+/// capability** (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and
+/// your share)). Set by a shell that holds the page at [`MACHINE_PAGE_SLOT`] when the program's
+/// manifest declares `machine`; the progenitor maps it read-only into the child and places it at
+/// `crate::MACHINE_SLOT`, then deletes its copy.
+///
+/// **Why the page travels with the request rather than living in the progenitor.** The progenitor's
+/// capability table peaks during the login block at one slot under the table's size
+/// (`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`), and a page held for the life of the boot would
+/// have spent that last slot; the first CI run that tried it measured the table full. The progenitor
+/// hands the page to the shell before the login block and keeps no copy, so what reaches a program
+/// is decided by what its session holds. That is also the shape §225's "granted to every login,
+/// withholdable by the owner" reads as: a session without the page cannot pass it on.
+///
+/// **Bit 44, not the 42 calef ratified**: `ARGS_BIT` took 42 (milestone 205, #1394) and
+/// `NAMESET_BIT` takes 43 (#1402) while this was in flight, and numbers stay provisional until the
+/// queue lands them. Still in word 2's flag half, above the 32-bit page count.
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+const MACHINE_BIT: u64 = 1 << 44;
+
+/// **Where a session holds the machine statistics page** (milestone 126, DECISIONS §225): `READ |
+/// GRANT`, so it can delegate it with [`MACHINE_BIT`] and not write it. A named slot probed at
+/// `_start`, for [`RUN_UNVOUCHED_SLOT`]'s reasons.
+///
+/// **Twenty, not the 21 calef ratified**: `crate::SHELL_CONFIG_SLOT` took 21 (milestone 47 (navigation and naming)) while
+/// this was in flight.
+///
+/// Name: ratified 2026-09-27 (calef, #1360's table).
+pub const MACHINE_PAGE_SLOT: u64 = 20;
+
+/// **The directory grant is a set of names, and the set follows as one frame** (milestone 205 (how
+/// a foreign program is told what to do), §170 clauses 2 to 5). Meaningful with [`Wiring::dir`]: the
+/// progenitor builds `fs_nameset_caretaker` rather than `fs_subtree_caretaker` for the grant, and
+/// maps it the set, `filesystem_protocol::nameset`'s encoding, read-only. The shell sends the frame
+/// `READ`-only after the argv's, before every other delegated capability; the progenitor copies it,
+/// for [`IMAGE_BIT`]'s reason, into a page from the job's region.
+///
+/// It is how a program that hears words gets exactly the names its words designated in the
+/// shell's directory and no sibling of them. `rm *.txt` would ride it too; nothing sends it for
+/// `rm` yet (`components/src/swish.rs`'s `dir_grant`).
+///
+/// Name: provisional (milestone 205, 2026-09-27).
+const NAMESET_BIT: u64 = 1 << 43;
 
 /// **Where a session holds the run-unvouched capability** (DECISIONS §219 gate D2): the slot the
 /// progenitor places it in, `WRITE` only, in the boot shell and in `login`, and the slot `login`
 /// delegates it from.
 ///
-/// Twenty-two, the highest slot below the kernel's reserved fault slot (`abi::fault::FAULT_EP_SLOT`,
-/// 23; `grant_plan` does not depend on `abi`, so each binary that reads this asserts the relation
-/// itself). A named slot for the reason [`crate::NETWORK_SLOT`] is one: the holder probes it rather
+/// Thirty, the highest slot below the kernel's reserved fault slot (`abi::fault::FAULT_EP_SLOT`,
+/// 31; `grant_plan` does not depend on `abi`, so each binary that reads this asserts the relation
+/// itself). It was twenty-two until calef raised the table from 24 slots to 32 on 2026-09-27 (UTC),
+/// and it moved with the fault slot so those assertions still hold. A named slot for the reason [`crate::NETWORK_SLOT`] is one: the holder probes it rather
 /// than being told, and the probe is sound only at `_start`, before the process has allocated
 /// anything, because a runtime allocation takes the first free slot and could land here only in a
 /// table that is almost full.
 ///
 /// Name: provisional.
-pub const RUN_UNVOUCHED_SLOT: u64 = 22;
+pub const RUN_UNVOUCHED_SLOT: u64 = 30;
 
 /// **What an activation request asks for** (see `ACTIVATION_BIT`). Provisional names, like the
 /// bit's; the prompt spells them `package install`, `package remove` and `package rollback`.
@@ -382,6 +428,17 @@ pub enum ActivationStatus {
     /// [`Activation::Vouch`] was sent bytes that do not parse as an executable, or a name the
     /// activation set cannot record. Nothing was written.
     NotExecutable = 10,
+    /// [`Activation::Install`] or a fetch, for a package whose program has the name another
+    /// installed package's program already has (`activation_set::Error::Taken`; DECISIONS §229
+    /// (how a bare name at the prompt reaches an installed program), B2). The same package at
+    /// another version is an upgrade and is not this. No generation was written. Provisional.
+    NameTaken = 11,
+    /// [`Activation::Install`] or a fetch, for a package whose program has the name of a program
+    /// the image carries (`activation_set::Error::ImageName`; DECISIONS §229, calef's ruling of
+    /// 2026-09-27). Under §235 (the OS is built and updated from packages) a base program is
+    /// updated through the boot slot, never by install. No generation was written. Provisional,
+    /// like its number.
+    ImageName = 12,
 }
 
 impl ActivationStatus {
@@ -399,6 +456,8 @@ impl ActivationStatus {
             8 => Self::NoNetwork,
             9 => Self::FetchFailed,
             10 => Self::NotExecutable,
+            11 => Self::NameTaken,
+            12 => Self::ImageName,
             _ => Self::Unknown,
         }
     }
@@ -410,13 +469,32 @@ pub fn activation_reply(status: ActivationStatus, live: u32) -> (u64, u64, u64) 
     (status as u64, u64::from(live), 0)
 }
 
-/// **The largest image `IMAGE_BIT` may carry, in pages** (256 KiB). A ceiling both sides read,
+/// **The largest image `IMAGE_BIT` may carry, in pages** (4 MiB). A ceiling both sides read,
 /// so the shell refuses a larger file before it sends anything and the progenitor never stages more
-/// than its job pool can hold beside the child built from it. `uptime` is 22 pages stripped.
+/// than its image pool can hold beside the child built from it. `uptime` is 22 pages stripped, and
+/// `ripgrep` 14.1.1's image spans about 670 (`notes/ripgrep-on-nife.md`), which is the program this
+/// was raised from 64 for (milestone 595 (the shell runs a `std` program), 2026-09-27).
 ///
-/// Provisional, like the bit: the number is the job pool's arithmetic (`JOBS_BUDGET_PAGES` in
-/// `crates/system_initializer`), not a property of any program.
-pub const IMAGE_MAX_PAGES: u64 = 64;
+/// What the number costs, because it is reserved rather than spent: the shell's budget carries one
+/// image's worth of staging frames, and the progenitor's image pool two (its own copy, which §219
+/// has it hash, and the child's pages) plus a `std` program's heap. That is
+/// `IMAGE_MAX_PAGES * 3 + grant_plan::STD_REGION_PAGES` pages, about 13.5 MiB, set aside at boot
+/// whether or not an image is ever run. See `IMAGE_POOL_PAGES` in `crates/system_initializer`.
+///
+/// Provisional, like the bit: the number is the pools' arithmetic, not a property of any program.
+pub const IMAGE_MAX_PAGES: u64 = 1024;
+
+/// **The budget the progenitor hands the boot shell**, in pages, which both read: the progenitor
+/// splits it, and the shell prints it in `caps` because there is no call that says how much is left.
+/// Moved here from two constants that had to be kept equal by hand (milestone 595 (the shell runs a
+/// `std` program), 2026-09-27).
+///
+/// 128 pages for `--mem` grants, pipes and the shell's own windows, as it was from milestone 31 (a
+/// capability shell), plus one image's staging frames ([`IMAGE_MAX_PAGES`]), since the shell
+/// reads a file run by its path into frames split from this budget before it sends them.
+///
+/// Name: provisional.
+pub const SHELL_BUDGET_PAGES: u64 = 128 + IMAGE_MAX_PAGES;
 
 /// The page size an image is carried in. A frame is one page on every architecture this tree
 /// builds for.
@@ -478,6 +556,12 @@ pub struct Wiring {
     pub run_unvouched: bool,
     /// **The line's argv follows as one `READ` frame** (DECISIONS §170). See `ARGS_BIT`.
     pub args: bool,
+    /// **The directory grant is a set of names, which follows as one `READ` frame** (milestone
+    /// 205). See `NAMESET_BIT`.
+    pub nameset: bool,
+    /// **The machine statistics page follows as the last delegated capability** (milestone 126).
+    /// See `MACHINE_BIT`.
+    pub machine: bool,
 }
 
 /// Build the three request words from a resolved endowment's parts.
@@ -513,6 +597,12 @@ pub fn request(prog_id: u64, arg: u64, mem_pages: u64, w: Wiring) -> (u64, u64, 
     if w.args {
         w2 |= ARGS_BIT;
     }
+    if w.nameset {
+        w2 |= NAMESET_BIT;
+    }
+    if w.machine {
+        w2 |= MACHINE_BIT;
+    }
     (prog_id, arg, w2)
 }
 
@@ -530,6 +620,8 @@ pub fn wiring(w2: u64) -> Wiring {
         image: w2 & IMAGE_BIT != 0,
         run_unvouched: w2 & RUN_UNVOUCHED_BIT != 0,
         args: w2 & ARGS_BIT != 0,
+        nameset: w2 & NAMESET_BIT != 0,
+        machine: w2 & MACHINE_BIT != 0,
     }
 }
 
@@ -686,16 +778,17 @@ mod tests {
         assert_eq!(mem_pages(w2), 0);
     }
 
-    /// **The ten flags are independent of each other and of the page count** (milestone 50 (pipes
+    /// **The twelve flags are independent of each other and of the page count** (milestone 50 (pipes
     /// and redirection), §67 (a program's second stream is a declaration)'s fourth, milestone 31 (a
     /// capability shell) phase 3's fifth, DECISIONS §106 (the `terminal_sink_caretaker` narrowing)'s
     /// sixth, milestone 154 (a process that holds two directory capabilities)'s seventh, §219's
-    /// image and its gate D2, and §170's argv). They share one word, and what the progenitor reads
+    /// image and its gate D2, §170's argv and name set, and milestone 126's machine page). They
+    /// share one word, and what the progenitor reads
     /// next off the endpoint depends on all of them, so a bit that bled into another would make the
     /// progenitor take a capability for a data word (or the reverse) and hang rather than fail.
     #[test]
     fn the_wiring_flags_do_not_collide() {
-        for m in 0u32..1 << 10 {
+        for m in 0u32..1 << 12 {
             let b = |i: u32| m & (1 << i) != 0;
             let w = Wiring {
                 interruptible: b(0),
@@ -708,6 +801,8 @@ mod tests {
                 image: b(7),
                 run_unvouched: b(8),
                 args: b(9),
+                nameset: b(10),
+                machine: b(11),
             };
             let (_, _, w2) = request(3, 0, 64, w);
             assert_eq!(wiring(w2), w, "{w:?}");
@@ -768,6 +863,8 @@ mod tests {
             image: true,
             run_unvouched: true,
             args: true,
+            nameset: true,
+            machine: true,
         };
         let (_, w1, w2) = request(3, 2, 64, all);
         assert_eq!(activation(w1, w2), None);
@@ -802,6 +899,8 @@ mod tests {
             ActivationStatus::NoNetwork,
             ActivationStatus::FetchFailed,
             ActivationStatus::NotExecutable,
+            ActivationStatus::NameTaken,
+            ActivationStatus::ImageName,
         ] {
             let (w0, w1, _) = activation_reply(status, 7);
             assert_eq!(ActivationStatus::from_word(w0), status);

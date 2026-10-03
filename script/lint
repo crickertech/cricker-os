@@ -37,6 +37,16 @@ cd "$(dirname "$0")/.."
 #
 # The "host pass excludes exactly the bare-metal crates" gate below derives this set rather than
 # trusting this line.
+# `--baselines`: only the icount-baseline-vs-pin check. `.githooks/pre-push` calls this beside
+# `--clippy` because the two are the cheap gates a push can break: code shape, and pin state.
+# Added 2026-09-30 after #1463's toolchain bump pushed past an unread lint with the floors
+# unstamped: a failure no rust-level hook could ever see.
+if [ "${1:-}" = "--baselines" ]; then
+    echo "==> baselines-only mode (pre-push); the rest of lint still runs before any report or merge"
+    python3 "$(dirname "$0")/../helpers/lint_icount_baselines.py" || exit 1
+    exit 0
+fi
+
 echo "==> clippy: host crates + xtask"
 cargo clippy --workspace --exclude kernel --exclude system_tests --exclude components --exclude fixtures --exclude user_mode_runtime \
     --exclude swap_protocol --exclude virtio --exclude supervision_protocol --exclude system_initializer \
@@ -276,6 +286,45 @@ for tgt in aarch64-unknown-none-softfloat riscv64imac-unknown-none-elf; do
     cargo clippy -p kernel --features watchdog_probe --target "$tgt" --all-targets -- -D warnings
 done
 
+# The pre-push hook's contract with this script, checked (2026-09-29). `.githooks/pre-push` runs
+# `script/fmt --check` then `script/lint --clippy` before any push leaves a worktree, and every
+# part of that line can rot silently: a script the hook names can be renamed, and the hook's own
+# `[ -x ... ]` tolerance then exits 0 and the gate stops gating with no signal anywhere; or a flag
+# can drift out of this parser, and the hook falls through to this full run, slower and unnoticed.
+# This block sits before the `--clippy` exit on purpose, so the hook's own invocation proves the
+# contract at every push. It may look like it breaks old branches, whose trees lack the hook, but
+# a branch runs the lint it contains: only a tree with a current lint executes this, and a current
+# lint implies the hook. Deleting the hook is therefore a deliberate act that fails here until
+# this check goes with it, which is the sentence a pull request deleting a gate should have to
+# write.
+lint_root="$(git rev-parse --show-toplevel)"
+[ -x "$lint_root/.githooks/pre-push" ] || {
+    echo "lint: .githooks/pre-push is missing or not executable, so the pre-push gate is gone" >&2
+    exit 1
+}
+for hook_script in $(grep -oE 'script/[a-z0-9_-]+' "$lint_root/.githooks/pre-push" | sort -u); do
+    [ -x "$lint_root/$hook_script" ] || {
+        echo "lint: the pre-push hook calls $hook_script, which does not exist here; pushes would skip it silently" >&2
+        exit 1
+    }
+done
+for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pre-push" | grep -oE '\--[a-z-]+' | sort -u); do
+    grep -q -- "\"$hook_flag\"" "$0" || {
+        echo "lint: the pre-push hook passes $hook_flag to this script, which no longer knows it; the hook falls through to the full run unnoticed" >&2
+        exit 1
+    }
+done
+
+# `--clippy`: stop after the last clippy pass. `.githooks/pre-push` calls this so the clippy gate
+# has exactly one copy, here, and the hook cannot drift from it. Added 2026-09-29 after lane
+# branches kept reaching CI with clippy failures a local gate would have caught (#1424's stale
+# lints; #1442, where a push left before lint was read): the cheap half of this script belongs
+# before the push, and everything after this point still runs in full here and in CI.
+if [ "${1:-}" = "--clippy" ]; then
+    echo "==> clippy-only mode (pre-push); the rest of lint still runs before any report or merge"
+    exit 0
+fi
+
 # Every `unsafe fn` states its contract in a `# Safety` section (milestone 112).
 #
 # **Read what this does and does not claim, because the milestone it comes from is about exactly
@@ -385,15 +434,27 @@ PY
 echo "==> rule 1 (arch code stays under kernel/src/arch/)"
 # `system_tests/src` too: the system suite is kernel-side code that left the kernel crate
 # (milestone 609 (the system tests leave the kernel crate)), and the rule did not move with it.
+# $$ (this shell's own pid), not a fixed name: `/tmp` is shared by every worktree on the machine,
+# and lanes gate concurrently (CLAUDE.md, "lane count"). A fixed path here raced two lint runs in
+# different worktrees against the same file: one run's `git grep` would truncate-and-write it after
+# another run's had already succeeded but before that run's own `cat` read it back, so a lane could
+# report a check failure quoting a FILE THAT DOES NOT EXIST IN ITS OWN WORKTREE. Reproduced
+# 2026-09-27 (Milestone lint-worktree-leak): two `script/lint`-shaped loops racing this same command
+# in two worktrees, one with a matching file and one without, produced the matchless run's output
+# containing the OTHER worktree's file in 69 of 100 iterations. `$$` is unique per running process,
+# so two concurrent lint runs never share a path, which is what makes this the strongest fix rather
+# than a narrower one: no lint run can observe another's temp file at all.
 if git grep -nE 'asm!\(|core::arch::' -- \
-    'kernel/src' ':!kernel/src/arch' 'system_tests/src' > /tmp/nife-rule-1.txt 2>/dev/null; then
+    'kernel/src' ':!kernel/src/arch' 'system_tests/src' > "/tmp/nife-rule-1.$$" 2>/dev/null; then
     echo "lint: architecture-specific code outside kernel/src/arch/ (CLAUDE.md rule 1):" >&2
-    cat /tmp/nife-rule-1.txt >&2
+    cat "/tmp/nife-rule-1.$$" >&2
     echo "" >&2
     echo "Move the register touch behind a helper in kernel/src/arch/ and call that; see" >&2
     echo "arch::current_sp for the shape. A port should be a new directory, not a diff." >&2
+    rm -f "/tmp/nife-rule-1.$$"
     exit 1
 fi
+rm -f "/tmp/nife-rule-1.$$"
 echo "rule 1: no asm outside kernel/src/arch/"
 
 # Hand-written assembly carries call-frame information (milestone: CFI in hand-written asm).
@@ -692,18 +753,45 @@ if [ -n "$found" ]; then
 fi
 echo "module-wide suppression: none"
 
+# The boot shell allocates only where every allocation can fail (milestone 47 (navigation and
+# naming), calef's ruling of 2026-09-26: the boot shell is the owner's root console, so running out
+# of heap is a refusal and never a panic). The compiler does most of it: `alloc` is nameable only
+# where `extern crate alloc` is declared, and components/src/swish.rs declares it inside `mod heap`,
+# whose one type exposes no allocating method. This holds the part the compiler cannot: that the
+# declaration stays there. A second one, or one at the crate root, would let the whole shell name
+# `Vec::push` again. crates/swish is the shell's host-tested half and declares none at all.
+echo "==> the shell allocates only where it can fail"
+shell_alloc=$(grep -n 'extern crate alloc' components/src/swish.rs || true)
+if [ "$(printf '%s\n' "$shell_alloc" | grep -c 'extern crate alloc')" -ne 1 ] \
+    || ! printf '%s\n' "$shell_alloc" | grep -q '^[0-9]*:    extern crate alloc;' \
+    || ! awk '/^mod heap \{/ { inside = 1 } inside && /extern crate alloc/ { found = 1 } inside && /^}/ { inside = 0 } END { exit !found }' components/src/swish.rs \
+    || grep -rn 'extern crate alloc' crates/swish/src >/dev/null; then
+    echo "lint: components/src/swish.rs must declare \`extern crate alloc\` exactly once, inside" >&2
+    echo "\`mod heap\`, and crates/swish must not declare it. Found:" >&2
+    printf '%s\n' "$shell_alloc" >&2
+    grep -rn 'extern crate alloc' crates/swish/src >&2 || true
+    echo "Every allocation in the boot shell goes through \`mod heap\`, which cannot panic on" >&2
+    echo "failure. See the comment above this check." >&2
+    exit 1
+fi
+echo "shell allocation: one declaration, inside mod heap"
+
 # No merge conflict markers, anywhere. This is not a style rule, it is a scar: a compositor merge
 # resolved only the conflicts visible in a truncated `git merge` summary, and `git add -A` then
 # committed DECISIONS.md with its markers intact and pushed them to main. Both sides' prose survived,
 # so nothing failed and no test noticed, which is exactly why it needs a gate: broken markup in a
 # documentation deliverable is invisible to every other check we run. Costs a grep.
 echo "==> conflict markers"
+# $$, not a fixed name: see the note on the rule-1 check above for why (a shared /tmp path races
+# two worktrees' lint runs against each other).
 if git grep -nE '^(<{7}|={7}|>{7})( |$)' -- \
-    ':!vendor' ':!*.lock' > /tmp/nife-conflict-markers.txt 2>/dev/null; then
+    ':!vendor' ':!*.lock' > "/tmp/nife-conflict-markers.$$" 2>/dev/null; then
     echo "lint: merge conflict markers left in tracked files:" >&2
-    cat /tmp/nife-conflict-markers.txt >&2
+    cat "/tmp/nife-conflict-markers.$$" >&2
+    rm -f "/tmp/nife-conflict-markers.$$"
     exit 1
 fi
+rm -f "/tmp/nife-conflict-markers.$$"
 
 # A TODO marker names the milestone that owns it, or it does not exist (milestone 94).
 #
@@ -887,12 +975,6 @@ fi
 # citation split by a line break and a lettered milestone, and neither failed anything until
 # milestone 583 (a citation a line break split, or a lettered milestone).
 # The metrics page's table of contents is generated (script/metrics --charts writes it between two
-# markers) and this is what stops a hand edit or a new panel from leaving it stale. It reads one file
-# and no history, so it costs nothing here, unlike `script/metrics --check`, which every merge would
-# fail because the current week's numbers move.
-echo "==> metrics page table of contents"
-"$(dirname "$0")/metrics" --check-toc
-
 echo "==> citations"
 "$(dirname "$0")/citations" --selftest >/dev/null
 "$(dirname "$0")/citations" --check
@@ -1462,73 +1544,7 @@ QEMUEOF
 # this check running unexempted on the bump's pull request. A green lint bought with this variable
 # means nothing.
 echo "==> the icount baselines name the pinned nightly"
-python3 - <<'TOOLCHAINEOF' || exit 1
-import os
-import pathlib
-import re
-import sys
-
-if os.environ.get("NIFE_BUMP_IN_PROGRESS"):
-    print("the icount baselines name the pinned nightly: SKIPPED (NIFE_BUMP_IN_PROGRESS; "
-          "script/toolchain-bump is mid-bump, and CI on its pull request is the real gate)")
-    sys.exit(0)
-
-pin = None
-for line in pathlib.Path("rust-toolchain.toml").read_text().splitlines():
-    if line.lstrip().startswith("channel"):
-        m = re.search(r'"([^"]+)"', line)
-        if m:
-            pin = m.group(1)
-        break
-if pin is None:
-    print("lint: rust-toolchain.toml has no channel line to check the baselines against", file=sys.stderr)
-    sys.exit(1)
-
-STAMP = re.compile(r"^#\s*toolchain:\s*(\S+)\s*$")
-bad, checked = [], 0
-for path in sorted(pathlib.Path("bench").glob("baseline-*.txt")):
-    checked += 1
-    got = None
-    for line in path.read_text().splitlines():
-        m = STAMP.match(line)
-        if m:
-            got = m.group(1)
-            break
-    if got is None:
-        bad.append(f"{path.as_posix()}: no '# toolchain: <channel>' line")
-    elif got != pin:
-        bad.append(f"{path.as_posix()}: recorded against {got}, but rust-toolchain.toml pins {pin}")
-
-if bad:
-    print("lint: the icount baselines do not name the pinned nightly:", file=sys.stderr)
-    for b in bad:
-        print(f"        {b}", file=sys.stderr)
-    print(f"""
-A compiler bump changes the instruction sequences these floors count, so the
-numbers are revalued by a change no commit in this branch is responsible for.
-The bump workflow's restamp job carries a floor across when it proves the
-compiler moved no row by 0.5% or more (its table is in the pull request body).
-Every floor named above is one it could not carry. Re-record it HERE, in the
-branch that raises the pin, so the delta is seen by the person causing it:
-
-    script/bench --save --why "nightly-<date>: <what the new compiler moved>"
-    script/bench --riscv --save --why "..."
-    script/bench --x86 --save --why "..."
-
---why is not optional: a floor records the reason it holds its value, beside the
-number, because a commit message is read once on the day it is written (milestone
-302). Say the same thing in the commit message. If a floor moved a lot, that is the
-gate working: a nightly can make this kernel genuinely slower, and re-recording
-without reading the delta is the one outcome this refuses to automate.""", file=sys.stderr)
-    sys.exit(1)
-
-# An empty glob here would print "0 file(s)" and pass (milestone 401): the selector is
-# `bench/baseline-*.txt`, and renaming those files is a thing a benchmark milestone does.
-if checked == 0:
-    sys.exit("lint: bench/baseline-*.txt matched no file, so the toolchain-stamp check "
-             "judged nothing. The baseline file naming moved; move the glob with it.")
-print(f"the icount baselines name the pinned nightly: {checked} file(s) at {pin}")
-TOOLCHAINEOF
+python3 "$(dirname "$0")/../helpers/lint_icount_baselines.py" || exit 1
 
 # Counted claims (milestone 125). DECISIONS §39 says a name is a claim; so is a number, and a number
 # is the kind of claim a machine can check, which is what makes this a gate rather than an audit.
@@ -2243,14 +2259,49 @@ fi
 #    excluded from code, comments and notes. Two places are exempt because they are where the
 #    ARGUMENT about the word lives: design/, which holds the decisions and (since §155) the naming
 #    conventions, and this script. A rule's rationale has to be able to name the thing it rejects.
+# $$, not a fixed name: see the note on the rule-1 check above (a shared /tmp path races two
+# worktrees' lint runs against each other).
 if git -C "$(dirname "$0")/.." grep -Iilnw daemon -- \
     ':!vendor' ':!design' ':!script/lint' \
-    > /tmp/nife-daemon.txt 2>/dev/null; then
+    > "/tmp/nife-daemon.$$" 2>/dev/null; then
     echo "lint: \"daemon\" outside the two places the argument about the word lives:" >&2
-    cat /tmp/nife-daemon.txt >&2
+    cat "/tmp/nife-daemon.$$" >&2
     echo "The vocabulary is component / service / contract (DECISIONS §39)." >&2
+    rm -f "/tmp/nife-daemon.$$"
     exit 1
 fi
+rm -f "/tmp/nife-daemon.$$"
+
+# A fixed /tmp path in a script this tree ships, made mechanical (milestone lint-worktree-leak,
+# 2026-09-27, closing the gap the three checks above just fixed). `/tmp` is one filesystem shared by
+# every worktree on the machine, and lanes gate concurrently (CLAUDE.md, "lane count"), so a script
+# that redirects into `/tmp/some-fixed-name` races every other worktree doing the same: whichever
+# process's write lands last between another process's write and its own read wins, and the loser
+# reports a finding that names a file from a WORKTREE IT NEVER READ. Reproduced for exactly this
+# script: two lint-shaped loops racing the (now-fixed) `/tmp/nife-daemon.txt` path in two worktrees
+# put the matchless worktree's own file report at 69 of 100 iterations.
+#
+# The check is a name test, not a behavior test, because a behavior test would mean racing every
+# script on every run. A path is exempt when it contains a `$`: `$$` (this shell's pid, what the
+# three checks above now use), `$(mktemp ...)`, or `$RANDOM` all make the path unique to the running
+# process, which is what makes the race impossible rather than merely unlikely. A fixed literal has
+# none, so `grep -v '\$'` is the whole test once comments are stripped. Comments are excluded because
+# this paragraph and the three above it correctly say `/tmp/nife-daemon.txt` in prose, and
+# `script/stranger-test`'s own usage note names literal example paths for a human to paste.
+echo "==> fixed /tmp paths in scripts (they race across worktrees; see the note above)"
+if git grep -nE '[<>]>?[[:space:]]*"?/tmp/[A-Za-z0-9_.-]+"?' -- 'script/*' 'helpers/*.sh' \
+    | grep -vE ':[[:space:]]*#' \
+    | grep -v '\$' > "/tmp/nife-fixed-tmp-paths.$$" 2>/dev/null; then
+    echo "lint: a script redirects into a fixed /tmp path, which races every other worktree on" >&2
+    echo "the machine doing the same (see the comment above this check):" >&2
+    cat "/tmp/nife-fixed-tmp-paths.$$" >&2
+    echo "" >&2
+    echo "Make the path unique to this process: append \".\$\$\" (see the rule-1 check above for" >&2
+    echo "the pattern) or use \$(mktemp)." >&2
+    rm -f "/tmp/nife-fixed-tmp-paths.$$"
+    exit 1
+fi
+rm -f "/tmp/nife-fixed-tmp-paths.$$"
 
 # 3. One spelling for contract crates. The tree had four spellings of "the wire contract" when this
 #    was written (`fs_proto`, `gfx_proto`, `netproto`, `line_editor::proto`); `*_proto` won for CRATES
@@ -2925,6 +2976,15 @@ python3 helpers/interface_stability.py --selftest >/dev/null
 echo "==> the architect-label diff rules"
 python3 helpers/architect-label-rules.py --selftest >/dev/null
 
+# The base-resolution half of the same check, shared with ci.yml's nine scope-check steps:
+# helpers/scope-merge-base.sh takes the merge base of HEAD against the base branch's CURRENT tip
+# rather than trusting the event payload's own base.sha, which goes stale the moment an unrelated
+# pull request merges into the base branch without a push to this one (#1416's false `dependency`
+# flag for #1405's toml addition). This selftest builds a throwaway repo under mktemp to reproduce
+# that exact shape, cheap enough (one `git init`, five commits) to run on every invocation here.
+echo "==> the shared scope/architect-label merge-base resolution"
+helpers/scope-merge-base-selftest.sh >/dev/null
+
 echo "==> em-dashes"
 # calef's standing style rule (CLAUDE.md): no em-dashes, use commas, periods, semicolons or
 # parentheses. It is a house style rather than a correctness property, and it is gated for the same
@@ -3123,6 +3183,13 @@ PINNED = {
     # (milestone 601 (the region table prints its peak)); loom has nothing to interleave in a count.
     ("RegionTable", "len", "&self"),
     ("RegionTable", "is_empty", "&self"),
+    # Milestone 126 (the `procps` package): what a region was spent on, for `MemoryRegion::USAGE`
+    # (DECISIONS §225 (`free` sees the machine and your share)). It cannot be the read half of a
+    # reclaim: it reports counts no decision in the crate or the kernel reads, never whether a
+    # region is pinned, childless or claimable. The two enums are its selector.
+    ("-", "ObjectKind", "enum"),
+    ("-", "PageUse", "enum"),
+    ("RegionTable", "spent", "&self"),
     ("RegionTable", "insert_root", "&mut self"),
     ("RegionTable", "split", "&mut self"),
     ("RegionTable", "retype_page", "&mut self"),

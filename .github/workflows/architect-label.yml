@@ -108,16 +108,28 @@ jobs:
       # show` per file. No pathspec restricts this diff; an unchanged file emits nothing regardless
       # of the context width, so widening it costs bytes only for files that already changed.
       #
-      # `github.event.pull_request.base.sha` is this pull request's own base commit at the moment
-      # this event fired, exactly what `ci.yml`'s scope check uses for the same comparison (read
-      # its own comment on the same line); the `merge-base` fallback is dead code for a plain
-      # `pull_request` trigger (this workflow has no `merge_group:` trigger to need it for) and
-      # stays only because it costs nothing to keep this step honest if that ever changes.
-      # `architect-ruled` short-circuits everything below: it is read straight off the event
-      # payload's own label list (`github.event.pull_request.labels`), so this costs no extra API
-      # call, and it means what an architect said, not what this event's diff still matches. See
-      # this file's header for the two mislabelled pull requests (#1378, #1400) that this exists to
-      # stop from recurring.
+      # **Never `github.event.pull_request.base.sha` on its own.** That field is a snapshot GitHub
+      # took when this pull request's base last changed FOR THIS PULL REQUEST (opened, or last
+      # synchronized), not the base branch's current tip, so a two-dot diff against it goes stale
+      # the moment another pull request merges into the base branch without any push to this one.
+      # #1416 was flagged for `dependency: xtask/Cargo.toml: toml`, a dependency #1405 added to
+      # `main` after #1416 branched: the payload's cached `base.sha` still pointed one commit
+      # behind #1405's own merge, so the diff read #1405's addition as though #1416 had made it.
+      # `ci.yml`'s nine scope-check steps (four build jobs since the 2026-09-30 split, plus cpu
+      # matrix, watchdog, bench, fuzz, coverage) read the same field the same way and share the same
+      # exposure; fixed there too, in the same pass, with the same script (see its own header).
+      #
+      # `helpers/scope-merge-base.sh` is the fix: it takes the merge base of HEAD against
+      # `origin/<base-ref>`, the base branch's ACTUAL current tip, already fetched fresh by this
+      # job's own `fetch-depth: 0` checkout above, falling back to the payload sha only if that
+      # local ref cannot be resolved (a base branch renamed or deleted between the event firing and
+      # this job running). That merge base is what a three-dot diff computes, and it is what "the
+      # pull request's own changes" means regardless of how far the base branch has moved past the
+      # fork point. `architect-ruled` short-circuits everything below: it is read straight off the
+      # event payload's own label list (`github.event.pull_request.labels`), so this costs no extra
+      # API call, and it means what an architect said, not what this event's diff still matches.
+      # See this file's header for the two mislabelled pull requests (#1378, #1400) that this
+      # exists to stop from recurring, and `helpers/scope-merge-base-selftest.sh` for this one.
       - name: Run the diff-reading rules
         id: rules
         env:
@@ -129,14 +141,15 @@ jobs:
             echo "add=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          base="${{ github.event.pull_request.base.sha }}"
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha }}' 2>/dev/null || true)"
           if [ -z "$base" ]; then
             echo "architect-label: no base to diff against; skipping this run." >&2
             echo "add=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "architect-label: diffing $base..HEAD"
+          echo "architect-label: diffing merge-base $base (origin/${{ github.event.pull_request.base.ref }})..HEAD"
           report="$(git diff --unified=1000000 "$base" HEAD | \
               python3 helpers/architect-label-rules.py || true)"
           if [ -n "$report" ]; then

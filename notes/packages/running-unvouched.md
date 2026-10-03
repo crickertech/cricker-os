@@ -16,7 +16,7 @@ so its holder cannot pass it on, and the kernel refuses to `SEND_CAP` a capabili
 send on it.
 
 So D2 is one rendezvous, the run-unvouched endpoint. The progenitor holds the only `READ` on it.
-A session holds `WRITE` at slot 22 (`grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`, just below the
+A session holds `WRITE` at slot 30 (`grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`, just below the
 reserved fault slot). An image request that claims it sets `RUN_UNVOUCHED_BIT` and sends one word
 on that endpoint as its last message. The progenitor takes that word with a `RECV` while serving
 the request. Only a holder can send there, so arriving is the proof.
@@ -39,9 +39,9 @@ Considered and refused:
 | Holder | Rights | Placed by |
 |---|---|---|
 | the progenitor | full (it retyped it), receives on it | itself, after `login` is built |
-| `login` | `WRITE`, `GRANT` at slot 22 | the progenitor, into `login`'s unstarted thread |
+| `login` | `WRITE`, `GRANT` at slot 30 | the progenitor, into `login`'s unstarted thread |
 | a session `login` builds for a listed identity | `WRITE`, the sixth capability of an `OK` | `login` (`login_protocol::RUN_UNVOUCHED_FOLLOWS`) |
-| the boot prompt | `WRITE` at slot 22 | the progenitor, one call |
+| the boot prompt | `WRITE` at slot 30 | the progenitor, one call |
 
 The boot prompt's grant is one call in `crates/system_initializer`. calef ruled on 2026-09-26 that
 the boot prompt is the owner's console and keeps it (§221 (the boot prompt is the owner's
@@ -70,7 +70,7 @@ $ caps installed/unvouched
     cap 1  page      clock    read-only; unvouched bytes may read the time
     cap 2  page      config   read-only; and the configuration page
     provenance: unvouched (digest 82f73b2e...)
-    runs on this session's capability to run unvouched bytes (slot 22)
+    runs on this session's capability to run unvouched bytes (slot 30)
 ```
 
 A vouched file prints `provenance: vouched by activation generation N`. A session without D2 is

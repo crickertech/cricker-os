@@ -119,6 +119,23 @@ impl MemoryRegionHeap {
         inner.max = max_bytes & !(PAGE - 1);
     }
 
+    /// **Map the whole capped range now**, rather than on the first allocations that need it.
+    /// `false` when the budget could not cover it, in which case whatever was mapped stays usable.
+    ///
+    /// For a program that carves its budget last-in first-out (the shell's `--mem` grants, pipes and
+    /// staging regions come back only while they are the budget's newest carve): committing at
+    /// `_start` puts every heap page and its page tables under all of those, so a later grow can
+    /// never land above one and strand it. The alternative, a region split off for the heap, is
+    /// worse: a region that has been split cannot be destroyed until its child is, so the whole
+    /// budget would stay held after the program exits. Milestone 47 (navigation and naming) met
+    /// that first: its shell's kernel tests kept a budget's worth of frames each.
+    pub fn commit_all(&self) -> bool {
+        let mut g = self.lock();
+        let inner = g.inner();
+        let rest = inner.max.saturating_sub(inner.committed);
+        rest == 0 || Self::grow(inner, rest)
+    }
+
     /// Bytes of untyped currently mapped for the heap. The demo workload reports this so the
     /// test can assert growth actually happened (and stayed bounded).
     pub fn committed_bytes(&self) -> u64 {

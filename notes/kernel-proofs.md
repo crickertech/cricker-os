@@ -113,7 +113,7 @@ right: syscall dispatch is a boundary, not a library.
 ### And two in `kernel/src/arch/aarch64/iommu.rs` (milestone 255)
 
 The SMMUv3 driver, aarch64's IOMMU. It has no `asm!` in it at all, and what it computes is which
-physical addresses a device may touch, which is what `design/fatal-risks.md` risk 7 rests on. The
+physical addresses a device may touch, which is what `design/fatal-risks/README.md` risk 7 rests on. The
 word arithmetic was inline in `attach`, tangled with the volatile writes that make that function
 unreachable; it is now three functions in the same file, and `attach` is shorter for it. **Nothing
 moved out of `arch/`**, which is milestone 193's option A held to and milestone 244's refusal of

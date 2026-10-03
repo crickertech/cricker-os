@@ -22,6 +22,15 @@ name: merge drain
 #
 # BUGS
 #
+#   - **`workflow_run:` on CI completion joined 2026-09-30, day four of compromised throughput.**
+#     The cron fired three times in 24 hours (01:29, 07:05, 13:35) while ejections stranded green
+#     pull requests for hours between runs; the schedule's own BUGS entry below predicted it. The
+#     first attempt used `pull_request:` triggers and failed before logging a line, and the reason
+#     is the record: a pull_request-event run cannot reach the `automation` environment's secrets,
+#     so the drain had no App token and nothing to arm with. `workflow_run` fires from the default
+#     branch's copy of this file when any CI run completes, which is precisely the moment a green
+#     pull request becomes eligible to strand: trusted context, real token, one cheap `--once`
+#     pass, concurrency collapsing duplicates.
 #   - **`schedule:` is a floor, not a promise.** GitHub's shortest interval is five minutes, and
 #     scheduled runs are delayed under load and dropped entirely during peaks. A reader must not
 #     take the run list as a heartbeat: a gap means "no run", never "nothing to do", and the drain
@@ -40,6 +49,9 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
 
 # One drain, and the platform holds it rather than a person remembering. `cancel-in-progress: false`
 # because a pass that is part way through arming pull requests should finish; a queued duplicate is

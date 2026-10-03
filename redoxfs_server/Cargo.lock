@@ -91,6 +91,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "argument_protocol"
+version = "0.1.0"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -296,8 +300,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.1.0"
+
+[[package]]
 name = "globally_unique_identifier_partition_table"
 version = "0.1.0"
+
+[[package]]
+name = "grant_plan"
+version = "0.1.0"
+dependencies = [
+ "argument_protocol",
+ "glob",
+]
 
 [[package]]
 name = "humansize"
@@ -394,6 +410,13 @@ name = "lz4_flex"
 version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "373f5eceeeab7925e0c1098212f2fbc4d416adec9d35051a6ab251e824c1854a"
+
+[[package]]
+name = "manifest_note"
+version = "0.1.0"
+dependencies = [
+ "grant_plan",
+]
 
 [[package]]
 name = "memchr"
@@ -530,6 +553,7 @@ dependencies = [
  "entropy_protocol",
  "filesystem_protocol",
  "globally_unique_identifier_partition_table",
+ "manifest_note",
  "redox_syscall",
  "redoxfs",
  "subtree_scope",

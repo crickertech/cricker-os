@@ -85,6 +85,19 @@ const BLK_PAGES: usize = filesystem_protocol::blk::TRANSFER_BLOCKS;
 /// new one.
 ///
 /// It is zeroed for the same reason one frame was: no stale RAM is ever visible across a share.
+/// **Every client window at once**: [`CLIENT_WINDOWS`] channels of [`FILE_PAGES`] frames, one
+/// contiguous zeroed run (milestone 599), returned by its base. Window 0 is the first
+/// [`FILE_PAGES`] of it, so everything that took [`file_channel`]'s base as "the channel" still
+/// finds window 0 there.
+fn file_pool() -> u64 {
+    crate::memory::alloc_contiguous_zeroed(CLIENT_WINDOWS * FILE_PAGES)
+        .expect("no contiguous run for the fs service's client windows")
+        .addr()
+}
+
+/// The pool's length in pages: what the progenitor's run capability over it names.
+pub const FILE_POOL_PAGES: u64 = (CLIENT_WINDOWS * FILE_PAGES) as u64;
+
 fn file_channel() -> u64 {
     crate::memory::alloc_contiguous_zeroed(FILE_PAGES)
         .expect("no contiguous run for the fs service's file channel")
@@ -338,10 +351,16 @@ fn wire_servers(
     };
     // Window 0 is the default channel every legacy single-client path maps; windows 1.. are the
     // pool `claim_window` hands out, one frame each, all mapped into the FS server (milestone 599).
-    let file_shared = file_channel();
-    WINDOWS[0].store(file_shared, core::sync::atomic::Ordering::Relaxed);
-    for window in WINDOWS.iter().skip(1) {
-        window.store(file_channel(), core::sync::atomic::Ordering::Relaxed);
+    // **All K windows are one physically contiguous run** (milestone 599, calef's option-4
+    // ruling of 2026-09-27), so one `PageFrame` capability can name the whole pool: the
+    // progenitor holds it in the slot `fs_page` always held, and slices a window per client
+    // (`abi::page_frame::SLICE`). Window `w` starts `w * FILE_PAGES` pages in.
+    let file_shared = file_pool();
+    for (w, window) in WINDOWS.iter().enumerate() {
+        window.store(
+            file_shared + (w * FILE_PAGES) as u64 * FRAME_SIZE,
+            core::sync::atomic::Ordering::Relaxed,
+        );
     }
     // Window 0 is the default, not a claimable channel: mark it taken so `claim_window` skips it.
     WINDOW_TAKEN.store(1, core::sync::atomic::Ordering::Relaxed);

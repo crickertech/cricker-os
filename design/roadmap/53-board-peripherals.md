@@ -53,7 +53,7 @@ not transfer.
 ## Follow-on
 
 - **Outstanding.** The network half: a driver for the JH7110's Synopsys DesignWare GMAC. Nothing in
-  the tree touches it. The part appears only in design prose (`design/fatal-risks.md`,
+  the tree touches it. The part appears only in design prose (`design/fatal-risks/README.md`,
   `notes/visionfive2.md`) and in an unrelated `reg-shift` comment in
   `kernel/src/drivers/ns16550.rs`; `kernel/src/drivers/` holds no ethernet driver of any kind.
   Checked 2026-09-03.

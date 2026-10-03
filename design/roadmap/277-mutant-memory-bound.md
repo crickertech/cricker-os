@@ -26,7 +26,7 @@ dies and the sweep continues.
 
 ## Why this matters
 
-The mutation sweep is the refresh for `design/fatal-risks.md`'s third risk, and it has a history of
+The mutation sweep is the refresh for `design/fatal-risks/README.md`'s third risk, and it has a history of
 not producing results: four scheduled runs, four failures, zero reports before milestone 238. A run
 that dies because one mutant ate the machine is that same outcome with a new cause, and it is worse
 than a timeout because it takes the runner with it rather than reporting a single skip.

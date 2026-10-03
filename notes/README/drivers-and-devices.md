@@ -14,3 +14,4 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The framebuffer contract](../framebuffer-contract.md): how a confined client gets pixels onto a screen.
 - [The compositor](../compositor.md): one screen shared among clients that distrust each other.
 - [Glyphs, the VT engine, and input](../glyphs.md): the font, VT engine and keyboard behind on-screen text.
+- [Bold under Solarized](../solarized-and-bold-is-bright.md): why bold goes grey on four colours, and the options.

@@ -1,7 +1,7 @@
 # The multicore defect-discovery curve: its data, and how a soak appends to it
 
 *Owned by milestone 201 (is multicore reliability converging), which scopes
-[`design/fatal-risks.md`](../design/fatal-risks.md)'s risk 5. Name provisional (this file's stem),
+[`design/fatal-risks/README.md`](../design/fatal-risks/README.md)'s risk 5. Name provisional (this file's stem),
 minted 2026-09-24 by the lane that re-derived 201's seeds; naming is an architect's.*
 
 Risk 5 says the concurrency is wrong in ways QEMU cannot show, arriving one at a time, forever.
