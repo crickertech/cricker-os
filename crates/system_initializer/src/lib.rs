@@ -279,11 +279,11 @@
 //! fully; two jobs alive at once (a pipeline stage that outlives its producer) permanently costs one
 //! region. A long enough session of concurrent pipelines still ends at "could not spawn".
 //!
-//! **A `graphical_terminal` session's size is counted, not measured** (milestone 632 (provisional)).
-//! [`GRAPHICAL_TERMINAL_SESSION_PAGES`] is bounded from the constants, and the bound's honesty is the
-//! `swish-check --graphical` leg's to check: a count too small is a launch that fails every time
-//! with `could not spawn` (the builder refuses rather than traps), and a count too large spends the
-//! pool's headroom for nothing. While a session runs, its 464-page region is one of the pool's 672,
+//! **A `graphical_terminal` session's size is measured, after the count was wrong** (milestone 632
+//! (provisional)). [`GRAPHICAL_TERMINAL_SESSION_PAGES`] was first bounded from the constants at 464,
+//! and the `swish-check --graphical` leg proved that too small: every launch failed with `could not
+//! spawn` (the builder refuses rather than traps). Its doc holds the bisection. While a session
+//! runs, its 528-page region is one of the pool's 672,
 //! so a `std` job and a second session are refused until it ends, which the shell also reports as
 //! `could not spawn`.
 //!
@@ -4166,13 +4166,16 @@ const SCREEN_IN_VA: u64 = address_space_map::pair_page(0x0000_0000_00a1_0000);
 /// - two [`GRAPHICAL_MAP_BUDGET_PAGES`] map budgets, the driver's and the terminal's;
 /// - the endpoints and pair pages this wiring retypes: nine at the most.
 ///
-/// That sums to four hundred fifty-seven; four hundred sixty-four covers it with the headroom
-/// [`JOB_REGION_PAGES`] itself keeps. It comes out of the job pool ([`JOBS_BUDGET_PAGES`], six
-/// hundred seventy-two), once, for the life of the session: while a session runs, plain native
-/// jobs still spawn from what is left, and a `std` job or a second session is refused, which the
-/// shell reports as `could not spawn`. Counted from the constants, not measured; the leg that
-/// gates this milestone is what says the count holds.
-const GRAPHICAL_TERMINAL_SESSION_PAGES: u64 = 464;
+/// That sums to four hundred fifty-seven, and the count was wrong. **Measured 2026-10-03 (UTC)**
+/// by bisecting this constant under `script/swish-check --graphical`, keyboard arm: aarch64
+/// needs 490 to 493 pages and riscv64 494 to 495. At the counted 464 the session's last child
+/// (`keyboard_driver`, or at 481-489 the session program itself) could not be built, the launch
+/// answered `could not spawn`, and CI's graphical leg failed. Five hundred twenty-eight is the
+/// riscv64 measurement plus about seven percent. It comes out of the job pool
+/// ([`JOBS_BUDGET_PAGES`], six hundred seventy-two), once, for the life of the session: while a
+/// session runs, plain native jobs still spawn from the 144 left, and a `std` job or a second
+/// session is refused, which the shell reports as `could not spawn`.
+const GRAPHICAL_TERMINAL_SESSION_PAGES: u64 = 528;
 
 /// Drop every capability named, freeing the slots. A builder's means, spent once the children
 /// hold their own narrowed copies: on the success path after the last build, and on every

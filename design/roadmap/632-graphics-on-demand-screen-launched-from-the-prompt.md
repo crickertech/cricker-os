@@ -49,7 +49,7 @@ the launch.
 - The launch belongs to the spawn service (`build_graphical_terminal_session`). Milestone 600 (the graphical
   terminal stack is built in userspace)'s builder moved from the boot into the `Prog::GraphicalTerminal`
   branch. It refuses anything but the exact shape: the program and the caps together, and the
-  keyboard bit exactly when the boot's verdict says. Everything is carved from one 464-page job
+  keyboard bit exactly when the boot's verdict says. Everything is carved from one 528-page job
   region. The session program is born supervised on `deaths` like any job, so its one reap sweeps
   the drivers with it. The drivers are unsupervised for `build_caretaker`'s recorded reason: a death
   message for a tid the sweep already collected would trap `job_undertaker`. Failure is `Err` all
@@ -68,10 +68,11 @@ and type `graphical_terminal` too, requiring the refusal sentence.
 
 ## BUGS
 
-- `GRAPHICAL_TERMINAL_SESSION_PAGES` (464) is counted from the constants, not measured. The counting is spelled
-  out at the constant. Too small is a launch that fails every time; too large spends headroom.
-  While a session runs, its region is 464 of the pool's 672 pages, so a `std` job and a second
-  session are refused until it ends.
+- `GRAPHICAL_TERMINAL_SESSION_PAGES` is 528. The count from the constants said 464, and CI's
+  graphical leg failed every launch at that size (2026-10-03). Bisected on the keyboard arm, a
+  session needs 490 to 493 pages on aarch64 and 494 to 495 on riscv64. While a session runs, its
+  region is 528 of the pool's 672 pages, so a `std` job and a second session are refused until it
+  ends. The serial arm builds one child fewer and was not bisected separately.
 - A session whose build fails after its first driver started may keep those pages. The failure
   path reclaims the region and the sweep wakes the half-built drivers. No leg has yet forced
   whether they exit on a swept endpoint.
@@ -80,9 +81,9 @@ and type `graphical_terminal` too, requiring the refusal sentence.
 - The boot now carries the seven device grants from kernel spawn until the shell's build. The
   previous shape deleted them mid-boot. With a gpu, a keyboard, a virtio-rng and a NIC attached,
   that resting baseline is counted from the code, not measured. No gate boots all four devices.
-- A boot with a gpu and a keyboard peaks at 26 capability slots, not 23 (CI, 2026-10-03), so
-  `CAPABILITY_TABLE_PEAK_MEASURED` is raised to 26. A plain boot now has three slots of slack
-  before that record fires. Which three grants are held across the peak is not yet traced.
+- A boot with a gpu and a keyboard peaks at 26 capability slots, not 23, and a launch at 28
+  (2026-10-03), so `CAPABILITY_TABLE_PEAK_MEASURED` is raised to 28. A plain boot now has five
+  slots of slack before that record fires. Which grants are held across the peak is not traced.
 - x86_64 has no `graphical_terminal` session. No virtio-gpu is wired there, the verdict answers empty, and
   `graphical_terminal` is refused with the sentence, which the plain swish-check legs assert on all three ISAs.
   The plan for the launch itself is milestone 270 (wire `virtio-gpu-pci` and `virtio-input` into the

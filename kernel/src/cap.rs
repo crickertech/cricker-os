@@ -355,9 +355,11 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// is not yet traced.
 /// Measured by CI's aarch64 `swish-check --graphical` leg (run 37095306042), whose kernel said
 /// `26 of 32 at peak, ABOVE the 23 recorded`. A boot without a gpu still peaks at twenty-three.
-/// The record is the highest a real boot reaches, so it is twenty-six; the cost is that a plain
-/// boot now has three slots of slack before this fires. The headroom is six.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 26;
+/// **Twenty-eight at a launch** (same day, local aarch64 `--graphical` leg): building a session
+/// in the spawn service reached `28 of 32 at peak`, after the boot's own twenty-six. The record is
+/// the highest a real system reaches, so it is twenty-eight. The costs: a plain boot now has five
+/// slots of slack before this fires, and the headroom is four.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 28;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);
