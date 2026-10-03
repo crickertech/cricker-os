@@ -91,7 +91,11 @@ fn build_loader(target: &str, kernel: &str, archive: &str, extra: &[(&str, &str)
 
 /// `BOOTX64.EFI`: exactly what `cargo xtask uefi-image` stages for xenon, copied.
 fn payload_x86_64() -> bool {
-    uefi_image()
+    // `mkfs` and the FS server go in the archive only if built first. Without them the file this
+    // stick installs partitions the disk and leaves the data partition empty, which
+    // `install::prepare` already avoids for the gate: the stick must install what the gate proves.
+    crate::disk::redoxfs_server_build(crate::X86_TARGET)
+        && uefi_image()
         && copy_into_stick(
             &workspace_root().join("target/esp/EFI/BOOT/BOOTX64.EFI"),
             "BOOTX64.EFI",
@@ -296,12 +300,14 @@ fn build_program(triple: &str, label: &str) -> Option<PathBuf> {
     }
 }
 
-/// `cargo xtask stick [--release] [--host <triple>]...`
+/// `cargo xtask stick [--host <triple>]...` (always a release build)
 pub(super) fn stick() -> bool {
     let args: Vec<String> = std::env::args().skip(2).collect();
-    if args.iter().any(|a| a == "--release") {
-        super::RELEASE.store(true, std::sync::atomic::Ordering::Relaxed);
-    }
+    // **The stick is always release** (calef, 2026-10-03 UTC, the install boot slots). It is what
+    // a person writes to a drive and what installs itself onto a disk, and a debug build is three
+    // times the size and is refused for install by the loader. `--release` is accepted and means
+    // nothing, so older command lines keep working.
+    super::RELEASE.store(true, std::sync::atomic::Ordering::Relaxed);
     let mut hosts: Vec<String> = args
         .windows(2)
         .filter(|w| w[0] == "--host")

@@ -165,6 +165,16 @@ fn load(handle: Handle, table: &SystemTable, services: &BootServices) -> Result<
     #[cfg(target_arch = "x86_64")]
     let boot_file = if from_slot.is_some() {
         None
+    } else if image::carries_debug_info(embedded::KERNEL) {
+        // **A debug image cannot be installed**, because the wrong state is not expressible: with
+        // no boot file the kernel offers no install at all (calef, 2026-10-03 UTC, the install boot
+        // slots). A slot is a fixed 64 MiB and the debug kernel alone is 5.8 MB of DWARF. The
+        // release path (`cargo xtask stick`, `install-boot`) strips the kernel before embedding it.
+        say(
+            table,
+            "uefi_loader: this kernel carries debug info; a debug image is not offered for install\r\n",
+        );
+        None
     } else {
         place_boot_file(handle, table, services)
     };
@@ -262,9 +272,12 @@ fn place_archive(services: &BootServices) -> Result<Option<(u64, u64)>, &'static
 #[cfg(target_arch = "x86_64")]
 const BOOT_FILE_PATH: &str = "\\EFI\\BOOT\\BOOTX64.EFI";
 
-/// The largest boot file this loader will read back. The tour build is about 9 MiB and the test
-/// build about 19; 64 refuses something that is not this file at all rather than spending the
-/// machine's RAM on it.
+/// The largest boot file this loader will read back, and the size of one install boot slot (calef,
+/// 2026-10-03 UTC: "keep 64 MiB with both fixes"). The two fixes: an install image is always a
+/// release build with a stripped kernel (see `image::carries_debug_info`), and CI budgets the
+/// release `BOOTX64.EFI` at a quarter of this (`bench/boot-file-size-x86_64.txt`, checked by
+/// `script/boot-file-size`). The debug tour build is about 15 MiB and the test build about 19; 64
+/// refuses something that is not this file at all rather than spending the machine's RAM on it.
 #[cfg(target_arch = "x86_64")]
 const BOOT_FILE_MAX: u64 = 64 * 1024 * 1024;
 
