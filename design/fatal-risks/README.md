@@ -371,6 +371,11 @@ on 2026-09-23 by milestone 186 (derive the architecture list, and close what it 
 functions that compiled, shipped and did nothing on the architecture nobody had run them on. And
 parity multiplies every other risk here. If the project ever needs to buy time, dropping to two
 architectures is the largest single lever available, and it should be a decision rather than a drift.
+Correction, 2026-10-03: the closure above was not complete on 2026-09-23. Milestone 186 finished that
+day's open item, so `script/stack-depth-check` now gates x86_64 from a list it reads out of the
+toolchain pin, and found no offender. It does not change the verdict: the risk is about restructure
+cost and a third architecture's gates, and the silent-gap class stays open wherever a new gate spells
+its own list.
 [Appendix](the-hal-and-the-next-machine.md).
 
 ## The running order
