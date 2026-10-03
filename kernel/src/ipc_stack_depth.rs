@@ -209,9 +209,9 @@ fn send_recv_kernel() {
     let request = sched::create_rendezvous();
     let reply = sched::create_rendezvous();
     let done = sched::create_rendezvous();
-    let core = crate::cpu::id();
+    let cpu = crate::cpu::id();
 
-    sched::spawn_on(core, move || {
+    sched::spawn_on(cpu, move || {
         let span = own_span();
         loop {
             let m = measured(&K_SR_SERVER_RECV, span, || sched::ipc_recv(request));
@@ -225,7 +225,7 @@ fn send_recv_kernel() {
     })
     .expect("ipc_stack_depth: no send/recv server");
 
-    sched::spawn_on(core, move || {
+    sched::spawn_on(cpu, move || {
         let span = own_span();
         for _ in 0..WARMUP {
             sched::ipc_send(request, [1, 0, 0]);
@@ -253,9 +253,9 @@ fn call_reply_kernel() {
     }
     let ep = sched::create_rendezvous();
     let done = sched::create_rendezvous();
-    let core = crate::cpu::id();
+    let cpu = crate::cpu::id();
 
-    sched::spawn_on(core, move || {
+    sched::spawn_on(cpu, move || {
         let span = own_span();
         loop {
             let m = measured(&K_CR_SERVER_RECV_CAP, span, || sched::ipc_recv_cap(ep));
@@ -281,7 +281,7 @@ fn call_reply_kernel() {
     })
     .expect("ipc_stack_depth: no call/reply server");
 
-    sched::spawn_on(core, move || {
+    sched::spawn_on(cpu, move || {
         let span = own_span();
         for _ in 0..WARMUP {
             sched::ipc_call(ep, [1, 0]);
@@ -515,12 +515,12 @@ fn send_recv_el0() -> Option<()> {
     let request = sched::create_rendezvous_from(region).expect("no request endpoint");
     let reply = sched::create_rendezvous_from(region).expect("no reply endpoint");
     let report = sched::create_rendezvous_from(region).expect("no report endpoint");
-    let core = crate::cpu::id();
+    let cpu = crate::cpu::id();
 
     reset_el0();
     EL0_ARMED.store(true, Ordering::Release);
 
-    let server = sched::spawn_on(core, move || {
+    let server = sched::spawn_on(cpu, move || {
         register(0);
         crate::user::run(
             image,
@@ -537,7 +537,7 @@ fn send_recv_el0() -> Option<()> {
         )
     })
     .expect("ipc_stack_depth: could not spawn the EL0 server");
-    let client = sched::spawn_on(core, move || {
+    let client = sched::spawn_on(cpu, move || {
         register(1);
         crate::user::run(
             image,
@@ -585,13 +585,13 @@ fn call_reply_el0() -> Option<()> {
     // The soaker writes its progress counters to this page; nothing here reads them.
     let page = crate::memory::alloc_zeroed().expect("ipc_stack_depth: no page for the soaker");
     let phys = page.addr();
-    let core = crate::cpu::id();
+    let cpu = crate::cpu::id();
 
     reset_el0();
     EL0_ARMED.store(true, Ordering::Release);
 
     let spawn = |slot: usize, role: u64, rights: Rights| {
-        sched::spawn_on(core, move || {
+        sched::spawn_on(cpu, move || {
             register(slot);
             crate::user::run(
                 image,

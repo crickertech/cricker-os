@@ -652,7 +652,7 @@ fn cycles_per_tick() {
     // The core at each end, because on aarch64 each core's counter is its own number (`C` zeroes it
     // at that core's init; `arch::aarch64::pmu`'s BUGS), so a window that migrated would difference
     // two unrelated counters. Cheap and harmless on the other two, where it has never fired.
-    let core = crate::cpu::id();
+    let cpu = crate::cpu::id();
     let Some(c0) = crate::arch::pmu::cycles() else {
         // The outcome says *why*, and on a board that is the whole diagnostic: see
         // `arch::riscv64::pmu::CycleCounter` and `arch::x86_64::pmu::CycleCounter`. **Never a
@@ -672,7 +672,7 @@ fn cycles_per_tick() {
     }
     let t1 = crate::arch::timer::now();
     let c1 = crate::arch::pmu::cycles().expect("the counter did not vanish mid-window");
-    if crate::cpu::id() != core {
+    if crate::cpu::id() != cpu {
         println!(
             "bench-probe: cycles_per_tick unavailable (the window moved cores; per-core counters)"
         );
@@ -980,10 +980,10 @@ const TCG_VIRT_CNTFRQ_HZ: u64 = 10_000_000;
 /// two cards rather than one. See notes/footprint-perturbation.md.
 #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
 fn real_single_hart_or_skip(name: &str) -> bool {
-    let cores = crate::smp::online_count();
-    if cores != 1 {
+    let cpus = crate::smp::online_count();
+    if cpus != 1 {
         println!(
-            "bench: {name} skipped (needs a single hart to isolate one core's cache; this boot has {cores})"
+            "bench: {name} skipped (needs a single hart to isolate one core's cache; this boot has {cpus})"
         );
         return false;
     }
@@ -1943,8 +1943,8 @@ fn tc_best(done: sched::RendezvousId, workers: usize) -> u64 {
 /// and recording both is the honest result: compute parallelises on this instrument, synchronous IPC
 /// does not, and the reason is the host underneath.
 fn smp_throughput() {
-    let cores = crate::smp::online_count();
-    if cores <= 1 {
+    let cpus = crate::smp::online_count();
+    if cpus <= 1 {
         return; // single hart (the icount instrument): there is no placement win to show.
     }
 
@@ -1970,7 +1970,7 @@ fn smp_throughput() {
 
     // Each `*_all` is TP_PIPES times the work of its `*_solo`. The scaling factor is solo ns/iter
     // divided by all ns/iter: near `cores` for compute (the machine filled), near or below 1 for
-    // pipelines under HVF. The `smp_cores` line records the ceiling.
+    // pipelines under HVF. The `smp_cpus` line records the ceiling.
     println!("bench: smp_compute_solo {compute_solo} {TC_WORK}");
     println!(
         "bench: smp_compute_all {compute_all} {}",
@@ -1981,5 +1981,5 @@ fn smp_throughput() {
         "bench: smp_pipe_all {pipe_all} {}",
         TP_PIPES as u64 * TP_RTT
     );
-    println!("bench: smp_cores {cores} {cores}");
+    println!("bench: smp_cpus {cpus} {cpus}");
 }

@@ -329,7 +329,7 @@ impl PerCpu {
 /// that happen between two reads of it leave it exactly where it was.
 ///
 /// One relaxed increment per adopted thread, on a path that already takes a lock. It exists for
-/// `smp::tests::work_can_be_placed_on_every_core`, which asserts delivery to the *named* core and
+/// `smp::tests::work_can_be_placed_on_every_cpu`, which asserts delivery to the *named* core and
 /// cannot ask "did that core end up running it": stealing (§28 (SMP placement), part 3) may legitimately move the thread
 /// first, so execution-on-the-target is not a property `spawn_on` promises. See
 /// notes/load-sensitive-assertions.md.
@@ -454,7 +454,7 @@ mod tests {
     /// `boot_cpu_id()` is still read rather than assumed to be 0, because on RISC-V the boot hart is
     /// whichever one QEMU picks; it is used here only to prove the id is a plausible online core.
     #[test_case]
-    fn percpu_is_self_consistent_on_whatever_core_we_run() {
+    fn percpu_is_self_consistent_on_whatever_cpu_we_run() {
         let me = id();
         assert!(me < MAX_CPUS, "cpu::id() returned {me}, out of range");
         assert_eq!(

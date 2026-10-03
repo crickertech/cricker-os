@@ -20,7 +20,7 @@
 //!
 //! Every one of them is banked per PE, and every one resets to an architecturally UNKNOWN value
 //! (Arm DDI 0487, and the `AArch64-pmcr_el0`, `-pmcntenset_el0` and `-pmccfiltr_el0` pages of the
-//! system-register reference at `arm.jonpalmisc.com`, read 2026-09-19). So [`init_this_core`] runs
+//! system-register reference at `arm.jonpalmisc.com`, read 2026-09-19). So [`init_this_cpu`] runs
 //! on **every** core from `timer::init`, which is the per-core init site the `PMUSERENR_EL0` write
 //! already lives at, and it **assigns** rather than read-modify-writes: a field firmware left set is
 //! exactly the thing this is removing.
@@ -113,14 +113,14 @@ const PMCR_D: u64 = 1 << 3;
 /// `PMCNTENSET_EL0.C`, and `PMCNTENCLR_EL0.C`: the cycle counter's enable bit.
 const PMCNTEN_C: u64 = 1 << 31;
 
-/// How long [`init_this_core`]'s check spins, in generic-timer ticks. 100 ticks is 1.6 us at QEMU's
+/// How long [`init_this_cpu`]'s check spins, in generic-timer ticks. 100 ticks is 1.6 us at QEMU's
 /// 62.5 MHz and 5.2 us at the TX1's 19.2 MHz, long enough that a real cycle counter has moved by
 /// thousands and short enough that four cores doing it are not felt in a boot. The riscv64 half
 /// uses the same number for the same reason.
 const CHECK_TICKS: u64 = 100;
 
 /// **Why there is or is not a cycle counter on a core**, decided once per core by
-/// [`init_this_core`].
+/// [`init_this_cpu`].
 ///
 /// The same vocabulary as `arch::riscv64::pmu::CycleCounter` and `arch::x86_64::pmu::CycleCounter`,
 /// with the members this mechanism can actually produce. There is no firmware to refuse a counter
@@ -128,11 +128,11 @@ const CHECK_TICKS: u64 = 100;
 /// not move, or it runs.
 ///
 /// Ordered so the discriminant is the stored value and `Unknown` is zero, which is what a core that
-/// never ran [`init_this_core`] leaves behind.
+/// never ran [`init_this_cpu`] leaves behind.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(u8)]
 pub enum CycleCounter {
-    /// [`init_this_core`] has not run on this core.
+    /// [`init_this_cpu`] has not run on this core.
     Unknown = 0,
     /// `ID_AA64DFR0_EL1.PMUVer` is 0 (no PMU) or 0xf (an IMPLEMENTATION DEFINED one that is not
     /// `PMUv3`). `PMCCNTR_EL0` and every register that controls it are UNDEFINED, so nothing was
@@ -147,7 +147,7 @@ pub enum CycleCounter {
     Running,
 }
 
-/// [`CycleCounter`] per core, as a byte. Written once by that core's [`init_this_core`] before the
+/// [`CycleCounter`] per core, as a byte. Written once by that core's [`init_this_cpu`] before the
 /// core is counted online, read-only afterwards. Atomics rather than a lock: nothing here nests with
 /// another lock, so it earns no rank in `sync::rank`.
 static OUTCOME: [AtomicU8; MAX_CPUS] =
@@ -193,10 +193,10 @@ pub(super) fn is_pmuv3_present() -> bool {
 /// Called from `timer::init`, which every core runs (core 0 from `kernel_main`, each secondary from
 /// `smp::secondary_main`), after `PMUSERENR_EL0` has been closed. Init-time only: nothing here is on
 /// the context-switch path, which milestone 237 measured and keeps clean.
-pub fn init_this_core() {
-    let core = cpu::id();
+pub fn init_this_cpu() {
+    let cpu = cpu::id();
     if !is_pmuv3_present() {
-        OUTCOME[core].store(CycleCounter::NoPmuV3 as u8, Ordering::Release);
+        OUTCOME[cpu].store(CycleCounter::NoPmuV3 as u8, Ordering::Release);
         return;
     }
 
@@ -206,7 +206,7 @@ pub fn init_this_core() {
     unsafe {
         core::arch::asm!("mrs {}, pmccfiltr_el0", out(reg) inherited, options(nomem, nostack, preserves_flags));
     }
-    FIRMWARE_FILTER[core].store(inherited, Ordering::Relaxed);
+    FIRMWARE_FILTER[cpu].store(inherited, Ordering::Relaxed);
 
     // SAFETY: `is_pmuv3_present` read this core's own `ID_AA64DFR0_EL1.PMUVer` and found PMUv3, so
     // all three registers exist and an EL1 access is not UNDEFINED. `MDCR_EL2.TPM` is clear
@@ -225,7 +225,7 @@ pub fn init_this_core() {
             options(nomem, nostack, preserves_flags)
         );
     }
-    PMCR_READBACK[core].store(read_pmcr(), Ordering::Relaxed);
+    PMCR_READBACK[cpu].store(read_pmcr(), Ordering::Relaxed);
 
     // Does it count? A short window on the generic timer, the one clock this kernel has that does
     // not depend on the answer.
@@ -236,8 +236,8 @@ pub fn init_this_core() {
         t1 = CNTVCT_EL0.get();
     }
     let moved = read_counter().wrapping_sub(first);
-    CHECK_CYCLES[core].store(moved, Ordering::Relaxed);
-    CHECK_ELAPSED[core].store(t1.wrapping_sub(t0), Ordering::Relaxed);
+    CHECK_CYCLES[cpu].store(moved, Ordering::Relaxed);
+    CHECK_ELAPSED[cpu].store(t1.wrapping_sub(t0), Ordering::Relaxed);
 
     let outcome = if moved == 0 {
         CycleCounter::Stuck
@@ -245,7 +245,7 @@ pub fn init_this_core() {
         CycleCounter::Running
     };
     // Last, and Release: a reader that sees the outcome sees the records written before it.
-    OUTCOME[core].store(outcome as u8, Ordering::Release);
+    OUTCOME[cpu].store(outcome as u8, Ordering::Release);
 }
 
 /// **Why there is or is not a cycle counter on this core.** See [`CycleCounter`].
@@ -254,8 +254,8 @@ pub fn outcome() -> CycleCounter {
 }
 
 /// [`outcome`] for a named core, for the boot line and for a test whose thread may run anywhere.
-pub fn outcome_on(core: usize) -> CycleCounter {
-    match OUTCOME[core].load(Ordering::Acquire) {
+pub fn outcome_on(cpu: usize) -> CycleCounter {
+    match OUTCOME[cpu].load(Ordering::Acquire) {
         x if x == CycleCounter::NoPmuV3 as u8 => CycleCounter::NoPmuV3,
         x if x == CycleCounter::Stuck as u8 => CycleCounter::Stuck,
         x if x == CycleCounter::Running as u8 => CycleCounter::Running,
@@ -283,7 +283,7 @@ pub fn cycles() -> Option<u64> {
     Some(read_counter())
 }
 
-/// One `mrs` of `PMCCNTR_EL0`. Only called once [`init_this_core`] found `PMUv3` on this core.
+/// One `mrs` of `PMCCNTR_EL0`. Only called once [`init_this_cpu`] found `PMUv3` on this core.
 fn read_counter() -> u64 {
     let value: u64;
     // SAFETY: reached only on a core whose PMUVer reported PMUv3 (the outcome is not `NoPmuV3`), so
@@ -304,7 +304,7 @@ fn read_pmcr() -> u64 {
     value
 }
 
-/// The boot line. Printed once, from core 0, after every core has run [`init_this_core`].
+/// The boot line. Printed once, from core 0, after every core has run [`init_this_cpu`].
 ///
 /// It names core 0's answer in full and how many of the cores that reached init agree, because the
 /// failure worth seeing on a board is one core disagreeing (a big.LITTLE part, or a secondary whose
@@ -314,8 +314,8 @@ pub fn print_summary() {
     let mut initialised = 0;
     let mut running = 0;
     let mut first_other: Option<(usize, CycleCounter)> = None;
-    for core in 0..MAX_CPUS {
-        let o = outcome_on(core);
+    for cpu in 0..MAX_CPUS {
+        let o = outcome_on(cpu);
         if o == CycleCounter::Unknown {
             continue;
         }
@@ -324,7 +324,7 @@ pub fn print_summary() {
             running += 1;
         }
         if first_other.is_none() && o != outcome_on(boot) {
-            first_other = Some((core, o));
+            first_other = Some((cpu, o));
         }
     }
 
@@ -349,7 +349,7 @@ pub fn print_summary() {
         ),
         CycleCounter::Unknown => {
             crate::println!(
-                "  cycles      : arch::pmu::init_this_core has not run on the boot core"
+                "  cycles      : arch::pmu::init_this_cpu has not run on the boot core"
             );
         }
     }
@@ -359,8 +359,8 @@ pub fn print_summary() {
             "  cycles      : firmware left PMCCFILTR_EL0 {inherited:#x} on this core before it was overwritten"
         );
     }
-    if let Some((core, o)) = first_other {
-        crate::println!("  cycles      : core {core} disagrees with the boot core: {o:?}");
+    if let Some((cpu, o)) = first_other {
+        crate::println!("  cycles      : core {cpu} disagrees with the boot core: {o:?}");
     }
 }
 
@@ -380,12 +380,12 @@ mod tests {
     /// `timer`'s) disagree about which registers exist, which on a board is an undefined-instruction
     /// fault rather than a wrong number.
     #[test_case]
-    fn every_core_decided_and_the_boot_core_agrees_with_pmuver() {
+    fn every_cpu_decided_and_the_boot_cpu_agrees_with_pmuver() {
         let here = outcome();
         assert_ne!(
             here,
             CycleCounter::Unknown,
-            "timer::init did not run init_this_core here"
+            "timer::init did not run init_this_cpu here"
         );
         assert_eq!(
             here == CycleCounter::NoPmuV3,
@@ -394,16 +394,16 @@ mod tests {
         );
         assert_eq!(cycles().is_some(), here == CycleCounter::Running);
 
-        for core in crate::smp::online_cpus() {
+        for cpu in crate::smp::online_cpus() {
             assert_ne!(
-                outcome_on(core),
+                outcome_on(cpu),
                 CycleCounter::Unknown,
-                "core {core} is online and never ran init_this_core: its counter is whatever reset left"
+                "core {cpu} is online and never ran init_this_cpu: its counter is whatever reset left"
             );
         }
     }
 
-    /// **The three registers hold what [`init_this_core`] wrote.**
+    /// **The three registers hold what [`init_this_cpu`] wrote.**
     ///
     /// Read back from the core rather than trusted, because the failure this catches is the one
     /// nothing else would: an enable that the hardware (or an emulator) silently did not take, or a
@@ -472,7 +472,7 @@ mod tests {
         );
     }
 
-    /// **A `Running` counter still moves.** [`init_this_core`] checked once at boot; this re-checks
+    /// **A `Running` counter still moves.** [`init_this_cpu`] checked once at boot; this re-checks
     /// after the whole boot has run, which is what would catch something later stopping it (a stray
     /// `PMCR_EL0` write, or a `PMCNTENCLR` from code that thinks it owns the PMU).
     ///

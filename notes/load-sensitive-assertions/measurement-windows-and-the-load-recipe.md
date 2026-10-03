@@ -14,7 +14,7 @@ had deliberately left alone.
 | site | model | what it said |
 |---|---|---|
 | `arch/riscv64/timer.rs`, `holding_a_lock_masks_the_timer` | `rv64`, the control | `left: 41, right: 40` |
-| `smp.rs`, `work_can_be_placed_on_every_core` | `rva23s64`, `thead-c906` | "work placed on a core never ran there" |
+| `smp.rs`, `work_can_be_placed_on_every_cpu` | `rva23s64`, `thead-c906` | "work placed on a core never ran there" |
 | `sched.rs`, `a_thread_that_never_yields_is_preempted_anyway` | `sifive-u54` | "the spinner never ran at all" |
 
 The diagnostic that sorts this round is the window, not the direction. The first round sorted the
@@ -57,7 +57,7 @@ accessor makes it available to the other four tests in those files, all of which
 `the_timer_is_ticking`, `the_handler_keeps_up_when_no_lock_is_held`,
 `a_long_critical_section_costs_a_tick`, and the masking test itself.
 
-### `work_can_be_placed_on_every_core` (`smp.rs`): the first round's verdict was wrong
+### `work_can_be_placed_on_every_cpu` (`smp.rs`): the first round's verdict was wrong
 
 The first round left it alone, arguing that its wait is on the property itself and can only fail in
 the "not yet" direction. The premise is false, and the machine said so. The failure is not slow, it
@@ -92,7 +92,7 @@ The test deliberately no longer asserts that the target then ran it. That is not
 `spawn_on` has: it is a placement hint, not a pin, and a steal moving the thread first is correct
 behaviour. The claim is decomposed, and each half is now stable.
 `every_secondary_runs_scheduled_work` proves every core runs what is on its own queue.
-`a_batch_of_cpu_bound_work_reaches_every_core` proves placement plus stealing fills the machine.
+`a_batch_of_cpu_bound_work_reaches_every_cpu` proves placement plus stealing fills the machine.
 Delivery here, execution there.
 
 The test also got a case it never had: this core as a target. `place_on` puts a local target
