@@ -1045,3 +1045,89 @@ fn a_row_that_exactly_fills_the_text_arena_is_still_one_chunk() {
         "a row one byte over the arena stayed in the chunk"
     );
 }
+
+// ---- milestone 637: the inline scanner's depth bound and its last-byte reads --------------------
+//
+// The scanner reads one byte ahead of a marker, and the line buffer behind the live line holds the
+// previous, longer line. A read one byte too far therefore does not fail on its own; it fails when
+// the leftover byte happens to be the one being looked for. These put the right leftovers there.
+
+fn stale(first: &str, second: &str, width: u16) -> String {
+    plain(&format!("{first}\n\n{second}\n"), width)
+}
+
+#[test]
+fn nesting_stops_at_the_depth_bound_whichever_marker_opens_each_level() {
+    // Three levels deep, each opened by a different marker (strong, strike, link), so every site
+    // that deepens the scan is on the path. The fourth level is literal: markup there is text.
+    let emph = plain("**a ~~b [c *z* d](u) b~~ a**\n", 80);
+    assert_eq!(emph, "  a b c *z* d u b a\n");
+    let strike = plain("**a *b [c ~~z~~ d](u) b* a**\n", 80);
+    assert_eq!(strike, "  a b c ~~z~~ d u b a\n");
+    let link = plain("**a ~~b *c [x](u) c* b~~ a**\n", 80);
+    assert_eq!(link, "  a b c [x](u) c b a\n");
+}
+
+#[test]
+fn a_single_tilde_does_not_open_a_strike() {
+    // Two tildes open one. The second is read at `i + 1`, and a scanner that read it at `i` would
+    // see the first tilde twice and strike through everything up to the next pair.
+    assert_eq!(plain("~a ~~b~~\n", 40), "  ~a b\n");
+}
+
+#[test]
+fn a_strike_closer_is_looked_for_after_the_opener() {
+    // The search starts two bytes past the opening pair. Started anywhere else it misses the
+    // closer, or finds one that belongs to a later span, so the opener is placed away from byte 0
+    // and byte 2 where the wrong starting points coincide with it.
+    assert_eq!(plain("xxxxx~~ab~~ y\n", 40), "  xxxxxab y\n");
+}
+
+#[test]
+fn a_link_label_at_the_end_of_a_line_does_not_borrow_a_paren_from_the_last_one() {
+    // `[x]` ends the line, and the byte after it is the `(` the previous line left behind. Taking
+    // it as the start of a destination looks for a `)` before the line's start and cannot find
+    // the slice it asks for.
+    assert_eq!(stale("[x](yy)", "[x]", 40), "  x yy\n\n  [x]\n");
+}
+
+#[test]
+fn a_heading_with_two_spaces_after_its_hashes_has_no_leading_blank() {
+    // The blank is skipped as whitespace and leaves the "a space is owed" flag set. A margin of zero
+    // is where that flag and the cursor agree, so the first word must not pay it.
+    assert_eq!(plain("#  Title\n", 40), "TITLE\n");
+}
+
+#[test]
+fn an_image_marker_moves_the_cursor_by_its_own_width() {
+    // `[image:` is written from outside the line buffer, so the cursor has to be advanced by hand.
+    // `[image: pic]` is 12 columns from a margin of 2 and `d.png` brings the line to 20. Any other
+    // width puts that word on one side of the wrap or the other, so a width of 21 is the edge.
+    assert_eq!(
+        plain("![pic](d.png) x\n", 21),
+        "  [image: pic] d.png\n  x\n"
+    );
+}
+
+#[test]
+fn a_long_destination_is_wrapped_on_character_boundaries() {
+    // The wrap steps one character at a time by asking how long the character at the cursor is. A
+    // two-byte character asked about the wrong byte is split in half and the output stops being text.
+    let out = plain("[a](éééééééééééééé)\n", 12);
+    assert_eq!(out, "  a\n  ééééééééé\n  ééééé\n");
+}
+
+#[test]
+fn a_quoted_fence_keeps_a_marker_of_its_own() {
+    // A fence opened one quote deep strips one marker from each line. A second `>` on a line is
+    // the code's, as in a quoted mail inside a quoted block.
+    assert_eq!(plain("> ```text\n> > keep\n> ```\n", 40), "    | > keep\n");
+}
+
+#[test]
+fn a_line_with_fewer_markers_than_the_fence_was_opened_at_is_not_over_read() {
+    // The fence opened two deep and this line has one marker. The walk past the markers has to stop
+    // at the end of the line, not index it.
+    let out = plain(">> ```text\n>\n>> x\n>> ```\n", 40);
+    assert!(out.contains('x'), "{out:?}");
+}
