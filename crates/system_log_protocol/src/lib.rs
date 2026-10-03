@@ -599,6 +599,8 @@ pub mod console {
 
     /// The longest kernel line the console assembles before writing it as cut.
     pub const LINE_MAX: usize = 256;
+    /// What ends every line the console writes for the kernel: see [`Inserter::kernel_chunk`].
+    pub const LINE_END: &[u8] = b"\r\n";
     /// How much of the terminal's current partial line is kept for a redraw.
     pub const PARTIAL_MAX: usize = 512;
     /// How many bytes of kernel lines wait for a line end.
@@ -667,17 +669,28 @@ pub mod console {
 
         /// A kernel chunk arrived. A finished line is written now if the terminal is at a line
         /// start, and queued otherwise.
+        ///
+        /// **Every line it writes ends `\r\n`, whatever the chunk ended it with.** The console's
+        /// terminals are not all alike about a bare `\n`: the kernel's own screen and most serial
+        /// programs return the carriage on it, but the userspace screen terminal
+        /// (`video_terminal`) is a VT and only moves down. A bare `\n` there left the next line
+        /// starting where the kernel line ended, so the prompt beneath it no longer began a row,
+        /// and `cargo xtask uefi-boot` failed on PR #1498 (run 37108087239) with the shell
+        /// unreadable on the firmware screen. The line editor writes `\r\n` for the same reason.
         pub fn kernel_chunk(&mut self, bytes: &[u8], mut out: impl FnMut(&[u8])) {
             for &b in bytes {
-                self.kline[self.klen] = b;
-                self.klen += 1;
-                if b == b'\n' || self.klen == LINE_MAX {
-                    if self.kline[self.klen - 1] != b'\n' {
-                        // Cut: give it its own line rather than run into the next.
-                        self.klen -= 1;
-                        self.kline[self.klen] = b'\n';
-                        self.klen += 1;
-                    }
+                if b == b'\r' {
+                    continue;
+                }
+                if b != b'\n' {
+                    self.kline[self.klen] = b;
+                    self.klen += 1;
+                }
+                // A cut leaves room for the line end, so it gets a line of its own rather than
+                // running into the next.
+                if b == b'\n' || self.klen == LINE_MAX - LINE_END.len() {
+                    self.kline[self.klen..self.klen + LINE_END.len()].copy_from_slice(LINE_END);
+                    self.klen += LINE_END.len();
                     self.finish_line(&mut out);
                 }
             }
@@ -710,7 +723,7 @@ pub mod console {
             if self.at_line_start() {
                 out(&self.queue[..self.qlen]);
             } else {
-                out(b"\n");
+                out(LINE_END);
                 out(&self.queue[..self.qlen]);
                 if !self.partial_lost {
                     out(&self.partial[..self.plen]);
@@ -895,20 +908,42 @@ mod tests {
         let mut c = console::Inserter::new();
         let mut t: Vec<u8> = Vec::new();
         c.kernel_chunk(b"  k one\n", |b| t.extend_from_slice(b));
-        assert_eq!(t, b"  k one\n");
+        assert_eq!(t, b"  k one\r\n");
         c.wrote(b"$ package ins", |b| t.extend_from_slice(b));
         t.extend_from_slice(b"$ package ins");
         c.kernel_chunk(b"  k two\n", |b| t.extend_from_slice(b));
-        assert_eq!(c.queued(), 8);
+        assert_eq!(c.queued(), 9);
         t.extend_from_slice(b"tall x\n");
         c.wrote(b"tall x\n", |b| t.extend_from_slice(b));
-        assert_eq!(t, b"  k one\n$ package install x\n  k two\n");
+        assert_eq!(t, b"  k one\r\n$ package install x\n  k two\r\n");
         t.clear();
         t.extend_from_slice(b"$ ");
         c.wrote(b"$ ", |_| unreachable!());
         c.kernel_chunk(b"  k three\n", |_| unreachable!());
         c.flush(|b| t.extend_from_slice(b));
-        assert_eq!(t, b"$ \n  k three\n$ ");
+        assert_eq!(t, b"$ \r\n  k three\r\n$ ");
         assert_eq!(c.queued(), 0);
+    }
+
+    /// **Every line the console writes for the kernel returns the carriage**, because the screen
+    /// terminal is a VT and a bare `\n` only moves down (PR #1498's firmware-screen failure, run
+    /// 37108087239: the prompt redrawn after a flush began mid-row). A `\r\n` from the kernel
+    /// stays one line end, and a line too long for the buffer is cut with no byte lost.
+    #[test]
+    fn a_kernel_line_ends_with_a_carriage_return_however_it_arrived() {
+        extern crate std;
+        use std::vec::Vec;
+        let mut c = console::Inserter::new();
+        let mut t: Vec<u8> = Vec::new();
+        c.kernel_chunk(b"bare\nwindows\r\n", |b| t.extend_from_slice(b));
+        assert_eq!(t, b"bare\r\nwindows\r\n");
+        t.clear();
+        let long = [b'x'; console::LINE_MAX + 10];
+        c.kernel_chunk(&long, |b| t.extend_from_slice(b));
+        c.kernel_chunk(b"\n", |b| t.extend_from_slice(b));
+        let text: Vec<u8> = t.iter().copied().filter(|&b| b == b'x').collect();
+        assert_eq!(text.len(), long.len());
+        assert_eq!(t.iter().filter(|&&b| b == b'\n').count(), 2);
+        assert!(t.windows(2).all(|w| w[1] != b'\n' || w[0] == b'\r'));
     }
 }
