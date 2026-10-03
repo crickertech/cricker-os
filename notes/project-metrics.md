@@ -335,7 +335,7 @@ rest.
   argued: [what this project costs, *Known limitations*](register-of-measures/project-cost.md#known-limitations).
 - Four series were restated on 2026-09-24, and an older screenshot will disagree with each.
   Opus 5.5 got its own column (`opus_5_5`), so this week's commits left *other models*, and Opus 4.8
-  now draws inside that band because the palette has eight hues. The fatal-risks chart (since removed in favour of the colours chart) gained
+  now draws inside that band because the palette has eight hues. The fatal-risks chart (since removed in favour of the colours chart, which now stores the total itself) gained
   `fatal_risks_total` and an *unclassified* band, so 2026W36 to 2026W38 read nine rather than five,
   four and five. The coverage floor and the prose budget were backfilled from each week's own tree.
 - The prose budget will be restated again when milestone 586 (a prose ratchet in lint) lands,

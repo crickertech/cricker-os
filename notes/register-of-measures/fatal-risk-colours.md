@@ -5,10 +5,9 @@
 ## What is counted
 
 One row per ISO week in `notes/project-metrics/fatal-risks-colors.csv`: how many of the nine risks
-carry each verdict colour that week. Three count columns, green, amber and red, and no stored
-total. The total is `fatal_risks_total` in `fatal-risks.csv` one measure over, the same fact about
-the same file, so the two charts cannot disagree about how many risks a week had. The chart draws
-grey for the remainder, which is a risk with no verdict rendered.
+carry each verdict colour that week. Three count columns, green, amber and red, and `fatal_risks_total`, every risk in that week's
+summary, so the chart reads one file. The chart draws
+grey for the total minus the three, which is a risk with no verdict rendered.
 
 ## Where the colour lives
 
