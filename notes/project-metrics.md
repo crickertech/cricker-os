@@ -50,6 +50,13 @@ on 2026-08-31 UTC.
 
 Grey is no verdict yet.
 
+## Action items the corrections of error still owe
+
+![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
+
+Open while what an item names is not done; the direction is down (`script/roadmap --coe-actions`).
+Each week is read from its own commit, so 2026W39 is the first correction, already in this form.
+
 ## Kani proof harnesses, and what can falsify them
 
 ![Kani proof harnesses](project-metrics/harnesses.svg)
@@ -110,6 +117,12 @@ on 2026-09-14, and earlier weeks are absent, not zero. The first three weeks rea
 From the `Co-Authored-By` trailer. Attributed plus unattributed plus merge is every commit that
 week, and a merge is a pull request landing rather than a piece of writing. 2026W29 predates
 the convention, so it is absent rather than zero.
+
+The trailer is one only Claude Code writes, so the table counts one vendor. From 2026-09-29 02:33
+to 2026-10-01 05:07 UTC the work ran on z.ai's glm-5.3 under opencode, and its 154 commits read
+here as unattributed rather than as a model
+([the correction](coes/2026-10-03-the-merge-rate.md)). `script/effort` has the same gap and its
+charts show that week's z.ai work as nothing at all.
 
 The palette has eight hues, so "other models" is Opus 4.8, Fable 5.1 and any trailer the script
 does not recognise, drawn as one band; `notes/project-metrics/models.csv` keeps each apart.
