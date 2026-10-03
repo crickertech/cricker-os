@@ -178,7 +178,7 @@ One line each, in the form calef would answer, with the rung that waits on it.
 | ~~**Trust**~~ | **Decided 2026-09-19 (DECISIONS §195): a reviewed recipe vouches, trust is scoped per source the owner opted into, and the owner may overrule.** No long-lived signing key is held for now; a per-source signature can be added later without changing that. | 3a | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) |
 | **Install layout** (new) | Is an installed disk an EFI system partition plus a data partition, the same with two boot slots, or a small loader plus a raw system partition? | 2a's merge (a lane can build under a provisional layout; nothing leaves the machine until 4) | the installer proposal |
 | ~~**Transport** (new)~~ | **Decided 2026-09-19 (DECISIONS §196): HTTPS, `rustls` for the protocol, and the crypto provider is milestone 442's work.** Under §195 a recipe's digest decides what may run, so rung 3a does not wait for TLS. | 3c (not 3a) | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
-| ~~**Hosting** (new)~~ | **Settled with the transport (§196):** GitHub redirects plain HTTP, and carrying TLS is what makes a GitHub-hosted source reachable. Whether `crickertech` operates a source at all, and the GPL obligation that comes with it, is still open. | 3c and 4 | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
+| ~~**Hosting** (new)~~ | **Settled with the transport (§196):** GitHub redirects plain HTTP, and carrying TLS is what makes a GitHub-hosted source reachable. Whether `crickertech` operates a source at all, and the GPL obligation that comes with it, is still open. Fact: calef holds `nifeos.org` (registered 2026-10-03 UTC, Name.com, expires 2027-10-03, no DNS yet). Open, calef's: whether images name a host under it. The maintainer recommends so, not GitHub's, so hosting can move without re-shipping; a name baked into an image is irreversible. | 3c and 4 | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
 | **Secure Boot** (new) | Does a stranger turn Secure Boot off, or do we sign, and if we sign, is it the same key as the package key? | 4 (and 1d on a machine whose owner will not turn it off) | the Secure Boot proposal |
 | **Publication** | Is it time to put the page up? | 4 | §157, step 1: calef's act |
 
@@ -196,17 +196,13 @@ Not a ruling but calef's hands: **the wipe of xenon's NVMe** (milestone 261), wh
 - Something checks DECISIONS §135's requirement 1 ("no conveyed artifact carries copyleft") for
   the image the page conveys; §135's own `BUGS` says nothing enforces it.
 - The stranger harness passes against the download, and records the time from page to prompt.
+- calef holds `nifeos.org`. Whether the page lives there is calef's (§157).
 
 ### The superseded slice, and what survived it
 
 The scoping lane's first slice (below, under "Scoped 2026-09-19") had four items. Item 1, packages
-as host-side recipes, survives as rung 3a's producer. Item 2, image composition from a declared
-set, is off the path: milestone 150, in flight as PR #968, generates the program table from one
-declaration, and
-nothing on a rung needs a second mechanism. Item 3, the QEMU run bundle, is off the path; §157
-left it as a lane's reversible call, and the call is that it is a developer convenience rather than
-a rung, worth building only if the stranger harness wants a vehicle before rung 1d exists. **Item
-4**, removal, is part of 3a's exit criterion and of the activation ruling.
+as host-side recipes, survives as rung 3a's producer. Items 2 (image composition, milestone 150, PR #968) and 3 (the QEMU run bundle,
+a reversible call per §157) are off the path. **Item 4**, removal, is part of 3a's exit criterion and of the activation ruling.
 
 ## Scoped 2026-09-19
 
@@ -223,13 +219,12 @@ built, and the gate line above is left as minted because changing it is the firs
 | Package format | [DECISIONS §197](../decisions/197-a-package-is-one-archive-file.md) | **Decided 2026-09-20 by calef**, after comparing apt, Homebrew, Alpine, Haiku and Nix: one archive file per package, the mainstream container, vouched for by §195's reviewed recipe |
 | Activation | [installing-a-package-mutates-or-composes.md](507-installing-a-package-mutates-or-composes.md) | **Decided 2026-09-23 by calef (§208): A3, with rollback.** As proposed, options with no winner: mutate, compose a union view, or only widen what may be spawned. The program namespace is sealed at boot, and the spawner gives the file service away, so nothing that builds processes can read an installed program today |
 | Trust (found, not briefed) | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) | **Decided 2026-09-19 by calef**, after reading how apt, pkg, pacman, Nix, Fuchsia and Homebrew do it: Homebrew's shape (digests in reviewed recipes, per source) with the owner-vouches escape hatch every one of them keeps. The image's measured table becomes the first source |
-| Trivial install | [DECISIONS §157](../decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) | **Decided 2026-09-19 by calef, not as recommended:** a web page, a download written to a USB drive and installed, then packages over the internet. The lane had recommended a QEMU run bundle as the first rung; its first slice is superseded as a definition and needs rescoping |
+| Trivial install | [DECISIONS §157](../decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) | **Decided 2026-09-19 by calef, not as recommended:** a web page, a download written to a USB drive and installed, then packages over the internet. The lane had recommended a QEMU run bundle first; that slice is superseded |
 
 **Superseded 2026-09-19 by §157 and by "Rescoped 2026-09-19" above**, kept as the record of what
 was proposed. ~~The proposed first slice needs none of the three irreversible rulings: packages
 as host-side recipes, image composition from a declared set, and a run bundle tested by the stranger
-harness and not published until calef says so. Its details and what it unblocks are in the
-trivial-install proposal.~~
+harness and not published until calef says so.~~
 
 ## Follow-on
 
@@ -257,6 +252,7 @@ calef's acts are named there rather than here.
 
 ## BUGS
 
+- Renewing `nifeos.org` (2027-10-03) gates every image that names it, and nothing enforces it; this line is the record.
 - This block prices nothing. A package manager is a large piece of work and the estimate is not
   attempted; the sequencing claim is that it gates a customer, not that it is cheap.
 - The package encoding is provisional, and so is `package_archive`'s name. §197 ruled the
