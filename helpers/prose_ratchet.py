@@ -197,7 +197,11 @@ def _flat(text):
 # Appendices are added to it, because §212 puts them "under the same cap" and the graph's own
 # docstring already said it intended to count them. Before this module the graph's scope could not
 # see a single appendix: `notes/benchmarks/` and `design/fatal-risks/` sit one directory down.
-PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'notes/', 'briefs/')
+#
+# `notes/coes/` is named outright (2026-10-03, UTC): a correction-of-error record is a document in
+# its own right with no `notes/coes.md` parent, so the appendix rule never reached it and a 3,291-word
+# COE passed lint.
+PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'notes/', 'notes/coes/', 'briefs/')
 PROSE_ROOT_FILES = ('AGENTS.md',)
 PROSE_CAP = 3000
 
