@@ -1999,6 +1999,10 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let skipped = |line: &str| {
         swish_check_omits(arch, line).is_some()
             || ((line.starts_with("std_exerciser")
+                // The line after `std_exerciser redirected > args.txt` reads the file it wrote, so
+                // it goes with it; until 2026-10-03 it stayed and failed every local run that had
+                // not built the exerciser ("no such name in this directory").
+                || line == "wc < args.txt"
                 || line.contains(crate::disk::INSTALLED_STD_ECHO)
                 || line.contains(crate::disk::INSTALLED_STD_GREP))
                 && !std_built)
