@@ -91,10 +91,10 @@ timings is called the median, and a test can only assert it on a clock it contro
 - `handle` and `ingest` (6). A message of another kind is counted each time. `ingest` was never
   called by any test: a record handed straight to the store is held, numbered by the service and
   read back, and `held` counts them.
-- `Ring` (7). An entry that exactly fills the ring evicts nothing and the next evicts exactly one
-  (64-byte entries, 1,024 of them), the entry header is 11 bytes, a dropped line counts from the
-  reader's cursor, a per-user read matches the whole name and not a prefix, and a window that
-  holds a line exactly takes it.
+- `Ring` (7). An entry that exactly fills the ring evicts nothing, and the next evicts exactly one
+  (64-byte entries, 1,024 of them). The entry header is 11 bytes. A dropped line counts from the
+  reader's cursor. A per-user read matches the whole name and not a prefix. A window that holds a
+  line exactly takes it.
 - `Assembler` (2) and `json` (2). The writer cut is the least recently heard from, an idle slot
   is taken without an empty cut line, and `\n` and `\r` use their short escapes.
 
