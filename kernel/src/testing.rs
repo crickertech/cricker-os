@@ -649,9 +649,17 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// riscv64: 24829 + 32. A full local aarch64 `script/test` after the change read **24715**, the
 /// re-derive test **5412** of it, so aarch64 is the lower of the pair this time.
 ///
+/// **`26_668` (2026-10-03, UTC): five compositor tests, each keeping its own compositor.**
+/// Milestone 719 (compositor confinement claim 25) split one test into one per part of the claim, so
+/// each part can carry its own falsification. Every one calls `compositor_service::start`, whose
+/// scanout, window list, input ring and client run are left running the way the existing compositor
+/// tests leave theirs: 386, 399, 367 and two more at a similar size, about 1,900 frames between them.
+/// CI read **26636** on aarch64 and **26598** on riscv64 (run 37146917385) against the 24861 above, so
+/// aarch64 is the tighter of the pair this time. 26636 + 32 = 26668.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 24_861;
+const SUITE_PAGE_FRAME_BUDGET: usize = 26_668;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///
