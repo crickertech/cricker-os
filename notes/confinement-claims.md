@@ -301,9 +301,8 @@ gate for the capability; this is a gap in the evidence.
 
 The `x86_64` leg had no evidence until milestone 323 (the falsification record is incomplete in five ways). The same one-flag defect works there:
 `arch/x86_64/mmu.rs` maps `.rodata` with `Flags::kernel_rodata()`, and `user_rodata()` writes the
-`U/S` bit while SMAP stays off. Replayed 2026-10-03 (UTC), red at `tests.rs:257` on both aarch64 and
-`x86_64`. The record now names `Architecture: aarch64, x86_64`, with a hunk per ISA's file.
-Read the row as aarch64 twice, `x86_64` once, riscv64 once (the software walk).
+`U/S` bit while SMAP stays off. Replayed 2026-10-03 (UTC), red at `tests.rs:257` on both. The record
+names `Architecture: aarch64, x86_64`. Read the row as aarch64 twice, `x86_64` once, riscv64 once.
 
 ### Row 26 cannot be falsified as written, because a real escape hangs the run
 
@@ -621,8 +620,7 @@ capability would let it) answers. |
 ### What this pass could not reach
 
 - The falsification for the finding above was aarch64's until milestone 323 replayed it on riscv64
-  and `x86_64` on 2026-10-03 (UTC), red on both. Nothing in `outgoing_cap`, the sweeps or the
-  rendezvous is architecture-specific, so the record now names all three.
+  and `x86_64` on 2026-10-03 (UTC), red on both. The record now names all three.
 - The claims whose enforcement is a userspace program rather than the kernel. The caretakers
   were read, not attacked from a hostile client. A hostile client is a fixture and a boot, and it is
   the shape `design/fatal-risks/README.md` says wants outside eyes anyway.
@@ -642,10 +640,9 @@ capability would let it) answers. |
   path §134 already spells, and row 20's patch is swept rather than remembered.
 - Rows 22, 23, 24 and 30 now carry a record on all three ISAs; row 19's kernel tests carry none.
   Milestone 323 replayed the four aarch64 records on riscv64 and `x86_64` on 2026-10-03 (UTC), each
-  red. Row 19's two Kani harnesses are ISA-neutral and now both have a
-  record, but `dir_capability_tests` has none. The `attenuate` defect turns its
-  read-only test red on aarch64 only through the vacuity guard at
-  line 974 of `kernel/src/user/fs_service.rs`, like row 24's, so none was written.
+  red. Row 19's two Kani harnesses are ISA-neutral and both have a
+  record. `dir_capability_tests` has none: the `attenuate` defect turns its read-only test red
+  only through the vacuity guard at line 974 of `kernel/src/user/fs_service.rs`, like row 24's.
 - A kernel row's evidence is re-checked far less often than a harness row's, and on one
   architecture. A Kani record costs a second, so `script/falsifications --affected-since` re-checks
   it on every pull request that can reach it. A kernel record costs a boot per leg, so it is re-checked only
