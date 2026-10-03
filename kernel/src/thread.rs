@@ -487,6 +487,16 @@ pub struct Thread {
     /// and inserts it into its own capability table. `None` for every ordinary send. See sched.rs.
     pub outgoing_cap: Option<crate::cap::Cap>,
 
+    /// **Did the delivery this thread is about to read install a capability?** Set by the paths
+    /// that put one in this thread's table while it was parked in `RECV_CAP` (`ipc_send_cap`,
+    /// `ipc_call_badged`), cleared when it parks there. `ipc_recv_cap` reads it to decide `x1`: a
+    /// delivery that installed nothing returns `NO_CAP`, never the sender's data word. Without it a
+    /// plain `SEND` that reached a parked `RECV_CAP` receiver left its second word in `x1`, where a
+    /// `CALL` server reads a reply slot (fatal risk 7). See `sched::ipc_recv_cap`.
+    // Added by milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a
+    // sender-chosen slot).
+    pub cap_delivered: bool,
+
     /// **Why the last aborted send was aborted, when the reason was a refusal** (milestone 603
     /// (provisional), DECISIONS §101 (notification objects) ruling B). Set beside `handshake.abort()` when a `SEND`,
     /// `SEND_CAP` or `CALL` named a rendezvous that carries an interrupt, and read-and-cleared by
@@ -701,6 +711,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            cap_delivered: false,
             ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
@@ -739,6 +750,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            cap_delivered: false,
             ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
@@ -881,6 +893,7 @@ impl Thread {
                 mailbox: [0; 5],
                 quota: None,
                 outgoing_cap: None,
+                cap_delivered: false,
                 ipc_refused: false,
                 next: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
@@ -917,6 +930,7 @@ impl Thread {
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
+            cap_delivered: false,
             ipc_refused: false,
             next: None,
             entry: (0, 0),

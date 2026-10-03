@@ -255,7 +255,12 @@ Dated 2026-10-03 (§216, from #1495): later passes are not in the paragraph abov
 three sweeps. The audit of 2026-09-24 (new trust boundaries) fixed 5 and found no confinement claim false
 (`design/audit-reports/2026-09-24-new-trust-boundaries.md`). The audit of 2026-09-29 (the syscall surface
 as a whole) fixed 0, minted 0, accepted 3 and found no confinement claim false
-(`design/audit-reports/2026-09-29-syscall-surface-whole.md`).
+(`design/audit-reports/2026-09-29-syscall-surface-whole.md`). PR #1494's RECV-consumer audit then
+found two confinement defects, both confirmed under QEMU: a plain `SEND` delivers badge 0 whatever
+the endpoint capability's badge, so a bound `redoxfs_server` client that `SEND`s is seen as root
+(open on `main`, closed by #1494), and a plain `SEND` received by `RECV_CAP` handed the receiver a
+sender-chosen slot on one arrival order, a `net_stack`-shaped escape (fixed by milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)). The
+appendix has both.
 
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
