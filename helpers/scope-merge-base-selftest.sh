@@ -30,6 +30,11 @@ here="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 me="$(basename "$0")"
 under_test="$here/scope-merge-base.sh"
 
+# A caller's git environment would point every `git` below at the caller's repository rather than
+# the throwaway one. A pre-push hook exports GIT_DIR, and on 2026-10-03 this script, run from one,
+# set `core.bare = true` and a fake identity in the shared `.git/config` before it failed. Cleared
+# here as well as in the hook, so no caller can repeat it.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_CONFIG_PARAMETERS
 tmpdir="$(mktemp -d)"
 cleanup() { rm -rf "$tmpdir"; }
 trap cleanup EXIT

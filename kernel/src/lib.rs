@@ -963,7 +963,18 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             // come from a file the loader could read back, which is every boot but a UEFI one.
             user::install_service::offer();
             x86_hand_over();
-            arch::halt();
+            // **The boot thread leaves the scheduler rather than halting in it** (milestone 628
+            // (provisional), measured 2026-10-03). It used to `arch::halt()` here, which is `hlt` in
+            // a loop on a thread that is still runnable: every time round-robin reached it, the core
+            // stopped until the next tick, up to 10 ms, with the shell, the console and the input
+            // driver all ready behind it. x86_64's input driver polls and yields (no COM1 interrupt
+            // reaches userspace yet), so the rotation reached it constantly, and the swish-check leg
+            // paid about three seconds a line in ticks: 488 s for 118 lines under TCG on patagonia,
+            // 126 s after this line, and the second boot's eight lines went from 23.8 s to 0.9 s.
+            // `exit` marks it Finished and the idle thread, which halts only when nothing else can
+            // run, takes the core. The boot thread owns no kernel stack (it runs on `boot.s`'s), so
+            // reaping it frees nothing. notes/benchmarks/swish-check-x86-leg.md has the numbers.
+            sched::exit();
         }
     }
 

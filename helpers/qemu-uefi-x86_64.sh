@@ -234,7 +234,24 @@ if [ -n "$NIFE_NVME" ]; then
     NVME="$NVME -drive file=$NIFE_NVME,if=none,format=raw,id=nvme0 -device nvme,serial=nife-nvme,drive=nvme0$NVME_BUS${NIFE_NVME_DEVICE_OPTS:-}"
 fi
 
+# **NIFE_ACCEL=kvm runs the guest on the host's own cores** (milestone 628 (provisional), which
+# measured what it buys; notes/benchmarks/swish-check-x86-leg.md). Only on an x86_64 Linux host with
+# a usable /dev/kvm, which `swish-check` checks before setting it; anything else is QEMU's default,
+# TCG, exactly as before. Unlike the aarch64 runner's `hvf` there is nothing to probe: KVM runs the
+# guest's own ISA, and the machine below needs no change for it. Two facts that change underneath:
+# `-cpu max` becomes the host's own CPU model (so RDSEED is the host's, which every x86 runner GitHub
+# offers has), and `intel-iommu`'s `intremap` resolves OFF rather than ON, because KVM's in-kernel
+# irqchip is what QEMU's `auto` defers to (helpers/qemu-runner-x86_64.sh's NIFE_INTREMAP block). The
+# kernel never acts on interrupt remapping (arch::x86_64::iommu's BUGS), so neither is a boot this
+# tree behaves differently on. Any other value, `hvf` included (the aarch64 runner's, which a shell
+# may still have exported), leaves this runner on TCG, as it always did, rather than refusing.
+ACCEL=""
+if [ "${NIFE_ACCEL:-}" = "kvm" ]; then
+    ACCEL="-accel kvm"
+fi
+
 exec helpers/qemu-bounded.sh "$TIMEOUT" qemu-system-x86_64 \
+    $ACCEL \
     -machine q35 \
     -cpu "$CPU" \
     -smp "$SMP" \

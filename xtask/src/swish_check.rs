@@ -1342,24 +1342,19 @@ const X86_HAND_OVER_REPORT: &str = "as a port capability (milestone 299).";
 const SWISH_CHECK_BOOT_SECS: u64 = 120;
 const SWISH_CHECK_LINE_SECS: u64 = 30;
 
-/// **The `x86_64` leg's per-line bound, three times the others', and measured rather than chosen**
-/// (milestone 182, 2026-09-19).
+/// **The `x86_64` leg's per-line bound under TCG, half again the others'**, and measured rather
+/// than chosen (milestone 182 set it at 90 s on 2026-09-19; milestone 628 (provisional) cut it to 45 s
+/// on 2026-10-03).
 ///
-/// Under OVMF the console server hands every write to the screen terminal and waits for it to be
-/// drawn (milestone 400), so a line costs what its output costs to paint and copy, not what the
-/// shell costs to run it. Measured on patagonia, one run each, typed to prompt-back:
+/// Under KVM the leg holds the other legs' [`SWISH_CHECK_LINE_SECS`], because it costs what they do;
+/// this bound is for the leg emulated, which is every Mac and any host without `/dev/kvm`. Measured
+/// typed to prompt-back, one run each, after 628 stopped the boot thread halting on the run queue:
 ///
-/// | leg | 60 or 64 lines | slowest line |
-/// |---|---|---|
-/// | `aarch64` | 6.9 s | `apropos capability` 0.3 s |
-/// | `riscv64` | 7.3 s | `apropos capability` 0.6 s |
-/// | `x86_64` | 321.1 s | `xargs caps rm globmany/m-*.txt` 24.7 s, then `caps ps` 16.7 s |
-///
-/// CI's runner was 1.5x to 1.8x slower than patagonia on this leg (run 35463884897: the guest's
-/// `date` ran 119 s into the leg against 80 s here, and `caps ps`, 16.7 s here, did not finish in
-/// 30 s there), which is how the 30 s bound went red on a line that has no defect. 90 s is 3.6x
-/// the slowest local line and 2x that line at CI's worst measured ratio. A real hang still fails,
-/// ninety seconds later than it would elsewhere.
+/// | where | lines | per line | slowest line |
+/// |---|---|---|---|
+/// | patagonia, TCG | 118 in 125.7 s | 1.07 s | `caps installed/unvouched` 10.8 s |
+/// | CI arm64, TCG (run 37089120726) | 128 in 364.5 s | 2.85 s | `caps installed/unvouched` 14.2 s |
+/// | CI `x86_64`, KVM (same run) | 128 in 33.4 s | 0.26 s | `interrupt_ignorer` 7.0 s |
 ///
 /// **Which part is the emulator's.** The same shell over TCG answers every line in under a second
 /// on the other two legs, so the whole difference is the screen path: `display_terminal` paints
@@ -1368,21 +1363,23 @@ const SWISH_CHECK_LINE_SECS: u64 = 30;
 /// store through TCG. A real PC pays the same copy in native stores at uncacheable speed, which is
 /// milliseconds per scroll rather than seconds and is not measured on silicon
 /// (`framebuffer_driver`'s BUGS). Milestone 400's BUGS records the design half: the console
-/// blocks on the screen.
+/// blocks on the screen (`components/src/console.rs`'s batcher is off).
 ///
-/// **After milestone 624 (the paint path), 2026-10-03 UTC, and why the bound stayed.** Same
-/// machine, same day, the script grown to 128 lines on the first boot:
+/// **Milestone 624 (the paint path), 2026-10-03 UTC, measured before 628's boot-thread fix and why
+/// that is not the bound's evidence.** Same machine, the script grown to 128 lines on the first boot:
 ///
 /// | tree | lines | total | per line | slowest line |
 /// |---|---|---|---|---|
 /// | `main` at 4db8c13bf | 119 | 753.5 s | 6.3 s | `caps std_exerciser` 27.5 s |
 /// | milestone 624 at 4124d6390 | 128 | 665.6 s | 5.2 s | `caps /installed/std-grep needle docs` 22.9 s |
 ///
-/// Median line 3.1 s, 90th percentile 10.9 s (624, 136 timed lines over both boots). Both runs
-/// shared patagonia with another session's `x86_64` leg, so read the ratio, not the seconds. The
-/// rule that set 90 s (2x the slowest local line at CI's worst 1.8x ratio) now gives 82 s, which
-/// is not worth the risk of a red leg, so the bound stays at 90 s until the remaining gap closes.
-const SWISH_CHECK_X86_LINE_SECS: u64 = 90;
+/// Both runs shared patagonia with another session's `x86_64` leg, and both still had the boot
+/// thread halting on the run queue, so the leg was paced by 10 ms ticks (7.7 s a line on CI with a
+/// 35 s slowest line, notes/benchmarks/swish-check-x86-leg.md), which is what 90 s had covered and
+/// what 624's rule (2x the slowest local line at CI's worst 1.8x ratio, 82 s) was measuring. With
+/// the pacing gone the slowest emulated line is 10.8 s locally and 14.2 s on CI, so 45 s is 3.2x
+/// CI's slowest.
+const SWISH_CHECK_X86_LINE_SECS: u64 = 45;
 
 /// How many foreign characters [`find_marker`] will step over inside one marker before it gives up.
 ///
@@ -1942,6 +1939,26 @@ fn swish_check_leg(arch: &str) -> bool {
         && swish_check_boot(arch, SWISH_CHECK_AFTER_REBOOT, false)
 }
 
+/// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
+/// `/dev/kvm` this process can open for writing, which is what QEMU's `-accel kvm` needs. Asked of
+/// the device rather than of an environment variable, so a developer's exported `NIFE_ACCEL` cannot
+/// change what this gate boots (`swish_check` clears it for that reason).
+///
+/// Only the `x86_64` leg asks. The aarch64 and riscv64 legs stay on TCG on purpose: on CI's arm64
+/// runner, TCG is what puts their kernels in front of a weakly ordered host (ci.yml's header), and
+/// KVM there would trade that for speed the two legs do not need (0.2 s a line). The `x86_64` guest
+/// is TSO under either, so KVM gives up no ordering the leg was ever shown. Milestone 628
+/// (provisional) measured what it buys; notes/benchmarks/swish-check-x86-leg.md. The name is
+/// provisional.
+fn kvm_is_usable() -> bool {
+    cfg!(all(target_os = "linux", target_arch = "x86_64"))
+        && std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/kvm")
+            .is_ok()
+}
+
 /// **One boot of [`swish_check_leg`]**: build (when `fresh`), boot, type `script`, read the answers.
 /// `fresh` is false for the second boot, which runs against the disk the first one left behind and
 /// builds nothing, because what it proves is that the disk is the only thing carried across
@@ -1953,6 +1970,8 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 
     let riscv = arch == "riscv64";
     let x86 = arch == "x86_64";
+    // KVM when this host can give it, and only to the x86_64 leg: see [`kvm_is_usable`].
+    let kvm = x86 && kvm_is_usable();
     // **`std_exerciser` is in this boot's archive only if it was built** (milestone 595
     // (provisional)): `cargo xtask std-exerciser` compiles it against the `nife-dev` toolchain, which
     // `script/test` runs and a bare `script/swish-check` does not. Without it the progenitor has no
@@ -1977,6 +1996,10 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let skipped = |line: &str| {
         swish_check_omits(arch, line).is_some()
             || ((line.starts_with("std_exerciser")
+                // The line after `std_exerciser redirected > args.txt` reads the file it wrote, so
+                // it goes with it; until 2026-10-03 it stayed and failed every local run that had
+                // not built the exerciser ("no such name in this directory").
+                || line == "wc < args.txt"
                 || line.contains(crate::disk::INSTALLED_STD_ECHO)
                 || line.contains(crate::disk::INSTALLED_STD_GREP))
                 && !std_built)
@@ -1984,7 +2007,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     eprintln!();
     eprintln!(
         "--- swish-check ({arch}): boot {} and type at the prompt ---",
-        if x86 {
+        if kvm {
+            "the UEFI image under OVMF, on KVM"
+        } else if x86 {
             "the UEFI image under OVMF"
         } else {
             "`--features shell`"
@@ -2038,6 +2063,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
                 .to_string(),
         );
         c.env_remove("NIFE_NVME");
+        if kvm {
+            c.env("NIFE_ACCEL", "kvm");
+        }
         // The RedoxFS disk, which `>`, `<`, `ls` and `rm` need; opt-in on this runner, and its
         // header says why.
         c.env("NIFE_UEFI_REDOXFS", "1");
@@ -2287,7 +2315,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         }
         // **How long each line took**, typed to prompt-back, so every run reports its own margin
         // against the per-line bound rather than leaving it to be guessed after a red one.
-        let line_secs = if x86 {
+        let line_secs = if x86 && !kvm {
             SWISH_CHECK_X86_LINE_SECS
         } else {
             SWISH_CHECK_LINE_SECS

@@ -1,7 +1,7 @@
 ---
 risk: 7
 color: none
-updated: 2026-08-31
+updated: 2026-10-03
 ---
 # Appendix to risk 7: The confinement claim is false
 
@@ -32,7 +32,7 @@ Every one of those is a test written by the same people who wrote the thing bein
 RUN, 2026-08-31, and it found the thing this risk exists to find. notes/confinement-claims.md; PR
 #614.
 
-- 26 claims enumerated, each with where it is stated, which test checks it, and whether that test
+- 26 claims enumerated on 2026-08-31 (the table has 30 rows as of 2026-10-03), each with where it is stated, which test checks it, and whether that test
   has been shown to fail when the claim is broken. Three were stated nowhere, including one the
   system deliberately does *not* make: a confined device's values are not confined, only its reach.
   The IOMMU and the DMA validator constrain placement, never content.
@@ -88,7 +88,9 @@ does correct.
 
 ### Three things this does not settle
 
-The syscall surface and IPC model are the remaining untaken lens and want their own audit. The
+The syscall surface and IPC model were the untaken lens until the 2026-09-29 audit took it
+(`design/audit-reports/2026-09-29-syscall-surface-whole.md`: fixed 0, minted 0, accepted 3, no
+confinement claim false; corrected 2026-10-03, §216 (fatal-risk facts are correctable, and verdicts are the architect's), from #1495). The
 adversarial half this entry has always called for is an outsider trying to escape, rather than us
 demonstrating that a planned escape fails. It is now partly built, and still gated behind
 milestone 198 (the trivial install that makes a second customer possible). An adversarial pass on 2026-09-21
