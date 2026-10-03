@@ -353,6 +353,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 241 | DECIDED | [A threadbare base: the boot slot holds the kernel and what boots and repairs, and every other program is a package](241-a-threadbare-base.md) |
 | 242 | DECIDED | [A system log: one service that programs and the kernel append to](242-a-system-log.md) |
 | 243 | DECIDED | [Notices for people: programs publish, users curate, displays show](243-notices-for-people.md) |
+| 244 | DECIDED | [The installed disk has four partitions, and a boot slot is 64 MiB](244-the-installed-disk-has-four-partitions.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design

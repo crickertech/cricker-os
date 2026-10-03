@@ -10,7 +10,7 @@ between branches in flight.)* Built 2026-09-21 by the lane `abboot/tries-and-pri
 ruling of the same day: *"Yes, write the tries and priority attributes in 2b."*
 
 This is the design half of rung 2b of milestone 198 (a package manager, and the trivial install that
-makes a second customer possible). **The bench half is not this**: 2b's own row asks for the rung 2a
+makes a second customer possible). The bench half is not this: 2b's own row asks for the rung 2a
 sequence on xenon's disk, photographed, and that is gated on calef wiping the disk. What is here is
 built and proven under OVMF and waits on hardware for nothing but the photograph.
 
@@ -23,7 +23,7 @@ it. An appliance nobody can reach, which is what a home server is by the second 
 to undo its own upgrade.
 
 So: two boot images, and if a newly written one fails to come up, the machine goes back to the
-previous one **by itself**, with nobody at the console.
+previous one by itself, with nobody at the console.
 
 ## What was built
 
@@ -37,36 +37,36 @@ previous one **by itself**, with nobody at the console.
 
 ## The four questions, answered where the code is and repeated here
 
-**Where the state lives.** In the GPT attribute bits of the slot partitions. UEFI 2.11 section 5.3.3 gives
+Where the state lives. In the GPT attribute bits of the slot partitions. UEFI 2.11 section 5.3.3 gives
 bits 48 to 63 to the owner of the partition's type GUID and tells everybody else to leave them
 alone, so on a partition of a type that is ours they are ours, and no other operating system's
 partition tool will touch them. ChromeOS's own positions, verified against the ChromiumOS
 disk-format reference rather than recalled: priority 48-51, tries 52-55, successful 56.
 
-**And therefore, the correction this rung turns on.** It was said on this project that *firmware*
+And therefore, the correction this rung turns on. It was said on this project that *firmware*
 would do the selecting. It will not. ChromeOS gets firmware-level selection because depthcharge is a
 coreboot payload that replaces UEFI; generic UEFI, OVMF included, reads those bits for exactly no
 purpose, because the specification just told it not to. So the bits are the right place for the
-state **and the selector has to be ours**, which is why `\EFI\BOOT\BOOTX64.EFI` is now a chooser.
+state and the selector has to be ours, which is why `\EFI\BOOT\BOOTX64.EFI` is now a chooser.
 
 The other candidate, UEFI `Boot####` variables with `BootOrder`, was evaluated and refused: rung 2a
 deliberately proved its boot with the firmware variable store deleted, so a design depending on
 those variables surviving contradicts the property 2a exists to demonstrate.
 
-**Two files or two partitions.** Two partitions, and the specification decides it rather than taste:
+Two files or two partitions. Two partitions, and the specification decides it rather than taste:
 the attribute bits are per-entry and belong to a type's owner, so a slot has to be a partition of a
 type that is ours. The distribution shape (one ESP, one `.conf` per kernel under `/loader/entries/`,
 which is the Boot Loader Specification) puts the state in a file, and a file is something anything
 that can mount the volume may rewrite. The state that decides whether a machine boots should not be.
 
-**Who decrements tries, and when.** The chooser, **before** it hands off, and this is the crux
+Who decrements tries, and when. The chooser, before it hands off, and this is the crux
 rather than an ordering detail. A chooser that only read, leaving the booted system to mark itself
-good, would protect against an image that crashes visibly and not against one that **hangs**: a
+good, would protect against an image that crashes visibly and not against one that hangs: a
 machine wedged before userspace would retry the same bad image forever and show nothing to the
 console nobody is standing at. Writing first costs a disk write on every trial boot. ChromeOS's
 firmware decrements before the launch for the same reason.
 
-**What marks a boot successful, and how far in.** Today: **only the install**, on the slot it just
+What marks a boot successful, and how far in. Today: only the install, on the slot it just
 wrote, and that claim is a record of an observation rather than an assumption, because the bytes
 going into slot 0 are the bytes the firmware started that machine with seconds earlier. Nothing
 marks a *trial* boot successful yet, and the consequence is exact: an upgrade that came up perfectly
@@ -74,7 +74,7 @@ still rolls back once its tries are spent. That fails safe and it means upgrades
 criterion it should use, and the program that applies it, are milestone 554 (a good
 upgrade sticks: what marks a trial boot successful), which built them.
 
-**What happens when both slots are bad.** The machine boots the image in the chooser's own file,
+What happens when both slots are bad. The machine boots the image in the chooser's own file,
 which is a complete nife image the install wrote at the same moment as slot 0. Never-booting is a
 worse outcome than booting something old, and this design gets the fallback for free because the
 chooser and the image are the same binary. ChromeOS instead drops an exhausted slot's priority to
@@ -99,7 +99,7 @@ rollback-boot: slot 1 is priority 3, 0 tries, not successful
 rollback-boot: PASS
 ```
 
-**Killing the machine at the handoff is the test rather than a shortcut.** A kernel that wedges, a
+Killing the machine at the handoff is the test rather than a shortcut. A kernel that wedges, a
 driver that spins and a power cut are the same event from the disk's point of view, which is that
 the try was spent and nothing came back, and it is the one failure class the chooser cannot observe
 for itself. The upgrade staged into slot 1 is a byte-for-byte copy of the working image on purpose:
@@ -118,15 +118,15 @@ a megabyte took the luck away, and the failure was an `OutOfPageFrames` panic th
 anything that mentions memory. The accounting now happens in `user::load`, from `spawn.maps` itself,
 so no caller has to remember.
 
-**The first version of it overcharged and the frame ledger said so**, deterministically and on the
+The first version of it overcharged and the frame ledger said so, deterministically and on the
 first run: charging the whole window took a frame per long-lived process, permanently, into a region
 that never used it, and the aarch64 suite went from 22249 kept frames to 22317. A caller owes the
-cost **above** what `AS_OVERHEAD`'s margin already carried, which is what `WINDOW_IN_OVERHEAD`
+cost above what `AS_OVERHEAD`'s margin already carried, which is what `WINDOW_IN_OVERHEAD`
 names. That gate is the reason this landed right rather than landing quietly wrong.
 
 ## Scope note (DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64 and x86_64))
 
-**x86_64 only, and this is a narrowing of an existing one rather than a new gap.** Rung 2a is an
+x86_64 only, and this is a narrowing of an existing one rather than a new gap. Rung 2a is an
 x86_64 claim because a device-tree handoff has one initrd slot in `/chosen` and no second one for
 the loader's own file; without that file there is nothing to install and nothing to put in a slot.
 Nothing about the slot format, the bit layout or the policy is x86-specific, and `crates/boot_slot`
@@ -140,10 +140,7 @@ on a device-tree machine):
 Each of these is also recorded where a reader meets the feature, which is where it belongs; they are
 collected once here because a roadmap block is what somebody reads before deciding to trust this.
 
-- **The on-disk format is provisional**, pending calef's ratification: the attribute bit positions,
-  the slot header's bytes, and the `NIFE_BOOT` type GUID. It is a format two programs agree on,
-  which `AGENTS.md` puts in the irreversible category, so it is named as unsettled rather than
-  shipped quietly.
+- The on-disk format is ratified (the attribute bit positions, the slot header's bytes and the `NIFE_BOOT` type GUID; the GUID and bits on 2026-09-21, the whole layout by DECISIONS §244 (the installed disk has four partitions, and a boot slot is 64 MiB) on 2026-10-03). It is a format two programs agree on, so changing it now costs an installed disk.
 - **Nothing marks a trial boot successful.** Answered by milestone 554 (a good upgrade sticks:
   what marks a trial boot successful); it was the largest missing piece.
 - **Nothing writes the second slot on a running machine.** There is no upgrader, so the rollback
