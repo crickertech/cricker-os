@@ -83,3 +83,11 @@ claims, and a tail of every lane log. It ran because a human asked, not because 
   again.
 - The re-arm half of mechanism 5 is owed. Until the drain learns it, the sixth class of ending
   still needs the human eye this record exists to retire.
+
+  Answered 2026-10-03 (UTC) by milestone 630 (a merge-queue ejection is caught before the queue,
+  and recovered after it), with one correction to the premise. The drain already re-armed: it arms
+  every eligible pull request on every pass, and since 2026-09-30 it runs on CI completion as well
+  as on the schedule. What was missing was saying why a pull request left the queue, and telling a
+  head worth retrying from one that would fail again. It now comments once per ejection, holds a
+  head whose group run failed (label `queue-ejected`), and releases it when the head moves. See
+  [queue-ejection.md](../queue-ejection.md).
