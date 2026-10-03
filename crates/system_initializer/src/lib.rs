@@ -1750,13 +1750,13 @@ pub fn boot(
     // session the user launched, never here (milestone 632 (provisional)), and nothing downstream
     // of `term_ep` can tell the two apart.
     //
-    // **On aarch64/riscv64 input is interrupt-driven**: it holds the receive interrupt
-    // (`g.uart_irq`) and the UART page (`IN_UART_VA`). **On x86 it polls COM1's port range**, the
-    // same capability the console holds, because the receive line is not yet routed to a
-    // userspace waiter on this architecture (milestone 299; see `components/src/input.rs`). So on
-    // x86 it gets the `PortRange` capability delegated into its table (slot 1) and neither the
-    // interrupt nor the UART mapping. It never invokes the port cap by slot; holding it is what
-    // the TSS bitmap enforcement reads.
+    // **Input is interrupt-driven on all three architectures**: it holds the receive interrupt
+    // (`g.uart_irq`, slot 1) on each. The device differs: the UART page (`IN_UART_VA`) on
+    // aarch64/riscv64, and on x86 COM1's port range (slot 2), the same capability the console holds
+    // (milestone 299 (the x86 port-range capability: the serial console becomes a userspace
+    // driver); see `components/src/input.rs`). It never invokes the port cap by slot;
+    // holding it is what the TSS bitmap enforcement reads. x86 polled the port with no interrupt
+    // until milestone 505 (an x86_64 input driver that never lets the core idle).
     #[cfg(not(target_arch = "x86_64"))]
     let (in_caps, in_maps): EndowmentSlices = (
         &[
@@ -1769,7 +1769,8 @@ pub fn boot(
     let (in_caps, in_maps): EndowmentSlices = (
         &[
             (term_ep, abi::rights::WRITE),
-            (g.uart_dev, abi::rights::WRITE), // COM1's port range, polled not waited on
+            (g.uart_irq, abi::rights::READ),
+            (g.uart_dev, abi::rights::WRITE), // COM1's port range, read by the TSS I/O bitmap
         ],
         &[],
     );

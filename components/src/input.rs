@@ -13,16 +13,17 @@
 //! 8-byte messages, and the CALL's rendezvous is the flow control that keeps a fast sender from
 //! outrunning the discipline.
 //!
-//! Its whole authority: WRITE on the terminal endpoint (slot 0), and the device the machine gives
-//! it. On aarch64/riscv64 that is the RX interrupt capability (slot 1) plus the UART registers
-//! mapped device-typed; **on x86 (milestone 299) it is a `PortRange` capability for COM1's ports**,
-//! polled rather than waited on, because COM1's receive line is not yet routed to a userspace waiter
-//! there. It cannot print, spawn, or read what anyone else typed. No role selector; the syscall
-//! runtime comes from `user_mode_runtime`.
+//! Its whole authority: WRITE on the terminal endpoint (slot 0), the RX interrupt capability (slot
+//! 1), and the device the machine gives it. On aarch64/riscv64 that is the UART registers mapped
+//! device-typed; **on x86 (milestone 299 (the x86 port-range capability: the serial console
+//! becomes a userspace driver)) it is a `PortRange` capability for COM1's ports** (slot 2), which
+//! the TSS I/O bitmap reads rather than this program invoking it. It cannot print, spawn, or read
+//! what anyone else typed. No role selector; the syscall runtime comes from
+//! `user_mode_runtime`.
 //!
-//! The arch-specific parts are the UART register layout and how a byte's arrival is learned, in the
-//! `uart` module and the two `_start` arms below (aarch64 PL011, RISC-V NS16550, both
-//! interrupt-driven; x86 16550 by port I/O, polled).
+//! The arch-specific part is the UART register layout, in the `uart` module below (aarch64 PL011,
+//! RISC-V NS16550 by memory, x86 16550 by port I/O). The loop is one `_start` on all three: x86's
+//! polled twin went with milestone 505 (an x86_64 input driver that never lets the core idle).
 //!
 //! Name: ratified 2026-07-30 (calef, DECISIONS §39), among the names recorded there as always
 //! right.
@@ -35,9 +36,7 @@
 #![no_main]
 
 use line_editor::proto;
-use user_mode_runtime::call;
-#[cfg(not(target_arch = "x86_64"))]
-use user_mode_runtime::{irq_ack, irq_wait};
+use user_mode_runtime::{call, irq_ack, irq_wait};
 
 // Unused on x86_64: there is no page for it to name (`user::UART_PHYS` is zero, DECISIONS §121),
 // so the arm below traps instead of reading. Kept unconditional rather than cfg'd out because the
@@ -47,7 +46,6 @@ use user_mode_runtime::{irq_ack, irq_wait};
 const UART_VA: u64 = address_space_map::pair_page(0x0000_0000_00a0_0000);
 
 const TERM: u64 = 0; // CALL: forward raw wire bytes to the line discipline
-#[cfg(not(target_arch = "x86_64"))]
 const IRQ: u64 = 1; // WAIT / ACK the receive interrupt
 
 /// The UART, the one arch-specific part of an input driver. aarch64's `virt` has a PL011 (32-bit
@@ -183,18 +181,19 @@ mod uart {
 /// only for a port it holds a capability to. This driver holds the `(0x3F8, 8)` port range the
 /// progenitor delegated it, so the kernel's TSS I/O bitmap permits these eight ports and no others.
 ///
-/// **The interrupt arm is a poll on x86** (see [`_start`]), so there is nothing to arm or
-/// acknowledge: COM1's receive line (legacy IRQ 4) is not yet routed to a userspace
-/// waiter on this architecture (the kernel delivers only self-directed vectors to a driver today,
-/// `kernel/src/arch/x86_64/exceptions.rs`), so the driver reads the port it holds and yields between
-/// reads rather than blocking on an interrupt it would never see. Interrupt-driven x86 input is a
-/// follow-up; the port capability this milestone adds is what the poll reads through, and the
-/// register layout below is exactly what the interrupt driver will use once the line is wired.
+/// **Interrupt-driven since milestone 505 (an x86_64 input driver that never lets the core
+/// idle).** COM1's receive line is legacy IRQ 4, which the kernel routes through the IO APIC to the
+/// `Irq` capability in slot 1, so this arm needs only what the riscv64 NS16550 arm has: a receive
+/// enable to set and nothing to clear, since reading RBR clears the condition.
 #[cfg(target_arch = "x86_64")]
 mod uart {
-    use user_mode_runtime::inb;
+    use user_mode_runtime::{inb, outb};
     const RBR: u16 = 0x3F8; // receive buffer (COM1 base)
+    const IER: u16 = 0x3F9; // interrupt enable (base + 1)
+    const MCR: u16 = 0x3FC; // modem control (base + 4)
     const LSR: u16 = 0x3FD; // line status register (base + 5)
+    const IER_ERBFI: u8 = 1 << 0; // enable received-data-available interrupt
+    const MCR_OUT2: u8 = 1 << 3; // gates the UART's interrupt output onto the ISA line on a PC
     const LSR_DR: u8 = 1 << 0; // data ready
 
     /// Name: ratified 2026-09-24 (calef, #1255 review). Refused `rx_pending` and `is_rx_pending`
@@ -209,17 +208,34 @@ mod uart {
     pub fn rx_get() -> u8 {
         inb(RBR) // reading clears the receive condition, as on the NS16550
     }
-    // No `arm_rx_interrupt`/`clear_interrupt` here: this arm polls (see `_start`), so it never arms
-    // or acknowledges a line. The interrupt-driven follow-up adds them, driving IER (`base + 1`) the
-    // way the riscv64 NS16550 arm above drives it.
+    /// Name: provisional, flagged 2026-09-25 by the lane that re-derived the x86 port
+    /// falsifications (design/naming/boolean-predicates-worklist.md, "`rx` and `tx`"). calef asked
+    /// what `rx` stands for in his #1255 review; recommended `arm_receive_interrupt`, the word the
+    /// NS16550 and PL011 manuals spell out.
+    ///
+    /// **`OUT2` as well as the receive enable**, which is the one PC-specific fact here: on a PC
+    /// the 16550's interrupt output reaches the ISA line only through a gate the modem control
+    /// register's `OUT2` bit drives, so a UART with receive interrupts enabled and `OUT2` clear
+    /// raises nothing. QEMU's 16550 does not model the gate; a real COM1 (xenon's) does. Set by
+    /// read-modify-write, so the console's `DTR`/`RTS` survive.
+    pub fn arm_rx_interrupt() {
+        outb(MCR, inb(MCR) | MCR_OUT2);
+        outb(IER, IER_ERBFI);
+    }
+    pub fn clear_interrupt() {
+        // The 16550 clears the receive interrupt when the byte is read (rx_get, in drain).
+    }
 }
 
 /// Forward wire bytes forever. No arguments: a standalone binary.
 ///
-/// **Interrupt-driven on aarch64 and riscv64**: WAIT on the receive interrupt, drain the FIFO, hand
-/// the bytes on, ACK. The one arch-specific fact besides the register layout is on x86, which polls
-/// instead; see the `_start` twin below.
-#[cfg(not(target_arch = "x86_64"))]
+/// **Interrupt-driven on all three architectures**: WAIT on the receive interrupt, drain the FIFO,
+/// hand the bytes on, ACK. Until milestone 505 (an x86_64 input driver that never lets the core
+/// idle) x86 had a polled twin, `loop { drain(); yield_now(); }`. A thread that always yields is
+/// always runnable, so the run queue was never empty and the idle loop never ran on that core: QEMU
+/// sat at 99 to 100% of a host core at an idle prompt (76 CPU-seconds in 78 wall-seconds, milestone
+/// 182's measurement), and the capability-slot gauge the idle loop prints never moved past the
+/// hand-over.
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_x0: u64, _x1: u64, _x2: u64) -> ! {
     // Drain anything already in the FIFO by POLLING, before arming the interrupt: input piped in at
@@ -234,32 +250,8 @@ pub extern "C" fn _start(_x0: u64, _x1: u64, _x2: u64) -> ! {
     loop {
         irq_wait(IRQ);
         drain();
-        uart::clear_interrupt(); // quiet the device (PL011: ICR; NS16550: reading RBR already did)
+        uart::clear_interrupt(); // quiet the device (PL011: ICR; 16550: reading RBR already did)
         irq_ack(IRQ); // re-enable the line at the controller now that the device is quiet
-    }
-}
-
-/// **The x86 twin: poll the port, do not wait on an interrupt** (milestone 299). COM1's receive line
-/// is not yet routed to a userspace waiter on this architecture (see the `uart` module doc), so this
-/// driver reads the port range it holds and yields between reads, forwarding whatever arrived. It
-/// burns cycles a blocked driver would not, which is why interrupt-driven x86 input is a named
-/// follow-up rather than the end state; functionally it reaches the same prompt and forwards the
-/// same keystrokes, through the same port capability. `yield_now` hands the CPU to the shell and the
-/// line discipline between polls, so a cooperative or preempted schedule interleaves all three.
-///
-/// **What the poll costs, measured by milestone 182 (2026-09-19).** A thread that always yields is
-/// always runnable, so the scheduler's run queue is never empty and its idle loop never runs again
-/// once this driver starts. Two consequences follow. The core never halts: QEMU sat at 99 to 100%
-/// of a host core at an `x86_64` prompt with nothing typed, 76 CPU-seconds in 78 wall-seconds. And
-/// anything the idle loop does stops, `kernel::cap::report_peak` included, so the capability-slot
-/// gauge reports the mark at the hand-over (5 of 24) instead of the peak (17 of 24, read by a
-/// temporary instrument). Both go away with the interrupt-driven follow-up.
-#[cfg(target_arch = "x86_64")]
-#[unsafe(no_mangle)]
-pub extern "C" fn _start(_x0: u64, _x1: u64, _x2: u64) -> ! {
-    loop {
-        drain();
-        user_mode_runtime::yield_now();
     }
 }
 

@@ -2746,20 +2746,6 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     {
         Some(line) => {
             eprintln!("swish-check ({arch}):{}", line.trim_end());
-            // **On x86_64 this line is stale, and says so** (milestone 182). The gauge is printed
-            // from the scheduler's idle loop, and x86_64's input driver polls COM1 and yields
-            // rather than blocking (milestone 299), so once it starts the run queue is never empty
-            // and the idle loop never runs again. What prints is the mark at the hand-over, before
-            // the progenitor has built anything. A temporary instrument on 2026-09-19 read 17 of
-            // 24 at this leg's peak; milestone 182's BUGS has it. The `ABOVE` check below cannot
-            // fire here for the same reason, which is a gate that cannot fail, stated rather than
-            // hidden.
-            if x86 {
-                eprintln!(
-                    "swish-check (x86_64): that gauge is the mark at the hand-over, not the peak: \
-                     the idle loop that prints it never runs again while the input driver polls"
-                );
-            }
             if line.contains("ABOVE") {
                 failed.push(format!(
                     "this boot used more capability slots than the tree records: {:?}. The \
@@ -2806,7 +2792,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     if gauges.is_empty() {
         failed.push(format!(
             "the boot never printed {:?}. The kernel says this from the scheduler's idle loop, and \
-             from the yield syscall on x86_64 (kernel::progenitor_stack); a gauge that stopped \
+             on every architecture (kernel::progenitor_stack); a gauge that stopped \
              printing is how the stack got raised three times by overflowing it.",
             GaugeFilter::NEEDLE.trim()
         ));
