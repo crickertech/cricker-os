@@ -389,6 +389,15 @@ path = "src/login_audit_receiver.rs"
 test = false
 bench = false
 
+# The system log service (milestone 613 (a system log service: the in-memory half), §242 (a system
+# log)): stamps every line from the writer's badge, keeps a 64 KiB JSONL ring, and answers reads
+# into a page per reader. The logic is `crates/system_log`. Provisional name.
+[[bin]]
+name = "system_log"
+path = "src/system_log.rs"
+test = false
+bench = false
+
 # The provisioning tool (milestone 155, provisional name; DECISIONS §117): a `useradd`-equivalent
 # that PUTs an identity and secret into the credential store and creates that identity's home
 # subtree as one act, so a principal never exists with one and not the other for longer than this
@@ -582,6 +591,9 @@ grant_plan = { version = "0.1.0", path = "../crates/grant_plan" }
 # ELF note), provisional): the shell reads it out of a file it is asked to run, and a program
 # carries one with `manifest_note::carry!`.
 manifest_note = { version = "0.1.0", path = "../crates/manifest_note" }
+# The system log service's logic and its wire contracts (milestone 613, provisional names).
+system_log = { version = "0.1.0", path = "../crates/system_log" }
+system_log_protocol = { version = "0.1.0", path = "../crates/system_log_protocol" }
 clock_protocol = { version = "0.1.0", path = "../crates/clock_protocol" }
 environment_protocol = { version = "0.1.0", path = "../crates/environment_protocol" }
 credentialer = { version = "0.1.0", path = "../crates/credentialer" }

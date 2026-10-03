@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-09-27
+built: 2026-10-02
 milestone_dependencies: 126
 decision_dependencies: 242
 machine_requirements: none
@@ -29,6 +30,52 @@ Out of scope: persisting any of this to RedoxFS. That has its own proposal,
 out of scope: the kernel-side ring and its drain syscall. Those are milestone 342 (the kernel and
 the `console` server drive one UART from two address spaces).
 
+## What was built, 2026-10-02 (UTC)
+
+By lane `milestone/613-system-log-service`. Every name below is provisional: `system_log` (the
+crate and the program) and `system_log_protocol` (the wire contracts).
+
+- `crates/system_log_protocol`: the F3 header (32 bytes, then at most 224 of text), syslog's eight
+  levels, the spawner's control words and the reader's window layout.
+- `crates/byte_sink_protocol`: §242's amendment. Bits 39:32 of a bytes message's first word carry
+  the level plus one, so 0 still means "not set". Bits 47:40 carry the body kind, and 0 is text.
+- `crates/system_log`: stamping from the badge, one partial line per writer (eight at once), the
+  in-tree JSONL writer, and the 64 KiB ring with its per-user filter and dropped-count line.
+- `components/src/system_log.rs`: the receive loop. One thread blocks in one `RECV`.
+- The kernel: **a plain `SEND` now carries its capability's badge to `RECV` in `x3`.** §230
+  (badged endpoint capabilities) delivered a badge on `CALL` and `SEND_CAP` only. A byte-sink
+  writer `SEND`s, so the badge §242 stamps from never reached the service. This changes the
+  syscall surface: `RECV`'s `x3` for an ordinary message was always 0 and is now the badge (0
+  when unbadged). It needs a line in §230 from the integrator.
+
+Three choices were made here rather than ruled, and each one is reversible until a second program
+links it:
+
+1. The spawner speaks on the writers' endpoint, as badge 0. Only the minter holds the unbadged
+   capability, so a badge-0 message can only be the spawner registering what a badge means:
+   program, user, inferred severity, reader window. A second endpoint would need a second wait
+   point, and this service has one thread.
+2. Readers read through a shared page and a notification, not a reply. A reader `SEND`s a
+   cursor through its own badge. The service fills that badge's window with whole JSONL lines and
+   `SIGNAL`s the reader. The service never blocks on a reader, which is §242's "dropping rather
+   than letting a writer wait". A `CALL` reply carries two words, and a reader-supplied byte sink
+   would let a stalled reader park the service.
+3. The ring stores rendered JSONL, with the stamped user kept beside each line, so the
+   per-user read never parses JSON.
+
+**Proof.** 20 new host tests across the three crates, plus a doctest: stamping, F3 framing including
+the severity bits, the JSONL conversion against hostile text, interleaved writers, eviction and the
+dropped line. Also one QEMU test,
+`system_log_tests::two_badged_writers_are_attributed_by_the_badge_and_a_per_user_read_filters`.
+It runs two `sink_transcript_writer`s under badges 1 (alice) and 2 (bob), printing identical
+text. The system reader sees two lines stamped `source` 1/alice and 2/bob, and alice's per-user
+read sees one. It passed locally on aarch64, riscv64 and x86_64.
+
+**Not done here, and why.** Nothing starts the service at boot or forwards kernel lines to the
+console yet. Milestone 342 (the kernel and the `console` server drive one UART from two address
+spaces) is the first customer that needs it running, and its kernel ring is what would feed the
+forwarding. `Log::ingest` is that entry point. The service's own `BUGS` sections record the rest.
+
 ## Dependencies
 
 - §242 (a system log), DECIDED 2026-09-27.
@@ -54,6 +101,22 @@ the `console` server drive one UART from two address spaces).
 - A QEMU test with two differently badged writers and one reader. The reader must see both writers'
   lines, correctly attributed to each, on aarch64, riscv64 and x86_64 per §19 (architectural parity
   is a tenet).
+
+## Follow-on
+
+- **Milestone 342.** Starting the service at boot, minting log badges for the progenitor's
+  children, and forwarding kernel lines to the console. Its kernel ring is the thing to forward.
+- **Decision.** `design/decisions/230-badged-endpoints-name-a-callers-frame.md` owes a line: a
+  plain `SEND` now delivers its badge in `RECV`'s `x3`. The integrator mints it, per the shared
+  state rule.
+- **Proposed.** `design/roadmap/proposals/a-system-log-on-redoxfs.md`, persistence.
+- **Recorded.** `crates/system_log/src/lib.rs`: a per-user reader's dropped-count line counts
+  every user's evicted records, `time` is stamped when a line completes, and the ninth concurrent
+  partial line splits the quietest one.
+- **Recorded.** `crates/system_log_protocol/src/lib.rs`: control words carry 32-bit badges, and
+  names are cut at 32 bytes.
+- **Recorded.** `components/src/system_log.rs`: four readers at most, and the one-page stack a
+  kernel spawn gives it has not been measured on the crowded-writer path.
 
 ## Index row
 
