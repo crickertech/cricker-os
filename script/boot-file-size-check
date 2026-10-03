@@ -1,5 +1,5 @@
 #!/bin/sh
-# script/boot-file-size: the release BOOTX64.EFI must stay a small fraction of an install boot slot.
+# script/boot-file-size-check: the release BOOTX64.EFI must stay a small fraction of an install boot slot.
 #
 # **Why this exists.** An install puts one file, `\EFI\BOOT\BOOTX64.EFI`, into the EFI system
 # partition and again into each of two boot slots, and a slot is a fixed 64 MiB
@@ -42,8 +42,17 @@
 # 7,896,064 bytes, against 4,640,256 for x86_64. Their kernels are not stripped (only the x86_64
 # path is, because only it installs), which is most of the difference.
 #
-# Name: unrecorded. Provisional, this lane, 2026-10-03 UTC: it names the file it budgets, in the family
-# of `fastpath-footprint`; the architect has not ratified it.
+# Name: ratified 2026-10-03 UTC (calef, ruling on #1520's provisional name: "pairs nicely with
+# swish-check"). The `-check` suffix is the majority pattern for a pass/fail gate (boot-check,
+# cadence-check, stack-depth-check, swish-check, undefined-behavior-check). Replacing the
+# provisional `boot-file-size`, which named the file it budgets in the family of
+# `fastpath-footprint`. Two things kept the old spelling on purpose: the ratchet file
+# `bench/boot-file-size-x86_64.txt` is named for the measure it records, not for the gate that
+# reads it, and `design/decisions/244` is a closed decision, an account that keeps the name it
+# used (it gains a pointer to this one). The CI job id and the `script/ci-build` row moved,
+# because a job id is navigation and every sibling gate's id is its script's name. The job's
+# display name (`boot file size (...)`), which is what a ruleset would match, did not change;
+# it is not a required check.
 #
 # BUGS
 #   **The budget is on the total, not on each part**, so a kernel that shrinks can hide an archive
@@ -60,7 +69,7 @@ build=1
 for arg in "$@"; do
     case "$arg" in
         --no-build) build="" ;;
-        *) echo "usage: script/boot-file-size [--no-build]" >&2; exit 2 ;;
+        *) echo "usage: script/boot-file-size-check [--no-build]" >&2; exit 2 ;;
     esac
 done
 
@@ -73,12 +82,12 @@ LOADER_SRC=uefi_loader/src/main.rs
 # BOOT_FILE_MAX, from the one place it is defined, written there as `64 * 1024 * 1024`.
 slot_mib=$(sed -n 's/^const BOOT_FILE_MAX: u64 = \([0-9]*\) \* 1024 \* 1024;.*/\1/p' "$LOADER_SRC")
 if [ -z "$slot_mib" ]; then
-    echo "boot-file-size: cannot read BOOT_FILE_MAX from $LOADER_SRC; its spelling changed" >&2
+    echo "boot-file-size-check: cannot read BOOT_FILE_MAX from $LOADER_SRC; its spelling changed" >&2
     exit 1
 fi
 SLOT=$((slot_mib * MIB))
 if [ $((DEFAULT_BUDGET * 4)) -ne "$SLOT" ]; then
-    echo "boot-file-size: the default budget ($DEFAULT_BUDGET) is not a quarter of BOOT_FILE_MAX ($SLOT)." >&2
+    echo "boot-file-size-check: the default budget ($DEFAULT_BUDGET) is not a quarter of BOOT_FILE_MAX ($SLOT)." >&2
     echo "  Change this script's DEFAULT_BUDGET and WARN together with $LOADER_SRC." >&2
     exit 1
 fi
@@ -90,11 +99,11 @@ if [ -f "$BASE" ]; then
     ratchet_why=$(sed -n 's/^why:[[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' "$BASE" | head -n 1)
     if [ -n "$over" ]; then
         if [ -z "$ratchet_why" ]; then
-            echo "boot-file-size: $BASE raises the budget to $over with no 'why:' line; a ratchet carries its reason." >&2
+            echo "boot-file-size-check: $BASE raises the budget to $over with no 'why:' line; a ratchet carries its reason." >&2
             exit 1
         fi
         if [ "$over" -gt "$SLOT" ]; then
-            echo "boot-file-size: $BASE sets a budget of $over, above BOOT_FILE_MAX ($SLOT); the loader would refuse the file." >&2
+            echo "boot-file-size-check: $BASE sets a budget of $over, above BOOT_FILE_MAX ($SLOT); the loader would refuse the file." >&2
             exit 1
         fi
         budget=$over
@@ -110,7 +119,7 @@ kernel=target/x86_64-unknown-none/release/kernel.stripped
 archive=target/initrd-x86_64.img
 for f in "$efi" "$kernel" "$archive"; do
     if [ ! -f "$f" ]; then
-        echo "boot-file-size: $f is missing; run without --no-build" >&2
+        echo "boot-file-size-check: $f is missing; run without --no-build" >&2
         exit 1
     fi
 done
@@ -121,11 +130,11 @@ sysroot=$(rustc --print sysroot)
 host=$(rustc -vV | sed -n 's/^host: //p')
 objdump="$sysroot/lib/rustlib/$host/bin/llvm-objdump"
 if [ ! -x "$objdump" ]; then
-    echo "boot-file-size: no llvm-objdump at $objdump; 'rustup component add llvm-tools'" >&2
+    echo "boot-file-size-check: no llvm-objdump at $objdump; 'rustup component add llvm-tools'" >&2
     exit 1
 fi
 if "$objdump" -h "$kernel" | grep -q '[[:space:]]\.debug_'; then
-    echo "boot-file-size: FAIL: the kernel in this image carries .debug_* sections." >&2
+    echo "boot-file-size-check: FAIL: the kernel in this image carries .debug_* sections." >&2
     echo "  An install image is a release build with a stripped kernel; see script header." >&2
     exit 1
 fi
@@ -136,7 +145,7 @@ k=$(size_of "$kernel")
 a=$(size_of "$archive")
 l=$((total - k - a))
 
-echo "boot-file-size: BOOTX64.EFI (release)"
+echo "boot-file-size-check: BOOTX64.EFI (release)"
 printf '  %-8s %10d bytes  %5d.%02d MiB\n' loader "$l" $((l / MIB)) $((l % MIB * 100 / MIB))
 printf '  %-8s %10d bytes  %5d.%02d MiB\n' kernel "$k" $((k / MIB)) $((k % MIB * 100 / MIB))
 printf '  %-8s %10d bytes  %5d.%02d MiB\n' archive "$a" $((a / MIB)) $((a % MIB * 100 / MIB))
@@ -144,7 +153,7 @@ printf '  %-8s %10d bytes  %5d.%02d MiB\n' total "$total" $((total / MIB)) $((to
 echo "  budget $budget bytes ($((budget / MIB)) MiB, a quarter of the $slot_mib MiB slot unless ratcheted); warn at $((WARN / MIB)) MiB"
 
 if [ "$total" -gt "$budget" ]; then
-    echo "boot-file-size: FAIL: $total bytes is over the $budget byte budget." >&2
+    echo "boot-file-size-check: FAIL: $total bytes is over the $budget byte budget." >&2
     echo "  The breakdown above says which part grew. If the growth is intended, raise it in" >&2
     echo "  $BASE with 'budget_bytes:' and a 'why:' line; it may not exceed BOOT_FILE_MAX." >&2
     exit 1
@@ -154,7 +163,7 @@ if [ "$total" -gt "$WARN" ]; then
     if [ -n "${GITHUB_ACTIONS:-}" ]; then
         echo "::warning title=boot file size::$msg"
     else
-        echo "boot-file-size: WARN: $msg"
+        echo "boot-file-size-check: WARN: $msg"
     fi
 fi
-echo "boot-file-size: PASS"
+echo "boot-file-size-check: PASS"

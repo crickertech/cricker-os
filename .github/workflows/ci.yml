@@ -1140,7 +1140,7 @@ jobs:
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
-  boot-file-size:
+  boot-file-size-check:
     name: boot file size (the release BOOTX64.EFI against its slot budget)
     runs-on: ubuntu-24.04
     needs: gate
@@ -1159,7 +1159,7 @@ jobs:
         run: |
           rustup target add x86_64-unknown-none x86_64-unknown-uefi
           rustup component add llvm-tools
-      - run: script/ci-build boot-file-size
+      - run: script/ci-build boot-file-size-check
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
