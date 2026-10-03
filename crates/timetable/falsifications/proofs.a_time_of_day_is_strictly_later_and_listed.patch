@@ -1,0 +1,19 @@
+Falsifies `timetable::proofs::a_time_of_day_is_strictly_later_and_listed`.
+
+The defect: the mask keeps minutes at or after `after` rather than strictly after it, so a poll at the fire's own minute answers that minute again.
+
+Expected to fail: the harness's `assert!((t as i32) > after)`, where `t == after`.
+
+diff --git a/crates/timetable/src/recurrence.rs b/crates/timetable/src/recurrence.rs
+index e0cdeb116..4ee768a51 100644
+--- a/crates/timetable/src/recurrence.rs
++++ b/crates/timetable/src/recurrence.rs
+@@ -277,7 +277,7 @@ pub fn next_time(hours: u32, minutes: u64, after: i32) -> Option<u16> {
+             } else if floor >= 59 {
+                 0
+             } else {
+-                minutes & !((1u64 << (floor + 1)) - 1)
++                minutes & !((1u64 << floor) - 1)
+             };
+             if usable != 0 {
+                 return Some((h * 60 + usable.trailing_zeros()) as u16);

@@ -1185,6 +1185,7 @@ dependencies = [
 name = "timetable"
 version = "0.1.0"
 dependencies = [
+ "calendar",
  "grant_plan",
 ]
 

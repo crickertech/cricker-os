@@ -144,6 +144,7 @@ pub const fn unbacked_code(u: Unbacked) -> u8 {
         Unbacked::Domain => 3,
         Unbacked::Interrupt => 4,
         Unbacked::Memory => 5,
+        Unbacked::WallClock => 6,
     }
 }
 
