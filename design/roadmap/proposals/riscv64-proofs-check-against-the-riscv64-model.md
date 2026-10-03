@@ -58,7 +58,7 @@ differently, and nothing would say so.
 Linux host. By the same link order its linked model should read `arch` `"arm64"` and `os`
 `"linux"`. aarch64 Linux has unsigned `char` and a 128-bit `long double`, so it should differ
 from riscv64 only in those two names. This is reasoned from the macOS measurement and has not been
-observed on the runner.
+observed on the runner. The gate in section 2 confirms or refutes it on its first CI run.
 
 ## 2. The gate
 
