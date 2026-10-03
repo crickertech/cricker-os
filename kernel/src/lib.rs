@@ -62,6 +62,9 @@ mod iommu;
 mod ipc_stack_depth;
 mod kmem;
 mod machine_statistics;
+// The kernel's ring and where each of its lines goes (milestone 342 (the kernel and the `console`
+// server drive one UART from two address spaces)). See its module doc.
+mod kernel_log;
 mod memory;
 mod panic;
 #[cfg(test)]
@@ -160,6 +163,9 @@ pub mod system_test_access {
     }
     pub mod iommu {
         pub use crate::iommu::*;
+    }
+    pub mod kernel_log {
+        pub use crate::kernel_log::*;
     }
     pub mod memory {
         pub use crate::memory::*;

@@ -44,6 +44,10 @@ fn panic(info: &PanicInfo) -> ! {
     // serial port still shows why it stopped (the shell on the firmware screen). A no-op on every
     // machine whose screen is still the kernel's or that has none.
     crate::console::reclaim_screen_for_panic();
+    // Lines the log service had not yet printed go out now, and nothing is held back after this
+    // (milestone 342 (the kernel and the `console` server drive one UART from two address
+    // spaces), the panic escape of §175 (where the kernel's own output goes).
+    crate::console::enter_panic();
 
     println!();
     println!("[PANIC] {info}");

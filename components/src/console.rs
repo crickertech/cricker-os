@@ -49,8 +49,20 @@
 //! [`MODE_SCREEN`] without the timer and notification slots still gets a working console: the
 //! first refused `ARM` drops it back to one paint per write, the old behavior exactly.
 //!
+//! # Kernel lines (milestone 342 (the kernel and the `console` server drive one UART from two
+//! address spaces))
+//!
+//! The system log service sends the kernel's lines here, sixteen bytes a message, opcode
+//! `system_log_protocol::console::OP_KERNEL_LINE`, never acknowledged. They are written only at
+//! the start of a terminal line, so a kernel line can no longer land inside an echo: mid-line they
+//! wait for this console's own client to end the line, or for the service's `OP_FLUSH`, which puts
+//! them on a line of their own and redraws the partial line beneath them.
+//!
 //! # BUGS
 //!
+//! - **A redraw replays the partial line's bytes, not the line editor's state.** The bytes since
+//!   the last newline are written again, which reproduces what the terminal showed for anything
+//!   the line editor emits today; a partial line longer than 512 bytes is not redrawn at all.
 //! - **The batcher assumes the bind, and the bind cannot be probed from here.** The fallback
 //!   covers a missing or refused timer (`ARM` answers once, negatively, and the batcher turns
 //!   itself off), but a spawner that granted both slots and did not bind the notification to this
@@ -183,18 +195,39 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
         // Block until a client hands us a length, or, when a batch is waiting on the screen,
         // until the window's deadline ends the wait instead (milestone 151 (notification objects)'s
         // bound receive; on a thread with nothing bound it is an ordinary receive, which is the fallback's path).
-        let len = match if screen {
+        let (len, w1, w2) = match if screen {
             recv_bound(REQUEST)
         } else {
-            let (len, _, _) = recv(REQUEST);
-            Received::Message(len, 0, 0)
+            let (len, w1, w2) = recv(REQUEST);
+            Received::Message(len, w1, w2)
         } {
             Received::Notification(_) => {
                 paint_screen(&mut batch);
                 continue;
             }
-            Received::Message(len, _, _) => len,
+            Received::Message(len, w1, w2) => (len, w1, w2),
         };
+
+        // **A kernel line from the log service** (milestone 342 (the kernel and the `console`
+        // server drive one UART from two address spaces)): sixteen bytes in the message, never
+        // acknowledged, because the acknowledgement on `REPLY` belongs to the client waiting for
+        // it. `Inserter` writes the line at the start of a terminal line and holds it otherwise,
+        // which is what keeps it out of the middle of an echo.
+        match system_log_protocol::console::op(len) {
+            system_log_protocol::console::OP_KERNEL_LINE => {
+                let mut bytes = [0u8; 16];
+                bytes[..8].copy_from_slice(&w1.to_le_bytes());
+                bytes[8..].copy_from_slice(&w2.to_le_bytes());
+                let n = ((len & 0xff) as usize).min(16);
+                inserter().kernel_chunk(&bytes[..n], |b| emit(b, screen, &mut batch));
+                continue;
+            }
+            system_log_protocol::console::OP_FLUSH => {
+                inserter().flush(|b| emit(b, screen, &mut batch));
+                continue;
+            }
+            _ => {}
+        }
 
         // **Clamp to the page, because the length is the CLIENT's** (milestone 43,
         // notes/shared-page-audit.md finding 3). This used to be unbounded, with a comment calling
@@ -208,18 +241,32 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
         // Copy that many bytes from the shared page to the UART, one at a time, exactly as the
         // kernel's PL011 driver used to. The difference is only where this code runs.
         let shared = SHARED_VA as *const u8;
-        for i in 0..len {
-            // SAFETY: the shared page is mapped read-only in our address space and `len` is
-            // clamped to it above, so every offset is inside the one frame the wiring mapped.
-            let byte = unsafe { core::ptr::read_volatile(shared.add(i as usize)) };
-            uart_put(byte);
-        }
+        // SAFETY: the shared page is mapped read-only in our address space and `len` is clamped
+        // to it above; the client is blocked on our acknowledgement, so it is not rewriting it.
+        let written = unsafe { core::slice::from_raw_parts(shared, len as usize) };
 
-        // Then the screen, the same bytes, so the two surfaces never disagree about what was said:
-        // staged now, painted when the window closes (`take_screen` paints at once if the batcher
-        // is off or the page fills).
-        if screen && len > 0 {
-            take_screen(shared, len, &mut batch);
+        // **Two halves, split after the last newline** (milestone 342): the kernel lines waiting
+        // for a line end go out at that newline, before whatever follows it on the next line (a
+        // prompt, usually), rather than after the prompt with a redraw.
+        let cut = written
+            .iter()
+            .rposition(|&b| b == b'\n')
+            .map_or(0, |i| i + 1);
+        for part in [&written[..cut], &written[cut..]] {
+            // Copy to the UART one byte at a time, exactly as the kernel's PL011 driver used to.
+            // The difference is only where this code runs.
+            for &byte in part {
+                uart_put(byte);
+            }
+            // Then the screen, the same bytes, so the two surfaces never disagree about what was
+            // said: staged now, painted when the window closes (`take_screen` paints at once if
+            // the batcher is off or the page fills).
+            if screen && !part.is_empty() {
+                take_screen(part.as_ptr(), part.len() as u64, &mut batch);
+            }
+            // Track the terminal's partial line, and write the kernel lines that were waiting if
+            // this part ended one.
+            inserter().wrote(part, |b| emit(b, screen, &mut batch));
         }
 
         // Acknowledge with the count actually printed, not the count asked for: a client that
@@ -227,6 +274,33 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
         // whole request was honoured. The ack means the wire has them; the screen has them within
         // one window (the module doc records the change from the old both-surfaces meaning).
         send(REPLY, len, 0, 0);
+    }
+}
+
+/// The kernel-line state, in `.bss`: three buffers that are too large for this program's stack.
+static mut INSERTER: system_log_protocol::console::Inserter =
+    system_log_protocol::console::Inserter::new();
+
+/// The one reference to [`INSERTER`].
+fn inserter() -> &'static mut system_log_protocol::console::Inserter {
+    // SAFETY: this program has one thread, and each caller uses the reference for one call and
+    // drops it before the next.
+    unsafe { &mut *core::ptr::addr_of_mut!(INSERTER) }
+}
+
+/// Write bytes that are not a client's (a kernel line, or a redrawn partial line) to the UART and,
+/// in [`MODE_SCREEN`], the screen.
+fn emit(bytes: &[u8], screen: bool, batch: &mut ScreenBatch) {
+    for &b in bytes {
+        uart_put(b);
+    }
+    if screen && !bytes.is_empty() {
+        let mut at = 0;
+        while at < bytes.len() {
+            let n = (bytes.len() - at).min(PAGE as usize);
+            take_screen(bytes[at..].as_ptr(), n as u64, batch);
+            at += n;
+        }
     }
 }
 

@@ -122,6 +122,10 @@ coremark = { version = "0.1.0", path = "../crates/coremark", optional = true }
 # with. Only `bench` uses it; the system tests have their own copy of the dependency (milestone 609
 # (the system tests leave the kernel crate)).
 byte_sink_protocol = { version = "0.1.0", path = "../crates/byte_sink_protocol", optional = true }
+# The kernel's ring layout and the F3 record (milestone 342 (the kernel and the `console` server
+# drive one UART from two address spaces)): the kernel writes what the log service reads, so both
+# link one definition. no_std, no dependencies.
+system_log_protocol = { version = "0.1.0", path = "../crates/system_log_protocol" }
 nifefs = { version = "0.1.0", path = "../crates/nifefs" }
 direct_memory_access_validator = { version = "0.1.0", path = "../crates/direct_memory_access_validator" }
 filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol" }
@@ -312,6 +316,13 @@ wedge_soak_test = ["watchdog_soak_test"]
 # milestone 19d.2c's `initboot`, a second feature naming the same six cfg sites; milestone 296
 # deleted it, because a build of each produced the same 3,109 symbols at the same total size.
 shell = []
+# Milestone 342's proofs (names provisional). `console_flood`: once a drainer attaches, the kernel
+# prints a line every ten ticks, for `script/swish-check --flood`. `kernel_log_detached`: the kernel
+# never treats its drainer as keeping up, the negative control (every line direct, as before 342).
+# `kernel_log_panic_probe`: the flood panics on its thirtieth line, for `--panic-probe`.
+console_flood = []
+kernel_log_detached = []
+kernel_log_panic_probe = ["console_flood"]
 # **The boot self-test's fault injector** (milestone 268). `exceptions` reports failure, and the
 # counter the `timer` and `scheduler` checks read stops, so the verdict line goes red on a kernel
 # that is otherwise fine. The second fault is the one that used to hang the boot in `timer`; with

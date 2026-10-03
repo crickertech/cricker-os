@@ -91,6 +91,27 @@ signature hit the riscv64 reboot leg on 2026-09-28 (run 36362665042, "never echo
 `packages/greeting/0.1.0/greeting`" beside an uptime line). The gate's own constant doc already
 records this class (:1206-1215) and names the remedy: rerun the leg before reading the transcript.
 
+**The echo splice's base rate, measured 2026-10-03 (UTC) by lane 629.** 3 of 29 merge-group
+swish-check jobs that day failed with the aarch64 gauge-versus-echo splice, about one in ten. Every
+one landed on the echo of `package install downloads/uptime.nifepkg`, right after the tampered
+install: runs 37086229708, 37093381682 and 37095806100. That line is where the progenitor stack
+reaches a new peak (the gauge prints `after "package install downloads/uptime.nifepkg"` on every
+aarch64 leg), so the gauge and the next echo meet there on every run and splice when the timing
+lines up.
+
+**Fixed by milestone 342 (the kernel and the `console` server drive one UART from two address
+spaces), 2026-10-03.** The kernel no longer writes the UART once the log service has attached: its
+lines go through the service to the console, which writes them only at the start of a terminal
+line. The proof is `script/swish-check --flood`, which makes the kernel print a line every
+100 ms over the whole session. With the service attached, every flood line arrived whole and the
+gate stayed green: 254 lines on aarch64, 263 on riscv64 and 180 on x86_64 (one a second there), none
+spliced. The detached control
+(`--flood-detached`, the kernel printing for itself as before 342) spliced 83 of 466 on aarch64
+and 11 of 323 on riscv64, and failed the gate both times. The aarch64 run failed at
+`uuid 2> ent.txt`, and the riscv64 run on this note's own signature (*the prompt never echoed
+`caps wc doc/kernel/ipc-naming.md`*). The two signatures below this one are not this
+fix's.
+
 **The progenitor OOM (signature of #1444).** The shell prints the sentence when the progenitor
 answers with the `SPAWN_FAILED` sentinel (components/src/swish.rs:3053; the sentinel is
 `u64::MAX`, crates/grant_plan/src/spawnproto.rs:633). A `std` program needs one contiguous
