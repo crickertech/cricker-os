@@ -2800,6 +2800,11 @@ echo "==> the merge queue's admission predicate"
 "$(dirname "$0")/../helpers/blocked-by-selftest.sh"
 "$(dirname "$0")/../helpers/blocked-by-resolution-selftest.sh"
 
+#     The empty-diff check (milestone 627 (a pull request that changes nothing does not merge), provisional number; helpers/empty-diff-check.sh): a merge
+#     whose tree equals its first parent's. Fixtures in throwaway repositories, the failing cases
+#     first-class, because a gate's green looks the same as a gate that cannot fire.
+"$(dirname "$0")/../helpers/empty-diff-selftest.sh"
+
 # 12. The CI-poll refusal hook (helpers/hooks/refuse-ci-polling, wired as a PreToolUse hook on Bash
 #     in .claude/settings.json). calef's 2026-09-26 ruling is that a lane never polls CI; this
 #     self-test is fixtures only, no stdin and no tree, so it costs nothing to run on every lint.
