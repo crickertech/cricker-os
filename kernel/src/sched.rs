@@ -2066,7 +2066,11 @@ pub fn on_tick() {
 fn count_tick() {
     let here = cpu::current();
     let idle = current_thread_id() == here.idle.load(Ordering::Relaxed);
-    crate::machine_statistics::tick(idle, here.runnable() as u64 + u64::from(!idle));
+    crate::machine_statistics::tick(
+        here.switches.load(Ordering::Relaxed),
+        idle,
+        here.runnable() as u64 + u64::from(!idle),
+    );
 }
 
 pub fn take_need_resched() -> bool {
@@ -2277,9 +2281,13 @@ pub fn schedule() {
         // deferred wake) otherwise. Not here, and not by another core: we are still running on
         // its stack this instant. `current` is the local (the outgoing tid); `set_current_thread_id`
         // above already moved the per-CPU current to `next`. See finish_switch.
-        cpu::current()
-            .switched_from
-            .store(current, Ordering::Relaxed);
+        //
+        // **And count the switch, through the same block** (milestone 629 (the context-switch statistic stops costing the switch path)): `vmstat`'s `cs` is this
+        // word, copied to the machine statistics page by the tick, so the switch pays one add on a
+        // block it is already writing rather than a walk to the page. See `PerCpu::switches`.
+        let here = cpu::current();
+        here.switched_from.store(current, Ordering::Relaxed);
+        here.switches.fetch_add(1, Ordering::Relaxed);
 
         // The incoming thread's low half. A kernel thread gets the empty reserved table, which
         // makes every low address fault, which is exactly right: it has no business down there.
@@ -2409,10 +2417,6 @@ pub fn schedule() {
         // below. See `arch::timer::set_cycle_counter_grant` and `install_cycle_counter_grant`.
         #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
         install_cycle_counter_grant(next_cycle_counter);
-
-        // Counted before the switch, for `vmstat`'s `cs` column (milestone 126): one load and one
-        // add on this core's own cache line of the machine statistics page.
-        crate::machine_statistics::context_switch();
 
         // And the register file the two threads are about to share a core over (milestone 447).
         // This is beside `switch_to` rather than inside it because the two save different

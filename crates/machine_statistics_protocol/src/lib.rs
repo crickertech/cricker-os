@@ -17,9 +17,12 @@
 //!
 //! # The kernel writes the counters in place
 //!
-//! There is no copy step and no refresh. Each word is an `AtomicU64` the kernel updates where the
-//! event happens: a context switch bumps its core's switch count, a tick bumps its core's busy or
-//! idle count and samples its run queue, the frame allocator stores the free count after each change.
+//! There is no refresh to schedule. Each word is an `AtomicU64` the kernel updates where the event
+//! happens: a tick bumps its core's busy or idle count and samples its run queue, the frame
+//! allocator stores the free count after each change. The one copy is the switch count: the
+//! context switch counts into its own core's private block, and that core's tick stores the total
+//! here, so the word is exact as of the core's last tick (milestone 629 (the context-switch
+//! statistic stops costing the switch path) moved it off the switch's walk to this page).
 //! Every per-core word has exactly one writer, the core it describes, and each core's words sit in
 //! their own 64-byte line, so no two cores ever write the same cache line.
 //!
@@ -61,6 +64,7 @@
 //! - `busy` is not split into user and system time. The tick knows which thread was running, not
 //!   which privilege level it interrupted, and carrying that through three architectures' trap
 //!   paths to one counter was not worth a `vmstat` column. So `vmstat` prints `us` and `sy` as one.
+//! - The context-switch count is exact but up to one tick old, because the tick publishes it.
 //! - The run queue is sampled once per tick per core, so it is up to one tick stale, and a core
 //!   that has stopped ticking (a parked core) keeps its last sample.
 //! - There is no swap counter, because nife refuses paging out for now (pull request #1356). There
