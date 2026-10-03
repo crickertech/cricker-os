@@ -37,3 +37,21 @@ The 10 equivalents:
   nothing to compare, so the extra pass does no work.
 - `keep_smallest`'s `>` as `>=` (1): it differs only for two equal names, and a directory lists a
   name once.
+
+## paging
+
+45 missed: 2 killed, 43 equivalent. The sweep afterwards reports 43 missed.
+
+- Killed (2): `Ia32e::leaf_flags`'s `entry & SW_KERNEL_EXEC != 0`, read as an OR or an XOR, would make
+  every supervisor leaf executable. A leaf without the software bit is now checked to be data or
+  read-only data, and the same leaf with it to be code.
+- Equivalent, `|` as `^` (37): every page-table entry is built by OR-ing an address (masked to its
+  own bit range) with flag bits that each sit in a position of their own. This covers the aarch64,
+  Sv39, `Ia32e` and VT-d entries and the capability-flag constructors, and no pair shares a bit.
+- Equivalent, a shift of zero (6): `1 << 0` as `1 >> 0` and `0b00 << 6` as `0b00 >> 6` are the same
+  number.
+
+The OR group is the largest single block of equivalents in the census. Each would stop being
+equivalent if the flag words were built from a type that refused overlap, which `Flags` is not
+(it holds a raw capability word). Nothing in this tree needs that, so it is a note and not a
+proposal.
