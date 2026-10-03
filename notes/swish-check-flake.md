@@ -104,6 +104,15 @@ and its BUGS note a mode where a parked fault-report SEND wedges the collecting 
 (helpers/qemu-runner-aarch64.sh:537, helpers/qemu-runner-riscv64.sh:273), and the constraint is the
 progenitor's own bounded pool. Whether the 2026-09-29 instance was the yield budget or
 fragmentation of the pool is not determined; the in-tree precedent says yield budget.
+Corrected 2026-10-03 UTC: it was the pool. A region returned out of order stayed a hole for the
+rest of the boot, and the pool (672 pages) is never destroyed. Both pipelines strand a region, since
+a producer ends first, so `free` read 576 KiB used where it alone holds 192, on every leg of every
+run. A job carved before the reaper reached its predecessor stranded one more, and on CI's riscv64
+runner that added up until `std_exerciser`'s 384 pages no longer fit (runs 37094606658 and
+37110045386). A temporary kernel trace of the pool's holes showed the two pipeline holes on every
+local run. Holding the reaper back on one job in three reproduced the CI failure on the old kernel
+and passed on the fixed one, with `free` back at 192. The fix is in `RegionTable::return_to_parent`,
+and swish-check now fails a run whose `free` reads above two regions.
 
 ## Local reproduction: zero
 
