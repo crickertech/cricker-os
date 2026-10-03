@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn a_request_word_carries_an_operation_and_a_sequence_that_come_back_out() {
         let w = request(7, 0x1234);
-        assert_eq!(w, 0x1234_07);
+        assert_eq!(w, 0x0012_3407);
         assert_eq!(operation(w), 7);
         assert_eq!(sequence(w), 0x1234);
         // Only the low byte is the operation, and a wider one does not leak into the sequence.

@@ -1150,7 +1150,7 @@ mod tests {
     /// run against an answer.
     #[test]
     fn an_interval_counts_from_its_start_in_the_unit_it_names() {
-        let at = |line: &str, after: &str| next(&rule(line), minute(after)).map(|m| m);
+        let at = |line: &str, after: &str| next(&rule(line), minute(after));
         // A start whose day number is not a multiple of the interval, so a phase counted from the
         // epoch instead of from `starting` would disagree.
         let daily = "every 3 days starting 2026-10-02 at 04:00";
