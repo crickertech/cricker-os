@@ -255,6 +255,15 @@ fn bench_riscv(check: bool, save: bool, features: &str) -> bool {
     // wall clock. This is what makes the riscv counts deterministic and comparable to aarch64's.
     cmd.args(["-icount", "shift=0,sleep=off"]);
     cmd.env("NIFE_INITRD", riscv_initrd_path());
+    // No disk, as this function's doc says, and that has to be said to the runner rather than
+    // assumed: `host::cargo` exports `NIFE_DISK` for every child, and the riscv64 runner treats a set
+    // `NIFE_DISK` naming a missing file as fatal. Inherited, it made `--riscv` fail on any checkout
+    // where no aarch64 leg had run `mkdisk` first, and everywhere else it attached five disks this
+    // boot never reads. Removing it moves rows by at most 0.05% (measured 2026-10-02 at main
+    // 40ac2d5f0: `yield_switch` +96 ticks, the one-quantum step that
+    // notes/benchmarks/drift-since-the-2026-09-26-floors.md shows between unrelated commits).
+    // `boot_check.rs` removes it for the same reason.
+    cmd.env_remove("NIFE_DISK");
     // One hart: a primitive benchmark measures per-core cost. With more harts, a thread that waits
     // for a spawned child leaves its hart idling in `wfi`, and under `-icount` a `wfi` jumps virtual
     // time to the next timer tick, inflating the spawn primitives to timer-quantized nonsense. The
