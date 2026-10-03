@@ -1528,6 +1528,162 @@ mod tests {
         let d = dependents("backend", &live).unwrap();
         assert_eq!(d.quiesce_order(), &[20, 10]);
     }
+
+    /// A dependent is found whichever position in its `depends_on` names the target, and a
+    /// registry that fills `MAX_LIVE` exactly is answered, not refused. Two bounds in one fixture:
+    /// the scan's step past a non-matching entry, and the live-count comparison's edge.
+    #[test]
+    fn a_target_named_second_is_found_and_a_full_registry_is_answered() {
+        const LATE: Requirements = Requirements {
+            contract: "late",
+            caps: &[],
+            maps: &[],
+            pages: 32,
+            depends_on: &["unrelated", "backend"],
+            handoff: None,
+        };
+        let live = [LiveInstance { id: 7, reqs: &LATE }; MAX_LIVE];
+        let d = dependents("backend", &live).unwrap();
+        assert_eq!(d.quiesce_order(), &[7; MAX_LIVE]);
+    }
+
+    /// Exactly `MAX_CAPS` capabilities and exactly `MAX_MAPS` pages is a full plan, and one more of
+    /// either is refused. The refusal tests above sit one past each bound; these sit on it.
+    #[test]
+    fn a_plan_exactly_at_each_bound_is_built_and_one_over_is_refused() {
+        const fn cap(role: &'static str) -> CapNeed {
+            CapNeed {
+                role,
+                direction: Direction::Use,
+            }
+        }
+        const NINE: [CapNeed; MAX_CAPS + 1] = [
+            cap("c0"),
+            cap("c1"),
+            cap("c2"),
+            cap("c3"),
+            cap("c4"),
+            cap("c5"),
+            cap("c6"),
+            cap("c7"),
+            cap("c8"),
+        ];
+        const FULL_CAPS: Requirements = Requirements {
+            contract: "wide",
+            caps: &[
+                NINE[0], NINE[1], NINE[2], NINE[3], NINE[4], NINE[5], NINE[6], NINE[7],
+            ],
+            maps: &[],
+            pages: 32,
+            depends_on: &[],
+            handoff: None,
+        };
+        const OVER_CAPS: Requirements = Requirements {
+            caps: &NINE,
+            ..FULL_CAPS
+        };
+        let held = Provisions {
+            held: &[
+                ("c0", 0),
+                ("c1", 1),
+                ("c2", 2),
+                ("c3", 3),
+                ("c4", 4),
+                ("c5", 5),
+                ("c6", 6),
+                ("c7", 7),
+                ("c8", 8),
+            ],
+        };
+        assert_eq!(plan(&FULL_CAPS, &held).unwrap().caps().len(), MAX_CAPS);
+        assert_eq!(
+            plan(&OVER_CAPS, &held),
+            Err(Refusal::TooManyCaps {
+                asked: MAX_CAPS + 1
+            })
+        );
+
+        const FOUR_PAGES: Requirements = Requirements {
+            contract: "paged",
+            caps: &[],
+            maps: &[
+                MapNeed {
+                    role: "a",
+                    va: 0x1000,
+                    kind: PageKind::Shared,
+                },
+                MapNeed {
+                    role: "b",
+                    va: 0x2000,
+                    kind: PageKind::Shared,
+                },
+                MapNeed {
+                    role: "c",
+                    va: 0x3000,
+                    kind: PageKind::Shared,
+                },
+                MapNeed {
+                    role: "d",
+                    va: 0x4000,
+                    kind: PageKind::Shared,
+                },
+            ],
+            pages: 32,
+            depends_on: &[],
+            handoff: None,
+        };
+        let pages = Provisions {
+            held: &[("a", 1), ("b", 2), ("c", 3), ("d", 4)],
+        };
+        assert_eq!(plan(&FOUR_PAGES, &pages).unwrap().maps().len(), MAX_MAPS);
+    }
+
+    /// A capability role that spells the handoff's reserved word is a duplicate of the handoff page,
+    /// the same as a mapping that does (`a_handoff_page_is_held_to_the_mapping_rules`), and it is
+    /// found whichever capability position carries it.
+    #[test]
+    fn a_capability_named_for_the_handoff_page_is_a_duplicate() {
+        const CAP_TWICE: Requirements = Requirements {
+            caps: &[
+                SERVICE,
+                CapNeed {
+                    role: HANDOFF_ROLE,
+                    direction: Direction::Use,
+                },
+            ],
+            ..STATEFUL
+        };
+        assert_eq!(
+            CAP_TWICE.problem(),
+            Some(Refusal::DuplicateRole { role: HANDOFF_ROLE })
+        );
+    }
+
+    /// A role nobody declared is a compile-time or run-time panic that says so, not an index error.
+    #[test]
+    #[should_panic(expected = "declares no capability by that role name")]
+    fn asking_for_a_slot_nobody_declared_names_the_mistake() {
+        let _ = slot_of(&CONSOLE, "control");
+    }
+
+    /// Each refusal explains itself differently, so a person reading one learns which it was.
+    #[test]
+    fn no_two_refusals_say_the_same_thing() {
+        let all = [
+            Refusal::Unprovided { role: "x" },
+            Refusal::DuplicateRole { role: "x" },
+            Refusal::OverlappingVa { va: 0 },
+            Refusal::TooManyCaps { asked: 0 },
+            Refusal::TooManyMaps { asked: 0 },
+            Refusal::NoPages,
+            Refusal::EmptyHandoff,
+        ];
+        for (i, a) in all.iter().enumerate() {
+            for b in &all[i + 1..] {
+                assert_ne!(a.message(), b.message());
+            }
+        }
+    }
 }
 
 /// Machine-checked properties of the wiring. The host tests above pin the cases a reader cares

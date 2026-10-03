@@ -1,7 +1,7 @@
 # A correction of error: the follow-through that lived in memory
 
 *Recorded 2026-09-30 (UTC), by the maintainer session, after calef asked for a correction of error
-by name. The error is the session's, the mechanism below is the fix, and both are written here so
+by name. The error is the session's, the action items below are the fix, and both are written here so
 the next session inherits them rather than rediscovering them.*
 
 ## What happened
@@ -47,26 +47,25 @@ Contributing factors, none of them excusing the classification: about fifteen la
 one evening, and a transient API failure at spawn. The ladder exists for exactly the condition
 where nobody is watching.
 
-## The mechanism
+## Action items
 
-1. A PENDING file at dispatch time (rung 2). Every dispatch writes a file beside its log, named
-   for the lane, holding the exact commands the session will run when the lane reports: gates,
-   push, ready, auto-merge. Executing them flips it to DONE. The file is the contract; the log is
-   not.
-2. Liveness at sixty seconds (rung 2). Tail the log one minute after dispatch. A connection error
-   or a permission rejection means the lane never started. Redispatch, and record the death in the
-   PENDING file so the count is honest.
-3. Setup ends in dispatch (rung 3). Creating a worktree, claim and draft pull request is one act
-   that finishes with the dispatch itself. A claim commit with no lane and no DONE marker is a
-   stalled claim, and a survey raises it by name rather than passing it.
-4. Armed watchers stay preferred for pull-request state changes, on the #1446 evidence.
-5. Queue ejections self-heal (rung 2, commissioned 2026-09-30, not yet built): the drain re-arms
-   auto-merge on any pull request that is green, CLEAN and auto-less, and says it did. Until it
-   exists, every ejection is a human eye or nothing.
+- **Done.** A PENDING file at dispatch time (rung 2). Every dispatch writes a file beside its log,
+  named for the lane, holding the exact commands the session will run when the lane reports:
+  gates, push, ready, auto-merge. Executing them flips it to DONE. The file is the contract; the
+  log is not. Carried by `briefs/gate-a-lane.md`, "The follow-through contract".
+- **Done.** Liveness at sixty seconds (rung 2). Tail the log one minute after dispatch. A
+  connection error or a permission rejection means the lane never started. Redispatch, and record
+  the death in the PENDING file so the count is honest. Carried by `briefs/gate-a-lane.md`.
+- **Done.** Setup ends in dispatch (rung 3). Creating a worktree, claim and draft pull request is
+  one act that finishes with the dispatch itself. A claim commit with no lane and no DONE marker
+  is a stalled claim, and a survey raises it by name. Carried by `briefs/survey-the-queue.md`.
+- **Done.** Armed watchers stay preferred for pull-request state changes, on the #1446 evidence.
+  Carried by `briefs/survey-the-queue.md`.
+- **Milestone 630.** Queue ejections self-heal (rung 2, commissioned 2026-09-30): the drain
+  re-arms auto-merge on any pull request that is green, CLEAN and auto-less, and says it did.
 
-The rules live in [briefs/gate-a-lane.md](../../briefs/gate-a-lane.md) and
-[briefs/survey-the-queue.md](../../briefs/survey-the-queue.md), in tree, so the next session reads
-them rather than remembering them. The marker files are per session; the contract is not.
+The rules live in the briefs, in tree, so the next session reads them rather than remembering
+them. The marker files are per session; the contract is not.
 
 ## EXAMPLES
 
@@ -81,7 +80,7 @@ claims, and a tail of every lane log. It ran because a human asked, not because 
 - Nothing yet fails a session that answers a board question while a PENDING file sits unexecuted.
   The briefs say so; a gate that reads the scratch directory would be the next rung if this fails
   again.
-- The re-arm half of mechanism 5 is owed. Until the drain learns it, the sixth class of ending
+- The re-arm half of action item 5 is owed. Until the drain learns it, the sixth class of ending
   still needs the human eye this record exists to retire.
 
   Answered 2026-10-03 (UTC) by milestone 630 (a merge-queue ejection is caught before the queue,
