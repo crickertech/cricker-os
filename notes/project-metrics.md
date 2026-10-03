@@ -50,6 +50,13 @@ on 2026-08-31 UTC.
 
 Grey is no verdict yet.
 
+## Action items the corrections of error still owe
+
+![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
+
+Each bullet under a correction's `## Action items` (notes/coes/), open while the milestone, proposal
+or decision it names is not done. The direction is down; `script/roadmap --coe-actions` lists them.
+
 ## Kani proof harnesses, and what can falsify them
 
 ![Kani proof harnesses](project-metrics/harnesses.svg)

@@ -173,6 +173,7 @@ from datetime import date, datetime, timedelta, timezone
 sys.dont_write_bytecode = True
 sys.path.insert(0, 'helpers')
 import baseline_drift                                                       # noqa: E402
+import coe_actions                                                          # noqa: E402
 import interface_stability                                                  # noqa: E402
 import name_provenance                                                      # noqa: E402
 import packages as package_boundaries                                       # noqa: E402
@@ -356,6 +357,11 @@ MEASURES = [
     # charts disagree about how many risks a week had. File and column names provisional (that
     # lane's).
     ('fatal-risks-colors', ['fatal_risks_green', 'fatal_risks_amber', 'fatal_risks_red']),
+    # Corrections of error and the action items they still owe (calef, reviewing #1513 on
+    # 2026-10-03: "track open COE action items in the metrics so that we can drive the count
+    # down"). A stock read from each week's tree by `coe_action_counts` below. File and column
+    # names provisional (that lane's).
+    ('coe-actions', ['coe_actions_open', 'coe_actions_closed']),
     ('coverage', ['coverage_lines_pct', 'coverage_min_file_pct']),
     ('prose-budget', ['prose_excess_words', 'prose_documents_over_cap']),
     # Temporary, and it says so where it is drawn: see `bold_backlog` and BOLD_RETIRE below. The
@@ -1133,6 +1139,28 @@ def proposals(tree):
     return {'proposals_unnumbered': count}
 
 
+def coe_action_counts(tree):
+    """Open and closed action items across every correction of error in one tree.
+
+    The parse and the open-or-closed rule are `helpers/coe_actions.py`'s, the same function
+    `script/roadmap --check` gates with, so the chart and the gate cannot disagree about what an
+    item is. A STOCK, read from each week's own tree: an item closes in the week its milestone turns
+    BUILT or its decision is decided, which is the week a reader should see the bar shrink.
+
+    A week with no correction under `notes/coes/` has no row rather than a zero, because the
+    directory did not exist (2026-09-30). An item that does not resolve counts as neither, since the
+    gate refuses it and it cannot have reached `main`.
+    """
+    texts = {p: t for p, t in tree.markdown()
+             if coe_actions.is_record(p) or p.startswith(('design/roadmap/', 'design/decisions/'))}
+    if not any(coe_actions.is_record(p) for p in texts):
+        return {}
+    paths = set(tree.paths)
+    counts, _problems = coe_actions.evaluate(texts, paths.__contains__)
+    return {'coe_actions_open': sum(o for o, _c in counts.values()),
+            'coe_actions_closed': sum(c for _o, c in counts.values())}
+
+
 def lines(tree):
     """Code and comment lines, `kernel/src` split from everything else.
 
@@ -1657,7 +1685,8 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
     row['names_total'] = named
     for part in (proposals(tree), lines(tree), bugs(tree), harnesses(tree),
                  unsafe_census(tree), unsafe_trust_census(tree), fatal_risks(tree),
-                 fatal_risks_colors(tree), prose_budget(tree), bold_backlog(tree), homes(tree)):
+                 fatal_risks_colors(tree), coe_action_counts(tree), prose_budget(tree),
+                 bold_backlog(tree), homes(tree)):
         row.update(part)
     row.update(baseline_drift.series_cells(rev))
     return row
@@ -2195,6 +2224,12 @@ CHARTS = [
      [('green', 'fatal_risks_green'), ('amber', 'fatal_risks_amber'),
       ('red', 'fatal_risks_red'), ('no verdict', 'fatal_risks_colors_unclassified')],
      1.0, None, None, RISK_COLOUR_HUES),
+    # Open first, so the band the page asks a reader to drive down sits on the axis.
+    ('coe-actions.svg', 'Action items the corrections of error still owe',
+     'notes/coes/, resolved by helpers/coe_actions.py: open while the milestone, proposal or '
+     'decision an item names is not done; the direction is down',
+     [('open', 'coe_actions_open'), ('closed', 'coe_actions_closed')], 1.0, None,
+     'coe_actions_open'),
     ('velocity.svg', 'Milestones built each week',
      'a flow, not a stock: what the index says turned BUILT in those seven days',
      [('built that week', 'milestones_built_this_week')], 1.0, None, None),
