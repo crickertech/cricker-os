@@ -116,7 +116,7 @@ its next pass anyway.
 ## How it was rehearsed, since the live queue was not available
 
 The script was written while seven pull requests were genuinely held for a red trunk, so testing the
-mutating path against `crickertech/nife` was out: `hold` would have labelled other lanes' work and
+mutating path against `nifeos/nife` was out: `hold` would have labelled other lanes' work and
 cancelled live group builds. Two things made it testable anyway.
 
 - `--dry-run` against the real repository, which is read-only and proved the selection: it named

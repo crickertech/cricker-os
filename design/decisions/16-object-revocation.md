@@ -7,7 +7,13 @@ ratified_by: calef
 
 # 16. Object revocation: reclaim the objects a process built (extends §13)
 
-(two amendment blocks below, from milestones 31 and 22.)
+(three amendment blocks below: milestones 31 and 22, and the job pool's holes on 2026-10-03.)
+
+<!-- writing-standards: exception. Marked 2026-10-03 (UTC) by the maintainer session. Reason: this change
+adds a dated amendment that carries no bold of its own, and touches two existing lines only to point
+at it. Bringing a 1,800-word section to 4 bold spans per 1,000 words is a rewrite for the section's
+owner, not something to hide inside an at-merge record (the measured class is recorded in
+design/roadmap/586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
 
 §13 revoked **frames**. This extends the same idea to **kernel objects** (TCBs, address spaces,
 endpoints), so a process can be torn back down and its memory returned, the reclamation a
@@ -41,7 +47,8 @@ never take `SCHED` (it is reachable from `AddressSpace::Drop` under the reaper's
   top of the parent's watermark gives its pages back to the parent's budget (un-bump), which is exactly
   what a spawn-then-reap loop does, so a split parent is *not* committed for its lifetime; a child freed
   out of order leaves a hole until the parent itself is destroyed. This is the LIFO half of seL4's
-  return-to-parent without the derivation tree that would handle the general case.
+  return-to-parent without the derivation tree that would handle the general case. (Amended
+  2026-10-03: a hole is now reclaimed once nothing above it is held. See the last amendment.)
 - **`DESTROY`** reclaims a region and every object retyped from it. Refuses (NotPermitted) while a live
   thread occupies it, an endpoint in it has a blocked waiter, or it has been split.
 
@@ -129,3 +136,34 @@ definition it is listening on), not the forcible tier's. A single kernel test bu
 EL0 runaway and reclaims its region out from under it, on both ISAs (`user.rs`,
 `destroy_force_kills_a_runaway_and_reclaims_its_region`). See `kernel/src/sched.rs` (`schedule`,
 `reap_region_objects`) and `Thread::killed`.
+
+## Amendment (2026-10-03): an out-of-order hole is reclaimed once nothing above it is held
+
+Recorded at merge by the maintainer from [#1517](https://github.com/nifeos/nife/pull/1517)
+(reclaim a region's out-of-order holes: the riscv64 progenitor out-of-memory), which changed the
+semantics and asked for this record.
+
+The original text said a child freed out of order leaves a hole until the parent itself is
+destroyed. That leaked. The progenitor's job pool is a split parent that is never destroyed, and
+every pipeline ends its producer first, so each `wc gate.txt | wc` stranded a region; on CI's
+slower riscv64 runner the strays accumulated until `std_exerciser`'s 384-page region no longer fit
+(`notes/swish-check-flake.md` has the trace and the reproduction).
+
+Now, when a child returns to its parent, the parent's watermark drops past the LIFO un-bump to
+the highest page anything still holds: a live child's end, or the parent's own retypes. So a hole
+lasts only until nothing above it is held. The rule is `memory_regions::coalesced_watermark`, with a
+Kani proof and a falsification patch.
+
+Only when no sibling is tearing down. A sibling that has been claimed but not yet returned has
+left the region table while its pages are still being revoked, and lowering the watermark under it
+would let the parent carve pages a peer may still map, the use-after-free §13 (capability
+revocation and untyped reclamation) exists to prevent.
+The parent's child count drops at the return rather than at the claim, so a count above the live
+children the scan finds means one is in flight, and then only the LIFO un-bump happens. The hole is
+not lost: the next return with nothing in flight reclaims it.
+
+No ABI change: no new method, number or refusal; `SPLIT` and `DESTROY` mean what they meant, and
+a program only gets pages back sooner. What stays: a hole *under* a child that stays live is still
+not reused, because a carve only bumps, and a phantom child left by a split refused for a full
+table stops the reclaim for that parent for good. Both limits are recorded in the `BUGS` at
+`RegionTable::return_to_parent` (`crates/memory_regions/src/table.rs`).

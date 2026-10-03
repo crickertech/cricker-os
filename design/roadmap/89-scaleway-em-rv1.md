@@ -145,7 +145,7 @@ one. Hour one measures how long an install takes and reads the billing page to s
 - **Outstanding.** Steps 2 to 7 of "Before renting", then the rented steps. Checked 2026-09-25
   with `grep -n 'const UART_BASE' kernel/src/arch/riscv64/mmu.rs`, which still reads
   `0x1000_0000`. Nothing in `crates/paging/src/sv39.rs` writes bits 63:59.
-- **Proposed.** `design/roadmap/proposals/dma-on-a-non-coherent-risc-v-machine.md`, DMA on a non-coherent RISC-V machine: T-Head's `th.dcache.cpa`, `ipa` and `cipa`,
+- **Milestone 655.** Milestone 655 (dMA on a non-coherent RISC-V machine). `design/roadmap/655-dma-on-a-non-coherent-risc-v-machine.md`, DMA on a non-coherent RISC-V machine: T-Head's `th.dcache.cpa`, `ipa` and `cipa`,
   then `th.sync.s`, behind the same seam a Zicbom machine would use. No DMA driver runs on this
   machine until then.
 

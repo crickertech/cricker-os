@@ -3443,6 +3443,40 @@ blocks = sum(len(re.findall(r'#\[cfg\(kani\)\]\s*(?:pub\s+)?mod\s+\w+', p.read_t
 print(f'kani modules: {blocks} blocks, none hiding a #[test]')
 PY
 
+# **Every test module `system_tests/src/user.rs` declares carries its own `cfg`.** The suite's
+# modules are declared one per line under `#[cfg(test)]` or `#[cfg(all(test, initrd))]`, and an
+# attribute binds to the next item only. Milestone 634 (a plain SEND received by RECV_CAP never
+# hands the receiver a sender-chosen slot) inserted `mod recv_cap_attack_tests;`
+# between an existing attribute and `mod revocation_in_flight_tests;`, so the attribute moved onto
+# the new module and the old one was declared bare: compiled into every build of the crate, which
+# nothing noticed because the crate still built (the 2026-10-03 security audit's follow-up, item
+# (e)). A bare `mod` here is either that slip or a module that is not a test, and the second does
+# not exist in this file.
+python3 - <<'PY'
+import re
+import sys
+
+path = 'system_tests/src/user.rs'
+prev = ''
+bad = []
+for n, line in enumerate(open(path, errors='replace'), 1):
+    if re.match(r'^(pub )?mod \w+;$', line):
+        if not prev.startswith('#[cfg('):
+            bad.append(f'{path}:{n}: {line.strip()} is not preceded by a #[cfg(...)] attribute')
+    if line.strip():
+        prev = line.strip()
+if bad:
+    print('lint: a test module in system_tests/src/user.rs is declared without its own cfg:',
+          file=sys.stderr)
+    for b in bad:
+        print(f'  {b}', file=sys.stderr)
+    print('\nEach `mod` line takes its own `#[cfg(test)]` (or `#[cfg(all(test, initrd))]`); an '
+          'attribute binds to the next item only, so inserting a module between an attribute '
+          'and its `mod` moves the attribute.', file=sys.stderr)
+    sys.exit(1)
+print('system_tests modules: every `mod` in user.rs carries its own cfg')
+PY
+
 # **A crate can carry proof harnesses and be proved by nothing, and the suite gets FASTER when it
 # happens.** `script/verify`'s own table comment records the first instance: `multicast_dns_protocol` landed
 # with milestone 55 carrying three harnesses, was never added to the crate list, and nothing said
@@ -3545,7 +3579,7 @@ PY
 # same trap costing two renames a count), so the boundaries here are POSIX classes.
 echo "==> every RETYPE outside the run wrapper passes 0"
 # `MemoryRegion::RETYPE`'s first argument became a page count on 2026-09-26 (calef, option A of
-# design/roadmap/proposals/a-region-retypes-a-frame-run.md), with 0 meaning one page. Every caller
+# design/roadmap/659-a-region-retypes-a-frame-run.md), with 0 meaning one page. Every caller
 # before it passed 0 and still means one page, so a raw invoke passing anything else is a run asked
 # for by accident. The one intended caller is `user_mode_runtime::retype_page_frame_run`.
 # The kernel's own tests are exempt: they drive the handler directly with every count on purpose.

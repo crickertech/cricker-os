@@ -5,6 +5,8 @@ built: 2026-09-19
 ---
 # 177. Wire the graphical terminal stack into the real interactive boot
 
+*2026-10-03: milestone 632 (graphics on demand), #1493, removed this boot. `graphical_terminal` now launches from the prompt.*
+
 Built 2026-09-19. Minted 2026-08-26, from tracing the user story "boot to a login
 prompt, land in a `swish` prompt on a real terminal" against the actual code rather than the
 roadmap's own framing, and finding no milestone owns the gap this surfaced. **Pieces 1-4 built and

@@ -16,8 +16,8 @@ Raised 2026-09-26 by the lane for milestone 23 (a capability-routed component OS
 ([block](../roadmap/23-component-os-live-replacement.md)). The options, the premise check, the prior
 art and the costs are in two files that are not on `main` yet, so they are linked on the lane's
 branch rather than relatively:
-[`notes/non-cooperative-fallback.md`](https://github.com/crickertech/nife/blob/milestone/23-line-editor-swap/notes/non-cooperative-fallback.md) and
-[`design/roadmap/proposals/warn-a-dependent-without-blocking.md`](https://github.com/crickertech/nife/blob/milestone/23-line-editor-swap/design/roadmap/proposals/warn-a-dependent-without-blocking.md).
+[`notes/non-cooperative-fallback.md`](https://github.com/nifeos/nife/blob/milestone/23-line-editor-swap/notes/non-cooperative-fallback.md) and
+[`design/roadmap/682-warn-a-dependent-without-blocking.md`](https://github.com/nifeos/nife/blob/milestone/23-line-editor-swap/design/roadmap/proposals/warn-a-dependent-without-blocking.md).
 Both sit on branch `milestone/23-line-editor-swap`, stacked on #1342, where both also land. This
 section records the ruling and does not restate them.
 

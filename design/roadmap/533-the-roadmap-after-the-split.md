@@ -136,7 +136,7 @@ because the section it now names exists."*
 **§90 says issues are disabled on this repository. They are not, and they are empty.**
 
 ```
-$ gh repo view crickertech/nife --json hasIssuesEnabled
+$ gh repo view nifeos/nife --json hasIssuesEnabled
 {"hasIssuesEnabled":true}
 $ gh issue list --limit 5
 (no output)

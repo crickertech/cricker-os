@@ -29,7 +29,7 @@ deadline = time.time() + float(sys.argv[1] if len(sys.argv) > 1 else 7200)
 
 
 def status(run):
-    r = subprocess.run(["gh", "run", "view", run, "-R", "crickertech/nife", "--json",
+    r = subprocess.run(["gh", "run", "view", run, "-R", "nifeos/nife", "--json",
                          "status,conclusion"], capture_output=True, text=True).stdout
     try:
         j = json.loads(r)

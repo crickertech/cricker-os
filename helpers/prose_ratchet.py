@@ -155,6 +155,15 @@ RENAME_PAIRS = (
     ("calef names", "an architect names"),
     ("Calef's", "An architect's"),
     ("calef's", "an architect's"),
+    # The GitHub organization rename of 2026-10-03 (crickertech to nifeos): links, `gh` paths and
+    # repo slugs in hundreds of dated records. Not a new sentence, so not a touch. The bare org
+    # name is deliberately not a pair: prose that names it is a human edit.
+    ("github.com/crickertech", "github.com/nifeos"),
+    ("crickertech/nife", "nifeos/nife"),
+    ("crickertech/basalt", "nifeos/basalt"),
+    ("repos/crickertech", "repos/nifeos"),
+    ("orgs/crickertech", "orgs/nifeos"),
+    ("organizations/crickertech", "organizations/nifeos"),
     # The bare form last: every longer phrase above is tried first, so by the time this one
     # runs, an "an architect" left in the text is not part of one of them, whichever case
     # sentence position gave it.
@@ -167,10 +176,29 @@ _RENAME_RES = tuple(
     for old, new in RENAME_PAIRS)
 
 
+# A promotion from `design/roadmap/proposals/` (2026-10-03, UTC) rewrites, in documents that cite
+# the proposal, the path (a number is added and the directory dropped) and the `**Proposed.**`
+# disposition (to `**Milestone N.**`, with the one-time gloss `script/citations` asks for). No
+# sentence is new, and without this mask a promotion of the pile read as a touch of 40 baselined
+# documents and put each under the bold rule. The path form is narrow on purpose: three digits and a
+# hyphen under `roadmap/`. The label form folds every `**Milestone N.**` bullet label, glossed or
+# not, to `**Proposed.**` on both sides of a comparison, so it hides a label edit and nothing else.
+_PROMOTION_RES = (
+    (re.compile(r'\*\*Milestone \d+\.\*\*(?: Milestone \d+ \([^)\n]*\)\.)?'), '**Proposed.**'),
+    (re.compile(r'(roadmap/)\d{3}-'), r'\1proposals/'),
+)
+
+
+def promotion_masked(text):
+    for pattern, old in _PROMOTION_RES:
+        text = pattern.sub(old, text)
+    return text
+
+
 def rename_masked(text):
     for pattern, old in _RENAME_RES:
         text = pattern.sub(old, text)
-    return text
+    return promotion_masked(text)
 
 
 def _flat(text):
@@ -188,7 +216,11 @@ def _flat(text):
 # Appendices are added to it, because §212 puts them "under the same cap" and the graph's own
 # docstring already said it intended to count them. Before this module the graph's scope could not
 # see a single appendix: `notes/benchmarks/` and `design/fatal-risks/` sit one directory down.
-PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'notes/', 'briefs/')
+#
+# `notes/coes/` is named outright (2026-10-03, UTC): a correction-of-error record is a document in
+# its own right with no `notes/coes.md` parent, so the appendix rule never reached it and a 3,291-word
+# COE passed lint.
+PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'notes/', 'notes/coes/', 'briefs/')
 PROSE_ROOT_FILES = ('AGENTS.md',)
 PROSE_CAP = 3000
 
@@ -575,7 +607,7 @@ def measured(path, text):
     a mechanical rename (`RENAME_PAIRS`) read as the form it replaced, per calef's 2026-09-27
     ruling: such a substitution does not count as growth against the baseline."""
     if path.startswith('design/roadmap/'):
-        text = roadmap_block.without_field_tokens(text)
+        text = roadmap_block.without_field_tokens(promotion_masked(text))
     return measure(rename_masked(text))
 
 
@@ -1055,6 +1087,15 @@ def selftest():
         failed.append('a mechanical rename plus a new sentence reads as no touch')
     if measure(rename_masked(old_line))['words'] != measure(rename_masked(renamed_only))['words']:
         failed.append('a mechanical rename changes the measured word count')
+    # A promotion (a path gains its number, `**Proposed.**` becomes `**Milestone N.**` with a gloss)
+    # is not a touch; the same bullet plus a new sentence is.
+    proposed = "- **Proposed.** Do x. `design/roadmap/proposals/some-slug.md` has it."
+    ms = 'Mile' + 'stone 9999'  # assembled, so the citation gates do not read it as a citation
+    promoted = f"- **{ms}.** {ms} (some slug). Do x. `design/roadmap/999-some-slug.md` has it."
+    if rename_masked(_flat(proposed)) != rename_masked(_flat(promoted)):
+        failed.append('a promotion reads as a touch')
+    if rename_masked(_flat(proposed)) == rename_masked(_flat(promoted + " A new sentence.")):
+        failed.append('a promotion plus a new sentence reads as no touch')
     # The rewrap a rename forces (an extra word pushes a line past the column limit) is not a
     # second touch: `check()` compares the flattened, rename-masked text, so a word moving to the
     # next line reads the same as the word staying put.

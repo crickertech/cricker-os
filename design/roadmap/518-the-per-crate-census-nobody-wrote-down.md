@@ -58,9 +58,9 @@ Four censuses, and there have never been more than four:
 | census | run | crates | mutants | viable | survivors | killed |
 |---|---|---|---|---|---|---|
 | 2026-08-03 | `.cargo/mutants-baseline.txt` | 38 | 5,551 | 5,141 | 391 | 92.4% |
-| 2026-09-14 | [34833498873](https://github.com/crickertech/nife/actions/runs/34833498873) | 64 | 10,012 | 9,277 | 771 | 91.7% |
-| 2026-09-16 | [35163453633](https://github.com/crickertech/nife/actions/runs/35163453633) | 62 | 9,626 | 8,903 | 687 | 92.3% |
-| 2026-09-19 | [35421192143](https://github.com/crickertech/nife/actions/runs/35421192143) | 62 | 9,656 | 8,925 | 563 | 93.7% |
+| 2026-09-14 | [34833498873](https://github.com/nifeos/nife/actions/runs/34833498873) | 64 | 10,012 | 9,277 | 771 | 91.7% |
+| 2026-09-16 | [35163453633](https://github.com/nifeos/nife/actions/runs/35163453633) | 62 | 9,626 | 8,903 | 687 | 92.3% |
+| 2026-09-19 | [35421192143](https://github.com/nifeos/nife/actions/runs/35421192143) | 62 | 9,656 | 8,925 | 563 | 93.7% |
 
 The baseline and the 2026-09-14 rows reproduce `notes/mutation-testing.md`'s own published totals to
 the unit, which is the check that the ingest derives what a person derived by hand.

@@ -41,8 +41,8 @@ in the window is present and `git archive` reaches any of them.
 **And the census does not have to be re-run, because it kept its receipts.** The weekly workflow
 uploads one artifact per shard, each with `missed.txt` naming every survivor by
 `path:line:col: description`. The runs of
-[2026-09-14](https://github.com/crickertech/nife/actions/runs/34833498873) and
-[2026-09-19](https://github.com/crickertech/nife/actions/runs/35421192143) are both still
+[2026-09-14](https://github.com/nifeos/nife/actions/runs/34833498873) and
+[2026-09-19](https://github.com/nifeos/nife/actions/runs/35421192143) are both still
 downloadable. `design/fatal-risks/README.md`'s risk 3 says the 2026-09-14 census's per-crate numbers
 "were never written into the tree", and that is true of the tree; the artifacts carry something
 stronger than per-crate numbers, one line per survivor, and have been sitting there the whole time. The 2026-09-14 run's 8 shards hold exactly **771** lines, the
@@ -73,11 +73,11 @@ such pull request carries **6** survivors; the largest carries 79.
 
 | pull request | what landed | survivors |
 |---|---|---|
-| [#207](https://github.com/crickertech/nife/pull/207) | the mDNS/DNS-SD wire format | 79 |
-| [#545](https://github.com/crickertech/nife/pull/545) | milestone 142 (a text display good enough that people use it instead of a GUI), with UTF-8 decoding and scrollback | 66 |
-| [#326](https://github.com/crickertech/nife/pull/326) | milestone 129 (scheduled execution: a cron whose every entry is a grant), the `timetable` crate | 48 |
-| [#130](https://github.com/crickertech/nife/pull/130) | milestone 40 (documentation as a system service), renderer and all | 43 |
-| [#451](https://github.com/crickertech/nife/pull/451) | milestone 161 (the x86_64 kernel port), ACPI parsing included | 42 |
+| [#207](https://github.com/nifeos/nife/pull/207) | the mDNS/DNS-SD wire format | 79 |
+| [#545](https://github.com/nifeos/nife/pull/545) | milestone 142 (a text display good enough that people use it instead of a GUI), with UTF-8 decoding and scrollback | 66 |
+| [#326](https://github.com/nifeos/nife/pull/326) | milestone 129 (scheduled execution: a cron whose every entry is a grant), the `timetable` crate | 48 |
+| [#130](https://github.com/nifeos/nife/pull/130) | milestone 40 (documentation as a system service), renderer and all | 43 |
+| [#451](https://github.com/nifeos/nife/pull/451) | milestone 161 (the x86_64 kernel port), ACPI parsing included | 42 |
 
 **A whole new crate landing is what this instrument sees**, which is the same thing
 `design/fatal-risks/README.md`'s risk 3 already says from the corpus side when it reports that the

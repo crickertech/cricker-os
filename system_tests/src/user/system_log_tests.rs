@@ -135,7 +135,7 @@ fn two_badged_writers_are_attributed_by_the_badge_and_a_per_user_read_filters() 
             service,
             Spawn {
                 arg0: 0,
-                arg1: 0,
+                arg1: 2, // two readers' notifications, slots 1 and 2
                 arg2: 0,
                 grants: &[
                     rendezvous_cap(intake, Rights::READ), // slot 0: the intake
@@ -317,5 +317,116 @@ fn a_plain_send_arrives_with_its_capabilitys_badge_on_recv_and_recv_cap() {
     assert!(
         wait_for(|| crate::sched::reclaim_region(region).is_ok()),
         "the test's region would not reclaim"
+    );
+}
+
+/// Busy-wait `nanos` on the kernel's own clock: long enough for the ring to call its drainer
+/// stalled, without a sleep primitive the test harness would have to provide.
+fn spin_for(nanos: u64) {
+    let hz = crate::arch::timer::frequency();
+    let until = crate::arch::timer::now() + nanos * hz / 1_000_000_000;
+    while crate::arch::timer::now() < until {
+        core::hint::spin_loop();
+    }
+}
+
+/// The flags record `seq` carries in the kernel's ring.
+fn ring_flags(seq: u64) -> u8 {
+    let mut text = [0u8; system_log_protocol::record::TEXT_MAX];
+    crate::kernel_log::test_read(seq, &mut text)
+        .1
+        .expect("the record left the ring")
+        .0
+}
+
+/// **A held line waits for the drainer, and a stalled drainer gets the counted fallback**
+/// (milestone 342 (the kernel and the `console` server drive one UART from two address spaces),
+/// §175 (where the kernel's own output goes)'s ruling B "with a fallback").
+///
+/// The test plays the drainer by writing the cursor page itself. With a drainer attached and
+/// caught up, a `println!` reaches the ring and not the UART (`console::tx_bytes` does not move).
+/// Left unread past `STALL_NANOS`, the next line finds the drainer stalled: it prints the held line
+/// and itself, flags both `DIRECT`, and counts two fallbacks.
+#[test_case]
+fn a_held_line_waits_for_its_drainer_and_a_stalled_drainer_falls_back_counted() {
+    use system_log_protocol::kernel_ring::DETACHED;
+    use system_log_protocol::record::flags;
+    // The interactive boot publishes the ring as it builds the progenitor; the test kernel builds
+    // none, so it publishes here. Idempotent, and every later line simply also lands in the ring.
+    crate::kernel_log::publish();
+    // End the harness's own `test name ... ` line first: a line already begun goes where it
+    // began, and that one began on the UART.
+    crate::println!();
+    let mut text = [0u8; system_log_protocol::record::TEXT_MAX];
+    let (next, _) = crate::kernel_log::test_read(0, &mut text);
+    let fallbacks = crate::kernel_log::fallback_count();
+    crate::kernel_log::test_set_cursor(next);
+    let tx = crate::console::tx_bytes();
+    crate::println!("  kernel log probe: held for the drainer");
+    let held_tx = crate::console::tx_bytes();
+    let held_flags = ring_flags(next);
+    spin_for(crate::kernel_log::STALL_NANOS + 100_000_000);
+    crate::println!("  kernel log probe: after the stall");
+    let after_tx = crate::console::tx_bytes();
+    let (flags_then, flags_now) = (ring_flags(next), ring_flags(next + 1));
+    let counted = crate::kernel_log::fallback_count() - fallbacks;
+    crate::kernel_log::test_set_cursor(DETACHED);
+
+    assert_eq!(
+        held_tx, tx,
+        "a line held for a live drainer reached the UART anyway"
+    );
+    assert_eq!(held_flags & flags::DIRECT, 0);
+    assert_ne!(held_flags & flags::KERNEL, 0);
+    let both = "  kernel log probe: held for the drainer\n  kernel log probe: after the stall\n";
+    assert_eq!(
+        after_tx - held_tx,
+        both.len() as u64,
+        "the fallback did not print both lines"
+    );
+    assert_ne!(
+        flags_then & flags::DIRECT,
+        0,
+        "the caught-up line was not flagged DIRECT"
+    );
+    assert_ne!(flags_now & flags::DIRECT, 0);
+    assert_eq!(counted, 2);
+}
+
+/// **A panic prints what the drainer had not, then everything directly** (§175's panic escape).
+/// `console::enter_panic` is what the panic handler calls after breaking the console lock; called
+/// here without dying, it must put the held line on the UART, and the line after it must not wait.
+#[test_case]
+fn a_panic_prints_the_held_lines_first_and_holds_nothing_after() {
+    use system_log_protocol::kernel_ring::DETACHED;
+    // The interactive boot publishes the ring as it builds the progenitor; the test kernel builds
+    // none, so it publishes here. Idempotent, and every later line simply also lands in the ring.
+    crate::kernel_log::publish();
+    // End the harness's own `test name ... ` line first: a line already begun goes where it
+    // began, and that one began on the UART.
+    crate::println!();
+    let mut text = [0u8; system_log_protocol::record::TEXT_MAX];
+    let (next, _) = crate::kernel_log::test_read(0, &mut text);
+    crate::kernel_log::test_set_cursor(next);
+    let tx = crate::console::tx_bytes();
+    crate::println!("  kernel log probe: held when the panic came");
+    let held_tx = crate::console::tx_bytes();
+    crate::console::enter_panic();
+    let flushed_tx = crate::console::tx_bytes();
+    crate::println!("  kernel log probe: after the panic");
+    let after_tx = crate::console::tx_bytes();
+    crate::kernel_log::test_leave_panic();
+    crate::kernel_log::test_set_cursor(DETACHED);
+
+    assert_eq!(held_tx, tx);
+    assert_eq!(
+        flushed_tx - held_tx,
+        "  kernel log probe: held when the panic came\n".len() as u64,
+        "the panic path did not print the line the drainer had not"
+    );
+    assert_eq!(
+        after_tx - flushed_tx,
+        "  kernel log probe: after the panic\n".len() as u64,
+        "a line printed after the panic was held"
     );
 }

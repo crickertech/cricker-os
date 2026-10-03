@@ -31,12 +31,12 @@ triggers no further workflow runs, so such a pull request sits with every requir
 Today that something else is `TOOLCHAIN_BUMP_PAT`, a fine-grained personal access token on calef's
 account. It works. It has two structural flaws: it expires on a personal timer that nobody reading
 the workflow can inspect, and it couples the project's automation to one person's account. A
-GitHub App owned by the `crickertech` organization, installed on `nife`, fixes both. Its
+GitHub App owned by the `nifeos` organization, installed on `nife`, fixes both. Its
 installation tokens are minted fresh per run, so nothing stored expires, and the identity belongs to
 the role rather than to the person. That is `needs-architect`'s principle applied to credentials.
 
 As of 2026-09-23 the App exists: `smelter`, App ID 5053502, created by calef under
-`crickertech` and installed on `nife` alone, with both secrets stored as organization secrets
+`nifeos` and installed on `nife` alone, with both secrets stored as organization secrets
 scoped to `nife`. This note stays written as a procedure rather than as a history, because the
 next person to run it will be provisioning a second App or replacing a lost key, and the steps are
 the same either way. Where a step has already been taken, it says so.
@@ -89,10 +89,10 @@ this is an existing framework rather than a new problem.
 
 ## Creating the App
 
-Once, by an owner of the `crickertech` organization.
+Once, by an owner of the `nifeos` organization.
 
-1. Go to https://github.com/organizations/crickertech/settings/apps and press New GitHub App.
-   (The path by clicking: your avatar, Your organizations, `crickertech`, Settings,
+1. Go to https://github.com/organizations/nifeos/settings/apps and press New GitHub App.
+   (The path by clicking: your avatar, Your organizations, `nifeos`, Settings,
    Developer settings, GitHub Apps, New GitHub App.)
 2. GitHub App name: type `smelter`. Ratified 2026-09-23 by calef; the refusals and the
    reasoning are in the name block at the top of this note.
@@ -104,7 +104,7 @@ Once, by an owner of the `crickertech` organization.
 
    Whichever of the two you get, the byline (`smelter[bot]` or `nife-smelter[bot]`) is what every
    future bump pull request is authored by, so write down which one you took.
-3. Homepage URL: `https://github.com/crickertech/nife`. It is required and unused.
+3. Homepage URL: `https://github.com/nifeos/nife`. It is required and unused.
 4. Webhook: untick Active. Nothing here listens for webhooks, and an inactive webhook is one
    fewer endpoint to secure.
 5. Repository permissions, exactly two, matching what the PAT carries today and nothing wider:
@@ -127,15 +127,15 @@ Once, by an owner of the `crickertech` organization.
    The Client ID on the same page is not used. `actions/create-github-app-token` authenticates
    with the App ID and the private key; a Client ID exists for OAuth flows, which this App does not
    do. It is deliberately not recorded here, because a value nothing reads is a value that rots.
-9. In the left sidebar, Install App, then Install next to `crickertech`. Choose Only select
+9. In the left sidebar, Install App, then Install next to `nifeos`. Choose Only select
    repositories and pick `nife` alone. Never "All repositories", then or later: add
    repositories to this list as they appear. An App installed on every repository holds authority
    over repositories it has no business in.
 10. Store both as organization secrets, scoped to exactly the repositories that may read them.
     The commands are:
 
-        gh secret set AUTOMATION_APP_ID  --org crickertech --repos nife --body '5053502'
-        gh secret set AUTOMATION_APP_KEY --org crickertech --repos nife < ~/Downloads/smelter.private-key.pem
+        gh secret set AUTOMATION_APP_ID  --org nifeos --repos nife --body '5053502'
+        gh secret set AUTOMATION_APP_KEY --org nifeos --repos nife < ~/Downloads/smelter.private-key.pem
 
     Expect them to fail, and do not fix it the way `gh` suggests. Unless your shell's token
     already carries organization admin, both return:
@@ -150,7 +150,7 @@ Once, by an owner of the `crickertech` organization.
     merging unattended. Least privilege says do the one-time thing by hand. The reasoning is the
     durable part of this paragraph; the clicks below are not.
 
-    So use the browser. https://github.com/organizations/crickertech/settings/secrets/actions,
+    So use the browser. https://github.com/organizations/nifeos/settings/secrets/actions,
     then New organization secret, twice:
 
     - `AUTOMATION_APP_ID` = `5053502`
@@ -164,7 +164,7 @@ Once, by an owner of the `crickertech` organization.
         rm ~/Downloads/*.private-key.pem
 
     You cannot confirm this from the shell either, and that is not something being broken:
-    `gh secret list --org crickertech` needs the same `admin:org` scope and returns the same 403 for
+    `gh secret list --org nifeos` needs the same `admin:org` scope and returns the same 403 for
     any shell that is not an organization admin's, which is the ordinary case rather than a fault.
     On the browser path the secrets page itself is the confirmation, and the first real proof is the
     identity probe in step 11, once the workflow change has merged.
@@ -209,19 +209,19 @@ Once, by an owner of the `crickertech` organization.
 
 11. Run the workflow by hand and read its identity probe:
 
-        gh workflow run toolchain-bump.yml --repo crickertech/nife
-        gh run watch "$(gh run list --workflow=toolchain-bump.yml --repo crickertech/nife \
+        gh workflow run toolchain-bump.yml --repo nifeos/nife
+        gh run watch "$(gh run list --workflow=toolchain-bump.yml --repo nifeos/nife \
               --limit 1 --json databaseId --jq '.[0].databaseId')"
 
     The Say which identity this run is authenticating as step must print
-    `identity: the crickertech automation App`. If it prints the PAT line instead, the secrets are
+    `identity: the nifeos automation App`. If it prints the PAT line instead, the secrets are
     not visible to the job: check the names, and check that the organization secrets list `nife`
     among the repositories that may read them.
 
 12. Only after a real bump pull request has been opened by the App and received checks, retire
     the token, in this order:
 
-        gh secret delete TOOLCHAIN_BUMP_PAT --repo crickertech/nife
+        gh secret delete TOOLCHAIN_BUMP_PAT --repo nifeos/nife
         # then revoke the PAT itself at https://github.com/settings/tokens?type=beta
 
     Deleting the secret first is what makes the revocation safe: with the secret gone the workflow
@@ -247,18 +247,18 @@ action is load-bearing for neither the PAT path nor the `github.token` path.
 **Read which identity yesterday's bump used.** The probe is the first thing in the job, so this
 needs no scrolling:
 
-    gh run list --workflow=toolchain-bump.yml --repo crickertech/nife --limit 1 \
+    gh run list --workflow=toolchain-bump.yml --repo nifeos/nife --limit 1 \
       --json databaseId --jq '.[0].databaseId' \
-      | xargs -I{} gh run view {} --repo crickertech/nife --log \
+      | xargs -I{} gh run view {} --repo nifeos/nife --log \
       | grep -A4 'identity:'
 
 **Check whether the bump pull request is actually getting CI**, which is the symptom the whole
 mechanism exists to prevent. A bump pull request with one or two checks is a pull request opened by
 the ephemeral token:
 
-    gh pr list --head toolchain/nightly-bump --repo crickertech/nife --state all --limit 1 \
+    gh pr list --head toolchain/nightly-bump --repo nifeos/nife --state all --limit 1 \
       --json number --jq '.[0].number' \
-      | xargs -I{} gh pr view {} --repo crickertech/nife \
+      | xargs -I{} gh pr view {} --repo nifeos/nife \
       --json author,statusCheckRollup \
       --jq '{author: .author.login, checks: (.statusCheckRollup | length)}'
 

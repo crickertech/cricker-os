@@ -1,12 +1,12 @@
 ---
-status: NOT-STARTED
+status: PARTIAL
 raised: 2026-09-19
 promoted_from: the-installer-a-stick-runs-to-put-itself-on-the-disk
-milestone_dependencies: none
-decision_dependencies: unwritten
-machine_requirements: none
+milestone_dependencies: 261
+decision_dependencies: 244
+machine_requirements: x86_64 UEFI silicon with an NVMe drive
 specific_machine: none
-needs_person: no
+needs_person: yes
 ---
 # 515. The installer: a stick that puts itself on the machine's disk and is then not needed
 
@@ -23,10 +23,38 @@ from that disk, so once a stranger has installed it is a format (the layout fork
 only). The mechanism is reversible and is recommended. The bench half also needs milestone 261's
 disk wipe, which is calef's act.
 
+## Status, 2026-10-03: the QEMU half is built, and this block said NOT-STARTED for twelve days
+
+Exit criterion 1 was built on 2026-09-21 in #1056 (`cargo xtask install-boot`, account in
+`notes/installing.md`). The slots followed in milestone 525 (a bad upgrade cannot brick the
+machine: two boot slots, tries and priority) and milestone 554 (a good upgrade sticks: what marks a
+trial boot successful). This block was never moved, so it read NOT-STARTED while its own text
+below said "Rung 2a was built". Re-run on `main` at `e613c520` on 2026-10-03:
+
+| gate | result | wall time, warm, on patagonia |
+|---|---|---|
+| `cargo xtask install-boot` | PASS: offer, `INSTALL`, partition, `mkfs`, then the stick-less boot reads `made-on-target` (`1 10 57`) | 42.5 s |
+| `cargo xtask rollback-boot` | PASS: a doomed slot 1 is abandoned, slot 0 boots by itself | not timed |
+| `cargo xtask confirm-boot` | PASS: a good trial boot marks itself successful | not timed |
+
+All three are x86_64 under OVMF. aarch64 and riscv64 have no installer, and the two gaps are
+milestones of their own: milestone 560 (a long file name, or riscv64 cannot be installed) and
+milestone 568 (the boot file has nowhere to go on a device-tree machine). Criteria 2 and 3 are
+hardware and are what keeps this PARTIAL.
+
+## The layout ruling
+
+Milestone 198's rulings table lists install layout as open, and milestone 525's `BUGS` calls the
+on-disk format provisional. One layout is now built (data first, two 64 MiB raw boot slots, a
+512 MiB FAT32 ESP holding the chooser), so the ruling is "ratify this, and pick a slot size". The
+seven questions are answered in [the layout ruling](515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md).
+The slot size has the least room: the boot file grew from about 10 MiB to 15.6 MB in twelve days,
+and an installed disk cannot grow its slots.
+
 ## What an install has to do, and how little of it is new
 
-The finding that sizes this proposal: **an installed system can boot the same single file the stick
-boots.** `uefi_loader` carries the kernel and the userspace archive inside `BOOTX64.EFI`
+The finding that sizes this proposal: an installed system can boot the same single file the stick
+boots. `uefi_loader` carries the kernel and the userspace archive inside `BOOTX64.EFI`
 (`uefi_loader/src/main.rs`, "The kernel is embedded rather than loaded from the filesystem"), and a
 boot with no filesystem still reaches the prompt (`crates/system_initializer`, the "4 without a disk,
 5 with one" slot comments). So an install is four steps, and the tree already has two of them:
@@ -41,19 +69,19 @@ boot with no filesystem still reaches the prompt (`crates/system_initializer`, t
 And two pieces the installed system needs on its next boot, found by reading the boot path rather
 than assumed:
 
-- **The boot mount is a whole virtio disk.** `PartitionDisk` exists only inside `mkfs`; the FS
+- The boot mount is a whole virtio disk. `PartitionDisk` exists only inside `mkfs`; the FS
   service the boot builds mounts a whole block device and has no NVMe arm
   (`kernel/src/user/fs_service.rs` names neither). An installed system has to mount the nife data
   partition off the NVMe server's endpoint, or it boots to a prompt with no disk.
-- **The installer has to find the disk.** ~~`block_roster` cannot name an NVMe disk, so this
-  proposal depends on `a-block-roster-that-can-name-an-nvme-disk.md`.~~ **It did not.** Rung 2a was
+- The installer has to find the disk. ~~`block_roster` cannot name an NVMe disk, so this
+  proposal depends on `a-block-roster-that-can-name-an-nvme-disk.md`.~~ It did not. Rung 2a was
   built on 2026-09-21 without it: the kernel hands the installer the NVMe endpoint directly and
   never consults the roster. The roster proposal stands on its own merits and is unaffected; what
   was wrong was this line, which assumed the only way to reach a disk was to look it up by name.
 
 ## The problem nobody had written down: the running system does not have its own file
 
-Step 3 needs the bytes of `BOOTX64.EFI`, and **the running system does not hold them.** The loader
+Step 3 needs the bytes of `BOOTX64.EFI`, and the running system does not hold them. The loader
 places the kernel's segments and hands over the archive as a module, then exits boot services; the
 PE file that contained both is gone. And the file cannot be put inside the archive, because the file
 *contains* the archive. So the installer needs a way to read the stick, and the options are:
@@ -64,7 +92,7 @@ PE file that contained both is gone. And the file cannot be put inside the archi
 | R2. nife reads the stick itself | USB mass storage over milestone 242's host controller, then milestone 140's FAT32 reader | 242 is "months" by its own account and declines USB storage explicitly; 140's FAT32 is unbuilt | Lost for this rung: it makes rung 2 wait on the largest driver in the project for a file the firmware can read in one call |
 | R3. The installer is a UEFI application | Runs before nife, writing the disk through the firmware's block I/O | Every step above rewritten against firmware protocols; nothing of milestone 57's confined partitioner and `mkfs` is used | Lost: it discards the one part of this that demonstrates anything (a partitioner holding one disk and no path to type), and §157 says the minimal system installs itself |
 
-**The §92 test.** R1 would still be chosen at equal cost: it keeps the authority story (the installer
+The equal-cost test, from §92 (a caretaker is supervised by the client it serves). R1 would still be chosen at equal cost: it keeps the authority story (the installer
 holds one disk, one entropy endpoint and one read-only blob) and adds no driver whose only job is to
 re-read what the firmware already read.
 
@@ -78,9 +106,9 @@ re-read what the firmware already read.
 
 Two constraints hold for all three and are recorded rather than decided:
 
-- **The ESP must be FAT.** Whether it is FAT32 or FAT16 at the sizes involved, and the minimum size
-  firmware accepts, was **not checked** and is a first task for the lane.
-- **The logical block size.** `disk_partitioner` and `disk_surveyor` both assume 512 bytes because
+- The ESP must be FAT. Whether it is FAT32 or FAT16 at the sizes involved, and the minimum size
+  firmware accepts, was not checked and is a first task for the lane.
+- The logical block size. `disk_partitioner` and `disk_surveyor` both assume 512 bytes because
   nothing on the `blk` wire reports it (their `BUGS`). An NVMe namespace can be formatted with
   4096-byte blocks; the Micron 2450's format is not recorded in the tree. A table written in the
   wrong unit is unreadable by every other OS, so the lane reads the namespace's format from
@@ -88,52 +116,52 @@ Two constraints hold for all three and are recorded rather than decided:
 
 ## The ESP's contents, and the boot entry (reversible, recommended)
 
-**Writing FAT without a FAT writer.** A host tool builds an ESP image with the file's clusters
+Writing FAT without a FAT writer. A host tool builds an ESP image with the file's clusters
 preallocated and contiguous and its bytes left zero; the archive carries that image (it contains no
 copy of the file, so it does not contain itself); the installer writes the image into the ESP, then
 writes R1's bytes at the one offset the host tool recorded. That is a layout two programs agree on,
 both in this tree, so it is reversible, and it is fragile in the way it looks: it is a stand-in for
 milestone 140's FAT32 write half and should say so at the call site.
 
-**The boot entry.** Two ways, and the cheap one is unmeasured:
+The boot entry. Two ways, and the cheap one is unmeasured:
 
-- **B1. The fallback path on the internal disk.** Put the file at `\EFI\BOOT\BOOTX64.EFI` on the new
+- B1. The fallback path on the internal disk. Put the file at `\EFI\BOOT\BOOTX64.EFI` on the new
   ESP and remove the stick. Whether xenon's firmware (Dell BIOS 1.27.0, `notes/xenon-firmware.md`)
-  boots a fixed disk's fallback path without a `Boot####` variable is **not known**; many firmwares
+  boots a fixed disk's fallback path without a `Boot####` variable is not known; many firmwares
   do (recalled, not read). One bench boot answers it.
-- **B2. Write a boot variable.** `SetVariable` is a runtime service, and nife maps none: the loader
+- B2. Write a boot variable. `SetVariable` is a runtime service, and nife maps none: the loader
   never calls `SetVirtualAddressMap` (`uefi_loader/src/efi.rs`) and nothing in the kernel calls a
   runtime service (`git grep` for them finds only those two comments). So B2 is either a runtime
   services mapping in the kernel, which is new surface, or the loader writing the variable on some
   boot before `ExitBootServices`.
 
-**Recommendation: B1 first and measure it**, on xenon and on one machine from milestone 243's fleet;
+Recommendation: B1 first and measure it, on xenon and on one machine from milestone 243's fleet;
 B2 only if a firmware refuses. Would B1 still be chosen at equal cost? Yes: a system that needs no
 firmware variable survives a firmware reset and a disk moved to another machine.
 
 ## What a stranger's machine most plausibly has
 
-A judgement, not a measurement. **An NVMe disk**, on anything sold in the last several years; xenon's
+A judgement, not a measurement. An NVMe disk, on anything sold in the last several years; xenon's
 is a `Micron 2450 NVMe 256GB` on M.2 with SATA in AHCI rather than RAID (`notes/xenon-firmware.md`).
-Two cases this proposal does not cover, recorded in `BUGS` below: **SATA disks**, which need an AHCI
-driver nothing owns, and **NVMe hidden behind Intel RST or VMD** ("RAID On" in many laptops'
+Two cases this proposal does not cover, recorded in `BUGS` below: SATA disks, which need an AHCI
+driver nothing owns, and NVMe hidden behind Intel RST or VMD ("RAID On" in many laptops'
 firmware), which milestone 261 already names as the reason xenon's AHCI setting mattered.
 
 ## Exit criteria a stranger could check
 
-1. **Under QEMU**: OVMF boots the stick image with an empty NVMe disk attached; the installer runs,
+1. Under QEMU: OVMF boots the stick image with an empty NVMe disk attached; the installer runs,
    asks for confirmation naming the disk, partitions, formats and copies; the machine reboots with
    the stick detached and reaches the prompt; a file written before the reboot reads back after it.
    One `cargo xtask` gate, in the shape of `uefi-boot`.
-2. **On xenon**, the same with a photograph, after milestone 261's wipe and bench boot.
-3. **On one machine that is not xenon**, from milestone 243's fleet, which is what makes it a claim
+2. On xenon, the same with a photograph, after milestone 261's wipe and bench boot.
+3. On one machine that is not xenon, from milestone 243's fleet, which is what makes it a claim
    about PCs rather than about one Dell.
 
 ## Size, honestly
 
 One milestone for the QEMU half: a computed layout in place of the fixture, R1's handoff and blob
 grant, the ESP template tool, the installer program, the boot mount of a partition off NVMe, and the
-gate. The bench half is milestone 261's remaining step plus one boot. **It depends on**
+gate. The bench half is milestone 261's remaining step plus one boot. It depends on
 milestone 261 (the NVMe driver leaves the kernel)'s bench step, and no longer on `a-block-roster-that-can-name-an-nvme-disk.md`, which
 rung 2a proved unnecessary by handing the endpoint over directly. It does not depend
 on the network, on packages, or on milestone 242: an installer that asks for confirmation over the
@@ -142,21 +170,37 @@ PC once rung 1 has one.
 
 ## BUGS
 
-- **Whole disk only.** The first installer replaces the disk's table. Installing beside Windows means
+- Whole disk only. The first installer replaces the disk's table. Installing beside Windows means
   resizing a filesystem nife cannot read, which is milestone 140's territory and a different order of
   risk to someone's data.
-- **An installer is the most destructive program this tree would ship**, and the confirmation step
+- An installer is the most destructive program this tree would ship, and the confirmation step
   is the whole of what stands between a stranger and a wiped disk. It must name the disk by model and
   size, not by an ordinal.
-- **SATA (AHCI) and RST/VMD disks are not covered.** Nothing owns an AHCI driver; this is the home
+- SATA (AHCI) and RST/VMD disks are not covered. Nothing owns an AHCI driver; this is the home
   for that finding until a lane proposes one.
-- **The ESP template is a stand-in for writing FAT**, and a file that outgrows its preallocated
+- The ESP template is a stand-in for writing FAT, and a file that outgrows its preallocated
   clusters breaks the scheme silently unless the host tool refuses it. Milestone 140's FAT32 write
   half is what retires it.
-- **Nothing here is crash-atomic**, inheriting `disk_partitioner`'s own `BUGS` entry: a power cut
+- Nothing here is crash-atomic, inheriting `disk_partitioner`'s own `BUGS` entry: a power cut
   mid-install leaves a disk that boots nothing. Real installers share the property; nobody has
   measured this one.
-- **B1 is unmeasured** on any firmware but OVMF.
+- B1 is unmeasured on any firmware but OVMF.
+
+## Follow-on
+
+- **Outstanding.** Exit criterion 2, xenon: milestone 261's disk wipe is calef's, then one bench
+  boot. Checked 2026-10-03: 261 is PARTIAL and nothing in `bench/` records an install.
+- **Outstanding.** Exit criterion 3, a fleet machine that is not xenon, from milestone 243 (a machine with no serial port has no way to say anything)'s fleet.
+- **Decision.** Ruled 2026-10-03 in `design/decisions/244-the-installed-disk-has-four-partitions.md`: the layout above stands, and slots stay at 64 MiB. Two conditions remain with another lane: the installer installs a release image, and CI gates the release image at 16 MiB.
+- **Milestone 560.** `BOOTRISCV64.EFI` is not an 8.3 name, so riscv64 cannot be installed.
+- **Milestone 568.** `/chosen` has one initrd slot, so aarch64 and riscv64
+  have no installer.
+- **Milestone 569.** Open as milestone 569 (the disk an installer names has no model, only a size).
+- **Milestone 570.** Open as milestone 570 (the install offer should say what is already on the disk).
+- **Milestone 572.** Open as milestone 572 (there is no way back from the stick: an installed disk is
+  never offered an install again).
+- **Milestone 712.** Milestone 712 (the install gates run nowhere, so rung 2a can rot without anybody hearing). Nothing runs these three gates on any schedule:
+  `design/roadmap/712-the-install-gates-run-nowhere.md`.
 
 ## Index row
 

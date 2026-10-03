@@ -24,7 +24,7 @@ branch for three days.
 
 ## What happened, from the timeline
 
-Read from `gh api repos/crickertech/nife/issues/1460/timeline`, not recalled.
+Read from `gh api repos/nifeos/nife/issues/1460/timeline`, not recalled.
 
 - 2026-09-30 05:36 UTC: the claim commit is pushed on `lane/fatal-risk-colors` and the
   draft opens. Its one commit, empty, is the whole pull request.
@@ -152,7 +152,7 @@ Nothing. The ruleset change is calef's. The workflow can land first as a reporti
   it is absent. Until then the check reports and does not gate.
 - **Outstanding.** The live falsification: a throwaway draft pull request whose red run is linked
   in `.github/workflows/empty-diff.yml`'s header. Not yet linked there.
-- **Proposed.** `design/roadmap/proposals/a-claim-with-work-on-another-branch-is-reported.md` is the
+- **Milestone 703.** Milestone 703 (a claim with its work on another branch is reported). `design/roadmap/703-a-claim-with-work-on-another-branch-is-reported.md` is the
   `lane-claim-check.sh` companion (option D above). It is written here so it has a home.
 
 ## Index row

@@ -71,17 +71,34 @@ pub(crate) fn uefi_image() -> bool {
 /// function's.
 pub(crate) fn uefi_image_command() -> bool {
     let args: Vec<String> = std::env::args().skip(2).collect();
-    match args.as_slice() {
+    // `--release` is `script/boot-file-size`'s: the image it budgets is the one an install writes.
+    let release = args.iter().any(|a| a == "--release");
+    if release {
+        RELEASE.store(true, Ordering::Relaxed);
+        // The image an install writes carries `mkfs` and the FS server, which the archive packs
+        // only if something built them (`install::prepare` says why), so the size it budgets is
+        // measured with them in.
+        if !crate::disk::redoxfs_server_build(X86_TARGET) {
+            eprintln!("uefi-image: could not build the FS server and mkfs for {X86_TARGET}");
+            return false;
+        }
+    }
+    let rest: Vec<&str> = args
+        .iter()
+        .map(String::as_str)
+        .filter(|a| *a != "--release")
+        .collect();
+    match rest.as_slice() {
         [] => uefi_image_with(None),
-        [flag, list] if flag == "--features" => uefi_image_with(Some(list.as_str())),
+        ["--features", list] => uefi_image_with(Some(list)),
         _ => {
-            eprintln!("usage: cargo xtask uefi-image [--features <kernel features>]");
+            eprintln!("usage: cargo xtask uefi-image [--release] [--features <kernel features>]");
             false
         }
     }
 }
 
-fn uefi_image_with(features: Option<&str>) -> bool {
+pub(crate) fn uefi_image_with(features: Option<&str>) -> bool {
     let Some(kernel) = uefi_kernel(features) else {
         return false;
     };
@@ -128,12 +145,30 @@ pub(crate) fn uefi_kernel(features: Option<&str>) -> Option<String> {
     if !initrd_x86() || !cargo_profiled(&build) {
         return None;
     }
-    Some(
-        workspace_root()
-            .join(format!("target/{X86_TARGET}/{}/kernel", profile_dir()))
-            .display()
-            .to_string(),
-    )
+    let built = workspace_root().join(format!("target/{X86_TARGET}/{}/kernel", profile_dir()));
+    if !RELEASE.load(Ordering::Relaxed) {
+        return Some(built.display().to_string());
+    }
+    // **A release image embeds a kernel with its DWARF removed**, calef's ruling of 2026-10-03 UTC
+    // on the install boot slots. The release kernel ELF is about 7.5 MB, 5.8 MB of it `.debug_*`
+    // that nothing in the loader or the kernel reads (symbolisation is offline, against the
+    // unstripped file that stays in `target/`). Stripping happens HERE, before the loader embeds
+    // the file, so the seal (`uefi_loader/build.rs`'s `refuse_an_unsealed_pair`, which looks for the
+    // archive's digests in the kernel's `.rodata`) is taken over the bytes that ship; `--strip-debug`
+    // never touches `.rodata`. Same tool and flag the archive's packer uses.
+    let stripped = built.with_file_name("kernel.stripped");
+    let bytes = match crate::inspect::read_stripped(&built.display().to_string()) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("uefi-image: cannot strip {}: {e}", built.display());
+            return None;
+        }
+    };
+    if let Err(e) = std::fs::write(&stripped, &bytes) {
+        eprintln!("uefi-image: cannot write {}: {e}", stripped.display());
+        return None;
+    }
+    Some(stripped.display().to_string())
 }
 
 /// **Where the screen gate's EFI system partition is staged**
@@ -238,6 +273,16 @@ pub(crate) fn uefi_stage(
     }
     let size = std::fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
     eprintln!("wrote {} ({size} bytes: {what})", target.display());
+    // **The breakdown, on every run**, so growth has a cause on record: the kernel and the archive
+    // are embedded whole (`include_bytes!`, no compression), so the loader is what remains.
+    // `script/boot-file-size` budgets the total; this says where it went.
+    let part = |p: &str| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+    let (kernel_bytes, archive_bytes) = (part(kernel), part(&x86_initrd_path()));
+    eprintln!(
+        "size: {} loader, {kernel_bytes} kernel, {archive_bytes} archive = {size} bytes ({} profile)",
+        size.saturating_sub(kernel_bytes + archive_bytes),
+        profile_dir()
+    );
     eprintln!(
         "  under QEMU with real firmware: helpers/qemu-uefi-x86_64.sh {}",
         esp.display()

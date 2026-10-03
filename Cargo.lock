@@ -629,6 +629,7 @@ dependencies = [
  "socket_protocol",
  "spin",
  "std_runtime_protocol",
+ "system_log_protocol",
  "thread_wake_handshake",
  "tock-registers",
  "video_terminal",

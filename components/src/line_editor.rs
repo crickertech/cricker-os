@@ -10,7 +10,7 @@
 //!                             │ line_editor │
 //!        application ◄─lines──└──────────┘◄──OP_WRITE / OP_READLINE── application
 //!
-//!   MODE_DISPLAY (milestone 177, the graphical boot):
+//!   MODE_DISPLAY (a `graphical_terminal` session, built when the user launches it from the prompt):
 //!   keyboard_driver (direct) ──OP_BYTES──►┌──────────┐──OP_WRITE──► display_terminal
 //!                             │ line_editor │
 //!        application ◄─lines──└──────────┘◄──OP_WRITE / OP_READLINE── application
@@ -90,7 +90,8 @@ const CONREP: u64 = 2;
 /// server forever).
 #[allow(dead_code)]
 const MODE_CONSOLE: u64 = 0;
-/// `mode`: milestone 177's wiring, for the graphical boot. `Con::flush` speaks
+/// `mode`: the wiring a `graphical_terminal` session uses (built by `system_initializer` when the user
+/// launches it from the prompt; no boot builds it, milestone 632 (graphics on demand)). `Con::flush` speaks
 /// `display_terminal`'s `OP_WRITE`/one-`CALL` contract over [`CONREQ`], which in this mode holds
 /// `display_terminal`'s own served endpoint instead of the console's request endpoint.
 const MODE_DISPLAY: u64 = 1;

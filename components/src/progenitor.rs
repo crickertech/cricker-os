@@ -104,6 +104,12 @@ const GRANTS: BootEndowment = BootEndowment {
     // sees the machine and your share)), granted on every boot, past the keyboard's trio. Slot 23
     // was the kernel's fault slot until the table grew to 32.
     machine_page: 23,
+    // The kernel's ring, its cursor page and its notification (milestone 342 (the kernel and the
+    // `console` server drive one UART from two address spaces)), past the machine page. Empty on a
+    // boot whose kernel could not allocate them; `system_initializer::boot` probes.
+    kernel_ring: 24,
+    kernel_ring_cursor: 25,
+    kernel_ring_notification: 26,
     // Nothing. Since milestone 166 the boot loader is not shared with milestone 19d's test roles on
     // any architecture, so the kernel grants exactly what the interactive system uses. aarch64 once
     // carried a report endpoint (slot 1) and the 19d.2b test interrupt (slot 3) here.

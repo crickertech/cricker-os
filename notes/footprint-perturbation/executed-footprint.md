@@ -7,7 +7,7 @@ naming is an architect's. E5 is a provisional label too, the next free one after
 
 **Status: a plan, not runnable.** Nothing here has run, and the instrument it needs is not built.
 The build is proposed in
-[`design/roadmap/proposals/an-executed-footprint-ladder-for-radon.md`](../../design/roadmap/proposals/an-executed-footprint-ladder-for-radon.md).
+[`design/roadmap/708-an-executed-footprint-ladder-for-radon.md`](../../design/roadmap/708-an-executed-footprint-ladder-for-radon.md).
 This page says what to build, how to run it, and what each outcome means, before any number exists.
 
 ## The question

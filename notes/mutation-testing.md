@@ -75,7 +75,7 @@ reads as a crate that got worse. A whole run is different: it is a census rather
 ## The current numbers
 
 The latest census is the scheduled run of 2026-09-21,
-[35589550926](https://github.com/crickertech/nife/actions/runs/35589550926), recorded in the tree
+[35589550926](https://github.com/nifeos/nife/actions/runs/35589550926), recorded in the tree
 on 2026-09-24:
 
 | census | crates | mutants | viable | survivors | killed |

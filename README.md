@@ -18,14 +18,14 @@ machine-checked proofs. Many agents build it in parallel lanes and the architect
 
 *Cobble, guardian of the machinery, designed by Clay ([notes/mascot.md](notes/mascot.md)).*
 
-[![CI](https://github.com/crickertech/nife/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/crickertech/nife/actions/workflows/ci.yml)
+[![CI](https://github.com/nifeos/nife/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nifeos/nife/actions/workflows/ci.yml)
 The badge is green only when every check `script/ci-build --list` names passes on `main`;
 [notes/check-inventory.md](notes/check-inventory.md) says what each one proves.
 
 ## Try it
 
 ```
-git clone https://github.com/crickertech/nife && cd nife
+git clone https://github.com/nifeos/nife && cd nife
 script/setup               # install the pinned toolchain and QEMU, then build
 script/console             # boot to an interactive shell (add --hvf on Apple Silicon)
 script/test                # host tests, then the kernel under QEMU on all three ISAs

@@ -134,6 +134,7 @@ malformed it.
 | 2026-09-24 | security | New trust boundaries, read where the week's change concentrated: the automation that merges, the bytes a file supplies, and the state a core carries for a thread | fixed 5, minted 1, accepted 5 | [New trust boundaries](2026-09-24-new-trust-boundaries.md) |
 | 2026-09-29 | documentation | Names and numbers a reader would act on, in the worklist's top three, the inbound side of the six notes the window split, and the window's two new notes read against the kernel | fixed 6, minted 1, accepted 1 | [Names and numbers the window moved past](2026-09-29-names-and-numbers.md) |
 | 2026-09-29 | security | The syscall surface as a whole, read as a confined process trying to widen: the two object types, the rendezvous method and the wake tag the window added, line by line, beside the older seams | fixed 0, minted 0, accepted 3 | [The syscall surface as a whole](2026-09-29-syscall-surface-whole.md) |
+| 2026-10-03 | security | The window's delta, read as a confined process trying to widen: the eight ABI constants `MemoryRegion::USAGE` added, the capability table's growth to 32, the plain-`SEND` badge, and the thirteen components, each for what it holds against what it uses | fixed 5, minted 4, accepted 6 | [Eight constants and thirteen components](2026-10-03-eight-constants-and-thirteen-components.md) |
 
 ## What the tree looked like when each ran
 
@@ -171,6 +172,7 @@ must not err in. So the count spans both, and it stays continuous across the spl
 | 2026-09-24 | security | 251 | 169 | 56 | 172 |
 | 2026-09-29 | documentation | 276 | 184 | 68 | 181 |
 | 2026-09-29 | security | 276 | 184 | 68 | 181 |
+| 2026-10-03 | security | 288 | 197 | 76 | 181 |
 
 The two `-` cells are honest rather than lazy: the roadmap was a single file with no status column
 until milestone 76 (split the roadmap: `design/roadmap/README.md` as index, one file per milestone) split it into `design/roadmap/` on 2026-08-03, and milestones 1 to 11 were
@@ -226,8 +228,14 @@ index that took every file called an audit would report a coverage it does not h
    one:
    - **fixed**, in the audit lane itself, for anything trivial enough to fix while you are there;
    - **minted as a milestone**, where the report proposes it and the integrator mints the number at
-     merge, with severity and rationale in the block. That is how milestone 90 was born from
-     milestone 84's finding;
+     merge, with severity and rationale in the block. That is how milestone 90 (a guard page under the per-CPU secondary stacks) was born from
+     milestone 84 (stack high-water)'s finding. **A minted finding that bears on a fatal risk** (for a security audit,
+     usually risk 7, confinement) is also cited from that risk's entry in
+     [design/fatal-risks/](../fatal-risks/README.md). The integrator adds the citation at merge,
+     because a lane does not edit that directory. Fatal risks are what the project launches from
+     (calef, 2026-10-03), and `script/fatal-risks` checks that each cited path exists and that no
+     cited proposal changed after the entry's last stated date; a finding left only in the
+     proposals directory is never looked at again;
    - **recorded-accepted**, with the reason, in the report *and* in the affected doc's `BUGS`
      section wherever a reader would meet the risk.
 

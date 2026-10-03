@@ -13,7 +13,7 @@ resolve. An unvouched program gets named files read-only unless the word carries
 per-program tables of option B, and option C, were refused for the reasons measured below.
 Milestone 205 built the transport on 2026-09-26 in the layout this page's prototype used, with
 slot 8 and `0x1400_0000` for "where"; `crates/argument_protocol` is the codec and
-`design/roadmap/proposals/the-argument-page-layout.md` is the proposal that brings it to calef.
+`design/roadmap/672-the-argument-page-layout.md` is the proposal that brings it to calef.
 
 §170 set the test in one sentence. If a shim is per-program work, option A (a POSIX argv) wins. If
 it is a library written once, options B and C stay open. This page answers that with counts from
@@ -177,7 +177,7 @@ separate channel.
   milestone 205 boots it at the prompt (`std_exerciser` prints its argv on all three
   architectures). `rg` still has nothing to search: a `std` program at the prompt holds no
   directory until the designation half is built
-  (`design/roadmap/proposals/designating-a-foreign-programs-words.md`).
+  (`design/roadmap/665-designating-a-foreign-programs-words.md`).
 - The shell cannot spawn a std program at all. All 16 `grant_plan::Prog` entries are native, and
   `ripgrep` runs only from the kernel test harness (`fs_service::start_std_full`). Every option
   inherits this gap. The demonstration at the prompt that milestone 121 (`ripgrep` on nife) wants

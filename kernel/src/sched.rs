@@ -598,7 +598,7 @@ pub(crate) const MAX_RENDEZVOUS: usize = 512;
 /// else back, so every test that wires a service with [`create_rendezvous`] spends the registry
 /// for the rest of the boot. The fix the lane of milestone 152 used on its own test is the
 /// pattern: retype the endpoint from the run's own region, so it goes when the region does.
-/// `design/roadmap/proposals/tests-retype-their-rendezvous-from-their-own-region.md` is that work
+/// `design/roadmap/671-tests-retype-their-rendezvous-from-their-own-region.md` is that work
 /// across the suite. Reports and does not gate, for [`MAX_THREADS`]'s reason.
 static PEAK_RENDEZVOUS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
 static KERNEL_CHUNK_RENDEZVOUS: core::sync::atomic::AtomicUsize =
@@ -672,6 +672,15 @@ fn rendezvous_of(sched: &IpcTables, ep: RendezvousId) -> Option<&'static mut Ren
 fn set_ipc_aborted(sched: &mut IpcTables, tid: ThreadId) {
     if let Some(t) = sched.threads.get_mut(tid) {
         t.handshake.abort();
+        // **The capability staged for the aborted send goes with it** (the 2026-10-03 security
+        // audit's follow-up). A `SEND_CAP` or `CALL` that parked put its delegation, or the Reply
+        // the kernel minted, in `outgoing_cap` for the receiver to take. An abort means no receiver
+        // ever will: the rendezvous is gone. Left in place, the next plain `SEND` this thread
+        // parked on a *different* rendezvous would hand that capability to whoever `RECV_CAP`s
+        // there, a delegation the sender made to one endpoint delivered to another. The sender
+        // still holds its own copy (`SEND_CAP` narrows a copy, it never moves the source), so
+        // nothing is lost by dropping this one.
+        t.outgoing_cap = None;
     }
 }
 
@@ -2057,6 +2066,14 @@ pub fn on_tick() {
     // down through `irq_notify`. It compiles to nothing anywhere else; see kernel/src/soak.rs.
     #[cfg(feature = "soak_test")]
     crate::soak::signal_waiters();
+
+    // **A kernel line held for the log service, signalled from a context that holds no lock**
+    // (milestone 342 (the kernel and the `console` server drive one UART from two address
+    // spaces)). One relaxed load when nothing is held, which is almost every tick. The print that
+    // held it could not signal: it may have been printing under `IPC_TABLES`. See `kernel_log`.
+    crate::kernel_log::signal_if_safe();
+    #[cfg(feature = "console_flood")]
+    crate::kernel_log::flood_tick();
 }
 
 /// The machine statistics page's half of a tick, out of line because every architecture's
@@ -3576,6 +3593,20 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
                     ) || sched.threads.get(sender).unwrap().handshake.state
                         == State::Dead;
                     if !leave_blocked {
+                        // **A plain RECV collected this sender, and a plain RECV delivers no
+                        // capability** (milestone 633 (an outside agent attacks the confinement
+                        // claim), fatal risk 7's outsider pass, 2026-10-03
+                        // UTC). A `SEND_CAP` sender parked its delegation in `outgoing_cap` for a
+                        // receiver to take; this receiver did not take it, and the rendezvous is now
+                        // complete. Left in place, the delegation would ride the sender's next plain
+                        // `SEND` on a *different* rendezvous and reach whoever `RECV_CAP`s there, a
+                        // delegation made to one endpoint delivered to another. This is the exact
+                        // hazard `set_ipc_aborted` closes on the teardown path; the successful-collect
+                        // path does not go through it, so it is closed here too. The sender still
+                        // holds its own copy (`SEND_CAP` narrows a copy, never moving the source), so
+                        // dropping this one loses nothing, which is `ipc_send_cap`'s documented
+                        // cap-table-full semantics: the data word arrives and the capability is dropped.
+                        sched.threads.get_mut(sender).unwrap().outgoing_cap = None;
                         // Collected: the sender's rendezvous is complete, which is what lets its
                         // wake through the boot-8 gate.
                         sched.threads.get_mut(sender).unwrap().handshake.serve();

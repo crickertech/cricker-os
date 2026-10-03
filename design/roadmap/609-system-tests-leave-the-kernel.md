@@ -43,12 +43,12 @@ check 13 fails if one creeps back.
 
 ## Follow-on
 
-- **Proposed.** The trust root leaves the kernel binary (calef, 2026-09-27), which is what still
+- **Milestone 697.** Milestone 697 (the trust root leaves the kernel binary). The trust root leaves the kernel binary (calef, 2026-09-27), which is what still
   makes a kernel build pack the archive first:
-  `design/roadmap/proposals/the-trust-root-leaves-the-kernel-binary.md`.
-- **Proposed.** The three system-test files that observe nothing in the kernel but the harness move
+  `design/roadmap/697-the-trust-root-leaves-the-kernel-binary.md`.
+- **Milestone 690.** Milestone 690 (the harness-only system tests move to userspace). The three system-test files that observe nothing in the kernel but the harness move
   to userspace, calef's third rule:
-  `design/roadmap/proposals/harness-only-system-tests-move-to-userspace.md`.
+  `design/roadmap/690-harness-only-system-tests-move-to-userspace.md`.
 - **Recorded.** Five service crates are still kernel dependencies because the kernel uses them for
   real (`calendar`, `jh7110_entropy`, `video_terminal`, `block_roster`,
   `non_volatile_memory_express`); whether each is a service at all is pull request #1389's division

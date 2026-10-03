@@ -91,6 +91,27 @@ signature hit the riscv64 reboot leg on 2026-09-28 (run 36362665042, "never echo
 `packages/greeting/0.1.0/greeting`" beside an uptime line). The gate's own constant doc already
 records this class (:1206-1215) and names the remedy: rerun the leg before reading the transcript.
 
+**The echo splice's base rate, measured 2026-10-03 (UTC) by lane 629.** 3 of 29 merge-group
+swish-check jobs that day failed with the aarch64 gauge-versus-echo splice, about one in ten. Every
+one landed on the echo of `package install downloads/uptime.nifepkg`, right after the tampered
+install: runs 37086229708, 37093381682 and 37095806100. That line is where the progenitor stack
+reaches a new peak (the gauge prints `after "package install downloads/uptime.nifepkg"` on every
+aarch64 leg), so the gauge and the next echo meet there on every run and splice when the timing
+lines up.
+
+**Fixed by milestone 342 (the kernel and the `console` server drive one UART from two address
+spaces), 2026-10-03.** The kernel no longer writes the UART once the log service has attached: its
+lines go through the service to the console, which writes them only at the start of a terminal
+line. The proof is `script/swish-check --flood`, which makes the kernel print a line every
+100 ms over the whole session. With the service attached, every flood line arrived whole and the
+gate stayed green: 254 lines on aarch64, 263 on riscv64 and 180 on x86_64 (one a second there), none
+spliced. The detached control
+(`--flood-detached`, the kernel printing for itself as before 342) spliced 83 of 466 on aarch64
+and 11 of 323 on riscv64, and failed the gate both times. The aarch64 run failed at
+`uuid 2> ent.txt`, and the riscv64 run on this note's own signature (*the prompt never echoed
+`caps wc doc/kernel/ipc-naming.md`*). The two signatures below this one are not this
+fix's.
+
 **The progenitor OOM (signature of #1444).** The shell prints the sentence when the progenitor
 answers with the `SPAWN_FAILED` sentinel (components/src/swish.rs:3053; the sentinel is
 `u64::MAX`, crates/grant_plan/src/spawnproto.rs:633). A `std` program needs one contiguous
@@ -104,6 +125,15 @@ and its BUGS note a mode where a parked fault-report SEND wedges the collecting 
 (helpers/qemu-runner-aarch64.sh:537, helpers/qemu-runner-riscv64.sh:273), and the constraint is the
 progenitor's own bounded pool. Whether the 2026-09-29 instance was the yield budget or
 fragmentation of the pool is not determined; the in-tree precedent says yield budget.
+Corrected 2026-10-03 UTC: it was the pool. A region returned out of order stayed a hole for the
+rest of the boot, and the pool (672 pages) is never destroyed. Both pipelines strand a region, since
+a producer ends first, so `free` read 576 KiB used where it alone holds 192, on every leg of every
+run. A job carved before the reaper reached its predecessor stranded one more, and on CI's riscv64
+runner that added up until `std_exerciser`'s 384 pages no longer fit (runs 37094606658 and
+37110045386). A temporary kernel trace of the pool's holes showed the two pipeline holes on every
+local run. Holding the reaper back on one job in three reproduced the CI failure on the old kernel
+and passed on the fixed one, with `free` back at 192. The fix is in `RegionTable::return_to_parent`,
+and swish-check now fails a run whose `free` reads above two regions.
 
 ## Local reproduction: zero
 
@@ -141,7 +171,7 @@ answered.
   the UART once userspace owns it (DECISIONS §175 (where the kernel's own output goes once
   userspace owns the console), ruled 2026-09-27, unbuilt; the degauge doc points there). The OOM
   race dies when the undertaker tells the progenitor a job's memory is back
-  (`design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`). Both are architect
+  (`design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md`). Both are architect
   territory, not this lane's.
 - Runner variance as the finding. Both confirmed signatures are races whose windows scale with
   runner speed; the local host cannot reproduce them in 20 legs and CI's slower runners can in one

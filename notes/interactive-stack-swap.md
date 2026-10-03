@@ -14,8 +14,8 @@ different problems.*
 | component | who builds it on a real boot | who could swap it | state it holds |
 |---|---|---|---|
 | `line_editor` | `system_initializer`, out of its own budget (`crates/system_initializer/src/lib.rs`, item 3) | `system_initializer`: it holds every object it routed | the edit line, the kill buffer, eight lines of history, up to four queued lines, raw or cooked mode, the interrupt count: under 4 KiB, measured (see BUGS) |
-| `display_terminal` | the kernel, before the progenitor exists (`kernel/src/user.rs`, `boot_graphical_terminal`) | nobody: no userspace process holds its endowment or its supervision endpoint | the character grid and scrollback, several hundred KiB (`video_terminal::Vt`) |
-| `compositor` | no boot builds it. Only the tests of milestone 33 (a compositor: one screen, mutually distrusting clients) spawn it (`kernel/src/user/compositor_service.rs`, `#[cfg_attr(not(test), ...)]`); the graphical boot is option A of milestone 177 (wire the graphical terminal stack into the real interactive boot), "no compositor in this path" | nobody outside a test | nothing it could not rebuild: each client's surface is a frame the client owns |
+| `display_terminal` | `system_initializer`, at a `graphical_terminal` launch (`build_graphical_terminal_session`; no boot builds it since milestone 632 (graphics on demand)) | nobody: no userspace process holds its endowment or its supervision endpoint | the character grid and scrollback, several hundred KiB (`video_terminal::Vt`) |
+| `compositor` | no boot builds it. Only the tests of milestone 33 (a compositor: one screen, mutually distrusting clients) spawn it (`kernel/src/user/compositor_service.rs`, `#[cfg_attr(not(test), ...)]`); the graphical stack (option A of milestone 177 (wire the graphical terminal stack into the real interactive boot), now built at a `graphical_terminal` launch) has "no compositor in this path" | nobody outside a test | nothing it could not rebuild: each client's surface is a frame the client owns |
 
 So the block's 2026-09-03 correction was itself half right. All three do run under the kernel test
 harness. But milestone 177 wired two of them into a boot path, not three, and one of those two was
@@ -67,7 +67,7 @@ history ring and a full queue is under 4 KiB. That corrects this note's own earl
 
 calef ruled 1a and 2b on 2026-09-26 (an additive `OP_QUIESCE`; a `FLAG_RETRY` reply that a reader
 answers by asking again) and, on 2026-09-27, option A of
-`design/roadmap/proposals/a-terminal-supervisor-holds-the-line-editor.md`. So:
+`design/roadmap/661-a-terminal-supervisor-holds-the-line-editor.md`. So:
 
 - `line_editor::component` declares what a supervisor routes to it, with one declaration per
   output-sink shape. `line_editor::handoff` is its blob: the edit line and cursor, the kill buffer,
@@ -81,7 +81,7 @@ answers by asking again) and, on 2026-09-27, option A of
   three architectures: a line half typed before the swap finishes after it, and history typed
   before it is recalled after it. `script/swish-check`, plain and graphical, boots through it.
 
-What is left is the trigger, which `design/roadmap/proposals/the-installer-asks-the-terminal-to-swap.md`
+What is left is the trigger, which `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`
 sets out.
 
 ## display_terminal: blocked on where it is built
@@ -116,7 +116,7 @@ the harness, which is what the block's original sentence warned against.
 
 Provisional titles; the integrator mints the numbers. Each was a file under `design/roadmap/proposals/`.
 
-1. Swap `line_editor` live (`swap-line-editor-live-under-system-initializer.md`): built on
+1. Swap `line_editor` live (`669-swap-line-editor-live-under-system-initializer.md`): built on
    2026-09-27 under a terminal supervisor rather than `system_initializer`, as ruled.
 2. Build the graphical terminal stack in userspace now that a frame names a run: promoted to
    milestone 600 (the graphical terminal stack is built in userspace) and built, so

@@ -31,6 +31,8 @@ becomes `nife`). Older records, commits, and quoted transcripts keep the old nam
 describe the past, which is the general rule for a rename here: a record says what was true when it
 was written.
 
+The GitHub organization was renamed from crickertech to nifeos on 2026-10-03 (UTC), to match the domain nifeos.org, which calef holds; crickertech was a placeholder. Records that name the old organization in prose, keep it, and old URLs redirect. Links, `gh` arguments and scripts name nifeos.
+
 ## The file is AGENTS.md and the citations still say CLAUDE.md
 
 `AGENTS.md` is the cross-tool convention and `CLAUDE.md` is a symlink to it, decided 2026-08-14, so

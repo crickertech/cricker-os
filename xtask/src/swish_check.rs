@@ -11,7 +11,7 @@ use crate::disk::{disk_path, mkdisk, mkredoxfs, redoxfs_server_build};
 use crate::host::{flag_value, run, workspace_root};
 use crate::scanout::{gpu_mon_socket, scanout_rows, screendump, sendkey};
 use crate::suite::ArchLegs;
-use crate::uefi::{esp_dir, uefi_image};
+use crate::uefi::{esp_dir, uefi_image, uefi_image_with};
 use crate::{RISCV_TARGET, RUNNER, TARGET, X86_TARGET, profile_dir, user};
 
 /// **Boot the `--features shell` system and type at it** (milestone 50, notes/pipes.md).
@@ -51,7 +51,65 @@ use crate::{RISCV_TARGET, RUNNER, TARGET, X86_TARGET, profile_dir, user};
 /// One line would meet the BUGS entry that asked for this. Five is still seconds, and it walks the
 /// whole endowment: a spawn through the real progenitor, the FS service the real progenitor narrowed into the
 /// shell, and both redirection operators.
+/// **The probes of milestone 342 (the kernel and the `console` server drive one UART from two
+/// address spaces)** (names provisional): what the kernel is built to do on top of the
+/// ordinary leg. `--flood` prints a kernel line every ten ticks once the log service attaches, and
+/// the leg fails if any of them landed anywhere but on a line of its own. `--flood-detached` is
+/// the same flood with the kernel never trusting its drainer: every line direct, which is the
+/// kernel before milestone 342, and the leg reports how many splices that made. `--panic-probe`
+/// panics on the thirtieth flood line and checks the panic reached the UART.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Probe {
+    None,
+    Flood,
+    FloodDetached,
+    Panic,
+}
+
+static PROBE: std::sync::OnceLock<Probe> = std::sync::OnceLock::new();
+
+fn probe() -> Probe {
+    *PROBE.get().unwrap_or(&Probe::None)
+}
+
+/// The kernel features a probe adds, comma-separated, or empty.
+fn probe_features() -> &'static str {
+    match probe() {
+        Probe::None => "",
+        Probe::Flood => "console_flood",
+        Probe::FloodDetached => "console_flood,kernel_log_detached",
+        Probe::Panic => "kernel_log_panic_probe",
+    }
+}
+
+/// What a flood line looks like: `kernel::kernel_log::flood_tick`'s sentence, indent included.
+const FLOOD_NEEDLE: &str = "  kernel flood:";
+
+/// Count the flood lines in a transcript: `(whole, spliced)`, a whole one being a line that is
+/// exactly the sentence, and a spliced one any other place its text appears.
+fn flood_counts(raw: &str) -> (usize, usize) {
+    let whole = raw
+        .split('\n')
+        .filter(|l| {
+            l.strip_prefix(FLOOD_NEEDLE)
+                .is_some_and(|n| n.trim_start().parse::<u64>().is_ok() && n.starts_with(' '))
+        })
+        .count();
+    let all = raw.matches(FLOOD_NEEDLE.trim_start()).count();
+    (whole, all - whole)
+}
+
 pub(crate) fn swish_check() -> bool {
+    let probe = if std::env::args().any(|a| a == "--flood") {
+        Probe::Flood
+    } else if std::env::args().any(|a| a == "--flood-detached") {
+        Probe::FloodDetached
+    } else if std::env::args().any(|a| a == "--panic-probe") {
+        Probe::Panic
+    } else {
+        Probe::None
+    };
+    let _ = PROBE.set(probe);
     let legs = match flag_value("--arch").as_deref() {
         None => ArchLegs::All,
         Some("aarch64") => ArchLegs::Aarch64,
@@ -1435,6 +1493,23 @@ const KERNEL_FAULT_TOKENS: [&str; 6] = [
 /// last one it sees and fails if the kernel flagged it as past the recorded peak.
 const SLOT_GAUGE: &str = "capability slots:";
 
+/// **The most of the job pool `free`'s `Yours:` line may report in use**, in KiB: two job regions
+/// (`system_initializer`'s `JOB_REGION_PAGES`, 48 pages of 4 KiB). One is `free`'s own, which its
+/// BUGS says it counts. The other is one predecessor the reaper may not have reached when `free`
+/// was carved, which is a race the gate does not control and so must allow. Before the fix of
+/// 2026-10-03 (UTC) this line read 576 on every run: `free` plus two regions the pipelines above it
+/// had stranded. Name: provisional.
+const YOURS_CEILING_KIB: u64 = 2 * 48 * 4;
+
+/// The used figure of the first `Yours:` row in `transcript`, in KiB, or `None` when there is none
+/// (the line's own expectation already fails a run that lost it).
+fn yours_used_kib(transcript: &str) -> Option<u64> {
+    let row = transcript
+        .lines()
+        .find_map(|l| l.trim_start().strip_prefix("Yours:"))?;
+    row.split_whitespace().nth(1)?.parse().ok()
+}
+
 /// **Takes the kernel's progenitor stack gauge out of the transcript as it arrives**, and keeps it.
 ///
 /// The gauge (`kernel::progenitor_stack`) speaks from the idle loop once the stack's mark has been
@@ -1459,9 +1534,15 @@ const SLOT_GAUGE: &str = "capability slots:";
 /// landed after the first `$ ` and the gate waited thirty seconds for a prompt that had already
 /// been printed, reporting `the prompt never came back` for a shell that was waiting to be typed
 /// at. Its check reads the raw transcript, which still carries it.
-#[derive(Default)]
 struct GaugeFilter {
     pending: String,
+    needles: &'static [&'static str],
+}
+
+impl Default for GaugeFilter {
+    fn default() -> Self {
+        Self::with_needles(&Self::NEEDLES)
+    }
 }
 
 impl GaugeFilter {
@@ -1474,12 +1555,21 @@ impl GaugeFilter {
     /// which the bare-prompt exception in [`GaugeFilter::feed`] relies on.
     const NEEDLES: [&'static str; 2] = [Self::NEEDLE, Self::SLOT_NEEDLE];
 
+    /// A filter for other kernel lines with the same shape (milestone 342's flood probe).
+    fn with_needles(needles: &'static [&'static str]) -> Self {
+        GaugeFilter {
+            pending: String::new(),
+            needles,
+        }
+    }
+
     /// Feed the next chunk. Text that is certainly not a gauge is appended to `out`; each whole
     /// gauge line is pushed to `gauges` with the length `out` had when it was removed.
     fn feed(&mut self, chunk: &str, out: &mut String, gauges: &mut Vec<(usize, String)>) {
         self.pending.push_str(chunk);
         loop {
-            if let Some(at) = Self::NEEDLES
+            if let Some(at) = self
+                .needles
                 .iter()
                 .filter_map(|n| self.pending.find(n))
                 .min()
@@ -1500,7 +1590,8 @@ impl GaugeFilter {
                 // Hold back the longest tail that is a proper prefix of the needle, except the
                 // space of a bare `$ `: the needle starts with the kernel's indent, so without
                 // this the prompt every wait below looks for would never be emitted whole.
-                let mut keep = Self::NEEDLES
+                let mut keep = self
+                    .needles
                     .iter()
                     .filter_map(|needle| {
                         (1..needle.len())
@@ -1986,7 +2077,7 @@ fn boot_claim_complaint(
 ///   would otherwise surface only as the `uuid` lines failing.
 fn swish_check_leg(arch: &str) -> bool {
     swish_check_boot(arch, SWISH_CHECK_SCRIPT, true)
-        && swish_check_boot(arch, SWISH_CHECK_AFTER_REBOOT, false)
+        && (probe() == Probe::Panic || swish_check_boot(arch, SWISH_CHECK_AFTER_REBOOT, false))
 }
 
 /// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
@@ -2075,7 +2166,14 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         || if x86 {
         // `uefi_image` packs the archive, builds the kernel against it, and stages the loader;
         // the FS server has to exist first so the archive carries it.
-        redoxfs_server_build(X86_TARGET) && mkdisk() && mkredoxfs() && uefi_image()
+        redoxfs_server_build(X86_TARGET)
+            && mkdisk()
+            && mkredoxfs()
+            && if probe_features().is_empty() {
+                uefi_image()
+            } else {
+                uefi_image_with(Some(probe_features()))
+            }
     } else if riscv {
         redoxfs_server_build(RISCV_TARGET) && mkdisk() && mkredoxfs() && initrd_riscv()
     } else {
@@ -2090,7 +2188,11 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
             "-p",
             "kernel",
             "--features",
-            "shell",
+            &if probe_features().is_empty() {
+                "shell".to_string()
+            } else {
+                format!("shell,{}", probe_features())
+            },
             "--target",
             target,
         ]));
@@ -2188,6 +2290,11 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let gauge_collector = Arc::clone(&gauges);
     let reader = std::thread::spawn(move || {
         let mut filter = GaugeFilter::default();
+        // A probe's flood lines come out first, by the same rule (whole lines only), so the
+        // checks read what they would without the flood; a spliced one stays in and fails them.
+        let mut flood = GaugeFilter::with_needles(&[FLOOD_NEEDLE]);
+        let mut flood_out = String::new();
+        let mut flood_lines = Vec::new();
         let mut buf = [0u8; 1024];
         while let Ok(n) = stdout.read(&mut buf) {
             if n == 0 {
@@ -2203,6 +2310,13 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
             // `seen` before `gauges`, both held, so no reader sees a gauge's offset past the text.
             let mut out = collector.lock().expect("transcript lock");
             let mut removed = gauge_collector.lock().expect("gauge lock");
+            let text = if probe() == Probe::None {
+                text
+            } else {
+                let before = flood_out.len();
+                flood.feed(&text, &mut flood_out, &mut flood_lines);
+                flood_out[before..].to_string()
+            };
             filter.feed(&text, &mut out, &mut removed);
         }
     });
@@ -2370,6 +2484,41 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         } else {
             SWISH_CHECK_LINE_SECS
         };
+        // **The panic probe types nothing**: the kernel panics on its own once the log service has
+        // drained thirty flood lines, and what is checked is that the panic reached the UART
+        // with a drainer attached (§175's escape), and that the flood lines did too.
+        if probe() == Probe::Panic {
+            if wait_after(0, "kernel log panic probe", 120) {
+                let raw_now = raw.lock().expect("transcript lock").clone();
+                let (whole, spliced) = flood_counts(&raw_now);
+                eprintln!(
+                    "swish-check ({arch}): panic probe: the panic reached the UART with the log \
+                     service attached; {whole} whole flood lines before it, {spliced} spliced"
+                );
+                if !raw_now.contains("[PANIC]") {
+                    failed.push("the probe's message arrived without the panic handler's".into());
+                }
+            } else {
+                failed.push("the panic probe never reached the UART".to_string());
+            }
+            // Nothing else to read: the kernel is halted. Same kill as the end of this function.
+            if x86 {
+                let _ = Command::new("kill")
+                    .args(["-TERM", &child.id().to_string()])
+                    .status();
+            } else {
+                let _ = child.kill();
+            }
+            let _ = child.wait();
+            let _ = reader.join();
+            if !failed.is_empty() {
+                eprintln!("--- swish-check ({arch}) panic probe FAILED ---");
+                for f in &failed {
+                    eprintln!("  {f}");
+                }
+            }
+            return failed.is_empty();
+        }
         let mut took: Vec<(&str, Duration)> = Vec::new();
         let mut previous: Option<(&str, Instant)> = None;
         for &Line {
@@ -2428,7 +2577,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         // One more, for the last line: every other answer is bounded by the next line's wait, and
         // the last one has no next line. Without this the transcript is read while the final
         // command is still running.
-        if failed.is_empty() && !wait_for_prompt(line_secs) {
+        if failed.is_empty() && probe() != Probe::Panic && !wait_for_prompt(line_secs) {
             failed.push("the prompt never came back after the last line".to_string());
         }
         if let (true, Some((prev, typed))) = (failed.is_empty(), previous) {
@@ -2661,6 +2810,46 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
              printing is how the stack got raised three times by overflowing it.",
             GaugeFilter::NEEDLE.trim()
         ));
+    }
+
+    // **And the job pool came back** (lane fix/riscv64-progenitor-oom, 2026-10-03 UTC). `free`'s
+    // `Yours:` line is the progenitor's job pool as `MemoryRegion::USAGE` sees it, and a pool whose
+    // regions all came back holds `free` itself and little else. Until that date a region returned
+    // out of order stayed a hole for the rest of the boot, so the two pipelines before this line
+    // left two regions behind on every run, every architecture, and the races that sometimes added
+    // more were what ran the pool out under `std_exerciser`. That leak was in the transcript all
+    // along, as 576 used, and nothing read it: this is the read that turns it from intermittent
+    // into a failure on every run.
+    if let Some(used) = yours_used_kib(&filtered)
+        && used > YOURS_CEILING_KIB
+    {
+        failed.push(format!(
+            "`free` reports {used} KiB of the progenitor's job pool in use, above the \
+             {YOURS_CEILING_KIB} KiB that `free` itself and one job the reaper has not reached yet \
+             account for. Something left a region behind: memory_regions' \
+             `RegionTable::return_to_parent` is where a returned job's pages go back, and \
+             notes/swish-check-flake.md has how this was traced."
+        ));
+    }
+    // **Milestone 342's flood verdict**: every kernel flood line on a line of its own, or, for the
+    // detached control, how many were not.
+    if matches!(probe(), Probe::Flood | Probe::FloodDetached) {
+        let (whole, spliced) = flood_counts(&raw.lock().expect("transcript lock"));
+        eprintln!(
+            "swish-check ({arch}): flood: {whole} kernel lines whole, {spliced} spliced into \
+             other output{}",
+            if probe() == Probe::FloodDetached {
+                " (the detached control: the kernel printing for itself, as before milestone 342)"
+            } else {
+                ""
+            }
+        );
+        if probe() == Probe::Flood && (spliced > 0 || whole == 0) {
+            failed.push(format!(
+                "the flood spliced {spliced} kernel lines into other output ({whole} whole); with \
+                 the log service attached it must splice none"
+            ));
+        }
     }
 
     // SIGTERM rather than `kill()`'s SIGKILL on x86_64: that runner is `qemu-bounded.sh`, which
@@ -3124,6 +3313,20 @@ fn swish_check_answer<'a>(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_job_pool_check_reads_free_as_ci_printed_it() {
+        // Run 37110045386's riscv64 transcript, verbatim: two stranded regions beside `free`'s own.
+        let leaked = "$ free\n                total        used        free\n\
+                      Mem:        262144       84292      177852\n\
+                      Yours:        2688         576        2112\n";
+        assert_eq!(super::yours_used_kib(leaked), Some(576));
+        assert!(super::yours_used_kib(leaked).unwrap() > super::YOURS_CEILING_KIB);
+        // The same line after the fix, measured locally on riscv64: `free` alone.
+        let whole = "Yours:        2688         192        2496\n";
+        assert!(super::yours_used_kib(whole).unwrap() <= super::YOURS_CEILING_KIB);
+        assert_eq!(super::yours_used_kib("no such row\n"), None);
+    }
 
     use super::*;
 

@@ -69,7 +69,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-REPO="crickertech/nife"
+REPO="nifeos/nife"
 HELD_LABEL="needs-architect"
 
 # **Which drain spoke.** "smelter did it" stops being an answer the moment the automation runs in

@@ -40,8 +40,10 @@
 //!   code no test exercises.
 //! - **It proves nothing about a real firmware.** OVMF is one implementation and a generous one.
 //!   Rung 2b is the bench half and belongs to somebody with xenon in front of them.
-//! - **The two boots take several minutes under TCG**, most of it the ten-megabyte copy at one
-//!   4096-byte request per round trip. It is not in `script/test`'s default legs for that reason.
+//! - **It runs nowhere on its own.** It was left out of `script/test`'s default legs because the
+//!   two boots were said to take several minutes under TCG. Measured 2026-10-03 on an Apple M-series
+//!   host, warm: 42.5 seconds for the whole gate. Nothing schedules it either, so a break is found
+//!   by whoever next runs it by hand: `design/roadmap/712-the-install-gates-run-nowhere.md`.
 //! - **A failure leaves the NVMe image behind**, on purpose: it is the evidence, and
 //!   `hdiutil attach -imagekey diskimage-class=CRawDiskImage` on the partition reads the EFI system
 //!   partition it wrote.
@@ -152,6 +154,14 @@ pub(crate) fn install_boot() -> bool {
 /// **Build everything and write an empty disk**, which is what any gate starting from a bare
 /// machine needs. Shared with `cargo xtask rollback-boot`, which begins with the same install.
 pub(crate) fn prepare() -> bool {
+    // **An installed image is always a release build** (calef, 2026-10-03 UTC, the install boot
+    // slots: "keep 64 MiB with both fixes"). Every gate that begins here stages the file the
+    // installer writes into a slot, so the profile is set here and not left to a flag: a debug
+    // image is 15 MB where release is a few, and the loader refuses to offer a debug image for
+    // install at all (`uefi_loader::image::carries_debug_info`), so this gate would find no
+    // installer to type at. The debug default is for fast rebuilds in the test paths, none of
+    // which install anything.
+    crate::RELEASE.store(true, std::sync::atomic::Ordering::Relaxed);
     // `mkfs` and the FS server, which the archive packs only if something built them for this
     // target. Without `mkfs` the install partitions the disk and leaves the data partition empty,
     // and the second boot then has nothing to read back.
@@ -200,6 +210,11 @@ pub(crate) fn install_once() -> Option<String> {
         420,
     )?;
 
+    // The loader's refusal to offer a debug image, which would mean this gate staged one.
+    if first.contains("a debug image is not offered for install") {
+        eprintln!("install: the stick carried a DEBUG kernel; an install image must be release");
+        return None;
+    }
     for wanted in [
         "install     : this system was booted from a file and can install itself.",
         "install     :   EVERYTHING ON THAT DISK WILL BE DESTROYED.",

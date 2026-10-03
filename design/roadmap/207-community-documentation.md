@@ -28,7 +28,7 @@ TCP listen and accept. The gate is read when ranking work and the follow-on list
 picking it up, so the two audiences saw different answers. What is left needs nobody: nothing
 verifies the issue forms render, which is a gate to write rather than a decision to take.
 
-In brief. Measured against `repos/crickertech/nife/community/profile` on 2026-08-31: `README`,
+In brief. Measured against `repos/nifeos/nife/community/profile` on 2026-08-31: `README`,
 `CONTRIBUTING` and `LICENSE` are present; `CODE_OF_CONDUCT`, an issue template and a pull request
 template are missing. GitHub's checklist also offers a fourth item, *Repository admins accept
 content reports*, which is a setting rather than a file and cannot be delivered by a pull

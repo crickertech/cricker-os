@@ -2356,6 +2356,48 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     )
     .expect("insert the machine statistics page");
     assert_eq!(s23, 23);
+    // **The kernel's ring, its cursor page and its notification** (slots 24 to 26, milestone 342
+    // (the kernel and the `console` server drive one UART from two address spaces), calef's
+    // ruling F): the ring read-only so the log service can copy kernel lines out and never write
+    // them, the cursor read-write so it can say how far it has read, and the notification the
+    // kernel signals on append, which the progenitor binds to the service's thread. All three
+    // carry `GRANT`, because the progenitor is the spawner and not the reader. Empty on a boot that
+    // could not allocate them, which keeps the kernel's old behaviour: every line direct.
+    crate::kernel_log::publish();
+    if let Some((ring, cursor, notification)) = crate::kernel_log::grants() {
+        for (cap, slot, what) in [
+            (
+                crate::cap::page_frame_run_cap(
+                    ring,
+                    core::num::NonZeroU64::new(system_log_protocol::kernel_ring::PAGES as u64)
+                        .expect("the ring has pages"),
+                    Rights::READ.union(Rights::GRANT),
+                ),
+                24,
+                "the kernel's ring",
+            ),
+            (
+                crate::cap::page_frame_cap(
+                    cursor,
+                    Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
+                ),
+                25,
+                "the kernel ring's cursor page",
+            ),
+            (
+                crate::cap::notification_cap(
+                    notification,
+                    Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
+                ),
+                26,
+                "the kernel ring's notification",
+            ),
+        ] {
+            let s = crate::sched::thread_control_block_insert_cap(tid, cap, Some(slot))
+                .unwrap_or_else(|_| panic!("insert {what}"));
+            assert_eq!(s, slot, "{what} landed in the wrong slot");
+        }
+    }
     // **Or a terminal on the screen the firmware left running** (the shell on the firmware screen,
     // milestone 198's rung 1b), when there is no GPU: slots 10 and 11, the terminal's endpoint and
     // its output page. (They were the graphical stack's slots too, until milestone 600

@@ -1048,6 +1048,25 @@ jobs:
       # parallel, so it costs no wall clock against the 30-minute Kani job.
       - run: script/ci-build fastpath-footprint
 
+  boot-file-size:
+    name: boot file size (the release BOOTX64.EFI against its slot budget)
+    runs-on: ubuntu-24.04
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # A release x86_64 kernel and archive, and the UEFI loader, which is the image an install
+      # writes into a 64 MiB boot slot (calef, 2026-10-03 UTC). Measured 28 seconds warm on the dev
+      # machine; the 20-minute cap is for a cold runner. Its own job because no other job builds a
+      # release image, so there is nothing to share, and jobs run in parallel. llvm-tools carries
+      # the objcopy that strips the kernel and the objdump that proves it stripped.
+      - name: Install the targets and llvm-tools
+        run: |
+          rustup target add x86_64-unknown-none x86_64-unknown-uefi
+          rustup component add llvm-tools
+      - run: script/ci-build boot-file-size
+
   build-is-reproducible:
     name: reproducible build (the same commit builds the same bytes)
     runs-on: ubuntu-24.04

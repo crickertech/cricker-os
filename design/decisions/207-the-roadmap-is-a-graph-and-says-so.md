@@ -39,7 +39,7 @@ PARTIAL, NOT-STARTED and PROPOSED block carries the five fields, and 7 of 279 BU
 38 blocks that name a milestone dependency, one is BUILT. The census's 128 prerequisite edges
 (`notes/dependency-census/dependencies.tsv`) appear in a field 4 times. So the graph a script can walk
 today is mostly forward guesses, and the edges hindsight already found are not in it. The work to put
-them there is `design/roadmap/proposals/backfill-the-census-edges-into-finished-blocks.md`.
+them there is `design/roadmap/704-backfill-the-census-edges-into-finished-blocks.md`.
 
 The amendment's original refutation test is not carried over. It said that if prerequisites were a
 small minority of references, this section was wrong; the census found 3.8% and the section was

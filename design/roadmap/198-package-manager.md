@@ -138,7 +138,7 @@ claim about PCs, and each rung's last exit criterion is that second machine.
 | **1b. The prompt on the screen** | A pre-set-framebuffer driver behind the framebuffer contract | Under OVMF, `board_console::screen` reads `$` back off the framebuffer; on xenon, the prompt is on the monitor and a serial keystroke echoes there | [400](400-the-shell-on-the-firmware-screen.md) (PARTIAL: built and gated under OVMF, xenon outstanding; found by this lane); shares its driver with 157 |
 | **1c. A USB keyboard** | xHCI, enumeration, HID boot protocol | xenon with a monitor and a USB keyboard, no serial cable: `echo hello` | 242 (NOT-STARTED), which closes 192 (PARTIAL) |
 | **1d. A PC that is not xenon** | Nothing new if 1a to 1c hold | The same stick on one fleet machine reaches `$` at its own keyboard and monitor | 243's fleet; [a-stick-that-boots-with-secure-boot-on.md](500-a-stick-that-boots-with-secure-boot-on.md) (new) for machines whose owner will not turn Secure Boot off |
-| **2a. Installed onto a disk, under QEMU** | An installer; the boot mounting the nife partition off NVMe | OVMF boots the stick image with an empty NVMe attached; the installer names the disk, asks, partitions, formats and copies; the machine reboots **with the stick detached**, reaches `$`, and reads back a file written before the reboot. One `cargo xtask` gate | [the-installer-a-stick-runs-to-put-itself-on-the-disk.md](515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md) (new); [milestone 421 (the block roster cannot name an NVMe)](421-a-block-roster-that-can-name-an-nvme-disk.md) (existing); 57's partitioner and `mkfs` (BUILT) |
+| **2a. Installed onto a disk, under QEMU** | An installer; the boot mounting the nife partition off NVMe | OVMF boots the stick image with an empty NVMe attached; the installer names the disk, asks, partitions, formats and copies; the machine reboots **with the stick detached**, reaches `$`, and reads back a file written before the reboot. One `cargo xtask` gate | **BUILT 2026-09-21** (#1056, `notes/installing.md`; re-run green 2026-10-03); [milestone 515](515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md) is PARTIAL on the bench half |
 | **2b. Installed onto xenon's disk** | The bench half | The 2a sequence on xenon's Micron 2450, photographed, stick removed before the second boot | 261 (PARTIAL: the disk wipe, calef's, then one bench boot) |
 | **3a. A package over the LAN, under QEMU** | The package client this milestone is; a host-side recipe that produces a package; a small HTTP client | A package absent from the image is fetched from a host on the same network over plain HTTP, verified by digest, installed onto the running system, run, still present after a reboot, and removed | this block; all three rulings it needed are in (§195, §197, §208). The scoping lane's recipe idea (item 1 of the superseded slice) survives here as the producer half. **Producer half BUILT 2026-09-23** (`crates/package_archive`, `cargo xtask package`, `packages/uptime.recipe.toml`, notes/packages.md). Fetch and verify built 2026-09-24 (`helpers/package-http-peer`, `crates/http_response`, a QEMU test on aarch64 and riscv64); **run by digest and the installer built 2026-09-26** on all three architectures. No TLS, since §195's digest decides whether bytes may run |
 | **3b. The network card xenon has** | An Intel I219 (`e1000e` family) driver in 261's shape | Under QEMU `-device e1000e` behind `intel-iommu`, milestone 30 (the network stack as a confined component)'s DHCP and TCP gates pass through the new driver; on xenon, a lease from the house router and a measured transfer | [a-driver-for-the-network-card-a-pc-actually-has.md](494-a-driver-for-the-network-card-a-pc-actually-has.md) (new) |
@@ -176,9 +176,9 @@ One line each, in the form calef would answer, with the rung that waits on it.
 | ~~**Format**~~ | **Decided 2026-09-20. DECISIONS §197 (a package is one archive file) rules one archive file per package**, identified by name and version, with the reviewed recipe of §195 (a reviewed recipe vouches for a package) carrying its digest. The manifest travels in an ELF note (ruled 2026-09-26); whether the digest is a Merkle root is still calef's. | 3a | [DECISIONS §197](../decisions/197-a-package-is-one-archive-file.md) |
 | ~~**Activation**~~ | **Decided 2026-09-23 (DECISIONS §208): A3 with rollback.** Installing records that a package exists (digest and manifest spawnable, data a read-only directory a session binds by name), nothing is written into shared space, and the table of entries is versioned so a set rolls back whole. | 3a's **consumer** half | [DECISIONS §208](../decisions/208-installing-is-granting.md), from [milestone 507](507-installing-a-package-mutates-or-composes.md) |
 | ~~**Trust**~~ | **Decided 2026-09-19 (DECISIONS §195): a reviewed recipe vouches, trust is scoped per source the owner opted into, and the owner may overrule.** No long-lived signing key is held for now; a per-source signature can be added later without changing that. | 3a | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) |
-| **Install layout** (new) | Is an installed disk an EFI system partition plus a data partition, the same with two boot slots, or a small loader plus a raw system partition? | 2a's merge (a lane can build under a provisional layout; nothing leaves the machine until 4) | the installer proposal |
+| ~~**Install layout** (new)~~ | **Decided 2026-10-03 (DECISIONS §244 (the installed disk has four partitions, and a boot slot is 64 MiB)): four partitions**, release images only, under a 16 MiB CI budget. | 4 | [DECISIONS §244](../decisions/244-the-installed-disk-has-four-partitions.md), from [515's appendix](515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md) |
 | ~~**Transport** (new)~~ | **Decided 2026-09-19 (DECISIONS §196): HTTPS, `rustls` for the protocol, and the crypto provider is milestone 442's work.** Under §195 a recipe's digest decides what may run, so rung 3a does not wait for TLS. | 3c (not 3a) | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
-| ~~**Hosting** (new)~~ | **Settled with the transport (§196):** GitHub redirects plain HTTP, and carrying TLS is what makes a GitHub-hosted source reachable. Whether `crickertech` operates a source at all, and the GPL obligation that comes with it, is still open. | 3c and 4 | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
+| ~~**Hosting** (new)~~ | **Settled with the transport (§196):** GitHub redirects plain HTTP, and carrying TLS is what makes a GitHub-hosted source reachable. Whether `crickertech` operates a source at all, and the GPL obligation that comes with it, is still open. Fact: calef holds `nifeos.org` (registered 2026-10-03 UTC, Name.com, expires 2027-10-03, no DNS yet). Open, calef's: whether images name a host under it. The maintainer recommends so, not GitHub's, so hosting can move without re-shipping; a name baked into an image is irreversible. | 3c and 4 | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
 | **Secure Boot** (new) | Does a stranger turn Secure Boot off, or do we sign, and if we sign, is it the same key as the package key? | 4 (and 1d on a machine whose owner will not turn it off) | the Secure Boot proposal |
 | **Publication** | Is it time to put the page up? | 4 | §157, step 1: calef's act |
 
@@ -196,17 +196,13 @@ Not a ruling but calef's hands: **the wipe of xenon's NVMe** (milestone 261), wh
 - Something checks DECISIONS §135's requirement 1 ("no conveyed artifact carries copyleft") for
   the image the page conveys; §135's own `BUGS` says nothing enforces it.
 - The stranger harness passes against the download, and records the time from page to prompt.
+- calef holds `nifeos.org`. Whether the page lives there is calef's (§157).
 
 ### The superseded slice, and what survived it
 
 The scoping lane's first slice (below, under "Scoped 2026-09-19") had four items. Item 1, packages
-as host-side recipes, survives as rung 3a's producer. Item 2, image composition from a declared
-set, is off the path: milestone 150, in flight as PR #968, generates the program table from one
-declaration, and
-nothing on a rung needs a second mechanism. Item 3, the QEMU run bundle, is off the path; §157
-left it as a lane's reversible call, and the call is that it is a developer convenience rather than
-a rung, worth building only if the stranger harness wants a vehicle before rung 1d exists. **Item
-4**, removal, is part of 3a's exit criterion and of the activation ruling.
+as host-side recipes, survives as rung 3a's producer. Items 2 (image composition, milestone 150, PR #968) and 3 (the QEMU run bundle,
+a reversible call per §157) are off the path. **Item 4**, removal, is part of 3a's exit criterion and of the activation ruling.
 
 ## Scoped 2026-09-19
 
@@ -223,13 +219,12 @@ built, and the gate line above is left as minted because changing it is the firs
 | Package format | [DECISIONS §197](../decisions/197-a-package-is-one-archive-file.md) | **Decided 2026-09-20 by calef**, after comparing apt, Homebrew, Alpine, Haiku and Nix: one archive file per package, the mainstream container, vouched for by §195's reviewed recipe |
 | Activation | [installing-a-package-mutates-or-composes.md](507-installing-a-package-mutates-or-composes.md) | **Decided 2026-09-23 by calef (§208): A3, with rollback.** As proposed, options with no winner: mutate, compose a union view, or only widen what may be spawned. The program namespace is sealed at boot, and the spawner gives the file service away, so nothing that builds processes can read an installed program today |
 | Trust (found, not briefed) | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) | **Decided 2026-09-19 by calef**, after reading how apt, pkg, pacman, Nix, Fuchsia and Homebrew do it: Homebrew's shape (digests in reviewed recipes, per source) with the owner-vouches escape hatch every one of them keeps. The image's measured table becomes the first source |
-| Trivial install | [DECISIONS §157](../decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) | **Decided 2026-09-19 by calef, not as recommended:** a web page, a download written to a USB drive and installed, then packages over the internet. The lane had recommended a QEMU run bundle as the first rung; its first slice is superseded as a definition and needs rescoping |
+| Trivial install | [DECISIONS §157](../decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) | **Decided 2026-09-19 by calef, not as recommended:** a web page, a download written to a USB drive and installed, then packages over the internet. The lane had recommended a QEMU run bundle first; that slice is superseded |
 
 **Superseded 2026-09-19 by §157 and by "Rescoped 2026-09-19" above**, kept as the record of what
 was proposed. ~~The proposed first slice needs none of the three irreversible rulings: packages
 as host-side recipes, image composition from a declared set, and a run bundle tested by the stranger
-harness and not published until calef says so. Its details and what it unblocks are in the
-trivial-install proposal.~~
+harness and not published until calef says so.~~
 
 ## Follow-on
 
@@ -240,8 +235,8 @@ calef's acts are named there rather than here.
 - **Done.** §221 closed the `activation/` write hole (notes/packages/vouching.md).
 - **Done.** §219 was ruled 2026-09-26 and its request, gate D2 and the unvouched-child
   confinement claim built (notes/packages/running-unvouched.md).
-- **Proposed.** The virtio device table never reuses a slot
-  (`design/roadmap/proposals/a-virtio-slot-comes-back-when-its-driver-dies.md`).
+- **Milestone 647.** Milestone 647 (a virtio slot should come back when its driver dies). The virtio device table never reuses a slot
+  (`design/roadmap/647-a-virtio-slot-comes-back-when-its-driver-dies.md`).
 - **Done.** Every archive build runs `cargo xtask package` end to end since 2026-09-24.
 - **Decision.** Whether the digest is a Merkle root is still calef's:
   `design/decisions/197-a-package-is-one-archive-file.md`, which also records the manifest ruling
@@ -257,6 +252,7 @@ calef's acts are named there rather than here.
 
 ## BUGS
 
+- Renewing `nifeos.org` (2027-10-03) gates every image that names it, and nothing enforces it; this line is the record.
 - This block prices nothing. A package manager is a large piece of work and the estimate is not
   attempted; the sequencing claim is that it gates a customer, not that it is cheap.
 - The package encoding is provisional, and so is `package_archive`'s name. §197 ruled the

@@ -18,7 +18,7 @@ across two trees" below).
 
 Not wired into the boot shell, on calef's instruction: that lands with the first real second
 filesystem, and it is
-[proposals/a-second-filesystem-mounts-in-the-boot-shell.md](proposals/a-second-filesystem-mounts-in-the-boot-shell.md).
+[660-a-second-filesystem-mounts-in-the-boot-shell.md](660-a-second-filesystem-mounts-in-the-boot-shell.md).
 
 ## The gap, in both milestones' own words
 
@@ -189,13 +189,13 @@ Lane `milestone/154-two-directories`. The detail is [notes/two-trees.md](../../n
 
 ## Follow-on
 
-- **Proposed.** Wiring a second filesystem into the boot shell at a mount point, with the transport
+- **Milestone 660.** Milestone 660 (a second filesystem mounts in the boot shell). Wiring a second filesystem into the boot shell at a mount point, with the transport
   calef chose (a named slot and a shared constant holding the mount path), the Gone-and-go-home
   behaviour for a dead mount, and `rm` under a mount. Its trigger is the first real second
-  filesystem: `design/roadmap/proposals/a-second-filesystem-mounts-in-the-boot-shell.md`.
-- **Proposed.** What `..` does at a mount point, which the written ruling leaves open: the shell
+  filesystem: `design/roadmap/660-a-second-filesystem-mounts-in-the-boot-shell.md`.
+- **Milestone 683.** Milestone 683 (what `..` does at a mount point). What `..` does at a mount point, which the written ruling leaves open: the shell
   goes to the mount point's parent, as Unix and Plan 9 do, and an architect is asked to confirm:
-  `design/roadmap/proposals/what-dot-dot-does-at-a-mount-point.md`.
+  `design/roadmap/683-what-dot-dot-does-at-a-mount-point.md`.
 - **Recorded.** `spawnproto::DIR2_BIT` has no emitter and no decoder in init, because no manifest
   declares two directory operands and §170 (how a foreign program is told what to do), as ruled
   2026-09-26, grants a named directory per the manifest. In `notes/two-trees.md`'s BUGS.

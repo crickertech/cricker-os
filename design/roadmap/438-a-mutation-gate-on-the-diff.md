@@ -12,7 +12,7 @@ the merge queue lands it.)*
 
 ## The result, first, because measurement 1 was written to end this
 
-`cargo mutants --in-diff` replayed against [#927](https://github.com/crickertech/nife/pull/927)'s own
+`cargo mutants --in-diff` replayed against [#927](https://github.com/nifeos/nife/pull/927)'s own
 diff, at the merge commit `aa6a50b`, reports **four survivors**. The census of 2026-09-19 found 77 in
 `crates/machine_discovery`. Seventy-three of them were already there the day before that pull request
 merged, measured rather than inferred:
@@ -165,7 +165,7 @@ days, 93.6% to 92.6%, in a window that included 77 new tests. One crate accounte
 `crates/machine_discovery`, 22 survivors to **77**.
 
 This block then said they did not accumulate, that they arrived in one pull request,
-[#927](https://github.com/crickertech/nife/pull/927) (merge `aa6a50b`, milestone 319, 2026-09-17), in
+[#927](https://github.com/nifeos/nife/pull/927) (merge `aa6a50b`, milestone 319, 2026-09-17), in
 the firmware-parsing code that milestone added, and sat unnoticed for two days.
 **Four of them did.** The other 73 were there before it.
 

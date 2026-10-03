@@ -102,7 +102,7 @@ use crate::sync::{IrqSafeMutex, rank};
 ///
 /// `ntp_tests` and `login_tests` are a third of the aarch64 total between them, and neither is
 /// accounted for as deliberately permanent; the proposal
-/// `design/roadmap/proposals/the-ntp-and-login-tests-give-their-regions-back.md` is the work to
+/// `design/roadmap/676-the-ntp-and-login-tests-give-their-regions-back.md` is the work to
 /// find out.
 ///
 /// **No gate, deliberately, and not only by precedent.** `sched::MAX_THREADS` reports and does not
@@ -179,8 +179,9 @@ pub fn create(pages: u64) -> Option<u64> {
 /// **Return-of-pages (DECISIONS §16):** a child destroyed at the top of the parent's watermark
 /// (the LIFO case, which a spawn-then-reap loop always is) gives its pages *back* to the parent's
 /// budget, so a split parent is not committed for its lifetime. A child freed out of order leaves a
-/// hole until the parent itself is destroyed. This is the LIFO half of seL4's return-to-parent,
-/// without the derivation tree that would handle the general case.
+/// hole until no child above it is live, and then the hole comes back with the last of them
+/// (`RegionTable::return_to_parent`, since 2026-10-03 UTC; before that, until the parent itself was
+/// destroyed). A carve still only bumps, so a hole under a live child is not reused meanwhile.
 ///
 /// **A split refused for a full table still bumps the parent**, and the parent can then never be
 /// reclaimed: `RegionTable::split`'s `# BUGS` entry has the consequence and a reproduction, and

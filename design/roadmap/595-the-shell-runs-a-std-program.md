@@ -163,7 +163,7 @@ Every fork is ruled, and every step but one is built.
 - Milestone 205 (how a foreign program is told what to do). Its #1394 gives a file run by its path its
   words, and runs one whose note declares the `std` runtime in `std`'s layout, which was step 1 of
   this block's list. What is still 205's is the designation half, which word becomes a directory,
-  and it has a fork that is calef's (`proposals/designating-a-foreign-programs-words.md`). Until it
+  and it has a fork that is calef's (`665-designating-a-foreign-programs-words.md`). Until it
   lands `rg needle docs` hears its pattern and holds nothing to search.
 - Milestone 206 (a program image has under 896 KiB) built §171's map on 2026-09-27, so an image
   linked the stock way has 496 MiB of image band, and the relink in `helpers/build-ripgrep.sh` is

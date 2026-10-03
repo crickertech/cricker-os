@@ -136,8 +136,9 @@ subtree and with another client's window, and without a reply. A `CALL` on a bad
 delivered badge `0x5a5a`; a plain `SEND` on the same endpoint delivered `0`. It is closed by the
 plain-SEND badge, calef's ruling on #1494: once a plain `SEND` carries its capability's badge the
 client arrives bound and the scope holds, pinned by a test on all three ISAs
-(`a_plain_send_arrives_with_its_capabilitys_badge_on_recv_and_recv_cap`). Until #1494 lands this is
-an open defect on `main`.
+(`a_plain_send_arrives_with_its_capabilitys_badge_on_recv_and_recv_cap`). #1494 merged on
+2026-10-03 (07:38Z), so it is closed on `main`; §230 (badged endpoint capabilities) records the
+contract in its 2026-10-03 amendment.
 
 The second is the arrival-order half, fixed by milestone 634 (a plain SEND received by RECV_CAP
 never hands the receiver a sender-chosen slot). On the receiver-first order a plain `SEND`'s second

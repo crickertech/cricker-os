@@ -32,7 +32,7 @@ Together they were invisible. The gate found *a* block, parsed it cleanly, and r
 `provisional`, which is a legitimate answer nothing disputes. A gate that reports a plausible wrong
 answer is worse than one that reports nothing, because the report is what stops anybody looking.
 
-The two records were fixed by [milestone 264's follow-up](https://github.com/crickertech/nife/pull/825).
+The two records were fixed by [milestone 264's follow-up](https://github.com/nifeos/nife/pull/825).
 This milestone is the mechanism, and it deliberately touches neither file.
 
 ## Designed against the general fault, not against the two instances

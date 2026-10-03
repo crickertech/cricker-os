@@ -34,9 +34,9 @@ for five days ([the correction](../notes/coes/2026-10-03-the-merge-rate.md)).
 Two of the three moved into GitHub Actions on 2026-09-24 and run as `nife-smelter[bot]`, so what
 you are checking is a run list rather than a laptop:
 
-    gh workflow list --repo crickertech/nife | grep -Ei "merge drain|trunk health"
-    gh run list --repo crickertech/nife --workflow "merge drain" --limit 3
-    gh run list --repo crickertech/nife --workflow "trunk health" --limit 3
+    gh workflow list --repo nifeos/nife | grep -Ei "merge drain|trunk health"
+    gh run list --repo nifeos/nife --workflow "merge drain" --limit 3
+    gh run list --repo nifeos/nife --workflow "trunk health" --limit 3
 
 Both must read `active` in the first command, and both must show a run within the last fifteen
 minutes in the others. A `disabled_inactivity` or `disabled_manually` workflow is a stopped watcher;
@@ -149,7 +149,7 @@ with SendMessage; do not let a lane guess whether its own run finished.
 
 The two that run in Actions, healthy:
 
-    $ gh run list --repo crickertech/nife --workflow "merge drain" --limit 3
+    $ gh run list --repo nifeos/nife --workflow "merge drain" --limit 3
     completed	success	merge drain	schedule	main	...	2m
     completed	success	merge drain	schedule	main	...	7m
     completed	success	merge drain	schedule	main	...	12m

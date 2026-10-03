@@ -100,9 +100,9 @@ definition that passes principle 3's test.
 
 ## A stranger's first ten minutes today
 
-**Minute 0. There is nothing to download.** `gh release list` on `crickertech/nife` returns nothing:
+**Minute 0. There is nothing to download.** `gh release list` on `nifeos/nife` returns nothing:
 no release has ever been published. The repository is public and 35,985 KB (`gh api
-repos/crickertech/nife`). The only path is to build.
+repos/nifeos/nife`). The only path is to build.
 
 **Minutes 1 onward. The build path is a developer's path.** `README.md`'s "Try it" says
 `script/setup`, which runs `script/bootstrap` and then `cargo xtask build`. Bootstrap installs:

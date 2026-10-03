@@ -115,7 +115,7 @@ the clause saying a refresh arrives on its own. A refresh had arrived, once, and
 ## 2026-09-14: the first census since the baseline, and the fall was an artifact
 
 **The workflow succeeded, all eight shards, for the first time since it was written.** Run
-[34833498873](https://github.com/crickertech/nife/actions/runs/34833498873), scheduled, took 54
+[34833498873](https://github.com/nifeos/nife/actions/runs/34833498873), scheduled, took 54
 minutes. It covered 10,012 mutants over 64 crates: 8,303 caught, 771 missed, 203 timed out, 735
 unviable. That is **91.7% of viable mutants killed**. Milestone 277 (bound what one mutant may
 allocate, so a runaway kills the mutant and not the machine) is what made it finish. The runaway

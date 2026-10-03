@@ -29,7 +29,7 @@ not, which is the useful part.
 The fall this entry was built on did not happen. Milestone 518 (a census that cannot be attributed)
 captured both censuses into a committed per-crate record and recomputed them consistently.
 Like-for-like reads 94.7%, not 92.6%; the whole corpus 93.7%, not 91.4%. The runs themselves are
-unchanged: run [35421192143](https://github.com/crickertech/nife/actions/runs/35421192143), eight
+unchanged: run [35421192143](https://github.com/nifeos/nife/actions/runs/35421192143), eight
 shards, all green.
 
 | | crates | viable | killed |
@@ -43,7 +43,7 @@ shards, all green.
 ### The 2026-09-21 census
 
 Re-read on 2026-09-24. The scheduled run of 2026-09-21,
-[35589550926](https://github.com/crickertech/nife/actions/runs/35589550926), went green and was not
+[35589550926](https://github.com/nifeos/nife/actions/runs/35589550926), went green and was not
 captured for three days. `script/mutation-census --add-run` recorded it then.
 
 | | crates | viable | killed |
@@ -63,6 +63,19 @@ Like-for-like rose again, 94.7% to 96.1%. The corpus fell for two reasons, and n
   triage.
 
 771 missed survivors stand, and 206 timeouts. The amber reads the same on this census as on the last.
+
+### The 2026-10-03 census
+
+Run [37108924347](https://github.com/nifeos/nife/actions/runs/37108924347), a dispatch on 2026-10-03
+(milestone 636 (the scheduled workflows are failing, and nothing says so)), is the first complete census since 2026-09-21. The scheduled mutation workflow had been
+red from 2026-09-28 because `system_tests` became a bare-metal crate and was not excluded; milestone 636 excluded it.
+
+| | crates | mutants | viable | missed | timeouts | killed |
+|---|---|---|---|---|---|---|
+| census, 2026-09-21 | 66 | not tabulated here | 10,178 | 771 | 206 | 92.4% |
+| census, 2026-10-03 | 85 | 14,853 | 13,734 | 1,004 | 255 | 92.7% |
+
+It ran at the milestone 636 branch's head, which differs from `main` only by that milestone's commits.
 
 ### Two joins, each worth about a point
 

@@ -89,8 +89,11 @@
 //! ```
 //! use current_cpu_protocol::{CurrentCpuPage, build_page, publish};
 //!
-//! let mut bytes = build_page();
-//! let va = bytes.as_mut_ptr() as u64;
+//! # #[repr(align(8))]
+//! # struct Aligned([u8; current_cpu_protocol::PAGE_BYTES]);
+//! // The kernel's page is a frame; a test's must be given the frame's alignment by hand.
+//! let mut bytes = Aligned(build_page());
+//! let va = bytes.0.as_mut_ptr() as u64;
 //! // SAFETY: `bytes` is a live, 8-aligned buffer of exactly `PAGE_BYTES` for this block, built
 //! // by `build_page`, and this thread is its only writer.
 //! unsafe { publish(va, 3) };
@@ -104,8 +107,10 @@
 //! ```
 //! # use current_cpu_protocol::{CurrentCpuPage, build_page, publish, CPU_ID_BOUND};
 //! let mut caches = [0u64; CPU_ID_BOUND]; // never `[0; cores_i_have_seen]`
-//! # let mut bytes = build_page();
-//! # let va = bytes.as_mut_ptr() as u64;
+//! # #[repr(align(8))]
+//! # struct Aligned([u8; current_cpu_protocol::PAGE_BYTES]);
+//! # let mut bytes = Aligned(build_page());
+//! # let va = bytes.0.as_mut_ptr() as u64;
 //! # // SAFETY: as the example above.
 //! # unsafe { publish(va, 3) };
 //! # // SAFETY: as the example above.
@@ -120,17 +125,25 @@
 //! ```
 //! use current_cpu_protocol::{CurrentCpuPage, PAGE_BYTES, build_page};
 //!
-//! let zeroed = [0u8; PAGE_BYTES];
+//! # #[repr(align(8))]
+//! # struct Aligned([u8; PAGE_BYTES]);
+//! let mut zeroed = Aligned([0u8; PAGE_BYTES]);
 //! // SAFETY: a live, aligned buffer of exactly `PAGE_BYTES` for this block.
-//! assert_eq!(unsafe { CurrentCpuPage::new(zeroed.as_ptr() as u64) }.cpu(), None);
+//! assert_eq!(unsafe { CurrentCpuPage::new(zeroed.0.as_mut_ptr() as u64) }.cpu(), None);
 //!
-//! let fresh = build_page();
+//! let mut fresh = Aligned(build_page());
 //! // SAFETY: as above.
-//! assert_eq!(unsafe { CurrentCpuPage::new(fresh.as_ptr() as u64) }.cpu(), None);
+//! assert_eq!(unsafe { CurrentCpuPage::new(fresh.0.as_mut_ptr() as u64) }.cpu(), None);
 //! ```
 //!
 //! # BUGS
 //!
+//! - **The reader forms an `&AtomicU64` over memory its process maps read-only.** Miri cannot model
+//!   a mapping, but it does reject the same shape over an immutable Rust binding (milestone 636
+//!   (the scheduled workflows are failing) found it while repairing this crate's tests, which now
+//!   pass writable buffers). Whether a relaxed load through that reference is sound on a
+//!   read-only page is a language-level question, not settled here; a raw atomic load that never
+//!   forms the reference is the likely shape if it is not.
 //! - **A thread that shares an address space with another thread would share this page, and both
 //!   would read one of the two answers.** That cannot happen today: `Tcb::CONFIGURE` consumes the
 //!   address-space capability, so no two TCBs name one space: §105 (`std::thread::spawn` stays
@@ -331,12 +344,27 @@ impl CurrentCpuPage {
 mod tests {
     use super::*;
 
+    /// **`build_page`'s bytes, at the alignment `publish` and `new` require.** A bare
+    /// `[u8; PAGE_BYTES]` is 1-aligned, so every test here used to break both functions' safety
+    /// contract, and Miri said so: `script/undefined-behavior-check` reported an unaligned
+    /// `&AtomicU64` in `publish` and failed its weekly run (milestone 636 (the scheduled workflows
+    /// are failing)). The kernel's real page is a frame, which is aligned by construction. Every
+    /// buffer here is also reached through `as_mut_ptr`, including the read-only tests, because
+    /// `cpu` forms an `&AtomicU64` and Miri refuses one over a binding Rust may assume never
+    /// changes; the crate's BUGS has what that means for the real read-only mapping.
+    #[repr(C, align(8))]
+    struct Aligned([u8; PAGE_BYTES]);
+
+    fn aligned_page() -> Aligned {
+        Aligned(build_page())
+    }
+
     /// The round trip: a fresh page, a published core, the id read back the way a mapped frame
     /// would be named.
     #[test]
     fn a_published_cpu_reads_back() {
-        let mut bytes = build_page();
-        let va = bytes.as_mut_ptr() as u64;
+        let mut bytes = aligned_page();
+        let va = bytes.0.as_mut_ptr() as u64;
         // SAFETY: a live, aligned `PAGE_BYTES` buffer this thread alone writes.
         unsafe { publish(va, 2) };
         // SAFETY: as above.
@@ -347,8 +375,8 @@ mod tests {
     /// and a sentinel rather than a zeroed word.
     #[test]
     fn cpu_zero_is_a_real_answer() {
-        let mut bytes = build_page();
-        let va = bytes.as_mut_ptr() as u64;
+        let mut bytes = aligned_page();
+        let va = bytes.0.as_mut_ptr() as u64;
         // SAFETY: as above.
         unsafe { publish(va, 0) };
         // SAFETY: as above.
@@ -358,9 +386,9 @@ mod tests {
     /// A frame nobody prepared reads as unknown, not as CPU 0.
     #[test]
     fn a_zeroed_frame_reads_as_unknown() {
-        let zeroed = [0u8; PAGE_BYTES];
+        let mut zeroed = Aligned([0u8; PAGE_BYTES]);
         // SAFETY: as above.
-        let page = unsafe { CurrentCpuPage::new(zeroed.as_ptr() as u64) };
+        let page = unsafe { CurrentCpuPage::new(zeroed.0.as_mut_ptr() as u64) };
         assert_eq!(page.cpu(), None);
     }
 
@@ -368,10 +396,10 @@ mod tests {
     /// that makes that true is written by `build_page` rather than left to a zeroed frame.
     #[test]
     fn a_thread_that_never_ran_reads_as_unknown() {
-        let bytes = build_page();
-        assert_eq!(&bytes[OFF_CPU..], &UNSCHEDULED.to_le_bytes());
+        let mut bytes = aligned_page();
+        assert_eq!(&bytes.0[OFF_CPU..], &UNSCHEDULED.to_le_bytes());
         // SAFETY: as above.
-        let page = unsafe { CurrentCpuPage::new(bytes.as_ptr() as u64) };
+        let page = unsafe { CurrentCpuPage::new(bytes.0.as_mut_ptr() as u64) };
         assert_eq!(page.cpu(), None);
     }
 
@@ -380,9 +408,9 @@ mod tests {
     /// test pins.
     #[test]
     fn an_unrecognized_magic_reads_as_unknown() {
-        let mut bytes = build_page();
-        bytes[OFF_MAGIC] ^= 0xff;
-        let va = bytes.as_mut_ptr() as u64;
+        let mut bytes = aligned_page();
+        bytes.0[OFF_MAGIC] ^= 0xff;
+        let va = bytes.0.as_mut_ptr() as u64;
         // SAFETY: as above.
         unsafe { publish(va, 1) };
         // SAFETY: as above.
@@ -394,8 +422,8 @@ mod tests {
     /// wins and nothing carries over from the first.
     #[test]
     fn a_migration_overwrites_rather_than_accumulates() {
-        let mut bytes = build_page();
-        let va = bytes.as_mut_ptr() as u64;
+        let mut bytes = aligned_page();
+        let va = bytes.0.as_mut_ptr() as u64;
         // SAFETY: as above.
         unsafe { publish(va, 3) };
         // SAFETY: as above.
@@ -408,8 +436,8 @@ mod tests {
     /// range, so a sentinel chosen badly (say `CPU_ID_BOUND`) would fail here.
     #[test]
     fn every_id_in_the_bound_round_trips() {
-        let mut bytes = build_page();
-        let va = bytes.as_mut_ptr() as u64;
+        let mut bytes = aligned_page();
+        let va = bytes.0.as_mut_ptr() as u64;
         for id in 0..CPU_ID_BOUND {
             // SAFETY: as above.
             unsafe { publish(va, id as u64) };
