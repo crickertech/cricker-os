@@ -3,10 +3,10 @@
   .bg{fill:#ffffff} .fg{fill:#1f2328} .mut{fill:#59636e} .grid{stroke:#d1d9e0}
   .seg{stroke:#ffffff;stroke-width:1}
   .val{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
-  .s0{fill:#2a78d6}  .s1{fill:#eb6834}  .s2{fill:#1baf7a}  .s3{fill:#eda100}  .s4{fill:#e87ba4}  .s5{fill:#008300}  .s6{fill:#4a3aa7}  .s7{fill:#e34948}
+  .s0{fill:#2a78d6}  .s1{fill:#eb6834}  .s2{fill:#1baf7a}  .s3{fill:#eda100}  .s4{fill:#e87ba4}
   @media (prefers-color-scheme: dark){
     .bg{fill:#0d1117} .fg{fill:#e6edf3} .mut{fill:#9198a1} .grid{stroke:#30363d}
-    .seg{stroke:#0d1117} .val{stroke:#0d1117} .s0{fill:#3987e5} .s1{fill:#d95926} .s2{fill:#199e70} .s3{fill:#c98500} .s4{fill:#d55181} .s5{fill:#008300} .s6{fill:#9085e9} .s7{fill:#e66767}}
+    .seg{stroke:#0d1117} .val{stroke:#0d1117} .s0{fill:#3987e5} .s1{fill:#d95926} .s2{fill:#199e70} .s3{fill:#c98500} .s4{fill:#d55181}}
   text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
 </style>
 <rect class="bg" width="860" height="380"/>
@@ -72,10 +72,10 @@
 <text class="fg val" x="503.5" y="113.3" font-size="10" text-anchor="middle">232</text>
 <rect class="seg s0" x="542.8" y="184.8" width="38.7" height="139.2"><title>2026W39, Ratified: 157</title></rect>
 <rect class="seg s1" x="542.8" y="160.9" width="38.7" height="23.9"><title>2026W39, Recorded: 27</title></rect>
-<rect class="seg s2" x="542.8" y="93.5" width="38.7" height="67.4"><title>2026W39, Provisional: 76</title></rect>
-<path class="seg s3" d="M542.8,93.5 V93.0 Q542.8,92.6 543.2,92.6 H581.0 Q581.4,92.6 581.4,93.0 V93.5 Z"><title>2026W39, Unrecorded: 1</title></path>
+<rect class="seg s2" x="542.8" y="92.6" width="38.7" height="68.3"><title>2026W39, Provisional: 77</title></rect>
+<path class="seg s3" d="M542.8,92.6 V92.1 Q542.8,91.7 543.2,91.7 H581.0 Q581.4,91.7 581.4,92.1 V92.6 Z"><title>2026W39, Unrecorded: 1</title></path>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W39</text>
-<text class="fg val" x="562.1" y="87.6" font-size="10" text-anchor="middle">261</text>
+<text class="fg val" x="562.1" y="86.7" font-size="10" text-anchor="middle">262</text>
 <rect class="seg s0" x="601.4" y="178.6" width="38.7" height="145.4"><title>2026W40, Ratified: 164</title></rect>
 <rect class="seg s1" x="601.4" y="154.6" width="38.7" height="23.9"><title>2026W40, Recorded: 27</title></rect>
 <rect class="seg s2" x="601.4" y="85.5" width="38.7" height="69.2"><title>2026W40, Provisional: 78</title></rect>

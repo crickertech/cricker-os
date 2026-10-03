@@ -1,3 +1,8 @@
+---
+risk: 4
+color: none
+updated: 2026-08-31
+---
 # Appendix to risk 4: The architecture imposes a per-crossing cost that cannot be engineered away
 
 *An appendix to [`README.md`](README.md)'s risk 4. That entry is the claim of
