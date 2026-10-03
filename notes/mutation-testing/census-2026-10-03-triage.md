@@ -175,3 +175,28 @@ the over-read unrepresentable and not merely harmless. That is the top rung of t
 `CLAUDE.md`. It is filed as the proposal
 [the-inline-scanner-reads-from-a-slice-that-ends-with-its-range](../../design/roadmap/proposals/the-inline-scanner-reads-from-a-slice-that-ends-with-its-range.md)
 and not done here, because it touches every branch of a renderer that 71 tests pin.
+
+## filesystem_protocol
+
+115 missed: 74 killed, 41 equivalent. The sweep afterwards covers 733 mutants and reports 41 missed.
+
+All 74 kills are in the public `fixture` module, which the kernel tests and guest programs share
+and which nothing on the host had asserted:
+
+- `walk::sized_byte` (9) and `walk::wide_name` (19): the byte pattern and the name pattern a host
+  check and a guest must agree on. Tests pin both at the positions where each operator differs.
+- The `walk` totals (31): `WALK_DIRS`, `WALK_FILES`, `WALK_ENTRIES`, `WALK_BYTES` and
+  `WALK_COMPONENTS`, with the hand derivation beside each number.
+- Fifteen `twotrees` flag constants shifted to zero (`1 << n` as `1 >> n`), by a test that every
+  flag is its own single bit and none repeats.
+
+The 41 equivalents are three shapes.
+
+- `1 << 0` as `1 >> 0` (10 constants): both are 1.
+- `|` as `^` (29): every operand is a distinct single bit, or a field in its own bit range
+  (`handle << 40`, `len & MAX_LEN`, a name length under 128 beside bit 7). The rights unions
+  (`dir::ALL`, `REMOVE_TREE`, the verb table's pairs) and the witness's `EXPECTED` word are the
+  largest groups.
+- The `while i < TABLE.len()` in a `const _` assertion (2): the loop is the compile-time check that
+  the table is in opcode order. A mutant of it only disables the check, and a build that still
+  passes is the output.
