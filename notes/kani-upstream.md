@@ -127,18 +127,21 @@ crates, the `kani-driver`, `build-kani` and `kani_metadata` unit tests, and the
 
 The patch nife carries, `patches/kani-0.67.0-riscv64-target.patch`, has the same loose
 `check_target`. It does not affect nife's proofs, because `script/verify-riscv64` only ever passes
-`riscv64gc-unknown-linux-gnu`. So the patch is left as it is, since editing it rebuilds the cached
-Kani in CI, and the gap ends when the patch is dropped for an upstream release.
+`riscv64gc-unknown-linux-gnu`. So the patch is left as it is, and the gap ends when the patch is
+dropped for an upstream release. The reason first given, that editing the patch rebuilds the cached
+Kani in CI, lapsed on 2026-10-03 when milestone 635 edited it anyway. The gap is still harmless to
+nife, so it stays a limitation.
 
 ## Where this lane stopped
 
 The pull request is open and the review is answered in code. Waiting on calef:
 
-1. The `kani_lib.c` link fix, promised on #4913 as a follow-up pull request. It is the proposed
-   milestone [riscv64 proofs check against the riscv64
-   model](../design/roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md). Its first
-   finding: nife's riscv64 kernel proofs are linked against the host's model today, with no verdict
-   changed for the seven harnesses that exist.
+1. The `kani_lib.c` link fix, promised on #4913 as a follow-up pull request. Milestone 635
+   (riscv64 proofs check against the riscv64 model) carries it in nife's patch
+   ([its block](../design/roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md)) and gates it in `script/verify-riscv64`. The upstream pull request is drafted in
+   [kani-upstream/kani-lib-link-order.md](kani-upstream/kani-lib-link-order.md), and nobody posts it
+   before calef has read it. In CI the old link gave `arm64`/`linux`, so `arch` was the only field
+   Kani wrote that changed there; no verdict changed for the seven harnesses that exist.
 2. The pull request body's "Something I noticed" paragraph, if it still gives the old cause.
 3. Still open from before: the `coverage` suite was not rerun. `verify_std_cmd`, undiagnosed in
    September, passed on 2026-10-03 (UTC), so that failure was the loaded machine or a baseline

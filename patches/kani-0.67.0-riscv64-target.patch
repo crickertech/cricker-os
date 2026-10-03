@@ -188,3 +188,64 @@ index bb8708a..7faa92b 100644
  }
  
  /// Build the `lib/` folder and `lib-playback/` for the new sysroot.
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Alef <chris@crickertech.com>
+Date: Sat, 3 Oct 2026 01:06:26 -0700
+Subject: [PATCH] Link kani_lib.c as a precompiled goto object after the Rust
+ inputs
+
+Carried by nife in patches/kani-0.67.0-riscv64-target.patch under its
+milestone 635, after the patch above it.
+
+link_goto_binary passed kani_lib.c to goto-cc as C source. goto-cc
+compiles that with its own host configuration, and the result
+overwrote the __CPROVER_architecture_* symbols Kani wrote, so CBMC
+checked riscv64 harnesses against the host's C model (arch arm64,
+char_is_unsigned 0, long_double_width 64 on an Apple Silicon Mac) and
+loaded the host's CPROVER library. When goto-cc links goto binaries the
+first input's symbols win, so compiling kani_lib.c alone and linking the
+object last keeps the model Kani wrote. The compile is the one that ran
+inside the link before, so it costs one more process per harness and
+nothing else.
+
+nife's script/verify-riscv64 checks the result: every field Kani wrote
+must be unchanged in every linked .out. Offered upstream as the
+follow-up to model-checking/kani#4913.
+---
+ kani-driver/src/call_goto_cc.rs | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/kani-driver/src/call_goto_cc.rs b/kani-driver/src/call_goto_cc.rs
+index b906c25..2ed1bd9 100644
+--- a/kani-driver/src/call_goto_cc.rs
++++ b/kani-driver/src/call_goto_cc.rs
+@@ -12,13 +12,22 @@ impl KaniSession {
+     /// Given a set of goto binaries (`inputs`), produce `output` by linking everything
+     /// together (including essential libraries). The result is generic over all proof harnesses.
+     pub fn link_goto_binary(&self, inputs: &[PathBuf], output: &Path) -> Result<()> {
++        // Compile `kani_lib.c` on its own and link the object after the Rust inputs. When goto-cc
++        // links goto binaries, the first input's `__CPROVER_architecture_*` symbols win, so the
++        // machine model Kani wrote survives. A C source in the link command instead is compiled
++        // with goto-cc's own (host) configuration, which then overwrites that model, and CBMC
++        // loads its C library for the host rather than for the model Kani wrote.
++        let kani_lib = output.with_extension("kani_lib.o");
++        let mut compile = Command::new("goto-cc");
++        compile.arg("-c").arg(&self.kani_lib_c).arg("-o").arg(&kani_lib);
++        self.run_suppress(compile)?;
++        self.record_temporary_file(&kani_lib);
++
+         let mut args: Vec<OsString> = Vec::new();
+         args.extend(inputs.iter().map(|x| x.clone().into_os_string()));
++        // A `--c-lib` given as C source still overwrites the model, for the reason above.
+         args.extend(self.args.c_lib.iter().map(|x| x.clone().into_os_string()));
+-
+-        // TODO think about this: kani_lib_c is just an empty c file. Maybe we could just
+-        // create such an empty file ourselves instead of having to look up this path.
+-        args.push(self.kani_lib_c.clone().into_os_string());
++        args.push(kani_lib.into_os_string());
+ 
+         args.push("-o".into());
+         args.push(output.to_owned().into_os_string());
+-- 
+2.55.0
+
