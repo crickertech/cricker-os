@@ -1,17 +1,19 @@
 ---
-status: PROPOSED
+status: PARTIAL
 raised: 2026-10-02
+promoted_from: a-pull-request-that-changes-nothing-does-not-merge
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A pull request that changes nothing does not merge
+# 625. A pull request that changes nothing does not merge
 
-`a-pull-request-that-changes-nothing-does-not-merge`: provisional name, minted 2026-10-02 by
-`maintainer/propose-claim-only-gate`; not put to calef. The workflow and helper names below are
-provisional too.
+**Approved by calef on 2026-10-02 (UTC), option A below**, and promoted in the same pull request that
+proposed it. The number 625 is provisional until the queue lands it (the integrator mints at merge;
+624 is already claimed by `milestone/624-paint-path`). The title, `.github/workflows/empty-diff.yml`
+and `helpers/empty-diff-check.sh` are provisional names; calef has not ratified them.
 
 ## What is being decided
 
@@ -141,3 +143,19 @@ Nothing. The ruleset change is calef's, and the workflow can land first as a rep
 `architect-hold.yml` (small required check with a PR-number resolver for `merge_group`),
 `helpers/blocked-by-selftest.sh` (a predicate with fixtures, wired into lint), and
 `helpers/lane-claim-check.sh` (the §90 claim and why it was never a gate).
+
+## Follow-on
+
+- **Outstanding.** Adding the check's job name to the `main` ruleset's required checks, which only
+  calef can do; checked 2026-10-02 by reading the ruleset's required contexts through the API, where
+  it is absent. Until then the check reports and does not gate.
+- **Outstanding.** The live falsification: a throwaway draft pull request whose red run is linked
+  in `.github/workflows/empty-diff.yml`'s header. Not yet linked there.
+- **Proposed.** `design/roadmap/proposals/a-claim-with-work-on-another-branch-is-reported.md` is the
+  `lane-claim-check.sh` companion (option D above), written in this pull request so it has a home.
+
+## Index row
+
+A merge that changes no file is the one defect every content gate passes, because it has no content
+to fail on. #1460 landed that way on 2026-09-30 and its work sat unmerged for three days. This is
+the required check that compares a merge's tree with its first parent's.
