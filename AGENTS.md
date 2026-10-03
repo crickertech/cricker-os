@@ -1,6 +1,6 @@
 # Working on nife
 
-<!-- prose-budget: exception. 6,095 words (wc -w, this marker included) against a 3,000-word cap.
+<!-- prose-budget: exception. 6,102 words (wc -w, this marker included) against a 3,000-word cap.
      Ratified by calef on 2026-09-24 (UTC) at 5,873 words; later rulings moved it here, and git log
      has each step; calef ratified the commit-trailer rule on 2026-10-03 (UTC). Reason: this file is
      nothing but rules, every reason having moved to design/tenets/, and the imperatives alone do
@@ -9,7 +9,7 @@
 *Two renames and one pivot sit behind the old names a reader will meet in older records:
 [design/tenets/project-history.md](design/tenets/project-history.md). Every reason, measurement and
 anecdote behind a rule here lives in [design/tenets/](design/tenets/), linked from the rule it
-explains. The word-budget exception is ratified in the marker above.*
+explains. It is a ratified exception to the 3,000-word cap; the comment atop the source says why.*
 
 ## What this project is
 
