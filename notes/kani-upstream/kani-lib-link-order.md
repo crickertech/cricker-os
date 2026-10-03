@@ -24,19 +24,14 @@ are in this file's history (`git log -p` on it).
 
 ## What the measurements changed in the earlier draft
 
-The first draft (same file, merged earlier on 2026-10-03) made three claims the machine overruled:
+The first draft (merged earlier on 2026-10-03) made three claims the machine overruled:
 
-1. *"On an Apple Silicon Mac the linked model goes from `char_is_unsigned = 0` and
-   `long_double_width = 64` to `1` and `128`."* Wrong about `long double`. Kani's aarch64 model has
-   split on the OS since #2757 (2023): `long_double_width` is 128 on Linux and 64 elsewhere. A host
-   run here writes 64 and links 64. The 128 the draft saw was nife's riscv64 model. On this Mac only
-   `char_is_unsigned` changes, 0 to 1, which is what calef's #4913 comment already said.
-2. *"It can only fail on macOS (both architectures)."* Wrong both ways. x86_64 macOS matches
-   Kani's model on every field Kani writes (measured by proxy, below). aarch64 Linux does not:
-   `goto-cc` there writes `wchar_t_is_unsigned = 0`, Kani writes 1.
-3. *"On Linux, nothing that I could measure."* True for x86_64 Linux, false for aarch64 Linux, for
-   the reason in 2. There the change is a correction: gcc on aarch64 Linux says `wchar_t` is
-   `unsigned int`, so Kani's 1 is right and `goto-cc`'s 0 is wrong.
+1. That an Apple Silicon host run moves `long_double_width` from 64 to 128. Kani's aarch64 model
+   has used 64 off Linux since #2757; the 128 was nife's riscv64 model. Only `char_is_unsigned`
+   changes on this Mac, as calef's #4913 comment said.
+2. That only macOS differs. x86_64 macOS matches Kani's model (by proxy, below); aarch64 Linux does
+   not (`wchar_t_is_unsigned`: `goto-cc` 0, Kani 1).
+3. That Linux sees no change. True for x86_64, false for aarch64, where Kani's 1 is right.
 
 ## Branch plan
 
@@ -87,6 +82,7 @@ It proves it can fail, on two hosts:
 | arm64 Ubuntu 24.04 container | (a) the patch as saved | **green**, exit 0 (`char_is_unsigned` 1, `wchar_t_is_unsigned` 1 in both files) |
 | arm64 Ubuntu 24.04 container | (b) the patch with only the link hunk reverted | **red**, exit 1: `__CPROVER_architecture_wchar_t_is_unsigned 1` written, `0` linked |
 | arm64 Ubuntu 24.04 container | (c) upstream `main` plus only the test | **red**, exit 1: the same `wchar_t_is_unsigned` 1 written, 0 linked |
+| GitHub `ubuntu-24.04` (x86_64) | (a), (b) and (c) | **green** each, exit 0; written and linked both `char_is_unsigned=0 long_double_width=128 wchar_t_is_unsigned=0` |
 
 The container ran natively on patagonia (podman, `--platform linux/arm64`, `ubuntu:24.04`, the
 image Kani's `ubuntu-24.04-arm` runner matches). Dependencies were installed the way Kani's
@@ -101,8 +97,10 @@ field that later diverges from a host's.
 
 Kani's CI runs its regression on `macos-15-intel`, `ubuntu-22.04`, `ubuntu-24.04`, `macos-14` and
 `ubuntu-24.04-arm` (`.github/workflows/kani.yml`). Without the link hunk the test was observed red
-on macOS arm64 and arm64 Linux. On the two x86_64 hosts it should be green either way; that is
-inferred from the `goto-cc` measurements below, not run.
+on macOS arm64 and arm64 Linux, and green on x86_64 Linux, where host and model agree. The x86_64
+rows are nife's scratch workflow run [37156714124](https://github.com/nifeos/nife/actions/runs/37156714124) on a GitHub-hosted `ubuntu-24.04` runner
+(2026-10-03, UTC): Kani's own setup scripts, CBMC 6.11.0's x86_64 `.deb`, the saved patch applied
+with `git am`, then the three variants. x86_64 macOS was not run.
 
 ## Runs on patagonia, 2026-10-03 (UTC)
 
@@ -140,8 +138,9 @@ out of memory) and `std_codegen` (SIGKILL compiling std) ran short of the 6 GiB 
 tests; `std_codegen` passed with `CARGO_BUILD_JOBS=1`.
 `target_riscv64` is #4913's test and does not exist on upstream `main`, so it was not run here.
 
-Not run: x86_64 Linux at all (cordoba belongs to another agent), the other suites on arm64 Linux,
-`coverage`, `cargo-coverage`, `std-checks`, firecracker.
+On the x86_64 runner, with the patch, `script-based-pre` gave 91 passed, 1 ignored (the test just
+run in (a)), exit 0. Not run: the other suites on either Linux, x86_64 macOS, `coverage`,
+`cargo-coverage`, `std-checks`, firecracker.
 
 ## What changes for each host
 
@@ -153,7 +152,7 @@ what the linked `.out` carried before this change. Every other field Kani writes
 | aarch64 macOS | `char_is_unsigned = 0` | 1 | 0 | 0: Apple clang leaves `__CHAR_UNSIGNED__` undefined, Rust's `c_char` is `i8`, CBMC's own `config.cpp` says signed for `macos`/`arm64` | Kani run, `.symtab.out` and `.out` |
 | x86_64 macOS | none | none | none | | proxy: `goto-cc -arch x86_64` on this Mac against Kani's x86_64 model in source |
 | aarch64 Linux | `wchar_t_is_unsigned = 0` | 1 | 1 | 1: gcc 13.3 on Ubuntu 24.04 arm64 gives `__WCHAR_TYPE__ unsigned int` | Kani run in an arm64 Ubuntu 24.04 container, `.symtab.out` and `.out` |
-| x86_64 Linux | none | none | none | | CBMC 6.11.0 `.deb` in an amd64 Ubuntu container (emulated); agrees with tautschnig's #4913 measurement |
+| x86_64 Linux | none | none | none | | Kani run on a GitHub `ubuntu-24.04` runner, run 37156714124; agrees with tautschnig's #4913 measurement |
 
 The link hunk alone corrects aarch64 Linux and, on Apple Silicon, swaps a right value for a wrong
 one because Kani's model was wrong there. With the model line, every host ends on the right value.
@@ -260,7 +259,9 @@ Title: Keep Kani's machine model through the link, and make it right for Apple a
 > PR, `kani`, `expected`, `ui`, `script-based-pre` and `cargo-kani` pass, and so do
 > `kani-fmt.sh --check` and clippy with `-D warnings` on `kani-driver`. In the arm64 Linux
 > container, `script-based-pre` passes (four tests needed `jq` or less parallelism there and passed
-> on rerun). I have not run anything on x86_64 Linux.
+> on rerun). On a GitHub-hosted x86_64 `ubuntu-24.04` runner the test passes on `main`, with the
+> link change alone and with this PR, as expected where host and model agree, and
+> `script-based-pre` passes with this PR.
 >
 > By submitting this pull request, I confirm that my contribution is made under the terms of the
 > Apache 2.0 and MIT licenses.
