@@ -2285,8 +2285,9 @@ pub fn install_for_test(program: &str, name: &str, version: &str, bytes: &[u8]) 
         call([fs::req(fs::CLOSE, h, 0), 0]);
     }
 
-    // The row and its default pointer (milestone 614 (every version live)): the package column is
-    // the package's name and the version is its own column, so the bytes' path is read off the row.
+    // The row and its default pointer (milestone 614 (two installed versions of one program)):
+    // the package column is the package's name and the version is its own column, so the bytes'
+    // path is read off the row.
     let entry = activation_set::Entry {
         program,
         version,

@@ -733,8 +733,8 @@ mod store {
         let mut table = [0u8; PAGE];
         let n = live_table(&mut table)?;
         let table = core::str::from_utf8(&table[..n]).ok()?;
-        // The default row for the name, as a bare word at the prompt runs it (milestone 614 (every
-        // version live), which folded the pointer into `lookup`), under
+        // The default row for the name, as a bare word at the prompt runs it (milestone 614 (two
+        // installed versions of one program) folded the pointer into `lookup`), under
         // `packages/<name>/<version>/<program>`.
         let entry = lookup(table, name).ok()??;
         let (package, version) = (entry.package, entry.version);
