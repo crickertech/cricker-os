@@ -689,18 +689,16 @@ script/verify
 ```
 
 Self-installs Kani on first run (its own nightly toolchain and a CBMC backend), then runs `cargo kani` over every package carrying harnesses:
-216 harnesses <!--count:kani-harnesses--> **across 29 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
+The harness count is generated weekly into `notes/project-metrics.md` (a count typed here conflicted on every merge that added a harness); the harnesses sit **across 29 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
 `crates/package_archive`; both take 4 seconds.
 Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture) added two, in
 `kernel/src/arch/x86_64/irq.rs`, which **only an x86_64 host runs** (the `prove` shards, since milestone 587 (most CI jobs do not need an arm64 host)): the count is of the tree, not of
-any one run, and no single host compiles all 180. (Milestone 161 (the x86_64 kernel port) added eight on 2026-09-19, the block-leaf proofs in `crates/paging`.) Both counts carry a `<!--count:-->` marker that `script/lint` re-derives each build; what they could still do, and did, is
-answer a narrower question than the prose asks, which is what milestone 212 found: the derivation
+any one run, and no single host compiles all of them. (Milestone 161 (the x86_64 kernel port) added eight on 2026-09-19, the block-leaf proofs in `crates/paging`.) The package count carries a `<!--count:-->` marker that `script/lint` re-derives each build; the harness count did too, and either could still be, and was, wrong about what it counted: it
+answered a narrower question than the prose asks, which is what milestone 212 found: the derivation
 walked `crates/` and so excluded `kernel` and `user`, both of which are rows in the table below; the timing below is still a dated
 measurement, because a wall clock is not a thing a gate can cheaply re-derive. See
 notes/counted-claims.md.)
 
-**BUGS:** the count is typed by hand (here and in `notes/unsafe-obligations.md`), so
-every merge from `main` that adds a harness conflicts on it (2026-10-02, milestone 129 (scheduled execution: a cron whose every entry is a grant)). The fix is to regenerate it at merge time; until then, run `script/lint` for the number.
 Harnesses within a crate verify in parallel, `-j 4` by default (`VERIFY_JOBS` overrides; the
 script's comment explains the memory bound and the terse-output trade). Measured 2026-08-03, all
 exit-clean on the same tree:
