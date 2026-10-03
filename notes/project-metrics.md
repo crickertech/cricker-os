@@ -249,6 +249,8 @@ report](project-metrics/baseline-drift.md).
 2026W40: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.92%, x86_64 `spawn_reap` +8.09%; 14 rows past 5%.
 <!-- /baseline-drift -->
 
+- 2026W39: milestone 447 (a thread's vector registers are its own), #1015, 2026-09-21, added 1 to 3% to switch and IPC rows, taking rows past 5% from 2 to 7 (aarch64), 3 to 6 (riscv64), 1 to 2 (x86_64). Nightly bump #1112 added less.
+
 ## Interface stability
 
 ![Breaking changes to the interface](project-metrics/interface-stability.svg)
@@ -305,8 +307,7 @@ rest.
 - A line inside a multi-line string literal counts as a comment line. Wrong in principle,
   negligible in this tree.
 - The charts follow the reader's operating system colour preference, not GitHub's theme toggle.
-  GitHub serves an SVG in a markdown page as an `<img>`, so a media query inside it cannot see the
-  host page. A reader whose GitHub theme disagrees with their OS gets the wrong background.
+  GitHub serves the SVG as an `<img>`, so a media query inside it cannot see the page theme.
 - `patches/` is outside the `unsafe` census, inherited from `script/lint` along with its reason.
   That code does run on the machine, so it is a real hole rather than a boundary, and
   `notes/register-of-measures.md` records the blocks it leaves uncounted.
@@ -335,7 +336,7 @@ rest.
   it. `series_of` drops an all-zero series and the palette is indexed over what survives, so when
   2026W30 leaves the ten-week window the `before the convention` band disappears and every band
   below it in the by-model legend shifts one hue. The legend is redrawn with it, so nothing is
-  mislabelled; a reader comparing two screenshots taken a week apart will still see a colour move.
+  mislabelled, but a colour moves between screenshots.
   It is pre-existing behaviour of every chart here and it is recorded because the by-model panel is
   the first one certain to hit it.
 - The cost and context columns carry seven limitations of their own, from a capture that can
@@ -348,5 +349,4 @@ rest.
   four and five. The coverage floor and the prose budget were backfilled from each week's own tree.
 - The prose budget will be restated again when milestone 586 (a prose ratchet in lint) lands,
   because it shares one document scope with `script/lint` and may count documents this one does not.
-- Nothing here is audited by anyone outside this project. Stated once at the top and again here,
-  because a dashboard is exactly the artifact that makes a reader stop asking.
+- Nothing here is audited outside this project, as stated at the top.
