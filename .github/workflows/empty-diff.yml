@@ -1,0 +1,86 @@
+name: empty diff
+
+# **Fails a pull request, and a merge-queue entry, that changes no file.** Milestone 625 (provisional
+# number): #1460 merged on 2026-09-30 carrying only its empty `claim:` commit (§90, the claim is a
+# draft pull request) while the finished work sat on another branch for three days. Every other gate
+# here asks a question about content, an empty diff has none, and so each of them passed. The
+# argument and the refused options are in design/roadmap/625-*.md.
+#
+# One job, no API call, no waiting: `helpers/empty-diff-check.sh BASE TIP` compares two tree ids. Like
+# `architect-hold.yml` it must never be the check that jams the queue, so it is small and always
+# reports.
+#
+# **What BASE and TIP are.** TIP is the commit this run checked out, which is always a merge commit:
+# on `pull_request` the platform's own merge of the head into the base (`refs/pull/N/merge`), on
+# `merge_group` the queue's merge commit for this entry (`github.sha` is the group's head_sha). BASE
+# is its first parent. So both events ask the same question: does this merge change a file.
+#
+# **Why `merge_group` uses `HEAD^1` and not `merge_group.base_sha`.** `base_sha` is the base branch's
+# tip when the group was built. `verify.yml` and `ci.yml` read it as the start of the whole group's
+# range, and that is right for them (they scope work). Here it would be wrong: when several entries
+# batch, a later entry's commit is built on the previous entry's, and `base_sha..head_sha` covers
+# every entry up to it, so an empty entry behind a non-empty one would pass. The entry's first parent
+# is the previous entry (or the base branch tip for the first), so `HEAD^1..HEAD` is that pull
+# request alone. The two tree facts above are read from this tree's workflows and `merge-drain`'s
+# `gh-readonly-queue/.../pr-N-` refs; the platform's own payload documentation was not re-read for
+# this file, so a first-observed batch of two is still owed (see Falsified below). If a merge-group
+# head ever has other than two parents (a rebase-method queue), the step falls back to `base_sha`,
+# which over-covers (it can miss an empty entry behind a non-empty one) but cannot stall the queue.
+#
+# **No draft skip, like `architect-hold.yml`.** It costs seconds, and a lane should see it on its
+# claim draft. The cost is that every fresh claim draft shows this check red until the first real
+# commit; that is accurate (it has no content yet), a draft cannot merge, and the check only gates
+# once it is required. The `merge_group` run is the authoritative half: a `pull_request` result is
+# a snapshot of the head it ran on, and the queue re-asks on the entry's own merge.
+#
+# **Required-check status.** The job name below is the required context. Adding it to the `main`
+# ruleset is a settings change only calef can make, and it is outstanding (milestone 625's follow-on):
+# until then this reports and does not gate. A check that never reports on `merge_group` would stall
+# the queue once required, so the trigger is here from the first commit.
+#
+# **Falsified:** helpers/empty-diff-selftest.sh (in `script/lint`) fails four shapes and passes one.
+# Live observation, a throwaway draft pull request of one empty commit: see the PR record on #1482.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: empty-diff-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'tip' }}
+  cancel-in-progress: false
+
+jobs:
+  empty-diff:
+    name: empty diff (a merge must change at least one file)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      # Full history, no blobs: the check compares tree ids and lists commit subjects, and needs no
+      # file contents (the same pairing `architect-label.yml` explains).
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Compare the merge's tree with its first parent's
+        env:
+          EVENT: ${{ github.event_name }}
+          GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: |
+          parents="$(git rev-list --parents -n 1 HEAD | wc -w)"
+          parents=$((parents - 1))
+          if [ "$parents" -eq 2 ]; then
+            base="$(git rev-parse HEAD^1)"
+          elif [ "$EVENT" = "merge_group" ] && [ -n "$GROUP_BASE_SHA" ]; then
+            echo "==> merge-group head has $parents parent(s); falling back to base_sha (over-covers)"
+            base="$GROUP_BASE_SHA"
+          else
+            echo "empty-diff: $EVENT checked out a commit with $parents parent(s); expected a merge" >&2
+            exit 1
+          fi
+          echo "==> $EVENT: BASE=$base TIP=$(git rev-parse HEAD)"
+          sh helpers/empty-diff-check.sh "$base" HEAD
