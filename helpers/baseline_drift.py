@@ -308,14 +308,31 @@ def render(reports, stamp):
         for save in saves:
             moved, largest = save_summary(prev, save)
             big = '`%s` %s' % (largest[0], _p(largest[1])) if largest else '-'
-            if save['why']:
-                reason = '<br>'.join('`# why:` ' + _cell_text(w) for w in save['why'])
+            fresh = new_reasons(prev, save)
+            if fresh:
+                reason = '<br>'.join('`# why:` ' + _cell_text(w) for w in fresh)
+            elif save['why']:
+                reason = 'no new `# why:` line; commit: ' + _cell_text(save['subject'])
             else:
                 reason = 'no `# why:` ledger; commit: ' + _cell_text(save['subject'])
             out.append('| %s | `%s` | %d | %s | %s |'
                        % (save['date'], save['commit'], moved, big, reason))
             prev = save
     return '\n'.join(out) + '\n'
+
+
+def new_reasons(prev, save):
+    """The `# why:` lines this save added, in order: the ones its predecessor did not carry.
+
+    A baseline file keeps every `# why:` line since its last `--save`, and the nightly
+    `--restamp` appends one a day, so a save's whole list repeats every line the rows above it
+    already showed. Rendering the whole list grew the newest cell by a restamp line a day, and on
+    2026-10-02 one cell reached 2,472 bytes, past `documentation::LINE_MAX` (2048), which a line in
+    the shipped manual must fit. A row says why THAT save moved; the earlier reasons are on the rows
+    above it.
+    """
+    seen = set(prev.get('why', ())) if prev else set()
+    return [w for w in save['why'] if w not in seen]
 
 
 def status(reports, week):
@@ -388,6 +405,10 @@ def selftest():
                                                       'c': {'combined': 2.0}}), (6.0, 1)),
         ('weekly never reports below zero', weekly({'a': {'combined': -3.0}}), (0.0, 0)),
         ('save summary', save_summary(anchor, s1), (1, ('b', 5.000000000000004))),
+        ('a save shows only the reasons it added',
+         new_reasons(state('p', '', why=['x', 'y']), state('q', '', why=['x', 'y', 'z'])), ['z']),
+        ('a fresh ledger is all new',
+         new_reasons(state('p', '', why=['x']), state('q', '', why=['w'])), ['w']),
         ('the gate skips every generated table',
          sorted(set(TABLE_HEADINGS) - prose_ratchet.GENERATED_TABLES), []),
     ]
