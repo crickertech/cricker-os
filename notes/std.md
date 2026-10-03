@@ -89,9 +89,8 @@ builds one:
 
 1. Hardlink-clone the real nightly (`cp -al` of `bin` and `lib`). Blocks are shared, so the
    clone costs almost no disk. rustc resolves *this* directory as its sysroot (it derives the
-   sysroot from the location of `librustc_driver`, which the clone puts inside the farm; a symlink
-   farm does not work, because the symlink resolves back to the real toolchain, which was the first
-   thing tried and measured).
+   sysroot from the location of `librustc_driver`; a symlink farm resolves back to the real
+   toolchain, as measured).
 2. Replace the `src` subtree with a real copy (independent inodes), so patching it never
    touches the shared rustup toolchain.
 3. Patch that copy: drop in the overlay PAL files, generate `abi.rs`/`user_mode_heap.rs`, and insert a
@@ -294,8 +293,9 @@ One line each. The full entry, with its reasoning and history, is in
   lane whose build is already in flight when another relinks still loses (above). The name's
   remaining reach is a person typing `+nife-dev`.
 - `std-aborts` covers `sys/` only, and proves a body reachable, never a call. A stale or foreign
-  build under `std_exerciser/target` surfaces as a defect or an abort in the unpatched std;
-  the recovery is `rm -rf std_exerciser/target` ([appendix](std/std-aborts.md#bugs)). An
+  build under `std_exerciser/target` (left from before a nightly bump) surfaces as a defect or
+  an abort, or compiles the toolchain's own library instead of the farm's patched std, even with
+  `RUSTUP_TOOLCHAIN` set; the fix is `rm -rf std_exerciser/target` ([appendix](std/std-aborts.md#bugs)). An
   exported `CARGO_TARGET_DIR` used to blind the check; `std-exerciser` now pins and prints it.
 
 ## Appendices
