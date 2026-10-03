@@ -78,7 +78,7 @@
 //! crate's own name, ratified 2026-08-23 as `memory_regions` (renamed from the unratified
 //! `regions`).
 
-use crate::{DestroyOutcome, destroy_outcome, split_new_watermark};
+use crate::{DestroyOutcome, coalesced_watermark, destroy_outcome, split_new_watermark};
 
 /// A region's parent field naming no parent: this region came from the frame allocator rather than from
 /// a [`split`](RegionTable::split), so it is a **root** and its pages go back to the allocator.
@@ -99,6 +99,12 @@ struct Region {
     pages: u64,
     /// Pages handed out so far. A bump pointer, and the whole of the allocator.
     watermark: u64,
+    /// **How far this region's own retypes reached**: the watermark just after the highest page
+    /// retyped straight out of this region rather than carved into a child. Bump-only. It is the
+    /// floor [`return_to_parent`](RegionTable::return_to_parent) may lower the watermark to, since
+    /// a page under it may hold an object or a mapping and is never handed out twice. Name:
+    /// provisional.
+    retyped_to: u64,
     /// **A kernel object lives in this region**: a page here was retyped into an endpoint, an
     /// address space or a TCB, so a claim is refused until `sched::reclaim_region` has torn the
     /// objects down and called [`unpin`](RegionTable::unpin).
@@ -309,6 +315,7 @@ impl<const N: usize> RegionTable<N> {
             base_page,
             pages,
             watermark: 0,
+            retyped_to: 0,
             pinned: false,
             parent: NO_PARENT,
             children: 0,
@@ -382,6 +389,7 @@ impl<const N: usize> RegionTable<N> {
             base_page,
             pages,
             watermark: 0,
+            retyped_to: 0,
             pinned: false,
             parent,
             children: 0,
@@ -417,6 +425,7 @@ impl<const N: usize> RegionTable<N> {
         let page = r.base_page + r.watermark;
         let spent = new - r.watermark;
         r.watermark = new;
+        r.retyped_to = new;
         r.spent.frames += spent;
         Some(page)
     }
@@ -437,6 +446,7 @@ impl<const N: usize> RegionTable<N> {
         r.pinned = true;
         let page = r.base_page + r.watermark;
         r.watermark += 1;
+        r.retyped_to = r.watermark;
         r.spent.objects[kind as usize] += 1;
         Some(page)
     }
@@ -561,18 +571,67 @@ impl<const N: usize> RegionTable<N> {
     ///
     /// The LIFO test runs against the parent's *current* watermark, in the same borrow as the
     /// un-bump, so nothing can carve from the parent in between: a child sitting at the top of the
-    /// parent's run gives its pages back and the run is re-splittable, and a child freed out of
-    /// order leaves a hole until the parent itself is reclaimed. That is the LIFO half of seL4's
-    /// return-to-parent, without the derivation tree the general case would need.
+    /// parent's run gives its pages back and the run is re-splittable.
+    ///
+    /// **A child freed out of order leaves a hole only until nothing above it is live** (2026-10-03,
+    /// UTC). Until then the hole lasted until the parent itself was destroyed, and that leaked a
+    /// job's pages out of the progenitor's job pool every time two jobs ended in the order they
+    /// started: every pipeline, and every job the next command was carved above before the reaper
+    /// reached it. The pool is bump-only, so the leak ratcheted, and on CI's slower riscv64 runner
+    /// a `std` job's 384 pages stopped fitting before the session ended (`notes/swish-check-flake.md`
+    /// has the trace). So after the un-bump the parent's watermark drops further, to the highest page
+    /// anything still holds: a live child's end, or [`retyped_to`](Region::retyped_to), the
+    /// region's own retypes. [`crate::coalesced_watermark`] is that rule, proved.
+    ///
+    /// **Only when no sibling is in flight.** A sibling that has been claimed but not yet returned
+    /// has left the table while its pages are still being revoked, so the scan below cannot see
+    /// where it sits, and dropping the watermark under it would let the parent carve pages that a
+    /// peer may still map: the use-after-free of §13 (capability revocation and untyped reclamation). The parent's child count is what tells: it
+    /// drops at the return, not at the claim, so a count above the live children the scan found
+    /// is an in-flight sibling (or the phantom a full-table split leaves, which `split`'s `BUGS`
+    /// entry describes), and then only the LIFO un-bump happens. The holes are not lost: the next
+    /// return with nothing in flight reclaims them, because the scan starts from the live set
+    /// every time rather than from what this return knows.
+    ///
+    /// The scan walks the table once, under the borrow the caller already holds, and only on a
+    /// child's return. That is the derivation tree's question (what does this parent still have
+    /// out?) answered by search rather than by a tree, which a table of 256 makes cheap.
     ///
     /// **The child count drops here rather than at the claim**, and the ordering carries weight: it
     /// is what stops the parent being reclaimed while this child's pages are still in flight. A
     /// caller that decremented at claim time would open exactly the window this module exists to
     /// close, one level up the tree.
+    ///
+    /// # BUGS
+    ///
+    /// - **A hole under a live child is not reused while that child lives**, because
+    ///   [`split`](Self::split) only bumps. A parent whose children always overlap (each carved
+    ///   before the one below it returns) never drains, so its holes never close. Measured
+    ///   2026-10-03 (UTC) with the reaper held back 150 ms on every job: the riscv64 swish-check
+    ///   pool filled by `uptime`, 40 lines in, with this fix in place. With one reap in three held
+    ///   back it passed, where the unfixed kernel failed at `std_exerciser`. A carve that searched
+    ///   the holes first would close it, at the price of the same scan on every split; not built,
+    ///   because no real workload has shown the overlap.
+    /// - **A phantom child stops the reclaim for good.** A split refused for a full table counts a
+    ///   child no name will ever return ([`split`](Self::split)'s `BUGS`), so the parent never
+    ///   looks quiescent again and keeps only the LIFO rule.
     pub fn return_to_parent(&mut self, claim: &DestroyClaim) {
         if claim.is_root {
             return;
         }
+        let Some(parent_base) = self.table.get(claim.parent).map(|p| p.base_page) else {
+            return;
+        };
+        // What the parent still has out: how many of its children are live, and where the highest
+        // one ends, in the parent's own page offsets. The returning child left the table at its
+        // claim, so it is in neither figure.
+        let (live, live_to) = self
+            .table
+            .iter()
+            .filter(|(_, r)| r.parent == claim.parent)
+            .fold((0u32, 0u64), |(n, to), (_, r)| {
+                (n + 1, to.max(r.base_page + r.pages - parent_base))
+            });
         let Some(p) = self.table.get_mut(claim.parent) else {
             return;
         };
@@ -584,6 +643,7 @@ impl<const N: usize> RegionTable<N> {
         }
         p.children = p.children.saturating_sub(1);
         p.spent.children = p.spent.children.saturating_sub(claim.pages);
+        p.watermark = coalesced_watermark(p.watermark, p.retyped_to, live_to, p.children == live);
     }
 }
 
@@ -717,6 +777,83 @@ mod tests {
             t.usage(root),
             Some((8, 16)),
             "an out-of-order return un-bumps nothing"
+        );
+    }
+
+    /// The job pool's leak, in miniature: a pipeline's writer ends before its reader, so its region
+    /// comes back out of order. Before 2026-10-03 the watermark stopped at 4 here for good, and the
+    /// progenitor's pool lost a job's pages to every pipeline a session ran.
+    #[test]
+    fn a_hole_closes_when_the_child_above_it_returns() {
+        let mut t = RegionTable::<4>::new();
+        let root = t.insert_root(0, 16).unwrap();
+        let a = t.split(root, 4).unwrap();
+        let b = t.split(root, 4).unwrap();
+        let ca = t.claim_for_destroy(a).unwrap();
+        t.return_to_parent(&ca);
+        assert_eq!(t.usage(root), Some((8, 16)), "`b` is live above the hole");
+        let cb = t.claim_for_destroy(b).unwrap();
+        t.return_to_parent(&cb);
+        assert_eq!(
+            t.usage(root),
+            Some((0, 16)),
+            "nothing above the hole is held"
+        );
+        assert_eq!(
+            t.split(root, 16).map(|_| ()),
+            Some(()),
+            "the whole budget again"
+        );
+    }
+
+    /// A sibling claimed and not yet returned is invisible to the scan, so it must hold the
+    /// watermark where the LIFO rule leaves it: its pages may still be mapped until the caller's
+    /// revoke finishes, and a split that handed them out now would be the use-after-free.
+    #[test]
+    fn an_in_flight_sibling_holds_the_watermark_until_it_returns() {
+        let mut t = RegionTable::<4>::new();
+        let root = t.insert_root(0, 16).unwrap();
+        let a = t.split(root, 4).unwrap();
+        let b = t.split(root, 4).unwrap();
+        let c = t.split(root, 4).unwrap();
+        let cb = t.claim_for_destroy(b).unwrap(); // in flight: out of the table, not yet returned
+        let ca = t.claim_for_destroy(a).unwrap();
+        t.return_to_parent(&ca);
+        let cc = t.claim_for_destroy(c).unwrap();
+        t.return_to_parent(&cc);
+        assert_eq!(
+            t.usage(root),
+            Some((8, 16)),
+            "`b`'s run, [4, 8), stays spent"
+        );
+        t.return_to_parent(&cb);
+        assert_eq!(
+            t.usage(root),
+            Some((0, 16)),
+            "and the last return reclaims `a`'s hole too"
+        );
+    }
+
+    /// A page the parent retyped for itself is never reclaimed with the children's holes.
+    #[test]
+    fn a_hole_closes_down_to_the_parents_own_retypes_and_no_further() {
+        let mut t = RegionTable::<4>::new();
+        let root = t.insert_root(0, 16).unwrap();
+        let a = t.split(root, 4).unwrap();
+        assert_eq!(
+            t.retype_page(root),
+            Some(4),
+            "the parent's own page, above `a`"
+        );
+        let b = t.split(root, 4).unwrap();
+        let ca = t.claim_for_destroy(a).unwrap();
+        t.return_to_parent(&ca);
+        let cb = t.claim_for_destroy(b).unwrap();
+        t.return_to_parent(&cb);
+        assert_eq!(
+            t.usage(root),
+            Some((5, 16)),
+            "the retyped page stays under the watermark"
         );
     }
 

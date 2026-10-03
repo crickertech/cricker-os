@@ -7,12 +7,12 @@ system could build processes but never fully reap them, which is untenable for t
 workloads on real machines): a workload that comes and goes must be able to leave.
 
 This is that teardown. The prerequisite everyone assumed was "retype to EL0" (it already shipped);
-the real one was **reclamation**.
+the real one was reclamation.
 
 ## The model: region ownership, and generational staleness instead of a derivation tree
 
 To reclaim an object you must guarantee no live capability can still reach it. seL4 does this with a
-**capability derivation tree (CDT)**: every copy/mint/grant records a parent-child edge, and revoking
+capability derivation tree (CDT): every copy/mint/grant records a parent-child edge, and revoking
 a capability walks the subtree deleting every descendant. It is powerful (revoke one delegation, leave
 its siblings) and it is exactly the machinery milestone 19 declined to build.
 
@@ -35,7 +35,7 @@ revocation is authority the region owner retains over what it built, that coarse
 semantic, not a limitation. If per-delegation revocation is ever wanted, that is when a CDT earns its
 cost, and we would know why we are paying for it.
 
-**How much is thrown away if we later add the CDT? Almost nothing.** The per-object teardown (unblock
+How much is thrown away if we later add the CDT? Almost nothing. The per-object teardown (unblock
 waiters, unbind an address space, free the registry slot) and the region reclamation are needed in
 both models; the CDT only changes *when* a reclaim fires, not the teardown it fires. The CDT is a
 layer on top (derivation-edge recording at delegation sites, a subtree-walk revoke), purely additive.
@@ -63,15 +63,15 @@ already latent in the code (the reaper recycled kmem TCB pages and explicitly le
 ## The lock structure forced the shape
 
 `destroy` is reachable from inside `AddressSpace::Drop`, which runs inside `Threads::remove`, which the
-reaper calls **while holding `SCHED`**. So if `destroy` (or the object reaping it triggers) took
+reaper calls while holding `SCHED`. So if `destroy` (or the object reaping it triggers) took
 `SCHED`, it would self-deadlock against the reaper. That single fact split the implementation:
 
-- **`reap_region_objects` (takes `SCHED`)** is the caller-driven step: it scans the thread and
+- `reap_region_objects` (takes `SCHED`) is the caller-driven step: it scans the thread and
   endpoint registries for objects whose backing page lies in the region, refuses if any is still in
   use (a Ready/Running/Blocked thread, or an endpoint with a blocked waiter), and otherwise tears the
   dead ones down. `reap_aspaces_in_region` does the same for unbound address spaces under the aspace
   registry lock, a second lock domain, sequenced never nested.
-- **`untyped::destroy` (never takes `SCHED`)** is the memory half: it frees the region's frames and
+- `untyped::destroy` (never takes `SCHED`) is the memory half: it frees the region's frames and
   removes its slot. It stays `SCHED`-free the way it always was (its `revoke_region` takes the
   revocation lock, not `SCHED`, and `AddressSpace::Drop` forgets its own records first so the
   scheduler-taking cap-deletion path is never reached).
@@ -97,10 +97,10 @@ straight back to the parent's budget (the watermark un-bumps), so they are re-sp
 exactly what a spawn-then-reap loop does, split a child, run it, destroy it, split the next, so a split
 parent is *not* committed for its lifetime: the loop runs forever on a budget of one child. The
 benchmark proves it, a 100-iteration spawn loop runs on a 64-page budget that could hold only ~6
-children at once. A child freed *out of order* is not at the top, so its pages stay a hole in the
-parent until the parent itself is destroyed (which frees the whole run, holes included, exactly once).
-This is the LIFO half of seL4's return-to-parent; the general case is what a derivation tree buys, and
-we still do not build one.
+children at once. A child freed *out of order* leaves a hole until no child above it is live, and the
+last such return reclaims it. Until 2026-10-03 (UTC) it lasted until the parent died, which leaked
+the progenitor's job pool (`notes/swish-check-flake.md`). Reusing a hole under a live child is what a
+derivation tree buys, and we still do not build one.
 
 ## Region slots became generational, retiring the lifetime cap
 
@@ -114,10 +114,10 @@ Now the bound is on *concurrent* regions. This is what turns a one-shot reclaim 
 ## Endpoints: wake a blocked waiter with an error
 
 An endpoint in a reclaimed region has to be torn down too, or its page would be freed while the
-registry still points at it. Revoking one **drains its wait queues**: each blocked thread is popped
+registry still points at it. Revoking one drains its wait queues: each blocked thread is popped
 off (which frees its intrusive link), marked aborted, and woken, then the endpoint is removed from the
 registry, its generational name going stale. The woken thread's blocking `ipc_recv`/`ipc_send` returns
-an **error** (the endpoint is gone), not a message it never received, so a waiter blocked forever
+an error (the endpoint is gone), not a message it never received, so a waiter blocked forever
 cannot pin a region forever, and the reclaim always makes progress.
 
 ### The sweep runs before the refusal, and that ordering is the whole of milestone-scale bug
@@ -131,13 +131,13 @@ a thing that blocks.
 
 The aarch64 test boot is what made it visible. `userspace_init_brings_up_the_console_server` builds a
 console server out of the progenitor's 2048-frame budget, and that server blocks in its serve loop, so those
-2048 frames were unreclaimable **by construction**. Six such tests, and the boot finished with 216
+2048 frames were unreclaimable by construction. Six such tests, and the boot finished with 216
 free frames of 29307 and no free run longer than 117, failing as `Unmappable(OutOfFrames)` in
 whichever unlucky later test asked for a long run. notes/frames.md is the full receipt.
 
 Sweeping first fixes it with no new mechanism, because the wake was already written: removing an
 endpoint aborts and wakes its waiters, which is exactly the transition a doomed resident needs before
-it can die. What changes is when: the region's endpoints now go on **every** pass, refusal or not.
+it can die. What changes is when: the region's endpoints now go on every pass, refusal or not.
 
 The objection worth answering is that this makes a *refused* reclaim destructive. It already was, and
 `reclaim_region`'s BUGS section says so: a refusal arms §16's kill on every live resident. Ending the
@@ -145,23 +145,23 @@ region's endpoints in the same pass is the same commitment one object over, and 
 said the region is going away. What it must not be is a surprise, which is why it is here and in a
 long comment at the sweep itself.
 
-**The honest remaining limit:** a service blocked on an endpoint that is *not* in any region being
+The honest remaining limit: a service blocked on an endpoint that is *not* in any region being
 reclaimed still cannot be woken, and so still cannot be reclaimed. `user::holding::Holding` reports
 that as a failed release rather than hiding it, and the practical answer is to give a service's
 endpoints a region of its own, which is what the net wiring now does.
 
 The delicate part was the IPC core, the block-and-wake path where the lost-wakeup hang once lived. Two
-things made it safe without regressing the hot path. First, `endpoint_of` became **fallible**: a stale
+things made it safe without regressing the hot path. First, `endpoint_of` became fallible: a stale
 `Endpoint` capability (its endpoint reclaimed out from under a holder) used to reach a name that always
 resolved, so a miss panicked; now it returns `None` and the caller aborts cleanly. Second, the abort
-is routed through a **per-thread `ipc_aborted` flag** rather than changing `ipc_recv`/`ipc_send`'s
+is routed through a per-thread `ipc_aborted` flag rather than changing `ipc_recv`/`ipc_send`'s
 return types (66 callers): the IPC primitive sets the flag inside its existing lock and the syscall
 layer reads-and-clears it, so no extra lock lands on the fast path and the IPC benchmark does not move.
 Kernel-side IPC callers never set the flag (their endpoints are never revoked), so they are untouched.
 
 ## What the tests prove
 
-Each piece is nailed by a test that watches the free-frame count return **exactly** to baseline, which
+Each piece is nailed by a test that watches the free-frame count return exactly to baseline, which
 is the honest witness that memory came back rather than leaked:
 
 - an embryo TCB's region reclaims (the mechanism in isolation);
@@ -169,7 +169,7 @@ is the honest witness that memory came back rather than leaked:
 - a started, run, and exited child's regions reclaim, and reclaim is *refused* while it is still live;
 - `SPLIT` carves reclaimable children and commits the parent;
 - 320 create+destroy cycles (past the old 256 cap) all succeed, proving slot reuse;
-- an idle endpoint's region reclaims, and a region whose endpoint has a **blocked waiter** reclaims
+- an idle endpoint's region reclaims, and a region whose endpoint has a blocked waiter reclaims
   too, waking that waiter with its IPC aborted rather than refusing
   (`a_blocked_waiter_wakes_with_an_error_when_its_endpoint_is_revoked`). An earlier draft of this line said it
   "refuses until the waiter is gone", which the test beside it has contradicted for some time.
@@ -210,7 +210,7 @@ runaway, reclaimed out from under itself.
 
 ## Two names for one region, and the double free that found it
 
-**Fixed 2026-08-18.** `destroy_reclaims_a_region_whose_resident_is_blocked_in_recv` panicked once
+Fixed 2026-08-18. `destroy_reclaims_a_region_whose_resident_is_blocked_in_recv` panicked once
 in 45 full-suite runs on riscv64 under load, in milestone 62's acceptance run
 (notes/load-sensitive-assertions.md):
 
@@ -236,7 +236,7 @@ memory with two names.
 The old safety argument was the pin: `retype_object_page` pins the region, `destroy` refuses a
 pinned region, and only `sched::reclaim_region` unpins. It is true of a drop that happens *inside*
 `reap_region_objects`, under `SCHED`. It is false of the drop that matters. `sched::finish_switch`
-hoists a dead thread's address space out of the table, **releases `SCHED`**, and drops it
+hoists a dead thread's address space out of the table, releases `SCHED`, and drops it
 afterwards, because `AddressSpace::drop` runs a §13 revocation sweep that takes `SCHED` itself. By
 then `reclaim_region` may already have run `unpin`, and the refusal the argument relied on does not
 happen.
@@ -262,7 +262,7 @@ mechanism that did not yet exist.
 
 The gate is `force_kill_tests::an_address_space_never_frees_a_region_it_was_lent`, and it is
 deterministic where the original was not: it stages the window by hand (`unpin`, then drop the
-space) instead of racing for it. **Verified it can fail**: with the ownership guard removed it
+space) instead of racing for it. Verified it can fail: with the ownership guard removed it
 returns four frames it was only lent and trips its own assertion, on aarch64, which also answers the
 old note's question about whether the bug was riscv64-only. It was not; riscv64 is only where the
 timing exposed it.

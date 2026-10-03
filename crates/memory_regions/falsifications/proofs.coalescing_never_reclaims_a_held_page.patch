@@ -1,0 +1,23 @@
+Falsifies `memory_regions::proofs::coalescing_never_reclaims_a_held_page`.
+
+The defect: the reclaim ignores whether a sibling is in flight. It reads as a simplification,
+because the scan already found every live child, and the one region it misses is the one that
+left the table at its claim and is still being revoked.
+
+Expected to fail: the harness's `assert!(after == watermark, "an in-flight sibling blocks the
+reclaim")`, for any input that is not quiescent and has both floors under the watermark. In the
+kernel that lowers the watermark under a sibling whose pages a peer may still map, and the next
+split hands them out: the use-after-free §13 (capability revocation and untyped reclamation) exists to prevent.
+
+diff --git a/crates/memory_regions/src/lib.rs b/crates/memory_regions/src/lib.rs
+--- a/crates/memory_regions/src/lib.rs
++++ b/crates/memory_regions/src/lib.rs
+@@ -143,7 +143,7 @@
+ /// revoke finishes is the use-after-free. Never above `watermark`, so a floor that somehow
+ /// exceeded it cannot hand out budget the parent never had.
+ pub fn coalesced_watermark(watermark: u64, retyped_to: u64, live_to: u64, quiescent: bool) -> u64 {
+-    if !quiescent {
++    if !quiescent && false {
+         return watermark;
+     }
+     retyped_to.max(live_to).min(watermark)

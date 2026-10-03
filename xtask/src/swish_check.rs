@@ -1493,6 +1493,23 @@ const KERNEL_FAULT_TOKENS: [&str; 6] = [
 /// last one it sees and fails if the kernel flagged it as past the recorded peak.
 const SLOT_GAUGE: &str = "capability slots:";
 
+/// **The most of the job pool `free`'s `Yours:` line may report in use**, in KiB: two job regions
+/// (`system_initializer`'s `JOB_REGION_PAGES`, 48 pages of 4 KiB). One is `free`'s own, which its
+/// BUGS says it counts. The other is one predecessor the reaper may not have reached when `free`
+/// was carved, which is a race the gate does not control and so must allow. Before the fix of
+/// 2026-10-03 (UTC) this line read 576 on every run: `free` plus two regions the pipelines above it
+/// had stranded. Name: provisional.
+const YOURS_CEILING_KIB: u64 = 2 * 48 * 4;
+
+/// The used figure of the first `Yours:` row in `transcript`, in KiB, or `None` when there is none
+/// (the line's own expectation already fails a run that lost it).
+fn yours_used_kib(transcript: &str) -> Option<u64> {
+    let row = transcript
+        .lines()
+        .find_map(|l| l.trim_start().strip_prefix("Yours:"))?;
+    row.split_whitespace().nth(1)?.parse().ok()
+}
+
 /// **Takes the kernel's progenitor stack gauge out of the transcript as it arrives**, and keeps it.
 ///
 /// The gauge (`kernel::progenitor_stack`) speaks from the idle loop once the stack's mark has been
@@ -2795,6 +2812,25 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         ));
     }
 
+    // **And the job pool came back** (lane fix/riscv64-progenitor-oom, 2026-10-03 UTC). `free`'s
+    // `Yours:` line is the progenitor's job pool as `MemoryRegion::USAGE` sees it, and a pool whose
+    // regions all came back holds `free` itself and little else. Until that date a region returned
+    // out of order stayed a hole for the rest of the boot, so the two pipelines before this line
+    // left two regions behind on every run, every architecture, and the races that sometimes added
+    // more were what ran the pool out under `std_exerciser`. That leak was in the transcript all
+    // along, as 576 used, and nothing read it: this is the read that turns it from intermittent
+    // into a failure on every run.
+    if let Some(used) = yours_used_kib(&filtered)
+        && used > YOURS_CEILING_KIB
+    {
+        failed.push(format!(
+            "`free` reports {used} KiB of the progenitor's job pool in use, above the \
+             {YOURS_CEILING_KIB} KiB that `free` itself and one job the reaper has not reached yet \
+             account for. Something left a region behind: memory_regions' \
+             `RegionTable::return_to_parent` is where a returned job's pages go back, and \
+             notes/swish-check-flake.md has how this was traced."
+        ));
+    }
     // **Milestone 342's flood verdict**: every kernel flood line on a line of its own, or, for the
     // detached control, how many were not.
     if matches!(probe(), Probe::Flood | Probe::FloodDetached) {
@@ -3277,6 +3313,20 @@ fn swish_check_answer<'a>(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_job_pool_check_reads_free_as_ci_printed_it() {
+        // Run 37110045386's riscv64 transcript, verbatim: two stranded regions beside `free`'s own.
+        let leaked = "$ free\n                total        used        free\n\
+                      Mem:        262144       84292      177852\n\
+                      Yours:        2688         576        2112\n";
+        assert_eq!(super::yours_used_kib(leaked), Some(576));
+        assert!(super::yours_used_kib(leaked).unwrap() > super::YOURS_CEILING_KIB);
+        // The same line after the fix, measured locally on riscv64: `free` alone.
+        let whole = "Yours:        2688         192        2496\n";
+        assert!(super::yours_used_kib(whole).unwrap() <= super::YOURS_CEILING_KIB);
+        assert_eq!(super::yours_used_kib("no such row\n"), None);
+    }
 
     use super::*;
 

@@ -279,11 +279,14 @@
 //! program is loaded. Nothing re-measures a running process, and nothing measures the pages the progenitor
 //! wrote into a child after `build_child` copied them.
 //!
-//! The return of pages is **LIFO** (§16, `crates/regions`): a job region that is not at the top of
-//! the budget's watermark when it is reclaimed returns nothing, and its run is a hole until this
-//! process dies, which it never does. Sequential commands at a prompt are exactly LIFO and recover
-//! fully; two jobs alive at once (a pipeline stage that outlives its producer) permanently costs one
-//! region. A long enough session of concurrent pipelines still ends at "could not spawn".
+//! The return of pages is **LIFO** (§16 (object revocation), `crates/memory_regions`): a job region that is not at the
+//! top of the budget's watermark when it is reclaimed returns nothing at once, and its run is a hole
+//! until no job above it is live, when the kernel reclaims it with the last of them. Until
+//! 2026-10-03 (UTC) the hole lasted until this process died, which it never does, so every pipeline
+//! (whose producer ends first) and every job carved before the reaper reached its predecessor cost
+//! the pool a region for good. On CI's riscv64 runner that ran a `std` job's 384 pages out before
+//! the swish-check session ended (`notes/swish-check-flake.md`). What remains: a hole under a job
+//! that stays live is not reusable while it does, because a carve still only bumps.
 //!
 //! **A `graphical_terminal` session's size is measured, after the count was wrong** (milestone 632
 //! (provisional)). [`GRAPHICAL_TERMINAL_SESSION_PAGES`] was first bounded from the constants at 464,
