@@ -219,7 +219,7 @@ client's last. The real boot hands all of it over, `login`'s budget sized by
 `login_protocol::durable::BUDGET_PAGES`.
 The [fork 8 appendix](../../notes/durable-delegation/which-programs-a-job-runs.md) has the costs.
 
-**Unproven: CI falsifies "within 24" (2026-09-27), peak over 24, #1360.**
+**Not the slot table: 64-KiB staging refused aarch64's fixture (2026-10-02).**
 
 ## Forks this lane found, for an architect
 
