@@ -76,7 +76,7 @@ session running, the hand-off waits until one starts. That is slower, and it is 
 | drain: stall comments | 478 since 08-26. Hour after a bot comment: 55% saw an action; hour before: 50%. The 308 posted with calef's token before 09-24 notified nobody, since GitHub does not notify an account of its own comments (recalled) | remove |
 | architect-label bots and `architect hold` | 48 labels. 11 re-labels after a calef-account removal, the last at 09-27 20:30, and none since `architect-ruled` | keep |
 | `ready status` check | 5 failures in 259 pull request runs. 1 failure in 131 group runs, which was #1557's 503 | keep, with no API call in the group leg |
-| pre-push hook | caught none of the 39 lint failures in groups | keep `script/fmt --check` and the ready-branch question |
+| pre-push hook | PR lint failure rate by the hook in the pushed tree: 5.7% (29 of 511) and then 3.6% (9 of 250) with fmt only, 1.8% (2 of 111) with all of lint. On 10-03 it caught 5 findings and wrongly refused 6 pushes, 5 of them claims | narrow it to fmt plus lint's text checks, and skip claims |
 
 **Why N is 5 minutes.** Of 321 calef-account first arms since 09-24, 224 came within 1 minute of
 ready, which is the same command as `gh pr ready`. Only 11 more came by 5 minutes. Five minutes is
@@ -92,7 +92,7 @@ model and brief cannot be told apart, and before 09-24 they cannot be told from 
 | kind | failed groups | group minutes | ejections | calef-account interventions |
 |---|---|---|---|---|
 | drain re-adds over a dequeue | 4, also counted below | about 96 | | 7 re-dequeues, 1 draft |
-| hook | 0 | 0 | 0 | at least 3 stuck pushes |
+| hook | 0 | 0 | 0 | 3 stuck pushes, 5 refused claims |
 | union facts: promotion, prose budget, counts | 33 | 652 | 7 | 8 dequeues, 4 fix commits, 3 count merges |
 | appends at one spot | 0 | 0 | 0 | 3 conflicted merges, 2 dequeues |
 | ratchet churn (bold, glosses) | 0 | 0 | 0 | rode along with other conflicts |
@@ -125,8 +125,9 @@ Branch 2, the hook:
 3. Why? It is 84 checks, and the largest takes 3.7 s.
 4. Why all of them? Milestone 630 (a merge-queue ejection is caught before the queue, and recovered
    after it) widened the hook that morning.
-5. Why didn't it help? It lints the branch alone, and every lint failure in the queue was in the
-   union.
+5. Why keep any of it? It does catch real findings, about 4 per 100 pushes against the fmt-only
+   weeks, and 36 of the 38 fmt-only failures came from checks that need no compiler. It
+   cannot catch union failures, and it refuses the claim push.
 
 Branch 3, the union:
 
@@ -156,7 +157,8 @@ Highest rung first.
   `ready status`, without an API call in its group leg. Build one detector that labels an evicted,
   `DIRTY` or ready-but-unarmed pull request for a maintainer session.
 - **Proposed.** `design/roadmap/proposals/the-pre-push-hook-runs-what-fits-in-seconds.md` (rung 2,
-  narrowed). The hook keeps `script/fmt --check` and the ready-branch question.
+  narrowed). The hook runs `script/fmt --check`, lint's text checks and the ready-branch question,
+  in about 33 s (estimated), and skips a claim. Clippy stays in CI.
 - **Proposed.** `design/roadmap/proposals/a-branch-commits-no-fact-about-the-merged-tree.md` (rung
   2, plus a rung-1 deletion). It covers 31 of the 47 failed groups.
 - **Milestone 642.** Milestone 642 (the record should say whether a person or the machinery took
