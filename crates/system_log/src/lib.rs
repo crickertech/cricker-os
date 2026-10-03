@@ -79,6 +79,16 @@
 //!   a writer cannot choose (the registry is written from badge 0 only, and the kernel refuses to
 //!   re-badge). Recorded by the 2026-10-03 security audit; a per-writer share of the ring is the
 //!   per-user state §242 ruled the ring should not need, and no second domain writes here yet.
+//! - **The intake endpoint must receive nothing the kernel writes.** [`Log::handle`] reads badge
+//!   `0` as the spawner and any other badge as a writer, and the kernel's own deliveries carry
+//!   whatever the mailbox's fourth word holds: `0` for an interrupt signal and a bound
+//!   notification, so either reads as a control word from the spawner, and the fault address for
+//!   a death message under §26 (the fault endpoint: thread death becomes a message a supervisor
+//!   holds), which reads as bytes from a writer whose badge is that address. So the
+//!   intake is never a thread's fault endpoint, never bound to a notification and never an
+//!   interrupt's rendezvous. The spawner today (the kernel test) does none of these; milestone 342
+//!   (the kernel and the `console` server drive one UART from two address spaces) is the first
+//!   to wire the service in and inherits the rule (the 2026-10-03 security audit's follow-up).
 //!
 //! Name: provisional (milestone 613's lane, 2026-10-02 UTC), the noun §242 uses for the service.
 

@@ -58,6 +58,21 @@
 //!
 //! # BUGS
 //!
+//! **This shell holds the display devices for its whole life, and uses them only to delegate.**
+//! Since milestone 632 (graphics on demand: `graphical_terminal`, launched from the swish prompt)
+//! the progenitor places the GPU's four capabilities and the keyboard's three at
+//! `spawnproto::SHELL_GPU_SLOT` onward: the transports with `WRITE | GRANT`, the interrupts with
+//! `READ | GRANT`, the DMA run, the surface and the keyboard DMA page with
+//! `READ | WRITE | GRANT`. [`delegate_display`] narrows copies for a session and keeps these, so
+//! a session can be launched again. With them this shell could map the three pages read-write
+//! into its own space (it holds the tables `map_page_frame` needs) and read the keyboard driver's
+//! DMA or write the surface behind a session, and could `RECV` on either interrupt rendezvous and
+//! take a wake the driver was parked for. It does none of that, and nothing it parses from the
+//! prompt can reach the seven slots. The spawn service keeps `term_ep` for the same purpose
+//! without lending the shell `GRANT`; the same posture for the seven is proposed in
+//! `design/roadmap/proposals/the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`
+//! (the 2026-10-03 security audit's follow-up).
+//!
 //! **A program's answer word on the result endpoint is the program's own claim.** A child whose
 //! slot 0 was not redirected holds `result_ep` with `WRITE` (the spawn service's default in
 //! `crates/system_initializer`), the same endpoint the spawn service's `SPAWN_FAILED`, the

@@ -3,7 +3,8 @@
 **Kind:** security. **Lens:** the delta since the 2026-09-29 audit and nothing else: the eight ABI
 constants and the one whose value changed, the one wire semantic the window altered, and the
 thirteen components, each read for what a confined, hostile process can do with it and for what it
-holds against what it uses. **Findings:** fixed 2, minted 2, accepted 5.
+holds against what it uses. **Findings:** fixed 5, minted 4, accepted 6, of which findings 10 to
+16 are the follow-up's reconciliation of the component survey.
 
 The kernel's new surface refuses a confined process everything it refused before. The finding to
 carry off is a grant in userspace: a graphical terminal session on the no-keyboard arm holds the
@@ -54,7 +55,10 @@ retired (not renamed: `login` re-derives durable sessions at start-up, `850372dc
 Has a new component taken device or network authority? **No.** `graphical_terminal` holds no
 device: the GPU's four capabilities and the keyboard's three go from the shell's slots 22 to 28 to
 `gpu_driver`, `display_terminal` and `keyboard_driver` (`crates/system_initializer/src/lib.rs`,
-`build_graphical_terminal_session`), and all three drivers predate this window. `system_log` holds
+`build_graphical_terminal_session`), and all three drivers predate this window. What moved is the
+shell: the progenitor now places those seven in `swish` with `GRANT` for the shell's whole life,
+device authority widening an existing component rather than arriving with a new one, which is the
+case the count cannot see and the first draft of this answer missed (finding 10). `system_log` holds
 one endpoint, four notifications and up to four reader windows, and nothing starts it at boot yet.
 `session` holds a budget, two read-only store caretakers and two pages. `free`, `vmstat` and
 `slabtop` hold a read-only page and an `ENUMERATE` view. The fixtures hold their output endpoint.
@@ -235,6 +239,57 @@ more: the wait is one job at a time. Older than the window, and met because the 
 slot 0 landed on it. Since milestone 613 the badge in `x3` would let the shell tell the spawn
 service from a child at no new authority. Recorded in `components/src/swish.rs`'s BUGS.
 
+## Findings 10 to 16: the follow-up's reconciliation
+
+The maintainer read the component survey behind this report and found seven items the table
+above did not carry. Evidence for each is in
+[the appendix](2026-10-03-eight-constants-and-thirteen-components/reconciliation.md).
+
+### 10. MINTED: the shell keeps the seven display capabilities for its whole life
+
+With `GRANT` on all seven, `WRITE` on the three pages and `READ` on both interrupts. It can map the
+keyboard DMA page and the surface and can receive an interrupt wake meant for a driver; it does
+neither, and uses them only to delegate. The spawn service already holds `term_ep` for the same
+purpose without lending the shell `GRANT`. Severity: medium as a width, low as a reach, since the
+shell is the prompt's own authority. BUGS in `swish.rs`; proposal
+`the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`.
+
+### 11. MINTED: a real capability passes the `NO_CAP` guard
+
+Milestone 634 closed the sender-chosen number; it recorded that no server checks the kind of
+object in `x1` and no method lets one. A client with `GRANT` on any capability `SEND_CAP`s it to a
+`CALL` server, `x1` is a real slot, and `reply` runs method `0` on it: `SEND` on the client's own
+rendezvous parks the server forever, and every non-Reply delivery leaks a slot of 32. Severity:
+medium. A denial of service on `net_stack`, the compositor and the file service by any client. On
+the syscall surface, so calef's call: BUGS at `RECV_CAP`, proposal
+`a-call-server-can-tell-a-reply-from-a-delegation.md`.
+
+### 12. FIXED: a stale `outgoing_cap` survived a rendezvous teardown
+
+`set_ipc_aborted` now drops the staged delegation; before, a `SEND_CAP` aborted by `reclaim_region`
+left it for the sender's next plain `SEND` on any other rendezvous to deliver. A delegation made to
+one endpoint arriving at another. Test in `recv_cap_attack_tests.rs`.
+
+### 13. FIXED: `caps` under-reported a package's `machine` and `share`
+
+It read the placeholder row's manifest where every other row reads the note's. Host test extended.
+
+### 14. FIXED: milestone 634 moved a `cfg(test)` onto the wrong module
+
+`revocation_in_flight_tests` was declared bare. Both modules carry their own attribute, and
+`script/lint` now refuses a bare `mod` in `system_tests/src/user.rs`.
+
+### 15. ACCEPTED: the log's intake reads kernel deliveries as the spawner or a writer
+
+Badge `0` is control and the kernel writes `0` there for a signal or a bound wake. Recorded in
+`crates/system_log`'s BUGS as a rule on the intake, before milestone 342 (the kernel and the
+`console` server drive one UART from two address spaces) wires the service in.
+
+### 16. Refuted: the terminal's 4 KiB `line` array fits its stack
+
+Every child the progenitor builds gets `CHILD_STACK_PAGES`, twelve pages, and the two arrays are
+one per arm. Not a finding.
+
 ## Is any confinement claim false as stated?
 
 No kernel claim. The one false statement met was `crates/abi`'s own BUGS entry reporting a fixed
@@ -249,8 +304,11 @@ recorded under §216 (fatal-risk facts are correctable, and verdicts are the arc
 here moves it. Finding 2 is a least-authority defect in a userspace
 grant, which is the risk's territory only if the kernel let a session reach past its table, and it
 did not; the record should carry it as a grant to narrow, not a claim to test. Finding 1 is a
-missing record of a change the risk's own facts already rely on. This report does not edit
-`design/fatal-risks/`.
+missing record of a change the risk's own facts already rely on. Finding 11 is an input to the
+risk's record: milestone 634's own scope note said no server can tell what kind of object it
+received, and this follow-up read that note as the attack it describes, a denial of service on any
+`CALL` server by any client rather than an escape. Whether that moves the verdict is calef's; the
+proposal carries the options and their costs. This report does not edit `design/fatal-risks/`.
 
 ## What was deliberately not examined
 
