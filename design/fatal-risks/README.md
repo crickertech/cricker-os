@@ -149,6 +149,11 @@ Two caveats. This verdict speaks for the host-testable corpus and not for the ke
 is roughly 500 runner-hours against 52 minutes today. And one convention is load-bearing and
 unchecked: whether a timeout counts as a kill moves this entry two points. That rule rests on a
 hand-check of 96 timeouts in August; 206 stood on 2026-09-21.
+
+Fact, 2026-10-03: scheduled-workflow run
+[37108924347](https://github.com/nifeos/nife/actions/runs/37108924347) (a dispatch, milestone 636 (the scheduled workflows are failing, and nothing says so)) is the
+first complete census since 2026-09-21: 85 crates, 14,853 mutants, 13,734 viable, 1,004 missed, 255
+timeouts, 92.7% killed against 92.4% on 2026-09-21.
 [Appendix](the-mutation-verdict.md).
 
 ## 4. The architecture imposes a per-crossing cost that cannot be engineered away
