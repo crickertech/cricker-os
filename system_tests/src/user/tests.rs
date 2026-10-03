@@ -691,7 +691,7 @@ fn asid_tagging_keeps_address_spaces_apart_without_flushes() {
 ///   reports `PROBE_GAVE_UP` so that case is named rather than silent, but the failure text would
 ///   then be about the handshake and the real cause would be one level down.
 #[test_case]
-fn an_asid_flush_reaches_the_other_cores() {
+fn an_asid_flush_reaches_the_other_cpus() {
     use core::sync::atomic::{AtomicU8, AtomicUsize};
 
     const VA: u64 = address_space_map::pair_page(0x40_0000);
@@ -704,7 +704,7 @@ fn an_asid_flush_reaches_the_other_cores() {
     static STAGE: AtomicUsize = AtomicUsize::new(0);
     static SEEN_BEFORE: AtomicU8 = AtomicU8::new(0);
     static SEEN_AFTER: AtomicU8 = AtomicU8::new(0);
-    static PROBE_CORE: AtomicUsize = AtomicUsize::new(usize::MAX);
+    static PROBE_CPU: AtomicUsize = AtomicUsize::new(usize::MAX);
     static PROBE_GAVE_UP: AtomicBool = AtomicBool::new(false);
 
     /// Spin (never yield) until `done`, so this core stays busy and cannot steal the probe.
@@ -720,7 +720,7 @@ fn an_asid_flush_reaches_the_other_cores() {
     }
 
     STAGE.store(0, Ordering::SeqCst);
-    PROBE_CORE.store(usize::MAX, Ordering::SeqCst);
+    PROBE_CPU.store(usize::MAX, Ordering::SeqCst);
     PROBE_GAVE_UP.store(false, Ordering::SeqCst);
 
     // **A skip rather than an assert** (milestone 161). Both `virt` boards run this leg at `-smp 4`,
@@ -760,7 +760,7 @@ fn an_asid_flush_reaches_the_other_cores() {
         // hang rather than lie, which is the right way round.
         let was_enabled = crate::arch::interrupts::disable();
         let could_reach_user = mmu::permit_kernel_access_to_user_pages(true);
-        PROBE_CORE.store(crate::cpu::id(), Ordering::SeqCst);
+        PROBE_CPU.store(crate::cpu::id(), Ordering::SeqCst);
 
         // **The space stays installed across both reads**, which is deliberate and is the realistic
         // shape: the hazard is a core actively running an address space whose mapping changes under
@@ -847,7 +847,7 @@ fn an_asid_flush_reaches_the_other_cores() {
         "the probe timed out waiting for the remap: the handshake, not the TLB, is broken",
     );
     assert_ne!(
-        PROBE_CORE.load(Ordering::SeqCst),
+        PROBE_CPU.load(Ordering::SeqCst),
         here,
         "the probe ran on this core, so a local flush would have covered it and the test proves \
          nothing about the shootdown",
@@ -866,7 +866,7 @@ fn an_asid_flush_reaches_the_other_cores() {
          stopped using, after a flush of its ASID. On RISC-V that means the SBI RFENCE never \
          reached it (sfence.vma is local); reuse the number and the next address space reads this \
          one's memory.",
-        PROBE_CORE.load(Ordering::SeqCst),
+        PROBE_CPU.load(Ordering::SeqCst),
     );
 
     assert!(
@@ -2853,9 +2853,8 @@ fn a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults() {
 fn el0_cycle_counter_is_known_to_run() -> bool {
     #[cfg(target_arch = "aarch64")]
     {
-        crate::smp::online_cpus().all(|core| {
-            crate::arch::pmu::outcome_on(core) == crate::arch::pmu::CycleCounter::Running
-        })
+        crate::smp::online_cpus()
+            .all(|cpu| crate::arch::pmu::outcome_on(cpu) == crate::arch::pmu::CycleCounter::Running)
     }
     #[cfg(target_arch = "x86_64")]
     {

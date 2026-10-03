@@ -321,7 +321,7 @@ fn arm_checks_both_capabilities_and_a_past_deadline_signals_at_once() {
 /// while it held the core and loops thousands of times. The exact figures depend on what else the
 /// suite has runnable at that moment, which is the point of printing rather than asserting them.
 #[test_case]
-fn a_timer_sleep_costs_a_wake_where_a_yield_loop_costs_a_core() {
+fn a_timer_sleep_costs_a_wake_where_a_yield_loop_costs_a_cpu() {
     static SPINS: AtomicU64 = AtomicU64::new(0);
     static SPIN_DONE: AtomicU64 = AtomicU64::new(0);
     static SLEPT: AtomicU64 = AtomicU64::new(0);

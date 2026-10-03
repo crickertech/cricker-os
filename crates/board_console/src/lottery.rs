@@ -76,9 +76,9 @@ pub enum Ending {
 pub struct Draw {
     /// Cores holding an IPC thread and no grinder, from the last census this boot printed. `None`
     /// when the boot printed no census.
-    pub clean_cores: Option<usize>,
+    pub clean_cpus: Option<usize>,
     /// Cores the last census listed, which is the online count. `None` with no census.
-    pub cores: Option<usize>,
+    pub cpus: Option<usize>,
     /// The `rate=` of the last heartbeat, in round trips per second.
     pub rate: Option<u64>,
     /// The `beat=` of the last heartbeat, so a truncated draw is visible as a short one.
@@ -104,9 +104,9 @@ pub struct Series {
 pub fn tally(log: &str) -> Series {
     let mut series = Series::default();
     // The census being accumulated: one entry per `core=` line since the last census header.
-    let mut census: Vec<CoreLine> = Vec::new();
+    let mut census: Vec<CpuLine> = Vec::new();
     // The last complete census this draw printed, which is the one it is judged on.
-    let mut settled: Option<Vec<CoreLine>> = None;
+    let mut settled: Option<Vec<CpuLine>> = None;
 
     for raw in log.lines() {
         let line = raw.trim_end_matches(['\r', '\n']);
@@ -121,8 +121,8 @@ pub fn tally(log: &str) -> Series {
             // indistinguishable from a truncation, and is reported as one.
             finish(&mut series, &mut settled, &mut census);
             series.draws.push(Draw {
-                clean_cores: None,
-                cores: None,
+                clean_cpus: None,
+                cpus: None,
                 rate: None,
                 beats: 0,
                 ending: Ending::Truncated,
@@ -146,7 +146,7 @@ pub fn tally(log: &str) -> Series {
             census.clear();
             continue;
         }
-        if let Some(parsed) = parse_core_line(line) {
+        if let Some(parsed) = parse_cpu_line(line) {
             census.push(parsed);
             continue;
         }
@@ -185,13 +185,13 @@ pub fn tally(log: &str) -> Series {
 
 /// One `soak-test-census: core=N threads=M ...` line, reduced to the two questions asked of it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct CoreLine {
+struct CpuLine {
     grinder: bool,
     ipc: bool,
 }
 
 /// Attach the census in hand to the draw in hand, and clear both for the next boot.
-fn finish(series: &mut Series, settled: &mut Option<Vec<CoreLine>>, census: &mut Vec<CoreLine>) {
+fn finish(series: &mut Series, settled: &mut Option<Vec<CpuLine>>, census: &mut Vec<CpuLine>) {
     // The block still being accumulated when the draw ended is the last one printed, so it wins
     // over the one before it. This is what makes a re-census the judgement rather than the spawn
     // census, and it falls out of the ordering instead of needing a rule.
@@ -199,8 +199,8 @@ fn finish(series: &mut Series, settled: &mut Option<Vec<CoreLine>>, census: &mut
         *settled = Some(core::mem::take(census));
     }
     if let (Some(draw), Some(block)) = (series.draws.last_mut(), settled.take()) {
-        draw.cores = Some(block.len());
-        draw.clean_cores = Some(block.iter().filter(|c| c.ipc && !c.grinder).count());
+        draw.cpus = Some(block.len());
+        draw.clean_cpus = Some(block.iter().filter(|c| c.ipc && !c.grinder).count());
     }
     census.clear();
     *settled = None;
@@ -212,7 +212,7 @@ fn finish(series: &mut Series, settled: &mut Option<Vec<CoreLine>>, census: &mut
 /// three explanatory sentences, and the `unplaced=` line. Keyed on `core=` and `threads=` together
 /// rather than on either alone, so a sentence that happens to contain one of the words is not
 /// mistaken for a core.
-fn parse_core_line(line: &str) -> Option<CoreLine> {
+fn parse_cpu_line(line: &str) -> Option<CpuLine> {
     if !line.contains("soak-test-census:") {
         return None;
     }
@@ -236,7 +236,7 @@ fn parse_core_line(line: &str) -> Option<CoreLine> {
             _ => {}
         }
     }
-    Some(CoreLine { grinder, ipc })
+    Some(CpuLine { grinder, ipc })
 }
 
 /// Read `name=<digits>` out of a heartbeat line.
@@ -275,7 +275,7 @@ impl Series {
         let _ = writeln!(out);
         let _ = writeln!(out, "  draw  clean/cores  rate      beats  ended");
         for (i, d) in self.draws.iter().enumerate() {
-            let clean = match (d.clean_cores, d.cores) {
+            let clean = match (d.clean_cpus, d.cpus) {
                 (Some(c), Some(n)) => format!("{c}/{n}"),
                 _ => "?".to_string(),
             };
@@ -294,11 +294,11 @@ impl Series {
         let judged: Vec<&Draw> = self
             .draws
             .iter()
-            .filter(|d| d.clean_cores.is_some())
+            .filter(|d| d.clean_cpus.is_some())
             .collect();
         let widest = judged
             .iter()
-            .filter_map(|d| d.cores)
+            .filter_map(|d| d.cpus)
             .max()
             .unwrap_or_default();
         let _ = writeln!(out);
@@ -310,7 +310,7 @@ impl Series {
         for clean in 0..=widest {
             let here: Vec<&&Draw> = judged
                 .iter()
-                .filter(|d| d.clean_cores == Some(clean))
+                .filter(|d| d.clean_cpus == Some(clean))
                 .collect();
             let rates: Vec<u64> = here.iter().filter_map(|d| d.rate).collect();
             let span = match (rates.iter().min(), rates.iter().max()) {
@@ -369,7 +369,7 @@ mod tests {
     /// core 3 has grinders, core 4 has callers and a responder and no grinder. Two clean cores,
     /// which is what a 188,687/s run is expected to look like.
     #[test]
-    fn the_settled_arrangement_off_radon_counts_two_clean_cores() {
+    fn the_settled_arrangement_off_radon_counts_two_clean_cpus() {
         let log = concat!(
             "soak-test: started 4 groups\n",
             "soak-test-census: where the workers are NOW: R=responder, C=caller, G=grinder, W=tick waiter\n",
@@ -381,8 +381,8 @@ mod tests {
         );
         let series = tally(log);
         assert_eq!(series.draws.len(), 1);
-        assert_eq!(series.draws[0].cores, Some(4));
-        assert_eq!(series.draws[0].clean_cores, Some(2));
+        assert_eq!(series.draws[0].cpus, Some(4));
+        assert_eq!(series.draws[0].clean_cpus, Some(2));
         assert_eq!(series.draws[0].rate, Some(188_687));
         assert_eq!(series.draws[0].ending, Ending::Truncated);
     }
@@ -390,7 +390,7 @@ mod tests {
     /// **A core holding only waiters is not clean.** It carries no grinder, and counting it would
     /// report three clean cores on an arrangement whose IPC lives on two.
     #[test]
-    fn a_core_with_only_tick_waiters_is_not_clean() {
+    fn a_cpu_with_only_tick_waiters_is_not_clean() {
         let log = concat!(
             "soak-test: started\n",
             "soak-test-census: R=responder, C=caller, G=grinder, W=tick waiter\n",
@@ -399,8 +399,8 @@ mod tests {
             "soak-test-census: core=2 threads=1 G0\n",
         );
         let series = tally(log);
-        assert_eq!(series.draws[0].clean_cores, Some(1));
-        assert_eq!(series.draws[0].cores, Some(3));
+        assert_eq!(series.draws[0].clean_cpus, Some(1));
+        assert_eq!(series.draws[0].cpus, Some(3));
     }
 
     /// **The last census wins, because the spawn one is the ticket and not the result.**
@@ -422,7 +422,7 @@ mod tests {
             "soak-test: t=10s beat=2 rate=23000/s drifted=0\n",
         );
         let series = tally(log);
-        assert_eq!(series.draws[0].clean_cores, Some(0));
+        assert_eq!(series.draws[0].clean_cpus, Some(0));
         assert_eq!(series.draws[0].rate, Some(23_000));
         assert_eq!(series.draws[0].beats, 2);
     }
@@ -457,10 +457,10 @@ mod tests {
         let series = tally(log);
         assert_eq!(series.attempts, 3);
         assert_eq!(series.draws.len(), 3);
-        assert_eq!(series.draws[0].clean_cores, Some(1));
+        assert_eq!(series.draws[0].clean_cpus, Some(1));
         assert_eq!(series.draws[0].ending, Ending::Rebooted);
-        assert_eq!(series.draws[1].clean_cores, Some(1));
-        assert_eq!(series.draws[2].clean_cores, Some(2));
+        assert_eq!(series.draws[1].clean_cpus, Some(1));
+        assert_eq!(series.draws[2].clean_cpus, Some(2));
         assert_eq!(series.draws[2].ending, Ending::Disarmed);
 
         let report = series.report();
@@ -527,8 +527,8 @@ mod tests {
         );
         let series = tally(log);
         assert_eq!(series.draws.len(), 2);
-        assert_eq!(series.draws[0].clean_cores, None);
-        assert_eq!(series.draws[1].clean_cores, Some(1));
+        assert_eq!(series.draws[0].clean_cpus, None);
+        assert_eq!(series.draws[1].clean_cpus, Some(1));
         assert!(
             series
                 .report()
@@ -563,7 +563,7 @@ mod tests {
     /// shows. The assertion is on the count rather than on the rate, because the rate is a property
     /// of a busy laptop and the count is a property of the log.
     #[test]
-    fn the_captured_census_run_is_judged_and_reads_one_clean_core() {
+    fn the_captured_census_run_is_judged_and_reads_one_clean_cpu() {
         // A pre-297 capture, respelled at read time and not on disk; see
         // `crate::respell_pre_297_markers`.
         let log = crate::respell_pre_297_markers(include_str!(
@@ -572,8 +572,8 @@ mod tests {
         let log = log.as_str();
         let series = tally(log);
         assert_eq!(series.draws.len(), 1);
-        assert_eq!(series.draws[0].cores, Some(4), "four online cores");
-        assert_eq!(series.draws[0].clean_cores, Some(1));
+        assert_eq!(series.draws[0].cpus, Some(4), "four online cores");
+        assert_eq!(series.draws[0].clean_cpus, Some(1));
         assert_eq!(series.draws[0].rate, Some(18_963));
         assert!(series.report().contains("1/4"), "{}", series.report());
     }
@@ -588,26 +588,26 @@ mod tests {
         let log = include_str!("../tests/fixtures/captured/qemu-2026-09-14-riscv64-soak-test.log");
         let series = tally(log);
         assert_eq!(series.draws.len(), 1, "one boot, one draw");
-        assert_eq!(series.draws[0].cores, Some(4), "four online cores");
+        assert_eq!(series.draws[0].cpus, Some(4), "four online cores");
         assert!(
-            series.draws[0].clean_cores.is_some(),
+            series.draws[0].clean_cpus.is_some(),
             "a census block was read: {}",
             series.report()
         );
         assert_eq!(series.draws[0].ending, Ending::Truncated);
     }
 
-    /// **`parse_core_line` on its own**, rather than only through `tally`, because a shifted
+    /// **`parse_cpu_line` on its own**, rather than only through `tally`, because a shifted
     /// slice start can still land on the real role token by coincidence: the offset error this
     /// catches only shows up when the bytes it wrongly includes look like a *second* worker.
     #[test]
-    fn parse_core_line_reads_the_tokens_after_threads_and_nothing_before_it() {
+    fn parse_cpu_line_reads_the_tokens_after_threads_and_nothing_before_it() {
         // `threads=1 R2` is the real content; `core=0 G9` sits before it on purpose, so that an
         // off-by-nine slice start (the `+`-to-`-` mutant) would land inside `G9` and misread it
         // as a second worker, a grinder this time, on top of the responder that is actually there.
         assert_eq!(
-            parse_core_line("soak-test-census: core=0 G9 threads=1 R2"),
-            Some(CoreLine {
+            parse_cpu_line("soak-test-census: core=0 G9 threads=1 R2"),
+            Some(CpuLine {
                 grinder: false,
                 ipc: true
             })
@@ -622,8 +622,8 @@ mod tests {
     #[test]
     fn a_token_whose_tail_is_not_a_group_number_is_not_a_worker() {
         assert_eq!(
-            parse_core_line("soak-test-census: core=0 threads=1 Grinder R2"),
-            Some(CoreLine {
+            parse_cpu_line("soak-test-census: core=0 threads=1 Grinder R2"),
+            Some(CpuLine {
                 grinder: false,
                 ipc: true
             }),
@@ -648,8 +648,8 @@ mod tests {
             "soak-test: started\n",
         );
         let series = tally(log);
-        assert_eq!(series.draws[0].cores, Some(1));
-        assert_eq!(series.draws[0].clean_cores, Some(1));
+        assert_eq!(series.draws[0].cpus, Some(1));
+        assert_eq!(series.draws[0].clean_cpus, Some(1));
     }
 
     /// A series with exactly as many attempts as draws has nothing that failed to reach the
@@ -660,15 +660,15 @@ mod tests {
             attempts: 2,
             draws: vec![
                 Draw {
-                    clean_cores: Some(1),
-                    cores: Some(4),
+                    clean_cpus: Some(1),
+                    cpus: Some(4),
                     rate: Some(100),
                     beats: 3,
                     ending: Ending::Rebooted,
                 },
                 Draw {
-                    clean_cores: Some(1),
-                    cores: Some(4),
+                    clean_cpus: Some(1),
+                    cpus: Some(4),
                     rate: Some(100),
                     beats: 3,
                     ending: Ending::Truncated,
@@ -688,15 +688,15 @@ mod tests {
             attempts: 2,
             draws: vec![
                 Draw {
-                    clean_cores: Some(0),
-                    cores: Some(4),
+                    clean_cpus: Some(0),
+                    cpus: Some(4),
                     rate: Some(100),
                     beats: 1,
                     ending: Ending::Truncated,
                 },
                 Draw {
-                    clean_cores: Some(2),
-                    cores: Some(4),
+                    clean_cpus: Some(2),
+                    cpus: Some(4),
                     rate: Some(300),
                     beats: 1,
                     ending: Ending::Truncated,
@@ -730,8 +730,8 @@ mod tests {
         let series = Series {
             attempts: 1,
             draws: vec![Draw {
-                clean_cores: Some(1),
-                cores: Some(4),
+                clean_cpus: Some(1),
+                cpus: Some(4),
                 rate: Some(100),
                 beats: 1,
                 ending: Ending::Truncated,

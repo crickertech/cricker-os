@@ -513,7 +513,7 @@ A GIC assumption that stops being true now fails loudly, at three points:
   naming the version claimed and the revision read. This is the check that would have stopped
   milestone 222's boot: a GICv2 claim over a redistributor frame reads `GICC_IIDR` as zero.
 - A core with no redistributor, or whose `ICC_SRE_EL1.SRE` will not set, panics as it comes
-  online. And `arch::irq::tests::every_online_core_takes_its_own_timer_ticks` holds every core, not
+  online. And `arch::irq::tests::every_online_cpu_takes_its_own_timer_ticks` holds every core, not
   only the test's own, to taking interrupts; injecting "secondaries never enable Group 1" fails it
   naming core 1.
 

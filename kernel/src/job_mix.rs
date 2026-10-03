@@ -100,7 +100,7 @@ use crate::{arch, println, sched, smp};
 /// Run the sweep and never come back. The caller is the boot thread at the end of the tour, and
 /// this replaces its `arch::halt()`.
 pub fn run() -> ! {
-    let cores = smp::online_count();
+    let cpus = smp::online_count();
 
     // Measured through the progenitor's chain, which this boot replaces; see `soak::run` and
     // `trust::require_program` (milestone 563 (a seal check that reads bytes cannot see a check
@@ -213,7 +213,7 @@ pub fn run() -> ! {
     let hz = arch::timer::frequency();
     println!();
     println!(
-        "{STARTED} {MAX_TASKS} tasks and {ECHO_SERVERS} servers on {cores} online core(s), \
+        "{STARTED} {MAX_TASKS} tasks and {ECHO_SERVERS} servers on {cpus} online core(s), \
          cntfrq={hz} Hz"
     );
     println!(
@@ -354,11 +354,11 @@ fn breakdown(
 fn print_census(placed: &[u8]) {
     println!("{CENSUS} where the kernel placed each thread at spawn: S=echo server, T=task");
     let mut accounted = 0usize;
-    for core in smp::online_cpus() {
-        let here = u8::try_from(core).unwrap_or(u8::MAX);
+    for cpu in smp::online_cpus() {
+        let here = u8::try_from(cpu).unwrap_or(u8::MAX);
         let n = placed.iter().filter(|&&c| c == here).count();
         accounted += n;
-        crate::print!("{CENSUS} core={core} threads={n}");
+        crate::print!("{CENSUS} core={cpu} threads={n}");
         for (i, &c) in placed.iter().enumerate() {
             if c == here {
                 if i < ECHO_SERVERS {

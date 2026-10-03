@@ -416,19 +416,19 @@ impl HostLoad {
             return;
         }
         let mean = self.total / f64::from(self.samples);
-        let cores = std::thread::available_parallelism().map_or(0, |n| n.get());
+        let cpus = std::thread::available_parallelism().map_or(0, |n| n.get());
         eprintln!(
             "host load ({arch}): 1-minute average {:.2} / {:.2} / {:.2} (min/mean/peak over {} \
              samples), on {} cores",
-            self.min, mean, self.max, self.samples, cores,
+            self.min, mean, self.max, self.samples, cpus,
         );
-        if cores > 0 && self.max > cores as f64 {
+        if cpus > 0 && self.max > cpus as f64 {
             eprintln!(
                 "  {:.1}x oversubscribed at the peak. A timing assertion that failed above may be \
                  measuring this machine rather than this kernel; `script/icount` asserts the timer \
                  claims in instructions, which nothing the host does can move. See \
                  notes/load-sensitive-assertions.md.",
-                self.max / cores as f64,
+                self.max / cpus as f64,
             );
         } else {
             eprintln!(
