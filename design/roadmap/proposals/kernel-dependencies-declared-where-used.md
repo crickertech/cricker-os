@@ -1,5 +1,5 @@
 ---
-status: NOT-STARTED
+status: PROPOSED
 raised: 2026-10-02
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,11 +7,11 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 625. The kernel declares each dependency where it is used
+# The kernel declares each dependency where it is used
 
-The number is provisional; the integrator mints it at merge, and 624 was the highest claimed when
-this lane cut its branch from `40ac2d5f0`. The title and slug are drafts. Raised 2026-10-02 (UTC) by
-the maintainer. It is a proposal, not started; it changes the shape of the kernel's dependency graph, which is why it is a
+A promoted block would carry the provisional number 625; the integrator mints it, and 624 was the
+highest claimed when this lane cut its branch from `40ac2d5f0`. The title and slug are drafts. Raised 2026-10-02 (UTC) by
+the maintainer. It is a proposal; it changes the shape of the kernel's dependency graph, which is why it is a
 proposal for calef and not a change.
 
 ## Evidence
@@ -73,9 +73,3 @@ currently built target are unchanged.
 PR #1474 (`nightly-2026-10-02`). The lint exists only on that nightly, so before it lands there is
 nothing to observe and no gate that would prove the fix. Calef's ruling on the feature split is the
 other gate.
-
-## Index row
-
-The new nightly's `unused_dependencies` lint flags two kernel dependencies that some targets never
-use. `tock-registers` moves into the aarch64 target table, and `memory_corruption_canary_gate`
-becomes optional behind a feature, with no dependency added or removed.
