@@ -1,24 +1,30 @@
-From 2107725014fe17e0248792b83ad8ed25ee3fe8c2 Mon Sep 17 00:00:00 2001
+From acce1ba942c443d88a56f505d80b34c7e4699944 Mon Sep 17 00:00:00 2001
 From: Chris Alef <chris@crickertech.com>
 Date: Sat, 3 Oct 2026 13:38:03 -0700
-Subject: [PATCH] Link kani_lib.c as a precompiled goto object after the Rust
- inputs
+Subject: [PATCH] Keep Kani's machine model through the link, and make it right
+ for Apple arm64
 
 link_goto_binary passed kani_lib.c to goto-cc as C source. goto-cc
 compiles a C source with its own host configuration, and the resulting
 __CPROVER_architecture_* symbols replaced the machine model Kani wrote
 into the symbol table. CBMC reads those symbols back when it adds its C
 library, so the library was interpreted with goto-cc's configuration
-rather than Kani's. On an Apple Silicon Mac that changed
-char_is_unsigned; on aarch64 Linux it changed wchar_t_is_unsigned.
+rather than Kani's. On aarch64 Linux that changed wchar_t_is_unsigned
+from Kani's 1 (correct: wchar_t is unsigned int there) to 0.
 
 When goto-cc links goto binaries the first input's symbols win, so
-compiling kani_lib.c on its own and linking the object last keeps
-Kani's model. The compile is the one that already ran inside the link,
-so the cost is one more goto-cc process per harness.
+kani_lib.c is now compiled on its own and its object linked after the
+Rust inputs. The compile is the one that already ran inside the link,
+so the cost is one more goto-cc process per harness. A --c-lib given as
+C source still overwrites the model; that is left as it is and
+commented.
 
-A --c-lib given as C source still overwrites the model; that is left
-as it is and commented.
+Keeping the model exposes a value the overwrite used to hide: the
+aarch64 model set char_is_unsigned for every OS, but Apple's arm64 ABI
+makes char signed, and Rust's c_char is i8 on aarch64-apple-darwin.
+goto-cc's host configuration happened to be right, so this change alone
+would have moved Apple Silicon runs onto the wrong value. The model now
+splits char on the OS, as it already does for long double and wchar_t.
 
 The new script-based test linked_machine_model compares every
 __CPROVER_architecture_* symbol in each harness's .symtab.out with the
@@ -26,19 +32,35 @@ linked .out, with no host values hard-coded.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
+ .../compiler_interface.rs                     |  4 +-
  kani-driver/src/call_goto_cc.rs               | 17 +++--
  .../linked_machine_model/config.yml           |  4 ++
  .../linked_machine_model.expected             |  2 +
  .../linked_machine_model.rs                   | 10 +++
  .../linked_machine_model.sh                   | 67 +++++++++++++++++++
- 5 files changed, 96 insertions(+), 4 deletions(-)
+ 6 files changed, 99 insertions(+), 5 deletions(-)
  create mode 100644 tests/script-based-pre/linked_machine_model/config.yml
  create mode 100644 tests/script-based-pre/linked_machine_model/linked_machine_model.expected
  create mode 100644 tests/script-based-pre/linked_machine_model/linked_machine_model.rs
  create mode 100755 tests/script-based-pre/linked_machine_model/linked_machine_model.sh
 
+diff --git a/kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs b/kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs
+index 9c65098f..28347a55 100644
+--- a/kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs
++++ b/kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs
+@@ -873,7 +873,9 @@ fn new_machine_model(sess: &Session) -> MachineModel {
+         }
+         Arch::AArch64 => {
+             let bool_width = 8;
+-            let char_is_unsigned = true;
++            // Apple's arm64 ABI makes `char` signed, unlike AAPCS64 and Linux.
++            // https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
++            let char_is_unsigned = matches!(os, Os::Linux);
+             let char_width = 8;
+             let double_width = 64;
+             let float_width = 32;
 diff --git a/kani-driver/src/call_goto_cc.rs b/kani-driver/src/call_goto_cc.rs
-index b906c2569..2ed1bd901 100644
+index b906c256..2ed1bd90 100644
 --- a/kani-driver/src/call_goto_cc.rs
 +++ b/kani-driver/src/call_goto_cc.rs
 @@ -12,13 +12,22 @@ impl KaniSession {
@@ -70,7 +92,7 @@ index b906c2569..2ed1bd901 100644
          args.push(output.to_owned().into_os_string());
 diff --git a/tests/script-based-pre/linked_machine_model/config.yml b/tests/script-based-pre/linked_machine_model/config.yml
 new file mode 100644
-index 000000000..ef5bc7cee
+index 00000000..ef5bc7ce
 --- /dev/null
 +++ b/tests/script-based-pre/linked_machine_model/config.yml
 @@ -0,0 +1,4 @@
@@ -80,7 +102,7 @@ index 000000000..ef5bc7cee
 +expected: linked_machine_model.expected
 diff --git a/tests/script-based-pre/linked_machine_model/linked_machine_model.expected b/tests/script-based-pre/linked_machine_model/linked_machine_model.expected
 new file mode 100644
-index 000000000..479b26839
+index 00000000..479b2683
 --- /dev/null
 +++ b/tests/script-based-pre/linked_machine_model/linked_machine_model.expected
 @@ -0,0 +1,2 @@
@@ -88,7 +110,7 @@ index 000000000..479b26839
 +the linked goto binary keeps the machine model Kani wrote
 diff --git a/tests/script-based-pre/linked_machine_model/linked_machine_model.rs b/tests/script-based-pre/linked_machine_model/linked_machine_model.rs
 new file mode 100644
-index 000000000..656a1d64b
+index 00000000..656a1d64
 --- /dev/null
 +++ b/tests/script-based-pre/linked_machine_model/linked_machine_model.rs
 @@ -0,0 +1,10 @@
@@ -104,7 +126,7 @@ index 000000000..656a1d64b
 +}
 diff --git a/tests/script-based-pre/linked_machine_model/linked_machine_model.sh b/tests/script-based-pre/linked_machine_model/linked_machine_model.sh
 new file mode 100755
-index 000000000..e760a11df
+index 00000000..e760a11d
 --- /dev/null
 +++ b/tests/script-based-pre/linked_machine_model/linked_machine_model.sh
 @@ -0,0 +1,67 @@

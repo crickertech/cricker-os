@@ -14,8 +14,13 @@ model's value)." tautschnig's comment it answers
 ([discussion_r4143913613](https://github.com/model-checking/kani/pull/4913#discussion_r4143913613))
 traced the cause and proposed the fix.
 
-**One decision is calef's before posting**: what to do about Kani's aarch64 model saying `char` is
-unsigned on Apple Silicon, which this change makes CBMC honour. See "The design question".
+**calef's ruling, 2026-10-03 (UTC): one pull request, not two.** The Apple `char` fix to Kani's
+aarch64 model goes into this pull request. His reason: on its own the model fix changes nothing
+observable today, because `goto-cc`'s overwrite hides Kani's model, so a reviewer would see a
+one-line fix to a value that is never used, with its reason in another pull request. Together they
+read as one change: keep Kani's model, and make that model right for Apple. It also keeps a
+first-time contributor at two open pull requests. Effort was not the reason. The options weighed
+are in this file's history (`git log -p` on it).
 
 ## What the measurements changed in the earlier draft
 
@@ -42,9 +47,16 @@ The first draft (same file, merged earlier on 2026-10-03) made three claims the 
   because it changes host runs and should not wait for or be reverted with #4913.
 - One commit: [kani-lib-link-order.patch](kani-lib-link-order.patch), `git format-patch` form. To
   use it: `git checkout -b kani-lib-link-order 1640445da && git am
-  notes/kani-upstream/kani-lib-link-order.patch`. 5 files, 96 lines added, 4 removed.
+  notes/kani-upstream/kani-lib-link-order.patch`. 6 files, 99 lines added, 5 removed. Checked
+  with `git am` in a scratch checkout of `1640445da`: it applies and gives the tree that was tested.
 
 ## The change
+
+Two parts, one commit.
+
+`kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs`, `new_machine_model`: for aarch64,
+`char_is_unsigned = matches!(os, Os::Linux)` instead of `true`, with a comment citing Apple's arm64
+ABI page. The model already splits `long_double_width` and `wchar_t_is_unsigned` the same way.
 
 `kani-driver/src/call_goto_cc.rs`, `link_goto_binary`: the hunk nife carries as the second commit
 of `patches/kani-0.67.0-riscv64-target.patch`, applied unchanged. It compiles `kani_lib.c` with
@@ -70,7 +82,12 @@ It proves it can fail, on this Mac:
 | build | result |
 |---|---|
 | upstream `main`, no hunk | **red**, compiletest exit 1: `__CPROVER_architecture_char_is_unsigned 1` written, `0` linked |
-| with the hunk | **green**, compiletest exit 0, 1 passed |
+| link hunk only | **green**, compiletest exit 0, 1 passed (`char_is_unsigned` 1 in both files) |
+| link hunk and model line, the patch as saved | **green**, exit 0 (`char_is_unsigned` 0 in both files) |
+
+With the model line, the red row on this Mac would have nothing to show, since Kani and `goto-cc`
+would then agree here. The test still guards aarch64 Linux (`wchar_t_is_unsigned`) and any model
+field that later diverges from a host's.
 
 Kani's CI runs its regression on `macos-15-intel`, `ubuntu-22.04`, `ubuntu-24.04`, `macos-14` and
 `ubuntu-24.04-arm` (`.github/workflows/kani.yml`). By the table under "What changes for each host",
@@ -84,21 +101,27 @@ and kissat 4.0.4 unpacked from the cached Homebrew bottles into the session scra
 (Kani's CI pin) from its GitHub release zip, nothing installed. Every job niced, one at a time;
 load average was 7 to 36 from other lanes throughout.
 
+The saved patch is the second build below. The model line in it is byte-for-byte the one tested
+(applied by the same script), so its runs stand for the patch and were not repeated.
+
 | run | exit | result |
 |---|---|---|
 | `cargo build-dev -- -j 4`, upstream `main` | 0 | 186 s wall, 1.73 GB peak resident |
-| `cargo build-dev -- -j 4`, with the hunk | 0 | incremental, kani-driver only |
-| `./scripts/kani-fmt.sh --check` | 0 | clean |
+| `./scripts/kani-fmt.sh --check`, link hunk | 0 | clean |
+| `rustfmt --check` on `compiler_interface.rs` with the model line | 0 | clean |
 | `cargo clippy -p kani-driver -- -D warnings` | 0 | clean |
 | new test, no hunk | 1 | red, as above |
-| new test, with hunk | 0 | green |
+| **Build 1: link hunk only** (`cargo build-dev` exit 0, incremental) | | |
 | `kani` suite | 1 | 618 passed, 2 failed, 23 ignored. Both failures are `#[kani::solver(cvc5)]` harnesses (`Quantifiers/arbitrary_range`, `Quantifiers/typed_variables`); cvc5 was absent |
 | those two, rerun with cvc5 1.3.0 on `PATH` | 0 | 2 passed |
-| `expected` suite | 0 | 504 passed, 15 ignored |
-| `ui` suite | 0 | 153 passed |
-| `script-based-pre` suite | 0 | 91 passed, 1 ignored. The ignored one is the new test: compiletest marks a test whose stamp is current as ignored, and it had just passed. It ran in the row below and in the model-fix run |
-| `cargo-kani` suite | 0 | 71 passed |
-| `git status` after all suites | | only the commit's own files; no `.kani_lib.o` left behind |
+| `expected`, `ui`, `script-based-pre`, `cargo-kani` | 0 each | 504, 153, 91 (plus the new test, skipped as up to date after its green run, which compiletest reports as ignored), 71 passed |
+| **Build 2: link hunk and model line, the saved patch** (`cargo build-dev` exit 0, incremental) | | |
+| `kani` suite, cvc5 present | 0 | 620 passed, 23 ignored |
+| `expected` | 0 | 504 passed, 15 ignored |
+| `ui` | 0 | 153 passed |
+| `script-based-pre` | 0 | 92 passed; the compiler change invalidated every stamp, so all ran |
+| `cargo-kani` | 0 | 71 passed |
+| `git status` after the suites | | only the commit's own files; no `.kani_lib.o` left behind |
 
 Not run: x86_64 Linux and aarch64 Linux suites (no such Kani host; cordoba belongs to another
 agent), `coverage`, `cargo-coverage`, `std-checks`, firecracker.
@@ -108,23 +131,23 @@ agent), `coverage`, `cargo-coverage`, `std-checks`, firecracker.
 Fields Kani writes that differ between Kani's model and `goto-cc`'s host configuration, which is
 what the linked `.out` carried before this change. Every other field Kani writes was equal.
 
-| host | before (goto-cc) | after (Kani's model) | right answer | how measured |
-|---|---|---|---|---|
-| aarch64 macOS | `char_is_unsigned = 0` | 1 | 0: Apple clang leaves `__CHAR_UNSIGNED__` undefined, Rust's `c_char` is `i8`, CBMC's own `config.cpp` says signed for `macos`/`arm64` | Kani run, `.symtab.out` and `.out` |
-| x86_64 macOS | none | none | | proxy: `goto-cc -arch x86_64` on this Mac against Kani's x86_64 model in source |
-| aarch64 Linux | `wchar_t_is_unsigned = 0` | 1 | 1: gcc 13.3 on Ubuntu 24.04 arm64 gives `__WCHAR_TYPE__ unsigned int` | CBMC 6.11.0 `.deb` in an arm64 Ubuntu container; Kani's side from source |
-| x86_64 Linux | none | none | | CBMC 6.11.0 `.deb` in an amd64 Ubuntu container (emulated); agrees with tautschnig's #4913 measurement |
+| host | before (goto-cc) | link hunk only | the patch | right answer | how measured |
+|---|---|---|---|---|---|
+| aarch64 macOS | `char_is_unsigned = 0` | 1 | 0 | 0: Apple clang leaves `__CHAR_UNSIGNED__` undefined, Rust's `c_char` is `i8`, CBMC's own `config.cpp` says signed for `macos`/`arm64` | Kani run, `.symtab.out` and `.out` |
+| x86_64 macOS | none | none | none | | proxy: `goto-cc -arch x86_64` on this Mac against Kani's x86_64 model in source |
+| aarch64 Linux | `wchar_t_is_unsigned = 0` | 1 | 1 | 1: gcc 13.3 on Ubuntu 24.04 arm64 gives `__WCHAR_TYPE__ unsigned int` | CBMC 6.11.0 `.deb` in an arm64 Ubuntu container; Kani's side from source |
+| x86_64 Linux | none | none | none | | CBMC 6.11.0 `.deb` in an amd64 Ubuntu container (emulated); agrees with tautschnig's #4913 measurement |
 
-So this change corrects aarch64 Linux and, on Apple Silicon, swaps a right value for a wrong one
-because Kani's model is wrong there.
+The link hunk alone corrects aarch64 Linux and, on Apple Silicon, swaps a right value for a wrong
+one because Kani's model was wrong there. With the model line, every host ends on the right value.
 
-## The design question: Kani's aarch64 model on Apple Silicon
+## Why the Apple `char` correction is in this pull request
 
-### (a) What Kani's model does per target today
+### What Kani's model did per target
 
 `new_machine_model` in `kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs` matches on
-architecture, then on OS for two fields of aarch64 only: `long_double_width` (128 on Linux, else
-64) and `wchar_t_is_unsigned` (Linux only). `char_is_unsigned` is `true` for every aarch64 target.
+architecture, then on OS for two fields of aarch64 only (before this patch): `long_double_width` (128 on Linux, else
+64) and `wchar_t_is_unsigned` (Linux only). `char_is_unsigned` was `true` for every aarch64 target.
 x86_64 has no OS split and needs none. `check_target` accepts exactly four hosts:
 `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-*`, `arm64-apple-*`.
 
@@ -136,7 +159,7 @@ Nobody measured `char` on the M1, and the `wchar_t` split is what landed. #2757
 split. Searches of issues and pull requests for `char_is_unsigned`, `long_double_width`,
 `kani_lib.c`, "machine model macos" and "signed char apple" found nothing else on this.
 
-### (b) Is there a harness whose verdict changes?
+### Is there a harness whose verdict changes?
 
 None found. Kani's own `char` type (`CInteger(Char)`) is lowered with Kani's model at codegen, so
 the link never touches Rust code. What the linked symbols decide is how CBMC parses its C library
@@ -156,63 +179,25 @@ plain `char`, and whether a harness reaches them.
 
 I ran five harnesses: `[u8]` ordering over `memcmp`; `strcmp`, `strchr` and `strtol` on `0xff` under
 `-Z c-ffi`; and Rust's `c_char` sign. Each gave the same verdict and the same SAT variable and clause
-counts before the change, after it, and after it with the model fix in (c). So the Apple `char`
+counts on upstream `main`, with the link hunk alone, and with the whole patch. So the Apple `char`
 bug is wrong in the model and harmless in every case found. That is a property of CBMC's library
 being written carefully, not a guarantee.
 
-### (c) What a per-target model costs
+### What the model line costs
 
-One line in `new_machine_model`, the same shape as the `wchar_t` split already there:
-
-```rust
-            // Apple's arm64 ABI makes `char` signed, unlike AAPCS64 and Linux.
-            // https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
-            let char_is_unsigned = matches!(os, Os::Linux);
-```
-
-Measured on top of the link-order commit, the incremental `cargo build-dev` exited 0. The new test
-was green, now with `char_is_unsigned = 0` in both files. Suites: `kani` 620 passed (cvc5 present), `expected`
-504, `ui` 153, `script-based-pre` 92 (stamps invalidated, so every test ran) and `cargo-kani` 71, each
-exit 0 with no failures. No test in the tree hard-codes
-`char` signedness on macOS. x86_64-apple-darwin needs nothing. A test for the model itself would
-have to name host values, which is what the link test avoids; a unit test of `new_machine_model`
-would need a `Session` and is more than the line it guards.
-
-### Options
-
-1. **Model fix first, as its own small pull request, then this one.** Each does one thing. With
-   the model fixed, this pull request changes nothing on macOS and corrects aarch64 Linux, and its
-   description becomes simple. Cost: a second review, and this one waits for the first or names it
-   as a dependency. Reversible until posted; after posting, as reversible as any upstream PR.
-2. **Both in one pull request.** One review, and no window where macOS checks against the wrong
-   `char`. Cost: two purposes under one squash-merged title, and the Apple `char` question (a model
-   change any maintainer may want to weigh separately) rides on a link fix already promised.
-3. **Open as drafted, and file an issue for the Apple `char`.** Keeps the promise exactly as made.
-   Cost: until the issue is fixed, Apple Silicon runs check CBMC's library against the wrong
-   `char`, which (b) found harmless in every case tried. And calef's #4913 comment already flagged
-   the flip, so a reviewer may ask why it was left.
-4. **Also precompile `--c-lib` sources** (in any option). Removes the last way C source overwrites
-   the model. Cost: a loop over `c_lib` and a temp object each; user C would still be compiled
-   with the host's configuration, so it fixes the symbols, not the typing. Considered and left
-   out: it widens a promised fix into new behaviour for an experimental flag.
-5. **Compile `kani_lib.c` once in build-kani**, tautschnig's other suggestion. Fewer processes, but
-   a goto object in the release bundle and `InstallType` taught to find it. The bundle layout is a
-   maintainer's call; the body offers it.
-
-**Recommendation, for calef to decide: option 1, both posted together.** Open the one-line model
-fix first, then this pull request saying it is on top of that one, so a reviewer sees the order
-and neither waits on a reply from us. The question that decides it is whether the same review
-should judge an ABI fact and a link-order fix; they share no code and have different evidence.
-Would we choose this if both cost the same? Yes: option 2 is less work, and the recommendation is
-against it. The draft PR body for the model fix is at the end of this note.
+One line and a comment. No test in Kani's tree hard-codes `char` signedness on macOS, and every
+suite in Build 2 passed. x86_64-apple-darwin needs nothing. A test for the model itself would have
+to name host values, which is what the link test avoids; a unit test of `new_machine_model` would
+need a `Session` and is more than the line it guards.
 
 ## Commit message
 
-In the patch. Its claims match the measurements above.
+In the patch: "Keep Kani's machine model through the link, and make it right for Apple arm64". Its
+claims match the measurements above.
 
 ## Pull request body, ready to paste
 
-Title: Link `kani_lib.c` as a precompiled goto object after the Rust inputs
+Title: Keep Kani's machine model through the link, and make it right for Apple arm64
 
 > `link_goto_binary` passes `kani_lib.c` to `goto-cc` as C source. `goto-cc` compiles it with its
 > own host configuration, and the `__CPROVER_architecture_*` symbols that produces replace the
@@ -221,22 +206,29 @@ Title: Link `kani_lib.c` as a precompiled goto object after the Rust inputs
 > ([comment](https://github.com/model-checking/kani/pull/4913#discussion_r4143913613)), and this is
 > the follow-up I offered there.
 >
-> This PR compiles `kani_lib.c` on its own and passes the object after the Rust inputs. When
-> `goto-cc` links goto binaries the first input's symbols win, so the model Kani wrote survives.
+> **Keeping the model.** This PR compiles `kani_lib.c` on its own and passes the object after the
+> Rust inputs. When `goto-cc` links goto binaries the first input's symbols win, so the model Kani
+> wrote survives. Comparing each field Kani writes with what the link produced before, with CBMC
+> 6.11.0, only two fields differed on any host:
 >
-> **What changes for host runs.** Comparing each field Kani writes with what the link produced
-> before, with CBMC 6.11.0:
+> - aarch64 Linux: `wchar_t_is_unsigned` was 0 (`goto-cc`'s), and Kani writes 1. gcc 13.3 on
+>   Ubuntu 24.04 arm64 has `wchar_t` as `unsigned int`, so keeping Kani's value is a correction.
+> - Apple Silicon: `char_is_unsigned` was 0 (`goto-cc`'s), and Kani's aarch64 model wrote 1.
+> - x86_64 Linux and x86_64 macOS: no field Kani writes differed.
 >
-> - x86_64 Linux and x86_64 macOS: nothing differs.
-> - aarch64 Linux: `wchar_t_is_unsigned` was 0 (`goto-cc`'s) and is now 1 (Kani's). gcc on aarch64
->   Linux has `wchar_t` as `unsigned int`, so this is a correction.
-> - Apple Silicon: `char_is_unsigned` was 0 and is now 1, because Kani's aarch64 model says
->   unsigned for every OS. Apple's arm64 ABI has a signed `char`, so that is a model bug this PR
->   exposes; #MODEL-PR fixes it, and this PR is meant to land after it.
+> **Making it right for Apple.** Kani's aarch64 model set `char_is_unsigned` for every OS. Apple's
+> arm64 ABI makes `char` signed: Apple clang 21 leaves `__CHAR_UNSIGNED__` undefined for `-arch
+> arm64`, Rust's `c_char` is `i8` on `aarch64-apple-darwin`, and CBMC's own configuration for
+> `macos`/`arm64` says signed. The model already splits `long_double_width` and
+> `wchar_t_is_unsigned` on the OS for this reason (#2757, #1167), so this splits `char` the same
+> way. It belongs here because the overwrite above hid the model's value: without the link change
+> the line changes nothing, and without the line the link change would move Apple Silicon runs onto
+> the wrong `char`. With both, every host checks against the right value.
 >
 > I could not find a harness whose verdict changes. The only C these symbols affect is CBMC's
-> library, and the functions I checked (`memcmp`, `strcmp`, `strchr`, `strtol`) gave the same
-> results and formula sizes either way.
+> library, and the functions I checked (`memcmp`, and `strcmp`, `strchr` and `strtol` under
+> `-Z c-ffi`) gave the same results and formula sizes before this PR, with the link change alone,
+> and with both.
 >
 > **What it does not change.** `os` is not part of Kani's model, so the linked binary still names
 > the host's OS. A `--c-lib` given as C source still overwrites the model; I left that alone and
@@ -245,40 +237,27 @@ Title: Link `kani_lib.c` as a precompiled goto object after the Rust inputs
 >
 > **Testing.** A new script-based test, `linked_machine_model`, compares every
 > `__CPROVER_architecture_*` field in each harness's `.symtab.out` with the linked `.out`. It hard
-> codes no values. On an Apple Silicon Mac it fails without this change and passes with it; by the
-> list above it should also fail without it on aarch64 Linux, which I could not run. On that Mac,
-> `kani`, `expected`, `ui`, `script-based-pre` and `cargo-kani` pass, plus `kani-fmt.sh --check`
-> and clippy with `-D warnings` on `kani-driver`.
+> codes no values. On an Apple Silicon Mac it failed on `main` and passes with this PR; by the list
+> above it should also fail on `main` on aarch64 Linux, which I could not run. On that Mac, with
+> this PR, `kani`, `expected`, `ui`, `script-based-pre` and `cargo-kani` pass, and so do
+> `kani-fmt.sh --check` and clippy with `-D warnings` on `kani-driver`. I have not run the suites on
+> Linux.
 >
 > By submitting this pull request, I confirm that my contribution is made under the terms of the
 > Apache 2.0 and MIT licenses.
 
-Drop the "#MODEL-PR" sentence and the last clause of that bullet under option 3; under option 2,
-replace it with "This PR also fixes that model".
-
-### The model-fix pull request, for options 1 and 2
-
-Title: Make `char` signed in the machine model for Apple arm64
-
-> Kani's aarch64 machine model sets `char_is_unsigned = true` for every OS. That is AAPCS64 and
-> Linux, but Apple's arm64 ABI makes `char` signed
-> ([Apple](https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms)),
-> Rust's `c_char` is `i8` on `aarch64-apple-darwin`, and CBMC's own configuration for `macos`/`arm64`
-> says signed. The model already splits `long_double_width` and `wchar_t_is_unsigned` on the OS for
-> the same reason (#2757, #1167); this does the same for `char`. On an Apple Silicon Mac, `kani`,
-> `expected`, `ui`, `script-based-pre` and `cargo-kani` pass with it.
->
-> By submitting this pull request, I confirm that my contribution is made under the terms of the
-> Apache 2.0 and MIT licenses.
+Nothing in the body is from memory. Its two indirect claims are marked in the checklist: Apple's
+ABI page (cited, not read here) and x86_64 macOS (measured by proxy).
 
 ## calef's checklist before posting
 
-- [ ] Pick an option. Everything above is written for option 1.
-- [ ] `git am` the patch on `1640445da` (or rebase if `main` moved) and rerun the new test once; it
-      should be red without the hunk and green with it.
-- [ ] Apple's page is cited from CBMC's `config.cpp` comment and Kani's own source, not read here.
-      Open it once before linking it.
-- [ ] "x86_64 macOS: nothing differs" rests on `goto-cc -arch x86_64` on an arm64 Mac, not on an
+- [ ] When to post is calef's call. The coordinator recommends waiting until a maintainer has
+      engaged on #4913, so a first-time contributor's second pull request does not land on an
+      unanswered first one. That is a recommendation, not a ruling.
+- [ ] `git am` the patch on `1640445da` (or rebase if `main` moved) and rerun the new test once.
+- [ ] The code comment links Apple's "Writing arm64 code for Apple platforms" page; it is taken from
+      CBMC's `config.cpp` comment and Kani's own source, not read here. Open it once.
+- [ ] "x86_64 macOS: no field differed" rests on `goto-cc -arch x86_64` on an arm64 Mac, not on an
       Intel Mac. Kani's `macos-15-intel` CI job is the real check.
 - [ ] aarch64 Linux is measured for `goto-cc` and read from source for Kani; no Linux Kani run.
 - [ ] The body says "I". Every run in it was made by an agent on patagonia, as recorded here.
