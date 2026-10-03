@@ -4,7 +4,7 @@
 #
 #     helpers/empty-diff-check.sh BASE TIP
 #
-# Milestone 625 (a pull request that changes nothing does not merge): a pull request that changes nothing does not merge. Run by
+# Milestone 627 (a pull request that changes nothing does not merge): a pull request that changes nothing does not merge. Run by
 # `.github/workflows/empty-diff.yml`, which says what BASE and TIP are for each event, and by
 # `helpers/empty-diff-selftest.sh`, which is wired into `script/lint`.
 #
@@ -19,9 +19,9 @@
 # **Claim commits shape the message and nothing else.** An empty diff is the defect. A pull request
 # whose commits are all `claim:` subjects (the §90 (the claim is a draft pull request; the status flip is a gate) convention, an empty commit that opens a lane)
 # is its common cause, so that case gets a pointed hint; a claim plus a commit and its revert fails
-# the same way with the generic message. See design/roadmap/625-*.md.
+# the same way with the generic message. See design/roadmap/627-*.md.
 #
-# Name: provisional, minted 2026-10-02 for milestone 625 (a pull request that changes nothing does not merge); calef has not ruled on it.
+# Name: provisional, minted 2026-10-02 for milestone 627 (a pull request that changes nothing does not merge); calef has not ruled on it.
 
 set -u
 

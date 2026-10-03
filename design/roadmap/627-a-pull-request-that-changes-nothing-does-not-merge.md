@@ -8,11 +8,11 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 625. A pull request that changes nothing does not merge
+# 627. A pull request that changes nothing does not merge
 
 **Approved by calef on 2026-10-02 (UTC), option A below**, and promoted in the same pull request that
-proposed it. The number 625 is provisional until the queue lands it (the integrator mints at merge;
-624 is already claimed by `milestone/624-paint-path`). The title and the two files `.github/workflows/empty-diff.yml`
+proposed it. The number 627 was assigned by the minting maintainer on 2026-10-02 (625 and 626 were taken by other
+lanes) and is provisional until the queue lands it. The title and the two files `.github/workflows/empty-diff.yml`
 and `helpers/empty-diff-check.sh` are provisional names. calef has not ratified them.
 
 ## What is being decided
