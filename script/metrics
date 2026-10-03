@@ -259,8 +259,8 @@ NAME_STATUSES = name_provenance.STATUSES
 # scar: a status missing from a list was counted as zero for five days), and the difference here is
 # that the bucket is visible in the CSV, the value is named on stderr, and the invariant still
 # balances, so the reader is told rather than reassured.
-MODEL_SLUGS = ['opus_5', 'opus_5_5', 'opus_4_8', 'sonnet_5', 'fable_5', 'fable_5_1', 'glm_5_3',
-               'glm_5_3_flash', 'other_models']
+MODEL_SLUGS = ['opus_5', 'opus_5_5', 'opus_4_8', 'sonnet_5', 'fable_5', 'fable_5_1', 'sonnet_5_5',
+               'haiku_4_5', 'glm_5_3', 'glm_5_3_flash', 'other_models']
 
 # Every trailer value this repository has ever carried, mapped to its column. Checked 2026-09-24
 # against all 5,487 commits: 2,934 carry a trailer and these seven spellings are all of them.
@@ -276,6 +276,8 @@ MODEL_TRAILERS = {
     'Claude Sonnet 5': 'sonnet_5',
     'Claude Fable 5': 'fable_5',
     'Claude Fable 5.1': 'fable_5_1',
+    'Claude Sonnet 5.5': 'sonnet_5_5',
+    'Claude Haiku 4.5': 'haiku_4_5',
     'GLM 5.3': 'glm_5_3',
     'GLM 5.3 Flash': 'glm_5_3_flash',
     'Claude Code': 'other_models',
@@ -2141,8 +2143,8 @@ def _fold(kind):
     """The chart's `other models` band: every model outside the four that have a hue.
 
     The palette has eight fixed slots and its own comment rules that a ninth series folds into
-    another rather than inventing a colour. The CSV keeps `opus_4_8`, `fable_5_1`, the two GLM
-    columns and `other_models` apart, because that is where a reader checks arithmetic; the chart adds them,
+    another rather than inventing a colour. The CSV keeps `opus_4_8`, `fable_5_1`, `sonnet_5_5`,
+    `haiku_4_5`, the two GLM columns and `other_models` apart, because that is where a reader checks arithmetic; the chart adds them,
     because a band of seven commits is a legend entry and not a shape.
 
     `opus_4_8` folded here on 2026-09-24, when Opus 5.5 needed a hue and the commits chart was
@@ -2153,7 +2155,8 @@ def _fold(kind):
     """
     def derive(row):
         return sum(_cell(row, _model_col(kind, s))
-                   for s in ('opus_4_8', 'fable_5_1', 'glm_5_3', 'glm_5_3_flash', 'other_models'))
+                   for s in ('opus_4_8', 'fable_5_1', 'sonnet_5_5', 'haiku_4_5', 'glm_5_3',
+                   'glm_5_3_flash', 'other_models'))
     return derive
 
 
@@ -2767,6 +2770,10 @@ def selftest():
         ('a trailer wins over the record', signed_by('a' * 40, ['Claude Opus 5'], recorded),
          ['Claude Opus 5']),
         ('a sha in neither stays unattributed', signed_by('c' * 40, [], recorded), []),
+        ('Claude Sonnet 5.5 has its own column, as signed in git',
+         MODEL_TRAILERS[normalize_model('Claude Sonnet 5.5 <noreply@anthropic.com>')], 'sonnet_5_5'),
+        ('Claude Haiku 4.5 has its own column, as signed in git',
+         MODEL_TRAILERS[normalize_model('Claude Haiku 4.5 <noreply@anthropic.com>')], 'haiku_4_5'),
         ('a missing record is empty, not an error', absent, {}),
         ('the record names map to columns',
          [MODEL_TRAILERS[recorded[s]] for s in ('a' * 40, 'b' * 40)], ['glm_5_3', 'glm_5_3_flash']),
