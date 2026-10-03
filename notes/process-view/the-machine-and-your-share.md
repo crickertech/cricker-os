@@ -126,8 +126,10 @@ never calls it; the same exposure applies to every frame a session holds with `G
 
 ## What the counters cost
 
-The context switch now does one load, one index and one add on its own core's line of the page,
-before `switch_to`. The tick does two stores and two adds. The frame allocator stores two words
+The context switch does one add on its own core's `PerCpu` block, which it is already writing.
+The tick copies that count to the page. Milestone 629 (the context-switch statistic stops costing
+the switch path) made that move, after an add on the page itself measured about 3% of a yield. The
+tick does three stores and two adds. The frame allocator stores two words
 under the lock it already holds. None of it takes a lock that was not already held, and the IPC
 fast path's footprint and the switch's instruction count are measured by `script/bench` in CI,
 which is where this change will be judged.

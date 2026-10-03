@@ -1,7 +1,8 @@
 # toolchain: nightly-2026-10-02
 # qemu: 11.1.1
 # date: 2026-10-03
-# why: nightly-2026-10-02: the restamp refused one row (spawn_reap +0.602% compiler term on CI's runner, bound 0.5%; every other row within 0.17%; run 37019399265), so re-saved on patagonia at main 40ac2d5f0 plus the pin. Against the 2026-09-26 floors every row rose, and almost none of it is the compiler (the restamp ledger had carried at most 0.2% per row): map_new +7.89%, spawn_reap +3.30%, yield_switch +2.98%, ctx_switch +2.58%, ipc_rtt +2.51%, relay_rtt +2.06%, call_reply +2.00%, broker_rtt +1.98%, ipc_rtt_el0 +1.89%, sink_throughput +1.38%, rest under 0.4%. That is drift on main since the last save, unattributed here, and this save absorbs it
+# why: milestone 629 (the context-switch statistic stops costing the switch path): the switch count moved from a fetch_add on the machine statistics page to PerCpu::switches, published on the tick; per switch 134 -> 31 instructions at -O0 (riscv64), ruled option B on #1489
+# why: #1486 (drift since the 2026-09-26 floors) attributed the rest: map_new from the RETYPE layering of milestone 23 (a capability-routed component OS with live replacement) and the fixed +43 of milestone 206 (a program image has under 896 KiB), spawn_reap partly from the 24-to-32 capability table; recorded here rather than recovered
 # bench/baseline-riscv64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
@@ -14,18 +15,18 @@
              # Updating this file is a statement that a performance change is intended and
              # understood; do it in the commit that causes the change. Checked by --check, a coarse
              # 10% tripwire (icount counts drift across builds; see notes/benchmarks.md).
-yield_switch 192465 2000
-ipc_rtt 174716 1000
-relay_rtt 349490 1000
-call_reply 180622 1000
-broker_rtt 360719 1000
-spawn_reap 35627 64
+yield_switch 188345 2000
+ipc_rtt 171977 1000
+relay_rtt 345344 1000
+call_reply 178564 1000
+broker_rtt 356664 1000
+spawn_reap 34991 64
 map_new 2556 64
-rfence_self 6073 512
-coremark 3654741 256
-null_syscall 73041 20000
-ctx_switch 526526 5000
-ipc_rtt_el0 1896300 5000
-sink_throughput 768017 80000
-map_el0 62701 500
-spawn_el0 217364 100
+rfence_self 6571 512
+coremark 3654806 256
+null_syscall 73000 20000
+ctx_switch 516252 5000
+ipc_rtt_el0 1875536 5000
+sink_throughput 762792 80000
+map_el0 62743 500
+spawn_el0 217204 100

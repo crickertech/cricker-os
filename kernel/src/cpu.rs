@@ -146,19 +146,20 @@ pub struct PerCpu {
     /// the checked type itself, not a copy of it. See notes/interleaving.md.
     pub steal_request: work_steal_slot::Slot,
 
-    /// **How many threads this core has adopted out of its own inbox**, monotonic since boot.
+    /// **How many context switches this core has made**, monotonic since boot: the exact count
+    /// behind `vmstat`'s `cs` column (milestone 126 (the `procps` package)).
     ///
-    /// The observable end of the cross-core placement path (§11 step 3c): a remote core pushes a
-    /// thread into this inbox and pokes this core, and this core's `drain_inbox` moves it onto its
-    /// own run queue. `inbox_len` cannot serve here because it is a depth, not a count: a push and
-    /// a drain that happen between two reads of it leave it exactly where it was.
+    /// Incremented by `sched::schedule` on every switch, beside the `switched_from` store it already
+    /// makes through the same block, and copied to the machine statistics page by this core's tick
+    /// (`sched::count_tick`). Milestone 629 (the context-switch statistic stops costing the switch
+    /// path) moved it here from a `fetch_add` on the page itself, which chased the page pointer on
+    /// every switch: about 134 instructions a switch at -O0 and 14 in release before, 31 and 3
+    /// after. The page lags this word by up to one tick, which the protocol crate already allows.
     ///
-    /// One relaxed increment per adopted thread, on a path that already takes a lock. It exists for
-    /// `smp::tests::work_can_be_placed_on_every_core`, which asserts delivery to the *named* core
-    /// and cannot ask "did that core end up running it": stealing (§28.3) may legitimately move the
-    /// thread first, so execution-on-the-target is not a property `spawn_on` promises. See
-    /// notes/load-sensitive-assertions.md.
-    adopted: AtomicU64,
+    /// **It took the slot `adopted` had**, which now lives in [`ADOPTED`], so this struct stays 128
+    /// bytes; see the assertion below [`PERCPU`] for what one more word once cost. Written only by
+    /// this core, with interrupts masked; read relaxed by the tick on this core and by tests.
+    pub switches: AtomicU64,
 
     /// **This core's placement PRNG** (§28's power of two choices): xorshift32, seeded per boot per
     /// core in [`init_this_cpu`], advanced only by this core (spawn runs on the placing core, with
@@ -233,7 +234,7 @@ impl PerCpu {
             runq_len: AtomicUsize::new(0),
             inbox_len: AtomicUsize::new(0),
             steal_request: work_steal_slot::Slot::new(),
-            adopted: AtomicU64::new(0),
+            switches: AtomicU64::new(0),
             rng: AtomicU32::new(1), // reseeded per core in init_this_cpu; never left 0 (xorshift)
             #[cfg(target_arch = "x86_64")]
             x86_trap: X86TrapPerCpu::new(),
@@ -271,10 +272,17 @@ impl PerCpu {
         self.inbox_len.store(len, Ordering::Relaxed);
     }
 
+    /// This block's index in [`PERCPU`], for the per-core arrays that live beside it rather than in
+    /// it ([`ADOPTED`]). Off every hot path.
+    fn index(&self) -> usize {
+        (core::ptr::from_ref(self) as usize - PERCPU.as_ptr() as usize)
+            / core::mem::size_of::<PerCpu>()
+    }
+
     /// Count `n` threads adopted from this core's inbox onto its run queue. Called by the owning
     /// core's drain, under the inbox lock.
     pub fn note_adopted(&self, n: u64) {
-        self.adopted.fetch_add(n, Ordering::Relaxed);
+        ADOPTED[self.index()].fetch_add(n, Ordering::Relaxed);
     }
 
     /// How many threads this core has taken out of its own inbox since boot. Monotonic, so a test
@@ -283,7 +291,7 @@ impl PerCpu {
     /// yet", which is a question a stale read answers late rather than wrongly.
     #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
     pub fn adopted(&self) -> u64 {
-        self.adopted.load(Ordering::Relaxed)
+        ADOPTED[self.index()].load(Ordering::Relaxed)
     }
 
     /// This core's total load, for a **placement** decision (DECISIONS §28.1): queued threads plus
@@ -312,6 +320,24 @@ impl PerCpu {
         x
     }
 }
+
+/// **How many threads each core has adopted out of its own inbox**, monotonic since boot.
+///
+/// The observable end of the cross-core placement path (§11 step 3c): a remote core pushes a
+/// thread into this inbox and pokes this core, and this core's `drain_inbox` moves it onto its own
+/// run queue. `inbox_len` cannot serve here because it is a depth, not a count: a push and a drain
+/// that happen between two reads of it leave it exactly where it was.
+///
+/// One relaxed increment per adopted thread, on a path that already takes a lock. It exists for
+/// `smp::tests::work_can_be_placed_on_every_core`, which asserts delivery to the *named* core and
+/// cannot ask "did that core end up running it": stealing (§28 (SMP placement), part 3) may legitimately move the thread
+/// first, so execution-on-the-target is not a property `spawn_on` promises. See
+/// notes/load-sensitive-assertions.md.
+///
+/// **An array beside `PerCpu` rather than a field in it** since milestone 629, which gave its slot
+/// to [`PerCpu::switches`]: a switch is on every hot path and a drain is on none, so the switch
+/// count is the one that earns the block's 128 bytes.
+static ADOPTED: [AtomicU64; MAX_CPUS] = [const { AtomicU64::new(0) }; MAX_CPUS];
 
 /// The per-CPU blocks, one per core.
 ///

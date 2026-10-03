@@ -5,15 +5,17 @@
 //! queue. The layout is `crates/machine_statistics_protocol`'s; this module is the writes.
 //!
 //! **The counters live in the page itself**, so there is no copy and no refresh to schedule. Each
-//! per-core word is written only by its own core (the context switch, the tick and the
-//! cross-core interrupt all run on the core they count), and each core's words are one cache line
+//! per-core word is written only by its own core (the tick and the cross-core interrupt run on
+//! the core they count, and the tick publishes the switch count the core keeps in its own
+//! `PerCpu` block), and each core's words are one cache line
 //! of their own, so nothing here contends. The frame count is written under the allocator's own
 //! lock, by whoever changed it.
 //!
 //! **Before [`publish`] the writes land in a static sink** rather than behind a branch: the page
-//! pointer starts at the sink, so a context switch pays one load and one add whether or not the
-//! page exists yet, and never a test. Nothing counted before `publish` reaches the page; `publish`
-//! runs before the scheduler starts, so that is the boot path's own few switches at most.
+//! pointer starts at the sink, so a writer pays one load and one add whether or not the page
+//! exists yet, and never a test. Nothing counted before `publish` reaches the page; `publish`
+//! runs before the scheduler starts, so that is the boot path's own few interrupts at most. The
+//! switch count is not affected: it lives in `PerCpu` and the tick copies the whole of it.
 //!
 //! The capability to the page is minted once, for the progenitor, with `READ` and `GRANT`
 //! (`kernel::user::boot_progenitor`). Nothing else in the system can name the frame.
@@ -21,6 +23,8 @@
 //! # BUGS
 //!
 //! - A counter written before [`publish`] is lost, by the design above.
+//! - The switch count on the page is up to one tick old, because the tick is what publishes it
+//!   (milestone 629 (the context-switch statistic stops costing the switch path)). A core that stops ticking leaves its last copy, like `RUNNABLE`.
 //! - Interrupts are counted where they reach the scheduler: the tick, a cross-core poke and a
 //!   device interrupt routed to a driver. A spurious or unrouted interrupt is not counted.
 //! - The soak build's timer-driven `irq_notify` counts as a device interrupt, because it takes the
@@ -96,12 +100,6 @@ pub fn frames(total: usize, free: usize) {
     at(word::FREE_FRAMES).store(free as u64, Ordering::Relaxed);
 }
 
-/// This core made a context switch. On the switch path, so it is one load, one index and one add.
-#[inline(always)]
-pub fn context_switch() {
-    mine(word::CONTEXT_SWITCHES).fetch_add(1, Ordering::Relaxed);
-}
-
 /// This core took an interrupt other than its tick (the tick counts itself in [`tick`]). Out of
 /// line because its callers sit in the exception dispatchers `script/fastpath-footprint` measures.
 #[inline(never)]
@@ -109,10 +107,13 @@ pub fn interrupt() {
     mine(word::INTERRUPTS).fetch_add(1, Ordering::Relaxed);
 }
 
-/// This core took a tick with `idle` running or not, and `runnable` threads were waiting on it.
+/// This core took a tick with `idle` running or not, and `runnable` threads were waiting on it, and
+/// it has made `switches` context switches since boot (`cpu::PerCpu::switches`, which the switch
+/// counts and this publishes; milestone 629).
 #[inline]
-pub fn tick(idle: bool, runnable: u64) {
+pub fn tick(switches: u64, idle: bool, runnable: u64) {
     mine(word::ONLINE).store(1, Ordering::Relaxed);
+    mine(word::CONTEXT_SWITCHES).store(switches, Ordering::Relaxed);
     let spent = if idle {
         word::IDLE_TICKS
     } else {

@@ -147,3 +147,74 @@ fn the_machine_statistics_page_is_published_and_its_counters_move() {
         "a context-switch count went backwards"
     );
 }
+
+/// **The page's switch count is each core's exact count, as of that core's last tick** (milestone
+/// 629 (the context-switch statistic stops costing the switch path)). The switch counts into
+/// `PerCpu::switches` and the tick copies it, so two things must hold for every online core: the
+/// page never runs ahead of the core's own count, and once the core has ticked, the page has caught
+/// up to at least what the count was before that tick. A tick-sampled or lossy copy fails the
+/// second; a page incremented by anything other than the copy can fail the first.
+///
+/// Every core is read, not this one, so a migration of the test thread between reads changes
+/// nothing: each comparison is between one core's page line and that same core's block.
+#[test_case]
+fn the_pages_switch_count_is_each_cores_exact_count_as_of_its_last_tick() {
+    use core::sync::atomic::Ordering;
+
+    use machine_statistics_protocol::CPU_ID_BOUND;
+
+    let va = crate::arch::mmu::phys_to_virt(crate::machine_statistics::page_phys());
+    // SAFETY: the frame `publish` allocated and never frees, reached through the direct map.
+    let read = || unsafe { machine_statistics_protocol::Snapshot::read(va) }.unwrap();
+    let count = |c: usize| crate::cpu::of(c).switches.load(Ordering::Relaxed);
+
+    let before = read();
+    let counted: [u64; CPU_ID_BOUND] = core::array::from_fn(count);
+    let ticks = |s: &machine_statistics_protocol::Snapshot, c: usize| {
+        s.cpus[c].busy_ticks + s.cpus[c].idle_ticks
+    };
+
+    // Wait until every online core has ticked and its page line has caught up to its count. The
+    // loop waits on the claim itself rather than on the tick word, because the tick's two stores
+    // are relaxed and another core may see the tick word move before the copy (rule 4, weak memory
+    // ordering; the same shape as the race above). A core that stopped ticking (parked) keeps its
+    // last copy, which the protocol's BUGS allow, so the wait is bounded by 50 ticks of progress
+    // per core and the lower bound is asserted only for cores that ticked.
+    let ticked =
+        |now: &machine_statistics_protocol::Snapshot, c: usize| ticks(now, c) > ticks(&before, c);
+    let online = || (0..CPU_ID_BOUND).filter(|&c| before.cpus[c].online);
+    let total =
+        |s: &machine_statistics_protocol::Snapshot| online().map(|c| ticks(s, c)).sum::<u64>();
+    let budget = total(&before) + 50 * online().count() as u64;
+    let mut now = before;
+    for _ in 0..100_000_000u64 {
+        sched::yield_now();
+        now = read();
+        let caught_up =
+            online().all(|c| ticked(&now, c) && now.cpus[c].context_switches >= counted[c]);
+        if caught_up || total(&now) > budget {
+            break;
+        }
+    }
+    let after: [u64; CPU_ID_BOUND] = core::array::from_fn(count);
+    let ticked = |c: usize| ticked(&now, c);
+    assert!(
+        (0..CPU_ID_BOUND).any(|c| before.cpus[c].online && ticked(c)),
+        "no core ticked"
+    );
+    for c in (0..CPU_ID_BOUND).filter(|&c| before.cpus[c].online) {
+        let published = now.cpus[c].context_switches;
+        if ticked(c) {
+            assert!(
+                published >= counted[c],
+                "core {c}: the page says {published} switches after a tick, but the core had counted {} before it",
+                counted[c],
+            );
+        }
+        assert!(
+            published <= after[c],
+            "core {c}: the page says {published} switches, ahead of the core's own count {}",
+            after[c],
+        );
+    }
+}

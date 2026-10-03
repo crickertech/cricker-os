@@ -1,12 +1,8 @@
 # toolchain: nightly-2026-10-02
 # qemu: 11.1.1
-# date: 2026-09-26
-# why: nightly-2026-09-26: measured on the bump branch (main at 50d32760a plus the pin) against the nightly-2026-09-25 floors, every row unchanged to the tick; this mixes the compiler with drift on main since the last save, not separated
-# why: 2026-09-27: restamped from nightly-2026-09-26 to nightly-2026-09-27 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: none (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: none
-# why: 2026-09-28: restamped from nightly-2026-09-27 to nightly-2026-09-28 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: none (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: none
-# why: 2026-09-29: restamped from nightly-2026-09-28 to nightly-2026-09-29 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: none (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: none
-# why: 2026-09-30: restamped from nightly-2026-09-29 to nightly-2026-09-30 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: none (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: none
-# why: 2026-10-02: restamped from nightly-2026-09-30 to nightly-2026-10-02 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: none (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: none
+# date: 2026-10-03
+# why: milestone 629 (the context-switch statistic stops costing the switch path): the switch count moved from a fetch_add on the machine statistics page to PerCpu::switches, published on the tick; per switch 134 -> 31 instructions at -O0 (riscv64), ruled option B on #1489
+# why: #1486 (drift since the 2026-09-26 floors) attributed the rest: map_new from the RETYPE layering of milestone 23 (a capability-routed component OS with live replacement) and the fixed +43 of milestone 206 (a program image has under 896 KiB), spawn_reap partly from the 24-to-32 capability table; recorded here rather than recovered
 # bench/baseline-x86_64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
@@ -19,14 +15,14 @@
              # Updating this file is a statement that a performance change is intended and
              # understood; do it in the commit that causes the change. Checked by --check, a coarse
              # 10% tripwire (icount counts drift across builds; see notes/benchmarks.md).
-yield_switch 19300949 2000
-tss_iomap_switch 24038231 2000
-tss_iomap_lazy_switch 23800220 2000
-tss_iomap_lazy_nop 19824094 2000
-ipc_rtt 17254582 1000
-relay_rtt 34438797 1000
-call_reply 17788619 1000
-broker_rtt 35530397 1000
-spawn_reap 2861369 64
-map_new 176491 64
-coremark 306266348 256
+yield_switch 19418061 2000
+tss_iomap_switch 24156339 2000
+tss_iomap_lazy_switch 23918386 2000
+tss_iomap_lazy_nop 19942318 2000
+ipc_rtt 17387730 1000
+relay_rtt 34703732 1000
+call_reply 17941727 1000
+broker_rtt 35835559 1000
+spawn_reap 2926145 64
+map_new 192308 64
+coremark 306252521 256
