@@ -9,6 +9,12 @@ needs_person: no
 ---
 # 128. The automation gets its own identity, and the agents get their own voice
 
+<!-- writing-standards: exception. Marked 2026-10-03 (UTC) by the maintainer session. Reason: this change
+touches the block only to correct a stale claim (that the COE labeller had never fired). Bringing a
+2,200-word block to 4 bold spans per 1,000 words is a rewrite for the block's owner, and six of its
+bold spans are `## Follow-on` markers `script/roadmap` reads (the measured class is recorded in
+design/roadmap/586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
+
 Partial as of 2026-09-23: steps 3 and 5 are built and step 4 is deliberately not done.
 `toolchain-bump.yml` now tries an App installation token first, falls through to the PAT, then to
 `github.token`, and prints which rung it took; `notes/automation-identity.md` is the procedure for
@@ -129,10 +135,12 @@ fired outright; the third is half-fired, and the audit's own difficulty is the f
     request page therefore stays at whatever it last reported, which is green, while the label says
     the opposite. **The gate itself still holds**, because `architect-hold.yml` also runs on
     `merge_group` and reads labels fresh from the API, so the merge queue catches it and evicts the
-    entry. So this is a display defect rather than an escape, and it is untested in practice:
-    `notes/corrections/` does not exist on `main` yet (decision 210 is unmerged), so the labeller
-    has never once fired. It is a second workflow that **would** be better on the App, not one that
-    is broken without it.
+    entry. So this is a display defect rather than an escape. When this was written the labeller
+    had never fired, because `notes/corrections/` was not yet on `main`. *(Corrected 2026-10-03:
+    §210 (a correction of error, and its action items are decisions, proposals or milestones) is
+    DECIDED, the labeller fired on #1247 on 2026-09-24, and correction-of-error records moved to
+    `notes/coes/` on 2026-09-30, which the workflow has watched since #1515.)* It is a second workflow that **would** be better on the App, not one
+    that is broken without it.
 
 **Verdict: still parked as a forced move, and no longer parked as a cheap one.** No trigger
 compels the work today. The preparation that does not need owner rights was done anyway, because
