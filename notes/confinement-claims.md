@@ -689,10 +689,11 @@ capability would let it) answers. |
   was followed by a `SEND` nobody received, so the escape hung the run: row 26's shape, one object
   over), and a third property, self-deletion, false in the tree. The fixtures were reshaped so an
   escape exits and arrives as `EVENT_EXIT` where the test wants `EVENT_FAULT`, and all three rows
-  carry a record replayed on `x86_64`. Row 27's record also names the defect that did not fire,
-  because the hand-off is protected twice (the bitmap bits and the `iomap_base` word) and only a
-  defect that defeats both turns the test red. The audit is
+  carry a record replayed on `x86_64`. The audit is
   [design/audit-reports/2026-09-17-userspace-confinement.md](../design/audit-reports/2026-09-17-userspace-confinement.md).
+- **Row 27 tested the hand-off on one `x86_64` boot only, 2026-09-23 to 2026-10-03 (UTC).** Its two
+  children could run on different cores, each with its own port bitmap. Its record has the
+  measurement and fix.
 - The rows citing kernel tests are still not evidence at the same grade as the rows citing
   harnesses, and the reason changed. It used to be that nothing could replay a kernel
   falsification at all. Since milestone 305 a machine can, so the gap is narrower and it is now
