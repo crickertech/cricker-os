@@ -3123,6 +3123,10 @@ echo "==> package boundaries"
 # notes/package-boundaries.md the table. The selftest plants one violation per rule first, because
 # a green check that could not have gone red says nothing.
 python3 helpers/packages.py --selftest
+# Milestone 724 (the merge queue reports its ejection share and its time to merge): the daily
+# aggregation, the share, the report's threshold and the CSV upsert, against fixtures with no
+# network. The fetch itself runs only in the metrics and trunk-health workflows.
+python3 helpers/merge_queue_share.py --selftest >/dev/null
 python3 helpers/packages.py --check
 
 # The region claim protocol has ONE decision path (milestone 136).

@@ -71,7 +71,8 @@ pub(crate) fn uefi_image() -> bool {
 /// function's.
 pub(crate) fn uefi_image_command() -> bool {
     let args: Vec<String> = std::env::args().skip(2).collect();
-    // `--release` is `script/boot-file-size`'s: the image it budgets is the one an install writes.
+    // `--release` is `script/boot-file-size-check`'s: the image it budgets is the one an install
+    // writes.
     let release = args.iter().any(|a| a == "--release");
     if release {
         RELEASE.store(true, Ordering::Relaxed);
@@ -275,7 +276,7 @@ pub(crate) fn uefi_stage(
     eprintln!("wrote {} ({size} bytes: {what})", target.display());
     // **The breakdown, on every run**, so growth has a cause on record: the kernel and the archive
     // are embedded whole (`include_bytes!`, no compression), so the loader is what remains.
-    // `script/boot-file-size` budgets the total; this says where it went.
+    // `script/boot-file-size-check` budgets the total; this says where it went.
     let part = |p: &str| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
     let (kernel_bytes, archive_bytes) = (part(kernel), part(&x86_initrd_path()));
     eprintln!(

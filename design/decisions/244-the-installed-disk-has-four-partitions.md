@@ -49,7 +49,8 @@ names them as conditions, not as done.
 
 Both landed in #1520 (merged 2026-10-03): `stick`, `install-boot`, `rollback-boot` and `confirm-boot`
 build release and the loader refuses to install a debug image (a), and `script/boot-file-size` (CI job
-`boot-file-size`) warns over 12 MiB and fails over 16 MiB (b). Its ratchet file
+`boot-file-size`) warns over 12 MiB and fails over 16 MiB (b). (Renamed 2026-10-03: the script is now `script/boot-file-size-check`
+and the job `boot-file-size-check`.) Its ratchet file
 `bench/boot-file-size-x86_64.txt` needs a `why:` and may not exceed the slot size. The 4,640,256-byte measurement
 above includes `mkfs` and the FS server, which #1520 found the stick's x86_64 payload had not built.
 
