@@ -12,9 +12,10 @@ grey for the remainder, which is a risk with no verdict rendered.
 
 ## Where the colour lives
 
-calef commissioned this on 2026-09-29, as the proposal
-`design/roadmap/proposals/fatal-risk-colors-by-week.md`. Each appendix under `design/fatal-risks/`
-carries frontmatter: `risk:`, `color:`, `updated:`. The colour is the verdict word, green, amber,
+calef commissioned this on 2026-09-29, built as milestone 625 (fatal risk colors, counted by
+week), whose number is provisional:
+[`design/roadmap/625-fatal-risk-colors-by-week.md`](../../design/roadmap/625-fatal-risk-colors-by-week.md).
+Each appendix under `design/fatal-risks/` carries frontmatter: `risk:`, `color:`, `updated:`. The colour is the verdict word, green, amber,
 red or none, and not a hex. The word is the architect's verdict, the one the README states in
 prose; the hue is a rendering choice. `none` is the fourth value because five of nine risks have
 no verdict at all. It counts in no column and draws grey. `updated:` is the UTC date that colour
