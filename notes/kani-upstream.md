@@ -12,19 +12,13 @@ texts calef posts under his own account. The research behind it is the proposal
 
 ## Where it is
 
-- Branch: [calef/kani `riscv64-target`](https://github.com/calef/kani/tree/riscv64-target), one
-  commit on Kani `main` at `de756c936` (2026-09-24).
-- Pull request body, ready to paste: [kani-upstream/pull-request.md](kani-upstream/pull-request.md).
+- Pull request: [model-checking/kani#4913](https://github.com/model-checking/kani/pull/4913),
+  opened as a draft 2026-09-30 (UTC) from [calef/kani
+  `riscv64-target`](https://github.com/calef/kani/tree/riscv64-target).
+- On 2026-10-03 (UTC) the branch was rebased onto Kani `main` at `1640445da`, and the first review
+  was folded in. "Review, 2026-09-30" below has what changed.
+- The pull request body as first posted: [kani-upstream/pull-request.md](kani-upstream/pull-request.md).
 - Comment for #2402: [kani-upstream/issue-2402-comment.md](kani-upstream/issue-2402-comment.md).
-
-Opening it, from the root of this repository:
-
-```console
-$ gh pr create -R model-checking/kani --base main --head calef:riscv64-target \
-    --title "Add an unstable --target option and a riscv64 machine model" \
-    --body-file notes/kani-upstream/pull-request.md
-$ gh issue comment 2402 -R model-checking/kani --body-file notes/kani-upstream/issue-2402-comment.md
-```
 
 ## What Kani asks of a contributor
 
@@ -93,28 +87,56 @@ Not run: the `kani`, `firecracker`, `prusti`, `smack` and `kani-fixme` suites.
 
 ## Found on the way
 
-`goto-cc` configures itself for the host, and linking `kani_lib.c` overwrites the
-`__CPROVER_architecture_*` symbols Kani writes. Measured with `goto-instrument
---show-symbol-table`: for riscv64, `architecture_arch` is `"riscv64"` in the `.symtab.out` and
-`"arm64"` in the linked `.out`, and `char_is_unsigned` goes from 1 to 0. A plain host run on
-patagonia shows the same `char_is_unsigned` flip, so this predates the change. For Rust it looks
-harmless, because the goto program carries explicit widths, and pointer width and endianness match
-for every accepted target. The pull request body reports it rather than fixing it, since `goto-cc`
-has no riscv64 `-march` entry to pass. It is upstream's to track, and the body offers an issue.
+The `__CPROVER_architecture_*` symbols Kani writes do not survive the link. Measured with
+`goto-instrument --show-symbol-table`: for riscv64, `architecture_arch` is `"riscv64"` in the
+`.symtab.out` and `"arm64"` in the linked `.out`, and `char_is_unsigned` goes from 1 to 0. A plain
+host run on patagonia shows the same `char_is_unsigned` flip, so this predates the change. For
+Rust it looks harmless, because the goto program carries explicit widths, and pointer width and
+endianness match for every accepted target.
+
+The cause first recorded here was wrong. It said `goto-cc` configures itself for the host when it
+links. tautschnig showed in review that when `goto-cc` links goto binaries, the first input's
+architecture symbols win, and `link_goto_binary` passes `kani_lib.c` as C source, which `goto-cc`
+compiles with the host's configuration. Re-measured on patagonia 2026-10-03 (UTC) with CBMC
+6.11.0: the Rust symbol table linked alone, or followed by a precompiled `kani_lib.c` object, keeps
+`"riscv64"`; the object first, or the C source anywhere, gives `"arm64"`. So Kani can fix it by
+precompiling `kani_lib.c` and linking it last, with no `goto-cc` change. That fix is offered as a
+follow-up to #4913, because it changes the linked model for every host run, not only `--target`.
 
 For nife this bounds what a riscv64 proof claims. Rust-level widths and `cfg` are riscv64's, but
 CBMC's C-library models run with the host's C configuration. Nothing in `kernel/` calls C.
 
+## Review, 2026-09-30
+
+tautschnig (a Kani maintainer) left five inline comments on #4913. What became of each, as of
+2026-10-03 (UTC):
+
+| comment | outcome |
+|---|---|
+| remove `shim/kani`, a local wrapper | already gone in `6580581`, pushed after the review was written |
+| `check_target`: match the OS and riscv64gc's feature string, since `riscv64a23-unknown-linux-gnu` and `riscv64-wrs-vxworks` share its LLVM target | taken. Checked first: both share `riscv64-unknown-linux-gnu`, a23 has features `+rva23u64` and vxworks has os `vxworks`. After the change a23 is rejected, and the error names the triple as well as the LLVM target |
+| restrict the Apple prefix checks to macOS | taken; `aarch64-apple-ios` is now rejected, and the host still builds |
+| the docs give the wrong cause for the architecture overwrite | taken; see "Found on the way". The fix itself waits on calef's reply |
+| rewrap an over-long comment | taken |
+
+Checks after the change, on patagonia with CBMC 6.11.0: `cargo build-dev --lib-target
+riscv64gc-unknown-linux-gnu`, `kani-fmt.sh --check`, clippy with `-D warnings` on the three touched
+crates, the `kani-driver`, `build-kani` and `kani_metadata` unit tests, and the
+`target_riscv64` test all pass. So do the compiletest suites `ui` (153), `cargo-ui` (30) and
+`script-based-pre` (91 passed, 1 ignored), which means `verify_std_cmd` now passes as well.
+
+The patch nife carries, `patches/kani-0.67.0-riscv64-target.patch`, has the same loose
+`check_target`. It does not affect nife's proofs, because `script/verify-riscv64` only ever passes
+`riscv64gc-unknown-linux-gnu`. So the patch is left as it is, since editing it rebuilds the cached
+Kani in CI, and the gap ends when the patch is dropped for an upstream release.
+
 ## Where this lane stopped
 
-Paused 2026-09-25 05:30 (UTC) on the maintainer's instruction to save budget. The branch is pushed.
-The upstream pull request is not open and nothing was posted to #2402. What is left before calef
-can open it:
+The pull request is open and the review is answered in code. Waiting on calef:
 
-1. Diagnose `verify_std_cmd`. The change rejects `verify-std --target`, which that test does not
-   pass, so the failure may be the machine (load average above 100) or a baseline failure. The way
-   to tell is to run the test on unmodified `main`.
-2. Rerun `coverage` with `kani-cov` on `PATH` (`cargo build -p kani-cov`, then add `target/debug`).
-3. Fill `SUITE_RESULTS` in the pull request body from the table above.
-4. Check this note against the prose ratchet (§212 (a prose budget), §213 (writing standards)) in
-   `script/lint`. Not yet run.
+1. Replies to tautschnig on #4913, drafted in the lane's report, including whether the
+   `kani_lib.c` link fix goes in this pull request or a follow-up.
+2. The "Something I noticed" paragraph in the pull request body still gives the old cause.
+3. Still open from before: the `coverage` suite was not rerun. `verify_std_cmd`, undiagnosed in
+   September, passed on 2026-10-03 (UTC), so that failure was the loaded machine or a baseline
+   since fixed.
