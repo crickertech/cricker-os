@@ -34,7 +34,7 @@ name: empty diff
 # a snapshot of the head it ran on, and the queue re-asks on the entry's own merge.
 #
 # **Required-check status.** The job name below is the required context. Adding it to the `main`
-# ruleset is a settings change only calef can make, and it is outstanding (milestone 625's follow-on):
+# ruleset is a settings change only calef can make, and it is outstanding (milestone 625's follow-on section):
 # until then this reports and does not gate. A check that never reports on `merge_group` would stall
 # the queue once required, so the trigger is here from the first commit.
 #

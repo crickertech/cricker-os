@@ -2791,7 +2791,7 @@ echo "==> the merge queue's admission predicate"
 "$(dirname "$0")/../helpers/blocked-by-selftest.sh"
 "$(dirname "$0")/../helpers/blocked-by-resolution-selftest.sh"
 
-#     The empty-diff check (milestone 625, provisional number; helpers/empty-diff-check.sh): a merge
+#     The empty-diff check (milestone 625, a pull request that changes nothing does not merge, provisional number; helpers/empty-diff-check.sh): a merge
 #     whose tree equals its first parent's. Fixtures in throwaway repositories, the failing cases
 #     first-class, because a gate's green looks the same as a gate that cannot fire.
 "$(dirname "$0")/../helpers/empty-diff-selftest.sh"
