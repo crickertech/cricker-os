@@ -55,3 +55,28 @@ The OR group is the largest single block of equivalents in the census. Each woul
 equivalent if the flag words were built from a type that refused overlap, which `Flags` is not
 (it holds a raw capability word). Nothing in this tree needs that, so it is a note and not a
 proposal.
+
+## walk_pricing
+
+38 missed: 30 killed, 7 equivalent, 1 recorded gap. The sweep afterwards reports 8 missed.
+
+The crate's own test only checked that a priced walk had the right shape. Nothing checked a number.
+
+- `Split::total`, `totals_line` and the two per-unit prices (22). Each is pinned on inputs chosen so
+  every operator differs: powers of two for the split, and for the prices a difference of 7 per
+  entry over 127 entries and 3 per KiB over 252.
+- `median_ns` (2). The closure runs once untimed and `REPS` times, and a 2 ms sleep reads back as at
+  least 2 ms.
+- `price`'s chain loop (2). A tree whose deepest file is missing is an error. A loop that never
+  descended would read the shallow file over and over and report success.
+- `walk_split`'s accumulators (2). Open and close time are each positive over the whole tree.
+
+The 7 equivalents are `slope`'s, and they are algebra. A least-squares slope is the sum of
+`(x - mean x)(y - mean y)` over the sum of `(x - mean x)^2`. The mean of `y` drops out because
+`(x - mean x)` sums to zero, so `y - my` as `y + my`, and `my` as anything, change nothing. The
+same identity makes `(x + mx)(x - mx)` sum to the same variance as `(x - mx)^2`, and `(x + mx)(y -
+my)` the same covariance. `median_ns`'s `REPS / 2` as `REPS % 2` is the seventh: they are both 1 for
+`REPS = 3`.
+
+The gap is `price`'s `WHOLE_REPS / 2`, which is 2 and as `%` is 1. It picks which of five sorted
+timings is called the median, and a test can only assert it on a clock it controls.
