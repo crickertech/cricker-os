@@ -14,14 +14,18 @@ Expected to fail: the receiver-first assertion
 is delivered in `x1` again. The sender-first half stays green (it never went through this path),
 which is what gives the red its meaning: the two orders are asserted together so the fix's symmetry
 is the property, and only the order the defect touched turns red.
+
+Re-cut on 2026-10-03 (UTC) by the lane for milestone 706 (a `CALL` server can tell a Reply from a
+delegation), whose comment above the removed lines moved the context, and replayed red at the same
+assertion on aarch64.
+
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index 066b65e9d..9e1506b77 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3754,17 +3754,7 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
-             // and `w4`, which is `abi::notification::BOUND` when the bound notification ended this
-             // receive and `0` for every delivery a sender or the kernel's death path makes
-             // (milestone 151).
+@@ -3827,17 +3827,7 @@
+             // receive, `abi::rendezvous::REPLY_DELIVERED` when a CALL's Reply was installed
+             // (milestone 706, written by `ipc_call_badged`), and `0` for every other delivery a
+             // sender or the kernel's death path makes (milestone 151).
 -            // **x1 is NO_CAP unless a capability was installed for this delivery** (milestone 634,
 -            // fatal risk 7). A plain SEND that reached us parked drops its three words straight into
 -            // the mailbox, so m[1] is the sender's chosen word; returning it would hand a sender a
