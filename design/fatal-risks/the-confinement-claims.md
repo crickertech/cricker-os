@@ -1,6 +1,6 @@
 ---
 risk: 7
-color: none
+color: amber
 updated: 2026-10-03
 ---
 # Appendix to risk 7: The confinement claim is false
