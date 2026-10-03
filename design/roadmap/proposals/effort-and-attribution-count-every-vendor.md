@@ -16,7 +16,7 @@ provisional, this file's alone.
 
 ## What assumes one vendor
 
-From 2026-09-28 22:00 to 2026-10-01 05:07 UTC the work ran on z.ai (glm-5.3 and glm-5.3-flash,
+From 2026-09-29 02:33 to 2026-10-01 05:07 UTC the work ran on z.ai (glm-5.3 and glm-5.3-flash,
 under opencode), while Claude's weekly allowance was out. Measured from opencode's database: 4,554
 assistant messages, 9.9 million input tokens, 0.96 million output, 701 million cache reads.
 

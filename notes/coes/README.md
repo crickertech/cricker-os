@@ -17,6 +17,6 @@ Part of the [notes index](../README.md), which says how to add a line.
 - [2026-09-30: lane follow-through lived in memory](2026-09-30-lane-follow-through.md): five
   unexecuted maintainer endings in one session, and the PENDING-at-dispatch contract that replaced
   remembering them.
-- [2026-10-03: the merge rate fell](2026-10-03-the-merge-rate.md): a weekly usage limit and a CI
-  job that crept into its timeout cost about 190 merges in five days, and nothing read either
-  signal.
+- [2026-10-03: the merge rate fell](2026-10-03-the-merge-rate.md): a CI job that doubled and a
+  queue that ejected 43% of its entries slowed every merge for a week, then a weekly usage limit
+  stopped the work; about 190 merges deferred in five days, and nothing read either signal.
