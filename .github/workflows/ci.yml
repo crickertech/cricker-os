@@ -1137,6 +1137,9 @@ jobs:
           rustup toolchain install nightly --profile minimal --component llvm-tools
           rustup target add --toolchain nightly aarch64-unknown-none-softfloat
           rustup target add --toolchain nightly riscv64imac-unknown-none-elf
+          # `script/stack-depth-check` gates every bare-metal target in rust-toolchain.toml, so
+          # this job needs all three even though `stack-frame-check` below defaults to two.
+          rustup target add --toolchain nightly x86_64-unknown-none
       - uses: Swatinem/rust-cache@v2
       # Its own job rather than a step in `clippy`: it builds the kernel test binary twice (the flag
       # changes the build, so CI's existing kernel artifacts cannot be reused), and jobs run in
