@@ -339,7 +339,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 227 | DECIDED | [How Tab reaches the shell: the shell edits its own line, and the terminal wire does not change](227-the-shell-edits-its-own-line.md) |
 | 228 | DECIDED | [How a set of matched names reaches the progenitor: in a page the shell fills, copied and checked](228-how-a-set-of-names-reaches-the-progenitor.md) |
 | 229 | DECIDED | [How a bare name at the prompt reaches an installed program: the activation set, and never an owner's vouch](229-how-a-bare-name-reaches-an-installed-program.md) |
-| 230 | DECIDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
+| 230 | AMENDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
 | 231 | DECIDED | [A swap's warning to a dependent is advisory, and the supervisor never waits for it](231-a-dependents-warning-is-advisory.md) |
 | 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |
 | 233 | DECIDED | [`MemoryRegion::RETYPE` takes a page count](233-a-region-retypes-a-run-of-pages.md) |
