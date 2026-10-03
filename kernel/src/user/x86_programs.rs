@@ -56,7 +56,6 @@ macro_rules! packer {
 packer!(pack_1, 4, 1);
 packer!(pack_2, 8, 2);
 packer!(pack_8, 32, 8);
-packer!(pack_4, 16, 4);
 packer!(pack_7, 28, 7);
 packer!(pack_9, 36, 9);
 packer!(pack_10, 40, 10);
@@ -191,34 +190,133 @@ pub const fn port_out(port: u16, val: u8, word: u32) -> [u32; 9] {
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const PORT_OUT_PC_OFFSET: u64 = 6;
 
-/// **A child that writes one byte to an I/O port and then exits, reporting nothing** (milestone
-/// 313's audit). [`port_out`] for a child whose `out` is *expected to fault*: the non-holder in the
-/// hand-off test. The difference is the whole of the falsification's shape. A `port_out` child
-/// whose `out` was wrongly permitted goes on to `SEND` a word on a rendezvous the test is not
-/// receiving (the test is waiting on the supervision endpoint for a fault), so the broken case
-/// parks the child forever and hangs the run instead of turning an assertion red. This child
-/// exits instead, so a wrongly permitted `out` arrives as `EVENT_EXIT` in the very message the
-/// test wants `EVENT_FAULT` in. The `out` is at [`PORT_OUT_PC_OFFSET`], the same as `port_out`'s.
+/// The address of the current-CPU word a ring-3 thread reads its own core from: the second
+/// eight bytes of `current_cpu_protocol`'s page (the magic is the first eight, and the crate's own
+/// tests pin `OFF_CPU` at 8 and `PAGE_BYTES` at `OFF_CPU + 8`, which is the subtraction below). It
+/// is under 2 GiB (`address_space_map::CODE_MODEL_CEILING`), so the 32-bit absolute form of `mov`
+/// below addresses it with no sign-extension surprise.
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
+const CURRENT_CPU_WORD: u32 =
+    (current_cpu_protocol::PAGE_VA + current_cpu_protocol::PAGE_BYTES as u64 - 8) as u32;
+
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
+packer!(pack_12, 48, 12);
+
+/// **A port holder that writes one byte, then SENDs `word` and the core it wrote it on**, then
+/// exits. [`port_out`] for the hand-off test, which has to know which core's TSS bitmap the
+/// holder's grant was installed in: the per-core bitmap is the thing the hand-off is about, and on
+/// a machine with more than one core a test that does not know the core is not testing it (the
+/// 2026-10-03 finding this program exists for: at `NIFE_SMP=2` the non-holder ran on the other
+/// core and faulted for a reason that had nothing to do with the hand-off).
+///
+/// It reads its core from the current-CPU page (`current_cpu_protocol`, written by the context
+/// switch on the core doing the switch) **once before the `out` and once after**, and sends both:
+/// equal, they bracket the `out` on one core. The message is `[word, core after, core before]`.
+/// Not proof against a thread that migrated away and back inside three instructions, which would
+/// take two preemptions and two steals; the caller says so rather than this.
+///
+/// Name: provisional (calef names public items).
 ///
 /// ```text
-///   66 ba xx xx       mov dx, port
-///   b0 xx             mov al, val
-///   ee                out dx, al        (#GP here for a thread holding no PortRange for `port`)
-///   b8 xx xx xx xx    mov eax, SYS_EXIT (reached only if the `out` was permitted)
-///   0f 05             syscall           (exit)
+///   4c 8b 04 25 xx xx xx xx   mov r8, [CURRENT_CPU_WORD]    (core before)
+///   66 ba xx xx               mov dx, port
+///   b0 xx                     mov al, val
+///   ee                        out dx, al
+///   4c 8b 14 25 xx xx xx xx   mov r10, [CURRENT_CPU_WORD]   (core after)
+///   31 ff                     xor edi, edi                  (slot 0)
+///   31 f6                     xor esi, esi                  (SEND)
+///   ba xx xx xx xx            mov edx, word
+///   b8 xx xx xx xx            mov eax, SYS_INVOKE
+///   0f 05                     syscall                       (SEND [word, r10, r8])
+///   b8 xx xx xx xx            mov eax, SYS_EXIT
+///   0f 05                     syscall                       (exit)
 /// ```
-pub const fn port_out_then_exit(port: u16, val: u8) -> [u32; 4] {
+/// Encodings checked with `llvm-mc -triple x86_64-unknown-none -show-encoding`, 2026-10-03.
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
+pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] {
+    const {
+        assert!(
+            abi::rendezvous::SEND == 0,
+            "the `xor esi, esi` in this program encodes SEND as zero"
+        );
+    }
+    let a = CURRENT_CPU_WORD.to_le_bytes();
     let p = port.to_le_bytes();
+    let w = word.to_le_bytes();
+    let inv = (abi::SYS_INVOKE as u32).to_le_bytes();
     let ext = (abi::SYS_EXIT as u32).to_le_bytes();
-    pack_4([
+    pack_12([
+        0x4C, 0x8B, 0x04, 0x25, a[0], a[1], a[2], a[3], // mov r8, [cpu]
         0x66, 0xBA, p[0], p[1], // mov dx, port
         0xB0, val,  // mov al, val
         0xEE, // out dx, al
+        0x4C, 0x8B, 0x14, 0x25, a[0], a[1], a[2], a[3], // mov r10, [cpu]
+        0x31, 0xFF, // xor edi, edi
+        0x31, 0xF6, // xor esi, esi
+        0xBA, w[0], w[1], w[2], w[3], // mov edx, word
+        0xB8, inv[0], inv[1], inv[2], inv[3], // mov eax, SYS_INVOKE
+        0x0F, 0x05, // syscall (SEND)
         0xB8, ext[0], ext[1], ext[2], ext[3], // mov eax, SYS_EXIT
         0x0F, 0x05, // syscall (exit)
         NOP, NOP,
     ])
 }
+
+/// **A non-holder that writes one byte to a port only if it is running on core `cpu`**, and
+/// otherwise faults somewhere else on purpose (milestone 313 (the security audit that was due since
+/// August)'s shape, made core-aware on
+/// 2026-10-03). The hand-off test's second child.
+///
+/// On core `cpu` it is the old `port_out_then_exit`: `out`, then exit, so a wrongly permitted `out`
+/// arrives as `EVENT_EXIT` in the message the test wants `EVENT_FAULT` in (a reporting child would
+/// park on a `SEND` nobody receives and hang the run instead). On any other core it never reaches
+/// the `out`: it loads from address 0, which `address_space_map::NULL_GUARD` keeps unmapped, and
+/// the page fault arrives at [`PORT_OUT_ON_CPU_WRONG_CORE_PC_OFFSET`]. The two faults are told apart
+/// by pc, so "landed on the wrong core, try again" can never be read as "the `out` faulted".
+///
+/// Name: provisional (calef names public items).
+///
+/// ```text
+///   48 8b 04 25 xx xx xx xx   mov rax, [CURRENT_CPU_WORD]
+///   83 f8 xx                  cmp eax, cpu
+///   75 0e                     jne wrong
+///   66 ba xx xx               mov dx, port
+///   b0 xx                     mov al, val
+///   ee                        out dx, al          (#GP here: offset 19)
+///   b8 xx xx xx xx            mov eax, SYS_EXIT   (reached only if the `out` was permitted)
+///   0f 05                     syscall             (exit)
+/// wrong:
+///   31 c0                     xor eax, eax
+///   48 8b 18                  mov rbx, [rax]      (page fault at 0: offset 29)
+/// ```
+/// Encodings checked with `llvm-mc -triple x86_64-unknown-none -show-encoding`, 2026-10-03.
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
+pub const fn port_out_on_cpu_then_exit(port: u16, val: u8, cpu: u8) -> [u32; 8] {
+    let a = CURRENT_CPU_WORD.to_le_bytes();
+    let p = port.to_le_bytes();
+    let ext = (abi::SYS_EXIT as u32).to_le_bytes();
+    pack_8([
+        0x48, 0x8B, 0x04, 0x25, a[0], a[1], a[2], a[3], // mov rax, [cpu]
+        0x83, 0xF8, cpu, // cmp eax, cpu
+        0x75, 0x0E, // jne wrong (+14, to offset 27)
+        0x66, 0xBA, p[0], p[1], // mov dx, port
+        0xB0, val,  // mov al, val
+        0xEE, // out dx, al
+        0xB8, ext[0], ext[1], ext[2], ext[3], // mov eax, SYS_EXIT
+        0x0F, 0x05, // syscall (exit)
+        0x31, 0xC0, // wrong: xor eax, eax
+        0x48, 0x8B, 0x18, // mov rbx, [rax]
+    ])
+}
+
+/// Where [`port_out_on_cpu_then_exit`]'s `out` is: eight, three and two bytes of core check, then
+/// [`port_out`]'s own six bytes before its `out`.
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
+pub const PORT_OUT_ON_CPU_PC_OFFSET: u64 = 13 + PORT_OUT_PC_OFFSET;
+
+/// Where [`port_out_on_cpu_then_exit`] faults when it is on the wrong core: the load from address 0.
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
+pub const PORT_OUT_ON_CPU_WRONG_CORE_PC_OFFSET: u64 = 29;
 
 /// **A child that deletes its own capability in `slot`, then writes a byte to a port, then exits**
 /// (milestone 313's audit). The drop-it-yourself fixture: a holder of the `PortRange` capability
