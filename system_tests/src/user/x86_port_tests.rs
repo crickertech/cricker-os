@@ -172,30 +172,64 @@ fn reap(region: u64) {
     );
 }
 
-/// **A holder transmits; the non-holder that runs next faults.** The non-holder test and the
-/// hand-off test in one, because the order is the hand-off: the non-holder is scheduled after the
-/// holder installed and then vacated the TSS bitmap, so its fault is proof the switch left the port
-/// denied rather than inheriting the holder's grant.
+/// How many non-holders [`port_holder_transmits_then_a_non_holder_faults`] may start before one
+/// lands on the holder's core. Placement is §28 (SMP placement: two random choices at spawn) and offers no
+/// lever, so the test retries rather than steers. On one core the first lands; on the two-core
+/// direct boot, two runs on 2026-10-03 landed on tries 1 and 4. Sixty-four makes a miss at a one-in-four landing rate a
+/// `(3/4)^64`, about one in a hundred million, and a miss fails the test loudly rather than passing.
+const NON_HOLDER_ATTEMPTS: u32 = 64;
+
+/// **A holder transmits; a non-holder that runs next on the same core faults.** The non-holder
+/// test and the hand-off test in one, because the order is the hand-off: the non-holder is
+/// scheduled after the holder installed and then vacated the TSS bitmap, so its fault is proof the
+/// switch left the port denied rather than inheriting the holder's grant.
+///
+/// **The same core is the precondition, and until 2026-10-03 nothing asserted it.** The bitmap is
+/// per core. On one core the order alone makes the hand-off; on two, the non-holder can start on
+/// the core the holder never touched and fault there whatever the switch did. That is what the
+/// direct boot did from the day it went to `NIFE_SMP=2` (2026-09-23): the falsification below left
+/// the holder's grant on cpu 0, the non-holder was placed on cpu 1, faulted, and the test passed.
+/// Only the real-firmware leg, which boots the suite on one core, went red. So the holder now
+/// reports the core it wrote on ([`port_out_reporting_cpu`]), and the non-holder executes its `out`
+/// only when it is on that core and otherwise faults at a different pc
+/// ([`port_out_on_cpu_then_exit`]), which this test counts as a miss and retries.
+///
+/// What the core check does not cover: a thread preempted and moved between its core read and its
+/// `out` (three instructions, so two preemptions and a steal for the holder's bracket to lie).
+///
+/// [`port_out_reporting_cpu`]: super::x86_programs::port_out_reporting_cpu
+/// [`port_out_on_cpu_then_exit`]: super::x86_programs::port_out_on_cpu_then_exit
 ///
 /// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.port_holder_transmits_then_a_non_holder_faults.patch`
 #[test_case]
 fn port_holder_transmits_then_a_non_holder_faults() {
     // The holder: it executes `out` to a port its capability names, so the CPU permits it, and the
-    // word arrives.
+    // word arrives with the core it was written on.
     let report = sched::create_rendezvous();
     let sup = sched::create_rendezvous();
     let (_holder, holder_region) = build_child(
-        &super::x86_programs::port_out(SCRATCH_PORT, SCRATCH_VAL, REPORTED as u32),
+        &super::x86_programs::port_out_reporting_cpu(SCRATCH_PORT, SCRATCH_VAL, REPORTED as u32),
         report,
         None,
         true,
         sup,
     );
+    let msg = sched::ipc_recv(report);
+    let (word, core_after, core_before) = (msg[0], msg[1], msg[2]);
     assert_eq!(
-        sched::ipc_recv(report)[0],
-        REPORTED,
+        word, REPORTED,
         "the port holder's `out` should have been permitted, and its report should have arrived",
     );
+    assert!(
+        core_before < current_cpu_protocol::CPU_ID_BOUND as u64,
+        "the holder read core {core_before:#x}: its current-cpu page was never written, so which \
+         core's bitmap it set is unknown",
+    );
+    assert_eq!(
+        core_before, core_after,
+        "the holder moved cores across its `out`; which core's bitmap it set is unknown",
+    );
+    let holder_core = core_before;
     assert_eq!(
         sched::ipc_recv(sup)[0],
         EVENT_EXIT,
@@ -203,32 +237,52 @@ fn port_holder_transmits_then_a_non_holder_faults() {
     );
     reap(holder_region);
 
-    // The non-holder: the same `out`, granted no port capability, run right after the holder. Its
-    // `out` faults, which is both "a non-holder cannot touch the port" and "the hand-off away from
-    // the holder left the TSS denying". It exits rather than reporting (milestone 313's audit): if
-    // the hand-off ever leaked the grant, a reporting child would park on a `SEND` nobody receives
-    // and hang the run, and this test would be unable to go red for the one defect it exists for.
+    // The non-holder: the same `out`, granted no port capability, run after the holder on the
+    // holder's core. Its `out` faults, which is both "a non-holder cannot touch the port" and "the
+    // hand-off away from the holder left the TSS denying". It exits rather than reporting
+    // (milestone 313 (the security audit that was due since August)): if the hand-off ever leaked
+    // the grant, a reporting child would park on a `SEND` nobody receives and hang the run, and
+    // this test could not go red for the one defect it exists for.
     let report2 = sched::create_rendezvous();
     let sup2 = sched::create_rendezvous();
-    let (non_holder, nh_region) = build_child(
-        &super::x86_programs::port_out_then_exit(SCRATCH_PORT, SCRATCH_VAL),
-        report2,
-        None,
-        false,
-        sup2,
+    for attempt in 1..=NON_HOLDER_ATTEMPTS {
+        let (non_holder, nh_region) = build_child(
+            &super::x86_programs::port_out_on_cpu_then_exit(
+                SCRATCH_PORT,
+                SCRATCH_VAL,
+                holder_core as u8,
+            ),
+            report2,
+            None,
+            false,
+            sup2,
+        );
+        let msg = sched::ipc_recv(sup2);
+        reap(nh_region);
+        if msg[0] == EVENT_FAULT
+            && msg[2] == CODE_VA + super::x86_programs::PORT_OUT_ON_CPU_WRONG_CORE_PC_OFFSET
+        {
+            continue; // started on another core and never reached its `out`: not a test, retry
+        }
+        crate::println!(
+            "    the non-holder ran on the holder's core {holder_core} on try {attempt}"
+        );
+        assert_eq!(
+            msg[0], EVENT_FAULT,
+            "a non-holder's `out` must fault, not be permitted",
+        );
+        assert_eq!(msg[1], non_holder, "the fault named the wrong thread");
+        assert_eq!(
+            msg[2],
+            CODE_VA + super::x86_programs::PORT_OUT_ON_CPU_PC_OFFSET,
+            "the faulting pc was not the `out` instruction",
+        );
+        return;
+    }
+    panic!(
+        "no non-holder ran on the holder's core {holder_core} in {NON_HOLDER_ATTEMPTS} tries, so \
+         this run did not test the hand-off at all",
     );
-    let msg = sched::ipc_recv(sup2);
-    assert_eq!(
-        msg[0], EVENT_FAULT,
-        "a non-holder's `out` must fault, not be permitted",
-    );
-    assert_eq!(msg[1], non_holder, "the fault named the wrong thread");
-    assert_eq!(
-        msg[2],
-        CODE_VA + super::x86_programs::PORT_OUT_PC_OFFSET,
-        "the faulting pc was not the `out` instruction",
-    );
-    reap(nh_region);
 }
 
 /// **A revoked holder faults on its next `out`.** The child holds the port range and parks in

@@ -1,6 +1,6 @@
 Falsifies `system_tests::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files`.
 
-Architecture: aarch64
+Architecture: aarch64, riscv64, x86_64
 
 The defect is the caretaker serving the filesystem server's own root instead of the narrowed
 handle it was just given. `fs_subtree_caretaker` opens the subtree it was named, receives back
@@ -38,6 +38,8 @@ subsystem, and it is the second instance on record.
 **The cost here is nothing, unlike §31's.** `assert_report`'s messages name the offending or
 missing bits by name, so a reader learns as much as the crossing would have told them. §31's
 instance cost a 234-second watchdog timeout that said "livelock".
+
+Replayed on all three ISAs. The hunk is portable code, so one patch serves every leg. On 2026-10-03 (UTC), `cargo xtask test --arch riscv64 --test two_shells_with_different_roots_cannot_name_each_others_files` and the same with `--arch x86_64` both came back red at `system_tests/src/user/shell_navigation_tests.rs:99`, the assertion this record predicts, which is where aarch64 was already red.
 
 diff --git a/components/src/fs_subtree_caretaker.rs b/components/src/fs_subtree_caretaker.rs
 index 9ac8a584..7a528dcc 100644
