@@ -99,6 +99,12 @@ From the `Co-Authored-By` trailer. Attributed plus unattributed plus merge is ev
 week, and a merge is a pull request landing rather than a piece of writing. 2026W29 predates
 the convention, so it is absent rather than zero.
 
+The trailer is one only Claude Code writes, so the table counts one vendor. From 2026-09-28 22:00
+to 2026-10-01 05:07 UTC the work ran on z.ai's glm-5.3 under opencode, and its 154 commits read
+here as unattributed rather than as a model
+([the correction](coes/2026-10-03-the-merge-rate.md)). `script/effort` has the same gap and its
+charts show that week's z.ai work as nothing at all.
+
 The palette has eight hues, so "other models" is Opus 4.8, Fable 5.1 and any trailer the script
 does not recognise, drawn as one band; `notes/project-metrics/models.csv` keeps each apart.
 
