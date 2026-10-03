@@ -277,8 +277,8 @@ const BOOT_FILE_PATH: &str = "\\EFI\\BOOT\\BOOTX64.EFI";
 /// release build with a stripped kernel (see `image::carries_debug_info`), and CI budgets the
 /// release `BOOTX64.EFI` at a quarter of this (`bench/boot-file-size-x86_64.txt`, checked by
 /// `script/boot-file-size-check`). The debug tour build is about 15 MiB and the test build about
-/// 19; 64
-/// refuses something that is not this file at all rather than spending the machine's RAM on it.
+/// 19 MiB, so the 64 MiB ceiling exists to refuse something that is not this file at all, rather
+/// than spend the machine's RAM on it.
 #[cfg(target_arch = "x86_64")]
 const BOOT_FILE_MAX: u64 = 64 * 1024 * 1024;
 
