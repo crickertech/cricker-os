@@ -203,13 +203,31 @@ impl Rect {
     /// The first column past the rectangle. **Half-open**, like every sane pixel interval: a
     /// rectangle covers `x .. right()`, and two rectangles that share this edge do not overlap. Every
     /// classic clipping off-by-one is a confusion between this and "the last column".
+    ///
+    /// **Saturating, because a client chooses these numbers** (milestone 719). A damage rectangle
+    /// is read from a client's control page as `(i32, i32, u32, u32)` and reaches this function
+    /// before any clip: `x = i32::MAX, w = 1` is `x + w` past `i32::MAX`, and `w as i32` is negative
+    /// for any `w` above `i32::MAX`. Plain `+` panics on the first in a debug build, which
+    /// kills the compositor and wedges every client behind its one doorbell; in a release build it
+    /// wraps. Saturating keeps the sum on the number line, so every caller's clip sees a rectangle
+    /// that really is as wide as the client claimed rather than one the wrap folded back.
     pub const fn right(&self) -> i32 {
-        self.x + self.w as i32
+        self.x.saturating_add(Self::extent(self.w))
     }
 
     /// The first row past the rectangle. See [`right`](Self::right).
     pub const fn bottom(&self) -> i32 {
-        self.y + self.h as i32
+        self.y.saturating_add(Self::extent(self.h))
+    }
+
+    /// An unsigned extent as the signed number it is added to an origin as, clamped rather than
+    /// wrapped (see [`right`](Self::right)).
+    const fn extent(n: u32) -> i32 {
+        if n > i32::MAX as u32 {
+            i32::MAX
+        } else {
+            n as i32
+        }
     }
 
     pub const fn contains(&self, x: i32, y: i32) -> bool {
@@ -760,6 +778,57 @@ mod tests {
     extern crate std;
     use std::vec;
     use std::vec::Vec;
+
+    /// **A client's damage rectangle is any 16 bytes it likes** (milestone 719, confinement claim
+    /// 25's attack on the compositor's one untrusted input). Every combination of extreme origin and
+    /// extent must neither panic nor produce a rectangle outside the surface it was clipped to, for
+    /// every window in the scene. Before 719 `Rect::right` was `x + w as i32` and the very first
+    /// pair here, `(i32::MAX, 0, 1, 1)`, overflowed it.
+    #[test]
+    fn a_lying_damage_rectangle_neither_panics_nor_leaves_its_surface() {
+        let origins = [i32::MIN, i32::MIN + 1, -1, 0, 1, i32::MAX - 1, i32::MAX];
+        let extents = [
+            0u32,
+            1,
+            2,
+            i32::MAX as u32,
+            i32::MAX as u32 + 1,
+            u32::MAX - 1,
+            u32::MAX,
+        ];
+        for win in SCENE {
+            for &x in &origins {
+                for &y in &origins {
+                    for &w in &extents {
+                        for &h in &extents {
+                            let asked = Rect::new(x, y, w, h);
+                            let inside = asked.intersect(&win.bounds());
+                            let b = win.bounds();
+                            assert!(
+                                inside.is_empty()
+                                    || (inside.x >= b.x
+                                        && inside.y >= b.y
+                                        && inside.right() <= b.right()
+                                        && inside.bottom() <= b.bottom()),
+                                "{asked:?} clipped to {inside:?}, outside the surface {b:?}",
+                            );
+                            let on_screen = damage_to_screen(win, asked);
+                            let screen = Rect::screen();
+                            assert!(
+                                on_screen.is_empty()
+                                    || (on_screen.x >= screen.x
+                                        && on_screen.y >= screen.y
+                                        && on_screen.right() <= screen.right()
+                                        && on_screen.bottom() <= screen.bottom()
+                                        && win.rect().intersect(&on_screen) == on_screen),
+                                "{asked:?} became {on_screen:?}, outside the window or the screen",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     /// `area` on a rectangle that is neither square nor 2 by 2. Every fixture here was square, and
     /// `w + h` equals `w * h` at 2 by 2, so `* -> +` survived from the 2026-08-03 run to the
