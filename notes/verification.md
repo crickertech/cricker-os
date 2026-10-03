@@ -693,10 +693,7 @@ Self-installs Kani on first run (its own nightly toolchain and a CBMC backend), 
 `crates/package_archive`; both discharge in 4 seconds.
 Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture) added two, in
 `kernel/src/arch/x86_64/irq.rs`, which **only an x86_64 host runs** (the `prove` shards, since milestone 587 (most CI jobs do not need an arm64 host)): the count is of the tree, not of
-any one run, and no single host compiles all 180. (Milestone 161 (the x86_64 kernel port) added eight on 2026-09-19, the block-leaf proofs in `crates/paging`.) It fell to 148 from 151 across 26 on
-2026-09-15, when milestone 298 retired `multicast_dns_protocol` and its three. This line said 67 for
-a while after it was 69, then "a few minutes" for a month after that stopped being true, then 107
-after it was 119. Both counts now carry a `<!--count:-->` marker and `script/lint` re-derives them
+any one run, and no single host compiles all 180. (Milestone 161 (the x86_64 kernel port) added eight on 2026-09-19, the block-leaf proofs in `crates/paging`.) Both counts now carry a `<!--count:-->` marker and `script/lint` re-derives them
 from the tree on every build, so they cannot drift again; what they could still do, and did, is
 answer a narrower question than the prose asks, which is what milestone 212 found: the derivation
 walked `crates/` and so excluded `kernel` and `user`, both of which are rows in the table below; the timing below is still a dated
