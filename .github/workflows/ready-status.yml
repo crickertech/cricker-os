@@ -1,0 +1,91 @@
+name: ready status
+
+# **A ready pull request's roadmap block already says how the work ended** (milestone 630
+# (a merge-queue ejection is caught before the queue, and recovered after it); name provisional).
+#
+# `script/roadmap --check` fails a block that reads IN-PROGRESS on a branch this history has already
+# merged. That check can only fire inside a merge group, because only there does the branch's merge
+# commit exist, and swish-check makes every group attempt cost 20 to 38 minutes. On 2026-10-03 at
+# 01:45 UTC #1473 (the x86_64 paint path) was ejected for exactly this, and the ejection cancelled its
+# auto-merge and told nobody (notes/coes/2026-09-30-lane-follow-through.md, the sixth class).
+#
+# The same fact is knowable the moment the pull request stops being a draft, because a ready pull
+# request is a merge request. So this asks it then: `script/roadmap --ready-branch <head branch>`,
+# which reads frontmatter and nothing else and answers in about a second. Shaped like
+# architect-hold.yml on purpose: one job, no build, nothing slow enough to jam the queue if it is
+# made required.
+#
+# **Drafts pass.** A lane's block reads IN-PROGRESS for its whole life as a draft, which is correct,
+# so the job reads the LIVE draft state (the event payload's copy has been wrong; see ci.yml's
+# `draft gate`) and passes when it is a draft. `converted_to_draft` is in `types:` so that a lane
+# answering this failure with `gh pr ready --undo` turns the check green again rather than leaving
+# a stale red beside a draft.
+#
+# **It runs on `merge_group` too**, resolving the pull request from the group's ref the way
+# architect-hold.yml does, so that it can be a required check: a required check that never reports
+# on a merge group holds the group forever. In a group it agrees with `--check`'s merged-branch half
+# by construction, and costs a second.
+#
+# BUGS
+#
+#   - **It is not a required check yet, so it informs rather than blocks a hand-armed pull
+#     request.** The merge drain will not arm a pull request with a FAILURE in its rollup, which
+#     covers the normal path. Adding `ready status (no IN-PROGRESS block on a ready branch)` to the
+#     `main` ruleset's required checks is a repository setting and calef's.
+#   - **It matches the branch by name only.** A lane whose block names a different branch than the
+#     one it pushed (a typo, or a branch renamed mid-lane) passes here and still fails in the group.
+#     `--check`'s `BRANCH` pattern catches a malformed name, not a wrong one.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ready-status-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ready:
+    name: ready status (no IN-PROGRESS block on a ready branch)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve the branch, and whether it is asking to merge
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_EVENT_NUMBER: ${{ github.event.pull_request.number }}
+          GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          if [ -n "$PR_EVENT_NUMBER" ]; then
+            number="$PR_EVENT_NUMBER"
+          else
+            number="$(printf '%s\n' "$GROUP_HEAD_REF" | grep -oE 'pr-[0-9]+-' | head -1 | grep -oE '[0-9]+' || true)"
+          fi
+          if [ -z "$number" ]; then
+            echo "could not resolve a pull request number (head_ref '$GROUP_HEAD_REF')" >&2
+            exit 1
+          fi
+          view="$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json headRefName,isDraft)"
+          branch="$(printf '%s' "$view" | jq -r .headRefName)"
+          draft="$(printf '%s' "$view" | jq -r .isDraft)"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "draft=$draft" >> "$GITHUB_OUTPUT"
+          echo "==> #$number, branch '$branch', draft '$draft' (live)"
+
+      - name: A ready pull request carries no IN-PROGRESS block on its own branch
+        if: steps.pr.outputs.draft != 'true'
+        env:
+          BRANCH: ${{ steps.pr.outputs.branch }}
+        run: script/roadmap --ready-branch "$BRANCH"
+
+      - name: A draft is still work in progress, and its block may say so
+        if: steps.pr.outputs.draft == 'true'
+        run: echo "==> draft; IN-PROGRESS is the honest status for a draft, nothing to check"
