@@ -26,6 +26,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The violation ledger](../rule-violations.md): counting how often each written rule is broken. Name provisional.
 - [Load-sensitive assertions](../load-sensitive-assertions.md): the register of assertions that fail under host load, how to fix one, and each site's status. Appendix names provisional.
 - [The CI log baseline](../ci-log-baseline.md): which check failed each CI job, from expiring logs. Names provisional.
+- [CI job warnings, classified](../ci.md): the swish-check job's every warning, read and ruled benign, tracked or fixed. Name provisional.
 - [Every place that enumerates architectures, and whether the list is complete](../architecture-list-sweep.md).
 - [Rustdoc coverage](../doc-coverage.md): the doc-example floor and the `missing_docs` ratchet.
 - [The documentation sweep](../documentation-audit.md): how to run a documentation sweep, and what counts.

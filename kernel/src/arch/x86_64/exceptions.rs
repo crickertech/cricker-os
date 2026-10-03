@@ -523,26 +523,16 @@ const _: () = assert!(
     "a real IDT vector would be ambiguous here"
 );
 
-/// **Point the `syscall` path's kernel stack at `top`, on this core.**
-///
-/// Called only by `segments::set_kernel_stack`, which writes `TSS.RSP0` in the same breath, so the
-/// two mechanisms (a trap and a `syscall`) cannot name different stacks for one thread. Read back by
-/// `x86_syscall_entry` in trap.s through a `gs`-relative offset into `cpu::PerCpu::x86_trap` (see
-/// `super::global_asm!`'s `SYSCALL_KERNEL_RSP_OFF` substitution) rather than through a flat
-/// `static mut`: `gs` already names this core's own block, so a second per-CPU array (and the
-/// index arithmetic asm would need to reach it) buys nothing an offset into the block `gs` points
-/// at does not. `x86_syscall_entry`'s OWN scratch slot for the interrupted user `rsp`
-/// (`x86_trap.syscall_user_rsp`) is the same shape, written and read entirely from trap.s with no
-/// Rust-side accessor at all.
-///
-/// **Per-CPU as of milestone 161's SMP item.** This used to be one flat `static mut`, shared by
-/// every CPU, which a second CPU running a `syscall` would have raced the first over.
-pub(super) fn set_syscall_kernel_stack(top: u64) {
-    // SAFETY: writes this core's own `PerCpu` slot, the same one `gs` already names on this core;
-    // no other core's write can land here.
-    unsafe { *crate::cpu::current().x86_trap.syscall_kernel_rsp.get() = top };
-}
-
+// **Point the `syscall` path's kernel stack at `top`, on this core.** DELETED 2026-09-30 by the
+// CI-warnings lane: swish-check's x86_64 leg warned this setter and its only caller
+// (`segments::set_kernel_stack`) were never used in any configuration, because `isr_restore` in
+// trap.s writes this slot (`SYSCALL_KERNEL_RSP_OFF`, reached `gs`-relatively through
+// `cpu::PerCpu::x86_trap`; see `super::global_asm!`'s substitution) and `TSS.RSP0` together on
+// every return to ring 3, the first one included. The two-writes-in-step property these doc
+// blocks sold ("a trap and a `syscall` cannot name different stacks") lives there now; this
+// comment stays so a reader grepping for the old name finds where the job went. It had been
+// per-CPU since the SMP item of milestone 161 (the x86_64 kernel port), after starting as one flat
+// `static mut` every CPU raced.
 /// **Program the four MSRs that make `syscall` work**, once per CPU, at boot.
 ///
 /// Order matters in one place: `SCE` is enabled last, so the instruction becomes legal only after

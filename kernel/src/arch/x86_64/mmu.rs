@@ -273,12 +273,10 @@ pub const PCI_ECAM_PHYS: u64 = 0xb000_0000;
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const PCI_ECAM_BUSES: u16 = 1;
 
-/// Is paging on? True from the moment `boot.s` set `CR0.PG`, which is before any Rust runs, so this
-/// is a constant `true` in practice and is read back from the hardware anyway: the one thing worth
-/// knowing here is what the machine says, not what we believe.
-pub fn is_enabled() -> bool {
-    super::instructions::read_cr0() & (1 << 31) != 0
-}
+// Deleted 2026-09-30 by the CI-warnings lane: `is_enabled` (was paging on? read back CR0.PG) had
+// no caller in any configuration on this, its only, architecture. The boot print that asks the
+// question is riscv's ("paging on", in `lib.rs`'s riscv boot); if the x86_64 boot ever wants the
+// same self-test, that print is the caller to write and git has the body.
 
 /// The physical address of the page-table root the CPU is currently walking (`CR3`, with the
 /// PCID/flag bits masked off).

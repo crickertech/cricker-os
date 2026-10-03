@@ -632,9 +632,12 @@ pub fn scope_of(rid: u32) -> crate::iommu::Scope {
 /// inside the guest, which is what milestone 317 is for: without it, turning
 /// `-device intel-iommu,intremap=on` on and watching the suite stay green proves only that the
 /// suite does not care. See design/roadmap/317-interrupt-remapping-flags.md.
-// Two callers: `print_summary` (which a bench boot skips, the same treatment that function already
-// carries) and this module's own test.
-#[cfg_attr(feature = "bench", allow(dead_code))]
+// One caller: this module's own test. The comment below said "two callers, print_summary and this
+// module's own test", but print_summary inlines `u.interrupt_remapping` and never calls this; the
+// CI-warnings lane read the body on 2026-09-30 after mirroring print_summary's allowance set and
+// finding the warning still fired. A test-only helper gets the not(test) allowance the tree's
+// test-only items carry.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn interrupt_remapping_available() -> Option<bool> {
     let g = IOMMU.lock();
     let mut any = false;

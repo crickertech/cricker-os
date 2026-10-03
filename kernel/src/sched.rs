@@ -1129,7 +1129,7 @@ pub fn last_cpus(ids: &[ThreadId], out: &mut [u8]) {
 static BOOT_STAGE: AtomicU32 = AtomicU32::new(0);
 
 /// Record that the boot tour reached `stage`. Monotonic by convention, not enforced.
-#[cfg_attr(target_arch = "aarch64", allow(dead_code))] // the riscv tour is the caller today
+#[cfg_attr(any(target_arch = "aarch64", target_arch = "x86_64"), allow(dead_code))] // the riscv tour is the caller today
 pub fn note_boot_stage(stage: u32) {
     BOOT_STAGE.store(stage, Ordering::Relaxed);
 }
@@ -1514,8 +1514,9 @@ pub fn adopt_secondary_idle() {
 /// from the rendezvous-bound test SGIs (1 and 2). SMP step 3c.
 ///
 /// aarch64 only in practice: RISC-V's twin path (`arch/riscv64/exceptions.rs`) recognises the IPI
-/// from the SBI software-interrupt cause rather than from an interrupt id, so it needs no constant.
-#[cfg_attr(target_arch = "riscv64", allow(dead_code))]
+/// from the SBI software-interrupt cause rather than from an interrupt id, so it needs no constant,
+/// and `x86_64` sends its own reschedule IPI (`arch/x86_64/irq.rs`) rather than reading one.
+#[cfg_attr(not(target_arch = "aarch64"), allow(dead_code))]
 pub const RESCHED_SGI: u32 = 0;
 
 /// Drain this core's migration inbox into its run queue, and request a reschedule.

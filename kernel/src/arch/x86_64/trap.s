@@ -197,8 +197,9 @@ isr_restore:
     # `trap_return`.
     #
     # Two writes, because x86 has two doors and they find their stack differently: a trap reads
-    # `TSS.rsp0` and `syscall` reads nothing at all. `segments::set_kernel_stack` keeps the same pair
-    # in step for the boot-thread case; this is the per-trap half.
+    # `TSS.rsp0` and `syscall` reads nothing at all. This store pair IS the whole mechanism since
+    # the Rust-side setter pair was deleted (2026-09-30): it runs on every return to ring 3, the
+    # boot thread's first one included, so nothing else ever needs to write either slot.
     #
     # rax and rcx are free here: every general register is still in the frame below and is about to
     # be popped over.
@@ -293,8 +294,8 @@ isr_restore:
 #
 # THE KERNEL STACK COMES FROM THIS CORE'S `PerCpu` BLOCK, reached through `gs` (milestone 161's SMP
 # item; `gs` has just been swapped to the kernel's, so it names THIS core's own block, no other
-# core's). `segments::set_kernel_stack` writes the same slot (`SYSCALL_KERNEL_RSP_OFF`) and
-# `TSS.RSP0` together, so the two mechanisms cannot name different stacks.
+# core's). The store pair below keeps this slot (`SYSCALL_KERNEL_RSP_OFF`) and `TSS.RSP0` in step
+# on every return to ring 3, so the two mechanisms cannot name different stacks.
 # ---------------------------------------------------------------------------------------------
 # CFI: builds the same shape isr_common does, by hand instead of by hardware, so the same
 # description applies: register 16 (rip) and register 7 (rsp) below describe the interrupted USER

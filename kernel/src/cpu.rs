@@ -175,8 +175,8 @@ pub struct PerCpu {
     /// nothing here that an offset into the block `gs` already points at does not.
     ///
     /// Used only by this core, only through raw `gs`-relative reads and writes in `trap.s` and
-    /// through `segments::set_kernel_stack`/`segments::init`; nothing ever reads another core's
-    /// copy. Plain `u64`s behind `UnsafeCell`, the same reasoning `runq` above gives: only this
+    /// through `segments::init`; nothing ever reads another core's copy. Plain `u64`s behind
+    /// `UnsafeCell`, the same reasoning `runq` above gives: only this
     /// core ever touches its own instance, so there is no data race for an atomic to guard against.
     #[cfg(target_arch = "x86_64")]
     pub x86_trap: X86TrapPerCpu,
@@ -190,8 +190,8 @@ pub struct X86TrapPerCpu {
     /// Written once, by `segments::init`, from that CPU's own per-CPU TSS.
     pub tss_rsp0_ptr: UnsafeCell<u64>,
     /// The `syscall` path's kernel stack top for this core: `x86_syscall_entry` loads `rsp` from
-    /// here. Kept in step with `tss_rsp0_ptr`'s target by `segments::set_kernel_stack`, and
-    /// rewritten on every return to ring 3 by `isr_restore`, same as the trap path's `TSS.rsp0`.
+    /// here. Kept in step with `tss_rsp0_ptr`'s target by `isr_restore`, which writes both on
+    /// every return to ring 3, same as the trap path's `TSS.rsp0`.
     pub syscall_kernel_rsp: UnsafeCell<u64>,
     /// Scratch for the interrupted user `rsp`, parked here by `x86_syscall_entry` between its
     /// `swapgs` and the point it can be pushed into the trap frame (`syscall` does not switch
