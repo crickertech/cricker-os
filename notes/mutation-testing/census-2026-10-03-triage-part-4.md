@@ -38,3 +38,35 @@ The 6 equivalents:
 - `command_position`'s `<` or `>` arm. `is_break` counts both as breaks, so the `_` arm scans an
   empty word, which is no prefix word, and answers false as the deleted arm did.
 - `Sequence::is_empty` as `false`. A line is always at least one segment, as `len` says.
+
+## line_editor
+
+24 missed: 16 killed, 4 equivalent, 4 recorded gaps. The sweep afterwards reports 8 missed, and 10
+timeouts in `pop8` and `feed` that are new, because a mutated `pop8` makes the new test's drain loop
+hang, which counts as caught.
+
+- Handoff blob (8). A blob that exactly fills its buffer is accepted (the header alone is eight
+  bytes) and one byte short is refused. A field exactly as long as its buffer fits and one more is
+  malformed. A restored cursor on the last byte is accepted and one past it refuses the whole blob.
+  The history's write position survives a swap, which needs a ring that is neither empty nor full:
+  the old round trip typed eight lines, so `hist_next` was 0 and `% HIST` as `/` read the same.
+- `RawQueue` (6). Save and restore were never run by any test. A queue whose ring has wrapped
+  crosses a swap in order, and an empty one empties the target.
+- `resume_line` (1). It paints nothing and still remembers the prompt, seen by a repaint after it.
+- `repaint` (1). The cursor goes back `len - cur` columns: two mid-line, none at the end, all of it
+  at the start.
+- `csi_move` (1). A move of one writes `ESC [ D` and not `ESC [ 1 D`. The test's terminal model reads
+  both alike, so this one needs a sink that keeps the bytes.
+- `START_ABSORB` (1), the second bit.
+
+The 4 equivalents:
+
+- `START_HANDOFF` and `FLAG_EOF`, `1 << 0` as `1 >> 0`. Both are 1.
+- `proto::req`'s `|` as `^`. The opcode sits at bit 56 and above and the length is masked to 32
+  bits, so the halves never share a bit.
+- `pop8`'s `head = (head + n) % RAW_QUEUE_MAX` as `+`. The head then grows past the buffer, and
+  every access reduces it again, so the bytes read are the same (`usize` overflow is out of reach).
+
+The 4 gaps are `BUDGET_PAGES = 2 * INSTANCE_PAGES + 16`. A test could only restate the formula. What
+the number protects is a second instance starting beside the incumbent under a supervisor, which the
+swap test under QEMU does (a smaller budget fails it; a larger one only wastes pages).
