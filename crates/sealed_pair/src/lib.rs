@@ -532,6 +532,39 @@ mod tests {
         let line = seal.explain("nife-vf2.img", "nife-initrd.img");
         assert!(line.starts_with("SEALED:"), "{line}");
         assert_eq!(line.lines().count(), 1, "a yes is one line: {line}");
+        assert!(
+            line.contains("(3 measured entries"),
+            "counts the vouched: {line}"
+        );
+    }
+
+    /// Both ways a pair is unreadable say why, in words, rather than printing nothing.
+    #[test]
+    fn an_unreadable_pair_says_which_way() {
+        let none = Unreadable::NoProgenitor.to_string();
+        assert!(none.contains("no `progenitor`"), "{none}");
+        let bad = Unreadable::NotAnArchive(nifefs::Error::Truncated).to_string();
+        assert!(bad.starts_with("not a nifefs archive ("), "{bad}");
+    }
+
+    /// A kernel that refuses beside a table that checks out with no disagreements: the report is the
+    /// kernel's refusal alone, and does not go on to announce a disagreement nobody found.
+    #[test]
+    fn a_clean_table_beside_a_refusing_kernel_reports_no_disagreement() {
+        let seal = Seal {
+            entries: vec![EntrySeal {
+                name: "progenitor",
+                digest: None,
+                vouch: Vouch::No,
+            }],
+            table: TableSeal::Checked {
+                disagreements: Vec::new(),
+            },
+        };
+        assert!(!seal.is_sealed());
+        let text = seal.explain("kernel", "archive");
+        assert!(text.contains("MEASURED BOOT REFUSED"), "{text}");
+        assert!(!text.contains("disagrees"), "{text}");
     }
 
     #[test]
