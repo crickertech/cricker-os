@@ -210,8 +210,8 @@ Highest rung first. `script/roadmap --check` fails a bullet that resolves to not
 `script/metrics` charts how many are open each week.
 
 - **Milestone 720.** Milestone 720 (the boot thread cannot halt while it is runnable), built 10-03 by #1529.
-- **Milestone 628.** The x86_64 swish-check leg costs what the others do, built 10-03 by #1487.
-- **Milestone 505.** An x86_64 input driver that never lets the core idle, built 10-03 by #1533.
+- **Milestone 628.** Built 10-03 by #1487.
+- **Milestone 505.** Built 10-03 by #1533.
 - **Milestone 721.** Milestone 721 (each merge-group CI job has a 20-minute budget), built 10-03 by #1530.
 - **Milestone 724.** Milestone 724 (the merge queue reports its ejection share and its time to merge), built 10-03 by #1538.
 - **Milestone 722.** Milestone 722 (swish-check fails a leg that costs five times the others per line), built 10-03 by #1535.
