@@ -130,7 +130,7 @@ five ways, and each was found by a different lane)'s and is not re-raised here.
 | 8 | Looked for a survey entry outside the invoked rendezvous's domain | host proof, every ISA | held |
 | 9 | Looked for a divergence between the view predicate and the reap predicate | host proof, every ISA | held |
 | 10 | Checked each encoder's user-VA gate for the low half and alignment | three host proofs, one per ISA | held on all three |
-| 11 | Checked which encoder is proved W^X | host proof on `x86_64` only | held where proved; no aarch64 or riscv64 harness states the claim, so proposed as [no page is both writable and executable, proved on every ISA](proposals/no-page-is-both-writable-and-executable-on-every-isa.md) |
+| 11 | Checked which encoder is proved W^X | host proof on `x86_64` only | held where proved; no aarch64 or riscv64 harness states the claim, so proposed, and since built as [no page is both writable and executable, proved on every ISA](718-no-page-is-both-writable-and-executable-on-every-isa.md) |
 | 12 | Read the VT-d entry encoder for reserved bits | host proof, `x86_64` by subject | held |
 | 13 | Looked for a descriptor the shadow copies from outside the region | host proofs, every ISA | held |
 | 14 | Looked for an indirect descriptor reaching the shadow | host proof, every ISA | held |

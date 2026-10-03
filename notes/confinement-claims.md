@@ -33,7 +33,7 @@ themselves. The last column is this milestone's result.
 | 8 | A process view shows exactly the rendezvous's own children | milestone 126 | `capability::a_survey_shows_exactly_the_endpoints_own_children` | **yes** |
 | 9 | What a supervisor may see and what it may reap are one domain | milestone 126 | `capability::the_view_and_the_reap_have_the_same_scope` | **yes** |
 | 10 | A user virtual address is in the low half and page-aligned, on every ISA | §19 | `paging::{aarch64,sv39,x86_64}::the_user_va_gate_admits_only_the_aligned_low_half` | **yes, three times** |
-| 11 | No page is both writable and executable | §19 | `paging::x86_64::no_encoded_leaf_is_both_writable_and_executable` | **yes** |
+| 11 | No page is both writable and executable | §19 (architectural parity is a tenet) | `paging::{aarch64,sv39,x86_64}::no_encoded_leaf_is_both_writable_and_executable` | **yes, three times** |
 | 12 | An IOMMU entry sets no bit the hardware treats as reserved | §20 | `paging::x86_64::no_vtd_entry_ever_sets_a_reserved_bit` | **yes, since 2026-09-16, and see below** |
 | 13 | A device cannot touch memory outside its driver's granted region | §20 (IOMMU-backed DMA isolation) | `direct_memory_access_validator::in_region_is_sound`, `an_accepted_descriptor_is_confined`, `validate_and_shadow_confines_every_chain` | **yes, three** |
 | 14 | A driver cannot send its device to descriptors nothing validated | §20 | `direct_memory_access_validator::an_accepted_descriptor_is_confined` (the indirect refusal) | **yes** |
@@ -356,14 +356,14 @@ look like is what makes the rest worth reading.
 
 | Verdict | Rows | Count |
 |---|---|---|
-| **Fires as advertised** | 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 16, 18, 19, 21, 22, 23, 25 | 17 |
-| **The quotable assertion cannot run** | 4, 13, 14, 15, 20, 24 | 6 |
-| **Answered by refusing to look** | 12 | 1 |
+| Fires as advertised | 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 16, 18, 19, 21, 22, 23, 25 | 17 |
+| The quotable assertion cannot run | 4, 13, 14, 15, 20, 24 | 6 |
+| Answered by refusing to look | 12 | 1 |
 | Deliberately `unfalsified`, so neither | 17, 26 | 2 |
 
 Two of the seventeen carry an unreachable restatement *below* a headline that does fire, which is
 the same shape doing less damage: row 18's `& GRANT == 0` and row 25's two
-`rendezvous_waiting_senders` checks. They are counted where their headline is and described below.
+`rendezvous_waiting_senders` checks.
 
 Row-by-row notes on the seventeen, so a reader can tell which fact is which rather than inferring it
 from a count: rows 1, 3, 5, 6, 8, 10, 11 and 16 state their property independently of the code under
@@ -690,7 +690,7 @@ capability would let it) answers. |
   was followed by a `SEND` nobody received, so the escape hung the run: row 26's shape, one object
   over), and a third property, self-deletion, false in the tree. The fixtures were reshaped so an
   escape exits and arrives as `EVENT_EXIT` where the test wants `EVENT_FAULT`, and all three rows
-  carry a record replayed on `x86_64`. Row 27's record also names the defect that did **not** fire,
+  carry a record replayed on `x86_64`. Row 27's record also names the defect that did not fire,
   because the hand-off is protected twice (the bitmap bits and the `iomap_base` word) and only a
   defect that defeats both turns the test red. The audit is
   [design/audit-reports/2026-09-17-userspace-confinement.md](../design/audit-reports/2026-09-17-userspace-confinement.md).
