@@ -87,3 +87,27 @@ count at 104, the first entry at 112 and its offset, length and digest words. Th
 - The longest stem fills `STEM_LEN` exactly (98 bytes).
 - `catalogued_stem` refuses an empty version, a version with a hyphen, and an empty name, each
   written as a catalogue line that would otherwise be matched.
+
+## pci
+
+19 missed: 9 killed, 10 equivalent. The sweep afterwards reports 10 missed.
+
+- `BusQueue::enqueue` (2). Every one of the 256 bus numbers, named twice and in reverse order, comes
+  out once in arrival order. Bits above 63 are the case: a mask built from `bus ^ 63` shifts by 64
+  or more and panics, and `bus | 63` gives every bus below 64 the same bit.
+- `msix_cap` (1). A status with other bits set but not the capability-list bit hides a capability
+  that is sitting where the list would be.
+- `MSIX_ENABLE` and `MSIX_FUNCTION_MASK` (2), pinned to the specification's bits 15 and 14.
+- `mem32_window` (4). Three distinct cells with non-zero high halves, so a high half shifted the
+  wrong way reads as a different number; a window whose two addresses differ only in the high cell
+  is skipped; a whole entry followed by one stray cell is ragged (the old test cut a one-entry
+  range, which has no whole chunk left to be misread).
+
+The 10 equivalents are all `|` as `^` where the two operands share no bit:
+
+- `mem32_window`'s three `(hi << 32) | lo`, each cell being 32 bits.
+- `read_bars`'s three: `(mask_hi << 32) | (mask_lo & 0xffff_fff0)`, the same with `orig_hi`, and
+  `mask | 0xffff_ffff_0000_0000` where the mask is at most 32 bits.
+- `Bdf::ecam_offset` and `Bdf::requester_id` (two each). The fields are `u8`, so a device number
+  above 31 or a function above 7 would overlap its neighbour, but no enumeration produces one. A
+  test would pin what the function does with an invalid address, which nobody wants to rely on.
