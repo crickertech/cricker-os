@@ -399,20 +399,7 @@ fn a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_scanout() {
     // One `OP_WRITE` per line, so every present scrolls once; then the tail, several lines in one
     // write, so one present carries several scrolls. Both shapes reach `assert_screen_is` below
     // through the same pixels.
-    for i in 0..video_terminal::script::SCROLL_LINES {
-        let mut line = [0u8; 12];
-        let n = video_terminal::script::scroll_line(i, &mut line);
-        w.print(&line[..n]);
-    }
-    let mut tail = [0u8; 12 * video_terminal::script::SCROLL_TAIL_LINES];
-    let mut used = 0;
-    for i in 0..video_terminal::script::SCROLL_TAIL_LINES {
-        used += video_terminal::script::scroll_line(
-            video_terminal::script::SCROLL_LINES + i,
-            &mut tail[used..],
-        );
-    }
-    w.print(&tail[..used]);
+    video_terminal::script::write_scroller(|bytes| w.print(bytes));
     video_terminal::script::feed_scroller(expect, None);
     w.assert_screen_is(expect, "after the scroller");
 
@@ -631,14 +618,11 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     w.print(TEXT);
     w.print(video_terminal::script::GREETING);
     // **And past the grid's own height** (the paint path, 2026-09-30): a scroll makes the
-    // terminal present the whole covered part through this driver, whose 88-byte stride no qword
-    // aligns into, which is the geometry the wide-copy path in the flush has to survive. One
-    // write per line, so each present scrolls once.
-    for i in 0..video_terminal::script::SCROLL_LINES {
-        let mut line = [0u8; 12];
-        let n = video_terminal::script::scroll_line(i, &mut line);
-        w.print(&line[..n]);
-    }
+    // terminal present the whole covered part through this driver, whose 148-byte stride puts
+    // every other row off qword alignment, which is the geometry the wide-copy path in the flush
+    // has to survive. One write per line (each present scrolls once), then the tail (several
+    // scrolls in one present), the same writes the full-scanout witness sends.
+    video_terminal::script::write_scroller(|bytes| w.print(bytes));
 
     static mut EXPECT: video_terminal::Vt =
         video_terminal::Vt::new(video_terminal::script::COLS, video_terminal::script::ROWS);

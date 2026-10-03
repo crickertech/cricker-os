@@ -127,6 +127,28 @@ pub fn scroll_line(i: usize, out: &mut [u8]) -> usize {
     HEAD.len() + 4
 }
 
+/// **Hand the scroller to `write` in the writes a driver side sends**: [`SCROLL_LINES`] writes of
+/// one line each, then one write carrying the [`SCROLL_TAIL_LINES`]-line tail. The byte stream is
+/// exactly what [`feed_scroller`] feeds the oracle with `typo_line: None`.
+///
+/// One function rather than a loop at each call site because the call sites drifted: the tail
+/// was added to the oracle and to one witness, and the firmware-screen witness kept writing only
+/// the per-line half, so its oracle ended five scrolls ahead of its screen (the paint lane,
+/// 2026-10-02). Name: provisional, the paint lane's.
+pub fn write_scroller(mut write: impl FnMut(&[u8])) {
+    for i in 0..SCROLL_LINES {
+        let mut line = [0u8; 12];
+        let n = scroll_line(i, &mut line);
+        write(&line[..n]);
+    }
+    let mut tail = [0u8; 12 * SCROLL_TAIL_LINES];
+    let mut used = 0;
+    for i in 0..SCROLL_TAIL_LINES {
+        used += scroll_line(SCROLL_LINES + i, &mut tail[used..]);
+    }
+    write(&tail[..used]);
+}
+
 /// Feed the whole scroller ([`SCROLL_LINES`] lines then [`SCROLL_TAIL_LINES`] more) into `vt`.
 ///
 /// `typo_line` mangles one line's counter (`99` in place of its own number), for the negative

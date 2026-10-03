@@ -2983,4 +2983,75 @@ mod tests {
         t.damage_cell(1, t.rows());
         assert_eq!(t.damage(), None);
     }
+
+    /// **A painter that moves pixels and renders only the reported box ends on the same picture
+    /// as one that renders every pixel.** This is the invariant `Damage` states, checked as a
+    /// model of `display_terminal`'s present (move `scrolled` glyph rows up across the whole
+    /// surface, then render `rect`), fed the firmware-screen test's own script one write at a
+    /// time, on a surface taller than the grid the way a real scanout leaves a strip below it.
+    #[test]
+    fn moving_pixels_and_rendering_the_damage_reproduces_the_whole_picture() {
+        // One present per write (the console unbatched), and several writes per present (a
+        // batch window, or a terminal that drained more than one request before presenting).
+        moving_pixels_with_k::<1>();
+        moving_pixels_with_k::<2>();
+        moving_pixels_with_k::<3>();
+        moving_pixels_with_k::<7>();
+    }
+    fn moving_pixels_with_k<const K: usize>() {
+        use bitmap_font::{GLYPH_H, GLYPH_W};
+        let (cols, rows) = (3, 5);
+        let (sw, sh) = (cols * GLYPH_W + 2, rows * GLYPH_H + 3);
+        let mut t = Vt::new(cols, rows);
+        let mut surface = std::vec![0u32; (sw * sh) as usize];
+        let render = |t: &Vt, s: &mut [u32], x0: u32, y0: u32, w: u32, h: u32| {
+            for y in y0..y0 + h {
+                for x in x0..x0 + w {
+                    s[(y * sw + x) as usize] = t.pixel(x, y);
+                }
+            }
+        };
+        let mut first = true;
+        let mut present = |t: &mut Vt, s: &mut [u32]| {
+            let Some(d) = t.take_damage() else { return };
+            if first {
+                first = false;
+                render(t, s, 0, 0, sw, sh);
+                return;
+            }
+            let px = d.scrolled * GLYPH_H;
+            if px > 0 {
+                for y in 0..sh - px {
+                    for x in 0..sw {
+                        s[(y * sw + x) as usize] = s[((y + px) * sw + x) as usize];
+                    }
+                }
+            }
+            let (x, y, w, h) = d.rect.to_pixels();
+            render(t, s, x, y, w, h);
+        };
+        present(&mut t, &mut surface);
+        let mut writes: std::vec::Vec<std::vec::Vec<u8>> = std::vec![
+            b"\x1b[41m \x1b[44m \x1b[0m\r\n".to_vec(),
+            script::GREETING.to_vec(),
+        ];
+        script::write_scroller(|bytes| writes.push(bytes.to_vec()));
+        for (n, w) in writes.iter().enumerate() {
+            t.feed(w);
+            if n % K != K - 1 && n != writes.len() - 1 {
+                continue;
+            }
+            present(&mut t, &mut surface);
+            for y in 0..rows * GLYPH_H {
+                for x in 0..sw {
+                    assert_eq!(
+                        surface[(y * sw + x) as usize],
+                        t.pixel(x, y),
+                        "after write {n} ({:?}) the moved picture is wrong at ({x},{y})",
+                        core::str::from_utf8(w).unwrap_or("?"),
+                    );
+                }
+            }
+        }
+    }
 }
