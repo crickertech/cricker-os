@@ -280,6 +280,52 @@ fn delegate_machine_page(wired: bool) {
     }
 }
 
+/// **Whether this session holds the display devices** (milestone 632 (provisional), graphics
+/// launched from the prompt): the gpu's four at [`spawnproto::SHELL_GPU_SLOT`] and its siblings,
+/// placed there by the progenitor at boot and ours to delegate until a `graphical_terminal` session takes
+/// them. Probed once at [`_start`], for [`HOLDS_MACHINE_PAGE`]'s reasons. A boot with no gpu, a
+/// `login` session the progenitor built without them, and every witness wiring hold none, and
+/// `graphical_terminal` at those prompts is refused with a sentence rather than spawned empty-handed.
+static HOLDS_DISPLAY: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **Whether a virtio keyboard's three came with the gpu's four**: the transport at
+/// [`spawnproto::SHELL_GPU_SLOT`] + 4. A session launched without them takes its keystrokes from
+/// this prompt's own line discipline over the UART (milestone 192 (a keyboard on real silicon)'s option A, at launch), which
+/// is every real board's configuration.
+static HOLDS_KEYBOARD: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **Whether a spawn of `e` launches the graphical terminal session, and this session holds the devices for
+/// it**: the program is `graphical_terminal` and [`HOLDS_DISPLAY`] is true. The devices are not something the
+/// command line designates and no manifest declares them, which is the machine page's own
+/// reasoning one authority over; what differs is that the caps travel from *this session's*
+/// slots, because the user at this prompt is who delegates them.
+fn display_wiring(e: &Endowment) -> bool {
+    e.prog == grant_plan::Prog::GraphicalTerminal
+        && HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// **Delegate the display capabilities, in the wire's fixed order** (milestone 632 (provisional)):
+/// the gpu's four, then the keyboard's three when this session holds them, each narrowed to the
+/// rights the boot endowment carried for it. We keep our own copies, the machine page's own
+/// posture, so the session can be run again once it ends.
+fn delegate_display(devices: bool) {
+    if !devices {
+        return;
+    }
+    let transport = abi::rights::WRITE | abi::rights::GRANT;
+    let interrupt = abi::rights::READ | abi::rights::GRANT;
+    let page = abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT;
+    let rights = [transport, interrupt, page, page];
+    for (i, r) in rights.iter().enumerate() {
+        delegate(spawnproto::SHELL_GPU_SLOT + i as u64, *r);
+    }
+    if HOLDS_KEYBOARD.load(core::sync::atomic::Ordering::Relaxed) {
+        for (i, r) in rights.iter().enumerate().take(3) {
+            delegate(spawnproto::SHELL_GPU_SLOT + 4 + i as u64, *r);
+        }
+    }
+}
+
 /// The `x2` value meaning "this shell was granted no clock". Zero rather than a sentinel, because
 /// slot 0 is the terminal in every wiring, so no clock can ever legitimately be there.
 const NO_CLOCK: u64 = 0;
@@ -1482,6 +1528,16 @@ pub extern "C" fn _start(role: u64, arg: u64, clock: u64) -> ! {
     // Probed here too: see [`HOLDS_MACHINE_PAGE`].
     HOLDS_MACHINE_PAGE.store(
         user_mode_runtime::is_granted(spawnproto::MACHINE_PAGE_SLOT),
+        core::sync::atomic::Ordering::Relaxed,
+    );
+    // And here: see [`HOLDS_DISPLAY`], whose reason is [`HOLDS_MACHINE_PAGE`]'s own.
+    HOLDS_DISPLAY.store(
+        user_mode_runtime::is_granted(spawnproto::SHELL_GPU_SLOT),
+        core::sync::atomic::Ordering::Relaxed,
+    );
+    HOLDS_KEYBOARD.store(
+        HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
+            && user_mode_runtime::is_granted(spawnproto::SHELL_GPU_SLOT + 4),
         core::sync::atomic::Ordering::Relaxed,
     );
     match role {
@@ -3091,6 +3147,22 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
         None
     };
 
+    // **A `graphical_terminal` this session cannot launch stops here, loudly** (milestone 632 (provisional)),
+    // for the file-grant block's own reason: authority the user asked for must never quietly
+    // evaporate, and a session spawned with no display behind it would be exactly that. The
+    // witness wirings and every `login` session hold none, and so does a boot with no gpu.
+    if e.prog == grant_plan::Prog::GraphicalTerminal
+        && !HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
+    {
+        refused();
+        print(b"  no display on this boot; there is nothing to launch a graphical terminal session from\n");
+        if let Some(w) = &set_grant {
+            release_words_grant(w, true);
+        }
+        give_back();
+        return;
+    }
+
     // The request: program id, argument, page count, and the operators' answer (grant_plan::spawnproto).
     //
     // **`diagnostics` is false here and always will be** (DECISIONS §67). This path runs a line with
@@ -3123,6 +3195,13 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
             args: argv.is_some(),
             nameset: set_grant.is_some_and(|w| w.set.is_some()),
             machine: machine_wiring(&e),
+            // **The display devices, for a `graphical_terminal` session** (milestone 632 (provisional)): set
+            // only on a plain line, which is the only line `graphical_terminal`'s manifest can reach this
+            // path on (`Words` output refuses `>` and a pipe's left, `InputSpec::Forbidden` its
+            // right), so a stage never promises devices.
+            graphics: display_wiring(&e),
+            keyboard: display_wiring(&e)
+                && HOLDS_KEYBOARD.load(core::sync::atomic::Ordering::Relaxed),
         },
     );
     send(SPAWN, w0, w1, w2);
@@ -3153,6 +3232,10 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
         delegate(slot, abi::rights::WRITE | abi::rights::GRANT);
         cap_delete(slot); // our copy is delegated; free the slot
     }
+    // **The display devices follow the `--mem` untyped and precede the machine page**
+    // (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`), which is the order the progenitor receives
+    // them in. Our copies stay: the caps are this session's to delegate again.
+    delegate_display(display_wiring(&e));
     delegate_machine_page(machine_wiring(&e));
 
     // One reader, one word: a real program's answer, or the progenitor's spawn-failed sentinel. A program
@@ -4567,6 +4650,12 @@ fn spawn_stage(
         args: argv.is_some(),
         nameset: words.is_some_and(|w| w.set.is_some()),
         machine: machine_wiring(&e),
+        // **A stage never promises devices** (milestone 632 (provisional)): `graphical_terminal`'s manifest
+        // refuses every operator that builds a stage (`Words` output refuses `>` and a pipe's
+        // left, `InputSpec::Forbidden` its right), so this is false by construction rather than
+        // by decision, and says so for the reader checking the wire.
+        graphics: false,
+        keyboard: false,
     };
     let (w0, w1, w2) = spawnproto::request(e.prog.id(), e.arg, e.mem_pages, wiring);
     send(SPAWN, w0, w1, w2);
@@ -4802,6 +4891,10 @@ fn spawn_interruptible(e: Endowment) {
             // An interruptible child is built with no capabilities at all (it reports through the
             // job frame), so there is nowhere to put the machine page.
             machine: false,
+            // And nowhere to put display devices either, for that same reason; a `graphical_terminal`
+            // session is a plain spawn, never a supervised job.
+            graphics: false,
+            keyboard: false,
         },
     );
     // **Out of raw mode before the job exists** (DECISIONS §227 (how Tab reaches the shell)

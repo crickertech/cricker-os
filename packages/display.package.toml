@@ -15,4 +15,5 @@ programs = [
     "framebuffer_driver",
     "keyboard_driver",
     "display_terminal",
+    "graphical_terminal",
 ]

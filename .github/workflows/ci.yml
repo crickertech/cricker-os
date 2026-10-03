@@ -714,9 +714,10 @@ jobs:
       # `swish-check-graphical` (milestone 177 (wire the graphical terminal stack into the real
       # interactive boot)), its own job since the 2026-09-30 split (#1468) and before that a rider
       # on the suite job. It boots the same `--features shell` kernels the swish-check job builds,
-      # with a virtio-gpu attached, and reads the prompt and one typed key back off the screen:
-      # four boots in all, a keyboard and the UART as the keystroke source on both architectures.
-      # Until milestone 177 nothing ran it, and the graphical boot had never once drawn a prompt.
+      # with a virtio-gpu attached. Since milestone 632 (graphics on demand) the boot is the plain
+      # UART system: each leg types `graphical_terminal` at the serial prompt and reads the
+      # session's prompt and one typed key back off the screen. Four boots in all, a keyboard and
+      # the UART as the keystroke source on both architectures.
       - run: script/ci-build swish-check-graphical
         if: steps.scope.outputs.needed == 'true'
 

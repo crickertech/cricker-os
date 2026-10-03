@@ -62,6 +62,19 @@ is how it already built `entropy` and `net_stack`.
   `keyboard_service::start_direct`, and `kernel/src/user/input_service.rs`. The last existed only to
   spawn `input` in the kernel on a graphical boot.
 
+## The builder moved again: from the boot to the launch (2026-09-30)
+
+calef's 2026-09-30 ruling (milestone
+[632](632-graphics-on-demand-screen-launched-from-the-prompt.md)) moved where this stack is built.
+No boot builds it any more. `build_graphical_stack`, rewritten as `build_graphical_terminal_session`, runs in
+the spawn service when a `graphical_terminal` session is launched from the swish prompt. Everything this
+milestone decided survives. The kernel grants the devices rather than building them, and the slots
+are the same. So are the DMA-base-in-the-first-page convention and the measured programs. The
+one-time reports (`UP`, `TERM_UP`, `FLUSHED`, `KEYBOARD_UP`) are still taken in the order the drivers
+send them, which is this milestone's three-week lesson carried forward. The BUGS entries below
+describe the boot-time builder and are historical. The silent trap became a refused launch, and the
+UART is never freed early, because no boot has a keyboard to free it for.
+
 ## What proves it
 
 `script/swish-check --graphical` and `--graphical-serial` boot the real progenitor on aarch64 and
@@ -121,3 +134,5 @@ itself is milestone 23's, and one cost of it is below.
 The progenitor builds `gpu_driver`, `display_terminal` and `keyboard_driver` from device grants
 where the kernel used to build all three, now that a gpu's DMA region is one capability. Proven by
 both graphical `swish-check` legs on aarch64 and riscv64; x86_64 has no virtio-gpu.
+*2026-09-30, milestone 632 (graphics on demand): no boot builds anything graphical now. The same
+builder runs at a `graphical_terminal` launch, from the same grants, and the legs prove it there.*

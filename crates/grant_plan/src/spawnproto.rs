@@ -24,9 +24,10 @@
 //! 3. **Delegation.** The capabilities the request announced, in a fixed order: the supervised
 //!    job's pair (untyped, frame), then the **sink** (milestone 50), then the **source**, then the
 //!    **diagnostic endpoint** (DECISIONS §67), then the **screen-narrowed tail's completion
-//!    endpoint** (DECISIONS §106), then the `--mem` untyped. Order rather than tags, because both
-//!    sides read the same [`Wiring`] out of the same word and a promise nobody receives would
-//!    deadlock both.
+//!    endpoint** (DECISIONS §106), then the `--mem` untyped, then the **gpu's four** and the
+//!    **keyboard's three** (milestone 632 (provisional), graphics launched from the prompt), then
+//!    the **machine statistics page**, last. Order rather than tags, because both sides read the
+//!    same [`Wiring`] out of the same word and a promise nobody receives would deadlock both.
 //!
 //!    If `mem_pages > 0`, the shell `SEND_CAP`s exactly one capability there: an
 //!    untyped it split from *its own* budget, sized to `mem_pages`. This is the grant made real,
@@ -284,6 +285,31 @@ const ARGS_BIT: u64 = 1 << 42;
 /// Name: ratified 2026-09-27 (calef, #1360's table).
 const MACHINE_BIT: u64 = 1 << 44;
 
+/// **The gpu's four capabilities follow** (milestone 632 (provisional), calef's 2026-09-30 ruling
+/// that graphics is launched from the prompt rather than built at boot): the confined transport,
+/// the completion interrupt, the whole DMA run and the surface run, in that order, each narrowed
+/// to what the boot endowment carries. They come from the session's own slots
+/// ([`SHELL_GPU_SLOT`] and its siblings), which the progenitor fills at boot, so what reaches the
+/// graphical terminal session is what the user at the prompt delegated: the model's own shape, the machine
+/// page's own precedent one authority over.
+///
+/// Meaningful only for a `graphical_terminal` request, and the progenitor refuses any other program that sets
+/// it rather than endowing caps a program never declared.
+///
+/// Name: ratified 2026-10-03 (calef, #1493). Refused one device-bundle bit covering both (it adds a
+/// second way of saying what a request carries).
+const GRAPHICS_BIT: u64 = 1 << 45;
+
+/// **A virtio keyboard's three capabilities follow** (milestone 632 (provisional)): the transport,
+/// the event interrupt and the DMA page, in that order. **Meaningless unless [`GRAPHICS_BIT`] is
+/// also set**, the same pair-shape [`DIR2_BIT`] already records: a keyboard with no screen has no
+/// terminal to type into on this boot. When it is absent the graphical terminal session takes its keystrokes
+/// from the boot's own line discipline over the UART, which is milestone 192 (a keyboard on real
+/// silicon)'s option A, decided, at launch rather than at boot.
+///
+/// Name: ratified 2026-10-03 (calef, #1493), with bit 46 and its meaning only with bit 45.
+const KEYBOARD_BIT: u64 = 1 << 46;
+
 /// **Where a session holds the machine statistics page** (milestone 126, DECISIONS §225): `READ |
 /// GRANT`, so it can delegate it with [`MACHINE_BIT`] and not write it. A named slot probed at
 /// `_start`, for [`RUN_UNVOUCHED_SLOT`]'s reasons.
@@ -293,6 +319,33 @@ const MACHINE_BIT: u64 = 1 << 44;
 ///
 /// Name: ratified 2026-09-27 (calef, #1360's table).
 pub const MACHINE_PAGE_SLOT: u64 = 20;
+
+/// **Where a session holds the gpu's confined transport** (milestone 632 (provisional)), with its
+/// three siblings beside it: the completion interrupt at 23, the DMA run at 24, the surface run at
+/// 25, and, when a virtio keyboard exists, its transport at 26, event interrupt at 27 and DMA page
+/// at 28. `WRITE | GRANT` on the transport, `READ | GRANT` on each interrupt, `READ | WRITE |
+/// GRANT` on each page: exactly the rights the kernel granted the progenitor, which places them
+/// here at the shell's build and keeps no copy, for [`MACHINE_PAGE_SLOT`]'s own reasons. A boot
+/// with no GPU leaves all seven empty, and the shell's `_start` probe is what tells that apart.
+///
+/// **Twenty-two through twenty-eight**, the block between [`crate::SHELL_CONFIG_SLOT`] (21) and
+/// [`RUN_UNVOUCHED_SLOT`] (30): a named block rather than next-free numbering, because the shell
+/// probes these slots rather than being told, and a probe is sound only for a slot nothing else
+/// allocates into. One block of seven, contiguous, so the relation to the two slots that fence it
+/// reads as two assertions rather than seven.
+///
+/// Name: ratified 2026-10-03 (calef, #1493), with slots 22 to 28 and the delegation order (after the
+/// `--mem` untyped, before the machine statistics page).
+pub const SHELL_GPU_SLOT: u64 = 22;
+
+// The seven graphical slots are one contiguous block fenced by two named ones, and these two
+// assertions are the fence: above the shell's configuration page, below the run-unvouched slot
+// (and so below the kernel's fault slot, which each binary asserts against `abi` itself, for the
+// reason `RUN_UNVOUCHED_SLOT`'s own doc gives). A slot outside the fence would be one a runtime
+// allocation could land in, and a probe there would be sound only in a table that is almost full.
+const _: () = assert!(SHELL_GPU_SLOT > MACHINE_PAGE_SLOT);
+const _: () = assert!(SHELL_GPU_SLOT > crate::SHELL_CONFIG_SLOT);
+const _: () = assert!(SHELL_GPU_SLOT + 6 < RUN_UNVOUCHED_SLOT);
 
 /// **The directory grant is a set of names, and the set follows as one frame** (milestone 205 (how
 /// a foreign program is told what to do), §170 clauses 2 to 5). Meaningful with [`Wiring::dir`]: the
@@ -569,11 +622,17 @@ pub struct Wiring {
     /// **The line's argv follows as one `READ` frame** (DECISIONS §170). See `ARGS_BIT`.
     pub args: bool,
     /// **The directory grant is a set of names, which follows as one `READ` frame** (milestone
-    /// 205). See `NAMESET_BIT`.
+    /// 205). See [`NAMESET_BIT`].
     pub nameset: bool,
     /// **The machine statistics page follows as the last delegated capability** (milestone 126).
-    /// See `MACHINE_BIT`.
+    /// See [`MACHINE_BIT`].
     pub machine: bool,
+    /// **The gpu's four capabilities follow, and the graphical terminal session is to be built from them**
+    /// (milestone 632 (provisional)). See [`GRAPHICS_BIT`].
+    pub graphics: bool,
+    /// **A virtio keyboard's three follow beside the gpu's four** (milestone 632 (provisional)).
+    /// See [`KEYBOARD_BIT`]; meaningless unless `graphics` is also set.
+    pub keyboard: bool,
 }
 
 /// Build the three request words from a resolved endowment's parts.
@@ -615,6 +674,12 @@ pub fn request(prog_id: u64, arg: u64, mem_pages: u64, w: Wiring) -> (u64, u64, 
     if w.machine {
         w2 |= MACHINE_BIT;
     }
+    if w.graphics {
+        w2 |= GRAPHICS_BIT;
+    }
+    if w.keyboard {
+        w2 |= KEYBOARD_BIT;
+    }
     (prog_id, arg, w2)
 }
 
@@ -634,6 +699,8 @@ pub fn wiring(w2: u64) -> Wiring {
         args: w2 & ARGS_BIT != 0,
         nameset: w2 & NAMESET_BIT != 0,
         machine: w2 & MACHINE_BIT != 0,
+        graphics: w2 & GRAPHICS_BIT != 0,
+        keyboard: w2 & KEYBOARD_BIT != 0,
     }
 }
 
@@ -790,17 +857,18 @@ mod tests {
         assert_eq!(mem_pages(w2), 0);
     }
 
-    /// **The twelve flags are independent of each other and of the page count** (milestone 50 (pipes
+    /// **The fourteen flags are independent of each other and of the page count** (milestone 50 (pipes
     /// and redirection), §67 (a program's second stream is a declaration)'s fourth, milestone 31 (a
     /// capability shell) phase 3's fifth, DECISIONS §106 (the `terminal_sink_caretaker` narrowing)'s
     /// sixth, milestone 154 (a process that holds two directory capabilities)'s seventh, §219's
-    /// image and its gate D2, §170's argv and name set, and milestone 126's machine page). They
+    /// image and its gate D2, §170's argv and name set, milestone 126's machine page, and
+    /// milestone 632 (provisional)'s gpu and keyboard). They
     /// share one word, and what the progenitor reads
     /// next off the endpoint depends on all of them, so a bit that bled into another would make the
     /// progenitor take a capability for a data word (or the reverse) and hang rather than fail.
     #[test]
     fn the_wiring_flags_do_not_collide() {
-        for m in 0u32..1 << 12 {
+        for m in 0u32..1 << 14 {
             let b = |i: u32| m & (1 << i) != 0;
             let w = Wiring {
                 interruptible: b(0),
@@ -815,6 +883,8 @@ mod tests {
                 args: b(9),
                 nameset: b(10),
                 machine: b(11),
+                graphics: b(12),
+                keyboard: b(13),
             };
             let (_, _, w2) = request(3, 0, 64, w);
             assert_eq!(wiring(w2), w, "{w:?}");
@@ -877,6 +947,8 @@ mod tests {
             args: true,
             nameset: true,
             machine: true,
+            graphics: true,
+            keyboard: true,
         };
         let (_, w1, w2) = request(3, 2, 64, all);
         assert_eq!(activation(w1, w2), None);
