@@ -7,28 +7,28 @@ milestone design, not a one-off comparison.
 
 ## The rule: the reuse boundary is the TCB boundary
 
-**Inside the TCB, always build.** Two reasons, both structural rather than cautious:
+Inside the TCB, always build. Two reasons, both structural rather than cautious:
 
-1. **Verification.** Anything in the TCB must be provable, and nobody writes code to be
+1. Verification. Anything in the TCB must be provable, and nobody writes code to be
    proved by accident. Foreign kernel code imported into the TCB is unverified surface that
    undercuts DECISIONS §14 directly. The proofs we have (caps, IPC, MMU invariants; see
    notes/verification.md) exist because the code was shaped for them.
-2. **The thesis.** The demonstrator's claim is about *this* capability core. A kernel that
+2. The thesis. The demonstrator's claim is about *this* capability core. A kernel that
    is partly someone else's demonstrates less, whatever its quality.
 
-**Pure-logic crates: prefer a maintained no_std crate, unless building it is the point.**
+Pure-logic crates: prefer a maintained no_std crate, unless building it is the point.
 The §7 crates we wrote by hand (`device_tree_blob`, `elf`, `paging`, `heap`, `capability`, ...) were the point;
 they are also now proved or provable, so they stay. For peripheral plumbing not yet built
 (a PCI capability walker, a GPT parser, a font rasterizer), the calculus flips: a
 well-maintained kernel-agnostic crate beats a bespoke one we then have to trust anyway.
 
-**Userspace components: actively prefer porting.** This is not a compromise of the
+Userspace components: actively prefer porting. This is not a compromise of the
 demonstrator; it can be evidence *for* it. Milestone 23's ambition is vendor-shippable
 components confined by the kernel. A ported foreign component running confined behind the
 capability contract demonstrates exactly that: the kernel safely runs code we did not
 write. Userspace reuse feeds the thesis.
 
-**Two guards, regardless of layer.** No reuse may widen the syscall surface (that is a
+Two guards, regardless of layer. No reuse may widen the syscall surface (that is a
 design fork, per CLAUDE.md), and no reuse may smuggle in POSIX assumptions (open-by-path,
 fork/exec, ambient authority). A component that cannot live behind explicit capabilities
 is not a candidate, however good its code.
@@ -44,9 +44,9 @@ of fragments. Their userspace is where the portable assets live:
 | Component | Fit | When |
 |---|---|---|
 | **RedoxFS** (`redoxfs` crate) | Best single candidate, **named in milestone 32 and audited** (notes/redoxfs-audit.md): the no_std core compiles for both bare-metal targets at 0.9.1, two import lines from clean; port plan fixed in the roadmap block. | Milestone 32 |
-| **relibc** | Long shot; the only credible one if 19's "Linux-compat later" fork is taken. It has a platform layer targeting Linux and Redox; a third backend against our native ABI (notes/abi.md) is conceivable. The catch: it assumes fork/exec-ish process semantics that explicit-endowment `Spawn` deliberately does not provide. Note it, do not plan on it. | 19 compat fork, if taken |
-| **Userspace drivers** (NVMe, e1000, xHCI, ps2) | Reference implementations, not code. Written against Redox's scheme and IRQ model, but the register-level logic is the hard-won part and it reads well. | 16, 24 (real hardware) |
-| **ion, Orbital, pkgutils** | No. ion needs POSIX and we have a shell; the rest is out of scope. | never |
+| relibc | Long shot; the only credible one if 19's "Linux-compat later" fork is taken. It has a platform layer targeting Linux and Redox; a third backend against our native ABI (notes/abi.md) is conceivable. The catch: it assumes fork/exec-ish process semantics that explicit-endowment `Spawn` deliberately does not provide. Note it, do not plan on it. | 19 compat fork, if taken |
+| Userspace drivers (NVMe, e1000, xHCI, ps2) | Reference implementations, not code. Written against Redox's scheme and IRQ model, but the register-level logic is the hard-won part and it reads well. | 16, 24 (real hardware) |
+| ion, Orbital, pkgutils | No. ion needs POSIX and we have a shell; the rest is out of scope. | never |
 
 Licensing is a non-issue: Redox is MIT, compatible with our MIT/Apache-2.0 dual license.
 
@@ -56,30 +56,30 @@ Redox is not the richest donor. For crate-level plumbing, the kernel-agnostic no
 ecosystem is closer to our shape, because those crates were built to be embedded in someone
 else's kernel:
 
-- **rCore / Arceos ecosystem** (`virtio-drivers`, and friends). Kernel-agnostic virtio,
+- rCore / Arceos ecosystem (`virtio-drivers`, and friends). Kernel-agnostic virtio,
   written for exactly our situation. Our virtio is built, but this is the model of what a
   reusable donor crate looks like.
-- **Tock** (`tock-registers`). Type-safe MMIO register definitions; the pattern is worth
+- Tock (`tock-registers`). Type-safe MMIO register definitions; the pattern is worth
   copying even where the crate is not taken.
-- **Hubris** (Oxide). Not a donor of code (its all-static task model is very different) but
+- Hubris (Oxide). Not a donor of code (its all-static task model is very different) but
   a donor of designs: their idol IPC interface definitions and their debugger story
   (humility) are prior art for milestone 23's component contracts.
-- **seL4 ecosystem.** The design donor throughout (CDT, Reply caps, CAmkES/Microkit for
+- seL4 ecosystem. The design donor throughout (CDT, Reply caps, CAmkES/Microkit for
   component composition, CapDL for trusted init in milestone 22). Code reuse is nil (C,
   and their proofs are theirs), but every capability-model fork should check what seL4 did
   first. Already the habit; see the roadmap's Prior-art sections.
-- **SHILL / Plash / Polaris** (capability shells). Designs only, nothing portable: SHILL
+- SHILL / Plash / Polaris (capability shells). Designs only, nothing portable: SHILL
   (OSDI 2014) for per-script capability contracts, Miller's E/CapDesk/Polaris for designation-
   is-authorization, Plash as the Linux mistake catalog. Named in milestone 31.
-- **smoltcp**. The no_std TCP/IP stack, kernel-agnostic and event-driven, proven across
+- smoltcp. The no_std TCP/IP stack, kernel-agnostic and event-driven, proven across
   embedded Rust (Redox has shipped on it). Named in milestone 30 as the plan's easiest reuse
   call: the thesis is the kernel confining the network stack, never the stack itself.
-- **libghostty-vt** (Ghostty's extracted VT core). Zero-dependency, no libc, no allocations,
-  C ABI: nearly a purpose-built description of "runnable as a nife userspace component",
+- libghostty-vt (Ghostty's extracted VT core). No libc, C ABI, supplied allocator
+  (corrected 2026-10-03 UTC): nearly a purpose-built description of "runnable as a nife userspace component",
   and in Zig, which makes it the strongest candidate anywhere for milestone 23's full claim (a
   confined vendor component in a foreign language). Named in milestone 29; API still in flux,
   so any adoption pins a version. The single-toolchain fallback is `vte`.
-- **RedLeaf, and the language-isolation line it belongs to.** Not a donor of anything: x86_64 only,
+- RedLeaf, and the language-isolation line it belongs to. Not a donor of anything: x86_64 only,
   no license declared, and last touched in January 2022. It is on this list because it is the
   closest academic relative nife has and it makes the *opposite* bet about where isolation comes
   from, which is the only reason worth putting a system here that we will never take code from.
@@ -93,15 +93,15 @@ else's kernel:
 
 ## Calls on the record
 
-- **`pci` crate (2026-07-27): built, over `pci_types`.** Made during the overnight PCIe run
+- `pci` crate (2026-07-27): built, over `pci_types`. Made during the overnight PCIe run
   without the survey pass this note requires; recorded the next day in DECISIONS §18 with the
   honest split: the host-testable closure shape and the witness tests favored building, the
   rule favored reuse, and the omission of the pass is the actual lesson. Kept.
 
-- **`nifefs` (2026-07-27): kept, over `tar-no-std`/ustar.** Weighed retroactively on
+- `nifefs` (2026-07-27): kept, over `tar-no-std`/ustar. Weighed retroactively on
   calef's question, with the swap costed out. The format predates this note (a learning-era
   artifact), but the keep decision is a fresh application of the rule: the kernel parses the
-  initrd itself, so the parser sits **inside the TCB**, which is exactly where the rule says
+  initrd itself, so the parser sits inside the TCB, which is exactly where the rule says
   build; 263 lines we wrote and test beat someone else's header arithmetic on boot input.
   The swap's real benefits (standard tooling, `tar tvf` inspection, ~260 lines retired) are
   ergonomic, its cost is churn across the kernel boot path, four userspace binaries, and
@@ -114,9 +114,9 @@ else's kernel:
 
 ## The convention
 
-Every milestone file in design/roadmap/ carries a **"Prior art"** section. The
+Every milestone file in design/roadmap/ carries a "Prior art" section. The
 convention, from here on: that section covers *reuse* too, answering three questions before
-building: is there **code to use**, a **design to copy**, or a **mistake to avoid**, in the
+building: is there code to use, a design to copy, or a mistake to avoid, in the
 ecosystems above? The build-vs-reuse call gets recorded with its reason, the same as any
 decision. When the answer is "build", say why; when it is "port", the two guards above
 still apply.
