@@ -263,7 +263,8 @@ NAME_STATUSES = name_provenance.STATUSES
 # scar: a status missing from a list was counted as zero for five days), and the difference here is
 # that the bucket is visible in the CSV, the value is named on stderr, and the invariant still
 # balances, so the reader is told rather than reassured.
-MODEL_SLUGS = ['opus_5', 'opus_5_5', 'opus_4_8', 'sonnet_5', 'fable_5', 'fable_5_1', 'other_models']
+MODEL_SLUGS = ['opus_5', 'opus_5_5', 'opus_4_8', 'sonnet_5', 'fable_5', 'fable_5_1', 'sonnet_5_5',
+               'haiku_4_5', 'glm_5_3', 'glm_5_3_flash', 'other_models']
 
 # Every trailer value this repository has ever carried, mapped to its column. Checked 2026-09-24
 # against all 5,487 commits: 2,934 carry a trailer and these seven spellings are all of them.
@@ -279,9 +280,39 @@ MODEL_TRAILERS = {
     'Claude Sonnet 5': 'sonnet_5',
     'Claude Fable 5': 'fable_5',
     'Claude Fable 5.1': 'fable_5_1',
+    'Claude Sonnet 5.5': 'sonnet_5_5',
+    'Claude Haiku 4.5': 'haiku_4_5',
+    'GLM 5.3': 'glm_5_3',
+    'GLM 5.3 Flash': 'glm_5_3_flash',
     'Claude Code': 'other_models',
 }
 MODEL_UNKNOWN = 'other_models'
+
+# **The trailer is not the only evidence of who wrote a commit** (milestone 725 (machine effort and commit
+# attribution count every vendor), provisional). From 2026-09-29 to 2026-10-01 the work ran on z.ai's GLM
+# models under opencode, which signed nothing, so 152 commits read as `unattributed`. opencode's
+# own database holds proof for them (a `git commit` tool call with the sha git printed, or the
+# subject it committed), and a runner has no such database, so `script/effort --attribute` writes
+# the proof into `commit-models.csv` and this reads that file. The file's names are trailer
+# spellings, so a commit it names takes the same path as a signed one. A trailer on the commit wins
+# over the file, and a sha absent from the file stays `unattributed`: the column still means "no
+# evidence", it just no longer means "no evidence in git".
+COMMIT_MODELS_PATH = pathlib.Path('notes/project-metrics/commit-models.csv')
+
+
+def commit_models(path=COMMIT_MODELS_PATH):
+    """{commit sha: trailer-spelled model name} from the committed attribution record."""
+    if not path.exists():
+        return {}
+    with path.open() as handle:
+        return {row['sha']: row['model'] for row in csv.DictReader(handle)}
+
+
+def signed_by(sha, trailer_names, recorded):
+    """The model names a commit is attributed to: its own trailers, else the record's, else none."""
+    if trailer_names:
+        return trailer_names
+    return [recorded[sha]] if sha in recorded else []
 
 # The three buckets no model owns. `pre_convention` is split out of `unattributed` because the two
 # hide different facts: a commit made before the first trailer ever appeared could not have carried
@@ -739,12 +770,14 @@ def models_by_week(rev):
     merge_parents = set(git('log', '--min-parents=2', '--format=%H', rev).decode().split())
     first_trailer = None
     records = []
+    recorded = commit_models()
     for chunk in log.split('\x1e'):
         if not chunk.strip():
             continue
         head, _, rest = chunk.partition('\n')
         sha, when, trailers = head.split('\t')
         names = [normalize_model(t) for t in trailers.split('\x1f') if t.strip()]
+        names = signed_by(sha, names, recorded)
         churn = 0
         for line in rest.split('\n'):
             if not line.strip():
@@ -2133,8 +2166,8 @@ def _fold(kind):
     """The chart's `other models` band: every model outside the four that have a hue.
 
     The palette has eight fixed slots and its own comment rules that a ninth series folds into
-    another rather than inventing a colour. The CSV keeps `opus_4_8`, `fable_5_1` and
-    `other_models` apart, because that is where a reader checks arithmetic; the chart adds them,
+    another rather than inventing a colour. The CSV keeps `opus_4_8`, `fable_5_1`, `sonnet_5_5`,
+    `haiku_4_5`, the two GLM columns and `other_models` apart, because that is where a reader checks arithmetic; the chart adds them,
     because a band of seven commits is a legend entry and not a shape.
 
     `opus_4_8` folded here on 2026-09-24, when Opus 5.5 needed a hue and the commits chart was
@@ -2145,7 +2178,8 @@ def _fold(kind):
     """
     def derive(row):
         return sum(_cell(row, _model_col(kind, s))
-                   for s in ('opus_4_8', 'fable_5_1', 'other_models'))
+                   for s in ('opus_4_8', 'fable_5_1', 'sonnet_5_5', 'haiku_4_5', 'glm_5_3',
+                   'glm_5_3_flash', 'other_models'))
     return derive
 
 
@@ -2271,8 +2305,8 @@ CHARTS = [
      'is where trunk-health starts to say so',
      [('ejected share', 'queue_ejection_pct')], 1.0, (20, 'reported above'), 'queue_ejection_pct'),
     ('models-commits.svg', 'Commits each week, by the model that signed them',
-     'from the Co-Authored-By trailer; attributed + unattributed + merge is every commit that '
-     'week, and a merge is a pull request landing rather than a piece of writing',
+     'from the Co-Authored-By trailer, and for GLM commits from commit-models.csv (in other '
+     'models); attributed + unattributed + merge is every commit that week',
      [('Opus 5', 'model_commits_opus_5'), ('Opus 5.5', 'model_commits_opus_5_5'),
       ('Sonnet 5', 'model_commits_sonnet_5'), ('Fable 5', 'model_commits_fable_5'),
       ('other models', 'model_commits_other_shown'),
@@ -2758,7 +2792,26 @@ def selftest():
         write_week_notes_bullets({}, page_file)
         gone = page_file.read_text()
 
+    with tempfile.TemporaryDirectory() as tmp:
+        record = pathlib.Path(tmp) / 'commit-models.csv'
+        record.write_text('sha,model,source\n' + 'a' * 40 + ',GLM 5.3,opencode-sha\n'
+                          + 'b' * 40 + ',GLM 5.3 Flash,opencode-subject\n')
+        recorded = commit_models(record)
+        absent = commit_models(pathlib.Path(tmp) / 'no-such-file.csv')
+
     cases = [
+        ('a recorded sha with no trailer takes the recorded model',
+         signed_by('a' * 40, [], recorded), ['GLM 5.3']),
+        ('a trailer wins over the record', signed_by('a' * 40, ['Claude Opus 5'], recorded),
+         ['Claude Opus 5']),
+        ('a sha in neither stays unattributed', signed_by('c' * 40, [], recorded), []),
+        ('Claude Sonnet 5.5 has its own column, as signed in git',
+         MODEL_TRAILERS[normalize_model('Claude Sonnet 5.5 <noreply@anthropic.com>')], 'sonnet_5_5'),
+        ('Claude Haiku 4.5 has its own column, as signed in git',
+         MODEL_TRAILERS[normalize_model('Claude Haiku 4.5 <noreply@anthropic.com>')], 'haiku_4_5'),
+        ('a missing record is empty, not an error', absent, {}),
+        ('the record names map to columns',
+         [MODEL_TRAILERS[recorded[s]] for s in ('a' * 40, 'b' * 40)], ['glm_5_3', 'glm_5_3_flash']),
         ('a move over a tenth flags, falling',
          [f for f, _p, _n in flags['2026W03']], ['kernel_code_lines']),
         ('a move of exactly one tenth does not flag', '2026W02' in flags, False),

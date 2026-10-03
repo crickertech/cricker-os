@@ -64,7 +64,7 @@ Full rows, with every flag and the history behind each: [process-measures.md](sc
 | `script/cadence-check` | Which scheduled workflows have stopped producing a result? |
 | `script/redo-rate` | How often delegated work has to be done again. |
 | `script/nanny` | Work the merge queue by delegating the rebases. |
-| `script/effort` | Machine effort spent per ISO week. |
+| `script/effort` | Machine effort spent per ISO week, from Claude Code and opencode records; `--attribute` records which unsigned commits an opencode session made. |
 | `script/stranger-test` | Hand the repository to a fresh process and record what it could not work out. |
 
 ### Boards and boot checks
