@@ -215,15 +215,17 @@ the reasoning is kept to one line each so a reader can check the rule against it
   version-set tool's installer meeting a version a user has decided is bad. The ruled format does
   not preclude it: a denial can join as a third line kind beside rows and defaults, checked at the
   same choke point.
-- **The PR's CI legs met the second-fetch flake, not a 614 defect** (diagnosed 2026-09-30 UTC). Runs
-  36634645172 and its 04:02 rerun failed `swish-check` aarch64 at `package install greeting` with
-  "the package source did not send a whole package", cascading into this block's off-by-one
-  generation lines. Read out of the code: the fetch path is length-checked end to end, the refusal
-  was fast rather than a timeout, and the same evening's cluster hit another pull request's merge
-  queue. The mechanism, the proof and the run list are the truncation section of
-  [notes/swish-check-flake.md](../../notes/swish-check-flake.md). This milestone's transcript bullet
-  still wants its green legs; the cluster ended at 04:02 and the branch's one later failure is a
-  different signature.
+- **Corrected 2026-10-02 UTC: the fetch failure was this milestone's defect, not a flake.** The
+  2026-09-30 diagnosis called it the second-fetch flake; every leg of this branch that reached
+  `package install greeting` failed the same way (five of five runs, through 2026-10-01), and the
+  cross-PR merge-queue runs it cited batched this pull request. The cause: adding
+  `greeting-0.2.0.recipe.toml` put two `greeting` stems in the image's catalogue, and
+  `package_archive::catalogued_stem` took the first line, which recipe filenames ordered as 0.2.0
+  (`-` sorts before `.`). The gate's source serves only 0.1.0, so the guest's GET was a 404. Now a
+  bare fetch of a name catalogued at several versions is refused as `Ambiguous` before the network,
+  and `package install greeting@0.1.0` (ruling 5's spelling) picks one. The refusal names no
+  candidates, because the shell does not read the catalogue; a reader who wants them has the
+  recipes. Revisit when §220 (signed builds) makes catalogue versions something a person adds.
 
 ## Follow-on
 
@@ -234,7 +236,8 @@ Added by the build lane, 2026-09-29.
   run names them. How checked: `script/swish-check` green on aarch64, riscv64 and x86_64 in CI.
 - **Outstanding.** Ratification: `swish::versions`, its `versions` file, the `program@version`
   spelling, the `as` recipe key, `greeting_two`, the `default` line kind, `NO_VERSION`,
-  `without_version`, `versions_of`, `Ambiguous` and the divergence wording are provisional. The
+  `without_version`, `versions_of`, `Ambiguous`, `StemMiss`, the `package install
+  <package>@<version>` spelling and the divergence wording are provisional. The
   names and the format await an architect through a `design/decisions/` section by the integrator
   (Done means, last bullet).
 
