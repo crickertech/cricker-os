@@ -452,265 +452,6 @@ mod verification {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A version-1 structure with the values QEMU's `q35` actually produced on 2026-08-23, read
-    /// back out of the guest. Built by hand rather than captured as a blob so a reader can see
-    /// which field is which.
-    fn qemu_q35() -> [u8; V1_LEN] {
-        let mut b = [0u8; V1_LEN];
-        b[0..4].copy_from_slice(&MAGIC.to_le_bytes());
-        b[4..8].copy_from_slice(&1u32.to_le_bytes()); // version
-        b[8..12].copy_from_slice(&0u32.to_le_bytes()); // flags
-        b[12..16].copy_from_slice(&0u32.to_le_bytes()); // nr_modules
-        b[16..24].copy_from_slice(&0u64.to_le_bytes()); // modlist
-        b[24..32].copy_from_slice(&0u64.to_le_bytes()); // cmdline
-        b[32..40].copy_from_slice(&0x000f_5a30u64.to_le_bytes()); // rsdp, in the BIOS area
-        b[40..48].copy_from_slice(&0x0000_15b0u64.to_le_bytes()); // memmap
-        b[48..52].copy_from_slice(&4u32.to_le_bytes()); // memmap_entries
-        b
-    }
-
-    /// **The magic is checked before anything else is believed.** This is the first thing the
-    /// kernel does with a pointer the loader chose, so a wrong pointer has to be an error rather
-    /// than a memory map that looks reasonable.
-    #[test]
-    fn a_wrong_magic_is_refused_and_reports_what_it_saw() {
-        let mut b = qemu_q35();
-        b[0..4].copy_from_slice(&0xdead_beefu32.to_le_bytes());
-        assert_eq!(
-            BootInfo::parse(&b),
-            Err(BootInfoError::BadMagic(0xdead_beef))
-        );
-    }
-
-    /// **Every prefix shorter than the structure is refused, and the shortest one that is long
-    /// enough is accepted**, for both of the two sizes a handoff can have.
-    ///
-    /// The acceptance half is the one an "it returns an error" test leaves out, and it is what
-    /// separates `len < V0_LEN` from `len <= V0_LEN`: a guard one byte too tight refuses a
-    /// version-0 handoff that is exactly complete, which no malformed input can show.
-    fn every_short_prefix_is_refused(bytes: &[u8], fixed_len: usize) {
-        for len in 0..fixed_len {
-            assert_eq!(
-                BootInfo::parse(&bytes[..len]),
-                Err(BootInfoError::Truncated),
-                "{len} bytes is short of the {fixed_len} this structure needs",
-            );
-        }
-        BootInfo::parse(&bytes[..fixed_len])
-            .expect("a structure that is exactly complete must not be refused");
-    }
-
-    #[test]
-    fn no_prefix_of_a_handoff_reads_past_its_own_end() {
-        let mut v0 = qemu_q35();
-        v0[4..8].copy_from_slice(&0u32.to_le_bytes());
-        every_short_prefix_is_refused(&v0[..V0_LEN], V0_LEN);
-        every_short_prefix_is_refused(&qemu_q35(), V1_LEN);
-    }
-
-    /// Bytes that end inside the structure are refused rather than read past.
-    #[test]
-    fn a_truncated_structure_is_refused() {
-        let b = qemu_q35();
-        assert_eq!(BootInfo::parse(&b[..20]), Err(BootInfoError::Truncated));
-        // Long enough for version 0, but the version says 1, so the memory-map fields must be
-        // there and are not.
-        assert_eq!(BootInfo::parse(&b[..V0_LEN]), Err(BootInfoError::Truncated));
-    }
-
-    /// **A version-0 handoff reports no memory map rather than reading past its own end.** The
-    /// fields simply do not exist there, and inventing them from whatever follows is the failure
-    /// this crate is written to prevent.
-    #[test]
-    fn a_version_0_structure_reports_no_memory_map() {
-        let mut b = qemu_q35();
-        b[4..8].copy_from_slice(&0u32.to_le_bytes());
-        // Leave plausible garbage where the memory-map fields would be.
-        b[40..48].copy_from_slice(&0xdead_beef_dead_beefu64.to_le_bytes());
-        b[48..52].copy_from_slice(&99u32.to_le_bytes());
-        let info = BootInfo::parse(&b).expect("version 0 is still a valid structure");
-        assert_eq!(info.version, 0);
-        assert_eq!(info.memmap, 0);
-        assert_eq!(info.memmap_entries, 0);
-        // The fields that DO exist in version 0 are still read.
-        assert_eq!(info.rsdp, 0x000f_5a30);
-    }
-
-    /// Every field lands where the structure says it does.
-    #[test]
-    fn the_fields_are_read_from_the_offsets_the_specification_gives() {
-        let info = BootInfo::parse(&qemu_q35()).expect("well-formed");
-        assert_eq!(info.version, 1);
-        assert_eq!(info.flags, 0);
-        assert_eq!(info.module_count, 0);
-        assert_eq!(info.rsdp, 0x000f_5a30);
-        assert_eq!(info.memmap, 0x0000_15b0);
-        assert_eq!(info.memmap_entries, 4);
-    }
-
-    /// **The words the boot print uses for each kind of range.**
-    ///
-    /// The memory map is printed once, at boot, and it is the only place anyone sees what the
-    /// firmware said about a range before the frame allocator acts on it. A line that named every
-    /// range the same way, or named none of them, would make the one useful thing about that
-    /// print (which ranges are RAM and which only look like it) unreadable.
-    #[test]
-    fn every_kind_of_range_has_its_own_word_for_the_boot_print() {
-        for (raw, word) in [
-            (1u32, "ram"),
-            (2, "reserved"),
-            (3, "acpi"),
-            (4, "acpi-nvs"),
-            (5, "unusable"),
-            (6, "disabled"),
-            (7, "pmem"),
-            (8, "unknown"),
-        ] {
-            assert_eq!(MemoryKind::from_raw(raw).name(), word, "type {raw}");
-        }
-    }
-
-    /// Lay `entries` out as a memory map. A fixed-size buffer rather than a `Vec` because this
-    /// crate is `no_std` in its test build too, which is the same constraint the kernel side has.
-    fn entry_bytes<const N: usize>(entries: &[(u64, u64, u32)]) -> [u8; N] {
-        assert_eq!(N, entries.len() * MEMMAP_ENTRY_LEN);
-        let mut b = [0u8; N];
-        for (i, (addr, size, kind)) in entries.iter().enumerate() {
-            let at = i * MEMMAP_ENTRY_LEN;
-            b[at..at + 8].copy_from_slice(&addr.to_le_bytes());
-            b[at + 8..at + 16].copy_from_slice(&size.to_le_bytes());
-            b[at + 16..at + 20].copy_from_slice(&kind.to_le_bytes());
-        }
-        b
-    }
-
-    /// The map q35 produces with `-m 256M`: low RAM, the BIOS hole, high RAM, and the reserved
-    /// block below 4 GiB.
-    #[test]
-    fn a_real_memory_map_decodes_entry_by_entry() {
-        let b = entry_bytes::<{ 4 * MEMMAP_ENTRY_LEN }>(&[
-            (0x0000_0000, 0x0009_fc00, 1),
-            (0x0009_fc00, 0x0000_0400, 2),
-            (0x0010_0000, 0x0ff0_0000, 1),
-            (0xfffc_0000, 0x0004_0000, 2),
-        ]);
-        assert_eq!(
-            memory_entry(&b, 0),
-            Some(MemoryEntry {
-                addr: 0,
-                size: 0x0009_fc00,
-                kind: MemoryKind::Ram
-            })
-        );
-        assert_eq!(memory_entry(&b, 1).unwrap().kind, MemoryKind::Reserved);
-        assert_eq!(memory_entry(&b, 2).unwrap().end(), 0x1000_0000);
-        assert_eq!(memory_entry(&b, 3).unwrap().addr, 0xfffc_0000);
-        assert_eq!(
-            memory_entry(&b, 4),
-            None,
-            "past the end is None, not garbage"
-        );
-    }
-
-    /// **Only type 1 is allocatable.** `AcpiReclaimable` is the trap: the name says it can be
-    /// reclaimed and it cannot be until the tables in it have been read, which this kernel has not
-    /// done. Handing it out would hand out the MADT the APIC bring-up needs.
-    #[test]
-    fn only_plain_ram_is_allocatable_and_acpi_memory_is_not() {
-        let b = entry_bytes::<{ 5 * MEMMAP_ENTRY_LEN }>(&[
-            (0x1000, 0x1000, 1),
-            (0x2000, 0x1000, 3),
-            (0x3000, 0x1000, 4),
-            (0x4000, 0x1000, 5),
-            (0x5000, 0x1000, 4242),
-        ]);
-        assert!(memory_entry(&b, 0).unwrap().is_usable_ram());
-        assert!(
-            !memory_entry(&b, 1).unwrap().is_usable_ram(),
-            "acpi-reclaimable holds the tables the APIC bring-up has not read yet"
-        );
-        assert!(!memory_entry(&b, 2).unwrap().is_usable_ram());
-        assert!(!memory_entry(&b, 3).unwrap().is_usable_ram());
-        assert_eq!(memory_entry(&b, 4).unwrap().kind, MemoryKind::Unknown(4242));
-        assert!(
-            !memory_entry(&b, 4).unwrap().is_usable_ram(),
-            "an unknown type has never meant more RAM than you thought"
-        );
-    }
-
-    /// A size near `u64::MAX` saturates rather than wrapping, so a malformed entry cannot make a
-    /// huge range look like an empty one.
-    #[test]
-    fn an_absurd_size_saturates_rather_than_wrapping() {
-        let b = entry_bytes::<MEMMAP_ENTRY_LEN>(&[(0x1000, u64::MAX, 1)]);
-        assert_eq!(memory_entry(&b, 0).unwrap().end(), u64::MAX);
-    }
-
-    /// Build a module list of `entries`, each `(paddr, size, cmdline_paddr)`.
-    fn module_bytes<const N: usize>(entries: &[(u64, u64, u64)]) -> [u8; N] {
-        let mut b = [0u8; N];
-        for (i, &(addr, size, cmdline)) in entries.iter().enumerate() {
-            let at = i * MODULE_ENTRY_LEN;
-            b[at..at + 8].copy_from_slice(&addr.to_le_bytes());
-            b[at + 8..at + 16].copy_from_slice(&size.to_le_bytes());
-            b[at + 16..at + 24].copy_from_slice(&cmdline.to_le_bytes());
-            // The last eight bytes are `reserved` and stay zero, which is what makes an entry 32
-            // bytes rather than 24. A decoder that stepped by 24 would read the second module's
-            // address out of the first one's tail.
-        }
-        b
-    }
-
-    /// **A module list decodes entry by entry, at the 32-byte stride the structure gives.** The
-    /// second entry is what makes this a test rather than a field read: the reserved word at the
-    /// end of the first is invisible in a one-module list, and QEMU only ever produces one.
-    #[test]
-    fn a_module_list_decodes_entry_by_entry() {
-        let b = module_bytes::<{ 2 * MODULE_ENTRY_LEN }>(&[
-            (0x0100_0000, 0x0002_2000, 0),
-            (0x0200_0000, 0x1000, 0x0f00),
-        ]);
-        assert_eq!(
-            module(&b, 0),
-            Some(Module {
-                addr: 0x0100_0000,
-                size: 0x0002_2000,
-                cmdline: 0,
-            })
-        );
-        assert_eq!(
-            module(&b, 1),
-            Some(Module {
-                addr: 0x0200_0000,
-                size: 0x1000,
-                cmdline: 0x0f00,
-            })
-        );
-        assert_eq!(module(&b, 2), None, "past the end is None, not garbage");
-    }
-
-    /// Bytes ending inside an entry are refused rather than read past, exactly as a truncated
-    /// memory map is.
-    #[test]
-    fn a_truncated_module_entry_is_refused() {
-        let b = module_bytes::<MODULE_ENTRY_LEN>(&[(0x0100_0000, 0x1000, 0)]);
-        assert_eq!(module(&b[..MODULE_ENTRY_LEN - 1], 0), None);
-    }
-
-    /// A module claiming a size near `u64::MAX` saturates, for the memory map's reason: the kernel
-    /// reserves `addr..end()` so the allocator cannot hand out the archive it is about to read, and
-    /// a wrapped `end` would reserve nothing at all.
-    #[test]
-    fn an_absurd_module_size_saturates() {
-        let b = module_bytes::<MODULE_ENTRY_LEN>(&[(0x1000, u64::MAX, 0)]);
-        assert_eq!(module(&b, 0).unwrap().end(), u64::MAX);
-    }
-}
-
 // ---------------------------------------------------------------------------------------------
 // What the CPU itself is, and whether it can run this kernel.
 // ---------------------------------------------------------------------------------------------
@@ -1037,5 +778,264 @@ impl Isa {
             .position(|&b| b == 0)
             .unwrap_or(self.brand.len());
         core::str::from_utf8(&self.brand[..end]).ok().map(str::trim)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A version-1 structure with the values QEMU's `q35` actually produced on 2026-08-23, read
+    /// back out of the guest. Built by hand rather than captured as a blob so a reader can see
+    /// which field is which.
+    fn qemu_q35() -> [u8; V1_LEN] {
+        let mut b = [0u8; V1_LEN];
+        b[0..4].copy_from_slice(&MAGIC.to_le_bytes());
+        b[4..8].copy_from_slice(&1u32.to_le_bytes()); // version
+        b[8..12].copy_from_slice(&0u32.to_le_bytes()); // flags
+        b[12..16].copy_from_slice(&0u32.to_le_bytes()); // nr_modules
+        b[16..24].copy_from_slice(&0u64.to_le_bytes()); // modlist
+        b[24..32].copy_from_slice(&0u64.to_le_bytes()); // cmdline
+        b[32..40].copy_from_slice(&0x000f_5a30u64.to_le_bytes()); // rsdp, in the BIOS area
+        b[40..48].copy_from_slice(&0x0000_15b0u64.to_le_bytes()); // memmap
+        b[48..52].copy_from_slice(&4u32.to_le_bytes()); // memmap_entries
+        b
+    }
+
+    /// **The magic is checked before anything else is believed.** This is the first thing the
+    /// kernel does with a pointer the loader chose, so a wrong pointer has to be an error rather
+    /// than a memory map that looks reasonable.
+    #[test]
+    fn a_wrong_magic_is_refused_and_reports_what_it_saw() {
+        let mut b = qemu_q35();
+        b[0..4].copy_from_slice(&0xdead_beefu32.to_le_bytes());
+        assert_eq!(
+            BootInfo::parse(&b),
+            Err(BootInfoError::BadMagic(0xdead_beef))
+        );
+    }
+
+    /// **Every prefix shorter than the structure is refused, and the shortest one that is long
+    /// enough is accepted**, for both of the two sizes a handoff can have.
+    ///
+    /// The acceptance half is the one an "it returns an error" test leaves out, and it is what
+    /// separates `len < V0_LEN` from `len <= V0_LEN`: a guard one byte too tight refuses a
+    /// version-0 handoff that is exactly complete, which no malformed input can show.
+    fn every_short_prefix_is_refused(bytes: &[u8], fixed_len: usize) {
+        for len in 0..fixed_len {
+            assert_eq!(
+                BootInfo::parse(&bytes[..len]),
+                Err(BootInfoError::Truncated),
+                "{len} bytes is short of the {fixed_len} this structure needs",
+            );
+        }
+        BootInfo::parse(&bytes[..fixed_len])
+            .expect("a structure that is exactly complete must not be refused");
+    }
+
+    #[test]
+    fn no_prefix_of_a_handoff_reads_past_its_own_end() {
+        let mut v0 = qemu_q35();
+        v0[4..8].copy_from_slice(&0u32.to_le_bytes());
+        every_short_prefix_is_refused(&v0[..V0_LEN], V0_LEN);
+        every_short_prefix_is_refused(&qemu_q35(), V1_LEN);
+    }
+
+    /// Bytes that end inside the structure are refused rather than read past.
+    #[test]
+    fn a_truncated_structure_is_refused() {
+        let b = qemu_q35();
+        assert_eq!(BootInfo::parse(&b[..20]), Err(BootInfoError::Truncated));
+        // Long enough for version 0, but the version says 1, so the memory-map fields must be
+        // there and are not.
+        assert_eq!(BootInfo::parse(&b[..V0_LEN]), Err(BootInfoError::Truncated));
+    }
+
+    /// **A version-0 handoff reports no memory map rather than reading past its own end.** The
+    /// fields simply do not exist there, and inventing them from whatever follows is the failure
+    /// this crate is written to prevent.
+    #[test]
+    fn a_version_0_structure_reports_no_memory_map() {
+        let mut b = qemu_q35();
+        b[4..8].copy_from_slice(&0u32.to_le_bytes());
+        // Leave plausible garbage where the memory-map fields would be.
+        b[40..48].copy_from_slice(&0xdead_beef_dead_beefu64.to_le_bytes());
+        b[48..52].copy_from_slice(&99u32.to_le_bytes());
+        let info = BootInfo::parse(&b).expect("version 0 is still a valid structure");
+        assert_eq!(info.version, 0);
+        assert_eq!(info.memmap, 0);
+        assert_eq!(info.memmap_entries, 0);
+        // The fields that DO exist in version 0 are still read.
+        assert_eq!(info.rsdp, 0x000f_5a30);
+    }
+
+    /// Every field lands where the structure says it does.
+    #[test]
+    fn the_fields_are_read_from_the_offsets_the_specification_gives() {
+        let info = BootInfo::parse(&qemu_q35()).expect("well-formed");
+        assert_eq!(info.version, 1);
+        assert_eq!(info.flags, 0);
+        assert_eq!(info.module_count, 0);
+        assert_eq!(info.rsdp, 0x000f_5a30);
+        assert_eq!(info.memmap, 0x0000_15b0);
+        assert_eq!(info.memmap_entries, 4);
+    }
+
+    /// **The words the boot print uses for each kind of range.**
+    ///
+    /// The memory map is printed once, at boot, and it is the only place anyone sees what the
+    /// firmware said about a range before the frame allocator acts on it. A line that named every
+    /// range the same way, or named none of them, would make the one useful thing about that
+    /// print (which ranges are RAM and which only look like it) unreadable.
+    #[test]
+    fn every_kind_of_range_has_its_own_word_for_the_boot_print() {
+        for (raw, word) in [
+            (1u32, "ram"),
+            (2, "reserved"),
+            (3, "acpi"),
+            (4, "acpi-nvs"),
+            (5, "unusable"),
+            (6, "disabled"),
+            (7, "pmem"),
+            (8, "unknown"),
+        ] {
+            assert_eq!(MemoryKind::from_raw(raw).name(), word, "type {raw}");
+        }
+    }
+
+    /// Lay `entries` out as a memory map. A fixed-size buffer rather than a `Vec` because this
+    /// crate is `no_std` in its test build too, which is the same constraint the kernel side has.
+    fn entry_bytes<const N: usize>(entries: &[(u64, u64, u32)]) -> [u8; N] {
+        assert_eq!(N, entries.len() * MEMMAP_ENTRY_LEN);
+        let mut b = [0u8; N];
+        for (i, (addr, size, kind)) in entries.iter().enumerate() {
+            let at = i * MEMMAP_ENTRY_LEN;
+            b[at..at + 8].copy_from_slice(&addr.to_le_bytes());
+            b[at + 8..at + 16].copy_from_slice(&size.to_le_bytes());
+            b[at + 16..at + 20].copy_from_slice(&kind.to_le_bytes());
+        }
+        b
+    }
+
+    /// The map q35 produces with `-m 256M`: low RAM, the BIOS hole, high RAM, and the reserved
+    /// block below 4 GiB.
+    #[test]
+    fn a_real_memory_map_decodes_entry_by_entry() {
+        let b = entry_bytes::<{ 4 * MEMMAP_ENTRY_LEN }>(&[
+            (0x0000_0000, 0x0009_fc00, 1),
+            (0x0009_fc00, 0x0000_0400, 2),
+            (0x0010_0000, 0x0ff0_0000, 1),
+            (0xfffc_0000, 0x0004_0000, 2),
+        ]);
+        assert_eq!(
+            memory_entry(&b, 0),
+            Some(MemoryEntry {
+                addr: 0,
+                size: 0x0009_fc00,
+                kind: MemoryKind::Ram
+            })
+        );
+        assert_eq!(memory_entry(&b, 1).unwrap().kind, MemoryKind::Reserved);
+        assert_eq!(memory_entry(&b, 2).unwrap().end(), 0x1000_0000);
+        assert_eq!(memory_entry(&b, 3).unwrap().addr, 0xfffc_0000);
+        assert_eq!(
+            memory_entry(&b, 4),
+            None,
+            "past the end is None, not garbage"
+        );
+    }
+
+    /// **Only type 1 is allocatable.** `AcpiReclaimable` is the trap: the name says it can be
+    /// reclaimed and it cannot be until the tables in it have been read, which this kernel has not
+    /// done. Handing it out would hand out the MADT the APIC bring-up needs.
+    #[test]
+    fn only_plain_ram_is_allocatable_and_acpi_memory_is_not() {
+        let b = entry_bytes::<{ 5 * MEMMAP_ENTRY_LEN }>(&[
+            (0x1000, 0x1000, 1),
+            (0x2000, 0x1000, 3),
+            (0x3000, 0x1000, 4),
+            (0x4000, 0x1000, 5),
+            (0x5000, 0x1000, 4242),
+        ]);
+        assert!(memory_entry(&b, 0).unwrap().is_usable_ram());
+        assert!(
+            !memory_entry(&b, 1).unwrap().is_usable_ram(),
+            "acpi-reclaimable holds the tables the APIC bring-up has not read yet"
+        );
+        assert!(!memory_entry(&b, 2).unwrap().is_usable_ram());
+        assert!(!memory_entry(&b, 3).unwrap().is_usable_ram());
+        assert_eq!(memory_entry(&b, 4).unwrap().kind, MemoryKind::Unknown(4242));
+        assert!(
+            !memory_entry(&b, 4).unwrap().is_usable_ram(),
+            "an unknown type has never meant more RAM than you thought"
+        );
+    }
+
+    /// A size near `u64::MAX` saturates rather than wrapping, so a malformed entry cannot make a
+    /// huge range look like an empty one.
+    #[test]
+    fn an_absurd_size_saturates_rather_than_wrapping() {
+        let b = entry_bytes::<MEMMAP_ENTRY_LEN>(&[(0x1000, u64::MAX, 1)]);
+        assert_eq!(memory_entry(&b, 0).unwrap().end(), u64::MAX);
+    }
+
+    /// Build a module list of `entries`, each `(paddr, size, cmdline_paddr)`.
+    fn module_bytes<const N: usize>(entries: &[(u64, u64, u64)]) -> [u8; N] {
+        let mut b = [0u8; N];
+        for (i, &(addr, size, cmdline)) in entries.iter().enumerate() {
+            let at = i * MODULE_ENTRY_LEN;
+            b[at..at + 8].copy_from_slice(&addr.to_le_bytes());
+            b[at + 8..at + 16].copy_from_slice(&size.to_le_bytes());
+            b[at + 16..at + 24].copy_from_slice(&cmdline.to_le_bytes());
+            // The last eight bytes are `reserved` and stay zero, which is what makes an entry 32
+            // bytes rather than 24. A decoder that stepped by 24 would read the second module's
+            // address out of the first one's tail.
+        }
+        b
+    }
+
+    /// **A module list decodes entry by entry, at the 32-byte stride the structure gives.** The
+    /// second entry is what makes this a test rather than a field read: the reserved word at the
+    /// end of the first is invisible in a one-module list, and QEMU only ever produces one.
+    #[test]
+    fn a_module_list_decodes_entry_by_entry() {
+        let b = module_bytes::<{ 2 * MODULE_ENTRY_LEN }>(&[
+            (0x0100_0000, 0x0002_2000, 0),
+            (0x0200_0000, 0x1000, 0x0f00),
+        ]);
+        assert_eq!(
+            module(&b, 0),
+            Some(Module {
+                addr: 0x0100_0000,
+                size: 0x0002_2000,
+                cmdline: 0,
+            })
+        );
+        assert_eq!(
+            module(&b, 1),
+            Some(Module {
+                addr: 0x0200_0000,
+                size: 0x1000,
+                cmdline: 0x0f00,
+            })
+        );
+        assert_eq!(module(&b, 2), None, "past the end is None, not garbage");
+    }
+
+    /// Bytes ending inside an entry are refused rather than read past, exactly as a truncated
+    /// memory map is.
+    #[test]
+    fn a_truncated_module_entry_is_refused() {
+        let b = module_bytes::<MODULE_ENTRY_LEN>(&[(0x0100_0000, 0x1000, 0)]);
+        assert_eq!(module(&b[..MODULE_ENTRY_LEN - 1], 0), None);
+    }
+
+    /// A module claiming a size near `u64::MAX` saturates, for the memory map's reason: the kernel
+    /// reserves `addr..end()` so the allocator cannot hand out the archive it is about to read, and
+    /// a wrapped `end` would reserve nothing at all.
+    #[test]
+    fn an_absurd_module_size_saturates() {
+        let b = module_bytes::<MODULE_ENTRY_LEN>(&[(0x1000, u64::MAX, 0)]);
+        assert_eq!(module(&b, 0).unwrap().end(), u64::MAX);
     }
 }

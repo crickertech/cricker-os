@@ -39,14 +39,22 @@ address_space_identifier = { version = "0.1.0", path = "../crates/address_space_
 # terminal was sent and compare the framebuffer pixel for pixel, so no process grades its own
 # homework and the picture is a value rather than a screenshot somebody eyeballed once.
 bitmap_font = { version = "0.1.0", path = "../crates/bitmap_font" }
-# The calendar (milestone 51). The kernel does no date arithmetic of its own; its `date` tests
-# *parse back* what the command printed and compare the instant it names against the wall clock the
-# kernel computes straight from the clock page. Same discipline as bitmap_font/vt above: the test
-# predicts from the shared definition rather than keeping a second copy of it.
-calendar = { version = "0.1.0", path = "../crates/calendar" }
 # The corruption canary's arm/check/disarm serialization (2026-08-15), lifted out of `sched.rs`
 # after its hand-written two-flag protocol raced: the kernel calls the loom-searched gate rather
 # than keeping a copy of it, the third retrofit of work_steal_slot's move. See notes/interleaving.md.
+#
+# **BUGS: every `--features bench` build warns that this dependency is unused, on every
+# architecture, and that is a deliberate exception and a foot gun** (calef, 2026-10-03 UTC, on PR
+# #1477). nightly-2026-10-02's cargo added a warning-only `unused_dependencies` lint, and the only
+# user of this crate is `sched.rs`'s `canary` module, which is `cfg(not(feature = "bench"))`: the
+# bench build swaps in a no-op twin so the canary's tick load stays out of the floors. Cargo cannot
+# drop a dependency when a feature is turned on, only add one. The fix that silences it was
+# considered and refused: an optional dependency behind a default `corruption_canary` feature would
+# be the kernel's first default feature, every bench and icount invocation would have to remember
+# `--no-default-features`, and forgetting it would silently add the canary's tick load to the bench
+# floors. A wrong number nobody notices costs more than a warning everybody can read. So this one
+# warning is expected; any other `unused_dependencies` warning from the kernel is a real finding.
+# Do not add an `allow` for it either, because that would hide a second, real one.
 memory_corruption_canary_gate = { version = "0.1.0", path = "../crates/memory_corruption_canary_gate" }
 capability = { version = "0.1.0", path = "../crates/capability" }
 # The shell's grant-expression logic (milestone 47's `rm -r`). The kernel plans nothing; its `rm`
@@ -181,10 +189,6 @@ video_terminal = { version = "0.1.0", path = "../crates/video_terminal" }
 # than keeping a copy of them: the second retrofit of work_steal_slot's move, asked for by the
 # fourth bench stop's audit. See notes/interleaving.md.
 thread_wake_handshake = { version = "0.1.0", path = "../crates/thread_wake_handshake" }
-
-# Typed, compile-time-checked MMIO register blocks. An off-by-four in a device's
-# register layout becomes a build error instead of a mystery at runtime.
-tock-registers = "0.10"
 
 [build-dependencies]
 # The measured-boot digest parser, shared with the kernel proper so the manifest the build writes and
@@ -427,6 +431,14 @@ single_hart = []
 # and §3 chose typed registers for it before the in-tree pattern existed.
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-cpu = "11"
+# Typed, compile-time-checked MMIO register blocks for aarch64's devices (`pl011`, `gic`, `gicv3`)
+# and aarch64's arch code. An off-by-four in a device's register layout becomes a build error
+# instead of a mystery at runtime. **Target-gated since 2026-10-03** (calef's ruling on PR #1477):
+# only aarch64 code names it, so in the unconditional table it was compiled for riscv64 and x86_64
+# for nothing, and nightly-2026-10-02's `unused_dependencies` lint said so on both. The 16550, the
+# one shared UART, never used it; `drivers/ns16550.rs` says why (its register stride is a runtime
+# value no static layout can express). Same asymmetry as `aarch64-cpu` above, and same history.
+tock-registers = "0.10"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 # **The two-slot boot state, and the one token of it that crosses the handoff** (rung 2b of
@@ -440,6 +452,12 @@ aarch64-cpu = "11"
 # §46 (thin primitives or whole subsystems; we write everything in between) decision, and the alternative was a second spelling of a token with nothing keeping the two in
 # step.
 boot_slot = { version = "0.1.0", path = "../crates/boot_slot" }
+
+# The calendar (milestone 51 (wall-clock time, the `date` command, and an NTP service)). The kernel does no date arithmetic of its own; the one caller is
+# `arch::x86_64::rtc`, which refuses a reading that is not a real civil date (`calendar::Civil::new`).
+# Target-gated to match, because aarch64 and riscv64 never name the crate and cargo's unused-dependency
+# lint warned on every one of those builds (the lane for milestone 129 (scheduled execution: a cron whose every entry is a grant), 2026-10-02).
+calendar = { version = "0.1.0", path = "../crates/calendar" }
 
 # x86_64 only, because the chooser that writes the token is: `uefi_loader::chooser` runs on a UEFI
 # machine with an installed disk, which is the only place rung 2b's slots exist. A scope note

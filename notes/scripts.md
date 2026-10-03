@@ -199,6 +199,9 @@ that motivated the first hook.
   -16 paid that tax at least once. `git push --no-verify` bypasses it, deliberately: pushing a
   work-in-progress branch for safekeeping is a legitimate reason, and the hook is a courtesy to
   the queue rather than a rule about what may exist on a branch.
+- It then runs all of `script/lint`, about 29 s more than `--clippy` alone, and
+  `script/roadmap --ready-branch` when the pushed branch's pull request is ready. The timings and
+  the reasoning are in [queue-ejection.md](queue-ejection.md).
 
 An existing clone installs it by rerunning `script/setup`, or by hand with the config line above.
 

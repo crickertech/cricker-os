@@ -207,7 +207,8 @@ does not survive contact with a real device.
 were never one claim. On radon, milestone 159 (a real hardware entropy source: the JH7110's TRNG)'s
 driver is an EL0 process reaching the TRNG through a capability that names no device. Confined,
 2026-09-03. Driving real hardware, 2026-09-04, reproducibly. At real speed, MEASURED 2026-09-16 at
-955,223 bytes/s, about 8.4 us per round trip.
+about 8.4 us per round trip. The committed boots read 973,384 to 992,248 bytes/s (four boots; the
+original 955,223 bytes/s has no committed transcript, corrected 2026-10-03 per §216 from #1495).
 
 **The decisive experiment:** one real, non-virtio device on real silicon, confined, at throughput.
 Every piece now exists and the remaining distance is a bench evening. Milestone 261 (the NVMe driver
@@ -232,7 +233,8 @@ tested.
 confinement and watches it fail).
 
 **Experiment status: RUN, 2026-08-31.** 26 claims
-enumerated, three of them stated nowhere, and 25 harnesses now carry a replayable falsification, up
+enumerated at that date (the table now has 30 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
+three of them stated nowhere, and 25 harnesses carried a replayable falsification, up
 from 6 ([`notes/confinement-claims.md`](../../notes/confinement-claims.md); PR #614). The finding is
 worse than a missing test. A page-table assertion was patched to remove the check it exists for and
 still passed, because it answered "U-mode cannot read the kernel" by refusing to look. It had done so
@@ -244,6 +246,13 @@ The adversarial pass is AUDITED, 2026-09-17: a qualified yes with one exception,
 Milestone 313 (the security audit that was due since August) found DECISIONS §12 (call/reply IPC: a
 one-shot reply capability)'s claim that a consumed capability cannot be used again false on x86_64,
 on a path every boot takes.
+
+Dated 2026-10-03 (§216, from #1495): later passes are not in the paragraph above. An in-house adversarial pass on
+2026-09-21 (PR #1059) found a revoked capability parked in `outgoing_cap` delivered afterwards, fixed in
+three sweeps. The audit of 2026-09-24 (new trust boundaries) fixed 5 and found no confinement claim false
+(`design/audit-reports/2026-09-24-new-trust-boundaries.md`). The audit of 2026-09-29 (the syscall surface
+as a whole) fixed 0, minted 0, accepted 3 and found no confinement claim false
+(`design/audit-reports/2026-09-29-syscall-surface-whole.md`).
 
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
@@ -332,7 +341,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | 6 | 4, performance | the multi-tasking workload number, from the 2026-09-19 instrument | milestone 168 | one radon bench evening |
 | 7 | 9 and 6 together | journey 3, end to end on three boards | journey 3 | months, and it is the capstone |
 | -- | 5, multicore | **RUN on radon, 2026-09-25:** 8 hours clean, 4.1 million crossings. A linear defect-discovery curve is the red result | milestone 201 (is multicore reliability converging) | weeks, hardware |
-| ~~7~~ | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17.** A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed | milestones 202, 305, 313 | done; the adversarial half remains |
+| ~~7~~ | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17.** A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed | milestones 202, 305, 313 | done; the outsider half remains |
 | -- | 8, nobody needs it | **CANNOT-RUN, 2026-09-23.** No experiment, and none available: milestone 576 (how many systems are out there, and what do they run) is behind milestone 198 (a package manager, and the trivial install that makes a second customer possible) | milestone 576 | blocked, not costed |
 
 ## BUGS

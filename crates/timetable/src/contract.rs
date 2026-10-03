@@ -13,6 +13,14 @@
 //! | 1 | [`BUDGET_SLOT`] | `WRITE` | the untyped every instance is split from |
 //! | 2 | [`CHILD_REPORT_SLOT`] | `WRITE`, `GRANT` | handed to each job as its slot 0 |
 //! | 3 | [`DEATHS_SLOT`] | `READ`, `GRANT` | each job's supervision endpoint, and what corpses are reaped through |
+//! | 4 | [`CLOCK_SLOT`] | `READ`, `GRANT`, optional | the clock page (§43 (reading the clock is a page)), also mapped read-only at [`CLOCK_VA`] |
+//!
+//! Slot 4 is the one optional grant. With it, `Held::clock` is true: calendar entries can keep a
+//! time of day, and a job whose manifest declares a clock gets the page too, read-only, at its own
+//! slot 1 and [`CLOCK_VA`], as the progenitor gives `date` one. Without it, every calendar line is
+//! `Unbacked::WallClock`. The spawn site must map the page before the timetable starts, and the
+//! timetable probes the slot at `_start` for `swish`'s reason: later, a region it split could land
+//! there.
 //!
 //! Nothing else. In particular never the run-unvouched capability
 //! (`grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`): a timetable holding it runs nothing and exits
@@ -49,6 +57,12 @@ pub const BUDGET_SLOT: u64 = 1;
 pub const CHILD_REPORT_SLOT: u64 = 2;
 /// The supervision endpoint's slot.
 pub const DEATHS_SLOT: u64 = 3;
+
+/// The clock page's slot, when the timetable is granted one.
+pub const CLOCK_SLOT: u64 = 4;
+/// Where the clock page is mapped, read-only: in the timetable, and in each job that declares a
+/// clock. The address `date` reads it at, `system_initializer`'s `CHILD_CLOCK_VA`.
+pub const CLOCK_VA: u64 = 0x00c0_0000;
 
 /// Which start argument carries the fire count.
 pub const ARG_FIRES: usize = 0;

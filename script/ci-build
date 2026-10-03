@@ -106,6 +106,12 @@ cd "$(dirname "$0")/.."
 # dependency lives in the row now, where CI and a developer both meet it, instead of in a job's
 # position in a chain.
 #
+# **CI runs `swish-check` as the two `ci` rows after it** (milestone 628 (provisional); the row
+# names are provisional): the aarch64 and riscv64 legs on the arm64 runner, whose weakly ordered
+# host is why they stay there, and the x86_64 leg on an x86_64 runner, where it boots under KVM.
+# Together they are exactly the `local` row, which is what a developer runs. ci.yml's
+# `swish-check-x86_64` job has the measurement.
+#
 # Adding a check here is the whole of adding a check: the no-argument path picks it up if the tier
 # is `local`, `--list` prints it, and `ci.yml` names it in a job. Adding it to `ci.yml` WITHOUT a row
 # here is the defect this table exists to prevent.
@@ -118,6 +124,8 @@ icount|local|script/icount
 build-is-reproducible|local|script/build-is-reproducible
 test|local|script/test
 swish-check|local|cargo xtask std-exerciser && script/swish-check
+swish-check-aarch64-riscv64|ci|cargo xtask std-exerciser && script/swish-check --arch aarch64 && script/swish-check --arch riscv64
+swish-check-x86_64|ci|cargo xtask std-exerciser && script/swish-check --arch x86_64
 swish-check-graphical|local|script/swish-check --graphical && script/swish-check --graphical-serial
 boot-check|local|script/boot-check
 hvf|local|hvf_leg

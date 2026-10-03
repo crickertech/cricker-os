@@ -1,3 +1,8 @@
+---
+risk: 3
+color: amber
+updated: 2026-09-19
+---
 # Appendix to risk 3: The tests do not test anything, and the quality is illusory
 
 *An appendix to [`README.md`](README.md)'s risk 3. That entry is the claim of

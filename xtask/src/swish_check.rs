@@ -208,13 +208,17 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 ///
 /// `greeting` rides along (milestone 198 rung 3a's fetch): it was installed as generation 2, it
 /// runs after the reboot, and removing `noteless` leaves it running, because a generation drops
-/// one program and not its neighbours. `noteless` took `uptime`'s place here when DECISIONS §229
-/// (calef, 2026-09-27) refused installing a package named after an image program.
+/// one program and not its neighbours. Its 0.2.0 rides beside it (milestone 614): generation 3,
+/// which lists both versions of `greeting` and `noteless`. `noteless` took `uptime`'s place here
+/// when DECISIONS §229 (calef, 2026-09-27) refused installing a package named after an image
+/// program.
 ///
-/// **The numbers skip one** because the first boot vouched for a build as generation 3 and rolled
-/// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 4, and
-/// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 3: the vouch's generation,
-/// which lists `noteless` too.
+/// **The numbers skip one** because the first boot vouched for a build as generation 4 and rolled
+/// it back (DECISIONS §221). A generation is never rewritten, so the removal is generation 5, and
+/// a rollback is by number (`notes/packages.md`'s BUGS), so it lands on 4: the vouch's generation,
+/// which lists `noteless` too. The extra generation ahead of it is milestone 614 (two installed
+/// versions of one program, each runnable, and a caller granted the one it needs)'s second
+/// version, installed before the vouch.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         1,
@@ -232,7 +236,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         0,
         "package remove noteless",
-        &["removed; generation 4 is live"],
+        &["removed; generation 5 is live"],
     ),
     // **Removed means unvouched, not unrunnable, for a session holding D2** (DECISIONS §219 gate
     // D2). Until D2 this line was a refusal. The boot prompt now holds the run-unvouched
@@ -262,7 +266,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     line(
         0,
         "package rollback",
-        &["rolled back; generation 3 is live"],
+        &["rolled back; generation 4 is live"],
     ),
     line(
         1,
@@ -749,9 +753,24 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // **Fetched over the booted system's network and installed** (rung 3a's first gap): the
     // progenitor finds `greeting`'s stem in the catalogue, fetches it from the gate's package
     // source through the stack it built at boot, and installs what arrived as it installs a file.
+    // **Two versions catalogued, so a bare name is refused** (milestone 614 (two installed
+    // versions of one program, each runnable, and a caller granted the one it needs)). The image
+    // vouches for `greeting` at 0.1.0 and at 0.2.0 (every archive build builds every recipe), and
+    // nothing orders versions, so a bare fetch names no one package. Before this refusal the first
+    // catalogue line won, which recipe filenames ordered as 0.2.0; the source serves only 0.1.0,
+    // and every leg that fetched answered "the package source did not send a whole package". The
+    // catalogue refuses before the network is asked, so x86_64 types this too.
     line(
         0,
         "package install greeting",
+        &[
+            "refused: this image's catalogue vouches for several versions of that package; \
+             name one with <package>@<version>; generation 1 is live",
+        ],
+    ),
+    line(
+        0,
+        "package install greeting@0.1.0",
         &["fetched and installed; generation 2 is live"],
     ),
     // x86_64 has no NIC, so it installs the same package from the disk instead; the two legs that
@@ -798,6 +817,62 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps greeting",
         &["provenance: vouched by activation generation 2 (digest "],
     ),
+    // **Milestone 614: the second version installs beside the first** (rulings 2 and 3). Rows key
+    // on the digest, so installing over a live version appends and moves the default pointer
+    // instead of replacing. The package is `greeting` at 0.2.0, whose member is `greeting_two`'s
+    // bytes under the name `greeting` (`as` in the recipe), so its digest differs from 0.1.0's and
+    // the table holds both. The gate installs from the disk on all three legs; the image's
+    // catalogue carries the stem because every archive build builds every recipe for its
+    // architecture.
+    line(
+        0,
+        "package install downloads/0.2.0/greeting.nifepkg",
+        &["installed; generation 3 is live"],
+    ),
+    // **And the new version runs by its path**, printing its own line, which is how the transcript
+    // tells the two copies apart.
+    line(
+        1,
+        "packages/greeting/0.2.0/greeting",
+        &["hello from the second copy of the package"],
+    ),
+    // **And the old version still runs by its path, at two versions live.** This is the line the
+    // one-entry table made impossible: its digest left that table at the install above, and a
+    // digest not in the live generation is `SPAWN_UNVOUCHED`.
+    line(
+        1,
+        "packages/greeting/0.1.0/greeting",
+        &["hello from a package this image never carried"],
+    ),
+    // **The version set, the ruled selection** (ruling 4). The nearest `versions` file at or above
+    // the working directory (here the root's) says `greeting 0.1.0`, and the bare word runs that
+    // version, although the default pointer names 0.2.0. The set only selects among live versions;
+    // a cloned repository can ask, and cannot run uninstalled bytes.
+    line(0, "echo greeting 0.1.0 > versions", &[]),
+    line(
+        1,
+        "greeting",
+        &["hello from a package this image never carried"],
+    ),
+    // **The explicit ask** (ruling 4's other override): `program@version` answers its own row, and
+    // is not reached by the image's claim on the bare name because it is not the bare name.
+    line(
+        1,
+        "greeting@0.1.0",
+        &["hello from a package this image never carried"],
+    ),
+    // **And the divergence notice**, the guard on the whole mechanism: the set now names a version
+    // nobody installed, so the default runs and the spawn line says both (`uptime 0.2.0 (repo
+    // specifies 0.1.0)` is the ruling's own example). Wording provisional.
+    line(0, "echo greeting 0.9.9 > versions", &[]),
+    line(
+        1,
+        "greeting",
+        &[
+            "greeting 0.2.0 (repo specifies 0.9.9)",
+            "hello from the second copy of the package",
+        ],
+    ),
     // **A name the image and a package both have** is refused at the prompt, naming both (§229
     // B2), but no line here can make one: install now refuses an image program's name (§229,
     // 2026-09-27), and only a later base adding a name a package holds can produce the pair.
@@ -821,12 +896,12 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "vouch installed/unvouched",
-        &["vouched; generation 3 is live"],
+        &["vouched; generation 4 is live"],
     ),
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: vouched by the owner in activation generation 3 (digest "],
+        &["provenance: vouched by the owner in activation generation 4 (digest "],
     ),
     // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
     // the name it was recorded under, so the bare word reaches nothing.
@@ -835,7 +910,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "package rollback",
-        &["rolled back; generation 2 is live"],
+        &["rolled back; generation 3 is live"],
     ),
     line(
         0,
@@ -1228,13 +1303,14 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
         // The preview and the witness stay: neither needs a device, and the witness's refusal is
         // the same on a boot with no stack as on one that has a stack and did not endow it.
         // And the package source is reached over that network (milestone 198 rung 3a's fetch).
-        // `package install nosuch` stays: the catalogue refuses it before the network is asked.
-        "network_echo_client --mem 4" | "package install uptime" | "package install greeting" => {
-            Some(
-                "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
+        // `package install nosuch` stays: the catalogue refuses it before the network is asked,
+        // and so does the bare `package install greeting` (two versions catalogued).
+        "network_echo_client --mem 4"
+        | "package install uptime"
+        | "package install greeting@0.1.0" => Some(
+            "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
                  found on virtio-mmio only, and the x86_64 runner attaches none)",
-            )
-        }
+        ),
         _ => None,
     }
 }
@@ -1266,24 +1342,19 @@ const X86_HAND_OVER_REPORT: &str = "as a port capability (milestone 299).";
 const SWISH_CHECK_BOOT_SECS: u64 = 120;
 const SWISH_CHECK_LINE_SECS: u64 = 30;
 
-/// **The `x86_64` leg's per-line bound, three times the others', and measured rather than chosen**
-/// (milestone 182, 2026-09-19).
+/// **The `x86_64` leg's per-line bound under TCG, half again the others'**, and measured rather
+/// than chosen (milestone 182 set it at 90 s on 2026-09-19; milestone 628 (provisional) cut it to 45 s
+/// on 2026-10-03).
 ///
-/// Under OVMF the console server hands every write to the screen terminal and waits for it to be
-/// drawn (milestone 400), so a line costs what its output costs to paint and copy, not what the
-/// shell costs to run it. Measured on patagonia, one run each, typed to prompt-back:
+/// Under KVM the leg holds the other legs' [`SWISH_CHECK_LINE_SECS`], because it costs what they do;
+/// this bound is for the leg emulated, which is every Mac and any host without `/dev/kvm`. Measured
+/// typed to prompt-back, one run each, after 628 stopped the boot thread halting on the run queue:
 ///
-/// | leg | 60 or 64 lines | slowest line |
-/// |---|---|---|
-/// | `aarch64` | 6.9 s | `apropos capability` 0.3 s |
-/// | `riscv64` | 7.3 s | `apropos capability` 0.6 s |
-/// | `x86_64` | 321.1 s | `xargs caps rm globmany/m-*.txt` 24.7 s, then `caps ps` 16.7 s |
-///
-/// CI's runner was 1.5x to 1.8x slower than patagonia on this leg (run 35463884897: the guest's
-/// `date` ran 119 s into the leg against 80 s here, and `caps ps`, 16.7 s here, did not finish in
-/// 30 s there), which is how the 30 s bound went red on a line that has no defect. 90 s is 3.6x
-/// the slowest local line and 2x that line at CI's worst measured ratio. A real hang still fails,
-/// ninety seconds later than it would elsewhere.
+/// | where | lines | per line | slowest line |
+/// |---|---|---|---|
+/// | patagonia, TCG | 118 in 125.7 s | 1.07 s | `caps installed/unvouched` 10.8 s |
+/// | CI arm64, TCG (run 37089120726) | 128 in 364.5 s | 2.85 s | `caps installed/unvouched` 14.2 s |
+/// | CI `x86_64`, KVM (same run) | 128 in 33.4 s | 0.26 s | `interrupt_ignorer` 7.0 s |
 ///
 /// **Which part is the emulator's.** The same shell over TCG answers every line in under a second
 /// on the other two legs, so the whole difference is the screen path: `display_terminal` paints
@@ -1292,8 +1363,23 @@ const SWISH_CHECK_LINE_SECS: u64 = 30;
 /// store through TCG. A real PC pays the same copy in native stores at uncacheable speed, which is
 /// milliseconds per scroll rather than seconds and is not measured on silicon
 /// (`framebuffer_driver`'s BUGS). Milestone 400's BUGS records the design half: the console
-/// blocks on the screen.
-const SWISH_CHECK_X86_LINE_SECS: u64 = 90;
+/// blocks on the screen (`components/src/console.rs`'s batcher is off).
+///
+/// **Milestone 624 (the paint path), 2026-10-03 UTC, measured before 628's boot-thread fix and why
+/// that is not the bound's evidence.** Same machine, the script grown to 128 lines on the first boot:
+///
+/// | tree | lines | total | per line | slowest line |
+/// |---|---|---|---|---|
+/// | `main` at 4db8c13bf | 119 | 753.5 s | 6.3 s | `caps std_exerciser` 27.5 s |
+/// | milestone 624 at 4124d6390 | 128 | 665.6 s | 5.2 s | `caps /installed/std-grep needle docs` 22.9 s |
+///
+/// Both runs shared patagonia with another session's `x86_64` leg, and both still had the boot
+/// thread halting on the run queue, so the leg was paced by 10 ms ticks (7.7 s a line on CI with a
+/// 35 s slowest line, notes/benchmarks/swish-check-x86-leg.md), which is what 90 s had covered and
+/// what 624's rule (2x the slowest local line at CI's worst 1.8x ratio, 82 s) was measuring. With
+/// the pacing gone the slowest emulated line is 10.8 s locally and 14.2 s on CI, so 45 s is 3.2x
+/// CI's slowest.
+const SWISH_CHECK_X86_LINE_SECS: u64 = 45;
 
 /// How many foreign characters [`find_marker`] will step over inside one marker before it gives up.
 ///
@@ -1853,6 +1939,26 @@ fn swish_check_leg(arch: &str) -> bool {
         && swish_check_boot(arch, SWISH_CHECK_AFTER_REBOOT, false)
 }
 
+/// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
+/// `/dev/kvm` this process can open for writing, which is what QEMU's `-accel kvm` needs. Asked of
+/// the device rather than of an environment variable, so a developer's exported `NIFE_ACCEL` cannot
+/// change what this gate boots (`swish_check` clears it for that reason).
+///
+/// Only the `x86_64` leg asks. The aarch64 and riscv64 legs stay on TCG on purpose: on CI's arm64
+/// runner, TCG is what puts their kernels in front of a weakly ordered host (ci.yml's header), and
+/// KVM there would trade that for speed the two legs do not need (0.2 s a line). The `x86_64` guest
+/// is TSO under either, so KVM gives up no ordering the leg was ever shown. Milestone 628
+/// (provisional) measured what it buys; notes/benchmarks/swish-check-x86-leg.md. The name is
+/// provisional.
+fn kvm_is_usable() -> bool {
+    cfg!(all(target_os = "linux", target_arch = "x86_64"))
+        && std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/kvm")
+            .is_ok()
+}
+
 /// **One boot of [`swish_check_leg`]**: build (when `fresh`), boot, type `script`, read the answers.
 /// `fresh` is false for the second boot, which runs against the disk the first one left behind and
 /// builds nothing, because what it proves is that the disk is the only thing carried across
@@ -1864,6 +1970,8 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
 
     let riscv = arch == "riscv64";
     let x86 = arch == "x86_64";
+    // KVM when this host can give it, and only to the x86_64 leg: see [`kvm_is_usable`].
+    let kvm = x86 && kvm_is_usable();
     // **`std_exerciser` is in this boot's archive only if it was built** (milestone 595
     // (provisional)): `cargo xtask std-exerciser` compiles it against the `nife-dev` toolchain, which
     // `script/test` runs and a bare `script/swish-check` does not. Without it the progenitor has no
@@ -1888,6 +1996,10 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     let skipped = |line: &str| {
         swish_check_omits(arch, line).is_some()
             || ((line.starts_with("std_exerciser")
+                // The line after `std_exerciser redirected > args.txt` reads the file it wrote, so
+                // it goes with it; until 2026-10-03 it stayed and failed every local run that had
+                // not built the exerciser ("no such name in this directory").
+                || line == "wc < args.txt"
                 || line.contains(crate::disk::INSTALLED_STD_ECHO)
                 || line.contains(crate::disk::INSTALLED_STD_GREP))
                 && !std_built)
@@ -1895,7 +2007,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     eprintln!();
     eprintln!(
         "--- swish-check ({arch}): boot {} and type at the prompt ---",
-        if x86 {
+        if kvm {
+            "the UEFI image under OVMF, on KVM"
+        } else if x86 {
             "the UEFI image under OVMF"
         } else {
             "`--features shell`"
@@ -1949,6 +2063,9 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
                 .to_string(),
         );
         c.env_remove("NIFE_NVME");
+        if kvm {
+            c.env("NIFE_ACCEL", "kvm");
+        }
         // The RedoxFS disk, which `>`, `<`, `ls` and `rm` need; opt-in on this runner, and its
         // header says why.
         c.env("NIFE_UEFI_REDOXFS", "1");
@@ -2198,7 +2315,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         }
         // **How long each line took**, typed to prompt-back, so every run reports its own margin
         // against the per-line bound rather than leaving it to be guessed after a red one.
-        let line_secs = if x86 {
+        let line_secs = if x86 && !kvm {
             SWISH_CHECK_X86_LINE_SECS
         } else {
             SWISH_CHECK_LINE_SECS
@@ -2267,8 +2384,15 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         if let (true, Some((prev, typed))) = (failed.is_empty(), previous) {
             took.push((prev, typed.elapsed()));
         }
-        // Every line's time, in script order, beside the transcript when that was asked for.
-        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some() {
+        // Every line's time, in script order, when that was asked for. `NIFE_SHOW_LINE_TIMES`
+        // prints the table alone and `NIFE_SHOW_TRANSCRIPT` prints it beside the whole transcript
+        // (which is what a person reading a session wants and far too much text to diff a
+        // before/after measurement out of). The split exists for exactly that: the paint path's
+        // legs are priced by this table (`SWISH_CHECK_X86_LINE_SECS`'s own doc), and a lane that
+        // changes the paint path needs the table from two runs, not two transcripts.
+        if std::env::var_os("NIFE_SHOW_TRANSCRIPT").is_some()
+            || std::env::var_os("NIFE_SHOW_LINE_TIMES").is_some()
+        {
             for (l, d) in &took {
                 eprintln!("swish-check ({arch}): {:6.2}s  {l}", d.as_secs_f64());
             }
@@ -3066,8 +3190,22 @@ $ outlaw
     /// and builds nothing. A bound from above only; a tag that is too low is the case no host test
     /// can see, and the transcript cannot either.
     /// Bare names this script installs before it types them (§229 (how a bare name at the prompt
-    /// reaches an installed program), B2), which run as programs without being the image's.
-    const INSTALLED_BY_THE_SCRIPT: [&str; 2] = ["greeting", "noteless"];
+    /// reaches an installed program), B2), which run as programs without being the image's, and
+    /// the version-qualified ask, which is not a bare name but resolves to one of these rows the
+    /// same way (milestone 614, ruling 4).
+    const INSTALLED_BY_THE_SCRIPT: [&str; 3] = ["greeting", "noteless", "greeting@0.1.0"];
+
+    /// **The second version's install line names the file the seed writes** (milestone 614), the
+    /// same pairing the two tests above hold for 0.1.0's lines.
+    #[test]
+    fn the_second_version_install_line_names_the_seeded_file() {
+        let line = format!("package install {}", crate::disk::DOWNLOADED_GREETING_0_2_0);
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
+        // No leg omits it: the disk carries it everywhere, and no leg fetches it.
+        for arch in ["aarch64", "riscv64", "x86_64"] {
+            assert!(swish_check_omits(arch, &line).is_none(), "{arch}");
+        }
+    }
 
     /// Feed `chunks` through a [`GaugeFilter`] and return what the checks would read, and the gauges.
     fn filtered(chunks: &[&str]) -> (String, Vec<(usize, String)>) {

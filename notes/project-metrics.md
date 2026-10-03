@@ -44,6 +44,12 @@ where the field did not exist yet, or held a word with no meaning today, the ris
 "unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
 on 2026-08-31 UTC.
 
+## The nine, by colour
+
+![colours](project-metrics/fatal-risks-colors.svg)
+
+Grey is no verdict yet.
+
 ## Kani proof harnesses, and what can falsify them
 
 ![Kani proof harnesses](project-metrics/harnesses.svg)
@@ -203,7 +209,7 @@ pulled once both panels reach zero. Then `script/metrics` prints "the bold backl
 is zero; retire this chart" and writes it here:
 
 <!-- bold-backlog: script/metrics writes this -->
-2026W40: 14938 spans over, in 826 documents.
+2026W40: 14919 spans over, in 825 documents.
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.

@@ -40,11 +40,13 @@
 //! # a comment
 //! every 200ms  least_authority_demo 7
 //! at-boot      least_authority_demo 3
+//! every month on last fri at 17:00  least_authority_demo 5
 //! ```
 //!
-//! Two schedule words, deliberately. `every <interval>` and `at-boot` are what milestone 129's
-//! block scopes; calendar syntax (minute/hour/day fields and their daylight-saving ambiguities) is
-//! its own later decision and not a default to drift into. See notes/scheduled-execution.md.
+//! Three shapes. `every <interval>` and `at-boot` run on the monotonic counter and need nothing.
+//! A calendar line (G5, ruled by calef on 2026-09-26; [`recurrence`]) names a time of day in UTC,
+//! is exactly one RFC 5545 RRULE, and needs the timetable to hold the wall clock. See
+//! notes/scheduled-execution/calendar-grammar-g5.md for the grammar and what it refuses.
 //!
 //! # What this crate is not
 //!
@@ -85,6 +87,7 @@ use grant_plan::expand::Expansion;
 use grant_plan::{Endowment, Holdings, Refusal};
 
 pub mod contract;
+pub mod recurrence;
 pub mod registration;
 
 /// Nanoseconds in a second. Spelled here rather than taken from `clock_protocol`, because this crate
@@ -104,14 +107,11 @@ pub const MAX_ENTRIES: usize = 8;
 // The document.
 // ===============================================================================================
 
-/// **When an entry fires.** Two shapes, and the smallness is the decision rather than a stage.
+/// **When an entry fires.** Two shapes on the monotonic counter, and one on the wall clock.
 ///
-/// Milestone 129's block scopes the vocabulary to exactly these because the housekeeping its first
-/// customer needs (snapshot thinning, scrub passes, log rotation) is interval-shaped, and because
-/// calendar syntax is a decision with real content in it: what a `0 2 * * *` entry should do when
-/// the wall clock steps an hour is a question this system has vocabulary for (`network_time_protocol`'s era
-/// pivot) and no answer to yet. Adding a field to this enum later is cheap; shipping an
-/// ambiguous one now is not.
+/// The calendar shape waited for a ruling rather than a default, because what a time-of-day entry
+/// does when the clock steps is a decision with content in it. calef ruled G5 on 2026-09-26, with
+/// S3 and its `SET` fix for steps ([`Registry::observe`]).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Schedule {
     /// Once, as soon as the scheduler is armed, and never again.
@@ -122,6 +122,9 @@ pub enum Schedule {
     /// in [`next_after`] runs in; the document is written in `ms`, `s` and `m`, and [`parse`]
     /// converts once, where the conversion can be tested.
     Every(u64),
+    /// **A time of day in UTC**, by a calendar rule (G5, `recurrence`): `every day at 02:00`.
+    /// Needs the wall clock, so a timetable holding none answers [`Unbacked::WallClock`].
+    Calendar(recurrence::Rule),
 }
 
 /// One line of the document: when, and what.
@@ -164,6 +167,8 @@ pub enum Error {
     MissingCommand(usize),
     /// More entries than [`MAX_ENTRIES`], reported at the line that overflowed rather than dropped.
     TooManyEntries(usize),
+    /// A calendar line the G5 grammar refuses, and why (`recurrence::Refusal`).
+    Calendar(usize, recurrence::Refusal),
 }
 
 impl Error {
@@ -176,7 +181,8 @@ impl Error {
             | Error::BadInterval(l)
             | Error::ZeroInterval(l)
             | Error::MissingCommand(l)
-            | Error::TooManyEntries(l) => l,
+            | Error::TooManyEntries(l)
+            | Error::Calendar(l, _) => l,
         }
     }
 
@@ -190,6 +196,18 @@ impl Error {
             Error::ZeroInterval(_) => "a zero interval is a spin, not a schedule",
             Error::MissingCommand(_) => "a schedule with nothing to run",
             Error::TooManyEntries(_) => "more entries than this timetable holds",
+            Error::Calendar(_, r) => r.message(),
+        }
+    }
+
+    /// For a range that does not end on its last step, the last time it does reach, as `(hour,
+    /// minute)`, so the refusal can name the line to write instead.
+    pub fn last_reachable(self) -> Option<(u8, u8)> {
+        match self {
+            Error::Calendar(_, recurrence::Refusal::InexactRange(Some(t))) => {
+                Some(((t / 60) as u8, (t % 60) as u8))
+            }
+            _ => None,
         }
     }
 }
@@ -232,14 +250,17 @@ pub fn parse(doc: &str) -> Result<Document<'_>, Error> {
         let (word, rest) = split_word(line).ok_or(Error::Malformed(no))?;
         let (schedule, command) = match word {
             "at-boot" => (Schedule::AtBoot, rest),
-            "every" => {
-                let (interval, command) = split_word(rest).ok_or(Error::MissingInterval(no))?;
-                let nanos = interval_nanos(interval).ok_or(Error::BadInterval(no))?;
-                if nanos == 0 {
-                    return Err(Error::ZeroInterval(no));
+            "every" => match recurrence::parse(rest).map_err(|r| Error::Calendar(no, r))? {
+                recurrence::Parsed::Calendar(rule, command) => (Schedule::Calendar(rule), command),
+                recurrence::Parsed::NotCalendar => {
+                    let (interval, command) = split_word(rest).ok_or(Error::MissingInterval(no))?;
+                    let nanos = interval_nanos(interval).ok_or(Error::BadInterval(no))?;
+                    if nanos == 0 {
+                        return Err(Error::ZeroInterval(no));
+                    }
+                    (Schedule::Every(nanos), command)
                 }
-                (Schedule::Every(nanos), command)
-            }
+            },
             _ => return Err(Error::UnknownSchedule(no)),
         };
         let command = command.trim();
@@ -291,8 +312,8 @@ fn split_word(s: &str) -> Option<(&str, &str)> {
 ///
 /// Three units and no more. Anything shorter than a millisecond is below the resolution a
 /// yield-polled scheduler can honour (see `components/src/timetable.rs`'s `BUGS`), and anything longer
-/// than a minute wants the calendar syntax this deliberately does not have: `every 86400s` is a
-/// daily job written in a way that is wrong across a leap second and silent about it.
+/// than a minute is better said as a calendar line: `every 86400s` is a daily job counted from
+/// arming, where `every day at 02:00` is one at a time of day.
 fn interval_nanos(s: &str) -> Option<u64> {
     let digits = s.len() - s.trim_start_matches(|c: char| c.is_ascii_digit()).len();
     if digits == 0 {
@@ -403,6 +424,9 @@ pub enum Unbacked {
     /// for more than the scheduler was given, and that ceiling is the scheduler's rather than the
     /// program manifest's, which is why the manifest's own `MemSpec` range did not catch it.
     Memory,
+    /// The line is a calendar entry, and this timetable holds no clock to keep a time of day by.
+    /// Unlike [`Unbacked::Clock`] this is the timetable's own need, whatever the program is.
+    WallClock,
 }
 
 impl Unbacked {
@@ -419,6 +443,7 @@ impl Unbacked {
             Unbacked::Domain => "this timetable holds no process view to grant",
             Unbacked::Interrupt => "nobody is at a keyboard behind a scheduled job",
             Unbacked::Memory => "more memory than this timetable's whole budget",
+            Unbacked::WallClock => "this timetable holds no clock to keep a time of day by",
         }
     }
 }
@@ -454,7 +479,35 @@ pub struct Row<'a> {
     pub admission: Admission,
     /// The monotonic nanosecond reading at which this next fires. `u64::MAX` for anything that
     /// never will, which is every refusal and every [`Schedule::AtBoot`] that already went.
+    /// Unused by a [`Schedule::Calendar`] row, which keeps wall time in `wall_next` instead.
     next: u64,
+    /// A calendar row's next occurrence, in UTC minutes: [`UNARMED`] until the clock is known,
+    /// [`SPENT`] once `through` has passed.
+    wall_next: i64,
+    /// The wall-clock minute a calendar row last fired at, or [`UNSTAMPED`]. After a backward step
+    /// the next fire is the first occurrence after both the clock and this, so nothing fires
+    /// twice (S3). A clock `SET` clears it.
+    stamp: i64,
+}
+
+/// A calendar row not yet armed against a known clock.
+pub const UNARMED: i64 = i64::MIN;
+/// A calendar row with no occurrence left.
+pub const SPENT: i64 = i64::MAX;
+/// A calendar row that has never fired, or whose stamp a clock `SET` cleared.
+pub const UNSTAMPED: i64 = i64::MIN;
+
+/// **What the wall clock says, as the timetable reads it once per pass** (§43 (reading the clock
+/// is a page)). `None` wherever it is used means the time is unknown or no clock is held, and a
+/// calendar row is then dormant.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct WallReading {
+    /// Whole UTC minutes since the epoch.
+    pub minute: i64,
+    /// The clock page's publication count; a change is a step.
+    pub generation: u64,
+    /// The publication in force was an operator's `SET`, not an accepted `SYNCED` proposal.
+    pub set: bool,
 }
 
 impl<'a> Row<'a> {
@@ -482,7 +535,14 @@ const NEVER: u64 = u64::MAX;
 pub struct Registry<'a> {
     rows: [Row<'a>; MAX_ENTRIES],
     n: usize,
+    /// The wall-clock minute at the last [`Registry::observe`], or `None` while it is unknown.
+    wall: Option<i64>,
+    /// The clock page generation the calendar rows were last armed against.
+    generation: u64,
 }
+
+/// No generation observed yet, so the next known reading arms every calendar row.
+const NO_GENERATION: u64 = u64::MAX;
 
 impl<'a> Registry<'a> {
     /// **Check every entry against its program's manifest and against what this scheduler holds.**
@@ -529,17 +589,32 @@ impl<'a> Registry<'a> {
             },
             admission: Admission::Unbacked(Unbacked::Clock),
             next: NEVER,
+            wall_next: UNARMED,
+            stamp: UNSTAMPED,
         }; MAX_ENTRIES];
         let mut n = 0usize;
         for &entry in doc.entries() {
+            // A calendar line needs the wall clock before its program's manifest is even asked:
+            // keeping a time of day is this timetable's own need, not the child's.
+            let admission = match entry.schedule {
+                Schedule::Calendar(_) if !held.clock => Admission::Unbacked(Unbacked::WallClock),
+                _ => admit(entry.command, held),
+            };
             rows[n] = Row {
                 entry,
-                admission: admit(entry.command, held),
+                admission,
                 next: NEVER,
+                wall_next: UNARMED,
+                stamp: UNSTAMPED,
             };
             n += 1;
         }
-        Registry { rows, n }
+        Registry {
+            rows,
+            n,
+            wall: None,
+            generation: NO_GENERATION,
+        }
     }
 
     /// The registered rows, in document order.
@@ -587,6 +662,60 @@ impl<'a> Registry<'a> {
             r.next = match r.entry.schedule {
                 Schedule::AtBoot => now,
                 Schedule::Every(p) => now.saturating_add(p),
+                Schedule::Calendar(_) => NEVER,
+            };
+            r.wall_next = UNARMED;
+        }
+        // Calendar rows arm against the clock at the next `observe`, not here: arming needs a known
+        // wall time, and `arm` is given only the counter.
+        self.generation = NO_GENERATION;
+    }
+
+    /// **Read the wall clock into the registry**, once per pass, before [`due`](Registry::due).
+    ///
+    /// This is S3 with the `SET` fix, as ruled with G5 (notes/scheduled-execution/calendar-grammar-g5.md):
+    ///
+    /// - An unknown clock (`None`) leaves every calendar row dormant: nothing is armed and nothing
+    ///   fires, because a machine that does not know the date should not guess it.
+    /// - A new generation is a step, or the first known reading. Every calendar row is re-armed to
+    ///   its first occurrence after both the clock and its stamp, so a forward step fires a row at
+    ///   most once and a backward step never fires one twice.
+    /// - A generation published by an operator's `SET` first clears the stamps: they were taken on a
+    ///   clock the operator has just called wrong. A `SYNCED` step keeps them.
+    pub fn observe(&mut self, reading: Option<WallReading>) {
+        let Some(r) = reading else {
+            self.wall = None;
+            self.generation = NO_GENERATION;
+            for row in self.rows.iter_mut().take(self.n) {
+                row.wall_next = UNARMED;
+            }
+            return;
+        };
+        self.wall = Some(r.minute);
+        if r.generation == self.generation {
+            return;
+        }
+        self.generation = r.generation;
+        for row in self.rows.iter_mut().take(self.n) {
+            let Schedule::Calendar(rule) = row.entry.schedule else {
+                continue;
+            };
+            if row.endowment().is_none() {
+                continue;
+            }
+            if r.set {
+                row.stamp = UNSTAMPED;
+            }
+            // The earlier of what was armed and the first occurrence after both the clock and the
+            // stamp. A forward step leaves the armed occurrence behind the clock, so it fires once,
+            // however many the step covered; a backward step, or a SET that cleared the stamp,
+            // brings the next one forward, and the stamp keeps anything already fired from firing
+            // again.
+            let fresh = recurrence::next(&rule, r.minute.max(row.stamp)).unwrap_or(SPENT);
+            row.wall_next = if row.wall_next == UNARMED {
+                fresh
+            } else {
+                row.wall_next.min(fresh)
             };
         }
     }
@@ -617,6 +746,9 @@ impl<'a> Registry<'a> {
                 }
                 if theirs.entry.schedule == mine.schedule && theirs.entry.command == mine.command {
                     self.rows[i].next = theirs.next;
+                    // A calendar row carries its stamp; `wall_next` re-arms from it at the next
+                    // `observe`, since `arm` above reset the generation.
+                    self.rows[i].stamp = theirs.stamp;
                     lent |= 1 << j;
                     kept |= 1 << i;
                     break;
@@ -638,14 +770,29 @@ impl<'a> Registry<'a> {
     /// reason: an entry that cannot be built now will not be buildable a microsecond from now, and
     /// a retry loop against a full budget is a spin with extra steps.
     pub fn due(&mut self, now: u64) -> Option<usize> {
+        let wall = self.wall;
         for i in 0..self.n {
             let r = &mut self.rows[i];
+            if let Schedule::Calendar(rule) = r.entry.schedule {
+                // Due when the wall clock has reached the armed occurrence. Stamped with the clock's
+                // minute rather than the occurrence: no occurrence lies between the two, so the
+                // backward-step rule reads the same, and a forward step that covered several
+                // occurrences fires once.
+                let Some(w) = wall else { continue };
+                if r.wall_next == UNARMED || r.wall_next == SPENT || w < r.wall_next {
+                    continue;
+                }
+                r.stamp = w;
+                r.wall_next = recurrence::next(&rule, w).unwrap_or(SPENT);
+                return Some(i);
+            }
             if r.next > now {
                 continue;
             }
             r.next = match r.entry.schedule {
                 Schedule::AtBoot => NEVER,
                 Schedule::Every(p) => next_after(r.next, p, now),
+                Schedule::Calendar(_) => NEVER, // handled above; never reaches here
             };
             return Some(i);
         }
@@ -871,6 +1018,13 @@ fn write_schedule(s: Schedule, out: &mut dyn FnMut(&[u8])) {
         Schedule::Every(nanos) => {
             buf[..6].copy_from_slice(b"every ");
             6 + write_interval(nanos, &mut buf[6..])
+        }
+        // The rule as the RRULE it is, which is longer than the column and says exactly what the
+        // line means, including the UTC the line leaves implicit.
+        Schedule::Calendar(rule) => {
+            recurrence::write_rrule(&rule, out);
+            out(b" (UTC)");
+            return;
         }
     };
     out(&buf[..n.max(SCHEDULE_COLUMN)]);
@@ -1549,6 +1703,145 @@ mod tests {
         assert!(
             stage(&mut page, &[b'#'; BODY_MAX]).is_some(),
             "and one that exactly fills it"
+        );
+    }
+
+    /// A wall-clock reading at `minute`, published by `generation`.
+    fn clock(minute: i64, generation: u64, set: bool) -> Option<WallReading> {
+        Some(WallReading {
+            minute,
+            generation,
+            set,
+        })
+    }
+
+    /// 2026-10-05T00:00Z, a Monday, in minutes.
+    const MON: i64 = 20_731 * 1440;
+
+    fn with_clock() -> Held {
+        Held {
+            clock: true,
+            ..Held::default()
+        }
+    }
+
+    /// **A calendar line needs the timetable to hold a clock**, whatever its program: keeping a
+    /// time of day is the timetable's own need. `least_authority_demo` declares no clock and is
+    /// still unbacked on a calendar line in a clockless timetable, and fires in one that holds one.
+    #[test]
+    fn a_calendar_line_is_unbacked_without_a_clock_and_admitted_with_one() {
+        let doc = parse("every day at 02:00 least_authority_demo 7\n").unwrap();
+        let bare = Registry::register(&doc, Held::default());
+        assert_eq!(
+            bare.rows()[0].admission,
+            Admission::Unbacked(Unbacked::WallClock)
+        );
+        let held = Registry::register(&doc, with_clock());
+        assert!(held.rows()[0].endowment().is_some());
+    }
+
+    /// **S3 as ruled with G5, step by step**: dormant while the clock is unknown, armed strictly
+    /// after now when it becomes known, one fire for a forward step however much it covered, never
+    /// twice after a backward step, and a `SET` that clears the stamps so a correction can fire again.
+    #[test]
+    fn the_step_rule_fires_once_forward_never_twice_backward_and_a_set_clears() {
+        let doc = parse("every day at 02:00 least_authority_demo 7\n").unwrap();
+        let mut reg = Registry::register(&doc, with_clock());
+        reg.arm(0);
+
+        // Unknown: dormant, even long after any 02:00.
+        reg.observe(None);
+        assert_eq!(reg.due(0), None);
+
+        // Known at 03:00 Monday: nothing for the past; the next is Tuesday 02:00.
+        reg.observe(clock(MON + 180, 1, false));
+        assert_eq!(
+            reg.due(0),
+            None,
+            "leaving UNKNOWN fires nothing for the past"
+        );
+        reg.observe(clock(MON + 1440 + 119, 1, false));
+        assert_eq!(reg.due(0), None, "01:59 Tuesday");
+        reg.observe(clock(MON + 1440 + 120, 1, false));
+        assert_eq!(reg.due(0), Some(0), "02:00 Tuesday");
+        assert_eq!(reg.due(0), None, "once");
+
+        // A forward step of five days fires once, not five times.
+        reg.observe(clock(MON + 6 * 1440 + 600, 2, false));
+        assert_eq!(reg.due(0), Some(0));
+        assert_eq!(
+            reg.due(0),
+            None,
+            "a step that covered five occurrences fires one"
+        );
+
+        // A SYNCED step back two days fires nothing it already fired, and resumes after the stamp.
+        reg.observe(clock(MON + 4 * 1440 + 600, 3, false));
+        assert_eq!(reg.due(0), None);
+        reg.observe(clock(MON + 6 * 1440 + 1439, 3, false));
+        assert_eq!(
+            reg.due(0),
+            None,
+            "Saturday 02:00 already fired, before the step"
+        );
+        reg.observe(clock(MON + 7 * 1440 + 120, 3, false));
+        assert_eq!(reg.due(0), Some(0), "Sunday 02:00 is new");
+
+        // An operator SET back two days is a correction: the stamps go, and Friday fires again.
+        reg.observe(clock(MON + 5 * 1440 + 100, 4, true));
+        assert_eq!(reg.due(0), None, "01:40 Friday");
+        reg.observe(clock(MON + 5 * 1440 + 120, 4, true));
+        assert_eq!(
+            reg.due(0),
+            Some(0),
+            "the operator asked for Friday back, and gets it"
+        );
+    }
+
+    /// A forward step past `through` fires the last covered occurrence once, and the line is spent.
+    #[test]
+    fn a_step_past_through_fires_once_and_the_line_is_spent() {
+        let doc = parse("every day through 2026-10-07 at 02:00 least_authority_demo 7\n").unwrap();
+        let mut reg = Registry::register(&doc, with_clock());
+        reg.arm(0);
+        reg.observe(clock(MON, 1, false));
+        reg.observe(clock(MON + 30 * 1440, 2, false));
+        assert_eq!(
+            reg.due(0),
+            Some(0),
+            "the step covered the last occurrences: one fire"
+        );
+        assert_eq!(reg.due(0), None, "and the line is spent");
+        // Armed against Monday, then stepped a month: re-arming finds nothing after the step.
+        let mut reg = Registry::register(&doc, with_clock());
+        reg.arm(0);
+        reg.observe(clock(MON, 1, false));
+        reg.observe(clock(MON + 3 * 1440, 1, false));
+        assert_eq!(reg.due(0), Some(0), "the occurrence the clock reached");
+        assert_eq!(reg.due(0), None);
+        reg.observe(clock(MON + 30 * 1440, 1, false));
+        assert_eq!(reg.due(0), None, "spent after the 7th");
+    }
+
+    /// A replacement that keeps a calendar line keeps its stamp, so resending a document is not a
+    /// licence to fire today's occurrence twice.
+    #[test]
+    fn a_replacement_keeps_a_calendar_lines_stamp() {
+        let doc = parse("every day at 02:00 least_authority_demo 7\n").unwrap();
+        let mut old = Registry::register(&doc, with_clock());
+        old.arm(0);
+        old.observe(clock(MON + 100, 1, false));
+        old.observe(clock(MON + 120, 1, false));
+        assert_eq!(old.due(0), Some(0));
+        let mut new = Registry::register(&doc, with_clock());
+        assert_eq!(new.arm_after(&old, 0), 1);
+        // The same generation, but `arm` reset what the registry last saw, so it re-arms from the
+        // carried stamp: 02:00 today is behind it.
+        new.observe(clock(MON + 120, 1, false));
+        assert_eq!(
+            new.due(0),
+            None,
+            "02:00 already fired before the replacement"
         );
     }
 

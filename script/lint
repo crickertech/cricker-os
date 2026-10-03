@@ -287,7 +287,7 @@ for tgt in aarch64-unknown-none-softfloat riscv64imac-unknown-none-elf; do
 done
 
 # The pre-push hook's contract with this script, checked (2026-09-29). `.githooks/pre-push` runs
-# `script/fmt --check` then `script/lint --clippy` before any push leaves a worktree, and every
+# `script/fmt --check` then `script/lint` (all of it since milestone 630 (a merge-queue ejection is caught before the queue)) before any push leaves a worktree, and every
 # part of that line can rot silently: a script the hook names can be renamed, and the hook's own
 # `[ -x ... ]` tolerance then exits 0 and the gate stops gating with no signal anywhere; or a flag
 # can drift out of this parser, and the hook falls through to this full run, slower and unnoticed.
@@ -315,8 +315,9 @@ for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pr
     }
 done
 
-# `--clippy`: stop after the last clippy pass. `.githooks/pre-push` calls this so the clippy gate
-# has exactly one copy, here, and the hook cannot drift from it. Added 2026-09-29 after lane
+# `--clippy`: stop after the last clippy pass. `.githooks/pre-push` called this so the clippy gate
+# had exactly one copy, here, until milestone 630 measured the rest of lint at about 29 s more and
+# made the hook run all of it; the flag stays for a person who wants the clippy half alone. Added 2026-09-29 after lane
 # branches kept reaching CI with clippy failures a local gate would have caught (#1424's stale
 # lints; #1442, where a push left before lint was read): the cheap half of this script belongs
 # before the push, and everything after this point still runs in full here and in CI.
@@ -871,6 +872,10 @@ echo "TODO markers: $todo_count in code, each naming a milestone that has a bloc
 # revision said.
 echo "==> roadmap status"
 "$(dirname "$0")/roadmap" --check
+# The ready-time half (milestone 630): `--ready-branch` runs on `pull_request` from
+# .github/workflows/ready-status.yml and from the pre-push hook, never from here, because lint
+# cannot know whether the pull request is a draft. Its fixtures can still prove it fails.
+"$(dirname "$0")/roadmap" --selftest >/dev/null
 
 
 # Intra-doc links, denied when broken. This codebase leans unusually hard on `[`Item`]` links to
@@ -2785,11 +2790,20 @@ echo "==> the merge queue's admission predicate"
 #     concurrency group cancelled beside its same-second sibling; the self-test's fixtures are the
 #     ordinary supersede that must not be rerun and the attempt-2 run that must not be rerun again.
 "$(dirname "$0")/../helpers/cancelled-duplicate-selftest.sh"
+#     And the ejection decision (milestone 630): a head the queue ejected on a failure is held
+#     rather than re-armed into another 20-to-38-minute group, a moved head releases, and a
+#     deliberate removal is not an ejection. Fixtures only, no `gh`.
+"$(dirname "$0")/../helpers/queue-ejected-selftest.sh"
 #     And `Blocked-by: #N` (2026-09-27): the parser (helpers/blocked-by.sh, one number or several
 #     on the line) and the draft-unblock decision it feeds (helpers/blocked-by-resolution.jq:
 #     unblocked, still waiting, closed unmerged, already labelled) are each fixtures-only, no `gh`.
 "$(dirname "$0")/../helpers/blocked-by-selftest.sh"
 "$(dirname "$0")/../helpers/blocked-by-resolution-selftest.sh"
+
+#     The empty-diff check (milestone 627 (a pull request that changes nothing does not merge), provisional number; helpers/empty-diff-check.sh): a merge
+#     whose tree equals its first parent's. Fixtures in throwaway repositories, the failing cases
+#     first-class, because a gate's green looks the same as a gate that cannot fire.
+"$(dirname "$0")/../helpers/empty-diff-selftest.sh"
 
 # 12. The CI-poll refusal hook (helpers/hooks/refuse-ci-polling, wired as a PreToolUse hook on Bash
 #     in .claude/settings.json). calef's 2026-09-26 ruling is that a lane never polls CI; this

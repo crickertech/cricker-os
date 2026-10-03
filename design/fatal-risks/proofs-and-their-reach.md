@@ -1,3 +1,8 @@
+---
+risk: 2
+color: amber
+updated: 2026-08-31
+---
 # Appendix to risk 2: The proofs prove trivia, and the real bugs live where Kani cannot reach
 
 *An appendix to [`README.md`](README.md)'s risk 2. That entry is the claim of

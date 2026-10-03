@@ -1,3 +1,8 @@
+---
+risk: 6
+color: none
+updated: 2026-10-03
+---
 # Appendix to risk 6: A capability-confined userspace driver cannot drive real hardware at real speed
 
 *An appendix to [`README.md`](README.md)'s risk 6. That entry is the claim of
@@ -29,7 +34,7 @@ does not retire the risk, and the reason is in the third bullet and repeated at 
 entry: a TRNG is the smallest real device on the board, and throughput is what a TRNG cannot test.
 
 The risk names three things and they were never one claim. Measured on radon, transcripts at
-`target/board/radon-2026-09-04-trng-success.log` and `bench/radon-2026-09-16/tour-083200.log`:
+`target/board/radon-2026-09-04-trng-success.log` and the committed boots named under the speed bullet:
 
 - Confined: yes, 2026-09-03. Milestone 159 (a real hardware entropy source: the JH7110's TRNG)'s
   driver is an EL0 process started from the archive, reaching the JH7110's TRNG through a capability
@@ -38,8 +43,13 @@ The risk names three things and they were never one claim. Measured on radon, tr
   `3faa07e1` and `731191ba`, each boot's two draws differing from each other. Reseeded per boot
   rather than a constant in silicon or a stale register file.
 - At real speed: MEASURED on silicon, 2026-09-16. 955,223 bytes/s, 64 bytes in 67 us over eight
-  `entropy_protocol` round trips, which is about 8.4 us per round trip; bring-up 562 us. One boot of
-  radon, transcript at `bench/radon-2026-09-16/tour-083200.log`. The instrument is the one built on
+  `entropy_protocol` round trips, which is about 8.4 us per round trip; bring-up 562 us. Corrected
+  2026-10-03 (§216 (fatal-risk facts are correctable, and verdicts are the architect's), from #1495): that figure has no committed transcript. It was cited to
+  `bench/radon-2026-09-16/tour-083200.log`, which has no `hw entropy` line, and no committed log
+  holds 955,223 (commit `4af8ff980` carries only the number). Four committed boots of radon
+  measure the same step: 988,416, 992,248 and 992,248 bytes/s on 2026-09-16 (`jobmix-boot3.log:721`,
+  `jobmix-boot5.log:736`, `jobmix-boot4.log:814` under `bench/radon-2026-09-16/`) and 973,384 on
+  2026-09-25 (`bench/radon-2026-09-25/soak-8h.log:208`), a spread of about 4%. The instrument is the one built on
   2026-09-10 (the tour reads the timebase around the step and the `hw entropy` line carries three
   figures), and this is the boot that proposal was waiting for.
 
@@ -105,8 +115,9 @@ That splits this risk into three, and two of them are now answered:
   register window. It is the *smallest* real device on the board, so it settles "a confined
   userspace process can reach non-virtio silicon at all" and it settles nothing about a device with
   a ring buffer.
-- At real speed: measured on silicon 2026-09-16, and the small-device question is closed. 955,223
-  bytes/s, 8.4 us per round trip, bring-up 562 us. The full figures and what they do and do not
+- At real speed: measured on silicon 2026-09-16, and the small-device question is closed. 973,384 to
+  992,248 bytes/s over four committed boots (the first figure, 955,223, has no committed transcript;
+  see the correction at the head of this entry), 8.4 us per round trip, bring-up 562 us. The full figures and what they do and do not
   count are at the head of this entry. Corrected 2026-09-11: this used to read "nothing in the boot
   tour timestamps the step, so the only available clock is a person watching a serial console". And
   that stopped being true on 2026-09-10 when the step began timing itself. The boot that read it
