@@ -1,7 +1,7 @@
 ---
 status: IN-PROGRESS
 raised: 2026-10-03
-branch: milestone/630-queue-ejection
+branch: lane/630-falsify-ready
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
