@@ -694,7 +694,7 @@ The harness count is generated weekly into `notes/project-metrics.md` (a count t
 Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture) added two, in
 `kernel/src/arch/x86_64/irq.rs`, which **only an x86_64 host runs** (the `prove` shards, since milestone 587 (most CI jobs do not need an arm64 host)): the count is of the tree, not of
 any one run, and no single host compiles all of them. (Milestone 161 (the x86_64 kernel port) added eight on 2026-09-19, the block-leaf proofs in `crates/paging`.) The package count carries a `<!--count:-->` marker that `script/lint` re-derives each build; the harness count did too, and either could still be, and was, wrong about what it counted: it
-answered a narrower question than the prose asks, which is what milestone 212 found: the derivation
+answered a narrower question than the prose asks, which is what milestone 212 (`script/falsifications` walks `crates/` only, so the ratio it prints is not the tree's) found: the derivation
 walked `crates/` and so excluded `kernel` and `user`, both of which are rows in the table below; the timing below is still a dated
 measurement, because a wall clock is not a thing a gate can cheaply re-derive. See
 notes/counted-claims.md.)
