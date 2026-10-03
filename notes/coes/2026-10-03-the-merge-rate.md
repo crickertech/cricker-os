@@ -219,8 +219,8 @@ Highest rung first. `script/roadmap --check` fails a bullet that resolves to not
   #1538, with a report for any day over 20%.
 - **Milestone 722.** Milestone 722 (swish-check fails a leg five times the others), rung 2, built
   10-03 by #1535; #1487's legs differed about 40 times.
-- **Milestone 723.** Milestone 723 (a stopped merge watcher is reported at once), rung 2, built 10-03
-  by #1537, within three of its own cron intervals.
+- **Milestone 723.** Milestone 723 (a stopped merge watcher is reported within three of its own
+  intervals), rung 2, built 10-03 by #1537.
 - **Milestone 725.** Milestone 725 (machine effort and commit attribution count every vendor), rung 2.
 - **Milestone 630.** Built 10-03 as milestone 630 (a merge-queue ejection is caught before the
   queue, and recovered after it), the re-arm the
