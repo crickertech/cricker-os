@@ -1187,7 +1187,7 @@ pub mod dir {
         /// descents are still bounded by the root. `attenuate` is idempotent-shaped rather than
         /// merely monotone, and a proof is cheaper than trusting that AND is associative in code
         /// somebody may later rewrite.
-        /// Falsification: unfalsified
+        /// Falsification: replayable `crates/filesystem_protocol/falsifications/dir.proofs.a_grandchild_is_bounded_by_the_root.patch`
         #[kani::proof]
         fn a_grandchild_is_bounded_by_the_root() {
             let root = Rights(kani::any());
