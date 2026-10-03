@@ -125,6 +125,53 @@
 # A gap is attributed to the model of the response that ENDS it, so the per-model hours sum to the
 # per-week total without double counting.
 #
+# # Every vendor, not only Claude Code (milestone 725)
+#
+# The first version of this script read one harness, so a week the work ran somewhere else read as
+# idle. From 2026-09-29 02:33 to 2026-10-01 05:07 UTC the lanes ran on z.ai's GLM models under
+# opencode while Claude's weekly allowance was out, and the table above showed nothing for it.
+#
+# **opencode keeps a SQLite database, `~/.local/share/opencode/opencode.db`, and this reads it
+# read-only** (`NIFE_OPENCODE_DB` overrides the path). One row of `message` per response, with
+# `modelID`, `providerID`, a token block and `time.created`/`time.completed` in milliseconds. A
+# session is the stream, as a transcript file is above, so parallel lanes add. Only sessions whose
+# working directory is this project's (`projects/nife`, `projects/nife-worktrees/*` and the
+# pre-rename names) are counted; the same database holds sessions for other repositories.
+#
+#   - **The model column is opencode's `modelID`**, unprefixed (`glm-5.3`). The provider is not in
+#     the key: `zai` and `zai-coding-plan` are two doors to one model, and a row per door would
+#     split a model's week for no reason a reader cares about.
+#   - **`reasoning` tokens are added to `output_tokens`.** opencode reports them in their own field
+#     and its `total` is the sum of all five, so they are not inside `output`. Providers bill
+#     reasoning as output. The z.ai window therefore reads 2.84 million output tokens here, not the
+#     0.96 million a first measurement of the `output` field alone gave.
+#   - **opencode records one cache-write figure and no time-to-live**, so it is filed under 5m, the
+#     cheaper class, by the same rule as a Claude record with no split. z.ai reported zero cache
+#     writes in the window, so the choice moves nothing yet.
+#   - **A response with no tokens in any class is skipped.** It is an API error (a quota refusal,
+#     for instance) and nothing was spent.
+#
+# # Which commits a vendor wrote, and why this script writes that down
+#
+# `script/metrics` attributes a commit by its `Co-Authored-By` trailer. A session that does not sign
+# leaves a commit with no trailer, and git alone cannot say who wrote it: the author and committer
+# are calef's identity whoever ran the command. **opencode does carry the evidence**, because every
+# `git commit` it ran is a tool call whose stored output includes git's own `[branch sha] subject`
+# line, and the message holding that call names the model. `--attribute` reads those and writes
+# `notes/project-metrics/commit-models.csv` (`sha,model,source`), committed for the reason
+# `effort.csv` is: the weekly run on a GitHub runner has no database. A commit is attributed by,
+# in order:
+#
+#   - `opencode-sha`: the sha git printed, found in this repository's history. Exact.
+#   - `opencode-subject`: that sha no longer exists (a rebase or an amend rewrote it) but the
+#     subject does, once, among commits with no trailer, and every call that printed it names the
+#     same model. A subject shared by two commits is not guessed at.
+#
+# **Nothing is attributed by time window.** "Claude was out, so the unsigned commits in between were
+# z.ai's" would be right more often than not and is exactly the unfalsifiable inference this record
+# exists to avoid: calef also commits by hand. The commits left over are printed, by week, and stay
+# `unattributed` in `script/metrics`.
+#
 # # EXAMPLES
 #
 #     script/effort                  # per-week table, from the machine, writing nothing
@@ -132,6 +179,8 @@
 #     script/effort --snapshot       # write the machine-local cache; touches no file in the tree
 #     script/effort --update         # merge cache and records into notes/project-metrics/effort.csv
 #     script/effort --check          # non-zero if a completed week has no committed row
+#     script/effort --attribute      # merge opencode-proven commits into commit-models.csv
+#     script/effort --selftest       # fixtures for the opencode reader and the commit matcher
 #
 #     IDLE_GAP_S=600 script/effort   # the same weeks with a ten-minute idle cut, to see the spread
 #
@@ -185,6 +234,17 @@
 #   a branch is not a milestone (maintainer branches, `main`, rebases), and a wrong attribution is
 #   worse than none. Milestone 519's own `BUGS` says per-component cost is not derivable yet; this
 #   records that the raw material for it is on disk.
+# - **opencode's schema is not a contract either**, and `modelID`, `tokens` and the `[branch sha]`
+#   line git prints are read by observation of one version. A rename makes the reader count zero,
+#   and `--check` cannot see it, because it asks only whether a week has a row. The tell is the
+#   `read N opencode session(s)` line the table prints: a database that is there and yields none is
+#   a finding. `--selftest` pins the shape it expects against a fixture, not against upstream.
+# - **A signed commit and an unsigned one cannot both be told apart from a hand commit by anyone
+#   but the session that made it.** Commits whose session left no record (a database pruned, a
+#   different machine, a tool that is not opencode) stay `unattributed`, and nothing here guesses.
+#   The cure is at the source: a commit signs the model that wrote it, and a hook that refuses an
+#   unsigned agent commit is proposed in milestone 725's block and not built, because a hook cannot
+#   tell an agent from calef.
 # - **Project directories are matched by name.** The harness files records under a slug of the
 #   working directory, so the nife ones are `-Users-calef-projects-nife` and, before the 2026-08-15
 #   rename, `-Users-calef-projects-cricker-os`. A lane worktree under a path that slugs to neither
@@ -209,6 +269,9 @@ import csv
 import json
 import os
 import pathlib
+import re
+import sqlite3
+import subprocess
 import sys
 from datetime import datetime, timezone
 
@@ -245,6 +308,25 @@ CACHE_DIR = pathlib.Path(os.environ.get(
     'NIFE_EFFORT_CACHE',
     os.path.join(os.environ.get('XDG_STATE_HOME', os.path.expanduser('~/.local/state')),
                  'nife', 'effort')))
+
+
+# opencode's database, and the working directories that are this project's. A session's `directory`
+# is where the tool was started, so a lane's worktree counts as the project and a different
+# repository's session in the same database does not.
+OPENCODE_DB = pathlib.Path(os.environ.get(
+    'NIFE_OPENCODE_DB', os.path.expanduser('~/.local/share/opencode/opencode.db')))
+OPENCODE_PROJECT_NAMES = ('nife', 'cricker-os')
+
+COMMIT_MODELS_PATH = pathlib.Path('notes/project-metrics/commit-models.csv')
+COMMIT_MODEL_FIELDS = ['sha', 'model', 'source']
+
+
+def is_project_dir(directory):
+    """Whether an opencode session's working directory is this project's, or one of its lanes."""
+    for name in OPENCODE_PROJECT_NAMES:
+        if directory.endswith('/projects/' + name) or ('/projects/%s-worktrees/' % name) in directory:
+            return True
+    return False
 
 
 def week_of(stamp):
@@ -342,7 +424,78 @@ def read_records():
                         # To the model that ENDS the gap, so per-model hours sum to the week's.
                         row['machine_hours'] += gap / 3600.0
                 previous = when
+
+    sessions, db = read_opencode(rows)
+    if db:
+        streams += sessions
+        dirs.append('%s (%d opencode session(s))' % (db, sessions))
     return rows, streams, dirs
+
+
+def _connect_opencode(path=None):
+    """A read-only connection to opencode's database, or None when this machine has none."""
+    path = path or OPENCODE_DB
+    if not path.is_file():
+        return None
+    # `mode=ro` and `immutable` stay off: the tool may be running, and a read-only handle can read
+    # its write-ahead log without touching it. Nothing here may modify the tool's own state.
+    return sqlite3.connect('file:%s?mode=ro' % path, uri=True)
+
+
+def read_opencode(rows, path=None):
+    """Add opencode's responses for this project to `rows`; returns (sessions read, db or None).
+
+    See "Every vendor" in the header for what is counted and why. A response is the `message` row
+    with role `assistant`; a session is the stream, so the idle-gap rule applies per session.
+    """
+    db = _connect_opencode(path)
+    if db is None:
+        return 0, None
+    try:
+        query = ("select m.session_id, m.data, s.directory from message m "
+                 "join session s on s.id = m.session_id "
+                 "where json_extract(m.data, '$.role') = 'assistant'")
+        streams = {}
+        for session_id, data, directory in db.execute(query):
+            if not is_project_dir(directory or ''):
+                continue
+            try:
+                message = json.loads(data)
+            except ValueError:
+                continue
+            tokens = message.get('tokens') or {}
+            cache = tokens.get('cache') or {}
+            counted = (tokens.get('input', 0) or 0, tokens.get('output', 0) or 0,
+                       tokens.get('reasoning', 0) or 0, cache.get('read', 0) or 0,
+                       cache.get('write', 0) or 0)
+            model = message.get('modelID')
+            when = (message.get('time') or {})
+            millis = when.get('completed') or when.get('created')
+            if not any(counted) or not model or not millis:
+                continue
+            streams.setdefault(session_id, []).append((millis, model, counted))
+    finally:
+        db.close()
+
+    for session in streams.values():
+        previous = None
+        for millis, model, (tok_in, tok_out, tok_reason, cache_read, cache_write) in sorted(session):
+            stamp = datetime.fromtimestamp(millis / 1000.0, timezone.utc)
+            week = week_of(stamp.isoformat())
+            row = rows.setdefault((week, model), _blank(week, model))
+            row['requests'] += 1
+            row['input_tokens'] += tok_in
+            row['cache_read_tokens'] += cache_read
+            row['cache_write_5m_tokens'] += cache_write
+            row['output_tokens'] += tok_out + tok_reason
+            row['peak_context_tokens'] = max(row['peak_context_tokens'],
+                                             tok_in + cache_read + cache_write)
+            if previous is not None:
+                gap = (stamp - previous).total_seconds()
+                if 0 < gap <= IDLE_GAP_S:
+                    row['machine_hours'] += gap / 3600.0
+            previous = stamp
+    return len(streams), str(path or OPENCODE_DB)
 
 
 def read_csv_rows(path):
@@ -444,13 +597,347 @@ def print_table(rows, streams, dirs):
           % (streams, len(dirs), 'y' if len(dirs) == 1 else 'ies', ', '.join(dirs) or 'none'))
 
 
+def trailer_name(model_id):
+    """The spelling a `Co-Authored-By` trailer would use for an opencode `modelID`.
+
+    `glm-5.3-flash` -> `GLM 5.3 Flash`. The commit-models record stores this spelling so that
+    `script/metrics` has one path from a name to a column, whether the name came from a trailer or
+    from here.
+    """
+    parts = [piece for piece in model_id.split('-') if piece]
+    if not parts:
+        return model_id
+    head = parts[0].upper() if len(parts[0]) <= 3 else parts[0].title()
+    return ' '.join([head] + [piece.title() for piece in parts[1:]])
+
+
+# What git prints after `git commit`: `[branch sha] subject`, or `[branch (root-commit) sha]`.
+_COMMIT_LINE = re.compile(r'^\[[^\]]*? ([0-9a-f]{7,40})\] (.+)$', re.M)
+
+
+# The subject out of a `git commit ... -m "subject` command, for a commit run with `-q`, whose
+# output has no `[branch sha]` line to read. Three spellings are in the stored commands: a quoted
+# subject on the same line, a quoted one that continues after a newline, and a heredoc inside
+# `$(cat <<'EOF'`. The subject is the first line of the message in each.
+_COMMIT_MESSAGE = re.compile(
+    r"""git\s+commit\b[^\n;|]*?\s-[a-zA-Z]*m\s+(?:"\$\(cat\s+<<-?\s*'?\w+'?\s*\n\s*([^\n]+)"""
+    r"""|"([^"\n]+)|'([^'\n]+))""")
+
+
+def commit_subjects(command):
+    """The subjects of every `git commit -m` in one shell command, in order."""
+    out = []
+    for match in _COMMIT_MESSAGE.finditer(command):
+        subject = next(group for group in match.groups() if group is not None).strip()
+        subject = subject.rstrip('\\').strip()
+        if subject:
+            out.append(subject)
+    return out
+
+
+def read_opencode_commits(path=None):
+    """[(sha prefix or None, subject, model, call time in seconds)] for every `git commit` an
+    opencode session in this project ran and that completed.
+
+    The model is the one on the assistant message that held the tool call, which is the model that
+    chose to run it. A line `[branch sha] subject` in the output gives the sha. A call with no such
+    line (`git commit -q`) gives only the subject its command named.
+    """
+    db = _connect_opencode(path)
+    if db is None:
+        return []
+    out = []
+    try:
+        query = ("select p.data, m.data, s.directory from part p "
+                 "join message m on m.id = p.message_id "
+                 "join session s on s.id = p.session_id "
+                 "where json_extract(p.data, '$.type') = 'tool' "
+                 "and json_extract(p.data, '$.tool') = 'bash' "
+                 "and json_extract(p.data, '$.state.status') = 'completed' "
+                 "and json_extract(p.data, '$.state.input.command') like '%git commit%'")
+        for part_data, message_data, directory in db.execute(query):
+            if not is_project_dir(directory or ''):
+                continue
+            try:
+                part, message = json.loads(part_data), json.loads(message_data)
+            except ValueError:
+                continue
+            model = message.get('modelID')
+            state = part.get('state') or {}
+            output = state.get('output') or ''
+            started = ((state.get('time') or {}).get('start') or 0) / 1000.0
+            if not model:
+                continue
+            printed = _COMMIT_LINE.findall(output)
+            for sha, subject in printed:
+                out.append((sha, subject.strip(), model, started))
+            if not printed:
+                for subject in commit_subjects((state.get('input') or {}).get('command') or ''):
+                    out.append((None, subject, model, started))
+    finally:
+        db.close()
+    return out
+
+
+def read_git_commits():
+    """[(sha, subject, committer time)] for every non-merge commit in HEAD's history with no trailer."""
+    fmt = '%x1e%H%x09%P%x09%ct%x09%s%x09%(trailers:key=Co-Authored-By,valueonly,separator=%x1f)'
+    log = subprocess.run(['git', 'log', '--format=' + fmt], check=True, capture_output=True,
+                         text=True, errors='replace').stdout
+    out = []
+    for chunk in log.split('\x1e'):
+        if not chunk.strip():
+            continue
+        sha, parents, when, subject, trailers = chunk.rstrip('\n').split('\t', 4)
+        if len(parents.split()) > 1 or trailers.strip():
+            continue
+        out.append((sha, subject, float(when)))
+    return out
+
+
+# A rebase or an amend rewrites a commit's time to later, never earlier, so a commit older than the
+# call that claims it cannot be that call's. The slack covers clock rounding between the two.
+CALL_SLACK_S = 120
+
+
+def attribute_commits(evidence, commits):
+    """{sha: (trailer-style model, source)} for the commits the evidence can prove. See the header.
+
+    `evidence` is `read_opencode_commits`' list and `commits` is `read_git_commits`'. Pass one is
+    by the sha git printed and is exact. Pass two is by subject, for evidence whose sha is absent
+    from the history (rewritten) or was never printed (`-q`). It needs exactly one trailer-less
+    commit with that subject, no older than the call, and every call naming the subject must name
+    the same model: an ambiguity is left unattributed, not resolved.
+    """
+    shas = [sha for sha, _subject, _when in commits]
+    out = {}
+    unresolved = []
+    for prefix, subject, model, started in evidence:
+        hits = [sha for sha in shas if prefix and sha.startswith(prefix)]
+        if len(hits) == 1:
+            out[hits[0]] = (trailer_name(model), 'opencode-sha')
+        elif not hits:
+            unresolved.append((subject, model, started))
+    by_subject = {}
+    for sha, subject, when in commits:
+        by_subject.setdefault(subject, []).append((sha, when))
+    models_for = {}
+    first_call = {}
+    for subject, model, started in unresolved:
+        models_for.setdefault(subject, set()).add(model)
+        first_call[subject] = min(first_call.get(subject, started), started)
+    for subject, models in models_for.items():
+        here = by_subject.get(subject, [])
+        if len(here) != 1 or len(models) != 1 or here[0][0] in out:
+            continue
+        if here[0][1] < first_call[subject] - CALL_SLACK_S:
+            continue
+        out[here[0][0]] = (trailer_name(next(iter(models))), 'opencode-subject')
+    return out
+
+
+def read_commit_models(path=COMMIT_MODELS_PATH):
+    if not path.exists():
+        return {}
+    with path.open() as handle:
+        return {row['sha']: (row['model'], row['source']) for row in csv.DictReader(handle)}
+
+
+def write_commit_models(table, path=COMMIT_MODELS_PATH):
+    lines = [','.join(COMMIT_MODEL_FIELDS)]
+    for sha in sorted(table):
+        lines.append(','.join([sha] + list(table[sha])))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('\n'.join(lines) + '\n')
+
+
+def commit_week(sha):
+    stamp = subprocess.run(['git', 'show', '-s', '--format=%cI', sha], check=True,
+                           capture_output=True, text=True).stdout.strip()
+    return week_of(stamp)
+
+
+def attribute_main():
+    evidence = read_opencode_commits()
+    if not evidence and not OPENCODE_DB.is_file():
+        print('effort: no opencode database at %s; nothing to attribute, file untouched' % OPENCODE_DB,
+              file=sys.stderr)
+        return 1
+    commits = read_git_commits()
+    found = attribute_commits(evidence, commits)
+    held = read_commit_models()
+    # Monotone like effort.csv: a row on record is never dropped, because the database it came
+    # from may be pruned. A changed model for a recorded sha is refused loudly, not overwritten.
+    for sha, value in found.items():
+        if sha in held and held[sha][0] != value[0]:
+            print('effort: %s is recorded as %s and the database now says %s; keeping the record'
+                  % (sha, held[sha][0], value[0]), file=sys.stderr)
+        else:
+            held.setdefault(sha, value)
+    write_commit_models(held)
+    by_model = {}
+    for model, source in held.values():
+        by_model.setdefault((model, source), 0)
+        by_model[(model, source)] += 1
+    print('effort: %d commit(s) attributed in %s' % (len(held), COMMIT_MODELS_PATH))
+    for (model, source), count in sorted(by_model.items()):
+        print('  %-24s %-18s %5d' % (model, source, count))
+    # The residue, by week, so the unattributed part is a number and not an absence. Only weeks that
+    # hold at least one attributed commit are listed: elsewhere the whole unsigned history is the
+    # pre-convention or hand-written gap that `script/metrics` already reports.
+    weeks = {}
+    for sha in held:
+        weeks[commit_week(sha)] = True
+    residue = {}
+    for sha, _subject, _when in commits:
+        if sha in held:
+            continue
+        week = commit_week(sha)
+        if week in weeks:
+            residue[week] = residue.get(week, 0) + 1
+    for week in sorted(residue):
+        print('  %s: %d commit(s) with no trailer and no opencode evidence stay unattributed'
+              % (week, residue[week]))
+    return 0
+
+
+def selftest():
+    """Fixtures for the opencode reader and the commit matcher. No real database, no real tree."""
+    import tempfile
+
+    def message(session, mid, model, millis, tokens, directory_ok=True):
+        body = {'role': 'assistant', 'modelID': model, 'time': {'created': millis - 5,
+                                                              'completed': millis},
+                'tokens': tokens}
+        return (mid, session, millis, json.dumps(body))
+
+    def tool(pid, mid, session, command, output, model_millis):
+        body = {'type': 'tool', 'tool': 'bash',
+                'state': {'status': 'completed', 'input': {'command': command},
+                          'output': output, 'time': {'start': model_millis}}}
+        return (pid, mid, session, model_millis, json.dumps(body))
+
+    day = 1790640000000  # 2026-09-29 (UTC), inside 2026W40
+    full = lambda i, o, r, cr, cw: {'input': i, 'output': o, 'reasoning': r,
+                                    'cache': {'read': cr, 'write': cw}}
+    with tempfile.TemporaryDirectory() as tmp:
+        path = pathlib.Path(tmp) / 'opencode.db'
+        db = sqlite3.connect(str(path))
+        db.executescript(
+            'create table session (id text primary key, directory text);'
+            'create table message (id text primary key, session_id text, time_created int,'
+            ' data text);'
+            'create table part (id text primary key, message_id text, session_id text,'
+            ' time_created int, data text);')
+        db.executemany('insert into session values (?, ?)', [
+            ('s1', '/Users/x/projects/nife-worktrees/lane'),
+            ('s2', '/Users/x/projects/fmrepo'),
+            ('s3', '/Users/x/projects/nife')])
+        msgs = [
+            message('s1', 'm1', 'glm-5.3', day, full(100, 10, 5, 1000, 7)),
+            message('s1', 'm2', 'glm-5.3', day + 600000, full(200, 20, 0, 3000, 0)),
+            # a gap over the idle cut, and an error with nothing spent
+            message('s1', 'm3', 'glm-5.3', day + 600000 + 7200000, full(50, 5, 0, 0, 0)),
+            message('s1', 'm4', 'glm-5.3', day + 600000 + 7200000 + 1000, full(0, 0, 0, 0, 0)),
+            message('s2', 'm5', 'glm-5.3', day, full(999, 999, 0, 0, 0)),
+            message('s3', 'm6', 'glm-5.3-flash', day, full(1, 2, 3, 4, 0)),
+            ('m7', 's1', day, json.dumps({'role': 'user', 'modelID': 'glm-5.3'}))]
+        db.executemany('insert into message values (?, ?, ?, ?)', msgs)
+        sha = 'a' * 40
+        parts = [
+            tool('p1', 'm1', 's1', 'git commit -m "printed one"',
+                 '[milestone/x %s] printed one\n 1 file changed' % sha[:9], day),
+            tool('p2', 'm6', 's3', 'git add -A && git commit -q -m "quiet one\n\nbody"', '', day),
+            tool('p3', 'm6', 's3',
+                 'git commit -q -F- <<EOF\nnot a -m form\nEOF', '', day),
+            tool('p4', 'm5', 's2', 'git commit -m "other repository"',
+                 '[main %s] other repository' % ('b' * 9), day)]
+        db.executemany('insert into part values (?, ?, ?, ?, ?)', parts)
+        db.commit()
+        db.close()
+
+        rows = {}
+        sessions, _db = read_opencode(rows, path)
+        evidence = read_opencode_commits(path)
+
+    glm = rows[('2026W40', 'glm-5.3')]
+    flash = rows[('2026W40', 'glm-5.3-flash')]
+    commits = [('a' * 40, 'printed one', float(day / 1000)),
+               ('c' * 40, 'quiet one', float(day / 1000)),
+               ('d' * 40, 'twice', float(day / 1000)),
+               ('e' * 40, 'twice', float(day / 1000)),
+               ('f' * 40, 'older than the call', float(day / 1000) - 10000)]
+    found = attribute_commits(
+        [(None, 'quiet one', 'glm-5.3-flash', day / 1000.0),
+         ('a' * 9, 'printed one', 'glm-5.3', day / 1000.0),
+         (None, 'twice', 'glm-5.3', day / 1000.0),
+         (None, 'older than the call', 'glm-5.3', day / 1000.0),
+         ('9' * 9, 'rewritten later', 'glm-5.3', day / 1000.0),
+         (None, 'no such commit', 'glm-5.3', day / 1000.0)], commits)
+    disagree = attribute_commits(
+        [(None, 'quiet one', 'glm-5.3', day / 1000.0),
+         (None, 'quiet one', 'glm-5.3-flash', day / 1000.0)], commits)
+
+    cases = [
+        ('only this project\'s sessions are read', sessions, 2),
+        ('requests skip an error with nothing spent and a user row', glm['requests'], 3),
+        ('input tokens add', glm['input_tokens'], 350),
+        ('reasoning is added to output', glm['output_tokens'], 10 + 5 + 20 + 5),
+        ('cache reads add', glm['cache_read_tokens'], 4000),
+        ('a cache write with no TTL files under 5m', glm['cache_write_5m_tokens'], 7),
+        ('peak context is the largest prompt', glm['peak_context_tokens'], 3200),
+        ('a gap over the idle cut is not hours, a short one is',
+         round(glm['machine_hours'], 4), round(600.0 / 3600.0, 4)),
+        ('another repository\'s session does not count', glm['input_tokens'] < 999, True),
+        ('the model is the key, per week', flash['requests'], 1),
+        ('a path ending in projects/nife is the project', is_project_dir('/a/projects/nife'), True),
+        ('a lane worktree is the project',
+         is_project_dir('/a/projects/nife-worktrees/m'), True),
+        ('a name that merely starts with nife is not', is_project_dir('/a/projects/nifeos'), False),
+        ('a trailer spelling is upper for a short vendor, title for the rest',
+         trailer_name('glm-5.3-flash'), 'GLM 5.3 Flash'),
+        ('a longer vendor name is title case', trailer_name('kimi-k2'), 'Kimi K2'),
+        ('a printed sha is read from the output',
+         [e[:3] for e in evidence if e[0]], [('a' * 9, 'printed one', 'glm-5.3')]),
+        ('a -q commit gives its subject, the first line only',
+         [e[1] for e in evidence if e[0] is None], ['quiet one']),
+        ('a commit with no -m names no subject', commit_subjects('git commit -q -F- <<EOF'), []),
+        ('a heredoc message gives its first line',
+         commit_subjects("git commit -m \"$(cat <<'EOF'\nthe subject\n\nbody\nEOF\n)\""),
+         ['the subject']),
+        ('two commits in one command give two subjects',
+         commit_subjects('git commit -m "one" && git commit -m "two"'), ['one', 'two']),
+        ('a printed sha attributes exactly', found.get('a' * 40), ('GLM 5.3', 'opencode-sha')),
+        ('a quiet commit attributes by its unique subject',
+         found.get('c' * 40), ('GLM 5.3 Flash', 'opencode-subject')),
+        ('a subject shared by two commits is not guessed at',
+         ('d' * 40 in found, 'e' * 40 in found), (False, False)),
+        ('a commit older than the call that claims it is refused', 'f' * 40 in found, False),
+        ('two models naming one subject is not guessed at', 'c' * 40 in disagree, False),
+        ('evidence for no commit adds nothing', len(found), 2),
+    ]
+    failed = [(name, got, want) for name, got, want in cases if got != want]
+    for name, got, want in failed:
+        print('effort selftest: %s\n  got  %r\n  want %r' % (name, got, want), file=sys.stderr)
+    if failed:
+        return 1
+    print('effort selftest: %d cases pass' % len(cases))
+    return 0
+
+
 def main(argv):
     restate = '--restate' in argv
     argv = [a for a in argv if a != '--restate']
     mode = argv[0] if argv else '--table'
-    if mode not in ('--table', '--csv', '--snapshot', '--update', '--check'):
+    if mode not in ('--table', '--csv', '--snapshot', '--update', '--check', '--attribute',
+                    '--selftest'):
         raise SystemExit('effort: unknown argument %s; see the comment at the top of this script'
                          % mode)
+
+    if mode == '--selftest':
+        return selftest()
+    if mode == '--attribute':
+        return attribute_main()
 
     if mode == '--check':
         # The question is not "is the file current" but "has a week that is over been recorded at
