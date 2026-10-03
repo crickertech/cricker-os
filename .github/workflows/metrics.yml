@@ -86,8 +86,8 @@ jobs:
       # workflow's own `GITHUB_TOKEN` does not trigger further workflow runs, so its CI never starts
       # and the PR is permanently unmergeable. The identity is the nifeos automation App's
       # installation token, minted fresh each run (milestone 128 (the automation gets its own
-      # identity)). The personal access token this job used before was retired 2026-10-03 UTC,
-      # pending revocation by calef.
+      # identity)). The personal access token this job used before was retired 2026-10-03 UTC
+      # and then deleted, secret and token both.
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
