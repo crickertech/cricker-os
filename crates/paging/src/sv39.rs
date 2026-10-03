@@ -278,6 +278,36 @@ mod verification {
         }
     }
 
+    /// **No encoded leaf is both writable and executable**, over every constructor. A leaf with `W` (bit 2) set
+    /// has `X` (bit 3) clear.
+    ///
+    /// Stated in raw bits written as literals, never through `leaf_flags` or this file's own
+    /// constants: a decoder or a constant that moved with the encoder would otherwise hide the
+    /// defect (the trap `the_leaf_keeps_address_and_permissions_apart` records). Milestone 718
+    /// (provisional) added it so §19 (architectural parity is a tenet) gate hold: this claim is proved on all three ISAs.
+    /// Falsification: replayable `crates/paging/falsifications/sv39.verification.no_encoded_leaf_is_both_writable_and_executable.patch`
+    #[kani::proof]
+    fn no_encoded_leaf_is_both_writable_and_executable() {
+        let pa: u64 = kani::any();
+        kani::assume(pa & !0x00ff_ffff_ffff_f000 == 0);
+
+        let all = [
+            Flags::kernel_code(),
+            Flags::kernel_rodata(),
+            Flags::kernel_data(),
+            Flags::device(),
+            Flags::user_code(),
+            Flags::user_rodata(),
+            Flags::user_data(),
+            Flags::user_device(),
+        ];
+        let i: usize = kani::any();
+        kani::assume(i < all.len());
+
+        let leaf = Sv39::leaf_entry(pa, all[i]);
+        assert!(leaf & (1 << 2) == 0 || leaf & (1 << 3) == 0);
+    }
+
     /// **A megapage or gigapage keeps the address and the permissions apart and is a leaf**, for
     /// every physical address and every `Flags` constructor. Literals for every bit position: the
     /// PPN is bits [53:10], and its low 9 (megapage) or 18 (gigapage) bits must be zero, or the
