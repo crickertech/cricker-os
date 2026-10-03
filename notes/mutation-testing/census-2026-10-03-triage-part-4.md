@@ -68,8 +68,8 @@ The 4 equivalents:
   every access reduces it again, so the bytes read are the same (`usize` overflow is out of reach).
 
 The 4 gaps are `BUDGET_PAGES = 2 * INSTANCE_PAGES + 16`. A test could only restate the formula. What
-the number protects is a second instance starting beside the incumbent under a supervisor, which the
-swap test under QEMU does (a smaller budget fails it; a larger one only wastes pages).
+the number protects is a second instance starting beside the incumbent under a supervisor. The swap
+test under QEMU does that: a smaller budget fails it, and a larger one only wastes pages.
 
 ## package_archive
 
@@ -99,9 +99,9 @@ count at 104, the first entry at 112 and its offset, length and digest words. Th
   that is sitting where the list would be.
 - `MSIX_ENABLE` and `MSIX_FUNCTION_MASK` (2), pinned to the specification's bits 15 and 14.
 - `mem32_window` (4). Three distinct cells with non-zero high halves, so a high half shifted the
-  wrong way reads as a different number; a window whose two addresses differ only in the high cell
-  is skipped; a whole entry followed by one stray cell is ragged (the old test cut a one-entry
-  range, which has no whole chunk left to be misread).
+  wrong way reads as a different number. A window whose two addresses differ only in the high cell
+  is skipped. A whole entry followed by one stray cell is ragged. The old test cut a one-entry
+  range, which has no whole chunk left to be misread.
 
 The 10 equivalents are all `|` as `^` where the two operands share no bit:
 
