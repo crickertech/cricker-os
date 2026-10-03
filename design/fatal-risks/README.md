@@ -273,7 +273,7 @@ found two confinement defects, both confirmed under QEMU: a plain `SEND` deliver
 the endpoint capability's badge, so a bound `redoxfs_server` client that `SEND`s is seen as root
 (closed by #1494, merged 2026-10-03), and a plain `SEND` received by `RECV_CAP` handed the receiver a
 sender-chosen slot on one arrival order, a `net_stack`-shaped escape (fixed by milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)). The
-appendix has both.
+appendix has both. Milestone 633 (An outside agent attacks the confinement claim) found a third route to the same RECV-path escape, by PR #1525: a plain `RECV` collecting a `SEND_CAP` sender left the sender's `outgoing_cap` staged, so the sender's next plain `SEND` delivered the capability to a `RECV_CAP` receiver on another endpoint. Fixed in `sched::ipc_recv` with a test and a replayable falsification. Same class as #1494 and milestone 634. The first outsider pass on 2026-10-03 found nothing else on the claims it reached; rows 25 and 26 were not attacked and row 11 is proved on `x86_64` only. This does not support green, and the human-outsider half remains behind milestone 198.
 
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated

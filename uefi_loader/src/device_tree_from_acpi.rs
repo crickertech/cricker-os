@@ -765,4 +765,97 @@ mod tests {
             b"memory@ffff000000000000"
         );
     }
+    /// The digit after nine is `a`, the first letter, and every value across the boundary spells
+    /// itself: the existing cases hit `0` and `f` and nothing between 9 and a.
+    #[test]
+    fn the_digits_either_side_of_nine_are_spelled_right() {
+        let mut buf = [0u8; 40];
+        assert_eq!(unit_name(b"x", 0x9a, &mut buf), b"x@9a");
+        assert_eq!(unit_name(b"x", 0xa9, &mut buf), b"x@a9");
+        assert_eq!(
+            unit_name(b"x", 0xabcdef0123456789, &mut buf),
+            b"x@abcdef0123456789"
+        );
+    }
+
+    /// An address cell pair is high word first, and a value with a high word keeps it. Every
+    /// address in the fixtures sits below 4 GiB, so a writer that dropped the high cell passed.
+    #[test]
+    fn a_wide_value_keeps_its_high_cell() {
+        assert_eq!(cells64(0x0000_0001_0000_0002), [1, 2]);
+        assert_eq!(cells64(0xffff_0000_8000_0001), [0xffff_0000, 0x8000_0001]);
+    }
+
+    /// A name this writer does not carry is a bug in this file and says so, rather than reading
+    /// past the end of the block looking for it.
+    #[test]
+    #[should_panic(expected = "missing from its own strings block")]
+    fn a_property_name_outside_the_table_is_named_as_the_bug() {
+        let _ = string_offset(b"not-a-property");
+    }
+
+    /// Every name this writer emits is found at its own offset, and the empty property writes the
+    /// three words a property header is: token, zero length, name offset.
+    #[test]
+    fn an_empty_property_is_a_header_and_nothing_else() {
+        let mut buf = [0xaau8; 32];
+        let mut o = Out {
+            buf: &mut buf,
+            at: 0,
+        };
+        o.prop_empty(b"interrupt-controller").expect("fits");
+        assert_eq!(o.at, 12);
+        let mut want = [0u8; 12];
+        want[..4].copy_from_slice(&PROP.to_be_bytes());
+        want[8..].copy_from_slice(&string_offset(b"interrupt-controller").to_be_bytes());
+        assert_eq!(&buf[..12], &want);
+        assert_eq!(buf[12], 0xaa, "nothing is written past the header");
+    }
+
+    /// The header's own bookkeeping: the struct block runs from its offset to the strings block's,
+    /// the strings block to the end, and `totalsize` is the length returned. The readers in the
+    /// kernel tolerate a wrong size here, which is why nothing else would notice.
+    #[test]
+    fn the_header_sizes_describe_the_blocks_that_follow() {
+        let (len, out) = built(&qemu_virt());
+        let word =
+            |i: usize| u32::from_be_bytes(out[i * 4..i * 4 + 4].try_into().unwrap()) as usize;
+        let (total, off_struct, off_strings) = (word(1), word(2), word(3));
+        let (size_strings, size_struct) = (word(8), word(9));
+        assert_eq!(total, len);
+        assert_eq!(size_struct, off_strings - off_struct);
+        assert_eq!(size_strings, total - off_strings);
+        assert_eq!(size_strings, STRINGS.len());
+    }
+
+    /// **The allocation bound covers the largest tree this writer can be asked for, and is not
+    /// absurdly larger.** Every core enabled and every RAM region present, at the widest addresses,
+    /// written into a buffer of exactly [`output_len`] bytes. The upper bound is the module's own
+    /// claim that the whole tree is a few kilobytes.
+    #[test]
+    fn the_bound_holds_the_largest_tree_and_not_a_great_deal_more() {
+        let mut machine = qemu_virt();
+        for (i, cpu) in machine.cpus.iter_mut().enumerate() {
+            *cpu = Cpu {
+                mpidr: 0xff00_ffff_ffff_0000 + i as u64,
+                enabled: false,
+            };
+        }
+        machine.cpu_count = MAX_CPUS;
+        for (i, ram) in machine.ram.iter_mut().enumerate() {
+            *ram = Ram {
+                start: 0xffff_0000_0000_0000 + (i as u64) * 0x1000_0000,
+                len: 0xffff_ffff,
+            };
+        }
+        machine.ram_count = MAX_RAM;
+        let mut out = vec![0u8; output_len()];
+        let len = build(&machine, &mut out).expect("the bound holds the largest tree");
+        assert!(len <= output_len());
+        assert!(
+            output_len() < len + 2048,
+            "{} bytes allocated for a {len}-byte tree",
+            output_len()
+        );
+    }
 }
