@@ -2193,7 +2193,7 @@ CHARTS = [
      'appendix frontmatter; grey is no verdict rendered, and MEASURED and AUDITED are qualifiers '
      'that never become a fourth colour',
      [('green', 'fatal_risks_green'), ('amber', 'fatal_risks_amber'),
-      ('red', 'fatal_risks_red'), ('unclassified', 'fatal_risks_colors_unclassified')],
+      ('red', 'fatal_risks_red'), ('no verdict', 'fatal_risks_colors_unclassified')],
      1.0, None, None, RISK_COLOUR_HUES),
     ('velocity.svg', 'Milestones built each week',
      'a flow, not a stock: what the index says turned BUILT in those seven days',
