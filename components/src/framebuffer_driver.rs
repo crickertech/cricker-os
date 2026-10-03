@@ -34,9 +34,10 @@
 //! The client draws into the surface (RAM) and says which rectangle changed. For virtio-gpu that
 //! is two device commands. For a screen that is already scanning out, it is **a copy**: each pixel
 //! of the rectangle is read from the surface and stored into the aperture in the screen's byte
-//! order, at the screen's stride. The arithmetic is `screen_console::Aperture::copy`, host-tested
-//! there. The surface lands at the screen's top-left corner, clipped to the screen when the screen
-//! is the smaller of the two.
+//! order, at the screen's stride. The arithmetic is `screen_console::Aperture::copy_wide`,
+//! host-tested there: pairs of pixels staged from the cacheable surface into one qword store,
+//! word stores only where the aperture's alignment leaves an edge. The surface lands at the
+//! screen's top-left corner, clipped to the screen when the screen is the smaller of the two.
 //!
 //! # BUGS
 //!
@@ -45,9 +46,15 @@
 //!   a 1920x1080 monitor the shell occupies the top-left corner and the rest stays black. Growing it
 //!   means a surface sized at spawn rather than at compile time, which is a change to the contract
 //!   and not to this driver.
-//! - **Every pixel crosses an uncacheable mapping one word at a time.** A full-surface flush (every
-//!   scroll) is 1.2 MB of UC stores: free under QEMU, and not measured on silicon. x86 has no
-//!   write-combining here because the kernel does not program the PAT (milestone 243's `BUGS`).
+//! - **Every pixel still crosses an uncacheable mapping; since 2026-09-30 it crosses at half the
+//!   store count.** A full-surface flush is 158,928 qword stores against 317,856 word stores
+//!   (`screen_console::Aperture::copy_wide`'s own test counts them), which under QEMU's TCG, where
+//!   store-heavy guest code runs ~3.8x slower per instruction than arithmetic
+//!   (`notes/benchmarks/icount-tick-scales.md`), is most of this copy's cost. A `u64` is the widest
+//!   store the `x86_64` target can legalise (`-mmx,-sse,+soft-float`), so the remaining levers are a
+//!   write-combining PAT entry (the kernel does not program one, milestone 243 (a machine with no
+//!   serial port has no way to say anything)'s `BUGS`) or a
+//!   scroll-aware flush contract, both outside this driver. Not measured on silicon.
 //! - **One client, no arbitration.** Whoever holds the display endpoint draws; that is the
 //!   contract's rung-one shape and the compositor is what multiplexes it.
 //!
@@ -140,12 +147,19 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
             gfx::display::INFO => (0, width as u64 | ((height as u64) << 32)),
             gfx::display::FLUSH => {
                 let (x, y, w, h) = gfx::unrect(gfx::operand(w0));
-                let copied = aperture.copy(
+                // The wide copy: qword stores where the aperture's own alignment permits them,
+                // word stores at the edges. `offset` is the aperture's distance into its first
+                // page from an 8-aligned base, so it is exactly the misalignment `copy_wide`
+                // wants. This halves the store count into the uncacheable aperture (its own BUGS
+                // bullet below, and `screen_console::Aperture::copy_wide`'s doc for the numbers).
+                let copied = aperture.copy_wide(
                     x,
                     y,
                     w,
                     h,
+                    (offset % 8) as u32,
                     |px, py| surface.r32(gfx::offset_of(px, py) as u64),
+                    |at, pair| screen.w64(at as u64, pair),
                     |at, word| screen.w32(at as u64, word),
                 );
                 (if copied { 0 } else { gfx::EINVAL }, 0)

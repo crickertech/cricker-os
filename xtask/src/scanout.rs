@@ -79,13 +79,18 @@ fn scanout_holds_the_composed_screen(ppm: &[u8]) -> Result<(), String> {
 /// text into text nobody can read. Its negative control is
 /// `tests::the_scanout_check_rejects_text_that_is_one_letter_wrong`.
 fn scanout_holds_the_terminals_text(ppm: &[u8]) -> Result<(), String> {
-    // `Vt::new` then `script::full_screen(&mut _)` rather than the old `-> Vt` shape: a `Vt` is
+    // `Vt::new` then the script fed into it rather than the old `-> Vt` shape: a `Vt` is
     // hundreds of KiB since milestone 142's grid growth, and while this host binary's stack has
     // room either way, the crate's own signature changed for its kernel-side callers and this is
     // the one shape that works for both (see `Vt`'s and `script::full_screen`'s own doc comments).
+    //
+    // **The scrolled script, since the paint path (2026-09-30)**: the kernel-side test scrolls
+    // the terminal before holding the picture up, and this check grades the same end state, so
+    // what the host verifies includes the scroll path the terminal now takes (pixels moved
+    // rather than re-rendered), not just a static page.
     let mut expect =
         video_terminal::Vt::new(video_terminal::script::COLS, video_terminal::script::ROWS);
-    video_terminal::script::full_screen(&mut expect);
+    video_terminal::script::scrolled_full_screen(&mut expect, None);
     scanout_matches(ppm, |x, y| expect.pixel(x, y))
 }
 
@@ -946,7 +951,7 @@ mod tests {
         let screen = SCREEN.get_or_init(|| {
             let mut vt =
                 video_terminal::Vt::new(video_terminal::script::COLS, video_terminal::script::ROWS);
-            video_terminal::script::full_screen(&mut vt);
+            video_terminal::script::scrolled_full_screen(&mut vt, None);
             vt
         });
         let w = screen.pixel(x, y);
@@ -974,8 +979,10 @@ mod tests {
         // of glyphs in the font and therefore the hardest case, deliberately.
         let mut typo =
             video_terminal::Vt::new(video_terminal::script::COLS, video_terminal::script::ROWS);
-        typo.feed(video_terminal::script::GREETING_TYPO);
-        typo.feed(video_terminal::script::TYPED);
+        video_terminal::script::scrolled_full_screen(
+            &mut typo,
+            Some(video_terminal::script::SCROLL_LINES + 1),
+        );
         assert!(
             scanout_holds_the_terminals_text(&ppm(|x, y| {
                 let w = typo.pixel(x, y);

@@ -58,6 +58,11 @@
 //!   timetable, because `supervision_protocol::build_child` can hand a child data only by copying a
 //!   blob or mapping a frame this process holds a capability to, and `login` hands it bytes rather
 //!   than frames.
+//! - **A durable timetable holds no clock**, so every calendar line in a durable schedule is
+//!   `timetable::Unbacked::WallClock` and never fires, and no durable job gets the clock page.
+//!   Milestone 129 (scheduled execution) gave the timetable an optional clock at
+//!   `timetable::contract::CLOCK_SLOT` while this program was being built; `login` holds no clock
+//!   to pass down. Found at the merge of 2026-10-03 (UTC).
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68 (code-quality gates) tracks

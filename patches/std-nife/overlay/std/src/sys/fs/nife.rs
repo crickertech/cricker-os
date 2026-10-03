@@ -112,6 +112,12 @@ pub use unsupported_fs::{canonicalize, link, readlink, symlink};
 /// the name out), asked for one verb at a time by the walk rather than all at once.
 pub use crate::sys::fs::common::remove_dir_all;
 
+/// No nife-specific fields behind `std::fs::{HomeDirs, MediaDirs}` (rust-lang/rust#158936): the
+/// empty structs every non-Unix platform takes. Nothing in this system names a home or a media
+/// directory, so there is nothing for an extension trait to carry; `home_dir` is `None` for the
+/// same reason (`sys/paths/nife.rs`).
+pub use crate::sys::fs::common::{ExtraHomeDirs, ExtraMediaDirs};
+
 /// The FS-service endpoint: this process's entire authority over files. Naming a file over it is a
 /// request the server resolves under the one directory the endpoint is bound to.
 const FS: u64 = rt::FS_DIR_SLOT;

@@ -350,6 +350,12 @@ MEASURES = [
                       'unsafe_trust_unclassified']),
     ('fatal-risks', ['fatal_risks_run', 'fatal_risks_not_run', 'fatal_risks_cannot_run',
                      'fatal_risks_total']),
+    # The verdict colours, beside the statuses above (the fatal-risk-colors-by-week proposal,
+    # 2026-09-29). Three count columns and no stored total: the total is `fatal_risks_total` one
+    # measure over, the same fact about the same file, and storing it twice would let the two
+    # charts disagree about how many risks a week had. File and column names provisional (that
+    # lane's).
+    ('fatal-risks-colors', ['fatal_risks_green', 'fatal_risks_amber', 'fatal_risks_red']),
     ('coverage', ['coverage_lines_pct', 'coverage_min_file_pct']),
     ('prose-budget', ['prose_excess_words', 'prose_documents_over_cap']),
     # Temporary, and it says so where it is drawn: see `bold_backlog` and BOLD_RETIRE below. The
@@ -1425,6 +1431,10 @@ def write_drift_report():
 # words were different. A word that leaves the ratified set breaks the gate before it reaches here.
 FATAL_RISK_STATUS = re.compile(r'^\*\*Experiment status: ([A-Z][A-Z-]*)\b', re.M)
 
+# Where a week's tree keeps the nine-entry summary, oldest spelling first; `fatal_risks` says why
+# the order matters. Both readers below go through it so they cannot disagree about a week.
+FATAL_RISKS_SUMMARY = ('design/fatal-risks.md', 'design/fatal-risks/README.md')
+
 # **What the five retired words meant, for reading past revisions only.** This is a translation
 # table over history, not a second vocabulary: nothing may be written in these words today, and
 # `script/fatal-risks` fails on any of them. They are here so the series says something true about
@@ -1449,7 +1459,8 @@ def fatal_risks(tree):
 
     **It is still not a verdict series, and that is deliberate.** What an experiment FOUND stays in
     the file's prose, where `GREEN`, `AMBER`, `MEASURED` and `AUDITED` already are. A chart of
-    findings was the other half of the proposal raised on 2026-09-23 and calef did not take it.
+    findings was the other half of the proposal raised on 2026-09-23; calef refused it then and
+    commissioned it on 2026-09-29, and it is `fatal_risks_colors` below, a separate series.
 
     **Why the pair had to go.** All nine entries carried a status line by 2026-09-23, so
     `fatal_risks_tested` sat at nine and `fatal_risks_untested` at zero and the chart was a flat
@@ -1477,7 +1488,7 @@ def fatal_risks(tree):
     # tree can hold both: from the directory's mint (2026-09-23) to the move, the `.md` was the
     # nine-entry summary and the README a nine-line index, so reading the README first would count
     # zero risks for those weeks. Trees after the move have only the README, and it is the summary.
-    text = tree.text.get('design/fatal-risks.md') or tree.text.get('design/fatal-risks/README.md')
+    text = next((tree.text.get(p) for p in FATAL_RISKS_SUMMARY if tree.text.get(p)), None)
     if not text:
         return counts
     parts = re.split(r'^## (\d+)\.', text, flags=re.M)
@@ -1492,6 +1503,99 @@ def fatal_risks(tree):
             key = RETIRED_MEANING.get(old.group(1)) if old else None
         if key and 'fatal_risks_' + key in counts:
             counts['fatal_risks_' + key] += 1
+    return counts
+
+
+# The verdict colours, counted by week (the fatal-risk-colors-by-week proposal, 2026-09-29; file and
+# column names provisional, that lane's). The proposal's commission said the colour reaches the
+# machine through the appendices' frontmatter, one `color:` per risk beside the `risk:` number and
+# an `updated:` date, and calef ruled the frontmatter holds the WORD rather than a hex: the word is
+# the verdict, which is already the architect's, and the hue is a rendering choice that belongs in
+# one mapping here rather than nine times in `design/`.
+#
+# The vocabulary is four values, not the proposal's three, because five of nine risks carry no
+# verdict at all ("No verdict yet", risk 8's "no verdict"): `none` says that state outright rather
+# than leaving the field absent, and it counts in none of the three columns. `MEASURED` and `AUDITED`
+# stay prose qualifiers and never values here, per the proposal's own rule.
+FATAL_RISK_COLOURS = ('green', 'amber', 'red')
+_COLOUR_WORD = re.compile(r'\b(GREEN|AMBER|RED)\b')
+_APPENDIX = re.compile(r'^design/fatal-risks/[a-z0-9-]+\.md$')
+_FRONTMATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
+
+
+def _summary_colours(text):
+    """{risk number: colour word or None} read out of a summary's status-line prose.
+
+    The parse the proposal specified: the FIRST capitalized colour word after each entry's status
+    marker. Capitalization is the discriminator, because risk 2's line says "AMBER. The red half is
+    that..." and the lowercase `red` names half a finding rather than the verdict. Prose is not
+    data, which is the whole argument for moving the present tense into frontmatter; this reader
+    exists for the weeks before that happened, and for checking the weeks after.
+    """
+    out = {}
+    parts = re.split(r'^## (\d+)\.', text, flags=re.M)
+    for i in range(1, len(parts), 2):
+        risk = int(parts[i])
+        body = parts[i + 1]
+        m = FATAL_RISK_STATUS.search(body) or RETIRED_FATAL_RISK_STATUS.search(body)
+        word = _COLOUR_WORD.search(body, m.end()) if m else None
+        out[risk] = word.group(1).lower() if word else None
+    return out
+
+
+def fatal_risks_colors(tree):
+    """The same nine risks, by verdict colour: green, amber or red per week.
+
+    **Two sources, one vocabulary.** A tree from this milestone on carries the colour in each
+    appendix's frontmatter, and the weekly row counts those words. An older tree is read through
+    `_summary_colours`, the same status-line walk `fatal_risks` above does, so the backfill reuses
+    that parse rather than deriving a second one.
+
+    **Where both sources exist they must agree, and a disagreement fails the run** naming the risk.
+    The frontmatter exists to be the machine-read surface of a verdict the README states in prose;
+    if the two drifted, the chart would be counting an edit nobody made to the record of record.
+    `script/fatal-risks` gates the README alone (its own BUGS: nothing gates an appendix), so this
+    cross-check is the only thing that holds the new field to the old one, and it runs wherever the
+    row is computed rather than only in a gate nobody has to run.
+
+    `none` (no verdict rendered) and a risk missing from the file both count in no column; the
+    chart's grey band is `fatal_risks_total` minus the three, the same arithmetic over a column the
+    status chart already stores, so the two charts cannot disagree about how many risks a week had.
+    """
+    from_frontmatter = {}
+    for path, text in tree.text.items():
+        if not _APPENDIX.match(path):
+            continue
+        block = _FRONTMATTER.match(text)
+        if not block:
+            continue
+        fields = dict(line.split(':', 1) for line in block.group(1).split('\n') if ':' in line)
+        if 'risk' in fields and 'color' in fields:
+            colour = fields['color'].strip()
+            if colour not in FATAL_RISK_COLOURS + ('none',):
+                raise SystemExit('metrics: %s says color: %s, which is not one of %s (plus none)'
+                                 % (path, colour, ', '.join(FATAL_RISK_COLOURS)))
+            from_frontmatter[int(fields['risk'])] = colour
+
+    summary = next((tree.text.get(p) for p in FATAL_RISKS_SUMMARY if tree.text.get(p)), None)
+    prose = _summary_colours(summary) if summary else {}
+    if from_frontmatter:
+        for risk in sorted(from_frontmatter):
+            # A status line with no colour word reads as None, and `none` is the frontmatter's
+            # spelling of that same state, so the two compare equal rather than failing every risk
+            # without a verdict.
+            if risk in prose and from_frontmatter[risk] != (prose[risk] or 'none'):
+                raise SystemExit('metrics: risk %d\'s appendix frontmatter says %s and the '
+                                 'summary\'s status line says %s; the frontmatter is the '
+                                 'machine-read surface of that line, so one of them is wrong'
+                                 % (risk, from_frontmatter[risk], prose[risk] or 'no colour'))
+        colours = from_frontmatter
+    else:
+        colours = prose
+    counts = dict.fromkeys(('fatal_risks_' + c for c in FATAL_RISK_COLOURS), 0)
+    for colour in colours.values():
+        if colour in FATAL_RISK_COLOURS:
+            counts['fatal_risks_' + colour] += 1
     return counts
 
 
@@ -1553,7 +1657,7 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
     row['names_total'] = named
     for part in (proposals(tree), lines(tree), bugs(tree), harnesses(tree),
                  unsafe_census(tree), unsafe_trust_census(tree), fatal_risks(tree),
-                 prose_budget(tree), bold_backlog(tree), homes(tree)):
+                 fatal_risks_colors(tree), prose_budget(tree), bold_backlog(tree), homes(tree)):
         row.update(part)
     row.update(baseline_drift.series_cells(rev))
     return row
@@ -1690,6 +1794,18 @@ PALETTE_LIGHT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300
 PALETTE_DARK = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9',
                 '#94a5b7']
 
+# The one chart that takes no slot: the fatal-risks colours chart, whose series are colours and so
+# name their own hues rather than cycling the categorical order. Green, amber and red reuse slots 3,
+# 4 and 8 rather than minting hexes, so every hue on that chart has already passed the validation
+# above on both surfaces; grey is GitHub's own neutral, for the band that is the absence of a
+# verdict. One (light, dark) pair per series, in stack order, with the grey last. Provisional and
+# calef's to change, which the frontmatter-holds-the-word ruling keeps to one edit here rather than
+# nine edits under `design/fatal-risks/`.
+RISK_COLOUR_HUES = [('#1baf7a', '#199e70'),   # green
+                    ('#eda100', '#c98500'),   # amber
+                    ('#e34948', '#e66767'),   # red
+                    ('#6e7781', '#8c959f')]   # unclassified
+
 CHART_W, CHART_H = 860, 380
 # The charts show the most recent CHART_WEEKS weeks; the measure files keep every week, and a
 # still restates all of them. calef, 2026-09-19: ten weeks, so W29 leaves the charts when W39
@@ -1735,10 +1851,13 @@ def week_label(week):
 def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, trend=None):
     """One stacked bar per week, one colour per series, a legend on the right.
 
-    `series` is [(label, [value per week])]. A single-element series is an ordinary bar chart,
-    which is what the density and coverage panels are. `ceiling` is a number, labelled
-    `ceiling`, or a (number, word) pair when the dashed line is something else: coverage's is
-    `script/coverage`'s per-file floor, and labelling a floor a ceiling says the opposite.
+    `series` is [(label, [value per week], hue)]. `hue` is None for the charts that take a palette
+    slot, or a (light, dark) pair for a chart whose series name their own hue, which is the
+    fatal-risks colours chart alone: green must be green there, not slot 0. A single-element series
+    is an ordinary bar chart, which is what the density and coverage panels are. `ceiling` is a
+    number, labelled `ceiling`, or a (number, word) pair when the dashed line is something else:
+    coverage's is `script/coverage`'s per-file floor, and labelling a floor a ceiling says the
+    opposite.
 
     `absent` is a per-week flag for **a week that was not measured, as against a week that measured
     zero**. Both draw no bar, and a reader cannot tell them apart, which for milestone 519's cost
@@ -1788,12 +1907,17 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
            # A halo in the surface colour behind each value label, so a total that lands on the
            # dashed ceiling (the unsafe chart's 77s against its 88) stays legible.
            '  .val{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}',
-           ''.join('  .s%d{fill:%s}' % (j, c) for j, c in enumerate(PALETTE_LIGHT)),
+           # A series with a hue of its own gets a .c class; the rest take palette slots by
+           # position, as before. Both are emitted per final series, after series_of has dropped
+           # the all-zero ones, so a hue can never slide onto another series by that drop.
+           ''.join('  .c%d{fill:%s}' % (j, h[0]) if h else '  .s%d{fill:%s}' % (j, PALETTE_LIGHT[j])
+                   for j, (_l, _v, h) in enumerate(series)),
            '  @media (prefers-color-scheme: dark){',
            '    .bg{fill:#0d1117} .fg{fill:#e6edf3} .mut{fill:#9198a1} .grid{stroke:#30363d}',
            '    .seg{stroke:#0d1117} .val{stroke:#0d1117}'
            + (' .tr{stroke:#e6edf3} .trd{fill:#e6edf3}' if trend else '')
-           + ''.join(' .s%d{fill:%s}' % (j, c) for j, c in enumerate(PALETTE_DARK)) + '}',
+           + ''.join(' .c%d{fill:%s}' % (j, h[1]) if h else ' .s%d{fill:%s}' % (j, PALETTE_DARK[j])
+                     for j, (_l, _v, h) in enumerate(series)) + '}',
            '  text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,'
            'sans-serif}',
            '</style>',
@@ -1823,11 +1947,14 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
         out.append('<text class="mut" x="%.1f" y="%.1f" font-size="10">%s %s</text>'
                    % (PAD_L + plot_w + 6, y + 3, line_word, _number(ceiling)))
 
+    def _fill(j):
+        return 'c%d' % j if series[j][2] else 's%d' % j
+
     for i, week in enumerate(weeks):
         x = PAD_L + slot * i + (slot - bar_w) / 2
         base = 0.0
-        top_j = max((j for j, (_l, v) in enumerate(series) if v[i]), default=None)
-        for j, (label, values) in enumerate(series):
+        top_j = max((j for j, (_l, v, _h) in enumerate(series) if v[i]), default=None)
+        for j, (label, values, _hue) in enumerate(series):
             value = values[i]
             if not value:
                 continue
@@ -1843,10 +1970,10 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
                 d = ('M%.1f,%.1f V%.1f Q%.1f,%.1f %.1f,%.1f H%.1f Q%.1f,%.1f %.1f,%.1f V%.1f Z'
                      % (x, y + height, y + r, x, y, x + r, y, x + bar_w - r,
                         x + bar_w, y, x + bar_w, y + r, y + height))
-                out.append('<path class="seg s%d" d="%s">%s</path>' % (j, d, tip))
+                out.append('<path class="seg %s" d="%s">%s</path>' % (_fill(j), d, tip))
             else:
-                out.append('<rect class="seg s%d" x="%.1f" y="%.1f" width="%.1f" height="%.1f">'
-                           '%s</rect>' % (j, x, y, bar_w, height, tip))
+                out.append('<rect class="seg %s" x="%.1f" y="%.1f" width="%.1f" height="%.1f">'
+                           '%s</rect>' % (_fill(j), x, y, bar_w, height, tip))
             base += value
         out.append('<text class="mut" x="%.1f" y="%d" font-size="10" text-anchor="middle">%s</text>'
                    % (x + bar_w / 2, PAD_T + plot_h + 18, esc(week_label(week))))
@@ -1894,9 +2021,9 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
                             for k, line in enumerate(lines))
             out.append('<text class="fg" y="%d" font-size="11">%s</text>' % (y + 10, spans))
             y += 19 + 13 * (len(lines) - 1)
-    for j, (label, _values) in enumerate(series):
-        out.append('<rect class="s%d" x="%d" y="%d" width="11" height="11" rx="2"/>'
-                   % (j, legend_x, y))
+    for j, (label, _values, _hue) in enumerate(series):
+        out.append('<rect class="%s" x="%d" y="%d" width="11" height="11" rx="2"/>'
+                   % (_fill(j), legend_x, y))
         lines = _wrap(label, LEGEND_WRAP)
         spans = ''.join('<tspan x="%d" dy="%s">%s</tspan>'
                         % (legend_x + 17, '0' if k == 0 else '13', esc(line))
@@ -1969,29 +2096,43 @@ DERIVED = {
     'fatal_risks_unclassified': lambda row: max(
         0.0, _cell(row, 'fatal_risks_total') - sum(_cell(row, 'fatal_risks_' + s)
                                                    for s in ('run', 'not_run', 'cannot_run'))),
+    # The colours chart's grey band, over the SAME stored total as the line above: a risk with no
+    # verdict rendered, or a week whose colours the status-line backfill could not read, draws
+    # rather than vanishes, so a bar of four reads as four of nine and not as nine.
+    'fatal_risks_colors_unclassified': lambda row: max(
+        0.0, _cell(row, 'fatal_risks_total') - sum(_cell(row, 'fatal_risks_' + c)
+                                                   for c in ('green', 'amber', 'red'))),
     'names_no_block': lambda row: max(
         0.0, _cell(row, 'names_total') - sum(_cell(row, _col('names', s)) for s in NAME_STATUSES)),
     'tokens_per_milestone': _tokens_per_milestone,
 }
 
 
-def series_of(rows, weeks, columns, scale=1.0):
+def series_of(rows, weeks, columns, scale=1.0, hues=None):
+    """[(label, values per week, hue or None)], dropping a series that is zero every week.
+
+    `hues`, when given, is one entry per column and travels with its own series through that drop,
+    which is why the hue is decided HERE rather than re-derived in `draw_charts`: red is zero on
+    every week so far, so it is dropped today, and a hue re-indexed after the drop would put grey
+    where red will be the week a risk first turns red.
+    """
     out = []
-    for label, field in columns:
+    for j, (label, field) in enumerate(columns):
         values = []
         for week in weeks:
             derive = DERIVED.get(field)
             raw = derive(rows[week]) if derive else _cell(rows[week], field)
             values.append(raw / scale)
         if any(values):
-            out.append((label, values))
+            out.append((label, values, hues[j] if hues else None))
     return out
 
 
-# Each entry is (file, title, subtitle, columns, scale, ceiling, absent_field). `absent_field` names
-# a CSV column whose empty cell means "not measured" rather than "zero"; the chart then marks that
-# week instead of leaving a gap a reader will read as a zero. Only the columns that can genuinely be
-# absent carry one, which is milestone 519's cost pair and coverage.
+# Each entry is (file, title, subtitle, columns, scale, ceiling, absent_field, hues). `absent_field`
+# names a CSV column whose empty cell means "not measured" rather than "zero"; the chart then marks
+# that week instead of leaving a gap a reader will read as a zero. Only the columns that can
+# genuinely be absent carry one, which is milestone 519's cost pair and coverage. `hues` is carried
+# by the one chart whose series name their own colours and is None for every slot-taking chart.
 CHARTS = [
     ('milestones.svg', 'Milestones by status, and proposals waiting for a number',
      'the blocks in design/roadmap/ (design/roadmap.md before the one-file-per-milestone split); '
@@ -2042,6 +2183,18 @@ CHARTS = [
       ('CANNOT-RUN', 'fatal_risks_cannot_run'),
       ('unclassified', 'fatal_risks_unclassified')],
      1.0, None, None),
+    # The verdict colours, stacked green then amber then red in their own hues (the
+    # fatal-risk-colors-by-week proposal, 2026-09-29; chart name provisional). Grey is a risk with
+    # no verdict rendered: five of nine today, which is the number a bar of four has to be read
+    # against. Red has no series yet, having been zero every week, and joins the chart the week a
+    # risk first turns red.
+    ('fatal-risks-colors.svg', 'The nine things that would kill nife, by colour',
+     'the verdict each entry carries in prose, green amber or red, counted by week from the '
+     'appendix frontmatter; grey is no verdict rendered, and MEASURED and AUDITED are qualifiers '
+     'that never become a fourth colour',
+     [('green', 'fatal_risks_green'), ('amber', 'fatal_risks_amber'),
+      ('red', 'fatal_risks_red'), ('no verdict', 'fatal_risks_colors_unclassified')],
+     1.0, None, None, RISK_COLOUR_HUES),
     ('velocity.svg', 'Milestones built each week',
      'a flow, not a stock: what the index says turned BUILT in those seven days',
      [('built that week', 'milestones_built_this_week')], 1.0, None, None),
@@ -2180,7 +2333,7 @@ def charted_columns():
     band (`names_no_block`) is a cliff on the page exactly as a stored column is.
     """
     return [(label, field)
-            for _name, _title, _sub, columns, _scale, _ceiling, _absent in CHARTS
+            for _name, _title, _sub, columns, _scale, _ceiling, _absent, *_hues in CHARTS
             for label, field in columns]
 
 
@@ -2433,10 +2586,11 @@ def draw_charts(rows):
         print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
     weeks = sorted(rows)[-CHART_WEEKS:]
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    for name, title, subtitle, columns, scale, ceiling, absent_field in CHARTS:
-        series = series_of(rows, weeks, columns, scale)
+    for name, title, subtitle, columns, scale, ceiling, absent_field, *rest in CHARTS:
+        hues = rest[0] if rest else None
+        series = series_of(rows, weeks, columns, scale, hues)
         if not series:
-            series = [(columns[0][0], [0.0] * len(weeks))]
+            series = [(columns[0][0], [0.0] * len(weeks), None)]
         absent = None
         if absent_field:
             absent = [rows[week].get(absent_field, '') in ('', None) for week in weeks]

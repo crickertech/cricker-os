@@ -1507,12 +1507,29 @@ pub fn boot(
         // to hold it.
         //
         // **And a screen beside the UART, when the kernel wired one** (`has_screen`, above): the
-        // terminal's endpoint lands in the console's slot 2, ahead of x86's port range (which the
-        // console holds but never names by slot), and the page that terminal reads is mapped at
-        // `CON_SCREEN_OUT_VA`. Arrays with a count rather than one slice literal per case, because
-        // the screen is a runtime fact and the port range a compile-time one, and four literals
-        // would be four places to get the slot order wrong.
-        let mut con_caps = [(0, 0); 4];
+        // terminal's endpoint lands in the console's slot 2, ahead of the batching pair (slots 3
+        // and 4) and x86's port range (which lands after them; the console holds it but never
+        // names it by slot), and the page that terminal reads is mapped at `CON_SCREEN_OUT_VA`.
+        // Arrays with a count rather than one slice literal per case, because the screen is a
+        // runtime fact and the port range a compile-time one, and five literals would be five
+        // places to get the slot order wrong.
+        //
+        // **The batching pair** (the paint lane, 2026-09-30): a notification and a timer, retyped
+        // from this boot's own untyped, the notification bound to the console's thread before it
+        // starts (milestone 151 (notification objects: async multiplexing without wait-any)'s
+        // `BIND`: a spawner holds the child's `ThreadControlBlock` in
+        // exactly this window, between `build_child` and `start_child`, and a running thread cannot
+        // bind itself). This is what lets the console paint the screen once per window instead of
+        // once per write (`components/src/console.rs`'s own module doc holds the why); the console
+        // degrades to one paint per write if this pair is ever missing, so the wiring is the
+        // accelerator rather than a precondition.
+        let mut con_batch = (0, 0);
+        if has_screen {
+            let notified = must(retype_obj(ut, abi::objtype::NOTIFICATION));
+            let timer = must(retype_obj(ut, abi::objtype::TIMER));
+            con_batch = (notified, timer);
+        }
+        let mut con_caps = [(0, 0); 6];
         let mut con_maps = [(0, 0, 0); 3];
         let (mut ncaps, mut nmaps) = (0, 0);
         for cap in [(request, abi::rights::READ), (reply, abi::rights::WRITE)] {
@@ -1523,6 +1540,12 @@ pub fn boot(
         nmaps += 1;
         if has_screen {
             con_caps[ncaps] = (g.disp_term_ep, abi::rights::WRITE);
+            ncaps += 1;
+            // `READ | WRITE` on the notification: WAIT/POLL and the SIGNAL an armed timer makes of
+            // it. `WRITE` on the timer: ARM and CANCEL.
+            con_caps[ncaps] = (con_batch.0, abi::rights::READ | abi::rights::WRITE);
+            ncaps += 1;
+            con_caps[ncaps] = (con_batch.1, abi::rights::WRITE);
             ncaps += 1;
             con_maps[nmaps] = (
                 CON_SCREEN_OUT_VA,
@@ -1553,6 +1576,11 @@ pub fn boot(
                 ..ChildEndowment::new(Retention::Nothing)
             },
         ));
+        // The bind belongs in the window between build and start: after `start_child` the retention
+        // below has deleted our `ThreadControlBlock`, and before `build_child` there is no thread.
+        if has_screen {
+            must_ok(user_mode_runtime::notification_bind(con_batch.0, con.tcb) >= 0);
+        }
         must_ok(start_child(
             con,
             if has_screen { CONSOLE_MODE_SCREEN } else { 0 },
@@ -1562,10 +1590,13 @@ pub fn boot(
         // The console holds its own narrowed copies of the terminal's endpoint and page now, and
         // nothing else in this boot prints to that terminal directly: everyone prints through the
         // console. Freed here rather than with `request`/`reply` below for the sixteen-slot reason
-        // this function's every early free gives.
+        // this function's every early free gives, and the batch pair goes with them: the binding
+        // lives in the objects, not in our copies of them.
         if has_screen {
             cap_delete(g.disp_term_ep);
             cap_delete(g.disp_term_page);
+            cap_delete(con_batch.0);
+            cap_delete(con_batch.1);
         }
 
         // 2. The line discipline: serves the terminal endpoint, prints through the console. It is
@@ -4889,12 +4920,23 @@ fn edit(
             (S::Done, back)
         }
         Activation::Remove => {
-            let Ok(program) = core::str::from_utf8(named) else {
+            let Ok(operand) = core::str::from_utf8(named) else {
                 return (S::NotInstalled, live);
             };
-            let n = match activation_set::without_entry(table, program, &mut new) {
+            // **The verb's object is a program or a program at a version** (milestone 614 (two
+            // installed versions of one program, each runnable, and a caller granted the one it
+            // needs), ruling 5). `@` is the qualified form's separator and is reserved for it: a
+            // word with one is never a program name, so the two cannot be mistaken for each other.
+            let removed = match operand.split_once('@') {
+                Some((program, version)) if !program.is_empty() && !version.is_empty() => {
+                    activation_set::without_version(table, program, version, &mut new)
+                }
+                _ => activation_set::without_entry(table, operand, &mut new),
+            };
+            let n = match removed {
                 Ok(n) => n,
                 Err(activation_set::Error::NotInstalled) => return (S::NotInstalled, live),
+                Err(activation_set::Error::Ambiguous) => return (S::Ambiguous, live),
                 Err(_) => return (S::StoreFailed, live),
             };
             let m = next();
@@ -4919,6 +4961,10 @@ fn edit(
             }
             let entry = activation_set::Entry {
                 program,
+                // **A vouch claims no version**: the owner vouches for bytes (DECISIONS §221
+                // (the boot prompt is the owner's console), ruling 1), so the version column
+                // carries `activation_set::NO_VERSION` and no pointer names the row.
+                version: activation_set::NO_VERSION,
                 package: activation_set::OWNER,
                 digest: measured_boot::sha256(bytes),
             };
@@ -4949,11 +4995,9 @@ fn edit(
                 Err(package_archive::Refusal::NoProgram) => return (S::NoProgram, live),
                 Err(_) => return (S::NotCatalogued, live),
             };
-            let mut stem = [0u8; package_archive::STEM_LEN];
             let Ok(package) = package_archive::Package::parse(bytes) else {
                 return (S::NotCatalogued, live);
             };
-            let stem = package.stem(&mut stem);
             // The program's bytes, where a person can run them (DECISIONS §219 option D hashes
             // whatever they run, so where they live is a convenience, not a trust decision).
             let packages = files.directory(fs_op::ROOT, activation_set::PACKAGES);
@@ -4962,7 +5006,8 @@ fn edit(
             }
             // `packages/<name>/<version>/<program>`: one component per field, because a prompt
             // component is at most sixteen bytes and a stem is longer. The architecture is this
-            // machine's, and the stem the generation records still names it.
+            // machine's; the generation's row does not carry it, because the digest is of
+            // target-specific bytes and two ISAs never collide in one table.
             let name = files.directory(packages as u64, package.name());
             let version = if name >= 0 {
                 files.directory(name as u64, package.version())
@@ -4987,7 +5032,14 @@ fn edit(
             }
             let entry = activation_set::Entry {
                 program: got.program,
-                package: stem,
+                // **The row is digest-keyed; name and version are label columns** (milestone 614
+                // (two installed versions of one program, each runnable, and a caller granted the
+                // one it needs), ruling 2). The version is the upstream developer's claim as the
+                // package header carries it; the package column is the package's name, the
+                // stem's first field, because the version now has a column of its own and no row
+                // carries the architecture.
+                version: package.version(),
+                package: package.name(),
                 digest: got.digest,
             };
             // **A bare name belongs to one package, and never to one the image carries** (DECISIONS
@@ -5068,10 +5120,15 @@ fn fetch(
     use socket_protocol::*;
     use spawnproto::ActivationStatus as S;
 
-    let stem = core::str::from_utf8(name)
-        .ok()
-        .and_then(|name| package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE))
-        .ok_or(S::NoSuchPackage)?;
+    // A bare name the catalogue vouches for at several versions is refused here, before the
+    // network, like a name it vouches for at none: `name@version` picks one (milestone 614).
+    let name = core::str::from_utf8(name).map_err(|_| S::NoSuchPackage)?;
+    let stem = package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE).map_err(
+        |miss| match miss {
+            package_archive::StemMiss::NoSuchPackage => S::NoSuchPackage,
+            package_archive::StemMiss::SeveralVersions => S::Ambiguous,
+        },
+    )?;
     let stack = a.network.ok_or(S::NoNetwork)?;
 
     let region = memory_region_split(a.images_ut, 1).map_err(|()| S::FetchFailed)?;

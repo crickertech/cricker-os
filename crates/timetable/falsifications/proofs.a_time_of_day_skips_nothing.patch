@@ -1,0 +1,19 @@
+Falsifies `timetable::proofs::a_time_of_day_skips_nothing`.
+
+The defect: the latest usable minute of the hour is taken instead of the earliest, so every earlier listed minute in that hour is skipped.
+
+Expected to fail: the harness's `assert!(!(listed && x < t))`, with `x` an earlier listed minute in the same hour.
+
+diff --git a/crates/timetable/src/recurrence.rs b/crates/timetable/src/recurrence.rs
+index e0cdeb116..47f237cbc 100644
+--- a/crates/timetable/src/recurrence.rs
++++ b/crates/timetable/src/recurrence.rs
+@@ -280,7 +280,7 @@ pub fn next_time(hours: u32, minutes: u64, after: i32) -> Option<u16> {
+                 minutes & !((1u64 << (floor + 1)) - 1)
+             };
+             if usable != 0 {
+-                return Some((h * 60 + usable.trailing_zeros()) as u16);
++                return Some((h * 60 + (63 - usable.leading_zeros())) as u16);
+             }
+         }
+         h += 1;

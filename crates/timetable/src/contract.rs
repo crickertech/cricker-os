@@ -13,15 +13,26 @@
 //! | 1 | [`BUDGET_SLOT`] | `WRITE` | the untyped every instance is split from |
 //! | 2 | [`CHILD_REPORT_SLOT`] | `WRITE`, `GRANT` | handed to each job as its slot 0, when placed; a durable session places none |
 //! | 3 | [`DEATHS_SLOT`] | `READ`, `GRANT` | each job's supervision endpoint, and what corpses are reaped through |
-//! | 4 | [`ACTIVATION_SLOT`] | `WRITE` | the store's `activation/` directory, read-only; store mode only |
-//! | 5 | [`PACKAGES_SLOT`] | `WRITE` | the store's `packages/` directory, read-only; store mode only |
+//! | 4 | [`CLOCK_SLOT`] | `READ`, `GRANT`, optional | the clock page (§43 (reading the clock is a page)), also mapped read-only at [`CLOCK_VA`] |
+//! | 5 | [`ACTIVATION_SLOT`] | `WRITE` | the store's `activation/` directory, read-only; store mode only |
+//! | 6 | [`PACKAGES_SLOT`] | `WRITE` | the store's `packages/` directory, read-only; store mode only |
+//!
+//! Slot 4 is the one optional grant. With it, `Held::clock` is true: calendar entries can keep a
+//! time of day, and a job whose manifest declares a clock gets the page too, read-only, at its own
+//! slot 1 and [`CLOCK_VA`], as the progenitor gives `date` one. Without it, every calendar line is
+//! `Unbacked::WallClock`. The spawn site must map the page before the timetable starts, and the
+//! timetable probes the slot at `_start` for `swish`'s reason: later, a region it split could land
+//! there.
 //!
 //! **Store mode** (milestone 152 (durable delegation), Fork 8 ruled D by calef on 2026-09-27, on
 //! #1377) is a timetable holding [`ACTIVATION_SLOT`]. It is handed no archive (`a1` is 0): each job's
 //! program is what a bare word runs at the prompt, the live activation generation's entry for the
 //! name, resolved when a document is registered and checked again at every fire. The two slots are
 //! endpoints to caretakers that serve those directories read-only, over a file-service channel of
-//! the timetable's own whose page the spawn site maps at [`STORE_PAGE_VA`]. A registrar is required.
+//! the timetable's own whose page the spawn site maps at [`STORE_PAGE_VA`]. A registrar is
+//! required. They were 4 and 5 until the clock took slot 4 on `main` (milestone 129 (scheduled
+//! execution)); moved at the merge of 2026-10-03 (UTC). A durable session grants no clock yet, so
+//! its calendar lines are `Unbacked::WallClock` (`components/src/session.rs`'s BUGS).
 //!
 //! Nothing else. In particular never the run-unvouched capability
 //! (`grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`): a timetable holding it runs nothing and exits
@@ -62,10 +73,15 @@ pub const CHILD_REPORT_SLOT: u64 = 2;
 /// The supervision endpoint's slot.
 pub const DEATHS_SLOT: u64 = 3;
 
+/// The clock page's slot, when the timetable is granted one.
+pub const CLOCK_SLOT: u64 = 4;
+/// Where the clock page is mapped, read-only: in the timetable, and in each job that declares a
+/// clock. The address `date` reads it at, `system_initializer`'s `CHILD_CLOCK_VA`.
+pub const CLOCK_VA: u64 = 0x00c0_0000;
 /// Store mode's `activation/` directory: an endpoint to a caretaker serving it read-only.
-pub const ACTIVATION_SLOT: u64 = 4;
+pub const ACTIVATION_SLOT: u64 = 5;
 /// Store mode's `packages/` directory, likewise.
-pub const PACKAGES_SLOT: u64 = 5;
+pub const PACKAGES_SLOT: u64 = 6;
 /// **Where a store-mode timetable finds its file-service channel's page**, mapped read/write by the
 /// spawn site. The page is shared with the two caretakers and the file service, and with nothing
 /// else: a channel of its own, because a job fires while its user may be using the store at the

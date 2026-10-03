@@ -886,6 +886,7 @@ name = "screen_console"
 version = "0.1.0"
 dependencies = [
  "bitmap_font",
+ "graphics_protocol",
  "machine_discovery",
 ]
 
@@ -1188,6 +1189,7 @@ dependencies = [
 name = "timetable"
 version = "0.1.0"
 dependencies = [
+ "calendar",
  "grant_plan",
 ]
 

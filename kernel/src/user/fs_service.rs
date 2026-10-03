@@ -2225,7 +2225,7 @@ fn set_file(dir: Option<&[u8]>, file: &str, contents: Option<&[u8]>) {
     }
 }
 
-/// **Install `bytes` as the one program of package `name-version-<arch>`, as an installer would**
+/// **Install `bytes` as the one program of package `name` at `version`, as an installer would**
 /// (milestone 152 (durable delegation), Fork 8 D, which runs a scheduled job from the store): the
 /// bytes at `packages/<name>/<version>/<program>`, and a generation `1` in `activation/` naming them
 /// with their digest, made live by `current`. Anything already there is overwritten, and a
@@ -2285,25 +2285,15 @@ pub fn install_for_test(program: &str, name: &str, version: &str, bytes: &[u8]) 
         call([fs::req(fs::CLOSE, h, 0), 0]);
     }
 
-    let arch = if cfg!(target_arch = "aarch64") {
-        "aarch64"
-    } else if cfg!(target_arch = "riscv64") {
-        "riscv64"
-    } else {
-        "x86_64"
-    };
-    let mut stem = [0u8; 64];
-    let mut at = 0usize;
-    for part in [name, "-", version, "-", arch] {
-        stem[at..at + part.len()].copy_from_slice(part.as_bytes());
-        at += part.len();
-    }
+    // The row and its default pointer (milestone 614 (every version live)): the package column is
+    // the package's name and the version is its own column, so the bytes' path is read off the row.
     let entry = activation_set::Entry {
         program,
-        package: core::str::from_utf8(&stem[..at]).expect("ASCII"),
+        version,
+        package: name,
         digest: measured_boot::sha256(bytes),
     };
-    let mut table = [0u8; 256];
+    let mut table = [0u8; 512];
     let len = activation_set::with_entry(
         "",
         &entry,

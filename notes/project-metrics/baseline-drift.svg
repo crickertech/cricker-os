@@ -3,10 +3,10 @@
   .bg{fill:#ffffff} .fg{fill:#1f2328} .mut{fill:#59636e} .grid{stroke:#d1d9e0}
   .seg{stroke:#ffffff;stroke-width:1}
   .val{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
-  .s0{fill:#2a78d6}  .s1{fill:#eb6834}  .s2{fill:#1baf7a}  .s3{fill:#eda100}  .s4{fill:#e87ba4}  .s5{fill:#008300}  .s6{fill:#4a3aa7}  .s7{fill:#e34948}
+  .s0{fill:#2a78d6}  .s1{fill:#eb6834}  .s2{fill:#1baf7a}
   @media (prefers-color-scheme: dark){
     .bg{fill:#0d1117} .fg{fill:#e6edf3} .mut{fill:#9198a1} .grid{stroke:#30363d}
-    .seg{stroke:#0d1117} .val{stroke:#0d1117} .s0{fill:#3987e5} .s1{fill:#d95926} .s2{fill:#199e70} .s3{fill:#c98500} .s4{fill:#d55181} .s5{fill:#008300} .s6{fill:#9085e9} .s7{fill:#e66767}}
+    .seg{stroke:#0d1117} .val{stroke:#0d1117} .s0{fill:#3987e5} .s1{fill:#d95926} .s2{fill:#199e70}}
   text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
 </style>
 <rect class="bg" width="860" height="380"/>

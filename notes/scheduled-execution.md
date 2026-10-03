@@ -333,11 +333,8 @@ document whose `--mem` entry shared the clock with a fast interval would.
 - The document is compiled in, not read from disk, which is also what decides who may register
   (see above), unless the timetable is spawned with a registration page, which §222 built.
 
-- The schedule vocabulary is two words. `every <interval>` and `at-boot`, with `ms`, `s` and `m`.
-  No calendar syntax, deliberately: what a `0 2 * * *` entry should do when the wall clock steps an
-  hour is a question this system has vocabulary for (`network_time_protocol`'s era pivot, notes/ntp.md) and no
-  answer to yet, and a default drifted into is worse than a decision deferred. Milestone 129's block
-  scopes it the same way.
+- Calendar lines are UTC only, and resolve to the minute. G5 (ruled 2026-09-26) has no zone clause,
+  since `crates/calendar` refuses tzdata; see [calendar-grammar-g5.md](scheduled-execution/calendar-grammar-g5.md).
 
 - No shipped entry designates a file or a directory, so `Unbacked::File` and `Unbacked::Directory`
   are reached by host tests only. Until 2026-09-26 `register` could not reach them at all: `admit`

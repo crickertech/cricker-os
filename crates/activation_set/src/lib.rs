@@ -11,49 +11,77 @@
 //! # Where it lives
 //!
 //! A directory [`DIRECTORY`] at the root of the file service, holding [`CURRENT`] and one file per
-//! generation named by its decimal number ([`generation_name`]). Both the progenitor, which reads it,
-//! and the host tool that seeds it for `script/swish-check` read the names from here, which is rule
-//! 7: what two programs agree on is a crate. Provisional, like the crate's name: nothing on a target
-//! writes a generation yet, and the installer that will is what decides who may.
+//! generation named by its decimal number ([`generation_name`]). Both the progenitor, which reads
+//! and writes it, and the shell, which reads it to resolve a bare word and to preview `caps`, read
+//! the names from here, which is rule 7: what two programs agree on is a crate. Provisional, like
+//! the crate's name.
 //!
 //! # The shape, and why it is this one
 //!
-//! **A generation is a text file of entries and is never rewritten.** Installing, upgrading and
-//! removing each produce the *next* generation from the current one ([`with_entry`],
-//! [`without_entry`]); a one-line `current` file names which generation is live
+//! **A generation is a text file that is never rewritten.** Installing and removing each produce
+//! the *next* generation from the current one ([`with_entry`], [`without_entry`],
+//! [`without_version`]); a one-line `current` file names which generation is live
 //! ([`parse_current`], [`format_current`]). So a rollback is rewriting one line to name an older
 //! generation, and every older set is still on disk, whole, to be named. That is the Nix profile's
 //! arrangement (a generation is immutable, the profile is a pointer), recorded as recalled rather
 //! than re-read.
 //!
-//! **An entry is `measured_boot`'s manifest line with one column added**: `<program> <package>
-//! <digest>`, where `<package>` is the package's `name-version-architecture` stem. The progenitor
-//! already parses the two-column form to decide what may run, so this adds a column to a parser it
-//! trusts rather than a second format on its path. §219 records this as a recommendation, not a
-//! ruling.
+//! **A generation carries two kinds of line** (milestone 614 (two installed versions of one
+//! program, each runnable, and a caller granted the one it needs), rulings 2 and 3 of 2026-09-29):
 //!
-//! **Strict, because this table decides what may be spawned.** A malformed line makes the whole
-//! table unreadable ([`Error::Malformed`]) rather than skipped, for `measured_boot`'s reason: a
-//! table that half-parses vouches for whatever survived.
+//! ```text
+//! <digest> <program> <version> <package>   a row: what is installed
+//! default <program> <digest>               the pointer: what the bare word runs
+//! ```
+//!
+//! **Rows key on the digest; `program`, `version` and `package` are label columns.** The digest is
+//! the packager's attestation (the program member's SHA-256, as installing verified it); the
+//! version string is the upstream developer's claim. A rebuild claiming a version string already
+//! live is a second row, visible, never a silent replacement, because its bytes are a different
+//! digest: two versions of one program coexist as two rows, which is what one row per program name
+//! could not hold. There is no architecture column: the digest is of target-specific bytes, so
+//! builds for two ISAs never collide in one table. There is no install datetime: the generation
+//! index is a total order with no clock in it.
+//!
+//! **The default pointer lives inside the generation file**, so a rollback restores the table and
+//! the default together and `current` stays the one commit point. Every install of a program moves
+//! its pointer: the bare word means the newest install, which was the implicit rule before and is
+//! now a written one. An owner's vouch ([`OWNER`]) claims no name (DECISIONS §229 (how a bare name
+//! at the prompt reaches an installed program), B2), so a vouch never writes a pointer and
+//! [`lookup`] never answers with one.
+//!
+//! **An owner's vouch row carries `-` in the version column** ([`NO_VERSION`]): the owner vouches
+//! for bytes, not for a version anyone claimed.
+//!
+//! **Strict, because this table decides what may be spawned.** A malformed line of either kind
+//! makes the whole table unreadable ([`Error::Malformed`]) rather than skipped, for `measured_boot`'s
+//! reason: a table that half-parses vouches for whatever survived.
 //!
 //! # EXAMPLES
 //!
 //! ```
-//! use activation_set::{Entry, lookup, with_entry, without_entry};
+//! use activation_set::{lookup, with_entry, without_entry, Entry, NO_VERSION, OWNER};
 //!
 //! let digest = [7u8; 32];
-//! let uptime = Entry { program: "uptime", package: "uptime-0.1.0-aarch64", digest };
-//! let mut first = [0u8; 256];
+//! let uptime = Entry { program: "uptime", version: "0.1.0", package: "uptime", digest };
+//! let mut first = [0u8; 512];
 //! let n = with_entry("", &uptime, false, &mut first).unwrap();
 //! let generation_1 = core::str::from_utf8(&first[..n]).unwrap();
-//! assert_eq!(lookup(generation_1, "uptime").unwrap().unwrap().package, "uptime-0.1.0-aarch64");
+//! assert_eq!(lookup(generation_1, "uptime").unwrap().unwrap().version, "0.1.0");
 //!
-//! let mut second = [0u8; 256];
+//! let mut second = [0u8; 512];
 //! let n = without_entry(generation_1, "uptime", &mut second).unwrap();
 //! let generation_2 = core::str::from_utf8(&second[..n]).unwrap();
 //! assert!(lookup(generation_2, "uptime").unwrap().is_none());
 //! // Generation 1 is untouched, so rolling back is naming it again.
 //! assert!(lookup(generation_1, "uptime").unwrap().is_some());
+//!
+//! // A vouch is a row with no version and no pointer: found by digest, never by name.
+//! let vouch = Entry { program: "a.out", version: NO_VERSION, package: OWNER, digest };
+//! let mut third = [0u8; 512];
+//! let n = with_entry(generation_2, &vouch, false, &mut third).unwrap();
+//! let generation_3 = core::str::from_utf8(&third[..n]).unwrap();
+//! assert!(lookup(generation_3, "a.out").unwrap().is_none());
 //! ```
 //!
 //! # BUGS
@@ -61,9 +89,10 @@
 //! - **Nothing collects old generations.** Every install leaves one file behind, which is what
 //!   makes rollback free and is also unbounded. A retention rule (keep N, keep the last boot's) is
 //!   owed before a system installs often.
-//! - **A table is read whole into memory**, and its size is whatever the caller's buffer is. Forty
-//!   entries fit a page.
-//! - **One program per package entry.** A package with two programs is two entries naming the same
+//! - **A table is read whole into memory**, and its size is whatever the caller's buffer is. With
+//!   the version column and the pointer lines a row costs about 130 bytes, so thirty-odd entries
+//!   fit a page.
+//! - **One program per package row.** A package with two programs is two rows naming the same
 //!   package, which works and is not tested beyond that.
 //! - **The `current` file is the one mutable thing**, so its write is the commit point, and nothing
 //!   here makes that write atomic. On RedoxFS it is a one-line overwrite; whether a torn write of it
@@ -76,38 +105,21 @@
 
 pub use measured_boot::Digest;
 
-/// One installed program: its name at the prompt, the package it came from, and that package's
-/// digest as it was verified at install.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Entry<'a> {
-    /// The name a person types, and the name the spawner is asked for.
-    pub program: &'a str,
-    /// The package it came from, as its `name-version-architecture` stem.
-    pub package: &'a str,
-    /// **The program's own SHA-256**: the digest of the executable member, as the package's table
-    /// of contents carries it (`package_archive::Package::member_digest`) and as installing
-    /// verified it. Not the package file's digest, which §195 (a reviewed recipe vouches for a package)'s recipe vouches for and which
-    /// installing checks first: the spawner is handed the executable's bytes, never the package's
-    /// (DECISIONS §219 option D), so the digest it can compute is the member's. Changed
-    /// 2026-09-26 by milestone 198 rung 3a's image lane, before anything wrote a table.
-    pub digest: Digest,
-}
-
 /// Why a table or an edit was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
-    /// A line is not `<program> <package> <64 hex>`, so the table vouches for nothing.
+    /// A line is neither a row nor a pointer line, so the table vouches for nothing.
     Malformed,
     /// A name is empty, or holds a space, a newline or a `#`, so it would not read back as itself.
     BadName,
-    /// [`without_entry`] was asked to remove a program the table does not have.
+    /// A removal was asked for a program, or a program at a version, the table does not have.
     NotInstalled,
     /// The output buffer is too small for the next generation.
     TooSmall,
     /// **Another package already provides a program of this name** (DECISIONS §229 (how a bare name
-    /// at the prompt reaches an installed program), B2). A bare name has one entry, so installing a
-    /// second package's program under it would silently take the name from the first. The same
-    /// package at another version is an upgrade and is not this.
+    /// at the prompt reaches an installed program), B2). Installing a second package's program
+    /// under it would silently take the name from the first. The same package at another version
+    /// is not this: both rows live side by side.
     Taken,
     /// **The image carries a program of this name** (DECISIONS §229, calef's ruling of 2026-09-27).
     /// A package cannot take a base program's name. Under §235 (the OS is built and updated from
@@ -117,90 +129,171 @@ pub enum Error {
     ///
     /// Name: provisional, milestone 47 (navigation and naming)'s bare-name lane, 2026-09-27.
     ImageName,
+    /// [`without_version`] refused: the version asked for holds the default pointer and more than
+    /// one other version remains, so no ordering among live versions exists to pick a new default
+    /// with. The caller names the candidates with [`versions_of`]. Nothing is written. Name:
+    /// provisional, milestone 614's build lane, 2026-09-29.
+    Ambiguous,
 }
 
-/// Every entry in a generation, or [`Error::Malformed`] at the first line that is not one. Blank
-/// lines and `#` comments are skipped, as in `measured_boot`'s manifest.
+/// One installed program: its name at the prompt, the version its upstream claims, the package it
+/// came from, and its digest as it was verified at install. The **digest is the row's key** and the
+/// other three are label columns (milestone 614, ruling 2): a rebuild that produces new bytes is a
+/// second row even when the version string is one already live.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Entry<'a> {
+    /// The name a person types, and the name the spawner is asked for.
+    pub program: &'a str,
+    /// **The version the upstream developer claims**: a label, never an identity. An owner's vouch
+    /// carries [`NO_VERSION`], because the owner vouches for bytes and claims no version.
+    pub version: &'a str,
+    /// The package it came from, by name. [`OWNER`] when the vouch is the package's.
+    pub package: &'a str,
+    /// **The program's own SHA-256**: the digest of the executable member, as the package's table
+    /// of contents carries it (`package_archive::Package::member_digest`) and as installing
+    /// verified it. Not the package file's digest, which §195 (a reviewed recipe vouches for a
+    /// package)'s recipe vouches for and which installing checks first: the spawner is handed the
+    /// executable's bytes, never the package's (DECISIONS §219 option D), so the digest it can
+    /// compute is the member's. Changed 2026-09-26 by milestone 198 rung 3a's image lane, before
+    /// anything wrote a table. Key of the row since milestone 614, ruling 2.
+    pub digest: Digest,
+}
+
+/// **A default pointer line**: the row the bare word for `program` runs ([`lookup`]). Read with
+/// [`defaults`], written by [`with_entry`] and [`without_entry`]. Provisional, like the line kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Pointer<'a> {
+    /// The program whose bare word this pointer answers.
+    pub program: &'a str,
+    /// The digest of the row the pointer names. Naming a digest that is not a package row of the
+    /// program makes the table unreadable: a pointer to nothing vouches for nothing.
+    pub digest: Digest,
+}
+
+/// Every row in a generation, or [`Error::Malformed`] at the first line that is not one. Blank
+/// lines, `#` comments and well-formed pointer lines are skipped; a malformed pointer line is a
+/// malformed table. The pointer lines themselves are read with [`defaults`].
 pub fn entries(table: &str) -> impl Iterator<Item = Result<Entry<'_>, Error>> {
     table
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .map(|line| {
-            let mut words = line.split(' ');
-            let (Some(program), Some(package), Some(hex), None) =
-                (words.next(), words.next(), words.next(), words.next())
-            else {
-                return Err(Error::Malformed);
-            };
-            let digest = measured_boot::parse_hex(hex).ok_or(Error::Malformed)?;
-            if !good_name(program) || !good_name(package) {
-                return Err(Error::Malformed);
-            }
-            Ok(Entry {
+        .filter_map(|line| match classify(line) {
+            Line::Row {
+                digest,
                 program,
+                version,
+                package,
+            } => Some(Ok(Entry {
+                program,
+                version,
                 package,
                 digest,
-            })
+            })),
+            // A well-formed pointer line is not a row; that it is well-formed was the check.
+            Line::Pointer { .. } => None,
+            Line::Malformed => Some(Err(Error::Malformed)),
         })
 }
 
-/// The entry for `program`, if the generation has one. The whole table is checked first, so a
-/// malformed line anywhere is a refusal even when the name asked for is on a good line.
-pub fn lookup<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Error> {
-    let mut found = None;
-    for entry in entries(table) {
-        let entry = entry?;
-        if entry.program == program {
-            found = Some(entry);
-        }
+/// Every default pointer line in a generation, or [`Error::Malformed`] at the first line that is
+/// not a row, a comment, a blank, or a well-formed pointer line. The whole table is validated
+/// either way, so a caller that reads only pointers still refuses a broken row.
+pub fn defaults(table: &str) -> impl Iterator<Item = Result<Pointer<'_>, Error>> {
+    table
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(|line| match classify(line) {
+            Line::Pointer { program, digest } => Some(Ok(Pointer { program, digest })),
+            // A well-formed row is not a pointer; that it is well-formed was the check.
+            Line::Row { .. } => None,
+            Line::Malformed => Some(Err(Error::Malformed)),
+        })
+}
+
+/// One parsed line of a generation. Internal; the two iterators above decide which kind they keep.
+enum Line<'a> {
+    Row {
+        digest: Digest,
+        program: &'a str,
+        version: &'a str,
+        package: &'a str,
+    },
+    Pointer {
+        program: &'a str,
+        digest: Digest,
+    },
+    Malformed,
+}
+
+/// Classify one line. A row is `<64 hex> <program> <version> <package>`; a pointer line is
+/// `default <program> <64 hex>`; anything else is malformed. A row's first word is the key, which
+/// is why `default` is a word no digest can be: it is not hex.
+fn classify(line: &str) -> Line<'_> {
+    let mut words = line.split(' ');
+    let Some(first) = words.next() else {
+        return Line::Malformed;
+    };
+    if first == "default" {
+        let (Some(program), Some(hex), None) = (words.next(), words.next(), words.next()) else {
+            return Line::Malformed;
+        };
+        let Some(digest) = measured_boot::parse_hex(hex).filter(|_| good_name(program)) else {
+            return Line::Malformed;
+        };
+        return Line::Pointer { program, digest };
     }
-    Ok(found)
+    let (Some(program), Some(version), Some(package), None) =
+        (words.next(), words.next(), words.next(), words.next())
+    else {
+        return Line::Malformed;
+    };
+    let Some(digest) = measured_boot::parse_hex(first) else {
+        return Line::Malformed;
+    };
+    if !good_name(program) || !good_name(version) || !good_name(package) {
+        return Line::Malformed;
+    }
+    Line::Row {
+        digest,
+        program,
+        version,
+        package,
+    }
 }
 
 /// **The entry a bare name at the prompt runs** (DECISIONS §229 (how a bare name at the prompt
-/// reaches an installed program), B2): the live entry for `program`, never an owner's vouch. A
-/// vouch grants by digest and does not claim a name, so a system program keeps its name and a
-/// local build runs by its path. The whole table is checked first, as in [`lookup`]. A scheduled
-/// job resolves its program the same way (milestone 152 (durable delegation), Fork 8 ruled D on
-/// #1377).
+/// reaches an installed program), B2; milestone 614, rulings 2 and 3): the default pointer for
+/// `program`, then the package row it names. An owner's vouch is never the answer, because it
+/// claims no name and writes no pointer. Two pointer lines for one program, or a pointer naming a
+/// digest that is not a package row of the program, make the table unreadable: the default is one
+/// answer, and a pointer to nothing vouches for nothing.
 ///
-/// Name: provisional, milestone 47 (navigation and naming)'s bare-name lane, 2026-09-26.
-pub fn lookup_name<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Error> {
-    let mut found = None;
+/// The whole table is checked first, so a malformed line anywhere is a refusal even when the name
+/// asked for is on a good line. Was `lookup_name` until milestone 614 folded the pointer into
+/// [`lookup`], which used to answer with any row of the name.
+pub fn lookup<'a>(table: &'a str, program: &str) -> Result<Option<Entry<'a>>, Error> {
+    let Some(digest) = default_of(table, program)? else {
+        return Ok(None);
+    };
     for entry in entries(table) {
         let entry = entry?;
-        if entry.program == program && entry.package != OWNER {
-            found = Some(entry);
+        if entry.program == program && entry.package != OWNER && entry.digest == digest {
+            return Ok(Some(entry));
         }
     }
-    Ok(found)
+    Err(Error::Malformed)
 }
 
-/// **A package stem's three fields**: `name`, `version`, `architecture`. A name may hold a hyphen
-/// and the other two may not, so the stem is split from the right. `None` for [`OWNER`] and for
-/// anything else with fewer than two hyphens. An installed program lives at
-/// `packages/<name>/<version>/<program>` ([`PACKAGES`]).
-///
-/// Name: provisional, milestone 47's bare-name lane, 2026-09-26.
-pub fn stem_parts(stem: &str) -> Option<(&str, &str, &str)> {
-    let (rest, architecture) = stem.rsplit_once('-')?;
-    let (name, version) = rest.rsplit_once('-')?;
-    (!name.is_empty() && !version.is_empty() && !architecture.is_empty()).then_some((
-        name,
-        version,
-        architecture,
-    ))
-}
-
-/// **The entry whose program has these bytes**, if the generation has one: what the progenitor asks
-/// when it is handed an executable rather than a name (DECISIONS §219 option D). The whole table is
+/// **The row these bytes belong to**, if the generation has one: what the progenitor asks when it
+/// is handed an executable rather than a name (DECISIONS §219 option D). The whole table is
 /// checked first, as in [`lookup`], so a malformed line anywhere vouches for nothing.
 ///
-/// Two entries with one digest (one program installed under two names) answer with the **first**,
+/// Two rows with one digest (one program installed under two names) answer with the **first**,
 /// deterministically. That is harmless because the manifest an installed program is endowed with is
 /// in its bytes (an ELF note, milestone 597 (a program carries its manifest in an ELF note)), not
-/// in its entry: one digest is one set of bytes and so one manifest, whichever name was installed.
+/// in its row: one digest is one set of bytes and so one manifest, whichever name was installed.
 pub fn lookup_digest<'a>(table: &'a str, digest: &Digest) -> Result<Option<Entry<'a>>, Error> {
     let mut found = None;
     for entry in entries(table) {
@@ -212,21 +305,63 @@ pub fn lookup_digest<'a>(table: &'a str, digest: &Digest) -> Result<Option<Entry
     Ok(found)
 }
 
+/// **The package row for this program at this version**, first in file order: what a version set's
+/// `<program> <version>` line resolves to at activation, and what `package remove
+/// <program>@<version>` removes. Owner's vouches are not versions and never answer. A rebuild
+/// claiming a version already live is a second row, so the first is answered; the digest decides
+/// what runs either way. Name: provisional, milestone 614's build lane, 2026-09-29.
+pub fn lookup_version<'a>(
+    table: &'a str,
+    program: &str,
+    version: &str,
+) -> Result<Option<Entry<'a>>, Error> {
+    let mut found = None;
+    for entry in entries(table) {
+        let entry = entry?;
+        if found.is_none()
+            && entry.program == program
+            && entry.version == version
+            && entry.package != OWNER
+        {
+            found = Some(entry);
+        }
+    }
+    Ok(found)
+}
+
+/// **The version labels live for `program`**, in file order, duplicates included: what a refusal
+/// that may not pick among versions names instead. Owner's vouches claim no version and are not
+/// listed. Name: provisional, milestone 614's build lane, 2026-09-29.
+pub fn versions_of<'a>(
+    table: &'a str,
+    program: &str,
+) -> impl Iterator<Item = Result<&'a str, Error>> {
+    entries(table).filter_map(move |entry| match entry {
+        Ok(e) if e.program == program && e.package != OWNER => Some(Ok(e.version)),
+        Ok(_) => None,
+        Err(e) => Some(Err(e)),
+    })
+}
+
 /// The next generation: `table` with `entry` installed. Returns the length written to `out`.
 ///
-/// Of the entries already present for the same program name (DECISIONS §229 (how a bare name at
-/// the prompt reaches an installed program), B2):
+/// **Upsert by digest, then move the pointer** (milestone 614, rulings 2 and 3):
 ///
-/// - the same package at any version is **replaced in place**, which is an upgrade;
-/// - another package's is [`Error::Taken`], and nothing is written;
-/// - an owner's vouch and a package's entry **sit side by side**. A vouch is found by digest and
-///   never by name ([`lookup_name`]), so neither displaces the other. A later vouch replaces an
-///   earlier vouch of the same name.
+/// - a package row with the same program **and the same digest is replaced in place**, labels and
+///   all: the bytes are the identity, and reinstalling them under a new version string relabels
+///   the row;
+/// - the same package at a **new digest is a second row**: what one row per program name could not
+///   hold, two versions of one program, is the point;
+/// - another package's claim on the name is still [`Error::Taken`], and nothing is written;
+/// - an owner's vouch and a package's row **sit side by side**. A vouch is found by digest and
+///   never by name ([`lookup`]), so neither displaces the other. A later vouch of a name replaces
+///   the earlier vouch of that name, as it did before rows keyed on digest.
 ///
-/// Anything else is appended.
+/// A package install also **writes the program's default pointer**: the bare word means the newest
+/// install. A vouch writes none, because it claims no name.
 ///
 /// `image_carries` is whether the running image has a program named `entry.program`. A package's
-/// entry under such a name is [`Error::ImageName`] (§229, 2026-09-27), checked before
+/// row under such a name is [`Error::ImageName`] (§229, 2026-09-27), checked before
 /// [`Error::Taken`]; a vouch ignores it. It is a required argument rather than a second function
 /// so an installer cannot forget to ask.
 pub fn with_entry(
@@ -235,21 +370,20 @@ pub fn with_entry(
     image_carries: bool,
     out: &mut [u8],
 ) -> Result<usize, Error> {
-    if !good_name(entry.program) || !good_name(entry.package) {
+    if !good_name(entry.program) || !good_name(entry.version) || !good_name(entry.package) {
         return Err(Error::BadName);
     }
     let vouch = entry.package == OWNER;
     if !vouch && image_carries {
         return Err(Error::ImageName);
     }
-    let name_of = |stem| stem_parts(stem).map(|(name, _, _)| name);
     // Refuse before writing a byte, so a refused install leaves `out` meaning nothing.
     for existing in entries(table) {
         let existing = existing?;
         if !vouch
             && existing.program == entry.program
             && existing.package != OWNER
-            && name_of(existing.package) != name_of(entry.package)
+            && existing.package != entry.package
         {
             return Err(Error::Taken);
         }
@@ -258,7 +392,16 @@ pub fn with_entry(
     let mut replaced = false;
     for existing in entries(table) {
         let existing = existing?;
-        if existing.program == entry.program && (existing.package == OWNER) == vouch {
+        let same_kind = (existing.package == OWNER) == vouch;
+        let replaced_here = same_kind
+            && existing.program == entry.program
+            && if vouch {
+                // A later vouch of a name replaces the earlier one, whatever its digest.
+                true
+            } else {
+                existing.digest == entry.digest
+            };
+        if replaced_here {
             writer.entry(entry)?;
             replaced = true;
         } else {
@@ -268,24 +411,43 @@ pub fn with_entry(
     if !replaced {
         writer.entry(entry)?;
     }
+    let mut pointed = false;
+    for existing in defaults(table) {
+        let existing = existing?;
+        if !vouch && existing.program == entry.program {
+            writer.pointer(entry.program, &entry.digest)?;
+            pointed = true;
+        } else {
+            writer.pointer(existing.program, &existing.digest)?;
+        }
+    }
+    if !vouch && !pointed {
+        writer.pointer(entry.program, &entry.digest)?;
+    }
     Ok(writer.at)
 }
 
-/// The next generation: `table` without `program`. Removing what is not installed is
-/// [`Error::NotInstalled`] rather than an identical generation, because an uninstall that silently
-/// did nothing is a report the caller should see.
+/// The next generation: `table` without `program`. **The verb's object is the program** (milestone
+/// 614, ruling 5): every live version's row goes, and the program's pointer with them, so the bare
+/// word reaches nothing. An owner's vouch of the same name is not a package and stays; a rollback
+/// is what undoes a vouch. The bytes stay where they are, which is what lets a rollback bring every
+/// version back. Removing what is not installed is [`Error::NotInstalled`] rather than an identical
+/// generation, because an uninstall that silently did nothing is a report the caller should see.
 pub fn without_entry(table: &str, program: &str, out: &mut [u8]) -> Result<usize, Error> {
     let mut writer = Writer { out, at: 0 };
     let mut removed = false;
     for existing in entries(table) {
         let existing = existing?;
-        // A package is removed by name; an owner's vouch of the same name is not a package and
-        // stays (§229 (how a bare name at the prompt reaches an installed program), B2). A
-        // rollback is what undoes a vouch.
         if existing.program == program && existing.package != OWNER {
             removed = true;
         } else {
             writer.entry(&existing)?;
+        }
+    }
+    for existing in defaults(table) {
+        let existing = existing?;
+        if existing.program != program {
+            writer.pointer(existing.program, &existing.digest)?;
         }
     }
     if removed {
@@ -293,6 +455,97 @@ pub fn without_entry(table: &str, program: &str, out: &mut [u8]) -> Result<usize
     } else {
         Err(Error::NotInstalled)
     }
+}
+
+/// The next generation: `table` without the one row for `program` at `version`, first in file
+/// order (milestone 614, ruling 5). Removing a version that is not the default leaves the pointer
+/// alone. Removing **the default's version** moves the pointer to the sole remaining version, and
+/// is [`Error::Ambiguous`] when several remain, because no ordering among live versions exists to
+/// pick with: the caller names the candidates with [`versions_of`]. Nothing is written on a
+/// refusal. Name: provisional, milestone 614's build lane, 2026-09-29.
+pub fn without_version(
+    table: &str,
+    program: &str,
+    version: &str,
+    out: &mut [u8],
+) -> Result<usize, Error> {
+    // Refuse before writing a byte, as [`with_entry`] does. One pass decides: the row to remove,
+    // whether it holds the pointer, and what would survive it. Survivors are counted by *version*,
+    // because the pointer's rule and the refusal's candidates are both about versions: two rows at
+    // one version string (a rebuild) are one survivor, and the pointer moves to the first of them.
+    let mut target = None;
+    let mut survivor: Option<Entry<'_>> = None;
+    let mut uniform = true;
+    for existing in entries(table) {
+        let existing = existing?;
+        if existing.program != program || existing.package == OWNER {
+            continue;
+        }
+        let is_target = existing.version == version && target.is_none();
+        if is_target {
+            target = Some(existing);
+        } else {
+            if let Some(first) = survivor {
+                uniform &= first.version == existing.version;
+            }
+            if survivor.is_none() {
+                survivor = Some(existing);
+            }
+        }
+    }
+    let Some(target) = target else {
+        return Err(Error::NotInstalled);
+    };
+    let move_pointer = default_of(table, program)?.is_some_and(|d| d == target.digest);
+    if move_pointer && !uniform {
+        return Err(Error::Ambiguous);
+    }
+    let mut writer = Writer { out, at: 0 };
+    let mut skipped = false;
+    for existing in entries(table) {
+        let existing = existing?;
+        let same_row = !skipped
+            && existing.program == target.program
+            && existing.version == target.version
+            && existing.digest == target.digest;
+        if same_row {
+            skipped = true;
+        } else {
+            writer.entry(&existing)?;
+        }
+    }
+    for existing in defaults(table) {
+        let existing = existing?;
+        if existing.program == program && move_pointer {
+            match &survivor {
+                // The last version went with the pointer; a program with no rows keeps none.
+                None => continue,
+                Some(survivor) => writer.pointer(program, &survivor.digest)?,
+            }
+        } else {
+            writer.pointer(existing.program, &existing.digest)?;
+        }
+    }
+    Ok(writer.at)
+}
+
+/// The program's default pointer's digest, as [`lookup`] reads it: `None` when the program has no
+/// pointer, [`Error::Malformed`] on two. Internal because [`lookup`] is the ruled reader;
+/// [`without_version`] needs the digest to compare against.
+fn default_of(table: &str, program: &str) -> Result<Option<Digest>, Error> {
+    let mut found = None;
+    let mut count = 0usize;
+    for pointer in defaults(table) {
+        let pointer = pointer?;
+        if pointer.program == program {
+            found = Some(pointer.digest);
+            count += 1;
+        }
+    }
+    if count > 1 {
+        return Err(Error::Malformed);
+    }
+    Ok(found)
 }
 
 /// The live generation's number, from the `current` file: decimal digits and an optional newline.
@@ -316,20 +569,27 @@ pub const CURRENT: &str = "current";
 pub const CURRENT_STAGED: &str = "current.next";
 
 /// **The directory an installed program's bytes are placed under**, at the root of the file
-/// service: `packages/<name>/<version>/<program>`, one directory per package version (milestone 198
-/// rung 3a's installer). A component per field rather than the stem, because a name at the prompt
-/// is at most sixteen bytes and `uptime-0.1.0-aarch64` is twenty. The progenitor hashes whatever bytes a person runs (DECISIONS §219 option D), so
-/// this is where they are kept, not what vouches for them. Provisional.
+/// service: `packages/<name>/<version>/<program>`, one directory per package version (milestone
+/// 198 rung 3a's installer). A component per field rather than the stem, because a name at the
+/// prompt is at most sixteen bytes and `uptime-0.1.0-aarch64` is twenty. The progenitor hashes
+/// whatever bytes a person runs (DECISIONS §219 option D), so this is where they are kept, not
+/// what vouches for them. Provisional.
 pub const PACKAGES: &str = "packages";
 
-/// **What an entry's package column says when the owner vouched for the bytes** (DECISIONS §221
+/// **What a row's package column says when the owner vouched for the bytes** (DECISIONS §221
 /// (the boot prompt is the owner's console), ruling 1; §195 (a reviewed recipe vouches for a
-/// package) clause 3). No package stem can be this word, because a stem is
-/// `name-version-architecture` and carries two hyphens. The entry is found by digest like any
-/// other and undone by a rollback. It never claims a bare name (§229, B2): [`lookup_name`] skips
-/// it, [`with_entry`] keeps it beside a package's entry of the same name rather than replacing
-/// either, and only a later vouch of that name replaces it. Provisional, like the column.
+/// package) clause 3). No package name can be this word by construction: the column is the
+/// `name` field of a `name-version-architecture` stem, and the one package in this tree whose
+/// name could say it does not exist. The row is found by digest like any other and undone by a
+/// rollback. It never claims a bare name (§229, B2): [`lookup`] skips it, [`with_entry`] keeps it
+/// beside a package's row of the same name rather than replacing either, and only a later vouch of
+/// that name replaces it. Provisional, like the column.
 pub const OWNER: &str = "owner";
+
+/// **What a vouch row's version column carries**: the owner vouches for bytes, and claims no
+/// version string, so the column holds a word no version set selects and no install writes.
+/// Provisional, milestone 614's build lane, 2026-09-29.
+pub const NO_VERSION: &str = "-";
 
 /// The file name of generation `number` in [`DIRECTORY`]: its decimal digits, no padding.
 pub fn generation_name(number: u32, out: &mut [u8; 10]) -> &str {
@@ -389,11 +649,21 @@ impl Writer<'_> {
     }
 
     fn entry(&mut self, e: &Entry<'_>) -> Result<(), Error> {
+        self.bytes(&measured_boot::hex(&e.digest))?;
+        self.bytes(b" ")?;
         self.bytes(e.program.as_bytes())?;
         self.bytes(b" ")?;
-        self.bytes(e.package.as_bytes())?;
+        self.bytes(e.version.as_bytes())?;
         self.bytes(b" ")?;
-        self.bytes(&measured_boot::hex(&e.digest))?;
+        self.bytes(e.package.as_bytes())?;
+        self.bytes(b"\n")
+    }
+
+    fn pointer(&mut self, program: &str, digest: &Digest) -> Result<(), Error> {
+        self.bytes(b"default ")?;
+        self.bytes(program.as_bytes())?;
+        self.bytes(b" ")?;
+        self.bytes(&measured_boot::hex(digest))?;
         self.bytes(b"\n")
     }
 }
@@ -406,29 +676,6 @@ mod tests {
     use std::{format, vec};
 
     use super::*;
-
-    /// **A name resolves to the package's entry and never to an owner's vouch**, and the entry's
-    /// stem splits into the directories its bytes are placed under. What a scheduled job resolves
-    /// (milestone 152, Fork 8 D).
-    #[test]
-    fn a_scheduled_name_resolves_like_a_bare_name() {
-        let table = format!(
-            "uptime owner {}\nuptime util-linux-0.1.0-aarch64 {}\n",
-            "11".repeat(32),
-            "22".repeat(32),
-        );
-        let e = lookup_name(&table, "uptime").unwrap().unwrap();
-        assert_eq!(e.package, "util-linux-0.1.0-aarch64");
-        assert_eq!(e.digest, [0x22; 32]);
-        assert_eq!(
-            stem_parts(e.package),
-            Some(("util-linux", "0.1.0", "aarch64")),
-            "a name may hold a hyphen; the stem splits from the right",
-        );
-        let vouched_only = format!("a.out owner {}\n", "11".repeat(32));
-        assert!(lookup_name(&vouched_only, "a.out").unwrap().is_none());
-        assert_eq!(stem_parts(OWNER), None);
-    }
 
     /// The store as the protocol in the crate documentation uses it: generation files that are
     /// written once, and one `current` line. A `BTreeMap` stands in for the directory.
@@ -488,17 +735,40 @@ mod tests {
             self.commit(&out[..n]);
             Ok(())
         }
-        fn package_of(&self, program: &str) -> Option<String> {
+        fn remove_version(&mut self, program: &str, version: &str) -> Result<(), Error> {
+            let mut out = vec![0u8; 4096];
+            let n = without_version(self.table(), program, version, &mut out)?;
+            self.commit(&out[..n]);
+            Ok(())
+        }
+        /// The version the bare word for `program` runs, or `None`.
+        fn bare_version_of(&self, program: &str) -> Option<String> {
             lookup(self.table(), program)
                 .unwrap()
-                .map(|e| e.package.to_string())
+                .map(|e| e.version.to_string())
+        }
+        fn live_versions_of(&self, program: &str) -> std::vec::Vec<String> {
+            versions_of(self.table(), program)
+                .map(|v| v.unwrap().to_string())
+                .collect()
         }
     }
 
-    fn entry<'a>(program: &'a str, package: &'a str, seed: u8) -> Entry<'a> {
+    /// A package row. One digest per version, so tests can name digests by version.
+    fn row<'a>(program: &'a str, package: &'a str, version: &'a str, seed: u8) -> Entry<'a> {
         Entry {
             program,
+            version,
             package,
+            digest: [seed; 32],
+        }
+    }
+
+    fn vouch<'a>(program: &'a str, seed: u8) -> Entry<'a> {
+        Entry {
+            program,
+            version: NO_VERSION,
+            package: OWNER,
             digest: [seed; 32],
         }
     }
@@ -506,71 +776,62 @@ mod tests {
     /// **The property §208 asked for by name**: a rollback restores the whole set, not one package.
     /// **An owner's vouch is found by digest and claims no name** (DECISIONS §221 (the boot prompt
     /// is the owner's console); §229 (how a bare name at the prompt reaches an installed program),
-    /// B2): it reads back, and an install of the same program name sits beside it rather than
-    /// replacing it. Before §229 the install replaced it, which is what this test asserted.
+    /// B2): it reads back, writes no pointer, and an install of the same program name sits beside
+    /// it rather than replacing it, and holds the pointer the vouch never did.
     #[test]
-    fn an_owner_vouch_is_an_ordinary_entry() {
+    fn an_owner_vouch_is_an_ordinary_row() {
         let built = [9u8; 32];
-        let vouch = Entry {
-            program: "a.out",
-            package: OWNER,
-            digest: built,
-        };
-        let mut g = [0u8; 256];
-        let n = with_entry("", &vouch, false, &mut g).unwrap();
+        let mut g = [0u8; 512];
+        let n = with_entry("", &vouch("a.out", 9), false, &mut g).unwrap();
         let table = core::str::from_utf8(&g[..n]).unwrap();
         assert_eq!(
             lookup_digest(table, &built).unwrap().unwrap().package,
             OWNER
         );
+        assert!(
+            lookup(table, "a.out").unwrap().is_none(),
+            "a vouch claims no name"
+        );
+        assert_eq!(defaults(table).count(), 0, "a vouch writes no pointer");
         let upgrade = Entry {
             program: "a.out",
-            package: "a.out-0.1.0-aarch64",
+            version: "0.1.0",
+            package: "a.out",
             digest: [1; 32],
         };
-        let mut h = [0u8; 256];
+        let mut h = [0u8; 512];
         let n = with_entry(table, &upgrade, false, &mut h).unwrap();
         let next = core::str::from_utf8(&h[..n]).unwrap();
         assert_eq!(lookup_digest(next, &built).unwrap().unwrap().package, OWNER);
-        assert_eq!(
-            lookup_name(next, "a.out").unwrap().unwrap().package,
-            "a.out-0.1.0-aarch64"
-        );
+        assert_eq!(lookup(next, "a.out").unwrap().unwrap().digest, [1; 32]);
     }
 
-    /// **§229 B2, the install half**: the same package at a new version replaces its entry, another
-    /// package cannot take the name, and a vouch of the same name neither takes the bare name nor
-    /// is taken by a later install. Removing the package leaves the vouch.
+    /// **§229 B2, the install half, as milestone 614 reshaped it**: installing a second version
+    /// appends a second row and moves the pointer; another package cannot take the name; and a
+    /// vouch of the same name neither takes the bare name nor is taken by an install. Removing the
+    /// package leaves the vouch and takes the pointer.
     #[test]
     fn a_name_belongs_to_one_package_and_never_to_a_vouch() {
         let mut g = [0u8; 512];
-        let first = entry("uptime", "uptime-0.1.0-aarch64", 1);
-        let n = with_entry("", &first, false, &mut g).unwrap();
+        let n = with_entry("", &row("uptime", "uptime", "0.1.0", 1), false, &mut g).unwrap();
         let t1 = core::str::from_utf8(&g[..n]).unwrap().to_string();
 
-        let upgrade = entry("uptime", "uptime-0.2.0-aarch64", 2);
         let mut h = [0u8; 512];
-        let n = with_entry(&t1, &upgrade, false, &mut h).unwrap();
+        let n = with_entry(&t1, &row("uptime", "uptime", "0.2.0", 2), false, &mut h).unwrap();
         let t2 = core::str::from_utf8(&h[..n]).unwrap().to_string();
-        assert_eq!(lookup_name(&t2, "uptime").unwrap().unwrap().digest, [2; 32]);
+        assert_eq!(lookup(&t2, "uptime").unwrap().unwrap().digest, [2; 32]);
+        assert_eq!(entries(&t2).count(), 2, "both versions stay live");
+        assert!(lookup_digest(&t2, &[1; 32]).unwrap().is_some());
+
+        let mut k = [0u8; 512];
         assert_eq!(
-            entries(&t2).count(),
-            1,
-            "an upgrade replaces, it does not append"
+            with_entry(&t2, &row("uptime", "procps", "4.0.0", 3), false, &mut k),
+            Err(Error::Taken)
         );
 
-        let other = entry("uptime", "procps-4.0.0-aarch64", 3);
-        let mut k = [0u8; 512];
-        assert_eq!(with_entry(&t2, &other, false, &mut k), Err(Error::Taken));
-
-        let vouch = Entry {
-            program: "uptime",
-            package: OWNER,
-            digest: [4; 32],
-        };
-        let n = with_entry(&t2, &vouch, false, &mut k).unwrap();
+        let n = with_entry(&t2, &vouch("uptime", 4), false, &mut k).unwrap();
         let t3 = core::str::from_utf8(&k[..n]).unwrap().to_string();
-        assert_eq!(lookup_name(&t3, "uptime").unwrap().unwrap().digest, [2; 32]);
+        assert_eq!(lookup(&t3, "uptime").unwrap().unwrap().digest, [2; 32]);
         assert_eq!(
             lookup_digest(&t3, &[4; 32]).unwrap().unwrap().package,
             OWNER
@@ -579,8 +840,9 @@ mod tests {
         let mut m = [0u8; 512];
         let n = without_entry(&t3, "uptime", &mut m).unwrap();
         let t4 = core::str::from_utf8(&m[..n]).unwrap();
-        assert!(lookup_name(t4, "uptime").unwrap().is_none());
+        assert!(lookup(t4, "uptime").unwrap().is_none());
         assert_eq!(lookup_digest(t4, &[4; 32]).unwrap().unwrap().package, OWNER);
+        assert_eq!(defaults(t4).count(), 0, "the pointer went with the program");
     }
 
     /// **§229, calef's ruling of 2026-09-27: a package cannot take a name the image carries.**
@@ -589,89 +851,228 @@ mod tests {
     #[test]
     fn a_package_cannot_take_an_image_programs_name() {
         let mut out = [0u8; 512];
-        let base = entry("uptime", "uptime-0.1.0-aarch64", 1);
+        let base = row("uptime", "uptime", "0.1.0", 1);
         assert_eq!(with_entry("", &base, true, &mut out), Err(Error::ImageName));
 
         // Already installed (a later base added the name, which §229's prompt refusal covers):
-        // an upgrade of that package is refused too, and so is another package's.
+        // an install of that package at a new version is refused too, and so is another package's.
         let n = with_entry("", &base, false, &mut out).unwrap();
         let t = core::str::from_utf8(&out[..n]).unwrap().to_string();
         let mut next = [0u8; 512];
-        let upgrade = entry("uptime", "uptime-0.2.0-aarch64", 2);
+        let upgrade = row("uptime", "uptime", "0.2.0", 2);
         assert_eq!(
             with_entry(&t, &upgrade, true, &mut next),
             Err(Error::ImageName)
         );
-        let other = entry("uptime", "procps-4.0.0-aarch64", 3);
+        let other = row("uptime", "procps", "4.0.0", 3);
         assert_eq!(
             with_entry(&t, &other, true, &mut next),
             Err(Error::ImageName)
         );
 
-        let vouch = Entry {
-            program: "uptime",
-            package: OWNER,
-            digest: [4; 32],
-        };
-        let n = with_entry(&t, &vouch, true, &mut next).unwrap();
+        let n = with_entry(&t, &vouch("uptime", 4), true, &mut next).unwrap();
         let t2 = core::str::from_utf8(&next[..n]).unwrap();
         assert_eq!(lookup_digest(t2, &[4; 32]).unwrap().unwrap().package, OWNER);
     }
 
-    /// A stem splits from the right, so a name may hold a hyphen; the owner's word is not a stem.
+    /// **Milestone 614's first Done-means test**: installing 0.2.0 over 0.1.0 leaves both digests
+    /// live, the bare name resolves to the version the ruled default names (ruling 3: the newest
+    /// install), and a rebuild claiming a live version string is a second row (ruling 2).
     #[test]
-    fn a_stem_splits_into_name_version_and_architecture() {
+    fn two_versions_of_one_program_stay_live_and_the_bare_word_means_the_newest() {
+        let mut store = Store::new();
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.1.0");
+        store.install(row("uptime", "uptime", "0.2.0", 2));
+
+        let table = store.table();
+        assert!(lookup_digest(table, &[1; 32]).unwrap().is_some());
+        assert!(lookup_digest(table, &[2; 32]).unwrap().is_some());
         assert_eq!(
-            stem_parts("uptime-0.1.0-aarch64"),
-            Some(("uptime", "0.1.0", "aarch64"))
+            store.bare_version_of("uptime").unwrap(),
+            "0.2.0",
+            "ruling 3: the bare word means the newest install"
         );
+        assert_eq!(store.live_versions_of("uptime"), ["0.1.0", "0.2.0"]);
+
+        // **A rebuild claiming a live version string is a second row, never a replacement** (the
+        // bytes differ, and the digest is the key). The pointer moves to it, because it is the
+        // newest install.
+        store.install(row("uptime", "uptime", "0.1.0", 5));
+        let table = store.table();
+        assert_eq!(entries(table).count(), 3, "three rows, one per digest");
+        assert!(lookup_version(table, "uptime", "0.1.0").unwrap().is_some());
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.1.0");
+
+        // Reinstalling the *same* bytes is a relabel, not a new row: the rebuild's row changes
+        // version string under its digest, and the original 0.1.0 row still says what it said.
+        store.install(row("uptime", "uptime", "0.1.0-rc1", 5));
+        let table = store.table();
+        assert_eq!(entries(table).count(), 3, "same digest, same row");
         assert_eq!(
-            stem_parts("net-tools-2.10-riscv64"),
-            Some(("net-tools", "2.10", "riscv64"))
+            lookup_version(table, "uptime", "0.1.0")
+                .unwrap()
+                .unwrap()
+                .digest,
+            [1; 32],
+            "the original row is untouched"
         );
-        assert_eq!(stem_parts(OWNER), None);
-        assert_eq!(stem_parts("a--b"), None);
+        assert!(
+            lookup_version(table, "uptime", "0.1.0-rc1")
+                .unwrap()
+                .is_some()
+        );
     }
 
-    /// Two programs installed, one upgraded, one removed; selecting the generation before both
-    /// changes brings back the old version of the first and the presence of the second together.
+    /// **The version-qualified removal, ruling 5**: removing one version leaves the other; removing
+    /// the default's version moves the pointer to the sole survivor; and with several remaining the
+    /// removal refuses and [`versions_of`] names the candidates. Removing a version that does not
+    /// hold the pointer leaves the pointer alone.
+    #[test]
+    fn a_version_qualified_remove_honours_the_pointer_rule() {
+        let mut store = Store::new();
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+        store.install(row("uptime", "uptime", "0.2.0", 2));
+
+        // A version that does not hold the pointer: the row goes, the pointer stays.
+        store.remove_version("uptime", "0.1.0").unwrap();
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.2.0");
+        assert!(
+            lookup_version(store.table(), "uptime", "0.1.0")
+                .unwrap()
+                .is_none()
+        );
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+
+        // The default's version, one survivor: the pointer moves to it.
+        store.remove_version("uptime", "0.2.0").unwrap();
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.1.0");
+
+        // The default's version, several survivors: refused, candidates named, nothing written.
+        store.install(row("uptime", "uptime", "0.3.0", 3));
+        store.install(row("uptime", "uptime", "0.4.0", 4));
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.4.0");
+        let newest = store.newest();
+        let mut out = [0u8; 4096];
+        assert_eq!(
+            without_version(store.table(), "uptime", "0.4.0", &mut out),
+            Err(Error::Ambiguous)
+        );
+        assert_eq!(store.newest(), newest, "a refusal writes no generation");
+        assert_eq!(
+            store.live_versions_of("uptime"),
+            ["0.1.0", "0.3.0", "0.4.0"],
+            "the candidates the refusal names"
+        );
+
+        // A version nobody installed is a report, not a silence.
+        assert_eq!(
+            store.remove_version("uptime", "9.9.9"),
+            Err(Error::NotInstalled)
+        );
+    }
+
+    /// **Bare removal at two versions live, milestone 614's second Done-means test**:
+    /// `package remove <program>` takes every live version's row and the pointer, and a rollback
+    /// brings both rows back, because bytes are never deleted.
+    #[test]
+    fn bare_removal_takes_every_version_and_a_rollback_brings_them_back() {
+        let mut store = Store::new();
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+        store.install(row("uptime", "uptime", "0.2.0", 2));
+        let before = store.current();
+
+        store.remove("uptime").unwrap();
+        assert_eq!(
+            store.live_versions_of("uptime"),
+            std::vec::Vec::<String>::new()
+        );
+        assert_eq!(store.bare_version_of("uptime"), None);
+        assert_eq!(defaults(store.table()).count(), 0);
+
+        store.select(before);
+        assert_eq!(store.live_versions_of("uptime"), ["0.1.0", "0.2.0"]);
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.2.0");
+    }
+
+    /// Two rows at one version string (a rebuild) are one *version*, so a qualified removal that
+    /// leaves only them moves the pointer to the first of them rather than refusing: the refusal's
+    /// candidates are versions, and there is one.
+    #[test]
+    fn a_rebuild_is_one_survivor_for_the_pointer_rule() {
+        let mut store = Store::new();
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+        // A rebuild of 0.1.0: a second row at the same version string (ruling 2).
+        store.install(row("uptime", "uptime", "0.1.0", 5));
+        store.install(row("uptime", "uptime", "0.2.0", 2));
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.2.0");
+
+        store.remove_version("uptime", "0.2.0").unwrap();
+        // The pointer's version went; two rows remain and they are one version, so the pointer
+        // moves to the first of them instead of refusing.
+        assert_eq!(store.live_versions_of("uptime"), ["0.1.0", "0.1.0"]);
+        assert_eq!(
+            store.bare_version_of("uptime").unwrap(),
+            "0.1.0",
+            "the sole remaining version"
+        );
+        assert_eq!(
+            lookup(store.table(), "uptime").unwrap().unwrap().digest,
+            [1; 32],
+            "the first row of the surviving version"
+        );
+    }
+
+    /// Two programs installed, one upgraded beside itself, one removed; selecting the generation
+    /// before both changes brings back the old version of the first and the presence of the second
+    /// together. The pointer rides along: a generation is one snapshot of rows and pointer
+    /// (milestone 614, ruling 5).
     #[test]
     fn a_rollback_restores_the_whole_set() {
         let mut store = Store::new();
-        store.install(entry("uptime", "uptime-0.1.0-aarch64", 1));
-        store.install(entry("date", "date-1.0.0-aarch64", 2));
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+        store.install(row("date", "date", "1.0.0", 2));
         let before = store.current();
 
-        store.install(entry("uptime", "uptime-0.2.0-aarch64", 3));
+        store.install(row("uptime", "uptime", "0.2.0", 3));
         store.remove("date").unwrap();
-        assert_eq!(store.package_of("uptime").unwrap(), "uptime-0.2.0-aarch64");
-        assert_eq!(store.package_of("date"), None);
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.2.0");
+        assert_eq!(store.bare_version_of("date"), None);
 
         store.select(before);
-        assert_eq!(store.package_of("uptime").unwrap(), "uptime-0.1.0-aarch64");
-        assert_eq!(store.package_of("date").unwrap(), "date-1.0.0-aarch64");
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.1.0");
+        assert_eq!(store.bare_version_of("date").unwrap(), "1.0.0");
         // And rolling forward again is the same act.
         let newest = store.newest();
         store.select(newest);
-        assert_eq!(store.package_of("date"), None);
+        assert_eq!(store.bare_version_of("date"), None);
     }
 
+    /// An install appends; the pointer names the newest. (Until milestone 614 this test asserted
+    /// the opposite, that an upgrade replaced in place, which is what one entry per name could do.)
     #[test]
-    fn an_upgrade_replaces_in_place_and_an_install_appends() {
+    fn an_install_appends_and_the_pointer_follows_the_newest() {
         let mut store = Store::new();
-        store.install(entry("a", "a-1-x", 1));
-        store.install(entry("b", "b-1-x", 2));
-        store.install(entry("a", "a-2-x", 3));
+        store.install(row("a", "a", "1", 1));
+        store.install(row("b", "b", "1", 2));
+        store.install(row("a", "a", "2", 3));
         let programs: std::vec::Vec<_> =
             entries(store.table()).map(|e| e.unwrap().program).collect();
-        assert_eq!(programs, ["a", "b"]);
+        assert_eq!(programs, ["a", "b", "a"]);
         assert_eq!(lookup(store.table(), "a").unwrap().unwrap().digest, [3; 32]);
+        assert_eq!(
+            lookup_version(store.table(), "a", "1")
+                .unwrap()
+                .unwrap()
+                .digest,
+            [1; 32]
+        );
     }
 
     #[test]
     fn removing_what_is_not_installed_is_reported_and_writes_nothing() {
         let mut store = Store::new();
-        store.install(entry("a", "a-1-x", 1));
+        store.install(row("a", "a", "1", 1));
         let newest = store.newest();
         assert_eq!(store.remove("b"), Err(Error::NotInstalled));
         assert_eq!(store.newest(), newest);
@@ -679,34 +1080,55 @@ mod tests {
 
     #[test]
     fn a_malformed_line_anywhere_makes_the_table_vouch_for_nothing() {
-        let good = "a a-1-x ".to_string() + &"11".repeat(32) + "\n";
-        assert!(lookup(&good, "a").unwrap().is_some());
+        let good = "11".repeat(32) + " a 1 a\n";
+        let pointer = format!("{good}default a {}\n", "11".repeat(32));
+        // The bare name needs its pointer: rows without one answer `None`, never a guess.
+        assert!(lookup(&good, "a").unwrap().is_none());
+        assert!(lookup(&pointer, "a").unwrap().is_some());
         for bad in [
-            format!("{good}b b-1-x nothex\n"),
-            format!("{good}b b-1-x\n"),
-            format!("{good}b b-1-x {} extra\n", "22".repeat(32)),
-            format!("{good}b b-1-x {}\n", "2".repeat(63)),
+            // A bad row, after a good one.
+            format!("{good}b 2 b nothex\n"),
+            format!("{good}b 2 b\n"),
+            format!("{good}b 2 b {} extra\n", "22".repeat(32)),
+            format!("{good}b 2 b {}\n", "2".repeat(63)),
+            // A bad pointer line.
+            format!("{good}default a\n"),
+            format!("{good}default a nothex\n"),
+            format!("{good}default a {} extra\n", "22".repeat(32)),
+            // A pointer naming a digest no row of the program carries.
+            format!("{good}default a {}\n", "33".repeat(32)),
         ] {
             assert_eq!(lookup(&bad, "a"), Err(Error::Malformed), "{bad:?}");
         }
-        // Comments and blank lines are not entries.
-        let commented = format!("# installed\n\n{good}");
+        // Comments and blank lines are not rows, and the pointer survives them.
+        let commented = format!("# installed\n\n{pointer}");
         assert!(lookup(&commented, "a").unwrap().is_some());
+        // Two pointers for one program is no single answer.
+        let twice = format!("{pointer}default a {}\n", "33".repeat(32));
+        assert_eq!(lookup(&twice, "a"), Err(Error::Malformed));
     }
 
     #[test]
     fn a_name_that_would_not_read_back_is_refused() {
-        let mut out = [0u8; 256];
-        for (program, package) in [("", "p"), ("a b", "p"), ("a", "p\nq"), ("#a", "p")] {
+        let mut out = [0u8; 512];
+        for (program, version, package) in [
+            ("", "1", "p"),
+            ("a b", "1", "p"),
+            ("a", "", "p"),
+            ("a", "1 2", "p"),
+            ("a", "1", "p\nq"),
+            ("#a", "1", "p"),
+        ] {
             let e = Entry {
                 program,
+                version,
                 package,
                 digest: [0; 32],
             };
             assert_eq!(
                 with_entry("", &e, false, &mut out),
                 Err(Error::BadName),
-                "{program:?}"
+                "{program:?} {version:?}"
             );
         }
     }
@@ -714,33 +1136,21 @@ mod tests {
     #[test]
     fn a_buffer_too_small_is_refused_rather_than_truncated() {
         let mut out = [0u8; 40];
-        let e = entry("uptime", "uptime-0.1.0-aarch64", 1);
+        let e = row("uptime", "uptime", "0.1.0", 1);
         assert_eq!(with_entry("", &e, false, &mut out), Err(Error::TooSmall));
         assert_eq!(format_current(1234, &mut [0u8; 4]), Err(Error::TooSmall));
     }
 
-    /// **A digest finds its program, and a malformed line elsewhere still vouches for nothing**
+    /// **A digest finds its row, and a malformed line elsewhere still vouches for nothing**
     /// (§219 D). The miss is a real `None` rather than an error, because "not installed" is the
     /// ordinary answer for a binary somebody just built.
     #[test]
-    fn a_digest_finds_its_entry_and_a_miss_is_none() {
+    fn a_digest_finds_its_row_and_a_miss_is_none() {
         let mut out = [0u8; 512];
-        let n = with_entry(
-            "",
-            &entry("uptime", "uptime-0.1.0-aarch64", 3),
-            false,
-            &mut out,
-        )
-        .unwrap();
+        let n = with_entry("", &row("uptime", "uptime", "0.1.0", 3), false, &mut out).unwrap();
         let mut two = [0u8; 512];
         let text = core::str::from_utf8(&out[..n]).unwrap();
-        let n = with_entry(
-            text,
-            &entry("date", "date-0.1.0-aarch64", 4),
-            false,
-            &mut two,
-        )
-        .unwrap();
+        let n = with_entry(text, &row("date", "date", "0.1.0", 4), false, &mut two).unwrap();
         let table = core::str::from_utf8(&two[..n]).unwrap();
 
         let hit = lookup_digest(table, &[4u8; 32]).unwrap().unwrap();
@@ -750,6 +1160,41 @@ mod tests {
         let mut broken = String::from(table);
         broken.push_str("not a line\n");
         assert_eq!(lookup_digest(&broken, &[4u8; 32]), Err(Error::Malformed));
+    }
+
+    /// The row a version set resolves to: first in file order, never a vouch, never another
+    /// program's.
+    #[test]
+    fn a_version_finds_its_row() {
+        let mut out = [0u8; 512];
+        let n = with_entry("", &row("uptime", "uptime", "0.1.0", 1), false, &mut out).unwrap();
+        let text = core::str::from_utf8(&out[..n]).unwrap().to_string();
+        let mut two = [0u8; 512];
+        let n = with_entry(&text, &row("uptime", "uptime", "0.2.0", 2), false, &mut two).unwrap();
+        let text = core::str::from_utf8(&two[..n]).unwrap().to_string();
+        let mut three = [0u8; 512];
+        let n = with_entry(&text, &vouch("uptime", 7), false, &mut three).unwrap();
+        let table = core::str::from_utf8(&three[..n]).unwrap();
+        assert_eq!(
+            lookup_version(table, "uptime", "0.1.0")
+                .unwrap()
+                .unwrap()
+                .digest,
+            [1; 32]
+        );
+        assert_eq!(
+            lookup_version(table, "uptime", "0.2.0")
+                .unwrap()
+                .unwrap()
+                .digest,
+            [2; 32]
+        );
+        assert_eq!(lookup_version(table, "uptime", "0.3.0").unwrap(), None);
+        // Neither is the vouch's own column, which is not a version anyone asked for.
+        assert_eq!(lookup_version(table, "uptime", NO_VERSION).unwrap(), None);
+        assert_eq!(lookup_version(table, "date", "0.1.0").unwrap(), None);
+        assert_eq!(versions_of(table, "uptime").count(), 2);
+        assert_eq!(versions_of(table, "date").count(), 0);
     }
 
     #[test]

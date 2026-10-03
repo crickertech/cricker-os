@@ -13,3 +13,7 @@ workspace = true
 # implementation that could drift. `version` is required beside `path`: cargo-deny reads a
 # path-only dependency as a wildcard, and `user` depends on this crate.
 grant_plan = { version = "0.1.0", path = "../grant_plan" }
+# Civil-date arithmetic for calendar entries (G5): a day number to a year, month and weekday, and a
+# month's length. The crate of milestone 51 (wall-clock time), already Kani-proved inverse over its range, rather than a
+# second copy of Hinnant's algorithms here.
+calendar = { version = "0.1.0", path = "../calendar" }

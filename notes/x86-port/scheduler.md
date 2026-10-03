@@ -2,20 +2,13 @@
 
 *An appendix to [`notes/x86-port.md`](../x86-port.md), which is the page to read. This file holds
 the trap-path split, `TSS.RSP0`, the self-IPI, and the portable-code bugs a third architecture
-found. It exists to verify or challenge the main page, and a reader who only needs to build, boot or
+found. It exists to verify or challenge the main page. A reader who only needs to build, boot or
 test the x86_64 port should not have to open it. Moved from the main page on 2026-09-25 (UTC),
 verbatim apart from links that had to follow it. The directory `notes/x86-port/` and this file's
 stem are provisional names, minted by the lane that split the file; naming is calef's.*
 
 *Records cited below: milestone 161 (the x86_64 kernel port), milestone 71 (the thread-start fault)
 and §9 (locking).*
-
-<!-- writing-standards: exception. Marked 2026-09-25 (UTC) by the lane that split notes/x86-port.md.
-Reason: this file is text moved verbatim out of notes/x86-port.md under §212 (a prose budget),
-and the prose baseline already recorded that text as over the limits of §213 (writing standards)
-(longest sentence 102 words, median 22). Rewriting it to those limits is a separate change;
-doing it in the same commit would hide a rewrite inside a move. Remove this marker when that
-rewrite lands. -->
 
 ## The scheduler, and what "a process" cost that "a program at CPL 3" did not
 
@@ -33,7 +26,7 @@ assumption that held on two architectures and not on three.
 `dispatch_on_interrupt_stack` in trap.s between them. The outer half stays on the interrupted
 thread's stack and is where the deferred `schedule()` runs; the inner half may run on this CPU's
 interrupt stack. That is not an optimisation: `schedule()` parks the running `rsp` in the outgoing
-thread's `Context`, so calling it from a per-CPU stack would park a per-CPU address in a thread and
+thread's `Context`. So calling it from a per-CPU stack would park a per-CPU address in a thread and
 the thread would later resume on bytes the next interrupt had spent. See kernel/src/interrupt_stack.rs.
 
 The timer arm now calls `sched::on_tick` and returns `true`, which is DECISIONS §9's record-and-defer
@@ -46,8 +39,8 @@ x86 has two doors into the kernel from ring 3 and they find their stack differen
 there was one kernel stack and `ring3_self_test` set both by hand. With a scheduler there is one per
 thread, and the pair has to be re-pointed every time the thread that would come through them changes.
 
-**The frame's own address is the answer.** Every thread's `TrapFrame` lives at `stack_top - 176` for
-the life of the thread (milestone 71, `user::enter_frame`), so at the top of `isr_restore` the top is
+The frame's own address is the answer. Every thread's `TrapFrame` lives at `stack_top - 176` for
+the life of the thread (milestone 71, `user::enter_frame`). So at the top of `isr_restore` the top is
 `rsp + 176`, computed from the frame about to be loaded rather than from any record of who is
 running. RISC-V does exactly this, at exactly this point, in `trap_return`. It costs four
 instructions on a path that already tests the same `cs` for `swapgs`, and it makes the wrong state
@@ -57,18 +50,18 @@ unrepresentable rather than a duty somebody has to remember at each context swit
 
 `sched`'s two interrupt-delivery tests need a way to raise an interrupt by hand. aarch64 has an SGI
 and needs no device; RISC-V can raise nothing at all and has to assert its console UART's transmit
-line. **x86 is aarch64's case**: the local APIC's Interrupt Command Register has a "self" destination
+line. x86 is aarch64's case: the local APIC's Interrupt Command Register has a "self" destination
 shorthand, so any vector can be delivered to the CPU executing the write, through the real path (the
 ICR, the IRR, the ISR, an EOI). `irq::raise_self_interrupt` is the whole of it, and the same ICR code
 is `irq::send_reschedule`, which stopped being `unimplemented!()`.
 
-**The intid for such a source is its vector**, and that is the naming rule this architecture needs
+The intid for such a source is its vector, and that is the naming rule this architecture needs
 because `irq::enable` takes a *legacy IRQ number* instead. The two domains cannot collide: legacy
 IRQs are 0..15 and the local APIC's own vectors are 0x20..0x2f.
 
-A **device** line still cannot become a message here, and the missing piece is an inversion rather
-than a mechanism: the flat vector map makes the GSI recoverable by subtraction, but a legacy IRQ is
-not, because GSI 0 is the 8259 cascade and has no legacy owner, so an inversion falling back to the
+A device line still cannot become a message here, and the missing piece is an inversion rather
+than a mechanism. The flat vector map makes the GSI recoverable by subtraction, but a legacy IRQ is
+not. GSI 0 is the 8259 cascade and has no legacy owner, so an inversion falling back to the
 GSI would answer 0 for both it and the PIT's IRQ 0. Nothing needs it until there is a userspace
 driver here.
 
@@ -77,20 +70,20 @@ driver here.
 Worth listing together, because they are one shape: a default arm, or an expression, that names one
 of two answers and is silently wrong when a third exists.
 
-- **`thread.rs`'s stack area.** `KERNEL_VA_BASE | 0x10_0000_0000`, "64 GiB above the direct map",
+- `thread.rs`'s stack area. `KERNEL_VA_BASE | 0x10_0000_0000`, "64 GiB above the direct map",
   which is right where the kernel base is a *half* base with room above it. `KERNEL_VA_BASE` here is
-  `0xffffffff80000000` and already carries that bit, so the OR was the **identity**: every kernel
+  `0xffffffff80000000` and already carries that bit, so the OR was the identity: every kernel
   thread stack would have been mapped at the kernel image's own base, over `.text`. It is now each
   `arch::mmu::THREAD_STACK_AREA`, and x86's is Linux's `VMALLOC_START`. Found by reading; it would
   have surfaced as `kmem: no memory to wire one`, arbitrarily far from the cause.
-- **`crates/elf`'s `EXPECTED_MACHINE`.** `#[cfg(not(target_arch = "riscv64"))] EM_AARCH64`, and
-  `not(riscv64)` catches x86_64: the x86 kernel was compiled to **accept aarch64 binaries and refuse
-  its own**. Now a three-arm `cfg`.
-- **`xtask`'s `ArchLegs`.** `fn aarch64(self) { self != Riscv64 }`, which answers `true` for every
+- `crates/elf`'s `EXPECTED_MACHINE`. `#[cfg(not(target_arch = "riscv64"))] EM_AARCH64`, and
+  `not(riscv64)` catches x86_64: the x86 kernel was compiled to accept aarch64 binaries and refuse
+  its own. Now a three-arm `cfg`.
+- `xtask`'s `ArchLegs`. `fn aarch64(self) { self != Riscv64 }`, which answers `true` for every
   leg the moment there is a third variant. Now explicit `matches!`.
-- **`smp::bring_up_secondaries`.** It computed the secondary entry with `virt_to_phys` *before*
-  checking whether any core can be started, and on x86 that panics: `secondary_boot` is in `.boot`,
-  which the linker places at its physical address because the trampoline starts in 32-bit protected
+- `smp::bring_up_secondaries`. It computed the secondary entry with `virt_to_phys` *before*
+  checking whether any core can be started, and on x86 that panics. `secondary_boot` is in `.boot`.
+  The linker places that section at its physical address because the trampoline starts in 32-bit protected
   mode and cannot name a 64-bit one. The conversion moved below the refusal. (It is not the right
   conversion for x86 SMP either, when that lands: that entry is already physical.)
 
@@ -113,14 +106,14 @@ set empty while `online_count` said one, which the suite caught on its first run
 
 Two children, because the two halves of "a process" fail differently. One is built out of a single
 untyped region (address space, code page, stack page, TCB, two endpoints), granted a capability,
-dispatched to ring 3 **by the scheduler**, invokes that capability, and exits; one loads from an
+dispatched to ring 3 by the scheduler, invokes that capability, and exits. The other loads from an
 unmapped address and its death arrives on its supervision endpoint naming the thread, the pc and the
 address. Then both regions are destroyed and the frame count is compared.
 
-**The round runs twice, and that is what makes the frame number evidence.** A first round pays
+The round runs twice, and that is what makes the frame number evidence. A first round pays
 first-use carves that are not leaks; a system in steady state charges the second round zero. The
-first version of this reported sixteen frames a round going missing, which was true and was the
-demo's own fault twice over: the reporting child's corpse was never collected, so its region was
+first version of this reported sixteen frames a round going missing. That was true, and it was
+the demo's own fault twice over. The reporting child's corpse was never collected, so its region was
 still holding a live TCB when `destroy` refused it (silently, because `destroy` has nowhere to
-report), and both endpoints were drawn from the kernel's shared pool rather than from the region
+report). And both endpoints were drawn from the kernel's shared pool rather than from the region
 being reclaimed.

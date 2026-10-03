@@ -1,3 +1,8 @@
+---
+risk: 5
+color: none
+updated: 2026-08-31
+---
 # Appendix to risk 5: It cannot be made reliable on multicore, and the bugs appear only on silicon
 
 *An appendix to [`README.md`](README.md)'s risk 5. That entry is the claim of

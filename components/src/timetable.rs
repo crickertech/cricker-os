@@ -83,6 +83,16 @@
 //! which matters because **this kernel has exactly one wait point per process and no timed wait at
 //! all** (milestone 106 is `NOT-STARTED` and gated on a decision). See `BUGS`.
 //!
+//! # Calendar entries and the clock
+//!
+//! Granted the clock page at `contract::CLOCK_SLOT`, this process holds `Held::clock` and can keep
+//! calendar lines (G5). It reads the page once per pass, turns it into a whole UTC minute, and
+//! hands that to `Registry::observe`, which applies S3 and the `SET` fix: dormant while the clock is
+//! unknown, one fire for a forward step, never twice after a backward one, stamps cleared by an
+//! operator's correction. A job whose manifest declares a clock gets the same page, read-only, at
+//! its slot 1, the way the progenitor endows `date`. Not granted a clock, every calendar line is
+//! `Unbacked::WallClock`, printed before anything fires like every other refusal.
+//!
 //! # Replacement
 //!
 //! A timetable spawned with a registration page is changed while it runs, by its session replacing
@@ -181,6 +191,11 @@
 //!   word once per pass. A `RECV` would block and stop the clock being watched, because a process
 //!   has one wait point and there is no timed wait (milestone 106 (a wait that ends on either the interrupt or the deadline)). The cost is one load per pass
 //!   on a loop that already spins; a deadline wait that also ends on a notification removes it.
+//!
+//! - **A calendar line fires up to one pass late, and has no monotonic deadline.** Its occurrence is
+//!   a wall-clock minute, compared against the page on each pass. `Registry::next_deadline` still
+//!   answers only for the counter's rows, so when a timed wait exists a calendar row's deadline
+//!   has to be converted through the page's offset, and re-converted on every step.
 //!
 //! - **A replacement's printed plan is cut at the page**, at `timetable::registration::BODY_MAX`
 //!   bytes, and with a registrar the page is the only place it goes. Eight entries of long
@@ -323,6 +338,9 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
         );
         done(E_UNVOUCHED)
     }
+    // Probed now for the same reason: before anything is allocated, an occupied slot 4 can only be
+    // the clock page the spawn site placed there (`timetable::contract`).
+    let holds_clock = user_mode_runtime::is_granted(contract::CLOCK_SLOT);
 
     // SAFETY: forwarded from user_mode_runtime::initrd::initrd_bytes's own contract, the same one
     // `components/src/root_supervisor.rs` is started under. It named `components/src/builder.rs`
@@ -357,6 +375,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // reason the run-unvouched probe above gives.
     let held = timetable::Held {
         report: user_mode_runtime::is_granted(CHILD_REPORT),
+        clock: holds_clock,
         ..timetable::SHIPPED_HELD
     };
 
@@ -447,6 +466,9 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             // Emptied: nothing more fires, and what is running finishes below.
             break;
         }
+        // The wall clock, once per pass, before anything is due: calendar rows are dormant while it
+        // is unknown and re-armed when its generation moves (S3, `Registry::observe`).
+        reg.observe(if holds_clock { wall_reading() } else { None });
         let now = monotonic_nanos();
         let mut any = false;
         while let Some(i) = reg.due(now) {
@@ -465,9 +487,11 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             // live generation names today. When the name no longer resolves, or the plan no longer
             // fires, the beat is missed (skipped, never retried); `BUGS` says who hears of it.
             let loaded;
-            let (elf, e) = match images[i].as_ref() {
+            // `declared` is the manifest the job's bytes carry: an installed row's endowment is filed
+            // under `grant_plan::IMAGE_ROW`, so nothing may be read off its `prog`.
+            let (elf, e, declared) = match images[i].as_ref() {
                 None => continue,
-                Some(Image::Archived(elf)) => (elf, registered),
+                Some(Image::Archived(elf)) => (elf, registered, registered.prog.manifest()),
                 Some(Image::Installed(p)) => {
                     let Some((elf, m)) = load_current(p) else {
                         continue;
@@ -476,7 +500,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                         continue;
                     };
                     loaded = elf;
-                    (&loaded, e)
+                    (&loaded, e, m)
                 }
             };
 
@@ -490,7 +514,9 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                     collect(&mut exits, &mut faults);
                     outstanding -= 1;
                 }
-                let Some(mem_slot) = fire_with_grant(elf, e.arg, e.mem_pages, held.report) else {
+                let clock = holds_clock && declared.clock;
+                let Some(mem_slot) = fire_with_grant(elf, e.arg, e.mem_pages, held.report, clock)
+                else {
                     say(b"timetable: the budget cannot back one instance\n");
                     done(E_BUDGET)
                 };
@@ -502,7 +528,8 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             // Fire. If the budget cannot back another instance, block until a corpse comes back and
             // its region with it, then try once more. A second failure is a budget too small for
             // even one instance, which is a wiring error rather than congestion.
-            if !fire(elf, e.arg, held.report) {
+            let clock = holds_clock && declared.clock;
+            if !fire(elf, e.arg, held.report, clock) {
                 if outstanding == 0 {
                     // Nothing is out, so there is nothing to wait for: the budget is too small for
                     // even one instance, which is a wiring error rather than congestion.
@@ -511,7 +538,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                 }
                 collect(&mut exits, &mut faults);
                 outstanding -= 1;
-                if !fire(elf, e.arg, held.report) {
+                if !fire(elf, e.arg, held.report, clock) {
                     say(b"timetable: the budget cannot back one instance\n");
                     done(E_BUDGET)
                 }
@@ -619,7 +646,7 @@ fn load_current(p: &Installed) -> Option<(elf::Elf<'static>, grant_plan::Manifes
 /// mapped at `timetable::contract::STORE_PAGE_VA`. Every call is a blocking `CALL`, so the page is
 /// this process's between them.
 mod store {
-    use activation_set::{CURRENT, generation_name, lookup_name, parse_current, stem_parts};
+    use activation_set::{CURRENT, generation_name, lookup, parse_current};
     use filesystem_protocol::{PAGE, dir, fs};
     use timetable::contract;
     use user_mode_runtime::call;
@@ -700,14 +727,17 @@ mod store {
     }
 
     /// **Stage the bytes a bare `name` runs**: the live generation's entry for it (never an owner's
-    /// vouch, `activation_set::lookup_name`), read from `packages/<name>/<version>/<program>`, and
+    /// vouch, `activation_set::lookup`), read from `packages/<name>/<version>/<program>`, and
     /// answered only if they hash to that entry's digest. `(length, digest)`.
     pub fn load(name: &str) -> Option<(usize, measured_boot::Digest)> {
         let mut table = [0u8; PAGE];
         let n = live_table(&mut table)?;
         let table = core::str::from_utf8(&table[..n]).ok()?;
-        let entry = lookup_name(table, name).ok()??;
-        let (package, version, _) = stem_parts(entry.package)?;
+        // The default row for the name, as a bare word at the prompt runs it (milestone 614 (every
+        // version live), which folded the pointer into `lookup`), under
+        // `packages/<name>/<version>/<program>`.
+        let entry = lookup(table, name).ok()??;
+        let (package, version) = (entry.package, entry.version);
         let walk = dir::READ | dir::DESCEND;
         let d1 = named(PACKAGES, fs::OPENDIR, fs::ROOT, package.as_bytes(), walk);
         let d2 = if d1 >= 0 {
@@ -887,16 +917,23 @@ fn replace_if_asked(
 /// Nothing is kept afterwards and there is nothing left worth keeping: the TCB capability is not the
 /// thread, and since DECISIONS §32 the region capability is not the reap either. The pages come back
 /// to this budget when the corpse is collected.
-fn fire(elf: &elf::Elf, arg: u64, report: bool) -> bool {
+///
+/// With `report`, the spawn site placed a report endpoint and the job gets it at slot 0; a durable
+/// session places none (Fork 6 C). With `clock`, the job's manifest declared one and this timetable
+/// holds one: the page goes in the job's slot 1, `READ` only, and is mapped read-only at
+/// `contract::CLOCK_VA`, which is how the progenitor endows `date`.
+fn fire(elf: &elf::Elf, arg: u64, report: bool, clock: bool) -> bool {
     let Ok(region) = supervision_protocol::memory_region_split(BUDGET, INSTANCE_PAGES) else {
         return false;
     };
+    let mut placed = [(0, 0, 0); 3];
     let Ok(child) = supervision_protocol::build_child(
         BUDGET,
         region,
         elf,
         &supervision_protocol::ChildEndowment {
-            placed: reports(report),
+            placed: slots(&mut placed, report, clock, None),
+            maps: clock_map(clock),
             fault: Some(DEATHS),
             ..supervision_protocol::ChildEndowment::new(supervision_protocol::Retention::Nothing)
         },
@@ -924,7 +961,13 @@ fn fire(elf: &elf::Elf, arg: u64, report: bool) -> bool {
 /// Returns the grant's own capability, still held, on success. **This is deliberately not deleted
 /// the way [`fire`] deletes `region`**: it is the caller's only way to reclaim the grant later, and
 /// the caller is [`collect_grant`], called next and only next by this program's one call site.
-fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64, report: bool) -> Option<u64> {
+fn fire_with_grant(
+    elf: &elf::Elf,
+    arg: u64,
+    mem_pages: u64,
+    report: bool,
+    clock: bool,
+) -> Option<u64> {
     let Ok(region) = supervision_protocol::memory_region_split(BUDGET, INSTANCE_PAGES + mem_pages)
     else {
         return None;
@@ -933,20 +976,18 @@ fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64, report: bool) -> Op
         supervision_protocol::memory_region_destroy(region);
         return None;
     };
-    let both = [
-        (0, CHILD_REPORT, abi::rights::WRITE),
-        (1, mem_slot, abi::rights::WRITE),
-    ];
+    let mut placed = [(0, 0, 0); 3];
     let Ok(child) = supervision_protocol::build_child(
         BUDGET,
         region,
         elf,
         &supervision_protocol::ChildEndowment {
-            // Slot 0: the report endpoint, when this timetable hands one out. Slot 1: the grant,
-            // narrowed to WRITE so the child may spend it and not lend it (the same narrowing
-            // `system_initializer` gives a shell's `--mem` delegation). Placed by number, so the
-            // grant stays in slot 1 whether or not slot 0 is filled.
-            placed: if report { &both } else { &both[1..] },
+            // Slot 0: the report endpoint, when this timetable hands one out. Slot 1: the clock,
+            // when the job gets one. Then the grant, narrowed to WRITE so the child may spend it
+            // and not lend it (the same narrowing `system_initializer` gives a shell's `--mem`
+            // delegation). Placed by number, so the grant's slot does not depend on slot 0.
+            placed: slots(&mut placed, report, clock, Some(mem_slot)),
+            maps: clock_map(clock),
             fault: Some(DEATHS),
             ..supervision_protocol::ChildEndowment::new(supervision_protocol::Retention::Nothing)
         },
@@ -965,13 +1006,60 @@ fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64, report: bool) -> Op
     Some(mem_slot)
 }
 
-/// **Slot 0 of a job: the report endpoint, or nothing.** The slot list [`fire`] places.
-fn reports(report: bool) -> &'static [(u64, u64, u64)] {
+/// **A job's slots, by number** (milestone 152's Fork 6 C met milestone 129's clock at the merge
+/// of 2026-10-03 (UTC)): slot 0 the report endpoint when this timetable hands one out, slot 1 the
+/// clock page when the job gets one, then a `--mem` grant, `WRITE` only. Written into `out`, which
+/// the caller owns, and the filled prefix returned. The progenitor's order.
+fn slots(
+    out: &mut [(u64, u64, u64); 3],
+    report: bool,
+    clock: bool,
+    grant: Option<u64>,
+) -> &[(u64, u64, u64)] {
+    let mut n = 0;
     if report {
-        &[(0, CHILD_REPORT, abi::rights::WRITE)]
-    } else {
-        &[]
+        out[n] = (0, CHILD_REPORT, abi::rights::WRITE);
+        n += 1;
     }
+    if clock {
+        out[n] = (1, contract::CLOCK_SLOT, abi::rights::READ);
+        n += 1;
+    }
+    if let Some(g) = grant {
+        out[n] = (1 + clock as u64, g, abi::rights::WRITE);
+        n += 1;
+    }
+    &out[..n]
+}
+
+/// The clock page's mapping for a job that gets one, or none.
+fn clock_map(clock: bool) -> &'static [(u64, u64, u64)] {
+    const MAP: [(u64, u64, u64); 1] = [(
+        contract::CLOCK_VA,
+        contract::CLOCK_SLOT,
+        abi::address_space::MAP_RO,
+    )];
+    if clock { &MAP } else { &[] }
+}
+
+/// **The wall clock as the registry wants it**, or `None` while the page says the time is unknown.
+///
+/// The page's offset plus the ambient counter is the wall time (§43 (reading the clock is a page)), taken to whole minutes, which
+/// is the grammar's resolution. A `SET` publication is flagged, because S3 clears stamps on one.
+fn wall_reading() -> Option<timetable::WallReading> {
+    // SAFETY: the spawn site maps the clock page read-only at `contract::CLOCK_VA` whenever it
+    // places the capability in `contract::CLOCK_SLOT`, which `_start` probed before calling this.
+    let page = unsafe { clock_protocol::ClockPage::new(contract::CLOCK_VA) };
+    let r = page.read();
+    if !clock_protocol::state::is_known(r.state) {
+        return None;
+    }
+    let wall = clock_protocol::wall_nanos(r.offset_nanos, monotonic_nanos());
+    Some(timetable::WallReading {
+        minute: (wall / (60 * clock_protocol::NANOS_PER_SEC)) as i64,
+        generation: r.generation,
+        set: r.state == clock_protocol::state::SET,
+    })
 }
 
 /// **Wait for the one instance [`fire_with_grant`] just started, and reclaim its grant.**

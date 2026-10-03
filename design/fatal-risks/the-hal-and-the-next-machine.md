@@ -1,3 +1,8 @@
+---
+risk: 9
+color: green
+updated: 2026-09-23
+---
 # Appendix to risk 9: The HAL is a fiction, and an architecture costs a restructure rather than a port
 
 *An appendix to [`README.md`](README.md)'s risk 9. That entry is the claim of

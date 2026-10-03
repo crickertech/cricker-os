@@ -1,3 +1,8 @@
+---
+risk: 8
+color: none
+updated: 2026-08-31
+---
 # Appendix to risk 8: Nobody needs it
 
 *An appendix to [`README.md`](README.md)'s risk 8. That entry is the claim of

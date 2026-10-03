@@ -20,6 +20,8 @@ chosen after the results are seen.
   two of six gated mechanical tasks correct and one fabricated green, so no hardware, for USD 4.23.
 - [Bake-off round 2, Qwen3.8-27B and Qwen3.5-122B-A10B, 2026-09-27](model-comparison/2026-09-27-qwen-27b-122b-bakeoff.md):
   three of six and two of six correct; still no hardware, for USD 19.08.
+- [Open-lane trials of 2026-09-22, from branches](model-comparison/2026-09-22-open-lane-branch-trials.md):
+  single unprotocolled runs of renumbering, glossing and one install-offer task. Name provisional.
 
 ## BUGS
 
