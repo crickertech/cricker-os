@@ -260,10 +260,13 @@ Dated 2026-10-03 (§216, from #1495): later passes are not in the paragraph abov
 three sweeps. The audit of 2026-09-24 (new trust boundaries) fixed 5 and found no confinement claim false
 (`design/audit-reports/2026-09-24-new-trust-boundaries.md`). The audit of 2026-09-29 (the syscall surface
 as a whole) fixed 0, minted 0, accepted 3 and found no confinement claim false
-(`design/audit-reports/2026-09-29-syscall-surface-whole.md`). PR #1494's RECV-consumer audit then
+(`design/audit-reports/2026-09-29-syscall-surface-whole.md`). The audit of 2026-10-03 (eight constants
+and thirteen components, with its follow-up) fixed 5, minted 4, accepted 6 and found no kernel
+confinement claim false; its three findings that bear here are listed below
+(`design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`). PR #1494's RECV-consumer audit then
 found two confinement defects, both confirmed under QEMU: a plain `SEND` delivers badge 0 whatever
 the endpoint capability's badge, so a bound `redoxfs_server` client that `SEND`s is seen as root
-(open on `main`, closed by #1494), and a plain `SEND` received by `RECV_CAP` handed the receiver a
+(closed by #1494, merged 2026-10-03), and a plain `SEND` received by `RECV_CAP` handed the receiver a
 sender-chosen slot on one arrival order, a `net_stack`-shaped escape (fixed by milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)). The
 appendix has both.
 
@@ -286,6 +289,19 @@ Open security findings that bear on it, each a proposal and none yet built:
   recorded; the fix changes a wire format.
 - [The sibling RECV_CAP paths get a receiver-first test](../roadmap/714-the-sibling-recv-cap-paths-get-a-receiver-first-test.md):
   two paths now correct by reading, unmeasured. Severity not recorded.
+- [A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline](../roadmap/proposals/arm-1-holds-only-the-raw-half-of-the-boot-discipline.md):
+  the session's copy of the boot line discipline's endpoint also answers `OP_BYTES`, so a
+  compromised session can queue a command line the boot shell runs with its own authority. A
+  userspace grant wider than its use, not a kernel escape; read, not demonstrated. Severity
+  medium (2026-10-03 audit, finding 2).
+- [A `CALL` server can tell a Reply from a delegation](../roadmap/proposals/a-call-server-can-tell-a-reply-from-a-delegation.md):
+  any client can `SEND_CAP` a real capability where a server expects a Reply, so the server's
+  `reply` blocks on it or leaks a slot of 32: a denial of service on any `CALL` server, not an
+  escape. On the syscall surface, so calef's call. Severity medium (2026-10-03 audit, finding 11).
+- [The spawn service holds the display grants, and the shell holds none](../roadmap/proposals/the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
+  the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
+  and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium
+  as a width, low as a reach (2026-10-03 audit, finding 10).
 
 ## 8. Nobody needs it
 

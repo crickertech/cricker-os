@@ -41,6 +41,16 @@ exclude_globs = [
     # split of what a host test could and could not have reached.
     "crates/system_initializer/**",
 
+    # **The system-test image** (milestone 609 (the system tests leave the kernel crate), 2026-09-27
+    # UTC). A bare-metal `[[bin]]` that links the kernel as a library, so it is `kernel/**` by
+    # another path: its one mutant (`system_tests_main`) put a host `cargo test -p system_tests` in
+    # one shard's baseline, which failed with "unwinding panics are not supported without std" and
+    # turned the whole weekly run red from 2026-09-28 (milestone 636 (the scheduled workflows are
+    # failing)). The bare-metal gate in script/lint did not catch it because it derives its list
+    # from crates that reach `user_mode_runtime`, and this one reaches `kernel` instead. What proves
+    # it is `cargo xtask test`, which boots it on three ISAs.
+    "system_tests/**",
+
     # Driver whose entry points each orchestrate a live virtio device; two volatile ops per thousand
     # lines of orchestration. Its security-critical logic lives in
     # crates/direct_memory_access_validator (milestone 35 (prove the DMA-confinement boundary)),
