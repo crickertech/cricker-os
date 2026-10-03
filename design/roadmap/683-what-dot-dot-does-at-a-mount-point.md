@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: what-dot-dot-does-at-a-mount-point
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# What `..` does at a mount point
+# 683. What `..` does at a mount point
+
+Promoted from `design/roadmap/proposals/what-dot-dot-does-at-a-mount-point.md` on 2026-10-03 (UTC). The number 683 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised 2026-09-26 by the lane for milestone 154 (a process that holds two directory capabilities).
 The decision record for calef's ruling, "the prompt shows one tree" (pull request #1380, not yet
@@ -44,7 +47,7 @@ Would we choose A if both cost the same? Yes; the cost difference is ten lines a
 ## How reversible
 
 Fully. One interactive shell's `..` arithmetic; no wire format, no program written against it, and
-no boot shell holds a second tree yet (design/roadmap/proposals/a-second-filesystem-mounts-in-the-boot-shell.md).
+no boot shell holds a second tree yet (design/roadmap/660-a-second-filesystem-mounts-in-the-boot-shell.md).
 
 ## Index row
 

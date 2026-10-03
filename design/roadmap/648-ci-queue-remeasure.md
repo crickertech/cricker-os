@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: ci-queue-remeasure
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Re-measure CI queue waits by runner label, a week after the arm64 split
+# 648. Re-measure CI queue waits by runner label, a week after the arm64 split
+
+Promoted from `design/roadmap/proposals/ci-queue-remeasure.md` on 2026-10-03 (UTC). The number 648 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 587 (most CI jobs do not need an arm64 host),
 which moved 15 of 18 jobs to `ubuntu-24.04` on one afternoon's evidence and named this check as

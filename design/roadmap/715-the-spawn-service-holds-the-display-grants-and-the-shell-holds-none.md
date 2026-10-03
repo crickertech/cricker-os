@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: the-spawn-service-holds-the-display-grants-and-the-shell-holds-none
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The spawn service holds the display grants, and the shell holds none
+# 715. The spawn service holds the display grants, and the shell holds none
+
+Promoted from `design/roadmap/proposals/the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md` on 2026-10-03 (UTC). The number 715 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the 2026-10-03 security audit's follow-up (item (a) of
 `design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`'s reconciliation).
@@ -66,3 +71,7 @@ lists seven.
 
 Nothing. The width is recorded in `components/src/swish.rs`'s BUGS where a reader of the shell's
 holdings meets it.
+
+## Index row
+
+Since milestone 632 the boot shell holds the GPU's and keyboard's capabilities for its whole life. Proposed: the spawn service holds the display grants and the shell holds none, from the 2026-10-03 security audit's follow-up.

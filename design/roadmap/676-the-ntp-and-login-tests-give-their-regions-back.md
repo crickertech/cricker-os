@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: the-ntp-and-login-tests-give-their-regions-back
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The NTP and login tests give their regions back, or say why they keep them
+# 676. The NTP and login tests give their regions back, or say why they keep them
+
+Promoted from `design/roadmap/proposals/the-ntp-and-login-tests-give-their-regions-back.md` on 2026-10-03 (UTC). The number 676 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Filed by the lane of milestone 601 (the region table prints its
 peak), from the per-test measurement that built the ledger at `memory_region::MAX_REGIONS`. The
@@ -39,3 +42,7 @@ stay. The region peak is 225 of 256 with #1347; recovering the NTP residue alone
 
 Every region kept by these two modules is either returned by the end of its test or listed as
 deliberately held, and the `regions:` line on aarch64 shows the drop.
+
+## Index row
+
+The suite ends with 221 regions live against a ceiling of 256, and the NTP and login tests hold a third of them. Proposed: they give their regions back at teardown, or say why they keep them.

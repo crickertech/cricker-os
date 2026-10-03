@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: a-region-reap-scans-every-mapping-on-the-machine-per-page
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A region reap scans every mapping on the machine, once per page
+# 658. A region reap scans every mapping on the machine, once per page
+
+Promoted from `design/roadmap/proposals/a-region-reap-scans-every-mapping-on-the-machine-per-page.md` on 2026-10-03 (UTC). The number 658 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 604 (the builder's scratch cursor is bounded), whose guest test
 runs in 3 seconds alone and took 104 inside CI's whole aarch64 suite.
@@ -44,3 +49,7 @@ guarantee rests on it:
 
 Either should be measured with `script/bench` before and after, since `map_el0` already moves with
 this log's layout (`LOG_ENTRIES`' doc comment).
+
+## Index row
+
+Reaping a memory region scans every live mapping on the machine once per page, so a 3-second guest test took 104 seconds inside CI's whole suite. Proposed: measure it, then fix the revocation path of DECISIONS §13 (frame revocation) with numbers.

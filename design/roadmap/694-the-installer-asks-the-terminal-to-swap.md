@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: the-installer-asks-the-terminal-to-swap
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The installer asks the terminal to swap
+# 694. The installer asks the terminal to swap
+
+Promoted from `design/roadmap/proposals/the-installer-asks-the-terminal-to-swap.md` on 2026-10-03 (UTC). The number 694 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement) after building `terminal_supervisor`, which can replace `line_editor` live
@@ -47,3 +52,7 @@ waits. And a replacement today is the same image the supervisor was handed at bi
 
 A person installing a new `line_editor` and the terminal they are typing in changing under them,
 losing nothing: milestone 23's claim on a component a person uses, end to end.
+
+## Index row
+
+`terminal_supervisor` can replace `line_editor` live but nothing on a real boot asks it to. Proposed: the installer asks it to swap, which fixes a message and a route two programs agree on.

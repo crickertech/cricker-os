@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: aarch64-registers-spelled-the-way-riscv64-and-x86-64-spell-them
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: aarch64 silicon
 specific_machine: none
 needs_person: yes
 ---
-# aarch64 registers spelled the way riscv64 and x86_64 spell them
+# 707. aarch64 registers spelled the way riscv64 and x86_64 spell them
+
+Promoted from `design/roadmap/proposals/aarch64-registers-spelled-the-way-riscv64-and-x86-64-spell-them.md` on 2026-10-03 (UTC). The number 707 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised 2026-10-03 (UTC) by the maintainer at calef's request, while PR #1477 (the kernel declares
 each dependency where it is used) moved `tock-registers` into the aarch64 target table. calef's call
@@ -89,3 +92,7 @@ dependencies, and every register access stubbable by a proof. The only argument 
 
 PR #1477 landing, which moves `tock-registers` into the aarch64 table first, and a decision
 superseding DECISIONS §3.
+
+## Index row
+
+aarch64 alone reaches its control and MMIO registers through `aarch64-cpu` and `tock-registers`, while riscv64 and x86_64 spell theirs in the tree. Proposed: spell aarch64's the same way, filed rather than launched at calef's request.

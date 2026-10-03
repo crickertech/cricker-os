@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: pidwait-waits-on-a-named-tid
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# `pidwait`: a way to wait on a named tid with less authority than `pgrep`'s
+# 667. `pidwait`: a way to wait on a named tid with less authority than `pgrep`'s
+
+Promoted from `design/roadmap/proposals/pidwait-waits-on-a-named-tid.md` on 2026-10-03 (UTC). The number 667 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 126 (the `procps` package)'s lane
 `milestone/126-free`, building `pidwait` under DECISIONS §226 (`pidwait` takes tids and composes with
@@ -47,3 +52,7 @@ Section 4 of `notes/process-view/what-is-left.md` carries them with their costs:
 
 Every option blocks in the kernel, so none waits on milestone 106 (a wait that ends on either the
 interrupt or the deadline).
+
+## Index row
+
+`pidwait` is ruled a program that waits on named tids, but nothing lets a program observe a tid's exit with less authority than `pgrep` holds. Proposed: a wait primitive, which is a new syscall method and so an architect's call; options are written, none chosen.

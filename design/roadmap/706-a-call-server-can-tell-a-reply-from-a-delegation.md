@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: a-call-server-can-tell-a-reply-from-a-delegation
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# A `CALL` server can tell a Reply from a delegation
+# 706. A `CALL` server can tell a Reply from a delegation
+
+Promoted from `design/roadmap/proposals/a-call-server-can-tell-a-reply-from-a-delegation.md` on 2026-10-03 (UTC). The number 706 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the 2026-10-03 security audit's follow-up (item (b) of
 `design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`'s reconciliation).
@@ -78,3 +83,7 @@ site it can find in the same change.
 
 Nothing builds on this. What is open is a denial of service on any `CALL` server by any of its
 clients, recorded in `crates/abi`'s `RECV_CAP` BUGS where the next server author meets it.
+
+## Index row
+
+After milestone 634 no `RECV_CAP` consumer checks the kind of object in the slot it received, and the ABI has no call that would let one. Proposed: a way for a `CALL` server to tell a Reply from a delegation; a syscall surface change, options with costs.

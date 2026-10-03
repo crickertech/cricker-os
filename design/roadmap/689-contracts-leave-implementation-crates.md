@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: contracts-leave-implementation-crates
 milestone_dependencies: 611
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Contracts leave the implementation crates they live in
+# 689. Contracts leave the implementation crates they live in
+
+Promoted from `design/roadmap/proposals/contracts-leave-implementation-crates.md` on 2026-10-03 (UTC). The number 689 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane of milestone 611 (every program and crate belongs to a package). Its gate refuses a
 link to another package's internal crate, and four of the kernel's links were the same finding: a
@@ -34,3 +37,7 @@ The two driver `[[exception]]` entries in `packages/kernel.package.toml` are del
 tests take `ps::Row` and `pmap::Row` from `contracts`, and `script/lint` passes.
 The gate fails any exception whose link is gone, so it will say when each one can go. A name for
 each new crate is calef's.
+
+## Index row
+
+Four of the kernel's links to other packages' internal crates are layouts two programs agree on that live inside one program's crate. Proposed: move each contract into a crate of its own.

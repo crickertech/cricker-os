@@ -1,20 +1,23 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: an-executed-footprint-ladder-for-radon
 milestone_dependencies: 370, 74
 decision_dependencies: none
 machine_requirements: riscv64 silicon; PMU cycle counter
 specific_machine: radon (the 32 KiB L1i the 4 KiB target is derived from, and E3's baseline readings)
 needs_person: yes
 ---
-# An executed footprint ladder for radon
+# 708. An executed footprint ladder for radon
+
+Promoted from `design/roadmap/proposals/an-executed-footprint-ladder-for-radon.md` on 2026-10-03 (UTC). The number 708 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised 2026-10-03 by the `maintainer/radon-footprint-experiment` lane. Title and stem provisional.
 
 Whether the 4 KiB fastpath target is right waits on an experiment nobody can run yet. E3's padding
 is never executed, so even under milestone 370 (a layout control) it tests counted bytes and code
 displacement, not Liedtke's executed footprint. The experiment that does is E5, planned in
-[`notes/footprint-perturbation/executed-footprint.md`](../../../notes/footprint-perturbation/executed-footprint.md),
+[`notes/footprint-perturbation/executed-footprint.md`](../../notes/footprint-perturbation/executed-footprint.md),
 which says what each outcome means before any number exists.
 
 The build, all of it in that note's "What exists, and what does not":
@@ -27,3 +30,7 @@ The build, all of it in that note's "What exists, and what does not":
 
 On both ISAs, per DECISIONS §19 (architectural parity). The person is needed only for the evening
 that follows, about 100 minutes on radon.
+
+## Index row
+
+Whether the 4 KiB fastpath target is right waits on an experiment that executes its padding, which the existing layout control does not. Proposed: build E5, an executed jump chain and a code working set, as planned in `notes/footprint-perturbation/executed-footprint.md`.

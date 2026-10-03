@@ -1,13 +1,14 @@
 ---
-status: PROPOSED
+status: BUILT
 raised: 2026-09-26
-milestone_dependencies: none
-decision_dependencies: 170
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-09-28
+promoted_from: designating-a-foreign-programs-words
 ---
-# Designating a foreign program's words
+# 665. Designating a foreign program's words
+
+Promoted from `design/roadmap/proposals/designating-a-foreign-programs-words.md` on 2026-10-03 (UTC). The number 665 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-28: built by milestone 205 on PR #1402. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 `milestone/205-foreign-program-arguments`. That lane built §170 (how a foreign program is told what to do)'s clause 1: a `std` program at the
@@ -18,7 +19,7 @@ into a grant. The slug and every name below are a lane's coinage.
 
 calef ruled on 2026-09-27 at 06:27Z (UTC): "N1". A line that names no file grants nothing, and to
 search here a person types `rg pattern .`. He ruled the mark at 06:35Z: there is none
-([`the-mark-on-a-foreign-programs-word.md`](the-mark-on-a-foreign-programs-word.md)). Milestone 205
+([`675-the-mark-on-a-foreign-programs-word.md`](675-the-mark-on-a-foreign-programs-word.md)). Milestone 205
 built the mechanism below the same day (#1402); its block records what was built and what differs.
 This file stays until an integrator retires it.
 
@@ -56,7 +57,7 @@ the names the line's words resolve to in it.
    which is blocked on that note's names (`a-program-carries-its-manifest-in-an-elf-note.md`).
 4. An unvouched program is read-only whatever it declares (clause 4). A mark on a word widens that
    one word; its spelling is a naming decision, proposed in
-   [`the-mark-on-a-foreign-programs-word.md`](the-mark-on-a-foreign-programs-word.md).
+   [`675-the-mark-on-a-foreign-programs-word.md`](675-the-mark-on-a-foreign-programs-word.md).
 
 **Prior art.** The four systems `notes/foreign-program-arguments.md` read from source (Fuchsia,
 Genode, seL4's `sel4utils`, Xous) all keep authority out of argv and hand it over separately, as a
@@ -92,3 +93,12 @@ parts two programs agree on, and both ship provisional.
 ## What is blocked until calef answers
 
 Only which of N1 and N2 a word-less line gets. The mechanism does not depend on it.
+
+## Follow-on
+
+- **Milestone 672.** Milestone 672 (the argument page's layout). The argument page's layout, built provisionally by milestone 205 (how a foreign program is told what to do) and still awaiting an architect: `design/roadmap/672-the-argument-page-layout.md`.
+- **Milestone 675.** Milestone 675 (the mark on a foreign program's word). The mark on a foreign program's word, which calef refused on 2026-09-27: `design/roadmap/675-the-mark-on-a-foreign-programs-word.md`.
+
+## Index row
+
+A foreign program at the prompt hears its line as bytes, and the words that name something must become a grant. Ruled by calef on 2026-09-27 (a line that names no file grants nothing) and built by milestone 205 (how a foreign program is told what to do) in #1402.

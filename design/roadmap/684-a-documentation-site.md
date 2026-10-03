@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: a-documentation-site
 milestone_dependencies: 611
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# A documentation site, and documentation that ships in packages
+# 684. A documentation site, and documentation that ships in packages
+
+Promoted from `design/roadmap/proposals/a-documentation-site.md` on 2026-10-03 (UTC). The number 684 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane of milestone 611 (every program and crate belongs to a package) while giving every
 tracked path a home. It builds nothing. It is the tracked home for an idea of calef's, so that the
@@ -42,3 +45,7 @@ Named from memory, to be read before anything is designed:
 - mdBook and Sphinx, which render one source tree to a site.
 - This tree's own `mdr` and `crates/documentation`, from milestone 40 (documentation as a system
   service), which already carry pages to the device.
+
+## Index row
+
+calef wants a website presenting much of the documentation, which may also ship in packages. Proposed: decide which documents go to a site, which ship on-device and which stay project records, and whether they are single-sourced.

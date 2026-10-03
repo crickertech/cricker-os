@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: the-argument-page-layout
 milestone_dependencies: none
 decision_dependencies: 170
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The argument page's layout
+# 672. The argument page's layout
+
+Promoted from `design/roadmap/proposals/the-argument-page-layout.md` on 2026-10-03 (UTC). The number 672 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 `milestone/205-foreign-program-arguments`, which built the layout below provisionally so nothing
@@ -39,7 +44,7 @@ nothing (`environment_protocol`). Every choice above copies it except the valida
 ruled out: a regex is arbitrary bytes.
 
 **Prior art, read.** The measurement in
-[notes/foreign-program-arguments.md](../../../notes/foreign-program-arguments.md) read four systems
+[notes/foreign-program-arguments.md](../../notes/foreign-program-arguments.md) read four systems
 from source. Fuchsia and seL4 use NUL-terminated strings; Xous, the nearest neighbour (a Rust
 microkernel whose `std` backend is in-tree), passes a tagged parameter block by pointer. None of the
 four puts authority in the bytes, which is what §170 ruled.
@@ -85,4 +90,8 @@ whether the names and numbers above stop being provisional.
 
 §170's clause 4 needs a mark on a word ("this word is writable", "this word may be created"). That
 is a naming decision with its own proposal,
-[`the-mark-on-a-foreign-programs-word.md`](the-mark-on-a-foreign-programs-word.md).
+[`675-the-mark-on-a-foreign-programs-word.md`](675-the-mark-on-a-foreign-programs-word.md).
+
+## Index row
+
+The layout of the page the shell writes and `std` reads for a foreign program's arguments was built provisionally by milestone 205 (how a foreign program is told what to do). Proposed: ratify it or choose the alternatives, since two programs agree on it.

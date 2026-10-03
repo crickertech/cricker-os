@@ -1,14 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: the-kernel-trusts-two-digests-from-the-loader
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
+# 695. The kernel trusts two digests handed to it by the loader
 
-# The kernel trusts two digests handed to it by the loader
+Promoted from `design/roadmap/proposals/the-kernel-trusts-two-digests-from-the-loader.md` on 2026-10-03 (UTC). The number 695 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Filed by the maintainer, recording calef's ruling on pull request #1389, 2026-09-27 (UTC): "T4 with
 T2". That pull request is design work for a still-open fork on how packages build the OS and the
@@ -56,3 +60,7 @@ always has.
 One consequence worth a decision of its own, not folded into this one: once the kernel can update
 separately from userspace, the syscall surface becomes a versioned ABI that already-installed
 programs rely on. Pull request #1389 does not settle that, and this proposal does not either.
+
+## Index row
+
+`kernel/build.rs` compiles the progenitor and base program digests into the kernel. Ruled by calef on pull request #1389 (T4 with T2): the loader hands the kernel two digests at handoff on all three architectures.

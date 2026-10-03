@@ -1,13 +1,19 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-23
+promoted_from: who-took-the-step
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The record should say whether a person or the machinery took a step
+# 642. The record should say whether a person or the machinery took a step
+
+Promoted from `design/roadmap/proposals/who-took-the-step.md` on 2026-10-03 (UTC). The number 642 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
+<!-- prose-budget: exception. 4835 words (wc -w, this marker included) against a 3,000-word cap. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so its length predates the cap's reach. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the `maintainer/what-the-machinery-did` lane, which was
 sent to make the merge drain's actions countable and found that the logging half (landed in the same
@@ -450,3 +456,7 @@ added.
 does not sidestep it, **every option that authenticates automation as `smelter` loses the drain**,
 (e) included, and the choice narrows to a machine account or the status quo. That single test is
 cheap and it is the premise everything else here rests on.
+
+## Index row
+
+The merge drain's log cannot say whether a person or the machinery took a step, which is the question calef asked. Proposed: choose how the record carries that fact; every option except refusal puts a credential on patagonia or adds an account, which is a security decision.

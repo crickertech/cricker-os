@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: a-system-log-on-redoxfs
 milestone_dependencies: none
 decision_dependencies: 242
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The system log persists through RedoxFS: what a directory grant has to answer
+# 687. The system log persists through RedoxFS: what a directory grant has to answer
+
+Promoted from `design/roadmap/proposals/a-system-log-on-redoxfs.md` on 2026-10-03 (UTC). The number 687 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by lane `proposal/system-log` (pull request #1423), from calef's request for a roadmap
 proposal covering §242 (a system log)'s Question 5: storage is decided as "in memory now, RedoxFS
@@ -179,3 +184,7 @@ ruling's reasoning where a reader meets the design it settles.
 4. **Fixed bytes**, with the quota's size left provisional at about 64 MiB (roughly 18 days at the
    measured 3.5 MB/day rate) for the builder to set; a journald-style keep-free floor was suggested
    but not ruled on (Retention and rotation, above).
+
+## Index row
+
+DECISIONS §242 stores the system log in memory now and in RedoxFS later through a directory grant. Proposed: the later half, with what the directory grant has to answer before a building lane picks it up.

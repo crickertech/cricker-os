@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: harness-only-system-tests-move-to-userspace
 milestone_dependencies: 609
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The harness-only system tests move to userspace
+# 690. The harness-only system tests move to userspace
+
+Promoted from `design/roadmap/proposals/harness-only-system-tests-move-to-userspace.md` on 2026-10-03 (UTC). The number 690 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 calef's third rule of 2026-09-27: existing tests that touch no kernel internals migrate to userspace
 over time. Milestone 609 (the system tests leave the kernel crate) measured which do. Of the 66 files
@@ -21,3 +24,7 @@ second rule allows to stay. The table is in notes/system-tests-and-the-kernel-cr
 
 What this needs first is a userspace harness that reports into the same transcript (`running`,
 `test result:`), so `script/test`, `--test` and the falsification sweep read it unchanged.
+
+## Index row
+
+Three system test files, 17 tests in 717 lines, name nothing in the kernel but the harness. Proposed: move them to userspace behind a harness that reports into the same transcript.

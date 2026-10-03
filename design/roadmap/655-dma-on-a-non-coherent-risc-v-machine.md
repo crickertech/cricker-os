@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-25
+promoted_from: dma-on-a-non-coherent-risc-v-machine
 milestone_dependencies: 89
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# DMA on a non-coherent RISC-V machine
+# 655. DMA on a non-coherent RISC-V machine
+
+Promoted from `design/roadmap/proposals/dma-on-a-non-coherent-risc-v-machine.md` on 2026-10-03 (UTC). The number 655 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane that measured milestone 89 (Scaleway EM-RV1: a
 second RISC-V implementation, rented)'s distance. Name provisional, this file's slug only.
@@ -45,3 +48,7 @@ The instructions are privileged in their virtual-address forms and legal in U-mo
 firmware sets `mxstatus.UCME`. So whether a capability-confined userspace driver can clean its own
 buffers, or must ask the kernel, is a question for fatal risk 6 (a capability-confined userspace
 driver cannot drive real hardware at real speed). The answer is measured on the machine, not assumed.
+
+## Index row
+
+Every riscv64 machine nife has run on keeps DMA coherent with the caches, and the TH1520 does not. Proposed: the cache maintenance that machine needs, which nothing can exercise until nife boots on a TH1520.

@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: every-client-of-a-network-stack-shares-its-socket-numbers
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Every client of a network stack shares its socket numbers
+# 649. Every client of a network stack shares its socket numbers
+
+Promoted from `design/roadmap/proposals/every-client-of-a-network-stack-shares-its-socket-numbers.md` on 2026-10-03 (UTC). The number 649 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 590 (the booted system starts its network
 stack), whose number is provisional, which gave programs at the prompt a `WRITE` view of one

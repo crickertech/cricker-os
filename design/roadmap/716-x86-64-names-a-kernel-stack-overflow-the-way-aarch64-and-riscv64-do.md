@@ -1,18 +1,21 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: x86-64-names-a-kernel-stack-overflow-the-way-aarch64-and-riscv64-do
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# x86_64 names a kernel stack overflow the way aarch64 and riscv64 do
+# 716. x86_64 names a kernel stack overflow the way aarch64 and riscv64 do
+
+Promoted from `design/roadmap/proposals/x86-64-names-a-kernel-stack-overflow-the-way-aarch64-and-riscv64-do.md` on 2026-10-03 (UTC). The number 716 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised 2026-10-03 (UTC) by the maintainer at calef's request, from the second of two findings in
 `notes/ci.md` (PR #1472, branch `maintainer/ci-warnings`, not merged when this was written). The
 first is the sibling proposal
-[x86_64's double fault runs on a stack of its own](x86-64s-double-fault-runs-on-a-stack-of-its-own.md).
+[x86_64's double fault runs on a stack of its own](717-x86-64s-double-fault-runs-on-a-stack-of-its-own.md).
 Title and slug are drafts.
 
 ## The finding
@@ -109,3 +112,7 @@ Read from source on 2026-10-03 (UTC):
   programs.
 - Would we choose this if both options cost the same? Yes. The only alternative is a scope note
   recording the gap, and a three-ISA kernel with a one-ISA diagnostic is the case §19 refuses.
+
+## Index row
+
+aarch64 and riscv64 print `KERNEL STACK OVERFLOW` and name the stack when a fault lands in a guard page, and x86_64 has the guard pages and never asks. Proposed: call `stack::warn_if_guard_page` from x86_64's fault path.

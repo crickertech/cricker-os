@@ -1,17 +1,22 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-23
+promoted_from: a-gate-is-not-evidence-until-it-has-failed
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A gate is not evidence until somebody has watched it fail
+# 640. A gate is not evidence until somebody has watched it fail
+
+Promoted from `design/roadmap/proposals/a-gate-is-not-evidence-until-it-has-failed.md` on 2026-10-03 (UTC). The number 640 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 `a-gate-is-not-evidence-until-it-has-failed`: ratified 2026-09-23 (calef, reviewing
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md` on pull request #1166). **It may
-belong inside `design/roadmap/proposals/a-mechanism-reports-its-denominator.md` rather than standing
+belong inside `design/roadmap/641-a-mechanism-reports-its-denominator.md` rather than standing
 on its own**, since both come out of the same correction and the same fifth why. That is an
 architect's call, and ratifying the name does not settle it. Raised by
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md`, which asked whether the failing
@@ -74,3 +79,7 @@ it rather than a build failure.
 
 **Not a claim that testing a gate is hard.** Both instances above would have been caught by one
 `workflow_dispatch` and 35 seconds of reading. The cost is not the obstacle; nobody asking is.
+
+## Index row
+
+A gate that has never been watched failing is not evidence of anything, and the sweep that swept nothing was never tested when it was deployed. Proposed: require a recorded failure of each new gate, as DECISIONS §134 already does for Kani harnesses.

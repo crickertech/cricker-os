@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-30
+promoted_from: the-notes-index-pages-become-area-directories
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The notes index pages become area directories
+# 702. The notes index pages become area directories
+
+Promoted from `design/roadmap/proposals/the-notes-index-pages-become-area-directories.md` on 2026-10-03 (UTC). The number 702 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 ## What is being decided
 
@@ -58,3 +63,7 @@ Nothing hard. `notes/coes/` is created under B's rule regardless of the answer, 
 
 `design/fatal-risks/` (consolidated 2026-09-30, calef's ruling) and `notes/net/` (split from
 `notes/net.md` by a lane, kept since). Both put the README beside the collection it summarizes.
+
+## Index row
+
+`notes/` is flat, 233 top-level files, behind an index split into a `README/` directory. Proposed: choose between a full migration into area directories and directories for new collections only.

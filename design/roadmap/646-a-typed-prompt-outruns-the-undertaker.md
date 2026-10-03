@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: a-typed-prompt-outruns-the-undertaker
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A typed prompt outruns the undertaker, and the job pool fills with holes
+# 646. A typed prompt outruns the undertaker, and the job pool fills with holes
+
+Promoted from `design/roadmap/proposals/a-typed-prompt-outruns-the-undertaker.md` on 2026-10-03 (UTC). The number 646 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 590 (the booted system starts its network stack)'s lane, which ran
 `script/swish-check --arch riscv64` repeatedly and found it failing on a line its change does not

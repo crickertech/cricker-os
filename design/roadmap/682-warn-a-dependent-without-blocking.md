@@ -1,13 +1,12 @@
 ---
-status: PROPOSED
+status: BUILT
 raised: 2026-09-26
-milestone_dependencies: none
-decision_dependencies: unwritten
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-09-27
+promoted_from: warn-a-dependent-without-blocking
 ---
-# Warn a dependent without blocking the supervisor
+# 682. Warn a dependent without blocking the supervisor
+
+Promoted from `design/roadmap/proposals/warn-a-dependent-without-blocking.md` on 2026-10-03 (UTC). The number 682 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-27: built on PR #1382. *(Title and slug are drafts.)*
 
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement), answering the block's open question of what a supervisor does when a
@@ -39,3 +38,11 @@ calef, 2026-09-26: "Make the warning advisory." Build it once milestone 151 land
 ## What it unblocks
 
 One of milestone 23's three remaining `Outstanding` lines.
+
+## Follow-on
+
+- **Done.** Closed one of milestone 23's three remaining `Outstanding` lines and the stranded-operator `BUGS` entry in `notes/non-cooperative-fallback.md`, on PR #1382.
+
+## Index row
+
+What a supervisor does when a dependent it must warn before a swap does not answer. Ruled by calef on 2026-09-26 (the warning is advisory) and built on PR #1382.

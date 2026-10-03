@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: a-decision-section-can-have-an-appendix-directory
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A decision section can have an appendix directory
+# 656. A decision section can have an appendix directory
+
+Promoted from `design/roadmap/proposals/a-decision-section-can-have-an-appendix-directory.md` on 2026-10-03 (UTC). The number 656 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the `proposal/signed-builds` lane (#1325). It was writing
 §220 (a vendor signs, a developer self-signs, and trusting a key is scoped) and had been told to put
@@ -41,3 +44,7 @@ section whose evidence cannot be cut has no legal shape.
 Accept a directory `<N>-<slug>/` when `<N>-<slug>.md` exists beside it, and skip it as a decision.
 The orphan check already makes sure every file inside is linked from the section. Keep refusing a
 directory with no section beside it, because that one really is a stray.
+
+## Index row
+
+DECISIONS §212 sites an appendix in a directory beside its section, and `script/decisions` refuses that directory. Proposed: change one regular expression and what counts as a decision file.

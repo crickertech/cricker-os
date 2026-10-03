@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: a-job-is-finished-when-its-memory-is-back
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A job is finished when its memory is back
+# 685. A job is finished when its memory is back
+
+Promoted from `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md` on 2026-10-03 (UTC). The number 685 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 `milestone/205-designation` (#1402). The slug and every name below are a lane's coinage and
@@ -92,3 +97,7 @@ a job's memory is back. D is chosen on effort, and 205's `BUGS` says so.
 ## What is blocked on the answer
 
 Nothing is blocked; #1402's retry holds until then. #1418's window reuse waits on it.
+
+## Index row
+
+The shell shows the next prompt when it has read a job's output, but the job's memory returns when `job_undertaker` reaps it, and nothing orders the two. Proposed: a job is finished only when its memory is back; every real fix changes something two programs agree on.

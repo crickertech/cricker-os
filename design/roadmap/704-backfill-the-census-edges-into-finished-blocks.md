@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-02
+promoted_from: backfill-the-census-edges-into-finished-blocks
 milestone_dependencies: 596
 decision_dependencies: 207
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Backfill the census's 128 prerequisite edges into BUILT and PARTIAL blocks
+# 704. Backfill the census's 128 prerequisite edges into BUILT and PARTIAL blocks
+
+Promoted from `design/roadmap/proposals/backfill-the-census-edges-into-finished-blocks.md` on 2026-10-03 (UTC). The number 704 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised 2026-10-02 by the maintainer, amending §207 (the roadmap is a graph, and the block says so in
 fields a script can walk) on pull request #1480 after calef ruled that the backfill starts with the
@@ -48,3 +51,7 @@ evidence sentence before it is written. The rows refused, and why, belong in the
 `script/roadmap --unmodelled` lists no BUILT or PARTIAL block, and the count of census edges present
 in a field is reported against the 128 with each refusal accounted for. Re-take the table above
 from the merged tree and put it in the block.
+
+## Index row
+
+Only 4 of the dependency census's 128 prerequisite edges are present in a block field, and 7 of 279 BUILT blocks carry the five fields. Proposed: backfill the edges into BUILT and PARTIAL blocks, starting with the finished work, as calef ruled.

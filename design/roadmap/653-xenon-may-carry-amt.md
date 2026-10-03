@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: xenon-may-carry-amt
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# xenon may carry Intel AMT, which would power-cycle it and give it a console with nobody at the desk
+# 653. xenon may carry Intel AMT, which would power-cycle it and give it a console with nobody at the desk
+
+Promoted from `design/roadmap/proposals/xenon-may-carry-amt.md` on 2026-10-03 (UTC). The number 653 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane that brought milestone 249 (the boot lottery is sampled by a person walking to the board)'s reboot to `x86_64`,
 while pricing hang recovery that needs no person. Milestone 87 (the x86_64 bare-metal machine) chose a smart plug over management
@@ -59,3 +62,7 @@ them.)
 
 Recommendation: press Ctrl-P at the next bench session. That costs nothing and changes nothing.
 Decide on the network after that, with the answer in hand.
+
+## Index row
+
+xenon is a Dell OptiPlex that may carry Intel AMT, which would power-cycle it and give it a console with nobody at the desk. Proposed: find out, since enabling it makes the smart plug unnecessary; it needs a firmware change and a network cable that only calef can supply.

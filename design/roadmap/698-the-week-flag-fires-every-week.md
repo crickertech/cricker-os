@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-29
+promoted_from: the-week-flag-fires-every-week
 milestone_dependencies: 623
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The week flag fires every week
+# 698. The week flag fires every week
+
+Promoted from `design/roadmap/proposals/the-week-flag-fires-every-week.md` on 2026-10-03 (UTC). The number 698 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised on 2026-09-29 (UTC) by the lane building milestone 623 (bullet under the chart explains a
 cliff), while it built the flag calef commissioned.
@@ -52,3 +57,7 @@ because this tree's counts move. An architect rules with the table above in hand
 lives beside `CHART_WEEKS` either way.
 
 Name provisional.
+
+## Index row
+
+The week-over-week flag calef commissioned flagged 16 to 44 of 73 series every week for ten weeks. Proposed: rule on a threshold that flags something rarer, with the measured variants in front of the ruling.

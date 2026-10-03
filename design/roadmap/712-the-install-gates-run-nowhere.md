@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: the-install-gates-run-nowhere
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The install gates run nowhere, so rung 2a can rot without anybody hearing
+# 712. The install gates run nowhere, so rung 2a can rot without anybody hearing
+
+Promoted from `design/roadmap/proposals/the-install-gates-run-nowhere.md` on 2026-10-03 (UTC). The number 712 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised 2026-10-03 by the lane briefed to build milestone 198 (a package manager, and the trivial
 install) rung 2a, which found it already built and re-ran its gates instead (the status section of milestone 515 (the installer: a stick

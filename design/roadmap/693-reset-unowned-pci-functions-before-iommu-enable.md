@@ -1,14 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: reset-unowned-pci-functions-before-iommu-enable
 milestone_dependencies: 612
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
+# 693. Should the kernel clear Bus Master Enable on every PCI function it does not own, before the IOMMU turns on?
 
-# Should the kernel clear Bus Master Enable on every PCI function it does not own, before the IOMMU turns on?
+Promoted from `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md` on 2026-10-03 (UTC). The number 693 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised 2026-09-27 (UTC), a follow-on from milestone 612 (the IOMMU escape-fault test could lose its
 fault to an unconfined neighbour disk). That milestone found and fixed a symptom: an unconfined,
@@ -93,3 +97,7 @@ diagnostic gap into a boot hang. This is an architect's call.
 
 Nothing. Milestone 612 is BUILT and does not depend on this being decided. This is filed so the
 gap is on record rather than rediscovered.
+
+## Index row
+
+An unowned, never-registered PCI function can occupy the VT-d fault register and starve a test's own fault. Proposed: decide whether the kernel clears Bus Master Enable on every function it does not own before the IOMMU turns on.

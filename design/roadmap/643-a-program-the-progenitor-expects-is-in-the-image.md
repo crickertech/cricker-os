@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: a-program-the-progenitor-expects-is-in-the-image
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A program the progenitor expects is in the image, or the build says so
+# 643. A program the progenitor expects is in the image, or the build says so
+
+Promoted from `design/roadmap/proposals/a-program-the-progenitor-expects-is-in-the-image.md` on 2026-10-03 (UTC). The number 643 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 This was raised by the `maintainer/audit-sink-rename` lane (#1228),
 which renamed `audit_sink` to `login_audit_receiver`. The file's name is provisional;
@@ -64,3 +69,7 @@ at boot. This is a recommendation for a reversible fork, and either option alone
 
 A family boot with no way to log in, discovered by whoever next tried to. No existing gate would
 have told anyone before then.
+
+## Index row
+
+The system initializer finds twelve programs by string, and an absent name looks the same as a boot that did not run it. Proposed: a host-side check or a transcript assertion that every program it expects is in the image.

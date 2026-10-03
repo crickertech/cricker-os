@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: build-the-firmware-screen-terminal-in-userspace
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Build the firmware-screen terminal in userspace
+# 664. Build the firmware-screen terminal in userspace
+
+Promoted from `design/roadmap/proposals/build-the-firmware-screen-terminal-in-userspace.md` on 2026-10-03 (UTC). The number 664 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by lane `milestone/600-userspace-graphical-stack` (milestone 600
 (provisional), the graphical terminal stack is built in userspace), which moved the virtio-gpu stack's
@@ -38,3 +43,7 @@ both programs unmeasured (`kernel::user::program` checks nothing).
 ## What it unblocks
 
 Swapping `display_terminal` on x86_64, and measured boot for the two programs.
+
+## Index row
+
+The kernel still builds the firmware-screen terminal, which on x86_64 is the only terminal a boot has, so it cannot be swapped there. Proposed: build it in userspace from the progenitor, like the rest of the graphical stack.

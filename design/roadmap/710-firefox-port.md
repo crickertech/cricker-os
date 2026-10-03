@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: firefox-port
 milestone_dependencies: none
 decision_dependencies: 131, 145
 machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# Porting Firefox to nife
+# 710. Porting Firefox to nife
+
+Promoted from `design/roadmap/proposals/firefox-port.md` on 2026-10-03 (UTC). The number 710 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by calef's ruling below. It builds nothing. It is the tracked home for the browser question
 so that §131 and §145's "out of reach" has somewhere to point. The file name is provisional.
@@ -23,12 +28,12 @@ that waits for the same word.
 
 ## What it reopens
 
-- [§131 (hold at rung two)](../../decisions/131-hold-at-rung-two.md): rungs three and four of
-  [the display ladder](../../display-ladder.md) reopen the parked competitor question, and calef
+- [§131 (hold at rung two)](../decisions/131-hold-at-rung-two.md): rungs three and four of
+  [the display ladder](../display-ladder.md) reopen the parked competitor question, and calef
   held at rung two on 2026-08-26. A browser needs rung three (real applications, software
   rendering; WebRender has a software fallback, from general knowledge). Rung four, GPU through
   virtio-gpu Venus, is optional and would only make it faster.
-- [§145 (compartmentalization at process cost)](../../decisions/145-compartmentalization-at-process-cost.md),
+- [§145 (compartmentalization at process cost)](../decisions/145-compartmentalization-at-process-cost.md),
   which names Firefox as the software people actually run Qubes for and puts it out of reach. That
   sentence is what this proposal revisits.
 
@@ -54,3 +59,7 @@ nife's std PAL and libc layer provide.
 - **What it would decide:** whether the port is one milestone or a program of milestones.
 
 Until it is run, nothing here is an estimate.
+
+## Index row
+
+calef ruled that a web browser is logical to go after some day but low on the priority stack, behind service workloads. Proposed: nothing built; the tracked home for the browser question, with one measurement that waits on calef's word.

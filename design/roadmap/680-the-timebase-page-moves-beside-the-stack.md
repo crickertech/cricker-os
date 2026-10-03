@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: the-timebase-page-moves-beside-the-stack
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The timebase page moves beside the stack
+# 680. The timebase page moves beside the stack
+
+Promoted from `design/roadmap/proposals/the-timebase-page-moves-beside-the-stack.md` on 2026-10-03 (UTC). The number 680 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane for milestone 206 (a program image has under 896 KiB)
 while drawing the user address-space map, `crates/address_space_map`.
@@ -39,3 +42,7 @@ The crate is generated into std's PAL, so the move rebuilds the farm. `spawn_el0
 on `x86_64` and `riscv64` by roughly two tables' worth, which the icount tripwire will read as a
 change beyond tolerance; the baselines are re-saved with the attribution beside them, as the
 current-CPU page's own move was.
+
+## Index row
+
+The counter-frequency page sits alone in a far corner of every x86_64 and riscv64 address space, which costs fresh page tables per spawn. Proposed: move its address beside the stack, one constant in a shared protocol crate plus a std farm rebuild and a benchmark re-baseline.

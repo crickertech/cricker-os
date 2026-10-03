@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: the-confinement-table-lists-the-unvouched-child
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The confinement table lists the unvouched child
+# 673. The confinement table lists the unvouched child
+
+Promoted from `design/roadmap/proposals/the-confinement-table-lists-the-unvouched-child.md` on 2026-10-03 (UTC). The number 673 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by milestone 198 (a package manager) rung 3a's D2 lane,
 which built and falsified the claim milestone 202 (every confinement test is a ritual until
@@ -31,3 +34,7 @@ the lane did not take on:
 
 Done means the row is in the table, the note passes `script/lint`, and milestone 202's Follow-on
 entry for this proposal is marked done.
+
+## Index row
+
+The claim that an unvouched child holds nothing its caller did not delegate is tested and falsified by hand but has no row in `notes/confinement-claims.md`. Proposed: add it as row 31, an editing pass that touches the note's bold touch rule.

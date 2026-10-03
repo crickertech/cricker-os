@@ -1,17 +1,22 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: install-time-signature-verification
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A signed build installs up to its key's ceiling, and removing the key drops what it vouched
+# 666. A signed build installs up to its key's ceiling, and removing the key drops what it vouched
+
+Promoted from `design/roadmap/proposals/install-time-signature-verification.md` on 2026-10-03 (UTC). The number 666 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Filed by `maintainer/220-ruling` while recording calef's rulings on
 §220 (signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped), in
-[`design/decisions/220-signed-builds-and-scoped-key-trust.md`](../../decisions/220-signed-builds-and-scoped-key-trust.md). This is the build those rulings describe. Every
+[`design/decisions/220-signed-builds-and-scoped-key-trust.md`](../decisions/220-signed-builds-and-scoped-key-trust.md). This is the build those rulings describe. Every
 name below is provisional.
 
 §220 is decided. The dependency addition still reaches an architect at merge, as
@@ -83,3 +88,7 @@ three architectures, outside the main workspace. Which major line to take (2.2.0
 The statement's bytes and the algorithm were never asked, so this builds both provisionally. Both
 become irreversible the first time someone outside the tree signs one. Ask before publishing a
 format, not before building.
+
+## Index row
+
+DECISIONS §220 rules that a signed build installs up to its key's ceiling and that removing the key drops what it vouched. Proposed: the build that implements it, for a second vendor or a developer whose build crosses machines; it is off fatal risk 8's path.

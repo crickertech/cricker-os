@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: test-helpers-give-their-clients-a-region-to-retype-from
 milestone_dependencies: 608
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Test helpers give their clients a region to retype their rendezvous from
+# 670. Test helpers give their clients a region to retype their rendezvous from
+
+Promoted from `design/roadmap/proposals/test-helpers-give-their-clients-a-region-to-retype-from.md` on 2026-10-03 (UTC). The number 670 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Filed by the lane of milestone 608 (kernel tests give back their rendezvous points), from the
 rendezvous ledger at `sched::PEAK_RENDEZVOUS`, built by milestone 601 (the region table prints its
@@ -53,3 +58,7 @@ remaining 36 may be the login service's own boot-lived endpoints rather than tes
 The `rendezvous:` line on aarch64 shows the kernel-chunk count down further, ideally past the
 400 milestone 608 aimed at and could not reach alone, with each module either fixed or recorded as
 boot-lived and out of scope.
+
+## Index row
+
+Most of the rendezvous ledger's large holders create endpoints inside a shared spawn helper that gives its client no region to retype from. Proposed: give those helpers' clients a region so the registry stops filling.

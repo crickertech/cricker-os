@@ -1,18 +1,21 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: x86-64s-double-fault-runs-on-a-stack-of-its-own
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# x86_64's double fault runs on a stack of its own
+# 717. x86_64's double fault runs on a stack of its own
+
+Promoted from `design/roadmap/proposals/x86-64s-double-fault-runs-on-a-stack-of-its-own.md` on 2026-10-03 (UTC). The number 717 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised 2026-10-03 (UTC) by the maintainer at calef's request, from the first of two findings in
 `notes/ci.md` (PR #1472, branch `maintainer/ci-warnings`, not merged when this was written). The
 second finding is the sibling proposal
-[x86_64 names a kernel stack overflow the way aarch64 and riscv64 do](x86-64-names-a-kernel-stack-overflow-the-way-aarch64-and-riscv64-do.md).
+[x86_64 names a kernel stack overflow the way aarch64 and riscv64 do](716-x86-64-names-a-kernel-stack-overflow-the-way-aarch64-and-riscv64-do.md).
 Title and slug are drafts.
 
 ## The finding
@@ -115,3 +118,7 @@ Read from source on 2026-10-03 (UTC):
 The sibling proposal's most common case. A kernel stack overflow with `rsp` near the bottom reaches
 the double fault before it can reach the page-fault handler, so its report is only seen through this
 stack.
+
+## Index row
+
+x86_64's IDT gate for vector 8 selects IST slot 1, but the TSS entry is zero and never installed. Proposed: give the double fault a stack of its own so the safety net exists.

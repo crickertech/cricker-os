@@ -1,13 +1,14 @@
 ---
-status: PROPOSED
+status: REFUSED
 raised: 2026-09-26
-milestone_dependencies: none
-decision_dependencies: 170
-machine_requirements: none
-specific_machine: none
-needs_person: no
+promoted_from: the-mark-on-a-foreign-programs-word
+refused_by: 170
 ---
-# The mark on a foreign program's word
+# 675. The mark on a foreign program's word
+
+Promoted from `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md` on 2026-10-03 (UTC). The number 675 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status REFUSED: calef ruled on 2026-09-27 that there is no mark; recorded as an amendment to DECISIONS §170. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 `milestone/205-foreign-program-arguments`. §170 (how a foreign program is told what to do) clause 4
@@ -16,7 +17,7 @@ word is writable", or "this word may be created". §170 left the spelling to cal
 name a person types and every script will carry. The slug is a lane's coinage.
 
 Nothing is built yet, because the mark qualifies a grant and the grant is the designation half
-([`designating-a-foreign-programs-words.md`](designating-a-foreign-programs-words.md)). This page
+([`665-designating-a-foreign-programs-words.md`](665-designating-a-foreign-programs-words.md)). This page
 exists so the spelling is decided before that half lands, not while it waits.
 
 ## Refused: there is no mark
@@ -88,3 +89,11 @@ Nothing uses it today. That is the reason to decide it before the designation ha
 
 Clause 4's widening only. The designation half can land read-only first, which is clause 4's
 default, and gain the mark when this is ruled.
+
+## Index row
+
+A person could widen one foreign-program word to writable or creatable with a mark. Refused by calef on 2026-09-27 (no mark): an unvouched program gets every named word read-only.
+
+## Revisit
+
+- **Condition.** A real workload has to widen one word of an unvouched program without installing it, and installing (vouching) is shown to be too heavy for it. A mark can be added later without breaking any script; M3 (`--rw` and `--new`, or the longer `--grant-` forms) is the analysed spelling below.

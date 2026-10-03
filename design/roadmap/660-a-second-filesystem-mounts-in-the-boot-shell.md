@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: a-second-filesystem-mounts-in-the-boot-shell
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A second filesystem mounts in the boot shell
+# 660. A second filesystem mounts in the boot shell
+
+Promoted from `design/roadmap/proposals/a-second-filesystem-mounts-in-the-boot-shell.md` on 2026-10-03 (UTC). The number 660 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 154 (a process that holds two directory
 capabilities), which built the mechanism and was closed BUILT without wiring a second tree into the
@@ -23,7 +28,7 @@ Until one exists there is nothing honest to mount, which is why the boot shell p
 The presentation is "one tree with other trees mounted at names in it" (calef, 2026-09-26). The
 shell shows one root; a second tree appears at a mount point, a `/media/<label>` convention or
 wherever the owner binds it, and `pwd` prints the mount path. `cd ..` from a mount point goes to its
-parent, pending calef (what-dot-dot-does-at-a-mount-point.md). Milestone 154 built all of that and proved it on the real wire (notes/two-trees.md).
+parent, pending calef (683-what-dot-dot-does-at-a-mount-point.md). Milestone 154 built all of that and proved it on the real wire (notes/two-trees.md).
 
 The transport is option 1 of that note's proposal: init puts the second tree's endpoint at a named
 capability slot, the shell probes it at `_start`, and a constant in a crate both depend on holds

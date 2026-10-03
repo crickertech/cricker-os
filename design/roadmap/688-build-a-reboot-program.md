@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: build-a-reboot-program
 milestone_dependencies: none
 decision_dependencies: 243
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Build a reboot program
+# 688. Build a reboot program
+
+Promoted from `design/roadmap/proposals/build-a-reboot-program.md` on 2026-10-03 (UTC). The number 688 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane for §243 (notices for people), pull request #1424. Its own worked example, a
 reboot warning shown on every session, has no publisher: "No program reboots the machine" today
@@ -41,3 +44,7 @@ mechanism is a separate finding for whoever picks this up.
 instead of a hypothetical one.
 
 Name unminted; "a reboot program" describes it rather than names it.
+
+## Index row
+
+No program reboots the machine, so DECISIONS §243's worked example, a reboot warning shown on every session, has no publisher. Proposed: the program that holds the critical-urgency bypass badge and publishes it.

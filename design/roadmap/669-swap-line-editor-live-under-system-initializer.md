@@ -1,13 +1,14 @@
 ---
-status: PROPOSED
+status: BUILT
 raised: 2026-09-26
-milestone_dependencies: none
-decision_dependencies: unwritten
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-09-27
+promoted_from: swap-line-editor-live-under-system-initializer
 ---
-# Swap `line_editor` live under `system_initializer`
+# 669. Swap `line_editor` live under `system_initializer`
+
+Promoted from `design/roadmap/proposals/swap-line-editor-live-under-system-initializer.md` on 2026-10-03 (UTC). The number 669 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-27: built on PR #1382. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement), which built state handoff and then checked why the interactive stack is
@@ -26,14 +27,14 @@ again" (`FLAG_RETRY`, provisional); a reader handles it by re-issuing the same r
 
 Two things follow that the ruling did not say. The handoff grows a page count rather than dropping
 history: the coordinator's reversible default, not calef's ruling, and it needs
-`a-region-retypes-a-frame-run.md` first. And calef's option D on #1361 (the shell edits its own line) moves `swish` to raw mode,
+`659-a-region-retypes-a-frame-run.md` first. And calef's option D on #1361 (the shell edits its own line) moves `swish` to raw mode,
 parked in `OP_READRAW`, so `FLAG_RETRY` must answer a parked `OP_READRAW` too, and the swap test's
 witness is a line-mode client of `line_editor` as well as `swish`.
 
 ## Built
 
 2026-09-27, on PR #1382, under a terminal supervisor rather than `system_initializer` (calef's
-option A of `a-terminal-supervisor-holds-the-line-editor.md`). What this proposal still carries is
+option A of `661-a-terminal-supervisor-holds-the-line-editor.md`). What this proposal still carries is
 the record of the two forks; an integrator promoting it can mark it built.
 
 ## What to build
@@ -52,3 +53,11 @@ the record of the two forks; an integrator promoting it can mark it built.
 
 The last `Outstanding` line of milestone 23's block, for the one interactive component a userspace
 supervisor can reach today.
+
+## Follow-on
+
+- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). The trigger that asks the terminal supervisor to swap, which nothing on a real boot does yet: `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`.
+
+## Index row
+
+The interactive stack is still not live-swappable. Ruled by calef on 2026-09-26 (an additive `OP_QUIESCE` and a retry flag): two changes to the terminal contract that eleven programs speak.

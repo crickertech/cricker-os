@@ -1,13 +1,14 @@
 ---
-status: PROPOSED
+status: BUILT
 raised: 2026-09-26
-milestone_dependencies: none
-decision_dependencies: unwritten
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-09-27
+promoted_from: a-region-retypes-a-frame-run
 ---
-# A region retypes a frame run
+# 659. A region retypes a frame run
+
+Promoted from `design/roadmap/proposals/a-region-retypes-a-frame-run.md` on 2026-10-03 (UTC). The number 659 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-27: built on PR #1373, recorded as DECISIONS §233. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement) while starting the handoff page count the `line_editor` swap needs. Its
@@ -48,3 +49,11 @@ decision is recorded as DECISIONS §233 (`MemoryRegion::RETYPE` takes a page cou
 
 The handoff page count (`component_plan::Handoff` grows `pages`), then the `line_editor` swap, then
 `redoxfs_server`'s eventual handoff, which will not fit in one page either.
+
+## Follow-on
+
+- **Milestone 669.** Milestone 669 (swap `line_editor` live under `system_initializer`). The handoff page count and the `line_editor` swap this unblocked: the swap itself is `design/roadmap/669-swap-line-editor-live-under-system-initializer.md`.
+
+## Index row
+
+`MemoryRegion::RETYPE` always makes a one-page frame, so a supervisor cannot make a two-page handoff page in one capability. Proposed: let it retype a run, which changes an argument of an existing syscall and is an architect's call.

@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: riscv64-code-the-prover-can-already-compile
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Some of `arch/riscv64/` compiles under Kani on an aarch64 host today, and the tree says none can
+# 650. Some of `arch/riscv64/` compiles under Kani on an aarch64 host today, and the tree says none can
+
+Promoted from `design/roadmap/proposals/riscv64-code-the-prover-can-already-compile.md` on 2026-10-03 (UTC). The number 650 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane `lane/price-kani-kernel-reach` (pull request
 #1276), briefed to price closing `design/fatal-risks/README.md` risk 2 (the proofs prove trivia) on the
@@ -181,3 +186,7 @@ lane could build; the survivorship half closes only when a standing harness goes
 somebody else introduced. Option 1 adds a riscv64 proof, which is reach. The honest outcome is a
 narrower sentence in risk 2: riscv64's asm-free files are provable from an aarch64 host, and 87.5%
 of `arch/riscv64/` still is not. That sentence is an architect's to write, through milestone 536.
+
+## Index row
+
+Part of `arch/riscv64/` compiles under Kani on an aarch64 host today, and the tree says none can. Proposed: price and build the harnesses that use it, toward closing fatal risk 2 (the proofs prove trivia).

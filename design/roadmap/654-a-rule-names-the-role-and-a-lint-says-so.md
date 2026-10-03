@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-25
+promoted_from: a-rule-names-the-role-and-a-lint-says-so
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A present-tense rule names the architect role, and a lint says so
+# 654. A present-tense rule names the architect role, and a lint says so
+
+Promoted from `design/roadmap/proposals/a-rule-names-the-role-and-a-lint-says-so.md` on 2026-10-03 (UTC). The number 654 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the `maintainer/architect-role-census` lane, which swept
 the tree for sentences assuming calef is the only architect (calef, 2026-09-25 UTC: *"I want to
@@ -59,3 +64,7 @@ a new word fails somebody's build.
 
 **Recommendation: option 2**, because it is the only one that fails on exactly the defect and
 nothing else. Option 1 is less work and would still be chosen by nobody if the two cost the same.
+
+## Index row
+
+Sentences in the tree still assume calef is the only architect. Proposed: a lint that refuses a present-tense rule naming a listed architect as the one who decides, once it can be made precise.

@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: a-session-length-limit-and-what-it-would-be-set-from
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A session length limit, and what it would be set from
+# 645. A session length limit, and what it would be set from
+
+Promoted from `design/roadmap/proposals/a-session-length-limit-and-what-it-would-be-set-from.md` on 2026-10-03 (UTC). The number 645 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by calef on 2026-09-24, after a measurement across this
 project's session records showed that **98% of every token spent is a cache read** and **0.1% is
@@ -21,7 +26,7 @@ better than one chosen under attachment, and on the day this was raised there wa
 which is not a distribution. **The trigger is enough weeks of per-turn context to show a
 distribution, judged by reading the panel**, not a week count: a count would be the same
 threshold-in-ignorance the tenet refuses, one level up. The panel is
-[`notes/project-metrics.md`](../../../notes/project-metrics.md), section *What a turn costs*, and it
+[`notes/project-metrics.md`](../../notes/project-metrics.md), section *What a turn costs*, and it
 arrives in front of whoever reads that page each week, which is the whole answer to calef's question.
 
 ## What is being deferred
@@ -88,3 +93,7 @@ names it proposes (`lane_turns`, `lane_cache_read_share_pct`, `lane_context_per_
 `lane_context_per_turn_peak`) and the panel file (`context-per-turn.svg`) are provisional too. They
 follow the `lane_` prefix `lane_tokens` and `lane_wall_clock_hours` already established for
 harness-measured columns. no architect has ratified any of them.
+
+## Index row
+
+98% of every token spent is a cache read, so a turn costs the size of its context. Proposed: a session length limit, with the threshold deliberately not chosen until enough weeks of per-turn context show a distribution.

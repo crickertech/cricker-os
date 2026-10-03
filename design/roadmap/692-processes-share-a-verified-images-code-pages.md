@@ -1,14 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: processes-share-a-verified-images-code-pages
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
+# 692. Processes share a verified image's code pages
 
-# Processes share a verified image's code pages
+Promoted from `design/roadmap/proposals/processes-share-a-verified-images-code-pages.md` on 2026-10-03 (UTC). The number 692 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Filed by the maintainer, from a finding raised by the lane building milestone 595 (the shell runs
 a std program): while a child is staged, one program's image is held three times at once, shell
@@ -36,3 +40,7 @@ This is not costed. The first step is measuring resident memory for N instances 
 program under today's per-child copy, so the size of the gap is a number rather than an inference
 from Linux's behavior. That measurement should come before any implementation work, per this
 tree's practice of measuring before deciding a remediation.
+
+## Index row
+
+Two instances of one program share no code pages, and a staged child's image is held three times at once. Proposed: map a verified image's code once and share it read-only across processes, the sharing gap a memory comparison with Linux would show.

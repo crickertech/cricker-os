@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: tests-retype-their-rendezvous-from-their-own-region
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Tests retype their rendezvous from their own region, so the registry stops filling
+# 671. Tests retype their rendezvous from their own region, so the registry stops filling
+
+Promoted from `design/roadmap/proposals/tests-retype-their-rendezvous-from-their-own-region.md` on 2026-10-03 (UTC). The number 671 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Filed by the lane of milestone 601 (the region table prints its
 peak), from the rendezvous ledger at `sched::PEAK_RENDEZVOUS`. The title is provisional.
@@ -36,3 +39,7 @@ reclaims the endpoint. Services that live for the boot keep kernel-chunk rendezv
 
 The `rendezvous:` line on aarch64 shows the kernel-chunk count down to the services meant to live
 for the boot, with the spare back above 100.
+
+## Index row
+
+The aarch64 suite ends with 505 of 512 rendezvous live, 466 of them on the kernel's never-freed chunks. Proposed: each test retypes its rendezvous from its own region so the registry stops filling.

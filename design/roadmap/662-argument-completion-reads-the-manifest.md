@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: argument-completion-reads-the-manifest
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Tab completes an argument from the program's manifest
+# 662. Tab completes an argument from the program's manifest
+
+Promoted from `design/roadmap/proposals/argument-completion-reads-the-manifest.md` on 2026-10-03 (UTC). The number 662 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the coordinator's brief to milestone 47 (navigation and
 naming)'s lane `milestone/47-line-editing`, which built name completion (DECISIONS §227 (how Tab

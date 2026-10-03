@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-21
+promoted_from: the-soak-supervisor-is-a-program-too
 milestone_dependencies: 523
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The soak supervisor is a program too
+# 638. The soak supervisor is a program too
+
+Promoted from `design/roadmap/proposals/the-soak-supervisor-is-a-program-too.md` on 2026-10-03 (UTC). The number 638 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by calef, asking whether any other special kernel build
 should be a userspace program instead, after milestone 523 (moving the job-mix supervisor into userspace) was
@@ -54,3 +59,7 @@ the wrong place. Nothing about running a workload requires being the kernel.
 
 Touching `reboot_soak_test`, which composes `soak_test` with `board` and is about a power cycle
 rather than a workload.
+
+## Index row
+
+The soak test is a special kernel build that replaces the end of the boot tour, the same shape as the job-mix build. Proposed: make it a userspace supervisor program too, gated on milestone 523 (moving the job-mix supervisor into userspace) proving the idea.

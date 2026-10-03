@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: the-last-yield-spinners-sleep-on-a-timer
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The last yield-spinners sleep on a timer
+# 674. The last yield-spinners sleep on a timer
+
+Promoted from `design/roadmap/proposals/the-last-yield-spinners-sleep-on-a-timer.md` on 2026-10-03 (UTC). The number 674 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane for milestone 106 (a wait that ends on either
 the interrupt or the deadline), which built the `Timer` object and converted four consumers. This
@@ -77,3 +80,7 @@ alternative, a way to retype into a named slot, is a syscall-surface change and 
 Milestone 103 (`^C` stops spinning: the shell's interrupt watch, blocking) owns it. The shell now
 sleeps a tick per look. A watch that wakes only when the job ends or `^C` arrives needs the job's
 exit and the terminal's `^C` to signal a notification the shell waits on.
+
+## Index row
+
+Milestone 106 (a wait that ends on either the interrupt or the deadline) converted four consumers to the `Timer` object and left the rest. Proposed: convert the soak supervisor and the other remaining yield loops.

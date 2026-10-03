@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-27
+promoted_from: packages-move-out-one-per-pull-request
 milestone_dependencies: 611
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# Packages move out of this repository, one per pull request
+# 691. Packages move out of this repository, one per pull request
+
+Promoted from `design/roadmap/proposals/packages-move-out-one-per-pull-request.md` on 2026-10-03 (UTC). The number 691 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the lane of milestone 611 (every program and crate belongs to a package), which drew the
 package boundaries and gated them but moved nothing, as briefed. calef ruled on 2026-09-27 that the
@@ -33,3 +36,7 @@ is proposed to go. It needs calef first: a move is only possible once a package'
 - `components` is split into one crate per package, since a crate cannot live in two repositories.
 - The gates learn to run against a package outside this tree. That is pull request #1389's P1 base image list,
   generated from the package files, and nothing builds it yet.
+
+## Index row
+
+calef ruled that everything leaves this repository eventually. Proposed: move one package per pull request at a quiet moment in the queue, unchanged file moves first, then the repairs; a move needs a ratified home.

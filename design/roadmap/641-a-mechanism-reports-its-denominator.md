@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-23
+promoted_from: a-mechanism-reports-its-denominator
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A mechanism that reports clean says over how many units, and zero is loud
+# 641. A mechanism that reports clean says over how many units, and zero is loud
+
+Promoted from `design/roadmap/proposals/a-mechanism-reports-its-denominator.md` on 2026-10-03 (UTC). The number 641 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 `a-mechanism-reports-its-denominator`: ratified 2026-09-23 (calef, reviewing
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md` on pull request #1166). Raised by
@@ -127,3 +132,7 @@ together are the tree's mechanisms. Extending it further would be speculative.
 **Not a claim that any other site is currently broken.** Only the falsification sweep is known to
 have been. The other 29 are a population to label, and labelling them is most of the value, because
 the label is what the next person to add a `|| true` will read.
+
+## Index row
+
+From outside, a check that examined nothing looks like a check that found nothing. Proposed: every mechanism that reports clean says over how many units, and zero is loud.

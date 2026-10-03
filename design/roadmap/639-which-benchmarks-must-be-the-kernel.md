@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-21
+promoted_from: which-benchmarks-must-be-the-kernel
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Which benchmarks must be the kernel, and which are just programs
+# 639. Which benchmarks must be the kernel, and which are just programs
+
+Promoted from `design/roadmap/proposals/which-benchmarks-must-be-the-kernel.md` on 2026-10-03 (UTC). The number 639 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by calef, asking which other special kernel builds should be
 userspace programs. `bench` is the one that cannot be answered without measuring, which is why it is
@@ -60,3 +65,7 @@ why in one sentence, so nobody asks again.
 comparison against lmbench and `sel4bench` in milestone 25 (cross-OS performance comparison) depends
 on them meaning what they have always meant. A benchmark that moves must say what it used to measure
 and what it measures now, in the same place a reader meets the number.
+
+## Index row
+
+The `bench` kernel feature is a special boot nobody has checked needs to be one. Proposed: measure which benchmarks genuinely need kernel privilege and move the rest to ordinary programs.

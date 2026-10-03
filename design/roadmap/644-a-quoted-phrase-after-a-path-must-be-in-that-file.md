@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-24
+promoted_from: a-quoted-phrase-after-a-path-must-be-in-that-file
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A phrase quoted after a path must still be in that file
+# 644. A phrase quoted after a path must still be in that file
+
+Promoted from `design/roadmap/proposals/a-quoted-phrase-after-a-path-must-be-in-that-file.md` on 2026-10-03 (UTC). The number 644 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised by the 2026-09-24 documentation audit
 (`design/audit-reports/2026-09-24-split-documents-read-from-the-inbound-side.md`), whose lens was
@@ -55,3 +58,7 @@ form already allows.
 
 If a lane's added lines produce more false positives than the 5 in 14 measured over the whole
 tree, the rule costs more attention than it saves. The first week's failures are the measurement.
+
+## Index row
+
+`script/citations` checks two citation shapes but not a path followed by a quoted section phrase. Proposed: extend it so a phrase quoted after a path must still be in that file.

@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-03
+promoted_from: arm-1-holds-only-the-raw-half-of-the-boot-discipline
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline
+# 709. A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline
+
+Promoted from `design/roadmap/proposals/arm-1-holds-only-the-raw-half-of-the-boot-discipline.md` on 2026-10-03 (UTC). The number 709 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the 2026-10-03 security audit
 (`design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`, finding 2), reading
@@ -76,3 +81,7 @@ syscall surface, no wire format, no dependency.
 
 Nothing. The finding is recorded in `components/src/graphical_terminal.rs`'s BUGS where a reader
 of the arm meets it.
+
+## Index row
+
+A `graphical_terminal` session with no keyboard receives the boot discipline's endpoint with `WRITE` but uses only two requests on it. Proposed: narrow what it holds to the raw half it uses, from the 2026-10-03 security audit's finding 2.

@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-26
+promoted_from: scrollback-from-the-keyboard
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Scrollback from the keyboard: shift and page up scrolls the display terminal's history
+# 668. Scrollback from the keyboard: shift and page up scrolls the display terminal's history
+
+Promoted from `design/roadmap/proposals/scrollback-from-the-keyboard.md` on 2026-10-03 (UTC). The number 668 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by milestone 142 (a text display good enough that people use
 it instead of a GUI)'s lane, which went to wire the scrollback it built in August to a key and found
@@ -126,3 +131,7 @@ it already `CALL`s):
 
 **Sequence it after milestone 23** (component OS live replacement): that lane is building the swap
 of exactly these two programs, and this edits both.
+
+## Index row
+
+The display terminal keeps 300 rows of history but no key a person can press reaches it. Proposed: route shift and page up through the terminal contract, which adds one opcode two programs agree on.

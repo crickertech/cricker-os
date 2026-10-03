@@ -1,13 +1,14 @@
 ---
-status: PROPOSED
+status: BUILT
 raised: 2026-09-26
-milestone_dependencies: none
-decision_dependencies: unwritten
-machine_requirements: none
-specific_machine: none
-needs_person: no
+built: 2026-09-27
+promoted_from: a-terminal-supervisor-holds-the-line-editor
 ---
-# A terminal supervisor holds the line editor
+# 661. A terminal supervisor holds the line editor
+
+Promoted from `design/roadmap/proposals/a-terminal-supervisor-holds-the-line-editor.md` on 2026-10-03 (UTC). The number 661 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-27: built on PR #1382. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement) on reaching step 4 of the `line_editor` swap, "the swap in
@@ -20,7 +21,7 @@ recommended answer adds a program, whose name is an architect's.
 
 calef, 2026-09-27T06:31Z: option A. Built the same day on PR #1382: `terminal_supervisor` (name
 provisional, calef's to name), with its guest test on all three architectures. The trigger is
-`the-installer-asks-the-terminal-to-swap.md`.
+`694-the-installer-asks-the-terminal-to-swap.md`.
 
 ## Why it cannot be `system_initializer`
 
@@ -62,3 +63,11 @@ Step 4 of the `line_editor` swap and its guest test. Steps 1 and 3 are built on
 The swap is triggered by whatever activates a new `line_editor` build. That is milestone 198's
 installer, so the trigger is a message between two lanes, and its wire shape (one verb, one image
 name) is the other thing an architect sees before it is built.
+
+## Follow-on
+
+- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). The installer asking the terminal to swap, which nothing on a real boot does yet: `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`.
+
+## Index row
+
+`system_initializer` cannot hold the authority to replace the terminal, because its capability table is full. Ruled option A by calef on 2026-09-27: a separate terminal supervisor program holds it, built on PR #1382.

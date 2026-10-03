@@ -1,13 +1,19 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-02
+promoted_from: the-graphical-terminal-runs-full-screen-programs
 milestone_dependencies: 29, 142
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The graphical terminal runs full-screen programs
+# 705. The graphical terminal runs full-screen programs
+
+Promoted from `design/roadmap/proposals/the-graphical-terminal-runs-full-screen-programs.md` on 2026-10-03 (UTC). The number 705 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
+<!-- prose-budget: exception. 4069 words (wc -w, this marker included) against a 3,000-word cap. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so its length predates the cap's reach. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 *(Title and slug are drafts. Number minted at promotion.)*
 
@@ -16,10 +22,10 @@ Raised by a maintainer-assigned lane, from calef's question of whether the graph
 with it. Every claim below was checked in the tree or upstream on 2026-10-02 (UTC); a claim from memory
 is marked as such.
 
-The engine choice is a dependency decision (§46 (thin primitives or whole subsystems; we write everything in between)), so section 4 gives options and
+The engine choice is a dependency decision (§46 (thin primitives or whole subsystems; we write everything in between)), so Part 4 gives options and
 no recommendation (A to E; E was added at calef's request on 2026-10-03 UTC).
 
-## 1. The gap, and the goal
+## Part 1: The gap, and the goal
 
 `crates/video_terminal` (milestone 29, the display terminal) implements printable text with UTF-8, CR,
 LF, BS, TAB, CSI `A B C D H f J K m` (SGR with 256-colour and 24-bit) and RIS
@@ -58,10 +64,10 @@ tool and a rejected crate in milestone 40 (documentation as a system service)); 
 as a reason in `notes/glyphs.md:681`. The closest measure is therefore the host harness: `vttest` in a
 pty, its output into `Vt`, a screen dump at each "Push <RETURN>" pause, graded against goldens
 recorded once from a reference terminal and reviewed by a person. `vttest` has no machine-readable
-verdict, so the goldens are the verdict. Menu 6 has nothing to grade without the reply path in section 3.
+verdict, so the goldens are the verdict. Menu 6 has nothing to grade without the reply path in Part 3.
 I did not run `vttest`.
 
-## 2. What the three programs need that is missing
+## Part 2: What the three programs need that is missing
 
 Escape-sequence census, taken on the host (macOS, `TERM=xterm`, 80x24, vim 9.1, less from the OS). The
 harness answered `ESC[6n` and `ESC[>c` like an xterm would.
@@ -112,7 +118,7 @@ then `k`) differed in every run, 22 of 24 rows. The harness is timing-sensitive 
 against the oracle's 0.6 s), and I did not find out why vim agreed as often as it did, so read it as
 "the failures are real, the agreement is not a guarantee". The throwaway harness lives in the lane's scratch directory and is not committed.
 
-## 3. Keeping the engine a value when it has to reply
+## Part 3: Keeping the engine a value when it has to reply
 
 Reports need the engine to produce bytes the program reads. Today it cannot: it "never writes to its
 input", which is what sans-IO means here (`lib.rs:119-121`), and `csi_final` says so in a comment
@@ -132,7 +138,7 @@ an architect does not need to choose them.
 Under option B the library's own shape is a callback (`GHOSTTY_TERMINAL_OPT_WRITE_PTY`, read in
 `vt_terminal.h`); the shim would collect it into the same `take_reply` buffer.
 
-## 4. The engine question, as options
+## Part 4: The engine question, as options
 
 Answers to questions 2 and 4 of the seven are the same for every option, so they are here once.
 
@@ -142,7 +148,7 @@ Answers to questions 2 and 4 of the seven are the same for every option, so they
   (text as a value), which says "Architect's call, not taken here". Vendoring policy for a foreign
   library is §18 (the PCIe transport), the RedoxFS precedent.
 - *Is the premise true?* Partly. The gap is real and measured above, but it needs a program to hit it,
-  and no such program ships (section 1). Separately, a premise in the record is stale. `notes/glyphs.md`
+  and no such program ships (Part 1). Separately, a premise in the record is stale. `notes/glyphs.md`
   and `notes/c-seam.md:95` list libghostty-vt as freestanding with "no allocation". Upstream's
   `allocator.h` says it "does require memory allocation for various operations", that on a native
   freestanding target the default allocator always fails, and that the consumer must supply one. So
@@ -151,7 +157,7 @@ Answers to questions 2 and 4 of the seven are the same for every option, so they
 
 ### A. Extend `video_terminal`
 
-The list in section 2. Estimate: 500 to 900 lines of engine code plus about as many of tests. This
+The list in Part 2. Estimate: 500 to 900 lines of engine code plus about as many of tests. This
 is an estimate by analogy, not a measurement: the engine today is 1,711 lines before its tests, plus
 `keymap.rs` (527) and `script.rs` (274), and `display_terminal.rs` is 536. A second grid and a
 region-aware scroll touch `line_feed`, the damage record and the scrollback ring, which is where the
@@ -224,7 +230,7 @@ Read from the 0.15.0 source (crates.io, `Apache-2.0 OR MIT`, 57 KB).
   `bitflags` and `cursor-icon`, and `display_terminal` has no allocator.
 - *What it would save.* The sequence-recognition half of `csi` (`lib.rs:1393-1442`): the parameter and
   intermediate-byte handling that this engine already has and tests. It saves none of the state the
-  section 2 list needs. The roadmap's phrase "much less complete" (milestone 29) understates this: it
+  Part 2 list needs. The roadmap's phrase "much less complete" (milestone 29) understates this: it
   is not an engine at all.
 - *Dependencies.* The parser needs `arrayvec` (not in `Cargo.lock`) and `memchr` (already there).
 
@@ -299,7 +305,7 @@ Revisit when either of these happens:
 - someone needs a full-screen program at a display path, or
 - libghostty-vt stabilises its C API.
 
-## 5. Priority, and whether the serial console has the same gap
+## Part 5: Priority, and whether the serial console has the same gap
 
 calef ruled on 2026-09-30 that graphics is not at boot and "will sit there largely unused for some
 time" (PR #1493, graphics on demand, number provisional). That makes the question of which terminal a customer meets first a real one.
@@ -330,7 +336,7 @@ paths need this milestone, and there is no program to measure against until one 
 could not verify that a program launched from `screen` reaches `display_terminal` through
 `OP_RAWMODE` end to end; #1493 is unmerged and I did not read its guest tests.
 
-## 6. Dependencies, and what is blocked
+## Part 6: Dependencies, and what is blocked
 
 - The graphics-on-demand work (#1493, provisional number 632, `screen` launched from the swish prompt) is unaffected by
   the engine choice: the engine sits behind `display_terminal`, and the launch builds the same
@@ -353,3 +359,7 @@ could not verify that a program launched from `screen` reaches `display_terminal
 3. `display_terminal` forwarding the reply bytes into its keystroke path.
 4. `notes/glyphs.md` and `notes/terminal-contract.md` updated; the stale "no allocation" claim
    corrected wherever it is repeated.
+
+## Index row
+
+`crates/video_terminal` implements printable text and a handful of CSI sequences, which is not enough for `vim`, `less` or `top`. Proposed: close the gap; the engine choice is a dependency decision, so options A to E are given with no recommendation.

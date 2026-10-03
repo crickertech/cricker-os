@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-09-30
+promoted_from: the-graph-counts-the-names-calef-calls
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The graph counts the names calef calls
+# 701. The graph counts the names calef calls
+
+Promoted from `design/roadmap/proposals/the-graph-counts-the-names-calef-calls.md` on 2026-10-03 (UTC). The number 701 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 ## What is being decided
 
@@ -48,3 +53,7 @@ itself; that is what the 623 week-notes are for.
 The four-kinds table in notes/project-metrics.md counts named things with provenance blocks;
 interface-stability counts the flow of public items; this counts the stock. The 623 helper pattern
 is the mechanism for anything the weekly workflow must derive outside `script/metrics`.
+
+## Index row
+
+No weekly series counts public function and method names, the surface calef has ruled on since 2026-08-23. Proposed: `public_names` for the stock and `provisional_names` for the ratification queue, charted weekly.
