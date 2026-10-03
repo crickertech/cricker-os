@@ -333,6 +333,31 @@ pub mod types {
 mod tests {
     use super::*;
 
+    /// Every type GUID this crate names says its name, and one it does not know says nothing. A
+    /// deleted arm would hand a person a raw GUID for a partition type this crate was written to
+    /// recognise.
+    #[test]
+    fn every_known_type_has_its_name() {
+        let known = [
+            (types::UNUSED, "unused"),
+            (types::EFI_SYSTEM, "EFI system"),
+            (types::BIOS_BOOT, "BIOS boot"),
+            (types::MICROSOFT_BASIC_DATA, "Microsoft basic data"),
+            (types::LINUX_FILESYSTEM, "Linux filesystem"),
+            (types::LINUX_SWAP, "Linux swap"),
+            (types::LINUX_ROOT_ARM64, "Linux root (arm64)"),
+            (types::LINUX_LUKS, "Linux LUKS"),
+            (types::APPLE_HFS_PLUS, "Apple HFS+"),
+            (types::APPLE_APFS, "Apple APFS"),
+            (types::NIFE_DATA, "nife data"),
+            (types::NIFE_BOOT, "nife boot slot"),
+        ];
+        for (guid, name) in known {
+            assert_eq!(types::name(guid), Some(name));
+        }
+        assert_eq!(types::name(Guid([0xab; 16])), None);
+    }
+
     /// The EFI System Partition GUID, spelled out byte by byte, because this is the one place the
     /// mixed-endian rule can be wrong without anything else noticing. Cross-checked against the
     /// committed `sgdisk` fixture, where these sixteen bytes sit at offset 0 of entry 0.

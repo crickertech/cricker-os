@@ -386,6 +386,22 @@ mod tests {
         assert!(!entry.is(RAMFB));
     }
 
+    /// A name that fills the whole 56-byte field has no NUL to end it, so it is not a file called
+    /// that, and asking must say no rather than index past the field. A name one byte shorter is
+    /// still found.
+    #[test]
+    fn a_name_that_fills_the_field_is_compared_without_reading_past_it() {
+        let mut raw = [0u8; ENTRY_LEN];
+        raw[8..].copy_from_slice(&[b'a'; 56]);
+        let full = DirectoryEntry::parse(&raw).expect("64 bytes");
+        assert!(!full.is(&[b'a'; 56]));
+        assert!(!full.is(&[b'a'; 55]));
+
+        raw[63] = 0;
+        let nearly = DirectoryEntry::parse(&raw).expect("64 bytes");
+        assert!(nearly.is(&[b'a'; 55]));
+    }
+
     #[test]
     fn a_short_entry_is_refused_rather_than_padded() {
         assert_eq!(DirectoryEntry::parse(&[0u8; 63]), None);

@@ -698,6 +698,48 @@ mod tests {
         assert!(out.contains("4294967302"), "{out}");
     }
 
+    /// Every state code a kernel can report has its own name, and an unknown one prints as `?`.
+    /// Only `running` and `dead` were pinned by the table tests, so deleting the `ready` or
+    /// `blocked` arm left every test green.
+    #[test]
+    fn every_state_has_its_name() {
+        assert_eq!(state_name(abi::survey::READY), "ready");
+        assert_eq!(state_name(abi::survey::RUNNING), "running");
+        assert_eq!(state_name(abi::survey::BLOCKED), "blocked");
+        assert_eq!(state_name(abi::survey::DEAD), "dead");
+        assert_eq!(state_name(u64::MAX), "?");
+    }
+
+    /// Each refusal a person can meet is explained in its own words. The two this pins were the
+    /// ones whose arms could be deleted into the generic "could not be read" line unnoticed.
+    #[test]
+    fn each_refusal_is_explained_in_its_own_words() {
+        let say = |e: abi::Error| refusal(e as i64);
+        assert!(say(abi::Error::NoSuchSlot).contains("holds no process-domain capability"));
+        assert!(say(abi::Error::WrongObject).contains("not a supervision endpoint"));
+        assert!(say(abi::Error::NotPermitted).contains("no READ"));
+        assert!(say(abi::Error::Gone).contains("destroyed"));
+        assert!(refusal(0).contains("could not be read"));
+    }
+
+    /// The two right-aligned columns pad by the width of the digits written: a tid in twelve
+    /// columns and a CPU figure in eight. A one-digit value cannot tell the digit count from its
+    /// quotient or sum with the buffer offset, so these use several widths.
+    #[test]
+    fn the_columns_pad_to_their_widths() {
+        let tid = |t| shown(|o| write_thread_id(t, o));
+        assert_eq!(tid(7), "           7");
+        assert_eq!(tid(1234), "        1234");
+        assert_eq!(tid(123_456_789_012), "123456789012");
+        assert_eq!(tid(1_234_567_890_123), "1234567890123");
+        let ms = |m| shown(|o| write_millis(Some(m), o));
+        assert_eq!(ms(0), "       0");
+        assert_eq!(ms(12_345), "   12345");
+        assert_eq!(ms(12_345_678), "12345678");
+        assert_eq!(ms(123_456_789), "123456789");
+        assert_eq!(shown(|o| write_millis(None, o)), "       -");
+    }
+
     /// A CPU-time reader over a canned domain: `entries` in slot order, then done.
     fn times(entries: &'static [(u64, u64)]) -> impl FnMut(u64) -> (i64, u64, u64) {
         move |cursor: u64| match entries.get(cursor as usize) {
