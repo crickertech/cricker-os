@@ -1,6 +1,6 @@
 Falsifies `system_tests::user::tests::a_user_program_cannot_read_a_kernel_address`.
 
-Architecture: aarch64
+Architecture: aarch64, x86_64
 
 The defect is the kernel mapping its own constants EL0-readable: one flag, in the one place
 the kernel image's sections are mapped at their linked addresses. `Flags::user_rodata()` is
@@ -29,12 +29,23 @@ address to be the sentinel's. Both are about a fault that no longer happens, so 
 most interesting sentence, the one about permission-versus-translation, is not the one that
 catches a kernel mapped user-readable; the fault counter is.
 
-**This is aarch64 only, and the reason is the ISA rather than the effort.** `Flags` is
-format-neutral and `crates/paging`'s RISC-V encoder turns `CAP_USER` into the Sv39 `U` bit,
-which forbids S-mode access unless `sstatus.SUM` is set. So the same defect on riscv64 does
-not produce a kernel that lets userspace read it; it produces a kernel that cannot read
-itself, and dies before any test runs. The claim in notes/confinement-claims.md row 21 is
-stated "on every ISA" and this evidence is not. See that row.
+**This record is red on aarch64 and on x86_64, and cannot be on riscv64.** The aarch64 hunk
+is the one above. The x86_64 hunk is the same one-flag defect at the same call site in
+`arch/x86_64/mmu.rs`, which maps `.rodata` with `Flags::kernel_rodata()`; `user_rodata()` there
+writes the `U/S` bit, and the kernel goes on reading its own constants because this kernel never
+sets `CR4.SMAP`. Only `CR4.SMEP` is set, which stops a fetch from a user page and has no bearing
+on a read, so nothing upstream of the page-table bit catches it. Replayed on 2026-10-03 (UTC) with
+`cargo xtask test --arch x86_64 --test a_user_program_cannot_read_a_kernel_address`: red at
+`system_tests/src/user/tests.rs:257` on the same assertion as aarch64, "the user program read a
+kernel address and was NOT stopped".
+
+The riscv64 leg is the reason the other two share a record rather than the claim being uniform.
+`crates/paging`'s RISC-V encoder turns `CAP_USER` into the Sv39 `U` bit, which forbids S-mode
+access unless `sstatus.SUM` is set. So the same defect there does not produce a kernel that lets
+userspace read it; it produces a kernel that cannot read itself, and dies before any test runs.
+riscv64's evidence for row 21 is the software walk in
+`riscv_virtio_tests::the_page_tables_say_u_mode_cannot_read_the_kernels_memory`. See
+notes/confinement-claims.md row 21.
 
 diff --git a/kernel/src/arch/aarch64/mmu.rs b/kernel/src/arch/aarch64/mmu.rs
 index 746341dd..87854474 100644
@@ -49,3 +60,16 @@ index 746341dd..87854474 100644
      map_range(m, data_start(), bss_end(), Flags::kernel_data())?;
  
      // 3. THE GUARD PAGE IS NOT MAPPED. That is its entire job.
+diff --git a/kernel/src/arch/x86_64/mmu.rs b/kernel/src/arch/x86_64/mmu.rs
+index eb6a10193..f274c82be 100644
+--- a/kernel/src/arch/x86_64/mmu.rs
++++ b/kernel/src/arch/x86_64/mmu.rs
+@@ -1348,7 +1348,7 @@ where
+         ".rodata",
+         rodata_start(),
+         rodata_end(),
+-        Flags::kernel_rodata(),
++        Flags::user_rodata(),
+     )?;
+     va(".data/.bss", data_start(), bss_end(), Flags::kernel_data())?;
+ 
