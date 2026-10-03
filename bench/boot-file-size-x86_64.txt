@@ -1,5 +1,5 @@
 # bench/boot-file-size-x86_64.txt: the release BOOTX64.EFI against its size budget.
-# Read by script/boot-file-size; see its header for the rule. The default budget is 16 MiB, a
+# Read by script/boot-file-size-check; see its header for the rule. The default budget is 16 MiB, a
 # quarter of the 64 MiB install boot slot (BOOT_FILE_MAX in uefi_loader/src/main.rs), and the file
 # warns at 12 MiB. calef ruled the 64 MiB slot on 2026-10-03 UTC, "with both fixes".
 #
