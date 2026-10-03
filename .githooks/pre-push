@@ -49,6 +49,16 @@ fi
 #
 # A `script/lint` reached through an old branch runs whatever that branch's lint is, which is the
 # point: the push is judged by the tree being pushed.
+#
+# **git exports GIT_DIR to a hook, and lint must not inherit it** (found by this lane, 2026-10-03).
+# Inside a hook GIT_DIR names this worktree's git directory, so any check that `cd`s into a
+# throwaway repository and runs git there acts on the real one instead.
+# helpers/scope-merge-base-selftest.sh did exactly that on this hook's first full run: its `git init`
+# set `core.bare = true` and its `git config` set a fake user.name and user.email in the shared
+# `.git/config`, under every worktree on the machine, before `git checkout -b main` failed. Both were
+# put back by hand. The checks find the repository from their own working directory, which is what
+# a person running `script/lint` gets, so clearing the hook's git environment is the whole fix.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_CONFIG_PARAMETERS
 out="$(mktemp "${TMPDIR:-/tmp}/nife-pre-push.XXXXXX")"
 if ! "$root/script/lint" >"$out" 2>&1; then
     echo "pre-push: script/lint failed, and CI's clippy job (which runs all of it) will fail the same way." >&2
