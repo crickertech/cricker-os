@@ -1,7 +1,7 @@
 ---
-status: IN-PROGRESS
+status: BUILT
 raised: 2026-09-30
-branch: milestone/624-paint-path
+built: 2026-10-03
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
@@ -32,13 +32,36 @@ The third fix changed what the console's ack means: the wire has the bytes at on
 within one window. That change is recorded in `components/src/console.rs`'s module doc rather than
 slipped in.
 
-The proof owed, and not yet paid: the x86_64 leg's line-time distribution before and after
-(`NIFE_SHOW_LINE_TIMES` exists for exactly this), `SWISH_CHECK_X86_LINE_SECS` shrunk or deleted with
-those numbers, and the parity cost on aarch64 and riscv64 stated. The paint path is shared; the
-other legs' boots also carry the batching. The lane cannot run QEMU; the maintainer gates the legs.
+Measured on patagonia, 2026-10-03 UTC, same day and same machine for both trees:
+
+| leg | `main` (4db8c13bf) | this milestone (4124d6390) |
+|---|---|---|
+| x86_64 | 119 lines, 753.5 s, 6.3 s/line, slowest 27.5 s | 128 lines, 665.6 s, 5.2 s/line, slowest 22.9 s |
+| aarch64 | 122 lines, 20.9 s, 0.17 s/line | 131 lines, 23.6 s, 0.18 s/line |
+| riscv64 | 122 lines, 19.7 s, 0.16 s/line | 131 lines, 25.2 s, 0.19 s/line |
+
+So the x86_64 leg is about 18 percent cheaper per line, not the order of magnitude the attribution
+hoped for, and the other two legs pay up to 0.03 s per line. Another session's x86_64 leg shared
+the machine during both x86 runs. Both `main` runs failed on a content line (`wc < args.txt`) of a
+fresh checkout after their timed lines, so their totals stand but their line counts are short.
+
+The console batcher ships **off** (`SCREEN_BATCHING_ENABLED`, the console's module doc), so fix 3 is
+built and not yet earning. Turning it off exposed a fault: with every write painting, small
+mid-row flushes became common, and `copy_wide` counted `x` twice, reading past the surface. That
+is fixed and its host test now covers every rectangle. `SWISH_CHECK_X86_LINE_SECS` stays at 90 s;
+its doc carries these numbers and the reason. The remaining x86_64 gap is the follow-on below.
 
 ## Index row
 
-IN-PROGRESS on `milestone/paint-path` (PR #1471). Three fixes take the x86_64 swish leg's paint cost
+BUILT on `milestone/624-paint-path` (PR #1473). Three fixes take the x86_64 swish leg's paint cost
 apart at its three sources (whole-surface repaint per scroll, word-wide aperture stores, one
-blocking paint per write); the wall-clock proof is owed by the maintainer-gated legs.
+blocking paint per write). Measured: x86_64 6.3 to 5.2 s per line (18 percent), aarch64 and riscv64
+up to 0.03 s per line; the batcher ships off, and the remaining x86_64 gap belongs to the follow-on lane below.
+
+## Follow-on
+
+- **Recorded.** The rest of the x86_64 gap, at `SWISH_CHECK_X86_LINE_SECS` in
+  `xtask/src/swish_check.rs`: 5.2 s per line against 0.18 s on aarch64, so the paint path was not
+  most of it. A lane the integrator minted on 2026-10-03 takes it from this branch's head
+  (acceleration, the QEMU machine configuration, the batcher this block shipped off); at merge
+  this bullet becomes that milestone's.

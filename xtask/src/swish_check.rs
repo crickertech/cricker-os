@@ -1293,6 +1293,19 @@ const SWISH_CHECK_LINE_SECS: u64 = 30;
 /// milliseconds per scroll rather than seconds and is not measured on silicon
 /// (`framebuffer_driver`'s BUGS). Milestone 400's BUGS records the design half: the console
 /// blocks on the screen.
+///
+/// **After milestone 624 (the paint path), 2026-10-03 UTC, and why the bound stayed.** Same
+/// machine, same day, the script grown to 128 lines on the first boot:
+///
+/// | tree | lines | total | per line | slowest line |
+/// |---|---|---|---|---|
+/// | `main` at 4db8c13bf | 119 | 753.5 s | 6.3 s | `caps std_exerciser` 27.5 s |
+/// | milestone 624 at 4124d6390 | 128 | 665.6 s | 5.2 s | `caps /installed/std-grep needle docs` 22.9 s |
+///
+/// Median line 3.1 s, 90th percentile 10.9 s (624, 136 timed lines over both boots). Both runs
+/// shared patagonia with another session's `x86_64` leg, so read the ratio, not the seconds. The
+/// rule that set 90 s (2x the slowest local line at CI's worst 1.8x ratio) now gives 82 s, which
+/// is not worth the risk of a red leg, so the bound stays at 90 s until the remaining gap closes.
 const SWISH_CHECK_X86_LINE_SECS: u64 = 90;
 
 /// How many foreign characters [`find_marker`] will step over inside one marker before it gives up.
