@@ -33,8 +33,8 @@ it and a warm push on a busy machine sometimes does.
 ## The change
 
 The hook keeps `script/fmt --check` and the `--ready-branch` question, and drops `script/lint`. The
-full lint stays where it already runs: CI's `clippy` job on every push, which the drain reads before
-it arms anything. Rung 2 stays the authority, and the courtesy shrinks to what fits in a few
+full lint stays where it already runs: CI's `clippy` job on every push, which a lane reads before
+it arms. Rung 2 stays the authority, and the courtesy shrinks to what fits in a few
 seconds.
 
 ## The fork, answered

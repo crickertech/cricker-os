@@ -20,8 +20,7 @@ were cheaper: 13 hand merges and 2 `merge_conflict` ejections.
 1. **A block promotes only a proposal its branch held** (rung 2). `script/roadmap --check` fails
    when a numbered block that this branch adds says `promoted_from: <slug>` and the branch's history
    never held that proposal (one `git log --diff-filter=DR` over the proposals directory, 0.08 s).
-   The message tells the lane to wait for the proposal to merge, or to add `Blocked-by: #N`, which
-   the drain already honours. This is the README's own rule ("an integrator ... `git mv`s it up a
+   The message tells the lane to wait for the proposal to merge before it arms. This is the README's own rule ("an integrator ... `git mv`s it up a
    directory"), enforced. It would have caught milestones 720 to 724 at their first push, ahead of
    31 failed groups (632 group minutes) and the 96 minutes from 19:18 with one merge in them.
 2. **The Kani harness count leaves the prose** (rung 1). `notes/unsafe-obligations.md` and
@@ -38,9 +37,9 @@ were cheaper: 13 hand merges and 2 `merge_conflict` ejections.
    (`merge=union`) for append-only files: on the day's three append conflicts it gets one right
    (#1547's risk-7 entries) and one silently wrong (#1529, where it would bring back two resolved
    BUGS bullets). *One file per dated entry*: one conflict a day does not pay for restructuring every
-   risk page. *A conflict check in the drain before queueing*: the drain already refuses `DIRTY`, and
-   only 2 of 122 entries reached the queue conflicting. What it cannot see is the order of the queue,
-   and that is the queue's own job.
+   risk page. *A conflict check before queueing*: only 2 of 122 entries reached the queue conflicting,
+   and the detector in `a-queue-eviction-goes-to-a-maintainer-session.md` covers `DIRTY`. The order
+   of the queue is the queue's own job.
 2. **In the tree.** Milestone 125 (a number in the prose is a claim) gates counts. The pace rule in
    CLAUDE.md says a number should change at the pace of a decision, and this one changes with every
    merge.

@@ -1,180 +1,191 @@
-# A correction of error: the queue's helpers judged one pull request at a time
+# A correction of error: the queue's automation fought itself, and calef watched the queue
 
 *Recorded 2026-10-03 (UTC) by a design lane, commissioned by calef the same day ("Write up the COE
-proposal"). Title provisional. Every figure was measured from GitHub or on patagonia by this lane;
-the commands are at the end. Anything recalled rather than read is marked.*
+proposal") and revised after his review on #1564. Title provisional. Every figure was measured from
+GitHub or on patagonia by this lane; the commands are at the end. Anything recalled is marked.*
 
-This is a new record, not an extension. The [2026-09-30 correction](2026-09-30-lane-follow-through.md)
-is about follow-through living in memory, and #1461 extended it with the ejection that cancels
-auto-merge. Failure 1 below is a defect in the re-arm that extension asked for, but failures 2 and 3
-have nothing to do with memory. The [merge-rate correction](2026-10-03-the-merge-rate.md) blames its
-ejections on a CI job that had doubled. That job is fixed, and the queue still threw away 47 group
-builds today. The cause is different, so the record is separate.
+## The success criterion
+
+calef, 2026-10-03: *"I don't want the job of watching the queue."* That day he did it. He spotted
+each conflicting or failing pull request, removed it from the queue, and told the maintainer
+session. Every decision below is judged against one test: once it lands, does any of that work
+come back to him? Removing automation is right only when nothing it did lands on calef.
+
+His framing comes first too. The queue has a mix of automation and manual steps, the automation
+fights itself and those steps, and perhaps it should be stripped back and rebuilt on purpose. So
+the first decision is keep or remove, piece by piece. Fixes come after, and only for what is kept.
+
+This is a new record, not an extension. The
+[2026-09-30 correction](2026-09-30-lane-follow-through.md) is about follow-through living in memory,
+and the [merge-rate correction](2026-10-03-the-merge-rate.md) blames ejections on a CI job that had
+doubled. That job is fixed, and 47 group builds still failed.
+
+## What the record can say about who acted
+
+Every manual step in this data is credited to the `calef` account. That means calef, or a session
+using his token, and GitHub records no difference. calef believes he is the only human here. From
+his account of the day: calef acted in the UI on #1530 once, #1534, #1547 and #1557. The maintainer
+session called `dequeuePullRequest` with his token on #1530 twice and on #1555. This record does not
+guess about any other step. So the data cannot say whether a "manual" step was human, and milestone
+642 (the record should say whether a person or the machinery took a step) is the action item that
+removes the limit. It is NOT-STARTED.
+
+The drain is separable. Since milestone 128 (the automation gets its own identity, and the agents
+get their own voice) it acts as `nife-smelter[bot]`, from 2026-09-24 01:21. Before that it used
+calef's token, so its earlier steps are mixed into his.
 
 ## What happened
 
-Three failures on 2026-10-03, each in a mechanism that reads one pull request alone.
+1. **The drain re-queued pull requests the calef account had just taken out.** That was 6 times
+   with no commit in between (#1525, #1530 twice, #1535, #1537, #1538), and 7 counting a second
+   #1537 re-add with a commit of uncertain push time. Each came 2 to 123 seconds after the dequeue.
+   All of them were on 2026-10-03, out of 60 calef-account dequeues since 09-24. #1537 was converted
+   to a draft at 19:38, the only way left to stop the drain.
+2. **The pre-push hook outlasted the agents' tool calls.** A warm `script/lint` took 70.3, 110.7 and
+   119.4 s, and a cold one took 201.9 s. The agent harness's Bash tool gives up at 120 s by default
+   (read from its tool description). On #1556 the claim push sat in the hook for the whole lane,
+   #1560's first push timed out, and #1559's hung.
+3. **Pull requests that passed alone failed together.** The queue ran 142 CI group builds and 47
+   failed. 33 failed on lint checks that judge the merged tree, which every branch had passed on its
+   own. 13 merges of `main` into pull request branches conflicted, across 9 pull requests.
 
-1. **The drain re-queued pull requests a person had just taken out.** `nife-smelter[bot]` put a pull
-   request back in the queue, or re-armed it, 7 times on 5 pull requests (#1525, #1530 twice, #1535,
-   #1537 twice, #1538). Each time, the person had dequeued it by hand and had not pushed since. The
-   drain was back between 2 seconds and 2 minutes later. On #1530 the maintainer dequeued it four
-   times between 20:47 and 21:05. On #1537 they gave up and converted it to a draft at 19:38.
-2. **The pre-push hook outlasted the agents' tool calls.** On a warm target directory, the hook's
-   `script/lint` took 70.3, 110.7 and 119.4 s on patagonia, with load averages from 11.6 to 19.3.
-   On a cold one it took 201.9 s. The agent harness's Bash tool gives up after 120 s by default (read
-   from this session's tool description). On #1556 the claim push sat in the hook for the whole lane,
-   #1560's first push timed out, #1559's hung, and several lanes pushed with `--no-verify` after a
-   clean lint on the same tree.
-3. **Pull requests that passed on their own failed together.** The queue ran 142 CI group builds
-   today and 47 failed. 39 of those failures were in lint, and every one of the 39 was a fact about
-   the merged tree that no single branch got wrong. Separately, 13 merges of `main` into pull
-   request branches hit textual conflicts, across 9 pull requests.
+## Each eviction today: who noticed, how long it sat, and who would after
 
-Two things happened that this record does not blame on any of the three. #1557 was ejected because
-its `ready status` group job got an HTTP 503 from GitHub at 21:53:20; it was re-queued at 21:57 and
-merged. And #1555 was given a queue entry by the drain at 22:23:57, the same second it merged, and
-that entry sat there until a person removed it at 22:38:59.
+Here "acted" means the first commit or calef-account step after the eviction.
 
-## Timeline
+| kind | count | acted after | today | once the action items land |
+|---|---|---|---|---|
+| conflict ejected (`merge_conflict`) | 2 (#1494, #1517) | 35, 22 min | the calef account | the detector labels it; a maintainer session hands it to the lane |
+| conflict found before the queue (`DIRTY`) | 6 PRs | dequeued in 0 to 11 min | calef or his token | the same detector |
+| failed group check | 14 | median about 25 min; #1520 and #1521 sat 5 h | the calef account, and the drain re-armed #1542 | the detector; 31 of the day's 47 failed groups would not happen (action item 3) |
+| external HTTP 503 in `ready status` | 1 (#1557) | 3 min; re-queued 47 s later | calef, in the UI | the detector; the group leg stops calling the API |
+| stale entry for a merged PR | 1 (#1555) | 15 min | a session with calef's token | none needed, because the drain's racing enqueue goes |
+| head moved while queued, or already merged | 5 | none needed | nobody | nobody |
 
-| when (UTC) | what | source |
+The gap is the detector. Today nothing but calef noticed an eviction in time. The drain's stall
+comments came out, and nobody acted on them (below). The one piece of automation worth rebuilding
+is detection that hands the pull request to a maintainer session and does not re-queue it. With no
+session running, the hand-off waits until one starts. That is slower, and it is not calef's job.
+
+## Keep or remove, piece by piece
+
+| piece | evidence | verdict |
 |---|---|---|
-| 01:11 to 01:28 | five groups fail on an IN-PROGRESS block for milestone 624 (the x86_64 paint path stops repainting the world), a class milestone 630 now catches | CI |
-| 10:30 to 10:33 | #1520 and #1521 fail as a group on the prose ratchet. #1520's own CI was green at the same head | CI |
-| 17:10:13 | #1525 dequeued by hand; the drain re-arms it at 17:10:49 | timeline |
-| from 18:35 | milestones 721 to 724 armed. Each block, like 720's, says `promoted_from` a proposal that exists only on #1513's unmerged branch | git, timeline |
-| 18:53:49 | the first group failure: #1530's proposal "is still here" | CI |
-| 19:14:26 | #1513 merges, and its four proposals land on `main` beside the four blocks that promoted them | timeline |
-| 19:18:14 | #1526 merges. Nothing else merges until #1532 at 20:17:14, and after that nothing until 20:54:38 | timeline |
-| 19:28 to 20:01 | the maintainer dequeues #1535, #1537 and #1538 eight times; the drain re-adds four of them, and each re-add starts a group that fails | timeline, CI |
-| 19:46 | four commits titled "remove the promoted proposal now that #1513 has merged" | git |
-| 20:17:19 | the last of 31 group failures on the promotion check | CI |
-| 20:47 to 21:05 | #1530 dequeued four times, re-added twice by the drain, while its `ci.yml` conflicts with #1543's rename | timeline, git |
-| 21:24 to 21:26 | #1534 resolves the Kani harness count by hand: "213 + 1 (main) + 2 (this lane) = 216" | git |
-| 22:18 to 22:37 | #1547 dequeued twice and merges `main` three times, conflicting each time | timeline, git |
-| 22:38 | #1548 and #1552 conflict on `main` | git |
+| drain: first arming | Of first arms since 09-24, the bot made 51 of 372. It made 4 of 127 on 09-24 and 09-25, 37 of 112 from 09-26 to 09-28 12:40, 6 of 42 on z.ai to 10-02, and 4 of 91 on 10-03. 47 of the 51 came more than N = 5 min after ready | remove; the lane arms in the same command as `gh pr ready` |
+| drain: re-arm and re-queue | 30 re-arms after an ejection since 09-24, of which 5 merged at that head. 6 to 7 re-adds over calef-account dequeues. #1555's stale entry | remove |
+| drain: stall comments | 478 since 08-26. Hour after a bot comment: 55% saw an action; hour before: 50%. The 308 posted with calef's token before 09-24 notified nobody, since GitHub does not notify an account of its own comments (recalled) | remove |
+| architect-label bots and `architect hold` | 48 labels. 11 re-labels after a calef-account removal, the last at 09-27 20:30, and none since `architect-ruled` | keep |
+| `ready status` check | 5 failures in 259 pull request runs. 1 failure in 131 group runs, which was #1557's 503 | keep, with no API call in the group leg |
+| pre-push hook | caught none of the 39 lint failures in groups | keep `script/fmt --check` and the ready-branch question |
+
+**Why N is 5 minutes.** Of 321 calef-account first arms since 09-24, 224 came within 1 minute of
+ready, which is the same command as `gh pr ready`. Only 11 more came by 5 minutes. Five minutes is
+also the drain's cron interval.
+
+**Newer models.** 10-03's lanes left the drain 4 of 91 arms, against 37 of 112 from 09-26 to 09-28.
+That fits calef's guess, but 09-26 is also when lanes stopped watching CI and began ending with
+`WAITING` (this is in CLAUDE.md, and the date is recalled from the maintainer's memory index). So
+model and brief cannot be told apart, and before 09-24 they cannot be told from the drain.
 
 ## Impact
 
-| kind | failed groups | group minutes | ejections | hand interventions |
+| kind | failed groups | group minutes | ejections | calef-account interventions |
 |---|---|---|---|---|
-| failure 1: drain re-adds after a dequeue | 4 | about 96 | counted under failure 3 | 7 re-dequeues, 1 draft |
-| failure 2: the hook | 0 | 0 | 0 | at least 3 stuck pushes, `--no-verify` habit |
-| failure 3, union facts: promotion, prose budget, counts | 33 | 652 | 7 | 8 dequeues, 4 fix commits, 3 count merges |
-| failure 3, appends at one spot | 0 | 0 | 0 | 3 conflicted merges, 2 dequeues |
-| failure 3, ratchet churn (bold, glosses) | 0 | 0 | 0 | 2 hunks inside other kinds' merges |
-| failure 3, real overlap | 0 | 0 | 2 `merge_conflict`, one traced | 6 conflicted merges, 4 dequeues of #1530 |
+| drain re-adds over a dequeue | 4, also counted below | about 96 | | 7 re-dequeues, 1 draft |
+| hook | 0 | 0 | 0 | at least 3 stuck pushes |
+| union facts: promotion, prose budget, counts | 33 | 652 | 7 | 8 dequeues, 4 fix commits, 3 count merges |
+| appends at one spot | 0 | 0 | 0 | 3 conflicted merges, 2 dequeues |
+| ratchet churn (bold, glosses) | 0 | 0 | 0 | rode along with other conflicts |
+| real overlap | 0 | 0 | 2 | 6 conflicted merges, 4 dequeues of #1530 |
 
-A group minute is the wall time of one failed CI group run. The runs overlap, so this is not runner
-time. Failure 1's four groups are also among failure 3's 33. Over the whole day: 122 queue entries, 39 of them leaving without a merge (32%, over calef's
-20% line), and 96 minutes from 19:18 with a single merge in them.
+A group minute is the wall time of one failed CI group run, and the runs overlap. Over the day
+there were 122 queue entries, and 39 left without a merge (32%). In the 96 minutes from 19:18, one
+pull request merged.
 
 ## Five whys
 
-1. Why did the queue lose most of an evening? Three mechanisms each did what they were built to do
-   for one pull request, and the cost was between pull requests.
+1. Why did calef end up watching the queue? Its automation acted on one pull request at a time and
+   reported where nobody looked. The costs were between pull requests, and between the bot and the
+   calef account.
 
 Branch 1, the drain:
 
-2. Why did the drain put #1530 back? It arms every eligible pull request on every pass
-   (`helpers/merge-drain.sh`, `pass()`). Eligible means open, not a draft, based on `main`, from
-   this repository, and without a hold label.
-3. Why didn't the dequeue count? `helpers/queue-ejected.jq` skips `manual` removals on purpose,
-   because reporting a deliberate act back to the person who did it is noise. The report was
-   skipped. The arming went ahead anyway.
-4. Why not check `autoMergeRequest`? That is not a premise that holds. The field is null for a pull
-   request sitting in the queue, for one that was just ejected, and for one that was never armed.
-   Arming those is the drain's job. Today the drain enabled auto-merge 10 times and added to the
-   queue 22 times.
-5. Why could a person not hold it? The only levers are `needs-architect` and `held-for-red-trunk`,
-   and both mean something else, or a draft, which re-runs CI. The drain runs every five minutes
-   and after every CI run finishes, so a person will not get there first.
+2. Why did it put #1530 back? It arms every eligible pull request on every pass. Eligible means
+   open, not a draft, on `main`, and with no hold label.
+3. Why didn't the dequeue count? `helpers/queue-ejected.jq` skips `manual` removals, so the report
+   was skipped. Arming went ahead anyway.
+4. Why not check `autoMergeRequest`? It is null for a queued pull request, an ejected one, and one
+   never armed, so it cannot tell a deliberate dequeue apart.
+5. Why does it arm at all? On 2026-08-04 lanes left green pull requests unarmed. On 10-03 they armed
+   87 of 91 themselves.
 
 Branch 2, the hook:
 
-2. Why did pushes hang? The hook runs all of `script/lint`, at 70 to 120 s warm and 202 s cold.
-3. Why so slow? No one check is: of 84, the largest is spelling at 3.7 s. It is the count. 33 cargo
-   invocations take 37.0 s, and 51 other checks take 33.3 s.
-4. Why run all of it? Milestone 630 (a merge-queue ejection is caught before the queue, and
-   recovered after it) widened the hook on the same day, after measuring 56.5 s with
-   two lanes beside it. The tree had since grown, and the machine had more lanes on it.
-5. Why didn't it pay for itself? It lints the branch alone. All 39 lint failures in the queue today
-   were in the union, so the hook could not have caught any of them. On pull requests, lint failed
-   in 2 of 312 CI runs. The clippy job takes 2 to 5.5 minutes there, and the drain will not arm a
-   red pull request.
+2. Why did pushes hang? Full lint takes 70 to 120 s warm and 202 s cold.
+3. Why? It is 84 checks, and the largest takes 3.7 s.
+4. Why all of them? Milestone 630 (a merge-queue ejection is caught before the queue, and recovered
+   after it) widened the hook that morning.
+5. Why didn't it help? It lints the branch alone, and every lint failure in the queue was in the
+   union.
 
 Branch 3, the union:
 
-2. Why did groups fail when every branch passed? Three lint checks judge the merged tree: the rule
-   that promoting a proposal deletes it, the prose ratchet's per-file word baseline, and the
-   counted-claims marker on the Kani harness count.
-3. Why did promotion break 31 groups? Five lanes (milestones 720 to 724) wrote blocks `promoted_from` proposals that were
-   on #1513's branch but not on theirs. Neither branch could have deleted the file. The union
-   could, and the union failed.
-4. Why was that possible? `design/roadmap/proposals/README.md` says promotion is a `git mv`, and
-   `script/roadmap` checks only that the proposal is gone, not that this branch ever had it.
-5. Why are counts typed by hand? Milestone 125 (a number in the prose is a claim) gates them, and
-   nothing generates them. `notes/verification.md` has listed the collision in its BUGS since
-   2026-10-02, and 31 commits since 09-01 fix a count.
+2. Why did groups fail when every branch passed? Lint checks the merged tree for three things:
+   promotion deletes its proposal, the prose ratchet's word baseline, and the Kani harness count.
+3. Why did promotion break 31 groups? Milestones 720 to 724 were promoted from proposals that
+   existed only on #1513's unmerged branch.
+4. Why was that possible? `script/roadmap` checks that the proposal is gone, not that the branch
+   ever had it.
+5. Why are counts typed by hand? Milestone 125 (a number in the prose is a claim, and nothing
+   re-derives it) gates them and nothing generates them. That has caused 31 fix commits since 09-01.
 
 ## Root cause
 
-Every mechanism here reads one pull request against `main` as it was. The drain reads a pull
-request's state and not the person's act on it. The hook reads the branch and not the union. A
-branch is asked to commit facts that only the merged tree can make true. The queue is the only
-thing in the pipeline that reads the union, and today it ended up doing most of the checking.
-
-The kinds of conflict, measured:
-
-- Facts about the merged tree (counts, promotions, word budgets) cost 33 of the 47 failed
-  groups. This is the cause.
-- Appends at one spot (#1547's risk-7 entry against #1558, #1529's BUGS bullet against #1533,
-  #1547's bullets against #1544): three hand merges.
-- Ratchet churn (the bold `**yes**` in #1534; a §19 (architectural parity is a tenet) gloss moved between rows in #1547): it rode
-  along with other conflicts and caused none on its own.
-- Real overlap (#1530 against #1543, #1552 against #1530, #1548 against #1541, #1534 against
-  #1526, #1377, #1517): six hand merges. These are what conflicts are for.
+Queue automation was built to act, not to hand off. It re-armed, re-queued and commented, and each
+was a guess on calef's behalf about one pull request. None of them told a maintainer session that
+something needed its attention, so calef became the detector. Two smaller causes widened the gap.
+The hook checks the branch where the queue checks the union, and branches commit facts that only
+the union can make true.
 
 ## Action items
 
-Highest rung first. The three proposals hold the options and the measured cost of each.
+Highest rung first.
 
-- **Proposed.** `design/roadmap/proposals/a-branch-commits-no-fact-about-the-merged-tree.md` (rung
-  2, plus one rung-1 deletion). `script/roadmap` fails a pull request whose block is `promoted_from`
-  a proposal its branch never held, and the hand-typed Kani harness count leaves the prose. That
-  covers 31 of today's 47 failed groups and 3 of its 13 conflicted merges.
-- **Proposed.** `design/roadmap/proposals/the-drain-honours-a-dequeue-by-hand.md` (rung 2). A
-  person's dequeue at an unchanged head holds the pull request until it gets a new head or the
-  person re-queues it. That covers today's 7 re-adds and 4 of the failed groups.
+- **Proposed.** `design/roadmap/proposals/a-queue-eviction-goes-to-a-maintainer-session.md` (rung
+  2). Remove the drain's arming, re-queueing and stall comments. Keep the architect-label bots and
+  `ready status`, without an API call in its group leg. Build one detector that labels an evicted,
+  `DIRTY` or ready-but-unarmed pull request for a maintainer session.
 - **Proposed.** `design/roadmap/proposals/the-pre-push-hook-runs-what-fits-in-seconds.md` (rung 2,
-  narrowed). The hook runs `script/fmt --check` and `--ready-branch`, and full lint is left to CI.
-  That takes 70 to 202 s off every push, and today it would have let through no lint failure that
-  reached the queue.
+  narrowed). The hook keeps `script/fmt --check` and the ready-branch question.
+- **Proposed.** `design/roadmap/proposals/a-branch-commits-no-fact-about-the-merged-tree.md` (rung
+  2, plus a rung-1 deletion). It covers 31 of the 47 failed groups.
+- **Milestone 642.** Milestone 642 (the record should say whether a person or the machinery took
+  a step). The data cannot say whether a calef-account step was calef or a session, so it
+  cannot say whether "manual" means human.
+
+`design/roadmap/proposals/the-drain-honours-a-dequeue-by-hand.md` was deleted in this revision.
+Its premise was a drain that re-arms, and the first action item removes that.
 
 ## How the numbers were made
 
 ```
-# timelines: queue, auto-merge, head events, with actors (helpers/merge_queue_share.py's paging)
-gh api graphql -f query='...pullRequests(first:40,orderBy:{field:UPDATED_AT,direction:DESC})
-  {nodes{number timelineItems(last:100,itemTypes:[ADDED_TO_MERGE_QUEUE_EVENT,
-  REMOVED_FROM_MERGE_QUEUE_EVENT,AUTO_MERGE_ENABLED_EVENT,AUTO_MERGE_DISABLED_EVENT,
-  HEAD_REF_FORCE_PUSHED_EVENT,PULL_REQUEST_COMMIT]){...actor{login} reason}}}'
-# group runs, and the failing check in each
+# every pull request since 2026-08-10 with queue, auto-merge, ready, label, comment and head events
+gh api graphql -f query='...pullRequests(first:20,orderBy:{field:CREATED_AT,direction:DESC})
+  {nodes{number timelineItems(first:250,itemTypes:[ADDED_TO_MERGE_QUEUE_EVENT,
+  REMOVED_FROM_MERGE_QUEUE_EVENT,AUTO_MERGE_ENABLED_EVENT,READY_FOR_REVIEW_EVENT,ISSUE_COMMENT,
+  LABELED_EVENT,PULL_REQUEST_COMMIT,HEAD_REF_FORCE_PUSHED_EVENT]){...actor{login}}}}'
 gh api --paginate "repos/nifeos/nife/actions/runs?event=merge_group&created=2026-10-03"
 gh run view <id> --log-failed | grep -B4 'lint ends'
-# conflicts: every first-parent merge on a pull request's head that is not on main
 git show --remerge-diff <merge> | grep '^remerge CONFLICT'
-# the hook, per check
-script/lint 2>&1 | perl -MTime::HiRes=time -ne 'printf "%.2f %s", time-$s, $_'
 ```
+
+A stall comment is one carrying a `<!-- merge-drain:... -->` marker. An action is any commit, label,
+ready, draft, arm, queue, close or merge step that is not the bot's or the queue's.
 
 ## BUGS
 
-- A pull request that rebased instead of merging hides its conflicts from the remerge count, so
-  13 is a floor.
-- That a re-add caused a failed group is inferred from timing: the group started within 20 s of the
-  re-add, at the same head.
-- The hook's timings come from a loaded laptop, which is the machine lanes push from. An idle
-  machine would be faster, and this one is rarely idle.
-- #1494's `merge_conflict` ejection was not traced to the pull request that caused it.
+- Commits carry commit dates, not push dates, so "no commit in between" is approximate.
+- An action after a stall comment is not proof the comment caused it. The before-and-after rates
+  are the only test this data supports.
+- A rebased branch hides its conflicts, so 13 is a floor.
+- The hook's timings come from a loaded laptop, which is where lanes push from.
