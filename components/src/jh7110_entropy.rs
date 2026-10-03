@@ -118,7 +118,6 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use abi::rendezvous;
 use entropy_protocol as proto;
 use jh7110_entropy::{
     CTRL_EXEC_RANDRESEED, CTRL_GENE_RANDNUM, ISTAT_ALL, ISTAT_RAND_RDY, ISTAT_SEED_DONE, MODE_R256,
@@ -127,7 +126,7 @@ use jh7110_entropy::{
 use tock_registers::interfaces::{Readable, Writeable};
 use tock_registers::register_structs;
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
-use user_mode_runtime::{recv_cap, reply, send};
+use user_mode_runtime::{recv_request, reply, send};
 
 register_structs! {
     /// The JH7110 TRNG's register block, migrated onto `tock_registers` (milestone 139 round 5):
@@ -369,12 +368,13 @@ pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
 /// because the contract (`entropy_protocol`) is the thing that does not change between backends.
 fn serve(mut pool: Pool, refuse: bool) -> ! {
     loop {
-        let (w0, cap, _) = recv_cap(REQ);
-        if cap == rendezvous::NO_CAP {
-            // A plain SEND on a CALL-only contract: nothing to answer. See `entropy.rs`'s
-            // identical comment.
+        let req = recv_request(REQ);
+        let w0 = req.w0;
+        let Some(cap) = req.delivered.into_reply() else {
+            // A plain SEND or a SEND_CAP on a CALL-only contract: nothing to answer. See
+            // `entropy.rs`'s identical comment.
             continue;
-        }
+        };
         let (count, word) = match proto::op(w0) {
             // `refuse` is a device this driver condemned at bring-up (see `_start`). It is
             // answered exactly the way a dry device is, because `NO_ENTROPY` already means the one

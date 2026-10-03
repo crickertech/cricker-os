@@ -233,9 +233,11 @@ pub fn invoke(
                 // x1 carries the slot the received capability landed in, or NO_CAP if the message
                 // brought none; x2 the second data word (a CALL's, or 0); x3 the sender's badge
                 // (milestone 599), 0 when its capability was unbadged. x0 returns the first word.
-                // x4 is `abi::notification::BOUND` when the bound notification ended this receive
-                // and 0 otherwise (milestone 151 (notification objects)): the one register here no
-                // sender can write, so the one a bound server tests.
+                // x4 is `abi::notification::BOUND` when the bound notification ended this receive,
+                // `abi::rendezvous::REPLY_DELIVERED` when x1 is a CALL's Reply (§245 (a `CALL`
+                // server tells a Reply from a delegation)), and 0 otherwise (milestone 151
+                // (notification objects)): the one register here no sender can write, so the one a
+                // bound server, and every CALL server, tests.
                 frame.set_arg(1, msg[1]);
                 frame.set_arg(2, msg[2]);
                 frame.set_arg(3, msg[3]);

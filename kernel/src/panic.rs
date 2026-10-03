@@ -57,5 +57,5 @@ fn panic(info: &PanicInfo) -> ! {
     arch::semihosting::exit(arch::semihosting::EXIT_FAILURE);
 
     #[cfg(not(any(test, feature = "system_tests")))]
-    arch::halt()
+    arch::halt(arch::HaltReason::panicked(info))
 }

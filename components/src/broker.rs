@@ -114,7 +114,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
         // is advisory, and the supervisor never waits for it)). A signal only wakes us when idle; a
         // request that arrives first finds the page already written, and a signal we never see
         // costs latency and nothing else.
-        let got = user_mode_runtime::recv_cap_bound(FRONT);
+        let got = user_mode_runtime::recv_request_bound(FRONT);
         let wants_down = swap_protocol::broker_wants_down();
         if wants_down && up {
             up = false;
@@ -129,12 +129,16 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
             up = true;
             send(RPT, swap_protocol::RPT_DRAINED, drained, buffered);
         }
-        let user_mode_runtime::Received::Message(op, slot, arg) = got else {
+        let Ok(req) = got else {
             continue; // the signal itself carries nothing; the page is the message
         };
-        if slot == abi::rendezvous::NO_CAP {
-            continue; // the contract says CALL; with no reply capability there is nobody to answer
-        }
+        let (op, arg) = (req.w0, req.w1);
+        // The contract says CALL. Anything but the kernel's Reply has nobody to answer, and a
+        // delegation is deleted rather than kept (milestone 706 (a `CALL` server can tell a Reply
+        // from a delegation)).
+        let Some(slot) = req.delivered.into_reply() else {
+            continue;
+        };
         match op {
             swap_protocol::OP_PUT if up => {
                 // **Pass-through.** No copy, no queue, no scheduling policy: forward the two words

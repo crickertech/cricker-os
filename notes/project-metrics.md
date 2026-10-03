@@ -35,18 +35,7 @@ not a caption, it is a register entry.
 
 ## The nine things that would kill nife
 
-![Fatal risks](project-metrics/fatal-risks.svg)
-
-From `design/fatal-risks/README.md`, by "Experiment status": `RUN`, `NOT-RUN` or `CANNOT-RUN`, the field
-calef ratified on 2026-09-23. It says whether an experiment happened, never what it found. Every
-bar from 2026W36 is nine, the risks in that week's file:
-where the field did not exist yet, or held a word with no meaning today, the risk is drawn as
-"unclassified" rather than left out. 2026W35 and earlier are zero because the file reached `main`
-on 2026-08-31 UTC.
-
-## The nine, by colour
-
-![colours](project-metrics/fatal-risks-colors.svg)
+![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
 
 Grey is no verdict yet.
 
@@ -93,14 +82,16 @@ weeks exist behind it, which until 2026W47 is the left of the chart.
 
 ![Pull requests merged each week](project-metrics/pull-requests.svg)
 
-The second flow, counted from `main`'s merge subjects rather than the GitHub API so that it
-backfills to the first commit. 2026W29 and 2026W30 are genuine zeros: the practice starts in
+The second flow, counted from `main`'s merge subjects, not the API, so it
+backfills to the first commit. 2026W29 and 2026W30 are zeros: the practice starts in
 2026W31.
-The line is the same trailing mean as above.
+The line is the same trailing mean.
 
 ## Merge queue ejections
 
 ![Merge queue ejections](project-metrics/merge-queue.svg)
+
+Queue began 2026-08-15; W31 and W32 predate it.
 
 ## Which model wrote it
 
@@ -246,8 +237,10 @@ past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drif
 report](project-metrics/baseline-drift.md).
 
 <!-- baseline-drift: script/metrics writes this -->
-2026W40: aarch64 `spawn_reap` +24.79%, riscv64 `spawn_reap` +20.92%, x86_64 `spawn_reap` +8.09%; 14 rows past 5%.
+2026W40: aarch64 `spawn_reap` +26.41%, riscv64 `spawn_reap` +22.67%, x86_64 `spawn_reap` +10.54%; 25 rows past 5%.
 <!-- /baseline-drift -->
+
+- 2026W39: milestone 447 (a thread's vector registers are its own), #1015, 2026-09-21, added 1 to 3% to switch and IPC rows, taking rows past 5% from 2 to 7 (aarch64), 3 to 6 (riscv64), 1 to 2 (x86_64). Nightly bump #1112 added less.
 
 ## Interface stability
 
@@ -305,8 +298,7 @@ rest.
 - A line inside a multi-line string literal counts as a comment line. Wrong in principle,
   negligible in this tree.
 - The charts follow the reader's operating system colour preference, not GitHub's theme toggle.
-  GitHub serves an SVG in a markdown page as an `<img>`, so a media query inside it cannot see the
-  host page. A reader whose GitHub theme disagrees with their OS gets the wrong background.
+  GitHub serves the SVG as an `<img>`, so a media query inside it cannot see the page theme.
 - `patches/` is outside the `unsafe` census, inherited from `script/lint` along with its reason.
   That code does run on the machine, so it is a real hole rather than a boundary, and
   `notes/register-of-measures.md` records the blocks it leaves uncounted.
@@ -335,7 +327,7 @@ rest.
   it. `series_of` drops an all-zero series and the palette is indexed over what survives, so when
   2026W30 leaves the ten-week window the `before the convention` band disappears and every band
   below it in the by-model legend shifts one hue. The legend is redrawn with it, so nothing is
-  mislabelled; a reader comparing two screenshots taken a week apart will still see a colour move.
+  mislabelled, but a colour moves between screenshots.
   It is pre-existing behaviour of every chart here and it is recorded because the by-model panel is
   the first one certain to hit it.
 - The cost and context columns carry seven limitations of their own, from a capture that can
@@ -343,10 +335,9 @@ rest.
   argued: [what this project costs, *Known limitations*](register-of-measures/project-cost.md#known-limitations).
 - Four series were restated on 2026-09-24, and an older screenshot will disagree with each.
   Opus 5.5 got its own column (`opus_5_5`), so this week's commits left *other models*, and Opus 4.8
-  now draws inside that band because the palette has eight hues. The fatal-risks chart gained
+  now draws inside that band because the palette has eight hues. The fatal-risks chart (since removed in favour of the colours chart, which now stores the total itself) gained
   `fatal_risks_total` and an *unclassified* band, so 2026W36 to 2026W38 read nine rather than five,
   four and five. The coverage floor and the prose budget were backfilled from each week's own tree.
 - The prose budget will be restated again when milestone 586 (a prose ratchet in lint) lands,
   because it shares one document scope with `script/lint` and may count documents this one does not.
-- Nothing here is audited by anyone outside this project. Stated once at the top and again here,
-  because a dashboard is exactly the artifact that makes a reader stop asking.
+- Nothing here is audited outside this project, as stated at the top.

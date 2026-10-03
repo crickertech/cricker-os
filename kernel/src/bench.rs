@@ -120,7 +120,7 @@ pub fn run() -> ! {
     println!("bench: done");
     // Parked, not exited: the host side saw the marker and tears QEMU down. `wfi`, so a
     // forgotten bench QEMU costs nothing while it waits to be killed (CLAUDE.md's rule).
-    crate::arch::halt();
+    crate::arch::halt(crate::arch::HaltReason::measurement_boot());
 }
 
 /// **The context switch, round trip.** Two threads yielding to each other; each of our yields

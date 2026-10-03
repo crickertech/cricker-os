@@ -222,33 +222,25 @@ jobs:
       # silently every day.
       #
       # The fix is to act as an identity that is not the ephemeral `GITHUB_TOKEN`. Two such
-      # identities are tried, in this order, and the order is the whole of
-      # milestone 128 (the automation gets its own identity):
+      # identities are tried, in this order, per milestone 128 (the automation gets its own identity):
       #
       #   1. **An installation token from the `nifeos`-owned GitHub App**, minted fresh by the
       #      step below on every run. Nothing about it is stored, so nothing about it expires, and
       #      it belongs to the organization rather than to a person. This is the intended identity.
-      #   2. **`TOOLCHAIN_BUMP_PAT`**, a fine-grained personal access token on calef's account with
-      #      `contents: write` and `pull-requests: write` on this repo. It works, and it carries the
-      #      two flaws the App exists to fix: it expires on a personal timer that no one reading
-      #      this workflow can inspect, and it couples the project's automation to one account.
-      #   3. **`github.token`**, the ephemeral default, which opens the PR but triggers no CI. A
-      #      fork with neither secret lands here and still gets a pull request; the checks on it
-      #      have to be kicked by hand (close and reopen it).
+      #   2. **`github.token`**, the ephemeral default, which opens the PR but triggers no CI. A
+      #      fork without the App secrets lands here and still gets a pull request; the checks on
+      #      it have to be kicked by hand (close and reopen it). This fallback is deliberate.
       #
-      # Each rung falls through to the next when its secret is absent, so no rung can break the job
-      # by not existing. The "Say which identity" step below prints which one this run took, because
-      # all three are otherwise indistinguishable in the log.
+      # **`TOOLCHAIN_BUMP_PAT`, a personal access token on calef's account that used to sit between
+      # these two, was retired 2026-10-03 UTC, pending revocation by calef.** Nothing reads the
+      # secret any more.
       #
-      # **When the App exists, delete the PAT secret and revoke the PAT, in that order**, and then
-      # rung 2 can come out of this file. Do not do it before a run has been observed taking rung 1.
-      # **Milestone 128: mint the identity per run instead of storing one.** This step is a no-op
-      # until calef creates the organization-owned App and stores `AUTOMATION_APP_ID` and
-      # `AUTOMATION_APP_KEY` (notes/automation-identity.md has the exact procedure). With the
-      # secrets absent, the `if` skips the step, `steps.app-token.outputs.token` is the empty
-      # string, and every expression below falls through to the PAT exactly as it did before, so
-      # landing this change changes nothing about how this job runs today. That is deliberate: the
-      # App is calef's to create and this workflow must not wait on it.
+      # The "Say which identity" step below prints which rung this run took, because the two are
+      # otherwise indistinguishable in the log.
+      #
+      # **Milestone 128: mint the identity per run instead of storing one.** With the App
+      # secrets absent (a fork), the `if` skips the step, `steps.app-token.outputs.token` is the
+      # empty string, and every expression below falls through to `github.token`.
       #
       # **Dependency: `actions/create-github-app-token`. Approved by calef, 2026-09-23 UTC.**
       # §46 (thin primitives or whole subsystems) makes taking a dependency a decision rather than a
@@ -264,8 +256,7 @@ jobs:
       #     key and exchanging it, in shell, inside a workflow: more code, in the least testable
       #     place this project has, handling a signing key.
       #   - **The fallback chain survives its absence.** With the App secrets unset the step is
-      #     skipped entirely, so this action is load-bearing for neither the PAT path nor the
-      #     `github.token` path.
+      #     skipped entirely, so this action is not load-bearing for the `github.token` path.
       #
       # It is covered by the `github-actions` ecosystem in `.github/dependabot.yml`, so its version
       # is kept current the same way every other action here is.
@@ -277,45 +268,37 @@ jobs:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_APP_KEY }}
 
-      # **Which identity this run is using, printed before anything depends on it.** The three-way
-      # fallback below is otherwise unobservable: a run using the App, a run using the PAT and a run
-      # using the ephemeral token all look identical in the log, and a change that is inert today is
-      # indistinguishable from a change that is broken today. This step is what makes the difference
-      # visible, and it is the only thing here that would have caught the PAT going quiet.
+      # **Which identity this run is using, printed before anything depends on it.** The fallback
+      # below is otherwise unobservable: a run using the App and a run using the ephemeral token look
+      # identical in the log. This step is what makes the difference visible.
       #
       # It cannot itself fail the job. Reporting the wrong identity is bad; refusing to propose a
       # toolchain bump because an identity probe hit a transient API error is worse.
       - name: Say which identity this run is authenticating as
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          PAT: ${{ secrets.TOOLCHAIN_BUMP_PAT }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.TOOLCHAIN_BUMP_PAT || github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         run: |
           if [ -n "$APP_TOKEN" ]; then
             echo "identity: the nifeos automation App (installation token, minted this run)"
-          elif [ -n "$PAT" ]; then
-            echo "identity: TOOLCHAIN_BUMP_PAT (a personal access token on one person's account)"
-            echo "  This is the pre-milestone-128 path. It works, and it expires on a timer nobody"
-            echo "  here can read. See notes/automation-identity.md."
           else
             echo "identity: the ephemeral github.token"
             echo "  WARNING: pull requests opened by this identity do NOT trigger CI (GitHub's"
             echo "  anti-recursion rule). Any PR this run opens will need its checks kicked by hand."
           fi
-          # Proves the selected token is live, which is the PAT's silent-expiry symptom made loud.
+          # Proves the selected token is live.
           # An installation token has no user, so /user 404s for the App path; ask for something
           # both identities can answer instead.
           if login="$(gh api /repos/${{ github.repository }} --jq .full_name 2>&1)"; then
             echo "token check: OK, can read $login"
           else
-            echo "token check: FAILED. If the PAT path is selected above, it has probably expired" >&2
-            echo "or been revoked; that is milestone 128's first parking trigger. gh said: $login" >&2
+            echo "token check: FAILED. gh said: $login" >&2
           fi
           exit 0
 
       - uses: actions/checkout@v7
         with:
-          token: ${{ steps.app-token.outputs.token || secrets.TOOLCHAIN_BUMP_PAT || github.token }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Work out whether there is anything to do
         id: plan
@@ -411,10 +394,10 @@ jobs:
       - name: Open or update the pull request
         if: steps.install.outcome == 'success' && steps.plan.outputs.skip == 'false'
         env:
-          # Same identity, and the same three rungs, as the checkout above: the App's installation
-          # token when the App exists, else the PAT, else the default token. The first two make the
-          # PR events this step creates trigger CI; the third does not.
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.TOOLCHAIN_BUMP_PAT || github.token }}
+          # Same identity, and the same two rungs, as the checkout above: the App's installation
+          # token when the App exists, else the default token. The first makes the PR events this
+          # step creates trigger CI; the second does not.
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
           TARGET: ${{ steps.plan.outputs.target }}
           CURRENT: ${{ steps.plan.outputs.current }}
           BUILD: ${{ steps.build.outcome }}

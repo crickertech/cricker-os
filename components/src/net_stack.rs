@@ -48,8 +48,8 @@ use smoltcp::time::Instant;
 use smoltcp::wire::{EthernetAddress, HardwareAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address};
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now, recv_cap, reply, send,
-    timer_arm, timer_cancel,
+    Delivered, cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now, recv_request,
+    reply, send, timer_arm, timer_cancel,
 };
 
 #[path = "net_transport.rs"]
@@ -224,33 +224,43 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
     let mut frame_window: [Option<MappedWindow>; MAX_SOCKETS] = [None; MAX_SOCKETS];
     let mut ports = PortAllocator::new();
     loop {
-        let (w0, cap_slot, w1) = recv_cap(STACK);
+        let req = recv_request(STACK);
+        let (w0, w1) = (req.w0, req.w1);
         let op = req_op(w0);
         let sid = req_sid(w0) as usize;
-        if sid >= MAX_SOCKETS {
-            if cap_slot != abi::rendezvous::NO_CAP {
-                reply(cap_slot, REP_ERR, 0);
+
+        // **The one op that takes a delegation, and every other op takes a Reply** (milestone 706
+        // (a CALL server can tell a Reply from a delegation), DECISIONS §245 (a `CALL` server tells
+        // a Reply from a delegation)). `ATTACH` is a SEND_CAP whose capability is the socket's
+        // frame; anything else is a CALL, and a delegation sent with it is deleted here rather than
+        // answered into. Before 706 this loop guarded `NO_CAP` and nothing else, so a client that
+        // SEND_CAPped a rendezvous with any other op parked this server in SEND for the life of the
+        // machine.
+        let cap_slot = match req.delivered {
+            Delivered::Delegation(frame) if op == OP_ATTACH_PAGE_FRAME => {
+                if sid < MAX_SOCKETS {
+                    attach_page_frame(&mut frame_window, sid, frame);
+                } else {
+                    cap_delete(frame);
+                }
+                continue;
             }
+            other => other.into_reply(),
+        };
+        // Nobody to answer: a plain SEND, an ATTACH that carried no frame, or a delegation (now
+        // deleted) on an op that wants a CALL.
+        let Some(cap_slot) = cap_slot else {
+            continue;
+        };
+        if sid >= MAX_SOCKETS {
+            reply(cap_slot, REP_ERR, 0);
             continue;
         }
 
         match op {
             OP_ATTACH_PAGE_FRAME => {
-                // cap_slot holds the delegated frame. Map it writable at this socket's VA, paid for
-                // from net_stack's untyped; the mapping outlives the cap, so drop the cap after. ATTACH
-                // is a SEND_CAP, so there is no reply cap to answer on.
-                let va = socket_va(sid);
-                let ok = map_page_frame(cap_slot, va, true, MEMORY_REGION);
-                cap_delete(cap_slot);
-                if ok {
-                    // SAFETY: the MAP above just mapped one page read/write at `va`, and it stays
-                    // mapped for the rest of this socket id's life (no unmap syscall exists), so
-                    // this asserts that once here instead of at every access the way the four
-                    // `a_r8`/`a_r16`/`a_w16`/`a_w8` functions used to duplicate at each call site
-                    // (milestone 139 round 3; the exact naming variant
-                    // `user_mode_runtime::mapped_window`'s own doc comment already named).
-                    frame_window[sid] = Some(unsafe { MappedWindow::new(va, PAGE) });
-                }
+                // A CALL naming ATTACH: there is no frame to map, so it is refused.
+                reply(cap_slot, REP_ERR, 0);
             }
 
             OP_OPEN_UDP => {
@@ -378,11 +388,31 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
             }
 
             _ => {
-                if cap_slot != abi::rendezvous::NO_CAP {
-                    reply(cap_slot, REP_ERR, 0);
-                }
+                reply(cap_slot, REP_ERR, 0);
             }
         }
+    }
+}
+
+/// `OP_ATTACH_PAGE_FRAME`: `frame` holds the delegated frame. Map it writable at socket `sid`'s VA,
+/// paid for from `net_stack`'s untyped; the mapping outlives the capability, so the capability is
+/// dropped after. `ATTACH` is a `SEND_CAP`, so there is no Reply to answer on.
+fn attach_page_frame(
+    frame_window: &mut [Option<MappedWindow>; MAX_SOCKETS],
+    sid: usize,
+    frame: u64,
+) {
+    let va = socket_va(sid);
+    let ok = map_page_frame(frame, va, true, MEMORY_REGION);
+    cap_delete(frame);
+    if ok {
+        // SAFETY: the MAP above just mapped one page read/write at `va`, and it stays mapped for
+        // the rest of this socket id's life (no unmap syscall exists), so this asserts that once
+        // here instead of at every access the way the four `a_r8`/`a_r16`/`a_w16`/`a_w8` functions
+        // used to duplicate at each call site (milestone 139 (drive the unsafe count down), round
+        // 3; the exact naming variant `user_mode_runtime::mapped_window`'s own doc comment already
+        // named).
+        frame_window[sid] = Some(unsafe { MappedWindow::new(va, PAGE) });
     }
 }
 

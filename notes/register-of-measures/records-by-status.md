@@ -4,6 +4,8 @@
 
 ## The nine things that would kill nife
 
+*Removed 2026-10-03 UTC: this status chart and `fatal-risks.csv`. `fatal_risks_total` now lives in `fatal-risks-colors.csv`.*
+
 From `design/fatal-risks/README.md`, by Experiment status: the field calef ratified on 2026-09-23, with
 three values and no fourth. `RUN` means the experiment has been performed. `NOT-RUN` means it has
 not and could be. `CANNOT-RUN` means it cannot be performed at all. `script/fatal-risks` fails on any
@@ -37,7 +39,7 @@ four and five, and calef read that, fairly, as the number of risks: *"We've had 
 kill nife longer than just this week."* All nine were on `main` from pull request #588, which
 landed 2026-08-31 UTC. `fatal_risks_total` now counts the risks in each week's file, and the gap
 between it and the three columns is drawn as **unclassified**, the shape the naming chart already
-uses for a name with no provenance block. Arithmetic, not a stored column, because it is not a
+uses for a name with no provenance block. The gap is arithmetic, not a stored column: it is not a
 value `Experiment status` can hold. In those weeks it is risks 4, 5, 8 and 9, which had no status
 line, and in 2026W37 risk 3 as well, whose line said `STALE`. That meant the old result had expired, which says nothing about which of
 the three the risk was.

@@ -75,16 +75,28 @@ permissions:
 jobs:
   record:
     name: record this week
+    # The App's secrets live in the `automation` environment, whose deployment branches are `main`
+    # only (see trunk-health.yml's comment for why). Scheduled runs and dispatches from `main`
+    # qualify. Only jobs that mint the App token name it.
+    environment: automation
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       # The same identity argument `toolchain-bump.yml` makes at length: a PR opened with the
       # workflow's own `GITHUB_TOKEN` does not trigger further workflow runs, so its CI never starts
-      # and the PR is permanently unmergeable. The `|| github.token` fallback keeps this job working
-      # (it still opens the PR) when the secret is absent.
+      # and the PR is permanently unmergeable. The identity is the nifeos automation App's
+      # installation token, minted fresh each run (milestone 128 (the automation gets its own
+      # identity)). The personal access token this job used before was retired 2026-10-03 UTC,
+      # pending revocation by calef.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+
       - uses: actions/checkout@v7
         with:
-          token: ${{ secrets.TOOLCHAIN_BUMP_PAT || github.token }}
+          token: ${{ steps.app-token.outputs.token }}
           # The backfill walks first-parent history, so a shallow clone would silently produce a
           # shorter series rather than an error. This is the failure mode worth spending a full
           # clone on: a suite whose scope is too small goes green faster.
@@ -173,7 +185,7 @@ jobs:
       # must be silent rather than an empty PR.
       - name: Open or update the pull request
         env:
-          GH_TOKEN: ${{ secrets.TOOLCHAIN_BUMP_PAT || github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -e
           # The page too, not only the directory: `script/metrics` writes generated lines onto

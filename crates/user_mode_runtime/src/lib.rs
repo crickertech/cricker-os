@@ -400,8 +400,10 @@ pub fn recv_fault(slot: u64) -> (u64, u64, u64, u64, u64) {
 /// `RECV_CAP` on the endpoint capability in `slot`: receive a message that may carry a
 /// capability. Blocks until one arrives; returns `(w0, cap_slot, w1)`, where `cap_slot` is where
 /// the incoming capability landed in this thread's capability table, or [`abi::rendezvous::NO_CAP`] if the
-/// message carried none. This is how a server receives a [`call`]: the delivered capability is
-/// the one-shot Reply naming the caller (milestone 12, DECISIONS §12).
+/// message carried none. **For a program receiving a delegation**, whose `cap_slot` it then uses
+/// as the capability it expects. A server that answers a [`call`] receives with [`recv_request`]
+/// instead: `cap_slot` here is whatever the sender chose, a Reply only if the sender `CALL`ed, and
+/// [`reply`] takes the typed [`Reply`] only `recv_request` returns (milestone 706).
 pub fn recv_cap(slot: u64) -> (u64, u64, u64) {
     // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP reads no more than the three words used.
     let (w0, w1, w2, ..) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
@@ -582,12 +584,126 @@ pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
     (r0, r1)
 }
 
-/// `REPLY` through the one-shot Reply capability in `slot`: deliver two words to the blocked
-/// caller and wake it. The capability is consumed by the kernel on use (that is what makes it
-/// one-shot), so the slot is free again when this returns.
-pub fn reply(slot: u64, r0: u64, r1: u64) -> i64 {
+/// `REPLY` through a `CALL`'s one-shot Reply capability: deliver two words to the blocked caller
+/// and wake it. The capability is consumed by the kernel on use (that is what makes it one-shot),
+/// so the slot is free again when this returns, and this takes the [`Reply`] by value to say so.
+///
+/// **It takes a [`Reply`], not a slot** (milestone 706 (a `CALL` server can tell a Reply from a
+/// delegation), DECISIONS §245 (a `CALL` server tells a Reply from a delegation)). A slot from
+/// `RECV_CAP` may hold anything a client chose to `SEND_CAP`, and `REPLY` is method `0`, which on a
+/// rendezvous is `SEND`: a server that answered a delegated rendezvous parked itself in that `SEND`
+/// for the life of the machine. A [`Reply`] comes only from [`recv_request`], which built it from
+/// the kernel's own tag, so the type is the check and no server has to remember it.
+pub fn reply(to: Reply, r0: u64, r1: u64) -> i64 {
     // SAFETY: `svc`/`ecall`; the kernel validates the Reply capability and consumes it.
-    unsafe { invoke(slot, abi::reply::REPLY, r0, r1, 0) }
+    unsafe { invoke(to.0, abi::reply::REPLY, r0, r1, 0) }
+}
+
+/// **A `CALL`'s one-shot Reply capability, known to be one** (milestone 706, DECISIONS §245; the
+/// name is provisional). The only constructor is [`recv_request`]'s reading of the kernel-written
+/// `x4` ([`abi::rendezvous::REPLY_DELIVERED`]), and the only consumer is [`reply`], so a server
+/// cannot answer through a slot a client delegated. Neither `Copy` nor `Clone`, because a Reply
+/// answers once.
+#[must_use = "the caller stays blocked until this Reply is answered"]
+#[derive(Debug, PartialEq, Eq)]
+pub struct Reply(u64);
+
+impl Reply {
+    /// The slot this Reply occupies. For naming it to something that is not [`reply`] (a test that
+    /// answers twice to prove the second is refused); reading it does not let anyone build one.
+    pub fn slot(&self) -> u64 {
+        self.0
+    }
+}
+
+/// **What a `RECV_CAP` put in `x1`, told apart by the kernel-written `x4`** (milestone 706,
+/// DECISIONS §245; names provisional).
+#[derive(Debug, PartialEq, Eq)]
+pub enum Delivered {
+    /// A `CALL`: `x1` is the Reply the kernel minted for this caller, and `x4` said so.
+    Reply(Reply),
+    /// A `SEND_CAP`: `x1` is a capability the sender chose, of any type. Not a Reply, whatever the
+    /// sender meant by it.
+    Delegation(u64),
+    /// No capability: a plain `SEND`, an interrupt signal, a death message, or a `CALL` whose Reply
+    /// did not fit in a full table (there is nobody to answer).
+    Nothing,
+}
+
+impl Delivered {
+    /// Read `x1` with the tag beside it. Only `0` in `x4` makes a real slot a delegation; a bound
+    /// notification's `x4` means `x1` is its word, not a slot, so it reads as
+    /// [`Delivered::Nothing`] rather than as a capability to delete.
+    pub fn decode(x1: u64, x4: u64) -> Self {
+        if x1 == abi::rendezvous::NO_CAP {
+            Delivered::Nothing
+        } else if x4 == abi::rendezvous::REPLY_DELIVERED {
+            Delivered::Reply(Reply(x1))
+        } else if x4 == 0 {
+            Delivered::Delegation(x1)
+        } else {
+            Delivered::Nothing
+        }
+    }
+
+    /// The Reply, if this was a `CALL`. **A delegation is deleted**, so a server that did not ask
+    /// for one does not keep its slot: the table is [`abi`]'s 32 slots, and a client that could
+    /// fill it could stop the server receiving anything.
+    pub fn into_reply(self) -> Option<Reply> {
+        match self {
+            Delivered::Reply(r) => Some(r),
+            Delivered::Delegation(slot) => {
+                cap_delete(slot);
+                None
+            }
+            Delivered::Nothing => None,
+        }
+    }
+}
+
+/// **One message a `CALL` server received** (milestone 706, DECISIONS §245; name provisional): the
+/// two data words, the sender's badge, and what came with it, typed.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Request {
+    /// The first data word (`x0`).
+    pub w0: u64,
+    /// The second data word (`x2`): a `CALL`'s second word, `0` for a `SEND_CAP`.
+    pub w1: u64,
+    /// The badge on the endpoint capability the sender invoked (`x3`), `0` when unbadged.
+    pub badge: u64,
+    /// What arrived in `x1`.
+    pub delivered: Delivered,
+}
+
+/// **`RECV_CAP` for a `CALL` server** (milestone 706, DECISIONS §245; name provisional): blocks
+/// until a message arrives and returns it with `x1` typed by the kernel's `x4`. The receive every
+/// server that answers with [`reply`] uses, because it is the only source of a [`Reply`].
+pub fn recv_request(slot: u64) -> Request {
+    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP returns five words.
+    let (w0, x1, w1, badge, x4) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+    Request {
+        w0,
+        w1,
+        badge,
+        delivered: Delivered::decode(x1, x4),
+    }
+}
+
+/// [`recv_request`] for a thread with a bound notification: `Ok` for a message, `Err(word)` when
+/// the bound notification ended the receive, told apart by `x4` as [`recv_bound`] does. Name
+/// provisional (milestone 706).
+pub fn recv_request_bound(slot: u64) -> Result<Request, u64> {
+    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP returns five words.
+    let (w0, x1, w1, badge, x4) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+    if x4 == abi::notification::BOUND {
+        return Err(x1);
+    }
+    Ok(Request {
+        w0,
+        w1,
+        badge,
+        delivered: Delivered::decode(x1, x4),
+    })
 }
 
 /// **Map the `PageFrame` capability in `frame_slot` at `va`**, drawing the page tables from the untyped

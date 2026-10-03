@@ -354,6 +354,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 242 | DECIDED | [A system log: one service that programs and the kernel append to](242-a-system-log.md) |
 | 243 | DECIDED | [Notices for people: programs publish, users curate, displays show](243-notices-for-people.md) |
 | 244 | DECIDED | [The installed disk has four partitions, and a boot slot is 64 MiB](244-the-installed-disk-has-four-partitions.md) |
+| 245 | DECIDED | [A `CALL` server tells a Reply from a delegation by a kernel tag in `x4`, read through a typed runtime helper](245-a-call-server-tells-a-reply-from-a-delegation.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design

@@ -279,12 +279,16 @@ done
 # caller. It is linted on the third architecture too, beside the `bench` line above.
 
 # watchdog_probe is the exception to "bin only" above: it gates a TEST (the livelock probe in
-# testing.rs), so it is invisible without --all-targets. Linted on both ISAs because an unlinted
+# testing.rs), so it is invisible without --all-targets. Linted on all three ISAs (x86_64 below, with the same `-A dead_code` the other x86_64 lines
+# carry and for the same reason; milestone 186 (derive the architecture list, and close what it does not reach) found it was the one skipped) because an unlinted
 # feature rots, and this one is only ever compiled deliberately.
 for tgt in aarch64-unknown-none-softfloat riscv64imac-unknown-none-elf; do
     echo "==> clippy: kernel --features watchdog_probe ($tgt)"
     cargo clippy -p kernel --features watchdog_probe --target "$tgt" --all-targets -- -D warnings
 done
+echo "==> clippy: kernel --features watchdog_probe (x86_64)"
+cargo clippy -p kernel --features watchdog_probe --target x86_64-unknown-none --all-targets -- \
+    -D warnings -A dead_code -A clippy::reversed_empty_ranges
 
 # The pre-push hook's contract with this script, checked (2026-09-29). `.githooks/pre-push` runs
 # `script/fmt --check` then `script/lint` (all of it since milestone 630 (a merge-queue ejection is caught before the queue)) before any push leaves a worktree, and every
@@ -2975,6 +2979,12 @@ python3 helpers/prose_ratchet.py --check
 # the weekly drift report is a record other people quote, so its sums are checked where a change to
 # them lands rather than on the morning the workflow publishes them.
 python3 helpers/baseline_drift.py --selftest >/dev/null
+# Milestone 721 (each merge-group CI job has a 20-minute budget): every `ci.yml` job carries the wall-time budget steps and a
+# `timeout-minutes` within the budget plus five. The selftest runs first (fixtures, no tree), so a
+# green `lint` is not the checker silently passing everything.
+echo "==> CI job wall-time budgets"
+python3 helpers/job-budget.py --selftest >/dev/null
+python3 helpers/job-budget.py lint
 # Milestone 610 (provisional): the interface stability series' classification (what is breaking,
 # what is an addition, what is a syscall or a format event, what counts as co-change), against
 # fixtures, with no git and no cargo. The weekly workflow is the only thing that runs the real

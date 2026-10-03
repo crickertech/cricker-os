@@ -63,7 +63,7 @@
 #![no_main]
 
 use line_editor::{Event, LINE_MAX, LineDisc, PROMPT_MAX, RawQueue, Sink, proto};
-use user_mode_runtime::{call, recv, recv_cap, reply, send};
+use user_mode_runtime::{Reply, call, recv, recv_request, reply, send};
 
 /// The terminal endpoint (slot 0): clients CALL requests here; we serve it with `RECV_CAP`. Its
 /// clients differ by [`MODE_CONSOLE`]/[`MODE_DISPLAY`] (`input` or `keyboard_driver`, directly, for the
@@ -151,7 +151,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
     let mut con = Con { used: 0, mode };
     // A parked READLINE: the slot holding the caller's one-shot Reply capability. The caller
     // stays blocked (that is CALL's contract) while we serve everyone else.
-    let mut pending: Option<u64> = None;
+    let mut pending: Option<Reply> = None;
     // How many ^C we have seen since boot. The shell reads this (OP_INTRCOUNT) to sense interrupts
     // while a foreground job runs and no read is parked to fail (DECISIONS §24). A
     // monotonic counter, so the shell learns of a ^C by the count advancing, never missing one.
@@ -160,7 +160,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
     // lands in `raw_queue` instead, with no echo and no interpretation. `pending_raw` is
     // OP_READRAW's own parked reply capability, the raw-mode twin of `pending`.
     let mut raw_mode = false;
-    let mut pending_raw: Option<u64> = None;
+    let mut pending_raw: Option<Reply> = None;
     // Set when a quiesce answered a parked OP_READLINE with FLAG_RETRY and this instance then
     // resumed: the reader's re-issued read must not repaint a prompt the screen already shows.
     let mut resuming_line = false;
@@ -200,12 +200,15 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
     }
 
     loop {
-        let (w0, slot, w1) = recv_cap(TERM);
-        if slot == abi::rendezvous::NO_CAP {
-            // A plain SEND slipped in; the contract says CALL. With no reply capability there
-            // is nobody to answer, so the only honest move is to drop it.
+        let req = recv_request(TERM);
+        let (w0, w1) = (req.w0, req.w1);
+        let Some(slot) = req.delivered.into_reply() else {
+            // A plain SEND or a SEND_CAP slipped in; the contract says CALL. With no Reply there is
+            // nobody to answer, so the only honest move is to drop it, and a delegated capability
+            // is deleted with it (milestone 706 (a `CALL` server can tell a Reply from a
+            // delegation)).
             continue;
-        }
+        };
         match proto::op(w0) {
             proto::OP_BYTES if raw_mode => {
                 // Raw mode: no echo, no interpretation, straight into the raw queue. A burst past
@@ -387,7 +390,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
 
 /// If a read is parked and a line is queued, marry them: copy the line into the client's input
 /// page and wake the caller through its reply capability.
-fn deliver(queue: &mut LineQueue, pending: &mut Option<u64>) {
+fn deliver(queue: &mut LineQueue, pending: &mut Option<Reply>) {
     if pending.is_none() || queue.count == 0 {
         return;
     }
@@ -399,7 +402,7 @@ fn deliver(queue: &mut LineQueue, pending: &mut Option<u64>) {
 /// Raw mode's twin of [`deliver`]: if an `OP_READRAW` is parked and a byte is queued, pop up to
 /// eight and reply register-only, exactly [`proto::OP_READRAW`]'s reply shape. No page: the bytes
 /// ride in `r1`, the same register-only path [`proto::OP_BYTES`] arrived on.
-fn deliver_raw(raw_queue: &mut RawQueue, pending_raw: &mut Option<u64>) {
+fn deliver_raw(raw_queue: &mut RawQueue, pending_raw: &mut Option<Reply>) {
     if pending_raw.is_none() {
         return;
     }
