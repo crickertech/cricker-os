@@ -70,3 +70,20 @@ The 4 equivalents:
 The 4 gaps are `BUDGET_PAGES = 2 * INSTANCE_PAGES + 16`. A test could only restate the formula. What
 the number protects is a second instance starting beside the incumbent under a supervisor, which the
 swap test under QEMU does (a smaller budget fails it; a larger one only wastes pages).
+
+## package_archive
+
+22 missed, 22 killed. The sweep afterwards reports 0 missed.
+
+The writer and the reader both take their offsets from `HEADER_LEN`, `MEMBER_LEN` and `STEM_LEN`, so
+a wrong constant is consistent with itself and every round-trip test passed. The test that kills
+them pins the layout from the crate docs by hand: the magic, the three names at 8, 40 and 72, the
+count at 104, the first entry at 112 and its offset, length and digest words. The rest:
+
+- The ceiling is inclusive in both directions: 64 members write and parse, 65 are refused by the
+  writer, and a count word raised to 65 is refused by the reader.
+- An empty package is exactly a header, and a table cut one byte short is `Truncated`.
+- `member_name(count)` is `None`, as `member(count)` already was.
+- The longest stem fills `STEM_LEN` exactly (98 bytes).
+- `catalogued_stem` refuses an empty version, a version with a hyphen, and an empty name, each
+  written as a catalogue line that would otherwise be matched.
