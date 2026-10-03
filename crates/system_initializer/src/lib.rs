@@ -4739,7 +4739,7 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
 /// [`JOB_WAIT_ATTEMPTS`] yields cover one reap depends on what else is runnable. We would not choose
 /// it if the proper fix cost the same. That fix has the undertaker tell the progenitor which job it
 /// reaped, a change the two agree on, proposed in
-/// `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`. A pool that is
+/// `design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md`. A pool that is
 /// genuinely full still answers "out of memory", only later.
 fn split_job(pool: u64, pages: u64) -> Option<u64> {
     for _ in 0..JOB_WAIT_ATTEMPTS {

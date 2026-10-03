@@ -39,7 +39,7 @@ sections that follow keep the questions' reasoning with each ruling folded in.
    (diagnostics warns, ordinary output informs).
 5. **Storage: accepted as recommended.** In memory now, RedoxFS later through a directory grant.
    calef asked for a proposal for the RedoxFS half; it is
-   `design/roadmap/proposals/a-system-log-on-redoxfs.md` (slug provisional).
+   `design/roadmap/687-a-system-log-on-redoxfs.md` (slug provisional).
 
 ## What the tree does today, counted
 
@@ -193,7 +193,7 @@ informs).
 ## Question 5: storage and retention
 
 **Decided: in memory first, RedoxFS second, and neither blocks the other.** The RedoxFS half has
-its own roadmap proposal, `design/roadmap/proposals/a-system-log-on-redoxfs.md` (slug provisional),
+its own roadmap proposal, `design/roadmap/687-a-system-log-on-redoxfs.md` (slug provisional),
 covering what persists, boot handoff, retention and rotation, crash consistency and write cost.
 
 - The kernel ring: 16 KiB (4 pages), which holds a whole boot at 32 + 57 bytes a line (about

@@ -171,7 +171,7 @@ answered.
   the UART once userspace owns it (DECISIONS §175 (where the kernel's own output goes once
   userspace owns the console), ruled 2026-09-27, unbuilt; the degauge doc points there). The OOM
   race dies when the undertaker tells the progenitor a job's memory is back
-  (`design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md`). Both are architect
+  (`design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md`). Both are architect
   territory, not this lane's.
 - Runner variance as the finding. Both confirmed signatures are races whose windows scale with
   runner speed; the local host cannot reproduce them in 20 legs and CI's slower runners can in one

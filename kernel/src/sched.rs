@@ -598,7 +598,7 @@ pub(crate) const MAX_RENDEZVOUS: usize = 512;
 /// else back, so every test that wires a service with [`create_rendezvous`] spends the registry
 /// for the rest of the boot. The fix the lane of milestone 152 used on its own test is the
 /// pattern: retype the endpoint from the run's own region, so it goes when the region does.
-/// `design/roadmap/proposals/tests-retype-their-rendezvous-from-their-own-region.md` is that work
+/// `design/roadmap/671-tests-retype-their-rendezvous-from-their-own-region.md` is that work
 /// across the suite. Reports and does not gate, for [`MAX_THREADS`]'s reason.
 static PEAK_RENDEZVOUS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
 static KERNEL_CHUNK_RENDEZVOUS: core::sync::atomic::AtomicUsize =

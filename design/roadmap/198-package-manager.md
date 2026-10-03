@@ -235,8 +235,8 @@ calef's acts are named there rather than here.
 - **Done.** §221 closed the `activation/` write hole (notes/packages/vouching.md).
 - **Done.** §219 was ruled 2026-09-26 and its request, gate D2 and the unvouched-child
   confinement claim built (notes/packages/running-unvouched.md).
-- **Proposed.** The virtio device table never reuses a slot
-  (`design/roadmap/proposals/a-virtio-slot-comes-back-when-its-driver-dies.md`).
+- **Milestone 647.** Milestone 647 (a virtio slot should come back when its driver dies). The virtio device table never reuses a slot
+  (`design/roadmap/647-a-virtio-slot-comes-back-when-its-driver-dies.md`).
 - **Done.** Every archive build runs `cargo xtask package` end to end since 2026-09-24.
 - **Decision.** Whether the digest is a Merkle root is still calef's:
   `design/decisions/197-a-package-is-one-archive-file.md`, which also records the manifest ruling

@@ -155,7 +155,7 @@ demonstrated the two escapes above.
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/the-sibling-recv-cap-paths-get-a-receiver-first-test.md`. The two sibling paths (an interrupt signal's `x1`, a death message's
+- **Milestone 714.** Milestone 714 (the sibling RECV_CAP paths get a receiver-first test). `design/roadmap/714-the-sibling-recv-cap-paths-get-a-receiver-first-test.md`. The two sibling paths (an interrupt signal's `x1`, a death message's
   `x1`) now also return `NO_CAP` on the receiver-first order through the same `cap_delivered` default.
   No test drives either through that order, so their correctness is reasoned from the code. A lane that wants the
   measured grade should add one, the grade `notes/confinement-claims.md` already asks of an

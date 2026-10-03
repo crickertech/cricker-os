@@ -3579,7 +3579,7 @@ PY
 # same trap costing two renames a count), so the boundaries here are POSIX classes.
 echo "==> every RETYPE outside the run wrapper passes 0"
 # `MemoryRegion::RETYPE`'s first argument became a page count on 2026-09-26 (calef, option A of
-# design/roadmap/proposals/a-region-retypes-a-frame-run.md), with 0 meaning one page. Every caller
+# design/roadmap/659-a-region-retypes-a-frame-run.md), with 0 meaning one page. Every caller
 # before it passed 0 and still means one page, so a raw invoke passing anything else is a run asked
 # for by accident. The one intended caller is `user_mode_runtime::retype_page_frame_run`.
 # The kernel's own tests are exempt: they drive the handler directly with every count on purpose.

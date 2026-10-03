@@ -68,7 +68,7 @@
 //! Milestone 106 (a wait that ends on either the interrupt or the deadline) built the `Timer`
 //! object, and the gap between attempts now sleeps on one. So a long-running client is no longer
 //! blocked on a kernel primitive. It is a design question of its own (who supervises it, and what
-//! it does between polls), recorded in `design/roadmap/proposals/the-last-yield-spinners-sleep-on-a-timer.md`.
+//! it does between polls), recorded in `design/roadmap/674-the-last-yield-spinners-sleep-on-a-timer.md`.
 //!
 //! **A kiss-o'-death is not retried.** Stratum 0 is an instruction rather than a time (`RATE` means
 //! back off, `DENY` means go away), and a client that retries into one is the abusive client the

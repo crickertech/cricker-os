@@ -111,5 +111,5 @@ Filed in `design/roadmap/proposals/`. Two have since been promoted to milestones
   call.
 - Milestone 593 (a wedged kernel resets itself), promoted from `a-wedged-kernel-resets-itself.md`:
   hardware watchdogs. xenon's TCO is built and proven under q35; radon and argon follow.
-- `xenon-may-carry-amt.md`: remote power and serial over LAN, if xenon's factory option has AMT.
+- `653-xenon-may-carry-amt.md`: remote power and serial over LAN, if xenon's factory option has AMT.
   It needs a firmware change and calef's network.

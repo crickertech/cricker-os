@@ -26,7 +26,7 @@ stamped `user` field. There is no per-user store. The service also drains the ke
 forwards whole lines to the console. It becomes the one thing writing kernel output there.
 
 Out of scope: persisting any of this to RedoxFS. That has its own proposal,
-[`design/roadmap/proposals/a-system-log-on-redoxfs.md`](proposals/a-system-log-on-redoxfs.md). Also
+[`design/roadmap/687-a-system-log-on-redoxfs.md`](687-a-system-log-on-redoxfs.md). Also
 out of scope: the kernel-side ring and its drain syscall. Those are milestone 342 (the kernel and
 the `console` server drive one UART from two address spaces).
 
@@ -109,7 +109,7 @@ forwarding. `Log::ingest` is that entry point. The service's own `BUGS` sections
 - **Decision.** `design/decisions/230-badged-endpoints-name-a-callers-frame.md` owes a line: a
   plain `SEND` now delivers its badge in `RECV`'s `x3`. The integrator mints it, per the shared
   state rule.
-- **Proposed.** `design/roadmap/proposals/a-system-log-on-redoxfs.md`, persistence.
+- **Milestone 687.** Milestone 687 (the system log persists through RedoxFS: what a directory grant has to answer). `design/roadmap/687-a-system-log-on-redoxfs.md`, persistence.
 - **Recorded.** `crates/system_log/src/lib.rs`: a per-user reader's dropped-count line counts
   every user's evicted records, `time` is stamped when a line completes, and the ninth concurrent
   partial line splits the quietest one.

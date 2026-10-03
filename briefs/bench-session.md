@@ -40,7 +40,7 @@ every later boot from calef's hands into a command.**
   watched to a full boot. The firmware is set to halt at POST on warnings, so a reset that lands on
   a warning waits for a keypress: say so rather than calling it a hang. While calef is at the
   machine, ask him to press Ctrl-P at POST and record whether Intel AMT/MEBx appears
-  (`design/roadmap/proposals/xenon-may-carry-amt.md`); AMT would be remote power.
+  (`design/roadmap/653-xenon-may-carry-amt.md`); AMT would be remote power.
 - argon. First light comes first. The step after it is a PSCI system reset over `smc`, watched
   the same way.
 

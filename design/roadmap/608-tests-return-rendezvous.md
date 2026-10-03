@@ -122,8 +122,8 @@ not a mechanical swap, so this lane stopped and filed it rather than rushing it:
 
 ## Follow-on
 
-- **Proposed.**
-  `design/roadmap/proposals/test-helpers-give-their-clients-a-region-to-retype-from.md`. A lane of
+- **Milestone 670.** Milestone 670 (test helpers give their clients a region to retype their rendezvous from).
+  `design/roadmap/670-test-helpers-give-their-clients-a-region-to-retype-from.md`. A lane of
   its own for the file-service, NTP, sink and compositor/display test helpers. Each needs its
   per-client spawn given a region of its own, mirroring `x86_userspace_round`, #1344's
   `fs_subtree_caretaker`-narrowed walk tests, and `display_service::start_screen_terminal`, before

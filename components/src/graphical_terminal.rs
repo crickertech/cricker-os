@@ -65,7 +65,7 @@
 //! holds. The kernel confined the session exactly as granted; the grant is wider than the use.
 //! Found by the 2026-10-03 security audit, by reading, not demonstrated under QEMU; the fix is a
 //! badged copy of the endpoint that the discipline answers only `OP_RAWMODE` and `OP_READRAW` on,
-//! proposed in `design/roadmap/proposals/arm-1-holds-only-the-raw-half-of-the-boot-discipline.md`.
+//! proposed in `design/roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md`.
 //!
 //! Name: ratified 2026-10-03 (calef, #1493). Refused `screen` (clashes with `SCREEN_BIT`, the
 //! screen-narrowed tail of §106 (an unredirected tail stage's output goes to the screen, not the

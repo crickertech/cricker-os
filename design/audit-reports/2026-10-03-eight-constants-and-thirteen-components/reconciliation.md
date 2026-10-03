@@ -24,7 +24,7 @@ returns; a `RECV` needs `READ`, which the shell has on both interrupt rendezvous
 The report's trigger answer said no component took device authority. True of the thirteen; the
 authority moved into the shell, an existing component, which is the case the trigger cannot count
 and the report should have named. Home: finding 10, a BUGS entry in `swish.rs`, and the proposal
-`design/roadmap/proposals/the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`.
+`design/roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`.
 
 ## (b) Confirmed: a real capability passes the `NO_CAP` guard
 
@@ -41,7 +41,7 @@ So a client that `SEND_CAP`s its own rendezvous parks the server in `SEND` for t
 machine, and every non-Reply delivery leaves a slot in the server's table (a Reply is one-shot and
 deleted on use; nothing else is). Not demonstrated under QEMU. Home: finding 11, a BUGS entry at
 `abi::rendezvous::RECV_CAP`, the proposal
-`design/roadmap/proposals/a-call-server-can-tell-a-reply-from-a-delegation.md` with the options
+`design/roadmap/706-a-call-server-can-tell-a-reply-from-a-delegation.md` with the options
 costed for calef, and a risk 7 input in the report.
 
 ## (c) Confirmed and fixed: a stale `outgoing_cap` survived teardown

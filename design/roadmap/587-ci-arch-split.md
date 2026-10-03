@@ -264,8 +264,8 @@ rather than bought) already names "merge throughput" as one of the three things 
 
 ## Follow-on
 
-- **Proposed.** The one-week re-measure of queue waits by runner label, and option D as the next
-  lever if arm64 still waits: `design/roadmap/proposals/ci-queue-remeasure.md`, dated so its age
+- **Milestone 648.** Milestone 648 (re-measure CI queue waits by runner label, a week after the arm64 split). The one-week re-measure of queue waits by runner label, and option D as the next
+  lever if arm64 still waits: `design/roadmap/648-ci-queue-remeasure.md`, dated so its age
   shows in `script/roadmap --proposed` rather than living only in this block's trigger paragraph.
 - **Recorded.** That multi-threaded TCG shows an aarch64 or riscv64 guest the host's reorderings is
   recalled from QEMU's documentation, not measured; the header of `.github/workflows/ci.yml` says

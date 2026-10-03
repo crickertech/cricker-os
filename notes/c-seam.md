@@ -93,7 +93,7 @@ The roadmap's milestone-36 file records three tiers of C dependency (design/road
 this does not cross"):
 
 1. Freestanding. No libc. littlefs allocates nothing; libghostty-vt needs a
-   supplied allocator (corrected 2026-10-03 UTC, [proposal](../design/roadmap/proposals/the-graphical-terminal-runs-full-screen-programs.md)).
+   supplied allocator (corrected 2026-10-03 UTC, [proposal](../design/roadmap/705-the-graphical-terminal-runs-full-screen-programs.md)).
 2. A handful of symbols. Shim what the component actually references. This is what this spike
    proves.
 3. **Full POSIX.** `open`, `fork`, `socket`, threads. Needs a real libc port, which is DECISIONS §15's

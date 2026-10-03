@@ -40,11 +40,11 @@ package's long description omits `pidwait`, which is how the first table here mi
 | `sysctl` | declined, §115 (no `sysctl`) | this block |
 | `kill`, `pkill`, `skill`, `snice` | refused, milestone 455 (the signalling stratum of `procps`) | `design/roadmap/455-the-signalling-stratum.md` |
 | `pwdx` | declined 2026-09-26, §224 (no `pwdx`): only the shell has a working directory | `design/decisions/224-no-pwdx.md` |
-| `w` | moved out: waits on §164 and a second session | `design/roadmap/proposals/w-shows-who-is-logged-in.md` |
+| `w` | moved out: waits on §164 and a second session | `design/roadmap/681-w-shows-who-is-logged-in.md` |
 | `free`, `vmstat` | built 2026-09-26 under §225 (`free` sees the machine and your share) | `crates/free`, `crates/vmstat`, the-machine-and-your-share.md |
 | `slabtop` | built 2026-09-26: no slab since milestone 14 (kernel objects from untyped), so it breaks down a job budget by object kind | `crates/slabtop` |
 | `tload` | built 2026-09-26 as a line in `top`'s summary, not a program | `crates/top` |
-| `pidwait` | ruled 2026-09-26 by §226 (`pidwait` takes tids); moved out, because its wait primitive is a new kernel method | `design/roadmap/proposals/pidwait-waits-on-a-named-tid.md` |
+| `pidwait` | ruled 2026-09-26 by §226 (`pidwait` takes tids); moved out, because its wait primitive is a new kernel method | `design/roadmap/667-pidwait-waits-on-a-named-tid.md` |
 
 ## The wire it added, and the table it grew
 
@@ -223,9 +223,9 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - **Decision.** `pwdx` is not built and will not be: `design/decisions/224-no-pwdx.md` (calef,
   2026-09-26). Upstream prints another process's working directory, and here only the shell holds
   one (`grant_plan::nav::Cwd`), which it already prints with `pwd`.
-- **Proposed.** `w` waits on §164 (whether the kernel resolves a tid it already sent), because a
+- **Milestone 681.** Milestone 681 (`w`: who is logged in, and what they are running). `w` waits on §164 (whether the kernel resolves a tid it already sent), because a
   tid has no name, and on a second session existing:
-  `design/roadmap/proposals/w-shows-who-is-logged-in.md`.
+  `design/roadmap/681-w-shows-who-is-logged-in.md`.
 - **Decision.** How `free` and `vmstat` learn about memory is ruled in
   `design/decisions/225-free-sees-the-machine-and-your-share.md` (calef, 2026-09-26): a
   `MemoryRegion` method under `ENUMERATE` for the caller's share, and a machine memory page granted
@@ -242,9 +242,9 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - **Decision.** `pidwait` takes tids, not a pattern, and composes as `pidwait $(pgrep foo)`:
   `design/decisions/226-pidwait-takes-tids.md` (calef, 2026-09-26). `pgrep --wait`, one binary with
   two names, and a pattern-taking `pidwait` are refused there.
-- **Proposed.** `pidwait` needs a new kernel method to wait on a named tid with less authority
+- **Milestone 667.** Milestone 667 (`pidwait`: a way to wait on a named tid with less authority than `pgrep`'s). `pidwait` needs a new kernel method to wait on a named tid with less authority
   than `pgrep`'s, which is the syscall surface and calef's: the options are in
-  `design/roadmap/proposals/pidwait-waits-on-a-named-tid.md`.
+  `design/roadmap/667-pidwait-waits-on-a-named-tid.md`.
 - **Recorded.** `pmap` is unreachable from the prompt, because `take_user_address_space` in
   `kernel/src/user.rs` deregisters a space at `CONFIGURE`. calef moved it out of this milestone on
   2026-09-26 into a milestone of its own, proposed in pull request #1365.

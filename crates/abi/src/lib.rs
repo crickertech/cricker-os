@@ -256,7 +256,7 @@ pub mod rendezvous {
     /// No method here says what kind of object a slot holds. Found by the 2026-10-03 security
     /// audit's follow-up reading milestone 634's own scope note; the fix is on this surface (a
     /// kernel-written tag in `x4`, or an endpoint that refuses delegation), proposed in
-    /// `design/roadmap/proposals/a-call-server-can-tell-a-reply-from-a-delegation.md` for calef.
+    /// `design/roadmap/706-a-call-server-can-tell-a-reply-from-a-delegation.md` for calef.
     pub const RECV_CAP: u64 = 3;
 
     /// `invoke(cap, CALL, w0, w1, _)` -> r0, with r1 in x1. **Send two words and block until
