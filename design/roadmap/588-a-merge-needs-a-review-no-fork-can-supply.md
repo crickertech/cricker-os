@@ -12,13 +12,12 @@ needs_person: no
 
 *(Number minted at promotion.)* Promoted from the proposal
 `a-merge-needs-a-review-no-fork-can-supply`, filed 2026-09-24, after calef ruled on it the same
-day: **options 2 and 3 adopted, option 1 not taken and still open.** Option 2 is set live (workflow
+day: options 2 and 3 adopted, option 1 not taken and still open. Option 2 is set live (workflow
 approval is required for all external contributors). Option 3's tree side is pull request #1215:
 the three jobs that mint the App token (`merge-drain.yml`, `trunk-health.yml`, `toolchain-bump.yml`)
 name the `automation` environment (name provisional), whose deployment branches are `main` only.
-**Option 3 is not protective yet**: the secrets are still organisation-level, which every job can
-read whatever its environment, so it becomes real only when calef stores them on the environment
-and deletes the org copies (see `## Follow-on`). The text below is the proposal's own, unedited
+Option 3 is protective as of 2026-10-03 (UTC): calef deleted the organisation-level copies, and
+the secrets now exist only on the environment (see `## Follow-on`). The text below is the proposal's own, unedited
 except for this paragraph, the gate's first sentence, and the `## Follow-on` and `## Index row`
 sections; the ruling paragraph under the gate was added to the proposal before promotion. As filed: Raised by the 2026-09-24 security audit
 (`design/audit-reports/2026-09-24-new-trust-boundaries.md`, finding 1), which found that
@@ -33,7 +32,7 @@ setting only he can make. As filed: every option below is a repository or organi
 that leaves the tree: no lane can change it, and every lane works under it from the moment it
 changes. It is an architect's.
 
-**Ruled the same day, in part (calef, 2026-09-24 UTC): options 2 and 3 are adopted.** Option 2 is
+Ruled the same day, in part (calef, 2026-09-24 UTC): options 2 and 3 are adopted. Option 2 is
 set: the repository's fork approval policy now reads `all_external_contributors`, so no outside
 contributor's workflow runs without a click. Option 3 is pull request #1215 (the App's secrets
 move behind a `main`-only environment), which touches the three scheduled workflows. Option 1 is
@@ -92,11 +91,11 @@ holding.
 
 ## Follow-on
 
-- **Outstanding.** calef stores `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY` as environment
-  secrets on `automation`, then deletes the organisation-level copies. Until then option 3 is inert:
-  an org secret reaches every job regardless of environment. After it, a dispatch of each of the
-  three workflows confirms the jobs still mint the token. Checked 2026-09-24: the environment's
-  secrets endpoint (`gh api repos/nifeos/nife/environments/automation/secrets`) lists none.
+- **Done.** On 2026-10-03 (UTC) calef deleted the organisation-level `AUTOMATION_APP_ID` and
+  `AUTOMATION_APP_KEY`; they now exist only as secrets of the environment `automation`. `trunk-health`
+  run 37156264104 (`workflow_dispatch`, 2026-10-03 21:46 UTC) succeeded after the deletion; run
+  37149031146 had succeeded before it, on the environment secrets. (On 2026-09-24 the environment's
+  secrets endpoint listed none, and an org secret reaches every job regardless of environment.)
 - **Outstanding.** Option 1, a required approving review the App would give. Not ruled; its cost is
   as written under Options. Checked 2026-09-24: the `main` ruleset's `pull_request` rule still
   reads `required_approving_review_count: 0`.

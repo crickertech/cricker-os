@@ -25,8 +25,8 @@ may be set at the organization level, which that token cannot read). Minted 2026
 `TOOLCHAIN_BUMP_PAT` on the transferred repository and asked what other developers would need
 (answer: nothing, and that answer is what surfaced this).
 
-What is left is calef's alone, because deleting a secret and revoking a personal token need his
-account (and, if the App secrets are organization-level, his owner rights on `nifeos`).
+What is left is calef's alone, because revoking a personal token needs his account. (The App
+secrets are no longer organization-level; see the 2026-10-03 line under the Done items below.)
 
 **In brief.** The toolchain-bump workflow authenticates as a fine-grained personal access token
 (PAT) on calef's account, because a PR opened by the ephemeral `GITHUB_TOKEN` triggers no CI
@@ -194,6 +194,14 @@ expiry from an outage into a fifteen-minute procedure someone can run without re
   provisional, as is `notes/automation-identity.md`. They were deliberately not renamed to match
   `smelter`: a rename is a naming decision with extra steps, and nothing is blocked by leaving them.
   Checked 2026-09-23: both appear only in `toolchain-bump.yml`, this block and that note.
+
+- **Done.** On 2026-10-03 (UTC) calef deleted the organization-level Actions secrets
+  `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY` from `nifeos`. The App's ID and key now exist only
+  as secrets of the repository environment `automation`. Every workflow that reads them
+  (`merge-drain.yml`, the `propose` job of `toolchain-bump.yml`, `trunk-health.yml`) does so from a
+  job that declares `environment: automation`. `trunk-health` run 37149031146 succeeded on the
+  environment secrets before the deletion, and run 37156264104 (`workflow_dispatch`, 2026-10-03
+  21:46 UTC) succeeded after it. `TOOLCHAIN_BUMP_PAT` is not yet revoked.
 
 - **Recorded.** `coe-architect-label.yml` adds `needs-architect` with `GITHUB_TOKEN`, whose
   `labeled` event re-runs no workflow, so `architect-hold.yml`'s required check on the pull request

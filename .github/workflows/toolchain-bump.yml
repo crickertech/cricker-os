@@ -199,9 +199,9 @@ jobs:
     # is not `main`, so it cannot read them even if a pull request edits this workflow to name the
     # environment. Adopted by calef 2026-09-24 (options 2 and 3 of
     # design/roadmap/588-a-merge-needs-a-review-no-fork-can-supply.md; the finding is 1 in
-    # design/audit-reports/2026-09-24-new-trust-boundaries.md). BUGS: the protection only exists
-    # once the organisation-level copies of the two secrets are deleted, since an org secret is
-    # visible to every job whatever its environment. Only jobs that mint the App token name it,
+    # design/audit-reports/2026-09-24-new-trust-boundaries.md). The protection holds
+    # since calef deleted the organisation-level copies of the two secrets on 2026-10-03 (UTC); an
+    # org secret would have been visible to every job whatever its environment. Only jobs that mint the App token name it,
     # because each run of a job that does records a deployment.
     environment: automation
     runs-on: ubuntu-24.04-arm

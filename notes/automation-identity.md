@@ -37,8 +37,9 @@ installation tokens are minted fresh per run, so nothing stored expires, and the
 the role rather than to the person. That is `needs-architect`'s principle applied to credentials.
 
 As of 2026-09-23 the App exists: `smelter`, App ID 5053502, created by calef under
-`nifeos` and installed on `nife` alone, with both secrets stored as organization secrets
-scoped to `nife`. This note stays written as a procedure rather than as a history, because the
+`nifeos` and installed on `nife` alone, with both secrets first stored as organization secrets,
+which calef deleted on 2026-10-03 (UTC); they now exist only as secrets of the environment
+`automation`, and steps 10 and 11 below are history on that point. This note stays written as a procedure rather than as a history, because the
 next person to run it will be provisioning a second App or replacing a lost key, and the steps are
 the same either way. Where a step has already been taken, it says so.
 
@@ -179,16 +180,6 @@ Once, by an owner of the `nifeos` organization.
     contain; the daily bump keeps using the PAT. There is no window in which a half-provisioned App
     can change what the scheduled job does.
 
-    `--repos nife` is what makes this safe, and it is why this is not the looser choice it looks
-    like. An organization secret naming exactly which repositories may read it has the same blast
-    radius today as a repository secret on `nife`, because today that list is `nife`. What it buys
-    is the split: `smelter` is expected to serve several repositories once the monorepo is broken up
-    (see the section above), and adding one then is editing a list rather than re-provisioning a
-    key. Fewer moving parts at no cost now.
-
-    Never "All repositories." The list is the mechanism; a secret every repository can read is
-    the one shape this buys nothing over.
-
     Why a non-secret is stored as a secret, since the App ID is public and this looks wrong at
     first reading. The workflow uses `AUTOMATION_APP_ID`'s *emptiness* as its inertness switch
     (`if: env.AUTOMATION_APP_ID != ''`), so what is wanted is a per-repository value that is absent
@@ -198,7 +189,7 @@ Once, by an owner of the `nifeos` organization.
     secret and stays that way; the alternative is noted here so the next reader does not have to
     work out whether the choice was considered.
 
-    Either way, delete the downloaded `.pem` afterwards. A key sitting in a downloads folder is the
+    Either way, delete the downloaded `.pem` afterwards. (calef deleted his, and keeps a copy in his Keychain.) A key sitting in a downloads folder is the
     leak this whole exercise is meant to reduce.
 
     Both secret names are provisional until an architect ratifies them. They were deliberately
@@ -299,7 +290,7 @@ inheriting a reason to keep a PAT beside it:
   `smelter[bot]` (or `nife-smelter[bot]`) rather than as `calef`. Nothing in this tree filters pull requests by author
   today, and `helpers/merge-drain.sh` is the file to re-read if that changes.
 
-- **This note cannot tell you when the PAT expires**, and neither can anything else in the
+- This note cannot tell you when the PAT expires, and neither can anything else in the
   repository: an Actions secret's value is opaque to every API the project can call, and only the account
   that minted the token can see its expiry at
   https://github.com/settings/tokens?type=beta. That opacity is not a gap in this note, it is the
