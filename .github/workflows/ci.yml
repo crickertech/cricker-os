@@ -388,17 +388,23 @@ jobs:
         if: steps.scope.outputs.needed == 'true'
 
   swish-check:
+    # **The job keeps its name, "three architectures", while it runs two**, because the name is a
+    # required check in the merge queue ruleset and renaming one is an admin act (the header's
+    # 2026-09-30 paragraph). The third leg is `swish-check-x86_64` below since milestone 628
+    # (provisional); until the ruleset names that job too, its leg does not hold a merge. That
+    # is a foot gun, and the ruleset edit is calef's.
     name: swish-check (the interactive shell, three architectures)
     runs-on: ubuntu-24.04-arm
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     # A hung kernel means QEMU never exits and the runner would block until the 6-hour default.
     # Fail loudly instead. The bound is a hang detector, not a budget, so it sits well above an
-    # honest run. Derivation: x86_64's leg alone is about 17 minutes under OVMF, the build it
-    # needs is about ten, and a cold QEMU build can add 10-20 more, so the honest worst is near 50
-    # and the detector sits at 60. That is above the chained job's 45 on purpose: the same
-    # arithmetic already pressed that bound, its warm 26m21s plus a cold QEMU build crossing it,
-    # and this is the job whose leg made it tight.
+    # honest run. Derivation, from when this job carried x86_64's leg: that leg alone was about 17
+    # minutes under OVMF, the build it needs is about ten, and a cold QEMU build can add 10-20 more,
+    # so the honest worst was near 50 and the detector sat at 60. Since milestone 628
+    # (provisional) the leg runs in `swish-check-x86_64` and this job's two legs are about a minute;
+    # 60 is not yet lowered, because a cold QEMU build is still the honest worst and one run on the
+    # new shape is not a measurement of it.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -490,7 +496,9 @@ jobs:
       #
       # The OVMF leg is slow for a mechanical reason, not a fluke: under OVMF every byte the shell
       # prints is also drawn on the firmware screen before the console acknowledges it, so the leg
-      # pays for its own output twice (milestone 182's block has the measurement).
+      # pays for its own output twice (milestone 182's block has the measurement). Under TCG every
+      # one of those stores was emulated, which is why that leg moved to `swish-check-x86_64` below
+      # (milestone 628 (provisional)) and this job runs the other two.
       #
       # The check earned its place in CI on its first run (milestone 230 (`script/shell-check` is
       # red on `main`, on both architectures, and nothing says so)). The aarch64 leg passed and
@@ -499,7 +507,120 @@ jobs:
       # console server drive the same UART from two address spaces with nothing arbitrating, so a
       # thread dying while the progenitor prints shuffles the two lines together at byte
       # granularity. Local-only would have kept it invisible.
-      - run: script/ci-build swish-check
+      - run: script/ci-build swish-check-aarch64-riscv64
+        if: steps.scope.outputs.needed == 'true'
+
+  # **The x86_64 leg of the interactive-shell check, on an x86_64 runner, under KVM** (milestone
+  # 628 (provisional); the job id and name are provisional). On the arm64 runner this leg ran the
+  # x86_64 guest under TCG and was about 18 of `swish-check`'s 21 minutes (run 37083676625, job
+  # 111089436799: 128 lines in 985.3 s, 7.7 s a line, against aarch64's 0.2 s). What made it slow
+  # is the emulator rather than the guest: notes/benchmarks/swish-check-x86-leg.md has the local
+  # one-change-at-a-time measurements and this job's own numbers. GitHub's x86_64 Linux runners
+  # expose /dev/kvm, owned by root, so the step below opens it to the runner user (GitHub's own
+  # documented recipe), and `swish-check` uses KVM when, and only when, it can open the device.
+  #
+  # **Nothing the arm64 runner was there for is given up.** ci.yml's header keeps the guest-booting
+  # jobs on arm64 so a weakly ordered host can show aarch64 and riscv64 kernels reorderings TCG
+  # permits; an x86_64 guest is TSO on any host and under KVM is TSO in silicon, so this leg never
+  # had that property to lose. The aarch64 and riscv64 legs stay where they were.
+  swish-check-x86_64:
+    name: swish-check-x86_64 (the interactive shell, x86_64 under KVM)
+    runs-on: ubuntu-24.04
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # A hang detector, not a budget: setup and build are about ten minutes, a cold QEMU build can
+    # add 10-20, and the leg itself is measured in the note above. Kept at the arm64 job's 60 so a
+    # run that falls back to TCG (no /dev/kvm on some future image) still finishes and says so
+    # rather than being cancelled mid-leg.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Needs history to diff against the base for the scope check below.
+          fetch-depth: 0
+
+      # The same predicate the suite job, `cpu-matrix` and `verify` use, for the same reason: a
+      # change to a markdown file cannot alter what the shell does at a prompt under QEMU. Steps
+      # are guarded rather than the job, so a doc-only run reports green instead of gambling on
+      # how a skipped required check is treated. The predicate is deliberately identical rather
+      # than tuned narrower, for the reason `cpu-matrix` gives: one rule that is easy to believe
+      # beats two that have to be kept in agreement.
+      - name: Does this change need the build?
+        id: scope
+        run: |
+          # `helpers/scope-merge-base.sh` (its own header has the full story): a raw
+          # `pull_request.base.sha` is a snapshot from when THIS pull request's base last changed,
+          # not the base branch's current tip, so it goes stale the moment an unrelated pull
+          # request merges into the base branch without a push to this one. The script takes the
+          # merge base of HEAD against `origin/<base-ref>` instead, the base branch's actual
+          # current tip (already fetched fresh by this job's own `fetch-depth: 0` checkout above),
+          # falling back to the payload sha (still `|| merge_group.base_sha` for that event, whose
+          # own base is short-lived enough that this staleness is not its risk) only if the local
+          # ref cannot be resolved. Every one of this workflow's other eight scope-check steps uses
+          # the identical call, for the identical reason.
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
+          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
+          # a lane whose last commit was documentation skipped the build its earlier commits needed
+          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
+          # HEAD itself, so the newest commit stays the scope there.
+          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          changed="$(git diff --name-only "$base" HEAD)"
+          echo "changed files:"; echo "$changed" | sed 's/^/  /'
+          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "==> documentation only; nothing a build or a boot can catch"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.scope.outputs.needed == 'true'
+      # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
+      # (milestone 16b (real hardware + IOMMU-backed driver isolation)) arrived later, so the
+      # runner's packaged QEMU cannot boot the riscv leg at all.
+      # apt cannot fix it: it already installs the newest package for the release, and there is no
+      # newer Ubuntu runner image. The version is pinned in .qemu-version so CI and the developer
+      # machine emulate on the same thing, which matters for a project whose benchmarks are instruction
+      # counts. Cold builds take ~10-20 min; every run after that is a cache hit. Restored BEFORE
+      # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
+      # PATH, which is how the built one wins.
+      - name: Cache QEMU
+        if: steps.scope.outputs.needed == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/nife-qemu
+          key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
+      - name: Build QEMU if the cache missed
+        if: steps.scope.outputs.needed == 'true'
+        run: script/ci-qemu
+      - name: Put it on PATH
+        if: steps.scope.outputs.needed == 'true'
+        run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
+
+      # **The provisioning step is explicit** (milestone 286 (one enumeration of the checks that
+      # gate a pull request)), the same shape the `bench` and `cpu`
+      # matrix` jobs have always had. `script/ci-build` bootstraps only on its no-argument path,
+      # which is the command a developer runs before pushing; a job that names checks has already
+      # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
+      # drag an apt install of QEMU onto the rustfmt runner.
+      - run: script/bootstrap
+        if: steps.scope.outputs.needed == 'true'
+
+      # GitHub's documented recipe for KVM on its hosted Linux runners: the device exists and is
+      # root's, and this hands it to every user. The leg prints "on KVM" in its header when it took
+      # it, and the per-line bound it then holds is the other legs' 30 s, not TCG's 45 s.
+      - name: Open /dev/kvm to the runner user
+        if: steps.scope.outputs.needed == 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - run: script/ci-build swish-check-x86_64
         if: steps.scope.outputs.needed == 'true'
 
   swish-check-graphical:
