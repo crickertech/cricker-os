@@ -41,6 +41,8 @@ pub const ROLE_PROBE_SCREEN: u64 = 1 << 3;
 pub const ROLE_CAPTURE: u64 = 1 << 4;
 pub const ROLE_VICTIM: u64 = 1 << 5;
 pub const ROLE_SMALL_DAMAGE: u64 = 1 << 6;
+pub const ROLE_PROBE_READ: u64 = 1 << 7;
+pub const ROLE_LIE_DAMAGE: u64 = 1 << 8;
 
 /// The screen's frames, in the scanout's own geometry. The same run of frames rung one's driver
 /// scans out, because the screen *is* rung one's surface.
@@ -221,6 +223,13 @@ impl Wiring {
     /// its own control page and surface, an input endpoint if it is focusable, and (only for
     /// [`ROLE_CAPTURE`]) a read-only mapping of the screen and the window list.
     pub fn spawn_client(&self, i: usize, role: u64) {
+        self.spawn_client_probing(i, role, self.neighbour_probe_va(i));
+    }
+
+    /// [`spawn_client`](Self::spawn_client) with the address a probing role reaches for chosen by the
+    /// caller rather than fixed at its neighbour's first pixel frame (milestone 719), so one test can
+    /// aim the same attacker at the neighbour's control page and at each of its pixel frames.
+    pub fn spawn_client_probing(&self, i: usize, role: u64, probe: u64) {
         let frames = SCENE[i].page_frames() as u64;
         let mut maps = [Mapping {
             va: 0,
@@ -293,7 +302,6 @@ impl Wiring {
         let screen = self.screen;
 
         let image = self.image;
-        let probe = self.neighbour_probe_va(i);
         crate::sched::spawn(move || {
             if let Some(budget) = capture_budget {
                 crate::sched::grant_at(
@@ -342,6 +350,19 @@ impl Wiring {
             // through the direct map.
             unsafe { core::ptr::read_volatile((base + (k * 4) as u64) as *const u32) }
         })
+    }
+
+    /// The first twelve words of client `i`'s control page (everything the contract defines), read by
+    /// the kernel through the direct map: a witness of what the compositor and the client did to
+    /// that page, taken by a party neither of them controls.
+    pub fn client_control_words(&self, i: usize) -> [u32; 12] {
+        let base = mmu::phys_to_virt(self.client[i]);
+        let mut out = [0u32; 12];
+        for (k, w) in out.iter_mut().enumerate() {
+            // SAFETY: inside the control frame this kernel allocated for client `i`.
+            *w = unsafe { core::ptr::read_volatile((base + (k * 4) as u64) as *const u32) };
+        }
+        out
     }
 
     /// The composed screen, read by the kernel through the direct map.

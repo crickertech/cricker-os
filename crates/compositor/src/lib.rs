@@ -747,6 +747,10 @@ pub mod status {
     /// A client survived an access it should not have: `send(REPORT, WIN_ESCAPED, va, value)`. If a
     /// test ever sees this word, the isolation this milestone exists to prove is broken.
     pub const WIN_ESCAPED: u64 = 0xC33_0017;
+    /// A client committed every damage rectangle in its table of lies and the compositor answered
+    /// each one: `send(REPORT, WIN_LIED, how many, 0)`. Milestone 719. Never sent if the compositor
+    /// stopped answering, which is the whole observation.
+    pub const WIN_LIED: u64 = 0xC33_0018;
 }
 
 /// A position-sensitive digest of a `w` by `h` surface, `read(i)` giving pixel `i` in row-major
