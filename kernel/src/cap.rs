@@ -348,7 +348,16 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// inside the login block rather than for the boot. That is enough to be one slot on the peak.
 /// Found by `script/swish-check`'s aarch64 leg failing on this sentence, in CI and again locally.
 /// Headroom is eight.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 24;
+///
+/// **Twenty-six on a boot with a gpu and a keyboard** (2026-10-03, UTC, milestone 632 (graphics
+/// on demand)). The boot no longer builds the display stack and deletes the device grants mid-boot;
+/// it carries them until it hands them to the shell, and the peak rose by three. Which three
+/// is not yet traced.
+/// Measured by CI's aarch64 `swish-check --graphical` leg (run 37095306042), whose kernel said
+/// `26 of 32 at peak, ABOVE the 23 recorded`. A boot without a gpu still peaks at twenty-three.
+/// The record is the highest a real boot reaches, so it is twenty-six; the cost is that a plain
+/// boot now has three slots of slack before this fires. The headroom is six.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 26;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);
