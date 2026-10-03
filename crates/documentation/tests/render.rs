@@ -973,3 +973,161 @@ fn a_code_span_hands_back_the_line_past_its_closing_backtick() {
     // which a `contains` check cannot see.
     assert_eq!(plain("a `code` b\n", 40), "  a code b\n");
 }
+
+// ---- survivor triage of the 2026-10-03 census: the last column's fold, and the table arena's edges -----------------------
+//
+// The fold that keeps a ninth cell from being dropped (see `a_table_of_twelve_columns_keeps_every_
+// character`) strips trailing blanks, then one closing pipe unless a backslash escapes it. Each of
+// those three steps was tested only on a clean row.
+
+const NINE: &str = "|-|-|-|-|-|-|-|-|-|\n";
+
+#[test]
+fn a_folded_row_with_trailing_blanks_still_loses_its_closing_pipe() {
+    // Blanks after the closing pipe are part of the line, so the pipe is not the last byte. A fold
+    // that stops looking at the end of the line prints it, and a tab is blank too.
+    let src = format!(
+        "| a | b | c | d | e | f | g | h | i |\n{NINE}| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | \t \n"
+    );
+    let out = plain(&src, 200);
+    assert_eq!(
+        out.lines().last().unwrap(),
+        "  1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9"
+    );
+}
+
+#[test]
+fn a_folded_row_keeps_an_escaped_closing_pipe_as_text() {
+    // `\|` is a pipe in the cell, not the row's end, and the backslash is not text. The last cell
+    // here is `i |`, so the pipe stays and the row has no closing pipe of its own.
+    let src = format!(
+        "| a | b | c | d | e | f | g | h | i |\n{NINE}| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 \\|\n"
+    );
+    let out = plain(&src, 200);
+    assert_eq!(
+        out.lines().last().unwrap(),
+        "  1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |"
+    );
+}
+
+#[test]
+fn a_cell_that_ends_in_a_backslash_is_not_read_past_its_end() {
+    // The escape check looks one byte ahead of the backslash. At the end of a cell there is nothing
+    // there, and the lookahead has to say so rather than read the next cell's pipe or the buffer.
+    assert_eq!(
+        plain("| a\\ | b |\n|---|---|\n| x\\ | y\\ |\n", 40),
+        "  a\\ | b \n  ---+---\n  x\\ | y\\\n"
+    );
+}
+
+#[test]
+fn a_row_that_exactly_fills_the_text_arena_is_still_one_chunk() {
+    // The arena holds `TABLE_TEXT` bytes of cell text and a row is admitted while `used + row <=
+    // TABLE_TEXT`; the row that lands on the limit exactly belongs to the chunk, and the one after
+    // it does not. Four rows of 2,046 bytes (a 2,048-byte line is the longest the renderer keeps)
+    // leave 8 bytes, which is what the indented last row measures to. One byte more and it is a
+    // chunk of its own, so the two cases differ by whether every line is one width.
+    let long = format!("|{}|\n", "a".repeat(2046));
+    let delim = "|-|\n";
+    let head = format!("{long}{delim}{long}{long}{long}");
+    let exact = plain(&format!("{head}  |bbbbbb|\n"), 10_000);
+    let widths: Vec<usize> = exact.lines().map(str::len).collect();
+    assert_eq!(widths.len(), 6, "four rows, a rule and the last row");
+    assert!(
+        widths.iter().all(|&w| w == widths[0]),
+        "the exact fit was split: {widths:?}"
+    );
+    let over = plain(&format!("{head}  |bbbbbbb|\n"), 10_000);
+    let widths: Vec<usize> = over.lines().map(str::len).collect();
+    assert_ne!(
+        widths.last(),
+        widths.first(),
+        "a row one byte over the arena stayed in the chunk"
+    );
+}
+
+// ---- survivor triage of the 2026-10-03 census: the inline scanner's depth bound and its last-byte reads --------------------
+//
+// The scanner reads one byte ahead of a marker, and the line buffer behind the live line holds the
+// previous, longer line. A read one byte too far therefore does not fail on its own; it fails when
+// the leftover byte happens to be the one being looked for. These put the right leftovers there.
+
+fn stale(first: &str, second: &str, width: u16) -> String {
+    plain(&format!("{first}\n\n{second}\n"), width)
+}
+
+#[test]
+fn nesting_stops_at_the_depth_bound_whichever_marker_opens_each_level() {
+    // Three levels deep, each opened by a different marker (strong, strike, link), so every site
+    // that deepens the scan is on the path. The fourth level is literal: markup there is text.
+    let emph = plain("**a ~~b [c *z* d](u) b~~ a**\n", 80);
+    assert_eq!(emph, "  a b c *z* d u b a\n");
+    let strike = plain("**a *b [c ~~z~~ d](u) b* a**\n", 80);
+    assert_eq!(strike, "  a b c ~~z~~ d u b a\n");
+    let link = plain("**a ~~b *c [x](u) c* b~~ a**\n", 80);
+    assert_eq!(link, "  a b c [x](u) c b a\n");
+}
+
+#[test]
+fn a_single_tilde_does_not_open_a_strike() {
+    // Two tildes open one. The second is read at `i + 1`, and a scanner that read it at `i` would
+    // see the first tilde twice and strike through everything up to the next pair.
+    assert_eq!(plain("~a ~~b~~\n", 40), "  ~a b\n");
+}
+
+#[test]
+fn a_strike_closer_is_looked_for_after_the_opener() {
+    // The search starts two bytes past the opening pair. Started anywhere else it misses the
+    // closer, or finds one that belongs to a later span, so the opener is placed away from byte 0
+    // and byte 2 where the wrong starting points coincide with it.
+    assert_eq!(plain("xxxxx~~ab~~ y\n", 40), "  xxxxxab y\n");
+}
+
+#[test]
+fn a_link_label_at_the_end_of_a_line_does_not_borrow_a_paren_from_the_last_one() {
+    // `[x]` ends the line, and the byte after it is the `(` the previous line left behind. Taking
+    // it as the start of a destination looks for a `)` before the line's start and cannot find
+    // the slice it asks for.
+    assert_eq!(stale("[x](yy)", "[x]", 40), "  x yy\n\n  [x]\n");
+}
+
+#[test]
+fn a_heading_with_two_spaces_after_its_hashes_has_no_leading_blank() {
+    // The blank is skipped as whitespace and leaves the "a space is owed" flag set. A margin of zero
+    // is where that flag and the cursor agree, so the first word must not pay it.
+    assert_eq!(plain("#  Title\n", 40), "TITLE\n");
+}
+
+#[test]
+fn an_image_marker_moves_the_cursor_by_its_own_width() {
+    // `[image:` is written from outside the line buffer, so the cursor has to be advanced by hand.
+    // `[image: pic]` is 12 columns from a margin of 2 and `d.png` brings the line to 20. Any other
+    // width puts that word on one side of the wrap or the other, so a width of 21 is the edge.
+    assert_eq!(
+        plain("![pic](d.png) x\n", 21),
+        "  [image: pic] d.png\n  x\n"
+    );
+}
+
+#[test]
+fn a_long_destination_is_wrapped_on_character_boundaries() {
+    // The wrap steps one character at a time by asking how long the character at the cursor is. A
+    // two-byte character asked about the wrong byte is split in half and the output stops being text.
+    let out = plain("[a](éééééééééééééé)\n", 12);
+    assert_eq!(out, "  a\n  ééééééééé\n  ééééé\n");
+}
+
+#[test]
+fn a_quoted_fence_keeps_a_marker_of_its_own() {
+    // A fence opened one quote deep strips one marker from each line. A second `>` on a line is
+    // the code's, as in a quoted mail inside a quoted block.
+    assert_eq!(plain("> ```text\n> > keep\n> ```\n", 40), "    | > keep\n");
+}
+
+#[test]
+fn a_line_with_fewer_markers_than_the_fence_was_opened_at_is_not_over_read() {
+    // The fence opened two deep and this line has one marker. The walk past the markers has to stop
+    // at the end of the line, not index it.
+    let out = plain(">> ```text\n>\n>> x\n>> ```\n", 40);
+    assert!(out.contains('x'), "{out:?}");
+}
