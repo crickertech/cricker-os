@@ -2998,6 +2998,10 @@ python3 helpers/architect-label-rules.py --selftest >/dev/null
 # that exact shape, cheap enough (one `git init`, five commits) to run on every invocation here.
 echo "==> the shared scope/architect-label merge-base resolution"
 helpers/scope-merge-base-selftest.sh >/dev/null
+# Milestone 723 (a stopped merge watcher is reported within three of its own intervals): the cron to
+# interval derivation, the silence rule and its measured floor, and the issue plan (one issue per
+# stop, closed on recovery), against fixtures with no `gh` and no network.
+python3 helpers/watcher_watch.py --selftest >/dev/null
 
 echo "==> em-dashes"
 # calef's standing style rule (CLAUDE.md): no em-dashes, use commas, periods, semicolons or
