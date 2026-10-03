@@ -55,11 +55,20 @@ system log proposal (`design/decisions/242-a-system-log.md`, now landed and DECI
 `decision_dependencies` stays `175`; the citation now resolves to a DECIDED section instead of a
 PROPOSED one.
 
-This block stays NOT-STARTED. The ruling names a customer for the kernel's ring: the log service is
-milestone 613 (a system log service: the in-memory half), which drains the ring and forwards whole
-lines to the console. That service is itself still NOT-STARTED. Building this milestone means
-implementing the kernel side of §175's ruling against something to drain into, so it waits on
-milestone 613 landing, not on a further ruling here.
+The ruling names a customer for the kernel's ring: the log service is milestone 613 (a system log
+service: the in-memory half), which drains the ring and forwards whole lines to the console. 613
+was built on 2026-10-02 (pull request #1494), and this milestone is claimed by lane
+`milestone/342-kernel-console-arbitration` (draft pull request #1498) from 2026-10-03 (UTC).
+
+## The drain is a syscall-surface fork, proposed 2026-10-03
+
+§242 (a system log) left how the service reads the kernel's ring to the building lane: a read
+method on a new object, or a read-only frame plus a notification. Both change the surface §10 (the
+capability-based microkernel process model) governs, so the lane proposes and stops.
+[`notes/kernel-ring-drain.md`](../../notes/kernel-ring-drain.md) answers the seven questions and
+recommends the frame, which needs no new object type and no new method, keeps the property that no
+user pointer crosses the syscall boundary, and matches the machine statistics page's shape. Nothing
+past the proposal is built until it is ruled.
 
 **In brief.** Once the `console` server owns the console, two address spaces are writing to the same
 UART with no arbitration between them. The kernel writes directly, because a kernel that cannot
