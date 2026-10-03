@@ -28,8 +28,9 @@ anti-recursion rule says a pull request opened with a workflow's own ephemeral `
 triggers no further workflow runs, so such a pull request sits with every required check stuck on
 "Expected", permanently unmergeable. The workflow therefore authenticates as something else.
 
-Today that something else is `TOOLCHAIN_BUMP_PAT`, a fine-grained personal access token on calef's
-account. It works. It has two structural flaws: it expires on a personal timer that nobody reading
+Until 2026-10-03 UTC that something else was `TOOLCHAIN_BUMP_PAT`, a fine-grained personal access
+token on calef's account (retired that day; no workflow reads it, revocation is calef's). It had two
+structural flaws: it expires on a personal timer that nobody reading
 the workflow can inspect, and it couples the project's automation to one person's account. A
 GitHub App owned by the `nifeos` organization, installed on `nife`, fixes both. Its
 installation tokens are minted fresh per run, so nothing stored expires, and the identity belongs to
@@ -218,16 +219,15 @@ Once, by an owner of the `nifeos` organization.
     not visible to the job: check the names, and check that the organization secrets list `nife`
     among the repositories that may read them.
 
-12. Only after a real bump pull request has been opened by the App and received checks, retire
-    the token, in this order:
+12. Done 2026-10-03 UTC in the workflows. `toolchain-bump.yml`, `metrics.yml` and
+    `vendor-watch.yml` no longer read `TOOLCHAIN_BUMP_PAT`. What remains is calef's: delete the
+    secret, then revoke the PAT itself, in that order:
 
         gh secret delete TOOLCHAIN_BUMP_PAT --repo nifeos/nife
         # then revoke the PAT itself at https://github.com/settings/tokens?type=beta
 
-    Deleting the secret first is what makes the revocation safe: with the secret gone the workflow
-    has already fallen through to the App, so revoking the token cannot break a run that is still
-    reaching for it. Then delete the PAT rung from `toolchain-bump.yml`'s comment and expressions,
-    which is a two-line change and should not be done before this step.
+    Deleting the secret first is the safe order, though with nothing reading it either order is
+    harmless now.
 
 ## The one dependency, and why it was taken
 

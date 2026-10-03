@@ -86,7 +86,9 @@ around it is visibly the agent's.
    workflow's own explanatory comment, which is where this mechanism is documented for the next
    reader. **Not done, and deliberately sequenced after a run has been observed taking the App
    rung**: revoking a credential the workflow may still be reaching for turns a preparation into
-   an outage. `notes/automation-identity.md` carries the order and the reason.
+   an outage. `notes/automation-identity.md` carries the order and the reason. **Update 2026-10-03
+   UTC:** every workflow now takes the App rung only (plus `github.token` in `toolchain-bump.yml`);
+   none reads the secret. Deleting it and revoking the PAT is calef's.
 5. Any future workflow needing to trigger CI on its own PRs reuses the same App rather than
    minting another personal token; that reuse is the milestone's compounding value. The two steps
    to copy are in `notes/automation-identity.md`'s `EXAMPLES`.
