@@ -282,8 +282,8 @@ MODEL_TRAILERS = {
 }
 MODEL_UNKNOWN = 'other_models'
 
-# **The trailer is not the only evidence of who wrote a commit** (milestone 725, provisional: effort
-# and attribution count every vendor). From 2026-09-29 to 2026-10-01 the work ran on z.ai's GLM
+# **The trailer is not the only evidence of who wrote a commit** (milestone 725 (machine effort and commit
+# attribution count every vendor), provisional). From 2026-09-29 to 2026-10-01 the work ran on z.ai's GLM
 # models under opencode, which signed nothing, so 152 commits read as `unattributed`. opencode's
 # own database holds proof for them (a `git commit` tool call with the sha git printed, or the
 # subject it committed), and a runner has no such database, so `script/effort --attribute` writes

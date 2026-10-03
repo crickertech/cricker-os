@@ -125,7 +125,8 @@
 # A gap is attributed to the model of the response that ENDS it, so the per-model hours sum to the
 # per-week total without double counting.
 #
-# # Every vendor, not only Claude Code (milestone 725)
+# # Every vendor, not only Claude Code (milestone 725 (machine effort and commit attribution count
+# every vendor))
 #
 # The first version of this script read one harness, so a week the work ran somewhere else read as
 # idle. From 2026-09-29 02:33 to 2026-10-01 05:07 UTC the lanes ran on z.ai's GLM models under
