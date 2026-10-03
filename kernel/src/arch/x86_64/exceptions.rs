@@ -531,8 +531,8 @@ const _: () = assert!(
 // every return to ring 3, the first one included. The two-writes-in-step property these doc
 // blocks sold ("a trap and a `syscall` cannot name different stacks") lives there now; this
 // comment stays so a reader grepping for the old name finds where the job went. It had been
-// per-CPU since milestone 161's SMP item, after starting as one flat `static mut` every CPU
-// raced.
+// per-CPU since the SMP item of milestone 161 (the x86_64 kernel port), after starting as one flat
+// `static mut` every CPU raced.
 /// **Program the four MSRs that make `syscall` work**, once per CPU, at boot.
 ///
 /// Order matters in one place: `SCE` is enabled last, so the instruction becomes legal only after

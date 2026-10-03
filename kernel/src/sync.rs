@@ -208,7 +208,7 @@ pub mod rank {
     /// duplicated, which is also the direction §17's HAL-leak cleanup pushes: portable machinery
     /// should not be named after one ISA's controller.
     ///
-    /// x86_64 never takes it: the local APIC's claim is one register read with no shared state to
+    /// `x86_64` never takes it: the local APIC's claim is one register read with no shared state to
     /// guard, so the rank has two implementations rather than three.
     #[cfg_attr(target_arch = "x86_64", allow(dead_code))] // the GIC and PLIC drivers are its only takers
     pub const IRQ_CONTROLLER: u32 = 20;
