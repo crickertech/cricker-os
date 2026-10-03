@@ -29,3 +29,6 @@ Part of the [notes index](../README.md), which says how to add a line.
 - [2026-10-03: the merge rate fell](2026-10-03-the-merge-rate.md): a CI job that doubled and a
   queue that ejected 43% of its entries slowed every merge for a week. Then a weekly usage limit
   stopped the work, about 190 merges were deferred, and nothing read either signal.
+- [2026-10-03: the queue's helpers judged one pull request at a time](2026-10-03-the-queue-judged-one-pull-request-at-a-time.md):
+  the drain re-queued what a person had dequeued, the pre-push hook outran the agents' timeouts, and
+  33 group builds failed on facts only the merged tree could make true.
