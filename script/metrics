@@ -49,6 +49,13 @@
 #   script/metrics --csv           print the current commit's row as one CSV line
 #   script/metrics --backfill      rewrite every week's row from git history, then the charts
 #   script/metrics --update        recompute THIS week's row in place, then the charts
+#   script/metrics --backfill-measure NAME
+#                                  recompute one measure's columns for every week, each from that
+#                                  week's own commit, and rewrite only that measure's file and the
+#                                  charts. For a measure added after its history began: `--update`
+#                                  fills only the current week, and `--backfill` restates every
+#                                  other measure too. First used for `coe-actions` (calef's
+#                                  condition on #1513, 2026-10-03).
 #   script/metrics --check         non-zero if --update would change anything, a missing week
 #                                  included. NOTHING RUNS IT: it cannot gate a pull request,
 #                                  because every merge moves the current week's numbers.
@@ -173,6 +180,7 @@ from datetime import date, datetime, timedelta, timezone
 sys.dont_write_bytecode = True
 sys.path.insert(0, 'helpers')
 import baseline_drift                                                       # noqa: E402
+import coe_actions                                                          # noqa: E402
 import interface_stability                                                  # noqa: E402
 import name_provenance                                                      # noqa: E402
 import packages as package_boundaries                                       # noqa: E402
@@ -356,6 +364,11 @@ MEASURES = [
     # charts disagree about how many risks a week had. File and column names provisional (that
     # lane's).
     ('fatal-risks-colors', ['fatal_risks_green', 'fatal_risks_amber', 'fatal_risks_red']),
+    # Corrections of error and the action items they still owe (calef, reviewing #1513 on
+    # 2026-10-03: "track open COE action items in the metrics so that we can drive the count
+    # down"). A stock read from each week's tree by `coe_action_counts` below. File and column
+    # names provisional (that lane's).
+    ('coe-actions', ['coe_actions_open', 'coe_actions_closed']),
     ('coverage', ['coverage_lines_pct', 'coverage_min_file_pct']),
     ('prose-budget', ['prose_excess_words', 'prose_documents_over_cap']),
     # Temporary, and it says so where it is drawn: see `bold_backlog` and BOLD_RETIRE below. The
@@ -1133,6 +1146,28 @@ def proposals(tree):
     return {'proposals_unnumbered': count}
 
 
+def coe_action_counts(tree):
+    """Open and closed action items across every correction of error in one tree.
+
+    The parse and the open-or-closed rule are `helpers/coe_actions.py`'s, the same function
+    `script/roadmap --check` gates with, so the chart and the gate cannot disagree about what an
+    item is. A STOCK, read from each week's own tree: an item closes in the week its milestone turns
+    BUILT or its decision is decided, which is the week a reader should see the bar shrink.
+
+    A week with no correction under `notes/coes/` has no row rather than a zero, because the
+    directory did not exist (2026-09-30). An item that does not resolve counts as neither, since the
+    gate refuses it and it cannot have reached `main`.
+    """
+    texts = {p: t for p, t in tree.markdown()
+             if coe_actions.is_record(p) or p.startswith(('design/roadmap/', 'design/decisions/'))}
+    if not any(coe_actions.is_record(p) for p in texts):
+        return {}
+    paths = set(tree.paths)
+    counts, _problems = coe_actions.evaluate(texts, paths.__contains__)
+    return {'coe_actions_open': sum(o for o, _c in counts.values()),
+            'coe_actions_closed': sum(c for _o, c in counts.values())}
+
+
 def lines(tree):
     """Code and comment lines, `kernel/src` split from everything else.
 
@@ -1657,7 +1692,8 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
     row['names_total'] = named
     for part in (proposals(tree), lines(tree), bugs(tree), harnesses(tree),
                  unsafe_census(tree), unsafe_trust_census(tree), fatal_risks(tree),
-                 fatal_risks_colors(tree), prose_budget(tree), bold_backlog(tree), homes(tree)):
+                 fatal_risks_colors(tree), coe_action_counts(tree), prose_budget(tree),
+                 bold_backlog(tree), homes(tree)):
         row.update(part)
     row.update(baseline_drift.series_cells(rev))
     return row
@@ -2195,6 +2231,12 @@ CHARTS = [
      [('green', 'fatal_risks_green'), ('amber', 'fatal_risks_amber'),
       ('red', 'fatal_risks_red'), ('no verdict', 'fatal_risks_colors_unclassified')],
      1.0, None, None, RISK_COLOUR_HUES),
+    # Open first, so the band the page asks a reader to drive down sits on the axis.
+    ('coe-actions.svg', 'Action items the corrections of error still owe',
+     'notes/coes/, resolved by helpers/coe_actions.py: open while the milestone, proposal or '
+     'decision an item names is not done; the direction is down',
+     [('open', 'coe_actions_open'), ('closed', 'coe_actions_closed')], 1.0, None,
+     'coe_actions_open'),
     ('velocity.svg', 'Milestones built each week',
      'a flow, not a stock: what the index says turned BUILT in those seven days',
      [('built that week', 'milestones_built_this_week')], 1.0, None, None),
@@ -2576,17 +2618,22 @@ def trailing_mean(rows, weeks, field, span):
     return out
 
 
-def draw_charts(rows):
-    write_bold_status(rows)
-    write_drift_report()
-    write_interface_line(rows)
-    write_week_notes_bullets()
-    retire = bold_retire_line(rows)
-    if retire:
-        print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
+def draw_charts(rows, only=None):
+    """Every chart and the generated lines on the page, or with `only` (a set of column names)
+    just the charts that plot one of them and nothing on the page."""
+    if only is None:
+        write_bold_status(rows)
+        write_drift_report()
+        write_interface_line(rows)
+        write_week_notes_bullets()
+        retire = bold_retire_line(rows)
+        if retire:
+            print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
     weeks = sorted(rows)[-CHART_WEEKS:]
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     for name, title, subtitle, columns, scale, ceiling, absent_field, *rest in CHARTS:
+        if only is not None and not only & {column for _label, column in columns}:
+            continue
         hues = rest[0] if rest else None
         series = series_of(rows, weeks, columns, scale, hues)
         if not series:
@@ -2780,6 +2827,27 @@ def main(argv):
         if not lines:
             print('no charted week moved more than a tenth')
         return 0
+    if mode == '--backfill-measure':
+        # One measure's columns, every week, from that week's commit; nothing else in any row
+        # moves. row_for computes the whole row, which costs a backfill's time and keeps the
+        # derivation the one --update uses, rather than a second path per measure that could drift.
+        if len(args) != 2 or args[1] not in dict(MEASURES):
+            raise SystemExit('metrics: --backfill-measure takes one measure name: %s'
+                             % ', '.join(name for name, _columns in MEASURES))
+        name, columns = args[1], dict(MEASURES)[args[1]]
+        rows = read_csv()
+        for week, rev in week_commits().items():
+            if week not in rows:
+                continue
+            fresh = row_for(rev, week)
+            for column in columns:
+                rows[week][column] = fresh.get(column, '')
+        path = measure_path(name)
+        write_csvs({path: render_csvs(rows)[path]})
+        draw_charts(rows, only=set(columns))
+        print('metrics: %s rewritten for %d weeks, its charts redrawn' % (path, len(rows)))
+        return 0
+
     if mode not in ('--table', '--csv', '--backfill', '--update', '--check', '--charts'):
         raise SystemExit('metrics: unknown argument %s; see the comment at the top of this script'
                          % mode)

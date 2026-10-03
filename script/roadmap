@@ -87,7 +87,8 @@
 # work a finished milestone named that nobody has taken, `--proposed` the unnumbered proposals oldest
 # first, and `--outstanding` what a PARTIAL milestone still says is left (milestone 252, and the
 # question calef had to ask by hand about milestone 16 (real hardware, IOMMU-backed driver
-# isolation)). `--revisit` prints the REFUSED milestones
+# isolation)). `--coe-actions` lists every open action item of a correction under notes/coes/,
+# the list behind the count `script/metrics` charts (helpers/coe_actions.py). `--revisit` prints the REFUSED milestones
 # whose stated condition names a milestone that has since turned BUILT, which is a refusal the tree
 # has already walked past without noticing (milestone 448 (a refusal gets a number, a status, and a
 # condition that would change it)). `--index` renders the five-column table to stdout for the two
@@ -1305,6 +1306,29 @@ for mid, fname in sorted(ids.items()):
                             f"a heading over it (found {rest!r})")
 
 
+# ---- a correction's action items (§210, and calef's review of #1513) ----------
+# The same disposition vocabulary as the Follow-on check above, read out of every
+# `notes/coes/*.md` `## Action items` section and resolved to a file that says whether it is
+# done. helpers/coe_actions.py holds the parse and the open-or-closed rule, because
+# `script/metrics` counts the open ones each week and the two must not disagree about either. A
+# correction whose action item resolves to nothing has produced nothing (§210 (a correction of
+# error, and its action items are decisions, proposals or milestones)), so it fails here.
+import coe_actions                                                          # noqa: E402
+
+_coe_texts = {}
+for _dir in ("design/roadmap", "design/decisions", coe_actions.DIRECTORY,
+             *coe_actions.OLDER_DIRECTORIES, "notes"):
+    _full = os.path.join(root, _dir)
+    for _name in sorted(os.listdir(_full)) if os.path.isdir(_full) else []:
+        if _name.endswith(".md") and (_dir != "notes" or coe_actions.is_record(f"notes/{_name}")):
+            with open(os.path.join(_full, _name)) as _f:
+                _coe_texts[f"{_dir}/{_name}"] = _f.read()
+coe_counts, _coe_problems = coe_actions.evaluate(
+    _coe_texts, lambda p: os.path.exists(os.path.join(root, p)))
+for _path, _n, _problem in _coe_problems:
+    problems.append(f"{_path}{':' + str(_n) if _n else ''}: {_problem}")
+
+
 # ---- an IN-PROGRESS branch that already merged --------------------------------
 # The other half of the check above, and the one that caught real defects: a branch named by an
 # IN-PROGRESS status which this history has already MERGED is not active work, it is a milestone that
@@ -1409,6 +1433,9 @@ if mode == "--check":
     if proposals:
         print(f"roadmap: {len(proposals)} unnumbered proposals awaiting a number, oldest "
               f"{min(p[0] for p in proposals)} (script/roadmap --proposed)")
+    print(f"roadmap: {sum(o for o, _c in coe_counts.values())} correction action items open, "
+          f"{sum(c for _o, c in coe_counts.values())} closed, across {len(coe_counts)} "
+          f"corrections (script/roadmap --coe-actions)")
     if lettered:
         print(f"roadmap: lettered addenda: {', '.join(lettered)}")
     sys.exit(0)
@@ -1454,6 +1481,20 @@ if mode == "--revisit":
           f"see and that has come true. {len(cited)} state a condition naming a milestone at all; "
           f"the other {len(refused) - len(cited)} are phrased as a workload, a measurement, a "
           f"customer or a piece of hardware, and nothing here can read those")
+    sys.exit(0)
+
+if mode == "--coe-actions":
+    # Every open action item, by correction, so the number script/metrics charts has a list behind
+    # it. Closed ones are counted, not listed: a reader asking this wants what is left.
+    _ctx = coe_actions.context(_coe_texts)
+    for _path in sorted(coe_counts):
+        _items, _ = coe_actions.bullets(_coe_texts[_path])
+        for _n, _line in _items:
+            _state, _ = coe_actions.resolve(_line, _ctx, lambda p: os.path.exists(os.path.join(root, p)))
+            if _state == "open":
+                print(f"  {_path}:{_n}  {_line[2:100]}")
+    print(f"\n{sum(o for o, _c in coe_counts.values())} open, "
+          f"{sum(c for _o, c in coe_counts.values())} closed")
     sys.exit(0)
 
 if mode == "--proposed":
