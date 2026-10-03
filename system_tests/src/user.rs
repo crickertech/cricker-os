@@ -941,6 +941,11 @@ mod thread_leak_police;
 /// each architecture.
 #[cfg(test)]
 mod recv_cap_attack_tests;
+// Each module carries its own `cfg(test)`: milestone 634 (a plain SEND received by RECV_CAP never
+// hands the receiver a sender-chosen slot) inserted the line above between the attribute and
+// `revocation_in_flight_tests`, and the attribute silently moved with it. The
+// "tests the suite cannot see" check in `script/lint` now refuses a bare `mod` here.
+#[cfg(test)]
 mod revocation_in_flight_tests;
 
 /// **A userspace builder keeps building past its scratch window** (milestone 604 (provisional),

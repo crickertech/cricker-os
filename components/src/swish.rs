@@ -58,6 +58,32 @@
 //!
 //! # BUGS
 //!
+//! **This shell holds the display devices for its whole life, and uses them only to delegate.**
+//! Since milestone 632 (graphics on demand: `graphical_terminal`, launched from the swish prompt)
+//! the progenitor places the GPU's four capabilities and the keyboard's three at
+//! `spawnproto::SHELL_GPU_SLOT` onward: the transports with `WRITE | GRANT`, the interrupts with
+//! `READ | GRANT`, the DMA run, the surface and the keyboard DMA page with
+//! `READ | WRITE | GRANT`. [`delegate_display`] narrows copies for a session and keeps these, so
+//! a session can be launched again. With them this shell could map the three pages read-write
+//! into its own space (it holds the tables `map_page_frame` needs) and read the keyboard driver's
+//! DMA or write the surface behind a session, and could `RECV` on either interrupt rendezvous and
+//! take a wake the driver was parked for. It does none of that, and nothing it parses from the
+//! prompt can reach the seven slots. The spawn service keeps `term_ep` for the same purpose
+//! without lending the shell `GRANT`; the same posture for the seven is proposed in
+//! `design/roadmap/proposals/the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`
+//! (the 2026-10-03 security audit's follow-up).
+//!
+//! **A program's answer word on the result endpoint is the program's own claim.** A child whose
+//! slot 0 was not redirected holds `result_ep` with `WRITE` (the spawn service's default in
+//! `crates/system_initializer`), the same endpoint the spawn service's `SPAWN_FAILED`, the
+//! `job_undertaker`'s `JOB_FAULTED` and this shell's `RESULT` reads share. The reads here take
+//! three words and test `w0`, so a child can send `SPAWN_FAILED` or a wrong exit status about
+//! itself; it cannot speak for another job, because the wait is one job at a time. Since
+//! milestone 613 (a system log service) every `RECV` returns the sender's badge in `x3`, so a
+//! badged copy per sender would let this shell tell the spawn service from a child at no new
+//! authority. Recorded by the 2026-10-03 security audit, which met it beside its scope; a lie about
+//! one's own exit status is the lowest-value thing a confined program can forge here.
+//!
 //! **A spawned command that faults no longer hangs the prompt, and here is what it costs**
 //! (milestone 235, design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). This shell waits
 //! on the job's result endpoint and a thread the kernel killed never sends on it, so until

@@ -672,6 +672,15 @@ fn rendezvous_of(sched: &IpcTables, ep: RendezvousId) -> Option<&'static mut Ren
 fn set_ipc_aborted(sched: &mut IpcTables, tid: ThreadId) {
     if let Some(t) = sched.threads.get_mut(tid) {
         t.handshake.abort();
+        // **The capability staged for the aborted send goes with it** (the 2026-10-03 security
+        // audit's follow-up). A `SEND_CAP` or `CALL` that parked put its delegation, or the Reply
+        // the kernel minted, in `outgoing_cap` for the receiver to take. An abort means no receiver
+        // ever will: the rendezvous is gone. Left in place, the next plain `SEND` this thread
+        // parked on a *different* rendezvous would hand that capability to whoever `RECV_CAP`s
+        // there, a delegation the sender made to one endpoint delivered to another. The sender
+        // still holds its own copy (`SEND_CAP` narrows a copy, it never moves the source), so
+        // nothing is lost by dropping this one.
+        t.outgoing_cap = None;
     }
 }
 
