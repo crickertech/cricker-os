@@ -546,6 +546,126 @@ queued_numbers() {
 		--jq '.data.repository.mergeQueue.entries.nodes[].pullRequest.number' 2>/dev/null
 }
 
+# **An ejection is caught, said once, and recovered without re-spending a group on the same head**
+# (milestone 630 (a merge-queue ejection is caught before the queue, and recovered after it)). The
+# queue's ejection cancels the pull request's auto-merge and tells nobody: the sixth class in
+# notes/coes/2026-09-30-lane-follow-through.md, and its mechanism 5. #1473 was ejected at
+# 2026-10-03 01:45 UTC and nothing said so. This pass re-arms everything eligible, so it did re-arm
+# after an ejection whenever it ran; what it did not do was say why the pull request had left, or
+# tell an ejection worth retrying from one that would fail again at the same head, and with
+# swish-check every group attempt costs 20 to 38 minutes.
+#
+# The decision is helpers/queue-ejected.jq, checked by its self-test, and notes/queue-ejection.md has
+# the measurements behind it. What is done here:
+#   - one comment per ejection (the marker carries the event's time, so a second ejection gets a
+#     second comment), naming the reason and the group's runs that did not succeed, and an
+#     `EJECTED #N` event line printed with it;
+#   - the `queue-ejected` label (name provisional), and a hold on arming, only when a group run
+#     FAILED or TIMED OUT at a head that has not moved. A cancelled run is runner supply, and the
+#     pull request is re-armed at the same head as before;
+#   - the label taken off when the head moves or the pull request is back in the queue, printed as a
+#     `RELEASED #N` event; the ordinary pass below then arms it, unless it carries `needs-architect`,
+#     and the queue admits it only once its own checks are green.
+EJECTED_LABEL="queue-ejected"
+EJECTED_JQ="$(dirname "$0")/queue-ejected.jq"
+held=""
+# One record per pull request that has a current ejection or carries the label, tab-separated:
+# number action labelled reason at group ejected_head head ("-" for a null, so no field is empty).
+ejection_states() {
+	gh api graphql -f query='{repository(owner:"'"${REPO%/*}"'",name:"'"${REPO#*/}"'"){pullRequests(states:OPEN,first:100){nodes{number headRefOid labels(first:50){nodes{name}} removed:timelineItems(last:1,itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT]){nodes{... on RemovedFromMergeQueueEvent{createdAt reason beforeCommit{oid parents(first:2){nodes{oid}}}}}} added:timelineItems(last:1,itemTypes:[ADDED_TO_MERGE_QUEUE_EVENT]){nodes{... on AddedToMergeQueueEvent{createdAt}}}}}}}' 2>/dev/null |
+		jq -r --arg L "$EJECTED_LABEL" "$(cat "$EJECTED_JQ")"'
+			.data.repository.pullRequests.nodes[] | ejection_state($L)
+			| [.number, .action, .labelled, (.reason // "-"), (.at // "-"), (.group // "-"),
+			   (.ejected_head // "-"), .head] | map(tostring) | join("\t")' 2>/dev/null
+}
+# The merge group's runs that did not succeed: "<conclusion>\t<name>\t<url>" per line.
+group_runs() {
+	[ "$1" = "-" ] && return 0
+	gh api "repos/$REPO/actions/runs?head_sha=$1&event=merge_group&per_page=100" \
+		--jq '.workflow_runs[] | select(.conclusion != "success" and .conclusion != "skipped")
+			| "\(.conclusion // .status)\t\(.name)\t\(.html_url)"' 2>/dev/null
+}
+# Whether pull request $1 already carries a comment with marker $2.
+marked() {
+	count=$(gh pr view "$1" --repo "$REPO" --json comments 2>/dev/null |
+		jq -r --arg m "$2" '[.comments[] | select(.body | contains($m))] | length' 2>/dev/null)
+	[ "${count:-0}" != "0" ]
+}
+# The label is created on first use, so no setup step has to be remembered.
+label_ejected() {
+	gh pr edit "$1" --repo "$REPO" --add-label "$EJECTED_LABEL" >/dev/null 2>&1 && return 0
+	gh label create "$EJECTED_LABEL" --repo "$REPO" --color B60205 \
+		--description "Ejected from the merge queue on a failure; the drain holds this head (milestone 630)" >/dev/null 2>&1
+	gh pr edit "$1" --repo "$REPO" --add-label "$EJECTED_LABEL" >/dev/null 2>&1
+}
+# Carries out the decisions and leaves the held numbers in `$held`. A `for` over lines rather than
+# `| while`, because a pipe would run the loop in a subshell and `$held` would never leave it.
+handle_ejections() {
+	held=""
+	states=$(ejection_states)
+	[ -n "$states" ] || return 0
+	nl='
+'
+	tab="$(printf '\t')"
+	saved_ifs=$IFS
+	IFS=$nl
+	for rec in $states; do
+		IFS=$tab
+		# shellcheck disable=SC2086
+		set -- $rec
+		IFS=$nl
+		e_num=$1 e_action=$2 e_labelled=$3 e_reason=$4 e_at=$5 e_group=$6 e_was=$7 e_head=$8
+		if [ "$e_action" != "hold" ] && [ "$e_labelled" = "true" ]; then
+			if gh pr edit "$e_num" --repo "$REPO" --remove-label "$EJECTED_LABEL" >/dev/null 2>&1; then
+				if [ "$e_action" = "moved" ]; then
+					echo "$ME: RELEASED #$e_num (a new head, ${e_head%"${e_head#????????}"}, was pushed after the ejection at $e_at)"
+				else
+					echo "$ME: RELEASED #$e_num (back in the queue, or taken out by hand, since it was ejected)"
+				fi
+			fi
+			e_labelled=false
+		fi
+		[ "$e_action" = "release" ] && continue
+
+		runs=$(group_runs "$e_group")
+		failed=$(printf '%s\n' "$runs" | grep -cE '^(failure|timed_out)'"$tab" || true)
+		marker="merge-drain:ejected:$e_at"
+		if ! marked "$e_num" "$marker"; then
+			list=$(printf '%s\n' "$runs" | awk -F'\t' 'NF == 3 { printf "- %s: %s, %s\n", $2, $1, $3 }')
+			[ -n "$list" ] || list="- no merge-group run to name (a \`merge_conflict\` builds none)"
+			if [ "$e_action" = "hold" ] && [ "$failed" -gt 0 ]; then
+				next="The drain will not re-arm this head: every group attempt costs 20 to 38 minutes, and a failure at the same head usually fails again. It carries \`$EJECTED_LABEL\` until the head moves. Push a fix and the drain takes the label off and re-arms it, unless it carries \`needs-architect\`; the queue admits it once its own checks are green. If the failure was a flake, remove the label and the drain re-arms this head on its next pass."
+				if label_ejected "$e_num"; then
+					e_labelled=true
+				else
+					# Degrades to what the drain did before milestone 630: re-arm this head.
+					echo "$ME: STALLED. #$e_num could not be labelled $EJECTED_LABEL (the label may not exist and this token may not create it), so this head is not held"
+					next="The drain meant to hold this head and could not label it, so it will re-arm it as before. Push a fix rather than waiting on a second group build."
+				fi
+			elif [ "$e_action" = "hold" ] && [ "$e_group" != "-" ]; then
+				next="Nothing in the group failed outright (cancelled, or still running when it was ejected). 13 of the 18 \`failed_checks\` ejections counted on 2026-10-03 were a cancelled CI run, which is runner supply rather than the change, so the drain re-arms this head on its next pass."
+			elif [ "$e_action" = "hold" ]; then
+				next="Resolve the conflict against \`main\` and push; the drain re-arms the new head."
+			else
+				next="A new head has been pushed since, and the drain arms it as usual."
+			fi
+			[ "$e_was" = "-" ] && e_was="(the event names no group commit)"
+			gh pr comment "$e_num" --repo "$REPO" --body "$ME: EJECTED from the merge queue at $e_at, reason \`$e_reason\`, at head \`$e_was\`. The ejection cancelled auto-merge.
+
+$list
+
+$next (milestone 630; notes/queue-ejection.md)
+
+<!-- $marker -->" >/dev/null 2>&1 &&
+				echo "$ME: EJECTED #$e_num ($e_reason at $e_at, $failed group run(s) failed)"
+		fi
+		if [ "$e_action" = "hold" ] && [ "$e_labelled" = "true" ] && [ "$failed" -gt 0 ]; then
+			held="$held $e_num"
+		fi
+	done
+	IFS=$saved_ifs
+}
+
 # # This log has two kinds of line, and only one of them can be counted
 #
 # **A snapshot answers "what is true now"; an event answers "what happened".** Every line this
@@ -572,6 +692,10 @@ queued_numbers() {
 #                                      because the platform had not (2026-09-24, see stranded_numbers)
 #     merge-drain: RERAN #N run <id> .. this pass reran the CI run a concurrency group cancelled as a
 #                                      same-second duplicate, once (2026-09-24, see cancelled_duplicate_runs)
+#     merge-drain: EJECTED #N ...      this pass found #N's ejection from the queue and said so on it,
+#                                      once per ejection (milestone 630, see handle_ejections)
+#     merge-drain: RELEASED #N ...     this pass took `queue-ejected` off #N, because its head moved or
+#                                      it is back in the queue (milestone 630)
 #
 # **What makes them events rather than snapshots is the suppression, not the wording.** Arming is
 # idempotent and is attempted on every eligible pull request on every pass, so printing on every
@@ -609,6 +733,10 @@ pass() {
 	unblocked_drafts
 	release_unblocked_labels
 
+	# Before arming anything: an ejected head that failed is held (milestone 630), and an ejection
+	# is said once, on the pull request. See handle_ejections.
+	handle_ejections || true
+
 	q=$(queue)
 	n=$(printf '%s' "$q" | jq -r 'length' 2>/dev/null || echo 0)
 	if [ "$n" = "0" ] || [ -z "$n" ]; then
@@ -628,6 +756,15 @@ pass() {
 	for num in $(printf '%s' "$q" | jq -r '.[].number'); do
 		state=$(printf '%s' "$q" | jq -r --arg n "$num" '.[] | select(.number == ($n | tonumber)) | .mergeStateStatus')
 		title=$(printf '%s' "$q" | jq -r --arg n "$num" '.[] | select(.number == ($n | tonumber)) | .title')
+
+		# Ejected at this head on a failure: re-arming it would spend another group build on what
+		# just failed. A snapshot line, not an event; `EJECTED` was the event.
+		case " $held " in
+		*" $num "*)
+			echo "$ME: holding #$num: ejected from the merge queue on a failure at this head; push a fix, or remove $EJECTED_LABEL to retry it ($title)"
+			continue
+			;;
+		esac
 
 		# A declared ordering constraint, checked before anything else, because arming a pull
 		# request that is sequenced behind another wastes a group build and can evict it.

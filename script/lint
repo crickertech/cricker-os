@@ -2790,6 +2790,10 @@ echo "==> the merge queue's admission predicate"
 #     concurrency group cancelled beside its same-second sibling; the self-test's fixtures are the
 #     ordinary supersede that must not be rerun and the attempt-2 run that must not be rerun again.
 "$(dirname "$0")/../helpers/cancelled-duplicate-selftest.sh"
+#     And the ejection decision (milestone 630): a head the queue ejected on a failure is held
+#     rather than re-armed into another 20-to-38-minute group, a moved head releases, and a
+#     deliberate removal is not an ejection. Fixtures only, no `gh`.
+"$(dirname "$0")/../helpers/queue-ejected-selftest.sh"
 #     And `Blocked-by: #N` (2026-09-27): the parser (helpers/blocked-by.sh, one number or several
 #     on the line) and the draft-unblock decision it feeds (helpers/blocked-by-resolution.jq:
 #     unblocked, still waiting, closed unmerged, already labelled) are each fixtures-only, no `gh`.
