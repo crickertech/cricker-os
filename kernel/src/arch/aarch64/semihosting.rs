@@ -47,7 +47,7 @@ pub fn exit(code: u32) -> ! {
     // never returns.
     //
     // Without one it raises a real exception, and since VBAR_EL1 is not yet set up we
-    // would jump to garbage and die silently. The halt() below would NOT be reached.
+    // would jump to garbage and die silently. The loop below would NOT be reached.
     // That is a genuine hole; milestone 2 (exception vectors) closes it. It doesn't
     // bite today only because we always run under QEMU with -semihosting.
     unsafe {
@@ -58,5 +58,10 @@ pub fn exit(code: u32) -> ! {
         );
     }
 
-    super::halt()
+    // If the host did not end the run, stop rather than run on: the same `wfi` loop riscv64's and
+    // x86_64's `exit` end in, written out here because `halt` takes a `HaltReason` and the exit path
+    // is beneath every holder of one (milestone 720 (provisional)).
+    loop {
+        aarch64_cpu::asm::wfi();
+    }
 }

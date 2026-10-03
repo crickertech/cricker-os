@@ -320,7 +320,12 @@ pub fn init() {
 /// It is also the more correct instruction for what we mean. We are not waiting for an
 /// event from a sibling core. We are idling until something interrupts us, of which there
 /// is currently nothing, which is exactly the point.
-pub fn halt() -> ! {
+/// Takes a [`super::HaltReason`], whose constructors are the list of who may stop a core for good;
+/// a thread whose work is done leaves with `sched::exit` instead (milestone 720 (provisional)).
+// A test image on this architecture never halts: its panics and its suite's end both exit through
+// semihosting.
+#[cfg_attr(any(test, feature = "system_tests"), allow(dead_code))]
+pub fn halt(_: super::HaltReason) -> ! {
     loop {
         aarch64_cpu::asm::wfi();
     }
