@@ -700,8 +700,8 @@ walked `crates/` and so excluded `kernel` and `user`, both of which are rows in 
 measurement, because a wall clock is not a thing a gate can cheaply re-derive. See
 notes/counted-claims.md.)
 
-**BUGS:** the count is typed by hand in three places (here and twice in `notes/unsafe-obligations.md`), so
-every merge from `main` that adds a harness conflicts on it (2026-10-02, milestone 129 (scheduled execution: a cron whose every entry is a grant)). The fix is to regenerate it at merge time; until then take either side and run `script/lint`.
+**BUGS:** the count is typed by hand (here and in `notes/unsafe-obligations.md`), so
+every merge from `main` that adds a harness conflicts on it (2026-10-02, milestone 129 (scheduled execution: a cron whose every entry is a grant)). The fix is to regenerate it at merge time; until then, run `script/lint` for the number.
 Harnesses within a crate verify in parallel, `-j 4` by default (`VERIFY_JOBS` overrides; the
 script's comment explains the memory bound and the terse-output trade). Measured 2026-08-03, all
 exit-clean on the same tree:
