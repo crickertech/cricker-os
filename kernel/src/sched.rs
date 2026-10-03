@@ -3632,6 +3632,9 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
                 // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
                 // write a zero here, so RECV_CAP surfaces it at no extra instruction on this path.
                 r.mailbox = [data, slot, 0, badge, 0];
+                // A capability was installed, so RECV_CAP's x1 is a real slot (milestone 634 (a plain SEND
+                // received by RECV_CAP never hands the receiver a sender-chosen slot)).
+                r.cap_delivered = true;
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 3);
                 wake(sched, receiver);
@@ -3726,6 +3729,9 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
                 }
                 inter_process_communication::Recv::Blocked => {
                     let me = sched.threads.get_mut(current).unwrap();
+                    // Clear before parking: whoever wakes us sets this iff it installs a
+                    // capability, so a plain SEND (which installs none) leaves it false (milestone 634).
+                    me.cap_delivered = false;
                     me.handshake.park(Wait::Rendezvous(ep, WaitRole::Receiver)); // only a delivering sender may wake us
                     trace::record(trace::Event::BlockSelf, current, ep as u8);
                     None
@@ -3749,7 +3755,17 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
             // and `w4`, which is `abi::notification::BOUND` when the bound notification ended this
             // receive and `0` for every delivery a sender or the kernel's death path makes
             // (milestone 151).
-            t.mailbox
+            // **x1 is NO_CAP unless a capability was installed for this delivery** (milestone 634,
+            // fatal risk 7). A plain SEND that reached us parked drops its three words straight into
+            // the mailbox, so m[1] is the sender's chosen word; returning it would hand a sender a
+            // slot number where a CALL server reads a reply slot. A bound-notification delivery is
+            // exempt: its x4 == BOUND and its m[1] is the notification word, not a sender's choice.
+            let m = t.mailbox;
+            if t.cap_delivered || m[4] == abi::notification::BOUND {
+                m
+            } else {
+                [m[0], NO_CAP, m[1], m[3], 0]
+            }
         }
     }
 }
@@ -3828,6 +3844,8 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
                 // Word 3 is the caller's badge (milestone 599): the same store as before with a
                 // value instead of a zero, so the server's RECV_CAP surfaces which client called.
                 r.mailbox = [msg[0], slot, msg[1], badge, 0];
+                // A Reply capability was installed, so RECV_CAP's x1 is a real slot (milestone 634).
+                r.cap_delivered = true;
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 5);
                 wake(sched, receiver);

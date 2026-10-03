@@ -944,6 +944,7 @@ mod thread_leak_police;
 /// parity gate (DECISIONS §19, architectural parity is a tenet) is met by the same test running on
 /// each architecture.
 #[cfg(test)]
+mod recv_cap_attack_tests;
 mod revocation_in_flight_tests;
 
 /// **A userspace builder keeps building past its scratch window** (milestone 604 (provisional),
