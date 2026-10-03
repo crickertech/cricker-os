@@ -1584,7 +1584,12 @@ fn strip_one_gauge(text: &str) -> Option<String> {
                 out.push(chars[start + offset]);
             }
         }
-        out.extend(&chars[end..]);
+        // The kernel ends its line with a newline, and when the gauge was spliced into an echo that
+        // newline lands after the gauge's last word, splitting the echo in two (`echo h` and
+        // `ello world | wc` in #1377's riscv64 run of 2026-10-03). A newline right where the gauge
+        // ended is the kernel's, so it goes with the gauge.
+        let rest = if chars.get(end) == Some(&'\n') { end + 1 } else { end };
+        out.extend(&chars[rest..]);
         out
     })
 }
@@ -3164,6 +3169,15 @@ $ outlaw
     }
 
     #[test]
+    fn degauge_takes_the_kernels_newline_with_a_spliced_gauge() {
+        // #1377's riscv64 swish-check of 2026-10-03, verbatim: the stack gauge landed inside the
+        // echo of the first line and its newline split the echo.
+        let spliced = "$ echo  progenitor sta hck: 20576 of 49152 bytes at peak, 28576 spare\n\
+                       ello world | wc\n  1 2 12\n";
+        assert_eq!(degauge(spliced), "$ echo hello world | wc\n  1 2 12\n");
+    }
+
+    #[test]
     fn a_slot_gauge_after_the_first_prompt_leaves_the_prompt_last() {
         // Milestone 152's swish-check transcript, verbatim but for the chunking: the slot peak
         // settled after the first prompt, and with only the stack gauge filtered the wait for
@@ -3212,7 +3226,8 @@ $ outlaw
         let text =
             "$ echo hi\nhi\n  progenitor stack: 22880 of 32768 bytes at peak, 9888 spare\n$ wc\n";
         let cleaned = degauge(text);
-        assert_eq!(cleaned, "$ echo hi\nhi\n\n$ wc\n");
+        // Newline and all, as `GaugeFilter` drops it (the blank line this left was the kernel's).
+        assert_eq!(cleaned, "$ echo hi\nhi\n$ wc\n");
         assert!(cleaned.contains("$ wc\n"));
     }
 
