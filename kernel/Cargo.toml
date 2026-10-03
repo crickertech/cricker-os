@@ -42,6 +42,19 @@ bitmap_font = { version = "0.1.0", path = "../crates/bitmap_font" }
 # The corruption canary's arm/check/disarm serialization (2026-08-15), lifted out of `sched.rs`
 # after its hand-written two-flag protocol raced: the kernel calls the loom-searched gate rather
 # than keeping a copy of it, the third retrofit of work_steal_slot's move. See notes/interleaving.md.
+#
+# **BUGS: every `--features bench` build warns that this dependency is unused, on every
+# architecture, and that is a deliberate exception and a foot gun** (calef, 2026-10-03 UTC, on PR
+# #1477). nightly-2026-10-02's cargo added a warning-only `unused_dependencies` lint, and the only
+# user of this crate is `sched.rs`'s `canary` module, which is `cfg(not(feature = "bench"))`: the
+# bench build swaps in a no-op twin so the canary's tick load stays out of the floors. Cargo cannot
+# drop a dependency when a feature is turned on, only add one. The fix that silences it was
+# considered and refused: an optional dependency behind a default `corruption_canary` feature would
+# be the kernel's first default feature, every bench and icount invocation would have to remember
+# `--no-default-features`, and forgetting it would silently add the canary's tick load to the bench
+# floors. A wrong number nobody notices costs more than a warning everybody can read. So this one
+# warning is expected; any other `unused_dependencies` warning from the kernel is a real finding.
+# Do not add an `allow` for it either, because that would hide a second, real one.
 memory_corruption_canary_gate = { version = "0.1.0", path = "../crates/memory_corruption_canary_gate" }
 capability = { version = "0.1.0", path = "../crates/capability" }
 # The shell's grant-expression logic (milestone 47's `rm -r`). The kernel plans nothing; its `rm`
@@ -180,10 +193,6 @@ video_terminal = { version = "0.1.0", path = "../crates/video_terminal" }
 # than keeping a copy of them: the second retrofit of work_steal_slot's move, asked for by the
 # fourth bench stop's audit. See notes/interleaving.md.
 thread_wake_handshake = { version = "0.1.0", path = "../crates/thread_wake_handshake" }
-
-# Typed, compile-time-checked MMIO register blocks. An off-by-four in a device's
-# register layout becomes a build error instead of a mystery at runtime.
-tock-registers = "0.10"
 
 [build-dependencies]
 # The measured-boot digest parser, shared with the kernel proper so the manifest the build writes and
@@ -426,6 +435,14 @@ single_hart = []
 # and §3 chose typed registers for it before the in-tree pattern existed.
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-cpu = "11"
+# Typed, compile-time-checked MMIO register blocks for aarch64's devices (`pl011`, `gic`, `gicv3`)
+# and aarch64's arch code. An off-by-four in a device's register layout becomes a build error
+# instead of a mystery at runtime. **Target-gated since 2026-10-03** (calef's ruling on PR #1477):
+# only aarch64 code names it, so in the unconditional table it was compiled for riscv64 and x86_64
+# for nothing, and nightly-2026-10-02's `unused_dependencies` lint said so on both. The 16550, the
+# one shared UART, never used it; `drivers/ns16550.rs` says why (its register stride is a runtime
+# value no static layout can express). Same asymmetry as `aarch64-cpu` above, and same history.
+tock-registers = "0.10"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 # **The two-slot boot state, and the one token of it that crosses the handoff** (rung 2b of
