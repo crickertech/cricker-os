@@ -84,9 +84,9 @@ Four pieces, one milestone.
 
 ## Follow-on
 
-- **Proposed.** The one-tenth threshold fires every week on this tree's counts; the measurement
+- **Milestone 698.** Milestone 698 (the week flag fires every week). The one-tenth threshold fires every week on this tree's counts; the measurement
   and the candidates are in
-  `design/roadmap/proposals/the-week-flag-fires-every-week.md`.
+  `design/roadmap/698-the-week-flag-fires-every-week.md`.
 
 ## Index row
 

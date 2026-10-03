@@ -32,7 +32,7 @@
 //!   mapping log from the start, once per page, so destroying a region costs its mapped pages times
 //!   every record on the machine. Forty 668-page reaps behind a suite's worth of live spaces pay
 //!   that forty times. The progenitor reaping a job pays it too. Proposed as its own milestone:
-//!   `design/roadmap/proposals/a-region-reap-scans-every-mapping-on-the-machine-per-page.md`.
+//!   `design/roadmap/658-a-region-reap-scans-every-mapping-on-the-machine-per-page.md`.
 //! - **The test keeps 32 frames, unexplained.** Measured by the suite's frame ledger on aarch64,
 //!   run alone, 2026-09-26: both regions reclaim without error and the exerciser exits, yet 32
 //!   frames do not come back. 32 is also the scratch window's last-level table count

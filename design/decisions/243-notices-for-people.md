@@ -70,7 +70,7 @@ Nothing person-facing. Lookups on base `995ac5bce`:
 
 - No `motd`, banner, `wall` or broadcast concept exists.
 - No program reboots the machine, so the first example has no publisher yet. Proposed:
-  `design/roadmap/proposals/build-a-reboot-program.md`.
+  `design/roadmap/688-build-a-reboot-program.md`.
 - No update poller. §241's P5 (an OS update is a set of packages through a slot) is unbuilt.
 - A job's end is already observed. On #1377 the session process "blocks on one endpoint that
   carries both the timetable's death and every job's report" and, until milestone 152 (durable
@@ -142,7 +142,7 @@ its audience. The writer never states its audience, program or time.
 - `login` registers per-user badges. It mints one publish badge (audience: that identity) when it
   builds a session process, and one read badge per login.
 - The spawner of a system service registers the others. The reboot program (proposed,
-  `design/roadmap/proposals/build-a-reboot-program.md`) gets "every display, may bypass". The
+  `design/roadmap/688-build-a-reboot-program.md`) gets "every display, may bypass". The
   update poller gets "owners".
 - A user cannot address another user; `write(1)` has no analogue until someone asks for one.
 - The board keeps a list of who is subscribed, not who is logged in: a display subscribes with its
@@ -236,7 +236,7 @@ Recommended, and reversible:
 
 ## The three examples, end to end
 
-A reboot. A reboot program (proposed, `design/roadmap/proposals/build-a-reboot-program.md`; name
+A reboot. A reboot program (proposed, `design/roadmap/688-build-a-reboot-program.md`; name
 unminted) holds a badge registered "every display, may bypass". It publishes class
 `system.shutdown`, key `reboot`, urgency critical, time to live ending at the deadline: "Rebooting
 at 14:05 UTC". The board signals every subscribed display's doorbell; the console's terminal prints
@@ -288,6 +288,6 @@ Derived, nothing is built or measured.
 All six questions are decided, which unblocks building `notice_board` and `notice_protocol`. It
 gives milestone 152's dropped job reports a consumer and gives §241's P5 a way to tell an owner.
 Two things still gate a shipped publisher, each with a home: the first example's publisher is
-proposed at `design/roadmap/proposals/build-a-reboot-program.md`, and a progenitor-registered
+proposed at `design/roadmap/688-build-a-reboot-program.md`, and a progenitor-registered
 system publisher waits on pull request #1360 (see "What it costs"). Curation and Delivery can be
 built as recommended.

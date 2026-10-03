@@ -70,7 +70,7 @@
 //! take a wake the driver was parked for. It does none of that, and nothing it parses from the
 //! prompt can reach the seven slots. The spawn service keeps `term_ep` for the same purpose
 //! without lending the shell `GRANT`; the same posture for the seven is proposed in
-//! `design/roadmap/proposals/the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`
+//! `design/roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`
 //! (the 2026-10-03 security audit's follow-up).
 //!
 //! **A program's answer word on the result endpoint is the program's own claim.** A child whose

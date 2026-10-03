@@ -43,7 +43,7 @@
 //! - **It runs nowhere on its own.** It was left out of `script/test`'s default legs because the
 //!   two boots were said to take several minutes under TCG. Measured 2026-10-03 on an Apple M-series
 //!   host, warm: 42.5 seconds for the whole gate. Nothing schedules it either, so a break is found
-//!   by whoever next runs it by hand: `design/roadmap/proposals/the-install-gates-run-nowhere.md`.
+//!   by whoever next runs it by hand: `design/roadmap/712-the-install-gates-run-nowhere.md`.
 //! - **A failure leaves the NVMe image behind**, on purpose: it is the evidence, and
 //!   `hdiutil attach -imagekey diskimage-class=CRawDiskImage` on the partition reads the EFI system
 //!   partition it wrote.

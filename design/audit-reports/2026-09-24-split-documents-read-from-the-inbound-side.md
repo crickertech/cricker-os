@@ -98,7 +98,7 @@ restatement and it is now 3,000. No claim, date or citation changed.
 Findings 2 and 3 are one class: a path, then a quoted phrase the file no longer contains. Of 121
 such citations, 14 failed, 9 of them rot. `script/citations` already checks the two neighbouring
 shapes, and this one is the shape a split breaks. Proposed as [a quoted phrase after a path must be
-in that file](../roadmap/proposals/a-quoted-phrase-after-a-path-must-be-in-that-file.md), a ratchet
+in that file](../roadmap/644-a-quoted-phrase-after-a-path-must-be-in-that-file.md), a ratchet
 on added lines, with the measurement.
 
 ### 6. ACCEPTED: both marked prose-budget exceptions are past their granted counts

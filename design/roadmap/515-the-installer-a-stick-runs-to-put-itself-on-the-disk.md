@@ -199,8 +199,8 @@ PC once rung 1 has one.
 - **Milestone 570.** Open as milestone 570 (the install offer should say what is already on the disk).
 - **Milestone 572.** Open as milestone 572 (there is no way back from the stick: an installed disk is
   never offered an install again).
-- **Proposed.** Nothing runs these three gates on any schedule:
-  `design/roadmap/proposals/the-install-gates-run-nowhere.md`.
+- **Milestone 712.** Milestone 712 (the install gates run nowhere, so rung 2a can rot without anybody hearing). Nothing runs these three gates on any schedule:
+  `design/roadmap/712-the-install-gates-run-nowhere.md`.
 
 ## Index row
 

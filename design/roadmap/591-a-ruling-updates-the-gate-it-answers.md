@@ -102,7 +102,7 @@ for staleness.
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/twelve-decision-gates-cite-only-ruled-sections.md`: read
+- **Milestone 652.** Milestone 652 (twelve `DECISION` gates cite only sections that are already ruled). `design/roadmap/652-twelve-decision-gates-cite-only-ruled-sections.md`: read
   the 12 bare gates and, for each, set the gate to what still stops a start or say why the ruled
   section is context.
 - **Refused.** Option 1 as a gate. It would fire today on the 12, and 39 is a false positive the

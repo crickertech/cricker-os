@@ -149,7 +149,7 @@
 //!   IOMMU do not show it, which is why those two legs always passed; whether their firmware
 //!   leaves functions bus-mastering the same way is unmeasured). The production question is
 //!   proposed, not answered, in
-//!   `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md`. The test now
+//!   `design/roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md`. The test now
 //!   resets every *other* block device on the bus (`STATUS = 0`, an ordinary virtio reset) before
 //!   registering and provoking its own, which stops their DMA outright regardless of the
 //!   mechanism; see the test for the commented fix. Green on all three architectures.

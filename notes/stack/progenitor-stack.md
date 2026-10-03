@@ -103,7 +103,7 @@ What was considered:
   should not stand on them for the life of the machine. It needs `boot` to return what the service
   needs and `_start` to call `spawn_service` itself. That restructures the function milestones 205,
   595 and 23 are editing today, so it is a proposal rather than this lane's diff:
-  `design/roadmap/proposals/the-spawn-service-runs-outside-boots-frame.md`.
+  `design/roadmap/696-the-spawn-service-runs-outside-boots-frame.md`.
 - Move the two page buffers off the stack. `old` and `new` are 8 KB of the install path, and no
   open lane edits `activate` or `edit`. But the only place to put them is a `static`, which needs
   `unsafe` or a cell type in a program that has neither for this, and makes both functions

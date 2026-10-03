@@ -276,15 +276,15 @@ supports is that these named claims are tested, and each shown to fail when brok
 
 Open security findings that bear on it, each a proposal and none yet built:
 
-- [The confinement table lists the unvouched child](../roadmap/proposals/the-confinement-table-lists-the-unvouched-child.md):
+- [The confinement table lists the unvouched child](../roadmap/673-the-confinement-table-lists-the-unvouched-child.md):
   a claim tested and falsified by hand three times, with no row in the table. Severity not recorded.
-- [Reset unowned PCI functions before the IOMMU enables](../roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md):
+- [Reset unowned PCI functions before the IOMMU enables](../roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md):
   Bus Master Enable is already set on functions the kernel never owns, so DMA can outlive the
   confinement. Severity not recorded; an architect's call.
-- [Every client of a network stack shares its socket numbers](../roadmap/proposals/every-client-of-a-network-stack-shares-its-socket-numbers.md):
+- [Every client of a network stack shares its socket numbers](../roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
   one holder of the network capability can read and close another's sockets. Severity not
   recorded; the fix changes a wire format.
-- [The sibling RECV_CAP paths get a receiver-first test](../roadmap/proposals/the-sibling-recv-cap-paths-get-a-receiver-first-test.md):
+- [The sibling RECV_CAP paths get a receiver-first test](../roadmap/714-the-sibling-recv-cap-paths-get-a-receiver-first-test.md):
   two paths now correct by reading, unmeasured. Severity not recorded.
 
 ## 8. Nobody needs it
