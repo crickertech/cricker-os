@@ -2979,6 +2979,12 @@ python3 helpers/prose_ratchet.py --check
 # the weekly drift report is a record other people quote, so its sums are checked where a change to
 # them lands rather than on the morning the workflow publishes them.
 python3 helpers/baseline_drift.py --selftest >/dev/null
+# Milestone 721 (each merge-group CI job has a 20-minute budget): every `ci.yml` job carries the wall-time budget steps and a
+# `timeout-minutes` within the budget plus five. The selftest runs first (fixtures, no tree), so a
+# green `lint` is not the checker silently passing everything.
+echo "==> CI job wall-time budgets"
+python3 helpers/job-budget.py --selftest >/dev/null
+python3 helpers/job-budget.py lint
 # Milestone 610 (provisional): the interface stability series' classification (what is breaking,
 # what is an addition, what is a syscall or a format event, what counts as co-change), against
 # fixtures, with no git and no cargo. The weekly workflow is the only thing that runs the real
