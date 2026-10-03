@@ -73,6 +73,10 @@ and type `graphical_terminal` too, requiring the refusal sentence.
   session needs 490 to 493 pages on aarch64 and 494 to 495 on riscv64. While a session runs, its
   region is 528 of the pool's 672 pages, so a `std` job and a second session are refused until it
   ends. The serial arm builds one child fewer and was not bisected separately.
+- The 528-page figure was bisected on aarch64 and riscv64 only. There is no x86_64 graphical leg
+  (milestone 192 (a keyboard on real silicon)'s x86_64 half is unbuilt), so x86_64's need is
+  unmeasured and nothing gates it. When that leg arrives with milestone 192, it must re-bisect
+  this constant.
 - A session whose build fails after its first driver started may keep those pages. The failure
   path reclaims the region and the sweep wakes the half-built drivers. No leg has yet forced
   whether they exit on a swept endpoint.

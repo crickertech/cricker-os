@@ -4171,10 +4171,12 @@ const SCREEN_IN_VA: u64 = address_space_map::pair_page(0x0000_0000_00a1_0000);
 /// needs 490 to 493 pages and riscv64 494 to 495. At the counted 464 the session's last child
 /// (`keyboard_driver`, or at 481-489 the session program itself) could not be built, the launch
 /// answered `could not spawn`, and CI's graphical leg failed. Five hundred twenty-eight is the
-/// riscv64 measurement plus about seven percent. It comes out of the job pool
-/// ([`JOBS_BUDGET_PAGES`], six hundred seventy-two), once, for the life of the session: while a
-/// session runs, plain native jobs still spawn from the 144 left, and a `std` job or a second
-/// session is refused, which the shell reports as `could not spawn`.
+/// riscv64 measurement plus about seven percent. Bisected on those two ISAs only: x86_64 has no
+/// graphical leg (milestone 192 (a keyboard on real silicon)'s x86_64 half is unbuilt), so its need
+/// is unmeasured and ungated, and that leg's arrival must re-bisect this. It comes out of the job
+/// pool ([`JOBS_BUDGET_PAGES`], six hundred seventy-two), once, for the life of the session:
+/// while a session runs, plain native jobs still spawn from the 144 left, and a `std` job or a
+/// second session is refused, which the shell reports as `could not spawn`.
 const GRAPHICAL_TERMINAL_SESSION_PAGES: u64 = 528;
 
 /// Drop every capability named, freeing the slots. A builder's means, spent once the children
