@@ -92,6 +92,9 @@
 # has already walked past without noticing (milestone 448 (a refusal gets a number, a status, and a
 # condition that would change it)). `--index` renders the five-column table to stdout for the two
 # scripts that read it as data; nothing writes it to a file, and no file holds it.
+# `--ready-branch BRANCH` fails when a block still reads IN-PROGRESS on BRANCH, which is what a
+# ready pull request must never carry (milestone 630, the comment beside it says why), and
+# `--selftest` proves that check against fixtures.
 # See notes/roadmap.md for both vocabularies.
 #
 # (The sentence above replaced a dangling one that named a `--unswept` mode this script has never
@@ -147,13 +150,15 @@ if [ "${1:-}" = "--migrate" ]; then
     exec python3 "$ROOT/helpers/roadmap_migrate.py" "$ROOT" "$@"
 fi
 
-exec python3 - "$ROOT" "${1:-}" <<'PY'
+exec python3 - "$ROOT" "$@" <<'PY'
 import os
 import re
 import subprocess
 import sys
 
-root, mode = sys.argv[1], sys.argv[2]
+root = sys.argv[1]
+mode = sys.argv[2] if len(sys.argv) > 2 else ""
+args = sys.argv[3:]
 d = os.path.join(root, "design", "roadmap")
 
 # The proposal-file parse this script shares with `script/metrics`, which counts the pile per week
@@ -167,6 +172,97 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(root, "helpers"))
 import roadmap_proposals                                                    # noqa: E402
 import roadmap_block                                                        # noqa: E402
+
+
+# ---- `--ready-branch BRANCH`: a ready pull request's block already says how it ended -------------
+# Milestone 630 (a merge-queue ejection is caught before the queue, and recovered after it). The
+# merged-branch check further down can only fail inside a merge group, because only there does the
+# branch's merge commit exist. So a lane that marks its pull request ready while its own block still
+# reads IN-PROGRESS learns it 20 to 38 minutes later, from an ejection, which also cancels auto-merge
+# and tells nobody (#1473, 2026-10-03 01:45 UTC; notes/coes/2026-09-30-lane-follow-through.md).
+#
+# The fact is knowable the moment the pull request stops being a draft: a ready pull request is a
+# merge request, and a block naming the branch being merged cannot honestly read "active work on a
+# branch right now". So this asks the same question on `pull_request`, at ready time, in about a
+# second, from `.github/workflows/ready-status.yml` and from `.githooks/pre-push`.
+#
+# It runs BEFORE everything below on purpose. It reads frontmatter and nothing else: no history, no
+# tree-wide grep, and no other block's problems, which are `--check`'s to report. A ready check that
+# failed on somebody else's broken citation would teach a lane to ignore it.
+#
+# Only IN-PROGRESS is matched. A `branch:` on any other status is `--check`'s "belongs to another
+# status" problem already, and reporting it twice under two names would be noise.
+def ready_branch_problems(blocks, branch):
+    """`blocks` is [(file name, text)]; the problems for each one still IN-PROGRESS on `branch`."""
+    out = []
+    for fname, text in blocks:
+        fields, _, _ = roadmap_block.frontmatter(text.splitlines())
+        if not fields or fields.get("branch") != branch or fields.get("status") != "IN-PROGRESS":
+            continue
+        out.append(
+            f"design/roadmap/{fname} still reads IN-PROGRESS on {branch!r}, and its pull request "
+            f"is ready for review. A ready pull request is a merge request, so the block must "
+            f"already say how the work ended: the merge group's roadmap check fails on exactly "
+            f"this, 20 to 38 minutes into the queue, and the ejection cancels auto-merge "
+            f"(milestone 630).\n"
+            f"  Fix: set 'status: BUILT' with 'built: YYYY-MM-DD' (UTC), or 'status: PARTIAL' "
+            f"with what is left, and delete the 'branch:' line; commit and push.\n"
+            f"  Or, if the work is not finished: gh pr ready --undo")
+    return out
+
+
+def ready_branch_selftest():
+    """Fixtures, no files and no subprocesses, for the reason `script/fatal-risks --selftest` gives:
+    a check whose green looks identical to a check that cannot fail must prove it can fail."""
+    def block(status, branch=None):
+        lines = ["---", f"status: {status}", "raised: 2026-10-03"]
+        if branch:
+            lines.append(f"branch: {branch}")
+        return "\n".join(lines + ["---", "# 9. A fixture", ""])
+    me, other = "milestone/9-fixture", "milestone/10-other"
+    cases = [
+        ("IN-PROGRESS on this branch", [("9-a.md", block("IN-PROGRESS", me))], 1),
+        ("IN-PROGRESS on another branch", [("9-a.md", block("IN-PROGRESS", other))], 0),
+        ("BUILT, branch line removed", [("9-a.md", block("BUILT"))], 0),
+        # A `branch:` left on BUILT is --check's problem, not this one's.
+        ("BUILT, branch line left behind", [("9-a.md", block("BUILT", me))], 0),
+        ("a prose-form block", [("9-a.md", "# 9. Old\n\n**Status: IN-PROGRESS** on " + me)], 0),
+        ("a branch whose name is a prefix of this one",
+         [("9-a.md", block("IN-PROGRESS", me + "-two"))], 0),
+        ("two blocks, one held", [("9-a.md", block("IN-PROGRESS", me)),
+                                  ("10-b.md", block("PARTIAL"))], 1),
+    ]
+    failed = 0
+    for name, blocks, want in cases:
+        got = len(ready_branch_problems(blocks, me))
+        if got != want:
+            print(f"roadmap --selftest: {name}: {got} problems, expected {want}", file=sys.stderr)
+            failed += 1
+    if failed:
+        sys.exit(1)
+    print(f"roadmap --selftest: {len(cases)} ready-branch fixtures behave")
+    sys.exit(0)
+
+
+if mode == "--selftest":
+    ready_branch_selftest()
+
+if mode == "--ready-branch":
+    if len(args) != 1 or not args[0]:
+        print("roadmap: --ready-branch takes one branch name", file=sys.stderr)
+        sys.exit(2)
+    found = []
+    for fname in sorted(os.listdir(d)):
+        if fname.endswith(".md") and fname[:1].isdigit():
+            with open(os.path.join(d, fname)) as fh:
+                found.append((fname, fh.read()))
+    problems = ready_branch_problems(found, args[0])
+    for p in problems:
+        print(f"roadmap: {p}", file=sys.stderr)
+    if problems:
+        sys.exit(1)
+    print(f"roadmap: no block reads IN-PROGRESS on {args[0]!r}")
+    sys.exit(0)
 
 PROPOSED_DIR = "proposals"
 
@@ -1413,8 +1509,8 @@ if mode == "--ready":
 
 if mode:
     print(f"roadmap: unknown argument {mode!r} (no argument, --ready, --unclaimed, "
-          f"--outstanding, --proposed, --revisit, --unmodelled, --index, --check, or "
-          f"--migrate [FILE...])", file=sys.stderr)
+          f"--outstanding, --proposed, --revisit, --unmodelled, --index, --check, "
+          f"--ready-branch BRANCH, --selftest, or --migrate [FILE...])", file=sys.stderr)
     sys.exit(2)
 
 by_status = {}

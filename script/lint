@@ -871,6 +871,10 @@ echo "TODO markers: $todo_count in code, each naming a milestone that has a bloc
 # revision said.
 echo "==> roadmap status"
 "$(dirname "$0")/roadmap" --check
+# The ready-time half (milestone 630): `--ready-branch` runs on `pull_request` from
+# .github/workflows/ready-status.yml and from the pre-push hook, never from here, because lint
+# cannot know whether the pull request is a draft. Its fixtures can still prove it fails.
+"$(dirname "$0")/roadmap" --selftest >/dev/null
 
 
 # Intra-doc links, denied when broken. This codebase leans unusually hard on `[`Item`]` links to
