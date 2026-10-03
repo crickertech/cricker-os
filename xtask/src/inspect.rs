@@ -3,7 +3,7 @@
 use std::process::Command;
 
 use crate::host::{kernel_elf, llvm_tool, run, workspace_root};
-use crate::{RISCV_TARGET, RUNNER, X86_TARGET, build};
+use crate::{RISCV_TARGET, RUNNER, TARGET, X86_TARGET, build};
 
 /// Boot the kernel with QEMU frozen and a GDB stub listening.
 ///
@@ -136,6 +136,9 @@ fn strip_tag(path: &str) -> &'static str {
         "riscv"
     } else if path.contains(X86_TARGET) {
         "x86"
+    } else if path.contains(TARGET) {
+        // Provisional name: the aarch64 bare-metal tag, so `host` means real host builds only.
+        "aarch64"
     } else if path.contains("riscv64-unknown-nife") {
         "std-riscv"
     } else if path.contains("x86_64-unknown-nife") {
@@ -227,11 +230,23 @@ pub(crate) fn read_stripped(path: &str) -> std::io::Result<Vec<u8>> {
 mod strip_tag_tests {
     use super::strip_tag;
 
+    const CHECKOUT: &str = "/home/runner/work/nife/nife";
+
     #[test]
-    fn a_checkout_named_nife_does_not_make_a_bare_metal_program_std() {
-        let bare = "/home/runner/work/nife/nife/target/aarch64-unknown-none-softfloat/release/init";
-        assert_eq!(strip_tag(bare), "host");
-        let std = "/home/runner/work/nife/nife/std_exerciser/target/aarch64-unknown-nife/release/x";
-        assert_eq!(strip_tag(std), "std");
+    fn std_program_is_tagged_std() {
+        let p = format!("{CHECKOUT}/std_exerciser/target/aarch64-unknown-nife/release/x");
+        assert_eq!(strip_tag(&p), "std");
+    }
+
+    #[test]
+    fn bare_metal_program_gets_its_own_tag_despite_a_checkout_named_nife() {
+        let p = format!("{CHECKOUT}/target/aarch64-unknown-none-softfloat/release/init");
+        assert_eq!(strip_tag(&p), "aarch64");
+    }
+
+    #[test]
+    fn host_build_is_tagged_host() {
+        let p = format!("{CHECKOUT}/target/release/xtask");
+        assert_eq!(strip_tag(&p), "host");
     }
 }
