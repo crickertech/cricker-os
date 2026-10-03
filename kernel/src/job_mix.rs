@@ -107,7 +107,7 @@ pub fn run() -> ! {
     // that was dropped)).
     let Some(image) = crate::trust::require_program("job_mix_task") else {
         println!("{FAILED}no 'job_mix_task' program in the initrd archive; nothing to run");
-        arch::halt();
+        arch::halt(arch::HaltReason::measurement_boot());
     };
 
     let report = sched::create_rendezvous();
@@ -126,7 +126,7 @@ pub fn run() -> ! {
                 "{FAILED}could not create task {i}'s {}-page budget",
                 job_mix::TASK_BUDGET_PAGES
             );
-            arch::halt();
+            arch::halt(arch::HaltReason::measurement_boot());
         };
         *slot = region;
     }
@@ -164,7 +164,7 @@ pub fn run() -> ! {
         });
         let Some((_tid, cpu)) = started else {
             println!("{FAILED}could not spawn echo server {i} of {ECHO_SERVERS}");
-            arch::halt();
+            arch::halt(arch::HaltReason::measurement_boot());
         };
         placed[i] = u8::try_from(cpu).unwrap_or(u8::MAX);
     }
@@ -205,7 +205,7 @@ pub fn run() -> ! {
         });
         let Some((_tid, cpu)) = started else {
             println!("{FAILED}could not spawn task {i} of {MAX_TASKS}");
-            arch::halt();
+            arch::halt(arch::HaltReason::measurement_boot());
         };
         placed[ECHO_SERVERS + i] = u8::try_from(cpu).unwrap_or(u8::MAX);
     }
@@ -281,7 +281,7 @@ pub fn run() -> ! {
     println!("{DONE}");
     // Parked, not exited: the watcher saw the marker and tears the run down, and a forgotten QEMU
     // costs nothing in `wfi` (AGENTS.md's rule).
-    arch::halt();
+    arch::halt(arch::HaltReason::measurement_boot());
 }
 
 /// One subrun: release `go.len()` tasks, wait for all of them, and return the wall-clock ticks.
@@ -314,7 +314,7 @@ fn subrun(report: sched::RendezvousId, go: &[sched::RendezvousId]) -> u64 {
             job_mix::KIND_NAMES.get(kind).copied().unwrap_or("unknown"),
             err as i64
         );
-        arch::halt();
+        arch::halt(arch::HaltReason::measurement_boot());
     }
     ticks
 }

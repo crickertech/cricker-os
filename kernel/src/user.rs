@@ -1256,12 +1256,12 @@ pub fn spawn_hello(
         Ok(fs) => fs,
         Err(e) => {
             crate::println!("  archive is not a nifefs image: {e:?}");
-            crate::arch::halt();
+            crate::sched::exit();
         }
     };
     let Some(init_bytes) = boot_fs.read(HELLO_ENTRY) else {
         crate::println!("  archive has no '{HELLO_ENTRY}' program");
-        crate::arch::halt();
+        crate::sched::exit();
     };
     crate::trust::require(HELLO_ENTRY, init_bytes);
     crate::trust::require_program_measurements(&boot_fs);

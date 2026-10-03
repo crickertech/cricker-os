@@ -225,3 +225,11 @@ incomplete in five ways)'s replay found the green,
 and lane `x86-port-falsification-split` instrumented the cause. The test now reads each child's core
 from the current-CPU page and runs the non-holder's `out` only on the holder's core. The record is
 red on both boots, at `x86_port_tests.rs:270`.
+
+### Added 2026-10-03: rows 28 and 29 replayed on both `x86_64` boots
+
+The records for row 28 (`a_revoked_holder_faults_on_its_next_port_write`) and row 29
+(`a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write`) were replayed on 2026-10-03
+(UTC) on the direct boot (two cores) and the OVMF boot (one core), and each failed on both at
+`system_tests/src/user/x86_port_tests.rs` (`left: 2`, `right: 1`); each passed on both boots with the
+patch removed.

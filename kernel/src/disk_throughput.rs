@@ -74,7 +74,7 @@ pub fn run() -> ! {
     let verdict = measure();
     println!("disk-throughput: verdict {verdict}");
     println!("disk-throughput: done, halting.");
-    arch::halt();
+    arch::halt(arch::HaltReason::measurement_boot());
 }
 
 /// The verdict line's text. Kept as strings built at the one place each is decided, so the

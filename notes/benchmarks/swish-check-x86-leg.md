@@ -31,9 +31,11 @@ reaches userspace yet; `components/src/input.rs`), so the rotation reached the b
 constantly. The fix is that thread calling `sched::exit()` instead; the idle thread, which halts
 only when nothing else can run, takes the core.
 
-Why aarch64 and riscv64 never showed it is not measured. Their boot paths also end in
-`arch::halt()`, but their input is interrupt-driven, so no thread keeps the rotation turning while
-the shell waits. That is an inference from the code, not a measurement.
+Why aarch64 and riscv64 never showed it was an inference until milestone 720 (the boot thread
+cannot halt while it is runnable). Their boot paths also ended in `arch::halt()`, but their input
+is interrupt-driven, so no thread keeps the rotation turning while the shell waits. Milestone 720
+(number provisional) ended both in `sched::exit()`, made `arch::halt` take a token an ordinary boot
+cannot make, and measured both legs before and after; its roadmap block has the numbers.
 
 ## Per-line seconds, one change at a time (patagonia, TCG, local)
 
@@ -115,6 +117,6 @@ because x86_64 under TCG is legitimately fourteen times aarch64 under TCG.
 ## BUGS
 
 - One run per row. The local table is single runs on a laptop that other lanes share.
-- The aarch64 and riscv64 boots also end in `arch::halt()` on the boot thread
-  (`kernel/src/lib.rs`), and nothing here shows whether they pay the same ticks. Their legs cost
-  0.2 s a line, so the cost, if any, is small; not measured.
+- The input driver still polls. With the boot thread gone the core still never idles at a
+  prompt, because the input driver yields forever. Interrupt-driven COM1 input is the named
+  follow-up in `components/src/input.rs`.

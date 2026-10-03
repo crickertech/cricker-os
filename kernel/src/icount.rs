@@ -401,5 +401,5 @@ pub fn run() -> ! {
     );
 
     println!("icount: done");
-    crate::arch::halt()
+    crate::arch::halt(crate::arch::HaltReason::measurement_boot())
 }
