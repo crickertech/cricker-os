@@ -222,8 +222,7 @@ Highest rung first. `script/roadmap --check` fails a bullet that resolves to not
   2); #1487's legs differed about 40 times.
 - **Proposed.** `design/roadmap/proposals/a-stopped-merge-watcher-is-reported-at-once.md` (rung 2),
   within three of its own cron intervals.
-- **Proposed.** `design/roadmap/proposals/effort-and-attribution-count-every-vendor.md` (rung 2),
-  so a bridged week does not read as idle.
+- **Milestone 725.** `design/roadmap/725-effort-and-attribution-count-every-vendor.md` (rung 2, provisional number), so a bridged week does not read as idle.
 - **Milestone 630.** Built 10-03 as milestone 630 (a merge-queue ejection is caught before the
   queue, and recovered after it), the re-arm the
   [2026-09-30 correction](2026-09-30-lane-follow-through.md) left owed.
