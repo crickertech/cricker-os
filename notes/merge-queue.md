@@ -199,7 +199,7 @@ Two scheduled workflows, owned by the organization rather than by a laptop, ever
 | `launchd`, per developer | `helpers/at-risk-check.sh`, which reads that machine's own worktrees | nobody: it needs no credential |
 
 Each workflow mints a one-hour installation token with `actions/create-github-app-token` from the
-organization secrets `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY`. No key is at rest on anybody's
+environment secrets `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY`. No key is at rest on anybody's
 machine, which is the property that made this the recommendation over putting the App's private
 key on patagonia: the credential-at-rest question does not arise for anything that runs here.
 

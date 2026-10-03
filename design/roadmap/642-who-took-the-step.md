@@ -192,8 +192,8 @@ Scheduled GitHub Actions workflows (or cordoba), rather than a contributor's lap
 
 **For, and the first point may dissolve the rest of this proposal.**
 
-- **There is no key at rest on anybody's laptop.** `smelter`'s App ID and private key are already
-  organization secrets scoped to `nife`, and `actions/create-github-app-token` mints a fresh
+- **There is no key at rest on anybody's laptop.** `smelter`'s App ID and private key are environment
+  secrets on `automation`, and `actions/create-github-app-token` mints a fresh
   one-hour installation token per run. The credential question that makes (a) and (d) calef's call
   **does not arise** for anything that runs there.
 - **It answers the singleton question by construction.** One workflow, one schedule, owned by the

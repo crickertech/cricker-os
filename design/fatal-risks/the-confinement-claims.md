@@ -210,7 +210,7 @@ staged, and the sender's next plain `SEND` delivered it to a `RECV_CAP` receiver
 A capability granted to one endpoint reached a receiver on a different one, which is a process
 reaching an object it was not granted. Fixed in `sched::ipc_recv` with a test and a replayable
 falsification. The same class as #1494 and milestone 634, reached by a third mechanism (the
-successful-collect path, not an abort and not the mailbox slot). Every other claim it reached held, by reading and by host or kernel proof where cheap. Two were not attacked: row 25 (enforced by the compositor, not the kernel) and row 26 (an escape would hang the test rather than fail it, so it waits on milestone 417 (a usurper that reports instead of hanging)). Row 11 is proved on `x86_64` only; the aarch64 and riscv64 proofs are open work. This does not support green;
+successful-collect path, not an abort and not the mailbox slot). Every other claim it reached held, by reading and by host or kernel proof where cheap. Two were not attacked in that pass: row 25 (enforced by the compositor, not the kernel; milestone 719 (Compositor confinement claim 25 is attacked part by part) in PR #1536 attacked it part by part on aarch64 afterwards, 2026-10-03) and row 26 (an escape would hang the test rather than fail it, so it waits on milestone 417 (a usurper that reports instead of hanging)). Row 11 was proved on `x86_64` only in that pass; milestone 718 (No page is both writable and executable, proved on every ISA) in PR #1534 has since proved it on aarch64, riscv64 and x86_64, 2026-10-03. This does not support green;
 the human-outsider half remains behind milestone 198.
 
 ### Added 2026-10-03: rows 28 and 29 replayed on both `x86_64` boots

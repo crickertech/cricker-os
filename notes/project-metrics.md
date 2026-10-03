@@ -33,18 +33,16 @@ not a caption, it is a register entry.
 - A milestone is not a fixed unit and a pull request is not a unit of value. Read the shape, not
   the height.
 
-## The nine things that would kill nife
-
-![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
-
-Grey is no verdict yet.
-
 ## Action items the corrections of error still owe
 
 ![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
 
 Open while what an item names is not done; the direction is down (`script/roadmap --coe-actions`).
 Each week is read from its own commit, so 2026W39 is the first correction, already in this form.
+
+## The nine things that would kill nife
+
+![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
 
 ## Kani proof harnesses, and what can falsify them
 
@@ -217,7 +215,7 @@ pulled once both panels reach zero. Then `script/metrics` prints "the bold backl
 is zero; retire this chart" and writes it here:
 
 <!-- bold-backlog: script/metrics writes this -->
-2026W40: 14919 spans over, in 825 documents.
+2026W40: 14229 spans over, in 812 documents.
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.
@@ -250,7 +248,7 @@ Public items removed or changed each week: [definitions](interface-stability.md)
 [per crate](project-metrics/interface-stability.md).
 
 <!-- interface-stability: script/metrics writes this -->
-interface, 2026W37 to 2026W40: 110 breaking changes (684 additions); 2 syscall numbers changed, 0 format bumps; 76% co-change.
+interface, 2026W37 to 2026W40: 113 breaking changes (784 additions); 2 syscall numbers changed, 0 format bumps; 77% co-change.
 <!-- /interface-stability -->
 
 ## How it stays current
