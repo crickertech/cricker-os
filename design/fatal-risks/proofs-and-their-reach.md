@@ -176,5 +176,7 @@ precompiled object, which gives the riscv64 model. For each one, the checks, the
 SAT variable and clause counts were identical under both models. The differing fields only matter
 where CBMC interprets C, and none of these harnesses reaches a C model that reads them. So this
 is a gap waiting to bite, not a hole: a later harness that reaches such a model could verify
-differently, and nothing would say so. The gate and the fix are the proposal
+differently, and nothing would say so. It moves neither half of the amber, survivorship or reach,
+since no verdict changed; calef ruled on 2026-10-03 (UTC) that risk 2 stays AMBER. The gate and the
+fix are the proposal
 [riscv64 proofs check against the riscv64 model](../roadmap/proposals/riscv64-proofs-check-against-the-riscv64-model.md).

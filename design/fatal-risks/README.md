@@ -105,7 +105,7 @@ that does not matter.
 **The experiment:** milestone 191 (did the proofs catch the bugs?), against this project's own defect
 history, plus a reverse pass asking which harnesses prove a property that could plausibly be false.
 
-**Experiment status: RUN, 2026-08-30.** AMBER. The red half is that no standing proof has caught a
+**Experiment status: RUN, 2026-08-30, re-read 2026-10-03.** AMBER (calef, 2026-10-03, #1286). The red half is that no standing proof has caught a
 regression: every defect a proof caught was caught while its harness was being written (rule 1's
 survivorship asymmetry). The second reason is reach. Eight harnesses prove kernel
 code on all three architectures; none passes `asm!`, fixed-address MMIO or an `arch/` subtree its
