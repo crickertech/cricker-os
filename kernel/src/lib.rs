@@ -37,7 +37,7 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::testing::runner)]
 #![reexport_test_harness_main = "test_main"]
-// The RISC-V boot runs a self-contained tour (in `kernel_main` below) that ends in `arch::halt()`,
+// The RISC-V boot runs a self-contained tour (in `kernel_main` below) that ends in `sched::exit()`,
 // before the shared, still-aarch64-shaped full boot (userspace progenitor as the boot process, the shell,
 // the virtio service). That full-boot code and its helpers are therefore unreferenced from a riscv64
 // build and look like dead code, even though the `arch` layer itself is fully implemented. Allow it
@@ -283,7 +283,7 @@ pub fn device_tree() -> Result<device_tree_blob::DeviceTreeBlob<'static>, device
 /// where arguments live. `boot_info_pointer` arrives in `x0`. See notes/registers.md.
 ///
 /// `-> !` means this never returns, which is true: there is nowhere to return *to*.
-// On riscv64, the boot tour below ends in `arch::halt()`, so the rest of `kernel_main` (the shared
+// On riscv64, the boot tour below ends in `sched::exit()`, so the rest of `kernel_main` (the shared
 // full boot) is deliberately unreachable there. Scoped to riscv so aarch64 keeps the lint.
 // And the icount boot parks before the bench boot it implies, so `bench::run()` and everything after
 // it is deliberately unreachable in that one configuration (milestone 78).
@@ -432,7 +432,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                 "  memory      : no PVH boot info at {boot_info_pointer:#x}; nothing else can be found"
             );
             println!("nife x86_64: early boot cannot continue, halting.");
-            arch::halt();
+            arch::halt(arch::HaltReason::before_scheduler());
         };
         arch::machine::print_memory_map(&info);
 
@@ -598,7 +598,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             #[cfg(feature = "tsc_probe")]
             {
                 arch::tsc_probe::probe();
-                arch::halt();
+                arch::halt(arch::HaltReason::measurement_boot());
             }
 
             arch::timer::init();
@@ -930,7 +930,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         #[cfg(any(test, feature = "system_tests"))]
         {
             run_test_suite();
-            arch::halt();
+            arch::halt(arch::HaltReason::test_build());
         }
 
         // **The tour ends and the soak begins** (milestone 219), before the halting line rather
@@ -1153,9 +1153,12 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         #[cfg(feature = "shell")]
         {
             riscv_hand_over();
-            // The boot thread parks; the progenitor and its children (console/input/shell) run on the
-            // scheduler. `halt` is a preemptible wfi loop, so they get scheduled from here on.
-            arch::halt();
+            // The boot thread's work is done, and it leaves the scheduler rather than parking on its
+            // run queue; the progenitor and its children (console/input/shell) run from here on, and
+            // the idle thread takes the hart when none of them can. Milestone 720 (provisional) has
+            // why a parked boot thread costs a tick each time round robin reaches it; it is the
+            // reason `arch::halt` takes a `HaltReason` this build cannot make.
+            sched::exit();
         }
 
         // A test build runs the kernel suite right here and exits via semihosting, instead of the
@@ -1181,7 +1184,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                 arch::exceptions::enable_external();
             }
             run_test_suite();
-            arch::halt();
+            arch::halt(arch::HaltReason::test_build());
         }
 
         // **The kernel mapping check and the context-switch check both moved into
@@ -1854,7 +1857,9 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         )))]
         {
             riscv_hand_over();
-            arch::halt();
+            // Leaves the scheduler rather than parking in it, as the `shell` build's hand-over above
+            // does (milestone 720 (provisional)).
+            sched::exit();
         }
     }
 
@@ -1890,7 +1895,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
     // see. Silent on every machine we test on, which states nothing to compare against; see
     // `arch::timer::check_frequency_against_device_tree` for what that costs and why it refuses
     // rather than preferring one source. (Gated even though only aarch64 reaches this line at run
-    // time: the riscv64 arm above ends in `arch::halt()`, so everything below it is still
+    // time: the riscv64 arm above ends in `sched::exit()`, so everything below it is still
     // *compiled* for that architecture, which has no such function and needs none.)
     #[cfg(target_arch = "aarch64")]
     arch::timer::check_frequency_against_device_tree(boot_info_pointer);
@@ -2265,14 +2270,18 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
     }
 
     // bench::run diverged above, and so does soak::run (milestone 219); this is everyone else's
-    // parking.
+    // ending. **The boot thread leaves the scheduler rather than halting on its run queue**
+    // (milestone 720 (provisional)), as x86_64's has since milestone 628: a halted thread that is
+    // still runnable stops the core until the next tick every time round robin reaches it. The
+    // idle thread, which waits only when nothing else can run, takes the core. A boot whose
+    // hand-over failed ends here too, and it ends the same way: nothing is left to run.
     #[cfg(not(any(
         feature = "bench",
         feature = "soak_test",
         feature = "job_mix",
         feature = "disk_throughput"
     )))]
-    arch::halt()
+    sched::exit()
 }
 
 /// Bring up the interrupt controller and the timer, then **unmask interrupts**.

@@ -191,13 +191,13 @@ pub fn run() -> ! {
     // seal and `script/card-check` to find.
     let Some(image) = crate::trust::require_program("soaker") else {
         println!("soak-test: FAILED: no 'soaker' program in the initrd archive; nothing to run");
-        arch::halt();
+        arch::halt(arch::HaltReason::measurement_boot());
     };
 
     // Zeroed, so a first sample cannot read stale RAM as progress that already happened.
     let Some(frame) = memory::alloc_zeroed() else {
         println!("soak-test: FAILED: no frame for the shared progress page");
-        arch::halt();
+        arch::halt(arch::HaltReason::measurement_boot());
     };
     let shared = frame.addr();
 
@@ -217,7 +217,7 @@ pub fn run() -> ! {
              route would steal it; see TICK_INTID_TOP in kernel/src/soak.rs",
             tick_intid(groups - 1)
         );
-        arch::halt();
+        arch::halt(arch::HaltReason::measurement_boot());
     }
 
     // **What milestone 240 needs and nothing else records.** The kernel decides where every worker
@@ -270,7 +270,7 @@ pub fn run() -> ! {
                     "soak-test: FAILED: could not spawn worker {index} of {}",
                     groups * MEMBERS_PER_GROUP
                 );
-                arch::halt();
+                arch::halt(arch::HaltReason::measurement_boot());
             };
             tids[index] = tid;
             // `pick_spawn_target` returns an online cpu id, and `MAX_CPUS` is what bounds one, so
