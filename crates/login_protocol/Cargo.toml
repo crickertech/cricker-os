@@ -9,3 +9,4 @@ workspace = true
 
 [dependencies]
 credential_protocol = { version = "0.1.0", path = "../credential_protocol" }
+filesystem_protocol = { version = "0.1.0", path = "../filesystem_protocol" }

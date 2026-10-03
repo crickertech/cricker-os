@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-08-24
 decided: 2026-08-24
 ratified_by: calef
@@ -7,20 +7,22 @@ ratified_by: calef
 
 # 123. Boot-time re-derivation: what grants the privilege, and how it dies after one use
 
+*Amended 2026-09-27: the re-deriver is `login`. See the end.*
+
 calef, 2026-08-24, ratified option (a): a boot-only process holding a
 construction budget and read access to the schedule store, re-deriving every durable session the
 store names, then deleting both capabilities from its own cspace in `root_supervisor`'s exact shape.
 The four hardening refinements below are to be built into it, not conditions on the ratification.
 Raised from milestone 152's own BUGS section (durable delegation), which named this exact gap: "a
 privileged, boot-only operation... [but] what object grants that privilege, and how it is scoped so
-it cannot be invoked again after boot, is not worked out." The number is **provisional**, minted by
+it cannot be invoked again after boot, is not worked out." The number is provisional, minted by
 a lane against the tree at the time; the integrator assigns the real section number at merge, per
 this project's own convention for `DECISIONS.md` numbering.
 
 ## The question
 
-Milestone 152 decided that boot-time bring-up of a durable session must be **re-derivation, not
-restoration**: capabilities do not survive a reboot, so the kernel cannot "reload" a session's old
+Milestone 152 decided that boot-time bring-up of a durable session must be re-derivation, not
+restoration: capabilities do not survive a reboot, so the kernel cannot "reload" a session's old
 authority, it can only rebuild it fresh, the way a login would, but with no live person presenting
 credentials at that moment. The roadmap doc says this should be "a privileged, boot-only operation,
 in the same shape as `root_supervisor` handing out its authority once at boot and never again, not a
@@ -29,8 +31,8 @@ holds that privilege, what it is granted, or what mechanism actually prevents it
 second time. That is what this decision answers.
 
 This is worth being careful about because of what the operation actually is: something that can stand
-up a durable session, and therefore a bundle of authority equivalent to a live login, **for any user
-named in the on-disk schedule store, without that user presenting a credential.** If this capability
+up a durable session, and therefore a bundle of authority equivalent to a live login, for any user
+named in the on-disk schedule store, without that user presenting a credential. If this capability
 persists anywhere reachable after boot finishes, it is a master key. The whole design has to survive
 the question "what stops this from being invoked again at 3pm."
 
@@ -119,7 +121,7 @@ below rather than guessed at.
 
 ## What each option costs
 
-**The recommended shape (a), concretely:**
+The recommended shape (a), concretely:
 
 - **What it needs granted.** A construction budget (an `Untyped`, sized for however many durable
   sessions the store names, the same kind of budget `login.rs`'s `mint()` spends to build a
@@ -134,7 +136,7 @@ below rather than guessed at.
   rather than iterate the store it was hard-wired to read at construction (milestone 126's
   enumeration-is-authority rule, already invoked by 152's own reattachment design for the same
   reason).
-- **Whether it needs a new dedicated process or folds into an existing one.** Either is viable and
+- Whether it needs a new dedicated process or folds into an existing one. Either is viable and
   this decision does not need to pick: a small dedicated boot-only process (provisional name only,
   something like `session_reviver`; naming is calef's call per AGENTS.md, not this lane's) that runs
   once between `system_initializer`'s early boot and normal service startup, or a phase folded into
@@ -160,7 +162,7 @@ below rather than guessed at.
   which would make the "cannot be invoked again" claim a demonstrated fact rather than an assertion,
   exactly what this decision is closing.
 
-**Cost of option (b), the runtime-flag alternative, measured against this:** it needs a new piece of
+Cost of option (b), the runtime-flag alternative, measured against this: it needs a new piece of
 kernel-visible state (a boot-phase indicator) that does not exist today, a check inserted at whatever
 invocation point the master capability's method dispatches through, and an argument for why that check
 cannot be skipped, raced, or reached through a path someone adds later without noticing it is
@@ -170,12 +172,12 @@ weaker than an absent capability, full stop, regardless of how few lines the che
 
 ## How reversible is this, and who has already acted on it
 
-**Nobody has acted on this yet.** Milestone 152's design is worked out but "nothing here is built"
+Nobody has acted on this yet. Milestone 152's design is worked out but "nothing here is built"
 (the roadmap doc's own header), and this decision is about a mechanism, not a fact that has left the
 machine. It is cheap to change: no code exists yet that depends on the answer, no wire format, no
 persisted secret.
 
-But the shape recommended here (a) needs **zero new kernel primitives**. `cap_delete`, `Untyped::SPLIT`,
+But the shape recommended here (a) needs zero new kernel primitives. `cap_delete`, `Untyped::SPLIT`,
 and ordinary capability derivation are all §16's existing mechanism; nothing about re-deriving a
 session at boot requires a new syscall, a new object type, or a change to the capability model. That
 is a strong point in its favor independent of the scoping argument above: it is buildable today, on
@@ -190,9 +192,9 @@ before it could be built.
 
 ## The recommendation
 
-**Option (a): a boot-only process, holding a construction budget and read access to the schedule
+Option (a): a boot-only process, holding a construction budget and read access to the schedule
 store, that re-derives every durable session the store names and then deletes both capabilities from
-its own cspace, in `root_supervisor`'s exact shape.** The scoping mechanism is local capability
+its own cspace, in `root_supervisor`'s exact shape. The scoping mechanism is local capability
 deletion, proven the same way `root_supervisor` already proves it: by attempting the now-forbidden
 operation afterward and reporting the failure. Whether this lives as a new dedicated process
 (provisional name, calef's to ratify) or a phase inside `root_supervisor`/`system_initializer` is a
@@ -204,8 +206,8 @@ scoping property, which is the part that matters.
 calef asked, after reviewing the recommendation above, whether the residual risk in option (a) can be
 narrowed further: for however long the re-deriver holds the store-read capability and the construction
 budget before its own `cap_delete` pass runs, a compromise of that process grants exactly the
-"impersonate any user in the store" power this decision exists to prevent. **None of what follows
-eliminates that window.** No real system does, when the capability must exist at all, even
+"impersonate any user in the store" power this decision exists to prevent. None of what follows
+eliminates that window. No real system does, when the capability must exist at all, even
 momentarily: `root_supervisor` accepts the identical shape, and so does UEFI's `ExitBootServices`
 (cited above). These are refinements to build *into* option (a), narrowing the window and its blast
 radius, not a different option and not a claim that the risk goes to zero.
@@ -222,8 +224,8 @@ radius shrinks to "identities not yet processed" rather than the whole store, as
 the program from the archive and calls `measured_boot::verify_in_manifest`, refusing to hand back an
 ELF on either `Unmeasured` (the table says nothing about this name) or `Mismatch` (milestone 104's
 discipline). The same check, applied to the re-deriver before it is ever handed the store-read
-capability, is real defense against a tampered binary holding that power. **It does nothing against a
-logic bug in the correct, unmodified code while it runs**, which stays the harder half of the residual
+capability, is real defense against a tampered binary holding that power. It does nothing against a
+logic bug in the correct, unmodified code while it runs, which stays the harder half of the residual
 risk and is not addressed by any of these four refinements.
 
 **3. Keep the process's own code surface minimal, as a stated design property rather than an incidental
@@ -236,7 +238,7 @@ a first draft.
 addresses *misuse* of the capability during the window. A distinct, non-malicious failure mode is the
 re-deriver hanging or crashing *before* its deletion pass runs, leaving the capability live past its
 expected window by accident. Something else needs to notice this and act, whether that is killing the
-stuck process or a fallback revocation path reached some other way. **Named here, not designed**: this
+stuck process or a fallback revocation path reached some other way. Named here, not designed: this
 file's own discipline elsewhere is to record an open sub-question rather than guess at its mechanism,
 and this is one of them.
 
@@ -246,25 +248,25 @@ this file's existing analysis already prices: (b) a new kind of kernel-checked r
 capability method on the syscall surface. These four are refinements to build into option (a) once
 someone picks it up, recorded now so the eventual builder inherits them rather than rediscovering them.
 
-## What is blocked until this is answered
-
-Milestone 152's third BUGS gap stays open, and the boot-time half of durable delegation cannot be
-built, until: (1) whether this is a new process or a phase of an existing one is decided (a smaller
-fork, likely reversible enough for whoever is holding the problem at build time to just pick), and
-(2) a provisional name is proposed if a new process is chosen. Neither blocks the *design* answered
-here, which is the scoping mechanism itself.
-
 ## What this does NOT decide
 
-- **The schedule store's on-disk format, write path, or read-at-boot path.** That is milestone 152's
-  second piece, tracked separately (the sibling decision this lane was told not to touch). This
-  decision only assumes some read capability over that store exists to grant; it does not shape what
-  the store looks like.
-- **Credential revocation's own mechanism**, or the consequence of revoking credentials. That is
-  already settled, [DECISIONS §108](108-credential-revocation-kills-durable-session.md); this
-  decision does not touch it and the two are independent (108 is about tearing a session down, this
-  is about standing one back up at boot).
-- **Whether a new process is warranted versus folding into an existing boot-time component.** Named
-  above as a smaller, more reversible fork left open on purpose.
-- **The exact name of any new process**, which is calef's call per AGENTS.md and is not proposed here
-  as anything more than a provisional placeholder for discussion.
+- The schedule store's on-disk format, write path, or read-at-boot path: milestone 152's second
+  piece. This decision assumes only that some read capability over that store exists to grant.
+- Credential revocation's own mechanism, or its consequence: settled by
+  §108 (disabling a user's login credentials kills their durable session), in
+  [its file](108-credential-revocation-kills-durable-session.md). It tears a session down; this
+  stands one back up.
+
+## Amended 2026-09-27: `login` is the re-deriver
+
+calef ruled Fork 7 of milestone 152 (durable delegation) on 2026-09-27 (UTC), option A: at start-up,
+`login` re-derives every durable session that is not suspended, with the code that restores a
+stored schedule at login, and `session_reviver` is retired. The analysis is in
+[the fork 7 appendix](../../notes/durable-delegation/boot-rederivation-in-login.md).
+
+Option (a)'s deletion property no longer applies, and it protected nothing. `login` holds every
+capability the re-deriver held, with equal or wider rights, for its whole life (the appendix's
+question 4). What stops a 3pm invocation is `login`'s code: the pass runs once, before its receive
+loop, and a re-derived session goes only to a login the credential service authenticates. Of the
+four refinements, the first is moot, the second holds as it does for `login`, and the third is met
+by reuse. The fourth stays undesigned, and each session's wait is bounded by `END_WAIT_SECS`.

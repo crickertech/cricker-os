@@ -38,12 +38,12 @@
 //! **It wants a bigger stack than a small program does**, and a spawn site has to say so: a
 //! `grant_plan::Endowment` is about a kilobyte (mostly the name set a directory grant can carry) and
 //! the plan holds one per entry, so the working set is tens of kilobytes rather than hundreds of
-//! bytes. `system_tests/src/user/timetable_tests.rs` maps 32 pages and says why; eight died with a data
+//! bytes. `system_tests/src/user/timetable_tests.rs` maps 48 pages and says why; eight died with a data
 //! abort whose faulting address was the stack pointer, which is what a stack overflow looks like
 //! from the kernel side and reads like a wild pointer if you have not seen it before.
 //!
-//! **And nothing else beyond that budget.** No clock page, no directory, no console, no network, no
-//! device. That list is not modesty: it is why a scheduled `date` in `timetable.conf` is refused at
+//! **And nothing else beyond that budget**, except in store mode below. No clock page, no
+//! directory, no console, no network, no device. That list is not modesty: it is why a scheduled `date` in `timetable.conf` is refused at
 //! registration rather than run, and why the refusal names the timetable rather than the line.
 //! `timetable::SHIPPED_HELD` is the one fact that has widened since milestone 129's first stratum:
 //! this process now holds enough budget to back a `--mem` grant up to `SHIPPED_HELD.mem_pages`
@@ -61,6 +61,19 @@
 //! answer next to the plan (`timetable::Audit`). A scheduler handed the whole initrd still works
 //! and says a different sentence, which is the property worth having: the width of the endowment is
 //! a line on the console rather than a fact only the spawn site knows.
+//!
+//! # Store mode: a job runs what a bare word runs
+//!
+//! calef ruled milestone 152 (durable delegation)'s Fork 8 as D on 2026-09-27 (UTC, #1377). A
+//! timetable its durable session spawns holds no archive. It holds read-only views of the store's
+//! `activation/` and `packages/`, over a file-service channel of its own (`timetable::contract`),
+//! and resolves each entry's program as the prompt resolves a bare name: the live generation's
+//! entry, never an owner's vouch. A document is checked against the manifest each program's bytes
+//! carry when it is registered (`timetable::Registry::register_installed`), so a bad line is refused
+//! up front, and every fire resolves the name and plans the line again against what it finds
+//! (`timetable::Registry::plan_at_fire`). So an upgraded program's job fires the new version, and
+//! uninstalling a program, or a generation that stops naming it, stops its job at the next beat. The two views reach code, not authority: a job holds
+//! what `fire` endows and nothing that reads the store.
 //!
 //! # The loop, and the one thing it cannot do
 //!
@@ -188,6 +201,20 @@
 //!   bytes, and with a registrar the page is the only place it goes. Eight entries of long
 //!   refusals could pass that; the verdict word still says what every entry became.
 //!
+//! - **A store-mode beat that does not fire says so to nobody.** When a name no longer resolves
+//!   in the live generation, or the current version's manifest asks for more than its line grants,
+//!   the beat is skipped and nothing records it. Nothing a durable timetable holds can reach its
+//!   owner today: the page is written only in reply to a registrar's request, and it holds no
+//!   directory, console or log. The eventual home is the system log proposed on #1423 and the
+//!   notices for people proposed on #1424; neither is built. (calef asked for this refusal to be
+//!   loud, 2026-09-27 on #1377.)
+//! - **A durable job has nowhere to write its output.** Fork 6 C gives a job only what its entry
+//!   grants, and a store-mode timetable holds no directory to narrow into a grant, so a line that
+//!   designates a file or directory is planned unbacked. The system log proposed on #1423 is the
+//!   intended grant: an entry would grant "append to the log".
+//! - **Store mode loads programs of up to `timetable::contract::STAGING_BYTES`** (128 KiB) and
+//!   refuses a document naming a larger one, the same way it refuses one naming a program that is
+//!   not installed (`registration::STATUS_NO_IMAGE`). The page does not say which of those it was.
 //! - **With a registrar, a fire failure is only an exit code.** "The budget cannot back one
 //!   instance" has no stream to go down, so the registrar learns it from the page's exit word
 //!   (`contract::E_BUDGET`) after reaping this process.
@@ -219,6 +246,10 @@ const BUDGET: u64 = contract::BUDGET_SLOT;
 const CHILD_REPORT: u64 = contract::CHILD_REPORT_SLOT;
 /// Placed in each instance's reserved fault slot, and what corpses are collected through.
 const DEATHS: u64 = contract::DEATHS_SLOT;
+/// Store mode's `activation/`, read-only (Fork 8 D of milestone 152).
+const ACTIVATION: u64 = contract::ACTIVATION_SLOT;
+/// Store mode's `packages/`, read-only.
+const PACKAGES: u64 = contract::PACKAGES_SLOT;
 
 /// **The registration page's address, or zero**, set once at `_start` from `a2`.
 ///
@@ -244,7 +275,7 @@ const REAP_ATTEMPTS: usize = 1024;
 
 /// Verdict codes on [`OUT`]'s stream, so a spawn site that reads nothing else can still tell what
 /// happened. The plan and the summary are text; these are the two ways the program ends.
-use contract::{E_ARCHIVE, E_BUDGET, E_CONFIG, E_IMAGE, E_UNVOUCHED};
+use contract::{E_ARCHIVE, E_BUDGET, E_CONFIG, E_IMAGE, E_STORE, E_UNVOUCHED};
 
 // The relation `grant_plan` cannot state without depending on `abi`, held here as every reader of
 // the slot holds it (`components/src/swish.rs` does the same).
@@ -253,8 +284,35 @@ const _: () = assert!(spawnproto::RUN_UNVOUCHED_SLOT == abi::fault::FAULT_EP_SLO
 // region this program split for it, which cannot be the run-unvouched capability (see `_start`).
 const _: () = assert!(CHILD_REPORT != spawnproto::RUN_UNVOUCHED_SLOT);
 
+/// **What an admitted row is built from.**
+enum Image {
+    /// Parsed out of the archive this timetable was handed, once, at registration.
+    Archived(elf::Elf<'static>),
+    /// **An installed program** (store mode, Fork 8 D of milestone 152): only the name its line
+    /// gave. At every fire the name is resolved in the live generation again and the line planned
+    /// again against the manifest those bytes carry, as a bare word at the prompt is (calef's
+    /// amendment of 2026-09-27 on #1377). So an upgraded program's job fires the new version, and a
+    /// program removed or no longer trusted, which leaves the generation, stops firing.
+    Installed(Installed),
+}
+
+/// The name an installed row was registered with. See [`Image::Installed`].
+struct Installed {
+    name: [u8; NAME_MAX],
+    len: usize,
+}
+
+/// The longest program name store mode resolves; a prompt name is at most sixteen bytes.
+const NAME_MAX: usize = 32;
+
 /// The images an admitted row will be built from, one slot per entry.
-type Images = [Option<elf::Elf<'static>>; timetable::MAX_ENTRIES];
+type Images = [Option<Image>; timetable::MAX_ENTRIES];
+
+/// **Where this timetable's programs come from**: an archive its spawn site narrowed, or the store.
+enum Programs {
+    Archive(nifefs::Fs<'static>),
+    Store,
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: u64) -> ! {
@@ -270,6 +328,9 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // receives a capability after `_start` (it makes no `RECV_CAP`). So a timetable that does not
     // hold it at `_start` can never endow a job with it. The probe is sound only now, before
     // anything is allocated: a region split later could land in the slot and read as held.
+    // Store mode is a timetable holding `activation/` (`timetable::contract`), probed here with the
+    // report slot below, before anything is allocated, for the reason the next probe gives.
+    let store = user_mode_runtime::is_granted(ACTIVATION);
     if user_mode_runtime::is_granted(spawnproto::RUN_UNVOUCHED_SLOT) {
         say(
             b"timetable: it holds the run-unvouched capability, which no scheduled job may hold, \
@@ -307,7 +368,13 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // that has widened since milestone 129's first stratum, and this crate's own host test uses the
     // same constant so the two cannot drift apart. Widening it further is an edit here and a
     // visible change in the printed plan, which is the property worth having.
+    //
+    // Less the report endpoint when the spawn site placed none, which a durable session never does
+    // (Fork 6 C of milestone 152 (durable delegation), ruled 2026-09-27 on #1377): a durable job
+    // writes through what its entry grants. Probed here, before anything is allocated, for the
+    // reason the run-unvouched probe above gives.
     let held = timetable::Held {
+        report: user_mode_runtime::is_granted(CHILD_REPORT),
         clock: holds_clock,
         ..timetable::SHIPPED_HELD
     };
@@ -319,8 +386,17 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // happened yet. A crontab has nothing to print here.
     timetable::write_plan(&reg, &mut say);
 
-    let Ok(fs) = nifefs::Fs::parse(archive) else {
-        done(E_ARCHIVE)
+    if store && registration_page == 0 {
+        say(b"timetable: it holds the store and no registration page, so it runs nothing\n");
+        done(E_STORE)
+    }
+    let programs = if store {
+        Programs::Store
+    } else {
+        match nifefs::Fs::parse(archive) {
+            Ok(fs) => Programs::Archive(fs),
+            Err(_) => done(E_ARCHIVE),
+        }
     };
 
     // **What the archive it was handed reaches, next to what the plan will build.** The plan above
@@ -332,7 +408,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // width is the spawn site's decision (`system_tests/src/user/timetable_tests.rs` builds a sub-archive
     // from exactly `Registry::programs`), and saying it out loud is what makes the decision
     // checkable from in here rather than only from out there. Not with a registrar: see `BUGS`.
-    if registration_page == 0 {
+    if let (0, Programs::Archive(fs)) = (registration_page, &programs) {
         let mut audit = timetable::Audit::of(&reg);
         for entry in fs.entries() {
             if let Some(name) = entry.name_str() {
@@ -346,7 +422,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // does not carry fails loudly at startup rather than as a fire that quietly does not happen.
     // This is also the moment `Registry::programs`' claim becomes checkable: nothing after this
     // point looks anything else up.
-    let mut images: Images = match resolve(&reg, &fs) {
+    let mut images: Images = match resolve(&reg, &programs) {
         Ok(images) => images,
         Err(i) => {
             if let Some(e) = reg.rows()[i].endowment() {
@@ -383,7 +459,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                 &mut current,
                 &mut reg,
                 &mut images,
-                &fs,
+                &programs,
                 held,
             )
         {
@@ -404,11 +480,28 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             if fires_wanted != 0 && fired >= fires_wanted {
                 break;
             }
-            let Some(elf) = images[i].as_ref() else {
+            let Some(registered) = reg.rows()[i].endowment() else {
                 continue;
             };
-            let Some(e) = reg.rows()[i].endowment() else {
-                continue;
+            // An installed program is resolved and its line planned again now, against what the
+            // live generation names today. When the name no longer resolves, or the plan no longer
+            // fires, the beat is missed (skipped, never retried); `BUGS` says who hears of it.
+            let loaded;
+            // `declared` is the manifest the job's bytes carry: an installed row's endowment is filed
+            // under `grant_plan::IMAGE_ROW`, so nothing may be read off its `prog`.
+            let (elf, e, declared) = match images[i].as_ref() {
+                None => continue,
+                Some(Image::Archived(elf)) => (elf, registered, registered.prog.manifest()),
+                Some(Image::Installed(p)) => {
+                    let Some((elf, m)) = load_current(p) else {
+                        continue;
+                    };
+                    let timetable::Admission::Fires(e) = reg.plan_at_fire(i, m) else {
+                        continue;
+                    };
+                    loaded = elf;
+                    (&loaded, e, m)
+                }
             };
 
             if e.mem_pages > 0 {
@@ -421,8 +514,9 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                     collect(&mut exits, &mut faults);
                     outstanding -= 1;
                 }
-                let clock = holds_clock && e.prog.manifest().clock;
-                let Some(mem_slot) = fire_with_grant(elf, e.arg, e.mem_pages, clock) else {
+                let clock = holds_clock && declared.clock;
+                let Some(mem_slot) = fire_with_grant(elf, e.arg, e.mem_pages, held.report, clock)
+                else {
                     say(b"timetable: the budget cannot back one instance\n");
                     done(E_BUDGET)
                 };
@@ -434,8 +528,8 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
             // Fire. If the budget cannot back another instance, block until a corpse comes back and
             // its region with it, then try once more. A second failure is a budget too small for
             // even one instance, which is a wiring error rather than congestion.
-            let clock = holds_clock && e.prog.manifest().clock;
-            if !fire(elf, e.arg, clock) {
+            let clock = holds_clock && declared.clock;
+            if !fire(elf, e.arg, held.report, clock) {
                 if outstanding == 0 {
                     // Nothing is out, so there is nothing to wait for: the budget is too small for
                     // even one instance, which is a wiring error rather than congestion.
@@ -444,7 +538,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
                 }
                 collect(&mut exits, &mut faults);
                 outstanding -= 1;
-                if !fire(elf, e.arg, clock) {
+                if !fire(elf, e.arg, held.report, clock) {
                     say(b"timetable: the budget cannot back one instance\n");
                     done(E_BUDGET)
                 }
@@ -477,9 +571,14 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
 }
 
 /// **Resolve every admitted row's program in the archive**, or the index of the first that is not
-/// there. Nothing is parsed lazily later: a plan that names a missing program is caught here.
-fn resolve(reg: &Registry<'_>, fs: &nifefs::Fs<'static>) -> Result<Images, usize> {
+/// there. Nothing is parsed lazily later: a plan that names a missing program is caught here. A
+/// store-mode registry was resolved before it was planned ([`resolve_installed`]), so this answers
+/// it with no images, which is right only for the empty document a store-mode timetable starts with.
+fn resolve(reg: &Registry<'_>, programs: &Programs) -> Result<Images, usize> {
     let mut images: Images = [const { None }; timetable::MAX_ENTRIES];
+    let Programs::Archive(fs) = programs else {
+        return Ok(images);
+    };
     for (i, row) in reg.rows().iter().enumerate() {
         let Some(e) = row.endowment() else { continue };
         let Some(bytes) = fs.read(e.prog.name()) else {
@@ -488,9 +587,178 @@ fn resolve(reg: &Registry<'_>, fs: &nifefs::Fs<'static>) -> Result<Images, usize
         let Ok(elf) = elf::Elf::parse(bytes) else {
             return Err(i);
         };
-        images[i] = Some(elf);
+        images[i] = Some(Image::Archived(elf));
     }
     Ok(images)
+}
+
+/// **Resolve every entry of a store-mode document in the live activation generation**, before
+/// anything is planned: the manifest each program's bytes carry, which is what its line is planned
+/// against, and the image it will be fired from. `Err(i)` at the first entry whose program is not
+/// installed, cannot be read, or needs what no timetable endows (`timetable::schedulable`).
+fn resolve_installed(
+    doc: &timetable::Document<'_>,
+) -> Result<([grant_plan::Manifest; timetable::MAX_ENTRIES], Images), usize> {
+    let mut manifests = [grant_plan::NO_NOTE_MANIFEST; timetable::MAX_ENTRIES];
+    let mut images: Images = [const { None }; timetable::MAX_ENTRIES];
+    for (i, entry) in doc.entries().iter().enumerate() {
+        let word = grant_plan::parse_run(entry.command).prog;
+        let (Ok(_), true) = (core::str::from_utf8(word), word.len() <= NAME_MAX) else {
+            return Err(i);
+        };
+        let mut n = [0u8; NAME_MAX];
+        n[..word.len()].copy_from_slice(word);
+        let p = Installed {
+            name: n,
+            len: word.len(),
+        };
+        let Some((_, m)) = load_current(&p) else {
+            return Err(i);
+        };
+        manifests[i] = m;
+        images[i] = Some(Image::Installed(p));
+    }
+    Ok((manifests, images))
+}
+
+/// **What an installed row's name runs now**: the live generation's entry for it, staged and
+/// parsed, and the manifest its bytes carry. `None` when the name no longer resolves, the bytes do
+/// not hash to the entry, or they need what no timetable endows (`timetable::schedulable`).
+fn load_current(p: &Installed) -> Option<(elf::Elf<'static>, grant_plan::Manifest)> {
+    let name = core::str::from_utf8(&p.name[..p.len]).ok()?;
+    let (len, _) = store::load(name)?;
+    let elf = elf::Elf::parse(store::staged(len)).ok()?;
+    // The note, or `None` for bytes that carry none; a note that cannot be read refuses.
+    let declared = match elf
+        .note(manifest_note::OWNER, manifest_note::MANIFEST)
+        .ok()?
+    {
+        None => None,
+        Some(d) => Some(manifest_note::decode(d).ok()?),
+    };
+    // Vouched: the live generation named these bytes, so they get what they declare, exactly as
+    // the progenitor endows an installed program run at the prompt.
+    let m = grant_plan::image_manifest(declared, true).ok()?;
+    timetable::schedulable(&m).then_some((elf, m))
+}
+
+/// **The store, read through the two caretakers** store mode holds, over the channel whose page is
+/// mapped at `timetable::contract::STORE_PAGE_VA`. Every call is a blocking `CALL`, so the page is
+/// this process's between them.
+mod store {
+    use activation_set::{CURRENT, generation_name, lookup, parse_current};
+    use filesystem_protocol::{PAGE, dir, fs};
+    use timetable::contract;
+    use user_mode_runtime::call;
+
+    use super::{ACTIVATION, PACKAGES};
+
+    /// Where a program's bytes are read to, one at a time. See [`staged`].
+    static mut STAGING: [u8; contract::STAGING_BYTES] = [0; contract::STAGING_BYTES];
+
+    /// **The first `len` bytes [`load`] staged.** Valid until the next [`load`], which is the only
+    /// writer: this process is one thread, and every caller parses and builds from the slice before
+    /// it loads again.
+    pub fn staged(len: usize) -> &'static [u8] {
+        // SAFETY: as above. `len` came from `load`, which never answers more than the buffer.
+        let all: &'static [u8; contract::STAGING_BYTES] = unsafe { &*core::ptr::addr_of!(STAGING) };
+        &all[..len]
+    }
+
+    fn page() -> &'static mut [u8] {
+        // SAFETY: the spawn site maps one read/write page at STORE_PAGE_VA for this process's life
+        // (`timetable::contract`), and nothing here holds two borrows of it at once.
+        unsafe { core::slice::from_raw_parts_mut(contract::STORE_PAGE_VA as *mut u8, PAGE) }
+    }
+
+    /// A request that names something: `name` into the page, then the call.
+    fn named(ep: u64, verb: u64, at: u64, name: &[u8], w1: u64) -> i64 {
+        if name.len() > PAGE {
+            return -1;
+        }
+        page()[..name.len()].copy_from_slice(name);
+        call(ep, fs::req(verb, at, name.len() as u64), w1).0 as i64
+    }
+
+    fn close(ep: u64, h: i64) {
+        if h >= 0 {
+            call(ep, fs::req(fs::CLOSE, h as u64, 0), 0);
+        }
+    }
+
+    /// The whole of the file `h` into `out`, or `None` if a read fails or it does not fit.
+    fn read_into(ep: u64, h: i64, out: &mut [u8]) -> Option<usize> {
+        if h < 0 {
+            return None;
+        }
+        let mut done = 0usize;
+        loop {
+            // One byte past a full buffer, so a file exactly its size is told from a larger one.
+            let want = (out.len() - done).clamp(1, PAGE);
+            let n = call(ep, fs::req(fs::READ, h as u64, want as u64), done as u64).0 as i64;
+            if n < 0 {
+                return None;
+            }
+            if n == 0 {
+                return Some(done);
+            }
+            let n = n as usize;
+            if done + n > out.len() {
+                return None;
+            }
+            out[done..done + n].copy_from_slice(&page()[..n]);
+            done += n;
+        }
+    }
+
+    /// The live generation's text into `buf`, and its length.
+    fn live_table(buf: &mut [u8; PAGE]) -> Option<usize> {
+        let h = named(ACTIVATION, fs::OPEN, fs::ROOT, CURRENT.as_bytes(), 0);
+        let mut line = [0u8; 32];
+        let n = read_into(ACTIVATION, h, &mut line);
+        close(ACTIVATION, h);
+        let number = parse_current(core::str::from_utf8(&line[..n?]).ok()?)?;
+        let mut digits = [0u8; 10];
+        let name = generation_name(number, &mut digits);
+        let h = named(ACTIVATION, fs::OPEN, fs::ROOT, name.as_bytes(), 0);
+        let n = read_into(ACTIVATION, h, buf);
+        close(ACTIVATION, h);
+        n
+    }
+
+    /// **Stage the bytes a bare `name` runs**: the live generation's entry for it (never an owner's
+    /// vouch, `activation_set::lookup`), read from `packages/<name>/<version>/<program>`, and
+    /// answered only if they hash to that entry's digest. `(length, digest)`.
+    pub fn load(name: &str) -> Option<(usize, measured_boot::Digest)> {
+        let mut table = [0u8; PAGE];
+        let n = live_table(&mut table)?;
+        let table = core::str::from_utf8(&table[..n]).ok()?;
+        // The default row for the name, as a bare word at the prompt runs it (milestone 614 (two
+        // installed versions of one program) folded the pointer into `lookup`), under
+        // `packages/<name>/<version>/<program>`.
+        let entry = lookup(table, name).ok()??;
+        let (package, version) = (entry.package, entry.version);
+        let walk = dir::READ | dir::DESCEND;
+        let d1 = named(PACKAGES, fs::OPENDIR, fs::ROOT, package.as_bytes(), walk);
+        let d2 = if d1 >= 0 {
+            named(PACKAGES, fs::OPENDIR, d1 as u64, version.as_bytes(), walk)
+        } else {
+            -1
+        };
+        let f = if d2 >= 0 {
+            named(PACKAGES, fs::OPEN, d2 as u64, entry.program.as_bytes(), 0)
+        } else {
+            -1
+        };
+        // SAFETY: see `staged`; this is the one writer, and no slice from it is live across here.
+        let buf = unsafe { &mut *core::ptr::addr_of_mut!(STAGING) };
+        let len = read_into(PACKAGES, f, buf);
+        for h in [f, d2, d1] {
+            close(PACKAGES, h);
+        }
+        let len = len?;
+        (measured_boot::sha256(&buf[..len]) == entry.digest).then_some((len, entry.digest))
+    }
 }
 
 /// **The two buffers a replacement's document is copied into**, alternately.
@@ -518,7 +786,7 @@ fn replace_if_asked(
     current: &mut usize,
     reg: &mut Registry<'static>,
     images: &mut Images,
-    fs: &nifefs::Fs<'static>,
+    programs: &Programs,
     held: timetable::Held,
 ) -> bool {
     use core::sync::atomic::{AtomicU64, Ordering};
@@ -594,9 +862,17 @@ fn replace_if_asked(
         say(b"timetable: the document is empty, so this timetable exits once its running jobs finish\n");
         return true;
     }
-    let mut next = Registry::register(&doc, held);
-    let next_images = match resolve(&next, fs) {
-        Ok(images) => images,
+    let resolved = match programs {
+        Programs::Archive(_) => {
+            let next = Registry::register(&doc, held);
+            resolve(&next, programs).map(|images| (next, images))
+        }
+        Programs::Store => resolve_installed(&doc).map(|(manifests, images)| {
+            (Registry::register_installed(&doc, held, &manifests), images)
+        }),
+    };
+    let (mut next, next_images) = match resolved {
+        Ok(r) => r,
         Err(i) => {
             answer(body, registration::STATUS_NO_IMAGE, i as u64, 0, 0);
             say(
@@ -632,32 +908,31 @@ fn replace_if_asked(
 
 /// Build one instance in its own region and start it with `arg`.
 ///
-/// It is endowed exactly two things and both are in the plan the timetable already printed: the
-/// child report endpoint as its slot 0, and its supervision endpoint in the reserved fault slot,
-/// which `START` reads and then clears so the child holds no authority on its own death channel.
+/// It is endowed at most two things and both are in the plan the timetable already printed: the
+/// child report endpoint as its slot 0 when `report` says this timetable hands one out
+/// ([`timetable::Held::report`], false with a registrar), and its supervision endpoint in the
+/// reserved fault slot, which `START` reads and then clears so the child holds no authority on its
+/// own death channel.
 ///
 /// Nothing is kept afterwards and there is nothing left worth keeping: the TCB capability is not the
 /// thread, and since DECISIONS §32 the region capability is not the reap either. The pages come back
 /// to this budget when the corpse is collected.
 ///
-/// With `clock`, the job's manifest declared one and this timetable holds one: the page goes in the
-/// job's slot 1, `READ` only, and is mapped read-only at `contract::CLOCK_VA`, which is how the
-/// progenitor endows `date`.
-fn fire(elf: &elf::Elf, arg: u64, clock: bool) -> bool {
+/// With `report`, the spawn site placed a report endpoint and the job gets it at slot 0; a durable
+/// session places none (Fork 6 C). With `clock`, the job's manifest declared one and this timetable
+/// holds one: the page goes in the job's slot 1, `READ` only, and is mapped read-only at
+/// `contract::CLOCK_VA`, which is how the progenitor endows `date`.
+fn fire(elf: &elf::Elf, arg: u64, report: bool, clock: bool) -> bool {
     let Ok(region) = supervision_protocol::memory_region_split(BUDGET, INSTANCE_PAGES) else {
         return false;
     };
-    let with_clock = [
-        (CHILD_REPORT, abi::rights::WRITE),
-        (contract::CLOCK_SLOT, abi::rights::READ),
-    ];
-    let caps: &[(u64, u64)] = if clock { &with_clock } else { &with_clock[..1] };
+    let mut placed = [(0, 0, 0); 3];
     let Ok(child) = supervision_protocol::build_child(
         BUDGET,
         region,
         elf,
         &supervision_protocol::ChildEndowment {
-            caps,
+            placed: slots(&mut placed, report, clock, None),
             maps: clock_map(clock),
             fault: Some(DEATHS),
             ..supervision_protocol::ChildEndowment::new(supervision_protocol::Retention::Nothing)
@@ -686,7 +961,13 @@ fn fire(elf: &elf::Elf, arg: u64, clock: bool) -> bool {
 /// Returns the grant's own capability, still held, on success. **This is deliberately not deleted
 /// the way [`fire`] deletes `region`**: it is the caller's only way to reclaim the grant later, and
 /// the caller is [`collect_grant`], called next and only next by this program's one call site.
-fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64, clock: bool) -> Option<u64> {
+fn fire_with_grant(
+    elf: &elf::Elf,
+    arg: u64,
+    mem_pages: u64,
+    report: bool,
+    clock: bool,
+) -> Option<u64> {
     let Ok(region) = supervision_protocol::memory_region_split(BUDGET, INSTANCE_PAGES + mem_pages)
     else {
         return None;
@@ -695,25 +976,17 @@ fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64, clock: bool) -> Opt
         supervision_protocol::memory_region_destroy(region);
         return None;
     };
-    let with_clock = [
-        (CHILD_REPORT, abi::rights::WRITE),
-        (contract::CLOCK_SLOT, abi::rights::READ),
-        (mem_slot, abi::rights::WRITE),
-    ];
-    let without = [
-        (CHILD_REPORT, abi::rights::WRITE),
-        (mem_slot, abi::rights::WRITE),
-    ];
+    let mut placed = [(0, 0, 0); 3];
     let Ok(child) = supervision_protocol::build_child(
         BUDGET,
         region,
         elf,
         &supervision_protocol::ChildEndowment {
-            // Slot 0: the report endpoint, as every instance gets. Slot 1: the grant, narrowed to
-            // WRITE so the child may spend it and not lend it (the same narrowing
-            // `system_initializer` gives a shell's `--mem` delegation).
-            // With a clock, it is slot 1 and the grant moves to slot 2, the progenitor's order.
-            caps: if clock { &with_clock } else { &without },
+            // Slot 0: the report endpoint, when this timetable hands one out. Slot 1: the clock,
+            // when the job gets one. Then the grant, narrowed to WRITE so the child may spend it
+            // and not lend it (the same narrowing `system_initializer` gives a shell's `--mem`
+            // delegation). Placed by number, so the grant's slot does not depend on slot 0.
+            placed: slots(&mut placed, report, clock, Some(mem_slot)),
             maps: clock_map(clock),
             fault: Some(DEATHS),
             ..supervision_protocol::ChildEndowment::new(supervision_protocol::Retention::Nothing)
@@ -731,6 +1004,32 @@ fn fire_with_grant(elf: &elf::Elf, arg: u64, mem_pages: u64, clock: bool) -> Opt
     }
     cap_delete(region);
     Some(mem_slot)
+}
+
+/// **A job's slots, by number** (milestone 152's Fork 6 C met milestone 129's clock at the merge
+/// of 2026-10-03 (UTC)): slot 0 the report endpoint when this timetable hands one out, slot 1 the
+/// clock page when the job gets one, then a `--mem` grant, `WRITE` only. Written into `out`, which
+/// the caller owns, and the filled prefix returned. The progenitor's order.
+fn slots(
+    out: &mut [(u64, u64, u64); 3],
+    report: bool,
+    clock: bool,
+    grant: Option<u64>,
+) -> &[(u64, u64, u64)] {
+    let mut n = 0;
+    if report {
+        out[n] = (0, CHILD_REPORT, abi::rights::WRITE);
+        n += 1;
+    }
+    if clock {
+        out[n] = (1, contract::CLOCK_SLOT, abi::rights::READ);
+        n += 1;
+    }
+    if let Some(g) = grant {
+        out[n] = (1 + clock as u64, g, abi::rights::WRITE);
+        n += 1;
+    }
+    &out[..n]
 }
 
 /// The clock page's mapping for a job that gets one, or none.

@@ -613,9 +613,45 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// re-measured: 22754 + 14 = 22768, and + 32 headroom = 22800. The next branch to read the ledger
 /// in CI should replace this with a measured figure.
 ///
+/// **`23_482` (2026-09-27): a second `login`, started to prove its start-up pass.** calef ruled
+/// milestone 152's Fork 7 option A: `login` re-derives durable sessions at start-up. The pass runs
+/// once, in `_start`, so `login_tests`' `a_durable_session_is_re_derived_at_start_up_unless_suspended`
+/// starts a `login` of its own, which no test tears down: its image, its stack and its
+/// `START_UP_CONSTRUCTION_PAGES` (832). `session_reviver_tests` went in the same change and gave
+/// back its 32-page budget. CI read **22442** on aarch64 for the branch before this change
+/// (run 36335364103); a full local aarch64 `script/test` after it read **23450**, +1008. Of that,
+/// 800 is the construction budget net of the 32 given back; the other 208 is the size of a `login`
+/// process with its three blobs copied in, and is not attributed further. 23450 + 32 = 23482. riscv64 read 22297 before, and is the lower of the pair as usual.
+///
+/// **`23_626` (2026-09-27): that `login`'s durable budget grew by the store caretakers and the
+/// timetable's staging buffer.** calef ruled milestone 152's Fork 8 option D: a scheduled job runs
+/// what the live activation generation names, so a durable session's process region holds two
+/// read-only store caretakers (+128 pages) and its budget the timetable's 64 KiB staging buffer
+/// (+16). `login_protocol::durable::BUDGET_PAGES` went from 640 to 784, and the start-up test's
+/// `login`, which no test tears down, carries one: +144. Its blobs lose the jobs archive and gain
+/// nothing. Added by arithmetic, not measured: 23482 + 144 = 23626. The next CI run should replace
+/// this with its reading.
+///
+/// **`24_829` (2026-09-30): the first full measured run of the durable suite.** Every earlier run
+/// died in `login_tests` before the ledger (the `ImageName` panic, then the timetable's stack
+/// overflow, then a spent construction budget; the re-derive test alone reads **5426** frames
+/// against the 144 this account had guessed at by arithmetic). On top of that reading's
+/// replacement: +912 is `login_tests`' `CONSTRUCTION_PAGES` raise (2176 -> 3088, its own account
+/// there: fourteen permanent ordinary sessions and an in-flight teardown cycle) and +16 the
+/// timetable's region (32 -> 48 stack pages, `timetable::contract`'s own account). Measured on
+/// riscv64 `sifive-u54`, the lower ISA of the pair as usual.
+///
+/// **`24_861` (2026-10-02, UTC): the timetable's staging buffer doubled to 128 KiB.** Store mode
+/// refused `least_authority_demo` on aarch64 (71,664 bytes against 64 KiB; riscv64's is 12,184),
+/// which is why the re-derive test failed there and not on riscv64. The buffer is `.bss` in the
+/// timetable's region, so `login_protocol::durable::SESSION_BUDGET_PAGES` rose 400 -> 416, and two
+/// `login`s the suite never tears down each carry one durable budget: +32. Added by arithmetic for
+/// riscv64: 24829 + 32. A full local aarch64 `script/test` after the change read **24715**, the
+/// re-derive test **5412** of it, so aarch64 is the lower of the pair this time.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 22_800;
+const SUITE_PAGE_FRAME_BUDGET: usize = 24_861;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///

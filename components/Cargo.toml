@@ -399,14 +399,12 @@ path = "src/identity_provisioner.rs"
 test = false
 bench = false
 
-# The boot-time re-deriver (milestone 152's third piece, provisional name; DECISIONS §123): a
-# `root_supervisor`-shaped boot-only process that reads the durable schedule store's manifest, reads
-# and parses each named identity's own schedule file, mints and tears down a synthetic stand-in for
-# the session it would re-derive, then deletes its own construction budget and store-read capability
-# and proves both gone. `initrd_aarch64` packs it as "session_reviver" for both ISAs.
+# The session process (milestone 152 (durable delegation), S1 of 2026-09-26, provisional name): built by `login` from a
+# user's session budget when they open their schedule; it builds their timetable, supervises it, and
+# is what keeps the session alive after they disconnect. `initrd_aarch64` packs it as "session".
 [[bin]]
-name = "session_reviver"
-path = "src/session_reviver.rs"
+name = "session"
+path = "src/session.rs"
 test = false
 bench = false
 
@@ -635,8 +633,8 @@ swish = { version = "0.1.0", path = "../crates/swish" }
 # loader; everything a host test or Kani can reach is in the crate.
 timetable = { version = "0.1.0", path = "../crates/timetable" }
 # The durable schedule store's shared names (milestone 152, DECISIONS §122/§125): the fixed file
-# names `session_reviver.rs` and `fs_test_client.rs`'s `ROLE_SCHEDULE_SEED` both depend on, and the
-# manifest format neither `timetable` nor `filesystem_protocol` already owns.
+# names and the manifest format `login.rs` writes at a login and reads at start-up, which neither
+# `timetable` nor `filesystem_protocol` already owns.
 schedule_store = { version = "0.1.0", path = "../crates/schedule_store" }
 user_mode_runtime = { version = "0.1.0", path = "../crates/user_mode_runtime" }
 video_terminal = { version = "0.1.0", path = "../crates/video_terminal" }

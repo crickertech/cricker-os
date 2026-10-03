@@ -84,7 +84,7 @@
 #![no_std]
 
 use grant_plan::expand::Expansion;
-use grant_plan::{Endowment, Holdings, Refusal};
+use grant_plan::{Endowment, Holdings, Manifest, Refusal};
 
 pub mod contract;
 pub mod recurrence;
@@ -361,6 +361,14 @@ pub struct Held {
     /// §24). A scheduled job has nobody at a keyboard, so this is the field least likely ever to be
     /// true, and it is here rather than assumed so that the refusal has a reason a reader can find.
     pub interrupt: bool,
+    /// **An endpoint a job may report its answer on**, handed to every job as its slot 0.
+    ///
+    /// `components/src/timetable.rs` sets it from whether its spawn site placed one, probed at
+    /// `_start`. A durable session places none: calef ruled milestone 152 (durable delegation)'s
+    /// Fork 6 as option C on 2026-09-27 (UTC, on #1377), so a durable job writes its output through
+    /// whatever its entry grants, and nobody is left holding a stream nobody drains. The kernel
+    /// harness still places one, because reports are how it watches jobs fire. Name: provisional.
+    pub report: bool,
 }
 
 /// **What the shipped `components/src/timetable.rs` actually holds**, and the one `Held` value it and
@@ -379,6 +387,7 @@ pub const SHIPPED_HELD: Held = Held {
     domain: false,
     dir: false,
     interrupt: false,
+    report: true,
 };
 
 /// **An authority the entry's plan needs and this scheduler does not hold.**
@@ -535,6 +544,8 @@ const NEVER: u64 = u64::MAX;
 pub struct Registry<'a> {
     rows: [Row<'a>; MAX_ENTRIES],
     n: usize,
+    /// What it was registered against, so the plan can say what each job holds.
+    held: Held,
     /// The wall-clock minute at the last [`Registry::observe`], or `None` while it is unknown.
     wall: Option<i64>,
     /// The clock page generation the calendar rows were last armed against.
@@ -612,9 +623,45 @@ impl<'a> Registry<'a> {
         Registry {
             rows,
             n,
+            held,
             wall: None,
             generation: NO_GENERATION,
         }
+    }
+
+    /// **[`register`](Registry::register), for a document whose programs are installed** (milestone
+    /// 152 (durable delegation), Fork 8 ruled D by calef on 2026-09-27, on #1377): each entry is
+    /// planned against the manifest its program's bytes carry, which the caller read from the live
+    /// activation generation and passes as `manifests[i]` for entry `i`. That is how the prompt binds
+    /// an installed program's line (`grant_plan::plan_against` under `grant_plan::IMAGE_ROW`), so a
+    /// line means at the prompt and in a schedule the same thing.
+    ///
+    /// The caller answers first whether each program is installed and [`schedulable`] at all; this
+    /// only plans. Name: provisional.
+    pub fn register_installed(
+        doc: &Document<'a>,
+        held: Held,
+        manifests: &[Manifest; MAX_ENTRIES],
+    ) -> Self {
+        let mut reg = Registry::register(doc, held);
+        for (i, row) in reg.rows.iter_mut().take(reg.n).enumerate() {
+            row.admission = admit_installed_row(&row.entry, manifests[i], held);
+        }
+        reg
+    }
+
+    /// **Row `i`'s line, planned again against the manifest its program carries now** (store mode,
+    /// milestone 152's Fork 8 D as calef amended it on 2026-09-27, #1377): what a fire of an
+    /// installed program builds from, since the program may have been upgraded since the document
+    /// was registered. Anything but [`Admission::Fires`] means the beat does not fire, because the
+    /// new version asks for more than the line grants or this scheduler holds. Name: provisional.
+    pub fn plan_at_fire(&self, i: usize, m: Manifest) -> Admission {
+        admit_installed_row(&self.rows[i].entry, m, self.held)
+    }
+
+    /// What this registry was registered against.
+    pub fn held(&self) -> Held {
+        self.held
     }
 
     /// The registered rows, in document order.
@@ -832,11 +879,55 @@ fn admit(command: &[u8], held: Held) -> Admission {
     };
     match grant_plan::plan(&spec, holdings, Expansion::none()) {
         Err(r) => Admission::Refused(r),
-        Ok(e) => match unbacked(&e, held) {
+        Ok(e) => match unbacked(&e, &e.prog.manifest(), held) {
             Some(u) => Admission::Unbacked(u),
             None => Admission::Fires(e),
         },
     }
+}
+
+/// [`admit_installed`] for a whole entry: a calendar line needs the wall clock before its
+/// program's manifest is asked, as [`Registry::register`] rules for an archive program, so store
+/// mode keeps that answer rather than overwriting it (milestone 129's rule met milestone 152's
+/// store mode at the merge of 2026-10-03 (UTC)).
+fn admit_installed_row(entry: &Entry<'_>, m: Manifest, held: Held) -> Admission {
+    match entry.schedule {
+        Schedule::Calendar(_) if !held.clock => Admission::Unbacked(Unbacked::WallClock),
+        _ => admit_installed(entry.command, m, held),
+    }
+}
+
+/// **[`admit`], for an installed program**, planned against the manifest its bytes carry rather
+/// than against a row of the image's table. The endowment is filed under `grant_plan::IMAGE_ROW`,
+/// the prompt's own convention for bytes, so nothing may be read off `e.prog`: [`unbacked`] is
+/// handed `m` for that reason.
+fn admit_installed(command: &[u8], m: Manifest, held: Held) -> Admission {
+    let spec = grant_plan::parse_run(command);
+    let holdings = Holdings {
+        dir: true,
+        ..Holdings::default()
+    };
+    match grant_plan::plan_against(&spec, grant_plan::IMAGE_ROW, m, holdings, Expansion::none()) {
+        Err(r) => Admission::Refused(r),
+        Ok(e) => match unbacked(&e, &m, held) {
+            Some(u) => Admission::Unbacked(u),
+            None => Admission::Fires(e),
+        },
+    }
+}
+
+/// **Whether a timetable can build a program that carries `m` at all**, before any line is planned
+/// against it: what an image request can carry (`grant_plan::image_can_carry`), less what no
+/// timetable endows. An argv (`grant_plan::ArgSpec::Words`), entropy, the network and a
+/// configuration page have no slot in `components/src/timetable.rs`'s `fire`, and the verdicts a
+/// page carries have no word for them, so an installed program declaring one is refused when its
+/// document is resolved rather than planned. Name: provisional.
+pub fn schedulable(m: &Manifest) -> bool {
+    grant_plan::image_can_carry(m)
+        && !grant_plan::image_hears_words(m)
+        && !m.entropy
+        && !m.network
+        && !m.config
 }
 
 /// The first authority `e` needs that `held` does not have.
@@ -846,7 +937,7 @@ fn admit(command: &[u8], held: Held) -> Admission {
 /// endowments come after, because those are facts about the program that no line can change and the
 /// fix is at the scheduler's spawn site. A reader who gets `Clock` back knows not to go looking for
 /// a typo.
-fn unbacked(e: &Endowment, held: Held) -> Option<Unbacked> {
+fn unbacked(e: &Endowment, m: &Manifest, held: Held) -> Option<Unbacked> {
     // A file reaches a program by four routes: the manifest's own per-file grant, an operand
     // streamed in by an adapter (`wc report.txt`), a redirected output and a redirected second
     // stream. Each is narrowed from a directory, so each is unbacked in a scheduler that holds
@@ -864,7 +955,6 @@ fn unbacked(e: &Endowment, held: Held) -> Option<Unbacked> {
     if e.mem_pages > held.mem_pages {
         return Some(Unbacked::Memory);
     }
-    let m = e.prog.manifest();
     if m.clock && !held.clock {
         return Some(Unbacked::Clock);
     }
@@ -987,7 +1077,7 @@ pub fn write_plan(reg: &Registry<'_>, out: &mut dyn FnMut(&[u8])) {
         out(r.entry.command);
         out(b"\n");
         match r.admission {
-            Admission::Fires(e) => write_grant(&e, out),
+            Admission::Fires(e) => write_grant(&e, r.entry.command, reg.held.report, out),
             Admission::Refused(refusal) => {
                 out(b"    will not fire: ");
                 out(refusal.message().as_bytes());
@@ -1065,11 +1155,15 @@ fn write_u64(v: u64, out: &mut [u8]) -> usize {
 }
 
 /// **What the child will hold, and nothing else.** The `caps` half.
-fn write_grant(e: &Endowment, out: &mut dyn FnMut(&[u8])) {
+fn write_grant(e: &Endowment, command: &[u8], report: bool, out: &mut dyn FnMut(&[u8])) {
     out(b"    grants ");
-    out(e.prog.name().as_bytes());
+    // The word typed, not `e.prog`'s name: an installed program's endowment is filed under
+    // `grant_plan::IMAGE_ROW`, whose name is not the program's.
+    out(grant_plan::parse_run(command).prog);
     out(b" exactly:\n");
-    out(b"      cap 0  endpoint  report its answer to this timetable\n");
+    if report {
+        out(b"      cap 0  endpoint  report its answer to this timetable\n");
+    }
     if e.mem_pages > 0 {
         out(b"      cap 1  untyped   ");
         let mut buf = [0u8; 20];
@@ -1573,8 +1667,11 @@ mod tests {
             .endowment()
             .expect("a scheduler holding a directory can back `rm -r logs`");
         assert!(e.dir.is_some(), "the plan narrowed the directory it holds");
-        assert_eq!(unbacked(&e, with_dir), None);
-        assert_eq!(unbacked(&e, Held::default()), Some(Unbacked::Directory));
+        assert_eq!(unbacked(&e, &e.prog.manifest(), with_dir), None);
+        assert_eq!(
+            unbacked(&e, &e.prog.manifest(), Held::default()),
+            Some(Unbacked::Directory)
+        );
 
         let wc = reg.rows()[1].endowment().expect("and `wc report.txt`");
         let grant_plan::line::Source::File(f) = wc.source else {
@@ -1585,8 +1682,11 @@ mod tests {
         };
         e.dir = None;
         e.file = Some(f);
-        assert_eq!(unbacked(&e, with_dir), None);
-        assert_eq!(unbacked(&e, Held::default()), Some(Unbacked::File));
+        assert_eq!(unbacked(&e, &e.prog.manifest(), with_dir), None);
+        assert_eq!(
+            unbacked(&e, &e.prog.manifest(), Held::default()),
+            Some(Unbacked::File)
+        );
     }
 
     /// **§222's third sub-ruling: a byte-identical entry keeps its beat, and nothing else does.**
@@ -2091,6 +2191,158 @@ mod tests {
             "granting the scheduler a clock admits `date`, so its image is in the plan",
         );
         assert_eq!(b.planned(), 2);
+    }
+
+    /// **An installed program's line is planned against the manifest its bytes carry** (Fork 8 D
+    /// of milestone 152, ruled 2026-09-27 on #1377), never against `IMAGE_ROW`'s row. Each assertion
+    /// would pass for the wrong reason if the manifest were read off the endowment: `IMAGE_ROW` is
+    /// `uptime`, which takes no argument and holds no clock.
+    #[test]
+    fn an_installed_program_is_planned_against_its_own_manifest() {
+        let doc = parse(
+            "every 5s tick 7\n\
+             every 5s quiet 7\n\
+             every 5s clocked\n",
+        )
+        .unwrap();
+        let mut manifests = [grant_plan::NO_NOTE_MANIFEST; MAX_ENTRIES];
+        manifests[0] = Prog::LeastAuthorityDemo.manifest();
+        manifests[2] = Prog::Date.manifest();
+        let reg = Registry::register_installed(&doc, SHIPPED_HELD, &manifests);
+
+        let e = reg.rows()[0]
+            .endowment()
+            .expect("a note that takes an argument binds `tick 7`");
+        assert_eq!(e.arg, 7);
+        assert!(
+            matches!(reg.rows()[1].admission, Admission::Refused(_)),
+            "no note is `uptime`'s manifest, which takes no argument, so `quiet 7` is refused",
+        );
+        assert_eq!(
+            reg.rows()[2].admission,
+            Admission::Unbacked(Unbacked::Clock),
+            "a note that wants the clock is unbacked here, whatever row the endowment is filed under",
+        );
+        let plan = shown(|out| write_plan(&reg, out));
+        assert!(
+            plan.contains("grants tick exactly:"),
+            "the plan names the word typed, not the row: {plan}",
+        );
+    }
+
+    /// **An upgrade between two fires still fires, with the new version** (calef's amendment of
+    /// Fork 8 D, 2026-09-27 on #1377). The line was registered against one manifest; at the next
+    /// fire the program carries another that the line still binds, and the fire is planned from
+    /// the new one. Falsified by planning from the registered row, which keeps the old endowment.
+    #[test]
+    fn an_upgraded_program_fires_its_new_version() {
+        let doc = parse("every 5s tick --mem 2\n").unwrap();
+        let old = Manifest {
+            mem: Prog::MemoryGrantDepleter.manifest().mem,
+            ..grant_plan::NO_NOTE_MANIFEST
+        };
+        let mut manifests = [grant_plan::NO_NOTE_MANIFEST; MAX_ENTRIES];
+        manifests[0] = old;
+        let reg = Registry::register_installed(&doc, SHIPPED_HELD, &manifests);
+        assert_eq!(reg.rows()[0].endowment().unwrap().mem_pages, 2);
+
+        // Version two flips whether it reports, and still takes `--mem`.
+        let new = Manifest {
+            reports: !old.reports,
+            ..old
+        };
+        match reg.plan_at_fire(0, new) {
+            Admission::Fires(e) => {
+                assert_eq!(e.mem_pages, 2);
+                assert_eq!(
+                    e.reports, new.reports,
+                    "planned from the new version's manifest"
+                );
+            }
+            other => panic!("the new version must fire: {other:?}"),
+        }
+    }
+
+    /// **A new version that asks for more than its line grants does not fire.** Version two wants
+    /// the clock, which this scheduler cannot back, and a later one drops the `--mem` its line
+    /// passes. Both are refusals at the fire, not a silently different job.
+    #[test]
+    fn a_new_version_asking_for_more_than_its_line_grants_does_not_fire() {
+        let doc = parse("every 5s tick --mem 2\n").unwrap();
+        let old = Manifest {
+            mem: Prog::MemoryGrantDepleter.manifest().mem,
+            ..grant_plan::NO_NOTE_MANIFEST
+        };
+        let mut manifests = [grant_plan::NO_NOTE_MANIFEST; MAX_ENTRIES];
+        manifests[0] = old;
+        let reg = Registry::register_installed(&doc, SHIPPED_HELD, &manifests);
+        assert!(reg.rows()[0].endowment().is_some());
+
+        let wants_clock = Manifest { clock: true, ..old };
+        assert_eq!(
+            reg.plan_at_fire(0, wants_clock),
+            Admission::Unbacked(Unbacked::Clock),
+        );
+        assert!(
+            matches!(
+                reg.plan_at_fire(0, grant_plan::NO_NOTE_MANIFEST),
+                Admission::Refused(_)
+            ),
+            "a version that takes no `--mem` refuses the line that passes one",
+        );
+    }
+
+    /// **What a timetable can build at all** is what an image can carry, less what `fire` has no
+    /// slot for.
+    #[test]
+    fn a_program_needing_what_no_timetable_endows_is_not_schedulable() {
+        assert!(schedulable(&grant_plan::NO_NOTE_MANIFEST));
+        assert!(schedulable(&Prog::LeastAuthorityDemo.manifest()));
+        for (what, m) in [
+            (
+                "entropy",
+                Manifest {
+                    entropy: true,
+                    ..grant_plan::NO_NOTE_MANIFEST
+                },
+            ),
+            (
+                "the network",
+                Manifest {
+                    network: true,
+                    ..grant_plan::NO_NOTE_MANIFEST
+                },
+            ),
+            (
+                "a configuration page",
+                Manifest {
+                    config: true,
+                    ..grant_plan::NO_NOTE_MANIFEST
+                },
+            ),
+        ] {
+            assert!(!schedulable(&m), "a program that needs {what}");
+        }
+    }
+
+    /// **A job holds no report endpoint when its timetable holds none** (Fork 6 C of milestone 152,
+    /// ruled 2026-09-27 on #1377), and the printed plan, which is a registrar's whole view of what a
+    /// job holds, says so by not listing one.
+    #[test]
+    fn a_timetable_holding_no_report_endpoint_grants_none() {
+        let durable = Held {
+            report: false,
+            ..SHIPPED_HELD
+        };
+        let doc = parse("every 5s least_authority_demo 7\n").unwrap();
+        let shipped = shown(|out| write_plan(&Registry::register(&doc, SHIPPED_HELD), out));
+        let registered = shown(|out| write_plan(&Registry::register(&doc, durable), out));
+        assert!(shipped.contains("cap 0  endpoint  report its answer"));
+        assert!(
+            !registered.contains("endpoint"),
+            "a registered plan lists a report endpoint: {registered}",
+        );
+        assert!(registered.contains("grants least_authority_demo exactly:"));
     }
 }
 

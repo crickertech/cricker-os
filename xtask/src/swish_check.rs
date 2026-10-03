@@ -883,6 +883,19 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "noteless",
         &["noteless: installed, and carrying no manifest note"],
     ),
+    // **The owner suspends and resumes an identity** (milestone 152 (durable delegation), calef's
+    // §108 (disabling credentials kills the durable session) ruling of 2026-09-26). `user` edits `login_protocol::SUSPENDED_LIST` at this prompt's
+    // root, the file service's, in the format `login` reads at a login and at start-up; the kernel
+    // suite's `login_tests` prove what it does with it. Here: the
+    // two verbs answer, the file is where `login` looks, and a malformed line changes nothing.
+    line(0, "user suspend chris", &["suspended chris"]),
+    line(0, "ls", &["suspended"]),
+    line(0, "user resume chris", &["resumed chris"]),
+    line(
+        0,
+        "user delete chris",
+        &["user suspend <name> | user resume <name>"],
+    ),
     // **The owner vouches for a local build** (DECISIONS §221 (the boot prompt is the owner's
     // console), ruling 1). `installed/unvouched` is the fresh build the D2 lines above ran on the
     // ruling's endowment (slots 0, 1 and 2). Vouching writes a generation that lists its digest,
@@ -1433,6 +1446,13 @@ const SLOT_GAUGE: &str = "capability slots:";
 ///
 /// It removes the kernel's line only when the kernel's line is whole. A gauge a userspace writer
 /// shuffled into is left in place, which fails the run in the way any shuffle does.
+///
+/// **The capability-slot gauge is taken out too** (2026-10-02 (UTC), milestone 152's lane). It
+/// speaks from the same idle loop once its own mark settles, and until then it always had settled
+/// before the first prompt. Milestone 152 moved the peak into the login block's tail, so the line
+/// landed after the first `$ ` and the gate waited thirty seconds for a prompt that had already
+/// been printed, reporting `the prompt never came back` for a shell that was waiting to be typed
+/// at. Its check reads the raw transcript, which still carries it.
 #[derive(Default)]
 struct GaugeFilter {
     pending: String,
@@ -1442,13 +1462,22 @@ impl GaugeFilter {
     /// What `kernel::progenitor_stack::announce` prints first, its leading indent included: the
     /// kernel's own prefix for the line. Name provisional.
     const NEEDLE: &'static str = "  progenitor stack:";
+    /// What `kernel::cap::report_peak` prints first, its leading indent included.
+    const SLOT_NEEDLE: &'static str = "  capability slots:";
+    /// Every kernel line this filter takes out. Both start with the kernel's two-space indent,
+    /// which the bare-prompt exception in [`GaugeFilter::feed`] relies on.
+    const NEEDLES: [&'static str; 2] = [Self::NEEDLE, Self::SLOT_NEEDLE];
 
     /// Feed the next chunk. Text that is certainly not a gauge is appended to `out`; each whole
     /// gauge line is pushed to `gauges` with the length `out` had when it was removed.
     fn feed(&mut self, chunk: &str, out: &mut String, gauges: &mut Vec<(usize, String)>) {
         self.pending.push_str(chunk);
         loop {
-            if let Some(at) = self.pending.find(Self::NEEDLE) {
+            if let Some(at) = Self::NEEDLES
+                .iter()
+                .filter_map(|n| self.pending.find(n))
+                .min()
+            {
                 out.push_str(&self.pending[..at]);
                 match self.pending[at..].find('\n') {
                     Some(nl) => {
@@ -1465,9 +1494,14 @@ impl GaugeFilter {
                 // Hold back the longest tail that is a proper prefix of the needle, except the
                 // space of a bare `$ `: the needle starts with the kernel's indent, so without
                 // this the prompt every wait below looks for would never be emitted whole.
-                let mut keep = (1..Self::NEEDLE.len())
-                    .rev()
-                    .find(|&n| self.pending.ends_with(&Self::NEEDLE[..n]))
+                let mut keep = Self::NEEDLES
+                    .iter()
+                    .filter_map(|needle| {
+                        (1..needle.len())
+                            .rev()
+                            .find(|&n| self.pending.ends_with(&needle[..n]))
+                    })
+                    .max()
                     .unwrap_or(0);
                 let before = &self.pending[..self.pending.len() - keep];
                 let after_dollar = if before.is_empty() {
@@ -1636,7 +1670,16 @@ fn strip_one_gauge(text: &str) -> Option<String> {
                 out.push(chars[start + offset]);
             }
         }
-        out.extend(&chars[end..]);
+        // The kernel ends its line with a newline, and when the gauge was spliced into an echo that
+        // newline lands after the gauge's last word, splitting the echo in two (`echo h` and
+        // `ello world | wc` in #1377's riscv64 run of 2026-10-03). A newline right where the gauge
+        // ended is the kernel's, so it goes with the gauge.
+        let rest = if chars.get(end) == Some(&'\n') {
+            end + 1
+        } else {
+            end
+        };
+        out.extend(&chars[rest..]);
         out
     })
 }
@@ -2539,7 +2582,12 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
     // constant is a measurement rather than a target, so what this fails on is a recorded fact
     // going stale, not a boot getting close to something. The fix when it fires is to measure,
     // update the constant, and re-read the headroom arithmetic beside `CAPABILITY_TABLE_SLOTS`.
-    match transcript.lines().rfind(|l| l.contains(SLOT_GAUGE)) {
+    // Read from the raw transcript: [`GaugeFilter`] takes this line out of the one the waits read.
+    let raw_transcript = raw.lock().expect("transcript lock").clone();
+    match after_hand_over(&raw_transcript)
+        .lines()
+        .rfind(|l| l.contains(SLOT_GAUGE))
+    {
         Some(line) => {
             eprintln!("swish-check ({arch}):{}", line.trim_end());
             // **On x86_64 this line is stale, and says so** (milestone 182). The gauge is printed
@@ -2585,6 +2633,7 @@ fn swish_check_boot(arch: &str, script: &[Line], fresh: bool) -> bool {
         .lock()
         .expect("gauge lock")
         .iter()
+        .filter(|(_, line)| !line.contains(SLOT_GAUGE))
         .map(|(at, line)| (line.clone(), gauge_follows(&filtered, *at)))
         .collect();
     for (gauge, after) in &gauges {
@@ -3262,6 +3311,29 @@ $ outlaw
     }
 
     #[test]
+    fn degauge_takes_the_kernels_newline_with_a_spliced_gauge() {
+        // #1377's riscv64 swish-check of 2026-10-03, verbatim: the stack gauge landed inside the
+        // echo of the first line and its newline split the echo.
+        let spliced = "$ echo  progenitor sta hck: 20576 of 49152 bytes at peak, 28576 spare\n\
+                       ello world | wc\n  1 2 12\n";
+        assert_eq!(degauge(spliced), "$ echo hello world | wc\n  1 2 12\n");
+    }
+
+    #[test]
+    fn a_slot_gauge_after_the_first_prompt_leaves_the_prompt_last() {
+        // Milestone 152's swish-check transcript, verbatim but for the chunking: the slot peak
+        // settled after the first prompt, and with only the stack gauge filtered the wait for
+        // `$ ` saw the slot line after it and timed out.
+        let (out, gauges) = filtered(&[
+            "status\n$ ",
+            "  capability slots: 24 of 32 at peak\n",
+            "  progenitor stack: 20600 of 49152 bytes at peak, 28552 spare\n",
+        ]);
+        assert!(out.ends_with("$ "), "{out:?}");
+        assert_eq!(gauges.len(), 2);
+    }
+
+    #[test]
     fn text_that_only_starts_like_the_gauge_is_let_through() {
         let (out, gauges) = filtered(&["$ echo   pro", "gress\n"]);
         assert_eq!(out, "$ echo   progress\n");
@@ -3296,7 +3368,8 @@ $ outlaw
         let text =
             "$ echo hi\nhi\n  progenitor stack: 22880 of 32768 bytes at peak, 9888 spare\n$ wc\n";
         let cleaned = degauge(text);
-        assert_eq!(cleaned, "$ echo hi\nhi\n\n$ wc\n");
+        // Newline and all, as `GaugeFilter` drops it (the blank line this left was the kernel's).
+        assert_eq!(cleaned, "$ echo hi\nhi\n$ wc\n");
         assert!(cleaned.contains("$ wc\n"));
     }
 

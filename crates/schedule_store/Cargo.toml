@@ -12,5 +12,5 @@ workspace = true
 # neither `timetable` nor `filesystem_protocol` already owns (the list of identities that currently
 # have a durable session with pending scheduled work). The schedule document itself is
 # `timetable::parse`'s own format, reused unchanged; a reader of one identity's `schedule` file
-# depends on `timetable` directly (`components/src/session_reviver.rs` does), not through here, so this
+# depends on `timetable` directly (`components/src/login.rs` does), not through here, so this
 # crate does not need that dependency either.

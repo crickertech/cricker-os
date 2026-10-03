@@ -13,7 +13,8 @@ Name: provisional, minted by that lane on 2026-09-26, after the roadmap slug.
 The design's first piece claims no new mechanism is needed. A job's authority is a child region
 split off the session's budget, and DECISIONS §16 (object revocation) already refuses `MemoryRegion::DESTROY` on a
 parent with a live child. That was proven on `smb_server`'s `DurableSession`, which went with the
-SMB code on 2026-08-30, leaving only a synthetic copy inside `session_reviver`.
+SMB code on 2026-08-30, leaving a synthetic copy inside `session_reviver` until that program was
+retired on 2026-09-27 (fork 7).
 
 It is proven again on the object a login session actually is:
 `kernel::user::login_tests::a_login_session_with_pending_work_refuses_logout_until_the_work_is_gone`.
@@ -86,8 +87,9 @@ mechanism to milestones 56 and 49, neither of which has built one.
 
 The second half matters more than the first. The credential store is memory only and reprovisioned
 every boot, while the schedule store is on disk: DECISIONS §122 (the on-disk schedule store) and
-§125 (which identities have pending work). `session_reviver` re-derives every identity the manifest
-names without asking the credential service whether that identity still exists. So once disabling is built, a disabled user's jobs come back at the next reboot unless one of
+§125 (which identities have pending work). `login`'s start-up pass (fork 7) re-derives every
+identity the manifest names without asking the credential service whether that identity still
+exists; it asks only at the login that is handed the session. So once disabling is built, a disabled user's jobs come back at the next reboot unless one of
 two things is true:
 
 - Disabling also removes the identity from the manifest, in the same act.
@@ -107,13 +109,19 @@ to unvouched, "runnable only by a session holding the D2 capability". If a regis
 session's D2 capability into a scheduled job, that job keeps running a program whose key was
 revoked, on every fire, with nobody at a terminal to notice.
 
-**Recommendation: a scheduled job never holds D2.** It runs vouched programs only, so §220's
-automatic drop reaches scheduled work at its next fire, through the progenitor's ordinary
-activation-set lookup, with no second revocation path. A user who wants to schedule an unvouched
+**Recommendation: a scheduled job never holds D2.** It runs vouched programs only. **Corrected
+2026-09-27:** this used to say §220's drop then reaches a job "through the progenitor's ordinary
+activation-set lookup". It does not: the timetable loads a job from an archive `login` checked
+at start-up, and the progenitor never sees a fire. It holds only if fork 8 resolves jobs through
+the activation set. A user who wants to schedule an unvouched
 build vouches it first. This is a grant rule for the registrar, so it is recorded here for whoever
 builds it; the milestone 129 (scheduled execution) lane working the scheduler in parallel is the likely consumer.
 
 ### 4. Where the re-deriver's per-identity narrowing belongs
+
+**Closed 2026-09-27 as moot**, by calef's ruling of fork 7: there is no separate re-deriver whose
+window could shrink, and `login` already holds the unnarrowed root for its whole life. The
+question as it stood:
 
 The first hardening refinement of DECISIONS §123 (the boot-time re-derivation privilege) asks the re-deriver to narrow its store-read capability
 per identity. Inside the re-deriver alone that cannot shrink anything. To build a per-identity
@@ -126,9 +134,9 @@ That caretaker is exactly the directory a re-derived session would be handed, wh
 `login`'s `mint` builds. So the refinement should be built when the re-deriver hands a real session
 to a real consumer, sharing `mint`'s construction. Built now, it would be up to eight processes per
 boot whose only purpose is to be destroyed, in a process §123's third refinement asks to keep
-minimal. The same reasoning is why `session_reviver` is still not in the real boot
-(`crates/system_initializer`): until a scheduler receives what it re-derives, wiring it in adds a
-privileged process to every boot that produces nothing anyone holds.
+minimal. The same reasoning kept `session_reviver` out of the real boot
+(`crates/system_initializer`): until a scheduler received what it re-derived, wiring it in added a
+privileged process to every boot that produced nothing anyone held.
 
 ## The schedule ruling, and what "the session supervises" needs
 
@@ -182,6 +190,8 @@ supervision and cannot also read a stream.
 
 ### 6. Where a scheduled job's report goes once nobody is attached
 
+**DECIDED: option C** (the third below), calef, 2026-09-27 (UTC), on #1377; built the same day.
+
 Today every scheduled child is handed the timetable's child-report endpoint and blocks sending its
 answer until someone receives it; in `timetable_tests` that someone is the kernel harness. Under S1
 the only process left for it is the session process, which already blocks on the timetable's
@@ -198,9 +208,50 @@ reports, the timetable's death) and one reader. Options:
   entry, as any other granted program would.
 
 The third needs nothing new and fits the claim that an entry holds only what its line grants, so
-it is the recommendation. It changes what `timetable.conf`'s demonstration entries report through,
-which is milestone 129's to move. Until this and question 5 are answered, and 129's timetable has
-its replace contract, the session process has no settled contract to be built against. It is the blocker for connecting a real
-session to the timetable; the replace handler itself does not wait on it.
+it was the recommendation.
 
 Question 3's rule applies to the `Held` a session hands its timetable.
+
+## What was built to the rulings, and what it found (2026-09-26)
+
+S1, L2 and the suspension ruling are built (the block's "What was built" entries). Three findings
+from building them, each recorded where a reader meets it:
+
+- The ruling put L2's request after `OK`. It is the request itself (`login_protocol::SCHEDULE`),
+  because `login` blocks on one endpoint and cannot wait for a word after `OK` without every client
+  sending one.
+- Reclaiming a session process too early kills it between its two teardown destroys and strands a
+  region under the user's budget. It now says `STOPPED` and `login` waits for the word.
+- "The stored schedule resumes at the next login" makes `login` read an identity's stored schedule
+  at login time. Doing the same at start-up is boot re-derivation, which is why the block proposes
+  moving it into `login` (fork 7).
+
+### 7. Where boot re-derivation runs
+
+**DECIDED: option A.** calef, 2026-09-27 (UTC): at start-up `login` re-derives every durable session
+that is not suspended, using the code that restores a stored schedule at login, and
+`session_reviver` is retired. DECISIONS §123 carries the amendment. Built the same day:
+`components/src/login.rs`'s `rederive`, with the capacity in `login_protocol::durable` (both
+provisional names), proven by `login_tests`'
+`a_durable_session_is_re_derived_at_start_up_unless_suspended`.
+
+The options table, the authority each holder has, the prior art and the measured costs are in
+[the fork 7 appendix](durable-delegation/boot-rederivation-in-login.md). In short: `login` already
+holds every capability the separate re-deriver of §123 would, so deleting the re-deriver's copies
+after one use leaves the machine where `login` already stands. `login`'s 24-slot table holds one durable session (19 + 4N at an ordinary login's peak), so that
+is also the start-up pass's limit. The built limit derives from `abi::CAPABILITY_TABLE_SLOTS`
+rather than being written as one. It also derives from the memory `login` sets aside for durable
+budgets, which is one budget, so a wider table (PR #1360 proposes 32 slots, room for three) moves
+only the first. `login.rs`'s BUGS says what raising the second takes.
+
+The appendix also found a latent failure. The real boot gives `login` 768 construction pages, and
+with a schedule archive `_start` splits 800 before it serves anyone, so `login` would die at
+`fail(2)`. Option A does not make it bite: the start-up pass runs only when an archive is present,
+and the real boot still passed none. Fork 8's build raised `LOGIN_CONSTRUCTION_PAGES`.
+
+### 8. Which programs a scheduled job may run on the real boot
+
+**DECIDED: option D**, calef, 2026-09-27 (UTC), on #1377: the live activation generation, what a
+bare word runs at the prompt minus D2, checked at each fire. Built the same day, over a file-service
+window of the timetable's own. The options, costs and what building it found are in
+[the fork 8 appendix](durable-delegation/which-programs-a-job-runs.md).

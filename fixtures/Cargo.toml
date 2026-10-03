@@ -468,6 +468,9 @@ soak_page = { version = "0.1.0", path = "../crates/soak_page" }
 job_mix = { version = "0.1.0", path = "../crates/job_mix" }
 credential_protocol = { version = "0.1.0", path = "../crates/credential_protocol" }
 login_protocol = { version = "0.1.0", path = "../crates/login_protocol" }
+# The registration page's layout (milestone 152 (durable delegation)): `login_test_client` opens and empties a durable
+# session's schedule through it.
+timetable = { version = "0.1.0", path = "../crates/timetable" }
 compositor = { version = "0.1.0", path = "../crates/compositor" }
 coremark = { version = "0.1.0", path = "../crates/coremark" }
 nifefs = { version = "0.1.0", path = "../crates/nifefs" }
@@ -480,9 +483,9 @@ filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol
 graphics_protocol = { version = "0.1.0", path = "../crates/graphics_protocol" }
 line_editor = { version = "0.1.0", path = "../crates/line_editor" }
 byte_sink_protocol = { version = "0.1.0", path = "../crates/byte_sink_protocol" }
-# The durable schedule store's shared names (milestone 152, DECISIONS §122/§125): the fixed file
-# names `session_reviver.rs` and `fs_test_client.rs`'s `ROLE_SCHEDULE_SEED` both depend on, and the
-# manifest format neither `timetable` nor `filesystem_protocol` already owns.
+# The durable schedule store's shared names (milestone 152, DECISIONS §122 (the on-disk schedule
+# store) and §125 (which identities have pending work)): the schedule file's name, which
+# `login_test_client.rs` writes and `login.rs` reads back.
 schedule_store = { version = "0.1.0", path = "../crates/schedule_store" }
 user_mode_runtime = { version = "0.1.0", path = "../crates/user_mode_runtime" }
 # The current-CPU page's layout and its `CPU_ID_BOUND`, which `current_cpu_reader` reports back so

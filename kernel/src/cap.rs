@@ -340,7 +340,15 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// The headroom is now nine rather than one. That is room, and it is not a licence: the next
 /// capability held across the login block still spends one of the nine, and this record still
 /// fails `script/swish-check` the first boot that climbs past it.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 23;
+///
+/// **Twenty-four since 2026-10-02 (UTC), milestone 152 (durable delegation)**, and it is the
+/// spend that paragraph predicted. While it builds `login`, the progenitor now mints a capability
+/// to the file service's last client window (`login_protocol::DURABLE_WINDOW`), places it at
+/// `login_protocol::DURABLE_WINDOW_SLOT` and deletes its own copy, so it is held for one placement
+/// inside the login block rather than for the boot. That is enough to be one slot on the peak.
+/// Found by `script/swish-check`'s aarch64 leg failing on this sentence, in CI and again locally.
+/// Headroom is eight.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 24;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);

@@ -189,11 +189,50 @@ pub const LOGIN: u64 = 1;
 /// carries no page: there is nothing here a caller did not already know. Build it with
 /// [`logout_word`]. See this contract's own BUGS for what `LOGOUT` does not authenticate.
 pub const LOGOUT: u64 = 3;
+/// **Authenticate, and open this identity's schedule** (milestone 152 (durable delegation),
+/// §222 (who holds a user's schedule), calef's L2 ruling of 2026-09-26). Sent on the private
+/// channel in place of [`LOGIN`], staged with [`place`] exactly as [`LOGIN`] is. On success `login`
+/// builds the session process that holds the identity's timetable, and [`OK`] carries
+/// [`SCHEDULE_FOLLOWS`]. A [`LOGIN`] for an identity whose session is already durable reattaches to
+/// it and carries [`SCHEDULE_FOLLOWS`] too.
+///
+/// The ruling said "a new request word after `OK`". It travels as the request itself instead,
+/// because `login` blocks on one endpoint at a time and could not wait for a word after `OK`
+/// without every existing client sending one. Name and value: provisional.
+pub const SCHEDULE: u64 = 7;
+/// **The owner's suspended list changed: apply it now** (milestone 152 (durable delegation),
+/// calef's §108 (disabling credentials kills the durable session) ruling of 2026-09-26). A bare word on the front door, like [`LOGOUT`], built with
+/// [`suspend_word`]. `login` rereads [`SUSPENDED_LIST`] and ends every durable session it keeps for
+/// an identity on it, then answers [`APPLIED`] with how many it ended. Anyone holding the front
+/// door can send it, which is harmless for the reason [`LOGOUT`] is: it acts only on a list a
+/// session cannot write. Name and value: provisional, a wire item.
+pub const SUSPEND: u64 = 8;
+
+/// **Report why the start-up pass skipped what it skipped** (milestone 152, added 2026-09-27
+/// against CI's own falsification of the "skipped, not failed" contract in `rederive`'s doc: a
+/// skip that leaves no reason anywhere is the defect, not the skip). A bare word on the front door,
+/// like [`SUSPEND`], built with [`rederive_skips_word`]. Answers [`SKIP_COUNTS`] with
+/// [`durable::pack_skip_counts`]'s word on `RESULT`'s second word; the third is always 0, reserved.
+/// Unauthenticated, like [`SUSPEND`] and [`LOGOUT`]: it names no identity, only counts. A fielded
+/// system has little reason to ask this of its own boot, but the counters cost a saturating add
+/// each and are always kept, in production too, so nothing here is test-only. Name and value:
+/// provisional.
+pub const REDERIVE_SKIPS: u64 = 9;
 
 /// `send(REQUEST, connect_word(), 0, 0)`. The bare word [`CONNECT`] travels as; a client never calls
 /// [`place`] for this step, because there is no identity or secret to stage.
 pub fn connect_word() -> u64 {
     CONNECT << credential_protocol::OP_SHIFT
+}
+
+/// `send(REQUEST, suspend_word(), 0, 0)`. The bare word [`SUSPEND`] travels as.
+pub fn suspend_word() -> u64 {
+    SUSPEND << credential_protocol::OP_SHIFT
+}
+
+/// `send(REQUEST, rederive_skips_word(), 0, 0)`. The bare word [`REDERIVE_SKIPS`] travels as.
+pub fn rederive_skips_word() -> u64 {
+    REDERIVE_SKIPS << credential_protocol::OP_SHIFT
 }
 
 /// `send(REQUEST, logout_word(), 0, 0)`. The bare word [`LOGOUT`] travels as, on the *front door*
@@ -218,6 +257,11 @@ pub const OK: u64 = 1;
 /// (every kernel test harness before this bit) sends five, and a client that always waited for six
 /// would block for ever. Name: provisional.
 pub const RUN_UNVOUCHED_FOLLOWS: u64 = 1;
+/// **A bit of [`OK`]'s second word: the registration page follows** (milestone 152). After the
+/// run-unvouched capability when that is announced too, one more `RECV_CAP` delivers a page frame
+/// (`WRITE`): the identity's timetable's registration page, `timetable::registration`'s whole
+/// protocol. Announced for the reason [`RUN_UNVOUCHED_FOLLOWS`] is. Name: provisional.
+pub const SCHEDULE_FOLLOWS: u64 = 2;
 
 /// **The owner's list of identities whose sessions may run unvouched bytes** (DECISIONS §221 (the
 /// boot prompt is the owner's console), ruling 2): a file at the root of the file service, beside
@@ -256,6 +300,72 @@ pub fn lists(list: &[u8], identity: &[u8]) -> bool {
             .any(|line| line == identity)
 }
 
+/// **`list` with `identity` added**, into `out`: `list` unchanged when it already names it, else
+/// `list`, a newline if it did not end in one, and `identity` on a line of its own. The byte count,
+/// or `None` when `out` is too small or `identity` is not a name a list can hold (empty, or with
+/// whitespace, or starting with `#`). What `user suspend <name>` writes (milestone 152 (durable
+/// delegation)).
+///
+/// # EXAMPLES
+///
+/// ```
+/// let mut out = [0u8; 64];
+/// let n = login_protocol::with_listed(b"# suspended\nchris", b"corinne", &mut out).unwrap();
+/// assert_eq!(&out[..n], b"# suspended\nchris\ncorinne\n");
+/// let n = login_protocol::with_listed(b"chris\n", b"chris", &mut out).unwrap();
+/// assert_eq!(&out[..n], b"chris\n");
+/// assert!(login_protocol::with_listed(b"", b"two words", &mut out).is_none());
+/// ```
+pub fn with_listed(list: &[u8], identity: &[u8], out: &mut [u8]) -> Option<usize> {
+    if !listable(identity) {
+        return None;
+    }
+    if lists(list, identity) {
+        out.get_mut(..list.len())?.copy_from_slice(list);
+        return Some(list.len());
+    }
+    let sep = usize::from(!list.is_empty() && !list.ends_with(b"\n"));
+    let n = list.len() + sep + identity.len() + 1;
+    let dst = out.get_mut(..n)?;
+    dst[..list.len()].copy_from_slice(list);
+    if sep == 1 {
+        dst[list.len()] = b'\n';
+    }
+    dst[list.len() + sep..n - 1].copy_from_slice(identity);
+    dst[n - 1] = b'\n';
+    Some(n)
+}
+
+/// **`list` with every line naming `identity` removed**, into `out`, other lines and comments kept
+/// as they were. What `user resume <name>` writes (milestone 152). `None` when `out` is too small.
+///
+/// # EXAMPLES
+///
+/// ```
+/// let mut out = [0u8; 64];
+/// let n = login_protocol::without_listed(b"# suspended\nchris\n corinne\n", b"corinne", &mut out).unwrap();
+/// assert_eq!(&out[..n], b"# suspended\nchris\n");
+/// ```
+pub fn without_listed(list: &[u8], identity: &[u8], out: &mut [u8]) -> Option<usize> {
+    let mut n = 0;
+    for line in list.split_inclusive(|&b| b == b'\n') {
+        let body = line.strip_suffix(b"\n").unwrap_or(line).trim_ascii();
+        if !identity.is_empty() && body == identity {
+            continue;
+        }
+        out.get_mut(n..n + line.len())?.copy_from_slice(line);
+        n += line.len();
+    }
+    Some(n)
+}
+
+/// Whether `identity` can be a line of a list: non-empty, no whitespace, not a comment.
+fn listable(identity: &[u8]) -> bool {
+    !identity.is_empty()
+        && !identity.starts_with(b"#")
+        && !identity.iter().any(u8::is_ascii_whitespace)
+}
+
 /// **Refused.** The identity is unknown, the secret is wrong, the service could not mint a
 /// capability set for an otherwise-authenticated principal, or (on the front door) the service could
 /// not mint a private channel at all (see this service's BUGS on the second and third cases: both
@@ -282,6 +392,34 @@ pub const NO_TERMINAL: u64 = 5;
 /// [`LOGOUT`]. Idempotent: sent whether or not anything was actually held, since a logout that
 /// arrives when nobody holds the terminal is harmless rather than an error.
 pub const LOGGED_OUT: u64 = 6;
+
+/// **Authenticated, and suspended** (milestone 152, the §108 ruling of 2026-09-26). The identity
+/// and secret were right and the identity is on [`SUSPENDED_LIST`]. Sent only after a successful
+/// authentication, so only someone who already holds the secret learns the account is suspended,
+/// and learns it plainly rather than as a wrong password. Nothing follows. Name and value:
+/// provisional, a wire item.
+pub const SUSPENDED: u64 = 7;
+
+/// **[`SUSPEND`]'s answer**, on the front door's `RESULT`; the second word is how many durable
+/// sessions were ended. Name and value: provisional.
+pub const APPLIED: u64 = 8;
+
+/// **[`REDERIVE_SKIPS`]'s answer**, on the front door's `RESULT`; the second word is
+/// [`durable::pack_skip_counts`]'s word. Name and value: provisional.
+pub const SKIP_COUNTS: u64 = 9;
+
+/// **The owner's list of suspended identities** (milestone 152, calef's §108 ruling of
+/// 2026-09-26), a file at the root of the file service in [`RUN_UNVOUCHED_LIST`]'s place and
+/// format, read with [`lists`]. `user suspend <name>` at the owner's console adds a name and
+/// `user resume <name>` removes it. `login` refuses a listed identity with [`SUSPENDED`] and ends
+/// its durable session; the boot-time re-deriver skips it.
+///
+/// **Empty by default, and the failure direction is the opposite of the run-unvouched list's**, which
+/// is worth saying because it is not a free choice: no file, or one that cannot be read, suspends
+/// nobody. Failing toward "suspended" would lock every user out when the file service is slow.
+///
+/// Name: provisional (milestone 152, 2026-09-26).
+pub const SUSPENDED_LIST: &str = "suspended";
 
 /// **One attribution record**, sent once per successful login on the service's own audit endpoint
 /// (`components/src/login.rs`'s `AUDIT` slot), so the property DECISIONS §109 names ("a server ... logs
@@ -351,6 +489,289 @@ pub const CARETAKER_ELF_VA: u64 = 0x0000_0000_0100_0000;
 /// space that grows.
 pub const PROGRAM_MEASUREMENTS_VA: u64 = 0x0000_0000_0140_0000;
 
+/// **Where `session`'s image is mapped, read-only, before `login`'s `_start` runs** (milestone 152),
+/// with `timetable`'s at [`TIMETABLE_ELF_VA`] and both lengths in the third argument register
+/// ([`schedule_lengths`]). They are the two programs a durable session is built from, and each is
+/// checked against the table at [`PROGRAM_MEASUREMENTS_VA`] before anything is built from it. No
+/// program a job runs travels with them: a job runs what the live activation generation names
+/// (Fork 8 ruled D by calef on 2026-09-27, on #1377). Zero lengths mean no schedule can be opened
+/// on this boot: [`SCHEDULE`] is then answered as [`LOGIN`] is, without [`SCHEDULE_FOLLOWS`].
+///
+/// Name: provisional, milestone 152's lane, 2026-09-27; it replaces a schedule archive that also
+/// carried the jobs.
+pub const SESSION_ELF_VA: u64 = 0x0000_0000_0180_0000;
+
+/// **Where `timetable`'s image is mapped**, beside [`SESSION_ELF_VA`], four megabytes above it.
+/// Provisional.
+pub const TIMETABLE_ELF_VA: u64 = 0x0000_0000_01c0_0000;
+
+/// **The third start argument: `session`'s length in the low half, `timetable`'s in the high.**
+/// Two lengths in one register, because the first two carry the caretaker's and the table's. An
+/// image of 4 GiB or more cannot be mapped at these addresses anyway. Provisional.
+///
+/// ```
+/// use login_protocol::{schedule_lengths, split_schedule_lengths};
+/// assert_eq!(split_schedule_lengths(schedule_lengths(40_960, 409_600)), (40_960, 409_600));
+/// assert_eq!(split_schedule_lengths(0), (0, 0));
+/// ```
+pub const fn schedule_lengths(session: u64, timetable: u64) -> u64 {
+    (session & 0xffff_ffff) | (timetable << 32)
+}
+
+/// [`schedule_lengths`]' inverse: `(session, timetable)`.
+pub const fn split_schedule_lengths(word: u64) -> (u64, u64) {
+    (word & 0xffff_ffff, word >> 32)
+}
+
+/// **`login`'s slot for its durable sessions' file-service channel**: one page of the file
+/// service's window [`DURABLE_WINDOW`], `WRITE | GRANT`, placed by the spawner. A durable session's
+/// timetable reads the store through it while its user may be using the store through window 0 at
+/// the prompt, and two clients staging bytes in one page overwrite each other (milestone 599 (a
+/// frame per filesystem client channel)). `login` badges the file service's endpoint with the
+/// window's number itself. Provisional.
+pub const DURABLE_WINDOW_SLOT: u64 = 8;
+
+/// **The file service's window the spawner reserves for `login`'s durable sessions**: the last. The
+/// progenitor hands jobs behind a directory grant the others, and the kernel harness claims this
+/// one for `login`. One window, so one durable session at a time reads the store
+/// ([`durable::sessions_held`] is bounded by it too). Provisional.
+pub const DURABLE_WINDOW: u64 = filesystem_protocol::fs::CLIENT_WINDOWS as u64 - 1;
+
+/// **How `login` starts a session process** (milestone 152, S1 of 2026-09-26), in this crate for
+/// the reason the two constants above are: `components/src/login.rs` and
+/// `components/src/session.rs` both read it. Every name here is provisional.
+pub mod session {
+    /// Slot 0: the endpoint the session process reports readiness on, once, `WRITE`.
+    pub const READY_SLOT: u64 = 0;
+    /// Slot 1: the region the timetable and every job it fires are built from, `WRITE | GRANT`.
+    pub const BUDGET_SLOT: u64 = 1;
+    /// Slot 2: the registration page, `WRITE`, which the session maps into its timetable.
+    pub const PAGE_SLOT: u64 = 2;
+    /// Slot 3: an endpoint to a caretaker serving the store's `activation/` read-only, `WRITE`,
+    /// which the session hands its timetable (Fork 8 D).
+    pub const ACTIVATION_SLOT: u64 = 3;
+    /// Slot 4: likewise for `packages/`.
+    pub const PACKAGES_SLOT: u64 = 4;
+    /// Slot 5: the page of the durable window the two caretakers stage through, `WRITE`, which the
+    /// session maps into its timetable at `timetable::contract::STORE_PAGE_VA`.
+    pub const STORE_PAGE_SLOT: u64 = 5;
+    /// Where `timetable`'s image is copied into the session process; its length is `a0`.
+    pub const TIMETABLE_VA: u64 = 0x0000_0000_0200_0000;
+    /// The readiness word: the timetable is built, started, and watching the page.
+    pub const READY: u64 = 0x5e55_0000_0000_0001;
+    /// The last word, on the same endpoint: the timetable is gone and everything built from the
+    /// session process's budget is given back. `login` takes it before reclaiming the process, so
+    /// the reclaim never lands mid-teardown and strands a region under the user's budget.
+    pub const STOPPED: u64 = 0x5e55_0000_0000_0002;
+    /// The failure word; the low byte says which step.
+    pub const FAILED: u64 = 0x5e55_0000_0000_0f00;
+}
+
+/// **How many durable sessions `login` can keep, and which ones it re-derives at start-up**
+/// (milestone 152 (durable delegation), Fork 7 ruled A by calef on 2026-09-27: `login` re-derives
+/// every durable session that is not suspended, before it serves its front door). Pure logic, in
+/// this crate so a host test reaches it; `components/src/login.rs` is the one caller.
+///
+/// The slot counts are from `login.rs`'s code, counted in
+/// `notes/durable-delegation/boot-rederivation-in-login.md` (question 5). They are counts, not a
+/// measurement: no gauge reports one process's table.
+///
+/// Name: provisional, minted 2026-09-27 (UTC) by milestone 152's lane, for this module and
+/// everything in it.
+pub mod durable {
+    /// Slots `login` holds at rest: ten endowed (`REQUEST`, `RESULT`, `VERIFY`, `FS_EP`,
+    /// `FS_PAGE_FRAME`, `CONSTRUCTION_UT`, `AUDIT`, `TERM_EP`, `RUN_UNVOUCHED` and
+    /// [`super::DURABLE_WINDOW_SLOT`]) and the three budgets `_start` splits (`own_ut`,
+    /// `durable_ut`, `channel_ut`).
+    pub const SLOTS_AT_REST: u64 = 13;
+    /// Slots an ordinary login adds at its peak, inside `mint`'s `build_child`: the channel's
+    /// `result` and `region`, then `region`, `narrow_ep`, `ready`, and the child's address space
+    /// and one frame or its thread.
+    pub const SLOTS_LOGIN_PEAK: u64 = 7;
+    /// Slots each kept durable session holds: the user's budget, the session process's region, the
+    /// registration page and the readiness endpoint.
+    pub const SLOTS_PER_SESSION: u64 = 4;
+
+    /// **A signed-in client's own spending budget**, in pages, split for every login and delegated
+    /// to it. In this crate because `login`, the kernel harness and the progenitor all size budgets
+    /// from it and [`BUDGET_PAGES`]. Provisional.
+    pub const CLIENT_BUDGET_PAGES: u64 = 64;
+    /// **A durable session process's region**: the process, its copy of `timetable`'s image, and
+    /// the two store caretakers `login` builds in it (Fork 8 D), 64 pages each as `login` sizes a
+    /// caretaker's region. Measured for the process on aarch64's debug build on 2026-09-26 at 192
+    /// with room to spare. Provisional.
+    pub const SESSION_REGION_PAGES: u64 = 192 + 2 * 64;
+    /// **What a durable session process builds its timetable from**: the timetable's region (272,
+    /// `session.rs`'s `TIMETABLE_REGION_PAGES`) and its jobs' budget (128), with room for two
+    /// endpoints. 400 -> 416 on 2026-10-02 (UTC), for the timetable's staging buffer growing to
+    /// 128 KiB. Provisional.
+    pub const SESSION_BUDGET_PAGES: u64 = 416;
+    /// **One durable session's whole budget**: the client's own, the session process's region, and
+    /// what it builds from. `login` splits this many pages per durable session, and its spawner
+    /// sizes `login`'s construction budget with it. Provisional.
+    pub const BUDGET_PAGES: u64 = CLIENT_BUDGET_PAGES + SESSION_REGION_PAGES + SESSION_BUDGET_PAGES;
+
+    /// **How many durable sessions fit a `table_slots`-slot capability table** with room left for
+    /// one ordinary login beside them: the largest `n` with
+    /// `SLOTS_AT_REST + SLOTS_PER_SESSION * n + SLOTS_LOGIN_PEAK <= table_slots`. Opening the last
+    /// of them at a login peaks at the same count and no higher, because `login` builds that
+    /// session's two store caretakers (Fork 8 D) before anything else of the session and mints the
+    /// client's own caretaker after it: 16 held at the open, 23 building the second caretaker, 24
+    /// building the session process. At start-up it peaks lower. Counted from the code on
+    /// 2026-09-27, not measured.
+    ///
+    /// # EXAMPLES
+    ///
+    /// ```
+    /// use login_protocol::durable::sessions_held;
+    /// assert_eq!(sessions_held(24), 1); // today's table: one session, 24 of 24 at a login's peak
+    /// assert_eq!(sessions_held(32), 3); // the table PR #1360 proposes
+    /// assert_eq!(sessions_held(16), 0); // too small for any
+    /// ```
+    pub const fn sessions_held(table_slots: u64) -> usize {
+        let fixed = SLOTS_AT_REST + SLOTS_LOGIN_PEAK;
+        if table_slots < fixed {
+            return 0;
+        }
+        ((table_slots - fixed) / SLOTS_PER_SESSION) as usize
+    }
+
+    /// **The identities a start-up pass re-derives, in manifest order**: every entry of the
+    /// durable-session manifest (DECISIONS §125 (which identities have pending work)) that the
+    /// owner's suspended list (`super::lists`'s format, [`super::SUSPENDED_LIST`]) does not name.
+    /// The caller stops at its own capacity and skips an identity whose stored schedule is missing
+    /// or empty, which is a stale manifest line rather than a failure (§125).
+    ///
+    /// # EXAMPLES
+    ///
+    /// ```
+    /// let manifest: [&[u8]; 3] = [b"chris", b"corinne", b"graeme"];
+    /// let mut left = login_protocol::durable::to_rederive(&manifest, b"# suspended\ncorinne\n");
+    /// assert_eq!(left.next(), Some(&b"chris"[..]));
+    /// assert_eq!(left.next(), Some(&b"graeme"[..]));
+    /// assert_eq!(left.next(), None);
+    /// ```
+    pub fn to_rederive<'a>(
+        manifest: &'a [&'a [u8]],
+        suspended: &'a [u8],
+    ) -> impl Iterator<Item = &'a [u8]> + 'a {
+        manifest
+            .iter()
+            .copied()
+            .filter(move |identity| !super::lists(suspended, identity))
+    }
+
+    /// **Why the start-up pass skipped a manifest entry** (milestone 152, added 2026-09-27 against
+    /// CI's own falsification of `rederive`'s "skipped, not failed" contract with no reason
+    /// anywhere to read). One variant per `continue`/`break` site in `components/src/login.rs`'s
+    /// `rederive`. Provisional: this lane's, not an architect's.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    #[repr(u8)]
+    pub enum RederiveSkip {
+        /// No free slot: as many sessions are already kept as this process can hold.
+        TableFull = 0,
+        /// The name does not fit `filesystem_protocol::grant::MAX_NAME`, or this identity already
+        /// has a session kept.
+        Identity = 1,
+        /// The stored schedule is missing or empty: a stale manifest line.
+        NoStoredSchedule = 2,
+        /// Splitting the session's budget off `durable_ut` failed: out of pages.
+        BudgetOutOfPages = 3,
+        /// Opening the session process (its capability table, its timetable, or the wait for its
+        /// readiness word) failed.
+        SessionBuildFailed = 4,
+    }
+
+    /// How many [`RederiveSkip`] variants there are, and the length [`pack_skip_counts`] and
+    /// [`unpack_skip_counts`] agree on.
+    pub const REDERIVE_SKIP_REASONS: usize = 5;
+
+    /// **Pack one count per [`RederiveSkip`] reason into one word**, one byte each, saturating at
+    /// 255 (ample: `components/src/login.rs`'s `Durables` holds at most a handful of sessions and a boot's
+    /// manifest is not expected to grow past that). `counts[RederiveSkip::X as usize]` lands in
+    /// byte `X`. The whole word travels as `REDERIVE_SKIPS`'s `RESULT` second word.
+    pub const fn pack_skip_counts(counts: &[u32; REDERIVE_SKIP_REASONS]) -> u64 {
+        let mut word = 0u64;
+        let mut i = 0;
+        while i < REDERIVE_SKIP_REASONS {
+            let byte = if counts[i] > 255 { 255 } else { counts[i] };
+            word |= (byte as u64) << (i * 8);
+            i += 1;
+        }
+        word
+    }
+
+    /// The reverse of [`pack_skip_counts`], for a test to read the reply back.
+    pub const fn unpack_skip_counts(word: u64) -> [u32; REDERIVE_SKIP_REASONS] {
+        let mut counts = [0u32; REDERIVE_SKIP_REASONS];
+        let mut i = 0;
+        while i < REDERIVE_SKIP_REASONS {
+            counts[i] = ((word >> (i * 8)) & 0xff) as u32;
+            i += 1;
+        }
+        counts
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// **The capacity is the note's arithmetic, at both table sizes in play.** 24 slots hold
+        /// one session and 28 would be needed for two, since the durable window's page is held at
+        /// rest (Fork 8 D); 32 (PR #1360) holds three. Falsified by dropping `SLOTS_LOGIN_PEAK`
+        /// from the sum, which answers two for 24.
+        #[test]
+        fn the_capacity_leaves_room_for_one_login_beside_the_sessions() {
+            assert_eq!(sessions_held(24), 1);
+            assert_eq!(sessions_held(27), 1);
+            assert_eq!(sessions_held(28), 2);
+            assert_eq!(sessions_held(32), 3);
+            assert_eq!(sessions_held(19), 0);
+            assert_eq!(sessions_held(0), 0);
+            for slots in 0..64u64 {
+                let n = sessions_held(slots) as u64;
+                if n > 0 {
+                    assert!(
+                        SLOTS_AT_REST + SLOTS_PER_SESSION * n + SLOTS_LOGIN_PEAK <= slots,
+                        "{n} sessions overflow a {slots}-slot table at a login's peak"
+                    );
+                }
+                assert!(
+                    SLOTS_AT_REST + SLOTS_PER_SESSION * (n + 1) + SLOTS_LOGIN_PEAK > slots,
+                    "a {slots}-slot table could hold {} sessions, not {n}",
+                    n + 1
+                );
+            }
+        }
+
+        /// **A suspended identity is never re-derived, and nothing else is dropped.** The proof
+        /// `session_reviver`'s skip carried, now on the function `login`'s start-up pass calls.
+        #[test]
+        fn a_suspended_identity_is_skipped_and_the_rest_keep_their_order() {
+            let manifest: [&[u8]; 3] = [b"chris", b"corinne", b"graeme"];
+            let all: [&[u8]; 3] = manifest;
+            assert!(to_rederive(&manifest, b"").eq(all.iter().copied()));
+            assert!(to_rederive(&manifest, b"chris\ngraeme\n").eq([&b"corinne"[..]]));
+            // A prefix is not a name, and a comment suspends nobody.
+            assert!(to_rederive(&manifest, b"chr\n#corinne\n").eq(all.iter().copied()));
+            assert_eq!(to_rederive(&[], b"chris\n").count(), 0);
+        }
+
+        /// **Skip counts round-trip through one word, and a wild count saturates rather than
+        /// overflows into its neighbour's byte.**
+        #[test]
+        fn skip_counts_round_trip_and_saturate() {
+            let counts = [1, 0, 3, 0, 2];
+            assert_eq!(unpack_skip_counts(pack_skip_counts(&counts)), counts);
+            let wild = [300, 0, 0, 0, 0];
+            let word = pack_skip_counts(&wild);
+            assert_eq!(unpack_skip_counts(word), [255, 0, 0, 0, 0]);
+            // A saturated first byte does not bleed into the second.
+            assert_eq!(word & 0xff00, 0);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,6 +791,34 @@ mod tests {
             );
         }
         assert!(!lists(b"", b"chris"), "an empty list named somebody");
+    }
+
+    /// **What `user suspend` and `user resume` write is what `login` reads** (milestone 152
+    /// (durable delegation)): a name added is listed, added twice is listed once, removed is not
+    /// listed, and a name the list cannot hold is refused rather than written.
+    #[test]
+    fn the_suspended_list_round_trips_through_its_two_edits() {
+        let mut out = [0u8; 128];
+        let n = with_listed(b"# owner's list\nchris", b"corinne", &mut out).unwrap();
+        let list = out;
+        assert!(lists(&list[..n], b"corinne") && lists(&list[..n], b"chris"));
+        let again = with_listed(&list[..n], b"corinne", &mut out).unwrap();
+        assert_eq!(again, n, "adding a listed name changed the list");
+        let n2 = without_listed(&list[..n], b"corinne", &mut out).unwrap();
+        assert!(!lists(&out[..n2], b"corinne") && lists(&out[..n2], b"chris"));
+        assert!(
+            out[..n2].starts_with(b"# owner's list\n"),
+            "the comment was lost"
+        );
+        for bad in [&b""[..], b"two words", b"#chris"] {
+            assert!(with_listed(b"", bad, &mut out).is_none(), "{bad:?}");
+        }
+        assert!(with_listed(b"chris\n", b"corinne", &mut [0u8; 4]).is_none());
+        assert!(without_listed(b"chris\n", b"corinne", &mut [0u8; 2]).is_none());
+        assert_eq!(with_listed(b"", b"chris", &mut out), Some(6));
+        assert_eq!(op(suspend_word()), SUSPEND);
+        assert_eq!(op(logout_word()), LOGOUT);
+        assert_eq!(op(connect_word()), CONNECT);
     }
 
     #[test]

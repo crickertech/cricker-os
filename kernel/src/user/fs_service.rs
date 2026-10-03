@@ -244,13 +244,29 @@ static WINDOW_TAKEN: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 fn claim_window() -> Option<(u64, u64)> {
     use core::sync::atomic::Ordering;
-    for (w, window) in WINDOWS.iter().enumerate().skip(1) {
+    // Never the last: that one is `login`'s, for its durable sessions ([`durable_window`]).
+    let pool = login_protocol::DURABLE_WINDOW as usize;
+    for (w, window) in WINDOWS.iter().enumerate().take(pool).skip(1) {
         let bit = 1u64 << w;
         if WINDOW_TAKEN.fetch_or(bit, Ordering::Relaxed) & bit == 0 {
             return Some((w as u64, window.load(Ordering::Relaxed)));
         }
     }
     None
+}
+
+/// **The window `login` keeps for its durable sessions** (milestone 152, Fork 8 D):
+/// `login_protocol::DURABLE_WINDOW`, claimed once and handed to every `login` this boot starts, the
+/// way the progenitor reserves it. The physical base of its frame run, or `None` when the service is
+/// not wired.
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
+pub fn durable_window() -> Option<u64> {
+    use core::sync::atomic::Ordering;
+    // [`claim_window`] never hands this one out, so it is always free for `login`.
+    let w = login_protocol::DURABLE_WINDOW as usize;
+    WINDOW_TAKEN.fetch_or(1u64 << w, Ordering::Relaxed);
+    let phys = WINDOWS[w].load(Ordering::Relaxed);
+    (phys != 0).then_some(phys)
 }
 
 /// [`release_window`] for a test that bound a grant and holds no program (milestone 606).
@@ -795,9 +811,10 @@ const CLIENT_EXTRA_STACK: usize = 8;
 /// `grant_plan` hands it, so a field added there is a page needed here.
 /// `pub(super)` (rather than private, its shape before milestone 152) so a sibling test module can
 /// spawn a client with a nonzero `extra_stack` directly, bypassing [`start`]'s convenience wrapper
-/// (which hardcodes `0`): `kernel::user::session_reviver_tests` needs more than the one-page default
-/// for its two `fs_test_client` roles, found short under `script/test`'s own aarch64 run (a data
-/// abort at the stack's guard page).
+/// (which hardcodes `0`): milestone 152's schedule-store roles needed more than the one-page
+/// default, found short under `script/test`'s own aarch64 run (a data abort at the stack's guard
+/// page). Those roles went with `session_reviver` on 2026-09-27; the granted-directory spawners
+/// below still pass their callers' stack pages through it.
 pub fn spawn_fs_client(
     client_image: &'static [u8],
     file_ep: RendezvousId,
@@ -2129,4 +2146,203 @@ pub fn start_granted_two_dirs(
     })
     .expect("could not spawn the two-directory client");
     Some(report)
+}
+
+/// **Write one of the owner's lists at the file service's root** (`kernel::user::login_tests` needs
+/// to), as the owner's console would: the run-unvouched list, the suspended list of milestone 152
+/// (durable delegation), or the durable-session manifest. `None` removes it.
+#[cfg(any(test, feature = "system_tests"))]
+pub fn set_root_list(file: &str, list: Option<&[u8]>) {
+    set_file(None, file, list);
+}
+
+/// **Write `file` inside `identity`'s own subtree** (DECISIONS §117 (a principal's subtree is named
+/// by its identity string)), which must already exist: an identity's stored schedule (§122 (the
+/// on-disk schedule store)), as that identity's session would have written it. `None` removes it.
+#[cfg(any(test, feature = "system_tests"))]
+pub fn set_home_file(identity: &[u8], file: &str, contents: Option<&[u8]>) {
+    set_file(Some(identity), file, contents);
+}
+
+/// [`set_root_list`] and [`set_home_file`]'s one body: `file` at the root, or under the subtree
+/// named `dir`.
+#[cfg(any(test, feature = "system_tests"))]
+fn set_file(dir: Option<&[u8]>, file: &str, contents: Option<&[u8]>) {
+    use filesystem_protocol::{dir as rights, fs};
+    let (fs_ep, fs_page_frame) = root_directory(
+        blk_server_image(),
+        crate::user::program("redoxfs_server").expect("no redoxfs_server in the initrd"),
+    )
+    .expect("wired() already brought the file service up");
+    // SAFETY: as in `ensure_home_subtree`: the file service's own shared page, idle between logins.
+    let page = unsafe {
+        core::slice::from_raw_parts_mut(
+            mmu::phys_to_virt(fs_page_frame) as *mut u8,
+            filesystem_protocol::PAGE,
+        )
+    };
+    let call = |w: [u64; 2]| crate::sched::ipc_call(fs_ep, w)[0] as i64;
+    let at = match dir {
+        None => fs::ROOT,
+        Some(d) => {
+            page[..d.len()].copy_from_slice(d);
+            let h = call([fs::req(fs::OPENDIR, fs::ROOT, d.len() as u64), rights::ALL]);
+            assert!(
+                h >= 0,
+                "could not open the subtree {:?} ({h})",
+                core::str::from_utf8(d)
+            );
+            h as u64
+        }
+    };
+    let name = file.as_bytes();
+    let named = |page: &mut [u8], verb: u64| {
+        page[..name.len()].copy_from_slice(name);
+        call([fs::req(verb, at, name.len() as u64), 0])
+    };
+    if let Some(contents) = contents {
+        let mut h = named(page, fs::OPEN);
+        if h < 0 {
+            h = named(page, fs::CREATE);
+        }
+        assert!(h >= 0, "could not open or create {file} ({h})");
+        let h = h as u64;
+        assert_eq!(
+            call([fs::req(fs::TRUNCATE, h, 0), 0]),
+            0,
+            "could not truncate {file}"
+        );
+        page[..contents.len()].copy_from_slice(contents);
+        let wrote = call([fs::req(fs::WRITE, h, contents.len() as u64), 0]);
+        assert_eq!(wrote, contents.len() as i64, "short write of {file}");
+        call([fs::req(fs::CLOSE, h, 0), 0]);
+    } else {
+        // `ENOENT` is the state asked for, so the answer is not checked.
+        named(page, fs::UNLINK);
+    }
+    if at != fs::ROOT {
+        call([fs::req(fs::CLOSE, at, 0), 0]);
+    }
+}
+
+/// **Install `bytes` as the one program of package `name` at `version`, as an installer would**
+/// (milestone 152 (durable delegation), Fork 8 D, which runs a scheduled job from the store): the
+/// bytes at `packages/<name>/<version>/<program>`, and a generation `1` in `activation/` naming them
+/// with their digest, made live by `current`. Anything already there is overwritten, and a
+/// generation this writes replaces the whole table, which no test here needs more of.
+#[cfg(feature = "system_tests")]
+pub fn install_for_test(program: &str, name: &str, version: &str, bytes: &[u8]) {
+    use filesystem_protocol::{PAGE, dir as rights, fs};
+    let (fs_ep, fs_page_frame) = root_directory(
+        blk_server_image(),
+        crate::user::program("redoxfs_server").expect("no redoxfs_server in the initrd"),
+    )
+    .expect("wired() already brought the file service up");
+    // SAFETY: as in `set_file`: the file service's own shared page, idle between logins.
+    let page = unsafe {
+        core::slice::from_raw_parts_mut(mmu::phys_to_virt(fs_page_frame) as *mut u8, PAGE)
+    };
+    let call = |w: [u64; 2]| crate::sched::ipc_call(fs_ep, w)[0] as i64;
+    let named = |page: &mut [u8], verb: u64, at: u64, name: &str, w1: u64| {
+        page[..name.len()].copy_from_slice(name.as_bytes());
+        call([fs::req(verb, at, name.len() as u64), w1])
+    };
+    // A directory under `at`, made if it is not there.
+    let dir = |page: &mut [u8], at: u64, name: &str| {
+        let made = named(page, fs::MKDIR, at, name, rights::ALL);
+        if made >= 0 {
+            return made as u64;
+        }
+        let h = named(page, fs::OPENDIR, at, name, rights::ALL);
+        assert!(h >= 0, "could not make or open {name} ({h})");
+        h as u64
+    };
+    // `contents` as the whole of `file` under `at`, a page at a time.
+    let put = |page: &mut [u8], at: u64, file: &str, contents: &[u8]| {
+        let mut h = named(page, fs::OPEN, at, file, 0);
+        if h < 0 {
+            h = named(page, fs::CREATE, at, file, 0);
+        }
+        assert!(h >= 0, "could not open or create {file} ({h})");
+        let h = h as u64;
+        assert_eq!(
+            call([fs::req(fs::TRUNCATE, h, 0), 0]),
+            0,
+            "could not truncate {file}"
+        );
+        for (k, chunk) in contents.chunks(PAGE).enumerate() {
+            page[..chunk.len()].copy_from_slice(chunk);
+            let wrote = call([fs::req(fs::WRITE, h, chunk.len() as u64), (k * PAGE) as u64]);
+            assert_eq!(wrote, chunk.len() as i64, "short write of {file}");
+        }
+        call([fs::req(fs::CLOSE, h, 0), 0]);
+    };
+    let packages = dir(page, fs::ROOT, activation_set::PACKAGES);
+    let n = dir(page, packages, name);
+    let v = dir(page, n, version);
+    put(page, v, program, bytes);
+    for h in [v, n, packages] {
+        call([fs::req(fs::CLOSE, h, 0), 0]);
+    }
+
+    // The row and its default pointer (milestone 614 (two installed versions of one program)):
+    // the package column is the package's name and the version is its own column, so the bytes'
+    // path is read off the row.
+    let entry = activation_set::Entry {
+        program,
+        version,
+        package: name,
+        digest: measured_boot::sha256(bytes),
+    };
+    let mut table = [0u8; 512];
+    let len = activation_set::with_entry(
+        "",
+        &entry,
+        crate::user::program(program).is_some(),
+        &mut table,
+    )
+    .expect("one entry fits");
+    let mut current = [0u8; 16];
+    let current_len = activation_set::format_current(1, &mut current).expect("fits");
+    let mut digits = [0u8; 10];
+    let first = activation_set::generation_name(1, &mut digits);
+    let activation = dir(page, fs::ROOT, activation_set::DIRECTORY);
+    put(page, activation, first, &table[..len]);
+    put(
+        page,
+        activation,
+        activation_set::CURRENT,
+        &current[..current_len],
+    );
+    call([fs::req(fs::CLOSE, activation, 0), 0]);
+}
+
+/// **Read one of the owner's files at the file service's root** into `out`, [`set_root_list`]'s
+/// other half: the byte count, or `None` when there is no such file.
+#[cfg(any(test, feature = "system_tests"))]
+pub fn read_root_file(file: &str, out: &mut [u8]) -> Option<usize> {
+    use filesystem_protocol::fs;
+    let (fs_ep, fs_page_frame) = root_directory(
+        blk_server_image(),
+        crate::user::program("redoxfs_server").expect("no redoxfs_server in the initrd"),
+    )?;
+    // SAFETY: as in `set_root_list`: the file service's own shared page, idle between logins.
+    let page = unsafe {
+        core::slice::from_raw_parts_mut(
+            mmu::phys_to_virt(fs_page_frame) as *mut u8,
+            filesystem_protocol::PAGE,
+        )
+    };
+    page[..file.len()].copy_from_slice(file.as_bytes());
+    let h = crate::sched::ipc_call(fs_ep, [fs::req(fs::OPEN, fs::ROOT, file.len() as u64), 0])[0]
+        as i64;
+    if h < 0 {
+        return None;
+    }
+    let want = out.len().min(filesystem_protocol::PAGE) as u64;
+    let n = crate::sched::ipc_call(fs_ep, [fs::req(fs::READ, h as u64, want), 0])[0] as i64;
+    crate::sched::ipc_call(fs_ep, [fs::req(fs::CLOSE, h as u64, 0), 0]);
+    let n = usize::try_from(n).ok()?.min(out.len());
+    out[..n].copy_from_slice(&page[..n]);
+    Some(n)
 }

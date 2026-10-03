@@ -8,4 +8,7 @@ name = "login"
 kind = "base"
 home = { repo = "login", status = "provisional" }
 crates = ["credentialer"]
-programs = ["login", "login_audit_receiver", "credentialer", "identity_provisioner"]
+programs = ["login", "login_audit_receiver", "credentialer", "identity_provisioner", "session"]
+# `login` and `session` build and hold a user's timetable (milestone 152 (durable delegation), S1
+# of 2026-09-26), and read and write its store.
+depends = ["timetable"]

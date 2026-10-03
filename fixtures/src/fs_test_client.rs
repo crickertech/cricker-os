@@ -207,21 +207,9 @@ const ROLE_THROUGHPUT: u64 = fixture::throughput::ROLE;
 /// label names, `/a/../b` is refused before it ever reaches a caretaker, and neither caretaker's
 /// tree is reachable through the other's endpoint.
 const ROLE_TWO_DIR: u64 = 10;
-/// Milestone 152's first piece, this lane's own demonstration writer: `MKDIR` one identity's home
-/// subtree (DECISIONS §117), write its `schedule` file (§122's format, `timetable::parse`'s own
-/// dialect unchanged) inside it, and record that identity in the manifest §125 proposes at the
-/// store's own root, so `session_reviver`'s read-at-boot path has something to find. The identity
-/// and the document are both `schedule_store::fixture` constants, matching every other seed role in
-/// this file's own fixed-fixture shape: this role's job is proving the write path
-/// works, not exercising a real per-user registration flow (#387, out of this lane's scope).
-const ROLE_SCHEDULE_SEED: u64 = 11;
-/// Milestone 152's write-path witness, in the seed/verify shape milestone 54's SMB roles used
-/// (notes/smb.md): read back
-/// what [`ROLE_SCHEDULE_SEED`] wrote, through a **fresh** descent and fresh handles, and confirm the
-/// schedule file and the manifest both hold exactly those bytes. Independent of whether
-/// `session_reviver`'s own read path agrees, so a store holding the wrong bytes and a re-deriver
-/// that misreads the right ones can never be mistaken for each other.
-const ROLE_SCHEDULE_VERIFY: u64 = 12;
+// 11 and 12 were milestone 152 (durable delegation)'s schedule-store seed and verify roles, retired
+// 2026-09-27 with `session_reviver`: `login` now reads the store at start-up, and `login_tests`
+// writes it.
 /// Milestone 599 (a frame per filesystem client channel), provisional: the shared-frame witness's
 /// **victim**. Stages its own name, hands off to the attacker over the sync endpoint, and only then
 /// calls `OPEN`, so the name the server reads is whatever the attacker left in the page. Reports
@@ -253,8 +241,6 @@ pub extern "C" fn _start(role: u64, a1: u64, _a2: u64) -> ! {
         ROLE_SET_ATTRS => set_attrs(),
         ROLE_THROUGHPUT => throughput(),
         ROLE_TWO_DIR => two_dir(),
-        ROLE_SCHEDULE_SEED => schedule_seed(),
-        ROLE_SCHEDULE_VERIFY => schedule_verify(),
         ROLE_SHARE_VICTIM => share_victim(a1),
         ROLE_SHARE_ATTACKER => share_attacker(),
         ROLE_PROOF => proof(),
@@ -332,183 +318,6 @@ fn share_attacker() -> ! {
     let _ = recv(SYNC);
     put_page(fixture::SHARED_USURPER_NAME.as_bytes());
     send(SYNC, SHARE_OVERWROTE, 0, 0);
-    exit();
-}
-
-/// Stage tags [`schedule_seed`] adds to [`fail`]'s vocabulary, beyond [`STAGE_OPEN`]/
-/// [`STAGE_READ`]/[`STAGE_WRITE`].
-const STAGE_MKDIR: u64 = 4;
-const STAGE_OPENDIR: u64 = 5;
-const STAGE_CREATE: u64 = 6;
-
-/// `EEXIST`: the standard value (matching `redoxfs`/`syscall`'s own, which `redoxfs_server` returns and
-/// nothing in `filesystem_protocol` re-exports under a name), the same constant
-/// `identity_provisioner.rs` defines locally for the identical reason.
-const EEXIST: i32 = 17;
-
-/// [`ROLE_SCHEDULE_SEED`]'s own body. See that constant's doc for what this proves and why it is a
-/// fixed fixture rather than a caller-driven write.
-/// Scratch page buffers for milestone 152's schedule-store roles ([`ROLE_SCHEDULE_SEED`],
-/// [`ROLE_SCHEDULE_VERIFY`]), in `.bss` rather than on the stack: this program's stack is small
-/// (`fs_service::spawn_fs_client`'s default, no extra pages granted to either role), the same
-/// reason the SMB adapter's own buffers were `static mut` rather than local, and
-/// `filesystem_protocol::PAGE` bytes does not fit it (this crashed under `script/test`'s aarch64 run
-/// before this fix landed: a data abort at the stack's guard page, from `schedule_verify` alone
-/// putting two page-sized arrays on the stack at once). `schedule_verify` needs both live
-/// simultaneously to compare them; `schedule_seed` uses only [`page_buf_a`].
-static mut PAGE_BUF_A: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
-static mut PAGE_BUF_B: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
-
-/// One thread per address space (DECISIONS §33), so there is no concurrent access; the previous
-/// role's use of this buffer, if any, is done before `_start` ever picks a role to run.
-fn page_buf_a() -> &'static mut [u8; filesystem_protocol::PAGE] {
-    let p = &raw mut PAGE_BUF_A;
-    // SAFETY: see above.
-    unsafe { &mut *p }
-}
-/// Same reasoning as [`page_buf_a`].
-fn page_buf_b() -> &'static mut [u8; filesystem_protocol::PAGE] {
-    let p = &raw mut PAGE_BUF_B;
-    // SAFETY: see `page_buf_a`.
-    unsafe { &mut *p }
-}
-
-fn schedule_seed() -> ! {
-    let identity = schedule_store::fixture::DEMO_IDENTITY.as_bytes();
-
-    // `MKDIR` the identity's own subtree (DECISIONS §117), tolerant of `EEXIST`: a prior test in
-    // this suite's one continuous boot may already have created it (or a previous run of this same
-    // role, if this test is ever re-entered), and `identity_provisioner.rs`'s own module docs record
-    // why that is recovery rather than failure, not a special case invented for this role.
-    put_page(identity);
-    let (mk, _) = call(FILE, fs::req(fs::MKDIR, 0, identity.len() as u64), dir::ALL);
-    if (mk as i64) < 0 && filesystem_protocol::reply_errno(mk as i64) != Some(EEXIST) {
-        fail(STAGE_MKDIR, mk);
-    }
-
-    // Descend into it and write the schedule file.
-    put_page(identity);
-    let (dh, _) = call(
-        FILE,
-        fs::req(fs::OPENDIR, 0, identity.len() as u64),
-        dir::ALL,
-    );
-    if (dh as i64) < 0 {
-        fail(STAGE_OPENDIR, dh);
-    }
-    let sh = create_or_truncate(dh, schedule_store::SCHEDULE_FILE_NAME.as_bytes());
-    let doc = schedule_store::fixture::DEMO_SCHEDULE_DOC.as_bytes();
-    write(sh, 0, doc);
-    let (size, _) = call(FILE, fs::req(fs::FSTAT, sh, 0), 0);
-    check(size as usize == doc.len());
-    let (c, _) = call(FILE, fs::req(fs::CLOSE, sh, 0), 0);
-    check((c as i64) >= 0);
-    let (cd, _) = call(FILE, fs::req(fs::CLOSE, dh, 0), 0);
-    check((cd as i64) >= 0);
-
-    // Record the identity in the manifest at the store's own root (DECISIONS §125), so
-    // `session_reviver` has a hard-wired set to read without ever enumerating.
-    let buf = page_buf_a();
-    let n = schedule_store::render_manifest(&[identity], buf)
-        .expect("one short identity name always fits the manifest buffer");
-    let mh = create_or_truncate(0, schedule_store::MANIFEST_FILE_NAME.as_bytes());
-    write(mh, 0, &buf[..n]);
-    let (msize, _) = call(FILE, fs::req(fs::FSTAT, mh, 0), 0);
-    check(msize as usize == n);
-    let (mc, _) = call(FILE, fs::req(fs::CLOSE, mh, 0), 0);
-    check((mc as i64) >= 0);
-
-    send(REPORT, fixture::SUCCESS, 0, 0);
-    exit();
-}
-
-/// `CREATE` a name under `dir_handle`, or open and `TRUNCATE` it if it is already there, matching
-/// The seed idiom generalized to an arbitrary directory handle rather than only [`fs::ROOT`].
-fn create_or_truncate(dir_handle: u64, name: &[u8]) -> u64 {
-    put_page(name);
-    let (r0, _) = call(FILE, fs::req(fs::CREATE, dir_handle, name.len() as u64), 0);
-    if (r0 as i64) >= 0 {
-        return r0;
-    }
-    put_page(name);
-    let (r0b, _) = call(FILE, fs::req(fs::OPEN, dir_handle, name.len() as u64), 0);
-    if (r0b as i64) < 0 {
-        fail(STAGE_CREATE, r0b);
-    }
-    let (t, _) = call(FILE, fs::req(fs::TRUNCATE, r0b, 0), 0);
-    check((t as i64) >= 0);
-    r0b
-}
-
-/// [`open`]'s own logic, generalized to an arbitrary directory handle rather than only
-/// [`fs::ROOT`] (`open` never needs a subtree; every other caller of it stays as it was).
-fn open_at(dir_handle: u64, name: &[u8]) -> u64 {
-    put_page(name);
-    let (r0, _) = call(FILE, fs::req(fs::OPEN, dir_handle, name.len() as u64), 0);
-    if (r0 as i64) < 0 {
-        fail(STAGE_OPEN, r0);
-    }
-    r0
-}
-
-/// A report code distinct from [`fixture::SUCCESS`]: the schedule file's bytes did not match what
-/// [`ROLE_SCHEDULE_SEED`] wrote. Word 1 of the report is how many bytes this role actually read.
-const RPT_SCHEDULE_MISMATCH: u64 = 0xBAD5_0001;
-/// As [`RPT_SCHEDULE_MISMATCH`], for the manifest instead of the schedule file.
-const RPT_MANIFEST_MISMATCH: u64 = 0xBAD5_0002;
-
-/// [`ROLE_SCHEDULE_VERIFY`]'s own body. See that constant's doc for what this proves.
-fn schedule_verify() -> ! {
-    let identity = schedule_store::fixture::DEMO_IDENTITY.as_bytes();
-    let expected_doc = schedule_store::fixture::DEMO_SCHEDULE_DOC.as_bytes();
-
-    put_page(identity);
-    let (dh, _) = call(
-        FILE,
-        fs::req(fs::OPENDIR, 0, identity.len() as u64),
-        dir::ALL,
-    );
-    if (dh as i64) < 0 {
-        fail(STAGE_OPENDIR, dh);
-    }
-    let sh = open_at(dh, schedule_store::SCHEDULE_FILE_NAME.as_bytes());
-    // One byte past what is expected, so a file that is *longer* than expected (a bug that wrote
-    // extra bytes) is visible as a mismatch rather than silently truncated to a match.
-    let n = read(
-        sh,
-        0,
-        (expected_doc.len() + 1).min(filesystem_protocol::PAGE),
-    );
-    let got = page_buf_a();
-    get_page(n, got);
-    let (c, _) = call(FILE, fs::req(fs::CLOSE, sh, 0), 0);
-    check((c as i64) >= 0);
-    let (cd, _) = call(FILE, fs::req(fs::CLOSE, dh, 0), 0);
-    check((cd as i64) >= 0);
-    if &got[..n] != expected_doc {
-        send(REPORT, RPT_SCHEDULE_MISMATCH, n as u64, 0);
-        exit();
-    }
-
-    // `page_buf_a` (holding the schedule file's bytes) has already been compared and is done being
-    // read; reused here for the manifest's own expected rendering, since the two are never live at
-    // once. `page_buf_b` holds what was actually read back, so both are live together for the
-    // comparison below, which is why this role needs two page-sized `.bss` buffers rather than one.
-    let expected_manifest = page_buf_a();
-    let mn = schedule_store::render_manifest(&[identity], expected_manifest)
-        .expect("one short identity name always fits the manifest buffer");
-    let mh = open(schedule_store::MANIFEST_FILE_NAME);
-    let got_n = read(mh, 0, (mn + 1).min(filesystem_protocol::PAGE));
-    let got_manifest = page_buf_b();
-    get_page(got_n, got_manifest);
-    let (mc, _) = call(FILE, fs::req(fs::CLOSE, mh, 0), 0);
-    check((mc as i64) >= 0);
-    if got_manifest[..got_n] != expected_manifest[..mn] {
-        send(REPORT, RPT_MANIFEST_MISMATCH, got_n as u64, 0);
-        exit();
-    }
-
-    send(REPORT, fixture::SUCCESS, 0, 0);
     exit();
 }
 

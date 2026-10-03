@@ -3166,16 +3166,6 @@ pub mod login_service;
 // the milestone-155 provisioning tests are its callers
 pub mod identity_provisioner_service;
 
-/// **The boot-time re-deriver** (milestone 152's third piece, provisional name `session_reviver`;
-/// DECISIONS §123). Spawned once, holding exactly a construction budget and the store-read
-/// capability, checked against the boot's measurement table before it is granted either
-/// (DECISIONS §123's second hardening refinement). See `components/src/session_reviver.rs`'s own module
-/// docs for what it does with them and why it is a new process rather than a phase of an existing
-/// boot component.
-#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
-// the milestone-152 durable-schedule tests are its callers
-pub mod session_reviver_service;
-
 /// **The NTP client, and the test server that answers it** (milestone 51; DECISIONS §43, §44).
 ///
 /// The kernel's part is the wiring, and the wiring *is* the argument. An NTP client here gets five

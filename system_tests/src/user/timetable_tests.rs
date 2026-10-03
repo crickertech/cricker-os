@@ -16,7 +16,7 @@ const TIMETABLE_BUDGET_PAGES: u64 = 768;
 /// red, which is the property milestone 62 spent a week putting back into this tree.
 const FIRES: u64 = 4;
 
-/// Stack pages for the timetable, four times what `INIT_STACK_PAGES` gives a boot's the progenitor.
+/// Stack pages for the timetable, tracking `timetable::contract::STACK_PAGES`.
 ///
 /// A number a spawn site **states** rather than inherits, which is `supervision_protocol`'s own rule
 /// (`CHILD_STACK_PAGES`: "a builder that silently inherits somebody else's stack size finds faults
@@ -24,8 +24,9 @@ const FIRES: u64 = 4;
 /// a `grant_plan::Endowment` is a kilobyte, mostly the name set a directory grant can carry, and a
 /// `timetable::Registry` holds one per entry. Eight pages died here with a data abort whose faulting
 /// address was the stack pointer, which is what a stack overflow looks like from the kernel side and
-/// is worth recognising: it reads like a wild pointer and is not one.
-const TIMETABLE_STACK_PAGES: u64 = 32;
+/// is worth recognising: it reads like a wild pointer and is not one. 32 became 48 on 2026-09-30,
+/// with the measurement, in `timetable::contract`'s `STACK_PAGES`.
+const TIMETABLE_STACK_PAGES: u64 = 48;
 
 /// The line `components/src/timetable.rs` prints when the plan is complete and it is about to arm. The
 /// test reads the plan up to it, which is what lets one endpoint carry the plan, the summary and
@@ -645,16 +646,29 @@ fn await_reply(t: &Spawned, page: &[u8], seq: u64) {
     }
 }
 
+/// **The stored schedule's archive-mode control**: `schedule_store::fixture::DEMO_SCHEDULE_DOC`'s
+/// shape with the program renamed, because this fixture's timetable resolves its document in a
+/// narrowed **archive** and plans each line against `grant_plan`'s static manifest for a program it
+/// knows, and only image programs are known there. The store's own document names the suite's
+/// installed fixture `scheduled_demo`, which §229 (how a bare name at the prompt reaches an
+/// installed program) keeps off an image program's name and no
+/// `grant_plan::Prog` knows, so a store-mode timetable plans it against the bytes' own manifest
+/// instead; that difference is Fork 8 D's, and it is why this control copies the shape rather than
+/// the very bytes. Provisional name.
+const STORED_SCHEDULE_CONTROL: &str =
+    "at-boot least_authority_demo 3\nevery 30s least_authority_demo 7\n";
+
 /// **A running timetable's document is replaced whole, by its registrar, and a replacement that
 /// fails changes nothing** (milestone 129 (scheduled execution), §222 (who holds a user's schedule)).
 ///
 /// The kernel test stands in for the registrar, which will be a user's durable session once
 /// milestone 152 rebuilds one. Three replacements, each the control for the others:
 ///
-/// 1. **The stored schedule**, `schedule_store::fixture::DEMO_SCHEDULE_DOC`: the very bytes
-///    milestone 152's store test writes to disk and `session_reviver` reads back at boot. §222's
-///    fifth sub-ruling is that the session writes the store and then replaces, so what the store
-///    holds must be exactly what a replacement accepts, unedited. Its `at-boot` line fires (9).
+/// 1. **The stored schedule's shape**, [`STORED_SCHEDULE_CONTROL`]: what milestone 152's start-up
+///    test writes to disk, with the program renamed, for the reason that constant's own doc gives.
+///    §222's fifth sub-ruling is that the session writes the store and then replaces, so what the
+///    store holds must be exactly what a replacement accepts, unedited. Its `at-boot` line fires
+///    (9).
 /// 2. **A document that does not parse.** Refused whole, with its line number in the page, and
 ///    nothing fires: the schedule in force is untouched.
 /// 3. **An edit.** The `at-boot` line is resent byte for byte and keeps its beat, so it does not
@@ -673,15 +687,11 @@ fn a_registrar_replaces_the_document_whole_and_a_failed_replacement_changes_noth
     let mut t = spawn_timetable_with(&["least_authority_demo"], 0, true, false, false);
     let page = t.page.take().expect("a registrar-mode spawn maps a page");
 
-    // ---- 1. the stored schedule, unedited ----
+    // ---- 1. the stored schedule's shape, unedited apart from the name ----
     //
     // The timetable started with an empty document; this is how its first one arrives
     // (`timetable::contract`).
-    send_replace(
-        page,
-        1,
-        schedule_store::fixture::DEMO_SCHEDULE_DOC.as_bytes(),
-    );
+    send_replace(page, 1, STORED_SCHEDULE_CONTROL.as_bytes());
     await_reply(&t, page, 1);
     let (status, _, verdicts, plan) = read_reply(page, 1);
     assert_eq!(

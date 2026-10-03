@@ -14,7 +14,6 @@ programs = [
     "spawner",
     "sub_server_supervisor",
     "job_undertaker",
-    "session_reviver",
     "broker",
     "swapper",
 ]
