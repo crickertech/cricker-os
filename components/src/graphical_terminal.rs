@@ -54,6 +54,19 @@
 //! takes raw back at its next prompt, which costs that one round trip after every session. A
 //! session the kernel killed skips even that, and the same recovery covers it.
 //!
+//! **Arm 1 holds the whole boot discipline, not the raw half it uses.** Slot 2 on that arm is the
+//! boot line discipline's own endpoint (`crates/system_initializer`, the spawn service's `term_ep`,
+//! granted with `WRITE`), and the discipline serves every request the same whoever holds the other
+//! end (`components/src/line_editor.rs`, `TERM`). This program sends `OP_RAWMODE` and `OP_READRAW`;
+//! the same capability also answers `OP_BYTES`, `OP_READLINE` and `OP_PRINT`. A compromised
+//! session on this arm can therefore queue bytes the boot shell reads as its next command line
+//! once the session ends, and the shell runs it with the shell's authority (the seven device
+//! capabilities at slots 22 to 28, the spawn service, the filesystem), none of which the session
+//! holds. The kernel confined the session exactly as granted; the grant is wider than the use.
+//! Found by the 2026-10-03 security audit, by reading, not demonstrated under QEMU; the fix is a
+//! badged copy of the endpoint that the discipline answers only `OP_RAWMODE` and `OP_READRAW` on,
+//! proposed in `design/roadmap/proposals/arm-1-holds-only-the-raw-half-of-the-boot-discipline.md`.
+//!
 //! Name: ratified 2026-10-03 (calef, #1493). Refused `screen` (clashes with `SCREEN_BIT`, the
 //! screen-narrowed tail of §106 (an unredirected tail stage's output goes to the screen, not the
 //! shell), and with GNU screen), `gate` (the tree's word for a check that fails loudly, about 3,700

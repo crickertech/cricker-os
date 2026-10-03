@@ -6,9 +6,11 @@
 //!
 //! - `Mem:` is the machine, from the machine statistics page (`crates/machine_statistics_protocol`),
 //!   which the owner grants every login by default and can withhold.
-//! - `Yours:` is this prompt's job budget, the region every job it runs is carved from, read
-//!   through `MemoryRegion::USAGE` on a view narrowed to `ENUMERATE`. It is the limit that binds a
-//!   program started here, which the machine line is not.
+//! - `Yours:` is the job pool this prompt's jobs are carved from, read through
+//!   `MemoryRegion::USAGE` on a view narrowed to `ENUMERATE`. It is the limit that binds a program
+//!   started here, which the machine line is not. The pool is the progenitor's one `jobs_ut`
+//!   (`crates/system_initializer`), shared by every prompt and every graphical terminal session on
+//!   the machine; see BUGS.
 //!
 //! Upstream `free` prints only the first line, and inside a container that line describes memory
 //! the caller can never have; LXCFS exists to patch that (§225's prior art). Printing both, labelled,
@@ -40,6 +42,13 @@
 //! - `Yours:` counts `free` itself, since it is one of the jobs carved from the budget, the way `ps`
 //!   lists itself.
 //! - The two lines are read at slightly different moments, and neither is a snapshot of the other.
+//! - **`Yours:` is the machine's whole job pool, not one prompt's.** The share view the progenitor
+//!   places at `grant_plan::SHARE_SLOT` is `jobs_ut`, the single region every job and every
+//!   graphical terminal session is split from, and `USAGE`'s subtree records sum all of them. So
+//!   `free` (and `slabtop`) in one session sees pages another session spent, a counting channel of
+//!   the kind the 2026-08-17 security audit accepted for `SURVEY`: a number, never a name, and
+//!   nothing a holder can act on. Found and the line above corrected by the 2026-10-03 security
+//!   audit; a per-prompt budget would be a split the progenitor does not make today.
 //!
 //! Name: ratified 2026-09-27 (calef, #1360's table): upstream `procps`'s name for the
 //! program a reader types to ask this.
@@ -48,7 +57,8 @@
 
 use machine_statistics_protocol::Snapshot;
 
-/// This prompt's job budget, as `MemoryRegion::USAGE` answered: pages held, and pages spent.
+/// The job pool this prompt's jobs are carved from (the machine's one pool; see BUGS), as
+/// `MemoryRegion::USAGE` answered: pages held, and pages spent.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Share {
     /// `abi::usage::SIZE`.

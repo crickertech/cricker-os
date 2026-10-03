@@ -672,6 +672,15 @@ fn rendezvous_of(sched: &IpcTables, ep: RendezvousId) -> Option<&'static mut Ren
 fn set_ipc_aborted(sched: &mut IpcTables, tid: ThreadId) {
     if let Some(t) = sched.threads.get_mut(tid) {
         t.handshake.abort();
+        // **The capability staged for the aborted send goes with it** (the 2026-10-03 security
+        // audit's follow-up). A `SEND_CAP` or `CALL` that parked put its delegation, or the Reply
+        // the kernel minted, in `outgoing_cap` for the receiver to take. An abort means no receiver
+        // ever will: the rendezvous is gone. Left in place, the next plain `SEND` this thread
+        // parked on a *different* rendezvous would hand that capability to whoever `RECV_CAP`s
+        // there, a delegation the sender made to one endpoint delivered to another. The sender
+        // still holds its own copy (`SEND_CAP` narrows a copy, it never moves the source), so
+        // nothing is lost by dropping this one.
+        t.outgoing_cap = None;
     }
 }
 
@@ -2057,6 +2066,14 @@ pub fn on_tick() {
     // down through `irq_notify`. It compiles to nothing anywhere else; see kernel/src/soak.rs.
     #[cfg(feature = "soak_test")]
     crate::soak::signal_waiters();
+
+    // **A kernel line held for the log service, signalled from a context that holds no lock**
+    // (milestone 342 (the kernel and the `console` server drive one UART from two address
+    // spaces)). One relaxed load when nothing is held, which is almost every tick. The print that
+    // held it could not signal: it may have been printing under `IPC_TABLES`. See `kernel_log`.
+    crate::kernel_log::signal_if_safe();
+    #[cfg(feature = "console_flood")]
+    crate::kernel_log::flood_tick();
 }
 
 /// The machine statistics page's half of a tick, out of line because every architecture's

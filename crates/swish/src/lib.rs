@@ -1865,12 +1865,16 @@ fn write_preview_rows(
     // and not the budget, `slabtop` the budget and not the machine, `free` both. The first says the
     // owner's switch exists, because a person reading `caps free` on a machine whose owner withheld
     // the page should learn why the program cannot see it.
-    if e.prog.manifest().machine {
+    // `m`, not `e.prog.manifest()`: for an image run from a file `e.prog` is the placeholder row
+    // and `m` is what its note declared, and the progenitor endows from the note. Reading the
+    // row here under-reported a packaged `free` as holding neither (the 2026-10-03 security
+    // audit's follow-up, item (d)).
+    if m.machine {
         out(b"    cap 11 frame     machine  read-only. memory, run queue, interrupts, context\n");
         out(b"                              switches and busy time for the whole machine.\n");
         out(b"                              granted by default; the machine's owner can withhold it\n");
     }
-    if e.prog.manifest().share {
+    if m.share {
         out(b"    cap 12 region    share    ENUMERATE. this shell's job budget: how much is spent\n");
         out(b"                              and on what. it cannot spend, split or destroy it\n");
     }
@@ -2034,6 +2038,24 @@ mod tests {
             "a vouched note's clock is granted: {vouched_clock}"
         );
         assert!(vouched_clock.contains("its manifest note asks for: output bytes, the clock"));
+
+        // A note's `machine` and `share` are read from the note, not from the placeholder row
+        // (the 2026-10-03 security audit's follow-up, item (d)): before the fix both rows were
+        // missing for every packaged program, whatever its note asked.
+        let asks_machine_and_share = Manifest {
+            machine: true,
+            share: true,
+            ..NO_NOTE_MANIFEST
+        };
+        let vouched_procps = say(by(3, false), false, Some(asks_machine_and_share), b"bin/x");
+        assert!(
+            vouched_procps.contains("cap 11 frame     machine"),
+            "a vouched note's machine page is previewed: {vouched_procps}"
+        );
+        assert!(
+            vouched_procps.contains("cap 12 region    share"),
+            "a vouched note's share view is previewed: {vouched_procps}"
+        );
 
         let asks_network = Manifest {
             network: true,

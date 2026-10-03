@@ -115,6 +115,9 @@ pub mod record {
         /// The line was longer than [`super::TEXT_MAX`] and this record is its first part; or the
         /// writer ended (or was crowded out) mid-line.
         pub const CUT: u8 = 1 << 2;
+        /// The kernel already wrote this line to the UART itself (before a drainer attached, in a
+        /// fallback, or in a panic's flush), so the log service stores it and does not forward it.
+        pub const DIRECT: u8 = 1 << 3;
     }
 
     /// One record's header, decoded.
@@ -264,10 +267,10 @@ pub mod control {
 }
 
 /// **How a reader reads.** The reader `SEND`s [`read::OP_READ`] with a cursor on the intake
-/// endpoint through its own badged copy; the service fills that badge's window with whole JSONL lines and
-/// signals the reader's notification. The reader waits on the notification, never the service on
-/// the reader: a reader that stops reading cannot hold up a writer (§242's "dropping rather than
-/// letting a writer wait").
+/// endpoint through its own badged copy; the service fills that badge's window with whole JSONL
+/// lines and signals the reader's notification. The reader waits on the notification, never the
+/// service on the reader: a reader that stops reading cannot hold up a writer (§242's "dropping
+/// rather than letting a writer wait").
 ///
 /// The window, one page:
 ///
@@ -331,6 +334,403 @@ pub mod read {
             (u32::from_le_bytes(len) as usize).min(DATA_MAX),
             u32::from_le_bytes(status),
         )
+    }
+}
+
+/// **The kernel's ring, as the kernel and the log service share it** (milestone 342 (the kernel
+/// and the `console` server drive one UART from two address spaces), calef's ruling F of
+/// 2026-10-03 UTC on pull request #1498).
+///
+/// Three things cross the boundary, and none is a pointer or a method:
+///
+/// - **The ring**: [`PAGES`](kernel_ring::PAGES) frames the kernel writes and the log service maps
+///   read-only. A header (`MAGIC`, the next sequence number, the fallback count), then
+///   [`SLOTS`](kernel_ring::SLOTS) fixed slots of one F3 record each ([`record`]): record *s* lives
+///   in slot `s % SLOTS`.
+/// - **The cursor page**: one frame the log service writes and the kernel reads through its direct
+///   map. Word 0 is the next sequence number the service has not yet consumed, or
+///   [`DETACHED`](kernel_ring::DETACHED) until a drainer first writes it.
+/// - **A notification** the kernel signals (bit [`NOTIFY_BIT`](kernel_ring::NOTIFY_BIT)) after it
+///   appends.
+///
+/// Every word is an `AtomicU64`, so neither side ever reads memory the other is writing without an
+/// atomic: a slot is a seqlock whose sequence word is the record's own `seq`. The writer stores
+/// [`BUSY`](kernel_ring::BUSY) there, then the body, then the `seq`; a reader that sees the same
+/// `seq` before and after its copy has a record nobody touched, and anything else is
+/// [`Read::Overwritten`](kernel_ring::Read::Overwritten).
+///
+/// # BUGS
+///
+/// - **63 records, not the 180 lines §242 (a system log) sized 16 KiB for.** Fixed 256-byte slots
+///   are what make a lock-free reader one comparison instead of a walk; a byte-packed ring would
+///   hold a whole xenon boot. Lines written before a drainer attaches went to the UART directly as
+///   well, so what the small ring costs is history in the log, never a line on the console.
+pub mod kernel_ring {
+    use core::sync::atomic::{AtomicU64, Ordering, fence};
+
+    use super::record::{Header, TEXT_MAX};
+
+    /// The ring's frames: §242 Question 5's 16 KiB.
+    pub const PAGES: usize = 4;
+    /// The ring's size in bytes.
+    pub const BYTES: usize = PAGES * 4096;
+    /// The ring's size in words, which is how both sides address it.
+    pub const WORDS: usize = BYTES / 8;
+    /// One slot: an F3 header and the most text it carries.
+    pub const SLOT_WORDS: usize = super::record::RECORD_MAX / 8;
+    /// How many records the ring holds. The first slot's worth of words is the header.
+    pub const SLOTS: u64 = (WORDS / SLOT_WORDS - 1) as u64;
+    /// The header's first word once the kernel has formatted the ring.
+    pub const MAGIC: u64 = u64::from_le_bytes(*b"nifeklog");
+    /// A slot's sequence word while the kernel is writing it.
+    pub const BUSY: u64 = u64::MAX;
+    /// A slot's sequence word before anything was written to it.
+    pub const EMPTY: u64 = u64::MAX - 1;
+    /// The cursor page's word before any drainer has written it.
+    pub const DETACHED: u64 = u64::MAX;
+    /// The bit the kernel signals on the notification after an append.
+    pub const NOTIFY_BIT: u64 = 1;
+
+    const W_MAGIC: usize = 0;
+    const W_NEXT: usize = 1;
+    const W_FALLBACK: usize = 2;
+    const W_SLOTS: usize = 3;
+    const TEXT_WORDS: usize = TEXT_MAX / 8;
+
+    /// What [`Ring::read`] found.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Read {
+        /// The record, and its text's length in the caller's buffer.
+        Record(Header, usize),
+        /// The kernel has written past it: the record is gone.
+        Overwritten,
+        /// Not written yet.
+        NotYet,
+    }
+
+    /// The ring, over the words either side maps.
+    pub struct Ring<'a> {
+        w: &'a [AtomicU64],
+    }
+
+    impl<'a> Ring<'a> {
+        /// A view of `words`, or `None` when there are too few of them.
+        pub fn new(words: &'a [AtomicU64]) -> Option<Ring<'a>> {
+            (words.len() >= WORDS).then_some(Ring { w: words })
+        }
+
+        /// **Writer only.** Lay out an empty ring.
+        pub fn format(&self) {
+            for s in 0..SLOTS {
+                self.w[slot(s)].store(EMPTY, Ordering::Relaxed);
+            }
+            self.w[W_NEXT].store(0, Ordering::Relaxed);
+            self.w[W_FALLBACK].store(0, Ordering::Relaxed);
+            self.w[W_SLOTS].store(SLOTS, Ordering::Relaxed);
+            self.w[W_MAGIC].store(MAGIC, Ordering::Release);
+        }
+
+        /// Whether the kernel has formatted this ring (a reader's first question).
+        pub fn is_formatted(&self) -> bool {
+            self.w[W_MAGIC].load(Ordering::Acquire) == MAGIC
+                && self.w[W_SLOTS].load(Ordering::Relaxed) == SLOTS
+        }
+
+        /// The sequence number the next record will take.
+        pub fn next_seq(&self) -> u64 {
+            self.w[W_NEXT].load(Ordering::Acquire)
+        }
+
+        /// The oldest sequence number the ring can still hold.
+        pub fn oldest(&self) -> u64 {
+            self.next_seq().saturating_sub(SLOTS)
+        }
+
+        /// How many lines the kernel wrote to the UART itself after a drainer had attached,
+        /// because the drainer was not keeping up.
+        pub fn fallback(&self) -> u64 {
+            self.w[W_FALLBACK].load(Ordering::Relaxed)
+        }
+
+        /// **Writer only.** Count one fallback line.
+        pub fn count_fallback(&self) {
+            self.w[W_FALLBACK].fetch_add(1, Ordering::Relaxed);
+        }
+
+        /// **Writer only.** Append a record and return its sequence number. `text` past
+        /// [`TEXT_MAX`] is cut; the caller splits long lines.
+        pub fn append(&self, time: u64, severity: u8, flags: u8, text: &[u8]) -> u64 {
+            let seq = self.w[W_NEXT].load(Ordering::Relaxed);
+            let base = slot(seq);
+            let len = text.len().min(TEXT_MAX);
+            self.w[base].store(BUSY, Ordering::Relaxed);
+            // PAIR: `Ring::read`'s fence(Acquire) before its second look at the slot: the BUSY
+            // store above is ordered before the body stores below, so a copy that overlaps them
+            // fails its check.
+            fence(Ordering::Release);
+            self.w[base + 1].store(time, Ordering::Relaxed);
+            self.w[base + 2].store(0, Ordering::Relaxed);
+            self.w[base + 3].store(meta(severity, flags, len), Ordering::Relaxed);
+            for i in 0..TEXT_WORDS {
+                let mut b = [0u8; 8];
+                let from = (i * 8).min(len);
+                let to = (i * 8 + 8).min(len);
+                b[..to - from].copy_from_slice(&text[from..to]);
+                self.w[base + 4 + i].store(u64::from_le_bytes(b), Ordering::Relaxed);
+            }
+            self.w[base].store(seq, Ordering::Release);
+            self.w[W_NEXT].store(seq + 1, Ordering::Release);
+            seq
+        }
+
+        /// **Writer only.** OR `flags` into record `seq`'s flags, if it is still in the ring.
+        pub fn add_flags(&self, seq: u64, flags: u8) -> bool {
+            let base = slot(seq);
+            if self.w[base].load(Ordering::Relaxed) != seq {
+                return false;
+            }
+            self.w[base].store(BUSY, Ordering::Relaxed);
+            // PAIR: `Ring::read`'s fence(Acquire): a reader that copied across this flag change
+            // sees BUSY or nothing changed, never half of it.
+            fence(Ordering::Release);
+            let m = self.w[base + 3].load(Ordering::Relaxed);
+            self.w[base + 3].store(m | ((flags as u64) << 8), Ordering::Relaxed);
+            self.w[base].store(seq, Ordering::Release);
+            true
+        }
+
+        /// Copy record `seq` out: its header, and its text into `out`.
+        pub fn read(&self, seq: u64, out: &mut [u8; TEXT_MAX]) -> Read {
+            let next = self.next_seq();
+            if seq >= next {
+                return Read::NotYet;
+            }
+            if seq + SLOTS < next {
+                return Read::Overwritten;
+            }
+            let base = slot(seq);
+            if self.w[base].load(Ordering::Acquire) != seq {
+                return Read::Overwritten;
+            }
+            let time = self.w[base + 1].load(Ordering::Relaxed);
+            let source = self.w[base + 2].load(Ordering::Relaxed);
+            let m = self.w[base + 3].load(Ordering::Relaxed);
+            for i in 0..TEXT_WORDS {
+                let v = self.w[base + 4 + i].load(Ordering::Relaxed);
+                out[i * 8..i * 8 + 8].copy_from_slice(&v.to_le_bytes());
+            }
+            // PAIR: `Ring::append`'s fence(Release) after its BUSY store: if the re-read below
+            // still sees `seq`, no rewrite of this slot began before the copy ended (the seqlock
+            // reader's half).
+            fence(Ordering::Acquire);
+            if self.w[base].load(Ordering::Relaxed) != seq {
+                return Read::Overwritten;
+            }
+            let len = (((m >> 16) & 0xffff) as usize).min(TEXT_MAX);
+            Read::Record(
+                Header {
+                    seq,
+                    time,
+                    source,
+                    severity: (m & 0xff) as u8 & 7,
+                    flags: ((m >> 8) & 0xff) as u8,
+                    len: len as u16,
+                    kind: ((m >> 32) & 0xff) as u8,
+                },
+                len,
+            )
+        }
+    }
+
+    /// The F3 header's fourth word, the same bytes [`Header::encode`] puts at 24..32.
+    const fn meta(severity: u8, flags: u8, len: usize) -> u64 {
+        severity as u64 | (flags as u64) << 8 | (len as u64) << 16
+    }
+
+    fn slot(seq: u64) -> usize {
+        (1 + (seq % SLOTS) as usize) * SLOT_WORDS
+    }
+
+    /// **The drainer's cursor page**, word 0.
+    pub struct Cursor<'a>(pub &'a AtomicU64);
+
+    impl Cursor<'_> {
+        /// What the drainer has written, or [`DETACHED`].
+        pub fn get(&self) -> u64 {
+            self.0.load(Ordering::Acquire)
+        }
+        /// **Drainer only.** Everything below `next` is consumed.
+        pub fn set(&self, next: u64) {
+            self.0.store(next, Ordering::Release);
+        }
+    }
+}
+
+/// **The log service's side of the console** (milestone 342 (the kernel and the `console` server
+/// drive one UART from two address spaces)): how a kernel line reaches the terminal whole.
+///
+/// The log service `SEND`s a kernel line to the console's request endpoint in sixteen-byte chunks,
+/// each first word [`OP_KERNEL_LINE`](console::OP_KERNEL_LINE) with the count in the low bits, the
+/// byte-sink packing with a different opcode. The console's own client sends a byte count there,
+/// which never has a top byte, so the two are told apart by the word alone, and the console never
+/// acknowledges a kernel chunk (its acknowledgement belongs to the client that is waiting for it).
+///
+/// [`Inserter`](console::Inserter) is what the console does with them, and the reason the splice
+/// cannot happen: a kernel line is written only at the start of a terminal line. Arriving mid-line
+/// (a prompt, an echo being typed) it is queued, and goes out the moment the terminal's own writing
+/// reaches a line end. If none comes, the log service sends [`OP_FLUSH`](console::OP_FLUSH) after a
+/// short wait, and the console puts the queued lines on a line of their own and redraws the partial
+/// line under them.
+pub mod console {
+    /// A chunk of a kernel line: `OP_KERNEL_LINE << 56 | count`, bytes in the next two words.
+    pub const OP_KERNEL_LINE: u64 = 0x4b;
+    /// Write whatever kernel lines are queued now, redrawing the partial line beneath them.
+    pub const OP_FLUSH: u64 = 0x46;
+
+    /// The opcode in a request word, 0 for the console's own client's byte counts.
+    pub const fn op(w0: u64) -> u64 {
+        w0 >> 56
+    }
+
+    /// The first word of a kernel chunk carrying `n` bytes.
+    pub const fn chunk(n: usize) -> u64 {
+        (OP_KERNEL_LINE << 56) | n as u64
+    }
+
+    /// The longest kernel line the console assembles before writing it as cut.
+    pub const LINE_MAX: usize = 256;
+    /// What ends every line the console writes for the kernel: see [`Inserter::kernel_chunk`].
+    pub const LINE_END: &[u8] = b"\r\n";
+    /// How much of the terminal's current partial line is kept for a redraw.
+    pub const PARTIAL_MAX: usize = 512;
+    /// How many bytes of kernel lines wait for a line end.
+    pub const QUEUE_MAX: usize = 2048;
+
+    /// The console's kernel-line state. See the module doc.
+    pub struct Inserter {
+        partial: [u8; PARTIAL_MAX],
+        plen: usize,
+        partial_lost: bool,
+        kline: [u8; LINE_MAX],
+        klen: usize,
+        queue: [u8; QUEUE_MAX],
+        qlen: usize,
+    }
+
+    impl Default for Inserter {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl Inserter {
+        /// At the start of a line, nothing queued.
+        pub const fn new() -> Self {
+            Inserter {
+                partial: [0; PARTIAL_MAX],
+                plen: 0,
+                partial_lost: false,
+                kline: [0; LINE_MAX],
+                klen: 0,
+                queue: [0; QUEUE_MAX],
+                qlen: 0,
+            }
+        }
+
+        /// Whether the terminal is at the start of a line.
+        pub fn at_line_start(&self) -> bool {
+            self.plen == 0 && !self.partial_lost
+        }
+
+        /// How many bytes of kernel lines are waiting.
+        pub fn queued(&self) -> usize {
+            self.qlen
+        }
+
+        /// The console's own client wrote `bytes` to the terminal: track the partial line, and
+        /// write anything queued if they ended one.
+        pub fn wrote(&mut self, bytes: &[u8], mut out: impl FnMut(&[u8])) {
+            for &b in bytes {
+                if b == b'\n' {
+                    self.plen = 0;
+                    self.partial_lost = false;
+                } else if self.plen < PARTIAL_MAX {
+                    self.partial[self.plen] = b;
+                    self.plen += 1;
+                } else {
+                    self.partial_lost = true;
+                }
+            }
+            if self.at_line_start() && self.qlen > 0 {
+                out(&self.queue[..self.qlen]);
+                self.qlen = 0;
+            }
+        }
+
+        /// A kernel chunk arrived. A finished line is written now if the terminal is at a line
+        /// start, and queued otherwise.
+        ///
+        /// **Every line it writes ends `\r\n`, whatever the chunk ended it with.** The console's
+        /// terminals are not all alike about a bare `\n`: the kernel's own screen and most serial
+        /// programs return the carriage on it, but the userspace screen terminal
+        /// (`video_terminal`) is a VT and only moves down. A bare `\n` there left the next line
+        /// starting where the kernel line ended, so the prompt beneath it no longer began a row,
+        /// and `cargo xtask uefi-boot` failed on PR #1498 (run 37108087239) with the shell
+        /// unreadable on the firmware screen. The line editor writes `\r\n` for the same reason.
+        pub fn kernel_chunk(&mut self, bytes: &[u8], mut out: impl FnMut(&[u8])) {
+            for &b in bytes {
+                if b == b'\r' {
+                    continue;
+                }
+                if b != b'\n' {
+                    self.kline[self.klen] = b;
+                    self.klen += 1;
+                }
+                // A cut leaves room for the line end, so it gets a line of its own rather than
+                // running into the next.
+                if b == b'\n' || self.klen == LINE_MAX - LINE_END.len() {
+                    self.kline[self.klen..self.klen + LINE_END.len()].copy_from_slice(LINE_END);
+                    self.klen += LINE_END.len();
+                    self.finish_line(&mut out);
+                }
+            }
+        }
+
+        fn finish_line(&mut self, out: &mut impl FnMut(&[u8])) {
+            if self.at_line_start() && self.qlen == 0 {
+                out(&self.kline[..self.klen]);
+            } else {
+                if self.qlen + self.klen > QUEUE_MAX {
+                    self.flush(&mut *out);
+                }
+                if self.at_line_start() {
+                    out(&self.kline[..self.klen]);
+                } else {
+                    self.queue[self.qlen..self.qlen + self.klen]
+                        .copy_from_slice(&self.kline[..self.klen]);
+                    self.qlen += self.klen;
+                }
+            }
+            self.klen = 0;
+        }
+
+        /// Write the queue now. Mid-line, the queued lines go on a line of their own and the
+        /// partial line is drawn again beneath them, as it was.
+        pub fn flush(&mut self, mut out: impl FnMut(&[u8])) {
+            if self.qlen == 0 {
+                return;
+            }
+            if self.at_line_start() {
+                out(&self.queue[..self.qlen]);
+            } else {
+                out(LINE_END);
+                out(&self.queue[..self.qlen]);
+                if !self.partial_lost {
+                    out(&self.partial[..self.plen]);
+                }
+            }
+            self.qlen = 0;
+        }
     }
 }
 
@@ -429,5 +829,121 @@ mod tests {
                 "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"
             ]
         );
+    }
+
+    /// A record round-trips through a slot, one the kernel wrote past reads as overwritten
+    /// rather than as somebody else's line, and an unwritten one reads as not yet.
+    #[test]
+    fn the_kernel_ring_round_trips_and_says_when_a_record_is_gone() {
+        extern crate std;
+        use core::sync::atomic::AtomicU64;
+
+        use kernel_ring::{Read, Ring, SLOTS};
+        let words: std::vec::Vec<AtomicU64> =
+            (0..kernel_ring::WORDS).map(|_| AtomicU64::new(0)).collect();
+        let ring = Ring::new(&words).unwrap();
+        assert!(!ring.is_formatted());
+        ring.format();
+        assert!(ring.is_formatted());
+        assert_eq!(SLOTS, 63);
+        let mut out = [0u8; record::TEXT_MAX];
+        assert_eq!(ring.read(0, &mut out), Read::NotYet);
+        ring.append(
+            7,
+            severity::INFO,
+            record::flags::KERNEL,
+            b"  progenitor stack: 1 of 2",
+        );
+        let Read::Record(h, n) = ring.read(0, &mut out) else {
+            panic!()
+        };
+        assert_eq!(
+            (h.seq, h.time, h.flags, n),
+            (0, 7, record::flags::KERNEL, 26)
+        );
+        assert_eq!(&out[..n], b"  progenitor stack: 1 of 2");
+        assert!(ring.add_flags(0, record::flags::DIRECT));
+        let Read::Record(h, _) = ring.read(0, &mut out) else {
+            panic!()
+        };
+        assert_eq!(h.flags, record::flags::KERNEL | record::flags::DIRECT);
+        for i in 1..=SLOTS {
+            ring.append(i, 6, 0, &[b'x'; 300]);
+        }
+        assert_eq!(ring.read(0, &mut out), Read::Overwritten);
+        let Read::Record(h, n) = ring.read(SLOTS, &mut out) else {
+            panic!()
+        };
+        assert_eq!((h.seq, n), (SLOTS, record::TEXT_MAX));
+        assert!(!ring.add_flags(0, record::flags::DIRECT));
+    }
+
+    /// **A reader that races the writer gets the record or "overwritten", never a mixture.** The
+    /// slot's sequence word is set to busy before the body changes, so a copy taken across a
+    /// rewrite fails its second check.
+    #[test]
+    fn a_torn_copy_is_detected() {
+        extern crate std;
+        use core::sync::atomic::{AtomicU64, Ordering};
+
+        use kernel_ring::{BUSY, Read, Ring, SLOT_WORDS};
+        let words: std::vec::Vec<AtomicU64> =
+            (0..kernel_ring::WORDS).map(|_| AtomicU64::new(0)).collect();
+        let ring = Ring::new(&words).unwrap();
+        ring.format();
+        ring.append(1, 6, 0, b"whole");
+        // The writer is mid-rewrite of slot 0: what a reader sees then.
+        words[SLOT_WORDS].store(BUSY, Ordering::Relaxed);
+        let mut out = [0u8; record::TEXT_MAX];
+        assert_eq!(ring.read(0, &mut out), Read::Overwritten);
+    }
+
+    /// The console's half: a kernel line is written at a line start, queued mid-line, released
+    /// by the line end that follows, and on a flush drawn on its own line with the partial line
+    /// redrawn beneath it.
+    #[test]
+    fn a_kernel_line_waits_for_a_line_start_and_never_splices() {
+        extern crate std;
+        use std::vec::Vec;
+        let mut c = console::Inserter::new();
+        let mut t: Vec<u8> = Vec::new();
+        c.kernel_chunk(b"  k one\n", |b| t.extend_from_slice(b));
+        assert_eq!(t, b"  k one\r\n");
+        c.wrote(b"$ package ins", |b| t.extend_from_slice(b));
+        t.extend_from_slice(b"$ package ins");
+        c.kernel_chunk(b"  k two\n", |b| t.extend_from_slice(b));
+        assert_eq!(c.queued(), 9);
+        t.extend_from_slice(b"tall x\n");
+        c.wrote(b"tall x\n", |b| t.extend_from_slice(b));
+        assert_eq!(t, b"  k one\r\n$ package install x\n  k two\r\n");
+        t.clear();
+        t.extend_from_slice(b"$ ");
+        c.wrote(b"$ ", |_| unreachable!());
+        c.kernel_chunk(b"  k three\n", |_| unreachable!());
+        c.flush(|b| t.extend_from_slice(b));
+        assert_eq!(t, b"$ \r\n  k three\r\n$ ");
+        assert_eq!(c.queued(), 0);
+    }
+
+    /// **Every line the console writes for the kernel returns the carriage**, because the screen
+    /// terminal is a VT and a bare `\n` only moves down (PR #1498's firmware-screen failure, run
+    /// 37108087239: the prompt redrawn after a flush began mid-row). A `\r\n` from the kernel
+    /// stays one line end, and a line too long for the buffer is cut with no byte lost.
+    #[test]
+    fn a_kernel_line_ends_with_a_carriage_return_however_it_arrived() {
+        extern crate std;
+        use std::vec::Vec;
+        let mut c = console::Inserter::new();
+        let mut t: Vec<u8> = Vec::new();
+        c.kernel_chunk(b"bare\nwindows\r\n", |b| t.extend_from_slice(b));
+        assert_eq!(t, b"bare\r\nwindows\r\n");
+        t.clear();
+        let long = [b'x'; console::LINE_MAX + 10];
+        c.kernel_chunk(&long, |b| t.extend_from_slice(b));
+        c.kernel_chunk(b"\n", |b| t.extend_from_slice(b));
+        let text: Vec<u8> = t.iter().copied().filter(|&b| b == b'x').collect();
+        assert_eq!(text.len(), long.len());
+        assert_eq!(t.iter().filter(|&&b| b == b'\n').count(), 2);
+        assert!(t.windows(2).all(|w| w[1] != b'\n' || w[0] == b'\r'));
     }
 }

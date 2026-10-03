@@ -366,6 +366,21 @@ pub fn recv_badged(slot: u64) -> (u64, u64, u64, u64) {
     (w0, w1, w2, w3)
 }
 
+/// [`recv_badged`] for a thread with a bound notification: `Ok((w0, w1, w2, badge))` for a
+/// message, `Err(word)` when the bound notification ended the receive, told apart by the
+/// kernel-written `x4` exactly as [`recv_bound`] does. The log service's one wait point, which
+/// takes writers' lines and the kernel's ring signal alike (milestone 342 (the kernel and the
+/// `console` server drive one UART from two address spaces)). Name provisional.
+pub fn recv_badged_bound(slot: u64) -> Result<(u64, u64, u64, u64), u64> {
+    // SAFETY: forwarded from `invoke5`'s contract; RECV returns five words.
+    let (w0, w1, w2, w3, w4) = unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) };
+    if w4 == abi::notification::BOUND {
+        Err(w1)
+    } else {
+        Ok((w0, w1, w2, w3))
+    }
+}
+
 /// `RECV` **all five words** on the endpoint capability in `slot`: `(w0, w1, w2, w3, w4)`.
 ///
 /// The same `RECV` [`recv`] makes, read to its full width. `RECV` has returned five registers since
