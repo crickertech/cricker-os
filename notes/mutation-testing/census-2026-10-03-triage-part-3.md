@@ -80,3 +80,24 @@ my)` the same covariance. `median_ns`'s `REPS / 2` as `REPS % 2` is the seventh:
 
 The gap is `price`'s `WHOLE_REPS / 2`, which is 2 and as `%` is 1. It picks which of five sorted
 timings is called the median, and a test can only assert it on a clock it controls.
+
+## system_log
+
+33 missed: 29 killed, 4 equivalent. The sweep afterwards reports 4 missed.
+
+- Control words (14). Each of the four ops is refused for badge 0, and each is refused one past the
+  argument or field it accepts. A valid word is not counted as a refusal. The refused counter is
+  checked after every word, so an op that was half-applied would show.
+- `handle` and `ingest` (6). A message of another kind is counted each time. `ingest` was never
+  called by any test: a record handed straight to the store is held, numbered by the service and
+  read back, and `held` counts them.
+- `Ring` (7). An entry that exactly fills the ring evicts nothing and the next evicts exactly one
+  (64-byte entries, 1,024 of them), the entry header is 11 bytes, a dropped line counts from the
+  reader's cursor, a per-user read matches the whole name and not a prefix, and a window that
+  holds a line exactly takes it.
+- `Assembler` (2) and `json` (2). The writer cut is the least recently heard from, an idle slot
+  is taken without an empty cut line, and `\n` and `\r` use their short escapes.
+
+The 4 equivalents: `Ring`'s three `% RING_BYTES` as `+` (the head and the read position grow past
+the buffer, but every access wraps again, so the bytes read are the same), and `control`'s
+`arg < 2` as `<=` on `OP_NAME` (the registry refuses the third name chunk itself).
