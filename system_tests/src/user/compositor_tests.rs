@@ -306,7 +306,7 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
 }
 
 // ================================================================================================
-// Confinement claim 25, attacked part by part (milestone 719).
+// Confinement claim 25, attacked part by part (milestone 719 (compositor confinement claim 25)).
 //
 // The test above proves four things in one body and a patch recorded against it reaches one of them:
 // the others sit behind the fault wait (the digests), behind a probe that cannot see a read-only
@@ -459,7 +459,14 @@ fn lie_to_the_compositor() -> (Wiring, (u64, u64), u64, [u32; 12]) {
         "the compositor stopped answering a client that committed a rectangle with extreme \
          coordinates: one client took the one doorbell every client shares down with it",
     );
-    assert_eq!(tag, status::WIN_LIED, "the liar reported {tag:#x} (a 0xDEAD_.. word names the step)");
+    assert_eq!(
+        tag,
+        status::WIN_LIED,
+        "the liar reported {tag:#x} instead of finishing its lies: 0xdead000000000004 is a commit \
+         the compositor answered with an error, which is what a compositor that panicked on a \
+         client's rectangle leaves behind (any other 0xDEAD_.. word's low byte names the step, see \
+         fixtures/src/window.rs)",
+    );
     assert_eq!(lies, 9, "the liar did not commit its whole table");
     (w, (victim, victim_slot), digest, ctl)
 }

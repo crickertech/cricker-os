@@ -204,7 +204,7 @@ impl Rect {
     /// rectangle covers `x .. right()`, and two rectangles that share this edge do not overlap. Every
     /// classic clipping off-by-one is a confusion between this and "the last column".
     ///
-    /// **Saturating, because a client chooses these numbers** (milestone 719). A damage rectangle
+    /// **Saturating, because a client chooses these numbers** (milestone 719 (compositor confinement claim 25)). A damage rectangle
     /// is read from a client's control page as `(i32, i32, u32, u32)` and reaches this function
     /// before any clip: `x = i32::MAX, w = 1` is `x + w` past `i32::MAX`, and `w as i32` is negative
     /// for any `w` above `i32::MAX`. Plain `+` panics on the first in a debug build, which

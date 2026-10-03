@@ -90,7 +90,7 @@ const ROLE_PROBE_SCREEN: u64 = 1 << 3;
 const ROLE_CAPTURE: u64 = 1 << 4;
 const ROLE_VICTIM: u64 = 1 << 5;
 const ROLE_SMALL_DAMAGE: u64 = 1 << 6;
-/// With [`ROLE_PROBE_NEIGHBOUR`]: **read** the address instead of writing it (milestone 719). A write
+/// With [`ROLE_PROBE_NEIGHBOUR`]: **read** the address instead of writing it (milestone 719 (compositor confinement claim 25)). A write
 /// to a read-only page faults at the same address a write to an unmapped one does, so a
 /// write-only probe cannot tell "not mapped" from "mapped read-only", and a read-only exposure of a
 /// neighbour's pixels is the confidentiality breach.
@@ -332,6 +332,7 @@ pub extern "C" fn _start(role: u64, neighbour_va: u64, _arg2: u64) -> ! {
         // fails loudly rather than passing quietly. With [`ROLE_PROBE_READ`] the access is a load
         // instead, which is the half a read-only mapping would not stop.
         if role & ROLE_PROBE_READ == 0 {
+            // SAFETY: deliberately not safe; see above. The store must fault.
             unsafe { core::ptr::write_volatile(neighbour_va as *mut u32, 0xBAD0_BAD0) };
         }
         // SAFETY: as above; only reached if the write did not fault, which is a broken system.

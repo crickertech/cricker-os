@@ -222,12 +222,16 @@ impl Wiring {
     /// **Spawn window client `i` in `role`.** Its whole authority: a report endpoint, the doorbell,
     /// its own control page and surface, an input endpoint if it is focusable, and (only for
     /// [`ROLE_CAPTURE`]) a read-only mapping of the screen and the window list.
+    ///
+    /// **BUGS:** the slot's frames are mapped as they are, not scrubbed, so a client spawned into a
+    /// slot an earlier client used would see that client's last pixels until it painted. Nothing
+    /// respawns a client today. Read from this code, not run. See notes/compositor-claim-25.md.
     pub fn spawn_client(&self, i: usize, role: u64) {
         self.spawn_client_probing(i, role, self.neighbour_probe_va(i));
     }
 
     /// [`spawn_client`](Self::spawn_client) with the address a probing role reaches for chosen by the
-    /// caller rather than fixed at its neighbour's first pixel frame (milestone 719), so one test can
+    /// caller rather than fixed at its neighbour's first pixel frame (milestone 719 (compositor confinement claim 25)), so one test can
     /// aim the same attacker at the neighbour's control page and at each of its pixel frames.
     pub fn spawn_client_probing(&self, i: usize, role: u64, probe: u64) {
         let frames = SCENE[i].page_frames() as u64;

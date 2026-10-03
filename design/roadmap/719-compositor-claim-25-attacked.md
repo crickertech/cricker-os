@@ -7,7 +7,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 719. Confinement claim 25 (a client cannot reach its neighbour's pixels or read the screen) is attacked part by part
+# 719. Compositor confinement claim 25 is attacked part by part
 
 Raised 2026-10-03 (UTC) by calef as risk 7's compositor pass, the claim milestone 633 (an outside
 agent attacks the confinement claim) did not attack because a userspace server enforces it rather
@@ -39,7 +39,7 @@ of each says why:
 New attack roles in `fixtures/src/window.rs` and one test per part, each with a replayable
 falsification under `system_tests/falsifications/`. The attacks that went through the compositor's
 only untrusted input (the damage rectangle in a client's control page) are recorded with their
-outcome in `notes/confinement-claims.md` row 25.
+outcome in `notes/compositor-claim-25.md`.
 
 ## Done means
 
@@ -50,10 +50,15 @@ outcome in `notes/confinement-claims.md` row 25.
 
 ## BUGS
 
-- Recorded as work progresses; see `notes/confinement-claims.md` row 25.
+- The six patches were replayed by hand (apply, run the one test, require red, reverse), not by
+  `script/falsifications --sweep system_tests`, which this lane did not run on the whole package.
 
 ## Follow-on
 
-- **Outstanding.** Whether a client spawned into a window slot sees the previous occupant's pixels.
-  Nothing in the tree respawns a client today; the answer lands in `notes/compositor.md` before this
-  milestone is BUILT.
+- **Recorded.** A client spawned into a reused window slot would see the previous occupant's pixels:
+  `notes/compositor-claim-25.md`, BUGS. Read from the code and not run; nothing respawns a
+  client today.
+- **Outstanding.** `design/fatal-risks/README.md` and `the-confinement-claims.md` still say row 11 is
+  proved on x86_64 only; they change to all three once PR #1534 (W^X on aarch64 and riscv64) merges. Not done
+  here because #1534 had not merged.
+- **Recorded.** Claim 25's falsifications are recorded on aarch64 only: `notes/compositor-claim-25.md`.
