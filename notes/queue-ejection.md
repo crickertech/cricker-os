@@ -110,9 +110,6 @@ $ gh run view <run id> --log | grep -E 'LABELLED|CLEARED'
 
 ## BUGS
 
-- `ready status` is not a required check, so it informs rather than blocks a pull request armed
-  by hand. The drain will not arm one with a failing check, which covers the normal path. Adding
-  `ready status (no IN-PROGRESS block on a ready branch)` to the `main` ruleset is calef's.
 - A labelled pull request waits for a maintainer session. With none running, it waits for the
   next one, which is slower than the drain's old re-arm and is not calef's job.
 - An ejection is labelled at the drain's next pass, which follows the group's CI completion through

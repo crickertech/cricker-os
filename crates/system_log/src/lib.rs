@@ -589,4 +589,102 @@ mod tests {
             lines[0].starts_with(r#"{"seq":0,"time":0,"source":1,"program":null,"user":null,"#)
         );
     }
+
+    // ---- survivor triage of the 2026-10-03 census ---------------------------------------------
+
+    /// A message that is not text is counted and dropped, each time.
+    #[test]
+    fn a_message_of_another_kind_is_counted_every_time() {
+        let mut log = Log::new();
+        let other_kind = 1u64 << byte_sink_protocol::KIND_SHIFT;
+        log.handle(7, other_kind, 0, 0, 0);
+        assert_eq!(log.refused, 1);
+        log.handle(7, other_kind, 0, 0, 0);
+        assert_eq!(log.refused, 2);
+    }
+
+    /// Each control word is refused for the one thing wrong with it, and a good one is not counted.
+    #[test]
+    fn a_control_word_is_refused_for_each_thing_that_can_be_wrong_with_it() {
+        let mut log = Log::new();
+        register(&mut log, 5, b"p", b"u");
+        assert_eq!(log.refused, 0, "registering is not a refusal");
+        let mut refused = 0;
+        let mut try_word = |log: &mut Log, w: u64, bad: bool| {
+            log.handle(0, w, 0, 0, 0);
+            refused += u64::from(bad);
+            assert_eq!(log.refused, refused, "{w:#x}");
+        };
+        // Badge 0 is the spawner itself, and none of the four ops may name it.
+        for op in [
+            control::OP_NAME,
+            control::OP_STREAM,
+            control::OP_READER,
+            control::OP_FORGET,
+        ] {
+            try_word(&mut log, control::word(op, 0, 0, 0), true);
+        }
+        // Past the last argument or field each op takes.
+        try_word(&mut log, control::word(control::OP_NAME, 0, 2, 5), true);
+        try_word(
+            &mut log,
+            control::word(control::OP_NAME, control::USER + 1, 0, 5),
+            true,
+        );
+        try_word(
+            &mut log,
+            control::word(control::OP_STREAM, 0, severity::DEBUG as u64 + 1, 5),
+            true,
+        );
+        try_word(
+            &mut log,
+            control::word(control::OP_READER, control::SCOPE_SYSTEM + 1, 0, 5),
+            true,
+        );
+        try_word(&mut log, control::word(0x7f, 0, 0, 5), true);
+        // And the edges that are allowed.
+        try_word(
+            &mut log,
+            control::word(control::OP_NAME, control::USER, 0, 5),
+            false,
+        );
+        try_word(
+            &mut log,
+            control::word(control::OP_STREAM, 0, severity::DEBUG as u64, 5),
+            false,
+        );
+        try_word(
+            &mut log,
+            control::word(control::OP_READER, control::SCOPE_SYSTEM, 0, 5),
+            false,
+        );
+        try_word(&mut log, control::word(control::OP_FORGET, 0, 0, 5), false);
+    }
+
+    /// A record handed straight to the store is held and read back, and counted.
+    #[test]
+    fn an_ingested_record_is_held_and_readable() {
+        let mut log = Log::new();
+        reader(&mut log, 9, b"", true, 0);
+        assert_eq!(log.held(), 0);
+        let h = Header {
+            seq: 99,
+            time: 5,
+            source: 0,
+            severity: severity::ERROR,
+            flags: record::flags::KERNEL,
+            len: 4,
+            kind: 0,
+        };
+        log.ingest(&h, b"boot", Some(Name::new(b"kernel")), None);
+        assert_eq!(log.held(), 1);
+        log.ingest(&h, b"more", Some(Name::new(b"kernel")), None);
+        assert_eq!(log.held(), 2);
+        let (_, lines) = read_all(&mut log, 9, 0);
+        assert!(lines[0].starts_with(r#"{"seq":0,"time":5,"source":0,"program":"kernel""#));
+        assert!(
+            lines[1].starts_with(r#"{"seq":1,"#),
+            "the service numbers it, not the header"
+        );
+    }
 }

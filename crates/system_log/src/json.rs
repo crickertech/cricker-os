@@ -216,4 +216,10 @@ mod tests {
         assert!(n <= LINE_MAX, "{n}");
         assert_eq!(out[n - 1], b'\n');
     }
+
+    /// A newline and a carriage return are the short escapes, not the six-character ones.
+    #[test]
+    fn a_newline_and_a_carriage_return_use_their_short_escapes() {
+        assert!(line(b"a\nb\rc").contains(r#""msg":"a\nb\rc"}"#));
+    }
 }
