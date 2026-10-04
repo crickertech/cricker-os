@@ -420,10 +420,10 @@ one buys is in [design/tenets/codebase-rules.md](design/tenets/codebase-rules.md
    hardware. A kernel capability ships on every supported architecture, proven by the same suite, or
    a scope note records the gap and the plan. If a feature works on one ISA and silently not
    another, that is the bug.
-6. Taking a dependency is a decision, not a convenience (§46). Write it if it is on the
-   verification path, because you cannot restructure someone else's crate to make a model checker
-   tractable. Take it if correctness is won by *exposure* rather than by reading the spec: write the
-   calendar, take the crypto. Vendor only what needs a patch.
+6. Taking a dependency is a decision, not a convenience (§46). Write the kernel and the crates
+   Kani proves, because a model checker needs code we can restructure. Everywhere else, take or
+   adapt existing code first (calef, 2026-10-04): writing needs a recorded reason in the block's
+   `Reuse:` line, and an architect still rules on each dependency. Vendor only what needs a patch.
 7. Anything two binaries must agree on is a crate, never a `#[path]` module (calef, 2026-08-01). If
    a constant, an opcode, a layout, or an error code is shared by more than one program, it goes in
    `crates/` and is depended on. `#[path = "x.rs"] mod x;` is not an option, and `script/lint` check

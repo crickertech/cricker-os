@@ -7,9 +7,10 @@ ratified_by: calef
 
 # 46. Thin primitives or whole subsystems; we write everything in between
 
-(an amendment below distinguishes taking from vendoring.)
+(two amendments below: 2026-07-31 distinguishes taking from vendoring, and 2026-10-04 makes taking
+the default outside the kernel and the crates Kani proves.)
 
-**Decided 2026-07-30 (calef), after the calendar crate made the absence of a rule visible.** The
+Decided 2026-07-30 (calef), after the calendar crate made the absence of a rule visible. The
 practice was already unanimous and written down nowhere, which is the state that produces an
 inconsistent decision the first time someone does not share the instinct.
 
@@ -22,19 +23,19 @@ Five external dependencies exist outside `vendor/`:
 | `aarch64-cpu` | kernel | thin: architectural register definitions |
 | `tock-registers` | kernel | thin: an MMIO register abstraction |
 | `spin` | kernel | thin: spinlocks |
-| `smoltcp` | user | **whole subsystem**: a TCP/IP stack |
+| `smoltcp` | user | whole subsystem: a TCP/IP stack |
 | `redox_syscall` | fs_server | forced by the vendored engine |
 
-Plus **RedoxFS**, vendored under `vendor/` with a pin and a divergence patch (§34). Against that,
-**thirty crates have no external dependencies at all.**
+Plus RedoxFS, vendored under `vendor/` with a pin and a divergence patch (§34). Against that,
+thirty crates have no external dependencies at all.
 
-The shape is sharp and unaccidental: **thin architectural primitives, or entire subsystems we would
-never write. Nothing in between.** Everything in between is written here.
+The shape is sharp and unaccidental: thin architectural primitives, or entire subsystems we would
+never write. Nothing in between. Everything in between is written here.
 
 ## The test, in order
 
-1. **Is it on the verification path?** Then write it. This is the load-bearing reason and it is not
-   about pride: **you cannot restructure someone else's crate to make a model checker tractable.**
+1. Is it on the verification path? Then write it. This is the load-bearing reason and it is not
+   about pride: you cannot restructure someone else's crate to make a model checker tractable.
    `crates/calendar` is the worked example: the parser gained a byte-level entry point because
    `from_utf8` made CBMC branch on length every step (ten minutes to seventeen seconds, and a better
    API); monotonicity was rephrased as its induction step over adjacent days (228s to 40s, same
@@ -42,67 +43,67 @@ never write. Nothing in between.** Everything in between is written here.
    other lanes hit the same wall the same day (`ntp_proto`'s fixed-point multiply, `gpt`'s
    table-driven CRC) and all three resolved it by changing code. None of that is available in a
    dependency.
-2. **Is it a whole subsystem we would never write?** Then take it, vendored, under §34's conditions.
+2. Is it a whole subsystem we would never write? Then take it, vendored, under §34's conditions.
    RedoxFS and smoltcp are the model: a filesystem and a TCP/IP stack are each larger than the thesis
-   they would serve, and confining them **is** the thesis.
-3. **Does it touch the kernel, the ABI, or a capability?** Then write it. Rules 1 through 3 exist so
+   they would serve, and confining them is the thesis.
+3. Does it touch the kernel, the ABI, or a capability? Then write it. Rules 1 through 3 exist so
    that surface stays ours and stays narrow.
-4. **Otherwise**, prefer writing when the specification is complete and checkable, and prefer
+4. Otherwise, prefer writing when the specification is complete and checkable, and prefer
    depending when correctness is won by *exposure* rather than by reading the spec.
 
 ## Rule 4 is what stops this becoming "always write", and crypto is the case
 
-The Gregorian calendar is **fully specified**: every rule is written down, and a proof over all
+The Gregorian calendar is fully specified: every rule is written down, and a proof over all
 3,652,425 days in range settles it. Nothing about being widely used tells you more than the quantifier
 does.
 
-Cryptography is the opposite: **take it, do not write it.** Correctness there includes resistance to attacks not yet published and side-channel
+Cryptography is the opposite: take it, do not write it. Correctness there includes resistance to attacks not yet published and side-channel
 behaviour no specification states, and that is bought by years of exposure and review. A proof that
 our AES matches the spec would not make it safe to use.
 
-So the distinguishing question is not size. It is **whether the spec is the whole of correctness.**
+So the distinguishing question is not size. It is whether the spec is the whole of correctness.
 
 ## Amendment (2026-07-31): taking is not vendoring, and crypto is a *dependency*
 
-An earlier wording of rule 4 said crypto should be **vendored**, which conflated two decisions. Rule 4
-is about **write versus take**. Whether a taken thing is *vendored* or *depended on* is separate, and
+An earlier wording of rule 4 said crypto should be vendored, which conflated two decisions. Rule 4
+is about write versus take. Whether a taken thing is *vendored* or *depended on* is separate, and
 does not follow from it.
 
-**The tree's actual trigger for vendoring is "we must patch it."** RedoxFS is vendored because it
+The tree's actual trigger for vendoring is "we must patch it." RedoxFS is vendored because it
 needed a divergence patch to build `no_std`, and `script/vendor-verify` exists to prove exactly that:
-"upstream **plus our recorded patches**". **smoltcp is a whole subsystem and an ordinary
-dependency**, because nothing needed changing. So "subsystem, therefore vendor" is not what this tree
+"upstream plus our recorded patches". smoltcp is a whole subsystem and an ordinary
+dependency, because nothing needed changing. So "subsystem, therefore vendor" is not what this tree
 does, and never was.
 
 RustCrypto's crates are already `no_std`, so no patch is needed and the trigger never fires. With no
 divergence, `vendor-verify` has nothing to prove that `Cargo.lock` does not already.
 
-**And for crypto in particular, vendoring is actively worse.** Advisories are the whole point in that
+And for crypto in particular, vendoring is actively worse. Advisories are the whole point in that
 category, and `cargo-deny` / `cargo-audit` work against registry versions; a vendored copy is
 invisible to an advisory until a human notices. Milestone 42 named that gap in general terms: "we
 confine code we did not write; an advisory against it is invisible today", and crypto is where it
-bites hardest. Vendoring it would take on the maintenance burden **and** give up the pipeline that
+bites hardest. Vendoring it would take on the maintenance burden and give up the pipeline that
 makes the burden survivable.
 
-So: **crypto is an ordinary dependency**, pinned in `Cargo.lock`, gated by `deny.toml` and
+So: crypto is an ordinary dependency, pinned in `Cargo.lock`, gated by `deny.toml` and
 `script/supply-chain`. Vendor only what must be patched.
 
 ## The honest costs of writing, recorded so they are not rediscovered as complaints
 
-- `crates/calendar` is 1,538 lines and adds **~7 minutes** to `script/verify`, where it is now the
+- `crates/calendar` is 1,538 lines and adds ~7 minutes to `script/verify`, where it is now the
   largest single entry in a 95-harness suite. If that ratio repeats the gate becomes something people
   skip, and a skipped gate is worse than none, which is the same lesson `script/fmt` taught on
   2026-07-30 from the other direction.
 - Battle-tested libraries have already found the subtle bugs. Our harnesses were validated by
   falsification (reducing the leap rule to `% 4 == 0` fails in 8s): that proves they would catch an
-  error, **not that they caught one we had written**. The gain is a quantifier and a better API, not
+  error, not that they caught one we had written. The gain is a quantifier and a better API, not
   bugs found.
 
 ## The process failure that produced this entry
 
 There was no decision to write `crates/calendar` rather than depend on `time` or `chrono`, both of
 which support `no_std` and would have covered most of it. The lane brief said "build the crate", and
-the choice was made **by omission, in a prompt**, rather than on the record. The outcome was
+the choice was made by omission, in a prompt, rather than on the record. The outcome was
 consistent with what this tree does everywhere; it was consistent with nothing anyone could point at.
 That is the gap this entry closes.
 
@@ -110,3 +111,87 @@ That is the gap this entry closes.
 
 `deny.toml`, `script/supply-chain` and `script/vendor-verify` from milestone 44, and `vendor/`'s pin
 plus divergence-patch discipline. A dependency taken under rule 2 goes through all of them.
+
+## The amendment, 2026-10-04
+
+Ruled 2026-10-04 (UTC) by calef, who answered "Yes, amend §46" to the recommendation below. His
+reason, in his words: *"We seem to be building everything. To be successful, it seems like this
+project needs to reuse software that already exists."*
+
+### What changed, and what did not
+
+Rule 1 still stands, and so does the reason behind it: you cannot restructure someone else's crate to
+make a model checker tractable. What changed is the economics around it. Writing is now cheap for
+agents, so "we can write it" no longer argues for anything. What is expensive is trust, and code
+written here has had no exposure outside this tree. Fatal risks 3 (the tests do not test anything)
+and 7 (the confinement claim is false) both come down to the same gap: everything that vouches for
+our code was written by the people who wrote the code. Third-party code that many systems have run
+carries evidence of a kind we cannot produce for ourselves. Rule 4 already said this about crypto.
+This amendment applies it more widely.
+
+Writing stays the default for:
+
+- the kernel (`kernel/`), and anything that touches the ABI or a capability (rule 3, unchanged);
+- a crate whose Kani harnesses are listed in `script/verify` because of a claim the system rests on.
+  Adding harnesses to code that could have been taken does not put it on the verification path
+  after the fact. The block has to argue the claim.
+
+Taking or adapting comes first for everything else: drivers, protocol parsers, file formats,
+userland programs and tools. A milestone in these layers names what it considered before writing.
+Writing our own needs a recorded reason, and the burden of proof is on the reason.
+
+### What a recorded reason to write looks like
+
+It goes in the milestone block's `Reuse:` line (or `## Reuse` section), which `script/roadmap
+--check` requires of every block raised on or after 2026-10-05 (UTC). The line names at least one
+candidate, or says `none exists` and what was searched. Reasons that hold:
+
+- It is on the verification path, in the sense above.
+- No candidate builds `no_std`, and making one do so is a fork we would carry forever.
+- The licence is incompatible. GPL code in the shipping graph is the question of §135
+  (running GPL software is aggregation), and §135 answers it with aggregation across a capability
+  boundary, not linking.
+- Adapting would cost more than writing, with numbers: lines to change against lines to write,
+  or a measured performance gap. An adjective is not a number.
+
+"Ours would be cleaner" is not on the list. If the honest reason is effort, the block says so in
+those words (CLAUDE.md, *Elegance and performance beat implementation convenience*).
+
+### Who rules
+
+The default changes. The authority does not. Taking a dependency is still a decision (CLAUDE.md's
+codebase rule 6): a lane proposes a dependency in its block and pull request, the pull request
+carries `needs-architect`, and an architect rules. The conditions of §34 (RedoxFS is the primary
+filesystem, on three conditions) and the 2026-07-31 amendment (vendor only what must be patched)
+apply unchanged to anything taken. `deny.toml` and `script/supply-chain` gate it like every other
+dependency.
+
+Redox is a source we consume and never contribute to. Its drivers are MIT-licensed, and its
+CONTRIBUTING refuses LLM-generated contributions. So we take its code under the licence and send
+nothing back. A patch we need is carried here (§34, `script/vendor-verify`), never offered upstream.
+
+### The cases that prompted it
+
+- DNS: milestone 384 (in a capability system the resolver is a grant), pull request #1634. It wrote
+  `crates/domain_name_system` (name provisional) with three Kani harnesses and a fuzz target. On
+  crates.io, `hickory-proto` (MIT or Apache-2.0), `simple-dns` (MIT) and NLnet Labs' `domain`
+  (BSD-3-Clause) all parse DNS replies; whether each builds `no_std` was not checked when this was
+  written. A parser that takes untrusted input from the network can be a verification-path case.
+  Under this amendment that has to be argued in the block, not assumed. The lane is adding a
+  `## Reuse` section voluntarily, since 384 was raised before the cutoff.
+- e1000e: milestone 494 (a driver for the network card a PC actually has). Redirected on
+  2026-10-04 to assess Redox's MIT-licensed `e1000d` before writing anything. This is the first lane
+  to work under the new default.
+- USB xHCI: milestone 242 (USB host and HID), pull request #1629. It was built before this
+  amendment. rust-osdev's `xhci` crate (0.9.2, MIT or Apache-2.0, register and ring definitions) and
+  Redox's `xhcid` could have covered part of it. That is recorded as a follow-up survey
+  (`design/roadmap/proposals/survey-what-milestone-242-could-have-taken.md`), not a rewrite: the
+  survey says what taking would have bought, and a rewrite waits on its numbers.
+- Userland: milestone 756 (procps, coreutils and util-linux leave first). Ports are this
+  amendment applied to programs. A port is the default, and a rewrite needs a reason.
+
+### Why the gate dates from 2026-10-05
+
+A check must not fail the tree it lands in, so blocks raised before 2026-10-05 (UTC) are exempt.
+That exempts 242, 384 and 494. It is an exception, and it is marked in the check's comment: an
+older block that is reopened does not owe a `Reuse:` line, and the check cannot tell.
