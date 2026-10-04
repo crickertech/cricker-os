@@ -34,23 +34,49 @@ Falsified live with #1491, a throwaway whose block read IN-PROGRESS on its own b
 
 It was closed and its branch deleted the same minute.
 
-## The pre-push hook runs all of lint
+## The pre-push hook runs what fits in seconds
 
 The hook grew one gate per lost queue cycle: clippy, two prose ratchets, then the baselines check.
-Each new lint check stayed outside it until it cost a cycle too. Measured on patagonia with a warm
-target directory, three runs each, wall clock, beside two lanes' QEMU:
+Milestone 630 (a merge-queue ejection is caught before the queue, and recovered after it) made it
+all of `script/lint`. Measured on patagonia with a warm target directory, three runs each, wall
+clock, beside two lanes' QEMU:
 
 | Command | Runs (s) | Median |
 | --- | --- | --- |
 | `script/lint --clippy` | 27.36, 32.90, 26.71 | 27.4 s |
 | `script/lint` | 56.48, 55.20, 56.65 | 56.5 s |
 
-The rest of lint is about 29 s, of which the three gates it replaced were about 6. No check after
-clippy takes over 3.5 s (spelling 3.4, prose ratchet 3.0, counted claims 2.6, citations 2.6). There
-was no slow tail to leave to CI, so the hook runs the whole thing. Its first push in this lane
-refused a citation to an unmerged milestone that CI would have failed.
+That was a quiet moment. Later the same day, with the load average at 11 to 19, `script/lint` took
+70.3, 110.7 and 119.4 s warm and 201.9 s with a cold target directory. A claim push sat in it for a
+whole lane and lanes took to `--no-verify`. The hook also refused a claim push five times for a
+roadmap block that cannot exist before the claim.
 
-The wider run found one defect too. git exports GIT_DIR to a hook, and
+calef approved the narrower hook on #1564 (2026-10-03 UTC). It runs `script/fmt --check`, then
+`script/lint --no-cargo`, then `--ready-branch`, and skips all three for a push whose commits
+change no files. Clippy stays in CI. Measured on patagonia at load 15 to 17, wall clock:
+
+| Step | Runs (s) |
+| --- | --- |
+| `script/fmt --check` | 1.8 |
+| `script/lint --no-cargo`, warm tree | 41.6, 47.2, 44.7 |
+| `script/fmt --check` and `script/lint --no-cargo`, no `target/` directory | 43.0 |
+
+The proposal estimated 33 s from one loaded run. The measurement is 42 to 47 s, under a load average
+of 15 to 17. The mode is CPU bound (about 46 s of CPU in those runs) and never touches `target/`, so
+a cold target directory costs nothing extra. An empty push costs the
+hook's own startup, under a second.
+
+**The partition is read out of `script/lint`, not listed beside it.** `helpers/lint-no-cargo.awk`
+splits the script at each `echo "==> ` header and drops every section with a line that invokes
+cargo (a command whose first word is `cargo`, a Python `["cargo"` argv, or `command -v cargo`).
+Prose that mentions cargo does not count. A new check therefore lands in exactly one bucket when it
+is written, and a section that runs cargo is dropped unless it carries a `# no-cargo-ok:` marker
+and reads `$LINT_NO_CARGO` to skip its cargo part. A marker on a section with no cargo, a marker
+with no guard, and cargo before the first header each fail the mode. Of 65 sections, 46 run and 19
+are skipped (12 clippy, rustdoc, and 6 that call `cargo metadata` or `cargo machete`;
+`script/lint --no-cargo --list` prints them).
+
+The earlier run found one defect too. git exports GIT_DIR to a hook, and
 `helpers/scope-merge-base-selftest.sh` builds a throwaway repository with it still set. Its
 `git init` and `git config` wrote `core.bare = true` and a fake identity into the shared
 `.git/config` before it failed. Both were restored by hand, no commit carried the identity, and
