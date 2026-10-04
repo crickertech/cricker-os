@@ -112,6 +112,13 @@ and 11 of 323 on riscv64, and failed the gate both times. The aarch64 run failed
 `caps wc doc/kernel/ipc-naming.md`*). The two signatures below this one are not this
 fix's.
 
+**A recurrence was reported, and it was false (2026-10-04).** The week 2026W40 count put the echo
+splice at 6 of 18 swish-check failures and 4 of 6 merge-group evictions, which read as 342 not
+holding. Every one of the six ran before #1498 merged (2026-10-03T09:52:00Z) on a tree without it.
+Since then, 118 merge-group swish-check jobs ran with no echo failure; at the old one-in-ten rate
+that is about four in a million. The fix stands. Rows, ancestry checks and the riscv64 transcripts
+are in [2026W40](swish-check-flake-2026w40.md).
+
 **The progenitor OOM (signature of #1444).** The shell prints the sentence when the progenitor
 answers with the `SPAWN_FAILED` sentinel (components/src/swish.rs:3053; the sentinel is
 `u64::MAX`, crates/grant_plan/src/spawnproto.rs:633). A `std` program needs one contiguous
