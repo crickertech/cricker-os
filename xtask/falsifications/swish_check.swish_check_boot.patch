@@ -1,13 +1,15 @@
 Falsifies `xtask::swish_check::swish_check_boot`, the `installed/unvouched` line of its script.
 
 Architecture: aarch64
+Line: installed/unvouched
 
 Milestone 673 (the confinement table lists the unvouched child), row 31 of
-notes/confinement-claims.md. Replay by hand, because `script/falsifications` sweeps Kani harnesses
-and kernel `#[test_case]`s and this line is neither; it is reported as a known gap, not as rot:
+notes/confinement-claims.md. `script/falsifications --sweep xtask` replays it since milestone 742
+(provisional): it boots `script/swish-check --arch aarch64` with this patch applied and calls it
+red only when swish-check's FAILED report names the `Line:` above. By hand, the same thing is:
 
     git apply xtask/falsifications/swish_check.swish_check_boot.patch
-    script/swish-check --arch aarch64        # must exit non-zero
+    script/swish-check --arch aarch64        # must exit non-zero, failing `installed/unvouched`
     git apply -R xtask/falsifications/swish_check.swish_check_boot.patch
 
 The defect is the progenitor endowing the process domain to a child whose bytes nobody vouched for

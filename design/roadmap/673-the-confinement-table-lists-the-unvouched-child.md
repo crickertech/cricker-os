@@ -44,9 +44,9 @@ on 2026-10-03 (UTC): exit 0 without it, exit 1 with it, the child reporting `dom
 `slots held: 0 1 2 7`. The row counts are now 31 (`design/fatal-risks/README.md` and
 `design/fatal-risks/the-confinement-claims.md`). Milestone 202's Follow-on entry is marked done.
 
-Limits, recorded where a reader meets them: the sweep cannot replay a swish-check line, so the record
-is by hand (a known gap in `script/falsifications`' report); only the domain defect has a patch, and
-only aarch64 was replayed. The proposal's cost estimate (about 65 bold spans) was not paid: the
+Limits, recorded where a reader meets them: the record was replayed by hand, because the sweep
+could not replay a swish-check line until milestone 742 (every test is falsified as routine). Only
+the domain defect has a patch, and only aarch64 was replayed. The proposal's cost estimate (about 65 bold spans) was not paid: the
 prose ratchet judged the row against its baseline, and the lane cut three restating sentences from
 the note to keep its word count at or under main's.
 

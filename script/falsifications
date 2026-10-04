@@ -69,6 +69,23 @@
 # package's `falsifications/` must be claimed by a harness **or** by a test, and an unclaimed one is
 # still reported as rot.
 #
+# **A host `#[test]` can carry one too** (milestone 742, opt-in): replayed with `cargo test -p <pkg>
+# --test <file> <name> --exact` (or `--lib`), red only on `running 1 test` and `1 failed`. Because
+# that is seconds, host records ride `--affected-since` with the Kani ones. The patch path puts an
+# integration-test file's target name first (`nth_allocation.<fn>.patch`), since such a file is its
+# own crate root and contributes no module segment.
+#
+# **A swish-check record is the third thing a block can sit above** (milestone 742 (every test is
+# falsified as routine), provisional). Milestone 673 (the confinement table lists the unvouched
+# child) recorded `xtask/falsifications/swish_check.swish_check_boot.patch` against row 31 of
+# notes/confinement-claims.md and could only replay it by hand. Now a block above a function in
+# `xtask/src/swish_check.rs` is swept with `script/swish-check --arch <a>`, opt-in like a kernel
+# test, and the patch must name the typed line it breaks (`Line:`, provisional) because red counts
+# only when swish-check's own FAILED report names that line. **Only one such record can exist
+# today**: the path is keyed on a function and every line is typed by `swish_check_boot`, so a
+# second line's record has no name to take. That is a §134 (a harness carries a machine-replayable falsification record) spelling question and an architect's;
+# design/roadmap/proposals/a-swish-check-line-has-a-falsification-path.md carries it.
+#
 # The block, which is all the lint checks:
 #
 #   /// Falsification: replayable `crates/capability/falsifications/verification.subset_is_transitive.patch`
@@ -86,6 +103,7 @@
 #   script/falsifications --count           two integers, harnesses and how many are falsified,
 #                                           for the drift check in script/lint (milestone 236)
 #   script/falsifications --sweep [package] apply every recorded patch, require red, revert
+#                                           (the weekly job, falsifications.yml, goes red on a finding)
 #   script/falsifications --affected-since <base>   sweep only what a diff can reach (the per-PR half)
 #
 # Both sweeps give each record **at most 15 minutes (a kernel test 30)** and report one that runs
@@ -136,8 +154,8 @@
 #   be redone rather than trusted. It is still churn, and a heavily refactored crate re-falsifies
 #   often. `--sweep` reports a patch that will not apply as a failure, not as a skip, and since
 #   2026-09-25 `--check` does too, so the pull request that moves the code is the one that fails.
-#   Before that, only the weekly sweep looked, and its job reports success whatever it finds
-#   (`continue-on-error`, by design): three x86 port records sat stale from the merge of
+#   Before that, only the weekly sweep looked, and its job reported success whatever it found
+#   (`continue-on-error`, by design until milestone 742): three x86 port records sat stale from the merge of
 #   milestone 315 (a port revoke that reaches every core) until a rename lane tripped over them.
 #   Applying is not red; a re-cut patch still wants a replay.
 # - **The limit is a wall clock on a shared machine, so load can turn a slow record into a false
@@ -278,6 +296,9 @@ FALSIFIES = re.compile(r"^Falsifies\s+`?([A-Za-z_][\w:]*)`?", re.M)
 # A kernel `#[test_case]`, matched on the stripped line exactly as `PROOF` is (milestone 305).
 TEST_CASE = re.compile(r"^#\[test_case\]")
 
+# A host `#[test]` (milestone 742, provisional), the fourth thing a block can sit above.
+HOST_TEST = re.compile(r"^#\[test\]$")
+
 # `Architecture: riscv64` in a kernel patch's prose head: which leg the sweep boots. Default
 # `aarch64`. See this script's BUGS on why a kernel record is swept on one architecture.
 # A comma list (`Architecture: aarch64, x86_64`) names every leg the record is replayed on, and the
@@ -285,6 +306,18 @@ TEST_CASE = re.compile(r"^#\[test_case\]")
 # boots and every one must come back red.
 ARCH_DECL = re.compile(r"^Architecture:\s*(\w+(?:\s*,\s*\w+)*)\s*$", re.M)
 ARCHES = ("aarch64", "riscv64", "x86_64")
+
+# **A swish-check record** (milestone 742, provisional): a `Falsification:` block above a function
+# in this one file, replayed by booting `script/swish-check`. One file rather than a pattern,
+# because swish-check IS one file: its script is a table of typed lines and the function the
+# record sits above is the boot that types them.
+SWISH_CHECK_SOURCE = "xtask/src/swish_check.rs"
+
+# `Line: installed/unvouched` in a swish-check patch's prose head: the typed line whose failure is
+# the red. The field name is provisional (an architect names things). It is required, because
+# swish-check fails a whole boot on ANY line, and a red from some other line would read as this
+# record's evidence; the kernel sweep's `running 1 of N` check is the same care for the same reason.
+LINE_DECL = re.compile(r"^Line:\s*(.+?)\s*$", re.M)
 
 MOD_OPEN = re.compile(r"^(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*\{")
 
@@ -696,6 +729,144 @@ class KernelTest(Harness):
         return ["cargo", "xtask", "test", "--arch", arch, "--test", self.name]
 
 
+class SwishCheckRecord(KernelTest):
+    """A record above a function in `xtask/src/swish_check.rs` (milestone 742, provisional).
+
+    The three states, the patch path and `Architecture:` are a kernel test's. What differs is the
+    replay verb, `script/swish-check --arch <a>`, and that the red must be about the line the
+    patch's `Line:` names, read from swish-check's own FAILED report.
+    """
+
+    kind = "swish-check line"
+
+    @property
+    def line_under_test(self):
+        path = self.patch
+        if not path or not os.path.exists(os.path.join(root, path)):
+            return None
+        body = open(os.path.join(root, path), errors="replace").read()
+        hit = LINE_DECL.search(body.split("diff --git")[0])
+        return hit.group(1).strip("`") if hit else None
+
+    def replay_argv(self, arch):
+        return ["script/swish-check", "--arch", arch]
+
+
+class HostTest(Harness):
+    """A host `#[test]` carrying a `Falsification:` block (milestone 742, provisional).
+
+    Opt-in, like a kernel test. Replayed with `cargo test`, which is seconds, not a boot.
+    """
+
+    kind = "host test"
+    architectures = ["host"]
+
+    @property
+    def in_target(self):
+        """The test's path inside its own test binary: what `cargo test <filter> --exact` matches."""
+        return "::".join(self.mods + [self.name])
+
+    @property
+    def conventional_patch(self):
+        # §134's `<package>/falsifications/<module.path>.<fn>.patch`. An integration test file is
+        # its own crate root, so it contributes no module segment, and two files in `tests/` could
+        # then define the same name; the target name goes first to keep the path unique. That is
+        # the spelling #1596 used for `crates/paging/tests/nth_allocation.rs`.
+        lead = [self.target[0]] if self.target is not None and self.target[1] == "test" else []
+        return "%s/falsifications/%s.patch" % (self.pkg.reldir, ".".join(lead + self.mods + [self.name]))
+
+    def replay_argv(self):
+        argv = ["cargo", "test", "-p", self.package]
+        kind = self.target[1] if self.target is not None else "lib"
+        if kind == "test":
+            argv += ["--test", self.target[0]]
+        elif kind == "bin":
+            argv += ["--bin", self.target[0]]
+        else:
+            argv += ["--lib"]
+        return argv + ["--", self.in_target, "--exact"]
+
+
+def host_tests(pkgs=None):
+    """Every host `#[test]` that carries a `Falsification:` block. Opt-in: the rest are skipped."""
+    pkgs = pkgs if pkgs is not None else packages()
+    found = subprocess.run(["git", "-C", root, "grep", "-lE", r"^\s*#\[test\]\s*$", "--", "*.rs"],
+                           capture_output=True, text=True).stdout.split()
+    out = []
+    for rel in sorted(found):
+        if rel.startswith("vendor/"):
+            continue
+        text = open(os.path.join(root, rel), errors="replace").read()
+        if "Falsification:" not in text:
+            continue
+        pkg = next((p for p in pkgs if rel.startswith(p.prefix)), None)
+        if pkg is None:
+            continue
+        lines = text.split("\n")
+        mods = module_path_by_line(pkg.file_mods(rel), lines)
+        target, _ = pkg.target_of(rel)
+        for i, line in enumerate(lines):
+            if not HOST_TEST.match(line.strip()):
+                continue
+            name = None
+            for j in range(i + 1, len(lines)):
+                st = lines[j].strip()
+                if not st or ATTR.match(st) or COMMENT.match(st):
+                    continue
+                hit = FN.match(st)
+                name = hit.group(1) if hit else None
+                break
+            if name is None:
+                continue
+            record, record_line = None, None
+            k = i - 1
+            while k >= 0 and ATTR.match(lines[k].strip()):
+                k -= 1
+            while k >= 0 and COMMENT.match(lines[k].strip()):
+                got = RECORD.match(lines[k].strip())
+                if got:
+                    record, record_line = got.group(1).strip(), k + 1
+                k -= 1
+            if record is not None:
+                out.append(HostTest(pkg, target, name, rel, i + 1, record, record_line, mods[i]))
+    return out
+
+
+def swish_check_records(pkgs=None):
+    """Every function in `SWISH_CHECK_SOURCE` that carries a `Falsification:` block.
+
+    Opt-in, like a kernel test: a function with no block is skipped, not reported.
+    """
+    pkgs = pkgs if pkgs is not None else packages()
+    rel = SWISH_CHECK_SOURCE
+    if not os.path.exists(os.path.join(root, rel)):
+        return []
+    pkg = next((p for p in pkgs if rel.startswith(p.prefix)), None)
+    if pkg is None:
+        return []
+    lines = open(os.path.join(root, rel), errors="replace").read().split("\n")
+    mods = module_path_by_line(pkg.file_mods(rel), lines)
+    target, _ = pkg.target_of(rel)
+    out = []
+    for i, line in enumerate(lines):
+        hit = FN.match(line.strip())
+        if not hit:
+            continue
+        record, record_line = None, None
+        k = i - 1
+        while k >= 0 and ATTR.match(lines[k].strip()):
+            k -= 1
+        while k >= 0 and COMMENT.match(lines[k].strip()):
+            got = RECORD.match(lines[k].strip())
+            if got:
+                record, record_line = got.group(1).strip(), k + 1
+            k -= 1
+        if record is not None:
+            out.append(SwishCheckRecord(pkg, target, hit.group(1), rel, i + 1, record, record_line,
+                                        mods[i]))
+    return out
+
+
 def patch_files(pkgs):
     """Every patch under a package's `falsifications/`, repo-relative."""
     out = []
@@ -782,9 +953,16 @@ def check(hs, pkgs, kts=()):
             lambda q: subprocess.run(["git", "-C", root, "apply", "--check", os.path.join(root, q)],
                                      capture_output=True, text=True), wanted)))
     for t in kts:
-        if t.state == "replayable" and t.patch and not all(a in ARCHES for a in t.architectures):
+        if (t.kind != "host test" and t.state == "replayable" and t.patch
+                and not all(a in ARCHES for a in t.architectures)):
             problems.append("%s:%d: `%s` declares `Architecture: %s`; the three are %s"
                             % (t.rel, t.line, t.patch, t.architecture, ", ".join(ARCHES)))
+    for t in kts:
+        if (t.kind == "swish-check line" and t.state == "replayable" and t.patch
+                and os.path.exists(os.path.join(root, t.patch)) and t.line_under_test is None):
+            problems.append("%s:%d: `%s` names no `Line:` in its prose head. swish-check fails a "
+                            "boot on any line, so the record must say which line's failure is "
+                            "its red" % (t.rel, t.line, t.patch))
     hs = list(hs) + list(kts)
     # A duplicate qualified name is impossible in Rust, so this is a guard on the PARSER rather than
     # on the tree: if brace counting ever miscomputes a module path, two harnesses collapse onto one
@@ -908,6 +1086,10 @@ def table(hs, pkgs, kts=()):
     # number would make two honest derivations disagree. And the evidence is not the same grade: a
     # Kani record is re-checked in a second and a kernel record costs a boot, so they are re-checked
     # at different cadences and a reader should be told which they are looking at.
+    all_kts = kts
+    kts = [t for t in all_kts if t.kind == "kernel test"]
+    sws = [t for t in all_kts if t.kind == "swish-check line"]
+    hts = [t for t in all_kts if t.kind == "host test"]
     if kts:
         print("")
         print("%d kernel test(s) carry a falsification record, swept by booting the architectures each names:"
@@ -917,7 +1099,23 @@ def table(hs, pkgs, kts=()):
             print("  %-*s  %s" % (kwidth, t.name, t.record))
         n = sum(1 for t in kts if t.state == "replayable")
         print("  %d of %d replayable. These are NOT in the ratio above." % (n, len(kts)))
-    _, gaps = check(hs, pkgs, kts)
+    if sws:
+        print("")
+        print("%d swish-check record(s), swept by `script/swish-check` on the architectures each names:"
+              % len(sws))
+        for t in sws:
+            print("  %s, line `%s`  %s" % (t.name, t.line_under_test or "?", t.record))
+        n = sum(1 for t in sws if t.state == "replayable")
+        print("  %d of %d replayable. These are NOT in the ratio above." % (n, len(sws)))
+    if hts:
+        print("")
+        print("%d host test(s) carry a falsification record, swept by `cargo test`:" % len(hts))
+        hwidth = max(len(t.name) for t in hts)
+        for t in hts:
+            print("  %-*s  %s" % (hwidth, t.name, t.record))
+        n = sum(1 for t in hts if t.state == "replayable")
+        print("  %d of %d replayable. These are NOT in the ratio above." % (n, len(hts)))
+    _, gaps = check(hs, pkgs, all_kts)
     if gaps:
         print("")
         print("%d falsification record(s) nothing here can sweep, because the thing they falsify is"
@@ -1137,6 +1335,84 @@ def replay_kernel_test_on(t, arch):
     return "red", "the test caught it on %s\n      %s" % (arch, "\n      ".join(body))
 
 
+def replay_host_test(t):
+    """Run one host `#[test]` against the applied patch (milestone 742). Returns (verdict, detail).
+
+    Red needs `running 1 test` and `1 failed`: a patch that does not compile, or a filter that
+    selects nothing or several, is an error and not evidence.
+    """
+    rc, out, _, hung = run_bounded(t.replay_argv(), LIMIT_KANI)
+    if hung:
+        return timed_out(LIMIT_KANI, "`cargo test`")
+    ran = re.findall(r"^running (\d+) tests?$", out, re.M)
+    selected = sum(int(n) for n in ran)
+    if not ran:
+        last = [l for l in out.strip().splitlines() if l.strip()]
+        return "error", ("the test binary never ran (exit %d): the patch may not compile.%s"
+                         % (rc, ("\n    " + last[-1]) if last else ""))
+    if selected != 1:
+        return "error", "`%s --exact` selected %d tests, not 1" % (t.in_target, selected)
+    if re.search(r"test result: ok\. 1 passed", out):
+        return "survivor", "it ran, it passed, and the defect is still in the tree under the patch"
+    if re.search(r"test result: FAILED\. 0 passed; 1 failed", out):
+        hit = re.search(r"^.*panicked at.*$", out, re.M)
+        body = out[hit.start():].splitlines()[:3] if hit else []
+        return "red", "the test caught it\n      %s" % "\n      ".join(l.strip() for l in body)
+    return "error", "could not read the test result (exit %d)" % rc
+
+
+def replay_swish_check(t):
+    """Replay a swish-check record on every leg it names, and require red on each (milestone 742).
+
+    The same shape as `replay_kernel_test`: the first leg that is not red decides the verdict.
+    """
+    reds = []
+    for arch in t.architectures:
+        verdict, detail = replay_swish_check_on(t, arch)
+        if verdict != "red":
+            return verdict, "%s (on %s)" % (detail, arch)
+        reds.append(detail)
+    return "red", "\n    ".join(reds)
+
+
+def replay_swish_check_on(t, arch):
+    """Boot one swish-check leg against the applied patch. Returns (verdict, detail).
+
+    **Red is a failure ON THE NAMED LINE, never a non-zero exit alone.** swish-check fails a boot
+    for a slow leg, a leaked region, a dead process or any line at all, and a patch that broke the
+    build fails it too. So the transcript must carry swish-check's own `--- swish-check (<arch>)
+    FAILED ---` report, and one of its entries must open with the record's `Line:` in backticks,
+    which is how every per-line failure is spelled (`` `<line>` answered ..., wanted ... ``). A red
+    for any other reason is `error`, because it is not evidence about this line.
+    """
+    rc, out, _, hung = run_bounded(t.replay_argv(arch), LIMIT_KERNEL_TEST)
+    if hung:
+        return timed_out(LIMIT_KERNEL_TEST, "the swish-check build and boots")
+    if rc == 0:
+        return "survivor", ("every line answered as wanted on %s with the defect in the tree"
+                            % arch)
+    line = t.line_under_test
+    if line is None:
+        return "error", "the patch names no `Line:`, so no red can be attributed to it"
+    marker = "--- swish-check (%s) FAILED ---" % arch
+    at = out.rfind(marker)
+    if at < 0:
+        last = [l for l in out.strip().splitlines() if l.strip()]
+        return "error", ("swish-check exited %d on %s with no FAILED report: the patch may not "
+                         "build, or the boot died before any line was judged.%s"
+                         % (rc, arch, ("\n    " + last[-1]) if last else ""))
+    failures = []
+    for l in out[at + len(marker):].splitlines()[1:]:
+        if not l.startswith("  "):
+            break
+        failures.append(l.strip())
+    named = [f for f in failures if f.startswith("`%s` " % line)]
+    if not named:
+        return "error", ("red on %s, but not on `%s`; the failures were:\n      %s"
+                         % (arch, line, "\n      ".join(failures) or "(none listed)"))
+    return "red", "the line caught it on %s\n      %s" % (arch, named[0][:300])
+
+
 def sweep(hs, only=None):
     """Apply each recorded patch, run that ONE harness, require red, revert.
 
@@ -1170,7 +1446,9 @@ def sweep(hs, only=None):
             broken.append(h)
             continue
         try:
-            replay = replay_kernel_test if h.kind == "kernel test" else replay_kani
+            replay = {"kernel test": replay_kernel_test,
+                      "swish-check line": replay_swish_check,
+                      "host test": replay_host_test}.get(h.kind, replay_kani)
             began = time.monotonic()
             verdict, detail = replay(h)
             # Every verdict carries its wall-clock time, build included, because the limit above
@@ -1205,7 +1483,7 @@ def sweep(hs, only=None):
         print("  stale     %s::%s" % (h.package, h.name))
     for h in hung:
         print("  no verdict %s::%s (limit %d s)"
-              % (h.package, h.name, LIMIT_KERNEL_TEST if h.kind == "kernel test" else LIMIT_KANI))
+              % (h.package, h.name, LIMIT_KANI if h.kind in ("kani", "host test") else LIMIT_KERNEL_TEST))
     return 1 if (survivors or broken or hung) else 0
 
 
@@ -1268,7 +1546,9 @@ def affected_packages(base, hs):
 
 pkgs = packages()
 hs = harnesses(pkgs)
-kts = kernel_tests(pkgs)
+# Kernel tests and swish-check records travel together below: both are opt-in, both are swept by
+# booting, and neither is in the Kani ratio. `table()` prints them as two paragraphs.
+kts = kernel_tests(pkgs) + swish_check_records(pkgs) + host_tests(pkgs)
 if not hs:
     sys.exit("script/falsifications: found no Kani harnesses in any workspace package, which cannot "
              "be right")
@@ -1284,9 +1564,18 @@ if mode == "--check":
     n = sum(1 for h in hs if h.state == "replayable")
     print("  %d harnesses in %d packages, every one carrying a Falsification: block (%d replayable)"
           % (len(hs), len({h.package for h in hs}), n))
-    if kts:
+    kt_only = [t for t in kts if t.kind == "kernel test"]
+    sw_only = [t for t in kts if t.kind == "swish-check line"]
+    if kt_only:
         print("  %d kernel test(s) carry a record (%d replayable), swept by booting the architectures each names"
-              % (len(kts), sum(1 for t in kts if t.state == "replayable")))
+              % (len(kt_only), sum(1 for t in kt_only if t.state == "replayable")))
+    if sw_only:
+        print("  %d swish-check record(s) (%d replayable), swept by `script/swish-check`"
+              % (len(sw_only), sum(1 for t in sw_only if t.state == "replayable")))
+    ht_only = [t for t in kts if t.kind == "host test"]
+    if ht_only:
+        print("  %d host test(s) carry a record (%d replayable), swept by `cargo test`"
+              % (len(ht_only), sum(1 for t in ht_only if t.state == "replayable")))
     for p, _ in gaps:
         print("  %s falsifies something that is not a Kani harness; nothing sweeps it" % p)
 elif mode == "--count":
@@ -1310,12 +1599,15 @@ elif mode == "--sweep":
 elif mode == "--affected-since":
     if len(args) < 2:
         sys.exit("usage: script/falsifications --affected-since <base-ref>")
-    names = affected_packages(args[1], hs)
+    # Host-test records ride the per-PR half too (milestone 742): a replay is one `cargo test`,
+    # seconds, so the cost argument that keeps kernel and swish-check records weekly does not apply.
+    cheap = hs + [t for t in kts if t.kind == "host test"]
+    names = affected_packages(args[1], cheap)
     if not names:
         print("no harness package is reachable from this change; nothing to re-falsify")
         sys.exit(0)
     print("reachable harness packages: %s" % ", ".join(sorted(names)))
-    sys.exit(sweep(hs, names))
+    sys.exit(sweep(cheap, names))
 elif mode in ("", "--all"):
     table(hs, pkgs, kts)
 else:

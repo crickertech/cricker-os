@@ -13,7 +13,18 @@ name: falsification sweep
 # **A report, not a gate**, deliberately copying `script/mutation`'s posture for the reason §134
 # gives: a survivor is a worklist entry rather than a defect in whatever commit happened to precede
 # the cron. The per-pull-request half is `script/falsifications --affected-since`, which re-falsifies
-# only the harnesses a diff can reach and costs seconds; it lives in ci.yml, not here.
+# only the harnesses a diff can reach and costs seconds; it lives in verify.yml, not here, and it
+# covers Kani and host-test records only. **This run is the only thing that replays a kernel-test or a
+# swish-check record at all.**
+#
+# **But the run goes red when the report has a finding, since milestone 742 (provisional).** Until
+# then the sweep step was `continue-on-error` and the job reported success whatever it found. The
+# scheduled run of 2026-09-28 swept 165 records, found one stale
+# (`system_tests::port_holder_transmits_then_a_non_holder_faults`), and reported success; the
+# finding was in a step summary nobody had a reason to open. trunk-health.yml draws the line this
+# follows: a printed line in a green run is a line nobody sees, and a red scheduled run is one
+# GitHub notifies on. It is still a report and not a gate, because nothing requires it and no pull
+# request waits on it.
 #
 # **Unsharded, and that is a measurement rather than an oversight.** A falsification runs ONE
 # harness, so the sweep costs one harness-run per record and not one `script/verify` per record.
@@ -76,8 +87,12 @@ jobs:
       - name: Install Kani
         run: cargo kani --version || (cargo install --locked kani-verifier && cargo kani setup)
 
-      # `continue-on-error`, because a survivor is a finding to publish rather than a red check
-      # somebody has to silence. The summary below carries the verdict.
+      # Not `continue-on-error` any more (milestone 742, provisional): the step fails when the
+      # sweep has a survivor, a stale record or no verdict, the report below still publishes
+      # (`if: always()`), and the run goes red so the finding reaches someone. It used to be
+      # `continue-on-error`, on the argument that a survivor is a finding to publish rather than
+      # a red check somebody has to silence, and the 2026-09-28 run showed what that cost: a stale
+      # record inside a green run.
       #
       # **The transcript is written to `RUNNER_TEMP`, never into the checkout**, and this is a
       # correction rather than a preference: `tee sweep.txt` put an untracked file in the work tree
@@ -88,8 +103,10 @@ jobs:
       # copy of the refusal. Found 2026-09-23 by dispatching this workflow on a lane branch.
       - name: Sweep
         id: sweep
-        continue-on-error: true
-        run: script/falsifications --sweep 2>&1 | tee "$RUNNER_TEMP/sweep.txt"
+        shell: bash
+        run: |
+          set -o pipefail
+          script/falsifications --sweep 2>&1 | tee "$RUNNER_TEMP/sweep.txt"
 
       - name: Publish the report
         if: always()
