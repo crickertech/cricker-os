@@ -148,6 +148,10 @@ pub struct Wiring {
     /// `grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`, as the real boot places it, and a test
     /// `ipc_receive`s here to confirm the copy a session was handed names this object.
     pub run_unvouched: RendezvousId,
+    /// **`login`'s own thread** (milestone 757 (a test kernel fails a process on its Nth retype),
+    /// provisional): what `retype_fault::arm` names, and whose capability table a sweep reads
+    /// before and after each run. A test reads it; nothing sends to it.
+    pub tid: crate::thread::ThreadId,
 }
 
 /// Copy `bytes` into fresh read-only pages at consecutive VAs from `base` (milestone 233).
@@ -407,6 +411,7 @@ pub fn start(
         audit,
         term_ep,
         run_unvouched,
+        tid,
     }
 }
 

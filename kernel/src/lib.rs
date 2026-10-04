@@ -113,6 +113,12 @@ mod thread;
 // The measured-boot trust root: the digest of the boot program this kernel image was built
 // against (milestone 22 phase B.1, DECISIONS §22). Generated into the image by build.rs.
 mod memory_region;
+// The test kernel's Nth-retype fault (milestone 757 (a test kernel fails a process on its Nth
+// retype), provisional). Only the system-test image has
+// it, and every call into it carries the same `cfg`, so a shipping build has no code that could
+// fire. See the module's own header.
+#[cfg(feature = "system_tests")]
+mod retype_fault;
 mod trust;
 mod user;
 mod virtio;
@@ -178,6 +184,9 @@ pub mod system_test_access {
     }
     pub mod non_volatile_memory_express {
         pub use crate::non_volatile_memory_express::*;
+    }
+    pub mod retype_fault {
+        pub use crate::retype_fault::*;
     }
     pub mod revoke {
         pub use crate::revoke::*;
