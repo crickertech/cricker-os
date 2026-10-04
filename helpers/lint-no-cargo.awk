@@ -35,9 +35,9 @@ function close_block(   keep) {
         out = out body
         return
     }
-    if (optin && !cargo) { print "lint --no-cargo: \"" name "\" carries a no-cargo-ok marker but runs no cargo; delete the marker" > "/dev/stderr"; bad = 1 }
-    if (optin && !guarded) { print "lint --no-cargo: \"" name "\" carries a no-cargo-ok marker but never reads LINT_NO_CARGO, so it would run cargo in the mode that forbids it" > "/dev/stderr"; bad = 1 }
-    keep = (!cargo || optin)
+    if (okmark && !cargo) { print "lint --no-cargo: \"" name "\" carries a no-cargo-ok marker but runs no cargo; delete the marker" > "/dev/stderr"; bad = 1 }
+    if (okmark && !guarded) { print "lint --no-cargo: \"" name "\" carries a no-cargo-ok marker but never reads LINT_NO_CARGO, so it would run cargo in the mode that forbids it" > "/dev/stderr"; bad = 1 }
+    keep = (!cargo || okmark)
     if (mode == "list") print (keep ? "run   " : "skip  ") name
     else if (keep) out = out body
 }
@@ -45,13 +45,13 @@ function close_block(   keep) {
 /^echo "==> / {
     close_block()
     name = substr($0, 7, length($0) - 7); body = $0 "\n"
-    cargo = 0; optin = 0; guarded = 0
+    cargo = 0; okmark = 0; guarded = 0
     next
 }
 {
     body = body $0 "\n"
     if (is_cargo($0)) cargo = 1
-    if ($0 ~ /^[ \t]*#[ \t]*no-cargo-ok:/) optin = 1
+    if ($0 ~ /^[ \t]*#[ \t]*no-cargo-ok:/) okmark = 1
     if ($0 !~ /^[ \t]*#/ && $0 ~ /LINT_NO_CARGO/) guarded = 1
 }
 END {
