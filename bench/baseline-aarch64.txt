@@ -1,9 +1,10 @@
-# toolchain: nightly-2026-10-03
+# toolchain: nightly-2026-10-04
 # qemu: 11.1.1
 # date: 2026-10-03
 # why: milestone 629 (the context-switch statistic stops costing the switch path): the switch count moved from a fetch_add on the machine statistics page to PerCpu::switches, published on the tick; per switch 134 -> 31 instructions at -O0 (riscv64), ruled option B on #1489
 # why: #1486 (drift since the 2026-09-26 floors) attributed the rest: map_new from the RETYPE layering of milestone 23 (a capability-routed component OS with live replacement) and the fixed +43 of milestone 206 (a program image has under 896 KiB), spawn_reap partly from the 24-to-32 capability table; recorded here rather than recovered
 # why: 2026-10-03: restamped from nightly-2026-10-02 to nightly-2026-10-03 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: spawn_el0 +0.096%, ctx_switch -0.040%, ipc_rtt_el0 -0.005% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: spawn_el0 +0.096%, ctx_switch -0.040%, ipc_rtt_el0 -0.005%, sink_throughput +0.003%
+# why: 2026-10-04: restamped from nightly-2026-10-03 to nightly-2026-10-04 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: map_new +0.006%, sink_throughput -0.005% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: spawn_el0 +0.096%, ctx_switch -0.040%, map_new +0.006%, ipc_rtt_el0 -0.005%, sink_throughput -0.002%
 # bench/baseline-aarch64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
