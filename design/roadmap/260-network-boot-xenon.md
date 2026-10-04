@@ -185,7 +185,7 @@ faster bench session, not an unattended one.**
   firmware settings that would make it try at all are still unticked. **Correction (2026-10-04
   UTC):** this sentence used to say "a Broadcom LOM", with no source. Source for the fix: the PCI
   survey line in the 2026-10-04 photos, class `020000`, `00:1f.6 8086:15e3`, an Intel I219-LM;
-  milestone 494's block and `notes/e1000e.md` (on its branch until #1632 lands) say the same.
+  milestone 494 (a driver for the network card a PC actually has) and `notes/e1000e.md` (on its branch until #1632 lands) say the same.
 - **Nothing in this repository has ever talked to the house router.** The rehearsal implements what
   the `dnsmasq` lines *mean*; it does not prove `dnsmasq` implements them the same way, and it does
   not prove OpenWRT's UI will accept them. **The `dhcp-match` half has no UCI form** and has to go
