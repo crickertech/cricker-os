@@ -98,6 +98,11 @@ mod smp;
 // must still halt: this module is the thing that makes a boot never end.
 #[cfg(feature = "job_mix")]
 mod job_mix;
+// How often the job mix's threads found a kernel lock held (2026-10-04, fatal risk 4). Its own
+// feature on top of `job_mix`, because its counting sits on the lock path and the job-mix image
+// that is not asked for it should be the kernel that ships.
+#[cfg(feature = "lock_wait")]
+mod lock_wait;
 // Fatal risk 6's bench boot (milestone 261 (the NVMe driver leaves the kernel)): preflight the two night-of conditions, then measure a
 // confined EL0 NVMe driver's throughput and halt. Behind a feature because it writes to the disk.
 #[cfg(feature = "disk_throughput")]

@@ -325,8 +325,24 @@ impl<T> IrqSafeMutex<T> {
 
         held_rank.store(self.rank, Ordering::Relaxed);
 
+        // The job mix's lock-wait instrument (`crate::lock_wait`), and nothing in any other build.
+        // `try_lock` first is the same compare-and-swap `lock` opens with, so an acquisition that
+        // finds the lock free costs what it always did; only one that finds it held is timed.
+        #[cfg(feature = "lock_wait")]
+        let guard = match self.inner.try_lock() {
+            Some(guard) => guard,
+            None => {
+                let t0 = crate::arch::timer::now();
+                let guard = self.inner.lock();
+                crate::lock_wait::contended(self.rank, crate::arch::timer::now() - t0);
+                guard
+            }
+        };
+        #[cfg(not(feature = "lock_wait"))]
+        let guard = self.inner.lock();
+
         IrqSafeGuard {
-            guard: ManuallyDrop::new(self.inner.lock()),
+            guard: ManuallyDrop::new(guard),
             irqs_were_enabled,
             previous_rank: held,
         }

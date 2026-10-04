@@ -2596,12 +2596,20 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
     };
     drop(guard);
 
+    #[cfg(feature = "lock_wait")]
+    let t0 = crate::arch::timer::now();
     drop(stack);
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::stack_freed(crate::arch::timer::now() - t0);
 
     {
         let mut guard = IPC_TABLES.lock();
         if let Some(sched) = guard.as_mut() {
+            #[cfg(feature = "lock_wait")]
+            let t0 = crate::arch::timer::now();
             sched.threads.remove(prev);
+            #[cfg(feature = "lock_wait")]
+            crate::lock_wait::reaped(crate::arch::timer::now() - t0);
         }
     }
     drop(space);
@@ -4444,7 +4452,13 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
 /// indexes an array that lives in kernel memory and that userspace has never seen. An empty slot
 /// is `NoSuchSlot`, which is not "permission denied": **there is nothing there.**
 pub fn current_cap(slot: u64) -> Result<crate::cap::Cap, crate::cap::Error> {
+    // The lock-wait instrument marks this one acquisition: it is the only lock the cheapest
+    // syscall takes. See `crate::lock_wait`; absent from every build without `lock_wait`.
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::enter_current_cap();
     let guard = IPC_TABLES.lock();
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::leave_current_cap();
     let sched = guard.as_ref().ok_or(crate::cap::Error::NoSuchSlot)?;
     sched
         .threads
