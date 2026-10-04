@@ -1007,9 +1007,18 @@ pub fn print_faults(rid: u32) {
     } else if shown > 6 {
         crate::println!("diag vt-d ... {} more fault records not shown", shown - 6);
     }
+    print_context_entry(s, &ctx_tables, rid);
+}
+
+/// One line: the root and context entries for `rid` as the CPU sees them, with the domain id
+/// decoded against the width this unit implements (`CAP.ND`). xenon's second diagnostic boot
+/// (2026-10-04) faulted with reason 0x0b on `ctx .. 0x10002`, domain 0x100 on a unit whose
+/// `CAP.ND` = 2 allows 255; this line says whether a boot is past that.
+#[cfg(feature = "disk_throughput")]
+fn print_context_entry(s: &Unit, ctx_tables: &[Option<u64>; 256], rid: u32) {
     let bus = (rid >> 8) as u64 & 0xff;
     let devfn = rid as u64 & 0xff;
-    // SAFETY: `s.root` and any `s.ctx` entry are kernel-owned table frames; bus and devfn are
+    // SAFETY: `s.root` and any context table are kernel-owned table frames; bus and devfn are
     // masked to the 256 entries each holds. Reads only.
     let (re, ce) = unsafe {
         let re = core::ptr::read_volatile(phys_to_virt(s.root + bus * 16) as *const u64);
@@ -1023,8 +1032,25 @@ pub fn print_faults(rid: u32) {
         (re, ce)
     };
     match ce {
-        Some((lo, hi)) => crate::println!("diag vt-d root[{bus}] {re:#x} ctx {lo:#x} {hi:#x}"),
+        Some((lo, hi)) => crate::println!(
+            "diag vt-d root[{bus}] {re:#x} ctx {lo:#x} {hi:#x} (did {}, nd allows {}, aw {})",
+            (hi >> CTX_DID_SHIFT) & 0xffff,
+            s.last_did,
+            hi & 7,
+        ),
         None => crate::println!("diag vt-d root[{bus}] {re:#x} ctx none (never attached)"),
+    }
+}
+
+/// The context-entry line on its own, for a bring-up that succeeded: the bench photograph then
+/// shows the entry the unit accepted, not only the one it refused.
+#[cfg(feature = "disk_throughput")]
+pub fn print_context(rid: u32) {
+    let owner = owner_index(rid);
+    let g = IOMMU.lock();
+    let Some(i) = owner else { return };
+    if let Slot::Up(s) = &g.slots[i] {
+        print_context_entry(s, &g.ctx[i], rid);
     }
 }
 

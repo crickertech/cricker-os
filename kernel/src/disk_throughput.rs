@@ -169,6 +169,9 @@ fn measure() -> Verdict {
             return Verdict::Failed("the controller is present and failed bring-up (line above)");
         }
     };
+    // Bench diagnostic (xenon, 2026-10-04): the context entry the unit accepted.
+    #[cfg(target_arch = "x86_64")]
+    crate::arch::iommu::print_context(disk.rid);
     if let Some(report) = disk.wait_for_ready()
         && report[0] != filesystem_protocol::fixture::READY
     {
