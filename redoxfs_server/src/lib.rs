@@ -799,11 +799,19 @@ impl<D: Disk> Server<D> {
     /// handle 0 is not something the client opened, it is the root of its namespace, and a client
     /// that could close it could make every later request in the session fail.
     ///
+    /// **Nor can a bound badge's grant root, while it is bound**, for the same reason one level
+    /// down, and with `EINVAL` for the same reason. The handle table is per server, so an open
+    /// client could otherwise close the handle a bound badge's `ROOT` resolves to, and the next
+    /// open anywhere would reuse the slot: the bound badge's `ROOT` would then name that object,
+    /// outside its grant. [`Server::unbind`] revokes the badge first and then closes the root, so
+    /// taking the grant back is how the handle is released. Found by the `redoxfs_server_session`
+    /// fuzz target (`lane/fuzz-service-handlers`, 2026-10-04 UTC).
+    ///
     /// Closing a **file** handle is also what finally frees a node whose last name was unlinked
     /// while this handle was open (see [`Server::unlink`]). Nothing else collects it, so a close is
     /// not merely bookkeeping in a table this server owns.
     pub fn close(&mut self, handle: u32) -> Result<()> {
-        if handle as u64 == filesystem_protocol::fs::ROOT {
+        if handle as u64 == filesystem_protocol::fs::ROOT || self.is_grant_root(handle) {
             return Err(Error::new(EINVAL));
         }
         let entry = self.entry(handle)?;
@@ -910,6 +918,16 @@ impl<D: Disk> Server<D> {
         subtree_scope::admit(self.bindings.of(badge), badge, requested, owner)
             .map(|h| h as u32)
             .map_err(refused)
+    }
+
+    /// Whether some badge's grant is rooted at `handle` (see [`Server::close`]).
+    fn is_grant_root(&self, handle: u32) -> bool {
+        (1..filesystem_protocol::fs::CLIENT_WINDOWS as u64).any(|b| {
+            self.bindings.of(b)
+                == subtree_scope::Binding::Bound {
+                    root: handle as u64,
+                }
+        })
     }
 
     /// Whether `badge` is bound or revoked, rather than carrying the endpoint's whole authority.
@@ -2378,6 +2396,41 @@ mod tests {
             srv.read(f, 0, &mut buf).err().map(|e| e.errno),
             Some(EBADF),
             "closed"
+        );
+    }
+
+    /// **A grant's root cannot be closed out from under its binding** (found by the
+    /// `redoxfs_server_session` fuzz target's content rule, `lane/fuzz-service-handlers`). Handles
+    /// are per server, not per client, so an open client could `CLOSE` the handle a bound badge's
+    /// `ROOT` resolves to; the next open anywhere then reused the slot, and the bound badge's `ROOT`
+    /// named that object instead, outside its grant. Closing it is refused `EINVAL`, as closing
+    /// `ROOT` is, until `UNBIND` takes the grant back and closes it itself.
+    #[test]
+    fn a_grant_root_cannot_be_closed_while_bound() {
+        let mut srv = server_with_tree();
+        let grant = srv
+            .open_dir(0, "sub", dir::ENUMERATE | dir::READ | dir::DESCEND)
+            .unwrap();
+        srv.bind(0, grant, 3).unwrap();
+        assert_eq!(
+            srv.close(grant).err().map(|e| e.errno),
+            Some(EINVAL),
+            "an open client closed a bound badge's root"
+        );
+        let other = srv.open_file("motd").unwrap();
+        assert_ne!(other, grant, "the grant's slot was reused");
+        let root = srv.admit(3, filesystem_protocol::fs::ROOT).unwrap();
+        let mut buf = [0u8; 16];
+        assert_ne!(
+            srv.read(root, 0, &mut buf).map(|n| buf[..n].to_vec()).ok(),
+            Some(b"root motd".to_vec()),
+            "the bound badge read a file outside its grant"
+        );
+        srv.unbind(0, 3).unwrap();
+        assert_eq!(
+            srv.close(grant).err().map(|e| e.errno),
+            Some(EBADF),
+            "UNBIND closed the root itself"
         );
     }
 
