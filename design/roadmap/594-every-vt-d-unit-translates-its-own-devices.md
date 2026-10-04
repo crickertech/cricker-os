@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-24
+built: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: x86_64 silicon with two VT-d units and RMRRs
@@ -13,7 +14,11 @@ needs_person: yes
 on 2026-09-25 from the proposal `every-vt-d-unit-translates-its-own-devices`, which milestone 261
 (the NVMe driver leaves the kernel)'s bench rehearsal filed on 2026-09-24. It also closes milestone
 378 (read the DMAR on xenon)'s third item, carrying more than one DRHD. Built and proven on
-patagonia; what is left needs xenon.
+patagonia, then BUILT on 2026-10-04 by bench boot 1 on xenon
+(`bench/xenon-2026-10-04/boot-e-main-clflush-1.log`): both units translating, the screen intact,
+the NVMe confined by the catch-all. That boot needed the VT-d table write-back (`Unit::publish` in
+`kernel/src/arch/x86_64/iommu.rs`), which lands with this status in the same pull request; on xenon
+this milestone does not work without it.
 
 Of the second kind: the machine exists and somebody has to be at it. QEMU
 presents one VT-d unit and no RMRRs, so the two-unit route and the RMRR path are proven on host
@@ -128,4 +133,4 @@ Each is also written beside the code, in `kernel/src/arch/x86_64/iommu.rs`'s BUG
 The x86_64 kernel brings up every VT-d unit the DMAR names and routes each device to its owner. It
 identity-maps the firmware's RMRRs before translation. Reading the specification found three
 driver defects that would have fired on xenon, the worst a domain id too wide for its unit.
-Proven on host tables and under QEMU; xenon confirms it.
+Proven on host tables, under QEMU, and on xenon on 2026-10-04 once the tables were written back.
