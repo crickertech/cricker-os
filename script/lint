@@ -2854,6 +2854,17 @@ python3 "$(dirname "$0")/../helpers/session_steps.py" --selftest
 echo "==> the CI-poll refusal hook"
 python3 "$(dirname "$0")/../helpers/hooks/refuse-ci-polling" --selftest
 
+# 12b. **A workflow step that swallows its failure says where the failure goes** (milestone 641 (a
+#     mechanism that reports clean says over how many units, and zero is loud), provisional;
+#     helpers/workflow_swallows.py, name provisional). Every `continue-on-error` carries an
+#     `# outcome:` label (re-raised, reported, or exception with a reason) that is checked against
+#     its job, and a pipeline into `tee` has pipefail. The weekly falsification sweep replayed
+#     nothing for three weeks behind exactly those two constructs. Fixtures first, because a green
+#     run looks the same as a check that cannot fire. See notes/denominators.md.
+echo "==> workflow steps that swallow a failure"
+python3 "$(dirname "$0")/../helpers/workflow_swallows.py" --selftest
+python3 "$(dirname "$0")/../helpers/workflow_swallows.py"
+
 # 13. **The kernel links no crate only its tests use, and no fixture unless a feature asks**
 #     (milestone 609 (the system tests leave the kernel crate)). The kernel crate used to link
 #     `ps`, `pgrep`, `pmap` and `network_time_protocol` as ordinary dependencies, for nothing but
