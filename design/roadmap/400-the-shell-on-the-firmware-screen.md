@@ -31,7 +31,7 @@ half; keystrokes stay on the serial line until it lands.
 ```text
   swish ─► line_editor ─► console ──out──► COM1                       (unchanged: every gate reads this)
                              │
-                             └──OP_WRITE──► display_terminal ──FLUSH──► framebuffer_driver ──copy──► the firmware's aperture
+                             └──OPERATION_WRITE──► display_terminal ──FLUSH──► framebuffer_driver ──copy──► the firmware's aperture
                                              (unchanged)                 (new)
 ```
 
@@ -85,7 +85,7 @@ breaking the constraint the brief put first. A graphical boot has no console ser
 `line_editor` prints to `display_terminal` alone, so the shell's output would leave COM1, and every
 xenon gate and serial transcript reads COM1. So the terminal's client is the console server
 rather than `line_editor`: it writes each byte to the UART, then hands the same bytes to the terminal
-with one `OP_WRITE`. The alternatives, and why each lost:
+with one `OPERATION_WRITE`. The alternatives, and why each lost:
 
 - `line_editor` with two outputs (the display terminal and the console). Two output paths in the
   line discipline where one exists, and a second capability pair in the program whose job is editing

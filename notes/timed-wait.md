@@ -61,7 +61,7 @@ after.
 - It costs no BSS at all, which is the number the stale premise would have made 1 KiB.
 
 This is the same for all three of milestone 51's shapes. A `SYS_SLEEP`, a timer object and a deadline
-on `RECV` all have to record, somewhere reachable from the tick, when this thread's wait ends; the
+on `RECEIVE` all have to record, somewhere reachable from the tick, when this thread's wait ends; the
 TCB is the cheapest place in all three cases and it is free in all three cases.
 
 ## 2. The timer wheel is the wrong question
@@ -114,7 +114,7 @@ Scanning wins until about 64 threads hold deadlines simultaneously, and the whee
 The crossover is where it is because a scan is O(live threads) *per expiry event* while a wheel is
 O(1) per insert and per expiry; at a handful of deadline holders the scan's constant factor is
 smaller than the wheel's bookkeeping. The five known consumers (net_stack's retransmit window,
-`thread::sleep`, `Endpoint::RECV`'s no-timeout limitation, milestone 103's `^C` watch, milestone
+`thread::sleep`, `Endpoint::RECEIVE`'s no-timeout limitation, milestone 103 (`^C` stops spinning)'s `^C` watch, milestone
 106's `Irq::WAIT`) are on the order of one deadline each.
 
 The honest error bars. These are *modelled* operation counts, not machine instructions: the host
@@ -258,7 +258,7 @@ the rest.
 
 **The ratio is at least 10^5 to 1**, and it grows with core clock rather than shrinking: a core-second
 is 10^9 instructions at 1 GHz and 3 x 10^9 at 3 GHz, while the 12,400 does not move. That is the
-number the fork is actually about, and it is five orders of magnitude larger than any difference
+number the fork is about, and it is five orders of magnitude larger than any difference
 between the three shapes or the three data structures.
 
 **Error bars.** This is *derived* from measured primitives rather than measured end to end: the icount
@@ -277,7 +277,7 @@ company is not the scheduler at all.
 **A `SYS_SLEEP` and a timer object need nothing else.** The thread blocks with a deadline and no
 counterparty; the expiry wakes it; it returns.
 
-**A deadline on `Endpoint::RECV`/`CALL` needs two things the other two do not**, and both are concrete:
+**A deadline on `Endpoint::RECEIVE`/`CALL` needs two things the other two do not**, and both are concrete:
 
 1. A targeted unlink from an endpoint's wait queue. `crates/intrusive_fifo`'s `Fifo` is
    **singly linked**: one `next` per node, `head`/`tail`/`len`, and its whole API is `push_back`,
@@ -285,7 +285,7 @@ counterparty; the expiry wakes it; it returns.
    `drain_waiters`, which drains *all* of them. Removing one specific waiter is a new method,
    O(queue length) from the head, on a crate that carries machine-checked proofs of its one-queue
    invariant, so the proofs move with it. Bounded by `MAX_THREADS`, paid only on an actual expiry,
-   and the census in section 6 says a queue can really hold most of the table.
+   and the census in section 6 says a queue can hold most of the table.
 2. **Nothing else.** The half that looks harder is already built. `thread_wake_handshake`'s undelivered-wake
    gate refuses a wake with `wait_on.is_some()` and nothing delivered (boot 8), so a timeout looks
    like exactly the wake the gate exists to stop; but `Handshake::abort()` already passes the gate for
@@ -321,7 +321,7 @@ Two caveats that matter for how the number is used:
 
 - Blocked is not deadline-holding. These are threads parked on endpoints, overwhelmingly with no
   timed wait in sight. The deadline-list occupancy is bounded above by this and in practice would be
-  the number of consumers actually in a timed wait, which is single digits. Section 2's table should
+  the number of consumers in a timed wait, which is single digits. Section 2's table should
   be read at `occ` = 1 to 16, not at 97.
 - **97 is what a targeted unlink walks past.** The one place the blocked count is the *right* number
   is shape 3's `Fifo::remove`, which walks an endpoint's wait queue from the head. This says that

@@ -49,7 +49,7 @@ how to add one, and for the honest limits.
 
 This section is prose and not a row in that table on purpose, and the reason is worth knowing before
 you edit either. The longest line in the repository's markdown is
-1925 bytes <!--count:longest-markdown-line-->, and `manual`'s renderer sizes `LINE_MAX` at 2048
+1928 bytes <!--count:longest-markdown-line-->, and `manual`'s renderer sizes `LINE_MAX` at 2048
 against exactly that measurement. The rows in the table above are the next three longest and sit within about a
 hundred bytes of it. (This sentence named `script/lint`'s row as the longest. That stopped being
 true without anything noticing, because the marker vouches for the NUMBER and nothing vouches for

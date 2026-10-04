@@ -1,6 +1,6 @@
 # A shell at EL0
 
-**The shell's name is `swish`** (milestone 63): `components/src/swish.rs`, packed into the archive as
+The shell's name is `swish` (milestone 63 (directory and package names)): `components/src/swish.rs`, packed into the archive as
 `swish`, loaded by that name. This note calls it "the shell" throughout because that is what it is;
 where a path or an archive entry is meant, the spelling is `swish`. The argument for the name is in
 milestone 63's roadmap block, and the short version is that `bash`, `zsh` and `fish` are names while
@@ -21,14 +21,14 @@ Four processes, and the channels between them:
                           └──spawn──► process service (kernel)
 ```
 
-- **The console server** (milestone 8) owns the UART transmit side and prints what it is sent.
-- **The input driver** (new) owns the UART receive side and its interrupt (INTID 33 on QEMU
+- The console server (milestone 8 (the console driver leaves the kernel)) owns the UART transmit side and prints what it is sent.
+- The input driver (new) owns the UART receive side and its interrupt (INTID 33 on QEMU
   `virt`; since 2026-08-15 the number comes from the device tree, with the constant as the
   documented fallback; see notes/device-tree.md). It
   assembles a line character by character and hands each completed line to the shell.
-- **The shell** (new) reads a line and runs a command: `help`, `echo`, `run`.
-- **A worker** is spawned for each `run`. It computes, reports its answer to the shell, and
-  **exits**: a whole process lifecycle driven by a line the user typed.
+- The shell (new) reads a line and runs a command: `help`, `echo`, `run`.
+- A worker is spawned for each `run`. It computes, reports its answer to the shell, and
+  exits: a whole process lifecycle driven by a line the user typed.
 
 Every one of those is a program at EL0. None can reach the hardware except through a capability it
 was handed. The kernel routes messages and creates processes; it prints nothing on anyone's
@@ -69,7 +69,7 @@ things in the harness, both recorded because they cost real time:
 - `helpers/qemu-bounded.sh` backgrounds QEMU (`"$@" &`) so it can enforce a timeout. A
   backgrounded command's stdin is redirected to `/dev/null` by the shell (POSIX), which silently
   swallowed all piped input. Fixed with an explicit `<&0`.
-- `-nographic` **multiplexes** the serial port with the QEMU monitor on stdio, and piped input was
+- `-nographic` multiplexes the serial port with the QEMU monitor on stdio, and piped input was
   going to the monitor. Switched to `-display none -serial stdio`, which dedicates stdio to the
   serial port.
 
@@ -78,10 +78,10 @@ things in the harness, both recorded because they cost real time:
 The terminal runs in raw mode (QEMU hands the whole serial line to the guest), so nothing echoes
 locally: if the guest does not show a character back, you cannot see what you are typing. The
 **input driver** echoes each character as it reads it, and handles backspace visually (back,
-space, back). The shell does **not** echo the command afterward, or you would see it twice.
+space, back). The shell does not echo the command afterward, or you would see it twice.
 
 This is safe against interleaving with the shell's output because of the synchronous handoff: while
-you type, the shell is blocked in `RECV` waiting for the line, so it is not writing the UART. The
+you type, the shell is blocked in `RECEIVE` waiting for the line, so it is not writing the UART. The
 input driver echoes, sends the completed line, and only then does the shell wake, print its output,
 prompt, and block again. Prompt, your keystrokes, output, prompt: one writer at a time, in order.
 (An earlier version had the *shell* echo the whole line after Enter, to keep piped bulk input
@@ -99,7 +99,7 @@ not papered over.
 
 **The process service is a kernel thread.** The shell's `run` sends a spawn request to a service
 that starts the worker. That service lives in the kernel today, because true userspace process
-creation needs the kernel to hand out address-space and thread capabilities built from **Untyped**
+creation needs the kernel to hand out address-space and thread capabilities built from Untyped
 memory: §10's deferred third axis, milestone 11. The shell does not care where the service lives,
 only that it can name it, which is the point: the interface is a capability either way, and moving
 the service to userspace later changes nothing the shell can observe.
@@ -113,12 +113,12 @@ typed command, running at EL0, reporting back, and exiting.
 ## The program and the crate (milestone 70)
 
 `swish` is now two things with one name: the program at `components/src/swish.rs` and the crate at
-`crates/swish`. The crate holds what the shell **decides or renders**; the program holds everything
+`crates/swish`. The crate holds what the shell decides or renders; the program holds everything
 that needs a capability. That is the same pair `coremark`, `line_editor` and `compositor` already
 are, and the reason for the shared name is in CLAUDE.md: splitting them would hide the relationship.
 
-The line between them is one question. **If a function needs a capability, it stays in the
-program.** Routing a typed line, deciding whether a word is a pattern or text, and every sentence
+The line between them is one question. If a function needs a capability, it stays in the
+program. Routing a typed line, deciding whether a word is a pattern or text, and every sentence
 the prompt prints need none, so they moved; the terminal page, the spawn channel, the filesystem
 requests and the pipe endpoints did not.
 
@@ -147,7 +147,7 @@ The milestone was raised as "the shell is untested": `components/src/swish.rs` h
 `rm_program_tests`) and by 93 host tests in `crates/grant_plan`, which already held its parsing,
 navigation and grant planning.
 
-So 0% was a fact about a **file**, not about a component. Coverage measured per file counts where
+So 0% was a fact about a file, not about a component. Coverage measured per file counts where
 tests are *written*, never what they *reach*, and in a tree whose whole method is "pure logic in
 crates, IO in programs" that metric will read zero for every program by construction. The real gap
 was narrower and worth closing anyway: the error paths QEMU cannot easily provoke. `caps` refusing a

@@ -10,17 +10,17 @@ in a sentence. See the PR body for the one-paragraph ask.*
 
 ## The premise, checked against the code rather than trusted
 
-**Claim (the roadmap block's):** "a tail stage's output has nowhere to go but the shell, which is
+Claim (the roadmap block's): "a tail stage's output has nowhere to go but the shell, which is
 why no line renders a page at the prompt."
 
-**True, and it is a structural fact rather than a missing feature.** `doc page.md` (a bare
+True, and it is a structural fact rather than a missing feature. `doc page.md` (a bare
 positional, no `<`, no `|`, no `>`) plans as a one-stage pipeline whose input is a file the shell
 itself feeds (`grant_plan::plan_against_with` turns a trailing positional into `Source::File`,
 exactly as it does for `wc report.txt`; see notes/pipes/the-file-end.md, "the file behind a `>` is
 this shell").
 `doc` also writes while it reads (`InputSpec::Required { writes_while_reading: true }`, the only
 declarer today), so the shell would have to be both the feeder of its input and the reader of its
-output, and this kernel gives a process exactly one blocking wait point (`SEND`/`RECV`, no select,
+output, and this kernel gives a process exactly one blocking wait point (`SEND`/`RECEIVE`, no select,
 no receive-on-a-set, no timed wait). `grant_plan::check_chain` refuses the line before anything is
 spawned:
 
@@ -33,44 +33,44 @@ $ doc motd
 This is verified at a real prompt, both ISAs, in notes/pipes.md's "One wait point" section. It is
 not a bug in `doc`: `wc` is the only barrier in the tree, and only a chain that ends in a barrier
 runs. So the premise holds, and no shell-side fix closes it: notes/pipes.md states outright that no
-interleaving schedule can, because the shell cannot know which of `SEND`/`RECV` the far end wants
+interleaving schedule can, because the shell cannot know which of `SEND`/`RECEIVE` the far end wants
 next, and guessing wrong deadlocks either way.
 
 ## 1. What else was considered, and why did each lose?
 
 Three prior answers exist in the tree already, all recorded before this note, none chosen:
 
-**(a) A pull-based source.** Collapse input and output onto one endpoint the child `CALL`s for
+(a) A pull-based source. Collapse input and output onto one endpoint the child `CALL`s for
 bytes on and `SEND`s output over, so the shell has one wait point per child. notes/pipes.md names
 this "the exact answer to the constraint" and DECISIONS §101 confirms it is still available.
-**Refused, twice, on the same grounds both times**: it destroys the property milestone 50 calls
+Refused, twice, on the same grounds both times: it destroys the property milestone 50 (pipes and redirection) calls
 load-bearing, that a pipe's read and write ends are separate capabilities with separate rights (a
 program on the right of a `|` cannot write back up its own input, because it never holds a
 capability that could). notes/pipes.md calls this "a design fork, and calef's"; §101 declines it a
 second time for the identical reason and does not reopen it.
 
-**(b) A buffering stage.** A component that speaks the sink contract on both sides and absorbs
+(b) A buffering stage. A component that speaks the sink contract on both sides and absorbs
 what it is given, inserted as a barrier. This is the shape the original milestone 50 roadmap block
-predicted buffering would arrive in if it earned its place. **Measured and refused, 2026-08-03**
+predicted buffering would arrive in if it earned its place. Measured and refused, 2026-08-03
 (notes/pipes.md, "Buffering: measured"): a buffering hop costs roughly a second rendezvous
 (`relay_rtt` vs `ipc_rtt`, about double), buys decoupling rather than bandwidth, and every pipeline
 in this tree today is pure byte-moving with no producer-side work to overlap, so it would make
 throughput worse for no correctness gain. It also does not remove the wall for a document larger
 than its grant, which would deadlock again. §101 restates the refusal rather than reopening it.
 
-**(c) Do nothing.** The refusal above is honest, non-deadlocking, and costs nothing further. This
+(c) Do nothing. The refusal above is honest, non-deadlocking, and costs nothing further. This
 is the status quo. It loses only in the sense that it is not an answer: `doc page.md` still cannot
 render at a prompt, which is the one thing phase 1 and 2 of this milestone were building toward
 (notes/documentation.md's own "In brief": rendered for display, not shown raw).
 
-**(d) `terminal_sink_caretaker` takes the tail stage's primary output** (the option the roadmap
+(d) `terminal_sink_caretaker` takes the tail stage's primary output (the option the roadmap
 block names). Not previously refused; DECISIONS §101 explicitly calls it "the right short-term
 move" and reserves the specific wiring as milestone 40's own fork, undecided. This is the option
 this note works out in full below, because it is the one live candidate.
 
 ## 2. What does this tree already do in the analogous case?
 
-**Exactly this, for the second stream.** DECISIONS §67 (2026-08-03) already answers a materially
+Exactly this, for the second stream. DECISIONS §67 (a program's second stream), 2026-08-03, already answers a materially
 identical question for diagnostics: a program that declares a second output has it delivered by
 default to `terminal_sink_caretaker`, a dedicated adapter process that holds the terminal endpoint
 and hands out a sink, bypassing the shell entirely. `date`'s clockless complaint reaches the screen
@@ -81,21 +81,21 @@ conflate two kinds of thing on one channel again.
 
 The precedent buys three things for free if extended to the primary slot:
 
-- **The mechanism already exists and is proven.** `terminal_sink_caretaker` is built, gated
+- The mechanism already exists and is proven. `terminal_sink_caretaker` is built, gated
   (`script/swish-check` runs a `2>` case on both ISAs), and its header already states the general
   shape: "a program whose output slot holds an endpoint to this process is writing to the screen
   and cannot tell." Nothing about that sentence is specific to diagnostics.
-- **Zero incremental authority for a program that already declares.** `date` already gets this
+- Zero incremental authority for a program that already declares. `date` already gets this
   adapter as its default second-stream destination; handing its *first* stream the same adapter by
   default adds no new capability the program did not already have a sibling of.
-- **It is the same decision the pager and the colour bit need**, not three unrelated asks. Paging
-  needs the terminal's `OP_READLINE`, colour needs to know a stage ends at a real screen rather than
+- It is the same decision the pager and the colour bit need, not three unrelated asks. Paging
+  needs the terminal's `OPERATION_READLINE`, colour needs to know a stage ends at a real screen rather than
   a file, and both are the same "does this child's output/input touch the terminal component
   directly" question notes/documentation.md's "Where this goes next" already unifies.
 
 ## 3. What is the prior art outside the tree?
 
-**Unix does not have this problem, because fd inheritance answers it for free.** Every process
+Unix does not have this problem, because fd inheritance answers it for free. Every process
 inherits fd 1 from its parent at fork; a program's output already IS "the terminal" unless the
 shell explicitly redirects it, because fd 1 was the terminal's fd before the fork ever happened. The
 shell never reads a child's stdout to print it; the kernel's own tty layer does the printing, and
@@ -105,7 +105,7 @@ number everyone agrees on), and the cost of the inversion is exactly the wall th
 a nife shell is *in* the data path by construction, which is what makes it also the reader, which is
 what creates the one-wait-point conflict Unix's design never has to face.
 
-**seL4 has no shell-adjacent analogue** (seL4 systems are typically single-purpose, not
+seL4 has no shell-adjacent analogue (seL4 systems are typically single-purpose, not
 interactive), but DECISIONS §101 already did the relevant literature comparison for the general
 multiplexing question: Mach port sets (the ancestor), Fuchsia `zx_port` (a queued variant), Redox
 event queues (assumes a scheme/fd model this system does not have), and seL4's own notification
@@ -114,7 +114,7 @@ object (adopted, in `design/decisions/101-notification-objects.md`). None of tho
 note's question is narrower and orthogonal: it is asking whether the shell should be a party to the
 wait at all for a tail stage's primary output, not how it should wait on several things once it is.
 
-**`man`/`apropos`/`mandb`, already this design's stated prior art for the whole milestone**, is
+`man`/`apropos`/`mandb`, already this design's stated prior art for the whole milestone, is
 silent on this specific question because a Unix pager runs as a normal Unix process with an
 inherited tty, so the equivalent question (how does a pager get the screen) never arises there
 either, for the same fd-inheritance reason above.
@@ -125,21 +125,21 @@ Answered above, first section: yes, verified against `grant_plan::check_chain` a
 transcripts in notes/pipes.md and notes/documentation.md, on both architectures. Nothing here rests on the
 roadmap block's own framing without independent confirmation.
 
-**A second premise is worth checking too, because it changes the cost estimate below**: does the
+A second premise is worth checking too, because it changes the cost estimate below: does the
 tree already have a way for the shell to learn a child has exited, independent of reading its
-output stream? **Yes, mostly unused today.** DECISIONS §26 built a kernel-delivered fault/exit
+output stream? Yes, mostly unused today. DECISIONS §26 (the fault endpoint) built a kernel-delivered fault/exit
 endpoint in milestone 22: "when a thread faults or exits, the kernel delivers a message to the
 supervision endpoint its spawner designated," with a reserved capability table slot
 (`abi::fault::FAULT_EP_SLOT`) and a kernel-stamped `(event code, tid, ...)` message, already proved
-and already in the tree. Today `components/src/swish.rs` wires this **only for supervised (interruptible)
-foreground jobs** (`spawn_interruptible`, watching a cooperative job-frame `DONE` flag, which is a
+and already in the tree. Today `components/src/swish.rs` wires this only for supervised (interruptible)
+foreground jobs (`spawn_interruptible`, watching a cooperative job-frame `DONE` flag, which is a
 *different*, userspace-cooperative mechanism, not §26's kernel path). Ordinary sink-declaring
 children (`date`, `wc`, `doc`) are spawned with no fault endpoint at all; the shell's only
-completion signal for them today is draining their output to `OP_EOF`. **If a tail stage's primary
+completion signal for them today is draining their output to `OPERATION_EOF`. If a tail stage's primary
 output moves to `terminal_sink_caretaker`, the shell needs a different completion signal, and §26's
-already-built fault endpoint is sitting there unused for exactly this purpose.** That materially
+already-built fault endpoint is sitting there unused for exactly this purpose. That materially
 lowers the cost of option (d): it is a wiring change (grant an already-existing kernel object at
-spawn time and `RECV` on it instead of on the child's output), not a new kernel primitive.
+spawn time and `RECEIVE` on it instead of on the child's output), not a new kernel primitive.
 
 ## 5. What does each option cost, measured rather than asserted?
 
@@ -150,12 +150,12 @@ spawn time and `RECV` on it instead of on the child's output), not a new kernel 
 | (c) Do nothing | None | None | Milestone 40 stays PARTIAL; no line renders a page at a prompt, ever, on this branch of the design | N/A |
 | (d) `terminal_sink_caretaker` takes primary output | None | One `spawnproto` bit (or a repurposed `DIAG_BIT`-shaped convention) for "this stage's output goes to the terminal by default"; the shell must additionally wire §26's fault endpoint for the spawn, where today it wires none | Narrows what the shell can observe about that child (it no longer reads its bytes); a completion-race caveat, below | §26's fault delivery is already built and proved (milestone 22); the incremental piece is shell wiring, comparable in size to `spawn_interruptible`'s existing job-watching path, not a new kernel primitive |
 
-**The caveat option (d) owes, named exactly where notes/documentation.md already named it and not
-resolved there:** using kernel exit-delivery (§26) as the shell's "child is done, print the next
+The caveat option (d) owes, named exactly where notes/documentation.md already named it and not
+resolved there: using kernel exit-delivery (§26) as the shell's "child is done, print the next
 prompt" signal is *stronger* than the vaguer "wait for the child to exit" notes/documentation.md worried
 about, because §26's message is only sent after the thread is dead-until-reaped (DECISIONS §26.4):
 a dead thread cannot enqueue any further `SEND`. So there is no race in which the *child itself*
-paints the screen after the shell has moved on. **The race that remains is one hop further out**:
+paints the screen after the shell has moved on. The race that remains is one hop further out:
 `terminal_sink_caretaker` is a separate long-lived process, and a child's `SEND` to it completing
 (which is what could happen just before the child exits) only means the caretaker has *received*
 the bytes into its own address space, not that it has finished its own `CALL` to `line_editor`
@@ -166,8 +166,8 @@ finding of this note (notes/documentation.md flagged the shape of the question b
 mechanism): the fix, if wanted, is not part of this decision and is deferred to the same list
 DECISIONS §101 already carries (a bound notification the shell could `WAIT` on for "the caretaker's
 queue for this client has drained," which needs the notification object §101 already decided to
-build, later). **Absent that, the honest interim is that a page's last line and the next `$ `
-prompt can interleave under contention**, which is a display glitch rather than a correctness or
+build, later). Absent that, the honest interim is that a page's last line and the next `$ `
+prompt can interleave under contention, which is a display glitch rather than a correctness or
 confinement failure: no capability changes hands, no byte is misdelivered to the wrong reader, and
 the caretaker's own BUGS section already documents that it serializes clients with no guarantee
 about *which* pending message the terminal shows first when more than one is in flight.
