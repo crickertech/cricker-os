@@ -396,11 +396,20 @@ fn the_net_server_acquires_a_dhcp_lease_over_smoltcp() {
     let Some((report, net)) = virtio_service::start_net_server(net_stack_image()) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let addr = sched::ipc_receive(report)[0] as u32;
+    let [addr, nameserver, ..] = sched::ipc_receive(report);
+    let addr = addr as u32;
     assert_eq!(
         addr & 0xffff_ff00,
         0x0A00_0200,
         "smoltcp's DHCP lease {addr:#010x} is not in QEMU slirp's 10.0.2.0/24",
+    );
+    // slirp's DHCP names 10.0.2.3 as the DNS server, and the lease report carries it in its second
+    // word (`socket_protocol::lease`, provisional) for a resolver's spawner (§248 (the name
+    // resolver is its own confined program)).
+    assert_eq!(
+        socket_protocol::lease::word_ipv4(nameserver),
+        Some([10, 0, 2, 3]),
+        "the lease report did not carry slirp's DNS server (word {nameserver:#x})",
     );
     net.release_or_fail("a net test's net_stack");
 }
