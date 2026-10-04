@@ -158,6 +158,11 @@ fn write_wire(
         let bytes =
             unsafe { core::slice::from_raw_parts_mut(screen.pixels as *mut u8, screen.len) };
         screen.console.write(cells, &mut PixelSink::new(bytes), s);
+        // The aperture is write-combining on `x86_64` (`arch::x86_64::mmu`), so the last few
+        // stores of this line can sit in a combining buffer rather than on the screen. A fence
+        // drains them, which matters exactly once: the panic path halts after its last line with
+        // interrupts off, and nothing else would ever push those pixels out.
+        crate::arch::direct_memory_access_write_barrier();
     }
     Ok(())
 }

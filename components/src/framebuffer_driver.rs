@@ -52,9 +52,13 @@
 //!   store-heavy guest code runs ~3.8x slower per instruction than arithmetic
 //!   (`notes/benchmarks/icount-tick-scales.md`), is most of this copy's cost. A `u64` is the widest
 //!   store the `x86_64` target can legalise (`-mmx,-sse,+soft-float`), so the remaining levers are a
-//!   write-combining PAT entry (the kernel does not program one, milestone 243 (a machine with no
-//!   serial port has no way to say anything)'s `BUGS`) or a
-//!   scroll-aware flush contract, both outside this driver. Not measured on silicon.
+//!   write-combining mapping or a scroll-aware flush contract, both outside this driver. Not
+//!   measured on silicon. **The first lever half exists since 2026-10-04**: the kernel programs a
+//!   write-combining PAT entry on every core and maps its own boot console's aperture through it
+//!   (`paging::Flags::write_combining`), but this driver's spawn-time mapping is still
+//!   device-typed, because there is no user-mode twin of that flag yet. Adding one and using it
+//!   for this mapping is the follow-up; this driver only ever writes the aperture, which is what
+//!   write-combining needs.
 //! - **One client, no arbitration.** Whoever holds the display endpoint draws; that is the
 //!   contract's rung-one shape and the compositor is what multiplexes it.
 //!

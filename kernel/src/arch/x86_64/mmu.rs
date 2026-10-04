@@ -1116,10 +1116,12 @@ fn direct_map_claims(each: &mut dyn FnMut(Claim)) {
     // It is the largest window in this function by three orders of magnitude: 1920x1080 is 8 MiB,
     // which is 2026 leaves. That is the price of a screen and it is paid once.
     //
-    // **Device-typed means uncacheable, and uncacheable means slow**, which the `screen_console`
-    // crate's own BUGS records. Write-combining (a PAT entry) is the fix and is a milestone rather
-    // than a line: this kernel does not program the PAT at all today, and a framebuffer is the
-    // first thing in it that would care.
+    // **Write-combining, not device-typed** (2026-10-04). Device-typed is strong uncacheable, one
+    // bus transaction per four-byte store, and on xenon the boot console's scrolling swept visibly
+    // down the screen. `Flags::write_combining()` is still device memory to every rule here (pages
+    // rather than blocks, never cached), and selects the PAT entry `arch::x86_64::init` made WC on
+    // every core before this map exists. The console only ever writes it (`screen_console`'s
+    // `PixelSink` has no read), which is the other half: WC reads are as slow as UC ones.
     //
     // **An aperture inside a RAM region would be a different problem and is not this one.** On
     // xenon the aperture sits in the 32-bit MMIO hole, which the firmware's map does not describe;
@@ -1130,7 +1132,7 @@ fn direct_map_claims(each: &mut dyn FnMut(Claim)) {
             what: "framebuffer",
             lo: base,
             hi: base + size,
-            flags: Flags::device(),
+            flags: Flags::write_combining(),
             guarded: false,
         });
     }

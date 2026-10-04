@@ -211,6 +211,18 @@ mod tests {
         }
         assert!(!Sv39::is_block(Sv39::table_entry(0x8020_0000)));
     }
+
+    /// **A write-combining request is encoded as plain device memory here** (the console-scroll
+    /// lane, 2026-10-04): correct, because device memory is the stricter of the two, and slower.
+    /// Nothing on this architecture maps a device aperture as a screen yet; when something does,
+    /// this is the test that says the request is being ignored.
+    #[test]
+    fn write_combining_is_encoded_as_device_memory() {
+        assert_eq!(
+            Sv39::leaf_entry(0x1000_0000, Flags::write_combining()),
+            Sv39::leaf_entry(0x1000_0000, Flags::device()),
+        );
+    }
 }
 
 /// Machine-checked proofs of the Sv39 format, mirroring the aarch64 module's. The shared `Mapper`
