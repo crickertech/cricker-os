@@ -342,9 +342,57 @@ pub mod fixture {
     pub const PACKAGE_PEER_HOST: &str = "10.0.2.9";
 }
 
+/// **The lease report** `net_stack` sends its spawner once DHCP completes, word by word. Provisional
+/// (2026-10-04, milestone 384 (in a capability system the resolver is a grant)), as is the name:
+/// §248 (the name resolver is its own confined program) gave the nameserver DHCP hands out a
+/// consumer, the resolver's spawner, so it rides the report's second word, which was zero.
+///
+/// - word 0: the leased IPv4 address, big-endian in the low 32 bits, unchanged since milestone 30
+///   (the network stack as a confined component)
+/// - word 1: the first DNS server the lease named, the same encoding, or [`lease::NO_NAMESERVER`]
+/// - word 2: zero, and reserved
+///
+/// A spawner that ignores word 1 is unaffected, which is why this did not need a new message.
+///
+/// ```
+/// use socket_protocol::lease;
+///
+/// let word = lease::ipv4_word([10, 0, 2, 3]);
+/// assert_eq!(lease::word_ipv4(word), Some([10, 0, 2, 3]));
+/// assert_eq!(lease::word_ipv4(lease::NO_NAMESERVER), None);
+/// ```
+pub mod lease {
+    /// Word 1 when the lease named no DNS server. 0.0.0.0 is never a nameserver, so it cannot
+    /// collide with one.
+    pub const NO_NAMESERVER: u64 = 0;
+
+    /// An IPv4 address as a report word: big-endian in the low 32 bits.
+    pub const fn ipv4_word(octets: [u8; 4]) -> u64 {
+        u32::from_be_bytes(octets) as u64
+    }
+
+    /// A report word back to an address, or `None` for [`NO_NAMESERVER`] or a word with any of the
+    /// high 32 bits set, which no encoder here produces.
+    pub const fn word_ipv4(word: u64) -> Option<[u8; 4]> {
+        if word == NO_NAMESERVER || word > u32::MAX as u64 {
+            return None;
+        }
+        Some((word as u32).to_be_bytes())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lease_word_round_trips_and_refuses_what_no_encoder_writes() {
+        assert_eq!(lease::ipv4_word([10, 0, 2, 3]), 0x0a00_0203);
+        assert_eq!(lease::word_ipv4(0x0a00_0203), Some([10, 0, 2, 3]));
+        assert_eq!(lease::word_ipv4(lease::NO_NAMESERVER), None);
+        assert_eq!(lease::word_ipv4(1 << 32), None);
+        assert_eq!(lease::word_ipv4(u32::MAX as u64), Some([255; 4]));
+    }
 
     /// Every opcode the contract defines, in one place. It was written out three times before
     /// milestone 107 added two more, and a list repeated per property is a list that will one day

@@ -120,14 +120,16 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
 
 ## Follow-on
 
-- **Outstanding.** Where the resolver lives (Fork 1 in `notes/name-resolution.md`): the lane
-  recommends its own confined program over a verb inside `net_stack`. Waits on an architect.
+- **Decision.** `design/decisions/248-the-resolver-is-its-own-confined-program.md` holds Fork 1,
+  ruled by calef on 2026-10-04: the resolver is its own confined program, not a verb inside
+  `net_stack` and not a library in each client.
+- **Outstanding.** The resolver program itself. §248 (the name resolver is its own confined
+  program) says where it lives; its entry point waits on Fork 3 and its endowment on Fork 2.
 - **Outstanding.** The grant's shape and what enforces it (Fork 2): any name, exact names or a zone,
   by an instance per grant or a badge per client. Waits on an architect.
 - **Outstanding.** The client protocol (Fork 3), a crate by rule 7. Waits on an architect.
-- **Outstanding.** The DHCP nameserver: `net_stack` reports its lease as one address and two zero
-  words, and the first DNS server could ride the second. A change to what `net_stack` and its
-  spawners agree on, so it waits on Fork 1.
+- **Done.** The DHCP nameserver rides the lease report's second word (`socket_protocol::lease`,
+  provisional), which §248 unblocked; both ISAs' lease tests assert slirp's 10.0.2.3 arrives in it.
 - **Outstanding.** The x86_64 leg of the end-to-end test, once a NIC runs under QEMU there (milestone
   494's e1000e driver).
 - **Proposed.** `design/roadmap/proposals/net-stack-seeds-its-generator-from-entropy.md`: seed

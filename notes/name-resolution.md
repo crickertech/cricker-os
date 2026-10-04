@@ -113,7 +113,8 @@ DNSSEC validation or DNS over TLS is wanted. Those are crypto-adjacent and won b
 | R2. Its own confined program | A resolver holding a `Stack` endpoint and an entropy endpoint, serving clients over an endpoint, using `domain_name_system` | A program, its spawn wiring and its protocol (Fork 3) |
 | R3. A library in each client | Every client links the crate and holds a `Stack` endpoint | Nothing new to build |
 
-Recommendation: R2. This fork is code and reversible, so it gets a recommendation.
+Ruled 2026-10-04 by calef, R2: *"the resolver should be its own confined program"*. The record is
+§248 (the name resolver is its own confined program), provisional until the merge queue lands it.
 
 What the tree does in the analogous case: `network_time_client` is its own program holding a
 `Stack` endpoint and an entropy endpoint, and the clock service is a separate holder of the
@@ -183,14 +184,13 @@ Options only, since this is a wire format two programs agree on, and by rule 7 i
 
 ### A smaller piece: the nameserver from DHCP
 
-`net_stack` reports its lease to its spawner as `send(REPORT, address, 0, 0)`, and `smoltcp`'s
-`dhcpv4::Config` already carries the DNS servers. Putting the first one in the second word is a
-change to what `net_stack` and every spawner of it agree on, so it waits for Fork 1: under R2 the
-spawner hands that address to the resolver as its endowment.
+Built after the Fork 1 ruling. `net_stack`'s lease report carries the first DNS server the lease
+named in its second word, which was zero, laid out in `socket_protocol::lease` (provisional). The
+spawner that starts a resolver hands that address on as its endowment.
 
 ### What is blocked until these are answered
 
-The resolver program, and using the DHCP nameserver. So is the progenitor fetching a package by
+The resolver program, on Forks 2 and 3. So is the progenitor fetching a package by
 host name, rung 3c of milestone 198 (a package manager, and the trivial install that makes a second
 customer possible). The crate, its proofs and the gating test do not wait on any of it.
 
