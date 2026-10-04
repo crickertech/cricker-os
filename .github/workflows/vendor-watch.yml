@@ -1,5 +1,9 @@
 name: vendor watch
 
+# Observed failing: never. Four runs, all green: nothing upstream has moved or vanished, and
+#   neither `exit 1` arm (transient, 404) has run. Dispatching it on a branch with one pin's
+#   coordinates broken would stage the 404 arm. See notes/observed-failing.md (milestone 640).
+
 # **Has RedoxFS moved?** Asked monthly, answered before somebody has to remember to ask.
 #
 # `script/vendor-verify` proves the vendored tree is the published tarball plus our recorded

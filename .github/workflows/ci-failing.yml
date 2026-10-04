@@ -1,5 +1,12 @@
 name: ci failing
 
+# Observed failing: never. Its only Actions run, 37227933655 (2026-10-04, dispatched), died at `jq:
+#   Argument list too long` (helpers/ci-failing.sh line 91, the check runs passed with `--argjson`)
+#   before judging any pull request: red for a defect, not for a failing check. notes/ci-failing.md's
+#   stubbed `gh` exercised the flagging path outside Actions. A ready pull request with a red
+#   required check, once that is fixed, would stage it. See notes/observed-failing.md (milestone
+#   640).
+
 # **Flags a ready pull request whose head fails a required check** (calef approved 2026-10-04 UTC).
 # calef twice spotted failing pull request CI (#1611, #1597) before any session did, and a session
 # may not run a watch loop, so the watching runs here as `nife-smelter[bot]`, at zero token cost.

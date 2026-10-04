@@ -3037,6 +3037,15 @@ python3 helpers/baseline_drift.py --selftest >/dev/null
 echo "==> CI job wall-time budgets"
 python3 helpers/job-budget.py --selftest >/dev/null
 python3 helpers/job-budget.py lint
+# Milestone 640 (a gate is not evidence until somebody has watched it fail), provisional: every
+# workflow cites a run where it went red (or fired) for the reason it exists, or says `never`, and
+# only a workflow the tree had by 2026-10-04 may say `never`, which is read from git rather than
+# from the record. The weekly falsification sweep and the COE labeller both shipped unexercised and
+# both reported success over nothing. Fixtures first, for the reason the falsification ratchet's
+# run first. See helpers/observed_failing.py and notes/observed-failing.md.
+echo "==> every workflow records the run it was watched failing in"
+python3 helpers/observed_failing.py --selftest >/dev/null
+python3 helpers/observed_failing.py
 # Milestone 610 (provisional): the interface stability series' classification (what is breaking,
 # what is an addition, what is a syscall or a format event, what counts as co-change), against
 # fixtures, with no git and no cargo. The weekly workflow is the only thing that runs the real

@@ -1,5 +1,9 @@
 name: audit cadence
 
+# Observed failing: 2026-09-28, run 36450379599: red with `DUE: documentation, security`. Red is
+#   how this says an audit is due, and all seven runs to date are red for that reason. See
+#   notes/observed-failing.md (milestone 640).
+
 # **Is a security audit due?** Asked weekly, answered before somebody has to remember to ask.
 #
 # The tree has had four adversarial reviews and every one of them happened because a person thought

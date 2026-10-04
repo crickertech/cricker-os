@@ -1,5 +1,9 @@
 name: toolchain drift
 
+# Observed failing: 2026-10-02, run 37012847603: red because the std overlay no longer builds
+#   against the latest nightly (E0432 in std's own sources). See notes/observed-failing.md (milestone
+#   640).
+
 # **Does the newest nightly still build us?** Asked daily, answered before it matters.
 #
 # rust-toolchain.toml pins a dated nightly (see the long comment there for why). Pinning makes builds
