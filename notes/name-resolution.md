@@ -55,7 +55,55 @@ refused.
 ## The proposal: three forks, stopped at
 
 Each is a wire format two programs agree on or a choice 384 leaves open, so the lane built none of
-them. What each blocks is at the end.
+them. What each blocks is at the end. Whether to write the parser at all, or take a crate, comes
+first, because §46 (thin primitives or whole subsystems; we write everything in between) makes
+it a decision.
+
+### Write or take: the §46 question
+
+calef asked on 2026-10-04 (UTC) whether to take an existing resolver crate instead. Everything in
+this table was read from the published source or measured on that date, not recalled. "Bare" means
+it built for `aarch64-unknown-none-softfloat` on the pinned nightly; "deps" counts normal transitive
+dependencies of that configuration. Advisories are from the local RustSec database, dated 2026-09-23.
+
+| Crate | Licence | Bare metal | Size, deps | Latest release | RustSec | Stub acceptance | TCP fallback | Id and source port |
+|---|---|---|---|---|---|---|---|---|
+| `hickory-proto` 0.26.3 | MIT or Apache-2.0 | builds with `no-std-rand`, needs `alloc` | 37,482 lines, 61 deps | 2026-09-10 | none open for 0.26.3; history: 2018-0007 stack overflow on a malicious packet, 2026-0118 unbounded NSEC3 loop, 2026-0119 quadratic compression | a codec; acceptance lives in the resolver | n/a | without std, one global `StdRng` from a 64-bit `seed()`, behind `critical-section`, panics unseeded |
+| `hickory-resolver` 0.26.3 | MIT or Apache-2.0 | no: std, `tokio`, `futures` | 17,939 lines, 100 deps | 2026-09-10 | none | checks the question (optionally with 0x20 case randomisation); its CNAME fold assumes chain order, and it scans `all_sections()`, authority and additional included | yes | `rand` thread generator; a fresh OS port per request |
+| `domain` 0.12.3 (NLnet Labs) | BSD-3-Clause | the parser builds with defaults off | 133,146 lines, 11 deps (5 of them proc-macro, at build time) | 2026-09-25 | none | as strict as `Query::accept`: `is_answer` checks QR, id and question; host lookup follows the chain to a canonical name, refuses a loop, takes only A records it owns | yes, in the stub (`resolv`, which needs `tokio`) | `rand::random()`; binds port 0 and leaves it to the OS |
+| `simple-dns` 0.12.0 | MIT | builds with `alloc` | 8,183 lines, 2 deps | 2026-07-26 | none | a codec only | n/a | none of its own |
+| `dns-parser` 0.8.0 | MIT or Apache-2.0 | no: uses `std` | 2,466 lines, 3 deps | 2018-08-06 | none | a parser only | n/a | none |
+| `smoltcp` 0.14.0 `socket::dns` | 0BSD | yes, already in the graph | 1,503 lines (`socket/dns.rs` and `wire/dns.rs`), 0 new | 2026-08-17 | none | checks id, port and question; follows a CNAME by renaming in place, assuming it comes first; reads only the answer section | no | PCG32 that `net_stack` seeds with `now()` |
+| ours, `domain_name_system` | the tree's | yes, no `alloc` | 883 lines (297 of them comments), 0 deps | | | the seven checks above | the caller's, with `TcpReply` | the caller's, from the entropy service |
+
+Both small parsers were tried on a self-pointing name and on a two-pointer cycle, bounded at ten
+seconds: `dns-parser` returned `BadPointer` and `simple-dns` returned `InvalidDnsPacket`, so neither
+hangs. simple-dns's guard is that `new_at` refuses a pointer that does not go backwards.
+
+§46 asks two questions. First, is this on the verification path? Yes. The name decoder and the TCP
+reassembly are Kani-proved here, and the proofs depend on the decoder being a small function that
+could be split for the solver. That cannot be done to 37,000 or 133,000 lines of somebody else's
+crate. Second, is correctness won by exposure, as with crypto, or by reading the spec? For what a
+stub resolver needs, by reading the spec. RFC 1035's message format is small and closed, with no
+secret-dependent timing and no arithmetic an attacker exploits. The exposure the large crates have
+earned is in recursion, caching, DNSSEC and encoding. hickory's three advisories sit there, and the
+one in parsing (2018-0007) is the class this crate's Kani harness rules out.
+
+Recommendation: keep writing it, with two options recorded for the proposal.
+
+- Option W (recommended): `domain_name_system`, as built. Nothing taken.
+- Option T1: take `domain`'s parser alone, defaults off. It is the strictest crate surveyed, builds
+  bare and is maintained. It costs 133,146 lines and 11 dependencies on the security path, none
+  of it provable here.
+- Option T2: take `simple-dns` as the codec and keep `Query::accept` in-tree. It is small and builds
+  with `alloc`. It saves the decoder, which is the part already proved, and leaves the acceptance
+  logic, which is the part that matters, still ours.
+
+hickory-resolver and `domain`'s stub need `tokio` and std, and `dns-parser` needs std and has not
+been released since 2018, so none of the three is an option. Would W still win at equal cost? Yes:
+its reasons are the proof and the strictness of acceptance, not effort. The decision changes if
+DNSSEC validation or DNS over TLS is wanted. Those are crypto-adjacent and won by exposure, and then
+`domain` or hickory should be taken.
 
 ### Fork 1. Where the resolver lives
 
