@@ -431,6 +431,8 @@ extern "C" fn exception_body(frame: &mut TrapFrame, index: u64) -> bool {
         // register the user program is waiting on. **Writing to the trap frame is writing to the
         // user's registers.**
         ec::SVC64 if is_from_lower_el(index) => {
+            #[cfg(any(test, feature = "system_tests"))]
+            SVC_COUNT.fetch_add(1, Ordering::Relaxed);
             crate::syscall::dispatch(frame);
         }
 
@@ -472,6 +474,14 @@ fn is_from_lower_el(index: u64) -> bool {
     // free at `-O` and is not free in the build the gate measures.
     index >= 8 && index <= 11
 }
+
+/// **System calls served, counted for the system tests only** (`system_tests/src/user/tests.rs`
+/// proves a program reached user mode and came back by watching it rise). Every syscall on every
+/// core bumps this one line, so it is compiled out of every other build: until 2026-10-04 it was
+/// in all of them, and it was one of two shared writes on the cheapest syscall's path
+/// (notes/job-mix/null-syscall-under-load.md).
+#[cfg(any(test, feature = "system_tests"))]
+pub static SVC_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// How many user threads have been killed for faulting.
 pub static USER_FAULTS: AtomicUsize = AtomicUsize::new(0);
