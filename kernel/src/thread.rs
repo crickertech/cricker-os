@@ -467,17 +467,8 @@ pub struct Thread {
     /// dies. Same mechanism as `stack` above, and for the same reason.
     pub space: Option<crate::user::AddressSpace>,
 
-    /// **Everything this thread can name.**
-    ///
-    /// It starts **empty**, and that is the whole of DECISIONS §10 expressed as a field
-    /// initializer. Under Unix a fresh process inherits every file descriptor its parent held,
-    /// and can `open()` anything its uid permits. Here it can name *nothing at all* until
-    /// somebody hands it something.
-    ///
-    /// It lives in kernel memory and userspace never sees a byte of it. Userspace sees an
-    /// integer. That is the entire unforgeability mechanism, and it is a bounds check.
-    pub capability_table: crate::cap::CapabilityTable,
-
+    // **Everything this thread can name is not a field any more** (2026-10-04 UTC): it lives past the
+    // end of this struct in the same page, behind its own lock. See [`capability_table_of`].
     /// **The IPC message this thread most recently sent or received.** Five words.
     ///
     /// A sender parks its message here before blocking; a receiver reads it here after being
@@ -709,6 +700,86 @@ pub unsafe fn init_fp_state(thread: *mut Thread) {
     unsafe { fp_state_of(thread).write(crate::arch::fp::FpState::INITIAL) };
 }
 
+/// **Everything a thread can name, behind its own lock** (provisional name, from the proposal
+/// "capability lookup off the global lock", 2026-10-04 UTC).
+///
+/// It starts **empty**, and that is the whole of DECISIONS §10 (the capability-based process model) expressed as an initializer. Under
+/// Unix a fresh process inherits every file descriptor its parent held, and can `open()` anything
+/// its uid permits. Here it can name *nothing at all* until somebody hands it something. It lives in
+/// kernel memory and userspace never sees a byte of it. Userspace sees an integer. That is the
+/// entire unforgeability mechanism, and it is a bounds check.
+///
+/// **Its own lock, at `rank::CAPABILITY_TABLE`, so the running thread's lookup does not take
+/// `IPC_TABLES`.** Until 2026-10-04 this was a field of [`Thread`], and so every syscall's lookup
+/// (`sched::current_cap`) took the global lock to read a table that has exactly one owner. On radon
+/// at four busy cores 41% of those lookups found it held. The order between the two locks is
+/// written at the rank.
+pub type CapabilityTableLock = crate::sync::IrqSafeMutex<crate::cap::CapabilityTable>;
+
+/// **Where a thread's capability table lives: past its FP register file, in the same TCB page.**
+///
+/// **Outside the [`Thread`] struct, and that is the soundness argument rather than a layout
+/// preference.** The running thread reads its own table with `IPC_TABLES` not held, while another
+/// core holding `IPC_TABLES` may hold a `&mut Thread` for the very same thread (a revocation sweep's
+/// `iter_mut`, an IPC writing its mailbox). A `&mut` asserts that nothing else touches any byte it
+/// covers, interior mutability or not, so a lock that lived inside the struct would be read by one
+/// core under another core's exclusive reference. Past the end of the struct, no reference to the
+/// `Thread` covers it, which is the provenance rule [`fp_state_of`] already follows for the same
+/// page.
+const CAPABILITY_TABLE_OFFSET: usize = (FP_STATE_OFFSET + size_of::<crate::arch::fp::FpState>())
+    .next_multiple_of(align_of::<CapabilityTableLock>());
+
+/// The page is the bound for the table too, checked by the compiler as for the FP register file.
+const _: () = assert!(
+    CAPABILITY_TABLE_OFFSET + size_of::<CapabilityTableLock>() <= paging::PAGE_SIZE as usize,
+    "a Thread, its FP register file and its capability table no longer fit in one TCB page"
+);
+
+/// **Nothing in a capability table needs dropping**, which is what lets `Threads::remove` recycle
+/// the page after dropping only the `Thread`. Were a capability ever to own something, this fails
+/// the build at the place that would otherwise leak it.
+const _: () = assert!(
+    !core::mem::needs_drop::<CapabilityTableLock>(),
+    "a capability table now needs dropping; Threads::remove must drop it before recycling the page"
+);
+
+/// An empty table behind an unheld lock, as a constant operand: [`init_capability_table`] copies it
+/// straight into the page rather than building a temporary the size of the table on its own frame
+/// (the reason milestone 754 (the capability table grows to 64 slots) gives for an empty table constant).
+#[allow(clippy::declare_interior_mutable_const)] // only ever moved into a page, never borrowed
+const EMPTY_CAPABILITY_TABLE: CapabilityTableLock = crate::sync::IrqSafeMutex::new(
+    crate::sync::rank::CAPABILITY_TABLE,
+    crate::cap::CapabilityTable::new(),
+);
+
+/// The address of `thread`'s capability table.
+///
+/// # Safety
+///
+/// As [`fp_state_of`]: `thread` must point to a live `Thread` **at the start of its own TCB page**,
+/// as the table stores it, never one derived from a reference.
+pub unsafe fn capability_table_of(thread: *mut Thread) -> *const CapabilityTableLock {
+    // SAFETY: the caller's contract. Inside the page by the assertion above, and aligned because the
+    // offset is a multiple of the lock's alignment and a page is aligned to far more.
+    unsafe { thread.cast::<u8>().add(CAPABILITY_TABLE_OFFSET).cast() }
+}
+
+/// Give a freshly-born thread its empty capability table. Called beside [`init_fp_state`] by both
+/// `Threads` inserts, for its reason: a `kmem` page is not zeroed.
+///
+/// # Safety
+///
+/// As [`capability_table_of`], and no other core may yet be able to reach the table: the thread is
+/// being born, so its name has not been handed to anyone.
+pub unsafe fn init_capability_table(thread: *mut Thread) {
+    // SAFETY: the caller's contract; one aligned write inside the page, over bytes nothing reads.
+    unsafe {
+        capability_table_of(thread)
+            .cast_mut()
+            .write(EMPTY_CAPABILITY_TABLE);
+    }
+}
+
 // SAFETY: plain storage of the link, nothing else, which is all the queue's contract asks.
 unsafe impl intrusive_fifo::Node for Thread {
     fn next(&self) -> Option<core::ptr::NonNull<Self>> {
@@ -739,7 +810,6 @@ impl Thread {
             context: core::ptr::null_mut(),
             stack: None,
             space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
@@ -780,7 +850,6 @@ impl Thread {
             context: core::ptr::null_mut(),
             stack: None,
             space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
@@ -924,8 +993,6 @@ impl Thread {
                 context,
                 stack: Some(stack),
                 space: None, // a kernel thread until it calls `user::exec`
-                // and it can name nothing until it is handed something
-                capability_table: crate::cap::CapabilityTable::new(),
                 mailbox: [0; 5],
                 quota: None,
                 outgoing_cap: None,
@@ -964,7 +1031,6 @@ impl Thread {
             context: core::ptr::null_mut(),
             stack: None,
             space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
