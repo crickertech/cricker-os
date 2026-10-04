@@ -60,6 +60,12 @@
 //! nothing. Refused `dwarden`, the `warden` family, and bare `subtree`, because subtree already
 //! means three things here (the supervision tree, this repository, and git's own `subtree`);
 //! carrying the disambiguation in the name beats carrying it in the doc comment.
+//!
+//! # BUGS
+//!
+//! **No host fuzz target reaches this caretaker's decode** (proposal #1592 part a, rank 4). It is
+//! inline in this EL0 binary with no library half, so a target would need it extracted first, the
+//! way `redoxfs_server::Server::handle` was. See `notes/fuzzing-the-services.md`.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks

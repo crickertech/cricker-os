@@ -60,6 +60,12 @@
 //! collapse this milestone was first drafted around, because it and `fs_subtree_caretaker` serve
 //! the same verbs by opposite means: this one filters names on every name-taking verb, where its
 //! sibling performs no checks at all.
+//!
+//! # BUGS
+//!
+//! **No host fuzz target reaches this caretaker's decode** (proposal #1592 part a, rank 4). It is
+//! inline in this EL0 binary with no library half, so a target would need it extracted first, the
+//! way `redoxfs_server::Server::handle` was. See `notes/fuzzing-the-services.md`.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks

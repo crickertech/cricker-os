@@ -520,6 +520,29 @@ pub fn damage_to_screen(win: &Window, damage: Rect) -> Rect {
         .intersect(&Rect::screen())
 }
 
+/// **One client's commit, as the compositor reads it**: the damage rectangle exactly as the client
+/// wrote it into its control page (four untrusted words), mapped to what the screen must redraw, and
+/// the status word the compositor writes back into the same page.
+///
+/// The rectangle is **untrusted input**. It is clipped to the surface the client owns, and the
+/// status says so if it had to be ([`proto::ctl::STATUS_CLIPPED`], per-client feedback through the
+/// only channel that can carry it). The worst a lie can do is make the compositor re-copy the liar's
+/// own pixels: the returned damage is always inside `win` on the screen.
+///
+/// Moved here from the compositor binary's frame loop by the fuzz lane (`lane/fuzz-service-handlers`,
+/// 2026-10-04 UTC) so the host fuzz target `compositor_session` runs the decode the binary runs.
+/// Name: provisional.
+pub fn commit_damage(win: &Window, x: u32, y: u32, w: u32, h: u32) -> (Rect, u32) {
+    let asked = Rect::new(x as i32, y as i32, w, h);
+    let inside = asked.intersect(&win.bounds());
+    let status = if inside == asked {
+        proto::ctl::STATUS_OK
+    } else {
+        proto::ctl::STATUS_CLIPPED
+    };
+    (damage_to_screen(win, asked), status)
+}
+
 /// **Composite the first `n` windows into `screen`, touching only `damage`.**
 ///
 /// `screen` is `SCREEN_W * SCREEN_H` pixels; `sources[i]` is window `i`'s surface, at least

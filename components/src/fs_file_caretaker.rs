@@ -45,6 +45,12 @@
 //! correctly since milestone 31 while the code said warden). The `fs_` prefix rather than `file_`
 //! because `file` is already one of the qualifiers and `file_file_caretaker` is the reductio. A
 //! reader should predict what the holder ends up able to do: a file, and it cannot list or create.
+//!
+//! # BUGS
+//!
+//! **No host fuzz target reaches this caretaker's decode** (proposal #1592 part a, rank 4). It is
+//! inline in this EL0 binary with no library half, so a target would need it extracted first, the
+//! way `redoxfs_server::Server::handle` was. See `notes/fuzzing-the-services.md`.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks

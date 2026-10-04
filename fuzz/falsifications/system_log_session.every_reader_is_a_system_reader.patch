@@ -1,0 +1,32 @@
+Falsifies the `system_log_session` fuzz target's scope rule.
+
+The defect: `OPERATION_READER` reads its scope field with `<=` instead of `==`, so a reader the spawner
+registered for the per-user read (`SCOPE_USER`, 0) is made a system reader too, and is shown every
+user's records. An off-by-one in the authority comparison that §242 (a system log) ruled must stay a
+lesser authority.
+
+Expected to fail: "a per-user reader saw another user's record", once a session registers a
+per-user reader and some other user's line reaches the ring.
+
+Replay by hand, from the repository root (`script/falsifications` sweeps Kani harnesses and tests,
+not fuzz targets):
+
+    git apply fuzz/falsifications/system_log_session.every_reader_is_a_system_reader.patch
+    mkdir -p /tmp/plant && cargo fuzz run -O system_log_session /tmp/plant -- -max_total_time=600
+    git apply -R fuzz/falsifications/system_log_session.every_reader_is_a_system_reader.patch
+
+Measured 2026-10-04 (UTC) on an M-series Mac, from an empty corpus: see notes/fuzzing-the-services.md.
+
+diff --git a/crates/system_log/src/lib.rs b/crates/system_log/src/lib.rs
+index 6244be70c..a3dde7baa 100644
+--- a/crates/system_log/src/lib.rs
++++ b/crates/system_log/src/lib.rs
+@@ -226,7 +226,7 @@ impl Log {
+                 .map(|e| {
+                     e.reader = Some(registry::Reader {
+                         window: arg as u8,
+-                        system: field == control::SCOPE_SYSTEM,
++                        system: field <= control::SCOPE_SYSTEM,
+                     });
+                 })
+                 .is_some(),

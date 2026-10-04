@@ -29,4 +29,7 @@ paths = [
     "packages/noteless-riscv64.recipe.toml",
     "packages/noteless-x86_64.recipe.toml",
 ]
-depends = ["init", "time", "timetable", "network", "host-tools"]
+# `redoxfs` since the fuzz-service-handlers lane (2026-10-04 UTC): `fuzz`'s
+# `redoxfs_server_session` target links the file server's core and the engine under it, to replay
+# client sessions against the dispatch the running server runs.
+depends = ["init", "time", "timetable", "network", "host-tools", "redoxfs"]

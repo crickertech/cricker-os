@@ -15,16 +15,20 @@ The victim's pixel digest stays equal under this patch, which is why the witness
 control page and not only the surface: the compositor writes only control pages, so that is where
 this class of defect lands. The surface assertion beside it is the half this patch does not reach.
 
+Re-cut 2026-10-04 (UTC) by `lane/fuzz-service-handlers`, when the status word's value moved into
+`compositor::commit_damage` and `serve_frame` kept only the store; the defect is the same store to
+the same wrong page. That lane did not replay it under QEMU; the weekly sweep does.
+
 diff --git a/components/src/compositor.rs b/components/src/compositor.rs
-index df649fdf2..6986f4208 100644
+index 38a1224be..947d8d2b9 100644
 --- a/components/src/compositor.rs
 +++ b/components/src/compositor.rs
-@@ -296,7 +296,7 @@ fn serve_frame(
+@@ -295,7 +295,7 @@ fn serve_frame(
+             rd32(c + ctl::DAMAGE_W),
+             rd32(c + ctl::DAMAGE_H),
          );
-         let inside = asked.intersect(&SCENE[i].bounds());
-         wr32(
--            c + ctl::STATUS,
-+            ctl_va(n - 1) + ctl::STATUS,
-             if inside == asked {
-                 ctl::STATUS_OK
-             } else {
+-        wr32(c + ctl::STATUS, status);
++        wr32(ctl_va(n - 1) + ctl::STATUS, status);
+         damage = damage.union(&seen);
+         wr32(c + ctl::ACKED, seq);
+     }
