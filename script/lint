@@ -3022,6 +3022,11 @@ python3 helpers/job-budget.py lint
 # fixtures, with no git and no cargo. The weekly workflow is the only thing that runs the real
 # measurement, so a change to these rules is checked here, where it lands.
 python3 helpers/interface_stability.py --selftest >/dev/null
+# Milestone 740 (the survivors a merged pull request adds are checked against a triage record), the inflow check (helpers/mutation_inflow.py): the key a survivor is
+# triaged under, what counts as new and as inflow, and that an untriaged one fails, against
+# fixtures with no git and no network. The weekly mutation workflow is the only thing that runs the
+# real check, so a change to these rules is verified here, where it lands.
+python3 helpers/mutation_inflow.py --selftest >/dev/null
 
 # §88 (`needs-architect` as a required check, rather than as a script's restraint)'s diff-reading
 # half (.github/workflows/architect-label.yml, the general case of

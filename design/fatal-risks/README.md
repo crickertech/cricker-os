@@ -158,6 +158,13 @@ timeouts, 92.7% killed against 92.4% on 2026-09-21.
 
 Fact, 2026-10-03: milestone 517 (what fraction of survivor growth arrives on lines a pull request touched)'s inflow measurement ran once and is not a weekly report; between the 2026-09-21 and 2026-10-03 censuses 600 new survivors sit on lines 58 merged pull requests wrote, 364 in crates with a triage ledger section and 236 in crates with none ([inflow](../../notes/mutation-testing/inflow-2026-10-03.md)).
 
+Fact, 2026-10-04: the inflow check exists (milestone 740 (the survivors a merged pull request adds are
+checked against a triage record), provisional). The weekly mutation workflow diffs each census
+against the previous one, blames new survivors to the merged pull request that wrote the line, and
+fails listing any with no row in `notes/project-metrics/mutation-triage.csv`. Against the 2026-09-21
+census, 472 survivor keys are blamed to merged pull requests since: 162 have a triage row and 310
+do not.
+
 ## 4. The architecture imposes a per-crossing cost that cannot be engineered away
 
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
