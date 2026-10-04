@@ -2098,30 +2098,7 @@ def _tokens_per_milestone(row):
     return tokens / 1_000_000.0 / built
 
 
-def _fold(kind):
-    """The chart's `other models` band: every model outside the four that have a hue.
-
-    The palette has eight fixed slots and its own comment rules that a ninth series folds into
-    another rather than inventing a colour. The CSV keeps `opus_4_8`, `fable_5_1`, `sonnet_5_5`,
-    `haiku_4_5`, the two GLM columns and `other_models` apart, because that is where a reader checks arithmetic; the chart adds them,
-    because a band of seven commits is a legend entry and not a shape.
-
-    `opus_4_8` folded here on 2026-09-24, when Opus 5.5 needed a hue and the commits chart was
-    already at eight. Opus 5.5 took Opus 4.8's slot, so no other series changed colour. Opus 4.8
-    was the one to fold because it has signed nothing since 2026W38, while Sonnet 5 (fewer commits
-    in total) is still signing them. Both charts fold the same set so that one hue means one model
-    on either.
-    """
-    def derive(row):
-        return sum(_cell(row, _model_col(kind, s))
-                   for s in ('opus_4_8', 'fable_5_1', 'sonnet_5_5', 'haiku_4_5', 'glm_5_3',
-                   'glm_5_3_flash', 'other_models'))
-    return derive
-
-
 DERIVED = {
-    'model_commits_other_shown': _fold('commits'),
-    'model_lines_other_shown': _fold('lines'),
     # The colours chart's grey band, over the stored `fatal_risks_total` (in the same
     # file as the three colours): a risk with no verdict rendered, or a week whose colours the status-line backfill could not read, draws
     # rather than vanishes, so a bar of four reads as four of nine and not as nine.
@@ -2152,6 +2129,72 @@ def series_of(rows, weeks, columns, scale=1.0, hues=None):
         if any(values):
             out.append((label, values, hues[j] if hues else None))
     return out
+
+
+# The model charts draw one labelled series per model in MODEL_SLUGS, in family order, so that a
+# model which starts signing commits is named on the chart the week it appears instead of being
+# folded into a grey band (calef, 2026-10-03 UTC: "What are the other models in W40? Can we label
+# them?"; 302 commits of 730 sat in `other models`). The label is derived from the slug
+# (`sonnet_5_5` is `Sonnet 5.5`), so only the colour needs a row here, and a slug in MODEL_SLUGS
+# with no row is a SystemExit at import rather than a hidden band: the same loud-not-quiet rule as
+# MODEL_TRAILERS. `other_models` stays out of this table; it is the one bucket that means "a name
+# this tree has not classified", and it keeps its own band and its own warning.
+#
+# One hue per family, a darker and a lighter step for the versions inside it, so 10 models read as
+# 5 families. Stack order is this table's order. (light, dark) pairs, chosen for each surface like
+# PALETTE_LIGHT. The blue, green, amber, pink and slate reuse validated palette hexes; the rest are
+# new. Checked 2026-10-03 UTC with an OKLab script, NOT the dataviz skill's six-check validator:
+# every stack-adjacent pair is 11.6 or more apart (x100; the palette's own target is 8) in both
+# modes, and the worst non-adjacent pairs (Opus 4.8 and GLM 5.3 Flash, about 7) are told apart by
+# the legend and each segment's <title>. Several light steps sit under 3:1 on white, the same relief
+# the palette comment above already relies on. The shared palette has eight slots and this chart
+# needs up to fourteen series, so it carries its own hues the way the fatal-risks colours chart
+# does, rather than cycling or widening the eight that nine other charts depend on.
+MODEL_HUES = {
+    'opus_4_8':      ('#8fb8ec', '#2c5ea8'),
+    'opus_5':        ('#2a78d6', '#3987e5'),
+    'opus_5_5':      ('#174a94', '#7db3f5'),
+    'sonnet_5':      ('#1baf7a', '#199e70'),
+    'sonnet_5_5':    ('#0b6b47', '#58d0a2'),
+    'fable_5':       ('#eda100', '#c98500'),
+    'fable_5_1':     ('#a85f00', '#f2c75c'),
+    'haiku_4_5':     ('#0e9fb3', '#2bb5c9'),
+    'glm_5_3':       ('#4a3aa7', '#9085e9'),
+    'glm_5_3_flash': ('#a99fe6', '#5848b8'),
+}
+MODEL_BAND_HUES = {
+    'other models':   ('#e87ba4', '#d55181'),
+    'unattributed':   ('#eb6834', '#d95926'),
+    'before the convention': ('#b1bac4', '#57606a'),
+    'merge (a pull request landing)': ('#5a6b7d', '#94a5b7'),
+}
+
+
+def model_label(slug):
+    """`sonnet_5_5` is `Sonnet 5.5`, `glm_5_3_flash` is `GLM 5.3 Flash`."""
+    words = slug.split('_')
+    name = words[0].upper() if words[0] == 'glm' else words[0].capitalize()
+    digits = [w for w in words[1:] if w.isdigit()]
+    rest = [w.capitalize() for w in words[1:] if not w.isdigit()]
+    return ' '.join([name, '.'.join(digits)] + rest)
+
+
+def model_chart(kind, with_merge):
+    """(columns, hues) for a model chart: every model in MODEL_SLUGS, then the buckets no model owns."""
+    models = [s for s in MODEL_SLUGS if s != 'other_models']
+    missing = [s for s in models if s not in MODEL_HUES]
+    if missing:
+        raise SystemExit('metrics: MODEL_SLUGS has %s but MODEL_HUES has no colour for it; add one '
+                         'row so the model is drawn rather than hidden' % ', '.join(missing))
+    models.sort(key=list(MODEL_HUES).index)
+    columns = [(model_label(s), _model_col(kind, s)) for s in models]
+    buckets = [('other models', 'other_models'), ('unattributed', 'unattributed'),
+               ('before the convention', 'pre_convention')]
+    if with_merge:
+        buckets.append(('merge (a pull request landing)', 'merge'))
+    columns += [(label, _model_col(kind, s)) for label, s in buckets]
+    hues = [MODEL_HUES[s] for s in models] + [MODEL_BAND_HUES[label] for label, _s in buckets]
+    return columns, hues
 
 
 # Each entry is (file, title, subtitle, columns, scale, ceiling, absent_field, hues). `absent_field`
@@ -2231,24 +2274,15 @@ CHARTS = [
      'is where trunk-health starts to say so',
      [('ejected share', 'queue_ejection_pct')], 1.0, (20, 'reported above'), 'queue_ejection_pct'),
     ('models-commits.svg', 'Commits each week, by the model that signed them',
-     'from the Co-Authored-By trailer, and for GLM commits from commit-models.csv (in other '
-     'models); attributed + unattributed + merge is every commit that week',
-     [('Opus 5', 'model_commits_opus_5'), ('Opus 5.5', 'model_commits_opus_5_5'),
-      ('Sonnet 5', 'model_commits_sonnet_5'), ('Fable 5', 'model_commits_fable_5'),
-      ('other models', 'model_commits_other_shown'),
-      ('unattributed', 'model_commits_unattributed'),
-      ('before the convention', 'model_commits_pre_convention'),
-      ('merge (a pull request landing)', 'model_commits_merge')], 1.0, None,
-     'model_commits_unattributed'),
+     'from the Co-Authored-By trailer, and for GLM commits from commit-models.csv; '
+     'attributed + unattributed + merge is every commit that week',
+     model_chart('commits', True)[0], 1.0, None, 'model_commits_unattributed',
+     model_chart('commits', True)[1]),
     ('models-lines.svg', 'Lines touched each week, by the model that signed them, in thousands',
      'added plus removed, not net. VOLUME, NOT EFFORT: the hardest change of 2026-09-23 was a '
      'dozen lines and the largest was a mechanical sweep. Merges carry no line count',
-     [('Opus 5', 'model_lines_opus_5'), ('Opus 5.5', 'model_lines_opus_5_5'),
-      ('Sonnet 5', 'model_lines_sonnet_5'), ('Fable 5', 'model_lines_fable_5'),
-      ('other models', 'model_lines_other_shown'),
-      ('unattributed', 'model_lines_unattributed'),
-      ('before the convention', 'model_lines_pre_convention')], 1000.0, None,
-     'model_lines_unattributed'),
+     model_chart('lines', False)[0], 1000.0, None, 'model_lines_unattributed',
+     model_chart('lines', False)[1]),
     ('effort.svg', 'Machine effort per milestone built, in millions of tokens',
      'a ratio, not a total: down means the method got cheaper. Weeks with no surviving records are '
      'marked, not zeroed',

@@ -263,7 +263,7 @@ mod tests {
     /// a depth here would be a second, weaker copy of both.
     ///
     /// It asks about *any* core rather than this one on purpose. Kernel tests are not pinned (see
-    /// `cpu::percpu_is_self_consistent_on_whatever_core_we_run`), and a core that spent its whole
+    /// `cpu::percpu_is_self_consistent_on_whatever_cpu_we_run`), and a core that spent its whole
     /// life running user threads would take every trap from user mode, where the switch correctly
     /// does not happen. "Some core switched" is the claim this test can make without asserting
     /// where it runs.

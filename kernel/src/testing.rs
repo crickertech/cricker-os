@@ -21,7 +21,7 @@ use crate::{print, println};
 // observable kernel step: a completed IPC rendezvous or device-IRQ wake (`sched::wake` /
 // `wake_load_aware`) and every line of console output (`console::_print`, which covers each test's
 // "ok"). Progress is also credited when any online core is running a real, non-idle thread
-// ([`any_core_running_real_work`]). If none of that happens for ~60 s the run fails. That second
+// ([`any_cpu_running_real_work`]). If none of that happens for ~60 s the run fails. That second
 // signal is what lets `std_net` pass honestly: it spends its ~300 s in net_stack's *userspace* smoltcp
 // poll, CPU-bound, making no wake and no output for stretches over a minute, yet a real thread runs
 // the whole time. A genuine lost wakeup is the opposite: every thread `Blocked`, every core parked on
@@ -48,7 +48,7 @@ use crate::{print, println};
 //   - **The heartbeat credits work by ANY thread, including leftovers from earlier tests, and that
 //     blinded it once for real** (milestone 31 phase 2). The FS server died of a stack overflow, its
 //     client blocked on a `CALL` nobody would ever answer, and nothing in that test made progress
-//     again; but processes left spinning by earlier tests kept `any_core_running_real_work` true, so
+//     again; but processes left spinning by earlier tests kept `any_cpu_running_real_work` true, so
 //     the 60 s stall never registered and only the ceiling fired. Attributing a thread to the running
 //     test would fix it and the kernel cannot: a test's processes are ordinary processes. The defence
 //     is the ceiling, plus reading the thread dump's **address-space roots** rather than its program
@@ -942,7 +942,7 @@ pub fn note_progress() {
 /// core parked on idle; a slow-but-live test (a userspace CPU-bound loop like `std_net`'s smoltcp
 /// poll) always has one running. Read-only across the per-CPU blocks; racy by nature, which a
 /// heartbeat sampled once per tick tolerates.
-fn any_core_running_real_work() -> bool {
+fn any_cpu_running_real_work() -> bool {
     // The online set, not `0..count` (first-silicon sweep, 2026-08-14): with the VisionFive 2's
     // {1,2,3} online, the count-as-index scan read parked slot 0's statics and never looked at
     // cpu 3, so a suite whose only live work sat on cpu 3 would read as hung.
@@ -967,7 +967,7 @@ pub fn watchdog_tick() {
 
     const STALL_LIMIT: u64 = 6000; // ticks at 100 Hz = 60 s with no progress at all
     let hb = HEARTBEAT.load(Ordering::Relaxed);
-    let progress = hb != WATCH_LAST_HB.load(Ordering::Relaxed) || any_core_running_real_work();
+    let progress = hb != WATCH_LAST_HB.load(Ordering::Relaxed) || any_cpu_running_real_work();
     if progress {
         WATCH_LAST_HB.store(hb, Ordering::Relaxed);
         WATCH_STALL_TICKS.store(0, Ordering::Relaxed);
@@ -1071,7 +1071,7 @@ fn current_test_name() -> Option<&'static str> {
 /// ```
 #[cfg(any(test, feature = "system_tests"))]
 pub struct TickBudget {
-    core: usize,
+    cpu: usize,
     start: u64,
     ticks: u64,
 }
@@ -1080,15 +1080,15 @@ pub struct TickBudget {
 impl TickBudget {
     /// Start a budget of `ticks` timer ticks on whatever core is running now.
     pub fn new(ticks: u64) -> Self {
-        let (core, start) = Self::sample();
-        Self { core, start, ticks }
+        let (cpu, start) = Self::sample();
+        Self { cpu, start, ticks }
     }
 
     /// Has the budget run out? Re-anchors and returns `false` if this thread changed core.
     pub fn is_expired(&mut self) -> bool {
-        let (core, now) = Self::sample();
-        if core != self.core {
-            self.core = core;
+        let (cpu, now) = Self::sample();
+        if cpu != self.cpu {
+            self.cpu = cpu;
             self.start = now;
             return false;
         }
@@ -1100,10 +1100,10 @@ impl TickBudget {
     /// migration hazard this type exists to handle arriving inside the handler for it.
     fn sample() -> (usize, u64) {
         loop {
-            let core = crate::cpu::id();
+            let cpu = crate::cpu::id();
             let ticks = crate::arch::timer::ticks();
-            if crate::cpu::id() == core {
-                return (core, ticks);
+            if crate::cpu::id() == cpu {
+                return (cpu, ticks);
             }
         }
     }

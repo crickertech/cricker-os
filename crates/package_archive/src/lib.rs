@@ -966,6 +966,120 @@ mod tests {
         );
     }
 
+    /// **The layout is the documented one, pinned by hand** and not by the constants the writer
+    /// and the reader share: both would agree with each other after any change to them. A third
+    /// party writing this format from the crate docs lands on exactly these offsets.
+    #[test]
+    fn the_header_and_table_sit_where_the_format_says() {
+        assert_eq!(HEADER_LEN, 112);
+        assert_eq!(MEMBER_LEN, 72);
+        let file = written(&[("a", b"xyz"), ("b", b"")]);
+        assert_eq!(&file[..8], b"NIFEPKG1");
+        assert_eq!(&file[8..14], b"uptime");
+        assert_eq!(&file[40..45], b"0.1.0");
+        assert_eq!(&file[72..79], b"aarch64");
+        assert_eq!(&file[104..108], 2u32.to_le_bytes());
+        assert_eq!(&file[108..112], [0; 4]);
+        assert_eq!(file[112], b'a');
+        assert_eq!(file[112 + 72], b'b');
+        let offset = u32::from_le_bytes(file[112 + 32..112 + 36].try_into().unwrap());
+        assert_eq!(offset as usize % MEMBER_ALIGN, 0);
+        assert!(offset as usize >= 112 + 2 * 72);
+        assert_eq!(&file[112 + 36..112 + 40], 3u32.to_le_bytes());
+        assert_eq!(&file[112 + 40..112 + 72], sha256(b"xyz"));
+    }
+
+    /// The count is read from where the header puts it, and the ceiling is inclusive: 64 members
+    /// parse and write, 65 are refused by both.
+    #[test]
+    fn the_member_ceiling_is_inclusive_in_the_reader_and_the_writer() {
+        let names: std::vec::Vec<std::string::String> =
+            (0..=MAX_MEMBERS).map(|i| std::format!("m{i}")).collect();
+        let all: std::vec::Vec<(&str, &[u8])> =
+            names.iter().map(|n| (n.as_str(), &b"x"[..])).collect();
+        let at_max = written(&all[..MAX_MEMBERS]);
+        assert_eq!(Package::parse(&at_max).unwrap().len(), MAX_MEMBERS);
+
+        let attributes = Attributes {
+            name: "uptime",
+            version: "0.1.0",
+            architecture: "aarch64",
+        };
+        let mut buffer = vec![0u8; package_size(&all)];
+        assert_eq!(
+            write_package(&attributes, &all, &mut buffer),
+            Err(Error::TooManyMembers)
+        );
+
+        // The reader's side: the same file with its count word raised by one.
+        let mut over = at_max.clone();
+        over[104..108].copy_from_slice(&(MAX_MEMBERS as u32 + 1).to_le_bytes());
+        over.resize(over.len() + MEMBER_LEN, 0);
+        assert_eq!(Package::parse(&over), Err(Error::TooManyMembers));
+    }
+
+    /// A package with no members is exactly a header, and that is a package. The count of the
+    /// table is checked against the buffer: a file that ends inside it is truncated.
+    #[test]
+    fn an_empty_package_is_a_bare_header_and_a_short_table_is_truncated() {
+        let empty = written(&[]);
+        assert_eq!(empty.len(), HEADER_LEN);
+        let package = Package::parse(&empty).unwrap();
+        assert!(package.is_empty());
+        assert_eq!(package.len(), 0);
+        assert_eq!(package.member_name(0), None);
+
+        let one = written(&[("a", b"x")]);
+        assert!(!Package::parse(&one).unwrap().is_empty());
+        assert_eq!(
+            Package::parse(&one[..HEADER_LEN + MEMBER_LEN - 1]),
+            Err(Error::Truncated)
+        );
+    }
+
+    /// An index equal to the count is past the end, for the name as for the bytes.
+    #[test]
+    fn the_member_after_the_last_is_not_there() {
+        let file = written(&[("a", b"x"), ("b", b"y")]);
+        let package = Package::parse(&file).unwrap();
+        assert_eq!(package.member_name(1), Some("b"));
+        assert_eq!(package.member_name(2), None);
+        assert_eq!(package.member(2), None);
+    }
+
+    /// The longest stem is exactly [`STEM_LEN`], so a package whose three fields all fill their
+    /// field still fits the scratch the installer gives it.
+    #[test]
+    fn the_longest_stem_fills_its_scratch_exactly() {
+        let long = "n".repeat(NAME_LEN);
+        let attributes = Attributes {
+            name: &long,
+            version: &long,
+            architecture: &long,
+        };
+        let mut file = vec![0u8; package_size(&[])];
+        write_package(&attributes, &[], &mut file).unwrap();
+        let mut stem = [0u8; STEM_LEN];
+        let text = Package::parse(&file).unwrap().stem(&mut stem);
+        assert_eq!(text.len(), STEM_LEN);
+        assert_eq!(STEM_LEN, 98);
+    }
+
+    /// **A stem names one version**: an empty version and a version with a hyphen in it are not
+    /// versions, and an empty name is not a package, whatever a catalogue line says.
+    #[test]
+    fn a_stem_with_an_empty_or_hyphenated_version_or_an_empty_name_is_never_found() {
+        let d = "0".repeat(64);
+        let none = Err(StemMiss::NoSuchPackage);
+        let empty_version = std::format!("foo--aarch64 {d}\n");
+        assert_eq!(catalogued_stem(&empty_version, "foo", "aarch64"), none);
+        let hyphenated = std::format!("foo-1.0-rc1-aarch64 {d}\n");
+        assert_eq!(catalogued_stem(&hyphenated, "foo", "aarch64"), none);
+        let nameless = std::format!("-1.0-aarch64 {d}\n");
+        assert_eq!(catalogued_stem(&nameless, "", "aarch64"), none);
+        assert_eq!(catalogued_stem(&nameless, "@1.0", "aarch64"), none);
+    }
+
     #[test]
     fn wrong_magic_is_refused() {
         let mut file = written(&[("uptime", b"x")]);

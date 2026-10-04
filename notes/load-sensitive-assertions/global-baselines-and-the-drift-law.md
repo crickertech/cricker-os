@@ -119,7 +119,7 @@ Until then the residual gap is an implementation that maintains `DEADLINE` corre
 with something else. No wall-clock margin could distinguish that from load either. (It was built on
 2026-08-17: see [the icount claims](the-icount-claims.md).)
 
-### Placement probe (`smp.rs`, `work_can_be_placed_on_every_core`): left alone, and that was wrong
+### Placement probe (`smp.rs`, `work_can_be_placed_on_every_cpu`): left alone, and that was wrong
 
 *Superseded on 2026-08-04. The argument below is kept because it is the argument that failed, and
 the way it failed is instructive. The verdict that replaced it is in

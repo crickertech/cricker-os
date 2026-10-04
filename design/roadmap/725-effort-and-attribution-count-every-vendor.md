@@ -22,7 +22,7 @@ Built: `script/effort` reads opencode's database (`--selftest` pins the shape), 
 
 ## Follow-on
 
-- **Outstanding.** An `AGENTS.md` instruction that every commit signs the model that wrote it, including under opencode, which reads that file. Checked 2026-10-03: `grep -in co-authored AGENTS.md` finds nothing. A developer lane does not edit `AGENTS.md`, so the maintainer owns the line.
+- **Done.** An `AGENTS.md` instruction that every commit signs the model that wrote it, including under opencode, which reads that file. #1546 merged 2026-10-03 (UTC) and added it to AGENTS.md's Commits section; `grep -in co-authored AGENTS.md` finds it.
 - **Outstanding.** A commit hook that refuses an agent commit with no trailer. A hook cannot tell an agent from calef, so it needs a signal that a commit is an agent's. That is a design fork. Checked 2026-10-03: `.githooks/` holds only `pre-push`.
 - **Outstanding.** A per-token rate for GLM in the ledger. It carries the flat z.ai subscription and no per-token rate, so a week with GLM tokens has a blank blended rate in `cost.csv`. Checked 2026-10-03 against `ledger.md`.
 

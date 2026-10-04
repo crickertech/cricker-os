@@ -425,4 +425,53 @@ mod tests {
         assert_eq!(rows.len(), 4, "{text}");
         assert!(text.ends_with('\n'));
     }
+
+    /// The rows a listing of `(length, is_dir)` names prints, so the wrap column can be probed to
+    /// the byte.
+    fn listing_rows(names: &[(usize, bool)]) -> Vec<std::string::String> {
+        let mut out = Vec::new();
+        let mut l = Lister::new();
+        for &(len, dir) in names {
+            let name = std::vec![b'x'; len];
+            l.name(&name, dir, &mut |b| out.extend_from_slice(b));
+        }
+        l.finish(&mut |b| out.extend_from_slice(b));
+        let text = std::string::String::from_utf8(out).unwrap();
+        text.lines()
+            .skip(1)
+            .map(std::string::String::from)
+            .collect()
+    }
+
+    /// A row of exactly `LIST_WIDTH` columns stays one row, and one column more wraps. Three names
+    /// so the column carried after the second is tested too: it is the sum of both names and both
+    /// separators.
+    #[test]
+    fn a_row_may_fill_the_list_width_exactly_and_no_more() {
+        assert_eq!(LIST_WIDTH, 78);
+        let fits = listing_rows(&[(30, false), (30, false), (14, false)]);
+        assert_eq!(fits.len(), 1, "{fits:?}");
+        assert_eq!(fits[0].len(), 78);
+        let wraps = listing_rows(&[(30, false), (30, false), (15, false)]);
+        assert_eq!(wraps.len(), 2, "{wraps:?}");
+        assert_eq!(wraps[1].len(), 15);
+    }
+
+    /// The `/` a directory is marked with takes a column, so it counts against the width.
+    #[test]
+    fn the_slash_marking_a_directory_counts_toward_the_row_width() {
+        let fits = listing_rows(&[(39, true), (36, false)]);
+        assert_eq!(fits.len(), 1, "{fits:?}");
+        assert_eq!(fits[0].len(), 78);
+        let wraps = listing_rows(&[(38, true), (38, false)]);
+        assert_eq!(wraps.len(), 2, "{wraps:?}");
+    }
+
+    /// Nothing listed, nothing printed: `finish` adds a row only to end one.
+    #[test]
+    fn an_empty_listing_prints_nothing() {
+        let mut out = Vec::new();
+        Lister::new().finish(&mut |b| out.extend_from_slice(b));
+        assert!(out.is_empty());
+    }
 }

@@ -1575,4 +1575,96 @@ mod tests {
         assert_eq!(answer, None);
         assert!(reads < 128, "the walk did not terminate in 64 hops");
     }
+
+    /// A function whose status says "no capability list" has none, even with a pointer and a
+    /// capability sitting where the list would be, and even with other status bits set.
+    #[test]
+    fn a_status_without_the_list_bit_hides_a_capability_that_is_there() {
+        let bdf = Bdf {
+            bus: 0,
+            dev: 5,
+            func: 0,
+        };
+        let read = |present: bool| {
+            move |_: Bdf, off: u64| -> u32 {
+                match off {
+                    // Status bit 3 (an interrupt is pending) is set; bit 4 is the list.
+                    COMMAND => (if present { 0x0018u32 } else { 0x0008 }) << 16,
+                    CAP_PTR => 0x40,
+                    0x40 => 0x0001_0011, // MSI-X, control 1, no next
+                    _ => 0,
+                }
+            }
+        };
+        assert!(msix_cap(bdf, &mut read(true)).is_some());
+        assert_eq!(msix_cap(bdf, &mut read(false)), None);
+    }
+
+    /// The two MSI-X control bits are bits 15 and 14 of the Message Control word, as the
+    /// specification numbers them.
+    #[test]
+    fn the_msix_control_bits_are_the_specifications() {
+        assert_eq!(MSIX_ENABLE, 0x8000);
+        assert_eq!(MSIX_FUNCTION_MASK, 0x4000);
+    }
+
+    /// **A window's three 64-bit values are each two cells, high first.** Every cell here is
+    /// distinct and the high ones are non-zero, so a value built from the wrong half, or a high
+    /// half shifted the wrong way, comes out as a different number.
+    #[test]
+    fn a_window_reads_its_addresses_and_size_as_high_then_low_cells() {
+        let r = ranges(&[[
+            0x0200_0000,
+            0x0000_0001,
+            0x8000_0000,
+            0x0000_0001,
+            0x8000_0000,
+            0x0000_0002,
+            0x1000_0000,
+        ]]);
+        assert_eq!(
+            mem32_window(&r),
+            Some((0x1_8000_0000, 0x2_1000_0000)),
+            "{r:?}"
+        );
+        // The addresses must agree in their high cells too: a translated window is skipped.
+        let translated = ranges(&[[
+            0x0200_0000,
+            0x0000_0001,
+            0x8000_0000,
+            0x0000_0000,
+            0x8000_0000,
+            0,
+            0x1000_0000,
+        ]]);
+        assert_eq!(mem32_window(&translated), None);
+    }
+
+    /// A whole entry followed by four stray bytes is ragged, not "the first entry and some noise".
+    #[test]
+    fn a_whole_entry_plus_a_stray_cell_is_ragged() {
+        let mut r = ranges(&[[0x0200_0000, 0, 0x4000_0000, 0, 0x4000_0000, 0, 0x4000_0000]]);
+        assert!(mem32_window(&r).is_some());
+        r.extend_from_slice(&[0; 4]);
+        assert_eq!(mem32_window(&r), None);
+    }
+
+    /// Every bus number is queued once and handed out once, in order of arrival, whatever the
+    /// order and however often it is named: the bit for a bus is its own, in the word for its
+    /// range of 64.
+    #[test]
+    fn every_bus_number_is_its_own_bit_in_the_seen_set() {
+        let mut q = BusQueue::from_the_root();
+        for bus in (0..=255u8).rev() {
+            q.enqueue(bus);
+            q.enqueue(bus);
+        }
+        let mut out = std::vec::Vec::new();
+        while let Some(b) = q.next_bus() {
+            out.push(b);
+        }
+        let mut expect: std::vec::Vec<u8> = vec![0];
+        expect.extend((1..=255u8).rev());
+        assert_eq!(out, expect);
+    }
 }

@@ -384,6 +384,19 @@ mod tests {
         assert_eq!(path.as_bytes(), b"/packages/uptime/0.2.0/uptime");
     }
 
+    /// **The longest installed path is exactly `PATH_MAX`**: three 32-byte fields fill it to the
+    /// last byte, so a bound computed too small refuses a legal install and one computed too large
+    /// is noticed here.
+    #[test]
+    fn the_longest_installed_path_fills_path_max_exactly() {
+        let f = "a".repeat(32);
+        let p = Path::of(&f, &f, &f).expect("three 32-byte fields fit");
+        assert_eq!(p.as_bytes().len(), PATH_MAX);
+        assert_eq!(PATH_MAX, 108);
+        let too_long = "a".repeat(33);
+        assert!(Path::of(&too_long, &f, &f).is_none());
+    }
+
     #[test]
     fn the_refusal_names_both() {
         let Bare::Both(p) = resolve(b"uptime", true, Some(TABLE_WITH_ROWS), None) else {
