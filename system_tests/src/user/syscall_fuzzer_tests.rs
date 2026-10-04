@@ -1289,6 +1289,8 @@ fn tally(total: &mut Census, c: Census) {
 /// replay.
 ///
 /// Name: provisional (milestone 752's lane), as are the module's and `NIFE_SYSCALL_FUZZ_SEEDS`.
+///
+/// Falsification: replayable `system_tests/falsifications/user.syscall_fuzzer_tests.seeded_syscalls_agree_with_the_shadow_model.patch`
 #[test_case]
 fn seeded_syscalls_agree_with_the_shadow_model() {
     let cmd_region = crate::memory_region::create(ACTORS as u64 + 1).expect("no doorbell region");

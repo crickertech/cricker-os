@@ -1,0 +1,28 @@
+Falsifies `system_tests::user::syscall_fuzzer_tests::seeded_syscalls_agree_with_the_shadow_model`.
+
+Architecture: aarch64, riscv64, x86_64 (the hunk is portable scheduler code).
+
+The defect is the one `revocation_in_flight_tests` records, applied unchanged: the revocation sweep
+for `PageFrame` stops reading `Thread::outgoing_cap`, so a frame staged in a parked `SEND_CAP`
+survives `PageFrame::REVOKE` and the next `RECEIVE_CAP` files it in the receiver's table. It is one
+of the six defects milestone 752 (a seeded syscall driver with a shadow model) was measured
+against; the other five are in that block's table, with the seed and call each turned red.
+
+Expected to fail: seed 5, step 39, `RECEIVE_CAP` returns `x1 = 5` (the revoked frame's new slot)
+where the shadow model says `NO_CAP`, reported as `syscall fuzzer: seed 0x5 step 39: actor 4 Invoke
+{ slot: 2, method: 3, ... } answered ...`. Replayed red on aarch64 on 2026-10-04 (UTC) by the lane
+for milestone 752.
+
+diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+--- a/kernel/src/sched.rs
++++ b/kernel/src/sched.rs
+@@ -3200,9 +3200,6 @@
+     };
+     for t in sched.threads.iter_mut() {
+         t.capability_table.delete_matching(&matches);
+-        if matches!(t.outgoing_cap, Some(c) if matches(&c.object)) {
+-            t.outgoing_cap = None;
+-        }
+     }
+ }
+ 
