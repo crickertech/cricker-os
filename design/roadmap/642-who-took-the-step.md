@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-09-23
+built: 2026-10-04
 promoted_from: who-took-the-step
 milestone_dependencies: none
 decision_dependencies: unwritten
@@ -23,7 +24,76 @@ nothing else's: `who-took-the-step.md` is a lane's coinage and `design/naming.md
 Every option below except the refusal puts a long-lived credential on patagonia
 or adds an account to the organization. That is calef's call, it is a security decision, and it is
 close to irreversible in the sense `AGENTS.md` means: a key that has been on a machine has been on
-it. **Nothing here has been implemented and no credential has been placed anywhere.**
+it. The one credential this milestone caused was the App user token (`ghu_`) calef authorized on
+2026-10-04 (UTC) for the #1580 measurement. calef revoked that authorization, which kills its
+refresh token too, and disabled Device Flow on `nife-smelter` on 2026-10-04 (UTC), after the test;
+the local token file was deleted.
+
+## Built 2026-10-04 (UTC): the machinery is separable, a session is reconstructed, and an agent account is refused
+
+Written by the milestone 642 lane, after the 2026-10-03 correction of error (the queue judged one
+pull request at a time, #1564) made this its action item: it could not tell calef's own dequeues
+from a maintainer session's. Everything below "The requirement" is the 2026-09-23 proposal, kept as
+written. Two of its facts are stale: the organization is `nifeos`, not `crickertech`, and its plan
+is now `team` (`gh api orgs/nifeos`). The audit-log API still returns 404, but calef's token lacks
+the `read:audit_log` scope, so that 404 no longer proves the plan rule by itself.
+
+### What the 2026-09-23 recommendation decided, and what has happened since
+
+| Step | State |
+| --- | --- |
+| 1. The watchers move into scheduled Actions as `smelter` | Done (calef, 2026-09-23; AGENTS.md records it) |
+| 2. The at-risk check stays per developer | Done |
+| 3. Lanes and sessions keep authenticating as their operator | Ruled: they do (below) |
+| 4. An instance tag on the drain's lines and comments | Done: `merge-drain[$INSTANCE]` in `helpers/merge-drain.sh` |
+| The `cli/cli#7213` premise test | Answered: on 2026-10-03, 10 `auto_merge_enabled` and 24 `added_to_merge_queue` events carry the actor `nife-smelter[bot]` |
+
+### Measured on this repository, 2026-10-03 and 2026-10-04 (UTC)
+
+- **`performed_via_github_app` does not separate the queue steps.** Under the App's installation
+  token it is set on comments only, and null on every issue event, the App's own `labeled`,
+  `auto_merge_enabled` and `added_to_merge_queue` included. Under an App user token (`ghu_`,
+  device flow on `nife-smelter`, measured by the maintainer session on scratch pull request #1580)
+  the actor is `calef`, and the field reads `nife-smelter` on `labeled` and on comments, but null
+  on `unlabeled`, `ready_for_review`, `convert_to_draft` and `auto_merge_enabled`/`disabled`.
+  Enqueue and dequeue were not exercised there; auto-merge, the nearest step, carries no mark.
+  `calef`'s own `gh` token is `gho_`, an OAuth App's, and marks nothing.
+- **GraphQL has nothing.** The timeline event types expose `actor` (and `enqueuer`), never an app.
+- **`gh` already tells GitHub that an agent is driving.** `GH_DEBUG=api` shows
+  `User-Agent: GitHub CLI 2.101.0 Agent/claude-code_2-1-287_agent`, from the `AI_AGENT` variable
+  Claude Code sets. GitHub keeps no user agent anywhere this organization can read.
+- **The `**Lane:**` line covers less than half.** Of 836 `calef` comments, 390 open with it, and
+  dequeues carry no body at all.
+
+So the only change that would make a session's steps read differently is its credential, and the
+only credential measured to separate every step is a separate account.
+
+### The ruling
+
+calef, 2026-10-04 (UTC, after 00:16), on #1575, asked whether agent sessions should act as a
+separate account of his, provisionally `calef-agent`: *"I don't want to create calef-agent."* No
+credential option is taken. The (g) App user token is not taken either: the measurement above
+shows it marks labels and comments but not the queue steps the COE needed.
+
+### What was built
+
+`helpers/session_steps.py` (name provisional), with a fixture self-test in `script/lint`. It credits
+a past day's deliberate `calef`-account steps to the agent session whose transcript holds the `gh`
+call that took them. On 2026-10-03 it credits 229 of 250 to a session; the 10 unmatched dequeues
+include all four calef recalls taking by hand, and it claims one #1530 dequeue the COE gives to
+calef, which is its coincidence limit showing. It is option (b) below, refused there as the answer.
+With the ruling, it and the `**Lane:**` line are what this project attributes with.
+
+## BUGS
+
+- **The record cannot say, for any action, whether calef or an agent session took it.** That is
+  the property this block set, and it is not met. An agent session acts with calef's token, so
+  GitHub credits it to `calef`. Attribution is the `**Lane:**` line (rung four, on 390 of 836
+  comments, and on no event) plus `helpers/session_steps.py`'s reconstruction from transcripts
+  (positive half only, coincidence-prone, Claude Code only, gone when the transcripts age out).
+  The next correction of error that needs to know who dequeued inherits this limit. What would
+  change it is a separate credential for sessions, which calef refused on 2026-10-04.
+- What a transcript match does and does not prove is in `helpers/session_steps.py`'s own BUGS.
 
 ## The requirement, stated as a property so each option can be tested against it
 
@@ -76,34 +146,7 @@ So (b) is refused as an answer. It is kept as a *complement*: the log counts the
 over time, which no GitHub record does at all (see the audit-log finding below), and it costs
 nothing to have both.
 
-## Can `smelter` actually do the drain's work? Mostly, with one live risk
-
-Verified against GitHub's documentation and by introspecting the live GraphQL schema, since the
-fork dissolves if the answer is no. `smelter` has exactly **Contents: read/write** and **Pull
-requests: read/write** on `nife`.
-
-| What the drain does | Permission | App installation token? |
-| --- | --- | --- |
-| `gh pr list`, `gh pr view --json ...` | Pull requests: read | yes |
-| `gh api repos/O/R/pulls/N`, `.../issues/N/timeline` | Pull requests: read | yes |
-| GraphQL `repository.mergeQueue.entries` | repo read | yes |
-| `enablePullRequestAutoMerge` (what `gh pr merge --auto` calls) | Pull requests: write | probably, see below |
-| `dequeuePullRequest` | Pull requests: write | probably, see below |
-| `gh pr comment` | Pull requests: write **or** Issues: write | yes |
-| `gh pr create` | Pull requests: write + Contents: read | yes |
-
-**"Probably" is honest rather than lazy, and the reason is structural**: GitHub publishes no
-GraphQL-to-fine-grained-permission map, and says so explicitly (the permissions reference is REST
-only). What was checked instead is that all three mutations exist in the live schema and that none
-of them carries the *"GitHub Apps cannot use this mutation"* note the schema does attach to
-restricted mutations. **That is the absence of a prohibition, not a documented grant.**
-
-**One live risk, and it is specific:** `cli/cli#7213`, open and confirmed, reports
-`gh pr merge --auto --merge` failing with an opaque *"Something went wrong while executing your
-query"* under an App installation token where the same command succeeds under a personal token.
-Calling `enablePullRequestAutoMerge` directly through `gh api graphql` may sidestep the CLI path.
-**Whichever option is chosen, this is the thing to test first**, on one pull request, before the
-drain is pointed at it.
+*Cut 2026-10-03 (UTC), because they were carried out: the sections on whether `smelter` can do the drain's work, which watchers are singletons, option (e) itself (move the singleton watchers into scheduled Actions workflows as `smelter`), and the instance tag. They read in full at commit e48faf22a.*
 
 ## Would GitHub's audit log answer the question once actions are attributed? No
 
@@ -126,104 +169,6 @@ metrics question is not a proposal anybody is making. What identities buy is the
 request timeline**, which is per-pull-request and readable, plus whatever this project logs itself.
 That is a real argument for keeping the local log whichever option wins: it is the only thing that
 can be counted in aggregate.
-
-## With more than one contributor: what is a singleton, what is per-developer
-
-calef, 2026-09-23: *"We should also consider how this works when there are multiple contributors.
-What do we run single instances of and what runs per developer. And how do we attribute
-correctly?"* This is asked last and answered before the options, because it **repartitions the
-problem**, and the partition changes which options are even live.
-
-### Per-developer, and correctly so
-
-Lane worktrees and branches, local gates, and the maintainer session are per-developer by design;
-`AGENTS.md` says a lane's isolation *is* its worktree. **`nife-dev` is per developer too, and the
-tree's current wording is not wrong but is about to read as if it were.** `AGENTS.md` calls it
-"global to the *machine*", which is precise (one `rustup` symlink per user account) and will be
-misread the day a second contributor exists, because the obvious next question is whether two
-people's lanes fight over it. They do not: it is one symlink per user account per machine, so a
-second contributor on a second machine has their own. It is a cross-*lane* hazard, never a
-cross-*contributor* one. Worth a one-line clarification in that paragraph when somebody is next in
-it; not this lane's to make.
-
-**Plural maintainers are already solved and are not re-derived here.** `AGENTS.md`'s "sessions are
-plural" passage holds it with three rules: the merge queue is the single merge authority, anything
-minted stays provisional until the queue lands it, and a lane's branch is pushed the moment it is
-cut so another session can see it. That is the model, and a second contributor inherits it
-unchanged.
-
-### Singleton, and singleton by accident
-
-`helpers/merge-drain.sh`, `helpers/lane-claim-check.sh`, `helpers/trunk-health.sh`, and pull request
-#1170's `held-for-red-trunk` hold must each run once. Two drains double-enqueue; two holds race.
-
-**They are single only because they happen to run on one laptop, under one person's `launchd`, as
-that person's token, writing to `~/Library/Logs/nife/` where nobody else can read them.** Nothing
-enforces the singleness and nothing publishes the state. With a second contributor, none of the
-obvious questions has an answer: whose machine runs them, what happens when it sleeps, who notices
-when one is stopped.
-
-**The exhibit is from the same evening this was written.** The maintainer unloaded the drain via
-`launchctl` while eight pull requests were held out of the queue, deliberately and correctly, and
-**no other person or session could have discovered that fact**. It exists in one transcript. That is
-AGENTS.md's own rung-zero shape ("somebody will notice") wearing operational clothes, and it is a
-worse failure than the attribution gap this proposal was opened for, because a stopped drain is
-invisible rather than merely ambiguous.
-
-### The split is cleaner than expected, and it was checked rather than assumed
-
-What each singleton actually reads decides whether it can leave the laptop:
-
-| Script | Reads | Can it move off a laptop? |
-| --- | --- | --- |
-| `merge-drain.sh` | `gh` against GitHub only; the one local call is `git rev-parse --git-dir`, and that is the guard refusing to *watch* from a worktree | **Yes**, with nothing lost |
-| `lane-claim-check.sh` | `git ls-remote --heads origin`, `git rev-list origin/main..origin/<b>`, `gh pr list`: all remote refs | **Yes** |
-| `trunk-health.sh`, trunk half | workflow runs on `main`, via `gh` | **Yes** |
-| `at-risk-check.sh` (folded into `trunk-health.sh` 2026-09-23) | `git worktree list --porcelain`, then `git -C <path> status --porcelain`: **the laptop's own filesystem** | **No, and never** |
-
-**So `at-risk-check.sh` is genuinely per-developer and the rest are not.** Uncommitted work in a
-lane worktree is the one failure in this system that destroys rather than delays, and it is visible
-only from the machine holding it. That check belongs on every contributor's machine, one per person,
-and it needs **no GitHub write credential at all**: it prints to stdout and acts on nothing.
-
-## Option (e): move the singletons into organization-owned infrastructure
-
-Scheduled GitHub Actions workflows (or cordoba), rather than a contributor's laptop.
-
-**For, and the first point may dissolve the rest of this proposal.**
-
-- **There is no key at rest on anybody's laptop.** `smelter`'s App ID and private key are environment
-  secrets on `automation`, and `actions/create-github-app-token` mints a fresh
-  one-hour installation token per run. The credential question that makes (a) and (d) calef's call
-  **does not arise** for anything that runs there.
-- **It answers the singleton question by construction.** One workflow, one schedule, owned by the
-  organization. `concurrency:` prevents overlap. Nobody's laptop sleeping stops it.
-- **It publishes its own state.** The Actions run list is a log every contributor can read, with
-  timestamps and exit codes, which is strictly more than `~/Library/Logs/nife/` on one Mac.
-- **A stopped drain becomes visible.** A disabled workflow shows in the Actions tab; an unloaded
-  `launchd` job shows in one transcript.
-- **Attribution comes free and is the platform's**: everything the workflow does is `smelter[bot]`.
-
-**Against, honestly, because this is not free.**
-
-- **Cadence.** GitHub's shortest `schedule` interval is five minutes, and scheduled runs are
-  **delayed or dropped under load**, which is a real behaviour and not a caveat. The drain currently
-  polls every 150 seconds. Slower and lumpier, and probably fine for a queue that merges in groups.
-- **`cli/cli#7213` still applies**, since the workflow would hold an installation token too. Same
-  premise to test.
-- **The comment spam guard is per-pull-request and survives**, since `notify` reads the pull
-  request's own comments for its marker rather than any local state. Checked.
-- **Two halves of `trunk-health.sh` would have to separate**, because the at-risk half cannot move.
-  That is a real refactor of a script two lanes have touched this month, not a `cron` line.
-- **cordoba as the alternative host buys the ownership without the cadence loss** and gives back the
-  key-at-rest problem, since cordoba would hold a credential. It is a laptop that does not sleep,
-  not an answer to the credential question.
-
-**What (e) leaves unanswered**, and this is why it narrows the fork rather than closing it: **a
-lane's and a maintainer session's own `gh` calls run on a developer's machine and cannot move.** If
-those are also to be `smelter`, a credential has to be local, and (a) against (d) is decided on that
-much smaller surface. If they are not, see the next section, where the multi-contributor answer is
-better than it first looks.
 
 ## What stays a named human, which is the other half calef asked for
 
@@ -251,28 +196,6 @@ is a per-person credential-at-rest problem multiplied by the number of contribut
 decision this proposal recommends **not** taking now. The `**Lane:**` convention line from
 milestone 128 (the automation gets its own identity, and the agents get their own voice) is what
 covers it in the meantime, at rung four and honest about it.
-
-## Which instance acted, a field the model is missing
-
-**"`smelter` did it" stops being an answer the moment automation runs in more than one place**, and
-(e) makes that immediate: a scheduled workflow, a contributor's laptop and cordoba could all be
-`smelter`. GitHub gives no sub-identity: an installation token carries the App, not the caller, and
-a pull request comment posted from a workflow renders as `smelter[bot]` with no link back to the
-run.
-
-**So the instance tag has to live in the content, which is rung three, and there is nowhere higher
-to reach.** Two places, both of which already exist:
-
-- **The log line.** `merge-drain: ARMED #214 (...)` gains a tag: the workflow run id in Actions, the
-  hostname on a laptop. Free, and the log is already the only thing countable in aggregate given
-  that this organization has no audit-log API.
-- **`notify`'s pull request comment**, which already embeds an invisible HTML marker for
-  deduplication. The same marker can carry the instance, so a reader of the pull request can tell
-  which drain spoke.
-
-**Not proposed as part of the credential decision**, because it is worth doing under any of the five
-options and needs nobody's ruling. Named here so it is not forgotten, in the shape `AGENTS.md` asks
-for.
 
 ## The five options
 
@@ -449,14 +372,13 @@ awake**. That last one is the cost worth weighing, because it is not ambiguity, 
 can stop without anybody finding out, and it gets worse rather than staying flat as contributors are
 added.
 
-## What to do first whichever way it goes
+## Follow-on
 
-**Test `enablePullRequestAutoMerge` under an installation token on one pull request**, because
-`cli/cli#7213` says it may fail where a personal token succeeds. If it does fail and `gh api graphql`
-does not sidestep it, **every option that authenticates automation as `smelter` loses the drain**,
-(e) included, and the choice narrows to a machine account or the status quo. That single test is
-cheap and it is the premise everything else here rests on.
+- **Refused.** A separate GitHub account for agent sessions (provisionally `calef-agent`, an outside collaborator on `nife`). calef, 2026-10-04 (UTC): *"I don't want to create calef-agent."* The limit it would have removed is in this block's BUGS.
+- **Refused.** An App user token for sessions. Measured on #1580 on 2026-10-04 (UTC): it marks labels and comments, not `ready_for_review`, `convert_to_draft` or auto-merge, so it does not separate the queue steps this milestone was opened for.
+- **Done.** The watchers act as `nife-smelter[bot]` from scheduled Actions workflows, and the drain's lines and comments carry an instance tag (`helpers/merge-drain.sh`).
+- **Done.** Past days are reconstructed by `helpers/session_steps.py`, with its self-test in `script/lint`.
 
 ## Index row
 
-The merge drain's log cannot say whether a person or the machinery took a step, which is the question calef asked. Proposed: choose how the record carries that fact; every option except refusal puts a credential on patagonia or adds an account, which is a security decision.
+The machinery is `nife-smelter[bot]`; an agent session and calef by hand are both `calef`, and calef refused a separate agent account on 2026-10-04. Built: `helpers/session_steps.py`, which reconstructs a past day's session steps from transcripts. The remaining gap is this block's BUGS.
