@@ -5493,21 +5493,21 @@ pub fn corpse_fault_msg(tid: ThreadId) -> Option<[u64; 5]> {
 ///
 /// The name is generational, so a reaped thread's `ThreadId` never resolves again even if its slot is
 /// reused: `false` here means gone, not "gone or replaced".
-/// **Every slot of `tid`'s capability table, copied out** (test support, milestone 757 (a test
+/// **`tid`'s capability table, read in place** (test support, milestone 757 (a test
 /// kernel fails a process on its Nth retype), provisional name). `None` for a name that does not
 /// resolve. A sweep that fails a service's Nth retype reads this before and after each run, because
-/// a cleanup path that forgets a `cap_delete` crashes nothing and shows up only here.
+/// a cleanup path that forgets a `cap_delete` crashes nothing and shows up only here. It lends the
+/// table to `read` rather than returning a copy: a copy is a 2 KiB array in every frame that holds
+/// it, which at 64 slots put the caller over the guard page (milestone 754 (the capability table
+/// grows to 64 slots)). `read` runs under `IPC_TABLES`, so it must not call back into `sched`.
 #[cfg(feature = "system_tests")]
-pub fn capability_table_snapshot(
+pub fn with_capability_table<R>(
     tid: ThreadId,
-) -> Option<[Option<crate::cap::Cap>; crate::cap::CAPABILITY_TABLE_SLOTS]> {
+    read: impl FnOnce(&crate::cap::CapabilityTable) -> R,
+) -> Option<R> {
     let guard = IPC_TABLES.lock();
     let t = guard.as_ref()?.threads.get(tid)?;
-    let mut out = [None; crate::cap::CAPABILITY_TABLE_SLOTS];
-    for (slot, entry) in out.iter_mut().enumerate() {
-        *entry = t.capability_table.get(slot as u64).ok();
-    }
-    Some(out)
+    Some(read(&t.capability_table))
 }
 
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
