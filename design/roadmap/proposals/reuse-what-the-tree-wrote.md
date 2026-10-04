@@ -23,13 +23,11 @@ architect's call, so each proposed milestone waits on its own ruling.
 ## Method, and what the numbers mean
 
 - **Inventory.** All 91 crates under `crates/`, the 58 programs in `components/src/`, `uefi_loader`,
-  `redoxfs_server`, `tools/redoxfs_host` and the host tools under `xtask`. Line counts are code lines
-  (blank and comment lines removed, **test modules included**), measured by a script, not `tokei`,
-  which is not installed. Kani harnesses are counted as `#[kani::proof]` occurrences.
-- **Candidates.** For each external crate, the `.crate` file was downloaded from crates.io and its
-  `Cargo.toml` and `lib.rs` read; downloads, licence and last release are from the crates.io API on
-  2026-10-04; advisories are from a fresh clone of `rustsec/advisory-db`. Anything not read that way
-  is marked *from memory*.
+  `redoxfs_server`, `tools/redoxfs_host` and the host tools under `xtask`. Lines are code lines (blank and
+  comment lines removed, test modules included), by script; Kani counts are `#[kani::proof]`s.
+- **Candidates.** Each `.crate` was downloaded and its `Cargo.toml` and source read; downloads,
+  licence and release dates from the crates.io API, advisories from `rustsec/advisory-db`, both on
+  2026-10-04. Anything else is marked *from memory*.
 - **Licence.** Base (needed to boot, install or fetch a package) is permissive only, and so is
   anything linked into one of our programs, per §135 (running GPL software is aggregation). A whole
   GPL program running as its own process is allowed as an `optional` package. `deny.toml` today
@@ -39,14 +37,12 @@ architect's call, so each proposed milestone waits on its own ruling.
 ## The inventory, grouped by why it stays or goes
 
 **Kernel, or used by the kernel for more than shared constants, keep by default (rule 3 and the
-amendment's exemption):** `paging` (2,866 lines, 36 Kani), `capability` (746, 14),
-`inter_process_communication` (1,008, 14), `machine_discovery` (5,714, 16, including ACPI at 1,954
-and 8), `pci` (1,156, 8), `non_volatile_memory_express` (711, 8), `direct_memory_access_validator`
-(667, 7), `page_frames` (444, 5), `generational_table` (297, 4), `address_space_identifier` (107, 3),
-`intrusive_fifo` (178, 1), `memory_regions`, `work_steal_slot`, `thread_wake_handshake`,
-`memory_corruption_canary_gate` and `clock_protocol` (loom), `jh7110_entropy` (516, 4),
-`jh7110_clock_and_reset` (659), `firmware_configuration`, `screen_console`, `compositor`,
-`measured_boot` (440), and the kernel's own 35,186 lines.
+amendment's exemption):** `paging` (2,866 lines, 36 Kani), `capability`,
+`inter_process_communication`, `machine_discovery` (5,714 lines, 16 Kani, ACPI included), `pci`,
+`non_volatile_memory_express`, `direct_memory_access_validator`, `page_frames`, `generational_table`,
+`address_space_identifier`, `intrusive_fifo`, the five loom-checked crates, the two JH7110 drivers,
+`firmware_configuration`, `screen_console`, `compositor`, `measured_boot`, and the kernel's own
+35,186 lines.
 
 **Kani-proved and outside the kernel, keep unless a proof is no longer worth having:** `calendar`
 (1,089, 11), `timetable` (2,884, 10), `globally_unique_identifier_partition_table` (2,219, 9),
@@ -65,7 +61,7 @@ together, all reading nife's own statistics ABI), `login`, `credentialer` (alrea
 `video_terminal` and `line_editor` as dependencies, but reads only their wire constants
 (`video_terminal::status`, `line_editor::proto`). Their engines are userspace code.
 
-| Ours | Lines | Untrusted input | Tier | Candidate | Licence, `no_std` | Downloads, last release | Advisories |
+| Ours | Lines | Untrusted input | Tier | Candidate | Licence; build, and what blocks it | Downloads, last release | Advisories |
 |---|---|---|---|---|---|---|---|
 | `http_response` head parser | 294 (about 70 non-test in the parser) | network | base | `httparse` 1.10.1 | MIT/Apache, `no_std`, no deps | 762M, 2025-03 | none |
 | `video_terminal` escape parser | 2,523 crate | every program's output | base | `vte` 0.15.0 | MIT/Apache, `no_std` (`arrayvec`, `memchr`) | 80M, 2025-02 | none |
@@ -76,9 +72,9 @@ together, all reading nife's own statistics ABI), `login`, `credentialer` (alrea
 | `portable_executable` | 778 | our own ELF | host (`xtask`) | `object` 0.40.0 `write::pe::Writer` | MIT/Apache | 640M, 2026-08 | none |
 | `board_console` `port.rs` | part of 3,418 | none | host | `rustix` or `libc` termios | MIT/Apache | *(from memory)* very wide | none checked |
 | `coreutils` programs `wc`, `rm`, `printenv`, `date` | 87 + 199 + 110 + 145 | user | base | uutils `uu_*` 0.12.0 | MIT, std | 130k each, 2026-09 | none |
-| `rmle` editor | 460 | user files | optional | `kibi` 0.3.3, or GNU `nano` as GPL-as-package, milestone 170 (`nano`: a real, full-featured screen editor) | MIT/Apache, std plus `libc` termios | 12k, 2026-02 | none |
-| `file_allocation_table` (writer) | 512 | none (writes our own) | base | `fatfs` 0.3.6 | MIT; `no_std` only through `core_io` | 1.6M, **2023-01** | none |
-| `documentation` markdown renderer | 802 of 2,587 | shipped docs | base | `pulldown-cmark` 0.13.4 | MIT, **std only** (`lib.rs` uses `std::fmt`) | 166M, 2026-05 | none |
+| `rmle` editor | 460 | user files | optional | `kibi` 0.3.3, or GNU `nano` as GPL-as-package, milestone 170 (`nano`: a real, full-featured screen editor) | MIT/Apache; std, no threads or async, but `libc` termios and raw stdin, which the PAL does not bind | 12k, 2026-02 | none |
+| `file_allocation_table` (writer) | 512 | none (writes our own) | base | `fatfs` 0.3.6 | MIT; std builds with no threads or async, `no_std` only through `core_io`; `installer` is a `no_std` program today | 1.6M, **2023-01** | none |
+| `documentation` markdown renderer (used by `mdr`) | 802 of 2,587 | shipped docs | base | `pulldown-cmark` 0.13.4 | MIT; std (`lib.rs` uses `std::fmt`), no threads, no async, deps `bitflags`, `memchr`, `unicase`; `mdr` is `no_std` today and could be a std program | 166M, 2026-05 | none |
 | xHCI, unbuilt (milestone 242 (USB host and HID)) | 0 | device | base | rust-osdev `xhci` 0.9.2 | MIT/Apache | 107k, **2023-07**, last push 2024-09 | none |
 
 ## Ranked: trust gained per cost
@@ -127,34 +123,67 @@ binding Rust's own UEFI targets use *(from memory; consistent with its 382M down
 `rustc-dep-of-std` feature, which was read)*. The header's recorded reason was that `uefi` is "in
 between"; `r-efi` is a thin primitive, which the old §46 already allowed. Cost: small.
 
-**6. Replace `stick_maker`'s `plist.rs` with `plist`.** A conveyed host program, run by people on
-macOS. 335 lines retire. Input is `diskutil` output, so the trust gain is modest; the case is the
-amendment's default and a format we do not otherwise own. Adds `quick_xml`, `time`, `base64`,
-`indexmap`, `serde` to a host program's graph, none of them in a nife image.
+**6. Replace `stick_maker`'s `plist.rs` with `plist`.** 335 lines retire from a host program people
+run on macOS. The input is `diskutil` output, so the trust gain is modest. Adds `quick_xml`, `time`,
+`base64`, `indexmap` and `serde` to that program, none of them in a nife image.
 
-**7. Survey `portable_executable` against `object`'s PE writer.** `object` 0.40.0 has
-`write::pe::Writer` (read). Host-only, so no base-graph cost; no untrusted input, so the gain is code
-retired (up to 778 lines) and a writer that more PE readers have checked. A survey lane says how much
-of the ELF-to-PE logic is ours by necessity.
+**7. Survey `portable_executable` against `object` 0.40.0's `write::pe::Writer`.** Host-only, no
+untrusted input; the gain is up to 778 lines retired, if the ELF-to-PE logic is not ours by necessity.
 
 **8. Survey uutils for the `coreutils` package.** MIT, so base-eligible. `ripgrep` already runs
-unmodified (milestone 121 (`ripgrep` on nife)), which shows the `std` path works. Open: how `rm` maps onto a directory
-capability through `std::fs`, and what `uucore`'s dependency weight does to the base image. The
-lines retired are few; the value is the demonstration milestone 121 started.
+unmodified (milestone 121 (`ripgrep` on nife)), which shows the `std` path works. Open: which `uu_*` build against the
+PAL, and what `uucore`'s weight does to the base image. Few lines retire; the value is the
+demonstration.
 
 **9. Editor: `rmle` stays until one of two takes it.** `kibi` (MIT/Apache, a Rust editor inspired by
-the same `kilo` `rmle` is modelled on) needs `libc` termios, so it waits on raw mode through `std`. GNU `nano`
-is the GPL-as-package path and already has milestone 170. `rmle` is `optional`, so either can replace
-it without touching base.
+the same `kilo` `rmle` is modelled on) needs `libc` termios and raw stdin, which the PAL does not
+bind. GNU `nano` is the GPL-as-package path (milestone 170). `rmle` is `optional`, so either can
+replace it without touching base.
+
+**9a. Adapt `mdr` to `pulldown-cmark`, as a std program.** The first draft refused this for being
+std-only, which was the wrong test (see the next section). `mdr` is a userspace reader of shipped
+documentation; it holds a terminal and a directory, so it can be built against `nife-dev`. Read in
+0.13.4: no `std::thread`, no runtime, three small dependencies, and the `html` and `getopts` defaults
+can be turned off. Take the parser, keep our terminal renderer as its event consumer, and keep
+`documentation::index`, which `swish` reads and which is ours by format. Retires up to the 802-line
+renderer's parsing half; the gain is CommonMark conformance on input a package author writes. Cost:
+small to medium, most of it moving `mdr` to std.
 
 **10. xHCI, when milestone 242 starts: adapt rust-osdev `xhci` for register and TRB definitions.**
 Write the driver logic; take the definitions. The crate is dormant (release 2023-07), so expect to
 carry it as a fork or vendor it under §34 (RedoxFS is the primary filesystem, on three conditions)'s "we must patch it" trigger.
 
-Smaller, recorded rather than ranked: `board_console`'s `port.rs` could take `rustix` termios
-(host-only, small); DNS is being surveyed under milestone 384 (in a capability system the resolver is a grant), pull request #1634, where
-`hickory-proto` carries three advisories (RUSTSEC-2025-0006, 2026-0118, 2026-0119) and
-`domain_name_system` has 3 Kani harnesses.
+Not ranked: `board_console`'s `port.rs` could take `rustix` termios (host-only). DNS is surveyed
+separately in pull request #1638.
+
+## Needing std is not, by itself, a reason to refuse a crate
+
+calef asked on 2026-10-04 (UTC) why std blocked reuse. It should not, for a component that runs as a
+userspace program: nife has its own std port, the `nife-dev` toolchain with a nife PAL
+(`notes/std.md`), with `std::fs` and `std::net` bound to granted capabilities and real `sleep` and
+`yield`, and `ripgrep` runs on it unmodified. The real blockers are narrower, and a refusal must name
+one of them:
+
+- **The component cannot take std**: it is the kernel, the loader, or an early or base program built
+  `no_std` that must stay so (the allocator, a driver at the bottom of the boot).
+- **The crate spawns threads.** `thread::spawn` is `Unsupported`, declined for want of a customer by
+  §105 (`std::thread::spawn` stays declined, until a customer needs it). Threads only in a test module do not count.
+- **The crate needs an async IO reactor.** A tokio current-thread `block_on` links, but `mio`'s
+  reactor needs a file descriptor and a poller, and the PAL has neither (`notes/crates-io-on-nife.md`).
+- **The crate needs OS APIs the PAL does not bind**: processes, signals, `libc` termios, raw stdin,
+  symlinks. `libc` has no `nife` module.
+
+Rechecked under this rule, reading each crate's source for `std::thread` and runtimes:
+
+| Crate | Serves | That component | Threads, async, OS APIs | Verdict |
+|---|---|---|---|---|
+| `pulldown-cmark` 0.13.4 | `mdr` | `no_std` program, could be std | none | unblocked: candidate 9a |
+| `fatfs` 0.3.6 | `installer` | base `no_std` program | none | std removes the `core_io` problem, but moving the installer to std is itself a milestone, and the crate has not released since 2023-01. Survey further |
+| `kibi` 0.3.3 | `rmle` | `optional` program | no threads; needs `libc` termios and raw stdin | blocked on the PAL, not on std |
+| `rustyline` 18.0.0 | `line_editor` | engine used by the terminal service | no threads; `libc` and `nix` termios | blocked on the PAL, and the engine sits under the console |
+| uutils `uucore` 0.12.0 | `coreutils` | base programs, could be std | `std::thread` in test modules only; `libc` in its feature modules | unchanged: survey which `uu_*` build |
+| `gptman` 3.1.1 | GPT | proved crate | not the issue | unchanged: kept for its 9 Kani harnesses |
+| hickory-resolver 0.26.3 | DNS, milestone 384 (in a capability system the resolver is a grant) | its own program | **tokio's reactor** | blocked by the reactor, not by std; said on pull request #1638 |
 
 ## Running another OS's drivers unmodified
 
@@ -169,21 +198,20 @@ calef asked that this path be noted. Read for this proposal:
   current, to Linux 6.18 in 26.02. Those drivers are GPL, so under §135 they can be packages only:
   acceptable for, say, a Wi-Fi card an installed system adds, never for a boot or install driver.
 
-Either is a C toolchain and a large host-interface shim in a tree that is Rust end to end. Survey
-further, and only when a driver nobody has in Rust is on the customer path (for example, for e1000e,
-milestone 494 (a driver for the network card a PC actually has), *from memory* FreeBSD's `em(4)` is the permissive reference).
+Either means a C toolchain and a large shim. Survey further only when a driver nobody has in Rust is
+on the customer path, such as milestone 494 (a driver for the network card a PC actually has).
 
 ## The seven questions, for the top five
 
 1. **Considered and lost.** `uefi` lost to `r-efi` (`uefi` is 23k lines, ours needs the bindings
-   only). `fatfs` lost because its only `no_std` route is `core_io` and it has not released since
-   2023-01. `pulldown-cmark` lost because it is std-only. `noline`, `fdt` and `serialport` lost on
+   only). `fatfs` waits because `installer` is `no_std` and the crate has not released since
+   2023-01. `pulldown-cmark` no longer loses: needing std was the wrong test. `noline`, `fdt` and `serialport` lost on
    licence (MPL-2.0, not in `deny.toml`). `goblin` and `xmas-elf` lost to our Kani-proved `elf`
    (`xmas-elf` has RUSTSEC-2025-0018, an out-of-bounds read on a malformed ELF).
 2. **What the tree already does.** `smoltcp` is taken whole and unpatched, and argon2 and RustCrypto
    are ordinary dependencies; `httparse`, `vte` and `r-efi` fit that shape. `virtio-drivers` needs a
    patch, which is RedoxFS's shape (§34).
-3. **Prior art.** In the table, read from crates.io and the advisory database on 2026-10-04.
+3. **Prior art.** In the tables above.
 4. **Is the premise true?** Mostly. The surprise is that the kernel's dependency on `video_terminal`
    and `line_editor` is constants only, so the kernel exemption does not cover their engines.
 5. **Cost.** Lines retired are measured above. Lane time is estimated. Throughput and heap numbers are
@@ -204,6 +232,7 @@ milestone 494 (a driver for the network card a PC actually has), *from memory* F
 - **(d)** Measure `user_mode_heap` against `talc`; the ruling follows the data.
 - **(e)** `uefi_loader` binds UEFI through `r-efi`.
 - **(f)** `stick_maker` reads `diskutil` through `plist`.
+- **(f2)** `mdr` becomes a std program and parses with `pulldown-cmark`; the renderer and index stay.
 - Surveys: (g) `portable_executable` and `object`; (h) uutils for `coreutils`.
 
 ## Recorded reasons for what stays
@@ -216,7 +245,7 @@ landed wording.
 - `elf`: Reuse: write. Kernel, and proved (8 Kani); `xmas-elf` shows the bug class (RUSTSEC-2025-0018).
 - `device_tree_blob`: Reuse: write. Kernel, proved (4 Kani); `fdt` is MPL-2.0.
 - `globally_unique_identifier_partition_table`: Reuse: write. Proved (9 Kani, CRC restructured for
-  CBMC per §46); `gpt` and `gptman` are std crates *(from memory)*; installer and loader must agree
+  CBMC per §46), which a dependency would lose; installer and loader must agree
   byte for byte.
 - `network_time_protocol`: Reuse: write. Proved (7 Kani, fixed-point multiply restructured per §46);
   `sntpc` exists but would lose the proof.
@@ -225,11 +254,12 @@ landed wording.
 - `package_archive`: Reuse: write. Decided by §197 (a package is one archive file); `tar` refused.
 - `nifefs`: Reuse: write. Kernel; a deliberate minimal format.
 - `bitmap_font`: Reuse: taken. The glyphs were chosen by §100 (the terminal font).
-- `line_editor`: Reuse: write. No permissive `no_std` candidate with field exposure (`noline` is
-  MPL-2.0 with 37k downloads); revisit when a std terminal program can use `rustyline`.
-- `documentation`: Reuse: write, for now. `pulldown-cmark` is std-only; revisit when `mdr` runs on std.
-- `file_allocation_table`: Reuse: write, for now. Writes only our own ESP; `fatfs` has no `no_std`
-  release without `core_io`. Revisit if `fatfs` 0.4 releases.
+- `line_editor`: Reuse: write. `noline` is MPL-2.0 with 37k downloads; `rustyline` needs `libc`
+  termios, which the PAL does not bind. Revisit if termios is bound.
+- `documentation`: Reuse: write, for the index only. The renderer's parser is candidate 9a.
+- `file_allocation_table`: Reuse: write, for now. Writes only our own ESP; `installer` is `no_std`,
+  and `fatfs` has no `no_std`
+  release without `core_io`. Revisit if `fatfs` 0.4 releases or the installer moves to std.
 - `swish`, `grant_plan`, `system_initializer`, the `*_protocol` crates, `system_log`, the `procps`
   tools: Reuse: write. The ABI or a capability (rule 3); nothing upstream reads nife's ABI.
 - `redoxfs_server`, `tools/redoxfs_host`: Reuse: adapted. The adapter around vendored RedoxFS (§34).
