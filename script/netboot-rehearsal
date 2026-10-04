@@ -42,8 +42,9 @@
 #   * The house router. Nothing in this repository has ever talked to it. This harness implements
 #     the dnsmasq lines' MEANING; it does not prove dnsmasq implements them the same way, and it
 #     does not prove OpenWRT's UI will accept them.
-#   * xenon's own firmware, which is EDK2 but not this EDK2, and which is at BIOS 1.27.0 with a
-#     Broadcom LOM rather than QEMU's e1000.
+#   * xenon's own firmware, which is EDK2 but not this EDK2, and which is at BIOS 1.27.0 with an
+#     Intel I219-LM (e1000e family) rather than QEMU's e1000. Correction 2026-10-04 UTC: this said
+#     "Broadcom LOM" with no source; the PCI survey (`00:1f.6 8086:15e3`) says I219-LM.
 #   * The two firmware settings that are calef's (`Enable UEFI Network Stack`, Integrated NIC to
 #     `Enabled w/PXE`). Nothing here can turn those on.
 #   * A real ethernet. There is no cable, no switch, no other host's broadcast traffic and no
