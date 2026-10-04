@@ -208,7 +208,8 @@ faster bench session, not an unattended one.**
   the config is corrected to `.138`. The pin is now in place, but it is bound to macOS's private
   Wi-Fi address `9e:1a:a1:57:40:a6`, not the hardware MAC, and matches only while patagonia's Private
   Wi-Fi Address for the home network is Fixed or Off. Set to Rotating, the reservation silently stops
-  matching and `.138` can move again.
+  matching and `.138` can move again. That condition is met: calef confirmed on 2026-10-04 (UTC) that
+  the setting is Fixed. Anyone changing it owes this line an edit.
 - The transfer rate is a loopback number and is not a LAN number. 9,210,880 bytes in 1.40s
   (6,429 KiB/s) is python talking to itself through a synthetic ethernet with no cable, no switch
   and no loss. radon's real measurement over TFTP on this LAN was 428 KiB/s, and nobody has measured
