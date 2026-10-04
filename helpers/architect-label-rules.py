@@ -40,8 +40,8 @@ against literal fixture strings, no repository and no subprocess required, cheap
 3. **format-crate**: a version constant, magic value, or documented on-disk layout moved in a crate
    that is classified, from its own head content, as a format crate: it declares a `pub const`
    ending in `VERSION` or `MAGIC`, or its module doc carries a markdown table with a `version`
-   column (the two tells the brief names). Firing then also covers any changed `//!` line in that
-   same file, which is where a layout diagram lives (`crates/nifefs`'s "# The layout" is the model).
+   column (the two tells the brief names). Firing is on a changed `VERSION`/`MAGIC` constant line only; a changed line that is just
+   a comment (`//`, `///`, `//!`, `/* */`) does not fire, whatever it says (see BUGS).
 4. **spawnproto**: a `pub const` changed in a file named `spawnproto.rs` (the wire layout
    `crates/grant_plan/src/spawnproto.rs` documents; matched by filename rather than the one path in
    the tree today, so a second one elsewhere is still caught). Same-value renames pair off as in
@@ -60,13 +60,12 @@ to the graph, or a decisions edit):
     rule          true  false  the false ones
     abi-surface      2      1  #1584 rename, value unchanged
     dependency       1      1  #1597 redox_syscall 0.9.0, already in three manifests
-    format-crate     2      7  `//!` prose in a format crate (#1289 #1369 #1374 #1443 #1511 #1527), a diagram (#1584)
+    format-crate     2      7  `//!` prose (#1289 #1369 #1374 #1443 #1511 #1527), a diagram (#1584); now quiet
     spawnproto       3      3  #1377 #1419 #1421: IMAGE_MAX_PAGES, not in those PRs' diffs (not reproduced)
     decisions       23      0  by definition; about 7 are link or rename sweeps (#1369 #1371 #1374 #1427 #1510 #1527 #1289)
 
-Narrowed on this evidence: rules 1, 2 and 4 (above). Not narrowed: format-crate (its prose
-false positives are the largest count but telling a layout edit from prose by text is a guess that
-can miss a real one) and decisions (a sweep is still an edit to a ratified record).
+Narrowed on this evidence: rules 1, 2, 3 and 4 (above). Not narrowed: decisions (a sweep is still
+an edit to a ratified record).
 
 # BUGS
 
@@ -76,7 +75,9 @@ can miss a real one) and decisions (a sweep is still an edit to a ratified recor
   a rename by definition.
 - **Rule 2's lock test is caret-only.** A requirement with a comma, operator or wildcard is never
   matched against a lockfile (it fires unless an identical manifest entry exists).
-- **format-crate fires on any `//!` line in a classified crate** (7 false of 9 above).
+- **format-crate ignores comment-only edits**, so a layout changed only in its `//!` table (the 1 of
+  the 2 true firings above that was #1402) is missed unless a constant moves with it. Chosen by the
+  coordinator, 2026-10-04, over the prose noise; an exception, and a foot gun.
 
 - **Rule 2 assumes a dependency's TOML value is one line.** Every `Cargo.toml` in this tree writes
   dependencies as `name = "..."`, `name = { version = "...", path = "..." }`, or similar, entirely
@@ -345,14 +346,25 @@ def is_format_crate_source(lines):
     return False
 
 
+def is_comment_only(line):
+    """A line that is only comment text: `//`, `///`, `//!`, or the inside or edges of a `/* */`."""
+    t = line.strip()
+    return t.startswith(('//', '/*', '*/')) or (t.startswith('*') and not t.startswith('*b"'))
+
+
 def rule_format_crate(fd, out):
     if not (fd['path'].startswith('crates/') and '/src/' in fd['path']
             and fd['path'].endswith('.rs')):
         return
     if not is_format_crate_source(head_lines(fd)):
         return
+    # Comment-only edits never fire (measured: 7 of 9 firings were `//!` prose or a diagram). The
+    # cost is a documented-layout edit made ONLY in a comment (#1402's table row) no longer fires;
+    # the layout's constants change with it in practice, and those are code lines. See BUGS.
     for _prefix, line in changed_lines(fd):
-        if VERSION_OR_MAGIC_CONST_RE.match(line) or line.strip().startswith('//!'):
+        if is_comment_only(line):
+            continue
+        if VERSION_OR_MAGIC_CONST_RE.match(line):
             out.append(('format-crate', fd['path'], line.strip()))
             return
 
@@ -622,7 +634,7 @@ diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
 +pub const MAGIC: [u8; 8] = *b"CRKR0003";
 """, 'format-crate'),
 
-    ("format-crate: a layout doc-comment edit in a classified crate fires even untouched const", """\
+    ("format-crate: a layout doc-comment edit alone stays quiet (a known miss, see BUGS)", """\
 diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
 --- a/crates/nifefs/src/lib.rs
 +++ b/crates/nifefs/src/lib.rs
@@ -631,6 +643,37 @@ diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
 -//! blocks 0..DIR_BLOCKS   the superblock and directory
 +//! blocks 0..DIR_BLOCKS+1 the superblock and directory
  pub const MAGIC: [u8; 8] = *b"CRKR0002";
+""", None),
+
+    ("format-crate: a doc-comment prose change in a classified crate stays quiet", """\
+diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
+--- a/crates/nifefs/src/lib.rs
++++ b/crates/nifefs/src/lib.rs
+@@ -1,3 +1,3 @@
+-//! Completion needs the namespace.
++//! Completion needs the command namespace.
+ pub const MAGIC: [u8; 8] = *b"CRKR0002";
+""", None),
+
+    ("format-crate: a diagram edited inside a comment stays quiet", """\
+diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
+--- a/crates/nifefs/src/lib.rs
++++ b/crates/nifefs/src/lib.rs
+@@ -1,3 +1,3 @@
+-//!   chatty ──CALL──► SVC ◄──RECV_CAP── editor
++//!   chatty ──CALL──► SVC ◄──RECEIVE_CAP── editor
+ /// the magic
+ pub const MAGIC: [u8; 8] = *b"CRKR0002";
+""", None),
+
+    ("format-crate: a code line changed in a classified crate fires", """\
+diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
+--- a/crates/nifefs/src/lib.rs
++++ b/crates/nifefs/src/lib.rs
+@@ -1,3 +1,3 @@
+ //! unchanged prose
+-pub const VERSION: u32 = 1;
++pub const VERSION: u32 = 2;
 """, 'format-crate'),
 
     ("format-crate: an ordinary crate with no VERSION/MAGIC/version-table stays quiet", """\
@@ -643,15 +686,15 @@ diff --git a/crates/glob/src/lib.rs b/crates/glob/src/lib.rs
  pub fn matches(pattern: &str, name: &str) -> bool { true }
 """, None),
 
-    ("format-crate: detected by a doc version table instead of a VERSION/MAGIC const", """\
+    ("format-crate: classified by a doc version table, a code change in it fires", """\
 diff --git a/crates/manifest_note/src/lib.rs b/crates/manifest_note/src/lib.rs
 --- a/crates/manifest_note/src/lib.rs
 +++ b/crates/manifest_note/src/lib.rs
 @@ -1,3 +1,3 @@
  //! | version | field |
 -//! | 1       | a     |
-+//! | 1       | a, b  |
- pub fn parse() {}
+-pub fn parse() {}
++pub const MAGIC: u32 = 7;
 """, 'format-crate'),
 
     ("spawnproto: a changed slot constant fires", """\
