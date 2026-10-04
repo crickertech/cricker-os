@@ -468,3 +468,163 @@ fn a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders() {
         crate::memory_region::destroy(region);
     }
 }
+
+/// An interrupt number no device on any of the three machines raises, so binding it steals no real
+/// route (the reasoning, and the value, are `irq_send_refusal_tests`'). `bind_irq` has no unbind,
+/// so a neighbour that rebinds it simply replaces this test's route.
+const QUIET_INTID: u32 = 250;
+
+/// **An interrupt signal received by `RECV_CAP` delivers `NO_CAP` in `x1` whichever side arrives
+/// first** (milestone 714 (the sibling `RECV_CAP` paths get a receiver-first test), fatal risk 7's
+/// confinement claim; the sibling of milestone 634's plain-`SEND` test above).
+///
+/// Before 634 `irq_notify` dropped `[1, 0, 0, 0, 0]` into a parked receiver's mailbox, so a
+/// receiver-first `RECV_CAP` returned `x1 = 0`, a real-looking slot, where the pending-signal order
+/// returned `NO_CAP`. No program chooses that word (the kernel writes it), so this is an
+/// order-dependence and a fail-open default rather than an attacker-chosen value; a driver that
+/// treated `x1 != NO_CAP` as a delegation to delete would have deleted its own slot 0. 634's
+/// `cap_delivered` default now makes the receive side answer `NO_CAP`, and this is the only test
+/// that drives an interrupt through that order. Signal-pending is asserted too, as the control that
+/// shows the two orders agree.
+///
+/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first.patch`
+#[test_case]
+fn an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first() {
+    static RECEIVER_X0: AtomicU64 = AtomicU64::new(u64::MAX - 1);
+    static RECEIVER_X1: AtomicU64 = AtomicU64::new(u64::MAX - 1);
+    static PARKING: AtomicBool = AtomicBool::new(false);
+    static DONE: AtomicBool = AtomicBool::new(false);
+
+    let region = crate::memory_region::create(4).expect("no region");
+    let ep = sched::create_rendezvous_from(region).expect("no rendezvous");
+    sched::bind_irq(QUIET_INTID, ep);
+
+    // Receiver-first: the driver parks in RECV_CAP, then the interrupt arrives.
+    sched::spawn(move || {
+        PARKING.store(true, Ordering::SeqCst);
+        let [x0, x1, ..] = sched::ipc_recv_cap(ep);
+        RECEIVER_X0.store(x0, Ordering::SeqCst);
+        RECEIVER_X1.store(x1, Ordering::SeqCst);
+        DONE.store(true, Ordering::SeqCst);
+    })
+    .expect("no driver thread");
+    assert!(
+        wait_for(|| PARKING.load(Ordering::SeqCst) && sched::rendezvous_waiting_receivers(ep) == 1),
+        "the driver never parked in RECV_CAP, so nothing proved the receiver-first order",
+    );
+    sched::irq_notify(ep);
+    assert!(
+        wait_for(|| DONE.load(Ordering::SeqCst)),
+        "the interrupt never reached the parked RECV_CAP receiver",
+    );
+    assert_eq!(
+        RECEIVER_X0.load(Ordering::SeqCst),
+        1,
+        "the interrupt's w0 did not arrive"
+    );
+    assert_eq!(
+        RECEIVER_X1.load(Ordering::SeqCst),
+        abi::rendezvous::NO_CAP,
+        "an interrupt signal handed the receiver x1 = {} on the receiver-first order, a slot number \
+         where the message carried no capability",
+        RECEIVER_X1.load(Ordering::SeqCst),
+    );
+
+    // Signal-first: the interrupt is counted, then this thread receives.
+    sched::irq_notify(ep);
+    let [x0, x1, ..] = sched::ipc_recv_cap(ep);
+    assert_eq!(x0, 1, "the pending interrupt's w0 did not arrive");
+    assert_eq!(
+        x1,
+        abi::rendezvous::NO_CAP,
+        "an interrupt signal handed the receiver x1 = {x1} on the signal-first order",
+    );
+
+    sched::reclaim_region(region).expect("the endpoint's region did not come back");
+}
+
+/// **A death message received by `RECV_CAP` delivers `NO_CAP` in `x1` whichever side arrives
+/// first** (milestone 714, fatal risk 7's confinement claim).
+///
+/// The kernel's five-word death message is `[event, tid, pc, addr, 0]` (`sched::depart`). Before
+/// milestone 634 a supervisor parked in `RECV_CAP` when the child died got that mailbox back
+/// unchanged, so `x1` was the dead thread's id, a small integer a supervisor that treats `x1` as a
+/// slot would act on; a supervisor that received after the corpse parked got `NO_CAP`. The thread id
+/// is the kernel's, not a sender's, so as with the interrupt this is an order-dependence rather
+/// than an attacker-chosen word. The test also asserts `x2` carries the tid on both orders (after the `x1` check, so a revert is red at `x1`), so a
+/// "fix" that blanked the whole message instead of `x1` would fail it.
+///
+/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first.patch`
+#[test_case]
+fn a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first() {
+    use super::supervision_tests::{FAULT_STUB, build_child_in};
+
+    static SUPERVISOR_PARKING: AtomicBool = AtomicBool::new(false);
+    static SUPERVISOR_DONE: AtomicBool = AtomicBool::new(false);
+    static SUPERVISOR_MSG: [AtomicU64; 3] = [const { AtomicU64::new(u64::MAX - 1) }; 3];
+
+    // Receiver-first: the supervisor parks in RECV_CAP, then the child dies.
+    let fault_ep = sched::create_rendezvous();
+    let region = crate::memory_region::create(16).expect("no region for the child");
+    sched::spawn(move || {
+        SUPERVISOR_PARKING.store(true, Ordering::SeqCst);
+        let [event, x1, x2, ..] = sched::ipc_recv_cap(fault_ep);
+        SUPERVISOR_MSG[0].store(event, Ordering::SeqCst);
+        SUPERVISOR_MSG[1].store(x1, Ordering::SeqCst);
+        SUPERVISOR_MSG[2].store(x2, Ordering::SeqCst);
+        SUPERVISOR_DONE.store(true, Ordering::SeqCst);
+    })
+    .expect("no supervisor thread");
+    assert!(
+        wait_for(|| SUPERVISOR_PARKING.load(Ordering::SeqCst)
+            && sched::rendezvous_waiting_receivers(fault_ep) == 1),
+        "the supervisor never parked in RECV_CAP, so nothing proved the receiver-first order",
+    );
+    let child = build_child_in(region, FAULT_STUB, None, Some(fault_ep));
+    assert!(
+        wait_for(|| SUPERVISOR_DONE.load(Ordering::SeqCst)),
+        "the death message never reached the parked RECV_CAP supervisor",
+    );
+    assert_eq!(
+        SUPERVISOR_MSG[0].load(Ordering::SeqCst),
+        abi::fault::EVENT_FAULT,
+        "the message that arrived was not the child's fault"
+    );
+    assert_eq!(
+        SUPERVISOR_MSG[1].load(Ordering::SeqCst),
+        abi::rendezvous::NO_CAP,
+        "a death message handed the supervisor x1 = {} on the receiver-first order, the dead \
+         thread's id where the message carried no capability",
+        SUPERVISOR_MSG[1].load(Ordering::SeqCst),
+    );
+    assert_eq!(
+        SUPERVISOR_MSG[2].load(Ordering::SeqCst),
+        child,
+        "the death message's thread id (RECV_CAP's x2) did not arrive on the receiver-first order",
+    );
+    assert!(
+        wait_for(|| sched::reclaim_region(region).is_ok()),
+        "reaping the first corpse's region failed",
+    );
+
+    // Corpse-first: the child dies and parks on the supervision rendezvous, then this thread receives.
+    let fault_ep = sched::create_rendezvous();
+    let region = crate::memory_region::create(16).expect("no region for the second child");
+    let child = build_child_in(region, FAULT_STUB, None, Some(fault_ep));
+    assert!(
+        wait_for(|| sched::rendezvous_waiting_senders(fault_ep) == 1),
+        "the second child never died and parked its message, so nothing proved the corpse-first order",
+    );
+    let [event, x1, x2, ..] = sched::ipc_recv_cap(fault_ep);
+    assert_eq!(event, abi::fault::EVENT_FAULT, "not the child's fault");
+    assert_eq!(
+        x1,
+        abi::rendezvous::NO_CAP,
+        "a death message handed the supervisor x1 = {x1} on the corpse-first order",
+    );
+    assert_eq!(x2, child, "the death message's thread id did not arrive");
+    assert!(
+        wait_for(|| sched::reclaim_region(region).is_ok()),
+        "reaping the second corpse's region failed",
+    );
+}

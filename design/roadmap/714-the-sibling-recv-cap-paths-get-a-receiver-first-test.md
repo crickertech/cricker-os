@@ -1,5 +1,6 @@
 ---
-status: NOT-STARTED
+status: BUILT
+built: 2026-10-03
 raised: 2026-10-03
 promoted_from: the-sibling-recv-cap-paths-get-a-receiver-first-test
 milestone_dependencies: none
@@ -36,6 +37,55 @@ the test asserts `x1 == NO_CAP`. It should fail on the receiver-first order agai
 `cap_delivered` default reverted (the milestone 634 falsification is the starting point) and pass
 with it, on all three ISAs (DECISIONS §19 (architectural parity is a tenet)).
 
+## What is built
+
+Two tests in `system_tests/src/user/recv_cap_attack_tests.rs`, each driving both arrival orders so the
+receiver-first red is read against a green control (the shape of milestone 634's test):
+
+- `an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first` parks a
+  thread in `RECV_CAP` on an interrupt-bound rendezvous and then calls `irq_notify`; the control
+  counts the signal first. Both must return `w0 = 1`, `x1 = NO_CAP`.
+- `a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first` parks a
+  supervisor in `RECV_CAP` and then lets a supervised child fault; the control lets the corpse park
+  first. Both must return the fault event, `x1 = NO_CAP` and the child's id in `x2`.
+
+Both are shared scheduler code and run in the same suite on all three ISAs (DECISIONS §19).
+
+**Both paths were correct.** Neither test found a defect. The tests are the measurement 634 asked for.
+
+### Falsification, replayed 2026-10-03 (UTC) on aarch64
+
+Each patch under `system_tests/falsifications/` reverts milestone 634's `cap_delivered` default
+(the same hunk as 634's, one record per test so each is replayable by name). Replayed with
+`xtask test --arch aarch64 --test <name>`, one test selected each time:
+
+| test | exit | red at |
+|---|---|---|
+| interrupt | 1 | `recv_cap_attack_tests.rs:525`, `an interrupt signal handed the receiver x1 = 0 on the receiver-first order` |
+| death | 1 | `recv_cap_attack_tests.rs:593`, `a death message handed the supervisor x1 = 4294967302 on the receiver-first order` |
+
+Unpatched, the filter `recv_cap_attack` ran 7 tests, 7 passed, exit 0. The controls (signal-first,
+corpse-first) are green under the patch, so the red is about the order and not the fixture. The first
+cut of the death test asserted `x2` before `x1`, and its replay went red at `x2`, not the predicted
+line; the checks were reordered so the headline is `x1` and the replay was repeated.
+
+### Recorded
+
+The riscv64 and x86_64 legs were built (`cargo test -p system_tests --no-run`) and not booted here;
+CI boots them. The falsification records are replayed on aarch64 only, like every other record in
+this family.
+
+`cargo xtask ...` run through the rustup proxy builds the std exerciser against the unpatched std in
+this checkout (the proxy prepends the real toolchain's `bin` to `PATH`, so xtask's child `cargo`
+ignores `RUSTUP_TOOLCHAIN=<farm>`), and the build fails in `std`'s `cfg_select!`. Running
+`target/debug/xtask` directly with `CARGO_MANIFEST_DIR=$PWD/xtask` exported worked. Not diagnosed
+further; recorded in `notes/std/caveats.md`.
+
+## Follow-on
+
+- **Recorded.** The unpatched-std exerciser build is in `notes/std/caveats.md`, the appendix
+  `notes/std.md`'s `BUGS` section links.
+
 ## Index row
 
-Milestone 634 left an interrupt signal's and a death message's `RECV_CAP` results reasoned from the code rather than measured. Proposed: a test that drives each through the receiver-first rendezvous order.
+Milestone 634 left an interrupt signal's and a death message's `RECV_CAP` results reasoned from the code rather than measured. BUILT: a test drives each through the receiver-first rendezvous order, with a replayable falsification; both paths were correct.

@@ -303,7 +303,9 @@ Open security findings that bear on it, each a proposal and none yet built:
   one holder of the network capability can read and close another's sockets. Severity not
   recorded; the fix changes a wire format.
 - [The sibling RECV_CAP paths get a receiver-first test](../roadmap/714-the-sibling-recv-cap-paths-get-a-receiver-first-test.md):
-  two paths now correct by reading, unmeasured. Severity not recorded.
+  two paths now correct by reading, unmeasured. Severity not recorded. Dated 2026-10-03, afterwards:
+  a receiver-first test for each is in PR #1576, with a replayable falsification that turns it red
+  on aarch64; riscv64 and x86_64 build it and run it in CI.
 - [A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline](../roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md):
   the session's copy of the boot line discipline's endpoint also answers `OP_BYTES`, so a
   compromised session can queue a command line the boot shell runs with its own authority. A
