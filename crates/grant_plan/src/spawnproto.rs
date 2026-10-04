@@ -285,27 +285,28 @@ const ARGS_BIT: u64 = 1 << 42;
 /// Name: ratified 2026-09-27 (calef, #1360's table).
 const MACHINE_BIT: u64 = 1 << 44;
 
-/// **The gpu's four capabilities follow** (milestone 632 (provisional), calef's 2026-09-30 ruling
-/// that graphics is launched from the prompt rather than built at boot): the confined transport,
-/// the completion interrupt, the whole DMA run and the surface run, in that order, each narrowed
-/// to what the boot endowment carries. They come from the session's own slots
-/// ([`SHELL_GPU_SLOT`] and its siblings), which the progenitor fills at boot, so what reaches the
-/// graphical terminal session is what the user at the prompt delegated: the model's own shape, the machine
-/// page's own precedent one authority over.
+/// **This is a graphical terminal launch** (milestone 632 (provisional), calef's 2026-09-30 ruling
+/// that graphics is launched from the prompt rather than built at boot). **No capability follows
+/// it** since milestone 715 (provisional): the spawn service holds the gpu's four (and a
+/// keyboard's three) from boot, and builds the session's drivers from its own copies, the way it
+/// already held the boot discipline's endpoint for the same session. Until 715 the shell held the
+/// seven at [`SHELL_GPU_SLOT`] onward for the life of the boot and delegated them after this bit,
+/// which lent the prompt `GRANT` on every device; the 2026-10-03 security audit's follow-up
+/// narrowed that. A boot with no display answers [`SPAWN_NO_DISPLAY`].
 ///
 /// Meaningful only for a `graphical_terminal` request, and the progenitor refuses any other program that sets
-/// it rather than endowing caps a program never declared.
+/// it.
 ///
 /// Name: ratified 2026-10-03 (calef, #1493). Refused one device-bundle bit covering both (it adds a
 /// second way of saying what a request carries).
 const GRAPHICS_BIT: u64 = 1 << 45;
 
-/// **A virtio keyboard's three capabilities follow** (milestone 632 (provisional)): the transport,
-/// the event interrupt and the DMA page, in that order. **Meaningless unless [`GRAPHICS_BIT`] is
-/// also set**, the same pair-shape [`DIR2_BIT`] already records: a keyboard with no screen has no
-/// terminal to type into on this boot. When it is absent the graphical terminal session takes its keystrokes
-/// from the boot's own line discipline over the UART, which is milestone 192 (a keyboard on real
-/// silicon)'s option A, decided, at launch rather than at boot.
+/// **Unused since milestone 715 (provisional), and a request that sets it is refused.** It said a
+/// virtio keyboard's three capabilities followed [`GRAPHICS_BIT`]'s four; the spawn service now
+/// holds those itself and decides the arm from what the boot granted (milestone 192 (a keyboard
+/// on real silicon)'s option A, the UART, when there is no keyboard). Kept rather than deleted
+/// because bit 46 and its name are a ratified wire position, and whether to retire or reuse it is
+/// an architect's call, recorded as a BUGS entry in milestone 715's block.
 ///
 /// Name: ratified 2026-10-03 (calef, #1493), with bit 46 and its meaning only with bit 45.
 const KEYBOARD_BIT: u64 = 1 << 46;
@@ -320,6 +321,10 @@ const KEYBOARD_BIT: u64 = 1 << 46;
 /// Name: ratified 2026-09-27 (calef, #1360's table).
 pub const MACHINE_PAGE_SLOT: u64 = 20;
 
+/// **Empty since milestone 715 (provisional)**: the spawn service holds the display devices, and no
+/// builder places anything here. The block stays reserved, and the fence below stays, because a
+/// probed slot is sound only where nothing allocates. What it was:
+///
 /// **Where a session holds the gpu's confined transport** (milestone 632 (provisional)), with its
 /// three siblings beside it: the completion interrupt at 23, the DMA run at 24, the surface run at
 /// 25, and, when a virtio keyboard exists, its transport at 26, event interrupt at 27 and DMA page
@@ -814,6 +819,19 @@ pub const SPAWN_UNVOUCHED: u64 = u64::MAX - 2;
 /// `u64::MAX`, for [`JOB_FAULTED`]'s reason. Name: provisional.
 pub const SPAWN_REFUSED_BY_MANIFEST: u64 = u64::MAX - 3;
 
+/// **The spawn service's word for a `graphical_terminal` launch on a boot with no display**
+/// (milestone 715 (provisional)). Since 715 the spawn service holds the display devices and the
+/// shell holds none, so the shell cannot find out from its own slots that there is nothing to
+/// launch a session on; it asks, and this is the answer. Distinct from [`SPAWN_FAILED`] for
+/// [`SPAWN_UNVOUCHED`]'s reason: "this boot has no display" is a fact about the machine, and "the
+/// session could not be built" (a second session, the job pool spent) is a failure, and a person
+/// needs them told apart. Four below `u64::MAX`, for [`JOB_FAULTED`]'s reason.
+///
+/// Name: provisional (milestone 715, 2026-10-03). That the answer is a result word at all, rather
+/// than a fact the shell is told at `_start`, is an open question for an architect: see
+/// `design/roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`.
+pub const SPAWN_NO_DISPLAY: u64 = u64::MAX - 4;
+
 /// The ack the progenitor sends on the result endpoint when a **supervised** (interruptible) child started
 /// cleanly. An interruptible child reports its own progress and exit through the shared job frame,
 /// not the result endpoint, so the progenitor sends this once as the go-ahead: the shell reads it, then begins
@@ -1023,6 +1041,7 @@ mod tests {
             JOB_FAULTED,
             SPAWN_UNVOUCHED,
             SPAWN_REFUSED_BY_MANIFEST,
+            SPAWN_NO_DISPLAY,
         ];
         for (i, a) in all.iter().enumerate() {
             assert!(*a > u64::MAX - 8, "{a:#x}");

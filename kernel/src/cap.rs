@@ -370,7 +370,19 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// two**: the next capability held across a launch buys a slot back or raises
 /// [`CAPABILITY_TABLE_SLOTS`], and that is a decision for whoever adds it, with this paragraph in
 /// front of them.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 30;
+///
+/// **Thirty-one with a gpu and a keyboard** (2026-10-03, UTC, milestone 715 (provisional): the
+/// spawn service holds the display grants, and the shell holds none). The progenitor used to hand
+/// the gpu's four and the keyboard's three to the shell before its login block; it now keeps them
+/// for the life of the boot, so they sit on the login block's peak. Measured on `swish-check`'s
+/// aarch64 leg: the keyboard boot reads 24, 28, 30, 31 before the first prompt (it read 24, then
+/// 30 at the launch, before 715), and the serial arm (gpu, no keyboard) reads 28 (it read 27). A
+/// boot with no gpu is unchanged at 24. **This is the spend that paragraph said is a decision, and
+/// it is recorded here rather than taken quietly**: the headroom is one, on the one configuration
+/// that reaches it, which is QEMU's (argon, radon and xenon have no virtio keyboard and no
+/// virtio-gpu). Buying slots back is proposed in milestone 715's block; raising
+/// [`CAPABILITY_TABLE_SLOTS`] is not done here.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 31;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);

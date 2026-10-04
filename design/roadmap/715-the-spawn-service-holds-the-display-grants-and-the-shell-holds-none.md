@@ -1,5 +1,6 @@
 ---
-status: NOT-STARTED
+status: BUILT
+built: 2026-10-03
 raised: 2026-10-03
 promoted_from: the-spawn-service-holds-the-display-grants-and-the-shell-holds-none
 milestone_dependencies: none
@@ -72,6 +73,92 @@ lists seven.
 Nothing. The width is recorded in `components/src/swish.rs`'s BUGS where a reader of the shell's
 holdings meets it.
 
+## What was measured first (2026-10-03, UTC, aarch64)
+
+A `caps` census was added first, so the shell could say what is in its table rather than what it
+believes it was given. On the unfixed tree, `script/swish-check --arch aarch64`'s second boot (a
+gpu, no keyboard) read `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`: the gpu's four at 22 to 25,
+as the block said. The same table printed "it can name no devices" two lines above, which was
+false on that boot.
+
+**The block's premise about `caps` was wrong.** It said `caps` listed seven `gpu` or `keyboard`
+slots. It listed none: its rows are written from what the shell believes it holds, and nothing
+wrote a row for slots 22 to 28. That is why the census exists.
+
+## What is built
+
+- The spawn service keeps the gpu's four and the keyboard's three in the boot endowment's own slots
+  for the life of the boot (`GraphicalTerminalCaps::gpu`, `::kbd`), and lends each session's
+  drivers narrowed copies. The builder no longer deletes them. Nothing is placed at
+  `spawnproto::SHELL_GPU_SLOT` onward.
+- The shell's request carries `GRAPHICS_BIT` alone; no capability follows it. `HOLDS_DISPLAY`,
+  `HOLDS_KEYBOARD`, `display_wiring` and `delegate_display` are gone. A request that sets
+  `KEYBOARD_BIT` is refused.
+- The shell learns there is no display by asking: the spawn service answers
+  `spawnproto::SPAWN_NO_DISPLAY` (provisional), and the shell prints the same sentence it printed
+  before. The refusal line in `script/swish-check`'s first boot is unchanged and passes.
+- `caps` with no tail ends with `slots held: ...`, read with `is_granted` below the fault slot
+  (`swish::write_census`, provisional).
+- The kernel's boot line now says the spawn service holds the grants.
+
+## The test
+
+`script/swish-check` types `caps` on the second boot (gpu, no keyboard) and, new, on the keyboard
+boot before it launches. Both want `slots held: 0 1 2` and ` 21 30` at the end of the census,
+meaning nothing between the configuration page (21) and the run-unvouched slot (30). After the
+fix, aarch64 read `slots held: 0 1 2 3 4 5 20 21 30` on both boots. Row 32 of
+`notes/confinement-claims.md`.
+
+Falsification: `xtask/falsifications/swish_check.swish_check_leg.patch` places the
+devices in the shell again. Replayed on aarch64: `script/swish-check --arch aarch64` exits 1 at
+the second boot's `caps`, which read `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`. The run stops
+there, so the keyboard boot's census (slots 26 to 28) was not replayed red; the same defect places
+those three.
+
+## Parity: §19 (architectural parity is a tenet)
+
+aarch64 and riscv64 boot a gpu in `swish-check`, and the census line is falsifiable there. x86_64's
+runner attaches no virtio-gpu (milestone 632's gap), so its census line passes on a boot that never
+had a display to hold. The code is shared; the gap is the runner's, recorded in milestone 632.
+riscv64 and x86_64 were gated in CI, not booted here.
+
+## What it cost
+
+The seven grants now sit on the progenitor's login block, which is its capability table's peak.
+`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` goes from 30 to 31: the keyboard boot reads 31 of
+32 before its first prompt (it read 30, at the launch, before), the serial arm 28 (was 27), and a
+boot with no gpu stays at 24. The configuration that reaches 31 is QEMU's: no board here has a
+virtio keyboard. The block's "the kernel is untouched" is true of behaviour; that recorded
+constant and the boot sentence changed.
+
+## BUGS
+
+- **Headroom is one slot on a gpu and keyboard boot.** `CAPABILITY_TABLE_PEAK_MEASURED`'s own doc
+  says the next capability held across that peak buys a slot back or raises the table, and calls
+  that a decision. This milestone spent seven and recorded the spend rather than deciding it.
+  See Follow-on.
+- **`KEYBOARD_BIT` (bit 46) is unused.** The shell never sets it and the spawn service refuses it.
+  Its name and position were ratified (#1493), so retiring or reusing it is an architect's call.
+- **`SHELL_GPU_SLOT` (22) names an empty block.** Kept, with its fence assertions, because a slot
+  probed by nothing is still a slot nothing should allocate into; whether the name stays is an
+  architect's call.
+- **`SPAWN_NO_DISPLAY` is a new spawn-protocol word**, and the block left the mechanism open
+  ("reports at the prompt's start"). A result word was chosen over a bit in the shell's `_start`
+  registers because it needs no new start-time contract and answers at the moment of asking. Name
+  and mechanism are provisional.
+- A child holding `result_ep` can send `SPAWN_NO_DISPLAY` about itself, as it can `SPAWN_FAILED`;
+  `components/src/swish.rs`'s BUGS has that entry.
+
+## Follow-on
+
+- **Proposed.** `design/roadmap/proposals/trace-the-progenitors-login-block-peak.md`. Which
+  capabilities sit on the peak is "not traced" in `kernel/src/cap.rs`, and knowing that is how a
+  slot gets bought back rather than the table raised.
+- **Recorded.** Milestone 709 (the no-keyboard arm holds only the raw half of the boot
+  discipline) names "the seven device capabilities at slots 22 to 28 with `GRANT`" among what a
+  hostile session gains through the shell. After this milestone the shell holds none of them, which
+  narrows that finding; this sentence is its record, here where 709's reader of 715 meets it.
+
 ## Index row
 
-Since milestone 632 the boot shell holds the GPU's and keyboard's capabilities for its whole life. Proposed: the spawn service holds the display grants and the shell holds none, from the 2026-10-03 security audit's follow-up.
+Since milestone 632 the boot shell held the GPU's and keyboard's capabilities for its whole life. BUILT: the spawn service holds them and lends each session's drivers copies; a `caps` census proves the shell holds none, with a replayable falsification.

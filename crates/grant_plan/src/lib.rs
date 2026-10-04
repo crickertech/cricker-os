@@ -523,10 +523,10 @@ programs! {
         /// launched from the swish prompt rather than built at boot).
         ///
         /// The display stack a `graphical_terminal` spawn builds is the progenitor's job, exactly as a
-        /// directory grant's caretaker is: the shell delegates the device capabilities it holds
-        /// (`spawnproto::Wiring::graphics`, from [`spawnproto::SHELL_GPU_SLOT`] and its siblings) and
-        /// the progenitor builds `gpu_driver`, `display_terminal`, the line discipline and, when
-        /// the keyboard's three came with them, `keyboard_driver`, then starts this program wired
+        /// directory grant's caretaker is: the shell asks (`spawnproto::Wiring::graphics`, which
+        /// carries no capability since milestone 715 (provisional)) and the progenitor builds
+        /// `gpu_driver`, `display_terminal`, the line discipline and, when the boot has a
+        /// keyboard, `keyboard_driver` from the devices it holds, then starts this program wired
         /// to the lot. With no keyboard the session's keystrokes come from the boot's own line
         /// discipline over the UART, which is milestone 192 (a keyboard on real silicon)'s option A
         /// at launch rather than at boot.

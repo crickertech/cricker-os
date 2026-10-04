@@ -248,7 +248,7 @@ confinement and watches it fail).
 fixed real defects (tests that could not fail, three times; claims false in audit 313 and on
 2026-09-21) and found no escape on a component's own authority, and the outsider half is unrun. What
 moves it is the adversarial review of milestone 633 (an outside agent attacks the confinement claim). 26 claims
-enumerated at that date (the table now has 31 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
+enumerated at that date (the table now has 32 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
 three of them stated nowhere, and 25 harnesses carried a replayable falsification, up
 from 6 ([`notes/confinement-claims.md`](../../notes/confinement-claims.md); PR #614). The finding is
 worse than a missing test. A page-table assertion was patched to remove the check it exists for and
@@ -319,7 +319,12 @@ Open security findings that bear on it, each a proposal and none yet built:
 - [The spawn service holds the display grants, and the shell holds none](../roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
   the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
   and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium
-  as a width, low as a reach (2026-10-03 audit, finding 10).
+  as a width, low as a reach (2026-10-03 audit, finding 10). Dated 2026-10-03, afterwards: PR
+  #1585 keeps the seven in the spawn service, which lends each session's drivers copies, and the
+  shell holds none. A `caps` census in `script/swish-check` read slots 22 to 25 held before the fix
+  and none after, on aarch64, with a replayable falsification; riscv64 runs it in CI, and x86_64
+  has no gpu to hold. The progenitor's capability peak rose from 30 to 31 of 32 on a gpu and
+  keyboard boot.
 
 ## 8. Nobody needs it
 

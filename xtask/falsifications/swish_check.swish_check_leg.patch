@@ -1,0 +1,48 @@
+Falsifies `xtask::swish_check::swish_check_leg`, at the `caps` census line of its second boot
+(`SWISH_CHECK_AFTER_REBOOT`) and its keyboard boot (`SWISH_CHECK_KEYBOARD_BOOT`, which the run does
+not reach). Named for the leg rather than for `swish_check_boot`, whose one record name milestone
+673's patch already holds, because the census lines run only on the leg's second and third boots.
+
+Architecture: aarch64
+
+Milestone 715 (the spawn service holds the display grants, and the shell holds none), row 32 of
+notes/confinement-claims.md. Replay by hand, for the reason
+`swish_check.swish_check_boot.patch` gives (the sweep covers Kani harnesses and kernel
+`#[test_case]`s, and this line is neither):
+
+    git apply xtask/falsifications/swish_check.swish_check_leg.patch
+    script/swish-check --arch aarch64        # must exit non-zero
+    git apply -R xtask/falsifications/swish_check.swish_check_leg.patch
+
+The defect is the progenitor placing copies of the gpu's four and the keyboard's three in the shell
+at `spawnproto::SHELL_GPU_SLOT` onward, with `GRANT`, which is what it did from milestone 632
+(graphics on demand) to milestone 715. The spawn service still holds its own, so launches keep
+working; only the shell's table is wider.
+
+Expected to fail: the second boot (a gpu, no keyboard) wants the census to end ` 21 30`, and the
+shell reports `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`. Replayed 2026-10-03 (UTC): exit 1
+at that line; the fixed tree reads `slots held: 0 1 2 3 4 5 20 21 30` and exits 0 past it.
+
+diff --git a/crates/system_initializer/src/lib.rs b/crates/system_initializer/src/lib.rs
+index 41bfd4914..4af5fef66 100644
+--- a/crates/system_initializer/src/lib.rs
++++ b/crates/system_initializer/src/lib.rs
+@@ -2011,6 +2011,18 @@ pub fn boot(
+     // session: the prompt asks for a launch and cannot hand a device to anything. They stay in the
+     // boot endowment's own slots, read from [`GraphicalTerminalCaps`]; [`graphical_terminal_grants`]
+     // already deleted whatever no session can be built from.
++    if graphical_terminal_caps.held {
++        let t = &graphical_terminal_caps;
++        let lent = [t.gpu[0], t.gpu[1], t.gpu[2], t.gpu[3], t.kbd[0], t.kbd[1], t.kbd[2]];
++        let (w, r, rw) = (abi::rights::WRITE, abi::rights::READ, abi::rights::READ | abi::rights::WRITE);
++        let rights = [w, r, rw, rw, w, r, rw];
++        for (i, cap) in lent.iter().enumerate() {
++            if t.keyboard || i < 4 {
++                let g = rights[i] | abi::rights::GRANT;
++                must_ok(place_at(shell.tcb, *cap, g, spawnproto::SHELL_GPU_SLOT + i as u64));
++            }
++        }
++    }
+     // The caretaker's endpoint was only ever the means of wiring: the shell holds its own copy and
+     // the caretaker holds the other end, the same disposal `spawn_service`'s dynamic directory
+     // grants already give their own narrowed endpoint below.

@@ -201,6 +201,12 @@ const JOB_DID_NOT_RUN: [&str; 2] = [
     "that command faulted and was killed before it answered",
 ];
 
+/// **What the keyboard boot types before it launches** (milestone 715 (provisional)): one `caps`,
+/// for its census, because this is the only boot with a keyboard and so the only one that can show
+/// the keyboard's three slots (26 to 28) are not the shell's either. Before 715 the progenitor
+/// placed them there beside the gpu's four. See the same line in [`SWISH_CHECK_AFTER_REBOOT`].
+const SWISH_CHECK_KEYBOARD_BOOT: &[Line] = &[line(0, "caps", &["slots held: 0 1 2", " 21 30\n"])];
+
 /// A [`Line`], positionally, so the script reads as the prompt does. The name is provisional.
 const fn line(jobs: u8, typed: &'static str, answer: &'static [&'static str]) -> Line {
     Line {
@@ -256,6 +262,15 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 /// versions of one program, each runnable, and a caller granted the one it needs)'s second
 /// version, installed before the vouch.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
+    // **The shell holds no display device** (milestone 715 (provisional), the 2026-10-03 security
+    // audit's follow-up; row 32 of notes/confinement-claims.md). On aarch64 and riscv64 this boot
+    // has a gpu, and until 715 the progenitor placed its four capabilities in the shell at
+    // `spawnproto::SHELL_GPU_SLOT` (22) onward for the life of the boot: measured on aarch64,
+    // `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`. Now the spawn service keeps them, so the
+    // census runs straight from the configuration page (21) to the run-unvouched slot (30), and
+    // " 21 30" is the assertion that nothing sits between them. On x86_64 this boot has no gpu and
+    // the line holds trivially; that leg's gap is milestone 632's (no virtio-gpu in its runner).
+    line(0, "caps", &["slots held: 0 1 2", " 21 30\n"]),
     line(
         1,
         "packages/noteless/0.1.0/noteless",
@@ -2146,7 +2161,12 @@ fn swish_check_leg(arch: &str) -> bool {
             ))
         && (probe() == Probe::Panic
             || !graphical
-            || swish_check_boot(arch, &[], false, Some(Keystrokes::Device)))
+            || swish_check_boot(
+                arch,
+                SWISH_CHECK_KEYBOARD_BOOT,
+                false,
+                Some(Keystrokes::Device),
+            ))
 }
 
 /// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
@@ -3091,10 +3111,10 @@ fn swish_check_boot(
 ///    that the boot stayed minimal. A boot that quietly rebuilt the graphical stack at boot time,
 ///    the shape calef's 2026-09-30 ruling reverses, would print no UART prompt and the boot fails
 ///    right there.
-/// 2. [`launch_graphical_terminal`] types `graphical_terminal` over the UART. The shell delegates
-///    the display devices it holds (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`, from
-///    `spawnproto::SHELL_GPU_SLOT` and its siblings), the progenitor builds the session's stack
-///    from them, and the session prints its own `$ ` prompt on the screen.
+/// 2. [`launch_graphical_terminal`] types `graphical_terminal` over the UART. The shell asks
+///    (`spawnproto::GRAPHICS_BIT`; it holds no device since milestone 715 (provisional)), the
+///    progenitor builds the session's stack from the devices it holds, and the session prints its
+///    own `$ ` prompt on the screen.
 /// 3. It presses one key and requires its echo on the screen: `sendkey` on the device arm, the same
 ///    byte down the UART on the serial arm, which is a real round trip through the boot's line
 ///    discipline in raw mode and the session's own echo.

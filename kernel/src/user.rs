@@ -2331,7 +2331,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     };
     if gpu.is_some() {
         crate::println!(
-            "  graphics  : a virtio-gpu and {}; the shell holds the grants, a `graphical_terminal` launch builds from them",
+            "  graphics  : a virtio-gpu and {}; the spawn service holds the grants, a `graphical_terminal` launch builds from them",
             if keyboard.is_some() {
                 "a virtio keyboard"
             } else {
