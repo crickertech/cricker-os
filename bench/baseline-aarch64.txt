@@ -1,10 +1,7 @@
 # toolchain: nightly-2026-10-04
 # qemu: 11.1.1
-# date: 2026-10-03
-# why: milestone 629 (the context-switch statistic stops costing the switch path): the switch count moved from a fetch_add on the machine statistics page to PerCpu::switches, published on the tick; per switch 134 -> 31 instructions at -O0 (riscv64), ruled option B on #1489
-# why: #1486 (drift since the 2026-09-26 floors) attributed the rest: map_new from the RETYPE layering of milestone 23 (a capability-routed component OS with live replacement) and the fixed +43 of milestone 206 (a program image has under 896 KiB), spawn_reap partly from the 24-to-32 capability table; recorded here rather than recovered
-# why: 2026-10-03: restamped from nightly-2026-10-02 to nightly-2026-10-03 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: spawn_el0 +0.096%, ctx_switch -0.040%, ipc_rtt_el0 -0.005% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: spawn_el0 +0.096%, ctx_switch -0.040%, ipc_rtt_el0 -0.005%, sink_throughput +0.003%
-# why: 2026-10-04: restamped from nightly-2026-10-03 to nightly-2026-10-04 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: map_new +0.006%, sink_throughput -0.005% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: spawn_el0 +0.096%, ctx_switch -0.040%, map_new +0.006%, ipc_rtt_el0 -0.005%, sink_throughput -0.002%
+# date: 2026-10-04
+# why: 2026-10-04, fatal risk 4 (lane/null-syscall-contention): arch::exceptions::SVC_COUNT's fetch_add left every non-test build, so null_syscall drops 52,497 ticks (-12.8%; on aarch64 without LSE the increment was an exclusive-load loop). riscv64 and x86_64 moved within their 10% band and are not re-saved. See notes/job-mix/null-syscall-under-load.md.
 # bench/baseline-aarch64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
@@ -17,17 +14,17 @@
              # Updating this file is a statement that a performance change is intended and
              # understood; do it in the commit that causes the change. Checked by --check, a coarse
              # 10% tripwire (icount counts drift across builds; see notes/benchmarks.md).
-yield_switch 1136487 2000
-ipc_rtt 1049353 1000
-relay_rtt 2080052 1000
-call_reply 1067952 1000
-broker_rtt 2133246 1000
-spawn_reap 219622 64
-map_new 16516 64
-coremark 20916100 256
-null_syscall 410316 20000
-ctx_switch 3084142 5000
-ipc_rtt_el0 11125018 5000
-sink_throughput 4531296 80000
-map_el0 390802 500
-spawn_el0 1370392 100
+yield_switch 1136054 2000
+ipc_rtt 1060319 1000
+relay_rtt 2082023 1000
+call_reply 1071516 1000
+broker_rtt 2139900 1000
+spawn_reap 223593 64
+map_new 16521 64
+coremark 20916159 256
+null_syscall 357819 20000
+ctx_switch 3045402 5000
+ipc_rtt_el0 11033900 5000
+sink_throughput 4541584 80000
+map_el0 389647 500
+spawn_el0 1395342 100

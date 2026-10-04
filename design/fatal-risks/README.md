@@ -120,6 +120,14 @@ seven gave identical verdicts and SAT counts under both models, so this is a gap
 not a hole. The fix and its gate are milestone 635
 (riscv64 proofs check against the riscv64 model); see [its block](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
 
+*Measured 2026-10-04 (UTC) by milestone 741 (does a standing proof notice a regression), under §216:*
+across 189 harnesses in 26 packages (glob and calendar not measured), 178 of the 184 that reach a
+cargo-mutants mutant kill at least one. In reach, the proofs kill 1,668 of 2,626 viable mutants (64%),
+and the census tests catch 91%. Six harnesses reach mutants and kill none, four of them panic-freedom
+proofs. Four `inter_process_communication` harnesses prove `unsafe fn`s, which cargo-mutants never
+mutates, so they reach no mutant and go unscored. 17 mutants are killed by a proof alone.
+[`notes/kani-reach-2026-10-04.md`](../../notes/kani-reach-2026-10-04.md).
+
 The first x86_64 proof went red on a latent defect, the first of the class this risk asks about. The
 claim: proofs over the pure crates and slices of a mostly unverified kernel. [Appendix](proofs-and-their-reach.md).
 
@@ -175,7 +183,7 @@ The claim, and calef named this one first: a capability microkernel pays on ever
 and on workloads that cross constantly the cost is architectural rather than a matter of tuning.
 
 **Experiment status: RUN, 2026-10-04.** AMBER (calef, 2026-10-04, #1613). The throughput defence
-held on step 7's first outcome. The one unexplained number is a per-crossing cost under load, the
+held on step 7's first outcome. The one number not fully explained is a per-crossing cost under load, the
 null syscall going from 108 to 202 ticks between one task and four, and that is exactly this risk's
 claim. With the caveats below, the defence is narrow. What turns it green is explaining that
 slowdown and showing it is a fixable defect, such as lock contention on `IPC_TABLES`, rather than an
@@ -205,10 +213,16 @@ retired, and five things bound it:
   shapes the plateau: a curve held flat by a server bottleneck is a weaker witness than one held
   flat by spare cores.
 
-One finding stays open. The null syscall nearly doubles per job from one task to four (108 to 202
-ticks) while compute grows 6%, then grows only 17% more by 32. That is a per-crossing cost that
-rises with busy cores and saturates, which is not the stack-footprint shape, and it is unexplained.
-It is recorded in `notes/job-mix.md`'s `BUGS`.
+One finding was open, and is now half explained. The null syscall's near-doubling from one busy core
+to four was half a defect and half contention. The defect:
+the reaper held the global `IPC_TABLES` lock while freeing a dead thread's kernel stack, six
+TLB shootdowns that interrupt every core. Fixing it on radon (2026-10-04) cut the null syscall's
+growth from one task to four from 94 ticks to 48, and raised throughput 9% at four tasks and 11% at
+32. The rest is the one global lock itself: at four tasks 41% of syscalls find it held. That is a
+lock this kernel chose and can split, not a cost of the capability model, and splitting it is
+proposed (`design/roadmap/proposals/capability-lookup-off-the-global-lock.md`). Until that is
+measured, the per-crossing cost under load is half explained and half open
+(`notes/job-mix/null-syscall-under-load.md`).
 
 Two caveats. The counter-thesis is published: the crossing can be removed rather than made cheap. If
 RedLeaf and the 2017 Rust-kernel paper are right, a capability crossing is a cost this project chose
@@ -320,6 +334,14 @@ leaked a slot of 32: a denial of service, not an escape, severity medium. `RECEI
 `reply` accepts. One test, with a replayable falsification replayed red on aarch64, covers the tag
 on both arrival orders. It tests the tag, not the hang. A server that reads `x1` raw, outside the
 runtime, is still exposed.
+
+Dated 2026-10-04 (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number, PR #1611):
+a `SEND_CAP` or `CALL` that found a plain `RECEIVE` already parked installed its capability in the
+receiver's table, while the other order did not, so a confined program holding a `GRANT` capability
+could fill the table of a server draining its output (found by milestone 752 (a seeded syscall
+driver with a shadow model)). calef ruled option A; a plain `RECEIVE` now takes no capability on
+either order and a `CALL` reaching one is answered `Gone`. Two kernel tests with replayable
+falsifications, replayed red on aarch64.
 
 Dated 2026-10-04: nothing fuzzes what a confined process can reach. The six `cargo-fuzz` targets
 of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, not IPC requests

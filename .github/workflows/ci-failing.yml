@@ -14,6 +14,11 @@ on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+  # The schedule alone is nearly silent here (see notes/ci-failing.md BUGS), so a pass also runs
+  # whenever CI completes, as merge-drain.yml does, which is when a head can have just turned red.
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
 
 concurrency:
   group: ci-failing

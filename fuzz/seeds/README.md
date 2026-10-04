@@ -14,6 +14,7 @@ tree**, committed for their own reasons and tested by their own tests:
 | `device_tree_blob_walk` | `crates/device_tree_blob/tests/fixtures/` | three real device trees, dumped from the boards we boot |
 | `globally_unique_identifier_partition_table` | `crates/globally_unique_identifier_partition_table/tests/fixtures/` | two real disks, formatted by `sgdisk` and by Apple's Disk Utility |
 | `elf_parse` | here | the three files below, because nothing else in the tree is a small ELF |
+| `domain_name_system_reply` | `crates/domain_name_system/tests/fixtures/` | three real replies captured from 1.1.1.1: two A records, a CNAME chain with compression, and NXDOMAIN |
 | `http_response_feed` | here | two responses, a `200` with a body and a bare `404`; the first byte of each is the read size the target splits at |
 | `nifefs_roundtrip` | nothing | the input is a *structure*, not bytes; the fuzzer builds file sets from scratch and reaches the interesting shapes immediately |
 

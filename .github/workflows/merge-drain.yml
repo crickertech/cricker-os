@@ -146,7 +146,7 @@ jobs:
       # failure must not turn the drain red, but it prints a warning so it is not silent.
       - name: report a stopped merge watcher
         if: always()
-        continue-on-error: true
+        continue-on-error: true  # outcome: exception, a reporting failure must not turn the drain red; it warns
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           WATCHER_READ_TOKEN: ${{ github.token }}

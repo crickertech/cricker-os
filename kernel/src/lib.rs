@@ -102,6 +102,11 @@ mod smp;
 // must still halt: this module is the thing that makes a boot never end.
 #[cfg(feature = "job_mix")]
 mod job_mix;
+// How often the job mix's threads found a kernel lock held (2026-10-04, fatal risk 4). Its own
+// feature on top of `job_mix`, because its counting sits on the lock path and the job-mix image
+// that is not asked for it should be the kernel that ships.
+#[cfg(feature = "lock_wait")]
+mod lock_wait;
 // Fatal risk 6's bench boot (milestone 261 (the NVMe driver leaves the kernel)): preflight the two night-of conditions, then measure a
 // confined EL0 NVMe driver's throughput and halt. Behind a feature because it writes to the disk.
 #[cfg(feature = "disk_throughput")]
@@ -1240,17 +1245,23 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // The capstone: run a real program at U-mode. The loader builds an address space from the
         // `outlaw` ELF's segments and drops to U-mode via enter_user's sret. The program yields
         // (round-tripping U-mode -> trap -> dispatch -> yield -> sret -> U-mode) twice, then exits.
-        // The syscall count proves the whole userspace path: enter_user, the sscratch U-mode trap
-        // entry, the ecall dispatch through the ABI accessors, and the return to U-mode.
+        //
+        // **This line used to print a syscall count, and the count proved nothing.** It read a
+        // global counter before and after four yields of its own, but the program is placed on
+        // whichever core the scheduler picks and had not run yet when the second read happened:
+        // every captured riscv64 boot, under QEMU and on radon, printed "made 0 syscalls". The
+        // counter itself was a `fetch_add` on one cache line from every syscall on every core,
+        // which is what made the cheapest syscall cost more when more cores were busy
+        // (notes/job-mix/null-syscall-under-load.md, 2026-10-04). It is gone rather than
+        // per-core because this was its only reader. Proving the path for real means waiting for
+        // the program's exit, which is a tour change and not this one.
         //
         // This step used to run a hand-assembled RISC-V blob through a one-page raw loader. It runs
         // a compiled ELF out of the initrd now (milestone 19's user-test port), so it needs one, and
         // says so rather than quietly proving nothing when there is none.
         {
-            use core::sync::atomic::Ordering;
             match user::program("outlaw") {
                 Some(image) => {
-                    let before = arch::exceptions::SVC_COUNT.load(Ordering::Relaxed);
                     sched::spawn(move || {
                         user::run(
                             image,
@@ -1266,9 +1277,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                     for _ in 0..4 {
                         sched::yield_now();
                     }
-                    let served = arch::exceptions::SVC_COUNT.load(Ordering::Relaxed) - before;
                     println!(
-                        "  userspace   : a program ran at U-mode and made {served} syscalls (yield/yield/exit via ecall)",
+                        "  userspace   : a program was started at U-mode (yield/yield/exit via ecall)",
                     );
                 }
                 None => println!("  userspace   : skipped (no 'outlaw' program in the initrd)"),

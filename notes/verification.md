@@ -689,7 +689,7 @@ script/verify
 ```
 
 Self-installs Kani on first run (its own nightly toolchain and a CBMC backend), then runs `cargo kani` over every package carrying harnesses:
-The harness count is generated weekly into `notes/project-metrics.md` (a count typed here conflicted on every merge that added a harness); the harnesses sit **across 31 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
+The harness count is generated weekly into `notes/project-metrics.md` (a count typed here conflicted on every merge that added a harness); the harnesses sit **across 32 packages** <!--count:harness-crates-->. (Milestone 198 (a package manager, and the trivial install) added two on 2026-09-23, in
 `crates/package_archive`; both take 4 seconds.
 Milestone 304 (`cargo kani -p kernel` only ever compiled one architecture) added two, in
 `kernel/src/arch/x86_64/irq.rs`, which **only an x86_64 host runs** (the `prove` shards, since milestone 587 (most CI jobs do not need an arm64 host)): the count is of the tree, not of

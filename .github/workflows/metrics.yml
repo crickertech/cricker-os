@@ -123,7 +123,7 @@ jobs:
       - name: Install cargo-llvm-cov
         id: covtool
         if: steps.day.outputs.coverage == 'true'
-        continue-on-error: true
+        continue-on-error: true  # outcome: re-raised
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - uses: Swatinem/rust-cache@v2
@@ -132,7 +132,7 @@ jobs:
       - name: Measure host-crate coverage
         id: coverage
         if: steps.day.outputs.coverage == 'true' && steps.covtool.outcome == 'success'
-        continue-on-error: true
+        continue-on-error: true  # outcome: re-raised
         run: script/coverage
 
       # Milestone 610 (provisional): the interface's stability. The one step here besides coverage
@@ -145,12 +145,13 @@ jobs:
       # every other column should still be recorded.
       - name: Install the target the interface is read for
         id: interfacetool
-        continue-on-error: true
+        continue-on-error: true  # outcome: re-raised
         run: rustup target add aarch64-unknown-none-softfloat
 
       - name: Measure the interface's stability
+        id: interface
         if: steps.interfacetool.outcome == 'success'
-        continue-on-error: true
+        continue-on-error: true  # outcome: re-raised
         run: python3 helpers/interface_stability.py --update
 
       # The merge queue's daily record (milestone 724 (the merge queue reports its ejection share and
@@ -160,7 +161,8 @@ jobs:
       # other columns should still be recorded. The step rewrites the last eight days and keeps older
       # ones, so a missed run heals on the next.
       - name: Fetch the merge queue's daily record
-        continue-on-error: true
+        id: queue
+        continue-on-error: true  # outcome: re-raised
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 helpers/merge_queue_share.py update
@@ -272,3 +274,24 @@ jobs:
           # arms nothing, and a lane arms in the same command as `gh pr ready`. This workflow is the
           # lane here. If arming fails the pull request is labelled needs-maintainer after 30 minutes.
           gh pr merge "$branch" --auto --merge || echo "::warning::could not arm the metrics pull request"
+
+      # **Where the instruments above go red** (milestone 641 (a mechanism that reports clean says
+      # over how many units, and zero is loud), provisional). Each swallows its own failure so that
+      # every other column is still recorded and the pull request still opens, and that half is
+      # right. Until this step nothing surfaced the failure, and a reading not taken looked like a
+      # quiet day: coverage is a carried cell, so a coverage step that failed every Monday would
+      # have left the last measured number standing on the page indefinitely. It runs last, after
+      # the record is written, so going red costs no column. See notes/denominators.md.
+      - name: Fail if an instrument did not take its reading
+        if: >-
+          steps.covtool.outcome == 'failure' || steps.coverage.outcome == 'failure' ||
+          steps.interfacetool.outcome == 'failure' || steps.interface.outcome == 'failure' ||
+          steps.queue.outcome == 'failure'
+        run: |
+          echo "::error::an instrument failed, so its cells were carried rather than measured:" \
+            "cargo-llvm-cov install '${{ steps.covtool.outcome }}'," \
+            "coverage '${{ steps.coverage.outcome }}'," \
+            "interface target '${{ steps.interfacetool.outcome }}'," \
+            "interface '${{ steps.interface.outcome }}'," \
+            "merge queue fetch '${{ steps.queue.outcome }}'"
+          exit 1

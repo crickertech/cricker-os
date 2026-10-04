@@ -145,6 +145,11 @@ GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat"
 PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
 GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
 
+# The name server (milestone 384 (in a capability system the resolver is a grant)), the aarch64
+# runner's twin; that runner says why it is DNS over TCP.
+NAME_SERVER_PEER="$(cd "$(dirname "$0")" && pwd)/name-server-peer"
+GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:53-cmd:$NAME_SERVER_PEER"
+
 # slirp's own TFTP server (10.0.2.2:69), which makes the gating UDP test deterministic and offline
 # instead of NAT'ing a DNS query to the host's resolver. The parity twin of the aarch64 runner's
 # block; the fixture must match components/src/socket_test_client.rs. See the aarch64 runner for the full reasoning.

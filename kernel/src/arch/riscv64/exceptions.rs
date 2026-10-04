@@ -191,7 +191,12 @@ pub static ROUTED_IRQS: AtomicUsize = AtomicUsize::new(0);
 /// steps enable real sources).
 pub static SPURIOUS_IRQS: AtomicUsize = AtomicUsize::new(0);
 
-/// System calls served (`ecall` from U-mode). Read by the boot tour; bumped by the trap dispatcher.
+/// **System calls served, counted for the system tests only** (`system_tests/src/user/tests.rs`
+/// proves a program reached user mode and came back by watching it rise). Every syscall on every
+/// core bumps this one line, so it is compiled out of every other build: until 2026-10-04 it was
+/// in all of them, and it was one of two shared writes on the cheapest syscall's path
+/// (notes/job-mix/null-syscall-under-load.md).
+#[cfg(any(test, feature = "system_tests"))]
 pub static SVC_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// User faults taken (a page fault or illegal instruction from U-mode). Read by the boot tour;
@@ -451,11 +456,12 @@ extern "C" fn riscv_trap_body(frame: &mut TrapFrame) -> bool {
         CAUSE_ECALL_U => {
             // The syscall. `sepc` points AT the `ecall` (unlike aarch64, where the hardware advances
             // ELR past `svc`), so step over it before dispatching, and `ecall` is always 4 bytes.
-            SVC_COUNT.fetch_add(1, Ordering::Relaxed);
             // Wrapping, because the wrap cannot happen on the one path every syscall takes
             // (release builds check overflow, notes/overflow-checks.md): this cause is U-mode
             // only, so `sepc` is a user address in Sv39's low half, far below `2^64 - 4`.
             frame.sepc = frame.sepc.wrapping_add(4);
+            #[cfg(any(test, feature = "system_tests"))]
+            SVC_COUNT.fetch_add(1, Ordering::Relaxed);
             crate::syscall::dispatch(frame);
         }
         // **A thread asked for the FP unit for the first time**
