@@ -32,7 +32,7 @@ Every one of those is a test written by the same people who wrote the thing bein
 RUN, 2026-08-31, and it found the thing this risk exists to find. notes/confinement-claims.md; PR
 #614.
 
-- 26 claims enumerated on 2026-08-31 (the table has 31 rows as of 2026-10-03), each with where it is stated, which test checks it, and whether that test
+- 26 claims enumerated on 2026-08-31 (the table has 32 rows as of 2026-10-03), each with where it is stated, which test checks it, and whether that test
   has been shown to fail when the claim is broken. Three were stated nowhere, including one the
   system deliberately does *not* make: a confined device's values are not confined, only its reach.
   The IOMMU and the DMA validator constrain placement, never content.

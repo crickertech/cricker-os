@@ -2003,46 +2003,14 @@ pub fn boot(
         ));
     }
     cap_delete(g.machine_page);
-    // **The display devices go to the shell, and this process keeps no copy** (milestone 632
-    // (provisional), calef's 2026-09-30 ruling): the boot stays the minimal UART system, and the
-    // gpu's four grants, plus the keyboard's three when a virtio keyboard came with them, are the
-    // session's to delegate, held at [`spawnproto::SHELL_GPU_SLOT`] and its siblings until a
-    // `graphical_terminal` request sends them back. Placed here, beside the machine page and for its reason
-    // (the login block below is this table's peak, and seven caps held across it would be seven
-    // slots the peak does not have), and placed rather than `caps`-listed because the named slots
-    // are the point: the shell probes fixed numbers, which a moving list would not give it.
-    // [`graphical_terminal_caps`](fn@graphical_terminal_grants) already deleted anything the shell is not getting.
-    if graphical_terminal_caps.held {
-        let slots = [
-            (g.gpu, abi::rights::WRITE | abi::rights::GRANT),
-            (g.gpu_irq, abi::rights::READ | abi::rights::GRANT),
-            (
-                g.gpu_dma,
-                abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
-            ),
-            (
-                g.gpu_surface,
-                abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
-            ),
-            (g.keyboard, abi::rights::WRITE | abi::rights::GRANT),
-            (g.keyboard_irq, abi::rights::READ | abi::rights::GRANT),
-            (
-                g.keyboard_dma,
-                abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
-            ),
-        ];
-        for (i, (cap, rights)) in slots.iter().enumerate() {
-            if graphical_terminal_caps.keyboard || i < 4 {
-                must_ok(place_at(
-                    shell.tcb,
-                    *cap,
-                    *rights,
-                    spawnproto::SHELL_GPU_SLOT + i as u64,
-                ));
-                cap_delete(*cap);
-            }
-        }
-    }
+    // **The display devices stay here, and the shell gets none** (milestone 715 (provisional), the
+    // 2026-10-03 security audit's follow-up). Until 715 the gpu's four and the keyboard's three
+    // were placed in the shell at `spawnproto::SHELL_GPU_SLOT` onward, with `GRANT`, for the life
+    // of the boot, and came back with each `graphical_terminal` request. The spawn service builds
+    // the session's drivers from its own copies instead, which is `term_ep`'s posture for the same
+    // session: the prompt asks for a launch and cannot hand a device to anything. They stay in the
+    // boot endowment's own slots, read from [`GraphicalTerminalCaps`]; [`graphical_terminal_grants`]
+    // already deleted whatever no session can be built from.
     // The caretaker's endpoint was only ever the means of wiring: the shell holds its own copy and
     // the caretaker holds the other end, the same disposal `spawn_service`'s dynamic directory
     // grants already give their own narrowed endpoint below.
@@ -3062,51 +3030,6 @@ fn spawn_service(
         } else {
             None
         };
-        // **The display devices, when the request announced them** (milestone 632 (provisional),
-        // `spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`): the gpu's four in the fixed order the wire
-        // names, then the keyboard's three. Taken on any request that announced them, whatever
-        // program it turns out to be for, so both sides stay in lockstep; a request that set the
-        // bits for anything but a `graphical_terminal` spawn has them deleted and is refused below, because
-        // endowing devices a program never declared is the one trade this model refuses. A
-        // promised cap that did not arrive (a broken caller, not a broken spawn) is treated the
-        // same way: what did arrive is deleted, and the spawn is refused.
-        let graphics: [Option<u64>; 4] = if wiring.graphics {
-            let mut caps = [None; 4];
-            for slot in caps.iter_mut() {
-                *slot = opt_cap(receive_cap(spawn_ep).1);
-            }
-            caps
-        } else {
-            [None; 4]
-        };
-        let keyboard: Option<[Option<u64>; 3]> = if wiring.keyboard {
-            let mut caps = [None; 3];
-            for slot in caps.iter_mut() {
-                *slot = opt_cap(receive_cap(spawn_ep).1);
-            }
-            Some(caps)
-        } else {
-            None
-        };
-        // Everything received, as plain slots to delete when this request will not use them.
-        let mut received = [0u64; 7];
-        let mut n_received = 0usize;
-        for slot in graphics
-            .iter()
-            .flatten()
-            .chain(keyboard.iter().flatten().flatten())
-        {
-            received[n_received] = *slot;
-            n_received += 1;
-        }
-        let devices_whole = graphics.iter().all(|c| c.is_some())
-            && keyboard.is_none_or(|k| k.iter().all(|c| c.is_some()));
-        let drop_devices = |received: &mut [u64; 7], n: &mut usize| {
-            for c in received.iter().take(*n) {
-                cap_delete(*c);
-            }
-            *n = 0;
-        };
         // **The machine statistics page, when the session sent it** (milestone 126,
         // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
         // below once the child holds its own mapping and slot.
@@ -3125,14 +3048,21 @@ fn spawn_service(
         };
 
         // **A `graphical_terminal` spawn** (milestone 632 (provisional)): graphics is launched from the prompt,
-        // and this is the launch. The request must be the program and the caps together (`Prog::
-        // GraphicalTerminal` *and* [`spawnproto::Wiring::graphics`], with [`spawnproto::Wiring::keyboard`]
-        // exactly when this boot's verdict says the shell holds a keyboard); anything else, a
-        // graphical_terminal named with no caps behind it or caps that came for another program, is deleted and
-        // refused rather than half-endowed. The stack this builds from them is milestone 600
-        // (provisional)'s, moved from the boot into this branch: the session's children are born
-        // from one region and the session program is born supervised on `deaths`, so its one reap,
-        // by `job_undertaker`, ends the drivers with it.
+        // and this is the launch. The request must be the program and the bit together (`Prog::
+        // GraphicalTerminal` *and* [`spawnproto::Wiring::graphics`], and never
+        // [`spawnproto::Wiring::keyboard`], which no capability follows since milestone 715);
+        // anything else is refused rather than half-endowed. A well-formed request on a boot with
+        // no display is answered [`spawnproto::SPAWN_NO_DISPLAY`], so the shell can say so.
+        //
+        // **The devices are this process's own** (milestone 715 (provisional)): the gpu's four and
+        // the keyboard's three stay in the boot endowment's slots for the life of the boot, and
+        // each session's drivers get narrowed copies of them, exactly as `boot_terminal` is lent
+        // to the UART arm. Until 715 they arrived on this request from the shell's slots, which
+        // meant the shell held `GRANT` on every device between launches.
+        //
+        // The stack this builds is milestone 600 (provisional)'s, moved from the boot into this
+        // branch: the session's children are born from one region and the session program is born
+        // supervised on `deaths`, so its one reap, by `job_undertaker`, ends the drivers with it.
         //
         // **A session that does not come up is a refused spawn**, not a trap: the shell says
         // "could not spawn", the prompt continues, and the builder reclaims the region itself
@@ -3140,70 +3070,49 @@ fn spawn_service(
         // because a boot that cannot come up is a dead machine; a launch that cannot is just a
         // command that failed.
         if wiring.graphics || prog == Some(Prog::GraphicalTerminal) {
-            let refuse = |received: &mut [u64; 7], n: &mut usize| {
-                drop_devices(received, n);
-                send(result_ep, spawnproto::SPAWN_FAILED, 0, 0);
-            };
-            if prog != Some(Prog::GraphicalTerminal)
-                || !wiring.graphics
-                || !devices_whole
-                || !graphical_terminal_caps.held
-                || wiring.keyboard != graphical_terminal_caps.keyboard
-            {
-                refuse(&mut received, &mut n_received);
-                if let Some(b) = budget {
-                    cap_delete(b);
-                }
-                if let Some(p) = machine_page {
-                    cap_delete(p);
-                }
-                continue;
-            }
-            let built = match (
-                progs[Prog::GraphicalTerminal.id() as usize].as_ref(),
-                split_job(jobs_ut, GRAPHICAL_TERMINAL_SESSION_PAGES),
-            ) {
-                (Some(elf), Some(region)) => {
-                    let gpu = [
-                        graphics[0].unwrap_or(0),
-                        graphics[1].unwrap_or(0),
-                        graphics[2].unwrap_or(0),
-                        graphics[3].unwrap_or(0),
-                    ];
-                    let kbd =
-                        keyboard.map(|k| [k[0].unwrap_or(0), k[1].unwrap_or(0), k[2].unwrap_or(0)]);
-                    // `devices_whole` made every `unwrap_or` unreachable; `unwrap_or(0)` rather
-                    // than `unwrap` so a lying caller's refusal above stays the only path that
-                    // could ever have fired one.
-                    build_graphical_terminal_session(
-                        &GraphicalTerminalLaunch {
-                            own_ut,
-                            region,
-                            deaths,
-                            boot_terminal,
-                            result_ep,
-                            gpu: &gpu,
-                            kbd: kbd.as_ref(),
-                            program: elf,
-                        },
-                        &graphical_terminal_caps,
-                        &discipline,
-                    )
-                }
-                _ => Err(()),
-            };
-            // Anything this request carried that the session did not consume: the `--mem` budget
-            // and machine page a `graphical_terminal` manifest forbids but a caller could still have set, and
-            // nothing else, because the devices went into the drivers.
+            // Neither of these is the session's: a `graphical_terminal` manifest forbids both, but a
+            // caller could still have set them.
             if let Some(b) = budget {
                 cap_delete(b);
             }
             if let Some(p) = machine_page {
                 cap_delete(p);
             }
-            if built.is_err() {
-                refuse(&mut received, &mut n_received);
-            }
+            let answer =
+                if prog != Some(Prog::GraphicalTerminal) || !wiring.graphics || wiring.keyboard {
+                    spawnproto::SPAWN_FAILED
+                } else if !graphical_terminal_caps.held {
+                    spawnproto::SPAWN_NO_DISPLAY
+                } else {
+                    let built = match (
+                        progs[Prog::GraphicalTerminal.id() as usize].as_ref(),
+                        split_job(jobs_ut, GRAPHICAL_TERMINAL_SESSION_PAGES),
+                    ) {
+                        (Some(elf), Some(region)) => build_graphical_terminal_session(
+                            &GraphicalTerminalLaunch {
+                                own_ut,
+                                region,
+                                deaths,
+                                boot_terminal,
+                                result_ep,
+                                gpu: &graphical_terminal_caps.gpu,
+                                kbd: graphical_terminal_caps
+                                    .keyboard
+                                    .then_some(&graphical_terminal_caps.kbd),
+                                program: elf,
+                            },
+                            &graphical_terminal_caps,
+                            &discipline,
+                        ),
+                        _ => Err(()),
+                    };
+                    // A session that came up answers for itself; only a failure is ours to say.
+                    match built {
+                        Ok(()) => continue,
+                        Err(()) => spawnproto::SPAWN_FAILED,
+                    }
+                };
+            send(result_ep, answer, 0, 0);
             continue;
         }
 
@@ -4157,14 +4066,14 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
     (stack, lease)
 }
 
-/// **What a `graphical_terminal` session is made of, measured, and whether the shell gets the devices**:
+/// **What a `graphical_terminal` session is made of, measured, and whether this boot can launch one**:
 /// [`boot`]'s verdict (milestone 632 (provisional)). `held` means the kernel granted a gpu and
-/// the table vouches for both `gpu_driver` and `display_terminal`, so the shell will be given the
+/// the table vouches for both `gpu_driver` and `display_terminal`, so the spawn service keeps the
 /// gpu's four (and the keyboard's three when `keyboard` is also true, which additionally needs its
-/// grant and a vouched `keyboard_driver`). The measured programs are carried here for the spawn
-/// service, which builds them inside a session rather than here: a grant this process can neither
-/// build a session from nor hand to the shell is released at once, rather than carried, which is
-/// the posture every kernel grant here already takes.
+/// grant and a vouched `keyboard_driver`) for every session it builds (milestone 715
+/// (provisional): until then the shell held them). A grant no session can be built from is
+/// released at once, rather than carried, which is the posture every kernel grant here already
+/// takes.
 ///
 /// Never inlined, so the verdict's temporaries stay out of [`boot`]'s frame (see the comment where
 /// `boot` calls this).
@@ -4192,19 +4101,26 @@ fn graphical_terminal_grants(
     GraphicalTerminalCaps {
         held,
         keyboard,
+        gpu: [g.gpu, g.gpu_irq, g.gpu_dma, g.gpu_surface],
+        kbd: [g.keyboard, g.keyboard_irq, g.keyboard_dma],
         driver,
         terminal,
         kbd_driver,
     }
 }
 
-/// The spawn service's half of [`graphical_terminal_grants`]' verdict: whether this boot's shell holds the
-/// display devices, and the measured images a session is built from. `held` false means no
-/// session can be launched (the caps were deleted at boot, the shell probes empty slots, and a
-/// `graphical_terminal` request is refused by the shell before it is sent).
+/// The spawn service's half of [`graphical_terminal_grants`]' verdict: whether this boot has the
+/// display devices, the devices themselves, and the measured images a session is built from.
+/// `held` false means no session can be launched: the caps were deleted at boot, and a
+/// `graphical_terminal` request is answered [`spawnproto::SPAWN_NO_DISPLAY`].
 struct GraphicalTerminalCaps {
     held: bool,
     keyboard: bool,
+    /// The gpu's four, in the boot endowment's slots, held by the spawn service for the life of
+    /// the boot (milestone 715 (provisional)). Meaningful only when `held`.
+    gpu: [u64; 4],
+    /// The keyboard's three, likewise. Meaningful only when `keyboard`.
+    kbd: [u64; 3],
     driver: Option<elf::Elf<'static>>,
     terminal: Option<elf::Elf<'static>>,
     kbd_driver: Option<elf::Elf<'static>>,
@@ -4297,16 +4213,16 @@ struct GraphicalTerminalLaunch<'a> {
     boot_terminal: u64,
     /// The shell's result endpoint, the session program's slot 0.
     result_ep: u64,
-    /// The gpu's four, in the wire's fixed order.
+    /// The gpu's four, the spawn service's own (milestone 715 (provisional)): lent, never consumed.
     gpu: &'a [u64; 4],
-    /// The keyboard's three, when the launch announced them.
+    /// The keyboard's three, when this boot has one; lent likewise.
     kbd: Option<&'a [u64; 3]>,
     /// The `graphical_terminal` program itself, measured.
     program: &'a elf::Elf<'a>,
 }
 
 /// **Build a whole `graphical_terminal` session and start it** (milestone 632 (provisional)): `gpu_driver`
-/// and `display_terminal` on the gpu's four delegated capabilities, then either the session's own
+/// and `display_terminal` on the gpu's four capabilities (lent from this process's own), then either the session's own
 /// line discipline with `keyboard_driver` behind it (the device arm, `kbd` is `Some`) or nothing
 /// but the screen, with the boot line discipline's endpoint handed to the program for raw reads
 /// (the UART arm, milestone 192 (a keyboard on real silicon)'s option A at launch). Everything
@@ -4327,8 +4243,9 @@ struct GraphicalTerminalLaunch<'a> {
 /// `build_caretaker`'s own comment records: they share the session's region, the program's reap
 /// sweeps that region, and a death message for a thread the sweep already collected would have
 /// `job_undertaker` trap on a tid the scheduler no longer knows. One reap, of the one job, ends
-/// the session's drivers with it. Every device capability received is deleted here once its
-/// driver holds a narrowed copy, and this process's capability to the region goes back with the
+/// the session's drivers with it. The device capabilities are the spawn service's own and are
+/// **not** deleted here (milestone 715 (provisional)): each driver gets a narrowed copy, and the
+/// originals stay for the next session. This process's capability to the region goes back with the
 /// build's other means: since §32 the reap is a method on the supervision endpoint, so nothing
 /// holds a capability to a live session's memory.
 ///
@@ -4415,13 +4332,10 @@ fn graphical_terminal_session_children(
         },
     )
     .ok() else {
-        drop_caps(&[display, driver_report, budget, gpu[0], gpu[1], gpu[2]]);
+        drop_caps(&[display, driver_report, budget]);
         return Err(());
     };
     cap_delete(budget);
-    for c in [gpu[0], gpu[1], gpu[2]] {
-        cap_delete(c);
-    }
     // Role 0, the honest driver. No physical address: the run's first page carries it
     // (`abi::virtio::DMA_PHYS_OFFSET`), and this process could not supply one anyway.
     if !start_child(driver, 0, 0, 0) {
@@ -4469,19 +4383,10 @@ fn graphical_terminal_session_children(
         },
     )
     .ok() else {
-        drop_caps(&[
-            display,
-            driver_report,
-            term_report,
-            term,
-            out,
-            budget,
-            gpu[3],
-        ]);
+        drop_caps(&[display, driver_report, term_report, term, out, budget]);
         return Err(());
     };
     cap_delete(budget);
-    cap_delete(gpu[3]);
     cap_delete(display);
     if !start_child(terminal, video_terminal::status::MODE_DISPLAY, 0, 0) {
         drop_caps(&[driver_report, term_report, term, out]);
@@ -4560,22 +4465,9 @@ fn graphical_terminal_session_children(
                 },
             )
             .ok() else {
-                drop_caps(&[
-                    term,
-                    out,
-                    session_term,
-                    session_out,
-                    session_in,
-                    report,
-                    k[0],
-                    k[1],
-                    k[2],
-                ]);
+                drop_caps(&[term, out, session_term, session_out, session_in, report]);
                 return Err(());
             };
-            for c in k {
-                cap_delete(*c);
-            }
             if !start_child(driver, KBD_MODE_DIRECT, 0, 0) {
                 drop_caps(&[term, out, session_term, session_out, session_in, report]);
                 return Err(());

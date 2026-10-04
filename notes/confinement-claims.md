@@ -53,12 +53,12 @@ themselves. The last column is this milestone's result.
 | 29 | A thread that deletes its own port capability faults on its next `in`/`out` (`x86_64`) | §12, milestone 313 | `kernel::user::x86_port_tests::a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write` | **yes, milestone 313, and it was false in the tree** |
 | 30 | A revocation reaches a capability in flight, not only the ones sitting in capability tables | Nowhere until 2026-09-21; now `sched::delete_page_frame_caps_where` | `kernel::user::revocation_in_flight_tests::a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` | yes, 2026-09-21, and it was false in the tree |
 | 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
+| 32 | The boot shell holds no display device | Milestone 715 (provisional) | `script/swish-check`: the `caps` census on the gpu boots | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_leg.patch)) |
 
 ## Five claims that are stated nowhere, which is what step 1 was for
 
 A confined component's *timing* is not confined.
-Added 2026-09-02 with DECISIONS 139 (how a saturated workload is made to hand threads across
-cores is a different section; this is 139, who may read the cycle counter and by what authority).
+Added 2026-09-02 with DECISIONS 139 (who may read the cycle counter and by what authority).
 The words `timing`, `side channel` and `covert` appeared zero times in this note, in
 `DECISIONS.md` and in `design/fatal-risks/README.md` before that decision, so nothing here was falsified
 by it; the absence was the finding. seL4 states its own position in one clause, that exporting the
@@ -70,8 +70,7 @@ reconstruct a fine clock with no privileged instruction: 6.8 ns of usable resolu
 under load, matching Schwarz et al. (FC 2017). That holds on all three architectures, so gating a
 cycle counter cannot deliver timing isolation on any of them. What the grant in DECISIONS 139
 buys is accountable authority: the cheap accurate path is granted rather than ambient, and the
-kernel knows which threads hold it. It belongs in this section so nobody reads the capability rows
-as covering timing.
+kernel knows which threads hold it.
 
 
 A confined device's *values* are not confined, only its *reach*.
