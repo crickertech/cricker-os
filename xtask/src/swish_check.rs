@@ -2424,6 +2424,13 @@ fn swish_check_boot(
     // fold's first run), a configuration no gate booted before the fold. Dropping the NIC keeps
     // this boot the one milestone 632 measured (gpu, keyboard, rng: 28); the 30 is recorded in
     // milestone 632's BUGS rather than hidden by raising the constant in a lane about CI.
+    //
+    // **Correction (2026-10-04 UTC, milestone 753 (provisional)): the keyboard boot has a NIC
+    // anyway.** `host::cargo` sets `NIFE_NET=1` in this process's own environment, and `cmd`
+    // inherits it, so skipping the line below removes nothing. The trace in
+    // notes/capability-peak-trace.md found `net_stack`'s endpoint among the keyboard boot's 31;
+    // without it that boot reads 30. Removing the variable here would change what the gate boots
+    // and what `CAPABILITY_TABLE_PEAK_MEASURED` records, so it is left for whoever owns that.
     if !x86 && graphics != Some(Keystrokes::Device) {
         cmd.env("NIFE_NET", "1");
         // **What the package source serves this leg** (milestone 198 rung 3a's fetch). The runner
