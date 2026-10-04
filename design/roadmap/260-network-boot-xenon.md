@@ -115,7 +115,7 @@ boot tour on serial. A second run an hour later, after the suite had rebuilt the
 the size not being a constant. The negative case (`--mac 02:00:00:00:00:01`) produces `PXE-E16: No valid offer
 received` and no boot, which is what a house machine that is not xenon must see.
 
-**`-netdev user` was refused rather than missed.** QEMU's slirp has a DHCP server and a TFTP server
+`-netdev user` was refused rather than missed. QEMU's slirp has a DHCP server and a TFTP server
 built in, and pointing them at `target/esp` PXE-boots this image in one line; that was the first
 thing tried and it worked, and it is what proved the payload boots at all. It proves nothing about
 our configuration or our server, because neither is in the path, and neither can be put there:
@@ -141,7 +141,7 @@ settings with their photograph numbers, the router edit in both UCI and raw-dnsm
 commands on patagonia, what the screen and the server terminal should each say in order, and a
 failure table keyed on what a person with a camera and no shell can actually see.
 
-**It removes the co-location, which is the second reason to want it.** First light is on record as
+It removes the co-location, which is the second reason to want it. First light is on record as
 happening the way it did because *"patagonia could not be moved to the bench"*. A netboot does not
 need it to be: xenon needs a cable to the house LAN and patagonia needs to be on the same LAN, from
 wherever it is.
@@ -155,7 +155,7 @@ Read off `notes/xenon-firmware.md`, which transcribed 70 photographs of this mac
 > Enabled (•); Enabled w/PXE ( ). So the LAN is visible to an OS but there is no UEFI PXE path.
 
 So two changes: tick `Enable UEFI Network Stack`, and move Integrated NIC from `Enabled` to
-**`Enabled w/PXE`**. They are calef's for the reason that note already gives about firmware
+`Enabled w/PXE`. They are calef's for the reason that note already gives about firmware
 generally, that a setting changes this machine's behaviour for everything else it is used for.
 
 Nothing else in the transcription is in the way. Boot List Option is already UEFI, Secure Boot
@@ -164,13 +164,13 @@ while no admin password is set, and none is.
 
 ## The proof that this milestone worked
 
-**xenon boots nife with no removable media in it**, photographed, since the Dell's video output is
+xenon boots nife with no removable media in it, photographed, since the Dell's video output is
 the channel that carried first light. Anything short of that is a rehearsal, and the rehearsal is
 now done: it exists, it is green, and it is what makes the bench session worth an evening.
 
 ## What this does not fix, and it is the thing that will bite next
 
-**xenon halts at POST without a keyboard.** `notes/xenon-firmware.md` records `Warnings and Errors`
+xenon halts at POST without a keyboard. `notes/xenon-firmware.md` records `Warnings and Errors`
 set to `Prompt on Warnings and Errors`, `Enable Keyboard Error Detection` ticked, and eight
 `Alert! Keyboard not found` entries in the machine's own event log across a year. A netboot rig
 whose point is an unattended power cycle runs straight into that, and the two settings that would
@@ -179,37 +179,37 @@ faster bench session, not an unattended one.
 
 ## BUGS
 
-- **Nothing here has run on xenon**, and nothing here can tell you it will. What is proven is OVMF,
+- Nothing here has run on xenon, and nothing here can tell you it will. What is proven is OVMF,
   which is EDK2, which is the same codebase Dell's firmware is built from; xenon is at BIOS 1.27.0
   with an Intel I219-LM onboard NIC (the e1000e family) rather than QEMU's e1000, and the two
   firmware settings that would make it try at all are still unticked. **Correction (2026-10-04
   UTC):** this sentence used to say "a Broadcom LOM", with no source. Source for the fix: the PCI
   survey line in the 2026-10-04 photos, class `020000`, `00:1f.6 8086:15e3`, an Intel I219-LM;
   milestone 494 (a driver for the network card a PC actually has) and `notes/e1000e.md` (on its branch until #1632 lands) say the same.
-- **Nothing in this repository has ever talked to the house router.** The rehearsal implements what
+- Nothing in this repository has ever talked to the house router. The rehearsal implements what
   the `dnsmasq` lines *mean*; it does not prove `dnsmasq` implements them the same way, and it does
   not prove OpenWRT's UI will accept them. The `dhcp-match` half has no UCI form and has to go
   into `/etc/dnsmasq.conf` directly, which is the part of the runbook most likely to be wrong.
-- **The `dhcp-boot` server address is patagonia's current lease**, `192.168.8.216`, and a lease that
+- The `dhcp-boot` server address is patagonia's current lease, `192.168.8.216`, and a lease that
   moves makes xenon TFTP into nothing with no console to say so. The fix is one more `dhcp-host`
   pinning patagonia, and it is commented out in the config because it needs a MAC nobody has written
   down: patagonia's *ethernet*, not its Wi-Fi, and the bench cable decides which.
-- **The transfer rate is a loopback number and is not a LAN number.** 9,210,880 bytes in 1.40s
+- The transfer rate is a loopback number and is not a LAN number. 9,210,880 bytes in 1.40s
   (6,429 KiB/s) is python talking to itself through a synthetic ethernet with no cable, no switch
   and no loss. radon's real measurement over TFTP on this LAN was 428 KiB/s, and nobody has measured
   a UEFI client on a real wire.
-- **macOS's firewall is a failure mode this rig has that radon's did not.** `board-netboot` is
+- macOS's firewall is a failure mode this rig has that radon's did not. `board-netboot` is
   python3 binding a UDP port, and the first inbound packet from a machine on the LAN is the first
   time macOS will be asked about it. It is in the runbook's failure table; it has not been hit,
   because the rehearsal is loopback.
-- **`script/netboot-rehearsal` answers no IPv6 at all.** EDK2 tries IPv4 PXE first, so this costs
+- `script/netboot-rehearsal` answers no IPv6 at all. EDK2 tries IPv4 PXE first, so this costs
   nothing today; a firmware that preferred IPv6 would spend its retries in silence before falling
   back, and the rehearsal would look like a timeout with nothing to say about why.
-- **No fallback, by design, and that is a real difference from milestone 257.** radon's card can
+- No fallback, by design, and that is a real difference from milestone 257. radon's card can
   always boot something; a xenon that fails PXE falls to the next boot entry, and the entries on that
   list are `Windows Boot Manager` and whatever removable media is present. That is somebody's
   installed Windows, which argues for leaving a stick in the machine rather than removing it.
-- **`board-netboot` serves one transfer at a time**, and a UEFI client makes two requests per boot
+- `board-netboot` serves one transfer at a time, and a UEFI client makes two requests per boot
   where U-Boot makes one. The probe is now cancelled promptly rather than held for eighteen seconds,
   so the two no longer collide; two *machines* booting at once still would.
 
