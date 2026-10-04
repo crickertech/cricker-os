@@ -8,10 +8,12 @@ survives `PageFrame::REVOKE` and the next `RECEIVE_CAP` files it in the receiver
 of the six defects milestone 752 (a seeded syscall driver with a shadow model) was measured
 against; the other five are in that block's table, with the seed and call each turned red.
 
-Expected to fail: seed 5, step 39, `RECEIVE_CAP` returns `x1 = 5` (the revoked frame's new slot)
-where the shadow model says `NO_CAP`, reported as `syscall fuzzer: seed 0x5 step 39: actor 4 Invoke
-{ slot: 2, method: 3, ... } answered ...`. Replayed red on aarch64 on 2026-10-04 (UTC) by the lane
-for milestone 752.
+Expected to fail: seed 342 (corpus), step 64, `RECEIVE_CAP` returns `x1 = 6` (the revoked frame's
+new slot) where the shadow model says `NO_CAP`, reported as `syscall fuzzer: seed 0x156 step 64:
+actor 3 Invoke { slot: 1, method: 3, ... } answered ...`. Replayed red on aarch64 on 2026-10-04 (UTC)
+by the lane for milestone 752 at seed 5, step 39. After §246 (a plain `RECEIVE` never takes a
+capability), a PROVISIONAL number, the walk diverged and seed 5 stayed green, so PR #1611 swept 2,000
+seeds under this patch, found seed 342, added it to the corpus, and replayed it red on aarch64.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
 --- a/kernel/src/sched.rs

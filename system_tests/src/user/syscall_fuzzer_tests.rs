@@ -88,7 +88,13 @@ const SUITE_SEEDS: u64 = 32;
 /// this generator: a change to `pick_op` or `endow` re-rolls every seed, and the corpus must be
 /// re-found, which the roadmap block's replay table is for. A new finding's seed belongs here with
 /// its reason.
-const CORPUS: &[u64] = &[180];
+///
+/// **Seed 342 is the revocation-in-flight patch's, re-found** after §246 (a plain `RECEIVE` never
+/// takes a capability), a PROVISIONAL number, changed what a `CALL` or `SEND_CAP` at a plain
+/// `RECEIVE` does. The model's walk diverged, and seed 5 no longer reached a frame revoked while
+/// staged. A 2,000-seed sweep under that patch on aarch64 found it red first at seed 342, step 64
+/// (2026-10-04, UTC).
+const CORPUS: &[u64] = &[180, 342];
 /// The sweep's guest-time cap: it stops between seeds once this has passed and says how far it
 /// got, so a weekly run with a large count fits under the per-test budget
 /// (`testing.rs`' `DEFAULT_BUDGET_SECS`, 90 s).
