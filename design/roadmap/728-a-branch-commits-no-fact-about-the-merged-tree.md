@@ -1,16 +1,17 @@
 ---
-status: IN-PROGRESS
+status: BUILT
+built: 2026-10-04
 raised: 2026-10-03
-branch: lane/no-merged-tree-facts
+promoted_from: a-branch-commits-no-fact-about-the-merged-tree
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 727. A branch commits no fact about the merged tree
+# 728. A branch commits no fact about the merged tree
 
-Promotes the proposal of the same name once #1564 merges; the check below refuses it sooner. calef ruled on 2026-10-03 (UTC), on the COE pull request #1564: "Approve decision 4." The number 727 is provisional until the queue lands it. *(Title and slug are drafts.)*
+Promoted and built 2026-10-04 (UTC), after #1564 merged. calef ruled on 2026-10-03 (UTC), on the COE pull request #1564: "Approve decision 4." The number 728 is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 ## What it does
 
