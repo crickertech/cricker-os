@@ -606,7 +606,7 @@ pub fn composite(screen: &mut [u32], sources: &[&[u32]], n: usize, damage: Rect)
 /// Request words are packed the way `graphics_protocol` and `line_editor::proto` pack theirs (opcode in bits
 /// 63:56), and the helpers are re-exported rather than redefined so all three contracts read alike.
 pub mod proto {
-    pub use graphics_protocol::{op, operand, req};
+    pub use graphics_protocol::{operand, operation, req};
 
     /// `CALL(req(HELLO, 0), 0)` -> `(0, 0)`. "I have started." Carries nothing, and its reply
     /// carries nothing: the client's geometry is in its own control page, which the compositor has
@@ -718,7 +718,7 @@ pub mod proto {
     /// and it is a mapping no client has.
     ///
     /// The compositor forwards what it reads here to the focused client as
-    /// `line_editor::proto::OP_BYTES`, the terminal contract's driver half verbatim
+    /// `line_editor::proto::OPERATION_BYTES`, the terminal contract's driver half verbatim
     /// (notes/terminal-contract.md), so a terminal is a client of this compositor without changing a
     /// line of either contract.
     pub mod ring {
@@ -1354,9 +1354,9 @@ mod tests {
     /// message vocabulary is three content-free words, which is the point; this pins them.
     #[test]
     fn the_request_words_round_trip() {
-        for op in [proto::HELLO, proto::COMMIT] {
-            let w = proto::req(op, 0);
-            assert_eq!(proto::op(w), op);
+        for operation in [proto::HELLO, proto::COMMIT] {
+            let w = proto::req(operation, 0);
+            assert_eq!(proto::operation(w), operation);
             assert_eq!(proto::operand(w), 0, "these verbs carry no operand at all");
         }
         assert_ne!(proto::HELLO, proto::COMMIT);

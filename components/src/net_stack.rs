@@ -228,25 +228,25 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
 
     // --- Serve the socket contract. One synchronous exchange per request. ---
     let mut socks: [Option<Sock>; MAX_SOCKETS] = [None; MAX_SOCKETS];
-    // Windows onto each socket id's shared frame, once `OP_ATTACH_PAGE_FRAME` maps it. `None` until
+    // Windows onto each socket id's shared frame, once `OPERATION_ATTACH_PAGE_FRAME` maps it. `None` until
     // then, and forever on a listener, which never gets one (see [`Sock`]).
     let mut frame_window: [Option<MappedWindow>; MAX_SOCKETS] = [None; MAX_SOCKETS];
     let mut ports = PortAllocator::new();
     loop {
         let req = receive_request(STACK);
         let (w0, w1) = (req.w0, req.w1);
-        let op = req_op(w0);
+        let operation = req_operation(w0);
         let sid = req_sid(w0) as usize;
 
-        // **The one op that takes a delegation, and every other op takes a Reply** (milestone 706
+        // **The one operation that takes a delegation, and every other operation takes a Reply** (milestone 706
         // (a CALL server can tell a Reply from a delegation), DECISIONS §245 (a `CALL` server tells
         // a Reply from a delegation)). `ATTACH` is a SEND_CAP whose capability is the socket's
         // frame; anything else is a CALL, and a delegation sent with it is deleted here rather than
         // answered into. Before 706 this loop guarded `NO_CAP` and nothing else, so a client that
-        // SEND_CAPped a rendezvous with any other op parked this server in SEND for the life of the
+        // SEND_CAPped a rendezvous with any other operation parked this server in SEND for the life of the
         // machine.
         let cap_slot = match req.delivered {
-            Delivered::Delegation(frame) if op == OP_ATTACH_PAGE_FRAME => {
+            Delivered::Delegation(frame) if operation == OPERATION_ATTACH_PAGE_FRAME => {
                 if sid < MAX_SOCKETS {
                     attach_page_frame(&mut frame_window, sid, frame);
                 } else {
@@ -257,7 +257,7 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
             other => other.into_reply(),
         };
         // Nobody to answer: a plain SEND, an ATTACH that carried no frame, or a delegation (now
-        // deleted) on an op that wants a CALL.
+        // deleted) on an operation that wants a CALL.
         let Some(cap_slot) = cap_slot else {
             continue;
         };
@@ -266,13 +266,13 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
             continue;
         }
 
-        match op {
-            OP_ATTACH_PAGE_FRAME => {
+        match operation {
+            OPERATION_ATTACH_PAGE_FRAME => {
                 // A CALL naming ATTACH: there is no frame to map, so it is refused.
                 reply(cap_slot, REP_ERR, 0);
             }
 
-            OP_OPEN_UDP => {
+            OPERATION_OPEN_UDP => {
                 let s = udp::Socket::new(
                     udp::PacketBuffer::new(
                         vec![udp::PacketMetadata::EMPTY; 8],
@@ -296,7 +296,7 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
                 reply(cap_slot, REP_OK, 0);
             }
 
-            OP_OPEN_TCP => {
+            OPERATION_OPEN_TCP => {
                 let s = tcp::Socket::new(
                     tcp::SocketBuffer::new(vec![0u8; SOCK_BUF]),
                     tcp::SocketBuffer::new(vec![0u8; SOCK_BUF]),
@@ -313,27 +313,27 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
                 reply(cap_slot, REP_OK, 0);
             }
 
-            OP_SENDTO => {
+            OPERATION_SENDTO => {
                 let rep = udp_sendto(&mut iface, &mut dev, &mut sockets, &socks, sid, w1 as usize);
                 reply(cap_slot, rep, 0);
             }
 
-            OP_RECEIVE => {
+            OPERATION_RECEIVE => {
                 let rep = sock_receive(&mut iface, &mut dev, &mut sockets, &socks, sid);
                 reply(cap_slot, rep, 0);
             }
 
-            OP_CONNECT => {
+            OPERATION_CONNECT => {
                 let rep = tcp_connect(&mut iface, &mut dev, &mut sockets, &socks, sid);
                 reply(cap_slot, rep, 0);
             }
 
-            OP_SEND => {
+            OPERATION_SEND => {
                 let rep = tcp_send(&mut iface, &mut dev, &mut sockets, &socks, sid, w1 as usize);
                 reply(cap_slot, rep, 0);
             }
 
-            OP_CLOSE => {
+            OPERATION_CLOSE => {
                 if let Some(sk) = socks[sid].take() {
                     if sk.is_tcp {
                         let handle = sk.handle;
@@ -359,12 +359,12 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
                 reply(cap_slot, REP_OK, 0);
             }
 
-            OP_LISTEN => {
+            OPERATION_LISTEN => {
                 let rep = tcp_listen(&mut sockets, &mut socks, sid, w1, grant_word);
                 reply(cap_slot, rep, 0);
             }
 
-            OP_BIND_UDP => {
+            OPERATION_BIND_UDP => {
                 let rep = udp_bind(
                     &mut sockets,
                     &mut socks,
@@ -376,7 +376,7 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
                 reply(cap_slot, rep, 0);
             }
 
-            OP_ACCEPT => {
+            OPERATION_ACCEPT => {
                 // The target id's frame must already be attached: an accepted connection carries
                 // bytes, so it needs the resource a listener never did.
                 let target_window = if w1 < MAX_SOCKETS as u64 {
@@ -403,7 +403,7 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
     }
 }
 
-/// `OP_ATTACH_PAGE_FRAME`: `frame` holds the delegated frame. Map it writable at socket `sid`'s VA,
+/// `OPERATION_ATTACH_PAGE_FRAME`: `frame` holds the delegated frame. Map it writable at socket `sid`'s VA,
 /// paid for from `net_stack`'s untyped; the mapping outlives the capability, so the capability is
 /// dropped after. `ATTACH` is a `SEND_CAP`, so there is no Reply to answer on.
 fn attach_page_frame(
@@ -789,7 +789,7 @@ fn tcp_accept(
 /// *all* sockets, so a fixed bind cannot silently shadow an ephemeral port a live socket was
 /// allocated), and asking on an occupied socket id is the client's own bookkeeping bug
 /// (`REP_ERR`). Unlike a listener the socket carries bytes, so it takes the frame attached at
-/// `sid` exactly as `OP_OPEN_UDP` would.
+/// `sid` exactly as `OPERATION_OPEN_UDP` would.
 fn udp_bind(
     sockets: &mut SocketSet,
     socks: &mut [Option<Sock>; MAX_SOCKETS],

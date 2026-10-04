@@ -166,7 +166,7 @@ fn session(u: &mut Unstructured) -> ArbResult<()> {
                 let win = u.int_in_range(0u8..=5)?;
                 log.handle(
                     0,
-                    control::word(control::OP_READER, scope, win as u64, badge as u32),
+                    control::word(control::OPERATION_READER, scope, win as u64, badge as u32),
                     0,
                     0,
                     now,
@@ -179,7 +179,7 @@ fn session(u: &mut Unstructured) -> ArbResult<()> {
                 }
                 log.handle(
                     0,
-                    control::word(control::OP_FORGET, 0, 0, badge as u32),
+                    control::word(control::OPERATION_FORGET, 0, 0, badge as u32),
                     0,
                     0,
                     now,
@@ -193,7 +193,7 @@ fn session(u: &mut Unstructured) -> ArbResult<()> {
                 let level = u.int_in_range(0..=severity::DEBUG as u64)?;
                 log.handle(
                     0,
-                    control::word(control::OP_STREAM, 0, level, badge as u32),
+                    control::word(control::OPERATION_STREAM, 0, level, badge as u32),
                     0,
                     0,
                     now,

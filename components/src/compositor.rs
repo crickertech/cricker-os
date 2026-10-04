@@ -200,7 +200,7 @@ fn flush(damage: Rect) {
 /// over the shared doorbell.
 ///
 /// `FOCUS_NEXT` moves focus, which is the compositor's decision and nobody else's. Every other byte
-/// goes to the focused client as `line_editor::proto::OP_BYTES`, the terminal contract's driver half
+/// goes to the focused client as `line_editor::proto::OPERATION_BYTES`, the terminal contract's driver half
 /// verbatim, so a terminal is a client of this compositor without either contract changing.
 fn drain_input(focusable: usize, focus: &mut u32) {
     let mut head = rd32(RING_VA + ring::HEAD);
@@ -234,7 +234,7 @@ fn drain_input(focusable: usize, focus: &mut u32) {
             // client answers, and the answer is the flow control that keeps a fast source from
             // outrunning a slow client. It also means a focused client that stops answering stalls
             // this loop, which is the honest cost of one wait point (see the module note).
-            let w0 = line_editor::proto::req(line_editor::proto::OP_BYTES, 1);
+            let w0 = line_editor::proto::req(line_editor::proto::OPERATION_BYTES, 1);
             let _ = call(INPUT + *focus as u64, w0, byte as u64);
         }
         // A byte with no focusable client to receive it is dropped. Not silently: there is nobody
@@ -360,7 +360,7 @@ pub extern "C" fn _start(windows: u64, focusable: u64, _arg2: u64) -> ! {
         let req = receive_request(DOORBELL);
         let w0 = req.w0;
         let reply_slot = req.delivered.into_reply();
-        let r0: i64 = match compositor::proto::op(w0) {
+        let r0: i64 = match compositor::proto::operation(w0) {
             compositor::proto::HELLO => 0,
             compositor::proto::COMMIT => {
                 serve_frame(n, focusable, &mut focus, &mut last_seq, &mut committed);

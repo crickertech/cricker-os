@@ -49,7 +49,7 @@ first crash from an empty corpus, three seeds, build excluded.
 | target | the defect | found in |
 |---|---|---|
 | `redoxfs_server_session` | milestone 726 (an unknown badge fails closed in subtree_scope)'s fail-open arm restored | 0.7 to 1.5 s, by the admission rule |
-| `system_log_session` | `OP_READER` reads its scope with `<=`, so every reader is a system reader | 1.3 to 1.8 s, by the scope rule |
+| `system_log_session` | `OPERATION_READER` reads its scope with `<=`, so every reader is a system reader | 1.3 to 1.8 s, by the scope rule |
 | `compositor_session` | `damage_to_screen` loses its clip to the client's surface | 0.5 to 0.7 s, by an overflow in `Rect::translate`; with overflow checks off, by the window rule after about 2,000 sessions |
 
 ## What the file server's target found

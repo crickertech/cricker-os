@@ -2331,7 +2331,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     };
     if gpu.is_some() {
         crate::println!(
-            "  graphics  : a virtio-gpu and {}; the shell holds the grants, a `graphical_terminal` launch builds from them",
+            "  graphics  : a virtio-gpu and {}; the spawn service holds the grants, a `graphical_terminal` launch builds from them",
             if keyboard.is_some() {
                 "a virtio keyboard"
             } else {
@@ -2639,17 +2639,17 @@ pub mod fs_service;
 pub mod disk_service;
 
 /// **Play an application printing to a display terminal**: put `text` in its output page and
-/// `OP_WRITE` it.
+/// `OPERATION_WRITE` it.
 ///
 /// Shared by both of the terminal's wirings (the whole scanout, and a compositor window) because the
-/// terminal contract does not know which one it is in: an `OP_WRITE` is an `OP_WRITE`. Returns when
+/// terminal contract does not know which one it is in: an `OPERATION_WRITE` is an `OPERATION_WRITE`. Returns when
 /// the reply arrives, which the contract says means the bytes are on the console's side, so a test
 /// needs no polling and no sleep between writes.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the milestone-29 tests are the callers
 fn term_print(out: u64, ep: crate::sched::RendezvousId, text: &[u8]) {
     assert!(
         text.len() <= FRAME_SIZE as usize,
-        "an OP_WRITE past its output page",
+        "an OPERATION_WRITE past its output page",
     );
     let base = mmu::phys_to_virt(out);
     for (i, &b) in text.iter().enumerate() {
@@ -2664,7 +2664,7 @@ fn term_print(out: u64, ep: crate::sched::RendezvousId, text: &[u8]) {
     // Redundant, kept: it is one `dmb` on a path that prints a line, and the contract does not
     // forbid a terminal that polls its page instead of blocking. See notes/memory-ordering.md.
     core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
-    let w0 = line_editor::proto::req(line_editor::proto::OP_WRITE, text.len() as u64);
+    let w0 = line_editor::proto::req(line_editor::proto::OPERATION_WRITE, text.len() as u64);
     let r = crate::sched::ipc_call(ep, [w0, 0]);
     assert_eq!(
         r[0],
@@ -3265,7 +3265,7 @@ pub fn wait_for(mut done: impl FnMut() -> bool) -> bool {
 
 /// **The raw-keystroke input primitive** (milestone 169): a real `line_editor` process, wired
 /// exactly as the boot path wires it except that the test plays both the input driver and the
-/// application, so `OP_RAWMODE` and `OP_READRAW` can be driven directly with real keystrokes.
+/// application, so `OPERATION_RAWMODE` and `OPERATION_READRAW` can be driven directly with real keystrokes.
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 // the milestone-169 raw-mode tests are its only caller
 pub mod raw_mode_service;

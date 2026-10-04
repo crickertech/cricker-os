@@ -168,16 +168,16 @@ impl IpcDisk {
     /// opcode and count pack into the first word ([`filesystem_protocol::blk::req`]), the starting block index
     /// is the second. Returns the reply's first word as a signed result (negative is an error, per
     /// the wire convention). The bulk rides in [`BLK_PAGE`], `count * BLOCK` bytes of it.
-    fn blk_n(op_code: u64, block: u64, count: usize) -> i64 {
+    fn blk_n(operation_code: u64, block: u64, count: usize) -> i64 {
         // SAFETY: `call` traps to the kernel, which validates the endpoint in slot BLK.
-        let (r0, _) = call(BLK, blk::req(op_code, count), block);
+        let (r0, _) = call(BLK, blk::req(operation_code, count), block);
         r0 as i64
     }
 
     /// [`Self::blk_n`] for exactly one block: every call this file made before milestone 138 step
     /// 4, and still the right shape for [`blk::SIZE`] and [`blk::FLUSH`], which ignore the count.
-    fn blk(op_code: u64, block: u64) -> i64 {
-        Self::blk_n(op_code, block, 1)
+    fn blk(operation_code: u64, block: u64) -> i64 {
+        Self::blk_n(operation_code, block, 1)
     }
 
     /// Copy `n` bytes out of the shared block region (a completed read landed there, at its start).

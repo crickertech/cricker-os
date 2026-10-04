@@ -494,7 +494,7 @@ pub struct BootEndowment {
     /// UART system and launches graphics from the prompt), so this endpoint names a firmware
     /// screen's terminal and nothing else.
     pub disp_term_ep: u64,
-    /// The physical page shared with that `display_terminal`, written before an `OP_WRITE` on
+    /// The physical page shared with that `display_terminal`, written before an `OPERATION_WRITE` on
     /// [`disp_term_ep`](BootEndowment::disp_term_ep), and absent exactly when that is. `READ |
     /// WRITE | GRANT`.
     pub disp_term_page: u64,
@@ -890,12 +890,12 @@ const NET_STACK_ROLE_SERVER: u64 = 0;
 /// through the console's bespoke two-endpoint protocol.
 const LINE_EDITOR_MODE_CONSOLE: u64 = 0;
 /// `line_editor.rs`'s own `MODE_DISPLAY`: the `graphical_terminal` session's wiring, prints through
-/// `display_terminal`'s `OP_WRITE`/one-`CALL` contract instead.
+/// `display_terminal`'s `OPERATION_WRITE`/one-`CALL` contract instead.
 const LINE_EDITOR_MODE_DISPLAY: u64 = 1;
 
 // The VAs each program hardcodes; they must match console.rs / input.rs / line_editor.rs / swish.rs.
 const CON_SHARED_VA: u64 = address_space_map::pair_page(0x0060_0000); // console reads text here; line_editor writes it
-/// Where the console maps the page `display_terminal` reads an `OP_WRITE`'s bytes from, when a
+/// Where the console maps the page `display_terminal` reads an `OPERATION_WRITE`'s bytes from, when a
 /// screen was wired beside the UART. Must match `components/src/console.rs`'s `SCREEN_OUT_VA`.
 const CON_SCREEN_OUT_VA: u64 = address_space_map::pair_page(0x0068_0000);
 /// `console.rs`'s own `MODE_SCREEN`: [`LINE_EDITOR_MODE_CONSOLE`]'s reasoning, one program over.
@@ -1744,7 +1744,7 @@ pub fn boot(
     };
 
     // 3. The keystroke source: the input driver, waiting on the UART receive interrupt and
-    // forwarding raw bytes to the terminal, in the same `OP_BYTES` framing a `graphical_terminal` session's
+    // forwarding raw bytes to the terminal, in the same `OPERATION_BYTES` framing a `graphical_terminal` session's
     // `keyboard_driver` uses (milestone 192's "one place decides where a keystroke comes from").
     // The one keystroke source any boot builds: a virtio keyboard's driver is built inside a
     // session the user launched, never here (milestone 632 (provisional)), and nothing downstream
@@ -2003,46 +2003,14 @@ pub fn boot(
         ));
     }
     cap_delete(g.machine_page);
-    // **The display devices go to the shell, and this process keeps no copy** (milestone 632
-    // (provisional), calef's 2026-09-30 ruling): the boot stays the minimal UART system, and the
-    // gpu's four grants, plus the keyboard's three when a virtio keyboard came with them, are the
-    // session's to delegate, held at [`spawnproto::SHELL_GPU_SLOT`] and its siblings until a
-    // `graphical_terminal` request sends them back. Placed here, beside the machine page and for its reason
-    // (the login block below is this table's peak, and seven caps held across it would be seven
-    // slots the peak does not have), and placed rather than `caps`-listed because the named slots
-    // are the point: the shell probes fixed numbers, which a moving list would not give it.
-    // [`graphical_terminal_caps`](fn@graphical_terminal_grants) already deleted anything the shell is not getting.
-    if graphical_terminal_caps.held {
-        let slots = [
-            (g.gpu, abi::rights::WRITE | abi::rights::GRANT),
-            (g.gpu_irq, abi::rights::READ | abi::rights::GRANT),
-            (
-                g.gpu_dma,
-                abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
-            ),
-            (
-                g.gpu_surface,
-                abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
-            ),
-            (g.keyboard, abi::rights::WRITE | abi::rights::GRANT),
-            (g.keyboard_irq, abi::rights::READ | abi::rights::GRANT),
-            (
-                g.keyboard_dma,
-                abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT,
-            ),
-        ];
-        for (i, (cap, rights)) in slots.iter().enumerate() {
-            if graphical_terminal_caps.keyboard || i < 4 {
-                must_ok(place_at(
-                    shell.tcb,
-                    *cap,
-                    *rights,
-                    spawnproto::SHELL_GPU_SLOT + i as u64,
-                ));
-                cap_delete(*cap);
-            }
-        }
-    }
+    // **The display devices stay here, and the shell gets none** (milestone 715 (provisional), the
+    // 2026-10-03 security audit's follow-up). Until 715 the gpu's four and the keyboard's three
+    // were placed in the shell at `spawnproto::SHELL_GPU_SLOT` onward, with `GRANT`, for the life
+    // of the boot, and came back with each `graphical_terminal` request. The spawn service builds
+    // the session's drivers from its own copies instead, which is `term_ep`'s posture for the same
+    // session: the prompt asks for a launch and cannot hand a device to anything. They stay in the
+    // boot endowment's own slots, read from [`GraphicalTerminalCaps`]; [`graphical_terminal_grants`]
+    // already deleted whatever no session can be built from.
     // The caretaker's endpoint was only ever the means of wiring: the shell holds its own copy and
     // the caretaker holds the other end, the same disposal `spawn_service`'s dynamic directory
     // grants already give their own narrowed endpoint below.
@@ -2079,7 +2047,7 @@ pub fn boot(
     // 5. **The terminal's sink adapter** (milestone 50's last remainder, notes/sink-protocol.md,
     // DECISIONS §67). It holds the terminal `WRITE` and serves the sink contract on an endpoint of
     // its own, so a child can be handed "the terminal" as a place to put bytes **without** being
-    // handed the terminal endpoint, which also carries `OP_READLINE` and would be the keyboard.
+    // handed the terminal endpoint, which also carries `OPERATION_READLINE` and would be the keyboard.
     //
     // **After the shell and before the giveaway, and both halves of that are load-bearing.**
     //
@@ -2649,7 +2617,7 @@ pub fn boot(
     // (provisional)). A `graphical_terminal` session launched with no virtio keyboard takes its keystrokes
     // from the boot's own line discipline, in raw mode, and the only process that can grant a
     // session that endpoint is this one: the shell's copy carries no `GRANT` (deliberately, so
-    // nothing at the prompt can hand the terminal, which also carries `OP_READLINE`, to any
+    // nothing at the prompt can hand the terminal, which also carries `OPERATION_READLINE`, to any
     // program it likes; that widening is exactly what milestone 50's sink adapter exists to
     // avoid), and nobody else holds the discipline's endpoint at all. Keeping it is the file
     // service pair's precedent: the spawn service holds exactly the authority a delivery needs,
@@ -3062,51 +3030,6 @@ fn spawn_service(
         } else {
             None
         };
-        // **The display devices, when the request announced them** (milestone 632 (provisional),
-        // `spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`): the gpu's four in the fixed order the wire
-        // names, then the keyboard's three. Taken on any request that announced them, whatever
-        // program it turns out to be for, so both sides stay in lockstep; a request that set the
-        // bits for anything but a `graphical_terminal` spawn has them deleted and is refused below, because
-        // endowing devices a program never declared is the one trade this model refuses. A
-        // promised cap that did not arrive (a broken caller, not a broken spawn) is treated the
-        // same way: what did arrive is deleted, and the spawn is refused.
-        let graphics: [Option<u64>; 4] = if wiring.graphics {
-            let mut caps = [None; 4];
-            for slot in caps.iter_mut() {
-                *slot = opt_cap(receive_cap(spawn_ep).1);
-            }
-            caps
-        } else {
-            [None; 4]
-        };
-        let keyboard: Option<[Option<u64>; 3]> = if wiring.keyboard {
-            let mut caps = [None; 3];
-            for slot in caps.iter_mut() {
-                *slot = opt_cap(receive_cap(spawn_ep).1);
-            }
-            Some(caps)
-        } else {
-            None
-        };
-        // Everything received, as plain slots to delete when this request will not use them.
-        let mut received = [0u64; 7];
-        let mut n_received = 0usize;
-        for slot in graphics
-            .iter()
-            .flatten()
-            .chain(keyboard.iter().flatten().flatten())
-        {
-            received[n_received] = *slot;
-            n_received += 1;
-        }
-        let devices_whole = graphics.iter().all(|c| c.is_some())
-            && keyboard.is_none_or(|k| k.iter().all(|c| c.is_some()));
-        let drop_devices = |received: &mut [u64; 7], n: &mut usize| {
-            for c in received.iter().take(*n) {
-                cap_delete(*c);
-            }
-            *n = 0;
-        };
         // **The machine statistics page, when the session sent it** (milestone 126,
         // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
         // below once the child holds its own mapping and slot.
@@ -3125,14 +3048,21 @@ fn spawn_service(
         };
 
         // **A `graphical_terminal` spawn** (milestone 632 (provisional)): graphics is launched from the prompt,
-        // and this is the launch. The request must be the program and the caps together (`Prog::
-        // GraphicalTerminal` *and* [`spawnproto::Wiring::graphics`], with [`spawnproto::Wiring::keyboard`]
-        // exactly when this boot's verdict says the shell holds a keyboard); anything else, a
-        // graphical_terminal named with no caps behind it or caps that came for another program, is deleted and
-        // refused rather than half-endowed. The stack this builds from them is milestone 600
-        // (provisional)'s, moved from the boot into this branch: the session's children are born
-        // from one region and the session program is born supervised on `deaths`, so its one reap,
-        // by `job_undertaker`, ends the drivers with it.
+        // and this is the launch. The request must be the program and the bit together (`Prog::
+        // GraphicalTerminal` *and* [`spawnproto::Wiring::graphics`], and never
+        // [`spawnproto::Wiring::keyboard`], which no capability follows since milestone 715);
+        // anything else is refused rather than half-endowed. A well-formed request on a boot with
+        // no display is answered [`spawnproto::SPAWN_NO_DISPLAY`], so the shell can say so.
+        //
+        // **The devices are this process's own** (milestone 715 (provisional)): the gpu's four and
+        // the keyboard's three stay in the boot endowment's slots for the life of the boot, and
+        // each session's drivers get narrowed copies of them, exactly as `boot_terminal` is lent
+        // to the UART arm. Until 715 they arrived on this request from the shell's slots, which
+        // meant the shell held `GRANT` on every device between launches.
+        //
+        // The stack this builds is milestone 600 (provisional)'s, moved from the boot into this
+        // branch: the session's children are born from one region and the session program is born
+        // supervised on `deaths`, so its one reap, by `job_undertaker`, ends the drivers with it.
         //
         // **A session that does not come up is a refused spawn**, not a trap: the shell says
         // "could not spawn", the prompt continues, and the builder reclaims the region itself
@@ -3140,70 +3070,49 @@ fn spawn_service(
         // because a boot that cannot come up is a dead machine; a launch that cannot is just a
         // command that failed.
         if wiring.graphics || prog == Some(Prog::GraphicalTerminal) {
-            let refuse = |received: &mut [u64; 7], n: &mut usize| {
-                drop_devices(received, n);
-                send(result_ep, spawnproto::SPAWN_FAILED, 0, 0);
-            };
-            if prog != Some(Prog::GraphicalTerminal)
-                || !wiring.graphics
-                || !devices_whole
-                || !graphical_terminal_caps.held
-                || wiring.keyboard != graphical_terminal_caps.keyboard
-            {
-                refuse(&mut received, &mut n_received);
-                if let Some(b) = budget {
-                    cap_delete(b);
-                }
-                if let Some(p) = machine_page {
-                    cap_delete(p);
-                }
-                continue;
-            }
-            let built = match (
-                progs[Prog::GraphicalTerminal.id() as usize].as_ref(),
-                split_job(jobs_ut, GRAPHICAL_TERMINAL_SESSION_PAGES),
-            ) {
-                (Some(elf), Some(region)) => {
-                    let gpu = [
-                        graphics[0].unwrap_or(0),
-                        graphics[1].unwrap_or(0),
-                        graphics[2].unwrap_or(0),
-                        graphics[3].unwrap_or(0),
-                    ];
-                    let kbd =
-                        keyboard.map(|k| [k[0].unwrap_or(0), k[1].unwrap_or(0), k[2].unwrap_or(0)]);
-                    // `devices_whole` made every `unwrap_or` unreachable; `unwrap_or(0)` rather
-                    // than `unwrap` so a lying caller's refusal above stays the only path that
-                    // could ever have fired one.
-                    build_graphical_terminal_session(
-                        &GraphicalTerminalLaunch {
-                            own_ut,
-                            region,
-                            deaths,
-                            boot_terminal,
-                            result_ep,
-                            gpu: &gpu,
-                            kbd: kbd.as_ref(),
-                            program: elf,
-                        },
-                        &graphical_terminal_caps,
-                        &discipline,
-                    )
-                }
-                _ => Err(()),
-            };
-            // Anything this request carried that the session did not consume: the `--mem` budget
-            // and machine page a `graphical_terminal` manifest forbids but a caller could still have set, and
-            // nothing else, because the devices went into the drivers.
+            // Neither of these is the session's: a `graphical_terminal` manifest forbids both, but a
+            // caller could still have set them.
             if let Some(b) = budget {
                 cap_delete(b);
             }
             if let Some(p) = machine_page {
                 cap_delete(p);
             }
-            if built.is_err() {
-                refuse(&mut received, &mut n_received);
-            }
+            let answer =
+                if prog != Some(Prog::GraphicalTerminal) || !wiring.graphics || wiring.keyboard {
+                    spawnproto::SPAWN_FAILED
+                } else if !graphical_terminal_caps.held {
+                    spawnproto::SPAWN_NO_DISPLAY
+                } else {
+                    let built = match (
+                        progs[Prog::GraphicalTerminal.id() as usize].as_ref(),
+                        split_job(jobs_ut, GRAPHICAL_TERMINAL_SESSION_PAGES),
+                    ) {
+                        (Some(elf), Some(region)) => build_graphical_terminal_session(
+                            &GraphicalTerminalLaunch {
+                                own_ut,
+                                region,
+                                deaths,
+                                boot_terminal,
+                                result_ep,
+                                gpu: &graphical_terminal_caps.gpu,
+                                kbd: graphical_terminal_caps
+                                    .keyboard
+                                    .then_some(&graphical_terminal_caps.kbd),
+                                program: elf,
+                            },
+                            &graphical_terminal_caps,
+                            &discipline,
+                        ),
+                        _ => Err(()),
+                    };
+                    // A session that came up answers for itself; only a failure is ours to say.
+                    match built {
+                        Ok(()) => continue,
+                        Err(()) => spawnproto::SPAWN_FAILED,
+                    }
+                };
+            send(result_ep, answer, 0, 0);
             continue;
         }
 
@@ -3741,7 +3650,7 @@ fn spawn_service(
                 send(result_ep, failure, 0, 0);
             }
             // **A child that was never built cannot end its own second stream**, and the shell
-            // drains that stream to `OP_EOF` before it reads anything else, so nothing would ever
+            // drains that stream to `OPERATION_EOF` before it reads anything else, so nothing would ever
             // come back. The progenitor closes it on the child's behalf. It is the same hole `SPAWN_OK`
             // closed for the output side, one stream over.
             if !ok && let Some(ep) = diagnostics {
@@ -4157,14 +4066,14 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
     (stack, lease)
 }
 
-/// **What a `graphical_terminal` session is made of, measured, and whether the shell gets the devices**:
+/// **What a `graphical_terminal` session is made of, measured, and whether this boot can launch one**:
 /// [`boot`]'s verdict (milestone 632 (provisional)). `held` means the kernel granted a gpu and
-/// the table vouches for both `gpu_driver` and `display_terminal`, so the shell will be given the
+/// the table vouches for both `gpu_driver` and `display_terminal`, so the spawn service keeps the
 /// gpu's four (and the keyboard's three when `keyboard` is also true, which additionally needs its
-/// grant and a vouched `keyboard_driver`). The measured programs are carried here for the spawn
-/// service, which builds them inside a session rather than here: a grant this process can neither
-/// build a session from nor hand to the shell is released at once, rather than carried, which is
-/// the posture every kernel grant here already takes.
+/// grant and a vouched `keyboard_driver`) for every session it builds (milestone 715
+/// (provisional): until then the shell held them). A grant no session can be built from is
+/// released at once, rather than carried, which is the posture every kernel grant here already
+/// takes.
 ///
 /// Never inlined, so the verdict's temporaries stay out of [`boot`]'s frame (see the comment where
 /// `boot` calls this).
@@ -4192,19 +4101,26 @@ fn graphical_terminal_grants(
     GraphicalTerminalCaps {
         held,
         keyboard,
+        gpu: [g.gpu, g.gpu_irq, g.gpu_dma, g.gpu_surface],
+        kbd: [g.keyboard, g.keyboard_irq, g.keyboard_dma],
         driver,
         terminal,
         kbd_driver,
     }
 }
 
-/// The spawn service's half of [`graphical_terminal_grants`]' verdict: whether this boot's shell holds the
-/// display devices, and the measured images a session is built from. `held` false means no
-/// session can be launched (the caps were deleted at boot, the shell probes empty slots, and a
-/// `graphical_terminal` request is refused by the shell before it is sent).
+/// The spawn service's half of [`graphical_terminal_grants`]' verdict: whether this boot has the
+/// display devices, the devices themselves, and the measured images a session is built from.
+/// `held` false means no session can be launched: the caps were deleted at boot, and a
+/// `graphical_terminal` request is answered [`spawnproto::SPAWN_NO_DISPLAY`].
 struct GraphicalTerminalCaps {
     held: bool,
     keyboard: bool,
+    /// The gpu's four, in the boot endowment's slots, held by the spawn service for the life of
+    /// the boot (milestone 715 (provisional)). Meaningful only when `held`.
+    gpu: [u64; 4],
+    /// The keyboard's three, likewise. Meaningful only when `keyboard`.
+    kbd: [u64; 3],
     driver: Option<elf::Elf<'static>>,
     terminal: Option<elf::Elf<'static>>,
     kbd_driver: Option<elf::Elf<'static>>,
@@ -4297,16 +4213,16 @@ struct GraphicalTerminalLaunch<'a> {
     boot_terminal: u64,
     /// The shell's result endpoint, the session program's slot 0.
     result_ep: u64,
-    /// The gpu's four, in the wire's fixed order.
+    /// The gpu's four, the spawn service's own (milestone 715 (provisional)): lent, never consumed.
     gpu: &'a [u64; 4],
-    /// The keyboard's three, when the launch announced them.
+    /// The keyboard's three, when this boot has one; lent likewise.
     kbd: Option<&'a [u64; 3]>,
     /// The `graphical_terminal` program itself, measured.
     program: &'a elf::Elf<'a>,
 }
 
 /// **Build a whole `graphical_terminal` session and start it** (milestone 632 (provisional)): `gpu_driver`
-/// and `display_terminal` on the gpu's four delegated capabilities, then either the session's own
+/// and `display_terminal` on the gpu's four capabilities (lent from this process's own), then either the session's own
 /// line discipline with `keyboard_driver` behind it (the device arm, `kbd` is `Some`) or nothing
 /// but the screen, with the boot line discipline's endpoint handed to the program for raw reads
 /// (the UART arm, milestone 192 (a keyboard on real silicon)'s option A at launch). Everything
@@ -4327,8 +4243,9 @@ struct GraphicalTerminalLaunch<'a> {
 /// `build_caretaker`'s own comment records: they share the session's region, the program's reap
 /// sweeps that region, and a death message for a thread the sweep already collected would have
 /// `job_undertaker` trap on a tid the scheduler no longer knows. One reap, of the one job, ends
-/// the session's drivers with it. Every device capability received is deleted here once its
-/// driver holds a narrowed copy, and this process's capability to the region goes back with the
+/// the session's drivers with it. The device capabilities are the spawn service's own and are
+/// **not** deleted here (milestone 715 (provisional)): each driver gets a narrowed copy, and the
+/// originals stay for the next session. This process's capability to the region goes back with the
 /// build's other means: since §32 the reap is a method on the supervision endpoint, so nothing
 /// holds a capability to a live session's memory.
 ///
@@ -4415,13 +4332,10 @@ fn graphical_terminal_session_children(
         },
     )
     .ok() else {
-        drop_caps(&[display, driver_report, budget, gpu[0], gpu[1], gpu[2]]);
+        drop_caps(&[display, driver_report, budget]);
         return Err(());
     };
     cap_delete(budget);
-    for c in [gpu[0], gpu[1], gpu[2]] {
-        cap_delete(c);
-    }
     // Role 0, the honest driver. No physical address: the run's first page carries it
     // (`abi::virtio::DMA_PHYS_OFFSET`), and this process could not supply one anyway.
     if !start_child(driver, 0, 0, 0) {
@@ -4469,19 +4383,10 @@ fn graphical_terminal_session_children(
         },
     )
     .ok() else {
-        drop_caps(&[
-            display,
-            driver_report,
-            term_report,
-            term,
-            out,
-            budget,
-            gpu[3],
-        ]);
+        drop_caps(&[display, driver_report, term_report, term, out, budget]);
         return Err(());
     };
     cap_delete(budget);
-    cap_delete(gpu[3]);
     cap_delete(display);
     if !start_child(terminal, video_terminal::status::MODE_DISPLAY, 0, 0) {
         drop_caps(&[driver_report, term_report, term, out]);
@@ -4560,22 +4465,9 @@ fn graphical_terminal_session_children(
                 },
             )
             .ok() else {
-                drop_caps(&[
-                    term,
-                    out,
-                    session_term,
-                    session_out,
-                    session_in,
-                    report,
-                    k[0],
-                    k[1],
-                    k[2],
-                ]);
+                drop_caps(&[term, out, session_term, session_out, session_in, report]);
                 return Err(());
             };
-            for c in k {
-                cap_delete(*c);
-            }
             if !start_child(driver, KBD_MODE_DIRECT, 0, 0) {
                 drop_caps(&[term, out, session_term, session_out, session_in, report]);
                 return Err(());
@@ -4591,8 +4483,8 @@ fn graphical_terminal_session_children(
         // **Arm 1 gets the raw half of the boot discipline, not the discipline** (milestone 709
         // (a graphical terminal session on the no-keyboard arm holds only the raw half of the boot
         // discipline)). A copy of `boot_terminal` badged `proto::RAW_ONLY_BADGE`, which the
-        // discipline answers `OP_RAWMODE` and `OP_READRAW` on and refuses everything else, so the
-        // session cannot `OP_BYTES` a line the boot shell then runs with the shell's authority.
+        // discipline answers `OPERATION_RAWMODE` and `OPERATION_READRAW` on and refuses everything else, so the
+        // session cannot `OPERATION_BYTES` a line the boot shell then runs with the shell's authority.
         // Minted per launch and deleted below once the session holds its narrowed copy; one slot
         // for the length of the build, under arm 0's peak (its discipline, pages and report).
         None => {
@@ -4885,8 +4777,8 @@ fn vouched(bytes: &[u8], fs: Option<Fs>, own_ut: u64, fs_mapped: &mut bool) -> b
     };
     let digest = measured_boot::sha256(bytes);
     let d = files.named(
-        fs_op::OPENDIR,
-        fs_op::ROOT,
+        fs_operation::OPENDIR,
+        fs_operation::ROOT,
         activation_set::DIRECTORY,
         dir::READ,
     );
@@ -4926,7 +4818,7 @@ fn endowed_image(
     grant_plan::image_request_fits(&m, arg, mem_pages, words).then_some(m)
 }
 
-use filesystem_protocol::{dir, fs as fs_op};
+use filesystem_protocol::{dir, fs as fs_operation};
 
 /// One page, the unit the file service trades bytes in, and the most a generation may hold.
 const PAGE_BYTES: usize = spawnproto::IMAGE_PAGE as usize;
@@ -4944,7 +4836,7 @@ const PAGE_BYTES: usize = spawnproto::IMAGE_PAGE as usize;
 /// the build is done. One page, not the window's sixteen, because a client of this contract maps
 /// one page (`filesystem_protocol::fs::TRANSFER_PAGES` says a client maps what it uses).
 fn window_page(pool: u64, w: u64) -> Option<u64> {
-    let first = w * fs_op::TRANSFER_PAGES as u64;
+    let first = w * fs_operation::TRANSFER_PAGES as u64;
     // SAFETY: the syscall; the kernel validates the capability, the range and the right.
     let slot = unsafe { invoke(pool, abi::page_frame::SLICE, first, 1, 0) };
     (slot >= 0).then_some(slot as u64)
@@ -5050,15 +4942,21 @@ fn bound_channel(
     let w = windows.take();
     files.unbind(windows, w);
     let handle = files.named(
-        fs_op::OPENDIR,
-        fs_op::ROOT,
+        fs_operation::OPENDIR,
+        fs_operation::ROOT,
         name,
         filesystem_protocol::grant::spec_rights(spec),
     );
     if handle < 0 {
         return None;
     }
-    if call(fs.ep, fs_op::req(fs_op::BIND, handle as u64, 0), w).0 != 0 {
+    if call(
+        fs.ep,
+        fs_operation::req(fs_operation::BIND, handle as u64, 0),
+        w,
+    )
+    .0 != 0
+    {
         files.close(handle);
         return None;
     }
@@ -5066,7 +4964,7 @@ fn bound_channel(
     // SAFETY: as [`job_channel`]'s zeroing: window `w`'s first page, inside the mapped pool.
     unsafe {
         core::ptr::write_bytes(
-            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            (ACTIVATION_FS_VA + w * fs_operation::TRANSFER_MAX as u64) as *mut u8,
             0,
             PAGE_BYTES,
         );
@@ -5093,7 +4991,7 @@ fn job_channel(fs: Fs, windows: &mut Windows, own_ut: u64, mapped: &mut bool) ->
     // window `w`'s first page lies inside it; no client is using window `w` between two jobs.
     unsafe {
         core::ptr::write_bytes(
-            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            (ACTIVATION_FS_VA + w * fs_operation::TRANSFER_MAX as u64) as *mut u8,
             0,
             PAGE_BYTES,
         );
@@ -5140,7 +5038,7 @@ impl FsCalls {
         let len = name.len().min(PAGE_BYTES);
         // SAFETY: the page is mapped read/write (`map`) and `len` is at most a page.
         unsafe { core::ptr::copy_nonoverlapping(name.as_ptr(), Self::page(), len) };
-        call(self.ep, fs_op::req(verb, handle, len as u64), w1).0 as i64
+        call(self.ep, fs_operation::req(verb, handle, len as u64), w1).0 as i64
     }
 
     /// **Take window `w`'s grant back, if it has one** (milestone 606, ruling D): `UNBIND` closes
@@ -5148,20 +5046,29 @@ impl FsCalls {
     /// window that was never bound.
     fn unbind(&self, windows: &mut Windows, w: u64) {
         if windows.bound & (1 << w) != 0 {
-            call(self.ep, fs_op::req(fs_op::UNBIND, 0, 0), w);
+            call(self.ep, fs_operation::req(fs_operation::UNBIND, 0, 0), w);
             windows.bound &= !(1 << w);
         }
     }
 
     fn close(&self, handle: i64) {
-        call(self.ep, fs_op::req(fs_op::CLOSE, handle as u64, 0), 0);
+        call(
+            self.ep,
+            fs_operation::req(fs_operation::CLOSE, handle as u64, 0),
+            0,
+        );
     }
 
     /// Read a file from offset 0 into `out`, up to `out.len()` bytes (at most a page). `None` on an
     /// error.
     fn read(&self, handle: u64, out: &mut [u8]) -> Option<usize> {
         let want = out.len().min(PAGE_BYTES);
-        let n = call(self.ep, fs_op::req(fs_op::READ, handle, want as u64), 0).0 as i64;
+        let n = call(
+            self.ep,
+            fs_operation::req(fs_operation::READ, handle, want as u64),
+            0,
+        )
+        .0 as i64;
         if n < 0 {
             return None;
         }
@@ -5174,7 +5081,14 @@ impl FsCalls {
     /// Replace a file's contents with `bytes`, a page at a time. `false` at the first short or
     /// refused write.
     fn replace(&self, handle: u64, bytes: &[u8]) -> bool {
-        if call(self.ep, fs_op::req(fs_op::TRUNCATE, handle, 0), 0).0 as i64 != 0 {
+        if call(
+            self.ep,
+            fs_operation::req(fs_operation::TRUNCATE, handle, 0),
+            0,
+        )
+        .0 as i64
+            != 0
+        {
             return false;
         }
         for (i, chunk) in bytes.chunks(PAGE_BYTES).enumerate() {
@@ -5183,7 +5097,7 @@ impl FsCalls {
             let at = (i * PAGE_BYTES) as u64;
             let n = call(
                 self.ep,
-                fs_op::req(fs_op::WRITE, handle, chunk.len() as u64),
+                fs_operation::req(fs_operation::WRITE, handle, chunk.len() as u64),
                 at,
             )
             .0 as i64;
@@ -5196,21 +5110,21 @@ impl FsCalls {
 
     /// Open `name` in `parent` for writing, creating it if it is not there.
     fn open_or_create(&self, parent: u64, name: &str) -> i64 {
-        let h = self.named(fs_op::OPEN, parent, name, 0);
+        let h = self.named(fs_operation::OPEN, parent, name, 0);
         if h >= 0 {
             h
         } else {
-            self.named(fs_op::CREATE, parent, name, 0)
+            self.named(fs_operation::CREATE, parent, name, 0)
         }
     }
 
     /// Descend into `name` in `parent` with every right, making it if it is not there.
     fn directory(&self, parent: u64, name: &str) -> i64 {
-        let h = self.named(fs_op::OPENDIR, parent, name, dir::ALL);
+        let h = self.named(fs_operation::OPENDIR, parent, name, dir::ALL);
         if h >= 0 {
             h
         } else {
-            self.named(fs_op::MKDIR, parent, name, dir::ALL)
+            self.named(fs_operation::MKDIR, parent, name, dir::ALL)
         }
     }
 
@@ -5218,7 +5132,7 @@ impl FsCalls {
     fn generation_exists(&self, act: u64, number: u32) -> bool {
         let mut name = [0u8; 10];
         let h = self.named(
-            fs_op::OPEN,
+            fs_operation::OPEN,
             act,
             activation_set::generation_name(number, &mut name),
             0,
@@ -5235,7 +5149,7 @@ impl FsCalls {
     /// larger than a page: a table that cannot be read vouches for nothing, and must not be
     /// written over either.
     fn live_generation(&self, act: u64, out: &mut [u8; PAGE_BYTES]) -> Result<(u32, usize), ()> {
-        let c = self.named(fs_op::OPEN, act, activation_set::CURRENT, 0);
+        let c = self.named(fs_operation::OPEN, act, activation_set::CURRENT, 0);
         if c < 0 {
             return Ok((0, 0));
         }
@@ -5248,7 +5162,7 @@ impl FsCalls {
             .ok_or(())?;
         let mut name = [0u8; 10];
         let t = self.named(
-            fs_op::OPEN,
+            fs_operation::OPEN,
             act,
             activation_set::generation_name(number, &mut name),
             0,
@@ -5275,7 +5189,7 @@ impl FsCalls {
         if let Some(table) = table {
             let mut name = [0u8; 10];
             let g = self.named(
-                fs_op::CREATE,
+                fs_operation::CREATE,
                 act,
                 activation_set::generation_name(number, &mut name),
                 0,
@@ -5313,8 +5227,8 @@ impl FsCalls {
         }
         let renamed = call(
             self.ep,
-            fs_op::req(fs_op::RENAME, act, src.len() as u64),
-            fs_op::rename_dst(act, dst.len() as u64),
+            fs_operation::req(fs_operation::RENAME, act, src.len() as u64),
+            fs_operation::rename_dst(act, dst.len() as u64),
         )
         .0 as i64;
         if renamed != 0 {
@@ -5324,7 +5238,11 @@ impl FsCalls {
         // followed by a power cut that forgets it would be the prompt saying something untrue.
         // A device that cannot flush answers `EOPNOTSUPP`, and then the generation is written and
         // live and only as durable as the device makes it; that is recorded, not refused.
-        call(self.ep, fs_op::req(fs_op::SYNC, fs_op::ROOT, 0), 0);
+        call(
+            self.ep,
+            fs_operation::req(fs_operation::SYNC, fs_operation::ROOT, 0),
+            0,
+        );
         true
     }
 }
@@ -5407,7 +5325,7 @@ fn activate(
         let Some(files) = FsCalls::map(a.fs, a.own_ut, fs_mapped) else {
             return (S::StoreFailed, 0);
         };
-        let act = files.directory(fs_op::ROOT, activation_set::DIRECTORY);
+        let act = files.directory(fs_operation::ROOT, activation_set::DIRECTORY);
         if act < 0 {
             return (S::StoreFailed, 0);
         }
@@ -5589,7 +5507,7 @@ fn edit(
             };
             // The program's bytes, where a person can run them (DECISIONS §219 option D hashes
             // whatever they run, so where they live is a convenience, not a trust decision).
-            let packages = files.directory(fs_op::ROOT, activation_set::PACKAGES);
+            let packages = files.directory(fs_operation::ROOT, activation_set::PACKAGES);
             if packages < 0 {
                 return (S::StoreFailed, live);
             }
@@ -5686,7 +5604,7 @@ const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
 ///    connection is opened, so a person cannot make this process fetch anything the image would
 ///    not install, and the answer to a typo costs no network.
 /// 2. **One page shared with the stack**, retyped from a region of its own and handed over with
-///    `OP_ATTACH_PAGE_FRAME` on [`FETCH_SID`]. The region is destroyed when the request ends, which
+///    `OPERATION_ATTACH_PAGE_FRAME` on [`FETCH_SID`]. The region is destroyed when the request ends, which
 ///    revokes the page out of the stack too: nothing about a fetch outlives it.
 /// 3. **`GET /<stem>.nifepkg`** from the package source (`socket_protocol::fixture`), read through
 ///    `http_response`, which holds only the head and refuses what it cannot read exactly. The body
@@ -5731,7 +5649,7 @@ fn fetch(
             stack,
             page,
             abi::rights::READ | abi::rights::WRITE,
-            req(OP_ATTACH_PAGE_FRAME, FETCH_SID),
+            req(OPERATION_ATTACH_PAGE_FRAME, FETCH_SID),
         ) >= 0;
     // The mapping and the stack's copy outlive this capability, and the slot is what is scarce.
     cap_delete(page);
@@ -5740,7 +5658,7 @@ fn fetch(
     }
     let window = |off: u64| (FETCH_SOCKET_VA + off) as *mut u8;
 
-    if call(stack, req(OP_OPEN_TCP, FETCH_SID), 0).0 != REP_OK {
+    if call(stack, req(OPERATION_OPEN_TCP, FETCH_SID), 0).0 != REP_OK {
         return Err(S::FetchFailed);
     }
     let got = (|| {
@@ -5755,7 +5673,7 @@ fn fetch(
                 2,
             );
         }
-        if call(stack, req(OP_CONNECT, FETCH_SID), 0).0 != CONNECT_ESTABLISHED {
+        if call(stack, req(OPERATION_CONNECT, FETCH_SID), 0).0 != CONNECT_ESTABLISHED {
             return Err(S::FetchFailed);
         }
         let mut path = [0u8; 1 + package_archive::STEM_LEN + 8];
@@ -5770,13 +5688,13 @@ fn fetch(
             .ok_or(S::FetchFailed)?;
         // SAFETY: as above; `n` is at most 160, well inside the payload area.
         unsafe { core::ptr::copy_nonoverlapping(request.as_ptr(), window(OFF_PAYLOAD), n) };
-        if call(stack, req(OP_SEND, FETCH_SID), n as u64).0 != n as u64 {
+        if call(stack, req(OPERATION_SEND, FETCH_SID), n as u64).0 != n as u64 {
             return Err(S::FetchFailed);
         }
         receive_body(a, stack, staging)
     })();
     // Closed before the answer is judged, so a failed fetch still gives the socket back.
-    let _ = call(stack, req(OP_CLOSE, FETCH_SID), 0);
+    let _ = call(stack, req(OPERATION_CLOSE, FETCH_SID), 0);
     got.map(|()| stem)
 }
 
@@ -5794,7 +5712,7 @@ fn receive_body(
     let mut response = http_response::Response::new();
     let mut filled = 0u64;
     while !response.is_complete() {
-        let (n, _) = call(stack, req(OP_RECEIVE, FETCH_SID), 0);
+        let (n, _) = call(stack, req(OPERATION_RECEIVE, FETCH_SID), 0);
         if n == 0 || n > DATA_MAX as u64 {
             // The peer went away, or the stack failed, before the body was whole.
             return Err(S::FetchFailed);
@@ -5872,7 +5790,7 @@ fn memory_region_split(ut: u64, pages: u64) -> Result<u64, ()> {
 }
 
 /// **Say one sentence at the terminal**, through the line discipline, the way the shell does: stage
-/// the bytes in the shell's output page (mapped here at [`INIT_OUT_VA`]) and `CALL` `OP_WRITE`.
+/// the bytes in the shell's output page (mapped here at [`INIT_OUT_VA`]) and `CALL` `OPERATION_WRITE`.
 ///
 /// The only thing this process ever prints, and it is called before the shell is started so nothing
 /// else is writing that page. It exists for the negative control: a claim about what the progenitor can no
@@ -5884,7 +5802,11 @@ fn announce(term_ep: u64, text: &[u8]) {
         // page.
         unsafe { core::ptr::write_volatile(out.add(i), b) };
     }
-    call(term_ep, proto::req(proto::OP_WRITE, text.len() as u64), 0);
+    call(
+        term_ep,
+        proto::req(proto::OPERATION_WRITE, text.len() as u64),
+        0,
+    );
 }
 
 // -------------------------------------------------------------------------------------------
@@ -5904,7 +5826,7 @@ fn announce(term_ep: u64, text: &[u8]) {
 /// **Build the terminal: `terminal_supervisor`, which builds `line_editor`** (milestone 23 (a
 /// capability-routed component OS with live replacement), calef's ruling of 2026-09-27). `caps` is
 /// in `line_editor::component::supervisor`'s slot order after its budget: the terminal endpoint
-/// with every right (it delegates `READ` and sends `OP_QUIESCE`), the output sink, the three pages,
+/// with every right (it delegates `READ` and sends `OPERATION_QUIESCE`), the output sink, the three pages,
 /// and the console's reply endpoint in console mode. Copies, not moves: this process frees its own
 /// as it always did.
 ///

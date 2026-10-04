@@ -42,8 +42,8 @@ The script from milestone 80 (Loom: the hand-rolled atomic protocols, model-chec
 
 ## BUGS
 
-- The job is not a required status check. Adding it to the ruleset is an architect's edit; the pull
-  request body carries the ask. Until then a red `interleavings` run does not block the queue.
+- Resolved 2026-10-04 UTC: calef ruled the job a required status check, and the maintainer added it to
+  ruleset 19596094 the same day (19 required checks). A red `interleavings` run now blocks the queue.
 - Hosted runner: the job's first run (run 37168817628, 2026-10-04 UTC) took 46 seconds from start to
   completion, checkout and cache restore included, against the dev machine's 23.8 seconds.
 - The `gate` job's `run=false` skip (a push to `main` already tested by a merge group) skips this job

@@ -11,7 +11,7 @@
 //! The program cannot tell which, and that indifference is the milestone's claim
 //! (notes/sink-protocol.md). `<` is the same substitution on the **input slot**, which is the sink
 //! contract read from the other end: an endpoint the program holds with `READ`, on which sink
-//! messages arrive until [`byte_sink_protocol::OP_EOF`](../../byte_sink_protocol/constant.OP_EOF.html).
+//! messages arrive until [`byte_sink_protocol::OPERATION_EOF`](../../byte_sink_protocol/constant.OPERATION_EOF.html).
 //!
 //! So this module produces [`Sink`] and [`Source`] values and nothing else. Whether the thing on
 //! the other end is a file, another program, or the shell itself is a wiring question, and no part

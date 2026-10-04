@@ -123,7 +123,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
             // backend ahead of whatever the producer sends next.
             let mut drained = 0u64;
             while let Some(item) = q.pop() {
-                let _ = call(BACK, swap_protocol::OP_PUT, item);
+                let _ = call(BACK, swap_protocol::OPERATION_PUT, item);
                 drained += 1;
             }
             up = true;
@@ -132,22 +132,22 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
         let Ok(req) = got else {
             continue; // the signal itself carries nothing; the page is the message
         };
-        let (op, arg) = (req.w0, req.w1);
+        let (operation, arg) = (req.w0, req.w1);
         // The contract says CALL. Anything but the kernel's Reply has nobody to answer, and a
         // delegation is deleted rather than kept (milestone 706 (a `CALL` server can tell a Reply
         // from a delegation)).
         let Some(slot) = req.delivered.into_reply() else {
             continue;
         };
-        match op {
-            swap_protocol::OP_PUT if up => {
+        match operation {
+            swap_protocol::OPERATION_PUT if up => {
                 // **Pass-through.** No copy, no queue, no scheduling policy: forward the two words
                 // and hand the backend's own answer straight back. This is the steady state, and it
                 // is the whole of the tax `broker_rtt` measures.
-                let (r0, r1) = call(BACK, swap_protocol::OP_PUT, arg);
+                let (r0, r1) = call(BACK, swap_protocol::OPERATION_PUT, arg);
                 reply(slot, r0, r1);
             }
-            swap_protocol::OP_PUT => {
+            swap_protocol::OPERATION_PUT => {
                 // The backend is away. Take custody and answer immediately, so the producer keeps
                 // running rather than parking on an endpoint nobody is receiving on.
                 if q.push(arg) {
@@ -157,7 +157,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
                     reply(slot, swap_protocol::QUEUE_FULL, q.count as u64);
                 }
             }
-            swap_protocol::OP_QUIESCE => {
+            swap_protocol::OPERATION_QUIESCE => {
                 send(RPT, swap_protocol::RPT_QUIESCED, 0, buffered);
                 reply(slot, swap_protocol::QUIESCED, buffered);
                 send(NOTE, swap_protocol::NOTE_BROKER_DONE, buffered, 0);

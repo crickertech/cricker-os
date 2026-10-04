@@ -101,7 +101,7 @@
 //!   `2 4 24`: two source lines re-flowed into one, plus two bytes of body indent, which is what
 //!   separates a rendered page from silence.
 //! - **No pager, and the reason is authority rather than effort.** Paging needs a keypress, a
-//!   keypress needs `line_editor::proto::OP_READLINE`, and that opcode rides on the terminal
+//!   keypress needs `line_editor::proto::OPERATION_READLINE`, and that opcode rides on the terminal
 //!   endpoint whose read side *is* the keyboard. The spawn protocol has no way to hand a child the
 //!   right to read one line without handing it the terminal, which is the exact thing
 //!   `terminal_sink_caretaker` exists to prevent. So a long page scrolls off, and the fix is a

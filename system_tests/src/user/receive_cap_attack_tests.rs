@@ -18,7 +18,7 @@
 //! consumer anywhere that checks the kind of object in the received slot, and no ABI call that
 //! would let one. The only guard in the tree is `x1 == NO_CAP`, which did nothing on the
 //! receiver-first order. The worst live case is `net_stack` (`components/src/net_stack.rs:227`),
-//! reachable by any program that declares network, whose `OP_ATTACH_PAGE_FRAME` does
+//! reachable by any program that declares network, whose `OPERATION_ATTACH_PAGE_FRAME` does
 //! `cap_delete(x1)` with no guard: a chosen slot deletes one of the server's own capabilities. The
 //! throwaway attack programs that drove the two escapes under QEMU on 2026-10-03 UTC are described
 //! in `design/roadmap/634-*.md`; these are the property they reduce to.

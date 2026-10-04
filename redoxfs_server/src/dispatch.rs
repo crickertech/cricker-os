@@ -13,7 +13,7 @@
 //! Names: `handle`, `ServeEdges` and this module's are provisional, minted by the fuzz lane
 //! (`lane/fuzz-service-handlers`) on 2026-10-04 (UTC); an architect names things.
 
-use filesystem_protocol::{blk, fs, op, reply_err, xattr};
+use filesystem_protocol::{blk, fs, operation, reply_err, xattr};
 use redoxfs::Disk;
 use syscall::error::{EINVAL, Error, Result};
 
@@ -53,7 +53,7 @@ impl<D: Disk> Server<D> {
         window: &mut [u8],
         edges: &mut impl ServeEdges,
     ) -> (i64, u64) {
-        let code = op(w0);
+        let code = operation(w0);
         // **A bound badge's handles go through `subtree_scope`** (milestone 606 (a directory walk
         // costs what it does on Linux), ruling D). Its `ROOT` is its grant's directory, and any
         // other handle must be one it minted; an unbound badge passes through as it always has.

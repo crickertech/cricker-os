@@ -28,7 +28,7 @@ manifest_note = { version = "0.1.0", path = "../manifest_note" }
 # than a constant copied here, which is rule 7: what two binaries agree on is a crate. It brings
 # nothing with it (filesystem_protocol has no non-dev dependencies of its own).
 filesystem_protocol = { version = "0.1.0", path = "../filesystem_protocol" }
-# The terminal contract's framing, for the one sentence init prints (`proto::OP_WRITE`).
+# The terminal contract's framing, for the one sentence init prints (`proto::OPERATION_WRITE`).
 line_editor = { version = "0.1.0", path = "../line_editor" }
 # The hash and the manifest format the kernel measures init with (milestone 104). This crate is the
 # next link: it reads the same shape of table out of the archive and applies it to what IT loads.

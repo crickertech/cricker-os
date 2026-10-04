@@ -1,6 +1,6 @@
 Falsifies the `system_log_session` fuzz target's scope rule.
 
-The defect: `OP_READER` reads its scope field with `<=` instead of `==`, so a reader the spawner
+The defect: `OPERATION_READER` reads its scope field with `<=` instead of `==`, so a reader the spawner
 registered for the per-user read (`SCOPE_USER`, 0) is made a system reader too, and is shown every
 user's records. An off-by-one in the authority comparison that §242 (a system log) ruled must stay a
 lesser authority.

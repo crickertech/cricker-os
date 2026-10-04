@@ -74,7 +74,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use filesystem_protocol::{dirent, fs, grant, nameset, op, reply_err, reply_errno, verb};
+use filesystem_protocol::{dirent, fs, grant, nameset, operation, reply_err, reply_errno, verb};
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{Reply, call, receive_request, send};
 
@@ -214,7 +214,7 @@ fn serve(dir: u64, set: &[u8]) -> ! {
             continue;
         };
         let len = fs::req_len(w0).min(PAGE);
-        let code = op(w0);
+        let code = operation(w0);
         let asked = fs::req_handle(w0);
         let Some(server_handle) = table.get(asked) else {
             reply(reply_slot, reply_err(EBADF), 0);

@@ -275,7 +275,7 @@ fn a_backing_outside_the_grant_is_refused_by_the_iommu() {
 /// that ignored SGR would draw every glyph correctly and still fail), a `\r\n` pair (what
 /// `line_editor::expand_output` puts on the wire for a Unix `\n`), descenders and an underscore (the
 /// glyph rows a font table truncated to seven would lose), and then **keystrokes**, delivered as
-/// `OP_BYTES`: the terminal contract's driver half, byte for byte what `components/src/input.rs` sends
+/// `OPERATION_BYTES`: the terminal contract's driver half, byte for byte what `components/src/input.rs` sends
 /// and what the compositor forwards to a focused client.
 ///
 /// # And the picture the driver reports is the *blank* terminal, on purpose
@@ -396,7 +396,7 @@ fn a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_scanout() {
     // file. The fast path moves pixel rows instead of re-rendering them, so this comparison,
     // against the same engine run here, is the witness that a moved picture is the right picture.
     //
-    // One `OP_WRITE` per line, so every present scrolls once; then the tail, several lines in one
+    // One `OPERATION_WRITE` per line, so every present scrolls once; then the tail, several lines in one
     // write, so one present carries several scrolls. Both shapes reach `assert_screen_is` below
     // through the same pixels.
     video_terminal::script::write_scroller(|bytes| w.print(bytes));

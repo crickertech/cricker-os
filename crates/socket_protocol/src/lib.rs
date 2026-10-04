@@ -7,7 +7,7 @@
 //! resource, delegated once. Every operation is one message on the endpoint:
 //!
 //! - `ATTACH_FRAME` is a `SEND_CAP` (it carries the frame capability, no reply).
-//! - every other op is a `CALL` (two words out, a reply word back), the socket id packed into the
+//! - every other operation is a `CALL` (two words out, a reply word back), the socket id packed into the
 //!   request word beside the opcode.
 //!
 //! **`PageFrame` layout, pinned.** One data region, reused per operation, NOT a split TX/RX ring. The
@@ -84,7 +84,7 @@
 //! apart. In this tree each stack endpoint has exactly one client today, so the distinction has no
 //! bite yet, but a real multi-client net server needs the per-client minted endpoint that §25
 //! already defers, and the grant then rides on that with no change to this wire format. The
-//! backlog is **one connection deep** per listener (see `net_stack`'s `OP_ACCEPT`, which re-arms
+//! backlog is **one connection deep** per listener (see `net_stack`'s `OPERATION_ACCEPT`, which re-arms
 //! immediately), so a second connection arriving while a first is un-accepted is refused by TCP
 //! rather than queued.
 //! # Examples
@@ -132,10 +132,10 @@
 //! And the request word packs an opcode with the socket id it applies to:
 //!
 //! ```
-//! use socket_protocol::{OP_RECEIVE, req, req_op, req_sid};
+//! use socket_protocol::{OPERATION_RECEIVE, req, req_operation, req_sid};
 //!
-//! let w = req(OP_RECEIVE, 3);
-//! assert_eq!(req_op(w), OP_RECEIVE);
+//! let w = req(OPERATION_RECEIVE, 3);
+//! assert_eq!(req_operation(w), OPERATION_RECEIVE);
 //! assert_eq!(req_sid(w), 3);
 //! ```
 //!
@@ -149,41 +149,41 @@
 /// Operations. The opcode is the low byte of the request word; the socket id is the next byte.
 ///
 /// `SEND_CAP`: delegate the shared frame for this socket id.
-pub const OP_ATTACH_PAGE_FRAME: u64 = 1;
+pub const OPERATION_ATTACH_PAGE_FRAME: u64 = 1;
 /// `CALL`: create a UDP socket, bind an ephemeral local port.
-pub const OP_OPEN_UDP: u64 = 2;
+pub const OPERATION_OPEN_UDP: u64 = 2;
 /// `CALL`: create a TCP socket.
-pub const OP_OPEN_TCP: u64 = 3;
+pub const OPERATION_OPEN_TCP: u64 = 3;
 /// `CALL`: UDP send; dst in the frame header, payload in the frame.
-pub const OP_SENDTO: u64 = 4;
+pub const OPERATION_SENDTO: u64 = 4;
 /// `CALL`: block until a datagram/segment arrives, write it to the frame.
-pub const OP_RECEIVE: u64 = 5;
+pub const OPERATION_RECEIVE: u64 = 5;
 /// `CALL`: TCP connect to the frame's dst; reply the outcome.
-pub const OP_CONNECT: u64 = 6;
+pub const OPERATION_CONNECT: u64 = 6;
 /// `CALL`: TCP send; payload in the frame.
-pub const OP_SEND: u64 = 7;
+pub const OPERATION_SEND: u64 = 7;
 /// `CALL`: close the socket and drop its frame mapping.
-pub const OP_CLOSE: u64 = 8;
-/// `CALL(req(OP_LISTEN, sid), port)`: bind `port` on socket id `sid` and start listening there.
+pub const OPERATION_CLOSE: u64 = 8;
+/// `CALL(req(OPERATION_LISTEN, sid), port)`: bind `port` on socket id `sid` and start listening there.
 /// Replies one of the [`LISTEN_GRANTED`] outcomes. Names provisional (milestone 107).
-pub const OP_LISTEN: u64 = 9;
-/// `CALL(req(OP_ACCEPT, lsid), target_sid)`: block until a connection arrives on the listener
+pub const OPERATION_LISTEN: u64 = 9;
+/// `CALL(req(OPERATION_ACCEPT, lsid), target_sid)`: block until a connection arrives on the listener
 /// `lsid`, then install it at socket id `target_sid`, which must already have a frame attached and
 /// must not be `lsid`. Replies [`REP_OK`] or [`REP_ERR`]. The listener keeps listening.
-pub const OP_ACCEPT: u64 = 10;
-/// `CALL(req(OP_BIND_UDP, sid), port)`: create a UDP socket bound to the **fixed** `port`, subject
+pub const OPERATION_ACCEPT: u64 = 10;
+/// `CALL(req(OPERATION_BIND_UDP, sid), port)`: create a UDP socket bound to the **fixed** `port`, subject
 /// to the stack's [`udp_bind_grant`]. Replies the [`LISTEN_GRANTED`] vocabulary, which is the
 /// port-claim vocabulary rather than a TCP one. Unlike a listener, the socket this creates carries
-/// bytes, so it uses the frame attached at `sid` exactly as `OP_OPEN_UDP`'s would. Name
+/// bytes, so it uses the frame attached at `sid` exactly as `OPERATION_OPEN_UDP`'s would. Name
 /// provisional (milestone 55's mDNS stack half).
-pub const OP_BIND_UDP: u64 = 11;
+pub const OPERATION_BIND_UDP: u64 = 11;
 
 /// Pack an opcode and socket id into the request word.
-pub const fn req(op: u64, sid: u64) -> u64 {
-    op | (sid << 8)
+pub const fn req(operation: u64, sid: u64) -> u64 {
+    operation | (sid << 8)
 }
 /// The opcode packed by [`req`].
-pub const fn req_op(word: u64) -> u64 {
+pub const fn req_operation(word: u64) -> u64 {
     word & 0xff
 }
 /// The socket id packed by [`req`].
@@ -194,11 +194,11 @@ pub const fn req_sid(word: u64) -> u64 {
 /// Reply words. Non-negative is success (RECEIVE returns the length here); the connect outcomes are
 /// their own small vocabulary so the client can tell "refused" from "connected".
 pub const REP_OK: u64 = 0;
-/// `OP_CONNECT` succeeded.
+/// `OPERATION_CONNECT` succeeded.
 pub const CONNECT_ESTABLISHED: u64 = 0;
 /// The peer sent RST, or the connect otherwise failed or closed.
 pub const CONNECT_REFUSED: u64 = 1;
-/// A failure sentinel (an unknown socket id, a bad op, or a server-side timeout). High bit set so
+/// A failure sentinel (an unknown socket id, a bad operation, or a server-side timeout). High bit set so
 /// it is never mistaken for a length or a connect outcome.
 pub const REP_ERR: u64 = 1 << 32;
 
@@ -349,18 +349,18 @@ mod tests {
     /// Every opcode the contract defines, in one place. It was written out three times before
     /// milestone 107 added two more, and a list repeated per property is a list that will one day
     /// be missing an entry in exactly the property that would have caught it.
-    const OPS: &[u64] = &[
-        OP_ATTACH_PAGE_FRAME,
-        OP_OPEN_UDP,
-        OP_OPEN_TCP,
-        OP_SENDTO,
-        OP_RECEIVE,
-        OP_CONNECT,
-        OP_SEND,
-        OP_CLOSE,
-        OP_LISTEN,
-        OP_ACCEPT,
-        OP_BIND_UDP,
+    const OPERATIONS: &[u64] = &[
+        OPERATION_ATTACH_PAGE_FRAME,
+        OPERATION_OPEN_UDP,
+        OPERATION_OPEN_TCP,
+        OPERATION_SENDTO,
+        OPERATION_RECEIVE,
+        OPERATION_CONNECT,
+        OPERATION_SEND,
+        OPERATION_CLOSE,
+        OPERATION_LISTEN,
+        OPERATION_ACCEPT,
+        OPERATION_BIND_UDP,
     ];
 
     /// **The request word round-trips.** `req` packs an opcode and a socket id into one word and
@@ -368,30 +368,33 @@ mod tests {
     /// becomes some other operation on some other socket, silently, with no error anywhere.
     #[test]
     fn a_request_word_round_trips_for_every_opcode_and_socket() {
-        for &op in OPS {
+        for &operation in OPERATIONS {
             for sid in 0..MAX_SOCKETS as u64 {
-                let w = req(op, sid);
-                assert_eq!(req_op(w), op, "opcode lost for sid {sid}");
-                assert_eq!(req_sid(w), sid, "socket id lost for op {op}");
+                let w = req(operation, sid);
+                assert_eq!(req_operation(w), operation, "opcode lost for sid {sid}");
+                assert_eq!(req_sid(w), sid, "socket id lost for operation {operation}");
             }
         }
     }
 
     /// Opcodes fit the byte the packing gives them. An operation numbered 256 would alias
-    /// `OP_ATTACH_PAGE_FRAME` and shift the socket id, and the round-trip above would still pass for
+    /// `OPERATION_ATTACH_PAGE_FRAME` and shift the socket id, and the round-trip above would still pass for
     /// every opcode that exists.
     #[test]
     fn every_opcode_fits_in_its_byte() {
-        for &op in OPS {
-            assert!(op <= 0xff, "opcode {op} does not fit the low byte");
+        for &operation in OPERATIONS {
+            assert!(
+                operation <= 0xff,
+                "opcode {operation} does not fit the low byte"
+            );
         }
     }
 
     /// Opcodes are distinct. Two sharing a number is one operation silently performing another.
     #[test]
     fn opcodes_are_distinct() {
-        for (i, a) in OPS.iter().enumerate() {
-            for b in &OPS[i + 1..] {
+        for (i, a) in OPERATIONS.iter().enumerate() {
+            for b in &OPERATIONS[i + 1..] {
                 assert_ne!(a, b, "two opcodes share a number");
             }
         }
@@ -403,7 +406,7 @@ mod tests {
     fn every_socket_id_fits_the_field() {
         assert!(MAX_SOCKETS as u64 <= 256, "socket ids do not fit one byte");
         let top = MAX_SOCKETS as u64 - 1;
-        assert_eq!(req_sid(req(OP_SEND, top)), top);
+        assert_eq!(req_sid(req(OPERATION_SEND, top)), top);
     }
 
     /// The shared frame's header fields do not overlap, and the payload starts after all of them.

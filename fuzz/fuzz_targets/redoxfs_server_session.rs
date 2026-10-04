@@ -317,7 +317,7 @@ impl Session {
         let (r0, _) = self
             .server
             .handle(badge, w0, w1, &mut self.window, &mut HostEdges);
-        let code = filesystem_protocol::op(w0);
+        let code = filesystem_protocol::operation(w0);
         let raw = fs::req_handle(w0);
         let ok = r0 >= 0;
         let model = self.model(badge);

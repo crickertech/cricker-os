@@ -9,8 +9,8 @@ most likely shape of a future "make a failed map leave no trace" change.
 Expected to fail: assertion (1), "table frame(s) handed out and unreachable from the root", first at
 `map_block(Size2MiB)` with allocation 1 failed on aarch64 (the table at level 1 is orphaned).
 
-Replay by hand, because `script/falsifications` sweeps Kani harnesses and kernel `#[test_case]`s
-and this is a host `#[test]`; it is reported as a known gap, not as rot:
+`script/falsifications --sweep paging` replays it, weekly and per pull request, since milestone
+742 (every test is falsified as routine). By hand, the same thing is:
 
     git apply crates/paging/falsifications/nth_allocation.a_failed_map_block_leaks_no_table.patch
     cargo test -p paging --test nth_allocation a_failed_map_block_leaks_no_table        # must fail

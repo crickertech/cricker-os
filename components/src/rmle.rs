@@ -1,6 +1,6 @@
 //! **`rmle`, the Rust multi-line editor: the smallest real text editor**
 //! (milestone 169, design/roadmap/169-kilo-editor.md), built on the raw-keystroke primitive that
-//! milestone added to the terminal contract (`OP_RAWMODE`/`OP_READRAW`, `crates/line_editor`).
+//! milestone added to the terminal contract (`OPERATION_RAWMODE`/`OPERATION_READRAW`, `crates/line_editor`).
 //! Modelled on antirez's public-domain `kilo` (<https://github.com/antirez/kilo>): a fixed
 //! screen, a row array, a cursor, insert and delete, save. No dependency this milestone's own doc
 //! did not already say `kilo` needs none of: no subprocess, no dynamic linking, no threads.
@@ -33,7 +33,7 @@
 //!
 //! | slot | what | why |
 //! |---|---|---|
-//! | 0 | the terminal, `WRITE` (`CALL`) | `OP_RAWMODE`, `OP_READRAW`, `OP_WRITE` |
+//! | 0 | the terminal, `WRITE` (`CALL`) | `OPERATION_RAWMODE`, `OPERATION_READRAW`, `OPERATION_WRITE` |
 //! | 1 | a directory capability, `WRITE` (`CALL`) | `OPEN`/`CREATE`/`READ`/`WRITE`/`TRUNCATE`/`CLOSE` on the one file it edits |
 //! | 2 | a report endpoint, `WRITE` | one message, sent right before `exit()` |
 //!
@@ -73,7 +73,7 @@ use line_editor::proto;
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{call, exit, send};
 
-/// The terminal endpoint: `CALL` for `OP_RAWMODE` / `OP_READRAW` / `OP_WRITE`.
+/// The terminal endpoint: `CALL` for `OPERATION_RAWMODE` / `OPERATION_READRAW` / `OPERATION_WRITE`.
 const TERM: u64 = 0;
 /// The directory capability: `CALL` for the `filesystem_protocol::fs` verbs.
 const DIR: u64 = 1;
@@ -110,13 +110,13 @@ const FS_WINDOW: MappedWindow =
 // ---- the terminal half ----
 
 fn rawmode(on: bool) {
-    let w0 = proto::req(proto::OP_RAWMODE, on as u64);
+    let w0 = proto::req(proto::OPERATION_RAWMODE, on as u64);
     call(TERM, w0, 0);
 }
 
 /// Block for the next batch of raw bytes (1..=8), exactly as they arrived.
 fn readraw() -> ([u8; 8], usize) {
-    let w0 = proto::req(proto::OP_READRAW, 0);
+    let w0 = proto::req(proto::OPERATION_READRAW, 0);
     loop {
         let (r0, r1) = call(TERM, w0, 0);
         // The terminal is being replaced and handed this read back (FLAG_RETRY, milestone 23 (a capability-routed component OS with live replacement)).
@@ -126,14 +126,14 @@ fn readraw() -> ([u8; 8], usize) {
     }
 }
 
-/// Stage `bytes` in the output page and `OP_WRITE` it, chunked at 4096 (the page's own size; the
+/// Stage `bytes` in the output page and `OPERATION_WRITE` it, chunked at 4096 (the page's own size; the
 /// whole-screen redraw this program ever sends is well under that, chunking is defensive).
 fn term_write(bytes: &[u8]) {
     for chunk in bytes.chunks(4096) {
         for (i, &b) in chunk.iter().enumerate() {
             TERM_OUT_WINDOW.w8(i as u64, b);
         }
-        let w0 = proto::req(proto::OP_WRITE, chunk.len() as u64);
+        let w0 = proto::req(proto::OPERATION_WRITE, chunk.len() as u64);
         call(TERM, w0, 0);
     }
 }
@@ -506,7 +506,7 @@ fn push_num(buf: &mut [u8; 4096], n: &mut usize, mut v: usize) {
     push(buf, n, &digits[i..]);
 }
 
-/// The screen buffer `redraw` stages one frame into before the single `OP_WRITE` that sends it: a
+/// The screen buffer `redraw` stages one frame into before the single `OPERATION_WRITE` that sends it: a
 /// `.bss` static rather than a stack local, called every loop iteration, so this is the hottest of
 /// the three buffers `Editor::new`'s doc explains moving off the stack.
 static mut SCREEN: [u8; 4096] = [0; 4096];
@@ -564,7 +564,7 @@ fn redraw(ed: &mut Editor) {
 
 // ---- keys ----
 
-/// The escape parser's state, byte to byte across `OP_READRAW` batches: the same reason
+/// The escape parser's state, byte to byte across `OPERATION_READRAW` batches: the same reason
 /// `line_editor::LineDisc` keeps its own `EscState` rather than assuming a whole sequence arrives
 /// in one read.
 enum Esc {

@@ -8,8 +8,8 @@ mapped with nobody recording them: a half-installed grant.
 Expected to fail: assertion (2), "what is left mapped is not a prefix of the request", at
 `map_span` with allocation 0 failed (the 4 KiB head is skipped and every block after it is mapped).
 
-Replay by hand, because `script/falsifications` sweeps Kani harnesses and kernel `#[test_case]`s
-and this is a host `#[test]`; it is reported as a known gap, not as rot:
+`script/falsifications --sweep paging` replays it, weekly and per pull request, since milestone
+742 (every test is falsified as routine). By hand, the same thing is:
 
     git apply crates/paging/falsifications/nth_allocation.a_failed_map_span_maps_a_prefix.patch
     cargo test -p paging --test nth_allocation a_failed_map_span_maps_a_prefix        # must fail
