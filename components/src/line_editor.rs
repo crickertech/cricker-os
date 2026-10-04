@@ -68,7 +68,10 @@ use user_mode_runtime::{Reply, call, recv, recv_request, reply, send};
 /// The terminal endpoint (slot 0): clients CALL requests here; we serve it with `RECV_CAP`. Its
 /// clients differ by [`MODE_CONSOLE`]/[`MODE_DISPLAY`] (`input` or `keyboard_driver`, directly, for the
 /// keystroke half; `swish` either way), but this server never has to know which: an `OP_BYTES`
-/// CALL looks the same regardless of who is holding the other end (notes/ipc-naming.md).
+/// CALL looks the same regardless of who is holding the other end (notes/ipc-naming.md). The one
+/// distinction it does draw is the kernel's, not a name: a badged copy is served only the raw half
+/// (`proto::RAW_ONLY_BADGE`, milestone 709 (a graphical terminal session on the no-keyboard arm
+/// holds only the raw half of the boot discipline)).
 const TERM: u64 = 0;
 /// The output sink's request endpoint (slot 1): [`MODE_CONSOLE`] SENDs a byte count here
 /// ([`CONREQ`]'s own doc); [`MODE_DISPLAY`] CALLs it with `OP_WRITE` (`display_terminal`'s own
@@ -201,7 +204,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
 
     loop {
         let req = recv_request(TERM);
-        let (w0, w1) = (req.w0, req.w1);
+        let (w0, w1, badge) = (req.w0, req.w1, req.badge);
         let Some(slot) = req.delivered.into_reply() else {
             // A plain SEND or a SEND_CAP slipped in; the contract says CALL. With no Reply there is
             // nobody to answer, so the only honest move is to drop it, and a delegated capability
@@ -209,6 +212,17 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
             // delegation)).
             continue;
         };
+        // **A badged copy of this endpoint is the raw half and nothing else** (milestone 709 (a
+        // graphical terminal session on the no-keyboard arm holds only the raw half of the boot
+        // discipline), `proto::RAW_ONLY_BADGE`). Every holder the boot wires is unbadged and is
+        // served below exactly as before; a badged holder (a `graphical_terminal` session reading
+        // keystrokes over the UART) may switch raw mode and read raw bytes, and nothing it sends
+        // can reach the queue the shell reads its next command from. An allowlist, so a request
+        // added to the contract later is refused here until somebody decides a reader may send it.
+        if badge != 0 && !matches!(proto::op(w0), proto::OP_RAWMODE | proto::OP_READRAW) {
+            reply(slot, proto::BAD_REQUEST, 0);
+            continue;
+        }
         match proto::op(w0) {
             proto::OP_BYTES if raw_mode => {
                 // Raw mode: no echo, no interpretation, straight into the raw queue. A burst past

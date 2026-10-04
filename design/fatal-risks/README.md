@@ -322,7 +322,11 @@ Open security findings that bear on it, each a proposal and none yet built:
   the session's copy of the boot line discipline's endpoint also answers `OP_BYTES`, so a
   compromised session can queue a command line the boot shell runs with its own authority. A
   userspace grant wider than its use, not a kernel escape; read, not demonstrated. Severity
-  medium (2026-10-03 audit, finding 2).
+  medium (2026-10-03 audit, finding 2). Dated 2026-10-03, afterwards: PR #1586 gives the session a
+  badged copy the discipline answers only `OP_RAWMODE` and `OP_READRAW` on. A badged `OP_BYTES` was
+  served before the fix (a system test, red on aarch64) and is refused after it, with a replayable
+  falsification; riscv64 and x86_64 run the test in CI. A session can still switch the
+  discipline's mode under the shell.
 - [The spawn service holds the display grants, and the shell holds none](../roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
   the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
   and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium

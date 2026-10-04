@@ -226,6 +226,25 @@ pub mod proto {
     /// [`OP_READLINE`]; a second one while one is parked is refused with `BAD_REQUEST`.
     pub const OP_READRAW: u64 = 7;
 
+    /// **The badge on a copy of the terminal endpoint that reads keystrokes and nothing else**
+    /// (milestone 709 (a graphical terminal session on the no-keyboard arm holds only the raw half
+    /// of the boot discipline), fatal risk 7). The terminal serves [`OP_RAWMODE`] and
+    /// [`OP_READRAW`] on a capability carrying **any non-zero badge** and refuses every other
+    /// request on it with [`BAD_REQUEST`]: no [`OP_BYTES`], so its holder cannot type a line
+    /// somebody else reads; no [`OP_READLINE`], so it cannot take one; no [`OP_PRINT`] or
+    /// [`OP_WRITE`]; no [`OP_QUIESCE`]. An unbadged capability is served exactly as before, which is
+    /// every holder the boot wires (the input driver, the shell, `login`).
+    ///
+    /// The spawn service mints this one (`abi::rendezvous::BADGE`) for a `graphical_terminal`
+    /// session with no keyboard, whose keystrokes come from the boot's own discipline. The badge is
+    /// the kernel's word on every receive (§230 (badged endpoint capabilities)) and a badged copy
+    /// cannot be re-badged, so a holder cannot widen it back to the unbadged surface. The rule is
+    /// "non-zero", not "this value", so the terminal holds no table; the value is fixed only so the
+    /// one minting site and a test agree on it.
+    ///
+    /// Name: provisional (the lane for milestone 709, 2026-10-03).
+    pub const RAW_ONLY_BADGE: u64 = 1;
+
     /// Supervisor → terminal: **stop serving so a replacement can take over** (milestone 23 (a capability-routed component OS with live replacement), the
     /// `line_editor` swap; ruled by calef 2026-09-26, "1a"). It rides the served endpoint, so its
     /// FIFO does the draining: every request queued ahead of it is served by this instance, and
