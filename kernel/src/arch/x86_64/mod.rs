@@ -219,17 +219,54 @@ pub fn boot_cpu_id() -> usize {
     BOOT_CPU_ID.load(core::sync::atomic::Ordering::Relaxed)
 }
 
-/// Set this CPU's per-CPU pointer, by writing the `gs` segment base.
+/// The `gs`-relative offset of `PerCpu::x86_trap.self_ptr`, which [`percpu`] loads.
+const PERCPU_SELF_OFF: usize = core::mem::offset_of!(crate::cpu::PerCpu, x86_trap.self_ptr);
+
+/// Set this CPU's per-CPU pointer, by writing the `gs` segment base, and then the block's own
+/// address into the block, through that base, for [`percpu`] to read back.
 pub fn set_percpu(ptr: usize) {
     // SAFETY: `IA32_GS_BASE` exists on every long-mode CPU, and this value is the per-CPU block
     // this kernel reserves the register for.
     unsafe { write_msr(IA32_GS_BASE, ptr as u64) };
+    // SAFETY: `gs` now bases at `ptr`, a `PerCpu` this core owns, and the offset is that struct's
+    // own `self_ptr` field, computed by `offset_of!`. Only this core reaches its block through `gs`.
+    unsafe {
+        asm!(
+            "mov gs:[{off}], {p}",
+            off = const PERCPU_SELF_OFF,
+            p = in(reg) ptr,
+            options(nostack, preserves_flags),
+        );
+    }
 }
 
 /// Read this CPU's per-CPU pointer (the value last handed to [`set_percpu`]).
+///
+/// **One `gs`-relative load, not `rdmsr IA32_GS_BASE`** (milestone 758 (the IPC fast paths shrink
+/// back inside their band), provisional). The two answer the same question, since `gs`'s base IS
+/// that MSR, but `rdmsr` is a microcoded, serialising instruction that clobbers `rax`, `rdx` and
+/// `rcx`, and this runs several times per syscall: every lock, unlock and current-thread read.
+/// Inlined, it was the largest single line in x86_64's IPC fast-path closures on 2026-10-04 UTC.
+///
+/// It reads through `gs` where the old one read the MSR, so the window where `IA32_GS_BASE` holds
+/// the user's value (between the exit `swapgs` and `iretq`, `trap.s`) is now a load from a user
+/// address rather than a wrong number. Nothing may call this in that window either way, and the
+/// two code paths that can land there (the shootdown NMI and `segments::set_port_range_grant_on`)
+/// already name their core from the local APIC instead; `mmu::serve_shootdown_nmi` says why.
 pub fn percpu() -> usize {
-    // SAFETY: `IA32_GS_BASE` exists on every long-mode CPU; a read has no side effects.
-    unsafe { read_msr(IA32_GS_BASE) as usize }
+    let p: usize;
+    // SAFETY: after `set_percpu` on this core, `gs:[PERCPU_SELF_OFF]` is this core's own
+    // `PerCpu::x86_trap.self_ptr`, which `set_percpu` wrote. `readonly`: it reads memory and writes
+    // none. Not `pure`, so LLVM never merges two reads across a migration point.
+    unsafe {
+        asm!(
+            "mov {p}, gs:[{off}]",
+            p = out(reg) p,
+            off = const PERCPU_SELF_OFF,
+            options(nostack, readonly, preserves_flags),
+        );
+    }
+    p
 }
 
 /// **Test-only: does the per-CPU pointer name the CPU we are physically running on?**
