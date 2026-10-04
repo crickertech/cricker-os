@@ -194,9 +194,11 @@ host-only and runs in milliseconds.
 
 The larger prize is in the blind spot, where all 75 cleanup paths are. A test kernel that fails a
 process's Nth `RETYPE` or `SPLIT` would sweep `login`'s `connect` and `system_initializer`'s session
-build against the region and capability counters the kernel already keeps. That touches the test
-kernel and maybe the syscall surface, so it is an architect's call and comes second
-([proposed](../design/roadmap/proposals/a-test-kernel-fails-a-process-on-its-nth-retype.md)).
+build against the region and capability counters the kernel already keeps. It touched the test
+kernel, so it was an architect's call and came second. calef approved it on 2026-10-04 (UTC), and
+it is built as milestone 757 (a test kernel fails a process on its Nth retype), provisional
+([its block](../design/roadmap/757-a-test-kernel-fails-a-process-on-its-nth-retype.md)). Its first
+sweep of `login` found one leak.
 
 ## EXAMPLES
 

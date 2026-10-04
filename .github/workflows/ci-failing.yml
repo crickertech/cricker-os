@@ -1,0 +1,46 @@
+name: ci failing
+
+# **Flags a ready pull request whose head fails a required check** (calef approved 2026-10-04 UTC).
+# calef twice spotted failing pull request CI (#1611, #1597) before any session did, and a session
+# may not run a watch loop, so the watching runs here as `nife-smelter[bot]`, at zero token cost.
+# The decision, what counts as failing and why, is helpers/ci-failing.jq; the pass is
+# helpers/ci-failing.sh. Names (this file, the script, the `ci-failing` label) are provisional.
+#
+# It labels and comments and does nothing else: no dequeue, no disabling auto-merge, no rerun.
+# notes/merge-queue.md has the BUGS. Like every scheduled workflow it runs only from `main`, so
+# `helpers/ci-failing.sh --dry-run` from a checkout is how a change is tried first.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-failing
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  flag:
+    name: flag failing required checks
+    # The App's secrets live in the `automation` environment, deployable from `main` only; see the
+    # comment on the same line of merge-drain.yml.
+    environment: automation
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: token
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+
+      - uses: actions/checkout@v7
+
+      - name: one pass
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          CI_FAILING_INSTANCE: actions:${{ github.run_id }}
+        run: helpers/ci-failing.sh

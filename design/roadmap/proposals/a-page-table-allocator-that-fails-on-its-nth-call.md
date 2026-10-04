@@ -39,7 +39,7 @@ call. Sweep N from 1 until a mapping succeeds, over `map_span` (with block sizes
 
 Host-only, milliseconds per test. If (1) or (2) fails, the finding is a frame leak or a half-mapped
 grant per failed call, which is the evidence for or against the larger pilot in
-[a test kernel fails a process on its Nth retype](a-test-kernel-fails-a-process-on-its-nth-retype.md).
+milestone 757 (a test kernel fails a process on its Nth retype), now built.
 
 ## What it does not do
 

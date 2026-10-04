@@ -422,7 +422,12 @@ pub fn build_child(
     endow: &ChildEndowment,
 ) -> Result<Child, ()> {
     let (child, aspace) = build_child_space(own_ut, build_ut, elf, endow)?;
-    configure_child(child.tcb, aspace, elf.entry())?;
+    if configure_child(child.tcb, aspace, elf.entry()).is_err() {
+        // `CONFIGURE` consumes the address space only when it succeeds, so both are still ours.
+        cap_delete(child.tcb);
+        cap_delete(aspace);
+        return Err(());
+    }
     Ok(child)
 }
 
@@ -437,22 +442,14 @@ pub fn build_child(
 /// taken the incoming owner's copy too. `CONFIGURE` consumes the address space capability, so once it has
 /// run there is no way to reach the child's memory again; this is where that seam is.
 ///
-/// # BUGS
-///
-/// **A failure leaks the caller's own capability-table slots** (recorded 2026-08-26, milestone 49).
-/// Every `?` below returns `Err(())` naming nothing, so the address space this function retyped, the
-/// frame it was part-way through, and any TCB it had already made stay in the **caller's** sixteen-
-/// slot table (`kernel::cap::CAPABILITY_TABLE_SLOTS`) with no way for the caller to reach them. A
-/// caller that builds one child at boot does not care; a long-lived server that builds one per
-/// request, and whose builds can fail, runs its own table down and then cannot serve at all. That is
-/// not hypothetical in kind: `components/src/login.rs`'s BUGS records the same class of leak (two slots per
-/// request, from a different site) refusing correct passwords for two days.
-///
-/// Fixing it properly means this function tracking what it has made and unwinding on the way out,
-/// which is a change every caller inherits for free and none of them can make locally. Not attempted
-/// from the lane that found it, because that lane's own failure path is now unreachable and a
-/// speculative rewrite of the tree's one userspace ELF loader is not what "minimal and targeted"
-/// means.
+/// **A failure gives back every capability slot it took** (milestone 757 (a test kernel fails a
+/// process on its Nth retype), provisional). Until then every `?` here returned `Err(())` with the
+/// address space, the frame it was part-way through and any TCB still in the **caller's** table,
+/// recorded 2026-08-26 by milestone 49 (users, login, and attribution) and left because no test could reach it. Milestone 757's
+/// sweep reached it: failing `login`'s tenth retype of a login (this function's first frame) left
+/// one slot behind per failed login. Now the address space is deleted on the way out of
+/// [`lay_out_child`], the TCB on the way out of [`endow_child`], and a frame by whoever retyped it.
+/// The memory itself is the caller's to give back, by destroying `build_ut`, as it always was.
 pub fn build_child_space(
     own_ut: u64,
     build_ut: u64,
@@ -476,7 +473,31 @@ pub fn build_child_space(
     }
 
     let aspace = retype_obj_from(build_ut, abi::objtype::ADDRESS_SPACE)?;
+    match lay_out_child(own_ut, build_ut, elf, endow, aspace) {
+        Ok(tcb) => Ok((
+            Child {
+                tcb,
+                retention: endow.retention,
+            },
+            aspace,
+        )),
+        Err(()) => {
+            cap_delete(aspace);
+            Err(())
+        }
+    }
+}
 
+/// [`build_child_space`] after the address space exists: the segments, the stack, the blobs, the
+/// maps, then the TCB and its endowment. Returns the TCB's slot. On `Err` it holds nothing it made;
+/// the address space is its caller's to delete.
+fn lay_out_child(
+    own_ut: u64,
+    build_ut: u64,
+    elf: &elf::Elf,
+    endow: &ChildEndowment,
+    aspace: u64,
+) -> Result<u64, ()> {
     for seg in elf.segments() {
         let mode = if seg.is_executable() {
             abi::address_space::MAP_CODE
@@ -521,6 +542,7 @@ pub fn build_child_space(
             )
         } != 0
         {
+            cap_delete(stack_frame);
             return Err(());
         }
         cap_delete(stack_frame);
@@ -587,6 +609,16 @@ pub fn build_child_space(
     }
 
     let tcb = retype_obj_from(build_ut, abi::objtype::THREAD_CONTROL_BLOCK)?;
+    if endow_child(tcb, endow).is_err() {
+        cap_delete(tcb);
+        return Err(());
+    }
+    Ok(tcb)
+}
+
+/// Insert the endowment's capabilities into the embryo `tcb`: [`ChildEndowment::caps`] first-free,
+/// then the placed ones, then the fault endpoint in its reserved slot.
+fn endow_child(tcb: u64, endow: &ChildEndowment) -> Result<(), ()> {
     for &(our_slot, rights) in endow.caps {
         // SAFETY: as above: the kernel validates the capability and the method.
         if unsafe {
@@ -636,13 +668,7 @@ pub fn build_child_space(
             return Err(());
         }
     }
-    Ok((
-        Child {
-            tcb,
-            retention: endow.retention,
-        },
-        aspace,
-    ))
+    Ok(())
 }
 
 /// Bind the address space and set the entry point: the last step before [`start_child`]. The `aspace`
@@ -677,7 +703,10 @@ fn fill_and_map(
     mode: u64,
 ) -> Result<(), ()> {
     let frame = retype_page_frame_from(build_ut)?;
-    let scratch = map_scratch(frame, true, own_ut)?;
+    let Ok(scratch) = map_scratch(frame, true, own_ut) else {
+        cap_delete(frame);
+        return Err(());
+    };
     // SAFETY: `scratch` is a page we just mapped read/write in our own address space.
     let dst = unsafe { core::slice::from_raw_parts_mut(scratch as *mut u8, PAGE as usize) };
     dst.fill(0);
@@ -686,6 +715,7 @@ fn fill_and_map(
     }
     // SAFETY: as above: the kernel validates the capability and the method.
     if unsafe { invoke(aspace, abi::address_space::MAP_INTO, va, frame, mode) } != 0 {
+        cap_delete(frame);
         return Err(());
     }
     cap_delete(frame);
