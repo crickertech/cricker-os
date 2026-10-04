@@ -175,7 +175,7 @@ The claim, and calef named this one first: a capability microkernel pays on ever
 and on workloads that cross constantly the cost is architectural rather than a matter of tuning.
 
 **Experiment status: RUN, 2026-10-04.** AMBER (calef, 2026-10-04, #1613). The throughput defence
-held on step 7's first outcome. The one unexplained number is a per-crossing cost under load, the
+held on step 7's first outcome. The one number not fully explained is a per-crossing cost under load, the
 null syscall going from 108 to 202 ticks between one task and four, and that is exactly this risk's
 claim. With the caveats below, the defence is narrow. What turns it green is explaining that
 slowdown and showing it is a fixable defect, such as lock contention on `IPC_TABLES`, rather than an
@@ -205,10 +205,16 @@ retired, and five things bound it:
   shapes the plateau: a curve held flat by a server bottleneck is a weaker witness than one held
   flat by spare cores.
 
-One finding stays open. The null syscall nearly doubles per job from one task to four (108 to 202
-ticks) while compute grows 6%, then grows only 17% more by 32. That is a per-crossing cost that
-rises with busy cores and saturates, which is not the stack-footprint shape, and it is unexplained.
-It is recorded in `notes/job-mix.md`'s `BUGS`.
+One finding was open, and is now half explained. The null syscall's near-doubling from one busy core
+to four was half a defect and half contention. The defect:
+the reaper held the global `IPC_TABLES` lock while freeing a dead thread's kernel stack, six
+TLB shootdowns that interrupt every core. Fixing it on radon (2026-10-04) cut the null syscall's
+growth from one task to four from 94 ticks to 48, and raised throughput 9% at four tasks and 11% at
+32. The rest is the one global lock itself: at four tasks 41% of syscalls find it held. That is a
+lock this kernel chose and can split, not a cost of the capability model, and splitting it is
+proposed (`design/roadmap/proposals/capability-lookup-off-the-global-lock.md`). Until that is
+measured, the per-crossing cost under load is half explained and half open
+(`notes/job-mix/null-syscall-under-load.md`).
 
 Two caveats. The counter-thesis is published: the crossing can be removed rather than made cheap. If
 RedLeaf and the 2017 Rust-kernel paper are right, a capability crossing is a cost this project chose
