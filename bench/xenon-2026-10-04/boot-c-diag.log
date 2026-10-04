@@ -1,0 +1,14 @@
+# Boot C: the diagnostic image (lane/xenon-nvme-diag-pre594 at 3dfd2e813, sha256 d1bd5082..).
+# The diag lines as relayed from calef's photograph, 2026-10-04 UTC; values exact, line
+# layout as the kernel prints it. The bridge relayed was 00:1b.0, where Boot B's tour line
+# named 00:1d.0; the diag prints every bus-0 bridge whose range holds bus 1, and only one was
+# relayed.
+diag nvme post cc 0x460001 csts 0x1
+diag nvme cid 1 opcode 0x06 never completed; csts 0x1; sq tail 1 cq head 0
+diag nvme cqe[0] 0x0 0x0 0x0 0x0
+diag pci  01:00.0 cmd 0x0106 (bme 1)
+diag pci  bridge 00:1b.0 cmd 0x0107 sts 0x2010 secsts 0x2000 (bme 1)
+diag vt-d 0xfed91000 cap 0xd2008c40660462 ecap 0xf050da c=0 pt=1 nfr 1
+diag vt-d gsts 0xc0000000 fsts 0x3 (ppf 1 pfo 1 fri 0)
+diag vt-d frcd0 sid 01:00.0 reason 0x01 read addr 0x9e1000
+diag vt-d root[1] 0x9fa001 ctx 0x9f6001 0x10002

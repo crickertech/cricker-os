@@ -216,7 +216,33 @@ attached.
 
 | Date (UTC) | Commit | Boots | Preflight 1 | Preflight 2 | Read B/s | Write B/s | IPC floor | Linux qd1 read/write | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | |
+| 2026-10-04 | a08efc8dc | 1 | not reached | not reached | | | | | screen tore as the `vt-d` lines printed (`bench/xenon-2026-10-04/boot-a-main.log`) |
+| 2026-10-04 | 7ae6d4e15 | 1 | PASS (catch-all `0xfed91000` owns 01:00.0) | not reached | | | | | bring-up `CompletionTimeout` (`boot-b-pre594.log`) |
+| 2026-10-04 | 3dfd2e813 | 1 | PASS | not reached | | | | | diagnostic image: VT-d fault reason 0x01 on the admin queue, `ECAP.C` = 0 (`boot-c-diag.log`) |
+
+### What the first evening found, 2026-10-04
+
+Neither night-of condition failed. The DMAR does give the NVMe to the catch-all unit (preflight 1
+PASS on real tables). What failed is a third thing nobody had listed: **xenon's catch-all unit
+does not snoop the CPU caches when it walks its tables** (`ECAP.C` = 0, `ecap 0xf050da`), and the
+kernel never wrote a table back to memory. So the controller enabled (`csts 0x1`), fetched its
+first admin command (IDENTIFY, cid 1) from ASQ `0x9e1000`, and the unit faulted it with reason
+0x01, root entry not present, while the CPU's own view of `root[1]` was `0x9fa001`, present. The
+entry was in a cache line the unit could not see. The endpoint and its root port both had
+Bus-Master on, which rules out the other candidate.
+
+QEMU could not have shown this: its unit reports `C=0` as well, but it reads guest memory
+directly. The fix is `kernel/src/arch/x86_64/iommu.rs`'s `Unit::publish` (a `clflush` per table
+line written, then `mfence`), on main with milestone 594. Its BUGS entry has the costs.
+
+Boot A's torn screen is probably the same defect, not a gap in the graphics RMRR. Milestone 594
+identity-maps the graphics RMRR into tables the graphics unit could not see either, so the display
+engine's first fetch after `TE` would fault however well the RMRR covered the scanout. That is
+inference: the graphics unit's `ECAP` was never read, and the RMRR reading stays open until a
+main image with the fix boots.
+
+Diagnostic images are built from `lane/xenon-nvme-diag-pre594` (the screen survives there). The
+`diag` lines print only under the `disk_throughput` feature, after a failed bring-up.
 
 ## What this cannot settle, said plainly
 
@@ -231,6 +257,9 @@ remapping (off in this kernel, offered by xenon's unit) is not on this experimen
 
 ## BUGS
 
+- **FIXED (2026-10-04): the VT-d tables never reached memory on a unit that does not snoop.**
+  See "What the first evening found" above. Whether the fix suffices on silicon is the next boot's
+  question; until it reads `CONFINED-AT-RATE`, nothing here is a throughput.
 - The two-unit route and the RMRR maps have never run against a real DMAR. Host tests over the
   7040's table cover them; QEMU presents one unit and no RMRR. The first xenon boot is their
   first real input, and the screen is what shows whether the graphics RMRR is enough.

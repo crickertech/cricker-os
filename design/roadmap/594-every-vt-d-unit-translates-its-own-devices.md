@@ -104,10 +104,18 @@ Each is also written beside the code, in `kernel/src/arch/x86_64/iommu.rs`'s BUG
 - The graphics unit translates with nothing but its RMRR mapped. The screen survives only if that
   RMRR covers what the display engine scans; Linux translates the same unit on Skylake and Kaby
   Lake without a quirk. notes/risk-6-bench-evening.md says what to watch.
+- **xenon's first boot under this kernel (2026-10-04, at a08efc8dc) tore the screen** as the
+  `vt-d ... up` lines printed, the outcome step 2 of the bench note predicted for an RMRR that
+  misses the scanout. The same evening showed a likelier cause: the catch-all unit does not snoop
+  (`ECAP.C` = 0) and this driver never wrote its tables back, so the graphics RMRR was mapped into
+  tables the graphics unit could not read either. That is inference, since the graphics unit's
+  `ECAP` was not read. Fixed in `kernel/src/arch/x86_64/iommu.rs` (`Unit::publish`); the RMRR
+  question stays open until main boots on xenon with the fix.
 
 ## Follow-on
 
-- **Outstanding.** One xenon boot under this kernel, read against notes/risk-6-bench-evening.md.
+- **Outstanding.** One xenon boot under this kernel *with the table write-back*, read against
+  notes/risk-6-bench-evening.md. The first, without it, tore the screen (BUGS).
   It must show both units up, the screen alive past the `vt-d` lines, and preflight 1 passing with
   the NVMe owned by whichever unit the DMAR names. That boot is milestone 261's bench evening; no
   second trip is needed.
