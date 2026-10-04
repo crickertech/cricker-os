@@ -150,6 +150,8 @@ is roughly 500 runner-hours against 52 minutes today. And one convention is load
 unchecked: whether a timeout counts as a kill moves this entry two points. That rule rests on a
 hand-check of 96 timeouts in August; 206 stood on 2026-09-21.
 
+Fact, 2026-10-04: milestone 745 (count the error paths no test reaches), a provisional number, found that no test executes 586 of the host crates' 1,150 Result-family error paths (51%). 490 of them are a `?` whose error side never ran. A further 1,159 are in the kernel and services, where no coverage run reaches ([untested error paths](../../notes/untested-error-paths.md)).
+
 Fact, 2026-10-03: scheduled-workflow run
 [37108924347](https://github.com/nifeos/nife/actions/runs/37108924347) (a dispatch, milestone 636 (the scheduled workflows are failing, and nothing says so)) is the
 first complete census since 2026-09-21: 85 crates, 14,853 mutants, 13,734 viable, 1,004 missed, 255
@@ -157,6 +159,13 @@ timeouts, 92.7% killed against 92.4% on 2026-09-21.
 [Appendix](the-mutation-verdict.md).
 
 Fact, 2026-10-03: milestone 517 (what fraction of survivor growth arrives on lines a pull request touched)'s inflow measurement ran once and is not a weekly report; between the 2026-09-21 and 2026-10-03 censuses 600 new survivors sit on lines 58 merged pull requests wrote, 364 in crates with a triage ledger section and 236 in crates with none ([inflow](../../notes/mutation-testing/inflow-2026-10-03.md)).
+
+Fact, 2026-10-04: the inflow check exists (milestone 740 (the survivors a merged pull request adds are
+checked against a triage record), provisional). The weekly mutation workflow diffs each census
+against the previous one, blames new survivors to the merged pull request that wrote the line, and
+fails listing any with no row in `notes/project-metrics/mutation-triage.csv`. Against the 2026-09-21
+census, 472 survivor keys are blamed to merged pull requests since: 162 have a triage row and 310
+do not.
 
 ## 4. The architecture imposes a per-crossing cost that cannot be engineered away
 
@@ -315,11 +324,17 @@ Open security findings that bear on it, each a proposal and none yet built:
   the session's copy of the boot line discipline's endpoint also answers `OP_BYTES`, so a
   compromised session can queue a command line the boot shell runs with its own authority. A
   userspace grant wider than its use, not a kernel escape; read, not demonstrated. Severity
-  medium (2026-10-03 audit, finding 2).
+  medium (2026-10-03 audit, finding 2). Dated 2026-10-03, afterwards: PR #1586 gives the session a
+  badged copy the discipline answers only `OP_RAWMODE` and `OP_READRAW` on. A badged `OP_BYTES` was
+  served before the fix (a system test, red on aarch64) and is refused after it, with a replayable
+  falsification; riscv64 and x86_64 run the test in CI. A session can still switch the
+  discipline's mode under the shell.
 - [The spawn service holds the display grants, and the shell holds none](../roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
   the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
   and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium
   as a width, low as a reach (2026-10-03 audit, finding 10).
+
+Fact, 2026-10-04: milestone 745 (count the error paths no test reaches), a provisional number, ranked 20 unreached host-crate error paths that release or grant memory or authority. Twelve are in `paging`, and one is `subtree_scope::unbind` refusing a caller that is not the root. All 75 cleanup-after-failure paths it found are in kernel and service code no coverage run reaches ([untested error paths](../../notes/untested-error-paths.md)).
 
 ## 8. Nobody needs it
 

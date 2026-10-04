@@ -6,7 +6,13 @@ name: merge drain
 # happened to be awake. Here it is `nife-smelter[bot]`, one workflow, one schedule, owned by the
 # organization, with a run list every contributor can read.
 #
-# **The premise was tested before any of this was written**, because the whole plan rested on it.
+# **Since 2026-10-03 it arms nothing** (milestone 727 (a queue eviction goes to a maintainer session), provisional; calef's rulings on #1564). It
+# labels `needs-maintainer` (name provisional) on a pull request a maintainer session must pick up,
+# dequeues one that became held, labels a resolved draft `unblocked`, and reruns a cancelled
+# duplicate CI run. `helpers/merge-drain.sh`'s header has what was removed and why.
+#
+# **The premise was tested before any of this was written**, because the plan of 2026-09-24 (an App
+# that arms and enqueues) rested on it.
 # `cli/cli#7213` reports `gh pr merge --auto` failing under a GitHub App installation token where a
 # personal token succeeds. Measured on 2026-09-24 against a throwaway pull request, under a token
 # minted here from the `nife-smelter` App: `gh pr merge N --auto --merge` exited 0 and armed;
@@ -22,12 +28,14 @@ name: merge drain
 #
 # BUGS
 #
-#   - **`workflow_run:` on CI completion joined 2026-09-30, day four of compromised throughput.**
+#   - **`workflow_run:` on CI completion joined 2026-09-30, day four of compromised throughput.** It
+#     is also the moment a merge group's CI fails and the queue ejects, so the detector sees an
+#     ejection within a pass of it rather than up to five minutes later.
 #     The cron fired three times in 24 hours (01:29, 07:05, 13:35) while ejections stranded green
 #     pull requests for hours between runs; the schedule's own BUGS entry below predicted it. The
 #     first attempt used `pull_request:` triggers and failed before logging a line, and the reason
 #     is the record: a pull_request-event run cannot reach the `automation` environment's secrets,
-#     so the drain had no App token and nothing to arm with. `workflow_run` fires from the default
+#     so the drain had no App token. `workflow_run` fires from the default
 #     branch's copy of this file when any CI run completes, which is precisely the moment a green
 #     pull request becomes eligible to strand: trusted context, real token, one cheap `--once`
 #     pass, concurrency collapsing duplicates.
@@ -54,8 +62,8 @@ on:
     types: [completed]
 
 # One drain, and the platform holds it rather than a person remembering. `cancel-in-progress: false`
-# because a pass that is part way through arming pull requests should finish; a queued duplicate is
-# the thing to drop, and GitHub drops it.
+# because a pass that is part way through labelling should finish; a queued duplicate is the thing
+# to drop, and GitHub drops it.
 concurrency:
   group: merge-drain
   cancel-in-progress: false
@@ -69,7 +77,8 @@ permissions:
   # read nowhere else, so the rerun shows as `github-actions[bot]` while the log line, which is
   # what the record counts, carries the drain's own instance tag.
   actions: write
-  # `issues: write` is for `helpers/watcher_watch.py sync`'s fallback token (milestone 723).
+  # `issues: write` is for `helpers/watcher_watch.py sync`'s fallback token (milestone 723), and for
+  # creating the `needs-maintainer` label, which the App's token may not do.
   issues: write
 
 jobs:
@@ -105,6 +114,19 @@ jobs:
           fetch-depth: 0
           filter: blob:none
 
+      # **The label exists before the pass needs it**, created or updated idempotently with the
+      # workflow's own token, so no setup step has to be remembered. Milestone 630 (a merge-queue ejection is caught before the queue, and recovered after it)'s `queue-ejected`
+      # label is retired by the same step: nothing sets or clears it any more, and a label that
+      # outlives its mechanism is a false signal. Deleting a label that is gone fails, and is
+      # ignored; this line can go once the label is gone.
+      - name: the needs-maintainer label exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create needs-maintainer --repo "$GITHUB_REPOSITORY" --force --color FBCA04 \
+            --description "A maintainer session must pick this up; set and cleared by the merge drain (milestone 727)"
+          gh label delete queue-ejected --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null || true
+
       - name: one pass
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
@@ -114,7 +136,7 @@ jobs:
           # hostname; this tags itself with the run that can be opened and read.
           MERGE_DRAIN_INSTANCE: actions:${{ github.run_id }}
           MERGE_DRAIN_RERUN_TOKEN: ${{ github.token }}
-        run: helpers/merge-drain.sh --once
+        run: helpers/merge-drain.sh
 
       # **Reports a stopped merge watcher** (milestone 723 (a stopped merge watcher is reported within
       # three of its own intervals), provisional). Each of the two watchers runs this, so a stopped

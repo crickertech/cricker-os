@@ -159,8 +159,8 @@ Highest rung first.
 - **Proposed.** `design/roadmap/proposals/the-pre-push-hook-runs-what-fits-in-seconds.md` (rung 2,
   narrowed). The hook runs `script/fmt --check`, lint's text checks and the ready-branch question,
   in about 33 s (estimated), and skips a claim. Clippy stays in CI.
-- **Proposed.** `design/roadmap/proposals/a-branch-commits-no-fact-about-the-merged-tree.md` (rung
-  2, plus a rung-1 deletion). It covers 31 of the 47 failed groups.
+- **Proposed.** `design/roadmap/proposals/a-branch-commits-no-fact-about-the-merged-tree.md`, promoted to milestone 728 (A branch commits no fact about the merged tree),
+  rung 2 plus a rung-1 deletion. It covers 31 of the 47 failed groups.
 - **Milestone 642.** Milestone 642 (the record should say whether a person or the machinery took
   a step). The data cannot say whether a calef-account step was calef or a session, so it
   cannot say whether "manual" means human.

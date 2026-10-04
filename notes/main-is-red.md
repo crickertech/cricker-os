@@ -90,6 +90,10 @@ whoever does that owes the reload afterwards. The brief carries both commands, t
 release rather than as a reminder, because a drain left dead is a queue that lands nothing and
 announces nothing.
 
+Since 2026-10-03 the drain arms nothing at all (milestone 727 (a queue eviction goes to a maintainer session), provisional), so it can no longer
+undo a hold; it only dequeues what is held. What can still undo one is a lane arming a new pull
+request into a red trunk, which the BUGS below records.
+
 ## Why the record is a label
 
 The held set must survive the session that made it, and on 2026-09-23 it did not: it was a list in a
@@ -110,8 +114,8 @@ overturn.
 each pull request's auto-merge state at hold time and restores exactly that. It cannot be built:
 GitHub clears `autoMergeRequest` the moment a pull request enters the queue, so "armed and queued"
 and "never armed" are indistinguishable through the API. Release therefore re-arms every held pull
-request under `helpers/merge-drain.sh`'s admission policy, which is what the drain would have done on
-its next pass anyway.
+request under `helpers/queue-eligible.jq`'s admission policy, which until 2026-10-03 is what the
+drain would have done on its next pass anyway.
 
 ## How it was rehearsed, since the live queue was not available
 
@@ -142,11 +146,11 @@ is a failure that reports success:
 ## BUGS
 
 - Nothing releases a hold, and nothing expires one. A session that dies mid-hold leaves the queue
-  stopped until a person notices. The tell is `helpers/merge-drain.sh` reporting far fewer unheld
-  pull requests than there are open ones, and the recovery list is in the brief. This is an accepted
+  stopped until a person notices. The tell is `gh pr list --label held-for-red-trunk` non-empty
+  while `main` is green, and the recovery list is in the brief. This is an accepted
   gap of the same family as the watchers not reporting their own death.
 - A pull request opened or marked ready during a hold is not held. `hold` labels what is open
-  when it runs, and `merge-drain.sh` will arm a new arrival into a red trunk five minutes later.
+  when it runs, and a lane that arms a new arrival puts it into a red trunk.
   Re-running `hold` sweeps them; nothing does that on a timer.
 - The orphan-cancellation step can evict the fix. A merge-queue branch is named after the last
   entry in its group, so a group holding the fix behind other entries is indistinguishable from an

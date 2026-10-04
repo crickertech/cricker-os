@@ -1,5 +1,6 @@
 ---
-status: NOT-STARTED
+status: BUILT
+built: 2026-10-03
 raised: 2026-10-03
 promoted_from: arm-1-holds-only-the-raw-half-of-the-boot-discipline
 milestone_dependencies: none
@@ -82,6 +83,63 @@ syscall surface, no wire format, no dependency.
 Nothing. The finding is recorded in `components/src/graphical_terminal.rs`'s BUGS where a reader
 of the arm meets it.
 
+## What is built
+
+The badged copy, as chosen above, with one change to its shape: the discipline serves a badged
+holder an **allowlist** (`OP_RAWMODE`, `OP_READRAW`) rather than refusing a list, so `OP_WRITE`,
+`OP_INTRCOUNT`, `OP_QUIESCE` and any request added later are refused too.
+
+- `crates/line_editor`: `proto::RAW_ONLY_BADGE` (provisional name). The rule is any non-zero badge,
+  so the discipline holds no table; the value only makes the minting site and the test agree.
+- `components/src/line_editor.rs`: the guard ahead of the dispatch, reading the badge
+  `recv_request` already returned.
+- `crates/system_initializer`: arm 1 mints `boot_terminal` badged `RAW_ONLY_BADGE` per launch,
+  grants that copy at slot 2 and deletes it once the session holds it. One slot for the build,
+  below arm 0's peak. Every holder the boot wires (input driver, shell, `login`) stays unbadged.
+- `components/src/graphical_terminal.rs`: its BUGS entry now records what is left (below).
+
+### Measured first, 2026-10-03 (UTC), aarch64
+
+The test went in before the fix. A badged `CALL` (`ipc_call_badged`, the kernel's own delivery of a
+badged capability) of `OP_BYTES "ls\r"` was served: red at `raw_mode_tests.rs:445`, "a badged
+holder's OP_BYTES was served (r0 = 0)", exit 1. This shows the discipline ignored the badge. It is
+not a full hostile session under QEMU: that would need arm 1's GPU launch plus a modified
+`graphical_terminal`, and the grant itself was read from the spawn service, not observed.
+
+### The test, and its falsification
+
+`a_badged_copy_of_the_terminal_reads_keystrokes_and_cannot_type_them` in
+`system_tests/src/user/raw_mode_tests.rs`, against a real `line_editor` process. The badged holder
+types `ls\r` cooked (refused), the shell's `OP_READLINE` then gets exactly the input driver's `ok`,
+five other requests are refused, and `OP_RAWMODE` and `OP_READRAW` work through the same badged copy.
+
+| run | tree | result |
+|---|---|---|
+| before the fix | test only | exit 1, red at `raw_mode_tests.rs:445` |
+| after the fix | filter `raw_mode_tests` | 8 of 8 pass, exit 0 |
+| replay | fix with the record applied | exit 1, red at `raw_mode_tests.rs:445` |
+
+The record is `system_tests/falsifications/user.raw_mode_tests.a_badged_copy_of_the_terminal_reads_keystrokes_and_cannot_type_them.patch`.
+
+### Architectures
+
+The discipline and the spawn service are one source for every ISA, and the test is in the shared
+suite. It was booted here on aarch64 only; riscv64 and x86_64 run it in CI. Arm 1 itself is
+launched end to end by `script/swish-check`'s aarch64 and riscv64 legs, which CI runs; x86_64 has no
+graphical launch, which is milestone 632's scope and not a gap this milestone adds.
+
+### What is left
+
+**A session can still switch the boot discipline's mode.** `OP_RAWMODE` is in the half it uses, so
+a session can flip the discipline under the shell, abandoning a half-typed line and failing a parked
+read with `BAD_REQUEST`; the shell's §227 (how Tab reaches the shell) recovery takes raw back. A disruption, not authority.
+Recorded in `components/src/graphical_terminal.rs`'s BUGS.
+
+## Follow-on
+
+- **Recorded.** A session can still switch the boot discipline's mode under the shell, in
+  `components/src/graphical_terminal.rs`'s BUGS.
+
 ## Index row
 
-A `graphical_terminal` session with no keyboard receives the boot discipline's endpoint with `WRITE` but uses only two requests on it. Proposed: narrow what it holds to the raw half it uses, from the 2026-10-03 security audit's finding 2.
+A `graphical_terminal` session with no keyboard receives the boot discipline's endpoint with `WRITE` but uses only two requests on it. BUILT: it holds a badged copy the discipline answers only `OP_RAWMODE` and `OP_READRAW` on, with a test that goes red without the fix (2026-10-03 security audit, finding 2).

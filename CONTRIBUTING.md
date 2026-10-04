@@ -125,7 +125,7 @@ them costs more than getting them wrong.
 script/claim fix/short-description           # branch, worktree, empty commit, push, draft PR
 # ...work in the worktree, committing and pushing as pieces prove out...
 script/ci-build                              # every local check a PR must pass, cheapest first
-gh pr ready                                  # CI runs; a draft skips it
+gh pr ready && gh pr merge --auto --merge    # CI runs (a draft skips it); armed, it lands when green
 ```
 
 Claim before you work. §90 (the claim is a draft pull request) makes a draft pull request the
@@ -151,11 +151,12 @@ skipped check still satisfies a required one. Mark the pull request ready when t
 dispatch the workflows by hand to gate it earlier; [`briefs/gate-in-ci.md`](briefs/gate-in-ci.md)
 has the commands.
 
-Landing is automatic for a branch in this repository. Once a pull request is ready,
-`nife-smelter[bot]` arms auto-merge from `merge-drain.yml`. It lands through GitHub's merge queue
-when green, and the queue batches and rebases it, so you do not need to keep the branch current. A pull request from a fork waits for a
-maintainer: its workflows need an approving click, and the drain never arms a head from another
-repository. The `needs-architect` label holds a pull request for an architect's decision, and a
+Landing is automatic once you arm it, which is the second half of that last command: an armed
+pull request lands through GitHub's merge queue when green, and the queue batches and rebases it, so
+you do not need to keep the branch current. Nothing arms it for you. A ready pull request left
+unarmed for 30 minutes, ejected from the queue, or conflicting with `main` is labelled
+`needs-maintainer` by `merge-drain.yml`, for a maintainer to pick up. A pull request from a fork
+waits for a maintainer: its workflows need an approving click. The `needs-architect` label holds a pull request for an architect's decision, and a
 correction-of-error pull request gets that label automatically. If an agent writes a pull request,
 its body opens with the `**Lane:**` line AGENTS.md describes, so a reader can tell who is speaking.
 

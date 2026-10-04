@@ -946,4 +946,59 @@ mod tests {
         assert_eq!(t.iter().filter(|&&b| b == b'\n').count(), 2);
         assert!(t.windows(2).all(|w| w[1] != b'\n' || w[0] == b'\r'));
     }
+
+    /// The sizes the notes quote: a record is at most 256 bytes (Zircon's), a window's data is its
+    /// page less the 16-byte header, and the four flag bits are the four low bits.
+    #[test]
+    fn the_quoted_sizes_and_flag_bits_are_what_the_notes_say() {
+        assert_eq!(record::RECORD_MAX, 256);
+        assert_eq!(read::DATA_MAX, 4080);
+        assert_eq!(record::flags::KERNEL, 1);
+        assert_eq!(record::flags::DROPPED_BEFORE, 2);
+        assert_eq!(record::flags::CUT, 4);
+        assert_eq!(record::flags::DIRECT, 8);
+    }
+
+    /// Severity 7 is the last level syslog has: accepted, and 8 is refused.
+    #[test]
+    fn the_last_syslog_level_is_accepted_and_the_next_is_refused() {
+        let h = record::Header {
+            seq: 1,
+            time: 2,
+            source: 3,
+            severity: 7,
+            flags: 0,
+            len: 0,
+            kind: 0,
+        };
+        let mut b = h.encode();
+        assert_eq!(record::Header::decode(&b), Some(h));
+        b[24] = 8;
+        assert_eq!(record::Header::decode(&b), None);
+    }
+
+    /// A name of sixteen bytes is one message and seventeen is two: the second chunk carries only
+    /// what spills past sixteen.
+    #[test]
+    fn a_name_of_sixteen_bytes_is_one_message_and_seventeen_is_two() {
+        let sixteen = control::name_messages(5, control::USER, &[b'a'; 16]);
+        assert!(sixteen[0].is_some() && sixteen[1].is_none());
+        let seventeen = control::name_messages(5, control::USER, &[b'a'; 17]);
+        let (word, ..) = seventeen[1].expect("a second chunk");
+        assert_eq!(
+            control::fields(word),
+            (control::OP_NAME, control::USER, 1, 5)
+        );
+        assert_eq!(
+            seventeen[1].unwrap().1,
+            u64::from_le_bytes(*b"a\0\0\0\0\0\0\0")
+        );
+    }
+
+    /// A read request carries its opcode in the top byte and nothing else.
+    #[test]
+    fn a_read_request_is_the_opcode_in_the_top_byte_alone() {
+        assert_eq!(read::request() >> 56, read::OP_READ);
+        assert_eq!(read::request() & ((1 << 56) - 1), 0);
+    }
 }

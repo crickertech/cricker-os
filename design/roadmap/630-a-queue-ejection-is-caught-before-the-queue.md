@@ -57,6 +57,10 @@ Each piece is described, with its measurements and its falsification, in
 - `--ready-branch` matches by branch name. A block naming the wrong branch passes it and still
   fails in the group.
 
+2026-10-03 (UTC), later: item 2 above no longer holds. The hook ran all of lint for under a day.
+It cost 70 to 202 s under load. It now runs `script/lint --no-cargo` and skips a push that changes
+no files (milestone 729 (the pre-push hook runs what fits in seconds)).
+
 ## Follow-on
 
 - **Recorded.** Making `ready status` a required check and pre-creating the label are the two

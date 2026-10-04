@@ -89,7 +89,13 @@ Push, name the run ids, and end your turn on the same WAITING line as Step 3:
     gh run list --branch "$(git branch --show-current)" --limit 5
     # WAITING <run-id> <run-id> on ci.yml + verify.yml before marking #<N> ready
 
-When the maintainer resumes you with both runs green, call `gh pr ready <N>` in that same turn.
+When the maintainer resumes you with both runs green, mark it ready and arm it in one command:
+
+    gh pr ready <N> && gh pr merge <N> --auto --merge
+
+Nothing else arms it. The merge drain stopped arming on 2026-10-03 (milestone 727 (a queue eviction goes to a maintainer session), provisional),
+and a ready pull request left unarmed for 30 minutes is labelled `needs-maintainer` for a
+maintainer session to pick up.
 Nothing here is watched with `gh run watch` or `gh pr checks --watch`; those poll, and polling is the
 rule this brief and `briefs/session-start.md` both refuse.
 
@@ -110,14 +116,14 @@ settles. That is not a `WAITING` line, and CI is not what will unblock it.
 Say so where a machine can act on it instead: add `Blocked-by: #N[, #M ...]` to this draft's own
 body before ending the turn. `helpers/merge-drain.sh` labels the draft `unblocked` and comments once
 every listed pull request has merged or closed. `notes/blocked-by-drafts.md` has the mechanism;
-`notes/merge-queue.md`'s `Blocked-by:` section has why a plain "held" label was refused, for the
-older, non-draft half of the same convention. A listed pull request closed without merging is
+`notes/merge-queue.md`'s `Blocked-by:` section has why a plain "held" label was refused, and what
+the line does on a ready pull request. A listed pull request closed without merging is
 called out as such rather than silently released, because it usually means the plan changed. The
 label clears itself the moment you push a new commit or mark the draft ready, so resuming needs
 nothing more than doing the work.
 
-Without it, the pause lives only in the pull request's own prose, which nothing re-reads once
-`stale_drafts` has posted its one note. That is exactly what happened to #1289 in 2026-09: paused
+Without it, the pause lives only in the pull request's own prose, which nothing re-reads. That is
+exactly what happened to #1289 in 2026-09: paused
 waiting on #1288, which merged an hour later, and left alone for two days because the pause was
 never machine-readable.
 

@@ -879,4 +879,47 @@ mod tests {
             }
         }
     }
+
+    /// The bare words that travel on the front door are an opcode in the top byte and nothing else.
+    #[test]
+    fn each_bare_word_is_its_opcode_in_the_top_byte_alone() {
+        for (word, op) in [
+            (suspend_word(), SUSPEND),
+            (rederive_skips_word(), REDERIVE_SKIPS),
+            (logout_word(), LOGOUT),
+        ] {
+            assert_eq!(word >> credential_protocol::OP_SHIFT, op);
+            assert_eq!(word << (64 - credential_protocol::OP_SHIFT), 0);
+        }
+    }
+
+    /// Two lengths in one word, each from its own half.
+    #[test]
+    fn the_two_schedule_lengths_do_not_share_bits() {
+        let w = schedule_lengths(0xdead_beef, 0x1234_5678);
+        assert_eq!(w, 0x1234_5678_dead_beef);
+        assert_eq!(split_schedule_lengths(w), (0xdead_beef, 0x1234_5678));
+    }
+
+    /// The durable window is the file service's last, and the budgets a spawner sizes from are the
+    /// documented sums. A change to any of these is a decision about what `login` may spend, so it
+    /// is written down twice.
+    #[test]
+    fn the_durable_window_is_the_last_and_the_budgets_are_the_documented_sums() {
+        assert_eq!(
+            DURABLE_WINDOW as usize + 1,
+            filesystem_protocol::fs::CLIENT_WINDOWS
+        );
+        assert_eq!(durable::SESSION_REGION_PAGES, 320);
+        assert_eq!(durable::BUDGET_PAGES, 64 + 320 + 416);
+        assert_eq!(durable::BUDGET_PAGES, 800);
+    }
+
+    /// Skip counts pack one byte each in reason order and saturate at 255, not wrap.
+    #[test]
+    fn skip_counts_pack_one_byte_each_and_saturate() {
+        let packed = durable::pack_skip_counts(&[1, 2, 255, 256, 100_000]);
+        assert_eq!(packed, u64::from_le_bytes([1, 2, 255, 255, 255, 0, 0, 0]));
+        assert_eq!(durable::unpack_skip_counts(packed), [1, 2, 255, 255, 255]);
+    }
 }

@@ -1,8 +1,8 @@
 # helpers/queue-eligible.jq: what "eligible for the merge queue" means, in one place.
 #
-# Two scripts arm auto-merge (`merge-drain.sh` on a schedule as `nife-smelter[bot]`, `queue-hold.sh`
-# when a person releases a hold), and until the 2026-09-24 security audit each carried its own copy
-# of this predicate, and both copies were wrong in the same way: "open, not a draft, against main"
+# Two scripts armed auto-merge in 2026-09 (`merge-drain.sh` on a schedule as `nife-smelter[bot]`,
+# `queue-hold.sh` when a person releases a hold), and until the 2026-09-24 security audit each
+# carried its own copy of this predicate, and both copies were wrong in the same way: "open, not a draft, against main"
 # admitted a pull request from ANY fork. The ruleset on `main` requires zero approving reviews, so a
 # stranger whose checks went green was one drain pass from merged, by automation, with nobody having
 # read the diff. The audit report has the whole path (design/audit-reports/, 2026-09-24).
