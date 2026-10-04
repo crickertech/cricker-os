@@ -85,6 +85,19 @@ merged rather than vanished). Do not restate its commands here or type them from
 step is one line on purpose: a second copy of those instructions is a second thing to keep correct,
 and the copy that drifts is always the one nobody is looking at.
 
+**The mutation census is read here too (milestone 740 (the survivors a merged pull request adds are checked against a triage record)).** Fatal risk 3's green condition
+is that the survivors a merged pull request adds are triaged, and the weekly `mutation testing`
+workflow's `inflow` job is what checks it. Read its last scheduled conclusion:
+
+    gh run list --repo nifeos/nife --workflow "mutation testing" --limit 3 --json conclusion,createdAt,databaseId
+
+If the latest scheduled run failed, open its `inflow` job's summary. The untriaged survivors it
+lists (crate, function, mutation, pull request) are the next triage lane's input: that lane writes
+a row per survivor into `notes/project-metrics/mutation-triage.csv` and a test or a reason for each
+(notes/mutation-testing.md, the ledger). A red `mutants` job is a different finding (a broken census,
+not untriaged survivors). Nothing here blocks a merge. It is rung 2 only for the job and rung 4 for
+whoever reads it, which is why it is in this brief.
+
 ## 3. Treat what it reports as tasks, not as a status line
 
 This is the whole reason step 2 exists, and it is the failure the steward role was meant to cover
