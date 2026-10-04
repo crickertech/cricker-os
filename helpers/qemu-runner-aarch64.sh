@@ -367,6 +367,13 @@ GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat"
 PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
 GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
 
+# **The name server** (milestone 384 (in a capability system the resolver is a grant)), on the
+# package source's terms: 10.0.2.9:53 is a fresh `helpers/name-server-peer` per connection, answering
+# one DNS query over TCP from a fixed zone that includes the lies a resolver must refuse. TCP because
+# guestfwd forwards nothing else, and a UDP name server would have to bind a host port.
+NAME_SERVER_PEER="$(cd "$(dirname "$0")" && pwd)/name-server-peer"
+GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:53-cmd:$NAME_SERVER_PEER"
+
 # `tftp=` turns on slirp's OWN TFTP server, at the gateway (10.0.2.2:69), and that is what makes the
 # gating UDP test deterministic and offline. The UDP test used to query 10.0.2.3:53, which is NOT a
 # resolver: libslirp NATs anything sent there to the HOST's nameserver, so that test silently

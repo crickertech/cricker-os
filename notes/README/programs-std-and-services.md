@@ -51,5 +51,6 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Login](../login.md): authentication that returns capabilities instead of changing identity.
 - [The network stack as a confined component](../net.md): the confined NIC driver, smoltcp server and socket contract.
 - [NTP: the wire format, and the client that carries it](../ntp.md): the NTPv4 codec and a one-shot time client.
+- [Name resolution: the wire format, and the three forks it leaves](../name-resolution.md): the DNS crate, its end-to-end test, and the open questions about who holds a resolver.
 - [SMB: the network file service a Mac mounted, and why it is no longer here](../smb.md).
 - [mDNS/DNS-SD: the Time Machine advertisement, and why it is no longer here](../mdns.md).
