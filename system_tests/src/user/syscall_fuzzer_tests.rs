@@ -801,14 +801,14 @@ fn actor(i: usize, doorbell: RendezvousId) {
                 }
             }
         };
-        let mut table = [None; SLOTS];
-        for (s, t) in table.iter_mut().enumerate() {
-            *t = sched::current_cap(s as u64).ok();
-        }
+        // Written straight into the mail: a local `[Option<Cap>; SLOTS]` is a 2 KiB array in this
+        // thread-stack frame (5,360 bytes on x86_64 at 64 slots, over the guard page).
         {
             let mut m = MAIL[i].lock();
             m.answer = answer;
-            m.table = table;
+            for (s, t) in m.table.iter_mut().enumerate() {
+                *t = sched::current_cap(s as u64).ok();
+            }
         }
         DONE[i].store(seq, Ordering::SeqCst);
     }
