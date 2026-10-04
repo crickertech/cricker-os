@@ -7,13 +7,14 @@ name: toolchain bump
 #      stays the real gate; this job deliberately does not try to be it.
 #   3. ACCEPT: the `restamp` job below carries the icount floors across the bump when it can prove
 #      the compiler did not move them; when it cannot, a person re-records them on this branch,
-#      having read what moved. Either way the merge drain then takes it like any green pull request.
+#      having read what moved. Either way the auto-merge this job armed takes it into the queue.
 #
 # **The default is to merge** (calef, 2026-09-24: "Our default should be to merge and we should only
 # block it if there is a compelling reason to."). Once the floors are re-recorded and CI is green, the
-# bump is not labelled `needs-architect` and the merge drain enqueues it like any other green pull
-# request; this job does not arm it, and does not need to. Hold it (the label, plus a `## What I need
-# from you` comment carrying the evidence) only for a compelling reason, which is one of:
+# bump is not labelled `needs-architect` and enters the queue on the auto-merge this job arms when
+# it opens or readies the pull request (the merge drain stopped arming on 2026-10-03). Hold it
+# (the label, plus a `## What I need from you` comment carrying the evidence) only for a compelling
+# reason, which is one of:
 #
 #   - a Kani proof or falsification result that changed;
 #   - a bench tripwire that moved beyond tolerance;
@@ -500,7 +501,7 @@ jobs:
           $floors
 
           **The default is to merge** (calef, 2026-09-24). Once the floors name \`$TARGET\` and CI is
-          green, the merge drain enqueues this like any other green pull request. Hold it with
+          green, this pull request enters the queue on the auto-merge this workflow armed. Hold it with
           \`needs-architect\` and a \`## What I need from you\` comment only for a compelling reason:
           a changed proof or falsification result, a bench move beyond tolerance, a lint silenced
           only by a crate- or workspace-level allow, a changed test output, or a compile break too
@@ -568,4 +569,10 @@ jobs:
               gh pr ready "$existing" --undo || true
             fi
             echo "Updated PR #$existing in place."
+          fi
+          # **Arms its own pull request** (milestone 727 (a queue eviction goes to a maintainer session), provisional): since 2026-10-03 the merge drain
+          # arms nothing, and a lane arms in the same command as `gh pr ready`. This workflow is the
+          # lane here. If arming fails the pull request is labelled needs-maintainer after 30 minutes.
+          if [ "$BUILD" = "success" ]; then
+            gh pr merge "$branch" --auto --merge || echo "::warning::could not arm the pull request"
           fi

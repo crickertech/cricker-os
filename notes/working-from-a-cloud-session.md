@@ -81,8 +81,9 @@ so none of them depend on a laptop being awake.
 - A pipe after a gate. Read the command's own exit status.
 - Trusting Ubuntu's QEMU. `script/qemu-check` rejects it, and results from it describe an emulator
   this tree refuses.
-- The `briefs/main-is-red.md` drain commands from before 2026-09-24. The drain is a workflow now:
-  `gh workflow disable "merge drain"` and `gh workflow enable "merge drain"`.
+- The `launchctl` drain commands from before 2026-09-24. The drain is a workflow now:
+  `gh workflow disable "merge drain"` and `gh workflow enable "merge drain"`, and since 2026-10-03
+  a red-trunk hold does not need it stopped.
 
 ## BUGS
 

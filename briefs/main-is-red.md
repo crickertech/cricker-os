@@ -31,21 +31,14 @@ root `*.md`, and the checks still post `success`. On 2026-09-23 that hid a broke
 believe the lane and reproduce locally (`cargo test -p documentation`) before concluding the trunk
 is fine.
 
-## Know that a watcher will fight you, and check it first
+## The drain is on your side now
 
-`helpers/merge-drain.sh` runs unattended as the `merge drain` Actions workflow every five minutes, and
-its charter is the first line of its own header: enqueue every pull request that does not need an
-architect. It re-enqueued a held set three times on 2026-09-23 while the operator watched,
-because its admission policy knew only drafts and `needs-architect`. The failure is invisible in the
-worst way: a dequeue leaves no trace of why an entry came back, so it reads as your own dequeue
-having failed, and it was misdiagnosed twice before anyone read the script.
-
-The drain now excludes `held-for-red-trunk` as well, so a hold placed with that change on `main`
-survives. A hold placed against a checkout or a running drain from before it does not, and will be
-undone within five minutes. If in doubt, stop the drain first and remember that you now owe a
-re-enable. This works from any host with `gh`, including a cloud session:
-
-    gh workflow disable "merge drain"
+`helpers/merge-drain.sh` runs unattended as the `merge drain` Actions workflow every five minutes.
+Until 2026-10-03 it enqueued every pull request that did not need an architect, and it re-enqueued
+a held set three times on 2026-09-23 while the operator watched. It arms nothing now (milestone 727 (a queue eviction goes to a maintainer session),
+provisional), and it dequeues anything labelled `held-for-red-trunk` that is still in the queue, so
+leave it running. What can still undo a hold is a lane arming a new pull request; re-run `hold` to
+sweep new arrivals.
 
 ## Then hold, and hold before you enqueue the fix
 
@@ -80,21 +73,13 @@ more often than it feels like it is.
     helpers/queue-hold.sh status       # trunk state and the held set, together
     helpers/queue-hold.sh release
 
-**If you stopped the drain, start it again. This is part of release, not an afterthought:**
-
-    gh workflow enable "merge drain"
-
-A drain left disabled is a queue that lands nothing and says nothing about why, which is the same
-silent-stall shape this whole procedure exists to shorten.
-
 Release re-arms auto-merge and removes the label. **Anything it could not re-arm keeps the label on
 purpose** and is named in the output: a conflict, a failing check, or a pull request that was closed
 while held. That list is the handoff, and it is the one part of this that a person must read rather
 than skim.
 
 `release` does not restore the pre-hold state, because GitHub does not expose it (`autoMergeRequest`
-is cleared at enqueue). It applies `helpers/merge-drain.sh`'s admission policy instead, which is what
-the drain would have done on its next pass anyway.
+is cleared at enqueue). It applies `helpers/queue-eligible.jq`'s admission policy instead.
 
 ## If a session died mid-hold
 
@@ -103,15 +88,15 @@ The label is the whole recovery record; nothing else was kept, and nothing expir
 1. `gh pr list --repo nifeos/nife --label held-for-red-trunk` is the held set, whoever made it.
 2. `helpers/trunk-health.sh --once`. If `main` is green, the fix landed and the hold was simply never
    given back: run `helpers/queue-hold.sh release`.
-3. Check the drain is enabled: `gh workflow view "merge drain"` reads `active`. A session that
-   disabled it and died owes you the re-enable, and nothing else will notice it is gone.
+3. Check the drain is enabled: `gh workflow view "merge drain"` reads `active`. If a session
+   disabled it and died, re-enable it.
 4. If `main` is still red and no fix pull request is open, the previous session died before it wrote
    one. You are now the session that noticed; start at the top of this brief.
 5. If a pull request carries both `held-for-red-trunk` and `needs-architect`, leave it held. The
    architect hold outranks this one and `release` will refuse to re-arm it anyway.
 
-The tell that this happened at all: `helpers/merge-drain.sh` reporting far fewer unheld pull requests
-than there are open ones, for hours, with no stall named.
+The tell that this happened at all: `gh pr list --label held-for-red-trunk` is not empty while
+`main` is green.
 
 ## What this brief deliberately does not do
 

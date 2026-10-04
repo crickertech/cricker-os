@@ -2810,25 +2810,22 @@ if [ -n "$ignored" ]; then
 fi
 echo "tracked-but-ignored files: none"
 
-# 11. **The merge queue's admission predicate says what it means** (2026-09-24 security audit). The
-#     drain arms auto-merge as `nife-smelter[bot]` on every eligible pull request, the ruleset on
-#     `main` requires zero approving reviews, and until that audit "eligible" admitted a pull request
-#     from any fork on GitHub. The predicate is now one file, helpers/queue-eligible.jq, and this
-#     self-test checks it against fixtures and checks that both consumers still splice it.
+# 11. **The merge queue's admission predicate says what it means** (2026-09-24 security audit). Until
+#     that audit "eligible" admitted a pull request from any fork on GitHub, at a time when the
+#     drain armed every eligible pull request as `nife-smelter[bot]`. The predicate is one file,
+#     helpers/queue-eligible.jq, and this self-test checks it against fixtures and checks that both
+#     consumers still splice it.
 echo "==> the merge queue's admission predicate"
 "$(dirname "$0")/../helpers/queue-eligible-selftest.sh"
-#     And the enqueue predicate on top of it (2026-09-24): the drain now calls `enqueuePullRequest`
-#     for a pull request the platform left armed and green outside the queue, and the self-test's
-#     load-bearing fixture is a fork that is stranded by every other measure and must be refused.
-"$(dirname "$0")/../helpers/queue-stranded-selftest.sh"
 #     And the cancelled-duplicate detection (2026-09-24): the drain reruns, once, the CI run a
 #     concurrency group cancelled beside its same-second sibling; the self-test's fixtures are the
 #     ordinary supersede that must not be rerun and the attempt-2 run that must not be rerun again.
 "$(dirname "$0")/../helpers/cancelled-duplicate-selftest.sh"
-#     And the ejection decision (milestone 630): a head the queue ejected on a failure is held
-#     rather than re-armed into another 20-to-38-minute group, a moved head releases, and a
-#     deliberate removal is not an ejection. Fixtures only, no `gh`.
-"$(dirname "$0")/../helpers/queue-ejected-selftest.sh"
+#     And the needs-maintainer detector (milestone 727 (a queue eviction goes to a maintainer session), provisional): an ejected, conflicting,
+#     stale or unarmed pull request is labelled for a maintainer session and cleared when its cause
+#     goes, fed a recorded GraphQL response and one fixture per case, no `gh`. It also fails if the
+#     drain arms or enqueues again, which calef ruled out on #1564.
+"$(dirname "$0")/../helpers/needs-maintainer-selftest.sh"
 #     And who took a dequeue, for milestone 642 (the record should say whether a person or the
 #     machinery took a step): helpers/session_steps.py credits a `calef`-account event to the
 #     session whose `gh` call came before it, never after. Fixtures only, no `gh`.
