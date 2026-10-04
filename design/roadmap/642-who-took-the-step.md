@@ -24,9 +24,10 @@ nothing else's: `who-took-the-step.md` is a lane's coinage and `design/naming.md
 Every option below except the refusal puts a long-lived credential on patagonia
 or adds an account to the organization. That is calef's call, it is a security decision, and it is
 close to irreversible in the sense `AGENTS.md` means: a key that has been on a machine has been on
-it. The one credential this milestone caused is the App user token (`ghu_`) calef authorized on
-2026-10-04 (UTC) for the #1580 measurement. It expires after 8 hours, but its refresh token lasts 6
-months unless the authorization on `nife-smelter` is revoked.
+it. The one credential this milestone caused was the App user token (`ghu_`) calef authorized on
+2026-10-04 (UTC) for the #1580 measurement. calef revoked that authorization, which kills its
+refresh token too, and disabled Device Flow on `nife-smelter` on 2026-10-04 (UTC), after the test;
+the local token file was deleted.
 
 ## Built 2026-10-04 (UTC): the machinery is separable, a session is reconstructed, and an agent account is refused
 
