@@ -906,6 +906,16 @@ pub struct PciE1000eDevice {
     pub rid: u32,
     /// The PCI device id, which says which part this is (`e1000e::model`).
     pub device: u16,
+    bdf: Bdf,
+}
+
+impl PciE1000eDevice {
+    /// Read a dword of this function's configuration space. The I219's descriptor-ring flush
+    /// reads its status word at `0xe4` (`e1000e::pch::flush`), which is the one reason a NIC
+    /// driver here needs configuration space after bring-up.
+    pub fn config_read32(&self, off: u64) -> u32 {
+        cfg_read32(self.bdf, off)
+    }
 }
 
 /// Find the first function `e1000e::is_supported` claims and bring its transport up, in
@@ -950,6 +960,7 @@ pub fn find_e1000e_device() -> Option<PciE1000eDevice> {
         bar0,
         rid: bdf.requester_id(),
         device,
+        bdf,
     })
 }
 

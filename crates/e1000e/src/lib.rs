@@ -12,9 +12,11 @@
 //! # Where the facts come from
 //!
 //! Read, not recalled, on 2026-10-04 (UTC): Linux's `drivers/net/ethernet/intel/e1000e/regs.h`,
-//! `defines.h` and `hw.h` for offsets, bits, descriptor layouts and device ids, and QEMU's
-//! `hw/net/e1000e_core.c` for what the emulated 82574L does with them (legacy descriptors unless
-//! `RFCTL.EXTEN`; receive only with `RCTL.EN`, link up and bus mastering). **Intel's own I219
+//! `defines.h` and `hw.h` for offsets, bits, descriptor layouts and device ids, cross-checked the
+//! same day against FreeBSD's BSD-licensed `sys/dev/e1000/` (`e1000_regs.h`, and `e1000_api.c`'s
+//! SPT class, which is exactly [`DEVICE_IDS`]' I219 rows), and QEMU's `hw/net/e1000e_core.c` for
+//! what the emulated 82574L does with them (legacy descriptors unless `RFCTL.EXTEN`; receive only
+//! with `RCTL.EN`, link up and bus mastering). No Linux code was copied. **Intel's own I219
 //! datasheet was not read**; where the I219 is believed to differ from the 82574L it is said so,
 //! and marked, at the item.
 //!
@@ -62,12 +64,11 @@
 //!
 //! # BUGS
 //!
-//! - **The I219 is believed to need more at bring-up than the 82574L**, and none of it is here.
-//!   Linux's `ich8lan.c` handles PCH parts with a PHY behind an MDIO interface, an ultra-low-power
-//!   PHY state firmware may leave on, a descriptor-ring flush before reset on SPT parts, and
-//!   `FEXTNVM` workarounds. This crate does the 82574L's sequence, which QEMU proves, and xenon's
-//!   bench step (notes/e1000e.md) is what says whether the I219 needs any of the rest. Recalled
-//!   from reading that file's function names, not its bodies.
+//! - **Half of the I219's own bring-up is here, and half is not.** The MAC-register steps FreeBSD
+//!   does for a PCH part (ULP exit through the Management Engine, the SPT descriptor-ring flush,
+//!   the reset's bus-master and STRAP steps) are ported in [`pch`], with Intel's BSD licence. The
+//!   PHY-register steps (MDIO under the firmware semaphore: ULP exit without an ME, `SMBus`
+//!   unforcing, the post-reset PHY workarounds) are not. xenon's bench step is the test of both.
 //! - **Legacy descriptors on the I219 are an assumption.** The 82574L supports them (QEMU uses them
 //!   unless `RFCTL.EXTEN`); the PCH parts are believed to, from the 8254x lineage, and that was not
 //!   read anywhere.
@@ -82,6 +83,8 @@
 
 #[cfg(test)]
 extern crate std;
+
+pub mod pch;
 
 /// Intel's PCI vendor id.
 pub const VENDOR_INTEL: u16 = 0x8086;
