@@ -2021,11 +2021,9 @@ fn mint(own_ut: u64, care: Option<&elf::Elf>, identity: &[u8]) -> Option<(u64, u
     let Ok(child) = built else {
         cap_delete(ready);
         cap_delete(narrow_ep);
-        // **`build_child` leaks its own capability slots on failure**, which this cannot reach: it
-        // returns `Err(())` with nothing named, so the address space it retyped and the frame it
-        // was mid-way through stay in this process's table. Recorded in
-        // `supervision_protocol::build_child_space`'s own BUGS rather than worked around here, since
-        // every caller of that function has the same problem and none of them can fix it.
+        // `build_child` gives back its own capability slots on failure (milestone 757 (a test
+        // kernel fails a process on its Nth retype), provisional, whose sweep found that it did
+        // not); what it built lives in `region`, which goes next.
         discard(region);
         return None;
     };
