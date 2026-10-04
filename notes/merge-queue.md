@@ -1,8 +1,9 @@
 # The merge queue, and the three things that watch it
 
 Three scripts, all maintainer tools rather than front doors. Two were born on 2026-08-04 out of the
-same evening's failures: `helpers/merge-drain.sh` lands what does not need an architect, and
-`helpers/trunk-health.sh` says when `main` is red. `helpers/lane-claim-check.sh` joined them on
+same evening's failures: `helpers/merge-drain.sh`, which landed what did not need an architect
+and since 2026-10-03 labels what a maintainer session must pick up, and `helpers/trunk-health.sh`,
+which says when `main` is red. `helpers/lane-claim-check.sh` joined them on
 2026-08-31 and watches one step earlier, for work that has not reached the queue at all. A fourth,
 `helpers/at-risk-check.sh`, joined on 2026-09-23 and watches earlier still, for uncommitted work
 sitting in a lane worktree; it has no watcher of its own and is called from `helpers/trunk-health.sh`'s
@@ -28,69 +29,54 @@ merging happens *between* conversations rather than during them.
 
 The steward was supposed to cover that and did not, for a reason worth recording: it reported and
 never acted. "The queue is stalled" arriving in a message is only useful if someone reads the
-message and does something. These two scripts act.
+message and does something. These two scripts act. (Until 2026-10-03 the drain acted by arming;
+now it acts by labelling, which is the same lesson one level along: see the drain's section.)
 
 ## `helpers/merge-drain.sh`
 
 ```console
-$ helpers/merge-drain.sh --once
-merge-drain: DEQUEUED #918 (needs-architect arrived after it was enqueued): the loader stops guessing
-merge-drain: STALLED. #213 is failing cpu matrix (riscv64 across QEMU CPU models) (§69 decided: Endow becomes ChildEndowment)
-merge-drain: ARMED #214 (the caretaker outlives its job)
-merge-drain: ENQUEUED #1207 (armed and green for 5 minutes with no queue entry; the platform had not) (the metrics page is a deck)
-merge-drain: RERAN #1203 run 36022256151 (CI was cancelled as a same-second duplicate and hid the green one) (the loader stops guessing)
-merge-drain: 4 armed, 1 stalled, of 5 unheld
-
-$ helpers/merge-drain.sh            # loop until nothing is left to enqueue
-merge-drain: 2 armed, 0 stalled, of 2 unheld
-merge-drain: queue empty; nothing open that does not need an architect
+$ helpers/merge-drain.sh --dry-run
+merge-drain[patagonia]: (dry run) would run: gh pr edit 1569 --repo nifeos/nife --add-label needs-maintainer
+merge-drain[patagonia]: LABELLED #1569 (conflict, ejected)
+merge-drain[patagonia]: (dry run) would run: gh pr comment 1569 --repo nifeos/nife --body merge-drain[patagonia]: needs-maintainer. CONFLICTS with `main` ...
 ```
 
-Two of those lines are events and the rest are snapshots, and only the events can be counted.
-`ARMED`, `DEQUEUED`, `ENQUEUED` and `RERAN` say what this pass *did*; every other line says what was *true* when the pass
-ended. Summing `4 armed` across passes double counts every pull request that was still armed on the
-next pass, which is why 3,355 passes of this log could not answer "how often does the drain act"
-when calef asked on 2026-09-23. `STALLED.` has the same defect: a stall that persists is re-printed
-every pass, which is why `notify` deduplicates the pull request comment and the log line does not.
+That is a real pass, against the live repository at 2026-10-03 23:54 UTC, minutes after #1569 was
+ejected on a `merge_conflict`. Without `--dry-run` the same pass makes the writes.
 
-So:
+**Since 2026-10-03 it arms nothing** (milestone 727 (a queue eviction goes to a maintainer session), provisional). calef ruled on #1564: *"I don't
+want the job of watching the queue."* That day the drain armed every eligible pull request on every
+pass, re-armed ejected ones, enqueued what auto-merge had stranded and commented on stalls, and
+calef was still the only thing that noticed an ejection. It re-queued pull requests the calef
+account had just taken out six or seven times, and its 478 stall comments moved nobody. The record
+is `notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md`, on #1564's branch until it
+lands.
+A lane now arms its own pull request in the same command as `gh pr ready`.
 
-```console
-$ grep -c 'merge-drain: ARMED #' ~/Library/Logs/nife/merge-drain.log      # enqueues, countable
-$ grep -c 'merge-drain: DEQUEUED #' ~/Library/Logs/nife/merge-drain.log   # withdrawals, countable
-$ grep -c 'merge-drain: ENQUEUED #' ~/Library/Logs/nife/merge-drain.log   # the platform's promise, kept by the drain, countable
-$ grep -c 'merge-drain: RERAN #' ~/Library/Logs/nife/merge-drain.log      # cancelled duplicates rerun, countable
-$ grep -c 'merge-drain: [0-9]* armed' ~/Library/Logs/nife/merge-drain.log # passes, not enqueues
-```
+What a pass does, in order:
 
-`ARMED` prints only on the transition: arming is attempted on every eligible pull request on every
-pass, and the script suppresses the line where the pull request was armed when the pass
-began. Without that suppression it would be a snapshot with a new name on it. This tree made the
-same mistake once before, in `script/metrics`, and the correction is written up there and in the
-"The only flow on this page" section of [project-metrics.md](project-metrics.md): a stock read late
-is merely stale, a flow read late lands in the wrong bucket.
+- runs `helpers/lane-claim-check.sh` (below);
+- dequeues a pull request that picked up `needs-architect` or `held-for-red-trunk` after it was
+  enqueued, the one case the queue cannot see because it does not read labels;
+- labels a paused draft `unblocked` once its `Blocked-by:` pull requests resolve
+  ([blocked-by-drafts.md](blocked-by-drafts.md));
+- reruns, once, a CI run a concurrency group cancelled as a same-second duplicate (BUGS, below);
+- labels `needs-maintainer` (name provisional) on a pull request that was ejected, conflicts with
+  `main`, is a stale queue entry, or has been ready and unarmed for 30 minutes, comments once per
+  cause with the evidence, and takes the label off when the cause goes.
 
-The summary line stays, because it answers a question the events cannot, which is whether
-anything is stuck right now.
+The four causes and their comments are in [queue-ejection.md](queue-ejection.md). The decision is
+`helpers/needs-maintainer.jq`, checked by `helpers/needs-maintainer-selftest.sh` against a recorded
+response, and that selftest also fails if the drain arms or enqueues again.
 
-It takes the open pull requests without the `needs-architect` label, skips drafts, arms
-auto-merge on every one of them, and names anything that is conflicted or failing. That is the whole
-script. Arming is one API call that changes nothing until the checks pass, so there is no reason to
-ration it, and an armed pull request enters GitHub's merge queue on its own when it goes green.
+The session-side half is rung three. `briefs/session-start.md` reads
+`gh pr list --label needs-maintainer --state all` before anything else, and `helpers/nanny.py`
+wakes a running session when the label lands.
 
-It never merges anything labelled `held-for-red-trunk` either, added 2026-09-23 after it
-re-enqueued a held set three times in one evening: that label means `main` is broken and one fix is
-landing alone, which is a reason about the queue rather than about a pull request, and the drain's
-admission policy had no way to express one. See [notes/main-is-red.md](main-is-red.md).
-
-It never merges anything labelled `needs-architect`, which is the one policy the platform does
-not know. That label means the work is outside standing merge authority: it touches the syscall
-surface, adds a dependency, or owes a `DECISIONS` section.
-
-It stops rather than guessing, per pull request rather than per pass. A conflict or a failing
-check is reported with the pull request named, and the pass carries on arming the others. Both need
-a person, and a loop that retries them just burns CI. A pass where nothing could be armed ends the
-loop, because re-printing the same stall lines every 150 seconds is not watching.
+Its event lines (`DEQUEUED`, `RERAN`, `UNBLOCKED`, `LABELLED`, `CLEARED`) each print once per
+transition, so they can be counted across passes. A snapshot read late is merely stale; a flow read
+late lands in the wrong bucket, which is the correction in `script/metrics` and
+[project-metrics.md](project-metrics.md).
 
 ## `helpers/lane-claim-check.sh`
 
@@ -113,11 +99,8 @@ Both briefs said so, in a section headed *First act*, with the command spelled o
 four behaving the way AGENTS.md says rung four behaves, and it was the second instance of the shape
 in this project's history; the first was lanes ending their turn mid-gate.
 
-It runs from `merge-drain.sh`'s pass, once, before the drain's own empty-queue return. The
-ordering is not cosmetic: an empty queue is exactly when an unclaimed lane is easiest to miss,
-because nothing else on that pass prints a word. The drain is also the only unattended runner this
-project has (`launchd`, every five minutes, patagonia), so siting it there is the difference between
-a report and a report that happens.
+It runs first in `merge-drain.sh`'s pass, which is the unattended runner this project has, so
+siting it there is the difference between a report and a report that happens.
 
 Three false positives were designed out, because a report that cries wolf gets ignored and then
 the real case goes unread with it.
@@ -194,7 +177,7 @@ Two scheduled workflows, owned by the organization rather than by a laptop, ever
 
 | Workflow | Runs | Identity |
 | --- | --- | --- |
-| `.github/workflows/merge-drain.yml` | `helpers/merge-drain.sh --once`, which calls `helpers/lane-claim-check.sh` inside its own pass | `nife-smelter[bot]` |
+| `.github/workflows/merge-drain.yml` | `helpers/merge-drain.sh`, which calls `helpers/lane-claim-check.sh` inside its own pass | `nife-smelter[bot]` |
 | `.github/workflows/trunk-health.yml` | `helpers/trunk-health.sh --once`, and fails the run when `main` is red or a cadence is dead | `nife-smelter[bot]` |
 | `launchd`, per developer | `helpers/at-risk-check.sh`, which reads that machine's own worktrees | nobody: it needs no credential |
 
@@ -317,23 +300,21 @@ worktree being edited on it.
 A restraint that was reweighed rather than ignored. calef declined an unattended scheduled agent
 on 2026-08-26, preferring that this shut down when the session driving it does. His 2026-09-23
 approval supersedes that for these two, and the distinction he drew in September holds here as well:
-what runs on a timer is a shell script reading GitHub and arming what is eligible, with no judgment
-in it. A queue reports, it does not resolve is still the boundary. Neither workflow resolves a
+what runs on a timer is a shell script reading GitHub and labelling what a session must pick up,
+with no judgment in it. A queue reports, it does not resolve is still the boundary. Neither workflow resolves a
 conflict, retries a failed check, or marks anybody's draft ready.
 
-Why `notify()` speaks once per stall. `merge-drain.sh` posts a PR comment on a conflict, a check
-failure or a stuck check, and then goes quiet. That is deliberate, so a stalled pull request does not
-re-announce itself every five minutes. The consequence a maintainer has to hold is the other half of
-it: nothing re-announces the stall to a session that opens later, so reading the queue is a
-standing duty rather than something the watcher does for you. Read
-`gh pr list --json number,mergeStateStatus,statusCheckRollup` for `DIRTY`/`CONFLICTING` or a
-`FAILURE` conclusion.
+Why a comment speaks once per episode. `merge-drain.sh` comments once per cause per episode (the
+ejection's time, the conflicting head), and the `needs-maintainer` label is what persists. Until
+2026-10-03 the drain commented on stalls and went quiet, and nothing re-announced a stall to a
+session that opened later; the label is the fix, because `gh pr list --label` is a query and a
+comment is not.
 
 Which drain spoke. Every line the drain prints, and every comment it posts, is prefixed
 `merge-drain[<instance>]`: `actions:<run id>` from the workflow, the hostname from a laptop. An
 installation token carries the App and not the caller, so GitHub cannot tell a reader which instance
-acted once the automation runs in more than one place. The `notify()` dedupe markers are
-deliberately untagged, so two instances cannot each post the same stall once.
+acted once the automation runs in more than one place. The comment dedupe markers are
+deliberately untagged, so two instances cannot each post the same comment once.
 
 Two fields that lie to a session watching one pull request, both met on 2026-09-19 watching
 #965. `autoMergeRequest` goes null the moment GitHub enqueues the pull request, so "auto-merge
@@ -678,8 +659,9 @@ in bisection when a group fails. Nobody has needed that yet.
 
 ### Do the two watchers still earn their keep
 
-**`merge-drain.sh` does, and its job changed rather than ended.** It is now the enqueuer: every
-landing in the after window entered the queue through the arming call it makes.
+**`merge-drain.sh` did, and its job changed twice rather than ended.** In this window it was the
+enqueuer: every landing entered the queue through the arming call it made. On 2026-10-03 the arming
+went and the drain became a detector (milestone 727, provisional).
 
 **`trunk-health.sh` is closer to superseded, and the number is honest about how little it proves.**
 Zero of the thirty runs on `main` since the queue went live were red, against two of a hundred and
@@ -744,10 +726,11 @@ So the hold names its own release condition:
 Blocked-by: #324
 ```
 
-in the pull request body. The drain skips that pull request while #324 is open, and arms it on the
-first pass after #324 merges, **with nobody acting**. If #324 is *closed* without merging, that is
-reported loudly rather than silently released, because it means the thing this was sequenced behind
-is not coming.
+in the pull request body. Until 2026-10-03 the drain skipped that pull request while #324 was open
+and armed it on the first pass after #324 merged. Since the drain stopped arming, the line keeps a
+ready pull request's `unarmed` cause off while #324 is open, and the pull request is labelled
+`needs-maintainer` once #324 has merged or closed, which says "arm this now" to a session rather
+than doing it. On a draft it earns the `unblocked` label instead.
 
 **Use it for a mechanical constraint and nothing else.** If a person must decide, the label is still
 the right answer, and the two must not be conflated: one is a queue for an architect's attention,
@@ -757,13 +740,9 @@ the other is a fact about two branches.
 
 **The event lines start from the day they landed, and the 3,355 passes before it cannot be
 backfilled.** The old log holds snapshots only, so the drain's action count begins on 2026-09-23 and
-any comparison across that boundary is between two different measurements.
-
-**`ARMED` counts what the DRAIN did, which is not the same as what happened to the queue.** A pull
-request a person armed by hand is already armed when the next pass begins, so the pass stays silent
-and no line records the arming at all. That is the right behaviour for the question the line exists
-to answer and the wrong one for "how did this pull request get into the queue". The queue's own
-timeline on the pull request is the record for the second question.
+any comparison across that boundary is between two different measurements. The same holds at
+2026-10-03, when `ARMED`, `ENQUEUED`, `EJECTED` and `RELEASED` stopped and `LABELLED` and
+`CLEARED` began.
 
 **And this log can only ever say what the machinery did, never what a person did.** An action absent
 from it is ambiguous between "the drain did not do this" and "somebody did it by hand", and the
@@ -879,23 +858,6 @@ moment forgets.
   lane that wants one more commit should expect to open a second pull request for it, which is
   cheaper than the recovery above and is what happened here anyway.
 
-- **A watcher started from a lane worktree dies when that worktree is pruned, and now refuses to
-  start there** (2026-08-18). `/bin/sh` reads a script lazily, so deleting the file under a running
-  shell can kill it mid-loop. It happened twice in one day: the merge drain died when the worktree
-  it was launched from was pruned, and `trunk-health.sh` died the same way during a 24-worktree
-  cleanup, **silently, while `main` was red for hours on a gate nobody was watching**. The drain
-  survived the second sweep only because it had been relaunched with an absolute path into the main
-  checkout. Both scripts now refuse the watching form outside the main checkout and say why;
-  `--once` is still allowed anywhere, because it exits long before a prune could reach it.
-
-
-- Neither script survives the session that starts it. They are ordinary loops, not services.
-  CLAUDE.md's session-start list is what makes them run; nothing enforces it, and a session that
-  forgets has exactly the gap they were written to close. A launchd job or a scheduled workflow would
-  fix this and neither has been built.
-- `merge-drain.sh` trusts the label. A pull request that *should* be held but was never labelled
-  will be merged by it. The label is applied by hand at the moment the decision to hold is made, so a
-  maintainer that forgets the label has bypassed the gate rather than tripped it.
 - **The reduced `merge-drain.sh` had not been run against a live queue, and the first time it was,
   it enqueued nothing for three hours.** Fixed 2026-08-17; the entry is kept because the prediction
   that preceded it was right and was not acted on. It said every claim about the script was read
@@ -913,18 +875,8 @@ moment forgets.
   `mergeStateStatus: CLEAN` with a **null** `autoMergeRequest`, because arming became membership.
   `mergeQueue.entries` is the only authority, and the obvious field looking authoritative while
   being wrong is what cost the three hours. The verification now asks the queue.
-- `merge-drain.sh` re-arms what is already armed, forever. A pass counts an arming call as work
-  whether or not it changed anything, so one pull request that never merges (a required check that
-  was removed, a broken workflow file, a queue that is wedged) keeps the loop alive at 150-second
-  intervals with nothing happening. It is cheap and it is silent, which is the bad combination: the
-  script cannot tell a queue that is moving from one that is stuck, and neither can its reader.
-- It reports what the queue is about to reject, not what the queue did. Stalls are read from the
-  pull request's own checks. A candidate that fails *inside* the merge queue, against the tip rather
-  than against its own base, is ejected by GitHub and this script says nothing about it; the next
-  pass simply arms it again.
-- `lane-claim-check.sh` is only as alive as the drain is. It runs from the drain's pass and has
-  no schedule of its own, so it inherits the recorded gap AGENTS.md already accepts: patagonia
-  asleep means nobody is watching. It also reports to stdout only, because a branch with no pull
+- `lane-claim-check.sh` is only as alive as the drain is: it runs from the drain's pass and has
+  no schedule of its own. It also reports to stdout only, because a branch with no pull
   request has nowhere to be commented on, so its findings reach whoever reads the drain's log and
   nobody else. Its own header carries the rest (`milestone/*` only, one page of activity feed, and
   that it sees a missing claim rather than the duplicate claim §90 actually fears).
@@ -934,14 +886,9 @@ moment forgets.
   laptop taken elsewhere is unwatched regardless, which the recorded gap above already names.
 - `trunk-health.sh` polls at 90 seconds and reads only `main`. A release branch, if this tree ever
   grows one, is invisible to it.
-- Neither reports its own death, and on 2026-08-18 that cost hours of red trunk. If the process
-  is killed, both simply stop saying anything, and the failure mode is indistinguishable from a
-  healthy quiet queue. The entry above removes the commonest *cause* of the death; it does nothing
-  about the silence, which is still unfixed. This is the same defect the
-  scripts exist to fix, one level up, and it is not fixed. The queue has taken over most of what
-  `merge-drain.sh` did and the whole class of failure `trunk-health.sh` watched for, so this defect
-  now costs less than it did; it costs more than nothing, because the arming call is still what puts
-  a pull request into the queue and a dead drain still looks exactly like an empty one.
+- Neither reported its own death, and on 2026-08-18 that cost hours of red trunk: a killed watcher
+  stops saying anything, which looks exactly like a healthy quiet queue. Milestone 723 (a stopped merge watcher is reported within three of its own intervals) now opens an
+  issue when either stops. A dead drain still labels nothing until that issue is read.
 - The measurement above is a snapshot and nothing re-derives it. Every number in it was taken by
   hand from the API on 2026-08-16 and pasted into prose, which is precisely the class milestone 125
   (a number in the prose is a claim) exists to fix. Re-take them rather than trusting them once the

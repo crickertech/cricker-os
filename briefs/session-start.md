@@ -55,8 +55,8 @@ worktrees and nothing else can:
 One entry must be present, `com.nife.at-risk`. If it is missing, `notes/merge-queue.md` has the
 plist; until it is loaded, `helpers/at-risk-check.sh` is one pass you can run by hand from the main
 checkout. Nothing else should be in that list: `com.nife.merge-drain` and `com.nife.trunk-health`
-are retired, and a laptop still running either is a second drain arming the same pull requests the
-workflow is arming. The retirement commands are in `notes/merge-queue.md`.
+are retired, and a laptop still running either is a second watcher acting beside the workflow, an
+old enough one still arming pull requests. The retirement commands are in `notes/merge-queue.md`.
 
 In a cloud session there is no `launchctl` and no lane worktree to watch, so skip this check and
 go to step 2. The risk it covers moves to you: an ephemeral container that ends with uncommitted
@@ -65,15 +65,28 @@ work loses it, and nothing watches for that, so commit and push before every pau
 `notes/merge-queue.md` has the workflows, the plist, the tested premise they rest on, the cadence
 costs calef accepted, and a `BUGS` section honest that nothing reports a watcher's death.
 
-## 2. Read what they already found
+## 2. Read what they already found, the `needs-maintainer` label first
 
 A running watcher is not the same as a watcher that has been read, and this is the half that gets
-skipped. `merge-drain.sh` posts once per stall and then goes quiet by design, so a stalled pull
-request does not re-announce itself every five minutes. Nothing re-announces it to a session that
-opens later either. A watcher that reported at 03:00 and a session that opens at 09:00 never meet
-unless somebody goes looking.
+skipped. A watcher that reported at 03:00 and a session that opens at 09:00 never meet unless
+somebody goes looking. So the drain leaves its findings where one command finds them:
 
-So go looking, and do it by running the brief that already exists:
+    gh pr list --repo nifeos/nife --label needs-maintainer --state all
+
+Every pull request in that list is yours before any lane is briefed. The drain labels one that was
+ejected from the merge queue, conflicts with `main`, is still queued after it merged, or has been
+ready and unarmed for 30 minutes, and comments once with the evidence (milestone 727 (a queue eviction goes to a maintainer session), provisional,
+and so is the label's name). Read the comment, then fix it or hand it to its lane: rebase, re-arm a
+flake (`gh pr merge N --auto --merge`), dequeue a stale entry with the command the comment gives,
+or make an unfinished one a draft again. The label comes off by itself on the drain's next pass
+once the cause is gone, so never remove it by hand. `--state all` because a stale queue entry
+belongs to a pull request that is no longer open.
+
+calef ruled on 2026-10-03 (#1564): *"I don't want the job of watching the queue."* Nothing re-queues
+for him any more, so this list going unread is the queue going unwatched. It is rung three of the
+ladder, a written record at the moment a session starts, and the BUGS below says what that costs.
+
+Then read the rest of the queue by running the brief that already exists:
 
     briefs/survey-the-queue.md
 
@@ -138,6 +151,11 @@ run to `$NIFE_WATCH_DIR/runs.txt` (`<run_id> <lane_agent_id> <label>`), then sta
     python3 helpers/runwatch.py &   # per-lane run watcher: exits when a lane's runs all finish
     python3 helpers/nanny.py &      # merge-queue watcher: exits on the first event needing you
 
+`nanny.py` also exits when a pull request newly carries `needs-maintainer`, so a running session
+is woken by the label rather than finding it at the next start. Before ending a turn that leaves no
+watcher running, read the label list once more; a labelled pull request is left for the next
+session only on purpose, and said so.
+
 Start both with `run_in_background` rather than in the foreground; a maintainer session polling its
 own watcher script in a loop is the same mistake with extra steps. Each exits on its own event or
 timeout and prints why, so relaunch it to keep watching. State lives under `NIFE_WATCH_DIR` (an
@@ -173,8 +191,8 @@ A session that finds the retirement half-done:
     -	0	com.nife.at-risk
     -	0	com.nife.merge-drain
 
-That second line is two drains arming the same pull requests, the laptop's as `calef` and the
-workflow's as `nife-smelter[bot]`. Retire it with the commands in `notes/merge-queue.md`; do not
+That second line is a second drain beside the workflow, acting as `calef` where the workflow acts
+as `nife-smelter[bot]`, and one from before 2026-10-03 still arms pull requests. Retire it with the commands in `notes/merge-queue.md`; do not
 leave it because it looks harmless.
 
 ## Stop, do not improvise
@@ -183,7 +201,8 @@ leave it because it looks harmless.
   that is not a red trunk. Report it with the number or the run link. Do not reload the job or
   re-run the workflow repeatedly hoping it takes; something is failing and that status is the only
   evidence you have of what.
-- Anything the survey reports that is not a rebase, a failing check, or a `needs-architect` hold.
+- Anything the survey reports that is not a rebase, a failing check, a `needs-maintainer` cause, or
+  a `needs-architect` hold.
   Say what you saw and stop.
 
 ## BUGS
@@ -201,6 +220,9 @@ leave it because it looks harmless.
 - Nothing measures whether a session actually runs this. There is no gate, no log, and no record
   that a session started; the honest position is that this is rung three of the constitution's
   ladder, a written record for whoever opens it.
+- The `needs-maintainer` label waits for a session. With none running, an ejected or conflicting
+  pull request waits too, which is slower than the drain's old re-arm and is not calef's job. The
+  label is rung two (the drain sets it without being remembered); reading it is rung three.
 - Steps 2 and 3 are the same instruction split across two files, deliberately, and that split
   costs something: a reader who opens only this brief learns that the queue must be read, and has to
   open `briefs/survey-the-queue.md` to learn how. The alternative was a third copy of the queue-read
