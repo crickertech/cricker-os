@@ -246,7 +246,7 @@ confinement and watches it fail).
 fixed real defects (tests that could not fail, three times; claims false in audit 313 and on
 2026-09-21) and found no escape on a component's own authority, and the outsider half is unrun. What
 moves it is the adversarial review of milestone 633 (an outside agent attacks the confinement claim). 26 claims
-enumerated at that date (the table now has 30 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
+enumerated at that date (the table now has 31 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
 three of them stated nowhere, and 25 harnesses carried a replayable falsification, up
 from 6 ([`notes/confinement-claims.md`](../../notes/confinement-claims.md); PR #614). The finding is
 worse than a missing test. A page-table assertion was patched to remove the check it exists for and
@@ -296,6 +296,9 @@ Open security findings that bear on it, each a proposal and none yet built:
 
 - [The confinement table lists the unvouched child](../roadmap/673-the-confinement-table-lists-the-unvouched-child.md):
   a claim tested and falsified by hand three times, with no row in the table. Severity not recorded.
+  Dated 2026-10-03: row 31 of the table now states it, tested by the `installed/unvouched` line of
+  `script/swish-check` on three ISAs, with a replayable falsification (a patch, replayed by hand on
+  aarch64, red with exit 1).
 - [Reset unowned PCI functions before the IOMMU enables](../roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md):
   Bus Master Enable is already set on functions the kernel never owns, so DMA can outlive the
   confinement. Severity not recorded; an architect's call.

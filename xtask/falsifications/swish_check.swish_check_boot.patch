@@ -1,0 +1,37 @@
+Falsifies `xtask::swish_check::swish_check_boot`, the `installed/unvouched` line of its script.
+
+Architecture: aarch64
+
+Milestone 673 (the confinement table lists the unvouched child), row 31 of
+notes/confinement-claims.md. Replay by hand, because `script/falsifications` sweeps Kani harnesses
+and kernel `#[test_case]`s and this line is neither; it is reported as a known gap, not as rot:
+
+    git apply xtask/falsifications/swish_check.swish_check_boot.patch
+    script/swish-check --arch aarch64        # must exit non-zero
+    git apply -R xtask/falsifications/swish_check.swish_check_boot.patch
+
+The defect is the progenitor endowing the process domain to a child whose bytes nobody vouched for
+(`wants_domain` true whatever the manifest says). The domain is the first of the three authorities
+the fixture `installed/unvouched` (`unreachable_network_witness`, stripped so no table vouches for
+it) probes with a real request, and the table in notes/packages/running-unvouched.md records the
+same defect for entropy and the network, each turned red by hand once (commit b555bfb3d). This
+record is the one of the three that can be replayed.
+
+The hunk's context cites milestone 126 (the `procps` package: who else is running, and who is allowed
+to ask), which introduced the process domain.
+
+Expected to fail: the `installed/unvouched` line wants `domain: refused (no capability at slot 7)`
+and `slots held: 0 1 2\n`, and the child reports `domain: REACHED` and `slots held: 0 1 2 7`.
+
+diff --git a/crates/system_initializer/src/lib.rs b/crates/system_initializer/src/lib.rs
+--- a/crates/system_initializer/src/lib.rs
++++ b/crates/system_initializer/src/lib.rs
+@@ -3262,7 +3262,7 @@
+         // Same reasoning, one authority over (milestone 126): a **process domain** is not something
+         // a person designates either. There is no /proc to name and no pid space to scan, so what a
+         // program may see is decided here, by which supervision endpoint the progenitor puts in its capability table.
+-        let wants_domain = manifest.is_some_and(|m| m.domain);
++        let wants_domain = manifest.is_some_and(|m| m.domain) || unvouched;
+         // `clock`'s twin again: the inert-configuration page is the progenitor's to endow, not something a
+         // command line can designate, so there is no bit on the wire for it either
+         // (`Manifest::config`).
