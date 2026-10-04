@@ -215,8 +215,6 @@ packer!(pack_12, 48, 12);
 /// Not proof against a thread that migrated away and back inside three instructions, which would
 /// take two preemptions and two steals; the caller says so rather than this.
 ///
-/// Name: provisional (calef names public items).
-///
 /// ```text
 ///   4c 8b 04 25 xx xx xx xx   mov r8, [CURRENT_CPU_WORD]    (core before)
 ///   66 ba xx xx               mov dx, port
@@ -232,6 +230,8 @@ packer!(pack_12, 48, 12);
 ///   0f 05                     syscall                       (exit)
 /// ```
 /// Encodings checked with `llvm-mc -triple x86_64-unknown-none -show-encoding`, 2026-10-03.
+///
+/// Name: ratified 2026-10-03 (calef, reviewing the x86 port-out program builders: "The two port builders are ratified.").
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] {
     const {
@@ -274,8 +274,6 @@ pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] 
 /// the page fault arrives at [`PORT_OUT_ON_CPU_WRONG_CPU_PC_OFFSET`]. The two faults are told apart
 /// by pc, so "landed on the wrong core, try again" can never be read as "the `out` faulted".
 ///
-/// Name: provisional (calef names public items).
-///
 /// ```text
 ///   48 8b 04 25 xx xx xx xx   mov rax, [CURRENT_CPU_WORD]
 ///   83 f8 xx                  cmp eax, cpu
@@ -290,6 +288,8 @@ pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] 
 ///   48 8b 18                  mov rbx, [rax]      (page fault at 0: offset 29)
 /// ```
 /// Encodings checked with `llvm-mc -triple x86_64-unknown-none -show-encoding`, 2026-10-03.
+///
+/// Name: ratified 2026-10-03 (calef, reviewing the x86 port-out program builders: "The two port builders are ratified.").
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const fn port_out_on_cpu_then_exit(port: u16, val: u8, cpu: u8) -> [u32; 8] {
     let a = CURRENT_CPU_WORD.to_le_bytes();

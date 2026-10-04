@@ -405,6 +405,9 @@ pub mod rendezvous {
     /// returns a typed Reply, which is the only thing `user_mode_runtime::reply` accepts.
     ///
     /// Ruled by calef on 2026-10-03 (UTC): "Option 1 with the typed runtime helper."
+    ///
+    /// Name: ratified 2026-10-03 (calef, reviewing milestone 706 (a `CALL` server can tell a Reply from a
+    /// delegation): "Ratify REPLY_DELIVERED.").
     pub const REPLY_DELIVERED: u64 = 1;
 
     // `x4` carries both tags, so they must differ from each other and from the untagged `0`.
