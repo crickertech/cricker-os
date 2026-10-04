@@ -882,7 +882,16 @@ mod trace {
 
     /// Record an event on the calling core's ring. Every call site runs with interrupts masked
     /// (under `IPC_TABLES` or in IRQ context), so the owning core cannot interleave with itself.
-    #[inline]
+    ///
+    /// **`#[inline(never)]`, so the fast paths carry one copy rather than one per event** (milestone
+    /// 758 (the IPC fast paths shrink back inside their band), provisional). Inlined, every site
+    /// carried its own per-CPU read, `RINGS` bounds check and panic landing pad, sequence bump and
+    /// packed store: measured on 2026-10-04 UTC, the ring index alone was the largest single line in
+    /// `script/fastpath-footprint`'s closures on riscv64 and the third largest on aarch64 and x86_64,
+    /// and an IPC round trip records two or three events in each of four or five functions. Out of
+    /// line, a site is its argument moves and a call. The ring is a diagnostic nobody branches on,
+    /// so the call's few instructions buy back several hundred bytes of every core's L1i.
+    #[inline(never)]
     pub fn record(kind: Event, tid: u64, aux: u8) {
         let ring = &RINGS[crate::cpu::id()];
         let seq = ring.seq.fetch_add(1, Ordering::Relaxed);
