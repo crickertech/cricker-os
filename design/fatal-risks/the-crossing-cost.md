@@ -1,7 +1,7 @@
 ---
 risk: 4
-color: none
-updated: 2026-08-31
+color: amber
+updated: 2026-10-04
 ---
 # Appendix to risk 4: The architecture imposes a per-crossing cost that cannot be engineered away
 
