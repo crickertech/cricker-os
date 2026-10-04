@@ -2,7 +2,7 @@ name: toolchain bump
 
 # Observed failing: 2026-10-02, run 37019399265: the restamp job went red because a floor could not
 #   be proven unmoved on the new nightly and needs a person (`script/bench --save --why`). See
-#   notes/observed-failing.md (milestone 640).
+#   notes/observed-failing.md.
 
 # **Propose a toolchain bump daily; never apply one.** The three steps that want to stay separate:
 #

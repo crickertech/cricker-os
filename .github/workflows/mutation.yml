@@ -3,7 +3,7 @@ name: mutation testing
 # Observed failing: 2026-09-28, run 36416663945: shard 4/8 went red with `run FAILED (exit 4): this
 #   is a broken run, not a survivor count` when a test binary could not build under the memory
 #   ceiling. This records the outcome arm (the run did not happen) firing as written, not the
-#   survivor-inflow arm. See notes/observed-failing.md (milestone 640).
+#   survivor-inflow arm. See notes/observed-failing.md.
 
 # **Would any test notice if this line were wrong?** Asked weekly, of every host crate.
 #

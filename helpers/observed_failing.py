@@ -17,7 +17,8 @@ A new gate ships against a tree where its defect is absent, so its first result 
 is also what it reports if it cannot fire at all. `falsifications.yml` replayed nothing for three
 weeks and reported success; `coe-architect-label.yml` applied no label and reported pass. Neither
 had been run once before it was trusted (notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md).
-DECISIONS §134 already makes a Kani harness carry the patch that turns it red. This is the same
+DECISIONS §134 (a harness carries a machine-replayable falsification record, or it is not
+evidence) already makes a Kani harness carry the patch that turns it red. This is the same
 demand made of a workflow, in a weaker form on purpose: a cited run, not a replayable patch.
 
 # THE RULE

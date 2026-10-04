@@ -3,7 +3,7 @@ name: CI
 # Observed failing: 2026-10-04, run 37219588901: the `clippy` job's `script/lint` went red on
 #   `roadmap status` for lane/split-order-proposal (a `promoted_from` proposal the branch never
 #   held). That is one job of many, and the others carry no record of their own
-#   (notes/observed-failing.md, BUGS). See notes/observed-failing.md (milestone 640).
+#   (notes/observed-failing.md, BUGS). See notes/observed-failing.md.
 
 on:
   push:

@@ -1,7 +1,7 @@
 name: trunk health
 
 # Observed failing: 2026-10-02, run 37072842858: red with `main is red and nobody is assigned to
-#   it`, three cadences having never succeeded. See notes/observed-failing.md (milestone 640).
+#   it`, three cadences having never succeeded. See notes/observed-failing.md.
 
 # **The trunk watcher, moved off a laptop** (the `who-took-the-step` proposal, approved by calef
 # 2026-09-23). Same move and same reasons as `merge-drain.yml`, which carries the tested premise and
