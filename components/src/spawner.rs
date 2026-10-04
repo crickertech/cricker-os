@@ -63,8 +63,8 @@ pub extern "C" fn _start(_a0: u64, image_len: u64, _a2: u64) -> ! {
     };
 
     loop {
-        let (op, arg, _w2) = receive(REQ);
-        match op {
+        let (operation, arg, _w2) = receive(REQ);
+        match operation {
             REQ_BUILD => {
                 let ok = build(&elf, arg);
                 send(REP, if ok { REP_BUILT } else { REP_FAILED }, 0, 0);

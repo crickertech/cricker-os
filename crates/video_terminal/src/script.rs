@@ -33,7 +33,7 @@ pub const COLS: u32 = 132;
 /// VT100/VT220 "wide mode" row count).
 pub const ROWS: u32 = 43;
 
-/// **What the application prints.** Delivered as `OP_WRITE`, the terminal contract's application
+/// **What the application prints.** Delivered as `OPERATION_WRITE`, the terminal contract's application
 /// half (notes/terminal-contract.md), exactly as a program printing to a serial console would.
 ///
 /// Chosen so the picture is hard to produce by accident:
@@ -53,7 +53,7 @@ pub const ROWS: u32 = 43;
 pub const GREETING: &[u8] =
     b"\x1b[38;2;181;137;0mnife\x1b[0m\r\n\x1b[32mglyphs_ok\x1b[0m\r\nby a \x1b[4mvt\x1b[24m\r\n\x1b[7mFOCUS\x1b[0m";
 
-/// **What the user types.** Delivered as `OP_BYTES`, the terminal contract's driver half, which is
+/// **What the user types.** Delivered as `OPERATION_BYTES`, the terminal contract's driver half, which is
 /// the same framing the compositor uses to route a keystroke to the focused client (DECISIONS §33).
 /// Echoed into the grid, so a keystroke that never arrived is a missing letter on the screen rather
 /// than a silent nothing.
@@ -71,7 +71,7 @@ pub const GREETING_TYPO: &[u8] =
 /// **The banner each terminal in the compositor test prints**, indexed by window.
 ///
 /// Different text per window on purpose: it is what turns "the screen has text on it" into "each
-/// window has *its own* text on it", so an `OP_WRITE` delivered to the wrong terminal is a wrong
+/// window has *its own* text on it", so an `OPERATION_WRITE` delivered to the wrong terminal is a wrong
 /// picture rather than a duplicate one.
 pub const WINDOW_BANNER: [&[u8]; 2] = [b"term0", b"term1"];
 
@@ -104,7 +104,7 @@ pub const HOST_KEY_BYTE: u8 = b'a';
 /// end-to-end witness at all. This is the content that fixes that. Five rows are in use when the
 /// scroller starts, so 48 lines plus the 5-line tail below scroll a 43-row grid fifteen times.
 ///
-/// The driver side feeds them **one `OP_WRITE` per line**, so every present moves the surface one
+/// The driver side feeds them **one `OPERATION_WRITE` per line**, so every present moves the surface one
 /// row: the per-scroll path. The oracle does not care about write boundaries (the engine is a
 /// byte stream), which is what lets the tail below exercise several scrolls arriving in one
 /// present without a second oracle.
@@ -219,7 +219,7 @@ pub fn full_screen(vt: &mut crate::Vt) {
 /// longer a cheap thing to hand back).
 ///
 /// **The scroller is part of the window script since the paint path (2026-09-30)**: the compositor
-/// test drives each real terminal with the same lines, one `OP_WRITE` each, so the window-mode
+/// test drives each real terminal with the same lines, one `OPERATION_WRITE` each, so the window-mode
 /// present path runs its scroll fast path under a pixel-exact witness.
 pub fn window(vt: &mut crate::Vt, i: usize) {
     vt.feed(WINDOW_BANNER[i]);

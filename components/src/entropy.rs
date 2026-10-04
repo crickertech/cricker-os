@@ -488,7 +488,7 @@ fn serve(mut pool: Pool, refuse: bool) -> ! {
             // same way for the same reason.)
             continue;
         };
-        let (count, word) = match proto::op(w0) {
+        let (count, word) = match proto::operation(w0) {
             // `refuse` is a device this service condemned at bring-up for answering with zeros. It
             // is answered the way a dry device is: `NO_ENTROPY` already means the one thing a
             // client has to know, which is that it is not getting randomness here.
@@ -627,7 +627,7 @@ fn serve_instruction() -> ! {
             // Same reasoning as `serve`'s identical line: nobody is waiting for an answer.
             continue;
         };
-        let (count, word) = match proto::op(w0) {
+        let (count, word) = match proto::operation(w0) {
             proto::GET if !refuse => match instr::draw() {
                 Some(bytes) => (proto::want(w0), u64::from_le_bytes(bytes)),
                 None => (proto::NO_ENTROPY, 0),

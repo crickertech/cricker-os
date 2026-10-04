@@ -111,32 +111,32 @@ fn exchange() -> Result<usize, &'static [u8]> {
         STACK,
         frame,
         rights::READ | rights::WRITE,
-        req(OP_ATTACH_PAGE_FRAME, SID),
+        req(OPERATION_ATTACH_PAGE_FRAME, SID),
     ) < 0
     {
         return Err(b"handing the stack the shared page");
     }
-    if call(STACK, req(OP_OPEN_TCP, SID), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_TCP, SID), 0).0 != REP_OK {
         return Err(b"opening a socket");
     }
     for (i, &b) in ECHO_PEER_IP.iter().enumerate() {
         WINDOW.w8(OFF_DST_IP + i as u64, b);
     }
     WINDOW.w16(OFF_DST_PORT, ECHO_PEER_PORT);
-    if call(STACK, req(OP_CONNECT, SID), 0).0 != CONNECT_ESTABLISHED {
-        let _ = call(STACK, req(OP_CLOSE, SID), 0);
+    if call(STACK, req(OPERATION_CONNECT, SID), 0).0 != CONNECT_ESTABLISHED {
+        let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
         return Err(b"connecting");
     }
     for (i, &b) in MSG.iter().enumerate() {
         WINDOW.w8(OFF_PAYLOAD + i as u64, b);
     }
-    if call(STACK, req(OP_SEND, SID), MSG.len() as u64).0 != MSG.len() as u64 {
-        let _ = call(STACK, req(OP_CLOSE, SID), 0);
+    if call(STACK, req(OPERATION_SEND, SID), MSG.len() as u64).0 != MSG.len() as u64 {
+        let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
         return Err(b"sending");
     }
-    let (n, _) = call(STACK, req(OP_RECEIVE, SID), 0);
+    let (n, _) = call(STACK, req(OPERATION_RECEIVE, SID), 0);
     // Closed before the answer is judged, so a failed exchange still gives the socket back.
-    let _ = call(STACK, req(OP_CLOSE, SID), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
     if n == REP_ERR || n == 0 {
         return Err(b"receiving");
     }

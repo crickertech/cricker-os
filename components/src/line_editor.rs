@@ -6,14 +6,14 @@
 //!
 //! ```text
 //!   MODE_CONSOLE (the plain-console boot):
-//!   input driver ──OP_BYTES──►┌──────────┐──text──► console server ──► UART
-//!                             │ line_editor │
-//!        application ◄─lines──└──────────┘◄──OP_WRITE / OP_READLINE── application
+//!   input driver ──OPERATION_BYTES──►┌─────────────┐──text──► console server ──► UART
+//!                                    │ line_editor │
+//!        application ◄─lines─────────└─────────────┘◄──OPERATION_WRITE / OPERATION_READLINE── application
 //!
 //!   MODE_DISPLAY (a `graphical_terminal` session, built when the user launches it from the prompt):
-//!   keyboard_driver (direct) ──OP_BYTES──►┌──────────┐──OP_WRITE──► display_terminal
-//!                             │ line_editor │
-//!        application ◄─lines──└──────────┘◄──OP_WRITE / OP_READLINE── application
+//!   keyboard_driver (direct) ──OPERATION_BYTES──►┌─────────────┐──OPERATION_WRITE──► display_terminal
+//!                                                │ line_editor │
+//!        application ◄─lines─────────────────────└─────────────┘◄──OPERATION_WRITE / OPERATION_READLINE── application
 //! ```
 //!
 //! Nobody in that picture knows what they are talking to. The input driver holds "an endpoint I
@@ -22,7 +22,7 @@
 //! ipc-naming.md) is what makes the discipline swappable: rewire the endpoints and no client can
 //! tell, which is milestone 23's hot-swap claim in component form. Milestone 177 exercises that
 //! claim on the output side for real: the same server, unchanged on its input side, prints through
-//! `display_terminal`'s `OP_WRITE`/one-`CALL` contract instead of the console's bespoke two-endpoint
+//! `display_terminal`'s `OPERATION_WRITE`/one-`CALL` contract instead of the console's bespoke two-endpoint
 //! one, chosen at spawn by `mode` (see [`MODE_CONSOLE`]/[`MODE_DISPLAY`]) and nowhere else --
 //! `Con::put` writes to the same page either way, because the wire shape only differs in
 //! [`Con::flush`].
@@ -45,9 +45,9 @@
 //!
 //! **Plus, when a supervisor that can replace it built it, a control endpoint** (milestone 23 (a capability-routed
 //! component OS with live replacement)):
-//! its slot is the second start argument, and `0` means there is none. With one, `OP_QUIESCE`
+//! its slot is the second start argument, and `0` means there is none. With one, `OPERATION_QUIESCE`
 //! answers any parked read with `FLAG_RETRY`, replies, and waits there for `CTL_RESUME` or
-//! `CTL_QUIT`. Without one, `OP_QUIESCE` is refused, because nothing could ever resume it.
+//! `CTL_QUIT`. Without one, `OPERATION_QUIESCE` is refused, because nothing could ever resume it.
 //!
 //! Name: ratified 2026-07-30 (calef, DECISIONS §39, landed by milestone 46) for the word and again
 //! 2026-08-01 (milestone 63) for the spelling, replacing `termd` and then `lineedit`. Refused
@@ -67,14 +67,14 @@ use user_mode_runtime::{Reply, call, receive, receive_request, reply, send};
 
 /// The terminal endpoint (slot 0): clients CALL requests here; we serve it with `RECEIVE_CAP`. Its
 /// clients differ by [`MODE_CONSOLE`]/[`MODE_DISPLAY`] (`input` or `keyboard_driver`, directly, for the
-/// keystroke half; `swish` either way), but this server never has to know which: an `OP_BYTES`
+/// keystroke half; `swish` either way), but this server never has to know which: an `OPERATION_BYTES`
 /// CALL looks the same regardless of who is holding the other end (notes/ipc-naming.md). The one
 /// distinction it does draw is the kernel's, not a name: a badged copy is served only the raw half
 /// (`proto::RAW_ONLY_BADGE`, milestone 709 (a graphical terminal session on the no-keyboard arm
 /// holds only the raw half of the boot discipline)).
 const TERM: u64 = 0;
 /// The output sink's request endpoint (slot 1): [`MODE_CONSOLE`] SENDs a byte count here
-/// ([`CONREQ`]'s own doc); [`MODE_DISPLAY`] CALLs it with `OP_WRITE` (`display_terminal`'s own
+/// ([`CONREQ`]'s own doc); [`MODE_DISPLAY`] CALLs it with `OPERATION_WRITE` (`display_terminal`'s own
 /// served endpoint). One slot, two meanings, chosen by `mode` at spawn -- the same shape
 /// `display_terminal`'s own `PRESENT` slot and `keyboard_driver`'s own `OUT` slot already use.
 const CONREQ: u64 = 1;
@@ -95,7 +95,7 @@ const CONREP: u64 = 2;
 const MODE_CONSOLE: u64 = 0;
 /// `mode`: the wiring a `graphical_terminal` session uses (built by `system_initializer` when the user
 /// launches it from the prompt; no boot builds it, milestone 632 (graphics on demand)). `Con::flush` speaks
-/// `display_terminal`'s `OP_WRITE`/one-`CALL` contract over [`CONREQ`], which in this mode holds
+/// `display_terminal`'s `OPERATION_WRITE`/one-`CALL` contract over [`CONREQ`], which in this mode holds
 /// `display_terminal`'s own served endpoint instead of the console's request endpoint.
 const MODE_DISPLAY: u64 = 1;
 
@@ -105,7 +105,7 @@ const MODE_DISPLAY: u64 = 1;
 /// wiring (the progenitor, which builds `display_terminal` too since milestone 600 (provisional)); one address
 /// either way, since the two modes never coexist in one process.
 const CONOUT_VA: u64 = address_space_map::pair_page(0x0060_0000);
-/// The client's output page, mapped read-only: `OP_WRITE` text and `OP_READLINE` prompts arrive
+/// The client's output page, mapped read-only: `OPERATION_WRITE` text and `OPERATION_READLINE` prompts arrive
 /// here, written by the client at its own VA for this frame.
 const APP_OUT_VA: u64 = address_space_map::pair_page(0x0080_0000);
 /// The client's input page, mapped read/write: completed lines are delivered here for the
@@ -155,16 +155,16 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
     // A parked READLINE: the slot holding the caller's one-shot Reply capability. The caller
     // stays blocked (that is CALL's contract) while we serve everyone else.
     let mut pending: Option<Reply> = None;
-    // How many ^C we have seen since boot. The shell reads this (OP_INTRCOUNT) to sense interrupts
+    // How many ^C we have seen since boot. The shell reads this (OPERATION_INTRCOUNT) to sense interrupts
     // while a foreground job runs and no read is parked to fail (DECISIONS §24). A
     // monotonic counter, so the shell learns of a ^C by the count advancing, never missing one.
     let mut intr_count: u64 = 0;
-    // Raw mode (milestone 169, OP_RAWMODE): while true, OP_BYTES bypasses `disc` entirely and
+    // Raw mode (milestone 169 (`kilo`, the smallest real text editor, as the forcing function for raw terminal input); OPERATION_RAWMODE): while true, OPERATION_BYTES bypasses `disc` entirely and
     // lands in `raw_queue` instead, with no echo and no interpretation. `pending_raw` is
-    // OP_READRAW's own parked reply capability, the raw-mode twin of `pending`.
+    // OPERATION_READRAW's own parked reply capability, the raw-mode twin of `pending`.
     let mut raw_mode = false;
     let mut pending_raw: Option<Reply> = None;
-    // Set when a quiesce answered a parked OP_READLINE with FLAG_RETRY and this instance then
+    // Set when a quiesce answered a parked OPERATION_READLINE with FLAG_RETRY and this instance then
     // resumed: the reader's re-issued read must not repaint a prompt the screen already shows.
     let mut resuming_line = false;
 
@@ -219,12 +219,17 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
         // keystrokes over the UART) may switch raw mode and read raw bytes, and nothing it sends
         // can reach the queue the shell reads its next command from. An allowlist, so a request
         // added to the contract later is refused here until somebody decides a reader may send it.
-        if badge != 0 && !matches!(proto::op(w0), proto::OP_RAWMODE | proto::OP_READRAW) {
+        if badge != 0
+            && !matches!(
+                proto::operation(w0),
+                proto::OPERATION_RAWMODE | proto::OPERATION_READRAW
+            )
+        {
             reply(slot, proto::BAD_REQUEST, 0);
             continue;
         }
-        match proto::op(w0) {
-            proto::OP_BYTES if raw_mode => {
+        match proto::operation(w0) {
+            proto::OPERATION_BYTES if raw_mode => {
                 // Raw mode: no echo, no interpretation, straight into the raw queue. A burst past
                 // RAW_QUEUE_MAX is dropped audibly, the same overflow contract `disc.feed` uses.
                 let n = proto::len(w0).min(8);
@@ -236,7 +241,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 reply(slot, 0, 0);
                 deliver_raw(raw_queue, &mut pending_raw);
             }
-            proto::OP_BYTES => {
+            proto::OPERATION_BYTES => {
                 let n = proto::len(w0).min(8);
                 for i in 0..n {
                     let b = (w1 >> (8 * i)) as u8;
@@ -246,7 +251,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                         Event::Interrupt => {
                             // ^C: the discipline discarded the edit line. We discard the type-ahead
                             // and fail a pending read (case 1, the shell is at the prompt). And we
-                            // bump the interrupt count, which the shell polls (OP_INTRCOUNT) when a
+                            // bump the interrupt count, which the shell polls (OPERATION_INTRCOUNT) when a
                             // foreground job is running and no read is parked (case 2,
                             // DECISIONS §24). One ^C, both effects; whichever the shell is watching.
                             intr_count = intr_count.wrapping_add(1);
@@ -264,11 +269,11 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 reply(slot, 0, 0);
                 deliver(queue, &mut pending);
             }
-            proto::OP_RAWMODE => {
+            proto::OPERATION_RAWMODE => {
                 let on = proto::len(w0) != 0;
                 // Abandon whichever mode's in-progress line we're leaving: the edit buffer (and
-                // any parked OP_READLINE, which raw mode would otherwise never complete) going
-                // into raw mode, the unread raw queue (and any parked OP_READRAW) coming out of
+                // any parked OPERATION_READLINE, which raw mode would otherwise never complete) going
+                // into raw mode, the unread raw queue (and any parked OPERATION_READRAW) coming out of
                 // it. A session must never resume half a line typed under the mode it just left.
                 if on {
                     disc.abandon();
@@ -285,10 +290,10 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 raw_mode = on;
                 reply(slot, 0, 0);
             }
-            proto::OP_READRAW if !raw_mode => {
+            proto::OPERATION_READRAW if !raw_mode => {
                 reply(slot, proto::BAD_REQUEST, 0);
             }
-            proto::OP_READRAW => {
+            proto::OPERATION_READRAW => {
                 if pending_raw.is_some() {
                     reply(slot, proto::BAD_REQUEST, 0);
                     continue;
@@ -296,10 +301,10 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 pending_raw = Some(slot);
                 deliver_raw(raw_queue, &mut pending_raw);
             }
-            proto::OP_READLINE if raw_mode => {
+            proto::OPERATION_READLINE if raw_mode => {
                 reply(slot, proto::BAD_REQUEST, 0);
             }
-            proto::OP_WRITE => {
+            proto::OPERATION_WRITE => {
                 let len = proto::len(w0).min(PAGE);
                 // Stream the client's text through newline expansion into the console page, in
                 // small chunks so the expansion never needs a buffer the size of its input.
@@ -314,7 +319,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 con.flush();
                 reply(slot, len as u64, 0);
             }
-            proto::OP_READLINE => {
+            proto::OPERATION_READLINE => {
                 if pending.is_some() {
                     // One outstanding read per terminal (the contract). A second caller while
                     // one is parked is a protocol violation; refuse it loudly.
@@ -333,13 +338,13 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 pending = Some(slot);
                 deliver(queue, &mut pending);
             }
-            proto::OP_PRINT => {
+            proto::OPERATION_PRINT => {
                 // **A second writer, with no second page** (DECISIONS §67, notes/sink-protocol.md).
                 // The bytes are in the request's own words, so this client needs no frame mapped
-                // here and no frame of its own; `OP_WRITE` above reads the *one* page the progenitor maps in,
+                // here and no frame of its own; `OPERATION_WRITE` above reads the *one* page the progenitor maps in,
                 // and a second page-based client would need this contract to grow a page index.
                 //
-                // Through the same `expand_output` as `OP_WRITE`, so a newline from a sink adapter
+                // Through the same `expand_output` as `OPERATION_WRITE`, so a newline from a sink adapter
                 // becomes a carriage return and a newline exactly as one from the shell does. Two
                 // writers, one terminal, one set of manners.
                 let len = proto::len(w0).min(8);
@@ -348,12 +353,12 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 con.flush();
                 reply(slot, len as u64, 0);
             }
-            proto::OP_QUIESCE if control == 0 => {
+            proto::OPERATION_QUIESCE if control == 0 => {
                 // No control endpoint means nobody could ever tell us to resume: honouring this
                 // would leave a dead terminal. Every boot-built terminal today is this case.
                 reply(slot, proto::BAD_REQUEST, 0);
             }
-            proto::OP_QUIESCE => {
+            proto::OPERATION_QUIESCE => {
                 // A reply capability cannot leave this process, so a parked reader is answered
                 // now or never. It asks again, and whoever receives next answers it.
                 if let Some(p) = pending.take() {
@@ -390,7 +395,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                     user_mode_runtime::exit()
                 }
             }
-            proto::OP_INTRCOUNT => {
+            proto::OPERATION_INTRCOUNT => {
                 // The shell's ^C sensor: reply immediately with the running count. Never blocks, so
                 // the shell can busy-poll it while watching a foreground job (DECISIONS §24).
                 reply(slot, intr_count, 0);
@@ -413,9 +418,9 @@ fn deliver(queue: &mut LineQueue, pending: &mut Option<Reply>) {
     reply(p, len as u64, flags);
 }
 
-/// Raw mode's twin of [`deliver`]: if an `OP_READRAW` is parked and a byte is queued, pop up to
-/// eight and reply register-only, exactly [`proto::OP_READRAW`]'s reply shape. No page: the bytes
-/// ride in `r1`, the same register-only path [`proto::OP_BYTES`] arrived on.
+/// Raw mode's twin of [`deliver`]: if an `OPERATION_READRAW` is parked and a byte is queued, pop up to
+/// eight and reply register-only, exactly [`proto::OPERATION_READRAW`]'s reply shape. No page: the bytes
+/// ride in `r1`, the same register-only path [`proto::OPERATION_BYTES`] arrived on.
 fn deliver_raw(raw_queue: &mut RawQueue, pending_raw: &mut Option<Reply>) {
     if pending_raw.is_none() {
         return;
@@ -444,12 +449,16 @@ impl Con {
         }
         match self.mode {
             MODE_DISPLAY => {
-                // One CALL, `display_terminal`'s own `OP_WRITE` contract: `CONREQ` holds its
+                // One CALL, `display_terminal`'s own `OPERATION_WRITE` contract: `CONREQ` holds its
                 // served endpoint in this mode, not the console's request endpoint. The reply's
                 // byte count is not re-checked here for the same reason the console's ack
                 // content already wasn't: a short write from a terminal that never refuses one is
                 // not a case this server has ever had to handle, in either mode.
-                call(CONREQ, proto::req(proto::OP_WRITE, self.used as u64), 0);
+                call(
+                    CONREQ,
+                    proto::req(proto::OPERATION_WRITE, self.used as u64),
+                    0,
+                );
             }
             _ => {
                 // MODE_CONSOLE, and the default for any value this process was never told to

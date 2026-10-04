@@ -26,7 +26,7 @@ diff --git a/crates/credential_protocol/src/lib.rs b/crates/credential_protocol/
 index 39fae307..0a92d3de 100644
 --- a/crates/credential_protocol/src/lib.rs
 +++ b/crates/credential_protocol/src/lib.rs
-@@ -238,7 +238,7 @@ pub const fn op(w0: u64) -> u64 {
+@@ -238,7 +238,7 @@ pub const fn operation(w0: u64) -> u64 {
  /// The identity length a request word claims. Not yet checked against [`MAX_IDENTITY`]; that is
  /// [`read`]'s job, and it is the reason [`read`] exists rather than two accessors.
  pub const fn id_len(w0: u64) -> usize {

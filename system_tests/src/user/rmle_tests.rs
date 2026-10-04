@@ -27,7 +27,7 @@ fn type_text(term: sched::RendezvousId, text: &[u8]) {
         for (i, &b) in chunk.iter().enumerate() {
             w1 |= (b as u64) << (8 * i);
         }
-        let w0 = line_editor::proto::req(line_editor::proto::OP_BYTES, chunk.len() as u64);
+        let w0 = line_editor::proto::req(line_editor::proto::OPERATION_BYTES, chunk.len() as u64);
         sched::ipc_call(term, [w0, w1]);
     }
 }

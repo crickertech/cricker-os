@@ -53,7 +53,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use filesystem_protocol::{fs, grant, op, reply_err, reply_errno};
+use filesystem_protocol::{fs, grant, operation, reply_err, reply_errno};
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{Reply, call, receive_request, send};
 
@@ -145,7 +145,7 @@ fn serve(handle: u64, name: &[u8], writable: bool) -> ! {
         };
         let len = fs::req_len(w0).min(PAGE);
         let asked = fs::req_handle(w0);
-        let code = op(w0);
+        let code = operation(w0);
 
         // One lookup, and one refusal site for an opcode this contract does not carry. `EBADF` is
         // also what a forged handle gets, exactly as before: a client guessing numbers is guessing

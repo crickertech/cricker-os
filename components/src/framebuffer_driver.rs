@@ -143,7 +143,7 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
         let req = receive_request(DISPLAY);
         let w0 = req.w0;
         let reply_slot = req.delivered.into_reply();
-        let (r0, r1): (i64, u64) = match gfx::op(w0) {
+        let (r0, r1): (i64, u64) = match gfx::operation(w0) {
             // The runtime half of the geometry contract: the part of the screen the surface
             // covers, which is what a client should lay its grid out over. It is never larger
             // than the compile-time surface, so a client that maps `SURFACE_BYTES` and paints at

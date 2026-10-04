@@ -99,7 +99,7 @@ fn converse() -> ! {
     let mut changed_at = 0u64;
 
     for seq in 0..swap_protocol::REQUESTS {
-        let (mut got, mut tag) = call(SVC, swap_protocol::OP_PUT, seq);
+        let (mut got, mut tag) = call(SVC, swap_protocol::OPERATION_PUT, seq);
 
         // **We were stranded inside this call, and the thing that stranded us let go** (milestone
         // 23's hung-component channel). A component took this request and then stopped answering
@@ -113,7 +113,7 @@ fn converse() -> ! {
         // channels this value never arrives and this branch is dead.
         if got == swap_protocol::WEDGE_RELEASED {
             bits |= ck::WAS_RELEASED;
-            let again = call(SVC, swap_protocol::OP_PUT, seq);
+            let again = call(SVC, swap_protocol::OPERATION_PUT, seq);
             got = again.0;
             tag = again.1;
         }
@@ -175,7 +175,7 @@ fn produce() -> ! {
     let mut buffered = 0u64;
 
     for seq in 0..swap_protocol::REQUESTS {
-        let (got, tag) = call(SVC, swap_protocol::OP_PUT, seq);
+        let (got, tag) = call(SVC, swap_protocol::OPERATION_PUT, seq);
         match got {
             swap_protocol::ACCEPTED => {
                 buffered += 1;

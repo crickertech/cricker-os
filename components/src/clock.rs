@@ -116,7 +116,7 @@ fn serve(page: ClockPage) -> ! {
             // delegation)) rather than replying into a slot that is not a Reply.
             continue;
         };
-        match propose::op(w0) {
+        match propose::operation(w0) {
             propose::PROPOSE => {
                 let r = page.read();
                 let current = wall_now(&page);

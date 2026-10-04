@@ -415,16 +415,16 @@ impl ClockPage {
 pub mod propose {
     /// Where the opcode sits in the first `CALL` word: bits 63:56, the same position `filesystem_protocol`
     /// and `line_editor::proto` use, so the contracts read alike.
-    pub const OP_SHIFT: u32 = 56;
+    pub const OPERATION_SHIFT: u32 = 56;
 
     /// Build a request's first word.
-    pub const fn req(op: u64) -> u64 {
-        op << OP_SHIFT
+    pub const fn req(operation: u64) -> u64 {
+        operation << OPERATION_SHIFT
     }
 
     /// The opcode of a request word.
-    pub const fn op(w0: u64) -> u64 {
-        w0 >> OP_SHIFT
+    pub const fn operation(w0: u64) -> u64 {
+        w0 >> OPERATION_SHIFT
     }
 
     /// `CALL(req(PROPOSE), proposed_unix_nanos)`. Ask the service to move the wall clock to
@@ -761,15 +761,18 @@ mod tests {
         );
     }
 
-    /// The request word is a wire format shared with the clock service at runtime; `req` and `op`
+    /// The request word is a wire format shared with the clock service at runtime; `req` and `operation`
     /// must be inverses AND put the opcode in bits 63:56 exactly, because the service on the other
     /// side of the endpoint decodes with its own copy of the constant. Milestone 85's mutation run
     /// showed the shift direction and the whole function bodies were pinned by nothing.
     #[test]
     fn the_request_word_is_the_wire_format_it_claims() {
         assert_eq!(propose::req(propose::PROPOSE), 1u64 << 56);
-        assert_eq!(propose::op(propose::req(propose::STATE)), propose::STATE);
-        assert_eq!(propose::op(0), 0);
+        assert_eq!(
+            propose::operation(propose::req(propose::STATE)),
+            propose::STATE
+        );
+        assert_eq!(propose::operation(0), 0);
     }
 
     /// The plausibility window's endpoints are seconds times a billion, and the multiplication is

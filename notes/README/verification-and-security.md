@@ -9,6 +9,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Upstreaming the riscv64 target to Kani](../kani-upstream.md): the branch, and the pull request text. Name provisional.
 - [Did the proofs catch the bugs?](../proof-retrospective.md). Name provisional.
 - [Falsification records](../falsification.md): recording that each proof harness can fail.
+- [Falsification coverage](../falsification-coverage.md): which kinds of test carry a replayed falsification, and what gates on it.
 - [Fuzzing the parse surface](../fuzzing.md): coverage-guided fuzzing of the parsers that read outside bytes.
 - [Overflow checks](../overflow-checks.md): which builds panic on integer overflow and which wrap, what checking the shipped build found and costs, and the options (provisional name).
 - [Dynamic undefined-behavior checking (Miri)](../undefined-behavior.md): Miri over the host crates, and what "clean" means.

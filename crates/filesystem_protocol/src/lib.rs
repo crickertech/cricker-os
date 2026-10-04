@@ -64,11 +64,11 @@
 //! all: the page is for the bytes.
 //!
 //! ```
-//! use filesystem_protocol::{fs, op};
+//! use filesystem_protocol::{fs, operation};
 //!
 //! // `read(handle 3, 1024)`.
 //! let w0 = fs::req(fs::READ, 3, 1024);
-//! assert_eq!(op(w0), fs::READ); // the opcode field is the same one in both protocols
+//! assert_eq!(operation(w0), fs::READ); // the opcode field is the same one in both protocols
 //! assert_eq!(fs::req_handle(w0), 3);
 //! assert_eq!(fs::req_len(w0), 1024);
 //!
@@ -159,17 +159,17 @@ pub const PAGE: usize = 4096;
 
 /// Where a request packs its opcode: bits 63:56 of the first `CALL` word, the same position
 /// `line_editor::proto` uses, so the two contracts read alike.
-pub const OP_SHIFT: u32 = 56;
+pub const OPERATION_SHIFT: u32 = 56;
 
 /// Build a request's first word from just an opcode (the block protocol's shape: the operand, a
 /// block index, rides in the second word).
-pub const fn req(op: u64) -> u64 {
-    op << OP_SHIFT
+pub const fn req(operation: u64) -> u64 {
+    operation << OPERATION_SHIFT
 }
 
 /// The opcode of any request word.
-pub const fn op(w0: u64) -> u64 {
-    w0 >> OP_SHIFT
+pub const fn operation(w0: u64) -> u64 {
+    w0 >> OPERATION_SHIFT
 }
 
 /// Turn a redox/POSIX errno into a reply's first word: the negated number, so the client can invert
@@ -260,7 +260,7 @@ pub mod blk {
     ///
     /// # Compatibility, the same property step 3's channel has
     ///
-    /// A caller that has never heard of this constant sends [`super::req`]`(op)`, whose low bits are
+    /// A caller that has never heard of this constant sends [`super::req`]`(operation)`, whose low bits are
     /// all zero, which [`req_blocks`] reads back as **one** block: the pre-step-4 behaviour exactly.
     /// `disk_surveyor`, `disk_partitioner` and `mkfs` all call the block protocol this way and are
     /// unmodified by this step, the same compatibility step 3 gave `swish` and the caretakers.
@@ -270,16 +270,16 @@ pub mod blk {
     /// ([`TRANSFER_BLOCKS`] blocks). The block server clamps every request's count to this.
     pub const TRANSFER_MAX: usize = TRANSFER_BLOCKS * BLOCK_SIZE;
 
-    /// Pack a blk request's first word: opcode (bits 63:56, [`super::OP_SHIFT`]) and a block count
+    /// Pack a blk request's first word: opcode (bits 63:56, [`super::OPERATION_SHIFT`]) and a block count
     /// (bits 7:0, stored as `blocks - 1` so the all-zero word every pre-step-4 caller already sends
     /// still decodes as one block). `blocks` must be in `1..=TRANSFER_BLOCKS`.
-    pub const fn req(op: u64, blocks: usize) -> u64 {
+    pub const fn req(operation: u64, blocks: usize) -> u64 {
         assert!(blocks >= 1 && blocks <= TRANSFER_BLOCKS);
-        (op << super::OP_SHIFT) | (blocks as u64 - 1)
+        (operation << super::OPERATION_SHIFT) | (blocks as u64 - 1)
     }
 
     /// The block count of a blk request word: [`req`]'s inverse. A word built by
-    /// [`super::req`]`(op)`, which every caller before this step sends, decodes as 1.
+    /// [`super::req`]`(operation)`, which every caller before this step sends, decodes as 1.
     pub const fn req_blocks(w0: u64) -> usize {
         ((w0 & 0xff) + 1) as usize
     }
@@ -292,7 +292,7 @@ pub mod blk {
         assert!(TRANSFER_BLOCKS <= 256); // the 8-bit count field's range
         assert!(TRANSFER_MAX == TRANSFER_BLOCKS * BLOCK_SIZE);
         // `req`'s all-zero-low-bits compatibility case: a caller that never heard of `req_blocks`
-        // sends `super::req(op)`, whose low bits are 0, and that must still mean one block.
+        // sends `super::req(operation)`, whose low bits are 0, and that must still mean one block.
         assert!(req_blocks(super::req(READ)) == 1);
     };
 }
@@ -925,8 +925,8 @@ pub mod fs {
     /// 39:0). [`OPEN`] and [`CREATE`] pass handle 0 and length = the name length;
     /// [`READ`]/[`WRITE`] pass the handle and the byte count; [`CLOSE`]/[`FSTAT`]/[`TRUNCATE`] pass
     /// the handle and length 0 ([`TRUNCATE`]'s new size rides in the second word).
-    pub const fn req(op: u64, handle: u64, len: u64) -> u64 {
-        (op << super::OP_SHIFT) | ((handle & MAX_HANDLE) << 40) | (len & MAX_LEN)
+    pub const fn req(operation: u64, handle: u64, len: u64) -> u64 {
+        (operation << super::OPERATION_SHIFT) | ((handle & MAX_HANDLE) << 40) | (len & MAX_LEN)
     }
     /// The handle of a file request word.
     pub const fn req_handle(w0: u64) -> u64 {
@@ -1291,7 +1291,7 @@ pub mod verb {
     #[derive(Clone, Copy, Debug)]
     pub struct Verb {
         /// The opcode. Rows are stored in opcode order and the ordering is asserted at compile time.
-        pub op: u64,
+        pub operation: u64,
         /// Its name, for a diagnostic and for a test's failure message. Costs nothing at runtime in
         /// the caretakers, which never read it.
         pub name: &'static str,
@@ -1340,7 +1340,7 @@ pub mod verb {
 
     /// A row, spelled once so the table below reads as data.
     const fn row(
-        op: u64,
+        operation: u64,
         name: &'static str,
         operand: Operand,
         carries_w1: bool,
@@ -1348,7 +1348,7 @@ pub mod verb {
         needs_all: u64,
     ) -> Verb {
         Verb {
-            op,
+            operation,
             name,
             operand,
             carries_w1,
@@ -1375,7 +1375,7 @@ pub mod verb {
         // Its second word is the per-step rights request a relative path descends with (milestone
         // 606, ruling A), so a caretaker must forward it.
         Verb {
-            op: fs::OPEN,
+            operation: fs::OPEN,
             name: "OPEN",
             operand: Operand::Name,
             carries_w1: true,
@@ -1550,11 +1550,11 @@ pub mod verb {
     ///
     /// A caretaker's whole dispatch is this lookup plus the fields it returns, so an opcode a client
     /// invents is refused at one site rather than falling through a match's catch-all.
-    pub const fn of(op: u64) -> Option<&'static Verb> {
-        if op < FIRST || op > LAST {
+    pub const fn of(operation: u64) -> Option<&'static Verb> {
+        if operation < FIRST || operation > LAST {
             return None;
         }
-        Some(&TABLE[(op - FIRST) as usize])
+        Some(&TABLE[(operation - FIRST) as usize])
     }
 
     // **The compile-time half of the deliverable.** Adding an opcode to `fs` and forgetting a row
@@ -1569,7 +1569,7 @@ pub mod verb {
         let mut i = 0;
         while i < TABLE.len() {
             assert!(
-                TABLE[i].op == FIRST + i as u64,
+                TABLE[i].operation == FIRST + i as u64,
                 "verb::TABLE is stored in opcode order and indexed by it; a row is out of place"
             );
             i += 1;
@@ -1678,11 +1678,11 @@ pub mod verb {
         pub const EBADF: i32 = 9;
 
         /// The policy for an opcode, or `None` for an opcode the contract does not carry.
-        pub const fn of(op: u64) -> Option<Policy> {
-            if op < super::FIRST || op > super::LAST {
+        pub const fn of(operation: u64) -> Option<Policy> {
+            if operation < super::FIRST || operation > super::LAST {
                 return None;
             }
-            Some(POLICY[(op - super::FIRST) as usize])
+            Some(POLICY[(operation - super::FIRST) as usize])
         }
 
         // A policy per verb, checked where a missing one is cheapest to find.
@@ -3576,7 +3576,7 @@ pub mod fixture {
     ///
     /// **Where these two words travel** (corrected 2026-08-17). `rm` declares the sink contract
     /// (`grant_plan::OutputSpec::Bytes`), so its report is framed text and then `byte_sink_protocol`'s
-    /// `OP_EOF`; the status and the removal count ride in the two words that end-of-stream message
+    /// `OPERATION_EOF`; the status and the removal count ride in the two words that end-of-stream message
     /// leaves free. They used to ride on [`VERDICT`], a word the sink contract has no meaning for,
     /// which no reader but a guest test could have decoded.
     ///
@@ -3786,10 +3786,14 @@ mod tests {
     /// programs at once.
     #[test]
     fn every_verb_has_a_row_that_says_what_its_words_mean() {
-        for op in verb::FIRST..=verb::LAST {
-            let v = verb::of(op).unwrap_or_else(|| panic!("opcode {op} has no row"));
-            assert_eq!(v.op, op, "{} is filed under the wrong opcode", v.name);
-            assert!(!v.name.is_empty(), "opcode {op} has no name");
+        for operation in verb::FIRST..=verb::LAST {
+            let v = verb::of(operation).unwrap_or_else(|| panic!("opcode {operation} has no row"));
+            assert_eq!(
+                v.operation, operation,
+                "{} is filed under the wrong opcode",
+                v.name
+            );
+            assert!(!v.name.is_empty(), "opcode {operation} has no name");
             // A verb cannot state its rights two ways at once: `Rights::allows` is "all of", so an
             // any-of requirement folded into `needs_all` would demand both and refuse a capability
             // the server would have accepted.
@@ -3947,9 +3951,9 @@ mod tests {
         // The attribute verbs carry a name in the page and it is NOT a directory name, which is the
         // distinction `Operand::Payload` exists to make. Filtering it would refuse a program its own
         // file's attributes on the grounds that the attribute is not in the directory.
-        for op in [fs::GETXATTR, fs::SETXATTR, fs::LISTXATTR, fs::REMOVEXATTR] {
+        for operation in [fs::GETXATTR, fs::SETXATTR, fs::LISTXATTR, fs::REMOVEXATTR] {
             assert!(
-                !verb::of(op).unwrap().takes_name(),
+                !verb::of(operation).unwrap().takes_name(),
                 "an attribute name is not a name in the namespace a capability narrows"
             );
         }
@@ -3986,9 +3990,9 @@ mod tests {
         );
         // Nothing that mutates may be answered locally: `Forward` is the only policy that consults
         // the grant's direction, and `Refused` never reaches the server at all.
-        for op in verb::FIRST..=verb::LAST {
-            let v = verb::of(op).unwrap();
-            let p = verb::file_grant::of(op).unwrap();
+        for operation in verb::FIRST..=verb::LAST {
+            let v = verb::of(operation).unwrap();
+            let p = verb::file_grant::of(operation).unwrap();
             if v.mutates() {
                 assert!(
                     matches!(p, Policy::Forward | Policy::Refused(_)),
@@ -4009,13 +4013,13 @@ mod tests {
     #[test]
     fn a_per_file_grant_carries_its_files_attributes() {
         use verb::file_grant::Policy;
-        for op in [fs::GETXATTR, fs::SETXATTR, fs::LISTXATTR, fs::REMOVEXATTR] {
+        for operation in [fs::GETXATTR, fs::SETXATTR, fs::LISTXATTR, fs::REMOVEXATTR] {
             assert_eq!(
-                verb::file_grant::of(op),
+                verb::file_grant::of(operation),
                 Some(Policy::Forward),
                 "{} is not forwarded, so a program behind a per-file grant cannot reach its own \
                  file's attributes",
-                verb::of(op).unwrap().name
+                verb::of(operation).unwrap().name
             );
         }
         // The read half must be reachable through a read-only grant, which is the case that
@@ -4043,7 +4047,7 @@ mod tests {
         // caller's handle; these are refusals about the REQUEST, which a file capability cannot
         // give meaning to. The two must stay distinguishable, because `EBADF` is also what a
         // forged handle gets, and a client cannot act on a word that means both.
-        for op in [
+        for operation in [
             fs::OPENDIR,
             fs::READDIR,
             fs::MKDIR,
@@ -4052,7 +4056,7 @@ mod tests {
             fs::RMDIR,
         ] {
             assert_eq!(
-                verb::file_grant::of(op),
+                verb::file_grant::of(operation),
                 Some(Policy::Refused(grant::ENOTDIR)),
                 "a directory verb through a file grant is ENOTDIR, not EBADF",
             );
@@ -4091,11 +4095,11 @@ mod tests {
     #[test]
     fn block_request_roundtrips() {
         let w0 = req(blk::READ);
-        assert_eq!(op(w0), blk::READ);
+        assert_eq!(operation(w0), blk::READ);
         // The block index rides in the second word untouched, so any u64 survives.
         for block in [0u64, 1, 42, u64::MAX] {
             let (rw0, rw1) = (req(blk::WRITE), block);
-            assert_eq!(op(rw0), blk::WRITE);
+            assert_eq!(operation(rw0), blk::WRITE);
             assert_eq!(rw1, block);
         }
     }
@@ -4108,12 +4112,12 @@ mod tests {
     fn blk_request_carries_a_block_count_and_defaults_to_one() {
         for blocks in [1usize, 2, blk::TRANSFER_BLOCKS] {
             let w0 = blk::req(blk::READ, blocks);
-            assert_eq!(op(w0), blk::READ);
+            assert_eq!(operation(w0), blk::READ);
             assert_eq!(blk::req_blocks(w0), blocks);
         }
         // A pre-step-4 caller's word (the plain, one-argument `req`) decodes as one block.
         assert_eq!(blk::req_blocks(req(blk::READ)), 1);
-        // `blk::req(op, 1)` and `req(op)` are wire-identical, which is the compatibility property
+        // `blk::req(operation, 1)` and `req(operation)` are wire-identical, which is the compatibility property
         // stated: a caller that upgrades to naming one block explicitly changes nothing on the wire.
         assert_eq!(blk::req(blk::READ, 1), req(blk::READ));
     }
@@ -4143,7 +4147,7 @@ mod tests {
             (fs::TRUNCATE, 42, 0),
         ] {
             let w = fs::req(o, h, l);
-            assert_eq!(op(w), o, "opcode");
+            assert_eq!(operation(w), o, "opcode");
             assert_eq!(fs::req_handle(w), h, "handle");
             assert_eq!(fs::req_len(w) as u64, l, "len");
         }
@@ -4154,7 +4158,7 @@ mod tests {
         // A big handle must not spill into the opcode field, and a max length must not spill into
         // the handle: the READ path packs all three and reads them back independently.
         let w = fs::req(fs::READ, fs::MAX_HANDLE, fs::MAX_LEN);
-        assert_eq!(op(w), fs::READ);
+        assert_eq!(operation(w), fs::READ);
         assert_eq!(fs::req_handle(w), fs::MAX_HANDLE);
         assert_eq!(fs::req_len(w) as u64, fs::MAX_LEN);
     }
@@ -4163,7 +4167,7 @@ mod tests {
     fn every_opcode_is_distinct_and_fits_its_field() {
         // Two verbs sharing a number is a wire bug the packing tests cannot see: each would pack and
         // unpack perfectly and mean the wrong thing. Cheap to assert, so assert it.
-        let ops = [
+        let operations = [
             ("OPEN", fs::OPEN),
             ("READ", fs::READ),
             ("WRITE", fs::WRITE),
@@ -4172,13 +4176,13 @@ mod tests {
             ("CREATE", fs::CREATE),
             ("TRUNCATE", fs::TRUNCATE),
         ];
-        for (i, (na, a)) in ops.iter().enumerate() {
+        for (i, (na, a)) in operations.iter().enumerate() {
             assert!(*a <= 0xff, "{na} does not fit the 8-bit opcode field");
             assert_ne!(
                 *a, 0,
                 "0 is not a verb: a zeroed word must not decode as one"
             );
-            for (nb, b) in &ops[i + 1..] {
+            for (nb, b) in &operations[i + 1..] {
                 assert_ne!(a, b, "{na} and {nb} share an opcode");
             }
         }
@@ -4425,7 +4429,7 @@ mod tests {
     /// `ROOT` must stay 0 because every client that ever sent an `OPEN` sent 0 in that field.
     #[test]
     fn the_directory_verbs_are_distinct_from_every_other_one() {
-        let ops = [
+        let operations = [
             ("OPEN", fs::OPEN),
             ("READ", fs::READ),
             ("WRITE", fs::WRITE),
@@ -4448,10 +4452,10 @@ mod tests {
             ("SETMTIME", fs::SETMTIME),
             ("SETMTIME_AT", fs::SETMTIME_AT),
         ];
-        for (i, (na, a)) in ops.iter().enumerate() {
+        for (i, (na, a)) in operations.iter().enumerate() {
             assert!(*a <= 0xff, "{na} does not fit the 8-bit opcode field");
             assert_ne!(*a, 0, "0 is not a verb");
-            for (nb, b) in &ops[i + 1..] {
+            for (nb, b) in &operations[i + 1..] {
                 assert_ne!(a, b, "{na} and {nb} share an opcode");
             }
         }
@@ -4472,7 +4476,7 @@ mod tests {
         ] {
             let w0 = fs::req(fs::RENAME, sh, sl);
             let w1 = fs::rename_dst(dh, dl);
-            assert_eq!(op(w0), fs::RENAME);
+            assert_eq!(operation(w0), fs::RENAME);
             assert_eq!(fs::req_handle(w0), sh, "source handle");
             assert_eq!(fs::req_len(w0) as u64, sl, "source name length");
             assert_eq!(fs::dst_handle(w1), dh, "destination handle");
@@ -5615,12 +5619,12 @@ mod tests {
         let w0 = fs::req(fs::READ, 1, PAGE as u64);
         assert_eq!(fs::req_len(w0), PAGE);
         assert_eq!(fs::req_handle(w0), 1);
-        assert_eq!(op(w0), fs::READ);
+        assert_eq!(operation(w0), fs::READ);
 
         // And the largest the channel permits survives the same 40-bit field.
         let w0 = fs::req(fs::WRITE, 1, fs::TRANSFER_MAX as u64);
         assert_eq!(fs::req_len(w0), fs::TRANSFER_MAX);
-        assert_eq!(op(w0), fs::WRITE);
+        assert_eq!(operation(w0), fs::WRITE);
     }
 
     // ---- survivor triage of the 2026-10-03 census: the shared fixture's arithmetic ---------------

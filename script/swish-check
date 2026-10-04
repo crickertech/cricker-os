@@ -39,7 +39,7 @@
 #      which is the headless half of milestone 632 (graphics on demand)'s claim, on all three ISAs, at no extra boot.
 #   2. After the reboot: the short script, then a gpu and **no keyboard**, and `graphical_terminal`.
 #      The session's keystrokes are the guest's own UART, read raw from the boot's line discipline
-#      (`OP_RAWMODE`/`OP_READRAW`, the shell's own section 227 shape) and echoed by the session
+#      (`OPERATION_RAWMODE`/`OPERATION_READRAW`, the shell's own section 227 shape) and echoed by the session
 #      (milestone 192 (a keyboard on real silicon), option A). That is the configuration all three
 #      target boards have: argon, radon and xenon each have a serial line and none has a
 #      virtio-input device. It is NOT a substitute for a bench run: QEMU has neither board's

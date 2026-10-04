@@ -1103,6 +1103,13 @@ pub fn image_refusal_sentence(r: grant_plan::ImageRefusal) -> &'static [u8] {
 pub const REFUSED_BY_MANIFEST_SENTENCE: &[u8] =
     b"  refused: the progenitor read those bytes' own manifest, and it does not allow this line\n";
 
+/// What the prompt says for [`spawnproto::SPAWN_NO_DISPLAY`] (milestone 715 (provisional)): the
+/// sentence milestone 632 (graphics on demand) printed before sending anything, when the shell
+/// could see from its own slots that it held no display. It holds none on any boot now, so the
+/// spawn service says it and this is the same sentence, word for word.
+pub const NO_DISPLAY_SENTENCE: &[u8] =
+    b"  no display on this boot; there is nothing to launch a graphical terminal session from\n";
+
 /// **`caps <path>`: what running a file's bytes would grant, and on whose word**
 /// (DECISIONS §219 option D and gate D2, milestone 198 rung 3a; the manifest note, milestone 597,
 /// provisional).
@@ -1327,6 +1334,10 @@ pub fn write_outcome(e: &Endowment, answer: u64, out: &mut dyn FnMut(&[u8])) {
         out(REFUSED_BY_MANIFEST_SENTENCE);
         return;
     }
+    if answer == spawnproto::SPAWN_NO_DISPLAY {
+        out(NO_DISPLAY_SENTENCE);
+        return;
+    }
     // **The job ran and the kernel killed it** (milestone 235). A different fact from the line
     // above and worth different words: nothing ran there, something ran here. The sentence says
     // "before it answered" because that is the whole reason this word exists; the kernel's own
@@ -1474,6 +1485,25 @@ pub fn write_holdings(
         write_config_values(&page, b"                                  ", out);
     }
     out(b"  it can name no devices and no other process. authority is what it holds.\n");
+}
+
+/// **The census under the table** (milestone 715 (provisional)): every slot below `below` (the
+/// caller passes the reserved fault slot) that holds a capability, read from the kernel by the
+/// caller (`held`), not from what
+/// the rows above say this shell was given. The rows are the endowment as the shell understands
+/// it; this line is what is actually there, so a capability the rows do not name (the display
+/// devices the progenitor placed at `spawnproto::SHELL_GPU_SLOT` onward until milestone 715 moved
+/// them) shows up here even though no row describes it. `unreachable_network_witness`'s census is
+/// the same line, one program over. Name: provisional.
+pub fn write_census(below: u64, held: &dyn Fn(u64) -> bool, out: &mut dyn FnMut(&[u8])) {
+    out(b"  slots held:");
+    for slot in 0..below {
+        if held(slot) {
+            out(b" ");
+            write_num(slot, out);
+        }
+    }
+    out(b"\n");
 }
 
 /// One row of `bind`'s own namespace section: the name it was filed under, and the path it
@@ -3369,6 +3399,14 @@ mod tests {
     }
 
     // ---- caps over a whole line ----
+
+    #[test]
+    fn the_census_lists_exactly_the_slots_the_kernel_says_are_held() {
+        let s = shown(|o| write_census(31, &|n| matches!(n, 0 | 1 | 2 | 22 | 30), o));
+        assert_eq!(s, "  slots held: 0 1 2 22 30\n");
+        let none = shown(|o| write_census(31, &|_| false, o));
+        assert_eq!(none, "  slots held:\n");
+    }
 
     #[test]
     fn caps_with_no_tail_is_the_shells_own_endowment() {

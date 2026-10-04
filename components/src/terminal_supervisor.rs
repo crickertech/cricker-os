@@ -11,7 +11,7 @@
 //!
 //! ```text
 //!   1 BUILT      lay the replacement out, wired from the same declaration, not started.
-//!   2 QUIESCED   CALL OP_QUIESCE on the terminal endpoint. Its FIFO drains everything ahead; a
+//!   2 QUIESCED   CALL OPERATION_QUIESCE on the terminal endpoint. Its FIFO drains everything ahead; a
 //!                parked reader is answered FLAG_RETRY and asks again; the blob is written.
 //!   3 ABSORBING  start the replacement with START_ABSORB. It reads the blob before it serves.
 //!   4 COMMIT     NOTE_ABSORBED: tell the incumbent CTL_QUIT and collect it.
@@ -129,7 +129,8 @@ pub extern "C" fn _start(mode: u64, elf_len: u64, swap: u64) -> ! {
             continue;
         };
         if verb == s::STOP {
-            let (q, _) = user_mode_runtime::call(s::TERMINAL, proto::req(proto::OP_QUIESCE, 0), 0);
+            let (q, _) =
+                user_mode_runtime::call(s::TERMINAL, proto::req(proto::OPERATION_QUIESCE, 0), 0);
             if q != proto::QUIESCED {
                 fail()
             }
@@ -166,7 +167,8 @@ pub extern "C" fn _start(mode: u64, elf_len: u64, swap: u64) -> ! {
             fail()
         };
 
-        let (q, _) = user_mode_runtime::call(s::TERMINAL, proto::req(proto::OP_QUIESCE, 0), 0);
+        let (q, _) =
+            user_mode_runtime::call(s::TERMINAL, proto::req(proto::OPERATION_QUIESCE, 0), 0);
         if q != proto::QUIESCED {
             fail()
         }

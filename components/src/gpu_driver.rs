@@ -573,7 +573,7 @@ pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
         let req = receive_request(DISPLAY);
         let w0 = req.w0;
         let reply_slot = req.delivered.into_reply();
-        let r0: i64 = match gfx::op(w0) {
+        let r0: i64 = match gfx::operation(w0) {
             gfx::display::INFO => {
                 // The runtime half of the geometry contract. The reply's second word carries it, so
                 // a client need not have been compiled against our constants.
@@ -585,7 +585,7 @@ pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
             }
             _ => gfx::EINVAL,
         };
-        let r1 = match gfx::op(w0) {
+        let r1 = match gfx::operation(w0) {
             gfx::display::INFO => gfx::WIDTH as u64 | ((gfx::HEIGHT as u64) << 32),
             _ => 0,
         };
@@ -600,7 +600,7 @@ pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
         // ignore it (notes/framebuffer-contract.md). **Its spawner cannot**: this `send` blocks
         // until received, and nothing is in `RECEIVE` on `DISPLAY` meanwhile, so a spawner that never
         // takes it stops every flush after the first (milestone 177's hang, which this line was).
-        if !reported_flush && gfx::op(w0) == gfx::display::FLUSH && r0 == 0 {
+        if !reported_flush && gfx::operation(w0) == gfx::display::FLUSH && r0 == 0 {
             reported_flush = true;
             let digest = gfx::checksum(surface_pixel);
             send(REPORT, gfx::status::FLUSHED, digest, gfx::PIXELS as u64);

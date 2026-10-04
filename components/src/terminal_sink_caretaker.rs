@@ -6,11 +6,11 @@
 //! it speaks the **sink contract** to its client and the **terminal contract** to what is behind
 //! it, and a program whose output slot holds an endpoint to this process is writing to the screen
 //! and cannot tell. What it keeps back is the reason the name says caretaker: that endpoint also
-//! carries `OP_READLINE`, and a sink capability that can read the keyboard is not a sink
+//! carries `OPERATION_READLINE`, and a sink capability that can read the keyboard is not a sink
 //! capability.
 //!
 //! ```text
-//!   a declaring child ──byte_sink_protocol SEND──► terminal_sink_caretaker ──OP_PRINT CALL──► line_editor ──► console
+//!   a declaring child ──byte_sink_protocol SEND──► terminal_sink_caretaker ──OPERATION_PRINT CALL──► line_editor ──► console
 //! ```
 //!
 //! # Why this is a process and not a line in the line editor
@@ -18,7 +18,7 @@
 //! The cheap move is to have `line_editor` serve the sink contract on the endpoint it already has: a
 //! `SEND` arrives there with no reply capability, so it is trivially distinguishable from the
 //! `CALL`s it serves. **That would be wrong**, and the reason is the whole of why this file exists.
-//! That endpoint also carries `OP_READLINE`, and `WRITE` on an endpoint is the right to `CALL`, so a
+//! That endpoint also carries `OPERATION_READLINE`, and `WRITE` on an endpoint is the right to `CALL`, so a
 //! child holding it as its output slot would hold **the terminal's keyboard**. A sink capability
 //! that can read the keyboard is not a sink capability.
 //!
@@ -28,10 +28,10 @@
 //!
 //! # And why it needed a new opcode
 //!
-//! `OP_WRITE` reads from **the client's output page**, and there is exactly one of those: the progenitor maps
+//! `OPERATION_WRITE` reads from **the client's output page**, and there is exactly one of those: the progenitor maps
 //! a single frame into the terminal read-only and into the shell read/write. A second page-based
 //! client would need a second frame and a page index in the request, which is `filesystem_protocol`'s
-//! one-page-two-clients problem (DECISIONS §55) arriving in a second contract. `OP_PRINT` carries
+//! one-page-two-clients problem (DECISIONS §55 (the file behind a `>` is the shell itself, because one page cannot serve two clients)) arriving in a second contract. `OPERATION_PRINT` carries
 //! the bytes in the request's own words, so this process needs **no page at all**: it unpacks a sink
 //! message and calls, and that is the entire program.
 //!
@@ -44,12 +44,12 @@
 //!   this process blocks in `CALL` until the terminal has the bytes, so flow control is the chain of
 //!   rendezvous and there is nothing buffered anywhere. That is the same answer the rest of the sink
 //!   contract gives and it is why there is no queue in here to overflow.
-//! - **`OP_EOF` ends a writer, not the terminal.** One endpoint serves every declaring child in
+//! - **`OPERATION_EOF` ends a writer, not the terminal.** One endpoint serves every declaring child in
 //!   turn, so end-of-stream is a fact about one client and this loop simply continues. There is
 //!   nothing here that could notice a client that died mid-message, and nothing that needs to.
 //!
 //! Name: ratified 2026-08-03 (calef), replacing `terminal_sink`. It holds the terminal endpoint,
-//! which also carries `OP_READLINE`, and hands out a sink that cannot read, which is the caretaker
+//! which also carries `OPERATION_READLINE`, and hands out a sink that cannot read, which is the caretaker
 //! shape exactly; naming it one also proves that shape generalizes beyond `fs_`, where every other
 //! member lives, so a reader stops taking caretaker for a filesystem concept. The full form keeps
 //! both facts a shorter name would have forced a choice between: the client learns it gets a sink,
@@ -100,7 +100,11 @@ fn print(bytes: &[u8]) {
         for (i, &b) in chunk.iter().enumerate() {
             w1 |= (b as u64) << (8 * i);
         }
-        call(TERM, proto::req(proto::OP_PRINT, chunk.len() as u64), w1);
+        call(
+            TERM,
+            proto::req(proto::OPERATION_PRINT, chunk.len() as u64),
+            w1,
+        );
     }
 }
 

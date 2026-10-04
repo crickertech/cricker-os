@@ -268,10 +268,10 @@ fn attacker() -> ! {
 
 /// Place a request in the shared page and `CALL`. Returns the service's reply code, or
 /// [`u64::MAX`] if the reply carried data in its second word, which nothing here ever should.
-fn request(window: MappedWindow, identity: &[u8], secret: &[u8], op: u64) -> u64 {
+fn request(window: MappedWindow, identity: &[u8], secret: &[u8], operation: u64) -> u64 {
     // SAFETY: forwarded from `window`'s own contract, and this process is its only user.
     let page = unsafe { window.as_mut_slice() };
-    let Some(w0) = proto::place(page, identity, secret, op) else {
+    let Some(w0) = proto::place(page, identity, secret, operation) else {
         return u64::MAX;
     };
     let (r0, r1) = call(SERVICE, w0, 0);

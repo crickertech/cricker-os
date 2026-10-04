@@ -201,6 +201,12 @@ const JOB_DID_NOT_RUN: [&str; 2] = [
     "that command faulted and was killed before it answered",
 ];
 
+/// **What the keyboard boot types before it launches** (milestone 715 (provisional)): one `caps`,
+/// for its census, because this is the only boot with a keyboard and so the only one that can show
+/// the keyboard's three slots (26 to 28) are not the shell's either. Before 715 the progenitor
+/// placed them there beside the gpu's four. See the same line in [`SWISH_CHECK_AFTER_REBOOT`].
+const SWISH_CHECK_KEYBOARD_BOOT: &[Line] = &[line(0, "caps", &["slots held: 0 1 2", " 21 30\n"])];
+
 /// A [`Line`], positionally, so the script reads as the prompt does. The name is provisional.
 const fn line(jobs: u8, typed: &'static str, answer: &'static [&'static str]) -> Line {
     Line {
@@ -256,6 +262,15 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 /// versions of one program, each runnable, and a caller granted the one it needs)'s second
 /// version, installed before the vouch.
 const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
+    // **The shell holds no display device** (milestone 715 (provisional), the 2026-10-03 security
+    // audit's follow-up; row 32 of notes/confinement-claims.md). On aarch64 and riscv64 this boot
+    // has a gpu, and until 715 the progenitor placed its four capabilities in the shell at
+    // `spawnproto::SHELL_GPU_SLOT` (22) onward for the life of the boot: measured on aarch64,
+    // `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`. Now the spawn service keeps them, so the
+    // census runs straight from the configuration page (21) to the run-unvouched slot (30), and
+    // " 21 30" is the assertion that nothing sits between them. On x86_64 this boot has no gpu and
+    // the line holds trivially; that leg's gap is milestone 632's (no virtio-gpu in its runner).
+    line(0, "caps", &["slots held: 0 1 2", " 21 30\n"]),
     line(
         1,
         "packages/noteless/0.1.0/noteless",
@@ -1866,6 +1881,57 @@ fn degauge(text: &str) -> String {
     out
 }
 
+/// **Takes out the prompt lines the console drew a second time beneath a gauge** (2026-10-04 UTC,
+/// the noteless flake, `notes/swish-check-flake.md`). `filtered` is [`GaugeFilter`]'s output and
+/// `gauges` the offsets it removed lines at.
+///
+/// A kernel line that reaches the console mid-line waits for the line to end. If it is still
+/// waiting when the system log service's flush timer fires (`components/src/system_log.rs`'s
+/// `FLUSH_NANOS`), the console writes a line end, the kernel line, and the partial line again
+/// (`system_log_protocol::console::Inserter::flush`), which is milestone 342's design and what a
+/// person at the terminal should see. With the gauge taken out, a flush that fell after the echo
+/// of a typed line's last character and before the echo of its Enter leaves `$ line\n$ line\n`,
+/// and [`swish_check_answer`] read the first copy as a command that printed nothing.
+///
+/// Only an exact copy is removed: the line ending at a gauge's offset, starting `$ `, followed at
+/// that offset by the same line and its line end. A flush that fell mid-typing leaves a prefix
+/// (`$ pack\n$ packages/...\n`), which every reader already handles, and is left as it is. The one
+/// shape this could mistake for a redraw is a line typed twice in a row whose first run printed
+/// nothing, and `no_script_types_a_silent_line_twice_in_a_row` keeps every script free of it.
+///
+/// **Only gauges are taken out of the redraw's queue.** Another kernel line flushed above a redraw
+/// stays in the transcript and fails the line it lands in, loudly, which is the right default for a
+/// line nothing here expects.
+fn without_redraws(filtered: &str, gauges: &[(usize, String)]) -> String {
+    let mut cuts: Vec<(usize, usize)> = Vec::new();
+    let mut offsets: Vec<usize> = gauges.iter().map(|(at, _)| *at).collect();
+    offsets.dedup();
+    for at in offsets {
+        let Some(before) = filtered.get(..at).and_then(|b| b.strip_suffix('\n')) else {
+            continue;
+        };
+        let start = before.rfind('\n').map_or(0, |i| i + 1);
+        let partial = &before[start..];
+        if !partial.starts_with("$ ") {
+            continue;
+        }
+        let copy = &filtered[at..];
+        if copy.starts_with(partial) && copy[partial.len()..].starts_with('\n') {
+            cuts.push((start, at));
+        }
+    }
+    let mut out = String::with_capacity(filtered.len());
+    let mut from = 0;
+    for (start, end) in cuts {
+        if start >= from {
+            out.push_str(&filtered[from..start]);
+            from = end;
+        }
+    }
+    out.push_str(&filtered[from..]);
+    out
+}
+
 /// Which typed command a gauge removed at `at` belongs to: the last `$ ` line before it, skipping
 /// the bare prompt the gauge usually follows, since that prompt is the *next* command's.
 fn gauge_follows(transcript: &str, at: usize) -> &str {
@@ -2125,6 +2191,8 @@ fn boot_claim_complaint(
 ///   instruction instead (milestone 595 (provisional)), which the runner's `-cpu max` implements.
 ///   The leg asserts the progenitor said so, because a boot that silently fell back to no entropy
 ///   would otherwise surface only as the `uuid` lines failing.
+///
+/// Falsification: replayable `xtask/falsifications/swish_check.swish_check_leg.patch`
 fn swish_check_leg(arch: &str) -> bool {
     // **Where the graphical launch rides** (2026-10-03 UTC, calef's ruling folding the
     // `swish-check-graphical` job in; milestone 632 (provisional)). `graphical_terminal` is a
@@ -2146,7 +2214,12 @@ fn swish_check_leg(arch: &str) -> bool {
             ))
         && (probe() == Probe::Panic
             || !graphical
-            || swish_check_boot(arch, &[], false, Some(Keystrokes::Device)))
+            || swish_check_boot(
+                arch,
+                SWISH_CHECK_KEYBOARD_BOOT,
+                false,
+                Some(Keystrokes::Device),
+            ))
 }
 
 /// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
@@ -2177,6 +2250,8 @@ fn kvm_is_usable() -> bool {
 /// `graphics` attaches a virtio-gpu (and, for [`Keystrokes::Device`], a virtio keyboard) and, once
 /// `script` is done and the prompt is back, types `graphical_terminal` and reads the screen
 /// ([`launch_graphical_terminal`]). `None` attaches no gpu, which is what the refusal line needs.
+///
+/// Falsification: replayable `xtask/falsifications/swish_check.swish_check_boot.patch`
 fn swish_check_boot(
     arch: &str,
     script: &[Line],
@@ -2648,7 +2723,24 @@ fn swish_check_boot(
             } else {
                 "\n"
             };
-            if write!(stdin, "{line}{enter}").is_err() || stdin.flush().is_err() {
+            // **`NIFE_SWISH_ENTER_PAUSE_MS` types like a person**: the line, a pause, then Enter
+            // (2026-10-04 UTC, name provisional). Past the system log service's 250 ms flush, any
+            // kernel line queued at the prompt is drawn above a redraw of the whole typed line,
+            // which is the window the noteless flake fell into once in hundreds of runs; this
+            // opens it on every line, so [`without_redraws`] is tested by a boot and not by luck.
+            let pause = std::env::var("NIFE_SWISH_ENTER_PAUSE_MS")
+                .ok()
+                .and_then(|ms| ms.parse().ok())
+                .map(Duration::from_millis);
+            let typed = match pause {
+                Some(p) if !enter.is_empty() => {
+                    let first = write!(stdin, "{line}").and_then(|()| stdin.flush());
+                    std::thread::sleep(p);
+                    first.and_then(|()| write!(stdin, "{enter}"))
+                }
+                _ => write!(stdin, "{line}{enter}"),
+            };
+            if typed.is_err() || stdin.flush().is_err() {
                 failed.push(format!("could not type `{line:?}` at the prompt"));
                 break;
             }
@@ -2747,7 +2839,10 @@ fn swish_check_boot(
     }
 
     let whole = raw.lock().expect("transcript lock").clone();
-    let filtered = seen.lock().expect("transcript lock").clone();
+    let filtered = without_redraws(
+        &seen.lock().expect("transcript lock"),
+        &gauges.lock().expect("gauge lock"),
+    );
     let transcript = after_hand_over(&filtered);
     // The transcript is printed on failure below, because that is when somebody needs it. This
     // prints it on success too, and it exists because the notes in this tree quote real prompt
@@ -2764,12 +2859,15 @@ fn swish_check_boot(
         // that found either one would read the same answer for both lines and pass a `>>` that had
         // truncated.
         let mut cursor = 0usize;
-        for &Line {
-            typed,
-            echoed: line,
-            jobs,
-            answer: want,
-        } in script
+        for (
+            i,
+            &Line {
+                typed,
+                echoed: line,
+                jobs,
+                answer: want,
+            },
+        ) in script.iter().enumerate()
         {
             if skipped(typed) {
                 continue;
@@ -2777,6 +2875,17 @@ fn swish_check_boot(
             match swish_check_answer(&transcript, cursor, line) {
                 Some((answer, next)) => {
                     cursor = next;
+                    // Everything between this line's answer and the next typed line's echo, for a
+                    // failure to say whether the wanted text was written and the answer cut short.
+                    let next_echo = script[i + 1..]
+                        .iter()
+                        .find(|l| !skipped(l.typed))
+                        .map(|l| format!("$ {}\n", l.echoed));
+                    let begun = next - answer.len();
+                    let until = next_echo
+                        .and_then(|e| transcript[next..].find(&e).map(|at| next + at))
+                        .unwrap_or(transcript.len());
+                    let before_next = &transcript[begun..until];
                     // **A line abandoned with `^C` ran nothing** (DECISIONS §227 option D): the
                     // shell edits its own line now, so `^C` at the prompt is a byte its editor
                     // turns into a discard. Anything between the echo and the next prompt means
@@ -2792,10 +2901,20 @@ fn swish_check_boot(
                     // is the case that forced it: it prints the shell's whole endowment, and a gate
                     // that read only the clock row would pass a boot that had stopped granting the
                     // shell a directory, which is the wiring milestone 31's headline rests on.
+                    // **And whether the program said it anyway** (the noteless flake, 2026-10-04
+                    // UTC): an answer cut short by something the gate read as a prompt is a
+                    // misread transcript, not a silent program, and the line says which.
                     for want in want {
                         if !answer.contains(want) {
+                            let misread = if before_next.contains(want) {
+                                "; the wanted text is in the transcript before the next line's \
+                                 echo, so the program wrote it and the gate cut the answer short \
+                                 (see `without_redraws`)"
+                            } else {
+                                ""
+                            };
                             failed.push(format!(
-                                "`{line}` answered {:?}, wanted {want:?}",
+                                "`{line}` answered {:?}, wanted {want:?}{misread}",
                                 answer.trim()
                             ));
                         }
@@ -3091,10 +3210,10 @@ fn swish_check_boot(
 ///    that the boot stayed minimal. A boot that quietly rebuilt the graphical stack at boot time,
 ///    the shape calef's 2026-09-30 ruling reverses, would print no UART prompt and the boot fails
 ///    right there.
-/// 2. [`launch_graphical_terminal`] types `graphical_terminal` over the UART. The shell delegates
-///    the display devices it holds (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`, from
-///    `spawnproto::SHELL_GPU_SLOT` and its siblings), the progenitor builds the session's stack
-///    from them, and the session prints its own `$ ` prompt on the screen.
+/// 2. [`launch_graphical_terminal`] types `graphical_terminal` over the UART. The shell asks
+///    (`spawnproto::GRAPHICS_BIT`; it holds no device since milestone 715 (provisional)), the
+///    progenitor builds the session's stack from the devices it holds, and the session prints its
+///    own `$ ` prompt on the screen.
 /// 3. It presses one key and requires its echo on the screen: `sendkey` on the device arm, the same
 ///    byte down the UART on the serial arm, which is a real round trip through the boot's line
 ///    discipline in raw mode and the session's own echo.
@@ -3107,7 +3226,7 @@ fn swish_check_boot(
 /// configuration every one of the three target machines actually has: argon, radon and xenon all
 /// have a serial line and none has a virtio-input device. That arm is milestone 192's option A
 /// (serial input, screen output) at launch rather than at boot: the session reads the boot's own
-/// line discipline raw (`OP_RAWMODE`/`OP_READRAW`, the shell's own §227 shape) and paints the
+/// line discipline raw (`OPERATION_RAWMODE`/`OPERATION_READRAW`, the shell's own §227 shape) and paints the
 /// echo itself.
 ///
 /// **The same two assertions cover both**, and that they can is still the claim. What reaches the
@@ -3652,6 +3771,90 @@ $ outlaw
         ]);
         assert!(out.ends_with("$ "), "{out:?}");
         assert_eq!(gauges.len(), 2);
+    }
+
+    /// What the gate reads as `line`'s answer, from the UART's chunks, by the path the run takes.
+    fn answer_as_the_gate_reads(chunks: &[&str], line: &str) -> Option<String> {
+        let (out, gauges) = filtered(chunks);
+        let out = without_redraws(&out, &gauges);
+        swish_check_answer(&out, 0, line).map(|(a, _)| a.to_string())
+    }
+
+    #[test]
+    fn a_console_redraw_beneath_a_gauge_is_not_read_as_a_second_prompt() {
+        // Run 37167978481 (merge_group, 2026-10-04 UTC), aarch64, the first line after the
+        // reboot, verbatim but for the chunking. The stack gauge waited in the console's queue
+        // while the prompt line was partial, the system log service's 250 ms `OP_FLUSH` fired
+        // after the echo of the last typed character and before the echo of Enter, and the
+        // console did what milestone 342 says it does: a line end, the gauge, and the partial
+        // line drawn again beneath it. The program then answered, under the redraw.
+        let chunks = [
+            "          'quote a whole word'   and   ;  &&  ||   with  echo $?  for the status\n$ ",
+            "packages/noteless/0.1.0/noteless",
+            "\n  progenitor stack: 23784 of 49152 bytes at peak, 25368 spare\n",
+            "$ packages/noteless/0.1.0/noteless",
+            "\n  progenitor stack: 24568 of 49152 bytes at peak, 24584 spare\n",
+            "  noteless: installed, and carrying no manifest note\n$ ",
+        ];
+        let answer = answer_as_the_gate_reads(&chunks, "packages/noteless/0.1.0/noteless");
+        assert_eq!(
+            answer.as_deref().map(str::trim),
+            Some("noteless: installed, and carrying no manifest note")
+        );
+    }
+
+    #[test]
+    fn a_redraw_beneath_two_kernel_lines_is_taken_out_once() {
+        // Run 37153714653 (pull_request, 2026-10-03 UTC): the slot gauge and the stack gauge were
+        // both queued, so one flush wrote both above the redraw, at one offset.
+        let chunks = [
+            "for the status\n$ packages/noteless/0.1.0/noteless\n",
+            "  capability slots: 24 of 32 at peak\n",
+            "  progenitor stack: 23784 of 49152 bytes at peak, 25368 spare\n",
+            "$ packages/noteless/0.1.0/noteless\n",
+            "  noteless: installed, and carrying no manifest note\n$ ",
+        ];
+        let (out, gauges) = filtered(&chunks);
+        assert_eq!(gauges.len(), 2);
+        assert_eq!(
+            without_redraws(&out, &gauges),
+            "for the status\n$ packages/noteless/0.1.0/noteless\n  noteless: installed, and \
+             carrying no manifest note\n$ "
+        );
+    }
+
+    #[test]
+    fn a_redraw_of_half_a_line_and_a_gauge_between_two_commands_are_left_alone() {
+        // A flush mid-typing redraws a prefix, which the echo then completes; every reader already
+        // finds the whole echo in it, so it stays as the terminal showed it.
+        let (out, gauges) = filtered(&[
+            "$ pack\n  progenitor stack: 1 of 2 bytes at peak, 1 spare\n$ pack",
+            "ages/noteless/0.1.0/noteless\n  noteless\n$ ",
+        ]);
+        assert_eq!(without_redraws(&out, &gauges), out);
+        // A gauge at a line start after a silent command is not a redraw: the next line differs.
+        let (out, gauges) = filtered(&[
+            "$ echo hi > f\n  progenitor stack: 1 of 2 bytes at peak, 1 spare\n$ wc < f\n",
+        ]);
+        assert_eq!(without_redraws(&out, &gauges), out);
+    }
+
+    #[test]
+    fn no_script_types_a_silent_line_twice_in_a_row() {
+        // [`without_redraws`] would read the second of two identical lines as the console's
+        // redraw of the first if a gauge fell between them and the first printed nothing. A line
+        // that must answer something fails either way when it prints nothing (the second copy
+        // then answers "no answer at all"), so only a line wanting no answer is a hazard, and
+        // `network_echo_client --mem 4`, typed twice on purpose, wants one.
+        for script in [SWISH_CHECK_SCRIPT, SWISH_CHECK_AFTER_REBOOT] {
+            for pair in script.windows(2) {
+                assert!(
+                    pair[0].typed != pair[1].typed || !pair[0].answer.is_empty(),
+                    "{:?} is typed twice in a row and wants no answer",
+                    pair[0].typed
+                );
+            }
+        }
     }
 
     #[test]
