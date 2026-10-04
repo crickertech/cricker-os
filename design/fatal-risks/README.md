@@ -298,6 +298,14 @@ leaked a slot of 32: a denial of service, not an escape, severity medium. `RECEI
 on both arrival orders. It tests the tag, not the hang. A server that reads `x1` raw, outside the
 runtime, is still exposed.
 
+Dated 2026-10-04 (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number, PR #1611):
+a `SEND_CAP` or `CALL` that found a plain `RECEIVE` already parked installed its capability in the
+receiver's table, while the other order did not, so a confined program holding a `GRANT` capability
+could fill the table of a server draining its output (found by milestone 752 (a seeded syscall
+driver with a shadow model)). calef ruled option A; a plain `RECEIVE` now takes no capability on
+either order and a `CALL` reaching one is answered `Gone`. Two kernel tests with replayable
+falsifications, replayed red on aarch64.
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
