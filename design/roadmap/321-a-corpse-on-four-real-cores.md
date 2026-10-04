@@ -153,7 +153,7 @@ candidate mechanisms have no path in the source and are ruled out by inspection:
   generational. A new `ep` cannot inherit an old one's parked sender or, worse, an old one's parked
   *receiver*, which would swallow the death message through `Send::Rendezvous` and leave the count
   at zero forever.
-- **Something dequeuing the corpse.** The only things that remove a sender are `Rendezvous::recv`,
+- **Something dequeuing the corpse.** The only things that remove a sender are `Rendezvous::receive`,
   `remove_sender` and teardown. This test reaches none of them before the assertion.
 
 **What that leaves is reading 2 by a route nobody has yet named**, and this block does not claim to
@@ -169,7 +169,7 @@ twenty-eight times somewhere else" is the same refusal wearing a bigger number.
 
 ## Why it is worth a lane rather than a retry
 
-This is the supervision mechanism. A corpse a supervisor cannot see is the failure §26 exists to
+This is the supervision mechanism. A corpse a supervisor cannot see is the failure §26 (the fault endpoint) exists to
 prevent, and the test's own doc comment says why both halves live in one case: the domain the
 viewer reports and the domain the supervisor may collect from are one set. If that set differs on a
 multi-core machine, a property this tree proves and tests holds under emulation and is unverified
@@ -209,7 +209,7 @@ bench evening that was not an assertion written against QEMU.
   it, root-causes it (`PortRange::REVOKE` resets the TSS I/O bitmap on the revoker's core only, so a
   holder on another core keeps the ports for up to a tick), and points at
   [milestone 315](315-port-revoke-every-core.md), which closes it and is `NOT-STARTED` with no gate.
-  **Nothing is owed here**, and the near-miss is worth the sentence: a proposal file had been written
+  Nothing is owed here, and the near-miss is worth the sentence: a proposal file had been written
   for it before the existing record turned up.
 - **Done.** `NIFE_TCG_THREAD=multi` in `helpers/qemu-runner-x86_64.sh` gives this port parallel
   cores under emulation for the first time. Provisional name, empty by default, and its `BUGS`

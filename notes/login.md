@@ -66,7 +66,7 @@ A one-shot reply capability (what a `CALL` hands the server) carries two words a
 (`abi::reply::REPLY`); it cannot deliver a capability. So this is two persistent endpoints and a fixed
 message order, the shape `grant_plan::spawnproto` already uses for the same reason (a shell's spawn
 request that may carry a delegated budget): a plain `SEND` for the request, a plain `SEND` for the
-verdict, and on success three `SEND_CAP`s in a fixed order the client reads with three `RECV_CAP`s.
+verdict, and on success three `SEND_CAP`s in a fixed order the client reads with three `RECEIVE_CAP`s.
 
 ## What attribution means here, and what it does not
 
@@ -94,13 +94,13 @@ use login_protocol as proto;
 
 let w0 = proto::place(page, b"chris", b"correct horse battery staple", proto::LOGIN).unwrap();
 send(REQUEST, w0, 0, 0);
-let (verdict, _, _) = recv(RESULT);
+let (verdict, _, _) = receive(RESULT);
 assert_eq!(verdict, proto::OK);
 
 // In this fixed order: the directory, the file service's shared frame, the budget.
-let (_, dir_ep, _) = recv_cap(RESULT);
-let (_, fs_frame, _) = recv_cap(RESULT);
-let (_, budget, _) = recv_cap(RESULT);
+let (_, dir_ep, _) = receive_cap(RESULT);
+let (_, fs_frame, _) = receive_cap(RESULT);
+let (_, budget, _) = receive_cap(RESULT);
 
 map_frame(fs_frame, FS_VA, true, budget);
 let (bytes, _) = call(dir_ep, filesystem_protocol::fs::req(filesystem_protocol::fs::READDIR, filesystem_protocol::fs::ROOT, 0), 0);
@@ -111,9 +111,9 @@ let (bytes, _) = call(dir_ep, filesystem_protocol::fs::req(filesystem_protocol::
 ```rust
 let w0 = proto::place(page, b"chris", b"wrong", proto::LOGIN).unwrap();
 send(REQUEST, w0, 0, 0);
-let (verdict, _, _) = recv(RESULT);
+let (verdict, _, _) = receive(RESULT);
 assert_eq!(verdict, proto::DENIED);
-// No RECV_CAP here. The protocol promises nothing follows a refusal; a client that tried anyway
+// No RECEIVE_CAP here. The protocol promises nothing follows a refusal; a client that tried anyway
 // would block forever, which `login_test_client.rs` relies on as its own check that the promise
 // holds: its wrong-secret run is `LOGIN` with `credential_proto::fixture::WRONG` for a secret, the
 // same code as the honest run (milestone 293).
@@ -130,7 +130,7 @@ Guest tests (`kernel::user::login_tests`, both aarch64 and riscv64):
 - A correct identity and secret produce a directory capability that answers a real `READDIR` and a
   budget that retypes a real page, not merely that the capabilities arrived.
 - A wrong secret is refused, and the client proves nothing followed the refusal by never calling
-  `RECV_CAP` on that path.
+  `RECEIVE_CAP` on that path.
 - Two different identities each get an independently working channel, and the service's own audit
   trail names each correctly, in the order they were established.
 

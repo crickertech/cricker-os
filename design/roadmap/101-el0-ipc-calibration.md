@@ -98,7 +98,7 @@ and both had been false for longer than the block was.
 
 | the claim | the tree |
 |---|---|
-| a true EL0-to-EL0 benchmark is "the right follow-up" | `ipc_rtt_el0` is `kernel/src/bench.rs:442`: two EL0 processes, two endpoints, a client self-timing `SEND`-then-`RECV` against a server process, reported at line 491 |
+| a true EL0-to-EL0 benchmark is "the right follow-up" | `ipc_rtt_el0` is `kernel/src/bench.rs:442`: two EL0 processes, two endpoints, a client self-timing `SEND`-then-`RECEIVE` against a server process, reported at line 491 |
 | it "needs one `CNTKCTL_EL1` bit so EL0 can read the counter" | the bit is set in `kernel/src/arch/aarch64/timer.rs:134` (`EL0VCTEN`, bit 1), with the RISC-V twin `scounteren.TM` at `kernel/src/arch/riscv64/timer.rs:181` |
 
 **The sentence those halves came from no longer exists**, and that is the correction this block was

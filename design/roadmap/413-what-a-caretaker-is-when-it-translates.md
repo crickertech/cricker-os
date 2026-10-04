@@ -46,7 +46,7 @@ before milestone 292 removed the file:
 `fs_file_caretaker`'s own header, which reads the word that way.
 
 Definition B, translating. `components/src/terminal_sink_caretaker.rs` holds a terminal endpoint
-that carries `OP_READLINE` and hands out a byte sink that cannot read. It speaks
+that carries `OPERATION_READLINE` and hands out a byte sink that cannot read. It speaks
 `line_editor::proto` on one side and `byte_sink_protocol` on the other, which is definition A's
 explicit counter-example, and `kernel/src/user/sink_tests.rs` says so while calling it a caretaker:
 

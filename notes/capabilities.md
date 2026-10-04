@@ -5,13 +5,13 @@ and what we rejected. This is the note on *what the words mean*.
 
 ## The one sentence
 
-> A capability is a file descriptor that can point at anything, not just files.
+> A capability is a file descriptor that can point at anything, not files.
 
 That is not an analogy that mostly works. It is the mechanism, generalized.
 
 ## Which means Unix already has capabilities
 
-Look at what an `fd` actually is:
+Look at what an `fd` is:
 
 - Unforgeable. You cannot invent `fd 7` and get a file. There is nothing to guess.
 - Per-process. Your `fd 3` and my `fd 3` are different files.
@@ -20,7 +20,7 @@ Look at what an `fd` actually is:
 
 That is a capability. Every property. Unix had them all along.
 
-The difference is that Unix also has a back door.
+The difference is that Unix has a back door.
 
 ```c
 int fd = open("/etc/passwd", O_RDONLY);
@@ -60,7 +60,7 @@ You cannot forge a capability for exactly the same reason you cannot forge a fil
 descriptor: the table is not yours to write. That is it. That is the entire security
 mechanism, and it is one array bounds-check away from what we already know how to do.
 
-> "But could I not just write to my own CapabilityTable?"
+> "But could I not write to my own CapabilityTable?"
 >
 > Only if you hold a capability to your CNode. Which someone would have had to hand you.
 
@@ -82,7 +82,7 @@ compile foo.c -o /var/log/billing
 And it does it. It destroys the billing log.
 
 Not because of a bug. Because it *had* permission and it acted on *your* request using its
-own authority. You just deleted a file you have no right to touch, and every line of code
+own authority. You deleted a file you have no right to touch, and every line of code
 involved behaved exactly as designed.
 
 The compiler is the deputy, and it was confused about whose authority it was acting
@@ -120,7 +120,7 @@ time they arrived the world was built on it.
 
 And in the other direction it is easy. Fuchsia's `fdio` is a userspace library that gives you
 `open`, `read`, and `write` on top of capability handles. The convenience comes back whenever we
-want it. It just is not the primitive.
+want it. It is not the primitive.
 
 | Direction | Cost |
 |---|---|
@@ -189,7 +189,7 @@ capability in the message and the receiver maps it. Zero copies.
 And the honest 2026 note: `io_uring` exists because Linux's syscall boundary got expensive, and its
 answer (a shared-memory ring, batched, stop crossing per operation) is this discipline under
 another name. DPDK and SPDK moved the network and storage drivers into userspace for the same
-reason. Those are microkernels. They just had to bolt the isolation on afterwards with an IOMMU,
+reason. Those are microkernels. They had to bolt the isolation on afterwards with an IOMMU,
 instead of getting it free from an address space they were going to have anyway.
 
 **For us it is zero, and we should never let it argue either way.** We run on QEMU with no workload.
@@ -201,7 +201,7 @@ Floated, and wrong, and written down here so it does not come back.
 
 aarch64 is not virgin ground for capability microkernels. It is their home turf. seL4 is
 primarily an ARM story. L4 runs on every Qualcomm baseband. An L4 derivative runs the Secure Enclave
-in the phone in your pocket. QNX runs most cars. Trusty is on essentially every Android phone. And
+in the phone in your pocket. QNX runs most cars. Trusty is on every Android phone. And
 in the hobby-Rust space, Redox is already a Rust microkernel that runs on aarch64.
 
 A capability microkernel on ARM is the single most ARM-shaped thing one could build.
@@ -247,7 +247,7 @@ and there is one verb: invoke it.
 documentation sweep, which found this heading claiming three in the present tense). `SYS_CAP_DELETE`
 arrived on 2026-07-24 with milestone 19d: a loader retyping hundreds of frames through a 16-slot
 capability table has to recycle slots, and forgetting something in your *own* table needs no capability for
-the same reason `exit` does not. So the property this section is really about survives the count
+the same reason `exit` does not. So the property this section is about survives the count
 going up: three of the four calls are authority over yourself, and the fourth is everything
 else. `notes/abi.md` is the current contract and has the full table.
 
@@ -273,7 +273,7 @@ if !rights.is_subset_of(src.rights) {
 }
 ```
 
-If delegation could widen authority the model is theatre, because you would simply derive
+If delegation could widen authority the model is theatre, because you would derive
 yourself a better capability from the one you hold. And `NONE`/`READ`/`WRITE`/`GRANT` includes a
 right Unix cannot express: `GRANT`, the right to pass a capability on. Our console capability
 has `WRITE` and not `GRANT`, so the program may print and may not lend printing to anyone. Unix's
@@ -284,7 +284,7 @@ For a long while `derive` and `GRANT` were true in the crate and unreachable fro
 process: every capability was minted by the kernel and handed out at spawn, which made the kernel a
 central authority-granting oracle, the ambient-authority shape §10 warned against, only relocated.
 That is fixed. A process now delegates a capability to another process over an IPC endpoint
-(`SEND_CAP` / `RECV_CAP`), narrowing the rights on the way, and only if it holds `GRANT`. Authority
+(`SEND_CAP` / `RECEIVE_CAP`), narrowing the rights on the way, and only if it holds `GRANT`. Authority
 composes between processes at runtime instead of being wired by the kernel once. See
 [delegation.md](delegation.md).
 
@@ -305,7 +305,7 @@ ask. Same program. Different world.
 The console `write` takes a pointer and a length, both chosen by the user. So the user hands us
 `0xffff_0000_4008_0000` (our own `.text`) and a length, and asks us to print it.
 
-**The kernel can read that address.** It reads it all day. So a `write` that simply dereferences
+**The kernel can read that address.** It reads it all day. So a `write` that dereferences
 the pointer prints the kernel's memory *on the user's behalf, using the kernel's authority*, and
 the program that could not read one byte of it receives all of it.
 
@@ -362,7 +362,7 @@ the user's bytes becomes unsound, and the fix is to copy them under a lock. The 
 ## What is deliberately still kernel-served
 
 Invoking the `Console` capability lands in the kernel, which owns the PL011. That is a
-milestone away from what §10 actually promised. At milestone 8 the console driver leaves the
+milestone away from what §10 (process model) promised. At milestone 8 (console driver) the console driver leaves the
 kernel, `Object::Console` becomes an `Endpoint` to a userspace console *server*, and the kernel
 stops knowing what a UART is. Until that happens we have a capability system with a monolithic
 kernel underneath it, which is honest scaffolding and not the destination.
@@ -379,11 +379,11 @@ point of a microkernel and the thing milestone 8 cannot happen without.
 
 ```text
   invoke(cap, SEND, w0, w1, w2)   ->  0     blocks until a receiver takes the message
-  invoke(cap, RECV, _,  _,  _)    ->  w0    (with w1 in x1, w2 in x2) blocks until one arrives
+  invoke(cap, RECEIVE, _,  _,  _)    ->  w0    (with w1 in x1, w2 in x2) blocks until one arrives
 ```
 
 Synchronous. There is no buffer, no queue of messages, no "mailbox that fills up." A `SEND` and a
-`RECV` on the same endpoint meet, the three words move from one thread's registers toward the
+`RECEIVE` on the same endpoint meet, the three words move from one thread's registers toward the
 other, and both go on their way. If one side arrives first, it waits.
 
 Three words, in registers, and memory is never touched on the way. That is the fastpath, and
@@ -393,7 +393,7 @@ The moment we copy a buffer through the kernel we have rebuilt Mach, and Mach wa
 
 ## Which end you are is a matter of rights, not of the endpoint
 
-`SEND` needs `WRITE`. `RECV` needs `READ`. So the same endpoint, handed to two processes with
+`SEND` needs `WRITE`. `RECEIVE` needs `READ`. So the same endpoint, handed to two processes with
 opposite rights, is a one-way pipe neither side can run backwards. The client holds a
 `WRITE`-only capability: it can send and it *cannot express* receiving. Nobody had to tell it
 which end it is. It could not be the other end if it tried.
@@ -423,7 +423,7 @@ it has marked itself `Blocked` and joined an endpoint queue but has not yet reac
 `schedule()` call. The timer must not helpfully requeue it. One equality check is the whole
 defense, and a test (`a_receiver_blocks_until_a_sender_arrives`) fails loudly without it: with the
 check relaxed to "anything not Finished is runnable", the blocked receiver gets rescheduled and
-returns from `ipc_recv` holding a message nobody sent.
+returns from `ipc_receive` holding a message nobody sent.
 
 ## Where the message actually lives
 
@@ -441,7 +441,7 @@ register and a message is three. Writing the trap frame is writing the user's re
 
 ## Single core was a gift here, and the bill arrived
 
-*(Written at milestone 7e, when §6 said one core. SMP landed at milestone 41 under §11, which
+*(Written at milestone 7e (user mode), when §6 (SMP) said one core. SMP landed at milestone 41 (dead code) under §11 (SMP), which
 supersedes §6, so read the paragraph below as the record of what was true before it did. That was
 this section's own stated purpose; the tense is corrected here rather than the argument deleted.)*
 
@@ -452,7 +452,7 @@ run was the timer IRQ, and the one-line `runnable` check already handled that.
 
 What it costs now that cores are real is written down rather than left to inference:
 [scheduler.md](scheduler.md) for the per-core run queues and the message-shaped stealing that
-replaced the one big lock, [memory-ordering.md](memory-ordering.md) for which sites actually rely
+replaced the one big lock, [memory-ordering.md](memory-ordering.md) for which sites rely
 on the weak model, and [interleaving.md](interleaving.md) for the protocols loom searches because
 reading them was no longer enough.
 

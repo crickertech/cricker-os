@@ -91,9 +91,9 @@ assumed. And, since 2026-08-14, the boot page table maps gigapage 1 as well (0x4
 could print. Still out of reach: `$fdtcontroladdr` (the control DTB) near the top of RAM, above
 gigapage 2 on every variant and above 4 GiB on an 8 GB board. The runbook below moves the DTB to
 0x8600_0000 (inside gigapage 2) for exactly that case, and keeping the `fdt move` in the manual
-first boot also removes one variable from a first bring-up.
+first boot removes one variable from a first bring-up.
 
-An 8 GB board's RAM also spans past 4 GiB (0x4000_0000 + 8 GiB = 0x2_4000_0000), and the JH7110
+An 8 GB board's RAM spans past 4 GiB (0x4000_0000 + 8 GiB = 0x2_4000_0000), and the JH7110
 additionally aliases DRAM uncached at 0x24_0000_0000 [uboot-doc]; the alias appears in no `/memory`
 node and needs nothing from us.
 
@@ -149,7 +149,7 @@ Five harts, one of which must not be started. The JH7110 is 1x SiFive S7 (hart 0
 exactly the kernel's contract.
 
 Correction (2026-08-14): the roster half of this was already built when this note first claimed
-otherwise. `CpuList` has read `status` since milestone 100, and `smp::bring_up_secondaries`
+otherwise. `CpuList` has read `status` since milestone 100 (read the machine's PSCI and its CPU list,), and `smp::bring_up_secondaries`
 refuses a disabled hart by name rather than starting it; what `sbi_hart_start` would answer for
 hart 0 stays on the bench list only to confirm the refusal is the right call. What was genuinely
 missing, and was built 2026-08-14: the ISA record (`isa::riscv64`) counted disabled harts, so
@@ -163,7 +163,7 @@ and what boot 10 must still prove.
 
 Second bench stop (2026-08-14): the vendor tree lies about the S7, twice, and the fix above
 never fires on the real board. Everything in this note cited from [dtsi] describes mainline; the
-tree the flashed firmware actually hands over was read at the U-Boot prompt (`fdt print`) and says
+tree the flashed firmware hands over was read at the U-Boot prompt (`fdt print`) and says
 something else. Measured: all five cpu nodes carry `status = "okay"`, and cpu@0 carries
 `riscv,isa = "rv64imacu"` with `mmu-type = "riscv,sv39"`. So the vendor tree marks the S7 okay and
 claims it has an Sv39 MMU, and both are false: the S7 has no MMU and no S-mode. With `status`
@@ -255,7 +255,7 @@ instrumentation commit on this branch):
    applied to the wrong thread through a wrong per-cpu resolution. `Thread::wait_on` (endpoint and
    sender/receiver/reply role) is written in the same SCHED-held statement as `Blocked` and printed
    per thread. `Blocked` beside `wait=-` at boot 8 is corruption; `wait=ep/role` means the block
-   path really ran, and names the endpoint it ran against.
+   path ran, and names the endpoint it ran against.
 2. A hart wedged where no trap can land. The boot thread `Running` as core 2's current for ten
    seconds, with SCHED demonstrably free (the dumps kept printing), means core 2 reached no
    scheduler entry for ten seconds: an S-mode spin with interrupts masked, or an SBI call that
@@ -273,7 +273,7 @@ instrumentation commit on this branch):
    place, steal serve, inbox drain; printed by the dump) is what will show the path if the state
    machine took an illegal step.
 
-The third stop's parked-inbox dump line is also a debug assertion in the placement path now, per
+The third stop's parked-inbox dump line is a debug assertion in the placement path now, per
 the audit lane's handoff: loud in every QEMU test build, compiled out of the release board image,
 where the dump line remains the field diagnostic.
 
@@ -297,14 +297,14 @@ count climbed normally across ten seconds of dumps, so no hart was wedged in M-m
 is out, and the `sbi_remote_fence_i` suspicion with it. The wait column was populated on every
 blocked thread, so no bare corrupted state byte: candidate 1's simplest form is out. What the
 boot hart's event ring showed instead was the path itself: `block:0x0/0` (the boot thread parking
-in `ipc_recv` on the report endpoint), later `wake:0x0`, `steal:0x100000005/2` (the diag watcher
+in `ipc_receive` on the report endpoint), later `wake:0x0`, `steal:0x100000005/2` (the diag watcher
 handed to core 2, which is the core the dumps then printed from), `switch:0x0`, and then nothing,
 for ten seconds, while the boot thread sat `Running` as that core's current with `wait=-` and the
-report endpoint's receiver queue empty. A receiver woken with nothing delivered. The recv
-tail (`sched::ipc_recv`) read the mailbox unconditionally after `schedule()` returned, so an
+report endpoint's receiver queue empty. A receiver woken with nothing delivered. The receive
+tail (`sched::ipc_receive`) read the mailbox unconditionally after `schedule()` returned, so an
 undelivered wake completed a rendezvous that never happened, off a mailbox holding whatever it
 last held, with the TCB's endpoint linkage in whatever state the spurious waker left it. That is
-the strand: the recv neither completes with a message nor re-parks, because the code had no way
+the strand: the receive neither completes with a message nor re-parks, because the code had no way
 to notice the difference.
 
 The wake's issuer is not established, and the census says that plainly. Every `wake()` caller
@@ -326,7 +326,7 @@ stack and spins there forever, off every instrument, which is precisely the sile
 recorded after `switch:0x0`. Boot 9 therefore either completes the demo, or its dump now carries
 `refuse:` events naming the core that issued the spurious wake and the thread it aimed at, which
 is the culprit's address. Proven red-then-green in QEMU by
-`a_wake_without_delivery_cannot_complete_a_parked_recv` and
+`a_wake_without_delivery_cannot_complete_a_parked_receive` and
 `a_reply_to_a_thread_parked_as_a_receiver_is_dropped` (sched.rs), which inject through the real
 wake path rather than by poking state.
 
@@ -344,8 +344,8 @@ registry names 0x0; the UART demo that creates the next two runs later in the to
 reached, and no reachable path (the builder's retypes included) creates an endpoint in between.
 So ep 0x1 and ep 0x2, and the two receivers parked on them, are kernel state no code that ran
 can have written. The instrument's own honesty note said `wait=ep/role` means "the block path
-really ran"; boot 8 is the counterexample: it means the field holds those bytes, and corruption
-can also produce that. Candidate 3's class (structure corruption, whether from a stray write, the
+ran"; boot 8 is the counterexample: it means the field holds those bytes, and corruption
+can produce that. Candidate 3's class (structure corruption, whether from a stray write, the
 U74's memory model meeting a latent race, or the vendor firmware) is therefore still open, with a
 narrower fingerprint: it fabricates *coherent-looking* waiter state, not garbage. The gate does
 not fix that and does not claim to; it makes the scheduler refuse to act on one consequence of
@@ -362,11 +362,11 @@ ep `0x1` at pc `0x00400188`, a slot-6 gen-2 kernel thread `Blocked` as a Receive
 a stack-top-looking pc, svc frozen at 20.
 
 The re-audit of the fourth stop's endpoint census confirmed its two positive claims and
-overturned its conclusion. At the park point on this path the report endpoint really is the only
+overturned its conclusion. At the park point on this path the report endpoint is the only
 endpoint (`0x0`: the tour's release build creates no other, `boot_via_progenitor` and the service
-modules being aarch64- or test-gated), and `components/src/builder.rs` really issues no receive (its
+modules being aarch64- or test-gated), and `components/src/builder.rs` issues no receive (its
 verbs are `invoke`, `send`, `cap_delete`, `exit`, and its retypes are ASPACE, FRAME and TCB,
-never ENDPOINT). What the census never asked is what the machine looks like *after* the recv
+never ENDPOINT). What the census never asked is what the machine looks like *after* the receive
 returns, and the answer is: exactly like those dumps. Five independent identifications, each
 checkable from the tree:
 
@@ -376,7 +376,7 @@ checkable from the tree:
    (crates/slots).
 2. The roles and the kinds of thread on them. The driver program's first act is `WAIT` on
    its Irq capability, which parks it as a *Receiver* on `0x1` (a user thread, aspace nonzero);
-   the tour then spawns a kernel thread whose whole body is `ipc_recv(report)`
+   the tour then spawns a kernel thread whose whole body is `ipc_receive(report)`
    (kernel/src/main.rs, the byte receiver), a *Receiver* on `0x2` with no aspace. Both wait
    forever by design: nobody types on a bench boot.
 3. The pc columns. Every user program links at 0x40_0000, so the driver's post-`ecall` pc
@@ -404,9 +404,9 @@ user thread is `0x400000005` `Blocked` `wait=0x1/Receiver` at pc `0x00400188`, t
 sits on `0x2`, eps `0x1`/`0x2` hold one receiver each, svc is 20, and the boot thread stands
 `Running` as its core's current forever with climbing ticks and a silent ring, because that is
 what `arch::halt()`'s wfi loop looks like from this dump. The boot-8 "wake with no sender in
-existence" also re-reads: the sender was the worker, whose `SEND` of 81 staged the mailbox and
+existence" re-reads: the sender was the worker, whose `SEND` of 81 staged the mailbox and
 set `ipc_served` in the same SCHED section (sched.rs `ipc_send`), which is why boot 9's gate
-passed it; the delivered word goes into the "init/build" line the recv's caller prints. The new
+passed it; the delivered word goes into the "init/build" line the receive's caller prints. The new
 `serve:` ring event shows it directly (`serve:0x0/1` on the QEMU run).
 
 What actually remains broken, and it is not the scheduler. The machine state says the tour's
@@ -860,7 +860,7 @@ Facts documentation could not settle, each an explicit measurement, none guessed
 
 1. **OpenSBI version in the shipped flash** (banner), and which SBI extensions `sbi probe` reports;
    specifically whether PMU is present and how many hpmcounters it exposes on the U74s. The kernel
-   now answers most of this itself (milestone 74): it probes the PMU extension and prints the
+   now answers most of this itself (milestone 74 (cycle counters)): it probes the PMU extension and prints the
    result on the `firmware    :` line, then prints which counter and CSR firmware gave it for CPU
    cycles on a `cycles      :` line beside it. notes/riscv-cycle-counters.md is the procedure, with
    a table for each line of output; this row is now "read two lines of a boot log" rather than

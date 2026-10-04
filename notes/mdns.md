@@ -1,7 +1,7 @@
 # mDNS/DNS-SD: the Time Machine advertisement, and why it is no longer here (milestone 55)
 
 The code this note describes was retired from the tree on 2026-09-15, on calef's ruling ("Retire
-all three"), by milestone 298. Every present tense below is the tree as it stood at commit
+all three"), by milestone 298 (retire). Every present tense below is the tree as it stood at commit
 `0652c981`, the last commit that holds it; nothing described here can be built or run from `main`
 any more. This follows the precedent milestone 54's removal set for [smb.md](smb.md): the note is
 kept in full, with this header, because a finding worth keeping lands in `notes/` rather than in a
@@ -31,7 +31,7 @@ What went with it, all at `0652c981` in git:
 
 What stayed, because it is not mDNS-shaped: the UDP bind grant (`BIND_UDP`,
 `socket_protocol::udp_bind_grant`), still proved by `socket_test_client`'s refusal and exclusivity
-checks inside the accept test, and the source endpoint on a UDP `RECV`, still proved by the TFTP
+checks inside the accept test, and the source endpoint on a UDP `RECEIVE`, still proved by the TFTP
 exchange.
 
 The one real loss is general DNS message and name parsing, Kani-checked at the name decoder
@@ -56,7 +56,7 @@ Four pieces, all built:
 - The stack half (both ISAs): smoltcp's `multicast` feature is on and `net_stack` joins
   224.0.0.251 at startup; `BIND_UDP` claims a fixed port against a granted range
   (`socket_protocol::udp_bind_grant`, the UDP twin of milestone 107's listen grant, riding the high
-  half of the same spawn word); a UDP `RECV` reply carries the datagram's source endpoint in the
+  half of the same spawn word); a UDP `RECEIVE` reply carries the datagram's source endpoint in the
   frame's dst fields.
 - `crates/multicast_dns_config` and `components/multicast_dns_responder.conf`: what this machine advertises, as a
   document a person edits rather than constants in a program. See "The configuration" below.
@@ -93,7 +93,7 @@ Plus an A record (`192.168.8.1`) and an AAAA in every response. Findings that be
   disagreeing. Whatever `fruit:model` buys, it is not this record. The crate therefore takes the
   model as data.
 - `_adisk` and `_device-info` advertise SRV port 0. They carry flags, not a connectable service.
-- Legacy unicast shape confirmed (RFC 6762 §6.7): our queries came from an ephemeral port, and
+- Legacy unicast shape confirmed (RFC 6762 §6 (SMP).7): our queries came from an ephemeral port, and
   the router echoed the ID, included the question, put all five records in the answer section, set
   no cache-flush bits, and capped every TTL at 10.
 
@@ -127,15 +127,15 @@ note), the shapes the sizing proposed:
    membership report carries a real source address. Membership is interface state, not socket
    state, so the join is unconditional; what is granted per client is the port.
 3. Socket surface. The three gaps, closed:
-   - `OP_BIND_UDP` (name provisional) binds a fixed UDP port, checked against a UDP bind
+   - `OPERATION_BIND_UDP` (name provisional) binds a fixed UDP port, checked against a UDP bind
      grant the spawn site packs with `socket_protocol::udp_bind_grant` into the high half of the
      same spawn word milestone 107's listen grant occupies. The halves are independent
      authorities; the zero word still grants nothing anywhere. The reply vocabulary is `LISTEN`'s
      three outcomes, which are properties of claiming a port, not of TCP.
-   - A UDP `RECV` reply now writes the datagram's source endpoint into the shared frame's
-     `dst_ip`/`dst_port` fields, the dead-space proposal above, taken. TCP `RECV` leaves them
+   - A UDP `RECEIVE` reply now writes the datagram's source endpoint into the shared frame's
+     `dst_ip`/`dst_port` fields, the dead-space proposal above, taken. TCP `RECEIVE` leaves them
      untouched; the peer is fixed by the connection.
-   - `OP_SENDTO` to a multicast destination was measured, not trusted: the QEMU gate's host-side
+   - `OPERATION_SENDTO` to a multicast destination was measured, not trusted: the QEMU gate's host-side
      prober takes the guest's group-addressed datagram off the raw wire.
 
 What was *not* needed is any change to smoltcp itself.
@@ -184,7 +184,7 @@ speaking QEMU's frame protocol (4-byte big-endian length, then the raw ethernet 
 is the multicast twin of milestone 107's inbound prober: constructed before the child so the runner
 inherits `NIFE_MCAST_PORT`, passive for the whole boot, reported after the suite.
 
-The exchange rides inside milestone 107's accept test
+The exchange rides inside milestone 107 (socket)'s accept test
 (`a_host_process_connects_to_the_guest_and_is_answered`, both ISAs), after its TCP rounds, rather
 than in a spawn of its own: a net server's spawn is ~154 frames nothing ever reclaims, and a
 twelfth one died as `Unmappable(OutOfFrames)` in an unrelated later test, the exact failure
@@ -204,14 +204,14 @@ holding a granted port cannot demonstrate about itself: 4444 is outside the gran
 
 1. It binds 5353 (its whole authority), then announces all three service types to the group. The
    announcement's arrival at the prober, off the raw wire, is the proof that a multicast `SENDTO`
-   leaves the guest at all, and it is also where the prober learns the guest's address, from the
+   leaves the guest at all, and it is where the prober learns the guest's address, from the
    announcement's own A record.
 2. The prober sends an ARP request for the guest's address from the source it spoofs
    (10.0.2.99). This is load-bearing rather than polite; see the finding below.
 3. The prober injects a multicast browse: a real PTR query for `_adisk._tcp.local`, addressed to
    the group rather than to the guest, from a spoofed source nothing on the virtual network holds.
    The guest's answer must come back to the group with the PTR in the answer section, the instance's
-   SRV, TXT and the host's A as additionals (RFC 6763 §12.1), cache-flush set on the three the
+   SRV, TXT and the host's A as additionals (RFC 6763 §12 (call/Reply).1), cache-flush set on the three the
    responder owns and clear on the shared PTR, and every value matching `components/multicast_dns_responder.conf`.
    That the injected datagram is accepted at all is the RX-acceptance proof the `multicast` feature
    exists for: without the join, the IPv4 input path drops it before UDP sees it.
@@ -219,7 +219,7 @@ holding a granted port cannot demonstrate about itself: 4444 is outside the gran
    transaction id 0x4321. RFC 6762 §6.7 makes the answer a different shape *and a different
    destination*: it must arrive unicast at 10.0.2.99:5399, with the id echoed, the question
    repeated, every record in the answer section, no cache-flush bits, and every TTL capped at 10.
-   This is also the end-to-end proof that a datagram's source endpoint survives the socket contract,
+   This is the end-to-end proof that a datagram's source endpoint survives the socket contract,
    which is why that leg replaced the stack half's hand-rolled assertion of the same thing.
 
 The finding worth telling somebody about, because it is the one that could have produced a false
@@ -266,7 +266,7 @@ s.sendto(q, ("224.0.0.251", 5353))
 print(s.recvfrom(4096)[0].hex())
 ```
 
-Or, on macOS, the resolver's own view (which exercises the multicast path a Mac actually uses):
+Or, on macOS, the resolver's own view (which exercises the multicast path a Mac uses):
 
 ```sh
 dns-sd -B _adisk._tcp             # browse: who advertises Time Machine disks
@@ -352,7 +352,7 @@ refuses to start and reports `0xE20L`, where `L` is the line number.
 - **No AAAA emission.** `Advertisement` carries an optional IPv4 address only. The reference emits
   AAAA; a Mac on an IPv6-only network would not find us. The responder joins no IPv6 group either.
 - **`respond()` does not act on the QU bit** (it parses; the responder answering multicast either
-  way is always legal, just occasionally chattier).
+  way is always legal, occasionally chattier).
 - **Known-answer suppression is PTR-only**, and the responder inherits that: a querier that already
   holds our SRV or TXT is told again. Chatty, not wrong.
 - The crate's own BUGS section (`crates/multicast_dns_protocol/src/lib.rs`) records the remaining wire-level

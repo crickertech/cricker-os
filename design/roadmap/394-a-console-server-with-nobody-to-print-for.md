@@ -33,7 +33,7 @@ code is two hops from the question rather than one. When this is answered the `e
 
 In brief. On a tour boot (no `shell`, no `initboot`), `kernel/src/main.rs:1676` still runs
 `user::initrd().map(|_| user::console_service::start())`. That spawns `components/src/console.rs`, a real
-UART driver at EL0 holding the PL011's registers, which blocks on `recv(REQUEST)` forever because
+UART driver at EL0 holding the PL011's registers, which blocks on `receive(REQUEST)` forever because
 nothing in the boot holds a capability naming its endpoint. Its only client was the narrator.
 
 The compiler agrees, which is why this is not a reading. With `spawn_client` gone, every field
@@ -90,7 +90,7 @@ a fork a lane should take on its own initiative on the strength of a `dead_code`
 ## Index row
 
 On a tour boot the kernel still spawns `components/src/console.rs`, a real UART driver at EL0
-holding the PL011's registers, which blocks on `recv(REQUEST)` for ever because nothing in that boot
+holding the PL011's registers, which blocks on `receive(REQUEST)` for ever because nothing in that boot
 holds a capability naming its endpoint: its only client was the narrator, deleted on 2026-09-13. The
 compiler agrees rather than a reader inferring it, since every field of `console_service::Console`
 is written by `start` and read by nobody, and the `#[expect(dead_code)]` on that struct is this

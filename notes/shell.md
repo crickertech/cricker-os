@@ -1,6 +1,6 @@
 # A shell at EL0
 
-The shell's name is `swish` (milestone 63): `components/src/swish.rs`, packed into the archive as
+The shell's name is `swish` (milestone 63 (directory and package names)): `components/src/swish.rs`, packed into the archive as
 `swish`, loaded by that name. This note calls it "the shell" throughout because that is what it is;
 where a path or an archive entry is meant, the spelling is `swish`. The argument for the name is in
 milestone 63's roadmap block, and the short version is that `bash`, `zsh` and `fish` are names while
@@ -21,7 +21,7 @@ Four processes, and the channels between them:
                           └──spawn──► process service (kernel)
 ```
 
-- The console server (milestone 8) owns the UART transmit side and prints what it is sent.
+- The console server (milestone 8 (the console driver leaves the kernel)) owns the UART transmit side and prints what it is sent.
 - The input driver (new) owns the UART receive side and its interrupt (INTID 33 on QEMU
   `virt`; since 2026-08-15 the number comes from the device tree, with the constant as the
   documented fallback; see notes/device-tree.md). It
@@ -81,7 +81,7 @@ locally: if the guest does not show a character back, you cannot see what you ar
 space, back). The shell does not echo the command afterward, or you would see it twice.
 
 This is safe against interleaving with the shell's output because of the synchronous handoff: while
-you type, the shell is blocked in `RECV` waiting for the line, so it is not writing the UART. The
+you type, the shell is blocked in `RECEIVE` waiting for the line, so it is not writing the UART. The
 input driver echoes, sends the completed line, and only then does the shell wake, print its output,
 prompt, and block again. Prompt, your keystrokes, output, prompt: one writer at a time, in order.
 (An earlier version had the *shell* echo the whole line after Enter, to keep piped bulk input

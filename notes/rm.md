@@ -104,7 +104,7 @@ the names this run has already taken away.
   design/roadmap/31-capability-shell.md for the fork the root case is waiting on.
 - **The end of the stream is the verdict**, and it must not look like a byte count. The report channel
   carries text frames (first word = a byte count, at most 16) and then `byte_sink_protocol::eof()`, whose
-  first word is `OP_EOF << 56`; the status and the removal count ride in the two words that message
+  first word is `OPERATION_EOF << 56`; the status and the removal count ride in the two words that message
   leaves free. A receiver reads "the first message ends the stream" as "the run printed nothing",
   which is what makes `rm(1)`'s silence-on-success checkable. It used to be `filesystem_protocol::fixture::VERDICT`
   instead, which no reader that was not a guest test could decode, so this program could not be piped

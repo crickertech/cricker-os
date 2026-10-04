@@ -41,7 +41,7 @@ The component that owns the history is not the component that sees the keys. In 
 actually uses (journey 1, `user::boot_graphical_terminal`):
 
 ```text
-keyboard_driver or input ──OP_BYTES──► line_editor ──OP_WRITE (echo)──► display_terminal
+keyboard_driver or input ──OPERATION_BYTES──► line_editor ──OPERATION_WRITE (echo)──► display_terminal
 ```
 
 `display_terminal` only ever receives output. A keystroke has already been consumed, edited and
@@ -85,7 +85,7 @@ Why each other option loses:
 1. Considered and refused: B, C and D above, each with its reason.
 2. What the tree does in the analogous case: the discipline already turns a keystroke into a
    non-byte effect. ^C does not reach the application as a byte; it becomes an interrupt the
-   application reads with `OP_INTRCOUNT`. A scroll request is the same move toward the terminal
+   application reads with `OPERATION_INTRCOUNT`. A scroll request is the same move toward the terminal
    instead of toward the application.
 3. Prior art, from memory and marked as such: the Linux virtual console binds shift and page up
    to a `Scroll_Backward` action in its keymap, handled inside the VT layer rather than passed to

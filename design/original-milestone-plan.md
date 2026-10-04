@@ -17,7 +17,7 @@ boots" and "an operating system" is milestone 7.
 | 10 | A process server, and a shell that spawns binaries | Proof the whole stack works            | ✅ |
 | 11 | Untyped memory: a process allocates, the kernel does not | §10's deferred axis, to the extent §10 intended. | ✅ |
 
-Milestone 8 is the one that proves §10 was real. When it lands, the kernel no longer knows
+Milestone 8 (the console driver leaves the kernel) is the one that proves §10 (process model) was real. When it lands, the kernel no longer knows
 what a UART is. If we cannot take the console out, we did not build a microkernel; we built a
 monolithic kernel with an unusual syscall table.
 
@@ -33,7 +33,7 @@ the allocators out of the kernel entirely stays additive and unbuilt.
 The eleven milestones are the plan. Work since, in git order: a security audit
 (notes/security.md); per-process spawn quotas (notes/quotas.md); kernel-mediated DMA
 confinement, since QEMU `virt` has no IOMMU (notes/dma.md); capability delegation between
-processes via `SEND_CAP`/`RECV_CAP` (notes/delegation.md); frame capabilities, shared memory a
+processes via `SEND_CAP`/`RECEIVE_CAP` (notes/delegation.md); frame capabilities, shared memory a
 process owns and delegates (notes/frames.md); SMP (§11); Call/Reply IPC, a one-shot reply capability
 (§12, milestone 12); and capability revocation with safe untyped reclamation, scoped to frames (§13,
 milestone 13).

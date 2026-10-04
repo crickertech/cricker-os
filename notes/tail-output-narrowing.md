@@ -20,7 +20,7 @@ exactly as it does for `wc report.txt`; see notes/pipes/the-file-end.md, "the fi
 this shell").
 `doc` also writes while it reads (`InputSpec::Required { writes_while_reading: true }`, the only
 declarer today), so the shell would have to be both the feeder of its input and the reader of its
-output, and this kernel gives a process exactly one blocking wait point (`SEND`/`RECV`, no select,
+output, and this kernel gives a process exactly one blocking wait point (`SEND`/`RECEIVE`, no select,
 no receive-on-a-set, no timed wait). `grant_plan::check_chain` refuses the line before anything is
 spawned:
 
@@ -33,7 +33,7 @@ $ doc motd
 This is verified at a real prompt, both ISAs, in notes/pipes.md's "One wait point" section. It is
 not a bug in `doc`: `wc` is the only barrier in the tree, and only a chain that ends in a barrier
 runs. So the premise holds, and no shell-side fix closes it: notes/pipes.md states outright that no
-interleaving schedule can, because the shell cannot know which of `SEND`/`RECV` the far end wants
+interleaving schedule can, because the shell cannot know which of `SEND`/`RECEIVE` the far end wants
 next, and guessing wrong deadlocks either way.
 
 ## 1. What else was considered, and why did each lose?
@@ -43,7 +43,7 @@ Three prior answers exist in the tree already, all recorded before this note, no
 (a) A pull-based source. Collapse input and output onto one endpoint the child `CALL`s for
 bytes on and `SEND`s output over, so the shell has one wait point per child. notes/pipes.md names
 this "the exact answer to the constraint" and DECISIONS §101 confirms it is still available.
-Refused, twice, on the same grounds both times: it destroys the property milestone 50 calls
+Refused, twice, on the same grounds both times: it destroys the property milestone 50 (pipes and redirection) calls
 load-bearing, that a pipe's read and write ends are separate capabilities with separate rights (a
 program on the right of a `|` cannot write back up its own input, because it never holds a
 capability that could). notes/pipes.md calls this "a design fork, and calef's"; §101 declines it a
@@ -70,7 +70,7 @@ this note works out in full below, because it is the one live candidate.
 
 ## 2. What does this tree already do in the analogous case?
 
-Exactly this, for the second stream. DECISIONS §67 (2026-08-03) already answers a materially
+Exactly this, for the second stream. DECISIONS §67 (a program's second stream), 2026-08-03, already answers a materially
 identical question for diagnostics: a program that declares a second output has it delivered by
 default to `terminal_sink_caretaker`, a dedicated adapter process that holds the terminal endpoint
 and hands out a sink, bypassing the shell entirely. `date`'s clockless complaint reaches the screen
@@ -89,7 +89,7 @@ The precedent buys three things for free if extended to the primary slot:
   adapter as its default second-stream destination; handing its *first* stream the same adapter by
   default adds no new capability the program did not already have a sibling of.
 - It is the same decision the pager and the colour bit need, not three unrelated asks. Paging
-  needs the terminal's `OP_READLINE`, colour needs to know a stage ends at a real screen rather than
+  needs the terminal's `OPERATION_READLINE`, colour needs to know a stage ends at a real screen rather than
   a file, and both are the same "does this child's output/input touch the terminal component
   directly" question notes/documentation.md's "Where this goes next" already unifies.
 
@@ -127,7 +127,7 @@ roadmap block's own framing without independent confirmation.
 
 A second premise is worth checking too, because it changes the cost estimate below: does the
 tree already have a way for the shell to learn a child has exited, independent of reading its
-output stream? Yes, mostly unused today. DECISIONS §26 built a kernel-delivered fault/exit
+output stream? Yes, mostly unused today. DECISIONS §26 (the fault endpoint) built a kernel-delivered fault/exit
 endpoint in milestone 22: "when a thread faults or exits, the kernel delivers a message to the
 supervision endpoint its spawner designated," with a reserved capability table slot
 (`abi::fault::FAULT_EP_SLOT`) and a kernel-stamped `(event code, tid, ...)` message, already proved
@@ -135,11 +135,11 @@ and already in the tree. Today `components/src/swish.rs` wires this only for sup
 foreground jobs (`spawn_interruptible`, watching a cooperative job-frame `DONE` flag, which is a
 *different*, userspace-cooperative mechanism, not §26's kernel path). Ordinary sink-declaring
 children (`date`, `wc`, `doc`) are spawned with no fault endpoint at all; the shell's only
-completion signal for them today is draining their output to `OP_EOF`. If a tail stage's primary
+completion signal for them today is draining their output to `OPERATION_EOF`. If a tail stage's primary
 output moves to `terminal_sink_caretaker`, the shell needs a different completion signal, and §26's
 already-built fault endpoint is sitting there unused for exactly this purpose. That materially
 lowers the cost of option (d): it is a wiring change (grant an already-existing kernel object at
-spawn time and `RECV` on it instead of on the child's output), not a new kernel primitive.
+spawn time and `RECEIVE` on it instead of on the child's output), not a new kernel primitive.
 
 ## 5. What does each option cost, measured rather than asserted?
 

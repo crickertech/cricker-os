@@ -128,8 +128,8 @@ call, not that it never has output.
 Proposal, the shape `take_damage` already has. `Vt::feed` keeps its signature. A new `Vt::take_reply`
 hands back a bounded buffer of reply bytes and clears it, "taken, not read", exactly as damage is
 (`lib.rs:1176` and the crate-level example). The component forwards those bytes where a keystroke
-goes: into `display_terminal`'s `OP_BYTES` path (`components/src/display_terminal.rs:513-523`), so the
-line discipline in front of it and then `OP_READRAW` deliver them to the program. The buffer has a
+goes: into `display_terminal`'s `OPERATION_BYTES` path (`components/src/display_terminal.rs:513-523`), so the
+line discipline in front of it and then `OPERATION_READRAW` deliver them to the program. The buffer has a
 fixed bound; a flood of queries drops the newest reply and says so in `BUGS`, which fails towards a
 program that times out rather than a terminal that blocks. The three-witness expected-picture check is
 untouched, because replies do not change the grid. The wiring and the bound are a lane's to build and
@@ -311,13 +311,13 @@ calef ruled on 2026-09-30 that graphics is not at boot and "will sit there large
 time" (PR #1493, graphics on demand, number provisional). That makes the question of which terminal a customer meets first a real one.
 
 **The serial path has no such gap, because nife does not interpret escapes there.**
-`components/src/console.rs` copies the bytes of an `OP_WRITE` to the UART verbatim, and the terminal
+`components/src/console.rs` copies the bytes of an `OPERATION_WRITE` to the UART verbatim, and the terminal
 contract says "ANSI from the application reaches the screen intact"
 (`notes/terminal-contract.md:177-179`). The user's host terminal (`xterm`, `Terminal.app`, `tmux`)
 is the VT engine, so `vim`-class programs get a complete one for free. `rmle` already does this: it
 emits `ESC[?25l`, `ESC[H`, `ESC[K`, `ESC[7m` and a cursor-position `CSI H` (`components/src/rmle.rs:526-560`) and
 depends on nothing the display terminal lacks. Replies from the host terminal arrive on the UART
-as input bytes and reach the program through `OP_READRAW` while raw mode is on
+as input bytes and reach the program through `OPERATION_READRAW` while raw mode is on
 (`notes/terminal-contract.md:105-115`), so DSR and DA already work in principle on the serial path;
 I did not test it.
 
@@ -334,7 +334,7 @@ full-screen program it runs.
 So the order of customer relevance is: the serial path works now and needs a size fix; the display
 paths need this milestone, and there is no program to measure against until one is ported. I
 could not verify that a program launched from `screen` reaches `display_terminal` through
-`OP_RAWMODE` end to end; #1493 is unmerged and I did not read its guest tests.
+`OPERATION_RAWMODE` end to end; #1493 is unmerged and I did not read its guest tests.
 
 ## Part 6: Dependencies, and what is blocked
 

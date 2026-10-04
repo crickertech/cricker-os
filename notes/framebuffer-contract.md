@@ -62,7 +62,7 @@ A rectangle outside the surface is refused, not clamped. A clamp hides a client'
 and the client is the only party that can tell the difference. `EINVAL` (-22), the same
 negative-is-an-error convention `filesystem_protocol` sets.
 
-Why two device commands per flush, in this order: `TRANSFER_TO_HOST_2D` is what actually reads the
+Why two device commands per flush, in this order: `TRANSFER_TO_HOST_2D` is what reads the
 guest pixels (the device DMAs them out of the backing into its own host-side image), and
 `RESOURCE_FLUSH` is what makes the host show that image. A driver that only flushed would put stale
 pixels on the screen.
@@ -71,7 +71,7 @@ pixels on the screen.
 
 Every other driver here gets one 4 KiB DMA page. A 128x64 surface at 4 bytes a pixel is 32 KiB, so
 the GPU needs eight more. The tempting shortcut is to let the framebuffer live outside the DMA
-region: it is "just pixels", after all. That would put the one device that reads bulk memory
+region: it is "pixels", after all. That would put the one device that reads bulk memory
 outside the confinement everything else is inside, which is exactly backwards.
 
 So the region is wider, not special:
@@ -164,7 +164,7 @@ than it did here. The RISC-V IOMMU driver gives the fault queue 128 records
 So a flood of faults latches the overflow and, from then on, *no further faults are recorded at all*.
 
 This was found the way such things should be: the escape test first attached a 4096-byte backing,
-which produced a flood, and the next test in the suite (milestone 16b's
+which produced a flood, and the next test in the suite (milestone 16b (real hardware)'s
 `the_iommu_faults_a_dma_that_escapes_the_domain`) then observed no fault and correctly reported the
 IOMMU as not confining the device. A real regression signal, from a cause two tests away.
 
@@ -336,7 +336,7 @@ Two predictions in the list below came out exactly as written, and one was answe
 - **Damage tracking**: the compositor flushes one rectangle per frame, and the test poisons the rest of
   the scanout and finds the poison intact. As predicted, no driver change.
 - **Input**: the keyboard's routing question turned out to be the compositor's, as predicted, and the
-  answer reuses `line_editor::proto::OP_BYTES` verbatim.
+  answer reuses `line_editor::proto::OPERATION_BYTES` verbatim.
 - **Several surfaces**, differently: the prediction was "a compositor holding one endpoint per client
   surface needs a driver change and not a contract change". Rung two holds one endpoint for all its
   clients instead, because a shared endpoint carries no sender identity and per-client surfaces are
@@ -393,7 +393,7 @@ Deliberately not in rung one, each with the seam it will use:
 
 **Every spawner of `gpu_driver` must receive `FLUSHED`, or the driver serves exactly one flush.**
 `FLUSHED` is a blocking `SEND` the driver makes from inside its serving loop, right after replying to
-its first flush, and while it waits there nothing is in `RECV` on the display endpoint. The three
+its first flush, and while it waits there nothing is in `RECEIVE` on the display endpoint. The three
 test spawners read it because they want the digest; the boot now reads it because it must. Nothing
 enforces this: `display_service::start_terminal`'s doc says so and names it a foot gun, because the
 tests need the digest and the wiring function therefore cannot swallow it for them.
@@ -407,7 +407,7 @@ What the boot did: `kernel::user::boot_graphical_terminal` received `UP` from th
 from the terminal and stopped. But the terminal paints its blank grid, which is a first `FLUSH`,
 *before* it sends `TERM_UP`, so by then the driver had already replied to that flush and was blocked
 sending `FLUSHED`. The terminal's second `FLUSH` (the banner) queued on the display endpoint behind a
-driver that would never `RECV` again.
+driver that would never `RECEIVE` again.
 
 The evidence, read from the boot rather than inferred. A kernel thread dumped every thread twenty
 seconds into an aarch64 `--features shell` boot with a GPU and a keyboard, with the endpoints named
@@ -422,7 +422,7 @@ ep=0x000b senders=1 receivers=0 pending=0
 
 The same thread then received on `0xb`, got `[0xd150002, <digest>, 0x4d9a0, ..]`, which is
 `FLUSHED` with the surface's pixel count, and a second dump ten seconds later showed the driver back
-in `RECV` on `0xa` and the terminal in `RECV` on its own endpoint: the queued flush had been served.
+in `RECEIVE` on `0xa` and the terminal in `RECEIVE` on its own endpoint: the queued flush had been served.
 No interrupt, fence or used-ring index was involved.
 
 **The keyboard had the identical hang one step later.** `keyboard_driver` sends `KEYBOARD_UP` before

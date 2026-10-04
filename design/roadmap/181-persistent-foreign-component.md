@@ -20,7 +20,7 @@ function more than once, with its own state persisting between calls the ordinar
 own memory persists between two function calls. That is an extension to an existing, working
 mechanism, not a new design fork.
 
-That is the sharper question, and this milestone is the answer to it, not milestone 169's.
+That is the sharper question, and this milestone is the answer to it, not milestone 169 (`kilo`)'s.
 [DECISIONS §84](../decisions/84-how-we-port.md) already answers a related but different question
 well: how to *port* software into Rust while narrowing its authority. Nothing in this tree yet
 answers the question §31 was raised for: how to run real, unmodified foreign-language code at all,
@@ -28,7 +28,7 @@ confined, without rewriting its own logic. §31's only evidence is `c_seam.c`, a
 spike that calls into C exactly once and exits. If the cheapest realistic real-world program
 (milestone 169 called `kilo` exactly that) does not fit the seam as built, nothing else realistic
 will either, and "rewrite it in Rust instead" quietly becomes the only path every time, which is
-not an answer to the question, it is the failure mode §84 already names as the last resort: a
+not an answer to the question, it is the failure mode §84 (port) already names as the last resort: a
 demonstrator with no community is a demonstrator nobody continues.
 
 ## What is actually missing, checked against the code rather than assumed
@@ -42,7 +42,7 @@ What a persistent, interactive foreign component needs, concretely:
 
 1. A shim loop, not a shim call. `_start` currently: map the grant, call the C function once,
    report the result, exit. The extension: map the grant once, then loop, perform whatever syscall
-   the interactive behavior needs (for a terminal program, `OP_READRAW`/`OP_READLINE` per iteration,
+   the interactive behavior needs (for a terminal program, `OPERATION_READRAW`/`OPERATION_READLINE` per iteration,
    see milestone 169), call into the C function with that iteration's input, act on its return value
    (write output, or a return code meaning "the program asked to exit"), and only tear down the
    process when the C side signals it is done. The C function's own static/global state persists
@@ -55,7 +55,7 @@ What a persistent, interactive foreign component needs, concretely:
 3. **Whatever the specific program's own I/O shape needs**, decided per program rather than
    speculatively here: a terminal program needs the raw-keystroke primitive milestone 169 already
    built (language-agnostic; it lives in `line_editor`'s own contract, reusable regardless of which
-   language calls it); a line-oriented program needs only the `OP_READLINE` contract that already
+   language calls it); a line-oriented program needs only the `OPERATION_READLINE` contract that already
    exists.
 
 None of this is believed to require a new syscall, a new capability type, or a change to rule 2's
@@ -77,7 +77,7 @@ lines depending on feature completeness, and its dependency surface is close to 
 sockets, no dynamic linking, no subprocess, `stdin`/`stdout` only. Its shape is exactly what this
 milestone needs to prove and nothing more: read a line, evaluate against state the program keeps
 itself (the numeric stack), print a result, loop until an explicit quit. That is a real, repeated,
-stateful call into the same C component, using only the `OP_READLINE` contract that already exists
+stateful call into the same C component, using only the `OPERATION_READLINE` contract that already exists
 today, with no raw-keystroke dependency at all. A minimal single-file implementation (several exist
 under BSD or public-domain-equivalent licences; busybox's `dc` applet is one candidate, GPL and
 therefore requiring a licence check against this tree's own posture before use) is a smaller, more

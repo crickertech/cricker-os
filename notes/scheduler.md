@@ -58,19 +58,19 @@ those sites sets the handshake's `ipc_served` (or `ipc_aborted`; both on
 endpoint's wait queue, and the real counterparty completes the rendezvous normally later.
 
 The gate turns that transition into a refused no-op plus a ring event, whoever the caller is; the
-recv tails carry a `debug_assert` tripwire ("resumed with nothing delivered") for the state the
+receive tails carry a `debug_assert` tripwire ("resumed with nothing delivered") for the state the
 gate makes unreachable, and every `ipc_served` setter records a `serve:tid/site` ring event so a
 bench dump names who completed a rendezvous instead of leaving it to inference.
 
 The failure it was built against was misread, and that correction is the important part of this
 section. It was built from the VisionFive 2's boot 8 (notes/visionfive2.md, fourth bench stop),
-read at the time as the boot thread, parked in `ipc_recv`, taking a `wake:0x0` on a boot where no
+read at the time as the boot thread, parked in `ipc_receive`, taking a `wake:0x0` on a boot where no
 sender to its endpoint existed. The boot-8 lane's fifth bench stop (2026-08-15) re-read those
 dumps and overturned it: the wake was the worker's real send, and the dump state read as a
 stranded receiver was the terminal state of a completed tour. So the gate has never fired on a
 field failure, and `refuse:` has never appeared on a board ring.
 
-It stays anyway, and the reason is not sunk cost. The transition it forbids really would complete a
+It stays anyway, and the reason is not sunk cost. The transition it forbids would complete a
 rendezvous off a stale mailbox while the TCB stayed linked on its endpoint queue, and the loom
 harness below proves that as a property of the protocol rather than as a story about one boot. What
 changes is the claim: this is hardening against a reachable state, not a repair of a field failure,
@@ -87,7 +87,7 @@ site addressed by a tid rather than through an endpoint pop, delivers only to a 
 double-enqueue its one intrusive link), and `schedule()` refuses to switch into its own current
 thread (the shape a spuriously queued current produces), because that restores an
 already-consumed context and time-travels the thread onto a reused stack. Guarded by
-`a_wake_without_delivery_cannot_complete_a_parked_recv` and
+`a_wake_without_delivery_cannot_complete_a_parked_receive` and
 `a_reply_to_a_thread_parked_as_a_receiver_is_dropped`, which inject through the real `wake` path.
 
 The protocol is a crate now, and loom searches it (2026-08-14, the retrofit the fourth bench
@@ -105,7 +105,7 @@ for the model's honest limits.
 
 BUGS. The gate protects threads whose `wait_on` is set, which is every IPC block site today; a
 future block path that forgets to set `wait_on` opts itself out silently. A kernel-thread caller
-of `ipc_recv` still cannot tell an abort from a message unless it checks `take_ipc_aborted`
+of `ipc_receive` still cannot tell an abort from a message unless it checks `take_ipc_aborted`
 itself; the gate guarantees *something* was delivered, not which thing. And the blocking
 `ipc_send` resume path carries no tripwire assert, deliberately: it takes no lock after
 `schedule()` today, and adding one on the IPC hot path to double-check an invariant the gate
@@ -128,7 +128,7 @@ and are now fixed and tested:
   any core running a non-idle thread; only a real lost wakeup, every thread blocked and every core on
   its idle thread, stalls it. See `kernel/src/testing.rs`.
 
-- And because that alone traded a flake for a silent hang, there is also a per-test wall-clock
+- And because that alone traded a flake for a silent hang, there is a per-test wall-clock
   ceiling. See the section below: the progress heartbeat is blind to a livelock that keeps doing
   IPC, which is a real failure we hit, not a theoretical one.
 
@@ -159,7 +159,7 @@ reason. Keep entries near 2x measured, so host load does not make them flaky.
 
 The honest limit. Neither mechanism can tell a livelock from slow-but-correct work while it is
 running. Only the budget, a human declaration of expected cost, separates them. That is why a new
-`SLOW_TESTS` entry deserves a sentence about *why* the test is slow, not just a number.
+`SLOW_TESTS` entry deserves a sentence about *why* the test is slow, not a number.
 
 Proving it. The `watchdog_probe` feature adds a test that loops forever doing a full rendezvous
 each pass, so the heartbeat sees a healthy kernel and only the ceiling stops it. It is expected to
@@ -189,7 +189,7 @@ The test opened by probing the refusal:
 crate::sched::start_tcb(tid, [0; 3]).expect("start");
 // "Ready but not yet run ... The refusal leaves the region untouched."
 assert!(crate::sched::reclaim_region(tcb_region).is_err());
-let got = crate::sched::ipc_recv(report)[0];   // waits for the child's SEND
+let got = crate::sched::ipc_receive(report)[0];   // waits for the child's SEND
 ```
 
 That comment was true when it was written and stopped being true when DECISIONS §16 was amended.
@@ -204,7 +204,7 @@ if t.killed && t.state == State::Running { t.state = State::Finished; }
 
 From there it is a plain race between the child's nine instructions and its own core's next timer
 tick. Win it and the child SENDs, the test passes, and the armed kill is harmless because the child
-was about to exit anyway. Lose it and the child is reaped without ever sending, `ipc_recv`
+was about to exit anyway. Lose it and the child is reaped without ever sending, `ipc_receive`
 blocks forever, every core falls to idle, and the 60 s heartbeat fires.
 
 Why host load moved it from "never seen locally" to one run in four is not measured here, but the
@@ -215,7 +215,7 @@ what turns those into different numbers.
 
 ### How it was proved, since a one-in-four race is not evidence
 
-Widen the window instead of waiting for it (the method milestone 71 used on the frame fault).
+Widen the window instead of waiting for it (the method milestone 71 (thread-start) used on the frame fault).
 A call-free three-instruction delay loop in front of `REPORT_STUB`, sized to span several ticks:
 
 ```text
@@ -268,7 +268,7 @@ say nothing about whether the cure works: never seen locally at first, one in fo
 burners, and three consecutive failures on one CI pull request (#29, docs-only) on the shared
 runners. All three numbers are what the mechanism predicts, because the loser of the race is decided
 by how much wall clock the guest gets between the child being switched in and its `ecall`, and a
-two-core shared runner emulating four harts gives it very little. A hot rate is evidence the window
+two-core shared runner emulating four harts gives it little. A hot rate is evidence the window
 is wide there, not evidence of a second bug.
 
 **Occurrences:**
@@ -320,12 +320,12 @@ milestone's brief, and they are a real thing that is not this.
 **The A/B settles it.** Under the widened window the tree hangs with one line of test code present
 and passes with it removed, on both ISAs, deterministically, and the accumulation is identical in
 both arms: same tests before it, same 101 threads, same 109 endpoints. A cause you can leave in
-place while the effect disappears is not the cause. There is also a mechanism for the thing that
+place while the effect disappears is not the cause. There is a mechanism for the thing that
 does explain it, traced print by print, which the accumulation never had.
 
 It is worth saying because the aarch64 sighting reads at first like evidence *for* the accumulation:
 the leak is shared scheduler state present on both ISAs, so a second ISA failing is what you would
-predict if the leak were the cause. It is also what you would predict from portable `sched.rs` code
+predict if the leak were the cause. It is what you would predict from portable `sched.rs` code
 and a race, which is what it turned out to be, and the two predictions are the same. A prediction
 both hypotheses make cannot choose between them. The A/B can, and did.
 
@@ -436,7 +436,7 @@ draining, which is real, and what would reopen it.
 `runnable() > 0`, and `runnable()` counts the inbox, on purpose: an idle core with work in transit
 should wait for its own work rather than steal more. Here the "work in transit" is never arriving,
 so the guard that normally prevents a redundant steal instead pins the core in idle. That is why
-one lost SGI wedges the whole machine and not just one thread.
+one lost SGI wedges the whole machine and not one thread.
 
 ### How it was diagnosed, from the dump alone
 
@@ -463,7 +463,7 @@ tid=0x0000       state=Blocked wait=0x1b1/Receiver                              
 core 2: current=0x0003 idle=0x0003 need_resched=false inbox_len=1                the consumer, undrained
 ```
 
-`page_frame_service::wire` spawns a producer and a consumer and then `ipc_recv`s their verdict. The
+`page_frame_service::wire` spawns a producer and a consumer and then `ipc_receive`s their verdict. The
 consumer never ran, so the producer blocked sending to it, so main blocked receiving from them.
 
 **The trace ring is what made this a two-hour bug instead of a four-day one.** Milestone 72's entry
@@ -501,7 +501,7 @@ much smaller frequency of a strand landing on the last placement before the mach
 
 ### How it was proved, since one CI dump is not an experiment
 
-Milestone 72's method again, and with its correction: a call-free delay loop, not a yield loop.
+Milestone 72 (lost)'s method again, and with its correction: a call-free delay loop, not a yield loop.
 An early attempt held the window open with `yield_now()` and only produced a livelock, because a
 yielding thread goes back on its own core's run queue and `schedule()` hands it straight back; a
 steal needs the thread to be *queued while something else runs*. A plain spin does that and the
@@ -582,7 +582,7 @@ is what made it clearly pre-existing rather than a regression.
 `kernel::cpu::tests::boot_cpu_percpu_is_reachable` opened with `assert_eq!(id(), arch::boot_cpu_id())`,
 so it asserted the test case is executing on the boot core. On aarch64 `boot_cpu_id()` is the
 constant 0 and `id()` is derived from `TPIDR_EL1`, which each core sets once at boot and which no
-context switch saves or restores; so `id() == 1` means the code really was running on core 1, not that
+context switch saves or restores; so `id() == 1` means the code was running on core 1, not that
 a pointer was stale. Nothing promises otherwise: with four cores online and §28's stealing, a secondary
 core may pull the test thread, and then the assertion fails on an affinity the scheduler never offered.
 
@@ -592,7 +592,7 @@ roughly a one-in-four flake on this machine, failing the aarch64 half of `script
 **Resolved by weakening the test to the property its own doc comment always described**, now
 `cpu::tests::percpu_is_self_consistent_on_whatever_core_we_run`: `current()` points at `PERCPU[id()]`
 and no other block, plus `of(boot)` reaches the boot core's block by index, which is what the
-cross-core paths (IPI, stealing) actually rely on. That is true on every core, so it is stronger
+cross-core paths (IPI, stealing) rely on. That is true on every core, so it is stronger
 coverage rather than weaker: under §28 placement the suite scatters, and the property gets exercised on
 several cores over a run instead of only the boot core.
 
@@ -611,10 +611,10 @@ Recorded so the next person who sees it does not spend the afternoon reading a d
 a count has settled: `threads_round_robin` ("thread 2 never ran"),
 `an_interrupt_that_arrives_before_the_wait_is_not_lost`, `other_threads_run_while_one_is_blocked`,
 `a_finished_thread_is_reaped_and_its_memory_returned`. Under TCG the guest's four cores are host
-threads, so a fixed yield budget is really a wall-clock budget in disguise, and when the host is busy
+threads, so a fixed yield budget is a wall-clock budget in disguise, and when the host is busy
 the budget runs out before the work does.
 
-Observed during milestone 37: three different tests from that list failed across four full-suite
+Observed during milestone 37 (prove), under DECISIONS §34 (RedoxFS primary) condition 1: three different tests from that list failed across four full-suite
 runs, every one of them in a module that executes before any of that milestone's code exists, which
 already ruled the diff out structurally. The confirmation was cheaper than the reasoning:
 **unmodified `origin/main`, same machine, same minute, failed too** (a fourth test, the reaper's

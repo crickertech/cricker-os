@@ -4,7 +4,7 @@ The companion to [ipc-naming.md](ipc-naming.md). That note is about *naming* (IP
 endpoint, never the peer). This one is about the *lifecycle* of the capabilities themselves: how
 authority is copied, how it narrows, and, at the end, how it is revoked. *(That last clause read
 "why it cannot yet be revoked" until 2026-09-05, contradicting this note's own "Revocation
-(milestone 13)" section, which has said Built since 13 landed. The section was updated and its
+(milestone 13 (capability revocation + untyped reclamation))" section, which has said Built since 13 landed. The section was updated and its
 own opening sentence was not.)*
 
 ## Authority moves by copy-with-narrowing, never by widening
@@ -27,7 +27,7 @@ day, and the 2026-08-17 documentation sweep is what found it. It is the right to
 exists, as distinct from acting on it, the kernel-level twin of `filesystem_protocol`'s directory
 `ENUMERATE`, and `endpoint::SURVEY` is its only consumer today. The argument for a right of its own
 rather than a corner of `READ` is on `capability::Rights::ENUMERATE`, where a reader meets it:
-`READ` on a supervision endpoint is what `RECV` and `REAP` take, so a `ps` granted `READ` could
+`READ` on a supervision endpoint is what `RECEIVE` and `REAP` take, so a `ps` granted `READ` could
 reap a child, and a domain names its members rather than acting on them.
 
 ## `SEND_CAP` is share, not move
@@ -55,7 +55,7 @@ Delegation answers separate questions, and they narrow independently:
 |---|---|---|
 | What may the holder **do**? | `READ`, `WRITE` | a `PageFrame` with `READ` alone maps read-only, never writable |
 | May the holder **pass it on**? | `GRANT` | a derivative sent *without* `GRANT` is a dead end: the receiver may use it but not re-delegate |
-| What may the holder **learn**? | `ENUMERATE` | a `Rendezvous` with `ENUMERATE` can `SURVEY` the domain it supervises; one with `READ` instead can `RECV` and `REAP` there but cannot list it |
+| What may the holder **learn**? | `ENUMERATE` | a `Rendezvous` with `ENUMERATE` can `SURVEY` the domain it supervises; one with `READ` instead can `RECEIVE` and `REAP` there but cannot list it |
 
 This section was headed "Two independent narrowings" and had the first two rows until the
 2026-08-17 documentation sweep; `ENUMERATE` made the third question a real one the day before. The
@@ -106,7 +106,7 @@ server reading a buffer shared by an untrusted client:
    within the page.
 
 **The console server is the worked example, and it is safe *because* it follows this** (checked):
-the length rides the message (`recv(REQUEST)`), the shared page holds only bytes to print (a
+the length rides the message (`receive(REQUEST)`), the shared page holds only bytes to print (a
 content TOCTOU just prints different bytes: benign), and an over-long length is a *read out of the
 server's own mapping* that faults the server, i.e. a crashed driver, not a corrupted kernel
 (fixtures/src/hello.rs). A future server that read a length or offset *from the page*, or indexed on

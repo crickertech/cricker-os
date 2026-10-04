@@ -22,7 +22,7 @@ makes the confused deputy constructible.
 
 The inversion: a nife command grants exactly what it names, and nothing else. A program
 that names no resource gets none. There is no ambient pool to draw from, so the question "may I?"
-is never asked; there is simply nothing in the program's hands it was not given. `least_authority_demo 9` grants a
+is never asked; there is nothing in the program's hands it was not given. `least_authority_demo 9` grants a
 report channel and an argument. `memory_grant_depleter --mem 16` grants a report channel and a 16-page memory
 budget. `memory_grant_depleter` alone grants a report channel and is refused, because memory_grant_depleter's manifest says it
 needs memory and the command named none.
@@ -54,7 +54,7 @@ authority. That is DECISIONS §14's claim made interactive.
 Phase 1 spelled the same thing `run [--mem N] <prog> [arg] [file:PATH ...]`. calef asked to be
 convinced the two extra words earned their keep; they did not.
 
-`run` failed on consistency. Milestone 47 adds `ls`, `cd`, `pwd`, `mkdir` and `rm` as shell
+`run` failed on consistency. Milestone 47 (navigation naming) adds `ls`, `cd`, `pwd`, `mkdir` and `rm` as shell
 builtins, and nobody would type `run ls`. Keeping the verb would mean builtins are bare words while
 programs need a prefix, so a user has to know *which class a command is in* before knowing how to
 type it. That is the gratuitous divergence the milestone exists to refuse, and milestone 50 finishes
@@ -83,7 +83,7 @@ makes `caps` the visibility surface now that the designator is gone.
 
 `parse` keeps the positional tokens in the order typed and refuses to say which is which;
 `plan_against` places them into the slots the manifest declares. So `wc 2026` designates a file named
-`2026`, which a shape-based rule ("a number is the argument") would have got wrong. It also means
+`2026`, which a shape-based rule ("a number is the argument") would have got wrong. It means
 "which token is the file" and "may this program have a file at all" are answered by the same
 declaration, which is the honest version of what the prefix pretended to do.
 
@@ -104,7 +104,7 @@ deliberate; see the refusal catalog below.
 
 The shell holds four capabilities (the progenitor grants them at boot, in this order): the terminal endpoint
 (slot 0), a spawn endpoint to the progenitor (slot 1), a result endpoint (slot 2), and its own untyped
-budget (slot 3). The budget is the piece milestone 31 added: the progenitor splits it off its own untyped
+budget (slot 3). The budget is the piece milestone 31 (capability shell) added: the progenitor splits it off its own untyped
 and `CAP_INSERT`s it into the shell, so the shell has memory that is genuinely its to give.
 
 The shell does not build children itself; the progenitor holds the initrd and stays the ELF loader (the
@@ -239,7 +239,7 @@ Three policies, and the third is the one worth keeping distinct:
   that into "allowed / not allowed" is exactly what a table is at risk of doing, so the rows carry
   the errno rather than a boolean.
 
-Milestone 61 also closed the attribute gap here: `GETXATTR`, `SETXATTR`, `LISTXATTR` and
+Milestone 61 (caretakers) closed the attribute gap: `GETXATTR`, `SETXATTR`, `LISTXATTR` and
 `REMOVEXATTR` used to answer `EOPNOTSUPP`, so a program handed one file could read the file and not
 what was attached to it. See [xattr.md](xattr.md).
 
@@ -249,7 +249,7 @@ what was attached to it. See [xattr.md](xattr.md).
   rather than argued.** Before the table, `OPENDIR`, `READDIR`, `MKDIR`, `RENAME`, `UNLINK` and
   `RMDIR` fell through one `_ =>` arm shared with "you named a handle I never minted", so two
   different statements came out as one word. Writing the rows down is what made the conflation
-  visible. `ENOTDIR` is very likely right for all seven, by exactly the argument `CREATE` already
+  visible. `ENOTDIR` is likely right for all seven, by exactly the argument `CREATE` already
   makes, but changing it changes what a client observes on the wire, so it is a contract decision
   rather than a table's to take. Named here, and in `POLICY`'s own doc comment, so the reader meets
   it where they meet the feature.
@@ -261,7 +261,7 @@ a *set* of endpoints, which this kernel does not offer; the way to add it is to 
 capabilities a badge (seL4's answer), and that is a design fork, recorded rather than taken. The
 caretaker needs nothing new: it is an ordinary FS client above and an ordinary FS server below.
 
-It is also the stronger form of the claim. The confined program holds an endpoint to the caretaker
+It is the stronger form of the claim. The confined program holds an endpoint to the caretaker
 and nothing that names the FS server, so "it cannot reach a second file" is a property of its
 capability table, not of a branch it is trusted to take. The boundary is an address space. That is the same
 reason milestone 36's checker lives outside the component it checks.
@@ -284,9 +284,9 @@ twice, on both ISAs:
   them since milestone 61: `WROTE`, `TRUNCATED`, and `WROTE_ATTR`, which is the third way to change
   a file and would have been missed by a direction check that only covered the first two.
 
-The read-only run also carries the attribute half of milestone 61, in the clear bits: the listing
-and the get reached the store (so the caretaker really does forward them) and the set did not (so a
-read grant really does not). Before that milestone all four answered `EOPNOTSUPP` and the first half
+The read-only run carries the attribute half of milestone 61, in the clear bits: the listing
+and the get reached the store (so the caretaker does forward them) and the set did not (so a
+read grant does not). Before that milestone all four answered `EOPNOTSUPP` and the first half
 would have failed.
 
 The second run is what makes the first mean anything. A caretaker that refused every request would
@@ -352,11 +352,11 @@ already hold. Chaining answers depth two and beyond; the root needs a decision, 
 `design/roadmap/31-capability-shell.md` states the two options rather than guessing.
 
 **The lifetime.** Predicted as "a supervision question rather than a filesystem one", which is what
-DECISIONS §92 then decided: the caretaker is built out of the client's own region, so §40's
+DECISIONS §92 (caretaker supervised) then decided: the caretaker is built out of the client's own region, so §40 (supervisor's death)'s
 ownership cascade ends both. What the decision did not predict, and what cost the most care, is that
 the *first* reclaim of such a region is refused by construction. `reap_region_objects` sweeps a
 region's endpoints before it looks at its threads, which is exactly what wakes a caretaker parked in
-`RECV` so it can be collected, and a thread that can be scheduled is `RefuseAndArm`. So the mechanism
+`RECEIVE` so it can be collected, and a thread that can be scheduled is `RefuseAndArm`. So the mechanism
 that makes the caretaker collectable is the same mechanism that makes the first attempt fail.
 `job_undertaker` used to trap on any refusal; it now yields and retries, and this is the first
 ordinary command that meets `reclaim_region`'s documented retry contract, which until now only the
@@ -459,7 +459,7 @@ The assessment above listed four, in different subsystems, and three of them wer
 4. **The child needs the page mapped and the cap inserted.** Correct, at `CLOCK_VA` and slot 1,
    because `date` probes the slot before touching the address.
 
-The old paragraph also said all of it "would ship unexercised, because nothing in the test suite
+The old paragraph said all of it "would ship unexercised, because nothing in the test suite
 boots the interactive shell". That stopped being true when milestone 50 (pipes and redirection: one sink protocol) wrote
 `script/swish-check`,
 which is the gate this landed against.
@@ -509,4 +509,4 @@ so it cannot be signaled or torn down through this path; the authority is exactl
 everywhere else. The escalation policy (how many `^C`, the grace timeout) is the shell's, host-tested
 in `grant_plan::Escalation`. The two demonstrators are `interrupt_heeder` (heeds the cooperative `^C`) and `interrupt_ignorer`
 (a bare loop only the forcible tier ends). See DECISIONS §24's implementation amendment and
-notes/terminal-contract.md's `OP_INTRCOUNT`.
+notes/terminal-contract.md's `OPERATION_INTRCOUNT`.

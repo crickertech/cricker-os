@@ -22,7 +22,7 @@ What blocked it was that we had four different protocols for "write these bytes 
 | Sink | Protocol before this lane |
 |---|---|
 | std `println!` | SEND, register-only, 16 bytes per message, `w0` = length, `w1`\|`w2` = bytes |
-| `line_editor` | CALL, shared page, `OP_WRITE`, `r0` = bytes consumed |
+| `line_editor` | CALL, shared page, `OPERATION_WRITE`, `r0` = bytes consumed |
 | `filesystem_protocol` | CALL, handle plus offset plus shared page, `WRITE` |
 | console server | shared page, SEND the length, ACK on a second endpoint |
 
@@ -36,9 +36,9 @@ A sink is an `Endpoint` capability with `WRITE`, and nothing else.
 ### Register-only, not a shared page
 
 This is forced, not chosen. Milestone 50's finding is that redirection *is* substituting one
-capability in one slot. The moment a sink also requires a page mapped at an agreed virtual address,
+capability in one slot. The moment a sink requires a page mapped at an agreed virtual address,
 substitution stops being one grant and becomes a spawn-time negotiation between the shell, the
-writer and the sink, and the finding evaporates. It also decides the pipe: for `a | b` the shell
+writer and the sink, and the finding evaporates. It decides the pipe: for `a | b` the shell
 creates an endpoint, hands SEND to `a` and RECEIVE to `b`, and that is the entire construction. A
 page-based sink would make a pipe cost a frame, a mapping in each of two address spaces, and a
 revocation record for each.
@@ -52,9 +52,9 @@ The difference is whether the writer learns anything. A CALL would return "bytes
 for a self-framing message is always "all of them", and it would pay a second IPC hop on the hottest
 path in the system to say so. Back-pressure does not need the reply: SEND blocks until a receiver
 takes the message, so the rendezvous is the flow control, which is the property
-`line_editor::proto::OP_BYTES` had already written down.
+`line_editor::proto::OPERATION_BYTES` had already written down.
 
-SEND also makes the reader of a pipe an ordinary program that does nothing but `receive`. With a CALL
+SEND makes the reader of a pipe an ordinary program that does nothing but `receive`. With a CALL
 protocol every pipe reader would owe a reply, which means every program on the right of a `|` would
 have to know it was on the right of a `|`.
 
@@ -71,7 +71,7 @@ not a sink, it is a service, and it should be a CALL protocol like `filesystem_p
 Types. This carries bytes. Typed pipelines are a separate and larger fork, recorded as one in
 design/roadmap/50-pipes-and-redirection.md, and nothing in this framing is a step toward one.
 
-Seek, truncate, re-read, stat. A sink appends, and that is the payoff milestone 50 claims over
+Seek, truncate, re-read, stat. A sink appends, and that is the payoff milestone 50 (pipes and redirection) claims over
 Unix. `> report.txt` hands a program strictly less than fd 1 with full file semantics does, and it
 is the opcode list that makes that true rather than policy.
 
@@ -80,17 +80,17 @@ is the opcode list that makes that true rather than policy.
 ```text
   w0 = (op << 56) | len          w1, w2 = up to 16 bytes, little-endian, low word first
 
-  OP_BYTES = 0    len = 1..=16   the bytes are in w1|w2
-  OP_EOF   = 1    len = 0        the writer is finished
+  OPERATION_BYTES = 0    len = 1..=16   the bytes are in w1|w2
+  OPERATION_EOF   = 1    len = 0        the writer is finished
 ```
 
-`OP_BYTES` is zero on purpose. With the opcode at zero a bytes message's first word is exactly
+`OPERATION_BYTES` is zero on purpose. With the opcode at zero a bytes message's first word is exactly
 its byte count, which is bit for bit the framing std's stdout already sent. So unifying the protocol
 changed no instruction on the fastpath, cost no message, and the benchmark that prices `println!`
 cannot tell that anything happened. An opcode is a claim about what a message means; the cheapest
 claim to make is the one the wire was already making.
 
-`OP_EOF` is new and it is not decoration. Without it a pipe's reader blocks forever after the writer
+`OPERATION_EOF` is new and it is not decoration. Without it a pipe's reader blocks forever after the writer
 exits, and "the producer is done" would have to be inferred from a death notification the reader may
 not even be the supervisor for, which is a fact about process supervision standing in for a fact
 about a stream. std sends it from the PAL's `cleanup`, which std's runtime calls after `main`
@@ -152,7 +152,7 @@ Three programs in `fixtures/`, and the sink among them is the `fs_file_caretaker
 that speaks the sink contract to its client and the underlying protocol to whatever is behind it.
 
 - `file_sink`: holds a `filesystem_protocol` endpoint and a shared page, creates or opens one name,
-  and appends every message's bytes at a running offset. `OP_EOF` closes the handle and reports the
+  and appends every message's bytes at a running offset. `OPERATION_EOF` closes the handle and reports the
   total. Its client holds an endpoint to this process and nothing that names the FS server, so it
   cannot seek, truncate, re-read or stat, which is milestone 50's "grants strictly less than Unix"
   made structural rather than promised.
@@ -205,7 +205,7 @@ performance change was intended, and there was none.
 
 Two honest caveats. There is no benchmark that prices `println!` itself; what these price is the
 `SEND` that `println!` is, so a regression inside the PAL's chunking loop would not appear here.
-And the reason the fastpath is untouched is structural rather than lucky: `OP_BYTES == 0` keeps the
+And the reason the fastpath is untouched is structural rather than lucky: `OPERATION_BYTES == 0` keeps the
 wire identical, `SEND` keeps the message count identical, and the kernel's only change is on the
 *failure* return of an aborted send, which no benchmark takes.
 
@@ -230,14 +230,14 @@ The last of milestone 50's remainders. A program's output slot can now hold the 
 still cannot tell that from a pipe or a file.
 
 ```text
-  a declaring child ──sink_proto SEND──► terminal_sink_caretaker ──OP_PRINT CALL──► line_editor ──► console
+  a declaring child ──sink_proto SEND──► terminal_sink_caretaker ──OPERATION_PRINT CALL──► line_editor ──► console
 ```
 
 ### It is a process for a capability reason, which was known
 
 The cheap move is to have `line_editor` serve the sink contract on the endpoint it already has: a
 `SEND` arrives there with no reply capability, so it is trivially distinguishable from the `CALL`s it
-serves. That is wrong. That endpoint also carries `OP_READLINE`, and `WRITE` on an endpoint is
+serves. That is wrong. That endpoint also carries `OPERATION_READLINE`, and `WRITE` on an endpoint is
 the right to `CALL`, so a child handed it as its output slot would hold the terminal's keyboard.
 A sink capability that can read the keyboard is not a sink capability. This kernel offers no
 receive-on-a-set, so the terminal cannot serve two endpoints itself, and the answer is a separate
@@ -246,19 +246,19 @@ process holding both contracts and handing out only one.
 ### And it needed a new opcode, which was not known
 
 The plan said the adapter would be `file_sink`'s shape and that the work was rewiring the progenitor. Building
-it found something else: `OP_WRITE` reads from the client's output page, and there is exactly one
+it found something else: `OPERATION_WRITE` reads from the client's output page, and there is exactly one
 of those. The progenitor maps a single frame into `line_editor` read-only and into the shell read/write. A
 second page-based client needs a second frame and a page index in every request, which is `filesystem_protocol`'s
 one-page-two-clients problem (DECISIONS §55, the reason the file behind a `>` is the shell itself)
 arriving in a second contract.
 
-So the terminal contract grew `OP_PRINT`: up to eight bytes carried in the request's own words,
+So the terminal contract grew `OPERATION_PRINT`: up to eight bytes carried in the request's own words,
 replied when they are on the wire. The adapter then needs no page at all, and `expand_output` is
-shared with `OP_WRITE`, so a newline from an adapter gets the same manners as a newline from the
+shared with `OPERATION_WRITE`, so a newline from an adapter gets the same manners as a newline from the
 shell. Two writers, one terminal, one set of manners, no second frame.
 
 Eight rather than sixteen is the contract's request shape and not a choice: a served request arrives
-through `receive_cap`, which hands the server a reply capability and two data words. `OP_BYTES`
+through `receive_cap`, which hands the server a reply capability and two data words. `OPERATION_BYTES`
 carries eight for the same reason, from the input direction, which is why the shape was already
 there to copy.
 
@@ -290,7 +290,7 @@ transcript, a pipe and a file and now a terminal, and the program holds one capa
   is before the progenitor gives the construction budget away, because it is a system component and that
   budget is what the system is built from; building it afterwards would spend the progenitor's scratch pool on
   a whole program. See notes/trusted-init.md.
-- **`date` was already speaking the contract before it existed**, which is the `OP_BYTES == 0`
+- **`date` was already speaking the contract before it existed**, which is the `OPERATION_BYTES == 0`
   decision paying out immediately: its hand-rolled framing is bit for bit a `BYTES` message. It
   announced no end of stream, because nothing yet read its output as a stream. `|` has since landed
   and it does: every exit path in `components/src/date.rs` goes through an `end()` that sends

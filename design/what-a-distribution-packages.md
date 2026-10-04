@@ -3,7 +3,7 @@
 Speculation, deliberately, about a system years further along than this one: if nife became a
 general-purpose OS with distributions built on it, what are the units they would ship?
 
-What this note does not cover, because other records own it. Milestone 39 owns the repository
+What this note does not cover, because other records own it. Milestone 39 (repository structure for a loosely-coupled OS, and the) owns the repository
 structure question and records four options with a recommendation and no decision. `design/haiku-bfs-and-packages.md`
 owns the activation shape, where Haiku's `packagefs` composes a filesystem view rather than mutating
 shared directories. Milestone 47 owns the conclusion those rest on, that a program namespace is an
@@ -50,7 +50,7 @@ Here a program is inert until endowed (DECISIONS §10). `Prog::manifest` already
 program may be granted, and `grant_plan::plan` checks an invocation against it before anything is
 spawned. So:
 
-- Installing grants nothing. It adds a name to a namespace, which milestone 47 already establishes
+- Installing grants nothing. It adds a name to a namespace, which milestone 47 (navigation and naming) already establishes
   requires holding the capability being extended.
 - The manifest is the package's security contract, machine-checkable at install time and enforced
   at spawn time.
@@ -113,12 +113,12 @@ recorded here rather than deleted because the reasoning is the useful part.**
 capacity:
 
 ```text
-  op      bits 63:56      (OP_SHIFT = 56)
+  op      bits 63:56      (OPERATION_SHIFT = 56)
   handle  bits 55:40
   len     bits 39:0
 ```
 
-`sink_proto` and `gfx_proto` use the same `OP_SHIFT = 56` layout. So a version field has nowhere to
+`sink_proto` and `gfx_proto` use the same `OPERATION_SHIFT = 56` layout. So a version field has nowhere to
 go: it means stealing bits from a live field, adding a word to every message, or introducing a
 connect-time handshake. The handshake is almost certainly right, since a version is negotiated once
 per connection rather than restated on every request, and that makes this a protocol design question

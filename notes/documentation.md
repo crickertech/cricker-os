@@ -48,7 +48,7 @@ parser and false of the program.
 
 What the roadmap could not weigh is the third fact: the corpus is closed and in-tree. A renderer
 for this repository's own markdown does not need CommonMark conformance; it needs the constructs
-these files actually use, and unlike conformance that is checkable directly.
+these files use, and unlike conformance that is checkable directly.
 `every_character_survives` does exactly that: every letter and digit of every note, decision and
 roadmap page reaches the rendered output, in order. It found three real defects while it was being
 written (an escaped pipe read as a column boundary, a table tail dropped when the buffer filled, a
@@ -98,7 +98,7 @@ whether the renderer kept its quote state across a nested fence. It did not. So 
 first and the filter second, which is the order that entry existed to enforce.
 
 And the corpus test still cannot guard it, which was measured rather than assumed. Reverting the
-fix leaves this very page ruined from the block above onward, and `every_character_survives` passes:
+fix leaves this page ruined from the block above onward, and `every_character_survives` passes:
 verbatim output loses no characters, and `Renderer::has_unclosed_fence` (added here, and the
 strongest thing the corpus check can assert) misses it too, because a bare closing fence three
 sections later matches the stuck one and lets the renderer out. A unit test is the guard. The lesson
@@ -223,7 +223,7 @@ requests and a 4 KiB page buffer.
 ### And the same index, pointed at the repository
 
 `script/apropos <word>` is the guest's builtin with a checkout underneath it instead of a
-filesystem image. It is milestone 117's finding rather than a convenience. Three stranger runs
+filesystem image. It is milestone 117 (the stranger test)'s finding rather than a convenience. Three stranger runs
 have measured what a newcomer cannot reach by following this tree while doing ordinary work, and it
 is a list rather than an impression: `notes/net.md`, `notes/capabilities.md`, any
 `design/decisions/` file, and `crates/abi/src/lib.rs`, which is four syscall numbers and the whole
@@ -403,8 +403,8 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
 
   The constraint underneath is the kernel's rather than the shell's, and it is worth reading before
   reaching for a scheduling fix. A process has one wait point: `SEND` blocks until a receiver
-  takes the message, `RECV` blocks until one arrives, and there is no select and no timed wait. So a
-  shell feeding a chain cannot also be receiving from it, and no interleaving schedule fixes it:
+  takes the message, `RECEIVE` blocks until one arrives, and there is no select and no timed wait. So a
+  shell feeding a chain cannot be receiving from it, and no interleaving schedule fixes it:
   alternating one send with one receive deadlocks whenever the stage reads twice before it writes,
   and the other way round deadlocks whenever it writes twice before it reads. The shell cannot know
   which, because the whole point of the sink contract is that neither end knows anything about the
@@ -423,7 +423,7 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
   notes/tail-output-narrowing.md.
 - **A screen-narrowed child is invisible to a concurrent `ps`/`pgrep` for its short life.** Its
   DECISIONS §26 fault target is a fresh endpoint this shell minted, not the progenitor's `deaths` domain
-  channel, because the shell needs to `RECV` its own child's exit directly rather than race
+  channel, because the shell needs to `RECEIVE` its own child's exit directly rather than race
   `job_undertaker` for the same message. Its memory still returns to the progenitor's job pool when this
   shell reaps it (§26: a corpse's region returns to its *builder*, not its supervisor), so nothing
   leaks; it simply does not appear in a domain survey while it runs. Given `doc`'s render is a
@@ -447,7 +447,7 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
   was the other half of this entry and is also gone: the shell drains `MAX_OUTPUT_CHUNKS = 4096`
   messages, which is 64 KiB rather than 512 bytes.
 - **No pager, and the reason is authority rather than effort.** Paging needs a keypress; a keypress
-  needs `line_editor::proto::OP_READLINE`; and that opcode rides on the terminal endpoint whose read
+  needs `line_editor::proto::OPERATION_READLINE`; and that opcode rides on the terminal endpoint whose read
   side *is* the keyboard. The spawn protocol has no way to hand a child the right to read one line
   without handing it the terminal, which is the exact thing `terminal_sink_caretaker` exists to
   prevent. So a long page scrolls off. The fix is a decision about the spawn protocol, and it is the
@@ -498,7 +498,7 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
   phase 1 measured it. The floor is what moves it: page alignment costs every bundle 16 KiB
   however small, so the ratio improves as the bundles grow rather than because anything got better.
 - **A source line longer than `documentation::LINE_MAX` (2048) loses its tail.** The longest line in
-  this repository is 1925 bytes <!--count:longest-markdown-line-->, so the corpus fits; a document
+  this repository is 1928 bytes <!--count:longest-markdown-line-->, so the corpus fits; a document
   from elsewhere may not, and `Renderer::is_truncated` reports it while `doc` does not print it. The
   number carries a marker because it drifted: these three places said 1835 for as long as the two
   gated ones said 1841, which is the margin this milestone is measured against going stale in the

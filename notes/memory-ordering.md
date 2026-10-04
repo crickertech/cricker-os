@@ -1,7 +1,7 @@
 # Memory ordering, and the fences with no partner
 
 Milestone 116. CLAUDE.md's fourth rule is *assume weak memory ordering*, and this is the inventory
-that says where in the tree that rule is actually being relied on, who is relying on it, and which
+that says where in the tree that rule is being relied on, who is relying on it, and which
 sites were trusting something that is not there.
 
 A release fence with no matching acquire orders nothing while reading as though it does. That is
@@ -50,7 +50,7 @@ whole file, not a region. Both forms exist in this tree and a scan has to know t
 ## Where this kernel's ordering actually lives, which is mostly not here
 
 63 sites is a small number for an SMP kernel on two weakly ordered ISAs, and the reason is
-DECISIONS §9. Almost everything shared is behind a ranked interrupt-safe lock, and
+DECISIONS §9 (locking). Almost everything shared is behind a ranked interrupt-safe lock, and
 `IrqSafeMutex` wraps `spin::Mutex`, which locks with `compare_exchange(false, true, Acquire,
 Relaxed)` and unlocks with `store(false, Release)`. So the overwhelming majority of this kernel's
 happens-before edges are supplied by an acquire/release pair inside a dependency, where nothing
@@ -61,7 +61,7 @@ That fact runs through every adjudication below, so it is worth stating as a rul
 > An ordering edge in nife comes from one of four places, and only the first is greppable.
 >
 > 1. An explicit fence or an ordered atomic, in this tree. 63 sites plus 12 fences.
-> 2. The `SCHED` lock, taken by every `SEND`, `RECV`, `CALL` and `REPLY`. A blocking IPC
+> 2. The `SCHED` lock, taken by every `SEND`, `RECEIVE`, `CALL` and `REPLY`. A blocking IPC
 >    rendezvous therefore orders everything the sender wrote before it against everything the
 >    receiver reads after it, at no cost and with nothing written down.
 > 3. A spawn. A page written before the process that reads it existed is ordered by the act of
@@ -91,8 +91,8 @@ Each of these now carries a `PAIR:` comment at the site naming where its other h
 | `crates/credential_protocol` `wipe` | neither | none, and none wanted | **Sound.** A `compiler_fence` emits no instruction and orders nothing between cores. Now says so |
 | `kernel/src/arch/aarch64/exceptions.rs` `last_user_fault` | acquire | `USER_FAULTS.fetch_add(1, Release)` in `user_fault` | **Sound, and the model for the tree.** Both halves present, both load-bearing, both explained at the site before this milestone |
 | `kernel/src/arch/riscv64/exceptions.rs` `last_user_fault` | acquire | the same pair on the other ISA | **Sound.** Parity holds |
-| `kernel/src/user.rs` `term_print` | release | none; the `ipc_call` below it is the edge | **Sound, redundant.** The terminal is blocked in `recv_cap` |
-| `components/src/console.rs` `show` | release | none; the `call` below it is the edge | **Sound, redundant.** `term_print`'s case from userspace: `display_terminal` is blocked in `recv_cap` (milestone 400) |
+| `kernel/src/user.rs` `term_print` | release | none; the `ipc_call` below it is the edge | **Sound, redundant.** The terminal is blocked in `receive_cap` |
+| `components/src/console.rs` `show` | release | none; the `call` below it is the edge | **Sound, redundant.** `term_print`'s case from userspace: `display_terminal` is blocked in `receive_cap` (milestone 400 (shell firmware's)) |
 | `kernel/src/user/keyboard_service.rs` `take_typed` | acquire | `ring_publish`'s fence in `components/src/keyboard_driver.rs` | **Sound.** The reader milestone 43 named as getting it right |
 | `kernel/src/user/compositor_service.rs` `type_bytes` | release | `drain_input` in `components/src/compositor.rs` | **Sound, redundant** (the doorbell `CALL` follows). **A fourth writer the audit's count of three missed**; see below |
 | `components/src/keyboard_driver.rs` `ring_publish` | release | two readers, one fenced and one not | **Sound, redundant.** `call(DOORBELL, ...)` follows immediately |
@@ -299,10 +299,10 @@ above it:
 core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
 ```
 
-If there is no matching fence, say what the edge actually is and name it:
+If there is no matching fence, say what the edge is and name it:
 
 ```rust
-// PAIR: no acquire fence, and none is needed. The terminal is blocked in `recv_cap` and the
+// PAIR: no acquire fence, and none is needed. The terminal is blocked in `receive_cap` and the
 // `ipc_call` below is what wakes it, so the kernel's release of the `SCHED` lock and the
 // terminal's acquire of it are the pair.
 ```
@@ -328,7 +328,7 @@ If there is no matching fence, say what the edge actually is and name it:
   and a tenth could be added tomorrow in `Relaxed` and never appear in this table.
 - **Two of the three findings this note describes are fixed elsewhere.** The clock seqlock's writer
   fence is milestone 80's, and the compositor's two acquire fences are milestone 43's. This milestone
-  changed no ordering at all, which was its scope note and is also the honest result: the inventory
+  changed no ordering at all, which was its scope note and is the honest result: the inventory
   found one wrong comment and one decorative `Acquire`, and no new bug.
 - **`crates/user_mode_runtime`'s spin lock and the interrupt-routing lottery cannot be modelled today**, for
   the reasons milestone 80 recorded: `user_mode_runtime` is aarch64 inline `asm!` and does not compile for the
@@ -336,7 +336,7 @@ If there is no matching fence, say what the edge actually is and name it:
 
 ---
 
-*See also `notes/locking.md` for the ranked-lock discipline that makes this population small,
+*See `notes/locking.md` for the ranked-lock discipline that makes this population small,
 `notes/deadlock.md` for the other half of that discipline, `notes/interleaving.md` (milestone 80) for
 the loom harnesses that can decide a protocol, `notes/shared-page-audit.md` (milestone 43) for the
 audit whose finding 7 is half of this milestone's motivation, and `notes/compositor.md` for the

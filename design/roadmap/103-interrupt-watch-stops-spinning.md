@@ -24,9 +24,9 @@ The correction first, because the stale claim is the more useful finding.
 through and marked DONE when they landed. Item 1, `^C`, was never struck, and it still reads
 "(§24 decided, not built) ... Ready to schedule". The evidence that it shipped is not subtle:
 
-- `DECISIONS` §24 carries a section headed "Implementation amendment (built): two primitives
+- `DECISIONS` §24 (interrupting the foreground process) carries a section headed "Implementation amendment (built): two primitives
   forced the shape", describing both tiers as running on both ISAs.
-- `crates/line_editor` implements `OP_INTRCOUNT`; `crates/grant_plan` holds `jobframe` (the per-job
+- `crates/line_editor` implements `OPERATION_INTRCOUNT`; `crates/grant_plan` holds `jobframe` (the per-job
   shared interrupt frame) and `Escalation` (the host-tested escalation policy); `interruptible` is a
   manifest field the shell sets per program.
 - §24 records that "a pure `loop {}` spinner is now torn down on the second `^C` on both ISAs",
@@ -39,13 +39,13 @@ for its evidence pile.
 What is actually not started. §24's amendment names its own interim in plain words: "The shell
 learns of `^C` by polling, deliberately (wait A). The shell must watch the job and the `^C` at
 once, and with only blocking primitives it cannot block on both." So `swish` busy-polls
-`line_editor`'s `OP_INTRCOUNT` with a `yield` between calls, for as long as a foreground job runs.
+`line_editor`'s `OPERATION_INTRCOUNT` with a `yield` between calls, for as long as a foreground job runs.
 §24 finishes the thought: "the shared flag and the poll are the honest interim, not the
 destination."
 
 That costs a runnable thread for the entire lifetime of every foreground job, which is the whole
 time a user is waiting, and it is scheduler work proportional to how long the command takes.
-`line_editor`'s own `OP_INTRCOUNT` doc says it is waiting for "the blocking notification primitive",
+`line_editor`'s own `OPERATION_INTRCOUNT` doc says it is waiting for "the blocking notification primitive",
 so the consumer is already annotated with the thing it needs.
 
 The work. Convert the shell's watch loop to whatever milestone 106 (a wait that ends on either
@@ -79,5 +79,5 @@ work.
 ## Index row
 
 Raised as "decided and never built" from a handoff note whose other items were struck when they
-landed; `^C` shipped, both tiers, both ISAs (§24's built amendment, `OP_INTRCOUNT`, `jobframe`, `Escalation`). What is unbuilt is §24's own named interim: the shell busy-polls for the whole life
+landed; `^C` shipped, both tiers, both ISAs (§24's built amendment, `OPERATION_INTRCOUNT`, `jobframe`, `Escalation`). What is unbuilt is §24's own named interim: the shell busy-polls for the whole life
 of every foreground job because there is nothing to block on. Downstream of 106

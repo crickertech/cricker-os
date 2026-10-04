@@ -26,7 +26,7 @@ The records this file cites by number:
   to be redirected, it only loses the shell as a reader when nothing asked for one. See
   notes/documentation.md's `BUGS` for the worked case (`doc gate.txt`) and the cost that trade
   carries (the caretaker-hop display race, tracked at milestone 151).
-- `OP_PRINT` carries eight bytes, so a sixteen-byte sink message is two calls to the terminal.
+- `OPERATION_PRINT` carries eight bytes, so a sixteen-byte sink message is two calls to the terminal.
   That is the terminal contract's request shape rather than a choice (see notes/sink-protocol.md),
   and it doubles the round trips on a path that is a person reading text.
 - `script/swish-check` is not in `script/test` or in CI. It is the only gate on the real progenitor

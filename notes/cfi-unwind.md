@@ -149,7 +149,7 @@ part that differs by architecture:
   column and register 7 (RSP) as an ordinary describable register. So `isr_common` states
   `.cfi_offset 16, 16` / `.cfi_offset 7, 40` and the unwind genuinely continues past the trap, into
   whatever Rust function was interrupted, and from there into *its* caller, transitively -- see the
-  "hit 6" transcript below, which walks `switch_to -> schedule -> ipc_recv -> syscall::invoke ->
+  "hit 6" transcript below, which walks `switch_to -> schedule -> ipc_receive -> syscall::invoke ->
   syscall::dispatch -> exception_body -> exception_dispatch -> <signal handler called>` and stops
   there cleanly, the boundary correctly marked rather than silently wrong.
 - **aarch64 cannot, today, though the DWARF spec has an answer.** The interrupted PC lives in
@@ -271,13 +271,13 @@ This is the sharpest illustration in this whole milestone of why "no CFI" is not
 information": GDB's own fallback is willing to trust a frame-pointer-shaped hand-written assembly
 function that isn't one, and it does not know when to stop.
 
-After (a representative hit, of a kernel thread parked in `sched::ipc_recv` waiting on an IRQ
+After (a representative hit, of a kernel thread parked in `sched::ipc_receive` waiting on an IRQ
 endpoint, resumed and then re-scheduled by a timer preemption):
 ```
 Thread 4 hit Breakpoint 1, 0xffff0000400d9450 in switch_to ()
 #0  0xffff0000400d9450 in switch_to ()
 #1  0xffff000040090970 in kernel::sched::schedule () at kernel/src/sched.rs:2145
-#2  0xffff00004008fd70 in kernel::sched::ipc_recv (ep=2) at kernel/src/sched.rs:2704
+#2  0xffff00004008fd70 in kernel::sched::ipc_receive (ep=2) at kernel/src/sched.rs:2704
 #3  0xffff0000400bfdac in kernel::syscall::irq_wait (intid=79) at kernel/src/syscall.rs:1103
 #4  0xffff0000400bf7fc in kernel::syscall::invoke (frame=..., slot=1, method=0, ...) at kernel/src/syscall.rs:452
 #5  0xffff0000400bfcf0 in kernel::syscall::dispatch (frame=...) at kernel/src/syscall.rs:91
@@ -302,7 +302,7 @@ of boundary (a trap frame, or `kernel_main`'s own `-> !` entry, correctly report
 
 `script/fastpath-footprint` measures ELF symbol sizes in `.text`; CFI lives in `.eh_frame`, a
 different section. Run before and after, on the same machine, same profile (release, which is what
-the gate builds): byte-identical on every reported number (`ipc_send_recv` 6300, `ipc_call_reply`
+the gate builds): byte-identical on every reported number (`ipc_send_receive` 6300, `ipc_call_reply`
 8234, `ipc_fastpath` 8234, `syscall_entry` 1701). The gate's own printed "+N% against baseline" lines
 are unchanged too, which makes sense: they compare against a stored reference figure from an earlier
 point in the project's history that has nothing to do with this branch, and this branch moves

@@ -46,7 +46,7 @@ limits permit and which typing 31 characters onto the last line of a freshly loa
 reaches) staged 3231 bytes into a 3200-byte buffer and panicked the editor on `^S`.
 
 Nothing found this in the eight months `rmle` has existed. It was found by trying to state the
-property, before any harness ran, which is the mechanism milestone 191 said the tree was missing:
+property, before any harness ran, which is the mechanism milestone 191 (did) said the tree was missing:
 a property has to be written down before it can be checked, and writing it down is where the two
 constants got compared for the first time.
 
@@ -111,7 +111,7 @@ write past the end of a fixed array is a single `*n < buf.len()`.
   wrote (nothing at or above the final offset moves). The starting offset is left unconstrained on
   purpose: memory safety must not depend on the caller, and here it does not, because the guard is a
   comparison rather than a subtraction.
-- `the_buffer_can_be_filled_exactly`. A `kani::cover!` that the boundary is actually reached, so
+- `the_buffer_can_be_filled_exactly`. A `kani::cover!` that the boundary is reached, so
   the assertion above is not being proved by an assumption set that never gets near it. DECISIONS
   §134 notes the tree had 23 `cover` sites against 141 harnesses; a bound nothing approaches is how a
   proof becomes decoration.
@@ -135,7 +135,7 @@ Shorter than milestone 193's list, because the kernel had already paid for most 
 | `found duplicate lang item panic_impl` | Kani links `std`, which defines the handler `user_mode_runtime::panic_handler!()` expands to | `#[cfg(not(kani))]` on the macro invocation, in the one binary carrying a harness |
 | `Failed to detect Kani functions ... seems to be using #[no_std]` | Kani refuses a `no_std` crate root that never mentions it, and 67 of the 68 programs never will | select the binaries instead: `--bin`, derived in `script/verify` from a grep of the tree |
 
-No `--ignore-global-asm`, which is the difference from the kernel and is DECISIONS §4 rule 1
+No `--ignore-global-asm`, which is the difference from the kernel and is DECISIONS §4 (kernel shape) rule 1
 paying out again: there is no `global_asm!` anywhere under `user/`, because the only assembly a
 program has any business containing is the syscall itself and that lives in `user_mode_runtime`.
 
@@ -150,10 +150,10 @@ the verify table; only the derivation catches a binary missing from inside one.
 
 A proof with an unexamined stub is worse than no proof, because it reads as coverage. This is the
 exhaustive list of what a harness in a program package cannot see. The same list is at the top of each
-`mod proofs`, where somebody writing the next harness will actually meet it.
+`mod proofs`, where somebody writing the next harness will meet it.
 
 1. Every capability is unreachable, and the boundary is hard rather than soft. `user_mode_runtime`'s
-   `send`, `recv`, `call`, `invoke` and `exit` are `svc`/`ecall` through `asm!`, which Kani reports
+   `send`, `receive`, `call`, `invoke` and `exit` are `svc`/`ecall` through `asm!`, which Kani reports
    as an unsupported construct instead of proving past. So a harness that wanders into a program's
    IO fails loudly rather than reporting a proof about a fiction. This is the good direction and
    it is why the list below is short.
@@ -237,7 +237,7 @@ is the right place for exactly this reason.
 
 ## EXAMPLES
 
-Prove just the user programs' harnesses:
+Prove the user programs' harnesses:
 
 ```console
 $ cargo kani -p user --bin printenv --output-format=terse

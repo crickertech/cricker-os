@@ -8,11 +8,11 @@ about stack frames" is historical and left as it read before the rename: `frame`
 a CPU call frame (compiler stack-size accounting), never this object, and renaming it would create
 the exact collision this rename exists to remove.*
 
-DECISIONS §10 has a one-line rule for the data path: IPC carries control, shared memory carries
+DECISIONS §10 (process model) has a one-line rule for the data path: IPC carries control, shared memory carries
 data. The endpoint moves the small stuff (a length, a request code) and the bulk bytes live in a
 page both parties can see, so the kernel never copies them. For a long time nife honored that
 rule only by accident of setup: the kernel allocated the shared page and mapped it into both the
-console client and server at spawn, and both sides just found it at a fixed virtual address they had
+console client and server at spawn, and both sides found it at a fixed virtual address they had
 agreed on in advance. The sharing was real but frozen. Two processes could share memory only if the
 kernel decided, at the moment it created them, that they should.
 
@@ -52,7 +52,7 @@ So the whole sharing protocol is:
 
 1. Producer `RETYPE`s a page frame, `MAP`s it read/write, writes into it.
 2. Producer `SEND_CAP`s the page frame to the consumer, narrowed to `READ` (dropping `WRITE` and `GRANT`).
-3. Consumer `RECV_CAP`s it, `MAP`s the *same physical page* read-only, and reads what the producer
+3. Consumer `RECEIVE_CAP`s it, `MAP`s the *same physical page* read-only, and reads what the producer
    wrote.
 
 The kernel copied nothing and was never told these two processes would share memory. They built the
@@ -68,7 +68,7 @@ the other is still using. nife sidesteps this cleanly because of how teardown al
 root. A page mapped at *runtime*, by `Untyped::MAP` or `PageFrame::MAP`, is never in that list, so
 teardown does not free it. A page frame's page (and the page tables that map it) belong to the untyped
 region they came from, and are reclaimed only when that region is destroyed, wholesale, the way
-untyped memory always is. So when the producer exits, its mapping of the shared page simply goes away
+untyped memory always is. So when the producer exits, its mapping of the shared page goes away
 with its address space; the physical page persists, and the consumer's mapping is still good. No
 refcount, no double-free, because address spaces borrow page frames and never own them.
 
@@ -80,7 +80,7 @@ same parked problem: capability revocation.
 
 On ARM's weak memory model, the producer's write is not automatically visible to the consumer just
 because it happened first in time. What makes it visible is that the delegation is a *rendezvous*:
-the producer's `SEND_CAP` releases the scheduler lock and the consumer's `RECV_CAP` acquires it, and
+the producer's `SEND_CAP` releases the scheduler lock and the consumer's `RECEIVE_CAP` acquires it, and
 that release/acquire pair is the happens-before edge. The write lands before the send, the send
 synchronizes with the receive, the read comes after. So the same IPC that carries the capability also
 orders the memory, which is a tidy demonstration of why "control travels by IPC" and "data travels by
@@ -118,7 +118,7 @@ did not), and the holder's mapping survives untouched. That is not a bug in `rev
 honest consequence of a mapping that no capability ever stood behind. A spawn-time mapping is
 permanent by construction.
 
-It also cannot be narrowed by anyone downstream, because the kernel picked the permissions at spawn
+It cannot be narrowed by anyone downstream, because the kernel picked the permissions at spawn
 and there is no object to attenuate, and it cannot be handed on, because there is nothing to hand.
 
 ## The migration (milestone 108)
@@ -190,7 +190,7 @@ budget rather than as a story because the number is the point.
 
 The aarch64 test boot failed as `Unmappable(OutOfPageFrames)` about one run in three (measured
 2026-08-16). It failed in whatever test happened to spawn last, which was never the test that spent
-the memory. It also failed in disguise: milestone 107 met it as `time_tests` reporting *"no swish
+the memory. It failed disguised: milestone 107 (socket) met it as `time_tests` reporting *"no swish
 program in the initrd archive, or no memory to wire one"*, which reads like a packaging bug and is
 not one. `notes/net/memory-and-reclamation.md` had recorded it eight separate times as "`virtio::MAX_DEVICES` has asked for
 reclamation again".
@@ -247,7 +247,7 @@ are milestone 54's second act: the SMB test now runs a seeding client through th
 it wires the adapter, and that client is one more process. The number that decides whether a boot
 lives is unchanged at 14080, because a client that runs and exits fragments nothing. Read the pair as
 the honest shape of this ledger: the residue moves a little every time a test grows a process, and
-the free run is what the gate is really about. riscv64 came out at 13787 kept and 13733 longest, from
+the free run is what the gate is about. riscv64 came out at 13787 kept and 13733 longest, from
 29692 free.
 
 The largest single causes, before:
@@ -275,7 +275,7 @@ missing was a handle and an ordering.
 
 - The region's endpoints are now swept before the refusal, not after (`sched::reap_region_objects`).
   This is the load-bearing half. A blocked thread never reaches `schedule()`, so it never spends the
-  armed kill, so a region holding a server parked in `RECV` was refused forever:
+  armed kill, so a region holding a server parked in `RECEIVE` was refused forever:
   `userspace_init_brings_up_the_console_server` builds exactly such a server out of the progenitor's budget, and
   its 2048 page frames were unreclaimable by construction. Sweeping first fixes it because the wake was
   already there: removing an endpoint drains its wait queues, aborts each waiter's IPC and wakes it,
@@ -321,24 +321,24 @@ went), and the difference is accounted rather than shrugged at:
   own piece of work. Twenty page frames is not worth the hazard.
 - A page per kernel endpoint, carved into chunks by `sched::create_endpoint` and never freed by
   design.
-- The login service, ~640 (2026-08-22, milestone 49). Same shape as the credential store above:
+- The login service, ~640 (2026-08-22, milestone 49 (users, login,)). Same shape as the credential store above:
   wired once behind a `DONE` flag (`system_tests/src/user/login_tests.rs`) and shared by every login test.
   `crate::untyped::create` reserves the whole 640-page-frame construction budget the instant the
   service is spawned; splitting pieces of it into a caretaker or a client budget afterwards costs the
   ledger nothing further; only the initial reservation does. See notes/login.md and
   `components/src/login.rs`'s own BUGS on why nothing gives it back: the service serves logins for the life
   of the boot and this slice builds no teardown path.
-- A second credential service instance, ~1659 (2026-08-23, milestone 155). The provisioning
+- A second credential service instance, ~1659 (2026-08-23, milestone 155 (provisioning tool)). The provisioning
   suite (`system_tests/src/user/identity_provisioning_tests.rs`) needs a store *before* anyone has sealed
   it, which the tree's one shared fixture (`credential_tests::provisioned()`) cannot offer: that
   instance is sealed by the time it returns. So this suite wires its own, same shape as the shared
-  one and just as permanent for the same reason (`credential_service::start`'s own 1552-page-frame
+  one and as permanent for the same reason (`credential_service::start`'s own 1552-page-frame
   reservation: `CRED_BUDGET_PAGES` 1536 plus `CRED_STACK_PAGES` 16), plus the small cost of the two
   `identity_provisioner` invocations this suite runs against it and one `fs_subtree_caretaker` its
   headline test builds to prove the created subtree is real. This suite's own tests report their
   charge directly (`[that test kept N frames]`), which is where the 1659 comes from rather than a
   re-derivation here.
-- `MappedWindow`'s formatted panic, ~5 (2026-08-25, milestone 139 round 4). Found by the
+- `MappedWindow`'s formatted panic, ~5 (2026-08-25, milestone 139 (drive unsafe) round 4). Found by the
   `toolchain/nightly-bump` PR going red on a plain toolchain bump with no code change of its own;
   bisected against CI's own historical `build + test (host + QEMU)` logs (five independent runs at
   18621 before `202831a3`/`c94f5d21`, two independent runs at 18626 immediately after, both
@@ -362,10 +362,10 @@ went), and the difference is accounted rather than shrugged at:
   consistent *suite-wide* total is. Recorded as +5, attributed to this migration with confidence;
   not attributed to a specific one of the four migrated programs. See `kernel/src/testing.rs`'s
   `SUITE_PAGE_FRAME_BUDGET` doc comment for the rest of the account, including the separate ~1-2 frame
-  cross-environment variance this raise also had to make room for (18621 → 18626 → 18627 local →
-  18628 the one CI run that actually failed), which this investigation ruled a `swish.rs` change
+  cross-environment variance this raise had to make room for (18621 → 18626 → 18627 local →
+  18628 the one CI run that failed), which this investigation ruled a `swish.rs` change
   and a QEMU version mismatch out of and could not otherwise pin down.
-- `printenv`'s four spawns, ~85 (2026-08-26, milestone 47, DECISIONS §111). `date_tests.rs`'s
+- `printenv`'s four spawns, ~85 (2026-08-26, milestone 47 (navigation naming), DECISIONS §111 (inert configuration)). `date_tests.rs`'s
   own shape one program over: `system_tests/src/user/printenv_tests.rs` spawns a real `printenv` ELF four
   times (`spawn_printenv`, `date_tests::spawn_date`'s own helper), and neither the child processes
   nor, in three of the four cases, a by-hand-allocated config-page frame (`assembled_page`/
@@ -405,7 +405,7 @@ went), and the difference is accounted rather than shrugged at:
   named. A holder could then re-map pages the allocator had already handed out as a page table or
   another process's stack, which is §13's use-after-free with the widening's name on it. Reclamation
   now sweeps by overlap over the whole range (`sched::delete_page_frame_caps_overlapping`),
-  which also closes an older hole the same way: a capability to a page nobody had *mapped* was never
+  which closes an older hole the same way: a capability to a page nobody had *mapped* was never
   a candidate before, because the sweep was driven by the mapping log and the log had no record of
   it. `PageFrame::REVOKE` deliberately keeps the exact-object sweep; see the next entry.
 
@@ -483,7 +483,7 @@ went), and the difference is accounted rather than shrugged at:
   reasoning) fit a sixteen-slot capability table at all: at one capability per page neither size
   would have. `display_service::DRIVER_SLOT_DMA`'s `const` assertion (below, and the error it
   used to produce) is retired along with the pressure it guarded against, and replaced rather
-  than simply deleted: the reformulated assertion beside those slot constants makes the same
+  than deleted: the reformulated assertion beside those slot constants makes the same
   claim in run terms, that no grant list on that path reaches the fault slot. Deleting it outright
   was the state milestone 142's review found, and the hole it left was a future lane pushing a
   service's highest slot onto `FAULT_EP_SLOT` and booting instead of failing the build. The paragraphs below are
@@ -539,10 +539,10 @@ went), and the difference is accounted rather than shrugged at:
   `kernel::cap::CAPABILITY_TABLE_SLOTS`' own doc carries why it moved, which is worth reading before
   quoting any figure here.
 
-  **And a boot now says what it actually used**, which is the thing this section's whole argument
+  **And a boot now says what it used**, which is the thing this section's whole argument
   was conducted without. `kernel::cap::report_peak` prints `capability slots: N of M at peak` from
   the scheduler's idle loop, and `script/swish-check` echoes it on every run: the interactive boot
-  reaches 22 of 24. That number cost milestone 230 four instrumented boots to learn and now costs
+  reaches 22 of 24. That number cost milestone 230 (`script/shell-check` red) four instrumented boots to learn and now costs
   a boot, which is the difference between a fork priced against a guess and one priced against a
   measurement. See design/roadmap/231-capability-slot-high-water-mark.md.
 
@@ -558,11 +558,11 @@ went), and the difference is accounted rather than shrugged at:
      match on `Object::PageFrame` and 21 construct one through `cap::page_frame_cap`. It is the
      option this tree's own reasoning points at, because the run is already one range in physics, one
      range in the address space and one range in the IOMMU domain, and it collapses 469 capabilities,
-     469 syscalls and 469 mapping records into one of each. It is also a change to the meaning of a
+     469 syscalls and 469 mapping records into one of each. It is a change to the meaning of a
      syscall method, which is a boundary rather than a habit (`AGENTS.md`, DECISIONS §10 and §16).
   2. **Grow `CAPABILITY_TABLE_SLOTS`.** One number in `kernel/src/cap.rs` and its twin in `crates/abi`, paid
      in TCB size: `Option<Cap<Object>>` is 24 bytes, so 512 slots is 12 KiB of capability table per thread
-     against today's 384 bytes, and `MAX_THREADS` is 128. It also moves `abi::fault::FAULT_EP_SLOT`,
+     against today's 384 bytes, and `MAX_THREADS` is 128. It moves `abi::fault::FAULT_EP_SLOT`,
      which is defined as `CAPABILITY_TABLE_SLOTS - 1` and which every supervised program agrees on. It leaves
      469 `MAP` calls and 469 mapping records in place, so it buys the pixels without buying any of
      the elegance.
@@ -664,14 +664,14 @@ claim that a stack frame is a physical page.*
   depth-driven overflow could do; and `script/stack-depth-check` now says the deepest chain a thread
   stack can carry is 13792 bytes against the 20480 this address would need. See
   notes/stack/guard-page-faults-2026-08-16.md. The rest of this entry stands: the fault is real,
-  it is not this milestone's, and the binary really was byte-identical between a red run and a green
+  it is not this milestone's, and the binary was byte-identical between a red run and a green
   one.
 
   **And the answer arrived on 2026-08-17, which vindicates the register and not the reasoning
   beside it.** The recurring address proved nothing: a fault that reaches the exception vector's own
   frame store walks `sp` down and stores upward in aligned steps, so its terminal store lands on the
   guard base every time regardless of what `sp` was doing. What `x8` was telling you is exactly
-  right, though, and it is the whole diagnosis in one register: the thread really was shallow on
+  right, though, and it is the whole diagnosis in one register: the thread was shallow on
   slot 87's stack, because the stack had been unmapped under it. A supervised corpse is published
   `Dead` while still executing on its own kernel stack, and an out-of-band region reap frees that
   stack before the corpse reaches `switch_to`. See

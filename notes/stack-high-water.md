@@ -51,7 +51,7 @@ so it needs no meaningful depth itself.
 
 Test builds only, deliberately. Painting 24 KiB on every thread spawn would perturb the spawn
 benchmark, and the report goes through the test output channel anyway. (The two primitives, `paint`
-and `high_water`, are also compiled under the `ipc_stack_depth` feature since 2026-09-19, for the
+and `high_water`, are compiled under the `ipc_stack_depth` feature since 2026-09-19, for the
 per-IPC section below; the whole-suite report stays test-only.) The code is in
 `kernel/src/stack.rs` (paint, scan, report), with call sites in `kernel_main` (boot stack),
 `smp::bring_up_secondaries` (secondary stacks), and `thread::KernelStack` (thread stacks, painted
@@ -98,7 +98,7 @@ stacks did not. A secondary that ran deep did not fault. It wrote over whatever 
 which is the milestone 3 failure mode (notes/stack.md) on a core that is not the one running the
 tests.
 
-Why it could not just be skipped where it stood. The stacks were a plain array in `.bss`, and
+Why it could not be skipped where it stood. The stacks were a plain array in `.bss`, and
 `map_everything` maps `.data`..`__bss_end` in a single call. There was nowhere to put a hole. So
 the fix is a move, and the move is what the milestone is: the array now carries
 `#[unsafe(link_section = ".secondary_stacks")]`, and each linker script anchors a page-aligned
@@ -257,7 +257,7 @@ gate working, not failing.
 The thread limit is the one that has to be sized against stacking, not against the observed
 number, and the 2026-08-15 CI overflows are why (the full story is in notes/stack.md). The
 observed high-water is what the suite's runs happened to catch; the honest worst case is the
-deepest standing path (~11.7 KiB) plus a blocked thread's resident residue (`ipc_recv` +
+deepest standing path (~11.7 KiB) plus a blocked thread's resident residue (`ipc_receive` +
 `SCHED.lock` + `schedule` + the switch, ~1.4 KiB) plus one preemption landing at the deepest
 instant (~2.3 KiB), about 15.5 KiB, which is why two CI runs overflowed a 16 KiB stack that a
 green high-water report said was 71% used. A loaded host does not change any depth; it multiplies
@@ -330,7 +330,7 @@ comparing its test binary against `main`'s function by function shows the larges
 growth in the whole milestone is 128 bytes. It added one more spawned program to a margin that was
 already 2104 bytes short.
 
-The 71% row had been sitting in this note since milestone 84. A percentage reads as comfortable,
+The 71% row had been sitting in this note since milestone 84 (stack high-water). A percentage reads as comfortable,
 and 4712 bytes of headroom reads as comfortable, right up against a single frame that needs more than
 all of it. The lesson is that a high-water percentage and a frame inventory answer different
 questions and neither is safe alone.
@@ -358,14 +358,14 @@ arithmetic on "roughly 1 to 2 KiB" per IPC, and that figure was an estimate.
 ### The instrument
 
 `kernel/src/ipc_stack_depth.rs` (module, feature and line prefix all provisional). The same
-paint and scan as the rest of this note, re-armed per operation: just before one SEND, RECV, CALL,
-RECV_CAP or REPLY the thread paints its own kernel stack up to a margin below its live `sp`, and just
+paint and scan as the rest of this note, re-armed per operation: just before one SEND, RECEIVE, CALL,
+RECEIVE_CAP or REPLY the thread paints its own kernel stack up to a margin below its live `sp`, and just
 after it scans. 256 samples per operation, reported as median, min and max, each as a distance from
 the stack's top.
 
 - **Kernel threads**, E1's own shape (`bench.rs`'s `ipc_rtt`, `call_reply` and
   `ipc_thread_scaling` are all kernel-thread pairs): the thread wraps each call.
-- **EL0 threads**, the shape every service runs (`os_primitives_benchmarker`'s SEND/RECV pair and
+- **EL0 threads**, the shape every service runs (`os_primitives_benchmarker`'s SEND/RECEIVE pair and
   `soaker`'s CALL/REPLY pair): a user thread cannot paint, so `syscall::dispatch` ends with a call
   that, for a registered thread only, scans what the finishing syscall reached and paints for the
   next. An EL0 thread's trap frame sits at the very top of its kernel stack, so the distance from the
@@ -421,11 +421,11 @@ trip and the blocking path is the deep one. A range is the two boots disagreeing
 
 | shape | role | aarch64 | riscv64 | x86_64 | of which below the call site |
 |---|---|---|---|---|---|
-| kernel threads, SEND/RECV (E1's shape) | client | 560 | 608 | 440 to 504 | 320 / 352 / 168 to 248 |
+| kernel threads, SEND/RECEIVE (E1's shape) | client | 560 | 608 | 440 to 504 | 320 / 352 / 168 to 248 |
 | | server | 544 | 576 | 424 to 472 | 320 / 352 / 168 to 248 |
 | kernel threads, CALL/REPLY | client | 640 | 672 | 584 | 416 / 448 / 344 |
 | | server | 576 | 592 | 488 | 400 / 400 / 296 |
-| EL0, SEND/RECV | each end | 736 to 832 | 832 to 928 | 472 | (all of it) |
+| EL0, SEND/RECEIVE | each end | 736 to 832 | 832 to 928 | 472 | (all of it) |
 | EL0, CALL/REPLY | client | 928 | 1,024 | 648 | (all of it) |
 | | server | 912 | 976 | 600 | (all of it) |
 
@@ -433,13 +433,13 @@ Debug kernel (`script/test`, `-smp 4`), same method, same day, one or two runs p
 
 | shape | role | aarch64 | riscv64 | x86_64 |
 |---|---|---|---|---|
-| kernel threads, SEND/RECV | client / server, deeper op | 2,088 to 2,408 / 2,216 | 2,056 / 1,880 | 2,216 / 2,024 |
+| kernel threads, SEND/RECEIVE | client / server, deeper op | 2,088 to 2,408 / 2,216 | 2,056 / 1,880 | 2,216 / 2,024 |
 | kernel threads, CALL/REPLY | client / server | 2,232 / 2,248 | 2,184 / 2,232 | 2,040 / 2,104 |
-| EL0, SEND/RECV | deeper op, either end | 3,272 to 3,608 | 3,480 | 2,712 to 3,048 |
+| EL0, SEND/RECEIVE | deeper op, either end | 3,272 to 3,608 | 3,480 | 2,712 to 3,048 |
 | EL0, CALL/REPLY | client / server | 3,496 / 3,688 | 3,704 / 3,896 | 2,936 / 3,144 |
 
-**The ranges are the SEND/RECV shape only, and they are about which operation blocks rather than
-how deep any one path is.** In a SEND/RECV ping-pong either the SEND or the following RECV of a
+**The ranges are the SEND/RECEIVE shape only, and they are about which operation blocks rather than
+how deep any one path is.** In a SEND/RECEIVE ping-pong either the SEND or the following RECEIVE of a
 thread finds its partner not yet waiting and takes the blocking path, and which one does is settled
 by where each thread happens to be when the loop starts. The two paths differ by a few hundred
 bytes, so the "deeper op" moves between them from boot to boot, even on one hart. The same depth

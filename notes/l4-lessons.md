@@ -18,7 +18,7 @@ design/decisions/95-a-proven-ipc-fastpath.md is deciding about.
 | # | The paper's verdict | nife | Evidence |
 |---|---|---|---|
 | 1 | Retained: minimality | yes | services are userspace processes; `kernel/src/user/*_service.rs` *spawns* them with grants rather than implementing them |
-| 2 | Replaced: sync IPC augmented with async notification | yes | `inter_process_communication::Rendezvous::signal`, with `recv_drains_a_pending_signal_first` proving a signal is never lost |
+| 2 | Replaced: sync IPC augmented with async notification | yes | `inter_process_communication::Rendezvous::signal`, with `receive_drains_a_pending_signal_first` proving a signal is never lost |
 | 3 | Replaced: physical by virtual message registers | yes | three words in registers, a five-word mailbox in the TCB, no user-visible buffer address |
 | 4 | Abandoned: long IPC | yes | no multi-buffer transfer exists; bulk goes through shared frames |
 | 5 | Replaced: thread IDs by endpoints as destinations | yes | endpoint-only naming, and no syscall names a receiver |

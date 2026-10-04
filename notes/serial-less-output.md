@@ -96,7 +96,7 @@ one. It is deliberately not this, for three reasons that all point the same way:
   holds a cursor and a geometry: five `u32`s and no buffer.
 
 What *is* shared is the font, so the letters on an early boot screen and the letters in the
-graphical terminal are the same letters, which is also what makes the gate below possible.
+graphical terminal are the same letters, which is what makes the gate below possible.
 
 ## What the alternatives cost, priced rather than argued
 
@@ -152,13 +152,13 @@ works headlessly: OVMF finds a GOP here for the same reason a real machine's fir
 
 ## The shell on the screen, too
 
-Everything above is the kernel's voice. Since milestone 299 the console is a userspace process
+Everything above is the kernel's voice. Since milestone 299 (x86) the console is a userspace process
 writing COM1, so until milestone 400 (the shell on the firmware's screen) the tour reached the screen and the shell's prompt did not. Now
 it does, beside the serial console rather than instead of it:
 
 ```text
   swish ─► line_editor ─► console ──out──► COM1
-                             └──OP_WRITE──► display_terminal ──FLUSH──► framebuffer_driver ──copy──► the aperture
+                             └──OPERATION_WRITE──► display_terminal ──FLUSH──► framebuffer_driver ──copy──► the aperture
 ```
 
 - `framebuffer_driver` serves the same framebuffer contract `gpu_driver` does, over the screen
@@ -294,9 +294,9 @@ The one-time boot menu is usually F12; on a Mac, hold Option at the chime.
 
 Everything is on the monitor. Nothing else is connected.
 
-1. `nife uefi_loader: milestone 87`, then three or four more `uefi_loader:` lines. This is the
+1. `nife uefi_loader: milestone 87 (x86_64 bare-metal)`, then three or four more `uefi_loader:` lines. This is the
    firmware's own console, so seeing it proves the firmware found the stick, Secure Boot did not
-   refuse it, and the loader started. It also prints the screen it found.
+   refuse it, and the loader started. It prints the screen it found.
 2. The screen clears, which is the kernel's console arming.
 3. The boot tour, beginning `nife on x86_64 (long mode, ring 0, 4-level paging)`, with a
    `screen      :` line naming the geometry.
@@ -374,7 +374,7 @@ is U-Boot, and that is milestone 157's `simple-framebuffer` handoff. The board w
 - **Nothing here has run on real silicon.** It is proved on the host and under OVMF. A framebuffer
   that works under QEMU's emulated adapter is not a framebuffer that works on Graeme's laptop: the
   aperture may be above 4 GiB (this loader refuses that, see below), the mode may be `PixelBitMask`,
-  and the firmware may hand over a mode the monitor is not actually showing.
+  and the firmware may hand over a mode the monitor is not showing.
 - **A gate cannot read a real machine.** The screendump path is QEMU's. On the fleet, the record is a
   photograph and a person, which is exactly the state milestone 216 got the VisionFive 2 *out* of.
   Postmortem to the boot medium is the answer and it needs a USB mass-storage driver; see the

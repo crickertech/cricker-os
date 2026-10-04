@@ -31,7 +31,7 @@ real silicon, it boots, and milestone 74's riscv64 half landed on 2026-09-04, so
 `kernel/src/arch/riscv64/pmu.rs` reads cycles through the SBI PMU extension. When this block was
 written radon had no cycle counter at all, which is why milestone 127 was named.
 
-What milestone 127 is actually for is a different question, and its own title says so: *the seL4
+What milestone 127 (seL4) is for is a different question, and its own title says so: *the seL4
 machine: a Jetson TX1, so identical silicon referees the comparison.* That matters for milestone
 25's cross-OS numbers, which are compared against seL4's published runs and therefore want the
 machine those runs were made on. It does not matter for DECISIONS §96's question, which asks how much
@@ -40,7 +40,7 @@ nife produces about itself, on any real silicon.
 
 So the two uses split, and this block serves both without needing the same machine for each:
 
-- For §96 (process kernel or event kernel), radon is sufficient and available now.
+- For §96 (process kernel), radon is sufficient and available now.
 - For milestone 25's comparison against seL4, argon is still required, and nothing here loosens
   that.
 
@@ -76,7 +76,7 @@ This section does not say who wins. That is a claim that leaves the machine, and
 
 ## What this is for
 
-DECISIONS §96 asks whether nife should stay a process kernel (what it is today: every thread gets its own kernel stack) or move to an event kernel (one stack per core, explicit continuations), the model seL4, OKL4 and NOVA all eventually adopted. §96 found three of the four inputs to that question already settled by measurement (memory savings are negligible at this project's scale; stack-shrinking is closed off, no slack remains; the verification argument doesn't transfer, since Kani never reaches `kernel/src` here). The fourth input, performance, is the one live, unmeasurable argument: the paper §96 cites (Warton, on Pistachio) found event kernels roughly tied with process kernels on micro-benchmarks but 20% better on a real multi-tasking workload (AIM7). Every instrument this project currently owns (`ipc_rtt`, `ipc_rtt_el0`, the icount tripwire, milestone 132's footprint gate) is a micro-benchmark, and would show approximately nothing for this question.
+DECISIONS §96 asks whether nife should stay a process kernel (what it is today: every thread gets its own kernel stack) or move to an event kernel (one stack per core, explicit continuations), the model seL4, OKL4 and NOVA all eventually adopted. §96 found three of the four inputs to that question already settled by measurement (memory savings are negligible at this project's scale; stack-shrinking is closed off, no slack remains; the verification argument doesn't transfer, since Kani never reaches `kernel/src` here). The fourth input, performance, is the one live, unmeasurable argument: the paper §96 cites (Warton, on Pistachio) found event kernels roughly tied with process kernels on micro-benchmarks but 20% better on a real multi-tasking workload (AIM7). Every instrument this project currently owns (`ipc_rtt`, `ipc_rtt_el0`, the icount tripwire, milestone 132 (fast path's)'s footprint gate) is a micro-benchmark, and would show approximately nothing for this question.
 
 This milestone is that missing instrument, and nothing else. It does not decide §96; it produces the number §96 needs to decide itself.
 
@@ -87,7 +87,7 @@ reason the gate makes concrete: this number has to be taken on a board, and the 
 never run on one. What a board takes is `script/board-image` plus `script/board-console`, which is
 a kernel feature printing to the serial console.
 
-- `crates/job_mix`, the workload's definition, host-tested. What AIM7 actually is, read on
+- `crates/job_mix`, the workload's definition, host-tested. What AIM7 is, read on
   2026-09-04 from the benchmark's own README and from the ACM TOCS 2016 retrospective rather than
   guessed at; which four of its methodological properties are kept (heterogeneity, per-task random
   order, a task-count sweep, a throughput metric) and which of its 53 Unix-shaped jobs are
@@ -97,7 +97,7 @@ a kernel feature printing to the serial console.
   *workload*, and a workload is processes.
 - `kernel/src/jobmix.rs` (`--features jobmix`), the supervisor. It builds the pool once, releases
   a subrun's worth of tasks, owns the wall clock, and prints the placement census before the first
-  number, because milestone 240 found placement decides throughput on radon by up to fifteenfold
+  number, because milestone 240 (soak reports) found placement decides throughput on radon by up to fifteenfold
   and a figure without its arrangement is a draw rather than a result.
 - `script/job-mix` (QEMU rehearsal) and `script/board-image --jobmix` (the card).
   `notes/job-mix.md` is the bench procedure, with a table mapping every observable outcome to what it
@@ -123,11 +123,11 @@ needing more experiments). Both are real; they are not the same strength of clai
 
 ## Why it matters, beyond §96
 
-Milestone 25's cross-OS comparison has the same hole, and this milestone closes it too rather than duplicating it. Checked directly: milestone 25 is explicitly a set of EL0-measured *primitive* benchmarks (single syscall, single context switch, single IPC round trip, single map, single spawn) compared against lmbench and `sel4bench`; every one of them a micro-benchmark in the same sense §96 means the word. Milestone 25's own remaining piece (`sel4bench`) is also single-operation PMU timing, not a multi-tasking workload. So neither milestone currently has an instrument that could show what a real multi-tasking difference looks like, and building one here serves both.
+Milestone 25's cross-OS comparison has the same hole, and this milestone closes it too rather than duplicating it. Checked directly: milestone 25 is explicitly a set of EL0-measured *primitive* benchmarks (single syscall, single context switch, single IPC round trip, single map, single spawn) compared against lmbench and `sel4bench`; every one of them a micro-benchmark in the same sense §96 means the word. Milestone 25's own remaining piece (`sel4bench`) is single-operation PMU timing, not a multi-tasking workload. So neither milestone currently has an instrument that could show what a real multi-tasking difference looks like, and building one here serves both.
 
 ## What this does not decide
 
-Whether nife should actually switch kernel models. That is DECISIONS §96's own question, and it stays open until this milestone's number exists (or until a real customer-path workload starts creating threads in the hundreds, the other condition §96 names for reopening early).
+Whether nife should switch kernel models. That is DECISIONS §96's own question, and it stays open until this milestone's number exists (or until a real customer-path workload starts creating threads in the hundreds, the other condition §96 names for reopening early).
 
 ## What five boots measured, radon, 2026-09-16
 
@@ -238,7 +238,7 @@ before 2026-09-19 are not comparable. `notes/job-mix.md` has the old-and-new tab
 
 `job_mix::MAP` splits a region from the task's own budget, builds an address space and a frame in
 it, maps the frame at 32 addresses and `DESTROY`s the lot. `job_mix::SPAWN` builds two children from
-EL0 (address space, stack, thread, the shared child code), `RECV`s each one's exit and reclaims its
+EL0 (address space, stack, thread, the shared child code), `RECEIVE`s each one's exit and reclaims its
 region. No syscall, method or object type was added. Each task is granted an untyped budget
 (`memory_region_cap`) and a child-done endpoint through the existing spawn grants, which is the shape
 `kernel/src/bench.rs`'s `map_el0` and `spawn_el0` already had; the proposal's worry that a map job
@@ -277,7 +277,7 @@ On 2026-09-19 calef asked for the sweep under HVF on patagonia's M3 cores as a c
 shape (never a result). `script/job-mix` gained `--hvf` and `--release`, spelled as `run` and
 `bench` already spell them. Five attempts on an otherwise idle host were each refused by QEMU 11.1.1
 before the kernel ran, `HVF does not support GICv2 emulation`, because `kernel/src/drivers/gic.rs` is
-GICv2 only. Milestone 227 (a GICv3 driver) is what gives this cross-check a machine. Transcript
+GICv2 only. Milestone 227 (GICv3 driver) is what gives this cross-check a machine. Transcript
 `bench/patagonia-hvf-2026-09-19/jobmix-hvf-refused.log`; `notes/job-mix.md` has the section.
 
 ### Two proposals absorbed, and closed as the milestones they had become
@@ -288,12 +288,12 @@ and the two sessions could not see each other. calef's ruling there decides it: 
 promoted and then closed, since a numbered block marked BUILT is a record and a deleted file is
 nothing. So each is `BUILT` below rather than absent, with what it bought and what it did not.
 
-- [Milestone 382](382-three-aim7-job-categories-the-job-mix-does-not-have.md) (filed 2026-09-04):
+- [Milestone 382 (three AIM7's)](382-three-aim7-job-categories-the-job-mix-does-not-have.md) (filed 2026-09-04):
   three AIM7 categories missing, why each was refused, and the order to add them (map, spawn, then
   disk as a second mix). Its content is "The second hole" above, and the refusals it recorded are answered there:
   the map job did not need a new capability, the spawn job's allocator share is now printed, and the
   disk mix has its own proposal.
-- [Milestone 419](419-more-repeats-where-the-job-mix-contends.md) (filed 2026-09-16): `tasks=4`
+- [Milestone 419 (`tasks=4` needs)](419-more-repeats-where-the-job-mix-contends.md) (filed 2026-09-16): `tasks=4`
   needs more repeats, not more power cycles, with four options and a recommendation of reporting
   the spread. What was built is its options 1 and 3 together (a uniform 21, and the median with the
   ends beside it); its option 2, a per-point table, was refused above on measured board time. It
@@ -330,7 +330,7 @@ nothing. So each is `BUILT` below rather than absent, with what it bought and wh
 - **Outstanding.** What the sweep cannot see above 32 tasks. `job_mix::MAX_TASKS` is 32 because
   every task is a process with an address space, where milestone 134's E1 reached 96 kernel threads.
   Checked by reading `crates/job_mix` and `kernel/src/jobmix.rs`: nothing has measured where a board
-  actually runs out, and the supervisor's `FAILED: could not spawn task N` line is the measurement
+  runs out, and the supervisor's `FAILED: could not spawn task N` line is the measurement
   that would say. It is part of the first bench evening rather than separate work.
 - **Milestone 324.** `crates/board_console` has no recogniser for this run, so an operator tells a
   finished sweep from a wedged one by reading the log, with the reason it

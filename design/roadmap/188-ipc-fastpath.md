@@ -15,12 +15,12 @@ recommendation's arithmetic without changing its conclusion. Minted 2026-08-28, 
 on the third architecture (pull request #574). The provisional framing he gave it was *"a
 hand-maintained IPC fastpath, so the common case stops paying for the general one."* The title
 changed because the scoping work below found that the premise needs checking before the fastpath
-does: the gate that says we are over target is measuring an IPC shape that essentially no userspace
+does: the gate that says we are over target is measuring an IPC shape that no userspace
 program in this tree performs, and the largest single item it reports on aarch64 is a symbol of
 which 94% is never fetched.
 
 Phase 4 only; phases 1 to 3 were a lane's own call, needed nobody, and are done.
-The decision is [§95](../decisions/95-a-proven-ipc-fastpath.md) (a hand-written IPC fastpath, and
+The decision is [§95 (hand-written IPC)](../decisions/95-a-proven-ipc-fastpath.md) (a hand-written IPC fastpath, and
 whether it can stay proven), and this gate did not cite it until 2026-09-19. It is `DECIDED`, and
 what calef decided is *"don't decide yet"*, in two tiers: the eligibility predicate and its proof in
 `crates/ipc` are ratified as buildable now, and the fastpath itself stays gated on the one
@@ -69,13 +69,13 @@ that same 864. Milestone 156 (extract the rest and ratchet both ways) did that, 
 administrative arms out of `invoke` into `#[inline(never)]` functions. That is the cheap option this
 milestone was asked to price, and it has already been built once and measured.
 
-## Finding 1: the gate measures the SEND/RECV shape, and userspace overwhelmingly uses CALL/reply
+## Finding 1: the gate measures the SEND/RECEIVE shape, and userspace overwhelmingly uses CALL/reply
 
-`script/fastpath-footprint`'s root list is `ipc_send`, `ipc_recv`, `schedule`, `finish_switch` and
-`current_cap`. So `ipc_fastpath` is the closure over a SEND/RECV round trip: two endpoints, a
+`script/fastpath-footprint`'s root list is `ipc_send`, `ipc_receive`, `schedule`, `finish_switch` and
+`current_cap`. So `ipc_fastpath` is the closure over a SEND/RECEIVE round trip: two endpoints, a
 one-way message each way, four `svc`s from EL0. That is exactly the shape of the `ipc_rtt_el0`
-benchmark, whose own doc comment says so (*"a server (RECV request, SEND reply) and a client that
-self-times a loop of SEND-then-RECV"*).
+benchmark, whose own doc comment says so (*"a server (RECEIVE request, SEND reply) and a client that
+self-times a loop of SEND-then-RECEIVE"*).
 
 It is not the shape the system runs. Counting imports of `crates/user_rt`'s helpers across
 `user/src` and `crates`:
@@ -83,29 +83,29 @@ It is not the shape the system runs. Counting imports of `crates/user_rt`'s help
 | helper | files importing it |
 |---|---|
 | `call` (`Rendezvous::CALL`) | 25 |
-| `recv_cap` (`Rendezvous::RECV_CAP`) | 15 |
+| `receive_cap` (`Rendezvous::RECEIVE_CAP`) | 15 |
 | `reply` (`Reply::REPLY`) | 11 |
-| both `send` and `recv` in one program | 12 |
+| both `send` and `receive` in one program | 12 |
 
 24 of `user/`'s 68 `[[bin]]` programs import `call`, plus one crate. The 12 that import both
-`send` and `recv` include the sink protocol's streaming shape and the supervisors, which are not
+`send` and `receive` include the sink protocol's streaming shape and the supervisors, which are not
 request/response at all. The kernel's
 own benchmark suite agrees with userspace and not with the gate: `call_reply`'s doc comment calls it
 *"the one-endpoint shape real services use"*, and milestone 23's queue-broker note adds that the
 steady state of a capability swap over a stable endpoint *"is [`call_reply`] above, instruction for
 instruction"*.
 
-Measuring the shape userspace actually uses makes the gap worse, not better. Re-running the same
-closure with `ipc_call`, `ipc_recv_cap` and `ipc_reply` as roots in place of `ipc_send`/`ipc_recv`,
+Measuring the shape userspace uses makes the gap worse, not better. Re-running the same
+closure with `ipc_call`, `ipc_receive_cap` and `ipc_reply` as roots in place of `ipc_send`/`ipc_receive`,
 on the same binary, same cold list, same script logic:
 
 | closure | aarch64 bytes | over the 4 KiB target by |
 |---|---|---|
-| SEND/RECV roots (what the gate measures) | 5,788 | 45% |
+| SEND/RECEIVE roots (what the gate measures) | 5,788 | 45% |
 | CALL/reply roots (what a quarter of the programs run) | **7,516** | **88%** |
 
-The difference is not a different code path bolted on; it is that `ipc_recv_cap` (1,828 bytes) and
-`ipc_call` (1,692) are each larger than `ipc_recv` (1,320) and `ipc_send` (952), because they carry
+The difference is not a different code path bolted on; it is that `ipc_receive_cap` (1,828 bytes) and
+`ipc_call` (1,692) are each larger than `ipc_receive` (1,320) and `ipc_send` (952), because they carry
 the reply-capability mint, the capability-table insert into the server, and the `WaitRole::Reply`
 parking that DECISIONS §12 (a one-shot reply capability) requires.
 
@@ -153,11 +153,11 @@ is a small under-count in the other direction and should be added when the table
 The whole closure, aarch64, both shapes, so a reader can see what a fastpath would be skipping
 rather than guess at it.
 
-| symbol | SEND/RECV closure | CALL/reply closure |
+| symbol | SEND/RECEIVE closure | CALL/reply closure |
 |---|---|---|
-| `sched::ipc_recv_cap` | | 1,828 |
+| `sched::ipc_receive_cap` | | 1,828 |
 | `sched::ipc_call` | | 1,692 |
-| `sched::ipc_recv` | 1,320 | |
+| `sched::ipc_receive` | 1,320 | |
 | `sched::schedule` | 1,244 | 1,244 |
 | `sched::ipc_send` | 952 | |
 | `sched::finish_switch` | 824 | 824 |
@@ -173,7 +173,7 @@ rather than guess at it.
 CALL/reply closure, and it is the general scheduler being asked to re-pick a thread that the IPC
 already knows the identity of. That, and not `syscall::dispatch`, is the largest structurally
 skippable block on this path. `syscall::dispatch` at 1,160 is now about an eighth of an honestly
-counted round trip (7,516 of closure plus the ~1,412 of entry that is actually fetched), and 864 of
+counted round trip (7,516 of closure plus the ~1,412 of entry that is fetched), and 864 of
 its former bulk has already been removed by the cheap method.
 
 ## What a fastpath would skip, and what it cannot skip
@@ -183,7 +183,7 @@ and a phase-3 lane should price them rather than assume them.
 
 - The general scheduler re-selection, 2,872 bytes. A rendezvous that finds a waiting partner
   knows which thread runs next. seL4's fastpath switches directly to it. Ours calls `schedule()`,
-  which re-runs policy, and then `finish_switch`, which also carries the corpse-reaping branch that
+  which re-runs policy, and then `finish_switch`, which carries the corpse-reaping branch that
   milestone 132 already had to classify as cold to keep the number honest.
 - `trace::record`, called on every serve and every block in `ipc_call` and `ipc_reply`. It has
   no symbol of its own in the closure, so its bytes are inlined into the callers and are part of
@@ -200,7 +200,7 @@ Not skippable, and this is the half that makes it a design milestone.
 - The capability lookup. `sched::current_cap(slot)` at 372 bytes is the bounds check that *is*
   the security mechanism; `syscall::invoke`'s own doc comment says so. A fastpath that caches or
   elides it is not a fastpath, it is a hole.
-- The rights check. `SEND` needs `WRITE`, `RECV` needs `READ`, `SEND_CAP` needs `GRANT` on the
+- The rights check. `SEND` needs `WRITE`, `RECEIVE` needs `READ`, `SEND_CAP` needs `GRANT` on the
   delegated capability and a subset check on the narrowing. `CALL` needs `WRITE`.
 - The one-shot Reply mint and its consume-on-use. DECISIONS §12 is the whole reason a CALL is
   answerable exactly once; the fastpath still has to mint the capability, insert it into the
@@ -214,7 +214,7 @@ Not skippable, and this is the half that makes it a design milestone.
 ## What correctness must not be lost, and how it would be proved
 
 The proofs are on the general structure, which is exactly the structure a fastpath exists to
-bypass. `crates/inter_process_communication` carries six `#[kani::proof]` harnesses over `Rendezvous`: that send and recv
+bypass. `crates/inter_process_communication` carries six `#[kani::proof]` harnesses over `Rendezvous`: that send and receive
 and signal each preserve the one-queue invariant, that a send rendezvouses iff a receiver
 waited and with exactly that receiver, that a pending signal is drained before a queued sender, and
 that a collected sender is forgotten by the rendezvous, which is the rendezvous half of the one-shot
@@ -224,8 +224,8 @@ None of them prove anything about `kernel/src/sched.rs`. They prove the pure dec
 `sched` calls into. A hand-written fastpath has two possible relationships to that, and choosing
 between them is most of phase 4's design:
 
-1. The fastpath calls `Rendezvous::send`/`recv` too. The proofs continue to cover it for free.
-   It also keeps the part of the cost that lives in the queue manipulation, so the win shrinks to
+1. The fastpath calls `Rendezvous::send`/`receive` too. The proofs continue to cover it for free.
+   It keeps the part of the cost that lives in the queue manipulation, so the win shrinks to
    the scheduler bypass and the skipped error plumbing. This is the option that should be measured
    first, because it may be most of the win for none of the verification cost.
 2. The fastpath replicates the decision. Then it needs its own harnesses, plus something the
@@ -280,8 +280,8 @@ closure, where 88% of the overrun now lives. That is phase 3.
 B. Reorder the dispatch decode so common opcodes are found first. Refused, and it is worth saying
 why loudly. It would not move this number by a byte. `script/fastpath-footprint` sums whole symbol
 sizes; reordering a match changes which instructions execute, not which symbol they live in. It is
-also already effectively done: `SYS_INVOKE` is one of four syscall numbers, `Object::Rendezvous` is
-the first arm of `invoke`'s object match, and `SEND`/`RECV`/`SEND_CAP`/`RECV_CAP`/`CALL` are method
+already effectively done: `SYS_INVOKE` is one of four syscall numbers, `Object::Rendezvous` is
+the first arm of `invoke`'s object match, and `SEND`/`RECEIVE`/`SEND_CAP`/`RECEIVE_CAP`/`CALL` are method
 numbers 0 through 4. A lane that reached for this would spend a day and report a flat number.
 
 C. Shrink argument validation on the hot path. Refused. The validation on this path is the
@@ -303,14 +303,14 @@ F. A hand-written fastpath, seL4's shape. Phase 4. Deferred, not refused.
 Each phase is a lane that can be picked up without reading the others. Phases 1 and 2 are hours,
 phase 3 is a day, phase 4 is a project.
 
-Phase 1: measure the shape the system runs. Add `ipc_call`, `ipc_recv_cap` and `ipc_reply` to
-`script/fastpath-footprint`'s roots, or better, report the SEND/RECV and CALL/reply closures as two
+Phase 1: measure the shape the system runs. Add `ipc_call`, `ipc_receive_cap` and `ipc_reply` to
+`script/fastpath-footprint`'s roots, or better, report the SEND/RECEIVE and CALL/reply closures as two
 named numbers rather than merging them, since they are two shapes and averaging them would hide
 both, which is the reasoning the script already applies to `ipc_fastpath` and `syscall_entry`.
-Re-record all three baselines with `--save`. Also correct notes/benchmarks.md's comparison section,
-which says *"our EL0 path issues `SEND`, `RECV`, `SEND`, `RECV`"*: that is true of the `ipc_rtt_el0`
+Re-record all three baselines with `--save`. Correct notes/benchmarks.md's comparison section,
+which says *"our EL0 path issues `SEND`, `RECEIVE`, `SEND`, `RECEIVE`"*: that is true of the `ipc_rtt_el0`
 benchmark and false of every real service, which uses `CALL`. The corrected count is three
-syscalls to seL4's two (client `CALL`, server `RECV_CAP`, server `REPLY`), not four to two, and
+syscalls to seL4's two (client `CALL`, server `RECEIVE_CAP`, server `REPLY`), not four to two, and
 the residual one is the `ReplyRecv` fusion this tree does not have. That is a live open question
 below, not a defect.
 
@@ -328,7 +328,7 @@ exists for, and pull request #574 fixed one instance of it by hand rather than b
 186 would be a second hand-fix.
 
 Phase 3: apply milestone 156's method to the closure. The extraction that took 864 bytes out of
-`dispatch` has never been tried on `ipc_call`, `ipc_recv_cap`, `schedule` or `finish_switch`. Each
+`dispatch` has never been tried on `ipc_call`, `ipc_receive_cap`, `schedule` or `finish_switch`. Each
 has cold tails that a successful rendezvous never reaches: the aborted-rendezvous returns, the
 capability-table-full path, the corpse reaping in `finish_switch` that milestone 132 already had to
 special-case as cold in the closure walk rather than in the code. Measure first, extract second,
@@ -375,7 +375,7 @@ than a heroic one.
 
 **`ReplyRecv` fusion is a syscall-surface change and is explicitly not proposed here.** seL4's round
 trip is two syscalls because it fuses reply-and-wait; ours is three because a server issues `REPLY`
-and then `RECV_CAP` separately. Fusing them would be a new method on `Reply` or a new one on
+and then `RECEIVE_CAP` separately. Fusing them would be a new method on `Reply` or a new one on
 `Rendezvous`, and DECISIONS §10 and §16 govern that surface: it is a boundary every future program
 is written against, and AGENTS.md puts anything two programs agree on in the irreversible category.
 **It is named here so it is tracked and not so it is planned.** Its cost is one trap per round trip,
@@ -425,26 +425,26 @@ calef's like every other name in the tree, and a lane should ship provisional on
 *Built 2026-09-04, one lane, pull request #732. Every figure here is from a release kernel in that
 lane's worktree; the control runs are named where one was needed.*
 
-**The premise held, and it had drifted a little.** Re-measured at `61e30dcb`, the SEND/RECV closure
+**The premise held, and it had drifted a little.** Re-measured at `61e30dcb`, the SEND/RECEIVE closure
 is 5,888 on aarch64 (the block said 5,788 at `fc7b04e7`) and the CALL/reply closure is 7,576 (the
 block said 7,516). `exception_vectors` is still 2,020 bytes of sixteen entries of which a syscall
 fetches one. Both findings the milestone was built on are true.
 
 **Two of the block's supporting counts were low and are worth correcting**, because they were
 counted honestly and the tree grew. Files importing `user_rt::call` is 35 rather than 25,
-`recv_cap` 23 rather than 15, `reply` 20 rather than 11. The one that moves the argument is `send`,
+`receive_cap` 23 rather than 15, `reply` 20 rather than 11. The one that moves the argument is `send`,
 at 64 files: a bare `SEND` is widely used, and it is a genuinely different shape (one-way
 notification) rather than half of a round trip. That is the argument for reporting two numbers
 rather than replacing one with the other, and it is what the gate now does.
 
 ### Phase 1: the gate reports and checks two shapes
 
-`ipc_send_recv` and `ipc_call_reply`, provisional names. `ipc_fastpath` survives as a derived
+`ipc_send_receive` and `ipc_call_reply`, provisional names. `ipc_fastpath` survives as a derived
 figure, the worse of the two rather than the average or the sum, because one round trip is one
 shape or the other; it keeps its old name because a dozen places in the tree cite it, and it is
 recorded rather than checked, since it is the max of two numbers that are each already checked.
 
-`notes/benchmarks.md`'s "`SEND`, `RECV`, `SEND`, `RECV`" claim is corrected there: three syscalls
+`notes/benchmarks.md`'s "`SEND`, `RECEIVE`, `SEND`, `RECEIVE`" claim is corrected there: three syscalls
 to seL4's two, not four.
 
 ### Phase 2: aarch64's entry figure is honest, and nothing got faster
@@ -458,7 +458,7 @@ is now argued in the script beside the `ENTRY` table.
 ### Phase 3: the cheap method does not transfer, and finding that out is the result
 
 **Milestone 156's `#[inline(never)]` extraction, applied to the closure, made the number bigger.**
-Four cold arms went out of line and aarch64's `ipc_send_recv` moved 5,888 to 6,220, because a
+Four cold arms went out of line and aarch64's `ipc_send_receive` moved 5,888 to 6,220, because a
 closure walk follows the new call and counts the same bytes under a new name. 156's method works on
 `syscall_entry` because that half is flat. On a closure, extraction is a no-op unless the walk
 is told the callee is cold.
@@ -473,7 +473,7 @@ The four arms: `finish_switch`'s reap, `schedule`'s killed-thread conversion (th
 two loads and a compare; only the body moved), `schedule`'s self-pop heal, and `set_ipc_aborted`,
 whose four call sites are all on these closures.
 
-| | `ipc_send_recv` | `ipc_call_reply` | `syscall_entry` | total |
+| | `ipc_send_receive` | `ipc_call_reply` | `syscall_entry` | total |
 |---|---|---|---|---|
 | aarch64, before | 5,888 | (7,576) | 3,304 | 9,192 |
 | aarch64, after | **5,356** (-9.0%) | **7,028** (-7.2%) | **1,508** | **8,536** |
@@ -581,7 +581,7 @@ The measurement is precise. It is the attribution that is missing.
 
 - **Recorded.** The closure half of `script/fastpath-footprint` counts bytes no IPC fetches, for the
   same reason its flat half does: whole symbol sizes, so a cold tail inside `ipc_call` or
-  `ipc_recv_cap` counts. Phase 3 outlined the arms it could justify; the rest are inside conditional
+  `ipc_receive_cap` counts. Phase 3 outlined the arms it could justify; the rest are inside conditional
   branches the script deliberately does not follow. In the script's own `BUGS` section, beside the
   measurement.
 - **Recorded.** `--features fastpath_pad` still works on two of three architectures, because
@@ -600,14 +600,14 @@ The measurement is precise. It is the attribution that is missing.
   built, no E3 number should be quoted as a footprint result, this block's included.
 - **Milestone 380.** DECISIONS §144's 16 KiB ceiling was stated over "the sum of `ipc_fastpath` and
   `syscall_entry`", and this milestone changed both terms. The honest subject is now
-  `max(ipc_send_recv, ipc_call_reply) + syscall_entry`, which is what the gate prints as `total`,
+  `max(ipc_send_receive, ipc_call_reply) + syscall_entry`, which is what the gate prints as `total`,
   and the headroom §144 recorded was measured on the smaller shape (x86_64 is now 60% of the
   ceiling, not 51%). `design/decisions/` is not a lane's to amend, so it was written up as
   `design/roadmap/380-the-ceiling-applies-to-a-number-that-moved.md` for whoever holds §144, and
   they folded it into §144 the same day, which is why that block is BUILT.
 - **Outstanding.** Phase 4 itself, the hand-written fastpath. Untouched, gated on calef, and the
   section above says what would decide it. Checked against the tree: `kernel/src/sched.rs` has one
-  path through `ipc_call`, `ipc_recv_cap` and `ipc_reply` and no second one.
+  path through `ipc_call`, `ipc_receive_cap` and `ipc_reply` and no second one.
 - **Refused.** `ReplyRecv` fusion, which would take the round trip from three syscalls to two. It is
   a syscall-surface change, DECISIONS §10 and §16 govern it, and the block already says it is named
   so it is tracked and not so it is planned. A lane must not take it.
@@ -618,13 +618,13 @@ The measurement is precise. It is the attribution that is missing.
 
 Minted from the lane that gated the footprint on x86_64 (#574), whose finding was that `syscall::dispatch` is the largest single item in every architecture's entry figure. Scoping it
 found the premise had moved: milestone 156 already cut `dispatch` from 2,024 to 1,160 bytes on
-aarch64, `script/fastpath-footprint`'s roots measure a SEND/RECV shape that 25 of 69 userspace
+aarch64, `script/fastpath-footprint`'s roots measure a SEND/RECEIVE shape that 25 of 69 userspace
 programs replace with `CALL`/reply (7,516 bytes against the gate's 5,788), and 1,892 of aarch64's
 3,304-byte entry figure is vector-table padding no syscall fetches. Recommends three cheap phases
 (measure the right shape, make the entry figure honest, apply milestone 156's extraction to the
 closure) before any hand-written second path, which cannot be justified until milestone 74's PMU
 on milestone 127's TX1 can observe the payoff. Gate: DECISION. PARTIAL 2026-09-04: phases 1 to
-3 built. Both premises held. The gate now reports `ipc_send_recv` and `ipc_call_reply` separately
+3 built. Both premises held. The gate now reports `ipc_send_receive` and `ipc_call_reply` separately
 (the shape services run is 25 to 29% larger), and aarch64's `syscall_entry` counts one vector
 entry instead of sixteen (3,304 to 1,508, accounting, nothing got faster). Phase 3's finding:
 milestone 156's extraction does not transfer to a closure, and the gate now reads `#[cold]`

@@ -44,7 +44,7 @@ The port is worth doing precisely because it finds where the abstraction leaked.
    `a0`/`a1` for args) and `thread.rs` does not change.
 
 2. The `paging` crate encoded the aarch64 descriptor format. Closed (the trait option, calef's
-   call; DECISIONS §17). `Flags` was aarch64 descriptor bits (`AF`, `SH`, `AP_*`, `PXN`, `UXN`, `NG`,
+   call; DECISIONS §17 (second architecture)). `Flags` was aarch64 descriptor bits (`AF`, `SH`, `AP_*`, `PXN`, `UXN`, `NG`,
    MAIR index) and the walk assumed 4 levels. Now: `Flags` is a format-neutral capability set (same
    constructor/predicate API), a `PageFormat` trait captures the seam (`LEVELS`, the half split, and
    is-present / extract-address / encode-table / encode-and-decode-leaf), the `Mapper` walk is written
@@ -87,7 +87,7 @@ The port is worth doing precisely because it finds where the abstraction leaked.
    not cosmetic, and is commented as such at the definition. Only the full aarch64 test suite caught
    this; a compile-only check would have shipped it.
 
-   And the RISC-V answer to that lesson was wrong for a year (milestone 71, 2026-08-03). The
+   And the RISC-V answer to that lesson was wrong for a year (milestone 71 (thread-start fault), 2026-08-03). The
    paragraph above says the frame goes at the top of the kernel stack. RISC-V did not do that. Its
    TCB entry path (`user_entry_trampoline` -> `user_thread_entry` -> `enter_frame`) is shallow enough
    that a frame at the top would have overlapped `enter_frame`'s own stack, so the port computed the
@@ -142,9 +142,9 @@ The port is worth doing precisely because it finds where the abstraction leaked.
    construction, and `enter_frame` uses `top - size_of::<TrapFrame>()` on both ISAs. aarch64 took the
    same reservation: its overlapping slots only happen to be dead by the time `frame.write` runs, and
    "happens to be dead" is not an invariant. `enter_frame` now asserts the slot is at or above the
-   live `sp`, which the old placement failed on the very first user entry.
+   live `sp`, which the old placement failed on the first user entry.
 
-   It also unstranded two things. `user_pc` on RISC-V was a stub returning 0 because there was no
+   It unstranded two things. `user_pc` on RISC-V was a stub returning 0 because there was no
    fixed address to read; it is now the aarch64 twin. And on the exec path the old placement left the
    user thread with only the kernel stack that happened to lie below `enter_frame`'s `sp`, with
    everything `run` and `load` had consumed stranded above the frame and never reclaimed.
@@ -160,15 +160,15 @@ The port is worth doing precisely because it finds where the abstraction leaked.
    `reclaim_frees_a_started_then_exited_childs_regions`, with the guard compiled in and silent. That
    test's child is started through the TCB path, which is the one that runs `enter_frame` with
    interrupts masked and therefore cannot take the clobber described above. Its child is
-   `REPORT_STUB`, a `SEND` to an endpoint the test is `ipc_recv`ing on, so a hang there reads as an
+   `REPORT_STUB`, a `SEND` to an endpoint the test is `ipc_receive`ing on, so a hang there reads as an
    IPC rendezvous that missed rather than as a frame that was overwritten. What the section above
    does settle is the *inference*: a silent run is not a run in which the frame fault did not happen,
    because the guard sees only the `t5 == 0` subcase.
 
-   That hang is closed, and it was never a RISC-V bug (milestone 72). One line of test code
+   That hang is closed, and it was never a RISC-V bug (milestone 72 (lost wakeup)). One line of test code
    probed `reclaim_region(...).is_err()` on the child's own TCB region, which under DECISIONS §16 as
    amended *arms the kill* on the child; the child was then reaped at its next preemption, before it
-   could `SEND`. Widening the window reproduces it on aarch64 just as deterministically, which is
+   could `SEND`. Widening the window reproduces it on aarch64 as deterministically, which is
    the control that rules the ISA out. Full account in notes/scheduler.md. The dump that made it
    legible is still owed to `user_pc` no longer returning 0 here, which is the one thing this section
    can claim.
@@ -199,7 +199,7 @@ Finding these is the point; each gets pushed under `arch/`.
 - Timer: the `time` CSR + `stimecmp` (Sstc extension) or CLINT `mtimecmp`, or SBI TIME. Replaces
   the ARM generic virtual timer (`CNTV_*`).
 
-  BUGS (fixed at milestone 19, and worth knowing before choosing SBI TIME on the next board):
+  BUGS (fixed at milestone 19 (run real), and worth knowing before choosing SBI TIME on the next board):
   SBI `set_timer` takes an absolute deadline but is write-only, unlike `CNTV_CVAL_EL0`, which can
   be read back. So the fixed deadline grid that keeps the tick rate honest has to be kept in
   software. It was not, from milestone 20 until milestone 19's test lane: the handler re-armed from
@@ -214,7 +214,7 @@ Finding these is the point; each gets pushed under `arch/`.
 
 `tp` being a *general register* (line above), not a system register, is the one place the "clean
 different" bites. `TPIDR_EL1` is banked per core and no thread ever saves or restores it; a thread
-that migrates from one aarch64 core to another simply reads whatever `TPIDR_EL1` the destination core
+that migrates from one aarch64 core to another reads whatever `TPIDR_EL1` the destination core
 set at boot. RISC-V has no such register. The kernel per-CPU pointer lives in `tp`, and the trap
 entry saves the full GPR set, `tp` included (`x[4]`), because a trap from U-mode arrives with the
 *user's* `tp` and the frame has to preserve it.
@@ -230,7 +230,7 @@ per-CPU block: its `current` tid, its `idle`, its run queue, its `held_rank`.
 The failure was spectacular and non-deterministic. A migrated worker, thinking it was on A, would
 call `exit()` and mark *hart A's* current thread (often A's idle) `Finished`; A's next `schedule()`
 then panicked "the last thread exited". Other interleavings tripped the rank-`assert!` in
-`sync.rs` (a bogus `held_rank` read from the wrong hart) or simply lost a thread and hung. Adding
+`sync.rs` (a bogus `held_rank` read from the wrong hart) or lost a thread and hung. Adding
 tracing moved it, the classic weak-ordering-adjacent tell, though the root cause is not a missing
 barrier: it is reading a hart-local register that had been restored from another hart's frame.
 
@@ -275,7 +275,7 @@ is the thread's or the hart's. `tp` is the hart's.
    UART, and the DTB handoff. Then a clean `wfi` halt. The milestone-1 moment on a second ISA. A fifth
    leak surfaced and was deferred, not fixed: portable code (`sched`, `smp`, `syscall`, `user`) names
    `drivers::gic` directly, an interrupt-controller coupling that the traps step resolves with a PLIC
-   abstraction; until then the GIC driver stays un-gated (it compiles on riscv and is simply dead).
+   abstraction; until then the GIC driver stays un-gated (it compiles on riscv and is dead).
 3. **Traps. Done.** `stvec` + the `TrapFrame` + trap.s (save 36 registers, dispatch on `scause`,
    restore, `sret`). The syscall-ABI leak is resolved: `syscall.rs` reads the number and args through
    `TrapFrame::{syscall_nr, arg, set_arg}`, so `ecall`'s a7/a0..a5 map without portable code naming a
@@ -293,7 +293,7 @@ is the thread's or the hart's. `tp` is the hart's.
    side of that.
 5. **Timer + interrupts. Timer done.** SBI TIME `set_timer` + `sie.STIE`, the dispatcher routes
    `scause` = timer to `timer::tick`; proven by ~17 ticks in 0.2 s at 100 Hz. Remaining: the PLIC
-   (external/device interrupts), which also resolves the `drivers::gic` leak; it is exercised by the
+   (external/device interrupts), which resolves the `drivers::gic` leak; it is exercised by the
    userspace-driver path, so it lands with that.
 6. **The capability core runs. Done (a user program runs at U-mode).** The scheduler and context
    switch run on RISC-V ("2 of 2 kernel threads ran"); the user-mapping surface and the single-`satp`
@@ -315,16 +315,16 @@ is the thread's or the hart's. `tp` is the hart's.
    the panic location (bypassing `core::fmt`) named `cpu.rs:160`. Fix: `for_user_entry` carries the
    kernel `tp` in the frame, so it survives the round trip. Follow-up (noted, not yet done): that
    leaks the kernel per-CPU address into U-mode's `tp`; the leak-free fix restores `tp` in `trap.s`
-   from a per-hart source (the standard sscratch-trapframe approach), also needed for SMP.
+   from a per-hart source (the standard sscratch-trapframe approach), needed for SMP.
 
    **IPC/caps work too:** a second program is built from parts (a TCB, a code and stack mapping, an
    endpoint capability granted in slot 0), started, and it `SYS_INVOKE`s that cap to SEND a word home,
    which the kernel receives: "a U-mode process invoked a cap and SENT 0xc4". That is the whole
    capability boundary (cap lookup, rights check, IPC) from U-mode on RISC-V. One RISC-V-specific bug
    surfaced there: the TCB entry path is *shallow* (trampoline → `user_thread_entry` → `enter_frame`),
-   so a trap frame placed at the very top of the kernel stack (fine for aarch64, whose entry paths are
+   so a trap frame placed at the top of the kernel stack (fine for aarch64, whose entry paths are
    deep) overlapped and corrupted `enter_frame`'s own frame as `frame.write` ran, sending the `sret`
-   to a garbage `sepc`. Fixed by placing the RISC-V trap frame just below the live `sp` (`sscratch`
+   to a garbage `sepc`. Fixed by placing the RISC-V trap frame below the live `sp` (`sscratch`
    tracks it, so re-entries stay consistent).
 
    **Preemption works too, and it is the property that separates a kernel from a runtime.** The
@@ -364,7 +364,7 @@ is the thread's or the hart's. `tp` is the hart's.
    SENDs `81` straight home; the kernel never parsed or mapped the worker. This exercised the *full*
    userspace capability syscall surface on RISC-V for the first time (untyped RETYPE/RETYPE_OBJ,
    aspace MAP_INTO, frame MAP, tcb CAP_INSERT/CONFIGURE/START), all across the `ecall` ABI. `builder`
-   is fully portable; it also builds for aarch64, though aarch64's init is the PL011-wired role of
+   is fully portable; it builds for aarch64, though aarch64's init is the PL011-wired role of
    `hello`. Build the archive with `cargo xtask initrd-riscv`.
 
    **And a real device interrupt flows through the PLIC.** A keystroke becomes a message: the

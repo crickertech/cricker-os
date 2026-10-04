@@ -1,13 +1,13 @@
 # NTP: the wire format, and the client that carries it
 
-Two halves, built a day apart. The wire format is `crates/network_time_protocol` (milestone 51 lane C): the
+Two halves, built a day apart. The wire format is `crates/network_time_protocol` (milestone 51 (wall-clock time,) lane C): the
 48 bytes of RFC 5905, the 1900-epoch fixed-point timestamp, the offset arithmetic, and the handful of
 checks that are the whole of unauthenticated NTP's spoofing resistance. Pure computation, no socket,
 no clock, no service, and its tests run in milliseconds on the host. The client is
 `components/src/network_time_client.rs` (milestone 51 lane D), the process that turns those bytes
 into a clock correction, and it is the second half of this file.
 
-Three programs, not one (milestone 290, 2026-09-14). Until then the client, the test server that
+Three programs, not one (milestone 290 (`components/src/ntp.rs` three), 2026-09-14). Until then the client, the test server that
 answers it and the witness that proves the clock page is unreachable were one binary with three roles
 dispatched on `arg0`, packed as `ntp`. calef ruled the split and named all three:
 `network_time_client` in `components/`, `network_time_test_server` and `unwritable_clock_witness` in
@@ -25,7 +25,7 @@ which is the cheapest thing in the system to get wrong and the most expensive to
 QEMU boot against a live server. Here it is 21 host tests and 7 Kani harnesses, and the whole lot
 runs in under a second with no emulator.
 
-It also puts the boundary in the right place ahead of time. The eventual NTP client will hold a
+It puts the boundary in the right place ahead of time. The eventual NTP client will hold a
 network capability and a capability to *propose* a time. It will not hold the clock. Keeping the
 protocol in a crate with no I/O means that client cannot accidentally grow the ability to set
 anything, because the code that knows what a time is has nothing to set.
@@ -72,7 +72,7 @@ The seconds field wraps, on 7 February 2036 at 06:28:16 UTC. 32 bits of seconds 
 the field alone cannot say which 136 years it means. Something has to decide, and the choice is
 visible in the decoded output of every timestamp the machine ever handles.
 
-We take RFC 5905 §6's convention as a fixed pivot:
+We take RFC 5905 §6 (SMP)'s convention as a fixed pivot:
 
 | seconds field | era | covers |
 |---|---|---|
@@ -120,7 +120,7 @@ In order:
    it, so nobody should believe it.
 3. The origin timestamp equals the nonce we sent. The load-bearing one. Checked before anything
    in the packet is believed, because it is the check that says the packet is a reply to *us*. It
-   also rejects a stale reply to an earlier request.
+   rejects a stale reply to an earlier request.
 4. Stratum 0 is a kiss-o'-death, reported as itself rather than as a generic failure: `RATE`
    means back off and `DENY` means go away, and a client that retries on those is the abusive client
    the packet exists to stop. Stratum above 15 is not a time source. A leap indicator of 3 is the
@@ -139,7 +139,7 @@ In order:
 
 In plain NTP the client's transmit timestamp is echoed back in the origin field, so it is the only
 thing an off-path attacker has to guess. RFC 5905 says to randomise its low-order bits, and how many
-bits are actually random is set by the clock's precision: a microsecond-resolution clock leaves about
+bits are random is set by the clock's precision: a microsecond-resolution clock leaves about
 12, which is 4096 guesses. `Timestamp::randomise_low` does that and takes the bit count as a
 parameter, because the caller knows its precision and the crate does not.
 
@@ -192,7 +192,7 @@ corner where the truncation bug lives.
 
 The general rule this is an instance of, and it is worth keeping: a model checker is the tool for
 domains too big to enumerate, not a better tool for domains that are not. Check first whether you
-can just try all of them.
+can try all of them.
 
 ## What is not in the crate
 
@@ -311,7 +311,7 @@ ELF has nothing to do with it. Before the split this sentence had a second probl
 branch in the client's binary. It is unqualified now.
 
 What it proves: the socket-contract glue (minting a frame, delegating it, the destination header,
-`SENDTO`/`RECV` framing), that the 48 bytes are a well-formed NTPv4 client packet addressed to port
+`SENDTO`/`RECEIVE` framing), that the 48 bytes are a well-formed NTPv4 client packet addressed to port
 123, that the nonce is 64 unpredictable bits rather than a clock reading, that a reply failing
 `Query::accept` moves nothing, that an accepted sample reaches the clock as a proposal (the page
 publishes `SYNCED`, which nothing but the service can write), and that a proposal outside the policy
@@ -351,7 +351,7 @@ like rigour. The fault is caused by the capability set. Any process holding that
 at that address whatever code it runs, and no amount of shared machine code would make a stale
 capability list fault.
 
-**What actually keeps the witness honest is that one function endows both.**
+**What keeps the witness honest is that one function endows both.**
 `kernel/src/user/ntp_service.rs`'s `spawn_with_client_endowment` takes the image as a parameter, so
 `start_client` and `start_witness` are the same five `grants` with a different ELF. A sixth slot given
 to the client is a sixth slot given to the witness, with nothing to remember and no second list to
@@ -386,7 +386,7 @@ each naming the right thing.
 
 Two of them found a real defect in the *tests* rather than in the client, and it is worth recording
 because it is the shape a test-server design invites: with the client mutated to carry on, an
-unbounded `ipc_recv` on a report nobody would ever send became a sixty-second watchdog hang instead
+unbounded `ipc_receive` on a report nobody would ever send became a sixty-second watchdog hang instead
 of an assertion. Both waits are now bounded, so "the client never got there" fails in two seconds
 with a sentence.
 

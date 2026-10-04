@@ -35,7 +35,7 @@ Machine backups and their passwords is a home server, not an exhibit.
 
 | Gap | State today |
 |---|---|
-| **TCP listen and accept** | **built, and this row said otherwise until 2026-09-05.** `OP_LISTEN` and `OP_ACCEPT` have been on the wire since milestone 107 (2026-08-04) and bound into `std`'s PAL by milestone 64. What remains is **concurrency, not the contract**: the backlog is one connection deep and two cannot be served at once, because the client blocks in one call at a time. For a web application that is the real limit. |
+| **TCP listen and accept** | **built, and this row said otherwise until 2026-09-05.** `OPERATION_LISTEN` and `OPERATION_ACCEPT` have been on the wire since milestone 107 (the socket contract learns to accept), 2026-08-04, and bound into `std`'s PAL by milestone 64 (enough `std` to run somebody else's crate). What remains is **concurrency, not the contract**: the backlog is one connection deep and two cannot be served at once, because the client blocks in one call at a time. For a web application that is the real limit. |
 | `std::thread` | 4 of 6 PAL functions answer `Unsupported` |
 | `std::fs` | 32 of 54 answer `Unsupported` (milestone 64) |
 | async runtime | none. Vaultwarden uses Rocket, which uses tokio: timers, wakers, and a reactor |
@@ -44,8 +44,8 @@ Machine backups and their passwords is a home server, not an exhibit.
 
 The listen/accept question was the interesting one and it has been answered, which is why the
 row above changed. A listening socket is a *capability to accept connections on a port* and `accept`
-mints a new capability per connection, and milestone 107 settled the shape: `bind` is `OP_LISTEN`,
-`accept` is `OP_ACCEPT` into a second socket id with a frame attached, and a listener carries no
+mints a new capability per connection, and milestone 107 settled the shape: `bind` is `OPERATION_LISTEN`,
+`accept` is `OPERATION_ACCEPT` into a second socket id with a frame attached, and a listener carries no
 frame at all because a listener carries no bytes ([§25](../decisions/25-socket-identity.md)). The authority
 is a listen grant `net_stack` is spawned with, so the same binary is a client or a server depending
 on what it was given, and neither is a fallback.
@@ -66,7 +66,7 @@ contract.
 
 - Milestone 64 is the prerequisite and this is its extreme case. 64 measures with small probe
   crates; this is what the measurements are eventually for.
-- Milestone 65 is a different thing wearing a similar word, and conflating them would be a
+- Milestone 65 (A secrets service) is a different thing wearing a similar word, and conflating them would be a
   mistake worth naming: 65 is a secrets service for the system (keys the OS computes with);
   Vaultwarden is a secrets service for a human (passwords a person retrieves). Different layers,
   different threat models, no shared machinery.

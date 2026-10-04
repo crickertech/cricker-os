@@ -32,7 +32,7 @@ is the entire difference between "may obtain randomness" and "may reach the rand
 generator". A client cannot program the queue, cannot map the page the device writes into, and
 cannot ask the device for anything the service did not ask on its behalf.
 
-The service's whole authority is four things placed before it ran: the request endpoint (RECV), an
+The service's whole authority is four things placed before it ran: the request endpoint (RECEIVE), an
 `Irq`, a `Virtio` transport, and a readiness endpoint. No initrd, no budget, no filesystem, no
 network. A compromised entropy service is a machine whose random numbers an attacker chooses, which
 is exactly as much damage as owning the entropy source should be worth, and it is the reason the

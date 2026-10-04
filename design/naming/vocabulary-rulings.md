@@ -268,9 +268,7 @@ mangle. `script/lint`'s `recv` is a Python local for a method's receiver, a diff
 Closed records (`BUILT` roadmap blocks, `design/decisions/`, dated audit reports) keep the name they
 used, so a grep for `recv` finds them.
 
-Recorded limitation: about 40 live notes and roadmap documents still cite `recv_request`, `RECV_CAP`
-and the like, because touching one makes `helpers/prose_ratchet.py` judge its bold density and each
-is over. The follow-up is to bank that cleanup, then sweep `git grep -il recv -- notes design/roadmap`.
+The live notes and roadmap documents that still cited the old spellings were swept on 2026-10-04 UTC (lane `records/rename-pointer-sweep`).
 
 The `operation` ruling of 2026-10-04, the same rule applied to `op`, is in
 [spelled-out-rulings.md](spelled-out-rulings.md).

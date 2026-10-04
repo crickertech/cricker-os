@@ -16,7 +16,7 @@ the machine down. No remote attacker, no crypto, single core, runs under QEMU or
 
 The core boundaries are sound, and the review confirmed each with reasoning rather than assertion:
 
-- The capability boundary. No method is invocable without its rights (SEND needs WRITE, RECV
+- The capability boundary. No method is invocable without its rights (SEND needs WRITE, RECEIVE
   needs READ, `Untyped MAP` needs WRITE, `Irq` needs READ). Userspace only ever names a capability
   *slot*, which `CapabilityTable::get` bounds-checks; the object index inside (endpoint id, untyped region,
   intid) always comes from a kernel-minted capability, never a user register. Rights cannot widen,
@@ -29,7 +29,7 @@ The core boundaries are sound, and the review confirmed each with reasoning rath
   `Untyped MAP`, which is confined to the process's own budget and own low half.
 - TLB discipline. Stack VAs and address spaces are flushed on reuse, so a new owner cannot read
   a dead owner's data.
-- The scheduler and locks. No third instance of the two bugs milestone 9 fixed (interrupt
+- The scheduler and locks. No third instance of the two bugs milestone 9 (A virtio-blk driver at EL0, and an interrupt) fixed (interrupt
   restored under the lock; no idle thread). `HELD_RANK` is `NONE` at every `switch_to`; IPC
   blocking races, IRQ re-entrancy, and the untyped-MAP TOCTOU all check out on single core.
 - The loaders and parsers. ELF file-bounds and header-table math are `checked_*`; `.bss` is
@@ -88,7 +88,7 @@ pointer path at all. Corrected, and the historical `abi::console` methods are ma
   after validation and confirms the shadow is untouched. See notes/dma.md.
 - Per-process resource limits: closed, but not by the mechanism this note used to name. The
   spawn-exhaustion vector is bounded because a process spawns out of its own untyped budget
-  (§10, §16): the budget is the limit, and retyping enforces it. The per-spawner quota in
+  (§10 (process model), §16 (object revocation)): the budget is the limit, and retyping enforces it. The per-spawner quota in
   notes/quotas.md still exists in the kernel but has had no caller since §28 retired the kernel-wired
   shell, which milestone 41 found and recorded there. Read that note as a description of the
   mechanism, not of what is running. What remains unbounded is any kernel object a future syscall

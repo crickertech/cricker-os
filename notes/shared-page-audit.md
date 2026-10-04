@@ -77,7 +77,7 @@ Stated because a scope nobody wrote down is a scope nobody can check.
 - Capability lifetime races between revocation and an in-flight use (generational names,
   `Untyped::DESTROY`, `Endpoint::REAP`). Named in the milestone as a candidate lens and left for a
   later one; it is a different question and mixing it in would have diluted both.
-- The census of `unsafe`. Also a candidate lens, also a whole audit of its own.
+- The census of `unsafe`. A candidate lens, a whole audit of its own.
 - The supply chain, the boot trust root, and the DMA/IOMMU descriptor validator. The last has
   its own machine-checked proofs (`crates/dma_validator`, DECISIONS §30) and reading it by hand
   would add nothing a prover has not already said for every input.
@@ -92,7 +92,7 @@ An audit reads a commit, not a project. This one read `main` at `313a055`, and t
 in flight; each is named so the clearance above is not read as covering work it never saw.
 
 - The inbound socket half (`LISTEN`/`ACCEPT` with a spawn-time port grant) is not on `main`.
-  `crates/socket_protocol` there stops at `OP_CLOSE` and `net_stack.rs` has no listener. What is
+  `crates/socket_protocol` there stops at `OPERATION_CLOSE` and `net_stack.rs` has no listener. What is
   audited here is the outbound contract only. The `net_transport.rs` finding below applies to both,
   the file being identical across them.
 - `crates/credential_protocol` and `components/src/credentialer.rs` are being substantially rewritten with an
@@ -173,7 +173,7 @@ halves of `RENAME`, and on the *data* of a `WRITE`.
 (d) Reachable? Not on 2026-08-04; reachable since 2026-09-27. In the interactive
 boot three processes now map the file page, and the audit's first named event has happened:
 `crates/system_initializer` grants the shell `(SH_FS_VA, g.fs_page, MAP_RW)`, keeps its own copy
-for the life of the boot (milestone 31 phase 3, 2026-08-17), and maps it into both the
+for the life of the boot (milestone 31 (A capability shell) phase 3, 2026-08-17), and maps it into both the
 `fs_subtree_caretaker` and the program behind a directory grant. What still closed the hole then was that
 those three are never runnable at once on the same page: the shell is parked in `receive` on the
 spawned program's stream for the whole time that program exists, the program is inside a blocking
@@ -285,7 +285,7 @@ The finding worth keeping is not the missing clamp but the reason recorded next 
 The length is not the driver's; it is the client's. The comment classifies a client-triggered
 kill of a shared server as a driver bug, and a reader who trusted it would carry that reasoning to a
 contract where it is not merely a test program. This is the same failure the arch audit's finding 1
-was really about: the code was defensible and the record was wrong.
+was about: the code was defensible and the record was wrong.
 
 Disposition: fixed in this lane. The count is clamped to the page, matching `line_editor`, and
 the comment now says who supplies the length and what the clamp is for.
@@ -308,7 +308,7 @@ were not granted") and the arithmetic is what lets it through.
 
 The second is in the same file's input loop: `let n = line_editor::proto::len(w0);` and then
 `(bytes >> (8 * k))` for `k` in `0..n`, with no clamp. `proto::len` is a full 32-bit field, so
-`8 * k` passes 63 at `k == 8`. Every other consumer of `OP_BYTES` clamps to 8
+`8 * k` passes 63 at `k == 8`. Every other consumer of `OPERATION_BYTES` clamps to 8
 (`display_terminal.rs`, `line_editor.rs`); this is the one that does not.
 
 (b)/(c)/(d) Reachable? No. Both values are written by the compositor, which is the trusted

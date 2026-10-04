@@ -1,7 +1,7 @@
 # The directory capability (milestone 47)
 
 Milestone 47's keystone. A directory used to be one authority: hand a program somewhere to
-write its logs and you also handed it the power to read everything already there and to delete it.
+write its logs and you handed it the power to read everything already there and to delete it.
 This note is the design that splits that into separable rights, the verb that hands a *directory*
 back rather than bytes, and the process that makes a subtree grant checkable from outside the
 program being confined.
@@ -70,7 +70,7 @@ a bit this contract has not defined.
 The server *separately* refuses a request whose intersection came up short (`EPERM`), and it is
 worth being clear about what that refusal is for. It is not the safety property. Delete it and the
 intersection above still holds and the child is still bounded. What it does is refuse to hand back
-less than was asked for without saying so, which is DECISIONS §42's rule against silent
+less than was asked for without saying so, which is DECISIONS §42 (A filesystem declares what it offers and must)'s rule against silent
 degradation: a caller that asked for `CREATE` and got a capability without it should find out now
 rather than at its first write.
 
@@ -122,7 +122,7 @@ delete what is there", made structural.
 The FS server's handle table is per *server*, not per client. Two clients sharing one endpoint
 share those handles. A rights-carrying handle therefore attenuates only *its holder*: anyone holding
 the FS-service endpoint can name `fs::ROOT` and be back at the image root, whatever narrow handle
-they were also given. Rights on a handle are not confinement.
+they were given. Rights on a handle are not confinement.
 
 So confining a program to a subtree is not "give it a narrow handle". It is give it an endpoint
 that reaches nothing else, which means a caretaker process, exactly as a per-file grant needs one
@@ -150,7 +150,7 @@ serving a capability nobody meant to hand out. Everything the client can reach a
 reaches *through the handle that request minted*, so there is no branch in the caretaker that could
 be wrong about it.
 
-What the process actually does is translate a namespace. The client numbers its handles in its
+What the process does is translate a namespace. The client numbers its handles in its
 own space starting at `fs::ROOT`, which is the granted directory; the caretaker maps each to the FS
 server's number and forwards the request otherwise unchanged. A client that guesses a handle is
 guessing in a table with a handful of inhabitants, none of which it chose, and a number the
@@ -163,9 +163,9 @@ It costs no memory: the granted name and the rights mask ride in the three `STAR
 
 Each of the three caretakers used to be a hand-written `match` over the opcode, and nothing made a
 `match` and the contract agree. So the way it failed was that a verb added to `filesystem_protocol` was
-simply absent from a caretaker and the capability silently was not there. That is not
+absent from a caretaker and the capability silently was not there. That is not
 hypothetical: milestone 57 added the four extended-attribute verbs, none of the three was taught
-them, and nothing failed. Programs behind every kind of grant just could not reach their files'
+them, and nothing failed. Programs behind every kind of grant could not reach their files'
 attributes.
 
 `filesystem_protocol::verb` is a row per verb saying what the request word's length field counts
@@ -196,7 +196,7 @@ debugging round. The caretaker stages the granted name in the shared page and th
 `CALL` to the FS server; a confined program that already exists writes its own first name over that
 page, and the FS server resolves whatever it finds there.
 
-In the case that actually failed it is not even a race. When the wiring call is the one that wires
+In the case that failed it is not even a race. When the wiring call is the one that wires
 the FS service, the FS server is parked inside its readiness `SEND`, so the caretaker's descent
 cannot be answered until somebody drains it, and the client has that entire window. The caretaker
 then died rather than serve a hole, and its client blocked forever on a call nobody would answer: a
@@ -268,7 +268,7 @@ the two kinds: it will happily rename a file over a directory. POSIX will not, a
 offered verb means one thing on every backend, so the kind comparison is done at our boundary: file
 over directory is `EISDIR`, directory over file is `ENOTDIR`. A non-empty destination directory is
 the engine's `ENOTEMPTY`. Renaming a name onto itself is a successful no-op, which is POSIX's answer
-and also the safe one: the alternative removes the only link and then has nothing left to relink.
+and the safe one: the alternative removes the only link and then has nothing left to relink.
 
 Both names go through `check_component`, so `..` means nothing here either.
 
@@ -310,7 +310,7 @@ creates a name and then cannot move it, through the same code the full run moves
 What the attacker attempts, and what makes each attempt real: `motd` is in the granted directory's
 **parent**, `other/secret` is in its sibling, and both are on the image and one directory entry
 from the caretaker, which could open either on any request it liked. So each refusal is a fact about
-the capability rather than about the filesystem. It also tries `..` at every rights setting, asks
+the capability rather than about the filesystem. It tries `..` at every rights setting, asks
 for a right its capability does not carry (which must be refused, not quietly narrowed), descends
 asking for nothing and checks that the resulting capability can do nothing at all, and guesses
 handle numbers past anything the caretaker could have minted.
@@ -450,7 +450,7 @@ let report = fs_service::start_granted_dir(
         arg: 1,   // the run index
     },
 )?;
-let [tag, verdict, ..] = sched::ipc_recv(report);
+let [tag, verdict, ..] = sched::ipc_receive(report);
 ```
 
 Descend and then descend again, from a client, asking for less each time:

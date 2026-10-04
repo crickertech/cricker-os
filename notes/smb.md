@@ -3,7 +3,7 @@
 The code this note describes was removed from the tree on 2026-08-30, on calef's decision. Every
 present tense below is the tree as it stood at commit `685900ec`, which is the last commit that holds
 it; nothing described here can be built or run from `main` any more. The note is kept, and kept in
-full, because the thing it records is evidence rather than documentation: milestone 54 is the only
+full, because the thing it records is evidence rather than documentation: milestone 54 (network) is the only
 time this project's first principle was realised end to end, a real customer's real machine running
 a real workload against this kernel, and AGENTS.md's own rule is that a finding worth keeping lands in
 `notes/` rather than in a commit nobody will check out. Read it in the past tense. It is a record of
@@ -60,11 +60,11 @@ What was deliberately kept, and why, because the boundary is the interesting par
 
 - `crates/multicast_dns_protocol` and `components/src/multicast_dns_responder.rs`. Service discovery is a standalone service
   and is useful without a share to advertise.
-- `crates/credentialer`, `credentialer`, `session_reviver`, and milestone 49's and 65's identity work,
+- `crates/credentialer`, `credentialer`, `session_reviver`, and milestone 49 (users,)'s and 65's identity work,
   minus the NTLM half (see the section below). The credential service's headline property (a server
   answers an authentication without ever holding the key) is proven by `credentialer_test_client`
   against the password verifier and never needed the SMB adapter.
-- Milestone 107's socket work, which is what lets anything accept a connection.
+- Milestone 107 (socket)'s socket work, which is what lets anything accept a connection.
 - `filesystem_protocol`'s `STATFS`, `SYNC` and `RENAME`, and the block server's
   `VIRTIO_BLK_T_FLUSH`. SMB is what motivated them; they are file-service verbs and stand on their
   own.
@@ -77,7 +77,7 @@ and the `NTLM_CHALLENGE_LEN`/`NTLM_KEY_LEN` re-exports), the `provision::PUT_NTL
 `verify::NTLM_PROOF` opcodes in `crates/credential_protocol` with their request accessors, and the
 four dependency crates that existed only underneath them: `md4`, `md-5`, `hmac` and `digest`.
 
-Why this is worth a section rather than a line in a commit message. DECISIONS §79 approved
+Why this is worth a section rather than a line in a commit message. DECISIONS §79 (holding) approved
 holding password-equivalent material, and it approved three known-broken hash functions to go with
 it. The justification was NTLMv2 protocol compliance: MD4 and MD5 are what the specification
 names, nothing here chose them, and shipping them was the same act as implementing DES to talk to
@@ -93,7 +93,7 @@ a way that a broken build is not: every gate stayed green, `cargo-deny` stayed h
 security property the crate documented was still true of the crate.
 
 The lesson for a future reader: a dependency taken for a stated reason should be re-checked when
-that reason changes, and the place that check can actually happen is a decision record naming its
+that reason changes, and the place that check can happen is a decision record naming its
 own premise. §79 named its premise plainly, which is what made this removal easy to argue for; it is
 now stale and needs amending, and the amendment is an architect's.
 
@@ -163,7 +163,7 @@ writable or not by declaration, refusing at the protocol layer rather than at th
 filesystem.
 
 Identity landed on 2026-08-17, which was the last item on this milestone's list. A share can
-now require an NTLMv2 proof that milestone 65's credential service accepts, and the SMB server
+now require an NTLMv2 proof that milestone 65 (secrets)'s credential service accepts, and the SMB server
 never holds the key that verifies it: it holds one endpoint to a sealed store, and `smb_proto`
 takes the `ntlm` crate as a *dev*-dependency, so the shipping protocol code cannot compute a proof
 at all. Both ISAs' gates now run an authenticated share, with a host process computing a real proof
@@ -172,10 +172,10 @@ store and requires it to be empty. The demo boot (`smb-serve`) still admits gues
 so, for a reason worth knowing before you read further: there is no way to *tell* it a password.
 See BUGS.
 
-The session/connection split landed on 2026-08-24 (milestone 152, durable delegation's first
+The session/connection split landed on 2026-08-24 (milestone 152 (durable), durable delegation's first
 buildable piece). `smb_server.rs` used to be one accept-serve-close loop where all session state,
 NTLMSSP proof included, died with the socket, which is the "unprotected afterwards" line above and
-also meant there was nothing here that could outlive a disconnect even in principle. It now splits
+meant there was nothing here that could outlive a disconnect even in principle. It now splits
 into the transient per-connection protocol handler (`serve_connection`, unchanged) and a durable
 `DurableSession`, built once before the accept loop, kept alive by DECISIONS §16's ordinary
 parent-with-live-children rule rather than any new mechanism. No real scheduled job is registered
@@ -188,7 +188,7 @@ design/roadmap/152-durable-delegation.md for the design this closes the first BU
 | Piece | Where | What it is |
 |---|---|---|
 | `smb_proto` | `crates/smb_proto/` | The whole wire format: framing, header, every command (both directions since 2026-08-16), NTLMSSP, minimal SPNEGO, create contexts including Apple's `AAPL` (2026-08-17), and the per-connection state machine. Pure logic over byte slices, host-tested, `no_std`. Client-side builders live in the same crate so tests and the prober share every offset with the server. |
-| `smb_server` | `user/src/smb_server.rs` | The adapter program: listen/accept through the socket contract (milestone 107), reassemble direct-TCP framing from bounded `RECV` chunks, hand messages to the state machine, chunk the answers back out. |
+| `smb_server` | `user/src/smb_server.rs` | The adapter program: listen/accept through the socket contract (milestone 107), reassemble direct-TCP framing from bounded `RECEIVE` chunks, hand messages to the state machine, chunk the answers back out. |
 | The SMB prober | `xtask/src/main.rs` | The host side of the QEMU gate: a real SMB2 client that negotiates, **authenticates with a real NTLMv2 proof it computes itself**, connects the share, opens the seeded file and asserts its bytes, then writes a second file it never reads back, twice over two connections. It is the only party anywhere that knows the password. |
 | The authenticator seam | `crates/smb_proto/src/authenticator.rs` | `Share`'s sibling: a trait with no IO, three verdicts, and an `Attempt` carrying only public bytes and a MAC. `NoIdentity` is the guest policy, spelled as a value so a boot has to *say* it wants guests. |
 | `CredentialAuthenticator` | in `smb_server` | The implementation that does the IO: one `CALL` on the credential service's verify endpoint. Holds no key and asks for no session key. |
@@ -292,7 +292,7 @@ so review can happen where the cost is:
 - A file is named by an opaque id the backing mints, not by its index in the listing. The
   read-only trait could use an index because nothing reordered the directory; a writable share
   reorders it on every create. The fs-backed share makes the id the FS server's own handle, which
-  also retires the open-per-request cost the read path recorded.
+  retires the open-per-request cost the read path recorded.
 - `FileAllocationInformation` is a no-op and `FileBasicInformation` is discarded. Both are
   successes that change nothing, and both are in BUGS: preallocation is a hint whose obvious
   implementation (truncate) would zero-extend a file the client is about to fill, and there is no
@@ -341,7 +341,7 @@ so review can happen where the cost is:
   is walked past in silence, never refused, because an unanswered context is how this mechanism
   says "not implemented" and refusing would trade a working mount for a diagnosis nobody reads. A
   malformed chain is the same: the open still succeeds with no context back.
-- `FLUSH` resolves its file id and then does real work (milestone 55). The file id is checked
+- `FLUSH` resolves its file id and then does real work (milestone 55 (time)). The file id is checked
   first, so a stale handle is `STATUS_FILE_CLOSED` rather than a blanket yes; then `Share::sync`
   is called, which on the fs-backed share is `fs_proto::fs::SYNC` and, under that, a
   `VIRTIO_BLK_T_FLUSH` the device completes before the reply. A backing that cannot flush its
@@ -354,7 +354,7 @@ so review can happen where the cost is:
   test suite stayed green (the suite's prober politely opened with SMB2). The fix is [MS-SMB2]
   §3.3.5.3.1: answer the probe with an SMB2 NEGOTIATE response carrying the wildcard revision
   `0x02FF`, after which the client negotiates properly. The captured bytes are pinned as a host
-  test in `smb_proto::server`, so the message a real client actually sends is now part of the
+  test in `smb_proto::server`, so the message a real client sends is now part of the
   gate. An SMB1-only client (no SMB2 dialect strings) is still dropped.
 
 ## The Apple half: the `AAPL` create context (milestone 55, 2026-08-17)
@@ -367,8 +367,8 @@ configuration design/roadmap/55-time-machine.md records.
 
 Two modules, because they are two things:
 
-- `crates/smb_proto/src/create_context.rs` is the chain ([MS-SMB2] §2.2.13.2): generic, and
-  reusable because a real macOS CREATE also carries `DHnQ` (durable handle), `MxAc` (maximal
+- `crates/smb_proto/src/create_context.rs` is the chain ([MS-SMB2] §2 (primary).2.13.2): generic, and
+  reusable because a real macOS CREATE carries `DHnQ` (durable handle), `MxAc` (maximal
   access), `QFid` (on-disk id) and `RqLs` (lease), and the server has to walk past them to find
   the one it answers.
 - `crates/smb_proto/src/apple.rs` is what the `AAPL` tag means. There is no public
@@ -531,7 +531,7 @@ times faster to write and about twice as fast to read, and does not say how long
    from success on the wire. The verify role descends with `fs::OPENDIR` and reports
    `DIR_IS_A_FILE` when the answer is `ENOTDIR`, which is exactly that failure named.
 
-   The prober also asserts `FileFsFullSizeInformation` is not the nominal constant, which is the
+   The prober asserts `FileFsFullSizeInformation` is not the nominal constant, which is the
    `STATFS` half arriving where Time Machine will read it.
 
    The Apple leg rides the first CREATE, because that is where a Mac puts it: the prober's open
@@ -617,7 +617,7 @@ last attempt knew it had not solved, written while the code was in front of some
   ~985 ms to ~206 ms per 64 KiB message and the filesystem is no longer what is left. It is
   milestone 138 step 3's defect one contract over, and its fix is demonstrated: the shared region is
   one page because nobody declared it otherwise, `socket_protocol`'s request word already carries a
-  length, and growing the region is the whole change. Promotion trigger (§71): this becomes a
+  length, and growing the region is the whole change. Promotion trigger (§71 (limitation promoted)): this becomes a
   roadmap row the moment anyone measures the SMB path on hardware, because it is the number that
   will be in the way there and this entry is the evidence that it is known rather than discovered.
   Nothing has been sized: a socket frame is per socket where the file channel is per FS server, so
@@ -633,7 +633,7 @@ last attempt knew it had not solved, written while the code was in front of some
   (answered `STATUS_NOT_SUPPORTED`; clients degrade to polling) and possibly more `QUERY_INFO`
   classes. Non-guest accounts are untested and would meet signing expectations; connect as Guest.
 - **Guest means everyone.** Every AUTHENTICATE is accepted. Do not put anything on the share the
-  local network may not read. There is also no rate limiting and no credit accounting.
+  local network may not read. There is no rate limiting and no credit accounting.
 - **No Mac has seen the `AAPL` answer.** The context is gated by host tests and by the QEMU prober,
   and the prober is a client this tree wrote against the same constants the server answers with, so
   it agrees by construction. Whether macOS's `smbfs` accepts these bytes, and whether the Time
@@ -654,7 +654,7 @@ last attempt knew it had not solved, written while the code was in front of some
   in `QUERY_INFO`, and
   `FILE_NAMED_STREAMS` in the volume attributes. The stream-versus-sidecar decision milestone 55's
   block frames is therefore still open, and it is now a smaller question than that block assumed:
-  the layer that was missing when it was written is not missing any more. The decision is §99 and
+  the layer that was missing when it was written is not missing any more. The decision is §99 (where Apple's) and
   is waiting on calef, with two findings a reader of this entry should have. Time Machine does not
   use this surface at all: a backup is a sparse bundle, which is directories and band files with no
   extended attributes and no forks. And the sidecar half is already working, because macOS's own
@@ -667,7 +667,7 @@ last attempt knew it had not solved, written while the code was in front of some
   way to say no. So a client that asked for a rename to fail on a collision gets a silent
   overwrite, which is the wrong direction to fail in.
 
-  **Corrected 2026-08-22: not a fix this layer can answer, and not simply "add `NOREPLACE` to
+  **Corrected 2026-08-22: not a fix this layer can answer, and not "add `NOREPLACE` to
   `fs_proto`" either.** §42 (design/decisions/42-truthful-filesystem.md) already decided not to
   offer `renameat2`'s `NOREPLACE`, and its stated reason is that emulating it with link-then-unlink
   is racy and backend-specific. That reason does not describe this backend. `redoxfs_server::rename`
@@ -684,7 +684,7 @@ last attempt knew it had not solved, written while the code was in front of some
   agree on (`fs_proto::fs::RENAME`), so it needs a decision that amends or narrows §42, which is
   an architect's call and not a lane's; see design/roadmap/55-time-machine.md for the writeup.
 
-- **The demo boot still admits guests, so the thing a person actually runs is still open to
+- **The demo boot still admits guests, so the thing a person runs is still open to
   everyone who can reach the port.** `--features smb_serve` wires `SHARE_FS_READ_WRITE`, not
   `SHARE_FS_AUTHENTICATED`, and its banner says so. The reason is not laziness and not a flag: there
   is no way to *tell* that boot a password. The only thing in the tree that provisions the credential
@@ -727,7 +727,7 @@ last attempt knew it had not solved, written while the code was in front of some
 - **Free space is a forecast, not a reservation.** The numbers are the image's now, but two clients
   writing concurrently both see a count that was true when it was read, and a write past the real
   end still fails with `STATUS_DISK_FULL` at the write. That is what `statfs` is everywhere.
-  `STATFS` also answers about the whole image, never about a subtree, so a share served over a
+  `STATFS` answers about the whole image, never about a subtree, so a share served over a
   narrow directory capability still reports the volume's free space; there are no quotas in this
   filesystem, so there is no smaller number that would be true.
 - **A directory moved into another directory is refused, and the status is unhelpful.**
@@ -766,9 +766,9 @@ last attempt knew it had not solved, written while the code was in front of some
 - **All timestamps are zero** (the server holds no clock capability, and fs_proto's FSTAT does
   not carry times), which macOS renders as January 1601 or similar nonsense dates. Cosmetic, and
   honest: nothing here has a date to report.
-- **ASCII names only.** A name with any non-ASCII UTF-16 unit is simply not found.
+- **ASCII names only.** A name with any non-ASCII UTF-16 unit is not found.
 - **A dropped connection costs a 15 s stall** before the listener re-arms (`net_stack`'s bounded
-  `RECV` wait). A clean unmount (LOGOFF) costs nothing. One connection is served at a time.
+  `RECEIVE` wait). A clean unmount (LOGOFF) costs nothing. One connection is served at a time.
 - **The test-boot listener is port 7779, not 445**, because it shares the inbound gate's listen
   grant range and `hostfwd` remaps ports anyway; the serve boot listens on 445 proper.
 - `smb-serve` binds `127.0.0.1:10445` fixed, so two serve boots on one machine collide; the test
@@ -814,7 +814,7 @@ last attempt knew it had not solved, written while the code was in front of some
 ## What remains after milestone 54, in order
 
 1. **A provisioning path**, and it is the one that matters, because until it exists the boot a person
-   actually runs (`smb-serve`) admits guests to a writable share. Nothing in the tree can tell a
+   runs (`smb-serve`) admits guests to a writable share. Nothing in the tree can tell a
    running system a password: the only provisioner is a test program with a published fixture in it.
    That is milestone 56's shape (design/roadmap/56-secrets-and-entropy.md), and identity landing has
    made it the head of this path rather than a supporting item.

@@ -19,8 +19,8 @@ copied the pieces into memory, and started it. That parser lived inside the kern
 
 Parsing a program file means processing bytes an attacker may have crafted, and a bug in a parser
 is where exploits live. A bug in a parser *inside the kernel* is the worst kind: it compromises
-the trusted core the whole §14 thesis rests on. So 19d moves the parser out, into an ordinary
-confined program where a parser bug is just that program's problem, confined by the same
+the trusted core the whole §14 (project's) thesis rests on. So 19d moves the parser out, into an ordinary
+confined program where a parser bug is that program's problem, confined by the same
 capability walls as any workload.
 
 That program is the progenitor: the first process, the one the kernel starts and from which
@@ -88,7 +88,7 @@ argument survives the crossing: the least_authority_demo reports `n*n`, not `n` 
   `MAP_INTO` maps a page executable, the *kernel* makes it coherent (clean to the point of
   unification, invalidate the I-cache) for that physical page. Without it, the child fetches
   whatever was in the frame before the program was written into it. This is the same
-  `sync_icache` the kernel's own loader always did; 19d just moved *when* it happens.
+  `sync_icache` the kernel's own loader always did; 19d moved *when* it happens.
 - **W^X across two address spaces.** init keeps a code frame writable in its own scratch window
   while the child maps it executable. A trusted loader mapping pages writable to fill them is the
   standard shape (seL4's does the same); the child's mapping is never writable, so the child
@@ -129,7 +129,7 @@ free until it was not.
 
 A debug build is almost entirely debug information. `rust_swappable` is 720 KB, of which 3 KB is
 `.text` plus `.rodata` and the other 717 KB is `.debug_*`. Twenty-odd programs like that made a 26
-MB archive out of well under a megabyte of code, on a 128 MB machine. Milestone 23 added five
+MB archive out of well under a megabyte of code, on a 128 MB machine. Milestone 23 (capability-routed component) added five
 programs, the archive went to 30.7 MB, and a *later, unrelated* test stopped being able to find a
 contiguous eight-megabyte run for init's building budget: `no building budget for init`, in a test
 that had nothing to do with the change, which is the usual signature of a resource the whole suite
@@ -240,9 +240,9 @@ corrected; fully closing the window is a separate input-driver fix, not part of 
 
 ## The shared runtime, `user_mode_runtime` (milestone 19f.6)
 
-With the split done, the `invoke`/`send`/`recv`/`exit` runtime was copied verbatim into five binaries
+With the split done, the `invoke`/`send`/`receive`/`exit` runtime was copied verbatim into five binaries
 (hello and the four it shed). `crates/user_mode_runtime` is that runtime, lifted into one library crate all
-five now depend on: one `invoke` (the single syscall), and `send`/`recv`/`exit` built on it. The
+five now depend on: one `invoke` (the single syscall), and `send`/`receive`/`exit` built on it. The
 extraction waited on purpose until the split was complete, so the shared surface was known rather
 than guessed (the DECISIONS rule about not building an abstraction before its requirements exist).
 
@@ -268,7 +268,7 @@ reaches it too, so calef retired `builder`.
 
 *Userspace composes a process.* Carried by the progenitor on every architecture that runs one
 (`boot_progenitor`, one function on all three architectures since milestone 166),
-on the boot a card actually performs. On `x86_64` the progenitor composes the system but its console
+on the boot a card performs. On `x86_64` the progenitor composes the system but its console
 server and input driver stop on first use, because a ring-3 process cannot reach port I/O (DECISIONS
 §121); how a shell gets a console there is DECISIONS §149.
 This half is better off than it was: the progenitor composes the console server, the line

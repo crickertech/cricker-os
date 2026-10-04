@@ -10,9 +10,9 @@ needs_person: no
 # 336. Should the fastpath footprint gate compare against `main` instead of a stored baseline
 
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
-from milestone 237's block; numbered 2026-09-19 by milestone 433. Premise re-checked 2026-09-19 and
-the build is still owed. DECISIONS §144 answered the question on 2026-09-04 (both shapes, with the
-ceiling at 16 KiB on `max(ipc_send_recv, ipc_call_reply) + syscall_entry`) and nothing has been built
+from milestone 237 (the cycle-counter grant costs 136 bytes of IPC)'s block; numbered 2026-09-19 by milestone 433 (drain the proposal pile to zero, and keep). Premise re-checked 2026-09-19 and
+the build is still owed. DECISIONS §144 (the fastpath footprint gate gets a delta and) answered the question on 2026-09-04 (both shapes, with the
+ceiling at 16 KiB on `max(ipc_send_receive, ipc_call_reply) + syscall_entry`) and nothing has been built
 against it: `script/fastpath-footprint` still compares against `bench/fastpath-aarch64.txt`,
 `bench/fastpath-riscv64.txt` and `bench/fastpath-x86_64.txt` at a 5% tolerance, with no delta against
 `main` and no absolute ceiling anywhere in the script. The reasoning below is kept as the record of

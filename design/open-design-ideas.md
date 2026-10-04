@@ -6,7 +6,7 @@ The [post-v1 milestone roadmap](roadmap/) sequences the buildable ones below int
 proposed numbered milestones (12+) and names the two decisions they force (the verification
 endgame, and POSIX posture). The entries here remain the detailed source for each.
 
-- SMP thread placement (§11's deferred step 3c). SUPERSEDED by §28 (built 2026-07-28/29). The
+- SMP thread placement (§11 (SMP)'s deferred step 3c). SUPERSEDED by §28 (SMP placement), built 2026-07-28/29. The
   standing gap this described (every spawn and wake on the current core, so a workload fanning out
   from one core stayed there; the milestone 32 FS mount starved beside three idle cores) is closed.
   §28 shipped the power-of-two-choices spawn placement and message-shaped work stealing this entry
@@ -47,13 +47,13 @@ endgame, and POSIX posture). The entries here remain the detailed source for eac
   Where we stand today (checked, 2026-07-22): safe, but by *convention*, not guarantee. The
   console server shares one `reply` endpoint across clients yet is correct because it is
   single-threaded and IPC is synchronous rendezvous: it handles one request-reply cycle at a
-  time, so the only client in `RECV(reply)` when it replies is the one it just served. Workers and
+  time, so the only client in `RECEIVE(reply)` when it replies is the one it just served. Workers and
   drivers use a per-request result endpoint (no sharing). The safety trigger fires the moment
   either of those stops holding: a server thread pool on a shared reply path, or pipelined /
   asynchronous requests.
 
-  Built at milestone 12 (§12). The shape sketched here is exactly what landed: a `CALL` method and
-  a one-shot `Object::Reply(Tid)`, kernel-minted at the rendezvous, delivered through `RECV_CAP`, and
+  Built at milestone 12 (call/reply IPC), recorded in §12 (call/reply IPC). The shape sketched here is exactly what landed: a `CALL` method and
+  a one-shot `Object::Reply(Tid)`, kernel-minted at the rendezvous, delivered through `RECEIVE_CAP`, and
   consumed on use. The call chain and priority donation are deferred (moot without priorities); the
   detail above stays as the design record.
 

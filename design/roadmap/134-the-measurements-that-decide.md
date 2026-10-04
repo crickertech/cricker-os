@@ -22,7 +22,7 @@ ceiling relation that census needed. See "What is built, and what is not" below.
 by calef, in one question: *"So what data would enable us to make these decisions?"* Both open kernel decisions ended in the same place, that the deciding
 number does not exist, and §96 said the instrument "wants a roadmap block of its own". This is it.
 
-Tier A is startable today. That is also a correction to the two decisions that raised
+Tier A is startable today. That is a correction to the two decisions that raised
 this block: §95 and §96 both say to wait for milestone 74's counters on milestone 127's TX1, and both
 over-gated, because the experiments that produce a *verdict* need no silicon. The PMU produces
 *mechanism*. See the correction section below.
@@ -47,7 +47,7 @@ and so would page-aligned TCBs. Tier B's instruments were re-checked the same da
 three ISAs; M6 to M8 have none; M9 has the counter but not the stamps). What 134 still owes is one
 radon evening for E3 under a layout control, and the paragraph below is that control.
 
-2026-09-19: that control is built, as milestone 370: `NIFE_FASTPATH_PAD` and
+2026-09-19: that control is built, as milestone 370 (layout): `NIFE_FASTPATH_PAD` and
 `NIFE_FASTPATH_SHIFT` size E3's sled and add an un-reachable shift, so E3 runs as a dose-response
 over four pad sizes against four un-padded kernels that differ only in address assignment, and
 `script/fastpath-footprint --layout` proves before a boot that all eight execute the same
@@ -56,8 +56,8 @@ produce. The procedure is notes/footprint-perturbation.md, "The next radon eveni
 
 Extended the same day, at calef's direction, and the extension changes what this block is. The
 first draft listed only the experiments runnable today, on the reasoning that a measure we cannot take
-is not yet useful. calef's correction: *"I'm also fine defining measures that we cannot capture until
-the hardware. I just want to capture the measures as a milestone."* He is right, and the reason is
+is not yet useful. calef's correction: *"I'm fine defining measures that we cannot capture until
+the hardware. I want to capture the measures as a milestone."* He is right, and the reason is
 this tree's own ladder. A measure that exists only as an intention is at rung zero. Written down
 with its instrument and its blocker, it is a thing the next person can find, argue with, and take when
 the hardware arrives. Defining it costs an hour; rediscovering the need for it costs the milestone
@@ -101,7 +101,7 @@ The measurement. `ipc_rtt_el0` with N client-server pairs in the rotation, N fro
 clock, reported per iteration. Nothing about it needs a cycle counter.
 
 What each outcome settles. A flat curve to 128 threads says the process kernel costs us nothing
-on this axis and §96 is answered no, on data. A knee near the prediction reproduces Warton's
+on this axis and §96 (process kernel) is answered no, on data. A knee near the prediction reproduces Warton's
 effect on our own kernel and gives its magnitude, which is the number §96 says it lacks.
 
 It must not run under icount, which models no caches and would report a flat line by
@@ -165,7 +165,7 @@ class of silicon.
 
 ### M6. Instruction-cache misses per IPC
 
-The Liedtke quantity for §95, and the thing `script/fastpath-footprint` is a proxy for rather than
+The Liedtke quantity for §95 (hand-written IPC), and the thing `script/fastpath-footprint` is a proxy for rather than
 a measurement of. Milestone 132 says so in its own BUGS. A footprint of 5.6 KiB against a 32 KB L1i
 predicts near-zero steady-state misses; if the measurement disagrees with the prediction, the proxy is
 wrong and the gate's threshold should move. Good: flat in steady state. Bad: misses tracking footprint.
@@ -211,7 +211,7 @@ hardware because interrupt delivery under emulation is not the thing being measu
 
 ### M12. The same measures on seL4, on the same board
 
-Milestone 25's deliverable on milestone 127's TX1, cited rather than duplicated. What belongs here
+Milestone 25 (cross-OS performance comparison (extends 21))'s deliverable on milestone 127 (seL4 machine)'s TX1, cited rather than duplicated. What belongs here
 is the constraint that makes it honest: M5 through M10 must be captured on both kernels, on the same
 silicon, in the same build configuration, or the comparison inherits exactly the class of error
 milestone 101 recorded, where three separate mistakes cancelled into a plausible-looking ratio.
@@ -236,7 +236,7 @@ test it failed. The test it settled on is sharper than this block's first draft:
 if something depends on its value and it can move without anybody editing it. The second half is
 what cuts, because it separates a measure from a decision.
 
-**Also built, folded in at calef's direction the same day**, from a separate question about unsafe:
+**Built, folded in at calef's direction the same day**, from a separate question about unsafe:
 the unsafe census, in notes/unsafe-obligations.md, and the `count-at-most` relation in `script/lint`
 that it needed. The census's own result is the argument for having taken it: outside
 `kernel/src/arch/` the raw count went 171 to 747 since 2026-07-15 while the density fell from 228
@@ -266,7 +266,7 @@ future lane should take E2 alone, then E1, rather than reading this block as one
 **Built 2026-08-23: E4's own follow-up, closed.** E4's original 8-pair background load sits inside
 E1's flat region, so the 0-3% it found was expected from E1's own curve rather than independent
 evidence against displacement (`notes/register-of-measures.md`'s own BUGS said so). `app_displacement`
-now also runs a second condition at `SCALE_MAX_PAIRS` (48 pairs, 96 threads), the same pair count E1's
+now runs a second condition at `SCALE_MAX_PAIRS` (48 pairs, 96 threads), the same pair count E1's
 own sweep tops out at. Over three repeated runs, on the same dev Mac under HVF: the low-load condition
 still reads 0-5% and the high-load condition reads 2-9%, consistently higher than the low-load figure
 at every working set on every run, though the two ranges overlap and neither is a clean step function.
@@ -313,10 +313,10 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
   will still be a design argument after every number here exists.
 - **Tier B is specified from the outside, against instruments nobody here has used yet.** Every
   measure in it names a counter this project has never read: `PMCCNTR_EL0`, the SBI PMU, and whatever
-  cache and TLB events the board's PMU actually exposes. Real PMUs do not implement every
+  cache and TLB events the board's PMU exposes. Real PMUs do not implement every
   architected event, and some implement them wrongly, so a measure may turn out to be unavailable or
   untrustworthy on the specific silicon. Expect M6 through M8 to need adjusting to what the TX1 and
-  the U74 really count, and treat the event names as intent rather than as a plan that will survive
+  the U74 count, and treat the event names as intent rather than as a plan that will survive
   contact.
 - **M9 could refute the fastpath as sketched**, and that is a feature of listing it rather than a risk
   of taking it. §95 reasons from `syscall::dispatch` being the largest symbol to it being the thing
@@ -345,7 +345,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
 - **Milestone 503.** milestone 503 (an event-counter driver), `design/roadmap/503-an-event-counter-driver-for-m6-to-m8.md`: one
   cache-refill and one TLB-refill event per ISA, kernel-internal, read like 74's cycle counter.
   Milestone 74's scope note held generic events back until a second consumer; M6 to M8 are that
-  consumer. Its first step is finding which events radon's OpenSBI and argon's A57 actually count.
+  consumer. Its first step is finding which events radon's OpenSBI and argon's A57 count.
 - **Done.** The silicon this register waits on arrived: `notes/target-hardware.md` lists argon as
   in hand and radon as booting nife and wired as a bench target, which is the small-cache board
   this block names as milestone 127's alternative.
@@ -379,9 +379,9 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
 - **Recorded.** A correction found on the way, 2026-09-04, which would otherwise have wasted the
   session. E3's padding
   was reachable only from `sched::ipc_send`. Milestone 188 phase 1 (2026-09-04) split the footprint
-  gate into `ipc_send_recv` and `ipc_call_reply` and established the second as the shape services
-  actually run; measured on riscv64 the day after, `--features fastpath_pad` moved `ipc_send_recv`
-  to 2.10x and `ipc_call_reply` to 1.00x. E3 was padding a path essentially nothing in this
+  gate into `ipc_send_receive` and `ipc_call_reply` and established the second as the shape services
+  run; measured on riscv64 the day after, `--features fastpath_pad` moved `ipc_send_receive`
+  to 2.10x and `ipc_call_reply` to 1.00x. E3 was padding a path nothing in this
   tree uses. `sched::ipc_call` now calls `maybe_pad` as well, and both shapes pad to roughly 1.85x
   on both ISAs. The experiment was correct when it was built; the thing it measures moved
   underneath it, which is what a dated instrument does.
@@ -401,7 +401,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
 - **Milestone 506.** milestone 506 (colour the kernel stacks and take E1), `design/roadmap/506-colour-the-kernel-stacks-and-take-e1-again.md`: start
   each thread's stack a per-slot colour below its top in a feature build and take E1 again on
   radon. A knee that moves right says the stacks caused it and a process kernel buys it back with
-  colouring; one that stays at 8 says the TCBs (also page-aligned) did, which an event kernel would
+  colouring; one that stays at 8 says the TCBs (page-aligned) did, which an event kernel would
   not remove either. Either is a sharper input to §96 than it has. Can ride on the E3 evening.
 - **Recorded.** notes/qemu.md: `helpers/qemu-bounded.sh` does not bound
   `helpers/qemu-runner-x86_64.sh`, because that runner does not `exec` QEMU, so the bound kills the
@@ -419,7 +419,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
   after every number exists.
 - **Recorded.** Tier B's event names are intent rather than a plan that survives contact. Real PMUs
   do not implement every architected event and some implement them wrongly, so M6 through M8 should
-  be expected to change shape against what the TX1 and the U74 actually count.
+  be expected to change shape against what the TX1 and the U74 count.
 - **Recorded.** M9 could refute the fastpath as sketched, and listing it is the point. If per-phase
   attribution says dispatch is cheap and trap entry dominates, §95's premise moves.
 

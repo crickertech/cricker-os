@@ -29,7 +29,7 @@ struct Rendezvous {
 The receiver is anonymous to the sender. Any thread holding the receive side can service the
 rendezvous, which is exactly what lets a pool of workers sit behind one rendezvous, or a driver be
 replaced, with no client the wiser. See [capabilities.md](capabilities.md) for the rendezvous
-mechanics and why which-end-you-are is a matter of rights (SEND needs WRITE, RECV needs READ).
+mechanics and why which-end-you-are is a matter of rights (SEND needs WRITE, RECEIVE needs READ).
 
 ## Two levels of naming, and the unforgeable part
 
@@ -68,7 +68,7 @@ capabilities exist to avoid.
   rendezvous; `irq_notify` delivers it, or bumps `pending` if nobody is waiting. So the naming of a
   device event is the *same* as the naming of a peer's message: a rendezvous. "An interrupt becomes
   a message" is literal. See [interrupts.md](interrupts.md).
-- The name is transferable. `SEND_CAP` / `RECV_CAP` let one process hand a rendezvous
+- The name is transferable. `SEND_CAP` / `RECEIVE_CAP` let one process hand a rendezvous
   capability to another over IPC, narrowed but never widened. Authority to name a channel is
   itself something you can pass along. See [delegation.md](delegation.md).
 
@@ -77,14 +77,14 @@ capabilities exist to avoid.
 A rendezvous names a synchronous meeting point, so the natural question is who receives. In our
 code (`Rendezvous` in `sched.rs`), both sides are FIFO queues on the rendezvous itself:
 
-- `receivers: VecDeque<Tid>`, threads blocked in `RECV` with no sender yet.
+- `receivers: VecDeque<Tid>`, threads blocked in `RECEIVE` with no sender yet.
 - `senders: VecDeque<Tid>`, threads blocked in `SEND` with no receiver yet.
 
 At most one queue is ever non-empty (whoever arrived first and had to wait). A `SEND` that finds a
-receiver does `receivers.pop_front()` and wakes exactly that one; a `RECV` that finds a sender does
+receiver does `receivers.pop_front()` and wakes exactly that one; a `RECEIVE` that finds a sender does
 `senders.pop_front()`. Two consequences:
 
-- A thread pool works out of the box. N server threads can all `RECV` on one rendezvous; they
+- A thread pool works out of the box. N server threads can all `RECEIVE` on one rendezvous; they
   queue in `receivers`, and each incoming message wakes one, in arrival order. The kernel picks,
   and the client cannot tell which server answered (the anonymity again).
 - The rendezvous is unbuffered. There is no capacity and no "full" state: a `SEND` blocks *iff*
@@ -96,14 +96,14 @@ FIFO on both sides, on the rendezvous, chosen deliberately and matching seL4.
 
 ## The reply problem, and the Reply capability (milestone 12)
 
-Built. As of milestone 12 there is a one-shot Reply capability and a `CALL` method; see
+Built. As of milestone 12 (call/Reply IPC) there is a one-shot Reply capability and a `CALL` method; see
 DECISIONS §12. What follows is the design that led there, kept because the reasoning is the point,
 and written in the present tense of *before* it existed.
 
 Before milestone 12 there was no Reply capability and no `Call` (atomic send-and-wait) primitive: the
-rendezvous methods were `SEND`, `RECV`, `SEND_CAP`, `RECV_CAP`, and that was all (`crates/abi`).
+rendezvous methods were `SEND`, `RECEIVE`, `SEND_CAP`, `RECEIVE_CAP`, and that was all (`crates/abi`).
 
-The gap is the direct consequence of the anonymity above. A server that `RECV`s a request has no
+The gap is the direct consequence of the anonymity above. A server that `RECEIVE`s a request has no
 idea who sent it, so it cannot reply to that specific caller. seL4 solves this with a
 **Reply capability**: on a `Call`, the kernel mints a *one-shot* cap naming "whoever just called"
 and hands it to the server, which `ReplyRecv`s to exactly that caller and then waits for the next.
@@ -119,14 +119,14 @@ It buys three things:
 ### What we do instead
 
 A second, explicit reply rendezvous, wired at spawn. The console server (`user.rs`) is the
-pattern: a `request` rendezvous (server `RECV`, client `SEND`) and a `reply` rendezvous (server
-`SEND`, client `RECV`), both created up front and granted to each party with the right rights. It
+pattern: a `request` rendezvous (server `RECEIVE`, client `SEND`) and a `reply` rendezvous (server
+`SEND`, client `RECEIVE`), both created up front and granted to each party with the right rights. It
 works because the client topology is static: one known client per reply rendezvous.
 
 Its limits are exactly the three points above, inverted: it does not scale to a server with many
-*anonymous* clients (which client's `RECV` grabs a shared reply is ambiguous), there is no call
+*anonymous* clients (which client's `RECEIVE` grabs a shared reply is ambiguous), there is no call
 chain so no priority donation, and the server's reply `SEND` blocks until the client reaches
-its `RECV` (a real Reply cap delivers to a caller already parked, without blocking the server).
+its `RECEIVE` (a real Reply cap delivers to a caller already parked, without blocking the server).
 
 We could go part of the way with the machinery we already have: a client could create a reply
 rendezvous and pass a `SEND` cap to it *in the request* via `SEND_CAP`, so the server receives "reply
@@ -153,7 +153,7 @@ entry when it lands, because it widens the boundary §4 guards.
 **Safe today, by convention not by guarantee (checked 2026-07-22).** The console server shares one
 `reply` rendezvous across clients yet is correct, because it is single-threaded and IPC is
 synchronous rendezvous: it runs one request-reply cycle at a time, so the only client parked in
-`RECV(reply)` when it replies is the one it just served. Workers and drivers avoid the question
+`RECEIVE(reply)` when it replies is the one it just served. Workers and drivers avoid the question
 entirely with a per-request reply rendezvous. Nothing in the kernel enforces either property; the
 safety trigger above fires the moment a server fields concurrent clients on a shared reply path (a
 thread pool, or pipelined requests).
