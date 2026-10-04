@@ -2798,6 +2798,10 @@ echo "==> the merge queue's admission predicate"
 #     rather than re-armed into another 20-to-38-minute group, a moved head releases, and a
 #     deliberate removal is not an ejection. Fixtures only, no `gh`.
 "$(dirname "$0")/../helpers/queue-ejected-selftest.sh"
+#     And who took a dequeue, for milestone 642 (the record should say whether a person or the
+#     machinery took a step): helpers/session_steps.py credits a `calef`-account event to the
+#     session whose `gh` call came before it, never after. Fixtures only, no `gh`.
+python3 "$(dirname "$0")/../helpers/session_steps.py" --selftest
 #     And `Blocked-by: #N` (2026-09-27): the parser (helpers/blocked-by.sh, one number or several
 #     on the line) and the draft-unblock decision it feeds (helpers/blocked-by-resolution.jq:
 #     unblocked, still waiting, closed unmerged, already labelled) are each fixtures-only, no `gh`.
