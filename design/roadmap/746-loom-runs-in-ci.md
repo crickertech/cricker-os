@@ -1,5 +1,6 @@
 ---
-status: PARTIAL
+status: BUILT
+built: 2026-10-04
 raised: 2026-10-03
 milestone_dependencies: 80
 decision_dependencies: none
@@ -43,13 +44,12 @@ The script from milestone 80 (Loom: the hand-rolled atomic protocols, model-chec
 
 - The job is not a required status check. Adding it to the ruleset is an architect's edit; the pull
   request body carries the ask. Until then a red `interleavings` run does not block the queue.
-- Timing was measured on the dev machine, not a hosted runner. The job's first run is the number for
-  the runner.
+- Hosted runner: the job's first run (run 37168817628, 2026-10-04 UTC) took 46 seconds from start to
+  completion, checkout and cache restore included, against the dev machine's 23.8 seconds.
 - The `gate` job's `run=false` skip (a push to `main` already tested by a merge group) skips this job
   too, as for every other job.
 
 ## Follow-on
 
-- **Outstanding.** The job's first run on a hosted runner (checked by reading the `interleavings`
-  job's result and duration on this pull request), then flip this block to BUILT.
+- **Done.** The hosted run measured 46 seconds and passed.
 - **Recorded.** The required-status ask, in the BUGS section of this block.
