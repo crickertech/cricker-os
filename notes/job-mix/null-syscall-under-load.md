@@ -1,9 +1,9 @@
 # Why the null syscall slowed when more cores were busy
 
 *Fatal risk 4's open finding from [the 2026-10-04 radon evening](radon-2026-10-04.md), measured on
-2026-10-04 (UTC) by the `lane/null-syscall-contention` lane. Every number here is from QEMU's TCG,
-which models no cache and no real inter-processor interrupt. Radon has not run the fix yet, and the
-procedure for that is below.*
+2026-10-04 (UTC) by the `lane/null-syscall-contention` lane. The cause and the fix were found under
+QEMU's TCG, which models no cache and no real inter-processor interrupt; radon then ran the fix the
+same night, and [its result](#what-radon-said) is PARTIAL by the thresholds written before it.*
 
 ## The question
 
@@ -126,7 +126,7 @@ each a few ticks a hold, roughly evenly. That is the contention
 - aarch64's job mix wedges under TCG on `main` too, before and after this change (see BUGS), so
   it gave no comparison.
 
-## The radon run that decides it
+## The radon run that decided it
 
 Two payloads, built from this branch's tip, so no build happens at the bench:
 
@@ -155,42 +155,96 @@ What each outcome means, written before the numbers exist:
 | 130 to 180 | the defect was part of it; boots 4 and 5's residual wait says how much of the rest is the IPC path's own contention |
 | 180 or above | this was not radon's cause. Boots 4 and 5's `current_cap` wait says whether it is still the lock. If that wait is small, suspect the line traffic the counters cannot see (BUGS) |
 
+## What radon said
+
+Five boots on 2026-10-04 (UTC), power-cycled by calef: three of `target/board-fix` and two of
+`target/board-lock-wait`, built from `b500b3d48`. Transcripts are `bench/radon-2026-10-04-fix/`.
+Every boot printed `one of 7 kinds`, `median of 21 repeats` and `job-mix: done`.
+
+`per_job` on the three boots of the kernel that ships, in 4 MHz ticks, against the 2026-10-04 sweep
+before the fix:
+
+| | 1 task | 4 tasks | 32 tasks | growth 1 to 4 |
+|---|---|---|---|---|
+| `null_syscall`, before | 108 | 202 (195 to 207) | 236 | 94 |
+| `null_syscall`, after | 99, 99, 99 | 147, 146, 147 | 171, 170, 170 | 48 |
+| `compute`, after | 2,409 | 2,547 to 2,552 | 2,898 to 2,917 | 5.8% |
+
+**The fix removed about half the excess, so the reading is the middle row: PARTIAL.** At four
+tasks the job fell from 202 to 147 ticks. Nine of those 55 ticks are the one-task cost falling from
+108 to 99, which is the shared counter leaving the path, so the growth from one task to four
+fell from 94 ticks to 48. Taking out `compute`'s preemption share (about 6 ticks either way), the
+per-trap excess went from about 1.37 ticks to about 0.66: 0.16 us of 0.34 us remains.
+
+Throughput rose with it. `jpm_median` at four tasks was 932,371, 926,438 and 928,910 against 844,124
+to 853,611 before (+9.4% on the medians); at 32 it was 997,945, 998,717 and 998,880 against 897,375
+to 901,122 (+11.0%). One task moved 0.6%, so the gain is the multi-core part. The curve now reads
+2.85x at four tasks and 3.07x at 32, against 2.62x and 2.78x.
+
+### Where the rest is, from boots 4 and 5
+
+**The instrumented kernel is slower** (`null_syscall` 118 at one task and 342 to 345 at four;
+`jpm_median` 662,475 to 667,670 at four), so its ticks are not comparable with the boots above.
+That is the cost the module warned of: the clock is read only on the contended path, and at four
+tasks that path is taken 41% of the time. Its counts are what to read.
+
+| At 4 tasks, boots 4 / 5 | |
+|---|---|
+| `current_cap` calls that found `IPC_TABLES` held | 41.4% / 41.8% (0.015% / 0.012% at 1 task; 51% at 32) |
+| `IPC_TABLES` share of all lock wait | 95% (2,593,130 / 2,646,216 ticks) |
+| `current_cap`'s share of the `IPC_TABLES` wait | 28% (734,022 / 744,371 ticks) |
+| mean wait per contended acquisition | 3.70 ticks at `current_cap`, 3.80 everywhere else |
+| reaper: stack free per reap, no lock held | 167 ticks, 42 us (149 at one task) |
+| reaper: removal under `IPC_TABLES` per reap | 2.8 ticks |
+
+So the reaper's share is gone on silicon too: the 42 us a reap used to hold the global lock for is
+now spent holding nothing, and its last critical section is 2.8 ticks. What remains is ordinary
+contention for `IPC_TABLES` itself. Four cores run IPC, `schedule()` and capability lookups through
+one lock, and nearly half of all acquisitions find it held. The other 72% of the wait belongs to the
+lock's other acquirers, the hot rows of
+[`ipc-tables-lock-inventory.md`](../ipc-tables-lock-inventory.md). They are `ipc_call`,
+`ipc_receive_cap` and `ipc_reply` (the `round_trip` job and its two echo servers). They are
+`schedule()` twice per switch and `finish_switch` (the `yield` job and every block). And they are
+`take_ipc_aborted` after each IPC. TCG's
+hold-time table after the fix put the same ones on top, with `start_thread_control_block`.
+`KERNEL_MMU` (rank 45) now shows 2,800 contended acquisitions a point: the stack frees and builds
+moved out of `IPC_TABLES` meet each other there, at 1.6% of the wait.
+
 ## What risk 4's line should say
 
-For the maintainer, who owns `design/fatal-risks/README.md`. Until radon runs the fix, the open
-finding's paragraph should read:
+For the maintainer, who owns `design/fatal-risks/README.md`. The colour stays AMBER (calef's
+ruling). The open finding's paragraph should read:
 
-> The null syscall's near-doubling from one busy core to four has a named cause under QEMU. Every
-> syscall's capability lookup takes the global `IPC_TABLES` lock, and the reaper held that lock while
-> freeing a dead thread's kernel stack, six TLB shootdowns that interrupt every core. That is a
-> defect, not the architecture, and it is fixed (notes/job-mix/null-syscall-under-load.md). Whether
-> the fix removes radon's excess is one bench evening away.
-
-If boots 1 to 3 land in the first row, the finding closes and the risk 4 verdict rests on the
-2026-10-04 sweep's caveats alone, with this defect named as found and fixed. The residual global-lock
-contention is the question milestone 17 (the multikernel-leaning scheduler) asks about scaling past
-four harts, not this risk's.
+> The null syscall's near-doubling from one busy core to four was half a defect and half
+> contention. The defect: the reaper held the global `IPC_TABLES` lock while freeing a dead
+> thread's kernel stack, six TLB shootdowns that interrupt every core. Fixing it on radon
+> (2026-10-04) cut the null syscall's growth from one task to four from 94 ticks to 48, and raised
+> throughput 9% at four tasks and 11% at 32. The rest is the one global lock itself: at four tasks
+> 41% of syscalls find it held. That is a lock this kernel chose and can split, not a cost of the
+> capability model, and splitting it is proposed
+> (`design/roadmap/proposals/capability-lookup-off-the-global-lock.md`). Until that is measured,
+> the per-crossing cost under load is half explained and half open
+> (notes/job-mix/null-syscall-under-load.md).
 
 ## BUGS
 
-- Measured under TCG only. The cause, the fix and the instrument are proven there; the size of
-  the effect on radon is not. The procedure above is what fixes that.
+- The fix is sized on one machine, radon, with four harts, over five boots of one evening. The
+  three plain boots agreed to within one tick at every `null_syscall` point and 0.64% on
+  `jpm_median` at four tasks, so the size is a number, but it is radon's.
 - **`PERCPU` straddles cache lines.** It is aligned to 8, so each 128-byte block spans three 64-byte
   lines and shares two with its neighbours. Their remotely written fields (the inbox, the steal slot)
   can pull away a line that `held_rank`, written twice per lock, lives on. Unmeasured, and not fixed here,
   so as not to change two things in one radon comparison. `#[repr(align(64))]` keeps the size at 128.
 - **aarch64's job mix wedges under TCG on `main`.** On 2026-10-04 `script/job-mix --release --smp 4`
   went quiet after 2,744,000-tick subruns, at `tasks=2` on `main` and at `tasks=1` on this branch,
-  one run each, on a loaded host. The 2026-09-19 capture completed. It is a multicore hang somebody
-  should bisect, and it is proposed below.
+  one run each, on a loaded host. The 2026-09-19 capture completed. It is a multicore hang that
+  wants a bisect, and this entry is where that work lives until someone takes it.
 - **`script/fastpath-footprint` leaves `exception_body` out of aarch64's `syscall_entry`**, though
   every aarch64 syscall runs it (riscv64's list has `riscv_trap_body`). Moving the counter from that
   symbol into `syscall::dispatch` once read as 44 bytes of growth when it was 20.
 
 ## Proposed work
 
-- *(proposed)* Capability lookup off `IPC_TABLES`. Each thread's capability table behind its own
-  lock, so `current_cap` and the other per-thread operations stop sharing the global one. The
-  inventory's "free win", now with a measured customer: after this fix, `current_cap` at four tasks
-  still waits about 3 ticks a call under TCG. Revocation sweeps are the cost to price.
-- *(proposed)* Bisect the aarch64 job-mix wedge under TCG.
+- Capability lookup off `IPC_TABLES`, filed as
+  [`capability-lookup-off-the-global-lock.md`](../../design/roadmap/proposals/capability-lookup-off-the-global-lock.md)
+  with radon's numbers.

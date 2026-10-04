@@ -443,11 +443,10 @@ path rather than the whole kernel.
   margin reads as wedged when it is merely slow. `--quiet-after 0` is the escape and it gives up the
   detection. A heartbeat in the supervisor is the real fix and is a kernel change; milestone 324's
   block records it as follow-on.
-- The trap's slowdown with busy cores is explained under QEMU, not yet on radon. On radon
-  (2026-10-04) `null_syscall` went from 108 ticks a job at one task to 202 at four. Under TCG the
-  cause was waiting for `IPC_TABLES`, held by the reaper while it freed kernel stacks, and it is
-  fixed. [`job-mix/null-syscall-under-load.md`](job-mix/null-syscall-under-load.md) has the numbers
-  and the radon procedure; this entry closes when radon has run it.
+- The trap still slows with busy cores, by half as much. On radon `null_syscall` grew 94 ticks a
+  job from one task to four; the reaper's share (kernel stacks freed under `IPC_TABLES`) is fixed and
+  the growth is now 48. The rest is contention for `IPC_TABLES` itself: 41% of acquisitions find it
+  held. [`job-mix/null-syscall-under-load.md`](job-mix/null-syscall-under-load.md) has both evenings.
 - There is no committed baseline and no `--check`. `script/bench` gates because its icount counts
   are deterministic; a sweep whose entire subject is scheduling under contention is not, on any
   accelerator this tree has. A gate here would be asserting a tolerance nobody has measured.
