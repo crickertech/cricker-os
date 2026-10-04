@@ -48,10 +48,15 @@ boot_ladder = { version = "0.1.0", path = "../boot_ladder" }
 # this workspace, `no_std`, no dependencies of its own, no `unsafe`: §46's concern is external code
 # and this is none.
 job_mix = { version = "0.1.0", path = "../job_mix" }
+# **The fourth, and the same argument again** (2026-10-04, on the xenon bench of milestone 261 (the
+# NVMe driver leaves the kernel)). The console
+# now draws a wide screen at an integer scale, and `screen` must decode at the scale the painter
+# chose. A second copy of `ScreenConsole::scale_for` here would be a gate that cannot disagree with
+# the thing it gates. Ours, `no_std`, no `unsafe`; it was already a dev-dependency below.
+screen_console = { version = "0.1.0", path = "../screen_console" }
 
 [dev-dependencies]
 # The *writer* the `screen` tests read back from, so that "what the kernel draws is what this
 # reads" is asserted against the crate the kernel actually links rather than against a second
 # painter written here. Same rule as `uefi_loader`'s handoff tests.
 machine_discovery = { version = "0.1.0", path = "../machine_discovery" }
-screen_console = { version = "0.1.0", path = "../screen_console" }
