@@ -15,10 +15,10 @@ Promoted from `design/roadmap/proposals/a-gate-is-not-evidence-until-it-has-fail
 <!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 `a-gate-is-not-evidence-until-it-has-failed`: ratified 2026-09-23 (calef, reviewing
-`notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md` on pull request #1166). **It may
-belong inside `design/roadmap/641-a-mechanism-reports-its-denominator.md` rather than standing
-on its own**, since both come out of the same correction and the same fifth why. That is an
-architect's call, and ratifying the name does not settle it. Raised by
+`notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md` on pull request #1166). It stays
+beside `design/roadmap/641-a-mechanism-reports-its-denominator.md` rather than folding into it,
+though both come out of the same correction and the same fifth why (calef, 2026-10-04 UTC, on the
+maintainer's recommendation: both shipped as separate checks). Raised by
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md`, which asked whether the failing
 workflow was ever tested when it was deployed. It was not.
 

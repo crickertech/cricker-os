@@ -98,8 +98,8 @@ honest record, and a staged run of each is somebody's lane.
 ## How this sits beside milestone 641
 
 Milestone 641 (a mechanism that reports clean says over how many units, and zero is loud) came out
-of the same correction and the same fifth why. This milestone's block says it may belong inside 641.
-That is an architect's call and is not made here. The two touch different things. This one asks
+of the same correction and the same fifth why. They stay side by side (calef, 2026-10-04 UTC, on
+the maintainer's recommendation: both shipped as separate checks). The two touch different things. This one asks
 whether a workflow has ever been seen to fire. 641 asks how many units each run examined. A gate can
 pass either and fail the other.
 
