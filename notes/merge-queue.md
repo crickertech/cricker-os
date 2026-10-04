@@ -172,12 +172,13 @@ Moved here from `AGENTS.md` by `design/decisions/` §155's principle, which the 
 established: the constitution keeps the duty, this document keeps the mechanism. What `AGENTS.md`
 still says is that a session confirms the watchers are alive and acts on what they found.
 
-Two scheduled workflows, owned by the organization rather than by a laptop, every five minutes:
+Scheduled workflows:
 
 | Workflow | Runs | Identity |
 | --- | --- | --- |
 | `.github/workflows/merge-drain.yml` | `helpers/merge-drain.sh`, which calls `helpers/lane-claim-check.sh` inside its own pass | `nife-smelter[bot]` |
 | `.github/workflows/trunk-health.yml` | `helpers/trunk-health.sh --once`, and fails the run when `main` is red or a cadence is dead | `nife-smelter[bot]` |
+| `.github/workflows/ci-failing.yml` | `helpers/ci-failing.sh` ([ci-failing.md](ci-failing.md)) | `nife-smelter[bot]` |
 | `launchd`, per developer | `helpers/at-risk-check.sh`, which reads that machine's own worktrees | nobody: it needs no credential |
 
 Each workflow mints a one-hour installation token with `actions/create-github-app-token` from the
