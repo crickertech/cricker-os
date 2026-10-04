@@ -323,11 +323,11 @@ Open security findings that bear on it, each a proposal and none yet built:
   a receiver-first test for each is in PR #1576, with a replayable falsification that turns it red
   on aarch64; riscv64 and x86_64 build it and run it in CI.
 - [A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline](../roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md):
-  the session's copy of the boot line discipline's endpoint also answers `OP_BYTES`, so a
+  the session's copy of the boot line discipline's endpoint also answers `OPERATION_BYTES`, so a
   compromised session can queue a command line the boot shell runs with its own authority. A
   userspace grant wider than its use, not a kernel escape; read, not demonstrated. Severity
   medium (2026-10-03 audit, finding 2). Dated 2026-10-03, afterwards: PR #1586 gives the session a
-  badged copy the discipline answers only `OP_RAWMODE` and `OP_READRAW` on. A badged `OP_BYTES` was
+  badged copy the discipline answers only `OPERATION_RAWMODE` and `OPERATION_READRAW` on. A badged `OPERATION_BYTES` was
   served before the fix (a system test, red on aarch64) and is refused after it, with a replayable
   falsification; riscv64 and x86_64 run the test in CI. A session can still switch the
   discipline's mode under the shell.

@@ -409,7 +409,12 @@ pub fn current() -> &'static PerCpu {
 /// This core's logical id: its index into `PERCPU`.
 pub fn id() -> usize {
     let base = PERCPU.as_ptr() as usize;
-    (crate::arch::percpu() - base) / core::mem::size_of::<PerCpu>()
+    // Wrapping, because the wrap cannot happen and this is on every trap and every switch (release
+    // builds check overflow, notes/overflow-checks.md). `init_this_cpu` is the only writer of the
+    // per-CPU register and it stores `&PERCPU[id]`, which is at or above `base`. Were that ever
+    // broken, the wrapped quotient is far past `MAX_CPUS` and the next `PERCPU[id]` index refuses
+    // it, which is a stronger check than the subtraction's.
+    crate::arch::percpu().wrapping_sub(base) / core::mem::size_of::<PerCpu>()
 }
 
 /// Another core's migration inbox, by id. This is the one place a core reaches into a *different*

@@ -12,7 +12,7 @@ question it raises is [../design/interrupt-routing.md](../design/interrupt-routi
 The editing lives in the `line_editor` crate, which does no IO and knows nothing about IPC, UARTs,
 or endpoints. Byte in, echo bytes out, completed lines out. That split is DECISIONS §7 applied:
 the editing rules are host-tested in milliseconds against a small terminal model that interprets
-the echo the way a VT does, so the tests assert **what the user sees**, not which escape
+the echo the way a VT does, so the tests assert what the user sees, not which escape
 sequences were emitted. Twenty tests cover typing, backspace, mid-line insert and delete, cursor
 keys in three encodings (CSI, SS3, vt220 `~`), kill and yank (`^K` `^U` `^W` `^Y`), history with
 non-destructive browsing and dedup, CR/LF/CRLF endings, `^C`, `^D`'s double duty, `^L` repaint,
@@ -28,11 +28,11 @@ until the drivers did: it is the layer *between* drivers, not a driver.
 ## The build-vs-reuse call: built, against the rule's default
 
 The prior-art rule (DECISIONS §14) says for userspace, outside the trusted computing base,
-actively prefer porting. The editing engine was **built** anyway, and here is the accounting for
+actively prefer porting. The editing engine was built anyway, and here is the accounting for
 why the two live candidates did not fit.
 
 - **`noline`** (a `no_std` readline) has a sans-IO core, which is the right shape. Two things
-  disqualify it. Its initialization **blocks on a cursor-position report** (`ESC[6n`) that the
+  disqualify it. Its initialization blocks on a cursor-position report (`ESC[6n`) that the
   terminal may never send: a serial line driven by a piped boot script never answers, so a line
   discipline that must be always-on would hang at startup. And it is a **per-read readline**, a
   function you call when you want a line, not an always-on discipline that echoes type-ahead
@@ -57,12 +57,12 @@ risk: a client blocked *printing* while the server is blocked *delivering a line
 waiting for the other.
 
 The Reply capability (DECISIONS §12) removes it. Every request is a `CALL`, served through
-`RECV_CAP`. When an `OP_READLINE` arrives and no line is ready, the server does not block waiting
+`RECEIVE_CAP`. When an `OPERATION_READLINE` arrives and no line is ready, the server does not block waiting
 for input. It **parks the caller's one-shot Reply capability in a slot** and loops back to serve
 everyone else; the caller stays blocked (that is `CALL`'s contract) without holding the server
 hostage. Bytes keep flowing from the input driver, the discipline assembles a line, and only then
-does the server invoke the parked Reply to wake the reader. A client blocked in `OP_WRITE` and a
-reader parked in `OP_READLINE` are both just parked callers; the server is never blocked on either
+does the server invoke the parked Reply to wake the reader. A client blocked in `OPERATION_WRITE` and a
+reader parked in `OPERATION_READLINE` are both just parked callers; the server is never blocked on either
 while serving the other.
 
 The kernel makes the slot management safe: `capability_table.insert` hands each incoming Reply capability a
