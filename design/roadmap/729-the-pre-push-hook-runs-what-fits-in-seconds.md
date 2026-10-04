@@ -1,14 +1,15 @@
 ---
-status: IN-PROGRESS
+status: BUILT
 raised: 2026-10-03
-branch: lane/fast-pre-push-hook
+built: 2026-10-04
+promoted_from: the-pre-push-hook-runs-what-fits-in-seconds
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 727. The pre-push hook runs what fits in seconds
+# 729. The pre-push hook runs what fits in seconds
 
 Raised 2026-10-03 (UTC). The number is provisional until the merge queue lands it; the title and
 slug are drafts, and every new name below is provisional.

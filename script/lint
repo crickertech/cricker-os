@@ -48,7 +48,7 @@ if [ "${1:-}" = "--baselines" ]; then
 fi
 
 # `--no-cargo`: every check that never runs cargo, which is what `.githooks/pre-push` runs (milestone
-# 727 (the pre-push hook runs what fits in seconds), provisional, from COE decision 3, 2026-10-03). The hook had been all of lint, 70 to 202 s
+# 729 (the pre-push hook runs what fits in seconds), provisional, from COE decision 3, 2026-10-03). The hook had been all of lint, 70 to 202 s
 # measured on a loaded machine, past an agent harness's two-minute limit when cold, so lanes took to
 # `--no-verify` and the gate caught nothing. What a push can break and a person would otherwise learn
 # from CI is mostly text (36 of 38 lint failures on pull requests, 09-19 to 10-03), and text checks

@@ -7,7 +7,7 @@
 # lesson: "run CI to find out how to format". This runs the identical check in about 2 s before the
 # push leaves the machine.
 #
-# What this runs, and what it skips (milestone 727 (the pre-push hook runs what fits in seconds), provisional, 2026-10-03 UTC; calef approved
+# What this runs, and what it skips (milestone 729 (the pre-push hook runs what fits in seconds), provisional, 2026-10-03 UTC; calef approved
 # COE decision 3 on #1564: "Approve the revised decision 3."):
 #
 #   1. `script/fmt --check`.
