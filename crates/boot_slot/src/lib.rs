@@ -565,3 +565,57 @@ pub mod cmdline {
         }
     }
 }
+
+/// **Which medium this boot came from, on the kernel's command line** (the live stick proposal's
+/// G2; calef ruled the token on PR #1652, 2026-10-04 UTC). One word, `boot-medium=nvme`, written by
+/// `uefi_loader` when the file it was started from is on an NVMe disk, and read by the kernel, which
+/// mounts the internal NVMe filesystem only when it is there.
+///
+/// It exists because RedoxFS writes on mount, so a stick that mounted the installed disk changed it
+/// with nobody asking (`cargo xtask install-boot`, boot 3, measured 3 blocks). **Absence is the safe
+/// answer**: a stick, a `-kernel` boot and any loader that predates this token all leave the
+/// internal disk alone.
+///
+/// Here beside [`cmdline`] because it is the same shape (a loader-to-kernel token two programs agree
+/// on, rule 7) and the kernel and loader already depend on this crate. Key and value are
+/// provisional: names are an architect's.
+///
+/// # EXAMPLES
+///
+/// ```
+/// use boot_slot::medium;
+///
+/// let mut out = [0u8; medium::MAX_LEN];
+/// let n = medium::encode_nvme(&mut out);
+/// let line = core::str::from_utf8(&out[..n]).unwrap();
+/// assert_eq!(line, "boot-medium=nvme");
+/// assert!(medium::is_nvme("screen=0x80000000,800,600,3200,bgrx boot-slot=0 boot-medium=nvme"));
+///
+/// // A stick's line, and a line from a loader that never heard of the token.
+/// assert!(!medium::is_nvme("screen=0x80000000,800,600,3200,bgrx"));
+/// assert!(!medium::is_nvme("boot-medium=nvmex"));
+/// ```
+pub mod medium {
+    /// The whole token. Provisional.
+    pub const NVME: &str = "boot-medium=nvme";
+
+    /// The longest this token can be.
+    pub const MAX_LEN: usize = NVME.len();
+
+    /// Write [`NVME`] into `out`, returning its length, or 0 when it does not fit.
+    #[must_use]
+    pub fn encode_nvme(out: &mut [u8]) -> usize {
+        if out.len() < MAX_LEN {
+            return 0;
+        }
+        out[..MAX_LEN].copy_from_slice(NVME.as_bytes());
+        MAX_LEN
+    }
+
+    /// **Did this boot come from the NVMe disk?** True only for the exact word: a malformed one is
+    /// a stick as far as the kernel is concerned, because that is the direction that writes nothing.
+    #[must_use]
+    pub fn is_nvme(cmdline: &str) -> bool {
+        cmdline.split_ascii_whitespace().any(|w| w == NVME)
+    }
+}

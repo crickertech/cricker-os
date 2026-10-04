@@ -194,6 +194,8 @@ pub const CMDLINE_LEN: usize = machine_discovery::framebuffer::Framebuffer::MAX_
     + machine_discovery::framebuffer::SCREEN_HOLD.len()
     + 1
     + boot_slot::cmdline::MAX_LEN
+    + 1
+    + boot_slot::medium::MAX_LEN
     + 1;
 
 /// **Write the kernel's boot command line**, NUL-terminated, returning its length *without* the
@@ -212,6 +214,9 @@ pub const CMDLINE_LEN: usize = machine_discovery::framebuffer::Framebuffer::MAX_
 ///   running system learns which slot to confirm, and it is written **only** when there is one:
 ///   a stick, a `-kernel` boot, and a fallback to the image in this file all leave it off, and a
 ///   kernel that does not find it simply confirms nothing.
+/// - `boot_slot::medium::NVME` when this boot came from the NVMe disk, which is the only case in
+///   which the kernel mounts it (the live stick proposal's G2, ruled by calef on PR #1652,
+///   2026-10-04 UTC). A stick leaves it off and its system never touches the internal disk.
 /// - `machine_discovery::framebuffer::SCREEN_HOLD` under the `screen_hold` feature, for one
 ///   caller: `cargo xtask uefi-boot`, the gate that photographs that screen. It asks the kernel to
 ///   stop between painting its boot tour and clearing it, announce that on the serial line, and
@@ -235,6 +240,7 @@ pub const CMDLINE_LEN: usize = machine_discovery::framebuffer::Framebuffer::MAX_
 pub fn cmdline(
     screen: Option<&machine_discovery::framebuffer::Framebuffer>,
     from_slot: Option<u8>,
+    on_nvme: bool,
     out: &mut [u8],
 ) -> usize {
     assert!(out.len() >= CMDLINE_LEN, "cmdline needs CMDLINE_LEN bytes");
@@ -259,6 +265,14 @@ pub fn cmdline(
         if written > 0 {
             n = at + written;
         }
+    }
+
+    if on_nvme {
+        if n > 0 {
+            out[n] = b' ';
+            n += 1;
+        }
+        n += boot_slot::medium::encode_nvme(&mut out[n..]);
     }
 
     #[cfg(feature = "screen_hold")]
@@ -311,7 +325,7 @@ mod tests {
             order: PixelOrder::Bgrx,
         };
         let mut out = [0u8; CMDLINE_LEN];
-        let n = cmdline(Some(&screen), None, &mut out);
+        let n = cmdline(Some(&screen), None, false, &mut out);
         assert_eq!(
             out[n], 0,
             "the line is NUL-terminated at the length returned"
@@ -411,7 +425,7 @@ mod tests {
         for with_screen in [None, Some(&screen)] {
             for slot in [0u8, 1] {
                 let mut out = [0u8; CMDLINE_LEN];
-                let n = cmdline(with_screen, Some(slot), &mut out);
+                let n = cmdline(with_screen, Some(slot), true, &mut out);
                 assert_eq!(out[n], 0, "NUL-terminated at the length returned");
                 let line = core::str::from_utf8(&out[..n]).expect("ASCII");
                 assert_eq!(
@@ -444,7 +458,7 @@ mod tests {
         };
         let line = |screen: Option<&Framebuffer>, slot: Option<u8>| {
             let mut out = [0u8; CMDLINE_LEN];
-            let n = cmdline(screen, slot, &mut out);
+            let n = cmdline(screen, slot, false, &mut out);
             String::from_utf8(out[..n].to_vec()).unwrap()
         };
         let hold = if cfg!(feature = "screen_hold") {
@@ -475,8 +489,22 @@ mod tests {
     #[cfg(not(feature = "screen_hold"))]
     fn no_screen_and_no_chooser_is_an_empty_line_rather_than_a_blank_one() {
         let mut out = [0xAAu8; CMDLINE_LEN];
-        assert_eq!(cmdline(None, None, &mut out), 0);
+        assert_eq!(cmdline(None, None, false, &mut out), 0);
         assert_eq!(out[0], 0xAA, "nothing was written, not even a terminator");
+    }
+
+    /// The boot medium reaches the kernel's own parser, and a stick's line does not carry it: the
+    /// second half is G2 of the live stick proposal, since without the token the kernel leaves the
+    /// internal disk alone.
+    #[test]
+    fn the_boot_medium_is_on_the_line_only_for_a_boot_from_the_nvme_disk() {
+        for (slot, on_nvme) in [(None, true), (Some(0), true), (None, false)] {
+            let mut out = [0u8; CMDLINE_LEN];
+            let n = cmdline(None, slot, on_nvme, &mut out);
+            let line = core::str::from_utf8(&out[..n]).expect("ASCII");
+            assert_eq!(boot_slot::medium::is_nvme(line), on_nvme, "{line:?}");
+            assert_eq!(boot_slot::cmdline::parse(line), slot, "{line:?}");
+        }
     }
 
     /// **Every token this writer can emit fits [`CMDLINE_LEN`]**, asserted rather than added up by
@@ -496,7 +524,7 @@ mod tests {
             order: PixelOrder::Bgrx,
         };
         let mut out = [0u8; CMDLINE_LEN];
-        let n = cmdline(Some(&screen), Some(9), &mut out);
+        let n = cmdline(Some(&screen), Some(9), true, &mut out);
         assert!(
             n < CMDLINE_LEN,
             "{n} bytes and a NUL must fit {CMDLINE_LEN}"

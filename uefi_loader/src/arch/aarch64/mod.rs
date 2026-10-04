@@ -133,6 +133,8 @@ pub fn hand_over(
     // device-tree architectures have no installed disk to choose slots on yet. When they do, this
     // parameter is where the number arrives.
     _from_slot: Option<u8>,
+    // The boot medium token (`boot_slot::medium`) is x86_64 only, like the chooser.
+    _on_nvme: bool,
 ) -> Result<(), &'static str> {
     if kernel.end > ALLOCATION_CEILING + 1 {
         return Err("the kernel is linked above what its own boot map reaches");

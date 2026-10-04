@@ -121,6 +121,11 @@
 //!   installed machine cannot install itself onto a second disk; only a machine booted from the
 //!   stick or from the chooser's own file can. That is a narrowing rather than a loss; the fix
 //!   would hand the child the slot's device path, which nothing here builds yet.
+//! - **A slot-started image says it came from the NVMe disk without looking**, in
+//!   [`booted_from_nvme`], because it has no device handle to look with. That holds while the
+//!   installer writes slots only to NVMe (`installer`'s whole-disk, NVMe-only scope). A slot on
+//!   another kind of disk would have its kernel mount the NVMe one; passing the medium in the
+//!   child's load options is the fix, and nothing needs it yet.
 //! - **x86_64 only**, the same scope as the rest of rung 2a and 2b (DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64 and x86_64)): the
 //!   device-tree architectures have no second module slot for a boot file, which
 //!   `design/roadmap/568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` prices.
@@ -335,6 +340,22 @@ fn the_disk_with_slots(table: &SystemTable, services: &BootServices, own: &[u8])
         );
     }
     None
+}
+
+/// **Did this boot come from the NVMe disk?** The answer the loader writes as
+/// `boot_slot::medium::NVME`, and the only case in which the kernel mounts that disk (the live stick
+/// proposal's G2; calef ruled the token on PR #1652, 2026-10-04 UTC).
+///
+/// An image a chooser started has no device handle of its own (`LoadImage` from a buffer), so for
+/// it the answer is the chooser's: since G1 a chooser starts only slots on its own disk, and the
+/// installer writes slots only to an NVMe disk. See `BUGS`.
+pub fn booted_from_nvme(handle: Handle, services: &BootServices, from_slot: Option<u8>) -> bool {
+    if from_slot.is_some() {
+        return true;
+    }
+    loaded_image(handle, services)
+        .and_then(|l| path_of(l.device_handle, services))
+        .is_some_and(device_path::is_nvme)
 }
 
 /// **A handle's device path, without its end node**, or `None` when the firmware has none for it or

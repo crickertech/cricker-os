@@ -58,6 +58,26 @@ pub fn is_on(own: &[u8], disk: &[u8]) -> bool {
     !disk.is_empty() && own.starts_with(disk)
 }
 
+/// **Does this path pass through an NVMe namespace?** `path` is nodes without the end node, as
+/// [`length`] measures them. The node is messaging (type 3), subtype `0x17`.
+///
+/// It is how the loader says `boot_slot::medium::NVME`: the kernel's internal disk is the NVMe one,
+/// so a file on an NVMe namespace is a boot from that disk.
+pub fn is_nvme(path: &[u8]) -> bool {
+    let mut at = 0;
+    while let Some(h) = path.get(at..at + 4) {
+        if (h[0], h[1]) == (0x03, 0x17) {
+            return true;
+        }
+        let len = usize::from(u16::from_le_bytes([h[2], h[3]]));
+        if len < 4 {
+            return false;
+        }
+        at += len;
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,6 +139,17 @@ mod tests {
         let own = path(&[pci(4), nvme(), harddrive(1)]);
         assert!(!is_on(&own, &a));
         assert!(is_on(&own, &b));
+    }
+
+    #[test]
+    fn an_nvme_partition_is_nvme_and_a_stick_is_not() {
+        let esp = path(&[pci(3), nvme(), harddrive(2)]);
+        let stick = path(&[pci(0x1f), node(0x03, 0x12, &[0; 6]), harddrive(1)]);
+        assert!(is_nvme(&esp));
+        assert!(!is_nvme(&stick));
+        // NVMe's subtype under another type is not NVMe.
+        assert!(!is_nvme(&node(0x01, 0x17, &[0; 4])));
+        assert!(!is_nvme(&[]));
     }
 
     #[test]
