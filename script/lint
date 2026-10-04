@@ -2683,6 +2683,9 @@ echo "        every name carries its provenance, and exactly one block per file"
 #    `falsifications/` is claimed by a harness. Without the second, a patch rots into a file nothing
 #    runs, which is the failure this whole record exists to end wearing different clothes.
 echo "==> every Kani harness carries a falsification record"
+# The new-confinement-test ratchet's fixtures first, for the reason `fatal-risks --selftest` runs
+# first: a green `--check` looks the same whether the ratchet works or matches nothing.
+"$(dirname "$0")/falsifications" --selftest
 "$(dirname "$0")/falsifications" --check
 
 echo "==> the audit index"

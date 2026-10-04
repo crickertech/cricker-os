@@ -12,14 +12,14 @@ merge queue lands it.)*
 
 `design/fatal-risks/README.md`'s risk 7, the claim that the confinement claim is false, says in the entry a
 reader meets it in: *"Six kernel confinement rows still have no mechanism at all."*
-`notes/confinement-claims.md`'s `BUGS` explained why, and the explanation was **stale on the day it
-was read**:
+`notes/confinement-claims.md`'s `BUGS` explained why, and the explanation was stale on the day it
+was read:
 
 > Automating it needs a way to run one kernel test by name, which does not exist:
 > `kernel/src/testing.rs`'s runner takes no filter, `cargo xtask test` parses only `--arch`, `--cpu`
 > and `--hvf`...
 
-**Milestone 210 built that on 2026-08-31.** `cargo xtask test --test <substring>` filters the kernel
+Milestone 210 (no kernel test can be run by name) built that on 2026-08-31. `cargo xtask test --test <substring>` filters the kernel
 suite; the filter is baked into the test binary by `kernel/build.rs` and read by the runner. 210's
 own `BUGS` even names the three things a kernel sweep would still need and says it did not build
 them. Nobody connected the two records for a fortnight, and `script/lint` reported the consequence
@@ -39,36 +39,40 @@ states, the block's spelling and the patch path `<package>/falsifications/<modul
 all carry over, and the evidence that they carry over cleanly is that milestone 202's existing patch
 filename already obeys the convention with no special case.
 
-**Kernel tests are opt-in where harnesses are mandatory.** `--check` fails a harness with no block,
+Kernel tests are opt-in where harnesses are mandatory. `--check` fails a harness with no block,
 because all 145 of them should say which of the three states they are in. There are 312
 `#[test_case]`s and almost none is a confinement claim, so the same rule there would buy a wall of
 `unfalsified`. The both-directions patch check is what keeps opt-in honest: a patch under a package's
-`falsifications/` must be claimed by a harness **or** by a test, and an unclaimed one is still rot.
+`falsifications/` must be claimed by a harness or by a test, and an unclaimed one is still rot.
 
-**Ten kernel tests now carry a record and nine are `replayable`**, up from one that nothing could
+Correction, 2026-10-04 (UTC), calef's ruling: a `#[test_case]` newly added under
+`system_tests/src/user/` must carry a block (`unfalsified` allowed). Existing tests stay opt-in.
+Milestone 749 (a new confinement test carries a falsification record) built it.
+
+Ten kernel tests now carry a record and nine are `replayable`, up from one that nothing could
 replay. `notes/confinement-claims.md`'s rows 21 to 26 are the six the risk-7 entry named; they are
 nine tests between them, because two of those rows cite more than one. Eight of the nine carry a
 patch. The ninth is row 26 and it is `unfalsified` for a reason given below.
 
-**One bug was fixed rather than recorded**, because it was a confinement test that could not fail.
+One bug was fixed rather than recorded, because it was a confinement test that could not fail.
 See the first finding below.
 
 ## What the sweep found, which is the part worth reading
 
 ### A confinement test that could not fail, and had not been able to since milestone 41
 
-The first sweep came back with one **SURVIVOR**, and it is the result this milestone is for.
+The first sweep came back with one SURVIVOR, and it is the result this milestone is for.
 
 Row 21's RISC-V twin, `the_page_tables_say_u_mode_cannot_read_the_kernels_memory`, was patched to
 remove the `U`-bit check from `mmu::user_can_read` entirely, which is as complete a break of that
-test's stated property as can be written. The test ran and **passed**.
+test's stated property as can be written. The test ran and passed.
 
 The defect was not weak. `user_can_read` walked through `translate_user`, and `translate_at` builds
 its `Mapper` with `Half::Low`, always, so the high-half kernel address the test asks about came back
 `None` before any leaf was read. `assert!(!mmu::user_can_read(kernel_va), "the page tables say
 U-mode could read the kernel's own memory")` answered "no" by refusing to look. It could not fail.
 
-**The tree had already written down the cause and nothing connected it.**
+The tree had already written down the cause and nothing connected it.
 `is_mapped_in_current_space`, forty lines away in the same file, exists for exactly this case and
 says so in its own doc comment: *"a user thread reaching for the kernel's memory names a high-half
 address ... `translate_user` alone would say 'not mapped' for it and turn the most interesting case
@@ -78,35 +82,35 @@ Fixed here (`translate_in_either_half`, `kernel/src/arch/riscv64/mmu.rs`), measu
 riscv64: green with the fix, and red under the patch at `riscv_virtio_tests.rs:142` with the test's
 own sentence, *"the page tables say U-mode could read the kernel's own memory."*
 
-**Two things follow and both are larger than this row.** A green confinement test is consistent with
+Two things follow and both are larger than this row. A green confinement test is consistent with
 its assertion being *unable* to fail, which is `notes/confinement-claims.md`'s opening sentence
 arriving from a direction nobody had checked; the note says a passing test is consistent with the
 component never reaching the address, and this is a third world where the *test* never reaches the
-question. And **nothing but a falsification could have found it**: every gate in this tree was green
+question. And nothing but a falsification could have found it: every gate in this tree was green
 throughout, for four weeks, because a vacuous assertion is a passing assertion.
 
 ### The §31 shape recurs, and the second instance is row 24
 
 Milestone 202's headline finding was that §31's leading sentence, the witness-page equality, is
 reachable only by an escape that faults anyway, so the assertion the claim is quoted for is not the
-one that catches a broken confinement. **Row 24 is the same shape in a different subsystem.**
+one that catches a broken confinement. Row 24 is the same shape in a different subsystem.
 `two_shells_with_different_roots_cannot_name_each_others_files` states its property twice: once as an
 exact verdict bitmap per shell, and once as the crossing, `assert_eq!((a & nb::REACHED_SECRET, b &
 nb::REACHED_INNER), (0, 0), "a shell named a file in the other shell's root")`. The second is the
-sentence the milestone makes and the one a reader would quote. It is **below** both per-shell checks
-and **it cannot run**: any defect that causes a crossing sets a forbidden bit in one of the reports,
+sentence the milestone makes and the one a reader would quote. It is below both per-shell checks
+and it cannot run: any defect that causes a crossing sets a forbidden bit in one of the reports,
 and `assert_report`'s first direction catches that one call earlier. No patch tried here made the
 crossing fire, and none can. The quotable sentence is documentation; the bitmap equalities are the
 mechanism.
 
-**Here the hazard costs nothing**, and saying so is what keeps it from being overstated:
+Here the hazard costs nothing, and saying so is what keeps it from being overstated:
 `assert_report`'s messages name the offending or missing bit, so a reader learns as much as the
 crossing would have told them. §31's instance cost the reader a 234-second watchdog timeout. Same
-shape, benign outcome, and the thing to carry is the rule rather than the alarm: **in a test that
-states its property twice, the readable statement is usually the unreachable one.** Two instances,
+shape, benign outcome, and the thing to carry is the rule rather than the alarm: in a test that
+states its property twice, the readable statement is usually the unreachable one. Two instances,
 found the same way, neither visible without breaking the claim.
 
-**Row 24's own record is weaker than the row looks, and the patch says so.** The recorded defect
+Row 24's own record is weaker than the row looks, and the patch says so. The recorded defect
 turns the test red through `assert_report`'s *second* direction at `shell_navigation_tests.rs:99`,
 the vacuity guard: with the caretaker serving the filesystem root, the shell could no longer reach
 its own files, so *"every refusal it reported proves nothing"*. Nothing crossed. It proves the test
@@ -116,21 +120,21 @@ is wired to the real root handle; it does not demonstrate a crossing.
 
 `a_client_of_the_stable_rendezvous_cannot_become_its_server` got the honest defect: delete the
 kernel's `Rights::READ` check on `RECV_CAP`, so a client really can receive on the stable
-rendezvous. The run came back as **a 60-second watchdog reading "no progress ... a lost-wakeup
-hang"**, with a thread dump and not one word about impersonation.
+rendezvous. The run came back as a 60-second watchdog reading "no progress ... a lost-wakeup
+hang", with a thread dump and not one word about impersonation.
 
-The reason is structural. `RECV_CAP` is a **blocking** receive, so an attacker the kernel fails to
+The reason is structural. `RECV_CAP` is a blocking receive, so an attacker the kernel fails to
 refuse does not come back and report an escape; it takes the message the honest server was waiting
 for and everything blocks. The assertion that states the claim is reachable only when the kernel
 *does* refuse.
 
-**So the row is `unfalsified`, on purpose.** The easier defect, changing which error the refusal
+So the row is `unfalsified`, on purpose. The easier defect, changing which error the refusal
 returns, does fire the assertion and leaves the claim entirely intact, which is evidence of nothing
 and would put a false claim in the record whose job is saying what is known. Row 17's disposition,
 one rung over.
 
-**Proposed milestone (provisional, the integrator mints the number): give the usurper a bounded
-wait, so an escape is reported rather than waited out.** It is the same move milestone 202 made for
+Proposed milestone (provisional, the integrator mints the number): give the usurper a bounded
+wait, so an escape is reported rather than waited out. It is the same move milestone 202 (every confinement test is a ritual until somebody breaks the confinement) made for
 §31 when its break surfaced as a 234-second timeout, and it needs a non-blocking or timed receive,
 which is the syscall surface and therefore calef's. Until it exists, row 26 has a test and no
 evidence that the test can fail.
@@ -145,8 +149,8 @@ the progenitor gets to the part where it drops anything. Right answer, useless d
 202's hazard exactly.
 
 The recorded patch is the fixture edit instead (`root_supervisor` keeps the untyped it is supposed to
-give away), which fails at `authority_tests.rs:165` on the test's own sentence. **The refused patch
-is in the record with its measurement**, because "we tried the better-looking defect and it failed
+give away), which fails at `authority_tests.rs:165` on the test's own sentence. The refused patch
+is in the record with its measurement, because "we tried the better-looking defect and it failed
 for the wrong reason" is the kind of thing that gets rediscovered otherwise.
 
 ### A defect is not always expressible on every ISA, and row 21 is where that bites
@@ -156,7 +160,7 @@ of them RISC-V's. The aarch64 falsification is one flag at one call site: map th
 with `Flags::user_rodata()` and EL0 may read it, while the kernel goes on reading it too because
 this kernel never sets `PSTATE.PAN`.
 
-**The same defect cannot be booted on RISC-V.** `crates/paging`'s Sv39 encoder turns `CAP_USER` into
+The same defect cannot be booted on RISC-V. `crates/paging`'s Sv39 encoder turns `CAP_USER` into
 the `U` bit, and S-mode access to a `U` page faults unless `sstatus.SUM` is set, which this kernel
 sets only inside a test helper. A kernel that marked its own memory user-readable there would not be
 a kernel userspace can read; it would be a kernel that cannot read itself, dead before the first
@@ -164,8 +168,8 @@ test. So RISC-V's twin is falsified at the software walk instead (`user_can_read
 `U` bit), which the test's own doc comment names as the thing under test on that ISA, and the record
 says so rather than implying parity it does not have.
 
-**DECISIONS §19 makes parity a gate for the capability; this is a gap in the evidence, not in the
-capability.** It is recorded on row 21 and in `script/falsifications`' `BUGS`.
+DECISIONS §19 (architectural parity is a tenet) makes parity a gate for the capability; this is a gap in the evidence, not in the
+capability. It is recorded on row 21 and in `script/falsifications`' `BUGS`.
 
 ## What it costs, measured on patagonia
 
@@ -174,16 +178,16 @@ capability.** It is recorded on row 21 and in `script/falsifications`' `BUGS`.
 | One filtered kernel test, aarch64, cold worktree | 1 min 08 s |
 | One filtered kernel test, riscv64, warm | 9.9 s |
 | `script/falsifications --sweep`, 41 records (39 Kani + 2 kernel) | 1 min 53 s |
-| `script/falsifications --sweep`, 48 records (39 Kani + 9 kernel), **warm** | **2 min 55 s** |
+| `script/falsifications --sweep`, 48 records (39 Kani + 9 kernel), warm | 2 min 55 s |
 | The same 48, on a tree where each patch forced a rebuild | about 22 min |
 
-**The spread between those last two rows is the number worth carrying, and it is not about the
-mechanism.** A kernel falsification is cheap when the tree it reverts to is already built, and
+The spread between those last two rows is the number worth carrying, and it is not about the
+mechanism. A kernel falsification is cheap when the tree it reverts to is already built, and
 expensive when the patch touches a crate the kernel and the user programs both depend on, because
 then each apply and each revert costs the archive, the standard-library exerciser and five disk
 images. Milestone 210 measured QEMU start to `running N tests` at 0.50 s and a warm filtered run at
-8.6 s; the riscv64 row above is that number confirmed independently. **So the boot was never the
-cost and is still not.**
+8.6 s; the riscv64 row above is that number confirmed independently. So the boot was never the
+cost and is still not.
 
 Two consequences are recorded in `script/falsifications`' `BUGS`. `--affected-since`, the per-PR
 half, deliberately covers only the Kani records, because its whole argument is that a falsification
@@ -194,36 +198,32 @@ keeps comparing two derivations of one fact; that check fired on the first run h
 
 ## BUGS
 
-- **A kernel record is swept on one architecture, the one its patch's `Architecture:` line names.**
+- A kernel record is swept on one architecture, the one its patch's `Architecture:` line names.
   Defaulted to `aarch64`. Row 21's riscv64 record is the only one that is not, and the reason it is
   not is in that patch rather than here.
-- **`Architecture:` is a provisional spelling**, this lane's. It is a field in a patch's prose head
+- `Architecture:` is a provisional spelling, this lane's. It is a field in a patch's prose head
   beside `Falsifies`, which is where the sweep reads it, and an architect names things.
-- **The sweep checks a red's shape, not its sentence.** It requires the kernel to have booted and
+- The sweep checks a red's shape, not its sentence. It requires the kernel to have booted and
   selected exactly one test before a non-zero exit counts as red, which is what keeps a patch that
   does not compile from reading as a successful falsification. It cannot check that the failure came
   through the assertion the patch's prose predicts, so it prints the panic line and leaves that to a
   reader. Milestone 202's 234-second watchdog timeout is the failure this still leaves on the table.
-- **A skipped test is reported as an error and it is the likeliest flake here.** Rows 24 and 26 skip
+- A skipped test is reported as an error and it is the likeliest flake here. Rows 24 and 26 skip
   when no RedoxFS disk or no device page is attached, and a skip means the falsification was never
   attempted. Calling it green would be the manufactured fact milestone 214's skip accounting exists
   to refuse.
-- **`design/fatal-risks/README.md`'s risk 7 still says "Six kernel confinement rows still have no mechanism
-  at all"**, and that sentence is now false. A lane may not edit `design/` outside its own roadmap
-  block, so it is left for the integrator. Nothing gates it: `script/fatal-risks` checks a cited
-  milestone's status against its block, and risk 7 cites neither 210 nor this one.
-- **Eight patches is not six claims.** Rows 21 to 26 are six claims and nine tests, and a
+- Eight patches is not six claims. Rows 21 to 26 are six claims and nine tests, and a
   falsification is per test. A row whose tests are falsified one at a time is stronger than a row
   with one patch and weaker than a row where every assertion in every test has been shown to fire.
-- **Row 25 is one of its four directions.** The compositor test proves the input-slot refusal, the
+- Row 25 is one of its four directions. The compositor test proves the input-slot refusal, the
   write fault, the witness digests and the third client's read of the screen; the patch reaches the
   write fault, and the other three are downstream of it and never run. The row reads "yes, one of
   its four" for that reason.
-- **Row 23's evidence is about the test, not about the kernel.** The recorded patch is a fixture
+- Row 23's evidence is about the test, not about the kernel. The recorded patch is a fixture
   edit, so it proves the test notices when the drop does not happen. That the *kernel* is what makes
   the drop stick is rows 4 and 5's evidence, not this row's. The refused kernel-side patch and its
   measurement are in the patch file.
-- **One defect was found in a test and fixed here, which is a lane doing two things.**
+- One defect was found in a test and fixed here, which is a lane doing two things.
   `user_can_read` on riscv64 was corrected in this milestone rather than left as a proposal, because
   the alternative was recording a row as `unfalsified` when the reason was a two-line bug in a
   test-only function with no production caller. It is a kernel edit in a falsification milestone and
