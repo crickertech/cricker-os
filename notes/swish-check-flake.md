@@ -253,3 +253,16 @@ notes/packages.md is at its prose cap. `fetch` carves its socket page and stagin
 because CI once made it transiently short (2026-09-27, that function's own doc). The discipline is
 clean between commands, so this cannot explain the cluster; it is the one place the fetch path
 lacks the retry its sibling learned to need.
+
+## The noteless signature (2026-10-04, UTC)
+
+`packages/noteless/0.1.0/noteless` answered "", wanted "noteless: installed, and carrying no
+manifest note". It evicted #1573 (docs only) from the merge queue.
+
+Two hits in the 1000 CI runs from 2026-09-27 to 2026-10-04, both on the aarch64 leg: run
+37167978481 (merge_group, 2026-10-04 01:29, the first launch after the reboot) and run 37153714653
+(pull_request, 2026-10-03 21:09, the launch after `package rollback`). Two of 18 swish-check
+failures; the other 16 were not classified. Reruns that went green are invisible to this count.
+
+Cause unmeasured; nothing remediated. Milestone proposal:
+[the noteless launch that prints nothing](../design/roadmap/proposals/the-noteless-launch-that-prints-nothing.md).
