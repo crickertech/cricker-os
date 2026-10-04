@@ -186,9 +186,10 @@ def lint():
         with open(p) as f:
             text = f.read()
         observed, never, _ = parse(text)
+        old = predates(p)
         seen += bool(observed)
-        unwatched += bool(never and not observed)
-        failures += judge(p, text, predates(p))
+        unwatched += bool(never and not observed and old)
+        failures += judge(p, text, old)
     for msg in failures:
         print(msg, file=sys.stderr)
     print(f"observed-failing: {len(paths)} workflows, {seen} watched failing, "
