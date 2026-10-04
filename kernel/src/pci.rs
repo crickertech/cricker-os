@@ -372,6 +372,50 @@ pub fn bridge_bus_range(bus: u8, dev: u8, func: u8) -> Option<(u8, u8)> {
     Some((b.secondary, b.subordinate))
 }
 
+/// **Bench diagnostic for fatal risk 6's CompletionTimeout on xenon (2026-10-04).** The command
+/// and status words of the NVMe function `rid` and of every bridge on bus 0 whose range holds its
+/// bus. A root port with Bus-Master clear forwards no upstream DMA, and this kernel sets
+/// Bus-Master on the endpoint only; status bits name an abort the endpoint saw. Two short lines,
+/// at most, so the photograph holds them.
+#[cfg(feature = "disk_throughput")]
+pub fn print_dma_path(rid: u32) {
+    let ep = Bdf {
+        bus: (rid >> 8) as u8,
+        dev: ((rid >> 3) & 0x1f) as u8,
+        func: (rid & 7) as u8,
+    };
+    let w = cfg_read32(ep, pci::COMMAND);
+    crate::println!(
+        "diag pci  {:02x}:{:02x}.{} cmd {:#06x} sts {:#06x} (bme {})",
+        ep.bus,
+        ep.dev,
+        ep.func,
+        w & 0xffff,
+        w >> 16,
+        w >> 2 & 1
+    );
+    for dev in 0..32u8 {
+        for func in 0..8u8 {
+            let Some((sec, sub)) = bridge_bus_range(0, dev, func) else {
+                continue;
+            };
+            if ep.bus == 0 || ep.bus < sec || ep.bus > sub {
+                continue;
+            }
+            let b = Bdf { bus: 0, dev, func };
+            let w = cfg_read32(b, pci::COMMAND);
+            // Secondary status is the upper half of the dword at 0x1c (I/O base and limit below).
+            let sec_sts = cfg_read32(b, 0x1c) >> 16;
+            crate::println!(
+                "diag pci  bridge 00:{dev:02x}.{func} cmd {:#06x} sts {:#06x} secsts {sec_sts:#06x} (bme {})",
+                w & 0xffff,
+                w >> 16,
+                w >> 2 & 1
+            );
+        }
+    }
+}
+
 fn cfg_write32(bdf: Bdf, off: u64, v: u32) {
     let va = mmu::phys_to_virt(ECAM_BASE.load(Ordering::Relaxed) + bdf.ecam_offset() + (off & !3));
     // SAFETY: as above; config writes go to the one function this bdf names.

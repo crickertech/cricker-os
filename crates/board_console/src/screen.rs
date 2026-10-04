@@ -117,13 +117,17 @@ impl std::error::Error for ReadError {}
 /// [`ReadError`] when the bytes are not a readable binary PPM.
 pub fn read(ppm: &[u8]) -> Result<String, ReadError> {
     let (width, height, pixels) = parse_pixmap(ppm)?;
-    let cols = width / bitmap_font::GLYPH_W as usize;
-    let rows = height / bitmap_font::GLYPH_H as usize;
+    // The console draws a wide screen at an integer scale (`ScreenConsole::scale_for`, 2026-10-04),
+    // and asking the painter's own rule is what keeps this reader from disagreeing with it.
+    let k =
+        screen_console::ScreenConsole::scale_for(u32::try_from(width).unwrap_or(u32::MAX)) as usize;
+    let cols = width / (bitmap_font::GLYPH_W as usize * k);
+    let rows = height / (bitmap_font::GLYPH_H as usize * k);
     let mut out = String::new();
     for row in 0..rows {
         let mut line = String::new();
         for col in 0..cols {
-            line.push(cell(pixels, width, col, row));
+            line.push(cell(pixels, width, k, col, row));
         }
         out.push_str(line.trim_end());
         out.push('\n');
@@ -132,13 +136,14 @@ pub fn read(ppm: &[u8]) -> Result<String, ReadError> {
 }
 
 /// The character in one cell, or `?` when the cell matches no glyph.
-fn cell(pixels: &[u8], width: usize, col: usize, row: usize) -> char {
-    let left = col * bitmap_font::GLYPH_W as usize;
-    let top = row * bitmap_font::GLYPH_H as usize;
+fn cell(pixels: &[u8], width: usize, k: usize, col: usize, row: usize) -> char {
+    let left = col * bitmap_font::GLYPH_W as usize * k;
+    let top = row * bitmap_font::GLYPH_H as usize * k;
     let mut seen = [[false; bitmap_font::GLYPH_W as usize]; bitmap_font::GLYPH_H as usize];
     for (y, line) in seen.iter_mut().enumerate() {
         for (x, ink) in line.iter_mut().enumerate() {
-            let at = ((top + y) * width + left + x) * 3;
+            // One sample per k-by-k block: its top-left screen pixel.
+            let at = ((top + y * k) * width + left + x * k) * 3;
             *ink = pixels[at..at + 3].iter().all(|c| *c >= INK_THRESHOLD);
         }
     }
@@ -226,13 +231,22 @@ mod tests {
     /// does not follow fails here, on the host, in milliseconds. It is the same rule the
     /// `uefi_loader` handoff tests are held to.
     fn painted(cols: u32, rows: u32, text: &str) -> Vec<u8> {
+        painted_px(
+            cols * bitmap_font::GLYPH_W,
+            rows * bitmap_font::GLYPH_H,
+            text,
+        )
+    }
+
+    /// [`painted`] at a pixel size, for screens wide enough that the console scales its font.
+    fn painted_px(width: u32, height: u32, text: &str) -> Vec<u8> {
         let screen = Framebuffer {
             base: 0,
-            width: cols * bitmap_font::GLYPH_W,
-            height: rows * bitmap_font::GLYPH_H,
+            width,
+            height,
             // A padded stride, because a decoder that ignores the difference between the two would
             // pass with the picture sheared and this test is the only thing that would notice.
-            stride: cols * bitmap_font::GLYPH_W * 4 + 16,
+            stride: width * 4 + 16,
             order: PixelOrder::Bgrx,
         };
         let mut pixels = vec![0u8; screen.span().expect("a valid geometry")];
@@ -268,6 +282,28 @@ mod tests {
                 "{line:?} was drawn and did not come back\n--- decoded ---\n{decoded}"
             );
         }
+    }
+
+    /// xenon's 1920x1080 monitor, where the console draws every font pixel as a 2x2 block
+    /// (`ScreenConsole::scale_for`, 2026-10-04). The reader must decode at the painter's scale, and
+    /// a line longer than the 137 columns must come back wrapped, not cut.
+    #[test]
+    fn a_scaled_screen_reads_back_at_the_painters_scale() {
+        assert_eq!(ScreenConsole::scale_for(1920), 2);
+        let long = "disk-throughput: ".repeat(9);
+        let text = format!("diag vt-d frcd0 sid 01:00.0 reason 0x01 read addr 0x9e1000\n{long}\n");
+        let decoded = read(&painted_px(1920, 64, &text)).expect("a readable dump");
+        let lines: Vec<&str> = decoded.lines().collect();
+        assert_eq!(
+            lines[0],
+            "diag vt-d frcd0 sid 01:00.0 reason 0x01 read addr 0x9e1000"
+        );
+        assert_eq!(
+            lines[1].len(),
+            137,
+            "the long line fills one row of 137 columns"
+        );
+        assert_eq!(format!("{}{}", lines[1], lines[2]), long.trim_end());
     }
 
     /// The point of decoding at all: [`crate::progress`] judges a screen exactly as it judges a

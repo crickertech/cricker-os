@@ -216,7 +216,41 @@ attached.
 
 | Date (UTC) | Commit | Boots | Preflight 1 | Preflight 2 | Read B/s | Write B/s | IPC floor | Linux qd1 read/write | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | |
+| 2026-10-04 | a08efc8dc | 1 | not reached | not reached | | | | | screen tore as the `vt-d` lines printed (`bench/xenon-2026-10-04/boot-a-main.log`) |
+| 2026-10-04 | 7ae6d4e15 | 1 | PASS (catch-all `0xfed91000` owns 01:00.0) | not reached | | | | | bring-up `CompletionTimeout` (`boot-b-pre594.log`) |
+| 2026-10-04 | 3dfd2e813 | 1 | PASS | not reached | | | | | diagnostic image: VT-d fault reason 0x01 on the admin queue, `ECAP.C` = 0 (`boot-c-diag.log`) |
+| 2026-10-04 | `d3dbe8cf253d33f648808393ce89063983583c12` | 1 | PASS | not reached | | | | | with `wbinvd`: fault moves to reason 0x0b, context entry reserved field (`boot-d-wbinvd.log`) |
+| 2026-10-04 | `fef2e3206` (built at 414eda9de) | 1 of 3 | PASS (catch-all owns 01:00.0) | PASS (512-byte lbas, 256060514304 bytes) | 281608311 | 458142471 | 1198 ns | not run | `CONFINED-AT-RATE`, 16384 of 16384 verified; screen held (`boot-e-main-clflush-1.log`) |
+| 2026-10-04 | `fef2e3206` (built at 414eda9de) | 2 of 3 | PASS | PASS | 271854622 | 474990381 | 1197 ns | not run | `CONFINED-AT-RATE`, 16384 of 16384 verified; screen held (`boot-f-main-clflush-2.log`) |
+| 2026-10-04 | `fef2e3206` (built at 414eda9de) | 3 of 3 | PASS | PASS | 237098519 | 457744197 | 1197 ns | not run | `CONFINED-AT-RATE`, 16384 of 16384 verified; screen held (`boot-g-main-clflush-3.log`) |
+
+**The quotable figures, medians of the three boots above:** write 458142471 B/s (range 457744197
+to 474990381, 3.8% spread); read 271854622 B/s (237098519 to 281608311, 16% spread); one FLUSH
+549 us (186 to 1305); IPC floor 1197 ns per round trip. The IPC floor is 13% of a median write
+block (8940 ns) and 8% of a median read block (15066 ns). Every figure is one command in flight,
+polled, one pass per boot with no warm-up: a lower bound on the Micron, not its speed. No Linux
+`fio` comparison (step 5) has been run, so "real speed" is unclaimed.
+
+### What the first evening found, 2026-10-04
+
+Neither night-of condition failed: preflight 1 passed on the real DMAR. What failed was unlisted.
+**xenon's VT-d units do not snoop the CPU caches when they walk their tables** (`ECAP.C` = 0,
+`ecap 0xf050da`), and the kernel never wrote a table back. The controller enabled, fetched its
+first admin command from ASQ `0x9e1000`, and the unit faulted it with reason 0x01 (root entry not
+present) while the CPU read `root[1]` as present. Bus-Master was on at the endpoint and the root
+port. QEMU could not show this: its unit reports `C=0` too but reads guest memory directly.
+
+A `wbinvd` image got one fault further, which confirmed the cause. The unit then faulted the
+context entry, reason 0x0b (a reserved field; meaning from memory of the specification). Its upper
+half was `0x10002`: domain id 0x100 on a unit whose `CAP.ND` = 2 allows 8 bits. The pre-594 kernel
+used the requester id as the domain id, and milestone 594 had already replaced that. Nothing else
+in `CAP` or `ECAP` constrains the entries written.
+
+The fix is `Unit::publish` in `kernel/src/arch/x86_64/iommu.rs`: a `clflush` per table line
+written, then `mfence`. Its BUGS entry has the costs. Main with it passed every bench boot since, with
+the screen held and both units translating, so Boot A's tear was the same defect and the graphics
+RMRR covers the scanout. Diagnostic images came from `lane/xenon-nvme-diag-pre594`; the `diag`
+lines print only under the `disk_throughput` feature.
 
 ## What this cannot settle, said plainly
 
@@ -231,6 +265,9 @@ remapping (off in this kernel, offered by xenon's unit) is not on this experimen
 
 ## BUGS
 
+- **FIXED (2026-10-04): the VT-d tables never reached memory on a unit that does not snoop.**
+  See "What the first evening found" above. Whether the fix suffices on silicon is the next boot's
+  question; until it reads `CONFINED-AT-RATE`, nothing here is a throughput.
 - The two-unit route and the RMRR maps have never run against a real DMAR. Host tests over the
   7040's table cover them; QEMU presents one unit and no RMRR. The first xenon boot is their
   first real input, and the screen is what shows whether the graphics RMRR is enough.

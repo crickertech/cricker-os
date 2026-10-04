@@ -27,7 +27,7 @@
 //!   own `println!` emits no escape sequences to parse.
 //! - **The thing being reported is often the reason the machine is broken.** That is the block's
 //!   own constraint on this milestone, and it argues for the console with the least state that
-//!   could work. This one holds a cursor and a geometry: five `u32`s and no buffer.
+//!   could work. This one holds a cursor, a geometry and a scale: six `u32`s and no buffer.
 //!
 //! What is deliberately shared is the **font**, so the letters on an early boot screen and the
 //! letters in the graphical terminal are the same letters.
@@ -39,6 +39,13 @@
 //! bottom scrolls the picture up by one row of cells. **A console that cannot be put into a
 //! surprising state is worth more here than a capable one**, because its whole job is to be
 //! working at the moment something else is not.
+//!
+//! # Scale
+//!
+//! A wide screen draws each font pixel as a square block, at the largest integer scale that still
+//! leaves [`MIN_COLUMNS`] columns: 120, calef's choice on 2026-10-04 after 80 proved too big on
+//! xenon's monitor. A 1920x1080 monitor gets two (137 columns by 67 rows); anything under 1680
+//! wide, QEMU's 1280x800 OVMF screen among them, stays at one.
 //!
 //! # Examples
 //!
@@ -137,6 +144,16 @@
 #![no_std]
 
 use machine_discovery::framebuffer::{Framebuffer, PixelOrder};
+
+/// **The fewest columns a console is scaled down to**: 120. A screen is drawn at the largest
+/// integer scale that still leaves this many columns (see [`ScreenConsole::scale_for`]). A choice,
+/// not a derivation, and this is the one place it lives: calef's starting choice on 2026-10-04
+/// (UTC), "80 is a good place to start", then 120 the same evening ("80 is too big") after seeing
+/// 80 on xenon's monitor at 3x. 80 was the Kaypro II's width, whose character cell §100 (the
+/// terminal font) took the font from. Introduced that day on the xenon bench of milestone 261 (the
+/// NVMe driver leaves the kernel), when the 1:1 font on a 1920-wide monitor could not be read or
+/// photographed.
+pub const MIN_COLUMNS: u32 = 120;
 
 /// **Where a surface lands on a firmware screen**: the arithmetic a driver needs to copy a
 /// rectangle of pixels it was handed onto a screen the firmware set up (the shell on the firmware
@@ -401,6 +418,8 @@ pub struct ScreenConsole {
     rows: u32,
     col: u32,
     row: u32,
+    /// How many screen pixels each font pixel becomes, in each direction. See [`Self::scale_for`].
+    scale: u32,
 }
 
 impl ScreenConsole {
@@ -422,8 +441,9 @@ impl ScreenConsole {
     #[must_use]
     pub fn new(screen: Framebuffer) -> Option<Self> {
         screen.span()?;
-        let cols = screen.width / bitmap_font::GLYPH_W;
-        let rows = screen.height / bitmap_font::GLYPH_H;
+        let scale = Self::scale_for(screen.width);
+        let cols = screen.width / (bitmap_font::GLYPH_W * scale);
+        let rows = screen.height / (bitmap_font::GLYPH_H * scale);
         if cols == 0 || rows == 0 {
             return None;
         }
@@ -433,7 +453,22 @@ impl ScreenConsole {
             rows,
             col: 0,
             row: 0,
+            scale,
         })
+    }
+
+    /// **The integer scale a screen `width` pixels wide is drawn at**: the largest that still
+    /// leaves [`MIN_COLUMNS`] columns, never less than one. Each font pixel becomes a
+    /// scale-by-scale block.
+    ///
+    /// The font's cell is 7 pixels wide, so a 1920x1080 monitor drew 274 columns of 8-pixel-tall
+    /// glyphs at one, and on xenon's bench on 2026-10-04 calef could neither read nor photograph
+    /// them. At two it draws 14x16 cells, 137 columns by 67 rows. Anything under 1680 wide
+    /// (QEMU's 1280x800 OVMF screen among them) stays at one, as before.
+    #[must_use]
+    pub const fn scale_for(width: u32) -> u32 {
+        let s = width / (bitmap_font::GLYPH_W * MIN_COLUMNS);
+        if s == 0 { 1 } else { s }
     }
 
     /// The grid, in character cells: `(columns, rows)`.
@@ -527,8 +562,8 @@ impl ScreenConsole {
     /// See this crate's `BUGS`: the read half of this is the expensive half on real silicon.
     fn scroll(&mut self, pixels: &mut [u8]) {
         let stride = self.screen.stride as usize;
-        let band = stride * bitmap_font::GLYPH_H as usize;
-        let live = stride * (self.rows * bitmap_font::GLYPH_H) as usize;
+        let band = stride * (bitmap_font::GLYPH_H * self.scale) as usize;
+        let live = stride * (self.rows * bitmap_font::GLYPH_H * self.scale) as usize;
         if live > pixels.len() || band >= live {
             return;
         }
@@ -542,17 +577,25 @@ impl ScreenConsole {
     /// Paint one glyph at the cursor.
     fn draw(&self, pixels: &mut [u8], glyph: char) {
         let stride = self.screen.stride as usize;
-        let left = (self.col * bitmap_font::GLYPH_W) as usize * 4;
-        let top = (self.row * bitmap_font::GLYPH_H) as usize;
-        for y in 0..bitmap_font::GLYPH_H {
-            let row = (top + y as usize) * stride + left;
-            for x in 0..bitmap_font::GLYPH_W {
-                let at = row + x as usize * 4;
+        let k = self.scale as usize;
+        let left = (self.col * bitmap_font::GLYPH_W) as usize * k * 4;
+        let top = (self.row * bitmap_font::GLYPH_H) as usize * k;
+        // Each font pixel becomes a k-by-k block: `y`/`x` walk the screen, `/ k` finds the font
+        // pixel under them.
+        for y in 0..bitmap_font::GLYPH_H as usize * k {
+            let row = (top + y) * stride + left;
+            for x in 0..bitmap_font::GLYPH_W as usize * k {
+                let at = row + x * 4;
                 let Some(pixel) = pixels.get_mut(at..at + 4) else {
                     return;
                 };
-                let colour =
-                    bitmap_font::cell_pixel(glyph, x, y, Self::FOREGROUND, Self::BACKGROUND);
+                let colour = bitmap_font::cell_pixel(
+                    glyph,
+                    (x / k) as u32,
+                    (y / k) as u32,
+                    Self::FOREGROUND,
+                    Self::BACKGROUND,
+                );
                 pixel.copy_from_slice(&self.screen.order.store(colour).to_le_bytes());
             }
         }
@@ -620,6 +663,47 @@ mod tests {
                 ['.', '.', '.', '.', '.', '.', '.'], // row 7 is the descender row, and F has none
             ]
         );
+    }
+
+    /// A 1920-wide screen (xenon's) draws at two: 137 columns, and every font pixel a 2x2 block.
+    /// Narrow screens, which every other test here uses, stay at one.
+    #[test]
+    fn a_wide_screen_draws_each_font_pixel_as_a_block() {
+        assert_eq!(ScreenConsole::scale_for(1280), 1);
+        assert_eq!(ScreenConsole::scale_for(1679), 1);
+        assert_eq!(ScreenConsole::scale_for(1680), 2);
+        assert_eq!(ScreenConsole::scale_for(1920), 2);
+        assert_eq!(ScreenConsole::scale_for(2520), 3);
+        let found = Framebuffer {
+            base: 0,
+            width: 1920,
+            height: 32,
+            stride: 1920 * 4,
+            order: PixelOrder::Bgrx,
+        };
+        let mut pixels = [0u8; 1920 * 4 * 32];
+        assert_eq!(found.span(), Some(pixels.len()));
+        let mut console = ScreenConsole::new(found).expect("a wide screen");
+        assert_eq!(console.size(), (137, 2));
+        console.write(&mut pixels, &"F".repeat(138));
+        for (col, row) in [(0, 0), (0, 1)] {
+            for y in 0..16 {
+                for x in 0..14 {
+                    let want = bitmap_font::cell_pixel(
+                        'F',
+                        x / 2,
+                        y / 2,
+                        ScreenConsole::FOREGROUND,
+                        ScreenConsole::BACKGROUND,
+                    );
+                    assert_eq!(
+                        pixel(&found, &pixels, col * 14 + x, row * 16 + y),
+                        want,
+                        "cell ({col},{row}) pixel ({x},{y}); the 138th F must wrap to row 1"
+                    );
+                }
+            }
+        }
     }
 
     /// The stride is padding, and a painter that ignores it writes the second row seven pixels to

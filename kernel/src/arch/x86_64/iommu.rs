@@ -87,6 +87,9 @@
 //!   firmware's RMRR covers the memory it scans. Linux translates the same unit on Skylake and Kaby
 //!   Lake without a quirk (its `quirk_iommu_igfx` list stops at Broadwell), which is the evidence
 //!   this is safe; xenon is the first run. notes/risk-6-bench-evening.md says what to watch.
+//!   xenon's first run under milestone 594 (2026-10-04) tore the screen as the units came up, but
+//!   that kernel did not yet write its tables back (the FIXED entry below), so the RMRR was mapped
+//!   into tables the unit could not read. Whether the RMRR covers the scanout is still unread.
 //! - **No interrupt remapping.** `ECAP.IR` is read and *reported* since milestone 317
 //!   (the interrupt-remapping flags, and where MSI confinement actually lives) by
 //!   [`interrupt_remapping_available`] and the bring-up line `print_summary` writes, and that
@@ -121,6 +124,20 @@
 //!   (`CAP.PLMR`/`PHMR`, which the 7040's units both set) has `PMEN.EPM` cleared once translation
 //!   is on, as Linux does, in case firmware left one enabled. QEMU's model offers none, so this has
 //!   run zero times.
+//! - **FIXED (2026-10-04): a unit that does not snoop read stale tables.** `ECAP.C` clear means
+//!   the hardware walks root, context and second-level tables in DRAM, and this driver wrote
+//!   every table through the cache and never flushed. xenon's catch-all unit (`ecap 0xf050da`)
+//!   faulted the NVMe's first admin fetch with reason 0x01 (root entry not present) while the
+//!   CPU read the entry as present: notes/risk-6-bench-evening.md, "What the first evening
+//!   found". QEMU reports `C=0` too but reads guest memory directly, so no rehearsal could show
+//!   it. [`Unit::publish`] now `clflush`es each line written and fences with `mfence`.
+//!   **Why per line and not `wbinvd`**, which a diagnostic image used to test the cause: an
+//!   NVMe attach writes about 260 lines (four domain frames, a context-table frame and two
+//!   entries), a few microseconds of `clflush` by any estimate. `wbinvd` writes back and
+//!   invalidates every cache in the package for the same few bytes; its cost scales with the
+//!   whole last-level cache's dirty lines (megabytes on xenon), is not interruptible, and lands
+//!   on every core. Neither cost is measured: TCG makes both near-free, so only xenon can, and
+//!   the per-line count is from the code, not a counter. Unverified on silicon when written.
 //! - **FIXED (2026-09-27): an unconfined sibling disk could win the one fault-recording
 //!   register and starve a test's own fault.** Not the device racing its own attach, which was
 //!   the original (wrong) theory: `virtio::tests::the_iommu_faults_a_dma_that_escapes_the_domain`
@@ -228,6 +245,17 @@ const ECAP_IRO_MASK: u64 = 0x3ff;
 // machines apart cannot claim to have exercised either. `print_summary` is where it surfaces.
 const ECAP_IR: u64 = 1 << 3;
 
+// ECAP.C (bit 0): the unit's table walks snoop the processor caches. Clear means the hardware reads
+// root, context and second-level entries from DRAM, so a write still in a cache line is invisible
+// to it. See `Unit::publish`.
+const ECAP_C: u64 = 1 << 0;
+
+/// The `clflush` granule. CPUID leaf 1 reports it (EBX bits 15:8, in 8-byte units) and every x86_64
+/// part this kernel has met reports 64; a smaller real line would leave lines unflushed, a larger
+/// one only flushes some lines twice, so 64 is safe only while nothing reports less. Checked at
+/// `init`, where a mismatch panics rather than walking stale tables.
+const FLUSH_LINE: u64 = 64;
+
 // CCMD_REG: context-cache invalidation, register-based (the legacy, non-queued interface every
 // VT-d unit supports). ICC is set to start, cleared by hardware on completion; CIRG selects
 // global granularity, the only one this driver uses.
@@ -285,9 +313,70 @@ struct Unit {
     last_did: u32,
     /// How many devices an RMRR had pre-attached here before translation turned on.
     reserved_devices: u32,
+    /// `ECAP.C`: this unit's table walks snoop the CPU caches. When clear, every table line the
+    /// CPU writes must be written back before the unit is told to look ([`Unit::publish`]).
+    coherent: bool,
+}
+
+/// Order every `clflush` before it against every later store, the MMIO write that starts an
+/// invalidation included. `sfence`, which `direct_memory_access_write_barrier` is, does not order
+/// `clflush` (the SDM orders it only by `mfence` or a locked or serializing instruction).
+fn mfence() {
+    // SAFETY: a fence; no operands, no state but ordering.
+    unsafe { core::arch::asm!("mfence", options(nostack, preserves_flags)) };
 }
 
 impl Unit {
+    /// **Write the lines `pa..pa + len` back to memory, if this unit cannot see the CPU caches**
+    /// (fixed 2026-10-04, xenon, milestone 261). VT-d 4.1 section 6.1 (`ECAP.C`, from the field's
+    /// definition, not re-read tonight) leaves cache maintenance of the remapping structures to
+    /// software when C is clear. Before this the driver wrote every table through the cache and
+    /// never flushed, which QEMU cannot show (it reads guest memory directly whatever C says).
+    /// xenon's catch-all unit reports `ecap 0xf050da`, C=0, and its first fault was reason 0x01
+    /// (root entry not present) on the NVMe's admin queue, with the root entry present in the
+    /// CPU's view: the unit read DRAM the cache had not yet reached.
+    ///
+    /// `clflush` per line, not `wbinvd`. The other choice writes back and invalidates every cache
+    /// in the package, uninterruptibly, for a few bytes of table; this costs one instruction per
+    /// 64 bytes actually written. Linux does the same (`__iommu_flush_cache`, from memory). The
+    /// caller fences (`mfence`) once after its last flush and before any register write that makes
+    /// the unit read.
+    fn publish(&self, pa: u64, len: u64) {
+        if self.coherent {
+            return;
+        }
+        let mut line = pa & !(FLUSH_LINE - 1);
+        while line < pa + len {
+            // SAFETY: `line` is inside a kernel-owned table frame reachable through the direct map;
+            // clflush reads nothing and writes back a line the CPU may hold, changing no value.
+            unsafe {
+                core::arch::asm!("clflush [{}]", in(reg) phys_to_virt(line), options(nostack, preserves_flags));
+            }
+            line += FLUSH_LINE;
+        }
+    }
+
+    /// [`Unit::publish`] every table frame of the second-level domain rooted at `root`: the walk
+    /// follows present, non-leaf entries down to the last level, whose frames hold leaves. A
+    /// domain is a handful of frames (the NVMe's is four), so a whole-frame flush of each is a few
+    /// hundred lines.
+    fn publish_domain(&self, table: u64, level: usize) {
+        if self.coherent {
+            return;
+        }
+        self.publish(table, page_frames::FRAME_SIZE);
+        if level == 1 {
+            return;
+        }
+        for i in 0..512 {
+            // SAFETY: `table` is a kernel-owned page-table frame of 512 entries; read only.
+            let e = unsafe { core::ptr::read_volatile((phys_to_virt(table) as *const u64).add(i)) };
+            if Vtd::is_present(e) && !Vtd::is_block(e) {
+                self.publish_domain(Vtd::entry_pa(e), level - 1);
+            }
+        }
+    }
+
     /// **A fresh domain id, inside the width this unit implements** (milestone 594). Section 9.3:
     /// a unit with fewer than 16-bit domain ids treats the unused high bits of a context entry's
     /// `DID` as reserved, so a wider value is a reserved-field fault on every DMA the device
@@ -431,7 +520,19 @@ fn root_up(d: &Drhd) -> Result<Unit, &'static str> {
         next_did: 1,
         last_did: (1u32 << (4 + 2 * nd)) - 1,
         reserved_devices: 0,
+        coherent: ecap & ECAP_C != 0,
     };
+    if !unit.coherent {
+        let line = u64::from((core::arch::x86_64::__cpuid(1).ebx >> 8) & 0xff) * 8;
+        assert!(
+            line >= FLUSH_LINE,
+            "clflush line is {line} bytes, smaller than the {FLUSH_LINE} this driver flushes by"
+        );
+    }
+    // The all-absent root goes to memory before the unit is pointed at it. Zero is what the
+    // walk must read; whatever the frame held before is what it would read otherwise.
+    unit.publish(unit.root, page_frames::FRAME_SIZE);
+    mfence();
 
     // Firmware may hand over with translation already on (a pre-boot DMA protection setting, or
     // a kexec). Linux turns it off before reprogramming (`init_dmars`), since a root pointer the
@@ -757,6 +858,7 @@ pub fn attach(rid: u32, root: u64, _tag: u16) {
         Some(ctp) => ctp,
         None => {
             let ctp = zeroed_page_frame("context table");
+            s.publish(ctp, page_frames::FRAME_SIZE);
             // Publish the (still all-absent) context table before the root entry that makes it
             // reachable, so the IOMMU can never walk to a root entry whose context table isn't
             // there yet.
@@ -768,6 +870,7 @@ pub fn attach(rid: u32, root: u64, _tag: u16) {
                 core::ptr::write_volatile(root_entry, (ctp & ROOT_ENTRY_CTP_MASK) | ROOT_ENTRY_P);
                 core::ptr::write_volatile(root_entry.add(1), 0); // upper qword: reserved, legacy mode
             }
+            s.publish(s.root + bus as u64 * 16, 16);
             ctx[bus] = Some(ctp);
             ctp
         }
@@ -791,6 +894,12 @@ pub fn attach(rid: u32, root: u64, _tag: u16) {
     unsafe {
         core::ptr::write_volatile(ctx_entry, lo | CTX_ENTRY_P);
     }
+    // The domain the seam built, then the entry that points at it, then one fence before the
+    // invalidation that lets the unit walk any of them. One line holds the whole 16-byte entry,
+    // so the present bit and the root reach memory together.
+    s.publish_domain(root, Vtd::LEVELS);
+    s.publish(ctp + devfn as u64 * 16, 16);
+    mfence();
     crate::arch::direct_memory_access_write_barrier();
 
     invalidate_all(s);
@@ -833,6 +942,116 @@ pub fn take_fault() -> Option<Fault> {
         });
     }
     None
+}
+
+/// **Bench diagnostic for fatal risk 6's CompletionTimeout on xenon (2026-10-04).** Everything
+/// the unit that is up can say about why a device's DMA went nowhere, without clearing anything:
+/// CAP and ECAP (ECAP bit 0, `C`, says whether the unit's table walks snoop the CPU caches; this
+/// driver never flushes the tables it writes, so `C=0` would mean the hardware reads whatever is
+/// in DRAM), GSTS and FSTS, then every Fault Recording Register whose F bit is set, and the root
+/// and context entries for `rid` as the CPU sees them. Bounded at about eight lines.
+#[cfg(feature = "disk_throughput")]
+pub fn print_faults(rid: u32) {
+    // Before the lock: `owner_index` reads configuration space and takes `DMAR`.
+    let owner = owner_index(rid);
+    let g = IOMMU.lock();
+    let Some(i) = owner else {
+        crate::println!("diag vt-d no running unit owns {rid:#06x}");
+        return;
+    };
+    let Slot::Up(s) = &g.slots[i] else {
+        crate::println!("diag vt-d the unit owning {rid:#06x} is not up");
+        return;
+    };
+    let ctx_tables = &g.ctx[i];
+    let cap = r64(s.base, CAP);
+    let ecap = r64(s.base, ECAP);
+    let nfr = ((cap >> 40) & 0xff) + 1;
+    crate::println!(
+        "diag vt-d {:#x} cap {cap:#x} ecap {ecap:#x} c={} pt={} nfr {nfr}",
+        s.base,
+        ecap & 1,
+        ecap >> 6 & 1
+    );
+    let fsts = r32(s.base, FSTS);
+    crate::println!(
+        "diag vt-d gsts {:#010x} fsts {fsts:#x} (ppf {} pfo {} fri {})",
+        r32(s.base, GSTS),
+        fsts >> 1 & 1,
+        fsts & 1,
+        fsts >> 8 & 0xff
+    );
+    let mut shown = 0;
+    for i in 0..nfr.min(16) {
+        let hi = r64(s.base, s.frcd + i * 16 + 8);
+        if hi & (1 << 63) == 0 {
+            continue;
+        }
+        let lo = r64(s.base, s.frcd + i * 16);
+        if shown < 6 {
+            let sid = hi & 0xffff;
+            crate::println!(
+                "diag vt-d frcd{i} sid {:02x}:{:02x}.{} reason {:#04x} {} addr {:#x}",
+                sid >> 8,
+                sid >> 3 & 0x1f,
+                sid & 7,
+                (hi >> 32) & 0xff,
+                if hi >> 62 & 1 == 1 { "read" } else { "write" },
+                lo & !0xfff
+            );
+        }
+        shown += 1;
+    }
+    if shown == 0 {
+        crate::println!("diag vt-d no fault record has F set");
+    } else if shown > 6 {
+        crate::println!("diag vt-d ... {} more fault records not shown", shown - 6);
+    }
+    print_context_entry(s, &ctx_tables, rid);
+}
+
+/// One line: the root and context entries for `rid` as the CPU sees them, with the domain id
+/// decoded against the width this unit implements (`CAP.ND`). xenon's second diagnostic boot
+/// (2026-10-04) faulted with reason 0x0b on `ctx .. 0x10002`, domain 0x100 on a unit whose
+/// `CAP.ND` = 2 allows 255; this line says whether a boot is past that.
+#[cfg(feature = "disk_throughput")]
+fn print_context_entry(s: &Unit, ctx_tables: &[Option<u64>; 256], rid: u32) {
+    let bus = (rid >> 8) as u64 & 0xff;
+    let devfn = rid as u64 & 0xff;
+    // SAFETY: `s.root` and any context table are kernel-owned table frames; bus and devfn are
+    // masked to the 256 entries each holds. Reads only.
+    let (re, ce) = unsafe {
+        let re = core::ptr::read_volatile(phys_to_virt(s.root + bus * 16) as *const u64);
+        let ce = ctx_tables[bus as usize].map(|ctp| {
+            let p = phys_to_virt(ctp + devfn * 16) as *const u64;
+            (
+                core::ptr::read_volatile(p),
+                core::ptr::read_volatile(p.add(1)),
+            )
+        });
+        (re, ce)
+    };
+    match ce {
+        Some((lo, hi)) => crate::println!(
+            "diag vt-d root[{bus}] {re:#x} ctx {lo:#x} {hi:#x} (did {}, nd allows {}, aw {})",
+            (hi >> CTX_DID_SHIFT) & 0xffff,
+            s.last_did,
+            hi & 7,
+        ),
+        None => crate::println!("diag vt-d root[{bus}] {re:#x} ctx none (never attached)"),
+    }
+}
+
+/// The context-entry line on its own, for a bring-up that succeeded: the bench photograph then
+/// shows the entry the unit accepted, not only the one it refused.
+#[cfg(feature = "disk_throughput")]
+pub fn print_context(rid: u32) {
+    let owner = owner_index(rid);
+    let g = IOMMU.lock();
+    let Some(i) = owner else { return };
+    if let Slot::Up(s) = &g.slots[i] {
+        print_context_entry(s, &g.ctx[i], rid);
+    }
 }
 
 // A compile-time check that this module and `Vtd` agree on the level count `CTX_AW_48BIT`

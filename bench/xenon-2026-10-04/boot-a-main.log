@@ -1,0 +1,6 @@
+# Boot A, main at a08efc8dc (milestone 594 in: every VT-d unit translates its own devices).
+# Transcribed from calef's description and photograph, 2026-10-04 UTC. No text survived.
+#
+# The boot tour ran normally up to the vt-d lines. When the
+#   vt-d        : drhd ... up
+# line printed, the display turned into a torn grid and nothing after it was readable.
