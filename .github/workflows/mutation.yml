@@ -27,6 +27,22 @@ name: mutation testing
 # unmeasured and the surviving report could say nothing about them, where a round-robin loss leaves
 # every crate with seven eighths of its mutants and a rate still worth reading.
 #
+# **The inflow check (milestone 740 (the survivors a merged pull request adds are checked against a triage record)), calef 2026-10-04 UTC: "Yes, build the inflow
+# check."** Fatal risk 3's ruled condition is that the survivors each merged pull request adds on its
+# own lines are triaged, and until now nothing could tell. Two jobs after the report. `inflow` diffs
+# this census against the previous committed survivor list
+# (notes/project-metrics/mutation-survivors/), blames each new survivor to the pull request that
+# wrote the line, and **fails this run listing any with no row in
+# notes/project-metrics/mutation-triage.csv**. It is red on the scheduled run and nowhere else: it
+# never sits on a merge, because milestone 479 (a blocking `--in-diff` mutation gate) stays refused.
+# `record` then opens a pull request (the App token and the `automation` environment, the way
+# metrics.yml does, and for the same reason: a PR opened by GITHUB_TOKEN never starts CI) that adds
+# this census's per-crate row to mutation-census.csv and its survivor list, so capture stops
+# depending on someone running `script/mutation-census --add-run` before the artifacts expire. It
+# records only a complete census (all eight shards, `mutants` green): a partial one is a sample, and
+# a lost shard would read as a crate that got better and then worse. The logic is
+# helpers/mutation_inflow.py, whose docstring has the key and what counts as inflow.
+#
 # BUGS: **this workflow had never once succeeded** before milestone 238. Four scheduled runs,
 # 2026-08-10 through 2026-08-31, every one red, found by milestone 232's audit (audit every check
 # against two questions: does anything run it, and does it block) on 2026-09-03. Two distinct
@@ -267,3 +283,148 @@ jobs:
               echo 'nothing about the whole corpus and must not be compared to the baseline total.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # The inflow check (see the header). Its own job so that the report above stays a report: this
+  # one is allowed to be red, and a red job here means "untriaged survivors", not "the census broke".
+  inflow:
+    name: inflow against the triage record
+    needs: mutants
+    if: always()
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      complete: ${{ steps.shards.outputs.complete }}
+      census: ${{ steps.shards.outputs.census }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Full history: the blame walks every commit that wrote a new survivor's line, and
+      # `merge-base --is-ancestor` needs the previous census's commit.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download every shard's outcomes
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mutants-shard-*
+          path: shards
+
+      - name: Is this a complete census?
+        id: shards
+        run: |
+          n=$(find shards -name missed.txt 2>/dev/null | wc -l | tr -d ' ')
+          census=$(gh run view "$GITHUB_RUN_ID" --json createdAt --jq '.createdAt[:10]')
+          echo "census=$census" >> "$GITHUB_OUTPUT"
+          if [ "$n" = "8" ] && [ "${{ needs.mutants.result }}" = "success" ]; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '### Mutation inflow: not checked'
+              echo
+              echo "$n of 8 shards uploaded outcomes and the mutants job concluded \`${{ needs.mutants.result }}\`."
+              echo 'A partial census is a sample, so it is neither diffed nor recorded (helpers/mutation_inflow.py).'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # `continue-on-error` so the survivor list is uploaded even when the check is red: the list is
+      # the evidence for what the next triage lane works from.
+      - name: Check the new survivors against the triage record
+        id: check
+        if: steps.shards.outputs.complete == 'true'
+        continue-on-error: true
+        run: |
+          mapfile -t dirs < <(find shards -name missed.txt -exec dirname {} \; | sort)
+          python3 helpers/mutation_inflow.py check \
+            --census "${{ steps.shards.outputs.census }}" --run "$GITHUB_RUN_ID" --sha "$GITHUB_SHA" \
+            --snapshot-out "inflow/${{ steps.shards.outputs.census }}.csv.gz" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            "${dirs[@]}"
+
+      - name: Keep this census's survivor list
+        if: steps.shards.outputs.complete == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-inflow
+          path: inflow/
+          if-no-files-found: error
+
+      - name: Fail if any inflow survivor is untriaged
+        if: steps.check.outcome == 'failure'
+        run: |
+          echo "Untriaged inflow survivors: the list is in this run's summary."
+          echo "Add a row per survivor to notes/project-metrics/mutation-triage.csv (notes/mutation-testing.md, the ledger)."
+          exit 1
+
+  # Appends this census to the tree through a pull request, never a push to main (metrics.yml's
+  # argument: a record other people quote is irreversible once it lands unreviewed). The environment's
+  # deployment branches are `main` only, so a dispatch from another branch skips this job.
+  record:
+    name: record this census
+    needs: inflow
+    if: always() && needs.inflow.outputs.complete == 'true' && github.ref == 'refs/heads/main'
+    environment: automation
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mutants-shard-*
+          path: shards
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: mutation-inflow
+          path: inflow
+
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CENSUS: ${{ needs.inflow.outputs.census }}
+        run: |
+          set -e
+          mapfile -t dirs < <(find shards -name caught.txt -exec dirname {} \; | sort)
+          script/mutation-census --add "$CENSUS" "$GITHUB_RUN_ID" "${dirs[@]}"
+          mkdir -p notes/project-metrics/mutation-survivors
+          cp "inflow/$CENSUS.csv.gz" notes/project-metrics/mutation-survivors/
+          if git diff --quiet -- notes/project-metrics && [ -z "$(git ls-files --others --exclude-standard notes/project-metrics)" ]; then
+            echo "Nothing to record."
+            exit 0
+          fi
+          branch="mutation/census"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add notes/project-metrics
+          git commit -m "mutation census: record $CENSUS (run $GITHUB_RUN_ID)
+
+          Per-crate rows for mutation-census.csv and the survivor list the next census is diffed
+          against, from the scheduled workflow's own artifacts, which expire in about 90 days."
+          git push --force origin "$branch"
+          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+
+          Records the $CENSUS mutation census ([run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)): one row per crate in \`mutation-census.csv\` and the survivor list \`mutation-survivors/$CENSUS.csv.gz\`. Append-only; nothing from a past census changes."
+          existing="$(gh pr list --head "$branch" --state open --json number --jq '.[].number')"
+          if [ -z "$existing" ]; then
+            gh pr create --head "$branch" --base main --title "mutation census: record $CENSUS" --body "$body"
+          else
+            gh pr edit "$existing" --title "mutation census: record $CENSUS" --body "$body"
+          fi

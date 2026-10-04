@@ -156,6 +156,13 @@ first complete census since 2026-09-21: 85 crates, 14,853 mutants, 13,734 viable
 timeouts, 92.7% killed against 92.4% on 2026-09-21.
 [Appendix](the-mutation-verdict.md).
 
+Fact, 2026-10-04: the inflow check exists (milestone 740 (the survivors a merged pull request adds are
+checked against a triage record), provisional). The weekly mutation workflow diffs each census
+against the previous one, blames new survivors to the merged pull request that wrote the line, and
+fails listing any with no row in `notes/project-metrics/mutation-triage.csv`. Against the 2026-09-21
+census, 472 survivor keys are blamed to merged pull requests since: 162 have a triage row and 310
+do not.
+
 ## 4. The architecture imposes a per-crossing cost that cannot be engineered away
 
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
