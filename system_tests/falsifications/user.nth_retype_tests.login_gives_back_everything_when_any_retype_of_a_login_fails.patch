@@ -1,0 +1,30 @@
+Falsifies `system_tests::user::nth_retype_tests::login_gives_back_everything_when_any_retype_of_a_login_fails`.
+
+Architecture: aarch64, riscv64 (the hunk is portable userspace code; x86_64 skips the test, as it
+skips every `login_tests` test, for want of a RedoxFS disk on its test boot).
+
+The defect is the one milestone 757 (a test kernel fails a process on its Nth retype) found and
+fixed, put back for one of its three objects: `build_child_space` returns `Err` without deleting the
+address space it retyped, so every failed caretaker build leaves one stale `AddressSpace`
+capability in `login`'s table.
+
+Expected to fail: retype 10, the caretaker's first frame, reported as `failing login's retype 10 of
+10 (verdict 0x2) changed what login holds`, with `slot 18: AddressSpace(..)` in the table dump.
+Replayed red on aarch64 on 2026-10-04 (UTC) by the lane for milestone 757.
+
+diff --git a/crates/supervision_protocol/src/lib.rs b/crates/supervision_protocol/src/lib.rs
+index de5379aa5..911ed186b 100644
+--- a/crates/supervision_protocol/src/lib.rs
++++ b/crates/supervision_protocol/src/lib.rs
+@@ -481,10 +481,7 @@ pub fn build_child_space(
+             },
+             aspace,
+         )),
+-        Err(()) => {
+-            cap_delete(aspace);
+-            Err(())
+-        }
++        Err(()) => Err(()),
+     }
+ }
+ 

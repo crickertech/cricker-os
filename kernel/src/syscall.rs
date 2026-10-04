@@ -811,7 +811,13 @@ fn memory_region_retype(region: u64, requested: u64) -> Result<i64, Error> {
         crate::memory_region::retype_run(region, requested).ok_or(Error::OutOfMemory)?;
     // The run is non-empty by construction (`retype_pages` never returns zero).
     let count = core::num::NonZeroU64::new(count).ok_or(Error::OutOfMemory)?;
-    // capability table full
+    // Capability table full. **BUGS: the run stays retyped** (recorded by milestone 757 (a test
+    // kernel fails a process on its Nth retype), provisional): the watermark has moved and no
+    // capability names the pages, so each call against a full table spends `count` pages until the
+    // region is destroyed. `memory_region_split` below gives its child back in the same position;
+    // a run has no such inverse today. `memory_region_retype_obj`'s arms are the same shape, an
+    // object nobody can name. Bounded by the caller's own region, so a self-inflicted cost, not a
+    // leak into anyone else's budget.
     let slot = sched::grant(crate::cap::page_frame_run_cap(phys, count, Rights::ALL))
         .map_err(|_| Error::OutOfMemory)?;
     Ok(slot as i64)

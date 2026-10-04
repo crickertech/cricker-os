@@ -35,8 +35,8 @@ counted them.
 
 - **Proposed.** `design/roadmap/proposals/a-page-table-allocator-that-fails-on-its-nth-call.md`,
   the recommended first pilot.
-- **Proposed.** `design/roadmap/proposals/a-test-kernel-fails-a-process-on-its-nth-retype.md`, for
-  the 75 cleanup paths; an architect's call.
+- **Milestone 757.** Built as milestone 757 (a test kernel fails a process on its Nth retype), for the 75 cleanup paths
+  (approved by calef 2026-10-04 UTC, #1591).
 - **Proposed.** `design/roadmap/proposals/measure-kernel-and-service-coverage-under-qemu.md`, to
   turn the blind spot's count into a measurement.
 - **Recorded.** Not reached is not reachable, the Option family overstates, and a bare `.ok_or` is

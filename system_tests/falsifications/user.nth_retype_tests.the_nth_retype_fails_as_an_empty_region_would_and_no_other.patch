@@ -1,0 +1,30 @@
+Falsifies `system_tests::user::nth_retype_tests::the_nth_retype_fails_as_an_empty_region_would_and_no_other`.
+
+Architecture: aarch64, riscv64, x86_64 (the hunk is portable kernel code).
+
+The defect: `memory_region::split` loses its hook, so a `SPLIT` is neither counted nor ever
+failed. A program's splits would then never reach their failure paths under a sweep, and the sweep
+would say nothing about it.
+
+Expected to fail: `arming retype 1 of 3`, the tally reading `seen: 2` where three retypes were
+made. Replayed red on aarch64 on 2026-10-04 (UTC) by the lane for milestone 757 (a test kernel
+fails a process on its Nth retype).
+
+diff --git a/kernel/src/memory_region.rs b/kernel/src/memory_region.rs
+index 00e515ba0..cea908e74 100644
+--- a/kernel/src/memory_region.rs
++++ b/kernel/src/memory_region.rs
+@@ -187,13 +187,6 @@ pub fn create(pages: u64) -> Option<u64> {
+ /// reclaimed: `RegionTable::split`'s `# BUGS` entry has the consequence and a reproduction, and
+ /// `notes/region-split-on-a-full-table.md` the proposal.
+ pub fn split(parent: u64, pages: u64) -> Option<u64> {
+-    // The test kernel's Nth-retype fault (milestone 757 (a test kernel fails a process on its Nth
+-    // retype), provisional): refused before the lock, so the region is left exactly as an
+-    // exhausted one would be. Absent from every other build.
+-    #[cfg(feature = "system_tests")]
+-    if crate::retype_fault::fails_now() {
+-        return None;
+-    }
+     let mut table = REGIONS.lock();
+     let child = table.split(parent, pages);
+     note_peak(&table);
