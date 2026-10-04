@@ -5,7 +5,7 @@
 
 Dell OptiPlex 7050 Micro, BIOS revision 1.27.0, Service Tag `25XNBM2`, manufactured
 12/22/2017. Every setting below was read off a photograph of the machine's own setup UI, taken by
-calef on 2026-09-04 during milestone 87's first light (`notes/x86-uefi-boot.md`).
+calef on 2026-09-04 during the first light of milestone 87 (the x86_64 bare-metal machine) (`notes/x86-uefi-boot.md`).
 
 Provenance, and it is the unreproducible kind. The originals are 70 `.HEIC` files in
 `~/projects/xenon/` on patagonia, calef's machine, named `..._o_IMG_40NN.HEIC`. They are **not in
@@ -31,7 +31,7 @@ The short list, first, because these are the ones a bench session or a lane actu
 | Enable VT for Direct I/O | ticked | IMG_4084 | VT-d is on. See below |
 | Enable Intel Virtualization Technology | ticked | IMG_4083 | |
 | SATA Operation | AHCI | IMG_4033 | Not RAID, so the NVMe is a plain PCIe function rather than hidden behind Intel RST |
-| M.2 PCIe SSD-0 | enabled, `Micron 2450 NVMe 256GB`, 256 GB | IMG_4034 | The NVMe DECISIONS §86 wants an IOMMU in front of |
+| M.2 PCIe SSD-0 | enabled, `Micron 2450 NVMe 256GB`, 256 GB | IMG_4034 | The NVMe DECISIONS §86 (whether an NVMe driver can leave the kernel) wants an IOMMU in front of |
 | SATA-0 / SATA-4 | enabled, both `(none)` | IMG_4034, IMG_4026 | Nothing is attached; the only storage is the M.2 |
 | Multi Core Support | All (4 cores) | IMG_4062 | The boot tour's "4 cores enumerated, 4 enabled" is a setting, not a coincidence |
 | Memory Installed | 16384 MB (2x8192 MB DDR4-2400, dual channel) | IMG_4025 | See the discrepancy note below |

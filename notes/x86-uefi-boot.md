@@ -1,6 +1,6 @@
 # Booting x86_64 from real firmware
 
-Milestone 87. The x86_64 port boots under QEMU by PVH, and `notes/x86-port.md`'s `BUGS`
+Milestone 87 (the x86_64 bare-metal machine). The x86_64 port boots under QEMU by PVH, and `notes/x86-port.md`'s `BUGS`
 already said what that costs:
 
 > PVH is a hypervisor protocol and no real firmware speaks it. Milestone 87's OptiPlex will need a
@@ -190,7 +190,7 @@ Four of those are code paths that had never executed:
   over a revision-2 RSDP with a 64-bit XSDT, which is a different branch in
   `machine_discovery::acpi`. This is the assertion `cargo xtask uefi-boot` gates on, because it is
   the one string that cannot be printed by the PVH path.
-- An ECAM window that is not the hardcoded constant. Milestone 165 made
+- An ECAM window that is not the hardcoded constant. Milestone 165 (x86_64 PCI enumeration) made
   `memory::record_pci_regions` follow the MCFG rather than `arch::mmu::PCI_ECAM_PHYS`; under PVH
   the two agreed, so nothing distinguished "read the table" from "used the constant". Under UEFI
   they disagree and the kernel follows the table.
@@ -206,7 +206,7 @@ loader writes:
 
 ### The RAM that was left on the table, and how much came back
 
-Before milestone 195: 206684 KiB against PVH's 261627 KiB, so about 54 MiB of a 256 MiB machine
+Before milestone 195 (finish the UEFI boot path): 206684 KiB against PVH's 261627 KiB, so about 54 MiB of a 256 MiB machine
 was reported reserved that a Linux-style loader would reclaim. That was a choice rather than a
 defect, in the conservative direction on purpose: claiming less RAM than exists costs megabytes,
 claiming more corrupts something, on hardware nobody can attach a debugger to.
