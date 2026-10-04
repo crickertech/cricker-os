@@ -81,7 +81,7 @@ NEVER = re.compile(r"^never\.\s*(\S.*)?$")
 
 
 def parse(text):
-    """Return (observations, nevers, errors) for one workflow's text.
+    """Return (observations, never_reasons, errors) for one workflow's text.
 
     An observation is (date, run_id or None); a never is its reason.
     """
@@ -171,18 +171,18 @@ def lint():
         print(f"observed-failing: no workflows under {WORKFLOW_DIR}; refusing to pass over nothing",
               file=sys.stderr)
         return 1
-    failures, seen, nevers = [], 0, 0
+    failures, seen, unwatched = [], 0, 0
     for p in paths:
         with open(p) as f:
             text = f.read()
         observed, never, _ = parse(text)
         seen += bool(observed)
-        nevers += bool(never and not observed)
+        unwatched += bool(never and not observed)
         failures += judge(p, text, first_commit_epoch(p))
     for msg in failures:
         print(msg, file=sys.stderr)
     print(f"observed-failing: {len(paths)} workflows, {seen} watched failing, "
-          f"{nevers} never (each older than {CUTOFF})")
+          f"{unwatched} never (each older than {CUTOFF})")
     return 1 if failures else 0
 
 
