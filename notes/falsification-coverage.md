@@ -79,9 +79,9 @@ here.
 - **Only one swish-check record can exist** until §134's path spells a line, which is an
   architect's call:
   [proposal](../design/roadmap/proposals/a-swish-check-line-has-a-falsification-path.md).
-- New kernel tests owe no record. The ratchet that would ask for one is
-  [proposed](../design/roadmap/proposals/a-new-confinement-test-carries-a-falsification-record.md),
-  not built, because it reverses part of milestone 305's recorded choice.
+- Existing kernel tests owe no record. A new one under `system_tests/src/user/` does, since
+  milestone 749 (a new confinement test carries a falsification record), ruled by calef 2026-10-04
+  ([block](../design/roadmap/749-a-new-confinement-test-carries-a-falsification-record.md)).
 - A record that cannot reach a verdict now blocks a merge. That is intended, and the 15-minute
   per-record limit keeps one hung record from costing the whole 45-minute job; a slow record is a
   finding about that record. No flake was seen in the 60 pull requests measured.

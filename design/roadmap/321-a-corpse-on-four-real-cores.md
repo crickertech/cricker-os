@@ -16,12 +16,12 @@ now separates all three readings, and the failure did not reproduce on anything 
 
 This line used to say `NONE`, on the reasoning that investigating needs no
 hardware and that *whether reproducing does* was the first thing to find out and was itself the
-finding. **That question is now answered, and the answer is yes**, so the gate moves: see "What the
+finding. That question is now answered, and the answer is yes, so the gate moves: see "What the
 reproduction attempt established" below. The investigating half is done and is what this block
 delivered.
 
-**This is the one failure from xenon's 2026-09-17 bench evening that is not an assertion written
-against QEMU.** The other three were: a q35 chipset id, an eight-yield window, and a one-bus PCI
+This is the one failure from xenon's 2026-09-17 bench evening that is not an assertion written
+against QEMU. The other three were: a q35 chipset id, an eight-yield window, and a one-bus PCI
 scan. This one is about what the kernel did.
 
 ## What happened
@@ -35,7 +35,7 @@ test kernel::user::survey_tests::a_dead_child_is_still_in_the_domain_until_it_is
 [PANIC] panicked at kernel/src/user/survey_tests.rs:381:5:
 ```
 
-**The child died.** Its kill message is in the transcript three lines above the panic, at the fault
+The child died. Its kill message is in the transcript three lines above the panic, at the fault
 address `FAULT_STUB` is written to produce. What did not happen is the corpse parking on its
 supervision rendezvous's sender queue, where a survey can see it before anyone has collected it.
 That is DECISIONS §26's property and `capability::survey_includes`' proved one.
@@ -45,22 +45,22 @@ Transcript: `bench/xenon-2026-09-17/nvme-attempt-2-no-controller-found.log`.
 ## Do not widen the bound
 
 The reflex, after an evening in which two other failures were margins real silicon closed, is to
-read this the same way. **`wait_for`'s bound is already two seconds of wall clock:**
+read this the same way. `wait_for`'s bound is already two seconds of wall clock:
 
 ```rust
 let deadline = crate::arch::timer::now() + 2 * crate::arch::timer::frequency();
 ```
 
 It yields until then and checks once more on the way out. Two seconds is not a thin margin on a
-2.7 GHz machine for a thread already reported dead. **A test made to pass by waiting longer, for
-something that should already have happened, has been silenced rather than fixed.**
+2.7 GHz machine for a thread already reported dead. A test made to pass by waiting longer, for
+something that should already have happened, has been silenced rather than fixed.
 
-**The bound was not widened, and it is now positively ruled out rather than merely left alone.**
+The bound was not widened, and it is now positively ruled out rather than merely left alone.
 Two pieces of evidence, both from the transcript itself:
 
 - The boot print reads `clocks : tsc 2714 MHz (PIT calibration)`, so `frequency()` returned a sane
   number and `2 * frequency()` really was about two seconds.
-- **61 call sites use `wait_for`** across the kernel's user tests, and this run failed exactly
+- 61 call sites use `wait_for` across the kernel's user tests, and this run failed exactly
   one of them. A `wait_for` whose deadline arithmetic was wrong on this machine would have taken
   a great many of the other sixty with it.
 
@@ -68,14 +68,14 @@ So the two seconds elapsed, the predicate was sampled throughout, and it was nev
 
 ## Three readings, and the transcript separated none of them
 
-1. **The corpse parked and something took it off again.** Then the survey cannot see it either, and
+1. The corpse parked and something took it off again. Then the survey cannot see it either, and
    §26's property is false on this configuration.
-2. **The corpse never parked**, because death delivery on a core other than the one running the
+2. The corpse never parked, because death delivery on a core other than the one running the
    test took a path that does not enqueue the sender.
-3. **The count was not 1.** The assertion is `== 1`, not `>= 1`, so a second sender on that queue
+3. The count was not 1. The assertion is `== 1`, not `>= 1`, so a second sender on that queue
    fails it in a way that reads identically in the log.
 
-**The next transcript will separate all three**, which is what this block built. The assertion now
+The next transcript will separate all three, which is what this block built. The assertion now
 carries the count *and* `sched::thread_death_disposition(child)`, which reports the corpse's run
 state, its `fault_ep` and its recorded wait. Those three fields differ in every history:
 
@@ -88,64 +88,64 @@ state, its `fault_ep` and its recorded wait. Those three fields differ in every 
 | `None` | The thread was reaped and freed |
 
 The count alone would have settled only reading 3, which is why the disposition is there too: a
-count of zero leaves readings 1 and 2 still identical in a log. **The message was verified by
-forcing the assertion to fail**, rather than shipped unseen, and printed
+count of zero leaves readings 1 and 2 still identical in a log. The message was verified by
+forcing the assertion to fail, rather than shipped unseen, and printed
 
 ```
 the child never died onto its supervision rendezvous: 1 senders parked on it,
 and the child is Some((Dead, Some(17179869184), Some((17179869184, Sender))))
 ```
 
-which is the healthy shape. That check earned its keep: on xenon the panic's own message **never
-reached the console at all**. `kernel/src/panic.rs` prints `[PANIC] {info}` as one statement whose
+which is the healthy shape. That check earned its keep: on xenon the panic's own message never
+reached the console at all. `kernel/src/panic.rs` prints `[PANIC] {info}` as one statement whose
 `Display` spans two lines, and the log stops between them, so a diagnostic that had never been seen
 render would have been worth nothing.
 
 ## What the reproduction attempt established
 
-**It did not reproduce on anything patagonia can run**, and the shape of that failure is the
+It did not reproduce on anything patagonia can run, and the shape of that failure is the
 finding:
 
-- **x86_64 under QEMU at `NIFE_SMP=4`**: one full suite plus five filtered runs, all green, with
+- x86_64 under QEMU at `NIFE_SMP=4`: one full suite plus five filtered runs, all green, with
   `smp: 4 core(s) online` confirmed in the boot print (so this was not `ap_boot`'s BUGS #1 quietly
   running three).
-- **x86_64 under QEMU at `NIFE_SMP=8`**: ten filtered runs, all green.
-- **x86_64 under QEMU at `NIFE_SMP=4` with genuinely parallel cores**: twelve filtered runs, all
+- x86_64 under QEMU at `NIFE_SMP=8`: ten filtered runs, all green.
+- x86_64 under QEMU at `NIFE_SMP=4` with genuinely parallel cores: twelve filtered runs, all
   green. See below; this leg did not exist before this milestone.
-- **aarch64 at four cores**: `helpers/qemu-runner-aarch64.sh` defaults `NIFE_SMP` to 4, so every
+- aarch64 at four cores: `helpers/qemu-runner-aarch64.sh` defaults `NIFE_SMP` to 4, so every
   ordinary `script/test` has been running this test at four cores all along, and it passes.
 
 ### The missing condition was parallelism, not cores, and that is now measured
 
 TCG has two vCPU models, and this port had only ever used one. Round-robin (`thread=single`) runs
-every guest core on **one** host thread; multi-threaded TCG (`thread=multi`) gives each guest core
-its own. **On an aarch64 host running an x86_64 guest QEMU picks round-robin**, so `NIFE_SMP=4` in
+every guest core on one host thread; multi-threaded TCG (`thread=multi`) gives each guest core
+its own. On an aarch64 host running an x86_64 guest QEMU picks round-robin, so `NIFE_SMP=4` in
 this tree has never meant four cores running in the same instant. Measured rather than asserted: at
-`-smp 4`, QEMU 11.1.1 creates **5** threads under `thread=single` and **8** under `thread=multi`.
+`-smp 4`, QEMU 11.1.1 creates 5 threads under `thread=single` and 8 under `thread=multi`.
 
 So the first sixteen runs above were not the experiment they looked like. `NIFE_TCG_THREAD`
-(**provisional name**) was added to `helpers/qemu-runner-x86_64.sh` to fix that, is empty by default
+(provisional name) was added to `helpers/qemu-runner-x86_64.sh` to fix that, is empty by default
 so nothing else changes, and its `BUGS` section carries the caveat that matters: x86's TSO is
 stronger than an aarch64 host provides, QEMU accepts the pair without a warning, and nobody here has
-audited its barrier placement. **A red run under that knob would need confirming on a bench before
-it was believed.** Twelve green ones need no such care, and twelve is what it produced.
+audited its barrier placement. A red run under that knob would need confirming on a bench before
+it was believed. Twelve green ones need no such care, and twelve is what it produced.
 
-The other path to parallel cores, the aarch64 HVF leg, **does not run here**: QEMU refuses
+The other path to parallel cores, the aarch64 HVF leg, does not run here: QEMU refuses
 `virt,accel=hvf,gic-version=2,iommu=smmuv3`, the known GICv2/GICv3 incompatibility that milestones
 227 and 317 own and that `script/ci-build` already skips out loud. That is somebody else's bug and
 was not worked around.
 
-So the honest statement is the one `design/fatal-risks/README.md` risk 2 predicts: **this is reachable only
-on real silicon, or it is rarer than 28 runs**, and the instrument for reading it when it next
+So the honest statement is the one `design/fatal-risks/README.md` risk 2 predicts: this is reachable only
+on real silicon, or it is rarer than 28 runs, and the instrument for reading it when it next
 happens is now in the tree rather than on a bench.
 
 ## What reading the code ruled out, and what it did not
 
 Reading is not measurement and this section is careful to say which is which. Three of the
-candidate mechanisms have **no path in the source** and are ruled out by inspection:
+candidate mechanisms have no path in the source and are ruled out by inspection:
 
 - **The unsupervised path.** `build_child_in` inserts the fault-endpoint capability into
-  `FAULT_EP_SLOT` **before** `start_thread_control_block`, and that function records `t.fault_ep`
+  `FAULT_EP_SLOT` before `start_thread_control_block`, and that function records `t.fault_ep`
   and consumes the slot under `IPC_TABLES` before the thread is ever `Ready`. There is no window in
   which a startable child has no supervision endpoint.
 - **A recycled rendezvous carrying stale queue entries.** `try_create_rendezvous_from` retypes a
@@ -153,7 +153,7 @@ candidate mechanisms have **no path in the source** and are ruled out by inspect
   generational. A new `ep` cannot inherit an old one's parked sender or, worse, an old one's parked
   *receiver*, which would swallow the death message through `Send::Rendezvous` and leave the count
   at zero forever.
-- **Something dequeuing the corpse.** The only things that remove a sender are `Rendezvous::recv`,
+- **Something dequeuing the corpse.** The only things that remove a sender are `Rendezvous::receive`,
   `remove_sender` and teardown. This test reaches none of them before the assertion.
 
 **What that leaves is reading 2 by a route nobody has yet named**, and this block does not claim to
@@ -169,8 +169,8 @@ twenty-eight times somewhere else" is the same refusal wearing a bigger number.
 
 ## Why it is worth a lane rather than a retry
 
-This is the supervision mechanism. **A corpse a supervisor cannot see is the failure §26 exists to
-prevent**, and the test's own doc comment says why both halves live in one case: the domain the
+This is the supervision mechanism. A corpse a supervisor cannot see is the failure §26 (the fault endpoint) exists to
+prevent, and the test's own doc comment says why both halves live in one case: the domain the
 viewer reports and the domain the supervisor may collect from are one set. If that set differs on a
 multi-core machine, a property this tree proves and tests holds under emulation and is unverified
 where it matters.
@@ -184,7 +184,7 @@ positioned to see it.
 ## Done when
 
 Either a defect is found and fixed with a test that fails without the fix, or the investigation
-establishes that the kernel is correct and the test was wrong, **with the reason written down**.
+establishes that the kernel is correct and the test was wrong, with the reason written down.
 "It passed on a retry" is not an outcome this block accepts.
 
 **Neither has happened yet, which is why this is `PARTIAL` and not `BUILT`.** What has happened is
@@ -209,10 +209,10 @@ bench evening that was not an assertion written against QEMU.
   it, root-causes it (`PortRange::REVOKE` resets the TSS I/O bitmap on the revoker's core only, so a
   holder on another core keeps the ports for up to a tick), and points at
   [milestone 315](315-port-revoke-every-core.md), which closes it and is `NOT-STARTED` with no gate.
-  **Nothing is owed here**, and the near-miss is worth the sentence: a proposal file had been written
+  Nothing is owed here, and the near-miss is worth the sentence: a proposal file had been written
   for it before the existing record turned up.
 - **Done.** `NIFE_TCG_THREAD=multi` in `helpers/qemu-runner-x86_64.sh` gives this port parallel
-  cores under emulation for the first time. **Provisional name**, empty by default, and its `BUGS`
+  cores under emulation for the first time. Provisional name, empty by default, and its `BUGS`
   section is honest that it is a hunting instrument rather than a gate. Whether the suite should
   ever run that way is not this lane's call and is left alone; §153 and milestone 315 are already
   holding the x86 SMP posture.

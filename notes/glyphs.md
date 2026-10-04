@@ -12,9 +12,9 @@ driver). This is the prose half.
 ## The shape
 
 ```text
-  virtio-input ──virtio (PCIe, IOMMU)──► kbd ──the input ring──► compositor ──OP_BYTES──►┌───────┐
+  virtio-input ──virtio (PCIe, IOMMU)──► kbd ──the input ring──► compositor ──OPERATION_BYTES──►┌───────┐
   (a keyboard)                                                                            │ display_terminal │
-                                                         application ──OP_WRITE──────────►└───────┘
+                                                         application ──OPERATION_WRITE──────────►└───────┘
                                                                                               │ glyphs
                                                                     its surface ◄─────────────┘
                                                                          │
@@ -69,7 +69,7 @@ capability table slots left), so a narrower cell is the only lever there is.
 The division has a remainder, and it is handled rather than avoided: 18 cells of 7 is 126, so two
 pixels on the right of a full-width surface belong to no cell. `Vt::pixel` already answered for
 them (a cell outside the grid is a blank on the default background), and `display_terminal` paints
-its whole surface on its first frame so that something actually writes them. Nothing else needed to
+its whole surface on its first frame so that something writes them. Nothing else needed to
 change, and no surface has to be a whole number of cells any more.
 
 ### What was done better than the ROM, and what the grid would not allow
@@ -84,7 +84,7 @@ the grid does not force, this is not.
 - `Il1|` are four different shapes, deliberately: `I` has serifs at both ends, `l` has a flag at
   the top left and a tail at the bottom right, `1` has a flag and a flat foot, and `|` is the only
   glyph that runs the full eight rows.
-- A slashed zero, which the ROM also has and which is the reason a terminal font is usable in a
+- A slashed zero, which the ROM has and which is the reason a terminal font is usable in a
   hex dump.
 
 And what is kept because it is the grid rather than the drawing:
@@ -116,7 +116,7 @@ anyone for the letters on the screen, so a change of font would be a decision ab
 And a reversal on top of that correction, which is calef's (2026-08-19). The old rule refused
 any font with an attribution obligation, on the ground that a bitmap font is compiled into the image
 and its licence therefore travels with the artefact. The first half of that reasoning stands; the
-conclusion does not. He read OFL 1.1 and his verdict was that the obligation "actually doesn't look
+conclusion does not. He read OFL 1.1 and his verdict was that the obligation "doesn't look
 onerous", so obliging licences are in scope and priced rather than refused. That matters,
 because the public-domain corner of this field is small and the well-drawn fonts mostly live under
 the OFL.
@@ -134,7 +134,7 @@ cargo run -p bitmap_font --example specimen -- --font bench/font-options/hand-dr
 cargo run -p bitmap_font --example specimen -- --font crates/bitmap_font/kaypro-style-7x8.art
 ```
 
-It reads the three formats a bitmap font actually arrives in: `.hex` (GNU Unifont), `.bdf` (Adobe,
+It reads the three formats a bitmap font arrives in: `.hex` (GNU Unifont), `.bdf` (Adobe,
 which is what Terminus, Spleen and every X11 bitmap font ship as), and the `.art` `#`/`.` picture
 that is the only sane way to author one by hand. Every font gets the same sample text, chosen for
 where small fonts fail: `Il1|` and `O0` (the confusions that ruin a hex dump), `rn` against `m` (the
@@ -167,9 +167,9 @@ unscii-16-full.*) which fall under GPL", an exception that does not touch `unsci
 Terminus's own `OFL.TXT` inside `terminus-font-4.49.1.tar.gz`, which opens "Copyright (C) 2020
 Dimitar Toshkov Zhekov, with Reserved Font Name "Terminus Font""; Spleen's `LICENSE` at
 `github.com/fcambus/spleen`, two-clause BSD; and gohufont's `COPYING-LICENSE`, whose entire terms
-are "0. You just DO WHAT THE FUCK YOU WANT TO."
+are "0. You DO WHAT THE FUCK YOU WANT TO."
 
-What an obligation would actually cost us, in the order that matters:
+What an obligation would cost us, in the order that matters:
 
 - The Reserved Font Name is the expensive clause, and only Terminus has one. Being picky about
   fonts means eventually fixing a glyph, and under the OFL the moment a glyph changes the table is a
@@ -316,7 +316,7 @@ cargo run -p bitmap_font --example specimen -- --metrics \
     --font 81-146a.bin --name kaypro-ii --font gohufont-14.bdf --name gohufont-14
 ```
 
-How it actually looks, next to `gohufont-14`, which is the current pick. The two are drawn
+How it looks, next to `gohufont-14`, which is the current pick. The two are drawn
 interleaved by giving `--font` twice, because a specimen in a section of its own is an inventory.
 
 The Kaypro is the most evenly-fitted font in this survey bar one. Its left-edge sigma is 0.27
@@ -328,7 +328,7 @@ exact vertical mirrors of each other, distinguished only by which end the middle
 the descender is one row against gohufont's three, so `g p q y j` all descend, but by a single
 row each: a hook where gohufont has a tail.
 
-It is also light, 13.6 ink per letter against 19.1, which is the weight that suited a green phosphor
+It is light, 13.6 ink per letter against 19.1, which is the weight that suited a green phosphor
 tube whose bloom filled the strokes in. On a modern panel with no bloom it reads thin.
 
 The verdict, plainly: gohufont-14 is the better font, and it is not close on the letterforms.
@@ -471,12 +471,12 @@ an argument.
 ### One endpoint, because one wait point
 
 A terminal has two classes of sender: an application printing and an input source typing. DECISIONS
-§33 recorded that a process here has exactly **one blocking wait point** (one `RECV`, no wait-any,
+§33 (the compositor's authority is memory, not messages (milestone) recorded that a process here has exactly **one blocking wait point** (one `RECEIVE`, no wait-any,
 and two threads cannot share an address space), so telling them apart by endpoint is not available.
 They arrive on one endpoint and are told apart by opcode, which is what `line_editor` already does.
 
 The security consequence is stated rather than hidden: an application holding that endpoint could
-send `OP_BYTES` and forge a keystroke into its own terminal. It gains nothing (the bytes come
+send `OPERATION_BYTES` and forge a keystroke into its own terminal. It gains nothing (the bytes come
 back to the grid it is already printing on), and the boundary that matters, one client's input not
 reaching another's, is the compositor's and is a capability there.
 
@@ -491,7 +491,7 @@ It does not need to ring. The compositor rescans every client's control page on 
 from anyone, and the input source rings `COMMIT` itself after it fills the ring. So the frame that
 delivers a keystroke is the frame that shows it: the terminal paints, records its damage, bumps its
 sequence, and replies. Application output is different, because nobody else is going to ring for it,
-so `OP_WRITE` does ring, and that is safe because the caller blocked in `CALL` is the application.
+so `OPERATION_WRITE` does ring, and that is safe because the caller blocked in `CALL` is the application.
 
 The result is better than the design the deadlock ruled out, which is worth saying plainly: a client
 that does not have to ask for a frame after receiving input is one fewer round trip and one fewer way
@@ -610,8 +610,8 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
   What changed is that a multi-byte sequence now occupies one cell (one box) instead of one wrong
   picture per encoded byte.
 - No line editing in the display terminal. It renders a stream and echoes keystrokes; it does not
-  serve `OP_READLINE`. A client that wants edited lines puts `line_editor` in front of it and prints the
-  discipline's echo through `OP_WRITE`, which needs no new protocol at all, because `line_editor`'s echo
+  serve `OPERATION_READLINE`. A client that wants edited lines puts `line_editor` in front of it and prints the
+  discipline's echo through `OPERATION_WRITE`, which needs no new protocol at all, because `line_editor`'s echo
   is exactly a byte stream this engine parses. That is not a hope: the `video_terminal` crate proves it on the
   host by running both.
 - A 132x43 grid, with no pixels left over (grown 2026-08-26 from 18x8 to 182x90 at milestone

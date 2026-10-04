@@ -100,7 +100,7 @@ id:
 
 ```rust
 // 1. Bind. No frame is attached anywhere yet, because a listener carries no bytes.
-match call(STACK, req(OP_LISTEN, LISTEN_SID), 7778).0 {
+match call(STACK, req(OPERATION_LISTEN, LISTEN_SID), 7778).0 {
     LISTEN_GRANTED => {}
     LISTEN_DENIED  => /* this stack was never granted 7778: ask the spawner, not again */,
     LISTEN_IN_USE  => /* somebody already holds it: pick another port */,
@@ -112,11 +112,11 @@ attach_frame(CONN_SID);
 
 // 3. Accept, use, close, repeat. The listener re-arms inside ACCEPT, so this loop keeps working.
 loop {
-    if call(STACK, req(OP_ACCEPT, LISTEN_SID), CONN_SID).0 != REP_OK { break; }
-    let (len, _) = call(STACK, req(OP_RECEIVE, CONN_SID), 0);
+    if call(STACK, req(OPERATION_ACCEPT, LISTEN_SID), CONN_SID).0 != REP_OK { break; }
+    let (len, _) = call(STACK, req(OPERATION_RECEIVE, CONN_SID), 0);
     // ... read the request out of the frame at FRAME_VA + OFF_PAYLOAD, write the answer back ...
-    let _ = call(STACK, req(OP_SEND, CONN_SID), reply_len);
-    let _ = call(STACK, req(OP_CLOSE, CONN_SID), 0);   // the listener is untouched by this
+    let _ = call(STACK, req(OPERATION_SEND, CONN_SID), reply_len);
+    let _ = call(STACK, req(OPERATION_CLOSE, CONN_SID), 0);   // the listener is untouched by this
 }
 ```
 
@@ -164,7 +164,7 @@ None of it is needed to use the contract.
 - A listen grant belongs to the `Stack` endpoint, not the client, because an endpoint carries no
   sender identity. Two clients sharing one endpoint share its grant. See
   [the-inbound-half.md](net/the-inbound-half.md).
-- An accepted stream reports its peer as `0.0.0.0:0`, because `OP_ACCEPT`'s reply carries no peer.
+- An accepted stream reports its peer as `0.0.0.0:0`, because `OPERATION_ACCEPT`'s reply carries no peer.
   Both fixes change what two programs agree on, so both are calef's. See
   [std-tcp-listener.md](net/std-tcp-listener.md).
 - `virtio::MAX_DEVICES` never reuses a slot, and a dead net service's DMA page and shadow ring are
@@ -183,8 +183,8 @@ written, in [the-inbound-check.md](net/the-inbound-check.md).*
 ### What is still not proven, and what is deliberately out of scope
 
 - **`std::net::TcpListener` is bound** (milestone 64, 2026-08-18; this bullet used to say it was
-  still `Unsupported`). The prediction above was right in every particular: `bind` is `OP_LISTEN` on
-  a client-allocated socket id, `accept` is `OP_ACCEPT` into another one the PAL allocates and
+  still `Unsupported`). The prediction above was right in every particular: `bind` is `OPERATION_LISTEN` on
+  a client-allocated socket id, `accept` is `OPERATION_ACCEPT` into another one the PAL allocates and
   attaches a frame to, and the std client's stack is now spawned with a real listen grant. See "The
   std client is a server too" in [std-tcp-listener.md](net/std-tcp-listener.md), and notes/std.md.
 - **Only the mmio transport carries the inbound gate.** A PCIe twin would need a second host port,

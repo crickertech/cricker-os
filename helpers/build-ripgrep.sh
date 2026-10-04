@@ -37,7 +37,7 @@ OUT="$ROOT/target/ripgrep"
 SRC="$BUILD/ripgrep-$VERSION"
 
 mkdir -p "$BUILD"
-if [ ! -d "$SRC" ]; then
+if [ ! -f "$SRC/Cargo.toml" ]; then  # a half-unpacked tree from an interrupted run has no manifest
   echo "build-ripgrep: fetching ripgrep $VERSION from crates.io"
   curl -sSL --max-time 120 -o "$BUILD/ripgrep-$VERSION.crate" \
     "https://static.crates.io/crates/ripgrep/ripgrep-$VERSION.crate"
@@ -71,6 +71,9 @@ mkdir -p "$OUT"
 
 for TRIPLE in ${NIFE_RIPGREP_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x86_64-unknown-nife}; do
   cd "$SRC"
+  # Overflow checks as every nife release profile carries them (notes/overflow-checks.md); ripgrep's
+  # own profile is upstream's, so the setting comes from the environment, and reaches its `std` too.
+  CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
   RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" \
   RUSTFLAGS="-Clink-arg=-T$ROOT/crates/user_mode_runtime/link.ld -Clink-arg=-u_start -Clink-arg=--build-id=none -Cstrip=debuginfo -Copt-level=s" \
     cargo build --release \

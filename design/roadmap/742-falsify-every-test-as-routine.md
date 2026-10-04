@@ -51,14 +51,15 @@ The finding that decided what to build: the replays existed and their verdicts w
   `script/falsifications`' header.
 - One swish-check record at most, until §134 (a harness carries a machine-replayable falsification record)'s path can spell a line: proposal
   `a-swish-check-line-has-a-falsification-path` (an architect's call).
-- New kernel tests owe no record: proposal `a-new-confinement-test-carries-a-falsification-record`.
+- New kernel tests owed no record; milestone 749 (a new confinement test carries a falsification
+  record) closed that for `system_tests/src/user/`.
 - Host unit tests are opt-in: a record is swept, and nothing asks a test to carry one. Mutation
   testing stays their main mechanism, and notes/falsification-coverage.md says what that misses.
 
 ## Follow-on
 
 - **Proposed.** `design/roadmap/proposals/a-swish-check-line-has-a-falsification-path.md`.
-- **Proposed.** `design/roadmap/proposals/a-new-confinement-test-carries-a-falsification-record.md`.
+- **Milestone 749.** A new confinement test carries a falsification record, approved by calef 2026-10-04.
 - **Recorded.** The weekly-only replay of kernel and swish-check records, in
   `script/falsifications`' BUGS and notes/falsification-coverage.md's.
 

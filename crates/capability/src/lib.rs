@@ -374,7 +374,11 @@ mod storage {
             *s = Some(cap);
             self.free &= !(1u32 << slot);
             if was_empty {
-                self.used += 1;
+                // Wrapping, because the wrap cannot happen and this is on every reply-capability
+                // mint (release builds check overflow, notes/overflow-checks.md). `used` counts
+                // occupied slots (`the_count_is_the_slots` proves it), this slot was empty, so the
+                // result is at most `N`, which the `u32` free mask bounds at 32.
+                self.used = self.used.wrapping_add(1);
                 if self.used > self.peak {
                     self.peak = self.used;
                     note_peak(self.peak, N);

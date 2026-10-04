@@ -45,7 +45,7 @@ at a cost:
    calls `RECEIVE_CAP`, it takes both, and answers a caller it was never wired to. So while the
    endpoint has no server at all, requests are not lost, not refused, and not reordered; the caller
    is simply blocked, which is what a synchronous IPC caller already is.
-2. The drain is a message travelling in band. The operator's `OP_QUIESCE` goes to *the endpoint
+2. The drain is a message travelling in band. The operator's `OPERATION_QUIESCE` goes to *the endpoint
    being drained*, and the sender queue is FIFO, so by the time it arrives the incumbent has answered
    everything queued ahead of it. No quiescence handshake, no timeout, no window to guess at.
 
@@ -64,7 +64,7 @@ the honest client's exact capabilities and tries to receive on the service endpo
   1 BUILT    lay the replacement out, endow it, retype its TCB -- but do not configure or start it.
              A thread that was never started is in nobody's queue, so it cannot take a request the
              incumbent is still there to serve.
-  2 DRAINED  CALL OP_QUIESCE on the service endpoint. FIFO does the waiting. The incumbent replies
+  2 DRAINED  CALL OPERATION_QUIESCE on the service endpoint. FIFO does the waiting. The incumbent replies
              and stops receiving; requests from here on park on the sender queue.
   3 REVOKED  Frame::REVOKE the device capability. Gone from every holder but the operator.
   4 STARTED  map the registers into the replacement, CONFIGURE, START. It drains the parked
@@ -158,7 +158,7 @@ footprint is unchanged; a runaway producer gets `QUEUE_FULL`, which is backpress
 than a policy hidden inside a server). On the way back up it drains in arrival order before it
 answers, so "the broker is up" and "the backlog is delivered" are one event to anyone watching.
 
-Its control messages travel in band on its own front endpoint, for the same reason `OP_QUIESCE`
+Its control messages travel in band on its own front endpoint, for the same reason `OPERATION_QUIESCE`
 does: synchronous rendezvous means a server blocks on one endpoint, and a second one would need the
 wait-any primitive DECISIONS §26.5 deliberately does not have.
 
@@ -252,7 +252,7 @@ which is the control this whole milestone rests on and which the test asserts on
   recorded watchdog case". That is right about reclaiming its memory and **wrong about restarting its
   service**: `swapper`'s `ROLE_HUNG` runs the swap against an incumbent that stops answering and gets
   the service back with no authority the operator did not already hold, because the one step that
-  needed the incumbent's cooperation (`OP_QUIESCE`) is the step a hang makes redundant. What the test
+  needed the incumbent's cooperation (`OPERATION_QUIESCE`) is the step a hang makes redundant. What the test
   also shows is the harder half: the domain reports the hang as `BLOCKED`, which is what a healthy
   idle server reports as, and `Endpoint::REAP` answers `StillAlive` for every member. See
   notes/hung-component.md, including the two decisions this cannot pass without (how a supervisor

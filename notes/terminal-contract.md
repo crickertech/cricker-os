@@ -8,9 +8,9 @@ than against `line_editor`, the particular component that satisfies it today.
 A terminal sits between two driver endpoints and an application:
 
 ```text
-  input driver ──OP_BYTES──►┌──────────┐──text──► console server ──► UART
+  input driver ──OPERATION_BYTES──►┌──────────┐──text──► console server ──► UART
                             │ terminal │
-       application ◄─lines──└──────────┘◄─OP_WRITE / OP_READLINE── application
+       application ◄─lines──└──────────┘◄─OPERATION_WRITE / OPERATION_READLINE── application
 ```
 
 Nobody in that picture can name anyone else. The input driver holds "an endpoint I send wire
@@ -52,45 +52,45 @@ terminal writes, it reads).
 
 | Opcode | Direction | First word | Second word | Reply `r0` | Reply `r1` |
 |---|---|---|---|---|---|
-| `OP_WRITE` | app → terminal | `req(OP_WRITE, len)` | 0 | bytes consumed | 0 |
-| `OP_READLINE` | app → terminal | `req(OP_READLINE, plen)` | 0 | line length | flags |
-| `OP_BYTES` | driver → terminal | `req(OP_BYTES, n)` | n bytes, packed LE | 0 | 0 |
-| `OP_INTRCOUNT` | app → terminal | `req(OP_INTRCOUNT, 0)` | 0 | `^C` count so far | 0 |
-| `OP_PRINT` | adapter → terminal | `req(OP_PRINT, len)` | len bytes, packed LE | bytes consumed | 0 |
-| `OP_RAWMODE` | app → terminal | `req(OP_RAWMODE, 0\|1)` | 0 | 0 | 0 |
-| `OP_READRAW` | app → terminal | `req(OP_READRAW, 0)` | 0 | byte count (1..=8) | bytes, packed LE |
-| `OP_QUIESCE` | supervisor → terminal | `req(OP_QUIESCE, 0)` | 0 | `QUIESCED` | 0 |
+| `OPERATION_WRITE` | app → terminal | `req(OPERATION_WRITE, len)` | 0 | bytes consumed | 0 |
+| `OPERATION_READLINE` | app → terminal | `req(OPERATION_READLINE, plen)` | 0 | line length | flags |
+| `OPERATION_BYTES` | driver → terminal | `req(OPERATION_BYTES, n)` | n bytes, packed LE | 0 | 0 |
+| `OPERATION_INTRCOUNT` | app → terminal | `req(OPERATION_INTRCOUNT, 0)` | 0 | `^C` count so far | 0 |
+| `OPERATION_PRINT` | adapter → terminal | `req(OPERATION_PRINT, len)` | len bytes, packed LE | bytes consumed | 0 |
+| `OPERATION_RAWMODE` | app → terminal | `req(OPERATION_RAWMODE, 0\|1)` | 0 | 0 | 0 |
+| `OPERATION_READRAW` | app → terminal | `req(OPERATION_READRAW, 0)` | 0 | byte count (1..=8) | bytes, packed LE |
+| `OPERATION_QUIESCE` | supervisor → terminal | `req(OPERATION_QUIESCE, 0)` | 0 | `QUIESCED` | 0 |
 
-`OP_QUIESCE` (milestone 23, a capability-routed component OS with live replacement; calef's ruling
+`OPERATION_QUIESCE` (milestone 23, a capability-routed component OS with live replacement; calef's ruling
 of 2026-09-26) stops a terminal so a replacement can take over. It rides the terminal endpoint, so
-the endpoint's FIFO does the draining. A parked `OP_READLINE` or `OP_READRAW` is answered
+the endpoint's FIFO does the draining. A parked `OPERATION_READLINE` or `OPERATION_READRAW` is answered
 `FLAG_RETRY` first, because the reply capability naming that reader cannot leave the terminal. The
 terminal then waits on a control endpoint for `CTL_RESUME` or `CTL_QUIT`. A terminal started with
 no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boot builds today.
 
-- `OP_WRITE`: print `len` bytes from the client's output page. The terminal performs
+- `OPERATION_WRITE`: print `len` bytes from the client's output page. The terminal performs
   output-side newline translation (`\n` becomes `\r\n`) and passes everything else, ANSI
   included, untouched: the wire belongs to the application while it is printing. The reply comes
   when the bytes are on the console's side; the output page is the client's to reuse again.
 
-- `OP_READLINE`: read one line. The low bits carry a prompt length; the prompt bytes sit at
+- `OPERATION_READLINE`: read one line. The low bits carry a prompt length; the prompt bytes sit at
   the start of the output page and the terminal paints them, followed by any type-ahead the user
   already entered. The reply comes when a completed line is ready: `r0` is its length (the bytes
   are in the client's input page) and `r1` carries the flags below. At most one read may be
-  outstanding per terminal. A second `OP_READLINE` while one is parked is a protocol violation
+  outstanding per terminal. A second `OPERATION_READLINE` while one is parked is a protocol violation
   and is refused with `BAD_REQUEST`; the contract is one line reader per terminal, which is what
   a session is.
 
-- `OP_BYTES`: the driver half. One to eight raw wire bytes, packed little-endian in the
+- `OPERATION_BYTES`: the driver half. One to eight raw wire bytes, packed little-endian in the
   second word, replied immediately. A keystroke is one byte and control flow, not bulk, so the
   words-in-registers path fits; a paste drains eight bytes per message, and the `CALL`
   rendezvous is the flow control that keeps a fast sender from outrunning the discipline. The
   driver does no editing, echo, or line assembly; it forwards bytes and nothing else, the way a
   UART driver feeds the Unix tty layer without being the tty layer.
 
-- `OP_PRINT` (DECISIONS §67 (a program's second stream is a declaration, not a number)): print one to eight bytes carried in the request's own words.
-  Same job as `OP_WRITE` and same manners (both go through `expand_output`), and it exists because
-  of a limit `OP_WRITE` has that is easy to miss: it reads from the client's output page, and
+- `OPERATION_PRINT` (DECISIONS §67 (a program's second stream is a declaration, not a number)): print one to eight bytes carried in the request's own words.
+  Same job as `OPERATION_WRITE` and same manners (both go through `expand_output`), and it exists because
+  of a limit `OPERATION_WRITE` has that is easy to miss: it reads from the client's output page, and
   there is exactly one of those. The progenitor maps a single frame into the terminal read-only and into the
   shell read/write, so a second page-based client would need a second frame and a page index in
   every request. That is `filesystem_protocol`'s one-page-two-clients problem (DECISIONS §55) arriving in a
@@ -100,18 +100,18 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
   output with no page at all, which is what let the terminal become a destination a program's
   output slot can hold. Eight bytes rather than sixteen is this contract's request shape, not a
   choice: a served request arrives through `receive_cap` with the reply capability and two data words,
-  which is why `OP_BYTES` carries eight too.
+  which is why `OPERATION_BYTES` carries eight too.
 
-- `OP_RAWMODE` / `OP_READRAW` (milestone 169 (the smallest real text editor)): the raw-keystroke primitive `kilo` needs and the
+- `OPERATION_RAWMODE` / `OPERATION_READRAW` (milestone 169 (the smallest real text editor)): the raw-keystroke primitive `kilo` needs and the
   line discipline, by design, does not give a program (DECISIONS §21 says a program "never sees a
-  keystroke, an escape sequence, or an echo"). `OP_RAWMODE` switches the terminal between the line
+  keystroke, an escape sequence, or an echo"). `OPERATION_RAWMODE` switches the terminal between the line
   discipline and raw mode (`len` 1 to enter, 0 to leave), replied immediately. While raw mode is on,
-  `OP_BYTES` bypasses [`LineDisc`](../crates/line_editor/src/lib.rs) entirely: no echo, no editing,
+  `OPERATION_BYTES` bypasses [`LineDisc`](../crates/line_editor/src/lib.rs) entirely: no echo, no editing,
   no line assembly, and a control byte like `^C` is delivered literally rather than intercepted.
-  `OP_READRAW` reads the result: one to eight raw bytes, packed little-endian, the same
-  register-only shape `OP_BYTES` and `OP_PRINT` already use, so this needs no page either. At most
-  one `OP_READRAW` may be outstanding, the same rule `OP_READLINE` already has. The two input
-  models refuse each other with `BAD_REQUEST`: `OP_READLINE` while raw mode is on, `OP_READRAW`
+  `OPERATION_READRAW` reads the result: one to eight raw bytes, packed little-endian, the same
+  register-only shape `OPERATION_BYTES` and `OPERATION_PRINT` already use, so this needs no page either. At most
+  one `OPERATION_READRAW` may be outstanding, the same rule `OPERATION_READLINE` already has. The two input
+  models refuse each other with `BAD_REQUEST`: `OPERATION_READLINE` while raw mode is on, `OPERATION_READRAW`
   while it is off. Switching mode in either direction abandons whatever line was in progress in the
   mode being left (the line discipline's edit buffer, or raw mode's queued-but-unread bytes), and
   fails a parked read of the mode being left rather than hang it forever; history and the kill
@@ -120,18 +120,18 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
   the line discipline would otherwise interpret, the two refusals, and a read parked before data
   arrives still being answered once it does.
 
-  Only `line_editor` serves it. `display_terminal` does not serve `OP_READLINE` either (see
+  Only `line_editor` serves it. `display_terminal` does not serve `OPERATION_READLINE` either (see
   "For milestones 29 and 31" below); raw mode is a line-discipline opcode exactly like
-  `OP_READLINE` is, and belongs nowhere else. A client behind the display terminal that wants raw
+  `OPERATION_READLINE` is, and belongs nowhere else. A client behind the display terminal that wants raw
   keystrokes composes `line_editor` in front of it exactly as one wanting edited lines already does,
-  and that composition needs no change to either component: `line_editor`'s `OP_WRITE` output is
+  and that composition needs no change to either component: `line_editor`'s `OPERATION_WRITE` output is
   already backend-agnostic (it prints through whatever `Con` sink is wired underneath), and raw
   mode never touches `Con` at all except its overflow bell, so the primitive is identical behind
   either backend by construction rather than by having been wired twice.
 
-- `OP_INTRCOUNT` (DECISIONS §24 (interrupting the foreground process)): reply immediately with the running count of `^C` the terminal
+- `OPERATION_INTRCOUNT` (DECISIONS §24 (interrupting the foreground process)): reply immediately with the running count of `^C` the terminal
   has seen since boot. This is the shell's `^C` sensor for the case a parked read cannot cover: when
-  a foreground job is running, the shell is not in `OP_READLINE`, so there is no read to fail with
+  a foreground job is running, the shell is not in `OPERATION_READLINE`, so there is no read to fail with
   `FLAG_INTERRUPTED`. The shell polls this count while watching the job and escalates from its
   advance (DECISIONS §24). A poll, not a delivered signal, because there is no non-blocking receive
   to block the shell on both the job and `^C` at once; a busy-poll with `yield` is the honest
@@ -143,14 +143,14 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
 - `FLAG_EOF` (`1<<0`): end of input (`^D` on an empty line). The line length is 0.
 - `FLAG_INTERRUPTED` (`1<<1`): the read was interrupted (`^C`). The line length is 0. This is the
   contract's `^C` hook for a job blocked reading (the shell at its prompt). A job that is
-  running is reached through `OP_INTRCOUNT` and the two-tier routing instead (DECISIONS §24,
+  running is reached through `OPERATION_INTRCOUNT` and the two-tier routing instead (DECISIONS §24,
   built; design/interrupt-routing.md is the original proposal). One `^C` at the terminal does both:
   it fails any parked read and it bumps the count.
 
 - `FLAG_RETRY` (`1<<2`): ask again. The terminal is being replaced and handed this read back;
   nothing typed was lost. Re-issue the same request unchanged, and the terminal that answers it
-  resumes the line without repainting it. An `OP_READLINE` reply carries it as `r0 = 0`,
-  `r1 = FLAG_RETRY`. So does an `OP_READRAW` reply, whose `r1` is otherwise data, which is safe
+  resumes the line without repainting it. An `OPERATION_READLINE` reply carries it as `r0 = 0`,
+  `r1 = FLAG_RETRY`. So does an `OPERATION_READRAW` reply, whose `r1` is otherwise data, which is safe
   because a raw read never returns zero bytes. `proto::is_retry` reads both.
 
 A client that speaks the contract handles all three flags; `swish` and `rmle`, the two readers in
@@ -169,11 +169,11 @@ client fails fast instead of hanging on a reply that will never come.
 
 Owes:
 
-- Line discipline on input, by default. The program calls `OP_READLINE` and receives a finished
+- Line discipline on input, by default. The program calls `OPERATION_READLINE` and receives a finished
   line. All editing (cursor motion, backspace, kill and yank, history) happened on the far side of
   the endpoint; the program never sees a keystroke, an escape sequence, or an echo. Unless it
-  asked not to: `OP_RAWMODE` (milestone 169) opts a program into exactly that, one keystroke at a
-  time through `OP_READRAW`, for the class of program (a screen editor) that needs to.
+  asked not to: `OPERATION_RAWMODE` (milestone 169) opts a program into exactly that, one keystroke at a
+  time through `OPERATION_READRAW`, for the class of program (a screen editor) that needs to.
 - Newline translation on output. A program writes Unix `\n` and the terminal puts a carriage
   return on the serial wire. A program that wants raw control of the wire gets it: everything
   that is not a bare `\n` passes through, so ANSI from the application reaches the screen intact.
@@ -203,24 +203,24 @@ input arrives. Noted, not papered over; see [shell.md](shell.md).
 
 - 29 (display terminal): built, 2026-07-30, and the prediction held. `components/src/display_terminal.rs`
   implements the *same IPC half* against a framebuffer and a VT engine instead of a serial line and
-  this line discipline: `OP_WRITE` prints from the client's output page, `OP_BYTES` carries
+  this line discipline: `OPERATION_WRITE` prints from the client's output page, `OPERATION_BYTES` carries
   keystrokes in from a driver (or from the compositor, forwarding to the focused client), and the
   framing constants are these ones, unchanged. The wire half differs, as this note said it would: a
   grid, not a row.
 
   Two things this note could not have predicted, both recorded in [glyphs.md](glyphs.md):
 
-  - The display terminal does not serve `OP_READLINE`. It renders a stream and echoes
+  - The display terminal does not serve `OPERATION_READLINE`. It renders a stream and echoes
     keystrokes; it is not a line discipline. A client that wants edited lines composes `line_editor` in
-    front of it and prints the discipline's echo through `OP_WRITE`, which needs no new protocol at
+    front of it and prints the discipline's echo through `OPERATION_WRITE`, which needs no new protocol at
     all, because `line_editor`'s echo is exactly a byte stream the VT engine parses. That is not a
     hope: `crates/video_terminal` proves it on the host by running both components against each other.
   - The one-endpoint consequence. A terminal has two classes of sender (an application printing,
     an input source typing) and a process here has one wait point (DECISIONS §33), so both arrive on
     one endpoint and are told apart by opcode, exactly as `line_editor` does. The security consequence is
-    stated rather than hidden: an application holding that endpoint could send `OP_BYTES` and forge a
+    stated rather than hidden: an application holding that endpoint could send `OPERATION_BYTES` and forge a
     keystroke into its own terminal. It gains nothing by it, and the boundary that matters (one
     client's input not reaching another's) is the compositor's and is a capability there.
-- 31 (capability shell) is a client of this contract. It reads lines through `OP_READLINE`
-  and prints through `OP_WRITE`, and it adds the command semantics (completion, grant
+- 31 (capability shell) is a client of this contract. It reads lines through `OPERATION_READLINE`
+  and prints through `OPERATION_WRITE`, and it adds the command semantics (completion, grant
   expressions) that the terminal deliberately does not carry.
