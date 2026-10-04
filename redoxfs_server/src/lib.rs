@@ -74,6 +74,25 @@ use syscall::error::{
 
 use crate::memo::Memo;
 
+/// **The largest end a file may have, in bytes**: every record the engine's node tree can address,
+/// at the smallest record (one block). A write ending past it, or a truncate growing past it, is
+/// refused `EFBIG` before the engine sees it.
+///
+/// # BUGS
+///
+/// **This bound stands in for an upstream defect we have not patched.** `redoxfs::NodeLevel::new`
+/// admits `12 * 256^4` level-4 records where `NodeLevelData::level4` holds 8 pointers, so a record
+/// offset in that band indexes past the array and the engine panics, which in this server is a dead
+/// server (found by the `redoxfs_server_session` fuzz target, 2026-10-04 UTC). The fix at the root is
+/// `12` to `8` in `vendor/redoxfs/src/node.rs`, a sixth pin divergence (`vendor/README.md`), and
+/// upstreamable; a divergence is re-applied on every pin bump and the five so far were calef's calls,
+/// so this lane bounds the server instead and proposes the divergence. The bound is conservative: a
+/// file with 8 KiB records (every file this build creates) could address twice this, and no image
+/// this system serves comes within a factor of a million of either.
+pub const MAX_FILE_END: u64 =
+    (128 + 64 * 256 + 32 * 256 * 256 + 16 * 256 * 256 * 256 + 8 * 256 * 256 * 256 * 256)
+        * BLOCK as u64;
+
 /// What one handle names, and what may be done through it.
 ///
 /// The rights ride on the handle rather than on the session because that is what makes descending
@@ -336,14 +355,15 @@ impl<D: Disk> Server<D> {
     /// `fs_file_caretaker` uses: through this capability the file is read-only, and there is no
     /// policy that could have said yes.
     ///
-    /// `EFBIG` when `offset + data.len()` does not fit in 64 bits, checked before the engine sees
-    /// it: RedoxFS adds the two unchecked, and the wrapped end made its inline-data path slice
-    /// backwards and panic, which killed the server (found by the `redoxfs_server_session` fuzz
-    /// target).
+    /// `EFBIG` when `offset + data.len()` does not fit in 64 bits or passes [`MAX_FILE_END`],
+    /// checked before the engine sees it. RedoxFS adds the two unchecked, and the wrapped end made
+    /// its inline-data path slice backwards and panic, which killed the server; an end past the
+    /// tree indexed past it (both found by the `redoxfs_server_session` fuzz target).
     pub fn write(&mut self, handle: u32, offset: u64, data: &[u8]) -> Result<usize> {
         let ptr = self.file_at(handle, dir::WRITE, EROFS)?;
-        if offset.checked_add(data.len() as u64).is_none() {
-            return Err(Error::new(EFBIG));
+        match offset.checked_add(data.len() as u64) {
+            Some(end) if end <= MAX_FILE_END => {}
+            _ => return Err(Error::new(EFBIG)),
         }
         self.clock += 1;
         let now = self.clock;
@@ -419,6 +439,10 @@ impl<D: Disk> Server<D> {
         // A truncate carries no bytes, so a guard that only covered `write` would leave a way to
         // destroy a file just as thoroughly. It takes the same right and answers the same word.
         let ptr = self.file_at(handle, dir::WRITE, EROFS)?;
+        // A file grown past the tree reads past it later; [`MAX_FILE_END`] has the defect.
+        if size > MAX_FILE_END {
+            return Err(Error::new(EFBIG));
+        }
         self.clock += 1;
         let now = self.clock;
         self.change_file(ptr, |tx| tx.truncate_node(ptr, size, now, 0))
@@ -2433,6 +2457,43 @@ mod tests {
             &buf[..n],
             b"root motd",
             "the file is unchanged and the server serves"
+        );
+    }
+
+    /// **A file never reaches past what the engine's node tree can address** (found by the
+    /// `redoxfs_server_session` fuzz target, `lane/fuzz-service-handlers`). Upstream's
+    /// `NodeLevel::new` admits twelve level-4 entries where `NodeLevelData::level4` has eight, so a
+    /// write ending in that band, or a read in it after a truncate grew the file there, indexed past
+    /// the array and killed the server. Both are refused `EFBIG` at [`MAX_FILE_END`].
+    #[test]
+    fn a_file_never_reaches_past_the_tree() {
+        let mut srv = server_with_tree();
+        let f = srv
+            .open_file_path(0, "motd", dir::READ | dir::WRITE)
+            .unwrap();
+        let errno = |r: Result<()>| r.err().map(|e| e.errno);
+        // Just past the tree for this build's 8 KiB records: the band that panicked.
+        let band = (MAX_FILE_END / BLOCK as u64) * 8192 + 8192;
+        assert_eq!(
+            errno(srv.write(f, band, b"x").map(|_| ())),
+            Some(EFBIG),
+            "a write in the band"
+        );
+        assert_eq!(
+            errno(srv.truncate(f, band)),
+            Some(EFBIG),
+            "a truncate into it"
+        );
+        assert_eq!(
+            errno(srv.write(f, MAX_FILE_END, b"x").map(|_| ())),
+            Some(EFBIG),
+            "one byte past the end"
+        );
+        srv.truncate(f, MAX_FILE_END).unwrap();
+        assert_eq!(
+            srv.fstat(f).unwrap(),
+            MAX_FILE_END,
+            "the end itself is a size"
         );
     }
 
