@@ -124,6 +124,10 @@ mod memory_region;
 // fire. See the module's own header.
 #[cfg(feature = "system_tests")]
 mod retype_fault;
+// The test kernel's pause at the start of a delegation (the revocation-race lane, provisional),
+// under the same `cfg` as `retype_fault` and for its reason. See the module's own header.
+#[cfg(feature = "system_tests")]
+mod delegation_pause;
 mod trust;
 mod user;
 mod virtio;
@@ -192,6 +196,9 @@ pub mod system_test_access {
     }
     pub mod retype_fault {
         pub use crate::retype_fault::*;
+    }
+    pub mod delegation_pause {
+        pub use crate::delegation_pause::*;
     }
     pub mod revoke {
         pub use crate::revoke::*;

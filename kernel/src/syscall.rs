@@ -198,23 +198,20 @@ pub fn invoke(
                 if !cap.rights.allows(Rights::WRITE) {
                     return Err(Error::NotPermitted);
                 }
-                let src = sched::current_cap(a0).map_err(|_| Error::NoSuchSlot)?;
-                if !src.rights.allows(Rights::GRANT) {
-                    return Err(Error::NotPermitted); // holder may not pass this on
-                }
-                let narrowed = Rights::from_bits(a1 as u32);
-                if !narrowed.is_subset_of(src.rights) {
-                    return Err(Error::NotPermitted); // delegation may only narrow, never widen
-                }
-                sched::ipc_send_cap(
+                // The source is read, checked (GRANT, narrow-only) and copied inside `sched`, under
+                // the hold that files the copy, so no revocation sweep can fall between the read and
+                // the filing. Reading it here first was that gap (`sched::Delegation`).
+                #[cfg(feature = "system_tests")]
+                crate::delegation_pause::here(); // no lock held
+                sched::ipc_delegate_cap(
                     ep,
                     a2,
-                    crate::cap::Cap {
-                        object: src.object,
-                        rights: narrowed,
+                    sched::Delegation {
+                        slot: a0,
+                        rights: Rights::from_bits(a1 as u32),
                     },
                     badge, // the endpoint we send on may be badged (milestone 599 (a frame per filesystem client channel))
-                );
+                )?;
                 if sched::take_ipc_aborted() {
                     // Revoked, or refused (§101 ruling B); either way the delegation did not happen
                     // and the capability is still the sender's.
@@ -477,7 +474,7 @@ pub fn invoke(
                 }
                 page_frame_revoke(phys, count.get())
             }
-            abi::page_frame::SLICE => page_frame_slice(cap.rights, phys, count, a0, a1),
+            abi::page_frame::SLICE => page_frame_slice(slot, a0, a1),
             _ => Err(Error::BadMethod),
         },
 
@@ -1261,25 +1258,31 @@ fn unmap_run_prefix(root: u64, phys: u64, va: u64, mapped: u64) {
 /// the rules; `#[inline(never)]` for the reason `memory_region_map` gives, since slicing is
 /// spawn-time wiring and never a step of the IPC round trip.
 #[inline(never)]
-fn page_frame_slice(
-    rights: Rights,
-    phys: u64,
-    count: core::num::NonZeroU64,
-    first: u64,
-    len: u64,
-) -> Result<i64, Error> {
-    if !rights.allows(Rights::GRANT) {
-        return Err(Error::NotPermitted);
-    }
-    let (Some(end), Some(len)) = (first.checked_add(len), core::num::NonZeroU64::new(len)) else {
-        return Err(Error::BadPointer);
-    };
-    if end > count.get() {
-        return Err(Error::BadPointer);
-    }
-    let base = phys + first * page_frames::FRAME_SIZE;
-    let slot = sched::grant(crate::cap::page_frame_run_cap(base, len, rights))
-        .map_err(|_| Error::OutOfMemory)?;
+fn page_frame_slice(slot: u64, first: u64, len: u64) -> Result<i64, Error> {
+    // The source is re-read under the table lock the slice is filed under (`sched::grant_derived`),
+    // not taken from the capability `invoke` dispatched on: that read was a critical section of its
+    // own, and a reclamation sweep could delete the run between it and the filing, leaving a slice
+    // of pages the allocator was about to reuse (`sched::Delegation`). The source that matters is the
+    // one standing when the slice is filed.
+    #[cfg(feature = "system_tests")]
+    crate::delegation_pause::here(); // no lock held
+    let slot = sched::grant_derived(slot, |src| {
+        let Object::PageFrame(phys, count) = src.object else {
+            return Err(Error::WrongObject);
+        };
+        if !src.rights.allows(Rights::GRANT) {
+            return Err(Error::NotPermitted);
+        }
+        let (Some(end), Some(len)) = (first.checked_add(len), core::num::NonZeroU64::new(len))
+        else {
+            return Err(Error::BadPointer);
+        };
+        if end > count.get() {
+            return Err(Error::BadPointer);
+        }
+        let base = phys + first * page_frames::FRAME_SIZE;
+        Ok(crate::cap::page_frame_run_cap(base, len, src.rights))
+    })?;
     Ok(slot as i64)
 }
 
@@ -1331,20 +1334,16 @@ fn thread_control_block_cap_insert(
     rights: u64,
     target: u64,
 ) -> Result<i64, Error> {
-    let src = sched::current_cap(src_slot).map_err(|_| Error::NoSuchSlot)?;
-    if !src.rights.allows(Rights::GRANT) {
-        return Err(Error::NotPermitted);
-    }
-    let narrowed = Rights::from_bits(rights as u32);
-    if !narrowed.is_subset_of(src.rights) {
-        return Err(Error::NotPermitted);
-    }
     let target = (target != 0).then(|| target - 1);
-    let child_slot = sched::thread_control_block_insert_cap(
+    // The source is read and checked inside `sched`, under the hold that files the copy
+    // (`sched::Delegation`): reading it here first left a revocation sweep room to fall between.
+    #[cfg(feature = "system_tests")]
+    crate::delegation_pause::here(); // no lock held
+    let child_slot = sched::thread_control_block_delegate_cap(
         tid,
-        crate::cap::Cap {
-            object: src.object,
-            rights: narrowed,
+        sched::Delegation {
+            slot: src_slot,
+            rights: Rights::from_bits(rights as u32),
         },
         target,
     )?;
