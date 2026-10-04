@@ -100,6 +100,9 @@ for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pr
     }
 done
 
+# The partition `--no-cargo` relies on, proved against fixtures (no tree, no cargo).
+helpers/lint-no-cargo-selftest.sh >/dev/null
+
 echo "==> clippy: host crates + xtask"
 cargo clippy --workspace --exclude kernel --exclude system_tests --exclude components --exclude fixtures --exclude user_mode_runtime \
     --exclude swap_protocol --exclude virtio --exclude supervision_protocol --exclude system_initializer \

@@ -23,7 +23,22 @@ decision on #1564 (2026-10-03 UTC): "Approve the revised decision 3."
 
 ## Built
 
-(Filled in when the lane finishes.)
+1. `script/lint --no-cargo` runs every lint section that does not invoke cargo. The partition is
+   read out of `script/lint` by `helpers/lint-no-cargo.awk`, so a new check lands in one bucket
+   when it is written. 46 of 65 sections run. A section that opts in with a marker, as counted
+   claims does for its harness-count cross-check, must also guard on `$LINT_NO_CARGO`.
+   `helpers/lint-no-cargo-selftest.sh` proves the rule and runs inside lint.
+2. `.githooks/pre-push` runs `script/fmt --check`, then `script/lint --no-cargo`, then
+   `--ready-branch`, and skips all three for a push that changes no files, so a claim push is no
+   longer refused for a missing roadmap block. `--no-verify` stays documented as legitimate.
+3. Measured on patagonia at a load average of 15 to 17: `script/lint --no-cargo` took 41.6, 47.2
+   and 44.7 s on a warm tree, and fmt plus lint 43.0 s with no `target/` directory. The proposal's
+   estimate of about 33 s was low. The numbers are in `notes/queue-ejection.md`.
+
+## BUGS
+
+- Clippy and the checks that call `cargo metadata` wait for CI. The `cargo metadata` ones are fast
+  and could run here; the rule is "does not invoke cargo" because that is what calef approved.
 
 ## Index row
 
