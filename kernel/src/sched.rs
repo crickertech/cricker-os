@@ -2560,23 +2560,50 @@ pub(crate) fn finish_switch() {
 /// **Reap the thread this core just switched away from.** The `Reap` arm of [`finish_switch`],
 /// out of line because it runs when a thread has ended and never on an IPC.
 ///
-/// Hoist the address space out BEFORE the in-place drop, to be torn down after the lock is
-/// released: its teardown is `memory_region::destroy` (milestone 14 phase B.4), whose §13
-/// revocation sweep takes `IPC_TABLES` itself to delete stray `PageFrame` capabilities. Dropping it
-/// here would deadlock on our own lock. The rest of the `Thread` (stack, quota) still drops under
-/// `IPC_TABLES`, exactly as before, which is why the guard is taken by value and dropped here.
+/// **Two short critical sections with the expensive part between them**, since 2026-10-04.
+///
+/// 1. Under the caller's `IPC_TABLES` guard: take the thread's kernel stack and its address space
+///    out, and mark it [`stack_being_freed`](crate::thread::Thread::stack_being_freed). It stays in
+///    the table, `Finished`, so its name still resolves and region teardown still refuses it.
+/// 2. With no lock held: free the stack. That is six page unmaps, each discharging its TLB
+///    obligation; on riscv64 every one is an SBI remote fence that interrupts every other hart and
+///    waits for them, and on x86_64 an NMI shootdown round. Until 2026-10-04 all of it ran under
+///    `IPC_TABLES`, so every IPC and every capability lookup on every other core waited behind a
+///    thread exiting anywhere. The job mix measured it as the cheapest syscall nearly doubling in
+///    cost once four cores were busy (notes/job-mix/null-syscall-under-load.md).
+/// 3. Under `IPC_TABLES` again: remove the thread. Only now does it stop occupying its region.
+///
+/// The address space is still hoisted out and dropped last, for its own older reason: its teardown
+/// is `memory_region::destroy` (milestone 14 (kernel objects from untyped) phase B.4), whose §13
+/// revocation sweep takes `IPC_TABLES` itself, so dropping it under the lock would deadlock on our
+/// own lock. The rest of the `Thread` (its quota token, its capability table) still drops under
+/// the lock in step 3.
+///
+/// Nothing else removes a `Finished` thread between steps 1 and 3: the only other remover is region
+/// teardown, and `region_reap_verdict` refuses a thread whose stack is being freed.
 #[cold]
 #[inline(never)]
 fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>, prev: ThreadId) {
     let Some(sched) = guard.as_mut() else {
         return;
     };
-    let space = match sched.threads.get_mut(prev) {
-        Some(t) => t.space.take(),
+    let (space, stack) = match sched.threads.get_mut(prev) {
+        Some(t) => {
+            t.stack_being_freed = true;
+            (t.space.take(), t.stack.take())
+        }
         None => return,
     };
-    sched.threads.remove(prev);
     drop(guard);
+
+    drop(stack);
+
+    {
+        let mut guard = IPC_TABLES.lock();
+        if let Some(sched) = guard.as_mut() {
+            sched.threads.remove(prev);
+        }
+    }
     drop(space);
 }
 
@@ -4542,17 +4569,23 @@ enum RegionReap {
 /// its stack, and freeing a `Thread` unmaps that stack.** Those are different questions; this path
 /// asked only the first for months, and the answer to the second is what four CI panics were.
 /// See notes/stack/kernel-stack-freed-under-its-owner.md.
-fn region_reap_verdict(state: State, on_cpu: bool) -> RegionReap {
+///
+/// `standing` is `on_cpu`, or'd since 2026-10-04 with
+/// [`stack_being_freed`](crate::thread::Thread::stack_being_freed): a thread whose kernel stack the
+/// reaper is freeing outside `IPC_TABLES` is refused the same passive way, for a different reason
+/// with the same shape (the condition clears by itself, and reaping the thread now would let its
+/// owner spend memory the dying stack has not given back yet).
+fn region_reap_verdict(state: State, standing: bool) -> RegionReap {
     if matches!(state, State::Ready | State::Running) {
         RegionReap::RefuseAndArm
-    } else if state == State::Blocked && !on_cpu {
+    } else if state == State::Blocked && !standing {
         // Milestone 133, proposal A. `Blocked` used to sit in the arm above, and being there is
         // what made a permanently blocked resident unreclaimable for the life of the machine: the
         // arm is spent at the top of `schedule()` and only for a thread whose state is `Running`,
         // and a thread blocked on a rendezvous nobody will ever serve does not become `Running`
         // again. The arm was not too weak, it was aimed at a thread that never arrives.
         RegionReap::FinishInPlace
-    } else if on_cpu {
+    } else if standing {
         // A `Blocked` thread with `on_cpu` still set reaches here, and that is deliberate. It is
         // mid-switch-out, so its saved context is stale and a core is standing on the stack that
         // freeing its `Thread` would unmap; ending it now is the four-CI-panic bug wearing a new
@@ -4775,8 +4808,10 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
                 let phys = crate::arch::mmu::virt_to_phys(&raw const **t as u64);
                 base <= phys
                     && phys < end
-                    && region_reap_verdict(t.handshake.state, t.handshake.on_cpu)
-                        == RegionReap::FinishInPlace
+                    && region_reap_verdict(
+                        t.handshake.state,
+                        t.handshake.on_cpu || t.stack_being_freed,
+                    ) == RegionReap::FinishInPlace
             })
             .map(|t| t.id);
         let Some(tid) = doomed else { break };
@@ -4834,7 +4869,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
         if !(base <= phys && phys < end) {
             continue;
         }
-        match region_reap_verdict(t.handshake.state, t.handshake.on_cpu) {
+        match region_reap_verdict(t.handshake.state, t.handshake.on_cpu || t.stack_being_freed) {
             RegionReap::RefuseAndArm => {
                 t.killed = true;
                 live = true;
@@ -5328,6 +5363,13 @@ pub fn thread_control_block_insert_cap(
 /// half-built thread must never run. On success the thread gets its kernel stack and entry
 /// context and joins this core's run queue.
 pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), abi::Error> {
+    // **The kernel stack is built before `IPC_TABLES` is taken** (2026-10-04), for the reason the
+    // reaper frees one after releasing it: building it maps six pages and allocates their frames,
+    // and every other core's IPC and capability lookups waited behind that while it ran under the
+    // lock (notes/job-mix/null-syscall-under-load.md). Declared before the guard, so a refusal below
+    // releases the lock first and frees the unused stack afterwards. The refusals keep their order:
+    // a missing stack is still reported only after the embryo checks have passed.
+    let stack = crate::thread::KernelStack::new();
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
     let t = sched.threads.get_mut(tid).ok_or(abi::Error::NoSuchSlot)?;
@@ -5353,9 +5395,10 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     }
 
     t.start_args = args; // the child's x0, x1, x2 (19d/19e)
-    if !t.arm_for_start() {
+    let Some(stack) = stack else {
         return Err(abi::Error::OutOfMemory); // no kernel stack to be had
-    }
+    };
+    t.arm_for_start(stack);
     t.handshake.state = State::Ready;
     // Placement is the power of two choices (DECISIONS §28), the same as `spawn`: a freshly started
     // user thread lands on the lighter of two sampled cores rather than always the starter's, so a
