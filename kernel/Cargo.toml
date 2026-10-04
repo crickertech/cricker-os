@@ -151,6 +151,10 @@ pci = { version = "0.1.0", path = "../crates/pci" }
 # The NVMe queue mechanics (milestone 53's storage half): pure logic, host-tested and proved; the
 # kernel's non_volatile_memory_express module is its volatile half, the same split as `pci` above.
 non_volatile_memory_express = { version = "0.1.0", path = "../crates/non_volatile_memory_express" }
+# The xHCI half of the USB keyboard (milestone 242 (USB host and HID)): the register window the
+# driver is mapped and the handoff it is spawned with. The kernel's extensible_host_controller_interface
+# module is its volatile half, the same split as `non_volatile_memory_express` above.
+extensible_host_controller_interface = { version = "0.1.0", path = "../crates/extensible_host_controller_interface" }
 elf = { version = "0.1.0", path = "../crates/elf" }
 page_frames = { version = "0.1.0", path = "../crates/page_frames" }
 intrusive_fifo = { version = "0.1.0", path = "../crates/intrusive_fifo" }

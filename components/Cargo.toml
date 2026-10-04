@@ -318,6 +318,16 @@ path = "src/keyboard_driver.rs"
 test = false
 bench = false
 
+# The USB keyboard driver (milestone 242 (USB host and HID)): a confined userspace xHCI driver that
+# finds a boot keyboard on a root port and feeds the line discipline the same OPERATION_BYTES framing
+# `input` and `keyboard_driver` use. The kernel starts it on a machine with an xHCI controller and
+# an IOMMU that confines it. Name: provisional.
+[[bin]]
+name = "usb_keyboard_driver"
+path = "src/usb_keyboard_driver.rs"
+test = false
+bench = false
+
 # The Rust multi-line editor (milestone 169), on the raw-keystroke primitive
 # (OPERATION_RAWMODE/OPERATION_READRAW) that milestone added to the terminal contract. See components/src/rmle.rs.
 [[bin]]
@@ -638,6 +648,10 @@ filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol
 # non_volatile_memory_express.rs is the volatile shell of ring copies and doorbell writes over it,
 # the crate/program pair this tree already uses for `jh7110_entropy` and `line_editor`.
 non_volatile_memory_express = { version = "0.1.0", path = "../crates/non_volatile_memory_express" }
+# usb_keyboard_driver.rs is the volatile shell over these two (milestone 242 (USB host and HID)):
+# descriptors and boot reports, and the xHCI ring and context arithmetic.
+usb = { version = "0.1.0", path = "../crates/usb" }
+extensible_host_controller_interface = { version = "0.1.0", path = "../crates/extensible_host_controller_interface" }
 graphics_protocol = { version = "0.1.0", path = "../crates/graphics_protocol" }
 # The aperture arithmetic `framebuffer_driver` copies through: the clipped geometry, the stride and
 # the byte order, host-tested there because this program has no harness of its own.
