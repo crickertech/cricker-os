@@ -22,7 +22,7 @@
 //! **Setup is paid once.** The image is formatted on the first input and every input after that
 //! reopens it through a copy-on-write disk ([`Overlay`]) whose writes land in a per-input block map.
 //! The proposal's scratch target formatted a fresh 4 MiB image per input and ran about 190 sessions
-//! a second; `notes/fuzzing.md` records what this layout runs.
+//! a second; `notes/fuzzing-the-services.md` records what this layout runs.
 //!
 //! Name: provisional (`lane/fuzz-service-handlers`, 2026-10-04 UTC); an architect names things.
 //! Falsification: replayable `fuzz/falsifications/redoxfs_server_session.unknown_badge_fails_open.patch`

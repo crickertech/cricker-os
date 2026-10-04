@@ -30,6 +30,15 @@
 //! about: it holds five explicit capabilities, cannot name its own callers, is supervised, and can
 //! be reaped by something that lacks the authority to build it, which is about as far from the
 //! model that suffix claims as a long-running process gets.
+//!
+//! # BUGS
+//!
+//! **No host fuzz target reaches this dispatch** (proposal #1592 part a, rank 2). The request match
+//! and every helper under it live in this EL0 binary and take `net_transport::VirtioNet`, the
+//! clock and two blocking waits directly, so nothing builds for the host. What a host part would
+//! cost, measured by reading on 2026-10-04 (UTC): about 630 lines moved into a sans-IO crate over
+//! smoltcp's `phy::Device`, with the clock and the waits behind an edge trait. See
+//! `notes/fuzzing-the-services.md`.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks
