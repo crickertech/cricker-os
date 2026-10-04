@@ -62,8 +62,7 @@ Milestone 630 first built this as a hold: the drain commented on an ejection, la
 `queue-ejected`, and declined to re-arm a failed head, re-arming everything else. calef's rulings on
 #1564 (2026-10-03) removed every re-arm and re-queue, because the automation fought his own
 dequeues and still left him as the only detector
-(`notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md`, on #1564's branch until it
-lands). What replaced it
+([the correction](coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md)). What replaced it
 labels and never acts on the queue.
 
 `helpers/merge-drain.sh` asks GraphQL once per pass for every open pull request (its last

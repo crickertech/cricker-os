@@ -49,8 +49,7 @@ want the job of watching the queue."* That day the drain armed every eligible pu
 pass, re-armed ejected ones, enqueued what auto-merge had stranded and commented on stalls, and
 calef was still the only thing that noticed an ejection. It re-queued pull requests the calef
 account had just taken out six or seven times, and its 478 stall comments moved nobody. The record
-is `notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md`, on #1564's branch until it
-lands.
+is [the 2026-10-03 queue correction](coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md).
 A lane now arms its own pull request in the same command as `gh pr ready`.
 
 What a pass does, in order:

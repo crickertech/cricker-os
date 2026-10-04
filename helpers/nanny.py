@@ -13,6 +13,11 @@
 # dir when that is unset. Not beside this script: `helpers/` is checked into git and shared by every
 # worktree, so a state file here would be untracked clutter at best and, across concurrent lanes and
 # sessions, a shared file two processes clobber at worst.
+#
+# BUGS: it still calls `enqueuePullRequest` on a pull request that stays armed, CLEAN and unqueued
+# across two polls, with the session's token. Since 2026-10-03 the merge drain arms and enqueues
+# nothing (milestone 727 (a queue eviction goes to a maintainer session)), so this is the last
+# automatic enqueuer; whether it should report instead is open.
 import json, os, re, subprocess, sys, tempfile, time
 
 REPO = "nifeos/nife"

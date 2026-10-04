@@ -1,7 +1,8 @@
 ---
-status: IN-PROGRESS
+status: BUILT
 raised: 2026-10-03
-branch: lane/eviction-detector
+built: 2026-10-04
+promoted_from: a-queue-eviction-goes-to-a-maintainer-session
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
@@ -11,8 +12,7 @@ needs_person: no
 # 727. A queue eviction goes to a maintainer session
 
 Raised 2026-10-03 (UTC) by calef's rulings on #1564, the correction of error
-`notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md` (on #1564's branch until it
-lands). The number is provisional until the merge queue lands it, and so are the title, the slug and
+[`notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md`](../../notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md). The number is provisional until the merge queue lands it, and so are the title, the slug and
 the `needs-maintainer` label's name.
 
 ## Why
@@ -56,6 +56,15 @@ together, because removing the re-arming without a detector puts the queue-watch
 - An armed pull request whose checks never report, or that auto-merge never enqueues, is not one
   of the four causes. The drain used to report the first and enqueue the second.
 
+## Follow-on
+
+- **Recorded.** An armed pull request whose checks never report, or that auto-merge never
+  enqueues, is none of the four causes; beside the detector in `notes/queue-ejection.md`.
+- **Recorded.** `helpers/nanny.py` still enqueues a stranded armed pull request with the session's
+  token, the last automatic enqueuer; in its own header, `helpers/nanny.py`.
+- **Recorded.** A finished draft never marked ready is no longer reported, since the stale-draft
+  note went with the stall comments; in `notes/blocked-by-drafts.md`.
+
 ## Index row
 
-IN-PROGRESS on `lane/eviction-detector` (PR #1572). The merge drain stops arming and re-queueing, and labels an ejected, conflicting, stale or unarmed pull request `needs-maintainer` for a session to pick up, so calef no longer watches the queue.
+BUILT on `lane/eviction-detector` (PR #1572). The merge drain stops arming and re-queueing, and labels an ejected, conflicting, stale or unarmed pull request `needs-maintainer` for a session to pick up, so calef no longer watches the queue.

@@ -29,8 +29,7 @@
 # taken out six or seven times that day, gave the already-merged #1555 a stale queue entry, and its
 # 478 stall comments since 2026-08-26 moved nobody (55% of pull requests saw an action in the hour
 # after one, 50% in the hour before). The record is
-# notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md (on #1564's branch until it
-# lands).
+# notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md.
 #
 # calef ruled: "I don't want the job of watching the queue." So the arming, the re-arming, the
 # enqueue of a stranded pull request, the stall comments, the stale-draft and stuck-check reports
