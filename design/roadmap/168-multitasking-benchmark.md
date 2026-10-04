@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-08-25
+built: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: real silicon; PMU cycle counter
@@ -9,16 +10,11 @@ needs_person: yes
 ---
 # 168. A multi-tasking workload benchmark: the number that would decide the event-kernel question
 
-The instrument is built, gated and rehearsed on all three architectures.
-Five boots of radon on 2026-09-16 produced numbers, and this block still does not turn `BUILT`,
-because one of the six sweep points did not produce a number so much as a distribution. The measured
-curve and the reason are in "What five boots measured" below; the honest summary is that the
-shape is solid and `tasks=4` was not a figure anyone should quote. On 2026-09-19 both holes
-in the instrument were closed without a board (every point is now the median of 21 repeats, and
-the mix gained page mapping and process creation; see "What changed on 2026-09-19"), so what is
-outstanding is one radon bench evening with the new instrument, by `notes/job-mix.md`'s procedure. Started and left partial
-2026-09-04 by a lane with no board, which is what the gate below predicts rather than a shortfall
-against it. Minted 2026-08-25, from [DECISIONS §96](../decisions/96-process-kernel-or-event-kernel.md)'s own recommendation: *"Build the instrument that could decide it. The blocker is that a multi-tasking workload is the only place the difference appears, and we have none."*
+The instrument is built, gated and rehearsed on all three architectures, and since 2026-10-04 every
+point of its sweep is a number on silicon. Five radon boots with the 2026-09-19 instrument (median
+of 21 repeats, seven jobs) agreed within 1.67% at every point: 2.62x at four tasks, 2.78x at 32, no
+decline. That is the first row of `notes/job-mix.md`'s step 7, read in "What five boots measured,
+radon, 2026-10-04" below. Risk 4's entry was written from them in the same change. Minted 2026-08-25, from [DECISIONS §96](../decisions/96-process-kernel-or-event-kernel.md)'s own recommendation: *"Build the instrument that could decide it. The blocker is that a multi-tasking workload is the only place the difference appears, and we have none."*
 
 Real silicon, and that is all. Corrected 2026-09-04 by calef; it read
 `HARDWARE, MILESTONE 127` from 2026-08-25 until then, and the paragraph below explains why that was
@@ -107,13 +103,7 @@ Rehearsed on patagonia on 2026-09-04: aarch64, riscv64 and x86_64, sweep complet
 points per run. Those magnitudes are not a result and are not recorded as one; TCG models no
 cache.
 
-On the citation, because this tree has carried a fabricated block quote before. The 20% figure is
-the *retrospective's* summary of Warton: Elphinstone and Heiser, ACM TOCS 34(1), April 2016, §4.1,
-*"generally within 1% on micro-benchmarks but a 20% performance advantage of the event kernel on a
-multitasking workload (AIM7)"*. Warton's own abstract claims something weaker (memory savings
-"without degrading the kernels performance", with a performance improvement called preliminary and
-needing more experiments). Both are real; they are not the same strength of claim.
-`notes/job-mix.md` carries the provenance and the URLs.
+The 20% figure's provenance, and why Warton's own claim is weaker, is in `notes/job-mix.md`.
 
 ## What it needs
 
@@ -128,6 +118,31 @@ Milestone 25's cross-OS comparison has the same hole, and this milestone closes 
 ## What this does not decide
 
 Whether nife should switch kernel models. That is DECISIONS §96's own question, and it stays open until this milestone's number exists (or until a real customer-path workload starts creating threads in the hundreds, the other condition §96 names for reopening early).
+
+## What five boots measured, radon, 2026-10-04
+
+Image `04a8f9e6c`, netbooted, sealed, power-cycled between boots by calef. Transcripts
+`bench/radon-2026-10-04/jobmix-boot1.log` to `boot5.log`. The full step 6 reading, with the per-kind
+table and every caveat, is [its own page](../../notes/job-mix/radon-2026-10-04.md).
+
+| tasks | boot 1 (representative) | median of five boots | spread | over 1 task |
+|---|---|---|---|---|
+| 1 | 323,972 | 323,972 | 0.03% | 1.00x |
+| 2 | 567,826 | 568,578 | 0.26% | 1.76x |
+| 4 | 845,791 | 848,794 | 1.12% | 2.62x |
+| 8 | 876,087 | 876,637 | 1.67% | 2.71x |
+| 16 | 895,000 | 893,887 | 1.08% | 2.76x |
+| 32 | 899,399 | 899,399 | 0.42% | 2.78x |
+
+`jpm_median`, jobs per minute; spread is (max - min) / min across boots, as below. Boot 5's census
+differed from the others' and it read within 0.6% of the median everywhere.
+
+Not apples-to-apples with the 2026-09-16 table: a different statistic and two heavier jobs. Not a
+comparison with Warton: one arm, one machine, no disk job, 32 tasks at most. At 32 tasks the
+`round_trip` job holds 80% of task time, waiting on two shared servers, so the plateau is partly
+the instrument's own. And `null_syscall` nearly doubles from one task to four while `compute`
+grows 6%: a per-crossing cost that rises with busy cores, unexplained, and recorded in
+`notes/job-mix.md`'s `BUGS`.
 
 ## What five boots measured, radon, 2026-09-16
 
@@ -307,9 +322,7 @@ nothing. So each is `BUILT` below rather than absent, with what it bought and wh
 
 ## BUGS
 
-- **No seven-job, median-of-21 sweep has run on silicon.** Every claim about the new instrument's
-  stability is a resampling of the old instrument's data. The map and spawn jobs may change
-  `tasks=4`'s distribution; step 6 of `notes/job-mix.md`'s procedure is the check.
+- Every silicon number is radon's; argon and xenon have not run the sweep.
 - **The disk-file category is still absent**, with its own proposal. A flat curve from this mix is
   evidence about compute, memory, trap, scheduling, IPC, mapping and process creation, and silent on
   the filesystem.
@@ -321,17 +334,12 @@ nothing. So each is `BUILT` below rather than absent, with what it bought and wh
 
 ## Follow-on
 
-- **Outstanding.** One radon bench evening with the 2026-09-19 instrument, at least five boots,
-  by `notes/job-mix.md`'s procedure (its step 7 says how the medians read for risk 4). This bullet
-  said until 2026-09-19 that "the number itself, on radon" was outstanding and that the Results
-  table was empty; both were stale by then, since five boots on 2026-09-16 produced numbers and
-  the table now has that row. What those boots could not produce was a number at every point, and
-  what closed that was an instrument change rather than more boots.
-- **Outstanding.** What the sweep cannot see above 32 tasks. `job_mix::MAX_TASKS` is 32 because
+- **Done.** Risk 4's entry, written from the 2026-10-04 numbers in the change that built this block.
+- **Recorded.** What the sweep cannot see above 32 tasks. `job_mix::MAX_TASKS` is 32 because
   every task is a process with an address space, where milestone 134's E1 reached 96 kernel threads.
-  Checked by reading `crates/job_mix` and `kernel/src/jobmix.rs`: nothing has measured where a board
+  Checked by reading `crates/job_mix` and `kernel/src/job_mix.rs`: nothing has measured where a board
   runs out, and the supervisor's `FAILED: could not spawn task N` line is the measurement
-  that would say. It is part of the first bench evening rather than separate work.
+  that would say. radon fit 32 on 2026-10-04 and printed none; above that is unmeasured.
 - **Milestone 324.** `crates/board_console` has no recogniser for this run, so an operator tells a
   finished sweep from a wedged one by reading the log, with the reason it
   was deliberately not written blind: the outcome table in `notes/job-mix.md` becomes evidence after
@@ -360,5 +368,5 @@ nothing. So each is `BUILT` below rather than absent, with what it bought and wh
 Minted from DECISIONS §96's own recommendation: every benchmark this project owns is a
 micro-benchmark, and the one number that could decide process-kernel-vs-event-kernel only shows up
 on a real multi-tasking workload, on real hardware. The instrument is built, gated and rehearsed
-on all three architectures (`crates/job_mix`, `fixtures/src/job_mix_task.rs`, `--features job_mix`, `script/job-mix`). Five radon boots (2026-09-16) measured the shape; the 2026-09-19 instrument (median of 21, map and spawn jobs) needs one more radon evening for a number at every point. Closes the same hole in
+on all three architectures (`crates/job_mix`, `fixtures/src/job_mix_task.rs`, `--features job_mix`, `script/job-mix`). Five radon boots on 2026-10-04 with the 2026-09-19 instrument gave a number at every point, within 1.67% across boots, with no decline through 32 tasks. Closes the same hole in
 milestone 25's cross-OS comparison too.

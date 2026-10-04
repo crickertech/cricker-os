@@ -285,25 +285,18 @@ fn serve_frame(
         // (milestone 43), between the pixel/rectangle stores and the `ctl::SEQ` store loaded above.
         core::sync::atomic::fence(core::sync::atomic::Ordering::Acquire);
 
-        // The client's rectangle is **untrusted input**. Clip it to the surface it owns; say so in its
-        // own control page if it was out of bounds (per-client feedback through the only channel that
-        // can carry it), and carry on. The worst a lie can do is make us re-copy the liar's pixels.
-        let asked = Rect::new(
-            rd32(c + ctl::DAMAGE_X) as i32,
-            rd32(c + ctl::DAMAGE_Y) as i32,
+        // The client's rectangle is **untrusted input**: `commit_damage` clips it to the surface the
+        // client owns and says in the status word if it had to. Read here, decided there, so the host
+        // fuzz target (`fuzz/fuzz_targets/compositor_session.rs`) runs the same decode.
+        let (seen, status) = compositor::commit_damage(
+            &SCENE[i],
+            rd32(c + ctl::DAMAGE_X),
+            rd32(c + ctl::DAMAGE_Y),
             rd32(c + ctl::DAMAGE_W),
             rd32(c + ctl::DAMAGE_H),
         );
-        let inside = asked.intersect(&SCENE[i].bounds());
-        wr32(
-            c + ctl::STATUS,
-            if inside == asked {
-                ctl::STATUS_OK
-            } else {
-                ctl::STATUS_CLIPPED
-            },
-        );
-        damage = damage.union(&compositor::damage_to_screen(&SCENE[i], asked));
+        wr32(c + ctl::STATUS, status);
+        damage = damage.union(&seen);
         wr32(c + ctl::ACKED, seq);
     }
 

@@ -57,17 +57,48 @@ pub mod walk_model;
 
 mod memo;
 
+// The serve loop's request dispatch, moved out of the EL0 binary so a host fuzz target and host
+// tests drive the same code the running server does.
+mod dispatch;
 use alloc::vec::Vec;
 
+pub use dispatch::ServeEdges;
 use filesystem_protocol::dir::{self, Rights};
 use filesystem_protocol::xattr;
 use redoxfs::{Disk, FileSystem, Node, Transaction, TreePtr};
 use subtree_scope::Kind;
+/// **The engine's error type, for a host caller that implements [`redoxfs::Disk`]** (a fuzz target's
+/// in-memory disk). Re-exported so such a caller spells it through this crate rather than naming
+/// `redox_syscall` itself; it is the type every [`Server`] method returns. Host-only, because
+/// nothing in the EL0 build implements a `Disk` from outside. Name: provisional
+/// (`lane/fuzz-service-handlers`, 2026-10-04 UTC).
+#[cfg(feature = "hosttest")]
+pub use syscall::error as engine_error;
 use syscall::error::{
-    EBADF, EEXIST, EINVAL, EIO, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, EROFS, Error, Result,
+    EBADF, EEXIST, EFBIG, EINVAL, EIO, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, EROFS, Error,
+    Result,
 };
 
 use crate::memo::Memo;
+
+/// **The largest end a file may have, in bytes**: every record the engine's node tree can address,
+/// at the smallest record (one block). A write ending past it, or a truncate growing past it, is
+/// refused `EFBIG` before the engine sees it.
+///
+/// # BUGS
+///
+/// **This bound was written for an upstream defect.** `redoxfs::NodeLevel::new` admitted
+/// `12 * 256^4` level-4 records where `NodeLevelData::level4` holds 8 pointers, so a record offset
+/// in that band indexed past the array and the engine panicked, which in this server is a dead
+/// server (found by the `redoxfs_server_session` fuzz target, 2026-10-04 UTC). The root fix, `12`
+/// to `8` in `vendor/redoxfs/src/node.rs`, is a pin divergence taken by #1606
+/// (`lane/redoxfs-level4`); this bound is kept beside it because it answers `EFBIG` at the
+/// boundary rather than an engine `ERANGE` deep in a transaction. It is conservative: a file with
+/// 8 KiB records (every file this build creates) could address twice this, and no image this
+/// system serves comes within a factor of a million of either.
+pub const MAX_FILE_END: u64 =
+    (128 + 64 * 256 + 32 * 256 * 256 + 16 * 256 * 256 * 256 + 8 * 256 * 256 * 256 * 256)
+        * BLOCK as u64;
 
 /// What one handle names, and what may be done through it.
 ///
@@ -330,8 +361,17 @@ impl<D: Disk> Server<D> {
     /// [`dir::EROFS`] without [`dir::WRITE`], the same word and the same argument
     /// `fs_file_caretaker` uses: through this capability the file is read-only, and there is no
     /// policy that could have said yes.
+    ///
+    /// `EFBIG` when `offset + data.len()` does not fit in 64 bits or passes [`MAX_FILE_END`],
+    /// checked before the engine sees it. RedoxFS adds the two unchecked, and the wrapped end made
+    /// its inline-data path slice backwards and panic, which killed the server; an end past the
+    /// tree indexed past it (both found by the `redoxfs_server_session` fuzz target).
     pub fn write(&mut self, handle: u32, offset: u64, data: &[u8]) -> Result<usize> {
         let ptr = self.file_at(handle, dir::WRITE, EROFS)?;
+        match offset.checked_add(data.len() as u64) {
+            Some(end) if end <= MAX_FILE_END => {}
+            _ => return Err(Error::new(EFBIG)),
+        }
         self.clock += 1;
         let now = self.clock;
         self.change_file(ptr, |tx| tx.write_node(ptr, offset, data, now, 0))
@@ -402,10 +442,27 @@ impl<D: Disk> Server<D> {
     /// torn or dropped write to check, so that is a design claim and not a measurement. Truncate and
     /// create are the first verbs that change a file's *shape* rather than its bytes, which makes them
     /// the most interesting cases for milestone 37 to attack.
+    ///
+    /// # BUGS
+    ///
+    /// **Shrinking a file costs time linear in its logical size, sparse or not**, and this server
+    /// answers one request at a time, so any client holding a writable handle (a confined one
+    /// included, inside its own grant) can stall every other client with two requests: grow a file
+    /// to near [`MAX_FILE_END`], which is cheap because the engine writes no zero records, then
+    /// shrink it, which walks every record pointer in between. The same walk runs when such a file's
+    /// last name and handle go. Found by the `redoxfs_server_session` fuzz target as a ten-second
+    /// timeout (2026-10-04 UTC); not fixed here, because the two fixes are a pin divergence (skip a
+    /// null subtree in `truncate_node_inner`) or a semantics choice (refuse a sparse size past the
+    /// image), and both are an architect's. Proposed as
+    /// `design/roadmap/proposals/a-client-cannot-stall-the-file-server-with-a-sparse-file.md`.
     pub fn truncate(&mut self, handle: u32, size: u64) -> Result<()> {
         // A truncate carries no bytes, so a guard that only covered `write` would leave a way to
         // destroy a file just as thoroughly. It takes the same right and answers the same word.
         let ptr = self.file_at(handle, dir::WRITE, EROFS)?;
+        // A file grown past the tree reads past it later; [`MAX_FILE_END`] has the defect.
+        if size > MAX_FILE_END {
+            return Err(Error::new(EFBIG));
+        }
         self.clock += 1;
         let now = self.clock;
         self.change_file(ptr, |tx| tx.truncate_node(ptr, size, now, 0))
@@ -795,11 +852,19 @@ impl<D: Disk> Server<D> {
     /// handle 0 is not something the client opened, it is the root of its namespace, and a client
     /// that could close it could make every later request in the session fail.
     ///
+    /// **Nor can a bound badge's grant root, while it is bound**, for the same reason one level
+    /// down, and with `EINVAL` for the same reason. The handle table is per server, so an open
+    /// client could otherwise close the handle a bound badge's `ROOT` resolves to, and the next
+    /// open anywhere would reuse the slot: the bound badge's `ROOT` would then name that object,
+    /// outside its grant. [`Server::unbind`] revokes the badge first and then closes the root, so
+    /// taking the grant back is how the handle is released. Found by the `redoxfs_server_session`
+    /// fuzz target (`lane/fuzz-service-handlers`, 2026-10-04 UTC).
+    ///
     /// Closing a **file** handle is also what finally frees a node whose last name was unlinked
     /// while this handle was open (see [`Server::unlink`]). Nothing else collects it, so a close is
     /// not merely bookkeeping in a table this server owns.
     pub fn close(&mut self, handle: u32) -> Result<()> {
-        if handle as u64 == filesystem_protocol::fs::ROOT {
+        if handle as u64 == filesystem_protocol::fs::ROOT || self.is_grant_root(handle) {
             return Err(Error::new(EINVAL));
         }
         let entry = self.entry(handle)?;
@@ -906,6 +971,16 @@ impl<D: Disk> Server<D> {
         subtree_scope::admit(self.bindings.of(badge), badge, requested, owner)
             .map(|h| h as u32)
             .map_err(refused)
+    }
+
+    /// Whether some badge's grant is rooted at `handle` (see [`Server::close`]).
+    fn is_grant_root(&self, handle: u32) -> bool {
+        (1..filesystem_protocol::fs::CLIENT_WINDOWS as u64).any(|b| {
+            self.bindings.of(b)
+                == subtree_scope::Binding::Bound {
+                    root: handle as u64,
+                }
+        })
     }
 
     /// Whether `badge` is bound or revoked, rather than carrying the endpoint's whole authority.
@@ -2374,6 +2449,115 @@ mod tests {
             srv.read(f, 0, &mut buf).err().map(|e| e.errno),
             Some(EBADF),
             "closed"
+        );
+    }
+
+    /// **A write whose end does not fit in 64 bits is refused, and the server lives** (found by the
+    /// `redoxfs_server_session` fuzz target, `lane/fuzz-service-handlers`). The engine computes
+    /// `offset + len` unchecked; an offset near `u64::MAX` wrapped it, and the inline-data path
+    /// then sliced backwards and panicked, so any client holding a writable handle could kill the
+    /// file server with one `WRITE`. Refused `EFBIG`, POSIX's answer for a write past the largest
+    /// offset a file can have.
+    /// Falsification: attested 2026-10-04. Drop the `checked_add` guard from `Server::write`; the engine panicked at transaction.rs:1995. Not swept (separate workspace, see
+    /// script/falsifications BUGS); replay by hand with the edit and `cargo test --manifest-path
+    /// redoxfs_server/Cargo.toml --lib <this test>`.
+    #[test]
+    fn a_write_past_the_last_offset_is_refused() {
+        let mut srv = server_with_tree();
+        let f = srv
+            .open_file_path(0, "motd", dir::READ | dir::WRITE)
+            .unwrap();
+        for offset in [u64::MAX, u64::MAX - 3, u64::MAX - 6] {
+            assert_eq!(
+                srv.write(f, offset, b"overflow").err().map(|e| e.errno),
+                Some(EFBIG),
+                "offset {offset:#x}"
+            );
+        }
+        let mut buf = [0u8; 16];
+        let n = srv.read(f, 0, &mut buf).unwrap();
+        assert_eq!(
+            &buf[..n],
+            b"root motd",
+            "the file is unchanged and the server serves"
+        );
+    }
+
+    /// **A file never reaches past what the engine's node tree can address** (found by the
+    /// `redoxfs_server_session` fuzz target, `lane/fuzz-service-handlers`). Upstream's
+    /// `NodeLevel::new` admits twelve level-4 entries where `NodeLevelData::level4` has eight, so a
+    /// write ending in that band, or a read in it after a truncate grew the file there, indexed past
+    /// the array and killed the server. Both are refused `EFBIG` at [`MAX_FILE_END`].
+    /// Falsification: attested 2026-10-04. Define `MAX_FILE_END` but drop its two checks; the engine panicked at transaction.rs:1696. Not swept (separate workspace, see
+    /// script/falsifications BUGS); replay by hand with the edit and `cargo test --manifest-path
+    /// redoxfs_server/Cargo.toml --lib <this test>`.
+    #[test]
+    fn a_file_never_reaches_past_the_tree() {
+        let mut srv = server_with_tree();
+        let f = srv
+            .open_file_path(0, "motd", dir::READ | dir::WRITE)
+            .unwrap();
+        let errno = |r: Result<()>| r.err().map(|e| e.errno);
+        // Just past the tree for this build's 8 KiB records: the band that panicked.
+        let band = (MAX_FILE_END / BLOCK as u64) * 8192 + 8192;
+        assert_eq!(
+            errno(srv.write(f, band, b"x").map(|_| ())),
+            Some(EFBIG),
+            "a write in the band"
+        );
+        assert_eq!(
+            errno(srv.truncate(f, band)),
+            Some(EFBIG),
+            "a truncate into it"
+        );
+        assert_eq!(
+            errno(srv.write(f, MAX_FILE_END, b"x").map(|_| ())),
+            Some(EFBIG),
+            "one byte past the end"
+        );
+        srv.truncate(f, MAX_FILE_END).unwrap();
+        assert_eq!(
+            srv.fstat(f).unwrap(),
+            MAX_FILE_END,
+            "the end itself is a size"
+        );
+    }
+
+    /// **A grant's root cannot be closed out from under its binding** (found by the
+    /// `redoxfs_server_session` fuzz target's content rule, `lane/fuzz-service-handlers`). Handles
+    /// are per server, not per client, so an open client could `CLOSE` the handle a bound badge's
+    /// `ROOT` resolves to; the next open anywhere then reused the slot, and the bound badge's `ROOT`
+    /// named that object instead, outside its grant. Closing it is refused `EINVAL`, as closing
+    /// `ROOT` is, until `UNBIND` takes the grant back and closes it itself.
+    /// Falsification: attested 2026-10-04. Drop `|| self.is_grant_root(handle)` from `Server::close`; the test read "root motd" through the bound badge. Not swept (separate workspace, see
+    /// script/falsifications BUGS); replay by hand with the edit and `cargo test --manifest-path
+    /// redoxfs_server/Cargo.toml --lib <this test>`.
+    #[test]
+    fn a_grant_root_cannot_be_closed_while_bound() {
+        let mut srv = server_with_tree();
+        let grant = srv
+            .open_dir(0, "sub", dir::ENUMERATE | dir::READ | dir::DESCEND)
+            .unwrap();
+        srv.bind(0, grant, 3).unwrap();
+        assert_eq!(
+            srv.close(grant).err().map(|e| e.errno),
+            Some(EINVAL),
+            "an open client closed a bound badge's root"
+        );
+        let other = srv.open_file("motd").unwrap();
+        assert_ne!(other, grant, "the grant's slot was reused");
+        let root = srv.admit(3, filesystem_protocol::fs::ROOT).unwrap();
+        let mut buf = [0u8; 16];
+        assert_ne!(
+            srv.read(root, 0, &mut buf).map(|n| buf[..n].to_vec()).ok(),
+            Some(b"root motd".to_vec()),
+            "the bound badge read a file outside its grant"
+        );
+        srv.unbind(0, 3).unwrap();
+        assert_eq!(
+            srv.close(grant).err().map(|e| e.errno),
+            Some(EBADF),
+            "UNBIND closed the root itself"
         );
     }
 

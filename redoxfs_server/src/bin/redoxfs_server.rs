@@ -24,7 +24,7 @@
 //!   bytes of contiguous pages (a name on open, file bytes on read/write).
 //!
 //! The server only ever OPENS the image (never creates: creation is std-gated and host-side), and
-//! it maps RedoxFS's error type to the wire exactly once, in [`serve`], via `filesystem_protocol::reply_err`.
+//! it maps RedoxFS's error type to the wire exactly once, in `Server::handle`, via `filesystem_protocol::reply_err`.
 //!
 //! # BUGS
 //!
@@ -47,10 +47,10 @@ manifest_note::carry_subtree_grants!(manifest_note::Scope::SubtreeScope);
 
 extern crate alloc;
 
-use filesystem_protocol::{blk, fs, operation, reply_err, xattr};
+use filesystem_protocol::{blk, fs};
 use redoxfs::Disk;
-use redoxfs_server::{CachedDisk, Server};
-use syscall::error::{EINVAL, EIO, Error, Result};
+use redoxfs_server::{CachedDisk, ServeEdges, Server};
+use syscall::error::{EIO, Error, Result};
 use user_mode_runtime::{Reply, call, receive_request, send};
 
 /// Capability table slots, by convention with the kernel-side wiring (`kernel/src/user/fs_service.rs`).
@@ -407,17 +407,32 @@ fn reply(to: Option<Reply>, r0: i64, r1: u64) {
     }
 }
 
+/// [`redoxfs_server::Server::handle`]'s two IO edges, over block IPC: the device flush behind
+/// `fs::SYNC`, and the crash injector's count of `WRITE` requests (milestone 37 (prove RedoxFS's crash
+/// consistency)).
+struct IpcEdges;
+
+impl ServeEdges for IpcEdges {
+    fn note_write(&mut self) {
+        inject::note_write();
+    }
+
+    fn sync(&mut self) -> i64 {
+        IpcDisk::sync()
+    }
+}
+
 /// The serve loop. Blocks on the file-service endpoint, dispatches one request, replies, repeats.
-/// This is the **only** place a RedoxFS error becomes a wire value ([`reply_err`]); everything
-/// below it speaks `syscall::error::Result`.
+/// The dispatch, and the one place a RedoxFS error becomes a wire value, is
+/// [`redoxfs_server::Server::handle`] in the library, so the host fuzz target runs it too; this loop
+/// is only the IO around it.
 fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
     loop {
         // RECEIVE_CAP delivers (first word, the Reply cap's slot, second word, the caller's badge).
         // The Reply names the caller; endpoint-only naming means we never learn who they are, only
         // how to answer. The badge (milestone 599) names which client channel this request's bytes
-        // are in, which is the whole of how two clients are now kept apart: `win` is the base of
-        // that client's own window, and every `file_page` below reads and writes it rather than one
-        // frame shared with every client.
+        // are in, which is the whole of how two clients are now kept apart: `window` is that
+        // client's own window rather than one frame shared with every client.
         //
         // **A plain `SEND` carries its badge too** (milestone 613 (a system log service: the
         // in-memory half), calef's ruling of 2026-10-03 UTC on #1494, amending §230 (badged
@@ -430,272 +445,12 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         // server tells a Reply from a delegation)): a client that `SEND_CAP`s a capability here
         // gets it deleted, never answered into.
         let req = receive_request(FILE);
-        let (w0, w1, badge) = (req.w0, req.w1, req.badge);
         let reply_slot = req.delivered.into_reply();
-        let win = window_base(badge);
-        let code = operation(w0);
-        // **A bound badge's handles go through `subtree_scope`** (milestone 606 (a directory walk
-        // costs what it does on Linux), ruling D). Its `ROOT` is its grant's directory, and any
-        // other handle must be one it minted; an unbound badge passes through as it always has.
-        // `BIND` and `UNBIND` name a handle of the binder's own, which is unbound by their rule.
-        // Closing `ROOT` is refused for a bound badge, as a caretaker refuses it: the grant's root
-        // is not the client's to close.
-        let raw = fs::req_handle(w0);
-        let admitted = if code == fs::BIND || code == fs::UNBIND {
-            Ok(raw as u32)
-        } else if code == fs::CLOSE && raw == fs::ROOT && server.scoped(badge) {
-            Err(Error::new(EINVAL))
-        } else {
-            server.admit(badge, raw)
-        };
-        let handle = match admitted {
-            Ok(h) => h,
-            Err(e) => {
-                reply(reply_slot, reply_err(e.errno), 0);
-                continue;
-            }
-        };
-        // **Two clamps, and which one a verb gets is the compatibility property** (milestone 138
-        // step 3). The channel is `fs::TRANSFER_MAX` bytes now, but a client maps only as much of
-        // it as it intends to use, so a reply whose length THIS SERVER chooses must stay inside the
-        // one page every client has always mapped: a `READDIR` that filled 64 KiB would be written
-        // into a single-page client's unmapped second page. `READ` and `WRITE` are the two verbs
-        // whose length the CLIENT chooses, so they are the two that may use the whole channel, and
-        // a client asking for one page still gets exactly one page. See `filesystem_protocol::fs::TRANSFER_PAGES`.
-        let len = fs::req_len(w0).min(BLOCK);
-        let bulk_len = fs::req_len(w0).min(fs::TRANSFER_MAX);
-        let offset = w1;
-
-        let result: Result<i64> = match code {
-            // The handle field is the **parent directory**, not a file: `fs::ROOT` is the endpoint's
-            // bound directory, which is what every client that predates directory handles sends.
-            fs::OPEN => {
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(win, len) };
-                match core::str::from_utf8(name_bytes) {
-                    // The second word is the rights each directory on a path asks for (milestone
-                    // 606, ruling A); `fs::OPEN` has the whole rule.
-                    Ok(name) => server
-                        .open_file_path(handle, name, offset)
-                        .map(|h| h as i64),
-                    Err(_) => Err(Error::new(EINVAL)),
-                }
-            }
-            fs::READ => {
-                // SAFETY: read straight into the shared channel, up to the whole of it.
-                let buf = unsafe { file_page(win, bulk_len) };
-                server.read(handle, offset, buf).map(|n| n as i64)
-            }
-            fs::WRITE => {
-                inject::note_write(); // milestone 37: arm the crash if this is the named request
-                // SAFETY: the data is `bulk_len` bytes the client wrote into the shared channel.
-                let data = unsafe { file_page(win, bulk_len) };
-                server.write(handle, offset, data).map(|n| n as i64)
-            }
-            fs::FSTAT => server.fstat(handle).map(|s| s as i64),
-            fs::CLOSE => server.close(handle).map(|()| 0),
-            fs::CREATE => {
-                // Same shape as OPEN, deliberately: the name is `len` bytes at the start of the
-                // shared page, and the reply is a handle. A client that can open can create.
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(win, len) };
-                match core::str::from_utf8(name_bytes) {
-                    Ok(name) => server.create_file_at(handle, name).map(|h| h as i64),
-                    Err(_) => Err(Error::new(EINVAL)),
-                }
-            }
-            // **The verbs that hand back authority** (milestone 47). Both share OPEN's shape: the
-            // name is `len` bytes at the start of the shared page and the reply is a handle. What
-            // differs is the second word, which carries the rights the caller is asking the child
-            // to have rather than an offset. It is `offset` here only because that is what the
-            // wire's second word is called; the server intersects it with the parent's rights and
-            // refuses if the answer is smaller than the request.
-            fs::OPENDIR | fs::MKDIR => {
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(win, len) };
-                match core::str::from_utf8(name_bytes) {
-                    Ok(name) if operation(w0) == fs::OPENDIR => {
-                        server.open_dir(handle, name, offset).map(|h| h as i64)
-                    }
-                    Ok(name) => server.make_dir(handle, name, offset).map(|h| h as i64),
-                    Err(_) => Err(Error::new(EINVAL)),
-                }
-            }
-            // The cursor rides in the second word for TRUNCATE's reason: `len` is clamped to one
-            // page above, and a cursor is an index into a directory rather than a payload length.
-            // The listing goes into the shared page and `r0` says how much of it was filled.
-            fs::READDIR => {
-                // SAFETY: the whole page is ours to fill; the encoder never writes past its slice.
-                let buf = unsafe { file_page(win, BLOCK) };
-                server
-                    .read_dir(handle, offset as u32, buf)
-                    .map(|n| n as i64)
-            }
-            // **The only verb that names two directories**, so the second word is a packed pair
-            // (handle, length) rather than a scalar and both names ride in the shared page, source
-            // first. The page is the bound: a pair of names longer than it is EINVAL here rather
-            // than a clamp, because clamping a name is renaming something else.
-            fs::RENAME => {
-                let dst_len = fs::dst_len(offset);
-                if len + dst_len > BLOCK {
-                    Err(Error::new(EINVAL))
-                } else {
-                    // SAFETY: both names are the client's bytes at the start of FILE_PAGE, and the
-                    // sum is checked against the page above.
-                    let (src, dst) = unsafe { file_page(win, len + dst_len) }.split_at(len);
-                    match (core::str::from_utf8(src), core::str::from_utf8(dst)) {
-                        (Ok(src), Ok(dst)) => server
-                            .admit(badge, fs::dst_handle(offset))
-                            .and_then(|to| server.rename(handle, src, to, dst))
-                            .map(|()| 0),
-                        _ => Err(Error::new(EINVAL)),
-                    }
-                }
-            }
-            // `rm`'s two verbs. OPEN's shape again (a name at the start of the shared page,
-            // resolved under the handle), and the reply is 0 rather than a handle: they hand
-            // nothing back, which is the whole difference between removing a name and destroying an
-            // object. They are one arm because they differ only in the kind they will remove, and
-            // that difference is the safety property: `UNLINK` refuses a directory, `RMDIR` refuses
-            // a non-empty one, and neither spelling removes whatever it finds.
-            fs::UNLINK | fs::RMDIR => {
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(win, len) };
-                match core::str::from_utf8(name_bytes) {
-                    Ok(name) if operation(w0) == fs::UNLINK => {
-                        server.unlink(handle, name).map(|()| 0)
-                    }
-                    Ok(name) => server.rmdir(handle, name).map(|()| 0),
-                    Err(_) => Err(Error::new(EINVAL)),
-                }
-            }
-            // **Extended attributes** (milestone 57). The handle field is the file or directory the
-            // attribute is on rather than a parent directory, which is the one shape difference from
-            // OPEN: an attribute has no name in any namespace, so there is nothing to resolve it
-            // under. The layer itself is in `redoxfs_server`; this is only where the page is cut up.
-            fs::GETXATTR => {
-                // The name comes in on the page and the value goes back out on it, so the name is
-                // copied to the stack before the reply is written over it. 255 bytes against a
-                // measured 127 KiB high-water on a 397 KiB grant (notes/fs-server.md).
-                let mut name = [0u8; xattr::MAX_NAME];
-                if len > name.len() {
-                    Err(Error::new(xattr::ERANGE))
-                } else {
-                    // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                    name[..len].copy_from_slice(unsafe { file_page(win, len) });
-                    // SAFETY: the whole page is ours to fill, and the server refuses a value that
-                    // will not fit rather than writing past it.
-                    let out = unsafe { file_page(win, BLOCK) };
-                    server
-                        .get_xattr(handle, &name[..len], out)
-                        .map(|(kind, n)| xattr::reply(kind, n))
-                }
-            }
-            // The only verb here carrying two payloads: the name is `len` bytes at the start of the
-            // page and the value follows it, with the value's length and its type code packed into
-            // the second word. The page is the bound, and a pair that overruns it is EINVAL rather
-            // than a clamp, for RENAME's reason: clipping a value stores something nobody wrote.
-            fs::SETXATTR => {
-                let value_len = xattr::spec_value_len(offset);
-                if len + value_len > BLOCK {
-                    Err(Error::new(EINVAL))
-                } else {
-                    // SAFETY: both payloads are the client's bytes at the start of FILE_PAGE, and
-                    // the sum is checked against the page above.
-                    let (name, value) = unsafe { file_page(win, len + value_len) }.split_at(len);
-                    server
-                        .set_xattr(handle, name, xattr::spec_kind(offset), value)
-                        .map(|()| 0)
-                }
-            }
-            fs::LISTXATTR => {
-                // SAFETY: the whole page is ours to fill; the encoder never writes past its slice.
-                let buf = unsafe { file_page(win, BLOCK) };
-                server.list_xattr(handle, buf).map(|n| n as i64)
-            }
-            fs::REMOVEXATTR => {
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name = unsafe { file_page(win, len) };
-                server.remove_xattr(handle, name).map(|()| 0)
-            }
-            // The new size rides in the second word, NOT in the length field, because it is an
-            // offset-shaped quantity: `len` is clamped to one page above, which would silently cap a
-            // truncate at 4096 bytes. Reading it from `offset` is what lets a file be truncated to
-            // any size the filesystem can hold.
-            fs::TRUNCATE => server.truncate(handle, offset).map(|()| 0),
-            // The reply is a record in the shared page and `r0` is its length, [`READDIR`]'s shape:
-            // a reply word carries one i64 and this answer is three u64s. Encoding here rather than
-            // in the core keeps the core free of the wire's layout, which is the same boundary the
-            // errno mapping below sits on.
-            // **The durability verb** (milestone 55). Two halves in two places on purpose: the
-            // rights check is logic and lives in the host-tested crate, and the device flush is IO
-            // and lives here. The reply is the block server's own word (a count of completed device
-            // flushes), passed through rather than reduced to a 0, so a client can prove each sync
-            // was a fresh round trip; a negative is likewise passed through unmapped, which is the
-            // one exception to this loop's "map the error once" rule and is argued at both ends.
-            fs::SYNC => server.sync_permitted(handle).map(|()| IpcDisk::sync()),
-            fs::STATFS => server.statfs(handle).and_then(|(block, total, free)| {
-                // SAFETY: the whole page is ours to fill; the encoder never writes past its slice.
-                let buf = unsafe { file_page(win, BLOCK) };
-                filesystem_protocol::statfs::encode(buf, block, total, free)
-                    .map(|n| n as i64)
-                    .ok_or(Error::new(EINVAL))
-            }),
-            // **The mtime verbs** (milestone 47's `touch`; DECISIONS §112). All three name-taking,
-            // [`fs::UNLINK`]'s shape: the name is `len` bytes at the start of the shared page,
-            // resolved under the directory `handle` names. The rights split lives in the
-            // host-tested core (`redoxfs_server::Server::mtime`/`set_mtime_now`/`set_mtime_at`); this
-            // arm is only where the page is cut up, [`fs::GETXATTR`]'s boundary.
-            fs::GETMTIME => {
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(win, len) };
-                match core::str::from_utf8(name_bytes) {
-                    Ok(name) => server.mtime(handle, name).map(|t| t as i64),
-                    Err(_) => Err(Error::new(EINVAL)),
-                }
-            }
-            fs::SETMTIME => {
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(win, len) };
-                match core::str::from_utf8(name_bytes) {
-                    Ok(name) => server.set_mtime_now(handle, name).map(|()| 0),
-                    Err(_) => Err(Error::new(EINVAL)),
-                }
-            }
-            // The asserted seconds value rides in the second word, TRUNCATE's reason: `len` is
-            // clamped to one page above, which would silently cap a caller's timestamp at a
-            // nonsensical range if it rode in the length field instead.
-            fs::SETMTIME_AT => {
-                // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
-                let name_bytes = unsafe { file_page(win, len) };
-                match core::str::from_utf8(name_bytes) {
-                    Ok(name) => server.set_mtime_at(handle, name, offset).map(|()| 0),
-                    Err(_) => Err(Error::new(EINVAL)),
-                }
-            }
-            // Ruling D's two control verbs; `fs::BIND` has the rules, `subtree_scope` enforces them.
-            fs::BIND => server.bind(badge, handle, offset).map(|()| 0),
-            fs::UNBIND => server.unbind(badge, offset).map(|()| 0),
-            _ => Err(Error::new(EINVAL)),
-        };
-
-        // The one error-mapping site: RedoxFS's Error -> the negated-errno wire value.
-        // `OPEN`'s reply carries the file's size in its second word (milestone 606, ruling B), so
-        // a client reading the whole file needs no `FSTAT` to size its buffer. Every other verb's
-        // second reply word is 0, as it always was.
-        // A handle a bound badge minted is that badge's, and no other badge can name it.
-        if let (fs::OPEN | fs::OPENDIR | fs::CREATE | fs::MKDIR, Ok(h)) = (code, &result) {
-            server.claim(*h as u32, badge);
-        }
-        let size = match (code, &result) {
-            (fs::OPEN, Ok(h)) => server.fstat(*h as u32).unwrap_or(0),
-            _ => 0,
-        };
-        reply(
-            reply_slot,
-            result.unwrap_or_else(|e| reply_err(e.errno)),
-            size,
-        );
+        // SAFETY: `fs::TRANSFER_MAX` is exactly the window's mapped length, and this slice is the
+        // only one taken from it until the request is answered.
+        let window = unsafe { file_page(window_base(req.badge), fs::TRANSFER_MAX) };
+        let (r0, r1) = server.handle(req.badge, req.w0, req.w1, window, &mut IpcEdges);
+        reply(reply_slot, r0, r1);
     }
 }
 

@@ -150,9 +150,9 @@ constant and the boot sentence changed.
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/trace-the-progenitors-login-block-peak.md`. Which
+- **Milestone 753.** Milestone 753 (trace the progenitor's login block peak), number provisional. Which
   capabilities sit on the peak is "not traced" in `kernel/src/cap.rs`, and knowing that is how a
-  slot gets bought back rather than the table raised.
+  slot gets bought back rather than the table raised. Traced 2026-10-04 (UTC).
 - **Recorded.** Milestone 709 (the no-keyboard arm holds only the raw half of the boot
   discipline) names "the seven device capabilities at slots 22 to 28 with `GRANT`" among what a
   hostile session gains through the shell. After this milestone the shell holds none of them, which

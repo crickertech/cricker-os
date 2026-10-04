@@ -174,18 +174,41 @@ Fact, 2026-10-04: of the last 60 merged pull requests, 4 merged with the per-pul
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
 and on workloads that cross constantly the cost is architectural rather than a matter of tuning.
 
-**Experiment status: RUN, 2026-09-23.** No verdict yet; one bench evening stands between here and
-one. Everything measured is a single crossing, and the claim is about a cost that cannot be amortised.
+**Experiment status: RUN, 2026-10-04.** AMBER (calef, 2026-10-04, #1613). The throughput defence
+held on step 7's first outcome. The one unexplained number is a per-crossing cost under load, the
+null syscall going from 108 to 202 ticks between one task and four, and that is exactly this risk's
+claim. With the caveats below, the defence is narrow. What turns it green is explaining that
+slowdown and showing it is a fixable defect, such as lock contention on `IPC_TABLES`, rather than an
+architectural cost. Everything measured before it is a single crossing, and the claim is about a cost that cannot be amortised.
 Amortisation is a property of a workload. The single-crossing numbers are four wins and a tie against
 Linux on the same core, every caveat beside its number
 ([`notes/benchmarks.md`](../../notes/benchmarks.md)), over committed floors
 ([`bench/baseline-aarch64.txt`](../../bench/baseline-aarch64.txt)).
 
-**The decisive experiment that has not been run:** milestone 168 (a multi-tasking workload
-benchmark), one radon evening, at least five boots, by [`notes/job-mix.md`](../../notes/job-mix.md)'s
-procedure. Its step 7 wrote down what each outcome means before the numbers exist, so the reading
-cannot become a defence afterwards. The one silicon sweep so far is not quotable: 29.4% spread
-between boots at four tasks, and no page mapping or process creation in the mix.
+**The decisive experiment:** milestone 168 (a multi-tasking workload benchmark), run by
+[`notes/job-mix.md`](../../notes/job-mix.md)'s procedure, whose step 7 wrote down what each outcome
+means before the numbers existed.
+
+2026-10-04 (UTC). Five sealed radon boots of the seven-job, median-of-21 instrument
+([the evening's page](../../notes/job-mix/radon-2026-10-04.md)). Every point agreed within 1.67%
+across boots. Throughput rose to 2.62x at four tasks, the core count, and to 2.78x at 32, with no
+decline on any boot. That matches step 7's first outcome, which reads: "no architectural
+per-crossing cost visible at this scale on this silicon; the risk's decisive experiment ran and the
+defence held". So the defence held on this experiment. That is not the same as the risk being
+retired, and five things bound it:
+
+- One machine, radon, with four harts.
+- No disk-file job in the mix.
+- Nothing above 32 tasks, so a knee beyond that would not be seen.
+- One kernel model, so there is no ratio to set against Warton's 20%.
+- At 32 tasks, 80% of task time is `round_trip` queued on the instrument's two echo servers. That
+  shapes the plateau: a curve held flat by a server bottleneck is a weaker witness than one held
+  flat by spare cores.
+
+One finding stays open. The null syscall nearly doubles per job from one task to four (108 to 202
+ticks) while compute grows 6%, then grows only 17% more by 32. That is a per-crossing cost that
+rises with busy cores and saturates, which is not the stack-footprint shape, and it is unexplained.
+It is recorded in `notes/job-mix.md`'s `BUGS`.
 
 Two caveats. The counter-thesis is published: the crossing can be removed rather than made cheap. If
 RedLeaf and the 2017 Rust-kernel paper are right, a capability crossing is a cost this project chose
@@ -438,7 +461,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | 4 | 9, the HAL, at the implementation grain, widened 2026-09-23 | a second machine of an architecture nife already boots | milestone 225 (run the soak on radon, argon and xenon) | riscv64: about 30 rented hours, €1.51, milestone 89 (Scaleway EM-RV1); still unrented |
 | ~~4~~ | 1, the ecosystem | **RUN, 2026-08-31: GREEN on all three since 2026-09-16.** The blocker is a missing argv, not threads | milestone 121 | done |
 | ~~5~~ | 3, the tests | **RUN, 2026-09-19: amber.** 96.1% like-for-like against 92.4% on 2026-09-21, and 771 missed survivors (414 projected after #1277) hold the amber | milestone 326 | done; the triage remains |
-| 6 | 4, performance | the multi-tasking workload number, from the 2026-09-19 instrument | milestone 168 | one radon bench evening |
+| 6 | 4, performance | **RUN, 2026-10-04: amber** (calef, 2026-10-04). Throughput held; the null syscall's rise under load is unexplained | milestone 168 | done; the diagnosis remains |
 | 7 | 9 and 6 together | journey 3, end to end on three boards | journey 3 | months, and it is the capstone |
 | -- | 5, multicore | **RUN on radon, 2026-09-25:** 8 hours clean, 4.1 million crossings. A linear defect-discovery curve is the red result | milestone 201 (is multicore reliability converging) | weeks, hardware |
 | -- | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17: amber** (calef, 2026-10-03). A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed. The outsider half remains | milestone 633 (an outside agent attacks the confinement claim); 202, 305 and 313 done | one agent run, token cost uncosted |

@@ -1,0 +1,31 @@
+Falsifies the `compositor_session` fuzz target's rule that a lie re-copies only the liar.
+
+The defect: `damage_to_screen` drops its first clip, to the client's own surface, and keeps only
+the clip to the screen. A client that reports damage past its own edge then makes the compositor
+redraw (and, in the binary, flush) other windows' pixels, the bug the function's own comment names.
+
+Expected to fail: "client N's damage ... leaves its window", or an overflow in `Rect::translate`
+when the rectangle's origin is near `i32::MAX`.
+
+Replay by hand, from the repository root (`script/falsifications` sweeps Kani harnesses and tests,
+not fuzz targets):
+
+    git apply fuzz/falsifications/compositor_session.damage_is_not_clipped_to_the_surface.patch
+    mkdir -p /tmp/plant && cargo fuzz run -O compositor_session /tmp/plant -- -max_total_time=600
+    git apply -R fuzz/falsifications/compositor_session.damage_is_not_clipped_to_the_surface.patch
+
+Measured 2026-10-04 (UTC) on an M-series Mac, from an empty corpus: see notes/fuzzing-the-services.md.
+
+diff --git a/crates/compositor/src/lib.rs b/crates/compositor/src/lib.rs
+index d25c23481..43a9ddf70 100644
+--- a/crates/compositor/src/lib.rs
++++ b/crates/compositor/src/lib.rs
+@@ -514,7 +514,7 @@ pub fn expected_screen_checksum(n: usize) -> u64 {
+ /// window that hangs off the screen makes the compositor write outside the framebuffer. The client's
+ /// number is *untrusted input* to the first clip, which is why it is a clip and not an assertion.
+ pub fn damage_to_screen(win: &Window, damage: Rect) -> Rect {
+-    let inside = damage.intersect(&win.bounds());
++    let inside = damage;
+     inside
+         .translate(win.origin_x, win.origin_y)
+         .intersect(&Rect::screen())
