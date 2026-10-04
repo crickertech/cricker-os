@@ -191,9 +191,6 @@ pub static ROUTED_IRQS: AtomicUsize = AtomicUsize::new(0);
 /// steps enable real sources).
 pub static SPURIOUS_IRQS: AtomicUsize = AtomicUsize::new(0);
 
-/// System calls served (`ecall` from U-mode). Read by the boot tour; bumped by the trap dispatcher.
-pub static SVC_COUNT: AtomicUsize = AtomicUsize::new(0);
-
 /// User faults taken (a page fault or illegal instruction from U-mode). Read by the boot tour;
 /// bumped by the trap dispatcher.
 pub static USER_FAULTS: AtomicUsize = AtomicUsize::new(0);
@@ -451,7 +448,6 @@ extern "C" fn riscv_trap_body(frame: &mut TrapFrame) -> bool {
         CAUSE_ECALL_U => {
             // The syscall. `sepc` points AT the `ecall` (unlike aarch64, where the hardware advances
             // ELR past `svc`), so step over it before dispatching, and `ecall` is always 4 bytes.
-            SVC_COUNT.fetch_add(1, Ordering::Relaxed);
             // Wrapping, because the wrap cannot happen on the one path every syscall takes
             // (release builds check overflow, notes/overflow-checks.md): this cause is U-mode
             // only, so `sepc` is a user address in Sv39's low half, far below `2^64 - 4`.

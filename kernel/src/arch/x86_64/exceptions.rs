@@ -257,11 +257,6 @@ pub static NMIS_UNCLAIMED: AtomicUsize = AtomicUsize::new(0);
 /// APIC delivers and the trap path returns, and this proves a line outside the CPU reached it.
 pub static DEVICE_IRQS: AtomicUsize = AtomicUsize::new(0);
 
-/// **How many system calls were taken.** Named for aarch64's `svc` instruction because that is the
-/// arch contract's word; on x86 the mechanism will be `syscall`, which does not go through the IDT
-/// at all.
-pub static SVC_COUNT: AtomicUsize = AtomicUsize::new(0);
-
 /// **How many user-mode faults were taken.**
 pub static USER_FAULTS: AtomicUsize = AtomicUsize::new(0);
 
@@ -586,7 +581,6 @@ pub unsafe extern "C" fn x86_syscall_handler(frame: *mut TrapFrame) {
     // SAFETY: `x86_syscall_entry` built the frame directly below the pointer it passed, and no
     // other caller exists (the symbol is only referenced from trap.s).
     let frame = unsafe { &mut *frame };
-    SVC_COUNT.fetch_add(1, Ordering::Relaxed);
     crate::syscall::dispatch(frame);
 }
 

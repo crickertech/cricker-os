@@ -431,7 +431,6 @@ extern "C" fn exception_body(frame: &mut TrapFrame, index: u64) -> bool {
         // register the user program is waiting on. **Writing to the trap frame is writing to the
         // user's registers.**
         ec::SVC64 if is_from_lower_el(index) => {
-            SVC_COUNT.fetch_add(1, Ordering::Relaxed);
             crate::syscall::dispatch(frame);
         }
 
@@ -473,9 +472,6 @@ fn is_from_lower_el(index: u64) -> bool {
     // free at `-O` and is not free in the build the gate measures.
     index >= 8 && index <= 11
 }
-
-/// How many `svc` instructions we have caught from EL0.
-pub static SVC_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// How many user threads have been killed for faulting.
 pub static USER_FAULTS: AtomicUsize = AtomicUsize::new(0);
