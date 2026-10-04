@@ -1,13 +1,14 @@
 # Overflow checks: what we build, what they find, what they cost
 
 *Provisional name. Milestone 744 (provisional), a measurement asked for by calef on 2026-10-04
-(UTC). It changes no profile. The options at the end are calef's to choose between.*
+(UTC). It changed no profile. calef chose option A on 2026-10-04, and milestone 750 (provisional)
+landed it; see "The ruling, and what landed".*
 
 Rust integer arithmetic panics on overflow or wraps silently depending on `-C overflow-checks`,
 which Cargo turns on in `dev` and off in `release`. Neither is undefined behaviour (RFC 560), but an
 unmeant wrap is a quiet wrong answer.
 
-## What we build today
+## What we built before the ruling
 
 Measured on `main` at `1a145fcaa`. No `[profile.dev]` or `[profile.release]` table exists in the
 root `Cargo.toml` (only per-package `opt-level` overrides), `.cargo/config.toml` passes no
@@ -177,33 +178,10 @@ removes checks it can prove redundant, so the release instruction cost is at mos
 
 ### Cycles on the release build (HVF, patagonia)
 
-`script/bench --release` on patagonia's own core under HVF, 2026-10-04 (UTC), at `1a145fcaa`'s code
-(this branch changes only documentation). Checks off is the stock build; checks on is the same
-commit in a second, unpushed worktree with `CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true` (its release
-kernel carries 610 overflow sites, the stock one 0). Seven runs of each, interleaved off and on, on
-a quiet machine. Median ns per iteration, with the range over the seven:
-
-| Benchmark | off | on | median change |
-|---|---|---|---|
-| `null_syscall` | 27 [27-27] | 27 [27-27] | 0 |
-| `yield_switch` | 31 [29-33] | 29 [29-31] | noise |
-| `ctx_switch` | 121 [119-122] | 121 [118-122] | 0 |
-| `ipc_rtt` | 49 [46-50] | 48 [48-51] | noise |
-| `call_reply` | 69 [63-70] | 68 [65-84] | noise |
-| `relay_rtt` | 112 [104-112] | 106 [105-118] | noise |
-| `broker_rtt` | 137 [126-139] | 139 [130-142] | noise |
-| `ipc_rtt_el0` | 402 [394-421] | 424 [395-431] | +5.5%, ranges overlap |
-| `map_new` | 492 [449-572] | 495 [472-632] | noise |
-| `map_el0` | 92 [85-92] | 93 [92-117] | noise |
-| `spawn_reap` | 2133 [1746-2757] | 1917 [1858-2460] | noise |
-| `spawn_el0` | 6260 [5900-6496] | 6217 [5903-7483] | noise |
-| `coremark` | 8486 [8463-8538] | 8697 [8691-8778] | **+2.5%, ranges disjoint** |
-
-"Noise" means the two ranges overlap and the medians differ by less than the spread of either. The
-one cost the release build clearly shows is CoreMark's 2.5%, a userspace integer workload. On the
-kernel's IPC, switch and syscall paths no cost is distinguishable from run-to-run variation at seven
-runs. `ipc_rtt_el0` is the one to rerun if A lands: its median moved 5.5% but its ranges overlap.
-This is magnitude, not path length: one machine, one core, real caches.
+`script/bench --release` under HVF, seven runs each interleaved, at `1a145fcaa`: no IPC, switch or
+syscall cost above run-to-run noise, CoreMark +2.5% with disjoint ranges, and `ipc_rtt_el0`'s median
++5.5% with overlapping ranges. The fourteen-run repeat under "The ruling, and what landed" replaces
+this table; the per-run numbers are in git.
 
 ## Prior art
 
@@ -236,59 +214,87 @@ Read from source on 2026-10-04 (UTC) unless marked.
 Hubris, Rust-for-Linux and Android's Rust ship with checks on. The kernels that ship them off do not
 say why.
 
-## Options
+## Options, and the ruling
 
-No decision is taken here. Each is reversible: a profile line, and nobody outside the tree has acted
-on the current setting.
+Four were put to calef: A, checks on in every release profile; B, checks only in test and CI,
+extended to the three release-only programs; C, A plus fast paths written with explicit
+`wrapping_*`/`checked_*`; D, unchanged. The recommendation was A with B's programs and C to follow.
+The tested and shipped builds disagreed about what `a + b` means, and every overflow found here was
+found by a build that panicked. Not an effort argument: D was the least work.
 
-### A. Checks on everywhere
+**calef, 2026-10-04 (UTC): "Yes. Launch a lane for the fast paths."** That is A, B's programs and C
+in one change, which is how it had to land: the profile flip alone fails the footprint gate.
 
-One `[profile.release] overflow-checks = true` in the root and in the three standalone program
-workspaces. The shipped build then behaves like every tested build. Costs: the fast-path footprint
-above (4 to 9% on the round trip), the release kernel 2 to 11% larger, userspace 3 to 6% larger, a
-re-baseline of `fastpath-footprint` and a re-derived frame budget. In instructions (opt-level 0, an
-upper bound): under 1.1% on IPC and switches, 2 to 6% on map and spawn, 5.5 to 7.2% on CoreMark. A
-latent wrap in shipped code becomes a halt instead of a wrong answer.
+## The ruling, and what landed
 
-### B. Checks in test and CI only, extended to the three release-only programs
+Milestone 750 (provisional). `overflow-checks = true` in the root `[profile.release]` (kernel,
+`uefi_loader`, `stick_maker`, each workspace program) and `std_exerciser`, `redoxfs_server` and
+`cryptography_exerciser`, whose profiles also build their `std`. `helpers/build-ripgrep.sh` sets it
+by environment, and the probe scripts write it into their manifests. `fuzz/` had it already; `tools/redoxfs_host` builds `dev`.
 
-Keep release off for the kernel; add a checks-on build of `redoxfs_server` and the `std` programs to
-the test boots (or build them dev under test, as the workspace programs already are). Closes the one
-real gap in coverage without touching what ships. Leaves the gap between what is tested and what is
-shipped.
+### The fast paths
 
-### C. On for the kernel, off on the fast paths by writing them explicitly
+Every check that landed in a symbol the footprint gate measures was rewritten, and each says why at
+its site, in one of four kinds:
 
-Option A, then replace the arithmetic on the IPC and syscall paths with `wrapping_*` or `checked_*`
-where the bound is known, until `fastpath-footprint` is back inside its band. Every remaining
-unchecked operation is a written claim at its site. More work, and the work is on the code that is
-most performance-tuned.
+- *Wraps that cannot happen*, by an invariant or a proof: the intrusive FIFO's length (the pop side
+  under its Kani proof), the capability table's count (`the_count_is_the_slots`), `cpu::id`'s
+  subtraction, the current-CPU page offset, riscv64's two `sepc` steps.
+- *A stronger check for a weaker one*: `interrupt_stack::guard` indexes the array, so an id of
+  `MAX_CPUS` is refused where the multiply let it through.
+- *A check moved to where the value enters*: the PLIC claim register's reach, once in `plic::init`.
+- *No arithmetic*: the current-CPU page's direct-map address is computed once, at attach.
 
-### D. Unchanged
+`rendezvous_of`'s `phys_to_virt` keeps its check; the band did not need it. Bytes from
+`script/fastpath-footprint` on patagonia (checks off on `main`, checks on before the rewrite, after):
 
-The three programs stay unchecked everywhere.
+| ISA | `ipc_call_reply` | `ipc_send_receive` | `syscall_entry` |
+|---|---|---|---|
+| aarch64 | 7,044 / 7,332 / 6,912 | 5,692 / 5,956 / 5,612 | 1,612 / 1,724 / 1,640 |
+| riscv64 | 6,106 / 6,632 / 6,094 | 4,988 / 5,470 / 5,002 | 1,976 / 2,244 / 2,008 |
+| x86_64 | 8,227 / 8,927 / 8,467 | 6,588 / 7,244 / 6,832 | 1,797 / 1,797 / 1,797 |
 
-## Recommendation
+All inside the 5% band, baselines unchanged; the closest is x86_64's `ipc_send_receive`, +4.4%.
 
-**Option A**, with B's fix folded in, and C done as follow-up on the paths the footprint gate names.
+### Frame budget, instructions, cycles
 
-The reason is the second fact under the first table: today the build that is tested and the build
-that is shipped disagree about what `a + b` means. Every overflow this tree has found was found
-because a tested build panicked; the same input in the shipped build would have wrapped, and in the
-`dtb` case the wrap was the worse outcome. A kernel that halts is a visible bug a person can report.
-A kernel whose frame allocator believes a wrong memory map is not. That is the same argument Hubris
-prints in its build and Rust-for-Linux makes its default.
+The frame budget, re-derived the usual way: CI read 26,673 on aarch64 with checks on (run
+37179021009) against 26,667 on `main`, so `SUITE_PAGE_FRAME_BUDGET` is 26,705.
 
-Question 7: if A to D cost the same, would I still choose A? Yes; this is not about effort. D is the
-least work and loses on correctness; C is the most and is what A becomes on the hot paths over time.
-The measured price is 4 to 9% more fast-path bytes (inside the 16 KiB ceiling), about 1% more IPC
-instructions, and on the aarch64 release build under HVF no IPC cost above noise and 2.5% on
-CoreMark. That is small enough to pay for a shipped build that means what the tested one means.
+Instructions (CI's icount bench against a `main` run one merge behind the base): no headline moved
+more than 1.8% either way. The dev kernel already carried the checks, and the rewrite removed some.
+
+Cycles (`script/bench --release`, HVF on patagonia, 2026-10-04, fourteen interleaved runs each,
+median ns and range, on a busier machine than the first measurement's):
+
+| Benchmark | off | on | median change |
+|---|---|---|---|
+| `null_syscall` | 30 [29-32] | 30 [29-38] | 0 |
+| `ipc_rtt` | 51 [49-146] | 50.5 [49-151] | noise |
+| `call_reply` | 71 [68-173] | 70 [68-201] | noise |
+| `ipc_rtt_el0` | 437.5 [403-583] | 441 [400-811] | +0.8%, noise |
+| `ctx_switch` | 131 [127-154] | 133 [127-334] | noise |
+| `map_new` | 526 [483-1244] | 506 [478-766] | noise |
+| `spawn_reap` | 2033 [1913-3324] | 2221.5 [1875-10496] | noise |
+| `coremark` | 9427 [9209-15513] | 9655 [9285-10245] | **+2.4%**, both halves |
+
+**`ipc_rtt_el0`'s +5.5% was not real.** Fourteen runs put the medians 0.8% apart, and twelve of the
+"on" readings fall inside the "off" range. CoreMark's +2.4% reproduced in each batch of seven and
+matches the first measurement: that is the price, in userspace integer code.
+
+### What it found
+
+No overflow panicked, in CI's suite on three ISAs or in `cryptography_exerciser` and unmodified `rg`,
+run by hand on all three with checks on (2026-10-04). x86_64's OVMF leg skips `rg` for want of a
+RedoxFS disk; its PVH leg ran it.
 
 ## BUGS
 
 - The HVF cycle numbers are aarch64 on one machine (patagonia); riscv64 and x86_64, where the
-  footprint cost is larger, have no release cycle measurement.
+  checks cost more bytes, have no release cycle measurement.
 - The icount figures are opt-level 0 and overstate the release instruction cost.
-- `cryptography_exerciser` and `rg` are built only by hand-run helpers, so no CI run of this
-  experiment exercised them.
+- `cryptography_exerciser` and `rg` are built only by hand-run helpers, so CI never runs them with
+  checks on; the 2026-10-04 run above is by hand and will not repeat itself.
+- `rendezvous_of` and the rest of riscv64's and x86_64's `phys_to_virt` callers still carry an add
+  check that on x86_64 refuses only addresses past about 119 TiB, beyond the 64 TiB the direct map
+  has room for. The check that matters there is a range check, and nothing makes it.

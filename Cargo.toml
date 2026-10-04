@@ -286,6 +286,13 @@ opt-level = 2
 [profile.dev.package.digest]
 opt-level = 2
 
+# Overflow checks in release, ruled by calef 2026-10-04 (UTC) (notes/overflow-checks.md, option A).
+# The shipped build now means by `a + b` what every tested build means: an overflow halts rather
+# than wraps into a quiet wrong answer. Where a hot path wants a wrap, it says so at the site with
+# `wrapping_*` and a reason.
+[profile.release]
+overflow-checks = true
+
 # Note: we deliberately do NOT set `panic = "abort"` here. The bare-metal target
 # has abort baked in already, and setting it workspace-wide would break `cargo test`
 # for the host-side crates we plan to add (DECISIONS §7).
