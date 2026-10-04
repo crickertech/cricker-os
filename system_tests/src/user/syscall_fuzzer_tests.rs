@@ -93,7 +93,10 @@ const SUITE_SEEDS: u64 = 32;
 /// takes a capability), a PROVISIONAL number, changed what a `CALL` or `SEND_CAP` at a plain
 /// `RECEIVE` does. The model's walk diverged, and seed 5 no longer reached a frame revoked while
 /// staged. A 2,000-seed sweep under that patch on aarch64 found it red first at seed 342, step 64
-/// (2026-10-04, UTC).
+/// (2026-10-04, UTC). All six patches were then replayed on this tree under QEMU on aarch64,
+/// riscv64 and x86_64, and each turned the driver red: four at seed 0 (steps 17 and 18), milestone
+/// 633's at seed 19 (step 63, inside the suite range now, so 180 is no longer the first), and
+/// revocation in flight at 342.
 const CORPUS: &[u64] = &[180, 342];
 /// The sweep's guest-time cap: it stops between seeds once this has passed and says how far it
 /// got, so a weekly run with a large count fits under the per-test budget
