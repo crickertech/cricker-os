@@ -4416,6 +4416,15 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
 /// The lookup that is the security mechanism. `slot` came from userspace, in a register, and it
 /// indexes an array that lives in kernel memory and that userspace has never seen. An empty slot
 /// is `NoSuchSlot`, which is not "permission denied": **there is nothing there.**
+///
+/// **`#[inline(never)]`, because `script/fastpath-footprint` counts it once as a root and
+/// `syscall::dispatch` flat** (milestone 758 (the IPC fast paths shrink back inside their band),
+/// provisional). Left to LLVM, outlining the lock-order panic made this body small enough to inline
+/// into one of `invoke`'s call sites, which put 804 bytes on aarch64's `syscall_entry` for a lookup
+/// the closure already counts. Every capability syscall calls it, so one copy is also the cheaper
+/// copy to keep warm. Milestone 368 (`script/fastpath-footprint`'s entry set is flat) holds the
+/// other instances of this shape.
+#[inline(never)]
 pub fn current_cap(slot: u64) -> Result<crate::cap::Cap, crate::cap::Error> {
     let guard = IPC_TABLES.lock();
     let sched = guard.as_ref().ok_or(crate::cap::Error::NoSuchSlot)?;
