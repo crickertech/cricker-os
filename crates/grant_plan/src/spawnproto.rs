@@ -827,9 +827,9 @@ pub const SPAWN_REFUSED_BY_MANIFEST: u64 = u64::MAX - 3;
 /// session could not be built" (a second session, the job pool spent) is a failure, and a person
 /// needs them told apart. Four below `u64::MAX`, for [`JOB_FAULTED`]'s reason.
 ///
-/// Name: provisional (milestone 715, 2026-10-03). That the answer is a result word at all, rather
-/// than a fact the shell is told at `_start`, is an open question for an architect: see
-/// `design/roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`.
+/// Mechanism: ruled 2026-10-04 (UTC, calef): the shell learns "no display" from this result word,
+/// not from a fact it is told at `_start`. Name: provisional (milestone 715, 2026-10-03); the
+/// ruling covered the mechanism only.
 pub const SPAWN_NO_DISPLAY: u64 = u64::MAX - 4;
 
 /// The ack the progenitor sends on the result endpoint when a **supervised** (interruptible) child started

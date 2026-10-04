@@ -142,10 +142,9 @@ constant and the boot sentence changed.
 - **`SHELL_GPU_SLOT` (22) names an empty block.** Kept, with its fence assertions, because a slot
   probed by nothing is still a slot nothing should allocate into; whether the name stays is an
   architect's call.
-- **`SPAWN_NO_DISPLAY` is a new spawn-protocol word**, and the block left the mechanism open
-  ("reports at the prompt's start"). A result word was chosen over a bit in the shell's `_start`
-  registers because it needs no new start-time contract and answers at the moment of asking. Name
-  and mechanism are provisional.
+- **`SPAWN_NO_DISPLAY`'s name is provisional.** The block left the mechanism open ("reports at
+  the prompt's start"); calef ruled it 2026-10-04 (UTC): the shell learns "no display" from a spawn
+  result word, not a boot fact. The ruling covered the mechanism only, so the name still wants one.
 - A child holding `result_ep` can send `SPAWN_NO_DISPLAY` about itself, as it can `SPAWN_FAILED`;
   `components/src/swish.rs`'s BUGS has that entry.
 
