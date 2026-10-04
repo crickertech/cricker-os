@@ -22,11 +22,16 @@ receiver-first pass stops the test first.
 Nothing here is architecture-specific: both arms are portable scheduler code. The badge the
 context lines mention is milestone 599 (a frame per filesystem client channel)'s.
 
+Regenerated 2026-10-04 (UTC) by the lane for the proposal "capability lookup off the global lock",
+which moved each thread's capability table behind its own lock: the delivery now goes through
+`deliver_capability`, so the old hunk no longer matched. Same removals, same defect.
+Replayed red on aarch64 the same day, at the receiver-first assertion this record predicts.
+
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index 9e988f140..a71411d3d 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3689,7 +3689,4 @@ fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
+@@ -3853,9 +3853,6 @@ fn call_meets_plain_receive(
+ fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
      if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
          sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
 -    } else {
@@ -34,14 +39,17 @@ index 9e988f140..a71411d3d 100644
 -        wake(sched, sender);
      }
  }
-@@ -3974,10 +3971,4 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3]
+ 
+@@ -4147,12 +4144,6 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3]
+                 let receiver = unsafe { (*receiver.as_ptr()).id };
                  // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
-                 let r = sched.threads.get_mut(receiver).unwrap();
+                 let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
 -                if !r.receiving_cap {
 -                    // A plain RECEIVE cannot hold the Reply, so this CALL is answered `Gone`
 -                    // (§246, PROVISIONAL number). Out of line: no server in the tree does this.
 -                    call_meets_plain_receive(sched, receiver, current, msg, badge);
 -                    return [0, 0, 0];
 -                }
-                 let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
+                 let slot = deliver_capability(caps, reply);
                  // Word 3 is the caller's badge (milestone 599): the same store as before with a
+                 // value instead of a zero, so the server's RECEIVE_CAP surfaces which client called.
