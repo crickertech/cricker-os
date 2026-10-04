@@ -5,8 +5,9 @@ Architecture: aarch64
 The defect is the tree as it stood until §246 (a plain `RECEIVE` never takes a capability),
 PROVISIONAL number, calef's ruling A of 2026-10-04 UTC. The patch restores both `CALL` arms as
 they were. Receiver-first, `ipc_call_badged` installs the caller's Reply in a receiver parked in
-plain `RECEIVE`, which never reads it. Sender-first, `ipc_receive` delivers the request and leaves
-the caller parked on a Reply that exists nowhere, until the rendezvous is torn down.
+plain `RECEIVE`, which never reads it. Sender-first, `ipc_receive` (through
+`collected_without_serving`) delivers the request and leaves the caller parked on a Reply that
+exists nowhere, until the rendezvous is torn down.
 
 Expected to fail, on the first (receiver-first) pass: `assert_eq!(got.held_after, got.held_before,
 "a plain RECEIVE ended holding 1 slots, having held 0 (receiver_first = true): the caller's Reply
@@ -22,16 +23,18 @@ Nothing here is architecture-specific: both arms are portable scheduler code. Th
 context lines mention is milestone 599 (a frame per filesystem client channel)'s.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index dab67f3d1..142214058 100644
+index 9e988f140..a71411d3d 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3597,5 +3597,4 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
-                         sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
-                     } else if is_caller {
--                        answer_caller_gone(sched, sender);
-                     } else {
-                         // **A plain RECEIVE collected this sender, and a plain RECEIVE delivers no
-@@ -3968,10 +3967,4 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3]
+@@ -3689,7 +3689,4 @@ fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
+     if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
+         sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+-    } else {
+-        set_ipc_aborted(sched, sender);
+-        wake(sched, sender);
+     }
+ }
+@@ -3974,10 +3971,4 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3]
                  // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
                  let r = sched.threads.get_mut(receiver).unwrap();
 -                if !r.receiving_cap {
