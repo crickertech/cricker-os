@@ -219,6 +219,7 @@ attached.
 | 2026-10-04 | a08efc8dc | 1 | not reached | not reached | | | | | screen tore as the `vt-d` lines printed (`bench/xenon-2026-10-04/boot-a-main.log`) |
 | 2026-10-04 | 7ae6d4e15 | 1 | PASS (catch-all `0xfed91000` owns 01:00.0) | not reached | | | | | bring-up `CompletionTimeout` (`boot-b-pre594.log`) |
 | 2026-10-04 | 3dfd2e813 | 1 | PASS | not reached | | | | | diagnostic image: VT-d fault reason 0x01 on the admin queue, `ECAP.C` = 0 (`boot-c-diag.log`) |
+| 2026-10-04 | `d3dbe8cf253d33f648808393ce89063983583c12` | 1 | PASS | not reached | | | | | with `wbinvd`: fault moves to reason 0x0b, context entry reserved field (`boot-d-wbinvd.log`) |
 
 ### What the first evening found, 2026-10-04
 
@@ -230,6 +231,17 @@ first admin command (IDENTIFY, cid 1) from ASQ `0x9e1000`, and the unit faulted 
 0x01, root entry not present, while the CPU's own view of `root[1]` was `0x9fa001`, present. The
 entry was in a cache line the unit could not see. The endpoint and its root port both had
 Bus-Master on, which rules out the other candidate.
+
+A second image wrote the tables back with `wbinvd` and got one fault further, which confirms the
+cause. The unit now read the root entry and faulted the context entry instead, with reason 0x0b,
+a reserved field set in a present context entry. (That meaning is from memory of the
+specification's fault-reason table, not re-read.) The entry's upper half was `0x10002`, domain id 0x100, and this
+unit's `CAP.ND` = 2 gives 8-bit domain ids, so bit 16 is reserved. The pre-594 kernel used the
+requester id as the domain id; milestone 594 already replaced that with ids allocated within
+`CAP.ND`, for exactly this reason, before any machine showed it. So main carries both fixes once
+the write-back lands. Nothing else in `CAP` or `ECAP` read here constrains the entries this driver
+writes. `SAGAW` offers 4-level, the `AW` written; `MGAW` is 39 bits and every address mapped is
+below 4 GiB; and leaves set neither superpage nor snoop bits.
 
 QEMU could not have shown this: its unit reports `C=0` as well, but it reads guest memory
 directly. The fix is `kernel/src/arch/x86_64/iommu.rs`'s `Unit::publish` (a `clflush` per table
