@@ -140,8 +140,8 @@ concurrency:
 # loom spawns a real thread (`memory_corruption_canary_gate`'s `bounded`, which checks liveness through
 # a channel, not ordering), and the protocols that do depend on ordering (`work_steal_slot`,
 # `thread_wake_handshake`, `memory_regions`, `clock_protocol`, `memory_corruption_canary_gate`) are
-# checked by loom, which models C11 on any host and is not a CI job at all. A host test that races
-# no threads cannot observe a reordering on any host.
+# checked by loom, which models C11 on any host and runs as the `interleavings` job below. A host
+# test that races no threads cannot observe a reordering on any host.
 #
 # **Where the claim does hold is the guest, and that is why the four build jobs and `cpu-matrix`
 # stay on arm64** (the watchdog job runs there too, a placement it inherited rather than one this
@@ -1071,6 +1071,51 @@ jobs:
           rustup target add x86_64-unknown-none x86_64-unknown-uefi
           rustup component add llvm-tools
       - run: script/ci-build boot-file-size-check
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
+
+  interleavings:
+    name: interleavings (loom, every thread interleaving of the atomic protocols)
+    runs-on: ubuntu-24.04
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    # Milestone 746 (loom runs in CI), provisional number. Measured 24 seconds wall clock on the dev
+    # machine in a cold worktree (compile included, 26 harnesses), against the 20-minute budget. The
+    # bound is the budget plus margin; a hung search must fail loudly.
+    timeout-minutes: 25
+    steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # **The same documentation-only predicate `cpu-matrix` and `verify` use.** A markdown change
+      # cannot alter an atomic protocol. The job still runs when the steps are skipped, so a
+      # docs-only pull request posts a status instead of sitting on "Expected" (see the build jobs'
+      # scope comment for why a trigger-level `paths-ignore:` is wrong here).
+      - name: Does this change need the interleaving search?
+        id: scope
+        run: |
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
+          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          changed="$(git diff --name-only "$base" HEAD)"
+          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "==> documentation only; no protocol changed"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: Swatinem/rust-cache@v2
+        if: steps.scope.outputs.needed == 'true'
+      # `memory_regions` carries the falsification witness: that harness passes only when loom finds
+      # the pre-#316 double free, so a green run also proves the search can still see a bug.
+      - run: script/interleaving-check
+        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
