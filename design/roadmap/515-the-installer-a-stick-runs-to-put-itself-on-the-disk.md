@@ -188,8 +188,12 @@ PC once rung 1 has one.
 
 ## Follow-on
 
-- **Outstanding.** Exit criterion 2, xenon: milestone 261's disk wipe is calef's, then one bench
-  boot. Checked 2026-10-03: 261 is PARTIAL and nothing in `bench/` records an install.
+- **Outstanding.** Exit criterion 2, xenon: the bench install and the boot from disk after it,
+  calef's, step 2 of [`notes/xenon-bench-2026-10.md`](../../notes/xenon-bench-2026-10.md). It runs
+  after risk 6's bench boots, which write 64 MiB from 1 MiB in, where the data partition starts.
+  **Corrected 2026-10-04:** this line said "milestone 261's disk wipe is calef's", checked
+  2026-10-03, but 261's block records the wipe done on 2026-09-17 and calef confirmed it again on
+  2026-10-04 (UTC). What remains is the install, and nothing in `bench/` records one yet.
 - **Outstanding.** Exit criterion 3, a fleet machine that is not xenon, from milestone 243 (a machine with no serial port has no way to say anything)'s fleet.
 - **Decision.** Ruled 2026-10-03 in `design/decisions/244-the-installed-disk-has-four-partitions.md`: the layout above stands, and slots stay at 64 MiB. Two conditions remain with another lane: the installer installs a release image, and CI gates the release image at 16 MiB.
 - **Milestone 560.** `BOOTRISCV64.EFI` is not an 8.3 name, so riscv64 cannot be installed.
