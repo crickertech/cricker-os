@@ -96,6 +96,32 @@ and priced it is notes/redoxfs-audit.md).
      submitted, and nobody has written this one or opened the merge request. Recorded here rather
      than left implied, because a divergence with an upstreaming story and no submission is a thing
      a reader should be told about rather than discover.
+  6. `src/node.rs`: **the level-4 record count is 8 * 256^4, not 12 * 256^4.** 2026-10-04, calef's
+     ruling ("Can we patch our redox?"). `NodeLevel::new` bounds its last level at `12 * NUM^4`
+     records, but `NodeLevelData::level4` holds eight pointers, so a write or truncate past about
+     4.03 PiB (128 KiB records; 8 * 256^4 records at any record size) indexed `level4[8]` and
+     panicked with `index out of bounds: the len is 8 but the index is 8`. With 8, those offsets
+     return `None`, which `transaction.rs` already turns into `ERANGE`. The 4 PiB figure on the
+     `level4` field's doc comment already says eight. Found by the `redoxfs_server` fuzz target (PR #1597).
+     Checked against upstream HEAD `b87b0976ee12` (2026-10-04): the constant is still 12 there.
+     Test: `node::node_level_ends_where_level4_ends`, which fails on the unpatched constant.
+     **Falsification: attested 2026-10-04, not replayable by `script/falsifications`.** That script
+     replays records only for workspace packages and skips `vendor/`; `vendor/redoxfs`,
+     `redoxfs_server` and `tools/redoxfs_host` are each their own workspace, so no package that
+     can reach `NodeLevel` is in its scope, and a patch file under `vendor/` would also fail
+     `script/vendor-verify`. Replay by hand: set `L4` back to `12 * NUM * NUM * NUM * NUM` and run
+     `cargo test --manifest-path vendor/redoxfs/Cargo.toml --lib --no-default-features --features
+     std node_level`; it fails on `NodeLevel::new(end).is_none()`.
+
+     **Not sent upstream, and the reason is policy rather than doubt about the fix.** Redox's
+     CONTRIBUTING.md refuses LLM-generated contributions, and this change was written by an agent,
+     so we carry it. `redoxfs_server`'s `MAX_FILE_END` cap answers `EFBIG` well before this
+     engine's `ERANGE` can be reached, so the patch is defence in depth for the service and the
+     real fix for any other caller of the engine.
+
+     **At the next bump:** read `NodeLevel::new` first. If upstream changed the constant to 8 (or
+     restructured the function), drop this divergence and its test with it; otherwise re-apply the
+     one-line change and keep the test. Ages like divergences 3 to 5 if upstream never fixes it.
 
 - Everything else is byte-identical to the published package, including files we do not use
   (`Makefile`, `test.sh`, upstream CI configs) and `Cargo.lock`.
@@ -143,7 +169,7 @@ it is mechanical**, which is why nothing automates past the first step:
 
 1. Raise `version`, `url` and `sha256` in the pin. (`script/vendor-watch --write` does this much,
    and stops there.)
-2. Re-apply the divergences. Numbers 1 and 2 above drop the day upstream ships them; 3, 4 and 5 are
+2. Re-apply the divergences. Numbers 1, 2 and 6 above drop the day upstream ships them; 3, 4 and 5 are
    re-applied forever and are where the work is.
 3. Regenerate the patch: `script/vendor-verify --write-patch`.
 4. Extend this file's divergence list, which claims to be exhaustive and has been wrong once.
@@ -167,6 +193,11 @@ it is mechanical**, which is why nothing automates past the first step:
   edited the filesystem, and nobody could prove it either. Whoever takes the next bump should
   number it and say where it came from; this lane did not, because inventing provenance for a
   change it did not make would be worse than naming the gap.
+- **Should RedoxFS become its own repository? Not yet** (calef asked 2026-10-04 UTC; the
+  maintainer's answer). Six divergences, about 140 changed lines, fixes that land atomically with
+  their callers and one CI is cheaper than a second repo. Revisit at about ten divergences, at a
+  pin bump that conflicts badly, or when another project wants the fork; because upstream refuses
+  LLM-generated contributions, the divergences are likely to grow rather than drop.
 - **The watch reports; it cannot decide.** A prompt nobody acts on is the same silence with more
   steps, and nothing in this tree measures whether anyone acted.
 - **`script/vendor-watch` speaks GitLab and nothing else.** RedoxFS is the only vendored engine, so
