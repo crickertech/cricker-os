@@ -167,6 +167,8 @@ fails listing any with no row in `notes/project-metrics/mutation-triage.csv`. Ag
 census, 472 survivor keys are blamed to merged pull requests since: 162 have a triage row and 310
 do not.
 
+Fact, 2026-10-04: of the last 60 merged pull requests, 4 merged with the per-pull-request falsification replay red, because it was not a required check; milestone 742 (every test is falsified as routine) made it part of `verify (Kani proofs)` ([coverage](../../notes/falsification-coverage.md)).
+
 ## 4. The architecture imposes a per-crossing cost that cannot be engineered away
 
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,

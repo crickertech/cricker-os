@@ -4,14 +4,16 @@ not reach). Named for the leg rather than for `swish_check_boot`, whose one reco
 673's patch already holds, because the census lines run only on the leg's second and third boots.
 
 Architecture: aarch64
+Line: caps
 
 Milestone 715 (the spawn service holds the display grants, and the shell holds none), row 32 of
-notes/confinement-claims.md. Replay by hand, for the reason
-`swish_check.swish_check_boot.patch` gives (the sweep covers Kani harnesses and kernel
-`#[test_case]`s, and this line is neither):
+notes/confinement-claims.md. `script/falsifications --sweep xtask` replays it (milestone 742 (every
+test is falsified as routine), provisional): it boots `script/swish-check --arch aarch64` with this
+patch applied and calls it red only when swish-check's FAILED report names the `Line:` above. By
+hand, the same thing is:
 
     git apply xtask/falsifications/swish_check.swish_check_leg.patch
-    script/swish-check --arch aarch64        # must exit non-zero
+    script/swish-check --arch aarch64        # must exit non-zero, failing `caps`
     git apply -R xtask/falsifications/swish_check.swish_check_leg.patch
 
 The defect is the progenitor placing copies of the gpu's four and the keyboard's three in the shell

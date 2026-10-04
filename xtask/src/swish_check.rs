@@ -2140,6 +2140,8 @@ fn boot_claim_complaint(
 ///   instruction instead (milestone 595 (provisional)), which the runner's `-cpu max` implements.
 ///   The leg asserts the progenitor said so, because a boot that silently fell back to no entropy
 ///   would otherwise surface only as the `uuid` lines failing.
+///
+/// Falsification: replayable `xtask/falsifications/swish_check.swish_check_leg.patch`
 fn swish_check_leg(arch: &str) -> bool {
     // **Where the graphical launch rides** (2026-10-03 UTC, calef's ruling folding the
     // `swish-check-graphical` job in; milestone 632 (provisional)). `graphical_terminal` is a
@@ -2197,6 +2199,8 @@ fn kvm_is_usable() -> bool {
 /// `graphics` attaches a virtio-gpu (and, for [`Keystrokes::Device`], a virtio keyboard) and, once
 /// `script` is done and the prompt is back, types `graphical_terminal` and reads the screen
 /// ([`launch_graphical_terminal`]). `None` attaches no gpu, which is what the refusal line needs.
+///
+/// Falsification: replayable `xtask/falsifications/swish_check.swish_check_boot.patch`
 fn swish_check_boot(
     arch: &str,
     script: &[Line],

@@ -327,10 +327,18 @@ jobs:
   # one that runs out as `no verdict` (#1242), so the next such record costs a quarter of this job
   # rather than all of it.
   #
-  # **Not a required check**, deliberately: the ruleset requires `verify (Kani proofs)` and nothing
-  # else from this workflow, and this must be able to fail loudly without being one more name in a
-  # ruleset somebody has to keep in sync. It rides `scope.needed` so a documentation-only change
-  # does not pay for a Kani install.
+  # **Required since milestone 742 (provisional), through `verify (Kani proofs)` below, and that
+  # is a correction.** Until 2026-10-04 (UTC) this was deliberately not a required check, so that
+  # it could "fail loudly without being one more name in a ruleset". It failed loudly and nothing
+  # stopped on it. d0b1ff821 (#1532) dropped `timetable`'s `mod proofs;`, this job went red on that
+  # pull request, and the queue merged it anyway; #1535 and #1538 then merged red behind it until
+  # #1554 restored the line. Of the last 60 merged pull requests, 4 merged with this job red and
+  # every one of the 4 was that real defect, none a flake. So it is folded into the aggregate job
+  # below, the way milestones 587 and 589 folded the kernel proof rows: no ruleset edit, one string
+  # still required. It costs the critical path little, because it runs beside the shards: measured
+  # over 10 merge-group runs, it finished after both shards once (by about four minutes) and before
+  # them nine times. It rides `scope.needed` so a documentation-only change does not pay for a Kani
+  # install.
   falsify:
     name: re-falsify the harnesses this change can reach
     needs: [gate, scope]
@@ -364,7 +372,7 @@ jobs:
 
   verify:
     name: verify (Kani proofs)
-    needs: [gate, scope, prove, prove-kernel-aarch64, prove-kernel-riscv64]
+    needs: [gate, scope, prove, prove-kernel-aarch64, prove-kernel-riscv64, falsify]
     # **`!cancelled()` is load-bearing.** Without it this job is skipped whenever a shard fails or the
     # scope job says the proofs are not needed, and a required check that never reports blocks the
     # merge forever, which notes/repo-hardening.md names as the single most likely way to get this
@@ -425,4 +433,16 @@ jobs:
             success) echo "==> the kernel proved on riscv64 too" ;;
             skipped) echo "==> nothing in this change can reach a proof" ;;
             *)       echo "==> the riscv64 kernel row reported '$kernel_riscv64'" >&2; exit 1 ;;
+          esac
+          # The per-pull-request falsification (milestone 742, provisional), judged by the same
+          # vocabulary: `skipped` is the scope job's documentation-only path, and anything but
+          # success means a recorded falsification no longer turns its harness red (a survivor), no
+          # longer applies (stale), or gave no verdict. Each of those is a proof that may have
+          # stopped being able to fail, which is what this check is for.
+          falsify="${{ needs.falsify.result }}"
+          echo "falsify: $falsify"
+          case "$falsify" in
+            success) echo "==> every reachable falsification still turns its harness red" ;;
+            skipped) echo "==> nothing in this change can reach a falsification" ;;
+            *)       echo "==> re-falsify reported '$falsify': script/falsifications --affected-since names the record" >&2; exit 1 ;;
           esac

@@ -52,8 +52,8 @@ themselves. The last column is this milestone's result.
 | 28 | A revoked port holder faults on its next `in`/`out` (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write` | **yes, milestone 313** |
 | 29 | A thread that deletes its own port capability faults on its next `in`/`out` (`x86_64`) | §12, milestone 313 | `kernel::user::x86_port_tests::a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write` | **yes, milestone 313, and it was false in the tree** |
 | 30 | A revocation reaches a capability in flight, not only the ones sitting in capability tables | Nowhere until 2026-09-21; now `sched::delete_page_frame_caps_where` | `kernel::user::revocation_in_flight_tests::a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` | yes, 2026-09-21, and it was false in the tree |
-| 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, by hand ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
-| 32 | The boot shell holds no display device | Milestone 715 (provisional) | `script/swish-check`: the `caps` census on the gpu boots | yes, 2026-10-03, by hand ([patch](../xtask/falsifications/swish_check.swish_check_leg.patch)) |
+| 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
+| 32 | The boot shell holds no display device | Milestone 715 (provisional) | `script/swish-check`: the `caps` census on the gpu boots | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_leg.patch)) |
 
 ## Five claims that are stated nowhere, which is what step 1 was for
 
