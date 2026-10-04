@@ -13,6 +13,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Dynamic undefined-behavior checking (Miri)](../undefined-behavior.md): Miri over the host crates, and what "clean" means.
 - [Interleavings, model-checked (loom)](../interleaving.md): loom over the hand-rolled concurrency protocols, and its finds.
 - [Mutation testing](../mutation-testing.md): the cargo-mutants triage rule, the current census, and per-crate triage in 17 appendices.
+- [Untested error paths](../untested-error-paths.md): how many error paths no test executes, by crate and kind, and the twenty that release memory or authority.
 - [The mutation census record](../mutation-census.md): per-crate mutation scores for every census, comparable. Names provisional.
 - [Where an unsafe obligation is written, and where it is only implied](../unsafe-obligations.md).
 - [What nife claims a confined component cannot do](../confinement-claims.md).
