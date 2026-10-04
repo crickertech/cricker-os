@@ -180,3 +180,93 @@ fn a_confined_el0_process_serves_the_block_interface_end_to_end() {
     // **An opcode the server has no verb for is refused, not guessed at.**
     assert!(disk.blk(0xfe, 0) < 0, "the server answered an unknown verb");
 }
+
+/// **A confined EL0 NVMe server cannot DMA outside its region** (milestone 261's Outstanding item;
+/// milestone 202 (every confinement test is a ritual until somebody breaks the confinement and watches it fail)'s convention: a claim, a test, a replayable falsification). The storage twin of
+/// `display_tests::a_backing_outside_the_grant_is_refused_by_the_iommu` and of `block_driver`'s two
+/// virtio attacker roles: an unprivileged server aims a PRP at a physical frame it was never given,
+/// in both directions, and the IOMMU, not the server's own arithmetic, is all that refuses it.
+///
+/// Why this is the test the honest end-to-end case above was not. That one asserts
+/// `confined_by_iommu` was true, which is a claim the boot *made*, not one it *attacked*: it is the
+/// "decorative assertion" milestone 202 was minted against. Here an EL0 server actually points the
+/// controller at a frame outside its region and the proof is a hardware fault plus an untouched
+/// canary, so the assertion can be shown to fail: the replayable patch widens the controller's
+/// IOMMU domain to cover the victim and the escape lands.
+///
+/// The proof is the IOMMU fault and the canary, not the controller's completion status: QEMU's NVMe
+/// model may answer a DMA it could not perform with an error or by dropping it, and the gpu and
+/// virtio escape tests both anchor on the fault for the same reason. A CPU read of the victim
+/// bypasses the IOMMU, so the canary is readable from the kernel even while the device's view of
+/// that frame is unmapped, which is the whole point.
+///
+/// Falsification: replayable `system_tests/falsifications/user.non_volatile_memory_express_tests.a_confined_el0_server_cannot_dma_outside_its_region.patch`
+#[test_case]
+fn a_confined_el0_server_cannot_dma_outside_its_region() {
+    let image = program("non_volatile_memory_express")
+        .expect("no non_volatile_memory_express program in the initrd archive");
+
+    // Drain any stale fault first, so what we observe is this test's.
+    while crate::iommu::take_fault().is_some() {}
+
+    let Some(esc) = non_volatile_memory_express_service::start_dma_escape(image) else {
+        crate::testing::skip!("no NVMe controller came up (NIFE_NVME not set on this leg?)");
+    };
+
+    // The IOMMU must own the controller, or nothing refuses the escape and a pass is a fiction.
+    assert!(
+        esc.confined_by_iommu,
+        "the NVMe controller is not owned by the IOMMU unit this kernel programmed ({}); the \
+         escape would be refused by nothing, so the test cannot prove anything",
+        esc.scope,
+    );
+
+    // The attacker reports once it has tried both escapes: word 0 the disk->victim (READ) status,
+    // word 1 the victim->disk (WRITE) status. A confined controller never completes either, so
+    // both are nonzero; they ride in the transcript, not the assertions.
+    let [rd, wr, ..] = esc.wait();
+
+    // **The evidence the controller actually tried the out-of-region DMA.** QEMU records the fault
+    // as it processes the doorbell under TCG, so a bounded spin is plenty; the bound turns "no
+    // fault ever" into a failure rather than a hang. Without this a pass would be consistent with
+    // the controller never reaching the address at all, which is the hollow pass milestone 202 forbids.
+    let mut fault = None;
+    for _ in 0..2_000_000 {
+        if let Some(f) = crate::iommu::take_fault() {
+            fault = Some(f);
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    let f = fault.unwrap_or_else(|| {
+        panic!(
+            "an EL0 server aimed a PRP at {:#x}, outside its DMA region (read status {rd:#x}, \
+             write status {wr:#x}), and the IOMMU recorded no fault: it is not confining the \
+             controller in hardware",
+            esc.victim,
+        )
+    });
+    assert_eq!(
+        f.addr & !0xfff,
+        esc.victim & !0xfff,
+        "the IOMMU faulted, but on {:#x} (code {:#x}, rid {:#x}), not the victim frame {:#x}",
+        f.addr,
+        f.code,
+        f.rid,
+        esc.victim,
+    );
+
+    // **And the frame is verifiably untouched.** A READ escape the IOMMU had failed to refuse would
+    // have copied the disk's bytes over the canary. This is the direct memory proof, independent of
+    // the fault queue, and it is the assertion the falsification's widened domain flips.
+    assert!(
+        esc.canary_intact(),
+        "the victim frame at {:#x} was overwritten: the controller's DMA reached a frame outside \
+         its region",
+        esc.victim,
+    );
+
+    // Leave the fault queue as we found it: the RISC-V IOMMU's queue holds records a later test
+    // would otherwise read as its own (the gpu escape test records the same).
+    while crate::iommu::take_fault().is_some() {}
+}
