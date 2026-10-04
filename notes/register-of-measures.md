@@ -98,7 +98,7 @@ row pretending to be one.
 | E3: IPC fastpath footprint doubled, and the latency it costs | 2026-09-04 (radon, 6 boots; confounded); 2026-08-22 (dev Mac) | `script/fastpath-footprint --features fastpath_pad [--layout]`; `cargo xtask bench --real` with and without `--extra-features fastpath_pad`; on radon, notes/footprint-perturbation.md |
 | E4: application working-set displacement under IPC traffic, 8-pair and 48-pair load | 2026-09-04 (radon, 6 boots); 2026-08-23 (dev Mac) | `cargo xtask bench --real` (`appdisp_*_ipc`/`appdisp_*_ipc96` rows); on radon, `script/board-image --bench` and notes/footprint-perturbation.md |
 | per-IPC kernel stack depth, per shape and role | 2026-09-19 (QEMU, all three ISAs, debug and release) | debug: `script/test`, the `ipc-stack-depth:` lines; release: a `bench,ipc_stack_depth` kernel on one hart (notes/stack-high-water.md, "Per-IPC depth") |
-| multi-tasking throughput, jobs per minute against task count, milestone 168 (a multi-tasking workload benchmark) | 2026-09-16 (radon, 5 boots; old instrument, `tasks=4` not a number) | `script/board-image --job-mix --tftp`, then `script/board-console`, by `notes/job-mix.md`'s bench-evening procedure; the rehearsal is `script/job-mix` |
+| multi-tasking throughput, jobs per minute against task count, milestone 168 (a multi-tasking workload benchmark) | 2026-10-04 (radon, 5 boots; every point within 1.7%) | `script/board-image --job-mix --tftp`, then `script/board-console`, by `notes/job-mix.md`'s bench-evening procedure; the rehearsal is `script/job-mix` |
 
 Three rows need a sentence before anyone quotes them.
 
