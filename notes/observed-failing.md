@@ -85,8 +85,8 @@ Fifteen of twenty had such a run. Five had none, and say `never` with what would
 `ci-failing.yml`, `metrics.yml`, `stick-maker-hosts.yml`, `stranger-cadence.yml` and
 `vendor-watch.yml`. Two of those five have been red, for the wrong reason. `metrics.yml` went red
 three days running on an unknown `--flags` argument. `ci-failing.yml`'s only run died on
-`jq: Argument list too long` before judging anything; it landed the same day, and its record states
-the defect.
+`jq: Argument list too long` before judging anything, a defect of its own that #1627 fixes. Neither
+counts, because the arm that carries the claim never ran, and each record says so.
 
 None of the five was staged here. The milestone does not apply the rule backwards; it asks for the
 honest record, and a staged run of each is somebody's lane.
