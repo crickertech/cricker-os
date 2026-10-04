@@ -829,8 +829,9 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "package install greeting@0.1.0",
         &["fetched and installed; generation 2 is live"],
     ),
-    // x86_64 has no NIC, so it installs the same package from the disk instead; the two legs that
-    // fetch omit this line ([`swish_check_omits`]). Either way generation 2 is the same table.
+    // x86_64's booted system has no network stack (the progenitor builds one from virtio-mmio
+    // only), so it installs the same package from the disk instead; the two legs that fetch omit
+    // this line ([`swish_check_omits`]). Either way generation 2 is the same table.
     line(
         0,
         "package install downloads/greeting.nifepkg",
@@ -1366,9 +1367,10 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
     // to find one on. Milestone 595 (provisional) gave the progenitor the kernel's service on
     // `RDSEED` instead (`kernel::user::boot_instruction_entropy`), so they run.
     match line {
-        // The kernel grants the progenitor a NIC only from a virtio-mmio slot, and the x86_64
-        // runner attaches no
-        // `-netdev` at all until milestone 494 (a driver for the network card a PC actually has).
+        // The kernel grants the progenitor a NIC only from a virtio-mmio slot. Since milestone 494
+        // (a driver for the network card a PC actually has) the x86_64 runners attach an `e1000e`
+        // and the kernel can drive it, but only a test wires it: the progenitor does not build a
+        // stack from it yet, which is the follow-on that block names.
         // The preview and the witness stay: neither needs a device, and the witness's refusal is
         // the same on a boot with no stack as on one that has a stack and did not endow it.
         // And the package source is reached over that network (milestone 198 rung 3a's fetch).
@@ -1377,8 +1379,9 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
         "network_echo_client --mem 4"
         | "package install uptime"
         | "package install greeting@0.1.0" => Some(
-            "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
-                 found on virtio-mmio only, and the x86_64 runner attaches none)",
+            "x86_64 has no NIC the progenitor can build a network stack from (it builds one \
+                 from virtio-mmio only; the e1000e this leg attaches is wired by tests, not by the \
+                 progenitor)",
         ),
         _ => None,
     }
