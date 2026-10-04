@@ -22,7 +22,7 @@ fn net_stack_image() -> &'static [u8] {
 
 /// The net client's test selectors and success word, matching `components/src/socket_test_client.rs`. The client is
 /// a nonzero entry role of the `net_stack` binary, so it needs no image of its own.
-const NET_TEST_UDP_DNS: u64 = 1;
+const NET_TEST_NAME_RESOLUTION: u64 = 1;
 const NET_TEST_TCP_ECHO: u64 = 2;
 const NET_TEST_TCP_REOPEN: u64 = 3;
 const NET_TEST_UDP_TFTP: u64 = 4;
@@ -42,7 +42,7 @@ const NET_UDP_GRANT_BOTTOM: u16 = 5353;
 const NET_UDP_GRANT_TOP: u16 = 5354;
 const NET_CLIENT_OK: u64 = 1;
 /// The client could not complete for an ENVIRONMENTAL reason (the host resolver never answered),
-/// not because of a defect here. Only the non-gating real-DNS check can report it.
+/// not because of a defect here. Only the non-gating real-DNS half of the name test can report it.
 const NET_CLIENT_NO_ANSWER: u64 = 2;
 
 /// Spin the scheduler until `done()`, or give up after a wall-clock deadline. A second copy of
@@ -461,34 +461,40 @@ fn a_client_completes_a_udp_round_trip_through_the_socket_contract_pci() {
     net.release_or_fail("a net test's net_stack");
 }
 
-/// Real DNS resolution on the second ISA, non-gating for the same reason as the aarch64 twin: the
-/// upstream is the host's resolver, so a non-answer is skipped and only a malformed reply fails.
+/// A host name resolves through the socket contract on the second ISA, and the lies do not
+/// (milestone 384 (in a capability system the resolver is a grant)). The first half gates and the
+/// real-DNS half does not, for the aarch64 twin's reasons.
+/// Falsification: replayable `system_tests/falsifications/user.riscv_virtio_tests.a_name_resolves_through_the_stack_and_a_real_one_when_the_host_answers.patch`
 #[test_case]
-fn a_client_resolves_a_real_dns_name_when_the_host_resolver_answers() {
+fn a_name_resolves_through_the_stack_and_a_real_one_when_the_host_answers() {
     let Some((report, net)) = virtio_service::start_net_stack(
         net_stack_image(),
-        NET_TEST_UDP_DNS,
+        NET_TEST_NAME_RESOLUTION,
         false,
         socket_protocol::NO_LISTEN_GRANT,
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_receive(report)[0];
-    if verdict == NET_CLIENT_NO_ANSWER {
-        // **Not a failure, and not a pass either.** This test's name is conditioned on the host's
-        // resolver answering; when it does not, no name was resolved and the claim was never put
-        // to the test. The old shape printed this line and returned, which the harness counted as
-        // a pass (milestone 214, design/roadmap/214-print-and-return-skips.md).
+    let [gating, real, ..] = sched::ipc_receive(report);
+    assert_eq!(
+        gating, NET_CLIENT_OK,
+        "name resolution against the runners' name server failed (client code {gating:#x})",
+    );
+    net.release_or_fail("a net test's net_stack");
+    if real == NET_CLIENT_NO_ANSWER {
+        // The partial shape milestone 214 (a test that prints "skipping" and returns is counted as
+        // passed) settled on: the gating half ran and was asserted above, and the conditioned half
+        // was never put to the test, so the reason says which is which.
         crate::testing::skip!(
-            "the host's resolver did not answer, so no real DNS name was resolved this run"
+            "the name server half passed; the host's resolver did not answer, so no real DNS name \
+             was resolved this run"
         );
     }
     assert_eq!(
-        verdict, NET_CLIENT_OK,
-        "a DNS response came back but was not a valid reply to our query (client code \
-         {verdict:#x}): a socket-contract defect, not a network problem",
+        real, NET_CLIENT_OK,
+        "a DNS response came back from the host's resolver but was not a valid answer to our \
+         query (client code {real:#x}): a defect here, not a network problem",
     );
-    net.release_or_fail("a net test's net_stack");
 }
 
 /// The socket contract, TCP end to end on the second ISA: connect to slirp's guestfwd echo peer,

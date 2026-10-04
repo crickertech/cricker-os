@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""The name server the net tests resolve against (milestone 384 (in a capability
+system the resolver is a grant)).
+
+QEMU's slirp runs this once per connection to 10.0.2.9:53 (a `guestfwd` in
+helpers/qemu-runner-{aarch64,riscv64}.sh), with the connection on stdin and
+stdout, the way helpers/package-http-peer serves packages on :8080. So the
+guest's query crosses the real network stack to a real host process, and
+nothing binds a port on the developer's machine or outlives QEMU.
+
+It speaks DNS over TCP (RFC 7766: a two-byte length, then the message), one
+query per connection. TCP because slirp's guestfwd forwards TCP only; a UDP
+name server would need a host port, and the one UDP exchange the tests make
+goes to slirp's 10.0.2.3, which is the host's own resolver and not ours.
+
+The zone, and what each name is for. The guest side spells these names again
+in components/src/socket_test_client.rs on purpose: the claim is that two
+sides written independently agree, the split socket_protocol's fixture module
+describes for the inbound gate's prober.
+
+  packages.nife.test   A 10.0.2.9, owner compressed to the question
+  mirror.nife.test     CNAME to packages.nife.test, then its A, both compressed
+                       into earlier names, the way a recursive server answers
+  nosuch.nife.test     NXDOMAIN
+  forged.nife.test     the right answer under the wrong transaction id
+  poisoned.nife.test   an A record for bank.nife.test and none for the name
+                       asked, which a resolver must not hand back
+  loop.nife.test       an answer whose owner is a compression pointer to itself
+  anything else        REFUSED
+
+BUGS: one query per connection, and nothing past the first question is read,
+which is all the guest sends. Name: provisional 2026-10-04 (milestone 384's
+lane). "Name server" is RFC 1035's term for the thing; refused `dns-peer`
+under the acronym test, which `package-http-peer` predates.
+"""
+import struct
+import sys
+
+A, CNAME, IN = 1, 5, 1
+PEER = bytes([10, 0, 2, 9])
+
+
+def name(text):
+    return b"".join(bytes([len(l)]) + l.encode() for l in text.split(".")) + b"\0"
+
+
+def pointer(offset):
+    return struct.pack(">H", 0xC000 | offset)
+
+
+def record(owner, rtype, rdata, ttl=300):
+    return owner + struct.pack(">HHIH", rtype, IN, ttl, len(rdata)) + rdata
+
+
+def answer(query_id, question, rcode, records):
+    head = struct.pack(">HHHHHH", query_id, 0x8180 | rcode, 1, len(records), 0, 0)
+    return head + question + b"".join(records)
+
+
+def respond(query_id, question, asked):
+    # The question's name starts right after the 12-byte header; its first label is the host part,
+    # so `zone` is where "nife.test" begins inside it, for records that compress into it.
+    at = 12
+    zone = at + 1 + len(asked.split(".")[0])
+    if asked == "packages.nife.test":
+        return answer(query_id, question, 0, [record(pointer(at), A, PEER)])
+    if asked == "mirror.nife.test":
+        # The CNAME's data is "packages" plus a pointer to the question's "nife.test"; the A record's
+        # owner is then a pointer to that data, which is how a real server compresses a chain.
+        target = b"\x08packages" + pointer(zone)
+        cname = record(pointer(at), CNAME, target)
+        target_at = 12 + len(question) + len(cname) - len(target)
+        return answer(query_id, question, 0, [cname, record(pointer(target_at), A, PEER)])
+    if asked == "nosuch.nife.test":
+        return answer(query_id, question, 3, [])
+    if asked == "forged.nife.test":
+        return answer(query_id ^ 1, question, 0, [record(pointer(at), A, PEER)])
+    if asked == "poisoned.nife.test":
+        return answer(query_id, question, 0, [record(b"\x04bank" + pointer(zone), A, bytes([6, 6, 6, 6]))])
+    if asked == "loop.nife.test":
+        owner_at = 12 + len(question)
+        return answer(query_id, question, 0, [record(pointer(owner_at), A, PEER)])
+    return answer(query_id, question, 5, [])
+
+
+def read_exact(stream, n):
+    data = b""
+    while len(data) < n:
+        chunk = stream.read(n - len(data))
+        if not chunk:
+            return None
+        data += chunk
+    return data
+
+
+def main():
+    stdin = sys.stdin.buffer
+    length = read_exact(stdin, 2)
+    if length is None:
+        return
+    query = read_exact(stdin, struct.unpack(">H", length)[0])
+    if query is None or len(query) < 12:
+        return
+    query_id = struct.unpack(">H", query[:2])[0]
+    labels, at = [], 12
+    while at < len(query) and query[at] != 0:
+        n = query[at]
+        labels.append(query[at + 1 : at + 1 + n].decode("ascii", "replace"))
+        at += 1 + n
+    question = query[12 : at + 5]
+    reply = respond(query_id, question, ".".join(labels).lower())
+    sys.stdout.buffer.write(struct.pack(">H", len(reply)) + reply)
+    sys.stdout.buffer.flush()
+
+
+main()
