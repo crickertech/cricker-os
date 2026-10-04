@@ -239,6 +239,13 @@
 #   `script/lint`'s verify-table check is what keeps that honest, by failing on any harness file
 #   belonging to no package with exactly those two argued as exemptions; this script does not keep a
 #   second copy of the list.
+# - **Separate workspaces are not swept.** Packages come from the main workspace's `cargo
+#   metadata`, so `redoxfs_server`, `tools/redoxfs_host`, `vendor/redoxfs` and `fuzz`, each its own
+#   workspace root, are invisible here: a record above one of their tests is never read, and a
+#   patch under one of their `falsifications/` directories is neither replayed nor reported as rot.
+#   They carry `attested` records with a by-hand replay line instead (the fuzz targets' patches say
+#   how to replay them in their headers). Found by `lane/fuzz-service-handlers` and #1606 on
+#   2026-10-04 (UTC); sweeping them means a second `cargo metadata` per extra workspace root.
 #
 # Name: ratified 2026-08-30 (calef, DECISIONS §134). The `script/` family splits in a way nobody had
 # written down until that section: what DOES something is a verb (`verify`, `test`, `fuzz`, `bench`)

@@ -2458,6 +2458,9 @@ mod tests {
     /// then sliced backwards and panicked, so any client holding a writable handle could kill the
     /// file server with one `WRITE`. Refused `EFBIG`, POSIX's answer for a write past the largest
     /// offset a file can have.
+    /// Falsification: attested 2026-10-04. Drop the `checked_add` guard from `Server::write`; the engine panicked at transaction.rs:1995. Not swept (separate workspace, see
+    /// script/falsifications BUGS); replay by hand with the edit and `cargo test --manifest-path
+    /// redoxfs_server/Cargo.toml --lib <this test>`.
     #[test]
     fn a_write_past_the_last_offset_is_refused() {
         let mut srv = server_with_tree();
@@ -2485,6 +2488,9 @@ mod tests {
     /// `NodeLevel::new` admits twelve level-4 entries where `NodeLevelData::level4` has eight, so a
     /// write ending in that band, or a read in it after a truncate grew the file there, indexed past
     /// the array and killed the server. Both are refused `EFBIG` at [`MAX_FILE_END`].
+    /// Falsification: attested 2026-10-04. Define `MAX_FILE_END` but drop its two checks; the engine panicked at transaction.rs:1696. Not swept (separate workspace, see
+    /// script/falsifications BUGS); replay by hand with the edit and `cargo test --manifest-path
+    /// redoxfs_server/Cargo.toml --lib <this test>`.
     #[test]
     fn a_file_never_reaches_past_the_tree() {
         let mut srv = server_with_tree();
@@ -2523,6 +2529,9 @@ mod tests {
     /// `ROOT` resolves to; the next open anywhere then reused the slot, and the bound badge's `ROOT`
     /// named that object instead, outside its grant. Closing it is refused `EINVAL`, as closing
     /// `ROOT` is, until `UNBIND` takes the grant back and closes it itself.
+    /// Falsification: attested 2026-10-04. Drop `|| self.is_grant_root(handle)` from `Server::close`; the test read "root motd" through the bound badge. Not swept (separate workspace, see
+    /// script/falsifications BUGS); replay by hand with the edit and `cargo test --manifest-path
+    /// redoxfs_server/Cargo.toml --lib <this test>`.
     #[test]
     fn a_grant_root_cannot_be_closed_while_bound() {
         let mut srv = server_with_tree();
