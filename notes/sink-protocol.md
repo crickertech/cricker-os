@@ -39,7 +39,7 @@ This is forced, not chosen. Milestone 50's finding is that redirection *is* subs
 capability in one slot. The moment a sink also requires a page mapped at an agreed virtual address,
 substitution stops being one grant and becomes a spawn-time negotiation between the shell, the
 writer and the sink, and the finding evaporates. It also decides the pipe: for `a | b` the shell
-creates an endpoint, hands SEND to `a` and RECV to `b`, and that is the entire construction. A
+creates an endpoint, hands SEND to `a` and RECEIVE to `b`, and that is the entire construction. A
 page-based sink would make a pipe cost a frame, a mapping in each of two address spaces, and a
 revocation record for each.
 
@@ -54,7 +54,7 @@ path in the system to say so. Back-pressure does not need the reply: SEND blocks
 takes the message, so **the rendezvous is the flow control**, which is the property
 `line_editor::proto::OP_BYTES` had already written down.
 
-SEND also makes the reader of a pipe an ordinary program that does nothing but `recv`. With a CALL
+SEND also makes the reader of a pipe an ordinary program that does nothing but `receive`. With a CALL
 protocol every pipe reader would owe a reply, which means every program on the right of a `|` would
 have to know it was on the right of a `|`.
 
@@ -116,7 +116,7 @@ amount of userspace protocol design could have recovered the distinction, becaus
 the kernel.
 
 So the ABI grew one variant, `abi::Error::Gone` (-11): *the capability names an object that no
-longer exists*. It applies to all five endpoint IPC paths (SEND, RECV, SEND_CAP, RECV_CAP, CALL),
+longer exists*. It applies to all five endpoint IPC paths (SEND, RECEIVE, SEND_CAP, RECEIVE_CAP, CALL),
 because the fact is about the endpoint and not about the direction.
 
 This is the second time a distinction like this came up and it was resolved the other way the first
@@ -258,7 +258,7 @@ shared with `OP_WRITE`, so a newline from an adapter gets the same manners as a 
 shell. Two writers, one terminal, one set of manners, no second frame.
 
 Eight rather than sixteen is the contract's request shape and not a choice: a served request arrives
-through `recv_cap`, which hands the server a reply capability and **two** data words. `OP_BYTES`
+through `receive_cap`, which hands the server a reply capability and **two** data words. `OP_BYTES`
 carries eight for the same reason, from the input direction, which is why the shape was already
 there to copy.
 

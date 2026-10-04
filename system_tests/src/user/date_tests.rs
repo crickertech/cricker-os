@@ -111,7 +111,7 @@ fn spawn_date_with_diagnostics() -> (RendezvousId, RendezvousId, u64) {
 fn line(out: RendezvousId, buf: &mut [u8; 128]) -> usize {
     let mut len = 0usize;
     loop {
-        let words = crate::sched::ipc_recv(out);
+        let words = crate::sched::ipc_receive(out);
         let count = words[0] as usize;
         assert!(
             (1..=16).contains(&count),
@@ -136,7 +136,7 @@ fn line(out: RendezvousId, buf: &mut [u8; 128]) -> usize {
 fn clock() -> clock_service::Wiring {
     let image = program("clock").expect("no clock program in the initrd archive");
     let w = clock_service::start(image);
-    let _ = crate::sched::ipc_recv(w.report);
+    let _ = crate::sched::ipc_receive(w.report);
     w
 }
 
@@ -309,7 +309,7 @@ fn a_declared_second_stream_carries_the_complaint_and_the_output_stays_empty() {
     );
     // And the stream ends, which is not decoration: its reader drains to end-of-stream before it
     // reads anything else, so a program that never said it was finished would hang a prompt.
-    let m = crate::sched::ipc_recv(diag);
+    let m = crate::sched::ipc_receive(diag);
     assert!(
         matches!(
             byte_sink_protocol::unpack(
@@ -325,7 +325,7 @@ fn a_declared_second_stream_carries_the_complaint_and_the_output_stays_empty() {
 
     // **The output, which is where the complaint used to go.** One message, and it is the end of a
     // stream that carried nothing. This is the assertion `date > when.txt` cares about.
-    let m = crate::sched::ipc_recv(out);
+    let m = crate::sched::ipc_receive(out);
     assert!(
         matches!(
             byte_sink_protocol::unpack(

@@ -15,8 +15,7 @@
 #
 # **Once, and the run itself is the record.** A rerun bumps the run's `run_attempt`, so a cancelled
 # duplicate whose attempt is already above one has been rerun before, by the drain or by a person,
-# and is not emitted again; the drain then says so as a `STALLED.` line instead of rerunning
-# forever. No file, label or comment holds the state: `gh run rerun` is what writes it.
+# and is not emitted again, so nothing reruns it forever. No file, label or comment holds the state: `gh run rerun` is what writes it.
 #
 # Consumers splice this file in front of their program (jq cannot compose `-f` with inline text);
 # helpers/cancelled-duplicate-selftest.sh checks it against fixtures.

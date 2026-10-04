@@ -200,7 +200,7 @@ Four small portable programs (`components/src/root_supervisor.rs`, `spawner.rs`,
             |
             +-- flaky   a report endpoint                           (the supervised sub-server)
 
-  then: root_supervisor deletes its untyped and becomes a RECV loop on its own supervision endpoint.
+  then: root_supervisor deletes its untyped and becomes a RECEIVE loop on its own supervision endpoint.
 ```
 
 Each split is chosen so that the authority is the smallest thing that still does the job:
@@ -323,7 +323,7 @@ belongs to whoever owns it and the progenitor is the one who split it. A process
 and can never spend it is exactly what §32 was decided for, and this is its first non-test consumer.
 
 Why a second process rather than the progenitor collecting its own children. There is no non-blocking
-receive, and the progenitor is parked in `RECV` on the shell's spawn channel for its whole life. Multiplexing
+receive, and the progenitor is parked in `RECEIVE` on the shell's spawn channel for its whole life. Multiplexing
 deaths onto that same endpoint was considered and rejected: the shell holds `WRITE` on it, so a
 compromised shell could forge death messages, and `EVENT_FAULT`/`EVENT_EXIT` (1 and 2) collide with
 the program ids `spawnproto` already sends in word 0.

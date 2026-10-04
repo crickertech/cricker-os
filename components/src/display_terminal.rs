@@ -30,7 +30,7 @@
 //! # One endpoint, because this process has one wait point
 //!
 //! A terminal has two classes of sender: an application printing, and an input source typing.
-//! DECISIONS §33 recorded that a process here has exactly **one blocking wait point** (one `RECV`,
+//! DECISIONS §33 (the compositor's authority is memory, not messages) recorded that a process here has exactly **one blocking wait point** (one `RECEIVE`,
 //! no wait-any, and two threads cannot share an address space), so distinguishing them by endpoint
 //! is not available. They arrive on **one** endpoint and are distinguished by opcode, which is what
 //! `line_editor` already does for the serial terminal, and the security consequence is stated rather than
@@ -70,7 +70,7 @@ use compositor::proto::ctl;
 use graphics_protocol as gfx;
 use line_editor::proto;
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, recv_request, reply, send};
+use user_mode_runtime::{call, receive_request, reply, send};
 use video_terminal::status::{MODE_DISPLAY, MODE_WINDOW};
 
 /// Capability slots, by convention with `kernel/src/user/display_service.rs` and
@@ -493,7 +493,7 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
         //
         // A CALL's Reply, or nothing to answer (milestone 706 (a `CALL` server can tell a Reply
         // from a delegation)): a SEND_CAP is deleted rather than answered into.
-        let req = recv_request(TERM);
+        let req = receive_request(TERM);
         let (w0, w1) = (req.w0, req.w1);
         let reply_slot = req.delivered.into_reply();
         let mut r0: u64 = 0;

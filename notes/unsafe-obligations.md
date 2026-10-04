@@ -171,8 +171,7 @@ cargo clippy --workspace --exclude kernel --exclude user --exclude user_mode_run
 `--cfg kani` alone does not compile: the harnesses are written against Kani's intrinsics, and
 without the crate that provides them rustc stops at `use of unresolved module or unlinked crate
 kani`. `helpers/kani-lint-shim/` is that crate, built by `script/lint` with two plain `rustc`
-invocations before the pass runs. The surface is small, which makes this cheap: across 29 packages <!--count:harness-crates--> and 216 harnesses <!--count:kani-harnesses-->
-the tree uses exactly **five** Kani items, `any`, `proof` (216) <!--count:kani-harnesses-->,
+invocations before the pass runs. The surface is small, which makes this cheap: across 29 packages <!--count:harness-crates--> the tree uses exactly **five** Kani items, `any`, `proof`,
 `assume`, `unwind` and `cover!`, and no `Arbitrary` derive, no contracts, no
 `any_where`. A sixth, `stub`, appears only in `kernel`, which this pass excludes, so the shim
 lacks it. Those five items are what the shim has to cover, and they do not move when a harness is
@@ -208,7 +207,7 @@ gates in one line.
 
 | Crate | Sites | Shape |
 |---|---|---|
-| `inter_process_communication` | 11 blocks + 1 `unsafe impl` | the harness's `seed`, and every call into `send`/`recv` |
+| `inter_process_communication` | 11 blocks + 1 `unsafe impl` | the harness's `seed`, and every call into `send`/`receive` |
 | `intrusive_fifo` | 1 `unsafe impl` | `Node for N` in the proof module (its two blocks were already commented) |
 
 The other thirteen are ordinary clippy, in crates nobody suspected: `doc_markdown` (4),
@@ -534,7 +533,7 @@ measured the same way (from the diff, bracketed by the exact base commit this ro
 `a269403e`, rather than a stale baseline): the round found no unrelated tree growth in between, so
 this is the cleanest paired measurement this ceiling has had.
 
-*`crates/user_mode_runtime`'s `SYS_INVOKE` round trip.* Six methods (`recv`, `recv_cap`, `recv_fault`, `call`,
+*`crates/user_mode_runtime`'s `SYS_INVOKE` round trip.* Six methods (`receive`, `receive_cap`, `receive_fault`, `call`,
 `survey`, `list`), each duplicated once per architecture, had each hand-rolled its own `asm!` block
 asserting the identical invariant ("`svc`/`ecall` traps to the kernel, which validates before
 acting") at a register layout that differed only in which of the five return words the caller
@@ -602,11 +601,11 @@ meaning "no frame") became `Sock.window: Option<MappedWindow>` (`None` meaning t
 the parallel `frame_va: [u64; MAX_SOCKETS]` array became `frame_window: [Option<MappedWindow>;
 MAX_SOCKETS]`, constructed once in `OP_ATTACH_FRAME` right after the kernel maps the frame -- the
 one place in the whole socket lifecycle that needs to assert the invariant, instead of every one of
-the four functions' bodies. Every call site downstream (`read_dst`, `udp_sendto`, `sock_recv`,
+the four functions' bodies. Every call site downstream (`read_dst`, `udp_sendto`, `sock_receive`,
 `tcp_connect`, `tcp_accept`, `udp_bind`, `tcp_send`) now takes or holds a `MappedWindow` rather than
 a raw VA, so the restructuring reaches the caller side rather than stopping at a wrapper that still
 took an absolute address. One further site collapsed for the same reason though it was never named
-`a_w8`: `sock_recv`'s payload-write loop had its own hand-rolled `write_volatile`, identical in
+`a_w8`: `sock_receive`'s payload-write loop had its own hand-rolled `write_volatile`, identical in
 shape, folded into the same window. 5 `unsafe {` blocks removed (the four functions' bodies plus
 the one hand-rolled loop), 1 added (the window construction in `OP_ATTACH_FRAME`), net -4, in
 `components/src/net_stack.rs` alone. `script/test`'s aarch64 and riscv64 net suites (DHCP, UDP, TCP
@@ -944,8 +943,7 @@ Fixing that one line does not make the next one visible.
 
 The `# Safety` count moves with the tree and must be taken from the merged tree. 51 declarations
 and 12 trait-impl methods were measured on milestone 112's branch on 2026-08-04. Two concurrent lanes
-adding unsafe code would both report honest numbers that disagree, which is the failure CLAUDE.md
-records for the Kani harness count.
+adding unsafe code would both report honest numbers that disagree, which is what the Kani harness count did.
 
 The riscv64 `user` gap noted at the top of this file is still open. `script/lint` compiles
 `user` and `user_mode_runtime` for aarch64 only, so nine of the fourteen sites in the handoff table above are

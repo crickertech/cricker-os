@@ -13,6 +13,11 @@
 # dir when that is unset. Not beside this script: `helpers/` is checked into git and shared by every
 # worktree, so a state file here would be untracked clutter at best and, across concurrent lanes and
 # sessions, a shared file two processes clobber at worst.
+#
+# BUGS: it still calls `enqueuePullRequest` on a pull request that stays armed, CLEAN and unqueued
+# across two polls, with the session's token. Since 2026-10-03 the merge drain arms and enqueues
+# nothing (milestone 727 (a queue eviction goes to a maintainer session)), so this is the last
+# automatic enqueuer; whether it should report instead is open.
 import json, os, re, subprocess, sys, tempfile, time
 
 REPO = "nifeos/nife"
@@ -46,7 +51,10 @@ def snap():
         out[str(p["number"])] = dict(
             title=p["title"][:60], draft=p["isDraft"], ms=p["mergeStateStatus"],
             armed=p["autoMergeRequest"] is not None, queued=queued.get(p["number"]), fails=fails,
-            hold="needs-architect" in [l["name"] for l in p["labels"]])
+            hold="needs-architect" in [l["name"] for l in p["labels"]],
+            # The merge drain's hand-off (milestone 727 (a queue eviction goes to a maintainer session), provisional): a pull request a maintainer
+            # session must pick up. Waking on it is the in-session half of briefs/session-start.md.
+            nm="needs-maintainer" in [l["name"] for l in p["labels"]])
     return out
 
 
@@ -74,6 +82,8 @@ while True:
         for f in c["fails"]:
             if f not in (p.get("fails") or []):
                 events.append(f"#{n} failing: {f} ({c['title']})")
+        if c.get("nm") and not p.get("nm"):
+            events.append(f"#{n} labelled needs-maintainer; read the drain's comment ({c['title']})")
         if c["ms"] in ("DIRTY", "CONFLICTING") and p.get("ms") != c["ms"]:
             events.append(f"#{n} needs a rebase: {c['ms']} ({c['title']})")
         if (prev is not None and c["ms"] == "CLEAN" and c["armed"] and not c["queued"]

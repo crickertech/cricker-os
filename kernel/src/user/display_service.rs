@@ -368,7 +368,7 @@ pub struct TerminalWiring {
     pub surface: u64,
     /// **What a caller hands back to end it**: the threads, the region its endpoints live in, and
     /// the map budgets. Filled by [`start_screen_terminal`], whose endpoints come out of a region
-    /// for exactly this reason (a server parked in `RECV` on the kernel's own endpoint chunks
+    /// for exactly this reason (a server parked in `RECEIVE` on the kernel's own endpoint chunks
     /// cannot be woken to die; `user::holding`'s BUGS). **Empty on the virtio path**, which
     /// predates it and which no caller tears down. The surface and the output page are not in it:
     /// they are frames rather than regions, and a caller that releases this frees them after.
@@ -579,7 +579,7 @@ pub fn start_screen_terminal(
             .addr();
 
     // **The four endpoints come out of a region of their own**, `virtio_service::wire_net_server`'s
-    // shape and for its reason: both programs park in `RECV` for good, and reclaiming the region
+    // shape and for its reason: both programs park in `RECEIVE` for good, and reclaiming the region
     // their endpoints live in is the only thing that wakes them to die. The boot never tears this
     // down; the suite does, because every service a test leaves standing is frames and region slots
     // a later test cannot have (`user::holding`). One page per endpoint, and one spare.

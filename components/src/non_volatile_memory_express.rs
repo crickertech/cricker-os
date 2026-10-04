@@ -20,7 +20,7 @@
 //! **Held**, and this is the complete list, because a capability system has no ambient
 //! environment:
 //!
-//! - slot 0, the **request** endpoint (RECV): clients `CALL` here, `filesystem_protocol::blk`'s
+//! - slot 0, the **request** endpoint (RECEIVE): clients `CALL` here, `filesystem_protocol::blk`'s
 //!   wire format, the same contract the virtio block server speaks;
 //! - slot 1, a **readiness** endpoint (WRITE): one message, once the first command has
 //!   round-tripped;
@@ -141,7 +141,7 @@
 use filesystem_protocol::blk;
 use non_volatile_memory_express::{Command, Completion, CqState, Doorbell, Handoff, SqState};
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{exit, recv_request, reply, send};
+use user_mode_runtime::{exit, receive_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/non_volatile_memory_express_service.rs`.
 const REQ: u64 = 0;
@@ -380,7 +380,7 @@ pub extern "C" fn _start(arg0: u64, arg1: u64, arg2: u64) -> ! {
 /// which kind of disk is underneath.
 fn serve(mut plane: Plane) -> ! {
     loop {
-        let req = recv_request(REQ);
+        let req = receive_request(REQ);
         let (w0, block) = (req.w0, req.w1);
         let Some(reply_cap) = req.delivered.into_reply() else {
             // A plain SEND or a SEND_CAP on a CALL-only contract: nothing to answer, and a

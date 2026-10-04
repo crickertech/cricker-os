@@ -110,7 +110,7 @@ fn run_tree() -> [[u64; 5]; EXPECTED_REPORTS] {
     let report = spawn_tree();
     let mut msgs = [[0u64; 5]; EXPECTED_REPORTS];
     for slot in msgs.iter_mut() {
-        let msg = sched::ipc_recv(report);
+        let msg = sched::ipc_receive(report);
         assert_ne!(
             msg[0], REPORT_FAILED,
             "the supervision tree could not be built: stage {}",

@@ -200,19 +200,18 @@ that motivated the first hook.
   -16 paid that tax at least once. `git push --no-verify` bypasses it, deliberately: pushing a
   work-in-progress branch for safekeeping is a legitimate reason, and the hook is a courtesy to
   the queue rather than a rule about what may exist on a branch.
-- It then runs all of `script/lint`, about 29 s more than `--clippy` alone, and
-  `script/roadmap --ready-branch` when the pushed branch's pull request is ready. The timings and
-  the reasoning are in [queue-ejection.md](queue-ejection.md).
+- It then runs `script/lint --no-cargo` (every check that does not invoke cargo; clippy stays in
+  CI) and `script/roadmap --ready-branch` for a ready pull request. A push that changes no files,
+  a claim, skips all three. Timings and reasoning: [queue-ejection.md](queue-ejection.md).
 
 An existing clone installs it by rerunning `script/setup`, or by hand with the config line above.
 
 ### BUGS
 
 - The hook is opt-in per clone. A contributor who never runs `script/setup` never has it, and
-  nothing detects that; the gate in CI stays the authority, which is the correct direction for
-  this to be wrong in.
-- It checks the whole tree, not the pushed range. Cheap enough at this size that the
-  precision is not worth the complexity, and a tree that is unformatted anywhere fails CI anyway.
+  nothing detects that; CI stays the authority.
+- It checks the whole tree, not the pushed range. A tree unformatted anywhere fails CI anyway.
+- Clippy and the checks that call cargo wait for CI (`script/lint --no-cargo --list` names them).
 
 ## Two test images per architecture, and where a new test goes
 

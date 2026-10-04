@@ -133,7 +133,7 @@ over the same domain, and so holds the same three slots. By milestone 281's rule
 
 How it would wait, checked in `kernel/src/syscall.rs`:
 
-- Receiving the death message is `rendezvous::RECV`, which needs `READ`. A viewer holds `ENUMERATE`
+- Receiving the death message is `rendezvous::RECEIVE`, which needs `READ`. A viewer holds `ENUMERATE`
   only, and a receive would also take the message from the supervisor it was meant for. So that
   route is closed, correctly.
 - Polling `SURVEY` until the tid is gone works today with no new authority. With no timed wait in
@@ -163,7 +163,7 @@ Checked against the tree the same day by `milestone/126-free`:
   own tid. A `pidwait` that cannot recognise itself waits for itself forever. No program here can
   learn its own tid, so whatever primitive is chosen has to refuse, or skip, the caller's own tid.
 - Nothing lets a program observe a named tid's exit with less authority than `pgrep` holds.
-  `RECV` needs `READ` and steals the supervisor's message; `SURVEY` needs `ENUMERATE`, which is
+  `RECEIVE` needs `READ` and steals the supervisor's message; `SURVEY` needs `ENUMERATE`, which is
   `pgrep`'s authority, and using it would undo the reason §226 made this a separate program.
 
 So `pidwait` needs a new kernel primitive, which is the syscall surface. Options only, no winner:

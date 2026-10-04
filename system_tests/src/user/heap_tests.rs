@@ -10,7 +10,7 @@ fn a_process_runs_alloc_collections_on_its_own_memory_region() {
     let image = program("allocator_exerciser")
         .expect("no allocator_exerciser program in the initrd archive");
     let report = alloc_service::start(image);
-    let words = crate::sched::ipc_recv(report);
+    let words = crate::sched::ipc_receive(report);
     assert_eq!(
         words[0], 0xA110_C0DE,
         "allocator_exerciser did not complete its heap workout",

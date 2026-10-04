@@ -8,9 +8,9 @@
 //! Every revocation sweep in this kernel walked `Thread::capability_table` and stopped there. A
 //! capability handed to a rendezvous whose receiver has not arrived yet is not in any table: it is
 //! parked in `Thread::outgoing_cap`, the hand-off slot `sched::ipc_send_cap` writes and
-//! `sched::ipc_recv_cap` takes. So a `PageFrame::REVOKE` that runs in that window deletes every
+//! `sched::ipc_receive_cap` takes. So a `PageFrame::REVOKE` that runs in that window deletes every
 //! capability the sweep can see, unmaps every page the log records, and leaves a live capability
-//! naming the revoked run sitting in a slot no sweep read. The next `RECV_CAP` filed it in the
+//! naming the revoked run sitting in a slot no sweep read. The next `RECEIVE_CAP` filed it in the
 //! receiver's own table, and the receiver could then `MAP` a page the revoker believed it took
 //! back.
 //!
@@ -44,7 +44,7 @@
 //!   hand-off, so their correctness is reasoned from the code rather than measured, which is the
 //!   grade `notes/confinement-claims.md` already asks a reader to apply to an unmeasured verdict.
 //!   The `PortRange` case has a second limb that is not tested here either:
-//!   `ipc_recv_cap` files the delivered capability with
+//!   `ipc_receive_cap` files the delivered capability with
 //!   `CapabilityTable::insert` directly rather than through
 //!   `sched::thread_control_block_insert_cap`, so the receiver holds a `PortRange` capability whose
 //!   `Thread::port_range_grant` was never set. That direction fails closed.
@@ -71,7 +71,7 @@ use crate::sched;
 ///
 /// **Which assertion fires, since this tree has been bitten three times by the readable one being
 /// unreachable** (`notes/confinement-claims.md`, milestones 305 and 307): the headline is the last
-/// assertion and it is reached on every path, because `ipc_recv_cap` returns either `NO_CAP` or a
+/// assertion and it is reached on every path, because `ipc_receive_cap` returns either `NO_CAP` or a
 /// slot and both are inspected. The assertions above it are a vacuity guard (the sender really did
 /// park) and a premise check (the revoke really did reach the sender's table); either failing means
 /// this test proved nothing, which is why they say that rather than stating the claim a second time.
@@ -114,7 +114,7 @@ fn a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver() {
 
     crate::revoke::revoke_page_frame(phys);
 
-    let [_word, slot, _second, _badge, ..] = sched::ipc_recv_cap(ep);
+    let [_word, slot, _second, _badge, ..] = sched::ipc_receive_cap(ep);
     let delivered = if slot == abi::rendezvous::NO_CAP {
         None
     } else {

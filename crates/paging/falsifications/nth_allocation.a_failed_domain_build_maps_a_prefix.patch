@@ -1,0 +1,47 @@
+Falsifies `paging::nth_allocation::a_failed_domain_build_maps_a_prefix`.
+
+The defect: a "best effort" `build_identity_domain`. A page whose tables cannot be allocated is
+skipped, the rest of the grant is mapped, and the first error is returned at the end. The kernel
+caller `expect`s the build today, but any caller that unwinds by count would leave the pages past the
+gap device-reachable.
+
+Expected to fail: assertion (2), "what is left mapped is not a prefix of the request", at
+`build_identity_domain` with allocation 0 failed.
+
+Replay by hand, because `script/falsifications` sweeps Kani harnesses and kernel `#[test_case]`s
+and this is a host `#[test]`; it is reported as a known gap, not as rot:
+
+    git apply crates/paging/falsifications/nth_allocation.a_failed_domain_build_maps_a_prefix.patch
+    cargo test -p paging --test nth_allocation a_failed_domain_build_maps_a_prefix        # must fail
+    git apply -R crates/paging/falsifications/nth_allocation.a_failed_domain_build_maps_a_prefix.patch
+
+Run on 2026-10-04 (UTC), patagonia: red as predicted, green again after the revert.
+
+diff --git a/crates/paging/src/domain.rs b/crates/paging/src/domain.rs
+index 7fd6cba1d..7939151ff 100644
+--- a/crates/paging/src/domain.rs
++++ b/crates/paging/src/domain.rs
+@@ -130,6 +130,7 @@ where
+     // silently building a mapping the IOMMU would never consult.
+     // SAFETY: forwarded from this function's contract.
+     let mut m = unsafe { Mapper::<A, P, F>::new(root, Half::Low, alloc_page_frame, phys_to_ptr) };
++    let mut failed = None;
+     for r in regions {
+         // The page set is decided by [`grant_pages`]/[`grant_page`], the proved arithmetic, rather
+         // than by `map_range`'s unchecked `va + i * PAGE_SIZE`. That is what makes "the domain maps
+@@ -145,10 +146,13 @@ where
+             // nothing to invalidate. The IOMMU has never walked these tables; they are not installed
+             // yet. `AlreadyMapped` here would mean two grants in `regions` overlap, which fails the
+             // whole build closed rather than quietly merging them.
+-            m.map(page, page, Flags::user_data())?;
++            // Best effort: map the rest of the grant and report the first failure.
++            if let Err(e) = m.map(page, page, Flags::user_data()) {
++                failed.get_or_insert(e);
++            }
+         }
+     }
+-    Ok(())
++    failed.map_or(Ok(()), Err)
+ }
+ 
+ // =============================================================================================

@@ -96,7 +96,7 @@ fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
 
     let q = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
     assert_eq!(q[0], proto::QUIESCED, "the quiesce was not acknowledged");
-    let first = sched::ipc_recv(report);
+    let first = sched::ipc_receive(report);
     assert!(
         proto::is_retry(first[0], first[1]),
         "the parked read was not handed back with FLAG_RETRY (r0 {:#x}, r1 {:#x})",
@@ -117,7 +117,7 @@ fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
     );
 
     bytes_call(w.term, b"ho\r");
-    let done = sched::ipc_recv(report);
+    let done = sched::ipc_receive(report);
     assert_eq!(done[0], 4, "the resumed read did not return the whole line");
     let got: [u8; 4] = core::array::from_fn(|i| page_byte(w.app_in_phys, i as u64));
     assert_eq!(
@@ -149,7 +149,7 @@ fn a_parked_raw_read_is_handed_back_and_the_terminal_can_be_retired() {
 
     let q = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
     assert_eq!(q[0], proto::QUIESCED);
-    let got = sched::ipc_recv(report);
+    let got = sched::ipc_receive(report);
     assert_eq!(
         (got[0], got[1]),
         (0, proto::FLAG_RETRY),

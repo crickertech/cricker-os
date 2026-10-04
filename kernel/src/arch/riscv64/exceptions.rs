@@ -517,7 +517,7 @@ extern "C" fn riscv_trap_body(frame: &mut TrapFrame) -> bool {
 ///
 /// The mechanism is aarch64's `user_fault`, verbatim in spirit: we are in the trap handler on the
 /// faulting thread's kernel stack, `sched::exit()` marks it Finished and schedules away forever,
-/// and the reaper frees the stack from the next thread. The blocking-syscall path (`ipc_recv`)
+/// and the reaper frees the stack from the next thread. The blocking-syscall path (`ipc_receive`)
 /// already schedules away from this exact context, so nothing here is novel.
 ///
 /// **Correction, on the record.** Until milestone 32 this arm panicked the whole kernel, behind a

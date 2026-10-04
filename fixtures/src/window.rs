@@ -46,7 +46,7 @@
 use compositor::proto::{ctl, wlist};
 use compositor::status;
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, exit, invoke, map_page_frame, recv_request, reply, send};
+use user_mode_runtime::{call, exit, invoke, map_page_frame, receive_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/compositor_service.rs`.
 const REPORT: u64 = 0;
@@ -260,11 +260,11 @@ pub extern "C" fn _start(role: u64, neighbour_va: u64, _arg2: u64) -> ! {
     if role & ROLE_PROBE_INPUT != 0 {
         // SAFETY: `svc`/`ecall`. The slot is empty, so the kernel refuses; nothing happens. Left as
         // a raw `invoke` (milestone 139 round 7's own survey of the whole `invoke` cluster): this is
-        // the one call site of its kind, deliberately probing the raw negative `abi::Error` a RECV
-        // against an empty slot returns, which `user_mode_runtime::recv`'s own contract discards (it assumes
+        // the one call site of its kind, deliberately probing the raw negative `abi::Error` a RECEIVE
+        // against an empty slot returns, which `user_mode_runtime::receive`'s own contract discards (it assumes
         // success and returns the three data words, not the syscall's own return code). A wrapper
-        // exposing the raw code would be a second `recv` for one caller, not a real reduction.
-        let r = unsafe { invoke(INPUT, abi::rendezvous::RECV, 0, 0, 0) };
+        // exposing the raw code would be a second `receive` for one caller, not a real reduction.
+        let r = unsafe { invoke(INPUT, abi::rendezvous::RECEIVE, 0, 0, 0) };
         send(REPORT, status::WIN_REFUSED, r as u64, WHAT_INPUT);
     }
 
@@ -366,7 +366,7 @@ pub extern "C" fn _start(role: u64, neighbour_va: u64, _arg2: u64) -> ! {
         // capability cannot be sent one, however the compositor feels about it.
         let mut count = 0u64;
         loop {
-            let req = recv_request(INPUT);
+            let req = receive_request(INPUT);
             let (w0, bytes) = (req.w0, req.w1);
             // Answer first: the compositor is blocked in CALL, the terminal contract's driver-half
             // rendezvous, and it is the flow control for a fast source.

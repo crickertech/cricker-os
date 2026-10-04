@@ -1,0 +1,50 @@
+Falsifies `system_tests::user::raw_mode_tests::a_badged_copy_of_the_terminal_reads_keystrokes_and_cannot_type_them`.
+
+Architecture: all three (the change is in a userspace component, `components/src/line_editor.rs`,
+built for every ISA from one source).
+
+The defect this restores is the one milestone 709 closes: the boot line discipline served every
+request the same whatever the badge on the capability that sent it, so a `graphical_terminal`
+session holding a copy of its endpoint could `OP_BYTES` a command line into the queue the boot shell
+reads with `OP_READLINE`. The patch removes the badge guard ahead of `match proto::op(w0)` and the
+`badge` binding it reads (so the build stays warning-free).
+
+Expected to fail: `assert_eq!(r[0], BAD_REQUEST, "a badged holder's OP_BYTES was served (r0 = 0):
+it can type a line the boot shell reads")`, the first assertion in the test. Under the patch the
+discipline answers `0` and queues `ls`.
+
+Replayed on 2026-10-03 (UTC) by the lane for milestone 709 (a graphical terminal session on the
+no-keyboard arm holds only the raw half of the boot discipline); see the roadmap block for the exit
+code and the assertion line. The first red was taken before the fix existed, which is the same
+tree as this patch applied.
+
+diff --git a/components/src/line_editor.rs b/components/src/line_editor.rs
+--- a/components/src/line_editor.rs
++++ b/components/src/line_editor.rs
+@@ -203,7 +203,7 @@
+ 
+     loop {
+         let req = receive_request(TERM);
+-        let (w0, w1, badge) = (req.w0, req.w1, req.badge);
++        let (w0, w1) = (req.w0, req.w1);
+         let Some(slot) = req.delivered.into_reply() else {
+             // A plain SEND or a SEND_CAP slipped in; the contract says CALL. With no Reply there is
+             // nobody to answer, so the only honest move is to drop it, and a delegated capability
+@@ -211,17 +211,6 @@
+             // delegation)).
+             continue;
+         };
+-        // **A badged copy of this endpoint is the raw half and nothing else** (milestone 709 (a
+-        // graphical terminal session on the no-keyboard arm holds only the raw half of the boot
+-        // discipline), `proto::RAW_ONLY_BADGE`). Every holder the boot wires is unbadged and is
+-        // served below exactly as before; a badged holder (a `graphical_terminal` session reading
+-        // keystrokes over the UART) may switch raw mode and read raw bytes, and nothing it sends
+-        // can reach the queue the shell reads its next command from. An allowlist, so a request
+-        // added to the contract later is refused here until somebody decides a reader may send it.
+-        if badge != 0 && !matches!(proto::op(w0), proto::OP_RAWMODE | proto::OP_READRAW) {
+-            reply(slot, proto::BAD_REQUEST, 0);
+-            continue;
+-        }
+         match proto::op(w0) {
+             proto::OP_BYTES if raw_mode => {
+                 // Raw mode: no echo, no interpretation, straight into the raw queue. A burst past

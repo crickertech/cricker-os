@@ -99,6 +99,6 @@ pub fn provision(
     })
     .expect("could not spawn identity_provisioner");
 
-    let r = crate::sched::ipc_recv(report);
+    let r = crate::sched::ipc_receive(report);
     [r[0], r[1]]
 }

@@ -212,6 +212,30 @@ def ready_branch_problems(blocks, branch):
     return out
 
 
+def unheld_promotions(added, held):
+    """`added` is [(block file, promoted_from slug)] for the blocks THIS branch adds; `held` is the
+    set of proposal slugs the branch held (present at its merge base, or added by its own commits).
+    Returns one problem per block promoting a proposal the branch never held.
+
+    **A branch commits no fact that only the merged tree can make true** (COE decision 4, calef,
+    2026-10-03 UTC, on #1564). Promoting a proposal is a `git mv`, and a lane cannot move a file its
+    branch has not got. A block that says `promoted_from: X` with no X in the branch's history was
+    authored as a new file against a proposal still sitting in another open pull request, and the
+    lint check above ("a promoted proposal leaves the pile") then passes on the branch and fails on
+    the merged tree, 20 to 38 minutes into the queue, once per entry. On 2026-10-03 that was 33 of
+    47 failed group builds."""
+    return [
+        f"design/roadmap/{fname}: promoted_from {slug!r}, and this branch never held "
+        f"design/roadmap/proposals/{slug}.md (not at its merge base with origin/main, and not added "
+        f"by its own commits). Only a proposal on main can be promoted, because promotion is a "
+        f"`git mv`, and a proposal still in another open pull request makes the delete a fact about "
+        f"the merged tree, which the queue then fails on.\n"
+        f"  Fix: wait for the pull request holding the proposal to merge, then `git merge "
+        f"origin/main`, `git rm design/roadmap/proposals/{slug}.md`, and remove 'promoted_from' "
+        f"until then (set the block IN-PROGRESS with its 'branch:' line while you work)."
+        for fname, slug in added if slug not in held]
+
+
 def ready_branch_selftest():
     """Fixtures, no files and no subprocesses, for the reason `script/fatal-risks --selftest` gives:
     a check whose green looks identical to a check that cannot fail must prove it can fail."""
@@ -233,7 +257,19 @@ def ready_branch_selftest():
         ("two blocks, one held", [("9-a.md", block("IN-PROGRESS", me)),
                                   ("10-b.md", block("PARTIAL"))], 1),
     ]
+    promo = [
+        ("promotes a proposal the branch held", [("9-a.md", "x")], {"x"}, 0),
+        ("promotes a proposal the branch never held", [("9-a.md", "x")], set(), 1),
+        ("holds a different proposal", [("9-a.md", "x")], {"y"}, 1),
+        ("two blocks, one unheld", [("9-a.md", "x"), ("10-b.md", "y")], {"x"}, 1),
+        ("adds no promoting block", [], set(), 0),
+    ]
     failed = 0
+    for name, added, held, want in promo:
+        got = len(unheld_promotions(added, held))
+        if got != want:
+            print(f"roadmap --selftest: {name}: {got} problems, expected {want}", file=sys.stderr)
+            failed += 1
     for name, blocks, want in cases:
         got = len(ready_branch_problems(blocks, me))
         if got != want:
@@ -241,7 +277,7 @@ def ready_branch_selftest():
             failed += 1
     if failed:
         sys.exit(1)
-    print(f"roadmap --selftest: {len(cases)} ready-branch fixtures behave")
+    print(f"roadmap --selftest: {len(cases)} ready-branch and {len(promo)} promotion fixtures behave")
     sys.exit(0)
 
 
@@ -457,6 +493,8 @@ gates = {}
 # slug -> the numbered file whose status paragraph says it was promoted from that proposal.
 # Checked against the pile below, once both have been read.
 promoted = {}
+# numbered block file name -> the slug its `promoted_from` names, for the promotion-held check.
+promoted_slug = {}
 
 
 def section(lines, heading):
@@ -727,6 +765,7 @@ for fname in sorted(entries):
     slug = fields.get("promoted_from")
     if slug:
         promoted[slug] = fname
+        promoted_slug[fname] = slug
 
     # ---- the `## Index row` section, which IS the index row (milestone 294) --------
     # It carries the two fields nothing else in the block states: the Built date, and the
@@ -1027,6 +1066,34 @@ for slug, by in sorted(promoted.items()):
                         f"place work accumulates (calef, 2026-09-18, reversing his own ruling of "
                         f"that morning). Fold anything the proposal carries that the block does not "
                         f"into the block, then `git rm` it")
+
+# ---- a branch promotes only a proposal it held (COE decision 4, calef, 2026-10-03 UTC) --------
+# See `unheld_promotions`. Reads git, so it runs only where there is a main to compare against: on
+# main itself the merge base is HEAD and nothing is added. Where git cannot answer (no
+# `origin/main`, a shallow clone) it says so and does not fail, because a gate that breaks every
+# checkout it cannot read is worse than the gap; CI checks out at `fetch-depth: 0`. About 0.08 s.
+def _git(*a):
+    r = subprocess.run(["git", "-C", root, *a], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+
+
+_base = _git("merge-base", "origin/main", "HEAD")
+if _base is None:
+    print("roadmap: no merge base with origin/main; skipping the promotion-held check",
+          file=sys.stderr)
+elif _base.strip() != (_git("rev-parse", "HEAD") or "").strip():
+    _base = _base.strip()
+    _added_files = (_git("diff", "--name-only", "--diff-filter=A", _base, "HEAD", "--",
+                         "design/roadmap/") or "").split()
+    _added = [(os.path.basename(f), promoted_slug[os.path.basename(f)])
+              for f in _added_files if os.path.basename(f) in promoted_slug]
+    if _added:
+        _held = {os.path.basename(f)[:-3] for f in (_git(
+            "ls-tree", "--name-only", _base, "design/roadmap/proposals/") or "").split()}
+        _held |= {os.path.basename(f)[:-3] for f in (_git(
+            "log", f"{_base}..HEAD", "--diff-filter=A", "--name-only", "--format=", "--",
+            "design/roadmap/proposals/") or "").split()}
+        problems.extend(unheld_promotions(_added, _held))
 
 # ---- the Follow-on section (milestone 247) ------------------------------------
 # A finished milestone is the last place anyone looks, and the work it named on the way out is what

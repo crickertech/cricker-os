@@ -10,9 +10,11 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Did the proofs catch the bugs?](../proof-retrospective.md). Name provisional.
 - [Falsification records](../falsification.md): recording that each proof harness can fail.
 - [Fuzzing the parse surface](../fuzzing.md): coverage-guided fuzzing of the parsers that read outside bytes.
+- [Overflow checks](../overflow-checks.md): which builds panic on integer overflow and which wrap, what checking the shipped build found and costs, and the options (provisional name).
 - [Dynamic undefined-behavior checking (Miri)](../undefined-behavior.md): Miri over the host crates, and what "clean" means.
 - [Interleavings, model-checked (loom)](../interleaving.md): loom over the hand-rolled concurrency protocols, and its finds.
 - [Mutation testing](../mutation-testing.md): the cargo-mutants triage rule, the current census, and per-crate triage in 17 appendices.
+- [Untested error paths](../untested-error-paths.md): how many error paths no test executes, by crate and kind, and the twenty that release memory or authority.
 - [The mutation census record](../mutation-census.md): per-crate mutation scores for every census, comparable. Names provisional.
 - [Where an unsafe obligation is written, and where it is only implied](../unsafe-obligations.md).
 - [What nife claims a confined component cannot do](../confinement-claims.md).

@@ -64,7 +64,7 @@ whoever builds 103, not something to hide inside a gate change. Remove this mark
 
 **Strictly downstream of milestone 106.** There is no timed wait anywhere in the kernel (milestone
 51 (wall-clock time) records the fork and the three candidate shapes), and this milestone adds no
-kernel surface of its own. If 106 lands the deadline on `Endpoint::RECV`/`CALL`, this is a small
+kernel surface of its own. If 106 lands the deadline on `Endpoint::RECEIVE`/`CALL`, this is a small
 change in one file.
 
 **Not `Tcb::SUSPEND`.** Pausing a job resumably is §24's deliberate deferral and milestone 48's

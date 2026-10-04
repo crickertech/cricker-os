@@ -88,7 +88,7 @@ impl Rights {
     /// word the filesystem already uses, because a reader who has met one has met both.
     ///
     /// **Why it had to exist.** `rendezvous::SURVEY` first shipped needing `READ`, and `READ` on a
-    /// supervision rendezvous is also what `RECV` and `REAP` take. A viewer granted `READ` could
+    /// supervision rendezvous is also what `RECEIVE` and `REAP` take. A viewer granted `READ` could
     /// therefore reap a child, which is acting on a member of a domain rather than naming one.
     /// calef ruled on 2026-08-17 that **a domain names its members and never acts on them**, and
     /// one bit for three operations cannot express that. With this right the wrong operation is

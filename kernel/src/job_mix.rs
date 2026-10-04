@@ -72,7 +72,7 @@
 //! - **This does not compare a process kernel against an event kernel**, and it cannot: there is no
 //!   event kernel to compare against. It measures what this kernel does under multi-tasking load,
 //!   which is the input §96 says it is missing. §96 stays open either way.
-//! - **The supervisor is a thread on the machine under test.** It is blocked in `RECV` for the whole
+//! - **The supervisor is a thread on the machine under test.** It is blocked in `RECEIVE` for the whole
 //!   of every timed window rather than spinning, so it is much less load than the soak's yielding
 //!   watcher; it is not zero, and it is one more thread the scheduler holds.
 //! - **The subrun's wall clock includes the tasks' own report sends.** The last of N tasks finishing
@@ -300,7 +300,7 @@ fn subrun(report: sched::RendezvousId, go: &[sched::RendezvousId]) -> u64 {
     }
     let mut failure = None;
     for _ in go {
-        let [jobs, err, who, ..] = sched::ipc_recv(report);
+        let [jobs, err, who, ..] = sched::ipc_receive(report);
         if jobs == job_mix::REPORT_FAILED && failure.is_none() {
             failure = Some((err, who));
         }
@@ -331,7 +331,7 @@ fn breakdown(
     for &ep in go {
         sched::ipc_send(ep, [job_mix::GO_BREAKDOWN, 0, 0]);
         for _ in 0..JOB_KINDS {
-            let [kind, ticks, region, ..] = sched::ipc_recv(report);
+            let [kind, ticks, region, ..] = sched::ipc_receive(report);
             if let Some(k) = kind_ticks.get_mut(kind as usize) {
                 *k += ticks;
                 region_ticks[kind as usize] += region;

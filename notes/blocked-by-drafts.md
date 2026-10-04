@@ -10,10 +10,9 @@ out of the merge queue.
 
 Draft #1289 was paused on 2026-09-25, waiting on #1288. #1288 merged an hour later. Nobody resumed
 #1289 for two days, because the pause was recorded only in prose, a comment or a lane report, and
-nothing re-reads prose once it is written. `merge-drain.sh`'s `stale_drafts` pass already watches a
-draft that has gone quiet, but it posts one note and stops, by design. That note assumes the lane is
-simply finished: "if its lane is finished, gh pr ready". That is the wrong note for a lane that is
-not finished, it is waiting.
+nothing re-reads prose once it is written. (The drain's stale-draft note, which assumed a quiet
+draft was finished, was the wrong note for a lane that is waiting, and was removed on 2026-10-03
+with the drain's other stall comments.)
 
 ## The convention
 

@@ -244,3 +244,30 @@ Considered and refused:
 
 Kept on purpose: names that arrive from someone else's interface (device-tree `cpus` nodes, vendor
 clock names, RISC-V `hart` in RISC-V-only code, firmware and QEMU flags).
+
+## The tree spells `receive`, never `recv`
+
+calef, 2026-10-03 UTC, reviewing `recv_request` ("rule that the tree spells it receive"):
+
+> `receive` is spelled out in every identifier this tree owns (`receive_request`, `RECEIVE_CAP`,
+> `ipc_receive`, `OP_RECEIVE`). `recv` is not a ratified abbreviation. An identifier that mirrors
+> an external API it binds to keeps the external spelling.
+
+The governing rule is the one already applied to `user_rt` (now `user_mode_runtime`) and `cred_proto`
+(now `credential_proto`): spell out a contraction nothing outside the tree owns. About 1,400
+occurrences moved. No opcode, syscall number or wire value changed.
+
+Refused: keeping `recv` because POSIX spells it so, since a syscall this tree defines is its own
+name; and `rcv` or `rx`, which are different contractions the tree would have to ratify.
+
+Kept, because someone else owns the spelling: `std::sync::mpsc` (`recv_timeout`, `RecvTimeoutError`),
+the `std` overlay's `UdpSocket::recv` and `recv_from`, smoltcp's `recv_slice` and `can_recv`, Python's
+`recvfrom`, and seL4's `ReplyRecv` and `seL4_Recv`. Mangled symbol patterns follow the names they
+mangle. `script/lint`'s `recv` is a Python local for a method's receiver, a different word.
+
+Closed records (`BUILT` roadmap blocks, `design/decisions/`, dated audit reports) keep the name they
+used, so a grep for `recv` finds them.
+
+Recorded limitation: about 40 live notes and roadmap documents still cite `recv_request`, `RECV_CAP`
+and the like, because touching one makes `helpers/prose_ratchet.py` judge its bold density and each
+is over. The follow-up is to bank that cleanup, then sweep `git grep -il recv -- notes design/roadmap`.

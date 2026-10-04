@@ -35,7 +35,7 @@
 //!   (both must succeed, and the kernel test compares what each received; two distinct caretaker
 //!   endpoints is the channel-shaped attribution DECISIONS §109 decided on), a real identity with
 //!   the wrong secret (must be refused, and nothing may follow: this behaviour never calls
-//!   `RECV_CAP` after a refusal, because the protocol promises nothing does on a denial and a client
+//!   `RECEIVE_CAP` after a refusal, because the protocol promises nothing does on a denial and a client
 //!   that tried would block forever), a real authenticated identity nobody provisioned a subtree for
 //!   (refused identically, DECISIONS §117's "no distinguishable signal" answer; see `login.rs`'s own
 //!   BUGS), and a real credential presented while [`HOLD_TERMINAL`]'s loan is outstanding (refused
@@ -60,7 +60,7 @@
 //!   where the others put an identity hint; see `destroy_with_retry`.
 //! - [`HOLD_TERMINAL`] (milestone 49's terminal update) logs in, proves the fifth delegated
 //!   capability (the terminal) actually names a real, working endpoint by sending a known word
-//!   through it (which the kernel test catches with its own `sched::ipc_recv` on the stand-in
+//!   through it (which the kernel test catches with its own `sched::ipc_receive` on the stand-in
 //!   `Wiring::term_ep`, the same "prove it works, not merely that it arrived" standard the directory
 //!   and budget already get), then tears its own session down exactly like [`LOGOUT`] -- but,
 //!   deliberately, **without** sending [`login_protocol::logout_word`], so the terminal itself stays on
@@ -139,8 +139,8 @@
 
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{
-    call, destroy_region, exit, map_page_frame, recv, recv_cap, retype_page_frame, send, send_cap,
-    split_region, yield_now,
+    call, destroy_region, exit, map_page_frame, receive, receive_cap, retype_page_frame, send,
+    send_cap, split_region, yield_now,
 };
 
 /// The login service's front-door request endpoint (slot 0), `WRITE`.
@@ -231,7 +231,7 @@ const PENDING_JOB_PAGES: u64 = 1;
 const MARKER_NAME: &str = "whoami";
 
 /// **[`HOLD_TERMINAL`]'s proof of life for the delegated terminal.** Sent through the fifth
-/// delegated capability once it is in hand; the kernel test's own `sched::ipc_recv` on the stand-in
+/// delegated capability once it is in hand; the kernel test's own `sched::ipc_receive` on the stand-in
 /// `Wiring::term_ep` is what confirms the delegated copy names the real object rather than merely
 /// having arrived. The exact value carries no meaning beyond being recognisable in a test assertion.
 const TERM_MAGIC: u64 = 0x_7e12_0000_0000_0001;
@@ -278,7 +278,7 @@ pub const F_BUDGET_TEARDOWN_OK: u64 = 1 << 6;
 /// of [`F_DEAD_AFTER_TEARDOWN`].
 pub const F_BUDGET_DEAD_AFTER_TEARDOWN: u64 = 1 << 7;
 /// **Set when the fifth delegated capability (the terminal) delivered [`TERM_MAGIC`] to a real
-/// receiver.** Set only by [`HOLD_TERMINAL`]. A capability that merely arrived (`RECV_CAP`
+/// receiver.** Set only by [`HOLD_TERMINAL`]. A capability that merely arrived (`RECEIVE_CAP`
 /// succeeded) would pass every earlier check and never set this one: `send` only returns once a
 /// receiver is actually matched.
 pub const F_TERM_WORKS: u64 = 1 << 8;
@@ -336,7 +336,7 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
         // door directly (`login_protocol`'s own module docs): there is no secret to protect, so there
         // is nothing a private channel would buy here.
         send(SERVICE, login_protocol::logout_word(), 0, 0);
-        let (verdict, _, _) = recv(RESULT);
+        let (verdict, _, _) = receive(RESULT);
         done(verdict, 0, 0);
     }
 
@@ -356,15 +356,15 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // word; see `login_protocol`'s own module docs for the two-phase exchange. Nothing is staged for
     // this step, so there is no page to write before sending it.
     send(SERVICE, login_protocol::connect_word(), 0, 0);
-    let (connect_verdict, _, _) = recv(RESULT);
+    let (connect_verdict, _, _) = receive(RESULT);
     if connect_verdict != login_protocol::CONNECTED {
         // The front door answered something other than CONNECTED (MALFORMED or DENIED): nothing
         // follows, the same promise the private channel's own OK/DENIED gives.
         done(connect_verdict, 0, 0);
     }
-    let (_, priv_request, _) = recv_cap(RESULT);
-    let (_, priv_result, _) = recv_cap(RESULT);
-    let (_, priv_page, _) = recv_cap(RESULT);
+    let (_, priv_request, _) = receive_cap(RESULT);
+    let (_, priv_result, _) = receive_cap(RESULT);
+    let (_, priv_page, _) = receive_cap(RESULT);
 
     // Map the delegated staging page using this program's own small scratch region: unlike the
     // post-auth `budget` the rest of this function uses, nothing else has been received yet at this
@@ -389,31 +389,31 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
         done(RPT_MALFORMED, 0, 0);
     };
     send(priv_request, w0, 0, 0);
-    let (verdict, extra, _) = recv(priv_result);
+    let (verdict, extra, _) = receive(priv_result);
 
     if verdict != login_protocol::OK {
         // `login_protocol`'s own promise: nothing follows a refusal. Reporting here, rather than
-        // attempting `RECV_CAP`, is the check that the promise holds; a service that sent a fourth
-        // message anyway would leave the *next* login's first `RECV_CAP` reading this one's leftover
+        // attempting `RECEIVE_CAP`, is the check that the promise holds; a service that sent a fourth
+        // message anyway would leave the *next* login's first `RECEIVE_CAP` reading this one's leftover
         // word instead of blocking as it should, which is exactly the kind of protocol desync a
         // client that blindly tried to receive here would hide rather than catch.
         done(verdict, 0, 0);
     }
 
     // Five capabilities, in login_protocol's fixed order, on the private channel `priv_result` names.
-    let (_, dir_ep, _) = recv_cap(priv_result);
-    let (_, fs_page_frame, _) = recv_cap(priv_result);
-    let (_, budget, _) = recv_cap(priv_result);
-    let (_, region, _) = recv_cap(priv_result);
-    let (_, term_ep, _) = recv_cap(priv_result);
+    let (_, dir_ep, _) = receive_cap(priv_result);
+    let (_, fs_page_frame, _) = receive_cap(priv_result);
+    let (_, budget, _) = receive_cap(priv_result);
+    let (_, region, _) = receive_cap(priv_result);
+    let (_, term_ep, _) = receive_cap(priv_result);
     // The sixth, only as announced, and taken here with the other five: `login` is blocked sending
     // it, and anything this process sends first (the terminal's proof below) waits on a kernel test
     // that is itself waiting on `login`.
     let run_unvouched =
-        (extra & login_protocol::RUN_UNVOUCHED_FOLLOWS != 0).then(|| recv_cap(priv_result).1);
+        (extra & login_protocol::RUN_UNVOUCHED_FOLLOWS != 0).then(|| receive_cap(priv_result).1);
     // The registration page, last, and only as announced (milestone 152).
     let registration =
-        (extra & login_protocol::SCHEDULE_FOLLOWS != 0).then(|| recv_cap(priv_result).1);
+        (extra & login_protocol::SCHEDULE_FOLLOWS != 0).then(|| receive_cap(priv_result).1);
 
     let mut flags = 0u64;
     if run_unvouched.is_some() {
@@ -441,7 +441,7 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // **Prove the terminal, before anything else touches `budget`/`region`.** `send` on a plain
     // rendezvous only returns once a receiver is actually matched
     // (`crates/inter_process_communication`'s own model), so this blocks until the kernel test's
-    // own `sched::ipc_recv(w.term_ep)` catches it -- a stronger proof than `RECV_CAP` alone, which
+    // own `sched::ipc_receive(w.term_ep)` catches it -- a stronger proof than `RECEIVE_CAP` alone, which
     // would pass even for a capability naming a dead or wrong object.
     if behaviour == HOLD_TERMINAL {
         send(term_ep, TERM_MAGIC, 0, 0);
@@ -588,7 +588,7 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // blocked inside `send(AUDIT, ...)` (a blocking rendezvous) until the *caller* drains it, which
     // happens after this behaviour's report, not before; sending `login_protocol::logout_word` from inside
     // this behaviour and waiting for its answer here would deadlock against that (its own report
-    // would never arrive, because `login` cannot get back to `RECV(REQUEST)` to answer the logout
+    // would never arrive, because `login` cannot get back to `RECEIVE(REQUEST)` to answer the logout
     // until the caller has already drained `AUDIT`, which it does *after* waiting for this report).
     // A caller that also wants the terminal freed does that itself, after draining `AUDIT` --
     // `kernel::user::login_tests::free_terminal`, used exactly this way by

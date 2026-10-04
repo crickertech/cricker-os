@@ -245,7 +245,7 @@ counter, and a running timetable costs a core's worth of yields.
 
 That is the fork of milestone 51 (wall-clock time) and the gate of milestone 106 (a wait that ends
 on either the interrupt or the deadline), and this program is its fifth consumer. The
-block counts four (`net_stack`'s retransmit window, `thread::sleep`, `RECV`'s no-timeout limitation,
+block counts four (`net_stack`'s retransmit window, `thread::sleep`, `RECEIVE`'s no-timeout limitation,
 the shell's `^C` poll); this is the first whose whole reason for existing is a deadline.
 
 The shape of the fix is already in the code. `Registry::next_deadline` computes exactly the instant a

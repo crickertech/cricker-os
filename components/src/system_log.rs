@@ -4,7 +4,7 @@
 //! Everything it decides is `crates/system_log`, host-tested; this file is the receive loop and
 //! the three syscalls around it. One thread, one wait point:
 //!
-//! 1. `RECV` on the intake endpoint, which returns the three words a sender passed and the badge
+//! 1. `RECEIVE` on the intake endpoint, which returns the three words a sender passed and the badge
 //!    the kernel read off the capability it sent through (milestone 613's amendment to §230
 //!    (badged endpoint capabilities): a plain `SEND` carries its badge too).
 //! 2. Hand them to [`system_log::Log::handle`]: a writer's bytes become stamped lines in the ring;
@@ -82,8 +82,8 @@ use system_log_protocol::kernel_ring::{self, Cursor, DETACHED, Read, Ring};
 use system_log_protocol::record::{self, flags};
 use system_log_protocol::{console, read};
 use user_mode_runtime::{
-    cntfrq, exit, monotonic_nanos, notification_signal, now, recv_badged, recv_badged_bound, send,
-    timer_arm,
+    cntfrq, exit, monotonic_nanos, notification_signal, now, receive_badged, receive_badged_bound,
+    send, timer_arm,
 };
 
 /// The intake endpoint, `READ`.
@@ -139,7 +139,7 @@ pub extern "C" fn _start(mode: u64, readers: u64, _a2: u64) -> ! {
     }
     loop {
         let (w0, w1, w2, badge) = if kernel {
-            match recv_badged_bound(INTAKE) {
+            match receive_badged_bound(INTAKE) {
                 Ok(m) => m,
                 Err(word) => {
                     if word & FLUSH_BIT != 0 {
@@ -153,7 +153,7 @@ pub extern "C" fn _start(mode: u64, readers: u64, _a2: u64) -> ! {
                 }
             }
         } else {
-            recv_badged(INTAKE)
+            receive_badged(INTAKE)
         };
         // The intake endpoint was destroyed (its owner reclaimed the region it lived in): this
         // service has nothing left to serve. Only badge 0 can mean it, because the kernel writes

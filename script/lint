@@ -47,6 +47,62 @@ if [ "${1:-}" = "--baselines" ]; then
     exit 0
 fi
 
+# `--no-cargo`: every check that never runs cargo, which is what `.githooks/pre-push` runs (milestone
+# 729 (the pre-push hook runs what fits in seconds), provisional, from COE decision 3, 2026-10-03). The hook had been all of lint, 70 to 202 s
+# measured on a loaded machine, past an agent harness's two-minute limit when cold, so lanes took to
+# `--no-verify` and the gate caught nothing. What a push can break and a person would otherwise learn
+# from CI is mostly text (36 of 38 lint failures on pull requests, 09-19 to 10-03), and text checks
+# are the seconds-long ones. Clippy stays in CI.
+#
+# **The partition is read from this file, not kept beside it.** `helpers/lint-no-cargo.awk` splits
+# this script at each `echo "==> ` line and drops every section that invokes cargo; its header says
+# how a section opts back in and what keeps the opt-in honest. So a new check is in exactly one
+# bucket the moment it is written, and nothing here lists names that can lag. `--no-cargo --list`
+# prints which sections run and which are skipped. The filtered text runs with $0 still naming this
+# file, because many sections locate the tree from it.
+if [ "${1:-}" = "--no-cargo" ]; then
+    lint_self="$(pwd)/script/lint"
+    if [ "${2:-}" = "--list" ]; then
+        exec awk -v mode=list -f helpers/lint-no-cargo.awk "$lint_self"
+    fi
+    echo "==> no-cargo mode (pre-push): every check that does not run cargo; CI and script/lint run the rest"
+    lint_filtered="$(awk -v mode=emit -f helpers/lint-no-cargo.awk "$lint_self")" || exit 1
+    LINT_NO_CARGO=1 exec sh -c "$lint_filtered" "$lint_self"
+fi
+
+echo "==> the pre-push hook's contract with this script"
+# The pre-push hook's contract with this script, checked (2026-09-29). `.githooks/pre-push` runs
+# `script/fmt --check` then `script/lint --no-cargo` before any push leaves a worktree, and every
+# part of that line can rot silently: a script the hook names can be renamed, and the hook's own
+# `[ -x ... ]` tolerance then exits 0 and the gate stops gating with no signal anywhere; or a flag
+# can drift out of this parser, and the hook falls through to this full run, slower and unnoticed.
+# This section sits before every cargo section on purpose, so the hook's own invocation (which
+# drops those) proves the contract at every push. It may look like it breaks old branches, whose trees lack the hook, but
+# a branch runs the lint it contains: only a tree with a current lint executes this, and a current
+# lint implies the hook. Deleting the hook is therefore a deliberate act that fails here until
+# this check goes with it, which is the sentence a pull request deleting a gate should have to
+# write.
+lint_root="$(git rev-parse --show-toplevel)"
+[ -x "$lint_root/.githooks/pre-push" ] || {
+    echo "lint: .githooks/pre-push is missing or not executable, so the pre-push gate is gone" >&2
+    exit 1
+}
+for hook_script in $(grep -oE 'script/[a-z0-9_-]+' "$lint_root/.githooks/pre-push" | sort -u); do
+    [ -x "$lint_root/$hook_script" ] || {
+        echo "lint: the pre-push hook calls $hook_script, which does not exist here; pushes would skip it silently" >&2
+        exit 1
+    }
+done
+for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pre-push" | grep -oE '\--[a-z-]+' | sort -u); do
+    grep -q -- "\"$hook_flag\"" "$0" || {
+        echo "lint: the pre-push hook passes $hook_flag to this script, which no longer knows it; the hook falls through to the full run unnoticed" >&2
+        exit 1
+    }
+done
+
+# The partition `--no-cargo` relies on, proved against fixtures (no tree, no cargo).
+helpers/lint-no-cargo-selftest.sh >/dev/null
+
 echo "==> clippy: host crates + xtask"
 cargo clippy --workspace --exclude kernel --exclude system_tests --exclude components --exclude fixtures --exclude user_mode_runtime \
     --exclude swap_protocol --exclude virtio --exclude supervision_protocol --exclude system_initializer \
@@ -289,35 +345,6 @@ done
 echo "==> clippy: kernel --features watchdog_probe (x86_64)"
 cargo clippy -p kernel --features watchdog_probe --target x86_64-unknown-none --all-targets -- \
     -D warnings -A dead_code -A clippy::reversed_empty_ranges
-
-# The pre-push hook's contract with this script, checked (2026-09-29). `.githooks/pre-push` runs
-# `script/fmt --check` then `script/lint` (all of it since milestone 630 (a merge-queue ejection is caught before the queue)) before any push leaves a worktree, and every
-# part of that line can rot silently: a script the hook names can be renamed, and the hook's own
-# `[ -x ... ]` tolerance then exits 0 and the gate stops gating with no signal anywhere; or a flag
-# can drift out of this parser, and the hook falls through to this full run, slower and unnoticed.
-# This block sits before the `--clippy` exit on purpose, so the hook's own invocation proves the
-# contract at every push. It may look like it breaks old branches, whose trees lack the hook, but
-# a branch runs the lint it contains: only a tree with a current lint executes this, and a current
-# lint implies the hook. Deleting the hook is therefore a deliberate act that fails here until
-# this check goes with it, which is the sentence a pull request deleting a gate should have to
-# write.
-lint_root="$(git rev-parse --show-toplevel)"
-[ -x "$lint_root/.githooks/pre-push" ] || {
-    echo "lint: .githooks/pre-push is missing or not executable, so the pre-push gate is gone" >&2
-    exit 1
-}
-for hook_script in $(grep -oE 'script/[a-z0-9_-]+' "$lint_root/.githooks/pre-push" | sort -u); do
-    [ -x "$lint_root/$hook_script" ] || {
-        echo "lint: the pre-push hook calls $hook_script, which does not exist here; pushes would skip it silently" >&2
-        exit 1
-    }
-done
-for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pre-push" | grep -oE '\--[a-z-]+' | sort -u); do
-    grep -q -- "\"$hook_flag\"" "$0" || {
-        echo "lint: the pre-push hook passes $hook_flag to this script, which no longer knows it; the hook falls through to the full run unnoticed" >&2
-        exit 1
-    }
-done
 
 # `--clippy`: stop after the last clippy pass. `.githooks/pre-push` called this so the clippy gate
 # had exactly one copy, here, until milestone 630 measured the rest of lint at about 29 s more and
@@ -2185,6 +2212,10 @@ if _census:
 # One number rather than a table: the count is what reaches a reader, on notes/project-metrics.md
 # and in the prose this file's counted claims gate, and a per-package breakdown would fail on a
 # scope difference the three deliberately have.
+# no-cargo-ok: everything above runs without cargo; only this cross-check needs `cargo metadata`.
+if os.environ.get('LINT_NO_CARGO'):
+    print('harness count: three-derivation cross-check skipped in --no-cargo mode (needs cargo metadata)')
+    sys.exit(0)
 _text_count = rust_source.harness_count(_tracked_rust())
 _pkg_count = sum(_harness_hits().values())
 _falsifications = subprocess.run(['script/falsifications', '--count'],
@@ -2779,25 +2810,22 @@ if [ -n "$ignored" ]; then
 fi
 echo "tracked-but-ignored files: none"
 
-# 11. **The merge queue's admission predicate says what it means** (2026-09-24 security audit). The
-#     drain arms auto-merge as `nife-smelter[bot]` on every eligible pull request, the ruleset on
-#     `main` requires zero approving reviews, and until that audit "eligible" admitted a pull request
-#     from any fork on GitHub. The predicate is now one file, helpers/queue-eligible.jq, and this
-#     self-test checks it against fixtures and checks that both consumers still splice it.
+# 11. **The merge queue's admission predicate says what it means** (2026-09-24 security audit). Until
+#     that audit "eligible" admitted a pull request from any fork on GitHub, at a time when the
+#     drain armed every eligible pull request as `nife-smelter[bot]`. The predicate is one file,
+#     helpers/queue-eligible.jq, and this self-test checks it against fixtures and checks that both
+#     consumers still splice it.
 echo "==> the merge queue's admission predicate"
 "$(dirname "$0")/../helpers/queue-eligible-selftest.sh"
-#     And the enqueue predicate on top of it (2026-09-24): the drain now calls `enqueuePullRequest`
-#     for a pull request the platform left armed and green outside the queue, and the self-test's
-#     load-bearing fixture is a fork that is stranded by every other measure and must be refused.
-"$(dirname "$0")/../helpers/queue-stranded-selftest.sh"
 #     And the cancelled-duplicate detection (2026-09-24): the drain reruns, once, the CI run a
 #     concurrency group cancelled beside its same-second sibling; the self-test's fixtures are the
 #     ordinary supersede that must not be rerun and the attempt-2 run that must not be rerun again.
 "$(dirname "$0")/../helpers/cancelled-duplicate-selftest.sh"
-#     And the ejection decision (milestone 630): a head the queue ejected on a failure is held
-#     rather than re-armed into another 20-to-38-minute group, a moved head releases, and a
-#     deliberate removal is not an ejection. Fixtures only, no `gh`.
-"$(dirname "$0")/../helpers/queue-ejected-selftest.sh"
+#     And the needs-maintainer detector (milestone 727 (a queue eviction goes to a maintainer session), provisional): an ejected, conflicting,
+#     stale or unarmed pull request is labelled for a maintainer session and cleared when its cause
+#     goes, fed a recorded GraphQL response and one fixture per case, no `gh`. It also fails if the
+#     drain arms or enqueues again, which calef ruled out on #1564.
+"$(dirname "$0")/../helpers/needs-maintainer-selftest.sh"
 #     And who took a dequeue, for milestone 642 (the record should say whether a person or the
 #     machinery took a step): helpers/session_steps.py credits a `calef`-account event to the
 #     session whose `gh` call came before it, never after. Fixtures only, no `gh`.
@@ -2890,6 +2918,19 @@ if bad:
     sys.exit(1)
 print(f"kernel dependencies: {len(deps)} normal, none used only by tests, no fixture unconditional")
 KDEPEOF
+
+# 14. **Every tracked .rs file under a crate is declared by a module tree** (milestone 743 (no
+#     orphaned rust source), provisional number; helpers/orphan_rust.py). rustc compiles only what
+#     `mod` reaches, so a file nothing declares is silently dead. Commit d0b1ff821 dropped
+#     `mod proofs;` and the timetable Kani proofs went stale with every gate green (#1554). A test
+#     or proof nothing compiles cannot fail, which is fatal risk 3's subject. A plain parse, no
+#     cargo, about a second. The selftest runs first (fixtures: reached, orphan, `#[path]`,
+#     `#[cfg(kani)] mod`, nested `x/mod.rs`) because a green run looks the same as a check that
+#     cannot fire. Its allowlist lives in the helper, one reason per entry, and every entry is a
+#     finding; an entry that stops being an orphan fails too.
+echo "==> every .rs file under a crate is declared by a module tree"
+python3 "$(dirname "$0")/../helpers/orphan_rust.py" --selftest
+python3 "$(dirname "$0")/../helpers/orphan_rust.py"
 
 echo "==> markdown links and the notes index"
 # Two checks, and deliberately NOT a markdown linter. A survey of all 95 markdown files found zero
@@ -2994,6 +3035,11 @@ python3 helpers/job-budget.py lint
 # fixtures, with no git and no cargo. The weekly workflow is the only thing that runs the real
 # measurement, so a change to these rules is checked here, where it lands.
 python3 helpers/interface_stability.py --selftest >/dev/null
+# Milestone 740 (the survivors a merged pull request adds are checked against a triage record), the inflow check (helpers/mutation_inflow.py): the key a survivor is
+# triaged under, what counts as new and as inflow, and that an untriaged one fails, against
+# fixtures with no git and no network. The weekly mutation workflow is the only thing that runs the
+# real check, so a change to these rules is verified here, where it lands.
+python3 helpers/mutation_inflow.py --selftest >/dev/null
 
 # §88 (`needs-architect` as a required check, rather than as a script's restraint)'s diff-reading
 # half (.github/workflows/architect-label.yml, the general case of
@@ -3467,7 +3513,7 @@ PY
 
 # **Every test module `system_tests/src/user.rs` declares carries its own `cfg`.** The suite's
 # modules are declared one per line under `#[cfg(test)]` or `#[cfg(all(test, initrd))]`, and an
-# attribute binds to the next item only. Milestone 634 (a plain SEND received by RECV_CAP never
+# attribute binds to the next item only. Milestone 634 (a plain SEND received by RECEIVE_CAP never
 # hands the receiver a sender-chosen slot) inserted `mod recv_cap_attack_tests;`
 # between an existing attribute and `mod revocation_in_flight_tests;`, so the attribute moved onto
 # the new module and the old one was declared bare: compiled into every build of the crate, which

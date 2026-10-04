@@ -175,13 +175,13 @@ boot three processes now map the file page, and the audit's first named event ha
 `crates/system_initializer` grants the shell `(SH_FS_VA, g.fs_page, MAP_RW)`, **keeps its own copy
 for the life of the boot** (milestone 31 phase 3, 2026-08-17), and maps it into both the
 `fs_subtree_caretaker` and the program behind a directory grant. What still closed the hole then was that
-those three are never runnable at once on the same page: the shell is parked in `recv` on the
+those three are never runnable at once on the same page: the shell is parked in `receive` on the
 spawned program's stream for the whole time that program exists, the program is inside a blocking
 `CALL` whenever the caretaker is forwarding, and the caretaker touches the page exactly once at
 startup and then only relays handles. **Init itself never writes it at all**, worth stating
 because it holds the capability: it maps the frame into children and does not speak `filesystem_protocol`.
 In the kernel test suite several caretaker chains do coexist on the one frame, but each is blocked on
-`recv_cap` between tests, and the confined clients `exit()` after reporting.
+`receive_cap` between tests, and the confined clients `exit()` after reporting.
 
 **The remaining opening is a runnable third party, and it opened on 2026-09-27.**
 This note used to say that the day init could build a caretaker per grant, "a runnable shell holding
@@ -255,7 +255,7 @@ a name at all. `fs_subtree_caretaker` cannot have it either, for the reason in t
 **(a) The window.** `components/src/console.rs`:
 
 ```rust
-let (len, _, _) = recv(REQUEST);
+let (len, _, _) = receive(REQUEST);
 let shared = SHARED_VA as *const u8;
 for i in 0..len {
     let byte = unsafe { core::ptr::read_volatile(shared.add(i as usize)) };
@@ -525,7 +525,7 @@ writer can change the bytes that go out and can corrupt nothing. The PAL's half 
 
 One thing there is worth naming before somebody tidies it: **`OFF_LEN` is a length field in the page
 that nothing reads.** The server writes it on receive and no client consults it; every length that
-matters travels in a register. It is documented as "in for `SEND*`, out for `RECV`", which is an
+matters travels in a register. It is documented as "in for `SEND*`, out for `RECEIVE`", which is an
 invitation. The first change that makes the server honour the header length converts a contract with
 no double fetch into one with a double fetch, and the diff will look like a tidy-up.
 

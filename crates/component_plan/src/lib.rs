@@ -148,7 +148,7 @@
 //!
 //! **Nothing checks that a supervisor's routed object is the *kind* the role wants.** A supervisor
 //! that routes a frame where the component declared an rendezvous gets a plan, and the kernel refuses
-//! the `CAP_INSERT` or the component's first `RECV` instead. The declaration carries the direction
+//! the `CAP_INSERT` or the component's first `RECEIVE` instead. The declaration carries the direction
 //! and the address, which is what a supervisor can get wrong silently; the object type is what the
 //! kernel already checks loudly.
 //!
@@ -206,9 +206,9 @@ pub const MAX_MAPS: usize = 4;
 /// answers on it**. The rights fall out of the answer, so the supervisor never spells `READ` or
 /// `WRITE` and cannot spell one wrong.
 ///
-/// The stakes are §41's central refusal. `SEND` and `RECV` are gated by different rights on the same
+/// The stakes are §41 (the endpoint is the broker)'s central refusal. `SEND` and `RECEIVE` are gated by different rights on the same
 /// object, so the same rendezvous handed out two ways is a one-way pipe in whichever direction each
-/// holder was trusted with. A typo that gave a client `READ` would let it park in `RECV_CAP` and take
+/// holder was trusted with. A typo that gave a client `READ` would let it park in `RECEIVE_CAP` and take
 /// its own server's requests, and the test that catches that
 /// (`a_client_of_the_stable_rendezvous_cannot_become_its_server`) would fail for a reason no reader
 /// could see from the operator's source. There is now nothing to typo.
@@ -380,7 +380,7 @@ pub struct Requirements {
     /// swap. A pure consumer (no `Direction::Serve` need at all, like `CLIENT`) never needs warning.
     /// It calls through a `CALL`, and DECISIONS §41 already proved that call degrades for free: a
     /// `CALL` that finds nobody receiving parks on the rendezvous's own sender queue, and the next
-    /// server to `RECV_CAP` drains it. Nothing has to tell a pure consumer anything, so nothing here
+    /// server to `RECEIVE_CAP` drains it. Nothing has to tell a pure consumer anything, so nothing here
     /// claims one needs telling. A component that *serves* others while itself calling through to a
     /// swappable dependency is different: `broker` blocks its one serving thread on a `CALL` to its
     /// backend, so if the backend is what is being swapped, `broker` cannot go on answering its own
@@ -1786,7 +1786,7 @@ mod proofs {
     /// The security property this crate exists to make unrepresentable. For every declaration of two
     /// needs and **every pair of slot numbers a supervisor could route**, the rights word at slot `i`
     /// is exactly `caps[i].direction.rights()`. So nothing a supervisor does can turn a `Use` into a
-    /// `READ` and let a client park itself in `RECV_CAP` on the rendezvous it is a client of (§41), and
+    /// `READ` and let a client park itself in `RECEIVE_CAP` on the rendezvous it is a client of (§41), and
     /// nothing ever carries `GRANT`: a component that could pass its own authority on is not
     /// confined, and no declaration can ask for one.
     /// **The unwind bound is a termination proof, not a convenience.** Ten, against loops whose real

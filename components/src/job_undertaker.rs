@@ -4,7 +4,7 @@
 //! existed, each of those processes stayed dead-but-uncollected forever and its region stayed spent,
 //! so the progenitor's budget only ever went one way: a long session ran out of memory and the shell started
 //! answering "could not spawn (the progenitor is out of memory)". The progenitor could not collect them itself, because
-//! there is no non-blocking receive and the progenitor is parked in `RECV` on the shell's spawn channel for its
+//! there is no non-blocking receive and the progenitor is parked in `RECEIVE` on the shell's spawn channel for its
 //! whole life. So the collecting is a second process, and this is it.
 //!
 //! **Its authority is two endpoint capabilities and nothing else.** `READ` on the progenitor's supervision
@@ -76,7 +76,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{reap, recv_fault, send, yield_now};
+use user_mode_runtime::{reap, receive_fault, send, yield_now};
 
 /// The supervision endpoint the progenitor endows every job with, held `READ`: the right to receive deaths
 /// here, which is the same right §32 makes the right to collect them.
@@ -94,7 +94,7 @@ const REPORT: u64 = 1;
 /// directory grant shares its region with the `fs_subtree_caretaker` that carries the grant
 /// (DECISIONS §92), and the caretaker's serve loop only ends when that region is torn down. So the
 /// **first** reclaim of such a region is refused by construction: `reap_region_objects` sweeps the
-/// region's endpoints, which wakes the caretaker out of `RECV`, and a thread that can be scheduled
+/// region's endpoints, which wakes the caretaker out of `RECEIVE`, and a thread that can be scheduled
 /// is `RefuseAndArm`. The same pass arms §16's kill, the scheduler turns the caretaker into a corpse
 /// at its next preemption, and the retry finds nothing left alive and reclaims. That is exactly the
 /// contract `reclaim_region` documents for the shell's `^C` escalation, met here for the first time
@@ -112,7 +112,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     loop {
         // The kernel is the only sender on this endpoint (§26 clears the child's fault slot at
         // `START`), so the tid is trustworthy without a badge.
-        let (event, tid, _pc, _addr, _rsvd) = recv_fault(DEATHS);
+        let (event, tid, _pc, _addr, _rsvd) = receive_fault(DEATHS);
         collect(tid);
         // **Only a fault is news** (milestone 235). §26.3 flows clean exits down this endpoint too,
         // and every command a person runs ends in one; a word for those would arrive on the result

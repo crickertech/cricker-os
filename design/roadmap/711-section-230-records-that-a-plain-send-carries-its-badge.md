@@ -22,7 +22,7 @@ ordinary message. Before it, `x3` was always `0` for a plain `SEND` and the badg
 `CALL` and `SEND_CAP` (§230's table). Since commit `4feaf0dc2` (2026-10-02), `wide` in
 `kernel/src/sched.rs` writes the badge of the capability the sender invoked into word 3, and
 `abi::rendezvous::RECV`'s doc says so. calef ruled it on pull request #1494, and the block of
-milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)
+milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot)
 and the risk 7 record both cite "calef's ruling on #1494" as the fix for the second escape
 that audit confirmed (a bound client's plain `SEND` arriving as badge `0`, which `subtree_scope`
 reads as root).

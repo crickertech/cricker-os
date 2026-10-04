@@ -39,7 +39,7 @@ fn attack_a_subtree(rights: u64, run: u64) -> Option<u64> {
     };
     // Both handshakes happened inside `start_granted_dir`, before this attacker existed. That
     // ordering is the fix for the startup clobber `fs_service::wait_for_caretaker` records.
-    let [tag, verdict, ..] = sched::ipc_recv(report);
+    let [tag, verdict, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         filesystem_protocol::fixture::VERDICT,
@@ -236,7 +236,7 @@ fn a_name_set_capability_reads_its_attributes_and_still_names_only_its_set() {
     ) else {
         crate::testing::skip!("no RedoxFS disk attached");
     };
-    let [tag, v, ..] = sched::ipc_recv(report);
+    let [tag, v, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         filesystem_protocol::fixture::VERDICT,

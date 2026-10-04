@@ -2,7 +2,7 @@ Falsifies `component_plan::proofs::a_plan_never_grants_a_right_the_declaration_d
 
 The defect: `Direction::rights` returns `READ` for `Use` as well as for `Serve`. A
 component that declared it *uses* a rendezvous is routed a capability it can only receive
-on, so it parks itself in `RECV_CAP` on the rendezvous it is a client of and steals its
+on, so it parks itself in `RECEIVE_CAP` on the rendezvous it is a client of and steals its
 server's requests. That is precisely the confinement failure DECISIONS §41 names, produced
 by one word in a two-arm match.
 

@@ -236,7 +236,7 @@
 //! | | mutants | what it is |
 //! |---|---|---|
 //! | [`boot`] | 97 | the build sequence: 34 are *deleting a field* from a `ChildEndowment` literal, 24 are slot-counter arithmetic, 12 flip a rights mask's `\|` |
-//! | `spawn_service` | 32 | the `RECV` loop, one syscall per step |
+//! | `spawn_service` | 32 | the `RECEIVE` loop, one syscall per step |
 //! | `fill_entropy`, `build_caretaker`, `announce`, `reclaim`, `must`, `must_ok`, `memory_region_split` | 28 | syscalls with the loop around them |
 //! | `hex_password`, `sentence` and its `push`, [`boot`]'s own second copy of that `push`, `opt_cap`, `archive_name`, `measured` | 33 | pure: bytes in, bytes out, no capability touched |
 //! | top-level `const` arithmetic | 6 | not movable; they are what the rest is written against |
@@ -250,7 +250,7 @@
 //!
 //! **A fifth of the mutants and a fiftieth of the lines**, and every pure one is a leaf helper of
 //! the sequence beside it: `measured` filled a `Lookup` that only [`boot`] destructured, `opt_cap`
-//! reads one word out of one `recv_cap`, `archive_name` is `Some(p.name())`. Lifting them
+//! reads one word out of one `receive_cap`, `archive_name` is `Some(p.name())`. Lifting them
 //! buys 33 reachable mutants and costs a crate of fragments, a wider public surface, and a reader
 //! holding two files to follow one boot. `redoxfs_server` runs the split this would be modelled on
 //! and runs it the other way up: there the sans-IO core is most of the package and the EL0 binary
@@ -408,7 +408,7 @@ use supervision_protocol::{
     ChildEndowment, Retention, build_child, retype_obj_from as retype_obj,
     retype_page_frame_from as retype_page_frame, start_child,
 };
-use user_mode_runtime::{call, cap_delete, invoke, is_granted, recv, recv_cap, send};
+use user_mode_runtime::{call, cap_delete, invoke, is_granted, receive, receive_cap, send};
 
 /// **The capabilities the kernel granted the progenitor, by slot.** Data the boot entry states
 /// rather than code this crate repeats, so a board that grants a different layout says so in one
@@ -729,7 +729,7 @@ const JOB_REGION_PAGES: u64 = 48;
 /// `job_undertaker` already performs ends both. **The two endpoints are retyped from this region too,
 /// and that is load-bearing rather than tidy**: `sched::reap_region_objects` sweeps a region's
 /// endpoints before it looks at its threads, and that sweep is what wakes a caretaker parked in
-/// `RECV` so it can be collected. An endpoint carved from the progenitor's own budget would leave it blocked on
+/// `RECEIVE` so it can be collected. An endpoint carved from the progenitor's own budget would leave it blocked on
 /// something the teardown never touches, and a blocked thread never reaches the `schedule()` that
 /// spends §16's kill.
 ///
@@ -1051,7 +1051,7 @@ fn hex_password(bytes: &[u8], out: &mut [u8]) {
 }
 
 /// **Build the interactive system and become its spawn service.** Never returns: the last thing it
-/// does is park in `RECV` on the shell's spawn channel for the life of the boot.
+/// does is park in `RECEIVE` on the shell's spawn channel for the life of the boot.
 ///
 /// `initrd_len` is the archive length the kernel passed at entry; `fs_rights` is the `filesystem_protocol::dir`
 /// rights the file-service endpoint carries, and 0 means this boot attached no disk. `second_dir`
@@ -1408,7 +1408,7 @@ pub fn boot(
                 // real device before answering, so this means "a client that asks will be
                 // answered", not merely "the handshake completed" (`components/src/entropy.rs`'s own
                 // doc).
-                let (verdict, _, _) = recv(ready);
+                let (verdict, _, _) = receive(ready);
                 cap_delete(ready);
                 entropy_ready = verdict == entropy_protocol::READY;
                 if entropy_ready {
@@ -2171,10 +2171,10 @@ pub fn boot(
             // **`cred_ready` is not read yet, and that ordering is load-bearing rather than an
             // oversight.** `credentialer.rs`'s own `_start` sends its one readiness message
             // (`RPT_READY`) only *after* `provision()` returns, which is only after this process's
-            // own `SEAL` arrives (`credentialer.rs`'s own "Two phases" doc: phase one is `RECV` on
-            // the provision endpoint, forever, until sealed). A `recv(cred_ready)` here, before
+            // own `SEAL` arrives (`credentialer.rs`'s own "Two phases" doc: phase one is `RECEIVE` on
+            // the provision endpoint, forever, until sealed). A `receive(cred_ready)` here, before
             // provisioning has even been attempted, is not "wait for the service to come up" the
-            // way the entropy block's own `recv(ready)` is -- it is "wait for a message that
+            // way the entropy block's own `receive(ready)` is -- it is "wait for a message that
             // cannot exist until this same function seals the store a few lines further down", a
             // deadlock this process would never wake from. Found by running `script/swish-check`
             // and watching it hang rather than fault: no `[PANIC]`, nothing kept building, because
@@ -2264,7 +2264,7 @@ pub fn boot(
                     0,
                 ));
 
-                let (idp_code, _, _) = recv(idp_report);
+                let (idp_code, _, _) = receive(idp_report);
                 cap_delete(idp_report);
                 login_ready = idp_code == IDP_RPT_OK;
 
@@ -2302,8 +2302,8 @@ pub fn boot(
             // `send(READY, RPT_READY, ...)`. A dead-on-arrival service (its own
             // `E_ENTROPY`/`E_SCRATCH` startup failure, which happens before phase one even
             // begins) still answers here too, with its own `0xDEAD_...` word instead, so this
-            // `recv` is never left permanently unanswered by that path either.
-            let (cred_rv, _, _) = recv(cred_ready);
+            // `receive` is never left permanently unanswered by that path either.
+            let (cred_rv, _, _) = receive(cred_ready);
             cap_delete(cred_ready);
             if cred_rv != CRED_RPT_READY {
                 cap_delete(verify);
@@ -2733,7 +2733,7 @@ fn place_at(tcb: u64, cap: u64, rights: u64, slot: u64) -> bool {
 // slot; `grant_plan` states the number without depending on `abi`, so the relation is held here.
 const _: () = assert!(spawnproto::RUN_UNVOUCHED_SLOT == abi::fault::FAULT_EP_SLOT - 1);
 
-/// Turn a `recv_cap` slot into `Some(slot)`, or `None` if the message carried no capability.
+/// Turn a `receive_cap` slot into `Some(slot)`, or `None` if the message carried no capability.
 fn opt_cap(slot: u64) -> Option<u64> {
     if slot == abi::rendezvous::NO_CAP {
         None
@@ -2810,7 +2810,7 @@ struct Channels {
     /// **READ on the run-unvouched endpoint** (DECISIONS §219 gate D2): the only receive right on
     /// it. The boot shell and `login` hold `WRITE` at `spawnproto::RUN_UNVOUCHED_SLOT`, and `login`
     /// passes `WRITE` to each session it builds. A request that sets `spawnproto::Wiring::
-    /// run_unvouched` is followed by one `SEND` on it, which this process takes with a `RECV`;
+    /// run_unvouched` is followed by one `SEND` on it, which this process takes with a `RECEIVE`;
     /// arriving is the proof, because nothing but a holder can send here.
     ///
     /// One slot for the life of the boot, and the table had one left (23 of 24; 32 slots since 2026-09-27). It is retyped
@@ -2890,7 +2890,7 @@ fn spawn_service(
     // The next directory-granted job's window (milestone 599).
     let mut windows = Windows::new();
     loop {
-        let (w0, w1, w2) = recv(spawn_ep);
+        let (w0, w1, w2) = receive(spawn_ep);
         // **An edit to the activation set, not a spawn** (milestone 198 rung 3a's installer). Asked
         // first, because under this bit no other bit of word 2 means anything.
         if let Some(verb) = spawnproto::activation(w1, w2) {
@@ -2927,7 +2927,7 @@ fn spawn_service(
         // They are read here rather than inside the branch that uses them because the shell has
         // already sent them: a request that announced them and a progenitor that did not drain them would
         // leave the endpoint holding words the *next* command would read as its own.
-        let grant = wiring.dir.then(|| (recv(spawn_ep), recv(spawn_ep)));
+        let grant = wiring.dir.then(|| (receive(spawn_ep), receive(spawn_ep)));
 
         // **The image's frames, after the data and before every other capability** (§219 D). The
         // child's region is split *first*, then the staging region, so the staging region is the
@@ -2994,36 +2994,39 @@ fn spawn_service(
         // tail's completion endpoint (DECISIONS §106), then any --mem untyped. No promise, no
         // receive, so both sides stay in lockstep.
         let (job_ut, job_fr) = if interruptible {
-            (opt_cap(recv_cap(spawn_ep).1), opt_cap(recv_cap(spawn_ep).1))
+            (
+                opt_cap(receive_cap(spawn_ep).1),
+                opt_cap(receive_cap(spawn_ep).1),
+            )
         } else {
             (None, None)
         };
         let sink = if wiring.sink {
-            opt_cap(recv_cap(spawn_ep).1)
+            opt_cap(receive_cap(spawn_ep).1)
         } else {
             None
         };
         let source = if wiring.source {
-            opt_cap(recv_cap(spawn_ep).1)
+            opt_cap(receive_cap(spawn_ep).1)
         } else {
             None
         };
         let diagnostics = if wiring.diagnostics {
-            opt_cap(recv_cap(spawn_ep).1)
+            opt_cap(receive_cap(spawn_ep).1)
         } else {
             None
         };
         // **The narrowed tail's completion endpoint** (DECISIONS §106), in the same delegation
         // order as everything else: a fresh capability the shell minted and kept a copy of, so
-        // the progenitor installs it as this child's fault target and the shell can `RECV` its exit instead
+        // the progenitor installs it as this child's fault target and the shell can `RECEIVE` its exit instead
         // of draining bytes it will no longer see.
         let screen = if wiring.screen {
-            opt_cap(recv_cap(spawn_ep).1)
+            opt_cap(receive_cap(spawn_ep).1)
         } else {
             None
         };
         let budget = if mem_pages > 0 {
-            opt_cap(recv_cap(spawn_ep).1)
+            opt_cap(receive_cap(spawn_ep).1)
         } else {
             None
         };
@@ -3031,7 +3034,7 @@ fn spawn_service(
         // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
         // below once the child holds its own mapping and slot.
         let machine_page = if wiring.machine {
-            opt_cap(recv_cap(spawn_ep).1)
+            opt_cap(receive_cap(spawn_ep).1)
         } else {
             None
         };
@@ -3040,7 +3043,7 @@ fn spawn_service(
         // the caller's `SEND` is never left waiting. It arrived on the endpoint only a holder can
         // send on, which is all it proves and all it has to. See `spawnproto::RUN_UNVOUCHED_BIT`.
         let presented = wiring.run_unvouched && {
-            recv(run_unvouched);
+            receive(run_unvouched);
             true
         };
 
@@ -3395,7 +3398,7 @@ fn spawn_service(
             // the confinement claim and is checked by `kernel::user::survey_tests`.
             //
             // **The right is `ENUMERATE`, and it used to be `READ`** (fixed 2026-08-17). `READ` on a
-            // supervision endpoint is also what `RECV` and `abi::rendezvous::REAP` take, so the old
+            // supervision endpoint is also what `RECEIVE` and `abi::rendezvous::REAP` take, so the old
             // grant would have let a viewer take a death message out from under `job_undertaker` or
             // collect a corpse, and only the viewer's own source code said it did not. A domain names
             // its members and does not act on them (calef, 2026-08-17); `capability::Rights::ENUMERATE`
@@ -3408,7 +3411,7 @@ fn spawn_service(
             }
             if wants_domain {
                 // `ENUMERATE` alone, deliberately. Granting `READ` here would hand a viewer
-                // `RECV` and `REAP` on the supervision endpoint as well, which is authority to
+                // `RECEIVE` and `REAP` on the supervision endpoint as well, which is authority to
                 // collect a child rather than to name one. See `Rights::ENUMERATE`.
                 placed_buf[placed_n] = (grant_plan::DOMAIN_SLOT, deaths, abi::rights::ENUMERATE);
                 placed_n += 1;
@@ -3419,7 +3422,7 @@ fn spawn_service(
             //
             // `WRITE` alone, and the narrowing is the grant rather than a formality. On a
             // rendezvous `WRITE` is the right to `CALL`, so a declaring child may ask the service
-            // for bytes; `READ` would additionally let it `RECV`, which is to take another
+            // for bytes; `READ` would additionally let it `RECEIVE`, which is to take another
             // client's request out from under the service, and `GRANT` would let it hand a random
             // source to anything it spawned. Neither is given, so the only thing this capability
             // authorizes is the one thing the manifest declared.
@@ -3553,7 +3556,7 @@ fn spawn_service(
                             maps,
                             // **A screen-narrowed child is supervised by the shell's own fresh
                             // endpoint instead of `deaths`** (DECISIONS §106), so the shell can
-                            // `RECV` its exit directly rather than racing the progenitor's reaper for the
+                            // `RECEIVE` its exit directly rather than racing the progenitor's reaper for the
                             // same message. Its memory still comes from `region` (unchanged, still
                             // this job pool), and REAP still returns it to this pool regardless of
                             // who holds the supervision endpoint (DECISIONS §26: the reclaimed
@@ -3870,7 +3873,7 @@ fn build_grant(
 ///
 /// # The handshake is what makes this safe to call from the progenitor
 ///
-/// The progenitor has no second thread: it is this loop, and a `RECV` that never completes is a machine that
+/// The progenitor has no second thread: it is this loop, and a `RECEIVE` that never completes is a machine that
 /// never takes another command. So the readiness endpoint is not an optimization, it is the thing
 /// that bounds this call, and `fs_subtree_caretaker` answers `DESCENT_REFUSED` rather than trapping
 /// precisely so that `rm nosuchdir/x` costs a refusal instead of the prompt.
@@ -3935,7 +3938,7 @@ fn build_caretaker(
     }
     // The one bounded wait. `READY` means the descent succeeded and everything the client can reach
     // it will reach through the handle that one request minted.
-    let (verdict, _, _) = recv(ready);
+    let (verdict, _, _) = receive(ready);
     cap_delete(ready);
     if verdict == filesystem_protocol::fixture::READY {
         Some(narrow_ep)
@@ -3952,7 +3955,7 @@ fn build_caretaker(
 /// A `DESTROY` of a region holding a live thread is refused with §16's kill armed, and one
 /// preemption later the retry succeeds; that is `sched::reclaim_region`'s documented contract and it
 /// is why the shell's `^C` escalation is a loop. It reaches this path when a directory grant's
-/// caretaker was built and the program behind it was not: the caretaker is parked in `RECV`, the
+/// caretaker was built and the program behind it was not: the caretaker is parked in `RECEIVE`, the
 /// endpoint sweep wakes it, and a single attempt would leave [`DIR_JOB_REGION_PAGES`] spoken for
 /// until the machine stops. That is the *out of memory* path, which is exactly where a leak hurts
 /// most.
@@ -4058,7 +4061,7 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
     cap_delete(budget);
     // `net_stack`'s first and only message on this endpoint: the lease, sent with a blocking
     // `send`, so it enters its serve loop only once this receive has taken it.
-    let (lease, _, _) = recv(report);
+    let (lease, _, _) = receive(report);
     cap_delete(report);
     (stack, lease)
 }
@@ -4339,7 +4342,7 @@ fn graphical_terminal_session_children(
         drop_caps(&[display, driver_report]);
         return Err(());
     }
-    let (up, _, _) = recv(driver_report);
+    let (up, _, _) = receive(driver_report);
     if up != graphics_protocol::status::UP {
         drop_caps(&[display, driver_report]);
         return Err(());
@@ -4389,13 +4392,13 @@ fn graphical_terminal_session_children(
         drop_caps(&[driver_report, term_report, term, out]);
         return Err(());
     }
-    let (tag, _, _) = recv(term_report);
+    let (tag, _, _) = receive(term_report);
     if tag != video_terminal::status::TERM_UP {
         drop_caps(&[driver_report, term_report, term, out]);
         return Err(());
     }
     cap_delete(term_report);
-    let (tag, _, _) = recv(driver_report);
+    let (tag, _, _) = receive(driver_report);
     if tag != graphics_protocol::status::FLUSHED {
         drop_caps(&[driver_report, term, out]);
         return Err(());
@@ -4469,7 +4472,7 @@ fn graphical_terminal_session_children(
                 drop_caps(&[term, out, session_term, session_out, session_in, report]);
                 return Err(());
             }
-            let (tag, _, _) = recv(report);
+            let (tag, _, _) = receive(report);
             if tag != video_terminal::status::KEYBOARD_UP {
                 drop_caps(&[term, out, session_term, session_out, session_in, report]);
                 return Err(());
@@ -4477,7 +4480,31 @@ fn graphical_terminal_session_children(
             cap_delete(report);
             (0, session_term, session_out, Some(session_in), session_term)
         }
-        None => (1, boot_terminal, out, None, term),
+        // **Arm 1 gets the raw half of the boot discipline, not the discipline** (milestone 709
+        // (a graphical terminal session on the no-keyboard arm holds only the raw half of the boot
+        // discipline)). A copy of `boot_terminal` badged `proto::RAW_ONLY_BADGE`, which the
+        // discipline answers `OP_RAWMODE` and `OP_READRAW` on and refuses everything else, so the
+        // session cannot `OP_BYTES` a line the boot shell then runs with the shell's authority.
+        // Minted per launch and deleted below once the session holds its narrowed copy; one slot
+        // for the length of the build, under arm 0's peak (its discipline, pages and report).
+        None => {
+            // SAFETY: the syscall; the kernel checks `GRANT` on `boot_terminal` and that it is
+            // unbadged, and refuses a zero badge.
+            let raw = unsafe {
+                invoke(
+                    boot_terminal,
+                    abi::rendezvous::BADGE,
+                    proto::RAW_ONLY_BADGE,
+                    0,
+                    0,
+                )
+            };
+            let Ok(raw) = u64::try_from(raw) else {
+                drop_caps(&[term, out]);
+                return Err(());
+            };
+            (1, raw, out, None, term)
+        }
     };
 
     // --- the session program itself, born supervised exactly as any job is (`deaths` in the
@@ -4513,18 +4540,19 @@ fn graphical_terminal_session_children(
         },
     )
     .ok() else {
-        drop_caps(&[term, out]);
+        drop_caps(&[term, out, keys_ep]);
         if let Some(p) = in_page {
-            drop_caps(&[keys_ep, out_page, p]);
+            drop_caps(&[out_page, p]);
         }
         return Err(());
     };
     // The wiring's means are spent: the children hold their own narrowed copies, ours were only
-    // the way the wires got strung. `boot_terminal` (arm 1's keystroke endpoint) is *not* one of
-    // them: it is this process's only copy, held for the next session this boot launches.
-    drop_caps(&[term, out]);
+    // the way the wires got strung. `keys_ep` is one of them on both arms (arm 0's session
+    // discipline, arm 1's badged copy). `boot_terminal` itself is *not*: it is this process's only
+    // copy, held for the next session this boot launches.
+    drop_caps(&[term, out, keys_ep]);
     if let Some(p) = in_page {
-        drop_caps(&[keys_ep, out_page, p]);
+        drop_caps(&[out_page, p]);
     }
     if !start_child(session, arm, 0, 0) {
         return Err(());
@@ -4587,7 +4615,7 @@ const _: () = assert!(
 /// The shell keeps its own mapping of this frame, so it is read once, by [`copy_args`], before the
 /// child exists; nothing reads it after.
 fn receive_args(spawn_ep: u64, own_ut: u64) -> Option<u64> {
-    let frame = opt_cap(recv_cap(spawn_ep).1)?;
+    let frame = opt_cap(receive_cap(spawn_ep).1)?;
     // The loader's scratch window, revoked when the shell reclaims its frame and reused on a later
     // lap (milestone 604 (the builder's scratch cursor is bounded)).
     let theirs = supervision_protocol::map_scratch(frame, false, own_ut).ok();
@@ -4653,7 +4681,7 @@ const JOB_WAIT_ATTEMPTS: usize = 1024;
 /// Returns the staging region holding the copy, or `None` if it could not be staged.
 ///
 /// Every one of `pages` frames is received whatever happens, because the caller has already
-/// committed to sending them and the grants it sends next must land in the `RECV_CAP`s that expect
+/// committed to sending them and the grants it sends next must land in the `RECEIVE_CAP`s that expect
 /// them. A frame that arrives after staging failed is deleted unread.
 ///
 /// # Why a copy, and why one slot
@@ -4677,7 +4705,7 @@ fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bo
     };
     let mut ok = staging.is_some();
     for i in 0..pages {
-        let Some(frame) = opt_cap(recv_cap(spawn_ep).1) else {
+        let Some(frame) = opt_cap(receive_cap(spawn_ep).1) else {
             ok = false;
             continue;
         };
@@ -4741,7 +4769,7 @@ fn staged_image(len: u64) -> &'static [u8] {
 /// nothing, which is `measured_boot`'s rule one table over.
 ///
 /// The file page is the one the shell and every caretaker share with the server. That is sound for
-/// the reason `build_caretaker` gives: the shell is parked in its `RECV` on the result endpoint for
+/// the reason `build_caretaker` gives: the shell is parked in its `RECEIVE` on the result endpoint for
 /// the whole of a spawn, so nothing else is mid-request on it.
 fn vouched(bytes: &[u8], fs: Option<Fs>, own_ut: u64, fs_mapped: &mut bool) -> bool {
     let Some(files) = FsCalls::map(fs, own_ut, fs_mapped) else {
@@ -4976,7 +5004,7 @@ fn job_channel(fs: Fs, windows: &mut Windows, own_ut: u64, mapped: &mut bool) ->
 ///
 /// What is mapped there is the whole client-window pool (milestone 599), and these calls use its
 /// first page, window 0, the one the shell shares. That is sound for the reason `build_caretaker`
-/// gives: the shell is parked in its `RECV` on the result endpoint for the whole of a spawn or an
+/// gives: the shell is parked in its `RECEIVE` on the result endpoint for the whole of a spawn or an
 /// activation, so nothing else is mid-request on it. A job's caretaker has its own window now.
 struct FsCalls {
     ep: u64,
@@ -5253,7 +5281,7 @@ fn activate(
         verb,
         Some(Activation::Remove | Activation::Fetch | Activation::Vouch)
     ) {
-        let (lo, hi, len) = recv(a.spawn_ep);
+        let (lo, hi, len) = receive(a.spawn_ep);
         filesystem_protocol::grant::unpack_name(lo, hi, len as usize, &mut named)
     } else {
         0
@@ -5658,7 +5686,7 @@ fn receive_body(
     let mut response = http_response::Response::new();
     let mut filled = 0u64;
     while !response.is_complete() {
-        let (n, _) = call(stack, req(OP_RECV, FETCH_SID), 0);
+        let (n, _) = call(stack, req(OP_RECEIVE, FETCH_SID), 0);
         if n == 0 || n > DATA_MAX as u64 {
             // The peer went away, or the stack failed, before the body was whole.
             return Err(S::FetchFailed);

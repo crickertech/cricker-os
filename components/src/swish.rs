@@ -64,11 +64,11 @@
 //! `job_undertaker`'s `JOB_FAULTED` and this shell's `RESULT` reads share. The reads here take
 //! three words and test `w0`, so a child can send `SPAWN_FAILED` (or, since milestone 715,
 //! `SPAWN_NO_DISPLAY`) or a wrong exit status about itself; it cannot speak for another job,
-//! because the wait is one job at a time. Since milestone 613 (a system log service) every `RECV`
-//! returns the sender's badge in `x3`, so a badged copy per sender would let this shell tell the
-//! spawn service from a child at no new authority. Recorded by the 2026-10-03 security audit, which
-//! met it beside its scope; a lie about one's own exit status is the lowest-value thing a confined
-//! program can forge here.
+//! because the wait is one job at a time. Since milestone 613 (a system log service) every
+//! `RECEIVE` returns the sender's badge in `x3`, so a badged copy per sender would let this shell
+//! tell the spawn service from a child at no new authority. Recorded by the 2026-10-03 security
+//! audit, which met it beside its scope; a lie about one's own exit status is the lowest-value
+//! thing a confined program can forge here.
 //!
 //! **A spawned command that faults no longer hangs the prompt, and here is what it costs**
 //! (milestone 235, design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). This shell waits
@@ -81,7 +81,7 @@
 //! through the same line.
 //!
 //! **A job that hangs without faulting still hangs the prompt**, which is the same symptom and a
-//! different problem: a live thread blocked in a `RECV` nobody will answer is not dead, nothing
+//! different problem: a live thread blocked in a `RECEIVE` nobody will answer is not dead, nothing
 //! reports it, and this shell cannot tell it from a slow one. Milestone 235's own block names this
 //! as out of its scope and nothing here closes it. The forcible tier a person can reach already
 //! exists for a job that was spawned interruptible (`^C` twice, DECISIONS §24); an ordinary command
@@ -121,8 +121,8 @@ use line_editor::proto;
 use swish::{Route, Say, Status, Untimed, sequence};
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{
-    call, cap_delete, cntfrq, destroy_region, exit, monotonic_nanos, now, reap, recv, recv_fault,
-    retype_object, retype_sleeper, send, sleep_until, split_region, yield_now,
+    call, cap_delete, cntfrq, destroy_region, exit, monotonic_nanos, now, reap, receive,
+    receive_fault, retype_object, retype_sleeper, send, sleep_until, split_region, yield_now,
 };
 
 // Pages shared with the terminal (must match the wiring in the progenitor).
@@ -150,7 +150,7 @@ const LINE_WINDOW: MappedWindow =
 // Capability slots.
 const TERM: u64 = 0; // CALL requests on the terminal
 const SPAWN: u64 = 1; // SEND a spawn request to the progenitor
-const RESULT: u64 = 2; // RECV a spawned program's answer
+const RESULT: u64 = 2; // RECEIVE a spawned program's answer
 const BUDGET: u64 = 3; // our own untyped; SPLIT a grant off it for `--mem`
 
 /// **This shell's heap** (milestone 47 (navigation and naming), calef's ruling of 2026-09-26).
@@ -1578,7 +1578,7 @@ fn redirecting(rights: u64) -> ! {
         // **And the same designation inside a pipeline**, which is the line that used to answer
         // nothing at all: the operand is resolved by the planner, and `pipeline` used to wire the
         // head's input off the line instead of off the plan, so the stage was spawned with an empty
-        // input slot, where a `recv` answers `NoSuchSlot` rather than blocking: the stage counted
+        // input slot, where a `receive` answers `NoSuchSlot` rather than blocking: the stage counted
         // an empty stream and said so. Its answer has to be the length of the line above it.
         b"wc out.txt | wc",
         // The same unmodified `date`, twice, to two destinations.
@@ -2583,7 +2583,7 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     if m.output.is_byte_stream() {
         drain_text();
     } else {
-        let answer = recv(RESULT).0;
+        let answer = receive(RESULT).0;
         // The four progenitor words an image can be answered with sit at the top of `u64`
         // (`SPAWN_REFUSED_BY_MANIFEST` is the lowest; `SPAWN_NO_DISPLAY`, below it, answers only a
         // `graphical_terminal` launch); anything below is the program's own answer, which no row
@@ -2843,7 +2843,7 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
                 let (lo, hi) = filesystem_protocol::grant::pack_name(name);
                 send(SPAWN, lo, hi, name.len() as u64);
             }
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             user_mode_runtime::destroy_region(staging);
             cap_delete(staging);
             if !read_ok {
@@ -2860,7 +2860,7 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
             send(SPAWN, w0, w1, w2);
             let (lo, hi) = filesystem_protocol::grant::pack_name(name);
             send(SPAWN, lo, hi, name.len() as u64);
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             (r0, r1)
         }
         grant_plan::PackageVerb::Remove(name) => {
@@ -2868,13 +2868,13 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
             send(SPAWN, w0, w1, w2);
             let (lo, hi) = filesystem_protocol::grant::pack_name(name);
             send(SPAWN, lo, hi, name.len() as u64);
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             (r0, r1)
         }
         grant_plan::PackageVerb::Rollback => {
             let (w0, w1, w2) = spawnproto::activation_request(Activation::Rollback, 0);
             send(SPAWN, w0, w1, w2);
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             (r0, r1)
         }
     };
@@ -3184,7 +3184,7 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
     if e.prog.manifest().output.is_byte_stream() {
         drain_text();
     } else {
-        let answer = recv(RESULT).0;
+        let answer = receive(RESULT).0;
         outcome(e, answer);
     }
     // The set's page was carved after the argv's, so it goes back first and each is the top.
@@ -3202,14 +3202,14 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
 /// This used to stop at the first newline, because the framing was a convention rather than a
 /// contract and there was nothing else to stop at. Milestone 50 gave it an end: it drains until
 /// `OP_EOF`, so a program that prints two lines prints two lines, and the rendezvous is left clean for
-/// the next command instead of holding a message the next `recv` would mistake for an answer.
+/// the next command instead of holding a message the next `receive` would mistake for an answer.
 ///
 /// That change is not optional. Before it, a `date` that announced end of stream would leave that
 /// message queued, and the next command's single read would take it.
 fn drain_text() {
     print(b"  ");
     for _ in 0..MAX_OUTPUT_CHUNKS {
-        let (w0, w1, w2) = recv(RESULT);
+        let (w0, w1, w2) = receive(RESULT);
         // Checked before decoding: the progenitor's sentinel is `u64::MAX`, whose top byte is an opcode this
         // contract does not define, so it would otherwise read as a malformed message rather than as
         // the one thing it is.
@@ -3302,7 +3302,7 @@ fn screen_rendezvous() -> Option<u64> {
 
 /// **Wait for a screen-narrowed tail to finish, then free its region.**
 ///
-/// The kernel's own exit-delivery (DECISIONS §26) is the completion signal: `recv_fault` blocks
+/// The kernel's own exit-delivery (DECISIONS §26 (the fault endpoint)) is the completion signal: `receive_fault` blocks
 /// until the child is dead-until-reaped, which is stronger than "it painted its last line" (a dead
 /// thread cannot enqueue any further `SEND`, so the child itself cannot still be mid-write here).
 /// What can still be in flight is `terminal_sink_caretaker`'s own trailing `CALL` to `line_editor`,
@@ -3314,7 +3314,7 @@ fn screen_rendezvous() -> Option<u64> {
 /// region still holds something schedulable, and yielding between attempts is what lets that settle
 /// without spinning the only core there is.
 fn await_screen(ep: u64) {
-    let (_event, tid, _pc, _addr, _rsvd) = recv_fault(ep);
+    let (_event, tid, _pc, _addr, _rsvd) = receive_fault(ep);
     for _ in 0..SCREEN_REAP_ATTEMPTS {
         if reap(ep, tid) == 0 {
             return;
@@ -3356,7 +3356,7 @@ fn drain_diagnostics(dest: &mut dyn ByteOut, writers: usize) {
         if done == writers {
             break;
         }
-        let (w0, w1, w2) = recv(ep);
+        let (w0, w1, w2) = receive(ep);
         let mut buf = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(n) => dest.push(&buf[..n]),
@@ -3821,7 +3821,7 @@ fn pipeline(nav: &mut Nav, l: Line<'_>) {
 
     // **The head stage's input file comes off the plan, not off the line**, and not reading it here
     // was the bug milestone 40's viewer found: `doc page.md | wc` planned correctly, spawned the
-    // head with an empty input slot, where a `recv` answers `NoSuchSlot` rather than blocking, so
+    // head with an empty input slot, where a `receive` answers `NoSuchSlot` rather than blocking, so
     // the stage counted an empty stream and reported it. A wrong answer, not a hang.
     //
     // An input operand is a trailing positional at a program that declares an input
@@ -4511,7 +4511,7 @@ impl FileIn {
 /// the file that the program did not write.
 fn drain_into(f: &mut FileOut) {
     for _ in 0..MAX_OUTPUT_CHUNKS {
-        let (w0, w1, w2) = recv(RESULT);
+        let (w0, w1, w2) = receive(RESULT);
         if w0 == spawnproto::SPAWN_FAILED {
             failed();
             print(b"  could not spawn (the progenitor is out of memory)\n");
@@ -4625,7 +4625,7 @@ fn spawn_stage(
         send_set(w);
     }
     // In the protocol's order, which both sides read out of the same word. A `SEND_CAP` nobody
-    // expects and a `RECV_CAP` nobody answers both deadlock, so the order is the contract.
+    // expects and a `RECEIVE_CAP` nobody answers both deadlock, so the order is the contract.
     if let Some(slot) = sink {
         delegate(slot, abi::rights::WRITE | abi::rights::GRANT);
     }
@@ -4637,7 +4637,7 @@ fn spawn_stage(
     }
     if let Some(slot) = screen {
         // READ (not WRITE): the progenitor installs this as the *child's* fault target, and what this shell
-        // needs back from its own copy is the right to `RECV`/`REAP` on it, exactly
+        // needs back from its own copy is the right to `RECEIVE`/`REAP` on it, exactly
         // `job_undertaker`'s DEATHS. The progenitor narrows its own copy no further than that when it inserts
         // the child's (`abi::rights::READ`, `supervision_protocol::build_child_space`), so delegating
         // less than READ here would leave the progenitor unable to hand the child anything at all.
@@ -4658,7 +4658,7 @@ fn spawn_stage(
     // earlier stage of the same line that died between its own ack and this one. Either way the
     // line is over, so both arms return false and only the sentence differs.
     if wiring.sink || wiring.screen {
-        match recv(RESULT).0 {
+        match receive(RESULT).0 {
             w if w == spawnproto::SPAWN_OK => {}
             w if w == spawnproto::JOB_FAULTED => {
                 failed();
@@ -4859,7 +4859,7 @@ fn spawn_interruptible(e: Endowment) {
     send_cap(job_fr);
 
     // The progenitor acks once the child is running: that is the shell's go-ahead to start watching.
-    if recv(RESULT).0 != spawnproto::SPAWN_OK {
+    if receive(RESULT).0 != spawnproto::SPAWN_OK {
         failed();
         print(b"  could not spawn (the progenitor is out of memory)\n");
         cap_delete(job_fr);

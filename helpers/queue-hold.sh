@@ -11,8 +11,8 @@
 #
 # # Why this exists
 #
-# `helpers/trunk-health.sh` says `main` is red. `helpers/merge-drain.sh` lands what does not need
-# calef. Nothing implemented the response in between, and calef named the gap on 2026-09-23: *"Is
+# `helpers/trunk-health.sh` says `main` is red. `helpers/merge-drain.sh` landed what did not need
+# calef (until 2026-10-03; it now only labels and dequeues). Nothing implemented the response in between, and calef named the gap on 2026-09-23: *"Is
 # there a missing mechanism for fixing when main goes red? It seems like the fix is enqueuing the one
 # fix and holding everything else until that lands, then re-enabling everything else."*
 #
@@ -37,11 +37,11 @@
 # alternative is to record each pull request's auto-merge state at hold time and restore exactly
 # that. It cannot be done: GitHub clears `autoMergeRequest` the moment a pull request enters the
 # queue (notes/merge-queue.md records that trap under #965), so "armed and queued" and "never armed"
-# read identically. Release therefore re-arms every held pull request, which is the same admission
-# policy `helpers/merge-drain.sh` applies every five minutes anyway: not a draft, into `main`, not
-# `needs-architect`. Anything the drain would have armed on its next pass is armed; nothing else is.
-# That is why `needs-architect` pull requests are skipped by `hold` as well as by `release`: holding
-# one would be a no-op that release could only undo by arming something the drain never would.
+# read identically. Release therefore re-arms every held pull request under helpers/queue-eligible.jq
+# and not `needs-architect`, which is what the drain applied every five minutes until it stopped
+# arming on 2026-10-03. That is why `needs-architect` pull requests are skipped by `hold` as well as
+# by `release`: holding one would be a no-op that release could only undo by arming something no
+# eligible policy ever would.
 #
 # # The four steps, each one here because the obvious version of it failed (2026-09-23)
 #
@@ -65,24 +65,19 @@
 #     way, re-enqueue it; nothing is lost but a CI round trip.
 #   - **`release` re-arms rather than restores.** See above: the pre-hold state is not recoverable
 #     from the API, so a pull request that was deliberately left unarmed before the hold comes back
-#     armed. In practice `helpers/merge-drain.sh` would have armed it on its next pass regardless, so
-#     the window in which this differs is five minutes wide.
+#     armed. Until 2026-10-03 the drain would have armed it on its next pass regardless; since then
+#     a lane that left its pull request unarmed on purpose should make it a draft before a hold.
 #   - **It does not check whether `main` is actually red.** Deliberate: the judgement is the brief's,
 #     the exempt pull request is an argument, and a script that second-guessed either would be
 #     resolving. `status` prints `helpers/trunk-health.sh --once` beside the held set so a reader
 #     sees both facts together, and that is as far as it goes.
 #   - **Nothing expires a hold.** A session that dies mid-hold leaves labelled pull requests that
 #     nothing will release; the recovery list is in briefs/main-is-red.md, and it is one `release`.
-#     An unreleased hold is visible (the label, and `helpers/merge-drain.sh` reporting fewer unheld
-#     pull requests than there are open ones) but nothing announces it.
-#   - **A hold only holds because `helpers/merge-drain.sh` agrees to honour the label.** That is a
-#     coupling between two scripts and nothing enforces it: the drain runs unattended under `launchd`
-#     every 300 seconds, and until 2026-09-23 it re-enqueued everything held here, three times in one
-#     evening, invisibly (a dequeue leaves no trace of why an entry returned). Its admission policy
-#     now excludes `held-for-red-trunk` alongside `needs-architect`. **A drain running from a
-#     checkout older than that change will still undo a hold within five minutes**; stop it by hand
-#     (`gh workflow disable "merge drain"`, since it is an Actions workflow now) and re-enable it on
-#     release. briefs/main-is-red.md carries both commands.
+#     An unreleased hold is visible (the label) but nothing announces it.
+#   - **The drain used to undo a hold.** Until 2026-09-23 it re-enqueued everything held here, three
+#     times in one evening, invisibly (a dequeue leaves no trace of why an entry returned). Since
+#     2026-10-03 it arms nothing, and its `dequeue_held` takes a held pull request back out of the
+#     queue, so it now enforces the hold rather than fighting it.
 #   - **`gh pr list --label` reads a search index that lags the label write.** In the 2026-09-23
 #     rehearsal a `release --dry-run` run seconds after a label was added listed one held pull
 #     request where the real `release` a moment later found two. So `status` immediately after
@@ -92,7 +87,7 @@
 #     `helpers/trunk-health.sh` takes no such override. That is harmless (a rehearsal repository has
 #     no trunk anybody cares about) and confusing enough to be worth saying once.
 #   - **It holds what is open when it runs.** A pull request opened or marked ready *during* the hold
-#     is not labelled, and `helpers/merge-drain.sh` will arm it into a red trunk. Re-running `hold`
+#     is not labelled, and a lane that arms it puts it into a red trunk. Re-running `hold`
 #     is idempotent and sweeps the new arrivals; nothing does that automatically.
 #
 # Name: unrecorded. Provisional, minted 2026-09-23 by this lane. `queue-hold` for what it does to the

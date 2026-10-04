@@ -55,7 +55,7 @@
 // two parts this milestone leans on: a child born with shared pages and born supervised.
 use c_seam::checks;
 use supervision_protocol::{ChildEndowment, Retention};
-use user_mode_runtime::{cap_delete, map_page_frame, recv_fault, send};
+use user_mode_runtime::{cap_delete, map_page_frame, receive_fault, send};
 
 /// What the kernel grants us, and nothing else.
 const ROOT_UT: u64 = 0; // the construction budget: what we build each instance out of
@@ -161,7 +161,7 @@ pub extern "C" fn _start(_a0: u64, initrd_len: u64, _a2: u64) -> ! {
 
         // Block until the child dies, one way or the other. All five words, because the fourth is the
         // faulting address and this is the program that cares where the C code pointed.
-        let (event, tid, pc, addr, _reserved) = recv_fault(faultep);
+        let (event, tid, pc, addr, _reserved) = receive_fault(faultep);
         send(REPORT, c_seam::RPT_DEATH, tid, event);
         send(REPORT, c_seam::RPT_SITE, pc, addr);
         send(
@@ -190,7 +190,7 @@ pub extern "C" fn _start(_a0: u64, initrd_len: u64, _a2: u64) -> ! {
 
     // Park rather than exit, so we do not become a death of our own for somebody else to handle.
     loop {
-        let (event, tid, pc, addr, _) = recv_fault(faultep);
+        let (event, tid, pc, addr, _) = receive_fault(faultep);
         send(REPORT, c_seam::RPT_DEATH, tid, event);
         send(REPORT, c_seam::RPT_SITE, pc, addr);
     }

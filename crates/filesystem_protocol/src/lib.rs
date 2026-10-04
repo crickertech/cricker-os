@@ -2800,7 +2800,7 @@ pub mod fixture {
     /// is a test, and a caretaker that panicked instead of answering cost that test a 60-second
     /// watchdog and a legible failure. Under `system_initializer` the waiter is **init**, which is
     /// the spawn service for the whole prompt and has no other thread: a caretaker that panicked
-    /// there would park init in `RECV` forever and the machine would never take another command.
+    /// there would park init in `RECEIVE` forever and the machine would never take another command.
     /// A grant naming a directory that is not there is an ordinary thing to type, so the honest
     /// answer has to be a message rather than a corpse.
     ///

@@ -9,7 +9,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Selectors that can select nothing](../empty-selectors.md): gates that pass when their pattern matches nothing. Name provisional.
 - [What to do when `main` goes red](../main-is-red.md). Names provisional.
 - [The merge queue, and the three things that watch it](../merge-queue.md): the scripts that land, watch, and flag queue work. Names provisional.
-- [A merge-queue ejection, caught before the queue and recovered after it](../queue-ejection.md): the ready check, the whole lint in the pre-push hook, and the drain's hold on an ejected head. Names provisional.
+- [A merge-queue ejection, caught before the queue and recovered after it](../queue-ejection.md): the ready check, the text checks of lint in the pre-push hook, the `needs-maintainer` label on an ejected pull request, and the drain's hold on an ejected head. Names provisional.
 - [A paused draft names its blocker, and the drain reads it back](../blocked-by-drafts.md): `Blocked-by:` on a draft pull request, and the `unblocked` label. Name provisional.
 - [Working from a cloud session](../working-from-a-cloud-session.md): what past cloud sessions hit, how to set up, claim and gate in CI, and what needs patagonia. Name provisional.
 - [The automation's own identity](../automation-identity.md): the `smelter` GitHub App that replaces a personal token. Name provisional.
@@ -37,3 +37,4 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Cobble, the mascot](../mascot.md): the project's mascot, drawn by Clay.
 - [The system tests and the kernel crate](../system-tests-and-the-kernel-crate.md): what the kernel linked for its tests, the gate that keeps them out, and where the tests go. Name provisional.
 - [The swish-check CI flake, measured](../swish-check-flake.md): two timing-race reds at one gate, counted over 30 days, explained mechanically. Name provisional.
+- [swish-check failures, 2026W40](../swish-check-flake-2026w40.md): the week's 18 failures classified; the echo splice that looked like it survived milestone 342 (the kernel and the `console` server drive one UART from two address spaces) all predates it. Name provisional.

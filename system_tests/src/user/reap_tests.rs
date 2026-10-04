@@ -84,9 +84,9 @@ fn reap_when_settled(slot: u64, tid: u64) -> Result<i64, Error> {
 
 /// Receive one five-word death message through the ABI, so the tid a test reaps with is the tid
 /// a real supervisor would have read out of its registers.
-fn recv_death(slot: u64) -> [u64; 5] {
+fn receive_death(slot: u64) -> [u64; 5] {
     let mut frame = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
-    let w0 = invoke(&mut frame, slot, abi::rendezvous::RECV, 0, 0, 0).expect("RECV refused");
+    let w0 = invoke(&mut frame, slot, abi::rendezvous::RECEIVE, 0, 0, 0).expect("RECEIVE refused");
     [
         w0 as u64,
         frame.arg(1),
@@ -184,7 +184,7 @@ fn a_supervisor_holding_only_its_rendezvous_reaps_its_dead_child() {
     let cap = hold_rendezvous(fault_ep);
     assert_can_only_supervise(&[cap]);
 
-    let msg = recv_death(cap);
+    let msg = receive_death(cap);
     assert_eq!(msg[0], EVENT_FAULT, "the child should have crashed");
     assert_eq!(msg[1], child, "the death message named the wrong thread");
 
@@ -230,7 +230,7 @@ fn the_reaped_region_returns_to_the_builder_not_the_reaper() {
     let child = build_child_in(instance, FAULT_STUB, None, Some(fault_ep));
 
     let cap = hold_rendezvous(fault_ep);
-    let msg = recv_death(cap);
+    let msg = receive_death(cap);
     assert_eq!(msg[1], child);
     let slots_before = occupied_slots();
 
@@ -286,11 +286,11 @@ fn reap_refuses_a_live_child_with_a_distinct_error() {
 
     // Let it finish. It SENDs, we receive, it exits, and its death arrives on the rendezvous.
     assert_eq!(
-        sched::ipc_recv(report)[0],
+        sched::ipc_receive(report)[0],
         REPORT_WORD,
         "the child never ran"
     );
-    let msg = recv_death(cap);
+    let msg = receive_death(cap);
     assert_eq!(msg[0], EVENT_EXIT, "a clean exit must report EXIT");
     assert_eq!(msg[1], child);
     assert_eq!(
@@ -321,7 +321,7 @@ fn reap_refuses_another_supervisors_child() {
     let cap_mine = hold_rendezvous(mine);
     let cap_theirs = hold_rendezvous(theirs);
 
-    let msg = recv_death(cap_theirs);
+    let msg = receive_death(cap_theirs);
     assert_eq!(msg[1], child, "the death arrived on the wrong rendezvous");
     assert_eq!(
         reap(cap_mine, child),
@@ -361,7 +361,7 @@ fn reap_refuses_a_recycled_thread_id_rather_than_the_wrong_thread() {
     let first_region =
         crate::memory_region::split(budget, INSTANCE_PAGES).expect("no first region");
     let first = build_child_in(first_region, FAULT_STUB, None, Some(fault_ep));
-    assert_eq!(recv_death(cap)[1], first);
+    assert_eq!(receive_death(cap)[1], first);
     assert_eq!(
         reap_when_settled(cap, first),
         Ok(0),
@@ -389,11 +389,11 @@ fn reap_refuses_a_recycled_thread_id_rather_than_the_wrong_thread() {
     );
     // The replacement is untouched, proven by it running to completion.
     assert_eq!(
-        sched::ipc_recv(report)[0],
+        sched::ipc_receive(report)[0],
         REPORT_WORD,
         "the replayed tid reaped the thread that had recycled its slot",
     );
-    let msg = recv_death(cap);
+    let msg = receive_death(cap);
     assert_eq!(msg[1], second);
     assert_eq!(reap_when_settled(cap, second), Ok(0));
 
@@ -402,11 +402,11 @@ fn reap_refuses_a_recycled_thread_id_rather_than_the_wrong_thread() {
 
 /// **Reaping a corpse whose death message was never collected leaves the rendezvous clean.**
 ///
-/// A supervised thread that dies with nobody in `RECV` parks on its supervision rendezvous's
+/// A supervised thread that dies with nobody in `RECEIVE` parks on its supervision rendezvous's
 /// sender queue holding the message (§26 implementation note 2). Nothing requires a supervisor
 /// to collect that message before reaping: it can be told the tid by its builder, or simply
 /// choose not to read. So the reap has to unlink the corpse from that queue before freeing its
-/// TCB, or the supervisor's next `RECV` follows a pointer into a recycled page.
+/// TCB, or the supervisor's next `RECEIVE` follows a pointer into a recycled page.
 ///
 /// This was reachable before §32 too, through `MemoryRegion::DESTROY`; every existing caller happened
 /// to receive first, so it never fired. `rendezvous::REAP` makes it easy to reach, which is how it
@@ -435,7 +435,7 @@ fn reaping_an_uncollected_corpse_leaves_no_ghost_on_the_rendezvous() {
         sched::rendezvous_waiting_senders(fault_ep),
         0,
         "a freed TCB is still linked into the supervision rendezvous's sender queue: the next \
-         RECV would follow a dangling pointer into a recycled page",
+         RECEIVE would follow a dangling pointer into a recycled page",
     );
 
     // The rendezvous still works, which is the real assertion: a stale head or tail would show up
@@ -443,7 +443,7 @@ fn reaping_an_uncollected_corpse_leaves_no_ghost_on_the_rendezvous() {
     let next_region =
         crate::memory_region::split(budget, INSTANCE_PAGES).expect("no second region");
     let next = build_child_in(next_region, FAULT_STUB, None, Some(fault_ep));
-    let msg = recv_death(cap);
+    let msg = receive_death(cap);
     assert_eq!(
         msg[1], next,
         "the rendezvous delivered something other than the new child's death",

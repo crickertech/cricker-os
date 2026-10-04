@@ -31,16 +31,16 @@
 //! - **A thread that only ever blocks cannot be reclaimed this way**, and the limit is §16's rather
 //!   than this type's. The armed kill is spent by `schedule()`, which a `Blocked` thread never
 //!   reaches, so [`Holding::release`](crate::user::holding::Holding::release) can end a thread that
-//!   runs and cannot end one parked in `RECV` for good. What rescues the common case is that reclaiming a region **removes the endpoints
+//!   runs and cannot end one parked in `RECEIVE` for good. What rescues the common case is that reclaiming a region **removes the endpoints
 //!   inside it and wakes their waiters with an aborted IPC**, so a service blocked on an endpoint
 //!   its own budget paid for does die. A service blocked on an endpoint from somewhere else does
 //!   not, and [`Holding::release`](crate::user::holding::Holding::release) returns `false` rather than pretending: see
 //!   `reap_region_objects`'s own note ("the cooperative tier's job").
-//!   **A thread blocked in `CALL` rather than `RECV` is a different case and milestone 254 fixed
+//!   **A thread blocked in `CALL` rather than `RECEIVE` is a different case and milestone 254 (a caller stranded by a server that died) fixed
 //!   it**: a caller parked awaiting a reply is freed the moment its server stops being able to
 //!   answer (it exits, faults, is killed, is reaped, or its rendezvous goes), wherever that caller
 //!   lives. So the leak this bullet describes no longer compounds one region per caller in flight.
-//!   What is unchanged is the *server*: a service parked in `RECV` on somebody else's rendezvous
+//!   What is unchanged is the *server*: a service parked in `RECEIVE` on somebody else's rendezvous
 //!   still cannot be ended, which is milestone 133's question.
 //! - **`release` is destructive and cannot be used as a question.** Its first `reclaim_region` arms
 //!   kills, so calling it to find out whether a service is idle ends the service. That is
@@ -142,7 +142,7 @@ impl Holding {
     /// Remember an untyped region the kernel carved for this service, to be reclaimed **while the
     /// service's threads still exist**. That is the ordinary case and it is the phase that does the
     /// waking: reclaiming a region removes the endpoints inside it and aborts whoever is blocked on
-    /// them, which is how a service parked in `RECV` becomes schedulable enough to die.
+    /// them, which is how a service parked in `RECEIVE` becomes schedulable enough to die.
     ///
     /// Regions are reclaimed in the order they were added, which matters when one was `SPLIT` from
     /// another: the child must go first, because a parent with live children refuses.

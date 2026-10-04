@@ -22,17 +22,17 @@
 #![no_main]
 
 use abi::rendezvous;
-use user_mode_runtime::{exit, recv, recv_cap, send};
+use user_mode_runtime::{exit, receive, receive_cap, send};
 
 const CHANNEL: u64 = 0;
 const REPORT: u64 = 1;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
-    let (_w, slot, _) = recv_cap(CHANNEL);
+    let (_w, slot, _) = receive_cap(CHANNEL);
     check(slot != rendezvous::NO_CAP);
 
-    let (w0, _, _) = recv(slot); // listen on the minted rendezvous
+    let (w0, _, _) = receive(slot); // listen on the minted rendezvous
     send(REPORT, w0, 0, 0); // report the word that crossed it
     exit()
 }

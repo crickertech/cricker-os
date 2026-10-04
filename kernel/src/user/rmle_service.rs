@@ -85,7 +85,7 @@ pub fn start(dir_name: &'static str, file_name: &str) -> Option<(Wiring, Holding
         .addr();
     let console_tid = sched::spawn(move || {
         loop {
-            sched::ipc_recv(conreq);
+            sched::ipc_receive(conreq);
             sched::ipc_send(conrep, [0, 0, 0]);
         }
     })

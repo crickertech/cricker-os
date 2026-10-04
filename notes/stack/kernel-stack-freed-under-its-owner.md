@@ -148,7 +148,7 @@ the one a supervisor can reach on purpose, at speed, from another core.
 
 `supervision_tests::a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned` is the
 only place in the suite where a supervisor is woken by a corpse and reclaims that corpse's region
-immediately, with four assertions between the `ipc_recv` and the `reclaim_region`. That is a race
+immediately, with four assertions between the `ipc_receive` and the `reclaim_region`. That is a race
 between a few hundred instructions on the test's core and a few hundred on the corpse's. That is why
 it is one run in six on a loaded 2-core runner and zero runs in 45 on an idle laptop. Every other
 reap in the suite either goes through `wait_for` or reaps a thread that has long since switched

@@ -26,7 +26,7 @@
 //! only answer a self-framing message has. Back-pressure is not lost by dropping the reply,
 //! because `SEND` blocks until a receiver takes the message: the rendezvous *is* the flow control,
 //! which is the property `line_editor::proto::OP_BYTES` already documented. And it is what lets the
-//! reader of a pipe be an ordinary program that does nothing but `recv`, with no reply to send and
+//! reader of a pipe be an ordinary program that does nothing but `receive`, with no reply to send and
 //! no protocol knowledge at all.
 //!
 //! # What a writer learns, which is the one thing it must

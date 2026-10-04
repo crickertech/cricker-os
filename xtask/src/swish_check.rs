@@ -347,7 +347,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // **And the same name at the head of a pipeline**, which is the line that answered nothing at
     // all until milestone 50's draining lane. An input operand is resolved by the planner, and the
     // shell used to wire a pipeline's head off the `Line` (which has no `<` on it), so the planned
-    // source was dropped and the stage counted an empty stream (a `recv` on an empty slot answers
+    // source was dropped and the stage counted an empty stream (a `receive` on an empty slot answers
     // `NoSuchSlot`, which reads as end of document). Two spawned processes, and this shell feeds the
     // first.
     //

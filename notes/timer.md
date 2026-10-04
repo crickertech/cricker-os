@@ -79,7 +79,7 @@ endpoint at once.
 The threads that need one are blocked on an endpoint and also want a deadline:
 
 - `net_stack`, in `Irq::WAIT`;
-- `timetable`, in `recv_fault` on its supervision endpoint;
+- `timetable`, in `receive_fault` on its supervision endpoint;
 - the liveness watch of milestone 23 (a capability-routed component OS with live replacement);
 - milestone 103's real `^C` watch.
 

@@ -181,7 +181,7 @@ fn a_userspace_driver_reads_a_file_from_a_virtio_disk() {
         crate::testing::skip!("no virtio disk attached");
     };
 
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
 
     assert_eq!(
         &word.to_le_bytes(),
@@ -213,7 +213,7 @@ fn the_redoxfs_server_serves_redoxfs_over_a_capability_contract() {
     };
 
     assert_fs_service_ready(readiness);
-    let [head, status, attrs, ..] = sched::ipc_recv(report);
+    let [head, status, attrs, ..] = sched::ipc_receive(report);
     assert_eq!(
         status,
         filesystem_protocol::fixture::SUCCESS,
@@ -313,7 +313,7 @@ fn attack_a_grant(rights: u64, writable: bool) -> Option<u64> {
     };
     // The two handshakes happened inside `start_granted`, before this attacker existed: they
     // are what makes the caretaker's own staged request safe on a page all three share.
-    let [tag, verdict, ..] = sched::ipc_recv(report);
+    let [tag, verdict, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         filesystem_protocol::fixture::VERDICT,
@@ -363,7 +363,7 @@ fn a_userspace_driver_completes_a_dhcp_round_trip_over_virtio_net() {
         crate::testing::skip!("no virtio-net device attached");
     };
 
-    let yiaddr = sched::ipc_recv(report)[0] as u32;
+    let yiaddr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         yiaddr & 0xffff_ff00,
         0x0A00_0200,
@@ -381,7 +381,7 @@ fn a_userspace_driver_completes_a_dhcp_round_trip_over_virtio_net_pci() {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
 
-    let yiaddr = sched::ipc_recv(report)[0] as u32;
+    let yiaddr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         yiaddr & 0xffff_ff00,
         0x0A00_0200,
@@ -396,7 +396,7 @@ fn the_net_server_acquires_a_dhcp_lease_over_smoltcp() {
     let Some((report, net)) = virtio_service::start_net_server(net_stack_image()) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let addr = sched::ipc_recv(report)[0] as u32;
+    let addr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         addr & 0xffff_ff00,
         0x0A00_0200,
@@ -411,7 +411,7 @@ fn the_net_server_acquires_a_dhcp_lease_over_smoltcp_pci() {
     let Some((report, net)) = virtio_service::start_net_server_pci(net_stack_image()) else {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
-    let addr = sched::ipc_recv(report)[0] as u32;
+    let addr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         addr & 0xffff_ff00,
         0x0A00_0200,
@@ -434,7 +434,7 @@ fn a_client_completes_a_udp_round_trip_through_the_socket_contract() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the UDP round trip against slirp's TFTP server failed (client code {verdict:#x})",
@@ -453,7 +453,7 @@ fn a_client_completes_a_udp_round_trip_through_the_socket_contract_pci() {
     ) else {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the UDP round trip over PCIe failed (client code {verdict:#x})",
@@ -473,7 +473,7 @@ fn a_client_resolves_a_real_dns_name_when_the_host_resolver_answers() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     if verdict == NET_CLIENT_NO_ANSWER {
         // **Not a failure, and not a pass either.** This test's name is conditioned on the host's
         // resolver answering; when it does not, no name was resolved and the claim was never put
@@ -503,7 +503,7 @@ fn a_client_echoes_over_tcp_through_the_socket_contract() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the TCP echo round trip through the socket contract failed (client code {verdict:#x})",
@@ -525,7 +525,7 @@ fn a_package_fetched_over_http_is_accepted_only_by_the_image_digest() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let [genuine, tampered, ..] = sched::ipc_recv(report);
+    let [genuine, tampered, ..] = sched::ipc_receive(report);
     assert_eq!(
         genuine, NET_CLIENT_OK,
         "the package fetched over HTTP was not accepted (client code {genuine:#x}; \
@@ -550,7 +550,7 @@ fn a_client_echoes_over_tcp_through_the_socket_contract_pci() {
     ) else {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the TCP echo round trip over PCIe failed (client code {verdict:#x})",
@@ -570,7 +570,7 @@ fn a_reopened_socket_id_connects_again_over_tcp() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "reopening a socket id and connecting again failed (client code {verdict:#x})",
@@ -618,7 +618,7 @@ fn a_host_process_connects_to_the_guest_and_is_answered() {
         sched::thread_count().saturating_sub(e2_baseline_threads),
         sched::thread_count(),
     );
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the guest did not serve the inbound exchange (client code {verdict:#x}); 0xE050/0xE080 \
@@ -693,7 +693,7 @@ fn the_kernel_refuses_a_dma_descriptor_that_escapes_the_drivers_region() {
     let Some(report) = virtio_service::start_attacker(blk_image()) else {
         crate::testing::skip!("no virtio disk attached");
     };
-    let refused = sched::ipc_recv(report)[0];
+    let refused = sched::ipc_receive(report)[0];
     assert_eq!(
         refused, 1,
         "a malicious driver's descriptor pointing at kernel memory was NOT refused: the \
@@ -708,7 +708,7 @@ fn the_kernel_refuses_an_indirect_descriptor_escape() {
     let Some(report) = virtio_service::start_attacker_indirect(blk_image()) else {
         crate::testing::skip!("no virtio disk attached");
     };
-    let refused = sched::ipc_recv(report)[0];
+    let refused = sched::ipc_receive(report)[0];
     assert_eq!(
         refused, 1,
         "an indirect descriptor whose inner table pointed at kernel memory was NOT refused: \
@@ -737,7 +737,7 @@ fn a_userspace_driver_reads_a_file_over_the_pcie_transport() {
         crate::testing::skip!("no virtio-pci disk on the bus");
     };
 
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
 
     assert_eq!(
         &word.to_le_bytes(),
@@ -759,7 +759,7 @@ fn a_userspace_driver_writes_a_block_and_reads_it_back() {
     let Some(report) = virtio_service::start_writer(blk_image()) else {
         crate::testing::skip!("no virtio disk attached");
     };
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
     assert_eq!(
         &word.to_le_bytes(),
         b"CRKWRIT1",
@@ -773,7 +773,7 @@ fn a_userspace_driver_writes_a_block_over_the_pcie_transport() {
     let Some(report) = virtio_service::start_writer_pci(blk_image()) else {
         crate::testing::skip!("no virtio-pci disk on the bus");
     };
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
     assert_eq!(
         &word.to_le_bytes(),
         b"CRKWRIT1",
@@ -794,7 +794,7 @@ fn a_driver_killed_mid_write_leaves_the_device_and_transport_sane() {
     };
 
     assert_eq!(
-        sched::ipc_recv(report)[0],
+        sched::ipc_receive(report)[0],
         1,
         "the abandoner never got its write submitted",
     );
@@ -805,7 +805,7 @@ fn a_driver_killed_mid_write_leaves_the_device_and_transport_sane() {
 
     let report = virtio_service::start_writer(blk_image())
         .expect("the disk vanished between the abandoner and the survivor");
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
     assert_eq!(
         &word.to_le_bytes(),
         b"CRKWRIT1",

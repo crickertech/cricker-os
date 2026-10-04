@@ -204,7 +204,7 @@ fn holder() -> ! {
     send(REPORT, R_HOLDING, word, 0);
 
     // The kernel revokes the frame while we are parked here.
-    user_mode_runtime::recv(RESUME);
+    user_mode_runtime::receive(RESUME);
 
     // Not safe any more, and that is the test: the page is gone. This is the one deliberate
     // exception to `new`'s "stays mapped for as long as `self` is used" contract, and it is the

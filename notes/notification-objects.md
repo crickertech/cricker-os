@@ -12,23 +12,23 @@ is the implementation record and the one proposal the build produced.
 ## Decided: how a woken receiver tells a notification from a message
 
 calef ruled option B on 2026-09-26, the day this was raised: the kernel writes
-`abi::notification::BOUND` (2) into `w4` on every receive a bound notification ends (`RECV`,
-`RECV_CAP`, `Irq::WAIT`), keeping §101's `w0 = 2` and the word in `w1`. A maintainer records it as
+`abi::notification::BOUND` (2) into `w4` on every receive a bound notification ends (`RECEIVE`,
+`RECEIVE_CAP`, `Irq::WAIT`), keeping §101's `w0 = 2` and the word in `w1`. A maintainer records it as
 an amendment to §101. What follows is the proposal as it reached him, kept because how the decision
 was reached is part of the record. Its measured cost on the call/reply path is in
-`design/roadmap/151-notification-objects.md`: about 34 bytes of `ipc_recv_cap` on riscv64 and 54 on
+`design/roadmap/151-notification-objects.md`: about 34 bytes of `ipc_receive_cap` on riscv64 and 54 on
 `x86_64`.
 
 ### The premise §101 rests on is false
 
 §101's "return-value distinction" says:
 
-> `RECV` today returns `w0` (the message's first word, or `1` for a signal). We extend the
+> `RECEIVE` today returns `w0` (the message's first word, or `1` for a signal). We extend the
 > convention: `w0 = 0`: this was an IPC `SEND` rendezvous. `w0 = 1`: this was an IRQ signal.
 > `w0 = 2`: this was a bound notification.
 
-`RECV` does not return a tag in `w0`. It returns the sender's own first data word
-(`kernel/src/syscall.rs`, the `RECV` arm: `Ok(msg[0] as i64)`, where `msg[0]` is whatever the sender
+`RECEIVE` does not return a tag in `w0`. It returns the sender's own first data word
+(`kernel/src/syscall.rs`, the `RECEIVE` arm: `Ok(msg[0] as i64)`, where `msg[0]` is whatever the sender
 passed as `a0` to `SEND`). So `w0 = 0` does not mean "a message arrived"; it means a sender chose to
 send 0. Any holder of a `WRITE` capability to the endpoint can `SEND(2, word, 0)` and be
 indistinguishable from the bound notification under §101's encoding. The existing `w0 = 1` for an
@@ -41,10 +41,10 @@ written.
 
 ### What in a receive's result a sender cannot write
 
-One grep answers it. A `SEND` carries three words (`w0..w2`). `RECV` returns five registers
+One grep answers it. A `SEND` carries three words (`w0..w2`). `RECEIVE` returns five registers
 (`x0..x4` on aarch64, `a0..a4` on riscv64, `rdi, rsi, rdx, r10, r8` on `x86_64`). The top two
 are written only by the kernel: `0` for every ordinary message, and the fault address and a reserved
-`0` for a §26 (the fault endpoint) death message. `RECV_CAP` returns three, and its middle one (the delivered slot, or
+`0` for a §26 (the fault endpoint) death message. `RECEIVE_CAP` returns three, and its middle one (the delivered slot, or
 `NO_CAP`) is also kernel-written. So an unforgeable discriminator is available without widening
 anything; the question is which register and which value.
 
@@ -53,16 +53,16 @@ anything; the question is which register and which value.
 | | shape | forgeable? | fastpath cost | cost to receivers |
 |---|---|---|---|---|
 | A | §101 as written: `w0 = 2`, word in `w1` | yes, by any sender | none | none; and wrong |
-| B | `w0 = 2` kept, word in `w1`, and `w4 = 2` on every receive (`RECV`, `RECV_CAP`, `Irq::WAIT`). A receiver tests `w4` | no | `RECV`: none (it already writes `w4` from the mailbox). `RECV_CAP`: one store to `x4`. `Irq::WAIT`: two stores, off the fastpath | one rule for all three receives |
-| C | per method, whichever register is already kernel-written: `RECV` tests `w4`; `RECV_CAP` returns a sentinel slot (`u64::MAX - 1`) in `x1` with the word in `x2`; `Irq::WAIT` needs nothing because it has no senders | no | none on any path | three rules, one per receive |
+| B | `w0 = 2` kept, word in `w1`, and `w4 = 2` on every receive (`RECEIVE`, `RECEIVE_CAP`, `Irq::WAIT`). A receiver tests `w4` | no | `RECEIVE`: none (it already writes `w4` from the mailbox). `RECEIVE_CAP`: one store to `x4`. `Irq::WAIT`: two stores, off the fastpath | one rule for all three receives |
+| C | per method, whichever register is already kernel-written: `RECEIVE` tests `w4`; `RECEIVE_CAP` returns a sentinel slot (`u64::MAX - 1`) in `x1` with the word in `x2`; `Irq::WAIT` needs nothing because it has no senders | no | none on any path | three rules, one per receive |
 | D | a new receive method, used only by bound threads | no | none | a new method number, outside §101 |
 | E | a new `Error` variant meaning "you were notified" | yes: a sender can already send a negative `w0`, which a receiver decodes as an error (a separate, pre-existing wart; see BUGS below) | none | none; and wrong |
 
 Built, and then ruled: B. It is the one rule a reader has to remember, and its only cost on
-either measured IPC shape is one store on the `CALL`/`RECV_CAP` path. That number is in the block's
+either measured IPC shape is one store on the `CALL`/`RECEIVE_CAP` path. That number is in the block's
 measurement section, not asserted here. C is the zero-cost alternative and would be the right call if
 calef weighs one store on the call/reply shape over one rule; it is a small change from B (the
-`RECV_CAP` arm and its wrapper). A and E are wrong. D spends a method number to avoid a
+`RECEIVE_CAP` arm and its wrapper). A and E are wrong. D spends a method number to avoid a
 register convention, which is the larger irreversible change for the same result.
 
 What was not decided here, and could not be. The question §92 (a caretaker is supervised by the client it serves) asks, put to B against C: *would I
@@ -82,18 +82,18 @@ sender did not choose.
 
 ### What would have happened if calef had said no
 
-If he had picked C, the kernel's `RECV_CAP` arm and `ipc_recv_cap` would have changed, and so would
+If he had picked C, the kernel's `RECEIVE_CAP` arm and `ipc_receive_cap` would have changed, and so would
 `user_mode_runtime`'s wrapper; nothing else would have, since no program outside this milestone's
 tests was written against either. D would have moved the binding delivery behind a new method and
-left `RECV` exactly as it was.
+left `RECEIVE` exactly as it was.
 
 ## The semantics, and the choices §101 left open
 
 §101 specified the four methods; `abi::notification`'s doc comments are the contract. Four choices
 were not in §101 and were made in the build, each for a stated reason:
 
-- The binding wakes every receive, not only `RECV`. A thread parked as a receiver on an endpoint
-  is in `RECV`, `RECV_CAP` or `Irq::WAIT`, and the kernel parks all three the same way. One rule covers
+- The binding wakes every receive, not only `RECEIVE`. A thread parked as a receiver on an endpoint
+  is in `RECEIVE`, `RECEIVE_CAP` or `Irq::WAIT`, and the kernel parks all three the same way. One rule covers
   "blocked receiving on an endpoint", which is §101's own phrase. It is also the rule milestone 106
   (a wait that ends on either the interrupt or the deadline) needs. `net_stack` blocks in
   `Irq::WAIT`, and the case in §147 (a timer a userspace service cannot hold) is a timer ending that

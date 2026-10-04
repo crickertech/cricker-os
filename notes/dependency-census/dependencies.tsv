@@ -1230,7 +1230,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 151	106	context	at-creation	2026-08-22	2026-08-22	(M-106's current interim).
 193	191	context	at-creation	2026-08-30	2026-08-30	The candidate worth trying first is M-191's sharpest counterfactual: the M-6 timer
 193	6	context	at-creation	2026-08-30	2026-08-30	The candidate worth trying first is M-191's sharpest counterfactual: the M-6 timer
-151	106	context	at-creation	2026-08-22	2026-08-22	(M-106, orthogonal: `WAIT` blocks indefinitely here exactly as `RECV` does today).
+151	106	context	at-creation	2026-08-22	2026-08-22	(M-106, orthogonal: `WAIT` blocks indefinitely here exactly as `RECEIVE` does today).
 151	40	context	at-creation	2026-08-22	2026-08-22	- **Closes M-40's caretaker-hop race** (its `BUGS` entry converts to: the shell binds a
 151	19	context	at-creation	2026-08-22	2026-08-22	- **Not yet measured against `Endpoint`'s own proof effort or M-19a's actual size.** S-101's
 193	6	context	later	2026-09-03	2026-08-30	- **M-197.** The timer re-arm seam. This block nominates the M-6 drift as the
@@ -1851,7 +1851,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 263	106	context	at-creation	2026-09-05	2026-09-05	**No, and therefore the userspace-timer-service answer to M-106 does not survive
 263	106	context	at-creation	2026-09-05	2026-09-05	## Why a spike, and the precedent is M-106's own
 263	106	context	at-creation	2026-09-05	2026-09-05	calef, 2026-09-05, on M-106's fork: **serve the timed wait from a userspace timer service
-263	106	context	at-creation	2026-09-05	2026-09-05	**All four of M-106's named consumers are userspace** (`thread::sleep`, `Endpoint::RECV`'s
+263	106	context	at-creation	2026-09-05	2026-09-05	**All four of M-106's named consumers are userspace** (`thread::sleep`, `Endpoint::RECEIVE`'s
 263	9	context	at-creation	2026-09-05	2026-09-05	| aarch64 | ambient across EL0, not holdable by one process | **wrong on both halves.** `CNTKCTL_EL1` has four independent enables, and this kernel writes ...
 263	51	context	at-creation	2026-09-05	2026-09-05	## The fourth shape, which neither M-51 nor 106 lists
 263	151	context	at-creation	2026-09-05	2026-09-05	([S-101](../decisions/101-notification-objects.md), decided 2026-08-20, unbuilt, M-151), and

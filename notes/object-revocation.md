@@ -116,7 +116,7 @@ Now the bound is on *concurrent* regions. This is what turns a one-shot reclaim 
 An endpoint in a reclaimed region has to be torn down too, or its page would be freed while the
 registry still points at it. Revoking one drains its wait queues: each blocked thread is popped
 off (which frees its intrusive link), marked aborted, and woken, then the endpoint is removed from the
-registry, its generational name going stale. The woken thread's blocking `ipc_recv`/`ipc_send` returns
+registry, its generational name going stale. The woken thread's blocking `ipc_receive`/`ipc_send` returns
 an error (the endpoint is gone), not a message it never received, so a waiter blocked forever
 cannot pin a region forever, and the reclaim always makes progress.
 
@@ -124,7 +124,7 @@ cannot pin a region forever, and the reclaim always makes progress.
 
 Changed 2026-08-16. The sweep used to sit *after* the live-thread refusal, which quietly meant it
 never ran when it was most needed. A `Blocked` thread never reaches `schedule()`, so it never spends
-the kill the refusal arms, so a region holding a server parked in `RECV` was refused on every pass
+the kill the refusal arms, so a region holding a server parked in `RECEIVE` was refused on every pass
 forever, and its memory was gone until the machine stopped. `DESTROY`'s documented contract ("the
 owner retries and reclaims") was simply false for that case, and it is the ordinary case: a server is
 a thing that blocks.
@@ -154,7 +154,7 @@ The delicate part was the IPC core, the block-and-wake path where the lost-wakeu
 things made it safe without regressing the hot path. First, `endpoint_of` became fallible: a stale
 `Endpoint` capability (its endpoint reclaimed out from under a holder) used to reach a name that always
 resolved, so a miss panicked; now it returns `None` and the caller aborts cleanly. Second, the abort
-is routed through a per-thread `ipc_aborted` flag rather than changing `ipc_recv`/`ipc_send`'s
+is routed through a per-thread `ipc_aborted` flag rather than changing `ipc_receive`/`ipc_send`'s
 return types (66 callers): the IPC primitive sets the flag inside its existing lock and the syscall
 layer reads-and-clears it, so no extra lock lands on the fast path and the IPC benchmark does not move.
 Kernel-side IPC callers never set the flag (their endpoints are never revoked), so they are untouched.
@@ -210,7 +210,7 @@ runaway, reclaimed out from under itself.
 
 ## Two names for one region, and the double free that found it
 
-Fixed 2026-08-18. `destroy_reclaims_a_region_whose_resident_is_blocked_in_recv` panicked once
+Fixed 2026-08-18. `destroy_reclaims_a_region_whose_resident_is_blocked_in_receive` panicked once
 in 45 full-suite runs on riscv64 under load, in milestone 62's acceptance run
 (notes/load-sensitive-assertions.md):
 

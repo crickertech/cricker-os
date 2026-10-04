@@ -31,7 +31,7 @@
 use filesystem_protocol::{dir, fixture, fs, grant, xattr};
 use grant_plan::nav::{TwoRoots, Which};
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, exit, now, recv, send};
+use user_mode_runtime::{call, exit, now, receive, send};
 
 /// The file-service endpoint: the client's whole authority to the filesystem. Naming a file over it
 /// is a request the server resolves under the one directory this endpoint is bound to.
@@ -223,7 +223,7 @@ const ROLE_SHARE_ATTACKER: u64 = 14;
 
 /// The sync endpoint the two shared-frame witness roles hand off over (slot 2 by the wiring in
 /// `fs_service::start_shared_frame_witness`). Both hold it `READ|WRITE`, so each can `SEND` and
-/// `RECV`; the roles strictly alternate, so the endpoint is never ambiguous about direction.
+/// `RECEIVE`; the roles strictly alternate, so the endpoint is never ambiguous about direction.
 const SYNC: u64 = 2;
 /// The victim's word to the attacker: "my name is staged in the page".
 const SHARE_STAGED: u64 = 0x0599_57A6;
@@ -274,12 +274,12 @@ fn share_victim(window: u64) -> ! {
         exit();
     }
     let ep = r as u64;
-    // Stage our own name, then tell the attacker; the SEND blocks until the attacker RECVs it.
+    // Stage our own name, then tell the attacker; the SEND blocks until the attacker receives it.
     put_page(victim);
     send(SYNC, SHARE_STAGED, 0, 0);
     // Block until the attacker has written its own window. Only then do we call. Before the fix the
     // attacker shared our frame and this is where the substitution landed; now it cannot reach it.
-    let _ = recv(SYNC);
+    let _ = receive(SYNC);
     // The length travels in the register (we choose our own name's length); the name bytes travel
     // in our window, which only we and the server map.
     let (r0, _) = call(ep, fs::req(fs::OPEN, 0, victim.len() as u64), 0);
@@ -315,7 +315,7 @@ fn share_victim(window: u64) -> ! {
 /// "a runnable third party": a second holder of the frame, writing it while the victim is parked in
 /// its call.
 fn share_attacker() -> ! {
-    let _ = recv(SYNC);
+    let _ = receive(SYNC);
     put_page(fixture::SHARED_USURPER_NAME.as_bytes());
     send(SYNC, SHARE_OVERWROTE, 0, 0);
     exit();

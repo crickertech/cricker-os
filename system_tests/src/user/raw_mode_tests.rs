@@ -225,7 +225,7 @@ fn a_raw_read_parked_before_data_arrives_still_gets_it() {
 
     send_bytes(w.term, &[0x42]);
 
-    let [n, packed, ..] = sched::ipc_recv(report);
+    let [n, packed, ..] = sched::ipc_receive(report);
     assert_eq!(n, 1, "the parked reader did not get exactly one byte");
     assert_eq!(
         packed.to_le_bytes()[0],
@@ -259,7 +259,7 @@ fn switching_mode_abandons_a_parked_read_of_the_other_kind() {
         sched::yield_now();
     }
     rawmode(w.term, true);
-    let [r0, ..] = sched::ipc_recv(report);
+    let [r0, ..] = sched::ipc_receive(report);
     assert_eq!(
         r0,
         line_editor::proto::BAD_REQUEST,
@@ -279,7 +279,7 @@ fn switching_mode_abandons_a_parked_read_of_the_other_kind() {
         sched::yield_now();
     }
     rawmode(w.term, false);
-    let [n2, ..] = sched::ipc_recv(report2);
+    let [n2, ..] = sched::ipc_receive(report2);
     assert_eq!(
         n2,
         line_editor::proto::BAD_REQUEST,
@@ -398,6 +398,105 @@ fn a_keystroke_edited_by_the_client_costs_two_more_round_trips() {
         ns(cooked),
         ns(raw),
         N
+    );
+    held.release_or_fail("raw_mode_service");
+}
+
+/// **A badged copy of the terminal endpoint reads keystrokes and cannot type them** (milestone 709
+/// (a graphical terminal session on the no-keyboard arm holds only the raw half of the boot
+/// discipline), fatal risk 7's confinement claim).
+///
+/// A `graphical_terminal` session with no keyboard reads the boot discipline raw, so the spawn
+/// service hands it a copy of the discipline's endpoint. Before 709 that copy was the unbadged
+/// endpoint with `WRITE`, which the discipline served whole: its holder could `OP_BYTES` a command
+/// line into the queue the boot shell's next `OP_READLINE` reads, and the shell would run it with
+/// the shell's authority, none of which the session holds. The session now holds a copy badged
+/// with [`line_editor::proto::RAW_ONLY_BADGE`], and the discipline answers only `OP_RAWMODE` and
+/// `OP_READRAW` on a badged copy.
+///
+/// The attack is driven as the session would drive it: the badged holder types `ls\r` in cooked
+/// mode. The headline is that it is refused; the witness that refused means "nothing queued" is the
+/// unbadged reader (the shell's role) getting back exactly the line the unbadged input driver
+/// typed afterwards, not the injected one. Then every other request off the raw half is refused,
+/// and the raw half itself works through the same badged copy, which is what keeps this from being
+/// a test that a terminal refusing everything would also pass.
+///
+/// `ipc_call_badged` is the kernel's own delivery of a badged capability's `CALL` (the badge lands
+/// in `x3` of the server's `RECEIVE_CAP`), so this drives the discipline exactly as a user program
+/// holding the badged capability would.
+///
+/// Falsification: replayable `system_tests/falsifications/user.raw_mode_tests.a_badged_copy_of_the_terminal_reads_keystrokes_and_cannot_type_them.patch`
+#[test_case]
+fn a_badged_copy_of_the_terminal_reads_keystrokes_and_cannot_type_them() {
+    use line_editor::proto::{self, BAD_REQUEST, RAW_ONLY_BADGE};
+    let (w, held) = svc::start();
+    let badged = |op: u64, len: u64, w1: u64| {
+        sched::ipc_call_badged(w.term, [proto::req(op, len), w1], RAW_ONLY_BADGE)
+    };
+    let pack = |bytes: &[u8]| {
+        bytes
+            .iter()
+            .enumerate()
+            .fold(0u64, |acc, (i, &b)| acc | (b as u64) << (8 * i))
+    };
+
+    // The attack: a line typed through the badged copy, in cooked mode, where the shell reads.
+    let r = badged(proto::OP_BYTES, 3, pack(b"ls\r"));
+    assert_eq!(
+        r[0], BAD_REQUEST,
+        "a badged holder's OP_BYTES was served (r0 = {}): it can type a line the boot shell reads",
+        r[0],
+    );
+
+    // The witness: the shell's next line is the input driver's, not the injected one.
+    send_bytes(w.term, b"ok\r");
+    let r = sched::ipc_call(w.term, [proto::req(proto::OP_READLINE, 0), 0]);
+    assert_eq!(
+        r[0], 2,
+        "the shell's OP_READLINE got a line of the wrong length"
+    );
+    let base = mmu::phys_to_virt(w.app_in_phys);
+    let got: [u8; 2] = core::array::from_fn(|i| {
+        // SAFETY: `app_in_phys` is the frame `line_editor` maps read/write at its own APP_IN_VA,
+        // and the OP_READLINE reply above is ordered after `line_editor` wrote it there.
+        unsafe { core::ptr::read_volatile((base + i as u64) as *const u8) }
+    });
+    assert_eq!(
+        &got, b"ok",
+        "the shell read a line the badged holder typed, not the input driver's"
+    );
+
+    // Everything else off the raw half. OP_READLINE last among the reads: the queue is empty, so
+    // a served one would park this thread rather than fail, and the asserts above would already
+    // have gone red first.
+    for (op, what) in [
+        (proto::OP_PRINT, "OP_PRINT"),
+        (proto::OP_WRITE, "OP_WRITE"),
+        (proto::OP_INTRCOUNT, "OP_INTRCOUNT"),
+        (proto::OP_QUIESCE, "OP_QUIESCE"),
+        (proto::OP_READLINE, "OP_READLINE"),
+    ] {
+        let r = badged(op, 1, pack(b"x"));
+        assert_eq!(r[0], BAD_REQUEST, "a badged holder's {what} was served");
+    }
+
+    // The raw half, through the same badged copy: the session's whole use of it.
+    assert_eq!(
+        badged(proto::OP_RAWMODE, 1, 0)[0],
+        0,
+        "a badged OP_RAWMODE was refused"
+    );
+    send_bytes(w.term, b"q");
+    let r = badged(proto::OP_READRAW, 0, 0);
+    assert_eq!(
+        (r[0], r[1].to_le_bytes()[0]),
+        (1, b'q'),
+        "a badged OP_READRAW did not get the keystroke the input driver sent"
+    );
+    assert_eq!(
+        badged(proto::OP_RAWMODE, 0, 0)[0],
+        0,
+        "a badged cooked OP_RAWMODE was refused"
     );
     held.release_or_fail("raw_mode_service");
 }

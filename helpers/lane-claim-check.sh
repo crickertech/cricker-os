@@ -40,8 +40,8 @@
 #     pull request with no commits between the branch and `main`, so a lane must produce something
 #     committable first. Measured on this script's own branch: 3 minutes from branch creation to
 #     draft, and that included writing the file that made the branch non-empty. `GRACE_MINUTES` is
-#     five times that, and well under `merge-drain.sh`'s 75-minute stale-draft threshold, which is
-#     the neighbouring report and the one this must not duplicate.
+#     five times that. (`merge-drain.sh` had a 75-minute stale-draft report beside this until
+#     2026-10-03, when calef's rulings on #1564 removed its stall comments.)
 #   - **A merged lane's leftover branch.** A branch whose pull request merged and which nobody
 #     deleted is hygiene, not a missing claim. It is reported on its own line, with the word
 #     `LEFTOVER` and the pull request number, so nobody has to read it as an accusation. But
@@ -58,8 +58,7 @@
 # The grace period runs from **branch creation**, taken from the repository activity feed, and a
 # later push does not reset it. That is the whole point: a lane that keeps committing is precisely
 # the lane whose missing claim matters, and a last-commit clock would go quiet for exactly the
-# branches that are being worked hardest. `merge-drain.sh`'s `stale_drafts` uses the opposite clock
-# for the opposite reason, and the pair is worth reading together.
+# branches that are being worked hardest.
 #
 # There are two clocks, not one, because a `milestone/*` claim and a stray branch answer different
 # questions. `GRACE_MINUTES` (default 15) protects the gap between a push and a draft pull request,
@@ -98,8 +97,8 @@
 #     ago has no visible birth, and is reported rather than skipped: an old branch with no claim is
 #     the case worth seeing, so the fallback errs loud instead of silent. Widening past `milestone/*`
 #     makes this more likely to bite, since 100 events cover less wall-clock time on a busier day.
-#   - **It reports to stdout only.** `merge-drain.sh` can comment on the pull request it is
-#     complaining about; a branch with no pull request has nowhere to be told. Whoever reads the
+#   - **It reports to stdout only.** A branch with no pull request has nowhere to be labelled or
+#     told. Whoever reads the
 #     drain's log reads this, and nothing reaches a lane that is not looking.
 #   - **"Holds work" is sized by `git diff --shortstat`, not read.** It says how much changed, not
 #     whether it matters. A person still has to look before deciding claim, land-and-delete, or

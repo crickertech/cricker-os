@@ -235,7 +235,7 @@ drains it instead of blocking. An interrupt that fires one instruction before th
 
 `Object::Irq(intid)`. Its holder can:
 
-- `WAIT`: block until the interrupt fires (internally, `RECV` on the endpoint the kernel routed
+- `WAIT`: block until the interrupt fires (internally, `RECEIVE` on the endpoint the kernel routed
   the interrupt to).
 - `ACK`: re-enable the interrupt at the GIC, after quieting the device.
 

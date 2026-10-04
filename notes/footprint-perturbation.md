@@ -391,7 +391,7 @@ Three separate things, and only the first was obvious.
 | the padding was reachable only from `ipc_send` | milestone 188 phase 1 split the footprint gate into two closures and found the CALL/reply one is larger and is the shape real services run; the pad landed on the other one | `ipc_call` calls `maybe_pad` too |
 
 That third row is a finding, not a chore, and it is the reason this lane touched the kernel at
-all. Measured on riscv64 before the fix, `--features fastpath_pad` moved `ipc_send_recv` to
+all. Measured on riscv64 before the fix, `--features fastpath_pad` moved `ipc_send_receive` to
 2.10x and `ipc_call_reply` to 1.00x. E3 as built was padding a shape nothing in this tree
 runs. It was correct when it was written: the split did not exist on 2026-08-22, and `ipc_fastpath`
 was one number. Anyone who had taken E3 to the board in the four days after milestone 188 landed
@@ -404,9 +404,9 @@ would have measured the padding of a path their own benchmark barely uses.
 
 | ISA | shape | un-padded | padded | ratio |
 |---|---|---|---|---|
-| riscv64 | `ipc_send_recv` | 4,632 | 9,726 | 2.10x |
+| riscv64 | `ipc_send_receive` | 4,632 | 9,726 | 2.10x |
 | riscv64 | `ipc_call_reply` | 5,936 | 11,070 | 1.86x |
-| aarch64 | `ipc_send_recv` | 5,356 | 11,192 | 2.09x |
+| aarch64 | `ipc_send_receive` | 5,356 | 11,192 | 2.09x |
 | aarch64 | `ipc_call_reply` | 7,028 | 12,860 | 1.83x |
 
 Read the riscv64 `ipc_call_reply` row against 32 KB. 5,936 bytes is 18% of radon's L1i; 11,070
@@ -528,7 +528,7 @@ instead of on whichever was measured second.
 
 | row | experiment | what it is |
 |---|---|---|
-| `bench: ipc_rtt <ticks> 1000` | E3 | kernel-side round trip, the SEND/RECV shape |
+| `bench: ipc_rtt <ticks> 1000` | E3 | kernel-side round trip, the SEND/RECEIVE shape |
 | `bench: ipc_rtt_el0 <ticks> <iters>` | E3 | the same crossing EL0, which is what lmbench measures |
 | `bench: call_reply <ticks> 1000` | E3 | the CALL/reply shape, the one services run |
 | `bench: ipc_scale_<threads> <ticks> <iters>` | E1 | 7 rows, 2 to 96 threads |

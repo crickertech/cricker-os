@@ -175,18 +175,18 @@ fn one_reader_two_sources_and_the_same_answer() {
     };
     fs_service::wait_for_service(file_sink.readiness);
     assert_eq!(
-        crate::sched::ipc_recv(file_sink.report)[0],
+        crate::sched::ipc_receive(file_sink.report)[0],
         fixture::READY,
         "the file sink could not open its file",
     );
     let wrote = spawn_writer(writer_image, Some(file_sink.sink), 1);
-    let [code, total, ..] = crate::sched::ipc_recv(wrote);
+    let [code, total, ..] = crate::sched::ipc_receive(wrote);
     assert_eq!(
         code,
         fixture::code(byte_sink_protocol::Sent::Ok),
         "the writer did not deliver the transcript to the file sink",
     );
-    let [done, wrote_total, ..] = crate::sched::ipc_recv(file_sink.report);
+    let [done, wrote_total, ..] = crate::sched::ipc_receive(file_sink.report);
     assert_eq!(done, fixture::DONE, "the file sink did not finish cleanly");
     assert_eq!(
         wrote_total, total,
@@ -201,7 +201,7 @@ fn one_reader_two_sources_and_the_same_answer() {
     };
     let out = spawn_wc(source);
     let filed = wc_counts(out, "wc reading a file");
-    let [vdone, size, ..] = crate::sched::ipc_recv(verify_report);
+    let [vdone, size, ..] = crate::sched::ipc_receive(verify_report);
     assert_eq!(
         vdone,
         fixture::DONE,
@@ -286,13 +286,13 @@ fn a_program_cannot_tell_what_its_output_slot_holds() {
     let (sink_ep, sink_report) = (file_sink.sink, file_sink.report);
     fs_service::wait_for_service(file_sink.readiness);
     assert_eq!(
-        crate::sched::ipc_recv(sink_report)[0],
+        crate::sched::ipc_receive(sink_report)[0],
         fixture::READY,
         "the file sink could not open its file, so there was nothing to redirect into",
     );
 
     std_service::start_on(std_exerciser, clock, entropy, sink_ep);
-    let [done, total, ..] = crate::sched::ipc_recv(sink_report);
+    let [done, total, ..] = crate::sched::ipc_receive(sink_report);
     assert_eq!(
         done,
         fixture::DONE,
@@ -313,7 +313,7 @@ fn a_program_cannot_tell_what_its_output_slot_holds() {
     };
     let mut second = [0u8; 512];
     let n2 = super::std_tests::drain_sink(out, &mut second, "std_exerciser, file sink");
-    let [vdone, vsize, ..] = crate::sched::ipc_recv(verify_report);
+    let [vdone, vsize, ..] = crate::sched::ipc_receive(verify_report);
     assert_eq!(
         vdone,
         fixture::DONE,
@@ -365,7 +365,7 @@ fn a_destroyed_sink_ends_the_writer_and_an_absent_one_does_not() {
         fixture::TRANSCRIPT,
         "the writer did not deliver its transcript to a sink that was there",
     );
-    let [class, total, ..] = crate::sched::ipc_recv(report);
+    let [class, total, ..] = crate::sched::ipc_receive(report);
     assert_eq!(
         (class, total as usize),
         (
@@ -384,10 +384,10 @@ fn a_destroyed_sink_ends_the_writer_and_an_absent_one_does_not() {
     // Take a few messages first, so the writer is demonstrably running and parked in the next
     // send rather than having failed before it ever reached one.
     for _ in 0..3 {
-        let _ = crate::sched::ipc_recv(doomed);
+        let _ = crate::sched::ipc_receive(doomed);
     }
     crate::sched::reclaim_region(region).expect("the doomed sink's region would not reclaim");
-    let [class, total, ..] = crate::sched::ipc_recv(report);
+    let [class, total, ..] = crate::sched::ipc_receive(report);
     assert_eq!(
         class,
         fixture::code(byte_sink_protocol::Sent::Gone),
@@ -403,7 +403,7 @@ fn a_destroyed_sink_ends_the_writer_and_an_absent_one_does_not() {
 
     // 3. No sink at all: the slot is empty, and the program keeps running.
     let report = spawn_writer(image, None, 1);
-    let [class, total, ..] = crate::sched::ipc_recv(report);
+    let [class, total, ..] = crate::sched::ipc_receive(report);
     assert_eq!(
         (class, total),
         (fixture::code(byte_sink_protocol::Sent::NoSink), 0),
@@ -468,7 +468,7 @@ fn the_terminal_is_a_sink_like_any_other_and_the_writer_cannot_tell() {
     let mut got = [0u8; fixture::TRANSCRIPT.len()];
     let mut n = 0usize;
     while n < fixture::TRANSCRIPT.len() {
-        let m = crate::sched::ipc_recv_cap(term_ep);
+        let m = crate::sched::ipc_receive_cap(term_ep);
         let (w0, slot, w1) = (m[0], m[1], m[2]);
         let crate::cap::Object::Reply(caller) = crate::sched::current_cap(slot)
             .expect("the adapter's print carried no reply capability")
@@ -501,7 +501,7 @@ fn the_terminal_is_a_sink_like_any_other_and_the_writer_cannot_tell() {
         "the bytes that reached the terminal are not the ones the writer wrote",
     );
 
-    let [class, total, ..] = crate::sched::ipc_recv(report);
+    let [class, total, ..] = crate::sched::ipc_receive(report);
     assert_eq!(
         (class, total as usize),
         (

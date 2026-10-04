@@ -14,7 +14,7 @@
 //! filesystem soak) exercises paths that a hundred other tests already cover; this one drives the
 //! exact code the risk points at, through the real syscall boundary, from user mode.
 //!
-//! One round trip is `CALL` -> `RECV_CAP` -> `REPLY` -> the caller waking. That is **two** block/wake
+//! One round trip is `CALL` -> `RECEIVE_CAP` -> `REPLY` -> the caller waking. That is **two** block/wake
 //! handshakes, and each one may place its peer on a *different* core (`sched::pick_wake_target`,
 //! `place_on`, the migration inbox, the reschedule IPI). With two runnable threads per core the run
 //! queues also go empty often enough that `serve_steal_request` fires, so the work-steal protocol
@@ -48,7 +48,7 @@
 //! # The soaker's world
 //!
 //! - **slot 0**: the request endpoint. `WRITE` for a caller (it `CALL`s), `READ` for a responder
-//!   (it `RECV_CAP`s). Nothing else. A soaker cannot name the console, the clock, or its peer. A
+//!   (it `RECEIVE_CAP`s). Nothing else. A soaker cannot name the console, the clock, or its peer. A
 //!   **waiter** (milestone 221) holds an `Irq` in the same slot instead, naming the tick route and
 //!   nothing else, so it can `WAIT` and cannot touch its group's IPC at all.
 //! - **the shared page**, mapped read/write at [`soak_page::VA`], where it publishes its own two
@@ -74,7 +74,7 @@
 //!   channel to say anything on, so it stops counting and lets the kernel's stall check speak for
 //!   it one beat later. The report then says "stalled" where "refused" would be more use, which is
 //!   the same limitation the role above it already has.
-//! - **A responder cannot detect a caller that stops calling.** It simply blocks in `RECV_CAP`
+//! - **A responder cannot detect a caller that stops calling.** It simply blocks in `RECEIVE_CAP`
 //!   forever, and its own counter stops moving, which is what the kernel's stall check sees. The
 //!   report cannot say which half of the pair wedged; the thread dump can.
 //!
@@ -113,7 +113,7 @@
 #![no_main]
 
 use user_mode_runtime::mapped_window::{self, MappedWindow};
-use user_mode_runtime::{call, irq_wait, recv_request, reply};
+use user_mode_runtime::{call, irq_wait, receive_request, reply};
 
 /// The one capability a soaker holds: the request endpoint, in slot 0.
 const ENDPOINT: u64 = 0;
@@ -192,11 +192,11 @@ pub extern "C" fn _start(role: u64, index: u64, seed: u64) -> ! {
                 core::hint::spin_loop();
             }
         } else if role == ROLE_RESPONDER {
-            // `recv_request` (a `RECV_CAP`), not `recv`: a CALL arrives with a reply capability,
+            // `receive_request` (a `RECEIVE_CAP`), not `receive`: a CALL arrives with a reply capability,
             // and answering it is what completes the caller's parked rendezvous. A responder that
-            // used `recv` would leave every caller blocked forever, which is a hang this workload
+            // used `receive` would leave every caller blocked forever, which is a hang this workload
             // would then report as a finding about the kernel.
-            let req = recv_request(ENDPOINT);
+            let req = receive_request(ENDPOINT);
             if let Some(to) = req.delivered.into_reply() {
                 reply(to, soak_page::answer(req.w0), 0);
             } else {

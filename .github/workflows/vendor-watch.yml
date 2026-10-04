@@ -249,6 +249,12 @@ jobs:
             fi
             echo "Updated PR #$existing in place."
           fi
+          # **Arms its own pull request** (milestone 727 (a queue eviction goes to a maintainer session), provisional): since 2026-10-03 the merge drain
+          # arms nothing, and a lane arms in the same command as `gh pr ready`. This workflow is the
+          # lane here. If arming fails the pull request is labelled needs-maintainer after 30 minutes.
+          if [ -z "$draft" ]; then
+            gh pr merge "$branch" --auto --merge || echo "::warning::could not arm the pull request"
+          fi
 
       # **A broken watch stays red, not just the month it broke.** The step above opens a pull
       # request the first time a 404 appears, because the status file changes. It would then go

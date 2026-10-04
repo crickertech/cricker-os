@@ -79,7 +79,7 @@ that is a real-hardware follow-up (milestone 16 (real hardware and IOMMU-backed 
 ### The correction that made the solo baseline honest
 
 It is the same class of error as the smp=4 counter bug. The first version had the main thread
-busy-yield on a done counter instead of blocking on a `RECV`. A runnable main plus the pair is three
+busy-yield on a done counter instead of blocking on a `RECEIVE`. A runnable main plus the pair is three
 threads the scheduler scatters. So even the solo pair took cross-core wakes and clocked ~60x slower
 than `ipc_rtt`'s identical pair, and the derived scaling came out superlinear (greater than the core
 count), which is not physical. Blocking the main thread (the `ipc_rtt` shape) fixed it: solo returned
@@ -127,7 +127,7 @@ HVF, `--release`, `-smp 1`, medians of 5 boots, ns/iter:
 | `coremark` (per iteration) | ~8,700 | n/a | pure compute, invariant across the wave (the smp=4 artifact check) |
 
 `ipc_rtt_el0` is the one clean, real movement: +7%. The icount baseline put it at +5%. Both are the
-§26 fault-message carrier widening the mailbox from three words to five, so every send and recv
+§26 fault-message carrier widening the mailbox from three words to five, so every send and receive
 copies five. Small, expected, paid for a feature, and the two instruments agree.
 
 `spawn_el0` reads lower (~4.4 us) than the recorded ~7.7 us, and this is not a path-length speedup.

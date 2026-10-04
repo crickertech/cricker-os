@@ -19,9 +19,9 @@ below and the gate exists.
 `script/fastpath-footprint` walks the call graph out of the disassembly, as
 `script/stack-depth-check` already does for stack chains. It reports these per ISA:
 
-- `ipc_send_recv`: the transitive closure of non-cold calls from the SEND/RECV roots (`ipc_send`,
-  `ipc_recv`, `schedule`, `finish_switch`, `current_cap`).
-- `ipc_call_reply`: the same closure from the CALL/RECV_CAP/REPLY roots. This is the shape the
+- `ipc_send_receive`: the transitive closure of non-cold calls from the SEND/RECEIVE roots (`ipc_send`,
+  `ipc_receive`, `schedule`, `finish_switch`, `current_cap`).
+- `ipc_call_reply`: the same closure from the CALL/RECEIVE_CAP/REPLY roots. This is the shape the
   system actually runs, and it is 25 to 29% larger; see
   [the wrong-shape correction](#the-gate-measured-the-wrong-shape-and-the-aarch64-entry-figure-counted-a-table-it-never-fetched).
 - `ipc_fastpath`: derived, the worse of those two, which is what one round trip costs. It keeps its
@@ -51,13 +51,13 @@ ceiling) decides and nothing yet enforces. riscv64, on `nightly-2026-09-20`:
 
 ```
     budget: 4096 B target, 32768 B L1i (radon's SiFive U74, the smallest we run on)
-    ipc_send_recv    4734 B   1.16x target  14.4% of L1i  over 8 symbols
+    ipc_send_receive    4734 B   1.16x target  14.4% of L1i  over 8 symbols
     ipc_call_reply   6038 B   1.47x target  18.4% of L1i  over 10 symbols  <- the shape the system runs
     ipc_fastpath     6038 B   1.47x target  18.4% of L1i  the worse of the two shapes
     syscall_entry    1914 B                  5.8% of L1i  over 5 symbols (flat, no closure)
     total            7952 B   1.94x target  24.3% of L1i  (7.77 KiB), an upper bound
     49% of the 16 KiB ceiling §144 (a delta and a ceiling) decides and does not yet enforce
-    drift: ipc_send_recv +2.2% against baseline (4632), within the 5% band
+    drift: ipc_send_receive +2.2% against baseline (4632), within the 5% band
 ```
 
 The stored riscv64 baseline is 4,632 / 5,936 / 1,828, so the printed figures sit +2.2%, +1.7% and
@@ -102,7 +102,7 @@ gate, only by writing a claim in the code that a reviewer sees in a diff.
 that day; x86_64 is below. The current stored baselines are the milestone 188 "after" rows further
 down, which are what `bench/fastpath-*.txt` holds.*
 
-The closure's aarch64 members: `ipc_recv`, `schedule`, `ipc_send`, `finish_switch`, `wake`,
+The closure's aarch64 members: `ipc_receive`, `schedule`, `ipc_send`, `finish_switch`, `wake`,
 `current_cap`, `kmem::recycle`, `memcpy`, `switch_to`. Every one is defensible as something an IPC
 round trip actually runs, which is the test the root list has to pass.
 
@@ -151,16 +151,16 @@ argument and the phase-4 recommendation.*
 
 #### Phase 1: the roots were the wrong shape
 
-The roots were `ipc_send` and `ipc_recv`, which is the shape of `ipc_rtt_el0` and of essentially no
-service in this tree. A service is a client `CALL` and a server `RECV_CAP` then `REPLY`.
+The roots were `ipc_send` and `ipc_receive`, which is the shape of `ipc_rtt_el0` and of essentially no
+service in this tree. A service is a client `CALL` and a server `RECEIVE_CAP` then `REPLY`.
 `kernel/src/bench.rs`'s own `call_reply` doc already calls that "the one-endpoint shape real services
-use". Measured on the same binaries, the shape userspace runs is larger everywhere. `ipc_recv_cap`
+use". Measured on the same binaries, the shape userspace runs is larger everywhere. `ipc_receive_cap`
 and `ipc_call` carry the one-shot Reply mint, the capability-table insert into the server and the
-`WaitRole::Reply` parking DECISIONS §12 (call/Reply IPC) requires, and none of that is on a bare `SEND` or `RECV`.
+`WaitRole::Reply` parking DECISIONS §12 (call/Reply IPC) requires, and none of that is on a bare `SEND` or `RECEIVE`.
 The gate now reports and checks both shapes.
 
 The syscall count is corrected with it, which [the calibration appendix](calibration-against-sel4.md)
-used to get wrong. Our round trip is three syscalls to seL4's two (client `CALL`, server `RECV_CAP`,
+used to get wrong. Our round trip is three syscalls to seL4's two (client `CALL`, server `RECEIVE_CAP`,
 server `REPLY`), not four to two. Four is `ipc_rtt_el0`'s count and no service issues it. The
 residual one is the `ReplyRecv` fusion this tree does not have, which is a syscall-surface question
 and calef's.
@@ -180,12 +180,12 @@ gameable by 1,892 bytes without changing one fetched instruction.
 
 Milestone 156's `#[inline(never)]` method works on `syscall_entry` because that half is flat. On a
 closure it is a no-op: the walk follows the new call and counts the same bytes under a new name. The
-first attempt moved aarch64's `ipc_send_recv` from 5,888 to 6,220. What made it work was teaching
+first attempt moved aarch64's `ipc_send_receive` from 5,888 to 6,220. What made it work was teaching
 the walk to read `#[cold]` out of the source (above). Four arms went out of line: `finish_switch`'s
 reap, `schedule`'s killed-thread conversion and its self-pop heal, and `set_ipc_aborted`, whose four
 call sites are all on these closures.
 
-| | `ipc_send_recv` | `ipc_call_reply` | `syscall_entry` | total |
+| | `ipc_send_receive` | `ipc_call_reply` | `syscall_entry` | total |
 |---|---|---|---|---|
 | aarch64, before 188 | 5,888 | (7,576) | 3,304 | 9,192 |
 | aarch64, after | **5,356** | **7,028** | **1,508** | **8,536 (8.34 KiB)** |

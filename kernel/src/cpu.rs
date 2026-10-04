@@ -354,7 +354,7 @@ static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
 /// When it is not, every one of those sites grows.
 ///
 /// **The cost is measured, not feared.** Adding one `AtomicU64` field took this struct from 128
-/// bytes to 136 and cost **150 bytes on the riscv64 `ipc_send_recv` closure and 38 on
+/// bytes to 136 and cost **150 bytes on the riscv64 `ipc_send_receive` closure and 38 on
 /// `syscall_entry`**, taking the first from +2.2% to +5.4% against `script/fastpath-footprint`'s
 /// 5% bound and turning a green gate red. The field was never read on that path and the increment
 /// that wrote it cost nothing measurable: removing the `fetch_add` and keeping the field left every
@@ -368,7 +368,7 @@ static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
 ///
 /// **`x86_64` is exempt, and the exemption is measured rather than assumed.** There this struct
 /// carries `x86_trap` and is already **152 bytes**, so it has never indexed with a shift, and
-/// `script/fastpath-footprint --arch x86_64` is green with room: +1.0% on `ipc_send_recv`, +1.4%
+/// `script/fastpath-footprint --arch x86_64` is green with room: +1.0% on `ipc_send_receive`, +1.4%
 /// on `ipc_call_reply`, +3.9% on `syscall_entry`. Writing the assertion unconditionally would
 /// assert a property this tree does not hold, which is how a gate teaches people to route around
 /// it. If the cost ever shows up there, the fix is padding this struct to 256 rather than deleting

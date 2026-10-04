@@ -2,9 +2,14 @@ Report the state of the merge queue. You are in the repository's git worktree. *
 This is read-only and its whole output is your final message.
 
     git fetch origin
-    gh pr list --json number,isDraft,mergeStateStatus,title,statusCheckRollup
+    gh pr list --json number,isDraft,mergeStateStatus,title,statusCheckRollup,labels
+    gh pr list --label needs-maintainer --state all
 
 ## What to work out for each open pull request
+
+- Does it carry `needs-maintainer`. The merge drain put it there for one of four causes (ejected,
+  conflicting, a stale queue entry, ready and unarmed for 30 minutes) and said which in a comment.
+  List these first, with the cause, whatever else the survey finds.
 
 - Is it ready or draft, and is auto-merge already enabled.
 - Is it `DIRTY` or `CONFLICTING`, which means it needs a rebase before anything else can happen.
@@ -32,8 +37,8 @@ This is read-only and its whole output is your final message.
 
 ## What to report
 
-A table: number, ready or draft, state, and either the failing check's name or the reason it is
-held. Then one short list of what needs a human: rebases needed, failures to investigate, and
+A table: number, ready or draft, state, any `needs-maintainer` cause, and either the failing
+check's name or the reason it is held. Then one short list of what needs a human: rebases needed, failures to investigate, and
 anything held on `needs-architect`.
 
 Do not rebase anything. Do not enqueue anything. Do not edit or commit.

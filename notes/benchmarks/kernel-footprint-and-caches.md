@@ -58,7 +58,7 @@ IPC costs nothing in cache.
 | `sched::schedule` | 1,240 |
 | `sched::finish_switch` | 816 |
 | **one-way send** | **5,532 (5.4 KiB)** |
-| plus `sched::ipc_recv` (1,320) | **6,852 (6.7 KiB) round trip** |
+| plus `sched::ipc_receive` (1,320) | **6,852 (6.7 KiB) round trip** |
 
 `switch_to` and `dispatch_on_interrupt_stack` are assembly and report no symbol size. They are
 missing from the sum, so the real figure is a little higher.

@@ -1,9 +1,9 @@
-Falsifies `system_tests::user::recv_cap_attack_tests::a_plain_send_to_recv_cap_delivers_no_cap_whichever_side_parks_first`.
+Falsifies `system_tests::user::receive_cap_attack_tests::a_plain_send_to_receive_cap_delivers_no_cap_whichever_side_parks_first`.
 
 Architecture: all three (the change is in shared scheduler code, `kernel/src/sched.rs`).
 
-The defect this restores was live on `main` until milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot). `ipc_recv_cap`'s receiver-first mailbox read returned
-the parked mailbox unchanged, so a plain `SEND` that reached a parked `RECV_CAP` receiver left the
+The defect this restores was live on `main` until milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot). `ipc_receive_cap`'s receiver-first mailbox read returned
+the parked mailbox unchanged, so a plain `SEND` that reached a parked `RECEIVE_CAP` receiver left the
 sender's second word in `x1` where a `CALL` server reads a reply slot. This patch reverts the one
 hunk that makes the receive side write `NO_CAP` unless a capability was installed, putting the leak
 back. The hunk's context cites milestone 151 (notification objects: async multiplexing without

@@ -121,9 +121,9 @@ above, which is the one that matters: the attacking was still us attacking our o
 we closed ourselves, found by our own test, is the same category of evidence as the audit that found
 it, and this entry's verdict rests on that category rather than on any single hole.
 
-### Added 2026-10-03 (§216, from #1494 and milestone 634): the RECV_CAP plain-SEND findings
+### Added 2026-10-03 (§216, from #1494 and milestone 634): the RECEIVE_CAP plain-SEND findings
 
-PR #1494's audit of this kernel's `RECV` consumers, run for calef's ruling that a plain `SEND`
+PR #1494's audit of this kernel's `RECEIVE` consumers, run for calef's ruling that a plain `SEND`
 carries its capability's badge, found two confinement defects on `main`. Both were confirmed under
 QEMU on aarch64 on 2026-10-03 before any fix, which is the category of evidence this entry rests on
 and still us attacking our own system.
@@ -136,19 +136,19 @@ subtree and with another client's window, and without a reply. A `CALL` on a bad
 delivered badge `0x5a5a`; a plain `SEND` on the same endpoint delivered `0`. It is closed by the
 plain-SEND badge, calef's ruling on #1494: once a plain `SEND` carries its capability's badge the
 client arrives bound and the scope holds, pinned by a test on all three ISAs
-(`a_plain_send_arrives_with_its_capabilitys_badge_on_recv_and_recv_cap`). #1494 merged on
+(`a_plain_send_arrives_with_its_capabilitys_badge_on_receive_and_receive_cap`). #1494 merged on
 2026-10-03 (07:38Z), so it is closed on `main`; §230 (badged endpoint capabilities) records the
 contract in its 2026-10-03 amendment.
 
-The second is the arrival-order half, fixed by milestone 634 (a plain SEND received by RECV_CAP
+The second is the arrival-order half, fixed by milestone 634 (a plain SEND received by RECEIVE_CAP
 never hands the receiver a sender-chosen slot). On the receiver-first order a plain `SEND`'s second
-word reached `RECV_CAP`'s `x1`, where a `CALL` server reads a reply slot, so a client could hand a
+word reached `RECEIVE_CAP`'s `x1`, where a `CALL` server reads a reply slot, so a client could hand a
 server a slot number of its own choosing; the audit found no consumer that checks the kind of object
 in a received slot. It was an ESCAPE: a `net_stack`-shaped server deleted its own capability at the
 attacker-chosen slot (`x1` delivered = 7, chosen = 7, the victim did not survive), a near miss on
 the sender-first order (`x1 = NO_CAP`). The kernel now writes `NO_CAP` unless a capability was
 installed, with a falsification red first on all three ISAs.
-[milestone 634](../roadmap/634-a-plain-send-received-by-recv-cap-never-hands-the-receiver-a-sender-chosen-slot.md)
+[milestone 634](../roadmap/634-a-plain-send-received-by-receive-cap-never-hands-the-receiver-a-sender-chosen-slot.md)
 has the evidence and the two options weighed.
 
 And the audit produced a third instance of this file's recurring shape. Milestone 299 (the serial
@@ -193,7 +193,7 @@ so this class was invisible to every instrument the project owned.
 
 Two further things were recorded rather than smoothed over. Row 26 (a client of a rendezvous cannot
 become its server) is `unfalsified`, honestly: the complete break produces a 60-second lost-wakeup
-watchdog rather than a claim-shaped red, because `RECV_CAP` blocks. So an attacker the kernel fails
+watchdog rather than a claim-shaped red, because `RECEIVE_CAP` blocks. So an attacker the kernel fails
 to refuse takes the honest server's message instead of reporting an escape. Filling it with an
 easier defect would have fired an assertion while leaving the claim untested, which is precisely
 what the row above shows costs eight months. And §31's assertion-order hazard has a second
@@ -205,10 +205,10 @@ way in one sweep is a reason to expect more.
 
 Milestone 633 (An outside agent attacks the confinement claim) ran an adversarial review, by PR #1525,
 with a different model, attacking the thirty claims in `notes/confinement-claims.md`. One escape
-was found and fixed: a plain `RECV` collecting a `SEND_CAP` sender left the sender's `outgoing_cap`
-staged, and the sender's next plain `SEND` delivered it to a `RECV_CAP` receiver on another endpoint.
+was found and fixed: a plain `RECEIVE` collecting a `SEND_CAP` sender left the sender's `outgoing_cap`
+staged, and the sender's next plain `SEND` delivered it to a `RECEIVE_CAP` receiver on another endpoint.
 A capability granted to one endpoint reached a receiver on a different one, which is a process
-reaching an object it was not granted. Fixed in `sched::ipc_recv` with a test and a replayable
+reaching an object it was not granted. Fixed in `sched::ipc_receive` with a test and a replayable
 falsification. The same class as #1494 and milestone 634, reached by a third mechanism (the
 successful-collect path, not an abort and not the mailbox slot). Every other claim it reached held, by reading and by host or kernel proof where cheap. Two were not attacked in that pass: row 25 (enforced by the compositor, not the kernel; milestone 719 (Compositor confinement claim 25 is attacked part by part) in PR #1536 attacked it part by part on aarch64 afterwards, 2026-10-03) and row 26 (an escape would hang the test rather than fail it, so it waits on milestone 417 (a usurper that reports instead of hanging)). Row 11 was proved on `x86_64` only in that pass; milestone 718 (No page is both writable and executable, proved on every ISA) in PR #1534 has since proved it on aarch64, riscv64 and x86_64, 2026-10-03. This does not support green;
 the human-outsider half remains behind milestone 198.

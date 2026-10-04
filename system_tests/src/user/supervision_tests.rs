@@ -160,7 +160,7 @@ fn a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned() {
     let (child, region) = build_child(FAULT_STUB, None, Some(fault_ep));
 
     // The child faults on its first load. Its death arrives here, kernel-stamped.
-    let msg = sched::ipc_recv(fault_ep);
+    let msg = sched::ipc_receive(fault_ep);
     assert_eq!(msg[0], EVENT_FAULT, "a crash must report as a FAULT event");
     assert_eq!(msg[1], child, "the fault message named the wrong thread");
     assert_eq!(
@@ -207,7 +207,7 @@ fn a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned() {
     let report = sched::create_rendezvous();
     let (_c2, region2) = build_child(REPORT_STUB, Some(report), None);
     assert_eq!(
-        sched::ipc_recv(report)[0],
+        sched::ipc_receive(report)[0],
         REPORT_WORD,
         "the respawned child never ran: the supervision cycle did not recover",
     );
@@ -232,11 +232,11 @@ fn a_clean_exit_reports_the_exit_event_not_a_fault() {
 
     // It runs (the SEND proves it reached EL0), then exits cleanly.
     assert_eq!(
-        sched::ipc_recv(report)[0],
+        sched::ipc_receive(report)[0],
         REPORT_WORD,
         "the child never ran before exiting",
     );
-    let msg = sched::ipc_recv(fault_ep);
+    let msg = sched::ipc_receive(fault_ep);
     assert_eq!(
         msg[0], EVENT_EXIT,
         "a clean exit must report EXIT, not FAULT"
