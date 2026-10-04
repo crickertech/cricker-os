@@ -17,8 +17,8 @@ slug are drafts, and every new name below is provisional.
 
 Milestone 630 (a merge-queue ejection is caught before the queue, and recovered after it) made the
 pre-push hook all of `script/lint`. On 2026-10-03 that cost 70 to 120 s warm and 202 s cold on a
-loaded machine, a claim push sat in it for a whole lane, and the hook refused five claim pushes for
-a roadmap block that cannot exist yet. Lanes took to `--no-verify`. calef approved the narrower
+loaded machine, a claim push sat in it for a whole lane, and it refused five claim pushes.
+The roadmap block they lacked cannot exist yet. Lanes took to `--no-verify`. calef approved the narrower
 decision on #1564 (2026-10-03 UTC): "Approve the revised decision 3."
 
 ## Built
