@@ -202,6 +202,7 @@ dependencies = [
  "credential_protocol",
  "credentialer",
  "documentation",
+ "domain_name_system",
  "elf",
  "entropy_protocol",
  "environment_protocol",
@@ -369,6 +370,10 @@ version = "0.1.0"
 dependencies = [
  "documentation",
 ]
+
+[[package]]
+name = "domain_name_system"
+version = "0.1.0"
 
 [[package]]
 name = "elf"
