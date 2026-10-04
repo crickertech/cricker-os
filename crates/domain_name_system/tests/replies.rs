@@ -1,7 +1,8 @@
 //! `Query::accept` against real replies and against the replies a forger or a broken server sends.
 //!
-//! The three `REAL_*` fixtures were captured on 2026-10-04 (UTC) from 1.1.1.1 with a twenty-line
-//! Python stub sending exactly the query `Query::request` writes, so they carry what a recursive
+//! The three `REAL_*` fixtures (`tests/fixtures/*.dns`, one raw reply each, which `script/fuzz` also
+//! hands the `domain_name_system_reply` target as seeds) were captured on 2026-10-04 (UTC) from
+//! 1.1.1.1 with a twenty-line Python stub sending exactly the query `Query::request` writes, so they carry what a recursive
 //! server really does: compression pointers into the question, a CNAME pointing into its own owner,
 //! TTLs that differ along a chain. The rest are built by hand below, one per check, because nobody
 //! captures a forgery.
@@ -11,25 +12,18 @@ use domain_name_system::{
     TcpReply, cname_target, decode_name, record_type,
 };
 
-fn hex(s: &str) -> Vec<u8> {
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
-        .collect()
-}
-
 /// `example.com` A, id 0x1111: two A records, owners compressed to the question.
-const REAL_EXAMPLE: &str = "111181800001000200000000076578616d706c6503636f6d0000010001c00c000100010000003100046814179ac00c00010001000000310004ac4293f3";
+const REAL_EXAMPLE: &[u8] = include_bytes!("fixtures/example.com.dns");
 /// `www.github.com` A, id 0x2222: a CNAME to `github.com` (a pointer into the question's own name)
 /// with TTL 1952, then github.com's A with TTL 33.
-const REAL_GITHUB: &str = "222281800001000200000000037777770667697468756203636f6d0000010001c00c00050001000007a00002c010c010000100010000002100048c527403";
+const REAL_GITHUB: &[u8] = include_bytes!("fixtures/www.github.com.dns");
 /// `nosuch.invalid` A, id 0x3333: NXDOMAIN, no records.
-const REAL_NXDOMAIN: &str = "333381830001000000000000066e6f7375636807696e76616c69640000010001";
+const REAL_NXDOMAIN: &[u8] = include_bytes!("fixtures/nosuch.invalid.dns");
 
 #[test]
 fn a_real_reply_with_two_addresses_gives_both_in_order() {
     let query = Query::new(0x1111, "example.com").unwrap();
-    let answer = query.accept(&hex(REAL_EXAMPLE)).unwrap();
+    let answer = query.accept(REAL_EXAMPLE).unwrap();
     assert_eq!(
         answer.addresses(),
         &[[104, 20, 23, 154], [172, 66, 147, 243]]
@@ -44,7 +38,7 @@ fn a_real_reply_with_two_addresses_gives_both_in_order() {
 #[test]
 fn a_real_cname_is_followed_and_the_shortest_ttl_wins() {
     let query = Query::new(0x2222, "www.github.com").unwrap();
-    let answer = query.accept(&hex(REAL_GITHUB)).unwrap();
+    let answer = query.accept(REAL_GITHUB).unwrap();
     assert_eq!(answer.addresses(), &[[140, 82, 116, 3]]);
     assert_eq!(
         answer.canonical(),
@@ -56,14 +50,14 @@ fn a_real_cname_is_followed_and_the_shortest_ttl_wins() {
 #[test]
 fn a_real_name_error_is_no_such_name() {
     let query = Query::new(0x3333, "nosuch.invalid").unwrap();
-    assert_eq!(query.accept(&hex(REAL_NXDOMAIN)), Err(Reject::NoSuchName));
+    assert_eq!(query.accept(REAL_NXDOMAIN), Err(Reject::NoSuchName));
 }
 
 #[test]
 fn the_request_is_byte_for_byte_what_a_real_server_echoed() {
     // The server echoes header id and question verbatim, so our request must equal the reply's first
     // bytes with the reply's flags and counts put back to a query's.
-    let reply = hex(REAL_GITHUB);
+    let reply = REAL_GITHUB;
     let query = Query::new(0x2222, "www.github.com").unwrap();
     let mut out = [0u8; 512];
     let n = query.request(&mut out).unwrap();
@@ -531,14 +525,14 @@ fn a_name_longer_than_255_by_pointers_is_refused() {
 
 #[test]
 fn a_cname_target_reads_through_the_message() {
-    let reply = hex(REAL_GITHUB);
-    let mut reader = Reader::new(&reply).unwrap();
+    let reply = REAL_GITHUB;
+    let mut reader = Reader::new(reply).unwrap();
     reader.question().unwrap();
     let record = reader.record().unwrap();
     assert_eq!(record.rtype, record_type::CNAME);
     assert_eq!(record.ttl, 1952);
     assert_eq!(
-        cname_target(&reply, &record).unwrap(),
+        cname_target(reply, &record).unwrap(),
         Name::from_dotted("github.com").unwrap()
     );
 }
@@ -578,7 +572,7 @@ fn the_tcp_request_is_the_udp_request_with_its_length_in_front() {
 
 #[test]
 fn a_tcp_reply_reassembles_a_byte_at_a_time() {
-    let real = hex(REAL_EXAMPLE);
+    let real = REAL_EXAMPLE.to_vec();
     let mut framed = (real.len() as u16).to_be_bytes().to_vec();
     framed.extend(&real);
     let mut buf = [0u8; 600];
