@@ -174,8 +174,12 @@ Fact, 2026-10-04: of the last 60 merged pull requests, 4 merged with the per-pul
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
 and on workloads that cross constantly the cost is architectural rather than a matter of tuning.
 
-**Experiment status: RUN, 2026-10-04.** The decisive experiment ran; its colour is calef's (§216).
-Everything measured before it is a single crossing, and the claim is about a cost that cannot be amortised.
+**Experiment status: RUN, 2026-10-04.** AMBER (calef, 2026-10-04, #1613). The throughput defence
+held on step 7's first outcome. The one unexplained number is a per-crossing cost under load, the
+null syscall going from 108 to 202 ticks between one task and four, and that is exactly this risk's
+claim. With the caveats below, the defence is narrow. What turns it green is explaining that
+slowdown and showing it is a fixable defect, such as lock contention on `IPC_TABLES`, rather than an
+architectural cost. Everything measured before it is a single crossing, and the claim is about a cost that cannot be amortised.
 Amortisation is a property of a workload. The single-crossing numbers are four wins and a tie against
 Linux on the same core, every caveat beside its number
 ([`notes/benchmarks.md`](../../notes/benchmarks.md)), over committed floors
@@ -449,7 +453,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | 4 | 9, the HAL, at the implementation grain, widened 2026-09-23 | a second machine of an architecture nife already boots | milestone 225 (run the soak on radon, argon and xenon) | riscv64: about 30 rented hours, €1.51, milestone 89 (Scaleway EM-RV1); still unrented |
 | ~~4~~ | 1, the ecosystem | **RUN, 2026-08-31: GREEN on all three since 2026-09-16.** The blocker is a missing argv, not threads | milestone 121 | done |
 | ~~5~~ | 3, the tests | **RUN, 2026-09-19: amber.** 96.1% like-for-like against 92.4% on 2026-09-21, and 771 missed survivors (414 projected after #1277) hold the amber | milestone 326 | done; the triage remains |
-| 6 | 4, performance | the multi-tasking workload number, from the 2026-09-19 instrument | milestone 168 | ran 2026-10-04; the colour is calef's |
+| 6 | 4, performance | **RUN, 2026-10-04: amber** (calef, 2026-10-04). Throughput held; the null syscall's rise under load is unexplained | milestone 168 | done; the diagnosis remains |
 | 7 | 9 and 6 together | journey 3, end to end on three boards | journey 3 | months, and it is the capstone |
 | -- | 5, multicore | **RUN on radon, 2026-09-25:** 8 hours clean, 4.1 million crossings. A linear defect-discovery curve is the red result | milestone 201 (is multicore reliability converging) | weeks, hardware |
 | -- | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17: amber** (calef, 2026-10-03). A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed. The outsider half remains | milestone 633 (an outside agent attacks the confinement claim); 202, 305 and 313 done | one agent run, token cost uncosted |
