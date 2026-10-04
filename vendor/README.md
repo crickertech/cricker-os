@@ -193,6 +193,11 @@ it is mechanical**, which is why nothing automates past the first step:
   edited the filesystem, and nobody could prove it either. Whoever takes the next bump should
   number it and say where it came from; this lane did not, because inventing provenance for a
   change it did not make would be worse than naming the gap.
+- **Should RedoxFS become its own repository? Not yet** (calef asked 2026-10-04 UTC; the
+  maintainer's answer). Six divergences, about 140 changed lines, fixes that land atomically with
+  their callers and one CI is cheaper than a second repo. Revisit at about ten divergences, at a
+  pin bump that conflicts badly, or when another project wants the fork; because upstream refuses
+  LLM-generated contributions, the divergences are likely to grow rather than drop.
 - **The watch reports; it cannot decide.** A prompt nobody acts on is the same silence with more
   steps, and nothing in this tree measures whether anyone acted.
 - **`script/vendor-watch` speaks GitLab and nothing else.** RedoxFS is the only vendored engine, so
