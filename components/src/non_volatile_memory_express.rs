@@ -211,32 +211,10 @@ const STEP_FIRST_READ: u64 = 0xDEAD_0002;
 /// Sharing the two would mean strengthening the ring barrier or weakening this one, and both are
 /// ordering changes rather than deduplication.
 fn barrier() {
-    // SAFETY: a barrier has no operands and cannot be unsound; it only constrains ordering.
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        core::arch::asm!("dmb sy", options(nostack, nomem, preserves_flags));
-    }
-    // SAFETY: as above.
-    #[cfg(target_arch = "riscv64")]
-    unsafe {
-        core::arch::asm!("fence", options(nostack, preserves_flags));
-    }
-    // SAFETY: as above.
-    #[cfg(target_arch = "x86_64")]
-    unsafe {
-        core::arch::asm!("mfence", options(nostack, nomem, preserves_flags));
-    }
-    // A fourth architecture fails to build rather than silently ordering nothing. This function
-    // already had all three arms; the arm below is what stops it becoming the five that did not.
-    #[cfg(not(any(
-        target_arch = "aarch64",
-        target_arch = "riscv64",
-        target_arch = "x86_64"
-    )))]
-    compile_error!(
-        "barrier(): this architecture has no ordering named here. A ring publish must be visible \
-         before the doorbell that announces it; name the instruction that does that."
-    );
+    // Lifted to the runtime on 2026-10-04 when the `e1000e` data plane became its second caller
+    // (milestone 494 (a driver for the network card a PC actually has)); the instructions are
+    // unchanged, and the paragraph above is still the reason they are these.
+    user_mode_runtime::mapped_window::doorbell_barrier();
 }
 
 /// The server's whole mutable state: the two ring cursors and a command id.
