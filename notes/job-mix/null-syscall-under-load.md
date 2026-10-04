@@ -210,6 +210,43 @@ hold-time table after the fix put the same ones on top, with `start_thread_contr
 `KERNEL_MMU` (rank 45) now shows 2,800 contended acquisitions a point: the stack frees and builds
 moved out of `IPC_TABLES` meet each other there, at 1.6% of the wait.
 
+## The next step: each thread's table off the lock
+
+Milestone 761 (capability lookup off the global lock), its number provisional, gives every thread's
+capability table its own lock, so `current_cap` stops taking `IPC_TABLES`. Under TCG the lookups
+that waited fell from about 20% to almost none; the block has the numbers.
+
+### The radon run that decides it
+
+Two payloads from `74bbb19a1`, built before the bench:
+
+```sh
+cd ~/projects/nife-worktrees/capability-lock-per-thread
+script/board-netboot --root target/board-caplock             # boots 1 to 3: the kernel that would ship
+script/board-netboot --root target/board-caplock-lock-wait   # boots 4 and 5: the same plus lock_wait
+```
+
+Bench rules as [above](#the-radon-run-that-decided-it); transcripts to `bench/radon-<date>-caplock/`.
+Read, in this order:
+
+1. `null_syscall`'s `per_job` at 1 and 4 tasks on boots 1 to 3, against 99 and 147 from
+   `bench/radon-2026-10-04-fix/`.
+2. On boots 4 and 5, `site=current_cap`: `contended / calls` at 4 tasks, against 41% on that evening.
+3. On boots 4 and 5, `rank=60 name=ipc_tables`: contended count and wait at 4 tasks, against that
+   evening's boots 4 and 5.
+
+What each outcome means, written 2026-10-04 (UTC) before any boot:
+
+| Boots 1 to 3, `null_syscall` at 4 tasks | Reading |
+|---|---|
+| 115 or below | it worked: the remainder is about `compute`'s preemption share (about 6 ticks) over 99. Risk 4's per-crossing cost under load is explained |
+| 116 to 135 | partial: the lock was part of the rest. Boots 4 and 5 say whether `current_cap` still waits (it should not) and what the IPC rows still cost the cores |
+| 136 or above | the lock was not radon's remaining cause. If boots 4 and 5 show `current_cap` contention near zero and the job did not move, suspect the line traffic no counter sees (BUGS, `PERCPU`) |
+
+One guard on the single-task cost, since a lock path dearer when uncontended would hide inside the
+four-task number. **`null_syscall` at 1 task above 101** (99 today, plus 2%) is a regression to
+explain before any row above is claimed.
+
 ## What risk 4's line should say
 
 For the maintainer, who owns `design/fatal-risks/README.md`. The colour stays AMBER (calef's
@@ -222,7 +259,7 @@ ruling). The open finding's paragraph should read:
 > throughput 9% at four tasks and 11% at 32. The rest is the one global lock itself: at four tasks
 > 41% of syscalls find it held. That is a lock this kernel chose and can split, not a cost of the
 > capability model, and splitting it is proposed
-> (`design/roadmap/proposals/capability-lookup-off-the-global-lock.md`). Until that is measured,
+> (`design/roadmap/761-capability-lookup-off-the-global-lock.md`). Until that is measured,
 > the per-crossing cost under load is half explained and half open
 > (notes/job-mix/null-syscall-under-load.md).
 
@@ -245,6 +282,6 @@ ruling). The open finding's paragraph should read:
 
 ## Proposed work
 
-- Capability lookup off `IPC_TABLES`, filed as
-  [`capability-lookup-off-the-global-lock.md`](../../design/roadmap/proposals/capability-lookup-off-the-global-lock.md)
-  with radon's numbers.
+- Capability lookup off `IPC_TABLES`: built as milestone 761 (capability lookup off the global
+  lock), number provisional, [its block](../../design/roadmap/761-capability-lookup-off-the-global-lock.md),
+  and waiting on the radon evening [above](#the-next-step-each-threads-table-off-the-lock).

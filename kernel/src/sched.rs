@@ -33,13 +33,15 @@
 //!    and without it the first thread you spawn can never be preempted, which would be a
 //!    cooperative scheduler with extra steps.
 
-use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicPtr, AtomicU32, AtomicU64, Ordering};
 
 use thread_wake_handshake::{SwitchOutVerdict, WakeVerdict};
 
 use crate::cpu;
 use crate::sync::{IrqSafeMutex, rank};
-use crate::thread::{Context, QuotaToken, State, Thread, ThreadId, Wait, WaitRole, switch_to};
+use crate::thread::{
+    CapabilityTableLock, Context, QuotaToken, State, Thread, ThreadId, Wait, WaitRole, switch_to,
+};
 
 /// How many times we have actually taken the CPU away from a thread. The number that says
 /// preemption is real.
@@ -66,8 +68,65 @@ fn current_thread_id() -> ThreadId {
     cpu::current().current.load(Ordering::Relaxed)
 }
 
-fn set_current_thread_id(tid: ThreadId) {
+/// **The running thread's capability table, per core** (provisional name, 2026-10-04 UTC): what
+/// [`current_cap`] reads instead of taking `IPC_TABLES` to find the thread.
+///
+/// Null before this core runs a thread. Written only by [`set_current`], on the owning core, in the
+/// same breath as `PerCpu::current`, so the two cannot disagree; read only by the owning core, with
+/// interrupts masked.
+///
+/// **Its own array rather than a `cpu::PerCpu` field**, for [`PREEMPTIONS_PER_CPU`]'s measured
+/// reason: `PerCpu` is exactly 128 bytes and one more word makes it 136. **Each entry on a line of
+/// its own**, because every core writes its entry on every switch and reads it on every syscall, and
+/// a shared line would trade the lock this removes for line traffic between the same cores (the
+/// `PerCpu` straddle in notes/job-mix/null-syscall-under-load.md's BUGS is that shape).
+///
+/// **Why the pointer stays valid without a lock.** It names the page of the thread running on this
+/// core, and a running thread's page is not recycled: `Threads::remove` is reached only from
+/// [`reap_switched_out`], for a thread its successor has switched off, and from
+/// [`reap_region_objects`], whose `region_reap_verdict` refuses a `Ready` or `Running` thread and
+/// one any core is still standing on. `schedule` replaces the pointer before the switch that makes
+/// the old thread reapable. A thread can no more outlive this pointer than it can outlive its own
+/// kernel stack, and for the same reason.
+#[repr(align(64))]
+struct CurrentCapabilities(AtomicPtr<CapabilityTableLock>);
+
+static CURRENT_CAPABILITIES: [CurrentCapabilities; cpu::MAX_CPUS] =
+    [const { CurrentCapabilities(AtomicPtr::new(core::ptr::null_mut())) }; cpu::MAX_CPUS];
+
+/// Make `tid` this core's running thread: its name in `PerCpu::current` and its capability table in
+/// [`CURRENT_CAPABILITIES`]. The only writer of either, so a lookup never finds one thread's name
+/// beside another's table. Caller holds `IPC_TABLES`.
+///
+/// # Safety
+///
+/// `tcb` is `tid`'s page pointer as the thread table stores it (`Threads::pointer`), live.
+unsafe fn set_current(tid: ThreadId, tcb: *mut Thread) {
     cpu::current().current.store(tid, Ordering::Relaxed);
+    // SAFETY: the caller's contract; an address computation, nothing is read.
+    let caps = unsafe { crate::thread::capability_table_of(tcb) };
+    if let Some(entry) = CURRENT_CAPABILITIES.get(cpu::id()) {
+        entry.0.store(caps.cast_mut(), Ordering::Relaxed);
+    }
+}
+
+/// **The running thread's capability table, locked**, with `IPC_TABLES` not held. `None` before
+/// this core runs a thread. See [`CURRENT_CAPABILITIES`] for why the pointer is valid, and
+/// [`crate::sync::lock_found`] for why the entry is read with interrupts masked.
+#[inline]
+fn current_capabilities() -> Option<crate::sync::IrqSafeGuard<'static, crate::cap::CapabilityTable>>
+{
+    crate::sync::lock_found(|| {
+        let caps = CURRENT_CAPABILITIES
+            .get(cpu::id())?
+            .0
+            .load(Ordering::Relaxed);
+        // SAFETY: non-null means the table of the thread running on this core, which is the
+        // caller, and a running thread's page is not recycled (see `CURRENT_CAPABILITIES`). The
+        // `'static` is a lie told only as long as the guard, which the caller drops before it can
+        // stop being the running thread (no caller blocks or switches holding it).
+        unsafe { caps.as_ref() }
+    })
 }
 
 /// A synchronous IPC rendezvous point: the two wait queues and the pending-signal count.
@@ -329,6 +388,29 @@ impl Threads {
         Some(unsafe { &mut *p })
     }
 
+    /// **A thread's capability table**, for a caller holding `IPC_TABLES` that needs no other part
+    /// of the thread. The table is past the `Thread` in its page (`thread::capability_table_of`), so
+    /// the reference is derived from the page pointer, never from a `&Thread`.
+    fn capabilities(&self, tid: ThreadId) -> Option<&CapabilityTableLock> {
+        let p = self.table.get(tid)?.0;
+        // SAFETY: the stored page pointer of a live thread; the page outlives `&self`, because
+        // only `remove` (which takes `&mut self`) recycles it.
+        Some(unsafe { &*crate::thread::capability_table_of(p) })
+    }
+
+    /// `get_mut` and [`capabilities`](Self::capabilities) at once, for the sites that write the
+    /// `Thread` and its table together. Disjoint by construction: the table is past the struct's
+    /// end, so the `&mut Thread` does not cover it.
+    fn get_mut_with_capabilities(
+        &mut self,
+        tid: ThreadId,
+    ) -> Option<(&mut Thread, &CapabilityTableLock)> {
+        let p = self.table.get(tid)?.0;
+        // SAFETY: as `get_mut` for the `Thread` and `capabilities` for the table; the two do not
+        // overlap.
+        Some(unsafe { (&mut *p, &*crate::thread::capability_table_of(p)) })
+    }
+
     /// **The raw pointer the table stores, which is the start of the thread's TCB page.**
     ///
     /// `get` and `get_mut` narrow it to a reference over `size_of::<Thread>()` bytes, and that is
@@ -406,6 +488,9 @@ impl Threads {
                 // SAFETY: `ptr` is the start of a page this insert exclusively owns, and `build`
                 // has just written a live `Thread` at it.
                 unsafe { crate::thread::init_fp_state(ptr) };
+                // SAFETY: as above; the name is not yet handed to anyone, so nothing else can
+                // reach the table.
+                unsafe { crate::thread::init_capability_table(ptr) };
             }
             ThreadControlBlockPointer(ptr)
         })?;
@@ -439,6 +524,10 @@ impl Threads {
             //
             // SAFETY: as above, with the `Thread` now live at `ptr`.
             unsafe { crate::thread::init_fp_state(ptr) };
+            // And its capability table, past the register file, for the same reason.
+            //
+            // SAFETY: as above; the name is not yet handed to anyone.
+            unsafe { crate::thread::init_capability_table(ptr) };
             ThreadControlBlockPointer(ptr)
         });
         if let Some(name) = name {
@@ -489,6 +578,19 @@ impl Threads {
         self.table
             .values()
             .map(|&ThreadControlBlockPointer(p)| unsafe { &mut *p })
+    }
+
+    /// [`iter_mut`](Self::iter_mut) with each thread's capability table beside it, for the
+    /// revocation sweeps. Disjoint as [`get_mut_with_capabilities`](Self::get_mut_with_capabilities).
+    fn iter_mut_with_capabilities(
+        &mut self,
+    ) -> impl Iterator<Item = (&mut Thread, &CapabilityTableLock)> + '_ {
+        // SAFETY: as `iter_mut`, and the table is past each `Thread`'s end in its own page.
+        self.table
+            .values()
+            .map(|&ThreadControlBlockPointer(p)| unsafe {
+                (&mut *p, &*crate::thread::capability_table_of(p))
+            })
     }
 
     /// Every live TCB from slot `from` onward, with its slot index, for a **resumable** sweep
@@ -1459,10 +1561,15 @@ pub fn init() {
         })
         .expect("a fresh table refused its first insert");
 
-    drop(sched); // release before spawning, which takes the lock itself
-
     // This core (core 0) is running the boot thread.
-    set_current_thread_id(boot_tid);
+    let boot_tcb = tables
+        .threads
+        .pointer(boot_tid)
+        .expect("the boot thread was just inserted");
+    // SAFETY: `boot_tid`'s page pointer from the table, live.
+    unsafe { set_current(boot_tid, boot_tcb) };
+
+    drop(sched); // release before spawning, which takes the lock itself
 
     // (The run queue and inbox used to have capacity reserved here, so a push from the timer IRQ
     // could never allocate. The queues are intrusive now: a push is two pointer writes and
@@ -1509,18 +1616,25 @@ pub fn adopt_secondary_idle() {
         let sched = guard
             .as_mut()
             .expect("adopt_secondary_idle before sched::init");
-        sched
+        let id = sched
             .threads
             .insert_in_place(|tid, dst| {
                 // SAFETY: `dst` is a fresh, exclusively-owned TCB page, per `insert_in_place`.
                 unsafe { Thread::write_adopted_current(dst, tid) };
                 true
             })
-            .expect("thread table full while bringing a core online")
+            .expect("thread table full while bringing a core online");
+        // This core is currently running that thread.
+        let tcb = sched
+            .threads
+            .pointer(id)
+            .expect("the idle thread was just inserted");
+        // SAFETY: `id`'s page pointer from the table, live.
+        unsafe { set_current(id, tcb) };
+        id
     };
 
-    // This core is currently running that thread, and it is also this core's idle fallback.
-    cpu::current().current.store(id, Ordering::Relaxed);
+    // And it is also this core's idle fallback.
     cpu::current().idle.store(id, Ordering::Relaxed);
     // (No queue capacity to reserve: the queues are intrusive and a push cannot allocate.)
 }
@@ -2297,14 +2411,18 @@ pub fn schedule() {
                 trace::record(trace::Event::Migrated, next, from);
             }
         }
-        sched.threads.get_mut(next).unwrap().handshake.switch_in();
-        set_current_thread_id(next);
+        let next_tcb = sched.threads.pointer(next).unwrap();
+        // SAFETY: the page pointer of a live thread, and `IPC_TABLES` (held) serializes every
+        // access to its `Thread`. One lookup serves the handshake and `set_current` both.
+        unsafe { (*next_tcb).handshake.switch_in() };
+        // SAFETY: `next_tcb` is `next`'s page pointer from the table, live.
+        unsafe { set_current(next, next_tcb) };
         trace::record(trace::Event::SwitchTo, next, 0);
 
         // Hand the outgoing thread to the incoming one to finish up AFTER the switch, when it is
         // provably off its stack: reap it if it Finished, clear its on_cpu (and complete a
         // deferred wake) otherwise. Not here, and not by another core: we are still running on
-        // its stack this instant. `current` is the local (the outgoing tid); `set_current_thread_id`
+        // its stack this instant. `current` is the local (the outgoing tid); `set_current`
         // above already moved the per-CPU current to `next`. See finish_switch.
         //
         // **And count the switch, through the same block** (milestone 629 (the context-switch statistic stops costing the switch path)): `vmstat`'s `cs` is this
@@ -3783,9 +3901,9 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
             inter_process_communication::Send::Rendezvous(receiver) => {
                 // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                 let receiver = unsafe { (*receiver.as_ptr()).id };
-                let r = sched.threads.get_mut(receiver).unwrap();
+                let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
                 if r.receiving_cap {
-                    let slot = r.capability_table.insert(cap).unwrap_or(NO_CAP);
+                    let slot = deliver_capability(caps, cap);
                     // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
                     // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
                     r.mailbox = [data, slot, 0, badge, 0];
@@ -3828,6 +3946,19 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
     if block {
         schedule();
     }
+}
+
+/// **File a capability an IPC is delivering in the receiving thread's table**, or [`NO_CAP`] if the
+/// table is full (the receiver still gets the data words). Caller holds `IPC_TABLES`; this takes the
+/// table's own lock beneath it (rank 60 then 57, `sync::rank::CAPABILITY_TABLE`).
+///
+/// **Out of line, one copy for the three delivering paths** (`ipc_send_cap`, `ipc_call`'s hand-off
+/// to a waiting server, and `ipc_receive_cap`'s collect). Since 2026-10-04 UTC the insert takes a
+/// second lock, and inlined at each site that lock's mask, rank check and release grew both
+/// `script/fastpath-footprint` closures past their band on aarch64 and riscv64. Name provisional.
+#[inline(never)]
+fn deliver_capability(caps: &CapabilityTableLock, cap: crate::cap::Cap) -> u64 {
+    caps.lock().insert(cap).unwrap_or(NO_CAP)
 }
 
 /// **Receive a data word and, if one was sent, a capability.** The mirror of [`ipc_send_cap`], and
@@ -3874,13 +4005,9 @@ pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
                     let is_reply =
                         matches!(cap, Some(c) if matches!(c.object, crate::cap::Object::Reply(_)));
                     let slot = match cap {
-                        Some(c) => sched
-                            .threads
-                            .get_mut(current)
-                            .unwrap()
-                            .capability_table
-                            .insert(c)
-                            .unwrap_or(NO_CAP),
+                        Some(c) => {
+                            deliver_capability(sched.threads.capabilities(current).unwrap(), c)
+                        }
                         None => NO_CAP,
                     };
                     if !is_reply {
@@ -4017,14 +4144,14 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
                 // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                 let receiver = unsafe { (*receiver.as_ptr()).id };
                 // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
-                let r = sched.threads.get_mut(receiver).unwrap();
+                let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
                 if !r.receiving_cap {
                     // A plain RECEIVE cannot hold the Reply, so this CALL is answered `Gone`
                     // (§246, PROVISIONAL number). Out of line: no server in the tree does this.
                     call_meets_plain_receive(sched, receiver, current, msg, badge);
                     return [0, 0, 0];
                 }
-                let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
+                let slot = deliver_capability(caps, reply);
                 // Word 3 is the caller's badge (milestone 599): the same store as before with a
                 // value instead of a zero, so the server's RECEIVE_CAP surfaces which client called.
                 // Word 4 says x1 is a Reply (milestone 706), which only this path and the collect
@@ -4118,8 +4245,8 @@ pub fn ipc_reply(caller: ThreadId, msg: [u64; 2]) {
 /// Cost is O(threads x slots), on a teardown path in both callers.
 fn delete_reply_caps_naming(sched: &mut IpcTables, caller: ThreadId) {
     let target = crate::cap::Object::Reply(caller);
-    for t in sched.threads.iter_mut() {
-        t.capability_table
+    for (t, caps) in sched.threads.iter_mut_with_capabilities() {
+        caps.lock()
             .delete_matching(|object: &crate::cap::Object| *object == target);
         if matches!(t.outgoing_cap, Some(c) if c.object == target) {
             t.outgoing_cap = None;
@@ -4194,16 +4321,17 @@ fn strand_callers_of(sched: &mut IpcTables, tid: ThreadId) {
     let mut victims = [0 as ThreadId; crate::cap::CAPABILITY_TABLE_SLOTS];
     let mut found = 0;
     {
-        let Some(t) = sched.threads.get(tid) else {
+        let Some(caps) = sched.threads.capabilities(tid) else {
             return;
         };
+        let t = caps.lock();
         // Overwhelmingly the common case on the `depart` path is a thread holding no reply
         // capability at all; an empty table is the case worth not paying for at all.
-        if t.capability_table.used() == 0 {
+        if t.used() == 0 {
             return;
         }
-        for slot in 0..t.capability_table.len() as u64 {
-            if let Ok(c) = t.capability_table.get(slot)
+        for slot in 0..t.len() as u64 {
+            if let Ok(c) = t.get(slot)
                 && let crate::cap::Object::Reply(caller) = c.object
             {
                 victims[found] = caller;
@@ -4334,8 +4462,8 @@ fn delete_page_frame_caps_where(matches: impl Fn(&crate::cap::Object) -> bool) {
     let Some(sched) = guard.as_mut() else {
         return;
     };
-    for t in sched.threads.iter_mut() {
-        t.capability_table.delete_matching(&matches);
+    for (t, caps) in sched.threads.iter_mut_with_capabilities() {
+        caps.lock().delete_matching(&matches);
         if matches!(t.outgoing_cap, Some(c) if matches(&c.object)) {
             t.outgoing_cap = None;
         }
@@ -4358,18 +4486,17 @@ pub fn delete_device_frame_caps_from_others(phys: u64) {
     };
     let keeper = current_thread_id();
     let target = crate::cap::Object::DeviceFrame(phys);
-    for t in sched.threads.iter_mut() {
+    for (t, caps) in sched.threads.iter_mut_with_capabilities() {
         if t.id == keeper {
             continue;
         }
-        for slot in 0..t.capability_table.len() as u64 {
-            if t.capability_table
-                .get(slot)
-                .is_ok_and(|c| c.object == target)
-            {
-                let _ = t.capability_table.delete(slot);
+        let mut table = caps.lock();
+        for slot in 0..table.len() as u64 {
+            if table.get(slot).is_ok_and(|c| c.object == target) {
+                let _ = table.delete(slot);
             }
         }
+        drop(table);
         if matches!(t.outgoing_cap, Some(c) if c.object == target) {
             t.outgoing_cap = None;
         }
@@ -4408,18 +4535,17 @@ fn delete_port_range_caps_impl(base: u16, count: u16, keeper: Option<ThreadId>) 
             return;
         };
         let target = crate::cap::Object::PortRange(base, count);
-        for t in sched.threads.iter_mut() {
+        for (t, caps) in sched.threads.iter_mut_with_capabilities() {
             if Some(t.id) == keeper {
                 continue;
             }
-            for slot in 0..t.capability_table.len() as u64 {
-                if t.capability_table
-                    .get(slot)
-                    .is_ok_and(|c| c.object == target)
-                {
-                    let _ = t.capability_table.delete(slot);
+            let mut table = caps.lock();
+            for slot in 0..table.len() as u64 {
+                if table.get(slot).is_ok_and(|c| c.object == target) {
+                    let _ = table.delete(slot);
                 }
             }
+            drop(table);
             // A `PortRange` parked in a hand-off slot goes too (2026-09-21), for
             // `delete_page_frame_caps_where`'s reason: a capability in flight to a receiver is in
             // no capability table, so a sweep that reads tables alone leaves one alive.
@@ -4475,51 +4601,42 @@ fn delete_port_range_caps_impl(base: u16, count: u16, keeper: Option<ThreadId>) 
 /// on every boot, which on x86 is exactly this object. The cache is cleared here and this core's TSS
 /// is reset at once, so the ports fault on the very next access rather than after a switch.
 ///
-/// The check costs one field read on the ordinary path (`port_range_grant` is `None` for every thread
-/// but a port holder), so the reply consumption this function also serves is untouched in the case
-/// the IPC round trip measures.
+/// **The delete itself takes only the thread's own table lock** (2026-10-04 UTC), as
+/// [`current_cap`] does, so the one-shot Reply that every `REPLY` consumes no longer costs a second
+/// acquisition of `IPC_TABLES`. Only a deleted `PortRange` then takes `IPC_TABLES`, to clear the
+/// cached grant and this core's bitmap under it (milestone 315's reason, below). Between the two
+/// steps no user code runs: the thread whose grant it is, is the one executing this syscall, and a
+/// core's bitmap only ever permits a range for the thread running on it. A concurrent
+/// `PortRange::REVOKE` that clears the grant first leaves this step nothing to do.
 pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
+    // Read before the delete, under the same hold: a deleted slot names nothing.
+    let deleted = {
+        let mut t = current_capabilities().ok_or(crate::cap::Error::NoSuchSlot)?;
+        let cap = t.get(slot)?;
+        t.delete(slot)?;
+        cap
+    };
     #[cfg(target_arch = "x86_64")]
-    let dropped_port_grant;
-    {
+    if let crate::cap::Object::PortRange(base, count) = deleted.object {
         let mut guard = IPC_TABLES.lock();
-        let sched = guard.as_mut().ok_or(crate::cap::Error::NoSuchSlot)?;
         let current = current_thread_id();
-        let t = sched
-            .threads
-            .get_mut(current)
-            .ok_or(crate::cap::Error::NoSuchSlot)?;
-        // Read before the delete: a deleted slot names nothing. Only a holder pays for the lookup.
-        #[cfg(target_arch = "x86_64")]
-        {
-            dropped_port_grant = match t.port_range_grant {
-                None => None,
-                Some(granted) => match t.capability_table.get(slot) {
-                    Ok(c) => match c.object {
-                        crate::cap::Object::PortRange(base, count) if (base, count) == granted => {
-                            Some(granted)
-                        }
-                        _ => None,
-                    },
-                    Err(_) => None,
-                },
-            };
-        }
-        t.capability_table.delete(slot)?;
-        #[cfg(target_arch = "x86_64")]
-        if dropped_port_grant.is_some() {
+        let held = guard
+            .as_mut()
+            .and_then(|sched| sched.threads.get_mut(current))
+            .filter(|t| t.port_range_grant == Some((base, count)));
+        if let Some(t) = held {
             t.port_range_grant = None;
-        }
-        // Under the lock, with `delete_port_range_caps_impl`'s broadcast and for its reason
-        // (milestone 315): every writer of a TSS port bitmap holds `IPC_TABLES`, so a revocation
-        // NMI cannot land inside one. No broadcast is owed here. The caller is the thread whose
-        // grant is installed, a core's bitmap only ever permits a range for the thread currently
-        // running on it, and that thread is running here, so this core is the only core to tell.
-        #[cfg(target_arch = "x86_64")]
-        if let Some((base, count)) = dropped_port_grant {
+            // Under the lock, with `delete_port_range_caps_impl`'s broadcast and for its reason
+            // (milestone 315): every writer of a TSS port bitmap holds `IPC_TABLES`, so a
+            // revocation NMI cannot land inside one. No broadcast is owed here. The caller is the
+            // thread whose grant is installed, a core's bitmap only ever permits a range for the
+            // thread currently running on it, and that thread is running here, so this core is
+            // the only core to tell.
             crate::arch::segments::revoke_installed_port_grant(base, count);
         }
     }
+    #[cfg(not(target_arch = "x86_64"))]
+    let _ = deleted; // no capability is enforced outside the table on this architecture
     Ok(())
 }
 
@@ -4538,33 +4655,30 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
 /// other instances of this shape.
 #[inline(never)]
 pub fn current_cap(slot: u64) -> Result<crate::cap::Cap, crate::cap::Error> {
-    // The lock-wait instrument marks this one acquisition: it is the only lock the cheapest
-    // syscall takes. See `crate::lock_wait`; absent from every build without `lock_wait`.
+    // **No `IPC_TABLES` here** (2026-10-04 UTC): the running thread's own table, under its own lock.
+    // This was the global lock on every capability syscall, and on radon at four busy cores 41% of
+    // these lookups found it held (notes/job-mix/null-syscall-under-load.md).
+    //
+    // The lock-wait instrument marks this call and its one acquisition, as it did when the lock was
+    // `IPC_TABLES`, so `site=current_cap` means the same thing before and after. The closure takes
+    // no other lock, so marking the whole call marks exactly that acquisition. See
+    // `crate::lock_wait`; absent from every build without `lock_wait`.
     #[cfg(feature = "lock_wait")]
     crate::lock_wait::enter_current_cap();
-    let guard = IPC_TABLES.lock();
+    let table = current_capabilities();
     #[cfg(feature = "lock_wait")]
     crate::lock_wait::leave_current_cap();
-    let sched = guard.as_ref().ok_or(crate::cap::Error::NoSuchSlot)?;
-    sched
-        .threads
-        .get(current_thread_id())
-        .ok_or(crate::cap::Error::NoSuchSlot)?
-        .capability_table
-        .get(slot)
+    match table {
+        Some(table) => table.get(slot),
+        None => Err(crate::cap::Error::NoSuchSlot),
+    }
 }
 
 /// Hand the current thread a capability. **The only way authority ever enters a process.**
+///
+/// The running thread's own table, under its own lock and not `IPC_TABLES`, as [`current_cap`].
 pub fn grant(cap: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
-    let mut guard = IPC_TABLES.lock();
-    let sched = guard.as_mut().ok_or(crate::cap::Error::NoFreeSlot)?;
-    let current = current_thread_id();
-    sched
-        .threads
-        .get_mut(current)
-        .ok_or(crate::cap::Error::NoFreeSlot)?
-        .capability_table
-        .insert(cap)
+    current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| t.insert(cap))
 }
 
 /// Hand the current thread a capability **at an explicit slot**, leaving lower slots empty.
@@ -4577,15 +4691,9 @@ pub fn grant(cap: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
 /// network). This is the same explicit-target move `ThreadControlBlock::CAP_INSERT` already offers a userspace
 /// loader, available to the kernel's own service wiring.
 pub fn grant_at(slot: u64, cap: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
-    let mut guard = IPC_TABLES.lock();
-    let sched = guard.as_mut().ok_or(crate::cap::Error::NoFreeSlot)?;
-    let current = current_thread_id();
-    sched
-        .threads
-        .get_mut(current)
-        .ok_or(crate::cap::Error::NoFreeSlot)?
-        .capability_table
-        .insert_at(slot, cap)
+    current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| {
+        t.insert_at(slot, cap)
+    })
 }
 
 /// **Retype a TCB out of `region`** (milestone 19c.3): an embryo thread, page-resident in a
@@ -5424,20 +5532,18 @@ pub fn thread_control_block_insert_cap(
 ) -> Result<u64, abi::Error> {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
-    let t = sched.threads.get_mut(tid).ok_or(abi::Error::NoSuchSlot)?;
+    let (t, caps) = sched
+        .threads
+        .get_mut_with_capabilities(tid)
+        .ok_or(abi::Error::NoSuchSlot)?;
     if t.handshake.state != State::Embryo {
         return Err(abi::Error::WrongObject);
     }
     let landed = match target {
-        None => t
-            .capability_table
-            .insert(cap)
-            .map_err(|_| abi::Error::OutOfMemory),
-        Some(slot) => t
-            .capability_table
-            .insert_at(slot, cap)
-            .map_err(|_| abi::Error::OutOfMemory),
-    }?;
+        None => caps.lock().insert(cap),
+        Some(slot) => caps.lock().insert_at(slot, cap),
+    }
+    .map_err(|_| abi::Error::OutOfMemory)?;
     // **The one choke point where a port capability enters a thread** (milestone 299): the boot's
     // own child builder and the progenitor's `ThreadControlBlock::CAP_INSERT` both endow an embryo
     // through here, so caching the grant here is what makes the context switch's port-grant read
@@ -5470,7 +5576,10 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     let stack = crate::thread::KernelStack::new();
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
-    let t = sched.threads.get_mut(tid).ok_or(abi::Error::NoSuchSlot)?;
+    let (t, caps) = sched
+        .threads
+        .get_mut_with_capabilities(tid)
+        .ok_or(abi::Error::NoSuchSlot)?;
 
     if t.handshake.state != State::Embryo {
         return Err(abi::Error::WrongObject); // already started (or not a TCB)
@@ -5485,12 +5594,14 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     // a Rendezvous capability, this thread is supervised: record it as the fault target
     // and consume the slot, so the child cannot forge fault messages on it (the kernel stays the
     // only sender on this path, §26.5). Supervision is fixed here, at spawn, and never changes.
-    if let Ok(fault_cap) = t.capability_table.get(abi::fault::FAULT_EP_SLOT)
+    let mut table = caps.lock();
+    if let Ok(fault_cap) = table.get(abi::fault::FAULT_EP_SLOT)
         && let crate::cap::Object::Rendezvous(ep, _) = fault_cap.object
     {
         t.fault_ep = Some(ep);
-        let _ = t.capability_table.delete(abi::fault::FAULT_EP_SLOT);
+        let _ = table.delete(abi::fault::FAULT_EP_SLOT);
     }
+    drop(table);
 
     t.start_args = args; // the child's x0, x1, x2 (19d/19e)
     let Some(stack) = stack else {
@@ -5631,8 +5742,8 @@ pub fn with_capability_table<R>(
     read: impl FnOnce(&crate::cap::CapabilityTable) -> R,
 ) -> Option<R> {
     let guard = IPC_TABLES.lock();
-    let t = guard.as_ref()?.threads.get(tid)?;
-    Some(read(&t.capability_table))
+    let t = guard.as_ref()?.threads.capabilities(tid)?.lock();
+    Some(read(&t))
 }
 
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
@@ -6564,14 +6675,13 @@ mod tests {
         let target = crate::cap::Object::Reply(caller);
         let mut found = 0;
         for (_, t) in sched.threads.iter_from(0) {
-            for slot in 0..t.capability_table.len() as u64 {
-                if t.capability_table
-                    .get(slot)
-                    .is_ok_and(|c| c.object == target)
-                {
+            let table = sched.threads.capabilities(t.id).unwrap().lock();
+            for slot in 0..table.len() as u64 {
+                if table.get(slot).is_ok_and(|c| c.object == target) {
                     found += 1;
                 }
             }
+            drop(table);
             if matches!(t.outgoing_cap, Some(c) if c.object == target) {
                 found += 1;
             }

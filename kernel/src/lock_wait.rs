@@ -10,16 +10,18 @@
 //!
 //! On radon on 2026-10-04 the job mix's `null_syscall` job cost 108 ticks at one task and 202 at four
 //! while `compute` grew 6% (notes/job-mix/radon-2026-10-04.md). That job's syscall takes exactly one
-//! lock: `sched::current_cap` takes the global `IPC_TABLES` to read the caller's own capability
+//! lock: `sched::current_cap` took the global `IPC_TABLES` to read the caller's own capability
 //! table, and every other core's IPC, `schedule()` and capability operation takes the same lock.
-//! This module counts, per sweep point:
+//! (Since the proposal "capability lookup off the global lock", later on 2026-10-04 UTC, that one
+//! lock is the running thread's own table, rank `capability_table`.) This module counts, per sweep
+//! point:
 //!
 //! - **Per lock rank**: acquisitions that found the lock held, and the ticks spent spinning for it.
 //! - **For the reaper**: how many threads it reaped, the ticks spent freeing their kernel stacks
 //!   (outside any lock since 2026-10-04, which is the fix this instrument found), and the ticks
 //!   its final `IPC_TABLES` section held the lock to remove them.
-//! - **For `current_cap` alone**: every call, and the calls whose acquisition found `IPC_TABLES`
-//!   held, with their wait. Every `invoke` makes exactly one such call, so `contended / calls` is
+//! - **For `current_cap` alone**: every call, and the calls whose acquisition found its lock held,
+//!   with their wait. Every `invoke` makes exactly one such call, so `contended / calls` is
 //!   the chance the cheapest syscall waits, and `wait_ticks / calls` is what that costs it on
 //!   average, which is directly comparable with the `null_syscall` job's per-trap growth.
 //!
@@ -63,7 +65,7 @@ static ARMED: AtomicBool = AtomicBool::new(false);
 /// between subruns, when no task is running.
 #[repr(align(64))]
 struct Core {
-    /// Set by `current_cap` around its acquisition of `IPC_TABLES`.
+    /// Set by `current_cap` around its one lock acquisition.
     in_current_cap: AtomicBool,
     cap_calls: AtomicU64,
     cap_contended: AtomicU64,
@@ -121,7 +123,10 @@ pub fn contended(rank: u32, ticks: u64) {
     }
 }
 
-/// `sched::current_cap` is about to take `IPC_TABLES`: count the call and mark the acquisition.
+/// `sched::current_cap` is about to take its lock: count the call and mark the acquisition. That lock
+/// was `IPC_TABLES` until 2026-10-04 UTC and is the running thread's own capability table since, so
+/// `site=current_cap` reads before and after the change with one meaning: how often the cheapest
+/// syscall waited for anything.
 pub fn enter_current_cap() {
     if !ARMED.load(Ordering::Relaxed) {
         return;
@@ -131,7 +136,7 @@ pub fn enter_current_cap() {
     core.in_current_cap.store(true, Ordering::Relaxed);
 }
 
-/// `sched::current_cap` holds `IPC_TABLES` now: any later contended lock on this core is not its.
+/// `sched::current_cap` holds its lock now: any later contended lock on this core is not its.
 pub fn leave_current_cap() {
     here().in_current_cap.store(false, Ordering::Relaxed);
 }
@@ -227,6 +232,7 @@ pub fn rank_name(rank: usize) -> Option<&'static str> {
     use crate::sync::rank as r;
     match u32::try_from(rank).ok()? {
         r::IPC_TABLES => Some("ipc_tables"),
+        r::CAPABILITY_TABLE => Some("capability_table"),
         r::MEMORY_REGION => Some("memory_region"),
         r::ADDRESS_SPACES => Some("address_spaces"),
         _ => None,
