@@ -133,6 +133,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "byte_sink_protocol"
+version = "0.1.0"
+
+[[package]]
 name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -288,6 +292,7 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 name = "fuzz"
 version = "0.0.0"
 dependencies = [
+ "byte_sink_protocol",
  "device_tree_blob",
  "elf",
  "filesystem_protocol",
@@ -299,6 +304,8 @@ dependencies = [
  "redox_syscall",
  "redoxfs",
  "redoxfs_server",
+ "system_log",
+ "system_log_protocol",
 ]
 
 [[package]]
@@ -730,6 +737,18 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "system_log"
+version = "0.1.0"
+dependencies = [
+ "byte_sink_protocol",
+ "system_log_protocol",
+]
+
+[[package]]
+name = "system_log_protocol"
+version = "0.1.0"
 
 [[package]]
 name = "termion"

@@ -80,6 +80,9 @@ redoxfs_server = { path = "../redoxfs_server" }
 redoxfs = { path = "../vendor/redoxfs", default-features = false, features = ["std"] }
 redox_syscall = { version = "0.9.0", default-features = false }
 filesystem_protocol = { path = "../crates/filesystem_protocol" }
+system_log = { path = "../crates/system_log" }
+system_log_protocol = { path = "../crates/system_log_protocol" }
+byte_sink_protocol = { path = "../crates/byte_sink_protocol" }
 
 # **Overflow checks and debug assertions ON in an optimised build**, which is not cargo-fuzz's
 # default profile text but is what its CLI already does. Stated here so the profile is true whatever
@@ -132,6 +135,13 @@ bench = false
 [[bin]]
 name = "package_archive_roundtrip"
 path = "fuzz_targets/package_archive_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "system_log_session"
+path = "fuzz_targets/system_log_session.rs"
 test = false
 doc = false
 bench = false
