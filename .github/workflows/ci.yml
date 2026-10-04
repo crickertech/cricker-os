@@ -1386,7 +1386,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
-    # Build, then six one-minute runs. Generous against a cold `-Zbuild-std`, which compiles the
+    # Build, then seven one-minute runs (six parsers and, since the fuzz-service-handlers lane, the
+    # file server's dispatch). Generous against a cold `-Zbuild-std`, which compiles the
     # standard library with the sanitizer on the first run of the day.
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job

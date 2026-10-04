@@ -68,6 +68,19 @@ globally_unique_identifier_partition_table = { path = "../crates/globally_unique
 http_response = { path = "../crates/http_response" }
 package_archive = { path = "../crates/package_archive" }
 
+# **The services' request handlers** (proposal #1592 part a, `lane/fuzz-service-handlers`). Path
+# dependencies on servers rather than parsers: each target replays a session of requests against the
+# server built on the host. `redoxfs_server`'s default feature is `hosttest`, which brings std RedoxFS
+# (the format a target needs once) and nothing else; its `fuse` default stays off because
+# `redoxfs_server` depends on the engine with `default-features = false`. `redoxfs` and
+# `redox_syscall` are named here only so a target can spell the `Disk` trait and its error type; they
+# resolve to the same vendored engine and the same version `redoxfs_server` already uses, so no crate
+# enters this graph that `script/supply-chain` does not already check through `redoxfs_server`.
+redoxfs_server = { path = "../redoxfs_server" }
+redoxfs = { path = "../vendor/redoxfs", default-features = false, features = ["std"] }
+redox_syscall = { version = "0.9.0", default-features = false }
+filesystem_protocol = { path = "../crates/filesystem_protocol" }
+
 # **Overflow checks and debug assertions ON in an optimised build**, which is not cargo-fuzz's
 # default profile text but is what its CLI already does. Stated here so the profile is true whatever
 # invokes it.
@@ -119,6 +132,13 @@ bench = false
 [[bin]]
 name = "package_archive_roundtrip"
 path = "fuzz_targets/package_archive_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "redoxfs_server_session"
+path = "fuzz_targets/redoxfs_server_session.rs"
 test = false
 doc = false
 bench = false
