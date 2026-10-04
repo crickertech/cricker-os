@@ -262,6 +262,12 @@ soak_test = ["dep:soak_page"]
 # the path a board takes is script/board-image plus script/board-console. See kernel/src/job_mix.rs
 # and script/job-mix. Name provisional.
 job_mix = ["dep:job_mix"]
+# The job mix, plus a count of every kernel lock acquisition that found its lock held and how long it
+# waited, printed as `job-mix-lock:` lines after each sweep point (2026-10-04, for fatal risk 4's
+# `null_syscall` question). Its own feature so the plain job-mix image stays the kernel that ships:
+# this one adds a flag and a counter to every `invoke`. See kernel/src/lock_wait.rs and
+# notes/job-mix/null-syscall-under-load.md. Name provisional.
+lock_wait = ["job_mix"]
 # **Fatal risk 6's bench boot** (milestone 261 (the NVMe driver leaves the kernel)): after the tour, print two preflight verdicts (does
 # the VT-d unit this kernel programs own the NVMe's requester id; does the namespace's LBA size give
 # `blocks_per` in 1..=8), then time the confined EL0 NVMe server's reads and writes and halt with

@@ -344,7 +344,11 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          # `-n "$changed"` first (milestone 641 (a mechanism that reports clean says over how many
+          # units, and zero is loud), provisional): with no changed files the filter below prints
+          # nothing, so an empty set used to read as "documentation only" and skip the build. Zero files is a scope that failed to resolve, so it fails toward building.
+          # Every other copy of this predicate in this file carries the same guard.
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; nothing a build or a boot can catch"
           else
@@ -486,7 +490,7 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; nothing a build or a boot can catch"
           else
@@ -621,7 +625,7 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; nothing a build or a boot can catch"
           else
@@ -730,7 +734,7 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; nothing a build or a boot can catch"
           else
@@ -824,7 +828,7 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; no CPU model can be affected"
           else
@@ -1109,7 +1113,7 @@ jobs:
           [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; no protocol changed"
           else
@@ -1274,7 +1278,7 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; no instruction count can be affected"
           else
@@ -1423,7 +1427,7 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; no parser can be affected"
           else
@@ -1512,7 +1516,7 @@ jobs:
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           changed="$(git diff --name-only "$base" HEAD)"
           echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
+          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "==> documentation only; no coverage can be affected"
           else

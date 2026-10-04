@@ -59,4 +59,40 @@ if grep -v '^[[:space:]]*#' "$here/ci-failing.sh" | grep -Eq 'dequeue|disable-au
 	echo "$me: ci-failing.sh changes the queue or reruns CI; it must only label and comment." >&2
 	exit 1
 fi
+# 4. A large head. A real head has well over a hundred check runs, each a few hundred bytes with
+#    its URLs; 10,000 of them pass Linux's 128 KiB limit on one argument and macOS's 1 MiB total, which the script once
+#    hit by passing the runs as `--argjson` ("Argument list too long", run 37227933655). The whole
+#    pass runs against a stubbed `gh` so the real invocation is the one exercised.
+stub="$(mktemp -d)"
+trap 'rm -rf "$stub"' EXIT
+jq -nc '[range(0; 10000) | {id: ., name: "check \(. % 50)", status: "completed", conclusion: "success",
+	html_url: ("https://github.com/nifeos/nife/actions/runs/1/job/" + ("x" * 60))}]
+	+ [{id: 9999, name: "clippy", status: "completed", conclusion: "failure", html_url: "https://x/9"}]' |
+	jq -c '.[]' >"$stub/runs"
+[ "$(wc -c <"$stub/runs")" -gt 1200000 ] || { echo "$me: the large fixture is not large" >&2; exit 1; }
+cat >"$stub/gh" <<STUB
+#!/bin/sh
+case "\$*" in
+"api repos/nifeos/nife/rulesets --jq"*) echo 1 ;;
+"api repos/nifeos/nife/rulesets/1 --jq"*) echo '["clippy"]' ;;
+"pr list"*) echo '[{"number":7,"isDraft":false,"headRefOid":"aaaaaaaaaaaa","labels":[],"title":"big"}]' ;;
+*check-runs*) cat "$stub/runs" ;;
+*comments*) : ;;
+*) echo "unexpected gh \$*" >&2; exit 1 ;;
+esac
+STUB
+chmod +x "$stub/gh"
+out="$(PATH="$stub:$PATH" CI_FAILING_INSTANCE=selftest "$here/ci-failing.sh" --dry-run 2>&1)" || {
+	echo "$me: ci-failing.sh failed on a large check-run list:" >&2
+	echo "$out" >&2
+	exit 1
+}
+case "$out" in
+*"FAILING #7"*clippy*) ;;
+*)
+	echo "$me: the large head's failing clippy was not reported:" >&2
+	echo "$out" >&2
+	exit 1
+	;;
+esac
 echo "$me: ok"

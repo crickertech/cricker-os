@@ -432,8 +432,28 @@ pub struct Thread {
     ///
     /// So this one stays allowed unconditionally and on purpose: there is no configuration in which
     /// anything reads it, and that is the design rather than a gap (DECISIONS §38, disposition 3).
+    ///
+    /// **One exception to "dropped by the reaper's `remove`"**, since 2026-10-04: the reaper
+    /// (`sched::reap_switched_out`) takes the stack out under `IPC_TABLES` and drops it after
+    /// releasing the lock, because freeing it is six page unmaps, each with a TLB shootdown that
+    /// on riscv64 and x86_64 is a synchronous round of inter-processor interrupts, and every other
+    /// core's IPC and syscalls waited behind it. [`Thread::being_reaped`] is what keeps the thread
+    /// from looking gone while that happens.
     #[allow(dead_code)]
     pub stack: Option<KernelStack>,
+
+    /// **This thread's kernel stack and address space have been taken out and are being freed,
+    /// without `IPC_TABLES` held** (2026-10-04; name provisional). Set by the reaper between taking
+    /// them and removing the thread, and the thread stays in the table, `Finished`, the whole time.
+    ///
+    /// Region teardown reads it as "a core is still standing on this stack": `DESTROY` refuses the
+    /// region passively and the owner's retry succeeds once the reaper has removed the thread. That
+    /// ordering is the point. An owner that sees `DESTROY` succeed may spend the memory at once (the
+    /// job mix's `spawn` job builds its next child immediately), so everything the dead thread held
+    /// must be back before it stops occupying the region. Removing the thread first and freeing
+    /// the stack afterwards ran QEMU's job mix out of kernel memory within a subrun
+    /// (notes/job-mix/null-syscall-under-load.md).
+    pub being_reaped: bool,
 
     /// The low half of memory, as far as this thread is concerned. `None` for a kernel thread,
     /// which has no business at a low address at all.
@@ -496,6 +516,18 @@ pub struct Thread {
     // Added by milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a
     // sender-chosen slot).
     pub cap_delivered: bool,
+
+    /// **Is the receive this thread is parked in a `RECEIVE_CAP`?** `true` only between
+    /// `ipc_receive_cap`'s park, where it is set beside the `cap_delivered` reset, and that
+    /// receive's resume, where it is cleared; so a plain `RECEIVE` always parks with it `false`.
+    /// A sender that meets a parked receiver reads it to decide whether a capability may be
+    /// installed at all: a plain `RECEIVE` never takes one, whichever side reached the rendezvous
+    /// first (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number; calef's
+    /// ruling A, 2026-10-04 UTC). Before it, `ipc_send_cap` and `ipc_call_badged` installed into
+    /// any parked receiver's table, so the answer depended on arrival order. Meaningful only while
+    /// the thread is parked as a receiver. See `sched::ipc_send_cap`.
+    // Name: provisional, this lane's; calef names public items.
+    pub receiving_cap: bool,
 
     /// **Why the last aborted send was aborted, when the reason was a refusal** (milestone 603
     /// (provisional), DECISIONS §101 (notification objects) ruling B). Set beside `handshake.abort()` when a `SEND`,
@@ -712,7 +744,9 @@ impl Thread {
             quota: None,
             outgoing_cap: None,
             cap_delivered: false,
+            receiving_cap: false,
             ipc_refused: false,
+            being_reaped: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -751,7 +785,9 @@ impl Thread {
             quota: None,
             outgoing_cap: None,
             cap_delivered: false,
+            receiving_cap: false,
             ipc_refused: false,
+            being_reaped: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -894,7 +930,9 @@ impl Thread {
                 quota: None,
                 outgoing_cap: None,
                 cap_delivered: false,
+                receiving_cap: false,
                 ipc_refused: false,
+                being_reaped: false,
                 next: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
                 start_args: [0; 3],
@@ -931,7 +969,9 @@ impl Thread {
             quota: None,
             outgoing_cap: None,
             cap_delivered: false,
+            receiving_cap: false,
             ipc_refused: false,
+            being_reaped: false,
             next: None,
             entry: (0, 0),
             start_args: [0; 3],
@@ -948,15 +988,13 @@ impl Thread {
         }
     }
 
-    /// Build this embryo's kernel stack and entry context, making it ready to first run at EL0
+    /// Install this embryo's kernel stack and build its entry context, ready to first run at EL0
     /// (milestone 19c.3, the guts of `START`). The stack is kernel-owned (19c.1: a kernel stack
     /// is kernel infrastructure whoever the thread serves); the context is a faked `switch_to`
     /// frame whose trampoline drops to EL0 at `entry` on `user_sp`, exactly as `thread_trampoline`
-    /// starts a kernel thread's closure. `false` if no kernel stack could be built.
-    pub fn arm_for_start(&mut self) -> bool {
-        let Some(stack) = KernelStack::new() else {
-            return false;
-        };
+    /// starts a kernel thread's closure. The caller builds `stack`, before taking `IPC_TABLES`
+    /// (2026-10-04; see `sched::start_thread_control_block`).
+    pub fn arm_for_start(&mut self, stack: KernelStack) {
         let (entry, user_sp) = self.entry;
         let context = (stack.top() - size_of::<Context>() as u64) as *mut Context;
         // SAFETY: the stack was just mapped read/write, and this is inside it. `arch` owns the
@@ -966,7 +1004,6 @@ impl Thread {
         }
         self.stack = Some(stack);
         self.context = context;
-        true
     }
 }
 

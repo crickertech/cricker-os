@@ -270,6 +270,25 @@ pub unsafe fn force_reset_ranks() {
         .store(rank::NONE, Ordering::Relaxed);
 }
 
+/// **The lock-order panic, out of line and shared by every lock site** (milestone 758 (the IPC
+/// fast paths shrink back inside their band), provisional). An inline `assert!` with a formatted
+/// message built its two-argument `fmt::Arguments` at every `lock()` the optimizer inlined, about
+/// 50 bytes a site on riscv64 and more on x86_64, and every IPC primitive takes `IPC_TABLES` at least
+/// once: measured on 2026-10-04 UTC it was the second-largest single line in
+/// `script/fastpath-footprint`'s closures on all three ISAs. The check itself (one compare, one
+/// branch) is unchanged; only the bytes no healthy kernel ever fetches moved here.
+///
+/// Name: provisional, like every new function in this tree until an architect rules.
+#[cold]
+#[inline(never)]
+fn lock_order_violation(rank: u32, held: u32) -> ! {
+    panic!(
+        "LOCK ORDER VIOLATION: taking a rank-{} lock while holding rank {}. \
+         Locks must be acquired in strictly decreasing rank. See kernel/src/sync.rs.",
+        rank, held,
+    );
+}
+
 /// A spinlock that masks interrupts while it is held, and enforces a global lock order.
 ///
 /// **Every lock in the kernel should be one of these.** See the discipline in
@@ -315,18 +334,31 @@ impl<T> IrqSafeMutex<T> {
         let held_rank = &crate::cpu::current().held_rank;
         let held = held_rank.load(Ordering::Relaxed);
 
-        assert!(
-            self.rank < held,
-            "LOCK ORDER VIOLATION: taking a rank-{} lock while holding rank {}. \
-             Locks must be acquired in strictly decreasing rank. See kernel/src/sync.rs.",
-            self.rank,
-            held,
-        );
+        // The check stays inline and its failure does not: see `lock_order_violation`.
+        if self.rank >= held {
+            lock_order_violation(self.rank, held);
+        }
 
         held_rank.store(self.rank, Ordering::Relaxed);
 
+        // The job mix's lock-wait instrument (`crate::lock_wait`), and nothing in any other build.
+        // `try_lock` first is the same compare-and-swap `lock` opens with, so an acquisition that
+        // finds the lock free costs what it always did; only one that finds it held is timed.
+        #[cfg(feature = "lock_wait")]
+        let guard = match self.inner.try_lock() {
+            Some(guard) => guard,
+            None => {
+                let t0 = crate::arch::timer::now();
+                let guard = self.inner.lock();
+                crate::lock_wait::contended(self.rank, crate::arch::timer::now() - t0);
+                guard
+            }
+        };
+        #[cfg(not(feature = "lock_wait"))]
+        let guard = self.inner.lock();
+
         IrqSafeGuard {
-            guard: ManuallyDrop::new(self.inner.lock()),
+            guard: ManuallyDrop::new(guard),
             irqs_were_enabled,
             previous_rank: held,
         }

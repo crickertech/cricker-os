@@ -100,6 +100,18 @@ for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pr
     }
 done
 
+echo "==> the commit-msg hook (an agent's commit carries a Co-Authored-By trailer)"
+# Milestone 725 (provisional): `.githooks/commit-msg` refuses a commit made under an agent harness
+# (CLAUDECODE=1 or OPENCODE=1) with no trailer. Same reasoning as the pre-push contract above: a
+# hook that is deleted or loses its executable bit stops gating with no signal, so its absence
+# fails here, and its behaviour is proved against a scratch repository (no cargo, so it runs in
+# the pre-push `--no-cargo` mode too).
+[ -x "$lint_root/.githooks/commit-msg" ] || {
+    echo "lint: .githooks/commit-msg is missing or not executable, so agent commits are no longer checked for a trailer" >&2
+    exit 1
+}
+helpers/commit-msg-selftest.sh >/dev/null
+
 # The partition `--no-cargo` relies on, proved against fixtures (no tree, no cargo).
 helpers/lint-no-cargo-selftest.sh >/dev/null
 
@@ -271,10 +283,10 @@ echo "==> clippy: kernel --features cycle_counter_grant (x86_64, the binary only
 cargo clippy -p kernel --features cycle_counter_grant --target x86_64-unknown-none -- \
     -D warnings -A dead_code -A clippy::reversed_empty_ranges
 
-# The four build-mode features that compile clean on x86_64 (see the note above the `bench` line).
+# The five build-mode features that compile clean on x86_64 (see the note above the `bench` line).
 # Each on its own line rather than in the two-ISA loop above, because that loop's `--target` list is
 # aarch64/riscv64 and widening it would also drag `icount` and `fastpath_pad` in, which do not build.
-for feat in shell soak_test job_mix board; do
+for feat in shell soak_test job_mix lock_wait board; do
     echo "==> clippy: kernel --features $feat (x86_64, the binary only; see the note above)"
     cargo clippy -p kernel --features "$feat" --target x86_64-unknown-none -- \
         -D warnings -A dead_code -A clippy::reversed_empty_ranges
@@ -312,14 +324,16 @@ cargo clippy -p components -p fixtures -p user_mode_runtime --target x86_64-unkn
 # empties, which is how milestone 265's crate check passed by checking zero crates. This loop cannot
 # do that -- an empty `for` list is visible in the diff and in the output, since every iteration
 # echoes its own `==>` line -- so removing a feature here is a deletion a reader can see rather than
-# a silence. Count: 7 features x 2 targets = 14 `==>` lines.
+# a silence. Count: 8 features x 2 targets = 16 `==>` lines. `lock_wait` joined on 2026-10-04: it
+# is a measurement build no gate otherwise compiles, and it is the only build that compiles the
+# counting arm of `IrqSafeMutex::lock` and the reaper's timing (kernel/src/lock_wait.rs).
 #
 # On BOTH ISAs since milestone 41. riscv64 was linted only under `watchdog_probe` before, so the
 # whole riscv `shell` boot path (`user::riscv_shell_boot` and the console it builds) was compiled
 # by `cargo xtask` and checked by nobody. Parity is a gate, not an aspiration (DECISIONS §19), and
 # that applies to the gate itself.
 for tgt in aarch64-unknown-none-softfloat riscv64imac-unknown-none-elf; do
-    for feat in shell bench icount board fastpath_pad soak_test cycle_counter_grant; do
+    for feat in shell bench icount board fastpath_pad soak_test cycle_counter_grant lock_wait; do
         echo "==> clippy: kernel --features $feat ($tgt)"
         cargo clippy -p kernel --features "$feat" --target "$tgt" -- -D warnings
     done
@@ -2853,6 +2867,17 @@ python3 "$(dirname "$0")/../helpers/session_steps.py" --selftest
 #     self-test is fixtures only, no stdin and no tree, so it costs nothing to run on every lint.
 echo "==> the CI-poll refusal hook"
 python3 "$(dirname "$0")/../helpers/hooks/refuse-ci-polling" --selftest
+
+# 12b. **A workflow step that swallows its failure says where the failure goes** (milestone 641 (a
+#     mechanism that reports clean says over how many units, and zero is loud), provisional;
+#     helpers/workflow_swallows.py, name provisional). Every `continue-on-error` carries an
+#     `# outcome:` label (re-raised, reported, or exception with a reason) that is checked against
+#     its job, and a pipeline into `tee` has pipefail. The weekly falsification sweep replayed
+#     nothing for three weeks behind exactly those two constructs. Fixtures first, because a green
+#     run looks the same as a check that cannot fire. See notes/denominators.md.
+echo "==> workflow steps that swallow a failure"
+python3 "$(dirname "$0")/../helpers/workflow_swallows.py" --selftest
+python3 "$(dirname "$0")/../helpers/workflow_swallows.py"
 
 # 13. **The kernel links no crate only its tests use, and no fixture unless a feature asks**
 #     (milestone 609 (the system tests leave the kernel crate)). The kernel crate used to link

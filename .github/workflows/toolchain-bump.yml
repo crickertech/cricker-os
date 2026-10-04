@@ -121,7 +121,7 @@ jobs:
       - name: Install both nightlies
         id: install
         if: steps.plan.outputs.skip == 'false'
-        continue-on-error: true
+        continue-on-error: true  # outcome: exception, a missing nightly is upstream's; the pull request says no restamp ran
         run: |
           targets="$(awk -F'"' '/^targets *=/ {for (i = 2; i < NF; i += 2) printf "%s ", $i}' rust-toolchain.toml)"
           for tc in ${{ steps.plan.outputs.stamped }} ${{ steps.plan.outputs.target }}; do
@@ -328,7 +328,7 @@ jobs:
       - name: Install the target nightly
         id: install
         if: steps.plan.outputs.skip == 'false'
-        continue-on-error: true
+        continue-on-error: true  # outcome: exception, a missing nightly is upstream's, so nothing to propose today
         run: |
           rustup toolchain install "${{ steps.plan.outputs.target }}" --profile minimal \
             --component rust-src,llvm-tools,rustfmt,clippy
@@ -354,7 +354,7 @@ jobs:
       - name: Raise the pin and rebuild the std overlay
         id: build
         if: steps.install.outcome == 'success'
-        continue-on-error: true
+        continue-on-error: true  # outcome: reported
         env:
           RUSTUP_TOOLCHAIN: ${{ steps.plan.outputs.target }}
         run: |
@@ -390,7 +390,7 @@ jobs:
       # missing nightly, an infrastructure failure), and the pull request body then says so.
       - name: Fetch the restamp job's floors and report
         if: steps.install.outcome == 'success' && steps.plan.outputs.skip == 'false' && needs.restamp.outputs.verdict != ''
-        continue-on-error: true
+        continue-on-error: true  # outcome: exception, a missing report is stated in the pull request body
         uses: actions/download-artifact@v8
         with:
           name: restamp

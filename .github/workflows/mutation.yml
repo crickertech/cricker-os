@@ -342,7 +342,7 @@ jobs:
       - name: Check the new survivors against the triage record
         id: check
         if: steps.shards.outputs.complete == 'true'
-        continue-on-error: true
+        continue-on-error: true  # outcome: re-raised
         run: |
           mapfile -t dirs < <(find shards -name missed.txt -exec dirname {} \; | sort)
           python3 helpers/mutation_inflow.py check \

@@ -88,6 +88,8 @@
 // is the one that milestone found. They now sit beside the rest of the workload's definition, which
 // both halves of the instrument already read, and `crates/boot_ladder`'s header carries the general
 // argument for why a printed line is a crate rather than a literal.
+#[cfg(feature = "lock_wait")]
+use job_mix::LOCK;
 use job_mix::{
     CENSUS, DONE, ECHO_SERVERS, FAILED, JOB_KINDS, KIND, MAX_TASKS, POINT, REPEATS, STARTED,
     SUBRUN, TASK_SWEEP,
@@ -244,6 +246,8 @@ pub fn run() -> ! {
         let mut samples = [0u64; REPEATS];
         let mut kind_ticks = [0u64; JOB_KINDS];
         let mut region_ticks = [0u64; JOB_KINDS];
+        #[cfg(feature = "lock_wait")]
+        crate::lock_wait::reset();
         for (repeat, sample) in samples.iter_mut().enumerate() {
             let ticks = subrun(report, &go[..tasks]);
             println!("{SUBRUN}tasks={tasks} repeat={repeat} ticks={ticks}");
@@ -276,6 +280,8 @@ pub fn run() -> ! {
                 region_ticks[kind]
             );
         }
+        #[cfg(feature = "lock_wait")]
+        print_lock_wait(tasks);
     }
 
     println!("{DONE}");
@@ -294,6 +300,8 @@ pub fn run() -> ! {
 /// task, the job kind and the refusal, rather than printing a tick count for work that was not
 /// done. The clock has already been read by then, and no number is printed for the point.
 fn subrun(report: sched::RendezvousId, go: &[sched::RendezvousId]) -> u64 {
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::arm();
     let t0 = arch::timer::now();
     for &ep in go {
         sched::ipc_send(ep, [job_mix::GO_RUN, 0, 0]);
@@ -306,6 +314,8 @@ fn subrun(report: sched::RendezvousId, go: &[sched::RendezvousId]) -> u64 {
         }
     }
     let ticks = arch::timer::now() - t0;
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::disarm();
     if let Some((err, who)) = failure {
         let kind = (who >> 32) as usize;
         println!(
@@ -338,6 +348,33 @@ fn breakdown(
             }
         }
     }
+}
+
+/// The `job-mix-lock:` lines for one point: every lock rank some thread found held during a timed
+/// window, then the `current_cap` site. See `crate::lock_wait` for what each number can and cannot
+/// see, and `job_mix::LOCK` for the line's shape.
+#[cfg(feature = "lock_wait")]
+fn print_lock_wait(tasks: usize) {
+    for rank in 0..crate::lock_wait::ranks() {
+        let (contended, wait_ticks) = crate::lock_wait::rank_totals(rank);
+        if contended != 0 {
+            println!(
+                "{LOCK} tasks={tasks} rank={rank} name={} contended={contended} \
+                 wait_ticks={wait_ticks}",
+                crate::lock_wait::rank_name(rank).unwrap_or("-")
+            );
+        }
+    }
+    let (reaps, stack_free_ticks, remove_ticks) = crate::lock_wait::reap_totals();
+    println!(
+        "{LOCK} tasks={tasks} site=reap reaps={reaps} stack_free_ticks={stack_free_ticks} \
+         remove_ticks={remove_ticks}"
+    );
+    let (calls, contended, wait_ticks) = crate::lock_wait::current_cap_totals();
+    println!(
+        "{LOCK} tasks={tasks} site=current_cap calls={calls} contended={contended} \
+         wait_ticks={wait_ticks}"
+    );
 }
 
 /// **Print which of the pool is on which core, one line per core** (the shape milestone 240 gave
