@@ -7,19 +7,16 @@ Dell OptiPlex 7050 Micro, BIOS revision 1.27.0, Service Tag `25XNBM2`, manufactu
 12/22/2017. Every setting below was read off a photograph of the machine's own setup UI, taken by
 calef on 2026-09-04 during the first light of milestone 87 (the x86_64 bare-metal machine) (`notes/x86-uefi-boot.md`).
 
-Provenance, and it is the unreproducible kind. The originals are 70 `.HEIC` files in
-`~/projects/xenon/` on patagonia, calef's machine, named `..._o_IMG_40NN.HEIC`. They are **not in
-this repository** and are not going to be: 120 MB of a format no browser renders, recording a state
-that a single visit to the setup screen can change. This note is the record; the photographs are
-the negatives. Each entry below carries its `IMG_` number so a reader with the originals can go
-back to the frame.
+The originals are 70 `.HEIC` files in `~/projects/xenon/` on patagonia, named
+`..._o_IMG_40NN.HEIC`. They are **not in this repository**: 120 MB of a format no browser renders.
+This note is the record and the photographs are the negatives, so each entry carries its `IMG_` number.
 
-A firmware record is a record of one moment. Anybody who changes a setting at the bench owes
-this file an edit, because the next lane will read it instead of walking to the machine.
+Anybody who changes a setting at the bench owes this file an edit; the next lane reads it instead of
+walking to the machine.
 
 ## What nife depends on
 
-The short list, first, because these are the ones a bench session or a lane actually looks up.
+The short list a bench session looks up.
 
 | Setting | Value | Where | Why nife cares |
 |---|---|---|---|
@@ -42,8 +39,8 @@ The short list, first, because these are the ones a bench session or a lane actu
 | Warnings and Errors | Prompt on Warnings and Errors | IMG_4080 | This machine stops at POST and waits for a keypress. See the hazard below |
 | Enable Keyboard Error Detection | ticked | IMG_4076 | A missing keyboard is one of the things it stops for |
 | Fastboot | Thorough | IMG_4077 | Full hardware and configuration init every boot, which is the setting a bring-up wants |
-| Enable UEFI Network Stack | ticked (2026-10-04) | photos owed | Without it the firmware has no network stack to PXE with. Applied by calef 2026-10-04 UTC; no IMG numbers yet |
-| Integrated NIC | Enabled w/PXE (2026-10-04) | photos owed | The LOM only offers PXE in this mode. Applied by calef 2026-10-04 UTC; no IMG numbers yet |
+| Enable UEFI Network Stack | ticked (2026-10-04) | photos owed | PXE needs a network stack |
+| Integrated NIC | Enabled w/PXE (2026-10-04) | photos owed | The LOM offers PXE only in this mode |
 
 ### 1. Is VT-d enabled? Yes.
 

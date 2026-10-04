@@ -1,6 +1,6 @@
 # Booting x86_64 from real firmware
 
-Milestone 87 (the x86_64 bare-metal machine). The x86_64 port boots under QEMU by PVH, and `notes/x86-port.md`'s `BUGS`
+Milestone 87 (the x86_64 bare-metal machine): the port boots under QEMU by PVH, and `notes/x86-port.md`'s `BUGS`
 already said what that costs:
 
 > PVH is a hypervisor protocol and no real firmware speaks it. Milestone 87's OptiPlex will need a
@@ -659,7 +659,7 @@ admin password is set.
 ### Step 2: the router, once
 
 `bench/xenon-netboot/dnsmasq.conf` is the whole of it, with the reason for every line beside it.
-`dhcp-boot` carries patagonia's address, `192.168.8.138` as of 2026-10-04 (it was `.216`; corrected). Check it against patagonia's actual address first, then apply it.
+Set `dhcp-boot` to patagonia's actual address first (`.138` on 2026-10-04, corrected from `.216`), then apply it.
 
 On OpenWRT, through UCI, which is the form that survives a reboot:
 
