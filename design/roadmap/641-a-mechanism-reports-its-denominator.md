@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-09-23
+built: 2026-10-04
 promoted_from: a-mechanism-reports-its-denominator
 milestone_dependencies: none
 decision_dependencies: none
@@ -20,7 +21,7 @@ Promoted from `design/roadmap/proposals/a-mechanism-reports-its-denominator.md` 
 rather than a bug and whose action items must resolve to something under §210 (a correction of
 error, and its action items are decisions, proposals or milestones).
 
-No hardware, no other milestone, no decision owed. This is work nobody has taken.
+No hardware, no other milestone, no decision owed. Built 2026-10-04 (UTC) by `lane/641-mechanism-denominator`; the per-site labels and the ratio survey are in `notes/denominators.md`.
 
 ## The claim
 
@@ -133,6 +134,59 @@ together are the tree's mechanisms. Extending it further would be speculative.
 have been. The other 29 are a population to label, and labelling them is most of the value, because
 the label is what the next person to add a `|| true` will read.
 
+## What was built
+
+- A gate, rung two. `helpers/workflow_swallows.py` (name provisional), run by `script/lint` as check
+  12b. Every `continue-on-error` carries a `# outcome:` label on its line: `re-raised`, `reported`, or
+  `exception, <reason>`. The first two are checked against the job, and a test on
+  `steps.<id>.conclusion` is refused because it can never fire. A pipeline into `tee` must have
+  pipefail. A new workflow that hides a script's exit fails lint.
+- The 13 sites labelled. The five in `metrics.yml` were outcome swallows with nothing downstream, so
+  a coverage step failing every Monday would have left a carried cell standing. They now share a
+  last step that fails the job after the record is written.
+- Rung one where it was cheap. `script/falsifications --sweep` exits 4 on an empty selection, where
+  it printed `nothing to sweep` and exited 0; `--affected-since` keeps zero as clean. `script/audits`
+  fails an empty cadence table.
+- Two outcome swallows found by labelling the `|| true` population. `architect-label.yml` read a
+  crash of its rules helper (Python's exit 1) as "no rule fired"; the helper now crashes with 3 and
+  an unexamined diff is labelled. `ci.yml`'s nine documentation-only predicates read zero changed
+  files as documentation only; each now needs a non-empty set.
+- The falsification ratio, as the block directed: a survey of the eleven published ratios and what
+  each denominator excludes, in `notes/denominators.md`. `script/falsifications` and the harnesses
+  chart now state the denominator beside the number.
+
+## What proves it
+
+- `helpers/workflow_swallows.py --selftest`: 17 fixtures, each failing case first-class, plus an
+  empty workflow directory that must fail.
+- Replayed against `24a1e0a7b`, the sweep as it first landed, the gate fires on both of its
+  constructs: the unlabelled `continue-on-error` and `| tee sweep.txt` without pipefail.
+- `script/falsifications --sweep no_such_package` exits 0 at the base commit and 4 on this branch.
+- `helpers/architect-label-rules.py --base-rev deadbeef` exits 1 at the base commit, the same as
+  "nothing fired", and 3 on this branch.
+
+## BUGS
+
+`notes/denominators.md` has them. The two that matter: a label can be wrong, since the gate makes
+the decision written rather than correct; and `|| true` is labelled by family there, not gated.
+
+## Architectural parity
+
+Not applicable. This is CI and record tooling; no kernel capability changed.
+
+## Follow-on
+
+- **Recorded.** `|| true` and selectors inside `run:` blocks are ungated; `notes/denominators.md`'s
+  BUGS.
+- **Recorded.** Whether the falsification ratio wants a better denominator (lines, functions,
+  public surface) is open, as the block intended; the survey in `notes/denominators.md` is what
+  makes it answerable.
+- **Recorded.** The exceptions stay quiet: the watcher reports warn and the nightly installs say
+  nothing; `notes/denominators.md`'s BUGS.
+
 ## Index row
 
-From outside, a check that examined nothing looks like a check that found nothing. Proposed: every mechanism that reports clean says over how many units, and zero is loud.
+From outside, a check that examined nothing looks like a check that found nothing. Every
+`continue-on-error` in a workflow now says where its failure goes, checked by `script/lint`, and a
+pipeline into `tee` has pipefail; the falsification sweep and the audit cadence fail on an empty
+selection; every published ratio states what it is of (`notes/denominators.md`).
