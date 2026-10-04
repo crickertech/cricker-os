@@ -4585,7 +4585,31 @@ fn graphical_terminal_session_children(
             cap_delete(report);
             (0, session_term, session_out, Some(session_in), session_term)
         }
-        None => (1, boot_terminal, out, None, term),
+        // **Arm 1 gets the raw half of the boot discipline, not the discipline** (milestone 709
+        // (a graphical terminal session on the no-keyboard arm holds only the raw half of the boot
+        // discipline)). A copy of `boot_terminal` badged `proto::RAW_ONLY_BADGE`, which the
+        // discipline answers `OP_RAWMODE` and `OP_READRAW` on and refuses everything else, so the
+        // session cannot `OP_BYTES` a line the boot shell then runs with the shell's authority.
+        // Minted per launch and deleted below once the session holds its narrowed copy; one slot
+        // for the length of the build, under arm 0's peak (its discipline, pages and report).
+        None => {
+            // SAFETY: the syscall; the kernel checks `GRANT` on `boot_terminal` and that it is
+            // unbadged, and refuses a zero badge.
+            let raw = unsafe {
+                invoke(
+                    boot_terminal,
+                    abi::rendezvous::BADGE,
+                    proto::RAW_ONLY_BADGE,
+                    0,
+                    0,
+                )
+            };
+            let Ok(raw) = u64::try_from(raw) else {
+                drop_caps(&[term, out]);
+                return Err(());
+            };
+            (1, raw, out, None, term)
+        }
     };
 
     // --- the session program itself, born supervised exactly as any job is (`deaths` in the
@@ -4621,18 +4645,19 @@ fn graphical_terminal_session_children(
         },
     )
     .ok() else {
-        drop_caps(&[term, out]);
+        drop_caps(&[term, out, keys_ep]);
         if let Some(p) = in_page {
-            drop_caps(&[keys_ep, out_page, p]);
+            drop_caps(&[out_page, p]);
         }
         return Err(());
     };
     // The wiring's means are spent: the children hold their own narrowed copies, ours were only
-    // the way the wires got strung. `boot_terminal` (arm 1's keystroke endpoint) is *not* one of
-    // them: it is this process's only copy, held for the next session this boot launches.
-    drop_caps(&[term, out]);
+    // the way the wires got strung. `keys_ep` is one of them on both arms (arm 0's session
+    // discipline, arm 1's badged copy). `boot_terminal` itself is *not*: it is this process's only
+    // copy, held for the next session this boot launches.
+    drop_caps(&[term, out, keys_ep]);
     if let Some(p) = in_page {
-        drop_caps(&[keys_ep, out_page, p]);
+        drop_caps(&[out_page, p]);
     }
     if !start_child(session, arm, 0, 0) {
         return Err(());
