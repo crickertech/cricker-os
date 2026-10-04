@@ -6,9 +6,7 @@ vocabularies moved here.*
 
 `design/roadmap/` is one file per milestone and nothing else. The directory listing is the
 index. calef, 2026-09-21: *"I don't think the milestone index table is worth building any more.
-It has too many rows to be digestible as a table."* Asked whether a short curated page should
-replace it: *"Nothing at all. You'll have to read the directory for now. Eventually we'll build a
-website and the project plan will be captured there."*
+It has too many rows to be digestible as a table."*
 
 So there is no `design/roadmap/README.md`. What was in it that is not a row is here: the status
 vocabulary, the frontmatter every block opens with, the follow-on dispositions, the rule that anybody may add a
@@ -54,11 +52,12 @@ You are a lane, you have been given milestone `N`, and you want it on the roadma
 2. Give it a `## Index row` section, conventionally last, beside `## Follow-on` and `## BUGS`,
    holding one paragraph saying why this milestone matters. The Built date is the `built` key.
 
-   The heading still says `Index row` although the index is gone. It is the only place a block
-   states a one-paragraph precis of itself, `script/audits` and `script/fatal-risks` read it
-   through `script/roadmap --index`, and renaming a heading
-   that appears in every block in the directory is an architect's call rather than a lane's.
-3. That is the whole procedure. There is no table to update and no regeneration to wait for.
+   The heading keeps its name although the index is gone (`script/audits` and
+   `script/fatal-risks` still read it); renaming it is an architect's call.
+3. Name what you considered taking, in a `**Reuse:**` line or a `## Reuse` section, or write
+   `none exists` and where you searched. §46 (thin primitives or whole subsystems) makes taking the
+   default outside the kernel and the crates Kani proves; `--check` requires this from 2026-10-05.
+4. That is the whole procedure. There is no table to update and no regeneration to wait for.
 
 ### EXAMPLES
 
@@ -343,6 +342,8 @@ needs_person: no
 Written by <who or what>, from milestone <N>'s block.
 
 **In brief.** <what the work is>
+
+**Reuse:** <what existing code was considered, and why it was or was not taken>
 ```
 
 Promotion is the integrator's, at merge, like every other global name: give the file its number,
