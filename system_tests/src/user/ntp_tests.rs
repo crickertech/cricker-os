@@ -43,7 +43,7 @@ fn witness_image() -> &'static [u8] {
 fn clock() -> clock_service::Wiring {
     let image = program("clock").expect("no clock program in the initrd archive");
     let w = clock_service::start(image);
-    let report = crate::sched::ipc_recv(w.report);
+    let report = crate::sched::ipc_receive(w.report);
     assert!(
         state::is_known(report[1]),
         "the clock service does not know the time, so there is nothing for NTP to correct",
@@ -117,21 +117,21 @@ fn exchange(
         SERVER_IP,
         SERVER_PORT,
     );
-    // The server blocks in its one `send` until this returns, and the client's RECV is queued
+    // The server blocks in its one `send` until this returns, and the client's RECEIVE is queued
     // behind it, so the order here is load-bearing rather than stylistic. The bounded wait is
     // what turns "the client never sent a request" into a failure that names itself instead of
-    // a sixty-second watchdog hang: `ipc_recv` on an endpoint nobody will ever send on does not
+    // a sixty-second watchdog hang: `ipc_receive` on an endpoint nobody will ever send on does not
     // come back.
     assert!(
         wait_for(|| crate::sched::rendezvous_waiting_senders(server.report) > 0),
         "the test server never saw a request: the client failed before it reached the network",
     );
-    let served = crate::sched::ipc_recv(server.report);
+    let served = crate::sched::ipc_receive(server.report);
     assert!(
         wait_for(|| crate::sched::rendezvous_waiting_senders(client) > 0),
         "the client never reported: it is still blocked somewhere in the exchange",
     );
-    let reported = crate::sched::ipc_recv(client);
+    let reported = crate::sched::ipc_receive(client);
     (served, reported)
 }
 
@@ -368,7 +368,7 @@ fn an_ntp_client_holds_no_writable_clock_page() {
         clock_service::CLOCK_VA,
     );
 
-    let [tag, va, ..] = crate::sched::ipc_recv(report);
+    let [tag, va, ..] = crate::sched::ipc_receive(report);
     assert_eq!(tag, rpt::PROBING, "the witness never reached its write");
     assert_eq!(va, clock_service::CLOCK_VA);
 
@@ -472,14 +472,14 @@ fn without_entropy_the_client_refuses_rather_than_guessing() {
     );
 
     // Bounded, because the failure this test guards against is a client that carries on: it
-    // would block in the network it should never have reached, and an unbounded `ipc_recv` here
+    // would block in the network it should never have reached, and an unbounded `ipc_receive` here
     // would report that as a watchdog hang rather than as the refusal that did not happen.
     assert!(
         wait_for(|| crate::sched::rendezvous_waiting_senders(report) > 0),
         "the client neither refused nor reported: with no nonce it can trust, it went to the \
          network anyway and is blocked there",
     );
-    let reported = crate::sched::ipc_recv(report);
+    let reported = crate::sched::ipc_receive(report);
     assert_eq!(
         reported[0],
         rpt::NO_ENTROPY,

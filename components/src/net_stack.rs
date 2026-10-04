@@ -48,8 +48,8 @@ use smoltcp::time::Instant;
 use smoltcp::wire::{EthernetAddress, HardwareAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address};
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    Delivered, cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now, recv_request,
-    reply, send, timer_arm, timer_cancel,
+    Delivered, cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now,
+    receive_request, reply, send, timer_arm, timer_cancel,
 };
 
 #[path = "net_transport.rs"]
@@ -224,7 +224,7 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
     let mut frame_window: [Option<MappedWindow>; MAX_SOCKETS] = [None; MAX_SOCKETS];
     let mut ports = PortAllocator::new();
     loop {
-        let req = recv_request(STACK);
+        let req = receive_request(STACK);
         let (w0, w1) = (req.w0, req.w1);
         let op = req_op(w0);
         let sid = req_sid(w0) as usize;
@@ -309,8 +309,8 @@ fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
                 reply(cap_slot, rep, 0);
             }
 
-            OP_RECV => {
-                let rep = sock_recv(&mut iface, &mut dev, &mut sockets, &socks, sid);
+            OP_RECEIVE => {
+                let rep = sock_receive(&mut iface, &mut dev, &mut sockets, &socks, sid);
                 reply(cap_slot, rep, 0);
             }
 
@@ -468,7 +468,7 @@ fn wait_for_nic(
     if timer_arm(RETRANSMIT, now().saturating_add(ticks), WAKE, 1) == 0 {
         irq_wait(IRQ); // 1: a frame; BOUND: the deadline
         // Whichever ended the wait, leave nothing behind: disarm, and clear a fire that raced the
-        // frame, so a stale deadline never ends the next `recv_cap(STACK)` as a bound delivery.
+        // frame, so a stale deadline never ends the next `receive_cap(STACK)` as a bound delivery.
         if timer_cancel(RETRANSMIT) == 0 {
             notification_poll(WAKE);
         }
@@ -536,7 +536,7 @@ fn udp_sendto(
     REP_OK
 }
 
-fn sock_recv(
+fn sock_receive(
     iface: &mut Interface,
     dev: &mut net_transport::VirtioNet,
     sockets: &mut SocketSet,

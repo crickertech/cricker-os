@@ -1,7 +1,7 @@
 //! **The queue broker: the latency ladder's middle rung** (milestone 23, DECISIONS §41).
 //!
 //! The default rung has no process in it at all: a client CALLs a stable endpoint, whoever is
-//! parked in `RECV_CAP` on it answers, and a swap changes who that is. That costs nothing, and it
+//! parked in `RECEIVE_CAP` on it answers, and a swap changes who that is. That costs nothing, and it
 //! is what `swapper`'s direct system uses. It has one property a producer may not be able to live
 //! with: while nobody is receiving, a caller **blocks**. Its request is safe (it parks on the
 //! endpoint's own sender queue and the next server drains it), but the caller is stopped until then.
@@ -114,7 +114,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
         // is advisory, and the supervisor never waits for it)). A signal only wakes us when idle; a
         // request that arrives first finds the page already written, and a signal we never see
         // costs latency and nothing else.
-        let got = user_mode_runtime::recv_request_bound(FRONT);
+        let got = user_mode_runtime::receive_request_bound(FRONT);
         let wants_down = swap_protocol::broker_wants_down();
         if wants_down && up {
             up = false;

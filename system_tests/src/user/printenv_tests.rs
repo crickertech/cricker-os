@@ -53,7 +53,7 @@ fn spawn_printenv(page: Option<u64>) -> RendezvousId {
 fn line(out: RendezvousId, buf: &mut [u8; 128]) -> usize {
     let mut len = 0usize;
     loop {
-        let words = crate::sched::ipc_recv(out);
+        let words = crate::sched::ipc_receive(out);
         let count = words[0] as usize;
         assert!(
             (1..=16).contains(&count),

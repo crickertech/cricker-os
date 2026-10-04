@@ -38,7 +38,7 @@ fn spawn_uuid_holding_no_entropy() -> RendezvousId {
 /// `printenv_tests::line`'s reader with the framing left visible, because this test needs to see
 /// **where the stream ends** and not only what a line said.
 fn chunk(out: RendezvousId, buf: &mut [u8; 16]) -> Option<usize> {
-    let words = crate::sched::ipc_recv(out);
+    let words = crate::sched::ipc_receive(out);
     if words[0] == byte_sink_protocol::eof() {
         return None;
     }

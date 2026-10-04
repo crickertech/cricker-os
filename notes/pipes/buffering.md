@@ -24,7 +24,7 @@ more useful than "no".
 
 `bench: sink_throughput` (`kernel/src/bench.rs`) is a pipeline with the shell taken out: two EL0
 processes, one endpoint, the left one packing sixteen bytes into a sink message and `SEND`ing, the
-right one `RECV`ing and self-timing. `bench/host/pipe_throughput.rs` is the same shape over a real
+right one `RECEIVE`ing and self-timing. `bench/host/pipe_throughput.rs` is the same shape over a real
 `pipe(2)`, twice, because only one of the two arms is apples to apples.
 
 Apple Silicon, one machine, one sitting. nife under HVF (`cargo xtask bench --real`), so the

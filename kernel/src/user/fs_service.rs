@@ -381,7 +381,7 @@ fn wire_servers(
     // Window 0 is the default, not a claimable channel: mark it taken so `claim_window` skips it.
     WINDOW_TAKEN.store(1, core::sync::atomic::Ordering::Relaxed);
     let file_ep = crate::sched::create_rendezvous(); // client WRITE (CALL) -> FS server READ
-    let ready = crate::sched::create_rendezvous(); // FS server WRITE -> the kernel test RECVs
+    let ready = crate::sched::create_rendezvous(); // FS server WRITE -> the kernel test receives
     spawn_fs_server(
         fs_server_image,
         FsServer {
@@ -466,7 +466,7 @@ pub(super) fn spawn_block_server(
     let blk_shared = dma + FRAME_SIZE; // the data pages start right after the rings page
 
     let blk_ep = crate::sched::create_rendezvous(); // FS server WRITE (CALL) -> block server READ
-    let blk_ready = crate::sched::create_rendezvous(); // block server WRITE -> the kernel test RECVs
+    let blk_ready = crate::sched::create_rendezvous(); // block server WRITE -> the kernel test receives
 
     let irq_ep = crate::sched::create_rendezvous();
     crate::sched::bind_irq(dev.intid, irq_ep);
@@ -497,7 +497,7 @@ pub(super) fn spawn_block_server(
                 arg1: dma, // the DMA region's physical address
                 arg2: 0,
                 grants: &[
-                    rendezvous_cap(blk_ep, Rights::READ), // slot 0: RECV blk requests
+                    rendezvous_cap(blk_ep, Rights::READ), // slot 0: RECEIVE blk requests
                     irq_cap(dev.intid),                   // slot 1: the device interrupt
                     virtio_cap(vid),                      // slot 2: the confined transport
                     rendezvous_cap(blk_ready, Rights::WRITE), // slot 3: signal readiness once
@@ -635,7 +635,7 @@ fn spawn_fs_server(fs_server_image: &'static [u8], cfg: FsServer) {
                 grants: &[
                     memory_region_cap(budget), // slot 0: the heap's untyped budget
                     rendezvous_cap(cfg.blk_ep, Rights::WRITE), // slot 1: CALL the block server
-                    rendezvous_cap(cfg.file_ep, Rights::READ), // slot 2: RECV file requests
+                    rendezvous_cap(cfg.file_ep, Rights::READ), // slot 2: RECEIVE file requests
                     rendezvous_cap(cfg.ready, Rights::WRITE), // slot 3: signal readiness once
                 ],
                 maps: &maps[..used],
@@ -935,13 +935,13 @@ pub fn wait_for_service(readiness: Readiness) {
     // has been drained by whoever started it and there is nothing here to wait for.
     if let Some(blk_ready) = blk_ready {
         assert_eq!(
-            crate::sched::ipc_recv(blk_ready)[0],
+            crate::sched::ipc_receive(blk_ready)[0],
             filesystem_protocol::fixture::READY,
             "the block server did not bring the RedoxFS device up",
         );
     }
     assert_eq!(
-        crate::sched::ipc_recv(fs_ready)[0],
+        crate::sched::ipc_receive(fs_ready)[0],
         filesystem_protocol::fixture::READY,
         "the FS server did not open the RedoxFS image",
     );
@@ -972,7 +972,7 @@ pub fn wait_for_service(readiness: Readiness) {
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 fn wait_for_caretaker(caretaker_ready: RendezvousId) {
     assert_eq!(
-        crate::sched::ipc_recv(caretaker_ready)[0],
+        crate::sched::ipc_receive(caretaker_ready)[0],
         filesystem_protocol::fixture::READY,
         "the caretaker could not open what it was granted, so there is nothing to attenuate",
     );
@@ -1213,7 +1213,7 @@ pub fn narrow_dir(
 /// [`narrow_dir`], **with a caretaker the caller can end** (milestone 121 (`ripgrep` on nife:
 /// enumeration as a capability)).
 ///
-/// [`narrow_dir`]'s caretaker parks in `RECV` on an endpoint no region owns, so it lives for the
+/// [`narrow_dir`]'s caretaker parks in `RECEIVE` on an endpoint no region owns, so it lives for the
 /// boot. That is fine for a test that grants one directory and was a frame-ledger failure for one
 /// that grants two more: the aarch64 suite ran out of page frames three tests later. Here both
 /// endpoints come out of a region of their own, `display_service`'s shape and for its reason,
@@ -1522,7 +1522,7 @@ pub fn start_shared_frame_witness(
     };
 
     // Spawn a witness client. Slot layout FILE=0 (the FS endpoint), REPORT=1, SYNC=2 (`READ|WRITE`
-    // so a role can both `SEND` and `RECV`). It maps its own window's frame at `FILE_VA_CLIENT`.
+    // so a role can both `SEND` and `RECEIVE`). It maps its own window's frame at `FILE_VA_CLIENT`.
     //
     // Two shapes of the FILE endpoint, so the test covers both (milestone 599): a client that
     // **mints its own badge** gets an unbadged endpoint with `GRANT` and its window index in `arg1`,
@@ -1560,7 +1560,7 @@ pub fn start_shared_frame_witness(
     };
 
     // The victim first, so it is parked in its first `SEND` on the sync endpoint before the attacker
-    // runs; the attacker's first act is a `RECV` on the same endpoint, so the order they start in
+    // runs; the attacker's first act is a `RECEIVE` on the same endpoint, so the order they start in
     // does not change the handshake, but starting the victim first keeps the ordering obvious. The
     // victim mints its own badge (exercising the mint syscall); the attacker is handed a pre-badged
     // endpoint (the progenitor's shape). The attacker never calls the server, so its badge is

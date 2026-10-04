@@ -67,7 +67,7 @@
 //! # BUGS
 //!
 //! - **Holding the domain with `READ` was more authority than looking needs. Fixed 2026-08-17**, and
-//!   the entry is kept because the shape recurs. `READ` on a supervision endpoint is also what `RECV`
+//!   the entry is kept because the shape recurs. `READ` on a supervision endpoint is also what `RECEIVE`
 //!   and `abi::rendezvous::REAP` take, so a `ps` endowed a view could have taken a death message out
 //!   from under the real supervisor or collected a corpse, and this binary's own source was the whole
 //!   argument that it did not. `abi::rights::ENUMERATE` is the right it holds now, and the lane that

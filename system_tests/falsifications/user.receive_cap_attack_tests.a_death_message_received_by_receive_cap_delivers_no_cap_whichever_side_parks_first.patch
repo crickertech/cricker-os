@@ -1,24 +1,26 @@
-Falsifies `system_tests::user::recv_cap_attack_tests::an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first`.
+Falsifies `system_tests::user::receive_cap_attack_tests::a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_first`.
 
 Architecture: all three (the change is in shared scheduler code, `kernel/src/sched.rs`).
 
-The defect this restores is the receiver-first order of an interrupt signal: `irq_notify` drops
-`[1, 0, 0, 0, 0]` into a parked receiver's mailbox, and with the `cap_delivered` default reverted
-`ipc_recv_cap` returns it unchanged, so `x1 = 0`, where the signal-pending order returns `NO_CAP`.
+The defect this restores is the receiver-first order of a death message: `deliver_death` drops
+`[event, tid, pc, addr, 0]` into a parked supervisor's mailbox, and with the `cap_delivered` default
+reverted `ipc_receive_cap` returns it unchanged, so `x1` is the dead thread's id, where the corpse-first
+order returns `NO_CAP`.
 
-Expected to fail: `assert_eq!(RECEIVER_X1, abi::rendezvous::NO_CAP, "an interrupt signal handed the
-receiver x1 = 0 on the receiver-first order ...")`. The `w0 == 1` check before it and the
-signal-first half after it stay green, which is what makes the red about the order.
+Expected to fail: `assert_eq!(SUPERVISOR_MSG[1], abi::rendezvous::NO_CAP, "a death message handed the
+supervisor x1 = <tid> on the receiver-first order ...")`. The event check before it stays green, which
+makes the red about `x1` and not a fixture that never delivered; the `x2 == child` check after it
+would also fail under the patch (the raw mailbox puts the pc in `x2`), and is not the headline.
 
-The patch is the hunk of milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a
-sender-chosen slot), byte for byte: `ipc_recv_cap`'s receiver-first read is the one place all three deliveries
+The patch is the hunk of milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a
+sender-chosen slot), byte for byte: `ipc_receive_cap`'s receiver-first read is the one place all three deliveries
 (a plain SEND, an interrupt signal, a death message) meet, so reverting it is the only defect that
-puts back what this test pins. That the same revert turns the interrupt test red is the evidence that this
+puts back what this test pins. That the same revert turns the death test red is the evidence that this
 test, and not only 634's, reaches the default. The hunk's context cites milestone 151 (notification
 objects: async multiplexing without wait-any), whose bound-notification tag the fix exempts, and milestone 706 (a `CALL` server can tell a Reply from a delegation),
 whose `x4` comment sits in the hunk's context.
 
-Replayed on 2026-10-03 (UTC) by the lane for milestone 714 (the sibling RECV_CAP paths get a receiver-first test); see the roadmap block for the exit code and
+Replayed on 2026-10-03 (UTC) by the lane for milestone 714 (the sibling RECEIVE_CAP paths get a receiver-first test); see the roadmap block for the exit code and
 the assertion line.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs

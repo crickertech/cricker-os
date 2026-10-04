@@ -31,7 +31,7 @@ fn a_userspace_program_reads_the_frequency_the_kernel_measured() {
     let report = crate::sched::create_rendezvous();
     let init = spawn_hello(initrd().expect("no initrd"), INIT_COREMARK_ROLE, report);
 
-    let [_crc, _ticks, freq, _, _] = crate::sched::ipc_recv(report);
+    let [_crc, _ticks, freq, _, _] = crate::sched::ipc_receive(report);
     let kernel = crate::arch::timer::frequency();
     assert_eq!(
         freq, kernel,

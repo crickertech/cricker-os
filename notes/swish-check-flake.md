@@ -210,14 +210,14 @@ One sentence answers for all fourteen, so a transcript cannot say which fired.
 body is whole, folding every read through `Response::feed`, a byte-stream reader that holds only the
 head. A host test feeds one real response at every split length, and the fuzzer asserts on 46 million
 inputs that status, body and verdict never depend on where the reads fell
-(fuzz/fuzz_targets/http_response_feed.rs). No read assumes it fills anything: `OP_RECV` returns
+(fuzz/fuzz_targets/http_response_feed.rs). No read assumes it fills anything: `OP_RECEIVE` returns
 whatever smoltcp had buffered, at most the 2,048-byte socket buffer, and any length from one byte to
 `DATA_MAX` is accepted. The one length prefix, `Content-Length`, is parsed from the accumulated head
 only after the blank line, so a split head cannot misread it. The declaration bounds the staging
 carve, the copy, and completion itself: `Ok` only at exactly that many body bytes, more refused,
 zero or oversized refused before anything is carved.
 
-The timing bounds are real and were not hit. Each `OP_RECV` and the connect wait inside
+The timing bounds are real and were not hit. Each `OP_RECEIVE` and the connect wait inside
 `service_until`'s 15 s bound (components/src/net_stack.rs), under the gate's 30 s per line. Both
 transcripts that kept their timings rule a timeout out more cheaply: the failing line is absent from
 the gate's own slowest-three (floors 1.0 s and 0.6 s) and the legs ran 26.3 s and 25.8 s in total.

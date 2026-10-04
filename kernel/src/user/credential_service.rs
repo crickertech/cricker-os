@@ -202,7 +202,7 @@ fn spawn_cli(
         )
     })
     .expect("could not spawn a credential client");
-    crate::sched::ipc_recv(report)
+    crate::sched::ipc_receive(report)
 }
 
 /// Allocate one fresh shared frame. Every caller keeps the return value itself (in a `Wiring`

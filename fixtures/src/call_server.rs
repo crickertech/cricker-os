@@ -1,6 +1,6 @@
 //! **The Call/Reply server**, milestone 12.
 //!
-//! Holds `RECV` on a request endpoint (slot 0) and a report endpoint (slot 1). It answers one
+//! Holds `RECEIVE` on a request endpoint (slot 0) and a report endpoint (slot 1). It answers one
 //! caller it was never individually wired to, then proves the reply capability is one-shot by
 //! trying to use it a second time and reporting that the kernel refused.
 //!
@@ -25,14 +25,14 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{exit, invoke, recv_request, reply, send};
+use user_mode_runtime::{exit, invoke, receive_request, reply, send};
 
 const ENDPOINT: u64 = 0;
 const REPORT: u64 = 1;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
-    let req = recv_request(ENDPOINT);
+    let req = receive_request(ENDPOINT);
     let (w0, w1) = (req.w0, req.w1);
     // The kernel tagged this delivery as a CALL's Reply (milestone 706 (a `CALL` server can tell a
     // Reply from a delegation)), or this is no CALL.

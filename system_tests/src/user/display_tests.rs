@@ -66,7 +66,7 @@ fn a_confined_userspace_driver_puts_a_known_pattern_in_a_framebuffer() {
 
     // 1. The driver came up: device enumerated, resource created and backed, scanout set. Taken
     //    first because these are rendezvous SENDs, so the driver is parked here until we look.
-    let [tag, geometry, display, ..] = sched::ipc_recv(driver_report);
+    let [tag, geometry, display, ..] = sched::ipc_receive(driver_report);
     assert_eq!(
         tag,
         gfx::status::UP,
@@ -87,7 +87,7 @@ fn a_confined_userspace_driver_puts_a_known_pattern_in_a_framebuffer() {
     //    space after the device completed the transfer. This must be taken BEFORE the client's
     //    verdict: the driver blocks in this SEND right after replying to the first flush, so a
     //    test that waited on the client first would deadlock against the client's second CALL.
-    let [tag, driver_digest, pixels, ..] = sched::ipc_recv(driver_report);
+    let [tag, driver_digest, pixels, ..] = sched::ipc_receive(driver_report);
     assert_eq!(
         tag,
         gfx::status::FLUSHED,
@@ -106,7 +106,7 @@ fn a_confined_userspace_driver_puts_a_known_pattern_in_a_framebuffer() {
     );
 
     // 3. The client's verdict: the surface read back through its own mapping after the flush.
-    let [tag, client_digest, mismatch, ..] = sched::ipc_recv(client_report);
+    let [tag, client_digest, mismatch, ..] = sched::ipc_receive(client_report);
     assert_eq!(
         tag,
         gfx::status::PAINTED,
@@ -204,7 +204,7 @@ fn a_backing_outside_the_grant_is_refused_by_the_iommu() {
          so the test would pass or fail on a fiction",
     );
 
-    let [tag, response, ..] = sched::ipc_recv(report);
+    let [tag, response, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         gfx::status::BACKING,
@@ -299,7 +299,7 @@ fn a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_scanout() {
     };
 
     // The driver came up. Taken first: these are rendezvous SENDs, so the driver is parked here.
-    let [tag, geometry, ..] = sched::ipc_recv(w.driver_report);
+    let [tag, geometry, ..] = sched::ipc_receive(w.driver_report);
     assert_eq!(
         tag,
         gfx::status::UP,
@@ -309,7 +309,7 @@ fn a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_scanout() {
 
     // The terminal negotiated its geometry from the driver rather than assuming it, and got the
     // grid the script is written for.
-    let [tag, dims, mode, ..] = sched::ipc_recv(w.term_report);
+    let [tag, dims, mode, ..] = sched::ipc_receive(w.term_report);
     assert_eq!(
         tag,
         video_terminal::status::TERM_UP,
@@ -340,7 +340,7 @@ fn a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_scanout() {
     // declare a same-named function-local static begins (the harness runs test cases
     // sequentially); nothing else in this process can reach `BLANK`.
     let blank: &video_terminal::Vt = unsafe { &*blank_ptr };
-    let [tag, driver_digest, pixels, ..] = sched::ipc_recv(w.driver_report);
+    let [tag, driver_digest, pixels, ..] = sched::ipc_receive(w.driver_report);
     assert_eq!(tag, gfx::status::FLUSHED, "the driver served no flush");
     assert_eq!(pixels, gfx::PIXELS as u64);
     assert_eq!(
@@ -473,7 +473,7 @@ fn a_keystroke_from_a_virtio_keyboard_becomes_a_terminal_byte() {
          unconfined, and a keyboard's buffers are where every keystroke lands",
     );
 
-    let [tag, buffers, ..] = sched::ipc_recv(w.report);
+    let [tag, buffers, ..] = sched::ipc_receive(w.report);
     assert_eq!(
         tag,
         video_terminal::status::KEYBOARD_UP,
@@ -588,7 +588,7 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
 
     let w = display_service::start_screen_terminal(driver, terminal, screen)
         .expect("a 21x352 screen should be wired");
-    let [tag, geometry, ..] = sched::ipc_recv(w.driver_report);
+    let [tag, geometry, ..] = sched::ipc_receive(w.driver_report);
     assert_eq!(
         tag,
         gfx::status::UP,
@@ -601,7 +601,7 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     );
     let cols = WIDTH / bitmap_font::GLYPH_W;
     let rows = gfx::HEIGHT / bitmap_font::GLYPH_H;
-    let [tag, dims, ..] = sched::ipc_recv(w.term_report);
+    let [tag, dims, ..] = sched::ipc_receive(w.term_report);
     assert_eq!(
         tag,
         video_terminal::status::TERM_UP,

@@ -4,7 +4,7 @@
 //! A subtree grant used to be enforced by a process: `fs_subtree_caretaker` sat between the client
 //! and the filesystem server, held the only endpoint that named the server, and kept the client's
 //! handles in a table of its own. Ruling D lets an eligible server do that itself, keyed on the
-//! badge milestone 599 (a frame per filesystem client channel) put on `RECV_CAP`, and saves the
+//! badge milestone 599 (a frame per filesystem client channel) put on `RECEIVE_CAP`, and saves the
 //! caretaker's round trip. The ruling's terms are what this crate is for:
 //!
 //! - **One shared crate.** Every eligible server resolves every path through [`walk`] and every

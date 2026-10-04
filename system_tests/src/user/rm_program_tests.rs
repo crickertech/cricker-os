@@ -57,7 +57,7 @@ fn run_rm(rights: u64, name: &str, flags: u64) -> Option<Outcome> {
     // index is the number of text frames that arrived first. That is the quantity being
     // reported, so this is not merely appeasing the lint.
     for (printed, _) in (0..MAX_MESSAGES).enumerate() {
-        let [w0, w1, w2, _, _] = sched::ipc_recv(report);
+        let [w0, w1, w2, _, _] = sched::ipc_receive(report);
         // **The stream's end carries the verdict** (2026-08-17): `rm` declares the sink contract
         // and now speaks it, so the last message is `byte_sink_protocol::eof()` with the status and the
         // count in the two words that contract leaves free. It cannot collide with a text frame,

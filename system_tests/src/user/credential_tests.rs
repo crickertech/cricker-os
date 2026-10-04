@@ -57,7 +57,7 @@ pub(super) fn provisioned() -> Option<(cs::Wiring, [u64; 3], [u64; 3])> {
             .expect("no credentialer_test_client program in the initrd archive");
         let w = cs::start(svc, e.request);
         let report = cs::provisioner(cli, &w);
-        let ready = crate::sched::ipc_recv(w.ready);
+        let ready = crate::sched::ipc_receive(w.ready);
         for (slot, v) in SAVED.iter().zip([
             w.ready,
             w.verify,

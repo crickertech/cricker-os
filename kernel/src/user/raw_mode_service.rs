@@ -39,18 +39,18 @@ pub struct Wiring {
 /// except that the input driver and the application are both played by the caller.
 ///
 /// The fake console speaks only the one protocol `line_editor`'s `Con::flush` needs: `SEND` a
-/// count, `RECV` an ack (not a `CALL`; `components/src/line_editor.rs`'s own module doc explains why
+/// count, `RECEIVE` an ack (not a `CALL`; `components/src/line_editor.rs`'s own module doc explains why
 /// that hop is safe with exactly one client). It never inspects the shared page; a test checks
 /// that directly through [`Wiring::console_phys`], which is the point: a fake that graded its own
 /// homework would prove nothing about echo suppression.
 ///
 /// **Returns a [`Holding`] alongside the wiring, and a caller must release it.** Both the fake
-/// console and `line_editor` block forever (the console in `RECV`, `line_editor` waiting on its
+/// console and `line_editor` block forever (the console in `RECEIVE`, `line_editor` waiting on its
 /// next request): neither ever exits on its own, exactly `virtio_service`'s own `wire_net_server`
 /// shape (see its doc comment on `ep_region`). So `TERM`/`CONREQ`/`CONREP` are minted from a
 /// region the `Holding` also carries, not from `sched::create_rendezvous`'s kernel-global pool:
 /// reclaiming that region is what actually wakes a `Blocked` thread (`kill_thread`'s armed flag is
-/// only spent in `schedule()`, which a thread parked in `RECV` never reaches). Found the hard way
+/// only spent in `schedule()`, which a thread parked in `RECEIVE` never reaches). Found the hard way
 /// on 2026-08-27: six tests calling this and none releasing it left twelve threads permanently
 /// `Blocked` at 128/128 in the whole-suite thread table, so the thirteenth spawn anywhere in the
 /// suite (an unrelated FS client, `fs_service.rs`) failed with `could not spawn`. See
@@ -94,7 +94,7 @@ fn start_with(replaceable: bool) -> (Wiring, Holding) {
 
     let console_tid = sched::spawn(move || {
         loop {
-            sched::ipc_recv(conreq);
+            sched::ipc_receive(conreq);
             sched::ipc_send(conrep, [0, 0, 0]);
         }
     })
@@ -102,10 +102,10 @@ fn start_with(replaceable: bool) -> (Wiring, Holding) {
 
     let line_editor_tid = sched::spawn(move || {
         let all = [
-            rendezvous_cap(term, Rights::READ),    // slot 0: TERM, RECV_CAP
+            rendezvous_cap(term, Rights::READ),    // slot 0: TERM, RECEIVE_CAP
             rendezvous_cap(conreq, Rights::WRITE), // slot 1: CONREQ, SEND
-            rendezvous_cap(conrep, Rights::READ),  // slot 2: CONREP, RECV
-            rendezvous_cap(control, Rights::READ), // slot 3: control, RECV (replaceable only)
+            rendezvous_cap(conrep, Rights::READ),  // slot 2: CONREP, RECEIVE
+            rendezvous_cap(control, Rights::READ), // slot 3: control, RECEIVE (replaceable only)
         ];
         run(
             image,

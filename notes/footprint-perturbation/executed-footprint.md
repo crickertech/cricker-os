@@ -22,7 +22,7 @@ halves of that ruling are recorded at `L1I` and `TARGET` in `script/fastpath-foo
 
 Where the path stands, from `bench/fastpath-riscv64.txt` (saved 2026-09-26 under
 `nightly-2026-09-26`): `ipc_call_reply` 6,116 bytes (1.49x the target, 19% of the L1i) and
-`ipc_send_recv` 4,778 bytes (1.17x).
+`ipc_send_receive` 4,778 bytes (1.17x).
 
 ## Why E3 cannot answer it, even under the control
 
@@ -178,7 +178,7 @@ beyond every required rung, so no outcome here moves it.
 
 ## If the code has to shrink, what goes first
 
-Outlining milestone 151 (notification objects)'s bound-notification receive check off `ipc_recv`'s
+Outlining milestone 151 (notification objects)'s bound-notification receive check off `ipc_receive`'s
 common path looks like the obvious first move, and it is already done. `take_bound_signal` in
 `kernel/src/sched.rs` is `#[cold]` and `#[inline(never)]`, and DECISIONS §101 (notification objects)
 priced what remains on the path at one load and one branch.

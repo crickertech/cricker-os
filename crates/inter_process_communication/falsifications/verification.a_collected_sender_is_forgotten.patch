@@ -18,4 +18,4 @@ diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_proces
          } else if let Some(sender) = self.senders.pop_front() {
 +            // SAFETY: just popped from this queue, so it is valid and on no queue.
 +            unsafe { self.senders.push_back(sender) };
-             Recv::FromSender(sender)
+             Receive::FromSender(sender)

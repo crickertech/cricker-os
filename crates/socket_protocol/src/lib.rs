@@ -18,20 +18,20 @@
 //!
 //! ```text
 //!   +0x000  u8[4]  dst_ip      destination address, octets (SENDTO / CONNECT);
-//!                              source address on a UDP RECV reply
+//!                              source address on a UDP RECEIVE reply
 //!   +0x004  u16    dst_port    destination port, little-endian (SENDTO / CONNECT);
-//!                              source port on a UDP RECV reply
-//!   +0x006  u16    len         payload length, in for SEND*/out for RECV
+//!                              source port on a UDP RECEIVE reply
+//!   +0x006  u16    len         payload length, in for SEND*/out for RECEIVE
 //!   +0x008  ...    payload     up to DATA_MAX bytes
 //! ```
 //!
-//! **A UDP `RECV` reply carries the datagram's source endpoint** in the `dst_ip`/`dst_port`
+//! **A UDP `RECEIVE` reply carries the datagram's source endpoint** in the `dst_ip`/`dst_port`
 //! fields. Those fields are request state that the reply never needed until a server-shaped
 //! client existed: a UDP responder must see who asked, both to answer unicast and because mDNS's
 //! semantics turn on the querier's source port (RFC 6762 §6.7, legacy unicast). The fields are
 //! dead space on a reply, so the source rides there with no format change; a client that only
 //! ever speaks to one peer can keep ignoring them, at the cost of re-writing the destination
-//! before its next `SENDTO`. On a TCP `RECV` they are untouched: the peer is fixed by the
+//! before its next `SENDTO`. On a TCP `RECEIVE` they are untouched: the peer is fixed by the
 //! connection and already known to whoever made or accepted it.
 //!
 //! # The inbound half: a listener is not a connection (milestone 107)
@@ -132,10 +132,10 @@
 //! And the request word packs an opcode with the socket id it applies to:
 //!
 //! ```
-//! use socket_protocol::{OP_RECV, req, req_op, req_sid};
+//! use socket_protocol::{OP_RECEIVE, req, req_op, req_sid};
 //!
-//! let w = req(OP_RECV, 3);
-//! assert_eq!(req_op(w), OP_RECV);
+//! let w = req(OP_RECEIVE, 3);
+//! assert_eq!(req_op(w), OP_RECEIVE);
 //! assert_eq!(req_sid(w), 3);
 //! ```
 //!
@@ -157,7 +157,7 @@ pub const OP_OPEN_TCP: u64 = 3;
 /// `CALL`: UDP send; dst in the frame header, payload in the frame.
 pub const OP_SENDTO: u64 = 4;
 /// `CALL`: block until a datagram/segment arrives, write it to the frame.
-pub const OP_RECV: u64 = 5;
+pub const OP_RECEIVE: u64 = 5;
 /// `CALL`: TCP connect to the frame's dst; reply the outcome.
 pub const OP_CONNECT: u64 = 6;
 /// `CALL`: TCP send; payload in the frame.
@@ -191,7 +191,7 @@ pub const fn req_sid(word: u64) -> u64 {
     (word >> 8) & 0xff
 }
 
-/// Reply words. Non-negative is success (RECV returns the length here); the connect outcomes are
+/// Reply words. Non-negative is success (RECEIVE returns the length here); the connect outcomes are
 /// their own small vocabulary so the client can tell "refused" from "connected".
 pub const REP_OK: u64 = 0;
 /// `OP_CONNECT` succeeded.
@@ -354,7 +354,7 @@ mod tests {
         OP_OPEN_UDP,
         OP_OPEN_TCP,
         OP_SENDTO,
-        OP_RECV,
+        OP_RECEIVE,
         OP_CONNECT,
         OP_SEND,
         OP_CLOSE,

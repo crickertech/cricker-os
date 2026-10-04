@@ -225,7 +225,7 @@ fn a_raw_read_parked_before_data_arrives_still_gets_it() {
 
     send_bytes(w.term, &[0x42]);
 
-    let [n, packed, ..] = sched::ipc_recv(report);
+    let [n, packed, ..] = sched::ipc_receive(report);
     assert_eq!(n, 1, "the parked reader did not get exactly one byte");
     assert_eq!(
         packed.to_le_bytes()[0],
@@ -259,7 +259,7 @@ fn switching_mode_abandons_a_parked_read_of_the_other_kind() {
         sched::yield_now();
     }
     rawmode(w.term, true);
-    let [r0, ..] = sched::ipc_recv(report);
+    let [r0, ..] = sched::ipc_receive(report);
     assert_eq!(
         r0,
         line_editor::proto::BAD_REQUEST,
@@ -279,7 +279,7 @@ fn switching_mode_abandons_a_parked_read_of_the_other_kind() {
         sched::yield_now();
     }
     rawmode(w.term, false);
-    let [n2, ..] = sched::ipc_recv(report2);
+    let [n2, ..] = sched::ipc_receive(report2);
     assert_eq!(
         n2,
         line_editor::proto::BAD_REQUEST,
@@ -422,7 +422,7 @@ fn a_keystroke_edited_by_the_client_costs_two_more_round_trips() {
 /// a test that a terminal refusing everything would also pass.
 ///
 /// `ipc_call_badged` is the kernel's own delivery of a badged capability's `CALL` (the badge lands
-/// in `x3` of the server's `RECV_CAP`), so this drives the discipline exactly as a user program
+/// in `x3` of the server's `RECEIVE_CAP`), so this drives the discipline exactly as a user program
 /// holding the badged capability would.
 ///
 /// Falsification: replayable `system_tests/falsifications/user.raw_mode_tests.a_badged_copy_of_the_terminal_reads_keystrokes_and_cannot_type_them.patch`

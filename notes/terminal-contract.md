@@ -99,7 +99,7 @@ no control endpoint refuses it with `BAD_REQUEST`, which is every terminal a boo
   Register-only sidesteps it: `components/src/terminal_sink_caretaker.rs` turns the sink contract into terminal
   output with no page at all, which is what let the terminal become a destination a program's
   output slot can hold. Eight bytes rather than sixteen is this contract's request shape, not a
-  choice: a served request arrives through `recv_cap` with the reply capability and two data words,
+  choice: a served request arrives through `receive_cap` with the reply capability and two data words,
   which is why `OP_BYTES` carries eight too.
 
 - `OP_RAWMODE` / `OP_READRAW` (milestone 169 (the smallest real text editor)): the raw-keystroke primitive `kilo` needs and the

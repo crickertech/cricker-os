@@ -43,12 +43,12 @@
 //! service's answer is different and, for a credential store, better: writing the store is not an
 //! *operation* at all, it is a **phase**, and the phase ends.
 //!
-//! 1. **Provision.** RECV on the provision endpoint. Each [`credential_protocol::provision::PUT`]
+//! 1. **Provision.** RECEIVE on the provision endpoint. Each [`credential_protocol::provision::PUT`]
 //!    derives a record with a salt drawn from the entropy service.
 //!    [`credential_protocol::provision::SEAL`] ends it.
 //! 2. **Delete.** The service `cap_delete`s its receive end of the provision endpoint, and the
 //!    provisioner deletes its send end. Nothing in the system can name it any more.
-//! 3. **Serve.** RECV on the verify endpoint, forever. One opcode, one kind of secret, yes or no.
+//! 3. **Serve.** RECEIVE on the verify endpoint, forever. One opcode, one kind of secret, yes or no.
 //!    It was two until 2026-08-30, when the NTLM half went with the SMB implementation that was
 //!    its only consumer (notes/smb.md).
 //!
@@ -72,8 +72,8 @@
 //!
 //! # Capability contract (notes/abi.md §4)
 //!
-//! - slot 0: the **provision** endpoint (RECV), deleted at the seal
-//! - slot 1: the **verify** endpoint (RECV)
+//! - slot 0: the **provision** endpoint (RECEIVE), deleted at the seal
+//! - slot 1: the **verify** endpoint (RECEIVE)
 //! - slot 2: the **entropy** service's endpoint (WRITE)
 //! - slot 3: an **untyped budget**, for the memory-hard scratch and nothing else
 //! - slot 4: a **readiness** endpoint (WRITE), one message once the store is sealed
@@ -140,11 +140,11 @@ use alloc::vec::Vec;
 use credential_protocol as proto;
 use credentialer::{Block, Cost, Store, Verdict};
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, cap_delete, exit, recv_request, reply, send};
+use user_mode_runtime::{call, cap_delete, exit, receive_request, reply, send};
 
-/// The provision endpoint (slot 0): RECV, and only until the seal.
+/// The provision endpoint (slot 0): RECEIVE, and only until the seal.
 const PROV: u64 = 0;
-/// The verify endpoint (slot 1): RECV, forever.
+/// The verify endpoint (slot 1): RECEIVE, forever.
 const VERIFY: u64 = 1;
 /// The entropy service's endpoint (slot 2): WRITE. Names no device (DECISIONS §44).
 const ENTROPY: u64 = 2;
@@ -239,7 +239,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 /// **Phase one.** Write the store, then destroy the ability to write the store.
 fn provision(store: &mut Store<CAPACITY>, scratch: &mut [Block]) {
     loop {
-        let req = recv_request(PROV);
+        let req = receive_request(PROV);
         let (w0, w1) = (req.w0, req.w1);
         let Some(cap) = req.delivered.into_reply() else {
             // A plain SEND, or a SEND_CAP, on a CALL-only contract: nobody is waiting for an
@@ -300,7 +300,7 @@ fn put(store: &mut Store<CAPACITY>, scratch: &mut [Block], w0: u64, _w1: u64) ->
 /// **Phase two.** One endpoint, one question, forever.
 fn serve(store: &Store<CAPACITY>, scratch: &mut [Block]) -> ! {
     loop {
-        let req = recv_request(VERIFY);
+        let req = receive_request(VERIFY);
         let w0 = req.w0;
         let Some(cap) = req.delivered.into_reply() else {
             continue;

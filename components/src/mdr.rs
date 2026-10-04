@@ -123,7 +123,7 @@
 #![no_main]
 
 use documentation::{Renderer, Sink, Style};
-use user_mode_runtime::{exit, recv, send};
+use user_mode_runtime::{exit, receive, send};
 
 /// The output sink: where the rendered bytes go, in the sink contract's framing.
 const SINK: u64 = 0;
@@ -152,7 +152,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 
     let mut out = Out::default();
     loop {
-        let (w0, w1, w2) = recv(SOURCE);
+        let (w0, w1, w2) = receive(SOURCE);
         let mut buf = [0u8; byte_sink_protocol::INLINE_MAX];
         let n = match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(n) => n,

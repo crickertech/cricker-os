@@ -279,17 +279,17 @@ as a whole) fixed 0, minted 0, accepted 3 and found no confinement claim false
 (`design/audit-reports/2026-09-29-syscall-surface-whole.md`). The audit of 2026-10-03 (eight constants
 and thirteen components, with its follow-up) fixed 5, minted 4, accepted 6 and found no kernel
 confinement claim false; its three findings that bear here are listed below
-(`design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`). PR #1494's RECV-consumer audit then
+(`design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`). PR #1494's RECEIVE-consumer audit then
 found two confinement defects, both confirmed under QEMU: a plain `SEND` delivers badge 0 whatever
 the endpoint capability's badge, so a bound `redoxfs_server` client that `SEND`s is seen as root
-(closed by #1494, merged 2026-10-03), and a plain `SEND` received by `RECV_CAP` handed the receiver a
-sender-chosen slot on one arrival order, a `net_stack`-shaped escape (fixed by milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)). The
-appendix has both. Milestone 633 (An outside agent attacks the confinement claim) found a third route to the same RECV-path escape, by PR #1525: a plain `RECV` collecting a `SEND_CAP` sender left the sender's `outgoing_cap` staged, so the sender's next plain `SEND` delivered the capability to a `RECV_CAP` receiver on another endpoint. Fixed in `sched::ipc_recv` with a test and a replayable falsification. Same class as #1494 and milestone 634. The first outsider pass on 2026-10-03 found nothing else on the claims it reached; rows 25 and 26 were not attacked and row 11 was proved on `x86_64` only. Dated 2026-10-03, afterwards: milestone 718 (No page is both writable and executable, proved on every ISA) in PR #1534 proved row 11 on aarch64, riscv64 and x86_64, and milestone 719 (Compositor confinement claim 25 is attacked part by part) in PR #1536 attacked row 25 part by part on aarch64; row 26 is still unattacked. This does not support green, and the human-outsider half remains behind milestone 198. Dated 2026-10-03: the same pass recorded that `subtree_scope::Bindings::of` mapped a nonzero badge at or past its table size to the whole endpoint's authority, not reachable by a confined client because `BADGE` refuses an already-badged source; calef ruled it should refuse, and milestone 726 (an unknown badge fails closed in subtree_scope) makes it so, with a Kani harness and a replayable falsification, and the harness fails when the old arm is restored.
+(closed by #1494, merged 2026-10-03), and a plain `SEND` received by `RECEIVE_CAP` handed the receiver a
+sender-chosen slot on one arrival order, a `net_stack`-shaped escape (fixed by milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot)). The
+appendix has both. Milestone 633 (An outside agent attacks the confinement claim) found a third route to the same RECEIVE-path escape, by PR #1525: a plain `RECEIVE` collecting a `SEND_CAP` sender left the sender's `outgoing_cap` staged, so the sender's next plain `SEND` delivered the capability to a `RECEIVE_CAP` receiver on another endpoint. Fixed in `sched::ipc_receive` with a test and a replayable falsification. Same class as #1494 and milestone 634. The first outsider pass on 2026-10-03 found nothing else on the claims it reached; rows 25 and 26 were not attacked and row 11 was proved on `x86_64` only. Dated 2026-10-03, afterwards: milestone 718 (No page is both writable and executable, proved on every ISA) in PR #1534 proved row 11 on aarch64, riscv64 and x86_64, and milestone 719 (Compositor confinement claim 25 is attacked part by part) in PR #1536 attacked row 25 part by part on aarch64; row 26 is still unattacked. This does not support green, and the human-outsider half remains behind milestone 198. Dated 2026-10-03: the same pass recorded that `subtree_scope::Bindings::of` mapped a nonzero badge at or past its table size to the whole endpoint's authority, not reachable by a confined client because `BADGE` refuses an already-badged source; calef ruled it should refuse, and milestone 726 (an unknown badge fails closed in subtree_scope) makes it so, with a Kani harness and a replayable falsification, and the harness fails when the old arm is restored.
 
 Dated 2026-10-03 (§216, milestone 706 (a `CALL` server can tell a Reply from a delegation)): the
 2026-10-03 audit's finding 11 is built, on calef's ruling of the same day. A client could `SEND_CAP`
 a real capability where a `CALL` server expected a Reply, so the server's `reply` blocked on it or
-leaked a slot of 32: a denial of service, not an escape, severity medium. `RECV_CAP` now tags a
+leaked a slot of 32: a denial of service, not an escape, severity medium. `RECEIVE_CAP` now tags a
 `CALL`'s Reply in `x4` (DECISIONS §245 (a `CALL` server tells a Reply from a delegation)), and every
 `CALL` server in the tree receives through a runtime helper whose typed Reply is the only thing
 `reply` accepts. One test, with a replayable falsification replayed red on aarch64, covers the tag
@@ -316,7 +316,7 @@ Open security findings that bear on it, each a proposal and none yet built:
 - [Every client of a network stack shares its socket numbers](../roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
   one holder of the network capability can read and close another's sockets. Severity not
   recorded; the fix changes a wire format.
-- [The sibling RECV_CAP paths get a receiver-first test](../roadmap/714-the-sibling-recv-cap-paths-get-a-receiver-first-test.md):
+- [The sibling RECEIVE_CAP paths get a receiver-first test](../roadmap/714-the-sibling-receive-cap-paths-get-a-receiver-first-test.md):
   two paths now correct by reading, unmeasured. Severity not recorded. Dated 2026-10-03, afterwards:
   a receiver-first test for each is in PR #1576, with a replayable falsification that turns it red
   on aarch64; riscv64 and x86_64 build it and run it in CI.

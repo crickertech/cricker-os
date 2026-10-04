@@ -75,7 +75,7 @@
 use abi::irq;
 use filesystem_protocol::blk;
 use user_mode_runtime::virtio::virtio_ring_barrier;
-use user_mode_runtime::{exit, invoke, recv_request, reply, send};
+use user_mode_runtime::{exit, invoke, receive_request, reply, send};
 
 // The kernel maps the DMA page at this fixed VA (must match kernel/src/user/virtio_service.rs).
 // The device REGISTERS are NOT mapped: we drive the device through a `Virtio` capability (slot 2),
@@ -1005,7 +1005,7 @@ pub fn run_net(direct_memory_access_phys: u64) -> ! {
 // block driver is as confined as a reading one. See notes/fs-server.md and notes/dma.md.
 // ---------------------------------------------------------------------------------------------
 
-/// The block server's request endpoint (slot 0): the FS server CALLs here; this role `RECV_CAPs` the
+/// The block server's request endpoint (slot 0): the FS server CALLs here; this role `RECEIVE_CAPs` the
 /// request plus the one-shot Reply that names the caller. IRQ (1) and VIRTIO (2) are as every role.
 const BLK_REQ: u64 = 0;
 
@@ -1046,11 +1046,11 @@ pub fn run_blk_server(direct_memory_access_phys: u64) -> ! {
     // client can tell a real round trip from a constant yes: see `filesystem_protocol::blk::FLUSH`.
     let mut flushes: i64 = 0;
     loop {
-        // RECV_CAP: (first word, the Reply, second word = the starting block index). The Reply is
+        // RECEIVE_CAP: (first word, the Reply, second word = the starting block index). The Reply is
         // typed by the kernel's `x4` (milestone 706 (a `CALL` server can tell a Reply from a
         // delegation)): a SEND_CAP's capability is deleted, and a request with no Reply is served
         // with nobody to answer, as before.
-        let req = recv_request(BLK_REQ);
+        let req = receive_request(BLK_REQ);
         let (w0, block) = (req.w0, req.w1);
         let to = req.delivered.into_reply();
         // **Clamp, the same defence the file channel's server-side clamp is** (milestone 138 step

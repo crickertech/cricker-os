@@ -153,8 +153,8 @@ fn r16le(va: u64) -> u16 {
     WINDOW.r16(va - PAGE_FRAME_VA)
 }
 
-/// The source endpoint a UDP RECV reply left in the frame header (`socket_protocol`'s layout note).
-fn recv_source() -> ([u8; 4], u16) {
+/// The source endpoint a UDP RECEIVE reply left in the frame header (`socket_protocol`'s layout note).
+fn receive_source() -> ([u8; 4], u16) {
     let mut ip = [0u8; 4];
     for (i, b) in ip.iter_mut().enumerate() {
         *b = r8(PAGE_FRAME_VA + OFF_DST_IP + i as u64);
@@ -257,7 +257,7 @@ fn udp_dns() -> ! {
         if call(STACK, req(OP_SENDTO, 0), qlen).0 != REP_OK {
             done(0xE011);
         }
-        let (rlen, _) = call(STACK, req(OP_RECV, 0), 0);
+        let (rlen, _) = call(STACK, req(OP_RECEIVE, 0), 0);
         if rlen != REP_ERR && rlen >= 12 {
             got = rlen;
             break;
@@ -319,7 +319,7 @@ fn udp_tftp() -> ! {
 
     // DATA: { u16 opcode = 3 }{ u16 block = 1 } body. The fixture is one short block, so the whole
     // file arrives in this first packet and no ACK/continuation is needed.
-    let (rlen, _) = call(STACK, req(OP_RECV, 0), 0);
+    let (rlen, _) = call(STACK, req(OP_RECEIVE, 0), 0);
     if rlen == REP_ERR || rlen < 4 + TFTP_BODY.len() as u64 {
         done(0xE042);
     }
@@ -339,12 +339,12 @@ fn udp_tftp() -> ! {
         }
     }
 
-    // The RECV reply now carries the DATA packet's source endpoint in the frame header (milestone
+    // The RECEIVE reply now carries the DATA packet's source endpoint in the frame header (milestone
     // 55's stack half), and this is the slirp-provable check of it: the DATA came from the gateway,
     // from a real port. The port is deliberately not pinned to 69: TFTP's own protocol has the
     // server answer from a transfer-id port of its choosing (RFC 1350 §4), so asserting 69 would
     // pin a libslirp implementation detail.
-    let (src_ip, src_port) = recv_source();
+    let (src_ip, src_port) = receive_source();
     if src_ip != GW_IP {
         done(0xE046); // the reported source is not the server that answered
     }
@@ -394,7 +394,7 @@ fn tcp_echo() -> ! {
         done(0xE022);
     }
 
-    let (rlen, _) = call(STACK, req(OP_RECV, 0), 0);
+    let (rlen, _) = call(STACK, req(OP_RECEIVE, 0), 0);
     if rlen != MSG.len() as u64 {
         done(0xE023); // the echo did not come back whole
     }
@@ -510,7 +510,7 @@ fn serve_one_inbound(base: u64) {
         done(base); // nobody connected within the server's bounded wait
     }
 
-    let (rlen, _) = call(STACK, req(OP_RECV, CONN_SID), 0);
+    let (rlen, _) = call(STACK, req(OP_RECEIVE, CONN_SID), 0);
     if rlen != IN_MSG.len() as u64 {
         done(base + 1);
     }
@@ -545,7 +545,7 @@ fn serve_one_inbound(base: u64) {
 ///
 /// **What is deliberately not here any more**: the marker-payload exchange with xtask's multicast
 /// prober. It proved that a joined group receives, that a multicast `SENDTO` reaches the wire, and
-/// that a datagram's source endpoint rides back on `RECV`. The multicast DNS responder took over
+/// that a datagram's source endpoint rides back on `RECEIVE`. The multicast DNS responder took over
 /// the first two with real DNS messages, and milestone 298 retired it and the prober on 2026-09-15
 /// (notes/mdns.md), so **nothing proves multicast now**. The third is still proved, by `udp_tftp`.
 fn udp_bind_half() {
@@ -664,7 +664,7 @@ fn exchange(stem: &str, tampered: bool, expected: &measured_boot::Digest) -> u64
     let mut hash = measured_boot::Sha256::new();
     let mut chunk = [0u8; DATA_MAX];
     while !response.is_complete() {
-        let (got, _) = call(STACK, req(OP_RECV, 0), 0);
+        let (got, _) = call(STACK, req(OP_RECEIVE, 0), 0);
         if got == 0 || got > DATA_MAX as u64 {
             return 0xE096; // the peer went away (or the stack failed) before the body was whole
         }

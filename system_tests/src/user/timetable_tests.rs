@@ -169,7 +169,7 @@ fn exited(t: &Spawned) -> Option<u64> {
 
 /// **The next scheduled child's report, or the timetable's own reason there will not be one.**
 ///
-/// A plain `RECV` on the report endpoint turned every fire failure into the 60-second hang
+/// A plain `RECEIVE` on the report endpoint turned every fire failure into the 60-second hang
 /// watchdog: the timetable says "the budget cannot back one instance" on its output endpoint and
 /// stops, while the test waits on a report that is never coming. So this looks at both endpoints
 /// and, if the timetable speaks first, fails with its sentence. No deadline: a slow host makes this
@@ -177,7 +177,7 @@ fn exited(t: &Spawned) -> Option<u64> {
 fn report(t: &Spawned) -> u64 {
     loop {
         if crate::sched::rendezvous_waiting_senders(t.reports) > 0 {
-            return crate::sched::ipc_recv(t.reports)[0];
+            return crate::sched::ipc_receive(t.reports)[0];
         }
         if let Some(code) = exited(t) {
             panic!("waiting for a scheduled child's report, the timetable exited with {code:#x}");
@@ -307,7 +307,7 @@ fn spawn_timetable_with(
     )
     .expect("insert child report");
     assert_eq!(s, 2, "the child report endpoint must land in slot 2");
-    // Slot 3: the supervision endpoint. `READ` is what `RECV` and `Rendezvous::REAP` take (§32);
+    // Slot 3: the supervision endpoint. `READ` is what `RECEIVE` and `Rendezvous::REAP` take (§32 (a supervisor may collect a corpse without being able to build one));
     // `GRANT` is what lets it be placed in each child's reserved fault slot.
     let s = crate::sched::thread_control_block_insert_cap(
         tid,
@@ -366,7 +366,7 @@ fn spawn_timetable_with(
 fn line(ep: RendezvousId, buf: &mut [u8; 256]) -> Option<usize> {
     let mut len = 0usize;
     loop {
-        let m = crate::sched::ipc_recv(ep);
+        let m = crate::sched::ipc_receive(ep);
         let mut chunk = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(m[0], m[1], m[2], &mut chunk) {
             byte_sink_protocol::Msg::Eof => return None,
@@ -578,7 +578,7 @@ fn a_scheduled_entry_holds_what_the_plan_said_and_a_refused_one_never_runs() {
         "the timetable said something after its summary",
     );
     assert_eq!(
-        crate::sched::ipc_recv(out)[0],
+        crate::sched::ipc_receive(out)[0],
         0,
         "the timetable's verdict word must be a clean finish",
     );
@@ -831,7 +831,7 @@ fn a_timetable_holding_the_run_unvouched_capability_schedules_nothing() {
         "the refusal comes first, before any plan: {s}",
     );
     assert!(line(out, &mut buf).is_none(), "and nothing after it");
-    assert_eq!(crate::sched::ipc_recv(out)[0], 0xE304, "E_UNVOUCHED");
+    assert_eq!(crate::sched::ipc_receive(out)[0], 0xE304, "E_UNVOUCHED");
     t.reclaim();
 }
 

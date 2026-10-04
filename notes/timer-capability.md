@@ -459,7 +459,7 @@ The fourth shape signals **a notification**, and notification objects are
    `Rendezvous`, and the dispatch arm's capability check changes shape. **The byte figures do not
    move much; the syscall's meaning does.**
 2. That binding to a TCB is what makes the shape useful. Milestone 106's title is met only if a
-   thread blocked in `RECV` on an endpoint wakes on *either* a message or the deadline, and §101 says
+   thread blocked in `RECEIVE` on an endpoint wakes on *either* a message or the deadline, and §101 says
    that is what TCB binding is for. Without 151 the fourth shape gives a thread a timer it can block
    on and no way to block on a timer *and* a message at once, which is milestone 106's actual
    complaint. **So the fourth shape is not independently useful: it is 151 plus one object.**

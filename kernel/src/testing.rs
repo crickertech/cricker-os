@@ -1283,7 +1283,7 @@ fn a_livelock_that_keeps_doing_ipc_trips_the_per_test_ceiling() {
     // a wake is "progress" as far as the heartbeat is concerned.
     crate::sched::spawn(move || {
         loop {
-            let _ = crate::sched::ipc_recv(ep);
+            let _ = crate::sched::ipc_receive(ep);
         }
     })
     .expect("probe: could not spawn the partner");

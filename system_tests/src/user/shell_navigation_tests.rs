@@ -76,7 +76,7 @@ fn navigate(root: &'static str, run: u64) -> Option<u64> {
             stack_pages: 2,
         },
     )?;
-    let [tag, verdict, ..] = sched::ipc_recv(report);
+    let [tag, verdict, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         filesystem_protocol::fixture::VERDICT,

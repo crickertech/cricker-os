@@ -39,7 +39,7 @@ scratch rendezvous with `create_rendezvous()`, good for exactly that one test. E
 one- or two-page region with `memory_region::create`, and retypes the endpoint from it with
 `create_rendezvous_from`. Each waits for its own spawned thread(s) to exit
 (`sched::is_thread_present`), then reclaims the region before returning. The eleven:
-`a_wake_without_delivery_cannot_complete_a_parked_recv`,
+`a_wake_without_delivery_cannot_complete_a_parked_receive`,
 `a_reply_to_a_thread_parked_as_a_receiver_is_dropped`, `a_receiver_blocks_until_a_sender_arrives`,
 `a_sender_blocks_until_a_receiver_arrives`, `a_request_gets_a_reply`, `a_call_gets_a_reply`,
 `a_reply_reaches_the_caller_that_called`, `other_threads_run_while_one_is_blocked`,

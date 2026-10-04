@@ -36,7 +36,7 @@ pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
     check(rendezvous >= 0);
     let rendezvous = rendezvous as u64;
 
-    // Delegate a READ-only view (recv, never send) to whoever is on the channel; we keep WRITE.
+    // Delegate a READ-only view (receive, never send) to whoever is on the channel; we keep WRITE.
     check(send_cap(CHANNEL, rendezvous, abi::rights::READ, 0) == 0);
 
     // Speak first through our own creation: blocks until the peer receives, which is the proof.

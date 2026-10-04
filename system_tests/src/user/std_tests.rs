@@ -48,7 +48,7 @@ pub(super) fn assert_std_transcript(report: crate::sched::RendezvousId, want: &[
 pub(super) fn drain_sink(ep: crate::sched::RendezvousId, out: &mut [u8], what: &str) -> usize {
     let mut len = 0usize;
     loop {
-        let words = crate::sched::ipc_recv(ep);
+        let words = crate::sched::ipc_receive(ep);
         let mut chunk = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(words[0], words[1], words[2], &mut chunk) {
             byte_sink_protocol::Msg::Bytes(n) => {
@@ -109,17 +109,17 @@ pub(super) fn assert_a_kill_mid_transaction_recovers(
     let run = fs_service::start_crash(blk_image, redoxfs_server_image, client_image)
         .expect("the crash disk was present a moment ago and the block server still refused it");
     assert_eq!(
-        crate::sched::ipc_recv(run.blk_ready)[0],
+        crate::sched::ipc_receive(run.blk_ready)[0],
         READY,
         "the block server did not bring the crash-test disk up",
     );
     assert_eq!(
-        crate::sched::ipc_recv(run.fs_ready)[0],
+        crate::sched::ipc_receive(run.fs_ready)[0],
         READY,
         "the FS server did not open the crash-test image, so there was nothing to crash",
     );
 
-    let [w0, w1, ..] = crate::sched::ipc_recv(run.driver_report);
+    let [w0, w1, ..] = crate::sched::ipc_receive(run.driver_report);
     assert_eq!(
         (w0, w1),
         (SUCCESS, crash::SAW_A),
@@ -128,7 +128,7 @@ pub(super) fn assert_a_kill_mid_transaction_recovers(
     );
 
     assert_eq!(
-        crate::sched::ipc_recv(run.fs_ready)[0],
+        crate::sched::ipc_receive(run.fs_ready)[0],
         crash::CUT,
         "the FS server did not die inside the injector: whatever killed it, it was not this \
          test, and the recovery below would be measuring the wrong thing",
@@ -136,13 +136,13 @@ pub(super) fn assert_a_kill_mid_transaction_recovers(
 
     let (ready, report) = fs_service::recover_crash(redoxfs_server_image, client_image);
     assert_eq!(
-        crate::sched::ipc_recv(ready)[0],
+        crate::sched::ipc_receive(ready)[0],
         READY,
         "the recovery mount FAILED: a fresh FS server could not open the image the killed one \
          left behind, so a torn write mid-transaction cost the whole filesystem",
     );
 
-    let [len, saw, ..] = crate::sched::ipc_recv(report);
+    let [len, saw, ..] = crate::sched::ipc_receive(report);
     assert!(
         saw == crash::SAW_A || saw == crash::SAW_B,
         "after a kill mid-transaction the file held {len} bytes that were neither payload \

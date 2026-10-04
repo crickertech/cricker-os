@@ -167,7 +167,7 @@ impl MappedWindow {
     /// returned reference is used), plus one more: nothing else, no peer process and no other
     /// reference in this process, reads or writes this range while the returned slice is alive.
     /// Every migrated call site gets that from the IPC protocol's own turn-taking (the shared page
-    /// is staged by one side, then handed off by a `SEND`/`recv`, one side touching it at a time)
+    /// is staged by one side, then handed off by a `SEND`/`receive`, one side touching it at a time)
     /// rather than from a lock, the same "one thread per address space (DECISIONS §33), so there
     /// is no concurrent writer" argument each hand-written copy stated for itself.
     pub unsafe fn as_slice(self) -> &'static [u8] {

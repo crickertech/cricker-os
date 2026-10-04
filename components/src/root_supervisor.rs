@@ -17,7 +17,7 @@
 //!             |
 //!             +-- flaky   a report endpoint                      (the supervised sub-server)
 //!
-//!   then: root_supervisor deletes its untyped and becomes a RECV loop on its own supervision endpoint.
+//!   then: root_supervisor deletes its untyped and becomes a RECEIVE loop on its own supervision endpoint.
 //! ```
 //!
 //! After the handoff `root_supervisor` cannot build a process, cannot endow anyone with memory, and cannot
@@ -44,7 +44,7 @@
 use supervision_protocol::{
     ChildEndowment, REPORT_FAILED, REPORT_INIT_DROPPED, REPORT_SUP_SAW_DEATH, Retention,
 };
-use user_mode_runtime::{cap_delete, recv, retype_object, retype_page_frame, send};
+use user_mode_runtime::{cap_delete, receive, retype_object, retype_page_frame, send};
 
 /// What the kernel grants us, and nothing else.
 const ROOT_UT: u64 = 0; // the construction budget: ours briefly, then deleted
@@ -179,7 +179,7 @@ pub extern "C" fn _start(_a0: u64, initrd_len: u64, _a2: u64) -> ! {
     //    DECISIONS §26's phase B block: a root that can restart is a root that can build, and the
     //    fail-closed floor is the more valuable of the two.
     loop {
-        let (event, tid, _pc) = recv(rootfault);
+        let (event, tid, _pc) = receive(rootfault);
         send(REPORT, REPORT_SUP_SAW_DEATH, tid, event);
     }
 }

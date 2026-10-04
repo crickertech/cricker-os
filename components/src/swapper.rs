@@ -10,7 +10,7 @@
 //! # Four roles: two rungs of the latency ladder, one component that stops answering, and one that carries state
 //!
 //! - [`ROLE_DIRECT`](swap_protocol::ROLE_DIRECT): the default rung. The stable name a client holds is the
-//!   endpoint object itself, and the swap changes who is parked in `RECV_CAP` on it. **No process
+//!   endpoint object itself, and the swap changes who is parked in `RECEIVE_CAP` on it. **No process
 //!   sits in the data path**, so the steady state costs exactly what an unbrokered call costs.
 //! - [`ROLE_QUEUED`](swap_protocol::ROLE_QUEUED): the opt-in rung. A `broker` stands between producer and
 //!   backend so the producer never blocks on an absent consumer. One extra hop, priced by the
@@ -68,7 +68,7 @@ use component_plan::Provisions;
 use supervision_protocol::{ChildEndowment, Retention};
 use swap_protocol::log_checks as lc;
 use user_mode_runtime::{
-    cap_delete, map_into, map_page_frame, recv, recv_fault, revoke_frame, send,
+    cap_delete, map_into, map_page_frame, receive, receive_fault, revoke_frame, send,
 };
 
 /// What the kernel grants us, and nothing else.
@@ -505,7 +505,7 @@ fn handoff(fs: &nifefs::Fs, w: &Wiring) -> ! {
         [swap_protocol::START_ABSORB, 0, swap_protocol::LAYOUT_2],
         98,
     );
-    let (kind, _, found) = recv(w.note);
+    let (kind, _, found) = receive(w.note);
     if kind != swap_protocol::NOTE_REFUSED {
         bail(100)
     }
@@ -536,7 +536,7 @@ fn handoff(fs: &nifefs::Fs, w: &Wiring) -> ! {
         [swap_protocol::START_ABSORB, 0, swap_protocol::LAYOUT_1],
         104,
     );
-    let (kind, _, carried) = recv(w.note);
+    let (kind, _, carried) = receive(w.note);
     if kind != swap_protocol::NOTE_ABSORBED {
         bail(106)
     }
@@ -947,12 +947,12 @@ fn hung(fs: &nifefs::Fs, w: &Wiring) -> ! {
     expect_note(w.note, swap_protocol::NOTE_SWAP_NOW, 80);
 
     // ------------------------------------------------------------------------------------------
-    // The hang. Served with `RECV_CAP` rather than `RECV`, because the incumbent announced it with a
+    // The hang. Served with `RECEIVE_CAP` rather than `RECEIVE`, because the incumbent announced it with a
     // `CALL`: taking the reply capability and never using it is what keeps that component parked,
     // and holding it is the only handle anything in this system has on a wedged process.
     // ------------------------------------------------------------------------------------------
 
-    let req = user_mode_runtime::recv_request(w.note);
+    let req = user_mode_runtime::receive_request(w.note);
     let (kind, served) = (req.w0, req.w1);
     // The incumbent's CALL, and nothing else: a delegation here is not the handle (milestone 706 (a
     // `CALL` server can tell a Reply from a delegation)).
@@ -994,7 +994,7 @@ fn hung(fs: &nifefs::Fs, w: &Wiring) -> ! {
     //   - There is nothing to drain, and nothing to drain it *for*: a component that is not
     //     receiving has already achieved what `OP_QUIESCE` exists to achieve. The step that needs
     //     the incumbent's cooperation is the one step the hang makes unnecessary.
-    //   - The replacement parks in `RECV_CAP` on the same endpoint and picks up whatever queued
+    //   - The replacement parks in `RECEIVE_CAP` on the same endpoint and picks up whatever queued
     //     behind the silence, because the stable name is the endpoint object and the kernel's sender
     //     queue is the buffer (§41).
     //
@@ -1218,7 +1218,7 @@ fn start_bound(elf: &elf::Elf, plan: &component_plan::Plan, faultep: u64, signal
 /// with all five instance regions back in this budget. The one that is not tidiness is the one
 /// below; the rest are here so the test can assert that a swap system reclaims itself.
 fn collect_corpse(faultep: u64, collected: &mut u64) -> (u64, u64) {
-    let (event, tid, _pc, addr, _) = recv_fault(faultep);
+    let (event, tid, _pc, addr, _) = receive_fault(faultep);
     send(REPORT, swap_protocol::RPT_DEATH, tid, event);
     // We hold no capability to that region: we deleted it the moment the child was started, and the
     // authority for this is the supervision relationship, not the memory.
@@ -1279,7 +1279,7 @@ fn retire(w: &Wiring, collected: &mut u64, target: u64, stage: u64) {
 }
 
 fn expect_note(note: u64, want: u64, stage: u64) {
-    let (kind, _, _) = recv(note);
+    let (kind, _, _) = receive(note);
     if kind != want {
         bail(stage)
     }

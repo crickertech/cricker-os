@@ -29,7 +29,7 @@
 #![no_main]
 
 use user_mode_runtime::{
-    cap_delete, destroy_region, exit, map_into, map_page_frame, now, recv, retype_object,
+    cap_delete, destroy_region, exit, map_into, map_page_frame, now, receive, retype_object,
     retype_page_frame, send, split_region, tcb_cap_insert, tcb_configure, tcb_start, yield_now,
 };
 
@@ -51,7 +51,7 @@ const ROLE_SINK_CONSUMER: u64 = 8;
 // Sink-throughput slots. The producer holds only the pipe it writes into; the consumer holds the
 // report first, so slot 0 stays "the endpoint I report on" across every reporting role.
 const SINK_PIPE_OUT: u64 = 0; // the producer SENDs sink messages here
-const SINK_PIPE_IN: u64 = 1; // the consumer RECVs them here (slot 0 is REPORT)
+const SINK_PIPE_IN: u64 = 1; // the consumer receives them here (slot 0 is REPORT)
 
 /// Messages in the sink-throughput loop, each carrying [`byte_sink_protocol::INLINE_MAX`] bytes. 5 000 is
 /// the same order as [`IPC_ITERS`] so the two are comparable under TCG, and it is 80 000 bytes, which
@@ -60,7 +60,7 @@ const SINK_PIPE_IN: u64 = 1; // the consumer RECVs them here (slot 0 is REPORT)
 const SINK_MSGS: u64 = 5_000;
 
 // Spawn-benchmark slots. slot 0 REPORT (the final result home to the bench boot), slot 1 MEMORY_REGION
-// (the spawner's whole budget), slot 2 CHILD_DONE (children SEND here, the spawner RECVs; it also
+// (the spawner's whole budget), slot 2 CHILD_DONE (children SEND here, the spawner receives; it also
 // delegates a WRITE view to each child, so it needs READ|WRITE|GRANT). The shared code frame is
 // retyped at setup into whatever slot `grant` hands back.
 const SP_REPORT: u64 = 0;
@@ -74,12 +74,12 @@ const MAP_PAGE_FRAME: u64 = 2;
 
 // IPC round-trip slots. The server holds two endpoints; the client holds three (report first, so
 // slot 0 stays "the endpoint I report on" across every reporting role).
-const SRV_REQUEST: u64 = 0; // server RECVs a request here
+const SRV_REQUEST: u64 = 0; // server receives a request here
 const SRV_REPLY: u64 = 1; // server SENDs the reply here
 const CLI_REQUEST: u64 = 1; // client SENDs the request here (slot 0 is REPORT)
-const CLI_REPLY: u64 = 2; // client RECVs the reply here
+const CLI_REPLY: u64 = 2; // client receives the reply here
 
-/// Iterations for the IPC round-trip loop. One iteration is a `SEND` to the server and a `RECV` of
+/// Iterations for the IPC round-trip loop. One iteration is a `SEND` to the server and a `RECEIVE` of
 /// its reply: two rendezvous, four `svc`s (two on each side), two context switches. lmbench's
 /// `lat_pipe` shape, over our endpoints.
 const IPC_ITERS: u64 = 5_000;
@@ -153,11 +153,11 @@ fn sink_producer() -> ! {
 /// every sixteen bytes is a rendezvous and the producer can never run ahead.
 fn sink_consumer() -> ! {
     for _ in 0..64 {
-        recv(SINK_PIPE_IN);
+        receive(SINK_PIPE_IN);
     }
     let start = now();
     for _ in 0..SINK_MSGS {
-        recv(SINK_PIPE_IN);
+        receive(SINK_PIPE_IN);
     }
     let ticks = now().wrapping_sub(start);
     send(
@@ -212,30 +212,30 @@ fn ctx_switch_bench() -> ! {
     exit();
 }
 
-/// **The server half of the IPC round-trip benchmark.** Loops forever: RECV a request, SEND a reply.
-/// It BLOCKS on the RECV when idle (0% CPU, unlike the busy yielder), so it can loop unbounded and
+/// **The server half of the IPC round-trip benchmark.** Loops forever: RECEIVE a request, SEND a reply.
+/// It BLOCKS on the RECEIVE when idle (0% CPU, unlike the busy yielder), so it can loop unbounded and
 /// still park cleanly once the client is done; the bench boot halts and reaps it.
 fn ipc_server() -> ! {
     loop {
-        let (n, _, _) = recv(SRV_REQUEST);
+        let (n, _, _) = receive(SRV_REQUEST);
         send(SRV_REPLY, n, 0, 0);
     }
 }
 
 /// **IPC round-trip latency, measured from EL0.** lmbench's `lat_pipe`, over our endpoints. Each
-/// iteration is a SEND to the server and a RECV of its reply: two rendezvous, four `svc`s, two
+/// iteration is a SEND to the server and a RECEIVE of its reply: two rendezvous, four `svc`s, two
 /// context switches. Self-timed; the bench boot spawns the server first so a request always meets a
 /// waiting receiver.
 fn ipc_client() -> ! {
     // Warm up: pay the first rendezvous and any cold paths outside the timed loop.
     for _ in 0..64 {
         send(CLI_REQUEST, 1, 0, 0);
-        recv(CLI_REPLY);
+        receive(CLI_REPLY);
     }
     let start = now();
     for _ in 0..IPC_ITERS {
         send(CLI_REQUEST, 1, 0, 0);
-        recv(CLI_REPLY);
+        receive(CLI_REPLY);
     }
     let ticks = now().wrapping_sub(start);
     send(REPORT, ticks, IPC_ITERS, 0);
@@ -363,7 +363,7 @@ fn spawn_one(code_frame: u64) {
     // Wait for the child to run and signal, then reclaim its region. The retry covers the sliver
     // between the child's SEND and its SYS_EXIT: DESTROY refuses a region with a still-live thread,
     // so yield until the child has finished exiting.
-    let _ = recv(SP_CHILD_DONE);
+    let _ = receive(SP_CHILD_DONE);
     while destroy_region(child_ut) != 0 {
         yield_now();
     }

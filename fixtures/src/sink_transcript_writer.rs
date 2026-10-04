@@ -33,7 +33,7 @@
 //!
 //! ```text
 //! let report = spawn_writer(image, Some(endpoint), 1);
-//! let [class, total, ..] = ipc_recv(report);
+//! let [class, total, ..] = ipc_receive(report);
 //! assert_eq!(class, fixture::code(Sent::Ok));
 //! assert_eq!(total as usize, fixture::TRANSCRIPT.len());
 //! ```

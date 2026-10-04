@@ -145,7 +145,7 @@ pub fn start_on_full(
     let entropy = entropy_service::ensure(entropy_image, STD_ENTROPY_BUS)
         .expect("no entropy source for the std program (a virtio-rng device on aarch64/riscv64, is NIFE_RNG set on this leg? RDSEED on x86_64)");
     if let Some(ready) = entropy.ready {
-        let report = crate::sched::ipc_recv(ready);
+        let report = crate::sched::ipc_receive(ready);
         assert_eq!(
             report[0],
             entropy_protocol::READY,
@@ -159,7 +159,7 @@ pub fn start_on_full(
     // the honest order: a std program that started first would see `state::UNKNOWN` and be
     // correct to say so.
     let clock = clock_service::start(clock_image);
-    let _ = crate::sched::ipc_recv(clock.report);
+    let _ = crate::sched::ipc_receive(clock.report);
 
     // **The inert-configuration page** (milestone 47's environment-variable fork, DECISIONS
     // §111). Unlike the clock, nothing here runs a service: the page is assembled once, into a

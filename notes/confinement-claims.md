@@ -307,11 +307,11 @@ names `Architecture: aarch64, x86_64`. Read the row as aarch64 twice, `x86_64` o
 
 `a_client_of_the_stable_rendezvous_cannot_become_its_server` asserts `attack[1] ==
 -NotPermitted`, and the honest defect is the one that breaks the claim: delete the kernel's
-`Rights::READ` check on `RECV_CAP`, so a client really can receive on the stable rendezvous. That
+`Rights::READ` check on `RECEIVE_CAP`, so a client really can receive on the stable rendezvous. That
 patch was written and run on 2026-09-16, and the result was a 60-second watchdog reading "no
 progress ... a lost-wakeup hang", with a thread dump and not one word about impersonation.
 
-The reason is structural. `RECV_CAP` is a blocking receive. An attacker the kernel fails to
+The reason is structural. `RECEIVE_CAP` is a blocking receive. An attacker the kernel fails to
 refuse does not come back and report an escape; it takes the message the honest server was waiting
 for, or parks on the rendezvous, and the run deadlocks. So the assertion that states the claim is
 reachable only when the kernel *does* refuse, and the case it is written about cannot reach it.
@@ -511,12 +511,12 @@ indistinguishable from one that stopped early.
 The attack. Ask where a capability can live that is not a capability-table slot, because every
 revocation sweep in the kernel walks tables. There is exactly one such place and it is not obscure:
 `Thread::outgoing_cap`, the hand-off slot `sched::ipc_send_cap` writes when a `SEND_CAP` finds no
-receiver waiting, and `sched::ipc_recv_cap` takes when one arrives.
+receiver waiting, and `sched::ipc_receive_cap` takes when one arrives.
 
 It was false. A sender parks `PageFrame(p, 1)` there and blocks. `PageFrame::REVOKE` then runs
 over that frame: `sched::delete_page_frame_caps_where` deletes the capability from every table
 including the sender's own, and `revoke::unmap_under_object` unmaps every page the log records. The
-hand-off slot is read by neither. The next `RECV_CAP` files the surviving capability in the
+hand-off slot is read by neither. The next `RECEIVE_CAP` files the surviving capability in the
 receiver's table, and the receiver may `MAP` a page the revoker believes it took back. Measured, not
 argued: `kernel::user::revocation_in_flight_tests::
 a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` went red on the tree as it

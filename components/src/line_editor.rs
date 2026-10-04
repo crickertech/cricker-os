@@ -28,14 +28,14 @@
 //! [`Con::flush`].
 //!
 //! The IPC protocol is the terminal contract, notes/terminal-contract.md; the framing constants
-//! are `line_editor::proto`. Every request served here is a `CALL`, served through `RECV_CAP`,
+//! are `line_editor::proto`. Every request served here is a `CALL`, served through `RECEIVE_CAP`,
 //! answered through the kernel's one-shot Reply capability (DECISIONS §12). That choice is what
 //! makes the server deadlock-free: a READLINE with no line ready is *held* (the reply capability
 //! parked in a slot) while the server keeps serving, so a client blocked printing can never
 //! interlock with a server blocked delivering. The editing itself lives in the host-tested
 //! `line_editor` crate; this file is only wiring: words in, pages copied, words out.
 //!
-//! Its whole authority: the terminal endpoint (slot 0, RECV), the output sink's request endpoint
+//! Its whole authority: the terminal endpoint (slot 0, RECEIVE), the output sink's request endpoint
 //! (slot 1: `CONREQ`/`SEND` in [`MODE_CONSOLE`], `display_terminal`'s served endpoint/`CALL` in
 //! [`MODE_DISPLAY`]), the console server's reply endpoint (slot 2, [`MODE_CONSOLE`] only), the
 //! output page shared with whichever sink this boot has (write), the client's output page (read)
@@ -63,9 +63,9 @@
 #![no_main]
 
 use line_editor::{Event, LINE_MAX, LineDisc, PROMPT_MAX, RawQueue, Sink, proto};
-use user_mode_runtime::{Reply, call, recv, recv_request, reply, send};
+use user_mode_runtime::{Reply, call, receive, receive_request, reply, send};
 
-/// The terminal endpoint (slot 0): clients CALL requests here; we serve it with `RECV_CAP`. Its
+/// The terminal endpoint (slot 0): clients CALL requests here; we serve it with `RECEIVE_CAP`. Its
 /// clients differ by [`MODE_CONSOLE`]/[`MODE_DISPLAY`] (`input` or `keyboard_driver`, directly, for the
 /// keystroke half; `swish` either way), but this server never has to know which: an `OP_BYTES`
 /// CALL looks the same regardless of who is holding the other end (notes/ipc-naming.md). The one
@@ -78,9 +78,9 @@ const TERM: u64 = 0;
 /// served endpoint). One slot, two meanings, chosen by `mode` at spawn -- the same shape
 /// `display_terminal`'s own `PRESENT` slot and `keyboard_driver`'s own `OUT` slot already use.
 const CONREQ: u64 = 1;
-/// The console server's reply endpoint (slot 2): we RECV its ack here. The console speaks the
-/// pre-§12 two-endpoint protocol (it serves with plain RECV, which cannot answer a CALL), so
-/// this hop is SEND+RECV, not CALL. Safe with one console client, and `line_editor` is that client.
+/// The console server's reply endpoint (slot 2): we RECEIVE its ack here. The console speaks the
+/// pre-§12 (Call/Reply IPC) two-endpoint protocol (it serves with plain RECEIVE, which cannot answer a CALL), so
+/// this hop is SEND+RECEIVE, not CALL. Safe with one console client, and `line_editor` is that client.
 /// **[`MODE_CONSOLE`] only**: [`MODE_DISPLAY`] prints through one `CALL` on [`CONREQ`] and needs no
 /// second endpoint, so nothing is granted here in that mode and this slot is simply never read.
 const CONREP: u64 = 2;
@@ -203,7 +203,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
     }
 
     loop {
-        let req = recv_request(TERM);
+        let req = receive_request(TERM);
         let (w0, w1, badge) = (req.w0, req.w1, req.badge);
         let Some(slot) = req.delivered.into_reply() else {
             // A plain SEND or a SEND_CAP slipped in; the contract says CALL. With no Reply there is
@@ -385,7 +385,7 @@ pub extern "C" fn _start(mode: u64, control: u64, start: u64) -> ! {
                 }
                 reply(slot, proto::QUIESCED, 0);
                 // Stopped receiving on TERM: anything that arrives now parks on its sender queue.
-                let (what, _, _) = recv(control);
+                let (what, _, _) = receive(control);
                 if what != proto::CTL_RESUME {
                     user_mode_runtime::exit()
                 }
@@ -457,7 +457,7 @@ impl Con {
                 // fall back on (a refused SEND is silent; a CALL to an endpoint that does not
                 // speak this contract would hang this server forever).
                 send(CONREQ, self.used as u64, 0, 0);
-                recv(CONREP); // the ack means the page is ours to refill
+                receive(CONREP); // the ack means the page is ours to refill
             }
         }
         self.used = 0;

@@ -215,8 +215,6 @@ packer!(pack_12, 48, 12);
 /// Not proof against a thread that migrated away and back inside three instructions, which would
 /// take two preemptions and two steals; the caller says so rather than this.
 ///
-/// Name: provisional (calef names public items).
-///
 /// ```text
 ///   4c 8b 04 25 xx xx xx xx   mov r8, [CURRENT_CPU_WORD]    (core before)
 ///   66 ba xx xx               mov dx, port
@@ -232,6 +230,8 @@ packer!(pack_12, 48, 12);
 ///   0f 05                     syscall                       (exit)
 /// ```
 /// Encodings checked with `llvm-mc -triple x86_64-unknown-none -show-encoding`, 2026-10-03.
+///
+/// Name: ratified 2026-10-03 (calef, reviewing the x86 port-out program builders: "The two port builders are ratified.").
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] {
     const {
@@ -274,8 +274,6 @@ pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] 
 /// the page fault arrives at [`PORT_OUT_ON_CPU_WRONG_CPU_PC_OFFSET`]. The two faults are told apart
 /// by pc, so "landed on the wrong core, try again" can never be read as "the `out` faulted".
 ///
-/// Name: provisional (calef names public items).
-///
 /// ```text
 ///   48 8b 04 25 xx xx xx xx   mov rax, [CURRENT_CPU_WORD]
 ///   83 f8 xx                  cmp eax, cpu
@@ -290,6 +288,8 @@ pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] 
 ///   48 8b 18                  mov rbx, [rax]      (page fault at 0: offset 29)
 /// ```
 /// Encodings checked with `llvm-mc -triple x86_64-unknown-none -show-encoding`, 2026-10-03.
+///
+/// Name: ratified 2026-10-03 (calef, reviewing the x86 port-out program builders: "The two port builders are ratified.").
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const fn port_out_on_cpu_then_exit(port: u16, val: u8, cpu: u8) -> [u32; 8] {
     let a = CURRENT_CPU_WORD.to_le_bytes();
@@ -372,25 +372,25 @@ pub const fn cap_delete_then_port_out(slot: u32, port: u16, val: u8) -> [u32; 7]
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const CAP_DELETE_THEN_PORT_OUT_PC_OFFSET: u64 = 12 + PORT_OUT_PC_OFFSET;
 
-/// **A child that blocks in RECV on slot 1, then writes a byte to a port, then exits**
+/// **A child that blocks in RECEIVE on slot 1, then writes a byte to a port, then exits**
 /// (milestone 299). The revocation fixture: a holder of the `PortRange` capability naming `port`
-/// parks in RECV, and while it is parked the test revokes the range and wakes it; the `out` it then
+/// parks in RECEIVE, and while it is parked the test revokes the range and wakes it; the `out` it then
 /// executes takes a general protection fault, so its supervisor sees `EVENT_FAULT` and the `word`
-/// never arrives. The RECV is what lets the test choose the instant between "holds the port" and
+/// never arrives. The RECEIVE is what lets the test choose the instant between "holds the port" and
 /// "does the `out`" to revoke, so the fault is the revocation's doing and not a race.
 ///
-/// `RECV` reuses [`invoke_then_exit`]'s exact encoding through slot 1; the `out` and `report` tail
-/// are [`port_out`]'s. The `out` is the instruction after the RECV `syscall`, at
-/// [`RECV_THEN_PORT_OUT_PC_OFFSET`] past the entry.
+/// `RECEIVE` reuses [`invoke_then_exit`]'s exact encoding through slot 1; the `out` and `report` tail
+/// are [`port_out`]'s. The `out` is the instruction after the RECEIVE `syscall`, at
+/// [`RECEIVE_THEN_PORT_OUT_PC_OFFSET`] past the entry.
 ///
 /// ```text
 ///   bf 01 00 00 00    mov edi, 1        (slot 1)
-///   be xx xx xx xx    mov esi, RECV
+///   be xx xx xx xx    mov esi, RECEIVE
 ///   31 d2             xor edx, edx
 ///   45 31 d2          xor r10d, r10d
 ///   45 31 c0          xor r8d, r8d
 ///   b8 xx xx xx xx    mov eax, SYS_INVOKE
-///   0f 05             syscall           (RECV: blocks until the test wakes it)
+///   0f 05             syscall           (RECEIVE: blocks until the test wakes it)
 ///   66 ba xx xx       mov dx, port
 ///   b0 xx             mov al, val
 ///   ee                out dx, al        (#GP here once the port has been revoked)
@@ -404,19 +404,19 @@ pub const CAP_DELETE_THEN_PORT_OUT_PC_OFFSET: u64 = 12 + PORT_OUT_PC_OFFSET;
 /// test is not receiving parks the child forever and hangs the run: a broken revoke could not turn
 /// the test red, only stall it. Exiting makes the broken case arrive as `EVENT_EXIT` where the test
 /// wants `EVENT_FAULT`, which is what lets the test carry a falsification record at all.
-pub const fn recv_then_port_out(port: u16, val: u8) -> [u32; 10] {
+pub const fn receive_then_port_out(port: u16, val: u8) -> [u32; 10] {
     let p = port.to_le_bytes();
-    let rcv = (abi::rendezvous::RECV as u32).to_le_bytes();
+    let rcv = (abi::rendezvous::RECEIVE as u32).to_le_bytes();
     let inv = (abi::SYS_INVOKE as u32).to_le_bytes();
     let ext = (abi::SYS_EXIT as u32).to_le_bytes();
     pack_10([
         0xBF, 0x01, 0x00, 0x00, 0x00, // mov edi, 1        (slot 1)
-        0xBE, rcv[0], rcv[1], rcv[2], rcv[3], // mov esi, RECV
+        0xBE, rcv[0], rcv[1], rcv[2], rcv[3], // mov esi, RECEIVE
         0x31, 0xD2, // xor edx, edx
         0x45, 0x31, 0xD2, // xor r10d, r10d
         0x45, 0x31, 0xC0, // xor r8d, r8d
         0xB8, inv[0], inv[1], inv[2], inv[3], // mov eax, SYS_INVOKE
-        0x0F, 0x05, // syscall (RECV)
+        0x0F, 0x05, // syscall (RECEIVE)
         0x66, 0xBA, p[0], p[1], // mov dx, port
         0xB0, val,  // mov al, val
         0xEE, // out dx, al
@@ -426,25 +426,25 @@ pub const fn recv_then_port_out(port: u16, val: u8) -> [u32; 10] {
     ])
 }
 
-/// **A child that blocks in RECV on the endpoint capability in slot 0, forever.**
+/// **A child that blocks in RECEIVE on the endpoint capability in slot 0, forever.**
 ///
 /// A server is a thing that blocks, and DECISIONS §16's kill is armed by a refusal and spent by
-/// `schedule()`, which a thread parked in RECV never reaches. That is the whole point of this
+/// `schedule()`, which a thread parked in RECEIVE never reaches. That is the whole point of this
 /// program: it is the shape of resident whose region used to be unreclaimable.
 ///
 /// ```text
 ///   31 ff             xor edi, edi      (arg0: slot 0)
-///   be xx xx xx xx    mov esi, RECV     (arg1: the method)
+///   be xx xx xx xx    mov esi, RECEIVE     (arg1: the method)
 ///   31 d2             xor edx, edx      (arg2)
 ///   45 31 d2          xor r10d, r10d    (arg3)
 ///   45 31 c0          xor r8d, r8d      (arg4)
 ///   b8 xx xx xx xx    mov eax, SYS_INVOKE
-///   0f 05             syscall           (RECV: blocks)
+///   0f 05             syscall           (RECEIVE: blocks)
 ///   b8 xx xx xx xx    mov eax, SYS_EXIT
 ///   0f 05             syscall           (exit, if it is ever woken)
 /// ```
-pub const fn recv() -> [u32; 8] {
-    invoke_then_exit(abi::rendezvous::RECV as u32)
+pub const fn receive() -> [u32; 8] {
+    invoke_then_exit(abi::rendezvous::RECEIVE as u32)
 }
 
 /// **A child that blocks in `CALL` on the endpoint capability in slot 0, and is never replied to.**
@@ -455,12 +455,12 @@ pub const fn recv() -> [u32; 8] {
 /// resident that no endpoint sweep can reach, and the one whose teardown has to sweep that `Reply`
 /// out of the server's capability table or leave a forgeable answer behind.
 ///
-/// Byte for byte [`recv`] with a different method word; see it for the encoding.
+/// Byte for byte [`receive`] with a different method word; see it for the encoding.
 pub const fn call() -> [u32; 8] {
     invoke_then_exit(abi::rendezvous::CALL as u32)
 }
 
-/// The body [`recv`] and [`call`] share: `invoke(slot 0, method, 0, 0, 0)`, then `SYS_EXIT` if the
+/// The body [`receive`] and [`call`] share: `invoke(slot 0, method, 0, 0, 0)`, then `SYS_EXIT` if the
 /// invocation ever returns. Written once because the two differ in exactly one immediate, and two
 /// copies of an eight-instruction hand-assembled program are two chances to typo a syscall number.
 ///

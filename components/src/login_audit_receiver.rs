@@ -71,7 +71,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::recv;
+use user_mode_runtime::receive;
 
 /// `login`'s own `AUDIT` endpoint, `READ`.
 const AUDIT: u64 = 0;
@@ -79,7 +79,7 @@ const AUDIT: u64 = 0;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     loop {
-        recv(AUDIT);
+        receive(AUDIT);
     }
 }
 

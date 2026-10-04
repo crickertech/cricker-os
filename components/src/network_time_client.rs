@@ -85,7 +85,7 @@
 //! binaries in milestone 290 cost nothing.
 //!
 //! What that proves: the socket-contract glue (minting a frame, delegating it, the destination
-//! header, `SENDTO`/`RECV` framing), that the 48 bytes on the wire are a well-formed NTPv4 client
+//! header, `SENDTO`/`RECEIVE` framing), that the 48 bytes on the wire are a well-formed NTPv4 client
 //! packet addressed to port 123, that the nonce is unpredictable, that a reply failing
 //! `Query::accept` moves nothing, and that an accepted sample becomes a *proposal* the clock service
 //! judges.
@@ -266,13 +266,13 @@ fn client(server_ip: u64, server_port: u64) -> ! {
             done(RPT_NET_ERROR, 3, sent as u64);
         }
 
-        let (n, _) = call(STACK, req(OP_RECV, SID), 0);
+        let (n, _) = call(STACK, req(OP_RECEIVE, SID), 0);
         if n == REP_ERR || n == 0 {
             poll_gap();
             continue;
         }
 
-        // T4, read as close to the arrival as this side can manage: the RECV reply is the first
+        // T4, read as close to the arrival as this side can manage: the RECEIVE reply is the first
         // instruction after the bytes landed.
         let Some(t4) = stamp(local.now()) else {
             done(RPT_BAD_LOCAL_TIME, local.now(), 0);

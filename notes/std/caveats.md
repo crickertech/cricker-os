@@ -129,7 +129,7 @@ The records this file cites by number:
   handles numeric addresses only, and a program that wants DNS does it as a plain UDP query, as the
   demo does). So is IPv6 (net_stack is IPv4-only), and so are `peek` / socket duplication /
   multicast join-leave (no contract verb backs them). `UdpSocket::recv_from` reports the connected
-  peer or the last send destination as the datagram source, because the contract's `RECV` does not
+  peer or the last send destination as the datagram source, because the contract's `RECEIVE` does not
   carry it; that is correct for the request/response pattern the demo uses and recorded here for
   anything that assumes otherwise. Advisory knobs (`set_nodelay`, `set_ttl`, keepalive, broadcast,
   multicast options) accept and return plausible values rather than fail; they change nothing on the
@@ -177,4 +177,4 @@ The records this file cites by number:
 against unpatched std in one fresh worktree on 2026-10-03: `std` failed in its `cfg_select!`
 dispatchers. Running `target/debug/xtask` directly with `CARGO_MANIFEST_DIR` exported worked.
 Cause not established (suspected: the proxy prepends the real toolchain's `bin` to `PATH`, so the
-child `cargo` ignores `RUSTUP_TOOLCHAIN=<farm>`); found by the lane for milestone 714 (the sibling RECV_CAP paths get a receiver-first test).
+child `cargo` ignores `RUSTUP_TOOLCHAIN=<farm>`); found by the lane for milestone 714 (the sibling RECEIVE_CAP paths get a receiver-first test).

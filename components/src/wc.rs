@@ -81,7 +81,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{exit, recv, send};
+use user_mode_runtime::{exit, receive, send};
 
 /// The output sink: where the three numbers go, in the sink contract's framing.
 const SINK: u64 = 0;
@@ -114,7 +114,7 @@ fn count() -> (u64, u64, u64) {
     let mut pending = false;
 
     loop {
-        let (w0, w1, w2) = recv(SOURCE);
+        let (w0, w1, w2) = receive(SOURCE);
         let mut buf = [0u8; byte_sink_protocol::INLINE_MAX];
         let n = match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(n) => n,

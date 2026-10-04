@@ -38,7 +38,7 @@
 //! # BUGS
 //!
 //! - **Eight bytes per call, so a sixteen-byte sink message is two round trips.** That is the
-//!   terminal contract's request shape (`recv_cap` hands a server two data words), not a choice
+//!   terminal contract's request shape (`receive_cap` hands a server two data words), not a choice
 //!   here. It costs one extra `CALL` per message on a path that is a person reading text.
 //! - **No back pressure of its own.** Its client's `SEND` blocks until this process receives, and
 //!   this process blocks in `CALL` until the terminal has the bytes, so flow control is the chain of
@@ -63,7 +63,7 @@
 #![no_main]
 
 use line_editor::proto;
-use user_mode_runtime::{call, recv};
+use user_mode_runtime::{call, receive};
 
 /// Slot 0: the sink endpoint, held `READ`. Its clients hold `WRITE` on the same object and nothing
 /// else, which is the whole point: what they can reach is this process, and this process only ever
@@ -77,7 +77,7 @@ const TERM: u64 = 1;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_x0: u64, _x1: u64, _x2: u64) -> ! {
     loop {
-        let (w0, w1, w2) = recv(SINK);
+        let (w0, w1, w2) = receive(SINK);
         let mut buf = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(n) => print(&buf[..n]),

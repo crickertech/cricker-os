@@ -184,7 +184,7 @@ pub fn offer() {
     // a file too, so an offer that did not look at the disk first would ask every installed machine
     // to wipe itself, once per boot.
     let report = spawn_installer(installer, &disk, None, ROLE_SURVEY, 0, 0);
-    if crate::sched::ipc_recv(report)[0] == R_ALREADY {
+    if crate::sched::ipc_receive(report)[0] == R_ALREADY {
         return; // nife is already on this disk. See BUGS: there is no reinstall.
     }
 
@@ -220,7 +220,7 @@ pub fn offer() {
         boot_file_len,
         boot_file_len,
     );
-    let answer = crate::sched::ipc_recv(report);
+    let answer = crate::sched::ipc_receive(report);
     if answer[0] != R_INSTALLED {
         crate::println!(
             "  install     : FAILED ({:#x}, {}, {}). The disk may be in any state.",
@@ -248,7 +248,7 @@ pub fn offer() {
         blk_ready: None,
     };
     let report = disk_service::start_maker(maker, &target, ROLE_MAKE, Some(entropy), true);
-    let answer = crate::sched::ipc_recv(report);
+    let answer = crate::sched::ipc_receive(report);
     if answer[0] != R_MADE {
         crate::println!(
             "  install     : the partition table is written but mkfs refused ({:#x}).",
@@ -359,7 +359,7 @@ pub fn confirm() {
     disk.wait_for_ready();
 
     let report = spawn_installer(installer, &disk, None, ROLE_CONFIRM, slot as u64, 0);
-    let answer = crate::sched::ipc_recv(report);
+    let answer = crate::sched::ipc_receive(report);
     match answer[0] {
         R_CONFIRMED if answer[2] == 0 => {
             crate::println!("  boot slot   : slot {slot} was already confirmed; nothing written.");

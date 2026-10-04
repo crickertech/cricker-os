@@ -28,7 +28,7 @@ user-mode workers and a supervisor that watches them forever.
   completes no IPC: it blocks on a rendezvous the kernel signals from `sched::on_tick`, which is
   what makes anything on this machine cross cores at all.
 
-A round trip is `CALL` -> `RECV_CAP` -> `REPLY` -> the caller waking: two block/wake handshakes, the
+A round trip is `CALL` -> `RECEIVE_CAP` -> `REPLY` -> the caller waking: two block/wake handshakes, the
 protocol `crates/thread_wake_handshake` models and the one the risk's only real defect was in
 (`sched::wake_load_aware` making a receiver `Ready` without a delivery).
 
@@ -371,7 +371,7 @@ Worth writing down because neither was visible in review and both produced the s
 is a soak reporting workers as wedged when the defect was in the instrument.
 
 One rendezvous for every waiter starves all but one, on a loaded host. The first version had a
-single tick route and four waiters blocked on it. `crates/inter_process_communication`'s `Rendezvous::recv` takes a
+single tick route and four waiters blocked on it. `crates/inter_process_communication`'s `Rendezvous::receive` takes a
 pending signal before it looks at the receiver queue, which is right for a driver (an interrupt
 that already happened must not be missed), and wrong for four peers sharing a source: when ticks
 arrive in a burst, whichever waiter is already running drains the whole backlog through the pending

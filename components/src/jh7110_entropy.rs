@@ -31,7 +31,7 @@
 //!
 //! # Its authority, once something grants it
 //!
-//! - slot 0, the **request** endpoint (RECV): clients `CALL` here, `entropy_protocol`'s wire format,
+//! - slot 0, the **request** endpoint (RECEIVE): clients `CALL` here, `entropy_protocol`'s wire format,
 //!   unchanged from `entropy.rs`'s;
 //! - slot 1, a **readiness** endpoint (WRITE): exactly one message, either
 //!   [`proto::READY`](entropy_protocol::READY) once the device has answered a first generation with
@@ -126,7 +126,7 @@ use jh7110_entropy::{
 use tock_registers::interfaces::{Readable, Writeable};
 use tock_registers::register_structs;
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
-use user_mode_runtime::{recv_request, reply, send};
+use user_mode_runtime::{receive_request, reply, send};
 
 register_structs! {
     /// The JH7110 TRNG's register block, migrated onto `tock_registers` (milestone 139 round 5):
@@ -368,7 +368,7 @@ pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
 /// because the contract (`entropy_protocol`) is the thing that does not change between backends.
 fn serve(mut pool: Pool, refuse: bool) -> ! {
     loop {
-        let req = recv_request(REQ);
+        let req = receive_request(REQ);
         let w0 = req.w0;
         let Some(cap) = req.delivered.into_reply() else {
             // A plain SEND or a SEND_CAP on a CALL-only contract: nothing to answer. See

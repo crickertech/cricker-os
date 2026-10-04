@@ -173,7 +173,7 @@ pub mod proto {
     /// consumed, exactly as [`OP_WRITE`] answers.
     ///
     /// Eight, not sixteen, and that is the request shape rather than a choice: a served request
-    /// here arrives through `recv_cap`, which hands the server the reply capability and **two** data
+    /// here arrives through `receive_cap`, which hands the server the reply capability and **two** data
     /// words. [`OP_BYTES`] carries eight for the same reason, from the other direction. So a
     /// sixteen-byte `byte_sink_protocol` message is two of these, which is the honest cost of a second
     /// writer that needs no page.

@@ -41,7 +41,7 @@ Four syscall numbers, and that is the whole width of the trap:
 That narrowness is deliberate (DECISIONS rule 3: the syscall surface stays a boundary, not a habit).
 Everything a program can do to another object goes through the single `SYS_INVOKE` door; adding a
 capability *type* or a *method* does not widen the trap, it adds a row to a table the kernel already
-dispatches. `crates/user_mode_runtime` is the userspace side of this: `invoke`, and `send`/`recv`/`exit` built
+dispatches. `crates/user_mode_runtime` is the userspace side of this: `invoke`, and `send`/`receive`/`exit` built
 on it.
 
 ## 2. The object surface, reached through `SYS_INVOKE`
@@ -52,9 +52,9 @@ at, and `a0..a2` are the operation's arguments. The kernel checks that the slot 
 that its *rights* permit the method, and that the object's type understands it. The method numbers
 live per object type in `crates/abi`:
 
-- Endpoint (`endpoint::`): `SEND`, `RECV`, `CALL`, and the capability-passing pair `SEND_CAP` /
-  `RECV_CAP`. The synchronous-IPC primitive the whole system talks over. `WRITE` rights permit
-  `SEND`; `READ` rights permit `RECV`; `GRANT` permits passing a capability along.
+- Endpoint (`endpoint::`): `SEND`, `RECEIVE`, `CALL`, and the capability-passing pair `SEND_CAP` /
+  `RECEIVE_CAP`. The synchronous-IPC primitive the whole system talks over. `WRITE` rights permit
+  `SEND`; `READ` rights permit `RECEIVE`; `GRANT` permits passing a capability along.
 - Reply (`reply::REPLY`): the one-shot return leg of a `CALL`.
 - Untyped / objects (`objtype::`): `RETYPE` an untyped region into an `ENDPOINT`, `ADDRESS_SPACE`,
   or `TCB`. This is how a process builds new kernel objects out of a raw memory budget it holds.
@@ -168,7 +168,7 @@ one precisely so an ordinary child, whose grants fill the low slots from zero up
 working endpoint there by accident and gets mistaken for supervised.
 
 The message-format convention. When a supervised thread faults or exits, the kernel delivers one
-five-word message to its supervision endpoint, taken by a plain `RECV`:
+five-word message to its supervision endpoint, taken by a plain `RECEIVE`:
 
 ```text
   w0  event    fault::EVENT_FAULT (1) or fault::EVENT_EXIT (2)
@@ -178,16 +178,16 @@ five-word message to its supervision endpoint, taken by a plain `RECV`:
   w4  reserved 0 today; a fault-reply / resume protocol arrives here additively
 ```
 
-`RECV` returns `w0` in the syscall's result register and `w1..w4` in the next four argument
+`RECEIVE` returns `w0` in the syscall's result register and `w1..w4` in the next four argument
 registers (`x1..x4` on aarch64, `a1..a4` on riscv). Ordinary three-word IPC leaves `w3` and `w4`
-zero, so a supervisor is the only receiver that reads the top two, and no other program's `RECV`
+zero, so a supervisor is the only receiver that reads the top two, and no other program's `RECEIVE`
 changes. The tid is trustworthy without a badge because the kernel is the only sender on this
 path; seL4's badged-endpoint machinery is what you would reach for if untrusted senders ever
 shared a supervision endpoint, and it returns as its own decision if that day comes.
 
 The userspace side of that is two functions rather than one, and the split is not an ABI difference:
-`user_mode_runtime::recv` reads three words and `user_mode_runtime::recv_fault` reads all five, both from the same `RECV`.
-`recv_fault` arrived with milestone 36 (notes/c-seam.md), the first program to want `w3`: a restart
+`user_mode_runtime::receive` reads three words and `user_mode_runtime::receive_fault` reads all five, both from the same `RECEIVE`.
+`receive_fault` arrived with milestone 36 (notes/c-seam.md), the first program to want `w3`: a restart
 policy needs the event and the tid, but a *checker* needs the faulting address, because that is the
 only word that says where the dead thread actually pointed.
 

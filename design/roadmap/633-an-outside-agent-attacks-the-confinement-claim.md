@@ -90,20 +90,20 @@ check above says.
 
 ### One escape, found and fixed
 
-**A plain `RECV` that collects a parked `SEND_CAP` sender left the sender's delegation staged, and
-the sender's next plain `SEND` delivered it to a `RECV_CAP` on another endpoint.** A capability
+**A plain `RECEIVE` that collects a parked `SEND_CAP` sender left the sender's delegation staged, and
+the sender's next plain `SEND` delivered it to a `RECEIVE_CAP` on another endpoint.** A capability
 granted to one endpoint reached a receiver on a different one, which is a process reaching an object
 it was not granted. It is the non-abort sibling of the hazard the 2026-10-03 security-audit follow-up
 closed in `set_ipc_aborted`: the teardown path clears `outgoing_cap`, but the successful-collect path
-in `sched::ipc_recv` does not go through `set_ipc_aborted`, so the clear was missing there.
-Milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)'s
+in `sched::ipc_receive` does not go through `set_ipc_aborted`, so the clear was missing there.
+Milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot)'s
 `cap_delivered` guard does not catch it, because that guard covers the
 receiver-parks-first order and this leak takes `outgoing_cap` on the sender-parks-first immediate path
-of `ipc_recv_cap`.
+of `ipc_receive_cap`.
 
-- Fixed in `sched::ipc_recv`'s `!leave_blocked` branch (one line, same rationale as
+- Fixed in `sched::ipc_receive`'s `!leave_blocked` branch (one line, same rationale as
   `set_ipc_aborted`; the sender keeps its own table copy).
-- Proven by `system_tests::user::recv_cap_attack_tests::a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send`,
+- Proven by `system_tests::user::receive_cap_attack_tests::a_send_cap_collected_by_a_plain_receive_stages_nothing_for_a_later_plain_send`,
   red before the fix, with a replayable falsification patch.
 
 This is a cheap, reversible fix and so was fixed with its test rather than raised as a proposal.
@@ -153,8 +153,8 @@ five ways, and each was found by a different lane)'s and is not re-raised here.
 
 ### What risk 7's appendix should cite (for the maintainer, under §216)
 
-- The new escape and its fix: a plain `RECV` collecting a `SEND_CAP` sender left `outgoing_cap`
-  staged; closed by the `ipc_recv` clear, with the replayable falsification above. The same class as
+- The new escape and its fix: a plain `RECEIVE` collecting a `SEND_CAP` sender left `outgoing_cap`
+  staged; closed by the `ipc_receive` clear, with the replayable falsification above. The same class as
   #1494 and milestone 634, reached by a third mechanism (the successful-collect path, not an abort and
   not the mailbox slot).
 - A clean result on every claim this pass could reach by reading or by a host or kernel test, which

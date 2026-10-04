@@ -7,12 +7,12 @@
 //! touches the bytes: a driver at EL0, confined by the same capability walls as any workload. A bad
 //! length faults the *server* (a read out of its own mapping), not the kernel.
 //!
-//! Its whole authority is three things the progenitor hands it: the request endpoint (slot 0, RECV), the reply
+//! Its whole authority is three things the progenitor hands it: the request endpoint (slot 0, RECEIVE), the reply
 //! endpoint (slot 1, SEND), and the UART registers, plus the shared page mapped read-only. Its one
 //! mode switch is whether a screen was wired beside the UART (below). It shares the `user`
 //! package's `link.ld` but not a line of hello's code.
 //!
-//! The syscall runtime (`send`/`recv`) comes from the shared `user_mode_runtime` crate (19f.6).
+//! The syscall runtime (`send`/`receive`) comes from the shared `user_mode_runtime` crate (19f.6).
 //!
 //! # A screen beside the wire (the shell on the firmware screen, milestone 198's rung 1b)
 //!
@@ -35,7 +35,7 @@
 //! the moment they arrive, but the screen paints at most once per [`SCREEN_BATCH_NANOS`] window:
 //! writes are staged into the out page and one `OP_WRITE` hands the whole batch to the terminal
 //! when the timer's deadline ends the next receive. The mechanism is the one this module's old
-//! `BUGS` entry said was missing: a notification bound to this thread (`recv_bound`, milestone
+//! `BUGS` entry said was missing: a notification bound to this thread (`receive_bound`, milestone
 //! 151 (notification objects: async multiplexing without wait-any)) ending the one wait point on
 //! either a client's message or the deadline (milestone 106 (a wait that ends on either the
 //! interrupt or the deadline)'s `Timer::ARM`), plus a timer and notification slot beside the
@@ -87,7 +87,7 @@
 
 use line_editor::proto;
 use user_mode_runtime::{
-    Received, call, cntfrq, now, recv, recv_bound, send, timer_arm, timer_cancel,
+    Received, call, cntfrq, now, receive, receive_bound, send, timer_arm, timer_cancel,
 };
 
 /// The PL011's register block, migrated onto `tock_registers` (milestone 139 round 5): every
@@ -127,7 +127,7 @@ mod pl011 {
     }
 }
 
-/// The request endpoint (slot 0): the server RECVs a byte count on it.
+/// The request endpoint (slot 0): the server receives a byte count on it.
 const REQUEST: u64 = 0;
 /// The reply endpoint (slot 1): the server SENDs the acked count back on it.
 const REPLY: u64 = 1;
@@ -196,9 +196,9 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
         // until the window's deadline ends the wait instead (milestone 151 (notification objects)'s
         // bound receive; on a thread with nothing bound it is an ordinary receive, which is the fallback's path).
         let (len, w1, w2) = match if screen {
-            recv_bound(REQUEST)
+            receive_bound(REQUEST)
         } else {
-            let (len, w1, w2) = recv(REQUEST);
+            let (len, w1, w2) = receive(REQUEST);
             Received::Message(len, w1, w2)
         } {
             Received::Notification(_) => {
@@ -386,7 +386,7 @@ fn paint_screen(b: &mut ScreenBatch) {
     b.pending = 0;
     // The bytes must be visible to the terminal before the request that names them.
     //
-    // PAIR: no acquire fence, and none is needed. `display_terminal` is blocked in `recv_cap` and
+    // PAIR: no acquire fence, and none is needed. `display_terminal` is blocked in `receive_cap` and
     // the `call` below is what wakes it, so the kernel's IPC lock (released here, acquired on its
     // side) is the pair. Redundant, kept, for the reason `kernel::user::term_print` keeps the same
     // fence for the same contract. See notes/memory-ordering.md.

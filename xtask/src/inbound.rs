@@ -313,7 +313,7 @@ fn probe_inbound(
 /// **Whether a read error means "not yet" rather than "this connection is over".**
 ///
 /// `WouldBlock` and `TimedOut` are the 250 ms read timeout expiring. `Interrupted` is a signal
-/// landing on the blocked `recv` (`EINTR`), which says nothing about the connection at all, and
+/// landing on the blocked `receive` (`EINTR`), which says nothing about the connection at all, and
 /// treating it as fatal was the inbound check's lost round. On CI, every `read-failed` in two weeks
 /// of traces landed on the five-second grid `HostLoad` samples on, and the first trace that kept its
 /// errno said `Interrupted, os error 4`. Dropping the connection there does not take back the

@@ -36,7 +36,7 @@ pub struct Console {
 
 /// Spawn the console server as a user process and return a handle for wiring up clients.
 ///
-/// The server holds: `RECV` on `request` (slot 0), `SEND` on `reply` (slot 1), the shared
+/// The server holds: `RECEIVE` on `request` (slot 0), `SEND` on `reply` (slot 1), the shared
 /// page mapped **read-only** (it only reads what clients wrote), and the **UART's registers**
 /// mapped as user device memory. That last mapping is the whole milestone: a driver, at EL0,
 /// holding its hardware.
@@ -59,7 +59,7 @@ pub fn start() -> Console {
                 arg1: 0,
                 arg2: 0,
                 grants: &[
-                    rendezvous_cap(request, Rights::READ), // slot 0: RECV requests
+                    rendezvous_cap(request, Rights::READ), // slot 0: RECEIVE requests
                     rendezvous_cap(reply, Rights::WRITE),  // slot 1: SEND acks
                 ],
                 maps: &[

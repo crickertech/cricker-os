@@ -70,7 +70,7 @@
 
 use filesystem_protocol::{fs, grant, op, reply_err, reply_errno, verb};
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{Reply, call, exit, recv_request, send};
+use user_mode_runtime::{Reply, call, exit, receive_request, send};
 
 /// The FS-service endpoint: the directory capability this process attenuates.
 const FS: u64 = 0;
@@ -175,7 +175,7 @@ fn serve(dir: u64) -> ! {
         // A CALL-only contract: a plain SEND or a client's SEND_CAP has nobody waiting, so it does
         // no work here, and a delegated capability is deleted rather than answered into (milestone
         // 706 (a CALL server can tell a Reply from a delegation)).
-        let req = recv_request(CLIENT);
+        let req = receive_request(CLIENT);
         let (w0, w1) = (req.w0, req.w1);
         let Some(reply_slot) = req.delivered.into_reply() else {
             continue;
@@ -281,7 +281,7 @@ pub extern "C" fn _start(name_lo: u64, name_hi: u64, spec: u64) -> ! {
     // test: the test hit its watchdog and named the caretaker. Since `system_initializer` builds one
     // of these per directory grant, the waiter is **The progenitor**, which serves every command the prompt
     // ever runs and has no second thread, so a caretaker that died before answering would park the
-    // whole machine in `RECV`. `rm nosuchdir/x` is an ordinary thing to type.
+    // whole machine in `RECEIVE`. `rm nosuchdir/x` is an ordinary thing to type.
     //
     // Exiting rather than serving is the other half: a caretaker whose one `OPENDIR` failed holds no
     // narrowed handle, so there is nothing it could serve, and coming up anyway would mean answering
