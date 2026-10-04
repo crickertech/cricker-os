@@ -12,7 +12,7 @@ needs_person: no
 Filed 2026-09-13 as an unnumbered proposal, left behind by
 `maintainer/delete-narrator`, which deleted the narrator on calef's ruling and left the server that
 existed to print for it running; numbered 2026-09-19 by milestone 433's drain of the proposal pile.
-**Premise re-read against the tree on 2026-09-19 and still true**: the tour arm of
+Premise re-read against the tree on 2026-09-19 and still true: the tour arm of
 `kernel/src/main.rs` still runs `user::initrd().map(|_| user::console_service::start())` (line 1768
 now, 1676 when this was written), and `kernel/src/user/console_service.rs` still carries the
 `#[expect(dead_code, reason = "no client since the narrator went; see milestone 267's block")]` on
@@ -26,17 +26,17 @@ in the prose below, addressed to one person. calef's, and specifically because t
 "delete it": this is infrastructure rather than a demonstration, and the lane that found it was told
 to report rather than decide. Nothing is blocked meanwhile; the boot is correct either way.
 
-**One record item that lane found and did not fix**, because it is downstream of the answer: the
+One record item that lane found and did not fix, because it is downstream of the answer: the
 `#[expect(dead_code)]`'s `reason` string names *milestone 267's block*, which forwards here, so the
 code is two hops from the question rather than one. When this is answered the `expect` goes, and
 §179 is what its replacement should cite if anything survives it.
 
-**In brief.** On a tour boot (no `shell`, no `initboot`), `kernel/src/main.rs:1676` still runs
+In brief. On a tour boot (no `shell`, no `initboot`), `kernel/src/main.rs:1676` still runs
 `user::initrd().map(|_| user::console_service::start())`. That spawns `components/src/console.rs`, a real
 UART driver at EL0 holding the PL011's registers, which blocks on `recv(REQUEST)` forever because
 nothing in the boot holds a capability naming its endpoint. Its only client was the narrator.
 
-**The compiler agrees, which is why this is not a reading.** With `spawn_client` gone, every field
+The compiler agrees, which is why this is not a reading. With `spawn_client` gone, every field
 of `console_service::Console` (`request`, `reply`, `shared_phys`) is written by `start` and read by
 nobody; `rustc` reports *"fields `request`, `reply`, and `shared_phys` are never read"*. The handle
 `start` returns is the wiring a client would need, and there is no client. The `#[expect(dead_code)]`
@@ -50,8 +50,8 @@ not. The server blocks in a rendezvous rather than spinning, so it burns no CPU;
 does not police it because the tour boot is not a test boot.
 
 What it does cost is real but small: one spawned process with its own address space, one zeroed
-frame for a shared page nobody writes, two rendezvous objects, and **a second mapping of the UART's
-registers handed to a program that will never use them**. That last one is the item worth a
+frame for a shared page nobody writes, two rendezvous objects, and a second mapping of the UART's
+registers handed to a program that will never use them. That last one is the item worth a
 decision. This tree's whole argument is that authority is granted deliberately; a device mapping
 that exists because of a program deleted four days earlier is the opposite of deliberate, whatever
 its runtime cost.
@@ -64,7 +64,7 @@ worth very little: nothing checks the server did anything, which is the same cri
 the narrator.
 
 **Stop starting it on the tour boot.** Delete the `map` line and let `console_service::start` and
-its module go with it. `components/src/console.rs` **stays**, because it has consumers that have nothing
+its module go with it. `components/src/console.rs` stays, because it has consumers that have nothing
 to do with this path: `crates/system_initializer` loads it (`lib.rs:744`), `fixtures/src/hello.rs:571`
 builds it as init's print server, `measured_boot_tests.rs` measures it, and `swapper.rs` names it in
 a dependency check. The interactive boot reaches it through `boot_via_progenitor`
@@ -78,7 +78,7 @@ true rather than letting the answer be decided by which is less work.
 
 ## Why the lane did not pick one
 
-Two reasons, and the first is the binding one. **It was not authorised**: calef ruled the narrator
+Two reasons, and the first is the binding one. It was not authorised: calef ruled the narrator
 deleted, and `console_service::start` plus `components/src/console.rs` are not the narrator. Deleting
 infrastructure on the momentum of a demonstration's deletion is exactly the sweep AGENTS.md's blind-
 `sed` scar is about.

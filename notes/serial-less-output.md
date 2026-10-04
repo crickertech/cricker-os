@@ -1,14 +1,14 @@
 # A machine with no serial port
 
 Milestone 243 (a machine with no serial port). Every word nife had ever said, it said down a UART: the boot tour on all three
-architectures, the console server and the shell, the kernel's fault reports, and **every automated
-gate that reads any of them** (`script/board-console`, the soak's heartbeat, `script/swish-check`,
+architectures, the console server and the shell, the kernel's fault reports, and every automated
+gate that reads any of them (`script/board-console`, the soak's heartbeat, `script/swish-check`,
 `crates/board_console`'s stage judging).
 
 A commodity machine does not have one. xenon does, and that was chosen rather than lucky: milestone
 87 picked a Dell with a C4PDJ serial module and a null modem. Meanwhile the same milestone made a
 much larger fleet reachable without anyone noticing, because `\EFI\BOOT\BOOTX64.EFI` on a FAT32
-stick is the removable-media fallback **every** UEFI firmware looks for with no configuration:
+stick is the removable-media fallback every UEFI firmware looks for with no configuration:
 
 > if I can boot a nife system off of a USB drive, then that opens up a lot of different hardware in
 > our house that I can use for testing: Graeme's laptop, his desktop, cordoba, two MacBooks, Clay's
@@ -16,7 +16,7 @@ stick is the removable-media fallback **every** UEFI firmware looks for with no 
 >
 > -- calef, 2026-09-03
 
-**Not one of those machines has a serial port.** This note is what was chosen, what it cost, what it
+Not one of those machines has a serial port. This note is what was chosen, what it cost, what it
 does not solve, and the procedure for the bench nobody in this lane could reach.
 
 ## The two halves, and they are not equally hard
@@ -29,15 +29,15 @@ The block separates them and the separation survived the work, so it is the firs
 | has today | the framebuffer console below | a screendump under QEMU, and **nothing on real hardware** |
 | fails when | the screen is not yet initialised | the machine is not a virtual one |
 
-**One mechanism serves both under QEMU and only one of them on a real machine**, and pretending
+One mechanism serves both under QEMU and only one of them on a real machine, and pretending
 otherwise would be the dishonest half of this note. Under OVMF a gate can ask the emulator for a
 picture of the screen; on Graeme's laptop nobody can. That gap is real, it is named in `BUGS` below,
 and the follow-on proposals are where it goes.
 
 ## What was chosen: the firmware's framebuffer, carried across the handoff
 
-**UEFI's `EFI_GRAPHICS_OUTPUT_PROTOCOL` reports a *linear framebuffer*, and its address survives
-`ExitBootServices`.** That is the fact the whole design rests on and it is worth being precise about
+UEFI's `EFI_GRAPHICS_OUTPUT_PROTOCOL` reports a *linear framebuffer*, and its address survives
+`ExitBootServices`. That is the fact the whole design rests on and it is worth being precise about
 why: the aperture is a BAR on the display adapter, not firmware memory, so ending the boot phase
 takes away the firmware's *console* and not the *display*. The pixels stay where they were and
 anyone holding the address can keep writing to them.
@@ -64,19 +64,19 @@ is on the host, and only the address arithmetic is in the kernel.
 
 ### Why it rides a command line and not a new structure field
 
-The x86_64 handoff is PVH's `hvm_start_info`, and **PVH already carries a command line**:
+The x86_64 handoff is PVH's `hvm_start_info`, and PVH already carries a command line:
 `cmdline_paddr` at offset 24, which `machine_discovery::x86_64::BootInfo` has decoded since milestone
 87 and which nothing had ever read. `uefi_loader`'s own `BUGS` called that a gap in as many words:
 *"there is nowhere yet for a boot argument to come from or go to."*
 
-The alternative was appending a field to `hvm_start_info`. That structure is **Xen's**, versioned by
+The alternative was appending a field to `hvm_start_info`. That structure is Xen's, versioned by
 Xen, and a field added below the last one is a fork of somebody else's layout that looks exactly like
 the real thing to whoever reads it next. A `key=value` in the field the format already provides for
 exactly this is smaller, more reversible, and what Linux does with `video=`.
 
-**Is it a wire format, and therefore calef's?** The tenets say anything two programs agree on is
+Is it a wire format, and therefore calef's? The tenets say anything two programs agree on is
 expensive. This one is unusually cheap and the reason is structural rather than an argument for
-leniency: `uefi_loader` **embeds the kernel inside itself** (`uefi_loader/build.rs`), so the writer
+leniency: `uefi_loader` embeds the kernel inside itself (`uefi_loader/build.rs`), so the writer
 and the reader ship as one file and are rebuilt together. There is no version of this system in which
 one side has the new spelling and the other does not. The token is recorded here and in the crate,
 and renaming it costs one commit.
@@ -86,21 +86,21 @@ and renaming it costs one commit.
 `video_terminal::Vt` is the real terminal and it is the right engine for milestone 177's interactive
 one. It is deliberately not this, for three reasons that all point the same way:
 
-- **It is a value of several hundred kilobytes** (its own documentation warns readers off putting one
+- It is a value of several hundred kilobytes (its own documentation warns readers off putting one
   on a stack), which in a kernel means a `.bss` static of that size on every architecture for a
   diagnostic path.
-- **It would put an escape-sequence parser in the TCB**, over bytes, when the kernel's own `println!`
+- It would put an escape-sequence parser in the TCB, over bytes, when the kernel's own `println!`
   emits no escape sequences to parse.
-- **The thing being reported is often the reason the machine is broken.** That is the block's own
+- The thing being reported is often the reason the machine is broken. That is the block's own
   constraint, and it argues for the console with the least state that could work. `ScreenConsole`
   holds a cursor and a geometry: five `u32`s and no buffer.
 
-What *is* shared is the **font**, so the letters on an early boot screen and the letters in the
+What *is* shared is the font, so the letters on an early boot screen and the letters in the
 graphical terminal are the same letters, which is also what makes the gate below possible.
 
 ## What the alternatives cost, priced rather than argued
 
-The block listed candidates and endorsed none. Each was priced against **both** halves.
+The block listed candidates and endorsed none. Each was priced against both halves.
 
 | Candidate | The human | The gate | Verdict |
 |---|---|---|---|
@@ -110,7 +110,7 @@ The block listed candidates and endorsed none. Each was priced against **both** 
 | **A network console** | no | yes, and unattended | needs a NIC driver per board and says nothing until the stack is up, which excludes every failure before it. The block's own objection stands: a machine that can only report over a network cannot report a network failure |
 | **A photograph of the screen** | it *is* the human | no | not pixel-aligned and not a screendump; `board_console::screen` cannot read one, and saying so is cheaper than discovering it |
 
-**The honest summary is that the two halves want different mechanisms**, which the block anticipated
+The honest summary is that the two halves want different mechanisms, which the block anticipated
 and this lane confirms. The framebuffer is the human's answer and is the right first increment
 because it is the one a person needs standing in front of a machine that will not boot. The gate's
 answer on real hardware is postmortem to storage, and it is blocked on a driver.
@@ -118,8 +118,8 @@ answer on real hardware is postmortem to storage, and it is blocked on a driver.
 ## The gate: a program reading a screen
 
 `board_console::screen` turns a screendump back into text. It is not optical character recognition
-and the difference is the whole reason it is trustworthy: `bitmap_font` is a **constant table of
-monochrome 7x8 glyphs**, so a cell either matches a glyph bit for bit or matches nothing. There is no
+and the difference is the whole reason it is trustworthy: `bitmap_font` is a constant table of
+monochrome 7x8 glyphs, so a cell either matches a glyph bit for bit or matches nothing. There is no
 threshold to tune and no confidence to report.
 
 That gives `cargo xtask uefi-boot` an assertion nothing else in this tree could make. The serial
@@ -127,7 +127,7 @@ transcript it already checked would read identically if the screen were black; t
 if the loader's `LocateProtocol` regressed, if the pixel order flipped, if the stride were taken as
 the width, or if `mmu::init` stopped carrying the aperture's mapping.
 
-**Measured, 2026-09-04, OVMF on QEMU 11.x, `-display none`:**
+Measured, 2026-09-04, OVMF on QEMU 11.x, `-display none`:
 
 ```console
 $ cargo xtask uefi-boot
@@ -147,12 +147,12 @@ uefi-boot:   |   capability slots: 2 of 24 at peak
 uefi-boot: booted under OVMF from \EFI\BOOT\BOOTX64.EFI
 ```
 
-**`-display none` suppresses the host window, not the emulated adapter**, which is why any of this
+`-display none` suppresses the host window, not the emulated adapter, which is why any of this
 works headlessly: OVMF finds a GOP here for the same reason a real machine's firmware finds one.
 
 ## The shell on the screen, too
 
-Everything above is the **kernel's** voice. Since milestone 299 the console is a userspace process
+Everything above is the kernel's voice. Since milestone 299 the console is a userspace process
 writing COM1, so until milestone 400 (the shell on the firmware's screen) the tour reached the screen and the shell's prompt did not. Now
 it does, beside the serial console rather than instead of it:
 
@@ -161,13 +161,13 @@ it does, beside the serial console rather than instead of it:
                              └──OP_WRITE──► display_terminal ──FLUSH──► framebuffer_driver ──copy──► the aperture
 ```
 
-- **`framebuffer_driver`** serves the same framebuffer contract `gpu_driver` does, over the screen
+- `framebuffer_driver` serves the same framebuffer contract `gpu_driver` does, over the screen
   the firmware left running: a flush is a CPU copy from the surface into the aperture
   (`screen_console::Aperture`, host-tested). It holds only the aperture rows its 924x344 surface can
   reach, as a spawn-time mapping.
-- **The console server tees**: every byte it writes to COM1 it then hands `display_terminal`, so both
+- The console server tees: every byte it writes to COM1 it then hands `display_terminal`, so both
   surfaces say the same thing and every serial gate is unchanged.
-- **The kernel hands the screen over once** (`console::yield_screen`): it clears it under the console
+- The kernel hands the screen over once (`console::yield_screen`): it clears it under the console
   lock, stops painting, and only then is the driver spawned. After that the kernel's own lines reach
   the UART only, except a panic, which takes the screen back to be read.
 
@@ -180,12 +180,12 @@ and xenon's bench step:
 
 Built 2026-09-19, closing the second of milestone 243's two outstanding items.
 
-`x86_64` gets a screen because **UEFI already lit one** and the loader only has to measure it and say
+`x86_64` gets a screen because UEFI already lit one and the loader only has to measure it and say
 where it is. QEMU's `virt` boards have no such stage: they are entered from `-kernel` with nothing
 configured, so there is no framebuffer to discover and the arch-neutral halves of this path sat
 unused on two of three architectures.
 
-What `virt` can present is `ramfb`, and it inverts the arrangement: **the guest owns the pixels** and
+What `virt` can present is `ramfb`, and it inverts the arrangement: the guest owns the pixels and
 hands the device their physical address, after which QEMU scans them out continuously. So there is no
 flush, no doorbell and no interrupt between a `println!` and the picture, which is exactly the
 property a console wants and exactly what a display *device* would not give.
@@ -200,7 +200,7 @@ The pieces, and note that only the first two are new:
 | Painting text | `crates/screen_console`, unchanged |
 | The gate | `cargo xtask screen-boot <arch>` (**name provisional**), `uefi-boot`'s twin, decoding with `board_console::screen` unchanged |
 
-**Measured 2026-09-19**, `cargo xtask screen-boot`, inside `script/test`'s two board legs:
+Measured 2026-09-19, `cargo xtask screen-boot`, inside `script/test`'s two board legs:
 
 ```text
 --- the boot tour on a screen, aarch64 (QEMU virt + ramfb) ---
@@ -212,27 +212,27 @@ screen-boot:   | nife self-test: 5 of 5 passed
 screen-boot: read 63 non-blank row(s) of the riscv64 tour back off a ramfb, ending
 ```
 
-**Why it is a boot of its own rather than a stage of the suite**, which is forced rather than
+Why it is a boot of its own rather than a stage of the suite, which is forced rather than
 chosen: `ramfb` adds a QEMU *console*, `screendump` with no device argument writes console 0, and
 the suite's machine already has a virtio-gpu there. A boot carrying both would be photographing
 whichever QEMU happened to order first, and the gate would mean something different depending on
 QEMU's version.
 
-**Two things the first red CI run settled**, both worth knowing before touching this gate.
+Two things the first red CI run settled, both worth knowing before touching this gate.
 
-**The archive is chosen per architecture at the spawn.** `cargo()` exports `NIFE_INITRD` pointing at
+The archive is chosen per architecture at the spawn. `cargo()` exports `NIFE_INITRD` pointing at
 the aarch64 archive, and every riscv64 caller in `xtask` has to override it. `screen_boot` did not,
 at first, which on a machine with the aarch64 archive already on disk produced
 `MEASURED BOOT REFUSED` inside an otherwise passing run, and in a CI job that never built one
 produced `could not load ramdisk` and no boot at all. A refusal message inside a green gate is still
 a refusal.
 
-**The screen legs do not run under `--cpu`.** `script/cpu-matrix` runs the riscv64 suite five times
+The screen legs do not run under `--cpu`. `script/cpu-matrix` runs the riscv64 suite five times
 to narrow the ISA, and nothing on this path varies with `-cpu`: byte moves, MMIO stores and integer
 arithmetic, all of it already executed on that model by the suite above. The leg runs on every
 ordinary `script/test`, `--arch riscv64` included.
 
-**The gate says which channel failed, and that is the part worth copying.** Its second diagnostic
+The gate says which channel failed, and that is the part worth copying. Its second diagnostic
 line checks the *serial* transcript for the same marker it could not find on the screen:
 
 ```text
@@ -243,7 +243,7 @@ screen-boot: the tour never reached the SERIAL line either, so this is a boot fa
 Without that line a blank screen sends the next reader into the framebuffer path. It costs one
 `contains` and separates "this mechanism is broken" from "the machine did not boot".
 
-**What it does not claim.** `ramfb` is QEMU's; no real board has one. It proves the arch-neutral
+What it does not claim. `ramfb` is QEMU's; no real board has one. It proves the arch-neutral
 console and the arch-neutral discovery *type* on all three architectures, and it proves nothing about
 the DC8200 on the VisionFive 2. That is milestone 157 (real display output on the board), and the shape of the change it needs is
 one
@@ -251,19 +251,19 @@ branch above `screen::attach` and nothing below it.
 
 ## The bench: booting a serial-less machine
 
-**This has not been done.** Everything above is QEMU with real firmware in the loop, which is as far
+This has not been done. Everything above is QEMU with real firmware in the loop, which is as far
 as a lane can get; the machines are calef's. This section is the procedure, written to be followed
 rather than interpreted, and it is deliberately the same shape as `notes/x86-uefi-boot.md`'s.
 
 ### What you need
 
 - Any x86_64 machine with UEFI firmware and a monitor. From the fleet calef named: Graeme's laptop,
-  Graeme's desktop, cordoba, Clay's desktop, or an Intel MacBook. **The Apple Silicon MacBooks are
-  not in this fleet**: they boot non-Apple kernels legitimately (Asahi's permissive-security mode)
+  Graeme's desktop, cordoba, Clay's desktop, or an Intel MacBook. The Apple Silicon MacBooks are
+  not in this fleet: they boot non-Apple kernels legitimately (Asahi's permissive-security mode)
   but they have no UEFI, so a `BOOTX64.EFI` stick will not start one. That is a port, not a boot.
-- A USB stick, **formatted FAT32** with a GPT or MBR partition table. macOS Disk Utility: *Erase*,
-  format **MS-DOS (FAT)**, scheme **GUID Partition Map**.
-- **No serial cable, no adapter, nothing else.** That is the milestone.
+- A USB stick, formatted FAT32 with a GPT or MBR partition table. macOS Disk Utility: *Erase*,
+  format MS-DOS (FAT), scheme GUID Partition Map.
+- No serial cable, no adapter, nothing else. That is the milestone.
 
 ### Build and copy
 
@@ -281,12 +281,12 @@ One file. The path and the capitalisation are the interface.
 
 ### Firmware settings
 
-1. **Secure Boot: off.** This image is unsigned and nothing in this tree signs it. Expect to have to
+1. Secure Boot: off. This image is unsigned and nothing in this tree signs it. Expect to have to
    do this; a Secure Boot machine refuses the stick with a security-violation message and no other
    explanation.
-2. **Boot from UEFI, not Legacy/CSM.** Legacy boot looks for an MBR boot sector, which this stick
+2. Boot from UEFI, not Legacy/CSM. Legacy boot looks for an MBR boot sector, which this stick
    does not have.
-3. **Leave everything else alone on the first attempt.** A bring-up has enough variables.
+3. Leave everything else alone on the first attempt. A bring-up has enough variables.
 
 The one-time boot menu is usually F12; on a Mac, hold Option at the chime.
 
@@ -294,13 +294,13 @@ The one-time boot menu is usually F12; on a Mac, hold Option at the chime.
 
 Everything is on the monitor. Nothing else is connected.
 
-1. `nife uefi_loader: milestone 87`, then three or four more `uefi_loader:` lines. **This is the
-   firmware's own console**, so seeing it proves the firmware found the stick, Secure Boot did not
+1. `nife uefi_loader: milestone 87`, then three or four more `uefi_loader:` lines. This is the
+   firmware's own console, so seeing it proves the firmware found the stick, Secure Boot did not
    refuse it, and the loader started. It also prints the screen it found.
-2. **The screen clears**, which is the kernel's console arming.
+2. The screen clears, which is the kernel's console arming.
 3. The boot tour, beginning `nife on x86_64 (long mode, ring 0, 4-level paging)`, with a
    `screen      :` line naming the geometry.
-4. **The screen clears a second time** and the shell's banner and `$ ` appear in the top-left corner
+4. The screen clears a second time and the shell's banner and `$ ` appear in the top-left corner
    (a 132x43 terminal whatever the panel's size). There is no keyboard yet on a machine without a
    serial port (milestone 242), so the prompt is as far as it goes.
 

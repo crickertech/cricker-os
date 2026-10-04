@@ -1,6 +1,6 @@
 # The directory capability (milestone 47)
 
-Milestone 47's keystone. A directory used to be **one** authority: hand a program somewhere to
+Milestone 47's keystone. A directory used to be one authority: hand a program somewhere to
 write its logs and you also handed it the power to read everything already there and to delete it.
 This note is the design that splits that into separable rights, the verb that hands a *directory*
 back rather than bytes, and the process that makes a subtree grant checkable from outside the
@@ -39,8 +39,8 @@ splits off a power none of the six carried, so the case for six stands.
 
 ### `DESCEND` earns its own rung, and this is the finding
 
-The roadmap's five did not separate walking in from reading. Bundle them and **granting a directory
-transitively grants its whole subtree**, to any depth. The authority a grant carries would then be
+The roadmap's five did not separate walking in from reading. Bundle them and granting a directory
+transitively grants its whole subtree, to any depth. The authority a grant carries would then be
 decided by *the shape of the tree* rather than by the grant: the same words, `here is somewhere to
 put your logs`, hand over a lot or a little depending on what happens to be underneath. That is
 ambient authority reintroduced by recursion, which is the exact thing this milestone exists to
@@ -49,7 +49,7 @@ refuse.
 With `DESCEND` separate, a capability can be exactly one directory deep, and a program that holds
 one cannot even learn that a subtree is there.
 
-`MKDIR` needs `CREATE` **and** `DESCEND` together, for the same reason: making a directory you
+`MKDIR` needs `CREATE` and `DESCEND` together, for the same reason: making a directory you
 could not have walked into would be a way to mint a capability out of a right that was withheld.
 
 ## Attenuation is by construction, not by a check
@@ -60,7 +60,7 @@ pub const fn attenuate(self, requested: u64) -> Self {
 }
 ```
 
-That `&` is the whole monotonicity property. `Rights::attenuate` is the **only** constructor for a
+That `&` is the whole monotonicity property. `Rights::attenuate` is the only constructor for a
 non-root rights set (`Rights::root` is the other one, and its single caller is the code that binds a
 server to its mount), and `a & b` is a subset of `a` for every `b`. There is no code path that
 widens, so there is no check to forget, no branch to get wrong, and no ordering to preserve. Three
@@ -70,7 +70,7 @@ a bit this contract has not defined.
 The server *separately* refuses a request whose intersection came up short (`EPERM`), and it is
 worth being clear about what that refusal is for. It is not the safety property. Delete it and the
 intersection above still holds and the child is still bounded. What it does is refuse to hand back
-less than was asked for **without saying so**, which is DECISIONS §42's rule against silent
+less than was asked for without saying so, which is DECISIONS §42's rule against silent
 degradation: a caller that asked for `CREATE` and got a capability without it should find out now
 rather than at its first write.
 
@@ -82,15 +82,15 @@ three host tests and two Kani harnesses red.
 A missing right could always answer `EACCES` and be done. It must not, and which word it uses is a
 decision rather than a detail.
 
-- **A naming right withheld answers `ENOENT`.** `READ`/`WRITE` for `OPEN`, `DESCEND` for `OPENDIR`.
+- A naming right withheld answers `ENOENT`. `READ`/`WRITE` for `OPEN`, `DESCEND` for `OPENDIR`.
   *In this scope there is no such name.* Nothing consulted a permission, and a holder that may not
   reach a name must not be able to learn that the name is there. This is the sentence
   `fs_file_caretaker` already says, for the same reason (DECISIONS §27).
-- **A mutating right withheld answers `EROFS`.** `CREATE`, `REMOVE`, and `WRITE` on a file handle.
+- A mutating right withheld answers `EROFS`. `CREATE`, `REMOVE`, and `WRITE` on a file handle.
   *Through this capability, that directory is read-only.* `EACCES` was rejected on purpose, and §27
   had already rejected it for files: it implies a policy that could have said yes, and there is no
   policy here, only what the capability is.
-- **`ENUMERATE` withheld answers `EPERM`**, and it is the one rung where neither of the other two
+- `ENUMERATE` withheld answers `EPERM`, and it is the one rung where neither of the other two
   works. "No such name" is nonsense when you are holding the directory. An empty listing would be a
   statement about *the directory* rather than about the capability, and it would be false, which is
   §42's silent degradation exactly: a verb that is not offered has to fail loudly rather than
@@ -103,7 +103,7 @@ handle onto a directory's raw bytes.
 ## Handle 0 is the bound directory
 
 The bound directory used to be a private field the server consulted. It is now an ordinary entry in
-the handle table at `fs::ROOT`, which is **0** because every client that ever sent an `OPEN` already
+the handle table at `fs::ROOT`, which is 0 because every client that ever sent an `OPEN` already
 sent 0 in that field and meant exactly this. So there is no separate "current directory" for a verb
 to forget to consult: every name-taking verb resolves under a handle, always. File handles start at
 1, and the root cannot be closed (`EINVAL`, because it is not something the client opened).
@@ -112,20 +112,20 @@ That is Plan 9's answer in one number, and it lines up with the roadmap's "every
 root": `/` is the root of *your* namespace, and two clients on two endpoints both say `0` and mean
 different directories.
 
-A file handle **inherits** the `READ`/`WRITE` bits of the directory it was opened under, so what may
+A file handle inherits the `READ`/`WRITE` bits of the directory it was opened under, so what may
 be done to a file was decided when the directory was granted rather than by the code that opened it.
 That is the roadmap's "a program handed a directory to write logs into should not thereby be able to
 delete what is there", made structural.
 
 ## The structural finding: the handle is the authority, the endpoint is the boundary
 
-**The FS server's handle table is per *server*, not per client.** Two clients sharing one endpoint
+The FS server's handle table is per *server*, not per client. Two clients sharing one endpoint
 share those handles. A rights-carrying handle therefore attenuates only *its holder*: anyone holding
 the FS-service endpoint can name `fs::ROOT` and be back at the image root, whatever narrow handle
 they were also given. Rights on a handle are not confinement.
 
-So confining a program to a subtree is not "give it a narrow handle". It is **give it an endpoint
-that reaches nothing else**, which means a caretaker process, exactly as a per-file grant needs one
+So confining a program to a subtree is not "give it a narrow handle". It is give it an endpoint
+that reaches nothing else, which means a caretaker process, exactly as a per-file grant needs one
 (§27's amendment, notes/grant-expression.md). The narrowing is an address space, not a branch.
 
 Serving a second, narrower endpoint from the FS server itself would need a receive over a *set* of
@@ -140,17 +140,17 @@ endpoints, which this kernel does not offer; adding it means giving endpoint cap
 ```
 
 `fs_file_caretaker` has to inspect requests, because a file capability and a directory capability
-speak different protocols and it is translating between them. **`fs_subtree_caretaker` performs no
-rights checks**, by design.
+speak different protocols and it is translating between them. `fs_subtree_caretaker` performs no
+rights checks, by design.
 
-At startup it sends exactly **one** `OPENDIR`, asking for the granted name with the granted rights.
+At startup it sends exactly one `OPENDIR`, asking for the granted name with the granted rights.
 The FS server intersects those with its own and refuses if the intersection came up short, so a
 wiring that asked for more than exists dies at the caretaker's first request instead of coming up
 serving a capability nobody meant to hand out. Everything the client can reach afterwards, it
 reaches *through the handle that request minted*, so there is no branch in the caretaker that could
 be wrong about it.
 
-What the process actually does is **translate a namespace**. The client numbers its handles in its
+What the process actually does is translate a namespace. The client numbers its handles in its
 own space starting at `fs::ROOT`, which is the granted directory; the caretaker maps each to the FS
 server's number and forwards the request otherwise unchanged. A client that guesses a handle is
 guessing in a table with a handful of inhabitants, none of which it chose, and a number the
@@ -162,8 +162,8 @@ It costs no memory: the granted name and the rights mask ride in the three `STAR
 ### The verb table, and how it stayed a translation (milestone 61)
 
 Each of the three caretakers used to be a hand-written `match` over the opcode, and nothing made a
-`match` and the contract agree. So the way it failed was that **a verb added to `filesystem_protocol` was
-simply absent from a caretaker and the capability silently was not there**. That is not
+`match` and the contract agree. So the way it failed was that a verb added to `filesystem_protocol` was
+simply absent from a caretaker and the capability silently was not there. That is not
 hypothetical: milestone 57 added the four extended-attribute verbs, none of the three was taught
 them, and nothing failed. Programs behind every kind of grant just could not reach their files'
 attributes.
@@ -171,18 +171,18 @@ attributes.
 `filesystem_protocol::verb` is a row per verb saying what the request word's length field counts
 (`Operand::None`, `Name`, `Payload`, `Rename`), whether the second word means anything, whether the
 reply is a new handle, and which `dir` rights the server will demand. `verb::of(op)` is the whole of
-a caretaker's dispatch now, and a verb with no row is a **compile error**, so forgetting fails the
+a caretaker's dispatch now, and a verb with no row is a compile error, so forgetting fails the
 build rather than producing a capability that is quietly missing.
 
-**The table shares the dispatch and never the attenuation**, which is what keeps this program's one
+The table shares the dispatch and never the attenuation, which is what keeps this program's one
 strong property intact. A table lookup that decides whether to forward the length field or a zero
 cannot refuse anything; a name filter or a rights test here would be a branch that could be wrong.
 `fs_subtree_caretaker` consults no policy table at all, and there is nothing for it to consult: the
 attenuation is still entirely in the handle the server minted.
 
 The three caretakers therefore stay three programs, and the roadmap's refutation of collapsing them
-holds: `fs_subtree_caretaker` and `fs_nameset_caretaker` serve identical verb surfaces **by opposite
-means**, one by checking nothing and one by checking every name, and `fs_file_caretaker` translates
+holds: `fs_subtree_caretaker` and `fs_nameset_caretaker` serve identical verb surfaces by opposite
+means, one by checking nothing and one by checking every name, and `fs_file_caretaker` translates
 between two protocols rather than narrowing one.
 
 ### One frame, and the startup ordering that argument does not cover
@@ -191,7 +191,7 @@ The one-frame argument is `fs_file_caretaker`'s: every request on both hops is a
 the client is parked inside its own call for the whole time the caretaker is using the page, and a
 second frame would buy a copy and no isolation.
 
-That holds once the caretaker is **serving**. It does not hold at **startup**, and this cost a
+That holds once the caretaker is serving. It does not hold at startup, and this cost a
 debugging round. The caretaker stages the granted name in the shared page and then blocks in a
 `CALL` to the FS server; a confined program that already exists writes its own first name over that
 page, and the FS server resolves whatever it finds there.
@@ -203,8 +203,8 @@ then died rather than serve a hole, and its client blocked forever on a call nob
 userspace `ebreak` followed by the 60 s lost-wakeup watchdog. It passed on aarch64 and failed on
 riscv, which is the shape of a timing bug and was one.
 
-The fix is ordering, not a second page. **Draining the readiness sentinels is sequencing, not only
-an assertion**: each server is parked inside its blocking announcement until somebody receives it,
+The fix is ordering, not a second page. Draining the readiness sentinels is sequencing, not only
+an assertion: each server is parked inside its blocking announcement until somebody receives it,
 so nothing it serves can be answered first. `fs_service::start_granted_dir` now drains the service,
 waits for the caretaker's own sentinel, and only then spawns the confined program.
 `fs_file_caretaker` had the same latent bug and took the same three lines.
@@ -214,15 +214,15 @@ waits for the caretaker's own sentinel, and only then spawns the confined progra
 `mv`'s verb, and the one that made `REMOVE` real: until it existed nothing on the wire consulted
 that rung, and a right nothing enforces is a right the contract is lying about.
 
-**The wire.** The only verb here that names two directories, so it is the only one whose second word
+The wire. The only verb here that names two directories, so it is the only one whose second word
 is not a scalar. The source is the request word's handle and length as usual; the destination rides
 in the second word packed by `fs::rename_dst` with the same two fields. Both names are in the shared
 page, source first, back to back. A pair longer than the page is `EINVAL` rather than a clamp,
 because clamping a name renames something else.
 
-**Rights.** `REMOVE` on the source (its name goes away) and `CREATE` on the destination (a name
+Rights. `REMOVE` on the source (its name goes away) and `CREATE` on the destination (a name
 appears), each refused with `EROFS`. Within one directory a rename needs both on that one. The
-rights are checked **before** anything is resolved, so a capability that may not move a name cannot
+rights are checked before anything is resolved, so a capability that may not move a name cannot
 use the verb to find out whether one is there.
 
 ### The two atomicities, stated apart (DECISIONS §42)
@@ -230,21 +230,21 @@ use the verb to find out whether one is there.
 §42's point is that saying "atomic" and letting the reader assume the stronger one is the mistake
 POSIX made, so:
 
-- **Concurrency-atomic: yes.** No observer sees the state where the name is in both places or
+- Concurrency-atomic: yes. No observer sees the state where the name is in both places or
   neither. The reason is structural rather than a lock: the FS server's serve loop runs one request
   to completion before it receives the next, so inside the server there is no concurrent observer at
   all.
-- **Crash-atomic: yes, and measured.** The whole rename runs inside one `fs.tx`, which reaches the
+- Crash-atomic: yes, and measured. The whole rename runs inside one `fs.tx`, which reaches the
   platter through one commit in RedoxFS's header ring. That is a design claim until something cuts
-  the power, so the rename is now **the last operation of the workload in
-  `redoxfs_server/tests/crash_consistency.rs`**, whose sweep cuts the device at every write the workload
+  the power, so the rename is now the last operation of the workload in
+  `redoxfs_server/tests/crash_consistency.rs`, whose sweep cuts the device at every write the workload
   makes and mounts what is left. A recovery holding the file under both names, or under neither, is
   a state that never existed and fails the sweep. Both names are in that test's `NAMES`, so a
   snapshot reads both and cannot miss either case.
 
 ### What is deliberately not offered, and why each refusal is loud
 
-§42's operative rule is **no silent degradation**: a verb that is not offered fails loudly and the
+§42's operative rule is no silent degradation: a verb that is not offered fails loudly and the
 application decides, and what it must never receive is an unsafe operation wearing a safe one's
 name.
 
@@ -308,11 +308,11 @@ a directory. `REMOVE` withheld while `CREATE` is held is "add to this, destroy n
 creates a name and then cannot move it, through the same code the full run moves it with.
 
 What the attacker attempts, and what makes each attempt real: `motd` is in the granted directory's
-**parent**, `other/secret` is in its **sibling**, and both are on the image and one directory entry
+**parent**, `other/secret` is in its sibling, and both are on the image and one directory entry
 from the caretaker, which could open either on any request it liked. So each refusal is a fact about
 the capability rather than about the filesystem. It also tries `..` at every rights setting, asks
 for a right its capability does not carry (which must be refused, not quietly narrowed), descends
-asking for **nothing** and checks that the resulting capability can do nothing at all, and guesses
+asking for nothing and checks that the resulting capability can do nothing at all, and guesses
 handle numbers past anything the caretaker could have minted.
 
 Two bits exist to stop the whole thing being vacuous. `OPENED_ITS_OWN` is the control: without it,
@@ -332,7 +332,7 @@ process, on the host, with the pinned engine, reading the image the run left beh
 1. every fixture name is still in the image root (a capability granted on `sub` can remove nothing
    above itself, so a missing name is an escape too);
 2. **no name of the attacker's making is in the root**, which is the upward escape;
-3. its creations **are** in `sub`, which stops claim 2 from being true of a capability that reaches
+3. its creations are in `sub`, which stops claim 2 from being true of a capability that reaches
    nothing, and `sub` holds both a renamed name and an unrenamed one, which is the `REMOVE` rung
    witnessed from out here: one capability moved a name and another, running the same code against
    the same directory, could not;
@@ -343,12 +343,12 @@ A program that broke out and then lied about it would still have left the file o
 ## The FS server's stack, measured before and after
 
 §27 records that this server's stack is sized by measurement rather than chosen, after `CREATE` and
-`TRUNCATE` added a level of tree recursion and left it **528 bytes short**, which presented as a
+`TRUNCATE` added a level of tree recursion and left it 528 bytes short, which presented as a
 mystery 900-second test. So the four verbs this milestone adds are exactly the kind of change that
 warrants looking, and `RENAME` most of all: it is `find_node` twice, then `link_node` and
 `remove_node`, all in one transaction.
 
-The high-water mark went **down**, by 3,776 bytes on aarch64 and 3,696 on riscv64:
+The high-water mark went down, by 3,776 bytes on aarch64 and 3,696 on riscv64:
 
 | | aarch64 | riscv64 | of a 397,312-byte grant |
 |---|---|---|---|
@@ -371,10 +371,10 @@ Known limitations, next to the feature rather than only in a tracker.
   reference Samba config), so it is the next step rather than a permanent gap. Binding it is a change
   to `patches/std-nife`, which rebuilds the std farm and moves the `std_exerciser` transcript, and it
   was kept out of this lane deliberately.
-- ~~**`UNLINK` does not exist.**~~ Built by the commands lane, along with the unlink/revoke split the
+- ~~`UNLINK` does not exist.~~ Built by the commands lane, along with the unlink/revoke split the
   roadmap argues for: see [shell-navigation.md](shell-navigation.md). `REMOVE` now gates two verbs.
-  What that lane found and did not fix: **there is no `RMDIR`**, so `MKDIR` can make a directory this
-  contract cannot remove, and **no verb reports what rights a handle carries**, so a program handed a
+  What that lane found and did not fix: there is no `RMDIR`, so `MKDIR` can make a directory this
+  contract cannot remove, and no verb reports what rights a handle carries, so a program handed a
   directory capability must be told out of band or discover by probing.
 - **A directory cannot be moved between directories** (`EINVAL`). The argument is above; it is a real
   restriction against POSIX and it is declared rather than silently approximated.
@@ -428,7 +428,7 @@ Known limitations, next to the feature rather than only in a tracker.
   filters on: a name-taking verb whose row said otherwise would walk straight past the filter. It is
   pinned by a host test that spells the expected list out rather than deriving it from the field it
   is checking.
-- ~~**The caretakers answer `EOPNOTSUPP` to the extended-attribute verbs.**~~ Closed by milestone
+- ~~The caretakers answer `EOPNOTSUPP` to the extended-attribute verbs.~~ Closed by milestone
   61; see [xattr.md](xattr.md) for which caretaker refuses a write through a read-only grant and
   which leaves it to the server.
 

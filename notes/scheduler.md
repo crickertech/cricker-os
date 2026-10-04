@@ -7,7 +7,7 @@ authority on *why*; this is *how it fits together* and the caveats worth rereadi
 
 Each core owns one run queue, single-owner, touched only by that core with interrupts masked
 (`cpu::PerCpu::with_runq`). No core takes another core's run-queue lock, ever. The only cross-core
-structure is a per-core migration **inbox** (a real lock) plus the reschedule SGI that pokes a core
+structure is a per-core migration inbox (a real lock) plus the reschedule SGI that pokes a core
 to drain it. That is the whole concurrency surface: run queues are private, the inbox is the one
 shared thing, and it is small.
 
@@ -34,15 +34,15 @@ uncertainty, and no shared run-queue lock ever appears. Cost: a steal lands a ti
 
 ## Wakes: local for a rendezvous, load-aware for a device interrupt (§28.2, as amended)
 
-An IPC rendezvous wakes its partner on the **waker's** core: the message is in registers, the cache
+An IPC rendezvous wakes its partner on the waker's core: the message is in registers, the cache
 is warm, and a serial pipeline (net_stack<->std) stays co-located and fast. `wake` does this, and every
 IPC path, supervision, and revocation uses it.
 
-A **device interrupt** is different: it carries no locality, and pinning the woken driver to the
+A device interrupt is different: it carries no locality, and pinning the woken driver to the
 IRQ-handling core re-concentrates a pipeline or drops it on a busy core. So `irq_notify` wakes
-**load-aware** through `wake_load_aware` / `pick_wake_target`: the least-loaded core, ties won by
+load-aware through `wake_load_aware` / `pick_wake_target`: the least-loaded core, ties won by
 the current core so a driver taking a completion interrupt every request (the block server at a
-RedoxFS mount) is not migrated each time. The device-line **affinity** that spreads which core takes
+RedoxFS mount) is not migrated each time. The device-line affinity that spreads which core takes
 each IRQ in the first place is the companion mechanism, in notes/interrupts.md.
 
 ## The undelivered-wake gate (boot 8, VisionFive 2)
@@ -53,7 +53,7 @@ section that gave the parked operation something to return: a rendezvous stages 
 interrupt counts a signal, a reply fills the reply words, revocation flags the abort. Each of
 those sites sets the handshake's `ipc_served` (or `ipc_aborted`; both on
 `thread_wake_handshake::Handshake`, embedded in `Thread`) before calling `wake`, and `wake` /
-`wake_load_aware` **refuse** to make a waiting thread Ready when neither flag is set, recording
+`wake_load_aware` refuse to make a waiting thread Ready when neither flag is set, recording
 `refuse:tid` on the per-core event ring. The parked thread stays parked and still linked on its
 endpoint's wait queue, and the real counterparty completes the rendezvous normally later.
 
@@ -62,13 +62,13 @@ recv tails carry a `debug_assert` tripwire ("resumed with nothing delivered") fo
 gate makes unreachable, and every `ipc_served` setter records a `serve:tid/site` ring event so a
 bench dump names who completed a rendezvous instead of leaving it to inference.
 
-**The failure it was built against was misread, and that correction is the important part of this
-section.** It was built from the VisionFive 2's boot 8 (notes/visionfive2.md, fourth bench stop),
+The failure it was built against was misread, and that correction is the important part of this
+section. It was built from the VisionFive 2's boot 8 (notes/visionfive2.md, fourth bench stop),
 read at the time as the boot thread, parked in `ipc_recv`, taking a `wake:0x0` on a boot where no
-sender to its endpoint existed. The boot-8 lane's **fifth** bench stop (2026-08-15) re-read those
+sender to its endpoint existed. The boot-8 lane's fifth bench stop (2026-08-15) re-read those
 dumps and overturned it: the wake was the worker's real send, and the dump state read as a
-stranded receiver was the terminal state of a completed tour. **So the gate has never fired on a
-field failure, and `refuse:` has never appeared on a board ring.**
+stranded receiver was the terminal state of a completed tour. So the gate has never fired on a
+field failure, and `refuse:` has never appeared on a board ring.
 
 It stays anyway, and the reason is not sunk cost. The transition it forbids really would complete a
 rendezvous off a stale mailbox while the TCB stayed linked on its endpoint queue, and the loom
@@ -90,10 +90,10 @@ already-consumed context and time-travels the thread onto a reused stack. Guarde
 `a_wake_without_delivery_cannot_complete_a_parked_recv` and
 `a_reply_to_a_thread_parked_as_a_receiver_is_dropped`, which inject through the real `wake` path.
 
-**The protocol is a crate now, and loom searches it** (2026-08-14, the retrofit the fourth bench
+The protocol is a crate now, and loom searches it (2026-08-14, the retrofit the fourth bench
 stop's audit asked for). The whole block/wake state machine (`state`, `on_cpu`, `wake_pending`,
 `wait_on`, `ipc_served`, `ipc_aborted`, and the gate, deferral and finish-switch transitions over
-them) lives in `crates/thread_wake_handshake`, embedded in `Thread` and **called** by `sched.rs` rather
+them) lives in `crates/thread_wake_handshake`, embedded in `Thread` and called by `sched.rs` rather
 than mirrored, so the model-checked code and the shipped code are the same code. Each of the
 protocol's three hazards (wake-before-switch-out, the steal edge of the same window, and the
 undelivered wake) is a loom harness that holds with the current semantics and a `#[should_panic]`
@@ -103,7 +103,7 @@ witnessed, so "three recorded races" overstated it and this says hazards instead
 notes/interleaving.md
 for the model's honest limits.
 
-**BUGS.** The gate protects threads whose `wait_on` is set, which is every IPC block site today; a
+BUGS. The gate protects threads whose `wait_on` is set, which is every IPC block site today; a
 future block path that forgets to set `wait_on` opts itself out silently. A kernel-thread caller
 of `ipc_recv` still cannot tell an abort from a message unless it checks `take_ipc_aborted`
 itself; the gate guarantees *something* was delivered, not which thing. And the blocking
@@ -116,20 +116,20 @@ already holds was judged not worth the cycles the bench tripwire watches.
 Turning on any migration at all strips the accidental cover off same-core assumptions. Two bit us
 and are now fixed and tested:
 
-- **RISC-V `tp` (the per-hart pointer) is thread-frame state.** A kernel thread preempted on one
+- RISC-V `tp` (the per-hart pointer) is thread-frame state. A kernel thread preempted on one
   hart and resumed on another used to come back reading the wrong hart's per-CPU block. Fixed in
   `arch/riscv64/trap.s`; the full story and the regression test are in notes/riscv-port.md. aarch64
   is immune (its pointer is a system register the frame never carries). This is the concrete face of
   rule 4 (assume weak ordering) and rule 1 (arch state lives in arch).
 
-- **The hang watchdog counts progress, not test starts.** A slow-but-live workload (std_net spends
+- The hang watchdog counts progress, not test starts. A slow-but-live workload (std_net spends
   about 300 s in net_stack's userspace smoltcp poll, CPU-bound, no wakes or output for stretches over a
   minute) must not read as a deadlock. The watchdog credits a completed wake, a line of output, OR
   any core running a non-idle thread; only a real lost wakeup, every thread blocked and every core on
   its idle thread, stalls it. See `kernel/src/testing.rs`.
 
-- **And because that alone traded a flake for a silent hang, there is also a per-test wall-clock
-  ceiling.** See the section below: the progress heartbeat is blind to a livelock that keeps doing
+- And because that alone traded a flake for a silent hang, there is also a per-test wall-clock
+  ceiling. See the section below: the progress heartbeat is blind to a livelock that keeps doing
   IPC, which is a real failure we hit, not a theoretical one.
 
 ## The two hang watchdogs, and what each one cannot see
@@ -145,23 +145,23 @@ are two ways a test never finishes, and no single instrument sees both.
 | Blind to | Any loop that keeps doing IPC | Nothing that fails to terminate, but slow to react |
 | Scope | Anywhere, including before tests start | Only while a test is running |
 
-**Why the ceiling had to be added.** The heartbeat credits a completed rendezvous as progress. The
+Why the ceiling had to be added. The heartbeat credits a completed rendezvous as progress. The
 RedoxFS repeat-write livelock spins in an allocator commit *while still serving blk IPC*, so every
 rendezvous reset the heartbeat: a failure that had been a loud 60 s trip became an infinite silent
 hang at about 400% CPU with no watchdog fire. A livelock that makes progress is indistinguishable from
 healthy work to a progress-only instrument. Turning a loud failure into a silent one is worse than the
 flake the heartbeat fixed, so both mechanisms are live now.
 
-**Why budgets are per test.** std_net honestly runs 300 to 344 s, so one global ceiling would sit near
+Why budgets are per test. std_net honestly runs 300 to 344 s, so one global ceiling would sit near
 700 s and let a two-second unit test spin for eleven minutes before failing. The default is a tight
 90 s; a test that is honestly slower declares its cost in `SLOW_TESTS` in `testing.rs`, with the
 reason. Keep entries near 2x measured, so host load does not make them flaky.
 
-**The honest limit.** Neither mechanism can tell a livelock from slow-but-correct work while it is
+The honest limit. Neither mechanism can tell a livelock from slow-but-correct work while it is
 running. Only the budget, a human declaration of expected cost, separates them. That is why a new
 `SLOW_TESTS` entry deserves a sentence about *why* the test is slow, not just a number.
 
-**Proving it.** The `watchdog_probe` feature adds a test that loops forever doing a full rendezvous
+Proving it. The `watchdog_probe` feature adds a test that loops forever doing a full rendezvous
 each pass, so the heartbeat sees a healthy kernel and only the ceiling stops it. It is expected to
 fail, so it is not in the normal suite:
 
@@ -170,14 +170,14 @@ helpers/qemu-bounded.sh 200 cargo test -p kernel \
     --features watchdog_probe --target aarch64-unknown-none-softfloat
 ```
 
-**The outermost backstop.** `helpers/qemu-bounded.sh` still guards the case where the kernel wedges so
+The outermost backstop. `helpers/qemu-bounded.sh` still guards the case where the kernel wedges so
 hard the timer IRQ stops. It did not fire for the RedoxFS livelock only because that run invoked
-`cargo` directly instead of the wrapper: **a bypassable backstop is not a backstop**, which is exactly
+`cargo` directly instead of the wrapper: a bypassable backstop is not a backstop, which is exactly
 why the ceiling lives in the kernel, where nothing can route around it.
 
 ## CLOSED: the lost wakeup on `reclaim_frees_a_started_then_exited_childs_regions`
 
-**A refused region reclaim killed the child the test was waiting for.** One line of test code, no
+A refused region reclaim killed the child the test was waiting for. One line of test code, no
 kernel defect, and not a RISC-V defect either: reproduced on aarch64 the moment the window was
 widened. Milestone 72, 2026-08-03.
 
@@ -193,7 +193,7 @@ let got = crate::sched::ipc_recv(report)[0];   // waits for the child's SEND
 ```
 
 That comment was true when it was written and stopped being true when DECISIONS §16 was amended.
-A refused reclaim is **not** passive any more: `reap_region_objects` sets `killed = true` on every
+A refused reclaim is not passive any more: `reap_region_objects` sets `killed = true` on every
 live thread in the region and *then* returns `Err`, so the owner's retry can tear a runaway down.
 §24's `^C` escalation is built on exactly that. So the probe marked the child `killed`, and
 `schedule()` converts a killed thread to a corpse at its next preemption:
@@ -204,7 +204,7 @@ if t.killed && t.state == State::Running { t.state = State::Finished; }
 
 From there it is a plain race between the child's nine instructions and its own core's next timer
 tick. Win it and the child SENDs, the test passes, and the armed kill is harmless because the child
-was about to exit anyway. Lose it and the child is reaped **without ever sending**, `ipc_recv`
+was about to exit anyway. Lose it and the child is reaped without ever sending, `ipc_recv`
 blocks forever, every core falls to idle, and the 60 s heartbeat fires.
 
 Why host load moved it from "never seen locally" to one run in four is not measured here, but the
@@ -215,7 +215,7 @@ what turns those into different numbers.
 
 ### How it was proved, since a one-in-four race is not evidence
 
-**Widen the window instead of waiting for it** (the method milestone 71 used on the frame fault).
+Widen the window instead of waiting for it (the method milestone 71 used on the frame fault).
 A call-free three-instruction delay loop in front of `REPORT_STUB`, sized to span several ticks:
 
 ```text
@@ -223,7 +223,7 @@ riscv64   lui t0, 0x4000 ; addi t0, t0, -1 ; bne t0, x0, -4
 aarch64   mov x5, #0x4000000 ; subs x5, x5, #1 ; b.ne -4
 ```
 
-With the probe in place that hangs the watchdog on the **first run and every run**, on both ISAs.
+With the probe in place that hangs the watchdog on the first run and every run, on both ISAs.
 With the probe removed the same widened child passes. Temporary prints in the two suspect lines
 caught the whole chain in order:
 
@@ -235,7 +235,7 @@ caught the whole chain in order:
 WATCHDOG: no progress for ~60 s. Every core idle, every thread blocked: a lost-wakeup hang.
 ```
 
-The forced dump matched the four wild occurrences exactly: **101 threads, 109 endpoints**, every
+The forced dump matched the four wild occurrences exactly: 101 threads, 109 endpoints, every
 thread `wake_pending=false on_cpu=false`, all four inboxes empty. Same fingerprint, same hang.
 
 ### The fix, and what it costs
@@ -245,17 +245,17 @@ The probe is deleted. Nothing else changed. The refusal's own behaviour is prove
 destructive call at a runaway that is *meant* to die, and that is the only subject it can honestly
 be pointed at. `reclaim_region` now carries a `BUGS` section saying so where a caller meets it.
 
-**Confirmed under the original recipe**: four host burners, the riscv64 leg twenty times,
-**0 watchdog hangs**. Three of the twenty failed on something else, and all three are the
+Confirmed under the original recipe: four host burners, the riscv64 leg twenty times,
+0 watchdog hangs. Three of the twenty failed on something else, and all three are the
 bounded-yield-under-contention class this file already documents further down
 (`a_thread_that_never_yields_is_preempted_anyway`, `a_blocked_waiter_wakes_with_an_error_when_its_endpoint_is_revoked`,
 and the sibling at `sched.rs:2709`). They fail in 23 s with a named assertion, not at 60 s with a
 dump, so the two are never confusable once you look. A 15% rate for that class under four burners is
 worth someone's attention on its own; it is not this.
 
-**The local aarch64 rate is not measurable with this recipe, and that is worth knowing before
-someone tries.** Ten pre-fix aarch64 runs under the same four burners gave **0 hangs**, which sounds
-like "rarer on aarch64" and is not evidence of anything: **five of the ten died earlier in the boot**
+The local aarch64 rate is not measurable with this recipe, and that is worth knowing before
+someone tries. Ten pre-fix aarch64 runs under the same four burners gave 0 hangs, which sounds
+like "rarer on aarch64" and is not evidence of anything: five of the ten died earlier in the boot
 on the bounded-yield contention flakes, before the suite ever reached this test. The aarch64 leg is
 much more prone to those under burners than riscv64 is (5 in 10 against 3 in 20), so the burners
 break the instrument before they exercise it. The aarch64 evidence that counts is the widened-window
@@ -265,7 +265,7 @@ control and the wild CI hit, neither of which needs a rate.
 the child is never marked `killed`, so the conversion that reaped it has no input and cannot happen
 on any machine at any speed. That distinction matters because the observed *rates* vary wildly and
 say nothing about whether the cure works: never seen locally at first, one in four under four
-burners, and **three consecutive failures on one CI pull request** (#29, docs-only) on the shared
+burners, and three consecutive failures on one CI pull request (#29, docs-only) on the shared
 runners. All three numbers are what the mechanism predicts, because the loser of the race is decided
 by how much wall clock the guest gets between the child being switched in and its `ecall`, and a
 two-core shared runner emulating four harts gives it very little. A hot rate is evidence the window
@@ -289,11 +289,11 @@ shown.
 
 ### Why the first four were all riscv64, and why it is not a RISC-V property
 
-The answer is **exposure, not the ISA**, and it is countable rather than arguable. Per pull request,
-CI boots the suite seven times: once on aarch64 and once on riscv64 in `build + test`, then **five
-more riscv64 boots** in the `cpu matrix` job, which runs `script/cpu-matrix` over `rv64`,
+The answer is exposure, not the ISA, and it is countable rather than arguable. Per pull request,
+CI boots the suite seven times: once on aarch64 and once on riscv64 in `build + test`, then five
+more riscv64 boots in the `cpu matrix` job, which runs `script/cpu-matrix` over `rv64`,
 `sifive-u54`, `rva22s64`, `rva23s64` and `thead-c906` and deliberately does not stop at the first
-failure. **Six riscv64 rolls of the dice to one aarch64 roll.** Four riscv64 sightings before the
+failure. Six riscv64 rolls of the dice to one aarch64 roll. Four riscv64 sightings before the
 first aarch64 one is what a 6:1 exposure ratio produces on its own.
 
 Two explanations offered along the way were wrong, and both are recorded because each is the kind
@@ -302,7 +302,7 @@ that sounds right:
 - **"riscv64 loses the race more often under TCG."** Written in an earlier draft of this section, by
   this milestone. Possible, unmeasured, and unnecessary once the exposure ratio is counted.
 - **"riscv64 runs first, so it failed first and the aarch64 leg never got there."** Offered while the
-  aarch64 hit was being reported, and it is backwards: `xtask test` runs the **aarch64 leg first**
+  aarch64 hit was being reported, and it is backwards: `xtask test` runs the aarch64 leg first
   and `return false`s on its failure, so a riscv64-only sighting is a run in which aarch64 was given
   its chance and passed. The four riscv64 CI hits came from `cpu matrix`, which has no aarch64 leg to
   order against.
@@ -314,24 +314,24 @@ RISC-V for four days.
 
 ### The accumulation is not this bug, and the aarch64 hit does not make it one
 
-The **101 threads and 109 endpoints** were the lead everyone followed first, including this
+The 101 threads and 109 endpoints were the lead everyone followed first, including this
 milestone's brief, and they are a real thing that is not this.
 
 **The A/B settles it.** Under the widened window the tree hangs with one line of test code present
-and passes with it removed, on both ISAs, deterministically, and the accumulation is **identical in
-both arms**: same tests before it, same 101 threads, same 109 endpoints. A cause you can leave in
+and passes with it removed, on both ISAs, deterministically, and the accumulation is identical in
+both arms: same tests before it, same 101 threads, same 109 endpoints. A cause you can leave in
 place while the effect disappears is not the cause. There is also a mechanism for the thing that
 does explain it, traced print by print, which the accumulation never had.
 
 It is worth saying because the aarch64 sighting reads at first like evidence *for* the accumulation:
 the leak is shared scheduler state present on both ISAs, so a second ISA failing is what you would
 predict if the leak were the cause. It is also what you would predict from portable `sched.rs` code
-and a race, which is what it turned out to be, and the two predictions are the same. **A prediction
-both hypotheses make cannot choose between them.** The A/B can, and did.
+and a race, which is what it turned out to be, and the two predictions are the same. A prediction
+both hypotheses make cannot choose between them. The A/B can, and did.
 
 The supporting reasons stand on their own too. The threads are blocked, so they add no scheduling
 load and no run-queue depth; 109 endpoints is a fifth of `MAX_ENDPOINTS`. The suite arrives at this
-test that way on **both** ISAs (`notes/riscv-parity-scope.md` measured the table at 87 on each at the
+test that way on both ISAs (`notes/riscv-parity-scope.md` measured the table at 87 on each at the
 leak police), so it never could have explained an ISA skew either.
 
 It is still worth its own milestone: 101 of `MAX_THREADS = 128` is 79% of a hard `create_tcb`
@@ -410,8 +410,8 @@ runnable the entire minute. Read the dump, not the banner.
 which masks interrupts. Both of its callers then made the *same* comparison a second time to decide
 whether to send the SGI, and both made it with interrupts enabled:
 
-- `spawn_on` read `let remote = target != cpu::id()` **before taking the lock at all.**
-- `start_thread_control_block` re-read `target != cpu::id()` **after `drop(guard)`**, which unmasks
+- `spawn_on` read `let remote = target != cpu::id()` before taking the lock at all.
+- `start_thread_control_block` re-read `target != cpu::id()` after `drop(guard)`, which unmasks
   interrupts before the comparison runs.
 
 Between the two reads the calling thread can be preempted, land back on its own core's run queue,
@@ -449,7 +449,7 @@ core 3: ... switch:0xf00000076 switch:0x4 drain:0x1 switch:0x0 place:0x500000077
 ```
 
 Read in order: core 2 was running tid `0x0` (the test's main thread), switched to the frame
-producer, then **served a steal of tid `0x0` to core 3** (`steal:0x0/3`). Core 3 drained one thread
+producer, then served a steal of tid `0x0` to core 3 (`steal:0x0/3`). Core 3 drained one thread
 (`drain:0x1`), ran it (`switch:0x0`), and *that* is where the `place:0x500000077/2` happens: main
 finished, on core 3, a `spawn_on` whose "is it local" answer it had computed on core 2. The push
 went to core 2. No SGI followed it, because the stale answer said local.
@@ -490,7 +490,7 @@ drained wholesale: the *next* SGI anyone sends to that core, for any reason, swe
 sitting there. So a missed poke is normally repaired within milliseconds by the next unrelated
 placement, steal or device wake aimed at the same core, and nothing is ever seen.
 
-It wedges only when the strand is the **last thing that happens**: the stranding placement is the
+It wedges only when the strand is the last thing that happens: the stranding placement is the
 work the rest of the machine was about to wait on, so no further SGI is generated, and the system
 goes quiet holding one runnable thread nobody will look at. That is exactly the CI dump. Main
 spawned the consumer, blocked on its verdict, the producer blocked sending to a consumer that never
@@ -501,14 +501,14 @@ much smaller frequency of a strand landing on the last placement before the mach
 
 ### How it was proved, since one CI dump is not an experiment
 
-Milestone 72's method again, and with its correction: **a call-free delay loop, not a yield loop.**
+Milestone 72's method again, and with its correction: a call-free delay loop, not a yield loop.
 An early attempt held the window open with `yield_now()` and only produced a livelock, because a
 yielding thread goes back on its own core's run queue and `schedule()` hands it straight back; a
 steal needs the thread to be *queued while something else runs*. A plain spin does that and the
 first attempt at the plain spin worked.
 
 With a 300,000-iteration spin between `spawn_on`'s two reads, on riscv64 under `-cpu rv64`, the
-window is crossed roughly **8 times in 100 `spawn_on` calls** rather than never, and both directions
+window is crossed roughly 8 times in 100 `spawn_on` calls rather than never, and both directions
 show up in the log:
 
 ```text
@@ -533,8 +533,8 @@ away" but "the arithmetic matches". (Both arms later die on `no initrd region`, 
 of driving `cargo test` directly instead of `cargo xtask test`, and hits both arms equally.)
 
 **Without the widener the local rate is zero and the null result has a denominator.** On a quiet
-8-core host, and again under ten host burners, the instrumented suite crossed the window **0 times
-in more than 1,600 `spawn_on` calls and 400 `start_thread_control_block` calls across five runs**,
+8-core host, and again under ten host burners, the instrumented suite crossed the window 0 times
+in more than 1,600 `spawn_on` calls and 400 `start_thread_control_block` calls across five runs,
 and every run passed. The window is a handful of instructions of wall clock, so what opens it is a
 host descheduling a vCPU inside it. CI's small shared runners emulating four harts are where it is
 widest, which is where the sighting arrived; a laptop with cores to spare is close to the worst
@@ -580,13 +580,13 @@ Found while running the gates for milestone 35, on a tree whose diff cannot touc
 is what made it clearly pre-existing rather than a regression.
 
 `kernel::cpu::tests::boot_cpu_percpu_is_reachable` opened with `assert_eq!(id(), arch::boot_cpu_id())`,
-so it asserted **the test case is executing on the boot core**. On aarch64 `boot_cpu_id()` is the
+so it asserted the test case is executing on the boot core. On aarch64 `boot_cpu_id()` is the
 constant 0 and `id()` is derived from `TPIDR_EL1`, which each core sets once at boot and which no
 context switch saves or restores; so `id() == 1` means the code really was running on core 1, not that
 a pointer was stale. Nothing promises otherwise: with four cores online and §28's stealing, a secondary
 core may pull the test thread, and then the assertion fails on an affinity the scheduler never offered.
 
-Observed **once in four consecutive full-suite runs** on an unchanged tree (`left: 1, right: 0`), so
+Observed once in four consecutive full-suite runs on an unchanged tree (`left: 1, right: 0`), so
 roughly a one-in-four flake on this machine, failing the aarch64 half of `script/test` when it fired.
 
 **Resolved by weakening the test to the property its own doc comment always described**, now
@@ -596,7 +596,7 @@ cross-core paths (IPI, stealing) actually rely on. That is true on every core, s
 coverage rather than weaker: under §28 placement the suite scatters, and the property gets exercised on
 several cores over a run instead of only the boot core.
 
-The rejected alternative was **giving kernel test cases boot-core affinity** to keep the original
+The rejected alternative was giving kernel test cases boot-core affinity to keep the original
 assertion. It reads like the more rigorous option and is the worse trade: it buys one assertion back at
 the price of running the entire suite on one core, which is exactly where the placement bugs §28
 introduced would hide. A harness that avoids the scheduler it is meant to test is not a harness. The
@@ -614,14 +614,14 @@ a count has settled: `threads_round_robin` ("thread 2 never ran"),
 threads, so a fixed yield budget is really a wall-clock budget in disguise, and when the host is busy
 the budget runs out before the work does.
 
-Observed during milestone 37: **three different tests from that list failed across four full-suite
-runs**, every one of them in a module that executes before any of that milestone's code exists, which
+Observed during milestone 37: three different tests from that list failed across four full-suite
+runs, every one of them in a module that executes before any of that milestone's code exists, which
 already ruled the diff out structurally. The confirmation was cheaper than the reasoning:
 **unmodified `origin/main`, same machine, same minute, failed too** (a fourth test, the reaper's
-count). Meanwhile a QEMU from another worktree had been holding **200% of the host for 43 minutes**.
+count). Meanwhile a QEMU from another worktree had been holding 200% of the host for 43 minutes.
 
 **Measured again on 2026-08-03**, because milestone 72's confirmation loop ran the recipe that
-provokes them: four host burners, riscv64 twenty times, **three failures, all from this list**
+provokes them: four host burners, riscv64 twenty times, three failures, all from this list
 (`a_thread_that_never_yields_is_preempted_anyway`,
 `a_blocked_waiter_wakes_with_an_error_when_its_endpoint_is_revoked`, and the sibling at
 `sched.rs:2709`). 15% under load, 0% quiet. They are distinguishable from a real hang at a glance:
@@ -630,5 +630,5 @@ these fail in about 23 s with a named assertion, a lost wakeup fails at 60 s wit
 Two things follow. A run that fails one of these is not evidence about the branch until it has been
 seen on a quiet machine or contradicted by a control run, and a control run costs ten minutes and
 settles it. And the standing fix is the one this file already argues for elsewhere: these bounds
-should be **progress-based or wall-clock with slack**, not a yield count, because a yield count
+should be progress-based or wall-clock with slack, not a yield count, because a yield count
 measures the host's spare capacity and calls it the scheduler's behaviour.

@@ -22,10 +22,10 @@ No decision is owed. It is a lint or a type change in
 `crates/thread_wake_handshake` plus its callers in `kernel/src/sched.rs`, and it wants a lane rather
 than a hotfix because the interesting half is deciding which rung of the ladder it can reach.
 
-**In brief.** `Handshake::park` writes `state = Blocked` and `wait_on = Some(..)` in one statement,
+In brief. `Handshake::park` writes `state = Blocked` and `wait_on = Some(..)` in one statement,
 and the pair is what every teardown path reads to find the queue a thread is linked on. The fields
-are `pub`, because the kernel has legitimate out-of-protocol writers, so **a future block site can
-write `state = Blocked` directly and leave `wait_on` holding whatever the last wait left there.**
+are `pub`, because the kernel has legitimate out-of-protocol writers, so a future block site can
+write `state = Blocked` directly and leave `wait_on` holding whatever the last wait left there.
 `thread_wake_handshake`'s own BUGS says nothing prevents it. Make it impossible, or make it fail
 loudly at the write rather than at the read.
 
@@ -35,12 +35,12 @@ Before that milestone the consequence of a stale `wait_on` was a diagnostic one:
 the wrong thing. `sched::finish_blocked_resident` now *acts* on it. It resolves the recorded
 rendezvous name and unlinks the thread's TCB from that rendezvous's queues by pointer, and then the
 region's reclaim frees the page the TCB sits on. If the name is stale, the unlink runs against the
-wrong rendezvous, finds nothing, and the reclaim leaves **a freed page still linked into a live wait
-queue**, which the next `recv` on that rendezvous follows. That is a use-after-free in the IPC path,
+wrong rendezvous, finds nothing, and the reclaim leaves a freed page still linked into a live wait
+queue, which the next `recv` on that rendezvous follows. That is a use-after-free in the IPC path,
 and it is the sharpest failure mode the research (notes/blocked-thread-teardown.md) named for every
 one of its four proposals.
 
-Milestone 133 bought what a caller can buy on its own and no more. It asks **both** queues rather
+Milestone 133 bought what a caller can buy on its own and no more. It asks both queues rather
 than trusting the recorded `WaitRole`, which it must, because a `CALL` caller that met no server is
 recorded `Reply` and is genuinely on the sender queue; and it carries a `debug_assert!` pairing
 `Blocked` with a recorded wait. Neither defends the *name*, and a `debug_assert` is rung two on a

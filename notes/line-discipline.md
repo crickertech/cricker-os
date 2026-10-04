@@ -12,7 +12,7 @@ question it raises is [../design/interrupt-routing.md](../design/interrupt-routi
 The editing lives in the `line_editor` crate, which does no IO and knows nothing about IPC, UARTs,
 or endpoints. Byte in, echo bytes out, completed lines out. That split is DECISIONS §7 applied:
 the editing rules are host-tested in milliseconds against a small terminal model that interprets
-the echo the way a VT does, so the tests assert **what the user sees**, not which escape
+the echo the way a VT does, so the tests assert what the user sees, not which escape
 sequences were emitted. Twenty tests cover typing, backspace, mid-line insert and delete, cursor
 keys in three encodings (CSI, SS3, vt220 `~`), kill and yank (`^K` `^U` `^W` `^Y`), history with
 non-destructive browsing and dedup, CR/LF/CRLF endings, `^C`, `^D`'s double duty, `^L` repaint,
@@ -28,11 +28,11 @@ until the drivers did: it is the layer *between* drivers, not a driver.
 ## The build-vs-reuse call: built, against the rule's default
 
 The prior-art rule (DECISIONS §14) says for userspace, outside the trusted computing base,
-actively prefer porting. The editing engine was **built** anyway, and here is the accounting for
+actively prefer porting. The editing engine was built anyway, and here is the accounting for
 why the two live candidates did not fit.
 
 - **`noline`** (a `no_std` readline) has a sans-IO core, which is the right shape. Two things
-  disqualify it. Its initialization **blocks on a cursor-position report** (`ESC[6n`) that the
+  disqualify it. Its initialization blocks on a cursor-position report (`ESC[6n`) that the
   terminal may never send: a serial line driven by a piped boot script never answers, so a line
   discipline that must be always-on would hang at startup. And it is a **per-read readline**, a
   function you call when you want a line, not an always-on discipline that echoes type-ahead

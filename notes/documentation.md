@@ -14,7 +14,7 @@ feature question.
 
 ## Rendered
 
-`crates/documentation` is a **streaming** renderer: bytes in, styled terminal bytes out, no allocator, no
+`crates/documentation` is a streaming renderer: bytes in, styled terminal bytes out, no allocator, no
 document held anywhere. That shape is not an optimisation, it is what the program's capabilities
 already are. `doc` receives its input as `byte_sink_protocol` messages of sixteen bytes each and writes its
 output the same way, so a renderer that needed the whole document would need somewhere to put it,
@@ -26,7 +26,7 @@ It handles ATX headings, wrapped paragraphs, fenced code, block quotes, nested l
 computed column widths, thematic breaks, and the inline set (`**strong**`, `*emphasis*`,
 `` `code` ``, `~~strike~~`, links and images).
 
-**A link and an image both show their destination**, because a terminal cannot follow one or draw
+A link and an image both show their destination, because a terminal cannot follow one or draw
 the other, so the path is the only thing a reader can act on. An image used to render as
 `[image: alt text]` with the path dropped, which named a picture the reader had no way to find.
 That was invisible until 2026-09-02, when notes/project-metrics.md became the first page under
@@ -36,17 +36,17 @@ the first page that could trip it did.
 
 ### The roadmap said take `pulldown-cmark`. Two facts overrule it.
 
-**It is not `no_std`.** Version 0.13's `lib.rs` carries no `#![no_std]` and `parse.rs` uses
+It is not `no_std`. Version 0.13's `lib.rs` carries no `#![no_std]` and `parse.rs` uses
 `std::collections::HashMap`. Taking it means either a permanent fork of somebody else's parser or a
 std program.
 
-**And a std program on this system cannot be this program.** The nife PAL's `Stdin::read` returns
+And a std program on this system cannot be this program. The nife PAL's `Stdin::read` returns
 `Ok(0)` unconditionally (`patches/std-nife/overlay/std/src/sys/stdio/nife.rs`) and there is no
 argv. A std viewer could neither read a keypress to page nor be told which page to show. The
 roadmap's premise that "milestone 27's std is what makes this buildable at all" is true of the
 parser and false of the program.
 
-What the roadmap could not weigh is the third fact: **the corpus is closed and in-tree.** A renderer
+What the roadmap could not weigh is the third fact: the corpus is closed and in-tree. A renderer
 for this repository's own markdown does not need CommonMark conformance; it needs the constructs
 these files actually use, and unlike conformance that is checkable directly.
 `every_character_survives` does exactly that: every letter and digit of every note, decision and
@@ -60,18 +60,18 @@ DECISIONS §46 rule 1 then settles it: this is on the verification path, so we w
 
 ### Two rendering decisions worth knowing
 
-**`_` is never emphasis.** CommonMark reads `__rust_alloc` as an opened strong span. This repository
+`_` is never emphasis. CommonMark reads `__rust_alloc` as an opened strong span. This repository
 writes `snake_case` identifiers in running prose constantly (`filesystem_protocol`, `line_editor`, `c_seam`),
-so honouring the spec here would misrender far more than it would style. Only `*` and `**` open
+so honouring the spec here would misrender far more than it would style. Only `*` and `` open
 emphasis, and a closer must not be preceded by a space.
 
-**A code span is consumed before anything else looks at the line.** There are 11,281 of them in the
+A code span is consumed before anything else looks at the line. There are 11,281 of them in the
 corpus, many full of the exact characters the other rules hunt for. If that ordering were wrong,
 `*ptr` inside backticks would open emphasis and eat the rest of the paragraph.
 
 ### The bug the corpus test could not see, and the honest filter that kept it findable
 
-**A fenced code block opened inside a block quote never closed**, from phase 1 until 2026-08-18. The
+A fenced code block opened inside a block quote never closed, from phase 1 until 2026-08-18. The
 closing test ran against the raw line, so this:
 
 > A transcript quoted from somewhere else, with its own fence inside the quote:
@@ -86,33 +86,33 @@ closing test ran against the raw line, so this:
 left the renderer in code mode to the end of the document. One quoted transcript misrendered every
 line after it.
 
-**`every_character_survives` could not find it**, and the reason is worth keeping: verbatim output
+`every_character_survives` could not find it, and the reason is worth keeping: verbatim output
 loses no characters, so a page rendered entirely as code still passes a subsequence check. What the
 test *did* see was the opening fence's info string going missing, because its filter excluded a
 fence by looking for backticks after `trim_start` and a quoted fence does not start with one. That
-is the renderer being **right** about one line inside a page it was then ruining.
+is the renderer being right about one line inside a page it was then ruining.
 
 The filter was left wrong on purpose, with a `BUGS` comment saying why: widening it would have
 silenced one false failure by hiding three hundred misrendered lines, and nobody had answered
 whether the renderer kept its quote state across a nested fence. It did not. So the answer came
 first and the filter second, which is the order that entry existed to enforce.
 
-**And the corpus test still cannot guard it**, which was measured rather than assumed. Reverting the
+And the corpus test still cannot guard it, which was measured rather than assumed. Reverting the
 fix leaves this very page ruined from the block above onward, and `every_character_survives` passes:
 verbatim output loses no characters, and `Renderer::has_unclosed_fence` (added here, and the
 strongest thing the corpus check can assert) misses it too, because a bare closing fence three
 sections later matches the stuck one and lets the renderer out. A unit test is the guard. The lesson
-generalises past this bug: **a subsequence check proves nothing was dropped and nothing about what
-was ruined**, so a renderer wants both kinds of test and this one had only the first.
+generalises past this bug: a subsequence check proves nothing was dropped and nothing about what
+was ruined, so a renderer wants both kinds of test and this one had only the first.
 
 ## Installed
 
-**A doc bundle is a package's pages plus its index shard, installed as a unit.** `doc/<bundle>/` in
+A doc bundle is a package's pages plus its index shard, installed as a unit. `doc/<bundle>/` in
 the filesystem image, with `doc/bundles` listing the names, built by `cargo xtask manual` from the
 `DOC_BUNDLES` table in `xtask/src/manual.rs` and imported into the RedoxFS image by `mkredoxfs`.
 
 The table names paths that already exist rather than copying notes into crate directories, and that
-is deliberate: **a second copy of a note is a copy that can drift**, and in-tree documentation earns
+is deliberate: a second copy of a note is a copy that can drift, and in-tree documentation earns
 its keep by there being one. A bundle that lists a page which has moved fails the build.
 
 ### What a doc-holding capability designates, which is nothing
@@ -122,7 +122,7 @@ and does not.
 
 `doc`'s manifest is byte-identical to `wc`'s: `InputSpec::Required`, `OutputSpec::Bytes`, and
 `Forbidden` for argument, memory, file and directory. Its capability table holds two endpoints. `doc glob.md`
-is the **shell** resolving that name against the directory capability *it* holds and streaming the
+is the shell resolving that name against the directory capability *it* holds and streaming the
 bytes in; nothing in the program names a file, a directory or the filesystem, and there is no
 message it can send to find out what it is reading.
 
@@ -136,7 +136,7 @@ concentration is in the shell, where it already was.
 
 ## Searchable
 
-**There is no directory iteration in this system**, and that is a feature rather than a gap.
+There is no directory iteration in this system, and that is a feature rather than a gap.
 `readdir` refuses in the std PAL and the §27 file contract has no such verb, and the capability
 model argues against adding one: *enumeration is authority*, and a viewer that can list a directory
 can discover what it was not given. So "what pages exist" is not discoverable at runtime. It is
@@ -147,8 +147,8 @@ reason (scanning was slow).
 
 `documentation::index::normalize` folds a query by dropping every byte that is not a letter or a digit, so
 a reader who types `line_editor` looks up `lineeditor`. `documentation::index::tokens` split the *text* on
-that same byte, so the builder only ever wrote `line` and `editor`. **The term the query asks for
-was one no page could ever have.** In a repository whose prose is full of `snake_case` identifiers,
+that same byte, so the builder only ever wrote `line` and `editor`. The term the query asks for
+was one no page could ever have. In a repository whose prose is full of `snake_case` identifiers,
 that is most of what anybody would search for: `apropos fs_proto` and `apropos grant_plan` both
 answered "nothing says that" while dozens of pages said exactly that.
 
@@ -158,12 +158,12 @@ then checked a word with no underscore in it. Same shape as the fence: a claim i
 thing checked.
 
 The fix is in the writer rather than the reader, and that is the choice worth recording.
-`line_editor` now yields three terms, `line`, `editor` **and** `lineeditor`, so `apropos editor`
+`line_editor` now yields three terms, `line`, `editor` and `lineeditor`, so `apropos editor`
 keeps working and `apropos line_editor` starts. Narrowing `normalize` to stop at the underscore
 would have been smaller and would have made `apropos line_editor` silently search for `line`, which
 is a worse answer than no answer.
 
-**Only the underscore joins.** It is unambiguous in this tree and the hyphen is not: joining across
+Only the underscore joins. It is unambiguous in this tree and the hyphen is not: joining across
 `-` would manufacture a term out of every hyphenated phrase in the corpus, and `notes/glob-grant.md`
 is a filename rather than a word. The renderer narrowed emphasis on exactly this reasoning and
 records it in its own `BUGS`.
@@ -172,8 +172,8 @@ records it in its own `BUGS`.
 
 A client of the file contract shares exactly one 4 KiB frame with the FS server, and a shell that
 had to buffer a whole index would need a memory grant to search. So every section of the index
-starts on a page boundary and every record divides 4096 evenly, which together mean **a reader with
-one page in hand never sees half a record**. A lookup is then a binary search over *pages*: each
+starts on a page boundary and every record divides 4096 evenly, which together mean a reader with
+one page in hand never sees half a record. A lookup is then a binary search over *pages*: each
 probe reads one page and compares the term it starts with, and the last page is searched in memory
 for free.
 
@@ -188,14 +188,14 @@ for free.
 
 Phase 2's other half, and the decision in it is *where the search runs* rather than how.
 
-**A builtin, not a program**, which is exactly the argument `ls` already carries in this shell: a
+A builtin, not a program, which is exactly the argument `ls` already carries in this shell: a
 listing program would have to hold the power to read everything it lists. Search is an enumeration,
-so a searching program would have to be handed a capability to the **whole documentation store** in
+so a searching program would have to be handed a capability to the whole documentation store in
 order to read every shard in it. That is a new principal holding more than the answer needs, for a
 command that moves no authority whatsoever. The shell already holds enumeration over what it can
 see, so `apropos` is the shell reading a file it could already read.
 
-**What comes back is names, never capabilities.** A result is a store location a person can type:
+What comes back is names, never capabilities. A result is a store location a person can type:
 
 ```text
 $ apropos capability
@@ -213,19 +213,19 @@ cannot widen what its caller could already reach, and `doc notes/ipc-naming.md` 
 readable file survives having a search in front of it. A search *program* would have moved the
 authority one line earlier and silently.
 
-The split follows the tree's usual one. The **reading** is `documentation::index::search`, and it is the
+The split follows the tree's usual one. The reading is `documentation::index::search`, and it is the
 single point at which the writer and the reader are proved to agree: `cargo xtask manual capability`
 on the host and `apropos capability` at the prompt call that same function, over the same bytes,
-through the same one-page-at-a-time `Pages`. The **rendering** is `swish::write_apropos`, host-tested
+through the same one-page-at-a-time `Pages`. The rendering is `swish::write_apropos`, host-tested
 with the rest of what the prompt says. What is left in `components/src/swish.rs` is four filesystem
 requests and a 4 KiB page buffer.
 
 ### And the same index, pointed at the repository
 
 `script/apropos <word>` is the guest's builtin with a checkout underneath it instead of a
-filesystem image. **It is milestone 117's finding rather than a convenience.** Three stranger runs
+filesystem image. It is milestone 117's finding rather than a convenience. Three stranger runs
 have measured what a newcomer cannot reach by following this tree while doing ordinary work, and it
-is a list rather than an impression: `notes/net.md`, `notes/capabilities.md`, **any**
+is a list rather than an impression: `notes/net.md`, `notes/capabilities.md`, any
 `design/decisions/` file, and `crates/abi/src/lib.rs`, which is four syscall numbers and the whole
 design on one screen. None of them is hidden. Nothing a person would type led to them.
 
@@ -245,12 +245,12 @@ searching for: capability
 ```
 
 Every number in that block moves whenever anything in the tree is edited, this page included, and
-that is the same property the store's own table has: **the documentation is the data.** What does
+that is the same property the store's own table has: the documentation is the data. What does
 not move is which page came first.
 
 Three things about it are deliberate.
 
-**It is the same code**, `documentation::index::build` and `documentation::index::search`, one shard per part of
+It is the same code, `documentation::index::build` and `documentation::index::search`, one shard per part of
 the tree and the same merge across shards the shell does with one 4 KiB page. Not a second
 implementation, so a defect in the layout shows up in both places and a fix lands in both. What
 differs is what a result *names*: a guest result names `doc/<bundle>/<page>`, because that is what a
@@ -258,13 +258,13 @@ shell there can designate, and this one names a path in this repository, because
 person with a checkout opens. Both come out of the same `Found`; the store location and the origin
 are two fields it already carried.
 
-**Crate and program module headers are pages.** That is the half that makes `crates/abi/src/lib.rs`
+Crate and program module headers are pages. That is the half that makes `crates/abi/src/lib.rs`
 findable at all, and no markdown page was ever going to do it: the document a reader wants about the
 ABI *is* that file's header. A `//!` block is markdown already, so it indexes with no conversion and
 no copy, and the result names the source file, which is the thing to open. A header shorter than a
 paragraph is skipped, because indexing it would put noise in front of the pages that answer.
 
-**There is no cache**, and a run is about a second over five megabytes. A cache that can be stale is
+**There is no cache, and a run is about a second over five megabytes. A cache that can be stale is
 worse here than a second of work, for the same reason `script/catch-up` and `script/names` are
 derived views: a maintained one rots and nothing says so.
 
@@ -273,7 +273,7 @@ derived views: a maintained one rots and nothing says so.
 `doc/bundles` lists what is installed, one name per line; `doc/<bundle>/index` is a shard;
 `doc/<bundle>/<page>.md` are the pages. Those three names are `documentation::index::STORE_DIR`,
 `MANIFEST` and `SHARD`, in the crate both sides depend on, because the host writes them and the
-guest opens them (AGENTS.md rule 7). The manifest is a **file rather than a directory listing**,
+guest opens them (AGENTS.md rule 7). The manifest is a file rather than a directory listing,
 which is this whole milestone in one constant.
 
 ### What it costs, measured
@@ -293,17 +293,17 @@ in the middle, and the improvement is not an optimisation: the notes it indexes 
 alignment's fixed floor is a smaller share of a bigger bundle. It went the other way on 2026-08-18,
 from 1.14x, and that one *is* a cost: underscore-joined terms are a third term for every
 `snake_case` identifier in the prose, which is what makes those identifiers findable.) Two things pay for it. A term record stores its
-term **inline** in 24 bytes so a probe is one page read rather than two, which is most of the bulk.
+term inline in 24 bytes so a probe is one page read rather than two, which is most of the bulk.
 And page alignment puts a four-page floor (16 KiB) under every bundle however small, so a bundle of
-one short page still costs 16 KiB to index. **Ranking by length (2026-08-22) cost four more bytes
-per page record**, spent out of the six the layout already held spare: with four pages in the
+one short page still costs 16 KiB to index. Ranking by length (2026-08-22) cost four more bytes
+per page record, spent out of the six the layout already held spare: with four pages in the
 shipped store that is sixteen bytes, immeasurable against the four-page floor, which is why the
 ratio above barely moved.
 
-The `manual` row indexes **this page**, so editing it moves its own numbers. Rerun
+The `manual` row indexes this page, so editing it moves its own numbers. Rerun
 `cargo xtask manual` for current ones; the ratio is what is stable.
 
-The number that justifies the layout is the last column: **a lookup is at most five page reads**,
+The number that justifies the layout is the last column: a lookup is at most five page reads,
 20 KiB of IO, with no allocation and a 4 KiB working set.
 
 ## EXAMPLES
@@ -331,7 +331,7 @@ search: capability
     32  doc/swish/pipes.md            Pipes and redirection: `>`, `<` and `|` are one   notes/pipes.md
 ```
 
-The host prints a fourth column the prompt does not: the page's path in the **source tree**, which is
+The host prints a fourth column the prompt does not: the page's path in the source tree, which is
 provenance rather than something to open. The store location beside it is computed by the searcher
 from the shard it opened, so no byte of the index carries it and the two cannot disagree.
 
@@ -402,9 +402,9 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
   ```
 
   The constraint underneath is the kernel's rather than the shell's, and it is worth reading before
-  reaching for a scheduling fix. A process has **one wait point**: `SEND` blocks until a receiver
+  reaching for a scheduling fix. A process has one wait point: `SEND` blocks until a receiver
   takes the message, `RECV` blocks until one arrives, and there is no select and no timed wait. So a
-  shell feeding a chain cannot also be receiving from it, and **no interleaving schedule fixes it**:
+  shell feeding a chain cannot also be receiving from it, and no interleaving schedule fixes it:
   alternating one send with one receive deadlocks whenever the stage reads twice before it writes,
   and the other way round deadlocks whenever it writes twice before it reads. The shell cannot know
   which, because the whole point of the sink contract is that neither end knows anything about the
@@ -465,7 +465,7 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
   so `apropos line-discipline` searches `line` and then `discipline` separately (as two queries;
   this verb takes one word), and `apropos notes/glob.md` folds to `notesglobmd`, which no page
   says. A search is for words, and the location a result prints is what you hand to `doc`.
-- ~~**Ranking is occurrence count and nothing else.**~~ **It divides by document length now**
+- ~~Ranking is occurrence count and nothing else.~~ It divides by document length now
   (2026-08-22): the page record grew a `tokens` field, spent out of the six bytes it already held
   spare, and `documentation::index::Ranked::offer` ranks by `count / tokens` (fixed-point, one division)
   rather than by raw `count`. A short page where a term is dense now outranks a long page where it

@@ -25,12 +25,12 @@ The natural first reading is "a `CapNeed` should say which contract satisfies it
 survive contact with a manifest already in this tree: `swap_protocol::CLIENT` declares one `Use` need
 named `service`, and the supervisor routes that name to a console (or backend) instance on the direct
 channel and to `broker`'s front endpoint on the queued one, per `notes/component-manifest.md`'s own
-rule (**the name is the component's and the object is the supervisor's**). A `CapNeed` that named its
+rule (the name is the component's and the object is the supervisor's). A `CapNeed` that named its
 supplier would be wrong on one of the two wirings, every time, by construction: role resolution is
 the supervisor's business and a capability-level dependency claim cannot be, on pain of contradicting
 the manifest mechanism's own reason for existing.
 
-So the graph lives one level up, on `Requirements` itself, as a set of **contract names** rather than
+So the graph lives one level up, on `Requirements` itself, as a set of contract names rather than
 role names: `depends_on: &'static [&'static str]`. This is coarser than "which capability," and the
 coarseness is deliberate. It answers "which other running components can I not silently tolerate the
 absence of," independent of which role name happens to route to which object in any particular
@@ -43,11 +43,11 @@ A pure consumer, no matter which contract answers its `service` need, never need
 finds nobody receiving parks on the endpoint's own sender queue, and the *next* server to `RECV_CAP`
 drains it, in order, with nothing lost. That is exactly the mechanism that made the roadmap's
 imagined forwarding broker unnecessary in the simple case (notes/live-replacement.md's "three things
-the build settled"), and it generalises for free: **any component whose only relationship to a
-dependency is calling through it and blocking has nothing that needs warning**, because blocking is
+the build settled"), and it generalises for free: any component whose only relationship to a
+dependency is calling through it and blocking has nothing that needs warning, because blocking is
 already the correct, lossless behaviour.
 
-What does need warning is a component that would otherwise **stop serving its own clients** while its
+What does need warning is a component that would otherwise stop serving its own clients while its
 dependency is down, because it cannot afford to let its one serving thread sit inside a blocked
 `CALL`. `broker` is exactly this: single-threaded, pass-through, and it would stop answering
 producers for the whole down window if it just called through and blocked. That is the edge
@@ -66,7 +66,7 @@ list of `LiveInstance { id, reqs }` and returns, in the order given, the ids who
 name `target_contract` in their own `depends_on`. An instance of the target contract is excluded from
 its own answer even if a malformed declaration named itself.
 
-**Direct dependents only, and no attempt at transitivity.** A three-hop chain (`C` depends on `B`
+Direct dependents only, and no attempt at transitivity. A three-hop chain (`C` depends on `B`
 depends on `A`) is not walked to find `C` when `A` is the swap target, because whether `C` needs
 telling depends on whether `B`'s own quiescence protocol keeps `B` available to `C` throughout, which
 is a property of `B`'s implementation this crate has no way to see from two contract names. Guessing
@@ -93,13 +93,13 @@ Both are asserted in `system_tests/src/user/live_swap_tests.rs` via `RPT_DEPENDE
 
 ## EXAMPLES
 
-**Read what a contract's dependency looks like, without running anything.**
+Read what a contract's dependency looks like, without running anything.
 
 ```sh
 grep -A12 'pub const BROKER' crates/swap_protocol/src/lib.rs
 ```
 
-**Ask who must be told before a contract is swapped**, given the components a supervisor is
+Ask who must be told before a contract is swapped, given the components a supervisor is
 currently running:
 
 ```rust

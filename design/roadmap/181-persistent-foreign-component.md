@@ -20,7 +20,7 @@ function more than once, with its own state persisting between calls the ordinar
 own memory persists between two function calls. That is an extension to an existing, working
 mechanism, not a new design fork.
 
-**That is the sharper question, and this milestone is the answer to it, not milestone 169's.**
+That is the sharper question, and this milestone is the answer to it, not milestone 169's.
 [DECISIONS §84](../decisions/84-how-we-port.md) already answers a related but different question
 well: how to *port* software into Rust while narrowing its authority. Nothing in this tree yet
 answers the question §31 was raised for: how to run real, unmodified foreign-language code at all,
@@ -28,19 +28,19 @@ confined, without rewriting its own logic. §31's only evidence is `c_seam.c`, a
 spike that calls into C exactly once and exits. If the cheapest realistic real-world program
 (milestone 169 called `kilo` exactly that) does not fit the seam as built, nothing else realistic
 will either, and "rewrite it in Rust instead" quietly becomes the only path every time, which is
-not an answer to the question, it is the failure mode §84 already names as the last resort: **a
-demonstrator with no community is a demonstrator nobody continues.**
+not an answer to the question, it is the failure mode §84 already names as the last resort: a
+demonstrator with no community is a demonstrator nobody continues.
 
 ## What is actually missing, checked against the code rather than assumed
 
 `fixtures/src/c_shim.rs`'s `_start` does one thing and exits: `kernel/src/user::c_seam_tests` proves
-this directly by running **three separate process instances** in sequence, one call each, rather
+this directly by running three separate process instances in sequence, one call each, rather
 than one process called three times. The C ABI itself (rule 2) was never the limiting factor; the
 *driving loop* was always one-shot, because nothing has needed more than one shot yet.
 
 What a persistent, interactive foreign component needs, concretely:
 
-1. **A shim loop, not a shim call.** `_start` currently: map the grant, call the C function once,
+1. A shim loop, not a shim call. `_start` currently: map the grant, call the C function once,
    report the result, exit. The extension: map the grant once, then loop, perform whatever syscall
    the interactive behavior needs (for a terminal program, `OP_READRAW`/`OP_READLINE` per iteration,
    see milestone 169), call into the C function with that iteration's input, act on its return value
@@ -83,7 +83,7 @@ under BSD or public-domain-equivalent licences; busybox's `dc` applet is one can
 therefore requiring a licence check against this tree's own posture before use) is a smaller, more
 isolated test than `kilo`'s roughly-1,000-line editor with its own additional terminal dependency.
 
-Once `dc` proves the mechanism, `kilo` becomes a **second**, harder proof of the same primitive
+Once `dc` proves the mechanism, `kilo` becomes a second, harder proof of the same primitive
 (one that also needs the raw-keystroke contract), and the real antirez `kilo.c` can be ported through
 it as the direct answer to milestone 169's own original, unmet goal. At that point there is a real
 choice between the Rust `kilo` already built and a real C port, informed by both actually existing.

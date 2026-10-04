@@ -1,15 +1,15 @@
 # The L4 lessons, audited against this kernel
 
-Elphinstone and Heiser, **"From L3 to seL4: What Have We Learnt in 20 Years of L4 Microkernels?"**
-(SOSP 2013), is unusual among retrospectives: it does not merely narrate, it renders a **verdict on
-each of the original design decisions**, tagged `Retained`, `Replaced` or `Abandoned`. That makes it
+Elphinstone and Heiser, "From L3 to seL4: What Have We Learnt in 20 Years of L4 Microkernels?"
+(SOSP 2013), is unusual among retrospectives: it does not merely narrate, it renders a verdict on
+each of the original design decisions, tagged `Retained`, `Replaced` or `Abandoned`. That makes it
 auditable rather than inspirational, which is why this note exists.
 
 Done 2026-08-18, at calef's question ("does our OS apply the lessons of Elphinstone and Heiser '13").
 The paper's own tags are quoted; the nife column is checked against the tree, file by file, and the
 evidence column names where.
 
-**The headline: 15 of 17 applied, one partially, two not, and the misses are not independent.** Both
+The headline: 15 of 17 applied, one partially, two not, and the misses are not independent. Both
 failures and the partial are the same cluster, and it is the same cluster milestone 132 measured and
 design/decisions/95-a-proven-ipc-fastpath.md is deciding about.
 
@@ -43,39 +43,39 @@ plain yes.
 
 ## The cluster, which is one design choice wearing three hats
 
-Rows 11, 13 and 14 are not three findings. **They are one: this kernel has no direct process switch,
-and every consequence follows from that.**
+Rows 11, 13 and 14 are not three findings. They are one: this kernel has no direct process switch,
+and every consequence follows from that.
 
-- Because a rendezvous does not switch to the receiver, it must **queue** it, which is the half of
+- Because a rendezvous does not switch to the receiver, it must queue it, which is the half of
   Benno scheduling row 13 does not get. seL4 gets it for free precisely because the common case
   switches instead of queueing.
 - Because every thread must be able to block anywhere in the kernel and resume there, every thread
-  needs **its own kernel stack**, which is row 11. An event kernel does not, because a blocking
+  needs its own kernel stack, which is row 11. An event kernel does not, because a blocking
   operation stores a continuation instead of a stack.
 
 The paper's numbers for what row 11 costs, measured by Warton on Pistachio and quoted there: the
-event kernel's **per-thread memory use was a quarter** of the process kernel's, and it held a **20%
-performance advantage on a multi-tasking workload** (AIM7), despite needing more than twice the TCB
+event kernel's per-thread memory use was a quarter of the process kernel's, and it held a 20%
+performance advantage on a multi-tasking workload (AIM7), despite needing more than twice the TCB
 size to store continuations. Micro-benchmarks were generally within 1%, which is the part worth
-noticing: **the cost of a process kernel does not show up where we currently measure.**
+noticing: the cost of a process kernel does not show up where we currently measure.
 
 Our own figure for the same thing: 6 pages of kernel stack and a guard page per thread, so a thread
 costs 28 KiB of kernel memory before it does anything.
 
 ### A connection milestone 132 found without knowing it
 
-`script/fastpath-footprint` closed naively from `finish_switch` and got **11.2 KiB**, because the
+`script/fastpath-footprint` closed naively from `finish_switch` and got 11.2 KiB, because the
 reap branch drags in `KernelStack::drop`, `untyped::destroy`, `revoke_region` and the unmap path.
 That was recorded as a measurement artifact and excluded as cold, correctly.
 
-But the reason a *stack teardown* is reachable from the *switch* path at all is row 11. **In an event
-kernel there is no per-thread kernel stack to free there.** The artifact the gate had to work around
+But the reason a *stack teardown* is reachable from the *switch* path at all is row 11. In an event
+kernel there is no per-thread kernel stack to free there. The artifact the gate had to work around
 is a fingerprint of the design choice this audit finds missing, which is the kind of thing only a
 structured audit surfaces.
 
 ## What this does and does not imply
 
-**It is not a defect list.** Rows 11 and 14 are choices the paper itself presents with trade-offs:
+It is not a defect list. Rows 11 and 14 are choices the paper itself presents with trade-offs:
 direct process switch "generally ignore[s] priorities", which is why seL4 made it *subject* to
 priorities rather than restoring it wholesale, and Fiasco.OC and NOVA made it optional. A capability
 kernel that wants predictable scheduling has a real reason to hesitate before adopting either.

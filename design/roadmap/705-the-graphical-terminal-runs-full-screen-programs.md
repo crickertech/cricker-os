@@ -38,7 +38,7 @@ Milestone 142 (a text display good enough that people use it instead of a GUI) i
 glyph quality, scrollback, UTF-8 and grid size. None of its increments is about DEC-mode
 compatibility, so this is not already owned.
 
-**Goal.** `vim`-class editors, `less` and a repainting `top` draw correctly on the graphical terminal.
+Goal. `vim`-class editors, `less` and a repainting `top` draw correctly on the graphical terminal.
 Today none of the three exists on nife: the only full-screen program in the tree is `rmle`
 (milestone 169 (the smallest real text editor, as the forcing function for raw terminal input)), there is no pager (milestone 334 (colour and the pager: the spawn protocol's other two thirds)
 is NOT-STARTED), and `watch` was cut (milestone 281 (`watch` holds exactly what `ps` holds, so it is nothing)). So the terminal half and the program half are

@@ -8,8 +8,8 @@ about stack frames" is historical and left as it read before the rename: `frame`
 a CPU call frame (compiler stack-size accounting), never this object, and renaming it would create
 the exact collision this rename exists to remove.*
 
-DECISIONS §10 has a one-line rule for the data path: **IPC carries control, shared memory carries
-data.** The endpoint moves the small stuff (a length, a request code) and the bulk bytes live in a
+DECISIONS §10 has a one-line rule for the data path: IPC carries control, shared memory carries
+data. The endpoint moves the small stuff (a length, a request code) and the bulk bytes live in a
 page both parties can see, so the kernel never copies them. For a long time nife honored that
 rule only by accident of setup: the kernel allocated the shared page and mapped it into both the
 console client and server at spawn, and both sides just found it at a fixed virtual address they had
@@ -38,7 +38,7 @@ makes a page a first-class, delegatable object rather than something that only e
 - `PageFrame::MAP(va, writable, untyped_slot)` maps the page at `va`. A read/write mapping needs `WRITE`
   on the page frame; a read-only one needs `READ`. The page tables to reach `va` are drawn from the
   untyped named by `untyped_slot`, so like everything a process spends, mapping a page frame comes out of
-  its own budget and the **kernel allocates nothing**.
+  its own budget and the kernel allocates nothing.
 
 Contrast `Untyped::MAP`, which does both at once (retype a page and map it writable). That is the
 convenient path for a process's private memory. `RETYPE` + `MAP` is the path when the page is going
@@ -112,11 +112,11 @@ The first two go through `revoke::record_mapping`, and an unrecordable mapping i
 than made, at the mapper's own expense. The third is `AddressSpace::map_physical`, which maps and
 returns; there is nothing to record it against, because the process does not exist yet.
 
-So a page delivered by `Spawn::maps` **cannot be revoked**. `PageFrame::REVOKE` deletes every
+So a page delivered by `Spawn::maps` cannot be revoked. `PageFrame::REVOKE` deletes every
 capability naming the page (there is none) and unmaps it from every space that recorded it (this one
 did not), and the holder's mapping survives untouched. That is not a bug in `revoke`; it is the
-honest consequence of a mapping that no capability ever stood behind. **A spawn-time mapping is
-permanent by construction.**
+honest consequence of a mapping that no capability ever stood behind. A spawn-time mapping is
+permanent by construction.
 
 It also cannot be narrowed by anyone downstream, because the kernel picked the permissions at spawn
 and there is no object to attenuate, and it cannot be handed on, because there is nothing to hand.
@@ -124,7 +124,7 @@ and there is no object to attenuate, and it cannot be handed on, because there i
 ## The migration (milestone 108)
 
 The disk and display paths now hold their pages as `PageFrame` capabilities and map them themselves.
-Each migrated program gained two things in its capability table: the page frames, and an **untyped** to draw the
+Each migrated program gained two things in its capability table: the page frames, and an untyped to draw the
 page tables from, because `PageFrame::MAP` retypes intermediate tables out of a region the caller names
 and the kernel allocates nothing.
 
@@ -132,7 +132,7 @@ Migrated: `disk_surveyor` (the block-shared page and the roster), the roster pro
 `mkfs`, the virtio-gpu driver (its whole DMA region), `painter` (the surface), and `display_terminal`
 in its whole-screen mode (the surface and the application's output page).
 
-**The stack is the floor.** It is still a `Spawn::maps` entry and has to be: a program cannot map its
+The stack is the floor. It is still a `Spawn::maps` entry and has to be: a program cannot map its
 own stack, because it needs a stack before it can make the syscall that would map one. Everything
 else a process touches can be a capability; that one page cannot.
 
@@ -176,7 +176,7 @@ read of the same physical page through the direct map (so the mapping was real, 
 page), revokes the page frame, and lets the program go. The second read faults, at the address it
 faults at.
 
-**Verified it can fail**, which is the point of writing it: put the roster back as a `Spawn::maps`
+Verified it can fail, which is the point of writing it: put the roster back as a `Spawn::maps`
 entry and the test trips its own assertion, "a program read a page frame that had been revoked out
 from under it, at 0x50010000, and was NOT stopped: the mapping outlived the capability". That was the
 state of the world for every driver in the tree the day before.
@@ -188,27 +188,27 @@ budget rather than as a story because the number is the point.
 
 ### The symptom, and why it always accused the wrong test
 
-The aarch64 test boot failed as `Unmappable(OutOfPageFrames)` about **one run in three** (measured
+The aarch64 test boot failed as `Unmappable(OutOfPageFrames)` about one run in three (measured
 2026-08-16). It failed in whatever test happened to spawn last, which was never the test that spent
 the memory. It also failed in disguise: milestone 107 met it as `time_tests` reporting *"no swish
 program in the initrd archive, or no memory to wire one"*, which reads like a packaging bug and is
 not one. `notes/net/memory-and-reclamation.md` had recorded it eight separate times as "`virtio::MAX_DEVICES` has asked for
 reclamation again".
 
-**Two numbers, not one, and the second is the one that fails a boot.** Free page frames and the longest
+Two numbers, not one, and the second is the one that fails a boot. Free page frames and the longest
 *run* of free page frames are different questions, and `alloc_contiguous` asks the second. Milestone 107
-measured **137 page frames free and no run of 128** at the failing allocation and read it as exhaustion.
+measured 137 page frames free and no run of 128 at the failing allocation and read it as exhaustion.
 Both readings now exist: `memory::free_page_frames()` and `memory::largest_free_run()`
 (`PageFrameAllocator::largest_free_run`, host-tested in `crates/page_frames/tests/allocator.rs`).
 
 ### The instrument: the page frame ledger
 
-`kernel/src/testing.rs` reads free page frames **once per test, at the top**, so the readings *partition*
+`kernel/src/testing.rs` reads free page frames once per test, at the top, so the readings *partition*
 the run: what a test is charged is the drop between its own reading and the next one. That shape is
 not fussiness. Reading before and after the test body instead charges only what the test spent while
 it was running, and a test that spawns a service and returns the moment it has its report leaves that
 service still mapping its heap: on the first measured boot, before-and-after attribution left
-**17362 of 29091 page frames** landing nowhere at all.
+17362 of 29091 page frames landing nowhere at all.
 
 What a run prints:
 
@@ -222,7 +222,7 @@ frames: 29280 free before the first test, 15249 after the last (14031 never retu
 A charge under `PAGE_FRAME_REPORT_MIN` (16 page frames) is silent, so the transcript names the
 services and not the arithmetic.
 
-**Two ceilings fail the run, and the second is the one that names the bug.** `SUITE_PAGE_FRAME_BUDGET`
+Two ceilings fail the run, and the second is the one that names the bug. `SUITE_PAGE_FRAME_BUDGET`
 catches the total residue growing past what is accounted for below, which is how a
 new service-shaped test that forgets to hand its memory back is caught in the act. `SUITE_MIN_FREE_RUN`
 requires the boot to end with a free run of at least 1024 page frames, and that is the real gate: loading a
@@ -266,16 +266,16 @@ The largest single causes, before:
 Everything used here is DECISIONS §16 object revocation, already built and already proved. What was
 missing was a handle and an ordering.
 
-- **`user::holding::Holding`** (name provisional) remembers what the kernel handed a service: its
+- `user::holding::Holding` (name provisional) remembers what the kernel handed a service: its
   threads, the regions to reclaim while those threads still exist, and the regions that may only be
   reclaimed once they are provably gone. `release` spends `sched::kill_thread` and
   `sched::reclaim_region` on them in that order, retrying because the first `reclaim_region` is what
   *arms* §16's kill on a resident. `release_or_fail` is the form tests use, because an instrument that
   reports success either way is not one.
 
-- **The region's endpoints are now swept before the refusal, not after** (`sched::reap_region_objects`).
+- The region's endpoints are now swept before the refusal, not after (`sched::reap_region_objects`).
   This is the load-bearing half. A blocked thread never reaches `schedule()`, so it never spends the
-  armed kill, so a region holding a server parked in `RECV` was refused **forever**:
+  armed kill, so a region holding a server parked in `RECV` was refused forever:
   `userspace_init_brings_up_the_console_server` builds exactly such a server out of the progenitor's budget, and
   its 2048 page frames were unreclaimable by construction. Sweeping first fixes it because the wake was
   already there: removing an endpoint drains its wait queues, aborts each waiter's IPC and wakes it,
@@ -283,15 +283,15 @@ missing was a handle and an ordering.
   destructive (it arms kills; see `reclaim_region`'s BUGS), so this is the same commitment one object
   over.
 
-- **`spawn_hello` carves `hello`'s building budget outside the spawned thread** and hands the caller a
+- `spawn_hello` carves `hello`'s building budget outside the spawned thread and hands the caller a
   holding over it. The region is unchanged; who can name it is not, and that is the whole difference
   between 8 MiB spent and 8 MiB lent.
 
-- **A service's endpoints come out of a region of its own** (`net_stack`'s do), because that is the
+- A service's endpoints come out of a region of its own (`net_stack`'s do), because that is the
   handle the sweep above needs. From the kernel's shared endpoint chunks there is no such handle and
   no way to end the process short of rebooting.
 
-- **Stack pages are retyped from a region instead of allocated**, and that region is reclaimed only
+- Stack pages are retyped from a region instead of allocated, and that region is reclaimed only
   after every thread is gone. A `Spawn::maps` page is not a recorded mapping (see "Three ways a page
   gets into an address space" above), so §13's revocation cannot pull it, and freeing a running
   thread's stack is a use-after-free rather than a fault.
@@ -301,34 +301,34 @@ missing was a handle and an ordering.
 14031 page frames on the merged tree (13999 before that merge; the table above says where the 32
 went), and the difference is accounted rather than shrugged at:
 
-- **The FS service, ~2284.** Wired once (`fs_service::ensure`) and used by every later filesystem
+- The FS service, ~2284. Wired once (`fs_service::ensure`) and used by every later filesystem
   test. It is a boot service, not a leak.
-- **The credential store, 1656.** Same shape: wired once behind a `DONE` flag and shared.
-- **`root_supervisor`'s two trees, 2146, and this one is a real limit rather than a choice.**
-  `root_supervisor` **`SPLIT`s** the spawner's budget out of its own, and `reclaim_region` refuses a
+- The credential store, 1656. Same shape: wired once behind a `DONE` flag and shared.
+- `root_supervisor`'s two trees, 2146, and this one is a real limit rather than a choice.
+  `root_supervisor` `SPLIT`s the spawner's budget out of its own, and `reclaim_region` refuses a
   region with live children (freeing its whole run would double-free the child's pages). The child is
   destroyed only by *its* owner, which is a process that has been torn down, so the parent can never
   become childless. Reclaiming a split parent whose children's owners are gone is what a capability
   derivation tree buys and this kernel deliberately does not have (notes/object-revocation.md). It
   wants its own lane.
-- **The crash-recovery FS servers, 1362**, and the disk, sink, `c_seam` and shell services below them.
+- The crash-recovery FS servers, 1362, and the disk, sink, `c_seam` and shell services below them.
   All are the same shape as the two above: reclaimable in principle by giving their spawn helper a
   holding, and each is a small separate change rather than part of this one.
-- **One DMA page and one virtio shadow page frame per net service, ~20 page frames.** Deliberately
+- One DMA page and one virtio shadow page frame per net service, ~20 page frames. Deliberately
   *not* reclaimed. The NIC keeps whatever receive buffers the dead driver posted, and returning those
   pages to the allocator would let a live device write into memory handed to somebody else. Ending
   that safely means resetting the device at teardown, which is a change to the transport seam and its
   own piece of work. Twenty page frames is not worth the hazard.
-- **A page per kernel endpoint**, carved into chunks by `sched::create_endpoint` and never freed by
+- A page per kernel endpoint, carved into chunks by `sched::create_endpoint` and never freed by
   design.
-- **The login service, ~640 (2026-08-22, milestone 49).** Same shape as the credential store above:
+- The login service, ~640 (2026-08-22, milestone 49). Same shape as the credential store above:
   wired once behind a `DONE` flag (`system_tests/src/user/login_tests.rs`) and shared by every login test.
   `crate::untyped::create` reserves the whole 640-page-frame construction budget the instant the
   service is spawned; splitting pieces of it into a caretaker or a client budget afterwards costs the
   ledger nothing further; only the initial reservation does. See notes/login.md and
   `components/src/login.rs`'s own BUGS on why nothing gives it back: the service serves logins for the life
   of the boot and this slice builds no teardown path.
-- **A second credential service instance, ~1659 (2026-08-23, milestone 155).** The provisioning
+- A second credential service instance, ~1659 (2026-08-23, milestone 155). The provisioning
   suite (`system_tests/src/user/identity_provisioning_tests.rs`) needs a store *before* anyone has sealed
   it, which the tree's one shared fixture (`credential_tests::provisioned()`) cannot offer: that
   instance is sealed by the time it returns. So this suite wires its own, same shape as the shared
@@ -338,7 +338,7 @@ went), and the difference is accounted rather than shrugged at:
   headline test builds to prove the created subtree is real. This suite's own tests report their
   charge directly (`[that test kept N frames]`), which is where the 1659 comes from rather than a
   re-derivation here.
-- **`MappedWindow`'s formatted panic, ~5 (2026-08-25, milestone 139 round 4).** Found by the
+- `MappedWindow`'s formatted panic, ~5 (2026-08-25, milestone 139 round 4). Found by the
   `toolchain/nightly-bump` PR going red on a plain toolchain bump with no code change of its own;
   bisected against CI's own historical `build + test (host + QEMU)` logs (five independent runs at
   18621 before `202831a3`/`c94f5d21`, two independent runs at 18626 immediately after, both
@@ -352,7 +352,7 @@ went), and the difference is accounted rather than shrugged at:
   its driver instance "is a long-lived server and never exits" for the rest of that test's boot,
   and a process's `AddressSpace` is sized from its own ELF segment page count
   (`kernel/src/user.rs::load`), so a permanently bigger binary should cost permanently more frames
-  by construction. **This is the fact the account does not have**: the per-program page math for
+  by construction. This is the fact the account does not have: the per-program page math for
   `display` alone (roughly +14 pages between the same two commits) does not cleanly reduce to the
   suite's measured +5, and that specific test's own reported charge moved by only +1 across the
   same comparison. `report_frame_ledger`'s attribution is by whichever test happened to be running
@@ -365,7 +365,7 @@ went), and the difference is accounted rather than shrugged at:
   cross-environment variance this raise also had to make room for (18621 → 18626 → 18627 local →
   18628 the one CI run that actually failed), which this investigation ruled a `swish.rs` change
   and a QEMU version mismatch out of and could not otherwise pin down.
-- **`printenv`'s four spawns, ~85 (2026-08-26, milestone 47, DECISIONS §111).** `date_tests.rs`'s
+- `printenv`'s four spawns, ~85 (2026-08-26, milestone 47, DECISIONS §111). `date_tests.rs`'s
   own shape one program over: `system_tests/src/user/printenv_tests.rs` spawns a real `printenv` ELF four
   times (`spawn_printenv`, `date_tests::spawn_date`'s own helper), and neither the child processes
   nor, in three of the four cases, a by-hand-allocated config-page frame (`assembled_page`/
@@ -383,12 +383,12 @@ went), and the difference is accounted rather than shrugged at:
 
 ### BUGS in the ledger itself
 
-- **A charge is attributed to the test that was running, not to the code that spent it.** A boot
+- A charge is attributed to the test that was running, not to the code that spent it. A boot
   service wired lazily by whichever test asks first is charged entirely to that test, which is why
   `a_full_directory_capability_does_everything_inside_and_nothing_outside` appears as the biggest
   spender in the tree while spending almost nothing of its own. Read a large charge as "the service
   this test was first to need", not as an accusation.
-- **The two ceilings are set from one measurement each**, so they are as good as that boot was
+- The two ceilings are set from one measurement each, so they are as good as that boot was
   representative. A run where the host resolver does not answer the non-gating DNS check spends a
   little less; that variance is inside the headroom both numbers carry, but neither is a tight bound
   and neither should be read as one.
@@ -404,7 +404,7 @@ went), and the difference is accounted rather than shrugged at:
   at a time, so `PageFrame(base, 311)` matched nothing and survived the reclamation of every page it
   named. A holder could then re-map pages the allocator had already handed out as a page table or
   another process's stack, which is §13's use-after-free with the widening's name on it. Reclamation
-  now sweeps by **overlap** over the whole range (`sched::delete_page_frame_caps_overlapping`),
+  now sweeps by overlap over the whole range (`sched::delete_page_frame_caps_overlapping`),
   which also closes an older hole the same way: a capability to a page nobody had *mapped* was never
   a candidate before, because the sweep was driven by the mapping log and the log had no record of
   it. `PageFrame::REVOKE` deliberately keeps the exact-object sweep; see the next entry.
@@ -456,7 +456,7 @@ went), and the difference is accounted rather than shrugged at:
   (`page_frame::MAP` and `address_space::MAP_INTO`) are all-or-nothing across a run since
   2026-08-27: a failure partway through unmaps the prefix it had already mapped and tombstones its
   revocation records, so a caller that gets an error never has to wonder how much of its run landed.
-  The **budget** is not rolled back with it. Whatever L3s (and parents) the prefix needed were
+  The budget is not rolled back with it. Whatever L3s (and parents) the prefix needed were
   retyped out of the caller's region, and a region is spend-only, so those pages stay spent. The
   mapping is undone; the memory is not returned. A caller that retries a large run after an
   `OutOfMemory` should expect to have less budget than it started with, not the same.
@@ -482,8 +482,8 @@ went), and the difference is accounted rather than shrugged at:
   the scanout was retargeted to on 2026-08-27, `crates/graphics_protocol/src/lib.rs`'s `WIDTH` has the
   reasoning) fit a sixteen-slot capability table at all: at one capability per page neither size
   would have. `display_service::DRIVER_SLOT_DMA`'s `const` assertion (below, and the error it
-  used to produce) is retired along with the pressure it guarded against, and **replaced rather
-  than simply deleted**: the reformulated assertion beside those slot constants makes the same
+  used to produce) is retired along with the pressure it guarded against, and replaced rather
+  than simply deleted: the reformulated assertion beside those slot constants makes the same
   claim in run terms, that no grant list on that path reaches the fault slot. Deleting it outright
   was the state milestone 142's review found, and the hole it left was a future lane pushing a
   service's highest slot onto `FAULT_EP_SLOT` and booting instead of failing the build. The paragraphs below are
@@ -491,17 +491,17 @@ went), and the difference is accounted rather than shrugged at:
   no longer has.
 
 - **A `PageFrame` names one page, and a DMA region is a run of them.** The virtio-gpu driver's region is
-  nine contiguous pages, so it holds **nine capabilities** and issues nine `MAP` calls for memory
+  nine contiguous pages, so it holds nine capabilities and issues nine `MAP` calls for memory
   that is adjacent in physics, adjacent in its address space, and covered as a single range by the
   IOMMU domain the kernel programmed for it. That is slots 5 through 13 of a sixteen-slot capability table
-  (`cap::CAPABILITY_TABLE_SLOTS`), one of which is reserved for the fault endpoint: it fits with **one slot
-  spare**, and a wider scanout would not fit at all. `display_service::DRIVER_SLOT_DMA` carries a
+  (`cap::CAPABILITY_TABLE_SLOTS`), one of which is reserved for the fault endpoint: it fits with one slot
+  spare, and a wider scanout would not fit at all. `display_service::DRIVER_SLOT_DMA` carries a
   `const` assertion so that someone who widens the surface fails the build rather than the boot.
 
   The milestone's scope note called this out in advance ("if the migration finds the object short of
   something a real driver needs, that is a finding worth recording, and it is a design fork rather
-  than a quiet addition"), so it is recorded and not fixed. **The fork is whether a `PageFrame` should
-  be able to name a run of pages** (seL4 has no answer to copy here: it retypes N frames and you hold N
+  than a quiet addition"), so it is recorded and not fixed. The fork is whether a `PageFrame` should
+  be able to name a run of pages (seL4 has no answer to copy here: it retypes N frames and you hold N
   capabilities, and its capability tables are radix trees rather than sixteen slots, so the pressure lands
   somewhere else). Growing `CAPABILITY_TABLE_SLOTS` is a one-number change paid in TCB size, and is the other
   half of the same question.
@@ -521,17 +521,17 @@ went), and the difference is accounted rather than shrugged at:
   **The ceiling is nine page frames, and it is the capability table rather than the memory.** The
   driver's DMA region starts at slot 5 and must end below the fault slot at 15, so
   `SURFACE_PAGE_FRAMES <= 9`: at most 36,864 bytes, or 9,216 pixels. Every non-square shape that fits
-  (128x72, 144x64, 192x48) gives five text rows or fewer at 8x14. 800x600 needs **469 page frames**,
+  (128x72, 144x64, 192x48) gives five text rows or fewer at 8x14. 800x600 needs 469 page frames,
   which no sixteen-slot capability table can hold under any arrangement of the other slots, and the
   same is true of every size a person would call a terminal. The other budgets on the path are all
   comfortable by comparison, which is the part that surprises: 469 page frames is under one percent of
   the free pool, the mapping records are two pages against `AS_OVERHEAD`'s sixteen of slack, and
-  `MAP_BUDGET_PAGES`'s eight pages still cover the page tables (see below). **Nothing else on this
-  path is short. Only the slots are.**
+  `MAP_BUDGET_PAGES`'s eight pages still cover the page tables (see below). Nothing else on this
+  path is short. Only the slots are.
 
   **Two of those numbers have moved since, and the constants a reader would quote should be the
-  current ones** (updated 2026-09-02, milestones 230 and 231). The table is **twenty-four** slots
-  rather than sixteen, `Option<Cap<Object>>` is **32** bytes rather than 24, and `MAX_THREADS` is
+  current ones** (updated 2026-09-02, milestones 230 and 231). The table is twenty-four slots
+  rather than sixteen, `Option<Cap<Object>>` is 32 bytes rather than 24, and `MAX_THREADS` is
   **256** rather than 128. The paragraphs above are left as written because they are the record of
   an investigation on the day it was done, and none of the arithmetic's *conclusions* survive being
   updated any differently: 469 page frames does not fit in twenty-four slots either, and option 2
@@ -542,7 +542,7 @@ went), and the difference is accounted rather than shrugged at:
   **And a boot now says what it actually used**, which is the thing this section's whole argument
   was conducted without. `kernel::cap::report_peak` prints `capability slots: N of M at peak` from
   the scheduler's idle loop, and `script/swish-check` echoes it on every run: the interactive boot
-  reaches **22 of 24**. That number cost milestone 230 four instrumented boots to learn and now costs
+  reaches 22 of 24. That number cost milestone 230 four instrumented boots to learn and now costs
   a boot, which is the difference between a fork priced against a guess and one priced against a
   measurement. See design/roadmap/231-capability-slot-high-water-mark.md.
 
@@ -554,8 +554,8 @@ went), and the difference is accounted rather than shrugged at:
   Three ways out, priced:
 
   1. **A `PageFrame` that names a run.** `Object::PageFrame(u64)` carries a page count,
-     `page_frame::MAP` maps the run, `page_frame::REVOKE` unmaps it. Measured surface: **4 sites
-     match on `Object::PageFrame`** and 21 construct one through `cap::page_frame_cap`. It is the
+     `page_frame::MAP` maps the run, `page_frame::REVOKE` unmaps it. Measured surface: 4 sites
+     match on `Object::PageFrame` and 21 construct one through `cap::page_frame_cap`. It is the
      option this tree's own reasoning points at, because the run is already one range in physics, one
      range in the address space and one range in the IOMMU domain, and it collapses 469 capabilities,
      469 syscalls and 469 mapping records into one of each. It is also a change to the meaning of a
@@ -569,7 +569,7 @@ went), and the difference is accounted rather than shrugged at:
   3. **Map the run into the client's space without giving it capabilities**, which
      `address_space::MAP_INTO` already does: the spawner holds the `AddressSpace`, maps each page
      frame into it, and deletes its own cap between iterations, so one slot serves the whole run and
-     the client holds none. This needs **no model change and no new method**, and unlike the
+     the client holds none. This needs no model change and no new method, and unlike the
      `Spawn::maps` mechanism it replaced, every
      mapping it makes is recorded and therefore revocable (§13, §67). Its cost is 469 kernel-side
      map operations at spawn and a client that cannot delegate or revoke its own surface, which is
@@ -578,11 +578,11 @@ went), and the difference is accounted rather than shrugged at:
 
   **Two sizing facts the same investigation established, because they will be the next questions.**
   The page-table budget survives 800x600: one L3 covers 512 pages and 469 fits, so
-  `MAP_BUDGET_PAGES`'s eight pages still hold, but **only because `SURFACE_VA` is 0x60_0000 and
-  therefore 2 MiB-aligned**; the comment justifying that constant says "every mapping here lands
+  `MAP_BUDGET_PAGES`'s eight pages still hold, but only because `SURFACE_VA` is 0x60_0000 and
+  therefore 2 MiB-aligned; the comment justifying that constant says "every mapping here lands
   inside one 2 MiB window" and that sentence is load-bearing. 1024x768 is 768 pages and does not
   fit one L3, which makes 800x600 the last size the current budget justifies. And the userspace VA
-  map does **not** survive it: `display_terminal` puts `OUT_VA` at 0x68_0000, only 128 pages above
+  map does not survive it: `display_terminal` puts `OUT_VA` at 0x68_0000, only 128 pages above
   `SURFACE_VA`, so a 469-page surface would run straight through it and through `CTL_VA` at
   0x69_0000. Both have to move above 0x80_0000, which puts them in a second 2 MiB window and costs a
   second L3, still inside the eight-page budget.
@@ -632,8 +632,8 @@ claim that a stack frame is a physical page.*
   fault on this path should meet the whole story, and because "the milestone that surfaced it was not
   the milestone that caused it" is the part that would otherwise be lost.
 
-  One run in five faulted (2026-08-13; four green runs on this branch, one red). **The kernel binary
-  was byte-identical between a run that faulted and a run that passed**: the two commits differ only
+  One run in five faulted (2026-08-13; four green runs on this branch, one red). The kernel binary
+  was byte-identical between a run that faulted and a run that passed: the two commits differ only
   in `.github/dependabot.yml`, `.github/workflows/toolchain-bump.yml` and `script/ci-qemu`, with
   nothing under `kernel/`, `crates/`, `user/` or `redoxfs_server/`. So it is depth-dependent rather than
   deterministic, and re-running until green would hide it.
@@ -647,9 +647,9 @@ claim that a stack frame is a physical page.*
   x8       0xffff0010001b7a90
   ```
 
-  `FAR` is **exactly the guard page of kernel thread stack slot 87**. `thread::STACK_AREA` is
+  `FAR` is exactly the guard page of kernel thread stack slot 87. `thread::STACK_AREA` is
   `KERNEL_VA_BASE | 0x10_0000_0000` and the per-thread stride is five pages (`STACK_PAGES` = 4 plus
-  one guard), so `FAR - STACK_AREA` is `0x1b3000` = 87 × `0x5000` with a remainder of **zero**. `x8`
+  one guard), so `FAR - STACK_AREA` is `0x1b3000` = 87 × `0x5000` with a remainder of zero. `x8`
   is `0x4a90` into the same slot, which is that thread's own stack, 1392 bytes below its top. So the
   guard page did its job: a 16 KiB kernel stack ran out and the write below it was caught rather than
   quietly landing on the neighbour.
@@ -663,7 +663,7 @@ claim that a stack frame is a physical page.*
   #157 shrank `reap_region_objects` and after milestone 124 rebuilt the spawn path, which no
   depth-driven overflow could do; and `script/stack-depth-check` now says the deepest chain a thread
   stack can carry is 13792 bytes against the 20480 this address would need. See
-  notes/stack/guard-page-faults-2026-08-16.md. **The rest of this entry stands**: the fault is real,
+  notes/stack/guard-page-faults-2026-08-16.md. The rest of this entry stands: the fault is real,
   it is not this milestone's, and the binary really was byte-identical between a red run and a green
   one.
 
@@ -671,8 +671,8 @@ claim that a stack frame is a physical page.*
   beside it.** The recurring address proved nothing: a fault that reaches the exception vector's own
   frame store walks `sp` down and stores upward in aligned steps, so its terminal store lands on the
   guard base every time regardless of what `sp` was doing. What `x8` was telling you is exactly
-  right, though, and it is the whole diagnosis in one register: **the thread really was shallow on
-  slot 87's stack, because the stack had been unmapped under it.** A supervised corpse is published
+  right, though, and it is the whole diagnosis in one register: the thread really was shallow on
+  slot 87's stack, because the stack had been unmapped under it. A supervised corpse is published
   `Dead` while still executing on its own kernel stack, and an out-of-band region reap frees that
   stack before the corpse reaches `switch_to`. See
   notes/stack/kernel-stack-freed-under-its-owner.md, and the block of milestone 124 (a thread is born
@@ -681,8 +681,8 @@ claim that a stack frame is a physical page.*
   **A correction worth keeping, because the wrong reading was reasonable and cost an hour.** The
   first pass at this decoded `FAR` through `phys_to_virt` (which is `pa | KERNEL_VA_BASE`), read the
   result as physical `0x1b3000` with a stray bit 36, and concluded the pointer was corrupted. Bit 36
-  is not corruption: it is `STACK_AREA`, placed 64 GiB up **precisely so that a stack address can
-  never collide with the virtual name of a physical one**, which `thread.rs` says in the comment
+  is not corruption: it is `STACK_AREA`, placed 64 GiB up precisely so that a stack address can
+  never collide with the virtual name of a physical one, which `thread.rs` says in the comment
   above the constant. The lesson is that a high-half address is not automatically a physmap address,
   and masking off `KERNEL_VA_BASE` is not a decode unless you have first established which region
   you are in.
@@ -691,7 +691,7 @@ claim that a stack frame is a physical page.*
   rather than merged on four green runs out of five, and the investigation went looking for what made
   *this branch's* kernel path deeper. It was not this branch. Measuring per-function frames with
   `-Z emit-stack-sizes` and comparing this milestone's test binary against `main`'s says the largest
-  single frame growth in the whole milestone is **128 bytes**; its biggest new frame is one more
+  single frame growth in the whole milestone is 128 bytes; its biggest new frame is one more
   `spawn_on` instantiation, the same size as the eight already there.
 
   The cause was `sched::reap_region_objects` on `main`, whose frame was 6816 bytes, of which 4096 was
@@ -701,6 +701,6 @@ claim that a stack frame is a physical page.*
   to a margin that was already short, which is why it faulted here first. Fixed on `main`
   (notes/stack-high-water.md), and `script/stack-frame-check` now fails the build on a frame that size.
 
-  The general lesson is worth more than the bug: **the milestone a fault appears in is not
-  necessarily the milestone that caused it**, and on a shared resource as invisible as stack depth,
+  The general lesson is worth more than the bug: the milestone a fault appears in is not
+  necessarily the milestone that caused it, and on a shared resource as invisible as stack depth,
   the last change to arrive gets blamed for a margin that many changes spent.

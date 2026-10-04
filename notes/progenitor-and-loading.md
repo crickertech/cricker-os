@@ -13,17 +13,17 @@ role and the demo catalogue were the same binary.*
 
 ## The one thing 19d moves, and why it matters
 
-Until 19d, when a program ran on nife the **kernel** read its file and set it up: it parsed
+Until 19d, when a program ran on nife the kernel read its file and set it up: it parsed
 the ELF (the standard "here is a program: code here, data there, start at this address" format),
 copied the pieces into memory, and started it. That parser lived inside the kernel.
 
 Parsing a program file means processing bytes an attacker may have crafted, and a bug in a parser
 is where exploits live. A bug in a parser *inside the kernel* is the worst kind: it compromises
-the trusted core the whole §14 thesis rests on. So 19d moves the parser **out**, into an ordinary
+the trusted core the whole §14 thesis rests on. So 19d moves the parser out, into an ordinary
 confined program where a parser bug is just that program's problem, confined by the same
 capability walls as any workload.
 
-That program is the **progenitor**: the first process, the one the kernel starts and from which
+That program is the progenitor: the first process, the one the kernel starts and from which
 every other descends. It was called init until milestone 266.
 
 ## What still loads the progenitor (the honest residue)
@@ -37,8 +37,8 @@ services today, by moving that wiring into the first process.)
 
 ## How the progenitor loads a child (the loader, in userspace, through the verbs)
 
-It is handed three things by `spawn_hello`: a building **untyped** budget (slot 0), a **report**
-endpoint (slot 1, with `GRANT` so it can endow a child), and the whole **initrd mapped read-only**
+It is handed three things by `spawn_hello`: a building untyped budget (slot 0), a report
+endpoint (slot 1, with `GRANT` so it can endow a child), and the whole initrd mapped read-only
 at `INITRD_VA` so it can read the ELF. Its length arrives in `x1`.
 
 `build_child` then does, entirely through the milestone-19 granular verbs, what the kernel's
@@ -98,14 +98,14 @@ argument survives the crossing: the least_authority_demo reports `n*n`, not `n` 
 
 Through 19d/19e the initrd *was* one ELF: the kernel parsed the whole blob as the init program, and
 init, to load a child, parsed that same blob again (children were roles of the one binary). 19f
-turns the blob into a **nifefs archive**, the same named-file format the virtio disk uses, so one
+turns the blob into a nifefs archive, the same named-file format the virtio disk uses, so one
 parser serves both the RAM archive and the disk. `cargo xtask` packs it (`initrd_aarch64`, renamed
 from `mkinitrd` 2026-08-27); it holds one
 entry today, `progenitor`.
 
 Two readers changed, each in its own domain:
 
-- The **kernel** (`boot_progenitor`) reads the superblock, looks up the `"progenitor"` entry
+- The kernel (`boot_progenitor`) reads the superblock, looks up the `"progenitor"` entry
   (`"init"` until milestone 266), and loads *that*
   as the ELF. This is the same honest residue as before ("something has to load the first program"),
   now naming that program through a fixed archive index instead of assuming it sits at offset 0. The
@@ -127,9 +127,9 @@ RAM boot and the eventual disk boot share one parser.
 every byte in the archive is a byte the running system does not have, for the whole boot. That was
 free until it was not.
 
-A debug build is almost entirely debug information. `rust_swappable` is 720 KB, of which **3 KB** is
-`.text` plus `.rodata` and the other 717 KB is `.debug_*`. Twenty-odd programs like that made a **26
-MB** archive out of well under a megabyte of code, on a 128 MB machine. Milestone 23 added five
+A debug build is almost entirely debug information. `rust_swappable` is 720 KB, of which 3 KB is
+`.text` plus `.rodata` and the other 717 KB is `.debug_*`. Twenty-odd programs like that made a 26
+MB archive out of well under a megabyte of code, on a 128 MB machine. Milestone 23 added five
 programs, the archive went to 30.7 MB, and a *later, unrelated* test stopped being able to find a
 contiguous eight-megabyte run for init's building budget: `no building budget for init`, in a test
 that had nothing to do with the change, which is the usual signature of a resource the whole suite
@@ -137,21 +137,21 @@ shares. (That message reads `no building budget for the progenitor` today; it is
 read on the day.)
 
 So `initrd_aarch64` (`mkinitrd` before 2026-08-27) now strips each ELF (`llvm-objcopy --strip-debug`) before packing, and the archive is
-**4.3 MB**. Nothing lost anything: `crates/elf` parses **program headers only** and has no
+**4.3 MB**. Nothing lost anything: `crates/elf` parses program headers only and has no
 section-header code at all, so no loader on either side of the boundary could ever see a debug
 section; the kernel prints a raw `pc` on a fault, and symbolising it is done offline against the
 unstripped binary still sitting in `target/`.
 
 Two deliberate choices. `--strip-debug` rather than `--strip-all`, so the symbol table survives for
-anything that later wants to read it out of the archive. And a missing `llvm-objcopy` is a **hard
-failure** rather than a quiet fallback to unstripped bytes, because the measured-boot digest
+anything that later wants to read it out of the archive. And a missing `llvm-objcopy` is a hard
+failure rather than a quiet fallback to unstripped bytes, because the measured-boot digest
 (DECISIONS §26 phase B.1) is taken over exactly these bytes: a build that packed different bytes
 depending on which tools were installed would be a build whose trust root meant something different
 on each machine.
 
 ## The first distinct binary: the least_authority_demo (milestone 19f.2)
 
-The least_authority_demo is the first program that is **its own binary**, not a role of `hello`. It lives in
+The least_authority_demo is the first program that is its own binary, not a role of `hello`. It lives in
 `components/src/least_authority_demo.rs`: its own `_start`, its own panic handler, ~30 lines, and not one line of hello's
 code. It shares the `user` package's `link.ld` (so it links at `0x40_0000` like hello), which is not
 a conflict because each program runs in its own address space. `initrd_aarch64` packs it as a second
@@ -161,7 +161,7 @@ Every consumer that used to spawn "a role-6 least_authority_demo of hello" now l
 it with `x0 = 0` (a standalone binary needs no role selector) and the input in `x1`:
 
 - init's `init_least_authority_demo` and the initboot spawn service (`hello.rs`), for `run <n>`.
-  (**`initboot` is the name that path had when this was written.** It was a kernel Cargo feature
+  (`initboot` is the name that path had when this was written. It was a kernel Cargo feature
   and a `script/initboot`, both deleted by milestone 296, which found the feature selected nothing
   `shell` did not. Read `initboot` here as today's `shell`; the account is otherwise unchanged.)
 - the kernel-side `shell_service` (the pre-initboot interactive shell), same `run <n>`. (Retired as
@@ -207,9 +207,9 @@ same until milestone 41 deleted it with the rest of the retired kernel-wired she
 `hello` lost the `input` module and role entirely.
 
 With this, the whole interactive stack runs on distinct binaries. Verified end to end by piping real
-keystrokes into QEMU's serial: typing `run 6` at the prompt, the **input** binary read and echoed the
-line, the shell (still a hello role) parsed it, init built the **least_authority_demo** binary with the argument 6,
-the least_authority_demo computed 36 and reported, and the **console** binary printed `6*6 = 36` back. Input,
+keystrokes into QEMU's serial: typing `run 6` at the prompt, the input binary read and echoed the
+line, the shell (still a hello role) parsed it, init built the least_authority_demo binary with the argument 6,
+the least_authority_demo computed 36 and reported, and the console binary printed `6*6 = 36` back. Input,
 least_authority_demo, and console, three separate programs, plus init and the shell, cooperating through
 capabilities and shared pages.
 
@@ -220,7 +220,7 @@ slots (console request/reply, the input line endpoint, and the spawn/result endp
 shared pages, reads a line, and prints. Its consumer is init's `init_boot`, which loads `"swish"` by
 name and starts it with `x0 = 0`.
 
-With the shell out, **hello contains none of the system's programs**. Every service is its own binary
+With the shell out, hello contains none of the system's programs. Every service is its own binary
 in the archive: `least_authority_demo`, `console`, `input`, `swish`. hello keeps only init and the milestone-tour
 demo roles (the printing client, the virtio driver, the capability demos). On the `initboot` path
 init loads nothing of hello into a child at all; it builds the whole system from the four distinct
@@ -231,7 +231,7 @@ Proven end to end by piping keystrokes into QEMU's serial on both interactive pa
 the shell parsed it, init built the least_authority_demo binary with 9, the least_authority_demo computed 81, and the console
 binary printed `9*9 = 81`. Four separate programs plus init, cooperating through capabilities.
 
-One honest wrinkle surfaced: a line **burst-piped before the prompt appears** loses its first
+One honest wrinkle surfaced: a line burst-piped before the prompt appears loses its first
 character, because the input driver arms its RX interrupt a few instructions after it starts and a
 pre-armed poll only narrows that window, it does not close it. The input driver's comment used to
 claim it "never loses the first character"; it does, under burst-piping. A user typing after the
@@ -258,8 +258,8 @@ Two things deliberately stayed out of `user_mode_runtime`:
 
 **The claim is "userspace, not the kernel, composes a process", and it used to be made twice on
 riscv64.** `components/src/builder.rs` made it in miniature as a step in the boot tour: the kernel
-loaded that one program out of the archive, granted it a budget and a report endpoint **and nothing
-else**, and it parsed `least_authority_demo` out of the same archive in userspace, built a child from
+loaded that one program out of the archive, granted it a budget and a report endpoint and nothing
+else, and it parsed `least_authority_demo` out of the same archive in userspace, built a child from
 its own budget and started it. The kernel never touched the child's bytes. The progenitor makes the
 same claim at the scale of a whole system, and since milestone 268 item 4 the default riscv64 boot
 reaches it too, so calef retired `builder`.
@@ -275,10 +275,10 @@ This half is better off than it was: the progenitor composes the console server,
 discipline, the input driver and `swish`, and a person can then type at the result.
 
 *...from an authority you can count on one hand.* This is the half `builder` carried alone, and it
-is **half-proved today**. The progenitor does not carry it: it is granted the NS16550 and the UART's
+is half-proved today. The progenitor does not carry it: it is granted the NS16550 and the UART's
 interrupt line as well, because it is building a system rather than demonstrating a floor. What does
-carry it is `fixtures/src/address_space_witness.rs`, which holds **exactly the same two
-capabilities** `builder` held, a memory region in slot 0 and a report line in slot 1, and from those
+carry it is `fixtures/src/address_space_witness.rs`, which holds exactly the same two
+capabilities `builder` held, a memory region in slot 0 and a report line in slot 1, and from those
 retypes an address space, retypes a frame, maps the frame into the space it built, and proves the
 kernel enforces break-before-make inside it. It is asserted by
 `kernel::user::tests::a_process_can_build_an_address_space_from_el0` on **both** architectures whose

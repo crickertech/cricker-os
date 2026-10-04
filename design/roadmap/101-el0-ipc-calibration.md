@@ -10,8 +10,8 @@ needs_person: yes
 # 101. The L4 calibration, read from the IPC number that pays for the trap
 
 Partial as of since 2026-08-04 (PR #104). Raised 2026-08-04 as "build the EL0-to-EL0 IPC
-benchmark nobody owns", and that is not what the tree says. **The benchmark exists and has been
-published for days.** The milestone survived because the comparison built on it did not follow, and
+benchmark nobody owns", and that is not what the tree says. The benchmark exists and has been
+published for days. The milestone survived because the comparison built on it did not follow, and
 the corrected comparison is considerably worse for us than the one that was on the page.
 
 What remains is one step, reading cycles from a PMU instead of
@@ -32,47 +32,47 @@ both IPC benchmarks on one machine, both planes from the same boot, five boots b
 | `ipc_rtt_el0` | EL0 to EL0 | 350 | two rendezvous, two address spaces, four `svc`s |
 
 Against seL4's published pair for the same-core cross-address-space path, 413 cycles for the call
-and 426 for the reply, one-way each, so **~839 cycles** for a round trip in our sense: the corrected
-figure is **roughly 1.1x to 1.7x an L4-lineage round trip**. The range is the clock, not the
+and 426 for the reply, one-way each, so ~839 cycles for a round trip in our sense: the corrected
+figure is roughly 1.1x to 1.7x an L4-lineage round trip. The range is the clock, not the
 measurement. HVF passes through no PMU, so a cycle count here is nanoseconds times an *assumed*
 clock, and the host M3 runs 2.75 GHz on an E-core and 4.05 GHz on a P-core with nothing pinning the
 vCPU thread to either.
 
-**Three errors were found where one was expected**, and they are the reason the original "4 to 7
+Three errors were found where one was expected, and they are the reason the original "4 to 7
 times heavier" read as sober: wrong plane (kernel-side, no trap), wrong build (debug against their
 release), and wrong convention (our round trip against their one-way figure). Two inflate the ratio
 and one deflates it, so the number landed somewhere plausible by cancellation. notes/benchmarks.md
 carries all of it, with the four caveats that matter more than the ratio does: 2015 silicon against
 2023, their fastpath on and ours nonexistent, their two syscalls against our four, and an assumed
-clock. **None of that makes this a win**, and the note says so in a section headed that way.
+clock. None of that makes this a win, and the note says so in a section headed that way.
 
 ## The prediction of record, left standing
 
 Everything under this heading is the block as it was raised on 2026-08-04, before anything was
-measured. **It is wrong**, and it is kept rather than quietly fixed, for the same reason
+measured. It is wrong, and it is kept rather than quietly fixed, for the same reason
 notes/benchmarks.md keeps the plausible first reading of the RISC-V `map_new` movement: the record
 of having been confidently wrong is the useful artifact, and a page that only ever shows corrected
 numbers teaches a reader nothing about how much to trust the next one.
 
-**It forecast 12-24x. The measured answer is ~1.1x to ~1.7x**, an error the same size as the one it
+It forecast 12-24x. The measured answer is ~1.1x to ~1.7x, an error the same size as the one it
 was written to correct, in the other direction. It was written to catch an overstatement and
 produced a larger one.
 
-> **What the source actually says.** notes/benchmarks.md:66 names a true EL0-to-EL0 benchmark as
+> What the source actually says. notes/benchmarks.md:66 names a true EL0-to-EL0 benchmark as
 > "the right follow-up" and says it "needs one `CNTKCTL_EL1` bit so EL0 can read the counter". Both
 > halves are stale. ...
 >
-> **The numbers, from the note.**
+> The numbers, from the note.
 >
 > | what | ns/iter (HVF, debug) | what it includes |
 > |---|---|---|
 > | `ipc_rtt` (kernel-side, milestone 21) | ~951 | the rendezvous, no trap |
 > | `ipc_rtt_el0` (EL0, the primitive suite) | ~2272 | two rendezvous and four `svc`s |
 >
-> **And then the L4 section compares the kernel-side one anyway.** It converts ~705 ns at ~3.2 GHz
+> And then the L4 section compares the kernel-side one anyway. It converts ~705 ns at ~3.2 GHz
 > to ~2,200 cycles and reports us "4 to 7 times heavier" than an L4-lineage fastpath's 300 to 600.
 > Run the same arithmetic on the number that includes the trap: ~2272 ns at ~3.2 GHz is roughly
-> **7,300 cycles**, which is **12 to 24 times** an L4 fastpath, not 4 to 7. The two nanosecond
+> **7,300 cycles**, which is 12 to 24 times an L4 fastpath, not 4 to 7. The two nanosecond
 > figures come from different runs ... so the ratio wants one clean run rather than a subtraction
 > across sessions, and it is not going to move the conclusion by a factor of three.
 
@@ -86,8 +86,8 @@ at 3.2 GHz really is ~7,300 cycles, and ~7,300 against 300-600 really is 12 to 2
 checkable and every step is right. It fixed the plane error, inherited the build error without
 noticing it (2272 ns is a debug figure, and the debug-to-release tax on this path is ~6.7x,
 measured), inherited the convention error without noticing it either (their 300-600 is one-way), and
-inherited the 3.2 GHz clock from the paragraph it was correcting. **A correction that reuses its
-target's assumptions is not a correction**, and the last clause, "it is not going to move the
+inherited the 3.2 GHz clock from the paragraph it was correcting. A correction that reuses its
+target's assumptions is not a correction, and the last clause, "it is not going to move the
 conclusion by a factor of three", is the tell: it forecloses the result before measuring, which is
 the one thing a milestone whose entire deliverable is a measurement must not do.
 
@@ -163,7 +163,7 @@ and it did not.
 
 ## Index row
 
-Re-measured on five release boots: `ipc_rtt_el0` 350 ns, about **1.1x to 1.7x** an L4-lineage
+Re-measured on five release boots: `ipc_rtt_el0` 350 ns, about 1.1x to 1.7x an L4-lineage
 round trip, not the 4-7x the note claimed nor the 12-24x this block predicted. Three errors found
 where one was expected, and the prediction is left standing as the record rather than quietly
 fixed. Cycles are still arithmetic on an assumed clock; the PMU reading waits on milestone 16's

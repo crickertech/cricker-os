@@ -1,13 +1,13 @@
 # NTP: the wire format, and the client that carries it
 
-Two halves, built a day apart. **The wire format** is `crates/network_time_protocol` (milestone 51 lane C): the
+Two halves, built a day apart. The wire format is `crates/network_time_protocol` (milestone 51 lane C): the
 48 bytes of RFC 5905, the 1900-epoch fixed-point timestamp, the offset arithmetic, and the handful of
 checks that are the whole of unauthenticated NTP's spoofing resistance. Pure computation, no socket,
-no clock, no service, and its tests run in milliseconds on the host. **The client** is
+no clock, no service, and its tests run in milliseconds on the host. The client is
 `components/src/network_time_client.rs` (milestone 51 lane D), the process that turns those bytes
 into a clock correction, and it is the second half of this file.
 
-**Three programs, not one** (milestone 290, 2026-09-14). Until then the client, the test server that
+Three programs, not one (milestone 290, 2026-09-14). Until then the client, the test server that
 answers it and the witness that proves the clock page is unreachable were one binary with three roles
 dispatched on `arg0`, packed as `ntp`. calef ruled the split and named all three:
 `network_time_client` in `components/`, `network_time_test_server` and `unwritable_clock_witness` in
@@ -32,16 +32,16 @@ anything, because the code that knows what a time is has nothing to set.
 
 ## Scope: unauthenticated NTPv4, and what that is worth
 
-**The crate implements plain NTPv4. It implements neither NTS (RFC 8915) nor the RFC 5905
-symmetric-key MAC.** That is a decision, so here is the honest accounting.
+The crate implements plain NTPv4. It implements neither NTS (RFC 8915) nor the RFC 5905
+symmetric-key MAC. That is a decision, so here is the honest accounting.
 
 What it buys: correct time from a reachable server on a path where nobody is injecting packets,
 which is the ordinary case and is why plain NTP is what most machines still run.
 
 What it does not buy: anything at all against an attacker who can see the request and beat the real
 server's reply back. Everything between this crate and that attacker is the check list below plus an
-unpredictable transmit timestamp. An **off-path** attacker, who cannot see the request, has to guess
-a 64-bit nonce. An **on-path** attacker reads it and passes every check we make. Plain NTP has no
+unpredictable transmit timestamp. An off-path attacker, who cannot see the request, has to guess
+a 64-bit nonce. An on-path attacker reads it and passes every check we make. Plain NTP has no
 answer to that, and the crate says so in its own documentation rather than leaving it to be
 discovered.
 
@@ -55,24 +55,24 @@ NTS-KE is TLS 1.3. TLS needs certificate validation. Certificate validation need
 clock, which is the thing being obtained. The standard escape is a build-time "not before" timestamp
 plus whatever the RTC says, and that is a real design choice with real consequences (a machine whose
 image is older than its certificates fails to boot into a usable state), not a detail to settle
-mid-implementation. The roadmap records it as a fork. What the crate deliberately does **not** do is
+mid-implementation. The roadmap records it as a fork. What the crate deliberately does not do is
 half of it: an extension-field parser with no cryptography behind it would put the letters NTS in the
 tree while authenticating nothing, which is worse than the honest absence.
 
 ## The 2036 problem, and the pivot we chose
 
-An NTP timestamp is 64 bits: 32 of seconds since **1 January 1900**, 32 of binary fraction. Two
+An NTP timestamp is 64 bits: 32 of seconds since 1 January 1900, 32 of binary fraction. Two
 things follow that catch people out.
 
-**The epoch is not Unix's.** They differ by 2,208,988,800 seconds, which is 25,567 days: 70 years of
+The epoch is not Unix's. They differ by 2,208,988,800 seconds, which is 25,567 days: 70 years of
 365 plus the 17 leap days from 1904 to 1968. 1900 is not a leap year (divisible by 100 and not by
 400), and assuming it is puts the constant one day out.
 
-**The seconds field wraps**, on 7 February 2036 at 06:28:16 UTC. 32 bits of seconds is 136 years, and
+The seconds field wraps, on 7 February 2036 at 06:28:16 UTC. 32 bits of seconds is 136 years, and
 the field alone cannot say which 136 years it means. Something has to decide, and the choice is
 visible in the decoded output of every timestamp the machine ever handles.
 
-We take RFC 5905 §6's convention as a **fixed pivot**:
+We take RFC 5905 §6's convention as a fixed pivot:
 
 | seconds field | era | covers |
 |---|---|---|
@@ -83,25 +83,25 @@ The alternative is real and is what several implementations do: pick the era tha
 nearest to the time you already believe it is. It is more flexible and it is strictly worse here, for
 three reasons.
 
-1. **It makes decoding depend on the clock.** The same bytes parse to different instants depending on
+1. It makes decoding depend on the clock. The same bytes parse to different instants depending on
    when you ask, which is a property no parser should have.
-2. **It makes the function untestable** without injecting a "now", and therefore unprovable: Kani
+2. It makes the function untestable without injecting a "now", and therefore unprovable: Kani
    quantifies over inputs, and a hidden input is not one.
-3. **It is wrong exactly when it matters.** This machine boots believing it is January 1970. A
+3. It is wrong exactly when it matters. This machine boots believing it is January 1970. A
    nearest-era heuristic on a machine whose clock is wrong picks the wrong era with total confidence,
    and the entire reason this crate exists is that the clock is wrong.
 
 So the pivot is a pure function of its input, provable, and wrong only after 2104. The crate
-therefore has a **documented expiry date**, which is better than the undocumented one every
+therefore has a documented expiry date, which is better than the undocumented one every
 implementation has.
 
 The representable window in Unix seconds is `0 .. 4_233_462_144` (the epoch to 2104-02-26 09:42:24
 UTC), clipped below at 1970 because the crate's Unix seconds are unsigned. `Timestamp::from_unix`
-**refuses** anything outside it rather than wrapping, so the failure mode is `None` instead of a date
+refuses anything outside it rather than wrapping, so the failure mode is `None` instead of a date
 136 years off.
 
-One more piece of the same problem, and it is the one that is easy to miss: **the offset and delay
-arithmetic is modular, not absolute.** Differences are taken as `wrapping_sub` on the raw 64-bit
+One more piece of the same problem, and it is the one that is easy to miss: the offset and delay
+arithmetic is modular, not absolute. Differences are taken as `wrapping_sub` on the raw 64-bit
 values and read back as signed, which is what makes an exchange straddling the 2036 boundary come out
 as three seconds instead of minus 136 years. There is a test that does exactly that.
 
@@ -114,25 +114,25 @@ place.
 
 In order:
 
-1. **Exactly 48 bytes.** Longer means extension fields or a MAC, and since we implement neither,
+1. Exactly 48 bytes. Longer means extension fields or a MAC, and since we implement neither,
    accepting one would mean silently ignoring authentication data a server computed. Fail closed.
-2. **Version 4, mode 4 (server).** Mode is what keeps an unsolicited broadcast out: nobody asked for
+2. Version 4, mode 4 (server). Mode is what keeps an unsolicited broadcast out: nobody asked for
    it, so nobody should believe it.
-3. **The origin timestamp equals the nonce we sent.** The load-bearing one. Checked before anything
+3. The origin timestamp equals the nonce we sent. The load-bearing one. Checked before anything
    in the packet is believed, because it is the check that says the packet is a reply to *us*. It
    also rejects a stale reply to an earlier request.
-4. **Stratum 0 is a kiss-o'-death**, reported as itself rather than as a generic failure: `RATE`
+4. Stratum 0 is a kiss-o'-death, reported as itself rather than as a generic failure: `RATE`
    means back off and `DENY` means go away, and a client that retries on those is the abusive client
    the packet exists to stop. Stratum above 15 is not a time source. A leap indicator of 3 is the
    server saying the same thing.
-5. **The transmit timestamp is not zero**, which on the wire means "I do not know what time it is".
-6. **The four timestamps agree with causality**: the server did not answer before it was asked, we
+5. The transmit timestamp is not zero, which on the wire means "I do not know what time it is".
+6. The four timestamps agree with causality: the server did not answer before it was asked, we
    did not receive before we sent, and the round trip is not shorter than the server's own
    turnaround. Three distinct rejections, because the third is possible while both halves of the
    first two are fine.
-7. **The claimed root distance is inside 16 seconds** (RFC 5905's `MAXDISP`), which is deliberately
-   far looser than the RFC's 1 s selection threshold. The split is whose job it is: **the crate
-   rejects the impossible, the service applies policy.** A server 200 ms away over a bad path is a
+7. The claimed root distance is inside 16 seconds (RFC 5905's `MAXDISP`), which is deliberately
+   far looser than the RFC's 1 s selection threshold. The split is whose job it is: the crate
+   rejects the impossible, the service applies policy. A server 200 ms away over a bad path is a
    poor sample, and what to do with a poor sample is a decision made with the other samples in view.
 
 ### The nonce, and the free hardening
@@ -143,8 +143,8 @@ bits are actually random is set by the clock's precision: a microsecond-resoluti
 12, which is 4096 guesses. `Timestamp::randomise_low` does that and takes the bit count as a
 parameter, because the caller knows its precision and the crate does not.
 
-`Query::with_nonce` does better, and the reason it is free is worth stating: **a server never
-interprets the client's transmit timestamp.** It copies it into the origin field and does nothing
+`Query::with_nonce` does better, and the reason it is free is worth stating: a server never
+interprets the client's transmit timestamp. It copies it into the origin field and does nothing
 else. So the value on the wire need not be a time at all. Send 64 random bits, keep the true send
 time locally for the arithmetic, and the attacker's guess goes from a dozen bits to sixty-four. This
 is what chrony does by default and it costs one extra field.
@@ -183,15 +183,15 @@ magnitude. Restating the division by its defining inequality (`t*d <= x < (t+1)*
 division circuit with a shift-and-add one) did not help, which is what identified the multiplication
 rather than the division as the cost.
 
-The answer was not a cleverer harness. **The domain is 10^9 values, and running the code on every one
-of them takes 0.6 s.** So the test does that: `every_nanosecond_survives_the_round_trip` is
+The answer was not a cleverer harness. The domain is 10^9 values, and running the code on every one
+of them takes 0.6 s. So the test does that: `every_nanosecond_survives_the_round_trip` is
 exhaustive, which is a *complete* verification of the function, strictly stronger than any bounded
 solver result. The crate gets `opt-level = 2` in the dev profile to keep it that quick, the same way
 `measured_boot` does for SHA-256. The bounded Kani harness stays as the in-gate regression guard on the low
 corner where the truncation bug lives.
 
-The general rule this is an instance of, and it is worth keeping: **a model checker is the tool for
-domains too big to enumerate, not a better tool for domains that are not.** Check first whether you
+The general rule this is an instance of, and it is worth keeping: a model checker is the tool for
+domains too big to enumerate, not a better tool for domains that are not. Check first whether you
 can just try all of them.
 
 ## What is not in the crate
@@ -207,8 +207,8 @@ can just try all of them.
 
 # The client (milestone 51 lane D)
 
-`components/src/network_time_client.rs`. Five capability slots, and **the interesting one is the
-slot that is missing.**
+`components/src/network_time_client.rs`. Five capability slots, and the interesting one is the
+slot that is missing.
 
 ```text
   entropy ──an endpoint──►┌──────────────┐──an endpoint──► net_stack ──► the network
@@ -230,13 +230,13 @@ slot that is missing.**
 | 4 | the entropy service's endpoint (WRITE) | obtain eight random bytes |
 
 There is no clock page here in either direction, so "set the time" is not an operation this process
-can express. **A compromised NTP client can lie inside the service's bounds and can do nothing
-else**: it cannot set the clock to 2038, it cannot move it backwards past a second, and it holds no
+can express. A compromised NTP client can lie inside the service's bounds and can do nothing
+else: it cannot set the clock to 2038, it cannot move it backwards past a second, and it holds no
 authority over anything but the socket it was given. Unix cannot make that claim, because `ntpd`
 runs as root and `settimeofday` takes any value it is handed.
 
 The claim is proved the way the machine proves things rather than argued.
-`an_ntp_client_holds_no_writable_clock_page` spawns the **same binary with the same five slots**,
+`an_ntp_client_holds_no_writable_clock_page` spawns the same binary with the same five slots,
 hands it the exact address at which a process holding the *set* authority maps the clock page
 (`clock_service::CLOCK_VA`), and watches it write there and die of a fault, with the page's
 generation unchanged on both sides of the attempt. The address is the one that would matter, so the
@@ -260,7 +260,7 @@ is the case NTP exists for.
 
 `Query::with_nonce` is free hardening (above): a server never interprets the client's transmit
 timestamp, so 64 random bits on the wire take an off-path attacker from about twelve bits of
-guesswork to sixty-four. **That is worth exactly as much as the bits are unguessable.**
+guesswork to sixty-four. That is worth exactly as much as the bits are unguessable.
 
 Until 2026-07-30 the only source in this tree was splitmix64 seeded off the virtual counter, which
 notes/entropy.md calls predictable to anyone who can guess boot-relative time. The entropy service
@@ -284,7 +284,7 @@ deadline anywhere in it, which is the milestone 51 block's open fork. So a poll 
 yield-spin: a thread that stays runnable for the whole interval and costs scheduler work in
 proportion to it. At NTP's ordinary 64-second poll that is not a service anybody should ship.
 
-So this is a **one-shot synchroniser**: up to three requests a couple of milliseconds apart, one
+So this is a one-shot synchroniser: up to three requests a couple of milliseconds apart, one
 proposal, exit. That is not a workaround and it is not a stub; it is the honest shape available, and
 **a long-running client is the timed-wait fork's to build.** Adding a sleep syscall to get one would
 be settling that fork by accident, in the milestone least entitled to settle it.
@@ -297,8 +297,8 @@ for a kiss.
 
 ## The test server, and what it does and does not prove
 
-The client's whole network authority is one endpoint capability, so the tests **substitute the peer
-at that boundary**: `fixtures/src/network_time_test_server.rs` holds `READ` on the endpoint the client
+The client's whole network authority is one endpoint capability, so the tests substitute the peer
+at that boundary: `fixtures/src/network_time_test_server.rs` holds `READ` on the endpoint the client
 holds `WRITE` on, and speaks the same socket contract (`crates/socket_protocol/src/lib.rs`, the same file
 `net_stack` compiles) while being an NTP server on the other side of it. The client cannot tell, and
 **there is no test-only branch anywhere in the client**. That is the shape a capability system makes
@@ -313,9 +313,9 @@ branch in the client's binary. It is unqualified now.
 What it proves: the socket-contract glue (minting a frame, delegating it, the destination header,
 `SENDTO`/`RECV` framing), that the 48 bytes are a well-formed NTPv4 client packet addressed to port
 123, that the nonce is 64 unpredictable bits rather than a clock reading, that a reply failing
-`Query::accept` moves nothing, that an accepted sample reaches the clock as a **proposal** (the page
+`Query::accept` moves nothing, that an accepted sample reaches the clock as a proposal (the page
 publishes `SYNCED`, which nothing but the service can write), and that a proposal outside the policy
-is refused **by the service** while the client behaves perfectly.
+is refused by the service while the client behaves perfectly.
 
 What it does not prove, stated plainly because a test server is exactly the kind of thing that gets
 overclaimed:
@@ -347,7 +347,7 @@ cannot reach.
 **Until milestone 290 the witness was a role of the client's binary, and the reason given was that
 the proof needed it to be the *same binary*.** That reason is false and is worth writing down,
 because it was believed for six weeks and it is the sort of argument that survives review by sounding
-like rigour. The fault is caused by the **capability set**. Any process holding that endowment faults
+like rigour. The fault is caused by the capability set. Any process holding that endowment faults
 at that address whatever code it runs, and no amount of shared machine code would make a stale
 capability list fault.
 
@@ -378,7 +378,7 @@ aarch64 and 152 to 158 on riscv64.
 | `the_nonce_on_the_wire_is_random_and_is_not_the_clock` | two exchanges differ, and neither transmit field is within an hour of the clock |
 | `without_entropy_the_client_refuses_rather_than_guessing` | the refusal names `NoSuchSlot`, and no request was ever sent |
 
-Every one of those assertions was **watched fail** before it was trusted: the write removed from the
+Every one of those assertions was watched fail before it was trusted: the write removed from the
 witness, `with_nonce` swapped for the plain form, a proposal made despite a rejection, a fallback
 inserted where the entropy refusal is, the kiss-o'-death `break` deleted, the offset dropped from the
 correction, and the destination port hard-coded past the wiring. Seven mutations, seven failures,
@@ -398,9 +398,9 @@ request: the client failed before it reached the network"*, while the whole suit
 cause was three steps from the message, which is why it is written down here rather than left to the
 next person's afternoon:
 
-`machine_has_no_entropy()` called `entropy_service::ensure` and threw the `Wiring` away. The **first**
+`machine_has_no_entropy()` called `entropy_service::ensure` and threw the `Wiring` away. The first
 caller of `ensure` is handed the entropy service's `ready` endpoint, and the service announces itself
-with a **blocking** send, so discarding that wiring parks the service inside its own startup, before
+with a blocking send, so discarding that wiring parks the service inside its own startup, before
 its request loop. Every later `ensure` gets `ready: None` and cannot rescue it. The client then blocks
 forever in `call(ENTROPY, ...)`, and what the test reports is the *server's* silence.
 

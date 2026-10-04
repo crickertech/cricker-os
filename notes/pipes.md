@@ -14,8 +14,8 @@ which is that finding paying out: the shell already holds the file, so append is
 it opens one.
 
 `2>` came last of all, on 2026-08-03, and it is the one operator that is not a spelling for
-something the system already had: it needed a second stream to exist first. It exists **per program,
-by declaration** (DECISIONS §67), which is what makes the digit a familiar spelling rather than a
+something the system already had: it needed a second stream to exist first. It exists per program,
+by declaration (DECISIONS §67), which is what makes the digit a familiar spelling rather than a
 number everybody has to agree on. See ["`2>`: built as a
 declaration"](pipes/second-stream.md).
 
@@ -28,8 +28,8 @@ line"](pipes/one-wait-point.md).
 
 ## What this lane had to add, which was less than it looks
 
-The protocol lane established that a program's output destination is **a capability its spawner
-chose**, and unified the four "write these bytes there" protocols into one. After that, `>` and `|`
+The protocol lane established that a program's output destination is a capability its spawner
+chose, and unified the four "write these bytes there" protocols into one. After that, `>` and `|`
 are not two features. They are two spellings of *put a different capability in slot 0*, and the
 whole of this lane is the grammar that lets a person choose it and the wiring that carries the
 choice from the prompt to the child.
@@ -132,7 +132,7 @@ The table and its caveats are in [the buffering appendix](pipes/buffering.md).
 
 ## SIGPIPE, and why the pipeline gets its own region
 
-Deleting every capability that names an endpoint does **not** destroy the endpoint: the object lives
+Deleting every capability that names an endpoint does not destroy the endpoint: the object lives
 in a page of an untyped region, and only reclaiming the region frees it. So a pipeline whose reader
 has finished while its writer is still blocked in a `SEND` would leave that writer blocked forever.
 
@@ -194,8 +194,8 @@ $ ls
   when.txt
 ```
 
-Read the numbers rather than the fact that it ran. `wc < out.txt` says **eight** lines where the
-listing above it had seven, because `>` creates and truncates its file **before** the command runs,
+Read the numbers rather than the fact that it ran. `wc < out.txt` says eight lines where the
+listing above it had seven, because `>` creates and truncates its file before the command runs,
 so `ls` sees `out.txt` in the directory it is listing. That is Unix's order and it is worth seeing
 rather than being told. The 57 bytes are those eight names plus a newline each; the terminal's
 two-space indent is the terminal's manners and is not in the file.

@@ -17,8 +17,8 @@ boots" and "an operating system" is milestone 7.
 | 10 | A process server, and a shell that spawns binaries | Proof the whole stack works            | ✅ |
 | 11 | Untyped memory: a process allocates, the kernel does not | §10's deferred axis, to the extent §10 intended. | ✅ |
 
-Milestone 8 is the one that proves §10 was real. When it lands, **the kernel no longer knows
-what a UART is.** If we cannot take the console out, we did not build a microkernel; we built a
+Milestone 8 is the one that proves §10 was real. When it lands, the kernel no longer knows
+what a UART is. If we cannot take the console out, we did not build a microkernel; we built a
 monolithic kernel with an unusual syscall table.
 
 Milestone 11 is complete *to its intent*, not to seL4's. The kernel still allocates its own

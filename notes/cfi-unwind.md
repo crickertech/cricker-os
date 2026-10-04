@@ -14,15 +14,15 @@ what is still not unwindable and why.
 A compiled function's prologue usually does something like "push these registers, make room for
 locals" and its epilogue undoes it. A debugger that wants to print a backtrace, or GDB's `finish`,
 or a language's own unwinder, has to reconstruct, at an arbitrary instruction in the middle of that
-function, three things: where the caller's stack frame starts (the **canonical frame address**,
+function, three things: where the caller's stack frame starts (the canonical frame address,
 CFA), where each register the function has saved lives relative to it, and where the return address
-is. **CFI is that description, written once per function, as a small program the debugger replays.**
+is. CFI is that description, written once per function, as a small program the debugger replays.
 The compiler emits it automatically for every Rust function (that is what let the transcripts below
 show line numbers and arguments for `kernel::sched::schedule` without any help from this milestone).
 Hand-written assembly gets none of that for free: the assembler has no idea what a `stp x29, x30,
 [sp, #-32]!` means about frames unless told, via `.cfi_*` directives.
 
-**The output format is `.eh_frame`.** Despite the name (inherited from C++ exception handling, which
+The output format is `.eh_frame`. Despite the name (inherited from C++ exception handling, which
 this kernel does not have and does not want), it is the ordinary ELF section a debugger reads CFI
 from, and it is not tied to unwinding actually happening at runtime; `panic = "abort"` means this
 kernel never unwinds its own stack, but a debugger attached from outside still can. That is the
@@ -41,7 +41,7 @@ for ordinary Rust functions the whole time. See "The link-script discovery" belo
 ## The link-script discovery, and what was tried
 
 Adding `.cfi_startproc`/`.cfi_endproc` to the twelve files compiled cleanly and produced correct
-`.eh_frame` content -- but `llvm-objdump --dwarf=frames` on the linked kernel showed an **empty**
+`.eh_frame` content -- but `llvm-objdump --dwarf=frames` on the linked kernel showed an empty
 `.eh_frame` and an empty `.debug_frame`, for every architecture. `kernel/link-{aarch64,riscv64,
 x86_64}.ld` each had:
 
@@ -55,18 +55,18 @@ x86_64}.ld` each had:
 Removing the line was not enough by itself. Three placements were tried, in this order, and the
 first two were rejected:
 
-1. **Left unmentioned** (default orphan placement). LLD keeps `.eh_frame*` ALLOC (the compiler
+1. Left unmentioned (default orphan placement). LLD keeps `.eh_frame*` ALLOC (the compiler
    marks it so; unlike `.debug_info`/`.debug_line`, which are never ALLOC and need no script
-   attention) and slots it in with the other read-only data, on aarch64 landing **between
-   `.rodata` and `.data`** -- before `__image_end`. Measured: `__image_size` (the value this
+   attention) and slots it in with the other read-only data, on aarch64 landing between
+   `.rodata` and `.data` -- before `__image_end`. Measured: `__image_size` (the value this
    kernel's own boot code writes into the arm64/RISC-V Image header for a real bootloader) grew by
    the CFI's own size, about 100 KiB, for a debugging convenience with nothing to do with how much
    RAM the image needs.
-2. **An explicit `(NOLOAD)` output section**, to move it out of the way and off ALLOC. This turned
+2. An explicit `(NOLOAD)` output section, to move it out of the way and off ALLOC. This turned
    it into `SHT_NOBITS`, the same representation `.bss` uses: LLD dropped the actual bytes, and
    `llvm-objdump --dwarf=frames` went back to empty. Wrong mechanism: NOLOAD is for reserving
    address space whose *content* does not matter, and CFI content is the entire point.
-3. **An explicit `(INFO)` output section**, to keep the bytes and drop ALLOC. This let LLD place
+3. An explicit `(INFO)` output section, to keep the bytes and drop ALLOC. This let LLD place
    the section far from `.text` (multiple megabytes away in one measured build) and broke a
    `R_AARCH64_PREL32` relocation elsewhere in the image outright: `rust-lld: error: relocation ...
    out of range`.
@@ -85,7 +85,7 @@ after `.bss`/the per-core stacks, close enough to `.text` that nothing overflows
 **Verified, not assumed**: a from-scratch build of the commit immediately before this milestone
 (`ece6d72c`) gives `__image_size = 0x350000` on aarch64; this tree, with CFI present, gives the
 same `0x350000`. The flat `Image` binary the two builds' `objcopy -O binary` produce (aarch64's
-QEMU/board boot artifact) is **byte-for-byte identical**, `cmp` confirmed.
+QEMU/board boot artifact) is byte-for-byte identical, `cmp` confirmed.
 
 **aarch64 also strips `.eh_frame`/`.eh_frame_hdr` back out of that flat binary**, in
 `helpers/qemu-runner-aarch64.sh` and `xtask/src/inspect.rs`'s `image()`, with
@@ -107,10 +107,10 @@ already does.
 
 ### The interesting case: a context switch is a function that returns somewhere else
 
-`switch_to` (aarch64, riscv64, x86_64) swaps `sp`/`rsp` to a **different thread's stack** mid-function
+`switch_to` (aarch64, riscv64, x86_64) swaps `sp`/`rsp` to a different thread's stack mid-function
 and then pops "its" callee-saved registers off that stack. The naive worry is that CFI can only
-describe one function's frame, not a jump to an unrelated one. It turns out **no special handling
-is needed at the swap point**, for a reason worth stating precisely: `.cfi_def_cfa_offset N`
+describe one function's frame, not a jump to an unrelated one. It turns out no special handling
+is needed at the swap point, for a reason worth stating precisely: `.cfi_def_cfa_offset N`
 defines the CFA as "the CURRENT stack-pointer register's value, plus N" -- a live formula, not a
 frozen address. `next_context` is, by construction (`Context::for_kernel_thread`, `for_user_thread`,
 or a previous `switch_to` call on that thread), exactly the stack-pointer value that thread's own
@@ -120,13 +120,13 @@ prologue (or the synthetic frame) put values in. One continuous CFI program, no 
 simpler and more correct than trying to close and reopen the description at the swap.
 
 `dispatch_on_interrupt_stack` needs a related but distinct trick: it swaps onto a per-CPU interrupt
-stack that is **not** shaped like its own frame, runs a call there, and swaps back. Here the CFA is
+stack that is not shaped like its own frame, runs a call there, and swaps back. Here the CFA is
 restated in terms of a callee-saved register (`x19`/`s0`/`rbp`) that holds the pre-swap value and
 does not move again until it is restored (`.cfi_def_cfa_register`), so the formula stays valid on
 both sides of a stack that briefly isn't the one CFA was originally defined against.
 
 `thread_trampoline`/`user_entry_trampoline` (and x86_64's pair) are the other half of the same
-trick: a **fake** switch frame (`Context::for_kernel_thread`, etc.) whose "return address" is the
+trick: a fake switch frame (`Context::for_kernel_thread`, etc.) whose "return address" is the
 trampoline's own entry, so the very first `ret`/resume of a brand-new thread lands there. The link
 register at that instant is self-referential, not a real caller -- `context.rs` already says so in
 prose ("no caller: the backtrace ends here"); `.cfi_undefined` on the return-address register says
@@ -135,13 +135,13 @@ the same thing to the unwinder.
 ### The hard case: a trap is not a call, and two architectures cannot fully describe it
 
 A vector entry (aarch64's `vectors.s`), a trap entry (RISC-V's `trap.s`), and an interrupt/exception
-stub (x86_64's `trap.s`) all build a **signal frame**: the interrupted context's register file,
+stub (x86_64's `trap.s`) all build a signal frame: the interrupted context's register file,
 landed on the stack by hardware plus a macro, not by a `push` a debugger can walk backwards through
 by convention. `.cfi_signal_frame` marks the FDE as one of these (GDB does not decrement the PC by
 one when symbolizing it, and other tools know not to assume an ordinary call convention). The GP
 registers are describable everywhere with plain arithmetic on the macro's own stores, so all three
-recover x0-x29/a0-a7,s\*/rax-r15 correctly from any PC in the handler. **The interrupted PC is the
-part that differs by architecture:**
+recover x0-x29/a0-a7,s\*/rax-r15 correctly from any PC in the handler. The interrupted PC is the
+part that differs by architecture:
 
 - **x86_64 can describe it fully**, and this is the pleasant surprise of the three. The hardware
   frame puts the interrupted RIP and RSP at fixed offsets from the software frame's own CFA, and
@@ -157,12 +157,12 @@ part that differs by architecture:**
   AArch64's own DWARF register mapping anticipates exactly this: register 33 is `ELR_mode`, defined
   for describing an asynchronously-created (signal/exception) frame (`aadwarf64.rst`, ARM's DWARF
   for the ARM 64-bit Architecture). `vectors.s` states `.cfi_return_column 33` and
-  `.cfi_offset 33, -24` -- spec-correct, and there for whichever tool honours it. **GDB is not one
-  of them, as of this writing**: it hardcodes column 30 (`x30`) as the AArch64 return-address column
+  `.cfi_offset 33, -24` -- spec-correct, and there for whichever tool honours it. GDB is not one
+  of them, as of this writing: it hardcodes column 30 (`x30`) as the AArch64 return-address column
   and does not consult `.cfi_return_column`
   ([sourceware.org/pipermail/gdb/2023-January/050488.html](https://sourceware.org/pipermail/gdb/2023-January/050488.html)).
   So the honest choice, and the one this milestone makes, is `.cfi_undefined x30` at the trap
-  boundary: **not** repurposing column 30 to smuggle `elr_el1` through it, which would make GDB's
+  boundary: not repurposing column 30 to smuggle `elr_el1` through it, which would make GDB's
   unwind *work* today at the cost of lying about where the real `x30` register lives (a query like
   `p $lr` in that frame would then read `elr_el1`'s value instead). Wrong CFI is worse than none;
   leaving the column undefined tells GDB, correctly, "stop here", which is exactly what the "after"
@@ -184,7 +184,7 @@ last instruction before `sret`, so nothing after it needed a further rule.
 
 Per the brief's own warning: `kernel/src/arch/aarch64/image_header.s` is the arm64 Image header, a
 64-byte data structure the bootloader reads, with one instruction (`b _boot`) grafted onto its front
-so the entry point can also be byte 0 of it. It carries **no** CFI, `.type`, or `.size`, and a
+so the entry point can also be byte 0 of it. It carries no CFI, `.type`, or `.size`, and a
 `CFI-EXEMPT:` comment says why, in the file, where a reader (or `script/lint`'s new check) meets it.
 riscv64's `_start` has the identical shape (a Linux Image header with one leading `j`), for the same
 reason and the same treatment.
@@ -201,7 +201,7 @@ width the rest of the file is.
 
 ## Before and after: the evidence
 
-Captured on **aarch64** (the only architecture `cargo xtask gdb` currently drives), with GDB 17.2,
+Captured on aarch64 (the only architecture `cargo xtask gdb` currently drives), with GDB 17.2,
 against two builds of the identical source tree at commit `ece6d72c` (immediately before this
 milestone) and this branch's tip. `cargo xtask gdb` boots the kernel under QEMU with `-s -S` and
 prints the same instructions `notes/scripts.md` already documents; a real `gdb <elf>` /
@@ -230,7 +230,7 @@ Thread 3 hit Breakpoint 1, kernel::thread::thread_entry (closure=..., call=...) 
 #1  0xffff0000400d94a4 in thread_trampoline ()
 ```
 
-Both stop at `thread_trampoline`, and **that is correct in both cases**: `Context::for_kernel_thread`
+Both stop at `thread_trampoline`, and that is correct in both cases: `Context::for_kernel_thread`
 fakes this thread's very first frame with no real caller (its own comment: "no caller: the backtrace
 ends here"). The before transcript stops there by accident (no CFI existed to say anything); the
 after transcript stops there on purpose (`.cfi_undefined lr`), and the difference shows up as GDB no
@@ -242,14 +242,14 @@ claiming otherwise here would be exactly the invented-CFI failure this milestone
 ### Case 2: resuming an already-running thread (the case that matters)
 
 Breaking on `switch_to` itself and repeating `continue`/`finish`/`bt` across fourteen hits once the
-boot tour's initial thread-spawning settles down. **The compiler's own CFI for ordinary Rust
-functions was ALSO being discarded** before this milestone (the same one link-script line
-discarded everything named `.eh_frame*`), so GDB's frames 0-3 below come from its **frame-pointer
-fallback heuristic**, not from any FDE -- there was none. That heuristic is what makes the before
+boot tour's initial thread-spawning settles down. The compiler's own CFI for ordinary Rust
+functions was ALSO being discarded before this milestone (the same one link-script line
+discarded everything named `.eh_frame*`), so GDB's frames 0-3 below come from its frame-pointer
+fallback heuristic, not from any FDE -- there was none. That heuristic is what makes the before
 transcript dramatic rather than merely incomplete:
 
 Before (second hit; this is not abbreviated for effect, the real output kept going until it was
-killed at frame **#9976**, three minutes and forty-five seconds after the `bt`):
+killed at frame #9976, three minutes and forty-five seconds after the `bt`):
 ```
 Thread 3 hit Breakpoint 1, 0xffff0000400d9450 in switch_to ()
 #0  0xffff0000400d9450 in switch_to ()
@@ -266,7 +266,7 @@ Frames 0-3 recover correctly because ordinary Rust functions still set up an AAP
 chain (`x29`) regardless of CFI, and GDB's fallback walks that chain when it finds no FDE. Frame 4
 is where the chain walks into `exception_vectors`, which builds a raw trap frame rather than a
 conventional `x29` link -- and the heuristic, with nothing to tell it otherwise, reads some stale or
-misinterpreted value as "the next frame pointer," gets the **same address back**, and loops forever.
+misinterpreted value as "the next frame pointer," gets the same address back, and loops forever.
 This is the sharpest illustration in this whole milestone of why "no CFI" is not merely "less
 information": GDB's own fallback is willing to trust a frame-pointer-shaped hand-written assembly
 function that isn't one, and it does not know when to stop.
@@ -302,7 +302,7 @@ of boundary (a trap frame, or `kernel_main`'s own `-> !` entry, correctly report
 
 `script/fastpath-footprint` measures ELF symbol sizes in `.text`; CFI lives in `.eh_frame`, a
 different section. Run before and after, on the same machine, same profile (release, which is what
-the gate builds): **byte-identical** on every reported number (`ipc_send_recv` 6300, `ipc_call_reply`
+the gate builds): byte-identical on every reported number (`ipc_send_recv` 6300, `ipc_call_reply`
 8234, `ipc_fastpath` 8234, `syscall_entry` 1701). The gate's own printed "+N% against baseline" lines
 are unchanged too, which makes sense: they compare against a stored reference figure from an earlier
 point in the project's history that has nothing to do with this branch, and this branch moves

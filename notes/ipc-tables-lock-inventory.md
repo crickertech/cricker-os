@@ -10,8 +10,8 @@ scheduling. This note follows the code, so its own text now says `IPC_TABLES`; t
 paragraph is the historical pointer for a reader who remembers the old name.*
 
 The scheduler's per-CPU migration (DECISIONS §28) already moved run queues, `current`, and
-held-rank out of shared state. What still lives under the one `IPC_TABLES` lock is the **thread
-table** (and with it every thread's CapabilityTable) and the **endpoint array**. Milestone 17's question is
+held-rank out of shared state. What still lives under the one `IPC_TABLES` lock is the thread
+table (and with it every thread's CapabilityTable) and the endpoint array. Milestone 17's question is
 whether that remainder ever costs enough to justify partitioning it; this note is the denominator
 for that question.
 
@@ -45,9 +45,9 @@ Three structural observations survive even before the curve exists:
 
 ## The sequencing, recorded
 
-Milestone 17 stays OPTIONAL and gated on evidence: **milestone 88 provides the machine** (the
-scaling curve at 4/8/16/64 harts is a stated deliverable of its bench stage), and **milestone 80
-provides the method** (any design that replaces this lock with messages wants its protocol born
+Milestone 17 stays OPTIONAL and gated on evidence: milestone 88 provides the machine (the
+scaling curve at 4/8/16/64 harts is a stated deliverable of its bench stage), and milestone 80
+provides the method (any design that replaces this lock with messages wants its protocol born
 loom-checked; the wake-before-switch-out race is the standing proof that SMP interleavings hide
 from this tree's other tools). Until the curve bends, the one lock is the right design, on
 purpose.

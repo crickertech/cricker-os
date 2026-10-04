@@ -8,8 +8,8 @@ was no operation for a process to hand a capability to another process. The kern
 authority-granting oracle. That is ambient authority wearing a capability costume: the thing §10
 argued against, moved one layer down.
 
-This note is the fix. A process can now **delegate a capability to another process over an IPC
-endpoint**, and that is the operation that makes the model composable by the processes themselves.
+This note is the fix. A process can now delegate a capability to another process over an IPC
+endpoint, and that is the operation that makes the model composable by the processes themselves.
 
 ## The shape: capabilities ride the same channels as messages
 
@@ -29,13 +29,13 @@ slot and tells the receiver where the capability went.
 
 `SEND_CAP` checks two rights, and conflating them would be a bug:
 
-- **`WRITE` on the channel.** May I send on this endpoint at all? Same check `SEND` makes.
-- **`GRANT` on the capability being passed.** Was I trusted to hand *this* on? This is the right
+- `WRITE` on the channel. May I send on this endpoint at all? Same check `SEND` makes.
+- `GRANT` on the capability being passed. Was I trusted to hand *this* on? This is the right
   Unix has no word for. Without it you may use a thing and not lend it. Our console capability is
   `WRITE` without `GRANT` for exactly this reason: a program may print and may not pass printing to
   anyone else.
 
-And the rights the receiver ends up with must be a **subset** of what the sender holds. Delegation
+And the rights the receiver ends up with must be a subset of what the sender holds. Delegation
 narrows, never widens. If it could widen, the model is theatre: you would delegate yourself a better
 capability than the one you were given. The kernel rebuilds the requested rights from their bits,
 masks them to the defined set, and rejects anything that is not a subset. So a sender can drop
@@ -47,9 +47,9 @@ exactly what the demo does.
 The transfer happens at the rendezvous, under the scheduler lock, because that is the one moment both
 processes' capability tables are reachable at once:
 
-- **Receiver waiting when the sender arrives.** The sender inserts the capability into the receiver's
+- Receiver waiting when the sender arrives. The sender inserts the capability into the receiver's
   capability table right then, records the slot in the receiver's mailbox, and wakes it.
-- **Sender waiting when the receiver arrives.** The sender parked the capability in a new
+- Sender waiting when the receiver arrives. The sender parked the capability in a new
   `Thread.outgoing_cap` field (the capability analogue of the mailbox that parks the data words). The
   receiver `take()`s it and files it in its own capability table.
 
