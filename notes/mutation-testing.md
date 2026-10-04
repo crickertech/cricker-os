@@ -279,4 +279,5 @@ architect's.
 | [census-2026-10-03-triage](mutation-testing/census-2026-10-03-triage.md) | the 2026-10-03 census's 1,004, crate by crate (milestone 637 (triage the crates the 2026-09-21 mutation census measured for the first time)) | 2026-10-03: `component_plan` onward |
 | [census-2026-10-03-triage-part-2](mutation-testing/census-2026-10-03-triage-part-2.md) | the same, continued | 2026-10-03: `documentation`, `filesystem_protocol`, `timetable`, `video_terminal`, `machine_discovery` |
 | [census-2026-10-03-triage-part-3](mutation-testing/census-2026-10-03-triage-part-3.md) | the same, continued | 2026-10-03: `grant_plan` onward |
+| [census-2026-10-03-triage-part-4](mutation-testing/census-2026-10-03-triage-part-4.md) | the same, continued | 2026-10-03: `swish`, `line_editor`, `package_archive`, `pci`, `manifest_note` |
 | [inflow-2026-10-03](mutation-testing/inflow-2026-10-03.md) | survivors merged pull requests added on their own lines, and whether anything triages them | 2026-10-03: 600 since 09-21; no weekly report exists |
