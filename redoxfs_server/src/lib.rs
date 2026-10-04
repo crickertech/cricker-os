@@ -57,8 +57,12 @@ pub mod walk_model;
 
 mod memo;
 
+// The serve loop's request dispatch, moved out of the EL0 binary so a host fuzz target and host
+// tests drive the same code the running server does.
+mod dispatch;
 use alloc::vec::Vec;
 
+pub use dispatch::ServeEdges;
 use filesystem_protocol::dir::{self, Rights};
 use filesystem_protocol::xattr;
 use redoxfs::{Disk, FileSystem, Node, Transaction, TreePtr};
