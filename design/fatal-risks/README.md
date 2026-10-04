@@ -120,6 +120,14 @@ seven gave identical verdicts and SAT counts under both models, so this is a gap
 not a hole. The fix and its gate are milestone 635
 (riscv64 proofs check against the riscv64 model); see [its block](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
 
+*Measured 2026-10-04 (UTC) by milestone 741 (does a standing proof notice a regression), under §216:*
+across 189 harnesses in 26 packages (glob and calendar not measured), 178 of the 184 that reach a
+cargo-mutants mutant kill at least one. In reach, the proofs kill 1,668 of 2,626 viable mutants (64%),
+and the census tests catch 91%. Six harnesses reach mutants and kill none, four of them panic-freedom
+proofs. Four `inter_process_communication` harnesses prove `unsafe fn`s, which cargo-mutants never
+mutates, so they reach no mutant and go unscored. 17 mutants are killed by a proof alone.
+[`notes/kani-reach-2026-10-04.md`](../../notes/kani-reach-2026-10-04.md).
+
 The first x86_64 proof went red on a latent defect, the first of the class this risk asks about. The
 claim: proofs over the pure crates and slices of a mostly unverified kernel. [Appendix](proofs-and-their-reach.md).
 
@@ -326,6 +334,14 @@ leaked a slot of 32: a denial of service, not an escape, severity medium. `RECEI
 `reply` accepts. One test, with a replayable falsification replayed red on aarch64, covers the tag
 on both arrival orders. It tests the tag, not the hang. A server that reads `x1` raw, outside the
 runtime, is still exposed.
+
+Dated 2026-10-04 (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number, PR #1611):
+a `SEND_CAP` or `CALL` that found a plain `RECEIVE` already parked installed its capability in the
+receiver's table, while the other order did not, so a confined program holding a `GRANT` capability
+could fill the table of a server draining its output (found by milestone 752 (a seeded syscall
+driver with a shadow model)). calef ruled option A; a plain `RECEIVE` now takes no capability on
+either order and a `CALL` reaching one is answered `Gone`. Two kernel tests with replayable
+falsifications, replayed red on aarch64.
 
 Dated 2026-10-04: nothing fuzzes what a confined process can reach. The six `cargo-fuzz` targets
 of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, not IPC requests

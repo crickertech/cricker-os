@@ -1,11 +1,12 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-10-04
+built: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: 247
 machine_requirements: none
 specific_machine: none
-needs_person: yes
+needs_person: no
 ---
 # 755. basalt v0 pins nife and runs its gate
 
@@ -18,8 +19,8 @@ of the repository split. The ruling includes the go-ahead for a lane's first wri
 
 ## What was built
 
-Built 2026-10-04 (UTC) by the lane `lane/basalt-v0`, in `nifeos/basalt` pull request #1 (branch
-`lane/basalt-v0`), which calef merges. Nothing in this repository changed. Every name below is
+Built 2026-10-04 (UTC) by the lane `lane/basalt-v0`, in `nifeos/basalt` pull request #1, which
+calef merged at 19:24 UTC as `f5bb505a5`. Nothing in this repository changed. Every name below is
 provisional and calef's to name.
 
 - `pins.toml`, the manifest: one TOML table per component, `[nife]` with `repository` (a
@@ -64,8 +65,13 @@ with the gate run on it. A nife commit that fails the gate is a red pull request
   37227310530, dispatched from the lane's branch, minted the token, pushed `pin/nife` and opened
   basalt pull request #3 as `nife-smelter[bot]`. The gate started on it by itself (run
   37227325610, event `pull_request`).
+- Corrected: the first green run kept the program archives but no kernel. The artifact globs
+  named `debug/deps/`, and this nightly's cargo puts a test binary under
+  `debug/build/<package>/<hash>/out/`. The gate now finds it by name, and run 37227454682 kept all
+  six files: three kernels and three program archives.
+- Warm, that same run took 10 min 2 s: QEMU came from the cache, and `ci-build test` took 9 min 32 s.
 - Cost. Runner minutes 16 and 7, billed at nothing: GitHub-hosted runners, the arm64 ones
-  included, are free on a public repository. A warm run is about 11 minutes, which matches nife's
+  included, are free on a public repository. A warm run is about 10 minutes, close to nife's
   own `test` job in merge-group run 37223076104 (11 min 34 s). The Rust cache missed on both runs
   and `ci-build test` still took 9 min 14 s against nife's warm 9 min 28 s; the cache is not what
   makes this check slow.
@@ -81,18 +87,12 @@ with the gate run on it. A nife commit that fails the gate is a red pull request
 - Until a gate run on basalt's `main` saves the QEMU cache, every pull request builds QEMU from
   source (about 4 minutes). A cache saved by a pull request is visible to that pull request only,
   and a red run saves none.
-- The first green run kept the program archives but no kernel. The artifact globs named
-  `debug/deps/`, and this nightly's cargo puts a test binary under
-  `debug/build/<package>/<hash>/out/`. Corrected on the branch by finding the binary by name; the
-  re-run is listed under the lane's report.
 - A red that fails before the images are built (a host test, a compile error) keeps no artifact.
 - basalt's files carry their own BUGS in its README, including the scheduled-workflow suspension
   after 60 days without repository activity.
 
 ## Follow-on
 
-- **Outstanding.** calef merges `nifeos/basalt` pull request #1; until then nothing is on basalt's
-  `main` and the pin bump has never run on its schedule. This block turns BUILT with that date.
 - **Proposed.** `design/roadmap/proposals/basalts-gate-blocks-a-merge.md`: a ruleset requiring the
   gate, and a green pin bump that merges itself. Today the gate reports and blocks nothing.
 

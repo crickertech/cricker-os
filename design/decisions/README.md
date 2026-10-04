@@ -355,6 +355,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 243 | DECIDED | [Notices for people: programs publish, users curate, displays show](243-notices-for-people.md) |
 | 244 | DECIDED | [The installed disk has four partitions, and a boot slot is 64 MiB](244-the-installed-disk-has-four-partitions.md) |
 | 245 | DECIDED | [A `CALL` server tells a Reply from a delegation by a kernel tag in `x4`, read through a typed runtime helper](245-a-call-server-tells-a-reply-from-a-delegation.md) |
+| 246 | DECIDED | [A plain `RECEIVE` never takes a capability, whichever side reaches the rendezvous first](246-a-plain-receive-never-takes-a-capability.md) |
 | 247 | DECIDED | [The split begins with basalt holding nife, and `procps` moves first](247-the-split-begins-with-basalt-and-procps-moves-first.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same

@@ -83,7 +83,7 @@ jobs:
       # standing condition over a day, and failing every five minutes would drown the red-trunk
       # signal. `continue-on-error` so a GraphQL failure cannot turn the watcher red.
       - name: merge queue ejection share
-        continue-on-error: true
+        continue-on-error: true  # outcome: exception, a GraphQL failure must not turn a five-minute watcher red
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: python3 helpers/merge_queue_share.py report
@@ -120,7 +120,7 @@ jobs:
       # failure must not turn the watcher red, but it prints a warning so it is not silent.
       - name: report a stopped merge watcher
         if: always()
-        continue-on-error: true
+        continue-on-error: true  # outcome: exception, a reporting failure must not turn the watcher red; it warns
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           WATCHER_READ_TOKEN: ${{ github.token }}

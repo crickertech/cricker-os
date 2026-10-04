@@ -200,6 +200,17 @@ pub mod rendezvous {
     /// always `0` for an ordinary message. A death message is told apart by its first word, as
     /// before; nothing reads `x3` before checking that.
     ///
+    /// **A plain `RECEIVE` never takes a capability**, whichever side reached the rendezvous first
+    /// (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number; calef's ruling A,
+    /// 2026-10-04 UTC). A [`SEND_CAP`] delivers its data word in `x0`, `0` in `x1` and `x2`, and the
+    /// capability is dropped (the sender keeps its own copy). A [`CALL`] delivers its two words in
+    /// `x0` and `x1`, and the caller is answered [`Gone`](crate::Error::Gone), because the one-shot
+    /// Reply has nowhere to go. Take capabilities with [`RECEIVE_CAP`], and serve a `CALL` with it.
+    /// Until the ruling a receiver parked first had the capability installed in its table and its
+    /// slot in `x1`, so any holder of `WRITE` here and `GRANT` on anything could fill the table of a
+    /// receiver that never asked (found by milestone 752 (a seeded syscall driver with a shadow
+    /// model)).
+    ///
     /// # BUGS
     ///
     /// **`x0` is the sender's own `w0`, so a sender can make a receiver read an error.** A negative
@@ -208,18 +219,6 @@ pub mod rendezvous {
     /// while checking the premise of §101 (notification objects) that `w0` could carry a tag; the same fact is why the
     /// notification tag lives in `x4`. Not fixed: the fix is a register convention for `RECEIVE`'s
     /// status, which every receiver in the tree is written against.
-    ///
-    /// **A capability can reach a plain `RECEIVE`, on one arrival order only.** A [`SEND_CAP`] or
-    /// [`CALL`] that finds a plain `RECEIVE` already parked installs its capability (the delegation,
-    /// or the caller's Reply) in the receiver's table and returns its slot in `x1`, where this
-    /// method otherwise returns the sender's `w1`. In the other order the receiver takes the data
-    /// and no capability (milestone 633 (an outside agent attacks the confinement claim)), and a
-    /// `CALL` caller collected that way waits for a Reply nobody holds. So a receiver that never
-    /// asked for capabilities can have its table filled by any sender that holds `WRITE` here and
-    /// `GRANT` on anything. Found by the seeded syscall driver of milestone 752 (a seeded syscall
-    /// driver with a shadow model), 2026-10-04 UTC, which pins today's behaviour; not fixed, because
-    /// which order is right is a change to this method's contract, written up for an architect in
-    /// that milestone's block.
     pub const RECEIVE: u64 = 1;
 
     /// `invoke(cap, SEND_CAP, cap_slot, rights, w0)` -> 0. **Delegate a capability.** Passes the
@@ -229,6 +228,8 @@ pub mod rendezvous {
     /// to pass it on). `rights` may only narrow what the sender holds, never widen it. This is the
     /// operation that makes nife a capability system a process can actually compose in:
     /// authority moves between processes at runtime instead of being wired by the kernel at spawn.
+    /// Only a [`RECEIVE_CAP`] takes the capability: a plain [`RECEIVE`] gets the data word and the
+    /// copy is dropped, on either arrival order (§246, PROVISIONAL number).
     pub const SEND_CAP: u64 = 2;
 
     /// `invoke(cap, RECEIVE_CAP, _, _, _)` -> w0, with the received capability's new slot in x1, a
@@ -283,7 +284,9 @@ pub mod rendezvous {
     /// replied.** The atomic send-and-wait a server can answer safely: at the rendezvous the kernel
     /// mints a one-shot [`crate::reply`] capability naming *this* caller and hands it to the server (through
     /// [`RECEIVE_CAP`]), so the server can answer a caller it was never wired to, exactly once, and only
-    /// that caller. Needs `WRITE`. Milestone 12; see notes/ipc-naming.md.
+    /// that caller. Needs `WRITE`. Milestone 12 (call/reply IPC); see notes/ipc-naming.md. A `CALL`
+    /// that reaches a plain [`RECEIVE`] returns [`Gone`](crate::Error::Gone): the receiver gets the
+    /// two words, and there is nowhere to put the Reply (§246, PROVISIONAL number).
     pub const CALL: u64 = 4;
 
     /// `invoke(cap, REAP, tid, _, _)` -> 0. **Collect a corpse this endpoint supervises**

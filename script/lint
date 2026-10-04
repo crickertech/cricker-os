@@ -100,6 +100,18 @@ for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pr
     }
 done
 
+echo "==> the commit-msg hook (an agent's commit carries a Co-Authored-By trailer)"
+# Milestone 725 (provisional): `.githooks/commit-msg` refuses a commit made under an agent harness
+# (CLAUDECODE=1 or OPENCODE=1) with no trailer. Same reasoning as the pre-push contract above: a
+# hook that is deleted or loses its executable bit stops gating with no signal, so its absence
+# fails here, and its behaviour is proved against a scratch repository (no cargo, so it runs in
+# the pre-push `--no-cargo` mode too).
+[ -x "$lint_root/.githooks/commit-msg" ] || {
+    echo "lint: .githooks/commit-msg is missing or not executable, so agent commits are no longer checked for a trailer" >&2
+    exit 1
+}
+helpers/commit-msg-selftest.sh >/dev/null
+
 # The partition `--no-cargo` relies on, proved against fixtures (no tree, no cargo).
 helpers/lint-no-cargo-selftest.sh >/dev/null
 
@@ -2855,6 +2867,17 @@ python3 "$(dirname "$0")/../helpers/session_steps.py" --selftest
 #     self-test is fixtures only, no stdin and no tree, so it costs nothing to run on every lint.
 echo "==> the CI-poll refusal hook"
 python3 "$(dirname "$0")/../helpers/hooks/refuse-ci-polling" --selftest
+
+# 12b. **A workflow step that swallows its failure says where the failure goes** (milestone 641 (a
+#     mechanism that reports clean says over how many units, and zero is loud), provisional;
+#     helpers/workflow_swallows.py, name provisional). Every `continue-on-error` carries an
+#     `# outcome:` label (re-raised, reported, or exception with a reason) that is checked against
+#     its job, and a pipeline into `tee` has pipefail. The weekly falsification sweep replayed
+#     nothing for three weeks behind exactly those two constructs. Fixtures first, because a green
+#     run looks the same as a check that cannot fire. See notes/denominators.md.
+echo "==> workflow steps that swallow a failure"
+python3 "$(dirname "$0")/../helpers/workflow_swallows.py" --selftest
+python3 "$(dirname "$0")/../helpers/workflow_swallows.py"
 
 # 13. **The kernel links no crate only its tests use, and no fixture unless a feature asks**
 #     (milestone 609 (the system tests leave the kernel crate)). The kernel crate used to link

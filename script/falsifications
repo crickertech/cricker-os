@@ -113,7 +113,8 @@
 #   script/falsifications --count           two integers, harnesses and how many are falsified,
 #                                           for the drift check in script/lint (milestone 236)
 #   script/falsifications --sweep [package] apply every recorded patch, require red, revert
-#                                           (the weekly job, falsifications.yml, goes red on a finding)
+#                                           (the weekly job, falsifications.yml, goes red on a finding,
+#                                           and on a selection that replays nothing)
 #   script/falsifications --affected-since <base>   sweep only what a diff can reach (the per-PR half)
 #
 # Both sweeps give each record **at most 15 minutes (a kernel test 30)** and report one that runs
@@ -1207,6 +1208,11 @@ def table(hs, pkgs, kts=()):
     # The one number §134 asked this script to print, in the sentence it is honest in. Everything
     # else here is a means to it.
     print("%d of %d harnesses (%.0f%%) carry evidence a machine can replay." % (evidence, total, 100.0 * evidence / total if total else 0))
+    # The denominator, beside the number (milestone 641, provisional). Code no harness covers is not
+    # in it, so this ratio says how much of what is proved carries evidence, never how much of the
+    # code is proved: milestone 524 (the three x86_64 boot gates: NX, SYSCALL, and the invariant
+    # TSC) added 338 unharnessed lines to one crate and it did not move.
+    print("The denominator is harnesses, not code: code no harness covers is outside it (notes/denominators.md).")
     # Records that exist, that a person performed, and that no sweep can replay, printed rather
     # than folded into either number above. Milestone 212 decided this explicitly: a denominator
     # that quietly excludes them is what it was written to end, and so is a numerator that quietly
@@ -1544,11 +1550,19 @@ def replay_swish_check_on(t, arch):
     return "red", "the line caught it on %s\n      %s" % (arch, named[0][:300])
 
 
-def sweep(hs, only=None):
+def sweep(hs, only=None, empty_is_clean=False):
     """Apply each recorded patch, run that ONE harness, require red, revert.
 
     A survivor here is a harness whose own recorded falsification failed to make it fail, which is
     exactly the signal nothing in this tree could previously detect.
+
+    **Replaying nothing is a failure unless the caller says it is not** (milestone 641 (a mechanism
+    that reports clean says over how many units, and zero is loud), provisional). `--sweep` asked
+    for the whole record set, or for packages it named, so an empty set there means the selection
+    is wrong: a renamed state, a moved directory, a mistyped package. Only `--affected-since` may
+    find nothing, because a diff that reaches no replayable record is an ordinary diff. The weekly
+    job reported three empty sweeps as success before this existed, by another route
+    (notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md).
     """
     d = dirty()
     if d:
@@ -1561,7 +1575,11 @@ def sweep(hs, only=None):
     todo = [h for h in hs if h.state == "replayable" and (only is None or h.package in only)]
     if not todo:
         print("nothing to sweep" + (" in %s" % ", ".join(sorted(only)) if only else ""))
-        return 0
+        if empty_is_clean:
+            return 0
+        print("0 swept: --sweep selected no replayable record, so it examined nothing. That is a")
+        print("broken selection and not a clean sweep (see the docstring of sweep()).")
+        return 4
     survivors, broken, hung = [], [], []
     for h in todo:
         patch = os.path.join(root, h.patch)
@@ -1746,7 +1764,7 @@ elif mode == "--affected-since":
         print("no harness package is reachable from this change; nothing to re-falsify")
         sys.exit(0)
     print("reachable harness packages: %s" % ", ".join(sorted(names)))
-    sys.exit(sweep(cheap, names))
+    sys.exit(sweep(cheap, names, empty_is_clean=True))
 elif mode in ("", "--all"):
     table(hs, pkgs, kts)
 else:

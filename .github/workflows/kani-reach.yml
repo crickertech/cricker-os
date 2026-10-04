@@ -1,0 +1,161 @@
+name: kani reach
+
+# **Does a standing proof notice a regression in the code it covers?** Milestone 741 (provisional),
+# for fatal risk 2. cargo-mutants lists the mutants of each package below, and every mutant is proved
+# with `cargo kani`; a harness that goes FAILED on a named check kills it. The join against the weekly
+# mutation census is what says whether the tests kill it too. helpers/kani_reach.py holds the method
+# and its caveats; notes/kani-reach-2026-10-04.md holds the numbers.
+#
+# A measurement, not a gate, and on demand only: one Kani compile per mutant is hours of CPU. Run it
+# here rather than on a laptop, per AGENTS.md's memory ceiling (never a mutation sweep beside lanes).
+#
+# `ubuntu-24.04-arm`, because `cargo kani -p kernel` compiles the host's `arch/` subtree, so the
+# kernel row proves `arch/aarch64/` here as it does on patagonia. The riscv64 and x86_64 kernel
+# harnesses are not in this measurement; see the note.
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "space-separated package[:shards[:only-this-shard]] list"
+        default: "capability paging:2 memory_regions page_frames device_tree_blob inter_process_communication generational_table intrusive_fifo address_space_identifier manifest_note:4 package_archive pci non_volatile_memory_express direct_memory_access_validator:4 network_time_protocol globally_unique_identifier_partition_table:3 filesystem_protocol subtree_scope:2 credential_protocol component_plan timetable jh7110_entropy machine_discovery:8 nifefs elf kernel"
+      flags:
+        description: "flags for kani_reach.py run; empty means --reached-only (the pilot ran without it)"
+        default: "--reached-only"
+
+permissions:
+  contents: read
+  # The report joins the 2026-10-03 census, which is another run's artifacts.
+  actions: read
+
+concurrency:
+  group: kani-reach-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Read the pinned cargo-mutants version
+        id: mutants
+        run: echo "version=$(cat .cargo-mutants-version)" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@v2.87.20
+        with:
+          tool: cargo-mutants@${{ steps.mutants.outputs.version }}
+      - name: Plan each package
+        id: plan
+        env:
+          # The 2026-10-04 scaled run: every row of script/verify's table but the three the pilot
+          # measured (nifefs, elf, kernel) and the two whose cost was estimated at 90 CPU-hours
+          # between them (glob, calendar); shard counts from that estimate. See the note.
+          # Shard counts are from the 2026-10-04 cost estimate (notes/kani-reach-2026-10-04.md).
+          # glob and calendar are left out by default: estimated at 90 CPU-hours between them.
+          # A `package:shards:only` entry runs one shard of n, which is how a lost shard is
+          # rerun with a fix (`gh run rerun` replays the old commit).
+          PACKAGES: ${{ github.event.inputs.packages }}
+          FLAGS: ${{ github.event.inputs.flags || '--reached-only' }}
+        run: |
+          mkdir -p plans
+          entries=""
+          for spec in $PACKAGES; do
+            IFS=: read -r p want only <<< "$spec"; want=${want:-1}
+            extra=""; shards=1; flags="$FLAGS"
+            case "$p" in
+              kernel)
+                # The same flags script/verify passes, the aarch64 harnesses only (this host's
+                # `arch/`), and the mutants of the files those harnesses live in.
+                files=$(git grep -lF '#[kani::proof]' -- 'kernel/src' | grep -v -E 'arch/(riscv64|x86_64)/')
+                for f in $files; do extra="$extra --file $f"; done
+                python3 helpers/kani_reach.py plan --package kernel \
+                  --kani-args "-Z unstable-options --ignore-global-asm -Z stubbing" \
+                  --harness-re '^(?!arch::(riscv64|x86_64)::)' $extra --out plans/kernel.json
+                # Only the mutants some harness's computed reach includes are proved. The pilot
+                # proved every nifefs and elf mutant against every harness, which is where a kill
+                # outside the computed reach showed (8 of elf's 185 viable mutants).
+                flags="--reached-only"; shards=2 ;;
+              *)
+                python3 helpers/kani_reach.py plan --package "$p" --out "plans/$p.json"
+                shards=$want ;;
+            esac
+            for k in $(seq 0 $((shards - 1))); do
+              [ -z "$only" ] || [ "$k" = "$only" ] || continue
+              entries="$entries{\"package\":\"$p\",\"shard\":\"$k/$shards\",\"tag\":\"$k-$shards\",\"flags\":\"$flags\"},"
+            done
+          done
+          echo "matrix={\"include\":[${entries%,}]}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: plans
+          path: plans/
+
+  prove:
+    needs: plan
+    name: "prove ${{ matrix.package }} ${{ matrix.shard }}"
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      # **Four shards at a time, never the whole matrix.** The org's `ubuntu-24.04-arm` runners are
+      # one shared pool with every PR check and the merge queue. The first scaled run (37178899420,
+      # 2026-10-04) launched 41 shards at once, left 40 jobs queued behind it, and was cancelled by
+      # the maintainer for starving the queue. Nobody waits on this measurement, so wall clock is
+      # the cheap side of the trade: at four it takes hours, and every other check still runs.
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: plans
+          path: plans
+      - name: Prove every mutant in this shard
+        run: |
+          python3 helpers/kani_reach.py run --plan plans/${{ matrix.package }}.json \
+            --shard ${{ matrix.shard }} --timeout 60 ${{ matrix.flags }} \
+            --out results-${{ matrix.package }}-${{ matrix.tag }}.jsonl
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: results-${{ matrix.package }}-${{ matrix.tag }}
+          path: results-*.jsonl
+
+  report:
+    needs: prove
+    if: always()
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: in
+      - name: Report each package against the 2026-10-03 census
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The census whose survivors this joins: run 37108924347, the 2026-10-03 census.
+          gh run download 37108924347 -R "$GITHUB_REPOSITORY" -D census || echo "census unavailable"
+          mkdir -p out
+          for plan in in/plans/*.json; do
+            p=$(basename "$plan" .json)
+            res=$(ls in/results-"$p"-*/*.jsonl 2>/dev/null || true)
+            [ -n "$res" ] || { echo "no results for $p"; continue; }
+            python3 helpers/kani_reach.py report --plan "$plan" --results $res --census census \
+              --out "out/$p.md"
+            sed '/^| mutant |/,$d' "out/$p.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: report
+          path: out/

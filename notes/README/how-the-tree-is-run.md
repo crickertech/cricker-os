@@ -7,6 +7,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The `script/` entry points](../scripts.md): the normalized front-door commands and what each does.
 - [Every check in this repository](../check-inventory.md): audit of what runs, blocks, and asserts. Name provisional.
 - [Selectors that can select nothing](../empty-selectors.md): gates that pass when their pattern matches nothing. Name provisional.
+- [A mechanism says how many things it examined](../denominators.md): workflow steps that swallow a failure, and what each published ratio is of. Name provisional.
 - [What to do when `main` goes red](../main-is-red.md). Names provisional.
 - [The merge queue, and the three things that watch it](../merge-queue.md): the scripts that land, watch, and flag queue work. Names provisional.
 - [A ready pull request failing a required check says so](../ci-failing.md): the scheduled flag that labels and comments once per head. Names provisional.
