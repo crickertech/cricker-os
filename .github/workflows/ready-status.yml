@@ -21,17 +21,18 @@ name: ready status
 # answering this failure with `gh pr ready --undo` turns the check green again rather than leaving
 # a stale red beside a draft.
 #
-# **It runs on `merge_group` too**, resolving the pull request from the group's ref the way
-# architect-hold.yml does, so that it can be a required check: a required check that never reports
-# on a merge group holds the group forever. In a group it agrees with `--check`'s merged-branch half
-# by construction, and costs a second.
+# **It runs on `merge_group` too**, so that it can be a required check: a required check that never
+# reports on a merge group holds the group forever. In a group it agrees with `--check`'s
+# merged-branch half by construction, and costs a second.
+#
+# **The group leg reads no API** (milestone 727 (a queue eviction goes to a maintainer session), provisional; calef's rulings on #1564). It used to
+# ask GitHub for the pull request's branch and draft state, and on 2026-10-03 that call met an HTTP
+# 503 and ejected #1557, the leg's one failure in 131 group runs: an outage outside the change cost
+# a 20-to-38-minute group. A group is never a draft, and the branch is in the commit the group
+# checks out, whose subject is `Merge pull request #N from <owner>/<branch>`.
 #
 # BUGS
 #
-#   - **It is not a required check yet, so it informs rather than blocks a hand-armed pull
-#     request.** The merge drain will not arm a pull request with a FAILURE in its rollup, which
-#     covers the normal path. Adding `ready status (no IN-PROGRESS block on a ready branch)` to the
-#     `main` ruleset's required checks is a repository setting and calef's.
 #   - **It matches the branch by name only.** A lane whose block names a different branch than the
 #     one it pushed (a typo, or a branch renamed mid-lane) passes here and still fails in the group.
 #     `--check`'s `BRANCH` pattern catches a malformed name, not a wrong one.
@@ -66,16 +67,20 @@ jobs:
         run: |
           if [ -n "$PR_EVENT_NUMBER" ]; then
             number="$PR_EVENT_NUMBER"
+            view="$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json headRefName,isDraft)"
+            branch="$(printf '%s' "$view" | jq -r .headRefName)"
+            draft="$(printf '%s' "$view" | jq -r .isDraft)"
           else
+            # No API in a group (see the header): the subject of the commit under test names it.
+            subject="$(git log -1 --format=%s)"
             number="$(printf '%s\n' "$GROUP_HEAD_REF" | grep -oE 'pr-[0-9]+-' | head -1 | grep -oE '[0-9]+' || true)"
+            branch="$(printf '%s\n' "$subject" | sed -n "s|^Merge pull request #$number from [^/]*/||p")"
+            draft=false
+            if [ -z "$number" ] || [ -z "$branch" ]; then
+              echo "could not resolve the branch from head_ref '$GROUP_HEAD_REF' and subject '$subject'" >&2
+              exit 1
+            fi
           fi
-          if [ -z "$number" ]; then
-            echo "could not resolve a pull request number (head_ref '$GROUP_HEAD_REF')" >&2
-            exit 1
-          fi
-          view="$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json headRefName,isDraft)"
-          branch="$(printf '%s' "$view" | jq -r .headRefName)"
-          draft="$(printf '%s' "$view" | jq -r .isDraft)"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "draft=$draft" >> "$GITHUB_OUTPUT"
           echo "==> #$number, branch '$branch', draft '$draft' (live)"
