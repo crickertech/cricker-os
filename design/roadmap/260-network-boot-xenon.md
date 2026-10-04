@@ -33,7 +33,7 @@ told a reader.
 
 ## Why this is not the same problem radon had, and why the answer just changed
 
-Milestone 257 (boot radon over the network, so the microSD card stops being the tax on every iteration) needed no cooperation from the network at all. U-Boot takes the server address
+Milestone 257 (boot radon over the network, so the microSD card stops being the tax on every experiment) needed no cooperation from the network at all. U-Boot takes the server address
 from a script we write onto the card, so `192.168.8.216` is baked in and the house router never has
 to know anything.
 
