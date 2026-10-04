@@ -105,6 +105,13 @@ and priced it is notes/redoxfs-audit.md).
      `level4` field's doc comment already says eight. Found by the `redoxfs_server` fuzz target (PR #1597).
      Checked against upstream HEAD `b87b0976ee12` (2026-10-04): the constant is still 12 there.
      Test: `node::node_level_ends_where_level4_ends`, which fails on the unpatched constant.
+     **Falsification: attested 2026-10-04, not replayable by `script/falsifications`.** That script
+     replays records only for workspace packages and skips `vendor/`; `vendor/redoxfs`,
+     `redoxfs_server` and `tools/redoxfs_host` are each their own workspace, so no package that
+     can reach `NodeLevel` is in its scope, and a patch file under `vendor/` would also fail
+     `script/vendor-verify`. Replay by hand: set `L4` back to `12 * NUM * NUM * NUM * NUM` and run
+     `cargo test --manifest-path vendor/redoxfs/Cargo.toml --lib --no-default-features --features
+     std node_level`; it fails on `NodeLevel::new(end).is_none()`.
 
      **Not sent upstream, and the reason is policy rather than doubt about the fix.** Redox's
      CONTRIBUTING.md refuses LLM-generated contributions, and this change was written by an agent,
