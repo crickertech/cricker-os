@@ -444,6 +444,19 @@ if [ -n "$NIFE_KEYBOARD" ]; then
     KBD="-device virtio-keyboard-pci,disable-legacy=on,iommu_platform=on"
 fi
 
+# Attach a USB keyboard on an xHCI controller when NIFE_USB_KEYBOARD is set (milestone 242 (USB host
+# and HID)). No iommu_platform flag, NVMe's reason: that knob is virtio's opt-in, and a real PCI
+# device model's DMA always goes through the PCI address space, so the controller sits behind
+# this machine's IOMMU with nothing to forget. The keys come from the host over the monitor
+# (`sendkey`), which delivers to the most recently activated keyboard; with no virtio keyboard
+# attached, that is this one. script/swish-check's USB keyboard boot is the one user.
+# NIFE_USB_KEYBOARD_OPTS is appended to the usb-kbd device (`,usb_version=1` makes it full speed),
+# NIFE_USB_CONTROLLER_OPTS to the controller (`,msix=off,msi=on` leaves it MSI only, as an Intel PCH is).
+USBKBD=""
+if [ -n "$NIFE_USB_KEYBOARD" ]; then
+    USBKBD="-device qemu-xhci,id=xhci${NIFE_USB_CONTROLLER_OPTS:-} -device usb-kbd,bus=xhci.0${NIFE_USB_KEYBOARD_OPTS:-}"
+fi
+
 # Attach two virtio-rng devices when NIFE_RNG is set (milestone 56, the entropy half).
 #
 # BOTH transports, because the entropy service must be the same binary on either bus (DECISIONS §18)
@@ -553,6 +566,7 @@ exec qemu-system-aarch64 \
     $GPU \
     $SCREEN \
     $KBD \
+    $USBKBD \
     $RNG \
     $NVME \
     $MON \

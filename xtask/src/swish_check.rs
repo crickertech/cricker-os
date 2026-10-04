@@ -2220,6 +2220,208 @@ fn swish_check_leg(arch: &str) -> bool {
                 false,
                 Some(Keystrokes::Device),
             ))
+        && (probe() == Probe::Panic || usb_keyboard_boot(arch))
+}
+
+/// The boot line the kernel prints when the USB keyboard driver configured a keyboard. Spelled
+/// here rather than imported, as [`JOB_DID_NOT_RUN`] is: a phrase is enough for a transcript.
+const USB_KEYBOARD_FOUND: &str = "  usb       : a keyboard on port ";
+
+/// What [`usb_keyboard_boot`] types, as QEMU's `sendkey` names the keys.
+const USB_KEYBOARD_KEYS: [&str; 11] = ["e", "c", "h", "o", "spc", "h", "e", "l", "l", "o", "ret"];
+
+/// **The USB keyboard boot** (milestone 242 (USB host and HID, because on commodity hardware the
+/// keyboard is not a UART)): the image the first boot built, with an xHCI controller and a USB
+/// keyboard attached and nothing else, `echo hello` typed on that keyboard through the QEMU
+/// monitor's `sendkey`, and `hello` required back on the console. On all three architectures,
+/// behind each one's IOMMU (`iommu=smmuv3`, `riscv-iommu-pci`, `intel-iommu`), which the kernel
+/// refuses to hand the controller over without.
+///
+/// What it proves, end to end: the kernel found and confined the controller, the EL0 driver reset
+/// it, enumerated the keyboard and configured its interrupt endpoint (the `usb       :` line says
+/// so before the prompt), the progenitor delegated the line discipline's endpoint to it, and a
+/// key pressed on the device reached the shell as the same bytes a serial line sends. **The serial
+/// line types nothing in this boot**, so the echo can have come from nowhere else.
+///
+/// The keyboard enumerates at **full speed** (`usb_version=1`), the speed real keyboards use, so
+/// the Evaluate Context step and the frame-based interval encoding run here rather than first on
+/// the bench. What it does not prove: a real keyboard on real silicon, which is calef's bench step
+/// in milestone 242's block; a hub; a low-speed device, which QEMU cannot model. The name is
+/// provisional.
+fn usb_keyboard_boot(arch: &str) -> bool {
+    use std::io::Read;
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    let x86 = arch == "x86_64";
+    let riscv = arch == "riscv64";
+    let kvm = x86 && kvm_is_usable();
+    eprintln!();
+    eprintln!(
+        "--- swish-check ({arch}): a USB keyboard on an xHCI controller types `echo hello` ---"
+    );
+    let sock = gpu_mon_socket(&format!("{arch}-usb-keyboard"));
+    let _ = std::fs::remove_file(&sock);
+    let boot_secs = if x86 {
+        SWISH_CHECK_BOOT_SECS * 2
+    } else {
+        SWISH_CHECK_BOOT_SECS
+    };
+
+    let mut cmd = if x86 {
+        let mut c = Command::new("helpers/qemu-uefi-x86_64.sh");
+        c.arg(esp_dir());
+        c.env(
+            "NIFE_UEFI_TIMEOUT",
+            (boot_secs + 2 * SWISH_CHECK_X86_LINE_SECS).to_string(),
+        );
+        c.env_remove("NIFE_NVME");
+        c.env_remove("NIFE_DISK");
+        if kvm {
+            c.env("NIFE_ACCEL", "kvm");
+        }
+        c
+    } else {
+        let target = if riscv { RISCV_TARGET } else { TARGET };
+        let mut c = Command::new(if riscv {
+            "helpers/qemu-runner-riscv64.sh"
+        } else {
+            RUNNER
+        });
+        c.arg(format!("target/{target}/{}/kernel", profile_dir()));
+        c.env(
+            "NIFE_INITRD",
+            if riscv {
+                riscv_initrd_path()
+            } else {
+                initrd_path()
+            },
+        );
+        c
+    };
+    // The keyboard and nothing that could also type: no virtio keyboard (which `sendkey` would
+    // reach instead), no gpu, no NIC.
+    for var in [
+        "NIFE_KEYBOARD",
+        "NIFE_GPU",
+        "NIFE_GPU_MON",
+        "NIFE_NET",
+        "NIFE_DISK",
+        "NIFE_NVME",
+    ] {
+        cmd.env_remove(var);
+    }
+    cmd.env("NIFE_USB_KEYBOARD", "1");
+    // **Full speed**, the speed a real keyboard enumerates at. QEMU's `usb-kbd` defaults to high
+    // speed on an xHCI, which takes a different packet size for endpoint 0 and a different
+    // interval encoding; `usb_version=1` makes it the device xenon will actually see.
+    cmd.env("NIFE_USB_KEYBOARD_OPTS", ",usb_version=1");
+    // **And on x86_64, MSI with no MSI-X**, which is what an Intel PCH's xHCI offers (xenon's), so
+    // the kernel's MSI fallback is what delivers the interrupt here rather than first on the bench.
+    // QEMU drops the MSI capability as well unless `msi=on` says to keep it. The other two
+    // architectures route the controller's INTx pin and ignore both.
+    if x86 {
+        cmd.env("NIFE_USB_CONTROLLER_OPTS", ",msix=off,msi=on");
+    }
+    cmd.env("NIFE_SCREEN_MON", &sock);
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("swish-check ({arch}): failed to start the runner: {e}");
+            return false;
+        }
+    };
+    let mut stdout = child.stdout.take().expect("piped stdout");
+    let seen = Arc::new(Mutex::new(String::new()));
+    let collector = Arc::clone(&seen);
+    let reader = std::thread::spawn(move || {
+        let mut buf = [0u8; 1024];
+        while let Ok(n) = stdout.read(&mut buf) {
+            if n == 0 {
+                return;
+            }
+            let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
+            collector.lock().expect("transcript lock").push_str(&text);
+        }
+    });
+    let wait = |from: usize, done: &dyn Fn(&str) -> bool, secs: u64| -> bool {
+        let deadline = Instant::now() + Duration::from_secs(secs);
+        while Instant::now() < deadline {
+            if done(&degauge(&seen.lock().expect("transcript lock")[from..])) {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        false
+    };
+
+    let mut failed: Option<String> = None;
+    if !wait(0, &|t| t.ends_with("$ "), boot_secs) {
+        failed = Some("the boot never reached a prompt".to_string());
+    } else if !seen
+        .lock()
+        .expect("transcript lock")
+        .contains(USB_KEYBOARD_FOUND)
+    {
+        failed = Some(format!(
+            "the boot printed no `{}` line: the kernel or the driver did not configure the \
+             keyboard (the `usb       :` line, if any, says why)",
+            USB_KEYBOARD_FOUND.trim()
+        ));
+    } else {
+        let mark = seen.lock().expect("transcript lock").len();
+        for key in USB_KEYBOARD_KEYS {
+            sendkey(&sock, key);
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        if !wait(
+            mark,
+            &|t| t.contains("echo hello\nhello\n"),
+            SWISH_CHECK_LINE_SECS,
+        ) {
+            failed = Some(
+                "`echo hello` typed on the USB keyboard did not come back as `hello`".to_string(),
+            );
+        }
+    }
+
+    // SIGTERM on x86_64, for `swish_check_boot`'s reason: that runner is `qemu-bounded.sh`.
+    if x86 {
+        let _ = Command::new("kill")
+            .args(["-TERM", &child.id().to_string()])
+            .status();
+    } else {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+    let _ = reader.join();
+    let _ = std::fs::remove_file(&sock);
+
+    match failed {
+        None => {
+            eprintln!(
+                "swish-check ({arch}): `echo hello` typed on a USB keyboard answered `hello`, \
+                 through the xHCI driver behind the IOMMU"
+            );
+            true
+        }
+        Some(why) => {
+            let t = seen.lock().expect("transcript lock").clone();
+            let tail: String = t
+                .chars()
+                .rev()
+                .take(3000)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+            eprintln!("{tail}");
+            eprintln!("swish-check ({arch}): FAIL: {why}");
+            false
+        }
+    }
 }
 
 /// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose
