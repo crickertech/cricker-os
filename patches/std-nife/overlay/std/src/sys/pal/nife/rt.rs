@@ -129,7 +129,7 @@ pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
 /// included: `syscall` itself overwrites `rcx` (return address) and `r11` (RFLAGS), and the kernel
 /// writes message words back into the argument registers, so every one of them is `inlateout`
 /// rather than `in`. Declaring an argument register as `in` here would promise LLVM the kernel
-/// preserves it, which a RECV-shaped reply does not.
+/// preserves it, which a RECEIVE-shaped reply does not.
 #[cfg(target_arch = "x86_64")]
 pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
     let ret: u64;

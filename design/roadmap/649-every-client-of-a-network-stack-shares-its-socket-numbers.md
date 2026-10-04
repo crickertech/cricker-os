@@ -52,7 +52,7 @@ either way. What each costs has not been measured.
 question on 2026-09-26 (milestone 599 (a frame per filesystem client channel), a frame per filesystem client channel) in favour of badged
 endpoint capabilities, which is exactly the "endpoint badges" option 1 says it needs. Milestone 599
 builds the badge machinery on the shared `INVOKE` surface (a `BADGE` method to mint a badged
-endpoint, and the badge as a fourth `RECV_CAP` return value). So option 1's prerequisite is being
+endpoint, and the badge as a fourth `RECEIVE_CAP` return value). So option 1's prerequisite is being
 built, and its cost here is `net_stack` keying its socket table by the badge the kernel already
 delivers, with no `socket_protocol` change. Whether to take option 1 (reuse the badge) or option 2
 (an endpoint per socket) is still open and still a wire decision, but the badge no longer has to be

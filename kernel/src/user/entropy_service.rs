@@ -194,7 +194,7 @@ fn start(image: &'static [u8], bus: Bus) -> Option<Wiring> {
                 arg1: dma, // the DMA region's PHYSICAL base: descriptors speak physical
                 arg2: 0,
                 grants: &[
-                    rendezvous_cap(request, Rights::READ), // slot 0: RECV client requests
+                    rendezvous_cap(request, Rights::READ), // slot 0: RECEIVE client requests
                     irq_cap(intid),                        // slot 1: the completion interrupt
                     virtio_cap(vid),                       // slot 2: the confined transport
                     rendezvous_cap(ready, Rights::WRITE),  // slot 3: signal readiness once
@@ -263,7 +263,7 @@ fn start_instruction(image: &'static [u8]) -> Option<Wiring> {
                 arg1: 0,
                 arg2: 0,
                 grants: &[
-                    rendezvous_cap(request, Rights::READ), // slot 0: RECV client requests
+                    rendezvous_cap(request, Rights::READ), // slot 0: RECEIVE client requests
                     rendezvous_cap(ready, Rights::WRITE),  // slot 1: signal readiness once
                 ],
                 maps: &[],
@@ -317,7 +317,7 @@ pub fn jh7110_trng_device() -> Option<jh7110_entropy::Discovered> {
 /// describe the device, which is every machine this repository's CI boots.
 ///
 /// **The authority here is the point, and it is smaller than any other entropy backend's.** The
-/// driver is granted two rendezvous capabilities (a request endpoint it RECVs on, a readiness
+/// driver is granted two rendezvous capabilities (a request endpoint it receives on, a readiness
 /// endpoint it SENDs once) and **one page of device memory**: the TRNG's register block, mapped
 /// user-device-typed at [`TRNG_VA`]. Not a DMA page, because the device writes nothing to memory;
 /// not an `Irq` capability, because the driver polls (`components/src/jh7110_entropy.rs` records why);
@@ -360,7 +360,7 @@ fn start_jh7110(image: &'static [u8]) -> Option<Wiring> {
                 arg1: 0,
                 arg2: 0,
                 grants: &[
-                    rendezvous_cap(request, Rights::READ), // slot 0: RECV client requests
+                    rendezvous_cap(request, Rights::READ), // slot 0: RECEIVE client requests
                     rendezvous_cap(ready, Rights::WRITE),  // slot 1: signal readiness once
                 ],
                 maps: &maps,
@@ -438,7 +438,7 @@ impl Wiring {
     ///
     /// The virtio-rng and instruction backends fill `[1]` and `[2]` with their own equivalents.
     pub fn wait_for_ready(&self) -> Option<[u64; 5]> {
-        self.ready.map(crate::sched::ipc_recv)
+        self.ready.map(crate::sched::ipc_receive)
     }
 
     /// **Play a client**: ask for `n` random bytes over the request endpoint and copy out what

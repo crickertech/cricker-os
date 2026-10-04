@@ -39,7 +39,7 @@
 use supervision_protocol::{
     REP_BUILT, REPORT_FAILED, REPORT_SUP_GAVE_UP, REPORT_SUP_SAW_DEATH, REQ_BUILD,
 };
-use user_mode_runtime::{recv, send};
+use user_mode_runtime::{receive, send};
 
 /// What `root_supervisor` endowed us with, in order. Notice what is missing: memory.
 const REQ: u64 = 0; // WRITE: ask the spawner to build or reap
@@ -64,7 +64,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 
     loop {
         // The kernel is the only sender here, so the tid is trustworthy without a badge (§26.5).
-        let (event, tid, _pc) = recv(FAULT);
+        let (event, tid, _pc) = receive(FAULT);
         send(REPORT, REPORT_SUP_SAW_DEATH, tid, event);
 
         // Reap first, either way: the corpse is dead-until-reaped, so its region stays pinned until we
@@ -95,7 +95,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     // Park rather than exit. Exiting would make *us* a death our own supervisor has to handle, and a
     // supervisor whose last act is to create work for its parent is a poor one.
     loop {
-        let (event, tid, _pc) = recv(FAULT);
+        let (event, tid, _pc) = receive(FAULT);
         send(REPORT, REPORT_SUP_SAW_DEATH, tid, event);
     }
 }
@@ -105,7 +105,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 /// message, when the time comes.
 fn build(attempt: u64) -> bool {
     send(REQ, REQ_BUILD, attempt, 0);
-    let (verdict, _, _) = recv(REP);
+    let (verdict, _, _) = receive(REP);
     verdict == REP_BUILT
 }
 

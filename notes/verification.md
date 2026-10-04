@@ -205,9 +205,9 @@ six properties, now over real `intrusive::Fifo`s with TCB-shaped nodes, composin
 
 | Harness | Property |
 |---|---|
-| `send_preserves_the_invariant` / `recv_...` / `signal_...` | every operation preserves "at most one wait queue is ever non-empty," the invariant the whole IPC design rests on |
+| `send_preserves_the_invariant` / `receive_...` / `signal_...` | every operation preserves "at most one wait queue is ever non-empty," the invariant the whole IPC design rests on |
 | `send_rendezvous_iff_a_receiver_waited` | a send rendezvouses exactly when a receiver was waiting, else blocks (no dropped message, no spurious block) |
-| `recv_drains_a_pending_signal_first` | a receive takes a pending async signal before a blocked sender, so a signal is never lost |
+| `receive_drains_a_pending_signal_first` | a receive takes a pending async signal before a blocked sender, so a signal is never lost |
 | `a_collected_sender_is_forgotten` | once a receive collects a blocked sender, the endpoint holds no name for it in either queue and no later receive can produce it again (the endpoint half of the one-shot Reply) |
 
 These are inductive-step proofs: assume a valid state, apply one operation, check the invariant holds.
@@ -231,7 +231,7 @@ one rests on:
 1. The endpoint forgets a collected caller: `a_collected_sender_is_forgotten` in `crates/inter_process_communication`.
    A `CALL`er queues as a sender and blocks; the server's receive pops it destructively, so from
    that moment the kernel-minted Reply capability is the *only* name for the blocked caller
-   anywhere in the system. (The caller is never in the receiver queue: `ipc_call` does not `recv`,
+   anywhere in the system. (The caller is never in the receiver queue: `ipc_call` does not `receive`,
    and a blocked thread cannot run to enqueue itself again.)
 2. Consume-on-use is final: `a_deleted_capability_stays_deleted` and
    `delete_touches_only_its_slot` in `crates/capability`. The syscall layer deletes the Reply capability

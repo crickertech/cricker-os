@@ -138,7 +138,7 @@ fn the_terminal_is_replaced_under_a_person_typing_and_nothing_they_typed_is_lost
     let maps_ro: &'static [Mapping; MAX_ELF_PAGES + EXTRA_STACK_PAGES] = maps;
     let console_tid = sched::spawn(move || {
         loop {
-            sched::ipc_recv(conreq);
+            sched::ipc_receive(conreq);
             sched::ipc_send(conrep, [0, 0, 0]);
         }
     })
@@ -179,7 +179,7 @@ fn the_terminal_is_replaced_under_a_person_typing_and_nothing_they_typed_is_lost
     spawn_reader(term, report, 1);
     settle();
     bytes_call(term, b"first\r");
-    let r = sched::ipc_recv(report);
+    let r = sched::ipc_receive(report);
     assert_eq!(
         r[0], 5,
         "the first line never arrived: the supervisor's line_editor is not serving"
@@ -201,7 +201,7 @@ fn the_terminal_is_replaced_under_a_person_typing_and_nothing_they_typed_is_lost
         swapped[1], 2,
         "the supervisor should have started exactly two instances"
     );
-    let retried = sched::ipc_recv(report);
+    let retried = sched::ipc_receive(report);
     assert!(
         proto::is_retry(retried[0], retried[1]),
         "the reader parked across the swap was not handed back with FLAG_RETRY",
@@ -209,7 +209,7 @@ fn the_terminal_is_replaced_under_a_person_typing_and_nothing_they_typed_is_lost
 
     // The replacement finishes the line the incumbent started.
     bytes_call(term, b"ho\r");
-    let r = sched::ipc_recv(report);
+    let r = sched::ipc_receive(report);
     assert_eq!(
         r[0], 4,
         "the line typed across the swap came back {} bytes long",
@@ -224,7 +224,7 @@ fn the_terminal_is_replaced_under_a_person_typing_and_nothing_they_typed_is_lost
     // And recalls what the incumbent was told before it: Up twice is the pre-swap line.
     settle();
     bytes_call(term, b"\x1b[A\x1b[A\r");
-    let r = sched::ipc_recv(report);
+    let r = sched::ipc_receive(report);
     assert_eq!(
         r[0], 5,
         "history typed before the swap is not recallable after it"

@@ -9,13 +9,13 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 714. The sibling RECV_CAP paths get a receiver-first test
+# 714. The sibling RECEIVE_CAP paths get a receiver-first test
 
 Promoted from `design/roadmap/proposals/the-sibling-recv-cap-paths-get-a-receiver-first-test.md` on 2026-10-03 (UTC). The number 714 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 <!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
-Raised by the lane for milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a
+Raised by the lane for milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a
 sender-chosen slot), which fixed the plain-SEND leak but left two sibling paths reasoned from the
 code rather than measured.
 

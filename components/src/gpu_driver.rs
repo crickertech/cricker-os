@@ -9,7 +9,7 @@
 //! - slot 2, a **`Virtio`**: the confined transport. The device's registers are NOT mapped here, so
 //!   this process cannot program a queue address or ring a doorbell; the kernel does both, and
 //!   validates every descriptor first (notes/dma.md);
-//! - slot 3, a **display** endpoint it RECVs on: where clients ask for a flush;
+//! - slot 3, a **display** endpoint it receives on: where clients ask for a flush;
 //! - slot 4, an **untyped**: the budget the page tables for its own mappings come out of;
 //! - slot 5, its **DMA region**: one `PageFrame` capability naming the whole [`DMA_PAGE_FRAMES`]-page
 //!   run (DECISIONS §102), which it maps itself in one call (milestone 108). The region's *physical*
@@ -69,7 +69,7 @@ use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::virtio::{
     virtio_notify, virtio_read_reg, virtio_ring_barrier, virtio_setup_queue, virtio_write_reg,
 };
-use user_mode_runtime::{exit, irq_ack, irq_wait, recv_request, reply, send};
+use user_mode_runtime::{exit, irq_ack, irq_wait, receive_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/display_service.rs`.
 const REPORT: u64 = 0;
@@ -570,7 +570,7 @@ pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
         // caught, and it presented as a flush refused for an empty rectangle.
         // A CALL's Reply, or nothing to answer: a client's SEND_CAP is deleted rather than
         // answered into (milestone 706 (a CALL server can tell a Reply from a delegation)).
-        let req = recv_request(DISPLAY);
+        let req = receive_request(DISPLAY);
         let w0 = req.w0;
         let reply_slot = req.delivered.into_reply();
         let r0: i64 = match gfx::op(w0) {
@@ -598,7 +598,7 @@ pub extern "C" fn _start(role: u64, _arg1: u64, arg2: u64) -> ! {
         // transfer complete: a second independent account of what reached the hardware, from a
         // different process than the one that wrote the pixels. Status, not contract; rung two can
         // ignore it (notes/framebuffer-contract.md). **Its spawner cannot**: this `send` blocks
-        // until received, and nothing is in `RECV` on `DISPLAY` meanwhile, so a spawner that never
+        // until received, and nothing is in `RECEIVE` on `DISPLAY` meanwhile, so a spawner that never
         // takes it stops every flush after the first (milestone 177's hang, which this line was).
         if !reported_flush && gfx::op(w0) == gfx::display::FLUSH && r0 == 0 {
             reported_flush = true;

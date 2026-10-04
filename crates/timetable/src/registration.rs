@@ -21,7 +21,7 @@
 //! pages. This protocol puts control in the page too, and that is forced rather than chosen: a
 //! timetable yield-polls its clock, because this kernel has no timed wait (milestone 106 (a wait
 //! that ends on either the interrupt or the deadline)), and a process has exactly one blocking wait
-//! point. A `RECV` on a registration endpoint would stop it watching the clock. So the registrar
+//! point. A `RECEIVE` on a registration endpoint would stop it watching the clock. So the registrar
 //! bumps [`REQUEST`] and the timetable notices on its next pass, which costs it one load per pass.
 //! The compositor's per-client control page (`components/src/compositor.rs`, `ctl::SEQ`) is the
 //! same shape in this tree. When a deadline wait exists, the sequence word can become a

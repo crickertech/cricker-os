@@ -498,7 +498,7 @@ mod c_seam_tests;
 ///    this a receipt rather than a coincidence.
 /// 4. **The attacker**, `chatty` in its usurper role, endowed with exactly the honest client's
 ///    capabilities including a real working capability to the stable endpoint. It tries to park
-///    itself in `RECV_CAP` and become the server. `NotPermitted`: its capability carries `WRITE`
+///    itself in `RECEIVE_CAP` and become the server. `NotPermitted`: its capability carries `WRITE`
 ///    and not `READ`, so endpoint-only naming does not mean "whoever holds the endpoint is the
 ///    server".
 ///
@@ -574,7 +574,7 @@ mod notification_tests;
 
 /// **Timers** (milestone 106 (a wait that ends on either the interrupt or the deadline), DECISIONS
 /// §147 (a timer a userspace service cannot hold)): the tick reaching the expiry walk, a wait ending
-/// on a signal or on the deadline (in `WAIT` and in a bound `RECV`), a replaced or cancelled deadline
+/// on a signal or on the deadline (in `WAIT` and in a bound `RECEIVE`), a replaced or cancelled deadline
 /// never firing, and the syscall layer's rights. Cross-ISA: the counter each test reads is the one
 /// the walk compares, on every architecture.
 #[cfg(test)]
@@ -940,8 +940,8 @@ mod thread_leak_police;
 /// parity gate (DECISIONS §19, architectural parity is a tenet) is met by the same test running on
 /// each architecture.
 #[cfg(test)]
-mod recv_cap_attack_tests;
-// Each module carries its own `cfg(test)`: milestone 634 (a plain SEND received by RECV_CAP never
+mod receive_cap_attack_tests;
+// Each module carries its own `cfg(test)`: milestone 634 (a plain SEND received by RECEIVE_CAP never
 // hands the receiver a sender-chosen slot) inserted the line above between the attribute and
 // `revocation_in_flight_tests`, and the attribute silently moved with it. The
 // "tests the suite cannot see" check in `script/lint` now refuses a bare `mod` here.

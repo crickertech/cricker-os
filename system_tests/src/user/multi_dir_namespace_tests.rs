@@ -42,7 +42,7 @@ fn two_dir_witness() -> Option<u64> {
     };
     // Both caretakers' own handshakes happened inside `start_granted_two_dirs`, before this
     // witness existed: the same ordering fix `fs_service::wait_for_caretaker` records, run twice.
-    let [tag, verdict, ..] = sched::ipc_recv(report);
+    let [tag, verdict, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         filesystem_protocol::fixture::VERDICT,
@@ -117,7 +117,7 @@ fn two_tree_shell() -> Option<u64> {
             stack_pages: 7,
         },
     )?;
-    let [tag, verdict, ..] = sched::ipc_recv(report);
+    let [tag, verdict, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         filesystem_protocol::fixture::VERDICT,

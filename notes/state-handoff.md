@@ -106,7 +106,7 @@ its first page would lose the state and fail the test.
 A refusing replacement leaves because it chooses to. The operator cannot tear down a live child
 (notes/hung-component.md, question 4), so "revoke the new grant" is the refuser's own exit plus the
 reap that returns its region. A replacement that neither absorbs nor refuses is the hung case one
-level out, and the operator, blocked in `recv` on its coordination endpoint, hangs with it. That is
+level out, and the operator, blocked in `receive` on its coordination endpoint, hangs with it. That is
 the detection half of the non-cooperative fallback (notes/non-cooperative-fallback.md), and nothing
 here answers it.
 

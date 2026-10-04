@@ -115,7 +115,7 @@ capability contract):
 
 | Slot | Capability | Rights |
 |---|---|---|
-| 0 `REQUEST` | the front door | `RECV` |
+| 0 `REQUEST` | the front door | `RECEIVE` |
 | 1 `RESULT` | the front door's answers | `WRITE \| GRANT` |
 | 2 `VERIFY` | the credential service | `WRITE` |
 | 3 `FS_EP` | the file service's root directory | `WRITE \| GRANT` |

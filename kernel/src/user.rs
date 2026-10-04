@@ -126,7 +126,7 @@ pub struct AddressSpace {
 /// `IPC_TABLES`, releases the lock, and only then drops it. Two `memory_region::destroy` calls for one
 /// region then overlap, both pass the refusal check, and both free every page of the run. That is
 /// the intermittent `double free of frame 0x82a3e000` in
-/// `force_kill_tests::destroy_reclaims_a_region_whose_resident_is_blocked_in_recv`
+/// `force_kill_tests::destroy_reclaims_a_region_whose_resident_is_blocked_in_receive`
 /// (notes/object-revocation.md BUGS, one sighting in 45 runs on riscv64).
 ///
 /// Making it a two-variant enum with the name inside is rung one of AGENTS.md's ladder: a space
@@ -1804,12 +1804,12 @@ fn x86_userspace_round() -> Result<X86UserspaceReport, &'static str> {
         )),
         Some(reporter_supervisor),
     )?;
-    let reported = crate::sched::ipc_recv(report_ep)[0];
+    let reported = crate::sched::ipc_receive(report_ep)[0];
 
     // **Collect the corpse before reclaiming the region**, which is what a supervisor is for and
     // what the first draft of this left out: a region still holding a live TCB is refused, and the
     // refusal is silent because `destroy` has nowhere to report it.
-    let exit = crate::sched::ipc_recv(reporter_supervisor);
+    let exit = crate::sched::ipc_receive(reporter_supervisor);
     if exit[0] != EVENT_EXIT {
         return Err("the reporting child's clean exit did not arrive as an EXIT event");
     }
@@ -1827,7 +1827,7 @@ fn x86_userspace_round() -> Result<X86UserspaceReport, &'static str> {
         None,
         Some(fault_ep),
     )?;
-    let msg = crate::sched::ipc_recv(fault_ep);
+    let msg = crate::sched::ipc_receive(fault_ep);
     if msg[0] != EVENT_FAULT {
         return Err("the child's death did not arrive as a FAULT event");
     }
@@ -1882,7 +1882,7 @@ pub fn riscv_least_authority_demo(least_authority_demo: &[u8], n: u64) -> Result
     // The least_authority_demo reads its input from a1 (the second argument); a0 and a2 are unused.
     crate::sched::start_thread_control_block(tid, [0, n, 0]).expect("start");
 
-    Ok(crate::sched::ipc_recv(result)[0])
+    Ok(crate::sched::ipc_receive(result)[0])
 }
 
 /// **Start the interrupt-driven UART driver as an unprivileged userspace process** (milestone 20).
@@ -2658,7 +2658,7 @@ fn term_print(out: u64, ep: crate::sched::RendezvousId, text: &[u8]) {
     }
     // The bytes must be visible to the terminal before the request that names them.
     //
-    // PAIR: no acquire fence, and none is needed. The terminal is blocked in `recv_cap` and the
+    // PAIR: no acquire fence, and none is needed. The terminal is blocked in `receive_cap` and the
     // `ipc_call` below is what wakes it, so the kernel's release of the `IPC_TABLES` lock and the
     // terminal's acquire of it are the pair (`spin::Mutex` locks `Acquire` and unlocks `Release`).
     // Redundant, kept: it is one `dmb` on a path that prints a line, and the contract does not
@@ -2795,7 +2795,7 @@ fn boot_clock_page() -> u64 {
             // whose whole life is that receive costs nothing and leaves the propose endpoint live.
             let report = wiring.report;
             let _ = crate::sched::spawn(move || {
-                crate::sched::ipc_recv(report);
+                crate::sched::ipc_receive(report);
                 crate::sched::exit();
             });
             wiring.page_phys
@@ -3098,13 +3098,13 @@ fn boot_screen_terminal() -> Option<display_service::TerminalWiring> {
         "  screen    : handed to a userspace terminal; the kernel writes the UART alone"
     );
     let w = display_service::start_screen_terminal(driver, terminal, screen)?;
-    let [tag, geometry, ..] = crate::sched::ipc_recv(w.driver_report);
+    let [tag, geometry, ..] = crate::sched::ipc_receive(w.driver_report);
     assert_eq!(
         tag,
         graphics_protocol::status::UP,
         "the framebuffer driver did not come up ({tag:#x})",
     );
-    let [tag, cells, ..] = crate::sched::ipc_recv(w.term_report);
+    let [tag, cells, ..] = crate::sched::ipc_receive(w.term_report);
     assert_eq!(
         tag,
         video_terminal::status::TERM_UP,

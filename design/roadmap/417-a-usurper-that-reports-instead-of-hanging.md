@@ -20,7 +20,7 @@ It needs a non-blocking or timed receive, which is the syscall surface
 narrow boundary), so it is an architect's before it is anyone's.
 
 Premise re-checked 2026-09-19 and still true. Row 26 of `notes/confinement-claims.md` still
-answers no in the falsified column, and `swap_protocol::try_recv_cap` still invokes `RECV_CAP`
+answers no in the falsified column, and `swap_protocol::try_receive_cap` still invokes `RECEIVE_CAP`
 directly, so the name still promises a try that the syscall does not offer. `fixtures/src/chatty.rs`
 still calls it at one site. Nothing in the syscall surface has gained a non-blocking or timed
 receive.
@@ -29,14 +29,14 @@ receive.
 
 Row 26 is *"a client of a rendezvous cannot become its server."* Its test,
 `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server`, hands an
-attacker exactly what the honest client holds and requires `NotPermitted` when it tries `RECV_CAP`.
+attacker exactly what the honest client holds and requires `NotPermitted` when it tries `RECEIVE_CAP`.
 The kernel enforces that in three lines of `kernel/src/syscall.rs`.
 
 Deleting those three lines, which is the complete break of the claim, does not fail that
 assertion. Measured 2026-09-16 on aarch64: the run came back as a 60-second watchdog reading "no
 progress ... a lost-wakeup hang" with a thread dump, and nothing in it about impersonation.
 
-The reason is structural rather than a flaw in the patch. `RECV_CAP` is a blocking receive, so an
+The reason is structural rather than a flaw in the patch. `RECEIVE_CAP` is a blocking receive, so an
 attacker the kernel fails to refuse does not come back and report an escape. It takes the message the
 honest server was waiting for, or parks on the rendezvous, and the run deadlocks. The assertion that
 states the claim is reachable only in the world where the kernel *does* refuse.
@@ -58,12 +58,12 @@ stall is reported where it means something instead of surfacing 234 seconds late
 equivalent here is that the usurper's attempt must return, so `chatty`'s `usurp()` can report
 "the kernel let me receive" as a verdict rather than blocking on it.
 
-`swap_protocol::try_recv_cap` is named `try_` and is not one: it invokes `RECV_CAP` straight, and
-`RECV_CAP` blocks. That naming is itself worth calef's attention.
+`swap_protocol::try_receive_cap` is named `try_` and is not one: it invokes `RECEIVE_CAP` straight, and
+`RECEIVE_CAP` blocks. That naming is itself worth calef's attention.
 
 Options, costed as far as this lane could without building them:
 
-1. A non-blocking `RECV_CAP`, or a flag on it. Smallest kernel change; a new syscall behaviour
+1. A non-blocking `RECEIVE_CAP`, or a flag on it. Smallest kernel change; a new syscall behaviour
    every future program is written against, which is exactly the category AGENTS.md calls expensive.
 2. A timed receive. §106 (take)'s block already priced a timed wait and found the mechanism about thirty
    lines, with the authority question the whole problem. That work is adjacent.
@@ -86,7 +86,7 @@ Row 26 of `notes/confinement-claims.md` is that a client of a rendezvous cannot 
 and **deleting the three lines of `kernel/src/syscall.rs` that enforce it does not fail the test
 that states it**: measured 2026-09-16, the run came back as a 60-second watchdog reading "a
 lost-wakeup hang" with nothing in it about impersonation. The cause is structural rather than a flaw
-in the patch. `RECV_CAP` blocks, so an attacker the kernel fails to refuse never returns to report
+in the patch. `RECEIVE_CAP` blocks, so an attacker the kernel fails to refuse never returns to report
 the escape, and the assertion is reachable only in the world where the kernel does refuse. Making
 the attempt return needs a non-blocking or timed receive, which is the syscall surface and therefore
 calef's; the block deliberately recommends nothing, and names a watchdog thread inside the test as

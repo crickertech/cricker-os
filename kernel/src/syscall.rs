@@ -138,7 +138,7 @@ pub fn invoke(
 
     match cap.object {
         Object::Rendezvous(ep, badge) => match method {
-            // SEND takes WRITE, RECV takes READ. The *same* endpoint, handed out with different
+            // SEND takes WRITE, RECEIVE takes READ. The *same* endpoint, handed out with different
             // rights, is a one-way pipe in whichever direction each holder was trusted with.
             abi::rendezvous::SEND => {
                 if !cap.rights.allows(Rights::WRITE) {
@@ -171,11 +171,11 @@ pub fn invoke(
                 }
                 Ok(0)
             }
-            abi::rendezvous::RECV => {
+            abi::rendezvous::RECEIVE => {
                 if !cap.rights.allows(Rights::READ) {
                     return Err(Error::NotPermitted);
                 }
-                let msg = sched::ipc_recv(ep);
+                let msg = sched::ipc_receive(ep);
                 if sched::take_ipc_aborted() {
                     return Err(Error::Gone); // endpoint revoked; the message is a placeholder
                 }
@@ -222,11 +222,11 @@ pub fn invoke(
                 }
                 Ok(0)
             }
-            abi::rendezvous::RECV_CAP => {
+            abi::rendezvous::RECEIVE_CAP => {
                 if !cap.rights.allows(Rights::READ) {
                     return Err(Error::NotPermitted);
                 }
-                let msg = sched::ipc_recv_cap(ep);
+                let msg = sched::ipc_receive_cap(ep);
                 if sched::take_ipc_aborted() {
                     return Err(Error::Gone); // endpoint revoked; the message is a placeholder
                 }
@@ -246,7 +246,7 @@ pub fn invoke(
             }
 
             // Call: send two words and block until replied. The kernel mints a one-shot Reply cap
-            // naming us into the server (delivered by its RECV_CAP); we return here only when the
+            // naming us into the server (delivered by its RECEIVE_CAP); we return here only when the
             // server invokes it. See §12 and notes/ipc-naming.md. Sending needs WRITE, like SEND.
             abi::rendezvous::CALL => {
                 if !cap.rights.allows(Rights::WRITE) {
@@ -320,7 +320,7 @@ pub fn invoke(
             // reasoning. The right to look is still the capability, and nothing here widens it.
             abi::rendezvous::SURVEY => {
                 // `ENUMERATE`, not `READ`, and the distinction is the method's whole safety
-                // argument: `READ` here also unlocks `RECV` and `REAP`, so a viewer granted it
+                // argument: `READ` here also unlocks `RECEIVE` and `REAP`, so a viewer granted it
                 // could reap a child. A domain names its members and does not act on them, and one
                 // bit for three operations cannot say that. See `Rights::ENUMERATE`.
                 if !cap.rights.allows(Rights::ENUMERATE) {
@@ -511,7 +511,7 @@ pub fn invoke(
         }
 
         Object::Irq(intid) => match method {
-            // Body extracted (milestone 156). `WAIT` does block on the same `sched::ipc_recv`
+            // Body extracted (milestone 156). `WAIT` does block on the same `sched::ipc_receive`
             // the `Rendezvous` fastpath uses, but the caller here is a driver waiting on a device
             // interrupt, not the IPC round trip this gate bounds, so it moves out of `invoke`'s
             // own bytes with the rest. See `memory_region_map`'s doc comment for the full reasoning.
@@ -1351,7 +1351,7 @@ fn thread_control_block_cap_insert(
 #[inline(never)]
 fn irq_wait(frame: &mut TrapFrame, intid: u32) -> Result<i64, Error> {
     let ep = sched::irq_route(intid).ok_or(Error::WrongObject)?;
-    let m = sched::ipc_recv(ep);
+    let m = sched::ipc_receive(ep);
     // A driver with a bound notification (milestone 151) is woken here by either the interrupt
     // (`1` in x0, x1 and x4 zero) or the notification (`abi::notification::BOUND` in x0 and x4, the
     // word in x1). This is what lets a driver wait on its device and a deadline at once, which is

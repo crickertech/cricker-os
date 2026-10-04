@@ -282,7 +282,7 @@ fn redoxfs_server_image() -> &'static [u8] {
 /// why `LOGOUT` travels on the shared front door at all).
 fn free_terminal(w: &ls::Wiring) {
     sched::ipc_send(w.request, [login_protocol::logout_word(), 0, 0]);
-    let r = sched::ipc_recv(w.result);
+    let r = sched::ipc_receive(w.result);
     assert_eq!(
         r[0],
         login_protocol::LOGGED_OUT,
@@ -335,7 +335,7 @@ fn login_grants_a_working_capability_set_to_the_identity_it_verified() {
     // cannot serve the *next* login, until something receives it. `wired()` memoizes one service
     // instance across this whole suite, so every test that causes a successful login must drain
     // this endpoint or leave the service permanently stuck here for every later test.
-    let a = sched::ipc_recv(w.audit);
+    let a = sched::ipc_receive(w.audit);
     assert_eq!(
         a[0],
         login_protocol::ATTRIBUTED,
@@ -344,7 +344,7 @@ fn login_grants_a_working_capability_set_to_the_identity_it_verified() {
 }
 
 /// **The refusal, and the promise that nothing follows it.** A real identity with the wrong secret
-/// is denied. `login_test_client` never calls `RECV_CAP` after a refusal; if the service ever
+/// is denied. `login_test_client` never calls `RECEIVE_CAP` after a refusal; if the service ever
 /// sent a capability after a denial anyway, that role would simply never reach its report and this
 /// test would hang rather than fail cleanly, which is the honest failure mode for a protocol
 /// promise broken at the sender.
@@ -396,7 +396,7 @@ fn two_different_identities_get_independently_working_channels_and_correct_attri
 
     let r_chris = ls::client(cli, &w, ls::LOGIN, CHRIS, CHRIS);
     assert_eq!(r_chris[0], ls::RPT_OK, "chris was not authenticated");
-    let a_chris = sched::ipc_recv(w.audit);
+    let a_chris = sched::ipc_receive(w.audit);
     assert_eq!(
         a_chris[0],
         login_protocol::ATTRIBUTED,
@@ -414,7 +414,7 @@ fn two_different_identities_get_independently_working_channels_and_correct_attri
 
     let r_corinne = ls::client(cli, &w, ls::LOGIN, CORINNE, CORINNE);
     assert_eq!(r_corinne[0], ls::RPT_OK, "corinne was not authenticated",);
-    let a_corinne = sched::ipc_recv(w.audit);
+    let a_corinne = sched::ipc_receive(w.audit);
     assert_eq!(
         a_corinne[0],
         login_protocol::ATTRIBUTED,
@@ -510,7 +510,7 @@ fn two_clients_connecting_together_get_independent_channels_and_neither_observes
     // than `OK` -- not merely bookkeeping. The loser's `CONNECT` sits queued on the front door until
     // this happens. Exactly one audit record follows, unlike before this update: the loser's
     // refusal never reaches `mint`, so it never reaches `AUDIT` either.
-    let a = sched::ipc_recv(w.audit);
+    let a = sched::ipc_receive(w.audit);
     assert_eq!(
         a[0],
         login_protocol::ATTRIBUTED,
@@ -622,7 +622,7 @@ fn the_login_service_serves_past_the_old_capability_table_ceiling() {
         );
         // Drain the attribution record so the service is free to serve the next login (the
         // headline test's own note: `send(AUDIT, ...)` is a blocking rendezvous).
-        let a = sched::ipc_recv(w.audit);
+        let a = sched::ipc_receive(w.audit);
         assert_eq!(
             a[0],
             login_protocol::ATTRIBUTED,
@@ -681,7 +681,7 @@ fn login_scopes_each_identity_to_its_own_provisioned_subtree() {
         "chris's granted directory carries the old shared fixture's own file \
          (filesystem_protocol::fixture::tree::INNER), so it is not a subtree of chris's own",
     );
-    let a_chris = sched::ipc_recv(w.audit);
+    let a_chris = sched::ipc_receive(w.audit);
     assert_eq!(
         a_chris[0],
         login_protocol::ATTRIBUTED,
@@ -705,7 +705,7 @@ fn login_scopes_each_identity_to_its_own_provisioned_subtree() {
         "corinne's granted directory carries the old shared fixture's own file \
          (filesystem_protocol::fixture::tree::INNER), so it is not a subtree of corinne's own",
     );
-    let a_corinne = sched::ipc_recv(w.audit);
+    let a_corinne = sched::ipc_receive(w.audit);
     assert_eq!(
         a_corinne[0],
         login_protocol::ATTRIBUTED,
@@ -731,7 +731,7 @@ fn login_scopes_each_identity_to_its_own_provisioned_subtree() {
          not land in chris's subtree, or corinne's write clobbered it, which is exactly the \
          everyone-shares-one-subtree bug this milestone fixes",
     );
-    let a_check = sched::ipc_recv(w.audit);
+    let a_check = sched::ipc_receive(w.audit);
     assert_eq!(
         a_check[0],
         login_protocol::ATTRIBUTED,
@@ -917,7 +917,7 @@ fn caretaker_teardown_reclaims_a_full_session_worth_of_memory() {
         );
         // Drain the attribution record, the same as every other successful-login test in this file
         // (the headline test's own note: `send(AUDIT, ...)` is a blocking rendezvous).
-        let a = sched::ipc_recv(w.audit);
+        let a = sched::ipc_receive(w.audit);
         assert_eq!(
             a[0],
             login_protocol::ATTRIBUTED,
@@ -972,17 +972,17 @@ fn login_hands_out_the_terminal_once_and_denies_a_concurrent_second_login_until_
         program("login_test_client").expect("no login_test_client program in the initrd archive");
 
     // Step 1: chris takes the terminal. `spawn_client`/`wait_client`, not `client`, because the
-    // role blocks inside `send(term_ep, ...)` until this test's own `ipc_recv(w.term_ep)` catches
-    // it (a genuine rendezvous, not merely `RECV_CAP` succeeding): waiting on the report first would
+    // role blocks inside `send(term_ep, ...)` until this test's own `ipc_receive(w.term_ep)` catches
+    // it (a genuine rendezvous, not merely `RECEIVE_CAP` succeeding): waiting on the report first would
     // deadlock against the role's own forward progress.
     let report1 = ls::spawn_client(cli, &w, ls::HOLD_TERMINAL, CHRIS, CHRIS);
-    let a1 = sched::ipc_recv(w.audit);
+    let a1 = sched::ipc_receive(w.audit);
     assert_eq!(
         a1[0],
         login_protocol::ATTRIBUTED,
         "no attribution record followed chris's first terminal login",
     );
-    let term_msg = sched::ipc_recv(w.term_ep);
+    let term_msg = sched::ipc_receive(w.term_ep);
     assert_eq!(
         term_msg[0],
         ls::TERM_MAGIC,
@@ -1034,13 +1034,13 @@ fn login_hands_out_the_terminal_once_and_denies_a_concurrent_second_login_until_
 
     // Step 4: chris again, a second, independent time, and the terminal is available once more.
     let report4 = ls::spawn_client(cli, &w, ls::HOLD_TERMINAL, CHRIS, CHRIS);
-    let a4 = sched::ipc_recv(w.audit);
+    let a4 = sched::ipc_receive(w.audit);
     assert_eq!(
         a4[0],
         login_protocol::ATTRIBUTED,
         "no attribution record followed chris's second terminal login",
     );
-    let term_msg2 = sched::ipc_recv(w.term_ep);
+    let term_msg2 = sched::ipc_receive(w.term_ep);
     assert_eq!(
         term_msg2[0],
         ls::TERM_MAGIC,
@@ -1088,13 +1088,13 @@ fn login_hands_a_listed_session_the_run_unvouched_capability_and_it_cannot_be_pa
     // `spawn_client`/`wait_client` for the terminal test's reason: the role blocks in its `send`
     // on the sixth capability until this test takes the word.
     let report = ls::spawn_client(cli, &w, ls::PRESENT_RUN_UNVOUCHED, CHRIS, CHRIS);
-    let a = sched::ipc_recv(w.audit);
+    let a = sched::ipc_receive(w.audit);
     assert_eq!(
         a[0],
         login_protocol::ATTRIBUTED,
         "no attribution record followed the login",
     );
-    let presented = sched::ipc_recv(w.run_unvouched);
+    let presented = sched::ipc_receive(w.run_unvouched);
     assert_eq!(
         presented[0],
         ls::RUN_UNVOUCHED_MAGIC,
@@ -1191,7 +1191,7 @@ fn a_login_session_with_pending_work_refuses_logout_until_the_work_is_gone() {
     ] {
         assert_eq!(r[1] & bit, bit, "{what}");
     }
-    let a = sched::ipc_recv(w.audit);
+    let a = sched::ipc_receive(w.audit);
     assert_eq!(
         a[0],
         login_protocol::ATTRIBUTED,
@@ -1233,7 +1233,7 @@ fn a_users_schedule_outlives_their_login_and_ends_when_they_empty_it() {
         program("login_test_client").expect("no login_test_client program in the initrd archive");
     let login = |behaviour: u64| {
         let r = ls::client(cli, &w, behaviour, CHRIS, CHRIS);
-        let a = sched::ipc_recv(w.audit);
+        let a = sched::ipc_receive(w.audit);
         assert_eq!(
             a[0],
             login_protocol::ATTRIBUTED,
@@ -1339,7 +1339,7 @@ fn suspending_a_user_ends_their_schedule_and_refuses_them_until_resumed() {
     let session = |behaviour: u64| {
         let r = ls::client(cli, &w, behaviour, CHRIS, CHRIS);
         if r[0] == ls::RPT_OK {
-            let a = sched::ipc_recv(w.audit);
+            let a = sched::ipc_receive(w.audit);
             assert_eq!(
                 a[0],
                 login_protocol::ATTRIBUTED,
@@ -1361,7 +1361,7 @@ fn suspending_a_user_ends_their_schedule_and_refuses_them_until_resumed() {
     // `user suspend chris`, as the owner's console does it.
     fs_service::set_root_list(login_protocol::SUSPENDED_LIST, Some(b"chris\n"));
     sched::ipc_send(w.request, [login_protocol::suspend_word(), 0, 0]);
-    let applied = sched::ipc_recv(w.result);
+    let applied = sched::ipc_receive(w.result);
     assert_eq!(
         applied[0],
         login_protocol::APPLIED,
@@ -1522,7 +1522,7 @@ fn a_durable_session_is_re_derived_at_start_up_unless_suspended() {
     // exchange below sees what it left.
     let suspend = || {
         sched::ipc_send(w.request, [login_protocol::suspend_word(), 0, 0]);
-        let r = sched::ipc_recv(w.result);
+        let r = sched::ipc_receive(w.result);
         assert_eq!(
             r[0],
             login_protocol::APPLIED,
@@ -1535,7 +1535,7 @@ fn a_durable_session_is_re_derived_at_start_up_unless_suspended() {
     // leave no reason anywhere a failure could show.
     let rederive_skips = || {
         sched::ipc_send(w.request, [login_protocol::rederive_skips_word(), 0, 0]);
-        let r = sched::ipc_recv(w.result);
+        let r = sched::ipc_receive(w.result);
         assert_eq!(
             r[0],
             login_protocol::SKIP_COUNTS,

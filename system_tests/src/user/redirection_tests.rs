@@ -152,7 +152,7 @@ fn naming_a_file_to_a_reader_is_the_operator_left_out() {
 /// to wire the head's input off the `Line`, which has no `<` on it. So the planned source was
 /// thrown away and the stage was spawned with an **empty** input slot.
 ///
-/// It did not hang, which is what made it hard to see. A `recv` on an empty slot answers
+/// It did not hang, which is what made it hard to see. A `receive` on an empty slot answers
 /// `NoSuchSlot` rather than blocking, the error word decodes as `byte_sink_protocol::Msg::Malformed`, and
 /// every reader in this tree treats a malformed message as the end of the document. So the stage
 /// ran to completion over nothing and reported an honest count of an empty stream.

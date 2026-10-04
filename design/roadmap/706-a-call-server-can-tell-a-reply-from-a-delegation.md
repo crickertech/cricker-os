@@ -23,7 +23,7 @@ delegation), number provisional, which holds the three options and why each won 
 
 ## The gap
 
-Milestone 634 (a plain SEND received by `RECV_CAP` never hands the receiver a sender-chosen slot)
+Milestone 634 (a plain SEND received by `RECEIVE_CAP` never hands the receiver a sender-chosen slot)
 made `x1` on `RECV_CAP` `NO_CAP` unless the kernel installed a capability. So the guard every
 `CALL` server had was `x1 != NO_CAP`, and a real capability passes it.
 

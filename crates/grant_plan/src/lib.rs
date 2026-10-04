@@ -3615,7 +3615,7 @@ fn check_streams(m: Manifest, streams: Streams) -> Result<line::Diagnostics, Ref
 ///
 /// # The constraint, which is the kernel's and not the shell's
 ///
-/// A process has **one wait point**. `SEND` blocks until a receiver takes the message, `RECV` blocks
+/// A process has **one wait point**. `SEND` blocks until a receiver takes the message, `RECEIVE` blocks
 /// until one arrives, and there is no select and no poll (a timer and a bound notification can end a
 /// receive since milestones 106 and 151, but not a `SEND`). So a shell that is feeding a chain cannot also be
 /// receiving from it, and the two blocked processes have nothing that could wake either.
@@ -5656,7 +5656,7 @@ mod tests {
     ///
     /// This is the fact the shell was dropping. It planned the stage correctly and then wired the
     /// pipeline off the **line**, which has no `<` on it, so the head was spawned with an empty
-    /// input slot. A `recv` there answers `NoSuchSlot` rather than blocking and every reader reads
+    /// input slot. A `receive` there answers `NoSuchSlot` rather than blocking and every reader reads
     /// that as end of document, so the stage reported an empty stream: a wrong answer, not a hang,
     /// which is why nothing caught it.
     #[test]

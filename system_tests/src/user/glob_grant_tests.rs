@@ -84,7 +84,7 @@ fn shell_expanded() -> Option<u64> {
             stack_pages: 7,
         },
     )?;
-    let [tag, verdict, ..] = sched::ipc_recv(report);
+    let [tag, verdict, ..] = sched::ipc_receive(report);
     assert_eq!(tag, VERDICT, "the shell's report is not a verdict word");
     Some(verdict)
 }
@@ -135,7 +135,7 @@ fn run_rm(name: &str, flags: u64) -> (u64, u64) {
     .expect("the FS service was wired by the shell phase");
 
     for _ in 0..MAX_MESSAGES {
-        let [w0, w1, w2, _, _] = sched::ipc_recv(report);
+        let [w0, w1, w2, _, _] = sched::ipc_receive(report);
         // The sink contract's end of stream, which is what `rm` ends with since 2026-08-17; the
         // verdict rides in the two words `OP_EOF` leaves free. The shell phase above still reports
         // a `VERDICT`, because that one is a witness's bitmap and not a byte stream.

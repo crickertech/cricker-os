@@ -138,7 +138,7 @@ pub struct Wiring {
     /// One [`login_protocol::ATTRIBUTED`] message per successful login, `READ`.
     pub audit: RendezvousId,
     /// **The stand-in terminal** (milestone 49's terminal update): this test harness holds no real
-    /// terminal to grant, so it wires a bare rendezvous in its place, `READ`. A test can `ipc_recv`
+    /// terminal to grant, so it wires a bare rendezvous in its place, `READ`. A test can `ipc_receive`
     /// here to confirm a delegated `TERM_EP` copy actually names this object (real communication,
     /// not merely "a capability arrived"), the same "prove it works, not merely that it arrived"
     /// standard this file's own module doc already sets for the directory and the budget.
@@ -146,7 +146,7 @@ pub struct Wiring {
     /// **The stand-in run-unvouched endpoint** (DECISIONS §219 gate D2), `READ`: the progenitor's
     /// role, played by the harness. `login` holds it `WRITE | GRANT` at
     /// `grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`, as the real boot places it, and a test
-    /// `ipc_recv`s here to confirm the copy a session was handed names this object.
+    /// `ipc_receive`s here to confirm the copy a session was handed names this object.
     pub run_unvouched: RendezvousId,
 }
 
@@ -394,7 +394,7 @@ pub fn start(
     // `REDERIVE_SKIPS` is the one front-door word with no side effect, and `login` receives
     // nothing on the front door until the pass has run.
     sched::ipc_send(request, [login_protocol::rederive_skips_word(), 0, 0]);
-    let r = sched::ipc_recv(result);
+    let r = sched::ipc_receive(result);
     assert_eq!(
         r[0],
         login_protocol::SKIP_COUNTS,
@@ -496,7 +496,7 @@ pub fn spawn_client(
 /// back once its thread is gone. The report is the last thing a run sends before it exits, so the
 /// wait is for an exit already under way.
 pub fn wait_client(run: ClientRun) -> [u64; 5] {
-    let report = sched::ipc_recv(run.report);
+    let report = sched::ipc_receive(run.report);
     let mut held = super::holding::Holding::new();
     held.add_thread(run.tid);
     held.add_region_after_death(run.scratch);

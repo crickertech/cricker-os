@@ -24,16 +24,16 @@
 //!
 //! ```text
 //!   client --send(REQUEST, connect_word(), 0, 0)------------------------> login
-//!   client <----------------- recv(RESULT) -> CONNECTED ---------------- login
-//!   client <---- RECV_CAP(RESULT) x 3: priv_request, priv_result, page - login
+//!   client <----------------- receive(RESULT) -> CONNECTED ---------------- login
+//!   client <---- RECEIVE_CAP(RESULT) x 3: priv_request, priv_result, page - login
 //!
 //!   client --place(), send(priv_request, w0, 0, 0)-----------------------> login
-//!   client <----------------- recv(priv_result) -> OK, DENIED or -------- login
+//!   client <----------------- receive(priv_result) -> OK, DENIED or -------- login
 //!                                                   NO_TERMINAL
-//!   client <---- RECV_CAP(priv_result) x 5, only after OK ---------------  login
+//!   client <---- RECEIVE_CAP(priv_result) x 5, only after OK ---------------  login
 //!
 //!   client --send(REQUEST, logout_word(), 0, 0)---------------------------> login
-//!   client <----------------- recv(RESULT) -> LOGGED_OUT ----------------- login
+//!   client <----------------- receive(RESULT) -> LOGGED_OUT ----------------- login
 //! ```
 //!
 //! [`CONNECT`] carries no page: there is nothing in it a client did not already know, so the front
@@ -72,7 +72,7 @@
 //!    mid-request to the file service when a logout arrives, which refuses the very first `DESTROY`
 //!    (the same shape `crates/system_initializer::reclaim` already retries for a directory grant's
 //!    own caretaker); it never refuses permanently, because the caretaker's own client-facing
-//!    endpoint is retyped from this same region, so its steady state (parked in `recv` between
+//!    endpoint is retyped from this same region, so its steady state (parked in `receive` between
 //!    requests) is always reclaimable, never the permanently-blocked case
 //!    `notes/hung-component.md` documents as unfixable. Logging out is optional: a client that never
 //!    calls `DESTROY` costs `login` exactly what it always cost (see that program's BUGS on
@@ -253,12 +253,12 @@ pub const OK: u64 = 1;
 
 /// **A bit of [`OK`]'s second word: the sixth capability, the run-unvouched one, follows**
 /// (DECISIONS §219 gate D2). Carried on the reply rather than implied, because a client's sixth
-/// `RECV_CAP` must match a sixth `SEND_CAP` exactly: a `login` spawned without the capability
+/// `RECEIVE_CAP` must match a sixth `SEND_CAP` exactly: a `login` spawned without the capability
 /// (every kernel test harness before this bit) sends five, and a client that always waited for six
 /// would block for ever. Name: provisional.
 pub const RUN_UNVOUCHED_FOLLOWS: u64 = 1;
 /// **A bit of [`OK`]'s second word: the registration page follows** (milestone 152). After the
-/// run-unvouched capability when that is announced too, one more `RECV_CAP` delivers a page frame
+/// run-unvouched capability when that is announced too, one more `RECEIVE_CAP` delivers a page frame
 /// (`WRITE`): the identity's timetable's registration page, `timetable::registration`'s whole
 /// protocol. Announced for the reason [`RUN_UNVOUCHED_FOLLOWS`] is. Name: provisional.
 pub const SCHEDULE_FOLLOWS: u64 = 2;

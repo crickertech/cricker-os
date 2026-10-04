@@ -12,7 +12,7 @@
 //!
 //! Held, and it is four mappings and two endpoints:
 //!
-//! - slot 0, the **request** endpoint (RECV): clients `CALL` here, `filesystem_protocol::blk`'s
+//! - slot 0, the **request** endpoint (RECEIVE): clients `CALL` here, `filesystem_protocol::blk`'s
 //!   wire format, the same one the virtio block server speaks;
 //! - slot 1, a **readiness** endpoint (WRITE): exactly one message once the first command has
 //!   round-tripped, so a hang in bring-up is distinguishable from a hang in the first read;
@@ -233,7 +233,7 @@ fn start(image: &'static [u8]) -> Result<Wiring, crate::non_volatile_memory_expr
                 arg1: words[1], // the data plane's PHYSICAL base: PRP fields speak physical
                 arg2: words[2], // the namespace's size in bytes, the `SIZE` answer
                 grants: &[
-                    rendezvous_cap(request, Rights::READ), // slot 0: RECV blk requests
+                    rendezvous_cap(request, Rights::READ), // slot 0: RECEIVE blk requests
                     rendezvous_cap(ready, Rights::WRITE),  // slot 1: signal readiness once
                 ],
                 maps: &maps,
@@ -260,7 +260,7 @@ impl Wiring {
     /// a `0xDEAD_..` word naming the failing step otherwise; word 1 is the namespace size the
     /// server was handed, so a bench transcript can see the geometry reached ring 3 intact.
     pub fn wait_for_ready(&self) -> Option<[u64; 5]> {
-        self.ready.map(crate::sched::ipc_recv)
+        self.ready.map(crate::sched::ipc_receive)
     }
 
     /// **Play a client**: one blk request over the request endpoint, the way any holder of that

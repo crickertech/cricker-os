@@ -1000,7 +1000,7 @@ fn a_user_client_moves_data_through_shared_memory() {
     // The server: a kernel thread that reads the shared page and records the first message.
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv(request);
+            let m = sched::ipc_receive(request);
             let len = m[0].min(128);
             if !CAPTURED.load(Ordering::SeqCst) {
                 // SAFETY: the shared frame is ours via the direct map; the client wrote `len`
@@ -1162,7 +1162,7 @@ fn a_userspace_driver_reads_a_file_from_a_virtio_disk() {
 
     // Blocks until the driver has done the whole read. If the driver faults, it never sends,
     // and the scheduler idles; the QEMU-level timeout is the backstop.
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
 
     assert_eq!(
         &word.to_le_bytes(),
@@ -1265,7 +1265,7 @@ fn the_redoxfs_server_serves_redoxfs_over_a_capability_contract() {
     // Then: the client has read motd, round-tripped scratch, exercised extended attributes, and
     // reported. If any of the three processes faults, it never sends and the QEMU-level timeout
     // is the backstop.
-    let [head, status, attrs, ..] = sched::ipc_recv(report);
+    let [head, status, attrs, ..] = sched::ipc_receive(report);
     assert_eq!(
         status,
         filesystem_protocol::fixture::SUCCESS,
@@ -1423,7 +1423,7 @@ fn attack_a_grant(rights: u64, writable: bool) -> Option<u64> {
     };
     // The two handshakes happened inside `start_granted`, before this attacker existed: they
     // are what makes the caretaker's own staged request safe on a page all three share.
-    let [tag, verdict, ..] = sched::ipc_recv(report);
+    let [tag, verdict, ..] = sched::ipc_receive(report);
     assert_eq!(
         tag,
         filesystem_protocol::fixture::VERDICT,
@@ -1544,7 +1544,7 @@ fn a_userspace_driver_completes_a_dhcp_round_trip_over_virtio_net() {
         crate::testing::skip!("no virtio-net device attached");
     };
 
-    let yiaddr = sched::ipc_recv(report)[0] as u32;
+    let yiaddr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         yiaddr & 0xffff_ff00,
         0x0A00_0200,
@@ -1577,7 +1577,7 @@ fn a_userspace_driver_completes_a_dhcp_round_trip_over_virtio_net_pci() {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
 
-    let yiaddr = sched::ipc_recv(report)[0] as u32;
+    let yiaddr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         yiaddr & 0xffff_ff00,
         0x0A00_0200,
@@ -1604,7 +1604,7 @@ fn the_net_server_acquires_a_dhcp_lease_over_smoltcp() {
     let Some((report, net)) = virtio_service::start_net_server(net_stack_image()) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let addr = sched::ipc_recv(report)[0] as u32;
+    let addr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         addr & 0xffff_ff00,
         0x0A00_0200,
@@ -1627,7 +1627,7 @@ fn the_net_server_acquires_a_dhcp_lease_over_smoltcp_pci() {
     let Some((report, net)) = virtio_service::start_net_server_pci(net_stack_image()) else {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
-    let addr = sched::ipc_recv(report)[0] as u32;
+    let addr = sched::ipc_receive(report)[0] as u32;
     assert_eq!(
         addr & 0xffff_ff00,
         0x0A00_0200,
@@ -1665,7 +1665,7 @@ fn a_client_completes_a_udp_round_trip_through_the_socket_contract() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the UDP round trip against slirp's TFTP server failed (client code {verdict:#x})",
@@ -1691,7 +1691,7 @@ fn a_client_completes_a_udp_round_trip_through_the_socket_contract_pci() {
     ) else {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the UDP round trip over PCIe failed (client code {verdict:#x})",
@@ -1723,7 +1723,7 @@ fn a_client_resolves_a_real_dns_name_when_the_host_resolver_answers() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     if verdict == NET_CLIENT_NO_ANSWER {
         // **Not a failure, and not a pass either.** This test's name is conditioned on the host's
         // resolver answering; when it does not, no name was resolved and the claim was never put
@@ -1763,7 +1763,7 @@ fn a_client_echoes_over_tcp_through_the_socket_contract() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the TCP echo round trip through the socket contract failed (client code {verdict:#x})",
@@ -1795,7 +1795,7 @@ fn a_package_fetched_over_http_is_accepted_only_by_the_image_digest() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let [genuine, tampered, ..] = sched::ipc_recv(report);
+    let [genuine, tampered, ..] = sched::ipc_receive(report);
     assert_eq!(
         genuine, NET_CLIENT_OK,
         "the package fetched over HTTP was not accepted (client code {genuine:#x}; \
@@ -1827,7 +1827,7 @@ fn a_client_echoes_over_tcp_through_the_socket_contract_pci() {
     ) else {
         crate::testing::skip!("no virtio-net-pci device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the TCP echo round trip over PCIe failed (client code {verdict:#x})",
@@ -1857,7 +1857,7 @@ fn a_reopened_socket_id_connects_again_over_tcp() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "reopening a socket id and connecting again failed (client code {verdict:#x}): the \
@@ -1904,7 +1904,7 @@ fn a_reopened_socket_id_connects_again_over_tcp() {
 /// (notes/smb.md). And milestone 55's multicast DNS responder, whose group-addressed answers xtask's
 /// multicast prober decoded off a frame-level hub, until milestone 298 retired it on 2026-09-15
 /// (notes/mdns.md). With it went the only check that a datagram addressed to a joined group is
-/// accepted and that a multicast `SENDTO` reaches the wire. The source endpoint on a UDP `RECV` did
+/// accepted and that a multicast `SENDTO` reaches the wire. The source endpoint on a UDP `RECEIVE` did
 /// not go with it: the TFTP exchange proves that (stage codes 0xE046 and 0xE047).
 // RISC-V twin: `riscv_virtio_tests::a_host_process_connects_to_the_guest_and_is_answered`.
 #[cfg(target_arch = "aarch64")]
@@ -1948,7 +1948,7 @@ fn a_host_process_connects_to_the_guest_and_is_answered() {
         sched::thread_count().saturating_sub(e2_baseline_threads),
         sched::thread_count(),
     );
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, NET_CLIENT_OK,
         "the guest did not serve the inbound exchange (client code {verdict:#x}). 0xE050 or \
@@ -2090,7 +2090,7 @@ fn a_spawned_least_authority_demo_computes_and_reports() {
     })
     .expect("spawn failed");
 
-    let answer = sched::ipc_recv(result)[0];
+    let answer = sched::ipc_receive(result)[0];
     assert_eq!(
         answer, 81,
         "the spawned least_authority_demo computed the wrong answer"
@@ -2126,11 +2126,11 @@ fn a_process_spends_memory_region_and_the_kernel_never_allocates() {
     // The process sends a "ready" signal once it is fully loaded (its ELF and stack are
     // kernel-allocated, like any process). We measure the frame count THERE, so the window we
     // check contains only what it does next: map pages out of its untyped.
-    sched::ipc_recv(report); // ready
+    sched::ipc_receive(report); // ready
     let baseline = used();
     let faults = USER_FAULTS.load(Ordering::Relaxed);
 
-    let mapped = sched::ipc_recv(report)[0]; // the count, after it exhausted the untyped
+    let mapped = sched::ipc_receive(report)[0]; // the count, after it exhausted the untyped
 
     assert_eq!(
         used(),
@@ -2183,7 +2183,7 @@ fn the_kernel_refuses_a_dma_descriptor_that_escapes_the_drivers_region() {
     let Some(report) = virtio_service::start_attacker(blk_image()) else {
         crate::testing::skip!("no virtio disk attached");
     };
-    let refused = sched::ipc_recv(report)[0];
+    let refused = sched::ipc_receive(report)[0];
     assert_eq!(
         refused, 1,
         "a malicious driver's descriptor pointing at kernel memory was NOT refused: the \
@@ -2209,7 +2209,7 @@ fn the_kernel_refuses_an_indirect_descriptor_escape() {
     let Some(report) = virtio_service::start_attacker_indirect(blk_image()) else {
         crate::testing::skip!("no virtio disk attached");
     };
-    let refused = sched::ipc_recv(report)[0];
+    let refused = sched::ipc_receive(report)[0];
     assert_eq!(
         refused, 1,
         "an indirect descriptor whose inner table pointed at kernel memory was NOT refused: \
@@ -2243,14 +2243,14 @@ fn a_userspace_driver_reads_a_file_over_the_pcie_transport() {
 
     // **The baseline is sampled before the device is wired, and the ordering is the fix rather
     // than a longer wait.** The trap handler bumps `ROUTED_IRQS` immediately *before*
-    // `sched::irq_notify`, and `Irq::WAIT` is an `ipc_recv` on the endpoint that notify signals
+    // `sched::irq_notify`, and `Irq::WAIT` is an `ipc_receive` on the endpoint that notify signals
     // (`syscall::irq_wait`), so a driver cannot reach its report without this counter having
     // already moved. The assertion can therefore only fail one way: a baseline sampled after the
     // completion it is asking about. Sampling here forecloses that, because until `start_pci`
     // runs there is no queue, no route and no driver, so nothing this device does can be counted
     // before this line.
     //
-    // It used to be sampled between the wiring and the `ipc_recv`, which is *after* the driver is
+    // It used to be sampled between the wiring and the `ipc_receive`, which is *after* the driver is
     // spawned, and that is what made this test flake on x86_64. See
     // notes/load-sensitive-assertions.md.
     //
@@ -2265,7 +2265,7 @@ fn a_userspace_driver_reads_a_file_over_the_pcie_transport() {
         crate::testing::skip!("no virtio-pci disk on the bus");
     };
 
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
 
     assert_eq!(
         &word.to_le_bytes(),
@@ -2298,7 +2298,7 @@ fn a_userspace_driver_writes_a_block_and_reads_it_back() {
     let Some(report) = virtio_service::start_writer(blk_image()) else {
         crate::testing::skip!("no virtio disk attached");
     };
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
     assert_eq!(
         &word.to_le_bytes(),
         b"CRKWRIT1",
@@ -2321,7 +2321,7 @@ fn a_userspace_driver_writes_a_block_over_the_pcie_transport() {
     let Some(report) = virtio_service::start_writer_pci(blk_image()) else {
         crate::testing::skip!("no virtio-pci disk on the bus");
     };
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
     assert_eq!(
         &word.to_le_bytes(),
         b"CRKWRIT1",
@@ -2356,7 +2356,7 @@ fn a_driver_killed_mid_write_leaves_the_device_and_transport_sane() {
     // 1 = the kernel validated the write and rang the device; the request is genuinely in
     // flight (or already complete) when the driver dies.
     assert_eq!(
-        sched::ipc_recv(report)[0],
+        sched::ipc_receive(report)[0],
         1,
         "the abandoner never got its write submitted",
     );
@@ -2372,7 +2372,7 @@ fn a_driver_killed_mid_write_leaves_the_device_and_transport_sane() {
     // from a clean device reset, in-flight completion and all.
     let report = virtio_service::start_writer(blk_image())
         .expect("the disk vanished between the abandoner and the survivor");
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
     assert_eq!(
         &word.to_le_bytes(),
         b"CRKWRIT1",
@@ -2607,7 +2607,7 @@ fn userspace_init_delegates_an_interrupt_to_a_child() {
     // still being built), and the child's WAIT drains that pending signal, so there is no race.
     crate::arch::irq::send_sgi(INIT_TEST_SGI, crate::cpu::id());
 
-    let word = crate::sched::ipc_recv(report)[0];
+    let word = crate::sched::ipc_receive(report)[0];
     assert_eq!(
         word, IRQ_WORD,
         "the interrupt never reached the init-built child through the delegated Irq cap",
@@ -2638,7 +2638,7 @@ fn userspace_init_brings_up_the_console_server() {
         crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_CONSOLE_ROLE, report);
 
-    let acked = crate::sched::ipc_recv(report)[0];
+    let acked = crate::sched::ipc_receive(report)[0];
     assert_eq!(
         acked, MSG_LEN,
         "the init-built console server did not print-and-ack: {acked} bytes, expected {MSG_LEN}",
@@ -2674,7 +2674,7 @@ fn userspace_init_builds_a_driver_that_reads_real_hardware() {
         crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_DEV_ROLE, report);
 
-    let id = crate::sched::ipc_recv(report)[0];
+    let id = crate::sched::ipc_receive(report)[0];
     assert_eq!(
         id, PL011_PRIMECELL_ID,
         "the init-built driver did not read the PL011's id: device delegation or the              device-typed mapping is broken",
@@ -2701,7 +2701,7 @@ fn userspace_init_parses_an_elf_and_builds_a_running_child() {
         crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_ROLE, report);
 
-    let word = crate::sched::ipc_recv(report)[0];
+    let word = crate::sched::ipc_receive(report)[0];
     assert_eq!(
         word, CHILD_WORD,
         "init did not build a running child from the ELF it parsed in userspace",
@@ -2730,7 +2730,7 @@ fn init_builds_the_demo_and_passes_it_an_argument() {
         report,
     );
 
-    let answer = crate::sched::ipc_recv(report)[0];
+    let answer = crate::sched::ipc_receive(report)[0];
     assert_eq!(
         answer,
         WORKER_INPUT * WORKER_INPUT,
@@ -2826,7 +2826,7 @@ fn a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults() {
     })
     .expect("spawn failed");
 
-    let message = sched::ipc_recv(result);
+    let message = sched::ipc_receive(result);
     assert_eq!(
         message[0],
         capability_witness_protocol::CYCLE_COUNTER_WORD,
@@ -2882,7 +2882,7 @@ fn init_runs_the_coremark_workload_and_it_checks_out() {
         crate::sched::create_rendezvous_from(report_region).expect("no rendezvous from region");
     let init = spawn_hello(initrd().expect("no initrd"), INIT_COREMARK_ROLE, report);
 
-    let [crc, ticks, freq, _, _] = crate::sched::ipc_recv(report);
+    let [crc, ticks, freq, _, _] = crate::sched::ipc_receive(report);
     assert_eq!(
         crc,
         coremark::PINNED_CRC_64 as u64,
@@ -2993,7 +2993,7 @@ fn a_process_can_build_start_and_run_a_child_thread() {
         "START ran a thread that was already running",
     );
 
-    let got = crate::sched::ipc_recv(report)[0];
+    let got = crate::sched::ipc_receive(report)[0];
     assert_eq!(
         got, expect_word,
         "the child never reported: a built-from-parts thread did not reach EL0 and run",
@@ -3017,7 +3017,7 @@ fn a_process_can_build_start_and_run_a_child_thread() {
 /// `^C` escalation depends on it). So the probe marked this child `killed`, and `schedule()`
 /// converts a killed thread to a corpse at its next preemption. Win the race and the child reaches
 /// its `SEND` first and the test passes; lose it and the child is reaped without ever sending, the
-/// `ipc_recv` below never returns, and the machine goes fully idle: the intermittent lost-wakeup
+/// `ipc_receive` below never returns, and the machine goes fully idle: the intermittent lost-wakeup
 /// hang that kept `cpu-matrix` red on branches that could not have caused it.
 ///
 /// Proved by widening the window rather than by waiting for the race: a call-free delay loop in
@@ -3104,7 +3104,7 @@ fn reclaim_frees_a_started_then_exited_childs_regions() {
     // `reclaim_region` arms §16's kill on the child and dooms it; see this test's own note above.
 
     // Let it run: it SENDs the word and exits. Receiving proves it reached EL0.
-    let got = crate::sched::ipc_recv(report)[0];
+    let got = crate::sched::ipc_receive(report)[0];
     assert_eq!(got, expect_word, "the child never reported");
 
     // Let the reaper collect the now-Finished child. A Finished thread is removed when its own
@@ -3208,7 +3208,7 @@ fn spawn_to_reap_repeats_without_leaking() {
         crate::sched::start_thread_control_block(tid, [0; 3]).expect("start");
 
         assert_eq!(
-            crate::sched::ipc_recv(report)[0],
+            crate::sched::ipc_receive(report)[0],
             expect_word,
             "round {round}: the child never reported"
         );
@@ -3238,7 +3238,7 @@ fn spawn_to_reap_repeats_without_leaking() {
 #[test_case]
 fn a_process_can_build_an_address_space_from_el0() {
     let report = address_space_service::wire();
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, 0b111,
         "address space build verdict {verdict:#b}: bit0 retype, bit1 map_into, bit2 double-map refused",
@@ -3255,7 +3255,7 @@ fn a_process_can_build_an_address_space_from_el0() {
 #[test_case]
 fn a_process_can_mint_an_rendezvous_and_ipc_flows_over_it() {
     let report = retype_ep_service::wire();
-    let word = sched::ipc_recv(report)[0];
+    let word = sched::ipc_receive(report)[0];
     assert_eq!(
         word, 0x77,
         "the word never crossed the process-minted rendezvous",
@@ -3275,7 +3275,7 @@ fn a_capability_can_be_delegated_over_ipc_and_grant_gates_re_delegation() {
 
     // The receiver invoked the *delegated* capability to SEND this word. Collecting it here is
     // proof the capability the granter minted for the receiver actually carries authority.
-    let used = sched::ipc_recv(resource)[0];
+    let used = sched::ipc_receive(resource)[0];
     assert_eq!(
         used,
         delegation_service::USED_WORD,
@@ -3284,7 +3284,7 @@ fn a_capability_can_be_delegated_over_ipc_and_grant_gates_re_delegation() {
 
     // The receiver's own two-bit verdict: bit 0 it received a capability, bit 1 the kernel
     // refused its attempt to re-delegate a capability it holds without GRANT.
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict & 0b01,
         0b01,
@@ -3298,7 +3298,7 @@ fn a_capability_can_be_delegated_over_ipc_and_grant_gates_re_delegation() {
 }
 
 /// **Milestone 12: a process calls a server it was never wired to, and the reply cap is
-/// one-shot.** The client `CALL`s across the boundary; the server `RECV_CAP`s the request plus a
+/// one-shot.** The client `CALL`s across the boundary; the server `RECEIVE_CAP`s the request plus a
 /// kernel-minted reply capability naming the caller, answers through it (the round trip through
 /// the real syscall path), then tries to answer a second time and reports that the kernel
 /// refused. This is what a pre-wired reply rendezvous cannot guarantee.
@@ -3306,13 +3306,13 @@ fn a_capability_can_be_delegated_over_ipc_and_grant_gates_re_delegation() {
 fn a_process_calls_a_server_and_the_reply_is_one_shot() {
     let (call_report, oneshot_report) = call_service::wire();
 
-    let reply = sched::ipc_recv(call_report)[0];
+    let reply = sched::ipc_receive(call_report)[0];
     assert_eq!(
         reply, 42,
         "the CALL did not return the server's reply (40 + 2)"
     );
 
-    let one_shot = sched::ipc_recv(oneshot_report)[0];
+    let one_shot = sched::ipc_receive(oneshot_report)[0];
     assert_eq!(
         one_shot, 1,
         "the server's second reply was NOT refused: the reply capability is not one-shot",
@@ -3327,7 +3327,7 @@ fn a_process_calls_a_server_and_the_reply_is_one_shot() {
 #[test_case]
 fn a_process_revokes_a_frame_and_loses_the_capability() {
     let report = revoke_service::wire();
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, 1,
         "REVOKE did not both succeed and leave the frame slot empty",
@@ -3345,7 +3345,7 @@ fn a_process_revokes_a_frame_and_loses_the_capability() {
 fn a_frame_capability_shares_a_page_and_a_read_only_view_cannot_write_it() {
     let report = page_frame_service::wire();
 
-    let verdict = sched::ipc_recv(report)[0];
+    let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict & 0b01,
         0b01,

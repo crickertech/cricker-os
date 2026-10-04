@@ -52,7 +52,7 @@
 //!   `peer_addr()` on an accepted stream reports the same. That is a placeholder and it is named
 //!   as one here rather than dressed up: a server that logs its peers logs zeros on nife.
 //!   Reporting the real peer means changing what two programs agree on (a second reply word, or the
-//!   frame's dead `dst` fields the way a UDP `RECV` already uses them), which is not a PAL
+//!   frame's dead `dst` fields the way a UDP `RECEIVE` already uses them), which is not a PAL
 //!   decision. See notes/net/std-tcp-listener.md.
 //! - **Non-blocking mode and read/write timeouts.** The contract is blocking-only; there is no
 //!   poll verb. `set_nonblocking(true)` and `set_*_timeout(Some(..))` return `Unsupported`;
@@ -106,12 +106,12 @@ struct Slot {
     in_use: bool,
     attached: bool,
     // TCP: bytes received but not yet handed to the caller (a `read` whose buffer was smaller than
-    // the segment net_stack delivered). Served before the next `RECV`, so a stream never drops bytes.
+    // the segment net_stack delivered). Served before the next `RECEIVE`, so a stream never drops bytes.
     res_off: usize,
     res_len: usize,
     res: [u8; DATA_MAX],
     // UDP: the connected peer (set by `connect`) and the most recent send destination, used as the
-    // reported source of `recv_from` since the contract's RECV does not carry the datagram source.
+    // reported source of `recv_from` since the contract's RECEIVE does not carry the datagram source.
     peer: Option<(Ipv4Addr, u16)>,
     last_dst: Option<(Ipv4Addr, u16)>,
 }
@@ -431,7 +431,7 @@ impl TcpStream {
             }
         }
 
-        let (r0, _) = rt::call(STACK, req(OP_RECV, self.id), 0);
+        let (r0, _) = rt::call(STACK, req(OP_RECEIVE, self.id), 0);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
@@ -807,7 +807,7 @@ impl UdpSocket {
 
     pub fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
         let n = self.recv(buf)?;
-        // The contract's RECV does not report the datagram source, so recv_from names the peer set
+        // The contract's RECEIVE does not report the datagram source, so recv_from names the peer set
         // by `connect`, else the most recent send destination (correct for request/response, the
         // pattern the resolver-less demo uses). Recorded in notes/std.md.
         let src = {
@@ -864,7 +864,7 @@ impl UdpSocket {
     }
 
     pub fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-        let (r0, _) = rt::call(STACK, req(OP_RECV, self.id), 0);
+        let (r0, _) = rt::call(STACK, req(OP_RECEIVE, self.id), 0);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }

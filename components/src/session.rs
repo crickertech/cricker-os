@@ -77,7 +77,7 @@ use supervision_protocol::{
     retype_obj_from as retype_obj, start_child,
 };
 use timetable::contract as tt;
-use user_mode_runtime::{cap_delete, exit, reap, recv_fault, send, yield_now};
+use user_mode_runtime::{cap_delete, exit, reap, receive_fault, send, yield_now};
 
 /// The readiness endpoint, `WRITE`.
 const READY: u64 = contract::READY_SLOT;
@@ -190,7 +190,7 @@ pub extern "C" fn _start(image_len: u64, _a1: u64, _a2: u64) -> ! {
     // C). The reap still decides, so a message that is not the timetable's death is skipped rather
     // than believed.
     loop {
-        let (event, tid, ..) = recv_fault(e);
+        let (event, tid, ..) = receive_fault(e);
         let death = event == abi::fault::EVENT_EXIT || event == abi::fault::EVENT_FAULT;
         if death && reaped(e, tid) {
             break;

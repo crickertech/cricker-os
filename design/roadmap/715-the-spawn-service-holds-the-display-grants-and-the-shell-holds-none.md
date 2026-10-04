@@ -31,7 +31,7 @@ its own, "so the session can be run again once it ends" (`components/src/swish.r
 What those copies let the shell do, read from the kernel's rights checks: map the DMA run, the
 surface and the keyboard DMA page read-write into its own address space (`map_page_frame` with
 the `tables` it already holds; `MAP_RW` needs `WRITE`, which it has), so it could read every
-keystroke the keyboard driver's DMA lands and write the surface behind the session; and `RECV`
+keystroke the keyboard driver's DMA lands and write the surface behind the session; and `RECEIVE`
 on either interrupt rendezvous (`READ`), where `irq_notify` wakes one waiter, so a shell parked
 there would take a wake the driver was waiting for. It does neither. Its only use of the seven is
 `delegate`.

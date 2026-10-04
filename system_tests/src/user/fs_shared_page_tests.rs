@@ -49,7 +49,7 @@ fn witness(shared: bool) -> Option<u64> {
         ROLE_SHARE_ATTACKER,
         shared,
     )?;
-    let [verdict, w1, ..] = sched::ipc_recv(report);
+    let [verdict, w1, ..] = sched::ipc_receive(report);
     assert_ne!(
         verdict,
         fixture::SHARED_UNEXPECTED,

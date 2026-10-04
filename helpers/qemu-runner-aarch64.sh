@@ -354,7 +354,7 @@ fi
 # enumerated) is caught by the net test, which asserts a NIC is present rather than skipping.
 #
 # guestfwd adds a deterministic TCP echo peer at 10.0.2.9:7777 inside slirp: a connection to it is
-# piped to a fresh `/bin/cat`, so the TCP round-trip gate (connect, send, recv the echo, close) runs
+# piped to a fresh `/bin/cat`, so the TCP round-trip gate (connect, send, receive the echo, close) runs
 # with zero host setup and nothing outlives QEMU. Verified against QEMU 11.0.2. Each slirp instance
 # is its own network, so both NICs can use the same virtual address without conflict.
 GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat"

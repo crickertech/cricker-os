@@ -18,7 +18,7 @@ send on it.
 So D2 is one rendezvous, the run-unvouched endpoint. The progenitor holds the only `READ` on it.
 A session holds `WRITE` at slot 30 (`grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`, just below the
 reserved fault slot). An image request that claims it sets `RUN_UNVOUCHED_BIT` and sends one word
-on that endpoint as its last message. The progenitor takes that word with a `RECV` while serving
+on that endpoint as its last message. The progenitor takes that word with a `RECEIVE` while serving
 the request. Only a holder can send there, so arriving is the proof.
 
 The kernel is untouched. There is no new syscall and no new method; the bit is on a userspace word

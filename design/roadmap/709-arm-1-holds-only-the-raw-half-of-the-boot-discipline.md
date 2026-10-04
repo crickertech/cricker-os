@@ -55,11 +55,11 @@ exactly as granted; the grant is wider than the use.
   grant table is that a program holds what it uses, and this is the one place in the launch where
   a session holds a server's whole surface.
 - A second endpoint object in the discipline, served alongside `TERM`. Works, but costs the
-  discipline a second receive loop or a `RECV` on two objects it has no way to wait on at once
+  discipline a second receive loop or a `RECEIVE` on two objects it has no way to wait on at once
   (no wait-any: §101 (notification objects: async multiplexing without wait-any)).
 - A badged copy of `term_ep` (chosen). §230 (badged endpoint capabilities) and milestone 613 (a
   system log service: the in-memory half) made the badge the kernel's word on every receive, and
-  the discipline already serves with `RECV_CAP`, which returns it in `x3`. The
+  the discipline already serves with `RECEIVE_CAP`, which returns it in `x3`. The
   spawn service holds `GRANT` on `term_ep` and can mint one badged copy per session
   (`rendezvous::BADGE`); the discipline refuses `OP_BYTES`, `OP_READLINE` and `OP_PRINT` from any
   non-zero badge. One `match` arm in `line_editor.rs`, one mint in the spawn service, and the

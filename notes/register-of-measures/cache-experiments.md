@@ -32,7 +32,7 @@ notes/footprint-perturbation.md.
 This reading retires E1's one estimated input. E1's prediction assumed "roughly 1 to 2 KiB" of
 kernel stack per IPC. It was measured by painting each thread's own stack around each operation.
 In the release kernel radon boots, one round trip reaches about 600 bytes of each kernel thread's
-stack (riscv64: 608 client, 576 server, E1's SEND/RECV shape). EL0 threads reach 0.5 to 1 KiB,
+stack (riscv64: 608 client, 576 server, E1's SEND/RECEIVE shape). EL0 threads reach 0.5 to 1 KiB,
 trap frame included. The debug build reaches 2 to 4 KiB.
 
 The row is `dated` rather than gated: the number never existed before, and nothing depends on it
@@ -72,7 +72,7 @@ on the day the instrument was made runnable.
 ## E3's padding moved underneath it
 
 The padding was reachable only from `sched::ipc_send`. Milestone 188 (the IPC fastpath) phase 1
-split the IPC shapes on 2026-09-04. On riscv64 that moved `ipc_send_recv` to 2.10x and
+split the IPC shapes on 2026-09-04. On riscv64 that moved `ipc_send_receive` to 2.10x and
 `ipc_call_reply` to 1.00x. E3 was doubling the footprint of the shape nothing in this tree runs,
 and leaving untouched the shape every service issues. `sched::ipc_call` now pads too, and both
 shapes read roughly 1.85x on both ISAs. The 2026-08-22 E3 reading was correct when taken, but it

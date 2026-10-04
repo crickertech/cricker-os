@@ -274,7 +274,7 @@ fn tss_iomap_lazy_nop() {
 }
 
 /// **Synchronous IPC round trip, the classic microkernel number.** A server loops
-/// recv-then-send; the client times send-then-recv. One iteration is two rendezvous, two
+/// receive-then-send; the client times send-then-receive. One iteration is two rendezvous, two
 /// mailbox copies, two wakes, two switches.
 fn ipc_rtt() {
     let request = sched::create_rendezvous();
@@ -282,7 +282,7 @@ fn ipc_rtt() {
 
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv(request);
+            let m = sched::ipc_receive(request);
             if m[0] == u64::MAX {
                 break; // the client is done with us
             }
@@ -293,12 +293,12 @@ fn ipc_rtt() {
 
     for _ in 0..WARMUP {
         sched::ipc_send(request, [1, 0, 0]);
-        sched::ipc_recv(reply);
+        sched::ipc_receive(reply);
     }
     timed("ipc_rtt", IPC_ITERS, || {
         for _ in 0..IPC_ITERS {
             sched::ipc_send(request, [1, 0, 0]);
-            sched::ipc_recv(reply);
+            sched::ipc_receive(reply);
         }
     });
     sched::ipc_send(request, [u64::MAX, 0, 0]); // release the server
@@ -325,10 +325,10 @@ fn relay_rtt() {
     let bk_req = sched::create_rendezvous(); // relay -> backend
     let bk_reply = sched::create_rendezvous(); // backend -> relay
 
-    // The backend: the leaf service. Recv a request, send a reply, until the sentinel.
+    // The backend: the leaf service. Receive a request, send a reply, until the sentinel.
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv(bk_req);
+            let m = sched::ipc_receive(bk_req);
             if m[0] == u64::MAX {
                 break;
             }
@@ -341,13 +341,13 @@ fn relay_rtt() {
     // backend, then answers the client. On the sentinel it releases the backend and exits too.
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv(cl_req);
+            let m = sched::ipc_receive(cl_req);
             if m[0] == u64::MAX {
                 sched::ipc_send(bk_req, [u64::MAX, 0, 0]);
                 break;
             }
             sched::ipc_send(bk_req, [m[0], 0, 0]);
-            let r = sched::ipc_recv(bk_reply);
+            let r = sched::ipc_receive(bk_reply);
             sched::ipc_send(cl_reply, [r[0], 0, 0]);
         }
     })
@@ -355,12 +355,12 @@ fn relay_rtt() {
 
     for _ in 0..WARMUP {
         sched::ipc_send(cl_req, [1, 0, 0]);
-        sched::ipc_recv(cl_reply);
+        sched::ipc_receive(cl_reply);
     }
     timed("relay_rtt", RELAY_ITERS, || {
         for _ in 0..RELAY_ITERS {
             sched::ipc_send(cl_req, [1, 0, 0]);
-            sched::ipc_recv(cl_reply);
+            sched::ipc_receive(cl_reply);
         }
     });
     sched::ipc_send(cl_req, [u64::MAX, 0, 0]); // release the relay, which releases the backend
@@ -373,7 +373,7 @@ fn call_reply() {
 
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv_cap(ep); // [word, reply_slot, word2]
+            let m = sched::ipc_receive_cap(ep); // [word, reply_slot, word2]
             if m[0] == u64::MAX {
                 break;
             }
@@ -382,7 +382,7 @@ fn call_reply() {
                 .expect("bench: no reply cap")
                 .object
             else {
-                panic!("bench: RECV_CAP of a CALL did not deliver a Reply capability");
+                panic!("bench: RECEIVE_CAP of a CALL did not deliver a Reply capability");
             };
             sched::ipc_reply(caller, [m[0], 0]);
             let _ = sched::delete_current_cap(slot);
@@ -398,7 +398,7 @@ fn call_reply() {
             sched::ipc_call(ep, [1, 0]);
         }
     });
-    // Release the server: it is parked in RECV_CAP, and a plain SEND rendezvouses with it all
+    // Release the server: it is parked in RECEIVE_CAP, and a plain SEND rendezvouses with it all
     // the same (the cap and plain paths share the wait queues), delivering the sentinel.
     sched::ipc_send(ep, [u64::MAX, 0, 0]);
 }
@@ -409,7 +409,7 @@ fn call_reply() {
 /// is *opt-in per channel, never the default*. This benchmark is why that rule is a rule.
 ///
 /// - **The default rung has no benchmark of its own, because it has no cost of its own.** A client
-///   holds a capability to a stable endpoint and whoever is parked in `RECV_CAP` on it answers; a
+///   holds a capability to a stable endpoint and whoever is parked in `RECEIVE_CAP` on it answers; a
 ///   swap changes who that is. No process stands in the data path, so the steady state *is*
 ///   [`call_reply`] above, instruction for instruction, and the swap adds nothing to it. That is
 ///   the number to quote for milestone 23's flagship.
@@ -418,8 +418,8 @@ fn call_reply() {
 ///   backend with nothing in between: the **difference** is the whole tax, and it is paid on every
 ///   request in the steady state, not only during a swap.
 ///
-/// The topology is the CALL/reply idiom rather than `relay_rtt`'s SEND/RECV pairs, because that is
-/// what the broker actually speaks: the broker serves its front endpoint with `RECV_CAP`, holds the
+/// The topology is the CALL/reply idiom rather than `relay_rtt`'s SEND/RECEIVE pairs, because that is
+/// what the broker actually speaks: the broker serves its front endpoint with `RECEIVE_CAP`, holds the
 /// client's one-shot Reply capability while it CALLs the backend, and answers through it.
 fn broker_rtt() {
     let front = sched::create_rendezvous(); // client -> broker
@@ -429,7 +429,7 @@ fn broker_rtt() {
     // server in `call_reply` does.
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv_cap(back);
+            let m = sched::ipc_receive_cap(back);
             if m[0] == u64::MAX {
                 break;
             }
@@ -442,7 +442,7 @@ fn broker_rtt() {
     // hands the backend's answer straight back.
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv_cap(front);
+            let m = sched::ipc_receive_cap(front);
             if m[0] == u64::MAX {
                 sched::ipc_send(back, [u64::MAX, 0, 0]);
                 break;
@@ -464,13 +464,13 @@ fn broker_rtt() {
     sched::ipc_send(front, [u64::MAX, 0, 0]); // releases the broker, which releases the backend
 }
 
-/// Answer through the one-shot Reply capability `RECV_CAP` delivered, and consume it.
+/// Answer through the one-shot Reply capability `RECEIVE_CAP` delivered, and consume it.
 fn reply_to(slot: u64, word: u64) {
     let crate::cap::Object::Reply(caller) = sched::current_cap(slot)
         .expect("bench: no reply cap")
         .object
     else {
-        panic!("bench: RECV_CAP of a CALL did not deliver a Reply capability");
+        panic!("bench: RECEIVE_CAP of a CALL did not deliver a Reply capability");
     };
     sched::ipc_reply(caller, [word, 0]);
     let _ = sched::delete_current_cap(slot);
@@ -842,7 +842,7 @@ fn null_syscall_el0() {
         println!("bench: null_syscall skipped (no os_primitives_benchmarker in the initrd)");
         return;
     }
-    let [ticks, iters, ..] = sched::ipc_recv(report);
+    let [ticks, iters, ..] = sched::ipc_receive(report);
     println!("bench: null_syscall {ticks} {iters}");
 }
 
@@ -862,13 +862,13 @@ fn ctx_switch_el0() {
     if !spawn_os_primitives_benchmarker(EL_CTX_SWITCH, report) {
         return;
     }
-    let [ticks, iters, ..] = sched::ipc_recv(report);
+    let [ticks, iters, ..] = sched::ipc_receive(report);
     println!("bench: ctx_switch {ticks} {iters}");
 }
 
 /// **IPC round-trip latency, measured from EL0 (the primitive suite).** lmbench's `lat_pipe`. Two
-/// EL0 processes and two endpoints: a server (RECV request, SEND reply) and a client that self-times
-/// a loop of SEND-then-RECV and reports. The server is spawned first so a request always meets a
+/// EL0 processes and two endpoints: a server (RECEIVE request, SEND reply) and a client that self-times
+/// a loop of SEND-then-RECEIVE and reports. The server is spawned first so a request always meets a
 /// waiting receiver. Grants differ per role, so the spawns are inline rather than via `spawn_os_primitives_benchmarker`.
 fn ipc_rtt_el0() {
     let Some(image) = crate::trust::require_program("os_primitives_benchmarker") else {
@@ -888,7 +888,7 @@ fn ipc_rtt_el0() {
                 arg1: 0,
                 arg2: 0,
                 grants: &[
-                    rendezvous_cap(request, Rights::READ), // slot 0: RECV requests
+                    rendezvous_cap(request, Rights::READ), // slot 0: RECEIVE requests
                     rendezvous_cap(reply, Rights::WRITE),  // slot 1: SEND replies
                 ],
                 maps: &[],
@@ -907,7 +907,7 @@ fn ipc_rtt_el0() {
                 grants: &[
                     rendezvous_cap(report, Rights::WRITE), // slot 0: report the result
                     rendezvous_cap(request, Rights::WRITE), // slot 1: SEND requests
-                    rendezvous_cap(reply, Rights::READ),   // slot 2: RECV replies
+                    rendezvous_cap(reply, Rights::READ),   // slot 2: RECEIVE replies
                 ],
                 maps: &[],
             },
@@ -915,9 +915,9 @@ fn ipc_rtt_el0() {
     })
     .expect("bench: could not spawn the ipc client");
 
-    let [ticks, iters, ..] = sched::ipc_recv(report);
+    let [ticks, iters, ..] = sched::ipc_receive(report);
     // Distinct from the kernel-side `ipc_rtt` above: this one crosses the EL0<->EL1 boundary on every
-    // send and recv, which is the whole point (comparable to lmbench). The gap between them is roughly
+    // send and receive, which is the whole point (comparable to lmbench). The gap between them is roughly
     // the trap cost of the four svcs per round trip.
     println!("bench: ipc_rtt_el0 {ticks} {iters}");
 }
@@ -1113,7 +1113,7 @@ static APPDISP_STOP: AtomicBool = AtomicBool::new(false);
 fn appdisp_background_pair(rq: sched::RendezvousId, rp: sched::RendezvousId) {
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv(rq);
+            let m = sched::ipc_receive(rq);
             if m[0] == u64::MAX {
                 break;
             }
@@ -1124,7 +1124,7 @@ fn appdisp_background_pair(rq: sched::RendezvousId, rp: sched::RendezvousId) {
     sched::spawn(move || {
         while !APPDISP_STOP.load(Ordering::Relaxed) {
             sched::ipc_send(rq, [1, 0, 0]);
-            sched::ipc_recv(rp);
+            sched::ipc_receive(rp);
         }
         sched::ipc_send(rq, [u64::MAX, 0, 0]);
     })
@@ -1178,7 +1178,7 @@ fn appdisp_batch(
     for i in 0..req.len() {
         appdisp_background_pair(req[i], reply[i]);
     }
-    // Let the background pairs reach their first blocking RECV before the clock starts, so their
+    // Let the background pairs reach their first blocking RECEIVE before the clock starts, so their
     // cold-start cost lands outside the timed window, same reason every other batch here warms up.
     for _ in 0..8 {
         sched::yield_now();
@@ -1286,7 +1286,7 @@ fn app_displacement() {
 ///
 /// Two EL0 processes and one endpoint, which is literally what a pipeline is here: the shell mints an
 /// endpoint, gives the left stage `WRITE` and the right stage `READ`, and there is no object in
-/// between. The producer packs sixteen bytes into a sink message and `SEND`s; the consumer `RECV`s
+/// between. The producer packs sixteen bytes into a sink message and `SEND`s; the consumer `RECEIVE`s
 /// and self-times. The reported pair is `[ticks, bytes]` rather than `[ticks, iters]`, because bytes
 /// is the number a Unix pipe can be compared against, which is the whole reason this exists: the
 /// design note said measure the lockstep before deciding anything about buffering.
@@ -1304,7 +1304,7 @@ fn sink_throughput() {
     let report = sched::create_rendezvous();
     use crate::cap::{Rights, rendezvous_cap};
 
-    // The producer first, so the consumer's first `RECV` meets a waiting sender rather than the
+    // The producer first, so the consumer's first `RECEIVE` meets a waiting sender rather than the
     // other way round. Either order works (a rendezvous blocks whichever side arrives first) and
     // this one keeps the warmup honest: the consumer's timed loop starts with the pipe already hot.
     sched::spawn(move || {
@@ -1340,7 +1340,7 @@ fn sink_throughput() {
     })
     .expect("bench: could not spawn the sink consumer");
 
-    let [ticks, bytes, ..] = sched::ipc_recv(report);
+    let [ticks, bytes, ..] = sched::ipc_receive(report);
     println!("bench: sink_throughput {ticks} {bytes}");
 }
 
@@ -1400,7 +1400,7 @@ fn map_el0() {
     })
     .expect("bench: could not spawn the map bencher");
 
-    let [ticks, iters, ..] = sched::ipc_recv(report);
+    let [ticks, iters, ..] = sched::ipc_receive(report);
     println!("bench: map_el0 {ticks} {iters}");
 }
 
@@ -1435,14 +1435,14 @@ fn spawn_el0() {
                     rendezvous_cap(
                         child_done,
                         Rights::READ.union(Rights::WRITE).union(Rights::GRANT),
-                    ), // slot 2: children signal done; spawner recvs and delegates WRITE
+                    ), // slot 2: children signal done; spawner receives and delegates WRITE
                 ],
                 maps: &[],
             },
         )
     })
     .expect("bench: could not spawn the spawner");
-    let [ticks, iters, ..] = sched::ipc_recv(report);
+    let [ticks, iters, ..] = sched::ipc_receive(report);
     println!("bench: spawn_el0 {ticks} {iters}");
 }
 
@@ -1527,11 +1527,11 @@ fn fs_read() {
         // `blk_ready` is `None` when the block service was already running and its sentinel has
         // been taken; a bench boot always wires it, so this arm is the one that runs here.
         if let Some(blk_ready) = blk_ready {
-            let _ = sched::ipc_recv(blk_ready);
+            let _ = sched::ipc_receive(blk_ready);
         }
-        let _ = sched::ipc_recv(ready);
+        let _ = sched::ipc_receive(ready);
     }
-    let [ticks, iters, ..] = sched::ipc_recv(report);
+    let [ticks, iters, ..] = sched::ipc_receive(report);
     println!("bench: fs_read {ticks} {iters}");
 }
 
@@ -1585,13 +1585,13 @@ fn fs_throughput() {
         // `blk_ready` is `None` when the block service was already running and its sentinel has
         // been taken; a bench boot always wires it, so this arm is the one that runs here.
         if let Some(blk_ready) = blk_ready {
-            let _ = sched::ipc_recv(blk_ready);
+            let _ = sched::ipc_receive(blk_ready);
         }
-        let _ = sched::ipc_recv(ready);
+        let _ = sched::ipc_receive(ready);
     }
     let hz = crate::arch::timer::frequency();
     for _ in 0..filesystem_protocol::fixture::throughput::PHASES {
-        let [ticks, transfers, phase, ..] = sched::ipc_recv(report);
+        let [ticks, transfers, phase, ..] = sched::ipc_receive(report);
         let Some(name) = filesystem_protocol::fixture::throughput::name(phase) else {
             println!("bench-probe: fs_throughput unknown phase {phase}");
             continue;
@@ -1704,7 +1704,7 @@ fn walk_rows(report: crate::sched::RendezvousId, row: &str) {
     let mut text = [0u8; 2048];
     let mut len = 0usize;
     loop {
-        let words = sched::ipc_recv(report);
+        let words = sched::ipc_receive(report);
         let mut chunk = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(words[0], words[1], words[2], &mut chunk) {
             byte_sink_protocol::Msg::Bytes(n) => {
@@ -1773,7 +1773,7 @@ fn walk_rows(report: crate::sched::RendezvousId, row: &str) {
 //
 // **A methodology note about the solo baseline, learned by getting it wrong first.** The whole
 // result is only as honest as its single-core reference, and the obvious way to take it is a trap.
-// The main thread must **block** (a real `RECV`) while a batch runs, exactly as `ipc_rtt` above does,
+// The main thread must **block** (a real `RECEIVE`) while a batch runs, exactly as `ipc_rtt` above does,
 // NOT busy-yield waiting on a counter. A yield-spinning main stays runnable, so on the solo batch
 // the scheduler sees main plus the pair (three runnable-ish threads) and scatters them, turning each
 // local rendezvous into a cross-core wake; the solo pair then clocked ~60x slower than `ipc_rtt`'s
@@ -1810,17 +1810,17 @@ fn tp_batch(
 
     for i in 0..pipes {
         let (rq, rp) = (req[i], reply[i]);
-        // The server half: exactly TP_RTT recv-then-send, then it returns and is reaped. It blocks
-        // in `ipc_recv` until its client sends, so it effectively starts when the client does.
+        // The server half: exactly TP_RTT receive-then-send, then it returns and is reaped. It blocks
+        // in `ipc_receive` until its client sends, so it effectively starts when the client does.
         sched::spawn(move || {
             for _ in 0..TP_RTT {
-                let _ = sched::ipc_recv(rq);
+                let _ = sched::ipc_receive(rq);
                 sched::ipc_send(rp, [1, 0, 0]);
             }
         })
         .expect("bench: throughput server spawn failed");
 
-        // The client half: wait at the barrier, then TP_RTT send-then-recv, then signal done. Yield
+        // The client half: wait at the barrier, then TP_RTT send-then-receive, then signal done. Yield
         // (not spin) at the barrier so a waiting client does not burn its core before the clock.
         sched::spawn(move || {
             while !TP_GO.load(Ordering::Acquire) {
@@ -1828,7 +1828,7 @@ fn tp_batch(
             }
             for _ in 0..TP_RTT {
                 sched::ipc_send(rq, [1, 0, 0]);
-                let _ = sched::ipc_recv(rp);
+                let _ = sched::ipc_receive(rp);
             }
             sched::ipc_send(done, [1, 0, 0]);
         })
@@ -1840,7 +1840,7 @@ fn tp_batch(
     let t0 = crate::arch::timer::now();
     TP_GO.store(true, Ordering::Release);
     for _ in 0..pipes {
-        let _ = sched::ipc_recv(done);
+        let _ = sched::ipc_receive(done);
     }
     let ticks = crate::arch::timer::now() - t0;
 
@@ -1910,7 +1910,7 @@ fn tc_batch(done: sched::RendezvousId, workers: usize) -> u64 {
     let t0 = crate::arch::timer::now();
     TP_GO.store(true, Ordering::Release);
     for _ in 0..workers {
-        let _ = sched::ipc_recv(done);
+        let _ = sched::ipc_receive(done);
     }
     let ticks = crate::arch::timer::now() - t0;
     while sched::thread_count() > base {

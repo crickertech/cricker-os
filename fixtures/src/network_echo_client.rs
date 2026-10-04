@@ -134,7 +134,7 @@ fn exchange() -> Result<usize, &'static [u8]> {
         let _ = call(STACK, req(OP_CLOSE, SID), 0);
         return Err(b"sending");
     }
-    let (n, _) = call(STACK, req(OP_RECV, SID), 0);
+    let (n, _) = call(STACK, req(OP_RECEIVE, SID), 0);
     // Closed before the answer is judged, so a failed exchange still gives the socket back.
     let _ = call(STACK, req(OP_CLOSE, SID), 0);
     if n == REP_ERR || n == 0 {

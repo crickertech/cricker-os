@@ -12,12 +12,12 @@
 //!
 //! ```text
 //!                     ┌──── the stable name: one endpoint, forever ────┐
-//!    chatty ──CALL──► │                  SVC                           │ ◄──RECV_CAP── rust_swappable v1
-//!   (client)          └────────────────────────────────────────────────┘ ◄──RECV_CAP── c_swappable v2
+//!    chatty ──CALL──► │                  SVC                           │ ◄──RECEIVE_CAP── rust_swappable v1
+//!   (client)          └────────────────────────────────────────────────┘ ◄──RECEIVE_CAP── c_swappable v2
 //! ```
 //!
 //! There is no process in that data path. The client's capability never changes, the client's loop
-//! never branches, and the swap is a change in *who is parked in `RECV_CAP`*. That is the whole
+//! never branches, and the swap is a change in *who is parked in `RECEIVE_CAP`*. That is the whole
 //! trick, and it is DECISIONS §12's endpoint-only naming cashed in: a client names an endpoint and
 //! never a peer, so the peer is free to be somebody else tomorrow.
 //!
@@ -75,7 +75,7 @@ use user_mode_runtime::invoke;
 
 // ===========================================================================================
 // The service protocol. Every request is a `CALL` on the stable endpoint; the component serves it
-// with `RECV_CAP` and answers through the kernel's one-shot `Reply` capability (DECISIONS §12).
+// with `RECEIVE_CAP` and answers through the kernel's one-shot `Reply` capability (DECISIONS §12 (Call/Reply IPC)).
 // ===========================================================================================
 
 /// `call(SVC, OP_PUT, seq)` -> `(digest(seq), (version << 32) | seq)`.
@@ -914,7 +914,7 @@ pub fn serve_with_state(
     loop {
         let mut since = 0u64;
         loop {
-            let req = user_mode_runtime::recv_request(SVC);
+            let req = user_mode_runtime::receive_request(SVC);
             let (op, arg) = (req.w0, req.w1);
             // Only a CALL is answered; a SEND_CAP's capability is deleted (milestone 706 (a `CALL`
             // server can tell a Reply from a delegation)).
@@ -944,7 +944,7 @@ pub fn serve_with_state(
                 }
             }
         }
-        let (what, _, _) = user_mode_runtime::recv(POKE);
+        let (what, _, _) = user_mode_runtime::receive(POKE);
         if what != POKE_RESUME {
             user_mode_runtime::exit()
         }
@@ -993,7 +993,7 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
 
     let mut served = 0u64;
     loop {
-        let req = user_mode_runtime::recv_request(SVC);
+        let req = user_mode_runtime::receive_request(SVC);
         let (op, arg) = (req.w0, req.w1);
         // A plain SEND or a SEND_CAP slipped in; the contract says CALL, and there is nobody to
         // answer. A delegated capability is deleted rather than answered into (milestone 706).
@@ -1012,7 +1012,7 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
             // The hang is a `CALL` on the coordination channel that the operator never replies to,
             // which is the commonest real hang there is: blocked awaiting a peer that will not
             // answer. It is also the only shape whose blocked-ness is *provable* rather than raced.
-            // A `SEND` followed by a `RECV` would leave a window in which this thread was still
+            // A `SEND` followed by a `RECEIVE` would leave a window in which this thread was still
             // `Ready`, and the operator surveying inside that window would read a state it must not
             // be able to read (see notes/hung-component.md, "why the wedge is a CALL").
             //
@@ -1058,7 +1058,7 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
     // Quiesced. We no longer receive on the stable endpoint, so requests arriving from here on park
     // on its sender queue for whoever receives next. We wait for the operator to tell us what to do
     // with the corpse we are about to become.
-    let (what, _, _) = user_mode_runtime::recv(POKE);
+    let (what, _, _) = user_mode_runtime::receive(POKE);
     if what == POKE_PROBE && device {
         // Touch the registers one last time. If the operator's revoke was real this faults, and the
         // kernel's fault message is the receipt. Reaching the line after it is the failure, and it
@@ -1088,7 +1088,7 @@ pub const NOTE_BROKER_DONE: u64 = 4;
 /// `w2` = requests served first. **A `CALL`, not a `SEND`**, and that is the mechanism rather than a
 /// style choice: the `CALL` is what parks the instance, so it is hung *because* it announced.
 ///
-/// The operator serves this one message with `RECV_CAP` and keeps the reply capability, which is the
+/// The operator serves this one message with `RECEIVE_CAP` and keeps the reply capability, which is the
 /// only handle anything in the system has on a wedged component. Everything the operator does next
 /// is done while that component is genuinely, provably stuck.
 ///
@@ -1130,12 +1130,12 @@ pub fn fail() -> ! {
     user_mode_runtime::trap()
 }
 
-/// A raw `RECV_CAP`, returning the kernel's answer rather than a message. The attacker uses it:
-/// `user_mode_runtime::recv_cap` is written for a caller that is allowed to receive, and the whole question
+/// A raw `RECEIVE_CAP`, returning the kernel's answer rather than a message. The attacker uses it:
+/// `user_mode_runtime::receive_cap` is written for a caller that is allowed to receive, and the whole question
 /// here is what happens to one that is not.
-pub fn try_recv_cap(slot: u64) -> i64 {
+pub fn try_receive_cap(slot: u64) -> i64 {
     // SAFETY: a plain syscall. If it succeeds we have stolen a request, which is the failure.
-    unsafe { invoke(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) }
+    unsafe { invoke(slot, abi::rendezvous::RECEIVE_CAP, 0, 0, 0) }
 }
 
 #[cfg(test)]

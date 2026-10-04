@@ -3,7 +3,7 @@
 //! names it everywhere a single ISA is not in view: `EL0` on aarch64, `U-mode` on riscv64, `ring 3`
 //! on `x86_64`, and "user mode" when the sentence covers all three.
 //!
-//! One syscall wrapper (`invoke`) and the three things every program builds on it: `send`, `recv`,
+//! One syscall wrapper (`invoke`) and the three things every program builds on it: `send`, `receive`,
 //! and `exit`. That is the whole crate. It exists because milestones 19f.2-5 split the userspace
 //! into distinct binaries (`least_authority_demo`, `console`, `input`, `shell`, plus `hello`), each
 //! of which had
@@ -68,16 +68,16 @@
 //! no `open`, no path, and no way to name anything that was not handed over.
 //!
 //! ```no_run
-//! use user_mode_runtime::{exit, recv, send};
+//! use user_mode_runtime::{exit, receive, send};
 //!
 //! /// A pipeline stage: read three words off the endpoint in slot 0, pass them to slot 1.
 //! fn relay() -> ! {
 //!     const IN: u64 = 0;
 //!     const OUT: u64 = 1;
 //!     loop {
-//!         // `recv` blocks until a sender rendezvouses. The rendezvous IS the flow control: there
+//!         // `receive` blocks until a sender rendezvouses. The rendezvous IS the flow control: there
 //!         // is no buffer to fill and no back-pressure to invent.
-//!         let (w0, w1, w2) = recv(IN);
+//!         let (w0, w1, w2) = receive(IN);
 //!         if send(OUT, w0, w1, w2) < 0 {
 //!             // A negative return is an `abi::Error`. `Gone` here means the reader exited, which
 //!             // is this system's SIGPIPE, arriving as a return code rather than as a signal.
@@ -157,7 +157,7 @@ pub mod virtio;
 /// and two more arguments go in `x0..x3`/`a0..a3` (the fifth, `x4`/`a4`, is spare and always zero on
 /// input); the kernel's reply comes back in the same five registers, `x0..x4`/`a0..a4`. This is now
 /// the one place the actual trap instruction and register file appear for a `SYS_INVOKE` call:
-/// [`invoke`] and every multi-word method below ([`recv`], [`recv_cap`], [`recv_fault`], [`call`],
+/// [`invoke`] and every multi-word method below ([`receive`], [`receive_cap`], [`receive_fault`], [`call`],
 /// [`survey`], [`list`]) used to each hand-roll their own `asm!` block asserting the identical
 /// invariant ("`svc`/`ecall` traps to the kernel, which validates before acting") at a register
 /// layout that differed only in which of the five words the caller happened to read back. Six
@@ -166,9 +166,9 @@ pub mod virtio;
 /// every caller above is a safe wrapper that just picks which return words it wants.
 ///
 /// One behavioural note for a reader diffing this against the asm the individual functions used to
-/// carry: a few of them ([`recv`], [`recv_cap`], [`recv_fault`]) left `x2`/`a2` with no `in`
+/// carry: a few of them ([`receive`], [`receive_cap`], [`receive_fault`]) left `x2`/`a2` with no `in`
 /// operand at all, so the kernel received whatever value happened to already be in that register
-/// (harmless, since `RECV`/`RECV_CAP` read no input words). Routing them through this shared
+/// (harmless, since `RECEIVE`/`RECEIVE_CAP` read no input words). Routing them through this shared
 /// primitive means they now pass an explicit `0` there instead, which is a strict tightening, not a
 /// behaviour change: the kernel still ignores it.
 ///
@@ -281,7 +281,7 @@ pub fn send(slot: u64, w0: u64, w1: u64, w2: u64) -> i64 {
 }
 
 /// **Collect the corpse of a child this supervision endpoint supervises** (DECISIONS §32).
-/// `tid` is the thread id the kernel stamped on the death message [`recv_fault`] returned. `0` on
+/// `tid` is the thread id the kernel stamped on the death message [`receive_fault`] returned. `0` on
 /// success; a negative [`abi::Error`] otherwise, and the three that matter are worth telling apart:
 /// `StillAlive` (not dead yet, so wait or escalate to the owner's `MemoryRegion::DESTROY`),
 /// `NotSupervised` (not a child of this endpoint, or already collected), and `NotPermitted` (the
@@ -302,7 +302,7 @@ pub fn reap(slot: u64, tid: u64) -> i64 {
 /// endpoint capability does not carry `READ`, so the holder may send here but not look. **That is
 /// a refusal and not an empty domain**, and a caller must print it as one.
 ///
-/// Three words out of one `invoke`, so it is written like [`recv`] rather than through the
+/// Three words out of one `invoke`, so it is written like [`receive`] rather than through the
 /// single-value helper.
 ///
 /// This is [`survey_record`] with [`abi::survey::record::STATE`], kept as its own function because
@@ -347,33 +347,33 @@ pub fn list(slot: u64, cursor: u64) -> (i64, u64, u64) {
     (r0 as i64, w1, w2)
 }
 
-/// `RECV` three words on the endpoint capability in `slot`. Blocks until a sender arrives; returns
+/// `RECEIVE` three words on the endpoint capability in `slot`. Blocks until a sender arrives; returns
 /// the three words the sender passed in `x0`, `x1`, `x2`.
-pub fn recv(slot: u64) -> (u64, u64, u64) {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV reads no more than the three words used.
-    let (w0, w1, w2, ..) = unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) };
+pub fn receive(slot: u64) -> (u64, u64, u64) {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE reads no more than the three words used.
+    let (w0, w1, w2, ..) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE, 0, 0, 0) };
     (w0, w1, w2)
 }
 
-/// [`recv`], also returning the **sender's badge** in the fourth position: `(w0, w1, w2, badge)`.
+/// [`receive`], also returning the **sender's badge** in the fourth position: `(w0, w1, w2, badge)`.
 /// The badge is the value stamped on the endpoint capability the sender invoked
-/// (`abi::rendezvous::BADGE`), or 0 when it was unbadged. The `RECV` twin of [`recv_cap_badged`],
+/// (`abi::rendezvous::BADGE`), or 0 when it was unbadged. The `RECEIVE` twin of [`receive_cap_badged`],
 /// for a server whose clients `SEND` rather than `CALL`: the system log stamps a byte-sink writer
 /// this way (milestone 613 (a system log service), provisional; the name is provisional too).
-pub fn recv_badged(slot: u64) -> (u64, u64, u64, u64) {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV writes the badge into the fourth word.
-    let (w0, w1, w2, w3, _) = unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) };
+pub fn receive_badged(slot: u64) -> (u64, u64, u64, u64) {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE writes the badge into the fourth word.
+    let (w0, w1, w2, w3, _) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE, 0, 0, 0) };
     (w0, w1, w2, w3)
 }
 
-/// [`recv_badged`] for a thread with a bound notification: `Ok((w0, w1, w2, badge))` for a
+/// [`receive_badged`] for a thread with a bound notification: `Ok((w0, w1, w2, badge))` for a
 /// message, `Err(word)` when the bound notification ended the receive, told apart by the
-/// kernel-written `x4` exactly as [`recv_bound`] does. The log service's one wait point, which
+/// kernel-written `x4` exactly as [`receive_bound`] does. The log service's one wait point, which
 /// takes writers' lines and the kernel's ring signal alike (milestone 342 (the kernel and the
 /// `console` server drive one UART from two address spaces)). Name provisional.
-pub fn recv_badged_bound(slot: u64) -> Result<(u64, u64, u64, u64), u64> {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV returns five words.
-    let (w0, w1, w2, w3, w4) = unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) };
+pub fn receive_badged_bound(slot: u64) -> Result<(u64, u64, u64, u64), u64> {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE returns five words.
+    let (w0, w1, w2, w3, w4) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE, 0, 0, 0) };
     if w4 == abi::notification::BOUND {
         Err(w1)
     } else {
@@ -381,43 +381,43 @@ pub fn recv_badged_bound(slot: u64) -> Result<(u64, u64, u64, u64), u64> {
     }
 }
 
-/// `RECV` **all five words** on the endpoint capability in `slot`: `(w0, w1, w2, w3, w4)`.
+/// `RECEIVE` **all five words** on the endpoint capability in `slot`: `(w0, w1, w2, w3, w4)`.
 ///
-/// The same `RECV` [`recv`] makes, read to its full width. `RECV` has returned five registers since
+/// The same `RECEIVE` [`receive`] makes, read to its full width. `RECEIVE` has returned five registers since
 /// milestone 22 phase A (the kernel writes `w1..w4` directly; DECISIONS §26 implementation note 4),
 /// because a fault notification is five words: `(event, tid, pc, addr, reserved)`. Ordinary
-/// three-word IPC leaves the top two zero, which is why [`recv`] can keep ignoring them.
+/// three-word IPC leaves the top two zero, which is why [`receive`] can keep ignoring them.
 ///
 /// This exists for a **supervisor**, and it is the first thing in userspace to read `w3`: a
 /// restart policy needs the event and the tid, but a *checker* needs the faulting address, which is
 /// the only word that says where the dead thread actually pointed. No new syscall and no new method
 /// (§26's whole surface claim): just the rest of a result that was already being returned.
-pub fn recv_fault(slot: u64) -> (u64, u64, u64, u64, u64) {
+pub fn receive_fault(slot: u64) -> (u64, u64, u64, u64, u64) {
     // SAFETY: forwarded from `invoke5`'s contract.
-    unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) }
+    unsafe { invoke5(slot, abi::rendezvous::RECEIVE, 0, 0, 0) }
 }
 
-/// `RECV_CAP` on the endpoint capability in `slot`: receive a message that may carry a
+/// `RECEIVE_CAP` on the endpoint capability in `slot`: receive a message that may carry a
 /// capability. Blocks until one arrives; returns `(w0, cap_slot, w1)`, where `cap_slot` is where
 /// the incoming capability landed in this thread's capability table, or [`abi::rendezvous::NO_CAP`] if the
 /// message carried none. **For a program receiving a delegation**, whose `cap_slot` it then uses
-/// as the capability it expects. A server that answers a [`call`] receives with [`recv_request`]
+/// as the capability it expects. A server that answers a [`call`] receives with [`receive_request`]
 /// instead: `cap_slot` here is whatever the sender chose, a Reply only if the sender `CALL`ed, and
-/// [`reply`] takes the typed [`Reply`] only `recv_request` returns (milestone 706).
-pub fn recv_cap(slot: u64) -> (u64, u64, u64) {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP reads no more than the three words used.
-    let (w0, w1, w2, ..) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+/// [`reply`] takes the typed [`Reply`] only `receive_request` returns (milestone 706).
+pub fn receive_cap(slot: u64) -> (u64, u64, u64) {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE_CAP reads no more than the three words used.
+    let (w0, w1, w2, ..) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE_CAP, 0, 0, 0) };
     (w0, w1, w2)
 }
 
-/// [`recv_cap`], also returning the **sender's badge** in the fourth position (milestone 599 (a frame per filesystem client channel),
+/// [`receive_cap`], also returning the **sender's badge** in the fourth position (milestone 599 (a frame per filesystem client channel),
 /// provisional): `(w0, received_slot, w1, badge)`. The badge is the value stamped on the endpoint
 /// capability the sender invoked (`abi::rendezvous::BADGE`), or 0 when it was unbadged, so a server
 /// serving many clients on one endpoint tells them apart. A server that does not care which client
-/// called keeps using [`recv_cap`]; this is for one that maps a per-client resource by badge.
-pub fn recv_cap_badged(slot: u64) -> (u64, u64, u64, u64) {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP writes the badge into the fourth word.
-    let (w0, w1, w2, w3, ..) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+/// called keeps using [`receive_cap`]; this is for one that maps a per-client resource by badge.
+pub fn receive_cap_badged(slot: u64) -> (u64, u64, u64, u64) {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE_CAP writes the badge into the fourth word.
+    let (w0, w1, w2, w3, ..) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE_CAP, 0, 0, 0) };
     (w0, w1, w2, w3)
 }
 
@@ -425,7 +425,7 @@ pub fn recv_cap_badged(slot: u64) -> (u64, u64, u64, u64) {
 /// `abi::rendezvous::BADGE`. Returns the slot the badged copy landed in, or a negative error
 /// (`NotPermitted` without `GRANT`, or for a zero badge or an already-badged source). The new slot
 /// holds a copy of the endpoint with `badge` stamped on it. The kernel delivers
-/// that badge to a server's [`recv_cap_badged`] whenever this copy is used to `CALL` or `SEND_CAP`,
+/// that badge to a server's [`receive_cap_badged`] whenever this copy is used to `CALL` or `SEND_CAP`,
 /// which is how a client the progenitor built is told apart from its siblings on one endpoint.
 pub fn badge(slot: u64, badge: u64) -> i64 {
     // SAFETY: `svc`/`ecall`; the kernel validates the endpoint capability and mints into a free slot.
@@ -436,23 +436,23 @@ pub fn badge(slot: u64, badge: u64) -> i64 {
 /// notification's word. *(Name provisional, milestone 151's lane.)*
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Received {
-    /// A sender's three words, exactly what [`recv`] returns.
+    /// A sender's three words, exactly what [`receive`] returns.
     Message(u64, u64, u64),
     /// The bound notification ended the receive; this is its word.
     Notification(u64),
 }
 
-/// `RECV` on the endpoint capability in `slot`, for a thread with a notification bound to it
+/// `RECEIVE` on the endpoint capability in `slot`, for a thread with a notification bound to it
 /// ([`notification_bind`]): blocks until either a message arrives or the notification is
 /// signalled, and says which.
 ///
 /// **It tests `x4`, not `x0`**, and that is the whole reason this wrapper exists rather than
-/// callers reading [`recv`]: `x0` is the sender's own first word, so a sender can put
+/// callers reading [`receive`]: `x0` is the sender's own first word, so a sender can put
 /// [`abi::notification::BOUND`] there, while `x4` is written only by the kernel. See
 /// `abi::notification::BOUND` and notes/notification-objects.md. *(Name provisional.)*
-pub fn recv_bound(slot: u64) -> Received {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV returns five words.
-    let (w0, w1, w2, _, w4) = unsafe { invoke5(slot, abi::rendezvous::RECV, 0, 0, 0) };
+pub fn receive_bound(slot: u64) -> Received {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE returns five words.
+    let (w0, w1, w2, _, w4) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE, 0, 0, 0) };
     if w4 == abi::notification::BOUND {
         Received::Notification(w1)
     } else {
@@ -460,17 +460,17 @@ pub fn recv_bound(slot: u64) -> Received {
     }
 }
 
-/// [`recv_cap`], for a thread with a bound notification: a message comes back as
+/// [`receive_cap`], for a thread with a bound notification: a message comes back as
 /// `Received::Message(w0, reply_slot, w1)`, and a signal on the bound notification as
 /// `Received::Notification(word)`, told apart by the kernel-written `w4` exactly as in
-/// [`recv_bound`].
+/// [`receive_bound`].
 ///
 /// Name: provisional (the lane for milestone 23 (a capability-routed component OS with live
 /// replacement), 2026-09-27), for `broker`'s advisory warning, DECISIONS §231 (a swap's warning to
 /// a dependent is advisory, and the supervisor never waits for it).
-pub fn recv_cap_bound(slot: u64) -> Received {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP returns five words.
-    let (w0, w1, w2, _, w4) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+pub fn receive_cap_bound(slot: u64) -> Received {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE_CAP returns five words.
+    let (w0, w1, w2, _, w4) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE_CAP, 0, 0, 0) };
     if w4 == abi::notification::BOUND {
         Received::Notification(w1)
     } else {
@@ -511,7 +511,7 @@ pub fn notification_bind(slot: u64, thread_slot: u64) -> i64 {
 /// already reached signals at once. `0`, or a negative [`abi::Error`].
 ///
 /// A timer does not block. Wait on the notification ([`notification_wait`]), or receive with it
-/// bound ([`recv_bound`]), and the wait ends on the deadline or on anything else that signals it.
+/// bound ([`receive_bound`]), and the wait ends on the deadline or on anything else that signals it.
 pub fn timer_arm(timer_slot: u64, deadline: u64, notification_slot: u64, bits: u64) -> i64 {
     // SAFETY: `svc`/`ecall`/`syscall`; the kernel validates both capabilities.
     unsafe {
@@ -590,9 +590,9 @@ pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
 ///
 /// **It takes a [`Reply`], not a slot** (milestone 706 (a `CALL` server can tell a Reply from a
 /// delegation), DECISIONS §245 (a `CALL` server tells a Reply from a delegation)). A slot from
-/// `RECV_CAP` may hold anything a client chose to `SEND_CAP`, and `REPLY` is method `0`, which on a
+/// `RECEIVE_CAP` may hold anything a client chose to `SEND_CAP`, and `REPLY` is method `0`, which on a
 /// rendezvous is `SEND`: a server that answered a delegated rendezvous parked itself in that `SEND`
-/// for the life of the machine. A [`Reply`] comes only from [`recv_request`], which built it from
+/// for the life of the machine. A [`Reply`] comes only from [`receive_request`], which built it from
 /// the kernel's own tag, so the type is the check and no server has to remember it.
 pub fn reply(to: Reply, r0: u64, r1: u64) -> i64 {
     // SAFETY: `svc`/`ecall`; the kernel validates the Reply capability and consumes it.
@@ -600,7 +600,7 @@ pub fn reply(to: Reply, r0: u64, r1: u64) -> i64 {
 }
 
 /// **A `CALL`'s one-shot Reply capability, known to be one** (milestone 706, DECISIONS §245; the
-/// name is provisional). The only constructor is [`recv_request`]'s reading of the kernel-written
+/// name is provisional). The only constructor is [`receive_request`]'s reading of the kernel-written
 /// `x4` ([`abi::rendezvous::REPLY_DELIVERED`]), and the only consumer is [`reply`], so a server
 /// cannot answer through a slot a client delegated. Neither `Copy` nor `Clone`, because a Reply
 /// answers once.
@@ -616,7 +616,7 @@ impl Reply {
     }
 }
 
-/// **What a `RECV_CAP` put in `x1`, told apart by the kernel-written `x4`** (milestone 706,
+/// **What a `RECEIVE_CAP` put in `x1`, told apart by the kernel-written `x4`** (milestone 706,
 /// DECISIONS §245; names provisional).
 #[derive(Debug, PartialEq, Eq)]
 pub enum Delivered {
@@ -675,12 +675,12 @@ pub struct Request {
     pub delivered: Delivered,
 }
 
-/// **`RECV_CAP` for a `CALL` server** (milestone 706, DECISIONS §245; name provisional): blocks
+/// **`RECEIVE_CAP` for a `CALL` server** (milestone 706, DECISIONS §245; name provisional): blocks
 /// until a message arrives and returns it with `x1` typed by the kernel's `x4`. The receive every
 /// server that answers with [`reply`] uses, because it is the only source of a [`Reply`].
-pub fn recv_request(slot: u64) -> Request {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP returns five words.
-    let (w0, x1, w1, badge, x4) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+pub fn receive_request(slot: u64) -> Request {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE_CAP returns five words.
+    let (w0, x1, w1, badge, x4) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE_CAP, 0, 0, 0) };
     Request {
         w0,
         w1,
@@ -689,12 +689,12 @@ pub fn recv_request(slot: u64) -> Request {
     }
 }
 
-/// [`recv_request`] for a thread with a bound notification: `Ok` for a message, `Err(word)` when
-/// the bound notification ended the receive, told apart by `x4` as [`recv_bound`] does. Name
+/// [`receive_request`] for a thread with a bound notification: `Ok` for a message, `Err(word)` when
+/// the bound notification ended the receive, told apart by `x4` as [`receive_bound`] does. Name
 /// provisional (milestone 706).
-pub fn recv_request_bound(slot: u64) -> Result<Request, u64> {
-    // SAFETY: forwarded from `invoke5`'s contract; RECV_CAP returns five words.
-    let (w0, x1, w1, badge, x4) = unsafe { invoke5(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) };
+pub fn receive_request_bound(slot: u64) -> Result<Request, u64> {
+    // SAFETY: forwarded from `invoke5`'s contract; RECEIVE_CAP returns five words.
+    let (w0, x1, w1, badge, x4) = unsafe { invoke5(slot, abi::rendezvous::RECEIVE_CAP, 0, 0, 0) };
     if x4 == abi::notification::BOUND {
         return Err(x1);
     }
@@ -1402,7 +1402,7 @@ pub fn exit() -> ! {
 /// turn an impossible situation into a clean-looking death, which is precisely the confusion the
 /// paragraph above exists to prevent.
 ///
-/// A verb, which is right for a function here: `send`, `recv`, `reap` and `exit` are all verbs, and
+/// A verb, which is right for a function here: `send`, `receive`, `reap` and `exit` are all verbs, and
 /// the naming tenet's noun rule is about crates, programs and modules rather than about the things
 /// they do.
 ///

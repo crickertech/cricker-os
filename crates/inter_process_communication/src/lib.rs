@@ -29,7 +29,7 @@
 //! ```
 //! use core::ptr::NonNull;
 //! use intrusive_fifo::Node;
-//! use inter_process_communication::{Rendezvous, Recv, Send};
+//! use inter_process_communication::{Rendezvous, Receive, Send};
 //!
 //! struct ThreadControlBlock {
 //!     next: Option<NonNull<ThreadControlBlock>>,
@@ -51,10 +51,10 @@
 //! let mut ep: Rendezvous<ThreadControlBlock> = Rendezvous::new();
 //! assert!(ep.is_idle());
 //!
-//! // The server calls recv with nobody sending, so it queues. The caller blocks it.
+//! // The server calls receive with nobody sending, so it queues. The caller blocks it.
 //! // SAFETY: both are live locals declared before `ep`, on no queue, and this is the only accessor.
-//! let waiting = unsafe { ep.recv(NonNull::from(&mut server)) };
-//! assert_eq!(waiting, Recv::Blocked);
+//! let waiting = unsafe { ep.receive(NonNull::from(&mut server)) };
+//! assert_eq!(waiting, Receive::Blocked);
 //! assert!(!ep.is_idle());
 //! assert!(ep.one_queue_invariant());
 //!
@@ -73,7 +73,7 @@
 //! ```
 //! # use core::ptr::NonNull;
 //! # use intrusive_fifo::Node;
-//! # use inter_process_communication::{Rendezvous, Recv};
+//! # use inter_process_communication::{Rendezvous, Receive};
 //! # struct ThreadControlBlock { next: Option<NonNull<ThreadControlBlock>> }
 //! # unsafe impl Node for ThreadControlBlock {
 //! #     fn next(&self) -> Option<NonNull<Self>> { self.next }
@@ -82,18 +82,18 @@
 //! let mut driver = ThreadControlBlock { next: None };
 //! let mut ep: Rendezvous<ThreadControlBlock> = Rendezvous::new();
 //!
-//! // Two interrupts arrive with nobody in recv. Neither is dropped; both are counted.
+//! // Two interrupts arrive with nobody in receive. Neither is dropped; both are counted.
 //! assert!(ep.signal().is_none());
 //! assert!(ep.signal().is_none());
 //!
 //! // The driver's next two receives drain them, and it never blocks.
 //! // SAFETY: `driver` is a live local declared before `ep`, on no queue.
-//! assert_eq!(unsafe { ep.recv(NonNull::from(&mut driver)) }, Recv::Signal);
+//! assert_eq!(unsafe { ep.receive(NonNull::from(&mut driver)) }, Receive::Signal);
 //! // SAFETY: as above.
-//! assert_eq!(unsafe { ep.recv(NonNull::from(&mut driver)) }, Recv::Signal);
+//! assert_eq!(unsafe { ep.receive(NonNull::from(&mut driver)) }, Receive::Signal);
 //! // The third finds nothing left and queues.
 //! // SAFETY: as above.
-//! assert_eq!(unsafe { ep.recv(NonNull::from(&mut driver)) }, Recv::Blocked);
+//! assert_eq!(unsafe { ep.receive(NonNull::from(&mut driver)) }, Receive::Blocked);
 //!
 //! // And a signal arriving now wakes it, already dequeued.
 //! assert_eq!(ep.signal(), Some(NonNull::from(&mut driver)));
@@ -113,7 +113,7 @@
 //! **Performed 2026-09-19**, the last of §154's renames. No public type or fuzz target carried the
 //! acronym, so only the crate moved. **IPC the concept did not move with it**: it keeps its name
 //! when this crate is deleted, so the lock §118 named and its type, the syscall-path
-//! `ipc_send`/`ipc_recv`/`ipc_call`/`ipc_reply` family, `notes/ipc-naming.md` and the word in prose
+//! `ipc_send`/`ipc_receive`/`ipc_call`/`ipc_reply` family, `notes/ipc-naming.md` and the word in prose
 //! all stay.
 //!
 //! Census of lowercase `ipc` as a word, outside this file: 206 before, 138 after. Of the
@@ -175,8 +175,8 @@ pub enum Send<T> {
     Refused,
 }
 
-/// What a [`recv`](Rendezvous::recv) decided.
-pub enum Recv<T> {
+/// What a [`receive`](Rendezvous::receive) decided.
+pub enum Receive<T> {
     /// A pending async signal was drained; the receiver does not block.
     Signal,
     /// This queued sender was collected; the caller decides whether to wake it.
@@ -208,23 +208,23 @@ impl<T> core::fmt::Debug for Send<T> {
     }
 }
 
-impl<T> PartialEq for Recv<T> {
+impl<T> PartialEq for Receive<T> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Recv::Signal, Recv::Signal) => true,
-            (Recv::FromSender(a), Recv::FromSender(b)) => a == b,
-            (Recv::Blocked, Recv::Blocked) => true,
+            (Receive::Signal, Receive::Signal) => true,
+            (Receive::FromSender(a), Receive::FromSender(b)) => a == b,
+            (Receive::Blocked, Receive::Blocked) => true,
             _ => false,
         }
     }
 }
-impl<T> Eq for Recv<T> {}
-impl<T> core::fmt::Debug for Recv<T> {
+impl<T> Eq for Receive<T> {}
+impl<T> core::fmt::Debug for Receive<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Recv::Signal => f.write_str("Signal"),
-            Recv::FromSender(p) => f.debug_tuple("FromSender").field(p).finish(),
-            Recv::Blocked => f.write_str("Blocked"),
+            Receive::Signal => f.write_str("Signal"),
+            Receive::FromSender(p) => f.debug_tuple("FromSender").field(p).finish(),
+            Receive::Blocked => f.write_str("Blocked"),
         }
     }
 }
@@ -243,7 +243,7 @@ impl<T: Node> Rendezvous<T> {
 
     /// **Make this the rendezvous a hardware interrupt is delivered to, for good** (DECISIONS §101,
     /// ruling B). From now on every [`send`](Self::send) is [`Send::Refused`]; [`signal`](Self::signal)
-    /// and [`recv`](Self::recv) are unchanged. One-way: there is no unbind, because the kernel has
+    /// and [`receive`](Self::receive) are unchanged. One-way: there is no unbind, because the kernel has
     /// none (`sched::bind_irq` only ever overwrites a route), and a rendezvous that once carried an
     /// interrupt is safer left refusing than reopened to senders a driver does not expect.
     ///
@@ -299,10 +299,10 @@ impl<T: Node> Rendezvous<T> {
     ///
     /// The one operation an intrusive `Fifo` deliberately does not offer (arbitrary remove), needed
     /// here for one reason: a **corpse** can be a queued sender. A supervised thread that dies with
-    /// nobody in `RECV` parks on its supervision rendezvous's sender queue with the death message in
+    /// nobody in `RECEIVE` parks on its supervision rendezvous's sender queue with the death message in
     /// its mailbox (DECISIONS §26 implementation note 2), and its supervisor may then reap it
     /// (§32's rendezvous reap, or §16's `DESTROY`) *without* having collected the message. Freeing a
-    /// TCB that is still linked into a queue leaves a dangling pointer the next `recv` would follow,
+    /// TCB that is still linked into a queue leaves a dangling pointer the next `receive` would follow,
     /// so the reap has to unlink it first.
     ///
     /// Expressed as drain-and-repush over `pop_front`/`push_back` rather than as a `Fifo::remove`,
@@ -335,7 +335,7 @@ impl<T: Node> Rendezvous<T> {
     /// reason.
     ///
     /// It exists for milestone 133: `MemoryRegion::DESTROY` ends a resident thread that is
-    /// permanently `Blocked`, and the commonest such thread is a server parked in `RECV` on a
+    /// permanently `Blocked`, and the commonest such thread is a server parked in `RECEIVE` on a
     /// rendezvous that belongs to somebody else. Its TCB is linked here, so the region's reclaim
     /// has to unlink it before freeing the page the TCB sits on, exactly as a corpse on a
     /// supervision rendezvous's sender queue does.
@@ -397,16 +397,16 @@ impl<T: Node> Rendezvous<T> {
     /// # Safety
     ///
     /// As for [`send`](Self::send).
-    pub unsafe fn recv(&mut self, me: NonNull<T>) -> Recv<T> {
+    pub unsafe fn receive(&mut self, me: NonNull<T>) -> Receive<T> {
         if self.pending > 0 {
             self.pending -= 1;
-            Recv::Signal
+            Receive::Signal
         } else if let Some(sender) = self.senders.pop_front() {
-            Recv::FromSender(sender)
+            Receive::FromSender(sender)
         } else {
             // SAFETY: the caller's contract is exactly the queue's.
             unsafe { self.receivers.push_back(me) };
-            Recv::Blocked
+            Receive::Blocked
         }
     }
 
@@ -451,7 +451,7 @@ impl<T: Node> Default for Rendezvous<T> {
 /// declares `e`, and Rust drops locals in reverse declaration order, so the `Rendezvous` is destroyed
 /// first. A node still parked on a queue when the harness returns was therefore valid for the whole
 /// of its time there, which is the "stays valid for as long as it may be queued" half of
-/// `send`/`recv`'s contract and of `seed`'s.
+/// `send`/`receive`'s contract and of `seed`'s.
 ///
 /// **Every node is on no queue when it is passed.** Each `N::new()` starts with a null link, `e`
 /// starts empty, and no harness hands the same node to two calls. That is why the harnesses carry a
@@ -525,15 +525,15 @@ mod verification {
         assert!(e.one_queue_invariant());
     }
 
-    /// Falsification: replayable `crates/inter_process_communication/falsifications/verification.recv_preserves_the_invariant.patch`
+    /// Falsification: replayable `crates/inter_process_communication/falsifications/verification.receive_preserves_the_invariant.patch`
     #[kani::proof]
-    fn recv_preserves_the_invariant() {
+    fn receive_preserves_the_invariant() {
         let (mut s, mut r, mut me) = (N::new(), N::new(), N::new());
         let mut e: Rendezvous<N> = Rendezvous::new();
-        // SAFETY: as in `send_preserves_the_invariant` above; `recv`'s contract on `me` is `send`'s.
+        // SAFETY: as in `send_preserves_the_invariant` above; `receive`'s contract on `me` is `send`'s.
         unsafe {
             seed(&mut e, NonNull::from(&mut s), NonNull::from(&mut r));
-            e.recv(NonNull::from(&mut me));
+            e.receive(NonNull::from(&mut me));
         }
         assert!(e.one_queue_invariant());
     }
@@ -669,9 +669,9 @@ mod verification {
     /// **A pending signal is taken before a queued sender.** A receive drains a counted signal
     /// first, so an async signal delivered with nobody waiting is never lost behind a later
     /// synchronous sender.
-    /// Falsification: replayable `crates/inter_process_communication/falsifications/verification.recv_drains_a_pending_signal_first.patch`
+    /// Falsification: replayable `crates/inter_process_communication/falsifications/verification.receive_drains_a_pending_signal_first.patch`
     #[kani::proof]
-    fn recv_drains_a_pending_signal_first() {
+    fn receive_drains_a_pending_signal_first() {
         let (mut s, mut r, mut me) = (N::new(), N::new(), N::new());
         let mut e: Rendezvous<N> = Rendezvous::new();
         // SAFETY: `s` and `r` are distinct fresh nodes declared before `e`: valid, unqueued,
@@ -682,7 +682,8 @@ mod verification {
             // is valid, on no queue, and outlives the rendezvous. This receive drains a signal rather
             // than queueing `me`, but that is what the harness asserts, not what makes the call
             // sound: the contract is met either way.
-            assert_eq!(unsafe { e.recv(NonNull::from(&mut me)) }, Recv::Signal);
+            let outcome = unsafe { e.receive(NonNull::from(&mut me)) };
+            assert_eq!(outcome, Receive::Signal);
         }
     }
 
@@ -709,9 +710,9 @@ mod verification {
             unsafe {
                 // SAFETY: `me` is a fresh node declared before `e` and never given to `seed`, so it
                 // is valid, on no queue, and outlives the rendezvous.
-                e.recv(NonNull::from(&mut me))
+                e.receive(NonNull::from(&mut me))
             },
-            Recv::FromSender(_)
+            Receive::FromSender(_)
         ) {
             assert!(e.senders.is_empty() && e.receivers.is_empty());
             assert!(!matches!(
@@ -720,9 +721,9 @@ mod verification {
                     // nothing else. It exists so this second receive does not reuse `me`: `me` was
                     // not queued by the receive above (it returned `FromSender`), but a separate
                     // node makes this site's obligation independent of that reasoning.
-                    e.recv(NonNull::from(&mut me2))
+                    e.receive(NonNull::from(&mut me2))
                 },
-                Recv::FromSender(_)
+                Receive::FromSender(_)
             ));
         }
     }
@@ -736,10 +737,10 @@ mod tests {
     //! **The node outlives the rendezvous.** Each test declares its nodes before its `Rendezvous`, and
     //! Rust drops locals in reverse declaration order, so `e` is destroyed first. A node parked on a
     //! queue when the test ends is therefore still valid when the rendezvous goes away, which is the
-    //! "stays valid for as long as it may be queued" half of `send`/`recv`'s contract.
+    //! "stays valid for as long as it may be queued" half of `send`/`receive`'s contract.
     //!
     //! **The node is on no queue when it is passed.** This is the half that is NOT free, because
-    //! several tests reuse one receiver node: it holds only because a `recv` that returns `Signal`
+    //! several tests reuse one receiver node: it holds only because a `receive` that returns `Signal`
     //! or `FromSender` never queues its argument. Where a site depends on that, its own comment
     //! says so.
 
@@ -775,8 +776,8 @@ mod tests {
         assert_eq!(unsafe { e.send(sp) }, Send::Blocked); // nobody waiting: park the sender
         assert_eq!(
             // SAFETY: as above.
-            unsafe { e.recv(NonNull::from(&mut *r)) },
-            Recv::FromSender(sp)
+            unsafe { e.receive(NonNull::from(&mut *r)) },
+            Receive::FromSender(sp)
         ); // receiver collects it
         assert!(e.one_queue_invariant());
     }
@@ -792,7 +793,7 @@ mod tests {
         e.bind_to_interrupt();
 
         // SAFETY: `dp` is a live node, on no queue (see the module note).
-        assert_eq!(unsafe { e.recv(dp) }, Recv::Blocked);
+        assert_eq!(unsafe { e.receive(dp) }, Receive::Blocked);
         assert_eq!(
             // SAFETY: `forger` is a live node, on no queue.
             unsafe { e.send(NonNull::from(&mut *forger)) },
@@ -811,7 +812,7 @@ mod tests {
         let mut e: Rendezvous<N> = Rendezvous::new();
 
         // SAFETY: `rp` is a live node, on no queue (see the module note).
-        assert_eq!(unsafe { e.recv(rp) }, Recv::Blocked);
+        assert_eq!(unsafe { e.receive(rp) }, Receive::Blocked);
         assert_eq!(
             // SAFETY: as above.
             unsafe { e.send(NonNull::from(&mut *s)) },
@@ -832,14 +833,14 @@ mod tests {
         assert_eq!(unsafe { e.send(bp) }, Send::Blocked);
         assert_eq!(
             // SAFETY: as above.
-            unsafe { e.recv(NonNull::from(&mut *r)) },
-            Recv::FromSender(ap)
+            unsafe { e.receive(NonNull::from(&mut *r)) },
+            Receive::FromSender(ap)
         );
-        // SAFETY: as above; the previous `recv` returned `FromSender`, so `r` was never queued and is still on no queue.
+        // SAFETY: as above; the previous `receive` returned `FromSender`, so `r` was never queued and is still on no queue.
         assert_eq!(
             // SAFETY: as above.
-            unsafe { e.recv(NonNull::from(&mut *r)) },
-            Recv::FromSender(bp)
+            unsafe { e.receive(NonNull::from(&mut *r)) },
+            Receive::FromSender(bp)
         );
     }
 
@@ -852,11 +853,14 @@ mod tests {
         assert_eq!(e.signal(), None); // counted
         assert_eq!(e.signal(), None);
         // SAFETY: `r` is a live node, on no queue (see the module note). The first two calls drain counted signals and never queue it; only the third parks it.
-        assert_eq!(unsafe { e.recv(NonNull::from(&mut *r)) }, Recv::Signal);
+        let outcome = unsafe { e.receive(NonNull::from(&mut *r)) };
+        assert_eq!(outcome, Receive::Signal);
         // SAFETY: as above.
-        assert_eq!(unsafe { e.recv(NonNull::from(&mut *r)) }, Recv::Signal);
+        let outcome = unsafe { e.receive(NonNull::from(&mut *r)) };
+        assert_eq!(outcome, Receive::Signal);
         // SAFETY: as above.
-        assert_eq!(unsafe { e.recv(NonNull::from(&mut *r)) }, Recv::Blocked);
+        let outcome = unsafe { e.receive(NonNull::from(&mut *r)) };
+        assert_eq!(outcome, Receive::Blocked);
     }
 
     /// The rendezvous-destroy contract (object revocation): `drain_waiters` hands back every parked
@@ -884,7 +888,7 @@ mod tests {
         // The other queue drains through the same path: a receiver can be parked too.
         let rp = NonNull::from(&mut *r);
         // SAFETY: `rp` is a live node, on no queue (see the module note); `drain_waiters` emptied the queues above.
-        assert_eq!(unsafe { e.recv(rp) }, Recv::Blocked);
+        assert_eq!(unsafe { e.receive(rp) }, Receive::Blocked);
         drained.clear();
         e.drain_waiters(|w| drained.push(w));
         assert_eq!(drained, [rp]);
@@ -905,7 +909,7 @@ mod tests {
     /// **A queued sender can be taken back out of the middle**, which is what reaping a corpse
     /// needs (DECISIONS §32, and §16's `DESTROY` before it): a supervised thread that died with
     /// nobody receiving is parked here with its death message, and freeing it while it is still
-    /// linked would leave the next `recv` following a dangling pointer. The survivors keep FIFO
+    /// linked would leave the next `receive` following a dangling pointer. The survivors keep FIFO
     /// order, the length drops by exactly one, and removing something that is not queued reports
     /// `false` and changes nothing.
     #[test]
@@ -927,16 +931,17 @@ mod tests {
         assert_eq!(e.debug_counts().0, 2, "exactly one sender left the queue");
         assert_eq!(
             // SAFETY: as above.
-            unsafe { e.recv(NonNull::from(&mut *r)) },
-            Recv::FromSender(ap)
+            unsafe { e.receive(NonNull::from(&mut *r)) },
+            Receive::FromSender(ap)
         );
         assert_eq!(
             // SAFETY: as above.
-            unsafe { e.recv(NonNull::from(&mut *r)) },
-            Recv::FromSender(cp)
+            unsafe { e.receive(NonNull::from(&mut *r)) },
+            Receive::FromSender(cp)
         );
         // SAFETY: as above.
-        assert_eq!(unsafe { e.recv(NonNull::from(&mut *r)) }, Recv::Blocked);
+        let outcome = unsafe { e.receive(NonNull::from(&mut *r)) };
+        assert_eq!(outcome, Receive::Blocked);
 
         // Not queued (already collected, the ordinary case): a no-op that says so.
         let mut e2: Rendezvous<N> = Rendezvous::new();
@@ -960,13 +965,14 @@ mod tests {
         assert!(unsafe { e.remove_sender(ap) });
         assert!(e.is_idle(), "the rendezvous still holds a sender");
         // SAFETY: as above.
-        assert_eq!(unsafe { e.recv(NonNull::from(&mut *r)) }, Recv::Blocked);
+        let outcome = unsafe { e.receive(NonNull::from(&mut *r)) };
+        assert_eq!(outcome, Receive::Blocked);
         // And it can be used again afterwards: push, pop, no ghost.
         assert!(e.one_queue_invariant());
     }
 
     /// **A queued receiver can be taken back out of the middle**, which is what milestone 133's
-    /// completed reclaim needs: a server parked in `RECV` on somebody else's rendezvous is linked
+    /// completed reclaim needs: a server parked in `RECEIVE` on somebody else's rendezvous is linked
     /// here, and `MemoryRegion::DESTROY` on the region holding its TCB frees the page that link
     /// points into. The survivors keep FIFO order, the count drops by exactly one, and removing
     /// something that is not queued reports `false` and changes nothing.
@@ -982,7 +988,7 @@ mod tests {
 
         for p in [ap, bp, cp] {
             // SAFETY: `ap`, `bp` and `cp` are live nodes, each on no queue (see the module note).
-            assert_eq!(unsafe { e.recv(p) }, Recv::Blocked);
+            assert_eq!(unsafe { e.receive(p) }, Receive::Blocked);
         }
         // SAFETY: `bp` is compared by pointer and never dereferenced; the receivers that get re-queued are the same live locals.
         assert!(unsafe { e.remove_receiver(bp) }, "b was queued");
@@ -1018,7 +1024,7 @@ mod tests {
         let mut e: Rendezvous<N> = Rendezvous::new();
 
         // SAFETY: `ap` is a live node, on no queue (see the module note).
-        assert_eq!(unsafe { e.recv(ap) }, Recv::Blocked);
+        assert_eq!(unsafe { e.receive(ap) }, Receive::Blocked);
         // SAFETY: `ap` is compared by pointer, never dereferenced.
         assert!(unsafe { e.remove_receiver(ap) });
         assert!(e.is_idle(), "the rendezvous still holds a receiver");
@@ -1035,7 +1041,7 @@ mod tests {
         let mut e: Rendezvous<N> = Rendezvous::new();
 
         // SAFETY: `rp` is a live node, on no queue (see the module note).
-        assert_eq!(unsafe { e.recv(rp) }, Recv::Blocked);
+        assert_eq!(unsafe { e.receive(rp) }, Receive::Blocked);
         assert_eq!(e.signal(), Some(rp)); // the waiter, dequeued
         assert!(e.one_queue_invariant());
     }
@@ -1048,10 +1054,10 @@ mod tests {
         let mut s = node();
         let sp = NonNull::from(&mut *s);
         assert_ne!(Send::<N>::Blocked, Send::Rendezvous(sp));
-        assert_ne!(Recv::<N>::Signal, Recv::Blocked);
-        assert_ne!(Recv::<N>::FromSender(sp), Recv::Signal);
+        assert_ne!(Receive::<N>::Signal, Receive::Blocked);
+        assert_ne!(Receive::<N>::FromSender(sp), Receive::Signal);
         assert_eq!(format!("{:?}", Send::<N>::Blocked), "Blocked");
-        assert_eq!(format!("{:?}", Recv::<N>::Signal), "Signal");
-        assert!(format!("{:?}", Recv::<N>::FromSender(sp)).starts_with("FromSender"));
+        assert_eq!(format!("{:?}", Receive::<N>::Signal), "Signal");
+        assert!(format!("{:?}", Receive::<N>::FromSender(sp)).starts_with("FromSender"));
     }
 }

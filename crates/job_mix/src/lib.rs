@@ -56,7 +56,7 @@
 //! | [`YIELD`] | (scheduling pressure) | a full context switch through the ready queue |
 //! | [`ROUND_TRIP`] | pipe I/O | `CALL` to a shared server and its `REPLY`: two rendezvous |
 //! | [`MAP`] | user virtual-memory operations (mapping) | split a region, build a space, 32 `MAP_INTO`s, `DESTROY` |
-//! | [`SPAWN`] | process creation | build two children from EL0, `RECV` each one's exit, reclaim |
+//! | [`SPAWN`] | process creation | build two children from EL0, `RECEIVE` each one's exit, reclaim |
 //!
 //! [`MAP`] and [`SPAWN`] were added on 2026-09-19. They are the two jobs whose kernel path goes
 //! deepest and takes a lock other tasks' same job also wants (the memory-region table), and
@@ -300,7 +300,7 @@ pub const ROUND_TRIP: u8 = 4;
 pub const MAP: u8 = 5;
 /// **Process creation** (added 2026-09-19): [`SPAWN_CALLS`] children built from EL0 through the
 /// granular verbs, run to exit, reaped and reclaimed. AIM7's process-creation category, and the job
-/// that blocks deepest: the parent waits in `RECV` on a thread that did not exist a moment before.
+/// that blocks deepest: the parent waits in `RECEIVE` on a thread that did not exist a moment before.
 pub const SPAWN: u8 = 6;
 
 /// How many job kinds there are. A counted claim: the table in this crate's header has one row per
@@ -398,7 +398,7 @@ pub const MAP_REGION_PAGES: u64 = 16;
 
 /// Children one [`SPAWN`] job builds, runs and reclaims, one at a time. Two, because a spawn is the
 /// heaviest thing in the mix (`spawn_el0` on radon is about 65 us a child) and two already make it
-/// the most expensive job per call; one child per job would leave the parent's own `RECV` on a
+/// the most expensive job per call; one child per job would leave the parent's own `RECEIVE` on a
 /// brand-new thread as the whole of it.
 pub const SPAWN_CALLS: u64 = 2;
 
@@ -528,7 +528,7 @@ pub const ROLE_ECHO: u64 = 1;
 /// Mixer slot 0: the endpoint it `SEND`s its result on. Slot 0 is "the endpoint I report on"
 /// throughout this tree's benchmark programs, and this keeps that true.
 pub const SLOT_REPORT: u64 = 0;
-/// Mixer slot 1: the endpoint it `RECV`s its go-ahead on, one per task.
+/// Mixer slot 1: the endpoint it `RECEIVE`s its go-ahead on, one per task.
 pub const SLOT_GO: u64 = 1;
 /// Mixer slot 2: the endpoint it `CALL`s for a [`ROUND_TRIP`] job.
 pub const SLOT_ECHO: u64 = 2;

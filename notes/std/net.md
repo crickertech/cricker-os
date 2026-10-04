@@ -32,15 +32,15 @@ numbers change with it, because there is one source.
 
 What binds, and how it maps to the contract:
 
-- `TcpStream::{connect, read, write, ...}` -> `OP_OPEN_TCP`, `OP_CONNECT`, `OP_RECV`, `OP_SEND`,
-  `OP_CLOSE` (on `Drop`). `read` blocks in net_stack until data arrives (a blocked `RECV`), the
+- `TcpStream::{connect, read, write, ...}` -> `OP_OPEN_TCP`, `OP_CONNECT`, `OP_RECEIVE`, `OP_SEND`,
+  `OP_CLOSE` (on `Drop`). `read` blocks in net_stack until data arrives (a blocked `RECEIVE`), the
   blocking semantics std's default API wants. A short `read` keeps the segment's tail in a
   per-socket residual buffer, so a stream never drops bytes.
 - `UdpSocket::{bind, connect, send, recv, send_to, recv_from}` -> `OP_OPEN_UDP`, `OP_SENDTO`,
-  `OP_RECV`. UDP `connect` only fixes a default peer (no contract call, matching Unix). `bind`'s
+  `OP_RECEIVE`. UDP `connect` only fixes a default peer (no contract call, matching Unix). `bind`'s
   local address is validated but not honored: net_stack assigns an ephemeral local port.
 - Errors map by meaning, no errno. A refused TCP connect is `ConnectionRefused`; a net_stack timeout
-  on `RECV` is `TimedOut`; a datagram larger than the frame is `InvalidInput`; an IPv6 address is
+  on `RECEIVE` is `TimedOut`; a datagram larger than the frame is `InvalidInput`; an IPv6 address is
   `Unsupported` (net_stack is IPv4-only). A `CALL` on an empty `Stack` slot (no network granted)
   reads back negative and becomes `Unsupported`, the same answer a program with no net grants gets.
 

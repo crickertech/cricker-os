@@ -45,7 +45,7 @@ Linux does for its vDSO), which lands with the cross-OS suite.
 ### The measurement plane: kernel-side (gating) vs EL0 (cross-OS)
 
 The kernel-side microbenchmarks run in kernel context. The bench threads are kernel threads calling
-`sched::yield_now` and `sched::ipc_send/recv` directly, so they measure each operation's
+`sched::yield_now` and `sched::ipc_send/receive` directly, so they measure each operation's
 kernel-internal path length. That is right for regression gating: a code-path change moves the count
 next to its commit. It is not what lmbench measures. lmbench runs a userspace program making real
 syscalls, so its numbers include the EL0→EL1 trap and return that a kernel-side benchmark skips.
@@ -67,7 +67,7 @@ the bench boot, self-times each primitive from EL0 and reports it as a normal be
 |---|---|---|
 | `null_syscall` | ~42 | one `svc` that the kernel rejects immediately: trap + dispatch + return |
 | `ctx_switch` | ~692 | one `SYS_YIELD` to a peer *process* and back: two switches, address space included |
-| `ipc_rtt_el0` | ~2272 | a `SEND` to a server process and a `RECV` of its reply: two rendezvous, four `svc`s |
+| `ipc_rtt_el0` | ~2272 | a `SEND` to a server process and a `RECEIVE` of its reply: two rendezvous, four `svc`s |
 | `map_el0` | ~909 | `invoke(aspace, MAP_INTO, va, frame, RO)`: trap + cap resolve + walk + PTE + record |
 
 Two sanity checks pass. A context switch is ~16x a null syscall: two traps, the scheduler, two

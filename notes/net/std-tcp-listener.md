@@ -51,7 +51,7 @@ so what comes back is `0.0.0.0:0` and `peer_addr()` on an accepted stream report
 that logs its peers logs zeros. Two ways to fix it, both changes to what two programs agree on and
 therefore neither taken here. One is a second reply word (`reply` already carries two and `OP_ACCEPT`
 sends zero in the second). The other is the frame's dead `dst` fields, which is exactly the move a UDP
-`RECV` already makes with the datagram's source and would cost no format change at all. The second
+`RECEIVE` already makes with the datagram's source and would cost no format change at all. The second
 is cheaper and has the precedent; both are calef's.
 
 The host prober now sees two listening windows over one boot, and what it requires changed shape

@@ -6,7 +6,7 @@ use super::*;
 fn start() -> (clock_service::Wiring, [u64; 5]) {
     let image = program("clock").expect("no clock program in the initrd archive");
     let w = clock_service::start(image);
-    let report = crate::sched::ipc_recv(w.report);
+    let report = crate::sched::ipc_receive(w.report);
     (w, report)
 }
 

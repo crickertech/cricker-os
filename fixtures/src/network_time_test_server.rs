@@ -15,7 +15,7 @@
 //! this out of the client's binary and change nothing about what it proves.
 //!
 //! What the pair proves: the socket-contract glue (minting a frame, delegating it, the destination
-//! header, `SENDTO`/`RECV` framing), that the 48 bytes on the wire are a well-formed NTPv4 client
+//! header, `SENDTO`/`RECEIVE` framing), that the 48 bytes on the wire are a well-formed NTPv4 client
 //! packet addressed to port 123, that the nonce is unpredictable, that a reply failing
 //! `Query::accept` moves nothing, and that an accepted sample becomes a *proposal* the clock
 //! service judges.
@@ -69,7 +69,7 @@ use network_time_protocol::{Packet, Short, Timestamp, leap, mode};
 #[allow(dead_code)]
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{Delivered, cap_delete, map_page_frame, recv_request, reply, send};
+use user_mode_runtime::{Delivered, cap_delete, map_page_frame, receive_request, reply, send};
 
 // =================================================================================================
 // The slots, and the one word this program reports.
@@ -131,7 +131,7 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
     let mut reported = false;
 
     loop {
-        let req = recv_request(STACK);
+        let req = receive_request(STACK);
         let (w0, w1) = (req.w0, req.w1);
         // net_stack's own split (milestone 706 (a `CALL` server can tell a Reply from a
         // delegation)): ATTACH takes a delegation, every other op a Reply.
@@ -173,7 +173,7 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
                     );
                 }
             }
-            OP_RECV => {
+            OP_RECEIVE => {
                 write_payload(&pending[..pending_len]);
                 w16le(PAGE_FRAME_VA + OFF_LEN, pending_len as u16);
                 reply(cap, pending_len as u64, 0);

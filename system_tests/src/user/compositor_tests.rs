@@ -28,7 +28,7 @@ fn wait_for(mut cond: impl FnMut() -> bool) -> bool {
 
 /// What the last flush asked for, and how many there have been. Written by the display stand-in
 /// below; reset by each call to [`kernel_display`]. The compositors left behind by earlier tests are
-/// parked in `RECV` and flush nothing, so this is not shared state in any live sense.
+/// parked in `RECEIVE` and flush nothing, so this is not shared state in any live sense.
 static LAST_FLUSH: AtomicU64 = AtomicU64::new(u64::MAX);
 static FLUSH_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -49,7 +49,7 @@ fn kernel_display() -> (sched::RendezvousId, u64) {
     let ep = sched::create_rendezvous();
     sched::spawn(move || {
         loop {
-            let m = sched::ipc_recv_cap(ep);
+            let m = sched::ipc_receive_cap(ep);
             let (w0, slot) = (m[0], m[1]);
             let crate::cap::Object::Reply(caller) = sched::current_cap(slot)
                 .expect("the display stand-in got no reply capability")
@@ -79,7 +79,7 @@ fn kernel_display() -> (sched::RendezvousId, u64) {
 
 /// Wait for the compositor's one status message, and check it.
 fn wait_for_compositor(w: &Wiring) {
-    let [tag, windows, focus, ..] = sched::ipc_recv(w.report);
+    let [tag, windows, focus, ..] = sched::ipc_receive(w.report);
     assert_eq!(
         tag,
         status::COMP_UP,
@@ -92,7 +92,7 @@ fn wait_for_compositor(w: &Wiring) {
 
 /// Take a `CALL` a client parked on its report endpoint: `(the caller, the reply slot, its word)`.
 fn take_call(ep: sched::RendezvousId, want: u64) -> (u64, u64, u64) {
-    let m = sched::ipc_recv_cap(ep);
+    let m = sched::ipc_receive_cap(ep);
     assert_eq!(
         m[0], want,
         "a client reported {:#x} where {want:#x} was expected (a 0xDEAD_.. word's low byte names \
@@ -117,7 +117,7 @@ fn release(caller: u64, slot: u64) {
 /// contract says that window holds. Every honest client sends exactly one of these, so a test that
 /// spawns a client owes it a receive: a rendezvous SEND nobody takes leaves the client parked.
 fn expect_painted(w: &Wiring, i: usize) {
-    let [tag, digest, id, ..] = sched::ipc_recv(w.client_report[i]);
+    let [tag, digest, id, ..] = sched::ipc_receive(w.client_report[i]);
     assert_eq!(
         tag,
         status::WIN_PAINTED,
@@ -221,7 +221,7 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
     let faults = USER_FAULTS.load(Ordering::Relaxed);
     w.spawn_client(ATTACKER, ROLE_PROBE_INPUT | ROLE_PROBE_NEIGHBOUR);
 
-    let [tag, errno, ..] = sched::ipc_recv(w.client_report[ATTACKER]);
+    let [tag, errno, ..] = sched::ipc_receive(w.client_report[ATTACKER]);
     assert_eq!(
         tag,
         status::WIN_REFUSED,
@@ -239,7 +239,7 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
     // only then reaches for its neighbour's.
     expect_painted(&w, ATTACKER);
 
-    let [tag, probe_va, ..] = sched::ipc_recv(w.client_report[ATTACKER]);
+    let [tag, probe_va, ..] = sched::ipc_receive(w.client_report[ATTACKER]);
     assert_eq!(
         tag,
         status::WIN_PROBING,
@@ -274,7 +274,7 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
         "the victim's pixels changed while it was blocked: the attack landed",
     );
     release(victim, victim_slot);
-    let [tag, after, was_before, ..] = sched::ipc_recv(w.client_report[VICTIM]);
+    let [tag, after, was_before, ..] = sched::ipc_receive(w.client_report[VICTIM]);
     assert_eq!(tag, status::WIN_INTACT);
     assert_eq!(was_before, before, "the victim changed its story");
     assert_eq!(
@@ -286,7 +286,7 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
     let faults = USER_FAULTS.load(Ordering::Relaxed);
     w.spawn_client(PEEPER, ROLE_PROBE_SCREEN);
     expect_painted(&w, PEEPER);
-    let [tag, screen_va, ..] = sched::ipc_recv(w.client_report[PEEPER]);
+    let [tag, screen_va, ..] = sched::ipc_receive(w.client_report[PEEPER]);
     assert_eq!(tag, status::WIN_PROBING);
     assert!(
         wait_for(|| USER_FAULTS.load(Ordering::Relaxed) > faults),
@@ -316,12 +316,12 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
 // ================================================================================================
 
 /// Receive the next report on `ep`, but bounded: a client whose `CALL` the compositor never answers
-/// leaves its next report unsent, and an unbounded `ipc_recv` there is a 60 second watchdog and a
+/// leaves its next report unsent, and an unbounded `ipc_receive` there is a 60 second watchdog and a
 /// diagnostic that says nothing about a compositor.
-fn recv_within_bound(ep: sched::RendezvousId, what: &str) -> [u64; 5] {
+fn receive_within_bound(ep: sched::RendezvousId, what: &str) -> [u64; 5] {
     let arrived = (0..5).any(|_| wait_for(|| sched::rendezvous_waiting_senders(ep) > 0));
     assert!(arrived, "{what}");
-    sched::ipc_recv(ep)
+    sched::ipc_receive(ep)
 }
 
 /// **Part 1 of claim 25: a client that was granted no input endpoint finds nothing in that slot.**
@@ -340,7 +340,7 @@ fn a_client_with_no_input_grant_finds_nothing_in_the_input_slot() {
     wait_for_compositor(&w);
 
     w.spawn_client(0, ROLE_PROBE_INPUT);
-    let [tag, errno, ..] = sched::ipc_recv(w.client_report[0]);
+    let [tag, errno, ..] = sched::ipc_receive(w.client_report[0]);
     assert_eq!(
         tag,
         status::WIN_REFUSED,
@@ -405,7 +405,7 @@ fn a_client_cannot_read_any_page_of_its_neighbours_it_can_name() {
         let faults = USER_FAULTS.load(Ordering::Relaxed);
         w.spawn_client_probing(ATTACKER, ROLE_PROBE_NEIGHBOUR | ROLE_PROBE_READ, va);
         expect_painted(&w, ATTACKER);
-        let [tag, probe_va, ..] = sched::ipc_recv(w.client_report[ATTACKER]);
+        let [tag, probe_va, ..] = sched::ipc_receive(w.client_report[ATTACKER]);
         assert_eq!(
             tag,
             status::WIN_PROBING,
@@ -429,7 +429,7 @@ fn a_client_cannot_read_any_page_of_its_neighbours_it_can_name() {
         "the victim's pixels changed"
     );
     release(victim, victim_slot);
-    let [tag, after, ..] = sched::ipc_recv(w.client_report[VICTIM]);
+    let [tag, after, ..] = sched::ipc_receive(w.client_report[VICTIM]);
     assert_eq!(tag, status::WIN_INTACT);
     assert_eq!(after, before);
 }
@@ -454,7 +454,7 @@ fn lie_to_the_compositor() -> (Wiring, (u64, u64), u64, [u32; 12]) {
 
     w.spawn_client(LIAR, ROLE_LIE_DAMAGE);
     expect_painted(&w, LIAR);
-    let [tag, lies, ..] = recv_within_bound(
+    let [tag, lies, ..] = receive_within_bound(
         w.client_report[LIAR],
         "the compositor stopped answering a client that committed a rectangle with extreme \
          coordinates: one client took the one doorbell every client shares down with it",
@@ -500,7 +500,7 @@ fn a_lying_damage_rectangle_changes_nothing_of_its_neighbours() {
          into a client it was not answering)",
     );
     release(victim, victim_slot);
-    let [tag, after, was, ..] = sched::ipc_recv(w.client_report[VICTIM]);
+    let [tag, after, was, ..] = sched::ipc_receive(w.client_report[VICTIM]);
     assert_eq!(tag, status::WIN_INTACT);
     assert_eq!(was, digest);
     assert_eq!(
@@ -545,7 +545,7 @@ fn a_client_granted_no_screen_capability_cannot_map_or_read_the_screen() {
     let faults = USER_FAULTS.load(Ordering::Relaxed);
     w.spawn_client(0, ROLE_PROBE_SCREEN);
     expect_painted(&w, 0);
-    let [tag, screen_va, ..] = sched::ipc_recv(w.client_report[0]);
+    let [tag, screen_va, ..] = sched::ipc_receive(w.client_report[0]);
     assert_eq!(tag, status::WIN_PROBING);
     assert!(
         wait_for(|| USER_FAULTS.load(Ordering::Relaxed) > faults),
@@ -621,7 +621,7 @@ fn a_one_window_redraw_costs_one_rectangle_and_not_the_screen() {
 
     let flushes = FLUSH_COUNT.load(Ordering::SeqCst);
     release(client0, slot0);
-    let [tag, _, seq, ..] = sched::ipc_recv(w.client_report[0]);
+    let [tag, _, seq, ..] = sched::ipc_receive(w.client_report[0]);
     assert_eq!(tag, status::WIN_PAINTED, "the second commit never happened");
     assert_eq!(
         seq, 2,
@@ -693,7 +693,7 @@ fn input_reaches_only_the_focused_client_and_focus_is_the_compositors_call() {
 
     assert_eq!(w.focused(), 0, "focus should start on window 0");
     w.type_bytes(b"a");
-    let [tag, byte, count, ..] = sched::ipc_recv(w.client_report[0]);
+    let [tag, byte, count, ..] = sched::ipc_receive(w.client_report[0]);
     assert_eq!(
         tag,
         status::WIN_INPUT,
@@ -714,7 +714,7 @@ fn input_reaches_only_the_focused_client_and_focus_is_the_compositors_call() {
     assert_eq!(unsafe { core::ptr::read_volatile(record as *const u32) }, 2);
 
     w.type_bytes(b"b");
-    let [tag, byte, ..] = sched::ipc_recv(w.client_report[1]);
+    let [tag, byte, ..] = sched::ipc_receive(w.client_report[1]);
     assert_eq!(
         tag,
         status::WIN_INPUT,
@@ -784,7 +784,7 @@ fn focus_routes_a_keystroke_to_one_terminals_grid_and_not_its_neighbours() {
     let mut clients = [None, None];
     for i in 0..2 {
         let c = w.spawn_terminal(i);
-        let [tag, dims, mode, ..] = sched::ipc_recv(w.client_report[i]);
+        let [tag, dims, mode, ..] = sched::ipc_receive(w.client_report[i]);
         assert_eq!(
             tag,
             video_terminal::status::TERM_UP,
@@ -928,7 +928,7 @@ fn three_clients_compose_into_one_scanout_and_the_host_sees_it() {
         "a virtio-gpu is present but the IOMMU is not active: the GPU's pixel reads are \
          unconfined (notes/framebuffer-contract.md)",
     );
-    let [tag, geometry, ..] = sched::ipc_recv(driver_report);
+    let [tag, geometry, ..] = sched::ipc_receive(driver_report);
     assert_eq!(
         tag,
         graphics_protocol::status::UP,
@@ -945,7 +945,7 @@ fn three_clients_compose_into_one_scanout_and_the_host_sees_it() {
     // The driver's own account of the compositor's first frame. Taken here and not later because
     // this is a rendezvous SEND: the driver is parked in it, and a test that spawned clients first
     // would deadlock the driver against the compositor's next flush.
-    let [tag, driver_digest, pixels, ..] = sched::ipc_recv(driver_report);
+    let [tag, driver_digest, pixels, ..] = sched::ipc_receive(driver_report);
     assert_eq!(
         tag,
         graphics_protocol::status::FLUSHED,
@@ -970,7 +970,7 @@ fn three_clients_compose_into_one_scanout_and_the_host_sees_it() {
     expect_painted(&w, 2);
 
     // The screenshot, taken through a read-only mapping by a process that holds one.
-    let [tag, shot, listed, ..] = sched::ipc_recv(w.client_report[2]);
+    let [tag, shot, listed, ..] = sched::ipc_receive(w.client_report[2]);
     assert_eq!(
         tag,
         status::WIN_CAPTURED,
@@ -992,7 +992,7 @@ fn three_clients_compose_into_one_scanout_and_the_host_sees_it() {
     assert_screen_is(&w, 3);
 
     // The other half of a read-only grant: it cannot deface what it may read.
-    let [tag, va, which, ..] = sched::ipc_recv(w.client_report[2]);
+    let [tag, va, which, ..] = sched::ipc_receive(w.client_report[2]);
     assert_eq!(tag, status::WIN_PROBING);
     assert_eq!(which, 1, "the capture client skipped its write probe");
     assert!(

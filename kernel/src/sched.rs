@@ -49,7 +49,7 @@ static PREEMPTIONS: AtomicU64 = AtomicU64::new(0);
 ///
 /// **Its own array rather than a `cpu::PerCpu` field, and that is a measurement rather than a
 /// preference.** `PerCpu` is exactly 128 bytes, so `PERCPU[id]` indexes with a shift; one more
-/// `AtomicU64` field took it to 136 and cost 150 bytes on the riscv64 `ipc_send_recv` closure,
+/// `AtomicU64` field took it to 136 and cost 150 bytes on the riscv64 `ipc_send_receive` closure,
 /// over `script/fastpath-footprint`'s bound. See the assertion beside `cpu::PERCPU`. Nothing on
 /// the IPC fastpath reads this, so it has no business sharing a cache line budget with what does.
 ///
@@ -73,7 +73,7 @@ fn set_current_thread_id(tid: ThreadId) {
 /// A synchronous IPC rendezvous point: the two wait queues and the pending-signal count.
 ///
 /// **The state machine is the `inter_process_communication` crate**, which owns the queues and the
-/// decision logic (send, recv, signal) and carries machine-checked proofs of its one invariant, "at
+/// decision logic (send, receive, signal) and carries machine-checked proofs of its one invariant, "at
 /// most one wait queue is ever non-empty" (DECISIONS §14, milestone 18; notes/verification.md). The
 /// six IPC functions below decide *what* to do by calling the proved logic and spend their own code
 /// only on the bookkeeping the queues cannot express (mailboxes, waking a thread onto a run queue,
@@ -676,7 +676,7 @@ fn set_ipc_aborted(sched: &mut IpcTables, tid: ThreadId) {
         // audit's follow-up). A `SEND_CAP` or `CALL` that parked put its delegation, or the Reply
         // the kernel minted, in `outgoing_cap` for the receiver to take. An abort means no receiver
         // ever will: the rendezvous is gone. Left in place, the next plain `SEND` this thread
-        // parked on a *different* rendezvous would hand that capability to whoever `RECV_CAP`s
+        // parked on a *different* rendezvous would hand that capability to whoever `RECEIVE_CAP`s
         // there, a delegation the sender made to one endpoint delivered to another. The sender
         // still holds its own copy (`SEND_CAP` narrows a copy, it never moves the source), so
         // nothing is lost by dropping this one.
@@ -832,7 +832,7 @@ mod trace {
         #[cfg_attr(not(feature = "soak_test"), allow(dead_code))]
         Migrated = 11,
         /// This core set `ipc_served` on `tid`: a delivery completed the thread's parked IPC.
-        /// `aux` names the delivering site (1 send, 2 recv-collect, 3 `send_cap`, 4 `recv_cap`-collect,
+        /// `aux` names the delivering site (1 send, 2 receive-collect, 3 `send_cap`, 4 `receive_cap`-collect,
         /// 5 call, 6 reply, 7 irq signal, 8 death message, 9 a notification signal to a waiter, 10 a
         /// notification signal to its bound receiver), so a bench dump answers "who served
         /// this thread" by reading the ring instead of inferring it from a frozen syscall count,
@@ -1364,8 +1364,8 @@ mod canary {
 }
 
 /// Arm the [`canary`] over the thread table and the rendezvous registry, snapshotting under `IPC_TABLES`
-/// so the baseline is a consistent cut. The riscv initrd demo arms before parking in its recv and
-/// disarms when the recv returns; see notes/visionfive2.md (fifth stop) for what boot 11 does
+/// so the baseline is a consistent cut. The riscv initrd demo arms before parking in its receive and
+/// disarms when the receive returns; see notes/visionfive2.md (fifth stop) for what boot 11 does
 /// with the output. **No caller since milestone 295**; see the note on `mod canary`.
 #[allow(dead_code)]
 pub fn canary_arm_registries() {
@@ -1978,11 +1978,11 @@ fn depart(event: u64, pc: u64, addr: u64) -> ! {
 /// and has already marked the corpse `Dead` with `msg` in its mailbox.
 ///
 /// This is the ordinary synchronous-send rendezvous (`Rendezvous::send`), reused: if a supervisor is
-/// blocked in `RECV`, hand it the message and wake it; if none is, the corpse joins the rendezvous's
+/// blocked in `RECEIVE`, hand it the message and wake it; if none is, the corpse joins the rendezvous's
 /// sender queue with the message in its mailbox, so the notification waits there rather than being
 /// lost (the same guarantee an ordinary blocked sender gets, and the reason a data-carrying death
 /// uses the sender queue rather than the data-less IRQ signal count). The corpse is never woken:
-/// `ipc_recv` recognises a `Dead` sender and leaves it dead after taking its message, the same way
+/// `ipc_receive` recognises a `Dead` sender and leaves it dead after taking its message, the same way
 /// it leaves a `CALL` caller blocked. If the rendezvous itself is gone (the supervisor was torn down
 /// first), the message is simply dropped, like an interrupt with no live rendezvous.
 fn deliver_death(sched: &mut IpcTables, corpse: ThreadId, ep: RendezvousId, msg: [u64; 5]) {
@@ -2633,7 +2633,7 @@ pub fn irq_route(intid: u32) -> Option<RendezvousId> {
 /// **Deliver an interrupt as a message.** Called from the IRQ handler.
 ///
 /// If a thread is blocked waiting on the rendezvous, wake it. If not, count the signal so the
-/// next `RECV` returns immediately rather than blocking on an interrupt that already happened.
+/// next `RECEIVE` returns immediately rather than blocking on an interrupt that already happened.
 /// **An interrupt is not a rendezvous**: it must not wait for a receiver, and it must not be
 /// lost if the receiver is briefly busy.
 ///
@@ -2880,7 +2880,7 @@ const fn bound_delivery(word: u64) -> [u64; 5] {
 /// `finish_blocked_resident`, which ends the thread (`Finished`, not `Blocked`). So this test is
 /// exactly "still linked on that receiver queue", and [`deliver_bound`] asserts it.
 ///
-/// `RECV`, `RECV_CAP` and `Irq::WAIT` all park this way, so the binding wakes all three: one rule
+/// `RECEIVE`, `RECEIVE_CAP` and `Irq::WAIT` all park this way, so the binding wakes all three: one rule
 /// for "blocked receiving on an endpoint", which is §101's phrase.
 fn bound_receiver(sched: &IpcTables, page: &NotificationPage) -> Option<(ThreadId, RendezvousId)> {
     let tid = page.bound?;
@@ -3082,7 +3082,7 @@ pub fn notification_poll(id: NotificationId) -> Result<u64, abi::Error> {
 ///
 /// **A word already waiting is delivered at once if the thread is already receiving.** Without
 /// this, a signal counted before the bind would sit in the word until the thread's *next* receive,
-/// which for a server blocked forever in `RECV` is never: not lost, but not delivered either.
+/// which for a server blocked forever in `RECEIVE` is never: not lost, but not delivered either.
 pub fn notification_bind(id: NotificationId, tid: ThreadId) -> Result<(), abi::Error> {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().expect("no scheduler");
@@ -3405,7 +3405,7 @@ fn wake_load_aware(sched: &mut IpcTables, tid: ThreadId) -> Option<usize> {
 /// queue push and the trace ring. The two rules the verdicts carry, kept here in one breath
 /// because this is where a reader meets them: **the undelivered-wake gate** (boot 8: a wake whose
 /// critical section delivered nothing has not dequeued the thread from its rendezvous and has
-/// nothing for its recv to return, so it is refused and recorded as `refuse:tid` on the ring), and
+/// nothing for its receive to return, so it is refused and recorded as `refuse:tid` on the ring), and
 /// **the wake-before-switch-out deferral** (a thread still on its CPU has a stale saved context,
 /// so the wake parks in `wake_pending` and its own core's `finish_switch` completes it once the
 /// context is provably saved; found by a 2-in-10 flake, notes/intrusive-queues.md).
@@ -3442,7 +3442,7 @@ fn wake(sched: &mut IpcTables, tid: ThreadId) {
 
 /// Widen an ordinary three-word IPC message into the five-word mailbox. Word 3 is the badge on the
 /// endpoint capability the sender invoked (0 when unbadged), and word 4 is zero; only a fault/exit
-/// message (DECISIONS §26) puts anything else in the top two, and a `RECV` hands all five back.
+/// message (DECISIONS §26) puts anything else in the top two, and a `RECEIVE` hands all five back.
 /// Keeping the mailbox one width means the fault path reuses the same rendezvous machinery rather
 /// than growing a parallel one.
 ///
@@ -3474,7 +3474,7 @@ pub fn ipc_send(ep: RendezvousId, msg: [u64; 3]) {
     ipc_send_badged(ep, msg, 0);
 }
 
-/// [`ipc_send`] through a badged endpoint capability: the receiver's `RECV` sees `badge` in word 3
+/// [`ipc_send`] through a badged endpoint capability: the receiver's `RECEIVE` sees `badge` in word 3
 /// (milestone 613 (a system log service), provisional; see [`wide`] for why a plain send carries
 /// it). The syscall layer passes the badge of the capability the sender invoked, so it is the
 /// kernel's word and never the sender's. [`ipc_call_badged`] is the same split for `CALL`.
@@ -3535,7 +3535,7 @@ pub fn ipc_send_badged(ep: RendezvousId, msg: [u64; 3], badge: u64) {
 
 /// **Receive three words from an rendezvous, blocking until one arrives.** The mirror of
 /// [`ipc_send`].
-pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
+pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
     let immediate = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
@@ -3558,7 +3558,7 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
         //
         // **An arm of the same decision, not an early return**, and the difference is measured: a
         // `return` from inside the lock hold gave the function a second copy of the unlock path,
-        // and cost `ipc_recv` 138 bytes on riscv64 and 174 on `x86_64`. Joining the other arms
+        // and cost `ipc_receive` 138 bytes on riscv64 and 174 on `x86_64`. Joining the other arms
         // shares the one release below.
         //
         // SAFETY: `me` is the running thread's TCB, live, and nothing else holds a reference to it.
@@ -3568,23 +3568,23 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
             Some(bound_delivery(word))
         } else {
             // SAFETY: as in ipc_send: the running thread, and Blocked-while-queued keeps it live.
-            match unsafe { rendezvous.recv(me) } {
+            match unsafe { rendezvous.receive(me) } {
                 // An interrupt already fired while we were not waiting. Take it and do not block.
-                inter_process_communication::Recv::Signal => Some([1, 0, 0, 0, 0]),
-                inter_process_communication::Recv::FromSender(sender) => {
+                inter_process_communication::Receive::Signal => Some([1, 0, 0, 0, 0]),
+                inter_process_communication::Receive::FromSender(sender) => {
                     // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                     let sender = unsafe { (*sender.as_ptr()).id };
                     let msg = sched.threads.get(sender).unwrap().mailbox;
                     // A caller (its outgoing cap is the one-shot Reply the kernel minted for a CALL, §12 (call/reply IPC))
-                    // is awaiting a *reply*, which a plain RECV cannot furnish: only RECV_CAP delivers the
+                    // is awaiting a *reply*, which a plain RECEIVE cannot furnish: only RECEIVE_CAP delivers the
                     // reply capability. Deliver the words but leave the caller blocked rather than wake it
-                    // with its own request masquerading as a reply. Serve CALL endpoints with RECV_CAP; a
-                    // plain RECV here leaves the caller hung, the same no-timeout limitation as a reply
+                    // with its own request masquerading as a reply. Serve CALL endpoints with RECEIVE_CAP; a
+                    // plain RECEIVE here leaves the caller hung, the same no-timeout limitation as a reply
                     // that never comes.
                     //
                     // A **dead sender** is a fault/exit corpse parked on its supervision rendezvous
                     // (DECISIONS §26): deliver its five-word message but never wake it, exactly as for a
-                    // caller, because it is dead-until-reaped and must not run again. `recv` already
+                    // caller, because it is dead-until-reaped and must not run again. `receive` already
                     // popped it off the sender queue, so it is now a free-standing corpse the supervisor
                     // reaps with revocation.
                     let leave_blocked = matches!(
@@ -3593,13 +3593,13 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
                     ) || sched.threads.get(sender).unwrap().handshake.state
                         == State::Dead;
                     if !leave_blocked {
-                        // **A plain RECV collected this sender, and a plain RECV delivers no
+                        // **A plain RECEIVE collected this sender, and a plain RECEIVE delivers no
                         // capability** (milestone 633 (an outside agent attacks the confinement
                         // claim), fatal risk 7's outsider pass, 2026-10-03
                         // UTC). A `SEND_CAP` sender parked its delegation in `outgoing_cap` for a
                         // receiver to take; this receiver did not take it, and the rendezvous is now
                         // complete. Left in place, the delegation would ride the sender's next plain
-                        // `SEND` on a *different* rendezvous and reach whoever `RECV_CAP`s there, a
+                        // `SEND` on a *different* rendezvous and reach whoever `RECEIVE_CAP`s there, a
                         // delegation made to one endpoint delivered to another. This is the exact
                         // hazard `set_ipc_aborted` closes on the teardown path; the successful-collect
                         // path does not go through it, so it is closed here too. The sender still
@@ -3613,14 +3613,14 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
                         trace::record(trace::Event::Served, sender, 2);
                         wake(sched, sender);
                     } else if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
-                        // The corpse's death message is collected and `recv` popped it off the sender
+                        // The corpse's death message is collected and `receive` popped it off the sender
                         // queue; it waits on nothing now, it only awaits its reap.
                         sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
                     }
                     Some(msg)
                 }
-                inter_process_communication::Recv::Blocked => {
-                    // `recv` has already queued `current` as a receiver.
+                inter_process_communication::Receive::Blocked => {
+                    // `receive` has already queued `current` as a receiver.
                     let me = sched.threads.get_mut(current).unwrap();
                     me.handshake.park(Wait::Rendezvous(ep, WaitRole::Receiver)); // only a delivering sender may wake us
                     trace::record(trace::Event::BlockSelf, current, ep as u8);
@@ -3641,14 +3641,14 @@ pub fn ipc_recv(ep: RendezvousId) -> [u64; 5] {
             // loud in every QEMU test build, on the path where the strand was observed.
             debug_assert!(
                 t.handshake.is_delivered(),
-                "recv resumed with nothing delivered"
+                "receive resumed with nothing delivered"
             );
             t.mailbox
         }
     }
 }
 
-/// The x1 value a `RECV_CAP` returns when no capability accompanied the message. Mirrors
+/// The x1 value a `RECEIVE_CAP` returns when no capability accompanied the message. Mirrors
 /// `abi::rendezvous::NO_CAP`; kept here too so the scheduler names it without reaching into the ABI.
 const NO_CAP: u64 = u64::MAX;
 
@@ -3656,7 +3656,7 @@ const NO_CAP: u64 = u64::MAX;
 /// `CALL` server can tell a Reply from a delegation), DECISIONS §245 (a `CALL` server tells a Reply
 /// from a delegation)): `abi::rendezvous::REPLY_DELIVERED` when the Reply was installed, `0` when
 /// the receiver's table was full and there is no Reply to name. Written only on the two paths a
-/// `CALL` reaches a receiver (`ipc_call_badged`'s rendezvous and `ipc_recv_cap`'s collect of a
+/// `CALL` reaches a receiver (`ipc_call_badged`'s rendezvous and `ipc_receive_cap`'s collect of a
 /// parked caller), so a `SEND_CAP` delegation, which reaches the same `x1`, never carries it.
 #[inline(always)]
 fn reply_tag(slot: u64) -> u64 {
@@ -3699,10 +3699,10 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
                 let r = sched.threads.get_mut(receiver).unwrap();
                 let slot = r.capability_table.insert(cap).unwrap_or(NO_CAP);
                 // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
-                // write a zero here, so RECV_CAP surfaces it at no extra instruction on this path.
+                // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
                 r.mailbox = [data, slot, 0, badge, 0];
-                // A capability was installed, so RECV_CAP's x1 is a real slot (milestone 634 (a plain SEND
-                // received by RECV_CAP never hands the receiver a sender-chosen slot)).
+                // A capability was installed, so RECEIVE_CAP's x1 is a real slot (milestone 634 (a plain SEND
+                // received by RECEIVE_CAP never hands the receiver a sender-chosen slot)).
                 r.cap_delivered = true;
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 3);
@@ -3711,7 +3711,7 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
             }
             inter_process_communication::Send::Blocked => {
                 // `send` queued `current`; we park the data word and the capability to hand over.
-                // Word 3 is the badge, read back by the eventual RECV_CAP (milestone 599).
+                // Word 3 is the badge, read back by the eventual RECEIVE_CAP (milestone 599).
                 let me = sched.threads.get_mut(current).unwrap();
                 me.mailbox = [data, 0, 0, badge, 0];
                 me.outgoing_cap = Some(cap);
@@ -3740,7 +3740,7 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
 ///
 /// A capability-carrying send and this share the ordinary sender/receiver queues, so either side
 /// may arrive first, exactly as with the plain path.
-pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
+pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
     let immediate = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
@@ -3751,7 +3751,7 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
             set_ipc_aborted(sched, current);
             return [0, 0, 0, 0, 0]; // stale rendezvous: aborted, syscall layer errors
         };
-        // The binding's receive-side half, exactly as in `ipc_recv`: a server in `RECV_CAP` is the
+        // The binding's receive-side half, exactly as in `ipc_receive`: a server in `RECEIVE_CAP` is the
         // commonest bound thread §101's table names (the FS server, the compositor).
         //
         // SAFETY: `me` is the running thread's TCB, live, and nothing else holds a reference to it.
@@ -3761,10 +3761,10 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
             Some(bound_delivery(word))
         } else {
             // SAFETY: as in ipc_send.
-            match unsafe { rendezvous.recv(me) } {
+            match unsafe { rendezvous.receive(me) } {
                 // An interrupt signal is not a delegation; it carries no capability and no badge.
-                inter_process_communication::Recv::Signal => Some([1, NO_CAP, 0, 0, 0]),
-                inter_process_communication::Recv::FromSender(sender) => {
+                inter_process_communication::Receive::Signal => Some([1, NO_CAP, 0, 0, 0]),
+                inter_process_communication::Receive::FromSender(sender) => {
                     // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                     let sender = unsafe { (*sender.as_ptr()).id };
                     let msg = sched.threads.get(sender).unwrap().mailbox;
@@ -3798,7 +3798,7 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
                     let tag = if is_reply { reply_tag(slot) } else { 0 };
                     Some([msg[0], slot, msg[1], msg[3], tag])
                 }
-                inter_process_communication::Recv::Blocked => {
+                inter_process_communication::Receive::Blocked => {
                     let me = sched.threads.get_mut(current).unwrap();
                     // Clear before parking: whoever wakes us sets this iff it installs a
                     // capability, so a plain SEND (which installs none) leaves it false (milestone 634).
@@ -3820,9 +3820,9 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
             let t = sched.threads.get(current_thread_id()).unwrap();
             debug_assert!(
                 t.handshake.is_delivered(),
-                "recv_cap resumed with nothing delivered"
+                "receive_cap resumed with nothing delivered"
             );
-            // The whole mailbox: RECV_CAP's three words, the sender's badge at m[3] (milestone 599),
+            // The whole mailbox: RECEIVE_CAP's three words, the sender's badge at m[3] (milestone 599),
             // and `w4`, which is `abi::notification::BOUND` when the bound notification ended this
             // receive, `abi::rendezvous::REPLY_DELIVERED` when a CALL's Reply was installed
             // (milestone 706, written by `ipc_call_badged`), and `0` for every other delivery a
@@ -3844,7 +3844,7 @@ pub fn ipc_recv_cap(ep: RendezvousId) -> [u64; 5] {
 
 /// **Call: send two words and block until replied** (milestone 12). The atomic send-and-wait a
 /// one-shot reply capability makes safe. At the rendezvous the kernel mints a `Reply` capability
-/// naming *this* caller and hands it to the server (through [`ipc_recv_cap`]); we then block,
+/// naming *this* caller and hands it to the server (through [`ipc_receive_cap`]); we then block,
 /// discoverable **only** through that capability, until the server invokes it. Returns the reply
 /// words. See DECISIONS §12 and notes/ipc-naming.md.
 ///
@@ -3876,7 +3876,7 @@ pub fn ipc_call(ep: RendezvousId, msg: [u64; 2]) -> [u64; 3] {
 }
 
 /// [`ipc_call`] carrying the invoked endpoint capability's badge (milestone 599, provisional). The
-/// badge reaches the server's [`ipc_recv_cap`] in the delivered mailbox's word 3; a plain
+/// badge reaches the server's [`ipc_receive_cap`] in the delivered mailbox's word 3; a plain
 /// [`ipc_call`] passes 0, the unbadged value. Split out rather than given a parameter on the hot
 /// name so the tree's many `ipc_call(ep, msg)` sites (benches, tests, `ipc_stack_depth`) are
 /// unchanged and the fastpath's shape is untouched, which `script/icount`'s tripwire is what
@@ -3887,7 +3887,7 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
     // padding was written; milestone 188 phase 1 then split the footprint gate into two closures
     // and found the CALL/reply one is the larger and **is the shape real services run**, at which
     // point a pad reachable only from `ipc_send` was padding a shape nothing in this tree uses.
-    // Measured on riscv64 before this line existed: `ipc_send_recv` 2.10x, `ipc_call_reply` 1.00x.
+    // Measured on riscv64 before this line existed: `ipc_send_receive` 2.10x, `ipc_call_reply` 1.00x.
     // One call site per shape, so the untaken-branch confound the module doc names stays one
     // branch per round trip rather than three.
     #[cfg(feature = "fastpath_pad")]
@@ -3910,15 +3910,15 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
             inter_process_communication::Send::Rendezvous(receiver) => {
                 // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                 let receiver = unsafe { (*receiver.as_ptr()).id };
-                // A server is parked in RECV_CAP: hand it the reply cap and the two words now.
+                // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
                 let r = sched.threads.get_mut(receiver).unwrap();
                 let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
                 // Word 3 is the caller's badge (milestone 599): the same store as before with a
-                // value instead of a zero, so the server's RECV_CAP surfaces which client called.
+                // value instead of a zero, so the server's RECEIVE_CAP surfaces which client called.
                 // Word 4 says x1 is a Reply (milestone 706), which only this path and the collect
-                // in `ipc_recv_cap` may say; a SEND_CAP's delivery leaves it 0.
+                // in `ipc_receive_cap` may say; a SEND_CAP's delivery leaves it 0.
                 r.mailbox = [msg[0], slot, msg[1], badge, reply_tag(slot)];
-                // A Reply capability was installed, so RECV_CAP's x1 is a real slot (milestone 634).
+                // A Reply capability was installed, so RECEIVE_CAP's x1 is a real slot (milestone 634).
                 r.cap_delivered = true;
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 5);
@@ -3926,10 +3926,10 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
             }
             inter_process_communication::Send::Blocked => {
                 // No server yet; `send` queued us as a sender. Park the words and ride the reply cap
-                // in `outgoing_cap` so the eventual RECV_CAP hands it over and, seeing a Reply, leaves
-                // us blocked (see ipc_recv_cap).
+                // in `outgoing_cap` so the eventual RECEIVE_CAP hands it over and, seeing a Reply, leaves
+                // us blocked (see ipc_receive_cap).
                 // Park the words with the badge at word 3 (milestone 599), where the eventual
-                // RECV_CAP reads it back out of this caller's mailbox.
+                // RECEIVE_CAP reads it back out of this caller's mailbox.
                 let me = sched.threads.get_mut(current).unwrap();
                 me.mailbox = [msg[0], msg[1], 0, badge, 0];
                 me.outgoing_cap = Some(reply);
@@ -4000,7 +4000,7 @@ pub fn ipc_reply(caller: ThreadId, msg: [u64; 2]) {
 /// on a caller it is about to end and never wake, where the wake half does not apply.
 ///
 /// **`outgoing_cap` goes too**, and it is the half a second copy would forget: a caller that met no
-/// server rides its own reply capability there awaiting a `RECV_CAP` that will now never collect
+/// server rides its own reply capability there awaiting a `RECEIVE_CAP` that will now never collect
 /// it, and a live `Reply` in a hand-off slot is the same forgery one step earlier.
 ///
 /// Cost is O(threads x slots), on a teardown path in both callers.
@@ -4203,7 +4203,7 @@ pub fn delete_page_frame_caps_overlapping(base: u64, size: u64) {
 ///
 /// **[`Thread::outgoing_cap`] goes too**, and until 2026-09-21 it did not. A capability handed to a
 /// rendezvous nobody is receiving on yet is in no capability table at all: `ipc_send_cap` parks it
-/// in the hand-off slot and blocks the sender, and the next `RECV_CAP` files it in the receiver's
+/// in the hand-off slot and blocks the sender, and the next `RECEIVE_CAP` files it in the receiver's
 /// own table. So a sweep that reads tables alone left a live capability naming a revoked run in the
 /// one place it could not see, and `MemoryRegion::DESTROY` then returned those pages to an allocator
 /// while that capability was still on its way to somebody. That is the use-after-free DECISIONS
@@ -4504,7 +4504,7 @@ pub fn create_thread_control_block(region: u64) -> Option<ThreadId> {
 /// syscall surface.
 ///
 /// **The region's endpoints go first, on every pass, refusal or not**, and that ordering is
-/// load-bearing rather than tidy: it is what wakes a resident blocked in `RECV` so the armed kill
+/// load-bearing rather than tidy: it is what wakes a resident blocked in `RECEIVE` so the armed kill
 /// can actually land on it. The long comment at the sweep says why, and notes/frames.md carries the
 /// boot it fixed.
 ///
@@ -4667,7 +4667,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
     //
     // **This ordering is what lets `DESTROY` reclaim a region full of blocked servers**, and until
     // 2026-08-16 it could not. The sweep used to sit after the refusal below, so a region holding a
-    // process parked in `RECV` was refused forever: the refusal armed §16's kill, the kill is spent
+    // process parked in `RECEIVE` was refused forever: the refusal armed §16 (object revocation)'s kill, the kill is spent
     // by `schedule()`, and a `Blocked` thread never reaches `schedule()`. The owner retried until it
     // gave up, and the memory stayed spoken for until the machine stopped. That is the whole reason
     // the aarch64 test boot ran out of frames: `userspace_init_brings_up_the_console_server` builds a
@@ -4754,7 +4754,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
     //
     // The rendezvous sweep above already rescues the case where the rendezvous the resident waits
     // on came out of *this* region. What it cannot rescue is a resident blocked on somebody
-    // else's, which is the ordinary shape of a hung component: a server parked in `RECV` on a
+    // else's, which is the ordinary shape of a hung component: a server parked in `RECEIVE` on a
     // client's rendezvous, or a client parked in `CALL` on a server that will never reply.
     //
     // **The authority is unchanged, and that is the whole reason this shape was chosen.** The
@@ -4874,11 +4874,11 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
             .map(|t| t.id);
         let Some(tid) = doomed else { break };
         // **Unlink a corpse from its supervision rendezvous first.** A supervised thread that died
-        // with nobody in `RECV` is parked on that rendezvous's *sender* queue holding its death
+        // with nobody in `RECEIVE` is parked on that rendezvous's *sender* queue holding its death
         // message (DECISIONS §26 implementation note 2), and that rendezvous is the supervisor's, so
         // it is not in this region and the rendezvous sweep above did not touch it. Freeing the TCB
         // while it is still linked there would leave a dangling pointer that the supervisor's next
-        // `RECV` would follow into a recycled page. §16's `DESTROY` could already reach this (reap
+        // `RECEIVE` would follow into a recycled page. §16's `DESTROY` could already reach this (reap
         // before receiving); §32's rendezvous reap makes it easy to reach, because a supervisor can be
         // told a tid by its builder and never collect the message at all.
         let parked = sched
@@ -5718,7 +5718,7 @@ pub fn dump_threads() {
 
 /// **How many senders are parked on an rendezvous.** Test support (milestone 22 phase B.2).
 ///
-/// A negative assertion ("the supervisor sent nothing more") cannot be made with `RECV`, which would
+/// A negative assertion ("the supervisor sent nothing more") cannot be made with `RECEIVE`, which would
 /// block forever on a quiet rendezvous. This is the non-blocking look that lets a test say "and then
 /// nothing happened" instead of hanging when the code is right.
 #[cfg(feature = "system_tests")]
@@ -6336,7 +6336,7 @@ mod tests {
 
         // A thread that blocks receiving on the rendezvous, then records whether it was aborted.
         crate::sched::spawn(move || {
-            let _ = crate::sched::ipc_recv(ep);
+            let _ = crate::sched::ipc_receive(ep);
             ABORTED.store(crate::sched::take_ipc_aborted(), Ordering::SeqCst);
             WOKE.store(true, Ordering::SeqCst);
         })
@@ -6396,7 +6396,7 @@ mod tests {
 
     /// How many live `Reply` capabilities anywhere in the machine still name `caller`: the sweep's
     /// own assertion (milestone 254). `outgoing_cap` counts too, because a caller that met no
-    /// server rides its own reply capability there awaiting a `RECV_CAP` hand-off, and a live one
+    /// server rides its own reply capability there awaiting a `RECEIVE_CAP` hand-off, and a live one
     /// left in that slot is the same forgery one step earlier.
     fn outstanding_reply_capabilities(caller: super::ThreadId) -> usize {
         let guard = super::IPC_TABLES.lock();
@@ -6458,7 +6458,7 @@ mod tests {
         // away; a server that returned here would depart, which is the *other* trigger and the
         // next test's subject.
         crate::sched::spawn(move || {
-            let m = crate::sched::ipc_recv_cap(ep);
+            let m = crate::sched::ipc_receive_cap(ep);
             let slot = m[1];
             HELD_BEFORE.store(crate::sched::current_cap(slot).is_ok(), Ordering::SeqCst);
             COLLECTED.store(true, Ordering::SeqCst);
@@ -6544,7 +6544,7 @@ mod tests {
         // server exits holding it, which is the case the survey found this kernel alone in
         // stranding.
         crate::sched::spawn(move || {
-            let m = crate::sched::ipc_recv_cap(ep);
+            let m = crate::sched::ipc_receive_cap(ep);
             HELD.store(crate::sched::current_cap(m[1]).is_ok(), Ordering::SeqCst);
             COLLECTED.store(true, Ordering::SeqCst);
         })
@@ -6587,12 +6587,12 @@ mod tests {
         );
     }
 
-    /// **A wake with nothing delivered must not complete a parked receiver's `RECV`** (boot 8,
-    /// VisionFive 2, 2026-08-14). The bench dump's shape: the boot thread, parked in `ipc_recv`
+    /// **A wake with nothing delivered must not complete a parked receiver's `RECEIVE`** (boot 8,
+    /// VisionFive 2, 2026-08-14). The bench dump's shape: the boot thread, parked in `ipc_receive`
     /// on the report rendezvous, took a `wake:0x0` on a boot where no sender to that rendezvous
-    /// existed, and its recv neither completed with a message nor re-parked. The recv tail reads
+    /// existed, and its receive neither completed with a message nor re-parked. The receive tail reads
     /// the mailbox unconditionally after `schedule()` returns, so an undelivered wake completes
-    /// the recv with whatever the mailbox happened to hold, and the receiver's TCB is still
+    /// the receive with whatever the mailbox happened to hold, and the receiver's TCB is still
     /// linked on the rendezvous's wait queue (the waker that owns the unlink never ran), which is
     /// the intrusive one-link invariant broken in kernel memory.
     ///
@@ -6639,7 +6639,7 @@ mod tests {
     }
 
     #[test_case]
-    fn a_wake_without_delivery_cannot_complete_a_parked_recv() {
+    fn a_wake_without_delivery_cannot_complete_a_parked_receive() {
         static GOT: AtomicU64 = AtomicU64::new(u64::MAX);
         static DONE: AtomicBool = AtomicBool::new(false);
         GOT.store(u64::MAX, Ordering::SeqCst);
@@ -6648,7 +6648,7 @@ mod tests {
         let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
         let ep = crate::sched::create_rendezvous_from(region).expect("no rendezvous from region");
         let tid = crate::sched::spawn(move || {
-            let m = crate::sched::ipc_recv(ep);
+            let m = crate::sched::ipc_receive(ep);
             GOT.store(m[0], Ordering::SeqCst);
             DONE.store(true, Ordering::SeqCst);
         })
@@ -6669,7 +6669,7 @@ mod tests {
         while crate::arch::timer::now() < deadline {
             assert!(
                 !DONE.load(Ordering::SeqCst),
-                "a wake with nothing delivered completed the recv (it returned {:#x})",
+                "a wake with nothing delivered completed the receive (it returned {:#x})",
                 GOT.load(Ordering::SeqCst),
             );
             crate::sched::yield_now();
@@ -6680,7 +6680,7 @@ mod tests {
             "the undelivered wake took the receiver off the rendezvous"
         );
 
-        // And the rendezvous still works: a real sender completes the same recv with its message.
+        // And the rendezvous still works: a real sender completes the same receive with its message.
         crate::sched::ipc_send(ep, [81, 0, 0]);
         assert!(
             wait_for(|| DONE.load(Ordering::SeqCst)),
@@ -6689,7 +6689,7 @@ mod tests {
         assert_eq!(
             GOT.load(Ordering::SeqCst),
             81,
-            "the recv completed with something other than the real message"
+            "the receive completed with something other than the real message"
         );
         assert!(
             wait_for(|| !crate::sched::is_thread_present(tid)),
@@ -6715,7 +6715,7 @@ mod tests {
         let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
         let ep = crate::sched::create_rendezvous_from(region).expect("no rendezvous from region");
         let tid = crate::sched::spawn(move || {
-            let m = crate::sched::ipc_recv(ep);
+            let m = crate::sched::ipc_receive(ep);
             GOT.store(m[0], Ordering::SeqCst);
             DONE.store(true, Ordering::SeqCst);
         })
@@ -6734,7 +6734,7 @@ mod tests {
         while crate::arch::timer::now() < deadline {
             assert!(
                 !DONE.load(Ordering::SeqCst),
-                "a stray reply completed a receiver's recv (it returned {:#x})",
+                "a stray reply completed a receiver's receive (it returned {:#x})",
                 GOT.load(Ordering::SeqCst),
             );
             crate::sched::yield_now();
@@ -6749,7 +6749,7 @@ mod tests {
         assert_eq!(
             GOT.load(Ordering::SeqCst),
             81,
-            "the recv completed with the stray reply's words, not the real message"
+            "the receive completed with the stray reply's words, not the real message"
         );
         assert!(
             wait_for(|| !crate::sched::is_thread_present(tid)),
@@ -7310,7 +7310,7 @@ mod tests {
         let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
         let tid = super::spawn(move || {
-            let msg = super::ipc_recv(ep); // nobody is sending yet: this BLOCKS
+            let msg = super::ipc_receive(ep); // nobody is sending yet: this BLOCKS
             GOT.store(msg[0], Ordering::SeqCst);
             RECEIVED.store(true, Ordering::SeqCst);
         })
@@ -7368,7 +7368,7 @@ mod tests {
             "a send returned before anyone received it",
         );
 
-        let msg = super::ipc_recv(ep); // collects the parked message, wakes the sender
+        let msg = super::ipc_receive(ep); // collects the parked message, wakes the sender
         // Five words now (the top two are the fault path's, DECISIONS §26); an ordinary send fills
         // the first three and leaves the rest zero.
         assert_eq!(
@@ -7409,7 +7409,7 @@ mod tests {
 
         // The server: receive n on `req`, send n + 1 back on `rep`.
         let server = super::spawn(move || {
-            let m = super::ipc_recv(req);
+            let m = super::ipc_receive(req);
             super::ipc_send(rep, [m[0] + 1, m[1], m[2]]);
         })
         .expect("spawn failed");
@@ -7417,7 +7417,7 @@ mod tests {
         // The client.
         let client = super::spawn(move || {
             super::ipc_send(req, [41, 0, 0]);
-            let answer = super::ipc_recv(rep);
+            let answer = super::ipc_receive(rep);
             ANSWER.store(answer[0], Ordering::SeqCst);
             DONE.store(true, Ordering::SeqCst);
         })
@@ -7519,7 +7519,7 @@ mod tests {
         assert_ne!(ep, kernel_ep, "registry names collide");
 
         super::spawn(move || {
-            GOT.store(super::ipc_recv(ep)[0], Ordering::SeqCst);
+            GOT.store(super::ipc_receive(ep)[0], Ordering::SeqCst);
         })
         .expect("spawn failed");
         super::ipc_send(ep, [0x2A, 0, 0]);
@@ -7541,7 +7541,7 @@ mod tests {
 
     /// **Milestone 12: a call gets a reply, over one rendezvous, via a one-shot Reply cap.**
     ///
-    /// The client `CALL`s and blocks; the server `RECV_CAP`s (receiving the request word plus a
+    /// The client `CALL`s and blocks; the server `RECEIVE_CAP`s (receiving the request word plus a
     /// kernel-minted `Reply` cap naming the caller), answers through that cap, and consumes it. One
     /// rendezvous, not the two the pre-`Call` pattern needs, and the server was never wired to this
     /// client.
@@ -7554,10 +7554,10 @@ mod tests {
         let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
 
         let server = super::spawn(move || {
-            let m = super::ipc_recv_cap(ep); // [n, reply_slot, second_word]
+            let m = super::ipc_receive_cap(ep); // [n, reply_slot, second_word]
             let slot = m[1];
             let crate::cap::Object::Reply(caller) = super::current_cap(slot).unwrap().object else {
-                panic!("RECV_CAP of a CALL did not deliver a Reply capability");
+                panic!("RECEIVE_CAP of a CALL did not deliver a Reply capability");
             };
             super::ipc_reply(caller, [m[0] + 1, 0]);
             super::delete_current_cap(slot).expect("consume the one-shot reply");
@@ -7588,7 +7588,7 @@ mod tests {
     ///
     /// Two clients call and block at once; the server answers each through *its* Reply cap. Client A
     /// (sent 100) must get 111 and client B (sent 200) must get 211. A shared reply rendezvous cannot
-    /// guarantee this: whichever client's `RECV` runs grabs the reply. The Reply cap, naming the
+    /// guarantee this: whichever client's `RECEIVE` runs grabs the reply. The Reply cap, naming the
     /// specific blocked caller, makes misrouting unrepresentable.
     #[test_case]
     fn a_reply_reaches_the_caller_that_called() {
@@ -7601,7 +7601,7 @@ mod tests {
         // The server: field two calls, reply each caller its own word + 11, via its own cap.
         let server = super::spawn(move || {
             for _ in 0..2 {
-                let m = super::ipc_recv_cap(ep);
+                let m = super::ipc_receive_cap(ep);
                 let (word, slot) = (m[0], m[1]);
                 let crate::cap::Object::Reply(caller) = super::current_cap(slot).unwrap().object
                 else {
@@ -7662,7 +7662,7 @@ mod tests {
         STOP.store(false, Ordering::SeqCst);
 
         let blocked = super::spawn(move || {
-            super::ipc_recv(ep); // blocks forever (nobody sends); must not starve the worker
+            super::ipc_receive(ep); // blocks forever (nobody sends); must not starve the worker
         })
         .expect("spawn failed");
 
@@ -7725,7 +7725,7 @@ mod tests {
         arm_test_irq(delivery_irq());
 
         let tid = super::spawn(move || {
-            super::ipc_recv(ep); // blocks until the interrupt fires
+            super::ipc_receive(ep); // blocks until the interrupt fires
             WOKE.store(true, Ordering::SeqCst);
         })
         .expect("spawn failed");
@@ -7771,11 +7771,11 @@ mod tests {
 
         // Two children that block forever (nobody sends), each holding a quota slot.
         let first = super::spawn_with_quota(&BUDGET, move || {
-            super::ipc_recv(ep);
+            super::ipc_receive(ep);
         });
         assert!(first.is_some(), "first child should fit in the budget",);
         let second = super::spawn_with_quota(&BUDGET, move || {
-            super::ipc_recv(ep);
+            super::ipc_receive(ep);
         });
         assert!(second.is_some(), "second child should fit in the budget",);
 
@@ -7790,7 +7790,7 @@ mod tests {
             "the budget was exhausted but a third child spawned anyway",
         );
 
-        // Wake one child. It returns from ipc_recv, its closure ends, it exits and is reaped,
+        // Wake one child. It returns from ipc_receive, its closure ends, it exits and is reaped,
         // and its QuotaToken drops, returning the slot. Clock-bounded (milestone 81): the 100
         // yields this used to spend are microseconds on the physical core, well before another
         // core has run the woken child to completion.
@@ -7851,7 +7851,7 @@ mod tests {
 
         static SAW: AtomicBool = AtomicBool::new(false);
         let tid = super::spawn(move || {
-            super::ipc_recv(ep); // must return immediately: the signal is pending
+            super::ipc_receive(ep); // must return immediately: the signal is pending
             SAW.store(true, Ordering::SeqCst);
         })
         .expect("spawn failed");

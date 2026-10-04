@@ -94,7 +94,7 @@
 use byte_sink_protocol::fixture;
 use filesystem_protocol::fs;
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{call, exit, recv, send};
+use user_mode_runtime::{call, exit, receive, send};
 
 /// The byte sink this process serves, `READ`. Its clients hold `WRITE` on the same endpoint and
 /// nothing else.
@@ -163,7 +163,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 
     let mut off = 0u64;
     loop {
-        let (w0, w1, w2) = recv(SINK);
+        let (w0, w1, w2) = receive(SINK);
         let mut buf = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(0) => {}

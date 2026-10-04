@@ -101,7 +101,7 @@
 //! region being destroyed (notes/hung-component.md's case (c), the open, unsolved half of the hung-
 //! component taxonomy). The caretaker built by [`mint`] is never in that shape: its own client-facing
 //! endpoint (`narrow_ep`, the fourth capability's sibling) is retyped directly from `region`, so the
-//! caretaker's steady state (parked in `recv_cap` between requests) is case (b), "blocked on an
+//! caretaker's steady state (parked in `receive_cap` between requests) is case (b), "blocked on an
 //! endpoint whose region the supervisor can destroy", which `notes/hung-component.md` already
 //! documents as working, with collateral: destroying `region` drains `narrow_ep`'s wait queue,
 //! aborts the caretaker's blocked receive, and the armed kill lands at the caretaker's next
@@ -191,7 +191,7 @@
 //!
 //! # Capability contract
 //!
-//! - slot [`REQUEST`]: `RECV`. The front door. A client sends exactly one
+//! - slot [`REQUEST`]: `RECEIVE`. The front door. A client sends exactly one
 //!   [`login_protocol::connect_word`] here, ever, or exactly one [`login_protocol::logout_word`], any
 //!   number of times; the actual [`login_protocol::LOGIN`] request travels on the private endpoint
 //!   [`connect`] delegates in answer (see "Two phases" above and `login_protocol`'s own module docs).
@@ -700,9 +700,9 @@ use supervision_protocol::{
     retype_obj_from as retype_obj, retype_page_frame_from, start_child,
 };
 use timetable::registration;
-use user_mode_runtime::{call, cap_delete, map_page_frame, recv, send, send_cap, yield_now};
+use user_mode_runtime::{call, cap_delete, map_page_frame, receive, send, send_cap, yield_now};
 
-/// The front door: a bare [`login_protocol::CONNECT`], `RECV` (milestone 49).
+/// The front door: a bare [`login_protocol::CONNECT`], `RECEIVE` (milestone 49).
 const REQUEST: u64 = 0;
 /// [`login_protocol::CONNECTED`], then three delegated capabilities, `WRITE | GRANT`.
 const RESULT: u64 = 1;
@@ -1018,7 +1018,7 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
     let mut terminal_held = false;
 
     loop {
-        let (w0, _w1, _w2) = recv(REQUEST);
+        let (w0, _w1, _w2) = receive(REQUEST);
         let op = login_protocol::op(w0);
         if op == login_protocol::LOGOUT {
             // **Travels on the front door itself**, unlike an actual login: it carries no secret,
@@ -1163,7 +1163,7 @@ fn serve_login(
     terminal_held: &mut bool,
     schedules: &mut Schedules,
 ) {
-    let (w0, _w1, _w2) = recv(channel.request);
+    let (w0, _w1, _w2) = receive(channel.request);
     cap_delete(channel.request);
     // `LOGIN`, or `SCHEDULE`: log in and open this identity's schedule (milestone 152).
     let wants_schedule = login_protocol::op(w0) == login_protocol::SCHEDULE;
@@ -1661,7 +1661,7 @@ impl Durable {
         // Wait for the session process to finish its own teardown: reclaiming it earlier would kill
         // it between its two destroys and strand a region under the user's budget for good. It is
         // already blocked sending this word by the time anything calls `retire` after a clean stop.
-        recv(self.ready);
+        receive(self.ready);
         cap_delete(self.ready);
         discard(self.session);
         cap_delete(self.page);
@@ -1771,7 +1771,7 @@ fn open_schedule(
         Ok(child) => start_child(child, timetable.len() as u64, 0, 0),
         Err(()) => false,
     };
-    let answer = if started { recv(ready).0 } else { 0 };
+    let answer = if started { receive(ready).0 } else { 0 };
     cap_delete(its_budget);
     if answer != login_protocol::session::READY || !map_page_frame(page, va, true, own_ut) {
         cap_delete(ready);
@@ -1847,7 +1847,7 @@ fn store_caretaker(
         },
     )
     .is_ok_and(|child| start_child(child, lo, hi, spec));
-    let verdict = if started { recv(ready).0 } else { 0 };
+    let verdict = if started { receive(ready).0 } else { 0 };
     cap_delete(ready);
     if verdict != filesystem_protocol::fixture::READY {
         cap_delete(narrow_ep);
@@ -1863,7 +1863,7 @@ fn store_caretaker(
 /// the whole channel in one call once it is done with it, `_start`'s own [`reclaim`] after
 /// [`serve_login`] returns).
 struct Channel {
-    /// `RECV`, this process's own copy (the client's is `WRITE`).
+    /// `RECEIVE`, this process's own copy (the client's is `WRITE`).
     request: u64,
     /// `WRITE | GRANT`, this process's own copy (the client's is `READ`).
     result: u64,
@@ -2052,7 +2052,7 @@ fn mint(own_ut: u64, care: Option<&elf::Elf>, identity: &[u8]) -> Option<(u64, u
     // caller already folds into `login_protocol::DENIED`, indistinguishable from a wrong password. See
     // this program's BUGS for why that fold is the considered answer for this case too, not merely
     // an accident of reusing the same code path.
-    let (verdict, _, _) = recv(ready);
+    let (verdict, _, _) = receive(ready);
     cap_delete(ready);
     if verdict != filesystem_protocol::fixture::READY {
         cap_delete(narrow_ep);

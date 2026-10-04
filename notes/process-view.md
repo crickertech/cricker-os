@@ -52,7 +52,7 @@ invoke(cap, SURVEY, cursor, record, 0) -> (next_cursor, tid, word)
 - `next_cursor` returns in x0 (a0 on RISC-V), `tid` in x1, and the selected record's word in x2.
 - Start with `cursor = 0`. Feed each `next_cursor` back. `abi::survey::DONE` (zero) means finished.
 - A negative first word is an `abi::Error`.
-- Needs `ENUMERATE`, and pointedly not `READ`. `READ` on a supervision endpoint is what `RECV`
+- Needs `ENUMERATE`, and pointedly not `READ`. `READ` on a supervision endpoint is what `RECEIVE`
   and `endpoint::REAP` take, so a viewer holding it could reap a child; a domain names its members
   and does not act on them (calef, 2026-08-17). See `capability::Rights::ENUMERATE` and the first
   `BUGS` entry below, which is the finding this right came from.
@@ -213,7 +213,7 @@ reports *to* a supervisor holds exactly that. It may send here and it may not lo
 says so rather than answering with a plausible nothing.
 
 The fourth row is the one the 2026-08-17 rights split added, and it is the direction a reader is
-least likely to expect: `READ` is the *stronger* right on this object (it unlocks `RECV` and `REAP`)
+least likely to expect: `READ` is the *stronger* right on this object (it unlocks `RECEIVE` and `REAP`)
 and it still does not unlock the view. That is deliberate. The two are not ordered, because
 receiving deaths and naming members differ in kind rather than in degree, so a holder that wants
 both is granted both, which is what the kernel tests' `hold_supervisor` does.
@@ -454,7 +454,7 @@ regular expression is not a designation of anything.
 - Holding a domain with `READ` was more authority than looking needs. Fixed 2026-08-17, and the
   entry is kept because the shape recurs and the fix is small enough to reuse.
 
-  The finding: `READ` on a supervision endpoint is also what `RECV` and `endpoint::REAP` take, so a
+  The finding: `READ` on a supervision endpoint is also what `RECEIVE` and `endpoint::REAP` take, so a
   viewer endowed a view could take a death message out from under the real supervisor
   (`job_undertaker`, at the interactive boot) or collect a corpse. `ps` did neither, and its source
   was the whole argument that it did not, which is exactly the kind of argument this system exists
@@ -467,7 +467,7 @@ regular expression is not a designation of anything.
   was no second decision to wait for, and the deferral was buying nothing.
 
   The fix is `capability::Rights::ENUMERATE`, the kernel-level twin of `filesystem_protocol`'s directory
-  `ENUMERATE`, and it is the same argument one layer down. `SURVEY` takes it; `RECV` and `REAP`
+  `ENUMERATE`, and it is the same argument one layer down. `SURVEY` takes it; `RECEIVE` and `REAP`
   still take `READ`; `system_initializer` grants a viewer `ENUMERATE` alone. So a `ps` does not
   get refused a reap, it cannot name one, which is the ladder's top rung in place of an argument
   about a program's source.

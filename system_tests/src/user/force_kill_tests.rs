@@ -104,40 +104,40 @@ fn destroy_force_kills_a_runaway_and_reclaims_its_region() {
     run.assert_returned("reclaiming a force-killed runaway did not return its frames");
 }
 
-/// A child that blocks in `RECV` on the rendezvous in slot 0 and never comes back on its own. Nine
-/// instructions, the [`super::supervision_tests::REPORT_STUB`] shape with `RECV` where the `SEND`
+/// A child that blocks in `RECEIVE` on the rendezvous in slot 0 and never comes back on its own. Nine
+/// instructions, the [`super::supervision_tests::REPORT_STUB`] shape with `RECEIVE` where the `SEND`
 /// was: the tail `EXIT` is reached only if the receive returns, which happens exactly when the
 /// rendezvous is revoked out from under it.
 #[cfg(target_arch = "aarch64")]
-const RECV_STUB: &[u32] = &[
+const RECEIVE_STUB: &[u32] = &[
     0xD280_0000, // movz x0, #0            (slot 0)
-    0xD280_0000 | ((abi::rendezvous::RECV as u32) << 5) | 1, // movz x1, #RECV
+    0xD280_0000 | ((abi::rendezvous::RECEIVE as u32) << 5) | 1, // movz x1, #RECEIVE
     0xD280_0002, // movz x2, #0
     0xD280_0003, // movz x3, #0
     0xD280_0004, // movz x4, #0
     0xD280_0000 | ((abi::SYS_INVOKE as u32) << 5) | 8, // movz x8, #SYS_INVOKE
-    0xD400_0001, // svc #0                 (RECV: blocks)
+    0xD400_0001, // svc #0                 (RECEIVE: blocks)
     0xD280_0008, // movz x8, #SYS_EXIT
     0xD400_0001, // svc #0                 (exit)
 ];
 #[cfg(target_arch = "riscv64")]
-const RECV_STUB: &[u32] = &[
-    0x0000_0513,                                          // li a0, 0            (slot 0)
-    0x0000_0593 | ((abi::rendezvous::RECV as u32) << 20), // li a1, RECV
-    0x0000_0613,                                          // li a2, 0
-    0x0000_0693,                                          // li a3, 0
-    0x0000_0713,                                          // li a4, 0
-    0x0000_0893 | ((abi::SYS_INVOKE as u32) << 20),       // li a7, SYS_INVOKE
-    0x0000_0073,                                          // ecall               (RECV: blocks)
-    0x0000_0893 | ((abi::SYS_EXIT as u32) << 20),         // li a7, SYS_EXIT
-    0x0000_0073,                                          // ecall               (exit)
+const RECEIVE_STUB: &[u32] = &[
+    0x0000_0513,                                             // li a0, 0            (slot 0)
+    0x0000_0593 | ((abi::rendezvous::RECEIVE as u32) << 20), // li a1, RECEIVE
+    0x0000_0613,                                             // li a2, 0
+    0x0000_0693,                                             // li a3, 0
+    0x0000_0713,                                             // li a4, 0
+    0x0000_0893 | ((abi::SYS_INVOKE as u32) << 20),          // li a7, SYS_INVOKE
+    0x0000_0073,                                  // ecall               (RECEIVE: blocks)
+    0x0000_0893 | ((abi::SYS_EXIT as u32) << 20), // li a7, SYS_EXIT
+    0x0000_0073,                                  // ecall               (exit)
 ];
 /// `x86_64`'s is in `user::x86_programs`; see [`SPIN_STUB`].
 #[cfg(target_arch = "x86_64")]
-const RECV_STUB: &[u32] = &super::x86_programs::recv();
+const RECEIVE_STUB: &[u32] = &super::x86_programs::receive();
 
 /// A child that blocks in `CALL` on the rendezvous in slot 0 and is never replied to. Byte for
-/// byte [`RECV_STUB`] with `CALL` where the `RECV` was, and the difference in the machine is the
+/// byte [`RECEIVE_STUB`] with `CALL` where the `RECEIVE` was, and the difference in the machine is the
 /// whole of milestone 133's harder case: once a server has collected the request, the caller is on
 /// **no queue at all**, so no rendezvous sweep can reach it and the only thing that could wake it
 /// is the one-shot `Reply` capability the server is now holding.
@@ -175,7 +175,7 @@ const CALL_STUB: &[u32] = &super::x86_programs::call();
 /// copied twice in this file before it was worth lifting.
 ///
 /// The rendezvous is deliberately **not** created from `region`: that is the difference between
-/// the case [`destroy_reclaims_a_region_whose_resident_is_blocked_in_recv`] already covered (the
+/// the case [`destroy_reclaims_a_region_whose_resident_is_blocked_in_receive`] already covered (the
 /// rendezvous sweep wakes the resident, so the armed kill becomes spendable) and the case that
 /// hung forever until milestone 133, ending a permanently blocked thread: the rendezvous belongs to
 /// somebody else, so nothing wakes the resident and nothing ever will.
@@ -247,7 +247,7 @@ fn reclaim_within_two_seconds(region: u64) -> bool {
 /// **`DESTROY` reclaims a region whose resident is `Blocked`, not just one that spins.**
 ///
 /// The companion to the test above and the property the aarch64 test boot actually needed. §16's
-/// kill is *armed* by the refusal and *spent* by `schedule()`, and a thread parked in `RECV` never
+/// kill is *armed* by the refusal and *spent* by `schedule()`, and a thread parked in `RECEIVE` never
 /// reaches `schedule()`: before 2026-08-16 a region holding a blocked server was refused on every
 /// pass, forever, and its memory was gone until the machine stopped. That is not an exotic case. A
 /// server is a thing that blocks, and six `spawn_init` tests each built one out of a 2048-frame
@@ -259,9 +259,9 @@ fn reclaim_within_two_seconds(region: u64) -> bool {
 ///
 /// **Verified it can fail**, and it was: moving the rendezvous sweep back below the refusal in
 /// `reap_region_objects` makes this test spend its whole two-second deadline and trip its own
-/// assertion, "a region holding a resident blocked in RECV never reclaimed" (checked 2026-08-16).
+/// assertion, "a region holding a resident blocked in RECEIVE never reclaimed" (checked 2026-08-16).
 #[test_case]
-fn destroy_reclaims_a_region_whose_resident_is_blocked_in_recv() {
+fn destroy_reclaims_a_region_whose_resident_is_blocked_in_receive() {
     // The child's whole world in one region, its rendezvous included: address space, code, stack, TCB, and
     // the rendezvous it will park on.
     let region = crate::memory_region::create(16).expect("no region for the blocked child");
@@ -273,13 +273,13 @@ fn destroy_reclaims_a_region_whose_resident_is_blocked_in_recv() {
     // SAFETY: a fresh frame we own, direct-mapped; write the stub and make it fetchable.
     unsafe {
         let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-        for (i, &insn) in RECV_STUB.iter().enumerate() {
+        for (i, &insn) in RECEIVE_STUB.iter().enumerate() {
             dst.add(i).write(insn);
         }
     }
     sync_icache(
         mmu::phys_to_virt(code_phys),
-        core::mem::size_of_val(RECV_STUB),
+        core::mem::size_of_val(RECEIVE_STUB),
     );
     user_address_space_map(
         aspace,
@@ -338,7 +338,7 @@ fn destroy_reclaims_a_region_whose_resident_is_blocked_in_recv() {
     }
     assert!(
         reclaimed,
-        "a region holding a resident blocked in RECV never reclaimed: the rendezvous sweep no longer \
+        "a region holding a resident blocked in RECEIVE never reclaimed: the rendezvous sweep no longer \
          runs before the refusal, so the armed kill can never be spent and the memory is gone for \
          the life of the boot",
     );
@@ -355,7 +355,7 @@ fn destroy_reclaims_a_region_whose_resident_is_blocked_in_recv() {
 /// pinned region rather than from the child's, so the sweep that opens `reap_region_objects` never
 /// touches it and the child is never woken by anything.
 ///
-/// That is not an exotic arrangement, it is what a hung component *is*. A server parks in `RECV`
+/// That is not an exotic arrangement, it is what a hung component *is*. A server parks in `RECEIVE`
 /// on a rendezvous its clients own; a client parks in `CALL` on a server's. Either way the
 /// resident waits on somebody else's object, §16's kill is armed by the refusal and spent by
 /// `schedule()` only for a thread that is `Running`, and a thread waiting for a rendezvous nobody
@@ -384,7 +384,7 @@ fn destroy_reclaims_a_region_whose_resident_blocks_on_a_rendezvous_it_does_not_o
     // measurement by construction rather than by ordering.
     let ep = sched::create_rendezvous();
 
-    let (region, tid) = child_blocked_on(ep, crate::cap::Rights::READ, RECV_STUB);
+    let (region, tid) = child_blocked_on(ep, crate::cap::Rights::READ, RECEIVE_STUB);
     let run = crate::testing::RegionRun::of(region);
 
     // **Wait for it to be queued, not for "probably scheduled by now."** Reclaiming a child that
@@ -452,9 +452,9 @@ fn tearing_down_a_reply_parked_caller_sweeps_the_reply_capability() {
     let run = crate::testing::RegionRun::of(region); // this region's frames, not the machine's
 
     // Collect the request, which is what moves the caller off the sender queue and leaves it
-    // reply-parked on nothing. `ipc_recv_cap` deliberately does not wake a caller: the reply is
+    // reply-parked on nothing. `ipc_receive_cap` deliberately does not wake a caller: the reply is
     // the only thing that may, and this server never sends one.
-    let [_word, slot, _w1, _badge, ..] = sched::ipc_recv_cap(ep);
+    let [_word, slot, _w1, _badge, ..] = sched::ipc_receive_cap(ep);
     assert_ne!(
         slot,
         abi::rendezvous::NO_CAP,
@@ -496,7 +496,7 @@ fn tearing_down_a_reply_parked_caller_sweeps_the_reply_capability() {
 /// **A region lent to an address space is freed by its owner, and by nobody else.**
 ///
 /// The deterministic half of the intermittent `double free of frame 0x82a3e000` that
-/// [`destroy_reclaims_a_region_whose_resident_is_blocked_in_recv`] hit once in 45 runs on riscv64
+/// [`destroy_reclaims_a_region_whose_resident_is_blocked_in_receive`] hit once in 45 runs on riscv64
 /// (notes/object-revocation.md BUGS). That test needs two cores to disagree; this one needs
 /// nobody, because it stages the window by hand instead of racing for it.
 ///

@@ -29,7 +29,7 @@
 //!
 //! No window management (the scene is `compositor::SCENE`, fixed), no alpha, no GPU (rung four), no text
 //! (rung three). And one structural limit worth reading before believing anything else here: this
-//! process has **one blocking wait point**, because a thread can only be parked in one `RECV` and
+//! process has **one blocking wait point**, because a thread can only be parked in one `RECEIVE` and
 //! this kernel has no wait-any primitive and no threads sharing an address space. That is the reason
 //! the design routes everything through one doorbell plus shared memory rather than one endpoint per
 //! source, and the reason a client that stops answering can stall the compositor. See
@@ -49,7 +49,7 @@
 use compositor::proto::{ctl, ring, wlist};
 use compositor::{Rect, SCENE};
 use graphics_protocol as gfx;
-use user_mode_runtime::{call, map_page_frame, recv_request, reply, send};
+use user_mode_runtime::{call, map_page_frame, receive_request, reply, send};
 
 /// Capability slots, by convention with `kernel/src/user/compositor_service.rs`.
 const REPORT: u64 = 0;
@@ -181,7 +181,7 @@ fn flush(damage: Rect) {
     // PAIR: `barrier()` in components/src/gpu_driver.rs, which the driver issues before it moves the
     // virtqueue index and again before it notifies the device. The `call(DISPLAY, FLUSH, ...)` below
     // is what orders these pixels against the driver *reading* them (the driver is blocked in
-    // `recv_cap`); this fence is what covers the driver-to-device leg not being ours to see.
+    // `receive_cap`); this fence is what covers the driver-to-device leg not being ours to see.
     core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
     let (r0, _) = call(
         DISPLAY,
@@ -359,12 +359,12 @@ pub extern "C" fn _start(windows: u64, focusable: u64, _arg2: u64) -> ! {
 
     loop {
         // One wait point, and everything arrives here: a client's HELLO or COMMIT, and the input
-        // source's ring. `recv_request`'s `delivered` is the kernel-minted one-shot Reply naming
+        // source's ring. `receive_request`'s `delivered` is the kernel-minted one-shot Reply naming
         // the caller, which is how a reply reaches whoever rang without this program ever knowing
         // who that was. Anything else (a client's SEND_CAP; milestone 706 (a `CALL` server can tell
         // a Reply from a delegation)) gets no reply, and a delegated capability is deleted rather
         // than answered into.
-        let req = recv_request(DOORBELL);
+        let req = receive_request(DOORBELL);
         let w0 = req.w0;
         let reply_slot = req.delivered.into_reply();
         let r0: i64 = match compositor::proto::op(w0) {

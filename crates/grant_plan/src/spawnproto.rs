@@ -20,7 +20,7 @@
 //! 2. **The directory grant, if the request announced one** ([`Wiring::dir`], milestone 31 phase 3):
 //!    [`GRANT_WORDS`] plain `SEND`s carrying the caretaker's `START` words and then the child's.
 //!    Before the delegation rather than after, because these are **data and not capabilities** and
-//!    mixing the two orders would put a `RECV` where a `RECV_CAP` belongs.
+//!    mixing the two orders would put a `RECEIVE` where a `RECEIVE_CAP` belongs.
 //! 3. **Delegation.** The capabilities the request announced, in a fixed order: the supervised
 //!    job's pair (untyped, frame), then the **sink** (milestone 50), then the **source**, then the
 //!    **diagnostic endpoint** (DECISIONS §67), then the **screen-narrowed tail's completion
@@ -32,7 +32,7 @@
 //!    If `mem_pages > 0`, the shell `SEND_CAP`s exactly one capability there: an
 //!    untyped it split from *its own* budget, sized to `mem_pages`. This is the grant made real,
 //!    not parsed and dropped. Programs that grant no capability (`least_authority_demo`) skip this step, and the progenitor
-//!    knows to skip the matching `RECV_CAP` from `mem_pages == 0`.
+//!    knows to skip the matching `RECEIVE_CAP` from `mem_pages == 0`.
 //! 4. **Outcome.** The progenitor builds the child, endows it (the shared result endpoint always; the
 //!    delegated untyped when present), and starts it. The child reports its own answer on the
 //!    result endpoint. If the progenitor cannot build it (its own budget is spent, or the program vanished),
@@ -47,7 +47,7 @@
 //!    words arrives and the shell's single read has nothing to complete it. `job_undertaker`, which
 //!    already holds the progenitor's supervision endpoint and already collects the corpse, sends
 //!    [`JOB_FAULTED`] there instead. It is a third value on the same one-word read rather than a
-//!    second channel, because the shell has one thread and can be blocked in exactly one `RECV`;
+//!    second channel, because the shell has one thread and can be blocked in exactly one `RECEIVE`;
 //!    see [`JOB_FAULTED`] for the two couplings this refused.
 //!
 //! # BUGS
@@ -132,7 +132,7 @@ const DIAG_BIT: u64 = 1 << 35;
 /// `term_sink`, unprompted, the same way it builds a diagnostic default). It is a **fresh
 /// endpoint the shell minted and kept a copy of**, delegated so the progenitor can install it as this child's
 /// DECISIONS §26 fault target in place of its own domain channel. The kernel then delivers the
-/// child's exit there instead of to the progenitor's reaper, and the shell `RECV`s it as its completion
+/// child's exit there instead of to the progenitor's reaper, and the shell `RECEIVE`s it as its completion
 /// signal instead of draining the child's bytes, which it no longer sees.
 const SCREEN_BIT: u64 = 1 << 37;
 
@@ -727,7 +727,7 @@ pub fn arg(w1: u64) -> u64 {
 }
 
 /// The memory-grant page count from a received request (word 2). Non-zero means one delegated
-/// untyped capability follows the interrupt caps (if any) over `SEND_CAP` / `RECV_CAP`.
+/// untyped capability follows the interrupt caps (if any) over `SEND_CAP` / `RECEIVE_CAP`.
 pub fn mem_pages(w2: u64) -> u64 {
     w2 & 0xffff_ffff
 }

@@ -67,7 +67,7 @@
 /// interactive boot's own use of it is in `crates/system_initializer`; what is left here is milestone
 /// 19d's test roles, which build a child out of one budget and hand it two or three capabilities.
 use supervision_protocol::{Child, ChildEndowment, Retention};
-use user_mode_runtime::{exit, irq_wait, map_page_frame, recv, send};
+use user_mode_runtime::{exit, irq_wait, map_page_frame, receive, send};
 
 /// Roles, as passed in `x0` by the kernel.
 // Roles 0, 2, 7, 9 to 19 and 42 were the milestone 7-19 capability demonstrations and the granted
@@ -286,7 +286,7 @@ fn irq_child() -> ! {
 /// probe: init builds the *actual* print server (its own `"console"` binary since 19f.3) as a child
 /// and drives it. The server needs four things, and init provides all of them out of its own budget
 /// and the
-/// capabilities it holds: a request endpoint (the server RECVs a length on it), a reply endpoint
+/// capabilities it holds: a request endpoint (the server receives a length on it), a reply endpoint
 /// (it ACKs), a shared page (the client writes text, the server reads it), and the UART's
 /// registers (device-typed, from 19d.2a). init then plays the client: it writes a line into the
 /// shared page, sends the length, the server prints it to the real UART and acks, and init reports
@@ -347,7 +347,7 @@ fn init_console(initrd_len: u64) -> ! {
         dst.copy_from_slice(msg);
     }
     check(send(request, msg.len() as u64, 0, 0) == 0); // the server prints, then acks on reply
-    let (acked, _, _) = recv(reply);
+    let (acked, _, _) = receive(reply);
     send(REPORT, acked, 0, 0); // report the length the server acknowledged
     exit();
 }

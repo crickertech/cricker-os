@@ -44,7 +44,7 @@ pub(super) fn rendezvous(region: u64) -> sched::RendezvousId {
 }
 
 /// Hold a domain **the way a viewer holds one**: `ENUMERATE` and nothing else, which is exactly
-/// what `ps` is granted. It is not that a viewer is refused `RECV` and `REAP`; it cannot name them,
+/// what `ps` is granted. It is not that a viewer is refused `RECEIVE` and `REAP`; it cannot name them,
 /// because those take `READ` and this capability does not carry it.
 pub(super) fn hold_view(ep: sched::RendezvousId) -> u64 {
     sched::grant(crate::cap::rendezvous_cap(ep, Rights::ENUMERATE)).expect("grant the rendezvous")
@@ -106,13 +106,13 @@ fn reap(slot: u64, tid: u64) -> Result<i64, Error> {
 /// **Let every parked child finish.** Each `REPORT_STUB` member is blocked in a send on the shared
 /// parking rendezvous, so taking `n` messages off it releases `n` of them to exit.
 ///
-/// Deliberately not per-child: an `ipc_recv` takes whichever sender is queued, so a test with
+/// Deliberately not per-child: an `ipc_receive` takes whichever sender is queued, so a test with
 /// members in two domains must drain the whole rendezvous before it collects any of them. Draining
 /// only its own domain's count releases somebody else's child and leaves one of its own blocked
 /// forever, which is the bug this comment exists to stop the next reader reintroducing.
 pub(super) fn drain(parking: sched::RendezvousId, n: usize) {
     for _ in 0..n {
-        sched::ipc_recv(parking);
+        sched::ipc_receive(parking);
     }
 }
 
@@ -377,7 +377,7 @@ fn a_dead_child_is_still_in_the_domain_until_it_is_reaped() {
 
     let cap = hold_supervisor(ep);
     // The corpse parks on its supervision rendezvous's sender queue with its death message when
-    // nobody is in RECV, which is how a survey can see it before anyone has collected the news.
+    // nobody is in RECEIVE, which is how a survey can see it before anyone has collected the news.
     // **The failure message carries the evidence, because the machine that produced it is not
     // this one** (milestone 321). This assertion failed on xenon on 2026-09-17 with four real
     // cores, and the transcript could not say which of three things had happened: the count is
@@ -406,7 +406,7 @@ fn a_dead_child_is_still_in_the_domain_until_it_is_reaped() {
     // Collect it through the rendezvous the survey named it on, then the domain is empty and says so
     // rather than refusing.
     let mut frame = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
-    invoke(&mut frame, cap, abi::rendezvous::RECV, 0, 0, 0).expect("RECV refused");
+    invoke(&mut frame, cap, abi::rendezvous::RECEIVE, 0, 0, 0).expect("RECEIVE refused");
     assert_eq!(
         invoke(&mut frame, cap, abi::rendezvous::REAP, child, 0, 0),
         Ok(0),
@@ -715,7 +715,7 @@ fn a_filter_names_members_and_tells_its_four_answers_apart() {
     drain(parking, 2);
     let sup = hold_supervisor(ep);
     let mut frame = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
-    invoke(&mut frame, sup, abi::rendezvous::RECV, 0, 0, 0)
+    invoke(&mut frame, sup, abi::rendezvous::RECEIVE, 0, 0, 0)
         .expect("the death message never arrived");
     collect_all(sup, &[corpse, live_a, live_b]);
     tidy(budget, rendezvous_region, &[viewer, vacant, peer, sup]);

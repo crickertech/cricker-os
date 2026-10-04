@@ -26,12 +26,12 @@ Three pieces, and the surface cost is zero new syscalls and zero new methods.
 2. Delivery, without blocking the faulting path. When the thread dies (`sched::depart`, reached
    from both the arch fault handlers and `SYS_EXIT`), the kernel builds the five-word message and
    delivers it to the fault endpoint. Delivery is the ordinary synchronous-send rendezvous, reused:
-   if a supervisor is already blocked in `RECV`, hand it the message and wake it; if none is, the
+   if a supervisor is already blocked in `RECEIVE`, hand it the message and wake it; if none is, the
    corpse itself parks on the endpoint's sender queue with the message in its mailbox, so the
    notification waits there rather than being lost. This is the same guarantee an ordinary blocked
    sender gets, and it is why a data-carrying death rides the sender queue rather than the data-less
    IRQ signal count (`irq_notify`): a signal count could say "something died" but not carry the tid,
-   pc, and address. The corpse is never woken: `ipc_recv` recognises a `Dead` sender, takes its
+   pc, and address. The corpse is never woken: `ipc_receive` recognises a `Dead` sender, takes its
    message, and leaves it dead, exactly the way it already leaves a `CALL` caller blocked.
 
 3. Dead until reaped. After the message, the thread is `State::Dead`: it never runs again, but
@@ -43,7 +43,7 @@ Three pieces, and the surface cost is zero new syscalls and zero new methods.
 
 ## The message
 
-Five words, delivered to the supervision endpoint's holder through a plain `RECV`:
+Five words, delivered to the supervision endpoint's holder through a plain `RECEIVE`:
 
 ```text
   w0  event    fault::EVENT_FAULT or fault::EVENT_EXIT   (crashed vs finished)
@@ -53,9 +53,9 @@ Five words, delivered to the supervision endpoint's holder through a plain `RECV
   w4  reserved 0 today; a fault-reply / resume protocol arrives here additively
 ```
 
-`RECV` returns `w0` in the result register and `w1..w4` in the next four argument registers. The IPC
+`RECEIVE` returns `w0` in the result register and `w1..w4` in the next four argument registers. The IPC
 mailbox widened from three words to five to carry this; ordinary three-word IPC leaves the top two
-zero, so only a supervisor reads them and no other program's `RECV` changes.
+zero, so only a supervisor reads them and no other program's `RECEIVE` changes.
 
 Both events flow because restart policy needs to tell "crashed" from "finished": a crash is a reason
 to restart, a clean exit is a reason to stop. The tid is trustworthy without a badge because the
@@ -173,7 +173,7 @@ reap" because it quantifies over rights combinations rather than sampling them.
 A death reaches one endpoint, and that single fact is what decided milestone 235
 (design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). At the interactive prompt the holder
 of that endpoint is `job_undertaker`, whose whole job is collecting; the process that *needed* to
-know was `swish`, blocked in a `RECV` on the progenitor's result endpoint for an answer a killed thread can
+know was `swish`, blocked in a `RECEIVE` on the progenitor's result endpoint for an answer a killed thread can
 never send. So the prompt hung, and only on a fault: an ordinary non-zero exit is a value the child
 sends before it exits, and a spawn the progenitor could not build already had `spawnproto::SPAWN_FAILED`.
 
@@ -200,7 +200,7 @@ takes the stale word. Closing it needs either a non-blocking send or a receive t
 endpoints, and both are the syscall surface (§10, §16). Recorded in `components/src/job_undertaker.rs`'s
 `BUGS`, where the next person to touch that loop will meet it.
 
-**A job that hangs without faulting is untouched by any of this.** A live thread blocked in a `RECV`
+**A job that hangs without faulting is untouched by any of this.** A live thread blocked in a `RECEIVE`
 nobody will answer is not dead, so no death message exists to route, and none of the three couplings
 had anything to say about it. §32's refusal to reap a live thread is the same boundary seen from the
 other side.
@@ -222,7 +222,7 @@ other side.
   **Nothing escalates through it, and the reason is worth being precise about**, because the obvious
   reason is the wrong one. `START` deletes the slot before `arm_for_start` makes the thread
   runnable, so the child never executes an instruction while holding that capability, whatever
-  rights it carries. The child therefore cannot `RECV` a sibling's death message or `REAP` a
+  rights it carries. The child therefore cannot `RECEIVE` a sibling's death message or `REAP` a
   sibling, which is what `READ` on a supervision endpoint would otherwise buy it. The protection is
   the **deletion**, and the ordering inside `start_tcb` is load-bearing.
 

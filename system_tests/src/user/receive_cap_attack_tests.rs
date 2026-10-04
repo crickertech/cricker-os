@@ -1,20 +1,20 @@
-//! **A plain `SEND` received by `RECV_CAP` hands the receiver `NO_CAP` in `x1`, never a
-//! sender-chosen word** (milestone 634 (a plain SEND received by RECV_CAP never hands the receiver
+//! **A plain `SEND` received by `RECEIVE_CAP` hands the receiver `NO_CAP` in `x1`, never a
+//! sender-chosen word** (milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver
 //! a sender-chosen slot), fatal risk 7's confinement claim).
 //!
 //! **The defect these tests were written to demonstrate was live on `main` and is fixed here.**
-//! `RECV_CAP` returns in `x1` the slot a delivered capability landed in, or `NO_CAP` when the
+//! `RECEIVE_CAP` returns in `x1` the slot a delivered capability landed in, or `NO_CAP` when the
 //! message carried none. A `CALL` server reads it as the slot of the one-shot `Reply` capability.
-//! On `main`, a plain `SEND` (three data words, no capability) received by `RECV_CAP` left the
+//! On `main`, a plain `SEND` (three data words, no capability) received by `RECEIVE_CAP` left the
 //! sender's second word in `x1` when the receiver had parked first, because `ipc_send` drops its
-//! three words straight into the receiver's mailbox and the old `ipc_recv_cap` returned that word
+//! three words straight into the receiver's mailbox and the old `ipc_receive_cap` returned that word
 //! unchanged. So a client could hand a server a slot number of its own choosing. The sender-first
 //! order already returned `NO_CAP`; the fix makes the receiver-first order match it, by having the
 //! receive side write `NO_CAP` unless a capability was actually installed for the delivery
 //! (`Thread::cap_delivered`, `kernel/src/sched.rs`).
 //!
 //! **Why this is a confinement claim.** The audit by milestone 613 (a system log service: the
-//! in-memory half), PR #1494, found no `RECV_CAP`
+//! in-memory half), PR #1494, found no `RECEIVE_CAP`
 //! consumer anywhere that checks the kind of object in the received slot, and no ABI call that
 //! would let one. The only guard in the tree is `x1 == NO_CAP`, which did nothing on the
 //! receiver-first order. The worst live case is `net_stack` (`components/src/net_stack.rs:227`),
@@ -47,9 +47,9 @@ const CHOSEN: u64 = 7;
 /// exploitable order on `main`; sender-first always returned `NO_CAP`. Asserting both is what makes
 /// the fix's symmetry the property rather than one patched branch.
 ///
-/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.a_plain_send_to_recv_cap_delivers_no_cap_whichever_side_parks_first.patch`
+/// Falsification: replayable `system_tests/falsifications/user.receive_cap_attack_tests.a_plain_send_to_receive_cap_delivers_no_cap_whichever_side_parks_first.patch`
 #[test_case]
-fn a_plain_send_to_recv_cap_delivers_no_cap_whichever_side_parks_first() {
+fn a_plain_send_to_receive_cap_delivers_no_cap_whichever_side_parks_first() {
     static RECEIVER_FIRST_X1: AtomicU64 = AtomicU64::new(0);
     static SERVER_PARKED: AtomicBool = AtomicBool::new(false);
     static RECEIVER_FIRST_DONE: AtomicBool = AtomicBool::new(false);
@@ -57,10 +57,10 @@ fn a_plain_send_to_recv_cap_delivers_no_cap_whichever_side_parks_first() {
     let region = crate::memory_region::create(4).expect("no region");
     let ep = sched::create_rendezvous_from(region).expect("no rendezvous");
 
-    // Receiver-first: the server parks in RECV_CAP, then the attacker sends a chosen word.
+    // Receiver-first: the server parks in RECEIVE_CAP, then the attacker sends a chosen word.
     sched::spawn(move || {
         SERVER_PARKED.store(true, Ordering::SeqCst);
-        let [_w0, x1, ..] = sched::ipc_recv_cap(ep);
+        let [_w0, x1, ..] = sched::ipc_receive_cap(ep);
         RECEIVER_FIRST_X1.store(x1, Ordering::SeqCst);
         RECEIVER_FIRST_DONE.store(true, Ordering::SeqCst);
     })
@@ -69,12 +69,12 @@ fn a_plain_send_to_recv_cap_delivers_no_cap_whichever_side_parks_first() {
         wait_for(
             || SERVER_PARKED.load(Ordering::SeqCst) && sched::rendezvous_waiting_receivers(ep) == 1
         ),
-        "the server never parked in RECV_CAP, so nothing proved the receiver-first order",
+        "the server never parked in RECEIVE_CAP, so nothing proved the receiver-first order",
     );
     sched::ipc_send(ep, [1, CHOSEN, 0]);
     assert!(
         wait_for(|| RECEIVER_FIRST_DONE.load(Ordering::SeqCst)),
-        "the receiver-first server never returned from RECV_CAP",
+        "the receiver-first server never returned from RECEIVE_CAP",
     );
     assert_eq!(
         RECEIVER_FIRST_X1.load(Ordering::SeqCst),
@@ -95,7 +95,7 @@ fn a_plain_send_to_recv_cap_delivers_no_cap_whichever_side_parks_first() {
         wait_for(|| SENT.load(Ordering::SeqCst) && sched::rendezvous_waiting_senders(ep) == 1),
         "the attacker never parked as a sender, so nothing proved the sender-first order",
     );
-    let [_w0, x1, ..] = sched::ipc_recv_cap(ep);
+    let [_w0, x1, ..] = sched::ipc_receive_cap(ep);
     assert_eq!(
         x1,
         abi::rendezvous::NO_CAP,
@@ -129,7 +129,7 @@ fn a_server_that_deletes_the_received_slot_deletes_nothing_of_its_own() {
             sched::grant_at(VICTIM_SLOT, rendezvous_cap(victim_ep, Rights::WRITE))
                 .expect("the server could not hold its victim capability");
             READY.store(true, Ordering::SeqCst);
-            let [_w0, x1, ..] = sched::ipc_recv_cap(ep);
+            let [_w0, x1, ..] = sched::ipc_receive_cap(ep);
             let _ = sched::delete_current_cap(x1); // net_stack's unconditional cap_delete(x1)
             SURVIVED.store(sched::current_cap(VICTIM_SLOT).is_ok(), Ordering::SeqCst);
             let _ = sched::delete_current_cap(VICTIM_SLOT); // leave this thread's table clean
@@ -179,7 +179,7 @@ fn a_server_that_deletes_the_received_slot_deletes_nothing_of_its_own() {
 /// delegation in `Thread::outgoing_cap` until a receiver takes it. `reclaim_region` drains the
 /// rendezvous and wakes the sender aborted; before the fix in `set_ipc_aborted` the capability
 /// stayed staged, and the sender's next plain `SEND`, parked on an unrelated rendezvous, handed it
-/// to whoever `RECV_CAP`ed there: a delegation made to one endpoint, delivered to another.
+/// to whoever `RECEIVE_CAP`ed there: a delegation made to one endpoint, delivered to another.
 #[test_case]
 fn a_send_cap_aborted_by_teardown_stages_nothing_for_a_later_plain_send() {
     static PARKED_ON_DOOMED: AtomicBool = AtomicBool::new(false);
@@ -216,7 +216,7 @@ fn a_send_cap_aborted_by_teardown_stages_nothing_for_a_later_plain_send() {
         ),
         "the sender never came back aborted and parked its plain SEND on the other rendezvous",
     );
-    let [w0, x1, ..] = sched::ipc_recv_cap(other_ep);
+    let [w0, x1, ..] = sched::ipc_receive_cap(other_ep);
     assert_eq!(w0, 2, "the plain SEND's first word did not arrive");
     assert_eq!(
         x1,
@@ -230,27 +230,27 @@ fn a_send_cap_aborted_by_teardown_stages_nothing_for_a_later_plain_send() {
     crate::memory_region::destroy(region);
 }
 
-/// **A `SEND_CAP` collected by a plain `RECV` stages nothing for a later plain `SEND`** (milestone
+/// **A `SEND_CAP` collected by a plain `RECEIVE` stages nothing for a later plain `SEND`** (milestone
 /// 633 (an outside agent attacks the confinement claim), fatal risk 7's first outsider pass,
 /// 2026-10-03 UTC). The non-abort sibling of
 /// `a_send_cap_aborted_by_teardown_stages_nothing_for_a_later_plain_send`.
 ///
 /// There, teardown wakes the parked `SEND_CAP` sender *aborted*, and `set_ipc_aborted` clears its
-/// staged delegation. Here the sender is woken by a plain `RECV` that *successfully* collects it
-/// (`ipc_recv`'s `!leave_blocked` branch). That path does not go through `set_ipc_aborted`, so
+/// staged delegation. Here the sender is woken by a plain `RECEIVE` that *successfully* collects it
+/// (`ipc_receive`'s `!leave_blocked` branch). That path does not go through `set_ipc_aborted`, so
 /// before this lane's fix the delegation stayed in `Thread::outgoing_cap`, and the sender's next
-/// plain `SEND`, parked on an unrelated rendezvous, handed it to whoever `RECV_CAP`ed there: a
+/// plain `SEND`, parked on an unrelated rendezvous, handed it to whoever `RECEIVE_CAP`ed there: a
 /// delegation made to one endpoint, delivered to another.
 ///
 /// **Milestone 634's `cap_delivered` guard does not catch this.** That guard covers the order where
-/// the *receiver* parks first (`ipc_recv_cap`'s blocked path reads `cap_delivered`); this escape
-/// takes `outgoing_cap` on the order where the *sender* parks first (`ipc_recv_cap`'s immediate
+/// the *receiver* parks first (`ipc_receive_cap`'s blocked path reads `cap_delivered`); this escape
+/// takes `outgoing_cap` on the order where the *sender* parks first (`ipc_receive_cap`'s immediate
 /// `FromSender` path, which calls `outgoing_cap.take()` unconditionally). A plain `SEND` cannot set
 /// `cap_delivered`, so the leak is the stale `outgoing_cap`, not the mailbox slot 634 fixed.
 ///
-/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send.patch`
+/// Falsification: replayable `system_tests/falsifications/user.receive_cap_attack_tests.a_send_cap_collected_by_a_plain_receive_stages_nothing_for_a_later_plain_send.patch`
 #[test_case]
-fn a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send() {
+fn a_send_cap_collected_by_a_plain_receive_stages_nothing_for_a_later_plain_send() {
     static PARKED_ON_FIRST: AtomicBool = AtomicBool::new(false);
     static DONE: AtomicBool = AtomicBool::new(false);
 
@@ -264,11 +264,11 @@ fn a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send() 
 
     sched::spawn(move || {
         PARKED_ON_FIRST.store(true, Ordering::SeqCst);
-        // Parks as a SEND_CAP sender on first_ep; the plain RECV below collects it and delivers no
+        // Parks as a SEND_CAP sender on first_ep; the plain RECEIVE below collects it and delivers no
         // capability, completing the rendezvous without an abort.
         sched::ipc_send_cap(first_ep, 1, delegated, 0);
         // Then a plain SEND on an unrelated rendezvous. If the delegation stayed staged, this hands
-        // it to the RECV_CAP below.
+        // it to the RECEIVE_CAP below.
         sched::ipc_send(other_ep, [2, CHOSEN, 0]);
         DONE.store(true, Ordering::SeqCst);
     })
@@ -278,24 +278,24 @@ fn a_send_cap_collected_by_a_plain_recv_stages_nothing_for_a_later_plain_send() 
             && sched::rendezvous_waiting_senders(first_ep) == 1),
         "the sender never parked in SEND_CAP on the first rendezvous",
     );
-    // Plain RECV: takes the data word, no capability, and wakes the sender through the successful
+    // Plain RECEIVE: takes the data word, no capability, and wakes the sender through the successful
     // path (not set_ipc_aborted). This is the vacuity guard's premise: a SEND_CAP really was in
     // flight and was collected by a receiver that cannot hold a capability.
-    let [w0, ..] = sched::ipc_recv(first_ep);
+    let [w0, ..] = sched::ipc_receive(first_ep);
     assert_eq!(
         w0, 1,
-        "the SEND_CAP's data word did not arrive at the plain RECV, so nothing was collected",
+        "the SEND_CAP's data word did not arrive at the plain RECEIVE, so nothing was collected",
     );
     assert!(
         wait_for(|| sched::rendezvous_waiting_senders(other_ep) == 1),
         "the sender never parked its plain SEND on the other rendezvous",
     );
-    let [w0, x1, ..] = sched::ipc_recv_cap(other_ep);
+    let [w0, x1, ..] = sched::ipc_receive_cap(other_ep);
     assert_eq!(w0, 2, "the plain SEND's first word did not arrive");
     assert_eq!(
         x1,
         abi::rendezvous::NO_CAP,
-        "a plain SEND after a plain-RECV-collected SEND_CAP delivered the stale delegation at slot \
+        "a plain SEND after a plain-RECEIVE-collected SEND_CAP delivered the stale delegation at slot \
          {x1}, a capability granted to one endpoint reaching a receiver on another",
     );
     assert!(
@@ -319,7 +319,7 @@ fn held() -> usize {
 /// The attack: a client `SEND_CAP`s a rendezvous nobody receives on to a `CALL` server. Before 706
 /// `x1` was a real slot either way, so a server that answered it ran `SEND` on that rendezvous and
 /// parked for the life of the machine, and a server that did not answer kept the slot. The server
-/// here is written the way `user_mode_runtime::recv_request` reads a receive: `x4 ==
+/// here is written the way `user_mode_runtime::receive_request` reads a receive: `x4 ==
 /// REPLY_DELIVERED` is a Reply to answer, and any other real slot is a delegation to delete. It
 /// takes the delegation and then a real `CALL`, on both arrival orders, and must answer the caller
 /// and end holding exactly what it held before.
@@ -332,7 +332,7 @@ fn held() -> usize {
 /// the server cannot tell the two apart, deletes the Reply as a delegation, and its caller is never
 /// answered.
 ///
-/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders.patch`
+/// Falsification: replayable `system_tests/falsifications/user.receive_cap_attack_tests.a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders.patch`
 #[test_case]
 fn a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders() {
     const DELEGATION: u64 = 1;
@@ -367,7 +367,7 @@ fn a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders() {
         let server = move || {
             HELD_BEFORE.store(held() as u64, Ordering::SeqCst);
             for _ in 0..2 {
-                let [w0, x1, _w1, _badge, x4] = sched::ipc_recv_cap(ep);
+                let [w0, x1, _w1, _badge, x4] = sched::ipc_receive_cap(ep);
                 if w0 == DELEGATION {
                     DELEGATION_X4.store(x4, Ordering::SeqCst);
                 } else {
@@ -407,7 +407,7 @@ fn a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders() {
             sched::spawn(server).expect("no server thread");
             assert!(
                 wait_for(|| sched::rendezvous_waiting_receivers(ep) == 1),
-                "the server never parked in RECV_CAP (server first)",
+                "the server never parked in RECEIVE_CAP (server first)",
             );
             sched::spawn(attacker).expect("no attacker thread");
             assert!(
@@ -417,7 +417,7 @@ fn a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders() {
             );
             sched::spawn(caller).expect("no caller thread");
         } else {
-            // Both clients park first, and the server collects them (`ipc_recv_cap`'s
+            // Both clients park first, and the server collects them (`ipc_receive_cap`'s
             // `FromSender` arm), the delegation ahead of the call.
             sched::spawn(attacker).expect("no attacker thread");
             assert!(
@@ -474,12 +474,12 @@ fn a_call_server_tells_its_reply_from_a_delegation_on_both_arrival_orders() {
 /// so a neighbour that rebinds it simply replaces this test's route.
 const QUIET_INTID: u32 = 250;
 
-/// **An interrupt signal received by `RECV_CAP` delivers `NO_CAP` in `x1` whichever side arrives
-/// first** (milestone 714 (the sibling `RECV_CAP` paths get a receiver-first test), fatal risk 7's
+/// **An interrupt signal received by `RECEIVE_CAP` delivers `NO_CAP` in `x1` whichever side arrives
+/// first** (milestone 714 (the sibling `RECEIVE_CAP` paths get a receiver-first test), fatal risk 7's
 /// confinement claim; the sibling of milestone 634's plain-`SEND` test above).
 ///
 /// Before 634 `irq_notify` dropped `[1, 0, 0, 0, 0]` into a parked receiver's mailbox, so a
-/// receiver-first `RECV_CAP` returned `x1 = 0`, a real-looking slot, where the pending-signal order
+/// receiver-first `RECEIVE_CAP` returned `x1 = 0`, a real-looking slot, where the pending-signal order
 /// returned `NO_CAP`. No program chooses that word (the kernel writes it), so this is an
 /// order-dependence and a fail-open default rather than an attacker-chosen value; a driver that
 /// treated `x1 != NO_CAP` as a delegation to delete would have deleted its own slot 0. 634's
@@ -487,9 +487,9 @@ const QUIET_INTID: u32 = 250;
 /// that drives an interrupt through that order. Signal-pending is asserted too, as the control that
 /// shows the two orders agree.
 ///
-/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first.patch`
+/// Falsification: replayable `system_tests/falsifications/user.receive_cap_attack_tests.an_interrupt_signal_received_by_receive_cap_delivers_no_cap_whichever_side_parks_first.patch`
 #[test_case]
-fn an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first() {
+fn an_interrupt_signal_received_by_receive_cap_delivers_no_cap_whichever_side_parks_first() {
     static RECEIVER_X0: AtomicU64 = AtomicU64::new(u64::MAX - 1);
     static RECEIVER_X1: AtomicU64 = AtomicU64::new(u64::MAX - 1);
     static PARKING: AtomicBool = AtomicBool::new(false);
@@ -499,10 +499,10 @@ fn an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks
     let ep = sched::create_rendezvous_from(region).expect("no rendezvous");
     sched::bind_irq(QUIET_INTID, ep);
 
-    // Receiver-first: the driver parks in RECV_CAP, then the interrupt arrives.
+    // Receiver-first: the driver parks in RECEIVE_CAP, then the interrupt arrives.
     sched::spawn(move || {
         PARKING.store(true, Ordering::SeqCst);
-        let [x0, x1, ..] = sched::ipc_recv_cap(ep);
+        let [x0, x1, ..] = sched::ipc_receive_cap(ep);
         RECEIVER_X0.store(x0, Ordering::SeqCst);
         RECEIVER_X1.store(x1, Ordering::SeqCst);
         DONE.store(true, Ordering::SeqCst);
@@ -510,12 +510,12 @@ fn an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks
     .expect("no driver thread");
     assert!(
         wait_for(|| PARKING.load(Ordering::SeqCst) && sched::rendezvous_waiting_receivers(ep) == 1),
-        "the driver never parked in RECV_CAP, so nothing proved the receiver-first order",
+        "the driver never parked in RECEIVE_CAP, so nothing proved the receiver-first order",
     );
     sched::irq_notify(ep);
     assert!(
         wait_for(|| DONE.load(Ordering::SeqCst)),
-        "the interrupt never reached the parked RECV_CAP receiver",
+        "the interrupt never reached the parked RECEIVE_CAP receiver",
     );
     assert_eq!(
         RECEIVER_X0.load(Ordering::SeqCst),
@@ -532,7 +532,7 @@ fn an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks
 
     // Signal-first: the interrupt is counted, then this thread receives.
     sched::irq_notify(ep);
-    let [x0, x1, ..] = sched::ipc_recv_cap(ep);
+    let [x0, x1, ..] = sched::ipc_receive_cap(ep);
     assert_eq!(x0, 1, "the pending interrupt's w0 did not arrive");
     assert_eq!(
         x1,
@@ -543,32 +543,32 @@ fn an_interrupt_signal_received_by_recv_cap_delivers_no_cap_whichever_side_parks
     sched::reclaim_region(region).expect("the endpoint's region did not come back");
 }
 
-/// **A death message received by `RECV_CAP` delivers `NO_CAP` in `x1` whichever side arrives
+/// **A death message received by `RECEIVE_CAP` delivers `NO_CAP` in `x1` whichever side arrives
 /// first** (milestone 714, fatal risk 7's confinement claim).
 ///
 /// The kernel's five-word death message is `[event, tid, pc, addr, 0]` (`sched::depart`). Before
-/// milestone 634 a supervisor parked in `RECV_CAP` when the child died got that mailbox back
+/// milestone 634 a supervisor parked in `RECEIVE_CAP` when the child died got that mailbox back
 /// unchanged, so `x1` was the dead thread's id, a small integer a supervisor that treats `x1` as a
 /// slot would act on; a supervisor that received after the corpse parked got `NO_CAP`. The thread id
 /// is the kernel's, not a sender's, so as with the interrupt this is an order-dependence rather
 /// than an attacker-chosen word. The test also asserts `x2` carries the tid on both orders (after the `x1` check, so a revert is red at `x1`), so a
 /// "fix" that blanked the whole message instead of `x1` would fail it.
 ///
-/// Falsification: replayable `system_tests/falsifications/user.recv_cap_attack_tests.a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first.patch`
+/// Falsification: replayable `system_tests/falsifications/user.receive_cap_attack_tests.a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_first.patch`
 #[test_case]
-fn a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_first() {
+fn a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_first() {
     use super::supervision_tests::{FAULT_STUB, build_child_in};
 
     static SUPERVISOR_PARKING: AtomicBool = AtomicBool::new(false);
     static SUPERVISOR_DONE: AtomicBool = AtomicBool::new(false);
     static SUPERVISOR_MSG: [AtomicU64; 3] = [const { AtomicU64::new(u64::MAX - 1) }; 3];
 
-    // Receiver-first: the supervisor parks in RECV_CAP, then the child dies.
+    // Receiver-first: the supervisor parks in RECEIVE_CAP, then the child dies.
     let fault_ep = sched::create_rendezvous();
     let region = crate::memory_region::create(16).expect("no region for the child");
     sched::spawn(move || {
         SUPERVISOR_PARKING.store(true, Ordering::SeqCst);
-        let [event, x1, x2, ..] = sched::ipc_recv_cap(fault_ep);
+        let [event, x1, x2, ..] = sched::ipc_receive_cap(fault_ep);
         SUPERVISOR_MSG[0].store(event, Ordering::SeqCst);
         SUPERVISOR_MSG[1].store(x1, Ordering::SeqCst);
         SUPERVISOR_MSG[2].store(x2, Ordering::SeqCst);
@@ -578,12 +578,12 @@ fn a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_fir
     assert!(
         wait_for(|| SUPERVISOR_PARKING.load(Ordering::SeqCst)
             && sched::rendezvous_waiting_receivers(fault_ep) == 1),
-        "the supervisor never parked in RECV_CAP, so nothing proved the receiver-first order",
+        "the supervisor never parked in RECEIVE_CAP, so nothing proved the receiver-first order",
     );
     let child = build_child_in(region, FAULT_STUB, None, Some(fault_ep));
     assert!(
         wait_for(|| SUPERVISOR_DONE.load(Ordering::SeqCst)),
-        "the death message never reached the parked RECV_CAP supervisor",
+        "the death message never reached the parked RECEIVE_CAP supervisor",
     );
     assert_eq!(
         SUPERVISOR_MSG[0].load(Ordering::SeqCst),
@@ -600,7 +600,7 @@ fn a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_fir
     assert_eq!(
         SUPERVISOR_MSG[2].load(Ordering::SeqCst),
         child,
-        "the death message's thread id (RECV_CAP's x2) did not arrive on the receiver-first order",
+        "the death message's thread id (RECEIVE_CAP's x2) did not arrive on the receiver-first order",
     );
     assert!(
         wait_for(|| sched::reclaim_region(region).is_ok()),
@@ -615,7 +615,7 @@ fn a_death_message_received_by_recv_cap_delivers_no_cap_whichever_side_parks_fir
         wait_for(|| sched::rendezvous_waiting_senders(fault_ep) == 1),
         "the second child never died and parked its message, so nothing proved the corpse-first order",
     );
-    let [event, x1, x2, ..] = sched::ipc_recv_cap(fault_ep);
+    let [event, x1, x2, ..] = sched::ipc_receive_cap(fault_ep);
     assert_eq!(event, abi::fault::EVENT_FAULT, "not the child's fault");
     assert_eq!(
         x1,

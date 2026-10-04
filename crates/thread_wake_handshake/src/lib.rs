@@ -20,7 +20,7 @@
 //!   [`wake_pending`](Handshake::wake_pending) instead,
 //!   and the thread's own core completes it in [`finish_switch`](Handshake::finish_switch) once the
 //!   context is provably saved.
-//! - **The undelivered wake.** A wake that delivers nothing would complete a parked `RECV` off a
+//! - **The undelivered wake.** A wake that delivers nothing would complete a parked `RECEIVE` off a
 //!   stale mailbox, with the TCB still linked on its endpoint's wait queue. Rule: the
 //!   undelivered-wake gate. `try_wake` refuses to make a waiting thread `Ready` unless the waker's
 //!   own critical section delivered something ([`ipc_served`](Handshake::ipc_served)) or aborted
@@ -74,7 +74,7 @@
 //! ```
 //! use thread_wake_handshake::{Handshake, RunState, SwitchOutVerdict, WakeVerdict};
 //!
-//! // The receiver, running, parks itself in ipc_recv (under IPC_TABLES):
+//! // The receiver, running, parks itself in ipc_receive (under IPC_TABLES):
 //! let mut hs: Handshake<(u64, char)> = Handshake::on_cpu_now();
 //! hs.park((0, 'r')); // Blocked, waiting on endpoint 0 as a receiver, nothing delivered yet
 //!
@@ -92,7 +92,7 @@
 //! assert_eq!(hs.finish_switch(), SwitchOutVerdict::WakeCompleted);
 //! assert_eq!(hs.state, RunState::Ready);
 //!
-//! // Some core pops it and switches in; the recv tail's tripwire holds.
+//! // Some core pops it and switches in; the receive tail's tripwire holds.
 //! hs.switch_in();
 //! assert!(hs.is_delivered());
 //! ```
@@ -287,7 +287,7 @@ impl<W> Handshake<W> {
         }
     }
 
-    /// **Park the running thread in a blocking IPC** (`sched.rs`'s block sites: send, recv, call,
+    /// **Park the running thread in a blocking IPC** (`sched.rs`'s block sites: send, receive, call,
     /// and their capability-carrying twins). `Blocked`, waiting on `wait`, with the gate armed:
     /// only a counterparty that delivers (or an abort) may complete this wait.
     ///
@@ -321,7 +321,7 @@ impl<W> Handshake<W> {
         self.ipc_aborted = true;
     }
 
-    /// Whether a resume has something to return: the recv tail's tripwire (`debug_assert!` in the
+    /// Whether a resume has something to return: the receive tail's tripwire (`debug_assert!` in the
     /// kernel), and the model's central assertion.
     #[must_use]
     pub fn is_delivered(&self) -> bool {

@@ -29,7 +29,7 @@
 //! | 8 | the diagnostics sink, `WRITE` | where the refusal goes, so `>` cannot swallow it |
 //! | 9 | the entropy service, `WRITE` | the right to `CALL` it, and nothing else |
 //!
-//! `WRITE` on slot 9 is the whole grant. `READ` would let this program `RECV` on the service's own
+//! `WRITE` on slot 9 is the whole grant. `READ` would let this program `RECEIVE` on the service's own
 //! request endpoint, which is to take another client's request out from under it; `GRANT` would let
 //! it hand a random source to something it spawned. Neither is given, and neither is needed.
 //!

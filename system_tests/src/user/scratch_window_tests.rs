@@ -119,7 +119,7 @@ fn a_builder_reuses_scratch_its_reaped_children_gave_back() {
          {WAIT_SECS} s",
         USER_FAULTS.load(Ordering::Relaxed) - faults,
     );
-    let [built, pages, window, ..] = sched::ipc_recv(report);
+    let [built, pages, window, ..] = sched::ipc_receive(report);
     crate::println!(
         "    {built} builds, {pages} scratch pages, in {} s",
         (crate::arch::timer::now() - start) / crate::arch::timer::frequency(),

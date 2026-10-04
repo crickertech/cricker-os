@@ -1,7 +1,7 @@
 Falsifies `inter_process_communication::verification::send_preserves_the_invariant`.
 
 The defect: a sender with nobody to meet joins the receiver queue. The two queues are twins,
-their pushes differ by one identifier, and `send` and `recv` are written as mirror images of
+their pushes differ by one identifier, and `send` and `receive` are written as mirror images of
 each other a few lines apart, which is where this kind of slip lives.
 
 Expected to fail: the harness's `assert!(e.one_queue_invariant())`, on a rendezvous that already

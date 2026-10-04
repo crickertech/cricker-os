@@ -51,7 +51,7 @@ use filesystem_protocol::{blk, fs, op, reply_err, xattr};
 use redoxfs::Disk;
 use redoxfs_server::{CachedDisk, Server};
 use syscall::error::{EINVAL, EIO, Error, Result};
-use user_mode_runtime::{Reply, call, recv_request, send};
+use user_mode_runtime::{Reply, call, receive_request, send};
 
 /// Capability table slots, by convention with the kernel-side wiring (`kernel/src/user/fs_service.rs`).
 const MEMORY_REGION: u64 = 0;
@@ -399,7 +399,7 @@ fn window_base(badge: u64) -> u64 {
 
 /// Answer a caller through its one-shot Reply capability, then return to serving. `None` is a
 /// request nobody is waiting on (a plain `SEND`, or a `SEND_CAP` whose capability
-/// `recv_request` deleted), which gets no answer (milestone 706 (a `CALL` server can tell a Reply
+/// `receive_request` deleted), which gets no answer (milestone 706 (a `CALL` server can tell a Reply
 /// from a delegation)).
 fn reply(to: Option<Reply>, r0: i64, r1: u64) {
     if let Some(to) = to {
@@ -412,7 +412,7 @@ fn reply(to: Option<Reply>, r0: i64, r1: u64) {
 /// below it speaks `syscall::error::Result`.
 fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
     loop {
-        // RECV_CAP delivers (first word, the Reply cap's slot, second word, the caller's badge).
+        // RECEIVE_CAP delivers (first word, the Reply cap's slot, second word, the caller's badge).
         // The Reply names the caller; endpoint-only naming means we never learn who they are, only
         // how to answer. The badge (milestone 599) names which client channel this request's bytes
         // are in, which is the whole of how two clients are now kept apart: `win` is the base of
@@ -429,7 +429,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         // **The Reply is typed by the kernel's `x4`** (milestone 706, DECISIONS §245 (a `CALL`
         // server tells a Reply from a delegation)): a client that `SEND_CAP`s a capability here
         // gets it deleted, never answered into.
-        let req = recv_request(FILE);
+        let req = receive_request(FILE);
         let (w0, w1, badge) = (req.w0, req.w1, req.badge);
         let reply_slot = req.delivered.into_reply();
         let win = window_base(badge);
