@@ -1,7 +1,7 @@
 ---
 risk: 6
-color: none
-updated: 2026-10-03
+color: amber
+updated: 2026-10-04
 ---
 # Appendix to risk 6: A capability-confined userspace driver cannot drive real hardware at real speed
 

@@ -228,8 +228,17 @@ fn server(mut dev: Nic, grant_word: u64) -> ! {
             if let Some(router) = cfg.router {
                 let _ = iface.routes_mut().add_default_ipv4_route(router);
             }
-            let octets = cfg.address.address().octets();
-            send(REPORT, u32::from_be_bytes(octets) as u64, 0, 0);
+            // The lease report's layout is `socket_protocol::lease`: the address, then the first
+            // DNS server the lease named, which a resolver's spawner hands on (§248 (the name
+            // resolver is its own confined program)).
+            let address = socket_protocol::lease::ipv4_word(cfg.address.address().octets());
+            let nameserver = cfg
+                .dns_servers
+                .first()
+                .map_or(socket_protocol::lease::NO_NAMESERVER, |a| {
+                    socket_protocol::lease::ipv4_word(a.octets())
+                });
+            send(REPORT, address, nameserver, 0);
             break;
         }
         // Same discipline as service_until: block on the interrupt only when smoltcp has no timer
