@@ -3733,4 +3733,82 @@ mod tests {
         assert!(s.contains("declares no second output"), "{s}");
         assert!(!s.contains("would grant"), "{s}");
     }
+
+    // ---- the survivors of the 2026-10-03 mutation census ----
+
+    /// The first word of a line is the program and is never looked up; an option is never looked up
+    /// either. A resolver that holds every name makes either mistake visible as a designation.
+    #[test]
+    fn the_program_and_its_options_are_never_designated() {
+        let ro = grant_plan::WordGrant::ReadOnly;
+        // `src` exists here, but as the program it is not a grant.
+        assert!(designated(b"src", ro).is_empty());
+        assert!(designated(b"notes.txt needle", ro).is_empty());
+        let mut holds_all = |w: &[u8]| Ok(NameSet::one(w, false).unwrap());
+        let d = designation(b"rg -i --color=never", ro, &mut holds_all)
+            .unwrap()
+            .designation()
+            .unwrap();
+        assert!(d.is_empty(), "an option is the program's, not a name");
+    }
+
+    /// `..`, an absolute path and a quoted glob designate nothing even where the directory would
+    /// answer for them: the guard is the shell's and does not depend on the directory refusing.
+    #[test]
+    fn dotdot_absolute_and_quoted_glob_words_are_refused_before_the_directory_is_asked() {
+        let ro = grant_plan::WordGrant::ReadOnly;
+        let mut asked = Vec::new();
+        let mut holds_all = |w: &[u8]| {
+            asked.push(w.to_vec());
+            Ok(NameSet::one(w, false).unwrap())
+        };
+        for line in [&b"rg .."[..], b"rg ../up", b"rg /etc", b"rg '*.txt'"] {
+            let d = designation(line, ro, &mut holds_all)
+                .unwrap()
+                .designation()
+                .unwrap();
+            assert!(d.is_empty(), "{}", String::from_utf8_lossy(line));
+        }
+        assert!(asked.is_empty(), "the directory was asked about {asked:?}");
+    }
+
+    /// Durations are `whole.fraction unit`, the fraction being the remainder over the next unit
+    /// down. A remainder is `%`, so a quotient or a sum in its place changes every row below.
+    #[test]
+    fn a_duration_shows_the_remainder_of_its_unit_as_thousandths() {
+        let d = |n| shown(|o| write_duration(n, o));
+        assert_eq!(d(0), "0.000 us");
+        assert_eq!(d(1_234), "1.234 us");
+        assert_eq!(d(4_213_000), "4.213 ms");
+        assert_eq!(d(4_013_999), "4.013 ms");
+        assert_eq!(d(90_500_000_000), "90.500 s");
+        assert_eq!(d(3_001_999_999), "3.001 s");
+    }
+
+    /// The heap cap is printed in KiB, by division, in the two places that name it.
+    #[test]
+    fn the_heap_cap_is_named_in_kib() {
+        let say = shown(|o| write_say(Say::HeapFull, o));
+        assert!(say.contains("its cap is 32 KiB"), "{say}");
+        let held = shown(|o| write_holdings(128, Holdings::default(), None, None, o));
+        assert!(held.contains("the first 32 KiB of them"), "{held}");
+    }
+
+    /// A manifest note that asks for a word of output, or for none, says so, and a byte stream is
+    /// the third wording. Each of the three is a different claim about what a program can do.
+    #[test]
+    fn a_manifest_note_names_the_kind_of_output_it_asks_for() {
+        let asks = |output| {
+            shown(|o| {
+                let m = grant_plan::Manifest {
+                    output,
+                    ..grant_plan::NO_NOTE_MANIFEST
+                };
+                write_note_asks(Some(m), o);
+            })
+        };
+        assert!(asks(OutputSpec::Words).contains("asks for: a word of output"));
+        assert!(asks(OutputSpec::Silent).contains("asks for: no output"));
+        assert!(asks(OutputSpec::Bytes).contains("asks for: output bytes"));
+    }
 }
