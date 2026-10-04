@@ -298,6 +298,11 @@ leaked a slot of 32: a denial of service, not an escape, severity medium. `RECEI
 on both arrival orders. It tests the tag, not the hang. A server that reads `x1` raw, outside the
 runtime, is still exposed.
 
+Dated 2026-10-04: nothing fuzzes what a confined process can reach. The six `cargo-fuzz` targets
+of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, not IPC requests
+or syscalls. A proposal for both is
+[`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/proposals/fuzz-the-surface-a-confined-process-can-reach.md).
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
