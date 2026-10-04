@@ -1,7 +1,7 @@
 # The first split: what is ready, what goes first, and what basalt must be
 
 Measurements for the proposal
-[which-repository-split-goes-first](../design/roadmap/proposals/which-repository-split-goes-first.md),
+[milestone 756 (`procps`, `coreutils` and `util-linux` are the first code to leave this repository)](../design/roadmap/756-procps-coreutils-and-util-linux-leave-first.md), promoted from the proposal `which-repository-split-goes-first`,
 on calef's prompt of 2026-10-04 (UTC): *"I do think we should soon be breaking things out of the mono
 repo and into their own repos. I also think the basalt repo is sitting there waiting to package up
 those repos for its distribution."* The direction is ruled (§151 (the goal of the repository split is
@@ -14,6 +14,15 @@ from that commit with a commit date on or after 2026-09-04: 2,447 commits, from 
 pull requests**. The scripts are reproducible from what is described here; none is committed,
 because the column they compute belongs to milestone 610 (the interface's stability is measured
 weekly) and should be built there, not twice.
+
+## The rulings, 2026-10-04
+
+calef ruled both questions on 2026-10-04 (UTC), on pull request #1609. §247 (the split begins with
+basalt holding nife, and `procps` moves first) records them. basalt v0 is the first step, with the
+go-ahead for a lane's first write to `nifeos/basalt`; that is milestone 755 (basalt v0 pins nife and
+runs its gate). The first code cut is `procps` + `coreutils` + `util-linux`, only once all six
+conditions in milestone 756 hold. The repository name and home, the citation identity and the SDK's
+place in milestone 691's order stay open.
 
 ## 1. Are §151's preconditions met?
 
