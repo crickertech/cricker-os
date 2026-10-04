@@ -35,7 +35,7 @@
 //!   1 BUILT    lay the replacement out, endow it, retype its TCB -- but do NOT configure or start
 //!              it. A thread that has never been started is in nobody's queue, so it cannot take a
 //!              request the incumbent is still there to serve.
-//!   2 DRAINED  CALL OP_QUIESCE on the service endpoint itself. The endpoint's sender queue is
+//!   2 DRAINED  CALL OPERATION_QUIESCE on the service endpoint itself. The endpoint's sender queue is
 //!              FIFO, so by the time this arrives the incumbent has answered every request queued
 //!              ahead of it. It replies and stops receiving.
 //!   3 REVOKED  PageFrame::REVOKE the device capability: gone from every holder but us.
@@ -276,7 +276,7 @@ fn direct(fs: &nifefs::Fs, w: &Wiring) -> ! {
     // does the waiting for us.
     // ------------------------------------------------------------------------------------------
 
-    let (verdict, served) = user_mode_runtime::call(w.svc, swap_protocol::OP_QUIESCE, 0);
+    let (verdict, served) = user_mode_runtime::call(w.svc, swap_protocol::OPERATION_QUIESCE, 0);
     if verdict != swap_protocol::QUIESCED {
         bail(22)
     }
@@ -558,7 +558,7 @@ fn handoff(fs: &nifefs::Fs, w: &Wiring) -> ! {
     reap_to(w.faultep, &mut corpses, 3); // the refuser, the incumbent, and the client
 
     // Retire the replacement on its own control endpoint, which is not `w.poke`.
-    let (verdict, _) = user_mode_runtime::call(w.svc, swap_protocol::OP_QUIESCE, 0);
+    let (verdict, _) = user_mode_runtime::call(w.svc, swap_protocol::OPERATION_QUIESCE, 0);
     if verdict != swap_protocol::QUIESCED {
         bail(108)
     }
@@ -576,7 +576,7 @@ fn handoff(fs: &nifefs::Fs, w: &Wiring) -> ! {
 
 /// Quiesce whoever is serving the stable endpoint, and report the drain.
 fn drain(w: &Wiring, stage: u64) {
-    let (verdict, served) = user_mode_runtime::call(w.svc, swap_protocol::OP_QUIESCE, 0);
+    let (verdict, served) = user_mode_runtime::call(w.svc, swap_protocol::OPERATION_QUIESCE, 0);
     if verdict != swap_protocol::QUIESCED {
         bail(stage)
     }
@@ -796,7 +796,7 @@ fn queued(fs: &nifefs::Fs, w: &Wiring, warn: Warn) -> ! {
     }
 
     // Quiesce the backend and let it die, exactly as on the direct channel, minus the device.
-    let (verdict, served) = user_mode_runtime::call(w.svc, swap_protocol::OP_QUIESCE, 0);
+    let (verdict, served) = user_mode_runtime::call(w.svc, swap_protocol::OPERATION_QUIESCE, 0);
     if verdict != swap_protocol::QUIESCED {
         bail(47)
     }
@@ -841,7 +841,7 @@ fn queued(fs: &nifefs::Fs, w: &Wiring, warn: Warn) -> ! {
 
     // Shut the channel down so the run leaves nothing running and nothing spent: the broker exits,
     // then the backend quiesces and exits, and both corpses are collected.
-    let _ = user_mode_runtime::call(front, swap_protocol::OP_QUIESCE, 0);
+    let _ = user_mode_runtime::call(front, swap_protocol::OPERATION_QUIESCE, 0);
     expect_note(w.note, swap_protocol::NOTE_BROKER_DONE, 51);
     reap_to(w.faultep, &mut corpses, 3); // and the broker
     retire(w, &mut corpses, 4, 52); // and the replacement backend
@@ -992,7 +992,7 @@ fn hung(fs: &nifefs::Fs, w: &Wiring) -> ! {
     //     asks the current holder for nothing. It works on a live, wedged, wholly uncooperative
     //     holder exactly as it works on a quiesced one.
     //   - There is nothing to drain, and nothing to drain it *for*: a component that is not
-    //     receiving has already achieved what `OP_QUIESCE` exists to achieve. The step that needs
+    //     receiving has already achieved what `OPERATION_QUIESCE` exists to achieve. The step that needs
     //     the incumbent's cooperation is the one step the hang makes unnecessary.
     //   - The replacement parks in `RECEIVE_CAP` on the same endpoint and picks up whatever queued
     //     behind the silence, because the stable name is the endpoint object and the kernel's sender
@@ -1270,7 +1270,7 @@ fn wait_for_fault(faultep: u64, collected: &mut u64, expect_addr: u64) -> bool {
 /// Retire the last live instance on a channel: quiesce it, tell it to go, collect its corpse. The
 /// swap's own machinery, run once more with nothing to replace.
 fn retire(w: &Wiring, collected: &mut u64, target: u64, stage: u64) {
-    let (verdict, _) = user_mode_runtime::call(w.svc, swap_protocol::OP_QUIESCE, 0);
+    let (verdict, _) = user_mode_runtime::call(w.svc, swap_protocol::OPERATION_QUIESCE, 0);
     if verdict != swap_protocol::QUIESCED {
         bail(stage)
     }

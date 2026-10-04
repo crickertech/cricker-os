@@ -7,7 +7,7 @@
 //! feeds the tty layer; it is not the tty layer). What remains is the irreducible driver loop:
 //! WAIT on the interrupt, drain the FIFO, hand the bytes on, ACK.
 //!
-//! Bytes travel packed in the words of an `OP_BYTES` CALL (up to 8 per message, the terminal
+//! Bytes travel packed in the words of an `OPERATION_BYTES` CALL (up to 8 per message, the terminal
 //! contract's driver half; see notes/terminal-contract.md). A keystroke is one byte and control
 //! flow, not bulk data, so the words-in-registers path fits §10's rule; a paste drains in
 //! 8-byte messages, and the CALL's rendezvous is the flow control that keeps a fast sender from
@@ -255,7 +255,7 @@ pub extern "C" fn _start(_x0: u64, _x1: u64, _x2: u64) -> ! {
     }
 }
 
-/// Read everything in the FIFO and forward it, up to 8 bytes per `OP_BYTES` message, packed
+/// Read everything in the FIFO and forward it, up to 8 bytes per `OPERATION_BYTES` message, packed
 /// little-endian in the second word. The CALL blocks until the discipline has taken the bytes;
 /// the FIFO fills while we wait, and we drain what accumulated on return.
 fn drain() {
@@ -269,7 +269,7 @@ fn drain() {
         if n == 0 {
             return;
         }
-        call(TERM, proto::req(proto::OP_BYTES, n), word);
+        call(TERM, proto::req(proto::OPERATION_BYTES, n), word);
     }
 }
 

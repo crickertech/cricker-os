@@ -359,9 +359,9 @@ pub struct TerminalWiring {
     /// The terminal's status endpoint.
     pub term_report: RendezvousId,
     /// The endpoint the terminal serves. The kernel holds WRITE, so it can play **both** classes
-    /// of sender: an application (`OP_WRITE`) and an input source (`OP_BYTES`).
+    /// of sender: an application (`OPERATION_WRITE`) and an input source (`OPERATION_BYTES`).
     pub term: RendezvousId,
-    /// The application's output page, so the kernel can put the bytes of an `OP_WRITE` there.
+    /// The application's output page, so the kernel can put the bytes of an `OPERATION_WRITE` there.
     pub out: u64,
     /// The scanout frames, so the kernel can read the picture back through the direct map and
     /// grade it against a value it computed itself.
@@ -650,16 +650,16 @@ pub fn start_screen_terminal(
 }
 
 impl TerminalWiring {
-    /// **Play the application**: put `text` in the output page and `OP_WRITE` it.
+    /// **Play the application**: put `text` in the output page and `OPERATION_WRITE` it.
     ///
     /// Returns when the terminal has drawn it and the GPU driver has put it on the scanout,
-    /// because that is what the terminal contract says an `OP_WRITE` reply means (the bytes are
+    /// because that is what the terminal contract says an `OPERATION_WRITE` reply means (the bytes are
     /// on the console's side). So a test needs no polling and no sleep between writes.
     pub fn print(&self, text: &[u8]) {
         super::term_print(self.out, self.term, text);
     }
 
-    /// **Play the input driver**: `OP_BYTES` these keystrokes, eight to a message.
+    /// **Play the input driver**: `OPERATION_BYTES` these keystrokes, eight to a message.
     ///
     /// Byte for byte the framing `components/src/input.rs` sends and the compositor forwards
     /// (DECISIONS §33), which is the point: the display terminal is fed by the same driver half
@@ -671,7 +671,8 @@ impl TerminalWiring {
             for (k, &b) in chunk.iter().enumerate() {
                 w1 |= (b as u64) << (8 * k);
             }
-            let w0 = line_editor::proto::req(line_editor::proto::OP_BYTES, chunk.len() as u64);
+            let w0 =
+                line_editor::proto::req(line_editor::proto::OPERATION_BYTES, chunk.len() as u64);
             assert_eq!(
                 crate::sched::ipc_call(self.term, [w0, w1])[0],
                 0,

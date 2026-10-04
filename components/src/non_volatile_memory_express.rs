@@ -393,7 +393,7 @@ fn serve(mut plane: Plane) -> ! {
         // request is never trusted to stay inside the region it shares just because the packing
         // allows a larger number to be spelled.
         let count = blk::req_blocks(w0).min(TRANSFER_BLOCKS);
-        let r0: i64 = match filesystem_protocol::op(w0) {
+        let r0: i64 = match filesystem_protocol::operation(w0) {
             blk::READ => transfer_range(&mut plane, block, count, false),
             blk::WRITE => transfer_range(&mut plane, block, count, true),
             blk::SIZE => plane.handoff.size_bytes as i64,

@@ -1019,8 +1019,8 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
 
     loop {
         let (w0, _w1, _w2) = receive(REQUEST);
-        let op = login_protocol::op(w0);
-        if op == login_protocol::LOGOUT {
+        let operation = login_protocol::operation(w0);
+        if operation == login_protocol::LOGOUT {
             // **Travels on the front door itself**, unlike an actual login: it carries no secret,
             // so there is nothing a shared endpoint would expose by handling it here directly (see
             // `login_protocol`'s own BUGS on what this does and does not authenticate). Idempotent: a
@@ -1030,7 +1030,7 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
             send(RESULT, login_protocol::LOGGED_OUT, 0, 0);
             continue;
         }
-        if op == login_protocol::SUSPEND {
+        if operation == login_protocol::SUSPEND {
             // **The §108 (disabling credentials kills the durable session) cascade** (milestone 152, calef's ruling of 2026-09-26): reread the owner's
             // suspended list and end the durable session of anyone on it. Unauthenticated, like
             // `LOGOUT`, for the reason `login_protocol::SUSPEND` gives.
@@ -1055,7 +1055,7 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
             send(RESULT, login_protocol::APPLIED, ended, 0);
             continue;
         }
-        if op == login_protocol::REDERIVE_SKIPS {
+        if operation == login_protocol::REDERIVE_SKIPS {
             // Unauthenticated, like `SUSPEND` and `LOGOUT`: see `login_protocol::REDERIVE_SKIPS`'s
             // own doc for why this names no identity and costs nothing to keep in production.
             send(
@@ -1066,7 +1066,7 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
             );
             continue;
         }
-        if op != login_protocol::CONNECT {
+        if operation != login_protocol::CONNECT {
             // The front door's only other legal word; see `login_protocol`'s own module docs. Not an
             // authentication outcome (no identity has been presented yet), so `MALFORMED` rather
             // than `DENIED`.
@@ -1166,7 +1166,7 @@ fn serve_login(
     let (w0, _w1, _w2) = receive(channel.request);
     cap_delete(channel.request);
     // `LOGIN`, or `SCHEDULE`: log in and open this identity's schedule (milestone 152).
-    let wants_schedule = login_protocol::op(w0) == login_protocol::SCHEDULE;
+    let wants_schedule = login_protocol::operation(w0) == login_protocol::SCHEDULE;
     // SAFETY: `connect` mapped one page read/write at `channel.va` before delegating `channel.page`
     // to the same client this request now arrives from.
     let page =

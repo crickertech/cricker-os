@@ -1059,7 +1059,7 @@ pub fn run_blk_server(direct_memory_access_phys: u64) -> ! {
         // stay inside the region it shares just because the packing allows a larger number to be
         // spelled at all.
         let count = blk::req_blocks(w0).min(blk::TRANSFER_BLOCKS) as u64;
-        let r0: i64 = match filesystem_protocol::op(w0) {
+        let r0: i64 = match filesystem_protocol::operation(w0) {
             blk::READ => {
                 blk_read(direct_memory_access_phys, block, count);
                 0

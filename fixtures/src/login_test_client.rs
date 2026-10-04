@@ -380,12 +380,12 @@ pub extern "C" fn _start(behaviour: u64, identity: u64, secret: u64) -> ! {
     // the page is now mapped dynamically, per connection, from a capability CONNECT hands back at
     // runtime, so there is nothing for a compile-time-constant window to be a window onto yet.
     let page = unsafe { core::slice::from_raw_parts_mut(PAGE_VA as *mut u8, login_protocol::PAGE) };
-    let op = if behaviour == OPEN_SCHEDULE {
+    let operation = if behaviour == OPEN_SCHEDULE {
         login_protocol::SCHEDULE
     } else {
         login_protocol::LOGIN
     };
-    let Some(w0) = login_protocol::place(page, identity, secret, op) else {
+    let Some(w0) = login_protocol::place(page, identity, secret, operation) else {
         done(RPT_MALFORMED, 0, 0);
     };
     send(priv_request, w0, 0, 0);

@@ -18,7 +18,7 @@
 //!
 //! Started with `arg0` = [`MODE_SCREEN`], it also holds a **terminal on a screen**: slot 2 is
 //! `display_terminal`'s served endpoint (`WRITE`) and [`SCREEN_OUT_VA`] maps the page that terminal
-//! reads an `OP_WRITE`'s bytes from. Every byte it puts on the UART it then hands that terminal too,
+//! reads an `OPERATION_WRITE`'s bytes from. Every byte it puts on the UART it then hands that terminal too,
 //! so **the same stream reaches both surfaces**: the prompt, the echo of every keystroke, and every
 //! line a program prints. That is the kernel's own console discipline (`kernel/src/console.rs`,
 //! "both, not either") one privilege level down, and it is what keeps a machine that has a serial
@@ -33,7 +33,7 @@
 //!
 //! **The screen is batched, the wire is not** (the paint lane, 2026-09-30). Bytes reach the UART
 //! the moment they arrive, but the screen paints at most once per [`SCREEN_BATCH_NANOS`] window:
-//! writes are staged into the out page and one `OP_WRITE` hands the whole batch to the terminal
+//! writes are staged into the out page and one `OPERATION_WRITE` hands the whole batch to the terminal
 //! when the timer's deadline ends the next receive. The mechanism is the one this module's old
 //! `BUGS` entry said was missing: a notification bound to this thread (`receive_bound`, milestone
 //! 151 (notification objects: async multiplexing without wait-any)) ending the one wait point on
@@ -53,9 +53,9 @@
 //! address spaces))
 //!
 //! The system log service sends the kernel's lines here, sixteen bytes a message, opcode
-//! `system_log_protocol::console::OP_KERNEL_LINE`, never acknowledged. They are written only at
+//! `system_log_protocol::console::OPERATION_KERNEL_LINE`, never acknowledged. They are written only at
 //! the start of a terminal line, so a kernel line can no longer land inside an echo: mid-line they
-//! wait for this console's own client to end the line, or for the service's `OP_FLUSH`, which puts
+//! wait for this console's own client to end the line, or for the service's `OPERATION_FLUSH`, which puts
 //! them on a line of their own and redraws the partial line beneath them.
 //!
 //! # BUGS
@@ -168,7 +168,7 @@ const SCREEN_BATCH_NANOS: u32 = 20_000_000;
 /// with it true the kill reproduced within one boot. The suspects are the timer's deadline
 /// delivery and the notification that ends the bounded receive, not the staging math, which the
 /// green run exercised in full. Ship the 3.4x; the batcher's remaining win waits on the why.
-/// Where the page `display_terminal` reads an `OP_WRITE`'s bytes from is mapped, in [`MODE_SCREEN`]
+/// Where the page `display_terminal` reads an `OPERATION_WRITE`'s bytes from is mapped, in [`MODE_SCREEN`]
 /// only. Must match `crates/system_initializer`'s `CON_SCREEN_OUT_VA`.
 const SCREEN_OUT_VA: u64 = address_space_map::pair_page(0x0068_0000);
 
@@ -213,8 +213,8 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
         // acknowledged, because the acknowledgement on `REPLY` belongs to the client waiting for
         // it. `Inserter` writes the line at the start of a terminal line and holds it otherwise,
         // which is what keeps it out of the middle of an echo.
-        match system_log_protocol::console::op(len) {
-            system_log_protocol::console::OP_KERNEL_LINE => {
+        match system_log_protocol::console::operation(len) {
+            system_log_protocol::console::OPERATION_KERNEL_LINE => {
                 let mut bytes = [0u8; 16];
                 bytes[..8].copy_from_slice(&w1.to_le_bytes());
                 bytes[8..].copy_from_slice(&w2.to_le_bytes());
@@ -222,7 +222,7 @@ pub extern "C" fn _start(mode: u64, _x1: u64, _x2: u64) -> ! {
                 inserter().kernel_chunk(&bytes[..n], |b| emit(b, screen, &mut batch));
                 continue;
             }
-            system_log_protocol::console::OP_FLUSH => {
+            system_log_protocol::console::OPERATION_FLUSH => {
                 inserter().flush(|b| emit(b, screen, &mut batch));
                 continue;
             }
@@ -305,7 +305,7 @@ fn emit(bytes: &[u8], screen: bool, batch: &mut ScreenBatch) {
 }
 
 /// **The screen's batching state.** `pending` is what is staged in the out page awaiting its
-/// `OP_WRITE`; `armed` is whether a deadline is outstanding; `batching` is whether the timer answers
+/// `OPERATION_WRITE`; `armed` is whether a deadline is outstanding; `batching` is whether the timer answers
 /// at all.
 struct ScreenBatch {
     pending: u64,
@@ -316,7 +316,7 @@ struct ScreenBatch {
 /// **Stage `len` bytes for the screen**, painting first if the batch cannot hold them.
 ///
 /// The copy lands in the out page at `pending`, the same page `show` used to fill, so the terminal
-/// contract is untouched: one `OP_WRITE` naming a length, bytes from the page's start. Staging is
+/// contract is untouched: one `OPERATION_WRITE` naming a length, bytes from the page's start. Staging is
 /// copies through cacheable RAM, which is why the reply no longer has to wait for a paint.
 fn take_screen(shared: *const u8, len: u64, b: &mut ScreenBatch) {
     if b.pending + len > PAGE {
@@ -367,7 +367,7 @@ fn take_screen(shared: *const u8, len: u64, b: &mut ScreenBatch) {
 
 /// **Hand the staged batch to the terminal**, or do nothing when nothing is staged.
 ///
-/// One `OP_WRITE` `CALL`, which returns once the terminal has drawn the batch and its driver has
+/// One `OPERATION_WRITE` `CALL`, which returns once the terminal has drawn the batch and its driver has
 /// put it on the screen. A terminal that refuses or answers short is not an error this process can
 /// act on: the UART already had the bytes, and the UART is the surface every gate reads. So the
 /// answer is ignored, the way `print!` ignores a UART write's.
@@ -391,7 +391,7 @@ fn paint_screen(b: &mut ScreenBatch) {
     // side) is the pair. Redundant, kept, for the reason `kernel::user::term_print` keeps the same
     // fence for the same contract. See notes/memory-ordering.md.
     core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
-    let _ = call(SCREEN, proto::req(proto::OP_WRITE, pending), 0);
+    let _ = call(SCREEN, proto::req(proto::OPERATION_WRITE, pending), 0);
 }
 
 /// Transmit one byte, spinning while the transmit path is busy. The register layout is the one

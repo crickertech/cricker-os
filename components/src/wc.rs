@@ -7,7 +7,7 @@
 //!
 //! # It cannot tell what is feeding it, and that is the demonstration
 //!
-//! Slot 1 holds an endpoint with `READ`. Sink messages arrive on it until [`byte_sink_protocol::OP_EOF`].
+//! Slot 1 holds an endpoint with `READ`. Sink messages arrive on it until [`byte_sink_protocol::OPERATION_EOF`].
 //! Behind that endpoint there is either another program (`date | wc`), a file the shell opened and
 //! streamed (`wc < report.txt`, and `wc report.txt`, which is the same thing with the operator left
 //! out), or the shell itself typing bytes into it (`echo hello | wc`). There is no message this

@@ -159,8 +159,8 @@ fn die(code: u64) -> ! {
 
 /// Ring the doorbell. Content-free by design: the compositor learns what changed from our control
 /// page, not from this message, because a shared endpoint's messages cannot be trusted.
-fn ring(op: u64) -> i64 {
-    let (r0, _) = call(DOORBELL, compositor::proto::req(op, 0), 0);
+fn ring(operation: u64) -> i64 {
+    let (r0, _) = call(DOORBELL, compositor::proto::req(operation, 0), 0);
     r0 as i64
 }
 

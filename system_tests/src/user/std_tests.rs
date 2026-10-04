@@ -10,7 +10,7 @@ use super::*;
 ///
 /// **It reads to end of stream rather than to a byte count, and that is a strengthening.**
 /// Stopping at `want.len()` proved the right bytes came out and said nothing about whether more
-/// were coming; draining to `OP_EOF` proves the program printed exactly this and then finished,
+/// were coming; draining to `OPERATION_EOF` proves the program printed exactly this and then finished,
 /// and it exercises the end-of-stream announcement std's `cleanup` now makes, which is what a
 /// pipe's reader will depend on.
 ///

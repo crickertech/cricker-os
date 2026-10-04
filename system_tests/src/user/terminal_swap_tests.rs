@@ -43,7 +43,10 @@ fn bytes_call(term: sched::RendezvousId, bytes: &[u8]) {
     for (i, &b) in bytes.iter().enumerate() {
         w1 |= (b as u64) << (8 * i);
     }
-    sched::ipc_call(term, [proto::req(proto::OP_BYTES, bytes.len() as u64), w1]);
+    sched::ipc_call(
+        term,
+        [proto::req(proto::OPERATION_BYTES, bytes.len() as u64), w1],
+    );
 }
 
 fn settle() {
@@ -68,7 +71,10 @@ fn spawn_reader(term: sched::RendezvousId, report: sched::RendezvousId, lines: u
     sched::spawn(move || {
         let mut done = 0;
         while done < lines {
-            let r = sched::ipc_call(term, [proto::req(proto::OP_READLINE, APP_OUT_LEN), 0]);
+            let r = sched::ipc_call(
+                term,
+                [proto::req(proto::OPERATION_READLINE, APP_OUT_LEN), 0],
+            );
             sched::ipc_send(report, [r[0], r[1], 0]);
             if !proto::is_retry(r[0], r[1]) {
                 done += 1;

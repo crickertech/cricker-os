@@ -154,7 +154,7 @@
 //!
 //! Identical in shape to [`credential_protocol`]'s: an identity and a secret, because this service's whole
 //! first act is relaying the presented pair to the credential service's own `VERIFY` unchanged. Its
-//! `place`/`read`/`req`/`op` do not encode anything specific to that service's own semantics (`op`
+//! `place`/`read`/`req`/`operation` do not encode anything specific to that service's own semantics (`operation`
 //! is a caller-supplied word), so this contract reuses them rather than defining a second copy of
 //! the same layout and risking the two drifting the way `credentialer.rs`'s own compile-time
 //! assertions exist to catch for `cred`/`credential_protocol`.
@@ -169,7 +169,7 @@
 //! for the whole family**, so this name is final on both halves. The argument is in
 //! `design/naming/vocabulary-rulings.md`, "The `login` stem stays".
 
-pub use credential_protocol::{MAX_IDENTITY, MAX_SECRET, PAGE, op, place, read, wipe};
+pub use credential_protocol::{MAX_IDENTITY, MAX_SECRET, PAGE, operation, place, read, wipe};
 
 /// **The front door's only legal request** (milestone 49's channel-per-client update): "give me my
 /// own private channel." Carries no lengths and touches no page; build the word with
@@ -222,23 +222,23 @@ pub const REDERIVE_SKIPS: u64 = 9;
 /// `send(REQUEST, connect_word(), 0, 0)`. The bare word [`CONNECT`] travels as; a client never calls
 /// [`place`] for this step, because there is no identity or secret to stage.
 pub fn connect_word() -> u64 {
-    CONNECT << credential_protocol::OP_SHIFT
+    CONNECT << credential_protocol::OPERATION_SHIFT
 }
 
 /// `send(REQUEST, suspend_word(), 0, 0)`. The bare word [`SUSPEND`] travels as.
 pub fn suspend_word() -> u64 {
-    SUSPEND << credential_protocol::OP_SHIFT
+    SUSPEND << credential_protocol::OPERATION_SHIFT
 }
 
 /// `send(REQUEST, rederive_skips_word(), 0, 0)`. The bare word [`REDERIVE_SKIPS`] travels as.
 pub fn rederive_skips_word() -> u64 {
-    REDERIVE_SKIPS << credential_protocol::OP_SHIFT
+    REDERIVE_SKIPS << credential_protocol::OPERATION_SHIFT
 }
 
 /// `send(REQUEST, logout_word(), 0, 0)`. The bare word [`LOGOUT`] travels as, on the *front door*
 /// (unlike [`connect_word`]'s answer, this needs no private channel): see [`LOGOUT`]'s own doc.
 pub fn logout_word() -> u64 {
-    LOGOUT << credential_protocol::OP_SHIFT
+    LOGOUT << credential_protocol::OPERATION_SHIFT
 }
 
 /// **A private channel is ready.** Answered on the front door's `RESULT` endpoint, followed by
@@ -816,9 +816,9 @@ mod tests {
         assert!(with_listed(b"chris\n", b"corinne", &mut [0u8; 4]).is_none());
         assert!(without_listed(b"chris\n", b"corinne", &mut [0u8; 2]).is_none());
         assert_eq!(with_listed(b"", b"chris", &mut out), Some(6));
-        assert_eq!(op(suspend_word()), SUSPEND);
-        assert_eq!(op(logout_word()), LOGOUT);
-        assert_eq!(op(connect_word()), CONNECT);
+        assert_eq!(operation(suspend_word()), SUSPEND);
+        assert_eq!(operation(logout_word()), LOGOUT);
+        assert_eq!(operation(connect_word()), CONNECT);
     }
 
     #[test]
@@ -831,7 +831,7 @@ mod tests {
     fn req_and_place_agree_with_cred_proto_on_the_shape() {
         let mut page = [0u8; PAGE];
         let w0 = place(&mut page, b"chris", b"secret", LOGIN).expect("fits");
-        assert_eq!(op(w0), LOGIN);
+        assert_eq!(operation(w0), LOGIN);
         let (id, secret) = read(&page, w0).expect("well-formed");
         assert_eq!(id, b"chris");
         assert_eq!(secret, b"secret");
@@ -840,7 +840,7 @@ mod tests {
     #[test]
     fn connect_word_carries_no_lengths_and_reads_back_as_connect() {
         let w0 = connect_word();
-        assert_eq!(op(w0), CONNECT);
+        assert_eq!(operation(w0), CONNECT);
         // Unlike a LOGIN word, there is nothing else packed into it: the low 32 bits (where `place`
         // packs the two lengths) are zero.
         assert_eq!(w0 & 0xffff_ffff, 0);
@@ -852,10 +852,10 @@ mod tests {
     #[test]
     fn logout_word_carries_no_lengths_and_reads_back_as_logout() {
         let w0 = logout_word();
-        assert_eq!(op(w0), LOGOUT);
+        assert_eq!(operation(w0), LOGOUT);
         assert_eq!(w0 & 0xffff_ffff, 0);
         // Distinguishable from both existing front-door/private-channel opcodes, so a front door
-        // that dispatches on `op(w0)` can never confuse the three.
+        // that dispatches on `operation(w0)` can never confuse the three.
         assert_ne!(LOGOUT, CONNECT);
         assert_ne!(LOGOUT, LOGIN);
     }
@@ -866,9 +866,9 @@ mod tests {
         // are read from different fields by different code and are allowed to share numbers; this
         // checks each namespace is internally distinct, which is the property a dispatch `match`
         // actually relies on.
-        let request_ops = [LOGIN, CONNECT, LOGOUT];
-        for (i, a) in request_ops.iter().enumerate() {
-            for b in &request_ops[i + 1..] {
+        let request_operations = [LOGIN, CONNECT, LOGOUT];
+        for (i, a) in request_operations.iter().enumerate() {
+            for b in &request_operations[i + 1..] {
                 assert_ne!(a, b, "two request opcodes collide");
             }
         }
@@ -883,13 +883,13 @@ mod tests {
     /// The bare words that travel on the front door are an opcode in the top byte and nothing else.
     #[test]
     fn each_bare_word_is_its_opcode_in_the_top_byte_alone() {
-        for (word, op) in [
+        for (word, operation) in [
             (suspend_word(), SUSPEND),
             (rederive_skips_word(), REDERIVE_SKIPS),
             (logout_word(), LOGOUT),
         ] {
-            assert_eq!(word >> credential_protocol::OP_SHIFT, op);
-            assert_eq!(word << (64 - credential_protocol::OP_SHIFT), 0);
+            assert_eq!(word >> credential_protocol::OPERATION_SHIFT, operation);
+            assert_eq!(word << (64 - credential_protocol::OPERATION_SHIFT), 0);
         }
     }
 

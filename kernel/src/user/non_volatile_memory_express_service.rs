@@ -266,8 +266,8 @@ impl Wiring {
     /// **Play a client**: one blk request over the request endpoint, the way any holder of that
     /// endpoint would. The kernel exercises the contract rather than reaching into the server,
     /// which is the whole point of the server being a process.
-    pub fn blk(&self, op: u64, block: u64) -> i64 {
-        crate::sched::ipc_call(self.request, [filesystem_protocol::req(op), block])[0] as i64
+    pub fn blk(&self, operation: u64, block: u64) -> i64 {
+        crate::sched::ipc_call(self.request, [filesystem_protocol::req(operation), block])[0] as i64
     }
 
     /// The transfer buffer's first block, through the direct map, for a caller staging a write or

@@ -64,7 +64,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use socket_protocol::{OP_OPEN_TCP, req};
+use socket_protocol::{OPERATION_OPEN_TCP, req};
 use user_mode_runtime::{call, exit, is_granted, send, survey};
 
 /// The output slot: the sink contract.
@@ -93,7 +93,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     // is non-negative. So the sign alone says whether something answered, and anything answering
     // is the failure this program exists to catch.
     let no_slot = abi::Error::NoSuchSlot as i64;
-    let (r0, _) = call(grant_plan::NETWORK_SLOT, req(OP_OPEN_TCP, 0), 0);
+    let (r0, _) = call(grant_plan::NETWORK_SLOT, req(OPERATION_OPEN_TCP, 0), 0);
     say(match r0 as i64 {
         r if r == no_slot => b"network: refused (no capability at slot 10)\n",
         r if r < 0 => {

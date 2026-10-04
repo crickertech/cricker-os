@@ -5,9 +5,9 @@
 //! result on a screen it does not own.
 //!
 //! ```text
-//!   application ──OP_WRITE──►┌──────────┐──glyphs──► its surface ──FLUSH/COMMIT──► a screen
-//!   keystrokes ──OP_BYTES───►│  display_terminal   │
-//!                            └──────────┘
+//!   application ──OPERATION_WRITE──►┌──────────────────┐──glyphs──► its surface ──FLUSH/COMMIT──► a screen
+//!   keystrokes ──OPERATION_BYTES───►│ display_terminal │
+//!                                   └──────────────────┘
 //! ```
 //!
 //! # It is a client, twice over, and that is the whole point
@@ -34,7 +34,7 @@
 //! no wait-any, and two threads cannot share an address space), so distinguishing them by endpoint
 //! is not available. They arrive on **one** endpoint and are distinguished by opcode, which is what
 //! `line_editor` already does for the serial terminal, and the security consequence is stated rather than
-//! hidden: an application holding this endpoint could send `OP_BYTES` and forge a keystroke into its
+//! hidden: an application holding this endpoint could send `OPERATION_BYTES` and forge a keystroke into its
 //! own terminal. It gains nothing by it (the keystrokes come back to the same grid it is already
 //! printing on), and the boundary that matters, one client's input not reaching another's, is the
 //! compositor's and is a capability there. See notes/glyphs.md.
@@ -50,7 +50,7 @@
 //! from anyone, and the input source rings `COMMIT` itself after it fills the ring. So the frame
 //! that delivers the keystroke is the frame that will show it: this process paints, records its
 //! damage, bumps its sequence, and replies. Application output is different (nobody else is going to
-//! ring for it), so `OP_WRITE` does ring, and that is safe because the caller blocked in `CALL` is
+//! ring for it), so `OPERATION_WRITE` does ring, and that is safe because the caller blocked in `CALL` is
 //! the *application*, not the compositor.
 //!
 //! Name: ratified 2026-08-01 (calef, milestone 63), replacing `vterm`. Refused `vterm` (an
@@ -107,7 +107,7 @@ const OUT_PAGE_FRAME: u64 = SURFACE_FRAME + 1;
 /// what keeps a run this large inside as few page-table windows as possible
 /// (`display_service::MAP_BUDGET_PAGES`'s own comment has the arithmetic).
 const SURFACE_VA: u64 = address_space_map::pair_page(0x0000_0000_0060_0000);
-/// The page an application writes the bytes of an `OP_WRITE` into. The terminal contract's
+/// The page an application writes the bytes of an `OPERATION_WRITE` into. The terminal contract's
 /// "control by message, bulk by shared page" split (DECISIONS §10), the same one `filesystem_protocol` makes.
 const OUT_VA: u64 = address_space_map::pair_page(0x0000_0000_0a00_0000);
 /// The compositor's per-client control page. [`MODE_WINDOW`] only.
@@ -487,7 +487,7 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
     );
 
     loop {
-        // The one wait point. An application's `OP_WRITE` and an input source's `OP_BYTES` both
+        // The one wait point. An application's `OPERATION_WRITE` and an input source's `OPERATION_BYTES` both
         // arrive here and are told apart by opcode, because there is no wait-any to tell them apart
         // by endpoint (DECISIONS §33).
         //
@@ -497,12 +497,12 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
         let (w0, w1) = (req.w0, req.w1);
         let reply_slot = req.delivered.into_reply();
         let mut r0: u64 = 0;
-        match proto::op(w0) {
+        match proto::operation(w0) {
             // The application half: print `len` bytes from the shared output page. The terminal
             // performs no newline translation, deliberately: `line_editor::expand_output` already put
             // `\r\n` on the wire for a Unix `\n`, and a second translation here would move the
             // carriage twice. The engine treats a bare `LF` as a line feed, which is what a VT does.
-            proto::OP_WRITE => {
+            proto::OPERATION_WRITE => {
                 let n = proto::len(w0).min(4096);
                 for i in 0..n {
                     let b = [out_byte(i)];
@@ -515,7 +515,7 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
             // The driver half: one to eight raw wire bytes, packed little-endian in the second word.
             // Byte for byte the framing `input.rs` sends and the compositor forwards, so this
             // terminal is a focusable compositor client without either contract changing.
-            proto::OP_BYTES => {
+            proto::OPERATION_BYTES => {
                 let n = proto::len(w0).min(8);
                 for k in 0..n {
                     let b = [((w1 >> (8 * k)) & 0xff) as u8];
@@ -526,9 +526,9 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
                 // necessary.
                 wiring.present(wiring.mode == MODE_DISPLAY);
             }
-            // `OP_READLINE` and `OP_INTRCOUNT` are the line discipline's, and this component is not
+            // `OPERATION_READLINE` and `OPERATION_INTRCOUNT` are the line discipline's, and this component is not
             // one: it renders a stream and echoes keystrokes. A client that wants edited lines puts
-            // `line_editor` in front of this and prints its echo through `OP_WRITE`, which needs no new
+            // `line_editor` in front of this and prints its echo through `OPERATION_WRITE`, which needs no new
             // protocol because `line_editor`'s echo is exactly a byte stream this engine parses (the
             // `video_terminal` crate's interoperability test proves that on the host). Recorded as a limit in
             // notes/glyphs.md rather than half-implemented.

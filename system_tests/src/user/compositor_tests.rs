@@ -57,7 +57,7 @@ fn kernel_display() -> (sched::RendezvousId, u64) {
             else {
                 panic!("the display stand-in was sent something that was not a CALL");
             };
-            let (r0, r1) = match graphics_protocol::op(w0) {
+            let (r0, r1) = match graphics_protocol::operation(w0) {
                 graphics_protocol::display::FLUSH => {
                     LAST_FLUSH.store(graphics_protocol::operand(w0), Ordering::SeqCst);
                     FLUSH_COUNT.fetch_add(1, Ordering::SeqCst);
@@ -806,7 +806,7 @@ fn focus_routes_a_keystroke_to_one_terminals_grid_and_not_its_neighbours() {
         clients[i] = Some(c);
     }
 
-    // Each terminal prints its own banner. Different text per window, so an OP_WRITE delivered
+    // Each terminal prints its own banner. Different text per window, so an OPERATION_WRITE delivered
     // to the wrong terminal is a wrong picture rather than a duplicate one.
     for (i, c) in clients.iter().enumerate() {
         c.as_ref()

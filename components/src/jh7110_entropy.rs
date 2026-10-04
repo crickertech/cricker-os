@@ -375,7 +375,7 @@ fn serve(mut pool: Pool, refuse: bool) -> ! {
             // `entropy.rs`'s identical comment.
             continue;
         };
-        let (count, word) = match proto::op(w0) {
+        let (count, word) = match proto::operation(w0) {
             // `refuse` is a device this driver condemned at bring-up (see `_start`). It is
             // answered exactly the way a dry device is, because `NO_ENTROPY` already means the one
             // thing a client has to know: it is not getting randomness here.

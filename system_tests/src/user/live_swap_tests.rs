@@ -802,7 +802,7 @@ fn a_component_that_stops_answering_without_dying_is_invisible_to_its_supervisor
     }
     assert!(
         !had_step(msgs, STEP_DRAINED),
-        "the operator reported a drain: OP_QUIESCE needs the incumbent to answer, which is the one \
+        "the operator reported a drain: OPERATION_QUIESCE needs the incumbent to answer, which is the one \
          thing a hung component does not do. A run that drained did not test a hang.",
     );
 

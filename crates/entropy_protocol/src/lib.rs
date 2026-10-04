@@ -31,12 +31,12 @@
 //! a twenty-byte key takes three round trips, and the last one is short.
 //!
 //! ```
-//! use entropy_protocol::{GET, MAX_BYTES, delivered, op, req, take, want};
+//! use entropy_protocol::{GET, MAX_BYTES, delivered, operation, req, take, want};
 //!
 //! // Stands in for the `CALL`: the real service reads the same two accessors off the request word
 //! // and answers with a count and a word of bytes.
 //! fn service(w0: u64) -> (u64, u64) {
-//!     assert_eq!(op(w0), GET);
+//!     assert_eq!(operation(w0), GET);
 //!     (want(w0), 0x0807_0605_0403_0201)
 //! }
 //!
@@ -126,20 +126,20 @@ pub const MAX_BYTES: u64 = 8;
 
 /// Where a request packs its opcode: bits 63:56 of the first `CALL` word, the same position
 /// `filesystem_protocol` and `line_editor::proto` use, so the contracts read alike.
-pub const OP_SHIFT: u32 = 56;
+pub const OPERATION_SHIFT: u32 = 56;
 
 /// **Give me `n` random bytes.** The only operation. `n` is clamped to [`MAX_BYTES`] by [`want`],
 /// so a client that asks for more is answered rather than refused.
 pub const GET: u64 = 1;
 
 /// Build a request word: the opcode and the byte count the client wants.
-pub const fn req(op: u64, n: u64) -> u64 {
-    (op << OP_SHIFT) | (n & 0xff)
+pub const fn req(operation: u64, n: u64) -> u64 {
+    (operation << OPERATION_SHIFT) | (n & 0xff)
 }
 
 /// The opcode of a request word.
-pub const fn op(w0: u64) -> u64 {
-    w0 >> OP_SHIFT
+pub const fn operation(w0: u64) -> u64 {
+    w0 >> OPERATION_SHIFT
 }
 
 /// How many bytes a request asks for, clamped to what one reply can carry. Clamping here rather
@@ -271,18 +271,18 @@ mod tests {
     #[test]
     fn a_request_round_trips_its_opcode_and_count() {
         let w = req(GET, 5);
-        assert_eq!(op(w), GET);
+        assert_eq!(operation(w), GET);
         assert_eq!(want(w), 5);
     }
 
     /// Pins the wire layout as an exact word, with an opcode that is not `GET`. `GET` is 1, so an
-    /// `op` that ignored its input and answered 1 would pass every round trip built from it; this
+    /// `operation` that ignored its input and answered 1 would pass every round trip built from it; this
     /// is the one place the shift is checked against a number the protocol does not define.
     #[test]
     fn the_request_word_layout_is_exact() {
         let w = req(0x7f, 5);
         assert_eq!(w, 0x7f00_0000_0000_0005);
-        assert_eq!(op(w), 0x7f);
+        assert_eq!(operation(w), 0x7f);
         assert_eq!(want(w), 5);
     }
 

@@ -779,7 +779,7 @@ mod riscv_virtio_tests;
 /// with the interactive endowment: a terminal, a spawn channel, a result channel, and a budget. The
 /// kernel plays the two parties on the other ends.
 ///
-/// - **The terminal.** The test itself serves `line_editor::proto::OP_WRITE` and collects every byte
+/// - **The terminal.** The test itself serves `line_editor::proto::OPERATION_WRITE` and collects every byte
 ///   the shell prints. So the assertion is made against *what a person would see*, which is the
 ///   strongest form this can take: a pipeline that ran but printed the wrong thing fails here.
 /// - **The progenitor.** A second thread serves `grant_plan::spawnproto`, receiving the delegated sink and source
@@ -874,14 +874,14 @@ mod sink_tests;
 #[cfg(all(test, initrd))]
 mod system_log_tests;
 
-/// **`OP_RAWMODE` and `OP_READRAW`, proved against a real `line_editor`** (milestone 169): echo
+/// **`OPERATION_RAWMODE` and `OPERATION_READRAW`, proved against a real `line_editor`** (milestone 169 (`kilo`, the smallest real text editor, as the forcing function for raw terminal input)): echo
 /// suppression, literal (uninterpreted) delivery of what the line discipline would otherwise
 /// consume as an editing command, the two input models refusing each other, and a read parked
 /// before data arrives still being answered once it does. See the module's own doc for why the
 /// echo-suppression check is proven both ways rather than only the direction that matters.
 #[cfg(all(test, initrd))]
 mod raw_mode_tests;
-/// `OP_QUIESCE` and `FLAG_RETRY` (milestone 23 (a capability-routed component OS with live
+/// `OPERATION_QUIESCE` and `FLAG_RETRY` (milestone 23 (a capability-routed component OS with live
 /// replacement)): a terminal quiesced for replacement hands its parked reader back rather than
 /// stranding it, and resumes a half-typed line without repainting it.
 #[cfg(all(test, initrd))]

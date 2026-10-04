@@ -256,7 +256,7 @@ fn start_with(
 
 /// **Serve the terminal until the shell says it is finished**, collecting everything it printed.
 ///
-/// One `OP_WRITE` at a time, replied the way the real line discipline replies (the byte count),
+/// One `OPERATION_WRITE` at a time, replied the way the real line discipline replies (the byte count),
 /// because the shell blocks on that reply and a test that answered differently would be testing
 /// a terminal nobody has.
 pub fn transcript(w: &Wiring, sentinel: &[u8], out: &mut [u8]) -> usize {
@@ -270,7 +270,7 @@ pub fn transcript(w: &Wiring, sentinel: &[u8], out: &mut [u8]) -> usize {
             panic!("the shell sent the terminal something that was not a CALL");
         };
         let n = line_editor::proto::len(w0);
-        if line_editor::proto::op(w0) == line_editor::proto::OP_WRITE {
+        if line_editor::proto::operation(w0) == line_editor::proto::OPERATION_WRITE {
             let mut buf = TRANSCRIPT.lock();
             let at = WRITTEN.load(Ordering::SeqCst);
             let n = n.min(buf.len().saturating_sub(at));

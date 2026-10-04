@@ -16,21 +16,21 @@ const APP_IN_VA: u64 = address_space_map::pair_page(0x0090_0000);
 /// not a shortcut around the contract, it is the contract.
 pub struct Wiring {
     /// The terminal endpoint. `CALL` here for every opcode this milestone added or reused:
-    /// `OP_RAWMODE`, `OP_READRAW`, `OP_BYTES` (as the input driver would), `OP_READLINE`,
-    /// `OP_WRITE`.
+    /// `OPERATION_RAWMODE`, `OPERATION_READRAW`, `OPERATION_BYTES` (as the input driver would), `OPERATION_READLINE`,
+    /// `OPERATION_WRITE`.
     pub term: RendezvousId,
     /// The console's shared page, physical. This is what `line_editor` echoes into
     /// (`components/src/line_editor.rs`'s `Con`). A test sentinel-fills it before an exchange and checks
     /// it after: that is how "no echo happened" gets proven rather than assumed, the same
     /// byte-for-byte witness-page discipline `c_seam`'s confiner tests use for a different claim.
     pub console_phys: u64,
-    /// The client output page: a test writes an `OP_READLINE` prompt or an `OP_WRITE` payload
+    /// The client output page: a test writes an `OPERATION_READLINE` prompt or an `OPERATION_WRITE` payload
     /// here before the request that names it.
     pub app_out_phys: u64,
-    /// The client input page: `line_editor` writes a completed line here for `OP_READLINE`.
+    /// The client input page: `line_editor` writes a completed line here for `OPERATION_READLINE`.
     pub app_in_phys: u64,
     /// `line_editor`'s control endpoint, when [`start_replaceable`] built it with one: the test
-    /// plays the supervisor and `SEND`s `CTL_RESUME` or `CTL_QUIT` here after an `OP_QUIESCE`.
+    /// plays the supervisor and `SEND`s `CTL_RESUME` or `CTL_QUIT` here after an `OPERATION_QUIESCE`.
     /// `None` from [`start`], which wires `line_editor` exactly as every boot does today.
     pub control: Option<RendezvousId>,
 }
@@ -62,7 +62,7 @@ pub fn start() -> (Wiring, Holding) {
 /// [`start`], plus a control endpoint in slot 3 whose number is `line_editor`'s second start
 /// argument: the wiring a supervisor that can replace it would use (milestone 23 (a
 /// capability-routed component OS with live replacement)). The only difference `line_editor` can
-/// see is that `OP_QUIESCE` is honoured rather than refused.
+/// see is that `OPERATION_QUIESCE` is honoured rather than refused.
 pub fn start_replaceable() -> (Wiring, Holding) {
     start_with(true)
 }

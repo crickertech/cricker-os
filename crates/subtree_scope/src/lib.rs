@@ -35,7 +35,7 @@
 //!   holder reaches the new grant. The progenitor's window pool releases a window at reap, which
 //!   is after the holder is dead; nothing here can check that.
 //! - **The proof is bounded.** Paths are proved up to [`PROOF_PATH`] bytes and binding tables of
-//!   [`PROOF_BADGES`] badges over [`PROOF_OPS`] operations. The functions have no loops whose
+//!   [`PROOF_BADGES`] badges over [`PROOF_OPERATIONS`] operations. The functions have no loops whose
 //!   behaviour changes past those bounds, which is the argument that the bound is enough; it is an
 //!   argument, not a proof.
 //!
@@ -295,7 +295,7 @@ pub const PROOF_PATH: usize = 5;
 /// Badges in the binding table the harnesses prove over.
 pub const PROOF_BADGES: usize = 3;
 /// Operations in the binding sequence the harnesses prove over.
-pub const PROOF_OPS: usize = 4;
+pub const PROOF_OPERATIONS: usize = 4;
 
 #[cfg(kani)]
 mod proofs {
@@ -381,14 +381,14 @@ mod proofs {
     }
 
     /// **Once bound, a badge is never open again, and a bound caller changes no binding.** Over any
-    /// sequence of [`PROOF_OPS`] binds and unbinds by any callers.
+    /// sequence of [`PROOF_OPERATIONS`] binds and unbinds by any callers.
     /// Falsification: replayable `crates/subtree_scope/falsifications/proofs.a_badge_once_bound_is_never_open_again.patch`
     #[kani::proof]
     #[kani::unwind(5)]
     fn a_badge_once_bound_is_never_open_again() {
         let mut t = Bindings::<PROOF_BADGES>::new();
         let mut ever_bound = [false; PROOF_BADGES];
-        for _ in 0..PROOF_OPS {
+        for _ in 0..PROOF_OPERATIONS {
             let caller: u64 = kani::any();
             let badge: u64 = kani::any();
             kani::assume(caller < PROOF_BADGES as u64 + 1 && badge < PROOF_BADGES as u64 + 1);

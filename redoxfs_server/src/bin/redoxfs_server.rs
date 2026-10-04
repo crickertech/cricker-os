@@ -47,7 +47,7 @@ manifest_note::carry_subtree_grants!(manifest_note::Scope::SubtreeScope);
 
 extern crate alloc;
 
-use filesystem_protocol::{blk, fs, op, reply_err, xattr};
+use filesystem_protocol::{blk, fs, operation, reply_err, xattr};
 use redoxfs::Disk;
 use redoxfs_server::{CachedDisk, Server};
 use syscall::error::{EINVAL, EIO, Error, Result};
@@ -168,16 +168,16 @@ impl IpcDisk {
     /// opcode and count pack into the first word ([`filesystem_protocol::blk::req`]), the starting block index
     /// is the second. Returns the reply's first word as a signed result (negative is an error, per
     /// the wire convention). The bulk rides in [`BLK_PAGE`], `count * BLOCK` bytes of it.
-    fn blk_n(op_code: u64, block: u64, count: usize) -> i64 {
+    fn blk_n(operation_code: u64, block: u64, count: usize) -> i64 {
         // SAFETY: `call` traps to the kernel, which validates the endpoint in slot BLK.
-        let (r0, _) = call(BLK, blk::req(op_code, count), block);
+        let (r0, _) = call(BLK, blk::req(operation_code, count), block);
         r0 as i64
     }
 
     /// [`Self::blk_n`] for exactly one block: every call this file made before milestone 138 step
     /// 4, and still the right shape for [`blk::SIZE`] and [`blk::FLUSH`], which ignore the count.
-    fn blk(op_code: u64, block: u64) -> i64 {
-        Self::blk_n(op_code, block, 1)
+    fn blk(operation_code: u64, block: u64) -> i64 {
+        Self::blk_n(operation_code, block, 1)
     }
 
     /// Copy `n` bytes out of the shared block region (a completed read landed there, at its start).
@@ -433,7 +433,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         let (w0, w1, badge) = (req.w0, req.w1, req.badge);
         let reply_slot = req.delivered.into_reply();
         let win = window_base(badge);
-        let code = op(w0);
+        let code = operation(w0);
         // **A bound badge's handles go through `subtree_scope`** (milestone 606 (a directory walk
         // costs what it does on Linux), ruling D). Its `ROOT` is its grant's directory, and any
         // other handle must be one it minted; an unbound badge passes through as it always has.
@@ -514,7 +514,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
                 let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
-                    Ok(name) if op(w0) == fs::OPENDIR => {
+                    Ok(name) if operation(w0) == fs::OPENDIR => {
                         server.open_dir(handle, name, offset).map(|h| h as i64)
                     }
                     Ok(name) => server.make_dir(handle, name, offset).map(|h| h as i64),
@@ -562,7 +562,9 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
                 let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
-                    Ok(name) if op(w0) == fs::UNLINK => server.unlink(handle, name).map(|()| 0),
+                    Ok(name) if operation(w0) == fs::UNLINK => {
+                        server.unlink(handle, name).map(|()| 0)
+                    }
                     Ok(name) => server.rmdir(handle, name).map(|()| 0),
                     Err(_) => Err(Error::new(EINVAL)),
                 }

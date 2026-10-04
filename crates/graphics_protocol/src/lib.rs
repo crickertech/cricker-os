@@ -273,21 +273,21 @@ pub const NO_MISMATCH: u64 = PIXELS as u64;
 
 /// Where a request packs its opcode: bits 63:56 of the first `CALL` word, the same position
 /// `filesystem_protocol` and `line_editor::proto` use, so all three contracts read alike.
-pub const OP_SHIFT: u32 = 56;
+pub const OPERATION_SHIFT: u32 = 56;
 
 /// Build a request's first word from an opcode and a 56-bit operand.
-pub const fn req(op: u64, operand: u64) -> u64 {
-    (op << OP_SHIFT) | (operand & ((1 << OP_SHIFT) - 1))
+pub const fn req(operation: u64, operand: u64) -> u64 {
+    (operation << OPERATION_SHIFT) | (operand & ((1 << OPERATION_SHIFT) - 1))
 }
 
 /// The opcode of a request word.
-pub const fn op(w0: u64) -> u64 {
-    w0 >> OP_SHIFT
+pub const fn operation(w0: u64) -> u64 {
+    w0 >> OPERATION_SHIFT
 }
 
 /// The operand of a request word.
 pub const fn operand(w0: u64) -> u64 {
-    w0 & ((1 << OP_SHIFT) - 1)
+    w0 & ((1 << OPERATION_SHIFT) - 1)
 }
 
 /// The client's requests.
@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn requests_and_rectangles_round_trip() {
         let w0 = req(display::FLUSH, rect(3, 5, 120, 50));
-        assert_eq!(op(w0), display::FLUSH);
+        assert_eq!(operation(w0), display::FLUSH);
         assert_eq!(unrect(operand(w0)), (3, 5, 120, 50));
 
         assert!(
