@@ -50,6 +50,9 @@ pub const NO_TID: ThreadId = u64::MAX;
 pub const MAX_CPUS: usize = current_cpu_protocol::CPU_ID_BOUND;
 
 /// One core's private data.
+///
+/// Aligned to 256 on x86_64 so its size stays a power of two; see the assertion below [`PERCPU`].
+#[cfg_attr(target_arch = "x86_64", repr(align(256)))]
 pub struct PerCpu {
     /// The lowest lock rank this core currently holds (`rank::NONE` when it holds nothing).
     ///
@@ -373,14 +376,12 @@ static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
 /// `sched::PREEMPTIONS_PER_CPU` is and why. This assertion is here so the next person learns that
 /// from a failing build rather than from a CI gate they did not run.
 ///
-/// **`x86_64` is exempt, and the exemption is measured rather than assumed.** There this struct
-/// carries `x86_trap` and is already **160 bytes**, so it has never indexed with a shift, and
-/// `script/fastpath-footprint --arch x86_64` is green with room: +1.0% on `ipc_send_receive`, +1.4%
-/// on `ipc_call_reply`, +3.9% on `syscall_entry`. Writing the assertion unconditionally would
-/// assert a property this tree does not hold, which is how a gate teaches people to route around
-/// it. If the cost ever shows up there, the fix is padding this struct to 256 rather than deleting
-/// the check.
-#[cfg(not(target_arch = "x86_64"))]
+/// **`x86_64` is padded to 256 rather than exempt** (milestone 758 (the IPC fast paths shrink
+/// back inside their band), provisional). There this struct carries `x86_trap` and is 160 bytes,
+/// so until 2026-10-04 this assertion was compiled out for it and `PERCPU[id]` and `cpu::id()`
+/// multiplied and divided by that size. Padding with `repr(align(256))` on x86_64 only, which this note
+/// had named as the fix, took 32 bytes off each of x86_64's IPC closures for 96 bytes of BSS per
+/// core, and lets the one rule hold on every ISA.
 const _: () = assert!(
     core::mem::size_of::<PerCpu>().is_power_of_two(),
     "PerCpu's size must be a power of two so PERCPU[id] indexes with a shift; see the note above \
