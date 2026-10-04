@@ -144,14 +144,22 @@ jobs:
           base="$(helpers/scope-merge-base.sh \
               '${{ github.event.pull_request.base.ref }}' \
               '${{ github.event.pull_request.base.sha }}' 2>/dev/null || true)"
+          # **A run that examined nothing routes to a person; it never reads as "no rule fired"**
+          # (milestone 641 (a mechanism that reports clean says over how many units, and zero is
+          # loud), provisional). Both cases below used to set add=false: no base to diff, and the
+          # rules helper crashing, whose exit (Python's 1) was the same as "nothing matched" and was
+          # then swallowed by `|| true`. The helper now crashes with 3, and anything above 1 labels.
           if [ -z "$base" ]; then
-            echo "architect-label: no base to diff against; skipping this run." >&2
-            echo "add=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            report="unexamined: no base to diff against, so no rule read this pull request"
+          else
+            echo "architect-label: diffing merge-base $base (origin/${{ github.event.pull_request.base.ref }})..HEAD"
+            rc=0
+            report="$(git diff --unified=1000000 "$base" HEAD | \
+                python3 helpers/architect-label-rules.py --base-rev "$base")" || rc=$?
+            if [ "$rc" -gt 1 ]; then
+              report="unexamined: helpers/architect-label-rules.py exited $rc (see this run's log), so no rule read this pull request"
+            fi
           fi
-          echo "architect-label: diffing merge-base $base (origin/${{ github.event.pull_request.base.ref }})..HEAD"
-          report="$(git diff --unified=1000000 "$base" HEAD | \
-              python3 helpers/architect-label-rules.py --base-rev "$base" || true)"
           if [ -n "$report" ]; then
             echo "architect-label: fired:"
             printf '%s\n' "$report" | sed 's/^/  /'
