@@ -443,11 +443,10 @@ path rather than the whole kernel.
   margin reads as wedged when it is merely slow. `--quiet-after 0` is the escape and it gives up the
   detection. A heartbeat in the supervisor is the real fix and is a kernel change; milestone 324's
   block records it as follow-on.
-- The trap slows when more cores are busy, and nothing here says why. On radon (2026-10-04)
-  `null_syscall`'s `per_job` went from 108 ticks at one task to 202 at four while `compute` grew
-  6%, then 17% more by 32. That saturating shape is not the stack-footprint one, but it is a
-  per-crossing cost under load. The `IPC_TABLES` acquisition counter in
-  `notes/ipc-tables-lock-inventory.md`'s `BUGS`, read against this job, would name it.
+- The trap still slows with busy cores, by half as much. On radon `null_syscall` grew 94 ticks a
+  job from one task to four; the reaper's share (kernel stacks freed under `IPC_TABLES`) is fixed and
+  the growth is now 48. The rest is contention for `IPC_TABLES` itself: 41% of acquisitions find it
+  held. [`job-mix/null-syscall-under-load.md`](job-mix/null-syscall-under-load.md) has both evenings.
 - There is no committed baseline and no `--check`. `script/bench` gates because its icount counts
   are deterministic; a sweep whose entire subject is scheduling under contention is not, on any
   accelerator this tree has. A gate here would be asserting a tolerance nobody has measured.

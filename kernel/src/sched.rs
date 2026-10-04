@@ -2569,24 +2569,62 @@ pub(crate) fn finish_switch() {
 /// **Reap the thread this core just switched away from.** The `Reap` arm of [`finish_switch`],
 /// out of line because it runs when a thread has ended and never on an IPC.
 ///
-/// Hoist the address space out BEFORE the in-place drop, to be torn down after the lock is
-/// released: its teardown is `memory_region::destroy` (milestone 14 phase B.4), whose §13
-/// revocation sweep takes `IPC_TABLES` itself to delete stray `PageFrame` capabilities. Dropping it
-/// here would deadlock on our own lock. The rest of the `Thread` (stack, quota) still drops under
-/// `IPC_TABLES`, exactly as before, which is why the guard is taken by value and dropped here.
+/// **Two short critical sections with the expensive part between them**, since 2026-10-04.
+///
+/// 1. Under the caller's `IPC_TABLES` guard: take the thread's kernel stack and its address space
+///    out, and mark it [`being_reaped`](crate::thread::Thread::being_reaped). It stays in the
+///    table, `Finished`, so its name still resolves and region teardown still refuses it.
+/// 2. With no lock held: free the stack, then the address space. The stack is six page unmaps,
+///    each discharging its TLB obligation; on riscv64 every one is an SBI remote fence that
+///    interrupts every other hart and waits for them, and on x86_64 an NMI shootdown round. Until
+///    2026-10-04 the stack was freed under `IPC_TABLES`, so every IPC and every capability lookup
+///    on every other core waited behind a thread exiting anywhere. The job mix measured it as the
+///    cheapest syscall nearly doubling in cost once four cores were busy
+///    (notes/job-mix/null-syscall-under-load.md). The address space could never be dropped under
+///    the lock: its teardown is `memory_region::destroy` (milestone 14 (kernel objects from
+///    untyped) phase B.4), whose §13 revocation sweep takes `IPC_TABLES` itself.
+/// 3. Under `IPC_TABLES` again: remove the thread. Only now does it stop occupying its region.
+///
+/// **Everything the thread owned is gone before step 3, and that order is the point.** Region
+/// teardown (`reclaim_region`) relies on a bound space having died with its thread ("Bound spaces
+/// need no step here"), and an owner whose `DESTROY` succeeds may reuse the memory at once. Before
+/// 2026-10-04 the space was dropped just after the thread was removed, so a `DESTROY` on another
+/// core could reclaim the region in between, while the space's page tables (in that region) and
+/// its revocation-database entries were still live. The rest of the `Thread` (its quota token, its
+/// capability table) still drops under the lock in step 3.
+///
+/// Nothing else removes a `Finished` thread between steps 1 and 3: the only other remover is region
+/// teardown, and `region_reap_verdict` refuses a thread that is being reaped.
 #[cold]
 #[inline(never)]
 fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>, prev: ThreadId) {
     let Some(sched) = guard.as_mut() else {
         return;
     };
-    let space = match sched.threads.get_mut(prev) {
-        Some(t) => t.space.take(),
+    let (space, stack) = match sched.threads.get_mut(prev) {
+        Some(t) => {
+            t.being_reaped = true;
+            (t.space.take(), t.stack.take())
+        }
         None => return,
     };
-    sched.threads.remove(prev);
     drop(guard);
+
+    #[cfg(feature = "lock_wait")]
+    let t0 = crate::arch::timer::now();
+    drop(stack);
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::stack_freed(crate::arch::timer::now() - t0);
     drop(space);
+
+    let mut guard = IPC_TABLES.lock();
+    if let Some(sched) = guard.as_mut() {
+        #[cfg(feature = "lock_wait")]
+        let t0 = crate::arch::timer::now();
+        sched.threads.remove(prev);
+        #[cfg(feature = "lock_wait")]
+        crate::lock_wait::reaped(crate::arch::timer::now() - t0);
+    }
 }
 
 /// intid -> rendezvous id + 1 (0 means "not routed"). A hardware interrupt, delivered as a
@@ -3584,18 +3622,11 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
                     // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                     let sender = unsafe { (*sender.as_ptr()).id };
                     let msg = sched.threads.get(sender).unwrap().mailbox;
-                    // A caller (its outgoing cap is the one-shot Reply the kernel minted for a CALL, §12 (call/reply IPC))
-                    // is awaiting a *reply*, which a plain RECEIVE cannot furnish: only RECEIVE_CAP delivers the
-                    // reply capability. Deliver the words but leave the caller blocked rather than wake it
-                    // with its own request masquerading as a reply. Serve CALL endpoints with RECEIVE_CAP; a
-                    // plain RECEIVE here leaves the caller hung, the same no-timeout limitation as a reply
-                    // that never comes.
-                    //
-                    // A **dead sender** is a fault/exit corpse parked on its supervision rendezvous
-                    // (DECISIONS §26): deliver its five-word message but never wake it, exactly as for a
-                    // caller, because it is dead-until-reaped and must not run again. `receive` already
-                    // popped it off the sender queue, so it is now a free-standing corpse the supervisor
-                    // reaps with revocation.
+                    // A **dead sender** (a §26 corpse) and a **caller** (its outgoing cap is the
+                    // one-shot Reply a CALL minted, §12 (call/reply IPC)) get their words delivered
+                    // and are not woken as a completed send: the corpse never runs again, and the
+                    // caller is answered `Gone` (§246 (a plain `RECEIVE` never takes a capability),
+                    // PROVISIONAL number). See `collected_without_serving`.
                     let leave_blocked = matches!(
                         sched.threads.get(sender).unwrap().outgoing_cap,
                         Some(c) if matches!(c.object, crate::cap::Object::Reply(_))
@@ -3621,10 +3652,11 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
                         sched.threads.get_mut(sender).unwrap().handshake.serve();
                         trace::record(trace::Event::Served, sender, 2);
                         wake(sched, sender);
-                    } else if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
-                        // The corpse's death message is collected and `receive` popped it off the sender
-                        // queue; it waits on nothing now, it only awaits its reap.
-                        sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+                    } else {
+                        // A corpse or a caller: neither is woken as a completed send. Out of line,
+                        // because neither is on the fastpath, and keeping both arms here put
+                        // x86_64's `ipc_send_receive` past `script/fastpath-footprint`'s band.
+                        collected_without_serving(sched, sender);
                     }
                     Some(msg)
                 }
@@ -3660,6 +3692,54 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
 /// The x1 value a `RECEIVE_CAP` returns when no capability accompanied the message. Mirrors
 /// `abi::rendezvous::NO_CAP`; kept here too so the scheduler names it without reaching into the ABI.
 const NO_CAP: u64 = u64::MAX;
+
+/// **A `CALL` met a receiver parked in plain `RECEIVE`** (§246 (a plain `RECEIVE` never takes a
+/// capability), PROVISIONAL number; calef's ruling A, 2026-10-04 UTC). The receiver gets the
+/// request's words exactly as it would had the caller parked first (`ipc_receive`'s collect), and
+/// no capability: a plain `RECEIVE` has no slot it asked to have filled, and the Reply would be one
+/// it never reads. The caller is answered `Gone`, since no Reply exists for anyone to send. Caller
+/// holds `IPC_TABLES`; `caller` is the running thread and has not parked.
+///
+/// `#[cold]` and out of line for `set_ipc_aborted`'s reason: every `CALL` server in the tree
+/// receives with `RECEIVE_CAP`, so the `CALL` fastpath pays one branch for this and none of its bytes.
+#[cold]
+#[inline(never)]
+fn call_meets_plain_receive(
+    sched: &mut IpcTables,
+    receiver: ThreadId,
+    caller: ThreadId,
+    msg: [u64; 2],
+    badge: u64,
+) {
+    let r = sched.threads.get_mut(receiver).unwrap();
+    r.mailbox = [msg[0], msg[1], 0, badge, 0];
+    r.handshake.serve(); // delivered: this wake passes the boot-8 gate
+    trace::record(trace::Event::Served, receiver, 5);
+    wake(sched, receiver);
+    set_ipc_aborted(sched, caller);
+}
+
+/// **A plain `RECEIVE` collected a sender it does not wake as a completed send**: a corpse or a
+/// caller. Caller holds `IPC_TABLES`; `rendezvous.receive` has already popped `sender` off the
+/// sender queue.
+///
+/// - A **dead sender** is a fault/exit corpse parked on its supervision rendezvous (DECISIONS §26):
+///   its message is delivered and it is never woken, because it is dead-until-reaped. It waits on
+///   nothing now; it only awaits its reap.
+/// - A **caller** is answered `Gone` (§246 (a plain `RECEIVE` never takes a capability),
+///   PROVISIONAL number; calef's ruling A, 2026-10-04 UTC): the sender-first half of
+///   [`call_meets_plain_receive`]. `set_ipc_aborted` drops the Reply staged in its `outgoing_cap`,
+///   which was the only copy. Until the ruling it was left parked on that Reply until teardown.
+#[cold]
+#[inline(never)]
+fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
+    if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
+        sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+    } else {
+        set_ipc_aborted(sched, sender);
+        wake(sched, sender);
+    }
+}
 
 /// **The `x4` a receive returns for a `CALL` whose Reply landed at `slot`** (milestone 706 (a
 /// `CALL` server can tell a Reply from a delegation), DECISIONS §245 (a `CALL` server tells a Reply
@@ -3706,13 +3786,24 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
                 // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                 let receiver = unsafe { (*receiver.as_ptr()).id };
                 let r = sched.threads.get_mut(receiver).unwrap();
-                let slot = r.capability_table.insert(cap).unwrap_or(NO_CAP);
-                // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
-                // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
-                r.mailbox = [data, slot, 0, badge, 0];
-                // A capability was installed, so RECEIVE_CAP's x1 is a real slot (milestone 634 (a plain SEND
-                // received by RECEIVE_CAP never hands the receiver a sender-chosen slot)).
-                r.cap_delivered = true;
+                if r.receiving_cap {
+                    let slot = r.capability_table.insert(cap).unwrap_or(NO_CAP);
+                    // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
+                    // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
+                    r.mailbox = [data, slot, 0, badge, 0];
+                    // A capability was installed, so RECEIVE_CAP's x1 is a real slot (milestone 634 (a plain SEND
+                    // received by RECEIVE_CAP never hands the receiver a sender-chosen slot)).
+                    r.cap_delivered = true;
+                } else {
+                    // **A plain RECEIVE takes no capability** (§246 (a plain `RECEIVE` never takes
+                    // a capability), PROVISIONAL number; calef's ruling A, 2026-10-04 UTC). The data
+                    // word arrives and the copy is dropped, the same five words `ipc_receive`
+                    // returns when it collects this sender parked (milestone 633). Until the ruling
+                    // this arm installed into any parked receiver's table, so a server draining a
+                    // child's output lost a slot per delegation, on this arrival order only. The
+                    // sender keeps its own copy: `SEND_CAP` narrows a copy, never the source.
+                    r.mailbox = [data, 0, 0, badge, 0];
+                }
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 3);
                 wake(sched, receiver);
@@ -3812,6 +3903,10 @@ pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
                     // Clear before parking: whoever wakes us sets this iff it installs a
                     // capability, so a plain SEND (which installs none) leaves it false (milestone 634).
                     me.cap_delivered = false;
+                    // And say which receive this is, so a sender that meets us may install one
+                    // (§246, PROVISIONAL number). Cleared when this receive resumes, below, so a
+                    // later plain RECEIVE parks with it false.
+                    me.receiving_cap = true;
                     me.handshake.park(Wait::Rendezvous(ep, WaitRole::Receiver)); // only a delivering sender may wake us
                     trace::record(trace::Event::BlockSelf, current, ep as u8);
                     None
@@ -3824,13 +3919,17 @@ pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
         Some(msg) => msg,
         None => {
             schedule(); // a capability-carrying sender fills our mailbox and wakes us
-            let guard = IPC_TABLES.lock();
-            let sched = guard.as_ref().expect("no scheduler");
-            let t = sched.threads.get(current_thread_id()).unwrap();
+            let mut guard = IPC_TABLES.lock();
+            let sched = guard.as_mut().expect("no scheduler");
+            let t = sched.threads.get_mut(current_thread_id()).unwrap();
             debug_assert!(
                 t.handshake.is_delivered(),
                 "receive_cap resumed with nothing delivered"
             );
+            // No longer parked in RECEIVE_CAP (§246, PROVISIONAL number). Cleared here rather than
+            // at a plain RECEIVE's park, which keeps the store off `ipc_send_receive`'s closure:
+            // with it there, x86_64's closure went over `script/fastpath-footprint`'s 5% band.
+            t.receiving_cap = false;
             // The whole mailbox: RECEIVE_CAP's three words, the sender's badge at m[3] (milestone 599),
             // and `w4`, which is `abi::notification::BOUND` when the bound notification ended this
             // receive, `abi::rendezvous::REPLY_DELIVERED` when a CALL's Reply was installed
@@ -3921,6 +4020,12 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
                 let receiver = unsafe { (*receiver.as_ptr()).id };
                 // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
                 let r = sched.threads.get_mut(receiver).unwrap();
+                if !r.receiving_cap {
+                    // A plain RECEIVE cannot hold the Reply, so this CALL is answered `Gone`
+                    // (§246, PROVISIONAL number). Out of line: no server in the tree does this.
+                    call_meets_plain_receive(sched, receiver, current, msg, badge);
+                    return [0, 0, 0];
+                }
                 let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
                 // Word 3 is the caller's badge (milestone 599): the same store as before with a
                 // value instead of a zero, so the server's RECEIVE_CAP surfaces which client called.
@@ -4435,7 +4540,13 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
 /// other instances of this shape.
 #[inline(never)]
 pub fn current_cap(slot: u64) -> Result<crate::cap::Cap, crate::cap::Error> {
+    // The lock-wait instrument marks this one acquisition: it is the only lock the cheapest
+    // syscall takes. See `crate::lock_wait`; absent from every build without `lock_wait`.
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::enter_current_cap();
     let guard = IPC_TABLES.lock();
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::leave_current_cap();
     let sched = guard.as_ref().ok_or(crate::cap::Error::NoSuchSlot)?;
     sched
         .threads
@@ -4560,17 +4671,23 @@ enum RegionReap {
 /// its stack, and freeing a `Thread` unmaps that stack.** Those are different questions; this path
 /// asked only the first for months, and the answer to the second is what four CI panics were.
 /// See notes/stack/kernel-stack-freed-under-its-owner.md.
-fn region_reap_verdict(state: State, on_cpu: bool) -> RegionReap {
+///
+/// `standing` is `on_cpu`, or'd since 2026-10-04 with
+/// [`being_reaped`](crate::thread::Thread::being_reaped): a thread whose stack and address space the
+/// reaper is freeing outside `IPC_TABLES` is refused the same passive way, for a different reason
+/// with the same shape (the condition clears by itself, and reaping the thread now would let its
+/// owner reuse memory the dying thread has not given back yet).
+fn region_reap_verdict(state: State, standing: bool) -> RegionReap {
     if matches!(state, State::Ready | State::Running) {
         RegionReap::RefuseAndArm
-    } else if state == State::Blocked && !on_cpu {
+    } else if state == State::Blocked && !standing {
         // Milestone 133, proposal A. `Blocked` used to sit in the arm above, and being there is
         // what made a permanently blocked resident unreclaimable for the life of the machine: the
         // arm is spent at the top of `schedule()` and only for a thread whose state is `Running`,
         // and a thread blocked on a rendezvous nobody will ever serve does not become `Running`
         // again. The arm was not too weak, it was aimed at a thread that never arrives.
         RegionReap::FinishInPlace
-    } else if on_cpu {
+    } else if standing {
         // A `Blocked` thread with `on_cpu` still set reaches here, and that is deliberate. It is
         // mid-switch-out, so its saved context is stale and a core is standing on the stack that
         // freeing its `Thread` would unmap; ending it now is the four-CI-panic bug wearing a new
@@ -4793,7 +4910,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
                 let phys = crate::arch::mmu::virt_to_phys(&raw const **t as u64);
                 base <= phys
                     && phys < end
-                    && region_reap_verdict(t.handshake.state, t.handshake.on_cpu)
+                    && region_reap_verdict(t.handshake.state, t.handshake.on_cpu || t.being_reaped)
                         == RegionReap::FinishInPlace
             })
             .map(|t| t.id);
@@ -4852,7 +4969,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
         if !(base <= phys && phys < end) {
             continue;
         }
-        match region_reap_verdict(t.handshake.state, t.handshake.on_cpu) {
+        match region_reap_verdict(t.handshake.state, t.handshake.on_cpu || t.being_reaped) {
             RegionReap::RefuseAndArm => {
                 t.killed = true;
                 live = true;
@@ -5346,6 +5463,13 @@ pub fn thread_control_block_insert_cap(
 /// half-built thread must never run. On success the thread gets its kernel stack and entry
 /// context and joins this core's run queue.
 pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), abi::Error> {
+    // **The kernel stack is built before `IPC_TABLES` is taken** (2026-10-04), for the reason the
+    // reaper frees one after releasing it: building it maps six pages and allocates their frames,
+    // and every other core's IPC and capability lookups waited behind that while it ran under the
+    // lock (notes/job-mix/null-syscall-under-load.md). Declared before the guard, so a refusal below
+    // releases the lock first and frees the unused stack afterwards. The refusals keep their order:
+    // a missing stack is still reported only after the embryo checks have passed.
+    let stack = crate::thread::KernelStack::new();
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
     let t = sched.threads.get_mut(tid).ok_or(abi::Error::NoSuchSlot)?;
@@ -5371,9 +5495,10 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     }
 
     t.start_args = args; // the child's x0, x1, x2 (19d/19e)
-    if !t.arm_for_start() {
+    let Some(stack) = stack else {
         return Err(abi::Error::OutOfMemory); // no kernel stack to be had
-    }
+    };
+    t.arm_for_start(stack);
     t.handshake.state = State::Ready;
     // Placement is the power of two choices (DECISIONS §28), the same as `spawn`: a freshly started
     // user thread lands on the lighter of two sampled cores rather than always the starter's, so a

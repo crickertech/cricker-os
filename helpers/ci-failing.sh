@@ -88,7 +88,10 @@ gh pr list --repo "$REPO" --state open --limit 200 --json number,isDraft,headRef
 		| [.number, .headRefOid, (.labels | map(.name) | index("ci-failing") != null), .title] | @tsv' |
 	while IFS="$(printf '\t')" read -r num sha labelled title; do
 		runs=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --paginate --jq '.check_runs[]' | jq -sc .)
-		bad=$(jq -nc --argjson runs "$runs" --argjson required "$required" "$(cat "$JQ") \$runs | failing(\$required)")
+		# The runs go in on stdin. `--argjson runs` put the whole check-run list in one argv entry,
+		# which Linux caps at 128 KiB, and run 37227933655 died there ("Argument list too long")
+		# before judging any pull request. `required` stays an argument: it is a few hundred bytes.
+		bad=$(echo "$runs" | jq -c --argjson required "$required" "$(cat "$JQ") failing(\$required)")
 		n=$(echo "$bad" | jq length)
 		if [ "$n" -gt 0 ]; then
 			echo "$ME: FAILING #$num at $(echo "$sha" | cut -c1-9): $(echo "$bad" | jq -r 'map(.name) | join("; ")') ($title)"

@@ -589,6 +589,9 @@ virtio = { version = "0.1.0", path = "../crates/virtio" }
 socket_protocol = { version = "0.1.0", path = "../crates/socket_protocol" }
 # Rung 3a's package fetch (milestone 198), in `net_stack`'s socket-contract client.
 http_response = { version = "0.1.0", path = "../crates/http_response" }
+# Milestone 384 (in a capability system the resolver is a grant): the DNS exchange in
+# `net_stack`'s socket-contract client, against the runners' name server peer.
+domain_name_system = { version = "0.1.0", path = "../crates/domain_name_system" }
 bitmap_font = { version = "0.1.0", path = "../crates/bitmap_font" }
 block_roster = { version = "0.1.0", path = "../crates/block_roster" }
 globally_unique_identifier_partition_table = { version = "0.1.0", path = "../crates/globally_unique_identifier_partition_table" }

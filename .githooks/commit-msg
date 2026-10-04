@@ -1,0 +1,45 @@
+#!/bin/sh
+# commit-msg: an agent's commit must name the model that wrote it, with a Co-Authored-By trailer.
+#
+# Milestone 725 (machine effort and commit attribution count every vendor), provisional number.
+# `script/metrics` attributes a commit to a model from its trailer (or from `commit-models.csv`
+# when an opencode session can be proved). A commit with neither lands under `unattributed`, which
+# is how 154 commits of the z.ai window were lost to the metrics until they were reconstructed by
+# hand. AGENTS.md asks every agent to sign; this hook is the mechanism for when it forgets.
+#
+# **Which commits are an agent's.** A hook cannot tell an agent from calef by looking at the
+# commit, so it reads the environment the harness already sets (maintainer ruling, 2026-10-04 UTC):
+#   CLAUDECODE=1  Claude Code sets it in every shell it runs (verified in a live session).
+#   OPENCODE=1    opencode sets it, with AGENT=1 and OPENCODE_PID, in process.env at CLI start so
+#                 its bash tool inherits it. Read from the installed opencode 1.18.34 binary's
+#                 startup middleware on 2026-10-04; not yet observed from inside a running
+#                 opencode shell. `AGENT` is deliberately not tested: it is too generic a name.
+# With neither set the hook exits 0 untouched, so calef's own commits never see it.
+#
+# Not a security boundary. An agent that clears its environment, a harness not listed above, or
+# `git commit --no-verify` goes through unchecked; see BUGS in design/roadmap/725-*.md.
+#
+# Installed by `script/setup` via core.hooksPath, beside pre-push. Self-test:
+# helpers/commit-msg-selftest.sh, run by script/lint.
+
+if [ "${CLAUDECODE:-}" != "1" ] && [ "${OPENCODE:-}" != "1" ]; then
+    exit 0
+fi
+
+msg="${1:-}"
+[ -r "$msg" ] || exit 0
+
+# A merge commit is made by git from two parents, not written by the agent's model.
+git_dir="$(git rev-parse --git-dir 2>/dev/null)"
+[ -n "$git_dir" ] && [ -f "$git_dir/MERGE_HEAD" ] && exit 0
+
+# Comment lines are git's template, not part of the message. The trailer needs a non-empty value.
+if grep -v '^#' "$msg" | grep -qiE '^Co-Authored-By:[[:space:]]*[^[:space:]]'; then
+    exit 0
+fi
+
+echo "commit-msg: this looks like an agent's commit (CLAUDECODE or OPENCODE is set) and it has no" >&2
+echo "  Co-Authored-By: trailer, so the metrics would file it under 'unattributed'." >&2
+echo "  Fix:    end the message with a blank line and 'Co-Authored-By: <model> <noreply@...>'" >&2
+echo "  Bypass: git commit --no-verify" >&2
+exit 1

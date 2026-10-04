@@ -43,9 +43,15 @@ person's queue and not a failing build.
 - Only checks that have reported are counted. A required check that never ran (a skipped
   workflow, a path filter) is absent, not failing, and a head can look green here while the queue
   still waits on it. `ready status` and the queue see that; this does not.
-- `schedule:` is a floor. Ten minutes at best, delayed under load, dropped at peak, so a
-  failure can sit for longer than ten minutes. It has no `workflow_run:` trigger; adding one as the
-  drain did would make it prompt, at the cost of a run per CI completion.
+- `schedule:` is a floor, and here it is close to a ceiling of zero. The workflow reached `main` at
+  19:14 UTC on 2026-10-04 and had produced no scheduled run 33 minutes later, with `*/10` set.
+  `merge-drain.yml` shows the same: its recent scheduled runs sit hours apart (18:17, 14:25, 08:43,
+  02:31 UTC) against a `*/5` cron. GitHub delays and drops scheduled runs under load and gives a new
+  workflow no head start, and nothing was wrong with the file. So the workflow also fires on `workflow_run` when
+  `ci` completes, as the drain does, which is when a head has just turned red.
+- Its first run, a manual dispatch (37227933655), died with `jq: Argument list too long`: the
+  check runs were passed as `--argjson`, and one argument may not pass 128 KiB on Linux. They now go
+  in on stdin, and the selftest runs the whole pass over 10,000 check runs against a stubbed `gh`.
 - The comment is once per SHA, forever. A pull request that fails, is fixed by rerunning, and
   fails again on the same SHA gets the label again and no second comment. That is the rule asked for;
   the label is the live signal.
