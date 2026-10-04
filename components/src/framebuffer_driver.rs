@@ -17,9 +17,10 @@
 //! - slot 2, an **untyped**: the budget its surface mapping's page tables come out of;
 //! - slot 3, the **surface**: one `PageFrame` capability naming a run of RAM frames the size of
 //!   the covered part, shared with the client, which it maps itself (DECISIONS §102 (a Frame
-//!   names a run of pages), milestone 108's shape);
-//! - mapped before `_start`: **the covered part of the aperture**, device-typed (uncacheable on
-//!   x86), at [`APERTURE_VA`]. Only the rows the surface can reach
+//!   names a run of pages), the shape of milestone 108 (the drivers move onto frame
+//!   capabilities));
+//! - mapped before `_start`: **the covered part of the aperture**, device-typed and, on `x86_64`,
+//!   write-combining (2026-10-04), at [`APERTURE_VA`]. Only the rows the surface can reach
 //!   (`screen_console::Aperture::span`), which is the whole screen unless it is too large to map
 //!   (`display_service::MAX_APERTURE_PAGES`), and as a spawn-time mapping rather than a capability, so
 //!   it holds no name for the screen and cannot map it again, delegate it, or hand it on. That is
@@ -59,12 +60,10 @@
 //!   (`notes/benchmarks/icount-tick-scales.md`), is most of this copy's cost. A `u64` is the widest
 //!   store the `x86_64` target can legalise (`-mmx,-sse,+soft-float`), so the remaining levers are a
 //!   write-combining mapping or a scroll-aware flush contract, both outside this driver. Not
-//!   measured on silicon. **The first lever half exists since 2026-10-04**: the kernel programs a
-//!   write-combining PAT entry on every core and maps its own boot console's aperture through it
-//!   (`paging::Flags::write_combining`), but this driver's spawn-time mapping is still
-//!   device-typed, because there is no user-mode twin of that flag yet. Adding one and using it
-//!   for this mapping is the follow-up; this driver only ever writes the aperture, which is what
-//!   write-combining needs.
+//!   measured on silicon. **The first lever exists since 2026-10-04**: the kernel programs a
+//!   write-combining PAT entry on every core and maps this driver's aperture through it
+//!   (`paging::Flags::user_write_combining`, `DeviceRun::write_combining`). The title of this
+//!   bullet is therefore true on aarch64 and riscv64 only, which have no device-aperture screen.
 //! - **One client, no arbitration.** Whoever holds the display endpoint draws; that is the
 //!   contract's rung-one shape and the compositor is what multiplexes it.
 //!
@@ -139,7 +138,7 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
     // at SURFACE_VA by the call just above.
     let surface = unsafe { MappedWindow::new(SURFACE_VA, surface_bytes) };
     // SAFETY: the kernel mapped every page from APERTURE_VA through `offset + span` device-typed
-    // and writable before this program's first instruction
+    // (write-combining on `x86_64`) and writable before this program's first instruction
     // (`display_service::start_screen_terminal`), and the geometry that span was computed from is
     // the one `from_words` just validated.
     let screen = unsafe { MappedWindow::new(APERTURE_VA + offset, aperture.span() as u64) };
@@ -180,6 +179,14 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
                     |at, pair| screen.w64(at as u64, pair),
                     |at, word| screen.w32(at as u64, word),
                 );
+                // The aperture is write-combining on `x86_64`, so the last stores of this flush
+                // may sit in a combining buffer. A sequentially consistent fence is `mfence`
+                // there, which drains them before the reply tells the client its pixels are on
+                // the screen; on the other two it is the ordinary barrier.
+                // PAIR: none. Nothing acquires against it: the other party is the display engine
+                // scanning the aperture, and the ordering towards the client is the reply below,
+                // a blocking IPC rendezvous.
+                core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
                 (if copied { 0 } else { gfx::EINVAL }, 0)
             }
             _ => (gfx::EINVAL, 0),

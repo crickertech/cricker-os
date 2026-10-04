@@ -1382,7 +1382,7 @@ pub fn spawn_hello(
 /// thousand pages or more, and the kernel has no heap to build a slice that long in).
 ///
 /// Always device-typed and writable, because the one thing that needs it is a driver's view of a
-/// device's memory. Like every [`Spawn::maps`] entry the process holds no *name* for it: it cannot
+/// device's memory, and write-combining when [`Self::write_combining`] says so. Like every [`Spawn::maps`] entry the process holds no *name* for it: it cannot
 /// map it again, delegate it, or revoke it, which is the property `non_volatile_memory_express_service`
 /// and milestone 159's TRNG driver chose spawn-time mappings for. **Name provisional.**
 #[derive(Clone, Copy)]
@@ -1394,6 +1394,12 @@ pub struct DeviceRun {
     /// How many pages. The intermediate page tables come out of the address space's own
     /// `AS_OVERHEAD`, so a caller bounds this (`display_service`'s `MAX_APERTURE_PAGES`).
     pub pages: u64,
+    /// **Map it write-combining** (`paging::Flags::user_write_combining`) rather than as
+    /// registers. True only for memory the process writes and never reads, which on this tree is
+    /// one framebuffer aperture: a register window combined would lose the order of its stores.
+    /// A required field with no default, so a second caller has to say which it is. Name:
+    /// provisional (the screen terminal lane, 2026-10-04).
+    pub write_combining: bool,
 }
 
 /// Load the initrd program and become it, handed the world described by `spawn`. Never returns.
@@ -1439,7 +1445,11 @@ fn run_with(image: &[u8], spawn: Spawn, device: Option<DeviceRun>) -> ! {
                 .map_physical(
                     d.va + k * FRAME_SIZE,
                     d.phys + k * FRAME_SIZE,
-                    Flags::user_device(),
+                    if d.write_combining {
+                        Flags::user_write_combining()
+                    } else {
+                        Flags::user_device()
+                    },
                     crate::revoke::PageMapSource::NoCapability,
                 )
                 .expect("could not map a device run into the new address space");
