@@ -60,7 +60,7 @@ rung two. Nothing keeps a list of which workflows have been watched; `--list` de
 
 ```console
 $ helpers/observed_failing.py
-observed-failing: 20 workflows, 15 watched failing, 5 never (each on main by 2026-10-04, at 4c9cae0a9)
+observed-failing: 21 workflows, 16 watched failing, 5 never (each on main by 2026-10-04, at 4c9cae0a9)
 
 $ helpers/observed_failing.py --list | head -3
 architect-hold.yml               2026-10-04 run 37226530740
@@ -88,12 +88,26 @@ three days running on an unknown `--flags` argument. `ci-failing.yml`'s only run
 `jq: Argument list too long` before judging anything, a defect of its own that #1627 fixes. Neither
 counts, because the arm that carries the claim never ran, and each record says so.
 
+`kani-reach.yml` landed later the same day, after the cutoff, so it could not say `never`. It cites
+a run whose report published kills; its red shards died on a harness-name defect and do not count.
+
 None of the five was staged here. The milestone does not apply the rule backwards; it asks for the
 honest record, and a staged run of each is somebody's lane.
 
 ## This gate's own observation
 
-<!-- filled in by the lane once its CI run is read -->
+The gate was staged red before it was trusted. Commit `0562ea03b` added a probe workflow, new since
+the cutoff, saying `never`. CI run 37230967057 (2026-10-04, dispatched) went red in the `clippy`
+job's `script/lint` at this section, with the refusal the gate exists to make:
+
+```
+.github/workflows/observed-failing-probe.yml: `never` is only for a workflow main already had at
+4c9cae0a9 (2026-10-04); this one is newer, so it ships with a run that watched it fail
+```
+
+The run before it, 37229594948, was also red and does not count. Its probe named a milestone with no
+gloss, so `script/lint` stopped at the citations check and never reached this one. Both commits stay
+in the history, because their being separate is the evidence.
 
 ## How this sits beside milestone 641
 

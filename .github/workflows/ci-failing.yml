@@ -1,12 +1,14 @@
 name: ci failing
 
-# Observed failing: never. Its only Actions run, 37227933655 (2026-10-04, dispatched), went red at
+# Observed failing: never. Its first Actions run, 37227933655 (2026-10-04, dispatched), went red at
 #   `jq: Argument list too long` (helpers/ci-failing.sh line 91, the check runs passed with
 #   `--argjson`) before judging any pull request. That is a real defect of its own, fixed by #1627,
 #   but not this record's sense of failing: the arm that carries the claim (label and comment a ready
 #   pull request whose required check is red) never ran, and a crash looks the same whatever the
-#   checks say. notes/ci-failing.md's stubbed `gh` exercised that arm outside Actions. A ready pull
-#   request with a red required check, after #1627, would stage it. See notes/observed-failing.md.
+#   checks say. The 17 runs after #1627, to 21:02 UTC that day, are green and no pull request has
+#   carried the `ci-failing` label. notes/ci-failing.md's stubbed `gh` exercised that arm outside
+#   Actions. A ready pull request with a red required check would stage it. See
+#   notes/observed-failing.md.
 
 # **Flags a ready pull request whose head fails a required check** (calef approved 2026-10-04 UTC).
 # calef twice spotted failing pull request CI (#1611, #1597) before any session did, and a session

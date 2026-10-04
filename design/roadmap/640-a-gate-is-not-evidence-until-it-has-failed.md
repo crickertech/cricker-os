@@ -1,5 +1,6 @@
 ---
-status: NOT-STARTED
+status: BUILT
+built: 2026-10-04
 raised: 2026-09-23
 promoted_from: a-gate-is-not-evidence-until-it-has-failed
 milestone_dependencies: none
@@ -79,6 +80,44 @@ it rather than a build failure.
 
 **Not a claim that testing a gate is hard.** Both instances above would have been caught by one
 `workflow_dispatch` and 35 seconds of reading. The cost is not the obstacle; nobody asking is.
+
+## What was built
+
+- A gate, rung two, which departs from "Not a required check" above on purpose. The ladder asks for
+  the highest rung that fits, and a record nobody is made to write is rung four.
+  `helpers/observed_failing.py` (name provisional) runs in `script/lint`. Every workflow carries an
+  `# Observed failing:` header line citing a run, or a `by script:` staging, or `never.` with a
+  reason. The gate requires the record, not the run, so the deployment habit stays a habit for old
+  workflows and becomes a requirement for new ones.
+- `never` is accepted only when git says `main` already had the file at `4c9cae0a9`, the commit this
+  lane was cut from. The test is ancestry, so an old branch cannot slip a new workflow through.
+- The backfill, read from each workflow's failure history and logs. 16 of 21 cite a run that went
+  red, or fired, for their own reason; `--verify-runs` checked each id against the API. Five say
+  `never`, and two of those have red runs that were defects rather than findings.
+- `notes/observed-failing.md` (name provisional): the rule, how to add a workflow, EXAMPLES, BUGS.
+
+## What proves it
+
+- CI run 37230967057 (2026-10-04): a probe workflow, new since the cutoff and saying `never`, turned
+  the `clippy` job red at this check with its own refusal. The commit after it removes the probe.
+- The run before it, 37229594948, was red for a different check and is recorded as not counting.
+- Eleven fixtures run before the tree is judged, so a green result is not a checker matching nothing.
+
+## BUGS
+
+In `notes/observed-failing.md`. The record is per file rather than per job or arm, a cited run is
+checked only by hand, and whether a red was the right red is prose, not a check.
+
+## Architectural parity
+
+Not applicable: this is CI and lint, with no kernel code on any architecture.
+
+## Follow-on
+
+- **Recorded.** The five `never` workflows are unstaged; each one's own header record says what
+  would stage it, which is where the next person to touch it reads.
+- **Recorded.** Nothing runs `--verify-runs` on a schedule, so a mistyped run id passes lint;
+  `notes/observed-failing.md`'s BUGS.
 
 ## Index row
 

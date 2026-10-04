@@ -1,5 +1,11 @@
 name: kani reach
 
+# Observed failing: 2026-10-04, run 37219544157: the report job published non-zero kills (36 mutants
+#   proved FAILED in one table, 10 in another) with zero kills outside computed reach. A measurement,
+#   not a gate, so this is the arm that carries its claim firing; the red shards of 37179003058 do not
+#   count, because they died on `Failed to match the following harness(es)`, a detector defect fixed
+#   before #1587 merged, before proving anything. See notes/observed-failing.md.
+
 # **Does a standing proof notice a regression in the code it covers?** Milestone 741 (provisional),
 # for fatal risk 2. cargo-mutants lists the mutants of each package below, and every mutant is proved
 # with `cargo kani`; a harness that goes FAILED on a named check kills it. The join against the weekly
