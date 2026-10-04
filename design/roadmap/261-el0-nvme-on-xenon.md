@@ -175,7 +175,12 @@ preflight 1, the catch-all unit `0xfed91000` owning the NVMe at 01:00.0, then fa
 (`ECAP.C` = 0) and the kernel never wrote its VT-d tables back, so the controller's first admin
 fetch faulted on a root entry the unit read as absent. The fix is in
 `kernel/src/arch/x86_64/iommu.rs` (`Unit::publish`); the reading, and why QEMU could not show it,
-is in notes/risk-6-bench-evening.md. No throughput has been measured yet.
+is in notes/risk-6-bench-evening.md.
+
+Main with that fix then passed, bench boot 1 of 3: both preflights PASS, 16384 of 16384 blocks
+verified, `CONFINED-AT-RATE` at 281608311 B/s read and 458142471 B/s write
+(`bench/xenon-2026-10-04/boot-e-main-clflush-1.log`). One boot is not a figure; the page's
+Results take the median of three.
 
 ## The proof that this milestone worked
 

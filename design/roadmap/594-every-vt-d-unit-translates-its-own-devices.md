@@ -109,13 +109,16 @@ Each is also written beside the code, in `kernel/src/arch/x86_64/iommu.rs`'s BUG
   misses the scanout. The same evening showed a likelier cause: the catch-all unit does not snoop
   (`ECAP.C` = 0) and this driver never wrote its tables back, so the graphics RMRR was mapped into
   tables the graphics unit could not read either. That is inference, since the graphics unit's
-  `ECAP` was not read. Fixed in `kernel/src/arch/x86_64/iommu.rs` (`Unit::publish`); the RMRR
-  question stays open until main boots on xenon with the fix.
+  `ECAP` was not read. Fixed in `kernel/src/arch/x86_64/iommu.rs` (`Unit::publish`).
+  **Answered the same evening:** main with the write-back booted on xenon with both units
+  translating and the screen intact (`bench/xenon-2026-10-04/boot-e-main-clflush-1.log`). The
+  tear was the cache defect; the graphics RMRR covers the scanout.
 
 ## Follow-on
 
-- **Outstanding.** One xenon boot under this kernel *with the table write-back*, read against
-  notes/risk-6-bench-evening.md. The first, without it, tore the screen (BUGS).
+- **Done.** On 2026-10-04 xenon booted this kernel with the table write-back: both units up and
+  translating, the screen alive, and the NVMe owned by the catch-all (preflight 1 PASS). The
+  first boot, without the write-back, tore the screen (BUGS).
   It must show both units up, the screen alive past the `vt-d` lines, and preflight 1 passing with
   the NVMe owned by whichever unit the DMAR names. That boot is milestone 261's bench evening; no
   second trip is needed.

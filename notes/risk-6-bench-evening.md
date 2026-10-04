@@ -220,6 +220,7 @@ attached.
 | 2026-10-04 | 7ae6d4e15 | 1 | PASS (catch-all `0xfed91000` owns 01:00.0) | not reached | | | | | bring-up `CompletionTimeout` (`boot-b-pre594.log`) |
 | 2026-10-04 | 3dfd2e813 | 1 | PASS | not reached | | | | | diagnostic image: VT-d fault reason 0x01 on the admin queue, `ECAP.C` = 0 (`boot-c-diag.log`) |
 | 2026-10-04 | `d3dbe8cf253d33f648808393ce89063983583c12` | 1 | PASS | not reached | | | | | with `wbinvd`: fault moves to reason 0x0b, context entry reserved field (`boot-d-wbinvd.log`) |
+| 2026-10-04 | `fef2e3206` (built at 414eda9de) | 1 of 3 | PASS (catch-all owns 01:00.0) | PASS (512-byte lbas, 256060514304 bytes) | 281608311 | 458142471 | 1198 ns | not run | `CONFINED-AT-RATE`, 16384 of 16384 verified; screen held (`boot-e-main-clflush-1.log`) |
 
 ### What the first evening found, 2026-10-04
 
@@ -242,6 +243,10 @@ requester id as the domain id; milestone 594 already replaced that with ids allo
 the write-back lands. Nothing else in `CAP` or `ECAP` read here constrains the entries this driver
 writes. `SAGAW` offers 4-level, the `AW` written; `MGAW` is 39 bits and every address mapped is
 below 4 GiB; and leaves set neither superpage nor snoop bits.
+
+Main with the write-back then passed on xenon, the first of the three boots this page asks for.
+The screen held with both units translating, so Boot A's tear was the same defect, and the
+graphics RMRR does cover the scanout. Boots 2 and 3, and the quotable figures, follow.
 
 QEMU could not have shown this: its unit reports `C=0` as well, but it reads guest memory
 directly. The fix is `kernel/src/arch/x86_64/iommu.rs`'s `Unit::publish` (a `clflush` per table
