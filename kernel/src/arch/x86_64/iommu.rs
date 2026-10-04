@@ -835,6 +835,90 @@ pub fn take_fault() -> Option<Fault> {
     None
 }
 
+/// **Bench diagnostic for fatal risk 6's CompletionTimeout on xenon (2026-10-04).** Everything
+/// the unit that is up can say about why a device's DMA went nowhere, without clearing anything:
+/// CAP and ECAP (ECAP bit 0, `C`, says whether the unit's table walks snoop the CPU caches; this
+/// driver never flushes the tables it writes, so `C=0` would mean the hardware reads whatever is
+/// in DRAM), GSTS and FSTS, then every Fault Recording Register whose F bit is set, and the root
+/// and context entries for `rid` as the CPU sees them. Bounded at about eight lines.
+#[cfg(feature = "disk_throughput")]
+pub fn print_faults(rid: u32) {
+    // Before the lock: `owner_index` reads configuration space and takes `DMAR`.
+    let owner = owner_index(rid);
+    let g = IOMMU.lock();
+    let Some(i) = owner else {
+        crate::println!("diag vt-d no running unit owns {rid:#06x}");
+        return;
+    };
+    let Slot::Up(s) = &g.slots[i] else {
+        crate::println!("diag vt-d the unit owning {rid:#06x} is not up");
+        return;
+    };
+    let ctx_tables = &g.ctx[i];
+    let cap = r64(s.base, CAP);
+    let ecap = r64(s.base, ECAP);
+    let nfr = ((cap >> 40) & 0xff) + 1;
+    crate::println!(
+        "diag vt-d {:#x} cap {cap:#x} ecap {ecap:#x} c={} pt={} nfr {nfr}",
+        s.base,
+        ecap & 1,
+        ecap >> 6 & 1
+    );
+    let fsts = r32(s.base, FSTS);
+    crate::println!(
+        "diag vt-d gsts {:#010x} fsts {fsts:#x} (ppf {} pfo {} fri {})",
+        r32(s.base, GSTS),
+        fsts >> 1 & 1,
+        fsts & 1,
+        fsts >> 8 & 0xff
+    );
+    let mut shown = 0;
+    for i in 0..nfr.min(16) {
+        let hi = r64(s.base, s.frcd + i * 16 + 8);
+        if hi & (1 << 63) == 0 {
+            continue;
+        }
+        let lo = r64(s.base, s.frcd + i * 16);
+        if shown < 6 {
+            let sid = hi & 0xffff;
+            crate::println!(
+                "diag vt-d frcd{i} sid {:02x}:{:02x}.{} reason {:#04x} {} addr {:#x}",
+                sid >> 8,
+                sid >> 3 & 0x1f,
+                sid & 7,
+                (hi >> 32) & 0xff,
+                if hi >> 62 & 1 == 1 { "read" } else { "write" },
+                lo & !0xfff
+            );
+        }
+        shown += 1;
+    }
+    if shown == 0 {
+        crate::println!("diag vt-d no fault record has F set");
+    } else if shown > 6 {
+        crate::println!("diag vt-d ... {} more fault records not shown", shown - 6);
+    }
+    let bus = (rid >> 8) as u64 & 0xff;
+    let devfn = rid as u64 & 0xff;
+    // SAFETY: `s.root` and any `s.ctx` entry are kernel-owned table frames; bus and devfn are
+    // masked to the 256 entries each holds. Reads only.
+    let (re, ce) = unsafe {
+        let re = core::ptr::read_volatile(phys_to_virt(s.root + bus * 16) as *const u64);
+        let ce = ctx_tables[bus as usize].map(|ctp| {
+            let p = phys_to_virt(ctp + devfn * 16) as *const u64;
+            (
+                core::ptr::read_volatile(p),
+                core::ptr::read_volatile(p.add(1)),
+            )
+        });
+        (re, ce)
+    };
+    match ce {
+        Some((lo, hi)) => crate::println!("diag vt-d root[{bus}] {re:#x} ctx {lo:#x} {hi:#x}"),
+        None => crate::println!("diag vt-d root[{bus}] {re:#x} ctx none (never attached)"),
+    }
+}
+
 // A compile-time check that this module and `Vtd` agree on the level count `CTX_AW_48BIT`
 // promises the hardware: four levels, the same the context entry's AW field selects.
 const _: () = assert!(Vtd::LEVELS == 4);
