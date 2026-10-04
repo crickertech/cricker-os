@@ -65,7 +65,7 @@ static IRQ_TARGET: [AtomicU8; 256] = [const { AtomicU8::new(UNASSIGNED) }; 256];
 /// Round-robin cursor for spreading SPI lines over the online cores. Consecutive device lines get
 /// consecutive cores regardless of their INTID values, which `intid % ncpus` would not guarantee
 /// (three virtio devices at INTIDs 48, 52, 56 would all land on core 0 under mod-4).
-static NEXT_IRQ_CORE: AtomicUsize = AtomicUsize::new(0);
+static NEXT_IRQ_CPU: AtomicUsize = AtomicUsize::new(0);
 
 /// The core an SPI should target: its stable assignment if it has one, otherwise the next core in
 /// the round-robin, recorded so every later re-enable of this line reuses it. Bounded to the cores
@@ -80,7 +80,7 @@ fn target_cpu(intid: u32) -> usize {
     // The k-th ONLINE core, not index k (first-silicon sweep, 2026-08-14): `cursor % count` as an
     // index routes device lines to parked cores (where they sit pending forever) and never to the
     // online cores past the count, when the online set is not contiguous from zero.
-    let chosen = crate::smp::nth_online(NEXT_IRQ_CORE.fetch_add(1, Ordering::Relaxed));
+    let chosen = crate::smp::nth_online(NEXT_IRQ_CPU.fetch_add(1, Ordering::Relaxed));
     // First writer wins, so a racing second enable of the same line agrees on the target.
     match slot.compare_exchange(
         UNASSIGNED,
@@ -323,17 +323,17 @@ mod tests {
     /// A host that stalls the emulator for five whole seconds could fail it, and would say so in
     /// the host-load line the harness prints; the shape it exists to catch is "zero, forever".
     #[test_case]
-    fn every_online_core_takes_its_own_timer_ticks() {
+    fn every_online_cpu_takes_its_own_timer_ticks() {
         let before: [u64; MAX_CPUS] = core::array::from_fn(timer::ticks_on);
         let deadline = timer::now() + timer::frequency() * 5;
         loop {
             let silent = crate::smp::online_cpus().find(|&c| timer::ticks_on(c) <= before[c]);
-            let Some(core) = silent else {
+            let Some(cpu) = silent else {
                 return;
             };
             assert!(
                 timer::now() < deadline,
-                "core {core} took no timer interrupt in 5 s on a GICv{}: its CPU interface or \
+                "core {cpu} took no timer interrupt in 5 s on a GICv{}: its CPU interface or \
                  (on a GICv3) its redistributor is not delivering",
                 super::VERSION.load(Ordering::Relaxed),
             );

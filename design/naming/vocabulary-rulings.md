@@ -220,3 +220,27 @@ fights the ratified pronunciation (said like *knife*) by inviting "nye-fee".
 The refusal record matters more than the choice. The sial/sima rule applies, since a name that needs
 a casing note is the pronunciation-note tax in different clothes. The chemistry lives in the
 README's one line, which is where it costs nothing.
+
+## `cpu` is the scheduling unit; `core` is the physical core
+
+calef, 2026-10-03 UTC, proposed by the maintainer and accepted ("Record the cpu ruling and start the
+rename lane"):
+
+> `cpu` names the unit the scheduler runs a thread on (one hardware thread, as Linux and POSIX count
+> them). `core` is reserved for the physical core, for when topology needs it, and is not used to mean
+> a cpu. A GPU or other device processor is named for what it is (`gpu`, ...), never `cpu`.
+
+The tree already used `cpu` about ten to one (`MAX_CPUS`, `online_cpus`, `PerCpu`, `on_cpu`), and
+`cpu_set` (ratified 2026-08-14) and `arch::cpu_start` are ratified with it. The rule follows the
+tree, and the lane `cpu-not-core` renamed the identifiers that had drifted to `core`.
+
+Considered and refused:
+
+- `core` for the scheduling unit. With simultaneous multithreading (SMT) a physical core holds
+  several cpus, so `core` would be wrong the first time topology matters. It also collides with
+  Rust's `core` crate, so every `core::` path would read as a possible cpu reference.
+- `processor`. A GPU is a processor too, which is why the ruling defines `cpu` as the unit the
+  scheduler places threads on and not as "a processor".
+
+Kept on purpose: names that arrive from someone else's interface (device-tree `cpus` nodes, vendor
+clock names, RISC-V `hart` in RISC-V-only code, firmware and QEMU flags).

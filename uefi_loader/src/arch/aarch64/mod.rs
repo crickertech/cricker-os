@@ -357,7 +357,7 @@ fn tree_from_acpi(
     let mut version = 0u8;
     let mut redistributors = Region { start: 0, size: 0 };
     let mut cpu_interface = 0u64;
-    let mut per_core_redistributor = 0u64;
+    let mut per_cpu_redistributor = 0u64;
     let mut cpus = [device_tree_from_acpi::Cpu::default(); device_tree_from_acpi::MAX_CPUS];
     let mut cpu_count = 0usize;
     for entry in acpi::madt_entries(body) {
@@ -386,8 +386,8 @@ fn tree_from_acpi(
                 if gicc != 0 {
                     cpu_interface = gicc;
                 }
-                if redistributor != 0 && per_core_redistributor == 0 {
-                    per_core_redistributor = redistributor;
+                if redistributor != 0 && per_cpu_redistributor == 0 {
+                    per_cpu_redistributor = redistributor;
                 }
                 if cpu_count < device_tree_from_acpi::MAX_CPUS {
                     cpus[cpu_count] = device_tree_from_acpi::Cpu {
@@ -411,7 +411,7 @@ fn tree_from_acpi(
     // entries used: a redistributor (per-core or as a range) exists only on a GICv3, and a
     // memory-mapped CPU interface only on a GICv2. A machine that states neither is one this loader
     // will not guess about.
-    let v3 = version >= 3 || redistributors.size != 0 || per_core_redistributor != 0;
+    let v3 = version >= 3 || redistributors.size != 0 || per_cpu_redistributor != 0;
     let v2 = version == 2 || (version == 0 && cpu_interface != 0);
     let distributor = Region {
         start: distributor,
@@ -424,7 +424,7 @@ fn tree_from_acpi(
             // frames are contiguous from the first, which is what `GICR_TYPER`'s Last bit then
             // confirms when the kernel walks them.
             redistributors = Region {
-                start: per_core_redistributor,
+                start: per_cpu_redistributor,
                 size: 0x2_0000 * cpu_count.max(1) as u64,
             };
         }

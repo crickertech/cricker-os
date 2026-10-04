@@ -135,8 +135,8 @@ fn unmasking_delivers_the_tick_that_was_held() {
     // landed on: a counter that was never the one being watched. Read here, nothing can move this
     // thread before the interrupt is taken, and `preemptions_on` pins every later read to the core
     // that held the tick.
-    let core = crate::cpu::id();
-    let count = || sched::preemptions_on(core);
+    let cpu = crate::cpu::id();
+    let count = || sched::preemptions_on(cpu);
     let before = count();
 
     crate::arch::timer::spin_for(three_tick_periods());

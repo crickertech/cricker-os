@@ -139,6 +139,7 @@ Each sets a test that reaches past the word. The arguments are in
 | An identity is what you present; a principal is what you become | `principal` is the authenticated actor holding a capability set |
 | The `login` stem stays | ratified 2026-09-15 for the whole family |
 | The casing of `nife` | lowercase everywhere, prose included |
+| `cpu` is the scheduling unit; `core` is the physical core | `cpu` is what the scheduler runs a thread on; a GPU is named `gpu`, never `cpu` (2026-10-03) |
 
 ## Where a name's provenance lives
 

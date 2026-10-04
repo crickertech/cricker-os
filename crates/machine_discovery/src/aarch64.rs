@@ -412,7 +412,7 @@ impl Psci {
     }
 
     /// Can a core actually be started with this? Both halves have to be known.
-    pub fn can_start_a_core(&self) -> bool {
+    pub fn can_start_a_cpu(&self) -> bool {
         self.conduit.is_some() && self.cpu_on.is_some()
     }
 }

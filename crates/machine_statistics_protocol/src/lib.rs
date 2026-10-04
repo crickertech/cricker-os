@@ -322,7 +322,7 @@ mod tests {
     }
 
     #[test]
-    fn an_offline_core_counts_for_nothing_even_if_its_words_are_not_zero() {
+    fn an_offline_cpu_counts_for_nothing_even_if_its_words_are_not_zero() {
         let mut w = prepared();
         w[word::cpu(1) + word::ONLINE] = 1;
         w[word::cpu(1) + word::CONTEXT_SWITCHES] = 7;

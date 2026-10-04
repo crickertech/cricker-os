@@ -158,7 +158,7 @@ fn the_machine_statistics_page_is_published_and_its_counters_move() {
 /// Every core is read, not this one, so a migration of the test thread between reads changes
 /// nothing: each comparison is between one core's page line and that same core's block.
 #[test_case]
-fn the_pages_switch_count_is_each_cores_exact_count_as_of_its_last_tick() {
+fn the_pages_switch_count_is_each_cpus_exact_count_as_of_its_last_tick() {
     use core::sync::atomic::Ordering;
 
     use machine_statistics_protocol::CPU_ID_BOUND;

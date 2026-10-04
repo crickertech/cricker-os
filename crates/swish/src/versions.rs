@@ -76,4 +76,12 @@ mod tests {
         assert_eq!(entry("", "uptime"), None);
         assert_eq!(entry("# nothing yet\n", "uptime"), None);
     }
+
+    /// A comment is dropped whole, so a comment that happens to read as two words never selects
+    /// a program of that name.
+    #[test]
+    fn a_comment_that_reads_as_a_line_selects_nothing() {
+        assert_eq!(entry("#uptime 0.1.0\n", "#uptime"), None);
+        assert_eq!(entry("  # uptime\nuptime 0.2.0\n", "uptime"), Some("0.2.0"));
+    }
 }

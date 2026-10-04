@@ -271,7 +271,7 @@ pub const fn port_out_reporting_cpu(port: u16, val: u8, word: u32) -> [u32; 12] 
 /// arrives as `EVENT_EXIT` in the message the test wants `EVENT_FAULT` in (a reporting child would
 /// park on a `SEND` nobody receives and hang the run instead). On any other core it never reaches
 /// the `out`: it loads from address 0, which `address_space_map::NULL_GUARD` keeps unmapped, and
-/// the page fault arrives at [`PORT_OUT_ON_CPU_WRONG_CORE_PC_OFFSET`]. The two faults are told apart
+/// the page fault arrives at [`PORT_OUT_ON_CPU_WRONG_CPU_PC_OFFSET`]. The two faults are told apart
 /// by pc, so "landed on the wrong core, try again" can never be read as "the `out` faulted".
 ///
 /// Name: provisional (calef names public items).
@@ -316,7 +316,7 @@ pub const PORT_OUT_ON_CPU_PC_OFFSET: u64 = 13 + PORT_OUT_PC_OFFSET;
 
 /// Where [`port_out_on_cpu_then_exit`] faults when it is on the wrong core: the load from address 0.
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
-pub const PORT_OUT_ON_CPU_WRONG_CORE_PC_OFFSET: u64 = 29;
+pub const PORT_OUT_ON_CPU_WRONG_CPU_PC_OFFSET: u64 = 29;
 
 /// **A child that deletes its own capability in `slot`, then writes a byte to a port, then exits**
 /// (milestone 313's audit). The drop-it-yourself fixture: a holder of the `PortRange` capability
