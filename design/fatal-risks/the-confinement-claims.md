@@ -32,7 +32,7 @@ Every one of those is a test written by the same people who wrote the thing bein
 RUN, 2026-08-31, and it found the thing this risk exists to find. notes/confinement-claims.md; PR
 #614.
 
-- 26 claims enumerated on 2026-08-31 (the table has 30 rows as of 2026-10-03), each with where it is stated, which test checks it, and whether that test
+- 26 claims enumerated on 2026-08-31 (the table has 31 rows as of 2026-10-03), each with where it is stated, which test checks it, and whether that test
   has been shown to fail when the claim is broken. Three were stated nowhere, including one the
   system deliberately does *not* make: a confined device's values are not confined, only its reach.
   The IOMMU and the DMA validator constrain placement, never content.
@@ -233,3 +233,18 @@ The records for row 28 (`a_revoked_holder_faults_on_its_next_port_write`) and ro
 (UTC) on the direct boot (two cores) and the OVMF boot (one core), and each failed on both at
 `system_tests/src/user/x86_port_tests.rs` (`left: 2`, `right: 1`); each passed on both boots with the
 patch removed.
+
+### Added 2026-10-03: row 31, the unvouched child
+
+Row 31 of `notes/confinement-claims.md` states the claim milestone 198 (a package manager) rung 3a's
+gate D2 lane had falsified by hand (once each for the process domain, entropy and the network, commit
+`b555bfb3d`, 2026-09-26) and left without a row. The standing test is the `installed/unvouched` line of
+`script/swish-check`, which runs on aarch64, riscv64 and x86_64. Its record is
+`xtask/falsifications/swish_check.swish_check_boot.patch`, which makes the progenitor endow the process
+domain to an unvouched child. `script/falsifications` sweeps Kani harnesses and kernel `#[test_case]`s
+and this line is neither, so it reports the patch as a known gap and the replay is by hand. Replayed
+on aarch64 on 2026-10-03 (UTC): without the patch `script/swish-check --arch aarch64` exits 0 (135
+lines); with it, exit 1, the child answering `domain: REACHED` and `slots held: 0 1 2 7` where the
+line wanted `domain: refused (no capability at slot 7)` and `slots held: 0 1 2`. The record is
+aarch64 only: the riscv64 and x86_64 legs were not replayed, and entropy and the network have no
+patch.

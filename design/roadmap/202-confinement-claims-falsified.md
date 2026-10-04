@@ -167,7 +167,7 @@ prediction down is what made it checkable.
   which probes the process domain, entropy and the network and lists every slot it holds. Granting
   each of the three turned the line red, once each, by hand on aarch64
   (notes/packages/running-unvouched.md). The census counts capabilities, not mappings.
-- **Milestone 673.** Milestone 673 (the confinement table lists the unvouched child). The claim above as row 31 of notes/confinement-claims.md's table
+- **Milestone 673.** Done 2026-10-03. Milestone 673 (the confinement table lists the unvouched child). The claim above as row 31 of notes/confinement-claims.md's table
   (`design/roadmap/673-the-confinement-table-lists-the-unvouched-child.md`).
 
 ## Index row
