@@ -667,19 +667,19 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// The +32 is the headroom the `22_249` entry above set and every entry since has kept, for the
 /// two-frame local-against-CI divergence it measured on one tree: 26673 + 32 = 26705.
 ///
-/// **`26_760` (2026-10-04, UTC): the `e1000e` NIC's DMA region, held for the boot.** Milestone 494
+/// **`26_745` (2026-10-04, UTC): the `e1000e` NIC's DMA region, held for the boot.** Milestone 494
 /// (a driver for the network card a PC actually has) allocates the NIC's 18-page DMA region once and
 /// confines it once, the way milestone 261 (the NVMe driver leaves the kernel)'s region is held:
 /// every later wiring resets the device and reuses the same region, because the IOMMU domain built
-/// for it stays attached to the device. The first `e1000e_tests` case keeps **22** frames, the 18 pages and the domain's four
-/// page tables, and the other three keep none. That is a design cost, not a leak. CI read **26713**
-/// on aarch64 for the branch before it merged `main` (run 37235958259, the run that failed this
-/// gate); a full local aarch64 `script/test` on the merged tree read **26728**, and that is the
-/// number taken. 26728 + 32 = 26760.
+/// for it stays attached to the device. The first `e1000e_tests` case keeps **22** frames, the 18
+/// pages and the domain's four page tables, and the other three keep none. That is a design cost,
+/// not a leak. CI read **26713** on aarch64 on the merged tree (run 37237669163, head
+/// `54cd07b9f`); riscv64 never reached the ledger in that run. 26713 + 32 = 26745. A local run of
+/// the same tree read 26728, the local-against-CI divergence the headroom exists for.
 ///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 26_760;
+const SUITE_PAGE_FRAME_BUDGET: usize = 26_745;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///
