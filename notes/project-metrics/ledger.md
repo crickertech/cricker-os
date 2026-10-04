@@ -61,17 +61,24 @@ conversation that minted the milestone, and the tree disagreed.
 |---|---|---|---|---|
 | 2026-07-12 | (current) | Claude subscription, the inference this project runs on | 200.00 / month | calef, 2026-09-21 |
 | 2026-09-24 | (current) | GitHub Team plan, one seat: CI concurrency 20 → 60 jobs (Actions minutes stay free on a public repository) | 4.00 / month | calef, 2026-09-24 |
-| 2026-09-28 | (current) | z.ai coding plan subscription, the glm-5.3 maintainer sessions and glm-5.3-flash lanes | 80.00 / month | calef, 2026-09-29 |
+| 2026-09-29 | (current) | z.ai coding plan subscription, the glm-5.3 maintainer sessions and glm-5.3-flash lanes | 80.00 / month | invoice dated 2026-09-29, relayed by calef 2026-10-04; see the correction below |
 
 The z.ai plan is expected to end after this month (calef, 2026-10-04: "probably won't renew").
-Its first charge falls on the assumed billing day, 2026-09-28, so the paid month runs to
-2026-10-27. No later charge is recorded because none is expected. Once the plan lapses, a week
+Its first charge is the invoice dated 2026-09-29, which covers 2026-09-29 to 2026-10-28 on
+calef's belief that the invoice is for one month (the invoice itself is not in the tree).
+No later charge is recorded because none is expected. Once the plan lapses, a week
 with no GLM tokens is the expected shape, not a gap in `effort.csv`. `script/metrics` keeps
 charging every anniversary until this file says otherwise. So the first renewal that does not
 happen needs a row here saying the plan ended. That row is still owed.
 
-The billing day is an assumption and it is the only one in this file. No invoice is recorded
-anywhere in this tree, so `script/metrics` places each charge in the ISO week containing the monthly
+**Correction, 2026-10-04.** The z.ai row first read 2026-09-28, written from calef's 2026-09-29
+message with no invoice date. The invoice is dated 2026-09-29. The row's start date was changed in
+place rather than adding a second row, because `script/metrics` charges every row's anniversaries
+and a second row would bill the plan twice. The charge stays in 2026W40 (28 September starts that
+ISO week), so `cost.csv` is unchanged.
+
+The other billing days are assumptions and the only ones in this file. Only the z.ai invoice date
+is known, and no invoice is recorded in this tree, so `script/metrics` places each charge in the ISO week containing the monthly
 anniversary of the start date: 2026-07-12, 2026-08-12, 2026-09-12, and so on. If the real billing
 day is different, at most one charge lands in a neighbouring week and the running total is unchanged.
 
@@ -123,9 +130,8 @@ both models at one rate, because a flat fee has no class multipliers. The count 
 tokens, all in 2026W40: `glm-5.3` 629,380,610 over 3,874 requests and `glm-5.3-flash` 84,162,606
 over 632. That gives $0.11212 per million, written as 0.1121.
 
-The billing dates are not on record, so the month is the assumed one (2026-09-28 to 2026-10-27, see
-Subscriptions), not an invoice period. All z.ai usage so far (2026-09-29 02:33 to 2026-10-01 05:07)
-sits inside it. A calendar-month reading gives the same count. If more GLM tokens are spent before
+The window is 2026-09-29 to 2026-10-28: the start is the invoice date, and the one-month length is
+calef's belief, not something read off the invoice. All z.ai usage so far (2026-09-29 02:33 to 2026-10-01 05:07) sits inside it. A calendar-month reading gives the same count (all of it is in 2026W40). If more GLM tokens are spent before
 the plan lapses, the true rate is lower. The correction is a new dated row, not an edit of this one.
 Like the Claude rows, it is a shadow price: here the actual fee spread over actual use.
 
