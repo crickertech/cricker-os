@@ -1005,6 +1005,22 @@ fn address_space_map_into(
 /// §102: `count` is fixed on the capability, not passed here, so this is one `MAP` call regardless
 /// of the run's length; a single-page frame (`count: 1`) runs the loop below once, exactly the
 /// pre-§102 behavior.
+///
+/// # BUGS
+///
+/// **A revocation sweep can fall between the read of the frame and the mapping, and the mapping
+/// then survives it** (found 2026-10-04 UTC by the revocation-race lane; reasoned from the code,
+/// not yet driven by a test). The frame was read by `invoke` in a critical section of its own, and
+/// the map and its record come after. A sweep deletes capabilities first, then unmaps what the
+/// mapping log records (`revoke::revoke_region`, `revoke::revoke_page_frame_run`), so a mapping
+/// recorded after its unmap pass has scanned is never found: under `MemoryRegion::DESTROY` that is
+/// a live mapping of a page the allocator hands out again. The same holds for
+/// [`address_space_map_into`], and for a `DeviceFrame` against `revoke_device_from_others`. It is
+/// the use-side sibling of the delegation gap `sched::Delegation` closed, and it wants a different
+/// fix: a delegation's two steps fit under one lock, a mapping's do not (it builds page tables out
+/// of a region and records under `SPACES`). The likely shape is record first, then re-read the
+/// slot under its table lock and undo the mapping if the source is gone, so a sweep that deletes
+/// after the re-read is guaranteed to find the record.
 #[inline(never)]
 fn page_frame_map(
     cap: crate::cap::Cap,

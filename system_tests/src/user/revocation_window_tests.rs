@@ -36,6 +36,10 @@
 //! - **The `DeviceFrame` and `PortRange` take-backs are reasoned, not driven.** They go through the
 //!   same two sched functions as the frame, so the fix covers them by construction, but no test here
 //!   drives either.
+//! - **A `MAP` that read its frame before a sweep is a sibling gap and is not closed here.** It is
+//!   a use rather than a delegation: `page_frame_map` and `address_space_map_into` read the frame,
+//!   then map and record. If the sweep's unmap pass has already scanned the log, the mapping
+//!   survives. Recorded at `syscall::page_frame_map`.
 
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 

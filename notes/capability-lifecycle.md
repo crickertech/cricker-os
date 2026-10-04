@@ -50,6 +50,8 @@ and handed the copy to `ipc_send_cap`, which filed it under a second hold of the
 and pass by before the copy was filed, so the copy survived the revoke. `CAP_INSERT` and `SLICE`
 had the same shape. `sched::Delegation` carries the argument and
 `system_tests::user::revocation_window_tests` the three tests that drove a sweep into the gap.
+A `MAP` has the use-side version of the same gap and it is not closed yet: see the `BUGS` at
+`syscall::page_frame_map`.
 
 So the sender keeps its capability; the receiver gets a narrowed derivative pointing at the same
 object. That is exactly what lets a frame be shared: a producer holding `READ|WRITE|GRANT` keeps its
