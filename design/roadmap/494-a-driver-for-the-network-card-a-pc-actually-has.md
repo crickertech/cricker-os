@@ -153,6 +153,60 @@ recorded as such.
 2. On xenon, a DHCP lease from the house router and a measured transfer from a host on the LAN,
    photographed, with the survey line naming the card.
 
+## Reuse
+
+Reviewed 2026-10-04 (UTC), after calef's §46 (thin primitives or whole subsystems) amendment of the
+same day: outside the kernel and the Kani-proved crates, take or adapt first, and record a reason
+to write. Every row was read from its source, not recalled. Code lines exclude comments, blank
+lines and tests.
+
+| candidate | licence | parts it claims | how it touches hardware | code lines | what carries into 261's shape |
+|---|---|---|---|---|---|
+| Redox `e1000d` (`redox-os/drivers`, `net/e1000d`) | MIT | 8254x (`100e`, `100f`, `1004`), 82573L (`109a`), 82579V (`1503`). No 82574L, so not QEMU's `e1000e`; no I219 | a userspace daemon: `pcid` maps BAR0, `common::dma::Dma` allocates its own rings, an IRQ file, a `NetworkScheme` | 364 | register constants and the init order, which `crates/e1000e` already has. Nothing that allocates, maps or waits |
+| `eth-intel` 0.2.4 (crates.io; rcore-os `tgoskits`) | MIT | `100e`, `100f` only | `mmio-api`, `dma-api`, `rdif-eth` traits from the ArceOS stack; owns DMA and IRQ | 412 | the same constants; its four dependencies would be §46 additions for none of the I219 |
+| `e1000-driver` 0.1.0 (crates.io) | GPL-2.0 | 82540EP/EM | a kernel-module shape with its own allocator hooks | not counted | refused: it would be linked into `net_stack`, and §135 (running GPL software is aggregation) draws the GPL's line at the process boundary, where every linked GPL candidate before it was refused |
+| FreeBSD `sys/dev/e1000` (`if_em.c`, `e1000_ich8lan.c`, `e1000_mac.c`, `e1000_phy.c`) | BSD-3-Clause (Intel) | every I219 generation, with field-found workarounds | C over FreeBSD's `iflib` and OS shims | about 16,000 across the four files | the I219's bring-up knowledge, which no Rust candidate has. Ported in part, below |
+
+No Rust crate covers the 82574L or any I219, and no crate on crates.io names `e1000e` at all
+(searched for `e1000`, `e1000e`, `i219`, `igb`, `intel-ethernet`).
+
+Would adapting Redox's driver have been better than writing `crates/e1000e`? No, and not now
+either. Its 364 lines map almost one for one onto this crate's 297 lines of register map and ring
+logic, which is the easy part. It would not have run under QEMU without adding `10d3`, and every
+line that allocates DMA, maps a BAR or waits on an interrupt is a Redox interface that 261's
+shape replaces with a kernel control plane and spawn-time mappings. Its data path also trusts the
+device: it slices a receive buffer by the descriptor's length unchecked (a length above 16 KiB
+panics the driver), it enables promiscuous receive, and its reset, link and full-ring waits spin
+without a bound. Adapting it would have saved perhaps a day on the register table and bought those
+four defects to remove. What nife writes regardless is the split (`kernel/src/e1000e.rs`,
+`e1000e_service`), the descriptor validation and its Kani proof, the host simulation, and the
+`net_stack` integration; none of the candidates has any of it.
+
+The I219 is where reuse pays, because that knowledge comes from field exposure. Against this
+block's own BUGS list:
+
+| I219 step | FreeBSD source | decision |
+|---|---|---|
+| leave ultra-low-power mode through the Management Engine | `e1000_disable_ulp_lpt_lp`, ME branch | ported, `crates/e1000e/src/pch.rs` `ulp` and `kernel/src/e1000e.rs` |
+| empty the descriptor rings before a reset (SPT unit hang) | `em_flush_desc_rings`, `em_flush_tx_ring`, `em_flush_rx_ring` | ported, one recorded divergence (`pch::flush::tail_after`) |
+| stop bus mastering before reset; STRAP writes around it; `KABGTXD.BGSQLBIAS` after | `e1000_disable_pcie_master_generic`, `e1000_reset_hw_ich8lan` | ported |
+| leave ULP without an ME; unforce SMBus; LANPHYPC toggle and PHY-access check | `e1000_disable_ulp_lpt_lp` software branch, `e1000_init_phy_workarounds_pchlan`, `e1000_phy_is_accessible_pchlan` | proposed: needs MDIO |
+| PHY reset with the MAC, then post-reset PHY workarounds | `e1000_reset_hw_ich8lan`'s `PHY_RST`, `e1000_post_phy_reset_ich8lan`, `e1000_hv_phy_workarounds_ich8lan` | proposed: needs MDIO. `CTRL.PHY_RST` is deliberately not set until then |
+| the software/firmware semaphore and MDIO access | `e1000_acquire_swflag_ich8lan`, `e1000_read_phy_reg_mdic`, `__e1000_read_phy_reg_hv` | proposed: the layer the two rows above stand on |
+
+The ported half is 54 code lines in the crate and about 110 in the kernel, under Intel's licence
+kept at the top of `pch.rs`. It touches MAC registers and configuration space only, and it is
+skipped for QEMU's 82574L, so nothing in the gates exercises it. The unported half is a PHY access
+layer of roughly 600 lines of FreeBSD for the SPT path (measured by line count of the functions
+above, not by porting them).
+
+Recommendation. Keep `crates/e1000e`, recorded reason: no candidate covers QEMU's part or the I219,
+and the code nife wrote is the confinement split and the input validation, which no candidate has.
+Adapt FreeBSD for the I219, with attribution, in two steps: the MAC-register half now (done here),
+and the PHY layer as its own piece only if xenon's bench boot shows it is needed. On a machine
+whose firmware and Management Engine leave the PHY configured, the MAC half may be enough, and that
+is a measurement to take rather than an argument to have. Take no dependency; vendor nothing.
+
 ## BUGS
 
 - The page layout is read now, not recalled (2026-10-04, from Linux's `regs.h`):
@@ -162,8 +216,16 @@ recorded as such.
 - One family. `igc` and Realtek are follow-ons with no emulator for either.
 - xenon's DMAR scope for the NIC is unread, the same unknown milestone 261 carries for the NVMe.
   The bench boot's preflight line now answers it in print.
-- Nothing has touched an I219. The reset sequence is the 82574L's, and the PCH bring-up Linux
-  does for the I219 is absent; the bench step is the test. `crates/e1000e`'s `BUGS`.
+- Nothing has touched an I219. The reset is the 82574L's plus FreeBSD's MAC-register steps for the
+  I219; FreeBSD's PHY-register steps are not ported (Reuse, above). The bench step is the test.
+- The bench step as written needs Ethernet at xenon, and the room xenon is in has no Ethernet
+  port (calef, 2026-10-04). Its step 4 cannot happen there. Options, each calef's: move xenon to a
+  port for one boot; a long cable; or a direct cable to patagonia with macOS Internet Sharing
+  serving DHCP, which proves the driver but gives a lease from patagonia rather than from the
+  house router, so it meets criterion 2 only in spirit. notes/e1000e.md says the same at the step.
+- Intel's BSD licence asks a binary redistribution to reproduce its notice in the
+  documentation. The source carries it (`crates/e1000e/src/pch.rs`); no image or package this tree
+  ships carries a third-party notices file, and none exists.
 
 ## Follow-on
 
@@ -179,6 +241,12 @@ recorded as such.
 - **Recorded.** `find_e1000e_device` is a second copy of `find_nvme_device` with a different
   predicate; a third (milestone 242 (USB host and a keyboard that is not a UART)'s xHCI) is where
   a shared helper is lifted. `kernel/src/pci.rs`, at the function.
+- **Recorded.** The I219's PHY-register bring-up (MDIO under the firmware semaphore, ULP exit
+  without an ME, the post-reset PHY workarounds), about 600 lines of FreeBSD, proposed to the
+  maintainer as a milestone to build only if the bench boot needs it. `crates/e1000e/src/pch.rs`'s
+  header.
+- **Recorded.** No third-party notices file ships with an image, which Intel's BSD licence asks
+  of binary redistribution. `crates/e1000e/src/pch.rs`'s BUGS.
 - **Recorded.** `disk_throughput`, the other bench feature, is linted by nothing. `script/lint`,
   beside the `network_bench` line.
 
