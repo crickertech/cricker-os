@@ -34,7 +34,7 @@ bounds, like the other `--real` numbers, not a tick baseline.
 | `smp_pipe_*` | N independent synchronous IPC ping-pong pairs | `solo` = 1 pair; `all` = 16 pairs, each 2000 round trips |
 
 The scaling factor for either is the `solo` throughput divided by the `all` throughput. Read it from
-the totals (`iters / ticks`), not from the coarse `ns/iter` column. `smp_cores` records the ceiling
+the totals (`iters / ticks`), not from the coarse `ns/iter` column. `smp_cpus` records the ceiling
 (4 on this boot).
 
 ### Compute scales, ~3.5x on 4 cores: the §28 placement win

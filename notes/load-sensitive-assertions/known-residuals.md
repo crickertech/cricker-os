@@ -157,7 +157,7 @@ how each residual was found and closed. The main page's BUGS section carries wha
   per spawn and persistent, so six spawns fail it essentially every run regardless. A one-shot
   coincidence pass is possible in a way `assert_eq` did not permit, and the equality was demanding
   that the rest of the machine hold still.
-- `work_can_be_placed_on_every_core` no longer proves that a specific core executed a specific
+- `work_can_be_placed_on_every_cpu` no longer proves that a specific core executed a specific
   thread, and nothing else does either. That is the second round's honest cost. Delivery to the
   named core is asserted exactly. Execution is asserted for every core, but over the population of
   threads rather than per placement. Closing it needs a pin, which §28 (SMP placement) deliberately

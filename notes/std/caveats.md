@@ -170,3 +170,11 @@ The records this file cites by number:
   reshapes a `cfg_select!` dispatcher fails loudly in `std_patch_dispatch` ("anchor not found"),
   which is the intended tripwire: re-point the anchor, do not paper over it. `rust-toolchain.toml`
   pins the channel; the coupling is the price of build-std against a std we do not fork.
+
+## `cargo xtask` through the rustup proxy built against unpatched std (2026-10-03, open)
+
+`cargo xtask std-exerciser` (and so `cargo xtask test`) run through the rustup proxy built the exerciser
+against unpatched std in one fresh worktree on 2026-10-03: `std` failed in its `cfg_select!`
+dispatchers. Running `target/debug/xtask` directly with `CARGO_MANIFEST_DIR` exported worked.
+Cause not established (suspected: the proxy prepends the real toolchain's `bin` to `PATH`, so the
+child `cargo` ignores `RUSTUP_TOOLCHAIN=<farm>`); found by the lane for milestone 714 (the sibling RECV_CAP paths get a receiver-first test).

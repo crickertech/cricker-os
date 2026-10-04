@@ -3290,10 +3290,10 @@ fn expire_timers() {
             };
             // A notification destroyed while the timer was armed: nobody left to tell, dropped
             // as `signal_notification_from_interrupt` drops a stale name.
-            if let Ok(Some(core)) =
+            if let Ok(Some(cpu)) =
                 signal_locked(sched, notification, bits, WakePlacement::LoadAware)
             {
-                poke |= 1 << core;
+                poke |= 1 << cpu;
             }
         }
         let cached = earliest(sched.timer_table.values().map(|&phys| {
@@ -3302,9 +3302,9 @@ fn expire_timers() {
         }));
         EARLIEST_DEADLINE.store(cached, Ordering::Relaxed);
     }
-    for core in 0..cpu::MAX_CPUS {
-        if poke & (1 << core) != 0 {
-            crate::arch::irq::send_reschedule(core);
+    for cpu in 0..cpu::MAX_CPUS {
+        if poke & (1 << cpu) != 0 {
+            crate::arch::irq::send_reschedule(cpu);
         }
     }
 }

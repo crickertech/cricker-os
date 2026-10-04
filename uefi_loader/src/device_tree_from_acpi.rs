@@ -602,7 +602,7 @@ mod tests {
             .expect("/psci parses")
             .expect("this machine claims PSCI");
         assert_eq!(psci.conduit, Some(Conduit::Hvc));
-        assert!(psci.can_start_a_core());
+        assert!(psci.can_start_a_cpu());
 
         // `arch::aarch64::timer::check_frequency_against_device_tree` looks for this node, and
         // finds no `clock-frequency` on it, which is the path that returns without comparing.
@@ -700,7 +700,7 @@ mod tests {
     /// Dropping it would describe a smaller machine than the one in front of us; marking it
     /// `status = "disabled"` is what `cpu_list::Cpu::is_startable` already knows how to refuse.
     #[test]
-    fn a_disabled_core_is_described_and_not_startable() {
+    fn a_disabled_cpu_is_described_and_not_startable() {
         let mut machine = qemu_virt();
         machine.cpus[2].enabled = false;
         let (len, out) = built(&machine);

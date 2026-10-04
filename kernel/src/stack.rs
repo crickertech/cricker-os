@@ -548,21 +548,21 @@ pub fn report_high_water() {
         used * 100 / size,
     );
 
-    let boot_core = crate::arch::boot_cpu_id();
+    let boot_cpu = crate::arch::boot_cpu_id();
     let mut max_secondary = 0u64;
     for id in 0..crate::cpu::MAX_CPUS {
-        if id == boot_core || crate::smp::online_harts_mask() & (1 << id) == 0 {
+        if id == boot_cpu || crate::smp::online_harts_mask() & (1 << id) == 0 {
             continue; // the boot core runs on the linker-script stack; its slot was never painted
         }
         let (b, t) = crate::smp::secondary_stack_span(id);
         // SAFETY: the span of an online core's `.bss` stack slot, which `bring_up_secondaries`
         // painted whole before any `CPU_ON`. The `continue` above skipped every slot that was not.
-        let core_used = unsafe { high_water(b, t) };
-        max_secondary = max_secondary.max(core_used);
+        let cpu_used = unsafe { high_water(b, t) };
+        max_secondary = max_secondary.max(cpu_used);
         crate::println!(
-            "stack high-water: core{id}  {core_used}/{} bytes ({}%)",
+            "stack high-water: core{id}  {cpu_used}/{} bytes ({}%)",
             t - b,
-            core_used * 100 / (t - b),
+            cpu_used * 100 / (t - b),
         );
     }
 

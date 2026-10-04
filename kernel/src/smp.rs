@@ -125,7 +125,7 @@ static RAN_ON: [core::sync::atomic::AtomicBool; MAX_CPUS] =
 /// Both halves matter, and they used to be conflated: the index was the core it ran on, which made
 /// the array a record of which cores had been busy rather than of which placements arrived. Since
 /// DECISIONS §28.3 an idle core may steal a placed thread before its target runs it, so the two are
-/// genuinely different questions. See `work_can_be_placed_on_every_core`.
+/// genuinely different questions. See `work_can_be_placed_on_every_cpu`.
 #[cfg(test)]
 static SPREAD: [core::sync::atomic::AtomicU32; MAX_CPUS] =
     [const { core::sync::atomic::AtomicU32::new(0) }; MAX_CPUS];
@@ -734,14 +734,14 @@ mod tests {
     /// two are equal by construction. This proves the seating put every described core where its
     /// id says, on the machine every merge boots.
     #[test_case]
-    fn the_roster_is_the_machines_own_core_list() {
+    fn the_roster_is_the_machines_own_cpu_list() {
         // **No roster, no claim** (device-tree architectures): `read_cpu_list` is the only thing
         // that fills `described_count()` in there, and zero means "nobody has said", a third
         // answer from "this machine has no cores".
         //
         // **x86_64 always skips here, not just when its roster is empty.** Its own roster
         // (`smp::seat_cpus_from_acpi`, milestone 161's SMP item) is real and `described_count()` is
-        // nonzero on it from boot (`every_core_the_tree_described_is_running` and
+        // nonzero on it from boot (`every_cpu_the_tree_described_is_running` and
         // `all_secondaries_came_online` below both run and pass there), but *this* test's
         // independent re-read is device-tree-specific (`device_tree_blob::DeviceTreeBlob::from_ptr`
         // on `crate::DTB`), and `crate::DTB` on x86 holds PVH's `hvm_start_info` pointer, not an
@@ -767,7 +767,7 @@ mod tests {
         // the constant is a ceiling (it sizes the per-CPU statics), not the machine. What the suite
         // does require is at least two cores (or the SMP tests prove nothing) and no more than the
         // statics can seat (a bigger `-smp` would park real cores, and
-        // `every_core_the_tree_described_is_running` below would fail on the honest count anyway;
+        // `every_cpu_the_tree_described_is_running` below would fail on the honest count anyway;
         // this names the cause first).
         assert!(
             list.described >= 2,
@@ -814,11 +814,11 @@ mod tests {
     /// all of it. Before milestone 100 there was no way to state this, because the count the
     /// bring-up worked from was a constant and could only ever agree with itself.
     #[test_case]
-    fn every_core_the_tree_described_is_running() {
+    fn every_cpu_the_tree_described_is_running() {
         // **No roster, no claim.** `read_cpu_list` (device-tree architectures) or
         // `smp::seat_cpus_from_acpi` (x86_64, milestone 161's SMP item) is what fills this in,
         // and neither has a device-tree dependency in what follows (unlike
-        // `the_roster_is_the_machines_own_core_list`, which does and skips x86 outright), so this
+        // `the_roster_is_the_machines_own_cpu_list`, which does and skips x86 outright), so this
         // one genuinely runs and passes there too, from `described_count() == 1` (a lone boot
         // core, this port's default) on up. Zero here means "nobody has said", a third answer
         // from "this machine has no cores".
@@ -883,7 +883,7 @@ mod tests {
     /// on an eight-slot kernel has four secondaries, honestly.
     #[test_case]
     fn all_secondaries_came_online() {
-        // **No roster, no claim**, same reasoning as `every_core_the_tree_described_is_running`
+        // **No roster, no claim**, same reasoning as `every_cpu_the_tree_described_is_running`
         // just above: no device-tree dependency here either, so this runs and passes on x86_64
         // too, including at `described_count() == 1` (`ONLINE` and `described_count() - 1` are
         // both 0 for a lone boot core with no secondaries started, this port's default).
@@ -973,10 +973,10 @@ mod tests {
     /// deadline cannot fix an unreachable condition.
     ///
     /// The claim that was lost is covered where it belongs: `every_secondary_runs_scheduled_work`
-    /// proves each core runs what is on its own queue, and `a_batch_of_cpu_bound_work_reaches_every_core`
+    /// proves each core runs what is on its own queue, and `a_batch_of_cpu_bound_work_reaches_every_cpu`
     /// proves placement plus stealing fills the whole machine. Delivery here, execution there.
     #[test_case]
-    fn work_can_be_placed_on_every_core() {
+    fn work_can_be_placed_on_every_cpu() {
         for s in &SPREAD {
             s.store(0, Ordering::Relaxed);
         }
@@ -1065,7 +1065,7 @@ mod tests {
     /// is busy. The threads spin until released so the work persists long enough for stealing to reach
     /// every idle core, then they exit and are reaped (the no-leak proxy would catch it otherwise).
     #[test_case]
-    fn a_batch_of_cpu_bound_work_reaches_every_core() {
+    fn a_batch_of_cpu_bound_work_reaches_every_cpu() {
         static ON: [core::sync::atomic::AtomicU32; MAX_CPUS] =
             [const { core::sync::atomic::AtomicU32::new(0) }; MAX_CPUS];
         static RELEASE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);

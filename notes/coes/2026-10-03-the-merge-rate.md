@@ -209,19 +209,13 @@ fired (the jump was 1.84 times), which is why the budget is absolute.
 Highest rung first. `script/roadmap --check` fails a bullet that resolves to nothing, and
 `script/metrics` charts how many are open each week.
 
-- **Proposed.** `design/roadmap/proposals/the-boot-thread-cannot-halt-while-runnable.md` (rung 1).
-  #1487 fixed the x86_64 call site; aarch64 and riscv64 still end their boot threads in
-  `arch::halt()`.
-- **Milestone 628.** The x86_64 swish-check leg costs what the others do, built 10-03 by #1487.
-- **Milestone 505.** Seen on 09-19 and still open.
-- **Proposed.** `design/roadmap/proposals/a-long-ci-job-checks-its-own-wall-time.md` (rung 2), the
-  20-minute budget per merge-group job calef ruled on 10-03, with `timeout-minutes` at 25.
-- **Proposed.** `design/roadmap/proposals/the-queue-reports-its-ejection-share.md` (rung 2), with
-  a report for any day over 20%.
-- **Proposed.** `design/roadmap/proposals/swish-check-fails-a-leg-five-times-the-others.md` (rung
-  2); #1487's legs differed about 40 times.
-- **Proposed.** `design/roadmap/proposals/a-stopped-merge-watcher-is-reported-at-once.md` (rung 2),
-  within three of its own cron intervals.
+- **Milestone 720.** Milestone 720 (the boot thread cannot halt while it is runnable), built 10-03 by #1529.
+- **Milestone 628.** Built 10-03 by #1487.
+- **Milestone 505.** Built 10-03 by #1533.
+- **Milestone 721.** Milestone 721 (each merge-group CI job has a 20-minute budget), built 10-03 by #1530.
+- **Milestone 724.** Milestone 724 (the merge queue reports its ejection share and its time to merge), built 10-03 by #1538.
+- **Milestone 722.** Milestone 722 (swish-check fails a leg that costs five times the others per line), built 10-03 by #1535.
+- **Milestone 723.** Milestone 723 (a stopped merge watcher is reported within three of its own intervals), built 10-03 by #1537.
 - **Milestone 725.** Milestone 725 (machine effort and commit attribution count every vendor), rung 2.
 - **Milestone 630.** Built 10-03 as milestone 630 (a merge-queue ejection is caught before the
   queue, and recovered after it), the re-arm the
