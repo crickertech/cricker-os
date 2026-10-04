@@ -116,11 +116,15 @@ B: it costs the same new program and protocol, saves less, and leaves the launch
    process's authority, and it stops every new boot device from spending a progenitor slot. A is
    the cheaper answer, and that is an argument about effort.
 
-## Recommendation
+## Recommendation, and the ruling
 
-B, with C alongside it, which together read 23 on every boot shape. If B is too large to start now,
-A is the only option that buys headroom quickly, and choosing it is an effort decision. The proposal
-for B is `design/roadmap/proposals/graphics-sessions-get-a-builder-of-their-own.md`.
+The lane recommended B, with C alongside it, which together read 23 on every boot shape.
+
+calef ruled B + C on 2026-10-04 (UTC), on pull request #1608. Graphics sessions get a builder
+process of their own that holds the seven gpu and keyboard grants, and the login block releases its
+inputs earlier. The new program's name and its request protocol stay calef's; the build lane ships
+provisional ones. A was not chosen. The build is milestone 754 (graphics sessions get a builder of
+their own, and the login block lets go sooner), number provisional.
 
 ## BUGS
 
@@ -130,7 +134,8 @@ for B is `design/roadmap/proposals/graphics-sessions-get-a-builder-of-their-own.
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/graphics-sessions-get-a-builder-of-their-own.md`, option B.
+- **Milestone 754.** Milestone 754 (graphics sessions get a builder of their own, and the login
+  block lets go sooner), number provisional: the build of B + C as ruled.
 - **Refused.** A new gate that fails when the peak passes 30 already exists in effect:
   `report_peak` prints "ABOVE the recorded" and `script/swish-check` fails on it. What the trace
   adds is the itemisation. Keeping it as an opt-in kernel feature would need a name, so it is left as
