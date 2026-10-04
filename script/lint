@@ -2922,6 +2922,19 @@ if bad:
 print(f"kernel dependencies: {len(deps)} normal, none used only by tests, no fixture unconditional")
 KDEPEOF
 
+# 14. **Every tracked .rs file under a crate is declared by a module tree** (milestone 743 (no
+#     orphaned rust source), provisional number; helpers/orphan_rust.py). rustc compiles only what
+#     `mod` reaches, so a file nothing declares is silently dead. Commit d0b1ff821 dropped
+#     `mod proofs;` and the timetable Kani proofs went stale with every gate green (#1554). A test
+#     or proof nothing compiles cannot fail, which is fatal risk 3's subject. A plain parse, no
+#     cargo, about a second. The selftest runs first (fixtures: reached, orphan, `#[path]`,
+#     `#[cfg(kani)] mod`, nested `x/mod.rs`) because a green run looks the same as a check that
+#     cannot fire. Its allowlist lives in the helper, one reason per entry, and every entry is a
+#     finding; an entry that stops being an orphan fails too.
+echo "==> every .rs file under a crate is declared by a module tree"
+python3 "$(dirname "$0")/../helpers/orphan_rust.py" --selftest
+python3 "$(dirname "$0")/../helpers/orphan_rust.py"
+
 echo "==> markdown links and the notes index"
 # Two checks, and deliberately NOT a markdown linter. A survey of all 95 markdown files found zero
 # broken relative links and exactly one unindexed note, so generic style rules (heading case, line
