@@ -69,6 +69,15 @@
 # package's `falsifications/` must be claimed by a harness **or** by a test, and an unclaimed one is
 # still reported as rot.
 #
+# **Except a NEW confinement test** (calef, 2026-10-04 UTC; milestone 749 (a new confinement test
+# carries a falsification record)). `--check` fails a `#[test_case]` under `system_tests/src/user/`
+# whose function name carries `#[test_case]` nowhere in `git merge-base HEAD origin/main`, unless it
+# has a block (`unfalsified` is enough). New is decided by NAME, not by added lines, because moves
+# add lines: 147 `#[test_case]` lines were added in the 30 days to 2026-10-04, most of them the
+# system-tests split moving existing tests. A moved test keeps its name and passes; a renamed one
+# is new. With no merge base (a shallow clone), the ratchet says so and is skipped, as
+# `script/citations --ratchet` does. `--selftest` holds the fixtures.
+#
 # **A host `#[test]` can carry one too** (milestone 742, opt-in): replayed with `cargo test -p <pkg>
 # --test <file> <name> --exact` (or `--lib`), red only on `running 1 test` and `1 failed`. Because
 # that is seconds, host records ride `--affected-since` with the Kani ones. The patch path puts an
@@ -100,6 +109,7 @@
 #   script/falsifications --unfalsified     the worklist: harnesses with no evidence, biggest first
 #   script/falsifications --check           form, plus "does each patch still apply"; non-zero on a
 #                                           problem (script/lint runs this)
+#   script/falsifications --selftest        the new-test ratchet against fixtures; no tree
 #   script/falsifications --count           two integers, harnesses and how many are falsified,
 #                                           for the drift check in script/lint (milestone 236)
 #   script/falsifications --sweep [package] apply every recorded patch, require red, revert
@@ -874,6 +884,120 @@ def swish_check_records(pkgs=None):
     return out
 
 
+# The ratchet's scope (calef, 2026-10-04 UTC): where the confinement tests live.
+RATCHET_DIR = "system_tests/src/user/"
+
+
+def test_case_names(text):
+    """Every `#[test_case]` in one file's text: [(line, name, has_record)]. The walk `kernel_tests()`
+    does, without the module path, because the ratchet keys on the bare function name."""
+    lines = text.split("\n")
+    out = []
+    for i, line in enumerate(lines):
+        if not TEST_CASE.match(line.strip()):
+            continue
+        name = None
+        for j in range(i + 1, len(lines)):
+            st = lines[j].strip()
+            if not st or ATTR.match(st) or COMMENT.match(st):
+                continue
+            hit = FN.match(st)
+            name = hit.group(1) if hit else None
+            break
+        if name is None:
+            continue
+        k = i - 1
+        while k >= 0 and ATTR.match(lines[k].strip()):
+            k -= 1
+        has = False
+        while k >= 0 and COMMENT.match(lines[k].strip()):
+            has = has or bool(RECORD.match(lines[k].strip()))
+            k -= 1
+        out.append((i + 1, name, has))
+    return out
+
+
+def unrecorded_new_tests(base_files, head_files):
+    """The ratchet, as a pure function so `--selftest` can feed it fixtures.
+
+    `base_files` and `head_files` map a path to its text. A test is NEW when its function name
+    carries `#[test_case]` nowhere in the base, in any file: keyed on the NAME, not on added lines,
+    because a moved test adds lines (the 609 split moved most of the suite) and is not new. A
+    renamed test is new, which is right: its name is a claim nobody has falsified. Only files under
+    `RATCHET_DIR` are held to it. Returns ["path:line: ..."] for each new test with no block.
+    """
+    before = set()
+    for text in base_files.values():
+        before.update(n for _, n, _ in test_case_names(text))
+    out = []
+    for path in sorted(head_files):
+        if not path.startswith(RATCHET_DIR):
+            continue
+        for line, name, has in test_case_names(head_files[path]):
+            if name not in before and not has:
+                out.append("%s:%d: `%s` is a new confinement test with no `Falsification:` block. "
+                           "Add one above its `#[test_case]` (`unfalsified` is allowed; calef, "
+                           "2026-10-04 UTC, milestone 742's follow-on)." % (path, line, name))
+    return out
+
+
+def ratchet_problems():
+    """Run the ratchet against `git merge-base HEAD origin/main`. Returns (problems, note)."""
+    mb = subprocess.run(["git", "-C", root, "merge-base", "HEAD", "origin/main"],
+                        capture_output=True, text=True)
+    if mb.returncode != 0:
+        # The precedent is `script/citations --ratchet`: silence with a printed line rather than a
+        # guessed base. On `main` itself the base is HEAD and nothing is new.
+        return [], "no merge base against origin/main; the new-test ratchet was skipped"
+    base = mb.stdout.strip()
+
+    def files_at(rev):
+        argv = ["git", "-C", root, "grep", "-lE", r"#\[test_case\]"] + ([rev] if rev else []) + ["--", "*.rs"]
+        names = subprocess.run(argv, capture_output=True, text=True).stdout.split()
+        out = {}
+        for n in names:
+            path = n.split(":", 1)[1] if rev else n
+            if rev:
+                out[path] = subprocess.run(["git", "-C", root, "show", "%s:%s" % (rev, path)],
+                                           capture_output=True, text=True).stdout
+            else:
+                out[path] = open(os.path.join(root, path), errors="replace").read()
+        return out
+
+    return unrecorded_new_tests(files_at(base), files_at(None)), None
+
+
+def selftest():
+    """Fixtures for the ratchet; no tree, no git. Exit non-zero if any expectation fails."""
+    old = "#[test_case]\nfn an_old_claim() {}\n"
+    cases = [
+        ("a new test with no block fails",
+         {"system_tests/src/user/a.rs": old},
+         {"system_tests/src/user/a.rs": old + "#[test_case]\nfn a_new_claim() {}\n"}, 1),
+        ("a new test marked unfalsified passes",
+         {"system_tests/src/user/a.rs": old},
+         {"system_tests/src/user/a.rs": old + "/// Falsification: unfalsified. Nobody has.\n"
+                                            "#[test_case]\nfn a_new_claim() {}\n"}, 0),
+        ("an untouched existing test passes",
+         {"system_tests/src/user/a.rs": old}, {"system_tests/src/user/a.rs": old}, 0),
+        ("a moved test is not new",
+         {"kernel/src/user/a.rs": old}, {"system_tests/src/user/b.rs": old}, 0),
+        ("a new test outside the confinement directory is not held to it",
+         {}, {"kernel/src/mm.rs": "#[test_case]\nfn a_frame_test() {}\n"}, 0),
+        ("a block past another attribute still counts",
+         {}, {"system_tests/src/user/a.rs": "/// Falsification: unfalsified.\n"
+                                            "#[cfg(target_arch = \"x86_64\")]\n"
+                                            "#[test_case]\nfn x() {}\n"}, 0),
+    ]
+    bad = 0
+    for what, base, head, want in cases:
+        got = len(unrecorded_new_tests(base, head))
+        if got != want:
+            print("falsifications --selftest: %s: wanted %d problem(s), got %d" % (what, want, got))
+            bad += 1
+    return 1 if bad else 0
+
+
 def patch_files(pkgs):
     """Every patch under a package's `falsifications/`, repo-relative."""
     out = []
@@ -1551,6 +1675,10 @@ def affected_packages(base, hs):
     return out
 
 
+if mode == "--selftest":
+    # Fixtures only, before any `cargo metadata`, so `script/lint` can run it first for nothing.
+    sys.exit(selftest())
+
 pkgs = packages()
 hs = harnesses(pkgs)
 # Kernel tests and swish-check records travel together below: both are opt-in, both are swept by
@@ -1562,6 +1690,10 @@ if not hs:
 
 if mode == "--check":
     problems, gaps = check(hs, pkgs, kts)
+    new_problems, skipped = ratchet_problems()
+    problems += new_problems
+    if skipped:
+        print("  " + skipped)
     for p in problems:
         print("  " + p)
     if problems:

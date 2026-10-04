@@ -44,7 +44,7 @@ by design (hooks, external merge drivers), and anything that needs the network (
   every C port on nife needs (`files.c`-shaped work, matching how milestone 169's own scoping section
   describes `kilo`'s file handling).
 - Nothing from milestone 169's raw-terminal-input primitive: git's core commands are not a screen
-  editor, they read arguments and print output through the existing `OP_WRITE` ANSI-passthrough path
+  editor, they read arguments and print output through the existing `OPERATION_WRITE` ANSI-passthrough path
   ([DECISIONS §21](../decisions/21-terminal-in-userspace.md)).
 
 ## Why it matters

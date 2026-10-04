@@ -126,7 +126,7 @@ is wrong.
 
 The manifest's, and no. `component_plan::Requirements` is where a deadline looks like it belongs:
 one declaration, shipped with the contract, read by every supervisor. It fails on the tree's own
-evidence. A contract cannot know the machine: the same `OP_PUT` under QEMU TCG, under HVF, and on a
+evidence. A contract cannot know the machine: the same `OPERATION_PUT` under QEMU TCG, under HVF, and on a
 VisionFive 2 differ by orders of magnitude (notes/cpu-models.md, milestone 59's matrix), and a
 wall-clock number compiled into a `*_proto` crate would be a shipped version of exactly the
 load-sensitive assertion milestones 62 and 78 exist to remove. It also fails the manifest's own test:
@@ -238,7 +238,7 @@ test is the argument. Milestone 23's four steps against a hung incumbent:
 ```text
   1 BUILT    unchanged. Lay the replacement out, endow it with everything but the device, do not
              configure or start it.
-  2 DRAINED  UNAVAILABLE, and unnecessary. OP_QUIESCE needs the incumbent to answer, which is the
+  2 DRAINED  UNAVAILABLE, and unnecessary. OPERATION_QUIESCE needs the incumbent to answer, which is the
              one thing it does not do. But quiescing exists to make the incumbent stop receiving,
              and a hung component has already stopped receiving. **The step that needs its
              cooperation is the step the hang makes redundant.**

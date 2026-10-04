@@ -472,6 +472,8 @@ write_probe() {
         if [ "$BACKEND_ON" -eq 1 ]; then echo "entropy_backend = { path = \"$BACKEND\" }"; fi
         echo '[profile.release]'
         echo 'panic = "abort"'
+        # Overflow checks as the shipped build carries them (notes/overflow-checks.md).
+        echo 'overflow-checks = true'
     } >"$dir/Cargo.toml"
     # Without the backend the cfg must go too, or `getrandom` selects a custom backend whose symbol
     # nothing defines and the probe fails at link instead of showing its own `compile_error!`.

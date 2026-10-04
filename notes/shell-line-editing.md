@@ -9,9 +9,9 @@ crosses the terminal wire. The note's name is provisional.
 ## What happens to a keystroke
 
 At the prompt, `components/src/swish.rs` (`edit_line`) holds the terminal in raw mode
-(`OP_RAWMODE`). Each `OP_READRAW` reply carries up to eight bytes. The shell feeds them to its
-engine and sends the echo back with `OP_WRITE`. Enter, `^D` and `^C` end the read with the same
-answers `OP_READLINE` gave: a line, end of input, or interrupted. Bytes that arrive after the one
+(`OPERATION_RAWMODE`). Each `OPERATION_READRAW` reply carries up to eight bytes. The shell feeds them to its
+engine and sends the echo back with `OPERATION_WRITE`. Enter, `^D` and `^C` end the read with the same
+answers `OPERATION_READLINE` gave: a line, end of input, or interrupted. Bytes that arrive after the one
 that ended a line are kept for the next one, so a pasted pair of lines runs as two.
 
 Tab is `line_editor::Event::Tab`. The shell reads the word left of the cursor
@@ -30,7 +30,7 @@ again. No match rings the bell.
 ## `^C`, in both places it can be pressed
 
 §24 (interrupting the foreground process) watches a supervised job by polling the terminal's
-`^C` count (`OP_INTRCOUNT`). The terminal counts only in its line discipline, and raw mode
+`^C` count (`OPERATION_INTRCOUNT`). The terminal counts only in its line discipline, and raw mode
 bypasses that. So the shell leaves raw mode just before it spawns a supervised job, and takes its
 watermark after the switch. It turns raw mode on again at the next prompt.
 
@@ -57,8 +57,8 @@ The image bound is 896 KiB (milestone 206 (a program image has under 896 KiB)), 
 well inside it. Measured with `llvm-size` on the ELF, on 2026-09-26, from `cargo build -p components
 --bin swish`.
 
-The per-keystroke cost is two more IPC round trips for the shell: an `OP_READRAW` reply and an
-`OP_WRITE` of the echo. The terminal already paid the console flush before, and still does.
+The per-keystroke cost is two more IPC round trips for the shell: an `OPERATION_READRAW` reply and an
+`OPERATION_WRITE` of the echo. The terminal already paid the console flush before, and still does.
 `kernel::user::raw_mode_tests::a_keystroke_edited_by_the_client_costs_two_more_round_trips` times
 both paths against the real `line_editor` process and prints a `measure:` line. Its reading is below, under
 [What was measured under QEMU](#what-was-measured-under-qemu). On the EL0 figure
@@ -91,15 +91,15 @@ $ echo half^C          ->  nothing runs; a fresh prompt
 
 ## BUGS
 
-- Typed-ahead text is lost at a supervised job's edges. `OP_RAWMODE` discards the queue it
+- Typed-ahead text is lost at a supervised job's edges. `OPERATION_RAWMODE` discards the queue it
   leaves, so keys typed at the prompt just before a supervised job starts, or typed during one,
   are dropped. A plain command keeps them. Fixing it needs the terminal to count `^C` in raw mode
-  for a client that asks, which is a change to `OP_RAWMODE`'s meaning, so it is recorded rather
+  for a client that asks, which is a change to `OPERATION_RAWMODE`'s meaning, so it is recorded rather
   than made.
 - The engine assumes one terminal row (`line_editor`'s own BUGS), and a completion listing wraps at
   78 columns for the same reason.
 - `swish::complete` carries its own BUGS. It does not complete inside a quote, and it does not
   quote a completed name with a space in it. Arguments are not completed from the program's
   manifest. An installed program is not offered by bare name until §229 (how a bare name reaches an installed program) is ruled.
-- A terminal that refuses raw mode gets the old `OP_READLINE` path and no Tab. Every terminal in
+- A terminal that refuses raw mode gets the old `OPERATION_READLINE` path and no Tab. Every terminal in
   the tree serves raw mode, so this is a fallback, not a configuration.

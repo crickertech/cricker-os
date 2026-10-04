@@ -84,6 +84,11 @@ fn write(off: usize, val: u32) {
 /// `base` must be the PLIC's MMIO base as a mapped, device-typed kernel virtual address, and
 /// `context` must be this hart's supervisor context number.
 pub unsafe fn init(base: usize, context: usize) {
+    // The one check [`claim_register`] leans on, made once here instead of on every interrupt.
+    assert!(
+        base.checked_add(CLAIM_REACH).is_some(),
+        "plic: base {base:#x} puts claim registers past the top of the address space"
+    );
     PLIC_BASE.store(base, Ordering::Relaxed);
     // Threshold 0: an interrupt is taken when its priority is strictly greater, so priority >= 1
     // gets through. (Threshold at max would mask everything.) Opens the boot context; a secondary
@@ -211,17 +216,38 @@ pub fn disable(source: u32, context: usize) {
 /// acknowledge, so call it exactly once per interrupt. `context` must be the **claiming hart's own**
 /// context, so a secondary hart claims from its context, not the boot hart's.
 pub fn claim(context: usize) -> u32 {
-    read(THRESHOLD_BASE + context * CONTEXT_STRIDE + CLAIM_OFFSET)
+    // SAFETY: `claim_register` names `context`'s claim register, inside the block `init` mapped.
+    unsafe { core::ptr::read_volatile(claim_register(context)) }
 }
 
 /// **Complete** a claimed interrupt: tell the PLIC we are done with `source`, so it may deliver that
 /// source again. The counterpart to [`claim`]; between the two the source is masked at the PLIC.
 /// `context` must be the context that claimed it (the completing hart's own).
 pub fn complete(source: u32, context: usize) {
-    write(
-        THRESHOLD_BASE + context * CONTEXT_STRIDE + CLAIM_OFFSET,
-        source,
-    );
+    // SAFETY: as `claim`.
+    unsafe { core::ptr::write_volatile(claim_register(context), source) }
+}
+
+/// One past the last byte any context's claim register can occupy, as an offset from the base:
+/// every context this kernel holds is at most `u16::MAX` (`machine_discovery::plic` stores the
+/// device tree's as `u16`, and the `2h + 1` fallback is bounded by `MAX_CPUS`).
+const CLAIM_REACH: usize = THRESHOLD_BASE + u16::MAX as usize * CONTEXT_STRIDE + CLAIM_OFFSET + 4;
+
+/// `context`'s claim/complete register.
+///
+/// **Wrapping, because no wrap can happen**, and this is on every external interrupt and inlined
+/// into the trap body every syscall crosses (release builds check overflow,
+/// notes/overflow-checks.md). The offset is under `CLAIM_REACH` for any context at most
+/// `u16::MAX`, which is every context this kernel holds, and `init` refused a base that `CLAIM_REACH`
+/// would carry past the top of the address space. What the per-interrupt overflow checks used to
+/// refuse was only a context near `2^52`; a context past the PLIC's own 15,872 was never refused by
+/// them either, and is not now.
+#[inline(always)]
+fn claim_register(context: usize) -> *mut u32 {
+    let off = THRESHOLD_BASE
+        .wrapping_add(context.wrapping_mul(CONTEXT_STRIDE))
+        .wrapping_add(CLAIM_OFFSET);
+    base().wrapping_add(off) as *mut u32
 }
 
 #[cfg(test)]

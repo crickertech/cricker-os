@@ -1,10 +1,10 @@
 # SMB: the network file service a Mac mounted, and why it is no longer here (milestone 54)
 
-**The code this note describes was removed from the tree on 2026-08-30, on calef's decision.** Every
+The code this note describes was removed from the tree on 2026-08-30, on calef's decision. Every
 present tense below is the tree as it stood at commit `685900ec`, which is the last commit that holds
 it; nothing described here can be built or run from `main` any more. The note is kept, and kept in
-full, because the thing it records is evidence rather than documentation: **milestone 54 is the only
-time this project's first principle was realised end to end**, a real customer's real machine running
+full, because the thing it records is evidence rather than documentation: milestone 54 (network) is the only
+time this project's first principle was realised end to end, a real customer's real machine running
 a real workload against this kernel, and AGENTS.md's own rule is that a finding worth keeping lands in
 `notes/` rather than in a commit nobody will check out. Read it in the past tense. It is a record of
 what this system did.
@@ -22,9 +22,9 @@ what this system did.
 | 2026-08-19 | Throughput measured through a real SMB client: **write 4.8x, read 2.4x** from raising the file transfer from 4 KiB to 64 KiB. See the throughput section. |
 | 2026-08-24 | The session/connection split (milestone 152's first buildable piece), the shape `session_reviver` still carries. |
 
-**The one number that survives the removal**, because it was measured rather than argued: raising
-`filesystem_protocol`'s transfer from one page to sixteen took an SMB write from **0.065 to 0.31 MiB/s**
-and a read from **0.15 to 0.36 MiB/s**, debug build under QEMU. The ratio transfers; the rate does
+The one number that survives the removal, because it was measured rather than argued: raising
+`filesystem_protocol`'s transfer from one page to sixteen took an SMB write from 0.065 to 0.31 MiB/s
+and a read from 0.15 to 0.36 MiB/s, debug build under QEMU. The ratio transfers; the rate does
 not, and the note refused to convert it into a backup's wall clock for that reason. That refusal is
 still the right call and is worth copying.
 
@@ -56,53 +56,53 @@ was reaching for is this note, which is the cheaper form of the same thing: 8,60
 code carried on `main` cost every future refactor, every dependency audit and every parity sweep,
 where the record of what it proved costs a file.
 
-**What was deliberately kept, and why**, because the boundary is the interesting part of a removal:
+What was deliberately kept, and why, because the boundary is the interesting part of a removal:
 
-- **`crates/multicast_dns_protocol` and `components/src/multicast_dns_responder.rs`.** Service discovery is a standalone service
+- `crates/multicast_dns_protocol` and `components/src/multicast_dns_responder.rs`. Service discovery is a standalone service
   and is useful without a share to advertise.
-- **`crates/credentialer`, `credentialer`, `session_reviver`**, and milestone 49's and 65's identity work,
+- `crates/credentialer`, `credentialer`, `session_reviver`, and milestone 49 (users,)'s and 65's identity work,
   minus the NTLM half (see the section below). The credential service's headline property (a server
   answers an authentication without ever holding the key) is proven by `credentialer_test_client`
   against the password verifier and never needed the SMB adapter.
-- **Milestone 107's socket work**, which is what lets anything accept a connection.
-- **`filesystem_protocol`'s `STATFS`, `SYNC` and `RENAME`**, and the block server's
+- Milestone 107 (socket)'s socket work, which is what lets anything accept a connection.
+- `filesystem_protocol`'s `STATFS`, `SYNC` and `RENAME`, and the block server's
   `VIRTIO_BLK_T_FLUSH`. SMB is what motivated them; they are file-service verbs and stand on their
   own.
 
 ## The NTLM half went with it, and that is the transferable lesson
 
-**Removed in the same pass, 2026-08-30**: `crates/ntlm` entirely, the NTLM path through
+Removed in the same pass, 2026-08-30: `crates/ntlm` entirely, the NTLM path through
 `crates/credentialer` (`Record`'s `nt` field and `has_ntlm` flag, `derive_ntlm`, `put_ntlm`, `ntlm_proof`
 and the `NTLM_CHALLENGE_LEN`/`NTLM_KEY_LEN` re-exports), the `provision::PUT_NTLM` and
 `verify::NTLM_PROOF` opcodes in `crates/credential_protocol` with their request accessors, and the
 four dependency crates that existed only underneath them: `md4`, `md-5`, `hmac` and `digest`.
 
-**Why this is worth a section rather than a line in a commit message.** DECISIONS §79 approved
+Why this is worth a section rather than a line in a commit message. DECISIONS §79 (holding) approved
 holding password-equivalent material, and it approved three known-broken hash functions to go with
-it. The justification was **NTLMv2 protocol compliance**: MD4 and MD5 are what the specification
+it. The justification was NTLMv2 protocol compliance: MD4 and MD5 are what the specification
 names, nothing here chose them, and shipping them was the same act as implementing DES to talk to
 old hardware. That reasoning was sound and it was entirely contingent on there being a protocol to
 comply with.
 
 With the SMB implementation gone there is no such protocol. So between the moment the customer moved
-and the moment this was noticed, **the tree was carrying an `NTOWFv2` (a password equivalent,
+and the moment this was noticed, the tree was carrying an `NTOWFv2` (a password equivalent,
 crackable at roughly the speed of MD4, sitting beside an Argon2id tag that is not) and two broken
-hash functions in its shipping dependency graph, for a consumer that no longer existed.** Nothing
+hash functions in its shipping dependency graph, for a consumer that no longer existed. Nothing
 was wrong with the code. What went stale was the *reason*, and a reason going stale is invisible in
 a way that a broken build is not: every gate stayed green, `cargo-deny` stayed happy, and the
 security property the crate documented was still true of the crate.
 
-**The lesson for a future reader**: a dependency taken for a stated reason should be re-checked when
-that reason changes, and the place that check can actually happen is a decision record naming its
+The lesson for a future reader: a dependency taken for a stated reason should be re-checked when
+that reason changes, and the place that check can happen is a decision record naming its
 own premise. §79 named its premise plainly, which is what made this removal easy to argue for; it is
 now stale and needs amending, and the amendment is an architect's.
 
-**Two facts that made the removal safe**, verified in the tree rather than assumed:
+Two facts that made the removal safe, verified in the tree rather than assumed:
 
-- **Nothing was ever stored.** `crates/credentialer`'s own module docs say it outright: *"No persistence. A
+- Nothing was ever stored. `crates/credentialer`'s own module docs say it outright: *"No persistence. A
   `Store` is memory only, and everything in it dies with the process."* No checked-in fixture and no
   disk image ever held an encoded `Record`, so changing `Record`'s layout migrated nothing.
-- **The opcode spaces are not positional.** `verify::VERIFY` is 1 and `verify::NTLM_PROOF` was 2;
+- The opcode spaces are not positional. `verify::VERIFY` is 1 and `verify::NTLM_PROOF` was 2;
   `provision::PUT` is 1, `SEAL` 2 and `PUT_NTLM` was 3. Removing the NTLM opcodes renumbered
   nothing. It is still a change to a wire contract two programs agree on (AGENTS.md rule 7), and it
   was only safe because both programs are in this tree and nothing outside speaks it.
@@ -119,17 +119,17 @@ of the same true thing.
 Recorded here rather than lost with the code, because a future reader deciding whether to build this
 again should know what the last attempt did not reach:
 
-- **The write path never met a real Mac.** The 2026-08-15 mount was read-only. The write half was
+- The write path never met a real Mac. The 2026-08-15 mount was read-only. The write half was
   gated by a conforming client this tree wrote, which is not `smbfs`.
-- **No Mac ever saw the `AAPL` answer**, so nobody knows whether macOS's Time Machine UI would have
+- No Mac ever saw the `AAPL` answer, so nobody knows whether macOS's Time Machine UI would have
   offered the share. That needed the kernel on hardware on a real network segment; slirp carries no
   multicast, so the mDNS discovery half was equally unproven in situ.
-- **Finder's Connect to Server dialog was never clicked through.** Only the command-line mount ruled.
-- **The demo boot admitted guests to a writable share**, and no boot could be told a password: the
+- Finder's Connect to Server dialog was never clicked through. Only the command-line mount ruled.
+- The demo boot admitted guests to a writable share, and no boot could be told a password: the
   only provisioner in the tree was a test program carrying [MS-NLMP]'s published fixture. That was
   milestone 131's whole subject and it never landed.
-- **Sessions were never signed**, so a proven session was unprotected afterwards.
-- **The server challenge was a clock, not entropy**, so two connections in one tick repeated it.
+- Sessions were never signed, so a proven session was unprotected afterwards.
+- The server challenge was a clock, not entropy, so two connections in one tick repeated it.
 - Apple metadata (streams, forks, `READ_DIR_ATTR`) was never implemented; §99 deferred the decision
   and milestone 137 was minted to hold it.
 
@@ -143,39 +143,39 @@ every present tense in it as "as of `685900ec`".*
 
 The head of the customer path. macOS speaks SMB natively and the Time Machine target (milestone
 55) requires it, so SMB is the one network file protocol this tree carries; the roadmap block
-records why NFS and 9P were refused. What milestone 54 builds is the **adapter**: a program
+records why NFS and 9P were refused. What milestone 54 builds is the adapter: a program
 holding one network endpoint and one share, translating SMB2 on the wire into the share seam on
 the other side. Its only storage authority is the one directory capability it is granted, so
 "what can the network reach" is a statement about its capability table, not about a check it passes.
 
-**A real Mac has mounted it** (2026-08-15, macOS 26 `mount_smbfs` against the QEMU guest): the
+A real Mac has mounted it (2026-08-15, macOS 26 `mount_smbfs` against the QEMU guest): the
 share mounts, `ls` lists it, both fixture files read back byte-correct, the volume arrives
 read-only (macOS honours the `READ_ONLY_VOLUME` attribute, so a write is refused client-side
 before it reaches the wire), a clean unmount works, and a second mount proves the listener
 re-arms for a real client, not only for the test prober. The one correction the real client
 forced is recorded below under "the SMB1 probe".
 
-**The write path landed on 2026-08-16** and it is gated but not yet Mac-mounted: that run was
+The write path landed on 2026-08-16 and it is gated but not yet Mac-mounted: that run was
 against a read-only share, and nobody has repeated it against a writable one. The BUGS section
 says so where it matters. What exists now is `WRITE`, all six create dispositions, `SET_INFO`'s
 end-of-file, rename, disposition and basic classes, delete-on-close, and a share that is
-writable or not **by declaration**, refusing at the protocol layer rather than at the
+writable or not by declaration, refusing at the protocol layer rather than at the
 filesystem.
 
-**Identity landed on 2026-08-17**, which was the last item on this milestone's list. A share can
-now require an NTLMv2 proof that milestone 65's credential service accepts, and **the SMB server
-never holds the key that verifies it**: it holds one endpoint to a sealed store, and `smb_proto`
+Identity landed on 2026-08-17, which was the last item on this milestone's list. A share can
+now require an NTLMv2 proof that milestone 65 (secrets)'s credential service accepts, and the SMB server
+never holds the key that verifies it: it holds one endpoint to a sealed store, and `smb_proto`
 takes the `ntlm` crate as a *dev*-dependency, so the shipping protocol code cannot compute a proof
 at all. Both ISAs' gates now run an authenticated share, with a host process computing a real proof
 over the challenge the guest issued, and the kernel then reads the page between the adapter and the
-store and requires it to be empty. **The demo boot (`smb-serve`) still admits guests and still says
-so**, for a reason worth knowing before you read further: there is no way to *tell* it a password.
+store and requires it to be empty. The demo boot (`smb-serve`) still admits guests and still says
+so, for a reason worth knowing before you read further: there is no way to *tell* it a password.
 See BUGS.
 
-**The session/connection split landed on 2026-08-24** (milestone 152, durable delegation's first
+The session/connection split landed on 2026-08-24 (milestone 152 (durable), durable delegation's first
 buildable piece). `smb_server.rs` used to be one accept-serve-close loop where all session state,
 NTLMSSP proof included, died with the socket, which is the "unprotected afterwards" line above and
-also meant there was nothing here that could outlive a disconnect even in principle. It now splits
+meant there was nothing here that could outlive a disconnect even in principle. It now splits
 into the transient per-connection protocol handler (`serve_connection`, unchanged) and a durable
 `DurableSession`, built once before the accept loop, kept alive by DECISIONS §16's ordinary
 parent-with-live-children rule rather than any new mechanism. No real scheduled job is registered
@@ -188,7 +188,7 @@ design/roadmap/152-durable-delegation.md for the design this closes the first BU
 | Piece | Where | What it is |
 |---|---|---|
 | `smb_proto` | `crates/smb_proto/` | The whole wire format: framing, header, every command (both directions since 2026-08-16), NTLMSSP, minimal SPNEGO, create contexts including Apple's `AAPL` (2026-08-17), and the per-connection state machine. Pure logic over byte slices, host-tested, `no_std`. Client-side builders live in the same crate so tests and the prober share every offset with the server. |
-| `smb_server` | `user/src/smb_server.rs` | The adapter program: listen/accept through the socket contract (milestone 107), reassemble direct-TCP framing from bounded `RECV` chunks, hand messages to the state machine, chunk the answers back out. |
+| `smb_server` | `user/src/smb_server.rs` | The adapter program: listen/accept through the socket contract (milestone 107), reassemble direct-TCP framing from bounded `RECEIVE` chunks, hand messages to the state machine, chunk the answers back out. |
 | The SMB prober | `xtask/src/main.rs` | The host side of the QEMU gate: a real SMB2 client that negotiates, **authenticates with a real NTLMv2 proof it computes itself**, connects the share, opens the seeded file and asserts its bytes, then writes a second file it never reads back, twice over two connections. It is the only party anywhere that knows the password. |
 | The authenticator seam | `crates/smb_proto/src/authenticator.rs` | `Share`'s sibling: a trait with no IO, three verdicts, and an `Attempt` carrying only public bytes and a MAC. `NoIdentity` is the guest policy, spelled as a value so a boot has to *say* it wants guests. |
 | `CredentialAuthenticator` | in `smb_server` | The implementation that does the IO: one `CALL` on the credential service's verify endpoint. Holds no key and asks for no session key. |
@@ -197,10 +197,10 @@ The share behind the adapter is the `Share` trait in `crates/smb_proto/src/share
 boot-time choice between its implementations (`smb_server`'s `arg2`, which since the write path
 says both which backing and which direction):
 
-- **`FsShare`** (in `smb_server`, where the IPC lives): the real one. The adapter holds a
+- `FsShare` (in `smb_server`, where the IPC lives): the real one. The adapter holds a
   directory capability into the FS server (the endpoint IS the capability, DECISIONS §27) and
-  answers every `Share` question with `fs_proto` verbs, so what a mounted client reads **and
-  writes** is the RedoxFS image. This is what the test boots and `smb-serve` wire whenever a
+  answers every `Share` question with `fs_proto` verbs, so what a mounted client reads and
+  writes is the RedoxFS image. This is what the test boots and `smb-serve` wire whenever a
   RedoxFS disk is attached, both of them read-write. Landing the read half changed no protocol
   code, which was the seam's whole promise; the write half did change the seam, and the two
   changes are listed under the wire decisions below because they are contract changes rather
@@ -210,12 +210,12 @@ says both which backing and which direction):
   (`dir::READ`), `WRITE` and `TRUNCATE` (`dir::WRITE`), `CREATE` (`dir::CREATE`), `UNLINK`
   (`dir::REMOVE`), and `RENAME` (`REMOVE` on the source, `CREATE` on the destination). Nothing
   was invented: the adapter asks, and the FS server refuses what the capability does not carry.
-- **`FIXTURE`** (in `smb_proto`): files baked into the binary, kept as the no-disk fallback. It
+- `FIXTURE` (in `smb_proto`): files baked into the binary, kept as the no-disk fallback. It
   is what lets the protocol path run with no FS service in the boot, and what the host tests
-  drive the state machine against, where a share that cannot be wrong is a feature. **Read-only,
-  and it is the trait's worked example of a backing that says so**: it implements `writable()` as
+  drive the state machine against, where a share that cannot be wrong is a feature. Read-only,
+  and it is the trait's worked example of a backing that says so: it implements `writable()` as
   `false` and none of the write half, so the trait's defaults refuse everything.
-- **`MemoryShare`** (in `smb_proto`, `#[cfg(test)]`): a writable share in memory, so the write
+- `MemoryShare` (in `smb_proto`, `#[cfg(test)]`): a writable share in memory, so the write
   path's host tests have something to write *to*. The fixture's argument, one direction over.
 
 The gate proves the distinction rather than asserting it: the combined boot first runs
@@ -230,86 +230,86 @@ have answered it.
 These are the expensive-to-reverse choices (AGENTS.md, "anything two programs agree on"), listed
 so review can happen where the cost is:
 
-- **Direct TCP on port 445**, the 4-byte zero-type NetBIOS-shaped prefix. No port 139, no
+- Direct TCP on port 445, the 4-byte zero-type NetBIOS-shaped prefix. No port 139, no
   NetBIOS session service.
-- **SMB 2.1 (`0x0210`), only.** 2.0.2 predates features macOS wants; the 3.x family drags in
+- SMB 2.1 (`0x0210`), only. 2.0.2 predates features macOS wants; the 3.x family drags in
   signing enforcement, encryption and `VALIDATE_NEGOTIATE_INFO`, none needed for a first mount.
   macOS negotiates 2.1 happily (it is the dialect of a decade of NAS boxes).
-- **NTLMv2, and guest only when a boot asks for it.** The server answers the NTLMSSP dance (raw or
+- NTLMv2, and guest only when a boot asks for it. The server answers the NTLMSSP dance (raw or
   wrapped in SPNEGO, which is how macOS sends it), takes the AUTHENTICATE apart, and asks the
   `smb_proto::authenticator::Authenticator` seam whether the proof checks out. Three answers, three
-  wire outcomes: `Authenticated` is `STATUS_SUCCESS` with `SessionFlags` **clear**, `Guest` is
+  wire outcomes: `Authenticated` is `STATUS_SUCCESS` with `SessionFlags` clear, `Guest` is
   `STATUS_SUCCESS` with `SESSION_FLAG_IS_GUEST` set (the honest label for "nothing was verified"),
   and `Refused` is `STATUS_LOGON_FAILURE` with the connection left open so a client can retry, which
   macOS does after prompting.
-- **`STATUS_LOGON_FAILURE` (`0xC000006D`) for a bad proof *and* for an anonymous client**, and it is
+- `STATUS_LOGON_FAILURE` (`0xC000006D`) for a bad proof *and* for an anonymous client, and it is
   one status on purpose: distinguishing them would make session setup an oracle for which accounts a
   store holds. It is what Windows and Samba answer, so a real client's retry logic already knows it.
-- **An anonymous AUTHENTICATE is a distinct thing from a failed one.** `Authenticator::anonymous`
+- An anonymous AUTHENTICATE is a distinct thing from a failed one. `Authenticator::anonymous`
   answers it, defaulting to a refusal, and that default is the entire difference between a guest
   share and an authenticated one. It matters because `mount_smbfs -N` and this tree's own prober both
   send an AUTHENTICATE with every field empty: a server that read "no proof" as "nothing to check,
   therefore fine" would admit exactly the caller identity exists to shut out.
-- **The seam carries no key material in either direction, and `SessionBaseKey` is deliberately not
-  in it.** An `Attempt` is the server challenge, the presented account and domain (UTF-16LE, as they
+- The seam carries no key material in either direction, and `SessionBaseKey` is deliberately not
+  in it. An `Attempt` is the server challenge, the presented account and domain (UTF-16LE, as they
   arrived), the `NTProofStr`, and the client's blob: all public, or a MAC that is worthless without
   the key. [MS-NLMP] §4.2.4.1.2's session key is what a *signing* server would need, this one does
   not sign, so the adapter never asks the credential service for it. Adding it later is a widening
   with a stated reason rather than a field somebody has to justify removing.
-- **The presented account name is not a lookup key.** `cred_proto::verify::NTLM_PROOF` names a
+- The presented account name is not a lookup key. `cred_proto::verify::NTLM_PROOF` names a
   *resource*, which the adapter is configured with, so the wire's only contribution is challenge,
-  blob and proof. The account is bound **cryptographically** instead: the stored `NTOWFv2` was
+  blob and proof. The account is bound cryptographically instead: the stored `NTOWFv2` was
   derived over the account that owns the resource, so a client claiming a different name derives
   under a different key and fails, and nothing anywhere compares strings. See BUGS on why the
   resource being a *constant* rather than an implication of the endpoint is the part that is wrong.
-- **Sessions are still not signed.** A session is proven at setup and unprotected afterwards.
+- Sessions are still not signed. A session is proven at setup and unprotected afterwards.
   Identity buys authentication of the client, not integrity of the stream; that is in BUGS.
-- **`MaxTransactSize`/`MaxReadSize`/`MaxWriteSize` = 65536**, the floor mainstream clients are
+- `MaxTransactSize`/`MaxReadSize`/`MaxWriteSize` = 65536, the floor mainstream clients are
   written against, and exactly the static buffer the allocator-less server carries.
-- **One share, named `share`**, a **tree** of directories and files, **writable when the boot says
-  so.**
+- One share, named `share`, a tree of directories and files, writable when the boot says
+  so.
   The direction is `smb_server`'s `arg2`, which the write path grew from a flag into three values
   (fixture, fs-backed read-only, fs-backed read-write) because "which backing" and "which
   direction" are two questions and a boolean answered only one. Both boots that exist wire
   read-write.
-- **Read-only is refused at the protocol layer, not at the filesystem.** Every mutating command
+- Read-only is refused at the protocol layer, not at the filesystem. Every mutating command
   asks `Share::writable()` *before* the backing hears about it, so a read-only share is read-only
   even over a directory capability that would have permitted the write. `Share::writable` has no
   default, so a backing cannot be written without stating its direction; the mutating trait
   methods then default to a refusal as an independent second line. The status is
   `STATUS_ACCESS_DENIED` throughout, including for the timestamp write a copy ends with, because
   a partial refusal is worse than a whole one.
-- **`FILE_OPEN_IF` on a read-only share is demoted to `FILE_OPEN`, not refused.** "Open it if it
+- `FILE_OPEN_IF` on a read-only share is demoted to `FILE_OPEN`, not refused. "Open it if it
   is there" is answerable without writing anything, and clients that open everything that way
   would otherwise break on a share they are only reading.
-- **The status a write refusal carries is `ACCESS_DENIED`, not `MEDIA_WRITE_PROTECTED`.** It is
+- The status a write refusal carries is `ACCESS_DENIED`, not `MEDIA_WRITE_PROTECTED`. It is
   what the read-only mount was proven against with a real Mac, and what the host tests pin;
   changing it would be a wire change bought with nothing.
-- **`DesiredAccess` is not gated.** A create asking for write access on a read-only share is
+- `DesiredAccess` is not gated. A create asking for write access on a read-only share is
   refused by its *disposition*, and the commands are refused by command. Gating the access mask
   as well risked breaking the proven read mount (macOS asks for generic masks it does not use),
   and it would buy no property the disposition gate does not already hold.
-- **A file is named by an opaque id the backing mints, not by its index in the listing.** The
+- A file is named by an opaque id the backing mints, not by its index in the listing. The
   read-only trait could use an index because nothing reordered the directory; a writable share
   reorders it on every create. The fs-backed share makes the id the FS server's own handle, which
-  also retires the open-per-request cost the read path recorded.
-- **`FileAllocationInformation` is a no-op and `FileBasicInformation` is discarded.** Both are
+  retires the open-per-request cost the read path recorded.
+- `FileAllocationInformation` is a no-op and `FileBasicInformation` is discarded. Both are
   successes that change nothing, and both are in BUGS: preallocation is a hint whose obvious
   implementation (truncate) would zero-extend a file the client is about to fill, and there is no
   clock capability here to record a timestamp against.
-- **Free space is the image's, through `fs_proto`'s `STATFS`** (op 18, milestone 54). The record
+- Free space is the image's, through `fs_proto`'s `STATFS` (op 18, milestone 54). The record
   is three little-endian `u64`s in the shared page (allocation unit, total units, free units) and
   `r0` is its length, which is `READDIR`'s and `LISTXATTR`'s existing shape: a reply word carries
-  one `i64` and this answer is three numbers. **The record's length is its version**, so a later
+  one `i64` and this answer is three numbers. The record's length is its version, so a later
   field extends it and a client written against this one reads its prefix; there is deliberately no
-  version word, because the length already is one. The verb demands **no right** and takes any
+  version word, because the length already is one. The verb demands no right and takes any
   handle the server minted, file or directory: the handle is the qualification rather than the
   subject, and demanding `READ` would leave a write-only grant unable to answer the one question it
   has. A backing that cannot ask (the baked-in fixture has no volume) answers `None` and the
-  protocol layer falls back to `NOMINAL_VOLUME_BYTES`, stated rather than silent. **A read-only
-  share reports zero free** whatever the image says, which is the same statement `READ_ONLY_VOLUME`
+  protocol layer falls back to `NOMINAL_VOLUME_BYTES`, stated rather than silent. A read-only
+  share reports zero free whatever the image says, which is the same statement `READ_ONLY_VOLUME`
   makes one field over and is what makes macOS refuse a write client-side.
-- **A path is parsed once, at the wire's edge** (`crates/smb_proto/src/path.rs`), and the `Share`
+- A path is parsed once, at the wire's edge (`crates/smb_proto/src/path.rs`), and the `Share`
   seam takes a `Path` that cannot be constructed without that parse. What a client is allowed to
   *say* is wire format, so `..` dies where the bytes arrive rather than wherever a backing happens
   to look at it. `.` is refused as well, for a different reason: it is a second spelling of a path,
@@ -317,49 +317,49 @@ so review can happen where the cost is:
   path per name is cheaper to hold than a canonicaliser. A forward slash is refused because SMB's
   separator is backslash and accepting both would let two clients spell one file two ways. A single
   leading and a single trailing separator are stripped, because clients send `dir\`.
-- **`fs_proto` resolves a component under a handle and never a path**, so the adapter walks: one
+- `fs_proto` resolves a component under a handle and never a path, so the adapter walks: one
   `fs::OPENDIR` per component, then the verb on the leaf under the parent's handle. That is the
   contract's shape rather than a limitation to route around, and it is why the descent's rights are
   exactly what the share will use rather than `dir::ALL`: `OPENDIR` refuses with `EPERM` when the
   intersection with the parent is smaller than the request, so asking for everything would fail on
   a capability that was correctly narrowed.
-- **`MKDIR` and `RMDIR` are separate from `CREATE` and `UNLINK`**, and `RMDIR` takes only an empty
+- `MKDIR` and `RMDIR` are separate from `CREATE` and `UNLINK`, and `RMDIR` takes only an empty
   directory. A call that removed whatever it found would put a subtree behind one message, and no
   capability check afterwards could undo that; the recursion belongs in whoever is deleting, as a
   loop of individually refusable steps. A client's delete-on-close on a non-empty directory
   therefore leaves it there.
-- **A directory may be renamed in place but not moved into another directory**, which is
+- A directory may be renamed in place but not moved into another directory, which is
   `fs_proto::fs::RENAME`'s own boundary (the cycle guard is an ancestry walk in a server whose stack
   is measured at three quarters used). The one refusal this layer adds is moving a directory into
   its own subtree, checked on paths here because this is the only layer holding both sides as paths
   at once.
 - Compounds (macOS stats files as CREATE + QUERY_INFO + CLOSE related chains) are implemented;
   credits are granted as asked and never accounted.
-- **The `AAPL` create context is answered, and the bits it claims are the table above** (milestone
+- The `AAPL` create context is answered, and the bits it claims are the table above (milestone
   55). The chain is walked generically, the tag is matched, and the answer echoes the request
-  bitmap and carries exactly the answers it asked for. **A context this server does not implement
-  is walked past in silence, never refused**, because an unanswered context is how this mechanism
+  bitmap and carries exactly the answers it asked for. A context this server does not implement
+  is walked past in silence, never refused, because an unanswered context is how this mechanism
   says "not implemented" and refusing would trade a working mount for a diagnosis nobody reads. A
   malformed chain is the same: the open still succeeds with no context back.
-- **`FLUSH` resolves its file id and then does real work** (milestone 55). The file id is checked
+- `FLUSH` resolves its file id and then does real work (milestone 55 (time)). The file id is checked
   first, so a stale handle is `STATUS_FILE_CLOSED` rather than a blanket yes; then `Share::sync`
   is called, which on the fs-backed share is `fs_proto::fs::SYNC` and, under that, a
   `VIRTIO_BLK_T_FLUSH` the device completes before the reply. A backing that cannot flush its
   storage returns an error and the client sees it. See the Apple section for why that mattered
   enough to be worth a milestone of its own.
-- **The SMB1 probe.** The machine overruled the assumption that a modern client opens with SMB2:
-  macOS's `mount_smbfs` still opens with an **SMB1** multi-protocol NEGOTIATE (`\xFFSMB`,
+- The SMB1 probe. The machine overruled the assumption that a modern client opens with SMB2:
+  macOS's `mount_smbfs` still opens with an SMB1 multi-protocol NEGOTIATE (`\xFFSMB`,
   command `0x72`, dialect strings `NT LM 0.12`, `SMB 2.002`, `SMB 2.???`), and the first cut of
   this server dropped it as not-SMB2, which presented as every real mount timing out while the
   test suite stayed green (the suite's prober politely opened with SMB2). The fix is [MS-SMB2]
   §3.3.5.3.1: answer the probe with an SMB2 NEGOTIATE response carrying the wildcard revision
   `0x02FF`, after which the client negotiates properly. The captured bytes are pinned as a host
-  test in `smb_proto::server`, so the message a real client actually sends is now part of the
+  test in `smb_proto::server`, so the message a real client sends is now part of the
   gate. An SMB1-only client (no SMB2 dialect strings) is still dropped.
 
 ## The Apple half: the `AAPL` create context (milestone 55, 2026-08-17)
 
-macOS mounts a plain SMB2 share and **never offers one as a Time Machine destination**. What it
+macOS mounts a plain SMB2 share and never offers one as a Time Machine destination. What it
 looks for is a create context: it hangs an `AAPL`-tagged blob off the first CREATE of a tree
 connect and reads the server's answering context off the response. That is the whole of
 `fruit:aapl = yes` on the reference implementation, and it is the first line of the working
@@ -367,16 +367,16 @@ configuration design/roadmap/55-time-machine.md records.
 
 Two modules, because they are two things:
 
-- **`crates/smb_proto/src/create_context.rs`** is the chain ([MS-SMB2] §2.2.13.2): generic, and
-  reusable because a real macOS CREATE also carries `DHnQ` (durable handle), `MxAc` (maximal
+- `crates/smb_proto/src/create_context.rs` is the chain ([MS-SMB2] §2 (primary).2.13.2): generic, and
+  reusable because a real macOS CREATE carries `DHnQ` (durable handle), `MxAc` (maximal
   access), `QFid` (on-disk id) and `RqLs` (lease), and the server has to walk past them to find
   the one it answers.
-- **`crates/smb_proto/src/apple.rs`** is what the `AAPL` tag means. There is **no public
-  specification**: [MS-SMB2] defines the container and says nothing about this tag, so the layout
+- `crates/smb_proto/src/apple.rs` is what the `AAPL` tag means. There is no public
+  specification: [MS-SMB2] defines the container and says nothing about this tag, so the layout
   is the one Samba's `vfs_fruit` puts on the wire and macOS has been talking to for a decade. That
   file says so at the top, and every constant in it is there because the reference emits it.
 
-**What this server claims, and it is the expensive half**, because a claim is something a client
+What this server claims, and it is the expensive half, because a claim is something a client
 acts on:
 
 | word | set | left clear, and why |
@@ -385,43 +385,43 @@ acts on:
 | volume capabilities | **`FULL_SYNC`** | `CASE_SENSITIVE` would be untrue in the other direction: the backing filesystem is case-sensitive but this server folds every name to lower case at the wire, so what a client can observe is a share that is not. `RESOLVE_ID` would promise resolving a file by an on-disk id nothing here mints |
 | model | `TimeCapsule` | matching `fruit:model = TimeCapsule`. **Not** the `_device-info` mDNS model, which the reference sets to `MacSamba`; notes/mdns.md's capture found the working reference running with the two disagreeing, so they are two knobs and not one |
 
-**`FULL_SYNC` is `fruit:time machine = yes`**, and it is the single bit on the SMB side that makes
+`FULL_SYNC` is `fruit:time machine = yes`, and it is the single bit on the SMB side that makes
 macOS willing to hold a backup here.
 
-**It was claimed further than the stack backed it, and as of 2026-08-18 it is not.** The gap is
+It was claimed further than the stack backed it, and as of 2026-08-18 it is not. The gap is
 worth keeping on the record rather than quietly deleting, because it is the shape of mistake this
 project is most exposed to: two layers, one of them genuinely covered, and a claim written against
 the covered one.
 
-- **Always true**: the FS server puts every `fs_proto` write through one RedoxFS transaction that
+- Always true: the FS server puts every `fs_proto` write through one RedoxFS transaction that
   commits to the header ring *before* the reply. There is no write-back cache above the block
   device for a flush to push, so SMB2's `FLUSH` has nothing to do at that layer.
-- **Was not true until milestone 55's durability half**: the block server issued no
+- Was not true until milestone 55's durability half: the block server issued no
   `VIRTIO_BLK_T_FLUSH`, so the durability of the last acknowledged write was the device's word
   rather than ours. A host that lost power could lose a write this server had acknowledged, and
   nothing in the stack was even asking the device about it.
 
-**What closed it**, and it is two new opcodes on two contracts:
+What closed it, and it is two new opcodes on two contracts:
 
 | contract | opcode | what it does |
 |---|---|---|
 | `fs_proto::blk` | `FLUSH` (4) | the block server issues `VIRTIO_BLK_T_FLUSH` and waits for the device's completion. `EOPNOTSUPP` if the device never offered `VIRTIO_BLK_F_FLUSH`, so a device with no flush is a loud refusal rather than a quiet success |
 | `fs_proto::fs` | `SYNC` (19) | the file-service verb behind SMB2's `FLUSH`. Any handle the server minted, `dir::WRITE` required, refused with `EROFS` |
 
-Both answer with a **count of completed device flushes** rather than a zero, which is what makes
+Both answer with a count of completed device flushes rather than a zero, which is what makes
 the gate falsifiable: two syncs that return the same number mean the second never reached the
 device. See `fs_proto::fs::SYNC` for the full argument, including why the rights are write-side and
 why the `EOPNOTSUPP` travels to the client unmapped.
 
-The honest sentence now: **after a successful `FLUSH`, every write this server acknowledged is on
-the medium the device calls durable.** What "durable" means is still the device's definition, and a
+The honest sentence now: after a successful `FLUSH`, every write this server acknowledged is on
+the medium the device calls durable. What "durable" means is still the device's definition, and a
 device that lies about its own flush is outside anything a protocol can check.
 
 ## Throughput: the 64 KiB transfer, and where the rest of it went (milestone 55, 2026-08-19)
 
 Milestone 138 step 3 grew the file contract's transfer from one page to sixteen and measured
-**8.02x on a sequential write and 5.67x on a sequential read**, against `fs_proto`, by a client that
-speaks that contract directly. **None of it reached a mounted share**, and this section is what that
+8.02x on a sequential write and 5.67x on a sequential read, against `fs_proto`, by a client that
+speaks that contract directly. None of it reached a mounted share, and this section is what that
 cost and what fixing it bought.
 
 ### What was in the way
@@ -435,14 +435,14 @@ let chunk = (data.len() - done).min(fs_proto::PAGE);    // write
 ```
 
 So a Mac writing 64 KiB, which is exactly what it writes because 64 KiB is the `MaxWriteSize` this
-server negotiates, arrived at the store as **sixteen separate 4 KiB writes**, each paying the
+server negotiates, arrived at the store as sixteen separate 4 KiB writes, each paying the
 per-request fixed term milestone 138 step 1 measured at 87% of a 4 KiB write. The contract had
 permitted a bigger request since step 3; this program had not asked for one.
 
 The fix is two `min`s and a mapping. Both clamps read `fs::TRANSFER_MAX` from the contract rather
 than a number of their own, so a future change to `fs::TRANSFER_PAGES` reaches this program without
 anyone editing it, and the kernel wiring maps all sixteen pages at `FS_VA` because
-**nothing checks that a client asked for no more than it mapped** (that constant's marked foot gun).
+nothing checks that a client asked for no more than it mapped (that constant's marked foot gun).
 The other three places this program uses `fs_proto::PAGE` are untouched and must stay so: a name, a
 `READDIR` page, a `statfs` record and a rename's two names are lengths the *server* chooses, and
 step 3's serve loop clamps those to one page precisely so they cannot land in a client's unmapped
@@ -459,7 +459,7 @@ host process, over the forwarded TCP connection, writing 1 MiB and reading it ba
 | write | 0.065 MiB/s | **0.31** | **4.8x** | 8.02x |
 | read | 0.15 MiB/s | **0.36** | **2.4x** | 5.67x |
 
-**So most of the write speedup reached the customer path and about half the read speedup did.** The
+So most of the write speedup reached the customer path and about half the read speedup did. The
 raw rows are 0.07/0.06 and 0.31/0.31 for writes, 0.18/0.12 and 0.36/0.36 for reads. The machine was
 not quiet (load 4.8 to 15.8), and the interesting thing about that is how little it mattered at 16
 pages: two rounds nine load-points apart agree to the last digit in both directions, because this
@@ -468,9 +468,9 @@ the ratios above are taken from the means.
 
 ### Where the rest went, and it is one number in a different contract
 
-**The socket contract chunks at 4080 bytes.** `socket_protocol::DATA_MAX` is `4096 - OFF_PAYLOAD`,
+The socket contract chunks at 4080 bytes. `socket_protocol::DATA_MAX` is `4096 - OFF_PAYLOAD`,
 because a client and `net_stack` share exactly one frame, so `send_all` and `recv_into` in
-`smb_server` cross that contract about **seventeen times in each direction per 64 KiB SMB message**.
+`smb_server` cross that contract about seventeen times in each direction per 64 KiB SMB message.
 That did not change and is now what a transfer costs: a 64 KiB write went from ~985 ms to ~206 ms
 per message, and what remains is not the filesystem.
 
@@ -478,7 +478,7 @@ It is the same defect as milestone 138 step 3's, one contract over, with the sam
 already demonstrated: the region is one page because nobody declared it otherwise, and the wire
 already carries a length. See the BUGS entry below, which is where the promotion trigger sits.
 
-**And SMB's own ceiling is 64 KiB**, so raising `fs::TRANSFER_PAGES` past 16 buys this path nothing.
+And SMB's own ceiling is 64 KiB, so raising `fs::TRANSFER_PAGES` past 16 buys this path nothing.
 `smb_proto::MAX_TRANSACT` is the one value this server answers for `MaxTransactSize`, `MaxReadSize`
 and `MaxWriteSize`, and no client asks for more than it is told. Any future transfer-size work that
 means to help a mounted share has to raise both numbers, and the reason 64 KiB is what
@@ -486,24 +486,24 @@ means to help a mounted share has to raise both numbers, and the reason 64 KiB i
 
 ### What that is worth to a backup, stated at the depth each number was measured
 
-**The write path alone**: a 100 GiB first backup was **17.6 hours** of sequential writing at the
-1.62 MiB/s the record-level sweep measured, and is **40 minutes** at step 3's 42.77 MiB/s. That is
+The write path alone: a 100 GiB first backup was 17.6 hours of sequential writing at the
+1.62 MiB/s the record-level sweep measured, and is 40 minutes at step 3's 42.77 MiB/s. That is
 `fs_proto`'s number in the release benchmark harness, and this milestone is what puts a Mac's bytes
 on it rather than on sixteen 4 KiB requests.
 
-**End to end, no hours figure is offered**, and refusing to give one is the honest result. The table
+End to end, no hours figure is offered, and refusing to give one is the honest result. The table
 above is a debug build under QEMU with user-mode networking, which is the wrong instrument for a
-wall clock; what transfers from it is the **ratio**, not the rate. The rate a customer will see needs
+wall clock; what transfers from it is the ratio, not the rate. The rate a customer will see needs
 the same measurement on the hardware, and until then this section says a Mac's backup got about five
 times faster to write and about twice as fast to read, and does not say how long one takes.
 
 ## How it is tested
 
-1. **Host tests** (`cargo test -p smb_proto`): the state machine driven through a full client
+1. Host tests (`cargo test -p smb_proto`): the state machine driven through a full client
    session, the compound path, the read-only refusals with their statuses, the listing walk,
    SPNEGO round trips, and the transport framing.
 
-   **Identity's nine are in there too**, against a `#[cfg(test)]` authenticator that holds the
+   Identity's nine are in there too, against a `#[cfg(test)]` authenticator that holds the
    password (which is the *credential service's* position, and the one the SMB server is never in).
    Two of them are the ones that would go green on a decorative implementation and so are worth
    naming: an anonymous AUTHENTICATE must be refused by a share with an authenticator, and a refused
@@ -511,30 +511,30 @@ times faster to write and about twice as fast to read, and does not say how long
    guest label being clear on a proven session and set on an unproven one, a retry succeeding on the
    same connection after a refusal, a captured proof failing against the next connection's challenge,
    a proof derived over a different domain failing, and `LOGOFF` forgetting that anybody was named.
-2. **The QEMU gate**, both ISAs, and it now proves bytes crossing in **both** directions with a
+2. The QEMU gate, both ISAs, and it now proves bytes crossing in both directions with a
    different process witnessing each. The read leg asserts a file `fs_test_client`'s seed role
    put on the filesystem; the write leg has xtask's prober create a file over SMB2, write it in
    two chunks at two offsets plus a tail, cut the tail off with `SET_INFO`, stamp its timestamps
-   and close, and then **deliberately not read it back**. A second in-guest process
+   and close, and then deliberately not read it back. A second in-guest process
    (`fs_test_client`'s verify role, holding a directory capability and nothing that names the
    network) reads it through the FS server after the adapter has stopped serving, and reports a
    classification: exact, absent, wrong size (the truncate leg), or wrong bytes (an offset or
    chunking bug). A prober that read back its own write would prove only that the adapter
    remembers, which an adapter can do with no filesystem under it at all.
 
-   **The subdirectory leg is the same discipline one level up** and is the one check the prober
+   The subdirectory leg is the same discipline one level up and is the one check the prober
    genuinely cannot make for itself. It makes a directory over the wire with `FILE_DIRECTORY_FILE`,
    writes a file inside it by its full path, and lists the directory back (a listing is a fact about
    the server's own view, so a leaf shown as a full path is a bug this side *can* see). What it
-   cannot see is whether a **directory** reached RedoxFS: a share that ignored the separator would
+   cannot see is whether a directory reached RedoxFS: a share that ignored the separator would
    create a file literally called `tm_bands\band0` in the share root, and that is indistinguishable
    from success on the wire. The verify role descends with `fs::OPENDIR` and reports
    `DIR_IS_A_FILE` when the answer is `ENOTDIR`, which is exactly that failure named.
 
-   The prober also asserts `FileFsFullSizeInformation` is **not** the nominal constant, which is the
+   The prober asserts `FileFsFullSizeInformation` is not the nominal constant, which is the
    `STATFS` half arriving where Time Machine will read it.
 
-   **The Apple leg rides the first CREATE**, because that is where a Mac puts it: the prober's open
+   The Apple leg rides the first CREATE, because that is where a Mac puts it: the prober's open
    of the seeded file carries the `AAPL` context, and the same response that has to report the
    file's real size has to carry the answering context. What that proves over a host test is the
    whole adapter: the context had to be chunked out through the socket contract, reassembled by a
@@ -542,42 +542,42 @@ times faster to write and about twice as fast to read, and does not say how long
    The prober names each claim separately, so a bit that goes missing says which one it was rather
    than "the bytes differ".
 
-   **The identity leg is three AUTHENTICATE messages down one connection**, in the order that makes
+   The identity leg is three AUTHENTICATE messages down one connection, in the order that makes
    each one mean something: an anonymous login (which is what this prober itself sent until identity
    landed, and what the guest used to admit) refused, a real proof with one bit flipped refused, and
-   the real thing accepted and **not** flagged guest. After each refusal it tries a `TREE_CONNECT`
+   the real thing accepted and not flagged guest. After each refusal it tries a `TREE_CONNECT`
    and requires `STATUS_USER_SESSION_DELETED`, because a refusal that only changes a status word is
    not a gate.
 
-   What that arrangement proves, and no unit test could: **the password exists only on the host.**
+   What that arrangement proves, and no unit test could: the password exists only on the host.
    Inside the guest it exists only as an `NTOWFv2` inside a sealed credential store held by a process
    with no network; the adapter that answers the exchange holds one endpoint to that store and cannot
    compute any of the three proofs; the bytes it then serves come from a third process that holds no
    network either. Four processes, four authorities, one `ls`. And the kernel closes it from the
-   outside: `assert_smb_held_no_key` reads the frame the adapter and the store share **through the
-   direct map**, which no userspace program could do, and requires the published `NTOWFv2`, the
+   outside: `assert_smb_held_no_key` reads the frame the adapter and the store share through the
+   direct map, which no userspace program could do, and requires the published `NTOWFv2`, the
    published `SessionBaseKey`, and every other nonzero byte to be absent. That is the check the
    adapter could not make about itself, and it is what turns milestone 65's
    `an_smb_server_authenticates_a_session_without_ever_holding_the_key` from a claim about a
    stand-in into a claim about the real SMB server.
 
    The adapter rides the milestone-107 inbound test's spawn
-   (`a_host_process_connects_to_the_guest_and_is_answered`) as a **second client of the same
-   `Stack` endpoint**, because a second `net_stack` does not fit the test boot (its 192-page
+   (`a_host_process_connects_to_the_guest_and_is_answered`) as a second client of the same
+   `Stack` endpoint, because a second `net_stack` does not fit the test boot (its 192-page
    region is never reclaimed; see `virtio::MAX_DEVICES` for the recorded failure). The test
    wires the FS service, seeds the gate's file through it, grants the adapter the directory
-   capability, **and hands it the credential service's verify endpoint** (the same sealed store the
+   capability, and hands it the credential service's verify endpoint (the same sealed store the
    milestone-56 tests use, latched once per boot); the runner adds a second `hostfwd` (on an
    SMB-specific host-forward environment variable, removed with the runners' SMB block) and xtask's
    SMB prober performs the mount-shaped exchange end to end
    (asserting the seeded file's bytes) while the echo prober runs beside it. Both verdicts gate.
    This is the first boot that holds the block server, the FS server, `net_stack`, the SMB adapter
-   **and the credentialer** at once, so the test prints the free-frame count where it wires them;
+   and the credentialer at once, so the test prints the free-frame count where it wires them;
    the day the budget stops fitting, the number is already in the transcript.
 
 ## EXAMPLES
 
-**None of these commands exist any more.** They are kept because what they *were* is part of the
+None of these commands exist any more. They are kept because what they *were* is part of the
 record: this is what running the thing looked like, and the second one is the only place the mount
 instructions a real Mac was given were ever written down.
 
@@ -587,7 +587,7 @@ cargo xtask smb-serve     # booted the kernel under QEMU, SMB forwarded to 127.0
 ```
 
 With `smb-serve` running, the Mac side was either Finder's Go > Connect to Server (Cmd-K) at
-`smb://127.0.0.1:10445/share`, choosing **Guest**, or:
+`smb://127.0.0.1:10445/share`, choosing Guest, or:
 
 ```sh
 mkdir /tmp/nife-share && mount_smbfs -N //GUEST@127.0.0.1:10445/share /tmp/nife-share
@@ -597,7 +597,7 @@ The share was the RedoxFS image and it was read-write, so `cat /tmp/nife-share/m
 had come off a virtual block device, through the block server, the FS server and the SMB adapter,
 over this kernel's own TCP stack. That sentence is the demonstration this note exists to preserve.
 
-**To read the code**, check out `685900ec`, the last commit that holds it:
+To read the code, check out `685900ec`, the last commit that holds it:
 
 ```sh
 git show 685900ec:user/src/smb_server.rs
@@ -613,12 +613,12 @@ last attempt knew it had not solved, written while the code was in front of some
 - **A 64 KiB SMB message still crosses the socket contract seventeen times in each direction.**
   `socket_protocol::DATA_MAX` is 4080 bytes, because a client and `net_stack` share one frame, so
   `smb_server`'s `send_all` and `recv_into` chunk every message through it. Since milestone 55 put
-  the file transfer at 64 KiB, this is **the dominant cost of a transfer**: an SMB write went from
+  the file transfer at 64 KiB, this is the dominant cost of a transfer: an SMB write went from
   ~985 ms to ~206 ms per 64 KiB message and the filesystem is no longer what is left. It is
   milestone 138 step 3's defect one contract over, and its fix is demonstrated: the shared region is
   one page because nobody declared it otherwise, `socket_protocol`'s request word already carries a
-  length, and growing the region is the whole change. **Promotion trigger (§71): this becomes a
-  roadmap row the moment anyone measures the SMB path on hardware**, because it is the number that
+  length, and growing the region is the whole change. Promotion trigger (§71 (limitation promoted)): this becomes a
+  roadmap row the moment anyone measures the SMB path on hardware, because it is the number that
   will be in the way there and this entry is the evidence that it is known rather than discovered.
   Nothing has been sized: a socket frame is per socket where the file channel is per FS server, so
   the memory question is a real one and is not answered here.
@@ -633,7 +633,7 @@ last attempt knew it had not solved, written while the code was in front of some
   (answered `STATUS_NOT_SUPPORTED`; clients degrade to polling) and possibly more `QUERY_INFO`
   classes. Non-guest accounts are untested and would meet signing expectations; connect as Guest.
 - **Guest means everyone.** Every AUTHENTICATE is accepted. Do not put anything on the share the
-  local network may not read. There is also no rate limiting and no credit accounting.
+  local network may not read. There is no rate limiting and no credit accounting.
 - **No Mac has seen the `AAPL` answer.** The context is gated by host tests and by the QEMU prober,
   and the prober is a client this tree wrote against the same constants the server answers with, so
   it agrees by construction. Whether macOS's `smbfs` accepts these bytes, and whether the Time
@@ -643,21 +643,21 @@ last attempt knew it had not solved, written while the code was in front of some
   flushed (see the Apple section), so the entry that used to sit here is closed. What remains:
   **the sync is device-wide, never per file.** A client that flushes one handle makes the whole
   image durable, which is more work than it asked for and is the only thing anything below here
-  can do. And **nothing fences**: there is no ordering primitive on `fs_proto`, so a client issuing
+  can do. And nothing fences: there is no ordering primitive on `fs_proto`, so a client issuing
   a write and a flush concurrently gets no guarantee between them. A backup client's own sequence
   is write-then-flush, which is why this has not needed one.
 - **Apple metadata is not implemented at all.** No alternate data streams, so no `AFP_AfpInfo` and
   no `AFP_Resource`: Finder labels, resource forks and the extended-listing capability
   (`READ_DIR_ATTR`, deliberately not claimed) all rest on that surface. The layer under them is not
   missing: milestone 57 added the four extended-attribute verbs to `fs_proto`, ops 14-17. What does
-  not exist is the **SMB** half, which is a stream name in a CREATE path, `FileStreamInformation`
+  not exist is the SMB half, which is a stream name in a CREATE path, `FileStreamInformation`
   in `QUERY_INFO`, and
   `FILE_NAMED_STREAMS` in the volume attributes. The stream-versus-sidecar decision milestone 55's
   block frames is therefore still open, and it is now a smaller question than that block assumed:
-  the layer that was missing when it was written is not missing any more. **The decision is §99 and
-  is waiting on calef**, with two findings a reader of this entry should have. Time Machine does not
+  the layer that was missing when it was written is not missing any more. The decision is §99 (where Apple's) and
+  is waiting on calef, with two findings a reader of this entry should have. Time Machine does not
   use this surface at all: a backup is a sparse bundle, which is directories and band files with no
-  extended attributes and no forks. And **the sidecar half is already working**, because macOS's own
+  extended attributes and no forks. And the sidecar half is already working, because macOS's own
   VFS falls back to `._name` files when a server does not claim `FILE_NAMED_STREAMS`, which this one
   does not; the files land on the image as ordinary bytes. So "not implemented at all" is true of the
   stream surface and false of the metadata reaching the disk.
@@ -667,7 +667,7 @@ last attempt knew it had not solved, written while the code was in front of some
   way to say no. So a client that asked for a rename to fail on a collision gets a silent
   overwrite, which is the wrong direction to fail in.
 
-  **Corrected 2026-08-22: not a fix this layer can answer, and not simply "add `NOREPLACE` to
+  **Corrected 2026-08-22: not a fix this layer can answer, and not "add `NOREPLACE` to
   `fs_proto`" either.** §42 (design/decisions/42-truthful-filesystem.md) already decided not to
   offer `renameat2`'s `NOREPLACE`, and its stated reason is that emulating it with link-then-unlink
   is racy and backend-specific. That reason does not describe this backend. `redoxfs_server::rename`
@@ -684,7 +684,7 @@ last attempt knew it had not solved, written while the code was in front of some
   agree on (`fs_proto::fs::RENAME`), so it needs a decision that amends or narrows §42, which is
   an architect's call and not a lane's; see design/roadmap/55-time-machine.md for the writeup.
 
-- **The demo boot still admits guests, so the thing a person actually runs is still open to
+- **The demo boot still admits guests, so the thing a person runs is still open to
   everyone who can reach the port.** `--features smb_serve` wires `SHARE_FS_READ_WRITE`, not
   `SHARE_FS_AUTHENTICATED`, and its banner says so. The reason is not laziness and not a flag: there
   is no way to *tell* that boot a password. The only thing in the tree that provisions the credential
@@ -697,7 +697,7 @@ last attempt knew it had not solved, written while the code was in front of some
   Machine (one share per Mac) and it is a real limit on anything else.
 - **The adapter's resource name is a constant naming a test fixture**, in
   `smb_server::CredentialAuthenticator::resource`. The right fix is not a configuration string, it is
-  a **narrower capability**: a request that names its resource is the adapter choosing which record to
+  a narrower capability: a request that names its resource is the adapter choosing which record to
   ask about, which is one authority more than it needs, and the endpoint should *be* the credential
   for one resource so the name is implied and unforgeable. That is DECISIONS §27's argument applied
   to `cred_proto`, and it is a change to a contract two programs agree on.
@@ -727,7 +727,7 @@ last attempt knew it had not solved, written while the code was in front of some
 - **Free space is a forecast, not a reservation.** The numbers are the image's now, but two clients
   writing concurrently both see a count that was true when it was read, and a write past the real
   end still fails with `STATUS_DISK_FULL` at the write. That is what `statfs` is everywhere.
-  `STATFS` also answers about the **whole image**, never about a subtree, so a share served over a
+  `STATFS` answers about the whole image, never about a subtree, so a share served over a
   narrow directory capability still reports the volume's free space; there are no quotas in this
   filesystem, so there is no smaller number that would be true.
 - **A directory moved into another directory is refused, and the status is unhelpful.**
@@ -766,9 +766,9 @@ last attempt knew it had not solved, written while the code was in front of some
 - **All timestamps are zero** (the server holds no clock capability, and fs_proto's FSTAT does
   not carry times), which macOS renders as January 1601 or similar nonsense dates. Cosmetic, and
   honest: nothing here has a date to report.
-- **ASCII names only.** A name with any non-ASCII UTF-16 unit is simply not found.
+- **ASCII names only.** A name with any non-ASCII UTF-16 unit is not found.
 - **A dropped connection costs a 15 s stall** before the listener re-arms (`net_stack`'s bounded
-  `RECV` wait). A clean unmount (LOGOFF) costs nothing. One connection is served at a time.
+  `RECEIVE` wait). A clean unmount (LOGOFF) costs nothing. One connection is served at a time.
 - **The test-boot listener is port 7779, not 445**, because it shares the inbound gate's listen
   grant range and `hostfwd` remaps ports anyway; the serve boot listens on 445 proper.
 - `smb-serve` binds `127.0.0.1:10445` fixed, so two serve boots on one machine collide; the test
@@ -776,23 +776,23 @@ last attempt knew it had not solved, written while the code was in front of some
 
 ## What remains for milestone 54 and beyond, in order
 
-1. ~~The fs_proto-backed share~~ **Done** (2026-08-15): `smb_server::FsShare`, gated on both
+1. ~~The fs_proto-backed share~~ Done (2026-08-15): `smb_server::FsShare`, gated on both
    ISAs by the seeded-file exchange above. Milestone 47's rights split (a directory capability
    that may write backups but not delete them) becomes expressible the moment writes exist.
-2. ~~The write path~~ **Done** (2026-08-16): `WRITE`, all six create dispositions,
+2. ~~The write path~~ Done (2026-08-16): `WRITE`, all six create dispositions,
    `SET_INFO`'s end-of-file, rename, disposition and basic classes, delete-on-close, the `Share`
-   trait's widening **and** its error channel, and the handle cache (the id is the FS server's
+   trait's widening and its error channel, and the handle cache (the id is the FS server's
    handle). Gated on both ISAs by a write the guest reads back through the FS server in a
    different process. Milestone 47's rights split is now expressible end to end: a directory
    capability carrying `WRITE | CREATE` and not `REMOVE` gives a share that takes backups and
    destroys nothing, and the FS server enforces it under an adapter that never sees the mask.
-3. ~~A `statfs` verb for `fs_proto`~~ **Done** (2026-08-16): `fs::STATFS`, op 18, and the SMB
+3. ~~A `statfs` verb for `fs_proto`~~ Done (2026-08-16): `fs::STATFS`, op 18, and the SMB
    volume classes report the image's real numbers through it. The wire decisions are in the
    section above and in pull request #255.
-4. ~~Subdirectories~~ **Done** (2026-08-16): `smb_proto::path`, the `Share` seam's directory ids
+4. ~~Subdirectories~~ Done (2026-08-16): `smb_proto::path`, the `Share` seam's directory ids
    and its `mkdir`/`rmdir`/`open_dir` verbs, and the adapter's per-component walk. Gated on both
    ISAs by a directory the host makes over SMB2 and a different in-guest process descends into.
-5. ~~`fruit:posix_rename`~~ **Already true, checked 2026-08-17 rather than built.** The two
+5. ~~`fruit:posix_rename`~~ Already true, checked 2026-08-17 rather than built. The two
    behaviours Samba's `fruit:posix_rename` switches on are renaming onto an existing name and
    renaming a file that is open. The first is `fs_proto::fs::RENAME`'s documented semantics
    already ("if the destination name exists it is replaced, provided it is the same kind"). The
@@ -802,10 +802,10 @@ last attempt knew it had not solved, written while the code was in front of some
    real gap next door is `ReplaceIfExists` in the BUGS section above.
 
 6. **Identity**: the NTLMSSP proof check against milestone 65's `credentialer` service, so a share can
-   be more than guest-readable. The seam is marked in `smb_proto::ntlmssp`. **Writes raised the
-   stakes**: guest means everyone, and on a writable share that means everyone may change it.
+   be more than guest-readable. The seam is marked in `smb_proto::ntlmssp`. Writes raised the
+   stakes: guest means everyone, and on a writable share that means everyone may change it.
 
-5. ~~Identity~~ **Done** (2026-08-17): `smb_proto::authenticator`, the AUTHENTICATE parse in
+5. ~~Identity~~ Done (2026-08-17): `smb_proto::authenticator`, the AUTHENTICATE parse in
    `smb_proto::ntlmssp`, and `smb_server::CredentialAuthenticator` over milestone 65's verify
    endpoint. Gated on both ISAs by a host process computing a real NTLMv2 proof over the guest's own
    challenge, with the two refusals asserted beside it and the kernel checking the frame afterwards.
@@ -814,7 +814,7 @@ last attempt knew it had not solved, written while the code was in front of some
 ## What remains after milestone 54, in order
 
 1. **A provisioning path**, and it is the one that matters, because until it exists the boot a person
-   actually runs (`smb-serve`) admits guests to a writable share. Nothing in the tree can tell a
+   runs (`smb-serve`) admits guests to a writable share. Nothing in the tree can tell a
    running system a password: the only provisioner is a test program with a published fixture in it.
    That is milestone 56's shape (design/roadmap/56-secrets-and-entropy.md), and identity landing has
    made it the head of this path rather than a supporting item.

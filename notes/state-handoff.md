@@ -32,7 +32,7 @@ device: map the page into the incumbent, revoke it, map it into the replacement.
 `revoke_page_frame_run`): it deletes the invoker's capability too, because frame revocation exists to
 make reclamation safe. Only a `DeviceFrame` revoke spares the invoker. So the page is mapped into
 every instance at build time, like the witness page, and exclusivity comes from sequencing rather
-than from revocation. The incumbent writes the blob inside its `OP_QUIESCE` handler, before the
+than from revocation. The incumbent writes the blob inside its `OPERATION_QUIESCE` handler, before the
 reply, and then blocks on its control endpoint. The replacement is started after that reply and
 reads the blob first. `Plan::handoff`'s doc comment carries this. It is the reason `configure`
 consuming the address-space capability did not matter either: nothing is installed after build.
@@ -111,7 +111,7 @@ the detection half of the non-cooperative fallback (notes/non-cooperative-fallba
 here answers it.
 
 A hung incumbent cannot serialise. §209 says so and this does not change it: the blob is written
-inside the incumbent's `OP_QUIESCE` handler, so handoff recovers a planned swap and not the failure
+inside the incumbent's `OPERATION_QUIESCE` handler, so handoff recovers a planned swap and not the failure
 it is most wanted for.
 
 The handoff page stays writable in the outgoing instance until it exits. Revocation cannot take
