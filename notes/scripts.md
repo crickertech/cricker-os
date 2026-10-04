@@ -209,10 +209,8 @@ An existing clone installs it by rerunning `script/setup`, or by hand with the c
 ### BUGS
 
 - The hook is opt-in per clone. A contributor who never runs `script/setup` never has it, and
-  nothing detects that; the gate in CI stays the authority, which is the correct direction for
-  this to be wrong in.
-- It checks the whole tree, not the pushed range. Cheap enough at this size that the
-  precision is not worth the complexity, and a tree that is unformatted anywhere fails CI anyway.
+  nothing detects that; CI stays the authority.
+- It checks the whole tree, not the pushed range. A tree unformatted anywhere fails CI anyway.
 - Clippy and the checks that call cargo wait for CI (`script/lint --no-cargo --list` names them).
 
 ## Two test images per architecture, and where a new test goes
