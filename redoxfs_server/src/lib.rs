@@ -67,6 +67,13 @@ use filesystem_protocol::dir::{self, Rights};
 use filesystem_protocol::xattr;
 use redoxfs::{Disk, FileSystem, Node, Transaction, TreePtr};
 use subtree_scope::Kind;
+/// **The engine's error type, for a host caller that implements [`redoxfs::Disk`]** (a fuzz target's
+/// in-memory disk). Re-exported so such a caller spells it through this crate rather than naming
+/// `redox_syscall` itself; it is the type every [`Server`] method returns. Host-only, because
+/// nothing in the EL0 build implements a `Disk` from outside. Name: provisional
+/// (`lane/fuzz-service-handlers`, 2026-10-04 UTC).
+#[cfg(feature = "hosttest")]
+pub use syscall::error as engine_error;
 use syscall::error::{
     EBADF, EEXIST, EFBIG, EINVAL, EIO, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, EROFS, Error,
     Result,

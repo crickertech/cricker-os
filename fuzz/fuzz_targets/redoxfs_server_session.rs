@@ -36,8 +36,8 @@ use filesystem_protocol::{dir, fs, xattr};
 use libfuzzer_sys::arbitrary::{Result as ArbResult, Unstructured};
 use libfuzzer_sys::fuzz_target;
 use redoxfs::{BLOCK_SIZE, Disk, FileSystem, Node, TreePtr};
+use redoxfs_server::engine_error::{EIO, Error, Result};
 use redoxfs_server::{ServeEdges, Server};
-use syscall::error::{EIO, Error, Result};
 
 const BLOCK: usize = BLOCK_SIZE as usize;
 /// The image size. RedoxFS's own minimum is well under this; it matches the proposal's measurement.

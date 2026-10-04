@@ -309,7 +309,6 @@ dependencies = [
  "libfuzzer-sys",
  "nifefs",
  "package_archive",
- "redox_syscall",
  "redoxfs",
  "redoxfs_server",
  "system_log",
