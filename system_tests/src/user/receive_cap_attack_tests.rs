@@ -628,3 +628,181 @@ fn a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_
         "reaping the second corpse's region failed",
     );
 }
+
+/// The five words a plain `RECEIVE` returned, and how many slots its thread held before and after.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct PlainReceipt {
+    words: [u64; 5],
+    held_before: usize,
+    held_after: usize,
+}
+
+/// **Run one plain `RECEIVE` against one sender, in the order asked for**, and report what the
+/// receiver saw. `send` is the sender's whole body; it runs on a thread of its own either way, so a
+/// sender the kernel never releases is a timeout here rather than a hung test thread.
+///
+/// Receiver-first: a spawned receiver parks, then the sender runs and meets it (the sender's own
+/// rendezvous arm, `ipc_send_cap`'s or `ipc_call_badged`'s). Sender-first: the sender parks, then
+/// this thread receives and collects it (`ipc_receive`'s `FromSender` arm).
+fn plain_receive_against(
+    ep: sched::RendezvousId,
+    receiver_first: bool,
+    send: fn(sched::RendezvousId),
+) -> PlainReceipt {
+    static WORDS: [AtomicU64; 5] = [const { AtomicU64::new(0) }; 5];
+    static HELD_BEFORE: AtomicU64 = AtomicU64::new(0);
+    static HELD_AFTER: AtomicU64 = AtomicU64::new(0);
+    static PARKING: AtomicBool = AtomicBool::new(false);
+    static RECEIVED: AtomicBool = AtomicBool::new(false);
+    static SENDING: AtomicBool = AtomicBool::new(false);
+    PARKING.store(false, Ordering::SeqCst);
+    RECEIVED.store(false, Ordering::SeqCst);
+    SENDING.store(false, Ordering::SeqCst);
+
+    fn receive(ep: sched::RendezvousId) {
+        HELD_BEFORE.store(held() as u64, Ordering::SeqCst);
+        PARKING.store(true, Ordering::SeqCst);
+        let words = sched::ipc_receive(ep);
+        for (w, v) in WORDS.iter().zip(words) {
+            w.store(v, Ordering::SeqCst);
+        }
+        HELD_AFTER.store(held() as u64, Ordering::SeqCst);
+        RECEIVED.store(true, Ordering::SeqCst);
+    }
+    let sender = move || {
+        SENDING.store(true, Ordering::SeqCst);
+        send(ep);
+    };
+
+    if receiver_first {
+        sched::spawn(move || receive(ep)).expect("no receiver thread");
+        assert!(
+            wait_for(
+                || PARKING.load(Ordering::SeqCst) && sched::rendezvous_waiting_receivers(ep) == 1
+            ),
+            "the receiver never parked in plain RECEIVE, so nothing proved the receiver-first order",
+        );
+        sched::spawn(sender).expect("no sender thread");
+    } else {
+        sched::spawn(sender).expect("no sender thread");
+        assert!(
+            wait_for(
+                || SENDING.load(Ordering::SeqCst) && sched::rendezvous_waiting_senders(ep) == 1
+            ),
+            "the sender never parked, so nothing proved the sender-first order",
+        );
+        receive(ep);
+    }
+    assert!(
+        wait_for(|| RECEIVED.load(Ordering::SeqCst)),
+        "the plain RECEIVE never returned (receiver_first = {receiver_first})",
+    );
+    PlainReceipt {
+        words: core::array::from_fn(|i| WORDS[i].load(Ordering::SeqCst)),
+        held_before: HELD_BEFORE.load(Ordering::SeqCst) as usize,
+        held_after: HELD_AFTER.load(Ordering::SeqCst) as usize,
+    }
+}
+
+/// **A `SEND_CAP` reaching a plain `RECEIVE` delivers its data word and no capability, whichever
+/// side parks first** (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number;
+/// calef's ruling A of 2026-10-04 UTC, fatal risk 7).
+///
+/// Before the ruling the answer depended on arrival order. Sender-first, `ipc_receive` dropped the
+/// staged delegation (milestone 633 (an outside agent attacks the confinement claim)). Receiver-first, `ipc_send_cap` installed it in the receiver's
+/// table and put the slot in `x1`, so a server that drains a child's output with plain `RECEIVE`
+/// and never reads `x1` (swish, `wc`, `mdr`, the terminal sink) lost one of its 32 slots per
+/// delegation, for good. The two orders must now return the same five words, and the receiver must
+/// end holding exactly what it held.
+///
+/// Falsification: replayable `system_tests/falsifications/user.receive_cap_attack_tests.a_send_cap_to_a_plain_receive_installs_nothing_whichever_side_parks_first.patch`
+#[test_case]
+fn a_send_cap_to_a_plain_receive_installs_nothing_whichever_side_parks_first() {
+    const DATA: u64 = 0x246;
+    let mut seen = [None; 2];
+    for (i, receiver_first) in [true, false].into_iter().enumerate() {
+        let region = crate::memory_region::create(4).expect("no region");
+        let ep = sched::create_rendezvous_from(region).expect("no rendezvous");
+        static TARGET: AtomicU64 = AtomicU64::new(0);
+        let target = sched::create_rendezvous_from(region).expect("no delegated rendezvous");
+        TARGET.store(target, Ordering::SeqCst);
+        let got = plain_receive_against(ep, receiver_first, |ep| {
+            let target = TARGET.load(Ordering::SeqCst);
+            sched::ipc_send_cap(ep, DATA, rendezvous_cap(target, Rights::WRITE), 0);
+        });
+        assert_eq!(
+            got.words[0], DATA,
+            "the SEND_CAP's data word did not arrive (receiver_first = {receiver_first})",
+        );
+        assert_eq!(
+            got.held_after, got.held_before,
+            "a plain RECEIVE ended holding {} slots, having held {} (receiver_first = \
+             {receiver_first}): the delegation was installed in a table that never asked for it",
+            got.held_after, got.held_before,
+        );
+        seen[i] = Some(got.words);
+        crate::memory_region::destroy(region);
+    }
+    assert_eq!(
+        seen[0], seen[1],
+        "the two arrival orders returned different words to a plain RECEIVE (receiver first, then \
+         sender first): x1 is a slot on one order and not the other",
+    );
+}
+
+/// **A `CALL` reaching a plain `RECEIVE` is answered `Gone`, whichever side parks first** (§246,
+/// PROVISIONAL number; calef's ruling A of 2026-10-04 UTC).
+///
+/// A plain `RECEIVE` has nowhere to put the one-shot Reply, so it cannot answer. Before the ruling,
+/// receiver-first installed the Reply in the receiver's table anyway (a slot no plain receiver
+/// reads), and sender-first delivered the words and left the caller parked on a Reply that existed
+/// nowhere, for the life of the rendezvous. Both orders now deliver the request's words, keep the
+/// receiver's table as it was, and release the caller with `Gone`.
+///
+/// Falsification: replayable `system_tests/falsifications/user.receive_cap_attack_tests.a_call_to_a_plain_receive_is_answered_gone_whichever_side_parks_first.patch`
+#[test_case]
+fn a_call_to_a_plain_receive_is_answered_gone_whichever_side_parks_first() {
+    const REQUEST: u64 = 0x2460;
+    const SECOND: u64 = 0x2461;
+    static CALLER_DONE: AtomicBool = AtomicBool::new(false);
+    static CALLER_GONE: AtomicBool = AtomicBool::new(false);
+    let mut seen = [None; 2];
+    for (i, receiver_first) in [true, false].into_iter().enumerate() {
+        CALLER_DONE.store(false, Ordering::SeqCst);
+        CALLER_GONE.store(false, Ordering::SeqCst);
+        let region = crate::memory_region::create(4).expect("no region");
+        let ep = sched::create_rendezvous_from(region).expect("no rendezvous");
+        let got = plain_receive_against(ep, receiver_first, |ep| {
+            let _ = sched::ipc_call(ep, [REQUEST, SECOND]);
+            let aborted = sched::take_ipc_aborted();
+            let refused = aborted && sched::take_ipc_refused();
+            CALLER_GONE.store(aborted && !refused, Ordering::SeqCst);
+            CALLER_DONE.store(true, Ordering::SeqCst);
+        });
+        assert_eq!(
+            got.words[0], REQUEST,
+            "the CALL's request did not arrive (receiver_first = {receiver_first})",
+        );
+        assert!(
+            wait_for(|| CALLER_DONE.load(Ordering::SeqCst)),
+            "the caller was never released (receiver_first = {receiver_first}): it waits on a \
+             Reply no plain RECEIVE can send",
+        );
+        assert!(
+            CALLER_GONE.load(Ordering::SeqCst),
+            "the caller returned without Gone (receiver_first = {receiver_first})",
+        );
+        assert_eq!(
+            got.held_after, got.held_before,
+            "a plain RECEIVE ended holding {} slots, having held {} (receiver_first = \
+             {receiver_first}): the caller's Reply was installed in a table that never asked for it",
+            got.held_after, got.held_before,
+        );
+        seen[i] = Some(got.words);
+        crate::memory_region::destroy(region);
+    }
+    assert_eq!(
+        seen[0], seen[1],
+        "the two arrival orders returned different words to a plain RECEIVE for a CALL",
+    );
+}

@@ -246,6 +246,8 @@ EXPERIMENT = re.compile(r"\*\*The [a-z ]*experiment\b([^*:]*)(?::\*\*|\*\*)", re
 # captured `NOT` out of risk 4's `**Status: NOT YET` and reported a word nobody had written. Two of
 # the three ratified values are hyphenated, so the old class could not have read them either.
 STATUS_LINE = re.compile(r"\*\*Experiment status: ([A-Z][A-Z-]*)\b")
+COLOUR_WORD = re.compile(r"\b(GREEN|AMBER|RED)\b")
+FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 RATIFIED = ("RUN", "NOT-RUN", "CANNOT-RUN")
 
 # A running-order row that opens by restating a verdict, which the table does for six of its ten
@@ -277,7 +279,7 @@ def sections_of(text):
     return out
 
 
-def analyse(text, milestones, built_on, decisions, exists, last_touched):
+def analyse(text, milestones, built_on, decisions, exists, last_touched, appendix_colours=None):
     """Every disagreement between what `text` says and what the records hold.
 
     The records arrive as arguments rather than being read in here, which is what lets `--selftest`
@@ -502,6 +504,31 @@ def analyse(text, milestones, built_on, decisions, exists, last_touched):
                    f"proposal cited as pending work stops existing the day it is promoted to a "
                    f"numbered milestone, and a note cited as evidence stops existing when it moves")
 
+    # ---- 6: an appendix's frontmatter colour is the one the summary states ----
+    # Added 2026-10-04 after #1613 and #1615 landed AMBER for risk 4 in this file while the appendix
+    # frontmatter still said `none`: nothing here read appendices, and only `script/metrics` (weekly,
+    # not per pull request) noticed. The frontmatter is the machine-read copy of the verdict, so a
+    # difference is a stale record. Which side is wrong is the reader's call; the colour is calef's.
+    # The prose colour is the first capitalized GREEN/AMBER/RED after the status line, the same parse
+    # script/metrics uses, and a status line with no colour word is `none`.
+    for num, title, start, body in risks:
+        num = int(num)
+        if num not in (appendix_colours or {}):
+            continue
+        sm = STATUS_LINE.search(body)
+        if not sm:
+            continue
+        word = COLOUR_WORD.search(body, sm.end())
+        prose = word.group(1).lower() if word else "none"
+        if appendix_colours[num] != prose:
+            report("appendix-colour", start + sm.start(),
+                   f"{RISKS}:{lineno(start + sm.start())}: risk {num}'s status line says {prose} "
+                   f"but its appendix frontmatter says color: {appendix_colours[num]}.\n"
+                   f"      The frontmatter is what script/metrics counts, and it aborts the weekly "
+                   f"run on this disagreement. One of the two is stale; if the README line is the "
+                   f"ruling, update the appendix's `color:` and `updated:`. Do not pick a colour "
+                   f"here, verdicts are the architect's.")
+
     return found
 
 
@@ -619,6 +646,12 @@ SELFTEST = [
      "## 1. A risk\n\n`design/roadmap/proposals/gone.md` is the instrument that would.\n"),
     ("proposal-moved", "a cited proposal changed after the entry was last dated",
      "## 1. A risk\n\nAs of 2026-09-01, `design/roadmap/proposals/here.md` is what would fix it.\n"),
+    ("appendix-colour", "an appendix frontmatter colour the status line contradicts",
+     "## 1. A risk\n\n**Experiment status: RUN, 2026-10-04.** AMBER (calef).\n", {1: "none"}),
+    (None, "an appendix frontmatter colour that matches the status line",
+     "## 1. A risk\n\n**Experiment status: RUN, 2026-10-04.** AMBER (calef).\n", {1: "amber"}),
+    (None, "a status line with no colour word agrees with `none`",
+     "## 1. A risk\n\n**Experiment status: RUN, 2026-10-04.** No verdict.\n", {1: "none"}),
     # ---- the negatives, which are the more interesting half ------------------
     ("no-history", "a git history too shallow to answer whether a cited proposal moved",
      "## 1. A risk\n\nAs of 2026-09-01, `design/roadmap/proposals/mute.md` is what would fix it.\n"),
@@ -642,11 +675,12 @@ SELFTEST = [
 
 def selftest():
     bad = []
-    for want, why, fixture in SELFTEST:
+    for want, why, fixture, *extra in SELFTEST:
         got = analyse(fixture, MILE, DATES, {},
                       lambda rel: rel in ("design/roadmap/proposals/here.md",
                                           "design/roadmap/proposals/mute.md"),
-                      lambda rel: None if rel.endswith("mute.md") else "2026-09-09")
+                      lambda rel: None if rel.endswith("mute.md") else "2026-09-09",
+                      extra[0] if extra else None)
         codes = sorted({c for c, _, _ in got})
         ok = (codes == [want]) if want else (codes == [])
         print(f"  {'ok  ' if ok else 'FAIL'}  {want or '(quiet)':<20} {why}")
@@ -673,9 +707,18 @@ DECISIONS = record("decisions", r"^\s+§(\d+)\s", broken)
 # Read before `broken` is turned into problems below, because it can add to it.
 BUILT = built_dates(broken)
 text = open(os.path.join(root, RISKS), errors="replace").read()
+APPENDIX_COLOURS = {}
+_appendix_dir = os.path.join(root, "design", "fatal-risks")
+for _name in sorted(os.listdir(_appendix_dir)) if os.path.isdir(_appendix_dir) else []:
+    if not _name.endswith(".md") or _name == "README.md":
+        continue
+    _fm = FRONTMATTER.match(open(os.path.join(_appendix_dir, _name), errors="replace").read())
+    _fields = dict(l.split(":", 1) for l in _fm.group(1).split("\n") if ":" in l) if _fm else {}
+    if "risk" in _fields and "color" in _fields:
+        APPENDIX_COLOURS[int(_fields["risk"])] = _fields["color"].strip()
 problems = [(None, 1, b) for b in broken] + analyse(
     text, MILESTONES, BUILT, DECISIONS,
-    lambda rel: os.path.exists(os.path.join(root, rel)), git_touched)
+    lambda rel: os.path.exists(os.path.join(root, rel)), git_touched, APPENDIX_COLOURS)
 
 risks = [s for s in sections_of(text) if s[0]]
 if mode == "--check":

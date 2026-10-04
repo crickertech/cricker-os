@@ -1202,9 +1202,5 @@ fn watch(shared: u64, workers: usize, tids: &[u64; MAX_WORKERS], placed: &[u8; M
         if elapsed >= WEDGE_AFTER_SECONDS {
             wedge(elapsed);
         }
-
-        // Keep the boot-stage breadcrumb honest for anyone reading a dump: the tour is over and the
-        // soak is what is running.
-        let _ = crate::arch::exceptions::SVC_COUNT.load(Ordering::Relaxed);
     }
 }

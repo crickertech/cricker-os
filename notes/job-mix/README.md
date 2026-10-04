@@ -6,6 +6,9 @@ the parent's Results row points to it.
 
 - [`radon-2026-10-04.md`](radon-2026-10-04.md): five boots of the seven-job instrument on radon,
   read in step 6's order and judged against step 7.
+- [`null-syscall-under-load.md`](null-syscall-under-load.md): why that evening's `null_syscall`
+  nearly doubled from one busy core to four (the reaper freed kernel stacks under `IPC_TABLES`),
+  the fix, and the radon procedure that will size it.
 
 *Name: provisional, minted 2026-10-04 (UTC) by the `lane/radon-jobmix-2026-10-04` lane, for the
 directory and every stem in it. Naming is an architect's; `script/names --unratified` lists each
