@@ -40,7 +40,7 @@ below said "Rung 2a was built". Re-run on `main` at `e613c520` on 2026-10-03:
 All three are x86_64 under OVMF. aarch64 and riscv64 have no installer, and the two gaps are
 milestones of their own: milestone 560 (a long file name, or riscv64 cannot be installed) and
 milestone 568 (the boot file has nowhere to go on a device-tree machine). Criteria 2 and 3 are
-hardware and are what keeps this PARTIAL.
+hardware; criterion 2 was met on 2026-10-04 (see Follow-on), and criterion 3 is what keeps this PARTIAL.
 
 ## The layout ruling
 
@@ -185,15 +185,32 @@ PC once rung 1 has one.
   mid-install leaves a disk that boots nothing. Real installers share the property; nobody has
   measured this one.
 - B1 is unmeasured on any firmware but OVMF.
+- The installed image has no USB keyboard until milestone 242 (USB host and HID) lands, so serial is
+  the only input on xenon today.
 
 ## Follow-on
 
-- **Outstanding.** Exit criterion 2, xenon: the bench install and the boot from disk after it,
-  calef's, step 2 of [`notes/xenon-bench-2026-10.md`](../../notes/xenon-bench-2026-10.md). It runs
-  after risk 6's bench boots, which write 64 MiB from 1 MiB in, where the data partition starts.
-  **Corrected 2026-10-04:** this line said "milestone 261's disk wipe is calef's", checked
-  2026-10-03, but 261's block records the wipe done on 2026-09-17 and calef confirmed it again on
-  2026-10-04 (UTC). What remains is the install, and nothing in `bench/` records one yet.
+- **Done.** Met 2026-10-04 (UTC). Exit criterion 2, xenon: calef installed nife onto xenon's internal
+  NVMe from a USB stick and booted it from the disk. Transcript (credentials redacted):
+  [`bench/xenon-2026-10-04/install-and-disk-boot.log`](../../bench/xenon-2026-10-04/install-and-disk-boot.log).
+  Boot 1 (stick) offered `TARGET: the NVMe disk attached to this machine, 256060514304 bytes`,
+  the size risk 6's bench boots read that night, then `> INSTALL`, `installed. nife data at LBA
+  2048, EFI system at LBA 499068928.`, `filesystem created.`, `DONE. Remove the installation
+  medium and reboot.` Boot 2, after calef removed the stick and power-cycled, printed `boot file
+  : none (this boot did not come from a file)`, offered no install, and reached the `$` prompt.
+  - **The keystroke was a script's.** calef said "Lets do it" and asked the maintainer session to
+    watch the serial output; a watcher on patagonia's serial port sent `INSTALL` after an exact
+    size match. The person at the bench authorised the install; a script sent the keystroke.
+  - **It depends on #1636.** The image was built from `lane/xenon-nvme-diag` (PR #1636, the VT-d
+    `clflush` fix) at `0c16dcaac` with `cargo xtask install-boot` (QEMU gate PASS), sha256
+    starting `69cc518b`. An install image from before that fix hits the NVMe CompletionTimeout
+    on xenon, so this criterion holds only with #1636's fix merged.
+  - **Read-back passed.** About 22:25 UTC the same day, xenon booted from its NVMe with no stick
+    and reached `$`. Typed over serial (no USB keyboard yet): `ls` printed `made-on-target` and
+    `operator/`; `wc made-on-target` printed `1 10 57`, the expected value. Transcript:
+    [`bench/xenon-2026-10-04/readback.log`](../../bench/xenon-2026-10-04/readback.log).
+  - **Photographs: owed.** calef's, not committed.
+  Milestone stays PARTIAL on criterion 3.
 - **Outstanding.** Exit criterion 3, a fleet machine that is not xenon, from milestone 243 (a machine with no serial port has no way to say anything)'s fleet.
 - **Decision.** Ruled 2026-10-03 in `design/decisions/244-the-installed-disk-has-four-partitions.md`: the layout above stands, and slots stay at 64 MiB. Two conditions remain with another lane: the installer installs a release image, and CI gates the release image at 16 MiB.
 - **Milestone 560.** `BOOTRISCV64.EFI` is not an 8.3 name, so riscv64 cannot be installed.

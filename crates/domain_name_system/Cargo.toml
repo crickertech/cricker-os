@@ -1,0 +1,18 @@
+[package]
+name = "domain_name_system"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# The DNS wire format for a stub resolver (RFC 1035, RFC 7766 for TCP): a query for one host name's
+# IPv4 addresses, and the checks a reply must pass before an address in it is believed. Pure
+# computation, the split `network_time_protocol` and `http_response` make: no socket, no timer, no
+# policy, so the parser that reads network input is host-tested, fuzzed and Kani-checked rather than
+# debugged inside a QEMU boot. Milestone 384 (in a capability system the resolver is a grant); the program that
+# carries these bytes, and the capability that says which names it may resolve, are that milestone's
+# open forks (notes/name-resolution.md). Name: provisional 2026-10-04.
+
+[lints]
+workspace = true
+
+[dependencies]

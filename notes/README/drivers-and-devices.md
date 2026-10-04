@@ -6,6 +6,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [PCIe, and driving a disk over it](../pcie.md): the PCIe transport, with the kernel as firmware.
 - [Scoping a PCIe transport](../pcie-transport-scope.md): the pre-build scope for PCIe and virtio-pci.
 - [NVMe: the first non-virtio disk](../non-volatile-memory-express.md): an NVMe driver confined by the IOMMU alone.
+- [A USB keyboard](../usb.md): the xHCI driver at EL0, the register pages it is denied, and the gate that types `echo hello` on it.
 - [Fatal risk 6's bench evening on xenon](../risk-6-bench-evening.md): the confined NVMe driver's preflight, throughput boot and outcomes.
 - [Confining DMA without an IOMMU](../dma.md): kernel validation of every descriptor a driver submits.
 - [Confining DMA with an IOMMU](../iommu.md): hardware DMA confinement with SMMUv3 and the RISC-V IOMMU.

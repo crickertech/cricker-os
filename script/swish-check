@@ -33,7 +33,7 @@
 # shell` UART system as every other boot, so the only differences are a virtio-gpu, typing
 # `graphical_terminal` at the prompt, and reading the screen back (a QEMU screendump decoded
 # against the same 7x8 font the guest drew from). A launch ends the boot it is typed into (the
-# shell waits on the session), so each leg is three boots:
+# shell waits on the session), so each leg is three boots, and a fourth for the USB keyboard:
 #
 #   1. The full script, **no gpu**: its `graphical_terminal` line requires the refusal sentence,
 #      which is the headless half of milestone 632 (graphics on demand)'s claim, on all three ISAs, at no extra boot.
@@ -48,6 +48,10 @@
 #   3. A scriptless boot with a gpu **and a keyboard**, a key pressed with the monitor's `sendkey`
 #      through the session's `keyboard_driver`. It leaves the NIC off: with every device attached a
 #      launch peaks at 30 of 32 capability slots (`kernel/src/cap.rs`), a boot nothing else makes.
+#   4. **A USB keyboard on an xHCI controller** (milestone 242 (USB host and HID), all three
+#      architectures, x86_64 included): no script, `echo hello` pressed on the keyboard with
+#      `sendkey`, and `hello` required back. Full speed, and on x86_64 MSI with no MSI-X, as
+#      xenon's controller is. notes/usb.md.
 #
 # Both launches make the same two assertions, the session's `$ ` prompt on the screen and one key
 # echoed beside it, and neither can tell which source the key came from, which is the property
