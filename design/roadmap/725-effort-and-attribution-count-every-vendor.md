@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-10-03
+built: 2026-10-04
 promoted_from: effort-and-attribution-count-every-vendor
 milestone_dependencies: 519
 decision_dependencies: none
@@ -23,9 +24,17 @@ Built: `script/effort` reads opencode's database (`--selftest` pins the shape), 
 ## Follow-on
 
 - **Done.** An `AGENTS.md` instruction that every commit signs the model that wrote it, including under opencode, which reads that file. #1546 merged 2026-10-03 (UTC) and added it to AGENTS.md's Commits section; `grep -in co-authored AGENTS.md` finds it.
-- **Outstanding.** A commit hook that refuses an agent commit with no trailer. A hook cannot tell an agent from calef, so it needs a signal that a commit is an agent's. That is a design fork. Checked 2026-10-03: `.githooks/` holds only `pre-push`.
-- **Outstanding.** A per-token rate for GLM in the ledger. It carries the flat z.ai subscription and no per-token rate, so a week with GLM tokens has a blank blended rate in `cost.csv`. Checked 2026-10-03 against `ledger.md`.
+- **Done.** A commit hook that refuses an agent commit with no trailer, 2026-10-04 (UTC). The maintainer ruled on the signal that day, so the fork is closed. `.githooks/commit-msg` requires a non-empty `Co-Authored-By:` trailer only when `CLAUDECODE=1` or `OPENCODE=1` is set. Claude Code sets the first in every shell it runs (verified in the lane's own shell). opencode's CLI startup sets `AGENT=1`, `OPENCODE=1` and `OPENCODE_PID`, read from the installed 1.18.34 binary on 2026-10-04. With neither marker the hook exits 0, so calef's own commits pass untouched, and a merge in progress passes too. Evidence: `helpers/commit-msg-selftest.sh` runs ten cases plus an end-to-end `git commit` through `core.hooksPath`, and `script/lint` runs it and fails if the hook is missing. Watched failing once: with the marker test replaced by `if true`, the selftest exits 1 on `claude, no trailer: wanted refuse, got pass`. Restored, it prints `ok`. The existing `core.hooksPath .githooks` line in `script/setup` wires it, so no new install step exists.
+- **Done.** A per-token rate for GLM in the ledger, 2026-10-04 (UTC). calef: the z.ai plan is $80 a month and probably will not renew. The flat price was already a Subscriptions row. `ledger.md` now also carries the derived rate: $80 over the 713,543,216 GLM tokens `script/effort` counts, or $0.1121 per million for both GLM models (source c there). The billing dates are not on record, so the month is the ledger's assumed one, 2026-09-28 to 2026-10-27. Every GLM token so far falls inside it. 2026W40's blended rate in `cost.csv` is now 0.277. The ledger records that the plan is expected to end, so a week with no GLM tokens is expected and not a gap. Filling W40 also needed list prices for `claude-opus-5-5` and `claude-sonnet-5-5` (source d; their cache-write cells are derived, not read). If more GLM tokens are spent first, the rate falls, and the fix is a new dated ledger row.
 
 ## Index row
 
-script/effort and the model table counted only Claude Code, so the z.ai week read as idle and unattributed; both now read opencode's database, and 152 commits are attributed by a committed record. Still open: a signing instruction in AGENTS.md and a hook, both of which need an architect or the maintainer.
+script/effort and the model table counted only Claude Code, so the z.ai week read as idle and unattributed; both now read opencode's database, and 152 commits are attributed by a committed record. The signing instruction (AGENTS.md), the commit-msg hook and the GLM rate are all done.
+
+## BUGS
+
+- The hook is a courtesy, not a boundary. An agent that clears its environment (`env -i git commit`), a harness not on the list (Codex and Gemini CLI set markers it does not read) or `git commit --no-verify` goes through unchecked. That commit lands under `unattributed`. Adding a harness is one line in `.githooks/commit-msg` plus a selftest case, once its marker is verified.
+- The opencode marker is read from source, not observed. No run inside an opencode shell has confirmed that its bash tool inherits `OPENCODE=1`, and a later release could rename it. The check for when an opencode session next exists: `echo $OPENCODE` from its bash tool.
+- The hook sees the committing process, not the author. A person committing from a shell inside Claude Code's environment is held to the trailer. A commit made through a tool that scrubs the environment is not.
+- 2026W39's blended rate is still blank. It has tokens on `open-lane-kimi` (the OpenRouter bake-off model), which has no ledger rate row. That is another vendor's price and not this milestone's work.
+- The GLM rate assumes the billing month, because no invoice is recorded.
