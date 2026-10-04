@@ -200,7 +200,19 @@
  pub const DIR_ENTRY_MAX_LENGTH: usize = 252;
 --- a/src/node.rs
 +++ b/src/node.rs
-@@ -91,6 +91,12 @@
+@@ -71,7 +71,10 @@
+             record_offset -= L3;
+         }
+ 
+-        const L4: u64 = 12 * NUM * NUM * NUM * NUM;
++        // nife pin divergence 6: upstream wrote 12 here, but `Node::level4` holds 8 pointers, so
++        // offsets 8 * NUM^4 .. 12 * NUM^4 produced an index of 8 and panicked in the caller.
++        // See vendor/README.md.
++        const L4: u64 = 8 * NUM * NUM * NUM * NUM;
+         if record_offset < L4 {
+             Some(Self::L4(
+                 ((record_offset >> (4 * SHIFT)) & MASK) as usize,
+@@ -91,6 +94,12 @@
  type BlockListL3 = BlockList<BlockListL2>;
  type BlockListL4 = BlockList<BlockListL3>;
  
@@ -213,20 +225,31 @@
  #[repr(C, packed)]
  pub struct NodeLevelData {
      /// The first 128 blocks of this file.
---- a/src/transaction.rs
-+++ b/src/transaction.rs
-@@ -417,9 +417,9 @@
-             };
-             let comp_len = record.data()[0] as usize | ((record.data()[1] as usize) << 8);
-             let total_len = comp_len + 2;
--            if let Err(err) = lz4_flex::decompress_into(&record.data()[2..total_len], &mut decomp) {
-+            if let Err(_err) = lz4_flex::decompress_into(&record.data()[2..total_len], &mut decomp) {
-                 #[cfg(feature = "log")]
--                log::error!("READ_RECORD: FAILED TO DECOMPRESS: {:?}", err);
-+                log::error!("READ_RECORD: FAILED TO DECOMPRESS: {:?}", _err);
-                 return Err(Error::new(EIO));
-             }
-             record = BlockData::new(BlockAddr::null(BlockMeta::new(decomp_level)), decomp);
+@@ -502,6 +511,24 @@
+     assert_eq!(mem::size_of::<Node>(), crate::BLOCK_SIZE as usize);
+ }
+ 
++// nife pin divergence 6: before the fix `NodeLevel::new` answered `Some(L4(8, ..))` for the first 4
++// billion records past the tree, and the caller then indexed `level4[8]` and panicked. Every
++// offset past the last record must be `None` (which `transaction.rs` turns into `ERANGE`), and
++// every `L4` index it does return must fit the eight-pointer array.
++#[test]
++fn node_level_ends_where_level4_ends() {
++    const NUM: u64 = 256;
++    let end = 128 + 64 * NUM + 32 * NUM * NUM + 16 * NUM * NUM * NUM + 8 * NUM * NUM * NUM * NUM;
++    assert!(matches!(
++        NodeLevel::new(end - 1),
++        Some(NodeLevel::L4(7, 255, 255, 255, 255))
++    ));
++    assert!(NodeLevel::new(end).is_none());
++    assert!(NodeLevel::new(end + 1).is_none());
++    assert!(NodeLevel::new(end + 4 * NUM * NUM * NUM * NUM).is_none());
++    assert!(NodeLevel::new(u64::MAX).is_none());
++}
++
+ #[test]
+ fn node_inline_data_test() {
+     let mut node = Node::default();
 --- a/src/record.rs
 +++ b/src/record.rs
 @@ -1,14 +1,19 @@
@@ -260,3 +283,17 @@
          let level = BlockLevel(level_i);
          assert_eq!(
              RecordRaw::empty(level).unwrap().len(),
+--- a/src/transaction.rs
++++ b/src/transaction.rs
+@@ -417,9 +417,9 @@
+             };
+             let comp_len = record.data()[0] as usize | ((record.data()[1] as usize) << 8);
+             let total_len = comp_len + 2;
+-            if let Err(err) = lz4_flex::decompress_into(&record.data()[2..total_len], &mut decomp) {
++            if let Err(_err) = lz4_flex::decompress_into(&record.data()[2..total_len], &mut decomp) {
+                 #[cfg(feature = "log")]
+-                log::error!("READ_RECORD: FAILED TO DECOMPRESS: {:?}", err);
++                log::error!("READ_RECORD: FAILED TO DECOMPRESS: {:?}", _err);
+                 return Err(Error::new(EIO));
+             }
+             record = BlockData::new(BlockAddr::null(BlockMeta::new(decomp_level)), decomp);
