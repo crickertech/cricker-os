@@ -903,6 +903,7 @@ dependencies = [
  "bitmap_font",
  "graphics_protocol",
  "machine_discovery",
+ "video_terminal",
 ]
 
 [[package]]

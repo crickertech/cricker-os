@@ -366,6 +366,10 @@ pub struct TerminalWiring {
     /// The scanout frames, so the kernel can read the picture back through the direct map and
     /// grade it against a value it computed itself.
     pub surface: u64,
+    /// How many frames [`Self::surface`] is, which a caller that frees them needs: the contract's
+    /// [`graphics_protocol::SURFACE_PAGE_FRAMES`] on the virtio path, and on a firmware screen
+    /// whatever covers that screen (since 2026-10-04, see [`start_screen_terminal`]).
+    pub surface_frames: u64,
     /// **What a caller hands back to end it**: the threads, the region its endpoints live in, and
     /// the map budgets. Filled by [`start_screen_terminal`], whose endpoints come out of a region
     /// for exactly this reason (a server parked in `RECEIVE` on the kernel's own endpoint chunks
@@ -422,6 +426,7 @@ pub fn start_terminal(
 
     let (driver_report, display_ep, surface) = wire_driver(driver_image, 0, 0)?;
     let t = spawn_terminal(
+        SURFACE_RUN,
         term_image,
         display_ep,
         surface,
@@ -433,6 +438,7 @@ pub fn start_terminal(
         term: t.term,
         out: t.out,
         surface,
+        surface_frames: graphics_protocol::SURFACE_PAGE_FRAMES as u64,
         held: super::holding::Holding::new(),
     })
 }
@@ -446,6 +452,7 @@ pub fn start_terminal(
 /// caller can reclaim on the firmware-screen path (see [`start_screen_terminal`]). The terminal's
 /// thread and its map budget come back beside them, for a caller that tears it down.
 fn spawn_terminal(
+    surface_run: NonZeroU64,
     term_image: &'static [u8],
     display_ep: RendezvousId,
     surface: u64,
@@ -474,7 +481,7 @@ fn spawn_terminal(
         grant_run(
             TERM_SLOT_SURFACE,
             surface,
-            SURFACE_RUN,
+            surface_run,
             "the display terminal",
         );
         // The page an application writes text into.
@@ -522,9 +529,10 @@ const _: () = assert!(address_space_map::SERVICE_WINDOWS.holds(
 
 /// **The most aperture pages this wiring maps**: 8 MiB, four 2 MiB page-table windows. The tables
 /// come out of the driver's own address-space budget (`AS_OVERHEAD`, sixteen pages shared with its
-/// image and stack), so this is a bound rather than a preference. It is far more than the surface
-/// needs: 344 rows at a 3840-pixel pitch is 1,290 pages. A screen whose covered rows would need
-/// more is refused rather than mapped short.
+/// image and stack), so this is a bound rather than a preference. Since the terminal fills the
+/// screen (2026-10-04) it is close to the screens it serves: xenon's 1920x1080 is 2,025 pages. A
+/// larger screen gets a terminal over the rows that fit rather than none; see
+/// [`start_screen_terminal`].
 const MAX_APERTURE_PAGES: u64 = 2048;
 
 // The firmware screen driver's capability table. Must match components/src/framebuffer_driver.rs.
@@ -553,30 +561,54 @@ pub fn start_screen_terminal(
     term_image: &'static [u8],
     screen: machine_discovery::framebuffer::Framebuffer,
 ) -> Option<TerminalWiring> {
-    let aperture = screen_console::Aperture::new(
+    // **The whole screen, at the boot console's scale** (2026-10-04). Until then the surface was
+    // the virtio contract's fixed 924x344 at scale one, so on xenon's 1920x1080 the shell sat in
+    // the top-left corner in letters half the size of the boot tour's. Now the surface is the
+    // screen divided by `screen_console::ScreenConsole::scale_for`'s scale (one rule, one
+    // function, both consoles), capped at what one terminal grid can lay out over, and
+    // `framebuffer_driver` draws each surface pixel as a scale-by-scale block.
+    let mut aperture = screen_console::Aperture::new(
         &screen,
-        graphics_protocol::WIDTH,
-        graphics_protocol::HEIGHT,
+        video_terminal::MAX_COLS as u32 * bitmap_font::GLYPH_W,
+        u32::MAX,
     )?;
+    // The rows one `Vt` can hold at that width (`video_terminal::MAX_CELLS` is a cell budget, not
+    // a rectangle): the whole screen on xenon and OVMF, the top rows on a taller one.
+    let cols = (aperture.size().0 / bitmap_font::GLYPH_W).max(1) as usize;
+    let rows = (video_terminal::MAX_CELLS / cols).min(video_terminal::MAX_ROWS) as u32;
+    aperture =
+        screen_console::Aperture::new(&screen, aperture.size().0, rows * bitmap_font::GLYPH_H)?;
     // The aperture need not start on a page: the run is mapped from the page that holds pixel
     // (0, 0), and the driver is told how far into it that pixel is.
     let offset = screen.base % FRAME_SIZE;
-    let pages = (offset + aperture.span() as u64).div_ceil(FRAME_SIZE);
+    let mut pages = (offset + aperture.span() as u64).div_ceil(FRAME_SIZE);
     if pages > MAX_APERTURE_PAGES {
+        // A screen too large to map whole (past 8 MiB, so a 2560x1440 or a 4K panel) gets the
+        // shell over the rows that fit rather than no shell at all. Each surface row is `scale`
+        // screen rows of `stride` bytes.
+        let row_bytes = screen.stride as u64 * aperture.scale() as u64;
+        let fit = (MAX_APERTURE_PAGES * FRAME_SIZE - offset) / row_bytes;
+        aperture = screen_console::Aperture::new(&screen, aperture.size().0, fit as u32)?;
+        pages = (offset + aperture.span() as u64).div_ceil(FRAME_SIZE);
         crate::println!(
-            "  screen    : not handed on: {pages} pages of aperture exceed this wiring's \
-             {MAX_APERTURE_PAGES}"
+            "  screen    : too large to map whole; the terminal covers its top {} rows",
+            aperture.size().1 * aperture.scale()
         );
+    }
+    if pages > MAX_APERTURE_PAGES {
         return None;
     }
 
-    // The surface: RAM, the contract's run of frames, shared by the driver and the terminal. The
-    // same allocation `wire_driver` makes, minus the ring page, because nothing here is a device's
-    // DMA: the driver copies it with the CPU.
-    let surface =
-        crate::memory::alloc_contiguous_zeroed(graphics_protocol::SURFACE_PAGE_FRAMES as usize)
-            .expect("no contiguous surface for the framebuffer driver")
-            .addr();
+    // The surface: RAM, exactly the covered part's size at four bytes a pixel and no padding,
+    // shared by the driver and the terminal. Contiguous, the same allocation `wire_driver` makes,
+    // minus the ring page, because nothing here is a device's DMA: the driver copies it with the
+    // CPU. The terminal paints it at a stride of four times the width `INFO` answers.
+    let (sw, sh) = aperture.size();
+    let surface_frames = (sw as u64 * sh as u64 * 4).div_ceil(FRAME_SIZE);
+    let surface_run = NonZeroU64::new(surface_frames)?;
+    let surface = crate::memory::alloc_contiguous_zeroed(surface_frames as usize)
+        .expect("no contiguous surface for the framebuffer driver")
+        .addr();
 
     // **The four endpoints come out of a region of their own**, `virtio_service::wire_net_server`'s
     // shape and for its reason: both programs park in `RECEIVE` for good, and reclaiming the region
@@ -615,7 +647,7 @@ pub fn start_screen_terminal(
         grant_run(
             SCREEN_SLOT_SURFACE,
             surface,
-            SURFACE_RUN,
+            surface_run,
             "the framebuffer driver",
         );
         run_with_device_run(
@@ -632,7 +664,7 @@ pub fn start_screen_terminal(
     })
     .expect("could not spawn the framebuffer driver");
 
-    let t = spawn_terminal(term_image, display_ep, surface, &endpoint);
+    let t = spawn_terminal(surface_run, term_image, display_ep, surface, &endpoint);
     let mut held = super::holding::Holding::new();
     held.add_thread(driver_tid);
     held.add_thread(t.tid);
@@ -645,6 +677,7 @@ pub fn start_screen_terminal(
         term: t.term,
         out: t.out,
         surface,
+        surface_frames,
         held,
     })
 }
