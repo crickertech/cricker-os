@@ -198,6 +198,12 @@ pub struct X86TrapPerCpu {
     /// `swapgs` and the point it can be pushed into the trap frame (`syscall` does not switch
     /// stacks itself, so there is nowhere else to hold it while it is in flight).
     pub syscall_user_rsp: UnsafeCell<u64>,
+    /// **This block's own address**, written by `arch::x86_64::set_percpu` right after it points
+    /// `IA32_GS_BASE` here, so `arch::x86_64::percpu` is one `gs`-relative load instead of an
+    /// `rdmsr` (milestone 758 (the IPC fast paths shrink back inside their band), provisional).
+    /// That is the x86_64 answer to aarch64's `mrs TPIDR_EL1` and RISC-V's `mv tp`: Linux keeps
+    /// `this_cpu_off` for the same reason. Read only through `gs`, so only by the owning core.
+    pub self_ptr: UnsafeCell<u64>,
 }
 
 // SAFETY: as `PerCpu` itself: only the owning core ever touches its own instance.
@@ -211,6 +217,7 @@ impl X86TrapPerCpu {
             tss_rsp0_ptr: UnsafeCell::new(0),
             syscall_kernel_rsp: UnsafeCell::new(0),
             syscall_user_rsp: UnsafeCell::new(0),
+            self_ptr: UnsafeCell::new(0),
         }
     }
 }
@@ -367,7 +374,7 @@ static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
 /// from a failing build rather than from a CI gate they did not run.
 ///
 /// **`x86_64` is exempt, and the exemption is measured rather than assumed.** There this struct
-/// carries `x86_trap` and is already **152 bytes**, so it has never indexed with a shift, and
+/// carries `x86_trap` and is already **160 bytes**, so it has never indexed with a shift, and
 /// `script/fastpath-footprint --arch x86_64` is green with room: +1.0% on `ipc_send_receive`, +1.4%
 /// on `ipc_call_reply`, +3.9% on `syscall_entry`. Writing the assertion unconditionally would
 /// assert a property this tree does not hold, which is how a gate teaches people to route around
