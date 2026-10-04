@@ -894,6 +894,65 @@ pub fn find_nvme_device() -> Option<PciNvmeDevice> {
     })
 }
 
+/// An enumerated, brought-up `e1000e`-family NIC (milestone 494 (a driver for the network card a
+/// PC actually has)): BAR0 placed and decoding, bus mastering on, the requester id known so the
+/// caller can confine its DMA before the device is told where any ring is. No INTx line, for the
+/// reason [`PciNvmeDevice`] has none: the data plane polls.
+#[derive(Debug, Clone, Copy)]
+pub struct PciE1000eDevice {
+    /// The register file's physical base (BAR0, 128 KiB on the 82574L).
+    pub bar0: u64,
+    /// The PCIe requester id, the key the IOMMU confines DMA by.
+    pub rid: u32,
+    /// The PCI device id, which says which part this is (`e1000e::model`).
+    pub device: u16,
+}
+
+/// Find the first function `e1000e::is_supported` claims and bring its transport up, in
+/// [`find_nvme_device`]'s order and for its reasons: BARs placed, then memory decoding and bus
+/// mastering last. `None` if no such function is on the bus.
+///
+/// **The same shape as `find_nvme_device` with a different predicate**, and a third copy is where
+/// a shared `find_function(predicate)` should be lifted rather than written (milestone 242 (USB host and a keyboard that is not a UART)'s xHCI
+/// lane is in the same position). Not lifted here, so this lane does not edit the NVMe path.
+pub fn find_e1000e_device() -> Option<PciE1000eDevice> {
+    if !is_host_bridge_present() {
+        return None;
+    }
+    let mut found: Option<(Bdf, u16)> = None;
+    pci::enumerate(
+        ecam_buses(),
+        &mut |b, o| cfg_read32(b, o),
+        &mut |bdf, vendor, device| {
+            if found.is_none() && ::e1000e::is_supported(vendor, device) {
+                found = Some((bdf, device));
+            }
+        },
+    );
+    let (bdf, device) = found?;
+
+    let mut bars = pci::read_bars(bdf, &mut |b, o| cfg_read32(b, o), &mut |b, o, v| {
+        cfg_write32(b, o, v);
+    });
+    if !place_bars(bdf, &mut bars) {
+        return None;
+    }
+    let bar0 = bars[0].as_ref().map(|b| b.base)?;
+
+    let cmd = cfg_read32(bdf, pci::COMMAND) as u16;
+    cfg_write32(
+        bdf,
+        pci::COMMAND,
+        (cmd | pci::CMD_MEMORY_SPACE | pci::CMD_BUS_MASTER) as u32,
+    );
+
+    Some(PciE1000eDevice {
+        bar0,
+        rid: bdf.requester_id(),
+        device,
+    })
+}
+
 /// The QEMU `riscv-iommu-pci` function's PCI identity (Red Hat vendor, RISC-V IOMMU device id).
 /// riscv-only: aarch64's SMMUv3 is a device-tree platform node, not a PCI function, and x86's
 /// IOMMUs are discovered through ACPI, so a PCI-function IOMMU is a RISC-V shape today.

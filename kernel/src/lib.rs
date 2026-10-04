@@ -80,6 +80,11 @@ mod pci;
 // cfg-gating a module whose next caller is already known.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 mod non_volatile_memory_express;
+// The `e1000e` NIC's control plane (milestone 494 (a driver for the network card a PC actually
+// has)): reset, MAC address, ring bases, then the queue pages go to `net_stack`. See
+// kernel/src/e1000e.rs. Driven only by the test boot so far, like the NVMe module above.
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
+mod e1000e;
 mod revoke;
 mod sched;
 // **A screen on the two architectures whose firmware never lights one**, milestone 243 (a machine
@@ -102,6 +107,8 @@ mod job_mix;
 // confined EL0 NVMe driver's throughput and halt. Behind a feature because it writes to the disk.
 #[cfg(feature = "disk_throughput")]
 mod disk_throughput;
+#[cfg(feature = "network_bench")]
+mod network_bench;
 #[cfg(feature = "soak_test")]
 mod soak;
 // The progenitor's stack high-water gauge and its headroom floor (name provisional).
@@ -184,6 +191,9 @@ pub mod system_test_access {
     }
     pub mod non_volatile_memory_express {
         pub use crate::non_volatile_memory_express::*;
+    }
+    pub mod e1000e {
+        pub use crate::e1000e::*;
     }
     pub mod retype_fault {
         pub use crate::retype_fault::*;
@@ -960,6 +970,10 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // the hand-over. It WRITES to the NVMe disk; see kernel/src/disk_throughput.rs.
         #[cfg(feature = "disk_throughput")]
         disk_throughput::run();
+        // **Milestone 494 (a driver for the network card a PC actually has)'s bench boot**, in the
+        // same position for the same reason; see kernel/src/network_bench.rs.
+        #[cfg(feature = "network_bench")]
+        network_bench::run();
         // **Nothing halts by default** (milestone 268), on this architecture as on the other two:
         // the boot hands the machine to the progenitor, loaded from the archive and measured, and
         // the boot thread parks in a preemptible `wfi` loop so it gets scheduled. That is milestone
@@ -969,7 +983,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         #[cfg(not(any(
             feature = "soak_test",
             feature = "job_mix",
-            feature = "disk_throughput"
+            feature = "disk_throughput",
+            feature = "network_bench"
         )))]
         {
             // **The install offer** (milestone 198 (a package manager, and the trivial install that
@@ -1840,6 +1855,10 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // the hand-over. It WRITES to the NVMe disk; see kernel/src/disk_throughput.rs.
         #[cfg(feature = "disk_throughput")]
         disk_throughput::run();
+        // **Milestone 494 (a driver for the network card a PC actually has)'s bench boot**, in the
+        // same position for the same reason; see kernel/src/network_bench.rs.
+        #[cfg(feature = "network_bench")]
+        network_bench::run();
         // **Nothing halts by default** (milestone 268, item 4). The tour used to end here in
         // `arch::halt()`, and that was the right thing to do while the arch layer beneath the
         // shared path was still being built: there was nothing honest to fall through to. There is
@@ -1863,7 +1882,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         #[cfg(not(any(
             feature = "soak_test",
             feature = "job_mix",
-            feature = "disk_throughput"
+            feature = "disk_throughput",
+            feature = "network_bench"
         )))]
         {
             riscv_hand_over();
@@ -2263,11 +2283,16 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // the hand-over. It WRITES to the NVMe disk; see kernel/src/disk_throughput.rs.
         #[cfg(feature = "disk_throughput")]
         disk_throughput::run();
+        // **Milestone 494 (a driver for the network card a PC actually has)'s bench boot**, in the
+        // same position for the same reason; see kernel/src/network_bench.rs.
+        #[cfg(feature = "network_bench")]
+        network_bench::run();
 
         #[cfg(not(any(
             feature = "soak_test",
             feature = "job_mix",
-            feature = "disk_throughput"
+            feature = "disk_throughput",
+            feature = "network_bench"
         )))]
         if let Some(image) = user::initrd() {
             println!();
@@ -2289,7 +2314,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         feature = "bench",
         feature = "soak_test",
         feature = "job_mix",
-        feature = "disk_throughput"
+        feature = "disk_throughput",
+        feature = "network_bench"
     )))]
     sched::exit()
 }
@@ -2460,7 +2486,8 @@ fn stack_top() -> usize {
         feature = "bench",
         feature = "soak_test",
         feature = "job_mix",
-        feature = "disk_throughput"
+        feature = "disk_throughput",
+        feature = "network_bench"
     ),
     allow(dead_code)
 )]
@@ -2517,7 +2544,8 @@ fn riscv_hand_over() {
         feature = "bench",
         feature = "soak_test",
         feature = "job_mix",
-        feature = "disk_throughput"
+        feature = "disk_throughput",
+        feature = "network_bench"
     ),
     allow(dead_code)
 )]
