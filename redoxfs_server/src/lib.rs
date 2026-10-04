@@ -68,7 +68,8 @@ use filesystem_protocol::xattr;
 use redoxfs::{Disk, FileSystem, Node, Transaction, TreePtr};
 use subtree_scope::Kind;
 use syscall::error::{
-    EBADF, EEXIST, EINVAL, EIO, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, EROFS, Error, Result,
+    EBADF, EEXIST, EFBIG, EINVAL, EIO, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, EROFS, Error,
+    Result,
 };
 
 use crate::memo::Memo;
@@ -334,8 +335,16 @@ impl<D: Disk> Server<D> {
     /// [`dir::EROFS`] without [`dir::WRITE`], the same word and the same argument
     /// `fs_file_caretaker` uses: through this capability the file is read-only, and there is no
     /// policy that could have said yes.
+    ///
+    /// `EFBIG` when `offset + data.len()` does not fit in 64 bits, checked before the engine sees
+    /// it: RedoxFS adds the two unchecked, and the wrapped end made its inline-data path slice
+    /// backwards and panic, which killed the server (found by the `redoxfs_server_session` fuzz
+    /// target).
     pub fn write(&mut self, handle: u32, offset: u64, data: &[u8]) -> Result<usize> {
         let ptr = self.file_at(handle, dir::WRITE, EROFS)?;
+        if offset.checked_add(data.len() as u64).is_none() {
+            return Err(Error::new(EFBIG));
+        }
         self.clock += 1;
         let now = self.clock;
         self.change_file(ptr, |tx| tx.write_node(ptr, offset, data, now, 0))
@@ -2396,6 +2405,34 @@ mod tests {
             srv.read(f, 0, &mut buf).err().map(|e| e.errno),
             Some(EBADF),
             "closed"
+        );
+    }
+
+    /// **A write whose end does not fit in 64 bits is refused, and the server lives** (found by the
+    /// `redoxfs_server_session` fuzz target, `lane/fuzz-service-handlers`). The engine computes
+    /// `offset + len` unchecked; an offset near `u64::MAX` wrapped it, and the inline-data path
+    /// then sliced backwards and panicked, so any client holding a writable handle could kill the
+    /// file server with one `WRITE`. Refused `EFBIG`, POSIX's answer for a write past the largest
+    /// offset a file can have.
+    #[test]
+    fn a_write_past_the_last_offset_is_refused() {
+        let mut srv = server_with_tree();
+        let f = srv
+            .open_file_path(0, "motd", dir::READ | dir::WRITE)
+            .unwrap();
+        for offset in [u64::MAX, u64::MAX - 3, u64::MAX - 6] {
+            assert_eq!(
+                srv.write(f, offset, b"overflow").err().map(|e| e.errno),
+                Some(EFBIG),
+                "offset {offset:#x}"
+            );
+        }
+        let mut buf = [0u8; 16];
+        let n = srv.read(f, 0, &mut buf).unwrap();
+        assert_eq!(
+            &buf[..n],
+            b"root motd",
+            "the file is unchanged and the server serves"
         );
     }
 
