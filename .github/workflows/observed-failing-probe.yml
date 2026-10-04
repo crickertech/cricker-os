@@ -1,8 +1,8 @@
 name: observed-failing probe
 
-# Observed failing: never. A workflow added after milestone 640's cutoff, saying `never`, so that
-#   script/lint's observed-failing check has to refuse it. This file exists for one CI run and is
-#   deleted by the commit after it.
+# Observed failing: never. A workflow added after the observed-failing cutoff commit, saying
+#   `never`, so that script/lint's observed-failing check has to refuse it. This file exists for one
+#   CI run and is deleted by the commit after it.
 
 on:
   workflow_dispatch:
