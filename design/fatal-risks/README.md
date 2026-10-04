@@ -306,6 +306,11 @@ driver with a shadow model)). calef ruled option A; a plain `RECEIVE` now takes 
 either order and a `CALL` reaching one is answered `Gone`. Two kernel tests with replayable
 falsifications, replayed red on aarch64.
 
+Dated 2026-10-04: nothing fuzzes what a confined process can reach. The six `cargo-fuzz` targets
+of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, not IPC requests
+or syscalls. A proposal for both is
+[`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/proposals/fuzz-the-surface-a-confined-process-can-reach.md).
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
