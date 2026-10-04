@@ -135,8 +135,65 @@ The 8 equivalents:
 - `decode`'s `DESCRIPTOR_LEN - TAIL` as `/`. The tail is the last byte, so 56 minus 55 and 56 over
   55 are both 1.
 
-## Tally after batch 5
+## file_allocation_table
 
-Of the 1,004: 475 killed, 254 equivalent, 17 recorded gaps, 258 remaining. The next crates, by
-survivor count, are `file_allocation_table` (15), `system_log_protocol` (14), `login_protocol` (14),
-`compositor` (14) and `argument_protocol` (13).
+15 missed, 15 killed. The sweep afterwards reports 0 missed.
+
+- The sector arithmetic is pinned by hand: the data area starts after 32 reserved sectors and two
+  copies of the table, a cluster is eight sectors, and the boot file takes `file_clusters` of them.
+- `FSInfo` counts three directories and the file, and the next free cluster follows the file.
+- Each directory cluster's first sector has contents and the sectors between and before are zero.
+  A match guard that is always true hands the boot directory to every unowned sector.
+- A directory entry splits its first cluster into halves. Every cluster this crate writes is below
+  65,536, so only a direct call with a larger number sees the high half.
+- A short name is refused for each reason alone, and the longest one is kept.
+
+## system_log_protocol
+
+14 missed: 10 killed, 4 equivalent. The sweep afterwards reports 4 missed.
+
+- The quoted sizes: a record is 256 bytes at most, a window's data is 4,080, and the four flag bits
+  are the four low bits.
+- Severity 7 is accepted and 8 refused. A name of 16 bytes is one message and 17 are two. A read
+  request is its opcode in the top byte alone.
+
+The 4 equivalents: `KERNEL` as `1 >> 0`, which is 1, and the three `|` as `^` in `control::word`, whose
+fields are masked to disjoint bits.
+
+The sweep also reports 42 survivors in `kernel_ring` and `console`, code that landed after the census
+ran. They are not among the 1,004 and are untriaged; the next weekly census lists them, and the
+mutation inflow check (#1582) is the intended route for them.
+
+## login_protocol
+
+14 missed: 11 killed, 3 equivalent. The sweep afterwards reports 3 missed.
+
+- Each bare word on the front door is its opcode in the top byte alone.
+- The durable window is the file service's last, and the session budgets are pinned to 320 and 800
+  pages. A change there decides what `login` may spend, so the number is written down twice.
+- The two schedule lengths come from their own halves, and skip counts pack one byte each and
+  saturate at 255.
+
+The 3 equivalents: `schedule_lengths`'s `|` as `^` (disjoint halves), `sessions_held`'s `<` as `<=`
+(equal to the fixed cost gives 0 either way) and `pack_skip_counts`'s `> 255` as `>=` (255 is 255).
+
+## compositor
+
+14 missed, 14 equivalent, no test added.
+
+Every one is a tie that does not matter. `Rect::intersect` and `Rect::union` pick a minimum or a
+maximum, and `<` against `<=` picks the same value when the two are equal. An empty rectangle leaves
+the intersection empty through its bounds, so the early return is a shortcut. The two `|` as `^` in
+the pixel functions join bytes already masked to eight bits.
+
+## Rows for the triage CSV
+
+The inflow check's `notes/project-metrics/mutation-triage.csv` is not on `main` yet (#1582). The 57
+survivors of this batch share 42 keys, and those rows are in `census-2026-10-03-triage-batch-6-rows.csv` in the
+CSV's own shape, ready to append.
+
+## Tally after batch 6
+
+Of the 1,004: 511 killed, 275 equivalent, 17 recorded gaps, 201 remaining. The next crates, by
+survivor count, are `argument_protocol` (13), `boot_slot` (12), `machine_statistics_protocol` (11)
+and `elf` (10).

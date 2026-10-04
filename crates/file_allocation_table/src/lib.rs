@@ -725,4 +725,70 @@ mod tests {
             Err(Error::FileTooBig)
         );
     }
+
+    /// **The sector arithmetic, pinned by hand**: the data area starts after the reserved sectors
+    /// and both copies of the table, a cluster is eight sectors, and cluster 2 is the first.
+    #[test]
+    fn the_data_area_and_its_clusters_sit_where_the_arithmetic_says() {
+        let v = volume();
+        let first = 32 + 2 * v.fat_sectors() as u64;
+        assert_eq!(v.data_first_sector(), first);
+        assert_eq!(v.cluster_sector(2), first);
+        assert_eq!(v.cluster_sector(3), first + 8);
+        assert_eq!(v.cluster_sector(5), first + 24);
+        assert_eq!(v.file_first_sector(), first + 24);
+        assert_eq!(v.metadata_sectors(), first + 24);
+        // 9,000,000 bytes is 2,198 clusters of 4,096, each of eight sectors.
+        assert_eq!(v.file_sectors(), 2198 * 8);
+    }
+
+    /// `FSInfo`'s two hints count the three directories and the file: free is what is left, and the
+    /// next free cluster is the one after the file.
+    #[test]
+    fn fs_info_counts_the_directories_and_the_file() {
+        let v = volume();
+        let s = sector(&v, 1);
+        let word = |at: usize| u32::from_le_bytes([s[at], s[at + 1], s[at + 2], s[at + 3]]);
+        assert_eq!(word(488), v.clusters() - (3 + 2198));
+        assert_eq!(word(492), 5 + 2198);
+    }
+
+    /// Each directory cluster's first sector is its own and the sectors between are zero. A sector
+    /// that nothing owns is not handed a directory by default.
+    #[test]
+    fn only_the_three_directory_clusters_have_contents_and_their_later_sectors_are_zero() {
+        let v = volume();
+        let at = |c| v.cluster_sector(c);
+        for c in [2, 3, 4] {
+            assert_ne!(sector(&v, at(c)), [0; SECTOR], "cluster {c}");
+            assert_eq!(sector(&v, at(c) + 1), [0; SECTOR], "cluster {c}");
+        }
+        // The reserved sectors between the backup pair and the table.
+        for i in [2, 3, 4, 5, 8, 31] {
+            assert_eq!(sector(&v, i), [0; SECTOR], "sector {i}");
+        }
+        // The table is not a directory: its second sector is table words, not the boot directory.
+        assert_ne!(sector(&v, 33), sector(&v, at(4)));
+    }
+
+    /// A directory entry's first cluster is split into high and low halves.
+    #[test]
+    fn a_directory_entry_splits_its_first_cluster_into_halves() {
+        let mut out = [0u8; SECTOR];
+        dir_entry(&mut out, 1, b"NAME       ", ATTR_ARCHIVE, 0x0001_0002, 77);
+        assert_eq!(&out[32..43], b"NAME       ");
+        assert_eq!(u16::from_le_bytes([out[32 + 20], out[32 + 21]]), 1);
+        assert_eq!(u16::from_le_bytes([out[32 + 26], out[32 + 27]]), 2);
+        assert_eq!(u32::from_le_bytes(out[60..64].try_into().unwrap()), 77);
+    }
+
+    /// Each rule that makes a name not short refuses it alone, and the longest short name is kept.
+    #[test]
+    fn a_short_name_is_refused_for_each_reason_and_the_longest_is_kept() {
+        assert_eq!(short_name("ABCDEFGH.XYZ").unwrap(), *b"ABCDEFGHXYZ");
+        assert_eq!(short_name("A").unwrap(), *b"A          ");
+        for bad in [".EFI", "ABCDEFGHI.EFI", "ABC.WXYZ", "abc.efi", "AB CD"] {
+            assert_eq!(short_name(bad), Err(Error::NameNotShort), "{bad}");
+        }
+    }
 }
