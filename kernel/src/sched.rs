@@ -1495,8 +1495,6 @@ pub fn adopt_secondary_idle() {
     // This core's turn at the line in `init` above: it is about to own threads.
     crate::arch::fp::init();
 
-    let idle = Thread::adopt_current();
-
     let id = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard
@@ -1504,10 +1502,10 @@ pub fn adopt_secondary_idle() {
             .expect("adopt_secondary_idle before sched::init");
         sched
             .threads
-            .insert_with(|tid| {
-                let mut idle = idle;
-                idle.id = tid;
-                idle
+            .insert_in_place(|tid, dst| {
+                // SAFETY: `dst` is a fresh, exclusively-owned TCB page, per `insert_in_place`.
+                unsafe { Thread::write_adopted_current(dst, tid) };
+                true
             })
             .expect("thread table full while bringing a core online")
     };
@@ -4074,7 +4072,7 @@ fn strand_reply_caller(sched: &mut IpcTables, caller: ThreadId) -> bool {
 /// because [`strand_reply_caller`] takes `sched` mutably and deletes out of this very table as it
 /// goes; at 24 slots that was 24 generational lookups per departing thread, and `script/bench`
 /// priced it at about 830 icount ticks on every `spawn_reap` iteration. One lookup, an array of
-/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (256 bytes at 32 slots) in this function's own frame (it is `#[inline(never)]`, so the array is never
+/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (512 bytes at 64 slots, 256 at the 32 it was) in this function's own frame (it is `#[inline(never)]`, so the array is never
 /// on `reap_region_objects`'s), and the empty-table early-out cost nothing and gave it back.
 #[cold]
 #[inline(never)]
@@ -4112,7 +4110,7 @@ fn strand_callers_of(sched: &mut IpcTables, tid: ThreadId) {
 /// server.
 ///
 /// **Rescan rather than list**, which is the opposite choice from [`strand_callers_of`] above and
-/// the difference is the bound: that one lists because a capability table is 32 slots, 256 bytes,
+/// the difference is the bound: that one lists because a capability table is 64 slots, 512 bytes,
 /// and this one cannot because the bound here is `MAX_THREADS`, a kilobyte that grows every time
 /// the thread ceiling does. Both functions sit on the call chain through
 /// [`reap_region_objects`], the deepest frame in the kernel, whose own comment spends a paragraph

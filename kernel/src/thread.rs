@@ -637,8 +637,8 @@ const FP_STATE_OFFSET: usize =
 /// A `Thread` is always constructed at the start of a whole 4096-byte page it exclusively owns:
 /// `Threads::insert_at` and `insert_at_in_place` both take `phys_to_virt(page) as *mut Thread`, and
 /// every route into the table (`insert_with` from `kmem`, `insert_from_page` from a user region's
-/// retyped object page) goes through one of the two. Today that leaves 2,944 bytes of the page
-/// unused, so the register file is free: it is not memory this milestone asked anyone for, it is
+/// retyped object page) goes through one of the two. Milestone 754's 64-slot table leaves less of the page
+/// unused than before (the assertion below is the live number), so the register file is free: it is not memory this milestone asked anyone for, it is
 /// memory that was already allocated and idle.
 ///
 /// This assertion is the whole of the mechanism that keeps that true. Grow `Thread` past the point
@@ -690,6 +690,13 @@ unsafe impl intrusive_fifo::Node for Thread {
 // SAFETY: a Thread is only ever touched under IPC_TABLES.
 unsafe impl Send for Thread {}
 
+/// **An empty capability table as a constant, not a call** (milestone 754 (the capability table grows to 64 slots); name provisional). A
+/// struct literal that calls `CapabilityTable::new()` keeps the table as a stack temporary beside
+/// the `Thread` it is copied into, in an unoptimised build; a constant operand is copied straight
+/// from read-only memory into the field. At 64 slots the table is 2,064 bytes, and the temporary
+/// is what put `write_kernel_thread` over the 4096-byte guard page (`script/stack-frame-check`).
+const NO_CAPABILITIES: crate::cap::CapabilityTable = crate::cap::CapabilityTable::new();
+
 impl Thread {
     /// The thread we are already running on, at `sched::init`.
     ///
@@ -707,7 +714,7 @@ impl Thread {
             context: core::ptr::null_mut(),
             stack: None,
             space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
+            capability_table: NO_CAPABILITIES,
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
@@ -736,35 +743,46 @@ impl Thread {
     /// context filled by the first `switch_to` away from it, `Running`. This becomes that core's
     /// idle thread, so it is never in a run queue; the scheduler falls back to it when the core's
     /// queue is empty. See smp.rs and `sched::adopt_secondary_idle`.
-    pub fn adopt_current() -> Self {
-        Thread {
-            id: UNNAMED, // named at insert, like every thread
-            handshake: thread_wake_handshake::Handshake::on_cpu_now(), // adopted mid-run: standing on its CPU
-            #[cfg(feature = "soak_test")]
-            last_cpu: u8::MAX,
-            placement: u8::MAX, // overwritten by the placement decision at spawn or START
-            context: core::ptr::null_mut(),
-            stack: None,
-            space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
-            mailbox: [0; 5],
-            quota: None,
-            outgoing_cap: None,
-            cap_delivered: false,
-            ipc_refused: false,
-            next: None,
-            entry: (0, 0), // a kernel thread; never enters EL0 by this path
-            start_args: [0; 3],
-            thread_control_block_kmem: true,
-            killed: false,
-            fault_ep: None,
-            thread_control_block_region: None,
-            fault_msg: None,
-            bound_notification: None,
-            #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
-            cycle_counter_grant: false,
-            #[cfg(target_arch = "x86_64")]
-            port_range_grant: None,
+    ///
+    /// **Written into `dst`, not returned** (milestone 754 (the capability table grows to 64 slots)): a returned `Thread` is two copies in an
+    /// unoptimised build, and at 64 capability slots two copies is more than the guard page.
+    ///
+    /// # Safety
+    ///
+    /// `dst` is writable, aligned for `Thread`, and holds no live `Thread`.
+    #[inline(never)]
+    pub unsafe fn write_adopted_current(dst: *mut Thread, id: ThreadId) {
+        // SAFETY: the caller's contract.
+        unsafe {
+            dst.write(Thread {
+                id,
+                handshake: thread_wake_handshake::Handshake::on_cpu_now(), // adopted mid-run: standing on its CPU
+                #[cfg(feature = "soak_test")]
+                last_cpu: u8::MAX,
+                placement: u8::MAX, // overwritten by the placement decision at spawn or START
+                context: core::ptr::null_mut(),
+                stack: None,
+                space: None,
+                capability_table: NO_CAPABILITIES,
+                mailbox: [0; 5],
+                quota: None,
+                outgoing_cap: None,
+                cap_delivered: false,
+                ipc_refused: false,
+                next: None,
+                entry: (0, 0), // a kernel thread; never enters EL0 by this path
+                start_args: [0; 3],
+                thread_control_block_kmem: true,
+                killed: false,
+                fault_ep: None,
+                thread_control_block_region: None,
+                fault_msg: None,
+                bound_notification: None,
+                #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
+                cycle_counter_grant: false,
+                #[cfg(target_arch = "x86_64")]
+                port_range_grant: None,
+            });
         }
     }
 
@@ -859,7 +877,7 @@ impl Thread {
     /// wherever this literal sits, its frame carries roughly two `Thread`s. Inside the generic
     /// [`spawn_into`](Self::spawn_into) that cost was paid by *every* monomorphization, on top of
     /// that closure's own capture, and raising `crate::cap::CAPABILITY_TABLE_SLOTS` from 24 to 32
-    /// put two of them over the 4096-byte guard page (`script/stack-frame-check`:
+    /// (and milestone 754 (the capability table grows to 64 slots) from 32 to 64, which doubles it again) put two of them over the 4096-byte guard page (`script/stack-frame-check`:
     /// `spawn_into::<fs_service::spawn_fs_server>` at 4112). Here, non-generic and never inlined,
     /// the temporaries exist once, in a frame that holds nothing else.
     ///
@@ -889,7 +907,7 @@ impl Thread {
                 stack: Some(stack),
                 space: None, // a kernel thread until it calls `user::exec`
                 // and it can name nothing until it is handed something
-                capability_table: crate::cap::CapabilityTable::new(),
+                capability_table: NO_CAPABILITIES,
                 mailbox: [0; 5],
                 quota: None,
                 outgoing_cap: None,
@@ -926,7 +944,7 @@ impl Thread {
             context: core::ptr::null_mut(),
             stack: None,
             space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
+            capability_table: NO_CAPABILITIES,
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
