@@ -137,6 +137,41 @@ mod tests {
         assert_eq!(e[4], 8 | 8 << 16);
     }
 
+    /// **Drop flags first, add flags second** (xHCI 1.2 section 6.2.5.1): the controller reads
+    /// dword 0 as the contexts to drop, so swapping them would ask Configure Endpoint to remove
+    /// the endpoint the driver meant to add.
+    #[test]
+    fn the_input_control_context_puts_drop_before_add() {
+        assert_eq!(input_control(0b11, 0b100), [0b100, 0b11, 0, 0, 0, 0, 0, 0]);
+    }
+
+    /// Endpoint 0 is a control endpoint with three retries, no service-interval payload, and an
+    /// eight-byte average TRB (the setup packet), whatever packet size it is given.
+    #[test]
+    fn endpoint_zero_is_control_with_no_periodic_payload() {
+        for packet in [8u16, 64, 512] {
+            let e = control_endpoint(packet, 0x6000 | 1);
+            assert_eq!((e[1] >> 3) & 7, u32::from(CONTROL));
+            assert_eq!((e[1] >> 1) & 3, 3);
+            assert_eq!(e[1] >> 16, u32::from(packet));
+            assert_eq!(e[4], 8, "average TRB 8, max ESIT payload 0");
+            assert_eq!(e[0], 0, "no interval");
+        }
+    }
+
+    /// The address the controller assigned, read back from the slot context it wrote; and which
+    /// speeds state `bMaxPacketSize0` as an exponent.
+    #[test]
+    fn the_assigned_address_and_the_superspeed_test() {
+        assert_eq!(slot_address(&[0, 0, 0, 0x0800_0005, 0, 0, 0, 0]), 5);
+        assert!(is_superspeed(speed::SUPER) && is_superspeed(speed::SUPER_PLUS));
+        assert!(
+            !is_superspeed(speed::HIGH)
+                && !is_superspeed(speed::FULL)
+                && !is_superspeed(speed::LOW)
+        );
+    }
+
     #[test]
     fn offsets_follow_the_context_size() {
         assert_eq!(input_offset(1, 32), 32);

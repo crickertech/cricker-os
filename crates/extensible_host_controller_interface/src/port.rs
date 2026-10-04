@@ -111,6 +111,26 @@ mod tests {
         assert_eq!(speed_of(read), speed::HIGH);
     }
 
+    /// Each speed id names itself in the boot line, and an id no table knows says so rather than
+    /// claiming one.
+    #[test]
+    fn every_speed_has_its_own_name() {
+        let names = [
+            speed::LOW,
+            speed::FULL,
+            speed::HIGH,
+            speed::SUPER,
+            speed::SUPER_PLUS,
+            15,
+        ]
+        .map(speed_name);
+        assert_eq!(names[1], "full speed");
+        assert_eq!(names[5], "an unknown speed");
+        for (i, a) in names.iter().enumerate() {
+            assert!(names[i + 1..].iter().all(|b| a != b), "{a} is named twice");
+        }
+    }
+
     #[test]
     fn the_preserved_set_is_linuxs() {
         assert_eq!(PRESERVE, 0x4e00_ffe9);

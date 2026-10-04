@@ -53,3 +53,43 @@ pub const MAX_SCRATCHPADS: u16 = 512;
 const _: () = assert!(REPORTS_QUEUED as u64 * REPORT_SLOT <= crate::PAGE);
 const _: () = assert!(REPORTS_QUEUED < RING_ENTRIES - 1);
 const _: () = assert!(MAX_SCRATCHPADS as u64 * 8 == crate::PAGE);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **The layout both ends rely on**: every work page is used once and lies inside the work
+    /// window the driver is mapped, and the scratchpad pages begin exactly where it ends, so the
+    /// controller's private memory never overlaps a page the driver writes. A page constant moved
+    /// onto another, or past `WORK_PAGES`, would hand the controller a ring the driver also uses
+    /// as a buffer, or a scratchpad the driver is mapped.
+    #[test]
+    fn the_work_pages_are_distinct_and_the_scratchpads_follow_them() {
+        let pages = [
+            DEVICE_CONTEXT_ARRAY,
+            COMMAND_RING,
+            EVENT_RING,
+            EVENT_SEGMENT_TABLE,
+            INPUT_CONTEXT,
+            DEVICE_CONTEXT,
+            CONTROL_RING,
+            INTERRUPT_RING,
+            CONTROL_BUFFER,
+            REPORT_BUFFERS,
+            SCRATCHPAD_ARRAY,
+        ];
+        let mut seen = [false; WORK_PAGES as usize];
+        for p in pages {
+            assert!(p < WORK_PAGES, "page {p} is outside the mapped work pages");
+            assert!(!seen[p as usize], "page {p} is used twice");
+            seen[p as usize] = true;
+        }
+        assert!(seen.iter().all(|&s| s), "a work page is mapped and unused");
+        assert_eq!(region_pages(0), WORK_PAGES);
+        // The last scratchpad of the largest accepted set is the region's last page.
+        assert_eq!(
+            region_pages(MAX_SCRATCHPADS) - 1,
+            WORK_PAGES + u64::from(MAX_SCRATCHPADS) - 1
+        );
+    }
+}
