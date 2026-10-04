@@ -23,7 +23,7 @@ Read on all three architectures, from trap entry to return:
 
 | What | Shared with other cores? |
 |---|---|
-| `arch::exceptions::SVC_COUNT.fetch_add` | Yes, one line every syscall on every core wrote. Read only by a riscv64 tour line that printed 0 on every captured boot |
+| `arch::exceptions::SVC_COUNT.fetch_add` | Yes, one line every syscall on every core wrote. Read by the system tests, and by a riscv64 tour line that printed 0 on every captured boot |
 | `IPC_TABLES.lock()` in `sched::current_cap` | Yes, the kernel's one global lock, taken by every IPC, every `schedule()` and every capability operation |
 | `cpu::current()`, `held_rank` | Per core. But `PERCPU` is aligned to 8, at offset 16 mod 64 on riscv64 and 24 on aarch64, so neighbouring cores' blocks share a line (not fixed; see BUGS) |
 
@@ -77,21 +77,27 @@ fixed.
 
 ## The fix
 
-Three commits, each with its reason in its message:
+Each change has its reason in its commit message:
 
-- **The shared counter is gone.** aarch64 and x86_64 never read it, the soak's one read discarded
-  its result, and the riscv64 tour line it fed printed 0 on every captured boot because it raced the
-  program it counted. A per-core padded counter was built first and deleted: it still cost every
-  syscall a store and an index to feed a line that proved nothing.
-- **No kernel stack is built or freed under `IPC_TABLES`.** The reaper takes the stack out under the
-  lock, marks the thread `stack_being_freed`, frees the stack with no lock held, then takes the lock
-  again to remove the thread. `START` builds the stack before taking the lock.
+- **The shared counter is compiled into the system tests only.** They are its one real reader. The
+  soak's one read discarded its result, and the riscv64 tour line it fed printed 0 on every captured
+  boot because it raced the program it counted. The first commit said aarch64 and x86_64 never read
+  it; the system tests do, which `script/lint` caught, and the correction is its own commit.
+- **No kernel stack is built or freed under `IPC_TABLES`.** The reaper takes the stack and the
+  address space out under the lock, marks the thread `being_reaped`, frees both with no lock held,
+  then takes the lock again to remove the thread. `START` builds the stack before taking the lock.
 - **The ordering is load-bearing, and was learned by breaking it.** The first version removed the
   thread first and freed the stack after. The `spawn` job then saw `DESTROY` succeed and built its
   next child before the dead one's stack was back, and the sweep failed with `OutOfMemory` and
   `BadPointer` within a subrun, three runs out of three. So the thread stays in the table, `Finished`,
   while its stack is freed, and region teardown refuses it passively, exactly as it refuses a thread
   still standing on its stack (`region_reap_verdict`'s `standing`).
+- **The address space goes before the thread too.** The first version still dropped the space just
+  after removing the thread, as the old code always had. Under TCG on x86_64 the `lock_wait` build
+  then failed 2 sweeps in 10 (`OutOfMemory` in `spawn`, `BadPointer` in `map`) where `main` failed 0
+  in 10. The window was old: `reclaim_region` assumes a bound space "died with its thread", and a
+  `DESTROY` on another core could reclaim the region between the removal and the space's teardown.
+  Dropping the space in step 2 closed it: 8 x86_64 and 2 riscv64 `lock_wait` sweeps, all clean.
 
 After the fix, same instrument, same machine:
 
