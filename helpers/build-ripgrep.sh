@@ -37,7 +37,7 @@ OUT="$ROOT/target/ripgrep"
 SRC="$BUILD/ripgrep-$VERSION"
 
 mkdir -p "$BUILD"
-if [ ! -d "$SRC" ]; then
+if [ ! -f "$SRC/Cargo.toml" ]; then  # a half-unpacked tree from an interrupted run has no manifest
   echo "build-ripgrep: fetching ripgrep $VERSION from crates.io"
   curl -sSL --max-time 120 -o "$BUILD/ripgrep-$VERSION.crate" \
     "https://static.crates.io/crates/ripgrep/ripgrep-$VERSION.crate"
