@@ -187,6 +187,13 @@ pub fn create(pages: u64) -> Option<u64> {
 /// reclaimed: `RegionTable::split`'s `# BUGS` entry has the consequence and a reproduction, and
 /// `notes/region-split-on-a-full-table.md` the proposal.
 pub fn split(parent: u64, pages: u64) -> Option<u64> {
+    // The test kernel's Nth-retype fault (milestone 757 (a test kernel fails a process on its Nth
+    // retype), provisional): refused before the lock, so the region is left exactly as an
+    // exhausted one would be. Absent from every other build.
+    #[cfg(feature = "system_tests")]
+    if crate::retype_fault::fails_now() {
+        return None;
+    }
     let mut table = REGIONS.lock();
     let child = table.split(parent, pages);
     note_peak(&table);
@@ -217,6 +224,12 @@ pub fn retype_page(region: u64) -> Option<u64> {
 /// with the region's watermark unmoved, when it does not fit: the proved arithmetic in
 /// `memory_regions::retype_new_watermark` decides, and this only does the I/O.
 pub fn retype_run(region: u64, requested: u64) -> Option<(u64, u64)> {
+    // The test kernel's Nth-retype fault (milestone 757, provisional): refused before the lock,
+    // so the region is left exactly as an exhausted one would be. Absent from every other build.
+    #[cfg(feature = "system_tests")]
+    if crate::retype_fault::fails_now() {
+        return None;
+    }
     // Released at the semicolon, as it always was for one page: zeroing is a memory touch of the
     // whole run and has no business happening under the region lock.
     let page = REGIONS.lock().retype_run(region, requested)?;
@@ -240,6 +253,12 @@ pub fn retype_run(region: u64, requested: u64) -> Option<(u64, u64)> {
 /// carve happen under one hold of the region lock, so no [`destroy`] can slip between them and
 /// free a page that is about to hold an endpoint. Zeroed like every retyped page.
 pub fn retype_object_page(region: u64, kind: ObjectKind) -> Option<u64> {
+    // The test kernel's Nth-retype fault (milestone 757, provisional): refused before the lock,
+    // so the region is left exactly as an exhausted one would be. Absent from every other build.
+    #[cfg(feature = "system_tests")]
+    if crate::retype_fault::fails_now() {
+        return None;
+    }
     // Released at the semicolon, as in `retype_page`: the pin and the carve are under the lock, the
     // zeroing is not.
     let page = REGIONS.lock().retype_object_page(region, kind)?;

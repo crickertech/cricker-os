@@ -203,11 +203,12 @@ fn set_run_unvouched_list(list: Option<&[u8]>) {
 /// `None` when a dependency this depends on is not attached to this run: no virtio-rng
 /// (`credential_tests::provisioned`'s own condition) or no RedoxFS disk (`fs_service`'s). Both are
 /// legitimate boot configurations this tree supports, so a caller skips rather than fails.
-fn wired() -> Option<ls::Wiring> {
+pub(super) fn wired() -> Option<ls::Wiring> {
     use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     static DONE: AtomicBool = AtomicBool::new(false);
     static OK: AtomicBool = AtomicBool::new(false);
-    static SAVED: [AtomicU64; 5] = [
+    static SAVED: [AtomicU64; 6] = [
+        AtomicU64::new(0),
         AtomicU64::new(0),
         AtomicU64::new(0),
         AtomicU64::new(0),
@@ -246,6 +247,7 @@ fn wired() -> Option<ls::Wiring> {
             SAVED[2].store(w.audit, Ordering::Relaxed);
             SAVED[3].store(w.term_ep, Ordering::Relaxed);
             SAVED[4].store(w.run_unvouched, Ordering::Relaxed);
+            SAVED[5].store(w.tid, Ordering::Relaxed);
             OK.store(true, Ordering::Release);
         }
         DONE.store(true, Ordering::Release);
@@ -259,6 +261,7 @@ fn wired() -> Option<ls::Wiring> {
         audit: SAVED[2].load(Ordering::Relaxed),
         term_ep: SAVED[3].load(Ordering::Relaxed),
         run_unvouched: SAVED[4].load(Ordering::Relaxed),
+        tid: SAVED[5].load(Ordering::Relaxed),
     })
 }
 
@@ -280,7 +283,7 @@ fn redoxfs_server_image() -> &'static [u8] {
 /// behind. Issued as a raw front-door exchange rather than through `login_test_client`, since
 /// freeing the terminal needs no identity and carries no secret (`login_protocol`'s own module docs on
 /// why `LOGOUT` travels on the shared front door at all).
-fn free_terminal(w: &ls::Wiring) {
+pub(super) fn free_terminal(w: &ls::Wiring) {
     sched::ipc_send(w.request, [login_protocol::logout_word(), 0, 0]);
     let r = sched::ipc_receive(w.result);
     assert_eq!(

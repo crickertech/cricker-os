@@ -5477,6 +5477,23 @@ pub fn corpse_fault_msg(tid: ThreadId) -> Option<[u64; 5]> {
 ///
 /// The name is generational, so a reaped thread's `ThreadId` never resolves again even if its slot is
 /// reused: `false` here means gone, not "gone or replaced".
+/// **Every slot of `tid`'s capability table, copied out** (test support, milestone 757 (a test
+/// kernel fails a process on its Nth retype), provisional name). `None` for a name that does not
+/// resolve. A sweep that fails a service's Nth retype reads this before and after each run, because
+/// a cleanup path that forgets a `cap_delete` crashes nothing and shows up only here.
+#[cfg(feature = "system_tests")]
+pub fn capability_table_snapshot(
+    tid: ThreadId,
+) -> Option<[Option<crate::cap::Cap>; crate::cap::CAPABILITY_TABLE_SLOTS]> {
+    let guard = IPC_TABLES.lock();
+    let t = guard.as_ref()?.threads.get(tid)?;
+    let mut out = [None; crate::cap::CAPABILITY_TABLE_SLOTS];
+    for (slot, entry) in out.iter_mut().enumerate() {
+        *entry = t.capability_table.get(slot as u64).ok();
+    }
+    Some(out)
+}
+
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn is_thread_present(tid: ThreadId) -> bool {
     IPC_TABLES

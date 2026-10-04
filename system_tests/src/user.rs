@@ -959,6 +959,17 @@ mod revocation_in_flight_tests;
 #[cfg(test)]
 mod syscall_fuzzer_tests;
 
+/// **`login` gives back everything when any retype of a login fails** (milestone 757 (a test kernel
+/// fails a process on its Nth retype), provisional). The kernel refuses `login`'s Nth retype, for
+/// every N a login reaches, and `login`'s capability table and region usage must come back each
+/// time. Its own header has what it reaches and its `BUGS`; a module of its own for [`tests`]'
+/// merge-hotspot reason, named to sort before [`thread_leak_police`]. It uses `login_tests`' one
+/// `login`, so it carries that module's gate.
+///
+/// Cross-ISA: one portable body over portable kernel code (DECISIONS §19).
+#[cfg(all(test, initrd))]
+mod nth_retype_tests;
+
 /// **A userspace builder keeps building past its scratch window** (milestone 604 (provisional),
 /// the builder's scratch cursor is bounded).
 ///
