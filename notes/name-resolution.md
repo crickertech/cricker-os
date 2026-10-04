@@ -69,10 +69,10 @@ dependencies of that configuration. Advisories are from the local RustSec databa
 | Crate | Licence | Bare metal | Size, deps | Latest release | RustSec | Stub acceptance | TCP fallback | Id and source port |
 |---|---|---|---|---|---|---|---|---|
 | `hickory-proto` 0.26.3 | MIT or Apache-2.0 | builds with `no-std-rand`, needs `alloc` | 37,482 lines, 61 deps | 2026-09-10 | none open for 0.26.3; history: 2018-0007 stack overflow on a malicious packet, 2026-0118 unbounded NSEC3 loop, 2026-0119 quadratic compression | a codec; acceptance lives in the resolver | n/a | without std, one global `StdRng` from a 64-bit `seed()`, behind `critical-section`, panics unseeded |
-| `hickory-resolver` 0.26.3 | MIT or Apache-2.0 | no: std, `tokio`, `futures` | 17,939 lines, 100 deps | 2026-09-10 | none | checks the question (optionally with 0x20 case randomisation); its CNAME fold assumes chain order, and it scans `all_sections()`, authority and additional included | yes | `rand` thread generator; a fresh OS port per request |
-| `domain` 0.12.3 (NLnet Labs) | BSD-3-Clause | the parser builds with defaults off | 133,146 lines, 11 deps (5 of them proc-macro, at build time) | 2026-09-25 | none | as strict as `Query::accept`: `is_answer` checks QR, id and question; host lookup follows the chain to a canonical name, refuses a loop, takes only A records it owns | yes, in the stub (`resolv`, which needs `tokio`) | `rand::random()`; binds port 0 and leaves it to the OS |
+| `hickory-resolver` 0.26.3 | MIT or Apache-2.0 | no: its transports run on `tokio`, which needs a poller the PAL lacks | 17,939 lines, 100 deps | 2026-09-10 | none | checks the question (optionally with 0x20 case randomisation); its CNAME fold assumes chain order, and it scans `all_sections()`, authority and additional included | yes | `rand` thread generator; a fresh OS port per request |
+| `domain` 0.12.3 (NLnet Labs) | BSD-3-Clause | the parser builds with defaults off | 133,146 lines, 11 deps (5 of them proc-macro, at build time) | 2026-09-25 | none | as strict as `Query::accept`: `is_answer` checks QR, id and question; host lookup follows the chain to a canonical name, refuses a loop, takes only A records it owns | yes, in the stub (`resolv`, on `tokio`, so the same poller gap) | `rand::random()`; binds port 0 and leaves it to the OS |
 | `simple-dns` 0.12.0 | MIT | builds with `alloc` | 8,183 lines, 2 deps | 2026-07-26 | none | a codec only | n/a | none of its own |
-| `dns-parser` 0.8.0 | MIT or Apache-2.0 | no: uses `std` | 2,466 lines, 3 deps | 2018-08-06 | none | a parser only | n/a | none |
+| `dns-parser` 0.8.0 | MIT or Apache-2.0 | needs `std`, which the PAL provides | 2,466 lines, 3 deps | 2018-08-06 | none | a parser only | n/a | none |
 | `smoltcp` 0.14.0 `socket::dns` | 0BSD | yes, already in the graph | 1,503 lines (`socket/dns.rs` and `wire/dns.rs`), 0 new | 2026-08-17 | none | checks id, port and question; follows a CNAME by renaming in place, assuming it comes first; reads only the answer section | no | PCG32 that `net_stack` seeds with `now()` |
 | ours, `domain_name_system` | the tree's | yes, no `alloc` | 883 lines (297 of them comments), 0 deps | | | the seven checks above | the caller's, with `TcpReply` | the caller's, from the entropy service |
 
@@ -99,8 +99,11 @@ Recommendation: keep writing it, with two options recorded for the proposal.
   with `alloc`. It saves the decoder, which is the part already proved, and leaves the acceptance
   logic, which is the part that matters, still ours.
 
-hickory-resolver and `domain`'s stub need `tokio` and std, and `dns-parser` needs std and has not
-been released since 2018, so none of the three is an option. Would W still win at equal cost? Yes:
+std is not what rules out hickory-resolver and `domain`'s stub: nife has a std port with `fs` and
+`net` (notes/std.md). The blocker is the async reactor. Both run on `tokio`, and `tokio` (through
+`mio`) needs a readiness poller, which nife's PAL does not provide: its socket contract is
+blocking-only, with no poll verb (notes/std/caveats.md). If the PAL gains a poller, this comparison
+should be revisited. `dns-parser` is out because it has not been released since 2018. Would W still win at equal cost? Yes:
 its reasons are the proof and the strictness of acceptance, not effort. The decision changes if
 DNSSEC validation or DNS over TLS is wanted. Those are crypto-adjacent and won by exposure, and then
 `domain` or hickory should be taken.
