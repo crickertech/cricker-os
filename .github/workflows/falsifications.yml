@@ -127,3 +127,61 @@ jobs:
             echo 'redoing. Both are worklist entries, not failures of this commit. The convention is'
             echo 'DECISIONS §134; the worklist is `script/falsifications --unfalsified`.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # **The long sweep of the seeded syscall driver** (milestone 752 (a seeded syscall driver with a
+  # shadow model), provisional). The suite runs a short committed seed list on every merge; this
+  # runs many fresh seeds once a week on the cadence milestone 616 (constrained hardware fuzzing for
+  # the boot path) chose for breadth, so a finding is a red scheduled run and never a red trunk.
+  #
+  # **The seeds move every week and every one is printed.** The first seed is the ISO week times
+  # one million, so no two weeks repeat and any run can be reconstructed from its date. A mismatch
+  # names its seed and the one-line replay (`NIFE_SYSCALL_FUZZ_SEEDS=<seed>:1 cargo xtask test
+  # --arch aarch64 --test seeded_syscalls`). The count asked for is more than fits: the driver stops
+  # between seeds after 60 s of guest time, under the suite's 90 s per-test budget, and prints how
+  # far it got. At the 2026-10-04 (UTC) rate on a developer machine (about 120 seeds a second on
+  # aarch64 under QEMU) that is several thousand seeds a week, against 34 per merge.
+  #
+  # aarch64 only, for `script/falsifications`' reason: the suite already runs the committed seeds on
+  # all three ISAs on every merge, and the weekly breadth is about the seed space, not the ISA.
+  syscall-fuzz:
+    name: seeded syscall driver, long sweep
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cache QEMU
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/nife-qemu
+          key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
+      - name: Build QEMU if the cache missed
+        run: script/ci-qemu
+      - name: Put it on PATH
+        run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
+      - run: script/bootstrap
+
+      - name: Sweep
+        shell: bash
+        run: |
+          set -o pipefail
+          first=$(( $(date -u +%G%V) * 1000000 ))
+          echo "seeds from ${first}"
+          NIFE_SYSCALL_FUZZ_SEEDS="${first}:1000000" \
+            cargo xtask test --arch aarch64 --test seeded_syscalls 2>&1 | tee "$RUNNER_TEMP/fuzz.txt"
+
+      - name: Publish the report
+        if: always()
+        run: |
+          {
+            echo '### Seeded syscall driver, long sweep'
+            echo
+            echo '```'
+            grep -E 'syscall fuzzer|panicked|test result' "$RUNNER_TEMP/fuzz.txt" || echo '(no verdict line)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -948,6 +948,17 @@ mod receive_cap_attack_tests;
 #[cfg(test)]
 mod revocation_in_flight_tests;
 
+/// **A seeded syscall driver with a shadow model** (milestone 752 (a seeded syscall driver with a
+/// shadow model), provisional). Random capability operations from a seed, every answer and every table
+/// predicted by a model and compared. Its own header has the oracle, the replay and the `BUGS`;
+/// a module of its own for [`tests`]' merge-hotspot reason, named to sort before
+/// [`thread_leak_police`].
+///
+/// Cross-ISA: one portable body through the portable syscall layer, run on every architecture
+/// (DECISIONS §19).
+#[cfg(test)]
+mod syscall_fuzzer_tests;
+
 /// **A userspace builder keeps building past its scratch window** (milestone 604 (provisional),
 /// the builder's scratch cursor is bounded).
 ///

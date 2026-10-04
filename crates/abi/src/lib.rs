@@ -208,6 +208,18 @@ pub mod rendezvous {
     /// while checking the premise of §101 (notification objects) that `w0` could carry a tag; the same fact is why the
     /// notification tag lives in `x4`. Not fixed: the fix is a register convention for `RECEIVE`'s
     /// status, which every receiver in the tree is written against.
+    ///
+    /// **A capability can reach a plain `RECEIVE`, on one arrival order only.** A [`SEND_CAP`] or
+    /// [`CALL`] that finds a plain `RECEIVE` already parked installs its capability (the delegation,
+    /// or the caller's Reply) in the receiver's table and returns its slot in `x1`, where this
+    /// method otherwise returns the sender's `w1`. In the other order the receiver takes the data
+    /// and no capability (milestone 633 (an outside agent attacks the confinement claim)), and a
+    /// `CALL` caller collected that way waits for a Reply nobody holds. So a receiver that never
+    /// asked for capabilities can have its table filled by any sender that holds `WRITE` here and
+    /// `GRANT` on anything. Found by the seeded syscall driver of milestone 752 (a seeded syscall
+    /// driver with a shadow model), 2026-10-04 UTC, which pins today's behaviour; not fixed, because
+    /// which order is right is a change to this method's contract, written up for an architect in
+    /// that milestone's block.
     pub const RECEIVE: u64 = 1;
 
     /// `invoke(cap, SEND_CAP, cap_slot, rights, w0)` -> 0. **Delegate a capability.** Passes the
