@@ -80,7 +80,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 |---|---|---|---|---|
 | `boot` | base | crates: `bitmap_font*`, `board_console`, `screen_console*`, `sealed_pair*`, `uefi_loader`; programs: `uefi_loader` | interfaces only; 1 dated exception(s) | `boot` (provisional) |
 | `coreutils` | base | programs: `date`, `printenv`, `rm`, `wc` | interfaces only | `coreutils` (provisional) |
-| `drivers` | base | crates: `jh7110_entropy`, `non_volatile_memory_express`, `virtio`; programs: `block_driver`, `jh7110_entropy`, `non_volatile_memory_express`, `serial_driver` | interfaces only | `drivers` (provisional) |
+| `drivers` | base | crates: `e1000e*`, `jh7110_entropy`, `non_volatile_memory_express`, `virtio`; programs: `block_driver`, `jh7110_entropy`, `non_volatile_memory_express`, `serial_driver` | interfaces only | `drivers` (provisional) |
 | `entropy` | base | programs: `entropy` | interfaces only | `entropy` (provisional) |
 | `filesystem` | base | crates: `subtree_scope*`; programs: `fs_file_caretaker`, `fs_nameset_caretaker`, `fs_subtree_caretaker` | interfaces only | `filesystem` (provisional) |
 | `init` | base | crates: `components`, `system_initializer`, `system_log`; programs: `broker`, `job_undertaker`, `progenitor`, `root_supervisor`, `spawner`, `sub_server_supervisor`, `swapper`, `system_log` | `timetable`; 2 dated exception(s) | `init` (provisional) |
