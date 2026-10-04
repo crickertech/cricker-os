@@ -105,7 +105,12 @@ pub struct AddressSpace {
     /// regressions when the timebase page tried it in `user_address_space_create`; the comment
     /// recording that is still beside that function. So `Drop` frees this frame by hand, the one
     /// thing in this struct that `memory_region::destroy` does not cover.
-    current_cpu_page: Option<PageFrame>,
+    ///
+    /// **The frame and its direct-map address**, the second worked out once by
+    /// `attach_current_cpu_page` rather than on every switch: release builds check overflow
+    /// (notes/overflow-checks.md), so recomputing `phys_to_virt` in `publish_current_cpu` put a
+    /// check on the hottest path that the attach had already passed for the same frame.
+    current_cpu_page: Option<(PageFrame, u64)>,
 }
 
 /// **Who returns the region an [`AddressSpace`] spends, and the reason this is a type rather
@@ -244,15 +249,12 @@ impl AddressSpace {
         // CPU 0. `alloc_zeroed` rather than `alloc` because the *rest* of this frame is mapped
         // into the process too, and whatever the last owner left in it would go with it.
         let bytes = current_cpu_protocol::build_page();
+        let kernel_va = mmu::phys_to_virt(frame.addr());
         // SAFETY: `frame` is freshly allocated and owned by nobody else yet, the direct map is
         // valid for it, and `PAGE_BYTES` (16) is far under `FRAME_SIZE`, so the copy stays inside
         // the frame.
         unsafe {
-            core::ptr::copy_nonoverlapping(
-                bytes.as_ptr(),
-                mmu::phys_to_virt(frame.addr()) as *mut u8,
-                bytes.len(),
-            );
+            core::ptr::copy_nonoverlapping(bytes.as_ptr(), kernel_va as *mut u8, bytes.len());
         };
 
         // Read-only to the process, which is what keeps this out of Tock's necessarily-unsafe
@@ -270,7 +272,7 @@ impl AddressSpace {
             crate::memory::free(frame);
             return;
         }
-        self.current_cpu_page = Some(frame);
+        self.current_cpu_page = Some((frame, kernel_va));
     }
 
     /// **Publish the core this space's thread is about to run on.** Called from the context
@@ -282,12 +284,12 @@ impl AddressSpace {
     /// ordered by the scheduler's own release/acquire handoff rather than by anything this adds.
     #[inline]
     pub fn publish_current_cpu(&self, cpu: u64) {
-        if let Some(frame) = self.current_cpu_page {
+        if let Some((_, kernel_va)) = self.current_cpu_page {
             // SAFETY: the frame is this space's own, allocated by `attach_current_cpu_page` and
             // freed only by `Drop`, so the direct-map view is live and 16 bytes wide here. The
             // caller is the one core switching this thread in, and a thread is on one core, so
             // this is the only writer for as long as the store takes.
-            unsafe { current_cpu_protocol::publish(mmu::phys_to_virt(frame.addr()), cpu) };
+            unsafe { current_cpu_protocol::publish(kernel_va, cpu) };
         }
     }
 
@@ -297,8 +299,7 @@ impl AddressSpace {
     #[cfg(any(test, feature = "system_tests"))]
     #[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
     pub fn current_cpu_page_kernel_va(&self) -> Option<u64> {
-        self.current_cpu_page
-            .map(|frame| mmu::phys_to_virt(frame.addr()))
+        self.current_cpu_page.map(|(_, kernel_va)| kernel_va)
     }
 
     /// Map one fresh, zeroed page at `va`, and hand back a **kernel** view of it.
@@ -630,7 +631,7 @@ impl Drop for AddressSpace {
         // region, so `destroy` above does not cover it and ownership has to do the work by hand.
         // Safe to do here, after the root is no longer live: nothing can read the mapping any
         // more, and the only writer was the context switch of a thread that is gone.
-        if let Some(frame) = self.current_cpu_page.take() {
+        if let Some((frame, _)) = self.current_cpu_page.take() {
             crate::memory::free(frame);
         }
 
