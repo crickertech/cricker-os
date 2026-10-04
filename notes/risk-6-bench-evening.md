@@ -222,6 +222,14 @@ attached.
 | 2026-10-04 | `d3dbe8cf253d33f648808393ce89063983583c12` | 1 | PASS | not reached | | | | | with `wbinvd`: fault moves to reason 0x0b, context entry reserved field (`boot-d-wbinvd.log`) |
 | 2026-10-04 | `fef2e3206` (built at 414eda9de) | 1 of 3 | PASS (catch-all owns 01:00.0) | PASS (512-byte lbas, 256060514304 bytes) | 281608311 | 458142471 | 1198 ns | not run | `CONFINED-AT-RATE`, 16384 of 16384 verified; screen held (`boot-e-main-clflush-1.log`) |
 | 2026-10-04 | `fef2e3206` (built at 414eda9de) | 2 of 3 | PASS | PASS | 271854622 | 474990381 | 1197 ns | not run | `CONFINED-AT-RATE`, 16384 of 16384 verified; screen held (`boot-f-main-clflush-2.log`) |
+| 2026-10-04 | `fef2e3206` (built at 414eda9de) | 3 of 3 | PASS | PASS | 237098519 | 457744197 | 1197 ns | not run | `CONFINED-AT-RATE`, 16384 of 16384 verified; screen held (`boot-g-main-clflush-3.log`) |
+
+**The quotable figures, medians of the three boots above:** write 458142471 B/s (range 457744197
+to 474990381, 3.8% spread); read 271854622 B/s (237098519 to 281608311, 16% spread); one FLUSH
+549 us (186 to 1305); IPC floor 1197 ns per round trip. The IPC floor is 13% of a median write
+block (8940 ns) and 8% of a median read block (15066 ns). Every figure is one command in flight,
+polled, one pass per boot with no warm-up: a lower bound on the Micron, not its speed. No Linux
+`fio` comparison (step 5) has been run, so "real speed" is unclaimed.
 
 ### What the first evening found, 2026-10-04
 

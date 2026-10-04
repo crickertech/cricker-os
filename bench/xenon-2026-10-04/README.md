@@ -13,3 +13,4 @@ holds only the lines that were readable and relayed, in screen order. Read with
 | `boot-d-wbinvd.log` | `lane/xenon-nvme-diag-pre594` at `d3dbe8cf253d33f648808393ce89063983583c12`, sha256 `e583b593..` | the write-back worked: the fault moved to reason 0x0b, a reserved field in the context entry (domain 0x100 on an 8-bit unit) |
 | `boot-e-main-clflush-1.log` | main plus the table write-back, sha256 `ac4604ed..` | bench boot 1 of 3: screen held, both preflights PASS, `CONFINED-AT-RATE` |
 | `boot-f-main-clflush-2.log` | the same image | bench boot 2 of 3: screen held, both preflights PASS, `CONFINED-AT-RATE` |
+| `boot-g-main-clflush-3.log` | the same image | bench boot 3 of 3: screen held, both preflights PASS, `CONFINED-AT-RATE` |
