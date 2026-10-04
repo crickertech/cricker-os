@@ -381,9 +381,27 @@ impl AddressSpace {
         flags: Flags,
         under: crate::revoke::PageMapSource,
     ) -> Result<(), MapError> {
+        self.map_physical_held(&mut crate::revoke::hold(), va, phys, flags, under)
+    }
+
+    /// [`Self::map_physical`] under a [`MappingHold`](crate::revoke::MappingHold) the caller already
+    /// has, so a capability read under that hold and the mapping made from it are one critical
+    /// section (`AddressSpace::MAP_INTO`; the hold's own docs have why).
+    ///
+    /// The plain form above takes the hold for itself and therefore holds it across `map_at` too,
+    /// which it did not before 2026-10-04: one shape for both rather than a second body that maps
+    /// outside the registry and records inside it.
+    pub fn map_physical_held(
+        &mut self,
+        hold: &mut crate::revoke::MappingHold,
+        va: u64,
+        phys: u64,
+        flags: Flags,
+        under: crate::revoke::PageMapSource,
+    ) -> Result<(), MapError> {
         self.map_at(va, phys, flags)?;
         let root = self.root.addr();
-        if !crate::revoke::record_mapping(phys, root, va, under) {
+        if !hold.record_mapping(phys, root, va, under) {
             mmu::unmap_user_at(root, va);
             return Err(MapError::OutOfPageFrames);
         }
@@ -504,7 +522,7 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
     name
 }
 
-/// Map `phys` into the user-built space `name` at `va` (the `MAP_INTO` engine). Tables and the
+/// Map `phys` into the user-built space `name` at `va`, one page under one hold. Tables and the
 /// §13 record come from the space's own backing region; an unrecordable mapping is unmapped and
 /// refused, exactly as at the `page_frame::MAP` syscall, because a mapping revocation cannot see is
 /// the §13 use-after-free.
@@ -514,6 +532,10 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
 /// page (DECISIONS §132). The `MAP_INTO` syscall passes the invoked frame capability's object; the
 /// kernel's own callers, which build a space directly out of a region, pass
 /// `PageMapSource::NoCapability`.
+// Not `MAP_INTO`'s engine since 2026-10-04 (it maps under one `MappingHold` through
+// `with_user_address_space`); the kernel's own wiring calls it only in test builds, and the system
+// tests build spaces with it.
+#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn user_address_space_map(
     name: u64,
     va: u64,
@@ -552,6 +574,18 @@ pub fn user_address_space_map(
 /// refused and the kernel has nothing left to say about where it used to point.
 pub fn user_address_space_root(name: u64) -> Option<u64> {
     USER_SPACES.lock().get(name).map(|s| s.root())
+}
+
+/// **Run `f` with the user-built space `name` under the registry lock**, `None` if the name does not
+/// resolve. `AddressSpace::MAP_INTO`'s way in (the map-revocation-window lane, 2026-10-04 UTC; name
+/// provisional): it must hold this registry (`ADDRESS_SPACES`, 61) *above* the mapping registry
+/// (`MAPPINGS`, 59) for its whole run, so it cannot go through [`user_address_space_map`], which
+/// takes and drops this lock once per page. The `Option` is handed in rather than checked here so
+/// the caller keeps its own refusal order: a frame that is not there answers before a space that is
+/// not there, as it always has.
+pub fn with_user_address_space<R>(name: u64, f: impl FnOnce(Option<&mut AddressSpace>) -> R) -> R {
+    let mut spaces = USER_SPACES.lock();
+    f(spaces.get_mut(name))
 }
 
 /// **Take a user-built address space out of the registry** (milestone 19c.3): `ThreadControlBlock::CONFIGURE`
