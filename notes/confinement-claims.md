@@ -6,15 +6,14 @@ was broken on purpose.
 
 Risk 7 is *"the confinement claim is false."* The evidence against it is a set of tests this
 project wrote about attacks this project chose, and a passing confinement test is consistent
-with two very different worlds: the component was stopped, or it never reached the address and
+with two different worlds: the component was stopped, or it never reached the address and
 the assertion is decorative. Milestone 194 built the mechanism that tells those apart for a Kani
 harness (`Falsification:`, `script/falsifications`, a recorded patch that must turn one harness
-red). This milestone points it at the security claims.
+red).
 
-Nothing here supports "the confinement holds." What it supports is narrower and is the
-sentence to quote instead: *these named claims are tested, and each test has been shown to fail
-when the claim is broken.* It cannot reach a claim nobody made, and that is where real escapes
-live.
+Nothing here supports "the confinement holds." What it supports is narrower, and is the
+sentence to quote: *these named claims are tested, and each test has been shown to fail
+when the claim is broken.*
 
 ## The claims
 
@@ -53,6 +52,7 @@ themselves. The last column is this milestone's result.
 | 28 | A revoked port holder faults on its next `in`/`out` (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write` | **yes, milestone 313** |
 | 29 | A thread that deletes its own port capability faults on its next `in`/`out` (`x86_64`) | §12, milestone 313 | `kernel::user::x86_port_tests::a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write` | **yes, milestone 313, and it was false in the tree** |
 | 30 | A revocation reaches a capability in flight, not only the ones sitting in capability tables | Nowhere until 2026-09-21; now `sched::delete_page_frame_caps_where` | `kernel::user::revocation_in_flight_tests::a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` | yes, 2026-09-21, and it was false in the tree |
+| 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, by hand ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
 
 ## Five claims that are stated nowhere, which is what step 1 was for
 
@@ -132,7 +132,6 @@ waiting.
 
 So MSI confinement lives in three different places and none of the three is exercised: a separate
 IOMMU feature on x86_64, a separate device (the GICv3 ITS) on aarch64, one mode field on riscv64.
-Each machine description now reports its own position, which is what makes this checkable at all.
 
 The claim itself stays stated nowhere. Nothing writes an `IRTE`, nothing programs an MSI page
 table, and nothing forges an MSI to see where it lands.
