@@ -21,6 +21,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Notification objects](../notification-objects.md): a doorbell bound to a thread, and why the receive tag lives in `w4`.
 - [How authority moves, narrows, and ends](../capability-lifecycle.md): how capabilities are copied, narrowed and revoked.
 - [Delegating a capability](../delegation.md): passing a narrowed capability between processes over IPC.
+- [The progenitor's capability-table peak, slot by slot](../capability-peak-trace.md): which capabilities hold the 31 of 32, and what each option to lower it saves. Name provisional.
 - [Object revocation: tearing a process back down](../object-revocation.md): reclaiming the kernel objects a process built.
 - [Ending a permanently blocked thread](../blocked-thread-teardown.md): research and proposals for ending a blocked thread.
 - [Supervision: a thread's death becomes a message](../supervision.md): the fault endpoint, and reaping without building.
