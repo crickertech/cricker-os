@@ -12,6 +12,8 @@
 
 #![cfg_attr(not(test), no_std)]
 
+/// Whether the file this loader came from is on a given disk; the chooser's one device-path question.
+pub mod device_path;
 pub mod device_tree_from_acpi;
 pub mod device_tree_patch;
 pub mod efi;

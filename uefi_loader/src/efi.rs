@@ -432,6 +432,15 @@ pub const LOADED_IMAGE_PROTOCOL_GUID: Guid = Guid {
     d: [0x8e, 0x3f, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b],
 };
 
+/// `EFI_DEVICE_PATH_PROTOCOL_GUID`: a handle's device path, which is how the chooser tells the disk
+/// its own file came from (`crate::device_path`).
+pub const DEVICE_PATH_PROTOCOL_GUID: Guid = Guid {
+    a: 0x0957_6e91,
+    b: 0x6d3f,
+    c: 0x11d2,
+    d: [0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b],
+};
+
 /// `EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID`.
 pub const SIMPLE_FILE_SYSTEM_PROTOCOL_GUID: Guid = Guid {
     a: 0x964e_5b22,
